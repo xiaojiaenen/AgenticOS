@@ -1,0 +1,50 @@
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env*.example
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+*.pyd
+*.so
+build/
+dist/
+wheels/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Frontend build output
+frontend/dist/
+frontend/.vite/
+
+# Local IDE / editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Misc
+*.log

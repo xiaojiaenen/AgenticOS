@@ -1,0 +1,160 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;700&display=swap');
+@import "katex/dist/katex.min.css";
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", sans-serif;
+  --animate-blob: blob 7s infinite;
+}
+
+html, body {
+  @apply bg-[#e0fbfc] font-sans antialiased;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;  /* IE and Edge */
+}
+
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar,
+div::-webkit-scrollbar,
+textarea::-webkit-scrollbar,
+aside::-webkit-scrollbar,
+section::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}
+
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Markdown Styles & Dialogue Bubble Typography Optimization */
+.prose {
+  @apply font-sans;
+}
+
+.prose p {
+  @apply leading-[1.7] tracking-[-0.01em] text-slate-700 font-[450];
+}
+
+.prose h1, .prose h2, .prose h3 {
+  @apply font-display font-bold tracking-tight text-slate-900 mt-6 mb-4;
+}
+
+.prose code {
+  @apply font-mono font-medium;
+}
+
+.prose pre {
+  @apply rounded-[1.75rem] border border-slate-200/50 shadow-[0_16px_36px_rgba(148,163,184,0.12)];
+}
+
+.prose strong {
+  @apply font-semibold text-slate-800;
+}
+
+.prose table {
+  @apply my-0 w-full border-collapse;
+}
+
+.prose thead {
+  @apply bg-transparent;
+}
+
+.prose tbody tr:last-child {
+  @apply border-b-0;
+}
+
+.prose th {
+  @apply whitespace-nowrap;
+}
+
+.prose td, .prose th {
+  @apply border-0;
+}
+
+.prose td {
+  @apply min-w-0;
+}
+
+/* KaTeX custom spacing */
+.katex-display {
+  @apply my-6 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 overflow-x-auto;
+}
+
+.katex {
+  @apply text-slate-800;
+}
+
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Markdown Styles */
+.markdown-body {
+  @apply text-slate-700 leading-relaxed;
+}
+
+.markdown-body p {
+  @apply mb-4 last:mb-0 tracking-wide;
+}
+
+.markdown-body strong {
+  @apply font-semibold text-slate-900;
+}
+
+.markdown-body ul {
+  @apply list-disc pl-5 mb-3;
+}
+
+.markdown-body ol {
+  @apply list-decimal pl-5 mb-3;
+}
+
+.markdown-body li {
+  @apply mb-1;
+}
+
+.markdown-body a {
+  @apply text-teal-600 hover:underline;
+}
+
+.markdown-body code {
+  @apply bg-slate-100 text-teal-700 px-1.5 py-0.5 rounded text-sm font-mono;
+}
+
+.markdown-body pre {
+  @apply bg-slate-800 text-slate-50 p-4 rounded-xl overflow-x-auto mb-3 mt-2;
+}
+
+.markdown-body pre code {
+  @apply bg-transparent text-inherit p-0 rounded-none text-sm;
+}
+
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  @apply font-bold text-slate-900 tracking-tight mt-6 mb-3;
+}
+
+.markdown-body h1 { @apply text-xl; }
+.markdown-body h2 { @apply text-lg; }
+.markdown-body h3 { @apply text-base; }
