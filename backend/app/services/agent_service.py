@@ -1,19 +1,64 @@
+from asyncio import Queue
+from collections import defaultdict
 from functools import lru_cache
 from typing import Any, AsyncIterator
 
-from wuwei import Agent, LLMGateway
+from wuwei import Agent, LLMGateway, ToolRegistry
+from wuwei.runtime.hooks import RuntimeHook
+from wuwei.tools.builtin import register_file_tools, register_time_tools
 
 from app.core.config import Settings, get_settings
 from app.schemas.agent import AgentStreamRequest
+
+
+class ToolEventHook(RuntimeHook):
+    def __init__(self, tool_event_queues: dict[str, Queue[dict[str, Any]]]) -> None:
+        self.tool_event_queues = tool_event_queues
+
+    async def before_tool(self, session, tool_call, *, step: int, task=None) -> None:
+        await self.tool_event_queues[session.session_id].put(
+            {
+                "event": "tool_result",
+                "data": {
+                    "tool_call_id": tool_call.id,
+                    "name": tool_call.function.name,
+                    "status": "pending",
+                    "result": None,
+                },
+            }
+        )
+
+    async def after_tool(self, session, tool_call, tool_message, *, step: int, task=None) -> None:
+        await self.tool_event_queues[session.session_id].put(
+            {
+                "event": "tool_result",
+                "data": {
+                    "tool_call_id": tool_call.id,
+                    "name": tool_call.function.name,
+                    "status": "success",
+                    "result": tool_message.content,
+                },
+            }
+        )
 
 
 class AgentService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._agent: Agent | None = None
+        self._tool_event_queues: dict[str, Queue[dict[str, Any]]] = defaultdict(Queue)
 
     def ensure_ready(self) -> None:
         self._get_agent()
+
+    async def _drain_tool_events(self, session_id: str) -> list[dict[str, Any]]:
+        queue = self._tool_event_queues[session_id]
+        events: list[dict[str, Any]] = []
+
+        while not queue.empty():
+            events.append(await queue.get())
+
+        return events
 
     def _get_agent(self) -> Agent:
         if self._agent is not None:
@@ -30,12 +75,17 @@ class AgentService:
         if self.settings.openai_base_url:
             llm_config["base_url"] = self.settings.openai_base_url
 
+        tool_registry = ToolRegistry()
+        register_time_tools(tool_registry)
+        register_file_tools(tool_registry)
+
         self._agent = Agent(
             llm=LLMGateway(llm_config),
-            tools=[],
+            tools=tool_registry,
             default_system_prompt=self.settings.agent_system_prompt,
             default_max_steps=self.settings.agent_max_steps,
             default_parallel_tool_calls=self.settings.agent_parallel_tool_calls,
+            hooks=[ToolEventHook(self._tool_event_queues)],
         )
         return self._agent
 
@@ -83,6 +133,15 @@ class AgentService:
                     },
                 }
 
+            for event in await self._drain_tool_events(session.session_id):
+                yield {
+                    "event": "tool_results",
+                    "data": {
+                        "session_id": session.session_id,
+                        "tool_calls": [event["data"]],
+                    },
+                }
+
             if chunk.usage:
                 last_usage = chunk.usage
 
@@ -96,6 +155,17 @@ class AgentService:
                         "usage": last_usage,
                     },
                 }
+
+        for event in await self._drain_tool_events(session.session_id):
+            yield {
+                "event": "tool_results",
+                "data": {
+                    "session_id": session.session_id,
+                    "tool_calls": [event["data"]],
+                },
+            }
+
+        self._tool_event_queues.pop(session.session_id, None)
 
         if not emitted_done:
             yield {

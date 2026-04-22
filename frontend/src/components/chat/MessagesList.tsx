@@ -6,6 +6,7 @@ import { Message } from '../../types';
 interface MessagesListProps {
   currentSession: { messages: Message[] } | undefined;
   isLoading: boolean;
+  wideLayout?: boolean;
   searchQuery: string;
   activeMatchId: string | null;
   onSend: (text: string) => void;
@@ -17,6 +18,7 @@ interface MessagesListProps {
 export const MessagesList: React.FC<MessagesListProps> = ({
   currentSession,
   isLoading,
+  wideLayout = false,
   searchQuery,
   activeMatchId,
   onSend,
@@ -40,13 +42,14 @@ export const MessagesList: React.FC<MessagesListProps> = ({
           message={message} 
           index={idx}
           isStreaming={message.id === streamingMessageId}
+          wideLayout={wideLayout}
           searchQuery={searchQuery}
           activeMatchId={activeMatchId}
           onOpenArtifact={onOpenArtifact}
         />
       ))}
       {showTyping && (
-        <ChatMessage isTyping={true} index={currentSession.messages.length} />
+        <ChatMessage isTyping={true} index={currentSession.messages.length} wideLayout={wideLayout} />
       )}
       <div ref={messagesEndRef} />
     </div>

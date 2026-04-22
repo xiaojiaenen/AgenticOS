@@ -16,10 +16,18 @@ type StreamResult = {
 };
 
 type AgentToolCall = {
+  id?: string;
   function?: {
     name?: string;
     arguments?: Record<string, unknown>;
   };
+};
+
+type AgentToolResult = {
+  tool_call_id?: string;
+  name?: string;
+  status?: 'pending' | 'success';
+  result?: string;
 };
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -61,10 +69,33 @@ function parseSseEvent(block: string): { event: string; data: unknown } | null {
 
 function mapToolCalls(toolCalls: AgentToolCall[]): ToolCall[] {
   return toolCalls.map((toolCall) => ({
+    id: toolCall.id,
     name: toolCall.function?.name || '工具调用',
-    status: 'success',
+    status: 'pending',
     result: toolCall.function?.arguments ? JSON.stringify(toolCall.function.arguments, null, 2) : undefined,
   }));
+}
+
+function mergeToolCalls(current: ToolCall[], updates: ToolCall[]): ToolCall[] {
+  const merged = [...current];
+
+  for (const update of updates) {
+    const targetIndex = merged.findIndex(
+      (item) => (update.id && item.id === update.id) || (!update.id && item.name === update.name),
+    );
+
+    if (targetIndex === -1) {
+      merged.push(update);
+      continue;
+    }
+
+    merged[targetIndex] = {
+      ...merged[targetIndex],
+      ...update,
+    };
+  }
+
+  return merged;
 }
 
 function createTitleFromText(text: string): string {
@@ -109,7 +140,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
   let buffer = '';
   let sessionId = options.sessionId;
   let text = '';
-  let toolCalls: ToolCall[] | undefined;
+  let toolCalls: ToolCall[] = [];
   let finishReason = 'completed';
 
   while (true) {
@@ -142,7 +173,18 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
       }
 
       if (parsed.event === 'tool_calls' && Array.isArray(payload.tool_calls)) {
-        toolCalls = mapToolCalls(payload.tool_calls);
+        toolCalls = mergeToolCalls(toolCalls, mapToolCalls(payload.tool_calls));
+        options.onToolCalls?.(toolCalls);
+      }
+
+      if (parsed.event === 'tool_results' && Array.isArray(payload.tool_calls)) {
+        const updates = (payload.tool_calls as AgentToolResult[]).map((toolCall) => ({
+          id: toolCall.tool_call_id,
+          name: toolCall.name || '工具调用',
+          status: toolCall.status || 'success',
+          result: toolCall.result,
+        })) as ToolCall[];
+        toolCalls = mergeToolCalls(toolCalls, updates);
         options.onToolCalls?.(toolCalls);
       }
 
@@ -167,7 +209,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
   return {
     sessionId,
     text,
-    toolCalls,
+    toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
     finishReason,
   };
 }

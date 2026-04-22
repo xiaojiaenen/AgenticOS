@@ -16,6 +16,7 @@ interface ChatMessageProps {
   message?: Message;
   isTyping?: boolean;
   isStreaming?: boolean;
+  wideLayout?: boolean;
   onOpenArtifact?: (code: string, language: string) => void;
   index?: number;
   searchQuery?: string;
@@ -72,8 +73,9 @@ const MermaidChart = React.memo(({ chart }: { chart: string }) => {
   );
 });
 
-export const ChatMessage = React.memo(({ message, isTyping, isStreaming, onOpenArtifact, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
+export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, onOpenArtifact, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
   const isUser = message?.role === 'user';
+  const hasStructuredContent = !isUser && /```|(?:^|\n)\|.+\|/.test(message?.text || '');
   const [isCopied, setIsCopied] = useState(false);
   const config = getAppConfig();
   const sessionCounter = useRef({ current: 0 });
@@ -83,7 +85,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, onOpenA
     React.Children.toArray(children)
       .map((child) => {
         if (typeof child === 'string' || typeof child === 'number') {
-          return String(child);
+          return String(child).replace(/<br\s*\/?>/gi, '\n');
         }
         if (React.isValidElement(child)) {
           return extractPlainText((child.props as any).children);
@@ -120,11 +122,15 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, onOpenA
     }
 
     const processed = processChildren(children, counter);
-    const shouldTruncate = options.truncate !== false && plainText.length > 28;
+    const shouldTruncate = options.truncate === true && plainText.length > 64;
     const alignmentClass = options.align === 'right' ? 'items-end text-right' : 'items-start text-left';
 
     if (!shouldTruncate) {
-      return <div className={cn('flex min-w-0 flex-col', alignmentClass)}>{processed}</div>;
+      return (
+        <div className={cn('flex min-w-0 flex-col whitespace-pre-wrap break-words', alignmentClass)}>
+          {processed}
+        </div>
+      );
     }
 
     return (
@@ -172,7 +178,16 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, onOpenA
   const processChildren = (children: any, counter: { current: number }): any => {
     return React.Children.map(children, child => {
       if (typeof child === 'string') {
-        return <HighlightedText text={child} counter={counter} />;
+        const segments = child.split(/(<br\s*\/?>)/gi);
+        return segments.map((segment, index) => {
+          if (/^<br\s*\/?>$/i.test(segment)) {
+            return <br key={`br-${index}`} />;
+          }
+          if (!segment) {
+            return null;
+          }
+          return <HighlightedText key={`text-${index}`} text={segment} counter={counter} />;
+        });
       }
       if (React.isValidElement(child) && (child.props as any).children) {
         return React.cloneElement(child, {
@@ -312,8 +327,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, onOpenA
   const Table = ({ children }: { children: React.ReactNode }) => (
     <div className="my-5 overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-white/88 shadow-[0_18px_45px_rgba(148,163,184,0.18)] ring-1 ring-white/65">
       <div className="h-2 bg-[linear-gradient(90deg,rgba(15,23,42,0.9),rgba(30,41,59,0.85),rgba(34,211,238,0.75))]" />
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[32rem] border-collapse text-left text-sm text-slate-700">
+      <div className="visible-scrollbar overflow-x-auto px-1 pb-2">
+        <table className="w-max min-w-full border-collapse text-left text-sm text-slate-700">
           {children}
         </table>
       </div>
@@ -364,10 +379,53 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, onOpenA
         {renderTableCellContent(children, sessionCounter.current, {
           placeholder: '未填写',
           align: rightAligned ? 'right' : 'left',
+          truncate: false,
         })}
       </td>
     );
   };
+
+  const ToolTimelineStep = ({
+    title,
+    state,
+    body,
+  }: {
+    title: string;
+    state: 'done' | 'active' | 'idle';
+    body: React.ReactNode;
+  }) => (
+    <div className="grid grid-cols-[1rem_1fr] gap-3">
+      <div className="flex flex-col items-center">
+        <div
+          className={cn(
+            "mt-1 h-3 w-3 rounded-full border-2 transition-colors",
+            state === 'done' && "border-emerald-500 bg-emerald-500",
+            state === 'active' && "border-sky-500 bg-white shadow-[0_0_0_4px_rgba(56,189,248,0.15)]",
+            state === 'idle' && "border-slate-300 bg-white",
+          )}
+        />
+        <div
+          className={cn(
+            "mt-2 h-full min-h-5 w-px",
+            state === 'done' ? "bg-emerald-300/80" : "bg-slate-200",
+          )}
+        />
+      </div>
+      <div className="pb-3">
+        <div
+          className={cn(
+            "text-[11px] font-bold uppercase tracking-[0.14em]",
+            state === 'done' && "text-emerald-600",
+            state === 'active' && "text-sky-600",
+            state === 'idle' && "text-slate-400",
+          )}
+        >
+          {title}
+        </div>
+        <div className="mt-1 text-xs leading-relaxed text-slate-600">{body}</div>
+      </div>
+    </div>
+  );
 
   return (
     <motion.div
@@ -382,7 +440,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, onOpenA
       }}
       layout="position"
       className={cn(
-        "flex gap-4 max-w-4xl mx-auto w-full items-start group/msg",
+        "flex mx-auto w-full items-start group/msg",
+        wideLayout ? "max-w-[92rem] gap-8 px-8" : "max-w-4xl gap-4",
         isUser ? "flex-row-reverse" : "flex-row"
       )}
     >
@@ -396,7 +455,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, onOpenA
         {isUser ? <UserAvatarIcon size={20} /> : <MascotCool size={20} />}
       </motion.div>
       
-      <div className={cn("flex flex-col gap-1 max-w-[80%]", isUser ? "items-end" : "items-start")}>
+      <div className={cn("flex flex-col gap-1", wideLayout ? "max-w-[78%]" : "max-w-[80%]", isUser ? "items-end" : "items-start")}>
         {/* Tool Calls Rendering */}
         {!isUser && message?.toolCalls && message.toolCalls.length > 0 && config.enableSearch && (
           <div className="mb-1 w-full text-left">
@@ -406,22 +465,75 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, onOpenA
                 <span>工具链调用历史 ({message.toolCalls.length})</span>
                 <ChevronDownIcon size={12} className="transition-transform duration-300 group-open:-rotate-180" />
               </summary>
-              <div className="mt-2 pl-4 border-l-2 border-slate-200/50 flex flex-col gap-2 transition-all">
+              <div className="mt-3 flex flex-col gap-3 transition-all">
                 {message.toolCalls.map((tool, idx) => (
                   <motion.div 
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.1 }}
                     key={idx} 
-                    className="flex items-center gap-3 text-xs text-slate-600 bg-white/80 backdrop-blur-sm border border-slate-200 px-3 py-2 rounded-xl shadow-sm w-fit"
+                    className="max-w-[34rem] rounded-[1.35rem] border border-slate-200/90 bg-white/88 px-4 py-3 text-xs text-slate-600 shadow-[0_10px_24px_rgba(148,163,184,0.14)] backdrop-blur-sm"
                   >
-                    {tool.status === 'pending' ? (
-                      <div className="w-3 h-3 border-2 border-zinc-800 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <CheckIcon size={14} className="text-green-500" />
-                    )}
-                    <span className="font-mono font-bold text-zinc-900">[{tool.name}]</span>
-                    <span className="text-slate-400 font-medium">{tool.status === 'success' ? '执行成功' : '正在执行...'}</span>
+                    <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <WrenchIcon size={13} className="text-zinc-700" />
+                        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-900">
+                          {tool.name}
+                        </span>
+                      </div>
+                      <span className={cn(
+                        "rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em]",
+                        tool.status === 'success'
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "bg-sky-50 text-sky-600"
+                      )}>
+                        {tool.status === 'success' ? '已完成' : '执行中'}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <ToolTimelineStep
+                        title="调用中"
+                        state="done"
+                        body="已向工具发起调用，请求参数已发送。"
+                      />
+                      <ToolTimelineStep
+                        title="执行状态"
+                        state={tool.status === 'success' ? 'done' : 'active'}
+                        body={tool.status === 'success' ? '工具执行完成。' : '工具正在处理中，请稍候。'}
+                      />
+                      <div className="grid grid-cols-[1rem_1fr] gap-3">
+                        <div className="flex justify-center">
+                          <div
+                            className={cn(
+                              "mt-1 h-3 w-3 rounded-full border-2",
+                              tool.result ? "border-emerald-500 bg-emerald-500" : "border-slate-300 bg-white",
+                            )}
+                          />
+                        </div>
+                        <div>
+                          <div
+                            className={cn(
+                              "text-[11px] font-bold uppercase tracking-[0.14em]",
+                              tool.result ? "text-emerald-600" : "text-slate-400",
+                            )}
+                          >
+                            返回结果
+                          </div>
+                          <div className="mt-1">
+                            {tool.result ? (
+                              <div className="rounded-xl border border-slate-200/80 bg-slate-50/90 px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-500 whitespace-pre-wrap break-words">
+                                {tool.result}
+                              </div>
+                            ) : (
+                              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2 text-[11px] text-slate-400">
+                                等待工具返回内容
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </motion.div>
                 ))}
               </div>
@@ -432,7 +544,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, onOpenA
         <div 
           id={message?.id ? `bubble-${message.id}` : undefined}
           className={cn(
-          "px-5 py-3 rounded-[2rem] relative group w-fit max-w-full transition-colors duration-300",
+          "px-5 py-3 rounded-[2rem] relative group max-w-full transition-colors duration-300",
+          hasStructuredContent ? "w-full" : "w-fit",
           !isUser && isStreaming && "min-h-[3.5rem] min-w-[10rem]",
           isUser 
             ? "bg-zinc-900 text-white rounded-tr-none shadow-[0_8px_30px_rgba(0,0,0,0.15)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.2)]" 
@@ -545,8 +658,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, onOpenA
                   table: ({ children }) => <Table>{children}</Table>,
                   thead: ({ children }) => <TableHead>{children}</TableHead>,
                   tr: ({ children }) => <TableRow>{children}</TableRow>,
-                  th: ({ children }) => <TableHeaderCell>{processChildren(children, sessionCounter.current)}</TableHeaderCell>,
-                  td: ({ children }) => <TableCell>{processChildren(children, sessionCounter.current)}</TableCell>,
+                  th: ({ children }) => <TableHeaderCell>{children}</TableHeaderCell>,
+                  td: ({ children }) => <TableCell>{children}</TableCell>,
                   li: ({ children }) => <li>{processChildren(children, sessionCounter.current)}</li>,
                   h1: ({ children }) => <h1>{processChildren(children, sessionCounter.current)}</h1>,
                   h2: ({ children }) => <h2>{processChildren(children, sessionCounter.current)}</h2>,

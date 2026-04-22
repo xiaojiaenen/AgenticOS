@@ -1,4 +1,5 @@
 export type ToolCall = {
+  id?: string;
   name: string;
   status: 'pending' | 'success';
   result?: string;

@@ -55,6 +55,7 @@ export const Chat = () => {
   const chatInputRef = useRef<ChatInputHandle>(null);
   const currentSessionMessages = currentSession?.messages ?? [];
   const isStreamingResponse = isLoading && currentSessionMessages[currentSessionMessages.length - 1]?.role === 'model';
+  const isWideConversation = !artifact && !isMobile;
 
   // 处理会话切换时的模式同步
   useEffect(() => {
@@ -421,7 +422,11 @@ export const Chat = () => {
 
       {/* 主聊天区域与制品面板 */}
       <div className="flex-1 flex overflow-hidden relative">
-        <main className={cn("flex flex-col h-full transition-all duration-700 ease-[0.16,1,0.3,1] min-w-0 relative", artifact ? "w-[40%] border-r border-slate-200/60" : "w-full")}>
+        <main className={cn(
+          "flex flex-col h-full transition-all duration-700 ease-[0.16,1,0.3,1] min-w-0 relative",
+          artifact ? "w-[40%] border-r border-slate-200/60" : "w-full",
+          isWideConversation && "px-4 lg:px-8 xl:px-10"
+        )}>
           {/* 时间线导航 */}
           <AnimatePresence>
             {!isMobile && currentSession?.messages && (
@@ -433,7 +438,10 @@ export const Chat = () => {
           <div 
             ref={scrollRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar relative pr-16"
+            className={cn(
+              "flex-1 overflow-y-auto custom-scrollbar relative pr-16",
+              isWideConversation ? "px-6 py-8 md:px-10 lg:px-14 xl:px-16" : "p-4 md:p-8"
+            )}
           >
             {/* 搜索浮层 */}
             <ChatSearch 
@@ -494,6 +502,7 @@ export const Chat = () => {
             <MessagesList 
               currentSession={currentSession}
               isLoading={isLoading}
+              wideLayout={isWideConversation}
               searchQuery={searchQuery}
               activeMatchId={activeMatchId}
               onSend={handleSend}
@@ -524,7 +533,7 @@ export const Chat = () => {
               )}
             </AnimatePresence>
 
-            <div className="max-w-4xl mx-auto">
+            <div className={cn("mx-auto", isWideConversation ? "max-w-[92rem] px-8" : "max-w-4xl")}>
               <ChatInput 
                 ref={chatInputRef}
                 value={inputValue}
