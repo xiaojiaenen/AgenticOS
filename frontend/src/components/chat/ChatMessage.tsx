@@ -474,6 +474,41 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                     key={idx} 
                     className="max-w-[34rem] rounded-[1.35rem] border border-slate-200/90 bg-white/88 px-4 py-3 text-xs text-slate-600 shadow-[0_10px_24px_rgba(148,163,184,0.14)] backdrop-blur-sm"
                   >
+                    {(() => {
+                      const isSuccess = tool.status === 'success';
+                      const isError = tool.status === 'error';
+                      const statusClass = isSuccess
+                        ? "bg-emerald-50 text-emerald-600"
+                        : isError
+                          ? "bg-rose-50 text-rose-600"
+                          : "bg-sky-50 text-sky-600";
+                      const statusLabel = isSuccess ? '已完成' : isError ? '失败' : '执行中';
+                      const executionState = isSuccess ? 'done' : isError ? 'idle' : 'active';
+                      const executionBody = isSuccess
+                        ? '工具执行完成。'
+                        : isError
+                          ? '工具执行失败，请查看返回结果中的错误说明。'
+                          : '工具正在处理中，请稍候。';
+                      const resultDotClass = isSuccess
+                        ? "border-emerald-500 bg-emerald-500"
+                        : isError
+                          ? "border-rose-500 bg-rose-500"
+                          : tool.result
+                            ? "border-emerald-500 bg-emerald-500"
+                            : "border-slate-300 bg-white";
+                      const resultTitleClass = isSuccess
+                        ? "text-emerald-600"
+                        : isError
+                          ? "text-rose-600"
+                          : tool.result
+                            ? "text-emerald-600"
+                            : "text-slate-400";
+                      const resultBoxClass = isError
+                        ? "rounded-xl border border-rose-200/90 bg-rose-50/90 px-3 py-2 font-mono text-[11px] leading-relaxed text-rose-700 whitespace-pre-wrap break-words"
+                        : "rounded-xl border border-slate-200/80 bg-slate-50/90 px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-500 whitespace-pre-wrap break-words";
+
+                      return (
+                        <>
                     <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
                       <div className="flex items-center gap-2">
                         <WrenchIcon size={13} className="text-zinc-700" />
@@ -481,13 +516,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                           {tool.name}
                         </span>
                       </div>
-                      <span className={cn(
-                        "rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em]",
-                        tool.status === 'success'
-                          ? "bg-emerald-50 text-emerald-600"
-                          : "bg-sky-50 text-sky-600"
-                      )}>
-                        {tool.status === 'success' ? '已完成' : '执行中'}
+                      <span className={cn("rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em]", statusClass)}>
+                        {statusLabel}
                       </span>
                     </div>
 
@@ -499,30 +529,22 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                       />
                       <ToolTimelineStep
                         title="执行状态"
-                        state={tool.status === 'success' ? 'done' : 'active'}
-                        body={tool.status === 'success' ? '工具执行完成。' : '工具正在处理中，请稍候。'}
+                        state={executionState}
+                        body={executionBody}
                       />
                       <div className="grid grid-cols-[1rem_1fr] gap-3">
                         <div className="flex justify-center">
                           <div
-                            className={cn(
-                              "mt-1 h-3 w-3 rounded-full border-2",
-                              tool.result ? "border-emerald-500 bg-emerald-500" : "border-slate-300 bg-white",
-                            )}
+                            className={cn("mt-1 h-3 w-3 rounded-full border-2", resultDotClass)}
                           />
                         </div>
                         <div>
-                          <div
-                            className={cn(
-                              "text-[11px] font-bold uppercase tracking-[0.14em]",
-                              tool.result ? "text-emerald-600" : "text-slate-400",
-                            )}
-                          >
+                          <div className={cn("text-[11px] font-bold uppercase tracking-[0.14em]", resultTitleClass)}>
                             返回结果
                           </div>
                           <div className="mt-1">
                             {tool.result ? (
-                              <div className="rounded-xl border border-slate-200/80 bg-slate-50/90 px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-500 whitespace-pre-wrap break-words">
+                              <div className={resultBoxClass}>
                                 {tool.result}
                               </div>
                             ) : (
@@ -534,6 +556,9 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                         </div>
                       </div>
                     </div>
+                        </>
+                      );
+                    })()}
                   </motion.div>
                 ))}
               </div>

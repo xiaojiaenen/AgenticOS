@@ -26,7 +26,7 @@ type AgentToolCall = {
 type AgentToolResult = {
   tool_call_id?: string;
   name?: string;
-  status?: 'pending' | 'success';
+  status?: 'pending' | 'success' | 'error';
   result?: string;
 };
 

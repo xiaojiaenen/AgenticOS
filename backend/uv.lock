@@ -30,7 +30,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0,<1.0.0" },
     { name = "pydantic-settings", specifier = ">=2.10.0,<3.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.35.0,<1.0.0" },
-    { name = "wuwei", specifier = ">=0.1.2" },
+    { name = "wuwei", specifier = ">=0.1.3,<0.2.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1588,16 +1588,17 @@ wheels = [
 
 [[package]]
 name = "wuwei"
-version = "0.1.2"
+version = "0.1.3"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
 dependencies = [
     { name = "markitdown", extra = ["all"] },
     { name = "openai" },
     { name = "pydantic" },
+    { name = "pyyaml" },
 ]
-sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/e8/a7/bce5925e4c8294a9ea3b097653121f2f1933e97ef57aa7002212bbd7028c/wuwei-0.1.2.tar.gz", hash = "sha256:5774eb487a3298a77b917c22ff03119eff91a75db539ad66ca4670d95595c473", size = 25593, upload-time = "2026-04-13T16:06:43.101Z" }
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/ca/c4/285f19156128afaafd4b2ac0a9bc35992163e60dc8a141dba1c5e1a1fac0/wuwei-0.1.3.tar.gz", hash = "sha256:7bb85e0d40a46dedb28da095153c652f4b200eec8e1248bd8993359d43b2b6c3", size = 35952, upload-time = "2026-04-23T16:03:42.821Z" }
 wheels = [
-    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/9b/d9/dae17133f1584cba9e003327f664536fce4c8b3f9ba1a19616c00b9fbabd/wuwei-0.1.2-py3-none-any.whl", hash = "sha256:41a368b6ead51bb8e2ae9853091c6ab898cad4bcaf33ea6e77a497a206c42b65", size = 32033, upload-time = "2026-04-13T16:06:44.43Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/b2/1a/1f5354241ecc2a48bc894804d213be1fac50d92918d08601eac9f41604cf/wuwei-0.1.3-py3-none-any.whl", hash = "sha256:0d1f2f2e1696caea2bc20482fb49bea00de4484029fa1357a832b8bc4c837df1", size = 41338, upload-time = "2026-04-23T16:03:41.093Z" },
 ]
 
 [[package]]

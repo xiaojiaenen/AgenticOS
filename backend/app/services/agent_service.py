@@ -1,64 +1,19 @@
-from asyncio import Queue
-from collections import defaultdict
 from functools import lru_cache
 from typing import Any, AsyncIterator
 
-from wuwei import Agent, LLMGateway, ToolRegistry
-from wuwei.runtime.hooks import RuntimeHook
-from wuwei.tools.builtin import register_file_tools, register_time_tools
+from wuwei import Agent, AgentEvent
 
 from app.core.config import Settings, get_settings
 from app.schemas.agent import AgentStreamRequest
-
-
-class ToolEventHook(RuntimeHook):
-    def __init__(self, tool_event_queues: dict[str, Queue[dict[str, Any]]]) -> None:
-        self.tool_event_queues = tool_event_queues
-
-    async def before_tool(self, session, tool_call, *, step: int, task=None) -> None:
-        await self.tool_event_queues[session.session_id].put(
-            {
-                "event": "tool_result",
-                "data": {
-                    "tool_call_id": tool_call.id,
-                    "name": tool_call.function.name,
-                    "status": "pending",
-                    "result": None,
-                },
-            }
-        )
-
-    async def after_tool(self, session, tool_call, tool_message, *, step: int, task=None) -> None:
-        await self.tool_event_queues[session.session_id].put(
-            {
-                "event": "tool_result",
-                "data": {
-                    "tool_call_id": tool_call.id,
-                    "name": tool_call.function.name,
-                    "status": "success",
-                    "result": tool_message.content,
-                },
-            }
-        )
 
 
 class AgentService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._agent: Agent | None = None
-        self._tool_event_queues: dict[str, Queue[dict[str, Any]]] = defaultdict(Queue)
 
     def ensure_ready(self) -> None:
         self._get_agent()
-
-    async def _drain_tool_events(self, session_id: str) -> list[dict[str, Any]]:
-        queue = self._tool_event_queues[session_id]
-        events: list[dict[str, Any]] = []
-
-        while not queue.empty():
-            events.append(await queue.get())
-
-        return events
 
     def _get_agent(self) -> Agent:
         if self._agent is not None:
@@ -67,27 +22,37 @@ class AgentService:
         if not self.settings.openai_api_key:
             raise RuntimeError("缺少 OPENAI_API_KEY，请先在环境变量或 .env 中配置后再调用 /agent/stream。")
 
-        llm_config: dict[str, Any] = {
-            "provider": "openai",
-            "api_key": self.settings.openai_api_key,
-            "model": self.settings.openai_model,
-        }
-        if self.settings.openai_base_url:
-            llm_config["base_url"] = self.settings.openai_base_url
-
-        tool_registry = ToolRegistry()
-        register_time_tools(tool_registry)
-        register_file_tools(tool_registry)
-
-        self._agent = Agent(
-            llm=LLMGateway(llm_config),
-            tools=tool_registry,
-            default_system_prompt=self.settings.agent_system_prompt,
-            default_max_steps=self.settings.agent_max_steps,
-            default_parallel_tool_calls=self.settings.agent_parallel_tool_calls,
-            hooks=[ToolEventHook(self._tool_event_queues)],
+        self._agent = Agent.from_env(
+            builtin_tools=["time", "file"],
+            system_prompt=self.settings.agent_system_prompt,
+            max_steps=self.settings.agent_max_steps,
+            parallel_tool_calls=self.settings.agent_parallel_tool_calls,
         )
         return self._agent
+
+    @staticmethod
+    def _build_tool_call_payload(event: AgentEvent) -> dict[str, Any]:
+        return {
+            "id": event.data.get("tool_call_id"),
+            "function": {
+                "name": event.data.get("tool_name") or "工具调用",
+                "arguments": event.data.get("args") or {},
+            },
+        }
+
+    @staticmethod
+    def _build_tool_result_payload(
+        event: AgentEvent,
+        *,
+        status: str,
+        result: str | None,
+    ) -> dict[str, Any]:
+        return {
+            "tool_call_id": event.data.get("tool_call_id"),
+            "name": event.data.get("tool_name") or "工具调用",
+            "status": status,
+            "result": result,
+        }
 
     async def stream_chat(self, request: AgentStreamRequest) -> AsyncIterator[dict[str, Any]]:
         agent = self._get_agent()
@@ -105,77 +70,84 @@ class AgentService:
             },
         }
 
-        stream = await agent.run(
-            request.message,
-            session=session,
-            stream=True,
-        )
-
-        last_usage: dict[str, int] | None = None
-        emitted_done = False
-
-        async for chunk in stream:
-            if chunk.content:
+        async for event in agent.stream_events(request.message, session=session):
+            if event.type == "text_delta":
                 yield {
                     "event": "delta",
                     "data": {
                         "session_id": session.session_id,
-                        "content": chunk.content,
+                        "content": event.data.get("content", ""),
                     },
                 }
+                continue
 
-            if chunk.tool_calls_complete:
+            if event.type == "tool_start":
                 yield {
                     "event": "tool_calls",
                     "data": {
                         "session_id": session.session_id,
-                        "tool_calls": [tool_call.model_dump(mode="json") for tool_call in chunk.tool_calls_complete],
+                        "tool_calls": [self._build_tool_call_payload(event)],
                     },
                 }
+                continue
 
-            for event in await self._drain_tool_events(session.session_id):
+            if event.type == "tool_end":
                 yield {
                     "event": "tool_results",
                     "data": {
                         "session_id": session.session_id,
-                        "tool_calls": [event["data"]],
+                        "tool_calls": [
+                            self._build_tool_result_payload(
+                                event,
+                                status="success",
+                                result=event.data.get("output"),
+                            )
+                        ],
                     },
                 }
+                continue
 
-            if chunk.usage:
-                last_usage = chunk.usage
-
-            if chunk.finish_reason == "stop":
-                emitted_done = True
+            if event.type == "done":
                 yield {
                     "event": "done",
                     "data": {
                         "session_id": session.session_id,
-                        "finish_reason": chunk.finish_reason,
-                        "usage": last_usage,
+                        "finish_reason": event.data.get("reason", "stop"),
+                        "usage": event.data.get("usage"),
+                        "latency_ms": event.data.get("latency_ms"),
+                        "llm_calls": event.data.get("llm_calls"),
                     },
                 }
+                continue
 
-        for event in await self._drain_tool_events(session.session_id):
-            yield {
-                "event": "tool_results",
-                "data": {
-                    "session_id": session.session_id,
-                    "tool_calls": [event["data"]],
-                },
-            }
+            if event.type == "error":
+                if event.data.get("tool_call_id") or event.data.get("tool_name"):
+                    yield {
+                        "event": "tool_results",
+                        "data": {
+                            "session_id": session.session_id,
+                            "tool_calls": [
+                                self._build_tool_result_payload(
+                                    event,
+                                    status="error",
+                                    result=event.data.get("message"),
+                                )
+                            ],
+                        },
+                    }
+                    continue
 
-        self._tool_event_queues.pop(session.session_id, None)
-
-        if not emitted_done:
-            yield {
-                "event": "done",
-                "data": {
-                    "session_id": session.session_id,
-                    "finish_reason": "completed",
-                    "usage": last_usage,
-                },
-            }
+                yield {
+                    "event": "error",
+                    "data": {
+                        "session_id": session.session_id,
+                        "message": event.data.get("message", "智能体执行失败。"),
+                        "error_type": event.data.get("error_type"),
+                        "usage": event.data.get("usage"),
+                        "latency_ms": event.data.get("latency_ms"),
+                        "llm_calls": event.data.get("llm_calls"),
+                    },
+                }
 
 
 @lru_cache
