@@ -10,6 +10,7 @@ from wuwei.runtime import ApprovalPolicy
 
 from app.core.config import Settings, get_settings
 from app.services.approval_manager import ApprovalManager
+from app.services.ppt_artifact_service import PptArtifactService, strip_ppt_deck_from_text
 from app.services.session_storage import DatabaseAgentStorage
 from app.schemas.agent import AgentStreamRequest
 
@@ -26,6 +27,7 @@ class AgentService:
         self.approval_manager = approval_manager or ApprovalManager(
             timeout_seconds=settings.hitl_timeout_seconds
         )
+        self.ppt_artifacts = PptArtifactService()
         self._agent: Agent | None = None
 
     def ensure_ready(self) -> None:
@@ -217,8 +219,19 @@ class AgentService:
             "event": "session",
             "data": self._session_payload(session),
         }
+        yield {
+            "event": "run_status",
+            "data": {
+                "session_id": session.session_id,
+                "phase": "thinking",
+                "label": "大模型正在思考",
+            },
+        }
 
         runtime_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue()
+        collected_text = ""
+        saw_text_delta = False
+        ppt_mode = request.response_mode == "ppt"
 
         async def produce_events() -> None:
             try:
@@ -246,6 +259,81 @@ class AgentService:
                     event = runtime_task.result()
                     if event is None:
                         break
+
+                    if event.type == "text_delta":
+                        first_text_delta = not saw_text_delta
+                        saw_text_delta = True
+                        collected_text += event.data.get("content", "")
+                        if ppt_mode:
+                            if first_text_delta:
+                                yield {
+                                    "event": "run_status",
+                                    "data": {
+                                        "session_id": session.session_id,
+                                        "phase": "generating_ppt",
+                                        "label": "正在生成 PPT 内容与版式",
+                                    },
+                                }
+                            runtime_task = asyncio.create_task(runtime_queue.get())
+                            continue
+                        if first_text_delta:
+                            yield {
+                                "event": "run_status",
+                                "data": {
+                                    "session_id": session.session_id,
+                                    "phase": "streaming",
+                                    "label": "大模型正在输出",
+                                },
+                            }
+
+                    if ppt_mode and event.type == "done":
+                        artifact = await self.ppt_artifacts.create_from_text(session.session_id, collected_text)
+                        visible_text = strip_ppt_deck_from_text(collected_text) if artifact else collected_text
+                        if artifact is not None:
+                            yield {
+                                "event": "run_status",
+                                "data": {
+                                    "session_id": session.session_id,
+                                    "phase": "rendering_ppt",
+                                    "label": "正在渲染 PPT 预览",
+                                },
+                            }
+                            yield {
+                                "event": "artifact_ready",
+                                "data": artifact,
+                            }
+                        if visible_text:
+                            yield {
+                                "event": "delta",
+                                "data": {
+                                    "session_id": session.session_id,
+                                    "content": visible_text,
+                                },
+                            }
+                        yield {
+                            "event": "run_status",
+                            "data": {
+                                "session_id": session.session_id,
+                                "phase": "done",
+                                "label": "本轮回复已完成",
+                            },
+                        }
+                        mapped = self._map_agent_event(event, session)
+                        if mapped is not None:
+                            yield mapped
+                        runtime_task = asyncio.create_task(runtime_queue.get())
+                        continue
+
+                    if event.type == "done":
+                        yield {
+                            "event": "run_status",
+                            "data": {
+                                "session_id": session.session_id,
+                                "phase": "done",
+                                "label": "本轮回复已完成",
+                            },
+                        }
+
                     mapped = self._map_agent_event(event, session)
                     if mapped is not None:
                         yield mapped
@@ -288,6 +376,9 @@ class AgentService:
             stored = {"session_id": session_id, "storage": "sqlalchemy", "message_count": 0}
         stored["pending_approvals"] = await self.approval_manager.get_pending(session_id)
         return stored
+
+    async def get_ppt_artifact(self, artifact_id: str) -> dict[str, Any] | None:
+        return await self.ppt_artifacts.get(artifact_id)
 
 
 @lru_cache

@@ -117,3 +117,14 @@ export function extractPptDeckFromText(text: string): {code: string; deck: PptDe
   const deck = parsePptDeck(code);
   return deck ? {code, deck} : null;
 }
+
+export function stripPptDeckFromText(text: string): string {
+  const withoutCompleteBlocks = text
+    .replace(/```pptdeck\n[\s\S]*?\n```/g, '')
+    .replace(/```json\n(?=[\s\S]*?"slides"[\s\S]*?```)[\s\S]*?\n```/g, '');
+  const partialPptIndex = withoutCompleteBlocks.indexOf('```pptdeck');
+  const withoutPartialPpt = partialPptIndex >= 0
+    ? withoutCompleteBlocks.slice(0, partialPptIndex)
+    : withoutCompleteBlocks;
+  return withoutPartialPpt.replace(/\n{3,}/g, '\n\n').trim();
+}

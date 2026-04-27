@@ -50,3 +50,16 @@ class ApprovalModel(Base):
     metadata_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PptArtifactModel(Base):
+    __tablename__ = "ppt_artifacts"
+
+    artifact_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(128), index=True)
+    title: Mapped[str] = mapped_column(String(256))
+    slide_count: Mapped[int] = mapped_column(Integer, default=0)
+    deck_json: Mapped[str] = mapped_column(Text)
+    preview_html: Mapped[str] = mapped_column(Text)
+    metadata_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

@@ -13,10 +13,10 @@ import { DragOverlay } from '../components/chat/DragOverlay';
 import { RuntimeStatusBar } from '../components/chat/RuntimeStatusBar';
 import { PendingApprovalPanel } from '../components/chat/PendingApprovalPanel';
 import { PptArtifactPanel } from '../components/ppt/PptArtifactPanel';
-import { extractPptDeckFromText, parsePptDeck } from '../components/ppt/pptDeck';
+import { extractPptDeckFromText, parsePptDeck, stripPptDeckFromText } from '../components/ppt/pptDeck';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { Artifact, Message, Session, Attachment } from '../types';
-import { sendMessageStream, generateTitle, submitApprovalDecision, AgentSessionState } from '../services/agentService';
+import { sendMessageStream, generateTitle, submitApprovalDecision, AgentSessionState, AgentPptArtifact, AgentRunStatus } from '../services/agentService';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { MenuIcon, AlertCircleIcon, MascotCool, MascotSurprised, MascotHappy, ChevronDownIcon, WrenchIcon, DownloadIcon, RefreshIcon, CopyIcon, CodeIcon, UserAvatarIcon } from '../components/ui/AnimatedIcons';
 import { cn } from '../lib/utils';
@@ -86,6 +86,10 @@ export const Chat = () => {
   const [error, setError] = useState<string | null>(null);
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
   const [artifact, setArtifact] = useState<Artifact | null>(null);
+  const [runStatus, setRunStatus] = useState<{phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'done' | 'error'; label: string}>({
+    phase: 'idle',
+    label: '已就绪',
+  });
   const [isSidebarHiddenByArtifact, setIsSidebarHiddenByArtifact] = useState(false);
   const [visibleSessionsCount, setVisibleSessionsCount] = useState(10);
   const [isDragging, setIsDragging] = useState(false);
@@ -262,18 +266,18 @@ export const Chat = () => {
     }
   }, []);
 
-  const handleOpenArtifact = React.useCallback((code: string, language: 'html' | 'svg' | 'pptdeck') => {
-    if (language === 'pptdeck') {
-      const deck = parsePptDeck(code);
+  const handleOpenArtifact = React.useCallback((nextArtifact: Artifact) => {
+    if (nextArtifact.language === 'pptdeck') {
+      const deck = nextArtifact.deck || parsePptDeck(nextArtifact.code);
       if (!deck) {
         setError('PPT deck JSON 解析失败，请让模型重新生成。');
         return;
       }
-      setArtifact({ code, language: 'pptdeck', deck });
+      setArtifact({ ...nextArtifact, deck });
       return;
     }
 
-    setArtifact({ code, language });
+    setArtifact(nextArtifact);
   }, []);
 
   const handleSend = React.useCallback(async (text: string, files?: File[]) => {
@@ -284,6 +288,7 @@ export const Chat = () => {
     let targetId: string | null = null;
     let assistantMessageId: string | null = null;
     let hasStreamedContent = false;
+    let receivedPptArtifact: AgentPptArtifact | undefined;
 
     try {
       const attachments: Attachment[] = (files || []).map((file) => ({
@@ -313,12 +318,17 @@ export const Chat = () => {
       // 先同步写入用户消息和一个模型占位，让界面立刻响应，再发起后端请求。
       flushSync(() => {
         setIsLoading(true);
+        setRunStatus({
+          phase: chatMode === 'ppt' ? 'generating_ppt' : 'thinking',
+          label: chatMode === 'ppt' ? '正在生成 PPT 内容与版式' : '大模型正在思考',
+        });
         setInputValue('');
         setSessions(prev => {
           const assistantMessage: Message = {
             id: assistantMessageId!,
             role: 'model',
             text: '',
+            pptArtifact: chatMode === 'ppt' ? { status: 'generating' } : undefined,
           };
 
           if (!currentSessionId) {
@@ -344,11 +354,23 @@ export const Chat = () => {
       const response = await sendMessageStream(outboundMessage, {
         sessionId: targetId,
         systemPrompt: currentSession ? undefined : MODE_SYSTEM_PROMPTS[chatMode],
+        responseMode: chatMode,
         onSessionState: (state) => {
           applySessionState(targetId!, state);
         },
-        onDelta: (_, fullText) => {
-          hasStreamedContent = true;
+        onRunStatus: (status: AgentRunStatus) => {
+          setRunStatus({ phase: status.phase, label: status.label });
+        },
+        onPptArtifact: (pptArtifact) => {
+          receivedPptArtifact = pptArtifact;
+          const nextArtifact: Artifact = {
+            language: 'ppt',
+            artifactId: pptArtifact.artifact_id,
+            html: pptArtifact.html,
+            title: pptArtifact.title,
+            slideCount: pptArtifact.slide_count,
+          };
+          setArtifact(nextArtifact);
           setSessions(prev => prev.map(session => (
             session.id === targetId
               ? {
@@ -356,7 +378,45 @@ export const Chat = () => {
                   updatedAt: Date.now(),
                   messages: session.messages.map(message => (
                     message.id === assistantMessageId
-                      ? { ...message, text: fullText }
+                      ? {
+                          ...message,
+                          pptArtifact: {
+                            status: 'ready',
+                            artifactId: pptArtifact.artifact_id,
+                            title: pptArtifact.title,
+                            slideCount: pptArtifact.slide_count,
+                            html: pptArtifact.html,
+                          },
+                        }
+                      : message
+                  )),
+                }
+              : session
+          )));
+        },
+        onDelta: (_, fullText) => {
+          hasStreamedContent = true;
+          setRunStatus(prev => (
+            prev.phase === 'generating_ppt' || prev.phase === 'rendering_ppt'
+              ? prev
+              : { phase: 'streaming', label: '大模型正在输出' }
+          ));
+          setSessions(prev => prev.map(session => (
+            session.id === targetId
+              ? {
+                  ...session,
+                  updatedAt: Date.now(),
+                  messages: session.messages.map(message => (
+                    message.id === assistantMessageId
+                      ? chatMode === 'ppt'
+                        ? {
+                            ...message,
+                            text: stripPptDeckFromText(fullText),
+                            pptArtifact: message.pptArtifact?.status === 'ready'
+                              ? message.pptArtifact
+                              : { status: 'generating' },
+                          }
+                        : { ...message, text: fullText }
                       : message
                   )),
                 }
@@ -379,6 +439,10 @@ export const Chat = () => {
         },
       });
 
+      const pptDeck = response.pptArtifact ? null : extractPptDeckFromText(response.text);
+      const pptArtifact = response.pptArtifact || receivedPptArtifact;
+      const visibleResponseText = pptDeck ? stripPptDeckFromText(response.text) : response.text;
+
       setSessions(prev => prev.map(session => (
         session.id === targetId
               ? {
@@ -386,7 +450,22 @@ export const Chat = () => {
                   updatedAt: Date.now(),
                   messages: session.messages.map(message => (
                     message.id === assistantMessageId
-                      ? { ...message, text: response.text, toolCalls: response.toolCalls }
+                      ? {
+                          ...message,
+                          text: visibleResponseText,
+                          toolCalls: response.toolCalls,
+                          pptArtifact: pptArtifact
+                            ? {
+                                status: 'ready',
+                                artifactId: pptArtifact.artifact_id,
+                                title: pptArtifact.title,
+                                slideCount: pptArtifact.slide_count,
+                                html: pptArtifact.html,
+                              }
+                            : pptDeck
+                              ? { status: 'ready', code: pptDeck.code, deck: pptDeck.deck }
+                              : undefined,
+                        }
                       : message
                   )),
                   summary: response.sessionState?.summary ?? session.summary,
@@ -401,10 +480,18 @@ export const Chat = () => {
 
       const htmlMatch = /```html\n([\s\S]*?)\n```/.exec(response.text);
       const svgMatch = /```svg\n([\s\S]*?)\n```/.exec(response.text);
-      const pptDeck = extractPptDeckFromText(response.text);
-      if (pptDeck) setArtifact({ code: pptDeck.code, language: 'pptdeck', deck: pptDeck.deck });
+      if (pptArtifact) setArtifact({
+        language: 'ppt',
+        artifactId: pptArtifact.artifact_id,
+        html: pptArtifact.html,
+        title: pptArtifact.title,
+        slideCount: pptArtifact.slide_count,
+      });
+      else if (pptDeck) setArtifact({ code: pptDeck.code, language: 'pptdeck', deck: pptDeck.deck });
       else if (htmlMatch) setArtifact({ code: htmlMatch[1], language: 'html' });
       else if (svgMatch) setArtifact({ code: svgMatch[1], language: 'svg' });
+
+      setRunStatus({ phase: 'done', label: '本轮回复已完成' });
 
       if (history.length === 0 || (history.length + 2) % 4 === 0) {
         generateTitle([
@@ -433,6 +520,7 @@ export const Chat = () => {
         )));
       }
       setError("发送消息失败，请检查后端服务或网络连接。");
+      setRunStatus({ phase: 'error', label: '本轮回复失败' });
     } finally {
       setIsLoading(false);
     }
@@ -607,7 +695,7 @@ export const Chat = () => {
               )}
             </AnimatePresence>
 
-            <RuntimeStatusBar session={currentSession} isLoading={isLoading} />
+            <RuntimeStatusBar session={currentSession} isLoading={isLoading} runStatus={runStatus} />
 
             <MessagesList
               currentSession={currentSession}
@@ -667,9 +755,9 @@ export const Chat = () => {
 
         {/* 制品预览面板 */}
         <AnimatePresence>
-          {artifact?.language === 'pptdeck' ? (
+          {artifact?.language === 'ppt' || artifact?.language === 'pptdeck' ? (
             <PptArtifactPanel
-              deck={artifact.deck}
+              artifact={artifact}
               onClose={() => setArtifact(null)}
               borderColor={borderColor}
             />

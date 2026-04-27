@@ -20,6 +20,15 @@ export type Message = {
   text: string;
   toolCalls?: ToolCall[];
   attachments?: Attachment[];
+  pptArtifact?: {
+    status: 'generating' | 'ready';
+    artifactId?: string;
+    title?: string;
+    slideCount?: number;
+    html?: string;
+    code?: string;
+    deck?: PptDeck;
+  };
 };
 
 export type Session = {
@@ -84,4 +93,5 @@ export type PptDeck = {
 
 export type Artifact =
   | {language: 'html' | 'svg'; code: string}
+  | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number}
   | {language: 'pptdeck'; code: string; deck: PptDeck};

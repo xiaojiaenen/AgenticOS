@@ -7,17 +7,19 @@ import rehypeKatex from 'rehype-katex';
 import mermaid from 'mermaid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Message } from '../../types';
+import { Presentation, Sparkles } from 'lucide-react';
+import { Artifact, Message } from '../../types';
 import { cn } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
 import { UserAvatarIcon, MascotCool, CopyIcon, CheckIcon, WrenchIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
+import { extractPptDeckFromText, stripPptDeckFromText } from '../ppt/pptDeck';
 
 interface ChatMessageProps {
   message?: Message;
   isTyping?: boolean;
   isStreaming?: boolean;
   wideLayout?: boolean;
-  onOpenArtifact?: (code: string, language: 'html' | 'svg' | 'pptdeck') => void;
+  onOpenArtifact?: (artifact: Artifact) => void;
   index?: number;
   searchQuery?: string;
   activeMatchId?: string | null;
@@ -27,11 +29,7 @@ const TOOL_RESULT_PREVIEW_CHAR_LIMIT = 520;
 const TOOL_RESULT_PREVIEW_LINE_LIMIT = 10;
 
 function stripHiddenArtifacts(text: string): string {
-  return text
-    .replace(/```pptdeck\n[\s\S]*?\n```/g, '')
-    .replace(/```json\n(?=[\s\S]*?"slides"[\s\S]*?```)[\s\S]*?\n```/g, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  return stripPptDeckFromText(text);
 }
 
 function normalizeToolResult(result: string): string {
@@ -147,7 +145,7 @@ const MermaidChart = React.memo(({ chart }: { chart: string }) => {
           if (containerRef.current.offsetHeight > 50) {
             setHeight(containerRef.current.offsetHeight);
           }
-          
+
           const { svg } = await mermaid.render(`mermaid-${Math.random().toString(36).substr(2, 9)}`, chart);
           setSvg(svg);
         } catch (e) {
@@ -163,21 +161,96 @@ const MermaidChart = React.memo(({ chart }: { chart: string }) => {
   }, [chart]);
 
   return (
-    <div 
-      ref={containerRef} 
+    <div
+      ref={containerRef}
       style={{ minHeight: height !== 'auto' ? `${height}px` : undefined }}
       className={cn(
         "bg-slate-50/30 p-6 rounded-2xl border border-slate-200/50 my-2 flex justify-center overflow-x-auto transition-opacity duration-300",
         isRendering ? "opacity-50" : "opacity-100"
       )}
-      dangerouslySetInnerHTML={{ __html: svg }} 
+      dangerouslySetInnerHTML={{ __html: svg }}
     />
   );
 });
 
+const PptArtifactCard = ({
+  message,
+  onOpenArtifact,
+}: {
+  message: Message;
+  onOpenArtifact?: (artifact: Artifact) => void;
+}) => {
+  const extracted = React.useMemo(() => extractPptDeckFromText(message.text), [message.text]);
+  const deck = message.pptArtifact?.deck || extracted?.deck;
+  const code = message.pptArtifact?.code || extracted?.code;
+  const html = message.pptArtifact?.html;
+  const status = (html || (deck && code)) ? 'ready' : message.pptArtifact?.status;
+
+  if (!status) return null;
+
+  const isReady = status === 'ready' && (Boolean(html) || Boolean(deck && code));
+  const title = message.pptArtifact?.title || deck?.title || 'PPT 演示文稿';
+  const slideCount = message.pptArtifact?.slideCount || deck?.slides.length || 0;
+  const handleOpen = () => {
+    if (html) {
+      onOpenArtifact?.({
+        language: 'ppt',
+        artifactId: message.pptArtifact?.artifactId,
+        html,
+        title,
+        slideCount,
+      });
+      return;
+    }
+    if (deck && code) {
+      onOpenArtifact?.({ language: 'pptdeck', code, deck });
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      className={cn(
+        "mb-3 flex w-fit max-w-[34rem] items-center gap-3 rounded-[1.35rem] border px-4 py-3 shadow-[0_16px_34px_rgba(15,23,42,0.1)] backdrop-blur-xl",
+        isReady ? "border-white/70 bg-white/84" : "border-sky-200/70 bg-sky-50/80",
+      )}
+    >
+      <div className={cn(
+        "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl text-white",
+        isReady ? "bg-zinc-900" : "bg-sky-500",
+      )}>
+        {isReady ? <Presentation size={19} /> : <Sparkles size={18} className="animate-pulse" />}
+      </div>
+      <div className="min-w-0">
+        <div className="truncate text-sm font-black text-slate-900">
+          {isReady ? title : '正在生成 PPT'}
+        </div>
+        <div className="mt-0.5 text-[11px] font-medium text-slate-500">
+          {isReady ? `${slideCount} 页 · 可预览和导出 PPTX` : '正在规划内容、图表和版式，请稍候'}
+        </div>
+      </div>
+      {isReady && (
+        <button
+          type="button"
+          onClick={handleOpen}
+          className="ml-2 flex-shrink-0 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-zinc-800 active:scale-95"
+        >
+          打开 PPT
+        </button>
+      )}
+    </motion.div>
+  );
+};
+
 export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, onOpenArtifact, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
   const isUser = message?.role === 'user';
-  const hasStructuredContent = !isUser && /```|(?:^|\n)\|.+\|/.test(message?.text || '');
+  const rawText = message?.text || '';
+  const visibleText = isUser ? rawText : stripHiddenArtifacts(rawText);
+  const hasLegacyPptDeck = !isUser && !!extractPptDeckFromText(rawText);
+  const hasPptArtifact = !isUser && Boolean(message?.pptArtifact || hasLegacyPptDeck);
+  const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || !hasPptArtifact;
+  const hasStructuredContent = !isUser && /```|(?:^|\n)\|.+\|/.test(visibleText);
   const [isCopied, setIsCopied] = useState(false);
   const config = getAppConfig();
   const sessionCounter = useRef({ current: 0 });
@@ -256,13 +329,13 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             const isActive = elementId === activeMatchId;
 
             return (
-              <mark 
-                key={i} 
+              <mark
+                key={i}
                 id={elementId}
                 className={cn(
                   "rounded-[2px] px-0.5 font-bold shadow-sm transition-all duration-300",
-                  isActive 
-                    ? "bg-orange-500 text-white ring-2 ring-orange-600 z-10 scale-110 inline-block" 
+                  isActive
+                    ? "bg-orange-500 text-white ring-2 ring-orange-600 z-10 scale-110 inline-block"
                     : "bg-yellow-300 text-zinc-900 ring-1 ring-yellow-400"
                 )}
               >
@@ -302,12 +375,12 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   };
 
   const handleCopy = React.useCallback(() => {
-    if (message?.text) {
-      navigator.clipboard.writeText(stripHiddenArtifacts(message.text) || message.text);
+    if (visibleText) {
+      navigator.clipboard.writeText(visibleText);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     }
-  }, [message?.text]);
+  }, [visibleText]);
 
   const CodeBlock = ({ inline, className, children, ...props }: any) => {
     const [isBlockCopied, setIsBlockCopied] = useState(false);
@@ -361,7 +434,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
         }
       }
 
-      const isArtifactable = ['html', 'svg', 'pptdeck'].includes(match[1]) && config.enableArtifacts;
+      const isArtifactable = ['html', 'svg'].includes(match[1]) && config.enableArtifacts;
 
       return (
         <div className="relative group my-5 overflow-hidden rounded-[1.75rem] border border-slate-800/80 bg-zinc-950 shadow-[0_20px_50px_rgba(15,23,42,0.22)] ring-1 ring-white/5">
@@ -376,7 +449,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             <div className="ml-auto flex items-center gap-4">
               {isArtifactable && onOpenArtifact && (
                 <button
-                  onClick={() => onOpenArtifact(codeString, match[1] as 'html' | 'svg' | 'pptdeck')}
+                  onClick={() => onOpenArtifact({ code: codeString, language: match[1] as 'html' | 'svg' })}
                   className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300 transition-colors hover:text-cyan-200"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
@@ -417,8 +490,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
               style={vscDarkPlus}
               language={match[1]}
               PreTag="div"
-              customStyle={{ 
-                margin: 0, 
+              customStyle={{
+                margin: 0,
                 padding: '1.35rem 1.4rem',
                 background: 'transparent',
                 fontSize: '0.85rem',
@@ -548,10 +621,10 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
       initial={{ opacity: 0, y: 30, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20 }}
-      transition={{ 
-        duration: 0.6, 
+      transition={{
+        duration: 0.6,
         delay: Math.min(index * 0.08, 0.8),
-        ease: [0.16, 1, 0.3, 1] 
+        ease: [0.16, 1, 0.3, 1]
       }}
       layout="position"
       className={cn(
@@ -560,7 +633,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
         isUser ? "flex-row-reverse" : "flex-row"
       )}
     >
-      <motion.div 
+      <motion.div
         whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
         className={cn(
           "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm z-10 cursor-help transition-all",
@@ -569,7 +642,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
       >
         {isUser ? <UserAvatarIcon size={20} /> : <MascotCool size={20} />}
       </motion.div>
-      
+
       <div className={cn("flex flex-col gap-1", wideLayout ? "max-w-[78%]" : "max-w-[80%]", isUser ? "items-end" : "items-start")}>
         {/* Tool Calls Rendering */}
         {!isUser && message?.toolCalls && message.toolCalls.length > 0 && config.enableSearch && (
@@ -582,11 +655,11 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
               </summary>
               <div className="mt-3 flex flex-col gap-3 transition-all">
                 {message.toolCalls.map((tool, idx) => (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.1 }}
-                    key={idx} 
+                    key={idx}
                     className="max-w-[34rem] rounded-[1.35rem] border border-slate-200/90 bg-white/88 px-4 py-3 text-xs text-slate-600 shadow-[0_10px_24px_rgba(148,163,184,0.14)] backdrop-blur-sm"
                   >
                     {(() => {
@@ -700,16 +773,21 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
           </div>
         )}
 
-        <div 
-          id={message?.id ? `bubble-${message.id}` : undefined}
-          className={cn(
-          "px-5 py-3 rounded-[2rem] relative group max-w-full transition-colors duration-300",
-          hasStructuredContent ? "w-full" : "w-fit",
-          !isUser && isStreaming && "min-h-[3.5rem] min-w-[10rem]",
-          isUser 
-            ? "bg-zinc-900 text-white rounded-tr-none shadow-[0_8px_30px_rgba(0,0,0,0.15)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.2)]" 
-            : "bg-white/80 backdrop-blur-2xl text-slate-800 rounded-tl-none border border-slate-100 hover:bg-white"
-        )}>
+        {!isUser && message && (
+          <PptArtifactCard message={message} onOpenArtifact={onOpenArtifact} />
+        )}
+
+        {shouldRenderBubble && (
+          <div
+            id={message?.id ? `bubble-${message.id}` : undefined}
+            className={cn(
+            "px-5 py-3 rounded-[2rem] relative group max-w-full transition-colors duration-300",
+            hasStructuredContent ? "w-full" : "w-fit",
+            !isUser && isStreaming && "min-h-[3.5rem] min-w-[10rem]",
+            isUser
+              ? "bg-zinc-900 text-white rounded-tr-none shadow-[0_8px_30px_rgba(0,0,0,0.15)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.2)]"
+              : "bg-white/80 backdrop-blur-2xl text-slate-800 rounded-tl-none border border-slate-100 hover:bg-white"
+          )}>
           {/* AI 气泡尾巴 */}
           {!isUser && (
             <svg className="absolute top-0 -left-[8px] w-3 h-4 text-white/90" viewBox="0 0 8 12" fill="currentColor">
@@ -729,7 +807,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
               "absolute bottom-0 opacity-0 group-hover/msg:opacity-100 transition-all duration-500 flex items-center gap-1 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-xl z-20",
               isUser ? "right-full mr-4 mb-2" : "left-full ml-4 mb-2"
             )}>
-              <button 
+              <button
                 onClick={handleCopy}
                 className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-all active:scale-95 flex items-center justify-center"
                 title="复制内容"
@@ -763,17 +841,17 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
 
           {isTyping ? (
             <div className="flex items-center gap-2 h-6 px-1">
-              <motion.span 
+              <motion.span
                 className="w-2 h-2 bg-zinc-300 rounded-full shadow-sm"
                 animate={{ y: [0, -6, 0], scale: [1, 1.2, 1] }}
                 transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0 }}
               />
-              <motion.span 
+              <motion.span
                 className="w-2 h-2 bg-zinc-300 rounded-full shadow-sm"
                 animate={{ y: [0, -6, 0], scale: [1, 1.2, 1] }}
                 transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
               />
-              <motion.span 
+              <motion.span
                 className="w-2 h-2 bg-zinc-300 rounded-full shadow-sm"
                 animate={{ y: [0, -6, 0], scale: [1, 1.2, 1] }}
                 transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
@@ -784,9 +862,9 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
               {message?.attachments && message.attachments.length > 0 && (
                 <div className="flex flex-wrap gap-3 mb-1">
                   {message.attachments.map((att, i) => (
-                    <motion.div 
+                    <motion.div
                       whileHover={{ scale: 1.05 }}
-                      key={i} 
+                      key={i}
                       className="max-w-[240px] rounded-2xl overflow-hidden border border-white/20 shadow-lg ring-4 ring-white/5"
                     >
                       {att.type.startsWith('image/') ? (
@@ -807,44 +885,49 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             </div>
           ) : (
             <div className="prose prose-slate prose-sm max-w-none prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
-              <ReactMarkdown 
-                remarkPlugins={[remarkGfm, ...(config.enableLaTeX ? [remarkMath] : [])]}
-                rehypePlugins={[...(config.enableLaTeX ? [rehypeKatex] : [])]}
-                components={{
-                  code: CodeBlock,
-                  pre: ({ children }) => <>{children}</>,
-                  p: ({ children }) => <p>{processChildren(children, sessionCounter.current)}</p>,
-                  table: ({ children }) => <Table>{children}</Table>,
-                  thead: ({ children }) => <TableHead>{children}</TableHead>,
-                  tr: ({ children }) => <TableRow>{children}</TableRow>,
-                  th: ({ children }) => <TableHeaderCell>{children}</TableHeaderCell>,
-                  td: ({ children }) => <TableCell>{children}</TableCell>,
-                  li: ({ children }) => <li>{processChildren(children, sessionCounter.current)}</li>,
-                  h1: ({ children }) => <h1>{processChildren(children, sessionCounter.current)}</h1>,
-                  h2: ({ children }) => <h2>{processChildren(children, sessionCounter.current)}</h2>,
-                  h3: ({ children }) => <h3>{processChildren(children, sessionCounter.current)}</h3>,
-                  h4: ({ children }) => <h4>{processChildren(children, sessionCounter.current)}</h4>,
-                  h5: ({ children }) => <h5>{processChildren(children, sessionCounter.current)}</h5>,
-                  h6: ({ children }) => <h6>{processChildren(children, sessionCounter.current)}</h6>,
-                }}
-              >
-                {stripHiddenArtifacts(message?.text || '')}
-              </ReactMarkdown>
+              {visibleText ? (
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm, ...(config.enableLaTeX ? [remarkMath] : [])]}
+                  rehypePlugins={[...(config.enableLaTeX ? [rehypeKatex] : [])]}
+                  components={{
+                    code: CodeBlock,
+                    pre: ({ children }) => <>{children}</>,
+                    p: ({ children }) => <p>{processChildren(children, sessionCounter.current)}</p>,
+                    table: ({ children }) => <Table>{children}</Table>,
+                    thead: ({ children }) => <TableHead>{children}</TableHead>,
+                    tr: ({ children }) => <TableRow>{children}</TableRow>,
+                    th: ({ children }) => <TableHeaderCell>{children}</TableHeaderCell>,
+                    td: ({ children }) => <TableCell>{children}</TableCell>,
+                    li: ({ children }) => <li>{processChildren(children, sessionCounter.current)}</li>,
+                    h1: ({ children }) => <h1>{processChildren(children, sessionCounter.current)}</h1>,
+                    h2: ({ children }) => <h2>{processChildren(children, sessionCounter.current)}</h2>,
+                    h3: ({ children }) => <h3>{processChildren(children, sessionCounter.current)}</h3>,
+                    h4: ({ children }) => <h4>{processChildren(children, sessionCounter.current)}</h4>,
+                    h5: ({ children }) => <h5>{processChildren(children, sessionCounter.current)}</h5>,
+                    h6: ({ children }) => <h6>{processChildren(children, sessionCounter.current)}</h6>,
+                  }}
+                >
+                  {visibleText}
+                </ReactMarkdown>
+              ) : (
+                <span className="text-sm font-medium text-slate-400"> </span>
+              )}
             </div>
           )}
-        </div>
-        
+          </div>
+        )}
+
         {/* Timestamp */}
         {message?.id && !isTyping && (
           <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400/70 px-2 mt-1.5 flex items-center gap-2">
             <span>{new Date(parseInt(message.id)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-            {!isUser && message.text && (
-              <motion.span 
+            {!isUser && visibleText && (
+              <motion.span
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="opacity-0 group-hover/msg:opacity-100 transition-opacity"
               >
-                · {message.text.length} 字
+                · {visibleText.length} 字
               </motion.span>
             )}
           </div>

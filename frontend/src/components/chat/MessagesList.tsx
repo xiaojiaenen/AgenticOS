@@ -1,7 +1,7 @@
 import React from 'react';
 import { ChatMessage } from './ChatMessage';
 import { ChatSuggestions } from './ChatSuggestions';
-import { Message } from '../../types';
+import { Artifact, Message } from '../../types';
 
 interface MessagesListProps {
   currentSession: { messages: Message[] } | undefined;
@@ -11,7 +11,7 @@ interface MessagesListProps {
   activeMatchId: string | null;
   onSend: (text: string) => void;
   onSuggestionClick: (text: string) => void;
-  onOpenArtifact: (code: string, language: 'html' | 'svg' | 'pptdeck') => void;
+  onOpenArtifact: (artifact: Artifact) => void;
   messagesEndRef: React.RefObject<HTMLDivElement>;
 }
 

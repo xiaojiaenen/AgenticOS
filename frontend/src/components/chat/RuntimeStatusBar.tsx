@@ -1,12 +1,16 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { BrainCircuit, Database, ShieldCheck, Timer } from 'lucide-react';
+import { BrainCircuit, Database, Radio, ShieldCheck, Timer } from 'lucide-react';
 import { Session } from '../../types';
 import { cn } from '../../lib/utils';
 
 type RuntimeStatusBarProps = {
   session?: Session;
   isLoading: boolean;
+  runStatus?: {
+    phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'done' | 'error';
+    label: string;
+  };
 };
 
 const Metric = ({
@@ -36,13 +40,15 @@ const Metric = ({
   </div>
 );
 
-export const RuntimeStatusBar: React.FC<RuntimeStatusBarProps> = ({ session, isLoading }) => {
+export const RuntimeStatusBar: React.FC<RuntimeStatusBarProps> = ({ session, isLoading, runStatus }) => {
   if (!session) {
     return null;
   }
 
   const totalTokens = session.lastUsage?.total_tokens ?? session.lastUsage?.totalTokens;
   const hasSummary = Boolean(session.summary);
+  const statusLabel = runStatus?.label || (isLoading ? '大模型正在输出' : '已就绪');
+  const statusActive = isLoading || runStatus?.phase === 'done';
 
   return (
     <motion.div
@@ -52,6 +58,12 @@ export const RuntimeStatusBar: React.FC<RuntimeStatusBarProps> = ({ session, isL
       className="mx-auto mb-5 flex w-full max-w-[92rem] flex-col gap-3 px-8"
     >
       <div className="flex flex-wrap items-center gap-2">
+        <Metric
+          icon={<Radio size={14} className={isLoading ? 'animate-pulse' : undefined} />}
+          label="Status"
+          value={statusLabel}
+          active={statusActive}
+        />
         <Metric icon={<Database size={14} />} label="Store" value={session.storage === 'sqlalchemy' ? 'SQLite' : 'Local'} active />
         <Metric
           icon={<BrainCircuit size={14} />}

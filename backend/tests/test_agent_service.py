@@ -93,13 +93,29 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
     assert events[0]["data"]["session_id"] == "demo-session"
     assert events[0]["data"]["storage"] == "sqlalchemy"
     assert events[1] == {
+        "event": "run_status",
+        "data": {
+            "session_id": "demo-session",
+            "phase": "thinking",
+            "label": "大模型正在思考",
+        },
+    }
+    assert events[2] == {
+        "event": "run_status",
+        "data": {
+            "session_id": "demo-session",
+            "phase": "streaming",
+            "label": "大模型正在输出",
+        },
+    }
+    assert events[3] == {
         "event": "delta",
         "data": {
             "session_id": "demo-session",
             "content": "你好",
         },
     }
-    assert events[2] == {
+    assert events[4] == {
         "event": "tool_calls",
         "data": {
             "session_id": "demo-session",
@@ -114,7 +130,7 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
             ],
         },
     }
-    assert events[3] == {
+    assert events[5] == {
         "event": "tool_results",
         "data": {
             "session_id": "demo-session",
@@ -128,7 +144,7 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
             ],
         },
     }
-    assert events[4] == {
+    assert events[6] == {
         "event": "tool_results",
         "data": {
             "session_id": "demo-session",
@@ -142,9 +158,17 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
             ],
         },
     }
-    assert events[5]["event"] == "done"
-    assert events[5]["data"]["session_id"] == "demo-session"
-    assert events[5]["data"]["finish_reason"] == "stop"
-    assert events[5]["data"]["usage"] == {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}
-    assert events[5]["data"]["latency_ms"] == 120
-    assert events[5]["data"]["llm_calls"] == 1
+    assert events[7] == {
+        "event": "run_status",
+        "data": {
+            "session_id": "demo-session",
+            "phase": "done",
+            "label": "本轮回复已完成",
+        },
+    }
+    assert events[8]["event"] == "done"
+    assert events[8]["data"]["session_id"] == "demo-session"
+    assert events[8]["data"]["finish_reason"] == "stop"
+    assert events[8]["data"]["usage"] == {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}
+    assert events[8]["data"]["latency_ms"] == 120
+    assert events[8]["data"]["llm_calls"] == 1

@@ -3,9 +3,12 @@ import { Message, ToolCall } from '../types';
 type AgentServiceOptions = {
   sessionId: string;
   systemPrompt?: string;
+  responseMode?: 'general' | 'ppt' | 'website';
   onDelta?: (delta: string, fullText: string) => void;
   onToolCalls?: (toolCalls: ToolCall[]) => void;
   onSessionState?: (state: AgentSessionState) => void;
+  onRunStatus?: (status: AgentRunStatus) => void;
+  onPptArtifact?: (artifact: AgentPptArtifact) => void;
   signal?: AbortSignal;
 };
 
@@ -15,6 +18,7 @@ type StreamResult = {
   toolCalls?: ToolCall[];
   finishReason: string;
   sessionState?: AgentSessionState;
+  pptArtifact?: AgentPptArtifact;
 };
 
 type AgentToolCall = {
@@ -52,6 +56,20 @@ export type AgentApproval = {
   arguments?: Record<string, unknown>;
   status: 'pending' | 'approved' | 'rejected';
   reason?: string | null;
+};
+
+export type AgentRunStatus = {
+  session_id: string;
+  phase: 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'done';
+  label: string;
+};
+
+export type AgentPptArtifact = {
+  artifact_id: string;
+  session_id: string;
+  title: string;
+  slide_count: number;
+  html: string;
 };
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -148,6 +166,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
       message,
       session_id: options.sessionId,
       system_prompt: options.systemPrompt,
+      response_mode: options.responseMode || 'general',
     }),
     signal: options.signal,
   });
@@ -169,6 +188,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
   let toolCalls: ToolCall[] = [];
   let finishReason = 'completed';
   let sessionState: AgentSessionState | undefined;
+  let pptArtifact: AgentPptArtifact | undefined;
 
   while (true) {
     const { value, done } = await reader.read();
@@ -199,6 +219,15 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         const delta = typeof payload.content === 'string' ? payload.content : '';
         text += delta;
         options.onDelta?.(delta, text);
+      }
+
+      if (parsed.event === 'run_status') {
+        options.onRunStatus?.(payload as AgentRunStatus);
+      }
+
+      if (parsed.event === 'artifact_ready') {
+        pptArtifact = payload as AgentPptArtifact;
+        options.onPptArtifact?.(pptArtifact);
       }
 
       if (parsed.event === 'tool_calls' && Array.isArray(payload.tool_calls)) {
@@ -258,6 +287,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
     toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
     finishReason,
     sessionState,
+    pptArtifact,
   };
 }
 

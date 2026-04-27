@@ -65,3 +65,14 @@ async def get_session_state(
     agent_service: AgentService = Depends(get_agent_service),
 ) -> dict[str, Any]:
     return await agent_service.get_session_state(session_id)
+
+
+@router.get("/artifacts/{artifact_id}", summary="获取 PPT 制品预览")
+async def get_ppt_artifact(
+    artifact_id: str,
+    agent_service: AgentService = Depends(get_agent_service),
+) -> dict[str, Any]:
+    artifact = await agent_service.get_ppt_artifact(artifact_id)
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="PPT 制品不存在。")
+    return artifact

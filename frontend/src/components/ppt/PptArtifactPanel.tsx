@@ -1,13 +1,13 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Download, FileText, LayoutDashboard, RefreshCcw, X } from 'lucide-react';
+import { Download, LayoutDashboard, RefreshCcw, X } from 'lucide-react';
 import { MotionValue } from 'motion/react';
-import { PptDeck, PptSlide, PptThemeName } from '../../types';
+import { Artifact, PptDeck, PptSlide, PptThemeName } from '../../types';
 import { cn } from '../../lib/utils';
 import { PPT_PAGE_CLASS } from './pptDeck';
 
 type PptArtifactPanelProps = {
-  deck: PptDeck;
+  artifact: Extract<Artifact, {language: 'ppt' | 'pptdeck'}>;
   onClose: () => void;
   borderColor: MotionValue<string>;
 };
@@ -346,15 +346,18 @@ function renderSlide(slide: PptSlide, deck: PptDeck, index: number) {
   return <BulletsSlide slide={slide} theme={theme} index={index} total={total} />;
 }
 
-export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ deck, onClose, borderColor }) => {
+export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, onClose, borderColor }) => {
   const [isExporting, setIsExporting] = React.useState(false);
+  const isHtmlArtifact = artifact.language === 'ppt';
+  const title = isHtmlArtifact ? artifact.title : artifact.deck.title;
+  const slideCount = isHtmlArtifact ? artifact.slideCount : artifact.deck.slides.length;
 
   const handleExport = async () => {
     setIsExporting(true);
     try {
       await document.fonts?.ready;
       const { downloadHtmlToPpt } = await import('html-to-pptx');
-      await downloadHtmlToPpt(PPT_PAGE_CLASS, deck.title || 'AgenticOS-PPT');
+      await downloadHtmlToPpt(PPT_PAGE_CLASS, title || 'AgenticOS-PPT');
     } finally {
       setIsExporting(false);
     }
@@ -375,11 +378,11 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ deck, onClos
             <LayoutDashboard size={18} />
           </div>
           <div>
-            <h2 className="text-sm font-bold leading-none text-slate-800">{deck.title}</h2>
+            <h2 className="text-sm font-bold leading-none text-slate-800">{title}</h2>
             <div className="mt-1 flex items-center gap-1.5">
               <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                {deck.slides.length} slides · editable pptx
+                {slideCount} slides · editable pptx
               </p>
             </div>
           </div>
@@ -394,13 +397,6 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ deck, onClos
             {isExporting ? <RefreshCcw size={14} className="animate-spin" /> : <Download size={14} />}
             导出
           </button>
-          <button
-            onClick={() => navigator.clipboard.writeText(JSON.stringify(deck, null, 2))}
-            className="rounded-xl p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-zinc-600"
-            title="复制 deck JSON"
-          >
-            <FileText size={16} />
-          </button>
           <div className="mx-2 h-4 w-px bg-slate-200" />
           <button onClick={onClose} className="rounded-xl p-2 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-500">
             <X size={18} />
@@ -408,20 +404,29 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ deck, onClos
         </div>
       </div>
       <div className="z-10 flex-1 overflow-auto p-6">
-        <div className="mx-auto flex w-[720px] flex-col gap-8 pb-8">
-          {deck.slides.map((slide, index) => (
-            <motion.div
-              key={`${slide.title}-${index}`}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(index * 0.06, 0.4) }}
-              className="origin-top-left scale-[0.72]"
-              style={{ height: 405 }}
-            >
-              {renderSlide(slide, deck, index)}
-            </motion.div>
-          ))}
-        </div>
+        {isHtmlArtifact ? (
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            dangerouslySetInnerHTML={{ __html: artifact.html }}
+          />
+        ) : (
+          <div className="mx-auto flex w-[720px] flex-col gap-8 pb-8">
+            {artifact.deck.slides.map((slide, index) => (
+              <motion.div
+                key={`${slide.title}-${index}`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(index * 0.06, 0.4) }}
+                className="origin-top-left scale-[0.72]"
+                style={{ height: 405 }}
+              >
+                {renderSlide(slide, artifact.deck, index)}
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </motion.aside>
   );
