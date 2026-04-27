@@ -29,16 +29,39 @@ class AgentService:
         )
         self.ppt_artifacts = PptArtifactService()
         self._agent: Agent | None = None
+        self._ppt_agent: Agent | None = None
 
     def ensure_ready(self) -> None:
         self._get_agent()
+
+    def _ensure_openai_key(self) -> None:
+        if not self.settings.openai_api_key:
+            raise RuntimeError("缺少 OPENAI_API_KEY，请先在环境变量或 .env 中配置后再调用 /agent/stream。")
+
+    def _register_runtime_hooks(self, agent: Agent, *, enable_hitl: bool) -> None:
+        if enable_hitl and self.settings.hitl_enabled:
+            agent.hooks.register(
+                HitlHook(
+                    provider=self.approval_manager,
+                    policy=ApprovalPolicy(
+                        require_approval_tools=self.settings.get_hitl_require_approval_tools()
+                    ),
+                )
+            )
+        if self.settings.context_compression_enabled:
+            agent.hooks.register(
+                ContextCompressionHook(
+                    compressor=LLMContextCompressor(agent.llm),
+                    compress_after_turns=self.settings.context_compress_after_turns,
+                    keep_recent_turns=self.settings.context_keep_recent_turns,
+                )
+            )
 
     def _get_agent(self) -> Agent:
         if self._agent is not None:
             return self._agent
 
-        if not self.settings.openai_api_key:
-            raise RuntimeError("缺少 OPENAI_API_KEY，请先在环境变量或 .env 中配置后再调用 /agent/stream。")
+        self._ensure_openai_key()
 
         hooks = [StorageHook(self.storage)]
         if self.settings.hitl_enabled:
@@ -67,6 +90,21 @@ class AgentService:
                 )
             )
         return self._agent
+
+    def _get_ppt_agent(self) -> Agent:
+        if self._ppt_agent is not None:
+            return self._ppt_agent
+
+        self._ensure_openai_key()
+        self._ppt_agent = Agent.from_env(
+            builtin_tools=[],
+            system_prompt=self.settings.agent_system_prompt,
+            max_steps=1,
+            parallel_tool_calls=False,
+            hooks=[StorageHook(self.storage)],
+        )
+        self._register_runtime_hooks(self._ppt_agent, enable_hitl=False)
+        return self._ppt_agent
 
     @staticmethod
     def _build_tool_call_payload(event: AgentEvent) -> dict[str, Any]:
@@ -205,7 +243,8 @@ class AgentService:
         return None
 
     async def stream_chat(self, request: AgentStreamRequest) -> AsyncIterator[dict[str, Any]]:
-        agent = self._get_agent()
+        ppt_mode = request.response_mode == "ppt"
+        agent = self._get_ppt_agent() if ppt_mode else self._get_agent()
         await self._load_session_if_needed(agent, request)
         session = agent.create_or_get_session(
             session_id=request.session_id,
@@ -231,7 +270,6 @@ class AgentService:
         runtime_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue()
         collected_text = ""
         saw_text_delta = False
-        ppt_mode = request.response_mode == "ppt"
 
         async def produce_events() -> None:
             try:

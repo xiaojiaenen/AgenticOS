@@ -12,7 +12,6 @@ import { Artifact, Message } from '../../types';
 import { cn } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
 import { UserAvatarIcon, MascotCool, CopyIcon, CheckIcon, WrenchIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
-import { extractPptDeckFromText, stripPptDeckFromText } from '../ppt/pptDeck';
 
 interface ChatMessageProps {
   message?: Message;
@@ -27,10 +26,6 @@ interface ChatMessageProps {
 
 const TOOL_RESULT_PREVIEW_CHAR_LIMIT = 520;
 const TOOL_RESULT_PREVIEW_LINE_LIMIT = 10;
-
-function stripHiddenArtifacts(text: string): string {
-  return stripPptDeckFromText(text);
-}
 
 function normalizeToolResult(result: string): string {
   return result
@@ -180,17 +175,14 @@ const PptArtifactCard = ({
   message: Message;
   onOpenArtifact?: (artifact: Artifact) => void;
 }) => {
-  const extracted = React.useMemo(() => extractPptDeckFromText(message.text), [message.text]);
-  const deck = message.pptArtifact?.deck || extracted?.deck;
-  const code = message.pptArtifact?.code || extracted?.code;
   const html = message.pptArtifact?.html;
-  const status = (html || (deck && code)) ? 'ready' : message.pptArtifact?.status;
+  const status = html ? 'ready' : message.pptArtifact?.status;
 
   if (!status) return null;
 
-  const isReady = status === 'ready' && (Boolean(html) || Boolean(deck && code));
-  const title = message.pptArtifact?.title || deck?.title || 'PPT 演示文稿';
-  const slideCount = message.pptArtifact?.slideCount || deck?.slides.length || 0;
+  const isReady = status === 'ready' && Boolean(html);
+  const title = message.pptArtifact?.title || 'PPT 演示文稿';
+  const slideCount = message.pptArtifact?.slideCount || 0;
   const handleOpen = () => {
     if (html) {
       onOpenArtifact?.({
@@ -200,10 +192,6 @@ const PptArtifactCard = ({
         title,
         slideCount,
       });
-      return;
-    }
-    if (deck && code) {
-      onOpenArtifact?.({ language: 'pptdeck', code, deck });
     }
   };
 
@@ -246,9 +234,8 @@ const PptArtifactCard = ({
 export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, onOpenArtifact, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
   const isUser = message?.role === 'user';
   const rawText = message?.text || '';
-  const visibleText = isUser ? rawText : stripHiddenArtifacts(rawText);
-  const hasLegacyPptDeck = !isUser && !!extractPptDeckFromText(rawText);
-  const hasPptArtifact = !isUser && Boolean(message?.pptArtifact || hasLegacyPptDeck);
+  const visibleText = rawText;
+  const hasPptArtifact = !isUser && Boolean(message?.pptArtifact);
   const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || !hasPptArtifact;
   const hasStructuredContent = !isUser && /```|(?:^|\n)\|.+\|/.test(visibleText);
   const [isCopied, setIsCopied] = useState(false);
@@ -386,19 +373,6 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
     const [isBlockCopied, setIsBlockCopied] = useState(false);
     const match = /language-(\w+)/.exec(className || '');
     const codeString = String(children).replace(/\n$/, '');
-
-    if (!inline && match && match[1] === 'pptdeck') {
-      return null;
-    }
-
-    if (!inline && match && match[1] === 'json') {
-      try {
-        const parsed = JSON.parse(codeString);
-        if (parsed?.slides) return null;
-      } catch {
-        // 普通 JSON 代码块继续按代码显示。
-      }
-    }
 
     // Mermaid 图表单独渲染
     if (!inline && match && match[1] === 'mermaid' && config.enableMermaid) {

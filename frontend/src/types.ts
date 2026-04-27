@@ -26,8 +26,6 @@ export type Message = {
     title?: string;
     slideCount?: number;
     html?: string;
-    code?: string;
-    deck?: PptDeck;
   };
 };
 
@@ -93,5 +91,4 @@ export type PptDeck = {
 
 export type Artifact =
   | {language: 'html' | 'svg'; code: string}
-  | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number}
-  | {language: 'pptdeck'; code: string; deck: PptDeck};
+  | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number};

@@ -13,7 +13,6 @@ import { DragOverlay } from '../components/chat/DragOverlay';
 import { RuntimeStatusBar } from '../components/chat/RuntimeStatusBar';
 import { PendingApprovalPanel } from '../components/chat/PendingApprovalPanel';
 import { PptArtifactPanel } from '../components/ppt/PptArtifactPanel';
-import { extractPptDeckFromText, parsePptDeck, stripPptDeckFromText } from '../components/ppt/pptDeck';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { Artifact, Message, Session, Attachment } from '../types';
 import { sendMessageStream, generateTitle, submitApprovalDecision, AgentSessionState, AgentPptArtifact, AgentRunStatus } from '../services/agentService';
@@ -267,16 +266,6 @@ export const Chat = () => {
   }, []);
 
   const handleOpenArtifact = React.useCallback((nextArtifact: Artifact) => {
-    if (nextArtifact.language === 'pptdeck') {
-      const deck = nextArtifact.deck || parsePptDeck(nextArtifact.code);
-      if (!deck) {
-        setError('PPT deck JSON 解析失败，请让模型重新生成。');
-        return;
-      }
-      setArtifact({ ...nextArtifact, deck });
-      return;
-    }
-
     setArtifact(nextArtifact);
   }, []);
 
@@ -411,7 +400,7 @@ export const Chat = () => {
                       ? chatMode === 'ppt'
                         ? {
                             ...message,
-                            text: stripPptDeckFromText(fullText),
+                            text: fullText,
                             pptArtifact: message.pptArtifact?.status === 'ready'
                               ? message.pptArtifact
                               : { status: 'generating' },
@@ -439,9 +428,7 @@ export const Chat = () => {
         },
       });
 
-      const pptDeck = response.pptArtifact ? null : extractPptDeckFromText(response.text);
       const pptArtifact = response.pptArtifact || receivedPptArtifact;
-      const visibleResponseText = pptDeck ? stripPptDeckFromText(response.text) : response.text;
 
       setSessions(prev => prev.map(session => (
         session.id === targetId
@@ -452,7 +439,7 @@ export const Chat = () => {
                     message.id === assistantMessageId
                       ? {
                           ...message,
-                          text: visibleResponseText,
+                          text: response.text,
                           toolCalls: response.toolCalls,
                           pptArtifact: pptArtifact
                             ? {
@@ -462,9 +449,7 @@ export const Chat = () => {
                                 slideCount: pptArtifact.slide_count,
                                 html: pptArtifact.html,
                               }
-                            : pptDeck
-                              ? { status: 'ready', code: pptDeck.code, deck: pptDeck.deck }
-                              : undefined,
+                            : undefined,
                         }
                       : message
                   )),
@@ -487,7 +472,6 @@ export const Chat = () => {
         title: pptArtifact.title,
         slideCount: pptArtifact.slide_count,
       });
-      else if (pptDeck) setArtifact({ code: pptDeck.code, language: 'pptdeck', deck: pptDeck.deck });
       else if (htmlMatch) setArtifact({ code: htmlMatch[1], language: 'html' });
       else if (svgMatch) setArtifact({ code: svgMatch[1], language: 'svg' });
 
@@ -755,7 +739,7 @@ export const Chat = () => {
 
         {/* 制品预览面板 */}
         <AnimatePresence>
-          {artifact?.language === 'ppt' || artifact?.language === 'pptdeck' ? (
+          {artifact?.language === 'ppt' ? (
             <PptArtifactPanel
               artifact={artifact}
               onClose={() => setArtifact(null)}
