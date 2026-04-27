@@ -26,6 +26,14 @@ interface ChatMessageProps {
 const TOOL_RESULT_PREVIEW_CHAR_LIMIT = 520;
 const TOOL_RESULT_PREVIEW_LINE_LIMIT = 10;
 
+function stripHiddenArtifacts(text: string): string {
+  return text
+    .replace(/```pptdeck\n[\s\S]*?\n```/g, '')
+    .replace(/```json\n(?=[\s\S]*?"slides"[\s\S]*?```)[\s\S]*?\n```/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function normalizeToolResult(result: string): string {
   return result
     .replace(
@@ -295,7 +303,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
 
   const handleCopy = React.useCallback(() => {
     if (message?.text) {
-      navigator.clipboard.writeText(message.text);
+      navigator.clipboard.writeText(stripHiddenArtifacts(message.text) || message.text);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     }
@@ -305,6 +313,19 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
     const [isBlockCopied, setIsBlockCopied] = useState(false);
     const match = /language-(\w+)/.exec(className || '');
     const codeString = String(children).replace(/\n$/, '');
+
+    if (!inline && match && match[1] === 'pptdeck') {
+      return null;
+    }
+
+    if (!inline && match && match[1] === 'json') {
+      try {
+        const parsed = JSON.parse(codeString);
+        if (parsed?.slides) return null;
+      } catch {
+        // 普通 JSON 代码块继续按代码显示。
+      }
+    }
 
     // Mermaid 图表单独渲染
     if (!inline && match && match[1] === 'mermaid' && config.enableMermaid) {
@@ -807,7 +828,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                   h6: ({ children }) => <h6>{processChildren(children, sessionCounter.current)}</h6>,
                 }}
               >
-                {message?.text || ''}
+                {stripHiddenArtifacts(message?.text || '')}
               </ReactMarkdown>
             </div>
           )}

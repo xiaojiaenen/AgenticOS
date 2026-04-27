@@ -46,6 +46,7 @@ export type PptSlideType =
   | 'comparison'
   | 'timeline'
   | 'stats'
+  | 'chart'
   | 'quote'
   | 'closing';
 
@@ -61,6 +62,12 @@ export type PptSlide = {
   leftItems?: string[];
   rightItems?: string[];
   stats?: Array<{label: string; value: string; caption?: string}>;
+  chart?: {
+    type?: 'bar' | 'line' | 'donut';
+    labels: string[];
+    values: number[];
+    unit?: string;
+  };
   timeline?: Array<{label: string; title: string; body?: string}>;
   quote?: string;
   author?: string;

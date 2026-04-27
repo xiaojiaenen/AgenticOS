@@ -36,26 +36,28 @@ const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website', string> = {
   "theme": "executive | product | minimal",
   "slides": [
     {
-      "type": "cover | section | bullets | imageText | comparison | timeline | stats | quote | closing",
+      "type": "cover | section | bullets | imageText | comparison | timeline | stats | chart | quote | closing",
       "eyebrow": "可选短标签",
       "title": "页面标题",
       "subtitle": "可选副标题",
-      "body": "可选正文",
-      "items": ["每页最多 5 个短要点"],
+      "body": "可选正文，控制在 60 字以内",
+      "items": ["每页 3-5 个短要点，每个 12-22 字"],
       "leftTitle": "对比页左栏标题",
       "rightTitle": "对比页右栏标题",
       "leftItems": ["左栏要点"],
       "rightItems": ["右栏要点"],
       "stats": [{"value": "3x", "label": "效率提升", "caption": "可选说明"}],
+      "chart": {"type": "bar | line | donut", "labels": ["A", "B", "C"], "values": [35, 62, 88], "unit": "%"},
       "timeline": [{"label": "01", "title": "阶段标题", "body": "可选说明"}],
       "quote": "引用页金句",
       "author": "引用来源"
     }
   ]
 }
-4. 每页文字要短，避免大段落；不要连续 3 页使用同一种 type。
-5. 默认生成 6-10 页，结构要像专业汇报，而不是普通大纲。
-6. 在 code block 后，用 2-3 句话说明设计思路。`,
+4. 内容要比普通大纲更丰满：默认生成 8-12 页，并至少包含 1 页 chart、1 页 stats、1 页 comparison、1 页 timeline。
+5. 每页必须有明确结论，不要只有标题；不要连续 2 页使用同一种 type。
+6. 如果没有真实数据，可以生成“示意数据”，但要在说明里标注为示意。
+7. 在 code block 后，用 2-3 句话说明设计思路。用户界面会隐藏 code block，所以说明要自然，不要提 JSON。`,
   website: '你是 AgenticOS 的网站与前端助手，请优先提供页面结构、交互说明和可运行代码。',
 };
 

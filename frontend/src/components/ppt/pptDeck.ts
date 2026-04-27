@@ -34,6 +34,7 @@ const allowedTypes = new Set([
   'comparison',
   'timeline',
   'stats',
+  'chart',
   'quote',
   'closing',
 ]);
@@ -64,6 +65,14 @@ function normalizeSlide(value: any, index: number): PptSlide {
     imageUrl: asString(value?.imageUrl),
     quote: asString(value?.quote),
     author: asString(value?.author),
+    chart: value?.chart && Array.isArray(value.chart.labels) && Array.isArray(value.chart.values)
+      ? {
+          type: ['bar', 'line', 'donut'].includes(value.chart.type) ? value.chart.type : 'bar',
+          labels: asStringArray(value.chart.labels).slice(0, 6),
+          values: value.chart.values.slice(0, 6).map((item: unknown) => Number(item)).filter(Number.isFinite),
+          unit: asString(value.chart.unit),
+        }
+      : undefined,
     stats: Array.isArray(value?.stats)
       ? value.stats.slice(0, 4).map((item: any) => ({
           label: asString(item?.label),

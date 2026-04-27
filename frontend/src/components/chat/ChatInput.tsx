@@ -79,13 +79,16 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   }, [files]);
 
   const handleInternalSend = React.useCallback(() => {
-    console.log('handleInternalSend triggered', { hasValue: !!value.trim(), filesCount: files.length, isLoading });
     if ((!value.trim() && files.length === 0) || isLoading) return;
     onSend(value, files);
     setFiles([]);
   }, [value, files, isLoading, onSend]);
 
   const handleKeyDown = React.useCallback((e: React.KeyboardEvent) => {
+    const nativeEvent = e.nativeEvent as KeyboardEvent;
+    if (nativeEvent.isComposing || e.key === 'Process') {
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleInternalSend();

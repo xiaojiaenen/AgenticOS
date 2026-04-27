@@ -18,6 +18,8 @@ type Theme = {
   muted: string;
   accent: string;
   accentSoft: string;
+  accentText: string;
+  accentHex: string;
   text: string;
   panel: string;
 };
@@ -29,6 +31,8 @@ const themes: Record<PptThemeName, Theme> = {
     muted: 'text-slate-500',
     accent: 'bg-[#1f6feb]',
     accentSoft: 'bg-[#dbeafe]',
+    accentText: 'text-[#1f6feb]',
+    accentHex: '#1f6feb',
     text: 'text-slate-950',
     panel: 'bg-white',
   },
@@ -38,6 +42,8 @@ const themes: Record<PptThemeName, Theme> = {
     muted: 'text-slate-500',
     accent: 'bg-[#14b8a6]',
     accentSoft: 'bg-[#ccfbf1]',
+    accentText: 'text-[#0f766e]',
+    accentHex: '#14b8a6',
     text: 'text-slate-950',
     panel: 'bg-white',
   },
@@ -47,6 +53,8 @@ const themes: Record<PptThemeName, Theme> = {
     muted: 'text-zinc-500',
     accent: 'bg-[#27272a]',
     accentSoft: 'bg-[#e4e4e7]',
+    accentText: 'text-[#27272a]',
+    accentHex: '#27272a',
     text: 'text-zinc-950',
     panel: 'bg-white',
   },
@@ -62,6 +70,9 @@ const Page = ({ children, theme, dark = false }: { children: React.ReactNode; th
       dark ? `${theme.dark} text-white` : `${theme.page} ${theme.text}`,
     )}
   >
+    <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/50" />
+    <div className={cn('absolute -bottom-24 left-16 h-64 w-64 rounded-full opacity-45', dark ? 'bg-white/10' : theme.accentSoft)} />
+    <div className="absolute inset-0 [background-image:linear-gradient(90deg,rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(0deg,rgba(15,23,42,0.04)_1px,transparent_1px)] [background-size:48px_48px] opacity-45" />
     {children}
   </section>
 );
@@ -76,6 +87,8 @@ function CoverSlide({ slide, theme, index, total, deck }: { slide: PptSlide; the
   return (
     <Page theme={theme} dark>
       <div className="absolute inset-0 opacity-30 [background-image:linear-gradient(120deg,transparent_0%,transparent_54%,rgba(255,255,255,0.2)_54%,rgba(255,255,255,0.2)_100%)]" />
+      <div className="absolute -right-20 top-16 h-80 w-80 rounded-full border-[52px] border-white/10" />
+      <div className="absolute right-24 bottom-40 h-24 w-56 rounded-full bg-white/10 blur-sm" />
       <div className="absolute left-14 top-12 flex items-center gap-3 text-[13px] font-black uppercase tracking-[0.24em] text-white/60">
         <span className={cn('h-2 w-10 rounded-full', theme.accent)} />
         {slide.eyebrow || deck.author || 'AgenticOS'}
@@ -87,6 +100,69 @@ function CoverSlide({ slide, theme, index, total, deck }: { slide: PptSlide; the
       <div className="absolute bottom-16 left-14 h-1.5 w-28 rounded-full bg-white/20" />
       <div className={cn('absolute bottom-16 right-14 h-40 w-40 rounded-[34px]', theme.accent)} />
       <SlideNumber index={index} total={total} dark />
+    </Page>
+  );
+}
+
+function ChartSlide({ slide, theme, index, total }: { slide: PptSlide; theme: Theme; index: number; total: number }) {
+  const chart = slide.chart && slide.chart.labels.length && slide.chart.values.length
+    ? slide.chart
+    : { type: 'bar', labels: ['入口', '转化', '留存', '复购'], values: [32, 58, 74, 86], unit: '%' };
+  const max = Math.max(...chart.values, 1);
+  const linePoints = chart.values.map((value, pointIndex) => {
+    const x = 18 + pointIndex * (260 / Math.max(chart.values.length - 1, 1));
+    const y = 180 - (value / max) * 145;
+    return `${x},${y}`;
+  }).join(' ');
+
+  return (
+    <Page theme={theme}>
+      <div className="absolute left-12 top-10 right-12 flex items-start justify-between">
+        <div>
+          <div className={cn('mb-3 text-[13px] font-black uppercase tracking-[0.2em]', theme.accentText)}>Data view</div>
+          <h2 className="max-w-[620px] text-[42px] font-black leading-[1.04] tracking-[-0.02em]">{slide.title}</h2>
+          {slide.subtitle && <p className={cn('mt-4 max-w-[520px] text-[16px] leading-[1.42]', theme.muted)}>{slide.subtitle}</p>}
+        </div>
+        <div className={cn('rounded-full px-4 py-2 text-[12px] font-black uppercase tracking-[0.18em]', theme.accentSoft, theme.accentText)}>
+          {chart.type || 'bar'} chart
+        </div>
+      </div>
+
+      <div className="absolute left-12 right-12 top-[184px] grid grid-cols-[1fr_300px] gap-7">
+        <div className="h-[300px] rounded-[32px] bg-white p-7 shadow-[0_22px_56px_rgba(15,23,42,0.1)]">
+          {chart.type === 'line' ? (
+            <svg viewBox="0 0 300 200" className="h-full w-full overflow-visible">
+              <polyline points={linePoints} fill="none" stroke={theme.accentHex} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+              {chart.values.map((value, pointIndex) => {
+                const x = 18 + pointIndex * (260 / Math.max(chart.values.length - 1, 1));
+                const y = 180 - (value / max) * 145;
+                return <circle key={pointIndex} cx={x} cy={y} r="7" fill={theme.accentHex} />;
+              })}
+            </svg>
+          ) : (
+            <div className="flex h-full items-end gap-5">
+              {chart.values.map((value, barIndex) => (
+                <div key={barIndex} className="flex flex-1 flex-col items-center gap-3">
+                  <div className={cn('flex w-full items-start justify-center rounded-t-[18px]', theme.accent)} style={{ height: `${Math.max(18, (value / max) * 210)}px` }}>
+                    <span className="mt-3 text-[15px] font-black text-white">{value}{chart.unit}</span>
+                  </div>
+                  <div className="text-center text-[12px] font-bold text-slate-500">{chart.labels[barIndex]}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className={cn('h-[300px] rounded-[32px] p-7 text-white shadow-[0_22px_56px_rgba(15,23,42,0.16)]', theme.dark)}>
+          <div className="text-[13px] font-black uppercase tracking-[0.18em] text-white/45">Insight</div>
+          <div className="mt-7 text-[52px] font-black leading-none tracking-[-0.04em]">
+            {Math.max(...chart.values)}{chart.unit}
+          </div>
+          <p className="mt-6 text-[18px] font-bold leading-[1.32] text-white/78">
+            {slide.body || '关键指标呈现上升趋势，适合作为方案价值或阶段进展的主证据。'}
+          </p>
+        </div>
+      </div>
+      <SlideNumber index={index} total={total} />
     </Page>
   );
 }
@@ -263,6 +339,7 @@ function renderSlide(slide: PptSlide, deck: PptDeck, index: number) {
   if (slide.type === 'comparison') return <ComparisonSlide slide={slide} theme={theme} index={index} total={total} />;
   if (slide.type === 'stats') return <StatsSlide slide={slide} theme={theme} index={index} total={total} />;
   if (slide.type === 'timeline') return <TimelineSlide slide={slide} theme={theme} index={index} total={total} />;
+  if (slide.type === 'chart') return <ChartSlide slide={slide} theme={theme} index={index} total={total} />;
   if (slide.type === 'quote') return <QuoteSlide slide={slide} theme={theme} index={index} total={total} />;
   if (slide.type === 'imageText') return <ImageTextSlide slide={slide} theme={theme} index={index} total={total} />;
   if (slide.type === 'closing') return <ClosingSlide slide={slide} theme={theme} index={index} total={total} />;
