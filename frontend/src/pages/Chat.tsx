@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from '../components/chat/Sidebar';
@@ -9,9 +10,11 @@ import { ChatSearch } from '../components/chat/ChatSearch';
 import { MessagesList } from '../components/chat/MessagesList';
 import { ArtifactPanel } from '../components/chat/ArtifactPanel';
 import { DragOverlay } from '../components/chat/DragOverlay';
+import { RuntimeStatusBar } from '../components/chat/RuntimeStatusBar';
+import { PendingApprovalPanel } from '../components/chat/PendingApprovalPanel';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { Message, Session, Attachment } from '../types';
-import { sendMessageStream, generateTitle } from '../services/agentService';
+import { sendMessageStream, generateTitle, submitApprovalDecision, AgentSessionState } from '../services/agentService';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { MenuIcon, AlertCircleIcon, MascotCool, MascotSurprised, MascotHappy, ChevronDownIcon, WrenchIcon, DownloadIcon, RefreshIcon, CopyIcon, CodeIcon, UserAvatarIcon } from '../components/ui/AnimatedIcons';
 import { cn } from '../lib/utils';
@@ -56,6 +59,10 @@ export const Chat = () => {
   const currentSessionMessages = currentSession?.messages ?? [];
   const isStreamingResponse = isLoading && currentSessionMessages[currentSessionMessages.length - 1]?.role === 'model';
   const isWideConversation = !artifact && !isMobile;
+  const pendingApprovals = React.useMemo(
+    () => currentSessionMessages.flatMap(message => message.toolCalls || []).filter(tool => tool.status === 'approval_required' && tool.approvalId),
+    [currentSessionMessages],
+  );
 
   // 处理会话切换时的模式同步
   useEffect(() => {
@@ -173,33 +180,67 @@ export const Chat = () => {
     setCurrentSessionId(prev => (prev === id ? null : prev));
   }, []);
 
+  const applySessionState = React.useCallback((targetId: string, state: AgentSessionState) => {
+    setSessions(prev => prev.map(session => (
+      session.id === targetId || session.id === state.session_id
+        ? {
+            ...session,
+            id: state.session_id || session.id,
+            summary: state.summary ?? session.summary,
+            contextCompressed: state.context_compressed ?? session.contextCompressed,
+            storage: state.storage ?? session.storage,
+            lastUsage: state.last_usage ?? session.lastUsage,
+            latencyMs: state.last_latency_ms ?? session.latencyMs,
+            llmCalls: state.last_llm_calls ?? session.llmCalls,
+          }
+        : session
+    )));
+    if (targetId !== state.session_id && state.session_id) {
+      setCurrentSessionId(prev => (prev === targetId ? state.session_id : prev));
+    }
+  }, []);
+
+  const handleApprovalDecision = React.useCallback(async (approvalId: string, status: 'approved' | 'rejected') => {
+    const optimisticStatus = status === 'approved' ? 'approved' : 'rejected';
+    setSessions(prev => prev.map(session => ({
+      ...session,
+      messages: session.messages.map(message => ({
+        ...message,
+        toolCalls: message.toolCalls?.map(tool => (
+          tool.approvalId === approvalId
+            ? {
+                ...tool,
+                status: optimisticStatus,
+                result: status === 'approved' ? '审批已通过，等待工具执行。' : '审批已拒绝，工具不会执行。',
+              }
+            : tool
+        )),
+      })),
+    })));
+
+    try {
+      await submitApprovalDecision(approvalId, status, status === 'approved' ? 'approved from AgenticOS UI' : 'rejected from AgenticOS UI');
+    } catch (err) {
+      console.error('Approval error:', err);
+      setError('审批提交失败，请检查后端服务。');
+    }
+  }, []);
+
   const handleSend = React.useCallback(async (text: string, files?: File[]) => {
     if ((!text.trim() && (!files || files.length === 0)) || isLoading) return;
 
-    setIsLoading(true);
     const currentText = text.trim();
-    setInputValue('');
     let userMessage: Message | null = null;
     let targetId: string | null = null;
     let assistantMessageId: string | null = null;
     let hasStreamedContent = false;
 
     try {
-      const attachments: Attachment[] = [];
-      if (files && files.length > 0) {
-        for (const file of files) {
-          if (file.type.startsWith('image/')) {
-            const dataUrl = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result as string);
-              reader.readAsDataURL(file);
-            });
-            attachments.push({ name: file.name, type: file.type, url: dataUrl });
-          } else {
-            attachments.push({ name: file.name, type: file.type, url: '' });
-          }
-        }
-      }
+      const attachments: Attachment[] = (files || []).map((file) => ({
+        name: file.name,
+        type: file.type,
+        url: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+      }));
 
       userMessage = {
         id: Date.now().toString(),
@@ -219,34 +260,43 @@ export const Chat = () => {
         setError('当前后端暂不支持直接解析附件内容，本次仅向模型发送文本和文件名。');
       }
 
-      // 先写入用户消息和一个占位中的模型消息，保证流式更新有落点
-      setSessions(prev => {
-        const assistantMessage: Message = {
-          id: assistantMessageId!,
-          role: 'model',
-          text: '',
-        };
+      // 先同步写入用户消息和一个模型占位，让界面立刻响应，再发起后端请求。
+      flushSync(() => {
+        setIsLoading(true);
+        setInputValue('');
+        setSessions(prev => {
+          const assistantMessage: Message = {
+            id: assistantMessageId!,
+            role: 'model',
+            text: '',
+          };
+
+          if (!currentSessionId) {
+            const newSession: Session = {
+              id: targetId!,
+              title: currentText.slice(0, 20) + (currentText.length > 20 ? '...' : ''),
+              messages: [userMessage!, assistantMessage],
+              updatedAt: Date.now(),
+              mode: chatMode,
+            };
+            return [newSession, ...prev];
+          }
+          return prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, userMessage, assistantMessage], updatedAt: Date.now() } : s);
+        });
 
         if (!currentSessionId) {
-          const newSession: Session = {
-            id: targetId!,
-            title: currentText.slice(0, 20) + (currentText.length > 20 ? '...' : ''),
-            messages: [userMessage!, assistantMessage],
-            updatedAt: Date.now(),
-            mode: chatMode,
-          };
-          return [newSession, ...prev];
+          setCurrentSessionId(targetId);
         }
-        return prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, userMessage, assistantMessage], updatedAt: Date.now() } : s);
       });
 
-      if (!currentSessionId) {
-        setCurrentSessionId(targetId);
-      }
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
 
       const response = await sendMessageStream(outboundMessage, {
         sessionId: targetId,
         systemPrompt: currentSession ? undefined : MODE_SYSTEM_PROMPTS[chatMode],
+        onSessionState: (state) => {
+          applySessionState(targetId!, state);
+        },
         onDelta: (_, fullText) => {
           hasStreamedContent = true;
           setSessions(prev => prev.map(session => (
@@ -289,6 +339,12 @@ export const Chat = () => {
                       ? { ...message, text: response.text, toolCalls: response.toolCalls }
                       : message
                   )),
+                  summary: response.sessionState?.summary ?? session.summary,
+                  contextCompressed: response.sessionState?.context_compressed ?? session.contextCompressed,
+                  storage: response.sessionState?.storage ?? session.storage,
+                  lastUsage: response.sessionState?.last_usage ?? session.lastUsage,
+                  latencyMs: response.sessionState?.last_latency_ms ?? session.latencyMs,
+                  llmCalls: response.sessionState?.last_llm_calls ?? session.llmCalls,
             }
           : session
       )));
@@ -328,7 +384,7 @@ export const Chat = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentSessionId, sessions, isLoading, chatMode]);
+  }, [currentSessionId, sessions, isLoading, chatMode, currentSession, applySessionState]);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -499,6 +555,8 @@ export const Chat = () => {
               )}
             </AnimatePresence>
 
+            <RuntimeStatusBar session={currentSession} isLoading={isLoading} />
+
             <MessagesList 
               currentSession={currentSession}
               isLoading={isLoading}
@@ -534,6 +592,10 @@ export const Chat = () => {
             </AnimatePresence>
 
             <div className={cn("mx-auto", isWideConversation ? "max-w-[92rem] px-8" : "max-w-4xl")}>
+              <PendingApprovalPanel
+                approvals={pendingApprovals}
+                onDecision={handleApprovalDecision}
+              />
               <ChatInput 
                 ref={chatInputRef}
                 value={inputValue}

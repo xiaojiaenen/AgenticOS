@@ -1,8 +1,11 @@
 export type ToolCall = {
   id?: string;
   name: string;
-  status: 'pending' | 'success' | 'error';
+  status: 'pending' | 'approval_required' | 'approved' | 'rejected' | 'success' | 'error';
   result?: string;
+  approvalId?: string;
+  arguments?: Record<string, unknown>;
+  reason?: string;
 };
 
 export type Attachment = {
@@ -25,4 +28,10 @@ export type Session = {
   messages: Message[];
   updatedAt: number;
   mode?: 'general' | 'ppt' | 'website';
+  summary?: string | null;
+  contextCompressed?: boolean;
+  storage?: string;
+  lastUsage?: Record<string, number> | null;
+  latencyMs?: number | null;
+  llmCalls?: number | null;
 };

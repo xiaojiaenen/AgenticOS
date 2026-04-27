@@ -27,6 +27,12 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
     return r;
   }, [messages]);
 
+  const maxVisibleRounds = 8;
+  const visibleRounds = rounds.length > maxVisibleRounds
+    ? [rounds[0], ...rounds.slice(-(maxVisibleRounds - 1))]
+    : rounds;
+  const hiddenRoundsCount = Math.max(0, rounds.length - visibleRounds.length);
+
   const scrollToRound = (round: any) => {
     const rowEl = document.getElementById(`msg-${round.id}`);
     const bubbleEl = document.getElementById(`bubble-${round.id}`);
@@ -89,15 +95,20 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
         )}
       </AnimatePresence>
 
-      {/* Main scrollable dots container */}
-      <div className="bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.1)] rounded-full py-4 px-1.5 flex flex-col items-center gap-2 max-h-[60vh] overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 transition-all group hover:shadow-md hover:bg-white/95">
+      {/* Bounded round navigator */}
+      <div className="bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.1)] rounded-full py-4 px-1.5 flex flex-col items-center gap-2 transition-all group hover:shadow-md hover:bg-white/95">
         <div className="mb-1 text-slate-300 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
         </div>
         
-        {rounds.map((round) => (
+        {visibleRounds.map((round, idx) => (
+          <React.Fragment key={round.id}>
+            {hiddenRoundsCount > 0 && idx === 1 && (
+              <div className="flex h-7 w-7 items-center justify-center rounded-full text-[9px] font-black text-slate-300">
+                +{hiddenRoundsCount}
+              </div>
+            )}
           <div 
-            key={round.id} 
             onClick={() => scrollToRound(round)}
             onMouseEnter={(e) => {
               const wrapperRect = wrapperRef.current?.getBoundingClientRect();
@@ -113,6 +124,7 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
               {round.index}
             </span>
           </div>
+          </React.Fragment>
         ))}
         
         <div className="mt-1 text-slate-300 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0">

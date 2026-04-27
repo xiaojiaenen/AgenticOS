@@ -31,6 +31,20 @@ class FakeAgentService:
             },
         }
 
+    async def decide_approval(self, approval_id: str, *, status: str, reason: str | None = None):
+        return {
+            "approval_id": approval_id,
+            "status": status,
+            "reason": reason,
+        }
+
+    async def get_session_state(self, session_id: str):
+        return {
+            "session_id": session_id,
+            "storage": "sqlalchemy",
+            "pending_approvals": [],
+        }
+
 
 def test_agent_stream_endpoint() -> None:
     app.dependency_overrides[get_agent_service] = lambda: FakeAgentService()
@@ -51,5 +65,25 @@ def test_agent_stream_endpoint() -> None:
         assert "event: delta" in body
         assert '"content": "hello"' in body
         assert "event: done" in body
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_agent_approval_decision_endpoint() -> None:
+    app.dependency_overrides[get_agent_service] = lambda: FakeAgentService()
+
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/agent/approvals/approval-1/decision",
+                json={"status": "approved", "reason": "ok"},
+            )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "approval_id": "approval-1",
+            "status": "approved",
+            "reason": "ok",
+        }
     finally:
         app.dependency_overrides.clear()

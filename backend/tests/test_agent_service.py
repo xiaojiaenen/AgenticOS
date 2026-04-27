@@ -89,10 +89,9 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
     request = AgentStreamRequest(message="现在几点", session_id="demo-session")
     events = [event async for event in service.stream_chat(request)]
 
-    assert events[0] == {
-        "event": "session",
-        "data": {"session_id": "demo-session"},
-    }
+    assert events[0]["event"] == "session"
+    assert events[0]["data"]["session_id"] == "demo-session"
+    assert events[0]["data"]["storage"] == "sqlalchemy"
     assert events[1] == {
         "event": "delta",
         "data": {
@@ -143,13 +142,9 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
             ],
         },
     }
-    assert events[5] == {
-        "event": "done",
-        "data": {
-            "session_id": "demo-session",
-            "finish_reason": "stop",
-            "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},
-            "latency_ms": 120,
-            "llm_calls": 1,
-        },
-    }
+    assert events[5]["event"] == "done"
+    assert events[5]["data"]["session_id"] == "demo-session"
+    assert events[5]["data"]["finish_reason"] == "stop"
+    assert events[5]["data"]["usage"] == {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}
+    assert events[5]["data"]["latency_ms"] == 120
+    assert events[5]["data"]["llm_calls"] == 1

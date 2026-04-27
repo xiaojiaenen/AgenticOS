@@ -23,6 +23,100 @@ interface ChatMessageProps {
   activeMatchId?: string | null;
 }
 
+const TOOL_RESULT_PREVIEW_CHAR_LIMIT = 520;
+const TOOL_RESULT_PREVIEW_LINE_LIMIT = 10;
+
+function normalizeToolResult(result: string): string {
+  return result
+    .replace(
+      /(data:image\/[a-zA-Z0-9.+-]+;base64,)[A-Za-z0-9+/=\n\r]{40,}/g,
+      '$1...',
+    )
+    .replace(
+      /(data:application\/[a-zA-Z0-9.+-]+;base64,)[A-Za-z0-9+/=\n\r]{40,}/g,
+      '$1...',
+    );
+}
+
+function buildToolResultPreview(result: string): { text: string; truncated: boolean } {
+  if (result.length <= TOOL_RESULT_PREVIEW_CHAR_LIMIT) {
+    const lineCount = result.split('\n').length;
+    if (lineCount <= TOOL_RESULT_PREVIEW_LINE_LIMIT) {
+      return { text: result, truncated: false };
+    }
+  }
+
+  const lines = result.split('\n');
+  const previewLines = lines.slice(0, TOOL_RESULT_PREVIEW_LINE_LIMIT);
+  let preview = previewLines.join('\n');
+
+  if (preview.length > TOOL_RESULT_PREVIEW_CHAR_LIMIT) {
+    preview = `${preview.slice(0, TOOL_RESULT_PREVIEW_CHAR_LIMIT).trimEnd()}...`;
+  } else if (lines.length > TOOL_RESULT_PREVIEW_LINE_LIMIT || result.length > preview.length) {
+    preview = `${preview.trimEnd()}\n...`;
+  }
+
+  return { text: preview, truncated: true };
+}
+
+const ToolResultPreview = ({
+  result,
+  isError = false,
+}: {
+  result: string;
+  isError?: boolean;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const normalizedResult = normalizeToolResult(result);
+  const { text: previewText, truncated } = buildToolResultPreview(normalizedResult);
+  const displayedText = expanded || !truncated ? normalizedResult : previewText;
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <div
+          className={cn(
+            "rounded-xl px-3 py-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-words",
+            isError
+              ? "border border-rose-200/90 bg-rose-50/90 text-rose-700"
+              : "border border-slate-200/80 bg-slate-50/90 text-slate-500",
+          )}
+        >
+          {displayedText}
+        </div>
+        {!expanded && truncated && (
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-x-0 bottom-0 h-16 rounded-b-xl",
+              isError
+                ? "bg-gradient-to-t from-rose-50/95 via-rose-50/70 to-transparent"
+                : "bg-gradient-to-t from-slate-50/95 via-slate-50/70 to-transparent",
+            )}
+          />
+        )}
+      </div>
+      {truncated && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors",
+            isError
+              ? "border-rose-200 bg-white text-rose-600 hover:bg-rose-50"
+              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+          )}
+        >
+          <span>{expanded ? '收起结果' : '展开结果'}</span>
+          <ChevronDownIcon
+            size={12}
+            className={cn("transition-transform duration-300", expanded && "rotate-180")}
+          />
+        </button>
+      )}
+    </div>
+  );
+};
+
 const MermaidChart = React.memo(({ chart }: { chart: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string>('');
@@ -477,18 +571,43 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                     {(() => {
                       const isSuccess = tool.status === 'success';
                       const isError = tool.status === 'error';
+                      const needsApproval = tool.status === 'approval_required';
+                      const wasApproved = tool.status === 'approved';
+                      const wasRejected = tool.status === 'rejected';
                       const statusClass = isSuccess
                         ? "bg-emerald-50 text-emerald-600"
                         : isError
                           ? "bg-rose-50 text-rose-600"
-                          : "bg-sky-50 text-sky-600";
-                      const statusLabel = isSuccess ? '已完成' : isError ? '失败' : '执行中';
-                      const executionState = isSuccess ? 'done' : isError ? 'idle' : 'active';
+                          : needsApproval
+                            ? "bg-amber-50 text-amber-700"
+                            : wasRejected
+                              ? "bg-rose-50 text-rose-600"
+                              : wasApproved
+                                ? "bg-sky-50 text-sky-600"
+                                : "bg-sky-50 text-sky-600";
+                      const statusLabel = isSuccess
+                        ? '已完成'
+                        : isError
+                          ? '失败'
+                          : needsApproval
+                            ? '待审批'
+                            : wasRejected
+                              ? '已拒绝'
+                              : wasApproved
+                                ? '已批准'
+                                : '执行中';
+                      const executionState = isSuccess ? 'done' : isError || wasRejected ? 'idle' : 'active';
                       const executionBody = isSuccess
                         ? '工具执行完成。'
                         : isError
                           ? '工具执行失败，请查看返回结果中的错误说明。'
-                          : '工具正在处理中，请稍候。';
+                          : needsApproval
+                            ? '该工具需要人工确认后才会执行。'
+                            : wasApproved
+                              ? '审批已通过，等待工具返回结果。'
+                              : wasRejected
+                                ? '审批已拒绝，工具不会执行。'
+                                : '工具正在处理中，请稍候。';
                       const resultDotClass = isSuccess
                         ? "border-emerald-500 bg-emerald-500"
                         : isError
@@ -503,10 +622,6 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                           : tool.result
                             ? "text-emerald-600"
                             : "text-slate-400";
-                      const resultBoxClass = isError
-                        ? "rounded-xl border border-rose-200/90 bg-rose-50/90 px-3 py-2 font-mono text-[11px] leading-relaxed text-rose-700 whitespace-pre-wrap break-words"
-                        : "rounded-xl border border-slate-200/80 bg-slate-50/90 px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-500 whitespace-pre-wrap break-words";
-
                       return (
                         <>
                     <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
@@ -544,9 +659,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                           </div>
                           <div className="mt-1">
                             {tool.result ? (
-                              <div className={resultBoxClass}>
-                                {tool.result}
-                              </div>
+                              <ToolResultPreview result={tool.result} isError={isError} />
                             ) : (
                               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2 text-[11px] text-slate-400">
                                 等待工具返回内容

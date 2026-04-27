@@ -16,6 +16,13 @@ class Settings(BaseSettings):
     agent_system_prompt: str = "你是 AgenticOS 的 AI 助手。"
     agent_max_steps: int = 10
     agent_parallel_tool_calls: bool = False
+    database_url: str = Field(default="sqlite:///./data/agenticos.db", validation_alias="DATABASE_URL")
+    context_compression_enabled: bool = True
+    context_compress_after_turns: int = 16
+    context_keep_recent_turns: int = 6
+    hitl_enabled: bool = True
+    hitl_require_approval_tools: str = "file_to_md"
+    hitl_timeout_seconds: int = 300
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -25,6 +32,9 @@ class Settings(BaseSettings):
 
     def get_cors_allow_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_allow_origins.split(",") if origin.strip()]
+
+    def get_hitl_require_approval_tools(self) -> set[str]:
+        return {tool.strip() for tool in self.hitl_require_approval_tools.split(",") if tool.strip()}
 
 
 @lru_cache

@@ -45,6 +45,7 @@ AgenticOS/
 
 - 后端：FastAPI、Pydantic Settings、Uvicorn、Wuwei
 - 前端：React、TypeScript、Vite、React Markdown
+- 存储：SQLAlchemy，默认 SQLite，可通过 `DATABASE_URL` 切换 MySQL 等数据库
 - 模型接入：OpenAI 兼容接口
 
 ## 环境要求
@@ -188,6 +189,13 @@ OPENAI_MODEL=gpt-5.4
 AGENT_SYSTEM_PROMPT=你是 AgenticOS 的 AI 助手。
 AGENT_MAX_STEPS=10
 AGENT_PARALLEL_TOOL_CALLS=false
+DATABASE_URL=sqlite:///./data/agenticos.db
+CONTEXT_COMPRESSION_ENABLED=true
+CONTEXT_COMPRESS_AFTER_TURNS=16
+CONTEXT_KEEP_RECENT_TURNS=6
+HITL_ENABLED=true
+HITL_REQUIRE_APPROVAL_TOOLS=file_to_md
+HITL_TIMEOUT_SECONDS=300
 ```
 
 说明：
@@ -198,6 +206,10 @@ AGENT_PARALLEL_TOOL_CALLS=false
 - `AGENT_SYSTEM_PROMPT`：默认系统提示词
 - `AGENT_MAX_STEPS`：智能体最大迭代步数
 - `AGENT_PARALLEL_TOOL_CALLS`：是否允许并行工具调用
+- `DATABASE_URL`：SQLAlchemy 数据库地址，默认使用 SQLite；切换 MySQL 时可改成 `mysql+pymysql://user:password@host:3306/dbname`
+- `CONTEXT_COMPRESSION_ENABLED`：是否启用长对话上下文压缩
+- `CONTEXT_COMPRESS_AFTER_TURNS` / `CONTEXT_KEEP_RECENT_TURNS`：超过多少轮后压缩，以及保留最近多少轮原始上下文
+- `HITL_ENABLED` / `HITL_REQUIRE_APPROVAL_TOOLS`：是否启用工具调用人工审批，以及哪些工具需要审批
 
 ## 五、当前功能说明
 
@@ -207,6 +219,9 @@ AGENT_PARALLEL_TOOL_CALLS=false
 - 多轮会话 `session_id`
 - SSE 流式回复
 - 工具调用信息回传
+- SQLite 会话持久化，后续可切换 MySQL
+- 长对话上下文压缩摘要
+- HITL 工具调用人工审批
 - Markdown 渲染
 - 代码块渲染
 - 表格渲染与样式优化

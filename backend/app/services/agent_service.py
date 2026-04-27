@@ -1,15 +1,31 @@
+import asyncio
+import contextlib
+import json
 from functools import lru_cache
 from typing import Any, AsyncIterator
 
-from wuwei import Agent, AgentEvent
+from wuwei import Agent, AgentEvent, ContextCompressionHook, HitlHook, StorageHook
+from wuwei.memory.context_compressor import LLMContextCompressor
+from wuwei.runtime import ApprovalPolicy
 
 from app.core.config import Settings, get_settings
+from app.services.approval_manager import ApprovalManager
+from app.services.session_storage import DatabaseAgentStorage
 from app.schemas.agent import AgentStreamRequest
 
 
 class AgentService:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        storage: DatabaseAgentStorage | None = None,
+        approval_manager: ApprovalManager | None = None,
+    ) -> None:
         self.settings = settings
+        self.storage = storage or DatabaseAgentStorage()
+        self.approval_manager = approval_manager or ApprovalManager(
+            timeout_seconds=settings.hitl_timeout_seconds
+        )
         self._agent: Agent | None = None
 
     def ensure_ready(self) -> None:
@@ -22,12 +38,32 @@ class AgentService:
         if not self.settings.openai_api_key:
             raise RuntimeError("缺少 OPENAI_API_KEY，请先在环境变量或 .env 中配置后再调用 /agent/stream。")
 
+        hooks = [StorageHook(self.storage)]
+        if self.settings.hitl_enabled:
+            hooks.append(
+                HitlHook(
+                    provider=self.approval_manager,
+                    policy=ApprovalPolicy(
+                        require_approval_tools=self.settings.get_hitl_require_approval_tools()
+                    ),
+                )
+            )
+
         self._agent = Agent.from_env(
             builtin_tools=["time", "file"],
             system_prompt=self.settings.agent_system_prompt,
             max_steps=self.settings.agent_max_steps,
             parallel_tool_calls=self.settings.agent_parallel_tool_calls,
+            hooks=hooks,
         )
+        if self.settings.context_compression_enabled:
+            self._agent.hooks.register(
+                ContextCompressionHook(
+                    compressor=LLMContextCompressor(self._agent.llm),
+                    compress_after_turns=self.settings.context_compress_after_turns,
+                    keep_recent_turns=self.settings.context_keep_recent_turns,
+                )
+            )
         return self._agent
 
     @staticmethod
@@ -54,100 +90,204 @@ class AgentService:
             "result": result,
         }
 
-    async def stream_chat(self, request: AgentStreamRequest) -> AsyncIterator[dict[str, Any]]:
-        agent = self._get_agent()
-        session = agent.create_or_get_session(
-            session_id=request.session_id,
-            system_prompt=request.system_prompt,
-            max_steps=request.max_steps,
-            parallel_tool_calls=request.parallel_tool_calls,
-        )
+    @staticmethod
+    def _status_from_tool_output(output: str | None) -> str:
+        if not output:
+            return "success"
+        try:
+            payload = json.loads(output)
+        except json.JSONDecodeError:
+            return "success"
+        if isinstance(payload, dict) and payload.get("ok") is False:
+            return "error"
+        return "success"
 
-        yield {
-            "event": "session",
-            "data": {
-                "session_id": session.session_id,
-            },
+    async def _load_session_if_needed(self, agent: Agent, request: AgentStreamRequest) -> None:
+        if not request.session_id or not hasattr(agent, "_sessions"):
+            return
+        sessions = getattr(agent, "_sessions")
+        if request.session_id in sessions:
+            return
+        loaded = await self.storage.load(request.session_id)
+        if loaded is not None:
+            sessions[request.session_id] = loaded
+
+    def _session_payload(self, session) -> dict[str, Any]:
+        metadata = getattr(session, "metadata", {}) or {}
+        return {
+            "session_id": session.session_id,
+            "summary": getattr(session, "summary", None),
+            "metadata": metadata,
+            "context_compressed": bool(getattr(session, "summary", None)),
+            "storage": "sqlalchemy",
+            "last_usage": getattr(session, "last_usage", None),
+            "last_latency_ms": getattr(session, "last_latency_ms", None),
+            "last_llm_calls": getattr(session, "last_llm_calls", None),
         }
 
-        async for event in agent.stream_events(request.message, session=session):
-            if event.type == "text_delta":
-                yield {
-                    "event": "delta",
-                    "data": {
-                        "session_id": session.session_id,
-                        "content": event.data.get("content", ""),
-                    },
-                }
-                continue
+    def _map_agent_event(self, event: AgentEvent, session) -> dict[str, Any] | None:
+        if event.type == "text_delta":
+            return {
+                "event": "delta",
+                "data": {
+                    "session_id": session.session_id,
+                    "content": event.data.get("content", ""),
+                },
+            }
 
-            if event.type == "tool_start":
-                yield {
-                    "event": "tool_calls",
-                    "data": {
-                        "session_id": session.session_id,
-                        "tool_calls": [self._build_tool_call_payload(event)],
-                    },
-                }
-                continue
+        if event.type == "tool_start":
+            return {
+                "event": "tool_calls",
+                "data": {
+                    "session_id": session.session_id,
+                    "tool_calls": [self._build_tool_call_payload(event)],
+                },
+            }
 
-            if event.type == "tool_end":
-                yield {
+        if event.type == "tool_end":
+            output = event.data.get("output")
+            return {
+                "event": "tool_results",
+                "data": {
+                    "session_id": session.session_id,
+                    "tool_calls": [
+                        self._build_tool_result_payload(
+                            event,
+                            status=self._status_from_tool_output(output),
+                            result=output,
+                        )
+                    ],
+                },
+            }
+
+        if event.type == "done":
+            return {
+                "event": "done",
+                "data": {
+                    **self._session_payload(session),
+                    "finish_reason": event.data.get("reason", "stop"),
+                    "usage": event.data.get("usage"),
+                    "latency_ms": event.data.get("latency_ms"),
+                    "llm_calls": event.data.get("llm_calls"),
+                },
+            }
+
+        if event.type == "error":
+            if event.data.get("tool_call_id") or event.data.get("tool_name"):
+                return {
                     "event": "tool_results",
                     "data": {
                         "session_id": session.session_id,
                         "tool_calls": [
                             self._build_tool_result_payload(
                                 event,
-                                status="success",
-                                result=event.data.get("output"),
+                                status="error",
+                                result=event.data.get("message"),
                             )
                         ],
                     },
                 }
-                continue
 
-            if event.type == "done":
-                yield {
-                    "event": "done",
-                    "data": {
-                        "session_id": session.session_id,
-                        "finish_reason": event.data.get("reason", "stop"),
-                        "usage": event.data.get("usage"),
-                        "latency_ms": event.data.get("latency_ms"),
-                        "llm_calls": event.data.get("llm_calls"),
-                    },
-                }
-                continue
+            return {
+                "event": "error",
+                "data": {
+                    "session_id": session.session_id,
+                    "message": event.data.get("message", "智能体执行失败。"),
+                    "error_type": event.data.get("error_type"),
+                    "usage": event.data.get("usage"),
+                    "latency_ms": event.data.get("latency_ms"),
+                    "llm_calls": event.data.get("llm_calls"),
+                },
+            }
 
-            if event.type == "error":
-                if event.data.get("tool_call_id") or event.data.get("tool_name"):
+        return None
+
+    async def stream_chat(self, request: AgentStreamRequest) -> AsyncIterator[dict[str, Any]]:
+        agent = self._get_agent()
+        await self._load_session_if_needed(agent, request)
+        session = agent.create_or_get_session(
+            session_id=request.session_id,
+            system_prompt=request.system_prompt,
+            max_steps=request.max_steps,
+            parallel_tool_calls=request.parallel_tool_calls,
+        )
+        approval_queue = self.approval_manager.subscribe(session.session_id)
+
+        yield {
+            "event": "session",
+            "data": self._session_payload(session),
+        }
+
+        runtime_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue()
+
+        async def produce_events() -> None:
+            try:
+                async for event in agent.stream_events(request.message, session=session):
+                    await runtime_queue.put(event)
+            finally:
+                try:
+                    if hasattr(session, "system_prompt"):
+                        await self.storage.save_meta(session)
+                finally:
+                    await runtime_queue.put(None)
+
+        producer = asyncio.create_task(produce_events())
+        runtime_task = asyncio.create_task(runtime_queue.get())
+        approval_task = asyncio.create_task(approval_queue.get())
+
+        try:
+            while True:
+                done, _ = await asyncio.wait(
+                    {runtime_task, approval_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+
+                if runtime_task in done:
+                    event = runtime_task.result()
+                    if event is None:
+                        break
+                    mapped = self._map_agent_event(event, session)
+                    if mapped is not None:
+                        yield mapped
+                    runtime_task = asyncio.create_task(runtime_queue.get())
+
+                if approval_task in done:
+                    approval = approval_task.result()
                     yield {
-                        "event": "tool_results",
-                        "data": {
-                            "session_id": session.session_id,
-                            "tool_calls": [
-                                self._build_tool_result_payload(
-                                    event,
-                                    status="error",
-                                    result=event.data.get("message"),
-                                )
-                            ],
-                        },
+                        "event": "approval_required",
+                        "data": approval,
                     }
-                    continue
+                    approval_task = asyncio.create_task(approval_queue.get())
+        finally:
+            self.approval_manager.unsubscribe(session.session_id, approval_queue)
+            for task in (runtime_task, approval_task):
+                if not task.done():
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await task
+            if not producer.done():
+                producer.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await producer
+            else:
+                with contextlib.suppress(Exception):
+                    producer.result()
 
-                yield {
-                    "event": "error",
-                    "data": {
-                        "session_id": session.session_id,
-                        "message": event.data.get("message", "智能体执行失败。"),
-                        "error_type": event.data.get("error_type"),
-                        "usage": event.data.get("usage"),
-                        "latency_ms": event.data.get("latency_ms"),
-                        "llm_calls": event.data.get("llm_calls"),
-                    },
-                }
+    async def decide_approval(
+        self,
+        approval_id: str,
+        *,
+        status: str,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        return await self.approval_manager.decide(approval_id, status=status, reason=reason)
+
+    async def get_session_state(self, session_id: str) -> dict[str, Any]:
+        stored = await self.storage.describe(session_id)
+        if stored is None:
+            stored = {"session_id": session_id, "storage": "sqlalchemy", "message_count": 0}
+        stored["pending_approvals"] = await self.approval_manager.get_pending(session_id)
+        return stored
 
 
 @lru_cache

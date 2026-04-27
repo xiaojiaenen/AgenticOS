@@ -5,6 +5,7 @@ type AgentServiceOptions = {
   systemPrompt?: string;
   onDelta?: (delta: string, fullText: string) => void;
   onToolCalls?: (toolCalls: ToolCall[]) => void;
+  onSessionState?: (state: AgentSessionState) => void;
   signal?: AbortSignal;
 };
 
@@ -13,6 +14,7 @@ type StreamResult = {
   text: string;
   toolCalls?: ToolCall[];
   finishReason: string;
+  sessionState?: AgentSessionState;
 };
 
 type AgentToolCall = {
@@ -26,12 +28,35 @@ type AgentToolCall = {
 type AgentToolResult = {
   tool_call_id?: string;
   name?: string;
-  status?: 'pending' | 'success' | 'error';
+  status?: ToolCall['status'];
   result?: string;
+};
+
+export type AgentSessionState = {
+  session_id: string;
+  summary?: string | null;
+  context_compressed?: boolean;
+  storage?: string;
+  last_usage?: Record<string, number> | null;
+  last_latency_ms?: number | null;
+  last_llm_calls?: number | null;
+  message_count?: number;
+  pending_approvals?: AgentApproval[];
+};
+
+export type AgentApproval = {
+  approval_id: string;
+  session_id: string;
+  tool_call_id?: string;
+  tool_name: string;
+  arguments?: Record<string, unknown>;
+  status: 'pending' | 'approved' | 'rejected';
+  reason?: string | null;
 };
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const AGENT_STREAM_ENDPOINT = `${API_BASE_URL}/api/v1/agent/stream`;
+const AGENT_ENDPOINT = `${API_BASE_URL}/api/v1/agent`;
 
 function parseSseEvent(block: string): { event: string; data: unknown } | null {
   const lines = block
@@ -72,6 +97,7 @@ function mapToolCalls(toolCalls: AgentToolCall[]): ToolCall[] {
     id: toolCall.id,
     name: toolCall.function?.name || '工具调用',
     status: 'pending',
+    arguments: toolCall.function?.arguments,
     result: toolCall.function?.arguments ? JSON.stringify(toolCall.function.arguments, null, 2) : undefined,
   }));
 }
@@ -142,6 +168,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
   let text = '';
   let toolCalls: ToolCall[] = [];
   let finishReason = 'completed';
+  let sessionState: AgentSessionState | undefined;
 
   while (true) {
     const { value, done } = await reader.read();
@@ -164,6 +191,8 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
 
       if (parsed.event === 'session' && typeof payload.session_id === 'string') {
         sessionId = payload.session_id;
+        sessionState = payload as AgentSessionState;
+        options.onSessionState?.(sessionState);
       }
 
       if (parsed.event === 'delta') {
@@ -188,12 +217,29 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         options.onToolCalls?.(toolCalls);
       }
 
+      if (parsed.event === 'approval_required') {
+        const approval = payload as AgentApproval;
+        toolCalls = mergeToolCalls(toolCalls, [
+          {
+            id: approval.tool_call_id,
+            name: approval.tool_name || '工具调用',
+            status: 'approval_required',
+            approvalId: approval.approval_id,
+            arguments: approval.arguments,
+            result: approval.arguments ? JSON.stringify(approval.arguments, null, 2) : undefined,
+          },
+        ]);
+        options.onToolCalls?.(toolCalls);
+      }
+
       if (parsed.event === 'error') {
         throw new Error(typeof payload.message === 'string' ? payload.message : '智能体流式响应失败。');
       }
 
       if (parsed.event === 'done') {
         finishReason = typeof payload.finish_reason === 'string' ? payload.finish_reason : 'stop';
+        sessionState = payload as AgentSessionState;
+        options.onSessionState?.(sessionState);
       }
     }
   }
@@ -211,7 +257,36 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
     text,
     toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
     finishReason,
+    sessionState,
   };
+}
+
+export async function submitApprovalDecision(
+  approvalId: string,
+  status: 'approved' | 'rejected',
+  reason?: string,
+): Promise<AgentApproval> {
+  const response = await fetch(`${AGENT_ENDPOINT}/approvals/${approvalId}/decision`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({status, reason}),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || '审批提交失败。');
+  }
+
+  return response.json();
+}
+
+export async function getAgentSessionState(sessionId: string): Promise<AgentSessionState> {
+  const response = await fetch(`${AGENT_ENDPOINT}/sessions/${sessionId}`);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || '会话状态读取失败。');
+  }
+  return response.json();
 }
 
 export async function generateTitle(history: Message[]): Promise<string> {

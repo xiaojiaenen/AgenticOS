@@ -40,6 +40,9 @@ pnpm-debug.log*
 frontend/dist/
 frontend/.vite/
 
+# Local app data
+backend/data/
+
 # Local IDE / editor files
 .idea/
 .vscode/

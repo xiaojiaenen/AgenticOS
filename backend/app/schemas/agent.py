@@ -10,3 +10,8 @@ class AgentStreamRequest(BaseModel):
         default=None,
         description="是否允许并行执行多个工具调用。",
     )
+
+
+class ApprovalDecisionRequest(BaseModel):
+    status: str = Field(..., pattern="^(approved|rejected)$", description="审批结果。")
+    reason: str | None = Field(default=None, description="拒绝或批准的说明。")
