@@ -11,7 +11,7 @@ interface MessagesListProps {
   activeMatchId: string | null;
   onSend: (text: string) => void;
   onSuggestionClick: (text: string) => void;
-  onOpenArtifact: (code: string, language: string) => void;
+  onOpenArtifact: (code: string, language: 'html' | 'svg' | 'pptdeck') => void;
   messagesEndRef: React.RefObject<HTMLDivElement>;
 }
 

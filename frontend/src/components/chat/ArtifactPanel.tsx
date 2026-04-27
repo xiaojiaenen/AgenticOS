@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CodeIcon, RefreshIcon, DownloadIcon, AlertCircleIcon } from '../ui/AnimatedIcons';
 import { cn } from '../../lib/utils';
 import { MotionValue } from 'motion/react';
+import { Artifact } from '../../types';
 
 interface ArtifactPanelProps {
-  artifact: { code: string; language: string } | null;
+  artifact: Extract<Artifact, {language: 'html' | 'svg'}> | null;
   onClose: () => void;
   borderColor: MotionValue<string>;
 }

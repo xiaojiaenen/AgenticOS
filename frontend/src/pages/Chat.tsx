@@ -12,8 +12,10 @@ import { ArtifactPanel } from '../components/chat/ArtifactPanel';
 import { DragOverlay } from '../components/chat/DragOverlay';
 import { RuntimeStatusBar } from '../components/chat/RuntimeStatusBar';
 import { PendingApprovalPanel } from '../components/chat/PendingApprovalPanel';
+import { PptArtifactPanel } from '../components/ppt/PptArtifactPanel';
+import { extractPptDeckFromText, parsePptDeck } from '../components/ppt/pptDeck';
 import { useChatSearch } from '../hooks/useChatSearch';
-import { Message, Session, Attachment } from '../types';
+import { Artifact, Message, Session, Attachment } from '../types';
 import { sendMessageStream, generateTitle, submitApprovalDecision, AgentSessionState } from '../services/agentService';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { MenuIcon, AlertCircleIcon, MascotCool, MascotSurprised, MascotHappy, ChevronDownIcon, WrenchIcon, DownloadIcon, RefreshIcon, CopyIcon, CodeIcon, UserAvatarIcon } from '../components/ui/AnimatedIcons';
@@ -21,7 +23,39 @@ import { cn } from '../lib/utils';
 
 const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website', string> = {
   general: '你是 AgenticOS 的通用智能助理，请优先给出准确、清晰、可执行的回答。',
-  ppt: '你是 AgenticOS 的演示文稿助手，请优先提供适合汇报、提纲和页面结构的内容。',
+  ppt: `你是 AgenticOS 的演示文稿设计助手。请先理解用户的受众、目标和材料，再生成结构化 PPT deck。
+
+输出要求：
+1. 必须返回一个 fenced code block，语言名固定为 pptdeck。
+2. code block 内必须是合法 JSON，不要写注释。
+3. JSON schema:
+{
+  "title": "演示文稿标题",
+  "subtitle": "一句副标题",
+  "author": "可选作者",
+  "theme": "executive | product | minimal",
+  "slides": [
+    {
+      "type": "cover | section | bullets | imageText | comparison | timeline | stats | quote | closing",
+      "eyebrow": "可选短标签",
+      "title": "页面标题",
+      "subtitle": "可选副标题",
+      "body": "可选正文",
+      "items": ["每页最多 5 个短要点"],
+      "leftTitle": "对比页左栏标题",
+      "rightTitle": "对比页右栏标题",
+      "leftItems": ["左栏要点"],
+      "rightItems": ["右栏要点"],
+      "stats": [{"value": "3x", "label": "效率提升", "caption": "可选说明"}],
+      "timeline": [{"label": "01", "title": "阶段标题", "body": "可选说明"}],
+      "quote": "引用页金句",
+      "author": "引用来源"
+    }
+  ]
+}
+4. 每页文字要短，避免大段落；不要连续 3 页使用同一种 type。
+5. 默认生成 6-10 页，结构要像专业汇报，而不是普通大纲。
+6. 在 code block 后，用 2-3 句话说明设计思路。`,
   website: '你是 AgenticOS 的网站与前端助手，请优先提供页面结构、交互说明和可运行代码。',
 };
 
@@ -38,7 +72,7 @@ export const Chat = () => {
   const [inputValue, setInputValue] = useState('');
   const [chatMode, setChatMode] = useState<'general' | 'ppt' | 'website'>((location.state as any)?.mode || 'general');
   const currentSession = sessions.find(s => s.id === currentSessionId);
-  
+
   const {
     searchQuery, setSearchQuery, showSearch, setShowSearch,
     searchCurrentIndex, searchMatches, nextMatch, prevMatch, activeMatchId
@@ -49,7 +83,7 @@ export const Chat = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [error, setError] = useState<string | null>(null);
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
-  const [artifact, setArtifact] = useState<{code: string, language: string} | null>(null);
+  const [artifact, setArtifact] = useState<Artifact | null>(null);
   const [isSidebarHiddenByArtifact, setIsSidebarHiddenByArtifact] = useState(false);
   const [visibleSessionsCount, setVisibleSessionsCount] = useState(10);
   const [isDragging, setIsDragging] = useState(false);
@@ -226,6 +260,20 @@ export const Chat = () => {
     }
   }, []);
 
+  const handleOpenArtifact = React.useCallback((code: string, language: 'html' | 'svg' | 'pptdeck') => {
+    if (language === 'pptdeck') {
+      const deck = parsePptDeck(code);
+      if (!deck) {
+        setError('PPT deck JSON 解析失败，请让模型重新生成。');
+        return;
+      }
+      setArtifact({ code, language: 'pptdeck', deck });
+      return;
+    }
+
+    setArtifact({ code, language });
+  }, []);
+
   const handleSend = React.useCallback(async (text: string, files?: File[]) => {
     if ((!text.trim() && (!files || files.length === 0)) || isLoading) return;
 
@@ -255,7 +303,7 @@ export const Chat = () => {
       const outboundMessage = attachments.length > 0
         ? `${currentText}\n\n附带文件：${attachments.map(item => item.name).join('、')}\n说明：当前后端暂不支持直接解析附件内容，请结合文件名理解需求。`
         : currentText;
-      
+
       if (attachments.length > 0) {
         setError('当前后端暂不支持直接解析附件内容，本次仅向模型发送文本和文件名。');
       }
@@ -351,7 +399,9 @@ export const Chat = () => {
 
       const htmlMatch = /```html\n([\s\S]*?)\n```/.exec(response.text);
       const svgMatch = /```svg\n([\s\S]*?)\n```/.exec(response.text);
-      if (htmlMatch) setArtifact({ code: htmlMatch[1], language: 'html' });
+      const pptDeck = extractPptDeckFromText(response.text);
+      if (pptDeck) setArtifact({ code: pptDeck.code, language: 'pptdeck', deck: pptDeck.deck });
+      else if (htmlMatch) setArtifact({ code: htmlMatch[1], language: 'html' });
       else if (svgMatch) setArtifact({ code: svgMatch[1], language: 'svg' });
 
       if (history.length === 0 || (history.length + 2) % 4 === 0) {
@@ -400,7 +450,7 @@ export const Chat = () => {
   };
 
   return (
-    <motion.div 
+    <motion.div
       key="chat"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -440,7 +490,7 @@ export const Chat = () => {
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="flex-shrink-0 z-20"
           >
-            <Sidebar 
+            <Sidebar
               sessions={visibleSessions}
               currentSessionId={currentSessionId}
               onNewChat={createNewChat}
@@ -491,7 +541,7 @@ export const Chat = () => {
           </AnimatePresence>
 
           {/* 消息区域 */}
-          <div 
+          <div
             ref={scrollRef}
             onScroll={handleScroll}
             className={cn(
@@ -500,7 +550,7 @@ export const Chat = () => {
             )}
           >
             {/* 搜索浮层 */}
-            <ChatSearch 
+            <ChatSearch
               showSearch={showSearch}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -516,12 +566,12 @@ export const Chat = () => {
 
             {/* 右下角浮动工具栏 */}
             <div className="fixed right-6 bottom-10 flex flex-col gap-3 z-40">
-              <button 
+              <button
                 onClick={() => setShowSearch(!showSearch)}
                 className={cn(
                   "w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg backdrop-blur-md border hover:scale-105 active:scale-95",
-                  showSearch 
-                    ? "bg-zinc-900 text-white border-zinc-800" 
+                  showSearch
+                    ? "bg-zinc-900 text-white border-zinc-800"
                     : "bg-white/80 text-slate-600 border-white/60 hover:bg-white"
                 )}
               >
@@ -557,7 +607,7 @@ export const Chat = () => {
 
             <RuntimeStatusBar session={currentSession} isLoading={isLoading} />
 
-            <MessagesList 
+            <MessagesList
               currentSession={currentSession}
               isLoading={isLoading}
               wideLayout={isWideConversation}
@@ -565,7 +615,7 @@ export const Chat = () => {
               activeMatchId={activeMatchId}
               onSend={handleSend}
               onSuggestionClick={(text) => setInputValue(text)}
-              onOpenArtifact={(code, language) => setArtifact({ code, language })}
+              onOpenArtifact={handleOpenArtifact}
               messagesEndRef={messagesEndRef}
             />
           </div>
@@ -574,13 +624,13 @@ export const Chat = () => {
           <div className="p-4 md:p-6 bg-transparent flex-shrink-0 relative">
             <AnimatePresence>
               {isUserScrolledUp && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
                   className="absolute -top-4 left-0 right-0 flex justify-center z-30"
                 >
-                  <button 
+                  <button
                     onClick={handleJumpToBottom}
                     className="flex items-center gap-2 px-6 py-1.5 bg-zinc-900/90 backdrop-blur-2xl text-white rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl border border-white/10 hover:bg-zinc-800 transition-all active:scale-95 group"
                   >
@@ -596,7 +646,7 @@ export const Chat = () => {
                 approvals={pendingApprovals}
                 onDecision={handleApprovalDecision}
               />
-              <ChatInput 
+              <ChatInput
                 ref={chatInputRef}
                 value={inputValue}
                 onChange={setInputValue}
@@ -615,11 +665,19 @@ export const Chat = () => {
 
         {/* 制品预览面板 */}
         <AnimatePresence>
-          <ArtifactPanel 
-            artifact={artifact}
-            onClose={() => setArtifact(null)}
-            borderColor={borderColor}
-          />
+          {artifact?.language === 'pptdeck' ? (
+            <PptArtifactPanel
+              deck={artifact.deck}
+              onClose={() => setArtifact(null)}
+              borderColor={borderColor}
+            />
+          ) : (
+            <ArtifactPanel
+              artifact={artifact}
+              onClose={() => setArtifact(null)}
+              borderColor={borderColor}
+            />
+          )}
         </AnimatePresence>
       </div>
     </motion.div>

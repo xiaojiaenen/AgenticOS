@@ -17,7 +17,7 @@ interface ChatMessageProps {
   isTyping?: boolean;
   isStreaming?: boolean;
   wideLayout?: boolean;
-  onOpenArtifact?: (code: string, language: string) => void;
+  onOpenArtifact?: (code: string, language: 'html' | 'svg' | 'pptdeck') => void;
   index?: number;
   searchQuery?: string;
   activeMatchId?: string | null;
@@ -340,7 +340,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
         }
       }
 
-      const isArtifactable = ['html', 'svg'].includes(match[1]) && config.enableArtifacts;
+      const isArtifactable = ['html', 'svg', 'pptdeck'].includes(match[1]) && config.enableArtifacts;
 
       return (
         <div className="relative group my-5 overflow-hidden rounded-[1.75rem] border border-slate-800/80 bg-zinc-950 shadow-[0_20px_50px_rgba(15,23,42,0.22)] ring-1 ring-white/5">
@@ -355,7 +355,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             <div className="ml-auto flex items-center gap-4">
               {isArtifactable && onOpenArtifact && (
                 <button
-                  onClick={() => onOpenArtifact(codeString, match[1])}
+                  onClick={() => onOpenArtifact(codeString, match[1] as 'html' | 'svg' | 'pptdeck')}
                   className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300 transition-colors hover:text-cyan-200"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>

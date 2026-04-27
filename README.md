@@ -222,6 +222,7 @@ HITL_TIMEOUT_SECONDS=300
 - SQLite 会话持久化，后续可切换 MySQL
 - 长对话上下文压缩摘要
 - HITL 工具调用人工审批
+- PPT 模式结构化生成与右侧预览，可导出可编辑 `.pptx`
 - Markdown 渲染
 - 代码块渲染
 - 表格渲染与样式优化
@@ -248,7 +249,26 @@ npm run build
 npm run lint
 ```
 
-## 七、后续可继续优化的方向
+## 七、PPT 生成方式
+
+前端的 PPT 模式使用结构化 `pptdeck` JSON，而不是让模型直接生成任意 HTML。模型会输出类似：
+
+````text
+```pptdeck
+{
+  "title": "AgenticOS 产品方案",
+  "theme": "executive",
+  "slides": [
+    {"type": "cover", "title": "AgenticOS 产品方案", "subtitle": "企业智能体工作台"},
+    {"type": "bullets", "title": "核心能力", "items": ["会话持久化", "上下文压缩", "工具审批"]}
+  ]
+}
+```
+````
+
+前端识别后会打开右侧 PPT 预览面板，并使用统一模板渲染幻灯片。点击面板右上角“导出”可通过 `html-to-pptx` 生成可编辑 PPTX。
+
+## 八、后续可继续优化的方向
 
 - 把 `wuwei` 的工具事件输出进一步标准化
 - 增加更完整的工具调用时间线展示
@@ -256,7 +276,7 @@ npm run lint
 - 补充部署文档和 Docker 支持
 - 增加管理页与配置页能力
 
-## 八、说明
+## 九、说明
 
 `backend/README.md` 和 `frontend/README.md` 分别保留了子项目级别的说明。
 
