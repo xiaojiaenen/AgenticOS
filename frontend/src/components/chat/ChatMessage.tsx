@@ -269,11 +269,27 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || reasoningText.trim().length > 0 || !hasPptArtifact;
   const hasStructuredContent = !isUser && /```|(?:^|\n)\|.+\|/.test(visibleText);
   const showAssistantWaiting = !isUser && Boolean(isStreaming) && !visibleText.trim() && !reasoningText.trim() && !isTyping;
+  const shouldAutoOpenReasoning = !isUser && Boolean(isStreaming) && reasoningText.trim().length > 0 && !visibleText.trim();
   const canCopyMessage = visibleText.trim().length > 0;
   const [isCopied, setIsCopied] = useState(false);
+  const [isReasoningOpen, setIsReasoningOpen] = useState(false);
   const config = getAppConfig();
   const sessionCounter = useRef({ current: 0 });
+  const wasReasoningAutoOpened = useRef(false);
   sessionCounter.current.current = 0;
+
+  useEffect(() => {
+    if (shouldAutoOpenReasoning) {
+      setIsReasoningOpen(true);
+      wasReasoningAutoOpened.current = true;
+      return;
+    }
+
+    if (wasReasoningAutoOpened.current) {
+      setIsReasoningOpen(false);
+      wasReasoningAutoOpened.current = false;
+    }
+  }, [shouldAutoOpenReasoning]);
 
   const extractPlainText = (children: React.ReactNode): string =>
     React.Children.toArray(children)
@@ -893,13 +909,14 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             <div className="prose prose-slate prose-sm max-w-none prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
               {reasoningText && (
                 <details
-                  open={isStreaming && !visibleText}
+                  open={isReasoningOpen}
+                  onToggle={(event) => setIsReasoningOpen(event.currentTarget.open)}
                   className="group mb-3 rounded-2xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-slate-500 [&_summary::-webkit-details-marker]:hidden"
                 >
                   <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
                     <BrainCircuit size={13} className="text-slate-400" />
                     <span>思考过程</span>
-                    {isStreaming && !visibleText && (
+                    {shouldAutoOpenReasoning && (
                       <span className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-pulse" />
                     )}
                     <ChevronDownIcon size={12} className="ml-auto transition-transform duration-300 group-open:-rotate-180" />
