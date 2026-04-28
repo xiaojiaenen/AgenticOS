@@ -3,14 +3,12 @@ import { flushSync } from 'react-dom';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from '../components/chat/Sidebar';
-import { ChatMessage } from '../components/chat/ChatMessage';
 import { ChatInput, ChatInputHandle } from '../components/chat/ChatInput';
 import { ChatTimeline } from '../components/chat/ChatTimeline';
 import { ChatSearch } from '../components/chat/ChatSearch';
 import { MessagesList } from '../components/chat/MessagesList';
 import { ArtifactPanel } from '../components/chat/ArtifactPanel';
 import { DragOverlay } from '../components/chat/DragOverlay';
-import { RuntimeStatusBar } from '../components/chat/RuntimeStatusBar';
 import { PendingApprovalPanel } from '../components/chat/PendingApprovalPanel';
 import { PptArtifactPanel } from '../components/ppt/PptArtifactPanel';
 import { useChatSearch } from '../hooks/useChatSearch';
@@ -18,7 +16,7 @@ import { Artifact, Message, Session, Attachment } from '../types';
 import { sendMessageStream, generateTitle, submitApprovalDecision, AgentSessionState, AgentPptArtifact, AgentRunStatus } from '../services/agentService';
 import { AgentProfile, getMyAgents } from '../services/agentProfileService';
 import { RandomMascot } from '../components/ui/RandomMascot';
-import { MenuIcon, AlertCircleIcon, MascotCool, MascotSurprised, MascotHappy, ChevronDownIcon, WrenchIcon, DownloadIcon, RefreshIcon, CopyIcon, CodeIcon, UserAvatarIcon } from '../components/ui/AnimatedIcons';
+import { AlertCircleIcon, MascotCool, ChevronDownIcon } from '../components/ui/AnimatedIcons';
 import { cn } from '../lib/utils';
 
 const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website', string> = {
@@ -99,6 +97,7 @@ export const Chat = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputHandle>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const currentSessionMessages = currentSession?.messages ?? [];
   const isStreamingResponse = isLoading && currentSessionMessages[currentSessionMessages.length - 1]?.role === 'model';
   const isWideConversation = !artifact && !isMobile;
@@ -231,6 +230,10 @@ export const Chat = () => {
 
   const createNewChat = React.useCallback(() => {
     setCurrentSessionId(null);
+    setChatMode('general');
+    setSelectedAgentProfileId(null);
+    setArtifact(null);
+    setRunStatus({ phase: 'idle', label: '已就绪' });
     if (isMobile) setIsSidebarOpen(false);
   }, [isMobile]);
 
@@ -290,6 +293,11 @@ export const Chat = () => {
     setArtifact(nextArtifact);
   }, []);
 
+  const handleStopGeneration = React.useCallback(() => {
+    abortControllerRef.current?.abort();
+    setRunStatus({ phase: 'done', label: '正在停止请求' });
+  }, []);
+
   const handleSend = React.useCallback(async (text: string, files?: File[]) => {
     if ((!text.trim() && (!files || files.length === 0)) || isLoading) return;
 
@@ -298,7 +306,10 @@ export const Chat = () => {
     let targetId: string | null = null;
     let assistantMessageId: string | null = null;
     let hasStreamedContent = false;
+    let hasAssistantActivity = false;
     let receivedPptArtifact: AgentPptArtifact | undefined;
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     try {
       const attachments: Attachment[] = (files || []).map((file) => ({
@@ -368,6 +379,7 @@ export const Chat = () => {
         systemPrompt: currentSession || selectedAgentProfileId ? undefined : MODE_SYSTEM_PROMPTS[chatMode],
         responseMode: chatMode,
         agentProfileId: selectedAgentProfileId,
+        signal: abortController.signal,
         onSessionState: (state) => {
           applySessionState(targetId!, state);
         },
@@ -409,6 +421,7 @@ export const Chat = () => {
         },
         onDelta: (_, fullText) => {
           hasStreamedContent = true;
+          hasAssistantActivity = true;
           setRunStatus(prev => (
             prev.phase === 'generating_ppt' || prev.phase === 'rendering_ppt'
               ? prev
@@ -436,7 +449,24 @@ export const Chat = () => {
               : session
           )));
         },
+        onReasoningDelta: (_, fullReasoning) => {
+          hasAssistantActivity = true;
+          setSessions(prev => prev.map(session => (
+            session.id === targetId
+              ? {
+                  ...session,
+                  updatedAt: Date.now(),
+                  messages: session.messages.map(message => (
+                    message.id === assistantMessageId
+                      ? { ...message, reasoningText: fullReasoning }
+                      : message
+                  )),
+                }
+              : session
+          )));
+        },
         onToolCalls: (toolCalls) => {
+          hasAssistantActivity = true;
           setSessions(prev => prev.map(session => (
             session.id === targetId
               ? {
@@ -464,6 +494,7 @@ export const Chat = () => {
                       ? {
                           ...message,
                           text: response.text,
+                          reasoningText: response.reasoningText ?? message.reasoningText,
                           toolCalls: response.toolCalls,
                           pptArtifact: pptArtifact
                             ? {
@@ -516,13 +547,37 @@ export const Chat = () => {
         });
       }
     } catch (err) {
+      if (abortController.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
+        if (targetId && assistantMessageId) {
+          setSessions(prev => prev.map(session => (
+            session.id === targetId
+              ? {
+                  ...session,
+                  updatedAt: Date.now(),
+                  messages: session.messages.map(message => (
+                    message.id === assistantMessageId
+                      ? {
+                          ...message,
+                          text: message.text.trim()
+                            ? `${message.text.trimEnd()}\n\n已停止请求。`
+                            : '已停止请求。',
+                        }
+                      : message
+                  )),
+                }
+              : session
+          )));
+        }
+        setRunStatus({ phase: 'done', label: '已停止请求' });
+        return;
+      }
       console.error('Send error:', err);
       if (targetId && assistantMessageId) {
         setSessions(prev => prev.map(session => (
           session.id === targetId
             ? {
                 ...session,
-                messages: session.messages.filter(message => hasStreamedContent || message.id !== assistantMessageId),
+                messages: session.messages.filter(message => hasStreamedContent || hasAssistantActivity || message.id !== assistantMessageId),
               }
             : session
         )));
@@ -530,6 +585,9 @@ export const Chat = () => {
       setError("发送消息失败，请检查后端服务或网络连接。");
       setRunStatus({ phase: 'error', label: '本轮回复失败' });
     } finally {
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
       setIsLoading(false);
     }
   }, [currentSessionId, sessions, isLoading, chatMode, currentSession, applySessionState, selectedAgentProfileId, selectedAgent]);
@@ -703,8 +761,6 @@ export const Chat = () => {
               )}
             </AnimatePresence>
 
-            <RuntimeStatusBar session={currentSession} isLoading={isLoading} runStatus={runStatus} />
-
             <MessagesList
               currentSession={currentSession}
               isLoading={isLoading}
@@ -749,6 +805,7 @@ export const Chat = () => {
                 value={inputValue}
                 onChange={setInputValue}
                 onSend={(text, files) => handleSend(text, files)}
+                onStop={handleStopGeneration}
                 isLoading={isLoading}
                 chatMode={chatMode}
                 setChatMode={setChatMode}
@@ -762,8 +819,14 @@ export const Chat = () => {
                 }}
                 isModeLocked={!!currentSession && currentSession.messages.length > 0}
               />
-              <div className="text-center mt-3 text-xs text-slate-400 font-medium">
-                AI 可能会犯错，请核实重要信息。
+              <div className="mt-3 flex min-h-5 items-center justify-center gap-2 text-xs font-medium text-slate-400">
+                {isLoading && (
+                  <span className="flex items-center gap-1.5 text-slate-500">
+                    <span className="h-1.5 w-1.5 rounded-full bg-zinc-500/70 animate-pulse" />
+                    {runStatus.label}
+                  </span>
+                )}
+                {!isLoading && <span>AI 可能会犯错，请核实重要信息。</span>}
               </div>
             </div>
           </div>

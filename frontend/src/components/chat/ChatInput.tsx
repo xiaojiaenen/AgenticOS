@@ -1,5 +1,6 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { Pause } from 'lucide-react';
 import { AgentProfile } from '../../services/agentProfileService';
 import { cn } from '../../lib/utils';
 import { GlobeIcon, MascotHappy, PaperclipIcon, PresentationIcon, SendIcon } from '../ui/AnimatedIcons';
@@ -8,6 +9,7 @@ interface ChatInputProps {
   value: string;
   onChange: (val: string) => void;
   onSend: (text: string, files?: File[]) => void;
+  onStop?: () => void;
   isLoading: boolean;
   className?: string;
   placeholder?: string;
@@ -27,6 +29,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   value,
   onChange,
   onSend,
+  onStop,
   isLoading,
   className,
   placeholder = '输入你想聊的内容...',
@@ -253,19 +256,33 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           className="max-h-[200px] w-full resize-none bg-transparent p-3 leading-relaxed tracking-tight text-slate-800 outline-none placeholder:text-slate-400"
           rows={1}
         />
-        <button
-          type="button"
-          onClick={handleInternalSend}
-          disabled={(!value.trim() && files.length === 0) || isLoading}
-          className={cn(
-            'group mb-1 ml-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all duration-300',
-            (value.trim() || files.length > 0) && !isLoading
-              ? 'bg-zinc-900 text-white shadow-md hover:scale-105 hover:bg-zinc-700 active:scale-95'
-              : 'bg-slate-100/50 text-slate-300',
-          )}
-        >
-          <SendIcon size={18} className="transition-transform group-hover:-translate-y-0.5 group-hover:scale-110" />
-        </button>
+        {isLoading ? (
+          <button
+            type="button"
+            onClick={onStop}
+            className="group mb-1 ml-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white shadow-md transition-all duration-300 hover:scale-105 hover:bg-zinc-700 active:scale-95"
+            title="暂停当前回复"
+            aria-label="暂停当前回复"
+          >
+            <Pause size={18} strokeWidth={2.6} className="transition-transform group-hover:scale-110" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleInternalSend}
+            disabled={!value.trim() && files.length === 0}
+            className={cn(
+              'group mb-1 ml-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all duration-300',
+              value.trim() || files.length > 0
+                ? 'bg-zinc-900 text-white shadow-md hover:scale-105 hover:bg-zinc-700 active:scale-95'
+                : 'bg-slate-100/50 text-slate-300',
+            )}
+            title="发送"
+            aria-label="发送"
+          >
+            <SendIcon size={18} className="transition-transform group-hover:-translate-y-0.5 group-hover:scale-110" />
+          </button>
+        )}
       </div>
     </div>
   );

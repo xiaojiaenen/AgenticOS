@@ -230,6 +230,15 @@ class AgentService:
                 },
             }
 
+        if event.type == "reasoning_delta":
+            return {
+                "event": "reasoning_delta",
+                "data": {
+                    "session_id": session.session_id,
+                    "content": event.data.get("content", ""),
+                },
+            }
+
         if event.type == "tool_start":
             return {
                 "event": "tool_calls",

@@ -7,7 +7,7 @@ import rehypeKatex from 'rehype-katex';
 import mermaid from 'mermaid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Presentation, Sparkles } from 'lucide-react';
+import { BrainCircuit, Presentation, Sparkles } from 'lucide-react';
 import { Artifact, Message } from '../../types';
 import { cn } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
@@ -235,8 +235,9 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   const isUser = message?.role === 'user';
   const rawText = message?.text || '';
   const visibleText = rawText;
+  const reasoningText = message?.reasoningText || '';
   const hasPptArtifact = !isUser && Boolean(message?.pptArtifact);
-  const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || !hasPptArtifact;
+  const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || reasoningText.trim().length > 0 || !hasPptArtifact;
   const hasStructuredContent = !isUser && /```|(?:^|\n)\|.+\|/.test(visibleText);
   const [isCopied, setIsCopied] = useState(false);
   const config = getAppConfig();
@@ -859,6 +860,24 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             </div>
           ) : (
             <div className="prose prose-slate prose-sm max-w-none prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
+              {reasoningText && (
+                <details
+                  open={isStreaming && !visibleText}
+                  className="group mb-3 rounded-2xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-slate-500 [&_summary::-webkit-details-marker]:hidden"
+                >
+                  <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                    <BrainCircuit size={13} className="text-slate-400" />
+                    <span>思考过程</span>
+                    {isStreaming && !visibleText && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-pulse" />
+                    )}
+                    <ChevronDownIcon size={12} className="ml-auto transition-transform duration-300 group-open:-rotate-180" />
+                  </summary>
+                  <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-slate-200/70 pt-2 text-xs leading-relaxed text-slate-500">
+                    {reasoningText}
+                  </div>
+                </details>
+              )}
               {visibleText ? (
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm, ...(config.enableLaTeX ? [remarkMath] : [])]}

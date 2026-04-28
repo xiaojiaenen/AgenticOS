@@ -7,6 +7,7 @@ type AgentServiceOptions = {
   responseMode?: 'general' | 'ppt' | 'website';
   agentProfileId?: number | null;
   onDelta?: (delta: string, fullText: string) => void;
+  onReasoningDelta?: (delta: string, fullText: string) => void;
   onToolCalls?: (toolCalls: ToolCall[]) => void;
   onSessionState?: (state: AgentSessionState) => void;
   onRunStatus?: (status: AgentRunStatus) => void;
@@ -17,6 +18,7 @@ type AgentServiceOptions = {
 type StreamResult = {
   sessionId: string;
   text: string;
+  reasoningText?: string;
   toolCalls?: ToolCall[];
   finishReason: string;
   sessionState?: AgentSessionState;
@@ -189,6 +191,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
   let buffer = '';
   let sessionId = options.sessionId;
   let text = '';
+  let reasoningText = '';
   let toolCalls: ToolCall[] = [];
   let finishReason = 'completed';
   let sessionState: AgentSessionState | undefined;
@@ -223,6 +226,12 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         const delta = typeof payload.content === 'string' ? payload.content : '';
         text += delta;
         options.onDelta?.(delta, text);
+      }
+
+      if (parsed.event === 'reasoning_delta') {
+        const delta = typeof payload.content === 'string' ? payload.content : '';
+        reasoningText += delta;
+        options.onReasoningDelta?.(delta, reasoningText);
       }
 
       if (parsed.event === 'run_status') {
@@ -288,6 +297,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
   return {
     sessionId,
     text,
+    reasoningText: reasoningText || undefined,
     toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
     finishReason,
     sessionState,

@@ -38,6 +38,12 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
     service._agent = FakeAgent(
         [
             AgentEvent(
+                type="reasoning_delta",
+                session_id="demo-session",
+                step=0,
+                data={"content": "先判断是否需要调用工具。"},
+            ),
+            AgentEvent(
                 type="text_delta",
                 session_id="demo-session",
                 step=0,
@@ -101,6 +107,13 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
         },
     }
     assert events[2] == {
+        "event": "reasoning_delta",
+        "data": {
+            "session_id": "demo-session",
+            "content": "先判断是否需要调用工具。",
+        },
+    }
+    assert events[3] == {
         "event": "run_status",
         "data": {
             "session_id": "demo-session",
@@ -108,14 +121,14 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
             "label": "大模型正在输出",
         },
     }
-    assert events[3] == {
+    assert events[4] == {
         "event": "delta",
         "data": {
             "session_id": "demo-session",
             "content": "你好",
         },
     }
-    assert events[4] == {
+    assert events[5] == {
         "event": "tool_calls",
         "data": {
             "session_id": "demo-session",
@@ -130,7 +143,7 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
             ],
         },
     }
-    assert events[5] == {
+    assert events[6] == {
         "event": "tool_results",
         "data": {
             "session_id": "demo-session",
@@ -144,7 +157,7 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
             ],
         },
     }
-    assert events[6] == {
+    assert events[7] == {
         "event": "tool_results",
         "data": {
             "session_id": "demo-session",
@@ -158,7 +171,7 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
             ],
         },
     }
-    assert events[7] == {
+    assert events[8] == {
         "event": "run_status",
         "data": {
             "session_id": "demo-session",
@@ -166,9 +179,9 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
             "label": "本轮回复已完成",
         },
     }
-    assert events[8]["event"] == "done"
-    assert events[8]["data"]["session_id"] == "demo-session"
-    assert events[8]["data"]["finish_reason"] == "stop"
-    assert events[8]["data"]["usage"] == {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}
-    assert events[8]["data"]["latency_ms"] == 120
-    assert events[8]["data"]["llm_calls"] == 1
+    assert events[9]["event"] == "done"
+    assert events[9]["data"]["session_id"] == "demo-session"
+    assert events[9]["data"]["finish_reason"] == "stop"
+    assert events[9]["data"]["usage"] == {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}
+    assert events[9]["data"]["latency_ms"] == 120
+    assert events[9]["data"]["llm_calls"] == 1
