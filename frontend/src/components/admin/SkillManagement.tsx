@@ -327,7 +327,7 @@ export const SkillManagement = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/25 p-4 backdrop-blur-sm"
+            className="admin-modal-shell"
             onMouseDown={closeModal}
           >
             <motion.div
@@ -336,7 +336,7 @@ export const SkillManagement = () => {
               exit={{ opacity: 0, y: 20, scale: 0.97 }}
               transition={{ duration: 0.22 }}
               onMouseDown={(event) => event.stopPropagation()}
-              className="admin-solid-panel flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden"
+              className="admin-solid-panel admin-modal-panel flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden"
             >
               <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
                 <div>

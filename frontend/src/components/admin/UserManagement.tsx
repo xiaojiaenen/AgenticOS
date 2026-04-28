@@ -387,7 +387,7 @@ export const UserManagement = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/22 p-4 backdrop-blur-sm"
+            className="admin-modal-shell"
             onMouseDown={closeForm}
           >
             <motion.form
@@ -397,7 +397,7 @@ export const UserManagement = () => {
               transition={{ duration: 0.22 }}
               onSubmit={handleSubmit}
               onMouseDown={(event) => event.stopPropagation()}
-              className="admin-solid-panel w-full max-w-xl p-6"
+              className="admin-solid-panel admin-modal-panel w-full max-w-xl p-6"
             >
               <div className="mb-6 flex items-center justify-between">
                 <div>
@@ -501,7 +501,7 @@ export const UserManagement = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/22 p-4 backdrop-blur-sm"
+            className="admin-modal-shell"
             onMouseDown={() => !isSaving && setDeletingUser(null)}
           >
             <motion.div
@@ -509,7 +509,7 @@ export const UserManagement = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.96 }}
               onMouseDown={(event) => event.stopPropagation()}
-              className="admin-solid-panel w-full max-w-md p-6"
+              className="admin-solid-panel admin-modal-panel w-full max-w-md p-6"
             >
               <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
                 <Trash2 size={22} />

@@ -17,6 +17,7 @@ from wuwei import (
 from wuwei.llm import LLMGateway
 from wuwei.memory.context_compressor import LLMContextCompressor
 from wuwei.runtime import ApprovalPolicy
+from wuwei.runtime.hooks import RuntimeHook
 from wuwei.tools import ToolRegistry
 from wuwei.tools.builtin import register_skill_tools
 
@@ -28,6 +29,26 @@ from app.services.ppt_artifact_service import PptArtifactService, strip_ppt_deck
 from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.services.tool_config_service import ToolConfigService
 from app.schemas.agent import AgentStreamRequest
+
+
+MAX_STEPS_LIMIT_MESSAGE = "任务未完成，已达到最大步骤限制。"
+
+
+class ThinkingHistoryCompatibilityHook(RuntimeHook):
+    """Keep provider thinking-mode histories free of local synthetic replies."""
+
+    async def before_llm(self, session, messages, tools, *, step: int, task=None):
+        filtered_messages = [
+            message
+            for message in messages
+            if not (
+                message.role == "assistant"
+                and message.content == MAX_STEPS_LIMIT_MESSAGE
+                and not message.reasoning_content
+                and not message.tool_calls
+            )
+        ]
+        return filtered_messages, tools
 
 
 class AgentService:
@@ -134,7 +155,7 @@ class AgentService:
             llm=LLMGateway.from_env(),
             tools=self._build_tool_registry(profile),
             default_system_prompt=profile.system_prompt,
-            default_max_steps=1 if profile.response_mode == "ppt" else self.settings.agent_max_steps,
+            default_max_steps=self.settings.agent_max_steps,
             default_parallel_tool_calls=self.settings.agent_parallel_tool_calls,
             hooks=hooks,
         )
@@ -146,6 +167,7 @@ class AgentService:
                     keep_recent_turns=self.settings.context_keep_recent_turns,
                 )
             )
+        agent.hooks.register(ThinkingHistoryCompatibilityHook())
         self._agents[cache_key] = agent
         return agent
 
@@ -205,6 +227,19 @@ class AgentService:
         loaded = await self.storage.load(request.session_id)
         if loaded is not None:
             sessions[request.session_id] = loaded
+
+    def _normalize_session_limits(
+        self,
+        session,
+        *,
+        response_mode: str,
+        requested_max_steps: int | None,
+    ) -> None:
+        if response_mode != "ppt" or requested_max_steps is not None:
+            return
+        current_max_steps = getattr(session, "max_steps", self.settings.agent_max_steps)
+        if current_max_steps < self.settings.agent_max_steps:
+            session.max_steps = self.settings.agent_max_steps
 
     def _session_payload(self, session) -> dict[str, Any]:
         metadata = getattr(session, "metadata", {}) or {}
@@ -371,6 +406,11 @@ class AgentService:
             system_prompt=runtime_profile.system_prompt,
             max_steps=request.max_steps,
             parallel_tool_calls=request.parallel_tool_calls,
+        )
+        self._normalize_session_limits(
+            session,
+            response_mode=response_mode,
+            requested_max_steps=request.max_steps,
         )
         metadata = getattr(session, "metadata", {}) or {}
         metadata.update(
