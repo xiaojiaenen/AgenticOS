@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     context_compress_after_turns: int = 16
     context_keep_recent_turns: int = 6
     hitl_enabled: bool = True
-    hitl_require_approval_tools: str = "file_to_md"
+    hitl_require_approval_tools: str = "file_to_md,run_skill_python_script"
     hitl_timeout_seconds: int = 300
     auth_secret_key: str = Field(default="agenticos-dev-secret-change-me", validation_alias="AUTH_SECRET_KEY")
     auth_token_expire_minutes: int = Field(default=60 * 24 * 7, validation_alias="AUTH_TOKEN_EXPIRE_MINUTES")

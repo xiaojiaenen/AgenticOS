@@ -1,62 +1,25 @@
-# AgenticOS
+# Backend
 
-一个开箱即用的 FastAPI 项目骨架，包含：
+后端默认运行在 `http://127.0.0.1:8001`，完整启动与 Docker 部署说明请优先查看仓库根目录 [README.md](../README.md)。
 
-- `app/main.py` 应用入口
-- `app/api/` 路由分层
-- `app/core/config.py` 环境配置
-- `app/services/agent_service.py` Wuwei 智能体封装
-- `tests/` 最小接口测试
-
-## 快速开始
+## 本地启动
 
 ```bash
+cd backend
 uv sync
+cp .env.example .env
 uv run python main.py
 ```
 
-服务启动后可访问：
+常用地址：
 
-- `http://127.0.0.1:8000/`
-- `http://127.0.0.1:8000/docs`
-- `http://127.0.0.1:8000/api/v1/health/`
-- `http://127.0.0.1:8000/api/v1/agent/stream`
+- `http://127.0.0.1:8001/`
+- `http://127.0.0.1:8001/docs`
+- `http://127.0.0.1:8001/api/v1/health/`
 
-## 开发
+## 关键说明
 
-复制环境变量模板：
-
-```bash
-cp .env.example .env
-```
-
-运行测试：
-
-```bash
-uv run pytest
-```
-
-## Wuwei 流式接口
-
-先配置大模型环境变量：
-
-```bash
-cp .env.example .env
-```
-
-至少需要填写：
-
-```env
-OPENAI_API_KEY=your_key
-OPENAI_MODEL=gpt-5.4
-```
-
-请求示例：
-
-```bash
-curl -N -X POST http://127.0.0.1:8000/api/v1/agent/stream \
-  -H "Content-Type: application/json" \
-  -d '{"message":"帮我介绍一下这个项目","session_id":"demo-session"}'
-```
-
-返回格式是 `text/event-stream`，会按 `session`、`delta`、`tool_calls`、`done` 事件持续输出。
+- 默认数据库：`./data/agenticos.db`
+- 默认 Skill 目录：`./data/skills`
+- 第一个注册账号会自动成为管理员
+- Skill 工具默认开启审批，管理员可在后台继续调整

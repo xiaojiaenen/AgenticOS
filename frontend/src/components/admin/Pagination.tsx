@@ -1,5 +1,4 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PaginationProps {
   currentPage: number;
@@ -9,18 +8,20 @@ interface PaginationProps {
 
 export const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
   const getVisiblePages = () => {
-    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, index) => index + 1);
     if (currentPage <= 3) return [1, 2, 3, 4, 5];
-    if (currentPage >= totalPages - 2) return [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    if (currentPage >= totalPages - 2) {
+      return [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
     return [currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2];
   };
 
-  const pages = getVisiblePages();
-
   if (totalPages <= 1) return null;
 
+  const pages = getVisiblePages();
+
   return (
-    <div className="flex flex-col gap-3 border-t border-white/60 bg-white/40 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 border-t border-white/60 bg-white/42 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
       <span className="text-sm font-semibold text-slate-500">
         第 <span className="font-black text-slate-900">{currentPage}</span> 页，共{' '}
         <span className="font-black text-slate-900">{totalPages}</span> 页
@@ -31,9 +32,9 @@ export const Pagination = ({ currentPage, totalPages, onPageChange }: Pagination
           type="button"
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
-          className="rounded-2xl border border-white/80 bg-white/80 p-2 text-slate-500 shadow-[0_8px_20px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-0.5 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-2xl border border-white/80 bg-white/80 px-3 py-2 text-xs font-black text-slate-500 shadow-[0_8px_20px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-0.5 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <ChevronLeft size={16} />
+          上一页
         </button>
 
         <div className="flex items-center gap-1.5">
@@ -57,9 +58,9 @@ export const Pagination = ({ currentPage, totalPages, onPageChange }: Pagination
           type="button"
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
-          className="rounded-2xl border border-white/80 bg-white/80 p-2 text-slate-500 shadow-[0_8px_20px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-0.5 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-2xl border border-white/80 bg-white/80 px-3 py-2 text-xs font-black text-slate-500 shadow-[0_8px_20px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-0.5 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <ChevronRight size={16} />
+          下一页
         </button>
       </div>
     </div>

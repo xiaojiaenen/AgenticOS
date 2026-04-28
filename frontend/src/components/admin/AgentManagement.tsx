@@ -7,14 +7,11 @@ import {
   Loader2,
   Plus,
   Save,
-  Sparkles,
   Trash2,
-  Wand2,
   Wrench,
   X,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { Card } from '../ui/Card';
 import { cn } from '../../lib/utils';
 import {
   AgentProfile,
@@ -99,6 +96,16 @@ function modeLabel(mode: AgentMode) {
   if (mode === 'ppt') return 'PPT';
   if (mode === 'website') return '网站';
   return '通用';
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
 }
 
 export const AgentManagement = () => {
@@ -244,22 +251,32 @@ export const AgentManagement = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <section className="admin-solid-panel p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
+    <div className="admin-page-stage space-y-5">
+      <section className="admin-solid-panel px-6 py-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
             <p className="admin-section-kicker">智能体配置</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">把模型、工具、审批和 Skill 绑定成可发布的智能体</h2>
-            <p className="mt-3 text-sm font-medium leading-7 text-slate-500">
-              主页面只保留高密度摘要列表。真正的配置操作集中到一个弹窗里完成，避免“工具一页、Skill 一页、审批又一页”的来回切换。
-            </p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">智能体目录</h2>
           </div>
+
           <div className="flex flex-wrap items-center gap-3">
             {message && (
               <div className="rounded-[22px] border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
                 {message}
               </div>
             )}
+            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+              共 <span className="font-black text-slate-900">{profiles.length}</span> 个智能体
+            </div>
+            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+              已启用 <span className="font-black text-slate-900">{enabledAgents}</span>
+            </div>
+            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+              已上架 <span className="font-black text-slate-900">{listedAgents}</span>
+            </div>
+            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+              Skill 绑定 <span className="font-black text-slate-900">{totalBindings}</span>
+            </div>
             <Button variant="secondary" onClick={loadProfiles} disabled={isLoading || isSaving} className="gap-2">
               {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Wrench size={16} />}
               重新加载
@@ -272,28 +289,6 @@ export const AgentManagement = () => {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-[32px] border border-white/60 bg-white/46 shadow-[0_22px_60px_rgba(15,23,42,0.08)] ring-1 ring-white/30 backdrop-blur-[24px]">
-        <div className="grid grid-cols-1 divide-y divide-white/55 md:grid-cols-3 md:divide-x md:divide-y-0">
-          {[
-            { label: '智能体总数', value: profiles.length, icon: Bot, tone: 'bg-sky-50 text-sky-700 border-sky-100' },
-            { label: '已启用', value: enabledAgents, icon: Sparkles, tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
-            { label: 'Skill 绑定数', value: totalBindings, icon: Wand2, tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-          ].map((item) => (
-            <div key={item.label} className="px-5 py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{item.label}</p>
-                  <p className="mt-2 text-3xl font-black tracking-tight text-slate-900">{item.value}</p>
-                </div>
-                <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl border', item.tone)}>
-                  <item.icon size={21} />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {error && (
         <div className="flex items-center gap-2 rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
           <AlertCircle size={18} />
@@ -301,28 +296,26 @@ export const AgentManagement = () => {
         </div>
       )}
 
-      <Card className="overflow-hidden p-0">
-        <div className="flex flex-col gap-4 border-b border-white/70 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
+      <section className="overflow-hidden rounded-[32px] border border-white/70 bg-white/62 shadow-[0_20px_50px_rgba(15,23,42,0.08)] ring-1 ring-white/40 backdrop-blur-[28px]">
+        <div className="flex flex-col gap-4 border-b border-white/70 px-6 py-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="text-center lg:text-left">
             <p className="admin-section-kicker">智能体列表</p>
-            <h3 className="mt-2 text-xl font-black tracking-tight text-slate-900">列表视图优先，减少管理时的视线跳跃</h3>
-          </div>
-          <div className="rounded-[22px] border border-white/80 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-500">
-            已上架 <span className="font-black text-slate-900">{listedAgents}</span> 个
+            <h3 className="mt-2 text-lg font-black tracking-tight text-slate-900">已创建的智能体</h3>
           </div>
         </div>
 
-        <div className="hidden grid-cols-[minmax(250px,1.4fr)_110px_120px_minmax(220px,1fr)_160px_170px] border-b border-slate-100 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-400 xl:grid">
+        <div className="hidden grid-cols-[minmax(250px,1.35fr)_110px_120px_minmax(220px,1fr)_120px_130px_170px] border-b border-slate-100 px-5 py-3 text-center text-xs font-black tracking-[0.18em] text-slate-400 xl:grid">
           <span>智能体</span>
           <span>模式</span>
           <span>工具</span>
           <span>Skill</span>
           <span>状态</span>
-          <span className="text-right">操作</span>
+          <span>更新时间</span>
+          <span>操作</span>
         </div>
 
         {isLoading ? (
-          <div className="flex h-72 items-center justify-center gap-3 text-sm font-bold text-slate-400">
+          <div className="flex h-80 items-center justify-center gap-3 text-sm font-bold text-slate-400">
             <Loader2 size={18} className="animate-spin" />
             正在加载智能体配置
           </div>
@@ -330,10 +323,10 @@ export const AgentManagement = () => {
           profiles.map((profile) => (
             <div
               key={profile.id}
-              className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 xl:grid-cols-[minmax(250px,1.4fr)_110px_120px_minmax(220px,1fr)_160px_170px] xl:items-center"
+              className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(250px,1.35fr)_110px_120px_minmax(220px,1fr)_120px_130px_170px] xl:items-center"
             >
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center justify-center gap-2">
                   <p className="truncate text-sm font-black text-slate-900">{profile.name}</p>
                   {profile.is_builtin && (
                     <span className="rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[10px] font-black text-sky-700">
@@ -341,7 +334,7 @@ export const AgentManagement = () => {
                     </span>
                   )}
                 </div>
-                <p className="mt-1 truncate text-xs font-black uppercase tracking-[0.14em] text-slate-400">{profile.slug}</p>
+                <p className="mt-1 truncate text-xs font-black tracking-[0.14em] text-slate-400">{profile.slug}</p>
                 <p className="mt-2 line-clamp-2 text-sm font-medium leading-6 text-slate-500">
                   {profile.description || '暂无描述'}
                 </p>
@@ -353,7 +346,7 @@ export const AgentManagement = () => {
                 {profile.tools.filter((tool) => tool.enabled).length} / {profile.tools.length}
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap justify-center gap-2">
                 {profile.skills.length > 0 ? (
                   <>
                     {profile.skills.slice(0, 2).map((skill) => (
@@ -375,7 +368,7 @@ export const AgentManagement = () => {
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap justify-center gap-2">
                 <span
                   className={cn(
                     'rounded-full px-2.5 py-1 text-[10px] font-black',
@@ -394,7 +387,9 @@ export const AgentManagement = () => {
                 </span>
               </div>
 
-              <div className="flex flex-wrap justify-start gap-2 xl:justify-end">
+              <div className="text-sm font-bold text-slate-600">{formatDate(profile.updated_at)}</div>
+
+              <div className="flex flex-wrap justify-center gap-2">
                 <Button variant="secondary" onClick={() => openEditModal(profile)} className="gap-2 bg-white/85" size="sm">
                   <Wrench size={15} />
                   编辑
@@ -409,15 +404,15 @@ export const AgentManagement = () => {
             </div>
           ))
         ) : (
-          <div className="flex h-72 flex-col items-center justify-center text-center">
+          <div className="flex h-80 flex-col items-center justify-center text-center">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border border-white/70 bg-white/70 text-slate-400 shadow-sm">
               <Bot size={24} />
             </div>
             <p className="text-sm font-black text-slate-600">还没有智能体配置</p>
-            <p className="mt-1 text-xs font-medium text-slate-400">先创建一个智能体，再绑定工具和 Skill。</p>
+            <p className="mt-1 text-xs font-medium text-slate-400">先创建一个智能体，再绑定工具和 Skill</p>
           </div>
         )}
-      </Card>
+      </section>
 
       <AnimatePresence>
         {isModalOpen && draft && (
@@ -441,7 +436,7 @@ export const AgentManagement = () => {
                   <p className="admin-section-kicker">{draft.id ? '编辑智能体' : '新建智能体'}</p>
                   <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-900">{draft.name || '新的智能体'}</h3>
                   <p className="mt-2 text-sm font-medium text-slate-500">
-                    把工具开关、审批和 Skill 绑定放在一个地方完成配置。
+                    在这里完成基础信息、工具审批和 Skill 绑定。
                   </p>
                 </div>
                 <button
@@ -457,7 +452,7 @@ export const AgentManagement = () => {
                 <div className="overflow-y-auto p-6">
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <label className="space-y-2">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">名称</span>
+                      <span className="text-xs font-black tracking-[0.18em] text-slate-400">名称</span>
                       <input
                         value={draft.name}
                         onChange={(event) => patchDraft({ name: event.target.value })}
@@ -466,7 +461,7 @@ export const AgentManagement = () => {
                     </label>
 
                     <label className="space-y-2">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Slug</span>
+                      <span className="text-xs font-black tracking-[0.18em] text-slate-400">Slug</span>
                       <input
                         value={draft.slug || ''}
                         disabled={draft.is_builtin}
@@ -476,7 +471,7 @@ export const AgentManagement = () => {
                     </label>
 
                     <label className="space-y-2 lg:col-span-2">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">描述</span>
+                      <span className="text-xs font-black tracking-[0.18em] text-slate-400">描述</span>
                       <input
                         value={draft.description}
                         onChange={(event) => patchDraft({ description: event.target.value })}
@@ -485,7 +480,7 @@ export const AgentManagement = () => {
                     </label>
 
                     <label className="space-y-2">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">响应模式</span>
+                      <span className="text-xs font-black tracking-[0.18em] text-slate-400">响应模式</span>
                       <select
                         value={draft.response_mode}
                         onChange={(event) => patchDraft({ response_mode: event.target.value as AgentMode })}
@@ -509,11 +504,11 @@ export const AgentManagement = () => {
                     </div>
 
                     <label className="space-y-2 lg:col-span-2">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">系统提示词</span>
+                      <span className="text-xs font-black tracking-[0.18em] text-slate-400">系统提示词</span>
                       <textarea
                         value={draft.system_prompt}
                         onChange={(event) => patchDraft({ system_prompt: event.target.value })}
-                        rows={9}
+                        rows={10}
                         className="w-full resize-y rounded-[24px] border border-white/75 bg-white/72 px-4 py-3 text-sm font-medium leading-6 text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
@@ -550,7 +545,7 @@ export const AgentManagement = () => {
                                   <p className="mt-1 text-xs font-medium leading-5 text-slate-500">{meta?.description}</p>
                                   {isSkillTool && (
                                     <p className="mt-2 text-xs font-semibold text-amber-700">
-                                      绑定任意 Skill 后，会默认开启该工具并至少要求管理员可控审批。
+                                      绑定任意 Skill 后，会默认开启该工具，并至少要求管理员可控审批。
                                     </p>
                                   )}
                                 </div>
@@ -580,7 +575,7 @@ export const AgentManagement = () => {
                       <div className="mb-4 flex items-center justify-between">
                         <div>
                           <p className="admin-section-kicker">可用 Skill</p>
-                          <h4 className="mt-1 text-lg font-black text-slate-900">按智能体选择要绑定的 Skill</h4>
+                          <h4 className="mt-1 text-lg font-black text-slate-900">按智能体选择 Skill</h4>
                         </div>
                         <span className="rounded-full border border-white/80 bg-white px-3 py-1 text-xs font-black text-slate-500">
                           已选 {selectedSkills.length}/{availableSkills.length}
@@ -589,7 +584,7 @@ export const AgentManagement = () => {
 
                       {!skillToolEnabled && (
                         <div className="mb-4 rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
-                          选中 Skill 后，系统会自动打开 `skill` 工具，并默认把审批至少交到管理员可控。
+                          选中 Skill 后，系统会自动打开 `skill` 工具，并默认保留审批。
                         </div>
                       )}
 
@@ -612,7 +607,7 @@ export const AgentManagement = () => {
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
                                     <p className="truncate text-sm font-black text-slate-900">{skill.name}</p>
-                                    <p className="mt-1 truncate text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+                                    <p className="mt-1 truncate text-[11px] font-black tracking-[0.14em] text-slate-400">
                                       {skill.slug}
                                     </p>
                                   </div>
@@ -648,7 +643,7 @@ export const AgentManagement = () => {
               </div>
 
               <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm font-medium text-slate-500">主页面保留摘要，详细配置放进弹窗，便于快速浏览和集中修改。</p>
+                <p className="text-sm font-medium text-slate-500">保存后将更新当前智能体配置。</p>
                 <div className="flex items-center gap-3">
                   <Button type="button" variant="secondary" onClick={closeModal} disabled={isSaving}>
                     取消

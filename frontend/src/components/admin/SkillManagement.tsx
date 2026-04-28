@@ -2,7 +2,6 @@ import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertCircle, FileCode2, Loader2, Plus, Save, Trash2, Upload, X } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { Card } from '../ui/Card';
 import { cn } from '../../lib/utils';
 import {
   createSkill,
@@ -22,7 +21,7 @@ type Draft = SkillPayload & {
 };
 
 const emptyInstruction =
-  '请说明这个 skill 适合在什么场景下使用、如何使用，以及什么情况下允许调用 scripts。';
+  '请说明这个 Skill 适合在什么场景下使用、如何使用，以及什么情况下允许调用 scripts。';
 
 function makeDraft(skill: Skill | null): Draft {
   if (skill) {
@@ -187,22 +186,29 @@ export const SkillManagement = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <section className="admin-solid-panel p-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl">
+    <div className="admin-page-stage space-y-5">
+      <section className="admin-solid-panel px-6 py-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
             <p className="admin-section-kicker">Skill 管理</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">管理本地 Skill 与脚本能力</h2>
-            <p className="mt-3 text-sm font-medium leading-7 text-slate-500">
-              列表页专注目录和状态，正文编辑统一放在弹窗；上传入口保留在页内，方便把 Zip Skill 包直接落到本地目录。
-            </p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">本地 Skill 目录</h2>
           </div>
+
           <div className="flex flex-wrap items-center gap-3">
             {message && (
               <div className="rounded-[22px] border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
                 {message}
               </div>
             )}
+            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+              共 <span className="font-black text-slate-900">{skills.length}</span> 个 Skill
+            </div>
+            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+              已启用 <span className="font-black text-slate-900">{enabledCount}</span>
+            </div>
+            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+              含脚本 <span className="font-black text-slate-900">{pythonSkillCount}</span>
+            </div>
             <Button variant="secondary" onClick={loadSkills} disabled={isLoading || isSaving || isUploading}>
               {isLoading ? <Loader2 size={16} className="animate-spin" /> : '重新加载'}
             </Button>
@@ -214,28 +220,6 @@ export const SkillManagement = () => {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-[32px] border border-white/60 bg-white/46 shadow-[0_22px_60px_rgba(15,23,42,0.08)] ring-1 ring-white/30 backdrop-blur-[24px]">
-        <div className="grid grid-cols-1 divide-y divide-white/55 md:grid-cols-3 md:divide-x md:divide-y-0">
-          {[
-            { label: 'Skill 总数', value: skills.length, tone: 'bg-sky-50 text-sky-700 border-sky-100' },
-            { label: '已启用', value: enabledCount, tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
-            { label: '含脚本 Skill', value: pythonSkillCount, tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-          ].map((item) => (
-            <div key={item.label} className="px-5 py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{item.label}</p>
-                  <p className="mt-2 text-3xl font-black tracking-tight text-slate-900">{item.value}</p>
-                </div>
-                <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl border', item.tone)}>
-                  <FileCode2 size={20} />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {error && (
         <div className="flex items-center gap-2 rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
           <AlertCircle size={18} />
@@ -243,18 +227,18 @@ export const SkillManagement = () => {
         </div>
       )}
 
-      <Card className="overflow-hidden p-0">
-        <div className="grid grid-cols-1 gap-4 border-b border-white/70 px-6 py-5 xl:grid-cols-[minmax(0,1fr)_280px_auto] xl:items-end">
-          <div>
+      <section className="overflow-hidden rounded-[32px] border border-white/70 bg-white/62 shadow-[0_20px_50px_rgba(15,23,42,0.08)] ring-1 ring-white/40 backdrop-blur-[28px]">
+        <div className="grid grid-cols-1 gap-4 border-b border-white/70 px-6 py-5 xl:grid-cols-[minmax(0,1fr)_260px_auto] xl:items-end">
+          <div className="text-center xl:text-left">
             <p className="admin-section-kicker">上传入口</p>
-            <h3 className="mt-2 text-xl font-black tracking-tight text-slate-900">支持上传 Zip Skill 包</h3>
+            <h3 className="mt-2 text-lg font-black tracking-tight text-slate-900">支持上传 Zip Skill 包</h3>
             <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
               上传成功后会自动写入本地 Skill 目录，并出现在当前列表中。
             </p>
           </div>
 
           <label className="space-y-2">
-            <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Slug 覆盖</span>
+            <span className="text-xs font-black tracking-[0.18em] text-slate-400">Slug 覆盖</span>
             <input
               value={uploadSlug}
               onChange={(event) => setUploadSlug(event.target.value)}
@@ -277,17 +261,17 @@ export const SkillManagement = () => {
           </div>
         </div>
 
-        <div className="hidden grid-cols-[minmax(240px,1.3fr)_100px_140px_160px_120px_170px] border-b border-slate-100 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-400 xl:grid">
+        <div className="hidden grid-cols-[minmax(240px,1.3fr)_100px_140px_160px_120px_170px] border-b border-slate-100 px-5 py-3 text-center text-xs font-black tracking-[0.18em] text-slate-400 xl:grid">
           <span>Skill</span>
           <span>脚本数</span>
           <span>目录</span>
           <span>更新时间</span>
           <span>状态</span>
-          <span className="text-right">操作</span>
+          <span>操作</span>
         </div>
 
         {isLoading ? (
-          <div className="flex h-72 items-center justify-center gap-3 text-sm font-bold text-slate-400">
+          <div className="flex h-80 items-center justify-center gap-3 text-sm font-bold text-slate-400">
             <Loader2 size={18} className="animate-spin" />
             正在加载 Skill
           </div>
@@ -295,21 +279,19 @@ export const SkillManagement = () => {
           skills.map((skill) => (
             <div
               key={skill.id}
-              className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 xl:grid-cols-[minmax(240px,1.3fr)_100px_140px_160px_120px_170px] xl:items-center"
+              className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(240px,1.3fr)_100px_140px_160px_120px_170px] xl:items-center"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-black text-slate-900">{skill.name}</p>
-                <p className="mt-1 truncate text-xs font-black uppercase tracking-[0.14em] text-slate-400">{skill.slug}</p>
+                <p className="mt-1 truncate text-xs font-black tracking-[0.14em] text-slate-400">{skill.slug}</p>
                 <p className="mt-2 line-clamp-2 text-sm font-medium leading-6 text-slate-500">{skill.description || '暂无描述'}</p>
               </div>
 
               <div className="text-sm font-black text-slate-900">{skill.script_paths.length}</div>
-
               <div className="text-sm font-bold text-slate-600">{shortRootDir(skill.root_dir)}</div>
-
               <div className="text-sm font-bold text-slate-600">{formatDate(skill.updated_at)}</div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap justify-center gap-2">
                 <span
                   className={cn(
                     'rounded-full px-2.5 py-1 text-[10px] font-black',
@@ -325,7 +307,7 @@ export const SkillManagement = () => {
                 )}
               </div>
 
-              <div className="flex flex-wrap justify-start gap-2 xl:justify-end">
+              <div className="flex flex-wrap justify-center gap-2">
                 <Button variant="secondary" onClick={() => openEditModal(skill)} className="gap-2 bg-white/85" size="sm">
                   <FileCode2 size={15} />
                   编辑
@@ -338,7 +320,7 @@ export const SkillManagement = () => {
             </div>
           ))
         ) : (
-          <div className="flex h-72 flex-col items-center justify-center text-center">
+          <div className="flex h-80 flex-col items-center justify-center text-center">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border border-white/70 bg-white/70 text-slate-400 shadow-sm">
               <FileCode2 size={24} />
             </div>
@@ -346,7 +328,7 @@ export const SkillManagement = () => {
             <p className="mt-1 text-xs font-medium text-slate-400">你可以先创建一个本地 Skill，或者直接上传 Zip Skill 包。</p>
           </div>
         )}
-      </Card>
+      </section>
 
       <AnimatePresence>
         {isModalOpen && draft && (
@@ -383,7 +365,7 @@ export const SkillManagement = () => {
                 <div className="overflow-y-auto p-6">
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <label className="space-y-2">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">名称</span>
+                      <span className="text-xs font-black tracking-[0.18em] text-slate-400">名称</span>
                       <input
                         value={draft.name}
                         onChange={(event) => patchDraft({ name: event.target.value })}
@@ -391,7 +373,7 @@ export const SkillManagement = () => {
                       />
                     </label>
                     <label className="space-y-2">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Slug</span>
+                      <span className="text-xs font-black tracking-[0.18em] text-slate-400">Slug</span>
                       <input
                         value={draft.slug || ''}
                         onChange={(event) => patchDraft({ slug: event.target.value })}
@@ -399,7 +381,7 @@ export const SkillManagement = () => {
                       />
                     </label>
                     <label className="space-y-2 lg:col-span-2">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">描述</span>
+                      <span className="text-xs font-black tracking-[0.18em] text-slate-400">描述</span>
                       <input
                         value={draft.description}
                         onChange={(event) => patchDraft({ description: event.target.value })}
@@ -425,7 +407,7 @@ export const SkillManagement = () => {
                     </div>
 
                     <label className="space-y-2 lg:col-span-2">
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">SKILL.md 正文</span>
+                      <span className="text-xs font-black tracking-[0.18em] text-slate-400">SKILL.md 正文</span>
                       <textarea
                         value={draft.instruction}
                         onChange={(event) => patchDraft({ instruction: event.target.value })}
@@ -463,7 +445,7 @@ export const SkillManagement = () => {
               </div>
 
               <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm font-medium text-slate-500">主页面看目录和状态，正文与脚本明细都放到弹窗里集中编辑。</p>
+                <p className="text-sm font-medium text-slate-500">保存后将更新当前 Skill 配置。</p>
                 <div className="flex items-center gap-3">
                   <Button type="button" variant="secondary" onClick={closeModal} disabled={isSaving}>
                     取消

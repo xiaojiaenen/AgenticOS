@@ -1,12 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  CheckCircle2,
   Edit3,
   Loader2,
   Plus,
   Search,
-  Shield,
   Trash2,
   User,
   UserCheck,
@@ -14,7 +12,6 @@ import {
   X,
 } from 'lucide-react';
 import { Pagination } from './Pagination';
-import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import {
@@ -190,6 +187,7 @@ export const UserManagement = () => {
       setFormError('请填写名称和邮箱');
       return;
     }
+
     if (!editingUser && form.password.length < 6) {
       setFormError('新用户密码至少 6 位');
       return;
@@ -202,7 +200,9 @@ export const UserManagement = () => {
       is_active: form.is_active,
     };
 
-    if (form.password) payload.password = form.password;
+    if (form.password) {
+      payload.password = form.password;
+    }
 
     setIsSaving(true);
     try {
@@ -244,42 +244,29 @@ export const UserManagement = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <section className="admin-solid-panel p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
+    <div className="admin-page-stage space-y-5">
+      <section className="admin-solid-panel px-6 py-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
             <p className="admin-section-kicker">用户管理</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">高密度列表更适合批量维护账号</h2>
-            <p className="mt-3 text-sm font-medium leading-7 text-slate-500">
-              主页面保留筛选、状态和批量可读信息，创建和编辑统一放进弹窗，避免在长表单和长列表之间来回滚动。
-            </p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">账号与权限</h2>
           </div>
-          <Button onClick={openCreateForm} size="lg" className="gap-2 self-start lg:self-auto">
-            <Plus size={18} />
-            新增用户
-          </Button>
-        </div>
-      </section>
 
-      <section className="overflow-hidden rounded-[32px] border border-white/60 bg-white/46 shadow-[0_22px_60px_rgba(15,23,42,0.08)] ring-1 ring-white/30 backdrop-blur-[24px]">
-        <div className="grid grid-cols-1 divide-y divide-white/55 md:grid-cols-3 md:divide-x md:divide-y-0">
-          {[
-            { label: '用户总数', value: total, icon: User, tone: 'bg-sky-50 text-sky-700 border-sky-100' },
-            { label: '本页启用', value: activeUsers, icon: CheckCircle2, tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
-            { label: '本页管理员', value: adminUsers, icon: Shield, tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-          ].map((item) => (
-            <div key={item.label} className="px-5 py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{item.label}</p>
-                  <p className="mt-2 text-3xl font-black tracking-tight text-slate-900">{item.value}</p>
-                </div>
-                <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl border', item.tone)}>
-                  <item.icon size={21} />
-                </div>
-              </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+              共 <span className="font-black text-slate-900">{total}</span> 个用户
             </div>
-          ))}
+            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+              启用 <span className="font-black text-slate-900">{activeUsers}</span>
+            </div>
+            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+              管理员 <span className="font-black text-slate-900">{adminUsers}</span>
+            </div>
+            <Button onClick={openCreateForm} className="gap-2">
+              <Plus size={16} />
+              新增用户
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -289,11 +276,11 @@ export const UserManagement = () => {
         </div>
       )}
 
-      <Card className="overflow-hidden p-0">
-        <div className="flex flex-col gap-4 border-b border-white/70 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
+      <section className="overflow-hidden rounded-[32px] border border-white/70 bg-white/62 shadow-[0_20px_50px_rgba(15,23,42,0.08)] ring-1 ring-white/40 backdrop-blur-[28px]">
+        <div className="flex flex-col gap-4 border-b border-white/70 px-6 py-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="text-center lg:text-left">
             <p className="admin-section-kicker">用户目录</p>
-            <h3 className="mt-2 text-xl font-black tracking-tight text-slate-900">按名称和邮箱快速检索</h3>
+            <h3 className="mt-2 text-lg font-black tracking-tight text-slate-900">按名称和邮箱检索</h3>
           </div>
 
           <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
@@ -307,36 +294,34 @@ export const UserManagement = () => {
                 className="w-full rounded-[22px] border border-white/75 bg-white/72 py-3.5 pl-11 pr-5 text-sm font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
               />
             </div>
-            <div className="rounded-[22px] border border-white/80 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-500">
-              共 <span className="font-black text-slate-900">{total}</span> 个用户
-            </div>
           </div>
         </div>
 
-        <div className="hidden grid-cols-[minmax(240px,1.5fr)_120px_120px_140px_180px] border-b border-slate-100 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-400 xl:grid">
+        <div className="hidden grid-cols-[minmax(240px,1.5fr)_120px_120px_140px_180px] border-b border-slate-100 px-5 py-3 text-center text-xs font-black tracking-[0.18em] text-slate-400 xl:grid">
           <span>用户</span>
           <span>角色</span>
           <span>状态</span>
           <span>创建时间</span>
-          <span className="text-right">操作</span>
+          <span>操作</span>
         </div>
 
-        <div className="min-h-[400px]">
+        <div className="min-h-[420px]">
           {isLoading ? (
-            <div className="flex h-[400px] items-center justify-center gap-3 text-sm font-bold text-slate-400">
+            <div className="flex h-[420px] items-center justify-center gap-3 text-sm font-bold text-slate-400">
               <Loader2 size={18} className="animate-spin" />
               正在加载用户
             </div>
           ) : users.length > 0 ? (
             users.map((user) => {
               const isSelf = currentUser?.id === user.id;
+
               return (
                 <div
                   key={user.id}
-                  className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 xl:grid-cols-[minmax(240px,1.5fr)_120px_120px_140px_180px] xl:items-center"
+                  className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(240px,1.5fr)_120px_120px_140px_180px] xl:items-center"
                 >
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-center gap-2">
                       <p className="truncate text-sm font-black text-slate-900">{user.name}</p>
                       {isSelf && (
                         <span className="rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[10px] font-black text-sky-700">
@@ -344,7 +329,7 @@ export const UserManagement = () => {
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 truncate text-xs font-medium text-slate-500">{user.email}</p>
+                    <p className="mt-1 truncate text-center text-xs font-medium text-slate-500">{user.email}</p>
                   </div>
 
                   <div className="text-sm font-bold text-slate-700">{roleLabel(user.role)}</div>
@@ -360,7 +345,7 @@ export const UserManagement = () => {
 
                   <div className="text-sm font-bold text-slate-600">{formatDate(user.created_at)}</div>
 
-                  <div className="flex flex-wrap justify-start gap-2 xl:justify-end">
+                  <div className="flex flex-wrap justify-center gap-2">
                     <Button variant="secondary" size="sm" onClick={() => openEditForm(user)} className="gap-2 bg-white/85">
                       <Edit3 size={15} />
                       编辑
@@ -390,7 +375,7 @@ export const UserManagement = () => {
               );
             })
           ) : (
-            <div className="flex h-[400px] flex-col items-center justify-center text-center">
+            <div className="flex h-[420px] flex-col items-center justify-center text-center">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border border-white/70 bg-white/70 text-slate-400 shadow-sm">
                 <User size={24} />
               </div>
@@ -403,7 +388,7 @@ export const UserManagement = () => {
         {total > ITEMS_PER_PAGE && (
           <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
         )}
-      </Card>
+      </section>
 
       <AnimatePresence>
         {isFormOpen && (
@@ -461,9 +446,7 @@ export const UserManagement = () => {
                   placeholder={editingUser ? '留空则不修改' : '至少 6 位'}
                 />
                 <div>
-                  <label className="mb-2 ml-1 block text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                    角色
-                  </label>
+                  <label className="mb-2 ml-1 block text-xs font-black tracking-[0.18em] text-slate-400">角色</label>
                   <select
                     value={form.role}
                     onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value as 'admin' | 'user' }))}

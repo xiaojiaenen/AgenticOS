@@ -2,8 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertCircle,
-  Bot,
-  Clock3,
   Eye,
   Loader2,
   MessageSquare,
@@ -11,10 +9,8 @@ import {
   Search,
   Trash2,
   X,
-  Zap,
 } from 'lucide-react';
 import { Pagination } from './Pagination';
-import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import {
   AdminConversation,
@@ -158,43 +154,29 @@ export const ChatHistory = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <section className="admin-solid-panel p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
+    <div className="admin-page-stage space-y-5">
+      <section className="admin-solid-panel px-6 py-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
             <p className="admin-section-kicker">聊天记录</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">高密度会话列表，更适合管理大量记录</h2>
-            <p className="mt-3 text-sm font-medium leading-7 text-slate-500">
-              会话概览压在一行里，先看用户、摘要、调用和时间。需要追查完整过程时，再打开详情弹窗查看整条消息时间线。
-            </p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">会话列表</h2>
           </div>
-          <Button variant="secondary" onClick={loadData} disabled={isLoading} className="gap-2 self-start lg:self-auto">
-            {isLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-            刷新数据
-          </Button>
-        </div>
-      </section>
 
-      <section className="overflow-hidden rounded-[32px] border border-white/60 bg-white/46 shadow-[0_22px_60px_rgba(15,23,42,0.08)] ring-1 ring-white/30 backdrop-blur-[24px]">
-        <div className="grid grid-cols-1 divide-y divide-white/55 md:grid-cols-2 md:divide-x md:divide-y-0 xl:grid-cols-4">
-          {[
-            { label: '会话总数', value: total, icon: MessageSquare, tone: 'bg-sky-50 text-sky-700 border-sky-100' },
-            { label: '本页 Token', value: pageTotals.tokens, icon: Zap, tone: 'bg-violet-50 text-violet-700 border-violet-100' },
-            { label: '本页模型调用', value: pageTotals.calls, icon: Bot, tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
-            { label: '本页工具调用', value: pageTotals.tools, icon: Clock3, tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-          ].map((item) => (
-            <div key={item.label} className="px-5 py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{item.label}</p>
-                  <p className="mt-2 text-3xl font-black tracking-tight text-slate-900">{formatNumber(item.value)}</p>
-                </div>
-                <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${item.tone}`}>
-                  <item.icon size={21} />
-                </div>
-              </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+              共 <span className="font-black text-slate-900">{total}</span> 条会话
             </div>
-          ))}
+            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+              本页 Token <span className="font-black text-slate-900">{formatNumber(pageTotals.tokens)}</span>
+            </div>
+            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+              模型/工具 <span className="font-black text-slate-900">{formatNumber(pageTotals.calls)} / {formatNumber(pageTotals.tools)}</span>
+            </div>
+            <Button variant="secondary" onClick={loadData} disabled={isLoading} className="gap-2">
+              {isLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+              刷新数据
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -205,11 +187,11 @@ export const ChatHistory = () => {
         </div>
       )}
 
-      <Card className="overflow-hidden p-0">
-        <div className="flex flex-col gap-4 border-b border-white/70 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
+      <section className="overflow-hidden rounded-[32px] border border-white/70 bg-white/62 shadow-[0_20px_50px_rgba(15,23,42,0.08)] ring-1 ring-white/40 backdrop-blur-[28px]">
+        <div className="flex flex-col gap-4 border-b border-white/70 px-6 py-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="text-center lg:text-left">
             <p className="admin-section-kicker">会话目录</p>
-            <h3 className="mt-2 text-xl font-black tracking-tight text-slate-900">按用户、摘要或 Session 检索</h3>
+            <h3 className="mt-2 text-lg font-black tracking-tight text-slate-900">按用户、摘要或 Session 检索</h3>
           </div>
 
           <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
@@ -222,25 +204,22 @@ export const ChatHistory = () => {
                 className="w-full rounded-[22px] border border-white/75 bg-white/72 py-3.5 pl-11 pr-5 text-sm font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
               />
             </div>
-            <div className="rounded-[22px] border border-white/80 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-500">
-              共 <span className="font-black text-slate-900">{total}</span> 条会话
-            </div>
           </div>
         </div>
 
-        <div className="hidden grid-cols-[minmax(220px,1.2fr)_minmax(260px,1.8fr)_90px_110px_110px_130px_130px] border-b border-slate-100 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-400 xl:grid">
+        <div className="hidden grid-cols-[minmax(220px,1.15fr)_minmax(280px,1.9fr)_90px_110px_120px_140px_130px] border-b border-slate-100 px-5 py-3 text-center text-xs font-black tracking-[0.18em] text-slate-400 xl:grid">
           <span>用户</span>
           <span>摘要</span>
           <span>消息数</span>
           <span>Token</span>
           <span>模型/工具</span>
           <span>更新时间</span>
-          <span className="text-right">操作</span>
+          <span>操作</span>
         </div>
 
-        <div className="min-h-[420px]">
+        <div className="min-h-[460px]">
           {isLoading ? (
-            <div className="flex h-[420px] items-center justify-center gap-3 text-sm font-bold text-slate-400">
+            <div className="flex h-[460px] items-center justify-center gap-3 text-sm font-bold text-slate-400">
               <Loader2 size={18} className="animate-spin" />
               正在加载会话
             </div>
@@ -248,7 +227,7 @@ export const ChatHistory = () => {
             items.map((item) => (
               <div
                 key={item.session_id}
-                className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 xl:grid-cols-[minmax(220px,1.2fr)_minmax(260px,1.8fr)_90px_110px_110px_130px_130px] xl:items-center"
+                className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(220px,1.15fr)_minmax(280px,1.9fr)_90px_110px_120px_140px_130px] xl:items-center"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-black text-slate-900">{item.user_name || '未知用户'}</p>
@@ -265,12 +244,12 @@ export const ChatHistory = () => {
                 <div className="text-sm font-bold text-slate-600">
                   {formatNumber(item.llm_calls)} / {formatNumber(item.tool_calls)}
                 </div>
-                <div>
+                <div className="text-center">
                   <p className="text-sm font-bold text-slate-700">{formatDate(item.updated_at)}</p>
                   <p className="mt-1 text-xs font-medium text-slate-400">{formatLatency(item.avg_latency_ms)}</p>
                 </div>
 
-                <div className="flex flex-wrap justify-start gap-2 xl:justify-end">
+                <div className="flex flex-wrap justify-center gap-2">
                   <Button
                     variant="secondary"
                     size="sm"
@@ -294,7 +273,7 @@ export const ChatHistory = () => {
               </div>
             ))
           ) : (
-            <div className="flex h-[420px] flex-col items-center justify-center text-center">
+            <div className="flex h-[460px] flex-col items-center justify-center text-center">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border border-white/70 bg-white/70 text-slate-400 shadow-sm">
                 <MessageSquare size={24} />
               </div>
@@ -307,7 +286,7 @@ export const ChatHistory = () => {
         {total > ITEMS_PER_PAGE && (
           <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
         )}
-      </Card>
+      </section>
 
       <AnimatePresence>
         {detailSessionId && (
@@ -363,19 +342,19 @@ export const ChatHistory = () => {
 
                       <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-[22px] border border-white/80 bg-white/80 px-4 py-4">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">消息数</p>
+                          <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">消息数</p>
                           <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(detail.message_count)}</p>
                         </div>
                         <div className="rounded-[22px] border border-white/80 bg-white/80 px-4 py-4">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Token</p>
+                          <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">Token</p>
                           <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(detail.total_tokens)}</p>
                         </div>
                         <div className="rounded-[22px] border border-white/80 bg-white/80 px-4 py-4">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">模型调用</p>
+                          <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">模型调用</p>
                           <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(detail.llm_calls)}</p>
                         </div>
                         <div className="rounded-[22px] border border-white/80 bg-white/80 px-4 py-4">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">工具调用</p>
+                          <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">工具调用</p>
                           <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(detail.tool_calls)}</p>
                         </div>
                       </div>
