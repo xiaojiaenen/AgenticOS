@@ -50,7 +50,7 @@ def test_admin_can_read_and_update_mode_tool_config() -> None:
         assert get_response.status_code == 200
         payload = get_response.json()
         assert {mode["mode"] for mode in payload["modes"]} == {"general", "ppt", "website"}
-        assert {item["name"] for item in payload["catalog"]} >= {"time", "file"}
+        assert {item["name"] for item in payload["catalog"]} >= {"calc", "time", "file", "python", "git", "npm"}
 
         update_response = client.put(
             "/api/v1/tool-config/modes/ppt",

@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { Users, MessageSquare, BarChart3, LogOut, ChevronRight, Cpu, Wrench } from 'lucide-react';
+import { Users, MessageSquare, BarChart3, LogOut, ChevronRight, Wrench } from 'lucide-react';
 import { Logo } from '../Logo';
 import { getStoredUser, logout } from '../../services/authService';
 import { UserAvatarIcon } from '../ui/AnimatedIcons';
@@ -56,7 +56,6 @@ export const AdminSidebar = ({ activeTab, setActiveTab }: AdminSidebarProps) => 
           { id: 'history', icon: MessageSquare, label: '对话历史' },
           { id: 'users', icon: Users, label: '用户管理' },
           { id: 'settings', icon: Wrench, label: '工具管理' },
-          { id: 'models', icon: Cpu, label: '模型参数' },
         ].map((item) => (
           <button
             key={item.id}

@@ -6,7 +6,6 @@ import { DashboardStats } from '../components/admin/DashboardStats';
 import { DashboardCharts } from '../components/admin/DashboardCharts';
 import { ChatHistory } from '../components/admin/ChatHistory';
 import { UserManagement } from '../components/admin/UserManagement';
-import { ModelConfig } from '../components/admin/ModelConfig';
 import { SystemSettings } from '../components/admin/SystemSettings';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { getStoredUser } from '../services/authService';
@@ -24,7 +23,6 @@ export const AdminDashboard = () => {
     dashboard: '系统概览',
     history: '对话记录',
     users: '用户管理',
-    models: '模型参数',
     settings: '工具管理',
   };
 
@@ -84,8 +82,6 @@ export const AdminDashboard = () => {
         return <ChatHistory />;
       case 'users':
         return <UserManagement />;
-      case 'models':
-        return <ModelConfig />;
       case 'settings':
         return <SystemSettings />;
       default:

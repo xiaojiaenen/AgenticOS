@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { AlertCircle, Check, Clock3, Code2, FileText, Globe2, Loader2, Presentation, Save, ShieldCheck, Sparkles, Wrench, X } from 'lucide-react';
+import { AlertCircle, Calculator, Check, Clock3, Code2, FileText, GitBranch, Globe2, Loader2, PackagePlus, Presentation, Save, ShieldCheck, Sparkles, Terminal, Wrench, X } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import {
   AgentMode,
-  AgentModeConfig,
   AgentModeToolConfig,
   getToolConfig,
   ToolCatalogItem,
@@ -21,8 +20,12 @@ const modeIcons: Record<AgentMode, React.ElementType> = {
 };
 
 const toolIcons: Record<string, React.ElementType> = {
+  calc: Calculator,
   time: Clock3,
   file: FileText,
+  python: Terminal,
+  git: GitBranch,
+  npm: PackagePlus,
 };
 
 function Toggle({
@@ -139,30 +142,50 @@ export const SystemSettings = () => {
     if (data) setDraft(cloneConfig(data));
   };
 
+  const enabledTotal = draft?.modes.reduce((sum, mode) => sum + mode.tools.filter((tool) => tool.enabled).length, 0) ?? 0;
+  const approvalTotal = draft?.modes.reduce((sum, mode) => sum + mode.tools.filter((tool) => tool.enabled && tool.requires_approval).length, 0) ?? 0;
+
   return (
     <div className="space-y-6 pb-10">
-      <div className="relative overflow-hidden rounded-[28px] border border-white/60 bg-zinc-900 p-6 shadow-xl md:p-8">
-        <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-200/80">Agent Profiles</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-white">工具与审批管理</h2>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-300">
-              每个前台模式都是一套独立 Agent 配置，可分别控制工具启用和人工审批策略。
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {message && (
-              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white backdrop-blur">
-                {message}
-              </div>
-            )}
-            <Button variant="secondary" onClick={loadConfig} disabled={isLoading || isSaving} className="gap-2 bg-white/10 text-white hover:bg-white/15">
-              {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Wrench size={16} />}
-              重新加载
-            </Button>
-          </div>
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">Agent Profiles</p>
+          <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">工具与审批管理</h2>
+          <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500">
+            每个前台模式都是一套独立 Agent 配置，可分别控制工具启用和人工审批策略。
+          </p>
         </div>
-        <Wrench size={260} className="absolute -right-14 -top-16 rotate-12 text-white opacity-[0.06]" />
+        <div className="flex flex-wrap items-center gap-3">
+          {message && (
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
+              {message}
+            </div>
+          )}
+          <Button variant="secondary" onClick={loadConfig} disabled={isLoading || isSaving} className="gap-2 self-start md:self-auto">
+            {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Wrench size={16} />}
+            重新加载
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {[
+          { label: 'Agent 模式', value: draft?.modes.length ?? 0, icon: Sparkles, tone: 'bg-sky-50 text-sky-700 border-sky-100' },
+          { label: '已启用工具', value: enabledTotal, icon: Wrench, tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+          { label: '审批保护', value: approvalTotal, icon: ShieldCheck, tone: 'bg-amber-50 text-amber-700 border-amber-100' },
+        ].map((item) => (
+          <Card key={item.label} className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400">{item.label}</p>
+                <p className="mt-2 text-3xl font-black tracking-tight text-slate-900">{item.value}</p>
+              </div>
+              <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${item.tone}`}>
+                <item.icon size={21} />
+              </div>
+            </div>
+          </Card>
+        ))}
       </div>
 
       {error && (

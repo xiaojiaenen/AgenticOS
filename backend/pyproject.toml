@@ -10,7 +10,7 @@ dependencies = [
     "pydantic-settings>=2.10.0,<3.0.0",
     "sqlalchemy>=2.0.44,<3.0.0",
     "uvicorn[standard]>=0.35.0,<1.0.0",
-    "wuwei>=0.1.4,<0.2.0",
+    "wuwei>=0.1.6,<0.2.0",
 ]
 
 [dependency-groups]

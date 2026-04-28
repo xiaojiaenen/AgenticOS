@@ -24,6 +24,12 @@ AGENT_MODES = {
 }
 
 TOOL_CATALOG = {
+    "calc": {
+        "label": "计算工具",
+        "description": "执行受限的数学表达式计算，适合公式、估算和数值推导。",
+        "builtin_name": "calc",
+        "approval_scope": ["calculate"],
+    },
     "time": {
         "label": "时间工具",
         "description": "获取当前时间、时区和日期相关信息。",
@@ -32,24 +38,62 @@ TOOL_CATALOG = {
     },
     "file": {
         "label": "文件工具",
-        "description": "读取或转换文件内容。涉及工作区文件时建议开启审批。",
+        "description": "读取、转换、写入、追加、替换或删除 workspace 内文件。",
         "builtin_name": "file",
-        "approval_scope": ["file", "file_to_md", "read_file", "write_file", "list_files"],
+        "approval_scope": [
+            "file",
+            "file_to_md",
+            "read_text_file",
+            "write_text_file",
+            "append_text_file",
+            "replace_text_in_file",
+            "delete_file",
+        ],
+    },
+    "python": {
+        "label": "Python 脚本",
+        "description": "运行 workspace 内 Python 脚本，适合数据处理和自动化任务。",
+        "builtin_name": "python",
+        "approval_scope": ["python", "run_python_script"],
+    },
+    "git": {
+        "label": "Git 工具",
+        "description": "查看状态、diff、日志，也可暂存和提交代码。",
+        "builtin_name": "git",
+        "approval_scope": ["git", "git_add", "git_commit", "git_diff", "git_log", "git_show", "git_status"],
+    },
+    "npm": {
+        "label": "NPM 工具",
+        "description": "读取脚本、运行 npm script 或安装依赖包。",
+        "builtin_name": "npm",
+        "approval_scope": ["npm", "npm_run_script", "npm_install_package"],
     },
 }
 
 DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
     "general": {
+        "calc": {"enabled": True, "requires_approval": False},
         "time": {"enabled": True, "requires_approval": False},
         "file": {"enabled": True, "requires_approval": True},
+        "python": {"enabled": False, "requires_approval": True},
+        "git": {"enabled": False, "requires_approval": True},
+        "npm": {"enabled": False, "requires_approval": True},
     },
     "ppt": {
+        "calc": {"enabled": True, "requires_approval": False},
         "time": {"enabled": False, "requires_approval": False},
         "file": {"enabled": False, "requires_approval": True},
+        "python": {"enabled": False, "requires_approval": True},
+        "git": {"enabled": False, "requires_approval": True},
+        "npm": {"enabled": False, "requires_approval": True},
     },
     "website": {
+        "calc": {"enabled": True, "requires_approval": False},
         "time": {"enabled": True, "requires_approval": False},
         "file": {"enabled": True, "requires_approval": True},
+        "python": {"enabled": False, "requires_approval": True},
+        "git": {"enabled": False, "requires_approval": True},
+        "npm": {"enabled": False, "requires_approval": True},
     },
 }
 

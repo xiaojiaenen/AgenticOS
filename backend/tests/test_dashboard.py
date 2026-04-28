@@ -5,7 +5,7 @@ from sqlalchemy import delete, select
 
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password
-from app.db.models import AgentSessionModel, AgentUsageEventModel, UserModel
+from app.db.models import AgentMessageModel, AgentSessionModel, AgentUsageEventModel, UserModel
 from app.db.session import create_db_session
 from app.main import app
 from app.services.session_storage import dump_json
@@ -18,6 +18,9 @@ def cleanup_records(*emails: str) -> None:
         users = db.scalars(select(UserModel).where(UserModel.email.in_(emails))).all()
         user_ids = [user.id for user in users]
         if user_ids:
+            session_ids = db.scalars(select(AgentSessionModel.session_id).where(AgentSessionModel.user_id.in_(user_ids))).all()
+            if session_ids:
+                db.execute(delete(AgentMessageModel).where(AgentMessageModel.session_id.in_(session_ids)))
             db.execute(delete(AgentUsageEventModel).where(AgentUsageEventModel.user_id.in_(user_ids)))
             db.execute(delete(AgentSessionModel).where(AgentSessionModel.user_id.in_(user_ids)))
         db.execute(delete(UserModel).where(UserModel.email.in_(emails)))
@@ -85,6 +88,12 @@ def test_dashboard_stats_aggregate_usage() -> None:
                         latency_ms=900,
                     )
                 )
+                db.add(
+                    AgentMessageModel(
+                        session_id="stats-session",
+                        message_json=dump_json({"role": "user", "content": "请帮我做一个统计图"}),
+                    )
+                )
                 db.commit()
 
             response = client.get("/api/v1/dashboard/stats", headers={"Authorization": f"Bearer {token}"})
@@ -96,5 +105,16 @@ def test_dashboard_stats_aggregate_usage() -> None:
         assert any(item["name"] == "gpt-test" for item in payload["model_distribution"])
         assert any(item["name"] == "time" for item in payload["tool_distribution"])
         assert any(item["user_id"] == user_id and item["total_tokens"] >= 200 for item in payload["user_usage"])
+
+        conversations_response = client.get(
+            "/api/v1/dashboard/conversations",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"search": "统计图"},
+        )
+        assert conversations_response.status_code == 200
+        conversations_payload = conversations_response.json()
+        assert conversations_payload["total"] >= 1
+        assert conversations_payload["items"][0]["session_id"] == "stats-session"
+        assert conversations_payload["items"][0]["total_tokens"] == 200
     finally:
         cleanup_records(admin_email, user_email)
