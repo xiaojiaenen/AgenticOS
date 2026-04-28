@@ -4,16 +4,29 @@ import { useNavigate } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { Button } from '../components/ui/Button';
+import { register as registerUser } from '../services/authService';
 
 export const Signup = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/chat');
+    if (isSubmitting) return;
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const user = await registerUser(name, email, password);
+      navigate(user.role === 'admin' ? '/admin' : '/chat', { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Signup failed');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -66,6 +79,7 @@ export const Signup = () => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="请输入您的昵称"
+              required
               className="w-full px-5 py-4 rounded-2xl bg-white/40 border border-white/60 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10 focus:bg-white/60 outline-none transition-all text-slate-800 placeholder:text-slate-400 font-medium"
             />
           </div>
@@ -76,6 +90,7 @@ export const Signup = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
+              required
               className="w-full px-5 py-4 rounded-2xl bg-white/40 border border-white/60 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10 focus:bg-white/60 outline-none transition-all text-slate-800 placeholder:text-slate-400 font-medium"
             />
           </div>
@@ -86,12 +101,20 @@ export const Signup = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              minLength={8}
+              required
               className="w-full px-5 py-4 rounded-2xl bg-white/40 border border-white/60 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10 focus:bg-white/60 outline-none transition-all text-slate-800 placeholder:text-slate-400 font-medium"
             />
           </div>
 
-          <Button variant="primary" type="submit" className="w-full h-14 text-lg rounded-2xl shadow-lg mt-4">
-            注册账号
+          {error && (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm font-medium text-rose-700">
+              {error}
+            </div>
+          )}
+
+          <Button variant="primary" type="submit" disabled={isSubmitting} className="w-full h-14 text-lg rounded-2xl shadow-lg mt-4">
+            {isSubmitting ? 'Creating...' : '注册账号'}
           </Button>
         </form>
 

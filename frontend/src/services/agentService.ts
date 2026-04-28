@@ -1,4 +1,5 @@
 import { Message, ToolCall } from '../types';
+import { authHeaders } from './authService';
 
 type AgentServiceOptions = {
   sessionId: string;
@@ -159,6 +160,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
   const response = await fetch(AGENT_STREAM_ENDPOINT, {
     method: 'POST',
     headers: {
+      ...authHeaders(),
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
     },
@@ -298,7 +300,7 @@ export async function submitApprovalDecision(
 ): Promise<AgentApproval> {
   const response = await fetch(`${AGENT_ENDPOINT}/approvals/${approvalId}/decision`, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {...authHeaders(), 'Content-Type': 'application/json'},
     body: JSON.stringify({status, reason}),
   });
 
@@ -311,7 +313,9 @@ export async function submitApprovalDecision(
 }
 
 export async function getAgentSessionState(sessionId: string): Promise<AgentSessionState> {
-  const response = await fetch(`${AGENT_ENDPOINT}/sessions/${sessionId}`);
+  const response = await fetch(`${AGENT_ENDPOINT}/sessions/${sessionId}`, {
+    headers: authHeaders(),
+  });
   if (!response.ok) {
     const detail = await response.text();
     throw new Error(detail || '会话状态读取失败。');

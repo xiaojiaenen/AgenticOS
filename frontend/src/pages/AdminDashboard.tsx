@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
 import { DashboardStats } from '../components/admin/DashboardStats';
 import { DashboardCharts } from '../components/admin/DashboardCharts';
@@ -11,20 +10,7 @@ import { SystemSettings } from '../components/admin/SystemSettings';
 import { RandomMascot } from '../components/ui/RandomMascot';
 
 export const AdminDashboard = () => {
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
-
-  // Check if admin
-  if (localStorage.getItem('role') !== 'admin') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-800 mb-4">Access Denied</h1>
-          <button onClick={() => navigate('/')} className="text-zinc-900 font-medium hover:underline">Return Home</button>
-        </div>
-      </div>
-    );
-  }
 
   const renderContent = () => {
     switch (activeTab) {

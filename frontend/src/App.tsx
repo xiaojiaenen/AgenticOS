@@ -5,6 +5,7 @@ import { Home } from './pages/Home';
 import { Chat } from './pages/Chat';
 import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 // Only keep rarely used, heavy admin dashboard as lazy
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
@@ -28,10 +29,10 @@ const AnimatedRoutes = () => {
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<Home />} />
-          <Route path="/chat" element={<Chat />} />
+          <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
         </Routes>
       </AnimatePresence>
     </Suspense>

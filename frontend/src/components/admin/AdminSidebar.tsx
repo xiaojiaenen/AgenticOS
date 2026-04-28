@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Users, MessageSquare, Settings, BarChart3, LogOut, ChevronRight, Cpu, Wrench } from 'lucide-react';
 import { Logo } from '../Logo';
+import { logout } from '../../services/authService';
 
 interface AdminSidebarProps {
   activeTab: string;
@@ -12,8 +13,8 @@ interface AdminSidebarProps {
 export const AdminSidebar = ({ activeTab, setActiveTab }: AdminSidebarProps) => {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    localStorage.removeItem('role');
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 

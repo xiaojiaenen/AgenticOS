@@ -14,6 +14,14 @@ export type Attachment = {
   url: string; // Base64 or ObjectURL (caution with persistence)
 };
 
+export type AuthUser = {
+  id: number;
+  email: string;
+  name: string;
+  role: 'admin' | 'user' | string;
+  is_active: boolean;
+};
+
 export type Message = {
   id: string;
   role: 'user' | 'model';

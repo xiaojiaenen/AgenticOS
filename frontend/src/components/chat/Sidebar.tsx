@@ -5,6 +5,7 @@ import { Session } from '../../types';
 import { cn } from '../../lib/utils';
 import { Logo } from '../Logo';
 import { PlusIcon, ChatBubbleIcon, TrashIcon, MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
+import { getStoredUser, logout } from '../../services/authService';
 
 interface SidebarProps {
   sessions: Session[];
@@ -31,6 +32,7 @@ export const Sidebar = React.memo(({
 }: SidebarProps) => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const user = getStoredUser();
 
   const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -108,7 +110,7 @@ export const Sidebar = React.memo(({
 
       {/* User Profile & Logout at bottom */}
       <div className="p-4 border-t border-slate-100 flex flex-col gap-2">
-        {localStorage.getItem('role') === 'admin' && (
+        {user?.role === 'admin' && (
           <button 
             onClick={() => navigate('/admin')}
             className="w-full flex items-center gap-3 px-3 py-2.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-colors shadow-sm font-bold text-sm"
@@ -123,15 +125,15 @@ export const Sidebar = React.memo(({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-slate-800 truncate">
-              {localStorage.getItem('role') === 'admin' ? 'Admin User' : 'Demo User'}
+              {user?.name || 'AgenticOS User'}
             </p>
             <p className="text-[10px] text-slate-400 font-medium truncate">
-              {localStorage.getItem('role') === 'admin' ? 'admin@example.com' : 'demo@example.com'}
+              {user?.email || 'signed in'}
             </p>
           </div>
           <button 
-            onClick={() => {
-              localStorage.removeItem('role');
+            onClick={async () => {
+              await logout();
               navigate('/login');
             }}
             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"

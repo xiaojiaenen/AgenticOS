@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     environment: str = "development"
     api_v1_prefix: str = "/api/v1"
-    cors_allow_origins: str = "http://127.0.0.1:3000,http://localhost:3000"
+    cors_allow_origins: str = "http://127.0.0.1:3000,http://localhost:3000,http://127.0.0.1:3001,http://localhost:3001"
     openai_api_key: str | None = Field(default=None, validation_alias="OPENAI_API_KEY")
     openai_base_url: str | None = Field(default=None, validation_alias="OPENAI_BASE_URL")
     openai_model: str = Field(default="gpt-5.4", validation_alias="OPENAI_MODEL")
@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     hitl_enabled: bool = True
     hitl_require_approval_tools: str = "file_to_md"
     hitl_timeout_seconds: int = 300
+    auth_secret_key: str = Field(default="agenticos-dev-secret-change-me", validation_alias="AUTH_SECRET_KEY")
+    auth_token_expire_minutes: int = Field(default=60 * 24 * 7, validation_alias="AUTH_TOKEN_EXPIRE_MINUTES")
 
     model_config = SettingsConfigDict(
         env_file=".env",

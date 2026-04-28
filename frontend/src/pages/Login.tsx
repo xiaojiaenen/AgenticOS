@@ -1,23 +1,33 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { Button } from '../components/ui/Button';
+import { login as loginUser } from '../services/authService';
 
 export const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email === 'admin' || email === 'admin@example.com') {
-      localStorage.setItem('role', 'admin');
-    } else {
-      localStorage.removeItem('role');
+    if (isSubmitting) return;
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const user = await loginUser(email, password);
+      const from = (location.state as { from?: string } | null)?.from;
+      navigate(from || (user.role === 'admin' ? '/admin' : '/chat'), { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setIsSubmitting(false);
     }
-    navigate('/chat');
   };
 
   return (
@@ -70,7 +80,8 @@ export const Login = () => {
               type="text" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com (输入 admin 进入后台)"
+              placeholder="you@example.com"
+              required
               className="w-full px-5 py-4 rounded-2xl bg-white/40 border border-white/60 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10 focus:bg-white/60 outline-none transition-all text-slate-800 placeholder:text-slate-400 font-medium"
             />
           </div>
@@ -84,12 +95,19 @@ export const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              required
               className="w-full px-5 py-4 rounded-2xl bg-white/40 border border-white/60 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10 focus:bg-white/60 outline-none transition-all text-slate-800 placeholder:text-slate-400 font-medium"
             />
           </div>
 
-          <Button variant="primary" type="submit" className="w-full h-14 text-lg rounded-2xl shadow-lg mt-4">
-            进入工作台
+          {error && (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm font-medium text-rose-700">
+              {error}
+            </div>
+          )}
+
+          <Button variant="primary" type="submit" disabled={isSubmitting} className="w-full h-14 text-lg rounded-2xl shadow-lg mt-4">
+            {isSubmitting ? 'Signing in...' : '进入工作台'}
           </Button>
         </form>
 
