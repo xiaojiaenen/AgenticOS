@@ -1,6 +1,6 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Pause } from 'lucide-react';
+import { Square } from 'lucide-react';
 import { AgentProfile } from '../../services/agentProfileService';
 import { cn } from '../../lib/utils';
 import { GlobeIcon, MascotHappy, PaperclipIcon, PresentationIcon, SendIcon } from '../ui/AnimatedIcons';
@@ -261,10 +261,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             type="button"
             onClick={onStop}
             className="group mb-1 ml-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white shadow-md transition-all duration-300 hover:scale-105 hover:bg-zinc-700 active:scale-95"
-            title="暂停当前回复"
-            aria-label="暂停当前回复"
+            title="停止当前回复"
+            aria-label="停止当前回复"
           >
-            <Pause size={18} strokeWidth={2.6} className="transition-transform group-hover:scale-110" />
+            <Square size={15} strokeWidth={2.8} fill="currentColor" className="transition-transform group-hover:scale-110" />
           </button>
         ) : (
           <button
