@@ -32,10 +32,26 @@ class ConversationListResponse(AppBaseModel):
     total: int
 
 
+class ConversationToolCall(AppBaseModel):
+    id: str | None = None
+    name: str
+    arguments: dict[str, object] | None = None
+
+
+class ConversationToolResult(AppBaseModel):
+    tool_call_id: str | None = None
+    name: str | None = None
+    status: str = "success"
+    result: str = ""
+
+
 class ConversationDetailMessage(AppBaseModel):
     id: int
     role: str | None = None
     text: str = ""
+    reasoning_text: str | None = None
+    tool_calls: list[ConversationToolCall] = []
+    tool_results: list[ConversationToolResult] = []
     created_at: datetime | None = None
 
 
@@ -55,4 +71,6 @@ class ConversationDetailResponse(AppBaseModel):
     avg_latency_ms: int
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    messages_offset: int = 0
+    messages_limit: int = 20
     messages: list[ConversationDetailMessage]

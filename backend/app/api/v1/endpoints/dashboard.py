@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
@@ -21,10 +21,12 @@ from app.schemas.admin_stats import (
 from app.schemas.conversations import (
     ConversationDetailMessage,
     ConversationDetailResponse,
+    ConversationToolCall,
+    ConversationToolResult,
     ConversationListItem,
     ConversationListResponse,
 )
-from app.services.session_storage import load_json
+from app.services.session_storage import dump_json, load_json
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -195,6 +197,67 @@ def _message_role(message_json: str) -> str | None:
     return None
 
 
+def _message_payload(message_json: str) -> dict[str, Any]:
+    payload = load_json(message_json, {})
+    return payload if isinstance(payload, dict) else {}
+
+
+def _message_reasoning_text(payload: dict[str, Any]) -> str | None:
+    reasoning = payload.get("reasoning_content") or payload.get("reasoningText") or payload.get("reasoning")
+    return reasoning if isinstance(reasoning, str) and reasoning.strip() else None
+
+
+def _message_tool_calls(payload: dict[str, Any]) -> list[ConversationToolCall]:
+    raw_calls = payload.get("tool_calls") or payload.get("toolCalls") or []
+    if not isinstance(raw_calls, list):
+        return []
+
+    calls: list[ConversationToolCall] = []
+    for item in raw_calls:
+        if not isinstance(item, dict):
+            continue
+        function = item.get("function") if isinstance(item.get("function"), dict) else {}
+        name = function.get("name") or item.get("name") or item.get("tool_name") or "工具调用"
+        arguments = function.get("arguments") or item.get("arguments") or item.get("args")
+        calls.append(
+            ConversationToolCall(
+                id=item.get("id") or item.get("tool_call_id"),
+                name=str(name),
+                arguments=arguments if isinstance(arguments, dict) else None,
+            )
+        )
+    return calls
+
+
+def _message_tool_results(payload: dict[str, Any]) -> list[ConversationToolResult]:
+    raw_results = payload.get("tool_results") or payload.get("toolResults")
+    results: list[ConversationToolResult] = []
+    if isinstance(raw_results, list):
+        for item in raw_results:
+            if not isinstance(item, dict):
+                continue
+            result = item.get("result") or item.get("output") or item.get("content") or ""
+            results.append(
+                ConversationToolResult(
+                    tool_call_id=item.get("tool_call_id") or item.get("id"),
+                    name=item.get("name") or item.get("tool_name"),
+                    status=str(item.get("status") or "success"),
+                    result=result if isinstance(result, str) else dump_json(result),
+                )
+            )
+    if payload.get("role") == "tool":
+        result = payload.get("content") or payload.get("result") or ""
+        results.append(
+            ConversationToolResult(
+                tool_call_id=payload.get("tool_call_id"),
+                name=payload.get("name") or payload.get("tool_name"),
+                status=str(payload.get("status") or "success"),
+                result=result if isinstance(result, str) else dump_json(result),
+            )
+        )
+    return results
+
+
 @router.get("/conversations", response_model=ConversationListResponse)
 def list_conversations(
     search: str = Query(default="", max_length=120),
@@ -291,6 +354,8 @@ def list_conversations(
 @router.get("/conversations/{session_id}", response_model=ConversationDetailResponse)
 def get_conversation_detail(
     session_id: str,
+    messages_offset: int = Query(default=0, ge=0),
+    messages_limit: int = Query(default=20, ge=1, le=100),
     _: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> ConversationDetailResponse:
@@ -299,10 +364,15 @@ def get_conversation_detail(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
 
     user = db.get(UserModel, session.user_id) if session.user_id is not None else None
+    message_count = db.scalar(
+        select(func.count(AgentMessageModel.id)).where(AgentMessageModel.session_id == session_id)
+    ) or 0
     messages = db.scalars(
         select(AgentMessageModel)
         .where(AgentMessageModel.session_id == session_id)
         .order_by(AgentMessageModel.id.asc())
+        .offset(messages_offset)
+        .limit(messages_limit)
     ).all()
     events = db.scalars(
         select(AgentUsageEventModel)
@@ -333,7 +403,7 @@ def get_conversation_detail(
         user_name=user.name if user else None,
         user_email=user.email if user else None,
         summary=_compact_text(session.summary, limit=240),
-        message_count=len(messages),
+        message_count=message_count,
         model_names=[name for name, _ in model_counter.most_common()],
         total_tokens=total_tokens,
         input_tokens=input_tokens,
@@ -343,14 +413,20 @@ def get_conversation_detail(
         avg_latency_ms=round(latency_ms / len(events)) if events else 0,
         created_at=session.created_at,
         updated_at=session.updated_at,
+        messages_offset=messages_offset,
+        messages_limit=messages_limit,
         messages=[
             ConversationDetailMessage(
                 id=message.id,
                 role=_message_role(message.message_json),
                 text=_message_text(message.message_json),
+                reasoning_text=_message_reasoning_text(payload),
+                tool_calls=_message_tool_calls(payload),
+                tool_results=_message_tool_results(payload),
                 created_at=message.created_at,
             )
             for message in messages
+            for payload in [_message_payload(message.message_json)]
         ],
     )
 

@@ -29,6 +29,18 @@ export type AdminConversationDetailMessage = {
   id: number;
   role?: string | null;
   text: string;
+  reasoning_text?: string | null;
+  tool_calls?: Array<{
+    id?: string | null;
+    name: string;
+    arguments?: Record<string, unknown> | null;
+  }>;
+  tool_results?: Array<{
+    tool_call_id?: string | null;
+    name?: string | null;
+    status: string;
+    result: string;
+  }>;
   created_at?: string | null;
 };
 
@@ -48,6 +60,8 @@ export type AdminConversationDetail = {
   avg_latency_ms: number;
   created_at?: string | null;
   updated_at?: string | null;
+  messages_offset: number;
+  messages_limit: number;
   messages: AdminConversationDetailMessage[];
 };
 
@@ -79,8 +93,15 @@ export async function listConversations(params: { search?: string; offset?: numb
   return parseResponse<ConversationListResponse>(response);
 }
 
-export async function getConversationDetail(sessionId: string): Promise<AdminConversationDetail> {
-  const response = await fetch(`${DASHBOARD_ENDPOINT}/conversations/${encodeURIComponent(sessionId)}`, {
+export async function getConversationDetail(
+  sessionId: string,
+  params: { messagesOffset?: number; messagesLimit?: number } = {},
+): Promise<AdminConversationDetail> {
+  const query = new URLSearchParams();
+  query.set('messages_offset', String(params.messagesOffset ?? 0));
+  query.set('messages_limit', String(params.messagesLimit ?? 20));
+
+  const response = await fetch(`${DASHBOARD_ENDPOINT}/conversations/${encodeURIComponent(sessionId)}?${query.toString()}`, {
     headers: authHeaders(),
   });
   return parseResponse<AdminConversationDetail>(response);

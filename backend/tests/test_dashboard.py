@@ -100,6 +100,32 @@ def test_dashboard_stats_aggregate_usage() -> None:
                         message_json=dump_json({"role": "user", "content": "请帮我做一个统计图"}),
                     )
                 )
+                db.add(
+                    AgentMessageModel(
+                        session_id="stats-session",
+                        message_json=dump_json({
+                            "role": "assistant",
+                            "content": "我会先计算 **统计值**。",
+                            "reasoning_content": "需要先确认计算方式。",
+                            "tool_calls": [
+                                {
+                                    "id": "call_1",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "calc",
+                                        "arguments": {"expression": "1 + 1"},
+                                    },
+                                }
+                            ],
+                        }),
+                    )
+                )
+                db.add(
+                    AgentMessageModel(
+                        session_id="stats-session",
+                        message_json=dump_json({"role": "tool", "tool_call_id": "call_1", "content": "2"}),
+                    )
+                )
                 db.commit()
 
             response = client.get("/api/v1/dashboard/stats", headers={"Authorization": f"Bearer {token}"})
@@ -130,11 +156,28 @@ def test_dashboard_stats_aggregate_usage() -> None:
         assert detail_response.status_code == 200
         detail_payload = detail_response.json()
         assert detail_payload["session_id"] == "stats-session"
-        assert detail_payload["message_count"] >= 1
+        assert detail_payload["message_count"] >= 3
         assert detail_payload["created_at"].endswith("+08:00")
         assert detail_payload["updated_at"].endswith("+08:00")
         assert detail_payload["messages"][0]["created_at"].endswith("+08:00")
         assert detail_payload["messages"][0]["role"] == "user"
         assert "统计图" in detail_payload["messages"][0]["text"]
+        assert detail_payload["messages"][1]["tool_calls"][0]["name"] == "calc"
+        assert detail_payload["messages"][1]["tool_calls"][0]["arguments"]["expression"] == "1 + 1"
+        assert detail_payload["messages"][1]["reasoning_text"] == "需要先确认计算方式。"
+        assert detail_payload["messages"][2]["tool_results"][0]["tool_call_id"] == "call_1"
+        assert detail_payload["messages"][2]["tool_results"][0]["result"] == "2"
+
+        paged_detail_response = client.get(
+            "/api/v1/dashboard/conversations/stats-session",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"messages_offset": 1, "messages_limit": 1},
+        )
+        assert paged_detail_response.status_code == 200
+        paged_payload = paged_detail_response.json()
+        assert paged_payload["message_count"] >= 3
+        assert len(paged_payload["messages"]) == 1
+        assert paged_payload["messages_offset"] == 1
+        assert paged_payload["messages"][0]["tool_calls"][0]["name"] == "calc"
     finally:
         cleanup_records(admin_email, user_email)

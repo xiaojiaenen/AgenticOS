@@ -1,14 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   AlertCircle,
+  BrainCircuit,
   Eye,
   Loader2,
   MessageSquare,
   RefreshCw,
   Search,
   Trash2,
+  Wrench,
   X,
 } from 'lucide-react';
 import { Pagination } from './Pagination';
@@ -17,12 +21,15 @@ import { formatApiDateTime } from '../../lib/datetime';
 import {
   AdminConversation,
   AdminConversationDetail,
+  AdminConversationDetailMessage,
   deleteConversation,
   getConversationDetail,
   listConversations,
 } from '../../services/conversationService';
+import { cn } from '../../lib/utils';
 
 const ITEMS_PER_PAGE = 12;
+const DETAIL_MESSAGES_PAGE_SIZE = 20;
 
 function formatNumber(value: number): string {
   return Intl.NumberFormat('zh-CN', { notation: value >= 10000 ? 'compact' : 'standard' }).format(value);
@@ -36,6 +43,7 @@ function formatLatency(value: number): string {
 function roleLabel(role?: string | null): string {
   if (role === 'user') return '用户';
   if (role === 'model' || role === 'assistant') return '模型';
+  if (role === 'tool') return '工具';
   if (role === 'system') return '系统';
   return '消息';
 }
@@ -43,8 +51,115 @@ function roleLabel(role?: string | null): string {
 function roleTone(role?: string | null): string {
   if (role === 'user') return 'border-sky-100 bg-sky-50 text-sky-700';
   if (role === 'model' || role === 'assistant') return 'border-emerald-100 bg-emerald-50 text-emerald-700';
+  if (role === 'tool') return 'border-violet-100 bg-violet-50 text-violet-700';
   if (role === 'system') return 'border-amber-100 bg-amber-50 text-amber-700';
   return 'border-slate-200 bg-slate-100 text-slate-600';
+}
+
+function formatJson(value?: Record<string, unknown> | null): string {
+  if (!value || Object.keys(value).length === 0) return '{}';
+  return JSON.stringify(value, null, 2);
+}
+
+function AdminMarkdown({ text }: { text: string }) {
+  return (
+    <div className="prose prose-slate prose-sm max-w-none prose-p:my-2 prose-pre:my-3 prose-pre:whitespace-pre-wrap prose-pre:break-words prose-code:break-words">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          a: ({ children, href }) => (
+            <a href={href} target="_blank" rel="noreferrer">
+              {children}
+            </a>
+          ),
+          pre: ({ children }) => (
+            <pre className="visible-scrollbar overflow-x-auto rounded-[18px] border border-slate-200/70 bg-slate-950/95 p-4 text-slate-100 shadow-none">
+              {children}
+            </pre>
+          ),
+          code: ({ children, className }) => (
+            <code className={className ? `${className} font-mono` : 'rounded-md bg-slate-100 px-1 py-0.5 font-mono text-slate-700'}>
+              {children}
+            </code>
+          ),
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+function ToolCallBlock({ message }: { message: AdminConversationDetailMessage }) {
+  const toolCalls = message.tool_calls || [];
+  const toolResults = message.tool_results || [];
+  if (toolCalls.length === 0 && toolResults.length === 0 && !message.reasoning_text) return null;
+
+  return (
+    <div className="mt-3 space-y-3">
+      {message.reasoning_text && (
+        <details className="group rounded-[20px] border border-slate-200/80 bg-slate-50/80 px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-black tracking-[0.14em] text-slate-500">
+            <BrainCircuit size={14} />
+            思考过程
+          </summary>
+          <div className="mt-3 whitespace-pre-wrap break-words border-t border-slate-200/70 pt-3 text-sm font-medium leading-6 text-slate-500">
+            {message.reasoning_text}
+          </div>
+        </details>
+      )}
+
+      {toolCalls.map((tool) => (
+        <details
+          key={`${message.id}-call-${tool.id || tool.name}`}
+          open
+          className="group rounded-[20px] border border-sky-100 bg-sky-50/55 px-4 py-3 [&_summary::-webkit-details-marker]:hidden"
+        >
+          <summary className="flex cursor-pointer select-none items-center justify-between gap-3">
+            <span className="flex min-w-0 items-center gap-2">
+              <Wrench size={14} className="text-sky-700" />
+              <span className="truncate font-mono text-xs font-black uppercase tracking-[0.14em] text-sky-800">
+                {tool.name}
+              </span>
+            </span>
+            <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-black text-sky-600">调用参数</span>
+          </summary>
+          <pre className="visible-scrollbar mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-[16px] border border-white/80 bg-white/82 p-3 text-xs font-medium leading-5 text-slate-600">
+            {formatJson(tool.arguments)}
+          </pre>
+        </details>
+      ))}
+
+      {toolResults.map((result) => {
+        const isError = result.status === 'error';
+        return (
+          <details
+            key={`${message.id}-result-${result.tool_call_id || result.name || result.result.slice(0, 12)}`}
+            open
+            className={cn(
+              'group rounded-[20px] border px-4 py-3 [&_summary::-webkit-details-marker]:hidden',
+              isError ? 'border-rose-100 bg-rose-50/70' : 'border-violet-100 bg-violet-50/60',
+            )}
+          >
+            <summary className="flex cursor-pointer select-none items-center justify-between gap-3">
+              <span className="flex min-w-0 items-center gap-2">
+                <Wrench size={14} className={isError ? 'text-rose-700' : 'text-violet-700'} />
+                <span className={cn('truncate text-xs font-black tracking-[0.14em]', isError ? 'text-rose-800' : 'text-violet-800')}>
+                  {result.name || result.tool_call_id || '工具返回结果'}
+                </span>
+              </span>
+              <span className={cn('rounded-full bg-white/80 px-2 py-1 text-[10px] font-black', isError ? 'text-rose-600' : 'text-violet-600')}>
+                {isError ? '失败' : '结果'}
+              </span>
+            </summary>
+            <pre className="visible-scrollbar mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-[16px] border border-white/80 bg-white/84 p-3 text-xs font-medium leading-5 text-slate-700">
+              {result.result || '工具没有返回可展示内容。'}
+            </pre>
+          </details>
+        );
+      })}
+    </div>
+  );
 }
 
 export const ChatHistory = () => {
@@ -58,6 +173,7 @@ export const ChatHistory = () => {
   const [detailSessionId, setDetailSessionId] = useState<string | null>(null);
   const [detail, setDetail] = useState<AdminConversationDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailMessagesLoading, setDetailMessagesLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / ITEMS_PER_PAGE)), [total]);
@@ -99,23 +215,47 @@ export const ChatHistory = () => {
     return () => window.clearTimeout(timer);
   }, [loadData]);
 
-  const openDetail = async (sessionId: string) => {
-    setDetailSessionId(sessionId);
-    setDetail(null);
+  const loadDetail = async (sessionId: string, offset: number, append = false) => {
+    if (append) {
+      setDetailMessagesLoading(true);
+    } else {
+      setDetailLoading(true);
+    }
     setDetailError(null);
-    setDetailLoading(true);
     try {
-      const response = await getConversationDetail(sessionId);
-      setDetail(response);
+      const response = await getConversationDetail(sessionId, {
+        messagesOffset: offset,
+        messagesLimit: DETAIL_MESSAGES_PAGE_SIZE,
+      });
+      setDetail((prev) => {
+        if (!append || !prev) return response;
+        return {
+          ...response,
+          messages: [...prev.messages, ...response.messages],
+        };
+      });
     } catch (err) {
       setDetailError(err instanceof Error ? err.message : '会话详情加载失败');
     } finally {
       setDetailLoading(false);
+      setDetailMessagesLoading(false);
     }
   };
 
+  const openDetail = async (sessionId: string) => {
+    setDetailSessionId(sessionId);
+    setDetail(null);
+    setDetailError(null);
+    await loadDetail(sessionId, 0);
+  };
+
+  const loadMoreDetailMessages = async () => {
+    if (!detailSessionId || !detail || detailMessagesLoading) return;
+    await loadDetail(detailSessionId, detail.messages.length, true);
+  };
+
   const closeDetail = () => {
-    if (detailLoading) return;
+    if (detailLoading || detailMessagesLoading) return;
     setDetailSessionId(null);
     setDetail(null);
     setDetailError(null);
@@ -376,7 +516,7 @@ export const ChatHistory = () => {
                     </div>
                     {detail && (
                       <div className="rounded-full border border-white/80 bg-white/80 px-3 py-1 text-xs font-black text-slate-500">
-                        {detail.messages.length} 条消息
+                        已加载 {detail.messages.length} / {detail.message_count} 条
                       </div>
                     )}
                   </div>
@@ -400,11 +540,28 @@ export const ChatHistory = () => {
                             </span>
                             <span className="text-xs font-medium text-slate-400">{formatApiDateTime(message.created_at)}</span>
                           </div>
-                          <pre className="mt-3 whitespace-pre-wrap break-words text-sm font-medium leading-6 text-slate-700">
-                            {message.text || '该消息没有可展示的文本内容。'}
-                          </pre>
+                          {message.text ? (
+                            <AdminMarkdown text={message.text} />
+                          ) : message.tool_results && message.tool_results.length > 0 ? null : (
+                            <p className="mt-3 text-sm font-medium leading-6 text-slate-400">该消息没有可展示的文本内容。</p>
+                          )}
+                          <ToolCallBlock message={message} />
                         </div>
                       ))}
+                      {detail.messages.length < detail.message_count && (
+                        <div className="pt-2 text-center">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={loadMoreDetailMessages}
+                            disabled={detailMessagesLoading}
+                            className="gap-2 bg-white/85"
+                          >
+                            {detailMessagesLoading && <Loader2 size={16} className="animate-spin" />}
+                            加载更多消息
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ) : detail ? (
                     <div className="flex h-64 items-center justify-center rounded-[28px] border border-dashed border-slate-200 bg-white/50 text-sm font-bold text-slate-400">
