@@ -7,6 +7,16 @@ export type AgentProfileTool = {
   requires_approval: boolean;
 };
 
+export type AgentProfileSkill = {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  enabled: boolean;
+  has_python_scripts: boolean;
+  script_paths: string[];
+};
+
 export type AgentProfile = {
   id: number;
   name: string;
@@ -20,12 +30,14 @@ export type AgentProfile = {
   is_builtin: boolean;
   installed: boolean;
   tools: AgentProfileTool[];
+  skills: AgentProfileSkill[];
   created_at: string;
   updated_at: string;
 };
 
 export type AgentProfileListResponse = {
   catalog: ToolCatalogItem[];
+  available_skills: AgentProfileSkill[];
   items: AgentProfile[];
 };
 
@@ -39,6 +51,7 @@ export type AgentProfilePayload = {
   enabled: boolean;
   listed: boolean;
   tools: AgentProfileTool[];
+  skill_ids: number[];
 };
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');

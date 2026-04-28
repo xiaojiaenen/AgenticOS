@@ -4,9 +4,21 @@ import json
 from functools import lru_cache
 from typing import Any, AsyncIterator
 
-from wuwei import Agent, AgentEvent, ContextCompressionHook, HitlHook, StorageHook
+from wuwei import (
+    Agent,
+    AgentEvent,
+    ContextCompressionHook,
+    FileSystemSkillProvider,
+    HitlHook,
+    SkillHook,
+    SkillManager,
+    StorageHook,
+)
+from wuwei.llm import LLMGateway
 from wuwei.memory.context_compressor import LLMContextCompressor
 from wuwei.runtime import ApprovalPolicy
+from wuwei.tools import ToolRegistry
+from wuwei.tools.builtin import register_skill_tools
 
 from app.core.config import Settings, get_settings
 from app.db.models import AgentUsageEventModel, UserModel
@@ -75,6 +87,7 @@ class AgentService:
             builtin_tools=profile.builtin_tools,
             approval_tools=profile.approval_tools,
             signature=profile.signature,
+            skills=(),
         )
 
     def _resolve_runtime_profile(self, request: AgentStreamRequest, user: UserModel | None) -> RuntimeAgentProfile:
@@ -97,6 +110,7 @@ class AgentService:
             profile.builtin_tools,
             tuple(sorted(profile.approval_tools)),
             profile.signature,
+            profile.skills,
             self.settings.context_compression_enabled,
         )
         cached = self._agents.get(cache_key)
@@ -113,12 +127,15 @@ class AgentService:
                     ),
                 )
             )
+        if "skill" in profile.builtin_tools:
+            hooks.append(SkillHook())
 
-        agent = Agent.from_env(
-            builtin_tools=list(profile.builtin_tools),
-            system_prompt=profile.system_prompt,
-            max_steps=1 if profile.response_mode == "ppt" else self.settings.agent_max_steps,
-            parallel_tool_calls=self.settings.agent_parallel_tool_calls,
+        agent = Agent(
+            llm=LLMGateway.from_env(),
+            tools=self._build_tool_registry(profile),
+            default_system_prompt=profile.system_prompt,
+            default_max_steps=1 if profile.response_mode == "ppt" else self.settings.agent_max_steps,
+            default_parallel_tool_calls=self.settings.agent_parallel_tool_calls,
             hooks=hooks,
         )
         if self.settings.context_compression_enabled:
@@ -131,6 +148,17 @@ class AgentService:
             )
         self._agents[cache_key] = agent
         return agent
+
+    @staticmethod
+    def _build_tool_registry(profile: RuntimeAgentProfile) -> ToolRegistry:
+        builtin_tools = [name for name in profile.builtin_tools if name != "skill"]
+        registry = ToolRegistry.from_builtin(builtin_tools)
+        if "skill" in profile.builtin_tools:
+            skill_manager = SkillManager(
+                [FileSystemSkillProvider(skill.root_dir) for skill in profile.skills]
+            )
+            register_skill_tools(registry, skill_manager)
+        return registry
 
     @staticmethod
     def _build_tool_call_payload(event: AgentEvent) -> dict[str, Any]:

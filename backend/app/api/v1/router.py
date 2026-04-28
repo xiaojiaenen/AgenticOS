@@ -5,6 +5,7 @@ from app.api.v1.endpoints.agent_profiles import router as agent_profiles_router
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.dashboard import router as dashboard_router
 from app.api.v1.endpoints.health import router as health_router
+from app.api.v1.endpoints.skills import router as skills_router
 from app.api.v1.endpoints.tool_config import router as tool_config_router
 from app.api.v1.endpoints.users import router as users_router
 
@@ -14,5 +15,6 @@ router.include_router(agent_profiles_router)
 router.include_router(auth_router)
 router.include_router(dashboard_router)
 router.include_router(health_router)
+router.include_router(skills_router)
 router.include_router(tool_config_router)
 router.include_router(users_router)

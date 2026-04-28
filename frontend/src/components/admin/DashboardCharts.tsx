@@ -15,7 +15,11 @@ import {
 } from 'recharts';
 import { Cpu, Hammer, Trophy } from 'lucide-react';
 import { Card } from '../ui/Card';
-import { DashboardDistributionItem, DashboardStats as DashboardStatsData, DashboardUserUsage } from '../../services/dashboardService';
+import {
+  DashboardDistributionItem,
+  DashboardStats as DashboardStatsData,
+  DashboardUserUsage,
+} from '../../services/dashboardService';
 import { cn } from '../../lib/utils';
 
 interface DashboardChartsProps {
@@ -40,7 +44,7 @@ function initials(name: string): string {
 
 function EmptyChart({ label }: { label: string }) {
   return (
-    <div className="flex h-full min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/35 text-sm font-bold text-slate-400">
+    <div className="flex h-full min-h-[220px] items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-white/35 text-sm font-bold text-slate-400">
       {label}
     </div>
   );
@@ -52,7 +56,10 @@ function DistributionLegend({ items }: { items: DashboardDistributionItem[] }) {
       {items.slice(0, 5).map((item, index) => (
         <div key={item.name} className="flex items-center justify-between gap-3 text-xs font-bold">
           <span className="flex min-w-0 items-center gap-2 text-slate-600">
-            <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: CHART_COLORS[index % CHART_COLORS.length] }} />
+            <span
+              className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+              style={{ background: CHART_COLORS[index % CHART_COLORS.length] }}
+            />
             <span className="truncate">{item.name}</span>
           </span>
           <span className="text-slate-900">{formatNumber(item.value)}</span>
@@ -68,7 +75,7 @@ function UserUsageRow({ user, index, maxTokens }: { user: DashboardUserUsage; in
   return (
     <div className="grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 last:border-b-0 lg:grid-cols-[minmax(220px,1.2fr)_120px_120px_120px_120px_150px] lg:items-center">
       <div className="flex min-w-0 items-center gap-4">
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-white/70 bg-gradient-to-br from-slate-50 to-cyan-50 text-sm font-black text-slate-700 shadow-sm">
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-white/75 bg-gradient-to-br from-slate-50 to-cyan-50 text-sm font-black text-slate-700 shadow-sm">
           {initials(user.name)}
         </div>
         <div className="min-w-0">
@@ -94,7 +101,7 @@ function UserUsageRow({ user, index, maxTokens }: { user: DashboardUserUsage; in
 }
 
 export const DashboardCharts = ({ data }: DashboardChartsProps) => {
-  const topUsers = data.user_usage.slice(0, 8);
+  const topUsers = data.user_usage.slice(0, 6);
   const maxUserTokens = Math.max(...topUsers.map((user) => user.total_tokens), 0);
   const hasTrend = data.trend.some((item) => item.runs || item.tokens || item.tool_calls);
 
@@ -104,14 +111,14 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
         <Card className="p-6 xl:col-span-2">
           <div className="mb-6 flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Usage Trend</p>
-              <h3 className="mt-1 text-xl font-black tracking-tight text-slate-900">Token 与调用趋势</h3>
+              <p className="admin-section-kicker">趋势概览</p>
+              <h3 className="mt-2 text-xl font-black tracking-tight text-slate-900">Token 与调用趋势</h3>
             </div>
-            <div className="rounded-2xl border border-white/70 bg-white/60 px-3 py-2 text-xs font-black text-slate-500">
+            <div className="rounded-2xl border border-white/70 bg-white/68 px-3 py-2 text-xs font-black text-slate-500">
               最近 14 天
             </div>
           </div>
-          <div className="h-80">
+          <div className="h-72">
             {hasTrend ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={data.trend} margin={{ top: 12, right: 18, bottom: 4, left: 0 }}>
@@ -126,20 +133,55 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 6" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={formatDay} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }} tickFormatter={formatNumber} width={52} />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={formatDay}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    dy={10}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tickFormatter={formatNumber}
+                    width={52}
+                  />
                   <Tooltip
-                    formatter={(value: number, name: string) => [formatNumber(value), name === 'tokens' ? 'Token' : name === 'runs' ? '运行次数' : '工具调用']}
+                    formatter={(value: number, name: string) => [
+                      formatNumber(value),
+                      name === 'tokens' ? 'Token 消耗' : name === 'runs' ? '运行次数' : '工具调用',
+                    ]}
                     labelFormatter={(label) => `日期 ${label}`}
-                    contentStyle={{ borderRadius: 18, border: '1px solid rgba(226,232,240,0.9)', boxShadow: '0 18px 40px rgba(15,23,42,0.12)', fontWeight: 700 }}
+                    contentStyle={{
+                      borderRadius: 18,
+                      border: '1px solid rgba(226,232,240,0.9)',
+                      boxShadow: '0 18px 40px rgba(15,23,42,0.12)',
+                      fontWeight: 700,
+                    }}
                     cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 6' }}
                   />
-                  <Area type="monotone" dataKey="tokens" stroke="#0891b2" strokeWidth={3} fill="url(#tokensGradient)" activeDot={{ r: 6, strokeWidth: 0 }} />
-                  <Area type="monotone" dataKey="runs" stroke="#7c3aed" strokeWidth={2.5} fill="url(#runsGradient)" activeDot={{ r: 5, strokeWidth: 0 }} />
+                  <Area
+                    type="monotone"
+                    dataKey="tokens"
+                    stroke="#0891b2"
+                    strokeWidth={3}
+                    fill="url(#tokensGradient)"
+                    activeDot={{ r: 6, strokeWidth: 0 }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="runs"
+                    stroke="#7c3aed"
+                    strokeWidth={2.5}
+                    fill="url(#runsGradient)"
+                    activeDot={{ r: 5, strokeWidth: 0 }}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyChart label="暂无模型运行数据" />
+              <EmptyChart label="暂时还没有模型运行趋势数据" />
             )}
           </div>
         </Card>
@@ -150,24 +192,42 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <Cpu size={20} />
             </div>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Models</p>
-              <h3 className="text-xl font-black tracking-tight text-slate-900">模型调用分布</h3>
+              <p className="admin-section-kicker">模型分布</p>
+              <h3 className="mt-1 text-xl font-black tracking-tight text-slate-900">模型调用构成</h3>
             </div>
           </div>
           <div className="h-64">
             {data.model_distribution.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={data.model_distribution} cx="50%" cy="50%" innerRadius={58} outerRadius={88} paddingAngle={4} dataKey="value" stroke="rgba(255,255,255,0.85)" strokeWidth={3}>
+                  <Pie
+                    data={data.model_distribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={58}
+                    outerRadius={88}
+                    paddingAngle={4}
+                    dataKey="value"
+                    stroke="rgba(255,255,255,0.85)"
+                    strokeWidth={3}
+                  >
                     {data.model_distribution.map((entry, index) => (
                       <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: number) => [formatNumber(value), '调用次数']} contentStyle={{ borderRadius: 18, border: '1px solid rgba(226,232,240,0.9)', boxShadow: '0 18px 40px rgba(15,23,42,0.12)', fontWeight: 700 }} />
+                  <Tooltip
+                    formatter={(value: number) => [formatNumber(value), '调用次数']}
+                    contentStyle={{
+                      borderRadius: 18,
+                      border: '1px solid rgba(226,232,240,0.9)',
+                      boxShadow: '0 18px 40px rgba(15,23,42,0.12)',
+                      fontWeight: 700,
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyChart label="暂无模型调用" />
+              <EmptyChart label="暂时还没有模型调用" />
             )}
           </div>
           <DistributionLegend items={data.model_distribution} />
@@ -181,8 +241,8 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <Hammer size={20} />
             </div>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Tools</p>
-              <h3 className="text-xl font-black tracking-tight text-slate-900">工具使用排行</h3>
+              <p className="admin-section-kicker">工具分布</p>
+              <h3 className="mt-1 text-xl font-black tracking-tight text-slate-900">工具调用排行</h3>
             </div>
           </div>
           <div className="h-72">
@@ -190,9 +250,30 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart layout="vertical" data={data.tool_distribution} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
                   <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 6" horizontal={false} />
-                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }} tickFormatter={formatNumber} />
-                  <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }} width={86} />
-                  <Tooltip formatter={(value: number) => [formatNumber(value), '调用次数']} contentStyle={{ borderRadius: 18, border: '1px solid rgba(226,232,240,0.9)', boxShadow: '0 18px 40px rgba(15,23,42,0.12)', fontWeight: 700 }} />
+                  <XAxis
+                    type="number"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tickFormatter={formatNumber}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    width={86}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [formatNumber(value), '调用次数']}
+                    contentStyle={{
+                      borderRadius: 18,
+                      border: '1px solid rgba(226,232,240,0.9)',
+                      boxShadow: '0 18px 40px rgba(15,23,42,0.12)',
+                      fontWeight: 700,
+                    }}
+                  />
                   <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={16}>
                     {data.tool_distribution.map((entry, index) => (
                       <Cell key={entry.name} fill={CHART_COLORS[(index + 2) % CHART_COLORS.length]} />
@@ -201,7 +282,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyChart label="暂无工具调用" />
+              <EmptyChart label="暂时还没有工具调用" />
             )}
           </div>
         </Card>
@@ -213,17 +294,17 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                 <Trophy size={20} />
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Users</p>
-                <h3 className="text-xl font-black tracking-tight text-slate-900">用户资源消耗排行</h3>
+                <p className="admin-section-kicker">用户排行</p>
+                <h3 className="mt-1 text-xl font-black tracking-tight text-slate-900">资源消耗前列用户</h3>
               </div>
             </div>
           </div>
-          <div className="hidden grid-cols-[minmax(220px,1.2fr)_120px_120px_120px_120px_150px] border-b border-slate-100 px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400 lg:grid">
+          <div className="hidden grid-cols-[minmax(220px,1.2fr)_120px_120px_120px_120px_150px] border-b border-slate-100 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-slate-400 lg:grid">
             <span>用户</span>
             <span>Token</span>
             <span>模型调用</span>
             <span>工具调用</span>
-            <span>Session</span>
+            <span>会话数</span>
             <span>占比</span>
           </div>
           {topUsers.length > 0 ? (
@@ -232,7 +313,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
             ))
           ) : (
             <div className="p-6">
-              <EmptyChart label="暂无用户使用数据" />
+              <EmptyChart label="暂时还没有用户使用数据" />
             </div>
           )}
         </Card>

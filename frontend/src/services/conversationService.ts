@@ -25,6 +25,32 @@ export type ConversationListResponse = {
   total: number;
 };
 
+export type AdminConversationDetailMessage = {
+  id: number;
+  role?: string | null;
+  text: string;
+  created_at?: string | null;
+};
+
+export type AdminConversationDetail = {
+  session_id: string;
+  user_id?: number | null;
+  user_name?: string | null;
+  user_email?: string | null;
+  summary?: string | null;
+  message_count: number;
+  model_names: string[];
+  total_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  llm_calls: number;
+  tool_calls: number;
+  avg_latency_ms: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+  messages: AdminConversationDetailMessage[];
+};
+
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const DASHBOARD_ENDPOINT = `${API_BASE_URL}/api/v1/dashboard`;
 
@@ -51,6 +77,13 @@ export async function listConversations(params: { search?: string; offset?: numb
     headers: authHeaders(),
   });
   return parseResponse<ConversationListResponse>(response);
+}
+
+export async function getConversationDetail(sessionId: string): Promise<AdminConversationDetail> {
+  const response = await fetch(`${DASHBOARD_ENDPOINT}/conversations/${encodeURIComponent(sessionId)}`, {
+    headers: authHeaders(),
+  });
+  return parseResponse<AdminConversationDetail>(response);
 }
 
 export async function deleteConversation(sessionId: string): Promise<void> {

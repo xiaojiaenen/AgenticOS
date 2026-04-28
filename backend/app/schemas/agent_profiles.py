@@ -13,6 +13,16 @@ class AgentProfileTool(BaseModel):
     requires_approval: bool
 
 
+class AgentProfileSkillReference(BaseModel):
+    id: int
+    name: str
+    slug: str
+    description: str
+    enabled: bool
+    has_python_scripts: bool
+    script_paths: list[str] = Field(default_factory=list)
+
+
 class AgentProfileBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     slug: str | None = Field(default=None, min_length=1, max_length=80)
@@ -38,6 +48,7 @@ class AgentProfileBase(BaseModel):
 
 class AgentProfileCreateRequest(AgentProfileBase):
     tools: list[AgentProfileTool] = Field(default_factory=list)
+    skill_ids: list[int] = Field(default_factory=list)
 
 
 class AgentProfileUpdateRequest(BaseModel):
@@ -50,6 +61,7 @@ class AgentProfileUpdateRequest(BaseModel):
     enabled: bool | None = None
     listed: bool | None = None
     tools: list[AgentProfileTool] | None = None
+    skill_ids: list[int] | None = None
 
     @field_validator("name", "description", "system_prompt", "avatar")
     @classmethod
@@ -77,10 +89,12 @@ class AgentProfileResponse(BaseModel):
     is_builtin: bool
     installed: bool = False
     tools: list[AgentProfileTool]
+    skills: list[AgentProfileSkillReference] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
 
 class AgentProfileListResponse(BaseModel):
     catalog: list[ToolCatalogItem]
+    available_skills: list[AgentProfileSkillReference] = Field(default_factory=list)
     items: list[AgentProfileResponse]

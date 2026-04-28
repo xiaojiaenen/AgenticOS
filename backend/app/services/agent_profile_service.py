@@ -2,13 +2,22 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import AgentProfileModel, AgentProfileToolModel, UserInstalledAgentModel, UserModel
+from app.db.models import (
+    AgentProfileModel,
+    AgentProfileSkillModel,
+    AgentProfileToolModel,
+    SkillModel,
+    UserInstalledAgentModel,
+    UserModel,
+)
 from app.db.session import create_db_session
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
+from app.services.skill_service import RuntimeSkill
 from app.services.tool_config_service import AGENT_MODES, DEFAULT_MODE_TOOLS, TOOL_CATALOG
 
 
@@ -50,6 +59,7 @@ class RuntimeAgentProfile:
     builtin_tools: tuple[str, ...]
     approval_tools: frozenset[str]
     signature: tuple[tuple[str, bool, bool], ...]
+    skills: tuple[RuntimeSkill, ...]
 
 
 def _slugify(value: str) -> str:
@@ -148,6 +158,7 @@ class AgentProfileService:
             .where(AgentProfileToolModel.profile_id == profile.id)
             .order_by(AgentProfileToolModel.tool_name.asc())
         ).all()
+        skills = self._load_profile_skill_rows(db, profile.id)
         return {
             "id": profile.id,
             "name": profile.name,
@@ -169,6 +180,7 @@ class AgentProfileService:
                 for tool in tools
                 if tool.tool_name in TOOL_CATALOG
             ],
+            "skills": [self._serialize_skill_reference(skill) for skill in skills],
             "created_at": profile.created_at,
             "updated_at": profile.updated_at,
         }
@@ -179,6 +191,7 @@ class AgentProfileService:
             profiles = db.scalars(select(AgentProfileModel).order_by(AgentProfileModel.created_at.asc())).all()
             return {
                 "catalog": self._catalog(),
+                "available_skills": self._list_available_skills(db, include_disabled=True),
                 "items": [self._serialize(db, profile) for profile in profiles],
             }
 
@@ -192,6 +205,7 @@ class AgentProfileService:
             ).all()
             return {
                 "catalog": self._catalog(),
+                "available_skills": self._list_available_skills(db, include_disabled=False),
                 "items": [self._serialize(db, profile, user_id=user.id) for profile in profiles],
             }
 
@@ -214,6 +228,7 @@ class AgentProfileService:
             ).all()
             return {
                 "catalog": self._catalog(),
+                "available_skills": self._list_available_skills(db, include_disabled=False),
                 "items": [self._serialize(db, profile, user_id=user.id) for profile in profiles],
             }
 
@@ -246,6 +261,45 @@ class AgentProfileService:
             row.enabled = item.enabled
             row.requires_approval = item.requires_approval
 
+    def _apply_skill_ids(self, db: Session, profile: AgentProfileModel, skill_ids: list[int]) -> None:
+        unique_skill_ids = tuple(dict.fromkeys(skill_ids))
+        if unique_skill_ids:
+            rows = db.scalars(select(SkillModel).where(SkillModel.id.in_(unique_skill_ids))).all()
+            found_ids = {row.id for row in rows}
+            missing = [skill_id for skill_id in unique_skill_ids if skill_id not in found_ids]
+            if missing:
+                raise KeyError(f"Unknown skill ids: {missing}")
+
+        db.execute(delete(AgentProfileSkillModel).where(AgentProfileSkillModel.profile_id == profile.id))
+        for skill_id in unique_skill_ids:
+            db.add(
+                AgentProfileSkillModel(
+                    profile_id=profile.id,
+                    skill_id=skill_id,
+                    enabled=True,
+                )
+            )
+
+        if unique_skill_ids:
+            skill_tool = db.scalar(
+                select(AgentProfileToolModel).where(
+                    AgentProfileToolModel.profile_id == profile.id,
+                    AgentProfileToolModel.tool_name == "skill",
+                )
+            )
+            if skill_tool is None:
+                skill_tool = AgentProfileToolModel(
+                    profile_id=profile.id,
+                    tool_name="skill",
+                    enabled=True,
+                    requires_approval=True,
+                )
+                db.add(skill_tool)
+            else:
+                skill_tool.enabled = True
+                if not skill_tool.requires_approval:
+                    skill_tool.requires_approval = True
+
     def create(self, request: AgentProfileCreateRequest, creator: UserModel) -> dict[str, object]:
         with self.session_factory() as db:
             self.ensure_defaults(db)
@@ -267,6 +321,8 @@ class AgentProfileService:
             db.flush()
             if request.tools:
                 self._apply_tools(db, profile, request.tools)
+            if request.skill_ids:
+                self._apply_skill_ids(db, profile, request.skill_ids)
             db.commit()
             db.refresh(profile)
             return self._serialize(db, profile)
@@ -298,6 +354,8 @@ class AgentProfileService:
                 self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
                 db.flush()
                 self._apply_tools(db, profile, request.tools)
+            if request.skill_ids is not None:
+                self._apply_skill_ids(db, profile, request.skill_ids)
 
             db.add(profile)
             db.commit()
@@ -313,6 +371,7 @@ class AgentProfileService:
                 raise ValueError("Built-in agent profiles cannot be deleted")
 
             db.execute(delete(UserInstalledAgentModel).where(UserInstalledAgentModel.profile_id == profile_id))
+            db.execute(delete(AgentProfileSkillModel).where(AgentProfileSkillModel.profile_id == profile_id))
             db.execute(delete(AgentProfileToolModel).where(AgentProfileToolModel.profile_id == profile_id))
             db.delete(profile)
             db.commit()
@@ -373,6 +432,16 @@ class AgentProfileService:
             .where(AgentProfileToolModel.profile_id == profile.id)
             .order_by(AgentProfileToolModel.tool_name.asc())
         ).all()
+        skills = tuple(
+            RuntimeSkill(
+                id=skill.id,
+                name=skill.name,
+                slug=skill.slug,
+                root_dir=skill.root_dir,
+                updated_at=skill.updated_at.isoformat(),
+            )
+            for skill in self._load_profile_skill_rows(db, profile.id, only_enabled=True)
+        )
         builtin_tools: list[str] = []
         approval_tools: set[str] = set()
         signature: list[tuple[str, bool, bool]] = []
@@ -396,7 +465,53 @@ class AgentProfileService:
             builtin_tools=tuple(dict.fromkeys(builtin_tools)),
             approval_tools=frozenset(approval_tools),
             signature=tuple(signature),
+            skills=skills,
         )
+
+    def _load_profile_skill_rows(
+        self,
+        db: Session,
+        profile_id: int,
+        *,
+        only_enabled: bool = False,
+    ) -> list[SkillModel]:
+        statement = (
+            select(SkillModel)
+            .join(AgentProfileSkillModel, AgentProfileSkillModel.skill_id == SkillModel.id)
+            .where(AgentProfileSkillModel.profile_id == profile_id)
+            .order_by(SkillModel.name.asc())
+        )
+        if only_enabled:
+            statement = statement.where(
+                AgentProfileSkillModel.enabled.is_(True),
+                SkillModel.enabled.is_(True),
+            )
+        return db.scalars(statement).all()
+
+    def _list_available_skills(self, db: Session, *, include_disabled: bool) -> list[dict[str, object]]:
+        statement = select(SkillModel).order_by(SkillModel.name.asc())
+        if not include_disabled:
+            statement = statement.where(SkillModel.enabled.is_(True))
+        return [self._serialize_skill_reference(skill) for skill in db.scalars(statement).all()]
+
+    @staticmethod
+    def _serialize_skill_reference(skill: SkillModel) -> dict[str, object]:
+        root_dir = Path(skill.root_dir)
+        scripts_dir = root_dir / "scripts"
+        script_paths = (
+            sorted(path.relative_to(root_dir).as_posix() for path in scripts_dir.rglob("*.py"))
+            if scripts_dir.is_dir()
+            else []
+        )
+        return {
+            "id": skill.id,
+            "name": skill.name,
+            "slug": skill.slug,
+            "description": skill.description,
+            "enabled": skill.enabled,
+            "has_python_scripts": bool(script_paths),
+            "script_paths": script_paths,
+        }
 
 
 def seed_agent_profiles() -> None:

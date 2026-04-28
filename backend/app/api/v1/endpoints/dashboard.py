@@ -17,7 +17,12 @@ from app.schemas.admin_stats import (
     DashboardTrendPoint,
     DashboardUserUsage,
 )
-from app.schemas.conversations import ConversationListItem, ConversationListResponse
+from app.schemas.conversations import (
+    ConversationDetailMessage,
+    ConversationDetailResponse,
+    ConversationListItem,
+    ConversationListResponse,
+)
 from app.services.session_storage import load_json
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
@@ -172,6 +177,24 @@ def _compact_text(value: str | None, limit: int = 120) -> str | None:
     return text if len(text) <= limit else f"{text[:limit]}..."
 
 
+def _message_role(message_json: str) -> str | None:
+    payload = load_json(message_json, {})
+    if not isinstance(payload, dict):
+        return None
+
+    role = payload.get("role")
+    if isinstance(role, str) and role:
+        return role
+
+    author = payload.get("author")
+    if isinstance(author, dict):
+        author_role = author.get("role")
+        if isinstance(author_role, str) and author_role:
+            return author_role
+
+    return None
+
+
 @router.get("/conversations", response_model=ConversationListResponse)
 def list_conversations(
     search: str = Query(default="", max_length=120),
@@ -263,6 +286,73 @@ def list_conversations(
 
     total = len(items)
     return ConversationListResponse(items=items[offset:offset + limit], total=total)
+
+
+@router.get("/conversations/{session_id}", response_model=ConversationDetailResponse)
+def get_conversation_detail(
+    session_id: str,
+    _: UserModel = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> ConversationDetailResponse:
+    session = db.get(AgentSessionModel, session_id)
+    if session is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    user = db.get(UserModel, session.user_id) if session.user_id is not None else None
+    messages = db.scalars(
+        select(AgentMessageModel)
+        .where(AgentMessageModel.session_id == session_id)
+        .order_by(AgentMessageModel.id.asc())
+    ).all()
+    events = db.scalars(
+        select(AgentUsageEventModel)
+        .where(AgentUsageEventModel.session_id == session_id)
+        .order_by(AgentUsageEventModel.created_at.asc())
+    ).all()
+
+    model_counter: Counter[str] = Counter()
+    total_tokens = 0
+    input_tokens = 0
+    output_tokens = 0
+    llm_calls = 0
+    tool_calls = 0
+    latency_ms = 0
+    for event in events:
+        if event.model_name:
+            model_counter[event.model_name] += 1
+        total_tokens += event.total_tokens
+        input_tokens += event.input_tokens
+        output_tokens += event.output_tokens
+        llm_calls += event.llm_calls
+        tool_calls += event.tool_calls
+        latency_ms += event.latency_ms
+
+    return ConversationDetailResponse(
+        session_id=session.session_id,
+        user_id=session.user_id,
+        user_name=user.name if user else None,
+        user_email=user.email if user else None,
+        summary=_compact_text(session.summary, limit=240),
+        message_count=len(messages),
+        model_names=[name for name, _ in model_counter.most_common()],
+        total_tokens=total_tokens,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        llm_calls=llm_calls,
+        tool_calls=tool_calls,
+        avg_latency_ms=round(latency_ms / len(events)) if events else 0,
+        created_at=session.created_at,
+        updated_at=session.updated_at,
+        messages=[
+            ConversationDetailMessage(
+                id=message.id,
+                role=_message_role(message.message_json),
+                text=_message_text(message.message_json),
+                created_at=message.created_at,
+            )
+            for message in messages
+        ],
+    )
 
 
 @router.delete("/conversations/{session_id}", status_code=status.HTTP_204_NO_CONTENT)

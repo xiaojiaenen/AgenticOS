@@ -28,3 +28,29 @@ class ConversationListItem(BaseModel):
 class ConversationListResponse(BaseModel):
     items: list[ConversationListItem]
     total: int
+
+
+class ConversationDetailMessage(BaseModel):
+    id: int
+    role: str | None = None
+    text: str = ""
+    created_at: datetime | None = None
+
+
+class ConversationDetailResponse(BaseModel):
+    session_id: str
+    user_id: int | None = None
+    user_name: str | None = None
+    user_email: str | None = None
+    summary: str | None = None
+    message_count: int
+    model_names: list[str]
+    total_tokens: int
+    input_tokens: int
+    output_tokens: int
+    llm_calls: int
+    tool_calls: int
+    avg_latency_ms: int
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    messages: list[ConversationDetailMessage]

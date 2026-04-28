@@ -104,6 +104,31 @@ class AgentProfileToolModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
 
+class SkillModel(Base):
+    __tablename__ = "skills"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120))
+    slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    root_dir: Mapped[str] = mapped_column(String(1024), unique=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+class AgentProfileSkillModel(Base):
+    __tablename__ = "agent_profile_skills"
+    __table_args__ = (UniqueConstraint("profile_id", "skill_id", name="uq_agent_profile_skill"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("agent_profiles.id"), index=True)
+    skill_id: Mapped[int] = mapped_column(ForeignKey("skills.id"), index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
 class UserInstalledAgentModel(Base):
     __tablename__ = "user_installed_agents"
     __table_args__ = (UniqueConstraint("user_id", "profile_id", name="uq_user_installed_agent"),)

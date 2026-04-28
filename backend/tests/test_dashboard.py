@@ -116,5 +116,16 @@ def test_dashboard_stats_aggregate_usage() -> None:
         assert conversations_payload["total"] >= 1
         assert conversations_payload["items"][0]["session_id"] == "stats-session"
         assert conversations_payload["items"][0]["total_tokens"] == 200
+
+        detail_response = client.get(
+            "/api/v1/dashboard/conversations/stats-session",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert detail_response.status_code == 200
+        detail_payload = detail_response.json()
+        assert detail_payload["session_id"] == "stats-session"
+        assert detail_payload["message_count"] >= 1
+        assert detail_payload["messages"][0]["role"] == "user"
+        assert "统计图" in detail_payload["messages"][0]["text"]
     finally:
         cleanup_records(admin_email, user_email)

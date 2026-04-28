@@ -32,6 +32,7 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expi
 
 
 def init_db() -> None:
+    get_settings().get_skill_storage_dir().mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
     _ensure_compatible_schema()
     from app.services.tool_config_service import seed_tool_configs
