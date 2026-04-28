@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select
 from wuwei.runtime import ApprovalDecision, ApprovalRequest
 
+from app.core.timezone import app_now, isoformat_app_timezone
 from app.db.models import ApprovalModel
 from app.db.session import create_db_session
 from app.services.session_storage import dump_json, load_json
@@ -60,7 +60,7 @@ class ApprovalManager:
                 raise KeyError(f"approval not found: {approval_id}")
             row.status = status
             row.reason = reason
-            row.decided_at = datetime.now(timezone.utc)
+            row.decided_at = app_now()
             db.commit()
             db.refresh(row)
             record = self._serialize_row(row)
@@ -121,6 +121,6 @@ class ApprovalManager:
             "status": row.status,
             "reason": row.reason,
             "metadata": load_json(row.metadata_json, {}),
-            "created_at": row.created_at.isoformat() if row.created_at else None,
-            "decided_at": row.decided_at.isoformat() if row.decided_at else None,
+            "created_at": isoformat_app_timezone(row.created_at),
+            "decided_at": isoformat_app_timezone(row.decided_at),
         }

@@ -5,11 +5,13 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.base import AppBaseModel
+
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-class UserListItem(BaseModel):
+class UserListItem(AppBaseModel):
     id: int
     email: str
     name: str
@@ -18,7 +20,7 @@ class UserListItem(BaseModel):
     created_at: datetime
 
 
-class UserListResponse(BaseModel):
+class UserListResponse(AppBaseModel):
     items: list[UserListItem]
     total: int
 

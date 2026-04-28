@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertCircle,
@@ -143,7 +144,7 @@ export const ChatHistory = () => {
 
   return (
     <div className="admin-page-stage space-y-5">
-      <section className="admin-solid-panel px-6 py-5">
+      <section className="admin-page-header">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="admin-section-kicker">聊天记录</p>
@@ -151,13 +152,13 @@ export const ChatHistory = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+            <div className="admin-kpi-pill">
               共 <span className="font-black text-slate-900">{total}</span> 条会话
             </div>
-            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+            <div className="admin-kpi-pill">
               本页 Token <span className="font-black text-slate-900">{formatNumber(pageTotals.tokens)}</span>
             </div>
-            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+            <div className="admin-kpi-pill">
               模型/工具 <span className="font-black text-slate-900">{formatNumber(pageTotals.calls)} / {formatNumber(pageTotals.tools)}</span>
             </div>
             <Button variant="secondary" onClick={loadData} disabled={isLoading} className="gap-2">
@@ -175,8 +176,8 @@ export const ChatHistory = () => {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-[32px] border border-white/70 bg-white/62 shadow-[0_20px_50px_rgba(15,23,42,0.08)] ring-1 ring-white/40 backdrop-blur-[28px]">
-        <div className="flex flex-col gap-4 border-b border-white/70 px-6 py-5 lg:flex-row lg:items-end lg:justify-between">
+      <section className="admin-data-panel">
+        <div className="admin-panel-toolbar">
           <div className="text-center lg:text-left">
             <p className="admin-section-kicker">会话目录</p>
             <h3 className="mt-2 text-lg font-black tracking-tight text-slate-900">按用户、摘要或 Session 检索</h3>
@@ -195,7 +196,7 @@ export const ChatHistory = () => {
           </div>
         </div>
 
-        <div className="hidden grid-cols-[minmax(220px,1.15fr)_minmax(280px,1.9fr)_90px_110px_120px_140px_130px] border-b border-slate-100 px-5 py-3 text-center text-xs font-black tracking-[0.18em] text-slate-400 xl:grid">
+        <div className="admin-table-head grid-cols-[minmax(220px,1.15fr)_minmax(280px,1.9fr)_90px_110px_120px_140px_130px]">
           <span>用户</span>
           <span>摘要</span>
           <span>消息数</span>
@@ -212,10 +213,14 @@ export const ChatHistory = () => {
               正在加载会话
             </div>
           ) : items.length > 0 ? (
-            items.map((item) => (
-              <div
+            items.map((item, index) => (
+              <motion.div
                 key={item.session_id}
-                className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(220px,1.15fr)_minmax(280px,1.9fr)_90px_110px_120px_140px_130px] xl:items-center"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, delay: Math.min(index * 0.025, 0.16) }}
+                whileHover={{ x: 2 }}
+                className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(220px,1.15fr)_minmax(280px,1.9fr)_90px_110px_120px_140px_130px] xl:items-center xl:gap-0"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-black text-slate-900">{item.user_name || '未知用户'}</p>
@@ -258,7 +263,7 @@ export const ChatHistory = () => {
                     {deletingId === item.session_id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                   </Button>
                 </div>
-              </div>
+              </motion.div>
             ))
           ) : (
             <div className="flex h-[460px] flex-col items-center justify-center text-center">
@@ -276,8 +281,9 @@ export const ChatHistory = () => {
         )}
       </section>
 
-      <AnimatePresence>
-        {detailSessionId && (
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {detailSessionId && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -409,8 +415,10 @@ export const ChatHistory = () => {
               </div>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 };

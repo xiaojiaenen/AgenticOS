@@ -11,6 +11,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.core.timezone import isoformat_app_timezone
 from app.db.models import AgentProfileSkillModel, SkillModel, UserModel
 from app.db.session import create_db_session
 from app.schemas.skills import SkillCreateRequest, SkillUpdateRequest
@@ -221,7 +222,7 @@ class SkillService:
                     name=row.name,
                     slug=row.slug,
                     root_dir=row.root_dir,
-                    updated_at=row.updated_at.isoformat(),
+                    updated_at=isoformat_app_timezone(row.updated_at) or "",
                 )
                 for row in rows
             )

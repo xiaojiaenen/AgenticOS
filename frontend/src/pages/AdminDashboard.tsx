@@ -9,8 +9,8 @@ import { DashboardStats } from '../components/admin/DashboardStats';
 import { SkillManagement } from '../components/admin/SkillManagement';
 import { UserManagement } from '../components/admin/UserManagement';
 import { Button } from '../components/ui/Button';
-import { RandomMascot } from '../components/ui/RandomMascot';
 import { MascotCool } from '../components/ui/AnimatedIcons';
+import { RandomMascot } from '../components/ui/RandomMascot';
 import { cn } from '../lib/utils';
 import { DashboardStats as DashboardStatsData, getDashboardStats } from '../services/dashboardService';
 
@@ -181,15 +181,9 @@ export const AdminDashboard = () => {
       case 'dashboard':
         return (
           <div className="admin-page-stage space-y-5">
-            <section className="relative overflow-hidden rounded-[40px] border border-white/65 bg-white/42 shadow-[0_30px_90px_rgba(15,23,42,0.1)] ring-1 ring-white/35 backdrop-blur-[28px]">
-              <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                <div className="absolute -left-12 top-0 h-56 w-56 rounded-full bg-cyan-300/30 blur-3xl" />
-                <div className="absolute right-8 top-6 h-52 w-52 rounded-full bg-violet-300/22 blur-3xl" />
-                <div className="absolute bottom-[-20%] left-[38%] h-56 w-56 rounded-full bg-emerald-300/18 blur-3xl" />
-              </div>
-
+            <section className="admin-data-panel relative">
               <div className="relative grid gap-4 px-5 py-5 xl:items-start xl:grid-cols-[minmax(0,1.35fr)_420px] xl:px-6">
-                <div className="self-start rounded-[32px] border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.76),rgba(255,255,255,0.4))] p-5 shadow-[0_18px_48px_rgba(15,23,42,0.08)]">
+                <div className="self-start rounded-[24px] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(248,250,252,0.72))] p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
                   <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                     <div className="max-w-3xl">
                       <p className="admin-section-kicker">系统总览</p>
@@ -200,7 +194,7 @@ export const AdminDashboard = () => {
                         {headerInsights.map((item) => (
                           <div
                             key={item.label}
-                            className="rounded-[20px] border border-white/75 bg-white/58 px-3.5 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
+                            className="rounded-[18px] border border-slate-200/65 bg-white/78 px-3.5 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
                           >
                             <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">{item.label}</p>
                             <p className="mt-2 text-lg font-black tracking-tight text-slate-950">{item.value}</p>
@@ -210,7 +204,7 @@ export const AdminDashboard = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
-                      <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-xs font-black text-slate-500">
+                      <div className="admin-kpi-pill text-xs font-black">
                         {isDashboardLoading ? '正在同步数据' : '数据已同步'}
                       </div>
                       <Button variant="secondary" onClick={loadDashboard} disabled={isDashboardLoading} className="gap-2">
@@ -224,11 +218,11 @@ export const AdminDashboard = () => {
                     {topSummary.map((item) => (
                       <div
                         key={item.label}
-                        className={`rounded-[24px] border border-white/75 px-4 py-3.5 shadow-[0_12px_28px_rgba(15,23,42,0.06)] ${item.tone}`}
+                        className={`rounded-[20px] border border-white/80 px-4 py-3.5 shadow-[0_12px_28px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 ${item.tone}`}
                       >
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-xs font-black tracking-[0.18em] text-slate-500">{item.label}</span>
-                          <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/75 bg-white/55 text-slate-900">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-[14px] border border-white/75 bg-white/62 text-slate-900">
                             <item.icon size={18} />
                           </div>
                         </div>
@@ -239,14 +233,14 @@ export const AdminDashboard = () => {
                   </div>
                 </div>
 
-                <div className="self-start rounded-[32px] border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(224,242,254,0.38),rgba(255,255,255,0.38))] p-4.5 shadow-[0_18px_48px_rgba(15,23,42,0.08)]">
+                <div className="self-start rounded-[24px] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(240,253,250,0.55),rgba(255,255,255,0.68))] p-4.5 shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
                   <p className="admin-section-kicker">关键刻度</p>
                   <div className="mt-3.5 grid gap-3 sm:grid-cols-2">
                     {sideSummary.map((item, index) => (
                       <div
                         key={item.label}
                         className={cn(
-                          'rounded-[22px] border border-white/75 bg-white/58 px-4 py-3.5',
+                          'rounded-[18px] border border-white/75 bg-white/68 px-4 py-3.5 transition-all hover:-translate-y-0.5 hover:bg-white/82',
                           index === 0 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.7),rgba(56,189,248,0.12))]',
                           index === 1 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.7),rgba(125,211,252,0.12))]',
                           index === 2 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.7),rgba(244,114,182,0.1))]',
@@ -304,13 +298,11 @@ export const AdminDashboard = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="relative flex h-screen overflow-hidden bg-gradient-to-br from-[#e0fbfc] via-[#a5f3fc] to-[#60a5fa] font-sans text-slate-800 selection:bg-zinc-200 selection:text-zinc-900"
+      className="admin-dashboard-shell relative flex h-screen overflow-hidden font-sans text-slate-800 selection:bg-zinc-200 selection:text-zinc-900"
     >
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute bottom-[-20%] left-[-10%] h-[70vw] w-[70vw] rounded-full bg-teal-300 opacity-35 mix-blend-overlay blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] h-[80vw] w-[80vw] rounded-full bg-blue-400 opacity-35 mix-blend-overlay blur-[120px]" />
-        <div className="absolute left-[30%] top-[10%] h-[50vw] w-[50vw] rounded-full bg-cyan-300 opacity-25 mix-blend-overlay blur-[120px]" />
-        <RandomMascot size={460} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.025]" />
+      <div className="admin-dashboard-backdrop pointer-events-none">
+        <RandomMascot size={760} className="admin-backdrop-mascot admin-backdrop-mascot-primary" />
+        <RandomMascot size={360} className="admin-backdrop-mascot admin-backdrop-mascot-secondary" />
       </div>
 
       <AnimatePresence>
@@ -320,7 +312,7 @@ export const AdminDashboard = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 z-10 bg-slate-900/20 backdrop-blur-sm"
+            className="fixed inset-0 z-10 bg-white/30"
           />
         )}
       </AnimatePresence>

@@ -9,6 +9,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { BrainCircuit, Presentation, Sparkles } from 'lucide-react';
 import { Artifact, Message } from '../../types';
+import { APP_TIME_ZONE } from '../../lib/datetime';
 import { cn } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
 import { UserAvatarIcon, MascotCool, CopyIcon, CheckIcon, WrenchIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
@@ -963,7 +964,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
         {/* Timestamp */}
         {message?.id && !isTyping && (
           <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400/70 px-2 mt-1.5 flex items-center gap-2">
-            <span>{new Date(parseInt(message.id)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            <span>{new Date(parseInt(message.id)).toLocaleTimeString('zh-CN', { timeZone: APP_TIME_ZONE, hour: '2-digit', minute: '2-digit' })}</span>
             {!isUser && visibleText && (
               <motion.span
                 initial={{ opacity: 0 }}

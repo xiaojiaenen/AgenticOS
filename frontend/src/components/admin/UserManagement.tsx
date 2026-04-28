@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Edit3,
@@ -236,7 +237,7 @@ export const UserManagement = () => {
 
   return (
     <div className="admin-page-stage space-y-5">
-      <section className="admin-solid-panel px-6 py-5">
+      <section className="admin-page-header">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="admin-section-kicker">用户管理</p>
@@ -244,13 +245,13 @@ export const UserManagement = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+            <div className="admin-kpi-pill">
               共 <span className="font-black text-slate-900">{total}</span> 个用户
             </div>
-            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+            <div className="admin-kpi-pill">
               启用 <span className="font-black text-slate-900">{activeUsers}</span>
             </div>
-            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+            <div className="admin-kpi-pill">
               管理员 <span className="font-black text-slate-900">{adminUsers}</span>
             </div>
             <Button onClick={openCreateForm} className="gap-2">
@@ -267,8 +268,8 @@ export const UserManagement = () => {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-[32px] border border-white/70 bg-white/62 shadow-[0_20px_50px_rgba(15,23,42,0.08)] ring-1 ring-white/40 backdrop-blur-[28px]">
-        <div className="flex flex-col gap-4 border-b border-white/70 px-6 py-5 lg:flex-row lg:items-end lg:justify-between">
+      <section className="admin-data-panel">
+        <div className="admin-panel-toolbar">
           <div className="text-center lg:text-left">
             <p className="admin-section-kicker">用户目录</p>
             <h3 className="mt-2 text-lg font-black tracking-tight text-slate-900">按名称和邮箱检索</h3>
@@ -288,7 +289,7 @@ export const UserManagement = () => {
           </div>
         </div>
 
-        <div className="hidden grid-cols-[minmax(240px,1.5fr)_120px_120px_140px_180px] border-b border-slate-100 px-5 py-3 text-center text-xs font-black tracking-[0.18em] text-slate-400 xl:grid">
+        <div className="admin-table-head grid-cols-[minmax(240px,1.5fr)_120px_120px_140px_180px]">
           <span>用户</span>
           <span>角色</span>
           <span>状态</span>
@@ -303,13 +304,17 @@ export const UserManagement = () => {
               正在加载用户
             </div>
           ) : users.length > 0 ? (
-            users.map((user) => {
+            users.map((user, index) => {
               const isSelf = currentUser?.id === user.id;
 
               return (
-                <div
+                <motion.div
                   key={user.id}
-                  className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(240px,1.5fr)_120px_120px_140px_180px] xl:items-center"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.22, delay: Math.min(index * 0.025, 0.16) }}
+                  whileHover={{ x: 2 }}
+                  className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(240px,1.5fr)_120px_120px_140px_180px] xl:items-center xl:gap-0"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center justify-center gap-2">
@@ -362,7 +367,7 @@ export const UserManagement = () => {
                       <Trash2 size={16} />
                     </Button>
                   </div>
-                </div>
+                </motion.div>
               );
             })
           ) : (
@@ -381,8 +386,10 @@ export const UserManagement = () => {
         )}
       </section>
 
-      <AnimatePresence>
-        {isFormOpen && (
+      {typeof document !== 'undefined' && createPortal(
+        <>
+          <AnimatePresence>
+            {isFormOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -492,11 +499,11 @@ export const UserManagement = () => {
               </div>
             </motion.form>
           </motion.div>
-        )}
-      </AnimatePresence>
+            )}
+          </AnimatePresence>
 
-      <AnimatePresence>
-        {deletingUser && (
+          <AnimatePresence>
+            {deletingUser && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -529,8 +536,11 @@ export const UserManagement = () => {
               </div>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
+            )}
+          </AnimatePresence>
+        </>,
+        document.body,
+      )}
     </div>
   );
 };

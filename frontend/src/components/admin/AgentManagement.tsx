@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertCircle,
@@ -243,7 +244,7 @@ export const AgentManagement = () => {
 
   return (
     <div className="admin-page-stage space-y-5">
-      <section className="admin-solid-panel px-6 py-5">
+      <section className="admin-page-header">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="admin-section-kicker">智能体配置</p>
@@ -256,16 +257,16 @@ export const AgentManagement = () => {
                 {message}
               </div>
             )}
-            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+            <div className="admin-kpi-pill">
               共 <span className="font-black text-slate-900">{profiles.length}</span> 个智能体
             </div>
-            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+            <div className="admin-kpi-pill">
               已启用 <span className="font-black text-slate-900">{enabledAgents}</span>
             </div>
-            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+            <div className="admin-kpi-pill">
               已上架 <span className="font-black text-slate-900">{listedAgents}</span>
             </div>
-            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+            <div className="admin-kpi-pill">
               Skill 绑定 <span className="font-black text-slate-900">{totalBindings}</span>
             </div>
             <Button variant="secondary" onClick={loadProfiles} disabled={isLoading || isSaving} className="gap-2">
@@ -287,15 +288,15 @@ export const AgentManagement = () => {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-[32px] border border-white/70 bg-white/62 shadow-[0_20px_50px_rgba(15,23,42,0.08)] ring-1 ring-white/40 backdrop-blur-[28px]">
-        <div className="flex flex-col gap-4 border-b border-white/70 px-6 py-5 lg:flex-row lg:items-end lg:justify-between">
+      <section className="admin-data-panel">
+        <div className="admin-panel-toolbar">
           <div className="text-center lg:text-left">
             <p className="admin-section-kicker">智能体列表</p>
             <h3 className="mt-2 text-lg font-black tracking-tight text-slate-900">已创建的智能体</h3>
           </div>
         </div>
 
-        <div className="hidden grid-cols-[minmax(250px,1.35fr)_110px_120px_minmax(220px,1fr)_120px_130px_170px] border-b border-slate-100 px-5 py-3 text-center text-xs font-black tracking-[0.18em] text-slate-400 xl:grid">
+        <div className="admin-table-head grid-cols-[minmax(250px,1.35fr)_110px_120px_minmax(220px,1fr)_120px_130px_170px]">
           <span>智能体</span>
           <span>模式</span>
           <span>工具</span>
@@ -311,10 +312,14 @@ export const AgentManagement = () => {
             正在加载智能体配置
           </div>
         ) : profiles.length > 0 ? (
-          profiles.map((profile) => (
-            <div
+          profiles.map((profile, index) => (
+            <motion.div
               key={profile.id}
-              className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(250px,1.35fr)_110px_120px_minmax(220px,1fr)_120px_130px_170px] xl:items-center"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22, delay: Math.min(index * 0.025, 0.16) }}
+              whileHover={{ x: 2 }}
+              className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(250px,1.35fr)_110px_120px_minmax(220px,1fr)_120px_130px_170px] xl:items-center xl:gap-0"
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center justify-center gap-2">
@@ -392,7 +397,7 @@ export const AgentManagement = () => {
                   </Button>
                 )}
               </div>
-            </div>
+            </motion.div>
           ))
         ) : (
           <div className="flex h-80 flex-col items-center justify-center text-center">
@@ -405,8 +410,9 @@ export const AgentManagement = () => {
         )}
       </section>
 
-      <AnimatePresence>
-        {isModalOpen && draft && (
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isModalOpen && draft && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -420,7 +426,7 @@ export const AgentManagement = () => {
               exit={{ opacity: 0, y: 20, scale: 0.97 }}
               transition={{ duration: 0.22 }}
               onMouseDown={(event) => event.stopPropagation()}
-              className="admin-solid-panel admin-modal-panel flex max-h-[90vh] w-full max-w-7xl flex-col overflow-hidden"
+              className="admin-solid-panel admin-modal-panel flex max-h-[min(88vh,900px)] w-[min(1180px,calc(100vw-32px))] flex-col overflow-hidden xl:w-[min(1220px,calc(100vw-64px))]"
             >
               <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
                 <div>
@@ -647,8 +653,10 @@ export const AgentManagement = () => {
               </div>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 };

@@ -7,6 +7,7 @@ from pathlib import Path
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.core.timezone import isoformat_app_timezone
 from app.db.models import (
     AgentProfileModel,
     AgentProfileSkillModel,
@@ -438,7 +439,7 @@ class AgentProfileService:
                 name=skill.name,
                 slug=skill.slug,
                 root_dir=skill.root_dir,
-                updated_at=skill.updated_at.isoformat(),
+                updated_at=isoformat_app_timezone(skill.updated_at) or "",
             )
             for skill in self._load_profile_skill_rows(db, profile.id, only_enabled=True)
         )

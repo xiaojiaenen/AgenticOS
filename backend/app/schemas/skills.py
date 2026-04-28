@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.base import AppBaseModel
+
 
 class SkillBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
@@ -53,7 +55,7 @@ class SkillUpdateRequest(BaseModel):
         return value.strip().lower().replace(" ", "-")
 
 
-class SkillResponse(BaseModel):
+class SkillResponse(AppBaseModel):
     id: int
     name: str
     slug: str
@@ -67,5 +69,5 @@ class SkillResponse(BaseModel):
     updated_at: datetime
 
 
-class SkillListResponse(BaseModel):
+class SkillListResponse(AppBaseModel):
     items: list[SkillResponse]

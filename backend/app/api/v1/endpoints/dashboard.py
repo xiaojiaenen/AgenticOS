@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,6 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
+from app.core.timezone import app_today, to_app_timezone
 from app.db.models import AgentMessageModel, AgentSessionModel, AgentUsageEventModel, ApprovalModel, PptArtifactModel, UserModel
 from app.schemas.admin_stats import (
     DashboardDistributionItem,
@@ -29,9 +30,8 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
 def _day_key(value: datetime) -> str:
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).date().isoformat()
+    converted = to_app_timezone(value)
+    return converted.date().isoformat() if converted else ""
 
 
 @router.get("/stats", response_model=DashboardStatsResponse)
@@ -60,7 +60,7 @@ def get_dashboard_stats(
     model_counter: Counter[str] = Counter()
     tool_counter: Counter[str] = Counter()
 
-    start_day = datetime.now(timezone.utc).date() - timedelta(days=13)
+    start_day = app_today() - timedelta(days=13)
     trend_map: dict[str, dict[str, int]] = {
         (start_day + timedelta(days=index)).isoformat(): {"runs": 0, "tokens": 0, "tool_calls": 0}
         for index in range(14)

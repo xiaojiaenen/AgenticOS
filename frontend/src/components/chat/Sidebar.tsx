@@ -97,8 +97,14 @@ export const Sidebar = React.memo(({
           </div>
         ))}
         {hasMore && (
-          <div className="py-4 text-center">
-            <div className="w-5 h-5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin mx-auto opacity-50" />
+          <div className="px-2 py-3">
+            <button
+              type="button"
+              onClick={onLoadMore}
+              className="w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2 text-xs font-bold text-slate-500 shadow-sm transition-all hover:bg-white/80 hover:text-slate-800"
+            >
+              加载更多对话
+            </button>
           </div>
         )}
         {sessions.length === 0 && (

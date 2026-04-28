@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.core.timezone import isoformat_app_timezone
 from app.db.models import AgentMessageModel, AgentSessionModel
 from app.db.session import create_db_session
 
@@ -25,7 +26,7 @@ def _dumps(value: Any) -> str:
 
 
 def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value else None
+    return isoformat_app_timezone(value)
 
 
 class DatabaseAgentStorage:

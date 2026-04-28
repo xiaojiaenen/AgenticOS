@@ -55,7 +55,7 @@ function MetricRail({
   gradient: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-white/70 bg-white/42 px-4 py-4 backdrop-blur-xl">
+    <div className="rounded-[18px] border border-white/75 bg-white/62 px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-black tracking-[0.18em] text-slate-500">{label}</span>
         <span className="text-sm font-black text-slate-900">{value}</span>
@@ -81,7 +81,7 @@ function SignalTile({
   accent: string;
 }) {
   return (
-    <div className={`relative overflow-hidden rounded-[28px] border border-white/70 px-5 py-5 shadow-[0_22px_48px_rgba(15,23,42,0.08)] ${accent}`}>
+    <div className={`relative overflow-hidden rounded-[22px] border border-white/80 px-5 py-5 shadow-[0_18px_40px_rgba(15,23,42,0.065)] transition-all hover:-translate-y-0.5 ${accent}`}>
       <div className="absolute inset-x-0 top-0 h-px bg-white/70" />
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
@@ -89,7 +89,7 @@ function SignalTile({
           <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{value}</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{meta}</p>
         </div>
-        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-white/80 bg-white/55 text-slate-900">
+        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[16px] border border-white/80 bg-white/62 text-slate-900">
           <Icon size={20} />
         </div>
       </div>
@@ -154,21 +154,15 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
   ];
 
   return (
-    <section className="relative overflow-hidden rounded-[38px] border border-white/65 bg-white/40 shadow-[0_30px_90px_rgba(15,23,42,0.1)] ring-1 ring-white/35 backdrop-blur-[28px]">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-14 top-0 h-48 w-48 rounded-full bg-cyan-300/35 blur-3xl" />
-        <div className="absolute right-0 top-12 h-56 w-56 rounded-full bg-violet-300/25 blur-3xl" />
-        <div className="absolute bottom-0 left-[24%] h-40 w-40 rounded-full bg-emerald-300/20 blur-3xl" />
-      </div>
-
+    <section className="admin-data-panel relative">
       <div className="relative grid gap-0 xl:items-start xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <div className="self-start border-b border-white/55 px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
-          <div className="rounded-[32px] border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.78),rgba(255,255,255,0.42))] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+          <div className="rounded-[24px] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(248,250,252,0.68))] p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-2xl">
                 <p className="admin-section-kicker">运行总览</p>
                 <div className="mt-4 flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-[22px] border border-white/75 bg-[linear-gradient(135deg,rgba(14,165,233,0.18),rgba(255,255,255,0.82))] text-slate-900 shadow-sm">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-white/75 bg-[linear-gradient(135deg,rgba(14,165,233,0.18),rgba(255,255,255,0.82))] text-slate-900 shadow-sm">
                     <MessageSquare size={24} />
                   </div>
                   <div>
@@ -181,7 +175,7 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
               </div>
 
               <div className="grid min-w-[240px] gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <div className="rounded-[24px] border border-white/80 bg-white/55 px-4 py-4">
+                <div className="rounded-[18px] border border-white/80 bg-white/68 px-4 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs font-black tracking-[0.18em] text-slate-500">活跃用户</span>
                     <Users size={18} className="text-cyan-700" />
@@ -192,7 +186,7 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
                   <p className="mt-2 text-sm font-semibold text-slate-600">占全体用户 {formatPercent(activeRate)}</p>
                 </div>
 
-                <div className="rounded-[24px] border border-white/80 bg-white/55 px-4 py-4">
+                <div className="rounded-[18px] border border-white/80 bg-white/68 px-4 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs font-black tracking-[0.18em] text-slate-500">会话密度</span>
                     <ArrowUpRight size={18} className="text-violet-700" />

@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import {
   Area,
   Bar,
@@ -50,9 +51,11 @@ function formatLatency(value: number): string {
 }
 
 function formatDay(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value.slice(5);
-  return `${date.getMonth() + 1}/${date.getDate()}`;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (match) {
+    return `${Number(match[2])}/${Number(match[3])}`;
+  }
+  return value.slice(5);
 }
 
 function shortName(name: string): string {
@@ -86,7 +89,7 @@ function PanelHeader({
   return (
     <div className="mb-5 flex items-start justify-between gap-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/80 bg-white/65 text-slate-900 shadow-sm">
+        <div className="flex h-11 w-11 items-center justify-center rounded-[16px] border border-white/80 bg-white/70 text-slate-900 shadow-sm">
           <Icon size={20} />
         </div>
         <div>
@@ -111,15 +114,11 @@ function PanelShell({
   return (
     <section
       className={cn(
-        'relative overflow-hidden rounded-[32px] border border-white/65 shadow-[0_24px_70px_rgba(15,23,42,0.08)] ring-1 ring-white/35 backdrop-blur-[28px]',
+        'admin-data-panel relative',
         tone ?? 'bg-white/52',
         className,
       )}
     >
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-10 top-0 h-32 w-32 rounded-full bg-white/35 blur-2xl" />
-        <div className="absolute bottom-0 right-0 h-32 w-32 rounded-full bg-white/25 blur-3xl" />
-      </div>
       <div className="relative h-full px-6 py-6">{children}</div>
     </section>
   );
@@ -156,7 +155,13 @@ function UserUsageRow({
   const percentage = maxTokens > 0 ? Math.max(8, Math.round((user.total_tokens / maxTokens) * 100)) : 0;
 
   return (
-    <div className="grid grid-cols-1 gap-4 border-b border-white/55 px-5 py-4 text-center last:border-b-0 lg:grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:items-center">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.16) }}
+      whileHover={{ x: 2 }}
+      className="admin-table-row grid grid-cols-1 gap-4 border-b border-white/55 px-5 py-4 text-center last:border-b-0 lg:grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:items-center lg:gap-0"
+    >
       <div className="flex min-w-0 items-center justify-center gap-4">
         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-white/75 bg-white/65 text-sm font-black text-slate-800 shadow-sm">
           {initials(user.name)}
@@ -186,7 +191,7 @@ function UserUsageRow({
           style={{ width: `${percentage}%` }}
         />
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -637,12 +642,12 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           </div>
         </PanelShell>
 
-        <section className="overflow-hidden rounded-[32px] border border-white/65 bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(255,255,255,0.36),rgba(221,214,254,0.18))] shadow-[0_24px_70px_rgba(15,23,42,0.08)] ring-1 ring-white/35 backdrop-blur-[28px]">
+        <section className="admin-data-panel">
           <div className="border-b border-white/60 px-6 py-5">
             <PanelHeader icon={Trophy} kicker="用户排行" title="资源消耗前列用户" />
           </div>
 
-          <div className="hidden grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] border-b border-white/55 px-5 py-3 text-center text-xs font-black tracking-[0.18em] text-slate-400 lg:grid">
+          <div className="admin-table-head grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:grid xl:grid">
             <span>用户</span>
             <span>Token</span>
             <span>模型调用</span>

@@ -1,4 +1,5 @@
 import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertCircle, FileCode2, Loader2, Plus, Save, Trash2, Upload, X } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -178,7 +179,7 @@ export const SkillManagement = () => {
 
   return (
     <div className="admin-page-stage space-y-5">
-      <section className="admin-solid-panel px-6 py-5">
+      <section className="admin-page-header">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="admin-section-kicker">Skill 管理</p>
@@ -191,13 +192,13 @@ export const SkillManagement = () => {
                 {message}
               </div>
             )}
-            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+            <div className="admin-kpi-pill">
               共 <span className="font-black text-slate-900">{skills.length}</span> 个 Skill
             </div>
-            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+            <div className="admin-kpi-pill">
               已启用 <span className="font-black text-slate-900">{enabledCount}</span>
             </div>
-            <div className="rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500">
+            <div className="admin-kpi-pill">
               含脚本 <span className="font-black text-slate-900">{pythonSkillCount}</span>
             </div>
             <Button variant="secondary" onClick={loadSkills} disabled={isLoading || isSaving || isUploading}>
@@ -218,8 +219,8 @@ export const SkillManagement = () => {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-[32px] border border-white/70 bg-white/62 shadow-[0_20px_50px_rgba(15,23,42,0.08)] ring-1 ring-white/40 backdrop-blur-[28px]">
-        <div className="grid grid-cols-1 gap-4 border-b border-white/70 px-6 py-5 xl:grid-cols-[minmax(0,1fr)_260px_auto] xl:items-end">
+      <section className="admin-data-panel">
+        <div className="grid grid-cols-1 gap-4 border-b border-white/75 bg-white/44 px-6 py-5 xl:grid-cols-[minmax(0,1fr)_260px_auto] xl:items-end">
           <div className="text-center xl:text-left">
             <p className="admin-section-kicker">上传入口</p>
             <h3 className="mt-2 text-lg font-black tracking-tight text-slate-900">支持上传 Zip Skill 包</h3>
@@ -252,7 +253,7 @@ export const SkillManagement = () => {
           </div>
         </div>
 
-        <div className="hidden grid-cols-[minmax(240px,1.3fr)_100px_140px_160px_120px_170px] border-b border-slate-100 px-5 py-3 text-center text-xs font-black tracking-[0.18em] text-slate-400 xl:grid">
+        <div className="admin-table-head grid-cols-[minmax(240px,1.3fr)_100px_140px_160px_120px_170px]">
           <span>Skill</span>
           <span>脚本数</span>
           <span>目录</span>
@@ -267,10 +268,14 @@ export const SkillManagement = () => {
             正在加载 Skill
           </div>
         ) : skills.length > 0 ? (
-          skills.map((skill) => (
-            <div
+          skills.map((skill, index) => (
+            <motion.div
               key={skill.id}
-              className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(240px,1.3fr)_100px_140px_160px_120px_170px] xl:items-center"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22, delay: Math.min(index * 0.025, 0.16) }}
+              whileHover={{ x: 2 }}
+              className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(240px,1.3fr)_100px_140px_160px_120px_170px] xl:items-center xl:gap-0"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-black text-slate-900">{skill.name}</p>
@@ -308,7 +313,7 @@ export const SkillManagement = () => {
                   删除
                 </Button>
               </div>
-            </div>
+            </motion.div>
           ))
         ) : (
           <div className="flex h-80 flex-col items-center justify-center text-center">
@@ -321,8 +326,9 @@ export const SkillManagement = () => {
         )}
       </section>
 
-      <AnimatePresence>
-        {isModalOpen && draft && (
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isModalOpen && draft && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -449,8 +455,10 @@ export const SkillManagement = () => {
               </div>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 };

@@ -4,8 +4,10 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.schemas.base import AppBaseModel
 
-class ConversationListItem(BaseModel):
+
+class ConversationListItem(AppBaseModel):
     session_id: str
     user_id: int | None = None
     user_name: str | None = None
@@ -25,19 +27,19 @@ class ConversationListItem(BaseModel):
     updated_at: datetime | None = None
 
 
-class ConversationListResponse(BaseModel):
+class ConversationListResponse(AppBaseModel):
     items: list[ConversationListItem]
     total: int
 
 
-class ConversationDetailMessage(BaseModel):
+class ConversationDetailMessage(AppBaseModel):
     id: int
     role: str | None = None
     text: str = ""
     created_at: datetime | None = None
 
 
-class ConversationDetailResponse(BaseModel):
+class ConversationDetailResponse(AppBaseModel):
     session_id: str
     user_id: int | None = None
     user_name: str | None = None

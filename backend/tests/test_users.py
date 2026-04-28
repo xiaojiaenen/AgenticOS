@@ -1,4 +1,3 @@
-from datetime import timezone
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -6,6 +5,7 @@ from sqlalchemy import delete
 
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password
+from app.core.timezone import APP_TIMEZONE_NAME
 from app.db.models import UserModel
 from app.db.session import create_db_session
 from app.main import app
@@ -62,13 +62,13 @@ def test_admin_user_crud() -> None:
         )
         assert create_response.status_code == 201
         create_payload = create_response.json()
-        assert create_payload["created_at"].endswith("+00:00") or create_payload["created_at"].endswith("Z")
+        assert create_payload["created_at"].endswith("+08:00")
         user_id = create_payload["id"]
 
         list_response = client.get("/api/v1/users", headers=headers, params={"search": "Managed"})
         assert list_response.status_code == 200
         listed_item = next(item for item in list_response.json()["items"] if item["id"] == user_id)
-        assert listed_item["created_at"].endswith("+00:00") or listed_item["created_at"].endswith("Z")
+        assert listed_item["created_at"].endswith("+08:00")
 
         update_response = client.patch(
             f"/api/v1/users/{user_id}",
@@ -92,7 +92,7 @@ def test_admin_user_crud() -> None:
         with create_db_session() as db:
             persisted = db.get(UserModel, user_id)
             assert persisted is not None
-            assert persisted.created_at.tzinfo == timezone.utc
+            assert getattr(persisted.created_at.tzinfo, "key", None) == APP_TIMEZONE_NAME
 
         delete_response = client.delete(f"/api/v1/users/{user_id}", headers=headers)
         assert delete_response.status_code == 204

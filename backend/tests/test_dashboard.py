@@ -1,8 +1,10 @@
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
+from app.api.v1.endpoints.dashboard import _day_key
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password
 from app.db.models import AgentMessageModel, AgentSessionModel, AgentUsageEventModel, UserModel
@@ -11,6 +13,10 @@ from app.main import app
 from app.services.session_storage import dump_json
 
 client = TestClient(app)
+
+
+def test_dashboard_trend_uses_shanghai_calendar_day() -> None:
+    assert _day_key(datetime(2026, 4, 28, 18, 30, tzinfo=timezone.utc)) == "2026-04-29"
 
 
 def cleanup_records(*emails: str) -> None:
@@ -125,9 +131,9 @@ def test_dashboard_stats_aggregate_usage() -> None:
         detail_payload = detail_response.json()
         assert detail_payload["session_id"] == "stats-session"
         assert detail_payload["message_count"] >= 1
-        assert detail_payload["created_at"].endswith("+00:00") or detail_payload["created_at"].endswith("Z")
-        assert detail_payload["updated_at"].endswith("+00:00") or detail_payload["updated_at"].endswith("Z")
-        assert detail_payload["messages"][0]["created_at"].endswith("+00:00") or detail_payload["messages"][0]["created_at"].endswith("Z")
+        assert detail_payload["created_at"].endswith("+08:00")
+        assert detail_payload["updated_at"].endswith("+08:00")
+        assert detail_payload["messages"][0]["created_at"].endswith("+08:00")
         assert detail_payload["messages"][0]["role"] == "user"
         assert "统计图" in detail_payload["messages"][0]["text"]
     finally:

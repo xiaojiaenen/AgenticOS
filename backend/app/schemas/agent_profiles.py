@@ -4,6 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.base import AppBaseModel
 from app.schemas.tool_config import ToolCatalogItem
 
 
@@ -76,7 +77,7 @@ class AgentProfileUpdateRequest(BaseModel):
         return value.strip().lower().replace(" ", "-")
 
 
-class AgentProfileResponse(BaseModel):
+class AgentProfileResponse(AppBaseModel):
     id: int
     name: str
     slug: str
@@ -94,7 +95,7 @@ class AgentProfileResponse(BaseModel):
     updated_at: datetime
 
 
-class AgentProfileListResponse(BaseModel):
+class AgentProfileListResponse(AppBaseModel):
     catalog: list[ToolCatalogItem]
     available_skills: list[AgentProfileSkillReference] = Field(default_factory=list)
     items: list[AgentProfileResponse]

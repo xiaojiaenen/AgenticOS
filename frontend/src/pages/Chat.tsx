@@ -219,9 +219,7 @@ export const Chat = () => {
 
   const loadMoreSessions = () => {
     if (isLoading) return;
-    setTimeout(() => {
-      setVisibleSessionsCount(prev => prev + 10);
-    }, 500);
+    setVisibleSessionsCount(prev => prev + 10);
   };
 
   const handleLogout = () => {
