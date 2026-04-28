@@ -68,6 +68,12 @@ TOOL_CATALOG = {
         "builtin_name": "npm",
         "approval_scope": ["npm", "npm_run_script", "npm_install_package"],
     },
+    "skill": {
+        "label": "Skill Tool",
+        "description": "Use Wuwei built-in skill capabilities for specialized workflows.",
+        "builtin_name": "skill",
+        "approval_scope": ["skill"],
+    },
 }
 
 DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
@@ -78,6 +84,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "python": {"enabled": False, "requires_approval": True},
         "git": {"enabled": False, "requires_approval": True},
         "npm": {"enabled": False, "requires_approval": True},
+        "skill": {"enabled": False, "requires_approval": False},
     },
     "ppt": {
         "calc": {"enabled": True, "requires_approval": False},
@@ -86,6 +93,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "python": {"enabled": False, "requires_approval": True},
         "git": {"enabled": False, "requires_approval": True},
         "npm": {"enabled": False, "requires_approval": True},
+        "skill": {"enabled": False, "requires_approval": False},
     },
     "website": {
         "calc": {"enabled": True, "requires_approval": False},
@@ -94,6 +102,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "python": {"enabled": False, "requires_approval": True},
         "git": {"enabled": False, "requires_approval": True},
         "npm": {"enabled": False, "requires_approval": True},
+        "skill": {"enabled": False, "requires_approval": False},
     },
 }
 

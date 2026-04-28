@@ -72,6 +72,12 @@ export const Home = () => {
       <nav className="flex items-center justify-between px-6 py-4 relative z-10 w-full max-w-[1400px] mx-auto">
         <Logo />
         <div className="flex items-center gap-4">
+          <Button
+            variant="secondary"
+            onClick={() => navigate('/agents')}
+          >
+            智能体商店
+          </Button>
           <Button 
             onClick={() => navigate('/login')}
           >

@@ -30,6 +30,7 @@ class AgentSessionModel(Base):
 
     session_id: Mapped[str] = mapped_column(String(128), primary_key=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    agent_profile_id: Mapped[int | None] = mapped_column(ForeignKey("agent_profiles.id"), nullable=True, index=True)
     system_prompt: Mapped[str] = mapped_column(Text)
     max_steps: Mapped[int] = mapped_column(Integer, default=10)
     parallel_tool_calls: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -47,6 +48,7 @@ class AgentUsageEventModel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    agent_profile_id: Mapped[int | None] = mapped_column(ForeignKey("agent_profiles.id"), nullable=True, index=True)
     session_id: Mapped[str] = mapped_column(String(128), index=True)
     model_name: Mapped[str] = mapped_column(String(128), index=True)
     response_mode: Mapped[str] = mapped_column(String(32), default="general", index=True)
@@ -70,6 +72,47 @@ class AgentToolConfigModel(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     requires_approval: Mapped[bool] = mapped_column(Boolean, default=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+class AgentProfileModel(Base):
+    __tablename__ = "agent_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120))
+    slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    system_prompt: Mapped[str] = mapped_column(Text)
+    response_mode: Mapped[str] = mapped_column(String(32), default="general", index=True)
+    avatar: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    listed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    is_builtin: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+class AgentProfileToolModel(Base):
+    __tablename__ = "agent_profile_tools"
+    __table_args__ = (UniqueConstraint("profile_id", "tool_name", name="uq_agent_profile_tool"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("agent_profiles.id"), index=True)
+    tool_name: Mapped[str] = mapped_column(String(64), index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    requires_approval: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+class UserInstalledAgentModel(Base):
+    __tablename__ = "user_installed_agents"
+    __table_args__ = (UniqueConstraint("user_id", "profile_id", name="uq_user_installed_agent"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("agent_profiles.id"), index=True)
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    installed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
 class AgentMessageModel(Base):

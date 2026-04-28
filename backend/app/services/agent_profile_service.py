@@ -1,0 +1,404 @@
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+
+from sqlalchemy import delete, func, select
+from sqlalchemy.orm import Session
+
+from app.db.models import AgentProfileModel, AgentProfileToolModel, UserInstalledAgentModel, UserModel
+from app.db.session import create_db_session
+from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
+from app.services.tool_config_service import AGENT_MODES, DEFAULT_MODE_TOOLS, TOOL_CATALOG
+
+
+BUILTIN_AGENT_PROFILES = {
+    "general": {
+        "name": "通用助手",
+        "description": "适合日常问答、资料整理、轻量工具调用和多轮协作。",
+        "system_prompt": "你是 AgenticOS 的通用智能助手，请优先给出准确、清晰、可执行的回答。",
+        "response_mode": "general",
+        "avatar": "sparkles",
+        "listed": True,
+    },
+    "ppt": {
+        "name": "PPT 设计师",
+        "description": "将想法整理为结构化演示文稿，自动生成可预览的 PPT 内容。",
+        "system_prompt": "你是 AgenticOS 的演示文稿设计助手，请生成结构完整、层次清晰、适合展示的内容。",
+        "response_mode": "ppt",
+        "avatar": "presentation",
+        "listed": True,
+    },
+    "website": {
+        "name": "网站工程师",
+        "description": "用于页面方案、前端代码、交互原型和网站结构设计。",
+        "system_prompt": "你是 AgenticOS 的网站与前端助手，请优先提供页面结构、交互说明和可运行代码。",
+        "response_mode": "website",
+        "avatar": "globe",
+        "listed": True,
+    },
+}
+
+
+@dataclass(frozen=True)
+class RuntimeAgentProfile:
+    profile_id: int | None
+    name: str
+    slug: str
+    response_mode: str
+    system_prompt: str
+    builtin_tools: tuple[str, ...]
+    approval_tools: frozenset[str]
+    signature: tuple[tuple[str, bool, bool], ...]
+
+
+def _slugify(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9-]+", "-", value.strip().lower().replace("_", "-"))
+    slug = re.sub(r"-+", "-", slug).strip("-")
+    return slug or "agent"
+
+
+class AgentProfileService:
+    def __init__(self, session_factory=create_db_session) -> None:
+        self.session_factory = session_factory
+
+    def ensure_defaults(self, db: Session) -> None:
+        changed = False
+        existing = {row.slug: row for row in db.scalars(select(AgentProfileModel)).all()}
+        for slug, defaults in BUILTIN_AGENT_PROFILES.items():
+            profile = existing.get(slug)
+            if profile is None:
+                profile = AgentProfileModel(
+                    name=defaults["name"],
+                    slug=slug,
+                    description=defaults["description"],
+                    system_prompt=defaults["system_prompt"],
+                    response_mode=defaults["response_mode"],
+                    avatar=defaults["avatar"],
+                    enabled=True,
+                    listed=bool(defaults["listed"]),
+                    is_builtin=True,
+                )
+                db.add(profile)
+                db.flush()
+                changed = True
+            else:
+                profile.is_builtin = True
+
+            changed = self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS[slug]) or changed
+        for profile in db.scalars(select(AgentProfileModel)).all():
+            if profile.slug not in BUILTIN_AGENT_PROFILES:
+                changed = self._ensure_profile_tools(db, profile) or changed
+        if changed:
+            db.commit()
+
+    def _ensure_profile_tools(
+        self,
+        db: Session,
+        profile: AgentProfileModel,
+        defaults: dict[str, dict[str, bool]] | None = None,
+    ) -> bool:
+        changed = False
+        existing = {
+            row.tool_name: row
+            for row in db.scalars(
+                select(AgentProfileToolModel).where(AgentProfileToolModel.profile_id == profile.id)
+            ).all()
+        }
+        defaults = defaults or {}
+        for tool_name in TOOL_CATALOG:
+            if tool_name in existing:
+                continue
+            settings = defaults.get(tool_name, {"enabled": False, "requires_approval": False})
+            db.add(
+                AgentProfileToolModel(
+                    profile_id=profile.id,
+                    tool_name=tool_name,
+                    enabled=settings["enabled"],
+                    requires_approval=settings["requires_approval"],
+                )
+            )
+            changed = True
+        return changed
+
+    def _catalog(self) -> list[dict[str, object]]:
+        return [
+            {
+                "name": name,
+                "label": item["label"],
+                "description": item["description"],
+                "approval_scope": item["approval_scope"],
+            }
+            for name, item in TOOL_CATALOG.items()
+        ]
+
+    def _serialize(self, db: Session, profile: AgentProfileModel, *, user_id: int | None = None) -> dict[str, object]:
+        self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
+        installed = profile.is_builtin
+        if user_id is not None and not profile.is_builtin:
+            installed = db.scalar(
+                select(UserInstalledAgentModel.id).where(
+                    UserInstalledAgentModel.user_id == user_id,
+                    UserInstalledAgentModel.profile_id == profile.id,
+                )
+            ) is not None
+
+        tools = db.scalars(
+            select(AgentProfileToolModel)
+            .where(AgentProfileToolModel.profile_id == profile.id)
+            .order_by(AgentProfileToolModel.tool_name.asc())
+        ).all()
+        return {
+            "id": profile.id,
+            "name": profile.name,
+            "slug": profile.slug,
+            "description": profile.description,
+            "system_prompt": profile.system_prompt,
+            "response_mode": profile.response_mode,
+            "avatar": profile.avatar,
+            "enabled": profile.enabled,
+            "listed": profile.listed,
+            "is_builtin": profile.is_builtin,
+            "installed": installed,
+            "tools": [
+                {
+                    "tool_name": tool.tool_name,
+                    "enabled": tool.enabled,
+                    "requires_approval": tool.requires_approval,
+                }
+                for tool in tools
+                if tool.tool_name in TOOL_CATALOG
+            ],
+            "created_at": profile.created_at,
+            "updated_at": profile.updated_at,
+        }
+
+    def list_admin(self) -> dict[str, object]:
+        with self.session_factory() as db:
+            self.ensure_defaults(db)
+            profiles = db.scalars(select(AgentProfileModel).order_by(AgentProfileModel.created_at.asc())).all()
+            return {
+                "catalog": self._catalog(),
+                "items": [self._serialize(db, profile) for profile in profiles],
+            }
+
+    def list_store(self, user: UserModel) -> dict[str, object]:
+        with self.session_factory() as db:
+            self.ensure_defaults(db)
+            profiles = db.scalars(
+                select(AgentProfileModel)
+                .where(AgentProfileModel.enabled.is_(True), AgentProfileModel.listed.is_(True))
+                .order_by(AgentProfileModel.is_builtin.desc(), AgentProfileModel.created_at.desc())
+            ).all()
+            return {
+                "catalog": self._catalog(),
+                "items": [self._serialize(db, profile, user_id=user.id) for profile in profiles],
+            }
+
+    def list_user_agents(self, user: UserModel) -> dict[str, object]:
+        with self.session_factory() as db:
+            self.ensure_defaults(db)
+            installed_ids = {
+                row.profile_id
+                for row in db.scalars(
+                    select(UserInstalledAgentModel).where(UserInstalledAgentModel.user_id == user.id)
+                ).all()
+            }
+            profiles = db.scalars(
+                select(AgentProfileModel)
+                .where(
+                    AgentProfileModel.enabled.is_(True),
+                    (AgentProfileModel.is_builtin.is_(True)) | (AgentProfileModel.id.in_(installed_ids or {-1})),
+                )
+                .order_by(AgentProfileModel.is_builtin.desc(), AgentProfileModel.created_at.asc())
+            ).all()
+            return {
+                "catalog": self._catalog(),
+                "items": [self._serialize(db, profile, user_id=user.id) for profile in profiles],
+            }
+
+    def _unique_slug(self, db: Session, base: str, *, ignore_id: int | None = None) -> str:
+        base = _slugify(base)
+        slug = base
+        index = 2
+        while True:
+            statement = select(AgentProfileModel).where(AgentProfileModel.slug == slug)
+            existing = db.scalar(statement)
+            if existing is None or existing.id == ignore_id:
+                return slug
+            slug = f"{base}-{index}"
+            index += 1
+
+    def _apply_tools(self, db: Session, profile: AgentProfileModel, tools: list[AgentProfileTool]) -> None:
+        existing = {
+            row.tool_name: row
+            for row in db.scalars(
+                select(AgentProfileToolModel).where(AgentProfileToolModel.profile_id == profile.id)
+            ).all()
+        }
+        for item in tools:
+            if item.tool_name not in TOOL_CATALOG:
+                raise KeyError(f"Unknown tool: {item.tool_name}")
+            row = existing.get(item.tool_name)
+            if row is None:
+                row = AgentProfileToolModel(profile_id=profile.id, tool_name=item.tool_name)
+                db.add(row)
+            row.enabled = item.enabled
+            row.requires_approval = item.requires_approval
+
+    def create(self, request: AgentProfileCreateRequest, creator: UserModel) -> dict[str, object]:
+        with self.session_factory() as db:
+            self.ensure_defaults(db)
+            profile = AgentProfileModel(
+                name=request.name,
+                slug=self._unique_slug(db, request.slug or request.name),
+                description=request.description,
+                system_prompt=request.system_prompt,
+                response_mode=request.response_mode,
+                avatar=request.avatar,
+                enabled=request.enabled,
+                listed=request.listed,
+                is_builtin=False,
+                created_by=creator.id,
+            )
+            db.add(profile)
+            db.flush()
+            self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(request.response_mode))
+            db.flush()
+            if request.tools:
+                self._apply_tools(db, profile, request.tools)
+            db.commit()
+            db.refresh(profile)
+            return self._serialize(db, profile)
+
+    def update(self, profile_id: int, request: AgentProfileUpdateRequest) -> dict[str, object]:
+        with self.session_factory() as db:
+            self.ensure_defaults(db)
+            profile = db.get(AgentProfileModel, profile_id)
+            if profile is None:
+                raise KeyError("Agent profile not found")
+
+            if request.name is not None:
+                profile.name = request.name
+            if request.slug is not None:
+                profile.slug = self._unique_slug(db, request.slug, ignore_id=profile.id)
+            if request.description is not None:
+                profile.description = request.description
+            if request.system_prompt is not None:
+                profile.system_prompt = request.system_prompt
+            if request.response_mode is not None:
+                profile.response_mode = request.response_mode
+            if request.avatar is not None:
+                profile.avatar = request.avatar
+            if request.enabled is not None:
+                profile.enabled = request.enabled
+            if request.listed is not None:
+                profile.listed = request.listed
+            if request.tools is not None:
+                self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
+                db.flush()
+                self._apply_tools(db, profile, request.tools)
+
+            db.add(profile)
+            db.commit()
+            db.refresh(profile)
+            return self._serialize(db, profile)
+
+    def delete(self, profile_id: int) -> None:
+        with self.session_factory() as db:
+            profile = db.get(AgentProfileModel, profile_id)
+            if profile is None:
+                raise KeyError("Agent profile not found")
+            if profile.is_builtin:
+                raise ValueError("Built-in agent profiles cannot be deleted")
+
+            db.execute(delete(UserInstalledAgentModel).where(UserInstalledAgentModel.profile_id == profile_id))
+            db.execute(delete(AgentProfileToolModel).where(AgentProfileToolModel.profile_id == profile_id))
+            db.delete(profile)
+            db.commit()
+
+    def install(self, profile_id: int, user: UserModel) -> dict[str, object]:
+        with self.session_factory() as db:
+            self.ensure_defaults(db)
+            profile = db.get(AgentProfileModel, profile_id)
+            if profile is None or not profile.enabled or not profile.listed:
+                raise KeyError("Agent profile not found")
+            if not profile.is_builtin:
+                existing = db.scalar(
+                    select(UserInstalledAgentModel).where(
+                        UserInstalledAgentModel.user_id == user.id,
+                        UserInstalledAgentModel.profile_id == profile_id,
+                    )
+                )
+                if existing is None:
+                    db.add(UserInstalledAgentModel(user_id=user.id, profile_id=profile_id))
+                    db.commit()
+            return self._serialize(db, profile, user_id=user.id)
+
+    def uninstall(self, profile_id: int, user: UserModel) -> None:
+        with self.session_factory() as db:
+            profile = db.get(AgentProfileModel, profile_id)
+            if profile is not None and profile.is_builtin:
+                return
+            db.execute(
+                delete(UserInstalledAgentModel).where(
+                    UserInstalledAgentModel.user_id == user.id,
+                    UserInstalledAgentModel.profile_id == profile_id,
+                )
+            )
+            db.commit()
+
+    def resolve_runtime(self, profile_id: int, user: UserModel) -> RuntimeAgentProfile:
+        with self.session_factory() as db:
+            self.ensure_defaults(db)
+            profile = db.get(AgentProfileModel, profile_id)
+            if profile is None or not profile.enabled:
+                raise PermissionError("Agent profile is not available")
+            if user.role != "admin" and not profile.is_builtin:
+                installed = db.scalar(
+                    select(func.count(UserInstalledAgentModel.id)).where(
+                        UserInstalledAgentModel.user_id == user.id,
+                        UserInstalledAgentModel.profile_id == profile.id,
+                    )
+                )
+                if not installed:
+                    raise PermissionError("Please install this agent before using it")
+
+            return self._runtime_from_profile(db, profile)
+
+    def _runtime_from_profile(self, db: Session, profile: AgentProfileModel) -> RuntimeAgentProfile:
+        self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
+        rows = db.scalars(
+            select(AgentProfileToolModel)
+            .where(AgentProfileToolModel.profile_id == profile.id)
+            .order_by(AgentProfileToolModel.tool_name.asc())
+        ).all()
+        builtin_tools: list[str] = []
+        approval_tools: set[str] = set()
+        signature: list[tuple[str, bool, bool]] = []
+        for row in rows:
+            catalog_item = TOOL_CATALOG.get(row.tool_name)
+            if not catalog_item:
+                continue
+            signature.append((row.tool_name, row.enabled, row.requires_approval))
+            if not row.enabled:
+                continue
+            builtin_tools.append(str(catalog_item["builtin_name"]))
+            if row.requires_approval:
+                approval_tools.update(str(item) for item in catalog_item["approval_scope"])
+
+        return RuntimeAgentProfile(
+            profile_id=profile.id,
+            name=profile.name,
+            slug=profile.slug,
+            response_mode=profile.response_mode if profile.response_mode in AGENT_MODES else "general",
+            system_prompt=profile.system_prompt,
+            builtin_tools=tuple(dict.fromkeys(builtin_tools)),
+            approval_tools=frozenset(approval_tools),
+            signature=tuple(signature),
+        )
+
+
+def seed_agent_profiles() -> None:
+    with create_db_session() as db:
+        AgentProfileService().ensure_defaults(db)

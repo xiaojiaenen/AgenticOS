@@ -48,6 +48,7 @@ class DatabaseAgentStorage:
             metadata = getattr(session, "metadata", {}) or {}
             row.system_prompt = session.system_prompt
             row.user_id = metadata.get("user_id") or row.user_id
+            row.agent_profile_id = metadata.get("agent_profile_id") or row.agent_profile_id
             row.max_steps = session.max_steps
             row.parallel_tool_calls = session.parallel_tool_calls
             row.summary = getattr(session, "summary", None)
@@ -86,6 +87,8 @@ class DatabaseAgentStorage:
             )
             if row.user_id is not None:
                 session.metadata["user_id"] = row.user_id
+            if row.agent_profile_id is not None:
+                session.metadata["agent_profile_id"] = row.agent_profile_id
             session.last_usage = _loads(row.last_usage_json, {})
             session.last_latency_ms = row.last_latency_ms
             session.last_llm_calls = row.last_llm_calls
@@ -120,6 +123,7 @@ class DatabaseAgentStorage:
             return {
                 "session_id": row.session_id,
                 "user_id": row.user_id,
+                "agent_profile_id": row.agent_profile_id,
                 "summary": row.summary,
                 "metadata": _loads(row.metadata_json, {}),
                 "last_usage": _loads(row.last_usage_json, {}),
@@ -145,6 +149,18 @@ class DatabaseAgentStorage:
                 row.user_id = user_id
                 metadata = _loads(row.metadata_json, {})
                 metadata["user_id"] = user_id
+                row.metadata_json = _dumps(metadata)
+                db.commit()
+
+    async def assign_agent_profile(self, session_id: str, agent_profile_id: int | None) -> None:
+        if agent_profile_id is None:
+            return
+        with self.session_factory() as db:
+            row = db.get(AgentSessionModel, session_id)
+            if row is not None and row.agent_profile_id is None:
+                row.agent_profile_id = agent_profile_id
+                metadata = _loads(row.metadata_json, {})
+                metadata["agent_profile_id"] = agent_profile_id
                 row.metadata_json = _dumps(metadata)
                 db.commit()
 

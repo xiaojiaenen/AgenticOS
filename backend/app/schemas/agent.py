@@ -2,21 +2,19 @@ from pydantic import BaseModel, Field
 
 
 class AgentStreamRequest(BaseModel):
-    message: str = Field(..., min_length=1, description="用户发送给智能体的消息。")
-    session_id: str | None = Field(default=None, description="多轮对话复用的会话 ID。")
-    system_prompt: str | None = Field(default=None, description="新建会话时使用的系统提示词。")
+    message: str = Field(..., min_length=1, description="User message sent to the agent.")
+    session_id: str | None = Field(default=None, description="Session ID reused across turns.")
+    system_prompt: str | None = Field(default=None, description="System prompt used when creating a session.")
+    agent_profile_id: int | None = Field(default=None, ge=1, description="Pluggable agent profile ID.")
     response_mode: str = Field(
         default="general",
         pattern="^(general|ppt|website)$",
-        description="前端期望的响应模式，用于后端决定是否拦截结构化制品。",
+        description="Expected response mode, used as a backward-compatible fallback.",
     )
-    max_steps: int | None = Field(default=None, ge=1, le=50, description="智能体单轮运行的最大步骤数。")
-    parallel_tool_calls: bool | None = Field(
-        default=None,
-        description="是否允许并行执行多个工具调用。",
-    )
+    max_steps: int | None = Field(default=None, ge=1, le=50, description="Max runtime steps for one turn.")
+    parallel_tool_calls: bool | None = Field(default=None, description="Whether parallel tool calls are allowed.")
 
 
 class ApprovalDecisionRequest(BaseModel):
-    status: str = Field(..., pattern="^(approved|rejected)$", description="审批结果。")
-    reason: str | None = Field(default=None, description="拒绝或批准的说明。")
+    status: str = Field(..., pattern="^(approved|rejected)$", description="Approval decision.")
+    reason: str | None = Field(default=None, description="Reason for the decision.")

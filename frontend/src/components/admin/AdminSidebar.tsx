@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { Users, MessageSquare, BarChart3, LogOut, ChevronRight, Wrench } from 'lucide-react';
+import { BarChart3, Bot, ChevronRight, LogOut, MessageSquare, Users, Wrench } from 'lucide-react';
 import { Logo } from '../Logo';
 import { getStoredUser, logout } from '../../services/authService';
 import { UserAvatarIcon } from '../ui/AnimatedIcons';
@@ -21,6 +21,14 @@ export const AdminSidebar = ({ activeTab, setActiveTab }: AdminSidebarProps) => 
     navigate('/login');
   };
 
+  const items = [
+    { id: 'dashboard', icon: BarChart3, label: '系统仪表盘' },
+    { id: 'history', icon: MessageSquare, label: '对话历史' },
+    { id: 'users', icon: Users, label: '用户管理' },
+    { id: 'agents', icon: Bot, label: '智能体配置' },
+    { id: 'settings', icon: Wrench, label: '工具管理' },
+  ];
+
   return (
     <motion.aside
       initial={{ x: -24, opacity: 0 }}
@@ -31,7 +39,7 @@ export const AdminSidebar = ({ activeTab, setActiveTab }: AdminSidebarProps) => 
       <div className="flex items-center justify-between border-b border-slate-100/80 p-4">
         <Logo iconSize={20} className="text-lg" showText={true} />
       </div>
-      
+
       <div className="border-b border-slate-100/80 px-4 py-4">
         <div className="rounded-2xl border border-white/70 bg-white/60 p-3 shadow-sm">
           <div className="flex items-center gap-3">
@@ -49,14 +57,9 @@ export const AdminSidebar = ({ activeTab, setActiveTab }: AdminSidebarProps) => 
           </div>
         </div>
       </div>
-      
+
       <nav className="flex-1 space-y-2 px-4 py-5">
-        {[
-          { id: 'dashboard', icon: BarChart3, label: '系统仪表盘' },
-          { id: 'history', icon: MessageSquare, label: '对话历史' },
-          { id: 'users', icon: Users, label: '用户管理' },
-          { id: 'settings', icon: Wrench, label: '工具管理' },
-        ].map((item) => (
+        {items.map((item) => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
@@ -67,7 +70,7 @@ export const AdminSidebar = ({ activeTab, setActiveTab }: AdminSidebarProps) => 
                 : 'text-slate-600 hover:bg-white/45 hover:text-slate-900',
             )}
           >
-            <item.icon size={20} className={activeTab === item.id ? "text-zinc-800" : "text-slate-400"} />
+            <item.icon size={20} className={activeTab === item.id ? 'text-zinc-800' : 'text-slate-400'} />
             {item.label}
             {activeTab === item.id && <ChevronRight size={16} className="ml-auto opacity-70" />}
           </button>
@@ -75,14 +78,14 @@ export const AdminSidebar = ({ activeTab, setActiveTab }: AdminSidebarProps) => 
       </nav>
 
       <div className="space-y-2 border-t border-slate-100/80 p-4">
-        <button 
+        <button
           onClick={() => navigate('/chat')}
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-white/60 hover:text-zinc-900"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <MessageSquare size={20} />
           回到对话
         </button>
-        <button 
+        <button
           onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
         >

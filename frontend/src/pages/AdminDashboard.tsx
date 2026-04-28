@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
-import { DashboardStats } from '../components/admin/DashboardStats';
-import { DashboardCharts } from '../components/admin/DashboardCharts';
+import { AgentManagement } from '../components/admin/AgentManagement';
 import { ChatHistory } from '../components/admin/ChatHistory';
-import { UserManagement } from '../components/admin/UserManagement';
+import { DashboardCharts } from '../components/admin/DashboardCharts';
+import { DashboardStats } from '../components/admin/DashboardStats';
 import { SystemSettings } from '../components/admin/SystemSettings';
+import { UserManagement } from '../components/admin/UserManagement';
 import { RandomMascot } from '../components/ui/RandomMascot';
+import { Button } from '../components/ui/Button';
 import { getStoredUser } from '../services/authService';
 import { DashboardStats as DashboardStatsData, getDashboardStats } from '../services/dashboardService';
-import { Button } from '../components/ui/Button';
 
 export const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -23,6 +24,7 @@ export const AdminDashboard = () => {
     dashboard: '系统概览',
     history: '对话记录',
     users: '用户管理',
+    agents: '智能体配置',
     settings: '工具管理',
   };
 
@@ -82,6 +84,8 @@ export const AdminDashboard = () => {
         return <ChatHistory />;
       case 'users':
         return <UserManagement />;
+      case 'agents':
+        return <AgentManagement />;
       case 'settings':
         return <SystemSettings />;
       default:
@@ -96,7 +100,6 @@ export const AdminDashboard = () => {
         <div className="absolute bottom-[-20%] left-[-10%] h-[70vw] w-[70vw] rounded-full bg-teal-300 opacity-35 mix-blend-overlay blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] h-[80vw] w-[80vw] rounded-full bg-blue-400 opacity-35 mix-blend-overlay blur-[120px]" />
         <div className="absolute left-[30%] top-[10%] h-[50vw] w-[50vw] rounded-full bg-cyan-300 opacity-25 mix-blend-overlay blur-[120px]" />
-        <div className="absolute inset-0 opacity-[0.04] mix-blend-overlay" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }} />
       </div>
 
       <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -110,7 +113,7 @@ export const AdminDashboard = () => {
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Workspace</p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl border-2 border-white bg-zinc-900 text-white shadow-md">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
             </div>
           </div>
         </header>

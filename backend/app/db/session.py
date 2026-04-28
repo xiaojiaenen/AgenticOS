@@ -35,8 +35,10 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     _ensure_compatible_schema()
     from app.services.tool_config_service import seed_tool_configs
+    from app.services.agent_profile_service import seed_agent_profiles
 
     seed_tool_configs()
+    seed_agent_profiles()
 
 
 def _ensure_compatible_schema() -> None:
@@ -44,10 +46,19 @@ def _ensure_compatible_schema() -> None:
     if "agent_sessions" not in inspector.get_table_names():
         return
 
-    columns = {column["name"] for column in inspector.get_columns("agent_sessions")}
-    if "user_id" not in columns:
+    session_columns = {column["name"] for column in inspector.get_columns("agent_sessions")}
+    if "user_id" not in session_columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE agent_sessions ADD COLUMN user_id INTEGER"))
+    if "agent_profile_id" not in session_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE agent_sessions ADD COLUMN agent_profile_id INTEGER"))
+
+    if "agent_usage_events" in inspector.get_table_names():
+        usage_columns = {column["name"] for column in inspector.get_columns("agent_usage_events")}
+        if "agent_profile_id" not in usage_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE agent_usage_events ADD COLUMN agent_profile_id INTEGER"))
 
 
 def create_db_session() -> Session:

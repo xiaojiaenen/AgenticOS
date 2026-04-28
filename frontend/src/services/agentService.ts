@@ -5,6 +5,7 @@ type AgentServiceOptions = {
   sessionId: string;
   systemPrompt?: string;
   responseMode?: 'general' | 'ppt' | 'website';
+  agentProfileId?: number | null;
   onDelta?: (delta: string, fullText: string) => void;
   onToolCalls?: (toolCalls: ToolCall[]) => void;
   onSessionState?: (state: AgentSessionState) => void;
@@ -168,6 +169,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
       message,
       session_id: options.sessionId,
       system_prompt: options.systemPrompt,
+      agent_profile_id: options.agentProfileId || undefined,
       response_mode: options.responseMode || 'general',
     }),
     signal: options.signal,

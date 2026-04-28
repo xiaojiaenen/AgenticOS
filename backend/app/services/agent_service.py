@@ -11,6 +11,7 @@ from wuwei.runtime import ApprovalPolicy
 from app.core.config import Settings, get_settings
 from app.db.models import AgentUsageEventModel, UserModel
 from app.services.approval_manager import ApprovalManager
+from app.services.agent_profile_service import AgentProfileService, RuntimeAgentProfile
 from app.services.ppt_artifact_service import PptArtifactService, strip_ppt_deck_from_text
 from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.services.tool_config_service import ToolConfigService
@@ -30,6 +31,7 @@ class AgentService:
             timeout_seconds=settings.hitl_timeout_seconds
         )
         self.ppt_artifacts = PptArtifactService()
+        self.agent_profiles = AgentProfileService()
         self.tool_configs = ToolConfigService()
         self._agents: dict[tuple[object, ...], Agent] = {}
 
@@ -62,11 +64,36 @@ class AgentService:
                 )
             )
 
-    def _get_agent(self, response_mode: str) -> Agent:
-        self._ensure_openai_key()
+    def _runtime_from_mode(self, response_mode: str, system_prompt: str | None = None) -> RuntimeAgentProfile:
         profile = self.tool_configs.get_runtime_profile(response_mode)
+        return RuntimeAgentProfile(
+            profile_id=None,
+            name=response_mode,
+            slug=response_mode,
+            response_mode=profile.mode,
+            system_prompt=system_prompt or self.settings.agent_system_prompt,
+            builtin_tools=profile.builtin_tools,
+            approval_tools=profile.approval_tools,
+            signature=profile.signature,
+        )
+
+    def _resolve_runtime_profile(self, request: AgentStreamRequest, user: UserModel | None) -> RuntimeAgentProfile:
+        if request.agent_profile_id is not None:
+            if user is None:
+                raise PermissionError("Agent profile requires an authenticated user")
+            return self.agent_profiles.resolve_runtime(request.agent_profile_id, user)
+        return self._runtime_from_mode(request.response_mode, request.system_prompt)
+
+    def _get_agent(self, profile: RuntimeAgentProfile) -> Agent:
+        injected = getattr(self, "_agent", None)
+        if injected is not None:
+            return injected
+        self._ensure_openai_key()
         cache_key = (
-            profile.mode,
+            profile.profile_id,
+            profile.slug,
+            profile.response_mode,
+            profile.system_prompt,
             profile.builtin_tools,
             tuple(sorted(profile.approval_tools)),
             profile.signature,
@@ -89,8 +116,8 @@ class AgentService:
 
         agent = Agent.from_env(
             builtin_tools=list(profile.builtin_tools),
-            system_prompt=self.settings.agent_system_prompt,
-            max_steps=1 if response_mode == "ppt" else self.settings.agent_max_steps,
+            system_prompt=profile.system_prompt,
+            max_steps=1 if profile.response_mode == "ppt" else self.settings.agent_max_steps,
             parallel_tool_calls=self.settings.agent_parallel_tool_calls,
             hooks=hooks,
         )
@@ -264,9 +291,11 @@ class AgentService:
         *,
         session,
         request: AgentStreamRequest,
-        user: UserModel,
+        user: UserModel | None,
         event_data: dict[str, Any],
         tool_names: list[str],
+        response_mode: str,
+        agent_profile_id: int | None,
     ) -> None:
         usage = event_data.get("usage") or getattr(session, "last_usage", None)
         input_tokens, output_tokens, total_tokens = self._extract_usage_numbers(usage)
@@ -276,10 +305,11 @@ class AgentService:
         with self.storage.session_factory() as db:
             db.add(
                 AgentUsageEventModel(
-                    user_id=user.id,
+                    user_id=user.id if user is not None else None,
+                    agent_profile_id=agent_profile_id,
                     session_id=session.session_id,
                     model_name=str(event_data.get("model") or self.settings.openai_model),
-                    response_mode=request.response_mode,
+                    response_mode=response_mode,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
                     total_tokens=total_tokens,
@@ -291,28 +321,36 @@ class AgentService:
             )
             db.commit()
 
-    async def stream_chat(self, request: AgentStreamRequest, user: UserModel) -> AsyncIterator[dict[str, Any]]:
-        ppt_mode = request.response_mode == "ppt"
-        agent = self._get_agent(request.response_mode)
-        await self.ensure_session_access(request, user)
+    async def stream_chat(self, request: AgentStreamRequest, user: UserModel | None = None) -> AsyncIterator[dict[str, Any]]:
+        runtime_profile = self._resolve_runtime_profile(request, user)
+        response_mode = runtime_profile.response_mode
+        ppt_mode = response_mode == "ppt"
+        agent = self._get_agent(runtime_profile)
+        if user is not None:
+            await self.ensure_session_access(request, user)
         await self._load_session_if_needed(agent, request)
         session = agent.create_or_get_session(
             session_id=request.session_id,
-            system_prompt=request.system_prompt,
+            system_prompt=runtime_profile.system_prompt,
             max_steps=request.max_steps,
             parallel_tool_calls=request.parallel_tool_calls,
         )
         metadata = getattr(session, "metadata", {}) or {}
         metadata.update(
             {
-                "user_id": user.id,
-                "user_email": user.email,
-                "user_name": user.name,
-                "response_mode": request.response_mode,
+                "user_id": user.id if user is not None else None,
+                "user_email": user.email if user is not None else None,
+                "user_name": user.name if user is not None else None,
+                "response_mode": response_mode,
+                "agent_profile_id": runtime_profile.profile_id,
+                "agent_profile_name": runtime_profile.name,
+                "agent_profile_slug": runtime_profile.slug,
             }
         )
         session.metadata = metadata
-        await self.storage.assign_owner(session.session_id, user.id)
+        if user is not None:
+            await self.storage.assign_owner(session.session_id, user.id)
+        await self.storage.assign_agent_profile(session.session_id, runtime_profile.profile_id)
         approval_queue = self.approval_manager.subscribe(session.session_id)
 
         yield {
@@ -432,6 +470,8 @@ class AgentService:
                                 user=user,
                                 event_data=event.data,
                                 tool_names=tool_names,
+                                response_mode=response_mode,
+                                agent_profile_id=runtime_profile.profile_id,
                             )
                             usage_recorded = True
                         if mapped is not None:
@@ -455,6 +495,8 @@ class AgentService:
                                 user=user,
                                 event_data=event.data,
                                 tool_names=tool_names,
+                                response_mode=response_mode,
+                                agent_profile_id=runtime_profile.profile_id,
                             )
                             usage_recorded = True
 
@@ -465,6 +507,8 @@ class AgentService:
                             user=user,
                             event_data=event.data,
                             tool_names=tool_names,
+                            response_mode=response_mode,
+                            agent_profile_id=runtime_profile.profile_id,
                         )
                         usage_recorded = True
 

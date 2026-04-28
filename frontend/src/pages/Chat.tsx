@@ -16,6 +16,7 @@ import { PptArtifactPanel } from '../components/ppt/PptArtifactPanel';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { Artifact, Message, Session, Attachment } from '../types';
 import { sendMessageStream, generateTitle, submitApprovalDecision, AgentSessionState, AgentPptArtifact, AgentRunStatus } from '../services/agentService';
+import { AgentProfile, getMyAgents } from '../services/agentProfileService';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { MenuIcon, AlertCircleIcon, MascotCool, MascotSurprised, MascotHappy, ChevronDownIcon, WrenchIcon, DownloadIcon, RefreshIcon, CopyIcon, CodeIcon, UserAvatarIcon } from '../components/ui/AnimatedIcons';
 import { cn } from '../lib/utils';
@@ -72,7 +73,10 @@ export const Chat = () => {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [chatMode, setChatMode] = useState<'general' | 'ppt' | 'website'>((location.state as any)?.mode || 'general');
+  const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
+  const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>((location.state as any)?.agentProfileId || null);
   const currentSession = sessions.find(s => s.id === currentSessionId);
+  const selectedAgent = agentProfiles.find(agent => agent.id === selectedAgentProfileId) || null;
 
   const {
     searchQuery, setSearchQuery, showSearch, setShowSearch,
@@ -107,8 +111,25 @@ export const Chat = () => {
   useEffect(() => {
     if (currentSessionId && currentSession?.mode) {
       setChatMode(currentSession.mode);
+      setSelectedAgentProfileId(currentSession.agentProfileId ?? null);
     }
-  }, [currentSessionId, currentSession?.mode]);
+  }, [currentSessionId, currentSession?.mode, currentSession?.agentProfileId]);
+
+  useEffect(() => {
+    getMyAgents()
+      .then((response) => {
+        setAgentProfiles(response.items);
+        const initialProfileId = (location.state as any)?.agentProfileId;
+        if (initialProfileId) {
+          const initialProfile = response.items.find((item) => item.id === initialProfileId);
+          if (initialProfile) {
+            setChatMode(initialProfile.response_mode);
+            setSelectedAgentProfileId(initialProfile.id);
+          }
+        }
+      })
+      .catch((err) => console.error('Load agents error:', err));
+  }, []);
 
   // 处理窗口尺寸变化
   useEffect(() => {
@@ -327,6 +348,8 @@ export const Chat = () => {
               messages: [userMessage!, assistantMessage],
               updatedAt: Date.now(),
               mode: chatMode,
+              agentProfileId: selectedAgentProfileId,
+              agentName: selectedAgent?.name,
             };
             return [newSession, ...prev];
           }
@@ -342,8 +365,9 @@ export const Chat = () => {
 
       const response = await sendMessageStream(outboundMessage, {
         sessionId: targetId,
-        systemPrompt: currentSession ? undefined : MODE_SYSTEM_PROMPTS[chatMode],
+        systemPrompt: currentSession || selectedAgentProfileId ? undefined : MODE_SYSTEM_PROMPTS[chatMode],
         responseMode: chatMode,
+        agentProfileId: selectedAgentProfileId,
         onSessionState: (state) => {
           applySessionState(targetId!, state);
         },
@@ -508,7 +532,7 @@ export const Chat = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentSessionId, sessions, isLoading, chatMode, currentSession, applySessionState]);
+  }, [currentSessionId, sessions, isLoading, chatMode, currentSession, applySessionState, selectedAgentProfileId, selectedAgent]);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -728,6 +752,14 @@ export const Chat = () => {
                 isLoading={isLoading}
                 chatMode={chatMode}
                 setChatMode={setChatMode}
+                agentProfiles={agentProfiles}
+                selectedAgentProfileId={selectedAgentProfileId}
+                onAgentProfileChange={(profile) => {
+                  setSelectedAgentProfileId(profile?.id ?? null);
+                  if (profile) {
+                    setChatMode(profile.response_mode);
+                  }
+                }}
                 isModeLocked={!!currentSession && currentSession.messages.length > 0}
               />
               <div className="text-center mt-3 text-xs text-slate-400 font-medium">

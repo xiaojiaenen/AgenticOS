@@ -43,6 +43,8 @@ export type Session = {
   messages: Message[];
   updatedAt: number;
   mode?: 'general' | 'ppt' | 'website';
+  agentProfileId?: number | null;
+  agentName?: string;
   summary?: string | null;
   contextCompressed?: boolean;
   storage?: string;
