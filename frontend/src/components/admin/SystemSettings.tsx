@@ -1,142 +1,282 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { getAppConfig, saveAppConfig, AppConfig } from '../../services/configService';
-import { 
-  Check, 
-  X, 
-  Wrench, 
-  Shapes, 
-  Search, 
-  Binary, 
-  Code2, 
-  Cpu
-} from 'lucide-react';
+import { AlertCircle, Check, Clock3, Code2, FileText, Globe2, Loader2, Presentation, Save, ShieldCheck, Sparkles, Wrench, X } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
+import {
+  AgentMode,
+  AgentModeConfig,
+  AgentModeToolConfig,
+  getToolConfig,
+  ToolCatalogItem,
+  ToolConfigResponse,
+  updateModeToolConfig,
+} from '../../services/toolConfigService';
+import { cn } from '../../lib/utils';
+
+const modeIcons: Record<AgentMode, React.ElementType> = {
+  general: Sparkles,
+  ppt: Presentation,
+  website: Globe2,
+};
+
+const toolIcons: Record<string, React.ElementType> = {
+  time: Clock3,
+  file: FileText,
+};
+
+function Toggle({
+  checked,
+  disabled,
+  onClick,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        'flex h-8 w-14 items-center rounded-full p-1 transition-all disabled:cursor-not-allowed disabled:opacity-50',
+        checked ? 'justify-end bg-zinc-900' : 'justify-start bg-slate-200',
+      )}
+    >
+      <motion.span layout className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm">
+        {checked ? <Check size={12} className="text-zinc-900" /> : <X size={12} className="text-slate-400" />}
+      </motion.span>
+    </button>
+  );
+}
+
+function cloneConfig(data: ToolConfigResponse): ToolConfigResponse {
+  return {
+    catalog: data.catalog.map((item) => ({ ...item, approval_scope: [...item.approval_scope] })),
+    modes: data.modes.map((mode) => ({
+      ...mode,
+      tools: mode.tools.map((tool) => ({ ...tool })),
+    })),
+  };
+}
 
 export const SystemSettings = () => {
-  const [config, setConfig] = useState<AppConfig>(getAppConfig());
-  const [isSaved, setIsSaved] = useState(false);
+  const [data, setData] = useState<ToolConfigResponse | null>(null);
+  const [draft, setDraft] = useState<ToolConfigResponse | null>(null);
+  const [activeMode, setActiveMode] = useState<AgentMode>('general');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const toggle = (field: keyof AppConfig) => {
-    const newConfig = { ...config, [field]: !config[field] };
-    setConfig(newConfig);
-    saveAppConfig(newConfig);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2000);
+  const catalogByName = useMemo(() => {
+    const map = new Map<string, ToolCatalogItem>();
+    draft?.catalog.forEach((item) => map.set(item.name, item));
+    return map;
+  }, [draft]);
+
+  const activeConfig = draft?.modes.find((mode) => mode.mode === activeMode);
+  const originalActiveConfig = data?.modes.find((mode) => mode.mode === activeMode);
+  const hasChanges = JSON.stringify(activeConfig?.tools ?? []) !== JSON.stringify(originalActiveConfig?.tools ?? []);
+
+  const loadConfig = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await getToolConfig();
+      setData(response);
+      setDraft(cloneConfig(response));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '工具配置加载失败');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const ConfigItem = ({ 
-    icon: Icon, 
-    title, 
-    desc, 
-    field, 
-    color 
-  }: { 
-    icon: any, 
-    title: string, 
-    desc: string, 
-    field: keyof AppConfig,
-    color: string
-  }) => (
-    <div className="bg-white border border-slate-200/60 p-6 rounded-[2rem] shadow-sm flex items-center justify-between group hover:shadow-md hover:border-slate-300/80 transition-all duration-300">
-      <div className="flex items-center gap-5">
-        <div className={`w-14 h-14 rounded-2xl ${color} flex items-center justify-center text-white shadow-lg`}>
-          <Icon size={24} />
-        </div>
-        <div>
-          <h3 className="font-display font-bold text-slate-800 text-lg leading-tight mb-1">{title}</h3>
-          <p className="text-slate-400 text-sm font-medium tracking-tight">{desc}</p>
-        </div>
-      </div>
-      
-      <button 
-        onClick={() => toggle(field)}
-        className={`relative w-14 h-8 rounded-full transition-all duration-500 ease-in-out p-1 flex items-center ${
-          config[field] ? 'bg-zinc-900 justify-end' : 'bg-slate-200 justify-start'
-        }`}
-      >
-        <motion.div 
-          layout
-          className={`w-6 h-6 rounded-full bg-white shadow-sm flex items-center justify-center`}
-        >
-          {config[field] ? <Check size={12} className="text-zinc-900" /> : <X size={12} className="text-slate-400" />}
-        </motion.div>
-      </button>
-    </div>
-  );
+  useEffect(() => {
+    loadConfig();
+  }, []);
+
+  const updateTool = (toolName: string, patch: Partial<AgentModeToolConfig>) => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        modes: prev.modes.map((mode) => (
+          mode.mode === activeMode
+            ? {
+                ...mode,
+                tools: mode.tools.map((tool) => (
+                  tool.tool_name === toolName ? { ...tool, ...patch } : tool
+                )),
+              }
+            : mode
+        )),
+      };
+    });
+  };
+
+  const handleSave = async () => {
+    if (!activeConfig) return;
+    setIsSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await updateModeToolConfig(activeMode, activeConfig.tools);
+      setData(response);
+      setDraft(cloneConfig(response));
+      setMessage('工具配置已保存，新会话将使用最新策略');
+      window.setTimeout(() => setMessage(null), 2600);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '工具配置保存失败');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const resetDraft = () => {
+    if (data) setDraft(cloneConfig(data));
+  };
 
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex justify-between items-center bg-zinc-900 p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden">
-        <div className="relative z-10">
-          <h2 className="text-3xl font-display font-bold text-white mb-2 tracking-tight">核心工具管理</h2>
-          <p className="text-slate-400 text-sm font-medium">精确控制 AgenticOS 的渲染能力、联网功能与代码预览体验</p>
+    <div className="space-y-6 pb-10">
+      <div className="relative overflow-hidden rounded-[28px] border border-white/60 bg-zinc-900 p-6 shadow-xl md:p-8">
+        <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-200/80">Agent Profiles</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-white">工具与审批管理</h2>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-300">
+              每个前台模式都是一套独立 Agent 配置，可分别控制工具启用和人工审批策略。
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {message && (
+              <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white backdrop-blur">
+                {message}
+              </div>
+            )}
+            <Button variant="secondary" onClick={loadConfig} disabled={isLoading || isSaving} className="gap-2 bg-white/10 text-white hover:bg-white/15">
+              {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Wrench size={16} />}
+              重新加载
+            </Button>
+          </div>
         </div>
-        <div className="absolute right-0 top-0 opacity-10 -rotate-12 translate-x-1/4 -translate-y-1/4">
-          <Wrench size={280} color="white" />
-        </div>
-        {isSaved && (
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
-          >
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            系统配置已更新
-          </motion.div>
-        )}
+        <Wrench size={260} className="absolute -right-14 -top-16 rotate-12 text-white opacity-[0.06]" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <ConfigItem 
-          icon={Binary} 
-          title="LaTeX 数学渲染" 
-          desc="启用 Katex 渲染复杂的数学公式与方程"
-          field="enableLaTeX"
-          color="bg-sky-500"
-        />
-        <ConfigItem 
-          icon={Shapes} 
-          title="Mermaid 图表" 
-          desc="自动转换文本为流程图、甘特图等矢量图形"
-          field="enableMermaid"
-          color="bg-emerald-500"
-        />
-        <ConfigItem 
-          icon={Search} 
-          title="联网实时搜索" 
-          desc="连接后端智能体与外部工具，补充最新资讯与实时数据"
-          field="enableSearch"
-          color="bg-amber-500"
-        />
-        <ConfigItem 
-          icon={Cpu} 
-          title="智能组件 (Artifacts)" 
-          desc="实时生成并预览前端应用与交互式代码"
-          field="enableArtifacts"
-          color="bg-purple-500"
-        />
-      </div>
-
-      <div className="bg-white/40 backdrop-blur-md border border-slate-200/60 p-8 rounded-[2.5rem] mt-4">
-        <div className="flex items-center gap-4 mb-6">
-           <div className="w-10 h-10 bg-zinc-100 rounded-xl flex items-center justify-center text-zinc-500">
-              <Code2 size={20} />
-           </div>
-           <h3 className="text-xl font-display font-bold text-slate-800 tracking-tight">开发人员元数据</h3>
+      {error && (
+        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+          <AlertCircle size={18} />
+          {error}
         </div>
-        <div className="grid grid-cols-3 gap-6">
-          {[
-            { label: '系统版本', value: 'v2.4.0-stable' },
-            { label: '运行时环境', value: 'Vite + React 19' },
-            { label: '智能体引擎', value: 'FastAPI + Wuwei' }
-          ].map((stat, i) => (
-            <div key={i} className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</span>
-              <p className="text-sm font-mono font-medium text-slate-700">{stat.value}</p>
+      )}
+
+      {isLoading && !draft ? (
+        <div className="flex h-80 items-center justify-center gap-3 rounded-[28px] border border-white/60 bg-white/45 text-sm font-bold text-slate-500 backdrop-blur-2xl">
+          <Loader2 size={18} className="animate-spin" />
+          正在加载工具配置
+        </div>
+      ) : draft ? (
+        <>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {draft.modes.map((mode) => {
+              const Icon = modeIcons[mode.mode];
+              const enabledCount = mode.tools.filter((tool) => tool.enabled).length;
+              return (
+                <button
+                  key={mode.mode}
+                  type="button"
+                  onClick={() => setActiveMode(mode.mode)}
+                  className={cn(
+                    'rounded-[24px] border p-5 text-left transition-all',
+                    activeMode === mode.mode
+                      ? 'border-white/80 bg-white/80 shadow-md'
+                      : 'border-white/50 bg-white/45 hover:bg-white/65',
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70 bg-white/70 text-slate-800 shadow-sm">
+                      <Icon size={21} />
+                    </div>
+                    <span className="rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-black text-slate-500">
+                      {enabledCount}/{mode.tools.length} 启用
+                    </span>
+                  </div>
+                  <h3 className="mt-4 text-lg font-black text-slate-900">{mode.label}</h3>
+                  <p className="mt-1 text-sm font-medium leading-6 text-slate-500">{mode.description}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          <Card className="overflow-hidden p-0">
+            <div className="flex flex-col gap-4 border-b border-white/70 p-5 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">Current Profile</p>
+                <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-900">{activeConfig?.label}</h3>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button variant="secondary" onClick={resetDraft} disabled={!hasChanges || isSaving}>
+                  还原
+                </Button>
+                <Button onClick={handleSave} disabled={!hasChanges || isSaving} className="gap-2">
+                  {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  保存配置
+                </Button>
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
+
+            <div className="divide-y divide-slate-100/80">
+              {activeConfig?.tools.map((tool) => {
+                const catalog = catalogByName.get(tool.tool_name);
+                const Icon = toolIcons[tool.tool_name] || Code2;
+                return (
+                  <div key={tool.tool_name} className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-[minmax(260px,1fr)_160px_180px] lg:items-center">
+                    <div className="flex min-w-0 items-start gap-4">
+                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border border-white/70 bg-white/70 text-slate-800 shadow-sm">
+                        <Icon size={22} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-base font-black text-slate-900">{catalog?.label || tool.tool_name}</h4>
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase text-slate-400">
+                            {tool.tool_name}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm font-medium leading-6 text-slate-500">{catalog?.description}</p>
+                        {tool.requires_approval && (
+                          <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-amber-600">
+                            <ShieldCheck size={14} />
+                            审批覆盖：{catalog?.approval_scope.join('、')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white/55 px-4 py-3">
+                      <span className="text-sm font-black text-slate-700">启用工具</span>
+                      <Toggle
+                        checked={tool.enabled}
+                        onClick={() => updateTool(tool.tool_name, { enabled: !tool.enabled })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white/55 px-4 py-3">
+                      <span className="text-sm font-black text-slate-700">需要审批</span>
+                      <Toggle
+                        checked={tool.requires_approval}
+                        disabled={!tool.enabled}
+                        onClick={() => updateTool(tool.tool_name, { requires_approval: !tool.requires_approval })}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </>
+      ) : null}
     </div>
   );
 };

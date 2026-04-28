@@ -13,6 +13,7 @@ from app.db.models import AgentUsageEventModel, UserModel
 from app.services.approval_manager import ApprovalManager
 from app.services.ppt_artifact_service import PptArtifactService, strip_ppt_deck_from_text
 from app.services.session_storage import DatabaseAgentStorage, dump_json
+from app.services.tool_config_service import ToolConfigService
 from app.schemas.agent import AgentStreamRequest
 
 
@@ -29,23 +30,26 @@ class AgentService:
             timeout_seconds=settings.hitl_timeout_seconds
         )
         self.ppt_artifacts = PptArtifactService()
-        self._agent: Agent | None = None
-        self._ppt_agent: Agent | None = None
+        self.tool_configs = ToolConfigService()
+        self._agents: dict[tuple[object, ...], Agent] = {}
 
     def ensure_ready(self) -> None:
-        self._get_agent()
+        self._ensure_openai_key()
+
+    def clear_agent_cache(self) -> None:
+        self._agents.clear()
 
     def _ensure_openai_key(self) -> None:
         if not self.settings.openai_api_key:
             raise RuntimeError("缺少 OPENAI_API_KEY，请先在环境变量或 .env 中配置后再调用 /agent/stream。")
 
-    def _register_runtime_hooks(self, agent: Agent, *, enable_hitl: bool) -> None:
-        if enable_hitl and self.settings.hitl_enabled:
+    def _register_runtime_hooks(self, agent: Agent, *, approval_tools: set[str] | frozenset[str]) -> None:
+        if approval_tools and self.settings.hitl_enabled:
             agent.hooks.register(
                 HitlHook(
                     provider=self.approval_manager,
                     policy=ApprovalPolicy(
-                        require_approval_tools=self.settings.get_hitl_require_approval_tools()
+                        require_approval_tools=set(approval_tools)
                     ),
                 )
             )
@@ -58,54 +62,48 @@ class AgentService:
                 )
             )
 
-    def _get_agent(self) -> Agent:
-        if self._agent is not None:
-            return self._agent
-
+    def _get_agent(self, response_mode: str) -> Agent:
         self._ensure_openai_key()
+        profile = self.tool_configs.get_runtime_profile(response_mode)
+        cache_key = (
+            profile.mode,
+            profile.builtin_tools,
+            tuple(sorted(profile.approval_tools)),
+            profile.signature,
+            self.settings.context_compression_enabled,
+        )
+        cached = self._agents.get(cache_key)
+        if cached is not None:
+            return cached
 
         hooks = [StorageHook(self.storage)]
-        if self.settings.hitl_enabled:
+        if profile.approval_tools and self.settings.hitl_enabled:
             hooks.append(
                 HitlHook(
                     provider=self.approval_manager,
                     policy=ApprovalPolicy(
-                        require_approval_tools=self.settings.get_hitl_require_approval_tools()
+                        require_approval_tools=set(profile.approval_tools)
                     ),
                 )
             )
 
-        self._agent = Agent.from_env(
-            builtin_tools=["time", "file"],
+        agent = Agent.from_env(
+            builtin_tools=list(profile.builtin_tools),
             system_prompt=self.settings.agent_system_prompt,
-            max_steps=self.settings.agent_max_steps,
+            max_steps=1 if response_mode == "ppt" else self.settings.agent_max_steps,
             parallel_tool_calls=self.settings.agent_parallel_tool_calls,
             hooks=hooks,
         )
         if self.settings.context_compression_enabled:
-            self._agent.hooks.register(
+            agent.hooks.register(
                 ContextCompressionHook(
-                    compressor=LLMContextCompressor(self._agent.llm),
+                    compressor=LLMContextCompressor(agent.llm),
                     compress_after_turns=self.settings.context_compress_after_turns,
                     keep_recent_turns=self.settings.context_keep_recent_turns,
                 )
             )
-        return self._agent
-
-    def _get_ppt_agent(self) -> Agent:
-        if self._ppt_agent is not None:
-            return self._ppt_agent
-
-        self._ensure_openai_key()
-        self._ppt_agent = Agent.from_env(
-            builtin_tools=[],
-            system_prompt=self.settings.agent_system_prompt,
-            max_steps=1,
-            parallel_tool_calls=False,
-            hooks=[StorageHook(self.storage)],
-        )
-        self._register_runtime_hooks(self._ppt_agent, enable_hitl=False)
-        return self._ppt_agent
+        self._agents[cache_key] = agent
+        return agent
 
     @staticmethod
     def _build_tool_call_payload(event: AgentEvent) -> dict[str, Any]:
@@ -295,7 +293,7 @@ class AgentService:
 
     async def stream_chat(self, request: AgentStreamRequest, user: UserModel) -> AsyncIterator[dict[str, Any]]:
         ppt_mode = request.response_mode == "ppt"
-        agent = self._get_ppt_agent() if ppt_mode else self._get_agent()
+        agent = self._get_agent(request.response_mode)
         await self.ensure_session_access(request, user)
         await self._load_session_if_needed(agent, request)
         session = agent.create_or_get_session(
