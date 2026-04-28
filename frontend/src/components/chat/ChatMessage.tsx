@@ -231,6 +231,35 @@ const PptArtifactCard = ({
   );
 };
 
+const AssistantWaitingIndicator = () => (
+  <div className="flex min-w-[12rem] items-center gap-3 py-1 text-sm font-semibold text-slate-500">
+    <span className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl border border-slate-200/80 bg-slate-50/90 text-slate-400 shadow-inner">
+      <BrainCircuit size={15} />
+      <motion.span
+        className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-sky-400 shadow-[0_0_0_4px_rgba(56,189,248,0.16)]"
+        animate={{ scale: [0.85, 1.18, 0.85], opacity: [0.55, 1, 0.55] }}
+        transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+      />
+    </span>
+    <span className="whitespace-nowrap">正在准备回复</span>
+    <span className="flex items-center gap-1" aria-hidden="true">
+      {[0, 1, 2].map((dot) => (
+        <motion.span
+          key={dot}
+          className="h-1.5 w-1.5 rounded-full bg-slate-300"
+          animate={{ y: [0, -3, 0], opacity: [0.35, 1, 0.35] }}
+          transition={{
+            duration: 0.9,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: dot * 0.16,
+          }}
+        />
+      ))}
+    </span>
+  </div>
+);
+
 export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, onOpenArtifact, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
   const isUser = message?.role === 'user';
   const rawText = message?.text || '';
@@ -239,6 +268,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   const hasPptArtifact = !isUser && Boolean(message?.pptArtifact);
   const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || reasoningText.trim().length > 0 || !hasPptArtifact;
   const hasStructuredContent = !isUser && /```|(?:^|\n)\|.+\|/.test(visibleText);
+  const showAssistantWaiting = !isUser && Boolean(isStreaming) && !visibleText.trim() && !reasoningText.trim() && !isTyping;
+  const canCopyMessage = visibleText.trim().length > 0;
   const [isCopied, setIsCopied] = useState(false);
   const config = getAppConfig();
   const sessionCounter = useRef({ current: 0 });
@@ -777,7 +808,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
           )}
 
           {/* Message Actions */}
-          {!isTyping && (
+          {!isTyping && canCopyMessage && (
             <div className={cn(
               "absolute bottom-0 opacity-0 group-hover/msg:opacity-100 transition-all duration-500 flex items-center gap-1 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-xl z-20",
               isUser ? "right-full mr-4 mb-2" : "left-full ml-4 mb-2"
@@ -902,6 +933,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                 >
                   {visibleText}
                 </ReactMarkdown>
+              ) : showAssistantWaiting ? (
+                <AssistantWaitingIndicator />
               ) : (
                 <span className="text-sm font-medium text-slate-400"> </span>
               )}
