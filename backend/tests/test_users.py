@@ -1,3 +1,4 @@
+from datetime import timezone
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -60,11 +61,14 @@ def test_admin_user_crud() -> None:
             },
         )
         assert create_response.status_code == 201
-        user_id = create_response.json()["id"]
+        create_payload = create_response.json()
+        assert create_payload["created_at"].endswith("+00:00") or create_payload["created_at"].endswith("Z")
+        user_id = create_payload["id"]
 
         list_response = client.get("/api/v1/users", headers=headers, params={"search": "Managed"})
         assert list_response.status_code == 200
-        assert any(item["id"] == user_id for item in list_response.json()["items"])
+        listed_item = next(item for item in list_response.json()["items"] if item["id"] == user_id)
+        assert listed_item["created_at"].endswith("+00:00") or listed_item["created_at"].endswith("Z")
 
         update_response = client.patch(
             f"/api/v1/users/{user_id}",
@@ -84,6 +88,11 @@ def test_admin_user_crud() -> None:
         )
         assert status_response.status_code == 200
         assert status_response.json()["is_active"] is True
+
+        with create_db_session() as db:
+            persisted = db.get(UserModel, user_id)
+            assert persisted is not None
+            assert persisted.created_at.tzinfo == timezone.utc
 
         delete_response = client.delete(f"/api/v1/users/{user_id}", headers=headers)
         assert delete_response.status_code == 204

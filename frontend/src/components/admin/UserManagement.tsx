@@ -14,6 +14,7 @@ import {
 import { Pagination } from './Pagination';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { formatApiDate } from '../../lib/datetime';
 import {
   AdminUser,
   createUser,
@@ -43,16 +44,6 @@ const emptyForm: UserFormState = {
   role: 'user',
   is_active: true,
 };
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-}
 
 function roleLabel(role: string): string {
   return role === 'admin' ? '管理员' : '普通用户';
@@ -343,7 +334,7 @@ export const UserManagement = () => {
                     {statusLabel(user.is_active)}
                   </span>
 
-                  <div className="text-sm font-bold text-slate-600">{formatDate(user.created_at)}</div>
+                  <div className="text-sm font-bold text-slate-600">{formatApiDate(user.created_at)}</div>
 
                   <div className="flex flex-wrap justify-center gap-2">
                     <Button variant="secondary" size="sm" onClick={() => openEditForm(user)} className="gap-2 bg-white/85">

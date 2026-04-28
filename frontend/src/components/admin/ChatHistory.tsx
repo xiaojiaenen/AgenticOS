@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Pagination } from './Pagination';
 import { Button } from '../ui/Button';
+import { formatApiDateTime } from '../../lib/datetime';
 import {
   AdminConversation,
   AdminConversationDetail,
@@ -24,19 +25,6 @@ const ITEMS_PER_PAGE = 12;
 
 function formatNumber(value: number): string {
   return Intl.NumberFormat('zh-CN', { notation: value >= 10000 ? 'compact' : 'standard' }).format(value);
-}
-
-function formatDate(value?: string | null): string {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 function formatLatency(value: number): string {
@@ -245,7 +233,7 @@ export const ChatHistory = () => {
                   {formatNumber(item.llm_calls)} / {formatNumber(item.tool_calls)}
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-bold text-slate-700">{formatDate(item.updated_at)}</p>
+                  <p className="text-sm font-bold text-slate-700">{formatApiDateTime(item.updated_at)}</p>
                   <p className="mt-1 text-xs font-medium text-slate-400">{formatLatency(item.avg_latency_ms)}</p>
                 </div>
 
@@ -364,8 +352,8 @@ export const ChatHistory = () => {
                         <div className="mt-3 space-y-2 text-sm font-medium text-slate-600">
                           <p>用户：{detail.user_name || '-'}</p>
                           <p>邮箱：{detail.user_email || '-'}</p>
-                          <p>创建时间：{formatDate(detail.created_at)}</p>
-                          <p>更新时间：{formatDate(detail.updated_at)}</p>
+                          <p>创建时间：{formatApiDateTime(detail.created_at)}</p>
+                          <p>更新时间：{formatApiDateTime(detail.updated_at)}</p>
                           <p>平均耗时：{formatLatency(detail.avg_latency_ms)}</p>
                           <p>模型：{detail.model_names.length > 0 ? detail.model_names.join(' / ') : '-'}</p>
                         </div>
@@ -404,7 +392,7 @@ export const ChatHistory = () => {
                             <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${roleTone(message.role)}`}>
                               {roleLabel(message.role)}
                             </span>
-                            <span className="text-xs font-medium text-slate-400">{formatDate(message.created_at)}</span>
+                            <span className="text-xs font-medium text-slate-400">{formatApiDateTime(message.created_at)}</span>
                           </div>
                           <pre className="mt-3 whitespace-pre-wrap break-words text-sm font-medium leading-6 text-slate-700">
                             {message.text || '该消息没有可展示的文本内容。'}

@@ -2,6 +2,7 @@ import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { AlertCircle, FileCode2, Loader2, Plus, Save, Trash2, Upload, X } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { formatApiDate } from '../../lib/datetime';
 import { cn } from '../../lib/utils';
 import {
   createSkill,
@@ -48,16 +49,6 @@ function makeDraft(skill: Skill | null): Draft {
     has_python_scripts: false,
     script_paths: [],
   };
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
 }
 
 function shortRootDir(rootDir: string): string {
@@ -289,7 +280,7 @@ export const SkillManagement = () => {
 
               <div className="text-sm font-black text-slate-900">{skill.script_paths.length}</div>
               <div className="text-sm font-bold text-slate-600">{shortRootDir(skill.root_dir)}</div>
-              <div className="text-sm font-bold text-slate-600">{formatDate(skill.updated_at)}</div>
+              <div className="text-sm font-bold text-slate-600">{formatApiDate(skill.updated_at)}</div>
 
               <div className="flex flex-wrap justify-center gap-2">
                 <span

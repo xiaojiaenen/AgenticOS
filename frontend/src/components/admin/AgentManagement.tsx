@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { formatApiDate } from '../../lib/datetime';
 import { cn } from '../../lib/utils';
 import {
   AgentProfile,
@@ -96,16 +97,6 @@ function modeLabel(mode: AgentMode) {
   if (mode === 'ppt') return 'PPT';
   if (mode === 'website') return '网站';
   return '通用';
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
 }
 
 export const AgentManagement = () => {
@@ -387,7 +378,7 @@ export const AgentManagement = () => {
                 </span>
               </div>
 
-              <div className="text-sm font-bold text-slate-600">{formatDate(profile.updated_at)}</div>
+              <div className="text-sm font-bold text-slate-600">{formatApiDate(profile.updated_at)}</div>
 
               <div className="flex flex-wrap justify-center gap-2">
                 <Button variant="secondary" onClick={() => openEditModal(profile)} className="gap-2 bg-white/85" size="sm">
