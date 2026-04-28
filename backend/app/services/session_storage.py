@@ -45,11 +45,13 @@ class DatabaseAgentStorage:
                 row = AgentSessionModel(session_id=session.session_id, system_prompt=session.system_prompt)
                 db.add(row)
 
+            metadata = getattr(session, "metadata", {}) or {}
             row.system_prompt = session.system_prompt
+            row.user_id = metadata.get("user_id") or row.user_id
             row.max_steps = session.max_steps
             row.parallel_tool_calls = session.parallel_tool_calls
             row.summary = getattr(session, "summary", None)
-            row.metadata_json = _dumps(getattr(session, "metadata", {}) or {})
+            row.metadata_json = _dumps(metadata)
             row.last_usage_json = _dumps(getattr(session, "last_usage", {}) or {})
             row.last_latency_ms = getattr(session, "last_latency_ms", 0) or 0
             row.last_llm_calls = getattr(session, "last_llm_calls", 0) or 0
@@ -82,6 +84,8 @@ class DatabaseAgentStorage:
                 summary=row.summary,
                 metadata=_loads(row.metadata_json, {}),
             )
+            if row.user_id is not None:
+                session.metadata["user_id"] = row.user_id
             session.last_usage = _loads(row.last_usage_json, {})
             session.last_latency_ms = row.last_latency_ms
             session.last_llm_calls = row.last_llm_calls
@@ -115,6 +119,7 @@ class DatabaseAgentStorage:
             )
             return {
                 "session_id": row.session_id,
+                "user_id": row.user_id,
                 "summary": row.summary,
                 "metadata": _loads(row.metadata_json, {}),
                 "last_usage": _loads(row.last_usage_json, {}),
@@ -125,6 +130,23 @@ class DatabaseAgentStorage:
                 "updated_at": _iso(row.updated_at),
                 "storage": "sqlalchemy",
             }
+
+    async def get_owner_id(self, session_id: str) -> int | None:
+        with self.session_factory() as db:
+            row = db.get(AgentSessionModel, session_id)
+            if row is None:
+                return None
+            return row.user_id
+
+    async def assign_owner(self, session_id: str, user_id: int) -> None:
+        with self.session_factory() as db:
+            row = db.get(AgentSessionModel, session_id)
+            if row is not None and row.user_id is None:
+                row.user_id = user_id
+                metadata = _loads(row.metadata_json, {})
+                metadata["user_id"] = user_id
+                row.metadata_json = _dumps(metadata)
+                db.commit()
 
 
 def dump_json(value: Any) -> str:

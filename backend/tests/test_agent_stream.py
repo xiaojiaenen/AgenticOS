@@ -1,5 +1,10 @@
 from fastapi.testclient import TestClient
+from sqlalchemy import delete
 
+from app.core.config import get_settings
+from app.core.security import create_access_token, hash_password
+from app.db.models import UserModel
+from app.db.session import create_db_session
 from app.main import app
 from app.services.agent_service import get_agent_service
 
@@ -8,11 +13,15 @@ class FakeAgentService:
     def ensure_ready(self) -> None:
         return None
 
-    async def stream_chat(self, request):
+    async def ensure_session_access(self, request, user) -> None:
+        return None
+
+    async def stream_chat(self, request, user):
         yield {
             "event": "session",
             "data": {
                 "session_id": request.session_id or "test-session",
+                "user_id": user.id,
             },
         }
         yield {
@@ -46,14 +55,45 @@ class FakeAgentService:
         }
 
 
+def cleanup_test_users(*emails: str) -> None:
+    with create_db_session() as db:
+        db.execute(delete(UserModel).where(UserModel.email.in_(emails)))
+        db.commit()
+
+
+def create_user_token(email: str) -> str:
+    with create_db_session() as db:
+        user = UserModel(
+            email=email,
+            name="Stream User",
+            password_hash=hash_password("password-123"),
+            role="user",
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    settings = get_settings()
+    return create_access_token(
+        {"sub": str(user.id), "email": user.email, "role": user.role},
+        secret=settings.auth_secret_key,
+        expires_in_seconds=settings.auth_token_expire_minutes * 60,
+    )
+
+
 def test_agent_stream_endpoint() -> None:
     app.dependency_overrides[get_agent_service] = lambda: FakeAgentService()
+    email = "stream-user@example.com"
 
     try:
         with TestClient(app) as client:
+            cleanup_test_users(email)
+            token = create_user_token(email)
             with client.stream(
                 "POST",
                 "/api/v1/agent/stream",
+                headers={"Authorization": f"Bearer {token}"},
                 json={"message": "hi", "session_id": "demo-session"},
             ) as response:
                 body = "".join(response.iter_text())
@@ -66,6 +106,7 @@ def test_agent_stream_endpoint() -> None:
         assert '"content": "hello"' in body
         assert "event: done" in body
     finally:
+        cleanup_test_users(email)
         app.dependency_overrides.clear()
 
 

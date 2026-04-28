@@ -9,9 +9,10 @@ from wuwei.memory.context_compressor import LLMContextCompressor
 from wuwei.runtime import ApprovalPolicy
 
 from app.core.config import Settings, get_settings
+from app.db.models import AgentUsageEventModel, UserModel
 from app.services.approval_manager import ApprovalManager
 from app.services.ppt_artifact_service import PptArtifactService, strip_ppt_deck_from_text
-from app.services.session_storage import DatabaseAgentStorage
+from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.schemas.agent import AgentStreamRequest
 
 
@@ -156,6 +157,7 @@ class AgentService:
         metadata = getattr(session, "metadata", {}) or {}
         return {
             "session_id": session.session_id,
+            "user_id": metadata.get("user_id"),
             "summary": getattr(session, "summary", None),
             "metadata": metadata,
             "context_compressed": bool(getattr(session, "summary", None)),
@@ -242,9 +244,59 @@ class AgentService:
 
         return None
 
-    async def stream_chat(self, request: AgentStreamRequest) -> AsyncIterator[dict[str, Any]]:
+    async def ensure_session_access(self, request: AgentStreamRequest, user: UserModel) -> None:
+        if not request.session_id:
+            return
+        owner_id = await self.storage.get_owner_id(request.session_id)
+        if owner_id is not None and owner_id != user.id and user.role != "admin":
+            raise PermissionError("当前用户无权访问该会话。")
+
+    @staticmethod
+    def _extract_usage_numbers(usage: Any) -> tuple[int, int, int]:
+        if not isinstance(usage, dict):
+            return 0, 0, 0
+
+        input_tokens = int(usage.get("input_tokens") or usage.get("prompt_tokens") or 0)
+        output_tokens = int(usage.get("output_tokens") or usage.get("completion_tokens") or 0)
+        total_tokens = int(usage.get("total_tokens") or input_tokens + output_tokens)
+        return input_tokens, output_tokens, total_tokens
+
+    def _record_usage_event(
+        self,
+        *,
+        session,
+        request: AgentStreamRequest,
+        user: UserModel,
+        event_data: dict[str, Any],
+        tool_names: list[str],
+    ) -> None:
+        usage = event_data.get("usage") or getattr(session, "last_usage", None)
+        input_tokens, output_tokens, total_tokens = self._extract_usage_numbers(usage)
+        latency_ms = int(event_data.get("latency_ms") or getattr(session, "last_latency_ms", 0) or 0)
+        llm_calls = int(event_data.get("llm_calls") or getattr(session, "last_llm_calls", 0) or 0)
+
+        with self.storage.session_factory() as db:
+            db.add(
+                AgentUsageEventModel(
+                    user_id=user.id,
+                    session_id=session.session_id,
+                    model_name=str(event_data.get("model") or self.settings.openai_model),
+                    response_mode=request.response_mode,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    total_tokens=total_tokens,
+                    llm_calls=llm_calls,
+                    tool_calls=len(tool_names),
+                    tool_names_json=dump_json(tool_names),
+                    latency_ms=latency_ms,
+                )
+            )
+            db.commit()
+
+    async def stream_chat(self, request: AgentStreamRequest, user: UserModel) -> AsyncIterator[dict[str, Any]]:
         ppt_mode = request.response_mode == "ppt"
         agent = self._get_ppt_agent() if ppt_mode else self._get_agent()
+        await self.ensure_session_access(request, user)
         await self._load_session_if_needed(agent, request)
         session = agent.create_or_get_session(
             session_id=request.session_id,
@@ -252,6 +304,17 @@ class AgentService:
             max_steps=request.max_steps,
             parallel_tool_calls=request.parallel_tool_calls,
         )
+        metadata = getattr(session, "metadata", {}) or {}
+        metadata.update(
+            {
+                "user_id": user.id,
+                "user_email": user.email,
+                "user_name": user.name,
+                "response_mode": request.response_mode,
+            }
+        )
+        session.metadata = metadata
+        await self.storage.assign_owner(session.session_id, user.id)
         approval_queue = self.approval_manager.subscribe(session.session_id)
 
         yield {
@@ -270,6 +333,8 @@ class AgentService:
         runtime_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue()
         collected_text = ""
         saw_text_delta = False
+        tool_names: list[str] = []
+        usage_recorded = False
 
         async def produce_events() -> None:
             try:
@@ -324,6 +389,11 @@ class AgentService:
                                 },
                             }
 
+                    if event.type == "tool_start":
+                        tool_name = event.data.get("tool_name")
+                        if isinstance(tool_name, str) and tool_name:
+                            tool_names.append(tool_name)
+
                     if ppt_mode and event.type == "done":
                         artifact = await self.ppt_artifacts.create_from_text(session.session_id, collected_text)
                         visible_text = strip_ppt_deck_from_text(collected_text) if artifact else collected_text
@@ -357,6 +427,15 @@ class AgentService:
                             },
                         }
                         mapped = self._map_agent_event(event, session)
+                        if not usage_recorded:
+                            self._record_usage_event(
+                                session=session,
+                                request=request,
+                                user=user,
+                                event_data=event.data,
+                                tool_names=tool_names,
+                            )
+                            usage_recorded = True
                         if mapped is not None:
                             yield mapped
                         runtime_task = asyncio.create_task(runtime_queue.get())
@@ -371,6 +450,25 @@ class AgentService:
                                 "label": "本轮回复已完成",
                             },
                         }
+                        if not usage_recorded:
+                            self._record_usage_event(
+                                session=session,
+                                request=request,
+                                user=user,
+                                event_data=event.data,
+                                tool_names=tool_names,
+                            )
+                            usage_recorded = True
+
+                    if event.type == "error" and not usage_recorded:
+                        self._record_usage_event(
+                            session=session,
+                            request=request,
+                            user=user,
+                            event_data=event.data,
+                            tool_names=tool_names,
+                        )
+                        usage_recorded = True
 
                     mapped = self._map_agent_event(event, session)
                     if mapped is not None:

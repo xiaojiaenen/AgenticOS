@@ -14,6 +14,14 @@ export type UserListResponse = {
   total: number;
 };
 
+export type UserFormPayload = {
+  email: string;
+  name: string;
+  role: 'admin' | 'user';
+  is_active: boolean;
+  password?: string;
+};
+
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const USERS_ENDPOINT = `${API_BASE_URL}/api/v1/users`;
 
@@ -42,6 +50,37 @@ export async function listUsers(params: { search?: string; offset?: number; limi
   return parseResponse<UserListResponse>(response);
 }
 
+export async function getUser(userId: number): Promise<AdminUser> {
+  const response = await fetch(`${USERS_ENDPOINT}/${userId}`, {
+    headers: authHeaders(),
+  });
+  return parseResponse<AdminUser>(response);
+}
+
+export async function createUser(payload: UserFormPayload): Promise<AdminUser> {
+  const response = await fetch(USERS_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse<AdminUser>(response);
+}
+
+export async function updateUser(userId: number, payload: Partial<UserFormPayload>): Promise<AdminUser> {
+  const response = await fetch(`${USERS_ENDPOINT}/${userId}`, {
+    method: 'PATCH',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse<AdminUser>(response);
+}
+
 export async function updateUserStatus(userId: number, isActive: boolean): Promise<AdminUser> {
   const response = await fetch(`${USERS_ENDPOINT}/${userId}/status`, {
     method: 'PATCH',
@@ -52,4 +91,13 @@ export async function updateUserStatus(userId: number, isActive: boolean): Promi
     body: JSON.stringify({ is_active: isActive }),
   });
   return parseResponse<AdminUser>(response);
+}
+
+export async function deleteUser(userId: number): Promise<void> {
+  const response = await fetch(`${USERS_ENDPOINT}/${userId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (response.ok) return;
+  await parseResponse<unknown>(response);
 }

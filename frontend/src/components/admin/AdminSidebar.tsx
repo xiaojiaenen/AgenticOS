@@ -1,9 +1,11 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { Users, MessageSquare, Settings, BarChart3, LogOut, ChevronRight, Cpu, Wrench } from 'lucide-react';
+import { Users, MessageSquare, BarChart3, LogOut, ChevronRight, Cpu, Wrench } from 'lucide-react';
 import { Logo } from '../Logo';
-import { logout } from '../../services/authService';
+import { getStoredUser, logout } from '../../services/authService';
+import { UserAvatarIcon } from '../ui/AnimatedIcons';
+import { cn } from '../../lib/utils';
 
 interface AdminSidebarProps {
   activeTab: string;
@@ -12,6 +14,7 @@ interface AdminSidebarProps {
 
 export const AdminSidebar = ({ activeTab, setActiveTab }: AdminSidebarProps) => {
   const navigate = useNavigate();
+  const user = getStoredUser();
 
   const handleLogout = async () => {
     await logout();
@@ -19,24 +22,35 @@ export const AdminSidebar = ({ activeTab, setActiveTab }: AdminSidebarProps) => 
   };
 
   return (
-    <div className="w-64 bg-white border-r border-slate-200 flex flex-col z-20 flex-shrink-0">
-      <div className="p-6 flex items-center justify-between border-b border-slate-100">
-        <Logo iconSize={24} showText={true} />
+    <motion.aside
+      initial={{ x: -24, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      className="z-20 flex h-full w-[280px] flex-shrink-0 flex-col overflow-hidden border-r border-white/40 bg-white/60 shadow-[4px_0_24px_rgba(0,0,0,0.03)] backdrop-blur-2xl"
+    >
+      <div className="flex items-center justify-between border-b border-slate-100/80 p-4">
+        <Logo iconSize={20} className="text-lg" showText={true} />
       </div>
       
-      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-         <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-zinc-900 rounded-xl flex items-center justify-center text-white border border-slate-200 shadow-sm">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <div className="border-b border-slate-100/80 px-4 py-4">
+        <div className="rounded-2xl border border-white/70 bg-white/60 p-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-900 text-white shadow-sm">
+              <UserAvatarIcon size={20} />
             </div>
-            <div>
-              <span className="block text-sm font-bold text-slate-800 leading-none mb-1">Admin Panel</span>
-              <span className="block text-[10px] font-medium text-slate-500 uppercase tracking-widest">Workspace</span>
+            <div className="min-w-0">
+              <span className="block truncate text-sm font-black leading-none text-slate-800">
+                {user?.name || 'Admin'}
+              </span>
+              <span className="mt-1 block truncate text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                管理工作台
+              </span>
             </div>
-         </div>
+          </div>
+        </div>
       </div>
       
-      <nav className="flex-1 px-4 py-6 space-y-2">
+      <nav className="flex-1 space-y-2 px-4 py-5">
         {[
           { id: 'dashboard', icon: BarChart3, label: '系统仪表盘' },
           { id: 'history', icon: MessageSquare, label: '对话历史' },
@@ -47,11 +61,12 @@ export const AdminSidebar = ({ activeTab, setActiveTab }: AdminSidebarProps) => 
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${
-              activeTab === item.id 
-                ? 'bg-zinc-100 text-zinc-900 shadow-sm border border-zinc-200' 
-                : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-900'
-            }`}
+            className={cn(
+              'flex w-full items-center gap-3 rounded-xl px-4 py-3 font-bold transition-all',
+              activeTab === item.id
+                ? 'border border-white/70 bg-white/75 text-zinc-900 shadow-[0_2px_12px_rgba(15,23,42,0.05)]'
+                : 'text-slate-600 hover:bg-white/45 hover:text-slate-900',
+            )}
           >
             <item.icon size={20} className={activeTab === item.id ? "text-zinc-800" : "text-slate-400"} />
             {item.label}
@@ -60,22 +75,22 @@ export const AdminSidebar = ({ activeTab, setActiveTab }: AdminSidebarProps) => 
         ))}
       </nav>
 
-      <div className="p-4 border-t border-slate-100 space-y-2">
+      <div className="space-y-2 border-t border-slate-100/80 p-4">
         <button 
           onClick={() => navigate('/chat')}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-100 hover:text-zinc-900 transition-colors text-slate-600 font-medium"
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-600 transition-colors hover:bg-white/60 hover:text-zinc-900"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           回到对话
         </button>
         <button 
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-rose-50 hover:text-rose-600 transition-colors text-slate-500 font-medium"
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 font-bold text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
         >
           <LogOut size={20} />
           退出登录
         </button>
       </div>
-    </div>
+    </motion.aside>
   );
 };

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -29,6 +29,7 @@ class AgentSessionModel(Base):
     __tablename__ = "agent_sessions"
 
     session_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     system_prompt: Mapped[str] = mapped_column(Text)
     max_steps: Mapped[int] = mapped_column(Integer, default=10)
     parallel_tool_calls: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -39,6 +40,24 @@ class AgentSessionModel(Base):
     last_llm_calls: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
+class AgentUsageEventModel(Base):
+    __tablename__ = "agent_usage_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    session_id: Mapped[str] = mapped_column(String(128), index=True)
+    model_name: Mapped[str] = mapped_column(String(128), index=True)
+    response_mode: Mapped[str] = mapped_column(String(32), default="general", index=True)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    total_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    llm_calls: Mapped[int] = mapped_column(Integer, default=0)
+    tool_calls: Mapped[int] = mapped_column(Integer, default=0)
+    tool_names_json: Mapped[str] = mapped_column(Text, default="[]")
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
 
 
 class AgentMessageModel(Base):

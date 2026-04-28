@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -33,6 +33,18 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expi
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    _ensure_compatible_schema()
+
+
+def _ensure_compatible_schema() -> None:
+    inspector = inspect(engine)
+    if "agent_sessions" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("agent_sessions")}
+    if "user_id" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE agent_sessions ADD COLUMN user_id INTEGER"))
 
 
 def create_db_session() -> Session:

@@ -4,6 +4,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
+from app.api.deps import get_current_user
+from app.db.models import UserModel
 from app.schemas.agent import AgentStreamRequest, ApprovalDecisionRequest
 from app.services.agent_service import AgentService, get_agent_service
 
@@ -17,16 +19,20 @@ def _format_sse(event: str, data: dict[str, Any]) -> str:
 @router.post("/stream", summary="以流式方式返回 Wuwei 智能体响应")
 async def stream_agent(
     request: AgentStreamRequest,
+    current_user: UserModel = Depends(get_current_user),
     agent_service: AgentService = Depends(get_agent_service),
 ) -> StreamingResponse:
     try:
         agent_service.ensure_ready()
+        await agent_service.ensure_session_access(request, current_user)
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     async def event_stream():
         try:
-            async for event in agent_service.stream_chat(request):
+            async for event in agent_service.stream_chat(request, current_user):
                 yield _format_sse(event["event"], event["data"])
         except Exception as exc:
             yield _format_sse("error", {"message": str(exc)})
@@ -62,8 +68,13 @@ async def decide_approval(
 @router.get("/sessions/{session_id}", summary="获取智能体会话运行状态")
 async def get_session_state(
     session_id: str,
+    current_user: UserModel = Depends(get_current_user),
     agent_service: AgentService = Depends(get_agent_service),
 ) -> dict[str, Any]:
+    try:
+        await agent_service.ensure_session_access(AgentStreamRequest(message="status", session_id=session_id), current_user)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     return await agent_service.get_session_state(session_id)
 
 
