@@ -18,6 +18,7 @@ from app.db.models import (
     UserModel,
 )
 from app.db.session import create_db_session
+from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_SYSTEM_PROMPT
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
 from app.services.skill_service import RuntimeSkill
 from app.services.tool_config_service import AGENT_MODES, DEFAULT_MODE_TOOLS, TOOL_CATALOG
@@ -27,7 +28,7 @@ BUILTIN_AGENT_PROFILES = {
     "general": {
         "name": "通用助手",
         "description": "适合日常问答、资料整理、轻量工具调用和多轮协作。",
-        "system_prompt": "你是 AgenticOS 的通用智能助手，请优先给出准确、清晰、可执行的回答。",
+        "system_prompt": GENERAL_SYSTEM_PROMPT,
         "response_mode": "general",
         "avatar": "sparkles",
         "listed": True,
@@ -35,7 +36,7 @@ BUILTIN_AGENT_PROFILES = {
     "ppt": {
         "name": "PPT 设计师",
         "description": "将想法整理为结构化演示文稿，自动生成可预览的 PPT 内容。",
-        "system_prompt": "你是 AgenticOS 的演示文稿设计助手，请生成结构完整、层次清晰、适合展示的内容。",
+        "system_prompt": PPT_SYSTEM_PROMPT,
         "response_mode": "ppt",
         "avatar": "presentation",
         "listed": True,
@@ -43,7 +44,7 @@ BUILTIN_AGENT_PROFILES = {
     "website": {
         "name": "网站工程师",
         "description": "用于页面方案、前端代码、交互原型和网站结构设计。",
-        "system_prompt": "你是 AgenticOS 的网站与前端助手，请优先提供页面结构、交互说明和可运行代码。",
+        "system_prompt": WEBSITE_SYSTEM_PROMPT,
         "response_mode": "website",
         "avatar": "globe",
         "listed": True,
@@ -96,13 +97,36 @@ class AgentProfileService:
                 changed = True
             else:
                 profile.is_builtin = True
+                if slug == "website":
+                    current_prompt = profile.system_prompt or ""
+                    if "data/websites/<project_slug>/" not in current_prompt:
+                        profile.system_prompt = WEBSITE_SYSTEM_PROMPT
+                        changed = True
 
             changed = self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS[slug]) or changed
+            if slug == "website":
+                changed = self._upgrade_website_profile_tools(db, profile) or changed
         for profile in db.scalars(select(AgentProfileModel)).all():
             if profile.slug not in BUILTIN_AGENT_PROFILES:
                 changed = self._ensure_profile_tools(db, profile) or changed
         if changed:
             db.commit()
+
+    @staticmethod
+    def _upgrade_website_profile_tools(db: Session, profile: AgentProfileModel) -> bool:
+        npm_tool = db.scalar(
+            select(AgentProfileToolModel).where(
+                AgentProfileToolModel.profile_id == profile.id,
+                AgentProfileToolModel.tool_name == "npm",
+            )
+        )
+        if npm_tool is None:
+            return False
+        if npm_tool.enabled is False and npm_tool.requires_approval is True:
+            npm_tool.enabled = True
+            db.add(npm_tool)
+            return True
+        return False
 
     def _ensure_profile_tools(
         self,

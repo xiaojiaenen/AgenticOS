@@ -1,0 +1,16 @@
+{
+  "job_name": "",
+  "folder_id": 0,
+  "dialect": "FlinkSQL",
+  "type": "SQL",
+  "cluster_id": 0,
+  "environment_id": 0,
+  "database": "",
+  "sql": "",
+  "config": {
+    "parallelism": 2,
+    "checkpoint_ms": 300000,
+    "savepoint_strategy": "latest"
+  },
+  "target_env": "test"
+}

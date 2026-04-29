@@ -101,7 +101,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "file": {"enabled": True, "requires_approval": True},
         "python": {"enabled": False, "requires_approval": True},
         "git": {"enabled": False, "requires_approval": True},
-        "npm": {"enabled": False, "requires_approval": True},
+        "npm": {"enabled": True, "requires_approval": True},
         "skill": {"enabled": False, "requires_approval": True},
     },
 }
@@ -138,8 +138,25 @@ class ToolConfigService:
                     )
                 )
                 changed = True
+        changed = self._upgrade_website_npm_default(db) or changed
         if changed:
             db.commit()
+
+    @staticmethod
+    def _upgrade_website_npm_default(db: Session) -> bool:
+        row = db.scalar(
+            select(AgentToolConfigModel).where(
+                AgentToolConfigModel.mode == "website",
+                AgentToolConfigModel.tool_name == "npm",
+            )
+        )
+        if row is None:
+            return False
+        if row.enabled is False and row.requires_approval is True:
+            row.enabled = True
+            db.add(row)
+            return True
+        return False
 
     def list_configs(self) -> dict[str, object]:
         with self.session_factory() as db:

@@ -1,0 +1,18 @@
+{
+  "workflow_name": "",
+  "tenant": "",
+  "target_env": "test",
+  "schedule": {
+    "cron": "",
+    "timezone": "Asia/Shanghai",
+    "retries": 1
+  },
+  "tasks": [
+    {
+      "name": "extract_step",
+      "type": "SHELL",
+      "depends_on": [],
+      "params": {}
+    }
+  ]
+}
