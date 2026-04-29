@@ -27,6 +27,7 @@ import {
   listConversations,
 } from '../../services/conversationService';
 import { cn } from '../../lib/utils';
+import { useAdminModalBackdrop } from './useAdminModalBackdrop';
 
 const ITEMS_PER_PAGE = 12;
 const DETAIL_MESSAGES_PAGE_SIZE = 20;
@@ -175,6 +176,7 @@ export const ChatHistory = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailMessagesLoading, setDetailMessagesLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  useAdminModalBackdrop(Boolean(detailSessionId));
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / ITEMS_PER_PAGE)), [total]);
   const pageTotals = useMemo(

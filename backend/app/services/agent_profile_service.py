@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -186,6 +187,96 @@ class AgentProfileService:
             "updated_at": profile.updated_at,
         }
 
+    def _serialize_prefetched(
+        self,
+        profile: AgentProfileModel,
+        *,
+        tools: list[AgentProfileToolModel],
+        skills: list[SkillModel],
+        installed: bool,
+    ) -> dict[str, object]:
+        return {
+            "id": profile.id,
+            "name": profile.name,
+            "slug": profile.slug,
+            "description": profile.description,
+            "system_prompt": profile.system_prompt,
+            "response_mode": profile.response_mode,
+            "avatar": profile.avatar,
+            "enabled": profile.enabled,
+            "listed": profile.listed,
+            "is_builtin": profile.is_builtin,
+            "installed": installed,
+            "tools": [
+                {
+                    "tool_name": tool.tool_name,
+                    "enabled": tool.enabled,
+                    "requires_approval": tool.requires_approval,
+                }
+                for tool in tools
+                if tool.tool_name in TOOL_CATALOG
+            ],
+            "skills": [self._serialize_skill_reference(skill) for skill in skills],
+            "created_at": profile.created_at,
+            "updated_at": profile.updated_at,
+        }
+
+    def _serialize_profiles(
+        self,
+        db: Session,
+        profiles: list[AgentProfileModel],
+        *,
+        user_id: int | None = None,
+    ) -> list[dict[str, object]]:
+        if not profiles:
+            return []
+
+        changed = False
+        for profile in profiles:
+            changed = self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode)) or changed
+        if changed:
+            db.commit()
+
+        profile_ids = [profile.id for profile in profiles]
+        tools_by_profile: dict[int, list[AgentProfileToolModel]] = defaultdict(list)
+        for row in db.scalars(
+            select(AgentProfileToolModel)
+            .where(AgentProfileToolModel.profile_id.in_(profile_ids))
+            .order_by(AgentProfileToolModel.profile_id.asc(), AgentProfileToolModel.tool_name.asc())
+        ).all():
+            tools_by_profile[row.profile_id].append(row)
+
+        skills_by_profile: dict[int, list[SkillModel]] = defaultdict(list)
+        for profile_id, skill in db.execute(
+            select(AgentProfileSkillModel.profile_id, SkillModel)
+            .join(SkillModel, SkillModel.id == AgentProfileSkillModel.skill_id)
+            .where(AgentProfileSkillModel.profile_id.in_(profile_ids))
+            .order_by(AgentProfileSkillModel.profile_id.asc(), SkillModel.name.asc())
+        ).all():
+            skills_by_profile[int(profile_id)].append(skill)
+
+        installed_ids: set[int] = set()
+        if user_id is not None:
+            installed_ids = {
+                int(profile_id)
+                for profile_id in db.scalars(
+                    select(UserInstalledAgentModel.profile_id).where(
+                        UserInstalledAgentModel.user_id == user_id,
+                        UserInstalledAgentModel.profile_id.in_(profile_ids),
+                    )
+                ).all()
+            }
+
+        return [
+            self._serialize_prefetched(
+                profile,
+                tools=tools_by_profile.get(profile.id, []),
+                skills=skills_by_profile.get(profile.id, []),
+                installed=profile.is_builtin or profile.id in installed_ids if user_id is not None else profile.is_builtin,
+            )
+            for profile in profiles
+        ]
+
     def list_admin(self) -> dict[str, object]:
         with self.session_factory() as db:
             self.ensure_defaults(db)
@@ -193,7 +284,7 @@ class AgentProfileService:
             return {
                 "catalog": self._catalog(),
                 "available_skills": self._list_available_skills(db, include_disabled=True),
-                "items": [self._serialize(db, profile) for profile in profiles],
+                "items": self._serialize_profiles(db, profiles),
             }
 
     def list_store(self, user: UserModel) -> dict[str, object]:
@@ -207,7 +298,7 @@ class AgentProfileService:
             return {
                 "catalog": self._catalog(),
                 "available_skills": self._list_available_skills(db, include_disabled=False),
-                "items": [self._serialize(db, profile, user_id=user.id) for profile in profiles],
+                "items": self._serialize_profiles(db, profiles, user_id=user.id),
             }
 
     def list_user_agents(self, user: UserModel) -> dict[str, object]:
@@ -230,7 +321,7 @@ class AgentProfileService:
             return {
                 "catalog": self._catalog(),
                 "available_skills": self._list_available_skills(db, include_disabled=False),
-                "items": [self._serialize(db, profile, user_id=user.id) for profile in profiles],
+                "items": self._serialize_profiles(db, profiles, user_id=user.id),
             }
 
     def _unique_slug(self, db: Session, base: str, *, ignore_id: int | None = None) -> str:

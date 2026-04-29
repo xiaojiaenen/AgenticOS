@@ -1,9 +1,9 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig, loadEnv} from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
-export default defineConfig(({mode}) => {
+export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8001';
 
@@ -16,15 +16,34 @@ export default defineConfig(({mode}) => {
     },
     server: {
       port: 3001,
-      // 默认把 /api 代理到本地后端，方便前后端联调。
       proxy: {
         '/api': {
           target: apiProxyTarget,
           changeOrigin: true,
         },
       },
-      // 某些自动化编辑场景会关闭 HMR，避免频繁闪烁。
       hmr: process.env.DISABLE_HMR !== 'true',
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-core': ['react', 'react-dom', 'react-router-dom'],
+            'motion-vendor': ['motion'],
+            'markdown-vendor': [
+              'react-markdown',
+              'remark-gfm',
+              'remark-math',
+              'rehype-katex',
+              'katex',
+              'mermaid',
+              'react-syntax-highlighter',
+            ],
+            'admin-vendor': ['recharts', 'lucide-react'],
+            'ppt-vendor': ['html-to-pptx'],
+          },
+        },
+      },
     },
   };
 });

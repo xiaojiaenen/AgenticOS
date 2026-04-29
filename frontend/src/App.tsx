@@ -1,30 +1,30 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { Home } from './pages/Home';
-import { Chat } from './pages/Chat';
-import { AgentStore } from './pages/AgentStore';
-import { Login } from './pages/Login';
-import { Signup } from './pages/Signup';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
-// Only keep rarely used, heavy admin dashboard as lazy
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const Home = lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
+const Chat = lazy(() => import('./pages/Chat').then((module) => ({ default: module.Chat })));
+const AgentStore = lazy(() => import('./pages/AgentStore').then((module) => ({ default: module.AgentStore })));
+const Login = lazy(() => import('./pages/Login').then((module) => ({ default: module.Login })));
+const Signup = lazy(() => import('./pages/Signup').then((module) => ({ default: module.Signup })));
+const AdminDashboard = lazy(() =>
+  import('./pages/AdminDashboard').then((module) => ({ default: module.AdminDashboard })),
+);
 
 const LoadingPage = () => (
-  <div className="h-screen w-full flex items-center justify-center bg-zinc-50">
-    <motion.div 
+  <div className="flex h-screen w-full items-center justify-center bg-zinc-50">
+    <motion.div
       animate={{ rotate: 360 }}
-      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-      className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full"
+      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+      className="h-8 w-8 rounded-full border-4 border-sky-500 border-t-transparent"
     />
   </div>
 );
 
-// Wrapper to handle AnimatePresence for route transitions
 const AnimatedRoutes = () => {
   const location = useLocation();
-  
+
   return (
     <Suspense fallback={<LoadingPage />}>
       <AnimatePresence mode="wait">

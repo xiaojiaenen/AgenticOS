@@ -10,6 +10,28 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, ''
 const AUTH_ENDPOINT = `${API_BASE_URL}/api/v1/auth`;
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
+const ROLE_KEY = 'role';
+
+function readStorageValue(key: string): string | null {
+  const sessionValue = sessionStorage.getItem(key);
+  if (sessionValue) return sessionValue;
+
+  const legacyValue = localStorage.getItem(key);
+  if (!legacyValue) return null;
+  sessionStorage.setItem(key, legacyValue);
+  localStorage.removeItem(key);
+  return legacyValue;
+}
+
+function writeStorageValue(key: string, value: string): void {
+  sessionStorage.setItem(key, value);
+  localStorage.removeItem(key);
+}
+
+function removeStorageValue(key: string): void {
+  sessionStorage.removeItem(key);
+  localStorage.removeItem(key);
+}
 
 function readJson<T>(value: string | null): T | null {
   if (!value) return null;
@@ -36,11 +58,11 @@ async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 export function getAuthToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  return readStorageValue(TOKEN_KEY);
 }
 
 export function getStoredUser(): AuthUser | null {
-  return readJson<AuthUser>(localStorage.getItem(USER_KEY));
+  return readJson<AuthUser>(readStorageValue(USER_KEY));
 }
 
 export function isAuthenticated(): boolean {
@@ -57,15 +79,15 @@ export function authHeaders(): Record<string, string> {
 }
 
 export function setAuthSession(response: AuthResponse): void {
-  localStorage.setItem(TOKEN_KEY, response.access_token);
-  localStorage.setItem(USER_KEY, JSON.stringify(response.user));
-  localStorage.setItem('role', response.user.role);
+  writeStorageValue(TOKEN_KEY, response.access_token);
+  writeStorageValue(USER_KEY, JSON.stringify(response.user));
+  writeStorageValue(ROLE_KEY, response.user.role);
 }
 
 export function clearAuthSession(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-  localStorage.removeItem('role');
+  removeStorageValue(TOKEN_KEY);
+  removeStorageValue(USER_KEY);
+  removeStorageValue(ROLE_KEY);
 }
 
 export async function login(email: string, password: string): Promise<AuthUser> {
@@ -95,8 +117,8 @@ export async function fetchCurrentUser(): Promise<AuthUser> {
     headers: authHeaders(),
   });
   const user = await parseResponse<AuthUser>(response);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
-  localStorage.setItem('role', user.role);
+  writeStorageValue(USER_KEY, JSON.stringify(user));
+  writeStorageValue(ROLE_KEY, user.role);
   return user;
 }
 

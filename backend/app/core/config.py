@@ -31,7 +31,10 @@ class Settings(BaseSettings):
     hitl_require_approval_tools: str = "file_to_md,run_skill_python_script"
     hitl_timeout_seconds: int = 300
     auth_secret_key: str = Field(default="agenticos-dev-secret-change-me", validation_alias="AUTH_SECRET_KEY")
-    auth_token_expire_minutes: int = Field(default=60 * 24 * 7, validation_alias="AUTH_TOKEN_EXPIRE_MINUTES")
+    auth_token_expire_minutes: int = Field(default=60 * 24, validation_alias="AUTH_TOKEN_EXPIRE_MINUTES")
+    auth_rate_limit_max_attempts: int = Field(default=5, validation_alias="AUTH_RATE_LIMIT_MAX_ATTEMPTS")
+    auth_rate_limit_window_seconds: int = Field(default=600, validation_alias="AUTH_RATE_LIMIT_WINDOW_SECONDS")
+    auth_rate_limit_block_seconds: int = Field(default=900, validation_alias="AUTH_RATE_LIMIT_BLOCK_SECONDS")
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { Pagination } from './Pagination';
+import { useAdminModalBackdrop } from './useAdminModalBackdrop';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { formatApiDate } from '../../lib/datetime';
@@ -68,6 +69,7 @@ export const UserManagement = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null);
   const [form, setForm] = useState<UserFormState>(emptyForm);
+  useAdminModalBackdrop(isFormOpen || Boolean(deletingUser));
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / ITEMS_PER_PAGE)), [total]);
   const activeUsers = useMemo(() => users.filter((user) => user.is_active).length, [users]);

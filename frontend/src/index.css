@@ -56,6 +56,36 @@ section::-webkit-scrollbar {
   isolation: isolate;
 }
 
+.admin-dashboard-shell > aside,
+.admin-dashboard-shell > main,
+.admin-dashboard-shell > button,
+.admin-dashboard-backdrop {
+  transition:
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: center center;
+}
+
+body.admin-modal-open .admin-dashboard-shell > aside,
+body.admin-modal-open .admin-dashboard-shell > main {
+  transform: scale(0.988);
+  filter: saturate(0.78) brightness(0.96) blur(1.5px);
+}
+
+body.admin-modal-open .admin-dashboard-shell > button {
+  transform: scale(0.96);
+  filter: saturate(0.75) brightness(0.95);
+  opacity: 0.74;
+}
+
+body.admin-modal-open .admin-dashboard-backdrop {
+  transform: scale(1.015);
+  filter: saturate(0.68) blur(4px);
+  opacity: 0.9;
+}
+
 .admin-dashboard-backdrop {
   position: fixed;
   inset: 0;
@@ -167,10 +197,69 @@ section::-webkit-scrollbar {
 
 .admin-modal-shell {
   @apply fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6;
+  position: fixed;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.08) 18%, rgba(255,255,255,0) 42%),
+    linear-gradient(180deg, rgba(236, 244, 249, 0.38) 0%, rgba(218, 230, 238, 0.52) 100%);
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+}
+
+.admin-modal-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(15,23,42,0.18) 0%, rgba(15,23,42,0.28) 100%),
+    radial-gradient(circle at 18% 16%, rgba(56,189,248,0.16), transparent 28%),
+    radial-gradient(circle at 84% 14%, rgba(244,114,182,0.12), transparent 26%),
+    radial-gradient(circle at 72% 78%, rgba(34,197,94,0.1), transparent 28%);
+  opacity: 0.96;
+  z-index: 0;
+}
+
+.admin-modal-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0.1) 24%, transparent 54%),
+    linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.08) 22%, transparent 46%, transparent 68%, rgba(255,255,255,0.06) 82%, transparent 100%);
+  opacity: 0.92;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.admin-modal-shell > * {
+  position: relative;
+  z-index: 1;
 }
 
 .admin-modal-panel {
   @apply border-white/80 bg-white/86 shadow-[0_30px_90px_rgba(15,23,42,0.16)] ring-1 ring-white/70 backdrop-blur-[30px];
+  position: relative;
+  box-shadow:
+    0 36px 110px rgba(15,23,42,0.22),
+    0 10px 28px rgba(255,255,255,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.85);
+}
+
+.admin-modal-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.5), transparent 24%, transparent 76%, rgba(255,255,255,0.18)),
+    radial-gradient(circle at top right, rgba(56,189,248,0.08), transparent 26%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.admin-modal-panel > * {
+  position: relative;
+  z-index: 1;
 }
 
 .admin-soft-divider {

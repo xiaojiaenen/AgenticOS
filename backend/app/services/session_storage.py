@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.timezone import isoformat_app_timezone
@@ -118,9 +118,9 @@ class DatabaseAgentStorage:
             if row is None:
                 return None
 
-            message_count = len(
-                db.scalars(select(AgentMessageModel.id).where(AgentMessageModel.session_id == session_id)).all()
-            )
+            message_count = db.scalar(
+                select(func.count(AgentMessageModel.id)).where(AgentMessageModel.session_id == session_id)
+            ) or 0
             return {
                 "session_id": row.session_id,
                 "user_id": row.user_id,

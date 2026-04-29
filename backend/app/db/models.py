@@ -48,6 +48,28 @@ class UserModel(Base):
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
 
+class AuthSessionModel(Base):
+    __tablename__ = "auth_sessions"
+
+    session_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    expires_at: Mapped[datetime] = mapped_column(AppDateTime(), index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    last_seen_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class AuthRateLimitModel(Base):
+    __tablename__ = "auth_rate_limits"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    scope: Mapped[str] = mapped_column(String(32), index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    window_started_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    blocked_until: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
 class AgentSessionModel(Base):
     __tablename__ = "agent_sessions"
 

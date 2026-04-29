@@ -59,15 +59,70 @@ const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website', string> = {
   website: '你是 AgenticOS 的网站与前端助手，请优先提供页面结构、交互说明和可运行代码。',
 };
 
+const CHAT_CACHE_KEY = 'chat_sessions';
+const MAX_PERSISTED_SESSIONS = 24;
+const MAX_PERSISTED_MESSAGES_PER_SESSION = 80;
+const MAX_PERSISTED_TEXT_LENGTH = 12_000;
+const MAX_PERSISTED_TOOL_RESULT_LENGTH = 4_000;
+
+function clampText(value: string | undefined, limit: number): string | undefined {
+  if (!value) return value;
+  return value.length > limit ? `${value.slice(0, limit)}...` : value;
+}
+
+function compactMessageForStorage(message: Message): Message {
+  return {
+    ...message,
+    text: clampText(message.text, MAX_PERSISTED_TEXT_LENGTH) || '',
+    reasoningText: clampText(message.reasoningText, MAX_PERSISTED_TEXT_LENGTH),
+    attachments: undefined,
+    toolCalls: message.toolCalls?.map((tool) => ({
+      ...tool,
+      result: clampText(tool.result, MAX_PERSISTED_TOOL_RESULT_LENGTH),
+    })),
+    pptArtifact: message.pptArtifact
+      ? {
+          status: message.pptArtifact.status,
+          artifactId: message.pptArtifact.artifactId,
+          title: message.pptArtifact.title,
+          slideCount: message.pptArtifact.slideCount,
+        }
+      : undefined,
+  };
+}
+
+function serializeSessionsForStorage(sessions: Session[]): Session[] {
+  return [...sessions]
+    .sort((left, right) => right.updatedAt - left.updatedAt)
+    .slice(0, MAX_PERSISTED_SESSIONS)
+    .map((session) => ({
+      ...session,
+      messages: session.messages
+        .slice(-MAX_PERSISTED_MESSAGES_PER_SESSION)
+        .map((message) => compactMessageForStorage(message)),
+    }));
+}
+
+function loadStoredSessions(): Session[] {
+  const saved = localStorage.getItem(CHAT_CACHE_KEY);
+  if (!saved) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed as Session[] : [];
+  } catch {
+    return [];
+  }
+}
+
 export const Chat = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const initialMessage = location.state?.initialMessage as string | undefined;
 
-  const [sessions, setSessions] = useState<Session[]>(() => {
-    const saved = localStorage.getItem('chat_sessions');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [sessions, setSessions] = useState<Session[]>(() => loadStoredSessions());
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [chatMode, setChatMode] = useState<'general' | 'ppt' | 'website'>((location.state as any)?.mode || 'general');
@@ -145,7 +200,7 @@ export const Chat = () => {
 
   // 将会话持久化到本地
   useEffect(() => {
-    localStorage.setItem('chat_sessions', JSON.stringify(sessions));
+    localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(serializeSessionsForStorage(sessions)));
   }, [sessions]);
 
   const scrollToBottom = React.useCallback((behavior: ScrollBehavior = 'smooth') => {

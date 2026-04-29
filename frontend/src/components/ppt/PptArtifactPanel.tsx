@@ -3,25 +3,38 @@ import { motion } from 'motion/react';
 import { Download, LayoutDashboard, RefreshCcw, X } from 'lucide-react';
 import { MotionValue } from 'motion/react';
 import { Artifact } from '../../types';
+import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
 
 const PPT_PAGE_CLASS = 'agenticos-ppt-page';
 
 type PptArtifactPanelProps = {
-  artifact: Extract<Artifact, {language: 'ppt'}>;
+  artifact: Extract<Artifact, { language: 'ppt' }>;
   onClose: () => void;
   borderColor: MotionValue<string>;
 };
 
 export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, onClose, borderColor }) => {
   const [isExporting, setIsExporting] = React.useState(false);
+  const iframeRef = React.useRef<HTMLIFrameElement | null>(null);
+  const previewSrcDoc = React.useMemo(() => buildSandboxedHtmlDocument(artifact.html), [artifact.html]);
 
   const handleExport = async () => {
     setIsExporting(true);
+    let tempContainer: HTMLDivElement | null = null;
     try {
       await document.fonts?.ready;
+      const previewBody = iframeRef.current?.contentDocument?.body;
+      tempContainer = document.createElement('div');
+      tempContainer.style.position = 'fixed';
+      tempContainer.style.left = '-99999px';
+      tempContainer.style.top = '0';
+      tempContainer.style.width = '1600px';
+      tempContainer.innerHTML = previewBody?.innerHTML || artifact.html;
+      document.body.appendChild(tempContainer);
       const { downloadHtmlToPpt } = await import('html-to-pptx');
       await downloadHtmlToPpt(PPT_PAGE_CLASS, artifact.title || 'AgenticOS-PPT');
     } finally {
+      tempContainer?.remove();
       setIsExporting(false);
     }
   };
@@ -52,6 +65,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
         </div>
         <div className="flex items-center gap-1">
           <button
+            type="button"
             onClick={handleExport}
             disabled={isExporting}
             className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-zinc-800 disabled:opacity-60"
@@ -61,7 +75,11 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             导出
           </button>
           <div className="mx-2 h-4 w-px bg-slate-200" />
-          <button onClick={onClose} className="rounded-xl p-2 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-500">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl p-2 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-500"
+          >
             <X size={18} />
           </button>
         </div>
@@ -71,8 +89,17 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          dangerouslySetInnerHTML={{ __html: artifact.html }}
-        />
+          className="min-h-full overflow-hidden rounded-[28px] border border-slate-200/70 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.08)]"
+        >
+          <iframe
+            ref={iframeRef}
+            srcDoc={previewSrcDoc}
+            title={artifact.title}
+            className="min-h-[calc(100vh-10rem)] w-full border-0"
+            sandbox="allow-same-origin"
+            referrerPolicy="no-referrer"
+          />
+        </motion.div>
       </div>
     </motion.aside>
   );

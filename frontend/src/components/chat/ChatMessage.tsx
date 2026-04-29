@@ -121,7 +121,7 @@ const ToolResultPreview = ({
 
 const MermaidChart = React.memo(({ chart }: { chart: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [svg, setSvg] = useState<string>('');
+  const [svgUrl, setSvgUrl] = useState<string>('');
   const [isRendering, setIsRendering] = useState(false);
   const [height, setHeight] = useState<number | 'auto'>('auto');
 
@@ -130,30 +130,53 @@ const MermaidChart = React.memo(({ chart }: { chart: string }) => {
       startOnLoad: true,
       theme: 'neutral',
       fontFamily: 'Inter',
-      securityLevel: 'loose',
+      securityLevel: 'strict',
     });
 
+    let cancelled = false;
+    let nextUrl = '';
     const renderChart = async () => {
-      if (containerRef.current) {
-        setIsRendering(true);
-        try {
+      if (!containerRef.current) {
+        return;
+      }
+      setIsRendering(true);
+      try {
           // 重绘时先锁定当前高度，避免闪动
           if (containerRef.current.offsetHeight > 50) {
             setHeight(containerRef.current.offsetHeight);
           }
 
-          const { svg } = await mermaid.render(`mermaid-${Math.random().toString(36).substr(2, 9)}`, chart);
-          setSvg(svg);
+          const { svg } = await mermaid.render(`mermaid-${Math.random().toString(36).slice(2, 11)}`, chart);
+          if (cancelled) {
+            return;
+          }
+          nextUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+          setSvgUrl((current) => {
+            if (current) {
+              URL.revokeObjectURL(current);
+            }
+            return nextUrl;
+          });
         } catch (e) {
           console.error('Mermaid render error:', e);
         } finally {
-          setIsRendering(false);
+          if (!cancelled) {
+            setIsRendering(false);
           // 稍微延迟一下再恢复自适应高度
-          setTimeout(() => setHeight('auto'), 100);
+            setTimeout(() => setHeight('auto'), 100);
+          }
         }
-      }
     };
     renderChart();
+    return () => {
+      cancelled = true;
+      setSvgUrl((current) => {
+        if (current) {
+          URL.revokeObjectURL(current);
+        }
+        return '';
+      });
+    };
   }, [chart]);
 
   return (
@@ -164,8 +187,9 @@ const MermaidChart = React.memo(({ chart }: { chart: string }) => {
         "bg-slate-50/30 p-6 rounded-2xl border border-slate-200/50 my-2 flex justify-center overflow-x-auto transition-opacity duration-300",
         isRendering ? "opacity-50" : "opacity-100"
       )}
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+    >
+      {svgUrl ? <img src={svgUrl} alt="Mermaid chart" className="max-w-full" /> : null}
+    </div>
   );
 });
 

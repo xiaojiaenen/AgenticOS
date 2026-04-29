@@ -26,6 +26,7 @@ import {
   updateAgentProfile,
 } from '../../services/agentProfileService';
 import { AgentMode, ToolCatalogItem } from '../../services/toolConfigService';
+import { useAdminModalBackdrop } from './useAdminModalBackdrop';
 
 type Draft = AgentProfilePayload & { id?: number; is_builtin?: boolean };
 
@@ -110,6 +111,7 @@ export const AgentManagement = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  useAdminModalBackdrop(isModalOpen);
 
   const catalogByName = useMemo(() => new Map(catalog.map((item) => [item.name, item])), [catalog]);
   const enabledAgents = profiles.filter((profile) => profile.enabled).length;

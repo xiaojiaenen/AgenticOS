@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, exists, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
-from app.core.timezone import app_today, to_app_timezone
+from app.core.timezone import APP_TIMEZONE, app_today, to_app_timezone
 from app.db.models import AgentMessageModel, AgentSessionModel, AgentUsageEventModel, ApprovalModel, PptArtifactModel, UserModel
 from app.schemas.admin_stats import (
     DashboardDistributionItem,
@@ -42,68 +42,125 @@ def get_dashboard_stats(
     db: Session = Depends(get_db),
 ) -> DashboardStatsResponse:
     users = db.scalars(select(UserModel).order_by(UserModel.created_at.asc())).all()
-    sessions = db.scalars(select(AgentSessionModel)).all()
-    events = db.scalars(select(AgentUsageEventModel).order_by(AgentUsageEventModel.created_at.asc())).all()
+    session_count_by_user = {
+        int(user_id): int(count)
+        for user_id, count in db.execute(
+            select(AgentSessionModel.user_id, func.count(AgentSessionModel.session_id))
+            .where(AgentSessionModel.user_id.is_not(None))
+            .group_by(AgentSessionModel.user_id)
+        ).all()
+        if user_id is not None
+    }
 
-    session_count_by_user: dict[int, int] = defaultdict(int)
-    for session in sessions:
-        if session.user_id is not None:
-            session_count_by_user[session.user_id] += 1
-
-    usage_by_user: dict[int, dict[str, int]] = defaultdict(lambda: {
-        "runs": 0,
-        "total_tokens": 0,
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "llm_calls": 0,
-        "tool_calls": 0,
-        "latency_ms": 0,
-    })
-    model_counter: Counter[str] = Counter()
-    tool_counter: Counter[str] = Counter()
+    usage_by_user: dict[int, dict[str, int]] = {}
+    for row in db.execute(
+        select(
+            AgentUsageEventModel.user_id,
+            func.count(AgentUsageEventModel.id).label("runs"),
+            func.coalesce(func.sum(AgentUsageEventModel.total_tokens), 0).label("total_tokens"),
+            func.coalesce(func.sum(AgentUsageEventModel.input_tokens), 0).label("input_tokens"),
+            func.coalesce(func.sum(AgentUsageEventModel.output_tokens), 0).label("output_tokens"),
+            func.coalesce(func.sum(AgentUsageEventModel.llm_calls), 0).label("llm_calls"),
+            func.coalesce(func.sum(AgentUsageEventModel.tool_calls), 0).label("tool_calls"),
+            func.coalesce(func.sum(AgentUsageEventModel.latency_ms), 0).label("latency_ms"),
+        )
+        .where(AgentUsageEventModel.user_id.is_not(None))
+        .group_by(AgentUsageEventModel.user_id)
+    ).all():
+        if row.user_id is None:
+            continue
+        usage_by_user[int(row.user_id)] = {
+            "runs": int(row.runs or 0),
+            "total_tokens": int(row.total_tokens or 0),
+            "input_tokens": int(row.input_tokens or 0),
+            "output_tokens": int(row.output_tokens or 0),
+            "llm_calls": int(row.llm_calls or 0),
+            "tool_calls": int(row.tool_calls or 0),
+            "latency_ms": int(row.latency_ms or 0),
+        }
 
     start_day = app_today() - timedelta(days=13)
+    start_boundary = datetime.combine(start_day, time.min, tzinfo=APP_TIMEZONE)
     trend_map: dict[str, dict[str, int]] = {
         (start_day + timedelta(days=index)).isoformat(): {"runs": 0, "tokens": 0, "tool_calls": 0}
         for index in range(14)
     }
 
-    for event in events:
-        if event.user_id is not None:
-            item = usage_by_user[event.user_id]
-            item["runs"] += 1
-            item["total_tokens"] += event.total_tokens
-            item["input_tokens"] += event.input_tokens
-            item["output_tokens"] += event.output_tokens
-            item["llm_calls"] += event.llm_calls
-            item["tool_calls"] += event.tool_calls
-            item["latency_ms"] += event.latency_ms
-
-        if event.model_name:
-            model_counter[event.model_name] += 1
-
-        for tool_name in load_json(event.tool_names_json, []):
-            if isinstance(tool_name, str) and tool_name:
-                tool_counter[tool_name] += 1
-
-        key = _day_key(event.created_at)
+    for row in db.execute(
+        select(
+            AgentUsageEventModel.created_at,
+            AgentUsageEventModel.total_tokens,
+            AgentUsageEventModel.tool_calls,
+        )
+        .where(AgentUsageEventModel.created_at >= start_boundary)
+        .order_by(AgentUsageEventModel.created_at.asc())
+    ).all():
+        key = _day_key(row.created_at)
         if key in trend_map:
             trend_map[key]["runs"] += 1
-            trend_map[key]["tokens"] += event.total_tokens
-            trend_map[key]["tool_calls"] += event.tool_calls
+            trend_map[key]["tokens"] += int(row.total_tokens or 0)
+            trend_map[key]["tool_calls"] += int(row.tool_calls or 0)
 
-    total_runs = len(events)
-    total_latency = sum(event.latency_ms for event in events)
+    summary_row = db.execute(
+        select(
+            func.count(AgentUsageEventModel.id).label("total_runs"),
+            func.coalesce(func.sum(AgentUsageEventModel.total_tokens), 0).label("total_tokens"),
+            func.coalesce(func.sum(AgentUsageEventModel.input_tokens), 0).label("input_tokens"),
+            func.coalesce(func.sum(AgentUsageEventModel.output_tokens), 0).label("output_tokens"),
+            func.coalesce(func.sum(AgentUsageEventModel.llm_calls), 0).label("llm_calls"),
+            func.coalesce(func.sum(AgentUsageEventModel.tool_calls), 0).label("tool_calls"),
+            func.coalesce(func.sum(AgentUsageEventModel.latency_ms), 0).label("latency_ms"),
+        )
+    ).one()
+    total_runs = int(summary_row.total_runs or 0)
+    total_latency = int(summary_row.latency_ms or 0)
+
+    model_distribution_rows = db.execute(
+        select(
+            AgentUsageEventModel.model_name.label("name"),
+            func.count(AgentUsageEventModel.id).label("value"),
+        )
+        .where(AgentUsageEventModel.model_name.is_not(None))
+        .group_by(AgentUsageEventModel.model_name)
+        .order_by(func.count(AgentUsageEventModel.id).desc(), AgentUsageEventModel.model_name.asc())
+        .limit(8)
+    ).all()
+
+    tool_distribution_rows: list[tuple[str, int]] = []
+    if db.bind is not None and db.bind.dialect.name == "sqlite":
+        tool_distribution_rows = [
+            (str(row.name), int(row.value))
+            for row in db.execute(
+                text(
+                    """
+                    SELECT json_each.value AS name, COUNT(*) AS value
+                    FROM agent_usage_events, json_each(agent_usage_events.tool_names_json)
+                    WHERE json_each.value IS NOT NULL AND TRIM(json_each.value) <> ''
+                    GROUP BY json_each.value
+                    ORDER BY COUNT(*) DESC, json_each.value ASC
+                    LIMIT 8
+                    """
+                )
+            ).all()
+        ]
+    else:
+        tool_counter: Counter[str] = Counter()
+        for raw_tool_names in db.scalars(select(AgentUsageEventModel.tool_names_json)).all():
+            for tool_name in load_json(raw_tool_names, []):
+                if isinstance(tool_name, str) and tool_name:
+                    tool_counter[tool_name] += 1
+        tool_distribution_rows = tool_counter.most_common(8)
+
     summary = DashboardSummary(
         total_users=len(users),
         active_users=sum(1 for user in users if user.is_active),
-        total_sessions=len(sessions),
+        total_sessions=db.scalar(select(func.count(AgentSessionModel.session_id))) or 0,
         total_runs=total_runs,
-        total_tokens=sum(event.total_tokens for event in events),
-        input_tokens=sum(event.input_tokens for event in events),
-        output_tokens=sum(event.output_tokens for event in events),
-        llm_calls=sum(event.llm_calls for event in events),
-        tool_calls=sum(event.tool_calls for event in events),
+        total_tokens=int(summary_row.total_tokens or 0),
+        input_tokens=int(summary_row.input_tokens or 0),
+        output_tokens=int(summary_row.output_tokens or 0),
+        llm_calls=int(summary_row.llm_calls or 0),
+        tool_calls=int(summary_row.tool_calls or 0),
         avg_latency_ms=round(total_latency / total_runs) if total_runs else 0,
     )
 
@@ -114,15 +171,15 @@ def get_dashboard_stats(
             email=user.email,
             role=user.role,
             is_active=user.is_active,
-            sessions=session_count_by_user[user.id],
-            runs=usage_by_user[user.id]["runs"],
-            total_tokens=usage_by_user[user.id]["total_tokens"],
-            input_tokens=usage_by_user[user.id]["input_tokens"],
-            output_tokens=usage_by_user[user.id]["output_tokens"],
-            llm_calls=usage_by_user[user.id]["llm_calls"],
-            tool_calls=usage_by_user[user.id]["tool_calls"],
-            avg_latency_ms=round(usage_by_user[user.id]["latency_ms"] / usage_by_user[user.id]["runs"])
-            if usage_by_user[user.id]["runs"]
+            sessions=session_count_by_user.get(user.id, 0),
+            runs=usage_by_user.get(user.id, {}).get("runs", 0),
+            total_tokens=usage_by_user.get(user.id, {}).get("total_tokens", 0),
+            input_tokens=usage_by_user.get(user.id, {}).get("input_tokens", 0),
+            output_tokens=usage_by_user.get(user.id, {}).get("output_tokens", 0),
+            llm_calls=usage_by_user.get(user.id, {}).get("llm_calls", 0),
+            tool_calls=usage_by_user.get(user.id, {}).get("tool_calls", 0),
+            avg_latency_ms=round(usage_by_user.get(user.id, {}).get("latency_ms", 0) / usage_by_user.get(user.id, {}).get("runs", 0))
+            if usage_by_user.get(user.id, {}).get("runs", 0)
             else 0,
         )
         for user in users
@@ -141,12 +198,12 @@ def get_dashboard_stats(
             for date, values in trend_map.items()
         ],
         model_distribution=[
-            DashboardDistributionItem(name=name, value=value)
-            for name, value in model_counter.most_common(8)
+            DashboardDistributionItem(name=str(row.name), value=int(row.value))
+            for row in model_distribution_rows
         ],
         tool_distribution=[
             DashboardDistributionItem(name=name, value=value)
-            for name, value in tool_counter.most_common(8)
+            for name, value in tool_distribution_rows
         ],
         user_usage=user_usage,
     )
@@ -266,89 +323,157 @@ def list_conversations(
     _: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> ConversationListResponse:
-    sessions = db.scalars(select(AgentSessionModel).order_by(AgentSessionModel.updated_at.desc())).all()
-    user_ids = {session.user_id for session in sessions if session.user_id is not None}
-    users_by_id = {
-        user.id: user
-        for user in db.scalars(select(UserModel).where(UserModel.id.in_(user_ids))).all()
-    } if user_ids else {}
-
-    messages_by_session: dict[str, list[AgentMessageModel]] = defaultdict(list)
-    for message in db.scalars(
-        select(AgentMessageModel).order_by(AgentMessageModel.session_id.asc(), AgentMessageModel.id.asc())
-    ).all():
-        messages_by_session[message.session_id].append(message)
-
-    usage_by_session: dict[str, dict[str, Any]] = defaultdict(lambda: {
-        "model_names": Counter(),
-        "total_tokens": 0,
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "llm_calls": 0,
-        "tool_calls": 0,
-        "latency_ms": 0,
-        "runs": 0,
-    })
-    for event in db.scalars(select(AgentUsageEventModel)).all():
-        item = usage_by_session[event.session_id]
-        item["model_names"][event.model_name] += 1
-        item["total_tokens"] += event.total_tokens
-        item["input_tokens"] += event.input_tokens
-        item["output_tokens"] += event.output_tokens
-        item["llm_calls"] += event.llm_calls
-        item["tool_calls"] += event.tool_calls
-        item["latency_ms"] += event.latency_ms
-        item["runs"] += 1
-
-    items: list[ConversationListItem] = []
     query = search.strip().lower()
-    for session in sessions:
-        user = users_by_id.get(session.user_id) if session.user_id is not None else None
-        messages = messages_by_session.get(session.session_id, [])
-        texts = [_message_text(message.message_json) for message in messages]
-        texts = [text for text in texts if text]
-        first_message = _compact_text(texts[0] if texts else None)
-        last_message = _compact_text(texts[-1] if texts else None)
-        usage = usage_by_session[session.session_id]
-        model_names = [name for name, _ in usage["model_names"].most_common()]
-        haystack = " ".join(
-            [
-                session.session_id,
-                session.summary or "",
-                user.name if user else "",
-                user.email if user else "",
-                first_message or "",
-                last_message or "",
-            ]
-        ).lower()
-        if query and query not in haystack:
-            continue
+    statement = (
+        select(
+            AgentSessionModel.session_id,
+            AgentSessionModel.user_id,
+            AgentSessionModel.summary,
+            AgentSessionModel.created_at,
+            AgentSessionModel.updated_at,
+            UserModel.name.label("user_name"),
+            UserModel.email.label("user_email"),
+        )
+        .select_from(AgentSessionModel)
+        .outerjoin(UserModel, UserModel.id == AgentSessionModel.user_id)
+    )
+    if query:
+        like_query = f"%{query}%"
+        message_matches = exists(
+            select(AgentMessageModel.id).where(
+                AgentMessageModel.session_id == AgentSessionModel.session_id,
+                func.lower(AgentMessageModel.message_json).like(like_query),
+            )
+        )
+        statement = statement.where(
+            or_(
+                func.lower(AgentSessionModel.session_id).like(like_query),
+                func.lower(func.coalesce(AgentSessionModel.summary, "")).like(like_query),
+                func.lower(func.coalesce(UserModel.name, "")).like(like_query),
+                func.lower(func.coalesce(UserModel.email, "")).like(like_query),
+                message_matches,
+            )
+        )
 
+    total = db.scalar(select(func.count()).select_from(statement.order_by(None).subquery())) or 0
+    session_rows = db.execute(
+        statement.order_by(AgentSessionModel.updated_at.desc()).offset(offset).limit(limit)
+    ).all()
+    session_ids = [str(row.session_id) for row in session_rows]
+    if not session_ids:
+        return ConversationListResponse(items=[], total=int(total))
+
+    message_meta_subquery = (
+        select(
+            AgentMessageModel.session_id.label("session_id"),
+            func.min(AgentMessageModel.id).label("first_id"),
+            func.max(AgentMessageModel.id).label("last_id"),
+            func.count(AgentMessageModel.id).label("message_count"),
+        )
+        .where(AgentMessageModel.session_id.in_(session_ids))
+        .group_by(AgentMessageModel.session_id)
+        .subquery()
+    )
+    message_meta_rows = db.execute(select(message_meta_subquery)).all()
+    message_ids = {
+        int(message_id)
+        for row in message_meta_rows
+        for message_id in (row.first_id, row.last_id)
+        if message_id is not None
+    }
+    messages_by_id = {
+        message.id: message
+        for message in db.scalars(select(AgentMessageModel).where(AgentMessageModel.id.in_(message_ids))).all()
+    } if message_ids else {}
+    message_meta_by_session = {str(row.session_id): row for row in message_meta_rows}
+
+    usage_by_session: dict[str, dict[str, int]] = {}
+    for row in db.execute(
+        select(
+            AgentUsageEventModel.session_id,
+            func.count(AgentUsageEventModel.id).label("runs"),
+            func.coalesce(func.sum(AgentUsageEventModel.total_tokens), 0).label("total_tokens"),
+            func.coalesce(func.sum(AgentUsageEventModel.input_tokens), 0).label("input_tokens"),
+            func.coalesce(func.sum(AgentUsageEventModel.output_tokens), 0).label("output_tokens"),
+            func.coalesce(func.sum(AgentUsageEventModel.llm_calls), 0).label("llm_calls"),
+            func.coalesce(func.sum(AgentUsageEventModel.tool_calls), 0).label("tool_calls"),
+            func.coalesce(func.sum(AgentUsageEventModel.latency_ms), 0).label("latency_ms"),
+        )
+        .where(AgentUsageEventModel.session_id.in_(session_ids))
+        .group_by(AgentUsageEventModel.session_id)
+    ).all():
+        usage_by_session[str(row.session_id)] = {
+            "runs": int(row.runs or 0),
+            "total_tokens": int(row.total_tokens or 0),
+            "input_tokens": int(row.input_tokens or 0),
+            "output_tokens": int(row.output_tokens or 0),
+            "llm_calls": int(row.llm_calls or 0),
+            "tool_calls": int(row.tool_calls or 0),
+            "latency_ms": int(row.latency_ms or 0),
+        }
+
+    model_names_by_session: dict[str, list[str]] = defaultdict(list)
+    for row in db.execute(
+        select(
+            AgentUsageEventModel.session_id,
+            AgentUsageEventModel.model_name,
+            func.count(AgentUsageEventModel.id).label("model_runs"),
+        )
+        .where(
+            AgentUsageEventModel.session_id.in_(session_ids),
+            AgentUsageEventModel.model_name.is_not(None),
+        )
+        .group_by(AgentUsageEventModel.session_id, AgentUsageEventModel.model_name)
+        .order_by(
+            AgentUsageEventModel.session_id.asc(),
+            func.count(AgentUsageEventModel.id).desc(),
+            AgentUsageEventModel.model_name.asc(),
+        )
+    ).all():
+        model_names_by_session[str(row.session_id)].append(str(row.model_name))
+
+    items = []
+    for row in session_rows:
+        session_id = str(row.session_id)
+        message_meta = message_meta_by_session.get(session_id)
+        first_message = messages_by_id.get(message_meta.first_id) if message_meta and message_meta.first_id else None
+        last_message = messages_by_id.get(message_meta.last_id) if message_meta and message_meta.last_id else None
+        usage = usage_by_session.get(
+            session_id,
+            {
+                "runs": 0,
+                "total_tokens": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "llm_calls": 0,
+                "tool_calls": 0,
+                "latency_ms": 0,
+            },
+        )
         runs = usage["runs"]
         items.append(
             ConversationListItem(
-                session_id=session.session_id,
-                user_id=session.user_id,
-                user_name=user.name if user else None,
-                user_email=user.email if user else None,
-                summary=_compact_text(session.summary),
-                first_message=first_message,
-                last_message=last_message,
-                message_count=len(messages),
-                model_names=model_names,
+                session_id=session_id,
+                user_id=row.user_id,
+                user_name=row.user_name,
+                user_email=row.user_email,
+                summary=_compact_text(row.summary),
+                first_message=_compact_text(_message_text(first_message.message_json) if first_message else None),
+                last_message=_compact_text(_message_text(last_message.message_json) if last_message else None),
+                message_count=int(message_meta.message_count) if message_meta else 0,
+                model_names=model_names_by_session.get(session_id, []),
                 total_tokens=usage["total_tokens"],
                 input_tokens=usage["input_tokens"],
                 output_tokens=usage["output_tokens"],
                 llm_calls=usage["llm_calls"],
                 tool_calls=usage["tool_calls"],
                 avg_latency_ms=round(usage["latency_ms"] / runs) if runs else 0,
-                created_at=session.created_at,
-                updated_at=session.updated_at,
+                created_at=row.created_at,
+                updated_at=row.updated_at,
             )
         )
 
-    total = len(items)
-    return ConversationListResponse(items=items[offset:offset + limit], total=total)
+    return ConversationListResponse(items=items, total=int(total))
 
 
 @router.get("/conversations/{session_id}", response_model=ConversationDetailResponse)
@@ -374,28 +499,33 @@ def get_conversation_detail(
         .offset(messages_offset)
         .limit(messages_limit)
     ).all()
-    events = db.scalars(
-        select(AgentUsageEventModel)
+    usage_summary = db.execute(
+        select(
+            func.count(AgentUsageEventModel.id).label("runs"),
+            func.coalesce(func.sum(AgentUsageEventModel.total_tokens), 0).label("total_tokens"),
+            func.coalesce(func.sum(AgentUsageEventModel.input_tokens), 0).label("input_tokens"),
+            func.coalesce(func.sum(AgentUsageEventModel.output_tokens), 0).label("output_tokens"),
+            func.coalesce(func.sum(AgentUsageEventModel.llm_calls), 0).label("llm_calls"),
+            func.coalesce(func.sum(AgentUsageEventModel.tool_calls), 0).label("tool_calls"),
+            func.coalesce(func.sum(AgentUsageEventModel.latency_ms), 0).label("latency_ms"),
+        )
         .where(AgentUsageEventModel.session_id == session_id)
-        .order_by(AgentUsageEventModel.created_at.asc())
-    ).all()
-
-    model_counter: Counter[str] = Counter()
-    total_tokens = 0
-    input_tokens = 0
-    output_tokens = 0
-    llm_calls = 0
-    tool_calls = 0
-    latency_ms = 0
-    for event in events:
-        if event.model_name:
-            model_counter[event.model_name] += 1
-        total_tokens += event.total_tokens
-        input_tokens += event.input_tokens
-        output_tokens += event.output_tokens
-        llm_calls += event.llm_calls
-        tool_calls += event.tool_calls
-        latency_ms += event.latency_ms
+    ).one()
+    model_names = [
+        str(row.model_name)
+        for row in db.execute(
+            select(
+                AgentUsageEventModel.model_name,
+                func.count(AgentUsageEventModel.id).label("model_runs"),
+            )
+            .where(
+                AgentUsageEventModel.session_id == session_id,
+                AgentUsageEventModel.model_name.is_not(None),
+            )
+            .group_by(AgentUsageEventModel.model_name)
+            .order_by(func.count(AgentUsageEventModel.id).desc(), AgentUsageEventModel.model_name.asc())
+        ).all()
+    ]
 
     return ConversationDetailResponse(
         session_id=session.session_id,
@@ -404,13 +534,15 @@ def get_conversation_detail(
         user_email=user.email if user else None,
         summary=_compact_text(session.summary, limit=240),
         message_count=message_count,
-        model_names=[name for name, _ in model_counter.most_common()],
-        total_tokens=total_tokens,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        llm_calls=llm_calls,
-        tool_calls=tool_calls,
-        avg_latency_ms=round(latency_ms / len(events)) if events else 0,
+        model_names=model_names,
+        total_tokens=int(usage_summary.total_tokens or 0),
+        input_tokens=int(usage_summary.input_tokens or 0),
+        output_tokens=int(usage_summary.output_tokens or 0),
+        llm_calls=int(usage_summary.llm_calls or 0),
+        tool_calls=int(usage_summary.tool_calls or 0),
+        avg_latency_ms=round(int(usage_summary.latency_ms or 0) / int(usage_summary.runs or 0))
+        if usage_summary.runs
+        else 0,
         created_at=session.created_at,
         updated_at=session.updated_at,
         messages_offset=messages_offset,

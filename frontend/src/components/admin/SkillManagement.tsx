@@ -14,6 +14,7 @@ import {
   updateSkill,
   uploadSkill,
 } from '../../services/skillService';
+import { useAdminModalBackdrop } from './useAdminModalBackdrop';
 
 type Draft = SkillPayload & {
   id?: number;
@@ -69,6 +70,7 @@ export const SkillManagement = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [uploadFileValue, setUploadFileValue] = useState<File | null>(null);
   const [uploadSlug, setUploadSlug] = useState('');
+  useAdminModalBackdrop(isModalOpen);
 
   const enabledCount = useMemo(() => skills.filter((skill) => skill.enabled).length, [skills]);
   const pythonSkillCount = useMemo(() => skills.filter((skill) => skill.has_python_scripts).length, [skills]);

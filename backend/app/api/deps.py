@@ -40,7 +40,12 @@ def get_current_user(
     except (TypeError, ValueError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid auth token") from None
 
-    user = AuthService(db, settings).get_user(user_id)
+    auth_service = AuthService(db, settings)
+    session_id = payload.get("sid")
+    if isinstance(session_id, str) and session_id and not auth_service.is_session_active(user_id, session_id):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Auth session expired")
+
+    user = auth_service.get_user(user_id)
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User is not active")
     return user
