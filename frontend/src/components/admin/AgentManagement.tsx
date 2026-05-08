@@ -132,7 +132,7 @@ export const AgentManagement = () => {
     setError(null);
     try {
       const response = await getAgentProfiles();
-      const userResponse = await listUsers({ offset: 0, limit: 200 });
+      const userResponse = await listUsers({ offset: 0, limit: 100 });
       setProfiles(response.items);
       setCatalog(response.catalog);
       setAvailableSkills(response.available_skills);
