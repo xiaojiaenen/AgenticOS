@@ -1,27 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { flushSync } from 'react-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Sidebar } from '../components/chat/Sidebar';
-import { ChatInput, ChatInputHandle } from '../components/chat/ChatInput';
-import { ChatTimeline } from '../components/chat/ChatTimeline';
-import { ChatSearch } from '../components/chat/ChatSearch';
-import { MessagesList } from '../components/chat/MessagesList';
-import { ArtifactPanel } from '../components/chat/ArtifactPanel';
+import { ChatMainArea } from '../components/chat/ChatMainArea';
+import { ChatArtifactArea } from '../components/chat/ChatArtifactArea';
 import { DragOverlay } from '../components/chat/DragOverlay';
-import { PendingApprovalPanel } from '../components/chat/PendingApprovalPanel';
-import { PptArtifactPanel } from '../components/ppt/PptArtifactPanel';
+import { RandomMascot } from '../components/ui/RandomMascot';
+import { MascotCool } from '../components/ui/AnimatedIcons';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { useChatSessions } from '../hooks/useChatSessions';
+import { useChatScroll } from '../hooks/useChatScroll';
+import { useChatStream } from '../hooks/useChatStream';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
-import { Artifact, Message, Session, Attachment } from '../types';
-import { sendMessageStream, generateTitle, submitApprovalDecision, AgentSessionState, AgentPptArtifact, AgentRunStatus } from '../services/agentService';
-import { AgentProfile, getMyAgents } from '../services/agentProfileService';
+import { Artifact } from '../types';
 import { getStoredUser } from '../services/authService';
-import { RandomMascot } from '../components/ui/RandomMascot';
-import { MascotState } from '../components/ui/MascotState';
-import { AlertCircleIcon, MascotCool, ChevronDownIcon } from '../components/ui/AnimatedIcons';
-import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
+import { AgentProfile, getMyAgents } from '../services/agentProfileService';
+import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
 
 export const Chat = () => {
@@ -46,42 +40,72 @@ export const Chat = () => {
     searchCurrentIndex, searchMatches, nextMatch, prevMatch, activeMatchId
   } = useChatSearch(currentSession);
 
-  const [inputValue, setInputValue] = useState('');
-  const [chatMode, setChatMode] = useState<'general' | 'ppt' | 'website'>((location.state as any)?.mode || 'general');
-  const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
-  const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>((location.state as any)?.agentProfileId || null);
-  const selectedAgent = agentProfiles.find(agent => agent.id === selectedAgentProfileId) || null;
+  const {
+    scrollRef,
+    messagesEndRef,
+    isUserScrolledUp,
+    scrollToBottom,
+    handleJumpToBottom,
+    handleScroll,
+  } = useChatScroll();
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const [chatMode, setChatMode] = useState<'general' | 'ppt' | 'website'>(
+    (location.state as any)?.mode || 'general',
+  );
+  const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
+  const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>(
+    (location.state as any)?.agentProfileId || null,
+  );
+  const selectedAgent = agentProfiles.find((agent) => agent.id === selectedAgentProfileId) || null;
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [error, setError] = useState<string | null>(null);
-  const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
   const [artifact, setArtifact] = useState<Artifact | null>(null);
-  const [runStatus, setRunStatus] = useState<{phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'done' | 'error'; label: string}>({
-    phase: 'idle',
-    label: '已就绪',
-  });
   const [isSidebarHiddenByArtifact, setIsSidebarHiddenByArtifact] = useState(false);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const chatInputRef = useRef<ChatInputHandle>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const currentSessionMessages = currentSession?.messages ?? [];
-  const isStreamingResponse = isLoading && currentSessionMessages[currentSessionMessages.length - 1]?.role === 'model';
-  const isWideConversation = !artifact && !isMobile;
+  const chatInputRef = React.useRef<ChatInputHandle>(null);
   const isAdmin = getStoredUser()?.role === 'admin';
-  const pendingApprovals = React.useMemo(
-    () => (
+
+  const {
+    isLoading,
+    error,
+    setError,
+    runStatus,
+    handleSend,
+    handleStopGeneration,
+    handleApprovalDecision,
+  } = useChatStream({
+    sessions,
+    currentSessionId,
+    currentSession,
+    chatMode,
+    selectedAgentProfileId,
+    selectedAgent,
+    setSessions,
+    setCurrentSessionId,
+    applySessionState,
+    setArtifact,
+    setInputValue,
+  });
+
+  const currentSessionMessages = currentSession?.messages ?? [];
+  const isStreamingResponse =
+    isLoading && currentSessionMessages[currentSessionMessages.length - 1]?.role === 'model';
+  const isWideConversation = !artifact && !isMobile;
+
+  const pendingApprovals = useMemo(
+    () =>
       isAdmin
-        ? currentSessionMessages.flatMap(message => message.toolCalls || []).filter(tool => tool.status === 'approval_required' && tool.approvalId)
-        : []
-    ),
+        ? currentSessionMessages
+            .flatMap((message) => message.toolCalls || [])
+            .filter((tool) => tool.status === 'approval_required' && tool.approvalId)
+        : [],
     [currentSessionMessages, isAdmin],
   );
 
-  const { isDragging, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragAndDrop();
+  const { isDragging, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } =
+    useDragAndDrop();
 
   const onDrop = (e: React.DragEvent) => {
     handleDrop(e, (files) => {
@@ -89,7 +113,7 @@ export const Chat = () => {
     });
   };
 
-  // 处理会话切换时的模式同步
+  // 会话切换时同步模式和智能体
   useEffect(() => {
     if (currentSessionId && currentSession?.mode) {
       setChatMode(currentSession.mode);
@@ -97,6 +121,7 @@ export const Chat = () => {
     }
   }, [currentSessionId, currentSession?.mode, currentSession?.agentProfileId]);
 
+  // 加载智能体列表
   useEffect(() => {
     getMyAgents()
       .then((response) => {
@@ -113,18 +138,24 @@ export const Chat = () => {
       .catch((err) => console.error('Load agents error:', err));
   }, []);
 
+  // 智能体被删除时清除关联
   useEffect(() => {
-    if (selectedAgentProfileId && !agentProfiles.some((agent) => agent.id === selectedAgentProfileId)) {
+    if (
+      selectedAgentProfileId &&
+      !agentProfiles.some((agent) => agent.id === selectedAgentProfileId)
+    ) {
       setSelectedAgentProfileId(null);
-      setSessions((prev) => prev.map((session) => (
-        session.id === currentSessionId
-          ? { ...session, agentProfileId: null, agentName: undefined }
-          : session
-      )));
+      setSessions((prev) =>
+        prev.map((session) =>
+          session.id === currentSessionId
+            ? { ...session, agentProfileId: null, agentName: undefined }
+            : session,
+        ),
+      );
     }
   }, [agentProfiles, selectedAgentProfileId, currentSessionId]);
 
-  // 处理窗口尺寸变化
+  // 响应式处理
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
@@ -137,40 +168,14 @@ export const Chat = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const scrollToBottom = React.useCallback((behavior: ScrollBehavior = 'smooth') => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior,
-    });
-  }, []);
-
-  // 自动滚动到底部
+  // 自动滚动
   useEffect(() => {
-    if (isUserScrolledUp && !isStreamingResponse) {
-      return;
-    }
-
+    if (isUserScrolledUp && !isStreamingResponse) return;
     const frame = window.requestAnimationFrame(() => {
       scrollToBottom(isStreamingResponse ? 'auto' : 'smooth');
     });
-
     return () => window.cancelAnimationFrame(frame);
   }, [sessions, currentSessionId, isLoading, isUserScrolledUp, isStreamingResponse, scrollToBottom]);
-
-  // 检测用户是否手动向上滚动
-  const handleScroll = () => {
-    if (!scrollRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    const isScrolledUp = distanceFromBottom > 120;
-    setIsUserScrolledUp(isScrolledUp);
-  };
-
-  const handleJumpToBottom = () => {
-    setIsUserScrolledUp(false);
-    scrollToBottom('smooth');
-  };
 
   // 自动收起错误提示
   useEffect(() => {
@@ -188,7 +193,7 @@ export const Chat = () => {
     }
   }, [initialMessage]);
 
-  // 在打开制品面板时自动收起侧边栏
+  // 制品面板打开时自动收起侧边栏
   useEffect(() => {
     if (artifact && isSidebarOpen && !isMobile) {
       setIsSidebarOpen(false);
@@ -199,360 +204,44 @@ export const Chat = () => {
     }
   }, [artifact, isMobile]);
 
-
   const { scrollYProgress } = useScroll({ container: scrollRef });
-  const borderColor = useTransform(scrollYProgress, [0, 0.2, 1], ['rgba(255,255,255,0.7)', 'rgba(255,255,255,1)', 'rgba(56,189,248,0.4)']);
+  const borderColor = useTransform(
+    scrollYProgress,
+    [0, 0.2, 1],
+    ['rgba(255,255,255,0.7)', 'rgba(255,255,255,1)', 'rgba(56,189,248,0.4)'],
+  );
 
-  const createNewChat = React.useCallback(() => {
+  const createNewChat = useCallback(() => {
     setCurrentSessionId(null);
     setChatMode('general');
     setSelectedAgentProfileId(null);
     setArtifact(null);
-    setRunStatus({ phase: 'idle', label: '已就绪' });
     if (isMobile) setIsSidebarOpen(false);
   }, [isMobile, setCurrentSessionId]);
 
-  const deleteSession = React.useCallback((id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSessions(prev => prev.filter(s => s.id !== id));
-    setCurrentSessionId(prev => {
-      if (prev !== id) return prev;
-      setArtifact(null);
-      setRunStatus({ phase: 'idle', label: '已就绪' });
-      setChatMode('general');
-      setSelectedAgentProfileId(null);
-      return null;
-    });
-  }, [setSessions, setCurrentSessionId]);
+  const deleteSession = useCallback(
+    (id: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setSessions((prev) => prev.filter((s) => s.id !== id));
+      setCurrentSessionId((prev) => {
+        if (prev !== id) return prev;
+        setArtifact(null);
+        setChatMode('general');
+        setSelectedAgentProfileId(null);
+        return null;
+      });
+    },
+    [setSessions, setCurrentSessionId],
+  );
 
-  const handleApprovalDecision = React.useCallback(async (approvalId: string, status: 'approved' | 'rejected') => {
-    const optimisticStatus = status === 'approved' ? 'approved' : 'rejected';
-    setSessions(prev => prev.map(session => ({
-      ...session,
-      messages: session.messages.map(message => ({
-        ...message,
-        toolCalls: message.toolCalls?.map(tool => (
-          tool.approvalId === approvalId
-            ? {
-                ...tool,
-                status: optimisticStatus,
-                result: status === 'approved' ? '审批已通过，等待工具执行。' : '审批已拒绝，工具不会执行。',
-              }
-            : tool
-        )),
-      })),
-    })));
-
-    try {
-      await submitApprovalDecision(approvalId, status, status === 'approved' ? 'approved from AgenticOS UI' : 'rejected from AgenticOS UI');
-    } catch (err) {
-      console.error('Approval error:', err);
-      setError('审批提交失败，请检查后端服务。');
-    }
-  }, [setSessions]);
-
-  const handleOpenArtifact = React.useCallback((nextArtifact: Artifact) => {
+  const handleOpenArtifact = useCallback((nextArtifact: Artifact) => {
     setArtifact(nextArtifact);
   }, []);
 
-  const handleStopGeneration = React.useCallback(() => {
-    abortControllerRef.current?.abort();
-    setRunStatus({ phase: 'done', label: '正在停止请求' });
+  const handleAgentProfileChange = useCallback((profile: AgentProfile | null) => {
+    setSelectedAgentProfileId(profile?.id ?? null);
+    if (profile) setChatMode(profile.response_mode);
   }, []);
-
-  const handleSend = React.useCallback(async (text: string, files?: File[]) => {
-    if ((!text.trim() && (!files || files.length === 0)) || isLoading) return;
-
-    const currentText = text.trim();
-    let userMessage: Message | null = null;
-    let targetId: string | null = null;
-    let assistantMessageId: string | null = null;
-    let hasStreamedContent = false;
-    let hasAssistantActivity = false;
-    let receivedPptArtifact: AgentPptArtifact | undefined;
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
-    try {
-      const attachments: Attachment[] = (files || []).map((file) => ({
-        name: file.name,
-        type: file.type,
-        url: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
-      }));
-
-      userMessage = {
-        id: Date.now().toString(),
-        role: 'user',
-        text: currentText,
-        attachments: attachments.length > 0 ? attachments : undefined,
-      };
-
-      const history = sessions.find(s => s.id === currentSessionId)?.messages || [];
-      targetId = currentSessionId || userMessage.id;
-      assistantMessageId = `${userMessage.id}-assistant`;
-      const outboundMessage = attachments.length > 0
-        ? `${currentText}\n\n附带文件：${attachments.map(item => item.name).join('、')}\n说明：当前后端暂不支持直接解析附件内容，请结合文件名理解需求。`
-        : currentText;
-
-      if (attachments.length > 0) {
-        setError('当前后端暂不支持直接解析附件内容，本次仅向模型发送文本和文件名。');
-      }
-
-      // 先同步写入用户消息和一个模型占位，让界面立刻响应，再发起后端请求。
-      flushSync(() => {
-        setIsLoading(true);
-        setRunStatus({
-          phase: chatMode === 'ppt' ? 'generating_ppt' : 'thinking',
-          label: chatMode === 'ppt' ? '正在生成 PPT 内容与版式' : '大模型正在思考',
-        });
-        setInputValue('');
-        setSessions(prev => {
-          const assistantMessage: Message = {
-            id: assistantMessageId!,
-            role: 'model',
-            text: '',
-            pptArtifact: chatMode === 'ppt' ? { status: 'generating' } : undefined,
-          };
-
-          if (!currentSessionId) {
-            const newSession: Session = {
-              id: targetId!,
-              title: currentText.slice(0, 20) + (currentText.length > 20 ? '...' : ''),
-              messages: [userMessage!, assistantMessage],
-              updatedAt: Date.now(),
-              mode: chatMode,
-              agentProfileId: selectedAgentProfileId,
-              agentName: selectedAgent?.name,
-            };
-            return [newSession, ...prev];
-          }
-          return prev.map(s => s.id === currentSessionId ? { ...s, messages: [...s.messages, userMessage, assistantMessage], updatedAt: Date.now() } : s);
-        });
-
-        if (!currentSessionId) {
-          setCurrentSessionId(targetId);
-        }
-      });
-
-      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-
-      const response = await sendMessageStream(outboundMessage, {
-        sessionId: targetId,
-        systemPrompt: currentSession || selectedAgentProfileId ? undefined : MODE_SYSTEM_PROMPTS[chatMode],
-        responseMode: chatMode,
-        agentProfileId: selectedAgentProfileId,
-        signal: abortController.signal,
-        onSessionState: (state) => {
-          applySessionState(targetId!, state);
-        },
-        onRunStatus: (status: AgentRunStatus) => {
-          setRunStatus({ phase: status.phase, label: status.label });
-        },
-        onPptArtifact: (pptArtifact) => {
-          receivedPptArtifact = pptArtifact;
-          const nextArtifact: Artifact = {
-            language: 'ppt',
-            artifactId: pptArtifact.artifact_id,
-            html: pptArtifact.html,
-            title: pptArtifact.title,
-            slideCount: pptArtifact.slide_count,
-          };
-          setArtifact(nextArtifact);
-          setSessions(prev => prev.map(session => (
-            session.id === targetId
-              ? {
-                  ...session,
-                  updatedAt: Date.now(),
-                  messages: session.messages.map(message => (
-                    message.id === assistantMessageId
-                      ? {
-                          ...message,
-                          pptArtifact: {
-                            status: 'ready',
-                            artifactId: pptArtifact.artifact_id,
-                            title: pptArtifact.title,
-                            slideCount: pptArtifact.slide_count,
-                            html: pptArtifact.html,
-                          },
-                        }
-                      : message
-                  )),
-                }
-              : session
-          )));
-        },
-        onDelta: (_, fullText) => {
-          hasStreamedContent = true;
-          hasAssistantActivity = true;
-          setRunStatus(prev => (
-            prev.phase === 'generating_ppt' || prev.phase === 'rendering_ppt'
-              ? prev
-              : { phase: 'streaming', label: '大模型正在输出' }
-          ));
-          setSessions(prev => prev.map(session => (
-            session.id === targetId
-              ? {
-                  ...session,
-                  updatedAt: Date.now(),
-                  messages: session.messages.map(message => (
-                    message.id === assistantMessageId
-                      ? chatMode === 'ppt'
-                        ? {
-                            ...message,
-                            text: fullText,
-                            pptArtifact: message.pptArtifact?.status === 'ready'
-                              ? message.pptArtifact
-                              : { status: 'generating' },
-                          }
-                        : { ...message, text: fullText }
-                      : message
-                  )),
-                }
-              : session
-          )));
-        },
-        onReasoningDelta: (_, fullReasoning) => {
-          hasAssistantActivity = true;
-          setSessions(prev => prev.map(session => (
-            session.id === targetId
-              ? {
-                  ...session,
-                  updatedAt: Date.now(),
-                  messages: session.messages.map(message => (
-                    message.id === assistantMessageId
-                      ? { ...message, reasoningText: fullReasoning }
-                      : message
-                  )),
-                }
-              : session
-          )));
-        },
-        onToolCalls: (toolCalls) => {
-          hasAssistantActivity = true;
-          setSessions(prev => prev.map(session => (
-            session.id === targetId
-              ? {
-                  ...session,
-                  messages: session.messages.map(message => (
-                    message.id === assistantMessageId
-                      ? { ...message, toolCalls }
-                      : message
-                  )),
-                }
-              : session
-          )));
-        },
-      });
-
-      const pptArtifact = response.pptArtifact || receivedPptArtifact;
-
-      setSessions(prev => prev.map(session => (
-        session.id === targetId
-              ? {
-                  ...session,
-                  updatedAt: Date.now(),
-                  messages: session.messages.map(message => (
-                    message.id === assistantMessageId
-                      ? {
-                          ...message,
-                          text: response.text,
-                          reasoningText: response.reasoningText ?? message.reasoningText,
-                          toolCalls: response.toolCalls,
-                          pptArtifact: pptArtifact
-                            ? {
-                                status: 'ready',
-                                artifactId: pptArtifact.artifact_id,
-                                title: pptArtifact.title,
-                                slideCount: pptArtifact.slide_count,
-                                html: pptArtifact.html,
-                              }
-                            : undefined,
-                        }
-                      : message
-                  )),
-                  summary: response.sessionState?.summary ?? session.summary,
-                  contextCompressed: response.sessionState?.context_compressed ?? session.contextCompressed,
-                  storage: response.sessionState?.storage ?? session.storage,
-                  lastUsage: response.sessionState?.last_usage ?? session.lastUsage,
-                  latencyMs: response.sessionState?.last_latency_ms ?? session.latencyMs,
-                  llmCalls: response.sessionState?.last_llm_calls ?? session.llmCalls,
-            }
-          : session
-      )));
-
-      const htmlMatch = /```html\n([\s\S]*?)\n```/.exec(response.text);
-      const svgMatch = /```svg\n([\s\S]*?)\n```/.exec(response.text);
-      if (pptArtifact) setArtifact({
-        language: 'ppt',
-        artifactId: pptArtifact.artifact_id,
-        html: pptArtifact.html,
-        title: pptArtifact.title,
-        slideCount: pptArtifact.slide_count,
-      });
-      else if (htmlMatch) setArtifact({ code: htmlMatch[1], language: 'html' });
-      else if (svgMatch) setArtifact({ code: svgMatch[1], language: 'svg' });
-
-      setRunStatus({ phase: 'done', label: '本轮回复已完成' });
-
-      if (history.length === 0 || (history.length + 2) % 4 === 0) {
-        generateTitle([
-          ...history,
-          userMessage,
-          {
-            id: assistantMessageId,
-            role: 'model',
-            text: response.text,
-            toolCalls: response.toolCalls,
-          },
-        ]).then(title => {
-          setSessions(prev => prev.map(s => s.id === targetId ? { ...s, title } : s));
-        });
-      }
-    } catch (err) {
-      if (abortController.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
-        if (targetId && assistantMessageId) {
-          setSessions(prev => prev.map(session => (
-            session.id === targetId
-              ? {
-                  ...session,
-                  updatedAt: Date.now(),
-                  messages: session.messages.map(message => (
-                    message.id === assistantMessageId
-                      ? {
-                          ...message,
-                          text: message.text.trim()
-                            ? `${message.text.trimEnd()}\n\n已停止请求。`
-                            : '已停止请求。',
-                        }
-                      : message
-                  )),
-                }
-              : session
-          )));
-        }
-        setRunStatus({ phase: 'done', label: '已停止请求' });
-        return;
-      }
-      console.error('Send error:', err);
-      if (targetId && assistantMessageId) {
-        setSessions(prev => prev.map(session => (
-          session.id === targetId
-            ? {
-                ...session,
-                messages: session.messages.filter(message => hasStreamedContent || hasAssistantActivity || message.id !== assistantMessageId),
-              }
-            : session
-        )));
-      }
-      setError(err instanceof Error ? err.message : '发送消息失败，请检查后端服务或网络连接。');
-      setRunStatus({ phase: 'error', label: '本轮回复失败' });
-    } finally {
-      if (abortControllerRef.current === abortController) {
-        abortControllerRef.current = null;
-      }
-      setIsLoading(false);
-    }
-  }, [currentSessionId, sessions, isLoading, chatMode, currentSession, applySessionState, selectedAgentProfileId, selectedAgent, setSessions, setCurrentSessionId]);
 
   return (
     <motion.div
@@ -566,7 +255,6 @@ export const Chat = () => {
       onDrop={onDrop}
       className="flex h-screen bg-gradient-to-br from-[#e0fbfc] via-[#a5f3fc] to-[#60a5fa] text-slate-800 font-sans overflow-hidden selection:bg-zinc-200 selection:text-zinc-900 relative"
     >
-      {/* 全屏拖拽遮罩 */}
       <DragOverlay isDragging={isDragging} />
 
       {/* 聊天页全局背景装饰 */}
@@ -587,7 +275,7 @@ export const Chat = () => {
         )}
       </AnimatePresence>
 
-        <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait">
         {(isSidebarOpen || (isMobile && isSidebarOpen)) && (!artifact || isMobile || isSidebarOpen) && (
           <motion.div
             initial={{ x: -250, opacity: 0 }}
@@ -635,176 +323,63 @@ export const Chat = () => {
 
       {/* 主聊天区域与制品面板 */}
       <div className="flex-1 flex overflow-hidden relative">
-        <main className={cn(
-          "flex flex-col h-full transition-all duration-700 ease-[0.16,1,0.3,1] min-w-0 relative",
-          artifact ? "w-[40%] border-r border-slate-200/60" : "w-full",
-          isWideConversation && "px-4 lg:px-8 xl:px-10"
-        )}>
-          {/* 时间线导航 */}
-          <AnimatePresence>
-            {!isMobile && currentSession?.messages && (
-              <ChatTimeline messages={currentSession.messages} />
-            )}
-          </AnimatePresence>
-
-          {/* 消息区域 */}
-          <div
-            ref={scrollRef}
+        <main
+          className={cn(
+            "flex flex-col h-full transition-all duration-700 ease-[0.16,1,0.3,1] min-w-0 relative",
+            artifact ? "w-[40%] border-r border-slate-200/60" : "w-full",
+            isWideConversation && "px-4 lg:px-8 xl:px-10",
+          )}
+        >
+          <ChatMainArea
+            currentSession={currentSession}
+            isLoading={isLoading}
+            isMobile={isMobile}
+            isWideConversation={isWideConversation}
+            isUserScrolledUp={isUserScrolledUp}
+            error={error}
+            runStatus={runStatus}
+            inputValue={inputValue}
+            chatMode={chatMode}
+            agentProfiles={agentProfiles}
+            selectedAgentProfileId={selectedAgentProfileId}
+            showSearch={showSearch}
+            searchQuery={searchQuery}
+            searchMatchesCount={searchMatches.length}
+            searchCurrentIndex={searchCurrentIndex}
+            activeMatchId={activeMatchId}
+            pendingApprovals={pendingApprovals}
+            scrollRef={scrollRef}
+            messagesEndRef={messagesEndRef}
+            chatInputRef={chatInputRef}
             onScroll={handleScroll}
-            className={cn(
-              "flex-1 overflow-y-auto custom-scrollbar relative pr-16",
-              isWideConversation ? "px-6 py-8 md:px-10 lg:px-14 xl:px-16" : "p-4 md:p-8"
-            )}
-          >
-            {/* 搜索浮层 */}
-            <ChatSearch
-              showSearch={showSearch}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              searchCurrentIndex={searchCurrentIndex}
-              searchMatchesCount={searchMatches.length}
-              onPrev={prevMatch}
-              onNext={nextMatch}
-              onClose={() => {
-                setShowSearch(false);
-                setSearchQuery('');
-              }}
-            />
-
-            {/* 右下角浮动工具栏 */}
-            <div className="fixed right-6 bottom-10 flex flex-col gap-3 z-40">
-              <button
-                onClick={() => setShowSearch(!showSearch)}
-                className={cn(
-                  "w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg backdrop-blur-md border hover:scale-105 active:scale-95",
-                  showSearch
-                    ? "bg-zinc-900 text-white border-zinc-800"
-                    : "bg-white/80 text-slate-600 border-white/60 hover:bg-white"
-                )}
-                aria-label="切换搜索"
-              >
-                <div className={cn("transition-transform duration-500", showSearch && "rotate-90")}>
-                  {showSearch ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                  ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-                    </svg>
-                  )}
-                </div>
-              </button>
-            </div>
-
-            {/* 错误提示 */}
-            <AnimatePresence>
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl shadow-lg"
-                >
-                  <AlertCircleIcon size={18} />
-                  <span className="text-sm font-medium">{error}</span>
-                  <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700" aria-label="关闭错误提示">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <MessagesList
-              currentSession={currentSession}
-              isLoading={isLoading}
-              wideLayout={isWideConversation}
-              searchQuery={searchQuery}
-              activeMatchId={activeMatchId}
-              onSend={handleSend}
-              onSuggestionClick={(text) => setInputValue(text)}
-              onOpenArtifact={handleOpenArtifact}
-              messagesEndRef={messagesEndRef}
-            />
-          </div>
-
-          {/* 输入区域 */}
-          <div className="p-4 md:p-6 bg-transparent flex-shrink-0 relative">
-            <AnimatePresence>
-              {isUserScrolledUp && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="absolute -top-4 left-0 right-0 flex justify-center z-30"
-                >
-                  <button
-                    onClick={handleJumpToBottom}
-                    className="flex items-center gap-2 px-6 py-1.5 bg-zinc-900/90 backdrop-blur-2xl text-white rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl border border-white/10 hover:bg-zinc-800 transition-all active:scale-95 group"
-                  >
-                    <span>回到底部</span>
-                    <ChevronDownIcon size={12} className="group-hover:translate-y-0.5 transition-transform" />
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className={cn("mx-auto", isWideConversation ? "max-w-[92rem] px-8" : "max-w-4xl")}>
-              <PendingApprovalPanel
-                approvals={pendingApprovals}
-                onDecision={handleApprovalDecision}
-              />
-              <ChatInput
-                ref={chatInputRef}
-                value={inputValue}
-                onChange={setInputValue}
-                onSend={(text, files) => handleSend(text, files)}
-                onStop={handleStopGeneration}
-                isLoading={isLoading}
-                chatMode={chatMode}
-                setChatMode={setChatMode}
-                agentProfiles={agentProfiles}
-                selectedAgentProfileId={selectedAgentProfileId}
-                onAgentProfileChange={(profile) => {
-                  setSelectedAgentProfileId(profile?.id ?? null);
-                  if (profile) {
-                    setChatMode(profile.response_mode);
-                  }
-                }}
-                isModeLocked={!!currentSession && currentSession.messages.length > 0}
-              />
-              <div className="mt-3 flex min-h-9 items-center justify-center gap-2 text-xs font-medium text-slate-400">
-                {isLoading ? (
-                  <MascotState
-                    phase={runStatus.phase === 'generating_ppt' || runStatus.phase === 'rendering_ppt' ? 'thinking' : runStatus.phase === 'streaming' ? 'streaming' : runStatus.phase === 'error' ? 'error' : 'thinking'}
-                    size={22}
-                    label={runStatus.label}
-                  />
-                ) : (
-                  <span>
-                    <MascotState phase="idle" size={22} className="inline-flex" />
-                    <span className="ml-1">AI 可能会犯错，请核实重要信息。</span>
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+            onJumpToBottom={handleJumpToBottom}
+            onSend={handleSend}
+            onStopGeneration={handleStopGeneration}
+            onInputChange={setInputValue}
+            onModeChange={setChatMode}
+            onAgentProfileChange={handleAgentProfileChange}
+            onSearchQueryChange={setSearchQuery}
+            onSearchPrev={prevMatch}
+            onSearchNext={nextMatch}
+            onSearchClose={() => {
+              setShowSearch(false);
+              setSearchQuery('');
+            }}
+            onToggleSearch={() => setShowSearch(!showSearch)}
+            onApprovalDecision={handleApprovalDecision}
+            onErrorDismiss={() => setError(null)}
+            onSuggestionClick={(text) => setInputValue(text)}
+            onOpenArtifact={handleOpenArtifact}
+            isModeLocked={!!currentSession && currentSession.messages.length > 0}
+          />
         </main>
 
         {/* 制品预览面板 */}
-        <AnimatePresence>
-          {artifact?.language === 'ppt' ? (
-            <PptArtifactPanel
-              artifact={artifact}
-              onClose={() => setArtifact(null)}
-              borderColor={borderColor}
-            />
-          ) : (
-            <ArtifactPanel
-              artifact={artifact}
-              onClose={() => setArtifact(null)}
-              borderColor={borderColor}
-            />
-          )}
-        </AnimatePresence>
+        <ChatArtifactArea
+          artifact={artifact}
+          onClose={() => setArtifact(null)}
+          borderColor={borderColor}
+        />
       </div>
     </motion.div>
   );
