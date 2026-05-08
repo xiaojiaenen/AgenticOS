@@ -151,7 +151,16 @@ class AgentService:
                 )
             )
         if "skill" in profile.builtin_tools:
-            hooks.append(SkillHook())
+            hooks.append(
+                SkillHook(
+                    instruction=(
+                        "你有可用的 Skill（专门技能），它们是处理特定领域任务的增强能力。\n"
+                        "在对话开始时或遇到可能匹配的请求时，先调用 `list_skills` 查看可用技能摘要。\n"
+                        "如果某个技能的描述与用户当前任务相关，调用 `load_skill` 加载其完整指令并遵循执行。\n"
+                        "技能声明的 references 和 Python scripts 是宝贵资源，按正文指引使用。"
+                    ),
+                )
+            )
 
         agent = Agent(
             llm=LLMGateway.from_env(),
