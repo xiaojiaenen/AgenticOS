@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { MascotSurprised, MascotHappy, SendIcon, ChevronDownIcon, CodeIcon, GlobeIcon, PresentationIcon } from '../components/ui/AnimatedIcons';
 import { cn } from '../lib/utils';
+import { getStoredUser } from '../services/authService';
 
 export const Home = () => {
   const [inputValue, setInputValue] = useState('');
@@ -13,6 +14,7 @@ export const Home = () => {
   const [showModeMenu, setShowModeMenu] = useState(false);
   const modeMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const user = getStoredUser();
 
   // Handle click outside to close menu
   useEffect(() => {
@@ -74,15 +76,22 @@ export const Home = () => {
         <div className="flex items-center gap-4">
           <Button
             variant="secondary"
-            onClick={() => navigate('/agents')}
+            onClick={() => navigate(user ? '/chat' : '/agents')}
           >
-            智能体商店
+            {user ? '开始对话' : '智能体商店'}
           </Button>
-          <Button 
-            onClick={() => navigate('/login')}
-          >
-            登录
-          </Button>
+          {user ? (
+            <Button
+              variant="secondary"
+              onClick={() => navigate('/chat')}
+            >
+              {user.name}
+            </Button>
+          ) : (
+            <Button onClick={() => navigate('/login')}>
+              登录
+            </Button>
+          )}
         </div>
       </nav>
 
