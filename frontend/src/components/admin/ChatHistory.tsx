@@ -326,13 +326,13 @@ export const ChatHistory = () => {
           </div>
 
           <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
-            <div className="relative w-full lg:w-[420px]">
+            <div className="admin-search-wrapper lg:w-[420px]">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="搜索用户、邮箱、Session 或摘要"
-                className="w-full rounded-3xl border border-white/75 bg-white/72 py-3.5 pl-11 pr-5 text-sm font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                className="admin-search-input"
               />
             </div>
           </div>

@@ -114,7 +114,7 @@ function PanelShell({
   return (
     <section
       className={cn(
-        'admin-data-panel relative',
+        'admin-chart-panel',
         tone ?? 'bg-white/52',
         className,
       )}
@@ -251,15 +251,15 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           />
 
           <div className="mb-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-3xl border border-white/75 bg-white/55 px-4 py-4">
+            <div className="admin-stat-card rounded-3xl bg-white/65 px-4 py-4">
               <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计 Token</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatTokenNumber(data.summary.total_tokens)}</p>
             </div>
-            <div className="rounded-3xl border border-white/75 bg-white/55 px-4 py-4">
+            <div className="admin-stat-card rounded-3xl bg-white/65 px-4 py-4">
               <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计运行</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(data.summary.total_runs)}</p>
             </div>
-            <div className="rounded-3xl border border-white/75 bg-white/55 px-4 py-4">
+            <div className="admin-stat-card rounded-3xl bg-white/65 px-4 py-4">
               <p className="text-xs font-black tracking-[0.18em] text-slate-400">平均单次负载</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">
                 {formatTokenNumber(Math.round(data.summary.total_tokens / Math.max(data.summary.total_runs, 1)))}
@@ -347,7 +347,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <div
                 key={item.label}
                 className={cn(
-                  'rounded-3xl border border-white/75 px-4 py-3.5',
+                  'admin-stat-card rounded-3xl px-4 py-3.5',
                   index < 2
                     ? 'bg-[linear-gradient(135deg,rgba(224,242,254,0.52),rgba(255,255,255,0.65))]'
                     : 'bg-[linear-gradient(135deg,rgba(233,213,255,0.28),rgba(255,255,255,0.65))]',
@@ -479,7 +479,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <EmptyPanel label="暂时还没有模型调用数据" />
             )}
           </div>
-          <div className="rounded-3xl border border-white/75 bg-white/55 px-4 py-4 text-center">
+          <div className="admin-stat-card rounded-3xl bg-white/65 px-4 py-4 text-center">
             <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计模型调用</p>
             <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(totalModelCalls)}</p>
           </div>
@@ -525,14 +525,14 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           </div>
           <div className="space-y-3">
             {callMix.map((item, index) => (
-              <div key={item.name} className="rounded-3xl border border-white/75 bg-white/55 px-4 py-3">
+              <div key={item.name} className="admin-stat-card rounded-3xl bg-white/65 px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-bold text-slate-700">{item.name}</span>
                   <span className="text-base font-black text-slate-950">{formatNumber(item.value)}</span>
                 </div>
-                <div className="mt-3 h-2 rounded-full bg-white/75">
+                <div className="admin-progress-bar mt-3">
                   <div
-                    className={index === 0 ? 'h-2 rounded-full bg-slate-900' : 'h-2 rounded-full bg-teal-500'}
+                    className={cn('admin-progress-fill', index === 0 ? 'bg-slate-900' : 'bg-teal-500')}
                     style={{
                       width: `${Math.max(
                         8,
@@ -589,7 +589,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <EmptyPanel label="暂时还没有工具调用数据" />
             )}
           </div>
-          <div className="rounded-3xl border border-white/75 bg-white/55 px-4 py-4 text-center">
+          <div className="admin-stat-card rounded-3xl bg-white/65 px-4 py-4 text-center">
             <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计工具调用</p>
             <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(totalToolCalls)}</p>
           </div>

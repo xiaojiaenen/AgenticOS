@@ -194,7 +194,7 @@ export const AdminDashboard = () => {
                         {headerInsights.map((item) => (
                           <div
                             key={item.label}
-                            className="rounded-2xl border border-slate-200/65 bg-white/78 px-3.5 py-3 shadow-sm"
+                            className="admin-stat-card rounded-2xl px-3.5 py-3"
                           >
                             <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">{item.label}</p>
                             <p className="mt-2 text-lg font-black tracking-tight text-slate-950">{item.value}</p>
@@ -218,33 +218,33 @@ export const AdminDashboard = () => {
                     {topSummary.map((item) => (
                       <div
                         key={item.label}
-                        className={`rounded-3xl border border-white/80 px-4 py-3.5 shadow-md transition-all hover:-translate-y-0.5 ${item.tone}`}
+                        className={`admin-stat-card px-4 py-4 ${item.tone}`}
                       >
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-xs font-black tracking-[0.18em] text-slate-500">{item.label}</span>
-                          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/75 bg-white/62 text-slate-900">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/75 bg-white/70 text-slate-900 shadow-sm transition-transform duration-300 group-hover:scale-110">
                             <item.icon size={18} />
                           </div>
                         </div>
-                        <p className="mt-2.5 text-3xl font-black tracking-tight text-slate-950">{item.value}</p>
+                        <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{item.value}</p>
                         <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-600">{item.meta}</p>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="self-start rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(240,253,250,0.55),rgba(255,255,255,0.68))] p-4.5 shadow-lg">
+                <div className="self-start rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(240,253,250,0.6),rgba(255,255,255,0.72))] p-5 shadow-lg">
                   <p className="admin-section-kicker">关键刻度</p>
                   <div className="mt-3.5 grid gap-3 sm:grid-cols-2">
                     {sideSummary.map((item, index) => (
                       <div
                         key={item.label}
                         className={cn(
-                          'rounded-2xl border border-white/75 bg-white/68 px-4 py-3.5 transition-all hover:-translate-y-0.5 hover:bg-white/82',
-                          index === 0 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.7),rgba(56,189,248,0.12))]',
-                          index === 1 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.7),rgba(125,211,252,0.12))]',
-                          index === 2 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.7),rgba(244,114,182,0.1))]',
-                          index === 3 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.7),rgba(196,181,253,0.12))]',
+                          'admin-stat-card rounded-2xl px-4 py-3.5',
+                          index === 0 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.75),rgba(56,189,248,0.15))]',
+                          index === 1 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.75),rgba(125,211,252,0.15))]',
+                          index === 2 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.75),rgba(244,114,182,0.13))]',
+                          index === 3 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.75),rgba(196,181,253,0.15))]',
                         )}
                       >
                         <div className="flex items-center justify-between gap-3">
@@ -360,10 +360,10 @@ export const AdminDashboard = () => {
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
-              initial={{ opacity: 0, y: 22, scale: 0.985, filter: 'blur(10px)' }}
-              animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -10, scale: 0.992, filter: 'blur(8px)' }}
-              transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12 }}
             >
               {renderContent()}
             </motion.div>

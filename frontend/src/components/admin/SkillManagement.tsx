@@ -302,19 +302,19 @@ export const SkillManagement = () => {
               <div className="flex flex-wrap justify-center gap-2">
                 <span
                   className={cn(
-                    'rounded-full px-2.5 py-1 text-[10px] font-black',
-                    skill.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500',
+                    'admin-status-pill',
+                    skill.enabled ? 'active' : 'inactive',
                   )}
                 >
                   {skill.enabled ? '启用' : '停用'}
                 </span>
                 {skill.has_python_scripts && (
-                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black text-amber-700">
+                  <span className="admin-status-pill warning">
                     Python
                   </span>
                 )}
                 {skill.has_references && (
-                  <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-black text-sky-700">
+                  <span className="admin-status-pill info">
                     refs
                   </span>
                 )}

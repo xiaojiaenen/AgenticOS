@@ -277,14 +277,14 @@ export const UserManagement = () => {
           </div>
 
           <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
-            <div className="relative w-full lg:w-[360px]">
+            <div className="admin-search-wrapper">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="搜索名称或邮箱"
-                className="w-full rounded-3xl border border-white/75 bg-white/72 py-3.5 pl-11 pr-5 text-sm font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                className="admin-search-input"
               />
             </div>
           </div>
@@ -333,8 +333,8 @@ export const UserManagement = () => {
 
                   <span
                     className={cn(
-                      'w-fit rounded-full px-2.5 py-1 text-[10px] font-black',
-                      user.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600',
+                      'admin-status-pill',
+                      user.is_active ? 'active' : 'inactive',
                     )}
                   >
                     {statusLabel(user.is_active)}

@@ -241,7 +241,13 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-kpi-pill {
-  @apply inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white/88;
+  @apply inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500 shadow-sm transition-all duration-200;
+}
+
+.admin-kpi-pill:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
 }
 
 .admin-data-panel {
@@ -267,7 +273,12 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-table-head {
-  @apply hidden border-b border-slate-200/70 bg-slate-50/62 px-5 py-3 text-center text-xs font-black uppercase tracking-[0.16em] text-slate-400 xl:grid;
+  @apply hidden border-b border-slate-200/70 bg-slate-50/75 px-5 py-3 text-center text-xs font-black uppercase tracking-[0.16em] text-slate-400 xl:grid;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .admin-table-head > * {
@@ -355,11 +366,147 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-table-row {
-  @apply bg-white/46 transition-all duration-200 xl:gap-0 hover:bg-white/86 hover:shadow-[inset_3px_0_0_rgba(14,165,233,0.48),0_12px_28px_rgba(15,23,42,0.055)];
+  @apply relative bg-white/46 transition-all duration-200 xl:gap-0;
+}
+
+.admin-table-row:hover {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    inset 4px 0 0 rgba(14, 165, 233, 0.55),
+    0 8px 24px rgba(15, 23, 42, 0.07);
+  transform: translateX(2px);
 }
 
 .admin-table-row > * {
   @apply min-w-0 px-2;
+}
+
+/* ===== Admin Stat Cards ===== */
+.admin-stat-card {
+  @apply relative overflow-hidden rounded-3xl border border-white/80 transition-all duration-300;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+}
+
+.admin-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 16px 40px rgba(15, 23, 42, 0.10),
+    0 0 0 1px rgba(255, 255, 255, 0.9);
+}
+
+.admin-stat-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.6) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.admin-stat-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+  pointer-events: none;
+}
+
+/* ===== Admin Metric Progress Bar ===== */
+.admin-progress-bar {
+  @apply relative h-2 overflow-hidden rounded-full;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.admin-progress-fill {
+  @apply h-full rounded-full;
+  transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* ===== Admin Chart Panel ===== */
+.admin-chart-panel {
+  @apply relative overflow-hidden rounded-3xl border border-white/75 transition-all duration-300;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+}
+
+.admin-chart-panel:hover {
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.09);
+  transform: translateY(-2px);
+}
+
+.admin-chart-panel::before {
+  content: "";
+  @apply pointer-events-none absolute inset-x-0 top-0 h-px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.9), rgba(14,165,233,0.35), transparent);
+}
+
+/* ===== Admin Sidebar Enhancement ===== */
+.admin-nav-item {
+  @apply relative flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-all duration-200;
+}
+
+.admin-nav-item:hover {
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.admin-nav-item-active {
+  background: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08) !important;
+}
+
+.admin-nav-icon {
+  @apply relative mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border transition-all duration-200;
+}
+
+.admin-nav-item:hover .admin-nav-icon {
+  transform: scale(1.05);
+}
+
+/* ===== Admin Search Input ===== */
+.admin-search-wrapper {
+  @apply relative w-full lg:w-[380px];
+}
+
+.admin-search-input {
+  @apply w-full rounded-3xl border border-white/80 bg-white/72 py-3.5 pl-11 pr-5 text-sm font-semibold text-slate-700 outline-none transition-all duration-200 placeholder:text-slate-400;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+}
+
+.admin-search-input:hover {
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+.admin-search-input:focus {
+  @apply border-sky-200 bg-white ring-4 ring-sky-100/80;
+  box-shadow: 0 4px 20px rgba(14, 165, 233, 0.08);
+}
+
+/* ===== Admin Status Pill ===== */
+.admin-status-pill {
+  @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black;
+}
+
+.admin-status-pill.active {
+  @apply bg-emerald-50 text-emerald-700;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.1);
+}
+
+.admin-status-pill.inactive {
+  @apply bg-slate-100 text-slate-500;
+}
+
+.admin-status-pill.warning {
+  @apply bg-amber-50 text-amber-700;
+}
+
+.admin-status-pill.info {
+  @apply bg-sky-50 text-sky-700;
 }
 
 /* ===== Admin Staggered Animations ===== */

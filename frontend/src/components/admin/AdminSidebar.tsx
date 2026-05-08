@@ -81,25 +81,22 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
                 key={item.id}
                 type="button"
                 onClick={() => handleSelect(item.id)}
-                whileHover={{ x: 3 }}
                 whileTap={{ scale: 0.985 }}
                 className={cn(
-                  'group relative flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-all',
-                  active
-                    ? 'text-zinc-900'
-                    : 'text-slate-600 hover:bg-white/50 hover:text-slate-900',
+                  'admin-nav-item',
+                  active ? 'admin-nav-item-active text-zinc-900' : 'text-slate-600 hover:text-slate-900',
                 )}
               >
                 {active && (
                   <motion.span
                     layoutId="admin-active-nav"
-                    className="absolute inset-0 rounded-2xl border border-white/80 bg-white/86 shadow-md"
+                    className="absolute inset-0 rounded-2xl border border-white/80 bg-white/90 shadow-md"
                     transition={{ type: 'spring', damping: 28, stiffness: 380 }}
                   />
                 )}
                 <div
                   className={cn(
-                    'relative mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border transition-colors',
+                    'admin-nav-icon',
                     active
                       ? 'border-zinc-900 bg-zinc-900 text-white shadow-button'
                       : 'border-white/70 bg-white/70 text-slate-500 group-hover:text-slate-700',
@@ -111,6 +108,13 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
                   <p className="truncate text-sm font-black">{item.label}</p>
                   <p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-slate-400">{item.description}</p>
                 </div>
+                {active && (
+                  <motion.div
+                    layoutId="admin-active-dot"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-sky-500"
+                    transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+                  />
+                )}
               </motion.button>
             );
           })}

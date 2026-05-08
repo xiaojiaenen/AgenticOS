@@ -395,21 +395,21 @@ export const AgentManagement = () => {
               <div className="flex flex-wrap justify-center gap-2">
                 <span
                   className={cn(
-                    'rounded-full px-2.5 py-1 text-[10px] font-black',
-                    profile.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500',
+                    'admin-status-pill',
+                    profile.enabled ? 'active' : 'inactive',
                   )}
                 >
                   {profile.enabled ? '启用' : '停用'}
                 </span>
                 <span
                   className={cn(
-                    'rounded-full px-2.5 py-1 text-[10px] font-black',
-                    profile.listed ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500',
+                    'admin-status-pill',
+                    profile.listed ? 'warning' : 'inactive',
                   )}
                 >
                   {profile.listed ? '上架' : '未上架'}
                 </span>
-                <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-black text-sky-700">
+                <span className="admin-status-pill info">
                   {profile.audience_mode === 'selected' ? `指定用户 ${profile.audience_users.length}` : '全体用户'}
                 </span>
               </div>

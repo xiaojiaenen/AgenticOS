@@ -8,6 +8,7 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react';
+import { cn } from '../../lib/utils';
 import { DashboardSummary } from '../../services/dashboardService';
 
 interface DashboardStatsProps {
@@ -55,13 +56,16 @@ function MetricRail({
   gradient: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/75 bg-white/62 px-4 py-4 shadow-sm backdrop-blur-xl">
+    <div className="admin-stat-card rounded-2xl px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-black tracking-[0.18em] text-slate-500">{label}</span>
         <span className="text-sm font-black text-slate-900">{value}</span>
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/55">
-        <div className={`h-full rounded-full ${gradient}`} style={{ width: `${Math.max(percent, 6)}%` }} />
+      <div className="admin-progress-bar mt-3">
+        <div
+          className={`admin-progress-fill ${gradient}`}
+          style={{ width: `${Math.max(percent, 6)}%` }}
+        />
       </div>
     </div>
   );
@@ -81,15 +85,14 @@ function SignalTile({
   accent: string;
 }) {
   return (
-    <div className={`relative overflow-hidden rounded-3xl border border-white/80 px-5 py-5 shadow-lg transition-all hover:-translate-y-0.5 ${accent}`}>
-      <div className="absolute inset-x-0 top-0 h-px bg-white/70" />
+    <div className={`admin-stat-card px-5 py-5 ${accent}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs font-black tracking-[0.18em] text-slate-600">{label}</p>
           <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{value}</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{meta}</p>
         </div>
-        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-white/80 bg-white/62 text-slate-900">
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl border border-white/80 bg-white/70 text-slate-900 shadow-sm transition-transform duration-300 group-hover:scale-110">
           <Icon size={20} />
         </div>
       </div>
@@ -175,7 +178,7 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
               </div>
 
               <div className="grid min-w-[240px] gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <div className="rounded-2xl border border-white/80 bg-white/68 px-4 py-4">
+                <div className="admin-stat-card rounded-2xl bg-white/72 px-4 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs font-black tracking-[0.18em] text-slate-500">活跃用户</span>
                     <Users size={18} className="text-cyan-700" />
@@ -186,7 +189,7 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
                   <p className="mt-2 text-sm font-semibold text-slate-600">占全体用户 {formatPercent(activeRate)}</p>
                 </div>
 
-                <div className="rounded-2xl border border-white/80 bg-white/68 px-4 py-4">
+                <div className="admin-stat-card rounded-2xl bg-white/72 px-4 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs font-black tracking-[0.18em] text-slate-500">会话密度</span>
                     <ArrowUpRight size={18} className="text-violet-700" />
@@ -222,9 +225,12 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
               {quickSignals.map((item, index) => (
                 <div
                   key={item.label}
-                  className={index < 2
-                    ? 'rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(56,189,248,0.10),rgba(255,255,255,0.72))] px-4 py-3.5'
-                    : 'rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(196,181,253,0.12),rgba(255,255,255,0.72))] px-4 py-3.5'}
+                  className={cn(
+                    'admin-stat-card rounded-3xl px-4 py-3.5',
+                    index < 2
+                      ? 'bg-[linear-gradient(135deg,rgba(56,189,248,0.10),rgba(255,255,255,0.72))]'
+                      : 'bg-[linear-gradient(135deg,rgba(196,181,253,0.12),rgba(255,255,255,0.72))]',
+                  )}
                 >
                   <p className="text-xs font-black tracking-[0.18em] text-slate-500">{item.label}</p>
                   <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{item.value}</p>
@@ -233,15 +239,15 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(56,189,248,0.16),rgba(255,255,255,0.72))] px-4 py-4">
+              <div className="admin-stat-card rounded-3xl bg-[linear-gradient(135deg,rgba(56,189,248,0.16),rgba(255,255,255,0.72))] px-4 py-4">
                 <p className="text-xs font-black tracking-[0.18em] text-slate-500">总用户数</p>
                 <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(summary.total_users)}</p>
               </div>
-              <div className="rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(196,181,253,0.2),rgba(255,255,255,0.72))] px-4 py-4">
+              <div className="admin-stat-card rounded-3xl bg-[linear-gradient(135deg,rgba(196,181,253,0.2),rgba(255,255,255,0.72))] px-4 py-4">
                 <p className="text-xs font-black tracking-[0.18em] text-slate-500">运行次数</p>
                 <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(summary.total_runs)}</p>
               </div>
-              <div className="rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(74,222,128,0.18),rgba(255,255,255,0.72))] px-4 py-4">
+              <div className="admin-stat-card rounded-3xl bg-[linear-gradient(135deg,rgba(74,222,128,0.18),rgba(255,255,255,0.72))] px-4 py-4">
                 <p className="text-xs font-black tracking-[0.18em] text-slate-500">单会话 Token</p>
                 <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatTokenNumber(avgTokensPerSession)}</p>
               </div>
