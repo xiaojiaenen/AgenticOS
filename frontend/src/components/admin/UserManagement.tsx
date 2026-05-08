@@ -161,6 +161,18 @@ export const UserManagement = () => {
     setFormError(null);
   };
 
+  useEffect(() => {
+    if (!isFormOpen && !deletingUser) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isFormOpen) closeForm();
+        else if (deletingUser && !isSaving) setDeletingUser(null);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isFormOpen, deletingUser, isSaving]);
+
   const handleToggleStatus = async (user: AdminUser) => {
     const nextActive = !user.is_active;
     setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, is_active: nextActive } : item)));

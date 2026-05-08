@@ -20,7 +20,6 @@ import { cn } from '../lib/utils';
 
 export const Chat = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const initialMessage = location.state?.initialMessage as string | undefined;
 
   const {
@@ -168,6 +167,16 @@ export const Chat = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Escape 键关闭移动端侧边栏
+  useEffect(() => {
+    if (!isMobile || !isSidebarOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsSidebarOpen(false);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isMobile, isSidebarOpen]);
+
   // 自动滚动
   useEffect(() => {
     if (isUserScrolledUp && !isStreamingResponse) return;
@@ -313,7 +322,7 @@ export const Chat = () => {
               setIsSidebarOpen(true);
               setIsSidebarHiddenByArtifact(false);
             }}
-            className="fixed top-4 left-4 z-50 w-12 h-12 bg-white/80 backdrop-blur-md border border-slate-200 rounded-2xl shadow-sm flex items-center justify-center text-zinc-800 hover:bg-white hover:shadow-md transition-all group"
+            className="fixed top-4 left-4 z-50 w-12 h-12 bg-white/80 backdrop-blur-md border border-slate-200 rounded-2xl shadow-sm flex items-center justify-center text-zinc-800 hover:bg-white hover:shadow-md transition-all group focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
             aria-label="展开侧边栏"
           >
             <MascotCool size={24} className="group-hover:scale-110 transition-transform" />

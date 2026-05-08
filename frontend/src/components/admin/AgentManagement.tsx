@@ -168,6 +168,15 @@ export const AgentManagement = () => {
     setDraft(null);
   };
 
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeModal();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isModalOpen, isSaving]);
+
   const patchDraft = (patch: Partial<Draft>) => {
     setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
   };

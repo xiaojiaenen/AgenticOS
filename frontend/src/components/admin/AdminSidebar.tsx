@@ -58,7 +58,7 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
         <button
           type="button"
           onClick={onClose}
-          className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-white/80 hover:text-slate-700"
+          className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-white/80 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
           aria-label="关闭导航"
         >
           <MenuIcon size={20} />
@@ -83,7 +83,7 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
                 onClick={() => handleSelect(item.id)}
                 whileTap={{ scale: 0.985 }}
                 className={cn(
-                  'admin-nav-item',
+                  'admin-nav-item focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2',
                   active ? 'admin-nav-item-active text-zinc-900' : 'text-slate-600 hover:text-slate-900',
                 )}
               >
@@ -125,7 +125,7 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
         <button
           type="button"
           onClick={() => navigate('/chat')}
-          className="mb-3 flex w-full items-center gap-3 rounded-2xl bg-zinc-900 px-3 py-2.5 text-sm font-bold text-white shadow-button transition-all hover:-translate-y-0.5 hover:bg-zinc-800"
+          className="mb-3 flex w-full items-center gap-3 rounded-2xl bg-zinc-900 px-3 py-2.5 text-sm font-bold text-white shadow-button transition-all hover:-translate-y-0.5 hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
         >
           <MessageCircle size={18} />
           进入对话
@@ -142,7 +142,7 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
           <button
             type="button"
             onClick={handleLogout}
-            className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
+            className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
             title="退出登录"
             aria-label="退出登录"
           >
