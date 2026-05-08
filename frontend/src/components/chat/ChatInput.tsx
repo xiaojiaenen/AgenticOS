@@ -161,7 +161,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 
       <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,.pdf,.txt,.doc,.docx" />
 
-      <div className="relative flex items-end rounded-[2rem] border border-white/60 bg-white/60 p-2 px-3 shadow-[0_8px_30px_rgba(50,150,250,0.1)] backdrop-blur-2xl transition-all duration-300 focus-within:border-cyan-400 focus-within:bg-white/90 focus-within:shadow-[0_12px_40px_rgba(34,211,238,0.3)]">
+      <div className="relative flex items-end rounded-[2rem] border border-white/60 bg-white/60 p-2 px-3 shadow-lg shadow-brand-500/10 backdrop-blur-2xl transition-all duration-300 focus-within:border-brand-200 focus-within:bg-white/90 focus-within:shadow-glow">
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}

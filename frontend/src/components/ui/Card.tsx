@@ -7,7 +7,7 @@ export const Card = ({ className, children, ...props }: CardProps) => {
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-[30px] border border-white/65 bg-white/[0.62] shadow-[0_28px_80px_rgba(15,23,42,0.08)] ring-1 ring-white/35 backdrop-blur-[28px]',
+        'relative overflow-hidden rounded-[28px] border border-white/65 glass-medium shadow-lg ring-1 ring-white/35',
         className,
       )}
       {...props}

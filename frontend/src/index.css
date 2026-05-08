@@ -2,13 +2,53 @@
 @import "katex/dist/katex.min.css";
 @import "tailwindcss";
 
+/* ===== Design Token System ===== */
 @theme {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-display: "Space Grotesk", sans-serif;
+
+  /* Brand color scale — sky-based primary */
+  --color-brand-50: #f0f9ff;
+  --color-brand-100: #e0f2fe;
+  --color-brand-200: #bae6fd;
+  --color-brand-300: #7dd3fc;
+  --color-brand-400: #38bdf8;
+  --color-brand-500: #0ea5e9;
+  --color-brand-600: #0284c7;
+  --color-brand-700: #0369a1;
+  --color-brand-800: #075985;
+  --color-brand-900: #0c4a6e;
+
+  /* Radius scale */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+
+  /* Shadow scale — low to high elevation */
+  --shadow-xs: 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 22px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 16px 38px rgba(15, 23, 42, 0.10);
+  --shadow-xl: 0 24px 56px rgba(15, 23, 42, 0.14);
+  --shadow-glow: 0 0 24px rgba(14, 165, 233, 0.25);
+  --shadow-button: 0 12px 28px rgba(15, 23, 42, 0.18);
+
+  /* Glass opacity levels */
+  --glass-subtle: rgba(255, 255, 255, 0.48);
+  --glass-medium: rgba(255, 255, 255, 0.68);
+  --glass-strong: rgba(255, 255, 255, 0.84);
+  --glass-backdrop: blur(20px);
+
   --animate-blob: blob 7s infinite;
+  --animate-fade-in: fade-in 0.5s ease-out both;
+  --animate-slide-up: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-scale-in: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* ===== Base ===== */
 html, body {
   @apply bg-[#e7f3f4] font-sans antialiased text-slate-800;
   scrollbar-width: none;
@@ -22,6 +62,18 @@ body {
     radial-gradient(circle at 75% 78%, rgba(216, 255, 238, 0.88), transparent 24%),
     linear-gradient(180deg, #eef3fb 0%, #edf5ef 100%);
   background-attachment: fixed;
+}
+
+/* Noise texture overlay — applied to all pages */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.025;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }
 
 html::-webkit-scrollbar,
@@ -39,16 +91,46 @@ section::-webkit-scrollbar {
   -ms-overflow-style: none;
 }
 
+/* ===== Glass Panel Utilities ===== */
+.glass-subtle {
+  background: var(--glass-subtle);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+}
+
+.glass-medium {
+  background: var(--glass-medium);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+}
+
+.glass-strong {
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+}
+
+/* ===== Admin Shared Classes ===== */
 .admin-section-kicker {
-  @apply text-[11px] font-black uppercase tracking-[0.22em] text-slate-400;
+  @apply text-[11px] font-black uppercase tracking-[0.2em] text-slate-400;
 }
 
 .admin-glass-panel {
-  @apply rounded-[24px] border border-white/70 bg-white/58 shadow-[0_18px_42px_rgba(15,23,42,0.06)] backdrop-blur-2xl;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: var(--glass-medium);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  box-shadow: var(--shadow-md);
 }
 
 .admin-solid-panel {
-  @apply rounded-[24px] border border-white/75 bg-white/78 shadow-[0_18px_42px_rgba(15,23,42,0.06)] ring-1 ring-white/55 backdrop-blur-2xl;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  box-shadow: var(--shadow-md), 0 0 0 1px rgba(255, 255, 255, 0.55);
 }
 
 .admin-dashboard-shell {
@@ -139,8 +221,9 @@ body.admin-modal-open .admin-dashboard-backdrop {
   transform: rotate(10deg);
 }
 
+/* ===== Admin Page Components ===== */
 .admin-page-header {
-  @apply relative overflow-hidden rounded-[26px] border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(255,255,255,0.68))] px-6 py-5 shadow-[0_22px_58px_rgba(15,23,42,0.08)] ring-1 ring-white/55 backdrop-blur-2xl;
+  @apply relative overflow-hidden rounded-[24px] border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(255,255,255,0.68))] px-6 py-5 shadow-lg ring-1 ring-white/55 backdrop-blur-2xl;
 }
 
 .admin-page-header::before {
@@ -158,11 +241,11 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-kpi-pill {
-  @apply inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500 shadow-[0_8px_22px_rgba(15,23,42,0.045)] transition-all hover:-translate-y-0.5 hover:bg-white/88;
+  @apply inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white/88;
 }
 
 .admin-data-panel {
-  @apply relative overflow-hidden rounded-[26px] border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.74),rgba(248,250,252,0.58),rgba(255,255,255,0.48))] shadow-[0_20px_54px_rgba(15,23,42,0.075)] ring-1 ring-white/50 backdrop-blur-[26px];
+  @apply relative overflow-hidden rounded-[24px] border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.74),rgba(248,250,252,0.58),rgba(255,255,255,0.48))] shadow-lg ring-1 ring-white/50 backdrop-blur-2xl;
 }
 
 .admin-data-panel::before {
@@ -195,6 +278,7 @@ body.admin-modal-open .admin-dashboard-backdrop {
   @apply flex flex-col items-center justify-center text-center;
 }
 
+/* ===== Admin Modals ===== */
 .admin-modal-shell {
   @apply fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6;
   position: fixed;
@@ -237,12 +321,16 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-modal-panel {
-  @apply border-white/80 bg-white/86 shadow-[0_30px_90px_rgba(15,23,42,0.16)] ring-1 ring-white/70 backdrop-blur-[30px];
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
   position: relative;
   box-shadow:
     0 36px 110px rgba(15,23,42,0.22),
     0 10px 28px rgba(255,255,255,0.18),
-    inset 0 1px 0 rgba(255,255,255,0.85);
+    inset 0 1px 0 rgba(255,255,255,0.85),
+    0 0 0 1px rgba(255, 255, 255, 0.7);
 }
 
 .admin-modal-panel::before {
@@ -274,6 +362,7 @@ body.admin-modal-open .admin-dashboard-backdrop {
   @apply min-w-0 px-2;
 }
 
+/* ===== Admin Staggered Animations ===== */
 .admin-page-stage > * {
   animation: admin-stage-in 0.56s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -288,6 +377,7 @@ body.admin-modal-open .admin-dashboard-backdrop {
   animation: admin-row-in 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* ===== Prose / Markdown ===== */
 .prose {
   @apply font-sans;
 }
@@ -305,7 +395,7 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .prose pre {
-  @apply rounded-[1.75rem] border border-slate-200/50 shadow-[0_16px_36px_rgba(148,163,184,0.12)];
+  @apply rounded-[28px] border border-slate-200/50 shadow-md;
 }
 
 .prose strong {
@@ -336,6 +426,7 @@ body.admin-modal-open .admin-dashboard-backdrop {
   @apply min-w-0;
 }
 
+/* ===== Scrollbar ===== */
 .visible-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(100, 116, 139, 0.55) rgba(226, 232, 240, 0.7);
@@ -362,6 +453,7 @@ body.admin-modal-open .admin-dashboard-backdrop {
   background: linear-gradient(90deg, rgba(71, 85, 105, 0.95), rgba(6, 182, 212, 0.85));
 }
 
+/* ===== KaTeX ===== */
 .katex-display {
   @apply my-6 overflow-x-auto rounded-2xl border border-slate-100 bg-slate-50/50 p-4;
 }
@@ -370,53 +462,7 @@ body.admin-modal-open .admin-dashboard-backdrop {
   @apply text-slate-800;
 }
 
-@keyframes blob {
-  0% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1);
-  }
-}
-
-@keyframes admin-stage-in {
-  0% {
-    opacity: 0;
-    transform: translateY(18px) scale(0.985);
-    filter: blur(10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
-  }
-}
-
-@keyframes admin-row-in {
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
-
+/* ===== Markdown Body (non-prose fallback) ===== */
 .markdown-body {
   @apply leading-relaxed text-slate-700;
 }
@@ -442,11 +488,11 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .markdown-body a {
-  @apply text-teal-600 hover:underline;
+  @apply text-brand-600 hover:underline;
 }
 
 .markdown-body code {
-  @apply rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-teal-700;
+  @apply rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-brand-700;
 }
 
 .markdown-body pre {
@@ -464,3 +510,48 @@ body.admin-modal-open .admin-dashboard-backdrop {
 .markdown-body h1 { @apply text-xl; }
 .markdown-body h2 { @apply text-lg; }
 .markdown-body h3 { @apply text-base; }
+
+/* ===== Animations ===== */
+@keyframes blob {
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+@keyframes admin-stage-in {
+  0% { opacity: 0; transform: translateY(18px) scale(0.985); filter: blur(10px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@keyframes admin-row-in {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes slide-up {
+  0% { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  0% { opacity: 0; transform: scale(0.94); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animation-delay-2000 { animation-delay: 2s; }
+.animation-delay-4000 { animation-delay: 4s; }
+
+/* ===== Reduced Motion ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -12,6 +12,8 @@ import { DragOverlay } from '../components/chat/DragOverlay';
 import { PendingApprovalPanel } from '../components/chat/PendingApprovalPanel';
 import { PptArtifactPanel } from '../components/ppt/PptArtifactPanel';
 import { useChatSearch } from '../hooks/useChatSearch';
+import { useChatSessions } from '../hooks/useChatSessions';
+import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { Artifact, Message, Session, Attachment } from '../types';
 import { sendMessageStream, generateTitle, submitApprovalDecision, AgentSessionState, AgentPptArtifact, AgentRunStatus } from '../services/agentService';
 import { AgentProfile, getMyAgents } from '../services/agentProfileService';
@@ -21,83 +23,33 @@ import { AlertCircleIcon, MascotCool, ChevronDownIcon } from '../components/ui/A
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
 import { cn } from '../lib/utils';
 
-const CHAT_CACHE_KEY = 'chat_sessions';
-const MAX_PERSISTED_SESSIONS = 24;
-const MAX_PERSISTED_MESSAGES_PER_SESSION = 80;
-const MAX_PERSISTED_TEXT_LENGTH = 12_000;
-const MAX_PERSISTED_TOOL_RESULT_LENGTH = 4_000;
-
-function clampText(value: string | undefined, limit: number): string | undefined {
-  if (!value) return value;
-  return value.length > limit ? `${value.slice(0, limit)}...` : value;
-}
-
-function compactMessageForStorage(message: Message): Message {
-  return {
-    ...message,
-    text: clampText(message.text, MAX_PERSISTED_TEXT_LENGTH) || '',
-    reasoningText: clampText(message.reasoningText, MAX_PERSISTED_TEXT_LENGTH),
-    attachments: undefined,
-    toolCalls: message.toolCalls?.map((tool) => ({
-      ...tool,
-      result: clampText(tool.result, MAX_PERSISTED_TOOL_RESULT_LENGTH),
-    })),
-    pptArtifact: message.pptArtifact
-      ? {
-          status: message.pptArtifact.status,
-          artifactId: message.pptArtifact.artifactId,
-          title: message.pptArtifact.title,
-          slideCount: message.pptArtifact.slideCount,
-        }
-      : undefined,
-  };
-}
-
-function serializeSessionsForStorage(sessions: Session[]): Session[] {
-  return [...sessions]
-    .sort((left, right) => right.updatedAt - left.updatedAt)
-    .slice(0, MAX_PERSISTED_SESSIONS)
-    .map((session) => ({
-      ...session,
-      messages: session.messages
-        .slice(-MAX_PERSISTED_MESSAGES_PER_SESSION)
-        .map((message) => compactMessageForStorage(message)),
-    }));
-}
-
-function loadStoredSessions(): Session[] {
-  const saved = localStorage.getItem(CHAT_CACHE_KEY);
-  if (!saved) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) ? parsed as Session[] : [];
-  } catch {
-    return [];
-  }
-}
-
 export const Chat = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const initialMessage = location.state?.initialMessage as string | undefined;
-  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [sessions, setSessions] = useState<Session[]>(() => loadStoredSessions());
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [inputValue, setInputValue] = useState('');
-  const [chatMode, setChatMode] = useState<'general' | 'ppt' | 'website'>((location.state as any)?.mode || 'general');
-  const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
-  const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>((location.state as any)?.agentProfileId || null);
-  const currentSession = sessions.find(s => s.id === currentSessionId);
-  const selectedAgent = agentProfiles.find(agent => agent.id === selectedAgentProfileId) || null;
+  const {
+    sessions,
+    setSessions,
+    currentSessionId,
+    setCurrentSessionId,
+    currentSession,
+    visibleSessions,
+    hasMoreSessions,
+    loadMoreSessions,
+    applySessionState,
+  } = useChatSessions();
 
   const {
     searchQuery, setSearchQuery, showSearch, setShowSearch,
     searchCurrentIndex, searchMatches, nextMatch, prevMatch, activeMatchId
   } = useChatSearch(currentSession);
+
+  const [inputValue, setInputValue] = useState('');
+  const [chatMode, setChatMode] = useState<'general' | 'ppt' | 'website'>((location.state as any)?.mode || 'general');
+  const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
+  const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>((location.state as any)?.agentProfileId || null);
+  const selectedAgent = agentProfiles.find(agent => agent.id === selectedAgentProfileId) || null;
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -110,8 +62,7 @@ export const Chat = () => {
     label: '已就绪',
   });
   const [isSidebarHiddenByArtifact, setIsSidebarHiddenByArtifact] = useState(false);
-  const [visibleSessionsCount, setVisibleSessionsCount] = useState(10);
-  const [isDragging, setIsDragging] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputHandle>(null);
@@ -128,6 +79,14 @@ export const Chat = () => {
     ),
     [currentSessionMessages, isAdmin],
   );
+
+  const { isDragging, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragAndDrop();
+
+  const onDrop = (e: React.DragEvent) => {
+    handleDrop(e, (files) => {
+      chatInputRef.current?.addFiles(files);
+    });
+  };
 
   // 处理会话切换时的模式同步
   useEffect(() => {
@@ -176,26 +135,6 @@ export const Chat = () => {
     handleResize();
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  // 将会话持久化到本地（节流：避免流式更新期间频繁写入主线程卡顿）
-  useEffect(() => {
-    if (persistTimerRef.current) {
-      clearTimeout(persistTimerRef.current);
-    }
-    const data = serializeSessionsForStorage(sessions);
-    if (isLoading) {
-      persistTimerRef.current = setTimeout(() => {
-        localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(data));
-      }, 1000);
-    } else {
-      localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(data));
-    }
-    return () => {
-      if (persistTimerRef.current) {
-        clearTimeout(persistTimerRef.current);
-      }
-    };
-  }, [sessions, isLoading]);
 
   const scrollToBottom = React.useCallback((behavior: ScrollBehavior = 'smooth') => {
     if (!scrollRef.current) return;
@@ -263,18 +202,6 @@ export const Chat = () => {
   const { scrollYProgress } = useScroll({ container: scrollRef });
   const borderColor = useTransform(scrollYProgress, [0, 0.2, 1], ['rgba(255,255,255,0.7)', 'rgba(255,255,255,1)', 'rgba(56,189,248,0.4)']);
 
-  const visibleSessions = sessions.slice(0, visibleSessionsCount);
-  const hasMoreSessions = sessions.length > visibleSessionsCount;
-
-  const loadMoreSessions = () => {
-    if (isLoading) return;
-    setVisibleSessionsCount(prev => prev + 10);
-  };
-
-  const handleLogout = () => {
-    navigate('/login');
-  };
-
   const createNewChat = React.useCallback(() => {
     setCurrentSessionId(null);
     setChatMode('general');
@@ -282,7 +209,7 @@ export const Chat = () => {
     setArtifact(null);
     setRunStatus({ phase: 'idle', label: '已就绪' });
     if (isMobile) setIsSidebarOpen(false);
-  }, [isMobile]);
+  }, [isMobile, setCurrentSessionId]);
 
   const deleteSession = React.useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -295,27 +222,7 @@ export const Chat = () => {
       setSelectedAgentProfileId(null);
       return null;
     });
-  }, []);
-
-  const applySessionState = React.useCallback((targetId: string, state: AgentSessionState) => {
-    setSessions(prev => prev.map(session => (
-      session.id === targetId || session.id === state.session_id
-        ? {
-            ...session,
-            id: state.session_id || session.id,
-            summary: state.summary ?? session.summary,
-            contextCompressed: state.context_compressed ?? session.contextCompressed,
-            storage: state.storage ?? session.storage,
-            lastUsage: state.last_usage ?? session.lastUsage,
-            latencyMs: state.last_latency_ms ?? session.latencyMs,
-            llmCalls: state.last_llm_calls ?? session.llmCalls,
-          }
-        : session
-    )));
-    if (targetId !== state.session_id && state.session_id) {
-      setCurrentSessionId(prev => (prev === targetId ? state.session_id : prev));
-    }
-  }, []);
+  }, [setSessions, setCurrentSessionId]);
 
   const handleApprovalDecision = React.useCallback(async (approvalId: string, status: 'approved' | 'rejected') => {
     const optimisticStatus = status === 'approved' ? 'approved' : 'rejected';
@@ -341,7 +248,7 @@ export const Chat = () => {
       console.error('Approval error:', err);
       setError('审批提交失败，请检查后端服务。');
     }
-  }, []);
+  }, [setSessions]);
 
   const handleOpenArtifact = React.useCallback((nextArtifact: Artifact) => {
     setArtifact(nextArtifact);
@@ -644,36 +551,7 @@ export const Chat = () => {
       }
       setIsLoading(false);
     }
-  }, [currentSessionId, sessions, isLoading, chatMode, currentSession, applySessionState, selectedAgentProfileId, selectedAgent]);
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      chatInputRef.current?.addFiles(Array.from(e.dataTransfer.files));
-    }
-  };
-
-  const dragCounterRef = useRef(0);
-
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounterRef.current += 1;
-    setIsDragging(true);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounterRef.current -= 1;
-    if (dragCounterRef.current <= 0) {
-      dragCounterRef.current = 0;
-      setIsDragging(false);
-    }
-  };
+  }, [currentSessionId, sessions, isLoading, chatMode, currentSession, applySessionState, selectedAgentProfileId, selectedAgent, setSessions, setCurrentSessionId]);
 
   return (
     <motion.div
@@ -684,7 +562,7 @@ export const Chat = () => {
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      onDrop={onDrop}
       className="flex h-screen bg-gradient-to-br from-[#e0fbfc] via-[#a5f3fc] to-[#60a5fa] text-slate-800 font-sans overflow-hidden selection:bg-zinc-200 selection:text-zinc-900 relative"
     >
       {/* 全屏拖拽遮罩 */}

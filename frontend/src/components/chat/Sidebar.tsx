@@ -48,7 +48,7 @@ export const Sidebar = React.memo(({
       exit={isMobile ? { x: -300 } : { width: 0 }}
       transition={{ type: 'spring', damping: 30, stiffness: 300 }}
       className={cn(
-        "bg-white/60 backdrop-blur-2xl border-r border-white/40 flex flex-col z-20 flex-shrink-0 overflow-hidden shadow-[4px_0_24px_rgba(0,0,0,0.03)]",
+        "bg-white/60 backdrop-blur-2xl border-r border-white/40 flex flex-col z-20 flex-shrink-0 overflow-hidden shadow-sm",
         isMobile ? "fixed inset-y-0 left-0 shadow-2xl w-[280px]" : "h-full"
       )}
     >

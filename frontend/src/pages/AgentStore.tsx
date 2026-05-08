@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, Bot, Check, Loader2, Plus, RefreshCw, Sparkles, X } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { AgentProfile, getAgentStore, installAgent, uninstallAgent } from '../services/agentProfileService';
 import { cn } from '../lib/utils';
@@ -137,17 +138,17 @@ export const AgentStore = () => {
                   layout
                   whileHover={{ y: -4 }}
                   transition={{ duration: 0.2 }}
-                  className="group flex min-h-[190px] flex-col rounded-[24px] border border-white/65 bg-white/62 p-4 shadow-[0_8px_26px_rgba(15,23,42,0.06)] backdrop-blur-2xl"
+                  className="group flex min-h-[190px] flex-col rounded-[24px] border border-white/65 bg-white/62 p-4 shadow-md backdrop-blur-2xl"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg shadow-sky-500/15', accent)}>
                       <Bot size={21} />
                     </div>
                     {canUse && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
+                      <Badge variant="success" size="md">
                         <Check size={12} />
                         可用
-                      </span>
+                      </Badge>
                     )}
                   </div>
 

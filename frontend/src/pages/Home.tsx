@@ -66,8 +66,6 @@ export const Home = () => {
           <RandomMascot size={1000} />
         </div>
 
-        {/* Noise Overlay */}
-        <div className="absolute inset-0 opacity-[0.04] mix-blend-overlay" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }}></div>
       </div>
 
       {/* Top Navigation */}
@@ -121,7 +119,7 @@ export const Home = () => {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.6 }}
-          className="w-full max-w-3xl bg-white/60 backdrop-blur-2xl rounded-[32px] shadow-[0_8px_30px_rgba(50,150,250,0.1)] border border-white/60 p-3 transition-all focus-within:shadow-[0_12px_40px_rgba(56,189,248,0.2)] focus-within:bg-white/90 z-20"
+          className="w-full max-w-3xl bg-white/60 backdrop-blur-2xl rounded-[32px] shadow-lg shadow-brand-500/10 border border-white/60 p-3 transition-all focus-within:shadow-glow focus-within:bg-white/90 z-20"
         >
           <textarea
             className="w-full h-32 bg-transparent resize-none outline-none text-slate-800 placeholder:text-slate-400 text-lg p-4 leading-relaxed"
