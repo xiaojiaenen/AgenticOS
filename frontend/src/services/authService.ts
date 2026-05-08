@@ -88,6 +88,7 @@ export function clearAuthSession(): void {
   removeStorageValue(TOKEN_KEY);
   removeStorageValue(USER_KEY);
   removeStorageValue(ROLE_KEY);
+  localStorage.removeItem('chat_sessions');
 }
 
 export async function login(email: string, password: string): Promise<AuthUser> {
