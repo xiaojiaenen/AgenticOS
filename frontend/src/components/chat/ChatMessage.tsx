@@ -281,7 +281,20 @@ const PptArtifactCard = ({
   );
 };
 
-const AssistantWaitingIndicator = () => (
+const AnimatedDots = () => (
+  <span className="flex items-center gap-1" aria-hidden="true">
+    {[0, 1, 2].map((dot) => (
+      <motion.span
+        key={dot}
+        className="h-1.5 w-1.5 rounded-full bg-slate-300"
+        animate={{ y: [0, -3, 0], opacity: [0.35, 1, 0.35] }}
+        transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut", delay: dot * 0.16 }}
+      />
+    ))}
+  </span>
+);
+
+const AssistantWaitingIndicator = ({ statusText = '正在思考' }: { statusText?: string }) => (
   <div className="flex min-w-[12rem] items-center gap-3 py-1 text-sm font-semibold text-slate-500">
     <span className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl border border-slate-200/80 bg-slate-50/90 text-slate-400 shadow-inner">
       <BrainCircuit size={15} />
@@ -291,24 +304,54 @@ const AssistantWaitingIndicator = () => (
         transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
       />
     </span>
-    <span className="whitespace-nowrap">正在准备回复</span>
-    <span className="flex items-center gap-1" aria-hidden="true">
-      {[0, 1, 2].map((dot) => (
-        <motion.span
-          key={dot}
-          className="h-1.5 w-1.5 rounded-full bg-slate-300"
-          animate={{ y: [0, -3, 0], opacity: [0.35, 1, 0.35] }}
-          transition={{
-            duration: 0.9,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: dot * 0.16,
-          }}
-        />
-      ))}
-    </span>
+    <span className="whitespace-nowrap">{statusText}</span>
+    <AnimatedDots />
   </div>
 );
+
+function getActiveToolLabel(tool: ToolCall): string {
+  const status = tool.status;
+  if (status === 'approval_required') return `等待审批: ${tool.name}`;
+  if (status === 'approved') return `正在执行: ${tool.name}`;
+  if (status === 'pending') return `正在调用: ${tool.name}`;
+  if (status === 'success') return `已完成: ${tool.name}`;
+  if (status === 'error') return `执行失败: ${tool.name}`;
+  if (status === 'rejected') return `已拒绝: ${tool.name}`;
+  return tool.name;
+}
+
+function isToolActive(tool: ToolCall): boolean {
+  return tool.status === 'pending' || tool.status === 'approved' || tool.status === 'approval_required';
+}
+
+const LiveToolCall = ({ tool }: { tool: ToolCall }) => {
+  const active = isToolActive(tool);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={cn(
+        "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border",
+        active
+          ? "border-sky-200 bg-sky-50/80 text-sky-700"
+          : tool.status === 'error'
+            ? "border-rose-200 bg-rose-50/80 text-rose-600"
+            : "border-emerald-200 bg-emerald-50/80 text-emerald-600",
+      )}
+    >
+      {active ? (
+        <motion.span
+          className="h-3.5 w-3.5 rounded-full border-2 border-sky-400 border-t-transparent"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+        />
+      ) : (
+        <WrenchIcon size={13} />
+      )}
+      <span className="font-mono font-bold uppercase tracking-[0.12em] text-[10px]">{getActiveToolLabel(tool)}</span>
+    </motion.div>
+  );
+};
 
 export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, onOpenArtifact, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
   const isUser = message?.role === 'user';
@@ -942,6 +985,24 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             </div>
           )}
 
+          {/* Live tool calls during streaming */}
+          {!isUser && !isTyping && message?.toolCalls && message.toolCalls.length > 0 && isStreaming && (
+            <div className="flex flex-col gap-1.5 mb-3">
+              <AnimatePresence>
+                {message.toolCalls.map((tool, i) => (
+                  <LiveToolCall key={`${tool.id || i}-${tool.status}`} tool={tool} />
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* Improved waiting: show tool status if active tools, else show thinking */}
+          {showAssistantWaiting && !isTyping && (!message?.toolCalls || message.toolCalls.length === 0) && (
+            <div className="mb-2">
+              <AssistantWaitingIndicator />
+            </div>
+          )}
+
           {isTyping ? (
             <div className="flex items-center gap-2 h-6 px-1">
               <motion.span
@@ -1031,8 +1092,6 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                 >
                   {visibleText}
                 </ReactMarkdown>
-              ) : showAssistantWaiting ? (
-                <AssistantWaitingIndicator />
               ) : (
                 <span className="text-sm font-medium text-slate-400"> </span>
               )}
