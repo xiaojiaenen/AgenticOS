@@ -1,8 +1,17 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ChatMessage } from './ChatMessage';
 import { ChatSuggestions } from './ChatSuggestions';
 import { Artifact, Message } from '../../types';
 import { getStoredUser } from '../../services/authService';
+
+const sanitizedCache = new WeakMap<Message, Message>();
+
+function sanitizeForNonAdmin(message: Message): Message {
+  if (sanitizedCache.has(message)) return sanitizedCache.get(message)!;
+  const sanitized: Message = { ...message, reasoningText: undefined, toolCalls: undefined };
+  sanitizedCache.set(message, sanitized);
+  return sanitized;
+}
 
 interface MessagesListProps {
   currentSession: { messages: Message[] } | undefined;
@@ -28,6 +37,11 @@ export const MessagesList: React.FC<MessagesListProps> = ({
   messagesEndRef
 }) => {
   const isAdmin = getStoredUser()?.role === 'admin';
+  const displayMessages = useMemo(() => {
+    if (isAdmin || !currentSession) return currentSession?.messages;
+    return currentSession.messages.map((message) => sanitizeForNonAdmin(message));
+  }, [currentSession?.messages, isAdmin]);
+
   if (!currentSession) {
     return <ChatSuggestions onSelect={onSuggestionClick} />;
   }
@@ -38,18 +52,10 @@ export const MessagesList: React.FC<MessagesListProps> = ({
 
   return (
     <div className="space-y-8 pb-4">
-      {currentSession.messages.map((message, idx) => (
-        <ChatMessage 
-          key={message.id} 
-          message={
-            isAdmin
-              ? message
-              : {
-                  ...message,
-                  reasoningText: undefined,
-                  toolCalls: undefined,
-                }
-          } 
+      {(displayMessages || currentSession.messages).map((message, idx) => (
+        <ChatMessage
+          key={message.id}
+          message={message}
           index={idx}
           isStreaming={message.id === streamingMessageId}
           wideLayout={wideLayout}

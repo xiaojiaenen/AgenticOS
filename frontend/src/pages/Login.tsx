@@ -76,8 +76,8 @@ export const Login = () => {
         <form className="space-y-6" onSubmit={handleLogin}>
           <div className="space-y-2">
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">邮箱地址</label>
-            <input 
-              type="text" 
+            <input
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
@@ -88,7 +88,7 @@ export const Login = () => {
           <div className="space-y-2">
             <div className="flex justify-between items-center ml-1">
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">密码</label>
-              <a href="#" className="text-xs text-zinc-600 hover:text-zinc-900 font-bold">忘记密码？</a>
+              <span className="text-xs text-zinc-400 font-bold">忘记密码请联系管理员</span>
             </div>
             <input 
               type="password" 

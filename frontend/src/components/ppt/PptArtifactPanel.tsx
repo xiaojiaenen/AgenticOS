@@ -96,7 +96,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             srcDoc={previewSrcDoc}
             title={artifact.title}
             className="min-h-[calc(100vh-10rem)] w-full border-0"
-            sandbox="allow-same-origin"
+            sandbox="allow-same-origin allow-scripts"
             referrerPolicy="no-referrer"
           />
         </motion.div>

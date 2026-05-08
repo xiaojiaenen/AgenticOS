@@ -35,6 +35,13 @@ const AnimatedRoutes = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
+          <Route path="*" element={
+            <div className="flex h-screen flex-col items-center justify-center gap-4 bg-zinc-50 text-slate-600">
+              <p className="text-6xl font-black text-slate-300">404</p>
+              <p className="text-lg font-bold">页面未找到</p>
+              <a href="/" className="text-sm font-medium text-sky-600 hover:text-sky-700">返回首页</a>
+            </div>
+          } />
         </Routes>
       </AnimatePresence>
     </Suspense>

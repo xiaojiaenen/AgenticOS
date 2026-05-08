@@ -1,12 +1,23 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
 from app.core.security import hash_password
-from app.db.models import UserModel
+from app.db.models import (
+    AgentMessageModel,
+    AgentProfileAudienceModel,
+    AgentSessionModel,
+    AgentUsageEventModel,
+    ApprovalModel,
+    AuthSessionModel,
+    AuthRateLimitModel,
+    PptArtifactModel,
+    UserInstalledAgentModel,
+    UserModel,
+)
 from app.schemas.users import UserCreateRequest, UserListItem, UserListResponse, UserStatusUpdateRequest, UserUpdateRequest
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -153,6 +164,23 @@ def delete_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if user.id == current_user.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete yourself")
+
+    session_ids = [row[0] for row in db.execute(
+        select(AgentSessionModel.session_id).where(AgentSessionModel.user_id == user_id)
+    ).all()]
+
+    if session_ids:
+        db.execute(delete(AgentMessageModel).where(AgentMessageModel.session_id.in_(session_ids)))
+        db.execute(delete(AgentUsageEventModel).where(AgentUsageEventModel.session_id.in_(session_ids)))
+        db.execute(delete(ApprovalModel).where(ApprovalModel.session_id.in_(session_ids)))
+        db.execute(delete(PptArtifactModel).where(PptArtifactModel.session_id.in_(session_ids)))
+        db.execute(delete(AgentSessionModel).where(AgentSessionModel.user_id == user_id))
+
+    db.execute(delete(UserInstalledAgentModel).where(UserInstalledAgentModel.user_id == user_id))
+    db.execute(delete(AgentProfileAudienceModel).where(AgentProfileAudienceModel.user_id == user_id))
+    db.execute(delete(AuthSessionModel).where(AuthSessionModel.user_id == user_id))
+    db.execute(delete(AuthRateLimitModel).where(AuthRateLimitModel.key.like(f"%:{user.email}%")))
+    db.execute(delete(AgentUsageEventModel).where(AgentUsageEventModel.user_id == user_id))
 
     db.delete(user)
     db.commit()

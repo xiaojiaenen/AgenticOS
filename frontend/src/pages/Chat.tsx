@@ -83,6 +83,7 @@ export const Chat = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const initialMessage = location.state?.initialMessage as string | undefined;
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [sessions, setSessions] = useState<Session[]>(() => loadStoredSessions());
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -176,10 +177,25 @@ export const Chat = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // 将会话持久化到本地
+  // 将会话持久化到本地（节流：避免流式更新期间频繁写入主线程卡顿）
   useEffect(() => {
-    localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(serializeSessionsForStorage(sessions)));
-  }, [sessions]);
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+    }
+    const data = serializeSessionsForStorage(sessions);
+    if (isLoading) {
+      persistTimerRef.current = setTimeout(() => {
+        localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(data));
+      }, 1000);
+    } else {
+      localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(data));
+    }
+    return () => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current);
+      }
+    };
+  }, [sessions, isLoading]);
 
   const scrollToBottom = React.useCallback((behavior: ScrollBehavior = 'smooth') => {
     if (!scrollRef.current) return;
@@ -271,7 +287,14 @@ export const Chat = () => {
   const deleteSession = React.useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setSessions(prev => prev.filter(s => s.id !== id));
-    setCurrentSessionId(prev => (prev === id ? null : prev));
+    setCurrentSessionId(prev => {
+      if (prev !== id) return prev;
+      setArtifact(null);
+      setRunStatus({ phase: 'idle', label: '已就绪' });
+      setChatMode('general');
+      setSelectedAgentProfileId(null);
+      return null;
+    });
   }, []);
 
   const applySessionState = React.useCallback((targetId: string, state: AgentSessionState) => {
@@ -631,9 +654,25 @@ export const Chat = () => {
     }
   };
 
+  const dragCounterRef = useRef(0);
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    setIsDragging(true);
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+    }
   };
 
   return (
@@ -642,8 +681,9 @@ export const Chat = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
-      onDragLeave={() => setIsDragging(false)}
+      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className="flex h-screen bg-gradient-to-br from-[#e0fbfc] via-[#a5f3fc] to-[#60a5fa] text-slate-800 font-sans overflow-hidden selection:bg-zinc-200 selection:text-zinc-900 relative"
     >

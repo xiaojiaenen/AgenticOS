@@ -118,6 +118,14 @@ export const AgentStore = () => {
             <Loader2 size={18} className="animate-spin" />
             正在加载智能体
           </div>
+        ) : agents.length === 0 ? (
+          <div className="flex h-72 flex-col items-center justify-center gap-4 rounded-[28px] border border-white/60 bg-white/45 text-sm font-bold text-slate-500 backdrop-blur-2xl">
+            <Bot size={48} className="text-slate-300" />
+            <div className="text-center">
+              <p className="text-base font-bold text-slate-600">暂无可用智能体</p>
+              <p className="mt-1 text-xs font-medium text-slate-400">请检查智能体配置或联系管理员</p>
+            </div>
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {agents.map((agent, index) => {

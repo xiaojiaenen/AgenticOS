@@ -1,7 +1,6 @@
 import asyncio
 import contextlib
 import json
-from functools import lru_cache
 from typing import Any, AsyncIterator
 
 from wuwei import (
@@ -512,6 +511,7 @@ class AgentService:
         if user is not None:
             await self.storage.assign_owner(session.session_id, user.id)
         await self.storage.assign_agent_profile(session.session_id, runtime_profile.profile_id)
+        await self.storage.save_meta(session)
         approval_queue = self.approval_manager.subscribe(session.session_id)
 
         yield {
@@ -725,6 +725,16 @@ class AgentService:
         return await self.ppt_artifacts.get(artifact_id)
 
 
-@lru_cache
+_agent_service: AgentService | None = None
+
+
 def get_agent_service() -> AgentService:
-    return AgentService(get_settings())
+    global _agent_service
+    if _agent_service is None:
+        _agent_service = AgentService(get_settings())
+    return _agent_service
+
+
+def clear_agent_service_cache() -> None:
+    global _agent_service
+    _agent_service = None

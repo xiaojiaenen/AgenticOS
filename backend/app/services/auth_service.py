@@ -5,6 +5,7 @@ from math import ceil
 from uuid import uuid4
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -71,14 +72,17 @@ class AuthService:
     def _rate_limit_block(self) -> timedelta:
         return timedelta(seconds=self.settings.auth_rate_limit_block_seconds)
 
-    def _normalize_rate_limit_row(self, row: AuthRateLimitModel, *, now) -> AuthRateLimitModel:
+    def _normalize_rate_limit_row(self, row: AuthRateLimitModel, *, now) -> tuple[AuthRateLimitModel, bool]:
+        modified = False
         if row.blocked_until is not None and row.blocked_until <= now:
             row.blocked_until = None
+            modified = True
         if now - row.window_started_at >= self._rate_limit_window():
             row.attempts = 0
             row.window_started_at = now
             row.blocked_until = None
-        return row
+            modified = True
+        return row, modified
 
     def _rate_limit_key(self, scope: str, *, email: str | None = None, client_ip: str | None = None) -> str:
         normalized_ip = (client_ip or "unknown").strip().lower() or "unknown"
@@ -94,16 +98,18 @@ class AuthService:
             return
 
         now = app_now()
-        row = self._normalize_rate_limit_row(row, now=now)
+        row, modified = self._normalize_rate_limit_row(row, now=now)
         if row.blocked_until is not None and row.blocked_until > now:
             remaining_seconds = max(1, int((row.blocked_until - now).total_seconds()))
             remaining_minutes = ceil(remaining_seconds / 60)
-            self.db.add(row)
-            self.db.commit()
+            if modified:
+                self.db.add(row)
+                self.db.commit()
             raise AuthRateLimitError(f"Too many attempts, please retry in {remaining_minutes} minute(s)")
 
-        self.db.add(row)
-        self.db.commit()
+        if modified:
+            self.db.add(row)
+            self.db.commit()
 
     def _record_failed_attempt(self, scope: str, *, email: str | None = None, client_ip: str | None = None) -> None:
         key = self._rate_limit_key(scope, email=email, client_ip=client_ip)
@@ -117,7 +123,7 @@ class AuthService:
                 window_started_at=now,
             )
         else:
-            row = self._normalize_rate_limit_row(row, now=now)
+            row, _ = self._normalize_rate_limit_row(row, now=now)
 
         row.attempts += 1
         row.updated_at = now
@@ -134,7 +140,7 @@ class AuthService:
     def register(self, *, email: str, name: str, password: str, client_ip: str | None = None) -> dict[str, object]:
         normalized_email = email.strip().lower()
         self._assert_rate_limit_allowed("register", email=normalized_email, client_ip=client_ip)
-        existing = self.db.scalar(select(UserModel).where(UserModel.email == email))
+        existing = self.db.scalar(select(UserModel).where(func.lower(UserModel.email) == normalized_email))
         if existing is not None:
             self._record_failed_attempt("register", email=normalized_email, client_ip=client_ip)
             raise AuthError("Email already registered")
@@ -147,7 +153,12 @@ class AuthService:
             role="admin" if user_count == 0 else "user",
         )
         self.db.add(user)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            self._record_failed_attempt("register", email=normalized_email, client_ip=client_ip)
+            raise AuthError("Email already registered")
         self.db.refresh(user)
         self._clear_rate_limit("register", email=normalized_email, client_ip=client_ip)
         return self._auth_response(user)
@@ -155,7 +166,7 @@ class AuthService:
     def login(self, *, email: str, password: str, client_ip: str | None = None) -> dict[str, object]:
         normalized_email = email.strip().lower()
         self._assert_rate_limit_allowed("login", email=normalized_email, client_ip=client_ip)
-        user = self.db.scalar(select(UserModel).where(UserModel.email == email))
+        user = self.db.scalar(select(UserModel).where(func.lower(UserModel.email) == normalized_email))
         if user is None or not verify_password(password, user.password_hash):
             self._record_failed_attempt("login", email=normalized_email, client_ip=client_ip)
             raise AuthError("Invalid email or password")

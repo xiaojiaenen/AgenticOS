@@ -207,7 +207,6 @@ export const UserManagement = () => {
         await createUser(payload);
         setSearchQuery('');
         setCurrentPage(1);
-        await loadUsers({ page: 1, search: '' });
       }
       setIsFormOpen(false);
       setEditingUser(null);

@@ -60,6 +60,9 @@ def _ensure_compatible_schema() -> None:
         if "agent_profile_id" not in usage_columns:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE agent_usage_events ADD COLUMN agent_profile_id INTEGER"))
+        if "user_id" not in usage_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE agent_usage_events ADD COLUMN user_id INTEGER"))
 
 
 def create_db_session() -> Session:

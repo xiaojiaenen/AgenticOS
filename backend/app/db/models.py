@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
 
@@ -197,6 +197,7 @@ class AgentProfileAudienceModel(Base):
 
 class AgentMessageModel(Base):
     __tablename__ = "agent_messages"
+    __table_args__ = (Index("ix_agent_messages_session_created", "session_id", "created_at"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     session_id: Mapped[str] = mapped_column(String(128), index=True)
@@ -206,6 +207,7 @@ class AgentMessageModel(Base):
 
 class ApprovalModel(Base):
     __tablename__ = "agent_approvals"
+    __table_args__ = (Index("ix_agent_approvals_session_status", "session_id", "status"),)
 
     approval_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     session_id: Mapped[str] = mapped_column(String(128), index=True)

@@ -69,10 +69,10 @@ export const AdminDashboard = () => {
   }, []);
 
   React.useEffect(() => {
-    if (activeTab === 'dashboard') {
+    if (activeTab === 'dashboard' && !dashboardData) {
       loadDashboard();
     }
-  }, [activeTab, loadDashboard]);
+  }, [activeTab, loadDashboard, dashboardData]);
 
   const topSummary = useMemo(() => {
     const summary = dashboardData?.summary;

@@ -32,7 +32,17 @@ class ApprovalManager:
         if not subscribers:
             self._subscribers.pop(session_id, None)
 
+    def _purge_stale_entries(self) -> None:
+        done_futures = [req_id for req_id, fut in self._futures.items() if fut.done()]
+        for req_id in done_futures:
+            self._futures.pop(req_id, None)
+
+        empty_sessions = [sid for sid, queues in self._subscribers.items() if not queues]
+        for sid in empty_sessions:
+            self._subscribers.pop(sid, None)
+
     async def request_approval(self, request: ApprovalRequest) -> ApprovalDecision:
+        self._purge_stale_entries()
         await self._save_pending(request)
         event = self._event_from_request(request)
         for queue in list(self._subscribers.get(request.session_id, set())):

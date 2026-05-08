@@ -927,7 +927,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
           <div
             id={message?.id ? `bubble-${message.id}` : undefined}
             className={cn(
-            "px-5 py-3 rounded-[2rem] relative group max-w-full transition-colors duration-300",
+            "px-5 py-3 rounded-[2rem] relative group max-w-full min-w-0 transition-colors duration-300",
             hasStructuredContent ? "w-full" : "w-fit",
             !isUser && isStreaming && "min-h-[3.5rem] min-w-[10rem]",
             isUser
@@ -1043,7 +1043,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                   ))}
                 </div>
               )}
-              <p className="whitespace-pre-wrap leading-relaxed tracking-tight font-medium">
+              <p className="whitespace-pre-wrap break-words leading-relaxed tracking-tight font-medium">
                 <HighlightedText text={message?.text || ''} counter={sessionCounter.current} />
               </p>
             </div>

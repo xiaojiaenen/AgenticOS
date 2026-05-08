@@ -55,7 +55,10 @@ class SkillService:
         with self.session_factory() as db:
             slug = self._unique_slug(db, request.slug or request.name)
             skill_dir = self._storage_entry_dir(slug)
-            skill_dir.mkdir(parents=True, exist_ok=False)
+            try:
+                skill_dir.mkdir(parents=True, exist_ok=False)
+            except FileExistsError:
+                raise ValueError(f"Skill directory already exists for slug: {slug}")
             skill_path = skill_dir / "SKILL.md"
             skill_path.write_text(
                 self._render_skill_markdown(
@@ -192,6 +195,7 @@ class SkillService:
                 return self._serialize(row)
 
     def delete(self, skill_id: int) -> None:
+        entry_dir = None
         with self.session_factory() as db:
             row = db.get(SkillModel, skill_id)
             if row is None:
@@ -200,10 +204,10 @@ class SkillService:
             entry_dir = self._storage_entry_dir(row.slug)
             db.execute(delete(AgentProfileSkillModel).where(AgentProfileSkillModel.skill_id == row.id))
             db.delete(row)
-            db.commit()
 
-        if entry_dir.exists():
-            shutil.rmtree(entry_dir, ignore_errors=True)
+            if entry_dir.exists():
+                shutil.rmtree(entry_dir, ignore_errors=True)
+            db.commit()
 
     def get_runtime_skills(self, skill_ids: list[int]) -> tuple[RuntimeSkill, ...]:
         if not skill_ids:

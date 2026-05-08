@@ -128,8 +128,12 @@ function parseSseEvent(block: string): { event: string; data: unknown } | null {
   };
 }
 
+function stripHtml(text: string): string {
+  return text.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
 function normalizeAgentError(message?: string, errorType?: string): string {
-  const text = message || '';
+  const text = stripHtml(message || '');
   const lower = text.toLowerCase();
   if (text.includes('Insufficient Balance') || lower.includes('insufficient balance') || text.includes('402')) {
     return '模型服务余额不足，请联系管理员充值或切换可用模型。';
@@ -346,9 +350,22 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
 
   if (buffer.trim()) {
     const parsed = parseSseEvent(buffer);
-    if (parsed?.event === 'done') {
+    if (parsed) {
       const payload = parsed.data as Record<string, any>;
-      finishReason = typeof payload.finish_reason === 'string' ? payload.finish_reason : finishReason;
+      if (parsed.event === 'delta') {
+        const delta = typeof payload.content === 'string' ? payload.content : '';
+        text += delta;
+      } else if (parsed.event === 'reasoning_delta') {
+        const delta = typeof payload.content === 'string' ? payload.content : '';
+        reasoningText += delta;
+      } else if (parsed.event === 'done') {
+        finishReason = typeof payload.finish_reason === 'string' ? payload.finish_reason : finishReason;
+        sessionState = payload as AgentSessionState;
+      } else if (parsed.event === 'tool_results' && Array.isArray(payload.tool_calls)) {
+        toolCalls = mergeToolCalls(toolCalls, mapToolResults(payload.tool_calls as AgentToolResult[]));
+      } else if (parsed.event === 'tool_calls' && Array.isArray(payload.tool_calls)) {
+        toolCalls = mergeToolCalls(toolCalls, mapToolCalls(payload.tool_calls));
+      }
     }
   }
 
