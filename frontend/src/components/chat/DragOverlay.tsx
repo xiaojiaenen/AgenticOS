@@ -19,7 +19,7 @@ export const DragOverlay: React.FC<DragOverlayProps> = ({ isDragging }) => {
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="w-full h-full border-4 border-sky-400 border-dashed rounded-[3rem] flex flex-col items-center justify-center gap-6 bg-white/20"
+            className="w-full h-full border-4 border-sky-400 border-dashed rounded-[2rem] flex flex-col items-center justify-center gap-6 bg-white/20"
           >
             <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-2xl shadow-sky-200">
               <DownloadIcon size={48} className="text-sky-500" />

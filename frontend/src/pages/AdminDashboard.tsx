@@ -183,7 +183,7 @@ export const AdminDashboard = () => {
           <div className="admin-page-stage space-y-5">
             <section className="admin-data-panel relative">
               <div className="relative grid gap-4 px-5 py-5 xl:items-start xl:grid-cols-[minmax(0,1.35fr)_420px] xl:px-6">
-                <div className="self-start rounded-[24px] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(248,250,252,0.72))] p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
+                <div className="self-start rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(248,250,252,0.72))] p-5 shadow-lg">
                   <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                     <div className="max-w-3xl">
                       <p className="admin-section-kicker">系统总览</p>
@@ -194,7 +194,7 @@ export const AdminDashboard = () => {
                         {headerInsights.map((item) => (
                           <div
                             key={item.label}
-                            className="rounded-[18px] border border-slate-200/65 bg-white/78 px-3.5 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
+                            className="rounded-2xl border border-slate-200/65 bg-white/78 px-3.5 py-3 shadow-sm"
                           >
                             <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">{item.label}</p>
                             <p className="mt-2 text-lg font-black tracking-tight text-slate-950">{item.value}</p>
@@ -218,11 +218,11 @@ export const AdminDashboard = () => {
                     {topSummary.map((item) => (
                       <div
                         key={item.label}
-                        className={`rounded-[20px] border border-white/80 px-4 py-3.5 shadow-[0_12px_28px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 ${item.tone}`}
+                        className={`rounded-3xl border border-white/80 px-4 py-3.5 shadow-md transition-all hover:-translate-y-0.5 ${item.tone}`}
                       >
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-xs font-black tracking-[0.18em] text-slate-500">{item.label}</span>
-                          <div className="flex h-9 w-9 items-center justify-center rounded-[14px] border border-white/75 bg-white/62 text-slate-900">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/75 bg-white/62 text-slate-900">
                             <item.icon size={18} />
                           </div>
                         </div>
@@ -233,14 +233,14 @@ export const AdminDashboard = () => {
                   </div>
                 </div>
 
-                <div className="self-start rounded-[24px] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(240,253,250,0.55),rgba(255,255,255,0.68))] p-4.5 shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
+                <div className="self-start rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(240,253,250,0.55),rgba(255,255,255,0.68))] p-4.5 shadow-lg">
                   <p className="admin-section-kicker">关键刻度</p>
                   <div className="mt-3.5 grid gap-3 sm:grid-cols-2">
                     {sideSummary.map((item, index) => (
                       <div
                         key={item.label}
                         className={cn(
-                          'rounded-[18px] border border-white/75 bg-white/68 px-4 py-3.5 transition-all hover:-translate-y-0.5 hover:bg-white/82',
+                          'rounded-2xl border border-white/75 bg-white/68 px-4 py-3.5 transition-all hover:-translate-y-0.5 hover:bg-white/82',
                           index === 0 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.7),rgba(56,189,248,0.12))]',
                           index === 1 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.7),rgba(125,211,252,0.12))]',
                           index === 2 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.7),rgba(244,114,182,0.1))]',
@@ -260,14 +260,14 @@ export const AdminDashboard = () => {
             </section>
 
             {dashboardError && (
-              <div className="flex items-center gap-2 rounded-[26px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+              <div className="flex items-center gap-2 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                 <AlertCircle size={18} />
                 {dashboardError}
               </div>
             )}
 
             {isDashboardLoading && !dashboardData ? (
-              <div className="flex h-80 items-center justify-center gap-3 rounded-[32px] border border-white/60 bg-white/50 text-sm font-bold text-slate-500 shadow-[0_24px_70px_rgba(15,23,42,0.08)] backdrop-blur-2xl">
+              <div className="flex h-80 items-center justify-center gap-3 rounded-[2rem] border border-white/60 bg-white/50 text-sm font-bold text-slate-500 shadow-xl backdrop-blur-2xl">
                 <Loader2 size={18} className="animate-spin" />
                 正在汇总系统统计数据
               </div>

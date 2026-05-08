@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { ToastContainer } from './components/ui/Toast';
 
 const Home = lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
 const Chat = lazy(() => import('./pages/Chat').then((module) => ({ default: module.Chat })));
@@ -52,6 +53,7 @@ function App() {
   return (
     <Router>
       <AnimatedRoutes />
+      <ToastContainer />
     </Router>
   );
 }

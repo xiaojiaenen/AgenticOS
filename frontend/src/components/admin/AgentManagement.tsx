@@ -281,7 +281,7 @@ export const AgentManagement = () => {
 
           <div className="flex flex-wrap items-center gap-3">
             {message && (
-              <div className="rounded-[22px] border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
+              <div className="rounded-3xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
                 {message}
               </div>
             )}
@@ -310,7 +310,7 @@ export const AgentManagement = () => {
       </section>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+        <div className="flex items-center gap-2 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
           <AlertCircle size={18} />
           {error}
         </div>
@@ -484,7 +484,7 @@ export const AgentManagement = () => {
                       <input
                         value={draft.name}
                         onChange={(event) => patchDraft({ name: event.target.value })}
-                        className="w-full rounded-[22px] border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
 
@@ -494,7 +494,7 @@ export const AgentManagement = () => {
                         value={draft.slug || ''}
                         disabled={draft.is_builtin}
                         onChange={(event) => patchDraft({ slug: event.target.value })}
-                        className="w-full rounded-[22px] border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition disabled:opacity-60 focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition disabled:opacity-60 focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
 
@@ -503,7 +503,7 @@ export const AgentManagement = () => {
                       <input
                         value={draft.description}
                         onChange={(event) => patchDraft({ description: event.target.value })}
-                        className="w-full rounded-[22px] border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
 
@@ -512,7 +512,7 @@ export const AgentManagement = () => {
                       <select
                         value={draft.response_mode}
                         onChange={(event) => patchDraft({ response_mode: event.target.value as AgentMode })}
-                        className="w-full rounded-[22px] border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       >
                         <option value="general">general</option>
                         <option value="ppt">ppt</option>
@@ -521,11 +521,11 @@ export const AgentManagement = () => {
                     </label>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="flex items-center justify-between rounded-[24px] border border-white/80 bg-white/72 px-4 py-3">
+                      <div className="flex items-center justify-between rounded-3xl border border-white/80 bg-white/72 px-4 py-3">
                         <span className="text-sm font-black text-slate-700">启用</span>
                         <Toggle checked={draft.enabled} onClick={() => patchDraft({ enabled: !draft.enabled })} />
                       </div>
-                      <div className="flex items-center justify-between rounded-[24px] border border-white/80 bg-white/72 px-4 py-3">
+                      <div className="flex items-center justify-between rounded-3xl border border-white/80 bg-white/72 px-4 py-3">
                         <span className="text-sm font-black text-slate-700">上架</span>
                         <Toggle checked={draft.listed} onClick={() => patchDraft({ listed: !draft.listed })} />
                       </div>
@@ -543,7 +543,7 @@ export const AgentManagement = () => {
                           type="button"
                           onClick={() => patchDraft({ audience_mode: 'all' })}
                           className={cn(
-                            'rounded-[24px] border px-4 py-3 text-left transition-all',
+                            'rounded-3xl border px-4 py-3 text-left transition-all',
                             draft.audience_mode === 'all'
                               ? 'border-sky-200 bg-sky-50/80 shadow-sm'
                               : 'border-white/80 bg-white/72 hover:bg-white',
@@ -556,7 +556,7 @@ export const AgentManagement = () => {
                           type="button"
                           onClick={() => patchDraft({ audience_mode: 'selected' })}
                           className={cn(
-                            'rounded-[24px] border px-4 py-3 text-left transition-all',
+                            'rounded-3xl border px-4 py-3 text-left transition-all',
                             draft.audience_mode === 'selected'
                               ? 'border-sky-200 bg-sky-50/80 shadow-sm'
                               : 'border-white/80 bg-white/72 hover:bg-white',
@@ -568,7 +568,7 @@ export const AgentManagement = () => {
                       </div>
 
                       {draft.audience_mode === 'selected' && (
-                        <div className="max-h-52 overflow-y-auto rounded-[24px] border border-white/80 bg-white/70 p-3">
+                        <div className="max-h-52 overflow-y-auto rounded-3xl border border-white/80 bg-white/70 p-3">
                           {availableUsers.length > 0 ? (
                             <div className="grid gap-2 md:grid-cols-2">
                               {availableUsers.map((user) => {
@@ -614,7 +614,7 @@ export const AgentManagement = () => {
                         value={draft.system_prompt}
                         onChange={(event) => patchDraft({ system_prompt: event.target.value })}
                         rows={10}
-                        className="w-full resize-y rounded-[24px] border border-white/75 bg-white/72 px-4 py-3 text-sm font-medium leading-6 text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full resize-y rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-medium leading-6 text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
                   </div>
@@ -622,7 +622,7 @@ export const AgentManagement = () => {
 
                 <div className="overflow-y-auto border-l border-slate-100 bg-white/50 p-6">
                   <div className="space-y-4">
-                    <div className="rounded-[28px] border border-white/80 bg-white/82 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+                    <div className="rounded-3xl border border-white/80 bg-white/82 p-5 shadow-lg">
                       <div className="mb-4 flex items-center justify-between">
                         <div>
                           <p className="admin-section-kicker">工具与审批</p>
@@ -638,7 +638,7 @@ export const AgentManagement = () => {
                           const meta = catalogByName.get(tool.tool_name);
                           const isSkillTool = tool.tool_name === 'skill';
                           return (
-                            <div key={tool.tool_name} className="rounded-[24px] border border-white/85 bg-white/78 p-4">
+                            <div key={tool.tool_name} className="rounded-3xl border border-white/85 bg-white/78 p-4">
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
@@ -676,7 +676,7 @@ export const AgentManagement = () => {
                       </div>
                     </div>
 
-                    <div className="rounded-[28px] border border-white/80 bg-white/82 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+                    <div className="rounded-3xl border border-white/80 bg-white/82 p-5 shadow-lg">
                       <div className="mb-4 flex items-center justify-between">
                         <div>
                           <p className="admin-section-kicker">可用 Skill</p>
@@ -688,7 +688,7 @@ export const AgentManagement = () => {
                       </div>
 
                       {!skillToolEnabled && (
-                        <div className="mb-4 rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+                        <div className="mb-4 rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
                           选中 Skill 后，系统会自动打开 `skill` 工具；脚本执行审批由 Wuwei 0.2.1 在运行时接管。
                         </div>
                       )}
@@ -703,7 +703,7 @@ export const AgentManagement = () => {
                                 type="button"
                                 onClick={() => toggleSkill(skill.id)}
                                 className={cn(
-                                  'w-full rounded-[24px] border p-4 text-left transition-all',
+                                  'w-full rounded-3xl border p-4 text-left transition-all',
                                   selected
                                     ? 'border-sky-200 bg-sky-50/72 shadow-sm'
                                     : 'border-white/80 bg-white/72 hover:bg-white',
@@ -744,7 +744,7 @@ export const AgentManagement = () => {
                             );
                           })
                         ) : (
-                          <div className="rounded-[24px] border border-dashed border-slate-200 bg-white/60 px-4 py-5 text-sm font-medium text-slate-500">
+                          <div className="rounded-3xl border border-dashed border-slate-200 bg-white/60 px-4 py-5 text-sm font-medium text-slate-500">
                             还没有可绑定的 Skill，请先去 Skill 管理页创建或上传。
                           </div>
                         )}

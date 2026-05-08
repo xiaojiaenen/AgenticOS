@@ -119,7 +119,7 @@ export const Home = () => {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.6 }}
-          className="w-full max-w-3xl bg-white/60 backdrop-blur-2xl rounded-[32px] shadow-lg shadow-brand-500/10 border border-white/60 p-3 transition-all focus-within:shadow-glow focus-within:bg-white/90 z-20"
+          className="w-full max-w-3xl bg-white/60 backdrop-blur-2xl rounded-[2rem] shadow-lg shadow-brand-500/10 border border-white/60 p-3 transition-all focus-within:shadow-glow focus-within:bg-white/90 z-20"
         >
           <textarea
             className="w-full h-32 bg-transparent resize-none outline-none text-slate-800 placeholder:text-slate-400 text-lg p-4 leading-relaxed"
@@ -131,12 +131,13 @@ export const Home = () => {
           />
           <div className="flex justify-between items-center px-4 pb-3">
             <div className="relative" ref={modeMenuRef}>
-              <button 
+              <button
                 onClick={() => setShowModeMenu(!showModeMenu)}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl text-sm font-bold transition-all active:scale-95 border border-slate-200/50"
+                aria-label="选择对话模式"
               >
                 <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center transition-all shadow-sm", 
-                  chatMode === 'general' ? "bg-slate-200" : "bg-sky-500 text-white shadow-[0_0_12px_rgba(14,165,233,0.4)]")}>
+                  chatMode === 'general' ? "bg-slate-200" : "bg-sky-500 text-white shadow-glow")}>
                   {chatMode === 'general' ? <MascotHappy size={14} /> : chatMode === 'ppt' ? <PresentationIcon size={14} /> : <GlobeIcon size={14} />}
                 </div>
                 {chatMode === 'general' ? '普通聊天' : chatMode === 'ppt' ? 'PPT 模式' : '网站模式'}
@@ -189,6 +190,7 @@ export const Home = () => {
                   ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-md'
                   : 'bg-slate-200 text-white'
               }`}
+              aria-label="发送消息"
             >
               <SendIcon size={20} className="group-hover:-translate-y-1 group-hover:scale-110" />
             </button>

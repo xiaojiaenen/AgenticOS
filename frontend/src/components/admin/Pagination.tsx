@@ -32,7 +32,7 @@ export const Pagination = ({ currentPage, totalPages, onPageChange }: Pagination
           type="button"
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
-          className="rounded-2xl border border-white/80 bg-white/80 px-3 py-2 text-xs font-black text-slate-500 shadow-[0_8px_20px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-0.5 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-2xl border border-white/80 bg-white/80 px-3 py-2 text-xs font-black text-slate-500 shadow-md transition-all hover:-translate-y-0.5 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
         >
           上一页
         </button>
@@ -45,8 +45,8 @@ export const Pagination = ({ currentPage, totalPages, onPageChange }: Pagination
               onClick={() => onPageChange(page)}
               className={`flex h-9 w-9 items-center justify-center rounded-2xl text-sm font-black transition-all ${
                 currentPage === page
-                  ? 'border border-slate-900/80 bg-slate-900 text-white shadow-[0_14px_30px_rgba(15,23,42,0.2)]'
-                  : 'border border-white/80 bg-white/80 text-slate-600 shadow-[0_8px_20px_rgba(15,23,42,0.06)] hover:-translate-y-0.5 hover:text-slate-900'
+                  ? 'border border-slate-900/80 bg-slate-900 text-white shadow-lg'
+                  : 'border border-white/80 bg-white/80 text-slate-600 shadow-md hover:-translate-y-0.5 hover:text-slate-900'
               }`}
             >
               {page}
@@ -58,7 +58,7 @@ export const Pagination = ({ currentPage, totalPages, onPageChange }: Pagination
           type="button"
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
-          className="rounded-2xl border border-white/80 bg-white/80 px-3 py-2 text-xs font-black text-slate-500 shadow-[0_8px_20px_rgba(15,23,42,0.06)] transition-all hover:-translate-y-0.5 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-2xl border border-white/80 bg-white/80 px-3 py-2 text-xs font-black text-slate-500 shadow-md transition-all hover:-translate-y-0.5 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
         >
           下一页
         </button>

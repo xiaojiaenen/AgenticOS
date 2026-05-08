@@ -42,9 +42,9 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
     }
     
       if (bubbleEl) {
-        bubbleEl.classList.add('scale-[1.03]', 'shadow-[0_0_24px_rgba(24,24,27,0.15)]', 'ring-2', 'ring-zinc-900');
+        bubbleEl.classList.add('scale-[1.03]', 'shadow-glow', 'ring-2', 'ring-zinc-900');
         setTimeout(() => {
-          bubbleEl.classList.remove('scale-[1.03]', 'shadow-[0_0_24px_rgba(24,24,27,0.15)]', 'ring-2', 'ring-zinc-900');
+          bubbleEl.classList.remove('scale-[1.03]', 'shadow-glow', 'ring-2', 'ring-zinc-900');
         }, 1500);
       }
   };
@@ -69,10 +69,10 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
             exit={{ opacity: 0, x: 5, scale: 0.95 }}
             transition={{ duration: 0.15 }}
             style={{ top: tooltipTop }}
-            className="absolute right-[calc(100%+16px)] -translate-y-1/2 w-64 bg-white/95 backdrop-blur-xl border border-slate-200/60 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.15)] rounded-2xl p-4 pointer-events-none z-50 flex flex-col gap-2"
+            className="absolute right-[calc(100%+16px)] -translate-y-1/2 w-64 bg-white/95 backdrop-blur-xl border border-slate-200/60 shadow-md rounded-2xl p-4 pointer-events-none z-50 flex flex-col gap-2"
           >
             <div className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest flex items-center gap-1.5 mb-1">
-              <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full shadow-[0_0_8px_rgba(24,24,27,0.4)] animate-pulse" />
+              <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full shadow-glow animate-pulse" />
               第 {hoveredRound.index} 轮对话
             </div>
             
@@ -96,7 +96,7 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
       </AnimatePresence>
 
       {/* Bounded round navigator */}
-      <div className="bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.1)] rounded-full py-4 px-1.5 flex flex-col items-center gap-2 transition-all group hover:shadow-md hover:bg-white/95">
+      <div className="bg-white/80 backdrop-blur-xl border border-white/60 shadow-md rounded-full py-4 px-1.5 flex flex-col items-center gap-2 transition-all group hover:shadow-md hover:bg-white/95">
         <div className="mb-1 text-slate-300 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
         </div>

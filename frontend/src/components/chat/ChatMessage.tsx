@@ -250,7 +250,7 @@ const PptArtifactCard = ({
       initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       className={cn(
-        "mb-3 flex w-fit max-w-[34rem] items-center gap-3 rounded-[1.35rem] border px-4 py-3 shadow-[0_16px_34px_rgba(15,23,42,0.1)] backdrop-blur-xl",
+        "mb-3 flex w-fit max-w-[34rem] items-center gap-3 rounded-3xl border px-4 py-3 shadow-lg backdrop-blur-xl",
         isReady ? "border-white/70 bg-white/84" : "border-sky-200/70 bg-sky-50/80",
       )}
     >
@@ -552,7 +552,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
       const isArtifactable = ['html', 'svg'].includes(match[1]) && config.enableArtifacts;
 
       return (
-        <div className="relative group my-5 overflow-hidden rounded-[1.75rem] border border-slate-800/80 bg-zinc-950 shadow-[0_20px_50px_rgba(15,23,42,0.22)] ring-1 ring-white/5">
+        <div className="relative group my-5 overflow-hidden rounded-3xl border border-slate-800/80 bg-zinc-950 shadow-xl ring-1 ring-white/5">
           {/* 仿 macOS 风格代码块头部 */}
           <div className="flex items-center border-b border-white/8 bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.88))] px-4 py-3 backdrop-blur-sm">
             <div className="flex gap-1.5">
@@ -628,7 +628,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   };
 
   const Table = ({ children }: { children: React.ReactNode }) => (
-    <div className="my-5 overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-white/88 shadow-[0_18px_45px_rgba(148,163,184,0.18)] ring-1 ring-white/65">
+    <div className="my-5 overflow-hidden rounded-3xl border border-slate-200/90 bg-white/88 shadow-lg ring-1 ring-white/65">
       <div className="h-2 bg-[linear-gradient(90deg,rgba(15,23,42,0.9),rgba(30,41,59,0.85),rgba(34,211,238,0.75))]" />
       <div className="visible-scrollbar overflow-x-auto px-1 pb-2">
         <table className="w-max min-w-full border-collapse text-left text-sm text-slate-700">
@@ -775,7 +775,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.1 }}
                     key={idx}
-                    className="max-w-[34rem] rounded-[1.35rem] border border-slate-200/90 bg-white/88 px-4 py-3 text-xs text-slate-600 shadow-[0_10px_24px_rgba(148,163,184,0.14)] backdrop-blur-sm"
+                    className="max-w-[34rem] rounded-3xl border border-slate-200/90 bg-white/88 px-4 py-3 text-xs text-slate-600 shadow-md backdrop-blur-sm"
                   >
                     {(() => {
                       const isSuccess = tool.status === 'success';
@@ -931,8 +931,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             hasStructuredContent ? "w-full" : "w-fit",
             !isUser && isStreaming && "min-h-[3.5rem] min-w-[10rem]",
             isUser
-              ? "bg-zinc-900 text-white rounded-tr-none shadow-[0_8px_30px_rgba(0,0,0,0.15)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.2)]"
-              : "bg-white/80 backdrop-blur-2xl text-slate-800 rounded-tl-none border border-slate-100 hover:bg-white"
+              ? "bg-gradient-to-br from-zinc-800 to-zinc-950 text-white rounded-tr-none shadow-lg hover:shadow-xl"
+              : "bg-white/80 backdrop-blur-2xl text-slate-800 rounded-tl-none border border-slate-100 hover:bg-white border-l-[3px] border-l-brand-400/60"
           )}>
           {/* AI 气泡尾巴 */}
           {!isUser && (
@@ -1094,6 +1094,13 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                 </ReactMarkdown>
               ) : (
                 <span className="text-sm font-medium text-slate-400"> </span>
+              )}
+              {!isUser && isStreaming && visibleText && (
+                <motion.span
+                  className="inline-block w-[2px] h-[1.2em] bg-brand-500 rounded-full align-text-bottom ml-px"
+                  animate={{ opacity: [1, 0.2, 1] }}
+                  transition={{ duration: 0.8, repeat: Infinity }}
+                />
               )}
             </div>
           )}

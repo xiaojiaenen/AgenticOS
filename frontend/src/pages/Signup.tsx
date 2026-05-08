@@ -59,7 +59,7 @@ export const Signup = () => {
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-md bg-white/60 backdrop-blur-2xl rounded-[32px] shadow-xl shadow-brand-500/10 border border-white/60 p-10 relative z-10"
+        className="w-full max-w-md bg-white/60 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-brand-500/10 border border-white/60 p-10 relative z-10"
       >
         <div className="flex flex-col items-center mb-10">
           <div className="mb-6">

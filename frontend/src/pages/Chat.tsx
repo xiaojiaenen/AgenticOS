@@ -19,6 +19,7 @@ import { sendMessageStream, generateTitle, submitApprovalDecision, AgentSessionS
 import { AgentProfile, getMyAgents } from '../services/agentProfileService';
 import { getStoredUser } from '../services/authService';
 import { RandomMascot } from '../components/ui/RandomMascot';
+import { MascotState } from '../components/ui/MascotState';
 import { AlertCircleIcon, MascotCool, ChevronDownIcon } from '../components/ui/AnimatedIcons';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
 import { cn } from '../lib/utils';
@@ -625,6 +626,7 @@ export const Chat = () => {
               setIsSidebarHiddenByArtifact(false);
             }}
             className="fixed top-4 left-4 z-50 w-12 h-12 bg-white/80 backdrop-blur-md border border-slate-200 rounded-2xl shadow-sm flex items-center justify-center text-zinc-800 hover:bg-white hover:shadow-md transition-all group"
+            aria-label="展开侧边栏"
           >
             <MascotCool size={24} className="group-hover:scale-110 transition-transform" />
           </motion.button>
@@ -679,6 +681,7 @@ export const Chat = () => {
                     ? "bg-zinc-900 text-white border-zinc-800"
                     : "bg-white/80 text-slate-600 border-white/60 hover:bg-white"
                 )}
+                aria-label="切换搜索"
               >
                 <div className={cn("transition-transform duration-500", showSearch && "rotate-90")}>
                   {showSearch ? (
@@ -703,7 +706,7 @@ export const Chat = () => {
                 >
                   <AlertCircleIcon size={18} />
                   <span className="text-sm font-medium">{error}</span>
-                  <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700">
+                  <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700" aria-label="关闭错误提示">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
                   </button>
                 </motion.div>
@@ -768,14 +771,19 @@ export const Chat = () => {
                 }}
                 isModeLocked={!!currentSession && currentSession.messages.length > 0}
               />
-              <div className="mt-3 flex min-h-5 items-center justify-center gap-2 text-xs font-medium text-slate-400">
-                {isLoading && (
-                  <span className="flex items-center gap-1.5 text-slate-500">
-                    <span className="h-1.5 w-1.5 rounded-full bg-zinc-500/70 animate-pulse" />
-                    {runStatus.label}
+              <div className="mt-3 flex min-h-9 items-center justify-center gap-2 text-xs font-medium text-slate-400">
+                {isLoading ? (
+                  <MascotState
+                    phase={runStatus.phase === 'generating_ppt' || runStatus.phase === 'rendering_ppt' ? 'thinking' : runStatus.phase === 'streaming' ? 'streaming' : runStatus.phase === 'error' ? 'error' : 'thinking'}
+                    size={22}
+                    label={runStatus.label}
+                  />
+                ) : (
+                  <span>
+                    <MascotState phase="idle" size={22} className="inline-flex" />
+                    <span className="ml-1">AI 可能会犯错，请核实重要信息。</span>
                   </span>
                 )}
-                {!isLoading && <span>AI 可能会犯错，请核实重要信息。</span>}
               </div>
             </div>
           </div>

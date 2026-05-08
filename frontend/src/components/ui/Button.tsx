@@ -21,9 +21,9 @@ const variants = {
 
 const sizes = {
   sm: 'h-9 rounded-xl px-4 text-xs',
-  md: 'h-11 rounded-[16px] px-5 text-sm',
+  md: 'h-11 rounded-2xl px-5 text-sm',
   lg: 'h-14 rounded-xl px-7 text-base',
-  icon: 'h-11 w-11 rounded-[16px]',
+  icon: 'h-11 w-11 rounded-2xl',
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

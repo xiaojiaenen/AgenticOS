@@ -223,7 +223,7 @@ body.admin-modal-open .admin-dashboard-backdrop {
 
 /* ===== Admin Page Components ===== */
 .admin-page-header {
-  @apply relative overflow-hidden rounded-[24px] border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(255,255,255,0.68))] px-6 py-5 shadow-lg ring-1 ring-white/55 backdrop-blur-2xl;
+  @apply relative overflow-hidden rounded-3xl border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(255,255,255,0.68))] px-6 py-5 shadow-lg ring-1 ring-white/55 backdrop-blur-2xl;
 }
 
 .admin-page-header::before {
@@ -245,7 +245,7 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-data-panel {
-  @apply relative overflow-hidden rounded-[24px] border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.74),rgba(248,250,252,0.58),rgba(255,255,255,0.48))] shadow-lg ring-1 ring-white/50 backdrop-blur-2xl;
+  @apply relative overflow-hidden rounded-3xl border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.74),rgba(248,250,252,0.58),rgba(255,255,255,0.48))] shadow-lg ring-1 ring-white/50 backdrop-blur-2xl;
 }
 
 .admin-data-panel::before {
@@ -395,7 +395,7 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .prose pre {
-  @apply rounded-[28px] border border-slate-200/50 shadow-md;
+  @apply rounded-3xl border border-slate-200/50 shadow-md;
 }
 
 .prose strong {

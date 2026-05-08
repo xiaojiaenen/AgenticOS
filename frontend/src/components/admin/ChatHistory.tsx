@@ -74,7 +74,7 @@ function AdminMarkdown({ text }: { text: string }) {
             </a>
           ),
           pre: ({ children }) => (
-            <pre className="visible-scrollbar overflow-x-auto rounded-[18px] border border-slate-200/70 bg-slate-950/95 p-4 text-slate-100 shadow-none">
+            <pre className="visible-scrollbar overflow-x-auto rounded-2xl border border-slate-200/70 bg-slate-950/95 p-4 text-slate-100 shadow-none">
               {children}
             </pre>
           ),
@@ -99,7 +99,7 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
   return (
     <div className="mt-3 space-y-3">
       {message.reasoning_text && (
-        <details className="group rounded-[20px] border border-slate-200/80 bg-slate-50/80 px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
+        <details className="group rounded-3xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
           <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-black tracking-[0.14em] text-slate-500">
             <BrainCircuit size={14} />
             思考过程
@@ -114,7 +114,7 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
         <details
           key={`${message.id}-call-${tool.id || tool.name}`}
           open
-          className="group rounded-[20px] border border-sky-100 bg-sky-50/55 px-4 py-3 [&_summary::-webkit-details-marker]:hidden"
+          className="group rounded-3xl border border-sky-100 bg-sky-50/55 px-4 py-3 [&_summary::-webkit-details-marker]:hidden"
         >
           <summary className="flex cursor-pointer select-none items-center justify-between gap-3">
             <span className="flex min-w-0 items-center gap-2">
@@ -125,7 +125,7 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
             </span>
             <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-black text-sky-600">调用参数</span>
           </summary>
-          <pre className="visible-scrollbar mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-[16px] border border-white/80 bg-white/82 p-3 text-xs font-medium leading-5 text-slate-600">
+          <pre className="visible-scrollbar mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-white/80 bg-white/82 p-3 text-xs font-medium leading-5 text-slate-600">
             {formatJson(tool.arguments)}
           </pre>
         </details>
@@ -138,7 +138,7 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
             key={`${message.id}-result-${result.tool_call_id || result.name || result.result.slice(0, 12)}`}
             open
             className={cn(
-              'group rounded-[20px] border px-4 py-3 [&_summary::-webkit-details-marker]:hidden',
+              'group rounded-3xl border px-4 py-3 [&_summary::-webkit-details-marker]:hidden',
               isError ? 'border-rose-100 bg-rose-50/70' : 'border-violet-100 bg-violet-50/60',
             )}
           >
@@ -153,7 +153,7 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
                 {isError ? '失败' : '结果'}
               </span>
             </summary>
-            <pre className="visible-scrollbar mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-[16px] border border-white/80 bg-white/84 p-3 text-xs font-medium leading-5 text-slate-700">
+            <pre className="visible-scrollbar mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-white/80 bg-white/84 p-3 text-xs font-medium leading-5 text-slate-700">
               {result.result || '工具没有返回可展示内容。'}
             </pre>
           </details>
@@ -312,7 +312,7 @@ export const ChatHistory = () => {
       </section>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+        <div className="flex items-center gap-2 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
           <AlertCircle size={18} />
           {error}
         </div>
@@ -332,7 +332,7 @@ export const ChatHistory = () => {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="搜索用户、邮箱、Session 或摘要"
-                className="w-full rounded-[22px] border border-white/75 bg-white/72 py-3.5 pl-11 pr-5 text-sm font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                className="w-full rounded-3xl border border-white/75 bg-white/72 py-3.5 pl-11 pr-5 text-sm font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
               />
             </div>
           </div>
@@ -466,36 +466,36 @@ export const ChatHistory = () => {
                       正在加载详情
                     </div>
                   ) : detailError ? (
-                    <div className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                    <div className="rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                       {detailError}
                     </div>
                   ) : detail ? (
                     <div className="space-y-4">
-                      <div className="rounded-[28px] border border-white/80 bg-white/80 p-5">
+                      <div className="rounded-3xl border border-white/80 bg-white/80 p-5">
                         <p className="admin-section-kicker">摘要</p>
                         <p className="mt-3 text-sm font-medium leading-6 text-slate-600">{detail.summary || '暂无摘要'}</p>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-[22px] border border-white/80 bg-white/80 px-4 py-4">
+                        <div className="rounded-3xl border border-white/80 bg-white/80 px-4 py-4">
                           <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">消息数</p>
                           <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(detail.message_count)}</p>
                         </div>
-                        <div className="rounded-[22px] border border-white/80 bg-white/80 px-4 py-4">
+                        <div className="rounded-3xl border border-white/80 bg-white/80 px-4 py-4">
                           <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">Token</p>
                           <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(detail.total_tokens)}</p>
                         </div>
-                        <div className="rounded-[22px] border border-white/80 bg-white/80 px-4 py-4">
+                        <div className="rounded-3xl border border-white/80 bg-white/80 px-4 py-4">
                           <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">模型调用</p>
                           <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(detail.llm_calls)}</p>
                         </div>
-                        <div className="rounded-[22px] border border-white/80 bg-white/80 px-4 py-4">
+                        <div className="rounded-3xl border border-white/80 bg-white/80 px-4 py-4">
                           <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">工具调用</p>
                           <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(detail.tool_calls)}</p>
                         </div>
                       </div>
 
-                      <div className="rounded-[28px] border border-white/80 bg-white/80 p-5">
+                      <div className="rounded-3xl border border-white/80 bg-white/80 p-5">
                         <p className="admin-section-kicker">会话信息</p>
                         <div className="mt-3 space-y-2 text-sm font-medium text-slate-600">
                           <p>用户：{detail.user_name || '-'}</p>
@@ -529,13 +529,13 @@ export const ChatHistory = () => {
                       正在加载消息
                     </div>
                   ) : detailError ? (
-                    <div className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                    <div className="rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                       {detailError}
                     </div>
                   ) : detail && detail.messages.length > 0 ? (
                     <div className="space-y-3">
                       {detail.messages.map((message) => (
-                        <div key={message.id} className="rounded-[24px] border border-white/80 bg-white/82 p-4">
+                        <div key={message.id} className="rounded-3xl border border-white/80 bg-white/82 p-4">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${roleTone(message.role)}`}>
                               {roleLabel(message.role)}
@@ -566,7 +566,7 @@ export const ChatHistory = () => {
                       )}
                     </div>
                   ) : detail ? (
-                    <div className="flex h-64 items-center justify-center rounded-[28px] border border-dashed border-slate-200 bg-white/50 text-sm font-bold text-slate-400">
+                    <div className="flex h-64 items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white/50 text-sm font-bold text-slate-400">
                       这条会话还没有可展示的消息内容
                     </div>
                   ) : null}

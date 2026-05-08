@@ -79,6 +79,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
             }}
             className="rounded-xl p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-zinc-600"
             title="刷新预览"
+            aria-label="刷新预览"
           >
             <RefreshIcon size={16} />
           </button>
@@ -89,6 +90,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
             }}
             className="rounded-xl p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-zinc-600"
             title="复制代码"
+            aria-label="复制代码"
           >
             <CodeIcon size={16} />
           </button>
@@ -107,6 +109,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
             }}
             className="rounded-xl p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-zinc-600"
             title="下载文件"
+            aria-label="下载文件"
           >
             <DownloadIcon size={16} />
           </button>
@@ -115,6 +118,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
             type="button"
             onClick={onClose}
             className="group rounded-xl p-2 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-500"
+            aria-label="关闭预览"
           >
             <svg
               width="18"
@@ -138,7 +142,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
           initial={{ opacity: 0, scale: 0.98, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.4 }}
-          className="relative h-full w-full overflow-hidden rounded-[32px] border border-slate-200/60 bg-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)]"
+          className="relative h-full w-full overflow-hidden rounded-[2rem] border border-slate-200/60 bg-white shadow-xl"
         >
           <div className="flex h-8 items-center gap-1.5 border-b border-slate-100 bg-slate-50/80 px-4">
             <div className="h-2.5 w-2.5 rounded-full bg-slate-200" />

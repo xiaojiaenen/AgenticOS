@@ -55,7 +55,7 @@ function MetricRail({
   gradient: string;
 }) {
   return (
-    <div className="rounded-[18px] border border-white/75 bg-white/62 px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)] backdrop-blur-xl">
+    <div className="rounded-2xl border border-white/75 bg-white/62 px-4 py-4 shadow-sm backdrop-blur-xl">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-black tracking-[0.18em] text-slate-500">{label}</span>
         <span className="text-sm font-black text-slate-900">{value}</span>
@@ -81,7 +81,7 @@ function SignalTile({
   accent: string;
 }) {
   return (
-    <div className={`relative overflow-hidden rounded-[22px] border border-white/80 px-5 py-5 shadow-[0_18px_40px_rgba(15,23,42,0.065)] transition-all hover:-translate-y-0.5 ${accent}`}>
+    <div className={`relative overflow-hidden rounded-3xl border border-white/80 px-5 py-5 shadow-lg transition-all hover:-translate-y-0.5 ${accent}`}>
       <div className="absolute inset-x-0 top-0 h-px bg-white/70" />
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
@@ -89,7 +89,7 @@ function SignalTile({
           <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{value}</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{meta}</p>
         </div>
-        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[16px] border border-white/80 bg-white/62 text-slate-900">
+        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-white/80 bg-white/62 text-slate-900">
           <Icon size={20} />
         </div>
       </div>
@@ -157,12 +157,12 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
     <section className="admin-data-panel relative">
       <div className="relative grid gap-0 xl:items-start xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <div className="self-start border-b border-white/55 px-5 py-5 xl:border-b-0 xl:border-r xl:px-6">
-          <div className="rounded-[24px] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(248,250,252,0.68))] p-5 shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
+          <div className="rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(248,250,252,0.68))] p-5 shadow-lg">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-2xl">
                 <p className="admin-section-kicker">运行总览</p>
                 <div className="mt-4 flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-white/75 bg-[linear-gradient(135deg,rgba(14,165,233,0.18),rgba(255,255,255,0.82))] text-slate-900 shadow-sm">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/75 bg-[linear-gradient(135deg,rgba(14,165,233,0.18),rgba(255,255,255,0.82))] text-slate-900 shadow-sm">
                     <MessageSquare size={24} />
                   </div>
                   <div>
@@ -175,7 +175,7 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
               </div>
 
               <div className="grid min-w-[240px] gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <div className="rounded-[18px] border border-white/80 bg-white/68 px-4 py-4">
+                <div className="rounded-2xl border border-white/80 bg-white/68 px-4 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs font-black tracking-[0.18em] text-slate-500">活跃用户</span>
                     <Users size={18} className="text-cyan-700" />
@@ -186,7 +186,7 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
                   <p className="mt-2 text-sm font-semibold text-slate-600">占全体用户 {formatPercent(activeRate)}</p>
                 </div>
 
-                <div className="rounded-[18px] border border-white/80 bg-white/68 px-4 py-4">
+                <div className="rounded-2xl border border-white/80 bg-white/68 px-4 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs font-black tracking-[0.18em] text-slate-500">会话密度</span>
                     <ArrowUpRight size={18} className="text-violet-700" />
@@ -223,8 +223,8 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
                 <div
                   key={item.label}
                   className={index < 2
-                    ? 'rounded-[22px] border border-white/80 bg-[linear-gradient(135deg,rgba(56,189,248,0.10),rgba(255,255,255,0.72))] px-4 py-3.5'
-                    : 'rounded-[22px] border border-white/80 bg-[linear-gradient(135deg,rgba(196,181,253,0.12),rgba(255,255,255,0.72))] px-4 py-3.5'}
+                    ? 'rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(56,189,248,0.10),rgba(255,255,255,0.72))] px-4 py-3.5'
+                    : 'rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(196,181,253,0.12),rgba(255,255,255,0.72))] px-4 py-3.5'}
                 >
                   <p className="text-xs font-black tracking-[0.18em] text-slate-500">{item.label}</p>
                   <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{item.value}</p>
@@ -233,15 +233,15 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-[24px] border border-white/80 bg-[linear-gradient(135deg,rgba(56,189,248,0.16),rgba(255,255,255,0.72))] px-4 py-4">
+              <div className="rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(56,189,248,0.16),rgba(255,255,255,0.72))] px-4 py-4">
                 <p className="text-xs font-black tracking-[0.18em] text-slate-500">总用户数</p>
                 <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(summary.total_users)}</p>
               </div>
-              <div className="rounded-[24px] border border-white/80 bg-[linear-gradient(135deg,rgba(196,181,253,0.2),rgba(255,255,255,0.72))] px-4 py-4">
+              <div className="rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(196,181,253,0.2),rgba(255,255,255,0.72))] px-4 py-4">
                 <p className="text-xs font-black tracking-[0.18em] text-slate-500">运行次数</p>
                 <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(summary.total_runs)}</p>
               </div>
-              <div className="rounded-[24px] border border-white/80 bg-[linear-gradient(135deg,rgba(74,222,128,0.18),rgba(255,255,255,0.72))] px-4 py-4">
+              <div className="rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(74,222,128,0.18),rgba(255,255,255,0.72))] px-4 py-4">
                 <p className="text-xs font-black tracking-[0.18em] text-slate-500">单会话 Token</p>
                 <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatTokenNumber(avgTokensPerSession)}</p>
               </div>

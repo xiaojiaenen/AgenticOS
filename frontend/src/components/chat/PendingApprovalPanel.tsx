@@ -17,7 +17,7 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 8, scale: 0.98 }}
           transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-3 rounded-[1.35rem] border border-amber-200/80 bg-amber-50/85 px-4 py-3 shadow-[0_18px_42px_rgba(180,83,9,0.14)] backdrop-blur-xl"
+          className="mb-3 rounded-3xl border border-amber-200/80 bg-amber-50/85 px-4 py-3 shadow-[0_18px_42px_rgba(180,83,9,0.14)] backdrop-blur-xl"
         >
           <div className="mb-2 flex items-center gap-2 text-amber-900">
             <ShieldAlert size={17} />
@@ -40,6 +40,7 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
                     type="button"
                     onClick={() => onDecision(approval.approvalId!, 'approved')}
                     className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-zinc-800 active:scale-95"
+                    aria-label="批准工具调用"
                   >
                     <Check size={13} />
                     批准
@@ -48,6 +49,7 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
                     type="button"
                     onClick={() => onDecision(approval.approvalId!, 'rejected')}
                     className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-white px-3 py-1.5 text-[11px] font-bold text-rose-600 transition-colors hover:bg-rose-50 active:scale-95"
+                    aria-label="拒绝工具调用"
                   >
                     <X size={13} />
                     拒绝

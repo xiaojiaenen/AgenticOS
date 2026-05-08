@@ -264,7 +264,7 @@ export const UserManagement = () => {
       </section>
 
       {error && (
-        <div className="rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
           {error}
         </div>
       )}
@@ -284,7 +284,7 @@ export const UserManagement = () => {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="搜索名称或邮箱"
-                className="w-full rounded-[22px] border border-white/75 bg-white/72 py-3.5 pl-11 pr-5 text-sm font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                className="w-full rounded-3xl border border-white/75 bg-white/72 py-3.5 pl-11 pr-5 text-sm font-semibold text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
               />
             </div>
           </div>
@@ -449,7 +449,7 @@ export const UserManagement = () => {
                   <select
                     value={form.role}
                     onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value as 'admin' | 'user' }))}
-                    className="w-full rounded-[22px] border border-white/75 bg-white/72 px-5 py-3.5 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                    className="w-full rounded-3xl border border-white/75 bg-white/72 px-5 py-3.5 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                   >
                     <option value="user">普通用户</option>
                     <option value="admin">管理员</option>
@@ -460,7 +460,7 @@ export const UserManagement = () => {
               <button
                 type="button"
                 onClick={() => setForm((prev) => ({ ...prev, is_active: !prev.is_active }))}
-                className="mt-5 flex w-full items-center justify-between rounded-[24px] border border-white/80 bg-white/70 px-5 py-4 text-left transition-all hover:bg-white"
+                className="mt-5 flex w-full items-center justify-between rounded-3xl border border-white/80 bg-white/70 px-5 py-4 text-left transition-all hover:bg-white"
               >
                 <span>
                   <span className="block text-sm font-black text-slate-800">账号状态</span>
@@ -484,7 +484,7 @@ export const UserManagement = () => {
               </button>
 
               {formError && (
-                <div className="mt-5 rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                <div className="mt-5 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                   {formError}
                 </div>
               )}

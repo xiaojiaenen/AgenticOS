@@ -150,6 +150,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
                 <button
                   onClick={() => removeFile(idx)}
                   className="absolute -right-1 -top-1 scale-75 rounded-full bg-rose-500 p-1 text-white opacity-0 shadow-sm transition-opacity hover:bg-rose-600 group-hover:opacity-100"
+                  aria-label="移除文件"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12" /></svg>
                 </button>
@@ -167,6 +168,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           disabled={isLoading}
           className="mb-0.5 flex-shrink-0 rounded-full p-3 text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600 active:scale-90"
           title="上传文件"
+          aria-label="上传文件"
         >
           <PaperclipIcon size={20} />
         </button>
@@ -179,9 +181,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
               isModeLocked ? 'cursor-not-allowed opacity-60' : 'border border-transparent hover:border-sky-100 hover:bg-sky-50 active:scale-95',
             )}
             title={isModeLocked ? '对话已开始，无法更改智能体' : '切换智能体'}
+            aria-label="切换智能体"
           >
             <div className={cn('flex h-5 w-5 items-center justify-center rounded-md border-2 text-[10px] font-bold',
-              selectedAgentProfileId ? 'border-zinc-900 bg-zinc-900 text-white' : chatMode === 'general' ? 'border-slate-300 text-slate-400' : 'border-sky-500 bg-sky-50 text-sky-600 shadow-[0_0_8px_rgba(14,165,233,0.3)]')}>
+              selectedAgentProfileId ? 'border-zinc-900 bg-zinc-900 text-white' : chatMode === 'general' ? 'border-slate-300 text-slate-400' : 'border-sky-500 bg-sky-50 text-sky-600 shadow-glow')}>
               {chatMode === 'general' ? <MascotHappy size={12} /> : chatMode === 'ppt' ? <PresentationIcon size={12} /> : <GlobeIcon size={12} />}
             </div>
           </button>

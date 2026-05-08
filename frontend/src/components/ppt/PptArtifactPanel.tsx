@@ -70,6 +70,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             disabled={isExporting}
             className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-zinc-800 disabled:opacity-60"
             title="导出 PPTX"
+            aria-label="导出 PPTX"
           >
             {isExporting ? <RefreshCcw size={14} className="animate-spin" /> : <Download size={14} />}
             导出
@@ -79,6 +80,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             type="button"
             onClick={onClose}
             className="rounded-xl p-2 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-500"
+            aria-label="关闭演示文稿预览"
           >
             <X size={18} />
           </button>
@@ -89,7 +91,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          className="min-h-full overflow-hidden rounded-[28px] border border-slate-200/70 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.08)]"
+          className="min-h-full overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-xl"
         >
           <iframe
             ref={iframeRef}

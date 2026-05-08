@@ -197,7 +197,7 @@ export const SkillManagement = () => {
 
           <div className="flex flex-wrap items-center gap-3">
             {message && (
-              <div className="rounded-[22px] border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
+              <div className="rounded-3xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
                 {message}
               </div>
             )}
@@ -225,7 +225,7 @@ export const SkillManagement = () => {
       </section>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+        <div className="flex items-center gap-2 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
           <AlertCircle size={18} />
           {error}
         </div>
@@ -247,7 +247,7 @@ export const SkillManagement = () => {
               value={uploadSlug}
               onChange={(event) => setUploadSlug(event.target.value)}
               placeholder="可选 slug"
-              className="w-full rounded-[22px] border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+              className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
             />
           </label>
 
@@ -256,7 +256,7 @@ export const SkillManagement = () => {
               type="file"
               accept=".zip"
               onChange={handleFileChange}
-              className="w-full rounded-[22px] border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-700 outline-none sm:max-w-[300px]"
+              className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-700 outline-none sm:max-w-[300px]"
             />
             <Button onClick={handleUpload} disabled={!uploadFileValue || isUploading} className="gap-2">
               {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
@@ -383,7 +383,7 @@ export const SkillManagement = () => {
                       <input
                         value={draft.name}
                         onChange={(event) => patchDraft({ name: event.target.value })}
-                        className="w-full rounded-[22px] border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
                     <label className="space-y-2">
@@ -391,7 +391,7 @@ export const SkillManagement = () => {
                       <input
                         value={draft.slug || ''}
                         onChange={(event) => patchDraft({ slug: event.target.value })}
-                        className="w-full rounded-[22px] border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
                     <label className="space-y-2 lg:col-span-2">
@@ -399,11 +399,11 @@ export const SkillManagement = () => {
                       <input
                         value={draft.description}
                         onChange={(event) => patchDraft({ description: event.target.value })}
-                        className="w-full rounded-[22px] border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
 
-                    <div className="flex items-center justify-between rounded-[24px] border border-white/80 bg-white/72 px-4 py-3 lg:col-span-2">
+                    <div className="flex items-center justify-between rounded-3xl border border-white/80 bg-white/72 px-4 py-3 lg:col-span-2">
                       <div>
                         <p className="text-sm font-black text-slate-700">启用</p>
                         {draft.root_dir && <p className="mt-1 text-xs font-medium text-slate-500">{draft.root_dir}</p>}
@@ -426,14 +426,14 @@ export const SkillManagement = () => {
                         value={draft.instruction}
                         onChange={(event) => patchDraft({ instruction: event.target.value })}
                         rows={16}
-                        className="w-full resize-y rounded-[24px] border border-white/75 bg-white/72 px-4 py-3 text-sm font-medium leading-6 text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full resize-y rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-medium leading-6 text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
                   </div>
                 </div>
 
                 <div className="overflow-y-auto border-l border-slate-100 bg-white/50 p-6">
-                  <div className="rounded-[28px] border border-white/80 bg-white/82 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+                  <div className="rounded-3xl border border-white/80 bg-white/82 p-5 shadow-lg">
                     <div className="mb-4 flex items-center gap-2">
                       <FileCode2 size={18} className="text-slate-500" />
                       <h4 className="text-lg font-black text-slate-900">脚本清单</h4>
@@ -443,20 +443,20 @@ export const SkillManagement = () => {
                         {draft.script_paths.map((scriptPath) => (
                           <div
                             key={scriptPath}
-                            className="rounded-[20px] border border-white/80 bg-white/75 px-3 py-2 text-sm font-bold text-slate-700"
+                            className="rounded-3xl border border-white/80 bg-white/75 px-3 py-2 text-sm font-bold text-slate-700"
                           >
                             {scriptPath}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-[22px] border border-dashed border-slate-200 bg-white/60 px-4 py-5 text-sm font-medium text-slate-500">
+                      <div className="rounded-3xl border border-dashed border-slate-200 bg-white/60 px-4 py-5 text-sm font-medium text-slate-500">
                         当前 Skill 的 `scripts/` 目录下还没有发现 Python 脚本。
                       </div>
                     )}
                   </div>
 
-                  <div className="mt-4 rounded-[28px] border border-white/80 bg-white/82 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+                  <div className="mt-4 rounded-3xl border border-white/80 bg-white/82 p-5 shadow-lg">
                     <div className="mb-4 flex items-center gap-2">
                       <FileCode2 size={18} className="text-slate-500" />
                       <h4 className="text-lg font-black text-slate-900">References</h4>
@@ -466,14 +466,14 @@ export const SkillManagement = () => {
                         {draft.reference_paths.map((referencePath) => (
                           <div
                             key={referencePath}
-                            className="rounded-[20px] border border-white/80 bg-white/75 px-3 py-2 text-sm font-bold text-slate-700"
+                            className="rounded-3xl border border-white/80 bg-white/75 px-3 py-2 text-sm font-bold text-slate-700"
                           >
                             {referencePath}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-[22px] border border-dashed border-slate-200 bg-white/60 px-4 py-5 text-sm font-medium text-slate-500">
+                      <div className="rounded-3xl border border-dashed border-slate-200 bg-white/60 px-4 py-5 text-sm font-medium text-slate-500">
                         当前 Skill 的 `references/` 目录下还没有发现参考文件。
                       </div>
                     )}

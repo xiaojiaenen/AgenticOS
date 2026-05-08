@@ -54,7 +54,7 @@ export const Sidebar = React.memo(({
     >
       <div className="p-4 flex items-center justify-between border-b border-slate-100">
         <Logo iconSize={20} className="text-lg" />
-        <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg group transition-colors">
+        <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg group transition-colors" aria-label="关闭侧边栏">
           <MenuIcon size={20} />
         </button>
       </div>
@@ -80,7 +80,7 @@ export const Sidebar = React.memo(({
             className={cn(
               "group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all",
               currentSessionId === session.id
-                ? "bg-white/70 backdrop-blur-sm text-zinc-900 font-bold shadow-[0_2px_10px_rgba(0,0,0,0.05)] border border-white/60"
+                ? "bg-white/70 backdrop-blur-sm text-zinc-900 font-bold shadow-xs border border-white/60"
                 : "text-slate-600 hover:bg-white/40 hover:text-slate-900 font-medium"
             )}
           >
@@ -91,6 +91,7 @@ export const Sidebar = React.memo(({
             <button
               onClick={(e) => onDeleteSession(session.id, e)}
               className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+              aria-label="删除对话"
             >
               <TrashIcon size={16} />
             </button>
@@ -102,6 +103,7 @@ export const Sidebar = React.memo(({
               type="button"
               onClick={onLoadMore}
               className="w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2 text-xs font-bold text-slate-500 shadow-sm transition-all hover:bg-white/80 hover:text-slate-800"
+              aria-label="加载更多对话"
             >
               加载更多对话
             </button>
@@ -119,14 +121,16 @@ export const Sidebar = React.memo(({
         <button
           onClick={() => navigate('/agents')}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors font-bold text-sm text-slate-700"
+          aria-label="智能体商店"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
           智能体商店
         </button>
         {user?.role === 'admin' && (
-          <button 
+          <button
             onClick={() => navigate('/admin')}
             className="w-full flex items-center gap-3 px-3 py-2.5 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-colors shadow-sm font-bold text-sm"
+            aria-label="管理后台"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
             管理后台 (Admin)
@@ -144,13 +148,14 @@ export const Sidebar = React.memo(({
               {user?.email || 'signed in'}
             </p>
           </div>
-          <button 
+          <button
             onClick={async () => {
               await logout();
               navigate('/login');
             }}
             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
             title="退出登录"
+            aria-label="退出登录"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           </button>
