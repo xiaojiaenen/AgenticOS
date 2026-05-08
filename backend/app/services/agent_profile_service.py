@@ -28,6 +28,18 @@ from app.services.tool_config_service import AGENT_MODES, DEFAULT_MODE_TOOLS, TO
 AUDIENCE_MODE_ALL = "all"
 AUDIENCE_MODE_SELECTED = "selected"
 
+MODE_DEFAULT_PROMPTS: dict[str, str] = {
+    "general": GENERAL_SYSTEM_PROMPT,
+    "ppt": PPT_SYSTEM_PROMPT,
+    "website": WEBSITE_SYSTEM_PROMPT,
+}
+
+GENERIC_PROMPTS = {
+    "你是 AgenticOS 的通用智能助手，请优先给出准确、清晰、可执行的回答。",
+    "你是一个专注于特定任务的 AgenticOS 智能体。请根据用户目标主动拆解任务，必要时调用可用工具，并给出清晰可执行的结果。",
+    "",
+}
+
 
 BUILTIN_AGENT_PROFILES = {
     "general": {
@@ -132,6 +144,13 @@ class AgentProfileService:
             db.add(npm_tool)
             return True
         return False
+
+    @staticmethod
+    def _resolve_system_prompt(requested: str, response_mode: str) -> str:
+        stripped = requested.strip()
+        if stripped in GENERIC_PROMPTS:
+            return MODE_DEFAULT_PROMPTS.get(response_mode, GENERAL_SYSTEM_PROMPT)
+        return requested
 
     def _ensure_profile_tools(
         self,
@@ -518,7 +537,7 @@ class AgentProfileService:
                 name=request.name,
                 slug=self._unique_slug(db, request.slug or request.name),
                 description=request.description,
-                system_prompt=request.system_prompt,
+                system_prompt=self._resolve_system_prompt(request.system_prompt, request.response_mode),
                 response_mode=request.response_mode,
                 avatar=request.avatar,
                 enabled=request.enabled,
@@ -560,7 +579,16 @@ class AgentProfileService:
             if request.system_prompt is not None:
                 profile.system_prompt = request.system_prompt
             if request.response_mode is not None:
+                old_mode = profile.response_mode
                 profile.response_mode = request.response_mode
+                if request.response_mode != old_mode and profile.system_prompt.strip() in GENERIC_PROMPTS:
+                    profile.system_prompt = MODE_DEFAULT_PROMPTS.get(
+                        request.response_mode, GENERAL_SYSTEM_PROMPT
+                    )
+                elif request.system_prompt is None and profile.system_prompt.strip() in GENERIC_PROMPTS:
+                    profile.system_prompt = MODE_DEFAULT_PROMPTS.get(
+                        request.response_mode, GENERAL_SYSTEM_PROMPT
+                    )
             if request.avatar is not None:
                 profile.avatar = request.avatar
             if request.enabled is not None:

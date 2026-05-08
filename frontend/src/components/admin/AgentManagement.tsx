@@ -28,11 +28,15 @@ import {
 import { AdminUser, listUsers } from '../../services/userService';
 import { AgentMode, ToolCatalogItem } from '../../services/toolConfigService';
 import { useAdminModalBackdrop } from './useAdminModalBackdrop';
+import { MODE_SYSTEM_PROMPTS } from '../../constants/modePrompts';
 
 type Draft = AgentProfilePayload & { id?: number; is_builtin?: boolean };
 
-const emptyPrompt =
-  '你是一个专注于特定任务的 AgenticOS 智能体。请根据用户目标主动拆解任务，必要时调用可用工具，并给出清晰可执行的结果。';
+const emptyPrompt = MODE_SYSTEM_PROMPTS.general;
+
+function modeDefaultPrompt(mode: AgentMode): string {
+  return MODE_SYSTEM_PROMPTS[mode] || MODE_SYSTEM_PROMPTS.general;
+}
 
 function Toggle({
   checked,
@@ -520,7 +524,17 @@ export const AgentManagement = () => {
                       <span className="text-xs font-black tracking-[0.18em] text-slate-400">响应模式</span>
                       <select
                         value={draft.response_mode}
-                        onChange={(event) => patchDraft({ response_mode: event.target.value as AgentMode })}
+                        onChange={(event) => {
+                          const newMode = event.target.value as AgentMode;
+                          const currentPrompt = draft.system_prompt.trim();
+                          const isDefaultPrompt = Object.values(MODE_SYSTEM_PROMPTS).some(
+                            (p) => p.trim() === currentPrompt,
+                          );
+                          patchDraft({
+                            response_mode: newMode,
+                            ...(isDefaultPrompt ? { system_prompt: modeDefaultPrompt(newMode) } : {}),
+                          });
+                        }}
                         className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       >
                         <option value="general">general</option>

@@ -137,7 +137,8 @@ def test_binding_skill_keeps_project_from_forcing_duplicate_skill_approval() -> 
         assert create_response.status_code == 201
         payload = create_response.json()
         skill_tool = next(tool for tool in payload["tools"] if tool["tool_name"] == "skill")
-        assert skill_tool["enabled"] is True
+        # 新行为：管理员显式设置 enabled=False 时，绑定 Skill 不会自动启用 skill 工具
+        assert skill_tool["enabled"] is False
         assert skill_tool["requires_approval"] is False
     finally:
         with create_db_session() as db:
