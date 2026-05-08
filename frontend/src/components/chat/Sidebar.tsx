@@ -116,6 +116,13 @@ export const Sidebar = React.memo(({
 
       {/* User Profile & Logout at bottom */}
       <div className="p-4 border-t border-slate-100 flex flex-col gap-2">
+        <button
+          onClick={() => navigate('/agents')}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors font-bold text-sm text-slate-700"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          智能体商店
+        </button>
         {user?.role === 'admin' && (
           <button 
             onClick={() => navigate('/admin')}
