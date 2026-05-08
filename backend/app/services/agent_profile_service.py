@@ -511,24 +511,6 @@ class AgentProfileService:
                 )
             )
 
-        if unique_skill_ids:
-            skill_tool = db.scalar(
-                select(AgentProfileToolModel).where(
-                    AgentProfileToolModel.profile_id == profile.id,
-                    AgentProfileToolModel.tool_name == "skill",
-                )
-            )
-            if skill_tool is None:
-                skill_tool = AgentProfileToolModel(
-                    profile_id=profile.id,
-                    tool_name="skill",
-                    enabled=True,
-                    requires_approval=False,
-                )
-                db.add(skill_tool)
-            else:
-                skill_tool.enabled = True
-
     def create(self, request: AgentProfileCreateRequest, creator: UserModel) -> dict[str, object]:
         with self.session_factory() as db:
             self.ensure_defaults(db)

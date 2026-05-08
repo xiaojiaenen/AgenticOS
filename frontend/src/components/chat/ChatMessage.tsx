@@ -927,7 +927,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
           <div
             id={message?.id ? `bubble-${message.id}` : undefined}
             className={cn(
-            "px-5 py-3 rounded-[2rem] relative group max-w-full min-w-0 transition-colors duration-300",
+            "px-5 py-3 rounded-[2rem] relative group max-w-full min-w-0 transition-colors duration-300 overflow-hidden",
             hasStructuredContent ? "w-full" : "w-fit",
             !isUser && isStreaming && "min-h-[3.5rem] min-w-[10rem]",
             isUser
@@ -1048,7 +1048,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
               </p>
             </div>
           ) : (
-            <div className="prose prose-slate prose-sm max-w-none prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
+            <div className="prose prose-slate prose-sm max-w-none break-words [overflow-wrap:anywhere] prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
               {reasoningText && (
                 <details
                   open={isReasoningOpen}
