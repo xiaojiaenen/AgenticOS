@@ -116,6 +116,8 @@ class AgentService:
             if user is None:
                 raise PermissionError("Agent profile requires an authenticated user")
             return self.agent_profiles.resolve_runtime(request.agent_profile_id, user)
+        if user is not None:
+            return self.agent_profiles.resolve_runtime_by_mode(request.response_mode, user)
         return self._runtime_from_mode(request.response_mode, request.system_prompt)
 
     def _get_agent(self, profile: RuntimeAgentProfile) -> Agent:
@@ -184,13 +186,21 @@ class AgentService:
 
     @staticmethod
     def _build_tool_call_payload(event: AgentEvent) -> dict[str, Any]:
-        return {
+        payload = {
             "id": event.data.get("tool_call_id"),
             "function": {
-                "name": event.data.get("tool_name") or "工具调用",
+                "name": event.data.get("tool_name") or "tool_call",
                 "arguments": event.data.get("args") or {},
             },
         }
+        for source_key, target_key in (
+            ("side_effect", "side_effect"),
+            ("requires_approval", "requires_approval"),
+        ):
+            value = event.data.get(source_key)
+            if isinstance(value, bool):
+                payload[target_key] = value
+        return payload
 
     @staticmethod
     def _build_tool_result_payload(
@@ -199,12 +209,46 @@ class AgentService:
         status: str,
         result: str | None,
     ) -> dict[str, Any]:
-        return {
+        payload = {
             "tool_call_id": event.data.get("tool_call_id"),
-            "name": event.data.get("tool_name") or "工具调用",
+            "name": event.data.get("tool_name") or "tool_call",
             "status": status,
             "result": result,
         }
+        error_type = event.data.get("error_type")
+        if isinstance(error_type, str) and error_type:
+            payload["error_type"] = error_type
+        payload.update(AgentService._extract_tool_output_metadata(result))
+        return payload
+
+    @staticmethod
+    def _extract_tool_output_metadata(output: str | None) -> dict[str, Any]:
+        if not output:
+            return {}
+        try:
+            payload = json.loads(output)
+        except json.JSONDecodeError:
+            return {}
+        if not isinstance(payload, dict):
+            return {}
+
+        metadata: dict[str, Any] = {}
+        error = payload.get("error")
+        if isinstance(error, dict):
+            error_type = error.get("type")
+            if isinstance(error_type, str) and error_type:
+                metadata["error_type"] = error_type
+
+        for key in ("tool_executed", "retryable", "instruction"):
+            value = payload.get(key)
+            if value is not None:
+                metadata[key] = value
+
+        attempts = payload.get("attempts")
+        if isinstance(attempts, int):
+            metadata["attempts"] = attempts
+
+        return metadata
 
     @staticmethod
     def _status_from_tool_output(output: str | None) -> str:
@@ -296,6 +340,18 @@ class AgentService:
                             result=output,
                         )
                     ],
+                },
+            }
+
+        if event.type == "tool_error":
+            return {
+                "event": "tool_error",
+                "data": {
+                    "session_id": session.session_id,
+                    "tool_call_id": event.data.get("tool_call_id"),
+                    "tool_name": event.data.get("tool_name") or "tool_call",
+                    "message": event.data.get("message"),
+                    "error_type": event.data.get("error_type"),
                 },
             }
 

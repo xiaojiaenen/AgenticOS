@@ -22,6 +22,14 @@ class AgentProfileSkillReference(BaseModel):
     enabled: bool
     has_python_scripts: bool
     script_paths: list[str] = Field(default_factory=list)
+    has_references: bool
+    reference_paths: list[str] = Field(default_factory=list)
+
+
+class AgentProfileAudienceUser(BaseModel):
+    id: int
+    name: str
+    email: str
 
 
 class AgentProfileBase(BaseModel):
@@ -33,6 +41,8 @@ class AgentProfileBase(BaseModel):
     avatar: str | None = Field(default=None, max_length=64)
     enabled: bool = True
     listed: bool = False
+    audience_mode: str = Field(default="all", pattern="^(all|selected)$")
+    audience_user_ids: list[int] = Field(default_factory=list)
 
     @field_validator("name", "description", "system_prompt", "avatar")
     @classmethod
@@ -61,6 +71,8 @@ class AgentProfileUpdateRequest(BaseModel):
     avatar: str | None = Field(default=None, max_length=64)
     enabled: bool | None = None
     listed: bool | None = None
+    audience_mode: str | None = Field(default=None, pattern="^(all|selected)$")
+    audience_user_ids: list[int] | None = None
     tools: list[AgentProfileTool] | None = None
     skill_ids: list[int] | None = None
 
@@ -89,6 +101,8 @@ class AgentProfileResponse(AppBaseModel):
     listed: bool
     is_builtin: bool
     installed: bool = False
+    audience_mode: str
+    audience_users: list[AgentProfileAudienceUser] = Field(default_factory=list)
     tools: list[AgentProfileTool]
     skills: list[AgentProfileSkillReference] = Field(default_factory=list)
     created_at: datetime

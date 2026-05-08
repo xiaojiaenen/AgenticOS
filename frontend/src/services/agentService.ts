@@ -31,6 +31,8 @@ type AgentToolCall = {
     name?: string;
     arguments?: Record<string, unknown>;
   };
+  side_effect?: boolean;
+  requires_approval?: boolean;
 };
 
 type AgentToolResult = {
@@ -38,6 +40,18 @@ type AgentToolResult = {
   name?: string;
   status?: ToolCall['status'];
   result?: string;
+  error_type?: string;
+  tool_executed?: boolean;
+  retryable?: boolean;
+  attempts?: number;
+  instruction?: string;
+};
+
+type AgentToolError = {
+  tool_call_id?: string;
+  tool_name?: string;
+  message?: string;
+  error_type?: string;
 };
 
 export type AgentSessionState = {
@@ -114,15 +128,57 @@ function parseSseEvent(block: string): { event: string; data: unknown } | null {
   };
 }
 
+function normalizeAgentError(message?: string, errorType?: string): string {
+  const text = message || '';
+  const lower = text.toLowerCase();
+  if (text.includes('Insufficient Balance') || lower.includes('insufficient balance') || text.includes('402')) {
+    return '模型服务余额不足，请联系管理员充值或切换可用模型。';
+  }
+  if (errorType === 'rate_limit_error' || lower.includes('rate limit')) {
+    return '模型服务请求过于频繁，请稍后再试。';
+  }
+  if (lower.includes('api key')) {
+    return '模型服务密钥配置异常，请联系管理员检查配置。';
+  }
+  return text || '智能体流式响应失败。';
+}
+
 function mapToolCalls(toolCalls: AgentToolCall[]): ToolCall[] {
   return toolCalls.map((toolCall) => ({
     id: toolCall.id,
-    name: toolCall.function?.name || '工具调用',
+    name: toolCall.function?.name || 'tool_call',
     status: 'pending',
     arguments: toolCall.function?.arguments,
     result: toolCall.function?.arguments ? JSON.stringify(toolCall.function.arguments, null, 2) : undefined,
+    sideEffect: toolCall.side_effect,
+    requiresApproval: toolCall.requires_approval,
   }));
 }
+
+function mapToolResults(toolCalls: AgentToolResult[]): ToolCall[] {
+  return toolCalls.map((toolCall) => ({
+    id: toolCall.tool_call_id,
+    name: toolCall.name || 'tool_call',
+    status: toolCall.status || 'success',
+    ...(toolCall.result !== undefined ? { result: toolCall.result } : {}),
+    ...(toolCall.error_type ? { errorType: toolCall.error_type } : {}),
+    ...(toolCall.tool_executed !== undefined ? { toolExecuted: toolCall.tool_executed } : {}),
+    ...(toolCall.retryable !== undefined ? { retryable: toolCall.retryable } : {}),
+    ...(toolCall.attempts !== undefined ? { attempts: toolCall.attempts } : {}),
+    ...(toolCall.instruction ? { instruction: toolCall.instruction } : {}),
+  }));
+}
+
+function mapToolError(toolError: AgentToolError): ToolCall {
+  return {
+    id: toolError.tool_call_id,
+    name: toolError.tool_name || 'tool_call',
+    status: 'error',
+    ...(toolError.message ? { reason: toolError.message, result: toolError.message } : {}),
+    ...(toolError.error_type ? { errorType: toolError.error_type } : {}),
+  };
+}
+
 
 function mergeToolCalls(current: ToolCall[], updates: ToolCall[]): ToolCall[] {
   const merged = [...current];
@@ -179,7 +235,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(detail || '后端服务请求失败。');
+    throw new Error(normalizeAgentError(detail, String(response.status)));
   }
 
   if (!response.body) {
@@ -249,13 +305,12 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
       }
 
       if (parsed.event === 'tool_results' && Array.isArray(payload.tool_calls)) {
-        const updates = (payload.tool_calls as AgentToolResult[]).map((toolCall) => ({
-          id: toolCall.tool_call_id,
-          name: toolCall.name || '工具调用',
-          status: toolCall.status || 'success',
-          result: toolCall.result,
-        })) as ToolCall[];
-        toolCalls = mergeToolCalls(toolCalls, updates);
+        toolCalls = mergeToolCalls(toolCalls, mapToolResults(payload.tool_calls as AgentToolResult[]));
+        options.onToolCalls?.(toolCalls);
+      }
+
+      if (parsed.event === 'tool_error') {
+        toolCalls = mergeToolCalls(toolCalls, [mapToolError(payload as AgentToolError)]);
         options.onToolCalls?.(toolCalls);
       }
 
@@ -275,7 +330,10 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
       }
 
       if (parsed.event === 'error') {
-        throw new Error(typeof payload.message === 'string' ? payload.message : '智能体流式响应失败。');
+        throw new Error(normalizeAgentError(
+          typeof payload.message === 'string' ? payload.message : undefined,
+          typeof payload.error_type === 'string' ? payload.error_type : undefined,
+        ));
       }
 
       if (parsed.event === 'done') {

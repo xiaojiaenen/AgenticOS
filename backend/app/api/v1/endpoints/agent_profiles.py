@@ -30,6 +30,8 @@ def create_agent_profile(
         result = AgentProfileService().create(request, current_user)
     except KeyError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     get_agent_service().clear_agent_cache()
     return result
 
@@ -44,6 +46,8 @@ def update_agent_profile(
         result = AgentProfileService().update(profile_id, request)
     except KeyError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     get_agent_service().clear_agent_cache()
     return result
 

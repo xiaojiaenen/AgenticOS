@@ -15,6 +15,14 @@ export type AgentProfileSkill = {
   enabled: boolean;
   has_python_scripts: boolean;
   script_paths: string[];
+  has_references: boolean;
+  reference_paths: string[];
+};
+
+export type AgentProfileAudienceUser = {
+  id: number;
+  name: string;
+  email: string;
 };
 
 export type AgentProfile = {
@@ -29,6 +37,8 @@ export type AgentProfile = {
   listed: boolean;
   is_builtin: boolean;
   installed: boolean;
+  audience_mode: 'all' | 'selected';
+  audience_users: AgentProfileAudienceUser[];
   tools: AgentProfileTool[];
   skills: AgentProfileSkill[];
   created_at: string;
@@ -50,6 +60,8 @@ export type AgentProfilePayload = {
   avatar?: string | null;
   enabled: boolean;
   listed: boolean;
+  audience_mode: 'all' | 'selected';
+  audience_user_ids: number[];
   tools: AgentProfileTool[];
   skill_ids: number[];
 };

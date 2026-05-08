@@ -15,6 +15,7 @@ import { useChatSearch } from '../hooks/useChatSearch';
 import { Artifact, Message, Session, Attachment } from '../types';
 import { sendMessageStream, generateTitle, submitApprovalDecision, AgentSessionState, AgentPptArtifact, AgentRunStatus } from '../services/agentService';
 import { AgentProfile, getMyAgents } from '../services/agentProfileService';
+import { getStoredUser } from '../services/authService';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { AlertCircleIcon, MascotCool, ChevronDownIcon } from '../components/ui/AnimatedIcons';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
@@ -117,9 +118,14 @@ export const Chat = () => {
   const currentSessionMessages = currentSession?.messages ?? [];
   const isStreamingResponse = isLoading && currentSessionMessages[currentSessionMessages.length - 1]?.role === 'model';
   const isWideConversation = !artifact && !isMobile;
+  const isAdmin = getStoredUser()?.role === 'admin';
   const pendingApprovals = React.useMemo(
-    () => currentSessionMessages.flatMap(message => message.toolCalls || []).filter(tool => tool.status === 'approval_required' && tool.approvalId),
-    [currentSessionMessages],
+    () => (
+      isAdmin
+        ? currentSessionMessages.flatMap(message => message.toolCalls || []).filter(tool => tool.status === 'approval_required' && tool.approvalId)
+        : []
+    ),
+    [currentSessionMessages, isAdmin],
   );
 
   // 处理会话切换时的模式同步
@@ -145,6 +151,17 @@ export const Chat = () => {
       })
       .catch((err) => console.error('Load agents error:', err));
   }, []);
+
+  useEffect(() => {
+    if (selectedAgentProfileId && !agentProfiles.some((agent) => agent.id === selectedAgentProfileId)) {
+      setSelectedAgentProfileId(null);
+      setSessions((prev) => prev.map((session) => (
+        session.id === currentSessionId
+          ? { ...session, agentProfileId: null, agentName: undefined }
+          : session
+      )));
+    }
+  }, [agentProfiles, selectedAgentProfileId, currentSessionId]);
 
   // 处理窗口尺寸变化
   useEffect(() => {
@@ -596,7 +613,7 @@ export const Chat = () => {
             : session
         )));
       }
-      setError("发送消息失败，请检查后端服务或网络连接。");
+      setError(err instanceof Error ? err.message : '发送消息失败，请检查后端服务或网络连接。');
       setRunStatus({ phase: 'error', label: '本轮回复失败' });
     } finally {
       if (abortControllerRef.current === abortController) {

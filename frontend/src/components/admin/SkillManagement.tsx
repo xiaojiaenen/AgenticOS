@@ -21,6 +21,8 @@ type Draft = SkillPayload & {
   root_dir?: string;
   has_python_scripts?: boolean;
   script_paths?: string[];
+  has_references?: boolean;
+  reference_paths?: string[];
 };
 
 const emptyInstruction =
@@ -38,6 +40,8 @@ function makeDraft(skill: Skill | null): Draft {
       root_dir: skill.root_dir,
       has_python_scripts: skill.has_python_scripts,
       script_paths: skill.script_paths,
+      has_references: skill.has_references,
+      reference_paths: skill.reference_paths,
     };
   }
 
@@ -50,6 +54,8 @@ function makeDraft(skill: Skill | null): Draft {
     root_dir: '',
     has_python_scripts: false,
     script_paths: [],
+    has_references: false,
+    reference_paths: [],
   };
 }
 
@@ -74,6 +80,7 @@ export const SkillManagement = () => {
 
   const enabledCount = useMemo(() => skills.filter((skill) => skill.enabled).length, [skills]);
   const pythonSkillCount = useMemo(() => skills.filter((skill) => skill.has_python_scripts).length, [skills]);
+  const referenceSkillCount = useMemo(() => skills.filter((skill) => skill.has_references).length, [skills]);
 
   const loadSkills = async () => {
     setIsLoading(true);
@@ -203,6 +210,9 @@ export const SkillManagement = () => {
             <div className="admin-kpi-pill">
               含脚本 <span className="font-black text-slate-900">{pythonSkillCount}</span>
             </div>
+            <div className="admin-kpi-pill">
+              含参考 <span className="font-black text-slate-900">{referenceSkillCount}</span>
+            </div>
             <Button variant="secondary" onClick={loadSkills} disabled={isLoading || isSaving || isUploading}>
               {isLoading ? <Loader2 size={16} className="animate-spin" /> : '重新加载'}
             </Button>
@@ -301,6 +311,11 @@ export const SkillManagement = () => {
                 {skill.has_python_scripts && (
                   <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black text-amber-700">
                     Python
+                  </span>
+                )}
+                {skill.has_references && (
+                  <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-black text-sky-700">
+                    refs
                   </span>
                 )}
               </div>
@@ -437,6 +452,29 @@ export const SkillManagement = () => {
                     ) : (
                       <div className="rounded-[22px] border border-dashed border-slate-200 bg-white/60 px-4 py-5 text-sm font-medium text-slate-500">
                         当前 Skill 的 `scripts/` 目录下还没有发现 Python 脚本。
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 rounded-[28px] border border-white/80 bg-white/82 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+                    <div className="mb-4 flex items-center gap-2">
+                      <FileCode2 size={18} className="text-slate-500" />
+                      <h4 className="text-lg font-black text-slate-900">References</h4>
+                    </div>
+                    {draft.reference_paths && draft.reference_paths.length > 0 ? (
+                      <div className="space-y-2">
+                        {draft.reference_paths.map((referencePath) => (
+                          <div
+                            key={referencePath}
+                            className="rounded-[20px] border border-white/80 bg-white/75 px-3 py-2 text-sm font-bold text-slate-700"
+                          >
+                            {referencePath}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-[22px] border border-dashed border-slate-200 bg-white/60 px-4 py-5 text-sm font-medium text-slate-500">
+                        当前 Skill 的 `references/` 目录下还没有发现参考文件。
                       </div>
                     )}
                   </div>

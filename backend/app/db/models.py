@@ -185,6 +185,16 @@ class UserInstalledAgentModel(Base):
     installed_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
 
 
+class AgentProfileAudienceModel(Base):
+    __tablename__ = "agent_profile_audiences"
+    __table_args__ = (UniqueConstraint("profile_id", "user_id", name="uq_agent_profile_audience"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("agent_profiles.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
 class AgentMessageModel(Base):
     __tablename__ = "agent_messages"
 

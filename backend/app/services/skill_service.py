@@ -235,6 +235,7 @@ class SkillService:
 
     def _serialize_reference(self, row: SkillModel) -> dict[str, object]:
         scripts = self._list_scripts(Path(row.root_dir))
+        references = self._list_references(Path(row.root_dir))
         return {
             "id": row.id,
             "name": row.name,
@@ -243,12 +244,15 @@ class SkillService:
             "enabled": row.enabled,
             "has_python_scripts": bool(scripts),
             "script_paths": scripts,
+            "has_references": bool(references),
+            "reference_paths": references,
         }
 
     def _serialize(self, row: SkillModel) -> dict[str, object]:
         skill_path = Path(row.root_dir) / "SKILL.md"
         _, instruction = self._read_skill_file(skill_path)
         scripts = self._list_scripts(Path(row.root_dir))
+        references = self._list_references(Path(row.root_dir))
         return {
             "id": row.id,
             "name": row.name,
@@ -259,6 +263,8 @@ class SkillService:
             "root_dir": row.root_dir,
             "has_python_scripts": bool(scripts),
             "script_paths": scripts,
+            "has_references": bool(references),
+            "reference_paths": references,
             "created_at": row.created_at,
             "updated_at": row.updated_at,
         }
@@ -272,6 +278,17 @@ class SkillService:
         if not scripts_dir.is_dir():
             return []
         return sorted(path.relative_to(root_dir).as_posix() for path in scripts_dir.rglob("*.py"))
+
+    @staticmethod
+    def _list_references(root_dir: Path) -> list[str]:
+        references_dir = root_dir / "references"
+        if not references_dir.is_dir():
+            return []
+        return sorted(
+            path.relative_to(root_dir).as_posix()
+            for path in references_dir.rglob("*")
+            if path.is_file()
+        )
 
     @staticmethod
     def _validate_zip_members(archive: zipfile.ZipFile) -> None:

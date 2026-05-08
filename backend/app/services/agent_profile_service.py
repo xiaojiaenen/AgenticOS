@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.timezone import isoformat_app_timezone
 from app.db.models import (
     AgentProfileModel,
+    AgentProfileAudienceModel,
     AgentProfileSkillModel,
     AgentProfileToolModel,
     SkillModel,
@@ -20,8 +21,12 @@ from app.db.models import (
 from app.db.session import create_db_session
 from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_SYSTEM_PROMPT
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
-from app.services.skill_service import RuntimeSkill
+from app.services.skill_service import RuntimeSkill, SkillService
 from app.services.tool_config_service import AGENT_MODES, DEFAULT_MODE_TOOLS, TOOL_CATALOG
+
+
+AUDIENCE_MODE_ALL = "all"
+AUDIENCE_MODE_SELECTED = "selected"
 
 
 BUILTIN_AGENT_PROFILES = {
@@ -168,6 +173,92 @@ class AgentProfileService:
             for name, item in TOOL_CATALOG.items()
         ]
 
+    @staticmethod
+    def _audience_mode_for_users(audience_users: list[UserModel]) -> str:
+        return AUDIENCE_MODE_SELECTED if audience_users else AUDIENCE_MODE_ALL
+
+    @staticmethod
+    def _serialize_audience_user(user: UserModel) -> dict[str, object]:
+        return {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+        }
+
+    def _load_audience_users(self, db: Session, profile_id: int) -> list[UserModel]:
+        return db.scalars(
+            select(UserModel)
+            .join(AgentProfileAudienceModel, AgentProfileAudienceModel.user_id == UserModel.id)
+            .where(AgentProfileAudienceModel.profile_id == profile_id)
+            .order_by(UserModel.name.asc(), UserModel.email.asc())
+        ).all()
+
+    def _apply_audience(
+        self,
+        db: Session,
+        profile: AgentProfileModel,
+        *,
+        audience_mode: str,
+        audience_user_ids: list[int],
+    ) -> None:
+        if audience_mode not in {AUDIENCE_MODE_ALL, AUDIENCE_MODE_SELECTED}:
+            raise ValueError("Unsupported audience mode")
+
+        unique_user_ids = tuple(dict.fromkeys(audience_user_ids))
+        if audience_mode == AUDIENCE_MODE_SELECTED:
+            if not unique_user_ids:
+                raise ValueError("Selected audience mode requires at least one user")
+            rows = db.scalars(
+                select(UserModel).where(UserModel.id.in_(unique_user_ids), UserModel.is_active.is_(True))
+            ).all()
+            found_ids = {row.id for row in rows}
+            missing = [user_id for user_id in unique_user_ids if user_id not in found_ids]
+            if missing:
+                raise KeyError(f"Unknown or inactive audience user ids: {missing}")
+
+        db.execute(delete(AgentProfileAudienceModel).where(AgentProfileAudienceModel.profile_id == profile.id))
+        if audience_mode == AUDIENCE_MODE_SELECTED:
+            for user_id in unique_user_ids:
+                db.add(AgentProfileAudienceModel(profile_id=profile.id, user_id=user_id))
+
+    def _is_profile_available_to_user(self, db: Session, profile: AgentProfileModel, user: UserModel) -> bool:
+        if not profile.enabled:
+            return False
+        if user.role == "admin":
+            return True
+        if profile.is_builtin:
+            audience_count = db.scalar(
+                select(func.count(AgentProfileAudienceModel.id)).where(
+                    AgentProfileAudienceModel.profile_id == profile.id
+                )
+            ) or 0
+            if audience_count == 0:
+                return True
+            return bool(
+                db.scalar(
+                    select(AgentProfileAudienceModel.id).where(
+                        AgentProfileAudienceModel.profile_id == profile.id,
+                        AgentProfileAudienceModel.user_id == user.id,
+                    )
+                )
+            )
+
+        audience_count = db.scalar(
+            select(func.count(AgentProfileAudienceModel.id)).where(
+                AgentProfileAudienceModel.profile_id == profile.id
+            )
+        ) or 0
+        if audience_count == 0:
+            return True
+        return bool(
+            db.scalar(
+                select(AgentProfileAudienceModel.id).where(
+                    AgentProfileAudienceModel.profile_id == profile.id,
+                    AgentProfileAudienceModel.user_id == user.id,
+                )
+            )
+        )
+
     def _serialize(self, db: Session, profile: AgentProfileModel, *, user_id: int | None = None) -> dict[str, object]:
         self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
         installed = profile.is_builtin
@@ -185,6 +276,7 @@ class AgentProfileService:
             .order_by(AgentProfileToolModel.tool_name.asc())
         ).all()
         skills = self._load_profile_skill_rows(db, profile.id)
+        audience_users = self._load_audience_users(db, profile.id)
         return {
             "id": profile.id,
             "name": profile.name,
@@ -197,6 +289,8 @@ class AgentProfileService:
             "listed": profile.listed,
             "is_builtin": profile.is_builtin,
             "installed": installed,
+            "audience_mode": self._audience_mode_for_users(audience_users),
+            "audience_users": [self._serialize_audience_user(user) for user in audience_users],
             "tools": [
                 {
                     "tool_name": tool.tool_name,
@@ -217,6 +311,7 @@ class AgentProfileService:
         *,
         tools: list[AgentProfileToolModel],
         skills: list[SkillModel],
+        audience_users: list[UserModel],
         installed: bool,
     ) -> dict[str, object]:
         return {
@@ -231,6 +326,8 @@ class AgentProfileService:
             "listed": profile.listed,
             "is_builtin": profile.is_builtin,
             "installed": installed,
+            "audience_mode": self._audience_mode_for_users(audience_users),
+            "audience_users": [self._serialize_audience_user(user) for user in audience_users],
             "tools": [
                 {
                     "tool_name": tool.tool_name,
@@ -279,6 +376,15 @@ class AgentProfileService:
         ).all():
             skills_by_profile[int(profile_id)].append(skill)
 
+        audience_by_profile: dict[int, list[UserModel]] = defaultdict(list)
+        for profile_id, user in db.execute(
+            select(AgentProfileAudienceModel.profile_id, UserModel)
+            .join(UserModel, UserModel.id == AgentProfileAudienceModel.user_id)
+            .where(AgentProfileAudienceModel.profile_id.in_(profile_ids))
+            .order_by(AgentProfileAudienceModel.profile_id.asc(), UserModel.name.asc(), UserModel.email.asc())
+        ).all():
+            audience_by_profile[int(profile_id)].append(user)
+
         installed_ids: set[int] = set()
         if user_id is not None:
             installed_ids = {
@@ -296,6 +402,7 @@ class AgentProfileService:
                 profile,
                 tools=tools_by_profile.get(profile.id, []),
                 skills=skills_by_profile.get(profile.id, []),
+                audience_users=audience_by_profile.get(profile.id, []),
                 installed=profile.is_builtin or profile.id in installed_ids if user_id is not None else profile.is_builtin,
             )
             for profile in profiles
@@ -314,11 +421,15 @@ class AgentProfileService:
     def list_store(self, user: UserModel) -> dict[str, object]:
         with self.session_factory() as db:
             self.ensure_defaults(db)
-            profiles = db.scalars(
-                select(AgentProfileModel)
-                .where(AgentProfileModel.enabled.is_(True), AgentProfileModel.listed.is_(True))
-                .order_by(AgentProfileModel.is_builtin.desc(), AgentProfileModel.created_at.desc())
-            ).all()
+            profiles = [
+                profile
+                for profile in db.scalars(
+                    select(AgentProfileModel)
+                    .where(AgentProfileModel.enabled.is_(True), AgentProfileModel.listed.is_(True))
+                    .order_by(AgentProfileModel.is_builtin.desc(), AgentProfileModel.created_at.desc())
+                ).all()
+                if self._is_profile_available_to_user(db, profile, user)
+            ]
             return {
                 "catalog": self._catalog(),
                 "available_skills": self._list_available_skills(db, include_disabled=False),
@@ -334,14 +445,18 @@ class AgentProfileService:
                     select(UserInstalledAgentModel).where(UserInstalledAgentModel.user_id == user.id)
                 ).all()
             }
-            profiles = db.scalars(
-                select(AgentProfileModel)
-                .where(
-                    AgentProfileModel.enabled.is_(True),
-                    (AgentProfileModel.is_builtin.is_(True)) | (AgentProfileModel.id.in_(installed_ids or {-1})),
-                )
-                .order_by(AgentProfileModel.is_builtin.desc(), AgentProfileModel.created_at.asc())
-            ).all()
+            profiles = [
+                profile
+                for profile in db.scalars(
+                    select(AgentProfileModel)
+                    .where(
+                        AgentProfileModel.enabled.is_(True),
+                        (AgentProfileModel.is_builtin.is_(True)) | (AgentProfileModel.id.in_(installed_ids or {-1})),
+                    )
+                    .order_by(AgentProfileModel.is_builtin.desc(), AgentProfileModel.created_at.asc())
+                ).all()
+                if self._is_profile_available_to_user(db, profile, user)
+            ]
             return {
                 "catalog": self._catalog(),
                 "available_skills": self._list_available_skills(db, include_disabled=False),
@@ -408,13 +523,11 @@ class AgentProfileService:
                     profile_id=profile.id,
                     tool_name="skill",
                     enabled=True,
-                    requires_approval=True,
+                    requires_approval=False,
                 )
                 db.add(skill_tool)
             else:
                 skill_tool.enabled = True
-                if not skill_tool.requires_approval:
-                    skill_tool.requires_approval = True
 
     def create(self, request: AgentProfileCreateRequest, creator: UserModel) -> dict[str, object]:
         with self.session_factory() as db:
@@ -439,6 +552,12 @@ class AgentProfileService:
                 self._apply_tools(db, profile, request.tools)
             if request.skill_ids:
                 self._apply_skill_ids(db, profile, request.skill_ids)
+            self._apply_audience(
+                db,
+                profile,
+                audience_mode=request.audience_mode,
+                audience_user_ids=request.audience_user_ids,
+            )
             db.commit()
             db.refresh(profile)
             return self._serialize(db, profile)
@@ -472,6 +591,19 @@ class AgentProfileService:
                 self._apply_tools(db, profile, request.tools)
             if request.skill_ids is not None:
                 self._apply_skill_ids(db, profile, request.skill_ids)
+            if request.audience_mode is not None or request.audience_user_ids is not None:
+                current_audience_users = self._load_audience_users(db, profile.id)
+                current_audience_ids = [user.id for user in current_audience_users]
+                self._apply_audience(
+                    db,
+                    profile,
+                    audience_mode=request.audience_mode or self._audience_mode_for_users(current_audience_users),
+                    audience_user_ids=(
+                        request.audience_user_ids
+                        if request.audience_user_ids is not None
+                        else current_audience_ids
+                    ),
+                )
 
             db.add(profile)
             db.commit()
@@ -487,6 +619,7 @@ class AgentProfileService:
                 raise ValueError("Built-in agent profiles cannot be deleted")
 
             db.execute(delete(UserInstalledAgentModel).where(UserInstalledAgentModel.profile_id == profile_id))
+            db.execute(delete(AgentProfileAudienceModel).where(AgentProfileAudienceModel.profile_id == profile_id))
             db.execute(delete(AgentProfileSkillModel).where(AgentProfileSkillModel.profile_id == profile_id))
             db.execute(delete(AgentProfileToolModel).where(AgentProfileToolModel.profile_id == profile_id))
             db.delete(profile)
@@ -496,7 +629,7 @@ class AgentProfileService:
         with self.session_factory() as db:
             self.ensure_defaults(db)
             profile = db.get(AgentProfileModel, profile_id)
-            if profile is None or not profile.enabled or not profile.listed:
+            if profile is None or not profile.enabled or not profile.listed or not self._is_profile_available_to_user(db, profile, user):
                 raise KeyError("Agent profile not found")
             if not profile.is_builtin:
                 existing = db.scalar(
@@ -527,7 +660,7 @@ class AgentProfileService:
         with self.session_factory() as db:
             self.ensure_defaults(db)
             profile = db.get(AgentProfileModel, profile_id)
-            if profile is None or not profile.enabled:
+            if profile is None or not self._is_profile_available_to_user(db, profile, user):
                 raise PermissionError("Agent profile is not available")
             if user.role != "admin" and not profile.is_builtin:
                 installed = db.scalar(
@@ -539,6 +672,19 @@ class AgentProfileService:
                 if not installed:
                     raise PermissionError("Please install this agent before using it")
 
+            return self._runtime_from_profile(db, profile)
+
+    def resolve_runtime_by_mode(self, response_mode: str, user: UserModel) -> RuntimeAgentProfile:
+        with self.session_factory() as db:
+            self.ensure_defaults(db)
+            profile = db.scalar(
+                select(AgentProfileModel).where(
+                    AgentProfileModel.slug == response_mode,
+                    AgentProfileModel.is_builtin.is_(True),
+                )
+            )
+            if profile is None or not self._is_profile_available_to_user(db, profile, user):
+                raise PermissionError("Agent profile is not available")
             return self._runtime_from_profile(db, profile)
 
     def _runtime_from_profile(self, db: Session, profile: AgentProfileModel) -> RuntimeAgentProfile:
@@ -613,12 +759,8 @@ class AgentProfileService:
     @staticmethod
     def _serialize_skill_reference(skill: SkillModel) -> dict[str, object]:
         root_dir = Path(skill.root_dir)
-        scripts_dir = root_dir / "scripts"
-        script_paths = (
-            sorted(path.relative_to(root_dir).as_posix() for path in scripts_dir.rglob("*.py"))
-            if scripts_dir.is_dir()
-            else []
-        )
+        script_paths = SkillService._list_scripts(root_dir)
+        reference_paths = SkillService._list_references(root_dir)
         return {
             "id": skill.id,
             "name": skill.name,
@@ -627,6 +769,8 @@ class AgentProfileService:
             "enabled": skill.enabled,
             "has_python_scripts": bool(script_paths),
             "script_paths": script_paths,
+            "has_references": bool(reference_paths),
+            "reference_paths": reference_paths,
         }
 
 

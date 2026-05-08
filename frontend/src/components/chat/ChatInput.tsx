@@ -122,6 +122,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   ] as const;
   const installedCustomAgents = agentProfiles.filter((agent) => !agent.is_builtin);
   const selectedCustomAgent = installedCustomAgents.find((agent) => agent.id === selectedAgentProfileId);
+  const selectedBuiltinAgent = agentProfiles.find((agent) => agent.is_builtin && agent.id === selectedAgentProfileId);
+  const activeBuiltinModes = builtinModes.filter((mode) =>
+    agentProfiles.some((agent) => agent.is_builtin && agent.response_mode === mode.id),
+  );
 
   return (
     <div
@@ -195,7 +199,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
                     当前：{selectedCustomAgent.name}
                   </div>
                 )}
-                {builtinModes.map((mode) => (
+                {activeBuiltinModes.map((mode) => (
                   <button
                     key={mode.id}
                     onClick={() => {
@@ -205,15 +209,15 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
                     }}
                     className={cn(
                       'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-slate-50',
-                      !selectedAgentProfileId && chatMode === mode.id ? 'bg-sky-50/50 ring-1 ring-sky-100' : '',
+                      !selectedCustomAgent && (!selectedBuiltinAgent ? chatMode === mode.id : selectedBuiltinAgent.response_mode === mode.id) ? 'bg-sky-50/50 ring-1 ring-sky-100' : '',
                     )}
                   >
                     <span className={cn('flex h-8 w-8 items-center justify-center rounded-xl text-sm shadow-sm transition-transform',
-                      !selectedAgentProfileId && chatMode === mode.id ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-400')}>
+                      !selectedCustomAgent && (!selectedBuiltinAgent ? chatMode === mode.id : selectedBuiltinAgent.response_mode === mode.id) ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-400')}>
                       {mode.icon}
                     </span>
                     <div className="flex flex-col">
-                      <span className={cn('text-xs font-bold transition-colors', !selectedAgentProfileId && chatMode === mode.id ? 'text-sky-700' : 'text-slate-700')}>{mode.label}</span>
+                      <span className={cn('text-xs font-bold transition-colors', !selectedCustomAgent && (!selectedBuiltinAgent ? chatMode === mode.id : selectedBuiltinAgent.response_mode === mode.id) ? 'text-sky-700' : 'text-slate-700')}>{mode.label}</span>
                       <span className="text-[9px] font-medium text-slate-400">{mode.desc}</span>
                     </div>
                   </button>

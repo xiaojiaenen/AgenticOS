@@ -10,6 +10,8 @@ export type Skill = {
   root_dir: string;
   has_python_scripts: boolean;
   script_paths: string[];
+  has_references: boolean;
+  reference_paths: string[];
   created_at: string;
   updated_at: string;
 };

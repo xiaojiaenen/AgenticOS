@@ -2,6 +2,7 @@ import React from 'react';
 import { ChatMessage } from './ChatMessage';
 import { ChatSuggestions } from './ChatSuggestions';
 import { Artifact, Message } from '../../types';
+import { getStoredUser } from '../../services/authService';
 
 interface MessagesListProps {
   currentSession: { messages: Message[] } | undefined;
@@ -26,6 +27,7 @@ export const MessagesList: React.FC<MessagesListProps> = ({
   onOpenArtifact,
   messagesEndRef
 }) => {
+  const isAdmin = getStoredUser()?.role === 'admin';
   if (!currentSession) {
     return <ChatSuggestions onSelect={onSuggestionClick} />;
   }
@@ -39,7 +41,15 @@ export const MessagesList: React.FC<MessagesListProps> = ({
       {currentSession.messages.map((message, idx) => (
         <ChatMessage 
           key={message.id} 
-          message={message} 
+          message={
+            isAdmin
+              ? message
+              : {
+                  ...message,
+                  reasoningText: undefined,
+                  toolCalls: undefined,
+                }
+          } 
           index={idx}
           isStreaming={message.id === streamingMessageId}
           wideLayout={wideLayout}

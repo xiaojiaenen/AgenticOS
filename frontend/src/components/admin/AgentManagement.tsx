@@ -25,6 +25,7 @@ import {
   getAgentProfiles,
   updateAgentProfile,
 } from '../../services/agentProfileService';
+import { AdminUser, listUsers } from '../../services/userService';
 import { AgentMode, ToolCatalogItem } from '../../services/toolConfigService';
 import { useAdminModalBackdrop } from './useAdminModalBackdrop';
 
@@ -71,6 +72,8 @@ function makeDraft(profile: AgentProfile | null, catalog: ToolCatalogItem[]): Dr
       avatar: profile.avatar,
       enabled: profile.enabled,
       listed: profile.listed,
+      audience_mode: profile.audience_mode,
+      audience_user_ids: profile.audience_users.map((user) => user.id),
       tools: profile.tools.map((tool) => ({ ...tool })),
       skill_ids: profile.skills.map((skill) => skill.id),
       is_builtin: profile.is_builtin,
@@ -86,6 +89,8 @@ function makeDraft(profile: AgentProfile | null, catalog: ToolCatalogItem[]): Dr
     avatar: 'sparkles',
     enabled: true,
     listed: false,
+    audience_mode: 'all',
+    audience_user_ids: [],
     tools: catalog.map((item) => ({
       tool_name: item.name,
       enabled: item.name === 'calc' || item.name === 'time',
@@ -105,6 +110,7 @@ export const AgentManagement = () => {
   const [profiles, setProfiles] = useState<AgentProfile[]>([]);
   const [catalog, setCatalog] = useState<ToolCatalogItem[]>([]);
   const [availableSkills, setAvailableSkills] = useState<AgentProfileSkill[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<AdminUser[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -126,9 +132,11 @@ export const AgentManagement = () => {
     setError(null);
     try {
       const response = await getAgentProfiles();
+      const userResponse = await listUsers({ offset: 0, limit: 200 });
       setProfiles(response.items);
       setCatalog(response.catalog);
       setAvailableSkills(response.available_skills);
+      setAvailableUsers(userResponse.items.filter((user) => user.is_active));
     } catch (err) {
       setError(err instanceof Error ? err.message : '智能体配置加载失败');
     } finally {
@@ -189,7 +197,6 @@ export const AgentManagement = () => {
             ? {
                 ...tool,
                 enabled: hasAnySkills ? true : tool.enabled,
-                requires_approval: hasAnySkills ? true : tool.requires_approval,
               }
             : tool,
         ),
@@ -197,8 +204,25 @@ export const AgentManagement = () => {
     });
   };
 
+  const toggleAudienceUser = (userId: number) => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const audienceUserIds = prev.audience_user_ids.includes(userId)
+        ? prev.audience_user_ids.filter((item) => item !== userId)
+        : [...prev.audience_user_ids, userId];
+      return {
+        ...prev,
+        audience_user_ids: audienceUserIds,
+      };
+    });
+  };
+
   const saveDraft = async () => {
     if (!draft) return;
+    if (draft.audience_mode === 'selected' && draft.audience_user_ids.length === 0) {
+      setError('请选择至少一个用户，或切换为全体用户。');
+      return;
+    }
     setIsSaving(true);
     setError(null);
     setMessage(null);
@@ -212,6 +236,8 @@ export const AgentManagement = () => {
         avatar: draft.avatar,
         enabled: draft.enabled,
         listed: draft.listed,
+        audience_mode: draft.audience_mode,
+        audience_user_ids: draft.audience_user_ids,
         tools: draft.tools,
         skill_ids: draft.skill_ids,
       };
@@ -383,6 +409,9 @@ export const AgentManagement = () => {
                 >
                   {profile.listed ? '上架' : '未上架'}
                 </span>
+                <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-black text-sky-700">
+                  {profile.audience_mode === 'selected' ? `指定用户 ${profile.audience_users.length}` : '全体用户'}
+                </span>
               </div>
 
               <div className="text-sm font-bold text-slate-600">{formatApiDate(profile.updated_at)}</div>
@@ -502,6 +531,83 @@ export const AgentManagement = () => {
                       </div>
                     </div>
 
+                    <div className="space-y-3 lg:col-span-2">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <span className="text-xs font-black tracking-[0.18em] text-slate-400">启用范围</span>
+                        <span className="text-xs font-bold text-slate-400">
+                          {draft.audience_mode === 'selected' ? `已选择 ${draft.audience_user_ids.length} 人` : '面向所有普通用户'}
+                        </span>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => patchDraft({ audience_mode: 'all' })}
+                          className={cn(
+                            'rounded-[24px] border px-4 py-3 text-left transition-all',
+                            draft.audience_mode === 'all'
+                              ? 'border-sky-200 bg-sky-50/80 shadow-sm'
+                              : 'border-white/80 bg-white/72 hover:bg-white',
+                          )}
+                        >
+                          <div className="text-sm font-black text-slate-900">全体用户</div>
+                          <div className="mt-1 text-xs font-medium text-slate-500">所有已登录用户都能看见并使用。</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => patchDraft({ audience_mode: 'selected' })}
+                          className={cn(
+                            'rounded-[24px] border px-4 py-3 text-left transition-all',
+                            draft.audience_mode === 'selected'
+                              ? 'border-sky-200 bg-sky-50/80 shadow-sm'
+                              : 'border-white/80 bg-white/72 hover:bg-white',
+                          )}
+                        >
+                          <div className="text-sm font-black text-slate-900">指定用户</div>
+                          <div className="mt-1 text-xs font-medium text-slate-500">只有选中的用户能看见并使用。</div>
+                        </button>
+                      </div>
+
+                      {draft.audience_mode === 'selected' && (
+                        <div className="max-h-52 overflow-y-auto rounded-[24px] border border-white/80 bg-white/70 p-3">
+                          {availableUsers.length > 0 ? (
+                            <div className="grid gap-2 md:grid-cols-2">
+                              {availableUsers.map((user) => {
+                                const selected = draft.audience_user_ids.includes(user.id);
+                                return (
+                                  <button
+                                    key={user.id}
+                                    type="button"
+                                    onClick={() => toggleAudienceUser(user.id)}
+                                    className={cn(
+                                      'flex min-w-0 items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-left transition-all',
+                                      selected
+                                        ? 'border-sky-200 bg-sky-50 text-sky-800'
+                                        : 'border-white/80 bg-white/80 text-slate-600 hover:bg-white',
+                                    )}
+                                  >
+                                    <span className="min-w-0">
+                                      <span className="block truncate text-sm font-black">{user.name || user.email}</span>
+                                      <span className="block truncate text-[11px] font-medium opacity-70">{user.email}</span>
+                                    </span>
+                                    <span
+                                      className={cn(
+                                        'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border',
+                                        selected ? 'border-sky-300 bg-sky-500 text-white' : 'border-slate-200 bg-white text-transparent',
+                                      )}
+                                    >
+                                      <Check size={12} />
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="px-3 py-4 text-sm font-medium text-slate-500">暂无可选择的启用用户。</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     <label className="space-y-2 lg:col-span-2">
                       <span className="text-xs font-black tracking-[0.18em] text-slate-400">系统提示词</span>
                       <textarea
@@ -544,7 +650,7 @@ export const AgentManagement = () => {
                                   <p className="mt-1 text-xs font-medium leading-5 text-slate-500">{meta?.description}</p>
                                   {isSkillTool && (
                                     <p className="mt-2 text-xs font-semibold text-amber-700">
-                                      绑定任意 Skill 后，会默认开启该工具，并至少要求管理员可控审批。
+                                      Wuwei 0.2.1 已经内建 skill 脚本执行审批、超时和路径校验；这里保留的是工具启用开关。
                                     </p>
                                   )}
                                 </div>
@@ -558,8 +664,8 @@ export const AgentManagement = () => {
                                 <div className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/72 px-4 py-3">
                                   <span className="text-sm font-black text-slate-700">审批</span>
                                   <Toggle
-                                    checked={tool.requires_approval}
-                                    disabled={!tool.enabled}
+                                    checked={isSkillTool ? true : tool.requires_approval}
+                                    disabled={!tool.enabled || isSkillTool}
                                     onClick={() => updateTool(tool.tool_name, { requires_approval: !tool.requires_approval })}
                                   />
                                 </div>
@@ -583,7 +689,7 @@ export const AgentManagement = () => {
 
                       {!skillToolEnabled && (
                         <div className="mb-4 rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
-                          选中 Skill 后，系统会自动打开 `skill` 工具，并默认保留审批。
+                          选中 Skill 后，系统会自动打开 `skill` 工具；脚本执行审批由 Wuwei 0.2.1 在运行时接管。
                         </div>
                       )}
 
@@ -624,6 +730,13 @@ export const AgentManagement = () => {
                                   <div className="mt-3">
                                     <span className="rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-[10px] font-black text-amber-700">
                                       含 Python 脚本
+                                    </span>
+                                  </div>
+                                )}
+                                {skill.has_references && (
+                                  <div className="mt-2">
+                                    <span className="rounded-full border border-sky-100 bg-sky-50 px-2.5 py-1 text-[10px] font-black text-sky-700">
+                                      {skill.reference_paths.length} refs
                                     </span>
                                   </div>
                                 )}

@@ -8,7 +8,7 @@ import mermaid from 'mermaid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { BrainCircuit, Presentation, Sparkles } from 'lucide-react';
-import { Artifact, Message } from '../../types';
+import { Artifact, Message, ToolCall } from '../../types';
 import { APP_TIME_ZONE } from '../../lib/datetime';
 import { cn } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
@@ -118,6 +118,31 @@ const ToolResultPreview = ({
     </div>
   );
 };
+
+function buildToolMetaItems(tool: ToolCall): string[] {
+  const items: string[] = [];
+
+  if (tool.sideEffect) {
+    items.push('有副作用');
+  }
+  if (tool.requiresApproval) {
+    items.push('需要审批');
+  }
+  if (tool.toolExecuted === false) {
+    items.push('未执行');
+  }
+  if (tool.retryable) {
+    items.push('可重试');
+  }
+  if (typeof tool.attempts === 'number') {
+    items.push(`尝试 ${tool.attempts} 次`);
+  }
+  if (tool.errorType) {
+    items.push(`错误类型 ${tool.errorType}`);
+  }
+
+  return items;
+}
 
 const MermaidChart = React.memo(({ chart }: { chart: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -715,6 +740,9 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                       const needsApproval = tool.status === 'approval_required';
                       const wasApproved = tool.status === 'approved';
                       const wasRejected = tool.status === 'rejected';
+                      const wasNotExecuted = tool.toolExecuted === false;
+                      const metaItems = buildToolMetaItems(tool);
+                      const detailText = tool.reason || tool.instruction;
                       const statusClass = isSuccess
                         ? "bg-emerald-50 text-emerald-600"
                         : isError
@@ -737,18 +765,20 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                               : wasApproved
                                 ? '已批准'
                                 : '执行中';
-                      const executionState = isSuccess ? 'done' : isError || wasRejected ? 'idle' : 'active';
-                      const executionBody = isSuccess
-                        ? '工具执行完成。'
-                        : isError
-                          ? '工具执行失败，请查看返回结果中的错误说明。'
-                          : needsApproval
-                            ? '该工具需要人工确认后才会执行。'
-                            : wasApproved
-                              ? '审批已通过，等待工具返回结果。'
-                              : wasRejected
-                                ? '审批已拒绝，工具不会执行。'
-                                : '工具正在处理中，请稍候。';
+                      const executionState = isSuccess ? 'done' : isError || wasRejected || wasNotExecuted ? 'idle' : 'active';
+                      const executionBody = wasNotExecuted
+                        ? '运行时反馈该工具调用未实际执行。'
+                        : isSuccess
+                          ? '工具执行完成。'
+                          : isError
+                            ? '工具执行失败，请查看返回内容中的错误信息。'
+                            : needsApproval
+                              ? '该工具需要人工审批后才会执行。'
+                              : wasApproved
+                                ? '审批已通过，等待工具返回结果。'
+                                : wasRejected
+                                  ? '审批已拒绝，工具不会继续执行。'
+                                  : '工具正在处理中，请稍候。';
                       const resultDotClass = isSuccess
                         ? "border-emerald-500 bg-emerald-500"
                         : isError
@@ -777,11 +807,37 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                       </span>
                     </div>
 
+                    {metaItems.length > 0 && (
+                      <div className="mb-3 flex flex-wrap gap-1.5">
+                        {metaItems.map((item) => (
+                          <span
+                            key={item}
+                            className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {detailText && (
+                      <div
+                        className={cn(
+                          "mb-3 rounded-xl border px-3 py-2 text-[11px] leading-relaxed",
+                          isError
+                            ? "border-rose-200/90 bg-rose-50/90 text-rose-700"
+                            : "border-slate-200/80 bg-slate-50/90 text-slate-600",
+                        )}
+                      >
+                        {detailText}
+                      </div>
+                    )}
+
                     <div className="flex flex-col">
                       <ToolTimelineStep
-                        title="调用中"
+                        title="调用阶段"
                         state="done"
-                        body="已向工具发起调用，请求参数已发送。"
+                        body="已向运行时发起工具调用，请求参数已发送。"
                       />
                       <ToolTimelineStep
                         title="执行状态"

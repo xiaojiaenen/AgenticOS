@@ -6,6 +6,13 @@ export type ToolCall = {
   approvalId?: string;
   arguments?: Record<string, unknown>;
   reason?: string;
+  sideEffect?: boolean;
+  requiresApproval?: boolean;
+  toolExecuted?: boolean;
+  errorType?: string;
+  retryable?: boolean;
+  attempts?: number;
+  instruction?: string;
 };
 
 export type Attachment = {

@@ -65,6 +65,8 @@ class SkillResponse(AppBaseModel):
     root_dir: str
     has_python_scripts: bool
     script_paths: list[str] = Field(default_factory=list)
+    has_references: bool
+    reference_paths: list[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

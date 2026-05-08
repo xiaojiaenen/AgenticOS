@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 import shutil
+import zipfile
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -91,5 +93,42 @@ def test_admin_can_create_update_and_delete_skill() -> None:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert delete_response.status_code == 204
+    finally:
+        cleanup(slug, admin_email)
+
+
+def test_upload_skill_exposes_reference_directory_metadata() -> None:
+    suffix = uuid4().hex
+    slug = f"skill-upload-{suffix}"
+    admin_email = f"skill-upload-admin-{suffix}@example.com"
+    cleanup(slug, admin_email)
+
+    try:
+        token = create_admin_token(admin_email)
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr(
+                "demo-skill/SKILL.md",
+                "---\nname: Demo Skill\ndescription: Uploaded demo\n---\n\nUse this skill carefully.\n",
+            )
+            archive.writestr("demo-skill/scripts/run_demo.py", "print('ok')\n")
+            archive.writestr("demo-skill/references/checklist.md", "# Checklist\n")
+            archive.writestr("demo-skill/references/data/schema.json", "{\"ok\": true}\n")
+
+        upload_response = client.post(
+            "/api/v1/skills/upload",
+            headers={"Authorization": f"Bearer {token}"},
+            data={"slug": slug, "enabled": "true"},
+            files={"file": ("demo-skill.zip", buffer.getvalue(), "application/zip")},
+        )
+        assert upload_response.status_code == 201
+        payload = upload_response.json()
+        assert payload["has_python_scripts"] is True
+        assert payload["script_paths"] == ["scripts/run_demo.py"]
+        assert payload["has_references"] is True
+        assert payload["reference_paths"] == [
+            "references/checklist.md",
+            "references/data/schema.json",
+        ]
     finally:
         cleanup(slug, admin_email)
