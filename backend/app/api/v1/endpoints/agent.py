@@ -51,6 +51,7 @@ async def stream_agent(
 async def decide_approval(
     approval_id: str,
     request: ApprovalDecisionRequest,
+    current_user: UserModel = Depends(get_current_user),
     agent_service: AgentService = Depends(get_agent_service),
 ) -> dict[str, Any]:
     try:
@@ -58,7 +59,10 @@ async def decide_approval(
             approval_id,
             status=request.status,
             reason=request.reason,
+            current_user=current_user,
         )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
@@ -81,9 +85,13 @@ async def get_session_state(
 @router.get("/artifacts/{artifact_id}", summary="获取 PPT 制品预览")
 async def get_ppt_artifact(
     artifact_id: str,
+    current_user: UserModel = Depends(get_current_user),
     agent_service: AgentService = Depends(get_agent_service),
 ) -> dict[str, Any]:
-    artifact = await agent_service.get_ppt_artifact(artifact_id)
+    try:
+        artifact = await agent_service.get_ppt_artifact(artifact_id, current_user=current_user)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     if artifact is None:
         raise HTTPException(status_code=404, detail="PPT 制品不存在。")
     return artifact

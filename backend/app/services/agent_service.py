@@ -22,7 +22,8 @@ from wuwei.tools import ToolRegistry
 from wuwei.tools.builtin import register_skill_tools
 
 from app.core.config import Settings, get_settings
-from app.db.models import AgentUsageEventModel, UserModel
+from app.db.models import AgentUsageEventModel, ApprovalModel, PptArtifactModel, UserModel
+from app.db.session import create_db_session
 from app.services.approval_manager import ApprovalManager
 from app.services.agent_profile_service import AgentProfileService, RuntimeAgentProfile
 from app.services.ppt_artifact_service import PptArtifactService, strip_ppt_deck_from_text
@@ -413,6 +414,24 @@ class AgentService:
         if owner_id is not None and owner_id != user.id and user.role != "admin":
             raise PermissionError("当前用户无权访问该会话。")
 
+    async def _ensure_record_owner(
+        self,
+        record_id: str,
+        model_type: type[ApprovalModel | PptArtifactModel],
+        id_column: str,
+        user: UserModel,
+    ) -> None:
+        with create_db_session() as db:
+            row = db.get(model_type, record_id)
+            if row is None:
+                return
+            session_id = row.session_id
+        if not session_id:
+            return
+        owner_id = await self.storage.get_owner_id(session_id)
+        if owner_id is not None and owner_id != user.id and user.role != "admin":
+            raise PermissionError("当前用户无权访问此资源。")
+
     @staticmethod
     def _extract_usage_numbers(usage: Any) -> tuple[int, int, int]:
         if not isinstance(usage, dict):
@@ -687,7 +706,10 @@ class AgentService:
         *,
         status: str,
         reason: str | None = None,
+        current_user: UserModel | None = None,
     ) -> dict[str, Any]:
+        if current_user is not None:
+            await self._ensure_record_owner(approval_id, ApprovalModel, "approval_id", current_user)
         return await self.approval_manager.decide(approval_id, status=status, reason=reason)
 
     async def get_session_state(self, session_id: str) -> dict[str, Any]:
@@ -697,7 +719,9 @@ class AgentService:
         stored["pending_approvals"] = await self.approval_manager.get_pending(session_id)
         return stored
 
-    async def get_ppt_artifact(self, artifact_id: str) -> dict[str, Any] | None:
+    async def get_ppt_artifact(self, artifact_id: str, current_user: UserModel | None = None) -> dict[str, Any] | None:
+        if current_user is not None:
+            await self._ensure_record_owner(artifact_id, PptArtifactModel, "artifact_id", current_user)
         return await self.ppt_artifacts.get(artifact_id)
 
 
