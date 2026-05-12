@@ -724,6 +724,15 @@ class AgentService:
             await self._ensure_record_owner(artifact_id, PptArtifactModel, "artifact_id", current_user)
         return await self.ppt_artifacts.get(artifact_id)
 
+    async def list_user_sessions(self, user_id: int) -> list[dict[str, Any]]:
+        return await self.storage.list_user_sessions(user_id)
+
+    async def delete_session(self, session_id: str, current_user: UserModel) -> None:
+        owner_id = await self.storage.get_owner_id(session_id)
+        if owner_id is not None and owner_id != current_user.id and current_user.role != "admin":
+            raise PermissionError("当前用户无权删除该会话。")
+        await self.storage.delete(session_id)
+
 
 _agent_service: AgentService | None = None
 

@@ -415,3 +415,34 @@ export async function generateTitle(history: Message[]): Promise<string> {
   const lastAssistantMessage = [...history].reverse().find((item) => item.role === 'model')?.text ?? '';
   return createTitleFromText(firstUserMessage || lastAssistantMessage);
 }
+
+export type AgentSessionListItem = {
+  session_id: string;
+  summary?: string | null;
+  metadata?: Record<string, unknown>;
+  message_count: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export async function listSessions(): Promise<AgentSessionListItem[]> {
+  const response = await fetch(`${AGENT_ENDPOINT}/sessions`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || '获取会话列表失败。');
+  }
+  return response.json();
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  const response = await fetch(`${AGENT_ENDPOINT}/sessions/${sessionId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || '删除会话失败。');
+  }
+}

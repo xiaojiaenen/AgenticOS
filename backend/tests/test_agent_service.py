@@ -8,9 +8,11 @@ from wuwei.llm import Message
 
 
 class FakeSession:
-    def __init__(self, session_id: str, max_steps: int = 10) -> None:
+    def __init__(self, session_id: str, max_steps: int = 10, system_prompt: str = "", parallel_tool_calls: bool = False) -> None:
         self.session_id = session_id
         self.max_steps = max_steps
+        self.system_prompt = system_prompt
+        self.parallel_tool_calls = parallel_tool_calls
 
 
 class FakeAgent:

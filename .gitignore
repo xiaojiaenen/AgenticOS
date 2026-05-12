@@ -51,3 +51,7 @@ backend/data/
 
 # Misc
 *.log
+
+# Claude Code
+.claude/
+CLAUDE.md

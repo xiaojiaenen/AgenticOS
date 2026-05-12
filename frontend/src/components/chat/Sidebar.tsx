@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Session } from '../../types';
@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils';
 import { Logo } from '../Logo';
 import { PlusIcon, ChatBubbleIcon, TrashIcon, MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
 import { getStoredUser, logout } from '../../services/authService';
+import { Modal, ModalHeader, ModalFooter } from '../ui/Modal';
 
 interface SidebarProps {
   sessions: Session[];
@@ -33,6 +34,7 @@ export const Sidebar = React.memo(({
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const user = getStoredUser();
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
 
   const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -42,6 +44,7 @@ export const Sidebar = React.memo(({
   }, [hasMore, onLoadMore]);
 
   return (
+    <>
     <motion.aside
       initial={isMobile ? { x: -300 } : { width: 280 }}
       animate={{ x: 0, width: 280 }}
@@ -89,7 +92,10 @@ export const Sidebar = React.memo(({
               <span className="truncate text-sm">{session.title}</span>
             </div>
             <button
-              onClick={(e) => onDeleteSession(session.id, e)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteConfirm({ id: session.id, title: session.title });
+              }}
               className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
               aria-label="删除对话"
             >
@@ -162,5 +168,23 @@ export const Sidebar = React.memo(({
         </div>
       </div>
     </motion.aside>
+    {/* Delete Confirmation Modal */}
+    <Modal open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} maxWidth="max-w-sm">
+      <ModalHeader title="删除对话" subtitle="确认删除" onClose={() => setDeleteConfirm(null)} />
+      <p className="text-sm text-slate-600 mb-4">
+        确定要删除对话「{deleteConfirm?.title || '新对话'}」吗？此操作不可撤销。
+      </p>
+      <ModalFooter
+        onCancel={() => setDeleteConfirm(null)}
+        submitLabel="删除"
+        onSubmit={() => {
+          if (deleteConfirm) {
+            onDeleteSession(deleteConfirm.id, {} as React.MouseEvent);
+            setDeleteConfirm(null);
+          }
+        }}
+      />
+    </Modal>
+    </>
   );
 });

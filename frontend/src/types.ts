@@ -49,6 +49,7 @@ export type Session = {
   id: string;
   title: string;
   messages: Message[];
+  createdAt?: number;
   updatedAt: number;
   mode?: 'general' | 'ppt' | 'website';
   agentProfileId?: number | null;
@@ -59,6 +60,7 @@ export type Session = {
   lastUsage?: Record<string, number> | null;
   latencyMs?: number | null;
   llmCalls?: number | null;
+  messageCount?: number;
 };
 
 export type PptThemeName = 'executive' | 'product' | 'minimal';

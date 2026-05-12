@@ -69,7 +69,7 @@ backend/
     prompts.py                     # system prompts for 3 agent modes
 ```
 
-The wuwei framework (>=0.1.9) provides `Agent`, `LLMGateway`, `ToolRegistry`, `SkillManager`, `HitlHook`, and `ContextCompressionHook`. The backend wraps these with FastAPI endpoints and database persistence.
+The wuwei framework (>=0.2.1) provides `Agent`, `LLMGateway`, `ToolRegistry`, `SkillManager`, `HitlHook`, and `ContextCompressionHook`. The backend wraps these with FastAPI endpoints and database persistence.
 
 ### Three agent modes
 
@@ -116,26 +116,34 @@ When `context_compression_enabled` is true (default), `ContextCompressionHook` t
 frontend/src/
   App.tsx                          # BrowserRouter, lazy-loaded routes
   pages/
-    Chat.tsx                       # main chat interface (~870 lines):
-                                   # sidebar, streaming messages, SSE parsing,
-                                   # approval panel, PPT artifacts, mode switching
+    Chat.tsx                       # main chat page, orchestrates hooks and layout
     Home.tsx, AgentStore.tsx, Login.tsx, Signup.tsx, AdminDashboard.tsx
   components/
-    chat/                          # ChatInput, ChatMessage, ChatTimeline, Sidebar,
-                                   # ArtifactPanel, PendingApprovalPanel, DragOverlay, etc.
+    chat/                          # ChatMainArea, ChatArtifactArea, ChatInput, ChatMessage,
+                                   # ChatTimeline, Sidebar, ArtifactPanel, PendingApprovalPanel,
+                                   # MessagesList, ChatSearch, DragOverlay, ChatSuggestions
     admin/                         # AdminSidebar, DashboardCharts, DashboardStats,
                                    # UserManagement, AgentManagement, SkillManagement, ChatHistory
     ppt/                           # PptArtifactPanel
     auth/                          # ProtectedRoute
+    ui/                            # Badge, Button, Card, EmptyState, Input, MascotState,
+                                   # Modal, Skeleton, Toast, Tooltip, AnimatedIcons, MascotIcons
+  hooks/                           # useChatStream (SSE + approval), useChatSessions (localStorage),
+                                   # useChatScroll, useDragAndDrop, useChatSearch
   services/                        # API clients for each endpoint group
     agentService.ts                # SSE client + approval decisions
     authService.ts, agentProfileService.ts, skillService.ts,
     dashboardService.ts, toolConfigService.ts, userService.ts, etc.
   constants/modePrompts.ts         # frontend-side mode-specific prompt templates
-  lib/safePreview.ts               # safe HTML preview rendering
+  lib/
+    utils.ts                       # cn() classname helper (clsx + tailwind-merge)
+    safePreview.ts                 # safe HTML preview rendering
+    datetime.ts                    # date formatting utilities
 ```
 
 Routes: `/` (Home), `/chat` (Chat, protected), `/agents` (AgentStore, protected), `/login`, `/signup`, `/admin` (AdminDashboard, admin-only).
+
+**Session persistence**: Chat sessions are cached in localStorage via `useChatSessions` hook (max 24 sessions, 80 messages each, with text truncation). This provides instant reload on page refresh while the backend remains the source of truth.
 
 ### Database
 

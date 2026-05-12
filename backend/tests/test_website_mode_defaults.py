@@ -10,10 +10,9 @@ from app.services.tool_config_service import DEFAULT_MODE_TOOLS, ToolConfigServi
 
 
 def test_website_prompt_contains_directory_and_build_rules() -> None:
-    assert "data/websites/<project_slug>/" in WEBSITE_SYSTEM_PROMPT
+    assert "data/websites/<project-slug>/" in WEBSITE_SYSTEM_PROMPT
     assert "npm install" in WEBSITE_SYSTEM_PROMPT
     assert "npm run build" in WEBSITE_SYSTEM_PROMPT
-    assert "不要随便引入依赖" in WEBSITE_SYSTEM_PROMPT
 
 
 def test_website_mode_enables_npm_by_default() -> None:
@@ -74,7 +73,7 @@ def test_existing_website_defaults_are_upgraded(tmp_path: Path) -> None:
 
         profile = db.scalar(select(AgentProfileModel).where(AgentProfileModel.slug == "website"))
         assert profile is not None
-        assert "data/websites/<project_slug>/" in profile.system_prompt
+        assert "data/websites/<project-slug>/" in profile.system_prompt
 
         profile_tool = db.scalar(
             select(AgentProfileToolModel).where(

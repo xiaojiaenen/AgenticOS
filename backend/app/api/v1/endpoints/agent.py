@@ -82,6 +82,27 @@ async def get_session_state(
     return await agent_service.get_session_state(session_id)
 
 
+@router.get("/sessions", summary="获取当前用户的会话列表")
+async def list_sessions(
+    current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
+) -> list[dict[str, Any]]:
+    return await agent_service.list_user_sessions(current_user.id)
+
+
+@router.delete("/sessions/{session_id}", summary="删除指定会话")
+async def delete_session(
+    session_id: str,
+    current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
+) -> dict[str, str]:
+    try:
+        await agent_service.delete_session(session_id, current_user)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return {"status": "deleted", "session_id": session_id}
+
+
 @router.get("/artifacts/{artifact_id}", summary="获取 PPT 制品预览")
 async def get_ppt_artifact(
     artifact_id: str,

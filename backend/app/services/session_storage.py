@@ -143,6 +143,30 @@ class DatabaseAgentStorage:
                 return None
             return row.user_id
 
+    async def list_user_sessions(self, user_id: int, limit: int = 50) -> list[dict[str, Any]]:
+        with self.session_factory() as db:
+            rows = db.scalars(
+                select(AgentSessionModel)
+                .where(AgentSessionModel.user_id == user_id)
+                .order_by(AgentSessionModel.updated_at.desc())
+                .limit(limit)
+            ).all()
+
+            sessions = []
+            for row in rows:
+                message_count = db.scalar(
+                    select(func.count(AgentMessageModel.id)).where(AgentMessageModel.session_id == row.session_id)
+                ) or 0
+                sessions.append({
+                    "session_id": row.session_id,
+                    "summary": row.summary,
+                    "metadata": _loads(row.metadata_json, {}),
+                    "message_count": message_count,
+                    "created_at": _iso(row.created_at),
+                    "updated_at": _iso(row.updated_at),
+                })
+            return sessions
+
     async def assign_owner(self, session_id: str, user_id: int) -> None:
         with self.session_factory() as db:
             row = db.get(AgentSessionModel, session_id)

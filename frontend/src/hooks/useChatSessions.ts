@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Session, Message } from '../types';
+import { listSessions, deleteSession as deleteSessionApi, generateTitle } from '../services/agentService';
 
 const CHAT_CACHE_KEY = 'chat_sessions';
-const MAX_PERSISTED_SESSIONS = 24;
 const MAX_PERSISTED_MESSAGES_PER_SESSION = 80;
 const MAX_PERSISTED_TEXT_LENGTH = 12_000;
 const MAX_PERSISTED_TOOL_RESULT_LENGTH = 4_000;
@@ -33,19 +33,7 @@ function compactMessageForStorage(message: Message): Message {
   };
 }
 
-function serializeSessionsForStorage(sessions: Session[]): Session[] {
-  return [...sessions]
-    .sort((left, right) => right.updatedAt - left.updatedAt)
-    .slice(0, MAX_PERSISTED_SESSIONS)
-    .map((session) => ({
-      ...session,
-      messages: session.messages
-        .slice(-MAX_PERSISTED_MESSAGES_PER_SESSION)
-        .map((message) => compactMessageForStorage(message)),
-    }));
-}
-
-function loadStoredSessions(): Session[] {
+function loadCachedSessions(): Session[] {
   const saved = localStorage.getItem(CHAT_CACHE_KEY);
   if (!saved) return [];
   try {
@@ -56,22 +44,83 @@ function loadStoredSessions(): Session[] {
   }
 }
 
+function saveSessionsToCache(sessions: Session[]) {
+  const compacted = sessions.map((session) => ({
+    ...session,
+    messages: session.messages
+      .slice(-MAX_PERSISTED_MESSAGES_PER_SESSION)
+      .map((message) => compactMessageForStorage(message)),
+  }));
+  localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(compacted));
+}
+
 export function useChatSessions() {
-  const [sessions, setSessions] = useState<Session[]>(() => loadStoredSessions());
+  const [sessions, setSessions] = useState<Session[]>(() => loadCachedSessions());
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [visibleSessionsCount, setVisibleSessionsCount] = useState(10);
+  const [isLoading, setIsLoading] = useState(true);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentSession = sessions.find(s => s.id === currentSessionId);
 
   const visibleSessions = sessions.slice(0, visibleSessionsCount);
   const hasMoreSessions = sessions.length > visibleSessionsCount;
 
+  // Load sessions from backend on mount
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFromBackend() {
+      try {
+        const backendSessions = await listSessions();
+        if (cancelled) return;
+
+        // Convert backend sessions to frontend Session format
+        const converted: Session[] = backendSessions.map((s) => ({
+          id: s.session_id,
+          title: s.summary || (typeof s.metadata?.agent_profile_name === 'string' ? s.metadata.agent_profile_name : '') || '新对话',
+          messages: [], // Messages will be loaded when session is selected
+          createdAt: s.created_at ? new Date(s.created_at).getTime() : Date.now(),
+          updatedAt: s.updated_at ? new Date(s.updated_at).getTime() : Date.now(),
+          summary: s.summary,
+          messageCount: s.message_count,
+        }));
+
+        // Merge with cached sessions (preserve messages from cache)
+        const cachedSessions = loadCachedSessions();
+        const cachedMap = new Map(cachedSessions.map(s => [s.id, s]));
+
+        const merged = converted.map((s) => {
+          const cached = cachedMap.get(s.id);
+          if (cached && cached.messages.length > 0) {
+            return { ...s, messages: cached.messages, title: cached.title || s.title };
+          }
+          return s;
+        });
+
+        setSessions(merged);
+        saveSessionsToCache(merged);
+      } catch (error) {
+        console.error('Failed to load sessions from backend:', error);
+        // Keep cached sessions on error
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadFromBackend();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Persist to localStorage with throttle during streaming
   useEffect(() => {
     if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
-    const data = serializeSessionsForStorage(sessions);
     persistTimerRef.current = setTimeout(() => {
-      localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(data));
+      saveSessionsToCache(sessions);
     }, 800);
     return () => {
       if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
@@ -86,7 +135,13 @@ export function useChatSessions() {
     setCurrentSessionId(null);
   }, []);
 
-  const deleteSession = useCallback((id: string) => {
+  const deleteSession = useCallback(async (id: string) => {
+    try {
+      await deleteSessionApi(id);
+    } catch (error) {
+      console.error('Failed to delete session from backend:', error);
+    }
+    // Always remove from local state
     setSessions(prev => prev.filter(s => s.id !== id));
     setCurrentSessionId(prev => (prev === id ? null : prev));
   }, []);
@@ -139,6 +194,36 @@ export function useChatSessions() {
     setSessions(prev => [session, ...prev]);
   }, []);
 
+  const refreshSessions = useCallback(async () => {
+    try {
+      const backendSessions = await listSessions();
+      const converted: Session[] = backendSessions.map((s) => ({
+        id: s.session_id,
+        title: s.summary || (typeof s.metadata?.agent_profile_name === 'string' ? s.metadata.agent_profile_name : '') || '新对话',
+        messages: [],
+        createdAt: s.created_at ? new Date(s.created_at).getTime() : Date.now(),
+        updatedAt: s.updated_at ? new Date(s.updated_at).getTime() : Date.now(),
+        summary: s.summary,
+        messageCount: s.message_count,
+      }));
+
+      // Preserve messages from current sessions
+      const currentMap = new Map(sessions.map(s => [s.id, s]));
+      const merged = converted.map((s) => {
+        const current = currentMap.get(s.id);
+        if (current && current.messages.length > 0) {
+          return { ...s, messages: current.messages, title: current.title || s.title };
+        }
+        return s;
+      });
+
+      setSessions(merged);
+      saveSessionsToCache(merged);
+    } catch (error) {
+      console.error('Failed to refresh sessions:', error);
+    }
+  }, [sessions]);
+
   return {
     sessions,
     setSessions,
@@ -154,5 +239,7 @@ export function useChatSessions() {
     updateSessionMessage,
     addMessagesToSession,
     createSession,
+    isLoading,
+    refreshSessions,
   };
 }
