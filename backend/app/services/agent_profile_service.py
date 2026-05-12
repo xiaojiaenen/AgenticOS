@@ -19,7 +19,7 @@ from app.db.models import (
     UserModel,
 )
 from app.db.session import create_db_session
-from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_SYSTEM_PROMPT
+from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_SYSTEM_PROMPT, EMAIL_SYSTEM_PROMPT
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
 from app.services.skill_service import RuntimeSkill, SkillService
 from app.services.tool_config_service import AGENT_MODES, DEFAULT_MODE_TOOLS, TOOL_CATALOG
@@ -32,6 +32,7 @@ MODE_DEFAULT_PROMPTS: dict[str, str] = {
     "general": GENERAL_SYSTEM_PROMPT,
     "ppt": PPT_SYSTEM_PROMPT,
     "website": WEBSITE_SYSTEM_PROMPT,
+    "email": EMAIL_SYSTEM_PROMPT,
 }
 
 GENERIC_PROMPTS = {
@@ -64,6 +65,14 @@ BUILTIN_AGENT_PROFILES = {
         "system_prompt": WEBSITE_SYSTEM_PROMPT,
         "response_mode": "website",
         "avatar": "globe",
+        "listed": True,
+    },
+    "email": {
+        "name": "邮件助手",
+        "description": "帮助用户读取、搜索、发送公司邮件，支持抄送功能。",
+        "system_prompt": EMAIL_SYSTEM_PROMPT,
+        "response_mode": "general",
+        "avatar": "mail",
         "listed": True,
     },
 }

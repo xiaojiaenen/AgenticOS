@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     agent_system_prompt: str = "你是 AgenticOS 的 AI 助手。"
     agent_max_steps: int = 10
     agent_parallel_tool_calls: bool = False
-    database_url: str = Field(default="sqlite:///./data/agenticos.db", validation_alias="DATABASE_URL")
+    database_url: str = Field(default=f"sqlite:///{PROJECT_ROOT / 'data' / 'agenticos.db'}", validation_alias="DATABASE_URL")
     skill_storage_dir: str = Field(
         default=str(PROJECT_ROOT / "data" / "skills"),
         validation_alias="SKILL_STORAGE_DIR",

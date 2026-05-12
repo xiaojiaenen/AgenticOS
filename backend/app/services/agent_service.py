@@ -29,6 +29,7 @@ from app.services.ppt_artifact_service import PptArtifactService, strip_ppt_deck
 from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.services.tool_config_service import ToolConfigService
 from app.schemas.agent import AgentStreamRequest
+from app.tools.email_tools import register_email_tools
 
 
 MAX_STEPS_LIMIT_MESSAGE = "任务未完成，已达到最大步骤限制。"
@@ -141,12 +142,24 @@ class AgentService:
             return cached
 
         hooks = [StorageHook(self.storage)]
-        if profile.approval_tools and self.settings.hitl_enabled:
+
+        # 合并审批工具：原始审批工具 + 邮件发送工具（如果包含邮件 skill）
+        approval_tools = set(profile.approval_tools)
+        skill_names = [skill.name.lower() for skill in profile.skills]
+        skill_slugs = [skill.slug.lower() for skill in profile.skills]
+        has_email_skill = any(
+            "email" in name or "邮件" in name or "email" in slug
+            for name, slug in zip(skill_names, skill_slugs)
+        )
+        if has_email_skill:
+            approval_tools.add("send_email")
+
+        if approval_tools and self.settings.hitl_enabled:
             hooks.append(
                 HitlHook(
                     provider=self.approval_manager,
                     policy=ApprovalPolicy(
-                        require_approval_tools=set(profile.approval_tools)
+                        require_approval_tools=approval_tools
                     ),
                 )
             )
@@ -191,6 +204,17 @@ class AgentService:
                 [FileSystemSkillProvider(skill.root_dir) for skill in profile.skills]
             )
             register_skill_tools(registry, skill_manager)
+
+        # 检查是否包含邮件 skill，如果有则注册邮件工具
+        skill_names = [skill.name.lower() for skill in profile.skills]
+        skill_slugs = [skill.slug.lower() for skill in profile.skills]
+        has_email_skill = any(
+            "email" in name or "邮件" in name or "email" in slug
+            for name, slug in zip(skill_names, skill_slugs)
+        )
+        if has_email_skill:
+            register_email_tools(registry)
+
         return registry
 
     @staticmethod

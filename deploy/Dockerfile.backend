@@ -5,9 +5,18 @@ ENV UV_LINK_MODE=copy
 
 WORKDIR /app
 
-COPY . .
+# 复制依赖文件
+COPY backend/pyproject.toml backend/uv.lock ./
 
+# 安装依赖
 RUN uv sync --frozen --no-dev
+
+# 复制应用代码
+COPY backend/app/ ./app/
+COPY backend/main.py ./
+
+# 复制数据目录（skills、websites 等）
+COPY data/ ./data/
 
 EXPOSE 8001
 

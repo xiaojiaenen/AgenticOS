@@ -21,6 +21,10 @@ AGENT_MODES = {
         "label": "网站模式",
         "description": "用于页面方案、前端代码和交互式应用生成。",
     },
+    "email": {
+        "label": "邮件模式",
+        "description": "读取、搜索、发送公司邮件，支持抄送功能。",
+    },
 }
 
 TOOL_CATALOG = {
@@ -103,6 +107,15 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "git": {"enabled": False, "requires_approval": True},
         "npm": {"enabled": True, "requires_approval": True},
         "skill": {"enabled": False, "requires_approval": False},
+    },
+    "email": {
+        "calc": {"enabled": True, "requires_approval": False},
+        "time": {"enabled": True, "requires_approval": False},
+        "file": {"enabled": False, "requires_approval": True},
+        "python": {"enabled": False, "requires_approval": True},
+        "git": {"enabled": False, "requires_approval": True},
+        "npm": {"enabled": False, "requires_approval": True},
+        "skill": {"enabled": True, "requires_approval": False},
     },
 }
 
