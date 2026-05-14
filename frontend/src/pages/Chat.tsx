@@ -131,11 +131,26 @@ export const Chat = () => {
           if (initialProfile) {
             setChatMode(initialProfile.response_mode);
             setSelectedAgentProfileId(initialProfile.id);
+            return;
           }
+        }
+        // Auto-select default agent matching current chatMode
+        const defaultAgent = response.items.find((a) => a.response_mode === chatMode);
+        if (defaultAgent) {
+          setSelectedAgentProfileId(defaultAgent.id);
         }
       })
       .catch((err) => console.error('Load agents error:', err));
   }, []);
+
+  // Auto-select default agent matching chatMode when none selected (e.g. new chat)
+  useEffect(() => {
+    if (selectedAgentProfileId !== null || agentProfiles.length === 0) return;
+    const defaultAgent = agentProfiles.find((a) => a.response_mode === chatMode);
+    if (defaultAgent) {
+      setSelectedAgentProfileId(defaultAgent.id);
+    }
+  }, [chatMode, agentProfiles, selectedAgentProfileId]);
 
   // 智能体被删除时清除关联
   useEffect(() => {

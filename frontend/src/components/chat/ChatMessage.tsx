@@ -947,44 +947,6 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             </svg>
           )}
 
-          {/* Message Actions */}
-          {!isTyping && canCopyMessage && (
-            <div className={cn(
-              "absolute bottom-0 opacity-0 group-hover/msg:opacity-100 transition-all duration-500 flex items-center gap-1 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-xl z-20",
-              isUser ? "right-full mr-4 mb-2" : "left-full ml-4 mb-2"
-            )}>
-              <button
-                onClick={handleCopy}
-                className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-all active:scale-95 flex items-center justify-center"
-                title="复制内容"
-              >
-                <AnimatePresence mode="wait" initial={false}>
-                  {isCopied ? (
-                    <motion.div
-                      key="checked"
-                      initial={{ scale: 0.5, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.5, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <CheckIcon size={16} className="text-green-500" />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="copy"
-                      initial={{ scale: 0.5, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.5, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <CopyIcon size={16} />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </button>
-            </div>
-          )}
-
           {/* Live tool calls during streaming */}
           {!isUser && !isTyping && message?.toolCalls && message.toolCalls.length > 0 && isStreaming && (
             <div className="flex flex-col gap-1.5 mb-3">
@@ -1107,7 +1069,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
           </div>
         )}
 
-        {/* Timestamp */}
+        {/* Timestamp + copy */}
         {message?.id && !isTyping && (
           <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400/70 px-2 mt-1.5 flex items-center gap-2">
             <span>{new Date(parseInt(message.id)).toLocaleTimeString('zh-CN', { timeZone: APP_TIME_ZONE, hour: '2-digit', minute: '2-digit' })}</span>
@@ -1115,10 +1077,23 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
               <motion.span
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="opacity-0 group-hover/msg:opacity-100 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 · {visibleText.length} 字
               </motion.span>
+            )}
+            {canCopyMessage && (
+              <button
+                onClick={handleCopy}
+                title="复制"
+                className="text-slate-400 hover:text-sky-600 transition-colors duration-200"
+              >
+                {isCopied ? (
+                  <CheckIcon size={12} className="text-green-400" />
+                ) : (
+                  <CopyIcon size={12} />
+                )}
+              </button>
             )}
           </div>
         )}
