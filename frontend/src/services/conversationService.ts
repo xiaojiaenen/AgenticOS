@@ -5,6 +5,7 @@ export type AdminConversation = {
   user_id?: number | null;
   user_name?: string | null;
   user_email?: string | null;
+  agent_profile_name?: string | null;
   summary?: string | null;
   first_message?: string | null;
   last_message?: string | null;
@@ -49,6 +50,7 @@ export type AdminConversationDetail = {
   user_id?: number | null;
   user_name?: string | null;
   user_email?: string | null;
+  agent_profile_name?: string | null;
   summary?: string | null;
   message_count: number;
   model_names: string[];

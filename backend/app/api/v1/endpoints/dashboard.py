@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
 from app.core.timezone import APP_TIMEZONE, app_today, to_app_timezone
-from app.db.models import AgentMessageModel, AgentSessionModel, AgentUsageEventModel, ApprovalModel, PptArtifactModel, UserModel
+from app.db.models import AgentMessageModel, AgentProfileModel, AgentSessionModel, AgentUsageEventModel, ApprovalModel, PptArtifactModel, UserModel
 from app.schemas.admin_stats import (
     DashboardDistributionItem,
     DashboardStatsResponse,
@@ -328,14 +328,17 @@ def list_conversations(
         select(
             AgentSessionModel.session_id,
             AgentSessionModel.user_id,
+            AgentSessionModel.agent_profile_id,
             AgentSessionModel.summary,
             AgentSessionModel.created_at,
             AgentSessionModel.updated_at,
             UserModel.name.label("user_name"),
             UserModel.email.label("user_email"),
+            AgentProfileModel.name.label("agent_profile_name"),
         )
         .select_from(AgentSessionModel)
         .outerjoin(UserModel, UserModel.id == AgentSessionModel.user_id)
+        .outerjoin(AgentProfileModel, AgentProfileModel.id == AgentSessionModel.agent_profile_id)
     )
     if query:
         like_query = f"%{query}%"
@@ -457,6 +460,7 @@ def list_conversations(
                 user_id=row.user_id,
                 user_name=row.user_name,
                 user_email=row.user_email,
+                agent_profile_name=row.agent_profile_name,
                 summary=_compact_text(row.summary),
                 first_message=_compact_text(_message_text(first_message.message_json) if first_message else None),
                 last_message=_compact_text(_message_text(last_message.message_json) if last_message else None),
@@ -489,6 +493,7 @@ def get_conversation_detail(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
 
     user = db.get(UserModel, session.user_id) if session.user_id is not None else None
+    agent_profile = db.get(AgentProfileModel, session.agent_profile_id) if session.agent_profile_id is not None else None
     message_count = db.scalar(
         select(func.count(AgentMessageModel.id)).where(AgentMessageModel.session_id == session_id)
     ) or 0
@@ -532,6 +537,7 @@ def get_conversation_detail(
         user_id=session.user_id,
         user_name=user.name if user else None,
         user_email=user.email if user else None,
+        agent_profile_name=agent_profile.name if agent_profile else None,
         summary=_compact_text(session.summary, limit=240),
         message_count=message_count,
         model_names=model_names,

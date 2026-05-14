@@ -367,6 +367,11 @@ export const ChatHistory = () => {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-black text-slate-900">{item.user_name || '未知用户'}</p>
                   <p className="mt-1 truncate text-xs font-medium text-slate-500">{item.user_email || item.session_id}</p>
+                  {item.agent_profile_name && (
+                    <span className="mt-1 inline-block truncate rounded-full border border-indigo-200/70 bg-indigo-50/80 px-2.5 py-0.5 text-[11px] font-bold text-indigo-600">
+                      {item.agent_profile_name}
+                    </span>
+                  )}
                 </div>
 
                 <div className="min-w-0">
@@ -500,6 +505,9 @@ export const ChatHistory = () => {
                         <div className="mt-3 space-y-2 text-sm font-medium text-slate-600">
                           <p>用户：{detail.user_name || '-'}</p>
                           <p>邮箱：{detail.user_email || '-'}</p>
+                          {detail.agent_profile_name && (
+                            <p>智能体：<span className="inline-block rounded-full border border-indigo-200/70 bg-indigo-50/80 px-2.5 py-0.5 text-xs font-bold text-indigo-600">{detail.agent_profile_name}</span></p>
+                          )}
                           <p>创建时间：{formatApiDateTime(detail.created_at)}</p>
                           <p>更新时间：{formatApiDateTime(detail.updated_at)}</p>
                           <p>平均耗时：{formatLatency(detail.avg_latency_ms)}</p>

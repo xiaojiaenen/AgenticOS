@@ -29,7 +29,7 @@ from app.services.ppt_artifact_service import PptArtifactService, strip_ppt_deck
 from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.services.tool_config_service import ToolConfigService
 from app.schemas.agent import AgentStreamRequest
-from app.tools.email_tools import register_email_tools
+from app.tools.email_tools import register_email_tools, set_current_session_id
 
 
 MAX_STEPS_LIMIT_MESSAGE = "任务未完成，已达到最大步骤限制。"
@@ -537,6 +537,7 @@ class AgentService:
         await self.storage.assign_agent_profile(session.session_id, runtime_profile.profile_id)
         await self.storage.save_meta(session)
         approval_queue = self.approval_manager.subscribe(session.session_id)
+        set_current_session_id(session.session_id)
 
         yield {
             "event": "session",

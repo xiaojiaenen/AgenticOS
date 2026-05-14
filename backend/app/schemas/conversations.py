@@ -12,6 +12,7 @@ class ConversationListItem(AppBaseModel):
     user_id: int | None = None
     user_name: str | None = None
     user_email: str | None = None
+    agent_profile_name: str | None = None
     summary: str | None = None
     first_message: str | None = None
     last_message: str | None = None
@@ -60,6 +61,7 @@ class ConversationDetailResponse(AppBaseModel):
     user_id: int | None = None
     user_name: str | None = None
     user_email: str | None = None
+    agent_profile_name: str | None = None
     summary: str | None = None
     message_count: int
     model_names: list[str]

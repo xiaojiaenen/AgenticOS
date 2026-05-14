@@ -1,5 +1,6 @@
 """邮件工具 - 提供邮件读取、搜索、发送功能"""
 
+import contextvars
 import imaplib
 import smtplib
 import email
@@ -15,9 +16,20 @@ from wuwei.tools import ToolRegistry
 from app.db.models import AgentSessionModel, UserEmailCredentialsModel
 from app.db.session import create_db_session
 
+_current_session_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "email_session_id", default=""
+)
 
-def _get_credentials(session_id: str) -> dict[str, object] | None:
+
+def set_current_session_id(session_id: str) -> None:
+    _current_session_id.set(session_id)
+
+
+def _get_credentials() -> dict[str, object] | None:
     """从数据库查询当前会话对应的邮箱凭据"""
+    session_id = _current_session_id.get()
+    if not session_id:
+        return None
     db = create_db_session()
     try:
         row = db.scalar(
@@ -107,7 +119,6 @@ def register_email_tools(registry: ToolRegistry):
 
     @registry.tool(display_name="设置邮箱")
     async def setup_email(
-        session_id: str,
         email_address: str,
         password: str,
         imap_host: str = "imap.exmail.qq.com",
@@ -121,7 +132,6 @@ def register_email_tools(registry: ToolRegistry):
         设置邮箱凭据（首次使用时调用，后续可更新）
 
         Args:
-            session_id: 会话ID（自动传入）
             email_address: 公司邮箱地址
             password: 应用专用密码（不是登录密码，在邮箱设置中生成）
             imap_host: IMAP 服务器地址（默认腾讯企业邮箱）
@@ -131,6 +141,10 @@ def register_email_tools(registry: ToolRegistry):
             smtp_port: SMTP 端口（默认 465）
             smtp_ssl: SMTP 是否使用 SSL（默认 true）
         """
+        session_id = _current_session_id.get()
+        if not session_id:
+            return "❌ 找不到当前会话信息"
+
         try:
             imap = _imap_connect(imap_host, imap_port, imap_ssl)
             imap.login(email_address, password)
@@ -195,7 +209,6 @@ def register_email_tools(registry: ToolRegistry):
 
     @registry.tool(display_name="读取邮件")
     async def read_emails(
-        session_id: str,
         folder: str = "inbox",
         limit: int = 10,
         unread_only: bool = False,
@@ -204,12 +217,11 @@ def register_email_tools(registry: ToolRegistry):
         读取邮件列表
 
         Args:
-            session_id: 会话ID（自动传入）
             folder: 邮箱文件夹，可选值: inbox(收件箱), sent(已发送), draft(草稿箱)
             limit: 返回邮件数量，默认10
             unread_only: 是否只显示未读邮件，默认false
         """
-        creds = _get_credentials(session_id)
+        creds = _get_credentials()
         if not creds:
             return "❌ 请先调用 setup_email 设置邮箱凭据"
 
@@ -266,7 +278,6 @@ def register_email_tools(registry: ToolRegistry):
 
     @registry.tool(display_name="搜索邮件")
     async def search_emails(
-        session_id: str,
         query: str,
         since: str = None,
         from_address: str = None,
@@ -275,12 +286,11 @@ def register_email_tools(registry: ToolRegistry):
         搜索邮件
 
         Args:
-            session_id: 会话ID（自动传入）
             query: 搜索关键词（搜索主题和正文）
             since: 起始日期，格式 YYYY-MM-DD
             from_address: 发件人地址筛选
         """
-        creds = _get_credentials(session_id)
+        creds = _get_credentials()
         if not creds:
             return "❌ 请先调用 setup_email 设置邮箱凭据"
 
@@ -350,15 +360,14 @@ def register_email_tools(registry: ToolRegistry):
             return f"❌ 搜索邮件失败: {str(e)}"
 
     @registry.tool(display_name="查看邮件")
-    async def get_email(session_id: str, message_id: str) -> str:
+    async def get_email(message_id: str) -> str:
         """
         读取邮件完整内容
 
         Args:
-            session_id: 会话ID（自动传入）
             message_id: 邮件ID（从 read_emails 或 search_emails 返回）
         """
-        creds = _get_credentials(session_id)
+        creds = _get_credentials()
         if not creds:
             return "❌ 请先调用 setup_email 设置邮箱凭据"
 
@@ -407,7 +416,6 @@ def register_email_tools(registry: ToolRegistry):
 
     @registry.tool(display_name="发送邮件")
     async def send_email(
-        session_id: str,
         to: str,
         subject: str,
         body: str,
@@ -418,14 +426,13 @@ def register_email_tools(registry: ToolRegistry):
         发送邮件（需要用户确认后才能发送）
 
         Args:
-            session_id: 会话ID（自动传入）
             to: 收件人邮箱地址，多个用逗号分隔
             subject: 邮件主题
             body: 邮件正文
             cc: 抄送邮箱地址，多个用逗号分隔（可选）
             is_html: 正文是否为 HTML 格式（默认 false，纯文本）
         """
-        creds = _get_credentials(session_id)
+        creds = _get_credentials()
         if not creds:
             return "❌ 请先调用 setup_email 设置邮箱凭据"
 
@@ -462,13 +469,13 @@ def register_email_tools(registry: ToolRegistry):
             return f"❌ 发送邮件失败: {str(e)}"
 
     @registry.tool(display_name="清除邮箱凭据")
-    async def clear_email_credentials(session_id: str) -> str:
+    async def clear_email_credentials() -> str:
         """
         清除邮箱凭据
-
-        Args:
-            session_id: 会话ID（自动传入）
         """
+        session_id = _current_session_id.get()
+        if not session_id:
+            return "❌ 找不到当前会话信息"
         db = create_db_session()
         try:
             row = db.scalar(
