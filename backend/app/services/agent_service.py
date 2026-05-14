@@ -222,7 +222,7 @@ class AgentService:
         payload = {
             "id": event.data.get("tool_call_id"),
             "function": {
-                "name": event.data.get("tool_name") or "tool_call",
+                "name": event.data.get("display_name") or event.data.get("tool_name") or "工具调用",
                 "arguments": event.data.get("args") or {},
             },
         }
@@ -244,7 +244,7 @@ class AgentService:
     ) -> dict[str, Any]:
         payload = {
             "tool_call_id": event.data.get("tool_call_id"),
-            "name": event.data.get("tool_name") or "tool_call",
+            "name": event.data.get("display_name") or event.data.get("tool_name") or "工具调用",
             "status": status,
             "result": result,
         }
@@ -382,7 +382,7 @@ class AgentService:
                 "data": {
                     "session_id": session.session_id,
                     "tool_call_id": event.data.get("tool_call_id"),
-                    "tool_name": event.data.get("tool_name") or "tool_call",
+                    "tool_name": event.data.get("display_name") or event.data.get("tool_name") or "工具调用",
                     "message": event.data.get("message"),
                     "error_type": event.data.get("error_type"),
                 },
