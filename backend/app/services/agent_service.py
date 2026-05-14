@@ -341,6 +341,18 @@ class AgentService:
         if current_max_steps < self.settings.agent_max_steps:
             session.max_steps = self.settings.agent_max_steps
 
+    def _build_user_message(self, request: AgentStreamRequest) -> str:
+        """Build the user message, optionally prepending attached file contents."""
+        if not request.files:
+            return request.message
+
+        file_blocks: list[str] = []
+        for f in request.files:
+            header = f"### 📎 {f.filename} ({len(f.text_content)} chars)"
+            file_blocks.append(f"{header}\n{f.text_content}")
+
+        return "\n\n".join(file_blocks) + f"\n\n---\n{request.message}"
+
     def _session_payload(self, session) -> dict[str, Any]:
         metadata = getattr(session, "metadata", {}) or {}
         return {
@@ -589,7 +601,8 @@ class AgentService:
 
         async def produce_events() -> None:
             try:
-                async for event in agent.stream_events(message, session=session):
+                user_message = self._build_user_message(request)
+                async for event in agent.stream_events(user_message, session=session):
                     await runtime_queue.put(event)
             finally:
                 try:
