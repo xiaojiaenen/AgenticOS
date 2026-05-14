@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback } from 'react';
-import { flushSync } from 'react-dom';
 import { Message, Session, Attachment, Artifact } from '../types';
 import {
   sendMessageStream,
@@ -135,7 +134,7 @@ export function useChatStream({
           setError('当前后端暂不支持直接解析附件内容，本次仅向模型发送文本和文件名。');
         }
 
-        flushSync(() => {
+        queueMicrotask(() => {
           setIsLoading(true);
           setRunStatus({
             phase: chatMode === 'ppt' ? 'generating_ppt' : 'thinking',

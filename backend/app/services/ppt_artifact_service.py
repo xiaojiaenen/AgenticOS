@@ -149,8 +149,13 @@ def parse_ppt_deck(code: str) -> dict[str, Any] | None:
 
 
 def extract_ppt_deck_from_text(text: str) -> tuple[str, dict[str, Any]] | None:
-    match = re.search(r"```pptdeck\n([\s\S]*?)\n```", text) or re.search(
-        r"```json\n([\s\S]*?\"slides\"[\s\S]*?)\n```",
+    # 支持多种代码块格式：pptdeck 语言标识、json 语言标识（含 slides 字段）
+    # 兼容 \n、\r\n、无尾随换行等不同换行风格
+    match = re.search(
+        r"```\s*pptdeck\s*\r?\n([\s\S]*?)\r?\n\s*```",
+        text,
+    ) or re.search(
+        r"```\s*json\s*\r?\n([\s\S]*?\"slides\"[\s\S]*?)\r?\n\s*```",
         text,
     )
     if not match:
@@ -161,8 +166,8 @@ def extract_ppt_deck_from_text(text: str) -> tuple[str, dict[str, Any]] | None:
 
 
 def strip_ppt_deck_from_text(text: str) -> str:
-    text = re.sub(r"```pptdeck\n[\s\S]*?\n```", "", text)
-    text = re.sub(r"```json\n(?=[\s\S]*?\"slides\"[\s\S]*?```)[\s\S]*?\n```", "", text)
+    text = re.sub(r"```\s*pptdeck\s*\r?\n[\s\S]*?\r?\n\s*```", "", text)
+    text = re.sub(r"```\s*json\s*\r?\n(?=[\s\S]*?\"slides\"[\s\S]*?```)[\s\S]*?\r?\n\s*```", "", text)
     partial_index = text.find("```pptdeck")
     if partial_index >= 0:
         text = text[:partial_index]
