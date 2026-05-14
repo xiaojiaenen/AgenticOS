@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "build:ppt-css": "npx @tailwindcss/cli -i ppt_tailwind_input.css -o ../backend/app/ppt_tailwind_compiled.css --minify"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
@@ -32,6 +33,7 @@
     "vite": "^6.2.0"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.3.0",
     "@types/node": "^22.14.0",
     "@types/react-syntax-highlighter": "^15.5.13",
     "autoprefixer": "^10.4.21",
