@@ -64,6 +64,18 @@ def _ensure_compatible_schema() -> None:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE agent_usage_events ADD COLUMN user_id INTEGER"))
 
+    if "agent_tool_configs" in inspector.get_table_names():
+        tc_columns = {column["name"] for column in inspector.get_columns("agent_tool_configs")}
+        if "approval_sub_tools_json" not in tc_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE agent_tool_configs ADD COLUMN approval_sub_tools_json TEXT DEFAULT '[]'"))
+
+    if "agent_profile_tools" in inspector.get_table_names():
+        pt_columns = {column["name"] for column in inspector.get_columns("agent_profile_tools")}
+        if "approval_sub_tools_json" not in pt_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE agent_profile_tools ADD COLUMN approval_sub_tools_json TEXT DEFAULT '[]'"))
+
 
 def create_db_session() -> Session:
     return SessionLocal()

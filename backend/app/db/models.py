@@ -48,6 +48,23 @@ class UserModel(Base):
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
 
+class UserEmailCredentialsModel(Base):
+    __tablename__ = "user_email_credentials"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
+    email_address: Mapped[str] = mapped_column(String(255))
+    password: Mapped[str] = mapped_column(String(512))
+    imap_host: Mapped[str] = mapped_column(String(255))
+    imap_port: Mapped[int] = mapped_column(Integer)
+    imap_ssl: Mapped[bool] = mapped_column(Boolean)
+    smtp_host: Mapped[str] = mapped_column(String(255))
+    smtp_port: Mapped[int] = mapped_column(Integer)
+    smtp_ssl: Mapped[bool] = mapped_column(Boolean)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
 class AuthSessionModel(Base):
     __tablename__ = "auth_sessions"
 
@@ -116,6 +133,7 @@ class AgentToolConfigModel(Base):
     tool_name: Mapped[str] = mapped_column(String(64), index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     requires_approval: Mapped[bool] = mapped_column(Boolean, default=False)
+    approval_sub_tools_json: Mapped[str] = mapped_column(Text, default="[]")
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
 
@@ -146,6 +164,7 @@ class AgentProfileToolModel(Base):
     tool_name: Mapped[str] = mapped_column(String(64), index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     requires_approval: Mapped[bool] = mapped_column(Boolean, default=False)
+    approval_sub_tools_json: Mapped[str] = mapped_column(Text, default="[]")
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
 
