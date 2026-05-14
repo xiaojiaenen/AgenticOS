@@ -8,19 +8,59 @@ from email.header import decode_header
 from email.utils import parseaddr, parsedate_to_datetime
 from typing import Any
 
+from sqlalchemy import select
+
 from wuwei.tools import ToolRegistry
 
+from app.db.models import AgentSessionModel, UserEmailCredentialsModel
+from app.db.session import create_db_session
 
-# 会话级存储用户凭据（内存中，会话结束即清除）
-_session_credentials: dict[str, dict[str, str]] = {}
+
+def _get_credentials(session_id: str) -> dict[str, object] | None:
+    """从数据库查询当前会话对应的邮箱凭据"""
+    db = create_db_session()
+    try:
+        row = db.scalar(
+            select(AgentSessionModel.user_id).where(
+                AgentSessionModel.session_id == session_id
+            )
+        )
+        if row is None:
+            return None
+        user_id = row
+        creds = db.scalar(
+            select(UserEmailCredentialsModel).where(
+                UserEmailCredentialsModel.user_id == user_id
+            )
+        )
+        if creds is None:
+            return None
+        return {
+            "email": creds.email_address,
+            "password": creds.password,
+            "imap_host": creds.imap_host,
+            "imap_port": creds.imap_port,
+            "imap_ssl": creds.imap_ssl,
+            "smtp_host": creds.smtp_host,
+            "smtp_port": creds.smtp_port,
+            "smtp_ssl": creds.smtp_ssl,
+        }
+    finally:
+        db.close()
 
 
-def _get_credentials(session_id: str) -> tuple[str, str] | None:
-    """获取会话凭据"""
-    creds = _session_credentials.get(session_id)
-    if creds:
-        return creds["email"], creds["password"]
-    return None
+def _imap_connect(host: str, port: int, ssl: bool) -> imaplib.IMAP4:
+    if ssl:
+        return imaplib.IMAP4_SSL(host, port)
+    else:
+        return imaplib.IMAP4(host, port)
+
+
+def _smtp_connect(host: str, port: int, ssl: bool) -> smtplib.SMTP:
+    if ssl:
+        return smtplib.SMTP_SSL(host, port)
+    else:
+        return smtplib.SMTP(host, port)
 
 
 def _decode_mime_header(header: str | None) -> str:
@@ -62,41 +102,98 @@ def _get_email_body(msg: email.message.Message) -> str:
     return body
 
 
-def register_email_tools(
-    registry: ToolRegistry,
-    imap_host: str = "mail.company.com",
-    imap_port: int = 993,
-    smtp_host: str = "mail.company.com",
-    smtp_port: int = 465,
-):
+def register_email_tools(registry: ToolRegistry):
     """注册邮件工具到 ToolRegistry"""
 
-    @registry.tool()
-    async def setup_email(session_id: str, email_address: str, password: str) -> str:
+    @registry.tool(display_name="设置邮箱")
+    async def setup_email(
+        session_id: str,
+        email_address: str,
+        password: str,
+        imap_host: str = "imap.exmail.qq.com",
+        imap_port: int = 993,
+        imap_ssl: bool = True,
+        smtp_host: str = "smtp.exmail.qq.com",
+        smtp_port: int = 465,
+        smtp_ssl: bool = True,
+    ) -> str:
         """
-        设置邮箱凭据（首次使用时调用）
+        设置邮箱凭据（首次使用时调用，后续可更新）
 
         Args:
             session_id: 会话ID（自动传入）
             email_address: 公司邮箱地址
             password: 应用专用密码（不是登录密码，在邮箱设置中生成）
+            imap_host: IMAP 服务器地址（默认腾讯企业邮箱）
+            imap_port: IMAP 端口（默认 993）
+            imap_ssl: IMAP 是否使用 SSL（默认 true）
+            smtp_host: SMTP 服务器地址（默认腾讯企业邮箱）
+            smtp_port: SMTP 端口（默认 465）
+            smtp_ssl: SMTP 是否使用 SSL（默认 true）
         """
         try:
-            imap = imaplib.IMAP4_SSL(imap_host, imap_port)
+            imap = _imap_connect(imap_host, imap_port, imap_ssl)
             imap.login(email_address, password)
             imap.logout()
         except imaplib.IMAP4.error as e:
             return f"❌ 登录失败: 邮箱地址或密码错误\n{str(e)}"
         except Exception as e:
-            return f"❌ 连接失败: {str(e)}\n请检查网络连接或服务器配置"
+            return f"❌ 连接失败: {str(e)}\n请检查网络连接、服务器地址和端口"
 
-        _session_credentials[session_id] = {
-            "email": email_address,
-            "password": password,
-        }
-        return f"✅ 邮箱配置成功！已连接到 {email_address}\n现在可以使用 read_emails、search_emails 等工具了。"
+        db = create_db_session()
+        try:
+            row = db.scalar(
+                select(AgentSessionModel.user_id).where(
+                    AgentSessionModel.session_id == session_id
+                )
+            )
+            if row is None:
+                return "❌ 找不到当前会话的用户信息"
+            user_id = row
 
-    @registry.tool()
+            existing = db.scalar(
+                select(UserEmailCredentialsModel).where(
+                    UserEmailCredentialsModel.user_id == user_id
+                )
+            )
+            if existing:
+                existing.email_address = email_address
+                existing.password = password
+                existing.imap_host = imap_host
+                existing.imap_port = imap_port
+                existing.imap_ssl = imap_ssl
+                existing.smtp_host = smtp_host
+                existing.smtp_port = smtp_port
+                existing.smtp_ssl = smtp_ssl
+                action = "更新"
+            else:
+                db.add(UserEmailCredentialsModel(
+                    user_id=user_id,
+                    email_address=email_address,
+                    password=password,
+                    imap_host=imap_host,
+                    imap_port=imap_port,
+                    imap_ssl=imap_ssl,
+                    smtp_host=smtp_host,
+                    smtp_port=smtp_port,
+                    smtp_ssl=smtp_ssl,
+                ))
+                action = "保存"
+
+            db.commit()
+        finally:
+            db.close()
+
+        imap_label = "SSL" if imap_ssl else "明文"
+        smtp_label = "SSL" if smtp_ssl else "明文"
+        return (
+            f"✅ 邮箱配置{action}成功！已连接到 {email_address}\n"
+            f"IMAP: {imap_host}:{imap_port} ({imap_label})\n"
+            f"SMTP: {smtp_host}:{smtp_port} ({smtp_label})\n"
+            f"现在可以使用 read_emails、search_emails 等工具了。"
+        )
+
+    @registry.tool(display_name="读取邮件")
     async def read_emails(
         session_id: str,
         folder: str = "inbox",
@@ -116,11 +213,11 @@ def register_email_tools(
         if not creds:
             return "❌ 请先调用 setup_email 设置邮箱凭据"
 
-        email_addr, password = creds
-
         try:
-            imap = imaplib.IMAP4_SSL(imap_host, imap_port)
-            imap.login(email_addr, password)
+            imap = _imap_connect(
+                str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
+            )
+            imap.login(str(creds["email"]), str(creds["password"]))
 
             folder_map = {"inbox": "INBOX", "sent": "SENT", "draft": "DRAFTS"}
             imap.select(folder_map.get(folder, "INBOX"))
@@ -167,7 +264,7 @@ def register_email_tools(
         except Exception as e:
             return f"❌ 读取邮件失败: {str(e)}"
 
-    @registry.tool()
+    @registry.tool(display_name="搜索邮件")
     async def search_emails(
         session_id: str,
         query: str,
@@ -187,14 +284,13 @@ def register_email_tools(
         if not creds:
             return "❌ 请先调用 setup_email 设置邮箱凭据"
 
-        email_addr, password = creds
-
         try:
-            imap = imaplib.IMAP4_SSL(imap_host, imap_port)
-            imap.login(email_addr, password)
+            imap = _imap_connect(
+                str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
+            )
+            imap.login(str(creds["email"]), str(creds["password"]))
             imap.select("INBOX")
 
-            # 构建搜索条件
             criteria_parts = []
             if since:
                 criteria_parts.append(f'SINCE "{since}"')
@@ -212,11 +308,10 @@ def register_email_tools(
                 imap.logout()
                 return f"📭 没有找到包含 '{query}' 的邮件"
 
-            # 本地过滤关键词
             results = []
             query_lower = query.lower()
 
-            for msg_id in message_ids[0].split()[-50:]:  # 最多检查50封
+            for msg_id in message_ids[0].split()[-50:]:
                 status, msg_data = imap.fetch(msg_id, "(RFC822)")
                 msg = email.message_from_bytes(msg_data[0][1])
 
@@ -254,7 +349,7 @@ def register_email_tools(
         except Exception as e:
             return f"❌ 搜索邮件失败: {str(e)}"
 
-    @registry.tool()
+    @registry.tool(display_name="查看邮件")
     async def get_email(session_id: str, message_id: str) -> str:
         """
         读取邮件完整内容
@@ -267,11 +362,11 @@ def register_email_tools(
         if not creds:
             return "❌ 请先调用 setup_email 设置邮箱凭据"
 
-        email_addr, password = creds
-
         try:
-            imap = imaplib.IMAP4_SSL(imap_host, imap_port)
-            imap.login(email_addr, password)
+            imap = _imap_connect(
+                str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
+            )
+            imap.login(str(creds["email"]), str(creds["password"]))
             imap.select("INBOX")
 
             status, msg_data = imap.fetch(message_id.encode(), "(RFC822)")
@@ -283,7 +378,6 @@ def register_email_tools(
             date_str = msg["Date"]
             body = _get_email_body(msg)
 
-            # 检查附件
             attachments = []
             if msg.is_multipart():
                 for part in msg.walk():
@@ -311,13 +405,14 @@ def register_email_tools(
         except Exception as e:
             return f"❌ 读取邮件失败: {str(e)}"
 
-    @registry.tool()
+    @registry.tool(display_name="发送邮件")
     async def send_email(
         session_id: str,
         to: str,
         subject: str,
         body: str,
         cc: str = None,
+        is_html: bool = False,
     ) -> str:
         """
         发送邮件（需要用户确认后才能发送）
@@ -328,31 +423,37 @@ def register_email_tools(
             subject: 邮件主题
             body: 邮件正文
             cc: 抄送邮箱地址，多个用逗号分隔（可选）
+            is_html: 正文是否为 HTML 格式（默认 false，纯文本）
         """
         creds = _get_credentials(session_id)
         if not creds:
             return "❌ 请先调用 setup_email 设置邮箱凭据"
 
-        email_addr, password = creds
+        email_addr = str(creds["email"])
+        password = str(creds["password"])
+        smtp_host = str(creds["smtp_host"])
+        smtp_port = int(creds["smtp_port"])
+        smtp_ssl = bool(creds["smtp_ssl"])
 
         try:
-            msg = MIMEText(body, "plain", "utf-8")
+            subtype = "html" if is_html else "plain"
+            msg = MIMEText(body, subtype, "utf-8")
             msg["From"] = email_addr
             msg["To"] = to
             msg["Subject"] = subject
             if cc:
                 msg["Cc"] = cc
 
-            # 收件人列表（包含抄送）
             recipients = [addr.strip() for addr in to.split(",")]
             if cc:
                 recipients.extend([addr.strip() for addr in cc.split(",")])
 
-            with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
+            with _smtp_connect(smtp_host, smtp_port, smtp_ssl) as server:
                 server.login(email_addr, password)
                 server.send_message(msg, email_addr, recipients)
 
-            result = f"✅ 邮件发送成功！\n收件人: {to}\n主题: {subject}"
+            format_label = "HTML" if is_html else "纯文本"
+            result = f"✅ 邮件发送成功！（{format_label}）\n收件人: {to}\n主题: {subject}"
             if cc:
                 result += f"\n抄送: {cc}"
             return result
@@ -360,15 +461,34 @@ def register_email_tools(
         except Exception as e:
             return f"❌ 发送邮件失败: {str(e)}"
 
-    @registry.tool()
+    @registry.tool(display_name="清除邮箱凭据")
     async def clear_email_credentials(session_id: str) -> str:
         """
-        清除邮箱凭据（退出时调用）
+        清除邮箱凭据
 
         Args:
             session_id: 会话ID（自动传入）
         """
-        if session_id in _session_credentials:
-            del _session_credentials[session_id]
-            return "✅ 邮箱凭据已清除"
-        return "ℹ️ 当前会话没有存储邮箱凭据"
+        db = create_db_session()
+        try:
+            row = db.scalar(
+                select(AgentSessionModel.user_id).where(
+                    AgentSessionModel.session_id == session_id
+                )
+            )
+            if row is None:
+                return "❌ 找不到当前会话的用户信息"
+            user_id = row
+
+            creds = db.scalar(
+                select(UserEmailCredentialsModel).where(
+                    UserEmailCredentialsModel.user_id == user_id
+                )
+            )
+            if creds:
+                db.delete(creds)
+                db.commit()
+                return "✅ 邮箱凭据已清除"
+            return "ℹ️ 当前用户没有存储邮箱凭据"
+        finally:
+            db.close()
