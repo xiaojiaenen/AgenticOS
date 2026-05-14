@@ -3,11 +3,18 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
+class SubToolInfo(BaseModel):
+    name: str
+    label: str
+    description: str
+
+
 class ToolCatalogItem(BaseModel):
     name: str
     label: str
     description: str
     approval_scope: list[str]
+    sub_tools: list[SubToolInfo]
 
 
 class AgentModeToolConfig(BaseModel):
@@ -15,6 +22,7 @@ class AgentModeToolConfig(BaseModel):
     tool_name: str
     enabled: bool
     requires_approval: bool
+    approval_sub_tools: list[str] = Field(default_factory=list)
 
 
 class AgentModeConfig(BaseModel):
@@ -33,6 +41,7 @@ class ToolConfigUpdateItem(BaseModel):
     tool_name: str = Field(..., min_length=1, max_length=64)
     enabled: bool
     requires_approval: bool
+    approval_sub_tools: list[str] = Field(default_factory=list)
 
 
 class ModeToolConfigUpdateRequest(BaseModel):

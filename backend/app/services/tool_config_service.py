@@ -33,12 +33,18 @@ TOOL_CATALOG = {
         "description": "执行受限的数学表达式计算，适合公式、估算和数值推导。",
         "builtin_name": "calc",
         "approval_scope": ["calculate"],
+        "sub_tools": {
+            "calculate": {"label": "计算", "description": "执行数学表达式计算"},
+        },
     },
     "time": {
         "label": "时间工具",
         "description": "获取当前时间、时区和日期相关信息。",
         "builtin_name": "time",
         "approval_scope": ["time"],
+        "sub_tools": {
+            "time": {"label": "获取时间", "description": "获取当前时间、时区信息"},
+        },
     },
     "file": {
         "label": "文件工具",
@@ -53,30 +59,60 @@ TOOL_CATALOG = {
             "replace_text_in_file",
             "delete_file",
         ],
+        "sub_tools": {
+            "file": {"label": "文件操作", "description": "通用文件操作"},
+            "file_to_md": {"label": "文件转Markdown", "description": "将文件转换为 Markdown 格式"},
+            "read_text_file": {"label": "读取文件", "description": "读取文本文件内容"},
+            "write_text_file": {"label": "写入文件", "description": "创建或覆盖文件"},
+            "append_text_file": {"label": "追加文件", "description": "向文件追加内容"},
+            "replace_text_in_file": {"label": "替换内容", "description": "在文件中查找并替换文本"},
+            "delete_file": {"label": "删除文件", "description": "删除 workspace 内文件"},
+        },
     },
     "python": {
         "label": "Python 脚本",
         "description": "运行 workspace 内 Python 脚本，适合数据处理和自动化任务。",
         "builtin_name": "python",
         "approval_scope": ["python", "run_python_script"],
+        "sub_tools": {
+            "python": {"label": "Python", "description": "通用 Python 执行"},
+            "run_python_script": {"label": "运行脚本", "description": "运行 workspace 内 Python 脚本"},
+        },
     },
     "git": {
         "label": "Git 工具",
         "description": "查看状态、diff、日志，也可暂存和提交代码。",
         "builtin_name": "git",
         "approval_scope": ["git", "git_add", "git_commit", "git_diff", "git_log", "git_show", "git_status"],
+        "sub_tools": {
+            "git": {"label": "Git", "description": "通用 Git 操作"},
+            "git_status": {"label": "查看状态", "description": "查看工作区状态"},
+            "git_diff": {"label": "查看差异", "description": "查看未暂存的差异"},
+            "git_log": {"label": "查看日志", "description": "查看提交历史"},
+            "git_add": {"label": "暂存文件", "description": "将文件添加到暂存区"},
+            "git_commit": {"label": "提交", "description": "提交暂存的更改"},
+            "git_show": {"label": "查看详情", "description": "查看某次提交的详细信息"},
+        },
     },
     "npm": {
         "label": "NPM 工具",
         "description": "读取脚本、运行 npm script 或安装依赖包。",
         "builtin_name": "npm",
         "approval_scope": ["npm", "npm_run_script", "npm_install_package"],
+        "sub_tools": {
+            "npm": {"label": "NPM", "description": "通用 NPM 操作"},
+            "npm_run_script": {"label": "运行脚本", "description": "运行 package.json 中定义的脚本"},
+            "npm_install_package": {"label": "安装包", "description": "安装 NPM 依赖包"},
+        },
     },
     "skill": {
         "label": "Skill Tool",
         "description": "Use Wuwei built-in skill capabilities for specialized workflows.",
         "builtin_name": "skill",
         "approval_scope": ["run_skill_python_script"],
+        "sub_tools": {
+            "run_skill_python_script": {"label": "运行技能脚本", "description": "执行 Skill 中的 Python 脚本"},
+        },
     },
 }
 
@@ -171,6 +207,24 @@ class ToolConfigService:
             return True
         return False
 
+    @staticmethod
+    def _parse_approval_sub_tools(row: AgentToolConfigModel) -> list[str]:
+        import json
+        try:
+            parsed = json.loads(row.approval_sub_tools_json)
+            if isinstance(parsed, list):
+                return [str(item) for item in parsed]
+        except (json.JSONDecodeError, TypeError):
+            pass
+        return []
+
+    @staticmethod
+    def _build_sub_tools_list(catalog_item: dict) -> list[dict[str, str]]:
+        return [
+            {"name": name, "label": info["label"], "description": info["description"]}
+            for name, info in catalog_item.get("sub_tools", {}).items()
+        ]
+
     def list_configs(self) -> dict[str, object]:
         with self.session_factory() as db:
             self.ensure_defaults(db)
@@ -186,6 +240,7 @@ class ToolConfigService:
                     "tool_name": row.tool_name,
                     "enabled": row.enabled,
                     "requires_approval": row.requires_approval,
+                    "approval_sub_tools": self._parse_approval_sub_tools(row),
                 }
             )
 
@@ -196,6 +251,7 @@ class ToolConfigService:
                     "label": item["label"],
                     "description": item["description"],
                     "approval_scope": item["approval_scope"],
+                    "sub_tools": self._build_sub_tools_list(item),
                 }
                 for name, item in TOOL_CATALOG.items()
             ],
@@ -214,6 +270,8 @@ class ToolConfigService:
         if mode not in AGENT_MODES:
             raise KeyError("Unknown agent mode")
 
+        import json
+
         with self.session_factory() as db:
             self.ensure_defaults(db)
             existing = {
@@ -230,6 +288,9 @@ class ToolConfigService:
                     db.add(row)
                 row.enabled = bool(item["enabled"])
                 row.requires_approval = bool(item["requires_approval"])
+                sub_tools = item.get("approval_sub_tools", [])
+                if isinstance(sub_tools, list):
+                    row.approval_sub_tools_json = json.dumps(sub_tools, ensure_ascii=False)
             db.commit()
 
         return self.list_configs()
@@ -256,7 +317,17 @@ class ToolConfigService:
                 continue
             builtin_tools.append(str(catalog_item["builtin_name"]))
             if row.requires_approval:
-                approval_tools.update(str(item) for item in catalog_item["approval_scope"])
+                configured_sub_tools = self._parse_approval_sub_tools(row)
+                all_sub_tools = list(catalog_item["sub_tools"].keys())
+                if configured_sub_tools:
+                    # Only the explicitly listed sub-tools require approval
+                    approval_tools.update(
+                        item for item in configured_sub_tools
+                        if item in all_sub_tools
+                    )
+                else:
+                    # Empty list = ALL sub-tools require approval (backward compatible)
+                    approval_tools.update(str(item) for item in catalog_item["approval_scope"])
 
         return RuntimeToolProfile(
             mode=mode,

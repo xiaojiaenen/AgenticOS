@@ -12,6 +12,7 @@ class AgentProfileTool(BaseModel):
     tool_name: str
     enabled: bool
     requires_approval: bool
+    approval_sub_tools: list[str] = Field(default_factory=list)
 
 
 class AgentProfileSkillReference(BaseModel):

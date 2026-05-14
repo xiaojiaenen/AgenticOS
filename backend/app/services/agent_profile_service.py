@@ -135,6 +135,22 @@ class AgentProfileService:
         for profile in db.scalars(select(AgentProfileModel)).all():
             if profile.slug not in BUILTIN_AGENT_PROFILES:
                 changed = self._ensure_profile_tools(db, profile) or changed
+
+        general = db.scalar(select(AgentProfileModel).where(AgentProfileModel.slug == "general"))
+        if general is not None:
+            all_user_ids = set(db.scalars(select(UserModel.id)).all())
+            installed_user_ids = {
+                row.user_id
+                for row in db.scalars(
+                    select(UserInstalledAgentModel).where(
+                        UserInstalledAgentModel.profile_id == general.id
+                    )
+                ).all()
+            }
+            for user_id in all_user_ids - installed_user_ids:
+                db.add(UserInstalledAgentModel(user_id=user_id, profile_id=general.id))
+                changed = True
+
         if changed:
             db.commit()
 
@@ -197,6 +213,10 @@ class AgentProfileService:
                 "label": item["label"],
                 "description": item["description"],
                 "approval_scope": item["approval_scope"],
+                "sub_tools": [
+                    {"name": st_name, "label": st_info["label"], "description": st_info["description"]}
+                    for st_name, st_info in item.get("sub_tools", {}).items()
+                ],
             }
             for name, item in TOOL_CATALOG.items()
         ]
@@ -289,8 +309,8 @@ class AgentProfileService:
 
     def _serialize(self, db: Session, profile: AgentProfileModel, *, user_id: int | None = None) -> dict[str, object]:
         self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
-        installed = profile.is_builtin
-        if user_id is not None and not profile.is_builtin:
+        installed = False
+        if user_id is not None:
             installed = db.scalar(
                 select(UserInstalledAgentModel.id).where(
                     UserInstalledAgentModel.user_id == user_id,
@@ -324,6 +344,7 @@ class AgentProfileService:
                     "tool_name": tool.tool_name,
                     "enabled": tool.enabled,
                     "requires_approval": tool.requires_approval,
+                    "approval_sub_tools": self._parse_approval_sub_tools(tool.approval_sub_tools_json),
                 }
                 for tool in tools
                 if tool.tool_name in TOOL_CATALOG
@@ -361,6 +382,7 @@ class AgentProfileService:
                     "tool_name": tool.tool_name,
                     "enabled": tool.enabled,
                     "requires_approval": tool.requires_approval,
+                    "approval_sub_tools": self._parse_approval_sub_tools(tool.approval_sub_tools_json),
                 }
                 for tool in tools
                 if tool.tool_name in TOOL_CATALOG
@@ -431,7 +453,7 @@ class AgentProfileService:
                 tools=tools_by_profile.get(profile.id, []),
                 skills=skills_by_profile.get(profile.id, []),
                 audience_users=audience_by_profile.get(profile.id, []),
-                installed=profile.is_builtin or profile.id in installed_ids if user_id is not None else profile.is_builtin,
+                installed=profile.id in installed_ids if user_id is not None else False,
             )
             for profile in profiles
         ]
@@ -479,7 +501,7 @@ class AgentProfileService:
                     select(AgentProfileModel)
                     .where(
                         AgentProfileModel.enabled.is_(True),
-                        (AgentProfileModel.is_builtin.is_(True)) | (AgentProfileModel.id.in_(installed_ids or {-1})),
+                        AgentProfileModel.id.in_(installed_ids or {-1}),
                     )
                     .order_by(AgentProfileModel.is_builtin.desc(), AgentProfileModel.created_at.asc())
                 ).all()
@@ -503,7 +525,19 @@ class AgentProfileService:
             slug = f"{base}-{index}"
             index += 1
 
+    @staticmethod
+    def _parse_approval_sub_tools(json_str: str) -> list[str]:
+        import json
+        try:
+            parsed = json.loads(json_str)
+            if isinstance(parsed, list):
+                return [str(item) for item in parsed]
+        except (json.JSONDecodeError, TypeError):
+            pass
+        return []
+
     def _apply_tools(self, db: Session, profile: AgentProfileModel, tools: list[AgentProfileTool]) -> None:
+        import json
         existing = {
             row.tool_name: row
             for row in db.scalars(
@@ -519,6 +553,7 @@ class AgentProfileService:
                 db.add(row)
             row.enabled = item.enabled
             row.requires_approval = item.requires_approval
+            row.approval_sub_tools_json = json.dumps(item.approval_sub_tools, ensure_ascii=False)
 
     def _apply_skill_ids(self, db: Session, profile: AgentProfileModel, skill_ids: list[int]) -> None:
         unique_skill_ids = tuple(dict.fromkeys(skill_ids))
@@ -650,22 +685,21 @@ class AgentProfileService:
             profile = db.get(AgentProfileModel, profile_id)
             if profile is None or not profile.enabled or not profile.listed or not self._is_profile_available_to_user(db, profile, user):
                 raise KeyError("Agent profile not found")
-            if not profile.is_builtin:
-                existing = db.scalar(
-                    select(UserInstalledAgentModel).where(
-                        UserInstalledAgentModel.user_id == user.id,
-                        UserInstalledAgentModel.profile_id == profile_id,
-                    )
+            existing = db.scalar(
+                select(UserInstalledAgentModel).where(
+                    UserInstalledAgentModel.user_id == user.id,
+                    UserInstalledAgentModel.profile_id == profile_id,
                 )
-                if existing is None:
-                    db.add(UserInstalledAgentModel(user_id=user.id, profile_id=profile_id))
-                    db.commit()
+            )
+            if existing is None:
+                db.add(UserInstalledAgentModel(user_id=user.id, profile_id=profile_id))
+                db.commit()
             return self._serialize(db, profile, user_id=user.id)
 
     def uninstall(self, profile_id: int, user: UserModel) -> None:
         with self.session_factory() as db:
             profile = db.get(AgentProfileModel, profile_id)
-            if profile is not None and profile.is_builtin:
+            if profile is not None and profile.slug == "general":
                 return
             db.execute(
                 delete(UserInstalledAgentModel).where(
@@ -681,7 +715,7 @@ class AgentProfileService:
             profile = db.get(AgentProfileModel, profile_id)
             if profile is None or not self._is_profile_available_to_user(db, profile, user):
                 raise PermissionError("Agent profile is not available")
-            if user.role != "admin" and not profile.is_builtin:
+            if user.role != "admin":
                 installed = db.scalar(
                     select(func.count(UserInstalledAgentModel.id)).where(
                         UserInstalledAgentModel.user_id == user.id,
@@ -735,7 +769,15 @@ class AgentProfileService:
                 continue
             builtin_tools.append(str(catalog_item["builtin_name"]))
             if row.requires_approval:
-                approval_tools.update(str(item) for item in catalog_item["approval_scope"])
+                configured_sub_tools = self._parse_approval_sub_tools(row.approval_sub_tools_json)
+                all_sub_tools = list(catalog_item["sub_tools"].keys())
+                if configured_sub_tools:
+                    approval_tools.update(
+                        item for item in configured_sub_tools
+                        if item in all_sub_tools
+                    )
+                else:
+                    approval_tools.update(str(item) for item in catalog_item["approval_scope"])
 
         return RuntimeAgentProfile(
             profile_id=profile.id,
