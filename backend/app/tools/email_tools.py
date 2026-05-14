@@ -114,6 +114,132 @@ def _get_email_body(msg: email.message.Message) -> str:
     return body
 
 
+def _safe_fetch_message(imap: imaplib.IMAP4, msg_id: bytes | str) -> email.message.Message | None:
+    """安全获取单封邮件，失败返回 None"""
+    try:
+        mid = msg_id if isinstance(msg_id, bytes) else msg_id.encode()
+        status, msg_data = imap.fetch(mid, "(RFC822 FLAGS)")
+        if status != "OK" or not msg_data:
+            return None
+        for item in msg_data:
+            if isinstance(item, tuple) and len(item) >= 2:
+                return email.message_from_bytes(item[1])
+        # Fallback: msg_data[0] might be the raw response
+        if msg_data[0] is not None and not isinstance(msg_data[0], bytes):
+            return None
+        return None
+    except Exception:
+        return None
+
+
+def _parse_imap_date(date_str: str, delta_days: int = 0) -> str:
+    """将 YYYY-MM-DD 转为 IMAP DD-Mon-YYYY 格式，支持天数偏移"""
+    import datetime
+    try:
+        dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+        adjusted = dt + datetime.timedelta(days=delta_days)
+        return adjusted.strftime("%d-%b-%Y")
+    except ValueError:
+        return ""
+
+
+# Cache: host:port → UTC offset in hours
+_server_tz_cache: dict[str, float] = {}
+
+
+def _detect_server_utc_offset(imap: imaplib.IMAP4, host: str, port: int) -> float:
+    """探测 IMAP 服务器的时区偏移（小时），结果会被缓存。"""
+    import datetime
+    import re
+    cache_key = f"{host}:{port}"
+    if cache_key in _server_tz_cache:
+        return _server_tz_cache[cache_key]
+    try:
+        status, ids = imap.search(None, "ALL")
+        if status != "OK" or not ids or not ids[0]:
+            return 0.0
+        # 取最新一封邮件的 INTERNALDATE
+        latest_id = ids[0].split()[-1]
+        status, data = imap.fetch(latest_id, "(INTERNALDATE)")
+        if status != "OK" or not data or not isinstance(data[0], bytes):
+            return 0.0
+        match = re.search(rb'"([^"]+)"', data[0])
+        if not match:
+            return 0.0
+        from email.utils import parsedate_to_datetime
+        internal_dt = parsedate_to_datetime(match.group(1).decode())
+        if internal_dt is None or internal_dt.tzinfo is None or internal_dt.utcoffset() is None:
+            return 0.0
+        offset = internal_dt.utcoffset().total_seconds() / 3600
+        _server_tz_cache[cache_key] = offset
+        return offset
+    except Exception:
+        return 0.0
+
+
+def _user_date_to_server_date(date_str: str, server_offset: float) -> str:
+    """将用户日期（假定 UTC+8）转为服务器本地日期，用于 IMAP SINCE/BEFORE。
+
+    用户在中国（UTC+8），服务器可能在任意时区。
+    算出用户日期零点对应的服务器区日期，返回 DD-Mon-YYYY 格式。
+    """
+    import datetime
+    try:
+        user_dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+        # 用户日期零点 → UTC
+        user_tz = datetime.timezone(datetime.timedelta(hours=8))
+        user_midnight = user_dt.replace(tzinfo=user_tz)
+        # UTC 对应时刻
+        utc_moment = user_midnight.astimezone(datetime.timezone.utc)
+        # 服务器时区对应日期
+        server_tz = datetime.timezone(datetime.timedelta(hours=server_offset))
+        server_moment = utc_moment.astimezone(server_tz)
+        return server_moment.strftime("%d-%b-%Y")
+    except ValueError:
+        return ""
+
+
+def _email_date_utc(date_header: str | None) -> "datetime.datetime | None":
+    """解析邮件 Date 头并转为 UTC datetime"""
+    import datetime
+    if not date_header:
+        return None
+    try:
+        from email.utils import parsedate_to_datetime
+        return parsedate_to_datetime(date_header)
+    except Exception:
+        return None
+
+
+def _is_date_in_range(date_header: str | None, since: str, before: str) -> bool:
+    """检查邮件 Date 头是否在用户指定的时间范围内（归一化到 UTC 比较，不受服务器时区影响）"""
+    import datetime
+    if not since and not before:
+        return True
+    utc_dt = _email_date_utc(date_header)
+    if utc_dt is None:
+        return True  # 无法解析日期则保留
+    # Normalize to UTC for apples-to-apples comparison
+    if utc_dt.tzinfo is not None:
+        utc_dt = utc_dt.astimezone(datetime.timezone.utc)
+    utc_date = utc_dt.date()
+    if since:
+        try:
+            since_date = datetime.datetime.strptime(since, "%Y-%m-%d").date()
+            if utc_date < since_date:
+                return False
+        except ValueError:
+            pass
+    if before:
+        try:
+            before_date = datetime.datetime.strptime(before, "%Y-%m-%d").date()
+            if utc_date > before_date:
+                return False
+        except ValueError:
+            pass
+    return True
+
+
 def register_email_tools(registry: ToolRegistry):
     """注册邮件工具到 ToolRegistry"""
 
@@ -211,15 +337,21 @@ def register_email_tools(registry: ToolRegistry):
     async def read_emails(
         folder: str = "inbox",
         limit: int = 10,
+        offset: int = 0,
         unread_only: bool = False,
+        since: str = "",
+        before: str = "",
     ) -> str:
         """
-        读取邮件列表
+        读取邮件列表，支持分页、时间范围和未读筛选
 
         Args:
             folder: 邮箱文件夹，可选值: inbox(收件箱), sent(已发送), draft(草稿箱)
             limit: 返回邮件数量，默认10
+            offset: 跳过前N封邮件，默认0（用于分页）
             unread_only: 是否只显示未读邮件，默认false
+            since: 起始日期，格式 YYYY-MM-DD，只返回该日期之后的邮件
+            before: 结束日期，格式 YYYY-MM-DD，只返回该日期之前的邮件
         """
         creds = _get_credentials()
         if not creds:
@@ -234,26 +366,71 @@ def register_email_tools(registry: ToolRegistry):
             folder_map = {"inbox": "INBOX", "sent": "SENT", "draft": "DRAFTS"}
             imap.select(folder_map.get(folder, "INBOX"))
 
-            criteria = "UNSEEN" if unread_only else "ALL"
+            # Detect server timezone offset for precise date conversion
+            server_offset = _detect_server_utc_offset(
+                imap, str(creds["imap_host"]), int(creds["imap_port"])
+            )
+
+            # Build IMAP search criteria with timezone-aware date conversion
+            criteria_parts = []
+            if unread_only:
+                criteria_parts.append("UNSEEN")
+            if since:
+                server_since = _user_date_to_server_date(since, server_offset)
+                if server_since:
+                    criteria_parts.append(f'SINCE "{server_since}"')
+            if before:
+                # BEFORE is strict less-than, so query the day after user's target
+                import datetime as _dt
+                _next = _dt.datetime.strptime(before, "%Y-%m-%d") + _dt.timedelta(days=1)
+                server_before = _user_date_to_server_date(_next.strftime("%Y-%m-%d"), server_offset)
+                if server_before:
+                    criteria_parts.append(f'BEFORE "{server_before}"')
+
+            if criteria_parts:
+                criteria = "(" + " ".join(criteria_parts) + ")"
+            else:
+                criteria = "ALL"
+
             status, message_ids = imap.search(None, criteria)
 
-            if not message_ids[0]:
+            if status != "OK" or not message_ids or not message_ids[0]:
                 imap.logout()
-                return "📭 没有找到邮件"
+                folder_names = {"inbox": "收件箱", "sent": "已发送", "draft": "草稿箱"}
+                return f"📭 {folder_names.get(folder, folder)} 没有找到匹配的邮件"
+
+            all_ids = message_ids[0].split()
+            total_count = len(all_ids)
+
+            # Apply offset and limit
+            paged_ids = all_ids[offset:offset + limit] if offset > 0 else all_ids[-limit:]
+
+            if not paged_ids:
+                imap.logout()
+                return f"📭 offset={offset} 超出范围，共 {total_count} 封邮件"
 
             emails = []
-            for msg_id in message_ids[0].split()[-limit:]:
-                status, msg_data = imap.fetch(msg_id, "(RFC822 FLAGS)")
-                msg = email.message_from_bytes(msg_data[0][1])
-                flags = msg_data[0][0].decode()
+            for msg_id in paged_ids:
+                msg = _safe_fetch_message(imap, msg_id)
+                if msg is None:
+                    continue
 
                 subject = _decode_mime_header(msg["Subject"])
                 from_addr = parseaddr(msg["From"])[1]
                 date_str = msg["Date"]
-                is_read = "\\Seen" in flags
+                # Determine read status from flags (approximate)
+                is_read = True  # default
+                try:
+                    mid = msg_id if isinstance(msg_id, bytes) else msg_id.encode()
+                    s, d = imap.fetch(mid, "(FLAGS)")
+                    if s == "OK" and d and d[0]:
+                        flags_str = d[0].decode() if isinstance(d[0], bytes) else str(d[0])
+                        is_read = "\\Seen" in flags_str
+                except Exception:
+                    pass
 
                 emails.append({
-                    "id": msg_id.decode(),
+                    "id": msg_id.decode() if isinstance(msg_id, bytes) else msg_id,
                     "subject": subject[:50] + ("..." if len(subject) > 50 else ""),
                     "from": from_addr,
                     "date": date_str,
@@ -262,9 +439,14 @@ def register_email_tools(registry: ToolRegistry):
 
             imap.logout()
 
+            # Client-side date filtering (UTC-based, immune to server timezone)
+            if since or before:
+                emails = [m for m in emails if _is_date_in_range(m.get("date", ""), since, before)]
+
             folder_names = {"inbox": "收件箱", "sent": "已发送", "draft": "草稿箱"}
-            result = f"📬 {folder_names.get(folder, folder)} 共 {len(emails)} 封邮件\n\n"
-            for i, mail in enumerate(emails, 1):
+            range_info = f"第 {offset + 1}-{offset + len(emails)} 封" if offset > 0 else f"最新 {len(emails)} 封"
+            result = f"📬 {folder_names.get(folder, folder)} 共 {total_count} 封邮件（{range_info}）\n\n"
+            for i, mail in enumerate(emails, offset + 1 if offset > 0 else 1):
                 status_icon = "●" if not mail["is_read"] else "○"
                 result += f"{status_icon} {i}. {mail['subject']}\n"
                 result += f"   发件人: {mail['from']}\n"
@@ -276,18 +458,96 @@ def register_email_tools(registry: ToolRegistry):
         except Exception as e:
             return f"❌ 读取邮件失败: {str(e)}"
 
+    @registry.tool(display_name="统计邮件数")
+    async def count_emails(
+        folder: str = "inbox",
+        unread_only: bool = False,
+        since: str = "",
+        before: str = "",
+    ) -> str:
+        """
+        统计邮件数量
+
+        Args:
+            folder: 邮箱文件夹，可选值: inbox(收件箱), sent(已发送), draft(草稿箱)
+            unread_only: 是否只统计未读邮件，默认false
+            since: 起始日期，格式 YYYY-MM-DD
+            before: 结束日期，格式 YYYY-MM-DD
+        """
+        creds = _get_credentials()
+        if not creds:
+            return "❌ 请先调用 setup_email 设置邮箱凭据"
+
+        try:
+            imap = _imap_connect(
+                str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
+            )
+            imap.login(str(creds["email"]), str(creds["password"]))
+
+            folder_map = {"inbox": "INBOX", "sent": "SENT", "draft": "DRAFTS"}
+            imap.select(folder_map.get(folder, "INBOX"))
+
+            # Detect server timezone offset for precise date conversion
+            server_offset = _detect_server_utc_offset(
+                imap, str(creds["imap_host"]), int(creds["imap_port"])
+            )
+
+            # Build criteria with timezone-aware date conversion
+            criteria_parts = []
+            if unread_only:
+                criteria_parts.append("UNSEEN")
+            if since:
+                server_since = _user_date_to_server_date(since, server_offset)
+                if server_since:
+                    criteria_parts.append(f'SINCE "{server_since}"')
+            if before:
+                # BEFORE is strict less-than, so query the day after user's target
+                import datetime as _dt
+                _next = _dt.datetime.strptime(before, "%Y-%m-%d") + _dt.timedelta(days=1)
+                server_before = _user_date_to_server_date(_next.strftime("%Y-%m-%d"), server_offset)
+                if server_before:
+                    criteria_parts.append(f'BEFORE "{server_before}"')
+
+            if criteria_parts:
+                criteria = "(" + " ".join(criteria_parts) + ")"
+            else:
+                criteria = "ALL"
+
+            status, message_ids = imap.search(None, criteria)
+            imap.logout()
+
+            if status != "OK" or not message_ids or not message_ids[0]:
+                total = 0
+            else:
+                total = len(message_ids[0].split())
+
+            # Also get total and unread counts for inbox
+            folder_names = {"inbox": "收件箱", "sent": "已发送", "draft": "草稿箱"}
+            folder_name = folder_names.get(folder, folder)
+
+            result = f"📊 {folder_name} 统计\n"
+            result += f"   当前筛选: {criteria}\n"
+            result += f"   邮件数量: {total} 封\n"
+
+            return result
+
+        except Exception as e:
+            return f"❌ 统计邮件失败: {str(e)}"
+
     @registry.tool(display_name="搜索邮件")
     async def search_emails(
         query: str,
-        since: str = None,
-        from_address: str = None,
+        since: str = "",
+        before: str = "",
+        from_address: str = "",
     ) -> str:
         """
-        搜索邮件
+        搜索邮件（按关键词搜索主题和正文）
 
         Args:
             query: 搜索关键词（搜索主题和正文）
             since: 起始日期，格式 YYYY-MM-DD
+            before: 结束日期，格式 YYYY-MM-DD
             from_address: 发件人地址筛选
         """
         creds = _get_credentials()
@@ -301,9 +561,24 @@ def register_email_tools(registry: ToolRegistry):
             imap.login(str(creds["email"]), str(creds["password"]))
             imap.select("INBOX")
 
+            # Detect server timezone offset for precise date conversion
+            server_offset = _detect_server_utc_offset(
+                imap, str(creds["imap_host"]), int(creds["imap_port"])
+            )
+
+            # Build IMAP search criteria with timezone-aware date conversion
             criteria_parts = []
             if since:
-                criteria_parts.append(f'SINCE "{since}"')
+                server_since = _user_date_to_server_date(since, server_offset)
+                if server_since:
+                    criteria_parts.append(f'SINCE "{server_since}"')
+            if before:
+                # BEFORE is strict less-than, so query the day after user's target
+                import datetime as _dt
+                _next = _dt.datetime.strptime(before, "%Y-%m-%d") + _dt.timedelta(days=1)
+                server_before = _user_date_to_server_date(_next.strftime("%Y-%m-%d"), server_offset)
+                if server_before:
+                    criteria_parts.append(f'BEFORE "{server_before}"')
             if from_address:
                 criteria_parts.append(f'FROM "{from_address}"')
 
@@ -314,27 +589,33 @@ def register_email_tools(registry: ToolRegistry):
 
             status, message_ids = imap.search(None, criteria)
 
-            if not message_ids[0]:
+            if status != "OK" or not message_ids or not message_ids[0]:
                 imap.logout()
                 return f"📭 没有找到包含 '{query}' 的邮件"
 
             results = []
             query_lower = query.lower()
 
-            for msg_id in message_ids[0].split()[-50:]:
-                status, msg_data = imap.fetch(msg_id, "(RFC822)")
-                msg = email.message_from_bytes(msg_data[0][1])
+            for msg_id in reversed(message_ids[0].split()[-100:]):
+                msg = _safe_fetch_message(imap, msg_id)
+                if msg is None:
+                    continue
 
                 subject = _decode_mime_header(msg["Subject"])
                 from_addr = parseaddr(msg["From"])[1]
+                date_str = msg["Date"]
                 body = _get_email_body(msg)[:1000]
+
+                # Apply UTC-based date filter (immune to server timezone)
+                if not _is_date_in_range(date_str, since, before):
+                    continue
 
                 if query_lower in subject.lower() or query_lower in body.lower():
                     results.append({
-                        "id": msg_id.decode(),
+                        "id": msg_id.decode() if isinstance(msg_id, bytes) else msg_id,
                         "subject": subject[:50],
                         "from": from_addr,
-                        "date": msg["Date"],
+                        "date": date_str,
                         "snippet": body[:100].replace("\n", " "),
                     })
 
@@ -378,8 +659,10 @@ def register_email_tools(registry: ToolRegistry):
             imap.login(str(creds["email"]), str(creds["password"]))
             imap.select("INBOX")
 
-            status, msg_data = imap.fetch(message_id.encode(), "(RFC822)")
-            msg = email.message_from_bytes(msg_data[0][1])
+            msg = _safe_fetch_message(imap, message_id)
+            if msg is None:
+                imap.logout()
+                return f"❌ 找不到邮件 {message_id}，可能已被删除或 ID 不正确"
 
             subject = _decode_mime_header(msg["Subject"])
             from_addr = parseaddr(msg["From"])[1]
