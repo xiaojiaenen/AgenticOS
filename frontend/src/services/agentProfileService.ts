@@ -5,6 +5,7 @@ export type AgentProfileTool = {
   tool_name: string;
   enabled: boolean;
   requires_approval: boolean;
+  approval_sub_tools: string[];
 };
 
 export type AgentProfileSkill = {

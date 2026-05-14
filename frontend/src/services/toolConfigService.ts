@@ -2,11 +2,18 @@ import { authHeaders } from './authService';
 
 export type AgentMode = 'general' | 'ppt' | 'website';
 
+export type SubToolInfo = {
+  name: string;
+  label: string;
+  description: string;
+};
+
 export type ToolCatalogItem = {
   name: string;
   label: string;
   description: string;
   approval_scope: string[];
+  sub_tools: SubToolInfo[];
 };
 
 export type AgentModeToolConfig = {
@@ -14,6 +21,7 @@ export type AgentModeToolConfig = {
   tool_name: string;
   enabled: boolean;
   requires_approval: boolean;
+  approval_sub_tools: string[];
 };
 
 export type AgentModeConfig = {
@@ -63,6 +71,7 @@ export async function updateModeToolConfig(mode: AgentMode, tools: AgentModeTool
         tool_name: tool.tool_name,
         enabled: tool.enabled,
         requires_approval: tool.requires_approval,
+        approval_sub_tools: tool.approval_sub_tools,
       })),
     }),
   });

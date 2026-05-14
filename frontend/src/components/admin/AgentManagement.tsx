@@ -99,6 +99,7 @@ function makeDraft(profile: AgentProfile | null, catalog: ToolCatalogItem[]): Dr
       tool_name: item.name,
       enabled: item.name === 'calc' || item.name === 'time',
       requires_approval: false,
+      approval_sub_tools: [] as string[],
     })),
     skill_ids: [],
   };
@@ -122,6 +123,8 @@ export const AgentManagement = () => {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   useAdminModalBackdrop(isModalOpen);
+
+  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
 
   const catalogByName = useMemo(() => new Map(catalog.map((item) => [item.name, item])), [catalog]);
   const enabledAgents = profiles.filter((profile) => profile.enabled).length;
@@ -192,6 +195,32 @@ export const AgentManagement = () => {
         ...prev,
         tools: prev.tools.map((tool) => (tool.tool_name === toolName ? { ...tool, ...patch } : tool)),
       };
+    });
+  };
+
+  const toggleSubToolApproval = (toolName: string, subToolName: string) => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        tools: prev.tools.map((tool) => {
+          if (tool.tool_name !== toolName) return tool;
+          const current = tool.approval_sub_tools || [];
+          const next = current.includes(subToolName)
+            ? current.filter((s) => s !== subToolName)
+            : [...current, subToolName];
+          return { ...tool, approval_sub_tools: next };
+        }),
+      };
+    });
+  };
+
+  const toggleToolExpand = (toolName: string) => {
+    setExpandedTools((prev) => {
+      const next = new Set(prev);
+      if (next.has(toolName)) next.delete(toolName);
+      else next.add(toolName);
+      return next;
     });
   };
 
@@ -660,10 +689,18 @@ export const AgentManagement = () => {
                         {draft.tools.map((tool) => {
                           const meta = catalogByName.get(tool.tool_name);
                           const isSkillTool = tool.tool_name === 'skill';
+                          const subTools = meta?.sub_tools || [];
+                          const hasSubTools = subTools.length > 1;
+                          const isExpanded = expandedTools.has(tool.tool_name);
+                          const approvedSubTools = tool.approval_sub_tools || [];
+                          // When requires_approval is on and no specific sub-tools configured, all sub-tools are approved
+                          const allSubToolsApproved = tool.requires_approval && approvedSubTools.length === 0;
+
                           return (
                             <div key={tool.tool_name} className="rounded-3xl border border-white/85 bg-white/78 p-4">
+                              {/* Header */}
                               <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2">
                                     <p className="text-sm font-black text-slate-900">{meta?.label || tool.tool_name}</p>
                                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase text-slate-400">
@@ -679,20 +716,82 @@ export const AgentManagement = () => {
                                 </div>
                               </div>
 
-                              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                                <div className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/72 px-4 py-3">
+                              {/* Controls row */}
+                              <div className="mt-4 flex items-center gap-3">
+                                <div className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/72 px-4 py-3 flex-1">
                                   <span className="text-sm font-black text-slate-700">启用</span>
                                   <Toggle checked={tool.enabled} onClick={() => updateTool(tool.tool_name, { enabled: !tool.enabled })} />
                                 </div>
-                                <div className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/72 px-4 py-3">
-                                  <span className="text-sm font-black text-slate-700">审批</span>
-                                  <Toggle
-                                    checked={isSkillTool ? true : tool.requires_approval}
-                                    disabled={!tool.enabled || isSkillTool}
-                                    onClick={() => updateTool(tool.tool_name, { requires_approval: !tool.requires_approval })}
-                                  />
-                                </div>
+                                {hasSubTools ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleToolExpand(tool.tool_name)}
+                                    className={cn(
+                                      'flex items-center gap-2 rounded-2xl border border-white/80 bg-white/72 px-4 py-3 text-sm font-black transition-colors hover:bg-sky-50',
+                                      isExpanded ? 'text-sky-700' : 'text-slate-500',
+                                    )}
+                                  >
+                                    <span>子工具审批</span>
+                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black">{subTools.length}</span>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={cn('transition-transform', isExpanded && 'rotate-180')}>
+                                      <path d="M6 9l6 6 6-6" />
+                                    </svg>
+                                  </button>
+                                ) : (
+                                  <div className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/72 px-4 py-3 flex-1">
+                                    <span className="text-sm font-black text-slate-700">需要审批</span>
+                                    <Toggle
+                                      checked={isSkillTool ? true : tool.requires_approval}
+                                      disabled={!tool.enabled || isSkillTool}
+                                      onClick={() => updateTool(tool.tool_name, { requires_approval: !tool.requires_approval })}
+                                    />
+                                  </div>
+                                )}
                               </div>
+
+                              {/* Expandable sub-tools */}
+                              {hasSubTools && isExpanded && (
+                                <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">
+                                  <div className="mb-3 flex items-center justify-between">
+                                    <span className="text-xs font-bold text-slate-500">选择需要审批的子工具（未选中的子工具将跳过审批直接执行）</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (allSubToolsApproved) {
+                                          updateTool(tool.tool_name, { approval_sub_tools: subTools.map((s) => s.name) });
+                                        } else {
+                                          updateTool(tool.tool_name, { approval_sub_tools: [] });
+                                        }
+                                      }}
+                                      className="text-[10px] font-bold text-sky-600 hover:text-sky-700 whitespace-nowrap"
+                                    >
+                                      {allSubToolsApproved ? '全选当前' : '全部需要审批'}
+                                    </button>
+                                  </div>
+                                  {subTools.map((sub) => {
+                                    const isApproved = allSubToolsApproved || approvedSubTools.includes(sub.name);
+                                    return (
+                                      <div
+                                        key={sub.name}
+                                        className={cn(
+                                          'flex items-center justify-between rounded-xl border px-3 py-2 transition-colors',
+                                          isApproved ? 'border-amber-200/80 bg-amber-50/60' : 'border-white/60 bg-white/60',
+                                        )}
+                                      >
+                                        <div className="min-w-0">
+                                          <p className="text-xs font-bold text-slate-800">{sub.label}</p>
+                                          <p className="text-[10px] font-medium text-slate-400">{sub.name}</p>
+                                        </div>
+                                        <Toggle
+                                          checked={isApproved}
+                                          disabled={!tool.enabled}
+                                          onClick={() => toggleSubToolApproval(tool.tool_name, sub.name)}
+                                        />
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
