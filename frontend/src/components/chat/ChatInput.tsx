@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Square } from 'lucide-react';
 import { AgentProfile } from '../../services/agentProfileService';
 import { cn } from '../../lib/utils';
-import { GlobeIcon, MascotHappy, PaperclipIcon, PresentationIcon, SendIcon } from '../ui/AnimatedIcons';
+import { MascotHappy, PaperclipIcon, SendIcon } from '../ui/AnimatedIcons';
 
 interface ChatInputProps {
   value: string;
@@ -115,17 +115,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const builtinModes = [
-    { id: 'general', label: '普通聊天', icon: <MascotHappy size={20} />, desc: '日常问答' },
-    { id: 'ppt', label: 'PPT 模式', icon: <PresentationIcon size={20} />, desc: '演示文稿' },
-    { id: 'website', label: '网站模式', icon: <GlobeIcon size={20} />, desc: '生成网页' },
-  ] as const;
-  const installedCustomAgents = agentProfiles.filter((agent) => !agent.is_builtin);
-  const selectedCustomAgent = installedCustomAgents.find((agent) => agent.id === selectedAgentProfileId);
-  const selectedBuiltinAgent = agentProfiles.find((agent) => agent.is_builtin && agent.id === selectedAgentProfileId);
-  const activeBuiltinModes = builtinModes.filter((mode) =>
-    agentProfiles.some((agent) => agent.is_builtin && agent.response_mode === mode.id),
-  );
+  const selectableAgents = agentProfiles.filter((agent) => agent.listed !== false);
+  const selectedAgent = selectableAgents.find((agent) => agent.id === selectedAgentProfileId);
 
   return (
     <div
@@ -180,12 +171,12 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
               'flex items-center justify-center rounded-full p-2.5 text-slate-400 transition-all hover:text-sky-600',
               isModeLocked ? 'cursor-not-allowed opacity-60' : 'border border-transparent hover:border-sky-100 hover:bg-sky-50 active:scale-95',
             )}
-            title={isModeLocked ? '对话已开始，无法更改智能体' : '切换智能体'}
-            aria-label="切换智能体"
+            title={isModeLocked ? '对话已开始，无法更改智能体' : '选择智能体'}
+            aria-label="选择智能体"
           >
             <div className={cn('flex h-5 w-5 items-center justify-center rounded-md border-2 text-[10px] font-bold',
-              selectedAgentProfileId ? 'border-zinc-900 bg-zinc-900 text-white' : chatMode === 'general' ? 'border-slate-300 text-slate-400' : 'border-sky-500 bg-sky-50 text-sky-600 shadow-glow')}>
-              {chatMode === 'general' ? <MascotHappy size={12} /> : chatMode === 'ppt' ? <PresentationIcon size={12} /> : <GlobeIcon size={12} />}
+              selectedAgentProfileId ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-slate-300 text-slate-400')}>
+              <MascotHappy size={12} />
             </div>
           </button>
 
@@ -197,41 +188,17 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
                 exit={{ opacity: 0, scale: 0.95, y: -20 }}
                 className="absolute bottom-full left-0 z-40 mb-4 max-h-[360px] w-64 overflow-y-auto rounded-3xl border border-slate-200/50 bg-white/95 p-2 shadow-2xl ring-1 ring-black/5 backdrop-blur-2xl"
               >
-                {selectedCustomAgent && (
+                {selectedAgent && (
                   <div className="mb-2 rounded-2xl border border-sky-100 bg-sky-50/70 px-3 py-2 text-xs font-bold text-sky-700">
-                    当前：{selectedCustomAgent.name}
+                    当前：{selectedAgent.name}
                   </div>
                 )}
-                {activeBuiltinModes.map((mode) => (
-                  <button
-                    key={mode.id}
-                    onClick={() => {
-                      setChatMode(mode.id);
-                      onAgentProfileChange?.(null);
-                      setShowModeMenu(false);
-                    }}
-                    className={cn(
-                      'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-slate-50',
-                      !selectedCustomAgent && (!selectedBuiltinAgent ? chatMode === mode.id : selectedBuiltinAgent.response_mode === mode.id) ? 'bg-sky-50/50 ring-1 ring-sky-100' : '',
-                    )}
-                  >
-                    <span className={cn('flex h-8 w-8 items-center justify-center rounded-xl text-sm shadow-sm transition-transform',
-                      !selectedCustomAgent && (!selectedBuiltinAgent ? chatMode === mode.id : selectedBuiltinAgent.response_mode === mode.id) ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-400')}>
-                      {mode.icon}
-                    </span>
-                    <div className="flex flex-col">
-                      <span className={cn('text-xs font-bold transition-colors', !selectedCustomAgent && (!selectedBuiltinAgent ? chatMode === mode.id : selectedBuiltinAgent.response_mode === mode.id) ? 'text-sky-700' : 'text-slate-700')}>{mode.label}</span>
-                      <span className="text-[9px] font-medium text-slate-400">{mode.desc}</span>
-                    </div>
-                  </button>
-                ))}
-
-                {installedCustomAgents.length > 0 && <div className="my-2 h-px bg-slate-100" />}
-                {installedCustomAgents.map((agent) => (
+                {selectableAgents.map((agent) => (
                   <button
                     key={agent.id}
                     onClick={() => {
                       onAgentProfileChange?.(agent);
+                      setChatMode(agent.response_mode as 'general' | 'ppt' | 'website');
                       setShowModeMenu(false);
                     }}
                     className={cn(
@@ -240,12 +207,12 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
                     )}
                   >
                     <span className={cn('flex h-8 w-8 items-center justify-center rounded-xl text-sm shadow-sm transition-transform',
-                      selectedAgentProfileId === agent.id ? 'bg-zinc-900 text-white' : 'bg-slate-100 text-slate-500')}>
+                      selectedAgentProfileId === agent.id ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-500')}>
                       <MascotHappy size={20} />
                     </span>
                     <div className="min-w-0 flex flex-col">
                       <span className={cn('truncate text-xs font-bold transition-colors', selectedAgentProfileId === agent.id ? 'text-sky-700' : 'text-slate-700')}>{agent.name}</span>
-                      <span className="truncate text-[9px] font-medium text-slate-400">{agent.description || '已安装智能体'}</span>
+                      <span className="truncate text-[9px] font-medium text-slate-400">{agent.description || '智能体'}</span>
                     </div>
                   </button>
                 ))}

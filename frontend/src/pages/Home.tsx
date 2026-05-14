@@ -4,36 +4,59 @@ import { useNavigate } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/ui/Button';
 import { RandomMascot } from '../components/ui/RandomMascot';
-import { MascotSurprised, MascotHappy, SendIcon, ChevronDownIcon, CodeIcon, GlobeIcon, PresentationIcon } from '../components/ui/AnimatedIcons';
+import { MascotSurprised, MascotHappy, SendIcon, ChevronDownIcon } from '../components/ui/AnimatedIcons';
 import { cn } from '../lib/utils';
 import { getStoredUser } from '../services/authService';
+import { AgentProfile, getMyAgents } from '../services/agentProfileService';
 
 export const Home = () => {
   const [inputValue, setInputValue] = useState('');
-  const [chatMode, setChatMode] = useState<'general' | 'ppt' | 'website'>('general');
-  const [showModeMenu, setShowModeMenu] = useState(false);
-  const modeMenuRef = useRef<HTMLDivElement>(null);
+  const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
+  const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const user = getStoredUser();
+
+  const selectedAgent = agentProfiles.find((a) => a.id === selectedAgentProfileId) || null;
+  const selectableAgents = agentProfiles;
+
+  useEffect(() => {
+    if (user) {
+      getMyAgents()
+        .then((res) => {
+          setAgentProfiles(res.items);
+          const general = res.items.find((a) => a.slug === 'general');
+          if (general) setSelectedAgentProfileId(general.id);
+        })
+        .catch(() => {});
+    }
+  }, []);
 
   // Handle click outside to close menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (modeMenuRef.current && !modeMenuRef.current.contains(event.target as Node)) {
-        setShowModeMenu(false);
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
       }
     };
-    if (showModeMenu) {
+    if (showMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showModeMenu]);
+  }, [showMenu]);
 
   const handleSend = () => {
     if (!inputValue.trim()) return;
-    navigate('/chat', { state: { initialMessage: inputValue, mode: chatMode } });
+    navigate('/chat', {
+      state: {
+        initialMessage: inputValue,
+        mode: selectedAgent?.response_mode || 'general',
+        agentProfileId: selectedAgentProfileId,
+      },
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -130,57 +153,58 @@ export const Home = () => {
             autoFocus
           />
           <div className="flex justify-between items-center px-4 pb-3">
-            <div className="relative" ref={modeMenuRef}>
+            {user && selectableAgents.length > 0 ? (
+            <div className="relative" ref={menuRef}>
               <button
-                onClick={() => setShowModeMenu(!showModeMenu)}
+                onClick={() => setShowMenu(!showMenu)}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl text-sm font-bold transition-all active:scale-95 border border-slate-200/50"
-                aria-label="选择对话模式"
+                aria-label="选择智能体"
               >
-                <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center transition-all shadow-sm", 
-                  chatMode === 'general' ? "bg-slate-200" : "bg-sky-500 text-white shadow-glow")}>
-                  {chatMode === 'general' ? <MascotHappy size={14} /> : chatMode === 'ppt' ? <PresentationIcon size={14} /> : <GlobeIcon size={14} />}
+                <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center transition-all shadow-sm",
+                  selectedAgentProfileId ? "bg-sky-500 text-white shadow-glow" : "bg-slate-200")}>
+                  <MascotHappy size={14} />
                 </div>
-                {chatMode === 'general' ? '普通聊天' : chatMode === 'ppt' ? 'PPT 模式' : '网站模式'}
-                <ChevronDownIcon size={14} className={cn("transition-transform", showModeMenu && "rotate-180")} />
+                {selectedAgent?.name || '选择智能体'}
+                <ChevronDownIcon size={14} className={cn("transition-transform", showMenu && "rotate-180")} />
               </button>
 
               <AnimatePresence>
-                {showModeMenu && (
+                {showMenu && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                    className="absolute bottom-full left-0 mb-2 w-48 bg-white/90 backdrop-blur-xl border border-slate-200 rounded-3xl shadow-2xl z-40 p-2 overflow-hidden"
+                    className="absolute bottom-full left-0 mb-2 max-h-64 w-56 overflow-y-auto bg-white/95 backdrop-blur-xl border border-slate-200/50 rounded-3xl shadow-2xl z-40 p-2"
                   >
-                      {[
-                        { id: 'general', label: '普通聊天', icon: <MascotHappy size={20} />, desc: '日常问题与对话' },
-                        { id: 'ppt', label: 'PPT 模式', icon: <PresentationIcon size={20} />, desc: '大纲与演示文稿' },
-                        { id: 'website', label: '网站模式', icon: <GlobeIcon size={20} />, desc: '生成网页与应用' }
-                      ].map((mode) => (
-                        <button
-                          key={mode.id}
-                          onClick={() => {
-                            setChatMode(mode.id as any);
-                            setShowModeMenu(false);
-                          }}
-                          className={cn(
-                            "w-full flex flex-col items-start p-3 rounded-2xl transition-all hover:bg-slate-50 text-left group",
-                            chatMode === mode.id ? "bg-slate-100 ring-1 ring-slate-200" : ""
-                          )}
-                        >
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className={cn(chatMode === mode.id ? "text-sky-600" : "text-slate-400 group-hover:text-slate-600")}>
-                              {mode.icon}
-                            </span>
-                            <span className="font-bold text-slate-800 text-sm">{mode.label}</span>
-                          </div>
-                          <span className="text-[10px] text-slate-400 font-medium px-6">{mode.desc}</span>
-                        </button>
-                      ))}
-                    </motion.div>
+                    {selectableAgents.map((agent) => (
+                      <button
+                        key={agent.id}
+                        onClick={() => {
+                          setSelectedAgentProfileId(agent.id);
+                          setShowMenu(false);
+                        }}
+                        className={cn(
+                          'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-slate-50',
+                          selectedAgentProfileId === agent.id ? 'bg-sky-50/70 ring-1 ring-sky-100' : '',
+                        )}
+                      >
+                        <span className={cn('flex h-8 w-8 items-center justify-center rounded-xl text-sm shadow-sm transition-transform',
+                          selectedAgentProfileId === agent.id ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-500')}>
+                          <MascotHappy size={20} />
+                        </span>
+                        <div className="min-w-0 flex flex-col">
+                          <span className={cn('truncate text-xs font-bold transition-colors', selectedAgentProfileId === agent.id ? 'text-sky-700' : 'text-slate-700')}>{agent.name}</span>
+                          <span className="truncate text-[9px] font-medium text-slate-400">{agent.description || '智能体'}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </motion.div>
                 )}
               </AnimatePresence>
             </div>
+            ) : (
+              <div />
+            )}
             
             <button
               onClick={handleSend}

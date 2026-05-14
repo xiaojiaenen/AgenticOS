@@ -43,7 +43,7 @@ export const AgentStore = () => {
   }, []);
 
   const toggleInstall = async (agent: AgentProfile) => {
-    if (agent.is_builtin) return;
+    if (agent.slug === 'general') return;
     setBusyId(agent.id);
     setError(null);
     try {
@@ -130,7 +130,7 @@ export const AgentStore = () => {
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {agents.map((agent, index) => {
-              const canUse = agent.installed || agent.is_builtin;
+              const canUse = agent.installed;
               const accent = agentAccent[index % agentAccent.length];
               return (
                 <motion.article
@@ -171,7 +171,7 @@ export const AgentStore = () => {
                         安装
                       </Button>
                     )}
-                    {!agent.is_builtin && agent.installed && (
+                    {agent.installed && agent.slug !== 'general' && (
                       <Button
                         variant="secondary"
                         size="icon"
