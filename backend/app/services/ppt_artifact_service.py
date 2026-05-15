@@ -354,7 +354,7 @@ document.querySelectorAll('.slide').forEach(function(slide, i) {{
 def _read_tokens_css(design_system_name: str) -> str:
     """Read tokens.css for a design system. Returns empty string if not found."""
     css_path = (
-        Path(__file__).resolve().parents[2] / "data" / "design-systems" / design_system_name / "tokens.css"
+        Path(__file__).resolve().parents[3] / "data" / "design-systems" / design_system_name / "tokens.css"
     )
     try:
         return css_path.read_text(encoding="utf-8")

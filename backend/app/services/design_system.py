@@ -193,7 +193,7 @@ class DesignSystemRegistry:
 
     def __init__(self, base_dir: Path | None = None) -> None:
         if base_dir is None:
-            base_dir = Path(__file__).resolve().parents[2] / "data" / "design-systems"
+            base_dir = Path(__file__).resolve().parents[3] / "data" / "design-systems"
         self.base_dir = Path(base_dir)
         self._systems: dict[str, DesignSystem] = {}
         self._by_category: dict[str, list[str]] = {}

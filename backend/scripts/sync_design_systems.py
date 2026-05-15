@@ -22,7 +22,7 @@ REPO = "nexu-io/open-design"
 BRANCH = "main"
 API_BASE = f"https://api.github.com/repos/{REPO}"
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]  # repo root
 TARGET_DIR = PROJECT_ROOT / "data" / "design-systems"
 
 # Brands known to be complete (have both DESIGN.md and tokens.css)
@@ -177,7 +177,7 @@ def main() -> None:
     print(f"\nDone: {ok} succeeded, {failed} failed.")
 
     # Validate
-    sys.path.insert(0, str(PROJECT_ROOT))
+    sys.path.insert(0, str(PROJECT_ROOT / "backend"))
     from app.services.design_system import DesignSystemRegistry
     registry = DesignSystemRegistry(TARGET_DIR)
     loaded = registry.scan()
