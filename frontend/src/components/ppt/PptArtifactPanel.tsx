@@ -5,13 +5,42 @@ import { MotionValue } from 'motion/react';
 import { Artifact } from '../../types';
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
 
-const PPT_PAGE_CLASS = 'agenticos-ppt-page';
-
 type PptArtifactPanelProps = {
   artifact: Extract<Artifact, { language: 'ppt' }>;
   onClose: () => void;
   borderColor: MotionValue<string>;
 };
+
+type ExportToPptxFn = (
+  target: string | Element | Element[] | NodeList,
+  options?: { fileName?: string; width?: number; height?: number; layout?: string; transition?: string },
+) => Promise<void>;
+
+let domToPptxReady: Promise<ExportToPptxFn> | null = null;
+
+function loadDomToPptx(): Promise<ExportToPptxFn> {
+  if (domToPptxReady) return domToPptxReady;
+  domToPptxReady = new Promise((resolve, reject) => {
+    // Check if already loaded
+    const win = window as unknown as Record<string, unknown>;
+    if (typeof win.exportToPptx === 'function') {
+      resolve(win.exportToPptx as ExportToPptxFn);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = '/vendor/dom-to-pptx.js';
+    script.onload = () => {
+      if (typeof win.exportToPptx === 'function') {
+        resolve(win.exportToPptx as ExportToPptxFn);
+      } else {
+        reject(new Error('exportToPptx not found after script load'));
+      }
+    };
+    script.onerror = () => reject(new Error('Failed to load dom-to-pptx bundle'));
+    document.head.appendChild(script);
+  });
+  return domToPptxReady;
+}
 
 export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, onClose, borderColor }) => {
   const [isExporting, setIsExporting] = React.useState(false);
@@ -23,16 +52,24 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
     let tempContainer: HTMLDivElement | null = null;
     try {
       await document.fonts?.ready;
-      const previewBody = iframeRef.current?.contentDocument?.body;
+      const slidesContainer = iframeRef.current?.contentDocument?.getElementById('ppt-slides-container');
       tempContainer = document.createElement('div');
       tempContainer.style.position = 'fixed';
       tempContainer.style.left = '-99999px';
       tempContainer.style.top = '0';
-      tempContainer.style.width = '1600px';
-      tempContainer.innerHTML = previewBody?.innerHTML || artifact.html;
+      tempContainer.style.width = '1280px';
+      if (slidesContainer) {
+        tempContainer.innerHTML = slidesContainer.innerHTML;
+      } else {
+        tempContainer.innerHTML = artifact.html;
+      }
       document.body.appendChild(tempContainer);
-      const { downloadHtmlToPpt } = await import('html-to-pptx');
-      await downloadHtmlToPpt(PPT_PAGE_CLASS, artifact.title || 'AgenticOS-PPT');
+
+      const exportToPptx = await loadDomToPptx();
+      await exportToPptx(tempContainer.querySelectorAll('.slide'), {
+        fileName: `${artifact.title || 'AgenticOS-PPT'}.pptx`,
+        layout: 'LAYOUT_16x9',
+      });
     } finally {
       tempContainer?.remove();
       setIsExporting(false);

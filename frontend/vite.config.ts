@@ -40,7 +40,7 @@ export default defineConfig(({ mode }) => {
               'react-syntax-highlighter',
             ],
             'admin-vendor': ['recharts', 'lucide-react'],
-            'ppt-vendor': ['html-to-pptx'],
+
           },
         },
       },

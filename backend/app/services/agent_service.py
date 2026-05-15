@@ -25,7 +25,7 @@ from app.db.models import AgentUsageEventModel, ApprovalModel, PptArtifactModel,
 from app.db.session import create_db_session
 from app.services.approval_manager import ApprovalManager
 from app.services.agent_profile_service import AgentProfileService, RuntimeAgentProfile
-from app.services.ppt_artifact_service import PptArtifactService, strip_ppt_deck_from_text
+from app.services.ppt_artifact_service import PptArtifactService, strip_html_block_from_text
 from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.services.tool_config_service import ToolConfigService
 from app.schemas.agent import AgentStreamRequest
@@ -305,6 +305,29 @@ class AgentService:
         if loaded is not None:
             sessions[request.session_id] = loaded
 
+    @staticmethod
+    def _inject_design_catalog(message: str) -> str:
+        from app.services.design_system import get_design_system_registry
+
+        registry = get_design_system_registry()
+        systems = registry.list_all()
+        if not systems:
+            return message
+        lines = [
+            "",
+            "---",
+            "## 可用设计系统",
+            "",
+            "你可以使用以下预置设计系统的 CSS 令牌（var(--accent), var(--bg), var(--fg), var(--surface) 等）。",
+            "根据用户需求选择最合适的系统。如果用户没有指定，选择一个最匹配内容和受众的系统。",
+            "",
+        ]
+        for ds in systems[:20]:
+            lines.append(
+                f"- **{ds.label}** (`{ds.name}`) [{ds.category}]: {ds.description[:100]}"
+            )
+        return message + "\n".join(lines)
+
     def _normalize_session_limits(
         self,
         session,
@@ -508,6 +531,12 @@ class AgentService:
         if user is not None:
             await self.ensure_session_access(request, user)
         await self._load_session_if_needed(agent, request)
+
+        # Inject design system catalog for PPT mode
+        message = request.message
+        if ppt_mode:
+            message = self._inject_design_catalog(message)
+
         session = agent.create_or_get_session(
             session_id=request.session_id,
             system_prompt=runtime_profile.system_prompt,
@@ -560,7 +589,7 @@ class AgentService:
 
         async def produce_events() -> None:
             try:
-                async for event in agent.stream_events(request.message, session=session):
+                async for event in agent.stream_events(message, session=session):
                     await runtime_queue.put(event)
             finally:
                 try:
@@ -618,7 +647,7 @@ class AgentService:
 
                     if ppt_mode and event.type == "done":
                         artifact = await self.ppt_artifacts.create_from_text(session.session_id, collected_text)
-                        visible_text = strip_ppt_deck_from_text(collected_text) if artifact else collected_text
+                        visible_text = strip_html_block_from_text(collected_text) if artifact else collected_text
                         if artifact is not None:
                             yield {
                                 "event": "run_status",

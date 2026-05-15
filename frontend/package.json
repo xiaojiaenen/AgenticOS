@@ -12,10 +12,10 @@
     "build:ppt-css": "npx @tailwindcss/cli -i ppt_tailwind_input.css -o ../backend/app/ppt_tailwind_compiled.css --minify"
   },
   "dependencies": {
+    "@halobiron/dom-to-pptx": "^1.2.4",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "clsx": "^2.1.1",
-    "html-to-pptx": "^1.1.0",
     "katex": "^0.16.21",
     "lucide-react": "^0.546.0",
     "mermaid": "^11.14.0",

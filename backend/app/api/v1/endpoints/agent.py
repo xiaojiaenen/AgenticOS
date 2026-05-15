@@ -8,6 +8,7 @@ from app.api.deps import get_current_user
 from app.db.models import UserModel
 from app.schemas.agent import AgentStreamRequest, ApprovalDecisionRequest
 from app.services.agent_service import AgentService, get_agent_service
+from app.services.design_system import get_design_system_registry
 
 router = APIRouter(prefix="/agent", tags=["智能体"])
 
@@ -101,6 +102,27 @@ async def delete_session(
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     return {"status": "deleted", "session_id": session_id}
+
+
+@router.get("/design-systems", summary="获取可用设计系统列表")
+async def list_design_systems(
+    category: str | None = None,
+) -> list[dict[str, Any]]:
+    registry = get_design_system_registry()
+    systems = registry.search(category=category) if category else registry.list_all()
+    return [ds.to_dict() for ds in systems]
+
+
+@router.get("/design-systems/{name}/preview", summary="获取设计系统预览")
+async def get_design_system_preview(name: str) -> dict[str, Any]:
+    registry = get_design_system_registry()
+    ds = registry.get(name)
+    if ds is None:
+        raise HTTPException(status_code=404, detail=f"设计系统 '{name}' 不存在。")
+    return {
+        **ds.to_dict(),
+        "prompt_excerpt": ds.to_prompt_excerpt(),
+    }
 
 
 @router.get("/artifacts/{artifact_id}", summary="获取 PPT 制品预览")
