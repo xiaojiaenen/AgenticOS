@@ -35,7 +35,7 @@ The Vite dev server proxies `/api` to `VITE_API_PROXY_TARGET` (default `http://1
 
 ## Architecture
 
-### Backend (FastAPI + wuwei >=0.2.1)
+### Backend (FastAPI + wuwei >=1.0.3)
 
 ```
 backend/
@@ -57,6 +57,8 @@ backend/
         endpoints/
           auth.py, agent.py, agent_profiles.py, skills.py,
           dashboard.py, health.py, tool_config.py, users.py
+    tools/
+      email_tools.py               # IMAP/SMTP email tools — setup, count, read, search, get, send
     services/
       agent_service.py             # core orchestrator — creates wuwei Agent, manages SSE streaming,
                                    #   approval integration, usage recording, PPT artifact extraction,
@@ -64,33 +66,64 @@ backend/
       agent_profile_service.py     # profile CRUD, built-in default profiles, runtime resolution
       skill_service.py             # skill CRUD, zip upload, filesystem management
       approval_manager.py          # HITL approval workflow with futures and subscriber broadcast
-      tool_config_service.py       # tool catalog (7 tools) with per-mode defaults
+      tool_config_service.py       # tool catalog (8 tools) with per-mode defaults, sub-tool approval
       session_storage.py           # DB-backed wuwei storage (sessions, messages)
-      ppt_artifact_service.py      # parses pptdeck code blocks, renders HTML previews
+      ppt_artifact_service.py      # parses pptdeck code blocks, delegates to ppt/ templates for HTML
+      ppt/                         # PPT multi-template system
+        base_template.py           # BaseTemplate class with Tailwind HTML rendering
+        registry.py                # template registry with alias support, 10 allowed slide types
+        templates/                 # 5 visual styles: executive, product, minimal, creative, academic
       auth_service.py              # registration, login, session management, rate limiting
       local_skill_import_service.py
-    prompts.py                     # system prompts for 3 agent modes
+    prompts.py                     # system prompts for 4 agent modes (general, ppt, website, email)
 ```
 
-The wuwei framework (>=0.2.1) provides `Agent`, `LLMGateway`, `ToolRegistry`, `SkillManager`, `HitlHook`, and `ContextCompressionHook`. The backend wraps these with FastAPI endpoints and database persistence.
+The wuwei framework (>=1.0.3) provides `Agent`, `LLMGateway`, `ToolRegistry`, `SkillManager`, `HitlHook`, and `ContextCompressionHook`. The backend wraps these with FastAPI endpoints and database persistence.
 
-### Three agent modes
+### Four agent modes
 
 | Mode | Default tools | Behavior summary |
 |------|--------------|-----------------|
 | `general` | calc, time, file (approval required) | Daily Q&A, lightweight tool use |
-| `ppt` | calc only | Structured presentation generation via `pptdeck` code blocks |
+| `ppt` | calc only | Structured presentation generation via `pptdeck` code blocks, 5 visual themes, 10 slide types |
 | `website` | calc, time, file, npm | Web/frontend development mode |
+| `email` | calc, time, skill | Email management via IMAP/SMTP — read, search, send with CC |
+
+### PPT multi-template system
+
+PPT generation has been refactored into `services/ppt/` with a template registry pattern:
+
+- **`registry.py`**: Decorator-based `@register("name")` pattern with alias support. `get_or_default(name)` falls back to `executive`.
+- **`base_template.py`**: `BaseTemplate` abstract class — each template defines CSS variables, slide type renderers, and a `render_html()` method using Tailwind utility classes.
+- **5 templates**: `executive` (corporate), `product` (gradient + glassmorphism), `minimal` (magazine), `creative` (colorful blocks), `academic` (grid + breadcrumbs).
+- **10 slide types**: `cover`, `section`, `bullets`, `stats`, `chart`, `comparison`, `timeline`, `quote`, `imageText`, `closing`.
+- Old theme names are handled via backward-compat aliases in the registry.
+
+### Sub-tool approval
+
+Per-tool approval now supports sub-tool granularity. `TOOL_CATALOG` in `tool_config_service.py` defines `sub_tools` per tool (e.g., `file` has 7 sub-tools like `read_text_file`, `write_text_file`, etc.). The admin UI can toggle approval per sub-tool, stored in `approval_sub_tools_json` column. Empty list = all sub-tools require approval (backward compatible).
 
 ### HITL approval flow
 
 When an agent invokes a tool that requires approval:
 1. `HitlHook` triggers `ApprovalManager.request_approval()`, persists to `agent_approvals` table
-2. Frontend receives `approval_required` SSE event, shows `PendingApprovalPanel`
+2. Frontend receives `approval_required` SSE event (includes sub-tool info), shows `PendingApprovalPanel`
 3. User approves/rejects → `POST /api/v1/agent/approvals/{id}/decision`
 4. Future is resolved, agent proceeds or aborts; timeout after `HITL_TIMEOUT_SECONDS` (default 300s)
 
-Note: approval queues are in-memory and do not survive server restart.
+Approval now supports sub-tool granularity — each tool's `sub_tools` can be individually configured for approval via `approval_sub_tools_json`. Note: approval queues are in-memory and do not survive server restart.
+
+### Email tools
+
+Custom email integration at `app/tools/email_tools.py` — registered as wuwei tools:
+- `setup_email` — store IMAP/SMTP credentials per session
+- `count_emails` — stats with folder, unread, date range filters
+- `read_emails` — paginated inbox/sent/draft with limit/offset
+- `search_emails` — keyword search across subject + body
+- `get_email` — full email detail by message ID
+- `send_email` — send with optional CC
+
+Credentials stored in `user_email_credentials` table, persisted across sessions. Uses `contextvars` to resolve the current session's credentials.
 
 ### SSE streaming protocol
 
@@ -161,11 +194,7 @@ Schema is auto-created via `Base.metadata.create_all()` on startup. A compat lay
 
 Backend tests (11 files in `backend/tests/`) use pytest with `httpx` for async HTTP testing. The pytest config sets `pythonpath = ["."]` so tests can import directly from `app.*`.
 
-```bash
-uv run pytest                              # run all tests
-uv run pytest tests/test_auth.py           # run a single test file
-uv run pytest -k "test_name"               # run tests matching a pattern
-```
+Tests cover: auth, agent stream, tool config, users, dashboard, skills, agent profiles, agent service, website mode defaults, local skill import, health.
 
 ## Key environment variables
 
