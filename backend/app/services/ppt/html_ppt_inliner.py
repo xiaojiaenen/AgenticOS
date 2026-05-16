@@ -60,6 +60,12 @@ def inline_html_ppt_assets(html: str) -> str:
 
         resolved = _resolve_asset_path(href)
         if resolved is None:
+            # Fallback to minimal-white for missing theme CSS files
+            if "themes/" in href:
+                fallback = _resolve_asset_path("assets/themes/minimal-white.css")
+                if fallback is not None:
+                    content = fallback.read_text(encoding="utf-8")
+                    return f"<style>\n/* fallback: {href} not found, using minimal-white */\n{content}\n</style>"
             return match.group(0)
 
         content = resolved.read_text(encoding="utf-8")

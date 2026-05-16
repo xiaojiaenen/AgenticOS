@@ -93,6 +93,15 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
 
       const slides = iframeDoc.querySelectorAll('.deck .slide');
       console.log(`[PPTX Export] Found ${slides.length} slides in iframe`);
+
+      // Force layout so innerText is available for dom-to-pptx content detection
+      slides.forEach((s, i) => {
+        const el = s as HTMLElement;
+        const h = el.offsetHeight;
+        const text = el.innerText?.trim().slice(0, 60);
+        console.log(`[PPTX Export] slide ${i + 1}: offsetHeight=${h}, innerText="${text}"`);
+      });
+
       if (slides.length > 0) {
         await exportToPptx(slides, {
           fileName: `${artifact.title || 'AgenticOS-PPT'}.pptx`,

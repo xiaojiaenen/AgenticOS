@@ -52,7 +52,8 @@ PPT_SYSTEM_PROMPT = """你是 AgenticOS 的首席演示文稿架构师，精通 
 - 一个完整的 ```html 代码块包含全部幻灯片（8-14 页）
 - 必须包含 `<!DOCTYPE html>`, `<html>`, `<head>`, `<body>`, `<div class="deck">`
 - head 中必须引入 `assets/base.css`, `assets/fonts.css`, 主题 CSS (`assets/themes/<name>.css`), `assets/animations/animations.css`
-- `<html>` 必须有 `data-theme` 属性；`<body>` 必须有 `data-themes`（候选主题列表，含当前主题 3-5 个）和 `data-theme-base="assets/themes/"`
+- `<html>` 必须有 `data-theme` 属性，**主题名必须来自上述 36 个主题，禁止使用不存在的主题名**
+- `<body>` 必须有 `data-themes`（候选主题列表 3-5 个，**必须全部来自 36 个已有主题**）和 `data-theme-base="assets/themes/"`
 - 每页一个 `<section class="slide" data-title="标题">`，data-title 用于总览网格显示
 - body 末尾必须引入 `<script src="assets/runtime.js"></script>`（键盘翻页/主题切换/演讲者模式）
 - 所有视觉属性使用 `var(--xxx)` CSS 令牌，**绝对不写具体颜色值**
@@ -161,7 +162,7 @@ PPT_SYSTEM_PROMPT = """你是 AgenticOS 的首席演示文稿架构师，精通 
 | **复古** | retro-tv, midcentury, arctic-cool | 怀旧主题、特殊场合 |
 | **工程** | engineering-whiteprint | 技术文档、白皮书 |
 
-**主题选择快速决策：**
+**主题选择快速决策（只能从下方 36 个主题名中选，禁止自创主题名）：**
 - 工程师受众 → tokyo-night / dracula / catppuccin-mocha
 - 高管/投资人 → corporate-clean / pitch-deck-vc / minimal-white
 - 设计师/产品 → editorial-serif / aurora / soft-pastel
