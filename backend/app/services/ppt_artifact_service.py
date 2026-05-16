@@ -11,16 +11,19 @@ from app.services.session_storage import dump_json, load_json
 
 
 def extract_html_from_text(text: str) -> str | None:
-    """Extract ```html code block from LLM output text."""
-    # Find ```html marker
-    start = text.find("```html")
-    if start < 0:
-        return None
-    content_start = start + 6
-    # Skip whitespace after marker
-    while content_start < len(text) and text[content_start] in (" ", "\t", "\r", "\n"):
-        content_start += 1
-    # Find closing ```
+    """Extract ```html code block from LLM output text (case-insensitive marker)."""
+    import re as _re
+    m = _re.search(r"```(?:html|HTML)\s*\n", text)
+    if m is None:
+        # Fallback: any ``` code block that starts with <!DOCTYPE or <html
+        m2 = _re.search(r"```\s*\n(<!DOCTYPE\s+html|<html[\s>])", text)
+        if m2 is None:
+            return None
+        start = m2.start()
+        content_start = m2.end() - len(m2.group(1))
+    else:
+        start = m.start()
+        content_start = m.end()
     end = text.find("\n```", content_start)
     if end < 0:
         end = text.find("```", content_start)
@@ -77,8 +80,16 @@ class PptArtifactService:
         self.session_factory = session_factory
 
     async def create_from_text(self, session_id: str, text: str) -> dict[str, Any] | None:
+        import logging
+        _logger = logging.getLogger("ppt_artifact")
         html = extract_html_from_text(text)
-        if html is None or not validate_slides_html(html):
+        if html is None:
+            _logger.warning(f"extract_html_from_text returned None for session={session_id}, text_len={len(text)}, has_html_tag={'```html' in text.lower()}")
+            return None
+        if not validate_slides_html(html):
+            slide_count = html.count('<section class="slide"')
+            has_deck = 'class="deck"' in html or "class='deck'" in html
+            _logger.warning(f"validate_slides_html failed: slides={slide_count}, has_deck={has_deck}, html_len={len(html)}")
             return None
 
         theme_name = _detect_theme_name(html)
