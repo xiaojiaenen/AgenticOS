@@ -56,7 +56,25 @@ def _detect_theme_name(html: str) -> str:
 
 def prepare_final_html(html: str) -> str:
     """Inline all local asset references to produce a self-contained HTML document."""
-    return inline_html_ppt_assets(html)
+    result = inline_html_ppt_assets(html)
+    # Make slides visible without runtime.js — body.single makes all .slide
+    # elements position:relative / opacity:1 (stacked vertically).
+    body_m = re.search(r"<body\b([^>]*)>", result)
+    if body_m is None:
+        if "</head>" in result:
+            result = result.replace("</head>", "</head>\n<body class=\"single\">", 1)
+        else:
+            result = result.replace("<html", "<html", 1) + "\n<body class=\"single\">"
+        if "</body>" not in result:
+            result = result.replace("</html>", "</body>\n</html>")
+    elif "class=" in body_m.group(1):
+        result = result[:body_m.start(1)] + body_m.group(1).replace(
+            'class="', 'class="single '
+        ) + result[body_m.end(1):]
+    else:
+        tag_end = body_m.end(1)  # position of >
+        result = result[:tag_end] + ' class="single"' + result[tag_end:]
+    return result
 
 
 def strip_html_block_from_text(text: str) -> str:

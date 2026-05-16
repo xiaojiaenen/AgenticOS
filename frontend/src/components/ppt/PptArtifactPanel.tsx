@@ -23,15 +23,17 @@ function loadDomToPptx(): Promise<ExportToPptxFn> {
   domToPptxReady = new Promise((resolve, reject) => {
     // Check if already loaded
     const win = window as unknown as Record<string, unknown>;
-    if (typeof win.exportToPptx === 'function') {
-      resolve(win.exportToPptx as ExportToPptxFn);
+    const domToPptx = win.domToPptx as Record<string, unknown> | undefined;
+    if (typeof domToPptx?.exportToPptx === 'function') {
+      resolve(domToPptx.exportToPptx as ExportToPptxFn);
       return;
     }
     const script = document.createElement('script');
     script.src = '/vendor/dom-to-pptx.js';
     script.onload = () => {
-      if (typeof win.exportToPptx === 'function') {
-        resolve(win.exportToPptx as ExportToPptxFn);
+      const lib = (window as unknown as Record<string, unknown>).domToPptx as Record<string, unknown> | undefined;
+      if (typeof lib?.exportToPptx === 'function') {
+        resolve(lib.exportToPptx as ExportToPptxFn);
       } else {
         reject(new Error('exportToPptx not found after script load'));
       }
