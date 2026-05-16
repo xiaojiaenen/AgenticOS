@@ -176,7 +176,7 @@ class AgentService:
             )
 
         agent = Agent(
-            llm=LLMGateway.from_env(),
+            llm=LLMGateway.from_env(max_tokens=self.settings.agent_max_tokens),
             tools=self._build_tool_registry(profile),
             default_system_prompt=profile.system_prompt,
             default_max_steps=self.settings.agent_max_steps,
