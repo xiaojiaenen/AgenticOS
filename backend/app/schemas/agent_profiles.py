@@ -37,7 +37,7 @@ class AgentProfileBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     slug: str | None = Field(default=None, min_length=1, max_length=80)
     description: str = Field(default="", max_length=2000)
-    system_prompt: str = Field(..., min_length=1, max_length=12000)
+    system_prompt: str = Field(..., min_length=1, max_length=20000)
     response_mode: str = Field(default="general", pattern="^(general|ppt|website)$")
     avatar: str | None = Field(default=None, max_length=64)
     enabled: bool = True
@@ -67,7 +67,7 @@ class AgentProfileUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     slug: str | None = Field(default=None, min_length=1, max_length=80)
     description: str | None = Field(default=None, max_length=2000)
-    system_prompt: str | None = Field(default=None, min_length=1, max_length=12000)
+    system_prompt: str | None = Field(default=None, min_length=1, max_length=20000)
     response_mode: str | None = Field(default=None, pattern="^(general|ppt|website)$")
     avatar: str | None = Field(default=None, max_length=64)
     enabled: bool | None = None
