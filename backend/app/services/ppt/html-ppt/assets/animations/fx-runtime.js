@@ -23,18 +23,33 @@
   })();
   const base = myScript ? myScript.src.replace(/fx-runtime\.js.*$/, 'fx/') : 'assets/animations/fx/';
 
+  // When inlined (no myScript) or when modules are already available via
+  // window.HPX, skip dynamic loading to avoid 404s in srcdoc iframes.
+  let allPreloaded = false;
+  if (window.HPX) {
+    allPreloaded = true;
+    for (const name of FX_LIST) {
+      if (typeof window.HPX[name] !== 'function') {
+        allPreloaded = false;
+        break;
+      }
+    }
+  }
+
   let loaded = 0;
   const total = FX_LIST.length;
-  const ready = new Promise((resolve) => {
-    if (!total) return resolve();
-    FX_LIST.forEach((name) => {
-      const s = document.createElement('script');
-      s.src = base + name + '.js';
-      s.async = false;
-      s.onload = s.onerror = () => { if (++loaded >= total) resolve(); };
-      document.head.appendChild(s);
-    });
-  });
+  const ready = (allPreloaded || !myScript)
+    ? Promise.resolve()
+    : new Promise((resolve) => {
+        if (!total) return resolve();
+        FX_LIST.forEach((name) => {
+          const s = document.createElement('script');
+          s.src = base + name + '.js';
+          s.async = false;
+          s.onload = s.onerror = () => { if (++loaded >= total) resolve(); };
+          document.head.appendChild(s);
+        });
+      });
 
   window.__hpxActive = window.__hpxActive || new Map();
 

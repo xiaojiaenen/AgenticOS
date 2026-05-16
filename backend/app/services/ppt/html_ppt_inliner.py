@@ -43,6 +43,27 @@ def _resolve_asset_path(href: str) -> Path | None:
     return None
 
 
+def _get_fx_module_scripts() -> str:
+    """Read all FX module files and return them as inline <script> tags.
+
+    When fx-runtime.js is inlined, the dynamic module loader cannot fetch
+    individual FX files from the srcdoc iframe.  Pre-inlining them before
+    fx-runtime.js lets the runtime detect that every module is already
+    registered on ``window.HPX`` and skip the network requests entirely.
+    """
+    fx_dir = _HTML_PPT_ROOT / "assets" / "animations" / "fx"
+    if not fx_dir.is_dir():
+        return ""
+
+    modules: list[str] = []
+    for fx_file in sorted(fx_dir.iterdir()):
+        if fx_file.suffix == ".js":
+            content = fx_file.read_text(encoding="utf-8")
+            modules.append(f"<script>\n{content}\n</script>")
+
+    return "\n".join(modules) + ("\n" if modules else "")
+
+
 def inline_html_ppt_assets(html: str) -> str:
     """Inline all local CSS and JS references into a self-contained HTML document.
 
@@ -97,7 +118,17 @@ def inline_html_ppt_assets(html: str) -> str:
             return match.group(0)
 
         content = resolved.read_text(encoding="utf-8")
-        return f"<script>\n{content}\n</script>"
+        result = f"<script>\n{content}\n</script>"
+
+        # When fx-runtime.js is inlined, also inline all FX module files
+        # before it so the runtime detects them as pre-loaded and skips
+        # the dynamic-script-loading path (which would 404 in srcdoc).
+        if "fx-runtime" in src:
+            modules = _get_fx_module_scripts()
+            if modules:
+                result = modules + result
+
+        return result
 
     result = re.sub(
         r'<script\s+[^>]*src=["\'](?P<src>[^"\']+)["\'][^>]*>\s*</script>',
