@@ -52,24 +52,42 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
     let tempContainer: HTMLDivElement | null = null;
     try {
       await document.fonts?.ready;
-      const slidesContainer = iframeRef.current?.contentDocument?.getElementById('ppt-slides-container');
+      const iframeDoc = iframeRef.current?.contentDocument;
       tempContainer = document.createElement('div');
       tempContainer.style.position = 'fixed';
       tempContainer.style.left = '-99999px';
       tempContainer.style.top = '0';
       tempContainer.style.width = '1280px';
-      if (slidesContainer) {
-        tempContainer.innerHTML = slidesContainer.innerHTML;
+
+      if (iframeDoc) {
+        const slides = iframeDoc.querySelectorAll('.deck .slide');
+        const deck = document.createElement('div');
+        slides.forEach((slide) => {
+          const clone = slide.cloneNode(true) as HTMLElement;
+          clone.style.position = 'relative';
+          clone.style.opacity = '1';
+          clone.style.transform = 'none';
+          clone.style.pointerEvents = 'auto';
+          clone.style.width = '1280px';
+          clone.style.height = '720px';
+          clone.style.marginBottom = '0';
+          clone.style.inset = 'auto';
+          deck.appendChild(clone);
+        });
+        tempContainer.appendChild(deck);
       } else {
         tempContainer.innerHTML = artifact.html;
       }
       document.body.appendChild(tempContainer);
 
       const exportToPptx = await loadDomToPptx();
-      await exportToPptx(tempContainer.querySelectorAll('.slide'), {
-        fileName: `${artifact.title || 'AgenticOS-PPT'}.pptx`,
-        layout: 'LAYOUT_16x9',
-      });
+      const slides = tempContainer.querySelectorAll('.slide');
+      if (slides.length > 0) {
+        await exportToPptx(slides, {
+          fileName: `${artifact.title || 'AgenticOS-PPT'}.pptx`,
+          layout: 'LAYOUT_16x9',
+        });
+      }
     } finally {
       tempContainer?.remove();
       setIsExporting(false);
@@ -136,6 +154,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             title={artifact.title}
             className="min-h-[calc(100vh-10rem)] w-full border-0"
             sandbox="allow-same-origin allow-scripts"
+            allow="fullscreen"
             referrerPolicy="no-referrer"
           />
         </motion.div>

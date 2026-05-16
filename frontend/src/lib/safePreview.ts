@@ -1,5 +1,5 @@
 const HTML_PREVIEW_CSP =
-  "default-src 'none'; img-src data: blob: https: http:; media-src data: blob: https: http:; style-src 'unsafe-inline'; script-src 'unsafe-inline' 'unsafe-eval'; font-src data: https: http:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+  "default-src 'none'; img-src data: blob: https: http:; media-src data: blob: https: http:; style-src 'unsafe-inline' https:; script-src 'unsafe-inline' 'unsafe-eval'; font-src data: https: http:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
 
 function hasHtmlShell(source: string): boolean {
   return /<html[\s>]|<!doctype/i.test(source);
