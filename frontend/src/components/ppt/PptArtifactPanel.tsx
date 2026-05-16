@@ -11,10 +11,62 @@ type PptArtifactPanelProps = {
   borderColor: MotionValue<string>;
 };
 
+type ExportToPptxOptions = {
+  fileName?: string;
+  width?: number;
+  height?: number;
+  layout?: string;
+  transition?: string;
+  margin?: number;
+  autoEmbedFonts?: boolean;
+  svgAsVector?: boolean;
+};
+
 type ExportToPptxFn = (
-  target: string | Element | Element[] | NodeList,
-  options?: { fileName?: string; width?: number; height?: number; layout?: string; transition?: string },
+  target: string | Element | Element[],
+  options?: ExportToPptxOptions,
 ) => Promise<void>;
+
+const EXPORT_FRAME_WIDTH = 1280;
+const EXPORT_FRAME_HEIGHT = 720;
+
+const PPTX_EXPORT_CSS = `
+html,body{
+  margin:0!important;
+  width:${EXPORT_FRAME_WIDTH}px!important;
+  min-width:${EXPORT_FRAME_WIDTH}px!important;
+  height:auto!important;
+  overflow:visible!important;
+}
+.deck{
+  position:relative!important;
+  width:${EXPORT_FRAME_WIDTH}px!important;
+  height:auto!important;
+  min-height:0!important;
+  overflow:visible!important;
+}
+.deck>.slide,
+section.slide,
+body.single .slide{
+  position:relative!important;
+  inset:auto!important;
+  width:${EXPORT_FRAME_WIDTH}px!important;
+  height:${EXPORT_FRAME_HEIGHT}px!important;
+  min-width:${EXPORT_FRAME_WIDTH}px!important;
+  min-height:${EXPORT_FRAME_HEIGHT}px!important;
+  max-width:${EXPORT_FRAME_WIDTH}px!important;
+  max-height:${EXPORT_FRAME_HEIGHT}px!important;
+  box-sizing:border-box!important;
+  opacity:1!important;
+  visibility:visible!important;
+  transform:none!important;
+  pointer-events:auto!important;
+  overflow:hidden!important;
+  page-break-after:always;
+  break-after:page;
+}
+.progress-bar,.notes-overlay,.overview,.notes,aside.notes{display:none!important;}
+`;
 
 let domToPptxReady: Promise<ExportToPptxFn> | null = null;
 
@@ -50,6 +102,61 @@ function loadDomToPptx(): Promise<ExportToPptxFn> {
   return domToPptxReady;
 }
 
+function injectBeforeHeadEnd(html: string, tag: string): string {
+  if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${tag}</head>`);
+  if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (match) => `${match}${tag}`);
+  return tag + html;
+}
+
+function buildPptxExportDocument(html: string): string {
+  return injectBeforeHeadEnd(html, `<style data-agenticos-pptx-export>${PPTX_EXPORT_CSS}</style>`);
+}
+
+function waitForFrameLoad(frame: HTMLIFrameElement): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    frame.onload = finish;
+    frame.onerror = () => {
+      if (settled) return;
+      settled = true;
+      reject(new Error('Export iframe failed to load'));
+    };
+    setTimeout(finish, 3000);
+  });
+}
+
+async function waitForExportDocumentReady(doc: Document): Promise<void> {
+  // Wait for @import -> @font-face -> font file chain to fully resolve.
+  // doc.fonts.ready may resolve before @import rules in inline <style> tags
+  // have fetched their external CSS, so we poll font status.
+  const maxWait = 8000;
+  const start = Date.now();
+  while (Date.now() - start < maxWait) {
+    if (doc.fonts?.status === 'loaded') break;
+    await new Promise<void>((r) => setTimeout(r, 100));
+  }
+  await doc.fonts?.ready?.catch(() => undefined);
+
+  const images = Array.from(doc.images || []);
+  await Promise.all(
+    images.map((img) => {
+      if (img.complete) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        img.addEventListener('load', () => resolve(), { once: true });
+        img.addEventListener('error', () => resolve(), { once: true });
+      });
+    }),
+  );
+
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  await new Promise<void>((resolve) => setTimeout(resolve, 500));
+}
+
 export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, onClose, borderColor }) => {
   const [isExporting, setIsExporting] = React.useState(false);
   const iframeRef = React.useRef<HTMLIFrameElement | null>(null);
@@ -57,7 +164,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
 
   const handleExport = async () => {
     setIsExporting(true);
-    let tempContainer: HTMLDivElement | null = null;
+    let tempContainer: HTMLElement | null = null;
     try {
       await document.fonts?.ready;
       const exportToPptx = await loadDomToPptx();
@@ -68,22 +175,17 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
       exportFrame.style.position = 'fixed';
       exportFrame.style.top = '0';
       exportFrame.style.left = '0';
-      exportFrame.style.width = '1280px';
-      exportFrame.style.height = '720px';
+      exportFrame.style.width = `${EXPORT_FRAME_WIDTH}px`;
+      exportFrame.style.height = `${EXPORT_FRAME_HEIGHT}px`;
       exportFrame.style.opacity = '0';
       exportFrame.style.pointerEvents = 'none';
       exportFrame.style.zIndex = '-1';
-      exportFrame.srcdoc = artifact.html;
-      document.body.appendChild(exportFrame);
       tempContainer = exportFrame;
 
-      // Wait for the iframe to load
-      await new Promise<void>((resolve, reject) => {
-        exportFrame.onload = () => resolve();
-        exportFrame.onerror = () => reject(new Error('Export iframe failed to load'));
-        // Timeout fallback
-        setTimeout(() => resolve(), 3000);
-      });
+      const frameLoaded = waitForFrameLoad(exportFrame);
+      exportFrame.srcdoc = buildPptxExportDocument(previewSrcDoc);
+      document.body.appendChild(exportFrame);
+      await frameLoaded;
 
       const iframeDoc = exportFrame.contentDocument;
       if (!iframeDoc) {
@@ -91,12 +193,13 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
         return;
       }
 
-      const slides = iframeDoc.querySelectorAll('.deck .slide');
+      await waitForExportDocumentReady(iframeDoc);
+
+      const slides = Array.from(iframeDoc.querySelectorAll<HTMLElement>('.deck .slide'));
       console.log(`[PPTX Export] Found ${slides.length} slides in iframe`);
 
       // Force layout so innerText is available for dom-to-pptx content detection
-      slides.forEach((s, i) => {
-        const el = s as HTMLElement;
+      slides.forEach((el, i) => {
         const h = el.offsetHeight;
         const text = el.innerText?.trim().slice(0, 60);
         console.log(`[PPTX Export] slide ${i + 1}: offsetHeight=${h}, innerText="${text}"`);
@@ -106,6 +209,9 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
         await exportToPptx(slides, {
           fileName: `${artifact.title || 'AgenticOS-PPT'}.pptx`,
           layout: 'LAYOUT_16x9',
+          margin: 0,
+          autoEmbedFonts: true,
+          svgAsVector: true,
         });
         console.log('[PPTX Export] Done');
       } else {
@@ -178,7 +284,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             srcDoc={previewSrcDoc}
             title={artifact.title}
             className="min-h-[calc(100vh-10rem)] w-full border-0"
-            sandbox="allow-same-origin allow-scripts"
+            sandbox="allow-scripts"
             allow="fullscreen"
             referrerPolicy="no-referrer"
           />
