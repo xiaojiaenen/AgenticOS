@@ -305,29 +305,86 @@ class AgentService:
         if loaded is not None:
             sessions[request.session_id] = loaded
 
-    @staticmethod
-    def _inject_design_catalog(message: str) -> str:
+    _layout_catalog_cache: str | None = None
+
+    @classmethod
+    def _build_layout_catalog(cls) -> str:
+        """Build a compact catalog of all 31 single-page layout HTML samples.
+
+        Reads each layout file from templates/single-page/, extracts the
+        <style> block (layout-specific CSS) and <section> block (slide HTML),
+        and formats them for LLM copy-paste.
+        """
+        if cls._layout_catalog_cache is not None:
+            return cls._layout_catalog_cache
+
+        from pathlib import Path
+        import re as _re
+
+        layouts_dir = Path(__file__).resolve().parent / "ppt" / "html-ppt" / "templates" / "single-page"
+        if not layouts_dir.exists():
+            cls._layout_catalog_cache = ""
+            return ""
+
+        parts: list[str] = []
+        for fpath in sorted(layouts_dir.glob("*.html")):
+            name = fpath.stem
+            raw = fpath.read_text(encoding="utf-8")
+
+            # Extract <style> block(s)
+            style_blocks = _re.findall(r"<style[^>]*>(.*?)</style>", raw, _re.DOTALL)
+            styles = "\n".join(s.strip() for s in style_blocks).strip()
+
+            # Extract <section class="slide"> block
+            sec_m = _re.search(r'<section class="slide[^"]*"[^>]*>.*?</section>', raw, _re.DOTALL)
+            if sec_m is None:
+                continue
+            section_html = sec_m.group()
+
+            # Compact: remove excessive whitespace but keep structure readable
+            section_html = _re.sub(r"\n\s*\n", "\n", section_html)
+            section_html = _re.sub(r" {2,}", " ", section_html)
+
+            parts.append(f"<!-- layout: {name} -->")
+            if styles:
+                parts.append(f"<style>\n{styles}\n</style>")
+            parts.append(section_html)
+            parts.append("")
+
+        cls._layout_catalog_cache = "\n".join(parts)
+        return cls._layout_catalog_cache
+
+    @classmethod
+    def _inject_design_catalog(cls, message: str) -> str:
+        layout_catalog = cls._build_layout_catalog()
+
         lines = [
             "",
             "---",
-            "## html-ppt 资源目录",
+            "## html-ppt 真实 Layout 样本（从 templates/single-page/ 提取）",
             "",
-            "### 主题推荐（根据受众选择，不用等用户确认—直接选最合适的）",
+            "**工作流：为每页选择一个 layout → 复制其 <section> 块 → 替换 demo 数据 → 保留 class 结构和 <style> 不变。**",
+            "",
+            "下面是你可用的全部 layout 的真实 HTML。注意：部分 layout 自带 <style> 块（如 timeline 的 .tl、comparison 的 .vs），**必须原样保留**这些 style 块在 slide 前面，它们定义了该 layout 的专属样式。",
+            "",
+            layout_catalog,
+            "",
+            "---",
+            "## 快速参考",
+            "",
+            "### 主题选择（直接选最合适的，不用问用户）",
             "- 技术分享 / 开发者 → tokyo-night, dracula, nord, catppuccin-mocha, terminal-green",
             "- 商业 / 管理层汇报 → corporate-clean, minimal-white, pitch-deck-vc, swiss-grid",
             "- 创意提案 / 发布会 → neo-brutalism, aurora, glassmorphism, cyberpunk-neon, magazine-bold",
             "- 学术 / 研究报告 → academic-paper, editorial-serif, solarized-light",
             "- 小红书 / 社交媒体 → xiaohongshu-white, soft-pastel, rainbow-gradient, memphis-pop",
             "",
-            "### 你的任务",
-            "1. 推荐 1 个最匹配主题，直接写入 <html data-theme=\"xxx\">",
-            "2. 在 <body data-themes=\"...\"> 中列出 3 个备选主题供用户切换（按 T 键即可切换）",
-            "3. 规划 8-14 页的 layout 序列（cover → toc → bullets → kpi-grid → ... → thanks）",
-            "4. 使用 .grid .g3 .card .h1 .kicker .center 等 composable class 构建每页",
-            "5. 所有颜色用 var(--bg) var(--text-1) var(--accent) 等令牌",
-            "",
-            "**绝对不要**: 写 <style> 标签 · 用具体颜色值 · 凭空设计 layout（只用 31 种已有 layout 的模式）",
-            "**必须**: 引入 assets/base.css + assets/fonts.css + assets/themes/<name>.css + assets/runtime.js",
+            "### 关键规则",
+            "1. 推荐 1 个最匹配主题写入 `<html data-theme=\"xxx\">`，body data-themes 列 3-5 个备选",
+            "2. 每页从上面的 layout 样本中**复制粘贴**，替换内容但保留结构",
+            "3. 带 <style> 的 layout：把 <style> 块复制到 slide 前面，一起放进 deck",
+            "4. 所有颜色用 var(--xxx) 令牌",
+            "5. deck 中必须引入: assets/base.css + assets/fonts.css + assets/themes/<name>.css + assets/animations/animations.css + assets/runtime.js",
             "",
             "**CURRENT TIME:** " + __import__("datetime").datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
         ]
