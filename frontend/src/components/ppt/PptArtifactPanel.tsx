@@ -62,14 +62,17 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
       await document.fonts?.ready;
       const exportToPptx = await loadDomToPptx();
 
-      // Load artifact.html in a hidden iframe so <html>/<head>/<body> tags
-      // and CSS selectors like body.single are preserved for rendering.
+      // Load artifact.html in an invisible iframe (opacity:0, not off-screen)
+      // so that innerText-based content detection in dom-to-pptx works.
       const exportFrame = document.createElement('iframe');
       exportFrame.style.position = 'fixed';
-      exportFrame.style.left = '-99999px';
       exportFrame.style.top = '0';
+      exportFrame.style.left = '0';
       exportFrame.style.width = '1280px';
       exportFrame.style.height = '720px';
+      exportFrame.style.opacity = '0';
+      exportFrame.style.pointerEvents = 'none';
+      exportFrame.style.zIndex = '-1';
       exportFrame.srcdoc = artifact.html;
       document.body.appendChild(exportFrame);
       tempContainer = exportFrame;
