@@ -125,7 +125,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "skill": {"enabled": False, "requires_approval": False},
     },
     "ppt": {
-        "calc": {"enabled": True, "requires_approval": False},
+        "calc": {"enabled": False, "requires_approval": False},
         "time": {"enabled": False, "requires_approval": False},
         "file": {"enabled": False, "requires_approval": True},
         "python": {"enabled": False, "requires_approval": True},
