@@ -2,11 +2,11 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 
 from app.api.deps import get_current_user
 from app.db.models import UserModel
-from app.schemas.agent import AgentStreamRequest, ApprovalDecisionRequest
+from app.schemas.agent import AgentStreamRequest, ApprovalDecisionRequest, PptExportRequest
 from app.services.agent_service import AgentService, get_agent_service
 from app.services.design_system import get_design_system_registry
 
@@ -138,3 +138,34 @@ async def get_ppt_artifact(
     if artifact is None:
         raise HTTPException(status_code=404, detail="PPT 制品不存在。")
     return artifact
+
+
+@router.post("/ppt/export", summary="导出 PPT 制品为原生 .pptx 文件")
+async def export_pptx(
+    request: PptExportRequest,
+    current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
+) -> Response:
+    try:
+        pptx_bytes = await agent_service.export_pptx(
+            artifact_id=request.artifact_id,
+            canvas_format=request.canvas_format,
+            theme=request.theme,
+            use_native_shapes=request.use_native_shapes,
+            use_compat_mode=request.use_compat_mode,
+            transition=request.transition,
+            animation=request.animation,
+            enable_notes=request.enable_notes,
+            current_user=current_user,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return Response(
+        content=pptx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={"Content-Disposition": f"attachment; filename=export.pptx"},
+    )

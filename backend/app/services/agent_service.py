@@ -881,6 +881,69 @@ class AgentService:
             await self._ensure_record_owner(artifact_id, PptArtifactModel, "artifact_id", current_user)
         return await self.ppt_artifacts.get(artifact_id)
 
+    async def export_pptx(
+        self,
+        artifact_id: str,
+        *,
+        canvas_format: str | None = None,
+        theme: str | None = None,
+        use_native_shapes: bool = True,
+        use_compat_mode: bool = False,
+        transition: str | None = None,
+        animation: str | None = None,
+        enable_notes: bool = True,
+        current_user: UserModel | None = None,
+    ) -> bytes:
+        """Export a PPT artifact as a native .pptx file.
+
+        Converts the SVG pages stored in the artifact into DrawingML shapes
+        and assembles a complete PowerPoint file.
+        """
+        import logging
+        import tempfile
+        from pathlib import Path
+        from app.services.ppt.svg_to_pptx import create_pptx_with_native_svg
+
+        _logger = logging.getLogger("ppt_export")
+
+        if current_user is not None:
+            await self._ensure_record_owner(artifact_id, PptArtifactModel, "artifact_id", current_user)
+
+        artifact = await self.ppt_artifacts.get(artifact_id)
+        if artifact is None:
+            raise FileNotFoundError(f"PPT artifact '{artifact_id}' not found")
+
+        svgs = self.ppt_artifacts.extract_svgs_from_artifact(artifact)
+        if not svgs:
+            raise ValueError("Artifact contains no SVG slides to export")
+
+        _logger.info(f"Exporting artifact {artifact_id}: {len(svgs)} slides, "
+                     f"native_shapes={use_native_shapes}, compat={use_compat_mode}")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            svg_paths: list[Path] = []
+            for i, svg_content in enumerate(svgs):
+                svg_path = tmpdir_path / f"slide{i + 1}.svg"
+                svg_path.write_text(svg_content, encoding="utf-8")
+                svg_paths.append(svg_path)
+
+            output_path = tmpdir_path / "output.pptx"
+            create_pptx_with_native_svg(
+                svg_files=svg_paths,
+                output_path=output_path,
+                canvas_format=canvas_format or "ppt169",
+                verbose=False,
+                transition=transition,
+                use_native_shapes=use_native_shapes,
+                use_compat_mode=use_compat_mode,
+                animation=animation,
+                enable_notes=enable_notes,
+                notes={},
+            )
+
+            return output_path.read_bytes()
+
     async def list_user_sessions(self, user_id: int) -> list[dict[str, Any]]:
         return await self.storage.list_user_sessions(user_id)
 
