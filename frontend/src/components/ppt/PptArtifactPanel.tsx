@@ -21,13 +21,15 @@ let domToPptxReady: Promise<ExportToPptxFn> | null = null;
 function loadDomToPptx(): Promise<ExportToPptxFn> {
   if (domToPptxReady) return domToPptxReady;
   domToPptxReady = new Promise((resolve, reject) => {
-    // Check if already loaded
     const win = window as unknown as Record<string, unknown>;
     const domToPptx = win.domToPptx as Record<string, unknown> | undefined;
     if (typeof domToPptx?.exportToPptx === 'function') {
       resolve(domToPptx.exportToPptx as ExportToPptxFn);
       return;
     }
+    // Remove any previously loaded script to force re-fetch
+    const oldScript = document.querySelector('script[src="/vendor/dom-to-pptx.js"]');
+    if (oldScript) oldScript.remove();
     const script = document.createElement('script');
     script.src = '/vendor/dom-to-pptx.js';
     script.onload = () => {
@@ -35,10 +37,14 @@ function loadDomToPptx(): Promise<ExportToPptxFn> {
       if (typeof lib?.exportToPptx === 'function') {
         resolve(lib.exportToPptx as ExportToPptxFn);
       } else {
+        domToPptxReady = null;
         reject(new Error('exportToPptx not found after script load'));
       }
     };
-    script.onerror = () => reject(new Error('Failed to load dom-to-pptx bundle'));
+    script.onerror = () => {
+      domToPptxReady = null;
+      reject(new Error('Failed to load dom-to-pptx bundle'));
+    };
     document.head.appendChild(script);
   });
   return domToPptxReady;
@@ -54,46 +60,31 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
     let tempContainer: HTMLDivElement | null = null;
     try {
       await document.fonts?.ready;
-      const iframeDoc = iframeRef.current?.contentDocument;
+      const exportToPptx = await loadDomToPptx();
+
+      // Use artifact.html directly — it's the self-contained HTML with all
+      // styles inlined and body.single already applied by the backend.
       tempContainer = document.createElement('div');
       tempContainer.style.position = 'fixed';
       tempContainer.style.left = '-99999px';
       tempContainer.style.top = '0';
       tempContainer.style.width = '1280px';
-
-      if (iframeDoc) {
-        // Copy all <style> elements so CSS variables resolve in cloned slides
-        iframeDoc.querySelectorAll('style').forEach((styleEl) => {
-          tempContainer.appendChild(styleEl.cloneNode(true));
-        });
-        const slides = iframeDoc.querySelectorAll('.deck .slide');
-        const deck = document.createElement('div');
-        slides.forEach((slide) => {
-          const clone = slide.cloneNode(true) as HTMLElement;
-          clone.style.position = 'relative';
-          clone.style.opacity = '1';
-          clone.style.transform = 'none';
-          clone.style.pointerEvents = 'auto';
-          clone.style.width = '1280px';
-          clone.style.height = '720px';
-          clone.style.marginBottom = '0';
-          clone.style.inset = 'auto';
-          deck.appendChild(clone);
-        });
-        tempContainer.appendChild(deck);
-      } else {
-        tempContainer.innerHTML = artifact.html;
-      }
+      tempContainer.innerHTML = artifact.html;
       document.body.appendChild(tempContainer);
 
-      const exportToPptx = await loadDomToPptx();
       const slides = tempContainer.querySelectorAll('.slide');
+      console.log(`[PPTX Export] Found ${slides.length} slides in artifact`);
       if (slides.length > 0) {
         await exportToPptx(slides, {
           fileName: `${artifact.title || 'AgenticOS-PPT'}.pptx`,
           layout: 'LAYOUT_16x9',
         });
+        console.log('[PPTX Export] Done');
+      } else {
+        console.warn('[PPTX Export] No .slide elements found');
       }
+    } catch (err) {
+      console.error('[PPTX Export] Error:', err);
     } finally {
       tempContainer?.remove();
       setIsExporting(false);
