@@ -307,25 +307,30 @@ class AgentService:
 
     @staticmethod
     def _inject_design_catalog(message: str) -> str:
-        from app.services.design_system import get_design_system_registry
-
-        registry = get_design_system_registry()
-        systems = registry.list_all()
-        if not systems:
-            return message
         lines = [
             "",
             "---",
-            "## 可用设计系统",
+            "## html-ppt 资源目录",
             "",
-            "你可以使用以下预置设计系统的 CSS 令牌（var(--accent), var(--bg), var(--fg), var(--surface) 等）。",
-            "根据用户需求选择最合适的系统。如果用户没有指定，选择一个最匹配内容和受众的系统。",
+            "### 主题推荐（根据受众选择，不用等用户确认—直接选最合适的）",
+            "- 技术分享 / 开发者 → tokyo-night, dracula, nord, catppuccin-mocha, terminal-green",
+            "- 商业 / 管理层汇报 → corporate-clean, minimal-white, pitch-deck-vc, swiss-grid",
+            "- 创意提案 / 发布会 → neo-brutalism, aurora, glassmorphism, cyberpunk-neon, magazine-bold",
+            "- 学术 / 研究报告 → academic-paper, editorial-serif, solarized-light",
+            "- 小红书 / 社交媒体 → xiaohongshu-white, soft-pastel, rainbow-gradient, memphis-pop",
             "",
+            "### 你的任务",
+            "1. 推荐 1 个最匹配主题，直接写入 <html data-theme=\"xxx\">",
+            "2. 在 <body data-themes=\"...\"> 中列出 3 个备选主题供用户切换（按 T 键即可切换）",
+            "3. 规划 8-14 页的 layout 序列（cover → toc → bullets → kpi-grid → ... → thanks）",
+            "4. 使用 .grid .g3 .card .h1 .kicker .center 等 composable class 构建每页",
+            "5. 所有颜色用 var(--bg) var(--text-1) var(--accent) 等令牌",
+            "",
+            "**绝对不要**: 写 <style> 标签 · 用具体颜色值 · 凭空设计 layout（只用 31 种已有 layout 的模式）",
+            "**必须**: 引入 assets/base.css + assets/fonts.css + assets/themes/<name>.css + assets/runtime.js",
+            "",
+            "**CURRENT TIME:** " + __import__("datetime").datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
         ]
-        for ds in systems[:20]:
-            lines.append(
-                f"- **{ds.label}** (`{ds.name}`) [{ds.category}]: {ds.description[:100]}"
-            )
         return message + "\n".join(lines)
 
     def _normalize_session_limits(
