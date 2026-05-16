@@ -128,6 +128,11 @@ class AgentProfileService:
                     if "data/websites/<project_slug>/" not in current_prompt:
                         profile.system_prompt = WEBSITE_SYSTEM_PROMPT
                         changed = True
+                if slug == "ppt":
+                    current_prompt = profile.system_prompt or ""
+                    if "第0步：创作前必须确认" not in current_prompt:
+                        profile.system_prompt = PPT_SYSTEM_PROMPT
+                        changed = True
 
             changed = self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS[slug]) or changed
             if slug == "website":
