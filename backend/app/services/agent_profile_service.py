@@ -19,7 +19,7 @@ from app.db.models import (
     UserModel,
 )
 from app.db.session import create_db_session
-from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_SYSTEM_PROMPT, EMAIL_SYSTEM_PROMPT
+from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, PPT_SVG_SYSTEM_PROMPT, WEBSITE_SYSTEM_PROMPT, EMAIL_SYSTEM_PROMPT
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
 from app.services.skill_service import RuntimeSkill, SkillService
 from app.services.tool_config_service import AGENT_MODES, DEFAULT_MODE_TOOLS, TOOL_CATALOG
@@ -31,6 +31,7 @@ AUDIENCE_MODE_SELECTED = "selected"
 MODE_DEFAULT_PROMPTS: dict[str, str] = {
     "general": GENERAL_SYSTEM_PROMPT,
     "ppt": PPT_SYSTEM_PROMPT,
+    "ppt-svg": PPT_SVG_SYSTEM_PROMPT,
     "website": WEBSITE_SYSTEM_PROMPT,
     "email": EMAIL_SYSTEM_PROMPT,
 }
@@ -56,6 +57,14 @@ BUILTIN_AGENT_PROFILES = {
         "description": "将想法整理为结构化演示文稿，自动生成可预览的 PPT 内容。",
         "system_prompt": PPT_SYSTEM_PROMPT,
         "response_mode": "ppt",
+        "avatar": "presentation",
+        "listed": True,
+    },
+    "ppt-svg": {
+        "name": "PPT 设计师 (SVG)",
+        "description": "使用 SVG 原生图形生成演示文稿，支持导出原生 .pptx 文件，形状可编辑。",
+        "system_prompt": PPT_SVG_SYSTEM_PROMPT,
+        "response_mode": "ppt-svg",
         "avatar": "presentation",
         "listed": True,
     },

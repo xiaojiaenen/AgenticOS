@@ -17,6 +17,10 @@ AGENT_MODES = {
         "label": "PPT 模式",
         "description": "优先生成结构化演示文稿，默认不启用外部工具。",
     },
+    "ppt-svg": {
+        "label": "PPT SVG 模式",
+        "description": "使用 SVG 原生图形生成演示文稿，支持导出原生 .pptx 文件。",
+    },
     "website": {
         "label": "网站模式",
         "description": "用于页面方案、前端代码和交互式应用生成。",
@@ -125,6 +129,15 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "skill": {"enabled": False, "requires_approval": False},
     },
     "ppt": {
+        "calc": {"enabled": False, "requires_approval": False},
+        "time": {"enabled": False, "requires_approval": False},
+        "file": {"enabled": False, "requires_approval": True},
+        "python": {"enabled": False, "requires_approval": True},
+        "git": {"enabled": False, "requires_approval": True},
+        "npm": {"enabled": False, "requires_approval": True},
+        "skill": {"enabled": False, "requires_approval": False},
+    },
+    "ppt-svg": {
         "calc": {"enabled": False, "requires_approval": False},
         "time": {"enabled": False, "requires_approval": False},
         "file": {"enabled": False, "requires_approval": True},

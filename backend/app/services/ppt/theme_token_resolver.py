@@ -1,0 +1,127 @@
+"""Parse AgenticOS theme CSS files and resolve ``var(--token)`` references in SVG.
+
+Each theme CSS file (36 total) defines a ``:root { }`` block with CSS custom
+properties.  This module extracts those tokens and provides deterministic
+string replacement so the AI can generate SVG with ``var(--bg)`` etc. while
+the stored artifact contains self-contained hex values.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from pathlib import Path
+
+logger = logging.getLogger("ppt_artifact.token_resolver")
+
+# Directory containing the 36 theme CSS files
+_THEMES_DIR = Path(__file__).resolve().parent / "html-ppt" / "assets" / "themes"
+
+# Cache: theme_name → {--token_name: value}
+_token_cache: dict[str, dict[str, str]] = {}
+
+# Regex to pick out custom property declarations inside the :root block
+_ROOT_BLOCK_RE = re.compile(r":root\s*\{([^}]+)\}", re.DOTALL)
+_TOKEN_RE = re.compile(r"--([\w-]+)\s*:\s*([^;]+);")
+
+
+def parse_theme_css(css_text: str) -> dict[str, str]:
+    """Extract all ``--name: value`` pairs from the ``:root { }`` block."""
+    tokens: dict[str, str] = {}
+    m = _ROOT_BLOCK_RE.search(css_text)
+    if m is None:
+        return tokens
+    block = m.group(1)
+    for match in _TOKEN_RE.finditer(block):
+        name = f"--{match.group(1)}"
+        value = match.group(2).strip()
+        tokens[name] = value
+    return tokens
+
+
+def load_theme_tokens(theme_name: str) -> dict[str, str]:
+    """Load and cache token dictionary for *theme_name*.
+
+    Returns an empty dict when the theme file doesn't exist.
+    """
+    if theme_name in _token_cache:
+        return _token_cache[theme_name]
+
+    css_path = _THEMES_DIR / f"{theme_name}.css"
+    if not css_path.is_file():
+        logger.warning("Theme CSS not found: %s", css_path)
+        _token_cache[theme_name] = {}
+        return {}
+
+    tokens = parse_theme_css(css_path.read_text(encoding="utf-8"))
+    _token_cache[theme_name] = tokens
+    return tokens
+
+
+def resolve_token_values(svg_content: str, tokens: dict[str, str]) -> str:
+    """Replace every ``var(--token_name)`` in *svg_content* with its resolved value."""
+    result = svg_content
+    for token_name, value in tokens.items():
+        if not value:
+            continue
+        placeholder = f"var({token_name})"
+        result = result.replace(placeholder, value)
+    return result
+
+
+# Tokens that represent colors (as opposed to radii, shadows, fonts, etc.)
+_COLOR_TOKEN_NAMES = {
+    "--bg", "--bg-soft", "--surface", "--surface-2",
+    "--border", "--border-strong",
+    "--text-1", "--text-2", "--text-3",
+    "--accent", "--accent-2", "--accent-3",
+    "--good", "--warn", "--bad",
+}
+
+
+def build_color_token_table(theme_name: str) -> str:
+    """Build a compact Markdown table of colour tokens for *theme_name*.
+
+    Only colour tokens are included — radius, shadow, and font tokens are
+    skipped because they are not valid SVG attribute values.
+    """
+    tokens = load_theme_tokens(theme_name)
+    if not tokens:
+        return f"(Theme '{theme_name}' not found — using minimal-white)\n"
+
+    lines = ["| Token | Value |", "|-------|-------|"]
+    for name in sorted(tokens):
+        if name not in _COLOR_TOKEN_NAMES:
+            continue
+        lines.append(f"| {name} | {tokens[name]} |")
+    return "\n".join(lines)
+
+
+def build_token_quick_ref() -> str:
+    """Return a compact semantic reference for every CSS token the AI may use."""
+    return """**Token 语义速查**（颜色用 `var(--xxx)` 引用，数值直接从下表取值）：
+| Token | 用途 | 值（非颜色直接写死） |
+|-------|------|---------------------|
+| --bg | 幻灯片背景 | （颜色） |
+| --bg-soft | 柔化背景（浅遮罩） | （颜色） |
+| --surface / --surface-2 | 卡片/面板背景 | （颜色） |
+| --text-1 / --text-2 / --text-3 | 一级/二级/三级文字 | （颜色） |
+| --accent / --accent-2 / --accent-3 | 强调/品牌色 | （颜色） |
+| --good / --warn / --bad | 正向/警告/负面语义色 | （颜色） |
+| --border / --border-strong | 边框/分割线 | （颜色） |
+| --radius: 12px | 卡片圆角 → SVG: rx="12" | **直接用数值 12** |
+| --radius-sm: 8px | 小圆角 → SVG: rx="8" | **直接用数值 8** |
+| --radius-lg: 20px | 大圆角 → SVG: rx="20" | **直接用数值 20** |
+| --font-sans | 正文无衬线字体 | Inter, Noto Sans SC, sans-serif |
+| --font-serif | 衬线字体 | Playfair Display, Noto Serif SC, serif |
+| --font-mono | 等宽字体 | JetBrains Mono, monospace |
+| --font-display | 展示字体 | 同 sans 或 serif（看主题） |
+
+**重要**：SVG 中颜色以外的 token（radius、font-family、shadow）不要使用 var() 语法，直接写数值/字体名。"""
+
+
+def list_available_themes() -> list[str]:
+    """Return sorted list of theme names found on disk."""
+    if not _THEMES_DIR.is_dir():
+        return []
+    return sorted(p.stem for p in _THEMES_DIR.glob("*.css"))

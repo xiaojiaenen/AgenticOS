@@ -222,11 +222,29 @@ def _write_artifact_files(artifact_id: str, source_html: str, preview_html: str)
         f.write(preview_html)
 
 
+def _write_svg_artifact_files(artifact_id: str, raw_svgs: list[str], resolved_svgs: list[str], preview_html: str) -> None:
+    """Write SVG source files and preview to data/ppt-output/ for debugging."""
+    import os as _os
+    project_root = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))))
+    output_dir = _os.path.join(project_root, "data", "ppt-output", artifact_id)
+    _os.makedirs(output_dir, exist_ok=True)
+    for i, svg in enumerate(resolved_svgs):
+        with open(_os.path.join(output_dir, f"source_slide_{i + 1}.svg"), "w", encoding="utf-8") as f:
+            f.write(svg)
+    with open(_os.path.join(output_dir, "preview.html"), "w", encoding="utf-8") as f:
+        f.write(preview_html)
+
+
 class PptArtifactService:
     def __init__(self, session_factory=create_db_session) -> None:
         self.session_factory = session_factory
 
-    async def create_from_text(self, session_id: str, text: str) -> dict[str, Any] | None:
+    async def create_from_text(self, session_id: str, text: str, mode: str = "ppt") -> dict[str, Any] | None:
+        if mode == "ppt-svg":
+            return await self._create_from_svg_text(session_id, text)
+        return await self._create_from_html_text(session_id, text)
+
+    async def _create_from_html_text(self, session_id: str, text: str) -> dict[str, Any] | None:
         import logging
         _logger = logging.getLogger("ppt_artifact")
         html = extract_html_from_text(text)
@@ -270,6 +288,66 @@ class PptArtifactService:
 
         # Write to data/ppt-output/ for easy debugging and manual editing
         _write_artifact_files(artifact_id, html, preview_html)
+
+        return {
+            "artifact_id": artifact_id,
+            "session_id": session_id,
+            "title": title,
+            "slide_count": slide_count,
+            "html": preview_html,
+        }
+
+    async def _create_from_svg_text(self, session_id: str, text: str) -> dict[str, Any] | None:
+        import logging
+        from app.services.ppt.theme_token_resolver import load_theme_tokens, resolve_token_values
+
+        _logger = logging.getLogger("ppt_artifact.svg")
+        svgs = extract_svgs_from_text(text)
+        if not svgs:
+            _logger.warning(f"extract_svgs_from_text returned empty for session={session_id}, "
+                           f"text_len={len(text)}, has_svg_block={'```svg' in text.lower()}")
+            return None
+        if not validate_svg_slides(svgs):
+            _logger.warning(f"validate_svg_slides failed: count={len(svgs)}")
+            return None
+
+        theme_name = _detect_theme_name_from_svg(svgs)
+        tokens = load_theme_tokens(theme_name)
+
+        # Resolve var(--xxx) references to actual color values
+        resolved_svgs = [resolve_token_values(svg, tokens) for svg in svgs]
+
+        preview_html = prepare_svg_preview(resolved_svgs, theme_name)
+        artifact_id = uuid.uuid4().hex
+
+        slide_count = len(resolved_svgs)
+
+        # Extract title from first SVG
+        title_match = re.search(r'<text[^>]*font-size="(?:68|72|56|60)"[^>]*>([^<]+)</text>', resolved_svgs[0])
+        if not title_match:
+            title_match = re.search(r'<text[^>]*font-weight="(?:800|700|bold)"[^>]*>([^<]+)</text>', resolved_svgs[0])
+        title = title_match.group(1).strip() if title_match else "演示文稿"
+
+        with self.session_factory() as db:
+            db.add(
+                PptArtifactModel(
+                    artifact_id=artifact_id,
+                    session_id=session_id,
+                    title=title,
+                    slide_count=slide_count,
+                    deck_json=dump_json({"theme": theme_name, "svgs": resolved_svgs}),
+                    preview_html=preview_html,
+                    metadata_json=dump_json({
+                        "source": "svg-ppt",
+                        "theme": theme_name,
+                        "raw_chars": len(text),
+                    }),
+                )
+            )
+            db.commit()
+
+        # Write SVG source files for debugging
+        _write_svg_artifact_files(artifact_id, svgs, resolved_svgs, preview_html)
 
         return {
             "artifact_id": artifact_id,

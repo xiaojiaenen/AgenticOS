@@ -26,6 +26,8 @@ from app.db.session import create_db_session
 from app.services.approval_manager import ApprovalManager
 from app.services.agent_profile_service import AgentProfileService, RuntimeAgentProfile
 from app.services.ppt_artifact_service import PptArtifactService, strip_html_block_from_text
+from app.services.ppt.svg_layouts import SVG_LAYOUTS
+from app.services.ppt.theme_token_resolver import build_color_token_table, build_token_quick_ref, list_available_themes
 from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.services.tool_config_service import ToolConfigService
 from app.schemas.agent import AgentStreamRequest
@@ -354,23 +356,6 @@ class AgentService:
         cls._layout_catalog_cache = "\n".join(parts)
         return cls._layout_catalog_cache
 
-    def _get_edit_hint(self, session_id: str) -> str | None:
-        """If the session has existing PPT artifacts, add a brief edit hint."""
-        try:
-            artifact = self.ppt_artifacts.get_latest_for_session(session_id)
-            if artifact is None:
-                return None
-            title = artifact.get("title", "未命名")
-            slide_count = artifact.get("slide_count", 0)
-            return (
-                f"\n\n---\n"
-                f"## 注意：当前对话已有一个 PPT（{title}，{slide_count} 页）\n"
-                f"用户可能要修改它。从对话历史中找到上次的 HTML，在此基础上修改后输出**完整的修改后 HTML**（包裹在 ```html 中）。\n"
-                f"如果是新建 PPT 要求，忽略此提示。\n"
-            )
-        except Exception:
-            return None
-
     @classmethod
     def _inject_design_catalog(cls, message: str) -> str:
         layout_catalog = cls._build_layout_catalog()
@@ -427,6 +412,80 @@ class AgentService:
         ]
         return message + "\n".join(lines)
 
+    @classmethod
+    def _build_svg_layout_catalog(cls) -> str:
+        """Build a compact catalog of all 31 SVG layout structural templates."""
+        parts: list[str] = []
+        for name, svg in SVG_LAYOUTS.items():
+            parts.append(svg)
+            parts.append("")
+        return "\n".join(parts)
+
+    @classmethod
+    def _inject_svg_design_catalog(cls, message: str, theme_name: str = "tokyo-night") -> str:
+        """Inject SVG layout templates + color token table + token reference."""
+        layout_catalog = cls._build_svg_layout_catalog()
+        color_table = build_color_token_table(theme_name)
+        token_ref = build_token_quick_ref()
+
+        lines = [
+            "",
+            "---",
+            "## SVG Layout 结构模板（31 个，可直接复制替换内容）",
+            "",
+            "**工作流：为每页选择一个 layout → 复制其 SVG 结构 → 替换占位内容 → 保留 var(--token) 和 data-theme 不变。**",
+            "",
+            layout_catalog,
+            "",
+            "---",
+            "## 当前主题颜色令牌表",
+            "",
+            color_table,
+            "",
+            token_ref,
+            "",
+            "**主题选择快速决策:**",
+            "- 技术分享 / 开发者 → tokyo-night, dracula, nord, catppuccin-mocha, terminal-green",
+            "- 商业 / 管理层汇报 → corporate-clean, minimal-white, pitch-deck-vc, swiss-grid",
+            "- 创意提案 / 发布会 → neo-brutalism, aurora, glassmorphism, cyberpunk-neon, magazine-bold",
+            "- 学术 / 研究报告 → academic-paper, editorial-serif, solarized-light",
+            "- 小红书 / 社交媒体 → xiaohongshu-white, soft-pastel, rainbow-gradient, memphis-pop",
+            "",
+            "### 关键规则",
+            "1. 推荐 1 个最匹配主题写入 `<svg data-theme=\"xxx\">`",
+            "2. 每页从上面的 SVG layout 样本中**复制粘贴**，替换内容但保留结构和 var(--token) 引用",
+            "3. 所有颜色用 var(--xxx) 令牌，非颜色属性（圆角、字号、字体）直接写值",
+            "4. 每页一个 ```svg 代码块，共 8-14 页",
+            "5. 演讲者备注：在 SVG 开头附近添加 `<!-- notes: ... -->`",
+            "",
+            "**CURRENT TIME:** " + __import__("datetime").datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+        ]
+        return message + "\n".join(lines)
+
+    def _get_edit_hint(self, session_id: str, mode: str = "html") -> str | None:
+        """If the session has existing PPT artifacts, add a brief edit hint."""
+        try:
+            artifact = self.ppt_artifacts.get_latest_for_session(session_id)
+            if artifact is None:
+                return None
+            title = artifact.get("title", "未命名")
+            slide_count = artifact.get("slide_count", 0)
+            if mode == "ppt-svg":
+                return (
+                    f"\n\n---\n"
+                    f"## 注意：当前对话已有一个 PPT（{title}，{slide_count} 页）\n"
+                    f"用户可能要修改它。从对话历史中找到上次的 SVG，在此基础上修改后输出**完整的修改后 SVG**（每页一个 ```svg 代码块）。\n"
+                    f"如果是新建 PPT 要求，忽略此提示。\n"
+                )
+            return (
+                f"\n\n---\n"
+                f"## 注意：当前对话已有一个 PPT（{title}，{slide_count} 页）\n"
+                f"用户可能要修改它。从对话历史中找到上次的 HTML，在此基础上修改后输出**完整的修改后 HTML**（包裹在 ```html 中）。\n"
+                f"如果是新建 PPT 要求，忽略此提示。\n"
+            )
+        except Exception:
+            return None
+
     def _normalize_session_limits(
         self,
         session,
@@ -434,7 +493,7 @@ class AgentService:
         response_mode: str,
         requested_max_steps: int | None,
     ) -> None:
-        if response_mode != "ppt" or requested_max_steps is not None:
+        if response_mode not in ("ppt", "ppt-svg") or requested_max_steps is not None:
             return
         current_max_steps = getattr(session, "max_steps", self.settings.agent_max_steps)
         if current_max_steps < self.settings.agent_max_steps:
@@ -626,17 +685,22 @@ class AgentService:
         runtime_profile = self._resolve_runtime_profile(request, user)
         response_mode = runtime_profile.response_mode
         ppt_mode = response_mode == "ppt"
+        svg_mode = response_mode == "ppt-svg"
         agent = self._get_agent(runtime_profile)
         if user is not None:
             await self.ensure_session_access(request, user)
         await self._load_session_if_needed(agent, request)
 
-        # Inject design system catalog for PPT mode
+        # Inject design system catalog for PPT modes
         message = request.message
         if ppt_mode:
             message = self._inject_design_catalog(message)
-            # If there's an existing artifact, add a lightweight edit hint
             edit_hint = self._get_edit_hint(request.session_id)
+            if edit_hint:
+                message = message + edit_hint
+        elif svg_mode:
+            message = self._inject_svg_design_catalog(message)
+            edit_hint = self._get_edit_hint(request.session_id, mode="ppt-svg")
             if edit_hint:
                 message = message + edit_hint
 
@@ -721,7 +785,7 @@ class AgentService:
                         first_text_delta = not saw_text_delta
                         saw_text_delta = True
                         collected_text += event.data.get("content", "")
-                        if ppt_mode:
+                        if ppt_mode or svg_mode:
                             if first_text_delta:
                                 yield {
                                     "event": "run_status",
@@ -748,8 +812,11 @@ class AgentService:
                         if isinstance(tool_name, str) and tool_name:
                             tool_names.append(tool_name)
 
-                    if ppt_mode and event.type == "done":
-                        artifact = await self.ppt_artifacts.create_from_text(session.session_id, collected_text)
+                    if (ppt_mode or svg_mode) and event.type == "done":
+                        artifact = await self.ppt_artifacts.create_from_text(
+                            session.session_id, collected_text,
+                            mode="ppt-svg" if svg_mode else "ppt",
+                        )
                         visible_text = strip_html_block_from_text(collected_text) if artifact else collected_text
                         if artifact is not None:
                             yield {
