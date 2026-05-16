@@ -74,6 +74,12 @@ def prepare_final_html(html: str) -> str:
     else:
         tag_end = body_m.end(1)  # position of >
         result = result[:tag_end] + ' class="single"' + result[tag_end:]
+    # Override deck overflow so all slides are scrollable in the iframe
+    result = result.replace(
+        "</head>",
+        "<style>body.single .deck{overflow:auto!important;height:auto!important}</style>\n</head>",
+        1,
+    )
     return result
 
 

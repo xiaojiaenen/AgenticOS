@@ -62,6 +62,10 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
       tempContainer.style.width = '1280px';
 
       if (iframeDoc) {
+        // Copy all <style> elements so CSS variables resolve in cloned slides
+        iframeDoc.querySelectorAll('style').forEach((styleEl) => {
+          tempContainer.appendChild(styleEl.cloneNode(true));
+        });
         const slides = iframeDoc.querySelectorAll('.deck .slide');
         const deck = document.createElement('div');
         slides.forEach((slide) => {
