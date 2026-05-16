@@ -62,18 +62,34 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
       await document.fonts?.ready;
       const exportToPptx = await loadDomToPptx();
 
-      // Use artifact.html directly — it's the self-contained HTML with all
-      // styles inlined and body.single already applied by the backend.
-      tempContainer = document.createElement('div');
-      tempContainer.style.position = 'fixed';
-      tempContainer.style.left = '-99999px';
-      tempContainer.style.top = '0';
-      tempContainer.style.width = '1280px';
-      tempContainer.innerHTML = artifact.html;
-      document.body.appendChild(tempContainer);
+      // Load artifact.html in a hidden iframe so <html>/<head>/<body> tags
+      // and CSS selectors like body.single are preserved for rendering.
+      const exportFrame = document.createElement('iframe');
+      exportFrame.style.position = 'fixed';
+      exportFrame.style.left = '-99999px';
+      exportFrame.style.top = '0';
+      exportFrame.style.width = '1280px';
+      exportFrame.style.height = '720px';
+      exportFrame.srcdoc = artifact.html;
+      document.body.appendChild(exportFrame);
+      tempContainer = exportFrame;
 
-      const slides = tempContainer.querySelectorAll('.slide');
-      console.log(`[PPTX Export] Found ${slides.length} slides in artifact`);
+      // Wait for the iframe to load
+      await new Promise<void>((resolve, reject) => {
+        exportFrame.onload = () => resolve();
+        exportFrame.onerror = () => reject(new Error('Export iframe failed to load'));
+        // Timeout fallback
+        setTimeout(() => resolve(), 3000);
+      });
+
+      const iframeDoc = exportFrame.contentDocument;
+      if (!iframeDoc) {
+        console.warn('[PPTX Export] Cannot access iframe document');
+        return;
+      }
+
+      const slides = iframeDoc.querySelectorAll('.deck .slide');
+      console.log(`[PPTX Export] Found ${slides.length} slides in iframe`);
       if (slides.length > 0) {
         await exportToPptx(slides, {
           fileName: `${artifact.title || 'AgenticOS-PPT'}.pptx`,
