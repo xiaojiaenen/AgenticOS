@@ -27,6 +27,7 @@ npm install                                # install dependencies
 npm run dev                                # start Vite dev server on :3001
 npm run build                              # production build
 npm run lint                               # TypeScript type-check (tsc --noEmit)
+npm run build:ppt-css                       # compile PPT Tailwind CSS for backend
 ```
 
 The Vite dev server proxies `/api` to `VITE_API_PROXY_TARGET` (default `http://127.0.0.1:8001`). Set `DISABLE_HMR=true` to disable HMR if needed.
@@ -57,6 +58,7 @@ backend/
         endpoints/
           auth.py, agent.py, agent_profiles.py, skills.py,
           dashboard.py, health.py, tool_config.py, users.py
+    schemas/                        # Pydantic request/response models for each endpoint group
     tools/
       email_tools.py               # IMAP/SMTP email tools — setup, count, read, search, get, send
     services/
@@ -68,36 +70,52 @@ backend/
       approval_manager.py          # HITL approval workflow with futures and subscriber broadcast
       tool_config_service.py       # tool catalog (8 tools) with per-mode defaults, sub-tool approval
       session_storage.py           # DB-backed wuwei storage (sessions, messages)
-      ppt_artifact_service.py      # parses pptdeck code blocks, delegates to ppt/ templates for HTML
-      ppt/                         # PPT multi-template system
-        base_template.py           # BaseTemplate class with Tailwind HTML rendering
-        registry.py                # template registry with alias support, 10 allowed slide types
-        templates/                 # 5 visual styles: executive, product, minimal, creative, academic
+      ppt_artifact_service.py      # parses ```html code blocks from LLM output, injects design system
+                                   #   tokens.css, validates slides, persists artifacts
+      design_system.py             # DesignSystem model + DesignSystemLoader + DesignSystemRegistry —
+                                   #   scans data/design-systems/ for ~149 brand design systems (stripe,
+                                   #   apple, airbnb, etc.) each with DESIGN.md and tokens.css
       auth_service.py              # registration, login, session management, rate limiting
       local_skill_import_service.py
     prompts.py                     # system prompts for 4 agent modes (general, ppt, website, email)
+  scripts/
+    sync_design_systems.py         # (deprecated) sync design systems from GitHub API — prefer local copy
+    import_local_skills.py         # import local skill folders into the database
 ```
 
 The wuwei framework (>=1.0.3) provides `Agent`, `LLMGateway`, `ToolRegistry`, `SkillManager`, `HitlHook`, and `ContextCompressionHook`. The backend wraps these with FastAPI endpoints and database persistence.
+
+### Data directory
+
+```
+data/
+  design-systems/                  # 149 brand design systems (stripe, apple, airbnb, etc.)
+                                   #   each with DESIGN.md (visual theme, palette, typography, rules);
+                                   #   17 also have tokens.css with CSS custom properties
+  skills/                          # local skill files (zip uploads extracted here)
+```
+
+Design systems are sourced from a local clone of [nexu-io/open-design](https://github.com/nexu-io/open-design) at `~/code/open-design/design-systems/`. Copy new/updated design systems into `data/design-systems/` directly. Design systems are organized into 9 categories (fintech, developer, productivity, ecommerce, media, automotive, ai, enterprise, general).
 
 ### Four agent modes
 
 | Mode | Default tools | Behavior summary |
 |------|--------------|-----------------|
 | `general` | calc, time, file (approval required) | Daily Q&A, lightweight tool use |
-| `ppt` | calc only | Structured presentation generation via `pptdeck` code blocks, 5 visual themes, 10 slide types |
+| `ppt` | calc only | Slide deck generation via ```html code blocks, 149 brand design systems, dom-to-pptx export |
 | `website` | calc, time, file, npm | Web/frontend development mode |
 | `email` | calc, time, skill | Email management via IMAP/SMTP — read, search, send with CC |
 
-### PPT multi-template system
+### PPT generation — Open Design design systems
 
-PPT generation has been refactored into `services/ppt/` with a template registry pattern:
+PPT generation uses design systems from the [nexu-io/open-design](https://github.com/nexu-io/open-design) repository:
 
-- **`registry.py`**: Decorator-based `@register("name")` pattern with alias support. `get_or_default(name)` falls back to `executive`.
-- **`base_template.py`**: `BaseTemplate` abstract class — each template defines CSS variables, slide type renderers, and a `render_html()` method using Tailwind utility classes.
-- **5 templates**: `executive` (corporate), `product` (gradient + glassmorphism), `minimal` (magazine), `creative` (colorful blocks), `academic` (grid + breadcrumbs).
-- **10 slide types**: `cover`, `section`, `bullets`, `stats`, `chart`, `comparison`, `timeline`, `quote`, `imageText`, `closing`.
-- Old theme names are handled via backward-compat aliases in the registry.
+- **`data/design-systems/`**: 149 brand design systems (stripe, apple, airbnb, vercel, notion, spotify, nike, tesla, etc.), each with `DESIGN.md` (visual theme, color palette, typography, do's/don'ts); 17 also have `tokens.css` (CSS custom properties).
+- **`services/design_system.py`**: `DesignSystem` dataclass, `DesignSystemLoader` (parses DESIGN.md + tokens.css), `DesignSystemRegistry` (scans `data/design-systems/`, 149 brands across 9 categories like fintech, developer, enterprise, ai, automotive).
+- **`services/ppt_artifact_service.py`**: Extracts ```html blocks from LLM output, detects which design system was used, injects the corresponding `tokens.css`, validates slide count (≥3 slides), and persists to the `ppt_artifacts` table.
+- **Slide types** (10): `cover`, `section`, `bullets`, `stats`, `chart`, `comparison`, `timeline`, `quote`, `imageText`, `closing` — each rendered as `<section class="slide" data-slide-type="...">`.
+- **Export**: Frontend uses `@halobiron/dom-to-pptx` (vendor bundle at `public/vendor/dom-to-pptx.js`) to convert rendered HTML slides to PowerPoint `.pptx` files.
+- **Source**: Design systems are maintained in a local clone of [nexu-io/open-design](https://github.com/nexu-io/open-design) at `~/code/open-design/`. To update, copy from there: `cp -r ~/code/open-design/design-systems/* data/design-systems/`.
 
 ### Sub-tool approval
 
@@ -160,7 +178,7 @@ frontend/src/
                                    # MessagesList, ChatSearch, DragOverlay, ChatSuggestions
     admin/                         # AdminSidebar, DashboardCharts, DashboardStats,
                                    #   UserManagement, AgentManagement, SkillManagement, ChatHistory
-    ppt/                           # PptArtifactPanel
+    ppt/                           # PptArtifactPanel (renders HTML preview, exports to .pptx via dom-to-pptx)
     auth/                          # ProtectedRoute
     ui/                            # Badge, Button, Card, EmptyState, Input, MascotState,
                                    # Modal, Skeleton, Toast, Tooltip, AnimatedIcons, MascotIcons
