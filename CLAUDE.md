@@ -102,20 +102,34 @@ Design systems are sourced from a local clone of [nexu-io/open-design](https://g
 | Mode | Default tools | Behavior summary |
 |------|--------------|-----------------|
 | `general` | calc, time, file (approval required) | Daily Q&A, lightweight tool use |
-| `ppt` | calc only | Slide deck generation via ```html code blocks, 149 brand design systems, dom-to-pptx export |
+| `ppt` | calc only | Slide deck generation via html-ppt template system (36 themes, 31 layouts, 27 CSS animations, 20 canvas FX), dom-to-pptx export |
 | `website` | calc, time, file, npm | Web/frontend development mode |
 | `email` | calc, time, skill | Email management via IMAP/SMTP — read, search, send with CC |
 
-### PPT generation — Open Design design systems
+### PPT generation — html-ppt template system
 
-PPT generation uses design systems from the [nexu-io/open-design](https://github.com/nexu-io/open-design) repository:
+PPT generation uses the **html-ppt template system** from [open-design](https://github.com/nexu-io/open-design) (not to be confused with the legacy design-systems approach below):
 
-- **`data/design-systems/`**: 149 brand design systems (stripe, apple, airbnb, vercel, notion, spotify, nike, tesla, etc.), each with `DESIGN.md` (visual theme, color palette, typography, do's/don'ts); 17 also have `tokens.css` (CSS custom properties).
-- **`services/design_system.py`**: `DesignSystem` dataclass, `DesignSystemLoader` (parses DESIGN.md + tokens.css), `DesignSystemRegistry` (scans `data/design-systems/`, 149 brands across 9 categories like fintech, developer, enterprise, ai, automotive).
-- **`services/ppt_artifact_service.py`**: Extracts ```html blocks from LLM output, detects which design system was used, injects the corresponding `tokens.css`, validates slide count (≥3 slides), and persists to the `ppt_artifacts` table.
-- **Slide types** (10): `cover`, `section`, `bullets`, `stats`, `chart`, `comparison`, `timeline`, `quote`, `imageText`, `closing` — each rendered as `<section class="slide" data-slide-type="...">`.
-- **Export**: Frontend uses `@halobiron/dom-to-pptx` (vendor bundle at `public/vendor/dom-to-pptx.js`) to convert rendered HTML slides to PowerPoint `.pptx` files.
-- **Source**: Design systems are maintained in a local clone of [nexu-io/open-design](https://github.com/nexu-io/open-design) at `~/code/open-design/`. To update, copy from there: `cp -r ~/code/open-design/design-systems/* data/design-systems/`.
+- **`services/ppt/html-ppt/`**: Complete html-ppt skill assets copied from `~/code/open-design/design-templates/html-ppt/`:
+  - `assets/base.css` — token-based design system (colors, spacing, typography via CSS custom properties)
+  - `assets/fonts.css` — Noto Sans SC + Noto Serif SC + JetBrains Mono webfont imports
+  - `assets/themes/*.css` — 36 theme CSS files (each overrides `:root` custom properties)
+  - `assets/animations/animations.css` — 27 named CSS entry animations
+  - `assets/animations/fx-runtime.js` + `fx/*.js` — 20 canvas FX (particles, confetti, knowledge-graph, etc.)
+  - `assets/runtime.js` — keyboard navigation (← → / T themes / A anim / F fullscreen / O overview / S presenter mode)
+  - `templates/single-page/*.html` — 31 layout templates with demo data
+  - `templates/full-decks/*/` — 15 complete multi-slide deck templates (pitch-deck, tech-sharing, xhs-post, presenter-mode-reveal, etc.)
+- **`services/ppt_artifact_service.py`**: Extracts ```html code blocks from LLM output, validates ≥3 slides + deck class, detects theme from `data-theme` attribute, inlines all CSS/JS assets via `html_ppt_inliner.py`, persists to `ppt_artifacts` table.
+- **`services/ppt/html_ppt_inliner.py`**: Replaces `<link>` and `<script src>` tags pointing to local html-ppt assets with inline `<style>` / `<script>` blocks for sandboxed iframe rendering.
+- **`services/agent_service.py`**:
+  - `_build_layout_catalog()` — reads all 31 single-page layout files, extracts their `<section>` and `<style>` blocks (36KB total).
+  - `_inject_design_catalog()` — appends layout HTML samples + full-deck template index + animation reference to every PPT-mode user message, so the LLM can **copy-paste real HTML structures** instead of regenerating from memory.
+- **System prompt** (`prompts.py:PPT_SYSTEM_PROMPT`): Comprehensive authoring guide covering the "copy from injected samples → replace content" workflow, 36 themes, 31 layouts, 27 CSS + 20 canvas FX animations, 15 full-deck templates, presenter mode (S key), speaker notes discipline (150-300 words, oral style), narrative structure framework, and pre-flight checklist.
+- **Export**: Frontend `PptArtifactPanel.tsx` uses `@halobiron/dom-to-pptx` (vendor bundle at `public/vendor/dom-to-pptx.js`) to convert rendered slides to `.pptx`. Export uses a hidden iframe with `srcdoc` to preserve full DOM for CSS variable resolution.
+
+### Legacy: data/design-systems/ (deprecated for PPT generation)
+
+The `data/design-systems/` directory (150 brand design systems — stripe, apple, airbnb, etc.) and `services/design_system.py` are **no longer used by the PPT pipeline**. They remain accessible via the `/api/v1/agent/design-systems` API endpoints for reference, but the html-ppt themes (36 CSS files) have replaced them for actual slide generation.
 
 ### Sub-tool approval
 
