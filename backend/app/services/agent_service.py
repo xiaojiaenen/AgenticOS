@@ -354,6 +354,23 @@ class AgentService:
         cls._layout_catalog_cache = "\n".join(parts)
         return cls._layout_catalog_cache
 
+    def _get_edit_hint(self, session_id: str) -> str | None:
+        """If the session has existing PPT artifacts, add a brief edit hint."""
+        try:
+            artifact = self.ppt_artifacts.get_latest_for_session(session_id)
+            if artifact is None:
+                return None
+            title = artifact.get("title", "未命名")
+            slide_count = artifact.get("slide_count", 0)
+            return (
+                f"\n\n---\n"
+                f"## 注意：当前对话已有一个 PPT（{title}，{slide_count} 页）\n"
+                f"用户可能要修改它。从对话历史中找到上次的 HTML，在此基础上修改后输出**完整的修改后 HTML**（包裹在 ```html 中）。\n"
+                f"如果是新建 PPT 要求，忽略此提示。\n"
+            )
+        except Exception:
+            return None
+
     @classmethod
     def _inject_design_catalog(cls, message: str) -> str:
         layout_catalog = cls._build_layout_catalog()
@@ -618,6 +635,10 @@ class AgentService:
         message = request.message
         if ppt_mode:
             message = self._inject_design_catalog(message)
+            # If there's an existing artifact, add a lightweight edit hint
+            edit_hint = self._get_edit_hint(request.session_id)
+            if edit_hint:
+                message = message + edit_hint
 
         session = agent.create_or_get_session(
             session_id=request.session_id,

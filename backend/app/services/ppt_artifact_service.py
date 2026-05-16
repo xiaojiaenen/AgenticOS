@@ -170,16 +170,33 @@ class PptArtifactService:
             "html": preview_html,
         }
 
+    async def get_latest_for_session(self, session_id: str) -> dict[str, Any] | None:
+        with self.session_factory() as db:
+            from sqlalchemy import select, desc
+            row = db.scalar(
+                select(PptArtifactModel)
+                .where(PptArtifactModel.session_id == session_id)
+                .order_by(desc(PptArtifactModel.created_at))
+                .limit(1)
+            )
+            if row is None:
+                return None
+            return self._row_to_dict(row)
+
+    def _row_to_dict(self, row: PptArtifactModel) -> dict[str, Any]:
+        return {
+            "artifact_id": row.artifact_id,
+            "session_id": row.session_id,
+            "title": row.title,
+            "slide_count": row.slide_count,
+            "html": row.preview_html,
+            "source_html": load_json(row.deck_json, {}).get("slides_html", ""),
+            "metadata": load_json(row.metadata_json, {}),
+        }
+
     async def get(self, artifact_id: str) -> dict[str, Any] | None:
         with self.session_factory() as db:
             row = db.get(PptArtifactModel, artifact_id)
             if row is None:
                 return None
-            return {
-                "artifact_id": row.artifact_id,
-                "session_id": row.session_id,
-                "title": row.title,
-                "slide_count": row.slide_count,
-                "html": row.preview_html,
-                "metadata": load_json(row.metadata_json, {}),
-            }
+            return self._row_to_dict(row)
