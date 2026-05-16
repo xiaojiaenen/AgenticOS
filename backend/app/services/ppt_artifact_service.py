@@ -28,7 +28,8 @@ def extract_html_from_text(text: str) -> str | None:
     if end < 0:
         end = text.find("```", content_start)
     if end < 0:
-        return None
+        # No closing ``` — LLM may not close the code block at end of message
+        return text[content_start:].strip()
     return text[content_start:end].strip()
 
 
@@ -60,19 +61,32 @@ def prepare_final_html(html: str) -> str:
 
 def strip_html_block_from_text(text: str) -> str:
     """Remove the ```html code block from output text for display."""
-    start = text.find("```html")
-    if start < 0:
+    m = re.search(r"```(?:html|HTML)\s*\n", text)
+    if m is None:
         return text
-    end = text.find("\n```", start + 6)
+    start = m.start()
+    content_start = m.end()
+    end = text.find("\n```", content_start)
     if end >= 0:
-        text = text[:start] + text[end + 4:]
-    else:
-        end = text.find("```", start + 6)
-        if end >= 0:
-            text = text[:start] + text[end + 3:]
-        else:
-            text = text[:start]
-    return re.sub(r"\n{3,}", "\n\n", text).strip()
+        return re.sub(r"\n{3,}", "\n\n", (text[:start] + text[end + 4:])).strip()
+    end = text.find("```", content_start)
+    if end >= 0:
+        return re.sub(r"\n{3,}", "\n\n", (text[:start] + text[end + 3:])).strip()
+    # No closing ``` — remove everything from the opening marker
+    return re.sub(r"\n{3,}", "\n\n", text[:start]).strip()
+
+
+def _write_artifact_files(artifact_id: str, source_html: str, preview_html: str) -> None:
+    """Write artifact HTML files to data/ppt-output/ for manual inspection / editing."""
+    import os as _os
+    # Project root is 3 levels up from this file: backend/app/services/ -> root
+    project_root = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))))
+    output_dir = _os.path.join(project_root, "data", "ppt-output", artifact_id)
+    _os.makedirs(output_dir, exist_ok=True)
+    with open(_os.path.join(output_dir, "source.html"), "w", encoding="utf-8") as f:
+        f.write(source_html)
+    with open(_os.path.join(output_dir, "preview.html"), "w", encoding="utf-8") as f:
+        f.write(preview_html)
 
 
 class PptArtifactService:
@@ -120,6 +134,9 @@ class PptArtifactService:
                 )
             )
             db.commit()
+
+        # Write to data/ppt-output/ for easy debugging and manual editing
+        _write_artifact_files(artifact_id, html, preview_html)
 
         return {
             "artifact_id": artifact_id,

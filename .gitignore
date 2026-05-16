@@ -45,6 +45,7 @@ backend/data/
 data/*.db
 data/skills/
 data/websites/
+data/ppt-output/
 
 # Local IDE / editor files
 .idea/
