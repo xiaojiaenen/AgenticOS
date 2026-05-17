@@ -242,6 +242,78 @@ class PptArtifactService:
             "html": preview_html,
         }
 
+    async def create_from_slides_dir(
+        self, session_id: str, slides_dir: Path,
+    ) -> dict[str, Any] | None:
+        """Read slide SVG files from a directory, validate, and create a PPT artifact."""
+        import logging
+        from app.services.ppt.theme_token_resolver import load_theme_tokens, resolve_token_values
+
+        _logger = logging.getLogger("ppt_artifact.slides_dir")
+
+        if not slides_dir.exists():
+            _logger.debug(f"slides_dir does not exist: {slides_dir}")
+            return None
+
+        svg_files = sorted(slides_dir.glob("slide_*.svg"))
+        if len(svg_files) < 3:
+            _logger.debug(f"Not enough slides: {len(svg_files)} < 3")
+            return None
+
+        svgs = []
+        for f in svg_files:
+            svg = f.read_text(encoding="utf-8").strip()
+            if svg.startswith("<svg"):
+                svgs.append(svg)
+            else:
+                _logger.warning(f"Slide file doesn't start with <svg>: {f}")
+
+        if not validate_svg_slides(svgs):
+            _logger.warning(f"validate_svg_slides failed: count={len(svgs)}")
+            return None
+
+        theme_name = _detect_theme_name_from_svg(svgs)
+        tokens = load_theme_tokens(theme_name)
+        resolved_svgs = [resolve_token_values(svg, tokens) for svg in svgs]
+        resolved_svgs = [sanitize_svg_xml(svg) for svg in resolved_svgs]
+
+        preview_html = prepare_svg_preview(resolved_svgs, theme_name)
+        artifact_id = uuid.uuid4().hex
+        slide_count = len(resolved_svgs)
+
+        title_match = re.search(r'<text[^>]*font-size="(?:68|72|56|60)"[^>]*>([^<]+)</text>', resolved_svgs[0])
+        if not title_match:
+            title_match = re.search(r'<text[^>]*font-weight="(?:800|700|bold)"[^>]*>([^<]+)</text>', resolved_svgs[0])
+        title = title_match.group(1).strip() if title_match else "演示文稿"
+
+        with self.session_factory() as db:
+            db.add(
+                PptArtifactModel(
+                    artifact_id=artifact_id,
+                    session_id=session_id,
+                    title=title,
+                    slide_count=slide_count,
+                    deck_json=dump_json({"theme": theme_name, "svgs": resolved_svgs}),
+                    preview_html=preview_html,
+                    metadata_json=dump_json({
+                        "source": "svg-ppt",
+                        "theme": theme_name,
+                        "raw_chars": sum(len(s) for s in svgs),
+                    }),
+                )
+            )
+            db.commit()
+
+        _write_svg_artifact_files(artifact_id, resolved_svgs, preview_html)
+
+        return {
+            "artifact_id": artifact_id,
+            "session_id": session_id,
+            "title": title,
+            "slide_count": slide_count,
+            "html": preview_html,
+        }
+
     async def get_latest_for_session(self, session_id: str) -> dict[str, Any] | None:
         with self.session_factory() as db:
             from sqlalchemy import select, desc

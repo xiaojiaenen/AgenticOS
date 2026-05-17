@@ -32,6 +32,7 @@ from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.services.tool_config_service import ToolConfigService
 from app.schemas.agent import AgentStreamRequest
 from app.tools.email_tools import register_email_tools, set_current_session_id
+from app.tools.ppt_tools import set_current_session_id as set_ppt_session_id
 
 
 MAX_STEPS_LIMIT_MESSAGE = "任务未完成，已达到最大步骤限制。"
@@ -220,6 +221,8 @@ class AgentService:
         if profile.response_mode == "ppt":
             from app.tools.icon_tools import register_icon_tools as _register_icon_tools
             _register_icon_tools(registry)
+            from app.tools.ppt_tools import register_ppt_tools as _register_ppt_tools
+            _register_ppt_tools(registry)
 
         return registry
 
@@ -339,7 +342,7 @@ class AgentService:
             "---",
             "## SVG Layout 结构模板（31 个，可直接复制替换内容）",
             "",
-            "**工作流：list_skills → load_skill(\"ppt-svg-reference\") → 为每页选择一个 layout → 复制其 SVG 结构 → 替换占位内容 → 保留 var(--token) 和 data-theme 不变。**",
+            "**工作流：list_skills → load_skill(\"ppt-svg-reference\") → search_icons 搜索图标 → 为每页选择 layout → 调用 save_slide(slide_num=N, svg=\"...\") 写入每页 → 不再调工具即完成。**",
             "",
             layout_catalog,
             "",
@@ -396,7 +399,7 @@ class AgentService:
             "1. 推荐 1 个最匹配主题写入 `<svg data-theme=\"xxx\">`",
             "2. 每页从上面的 SVG layout 样本中**复制粘贴**，替换内容但保留结构和 var(--token) 引用",
             "3. 所有颜色用 var(--xxx) 令牌，非颜色属性（圆角、字号、字体）直接写值",
-            "4. 每页一个 ```svg 代码块，共 8-14 页",
+            "4. 每页调用一次 save_slide(slide_num=N, svg=\"...\")，共 8-14 页",
             "5. 演讲者备注：在 SVG 开头附近添加 `<!-- notes: ... -->`",
             "",
             "**CURRENT TIME:** " + __import__("datetime").datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
@@ -404,25 +407,24 @@ class AgentService:
         return message + "\n".join(lines)
 
     def _get_edit_hint(self, session_id: str) -> str | None:
-        """If the session has existing PPT artifacts, add an edit hint with file paths."""
-        import os as _os
+        """If the session has existing PPT artifacts, add an edit hint for save_slide."""
+        from pathlib import Path as _Path
         try:
             artifact = self.ppt_artifacts.get_latest_for_session(session_id)
             if artifact is None:
                 return None
             title = artifact.get("title", "未命名")
             slide_count = artifact.get("slide_count", 0)
-            artifact_id = artifact.get("artifact_id", "")
-            project_root = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))))
-            svg_dir = _os.path.join(project_root, "data", "ppt-output", artifact_id)
-            svg_files = sorted(
-                [f for f in _os.listdir(svg_dir) if f.startswith("source_slide_") and f.endswith(".svg")]
-            ) if _os.path.isdir(svg_dir) else []
-            file_list = "\n".join(f"  - {_os.path.join(svg_dir, f)}" for f in svg_files) if svg_files else "  （文件列表读取失败，请从对话历史中找到上次的 SVG）"
+            project_root = _Path(__file__).resolve().parent.parent.parent.parent
+            slides_dir = project_root / "data" / "ppt-sessions" / session_id
+            svg_files = sorted(slides_dir.glob("slide_*.svg")) if slides_dir.exists() else []
+            file_list = "\n".join(
+                f"  第 {f.stem.replace('slide_', '')} 页" for f in svg_files
+            ) if svg_files else "  （无已保存文件）"
             return (
                 f"\n\n---\n"
-                f"## 注意：当前对话已有一个 PPT（{title}，{slide_count} 页）\n"
-                f"用户可能要修改它。请先用文件工具读取以下 SVG 源文件，在此基础上修改后输出**完整的修改后 SVG**（每页一个 ```svg 代码块）：\n"
+                f"## 注意：当前对话已有 PPT「{title}」（{slide_count} 页）\n"
+                f"用户可能要修改它。可用文件工具读取以下 SVG 后，用 save_slide 覆盖修改的页：\n"
                 f"{file_list}\n"
                 f"如果是新建 PPT 要求，忽略此提示。\n"
             )
@@ -671,6 +673,7 @@ class AgentService:
         await self.storage.save_meta(session)
         approval_queue = self.approval_manager.subscribe(session.session_id)
         set_current_session_id(session.session_id)
+        set_ppt_session_id(session.session_id)
 
         yield {
             "event": "session",
@@ -750,11 +753,17 @@ class AgentService:
                             tool_names.append(tool_name)
 
                     if ppt_mode and event.type == "done":
-                        artifact = await self.ppt_artifacts.create_from_text(
-                            session.session_id, collected_text,
-                            mode="ppt",
+                        # 从 session 工作目录收集 save_slide 写入的文件
+                        from pathlib import Path as _Path
+                        _slides_dir = _Path(__file__).resolve().parent.parent.parent.parent / "data" / "ppt-sessions" / session.session_id
+                        artifact = await self.ppt_artifacts.create_from_slides_dir(
+                            session.session_id, _slides_dir,
                         )
-                        visible_text = collected_text
+                        # 构建简短的文字摘要给前端展示
+                        if artifact is not None:
+                            visible_text = f"已生成 {artifact['slide_count']} 页 PPT：{artifact['title']}"
+                        else:
+                            visible_text = collected_text
                         if artifact is not None:
                             yield {
                                 "event": "run_status",
