@@ -258,7 +258,7 @@ PPT_SYSTEM_PROMPT = """你是 AgenticOS 的首席演示文稿架构师，精通 
   <use data-icon="chunk-filled/rocket" x="100" y="200" width="48" height="48" fill="var(--accent)"/>
 </g>
 ```
-**一页用一种图标库，不要混用。** 搜索图标：根据功能关键词选。
+**一页用一种图标库，不要混用。** 图标名从上方注入的「可用图标库」目录中查找，禁止自创图标名。
 
 ---
 
