@@ -43,9 +43,23 @@ def _count_slides(slides_dir: Path) -> int:
 # ---------------------------------------------------------------------------
 def register_ppt_tools(registry: ToolRegistry) -> None:
 
+    @registry.tool(display_name="读取幻灯片")
+    async def read_slide(slide_num: int) -> str:
+        """读取已有幻灯片的 SVG 内容，用于修改前查看。
+
+        参数:
+          slide_num: 要读取的页码（从 1 开始）
+        """
+        slides_dir = _get_slides_dir()
+        file_path = slides_dir / f"slide_{slide_num}.svg"
+        if not file_path.exists():
+            existing = _count_slides(slides_dir)
+            return f"第 {slide_num} 页不存在（当前共 {existing} 页）"
+        return file_path.read_text(encoding="utf-8")
+
     @registry.tool(display_name="保存幻灯片")
     async def save_slide(slide_num: int, svg: str) -> str:
-        """将一页 SVG 幻灯片写入会话工作目录。每页调用一次，调用完所有页后停止即可。
+        """将一页 SVG 幻灯片写入会话工作目录。新建或覆盖已有页。每页调用一次，调用完所有页后停止即可。
 
         参数:
           slide_num: 页码（从 1 开始递增）
@@ -58,10 +72,12 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
 
         slides_dir = _get_slides_dir()
         file_path = slides_dir / f"slide_{slide_num}.svg"
+        existed = file_path.exists()
         file_path.write_text(svg, encoding="utf-8")
 
         count = _count_slides(slides_dir)
-        return f"第 {slide_num} 页已保存（共 {count} 页）"
+        action = "已更新" if existed else "已保存"
+        return f"第 {slide_num} 页{action}（共 {count} 页）"
 
     if "save_slide" in os.environ.get("PPT_TOOLS_DISABLED", "").split(","):
         del registry._tools["save_slide"]

@@ -419,12 +419,12 @@ class AgentService:
             slides_dir = project_root / "data" / "ppt-sessions" / session_id
             svg_files = sorted(slides_dir.glob("slide_*.svg")) if slides_dir.exists() else []
             file_list = "\n".join(
-                f"  第 {f.stem.replace('slide_', '')} 页" for f in svg_files
+                f"  read_slide({f.stem.replace('slide_', '')})" for f in svg_files
             ) if svg_files else "  （无已保存文件）"
             return (
                 f"\n\n---\n"
                 f"## 注意：当前对话已有 PPT「{title}」（{slide_count} 页）\n"
-                f"用户可能要修改它。可用文件工具读取以下 SVG 后，用 save_slide 覆盖修改的页：\n"
+                f"用户可能要修改它。用 read_slide(N) 读取后，save_slide 覆盖修改的页：\n"
                 f"{file_list}\n"
                 f"如果是新建 PPT 要求，忽略此提示。\n"
             )

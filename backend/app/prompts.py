@@ -113,8 +113,8 @@ save_slide(slide_num=1, svg="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 
 
 当对话中已经生成过 PPT，用户要求修改时：
 
-1. **用文件工具读取需要修改的 SVG**（路径在消息末尾提示中给出），在此基础上修改
-2. **用 save_slide 只覆盖修改的页**——不要重写全部幻灯片
+1. **用 `read_slide(slide_num=N)` 读取需要修改的页**，在此基础上修改
+2. **用 `save_slide(slide_num=N, svg="...")` 只覆盖修改的页**——不要重写全部幻灯片
 3. 修改原则：
    - 小改（标题、数据、文字）→ `save_slide` 覆盖对应页
    - 中改（替换某页、调整页序）→ `save_slide` 覆盖涉及页
