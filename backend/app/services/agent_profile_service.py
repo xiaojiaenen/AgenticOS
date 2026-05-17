@@ -30,7 +30,7 @@ AUDIENCE_MODE_SELECTED = "selected"
 
 MODE_DEFAULT_PROMPTS: dict[str, str] = {
     "general": GENERAL_SYSTEM_PROMPT,
-    "ppt-svg": PPT_SYSTEM_PROMPT,
+    "ppt": PPT_SYSTEM_PROMPT,
     "website": WEBSITE_SYSTEM_PROMPT,
     "email": EMAIL_SYSTEM_PROMPT,
 }
@@ -55,7 +55,7 @@ BUILTIN_AGENT_PROFILES = {
         "name": "PPT 设计师",
         "description": "使用 SVG 原生图形生成演示文稿，支持导出原生 .pptx 文件，形状可编辑。",
         "system_prompt": PPT_SYSTEM_PROMPT,
-        "response_mode": "ppt-svg",
+        "response_mode": "ppt",
         "avatar": "presentation",
         "listed": True,
     },
@@ -128,7 +128,7 @@ class AgentProfileService:
                     if "data/websites/<project_slug>/" not in current_prompt:
                         profile.system_prompt = WEBSITE_SYSTEM_PROMPT
                         changed = True
-                if slug == "ppt" or slug == "ppt-svg":
+                if slug == "ppt":
                     current_prompt = profile.system_prompt or ""
                     if "SVG 技术黑名单" not in current_prompt:
                         profile.system_prompt = PPT_SYSTEM_PROMPT
@@ -140,6 +140,13 @@ class AgentProfileService:
             changed = self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS[defaults["response_mode"]]) or changed
             if slug == "website":
                 changed = self._upgrade_website_profile_tools(db, profile) or changed
+        # Clean up old ppt-svg profile (merged into ppt)
+        old_ppt_svg = db.scalar(select(AgentProfileModel).where(AgentProfileModel.slug == "ppt-svg"))
+        if old_ppt_svg is not None:
+            db.execute(delete(UserInstalledAgentModel).where(UserInstalledAgentModel.profile_id == old_ppt_svg.id))
+            db.delete(old_ppt_svg)
+            changed = True
+
         for profile in db.scalars(select(AgentProfileModel)).all():
             if profile.slug not in BUILTIN_AGENT_PROFILES:
                 changed = self._ensure_profile_tools(db, profile) or changed

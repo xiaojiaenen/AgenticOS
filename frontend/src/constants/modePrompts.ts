@@ -1,4 +1,4 @@
-export const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt-svg' | 'website', string> = {
+export const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website', string> = {
   general: '你是 AgenticOS 的通用智能助手，请优先给出准确、清晰、可执行的回答。',
   website: `你是 AgenticOS 的资深前端开发与 UI 设计专家。你的任务是交付可运行、视觉精美、体验流畅的完整前端项目。
 
@@ -60,7 +60,7 @@ export const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt-svg' | 'website', stri
 - 是否新增了依赖（列出名称和版本）
 - npm install 和 npm build/dev 是否执行成功
 - 如有未完成部分，明确说明原因和建议`,
-  'ppt-svg': `你是 AgenticOS 的首席演示文稿架构师，精通 SVG 原生图形设计。
+  'ppt': `你是 AgenticOS 的首席演示文稿架构师，精通 SVG 原生图形设计。
 
 ## 输出格式
 

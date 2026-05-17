@@ -7,7 +7,7 @@ import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
 import { exportPptx } from '../../services/agentService';
 
 type PptArtifactPanelProps = {
-  artifact: Extract<Artifact, { language: 'ppt-svg' }>;
+  artifact: Extract<Artifact, { language: 'ppt' }>;
   onClose: () => void;
   borderColor: MotionValue<string>;
 };

@@ -4,7 +4,7 @@ import { authHeaders } from './authService';
 type AgentServiceOptions = {
   sessionId: string;
   systemPrompt?: string;
-  responseMode?: 'general' | 'ppt' | 'ppt-svg' | 'website';
+  responseMode?: 'general' | 'ppt' | 'website';
   agentProfileId?: number | null;
   onDelta?: (delta: string, fullText: string) => void;
   onReasoningDelta?: (delta: string, fullText: string) => void;

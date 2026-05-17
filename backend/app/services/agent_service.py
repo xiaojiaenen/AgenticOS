@@ -442,7 +442,7 @@ class AgentService:
         response_mode: str,
         requested_max_steps: int | None,
     ) -> None:
-        if response_mode != "ppt-svg" or requested_max_steps is not None:
+        if response_mode != "ppt" or requested_max_steps is not None:
             return
         current_max_steps = getattr(session, "max_steps", self.settings.agent_max_steps)
         if current_max_steps < self.settings.agent_max_steps:
@@ -633,7 +633,7 @@ class AgentService:
     async def stream_chat(self, request: AgentStreamRequest, user: UserModel | None = None) -> AsyncIterator[dict[str, Any]]:
         runtime_profile = self._resolve_runtime_profile(request, user)
         response_mode = runtime_profile.response_mode
-        ppt_mode = response_mode == "ppt-svg"
+        ppt_mode = response_mode == "ppt"
         agent = self._get_agent(runtime_profile)
         if user is not None:
             await self.ensure_session_access(request, user)
@@ -758,7 +758,7 @@ class AgentService:
                     if ppt_mode and event.type == "done":
                         artifact = await self.ppt_artifacts.create_from_text(
                             session.session_id, collected_text,
-                            mode="ppt-svg",
+                            mode="ppt",
                         )
                         visible_text = collected_text
                         if artifact is not None:

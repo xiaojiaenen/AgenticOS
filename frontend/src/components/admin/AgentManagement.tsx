@@ -106,7 +106,7 @@ function makeDraft(profile: AgentProfile | null, catalog: ToolCatalogItem[]): Dr
 }
 
 function modeLabel(mode: AgentMode) {
-  if (mode === 'ppt-svg') return 'PPT';
+  if (mode === 'ppt') return 'PPT';
   if (mode === 'website') return '网站';
   return '通用';
 }
@@ -567,7 +567,7 @@ export const AgentManagement = () => {
                         className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       >
                         <option value="general">general</option>
-                        <option value="ppt-svg">ppt-svg</option>
+                        <option value="ppt">ppt</option>
                         <option value="website">website</option>
                       </select>
                     </label>

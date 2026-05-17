@@ -49,7 +49,7 @@ export const Chat = () => {
   } = useChatScroll();
 
   const [inputValue, setInputValue] = useState('');
-  const [chatMode, setChatMode] = useState<'general' | 'ppt-svg' | 'website'>(
+  const [chatMode, setChatMode] = useState<'general' | 'ppt' | 'website'>(
     (location.state as any)?.mode || 'general',
   );
   const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);

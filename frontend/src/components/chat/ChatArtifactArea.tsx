@@ -12,7 +12,7 @@ interface ChatArtifactAreaProps {
 
 export const ChatArtifactArea = React.memo(({ artifact, onClose, borderColor }: ChatArtifactAreaProps) => (
   <AnimatePresence>
-    {artifact?.language === 'ppt-svg' ? (
+    {artifact?.language === 'ppt' ? (
       <PptArtifactPanel
         artifact={artifact}
         onClose={onClose}

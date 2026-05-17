@@ -236,7 +236,7 @@ const PptArtifactCard = ({
   const handleOpen = () => {
     if (html) {
       onOpenArtifact?.({
-        language: message.pptArtifact?.mode === 'ppt-svg' ? 'ppt-svg' : 'ppt',
+        language: 'ppt',
         artifactId: message.pptArtifact?.artifactId,
         html,
         title,

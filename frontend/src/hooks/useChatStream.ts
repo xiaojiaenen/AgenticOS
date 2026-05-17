@@ -15,7 +15,7 @@ interface UseChatStreamDeps {
   sessions: Session[];
   currentSessionId: string | null;
   currentSession: Session | null;
-  chatMode: 'general' | 'ppt-svg' | 'website';
+  chatMode: 'general' | 'ppt' | 'website';
   selectedAgentProfileId: number | null;
   selectedAgent: AgentProfile | null;
   setSessions: React.Dispatch<React.SetStateAction<Session[]>>;
@@ -137,8 +137,8 @@ export function useChatStream({
         queueMicrotask(() => {
           setIsLoading(true);
           setRunStatus({
-            phase: (chatMode === 'ppt-svg') ? 'generating_ppt' : 'thinking',
-            label: (chatMode === 'ppt-svg') ? '正在生成 PPT 内容与版式' : '大模型正在思考',
+            phase: (chatMode === 'ppt') ? 'generating_ppt' : 'thinking',
+            label: (chatMode === 'ppt') ? '正在生成 PPT 内容与版式' : '大模型正在思考',
           });
           setInputValue('');
           setSessions((prev) => {
@@ -146,7 +146,7 @@ export function useChatStream({
               id: assistantMessageId!,
               role: 'model',
               text: '',
-              pptArtifact: (chatMode === 'ppt-svg') ? { status: 'generating', mode: 'ppt-svg' as const } : undefined,
+              pptArtifact: (chatMode === 'ppt') ? { status: 'generating', mode: 'ppt' as const } : undefined,
             };
 
             if (!currentSessionId) {
@@ -190,7 +190,7 @@ export function useChatStream({
           },
           onPptArtifact: (pptArtifact) => {
             receivedPptArtifact = pptArtifact;
-            const pptLanguage = 'ppt-svg' as const;
+            const pptLanguage = 'ppt' as const;
             const nextArtifact: Artifact = {
               language: pptLanguage,
               artifactId: pptArtifact.artifact_id,
@@ -241,7 +241,7 @@ export function useChatStream({
                       updatedAt: Date.now(),
                       messages: session.messages.map((message) =>
                         message.id === assistantMessageId
-                          ? chatMode === 'ppt-svg'
+                          ? chatMode === 'ppt'
                             ? {
                                 ...message,
                                 text: fullText,
@@ -338,7 +338,7 @@ export function useChatStream({
         const svgMatch = /```svg\n([\s\S]*?)\n```/.exec(response.text);
         if (pptArtifact)
           setArtifact({
-            language: 'ppt-svg' as const,
+            language: 'ppt' as const,
             artifactId: pptArtifact.artifact_id,
             html: pptArtifact.html,
             title: pptArtifact.title,

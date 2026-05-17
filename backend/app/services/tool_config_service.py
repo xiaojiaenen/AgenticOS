@@ -13,7 +13,7 @@ AGENT_MODES = {
         "label": "通用模式",
         "description": "日常问答、资料整理和轻量工具调用。",
     },
-    "ppt-svg": {
+    "ppt": {
         "label": "PPT 模式",
         "description": "使用 SVG 原生图形生成演示文稿，支持导出原生 .pptx 文件，形状可编辑。",
     },
@@ -124,7 +124,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "npm": {"enabled": False, "requires_approval": True},
         "skill": {"enabled": False, "requires_approval": False},
     },
-    "ppt-svg": {
+    "ppt": {
         "calc": {"enabled": False, "requires_approval": False},
         "time": {"enabled": False, "requires_approval": False},
         "file": {"enabled": False, "requires_approval": True},

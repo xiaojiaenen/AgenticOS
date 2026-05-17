@@ -1,6 +1,6 @@
 import { authHeaders } from './authService';
 
-export type AgentMode = 'general' | 'ppt-svg' | 'website';
+export type AgentMode = 'general' | 'ppt' | 'website';
 
 export type SubToolInfo = {
   name: string;

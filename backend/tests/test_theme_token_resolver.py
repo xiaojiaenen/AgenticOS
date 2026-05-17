@@ -176,7 +176,7 @@ class TestSvgArtifactCreation:
         result = asyncio.run(service.create_from_text(
             session_id="test-svg-session",
             text=svg_text,
-            mode="ppt-svg",
+            mode="ppt",
         ))
 
         assert result is not None
@@ -207,7 +207,7 @@ class TestSvgArtifactCreation:
         result = asyncio.run(service.create_from_text(
             session_id="test-svg-too-few",
             text=svg_text,
-            mode="ppt-svg",
+            mode="ppt",
         ))
         assert result is None
 

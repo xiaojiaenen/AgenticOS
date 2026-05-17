@@ -117,7 +117,7 @@ class PptArtifactService:
     def __init__(self, session_factory=create_db_session) -> None:
         self.session_factory = session_factory
 
-    async def create_from_text(self, session_id: str, text: str, mode: str = "ppt-svg") -> dict[str, Any] | None:
+    async def create_from_text(self, session_id: str, text: str, mode: str = "ppt") -> dict[str, Any] | None:
         """Create a PPT artifact from LLM output text containing SVG code blocks."""
         import logging
         from app.services.ppt.theme_token_resolver import load_theme_tokens, resolve_token_values
