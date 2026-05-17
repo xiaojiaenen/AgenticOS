@@ -782,7 +782,8 @@ class AgentProfileService:
             signature.append((row.tool_name, row.enabled, row.requires_approval))
             if not row.enabled:
                 continue
-            builtin_tools.append(str(catalog_item["builtin_name"]))
+            if catalog_item.get("builtin_name"):
+                builtin_tools.append(catalog_item["builtin_name"])
             if row.requires_approval:
                 configured_sub_tools = self._parse_approval_sub_tools(row.approval_sub_tools_json)
                 all_sub_tools = list(catalog_item["sub_tools"].keys())
