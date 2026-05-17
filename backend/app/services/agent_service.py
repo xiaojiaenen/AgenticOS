@@ -308,6 +308,7 @@ class AgentService:
             sessions[request.session_id] = loaded
 
     _layout_catalog_cache: str | None = None
+    _icon_catalog_cache: str | None = None
 
     @classmethod
     def _build_layout_catalog(cls) -> str:
@@ -319,11 +320,41 @@ class AgentService:
         return "\n".join(parts)
 
     @classmethod
+    def _build_icon_catalog(cls) -> str:
+        """Build a compact icon name catalog from data/icons/icon_index.json."""
+        if cls._icon_catalog_cache is not None:
+            return cls._icon_catalog_cache
+        import json as _json
+        from pathlib import Path as _Path
+        _index_path = _Path(__file__).resolve().parent.parent.parent.parent / "data" / "icons" / "icon_index.json"
+        if not _index_path.exists():
+            cls._icon_catalog_cache = ""
+            return ""
+        with open(_index_path) as _f:
+            _index = _json.load(_f)
+        lines: list[str] = []
+        for _lib, _names in _index.items():
+            # Compact grid format: 8 names per line for scannability
+            lines.append(f"### {_lib}（{len(_names)} 个）")
+            _row: list[str] = []
+            for _n in _names:
+                _row.append(_n)
+                if len(_row) >= 8:
+                    lines.append(", ".join(_row))
+                    _row.clear()
+            if _row:
+                lines.append(", ".join(_row))
+            lines.append("")
+        cls._icon_catalog_cache = "\n".join(lines)
+        return cls._icon_catalog_cache
+
+    @classmethod
     def _inject_design_catalog(cls, message: str, theme_name: str = "apple") -> str:
-        """Inject SVG layout templates + color token table + token reference."""
+        """Inject SVG layout templates + color token table + token reference + icon catalog."""
         layout_catalog = cls._build_layout_catalog()
         color_table = build_color_token_table(theme_name)
         token_ref = build_token_quick_ref()
+        icon_catalog = cls._build_icon_catalog()
 
         lines = [
             "",
@@ -341,6 +372,17 @@ class AgentService:
             "",
             token_ref,
             "",
+            "---",
+            "## 可用图标库（使用 `<use data-icon=\"库名/图标名\" fill=\"var(--accent)\" x=\"..\" y=\"..\" width=\"..\" height=\"..\"/>` 引用）",
+            "",
+            icon_catalog,
+            "",
+            "**图标使用规则：**",
+            "- 一页内只能用**一个**图标库的图标，不要混用",
+            "- 图标名严格区分大小写，必须从上方列表中复制",
+            "- 如果找不到想要的图标，选语义最接近的替代",
+            "",
+            "---",
             "**主题选择快速决策（data-theme 只能从下方完整列表或分类推荐中选，禁止自创）：**",
             "- 商业 / 管理层汇报 → apple, stripe, ibm, corporate, professional, enterprise, mastercard",
             "- 技术分享 / 开发者 → github, vercel, cursor, linear-app, expo, warp, mongodb, hashicorp",

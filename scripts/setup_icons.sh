@@ -33,4 +33,19 @@ fi
 echo "解压图标库到 $TARGET ..."
 tar -xzf "$ARCHIVE" -C "$TARGET" --strip-components=1
 rm -f "$ARCHIVE"
+
+echo "生成图标索引 ..."
+python3 -c "
+import json, os
+index = {}
+for lib in sorted(os.listdir('$TARGET')):
+    lib_path = os.path.join('$TARGET', lib)
+    if os.path.isdir(lib_path):
+        names = sorted([f.replace('.svg', '') for f in os.listdir(lib_path) if f.endswith('.svg')])
+        index[lib] = names
+with open(os.path.join('$TARGET', 'icon_index.json'), 'w') as f:
+    json.dump(index, f, ensure_ascii=False)
+print(f'索引已生成: {sum(len(v) for v in index.values())} 个图标')
+"
+
 echo "完成: $(find "$TARGET" -name '*.svg' | wc -l) 个图标文件"
