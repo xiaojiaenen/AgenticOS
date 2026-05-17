@@ -377,6 +377,7 @@ class PptArtifactService:
             "title": row.title,
             "slide_count": row.slide_count,
             "html": row.preview_html,
+            "deck_json": row.deck_json,
             "source_html": load_json(row.deck_json, {}).get("slides_html", ""),
             "metadata": load_json(row.metadata_json, {}),
         }
