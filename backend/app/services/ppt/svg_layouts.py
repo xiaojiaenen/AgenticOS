@@ -254,21 +254,28 @@ SVG_LAYOUTS: dict[str, str] = {
   <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">构成分析</text>
   <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">营收来源分布</text>
   <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle">
-    <circle cx="480" cy="420" r="180" fill="var(--surface)" stroke="var(--border)"/>
-    <text x="480" y="420" font-size="20" fill="var(--text-2)">[path 扇形]</text>
-    <text x="480" y="450" font-size="14" fill="var(--text-3)">用 SVG path A 命令绘制</text>
-    <text x="480" y="470" font-size="14" fill="var(--text-3)">计算每块 startAngle / sweepAngle</text>
-    <text x="790" y="280" text-anchor="start" font-size="16" font-weight="600" fill="var(--text-1)">图例</text>
-    <rect x="790" y="310" width="14" height="14" rx="3" fill="var(--accent)"/>
-    <text x="815" y="322" text-anchor="start" font-size="14" fill="var(--text-1)">企业订阅 45%</text>
-    <rect x="790" y="350" width="14" height="14" rx="3" fill="var(--accent-2)"/>
-    <text x="815" y="362" text-anchor="start" font-size="14" fill="var(--text-1)">API 调用 25%</text>
-    <rect x="790" y="390" width="14" height="14" rx="3" fill="var(--good)"/>
-    <text x="815" y="402" text-anchor="start" font-size="14" fill="var(--text-1)">咨询服务 15%</text>
-    <rect x="790" y="430" width="14" height="14" rx="3" fill="var(--warn)"/>
-    <text x="815" y="442" text-anchor="start" font-size="14" fill="var(--text-1)">培训 10%</text>
-    <rect x="790" y="470" width="14" height="14" rx="3" fill="var(--bad)"/>
-    <text x="815" y="482" text-anchor="start" font-size="14" fill="var(--text-1)">其他 5%</text>
+    <!-- 饼图扇形：5 块，从 12 点方向顺时针，用 SVG path A 命令绘制 -->
+    <!-- 45%: 0°→162°, 25%: 162°→252°, 15%: 252°→306°, 10%: 306°→342°, 5%: 342°→360° -->
+    <path d="M 480 420 L 480.0 240.0 A 180 180 0 0 1 535.6 591.2 Z" fill="var(--accent)"/>
+    <path d="M 480 420 L 535.6 591.2 A 180 180 0 0 1 308.8 475.6 Z" fill="var(--accent-2)"/>
+    <path d="M 480 420 L 308.8 475.6 A 180 180 0 0 1 334.4 314.2 Z" fill="var(--good)"/>
+    <path d="M 480 420 L 334.4 314.2 A 180 180 0 0 1 424.4 248.8 Z" fill="var(--warn)"/>
+    <path d="M 480 420 L 424.4 248.8 A 180 180 0 0 1 480.0 240.0 Z" fill="var(--bad)"/>
+    <!-- 中心圆（环形图效果） -->
+    <circle cx="480" cy="420" r="80" fill="var(--bg)"/>
+    <text x="480" y="420" font-size="16" fill="var(--text-2)">总营收</text>
+    <text x="480" y="442" font-size="24" font-weight="700" fill="var(--text-1)">¥1,200万</text>
+    <!-- 图例 -->
+    <rect x="750" y="280" width="14" height="14" rx="3" fill="var(--accent)"/>
+    <text x="775" y="292" text-anchor="start" font-size="14" fill="var(--text-1)">企业订阅 45%</text>
+    <rect x="750" y="320" width="14" height="14" rx="3" fill="var(--accent-2)"/>
+    <text x="775" y="332" text-anchor="start" font-size="14" fill="var(--text-1)">API 调用 25%</text>
+    <rect x="750" y="360" width="14" height="14" rx="3" fill="var(--good)"/>
+    <text x="775" y="372" text-anchor="start" font-size="14" fill="var(--text-1)">咨询服务 15%</text>
+    <rect x="750" y="400" width="14" height="14" rx="3" fill="var(--warn)"/>
+    <text x="775" y="412" text-anchor="start" font-size="14" fill="var(--text-1)">培训 10%</text>
+    <rect x="750" y="440" width="14" height="14" rx="3" fill="var(--bad)"/>
+    <text x="775" y="452" text-anchor="start" font-size="14" fill="var(--text-1)">其他 5%</text>
   </g>
 </svg>""",
 
@@ -278,14 +285,31 @@ SVG_LAYOUTS: dict[str, str] = {
   <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">能力评估</text>
   <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">五维度雷达图</text>
   <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle">
-    <!-- 5 条轴线 + 5 边形（用 polyline 或 line） -->
-    <text x="640" y="400" font-size="18" fill="var(--text-2)">[雷达图：5 条轴 + polyline 闭合 + 数据点]</text>
+    <!-- 5 条轴线（从中心到顶点） -->
+    <!-- 中心: (640, 390), 半径: 180 -->
+    <!-- 顶点角度（12 点方向起顺时针）: 技术=0°, 产品=72°, 运营=144°, 商业=216°, 组织=288° -->
+    <line x1="640" y1="390" x2="640" y2="210" stroke="var(--border)" stroke-width="1"/>
+    <line x1="640" y1="390" x2="811.2" y2="333.9" stroke="var(--border)" stroke-width="1"/>
+    <line x1="640" y1="390" x2="745.6" y2="556.2" stroke="var(--border)" stroke-width="1"/>
+    <line x1="640" y1="390" x2="534.4" y2="556.2" stroke="var(--border)" stroke-width="1"/>
+    <line x1="640" y1="390" x2="468.8" y2="333.9" stroke="var(--border)" stroke-width="1"/>
+    <!-- 背景五边形网格（40%, 60%, 80%） -->
+    <polygon points="640,318 708.5,367.6 682.2,456.5 597.8,456.5 571.5,367.6" fill="none" stroke="var(--border)" stroke-dasharray="4,4"/>
+    <polygon points="640,282 742.7,356.9 703.4,489.7 576.6,489.7 537.3,356.9" fill="none" stroke="var(--border)"/>
+    <!-- 数据五边形（示例：技术 85%, 产品 72%, 运营 60%, 商业 55%, 组织 80%） -->
+    <polygon points="640,237 767.6,349.5 717.5,536.0 574.0,536.0 512.4,349.5" fill="var(--accent)" fill-opacity="0.15" stroke="var(--accent)" stroke-width="2.5"/>
+    <!-- 数据点 -->
+    <circle cx="640" cy="237" r="5" fill="var(--accent)"/><text x="640" y="225" font-size="13" fill="var(--accent)" font-weight="600">85%</text>
+    <circle cx="767.6" cy="349.5" r="5" fill="var(--accent)"/><text x="790" y="345" font-size="13" fill="var(--accent)" font-weight="600">72%</text>
+    <circle cx="717.5" cy="536.0" r="5" fill="var(--accent)"/><text x="740" y="545" font-size="13" fill="var(--accent)" font-weight="600">60%</text>
+    <circle cx="574.0" cy="536.0" r="5" fill="var(--accent)"/><text x="540" y="545" font-size="13" fill="var(--accent)" font-weight="600">55%</text>
+    <circle cx="512.4" cy="349.5" r="5" fill="var(--accent)"/><text x="490" y="345" font-size="13" fill="var(--accent)" font-weight="600">80%</text>
     <!-- 维度标签 -->
-    <text x="640" y="180" font-size="14" fill="var(--accent)">技术</text>
-    <text x="900" y="380" font-size="14" fill="var(--accent-2)">产品</text>
-    <text x="780" y="600" font-size="14" fill="var(--good)">运营</text>
-    <text x="500" y="600" font-size="14" fill="var(--warn)">商业</text>
-    <text x="380" y="380" font-size="14" fill="var(--bad)">组织</text>
+    <text x="640" y="195" font-size="16" font-weight="600" fill="var(--text-1)">技术</text>
+    <text x="835" y="330" font-size="16" font-weight="600" fill="var(--text-1)">产品</text>
+    <text x="755" y="585" font-size="16" font-weight="600" fill="var(--text-1)">运营</text>
+    <text x="525" y="585" font-size="16" font-weight="600" fill="var(--text-1)">商业</text>
+    <text x="430" y="330" font-size="16" font-weight="600" fill="var(--text-1)">组织</text>
   </g>
 </svg>""",
 
