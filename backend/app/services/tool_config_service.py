@@ -138,7 +138,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "python": {"enabled": False, "requires_approval": True},
         "git": {"enabled": False, "requires_approval": True},
         "npm": {"enabled": False, "requires_approval": True},
-        "skill": {"enabled": False, "requires_approval": False},
+        "skill": {"enabled": True, "requires_approval": False},
     },
     "website": {
         "calc": {"enabled": True, "requires_approval": False},
@@ -193,6 +193,7 @@ class ToolConfigService:
                 )
                 changed = True
         changed = self._upgrade_website_npm_default(db) or changed
+        changed = self._upgrade_ppt_skill_default(db) or changed
         if changed:
             db.commit()
 
@@ -208,6 +209,23 @@ class ToolConfigService:
             return False
         if row.enabled is False and row.requires_approval is True:
             row.enabled = True
+            db.add(row)
+            return True
+        return False
+
+    @staticmethod
+    def _upgrade_ppt_skill_default(db: Session) -> bool:
+        row = db.scalar(
+            select(AgentToolConfigModel).where(
+                AgentToolConfigModel.mode == "ppt",
+                AgentToolConfigModel.tool_name == "skill",
+            )
+        )
+        if row is None:
+            return False
+        if row.enabled is False:
+            row.enabled = True
+            row.requires_approval = False
             db.add(row)
             return True
         return False
