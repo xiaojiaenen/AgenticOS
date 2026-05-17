@@ -115,7 +115,7 @@ TOOL_CATALOG = {
     "search_icons": {
         "label": "图标搜索",
         "description": "按关键词搜索 PPT 图标库，返回可用的图标名列表。",
-        "builtin_name": "search_icons",
+        "builtin_name": None,
         "approval_scope": [],
         "sub_tools": {},
     },
@@ -320,7 +320,8 @@ class ToolConfigService:
             signature.append((row.tool_name, row.enabled, row.requires_approval))
             if not row.enabled:
                 continue
-            builtin_tools.append(str(catalog_item["builtin_name"]))
+            if catalog_item.get("builtin_name"):
+                builtin_tools.append(catalog_item["builtin_name"])
             if row.requires_approval:
                 configured_sub_tools = self._parse_approval_sub_tools(row)
                 all_sub_tools = list(catalog_item["sub_tools"].keys())
