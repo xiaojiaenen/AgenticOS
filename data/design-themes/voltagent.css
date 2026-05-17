@@ -1,0 +1,21 @@
+/* PPT theme: voltagent — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f2f2f2;
+  --surface: #eeeeee;
+  --surface-2: #dcdcdc;
+  --border: #bdbdbd;
+  --border-strong: #8b949e;
+  --text-1: #3d3a39;
+  --text-2: #101010;
+  --text-3: #a0a0a8;
+  --accent: #00d992;
+  --accent-2: #008b00;
+  --accent-3: #00b87c;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #00d992, #008b00);
+  --grad-soft: linear-gradient(135deg, rgba(0,217,146,0.08), rgba(0,139,0,0.04));
+}

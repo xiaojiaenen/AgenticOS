@@ -1,0 +1,21 @@
+/* PPT theme: playstation — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f5f7fa;
+  --surface: #ffffff;
+  --surface-2: #f3f3f3;
+  --border: #cccccc;
+  --border-strong: #6b6b6b;
+  --text-1: #1f1f1f;
+  --text-2: #000000;
+  --text-3: #000000;
+  --accent: #0070cc;
+  --accent-2: #0068bd;
+  --accent-3: #005fad;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0070cc, #0068bd);
+  --grad-soft: linear-gradient(135deg, rgba(0,112,204,0.08), rgba(0,104,189,0.04));
+}

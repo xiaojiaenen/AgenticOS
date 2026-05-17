@@ -1,0 +1,21 @@
+/* PPT theme: wechat — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f0f0f3;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #a0a0a8;
+  --accent: #3b82f6;
+  --accent-2: #60a5fa;
+  --accent-3: #2563eb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #3b82f6, #60a5fa);
+  --grad-soft: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(96,165,250,0.04));
+}

@@ -1,0 +1,21 @@
+/* PPT theme: webflow — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f0f0f3;
+  --surface: #fafafa;
+  --surface-2: #d8d8d8;
+  --border: #ababab;
+  --border-strong: #898989;
+  --text-1: #363636;
+  --text-2: #222222;
+  --text-3: #a0a0a8;
+  --accent: #006acc;
+  --accent-2: #00d722;
+  --accent-3: #005aad;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #006acc, #00d722);
+  --grad-soft: linear-gradient(135deg, rgba(0,106,204,0.08), rgba(0,215,34,0.04));
+}

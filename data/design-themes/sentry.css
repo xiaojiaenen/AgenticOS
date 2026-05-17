@@ -1,0 +1,21 @@
+/* PPT theme: sentry — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #cfcfdb;
+  --surface: #ffffff;
+  --surface-2: #e5e7eb;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #a0a0a8;
+  --accent: #422082;
+  --accent-2: #c2ef4e;
+  --accent-3: #381b6e;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #422082, #c2ef4e);
+  --grad-soft: linear-gradient(135deg, rgba(66,32,130,0.08), rgba(194,239,78,0.04));
+}

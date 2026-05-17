@@ -1,0 +1,21 @@
+/* PPT theme: mission-control — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #e8f0fe;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #a0a0a8;
+  --accent: #ffb800;
+  --accent-2: #00d4ff;
+  --accent-3: #d89c00;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #ffb800, #00d4ff);
+  --grad-soft: linear-gradient(135deg, rgba(255,184,0,0.08), rgba(0,212,255,0.04));
+}

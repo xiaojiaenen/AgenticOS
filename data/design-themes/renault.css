@@ -1,0 +1,21 @@
+/* PPT theme: renault — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f2f2f2;
+  --border: #d9d9d6;
+  --border-strong: #a0a0a8;
+  --text-1: #000000;
+  --text-2: #000000;
+  --text-3: #a0a0a8;
+  --accent: #efdf00;
+  --accent-2: #1883fd;
+  --accent-3: #cbbd00;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #efdf00, #1883fd);
+  --grad-soft: linear-gradient(135deg, rgba(239,223,0,0.08), rgba(24,131,253,0.04));
+}

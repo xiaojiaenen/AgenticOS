@@ -1,0 +1,21 @@
+/* PPT theme: runwayml — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #fefefe;
+  --surface: #e9ecf2;
+  --surface-2: #d0d4d4;
+  --border: #c9ccd1;
+  --border-strong: #a7a7a7;
+  --text-1: #404040;
+  --text-2: #3f3f3f;
+  --text-3: #999999;
+  --accent: #6b7280;
+  --accent-2: #818793;
+  --accent-3: #5a606c;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #6b7280, #818793);
+  --grad-soft: linear-gradient(135deg, rgba(107,114,128,0.08), rgba(129,135,147,0.04));
+}

@@ -1,0 +1,21 @@
+/* PPT theme: pacman — auto-generated from open-design */
+
+:root {
+  --bg: #000000;
+  --bg-soft: #000000;
+  --surface: #000000;
+  --surface-2: #000000;
+  --border: #c3c5c9;
+  --border-strong: #93979d;
+  --text-1: #111827;
+  --text-2: #70747d;
+  --text-3: #abaeb3;
+  --accent: #2a3fe5;
+  --accent-2: #f4b9b0;
+  --accent-3: #2335c2;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #2a3fe5, #f4b9b0);
+  --grad-soft: linear-gradient(135deg, rgba(42,63,229,0.08), rgba(244,185,176,0.04));
+}

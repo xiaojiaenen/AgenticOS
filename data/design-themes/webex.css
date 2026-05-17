@@ -1,0 +1,21 @@
+/* PPT theme: webex — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #262626;
+  --text-2: #1a1a1a;
+  --text-3: #000000;
+  --accent: #0353a8;
+  --accent-2: #f2990a;
+  --accent-3: #02468e;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0353a8, #f2990a);
+  --grad-soft: linear-gradient(135deg, rgba(3,83,168,0.08), rgba(242,153,10,0.04));
+}

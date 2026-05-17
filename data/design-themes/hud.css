@@ -1,0 +1,21 @@
+/* PPT theme: hud — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f0f0f3;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #0a0a0a;
+  --text-2: #6b6b75;
+  --text-3: #a0a0a8;
+  --accent: #00ff41;
+  --accent-2: #7fff00;
+  --accent-3: #00d837;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #00ff41, #7fff00);
+  --grad-soft: linear-gradient(135deg, rgba(0,255,65,0.08), rgba(127,255,0,0.04));
+}

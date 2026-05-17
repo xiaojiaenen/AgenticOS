@@ -1,0 +1,21 @@
+/* PPT theme: figma — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f2f2f2;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #000000;
+  --text-2: #000000;
+  --text-3: #a0a0a8;
+  --accent: #000000;
+  --accent-2: #60a5fa;
+  --accent-3: #2563eb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #000000, #000000);
+  --grad-soft: linear-gradient(135deg, rgba(0,0,0,0.08), rgba(0,0,0,0.04));
+}

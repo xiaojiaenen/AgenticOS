@@ -1,0 +1,21 @@
+/* PPT theme: glassmorphism — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #f9f9f9;
+  --surface-2: #efefef;
+  --border: #c4c4c4;
+  --border-strong: #959595;
+  --text-1: #141414;
+  --text-2: #727272;
+  --text-3: #acacac;
+  --accent: #1856ff;
+  --accent-2: #3a344e;
+  --accent-3: #1449d8;
+  --good: #07ca6b;
+  --warn: #e89558;
+  --bad: #ea2143;
+  --grad: linear-gradient(135deg, #1856ff, #3a344e);
+  --grad-soft: linear-gradient(135deg, rgba(24,86,255,0.08), rgba(58,52,78,0.04));
+}

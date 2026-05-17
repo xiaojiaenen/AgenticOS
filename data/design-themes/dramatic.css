@@ -1,0 +1,21 @@
+/* PPT theme: dramatic — auto-generated from open-design */
+
+:root {
+  --bg: #09090b;
+  --bg-soft: #09090b;
+  --surface: #08080a;
+  --surface-2: #08080a;
+  --border: #fdfdfd;
+  --border-strong: #fcfcfc;
+  --text-1: #fafafa;
+  --text-2: #fcfcfc;
+  --text-3: #fdfdfd;
+  --accent: #8b5cf6;
+  --accent-2: #f43f5e;
+  --accent-3: #764ed1;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #8b5cf6, #f43f5e);
+  --grad-soft: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(244,63,94,0.04));
+}

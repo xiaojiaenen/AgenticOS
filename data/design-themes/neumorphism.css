@@ -1,0 +1,21 @@
+/* PPT theme: neumorphism — auto-generated from open-design */
+
+:root {
+  --bg: #e7e5e4;
+  --bg-soft: #e7e5e4;
+  --surface: #e2e0df;
+  --surface-2: #d9d7d6;
+  --border: #c6c9cd;
+  --border-strong: #999ea5;
+  --text-1: #1e2938;
+  --text-2: #787e87;
+  --text-3: #b0b4b9;
+  --accent: #006666;
+  --accent-2: #f1f2f5;
+  --accent-3: #005656;
+  --good: #00a63d;
+  --warn: #fe9900;
+  --bad: #ff2157;
+  --grad: linear-gradient(135deg, #006666, #f1f2f5);
+  --grad-soft: linear-gradient(135deg, rgba(0,102,102,0.08), rgba(241,242,245,0.04));
+}

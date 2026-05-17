@@ -1,0 +1,21 @@
+/* PPT theme: vintage — auto-generated from open-design */
+
+:root {
+  --bg: #c0c0c0;
+  --bg-soft: #c0c0c0;
+  --surface: #bcbcbc;
+  --surface-2: #b4b4b4;
+  --border: #bfbfbf;
+  --border-strong: #8c8c8c;
+  --text-1: #000000;
+  --text-2: #666666;
+  --text-3: #a5a5a5;
+  --accent: #008080;
+  --accent-2: #c0c0c0;
+  --accent-3: #006c6c;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #008080, #c0c0c0);
+  --grad-soft: linear-gradient(135deg, rgba(0,128,128,0.08), rgba(192,192,192,0.04));
+}

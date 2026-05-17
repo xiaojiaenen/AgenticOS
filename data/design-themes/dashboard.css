@@ -1,0 +1,21 @@
+/* PPT theme: dashboard — auto-generated from open-design */
+
+:root {
+  --bg: #09090b;
+  --bg-soft: #09090b;
+  --surface: #08080a;
+  --surface-2: #08080a;
+  --border: #fdfdfd;
+  --border-strong: #fcfcfc;
+  --text-1: #fafafa;
+  --text-2: #fcfcfc;
+  --text-3: #fdfdfd;
+  --accent: #0c5cab;
+  --accent-2: #0a4a8a;
+  --accent-3: #0a4e91;
+  --good: #10b981;
+  --warn: #f59e0b;
+  --bad: #ef4444;
+  --grad: linear-gradient(135deg, #0c5cab, #0a4a8a);
+  --grad-soft: linear-gradient(135deg, rgba(12,92,171,0.08), rgba(10,74,138,0.04));
+}

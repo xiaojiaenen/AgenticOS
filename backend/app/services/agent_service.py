@@ -320,7 +320,7 @@ class AgentService:
         return "\n".join(parts)
 
     @classmethod
-    def _inject_design_catalog(cls, message: str, theme_name: str = "tokyo-night") -> str:
+    def _inject_design_catalog(cls, message: str, theme_name: str = "apple") -> str:
         """Inject SVG layout templates + color token table + token reference."""
         layout_catalog = cls._build_svg_layout_catalog()
         color_table = build_color_token_table(theme_name)
@@ -342,12 +342,17 @@ class AgentService:
             "",
             token_ref,
             "",
-            "**主题选择快速决策:**",
-            "- 技术分享 / 开发者 → tokyo-night, dracula, nord, catppuccin-mocha, terminal-green",
-            "- 商业 / 管理层汇报 → corporate-clean, minimal-white, pitch-deck-vc, swiss-grid",
-            "- 创意提案 / 发布会 → neo-brutalism, aurora, glassmorphism, cyberpunk-neon, magazine-bold",
-            "- 学术 / 研究报告 → academic-paper, editorial-serif, solarized-light",
-            "- 小红书 / 社交媒体 → xiaohongshu-white, soft-pastel, rainbow-gradient, memphis-pop",
+            "**主题选择快速决策（149 个品牌主题可用，列表见 theme_token_resolver.list_available_themes()）:**",
+            "- 商业 / 管理层汇报 → apple, stripe, ibm, corporate, professional, enterprise, mastercard",
+            "- 技术分享 / 开发者 → github, vercel, cursor, linear-app, expo, warp, mongodb, hashicorp",
+            "- 创意 / 发布会 → nike, spotify, playstation, ferrari, brutalism, neobrutalism, glassmorphism",
+            "- AI / 前沿科技 → openai, claude, nvidia, huggingface, spacex, hud, mission-control",
+            "- 学术 / 研究报告 → kami, paper, editorial, atelier-zero, publication",
+            "- 社交媒体 / 小红书 → airbnb, pinterest, duolingo, xiaohongshu, framer",
+            "- 简约 / 纯净 → minimal, clean, mono, refined, simple, sleek",
+            "- 活泼 / 年轻化 → discord, colorful, energetic, tetris, pacman, vibrant",
+            "- 暗色系 → spotify, github, trading-terminal, hud, mission-control",
+            "- 金融 / 支付 → stripe, revolut, binance, coinbase, kraken, wise",
             "",
             "### 关键规则",
             "1. 推荐 1 个最匹配主题写入 `<svg data-theme=\"xxx\">`",

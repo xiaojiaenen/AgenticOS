@@ -1,0 +1,21 @@
+/* PPT theme: revolut — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f4f4f4;
+  --surface: #fafafa;
+  --surface-2: #c9c9cd;
+  --border: #d9d9de;
+  --border-strong: #8d969e;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #a0a0a8;
+  --accent: #376cd5;
+  --accent-2: #ec7e00;
+  --accent-3: #494fdf;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #376cd5, #ec7e00);
+  --grad-soft: linear-gradient(135deg, rgba(55,108,213,0.08), rgba(236,126,0,0.04));
+}

@@ -1,0 +1,21 @@
+/* PPT theme: elevenlabs — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f6f6f6;
+  --surface: #f5f5f5;
+  --surface-2: #f5f2ef;
+  --border: #e5e5e5;
+  --border-strong: #777169;
+  --text-1: #4e4e4e;
+  --text-2: #000000;
+  --text-3: #a0a0a8;
+  --accent: #7fffff;
+  --accent-2: #92ffff;
+  --accent-3: #6bd8d8;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #7fffff, #92ffff);
+  --grad-soft: linear-gradient(135deg, rgba(127,255,255,0.08), rgba(146,255,255,0.04));
+}

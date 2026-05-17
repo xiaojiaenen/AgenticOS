@@ -1,0 +1,21 @@
+/* PPT theme: modern — auto-generated from open-design */
+
+:root {
+  --bg: #553f83;
+  --bg-soft: #553f83;
+  --surface: #533d80;
+  --surface-2: #4f3b7b;
+  --border: #ffffff;
+  --border-strong: #ffffff;
+  --text-1: #ffffff;
+  --text-2: #ffffff;
+  --text-3: #ffffff;
+  --accent: #553f83;
+  --accent-2: #111111;
+  --accent-3: #48356f;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #553f83, #111111);
+  --grad-soft: linear-gradient(135deg, rgba(85,63,131,0.08), rgba(17,17,17,0.04));
+}

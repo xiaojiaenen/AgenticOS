@@ -1,0 +1,21 @@
+/* PPT theme: mongodb — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #e8edeb;
+  --surface: #fafafa;
+  --surface-2: #b8c4c2;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #000000;
+  --text-2: #6b6b75;
+  --text-3: #a0a0a8;
+  --accent: #001e2b;
+  --accent-2: #00ed64;
+  --accent-3: #006cfa;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #001e2b, #00ed64);
+  --grad-soft: linear-gradient(135deg, rgba(0,30,43,0.08), rgba(0,237,100,0.04));
+}

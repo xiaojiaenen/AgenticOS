@@ -1,0 +1,21 @@
+/* PPT theme: slack — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f8f8f8;
+  --surface: #f8f8f8;
+  --surface-2: #ebebeb;
+  --border: #dddddd;
+  --border-strong: #f1f1f1;
+  --text-1: #1d1c1d;
+  --text-2: #1d1c1d;
+  --text-3: #616061;
+  --accent: #4a154b;
+  --accent-2: #611f69;
+  --accent-3: #350d36;
+  --good: #2eb67d;
+  --warn: #ecb22e;
+  --bad: #e01e5a;
+  --grad: linear-gradient(135deg, #4a154b, #611f69);
+  --grad-soft: linear-gradient(135deg, rgba(74,21,75,0.08), rgba(97,31,105,0.04));
+}

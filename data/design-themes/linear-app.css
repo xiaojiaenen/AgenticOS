@@ -1,0 +1,21 @@
+/* PPT theme: linear-app — auto-generated from open-design */
+
+:root {
+  --bg: #08090a;
+  --bg-soft: #191a1b;
+  --surface: #191a1b;
+  --surface-2: #171819;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #f7f8f8;
+  --text-2: #d0d6e0;
+  --text-3: #62666d;
+  --accent: #5e6ad2;
+  --accent-2: #828fff;
+  --accent-3: #4752c4;
+  --good: #27a644;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #5e6ad2, #828fff);
+  --grad-soft: linear-gradient(135deg, rgba(94,106,210,0.08), rgba(130,143,255,0.04));
+}

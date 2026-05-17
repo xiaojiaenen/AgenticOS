@@ -1,0 +1,21 @@
+/* PPT theme: huggingface — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #fafafa;
+  --surface: #f9fafb;
+  --surface-2: #f3f4f6;
+  --border: #e5e7eb;
+  --border-strong: #a0a0a8;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #a0a0a8;
+  --accent: #f59e0b;
+  --accent-2: #ea580c;
+  --accent-3: #d08609;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #f59e0b, #ea580c);
+  --grad-soft: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(234,88,12,0.04));
+}

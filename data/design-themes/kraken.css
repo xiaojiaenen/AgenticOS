@@ -1,0 +1,21 @@
+/* PPT theme: kraken — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #dedee5;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #9497a9;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #a0a0a8;
+  --accent: #5b1ecf;
+  --accent-2: #026b3f;
+  --accent-3: #4d19af;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #5b1ecf, #026b3f);
+  --grad-soft: linear-gradient(135deg, rgba(91,30,207,0.08), rgba(2,107,63,0.04));
+}

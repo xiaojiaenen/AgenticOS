@@ -1,0 +1,21 @@
+/* PPT theme: bmw — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f0f0f3;
+  --surface: #fafafa;
+  --surface-2: #bbbbbb;
+  --border: #d9d9de;
+  --border-strong: #757575;
+  --text-1: #262626;
+  --text-2: #6b6b75;
+  --text-3: #a0a0a8;
+  --accent: #0653b6;
+  --accent-2: #1c69d4;
+  --accent-3: #05469a;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0653b6, #1c69d4);
+  --grad-soft: linear-gradient(135deg, rgba(6,83,182,0.08), rgba(28,105,212,0.04));
+}

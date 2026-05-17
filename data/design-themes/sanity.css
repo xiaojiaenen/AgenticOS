@@ -1,0 +1,21 @@
+/* PPT theme: sanity — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ededed;
+  --surface: #ffffff;
+  --surface-2: #ffffff;
+  --border: #b9b9b9;
+  --border-strong: #353535;
+  --text-1: #212121;
+  --text-2: #0b0b0b;
+  --text-3: #797979;
+  --accent: #0052ef;
+  --accent-2: #55beff;
+  --accent-3: #0045cb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0052ef, #55beff);
+  --grad-soft: linear-gradient(135deg, rgba(0,82,239,0.08), rgba(85,190,255,0.04));
+}

@@ -1,0 +1,21 @@
+/* PPT theme: tesla — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #f4f4f4;
+  --surface-2: #eeeeee;
+  --border: #d0d1d2;
+  --border-strong: #8e8e8e;
+  --text-1: #393c41;
+  --text-2: #5c5e62;
+  --text-3: #a0a0a8;
+  --accent: #3e6ae1;
+  --accent-2: #3e6ae1;
+  --accent-3: #345abf;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #3e6ae1, #3e6ae1);
+  --grad-soft: linear-gradient(135deg, rgba(62,106,225,0.08), rgba(62,106,225,0.04));
+}

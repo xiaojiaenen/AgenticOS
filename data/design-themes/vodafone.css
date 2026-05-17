@@ -1,0 +1,21 @@
+/* PPT theme: vodafone — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #f2f2f2;
+  --surface-2: #bebebe;
+  --border: #d9d9de;
+  --border-strong: #7e7e7e;
+  --text-1: #333333;
+  --text-2: #25282b;
+  --text-3: #a0a0a8;
+  --accent: #e60000;
+  --accent-2: #e60000;
+  --accent-3: #c30000;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #e60000, #e60000);
+  --grad-soft: linear-gradient(135deg, rgba(230,0,0,0.08), rgba(230,0,0,0.04));
+}

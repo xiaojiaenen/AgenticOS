@@ -1,0 +1,21 @@
+/* PPT theme: nvidia — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #a7a7a7;
+  --border-strong: #898989;
+  --text-1: #1a1a1a;
+  --text-2: #000000;
+  --text-3: #757575;
+  --accent: #76b900;
+  --accent-2: #df6500;
+  --accent-3: #007fff;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #76b900, #df6500);
+  --grad-soft: linear-gradient(135deg, rgba(118,185,0,0.08), rgba(223,101,0,0.04));
+}

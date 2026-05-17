@@ -1,0 +1,21 @@
+/* PPT theme: luxury — auto-generated from open-design */
+
+:root {
+  --bg: #000000;
+  --bg-soft: #000000;
+  --surface: #000000;
+  --surface-2: #000000;
+  --border: #ffffff;
+  --border-strong: #ffffff;
+  --text-1: #ffffff;
+  --text-2: #ffffff;
+  --text-3: #ffffff;
+  --accent: #fafafa;
+  --accent-2: #fafafa;
+  --accent-3: #d4d4d4;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #fafafa, #fafafa);
+  --grad-soft: linear-gradient(135deg, rgba(250,250,250,0.08), rgba(250,250,250,0.04));
+}

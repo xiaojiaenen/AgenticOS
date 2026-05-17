@@ -1,0 +1,21 @@
+/* PPT theme: cohere — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #fafafa;
+  --surface: #f2f2f2;
+  --surface-2: #e5e7eb;
+  --border: #d9d9dd;
+  --border-strong: #93939f;
+  --text-1: #212121;
+  --text-2: #000000;
+  --text-3: #a0a0a8;
+  --accent: #1863dc;
+  --accent-2: #4c6ee6;
+  --accent-3: #1454bb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #1863dc, #4c6ee6);
+  --grad-soft: linear-gradient(135deg, rgba(24,99,220,0.08), rgba(76,110,230,0.04));
+}

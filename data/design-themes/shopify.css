@@ -1,0 +1,21 @@
+/* PPT theme: shopify — auto-generated from open-design */
+
+:root {
+  --bg: #000000;
+  --bg-soft: #02090a;
+  --surface: #061a1c;
+  --surface-2: #05181a;
+  --border: #1e2c31;
+  --border-strong: #3f3f46;
+  --text-1: #ffffff;
+  --text-2: #ffffff;
+  --text-3: #71717a;
+  --accent: #36f4a4;
+  --accent-2: #2de097;
+  --accent-3: #2563eb;
+  --good: #36f4a4;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #36f4a4, #2de097);
+  --grad-soft: linear-gradient(135deg, rgba(54,244,164,0.08), rgba(45,224,151,0.04));
+}

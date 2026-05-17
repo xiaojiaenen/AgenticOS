@@ -1,0 +1,21 @@
+/* PPT theme: lingo — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #f9f9f9;
+  --surface-2: #efefef;
+  --border: #cecece;
+  --border-strong: #a7a7a7;
+  --text-1: #3c3c3c;
+  --text-2: #8a8a8a;
+  --text-3: #bababa;
+  --accent: #58cc02;
+  --accent-2: #ce82ff;
+  --accent-3: #4aad01;
+  --good: #58cc02;
+  --warn: #ffc800;
+  --bad: #ff4b4b;
+  --grad: linear-gradient(135deg, #58cc02, #ce82ff);
+  --grad-soft: linear-gradient(135deg, rgba(88,204,2,0.08), rgba(206,130,255,0.04));
+}

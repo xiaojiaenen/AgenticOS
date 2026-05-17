@@ -1,0 +1,21 @@
+/* PPT theme: airbnb — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #f7f7f7;
+  --surface-2: #eaeaea;
+  --border: #dddddd;
+  --border-strong: #ebebeb;
+  --text-1: #222222;
+  --text-2: #3f3f3f;
+  --text-3: #929292;
+  --accent: #ff385c;
+  --accent-2: #e31c5f;
+  --accent-3: #e00b41;
+  --good: #008a05;
+  --warn: #c47700;
+  --bad: #c13515;
+  --grad: linear-gradient(135deg, #ff385c, #e31c5f);
+  --grad-soft: linear-gradient(135deg, rgba(255,56,92,0.08), rgba(227,28,95,0.04));
+}

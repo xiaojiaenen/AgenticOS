@@ -1,0 +1,21 @@
+/* PPT theme: composio — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #e0e0e0;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #444444;
+  --text-2: #000000;
+  --text-3: #a0a0a8;
+  --accent: #0007cd;
+  --accent-2: #00ffff;
+  --accent-3: #0005ae;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0007cd, #00ffff);
+  --grad-soft: linear-gradient(135deg, rgba(0,7,205,0.08), rgba(0,255,255,0.04));
+}

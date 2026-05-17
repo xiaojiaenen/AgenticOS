@@ -1,0 +1,21 @@
+/* PPT theme: superhuman — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #e9e5dd;
+  --surface: #fafafa;
+  --surface-2: #dcd7d3;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #292827;
+  --text-2: #292827;
+  --text-3: #a0a0a8;
+  --accent: #714cb6;
+  --accent-2: #714cb6;
+  --accent-3: #60409a;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #714cb6, #714cb6);
+  --grad-soft: linear-gradient(135deg, rgba(113,76,182,0.08), rgba(113,76,182,0.04));
+}

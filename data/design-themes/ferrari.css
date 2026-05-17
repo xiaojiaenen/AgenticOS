@@ -1,0 +1,21 @@
+/* PPT theme: ferrari — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #d2d2d2;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #969696;
+  --text-1: #181818;
+  --text-2: #000000;
+  --text-3: #8f8f8f;
+  --accent: #fff200;
+  --accent-2: #f6e500;
+  --accent-3: #d8cd00;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #fff200, #f6e500);
+  --grad-soft: linear-gradient(135deg, rgba(255,242,0,0.08), rgba(246,229,0,0.04));
+}

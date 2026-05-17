@@ -1,0 +1,21 @@
+/* PPT theme: opencode-ai — auto-generated from open-design */
+
+:root {
+  --bg: #fdfcfc;
+  --bg-soft: #f1eeee;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #9a9898;
+  --text-1: #424245;
+  --text-2: #201d1d;
+  --text-3: #6e6e73;
+  --accent: #007aff;
+  --accent-2: #0056b3;
+  --accent-3: #0067d8;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #007aff, #0056b3);
+  --grad-soft: linear-gradient(135deg, rgba(0,122,255,0.08), rgba(0,86,179,0.04));
+}

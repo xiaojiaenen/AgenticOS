@@ -1,0 +1,21 @@
+/* PPT theme: clickhouse — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #e5e7eb;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #a0a0a0;
+  --text-1: #3a3a3a;
+  --text-2: #343434;
+  --text-3: #585858;
+  --accent: #4f5100;
+  --accent-2: #161600;
+  --accent-3: #434400;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #4f5100, #161600);
+  --grad-soft: linear-gradient(135deg, rgba(79,81,0,0.08), rgba(22,22,0,0.04));
+}

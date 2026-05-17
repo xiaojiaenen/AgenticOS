@@ -1,0 +1,21 @@
+/* PPT theme: raycast — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f9f9f9;
+  --surface: #fafafa;
+  --surface-2: #cecece;
+  --border: #c0c0c0;
+  --border-strong: #9c9c9d;
+  --text-1: #434345;
+  --text-2: #2f3031;
+  --text-3: #6a6b6c;
+  --accent: #ff6363;
+  --accent-2: #07080a;
+  --accent-3: #d85454;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #ff6363, #07080a);
+  --grad-soft: linear-gradient(135deg, rgba(255,99,99,0.08), rgba(7,8,10,0.04));
+}

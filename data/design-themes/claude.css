@@ -1,0 +1,21 @@
+/* PPT theme: claude — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #faf9f5;
+  --surface: #f5f4ed;
+  --surface-2: #f0eee6;
+  --border: #e8e6dc;
+  --border-strong: #b0aea5;
+  --text-1: #4d4c48;
+  --text-2: #3d3d3a;
+  --text-3: #87867f;
+  --accent: #dedc01;
+  --accent-2: #3898ec;
+  --accent-3: #bcbb00;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #dedc01, #3898ec);
+  --grad-soft: linear-gradient(135deg, rgba(222,220,1,0.08), rgba(56,152,236,0.04));
+}

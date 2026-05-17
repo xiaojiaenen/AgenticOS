@@ -1,0 +1,21 @@
+/* PPT theme: lovable — auto-generated from open-design */
+
+:root {
+  --bg: #fcfbf8;
+  --bg-soft: #f7f4ed;
+  --surface: #f7f4ed;
+  --surface-2: #eceae4;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #1c1c1c;
+  --text-2: #1c1c1c;
+  --text-3: #a0a0a8;
+  --accent: #3b82f6;
+  --accent-2: #5894f7;
+  --accent-3: #326ed1;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #3b82f6, #5894f7);
+  --grad-soft: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(88,148,247,0.04));
+}

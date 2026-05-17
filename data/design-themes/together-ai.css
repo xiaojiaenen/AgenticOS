@@ -1,0 +1,21 @@
+/* PPT theme: together-ai — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #000000;
+  --text-2: #000000;
+  --text-3: #a0a0a8;
+  --accent: #fc4c02;
+  --accent-2: #bdbbff;
+  --accent-3: #d64001;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #fc4c02, #bdbbff);
+  --grad-soft: linear-gradient(135deg, rgba(252,76,2,0.08), rgba(189,187,255,0.04));
+}

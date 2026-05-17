@@ -1,0 +1,21 @@
+/* PPT theme: clay — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #eff1f3;
+  --surface: #faf9f7;
+  --surface-2: #f0f8ff;
+  --border: #eee9df;
+  --border-strong: #9f9b93;
+  --text-1: #333333;
+  --text-2: #000000;
+  --text-3: #a0a0a8;
+  --accent: #0089ad;
+  --accent-2: #01418d;
+  --accent-3: #007493;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0089ad, #01418d);
+  --grad-soft: linear-gradient(135deg, rgba(0,137,173,0.08), rgba(1,65,141,0.04));
+}

@@ -1,0 +1,21 @@
+/* PPT theme: trading-terminal — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f0f0f3;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #aaaaaa;
+  --border-strong: #828282;
+  --text-1: #2a2a2a;
+  --text-2: #1a1a1a;
+  --text-3: #808086;
+  --accent: #00d4aa;
+  --accent-2: #00d4aa;
+  --accent-3: #00b490;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #00d4aa, #00d4aa);
+  --grad-soft: linear-gradient(135deg, rgba(0,212,170,0.08), rgba(0,212,170,0.04));
+}

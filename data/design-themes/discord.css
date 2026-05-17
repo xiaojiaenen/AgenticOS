@@ -1,0 +1,21 @@
+/* PPT theme: discord — auto-generated from open-design */
+
+:root {
+  --bg: #313338;
+  --bg-soft: #2b2d31;
+  --surface: #1e1f22;
+  --surface-2: #1c1d20;
+  --border: #d9d9de;
+  --border-strong: #3f4147;
+  --text-1: #dbdee1;
+  --text-2: #f2f3f5;
+  --text-3: #80848e;
+  --accent: #5865f2;
+  --accent-2: #4752c4;
+  --accent-3: #2563eb;
+  --good: #23a55a;
+  --warn: #f0b232;
+  --bad: #f23f43;
+  --grad: linear-gradient(135deg, #5865f2, #4752c4);
+  --grad-soft: linear-gradient(135deg, rgba(88,101,242,0.08), rgba(71,82,196,0.04));
+}

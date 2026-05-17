@@ -1,0 +1,21 @@
+/* PPT theme: enterprise — auto-generated from open-design */
+
+:root {
+  --bg: #edeade;
+  --bg-soft: #edeade;
+  --surface: #e8e5d9;
+  --surface-2: #dedbd0;
+  --border: #c3c5c9;
+  --border-strong: #93979d;
+  --text-1: #111827;
+  --text-2: #70747d;
+  --text-3: #abaeb3;
+  --accent: #072c2c;
+  --accent-2: #ff5f03;
+  --accent-3: #052525;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #072c2c, #ff5f03);
+  --grad-soft: linear-gradient(135deg, rgba(7,44,44,0.08), rgba(255,95,3,0.04));
+}

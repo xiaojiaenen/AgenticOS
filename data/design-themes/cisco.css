@@ -1,0 +1,21 @@
+/* PPT theme: cisco — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #e8ebf1;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #9e9ea2;
+  --text-1: #39393b;
+  --text-2: #58585b;
+  --text-3: #a0a0a8;
+  --accent: #005073;
+  --accent-2: #ffcc00;
+  --accent-3: #004461;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #005073, #ffcc00);
+  --grad-soft: linear-gradient(135deg, rgba(0,80,115,0.08), rgba(255,204,0,0.04));
+}

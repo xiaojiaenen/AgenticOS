@@ -1,0 +1,21 @@
+/* PPT theme: spotify — auto-generated from open-design */
+
+:root {
+  --bg: #121212;
+  --bg-soft: #181818;
+  --surface: #1f1f1f;
+  --surface-2: #1d1d1d;
+  --border: #4d4d4d;
+  --border-strong: #a0a0a8;
+  --text-1: #ffffff;
+  --text-2: #fdfdfd;
+  --text-3: #cbcbcb;
+  --accent: #1ed760;
+  --accent-2: #1db954;
+  --accent-3: #2563eb;
+  --good: #1ed760;
+  --warn: #ffa42b;
+  --bad: #f3727f;
+  --grad: linear-gradient(135deg, #1ed760, #1db954);
+  --grad-soft: linear-gradient(135deg, rgba(30,215,96,0.08), rgba(29,185,84,0.04));
+}

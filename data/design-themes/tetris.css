@@ -1,0 +1,21 @@
+/* PPT theme: tetris — auto-generated from open-design */
+
+:root {
+  --bg: #dfe7ff;
+  --bg-soft: #dfe7ff;
+  --surface: #dae2f9;
+  --surface-2: #d1d9ef;
+  --border: #c6cde2;
+  --border-strong: #98a5cc;
+  --text-1: #1c398e;
+  --text-2: #7688bb;
+  --text-3: #afb9d7;
+  --accent: #1c202b;
+  --accent-2: #7107e7;
+  --accent-3: #171b24;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #1c202b, #7107e7);
+  --grad-soft: linear-gradient(135deg, rgba(28,32,43,0.08), rgba(113,7,231,0.04));
+}

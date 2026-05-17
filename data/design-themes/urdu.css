@@ -1,0 +1,21 @@
+/* PPT theme: urdu — auto-generated from open-design */
+
+:root {
+  --bg: #f4f1ea;
+  --bg-soft: #e2e8f0;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #a0a0a8;
+  --accent: #0f595e;
+  --accent-2: #c05621;
+  --accent-3: #0c4b4f;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0f595e, #c05621);
+  --grad-soft: linear-gradient(135deg, rgba(15,89,94,0.08), rgba(192,86,33,0.04));
+}

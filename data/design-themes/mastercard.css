@@ -1,0 +1,21 @@
+/* PPT theme: mastercard — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #fcfbfa;
+  --surface: #f4f4f4;
+  --surface-2: #f3f0ee;
+  --border: #d1cdc7;
+  --border-strong: #696969;
+  --text-1: #262627;
+  --text-2: #141413;
+  --text-3: #555555;
+  --accent: #eb001b;
+  --accent-2: #cf4500;
+  --accent-3: #c70016;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #eb001b, #cf4500);
+  --grad-soft: linear-gradient(135deg, rgba(235,0,27,0.08), rgba(207,69,0,0.04));
+}
