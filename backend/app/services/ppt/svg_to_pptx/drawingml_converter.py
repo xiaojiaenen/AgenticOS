@@ -416,7 +416,7 @@ def convert_svg_to_slide_shapes(
     # both ignore data-icon, so without expansion icons would silently drop.
     # The on-disk finalize_svg pipeline does the same expansion for svg_final/;
     # running this here makes the two pipelines behaviourally aligned.
-    icons_dir = Path(__file__).resolve().parent.parent.parent / 'templates' / 'icons'
+    icons_dir = Path(__file__).resolve().parent.parent.parent.parent.parent / 'data' / 'icons'
     if icons_dir.exists():
         from .use_expander import expand_use_data_icons
         expanded = expand_use_data_icons(root, icons_dir)

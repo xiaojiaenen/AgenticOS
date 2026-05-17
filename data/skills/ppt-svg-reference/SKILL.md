@@ -123,3 +123,63 @@ SVG 模式下不使用 Chart.js，所有图表用原生 SVG 元素绘制：
 - **表格**：`<rect>` 画行背景（交替色），`<line>` 画网格线，`<text>` 写内容
 
 图表必须包含：坐标轴/图例、数据标签、有意义的示意数据。
+
+## 元素分组与 PPTX 动画
+
+### 分组原则
+
+每页 SVG 的顶层 `<g id="...">` 语义分组是 PPTX 导出正确工作的前提：
+
+- 每个 `<g id>` 在 PowerPoint 中变成一个可编辑的组合
+- 动画系统将每个 `<g id>` 作为一个入场组来播放
+- **每页 3-8 个内容组**（页面装饰不算在内）
+
+```svg
+<g id="card-1">
+  <rect x="60" y="400" width="565" height="260" rx="20" fill="var(--surface)"/>
+  <use data-icon="chunk-filled/chart" x="105" y="430" width="28" height="28" fill="var(--accent)"/>
+  <text x="105" y="470" font-size="32" font-weight="bold" fill="var(--text-1)">关键指标</text>
+</g>
+```
+
+分组粒度参考：
+
+| 分组单元 | 包含内容 |
+|----------|---------|
+| 卡片/面板 | 背景 rect + 阴影（仅浮动时） + 图标 + 标题 + 正文 |
+| 流程步骤 | 数字圈 + 图标 + 标签 + 描述 |
+| 列表项 | 项目符号 + 图标 + 标题 + 描述 |
+| 页面标题 | 标题 + 副标题 + 装饰线 |
+| 页脚 | 页码 + 品牌标识 |
+
+### Chrome 分组（跳过动画）
+
+`id` 中包含以下关键词的组被自动识别为**页面装饰**，不参与入场动画，随幻灯片一起出现：
+
+`background` `bg` `decoration` `decor` `header` `footer` `chrome` `watermark` `pagenumber` `pagenum`
+
+```svg
+<!-- bg-layer 自动跳过动画 → 背景直接出现 -->
+<g id="bg-layer">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+</g>
+
+<!-- 正常的内容组 → 参与入场动画 -->
+<g id="card-1">
+  <rect x="60" y="400" width="565" height="260" rx="20" fill="var(--surface)"/>
+</g>
+```
+
+### 入场动画（21 种）
+
+内容组按顺序级联入场（`after-previous`，每个 0.3 秒）。可用效果：
+
+`appear` `fade` `fly` `cut` `zoom` `wipe` `split` `blinds` `checkerboard` `dissolve` `random_bars` `peek` `wheel` `box` `circle` `diamond` `plus` `strips` `wedge` `stretch` `expand` `swivel`
+
+默认行为：首个 fade，其余效果由动画引擎按 `mixed` 模式循环分配。可在导出时指定具体效果或 `random` 随机分配。
+
+### 转场（7 种）
+
+页面之间的切换效果（默认 `fade`，0.5 秒）：
+
+`fade` `push` `wipe` `split` `strips` `cover` `random`
