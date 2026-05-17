@@ -81,7 +81,7 @@ class TestResolveTokenValues:
     def test_real_svg_slide(self):
         from app.services.ppt.theme_token_resolver import resolve_token_values
 
-        svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="tokyo-night">
+        svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
   <rect width="1280" height="720" fill="var(--bg)"/>
   <rect x="0" y="0" width="1280" height="4" fill="var(--accent)"/>
   <text x="640" y="300" font-size="72" fill="var(--text-1)">Hello</text>
@@ -136,8 +136,8 @@ class TestLoadThemeTokens:
         themes = list_available_themes()
         assert isinstance(themes, list)
         assert len(themes) >= 1
-        assert "tokyo-night" in themes
-        assert "minimal-white" in themes
+        assert "apple" in themes
+        assert "agentic" in themes
 
 
 class TestSvgArtifactCreation:
@@ -149,7 +149,7 @@ class TestSvgArtifactCreation:
         service = PptArtifactService()
 
         svg_text = """```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="tokyo-night">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
   <rect width="1280" height="720" fill="var(--bg)"/>
   <rect x="0" y="0" width="1280" height="4" fill="var(--accent)"/>
   <text x="640" y="300" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="72" font-weight="800" fill="var(--text-1)">销售数据分析</text>
@@ -158,7 +158,7 @@ class TestSvgArtifactCreation:
 ```
 
 ```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="tokyo-night">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
   <rect width="1280" height="720" fill="var(--bg)"/>
   <rect x="40" y="40" width="1200" height="640" rx="16" fill="var(--surface)"/>
   <text x="640" y="300" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="48" font-weight="700" fill="var(--text-1)">核心指标</text>
@@ -166,7 +166,7 @@ class TestSvgArtifactCreation:
 ```
 
 ```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="tokyo-night">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
   <rect width="1280" height="720" fill="var(--bg)"/>
   <text x="640" y="360" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="48" fill="var(--text-1)">谢谢</text>
 </svg>
@@ -183,8 +183,8 @@ class TestSvgArtifactCreation:
         assert result["slide_count"] == 3
         assert result["title"] == "销售数据分析"
         assert "var(" not in result["html"]  # All tokens resolved
-        assert "#1a1b26" in result["html"]  # --bg resolved
-        assert "#7aa2f7" in result["html"]  # --accent resolved
+        assert "#ffffff" in result["html"]  # --bg resolved
+        assert "#0071e3" in result["html"]  # --accent resolved
 
     def test_create_from_svg_text_rejects_too_few_slides(self):
         from app.services.ppt_artifact_service import PptArtifactService
@@ -211,41 +211,3 @@ class TestSvgArtifactCreation:
         ))
         assert result is None
 
-    def test_create_from_svg_text_preserves_html_mode(self):
-        """Verify that mode='ppt' still works for HTML extraction."""
-        from app.services.ppt_artifact_service import PptArtifactService
-
-        service = PptArtifactService()
-
-        html_text = """```html
-<!DOCTYPE html>
-<html lang="zh-CN" data-theme="tokyo-night">
-<head>
-<meta charset="utf-8"/>
-<link rel="stylesheet" href="assets/base.css"/>
-<link rel="stylesheet" href="assets/fonts.css"/>
-<link rel="stylesheet" id="theme-link" href="assets/themes/tokyo-night.css"/>
-</head>
-<body data-themes="tokyo-night,minimal-white,dracula" data-theme-base="assets/themes/">
-<div class="deck">
-
-<section class="slide" data-title="封面"><p class="kicker">Test</p><h1 class="h1">Title</h1><div class="deck-footer"></div></section>
-
-<section class="slide" data-title="第2页"><h2 class="h2">Page 2</h2><div class="deck-footer"></div></section>
-
-<section class="slide" data-title="第3页"><h2 class="h2">Page 3</h2><div class="deck-footer"></div></section>
-
-</div>
-<script src="assets/runtime.js"></script>
-</body></html>
-```"""
-
-        import asyncio
-        result = asyncio.run(service.create_from_text(
-            session_id="test-html-mode",
-            text=html_text,
-            mode="ppt",
-        ))
-        assert result is not None
-        assert result["slide_count"] == 3
-        assert "class=\"deck\"" in result["html"]

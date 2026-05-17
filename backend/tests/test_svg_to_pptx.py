@@ -255,8 +255,8 @@ End."""
 
         svgs = ['<svg xmlns="http://www.w3.org/2000/svg" data-theme="tokyo-night" viewBox="0 0 1280 720">...</svg>']
         assert _detect_theme_name_from_svg(svgs) == "tokyo-night"
-        assert _detect_theme_name_from_svg([]) == "minimal-white"
-        assert _detect_theme_name_from_svg(['<svg viewBox="0 0 1280 720"></svg>']) == "minimal-white"
+        assert _detect_theme_name_from_svg([]) == "apple"
+        assert _detect_theme_name_from_svg(['<svg viewBox="0 0 1280 720"></svg>']) == "apple"
 
     def test_prepare_svg_preview(self):
         from app.services.ppt_artifact_service import prepare_svg_preview

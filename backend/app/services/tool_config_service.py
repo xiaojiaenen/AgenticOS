@@ -112,6 +112,13 @@ TOOL_CATALOG = {
             "run_skill_python_script": {"label": "运行技能脚本", "description": "执行 Skill 中的 Python 脚本"},
         },
     },
+    "search_icons": {
+        "label": "图标搜索",
+        "description": "按关键词搜索 PPT 图标库，返回可用的图标名列表。",
+        "builtin_name": "search_icons",
+        "approval_scope": [],
+        "sub_tools": {},
+    },
 }
 
 DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {

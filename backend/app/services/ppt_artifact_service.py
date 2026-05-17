@@ -65,7 +65,7 @@ def prepare_svg_preview(svgs: list[str], theme_name: str = "apple") -> str:
     if tokens:
         token_lines = "\n".join(f"    {k}: {v};" for k, v in sorted(tokens.items()))
         token_css = f"""
-  /* Theme tokens for var() resolution */
+  /* Theme tokens for CSS custom property resolution */
   :root {{
 {token_lines}
   }}"""
