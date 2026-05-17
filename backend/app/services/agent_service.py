@@ -417,7 +417,8 @@ class AgentService:
             slide_count = artifact.get("slide_count", 0)
             project_root = _Path(__file__).resolve().parent.parent.parent.parent
             slides_dir = project_root / "data" / "ppt-sessions" / session_id
-            svg_files = sorted(slides_dir.glob("slide_*.svg")) if slides_dir.exists() else []
+            svg_files = sorted(slides_dir.glob("slide_*.svg"),
+                                key=lambda p: int(p.stem.replace("slide_", ""))) if slides_dir.exists() else []
             file_list = "\n".join(
                 f"  read_slide({f.stem.replace('slide_', '')})" for f in svg_files
             ) if svg_files else "  （无已保存文件）"

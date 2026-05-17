@@ -288,7 +288,7 @@ async def test_ppt_mode_lifts_legacy_one_step_session_limit() -> None:
     )
     events = [event async for event in service.stream_chat(request)]
 
-    assert session.max_steps == 30
+    assert session.max_steps == 50
     assert events[-1]["event"] == "done"
 
 

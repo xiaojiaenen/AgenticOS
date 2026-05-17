@@ -69,6 +69,12 @@ from app.db.models import PptArtifactModel
 from app.db.session import create_db_session
 from app.services.session_storage import dump_json, load_json
 
+def _slide_num_key(p) -> int:
+    """Extract slide number from filename like 'slide_5.svg' for numeric sorting."""
+    m = re.search(r'slide_(\d+)', p.name)
+    return int(m.group(1)) if m else 0
+
+
 _SVG_TAG_RE = re.compile(r"<svg\b[^>]*>", re.IGNORECASE)
 _SVG_CODE_BLOCK_RE = re.compile(r"```(?:svg|SVG)\s*\n(.*?)```", re.DOTALL)
 _VIEWBOX_RE = re.compile(r'viewBox\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
@@ -255,7 +261,7 @@ class PptArtifactService:
             _logger.debug(f"slides_dir does not exist: {slides_dir}")
             return None
 
-        svg_files = sorted(slides_dir.glob("slide_*.svg"))
+        svg_files = sorted(slides_dir.glob("slide_*.svg"), key=_slide_num_key)
         if len(svg_files) < 3:
             _logger.debug(f"Not enough slides: {len(svg_files)} < 3")
             return None
