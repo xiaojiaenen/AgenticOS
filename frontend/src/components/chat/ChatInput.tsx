@@ -13,8 +13,8 @@ interface ChatInputProps {
   isLoading: boolean;
   className?: string;
   placeholder?: string;
-  chatMode: 'general' | 'ppt' | 'website';
-  setChatMode: (mode: 'general' | 'ppt' | 'website') => void;
+  chatMode: 'general' | 'ppt' | 'ppt-svg' | 'website';
+  setChatMode: (mode: 'general' | 'ppt' | 'ppt-svg' | 'website') => void;
   agentProfiles?: AgentProfile[];
   selectedAgentProfileId?: number | null;
   onAgentProfileChange?: (profile: AgentProfile | null) => void;
@@ -198,7 +198,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
                     key={agent.id}
                     onClick={() => {
                       onAgentProfileChange?.(agent);
-                      setChatMode(agent.response_mode as 'general' | 'ppt' | 'website');
+                      setChatMode(agent.response_mode as 'general' | 'ppt' | 'ppt-svg' | 'website');
                       setShowModeMenu(false);
                     }}
                     className={cn(

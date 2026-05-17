@@ -15,7 +15,7 @@ interface UseChatStreamDeps {
   sessions: Session[];
   currentSessionId: string | null;
   currentSession: Session | null;
-  chatMode: 'general' | 'ppt' | 'website';
+  chatMode: 'general' | 'ppt' | 'ppt-svg' | 'website';
   selectedAgentProfileId: number | null;
   selectedAgent: AgentProfile | null;
   setSessions: React.Dispatch<React.SetStateAction<Session[]>>;
@@ -137,8 +137,8 @@ export function useChatStream({
         queueMicrotask(() => {
           setIsLoading(true);
           setRunStatus({
-            phase: chatMode === 'ppt' ? 'generating_ppt' : 'thinking',
-            label: chatMode === 'ppt' ? '正在生成 PPT 内容与版式' : '大模型正在思考',
+            phase: (chatMode === 'ppt' || chatMode === 'ppt-svg') ? 'generating_ppt' : 'thinking',
+            label: (chatMode === 'ppt' || chatMode === 'ppt-svg') ? '正在生成 PPT 内容与版式' : '大模型正在思考',
           });
           setInputValue('');
           setSessions((prev) => {
@@ -146,7 +146,7 @@ export function useChatStream({
               id: assistantMessageId!,
               role: 'model',
               text: '',
-              pptArtifact: chatMode === 'ppt' ? { status: 'generating' } : undefined,
+              pptArtifact: (chatMode === 'ppt' || chatMode === 'ppt-svg') ? { status: 'generating', mode: chatMode as 'ppt' | 'ppt-svg' } : undefined,
             };
 
             if (!currentSessionId) {
@@ -190,8 +190,9 @@ export function useChatStream({
           },
           onPptArtifact: (pptArtifact) => {
             receivedPptArtifact = pptArtifact;
+            const pptLanguage = chatMode === 'ppt-svg' ? 'ppt-svg' as const : 'ppt' as const;
             const nextArtifact: Artifact = {
-              language: 'ppt',
+              language: pptLanguage,
               artifactId: pptArtifact.artifact_id,
               html: pptArtifact.html,
               title: pptArtifact.title,
@@ -214,6 +215,7 @@ export function useChatStream({
                                 title: pptArtifact.title,
                                 slideCount: pptArtifact.slide_count,
                                 html: pptArtifact.html,
+                                mode: pptLanguage,
                               },
                             }
                           : message,
@@ -336,7 +338,7 @@ export function useChatStream({
         const svgMatch = /```svg\n([\s\S]*?)\n```/.exec(response.text);
         if (pptArtifact)
           setArtifact({
-            language: 'ppt',
+            language: chatMode === 'ppt-svg' ? 'ppt-svg' : 'ppt',
             artifactId: pptArtifact.artifact_id,
             html: pptArtifact.html,
             title: pptArtifact.title,

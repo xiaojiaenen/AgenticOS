@@ -42,6 +42,7 @@ export type Message = {
     title?: string;
     slideCount?: number;
     html?: string;
+    mode?: 'ppt' | 'ppt-svg';
   };
 };
 
@@ -51,7 +52,7 @@ export type Session = {
   messages: Message[];
   createdAt?: number;
   updatedAt: number;
-  mode?: 'general' | 'ppt' | 'website';
+  mode?: 'general' | 'ppt' | 'ppt-svg' | 'website';
   agentProfileId?: number | null;
   agentName?: string;
   summary?: string | null;
@@ -111,4 +112,5 @@ export type PptDeck = {
 
 export type Artifact =
   | {language: 'html' | 'svg'; code: string}
-  | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number};
+  | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number}
+  | {language: 'ppt-svg'; artifactId?: string; html: string; title: string; slideCount: number};

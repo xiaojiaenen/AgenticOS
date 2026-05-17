@@ -4,7 +4,7 @@ import { authHeaders } from './authService';
 type AgentServiceOptions = {
   sessionId: string;
   systemPrompt?: string;
-  responseMode?: 'general' | 'ppt' | 'website';
+  responseMode?: 'general' | 'ppt' | 'ppt-svg' | 'website';
   agentProfileId?: number | null;
   onDelta?: (delta: string, fullText: string) => void;
   onReasoningDelta?: (delta: string, fullText: string) => void;
@@ -445,4 +445,23 @@ export async function deleteSession(sessionId: string): Promise<void> {
     const detail = await response.text();
     throw new Error(detail || '删除会话失败。');
   }
+}
+
+export async function exportPptx(artifactId: string): Promise<Blob> {
+  const response = await fetch(
+    `${AGENT_ENDPOINT}/ppt/export`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ artifact_id: artifactId }),
+    },
+  );
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || 'PPT 导出失败。');
+  }
+  return response.blob();
 }

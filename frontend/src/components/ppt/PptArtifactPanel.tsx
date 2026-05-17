@@ -4,9 +4,10 @@ import { Download, LayoutDashboard, RefreshCcw, X } from 'lucide-react';
 import { MotionValue } from 'motion/react';
 import { Artifact } from '../../types';
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
+import { exportPptx } from '../../services/agentService';
 
 type PptArtifactPanelProps = {
-  artifact: Extract<Artifact, { language: 'ppt' }>;
+  artifact: Extract<Artifact, { language: 'ppt' | 'ppt-svg' }>;
   onClose: () => void;
   borderColor: MotionValue<string>;
 };
@@ -164,10 +165,32 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
 
   const handleExport = async () => {
     setIsExporting(true);
+
+    // SVG mode: use backend API for native .pptx export
+    if (artifact.language === 'ppt-svg' && artifact.artifactId) {
+      try {
+        const blob = await exportPptx(artifact.artifactId);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${artifact.title || 'AgenticOS-PPT'}.pptx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('[PPTX Export] Backend export error:', err);
+      } finally {
+        setIsExporting(false);
+      }
+      return;
+    }
+
+    // HTML mode: use client-side dom-to-pptx
     let tempContainer: HTMLElement | null = null;
     try {
       await document.fonts?.ready;
-      const exportToPptx = await loadDomToPptx();
+      const exportToPptxFn = await loadDomToPptx();
 
       // Load artifact.html in an invisible iframe (opacity:0, not off-screen)
       // so that innerText-based content detection in dom-to-pptx works.
@@ -206,7 +229,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
       });
 
       if (slides.length > 0) {
-        await exportToPptx(slides, {
+        await exportToPptxFn(slides, {
           fileName: `${artifact.title || 'AgenticOS-PPT'}.pptx`,
           layout: 'LAYOUT_16x9',
           margin: 0,
