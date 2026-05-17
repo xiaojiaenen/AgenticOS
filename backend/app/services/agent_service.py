@@ -440,9 +440,10 @@ class AgentService:
     ) -> None:
         if response_mode != "ppt" or requested_max_steps is not None:
             return
+        ppt_max_steps = 50
         current_max_steps = getattr(session, "max_steps", self.settings.agent_max_steps)
-        if current_max_steps < self.settings.agent_max_steps:
-            session.max_steps = self.settings.agent_max_steps
+        if current_max_steps < ppt_max_steps:
+            session.max_steps = ppt_max_steps
 
     def _session_payload(self, session) -> dict[str, Any]:
         metadata = getattr(session, "metadata", {}) or {}
