@@ -42,6 +42,7 @@ frontend/.vite/
 
 # Local app data
 backend/data/
+data/icons/
 data/*.db
 data/skills/
 data/websites/

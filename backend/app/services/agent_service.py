@@ -871,6 +871,11 @@ class AgentService:
         import tempfile
         from pathlib import Path
         from app.services.ppt.svg_to_pptx import create_pptx_with_native_svg
+        from app.services.ppt.svg_finalize.embed_icons import process_svg_file as _embed_icons
+        from app.services.ppt.svg_finalize.align_embed_images import align_and_embed_images_in_svg as _align_images
+        from app.services.ppt.svg_finalize.flatten_tspan import flatten_text_with_tspans as _flatten_tspan_text
+        from app.services.ppt.svg_finalize.svg_rect_to_path import process_svg as _fix_rounded
+        from xml.etree import ElementTree as ET
 
         _logger = logging.getLogger("ppt_export")
 
@@ -896,16 +901,39 @@ class AgentService:
                 svg_path.write_text(svg_content, encoding="utf-8")
                 svg_paths.append(svg_path)
 
+            # SVG post-processing (icon embedding + image alignment + text flatten + rounded rect fix)
+            _icons_dir = Path(__file__).resolve().parent.parent.parent.parent / "data" / "icons"
+            _processed = 0
+            for svg_path in svg_paths:
+                _processed += _embed_icons(svg_path, _icons_dir, dry_run=False, verbose=False)
+                _processed += _align_images(svg_path, dry_run=False, verbose=False)[0]
+                try:
+                    tree = ET.parse(str(svg_path))
+                    if _flatten_tspan_text(tree):
+                        tree.write(str(svg_path), encoding="unicode", xml_declaration=False)
+                        _processed += 1
+                except Exception:
+                    pass
+                try:
+                    raw = svg_path.read_text(encoding="utf-8")
+                    new_content, count = _fix_rounded(raw, verbose=False)
+                    if count:
+                        svg_path.write_text(new_content, encoding="utf-8")
+                        _processed += count
+                except Exception:
+                    pass
+            _logger.info(f"SVG post-processing: {_processed} changes across {len(svg_paths)} slides")
+
             output_path = tmpdir_path / "output.pptx"
             create_pptx_with_native_svg(
                 svg_files=svg_paths,
                 output_path=output_path,
                 canvas_format=canvas_format or "ppt169",
                 verbose=False,
-                transition=transition,
+                transition=transition or "fade",
                 use_native_shapes=use_native_shapes,
                 use_compat_mode=use_compat_mode,
-                animation=animation,
+                animation=animation or "mixed",
                 enable_notes=enable_notes,
                 notes={},
             )

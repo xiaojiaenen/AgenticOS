@@ -130,7 +130,7 @@ class AgentProfileService:
                         changed = True
                 if slug == "ppt" or slug == "ppt-svg":
                     current_prompt = profile.system_prompt or ""
-                    if "36 个已有主题" in current_prompt or "tokyo-night" in current_prompt:
+                    if "SVG 技术黑名单" not in current_prompt:
                         profile.system_prompt = PPT_SYSTEM_PROMPT
                         changed = True
                     if profile.response_mode != defaults["response_mode"]:

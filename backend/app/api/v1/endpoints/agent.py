@@ -140,6 +140,72 @@ async def get_ppt_artifact(
     return artifact
 
 
+@router.get("/ppt/preview/{artifact_id}", summary="PPT SVG 实时预览")
+async def preview_pptx(
+    artifact_id: str,
+    agent_service: AgentService = Depends(get_agent_service),
+) -> Response:
+    """Return an HTML page that displays all SVG slides with keyboard navigation."""
+    artifact = await agent_service.get_ppt_artifact(artifact_id)
+    if artifact is None:
+        raise HTTPException(status_code=404, detail=f"PPT artifact '{artifact_id}' not found")
+
+    svgs = agent_service.ppt_artifacts.extract_svgs_from_artifact(artifact)
+    if not svgs:
+        raise HTTPException(status_code=400, detail="Artifact contains no SVG slides")
+
+    slides_html = "".join(svgs)
+    html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>{artifact.get("title", "PPT Preview")}</title>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ background:#0f0f0f; color:#e0e0e0; font-family:Inter,Noto Sans SC,sans-serif; overflow:hidden; }}
+#counter {{ position:fixed; top:16px; right:24px; z-index:100; font-size:13px; color:#888; font-variant-numeric:tabular-nums; }}
+#deck {{ display:flex; flex-direction:column; align-items:center; gap:8px; padding:16px; overflow-y:auto; height:100vh; scroll-snap-type:y mandatory; }}
+.slide {{ scroll-snap-align:start; width:100%; max-width:1280px; flex-shrink:0; }}
+.slide svg {{ width:100%; height:auto; display:block; border-radius:8px; box-shadow:0 4px 24px rgba(0,0,0,.5); }}
+.notes {{ max-width:1280px; margin:4px auto 24px; padding:12px 20px; background:#1a1a1a; border-left:3px solid #444; border-radius:4px; font-size:13px; color:#999; line-height:1.6; white-space:pre-wrap; display:none; }}
+.notes.visible {{ display:block; }}
+</style></head>
+<body>
+<div id="counter">1 / {len(svgs)}</div>
+<div id="deck">{slides_html}</div>
+<script>
+(function() {{
+  var slides = document.querySelectorAll('.slide');
+  var counter = document.getElementById('counter');
+  var current = 0;
+  function show(i) {{
+    current = Math.max(0, Math.min(i, slides.length - 1));
+    slides[current].scrollIntoView({{ behavior:'smooth', block:'start' }});
+    counter.textContent = (current + 1) + ' / ' + slides.length;
+  }}
+  document.addEventListener('keydown', function(e) {{
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'j') {{ e.preventDefault(); show(current + 1); }}
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'k') {{ e.preventDefault(); show(current - 1); }}
+    if (e.key === 'Home') {{ e.preventDefault(); show(0); }}
+    if (e.key === 'End') {{ e.preventDefault(); show(slides.length - 1); }}
+    if (e.key === 'n') {{
+      e.preventDefault();
+      document.querySelectorAll('.notes').forEach(function(n) {{ n.classList.toggle('visible'); }});
+    }}
+  }});
+  // Wrap each SVG in a slide container
+  document.querySelectorAll('#deck > svg').forEach(function(svg) {{
+    var div = document.createElement('div');
+    div.className = 'slide';
+    svg.parentNode.insertBefore(div, svg);
+    div.appendChild(svg);
+  }});
+  slides = document.querySelectorAll('.slide');
+}})();
+</script>
+</body></html>"""
+    return Response(content=html, media_type="text/html; charset=utf-8")
+
+
 @router.post("/ppt/export", summary="导出 PPT 制品为原生 .pptx 文件")
 async def export_pptx(
     request: PptExportRequest,
