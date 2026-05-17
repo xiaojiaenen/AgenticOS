@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import math
 import re
 from pathlib import Path
@@ -365,6 +366,103 @@ def _local_tag(elem: ET.Element) -> str:
     return elem.tag.split('}', 1)[-1] if isinstance(elem.tag, str) and '}' in elem.tag else str(elem.tag)
 
 
+def _strip_remaining_use_elements(root: ET.Element) -> int:
+    """Strip any ``<use>`` elements remaining after icon expansion.
+
+    Handles two cases:
+    1. ``<use href="#id">`` / ``<use xlink:href="#id">`` — native SVG
+       references. Resolves them from ``<defs>`` by cloning the referenced
+       element, applying the ``<use>`` element's x/y positioning.
+    2. Unresolvable ``<use>`` elements (no href, or href target not in defs)
+       — stripped from the tree to avoid converter errors.
+
+    Returns the number of ``<use>`` elements handled.
+    """
+    # Collect defs first
+    defs: dict[str, ET.Element] = {}
+    for defs_elem in root.iter(f'{{{SVG_NS}}}defs'):
+        for child in defs_elem:
+            elem_id = child.get('id')
+            if elem_id:
+                defs[elem_id] = child
+    for defs_elem in root.iter('defs'):
+        for child in defs_elem:
+            elem_id = child.get('id')
+            if elem_id:
+                defs.setdefault(elem_id, child)
+
+    # Build parent map for all elements
+    parent_of: dict[ET.Element, ET.Element] = {}
+    for parent in root.iter():
+        for child in parent:
+            parent_of[child] = parent
+
+    # Find all <use> elements (with or without SVG namespace)
+    use_elems: list[ET.Element] = []
+    for elem in root.iter():
+        local = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+        if local == 'use':
+            use_elems.append(elem)
+
+    handled = 0
+    for use_elem in reversed(use_elems):
+        parent = parent_of.get(use_elem)
+        if parent is None:
+            continue
+
+        # Try href / xlink:href resolution
+        href = (use_elem.get('href')
+                or use_elem.get(f'{{{SVG_NS}}}href')
+                or use_elem.get('xlink:href')
+                or use_elem.get('{http://www.w3.org/1999/xlink}href'))
+        if href and href.startswith('#'):
+            ref_id = href[1:]
+            ref_elem = defs.get(ref_id)
+            if ref_elem is not None:
+                idx = list(parent).index(use_elem)
+                # Clone the referenced element with use-element positioning
+                cloned = _clone_with_use_position(ref_elem, use_elem)
+                parent.remove(use_elem)
+                parent.insert(idx, cloned)
+                handled += 1
+                continue
+
+        # Unresolvable — strip it
+        parent.remove(use_elem)
+        handled += 1
+
+    return handled
+
+
+def _clone_with_use_position(ref_elem: ET.Element, use_elem: ET.Element) -> ET.Element:
+    """Clone a defs element, wrapping it in a ``<g>`` with the ``<use>`` element's
+    x/y translate transform applied."""
+    import copy
+    cloned = copy.deepcopy(ref_elem)
+
+    x = _parse_use_coord(use_elem, 'x')
+    y = _parse_use_coord(use_elem, 'y')
+    if x == 0 and y == 0:
+        return cloned
+
+    wrapper = ET.Element(f'{{{SVG_NS}}}g')
+    wrapper.set('transform', f'translate({x}, {y})')
+    wrapper.append(cloned)
+    return wrapper
+
+
+def _parse_use_coord(use_elem: ET.Element, attr: str) -> float:
+    """Parse an x/y coordinate from a ``<use>`` element, returning 0 for missing
+    or non-numeric values."""
+    val = use_elem.get(attr)
+    if val is None:
+        return 0.0
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return 0.0
+
+
 def _collect_unsupported_visuals(root: ET.Element) -> list[str]:
     issues: list[str] = []
 
@@ -422,6 +520,13 @@ def convert_svg_to_slide_shapes(
         expanded = expand_use_data_icons(root, icons_dir)
         if verbose and expanded:
             print(f'  Expanded {expanded} <use data-icon="..."/> placeholder(s)')
+
+    # Strip any remaining <use> elements that survived icon expansion. These
+    # can appear when the AI emits <use href="#id"> (native SVG references)
+    # instead of <use data-icon="...">, or when icon resolution fails silently.
+    stripped = _strip_remaining_use_elements(root)
+    if verbose and stripped:
+        print(f'  Stripped {stripped} unresolved <use> element(s)')
 
     # Flatten positional <tspan> (those with x/y/non-zero dy) into independent
     # <text> elements. DrawingML runs cannot reposition mid-paragraph, so a

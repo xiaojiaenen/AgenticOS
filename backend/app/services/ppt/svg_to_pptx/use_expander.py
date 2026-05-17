@@ -52,7 +52,24 @@ def _build_replacement_g(
     use_str = ET.tostring(use_elem, encoding='unicode')
     attrs = embed_icons_mod.parse_use_element(use_str)
     if 'icon' not in attrs:
-        return None
+        # Fallback: the <use> element may use href="library/name" instead of
+        # data-icon="library/name". Extract the icon name from href.
+        href = (use_elem.get('href')
+                or use_elem.get(f'{{{SVG_NS}}}href')
+                or use_elem.get('xlink:href')
+                or use_elem.get('{http://www.w3.org/1999/xlink}href'))
+        if href and '/' in href and not href.startswith('#'):
+            attrs['icon'] = href
+            attrs['fill'] = use_elem.get('fill', '#000000')
+            for attr in ('x', 'y', 'width', 'height'):
+                v = use_elem.get(attr)
+                if v is not None:
+                    try:
+                        attrs[attr] = float(v)
+                    except (ValueError, TypeError):
+                        pass
+        else:
+            return None
 
     icon_path, _base_size = embed_icons_mod.resolve_icon_path(
         attrs['icon'], icons_dir,
@@ -108,7 +125,19 @@ def expand_use_data_icons(root: ET.Element, icons_dir: Path) -> int:
     targets: list[ET.Element] = []
     for elem in root.iter():
         local = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
-        if local == 'use' and elem.get('data-icon'):
+        if local != 'use':
+            continue
+        # Primary: data-icon="library/name"
+        if elem.get('data-icon'):
+            targets.append(elem)
+            continue
+        # Fallback: href="library/name" (AI sometimes uses href instead of data-icon)
+        href = (elem.get('href')
+                or elem.get(f'{{{SVG_NS}}}href')
+                or elem.get('xlink:href')
+                or elem.get('{http://www.w3.org/1999/xlink}href'))
+        if href and '/' in href and not href.startswith('#'):
+            # href looks like "chunk-filled/rocket" — treat as data-icon
             targets.append(elem)
 
     expanded = 0
