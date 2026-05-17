@@ -112,5 +112,4 @@ export type PptDeck = {
 
 export type Artifact =
   | {language: 'html' | 'svg'; code: string}
-  | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number}
   | {language: 'ppt-svg'; artifactId?: string; html: string; title: string; slideCount: number};

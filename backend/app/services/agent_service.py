@@ -25,7 +25,7 @@ from app.db.models import AgentUsageEventModel, ApprovalModel, PptArtifactModel,
 from app.db.session import create_db_session
 from app.services.approval_manager import ApprovalManager
 from app.services.agent_profile_service import AgentProfileService, RuntimeAgentProfile
-from app.services.ppt_artifact_service import PptArtifactService, strip_html_block_from_text
+from app.services.ppt_artifact_service import PptArtifactService
 from app.services.ppt.svg_layouts import SVG_LAYOUTS
 from app.services.ppt.theme_token_resolver import build_color_token_table, build_token_quick_ref, list_available_themes
 from app.services.session_storage import DatabaseAgentStorage, dump_json
@@ -310,110 +310,8 @@ class AgentService:
     _layout_catalog_cache: str | None = None
 
     @classmethod
+    @classmethod
     def _build_layout_catalog(cls) -> str:
-        """Build a compact catalog of all 31 single-page layout HTML samples.
-
-        Reads each layout file from templates/single-page/, extracts the
-        <style> block (layout-specific CSS) and <section> block (slide HTML),
-        and formats them for LLM copy-paste.
-        """
-        if cls._layout_catalog_cache is not None:
-            return cls._layout_catalog_cache
-
-        from pathlib import Path
-        import re as _re
-
-        layouts_dir = Path(__file__).resolve().parent / "ppt" / "html-ppt" / "templates" / "single-page"
-        if not layouts_dir.exists():
-            cls._layout_catalog_cache = ""
-            return ""
-
-        parts: list[str] = []
-        for fpath in sorted(layouts_dir.glob("*.html")):
-            name = fpath.stem
-            raw = fpath.read_text(encoding="utf-8")
-
-            # Extract <style> block(s)
-            style_blocks = _re.findall(r"<style[^>]*>(.*?)</style>", raw, _re.DOTALL)
-            styles = "\n".join(s.strip() for s in style_blocks).strip()
-
-            # Extract <section class="slide"> block
-            sec_m = _re.search(r'<section class="slide[^"]*"[^>]*>.*?</section>', raw, _re.DOTALL)
-            if sec_m is None:
-                continue
-            section_html = sec_m.group()
-
-            # Compact: remove excessive whitespace but keep structure readable
-            section_html = _re.sub(r"\n\s*\n", "\n", section_html)
-            section_html = _re.sub(r" {2,}", " ", section_html)
-
-            parts.append(f"<!-- layout: {name} -->")
-            if styles:
-                parts.append(f"<style>\n{styles}\n</style>")
-            parts.append(section_html)
-            parts.append("")
-
-        cls._layout_catalog_cache = "\n".join(parts)
-        return cls._layout_catalog_cache
-
-    @classmethod
-    def _inject_design_catalog(cls, message: str) -> str:
-        layout_catalog = cls._build_layout_catalog()
-
-        lines = [
-            "",
-            "---",
-            "## html-ppt 真实 Layout 样本（从 templates/single-page/ 提取，共 31 个）",
-            "",
-            "**工作流：为每页选择一个 layout → 复制其 <section> 块 → 替换 demo 数据 → 保留 class 结构和 <style> 不变。**",
-            "",
-            "部分 layout 自带 <style> 块（timeline 的 .tl、comparison 的 .vs、flow-diagram 的 .flow 等），**必须原样保留**在 slide 前面，它们定义了该 layout 的专属视觉。",
-            "",
-            layout_catalog,
-            "",
-            "---",
-            "## 完整 Deck 模板速查（15 套，可用作设计参考）",
-            "",
-            "**真实提取**: xhs-white-editorial(白底杂志) · graphify-dark-graph(暗底知识图谱) · knowledge-arch-blueprint(奶油蓝图) · hermes-cyber-terminal(暗终端) · obsidian-claude-gradient(GitHub暗紫) · testing-safety-alert(红琥珀安全) · xhs-pastel-card(马卡龙) · dir-key-nav-minimal(极简Keynote)",
-            "**场景脚手架**: pitch-deck(VC融资10页) · product-launch(产品发布8页) · tech-sharing(技术分享8页) · weekly-report(周报7页) · xhs-post(小红书3:4竖版) · course-module(教学7页) · presenter-mode-reveal(演讲者模式·S键提词器)",
-            "",
-            "---",
-            "## 动画速查",
-            "",
-            "### CSS 入场动画（data-anim=\"名称\"）",
-            "**常用**: fade-up(段落/卡片) · fade-down(标题) · fade-left/right(左右栏) · blur-in(封面) · rise-in(hero标题) · zoom-pop(数字/CTA) · counter-up(数字滚动) · stagger-list(列表逐项出现,加在容器class) · perspective-zoom(章节分隔) · cube-rotate-3d(章节分隔) · confetti-burst(致谢页)",
-            "**更多**: drop-in · glitch-in · typewriter · neon-glow · shimmer-sweep · gradient-flow · path-draw · morph-shape · parallax-tilt · card-flip-3d · page-turn-3d · marquee-scroll · kenburns · spotlight · ripple-reveal",
-            "",
-            "### Canvas FX 特效（需引入 `<script src=\"assets/animations/fx-runtime.js\"></script>`，用 `<div data-fx=\"名称\" style=\"width:100%;height:360px\"></div>` 放置）",
-            "particle-burst(粒子爆发) · confetti-cannon(彩纸炮) · firework(烟花) · starfield(星空) · matrix-rain(矩阵雨) · knowledge-graph(知识图谱) · neural-net(神经网络) · constellation(星座连线) · orbit-ring(轨道环) · galaxy-swirl(银河漩涡) · word-cascade(词坠落) · letter-explode(字母飞入) · chain-react(链式反应) · magnetic-field(磁场) · data-stream(数据流) · gradient-blob(渐变泡) · sparkle-trail(闪光轨迹) · shockwave(冲击波) · typewriter-multi(多行打字) · counter-explosion(数字爆炸)",
-            "",
-            "**每页只用 1-2 种动画。Canvas FX 每页只放一个。**",
-            "",
-            "---",
-            "## 快速参考",
-            "",
-            "### 主题选择（直接选最合适的，不用问用户）",
-            "- 技术分享 / 开发者 → tokyo-night, dracula, nord, catppuccin-mocha, terminal-green",
-            "- 商业 / 管理层汇报 → corporate-clean, minimal-white, pitch-deck-vc, swiss-grid",
-            "- 创意提案 / 发布会 → neo-brutalism, aurora, glassmorphism, cyberpunk-neon, magazine-bold",
-            "- 学术 / 研究报告 → academic-paper, editorial-serif, solarized-light",
-            "- 小红书 / 社交媒体 → xiaohongshu-white, soft-pastel, rainbow-gradient, memphis-pop",
-            "",
-            "### 关键规则",
-            "1. 推荐 1 个最匹配主题写入 `<html data-theme=\"xxx\">`，body data-themes 列 3-5 个备选",
-            "2. 每页从上面的 layout 样本中**复制粘贴**，替换内容但保留结构",
-            "3. 带 <style> 的 layout：把 <style> 块复制到 slide 前面，一起放进 deck",
-            "4. 所有颜色用 var(--xxx) 令牌",
-            "5. deck head 中必须引入: assets/base.css + assets/fonts.css + assets/themes/<name>.css + assets/animations/animations.css",
-            "6. deck body 末尾引入: assets/runtime.js",
-            "7. 如果用了 Canvas FX: head 中额外引入 assets/animations/fx-runtime.js",
-            "",
-            "**CURRENT TIME:** " + __import__("datetime").datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
-        ]
-        return message + "\n".join(lines)
-
-    @classmethod
-    def _build_svg_layout_catalog(cls) -> str:
         """Build a compact catalog of all 31 SVG layout structural templates."""
         parts: list[str] = []
         for name, svg in SVG_LAYOUTS.items():
@@ -422,7 +320,7 @@ class AgentService:
         return "\n".join(parts)
 
     @classmethod
-    def _inject_svg_design_catalog(cls, message: str, theme_name: str = "tokyo-night") -> str:
+    def _inject_design_catalog(cls, message: str, theme_name: str = "tokyo-night") -> str:
         """Inject SVG layout templates + color token table + token reference."""
         layout_catalog = cls._build_svg_layout_catalog()
         color_table = build_color_token_table(theme_name)
@@ -462,25 +360,27 @@ class AgentService:
         ]
         return message + "\n".join(lines)
 
-    def _get_edit_hint(self, session_id: str, mode: str = "html") -> str | None:
-        """If the session has existing PPT artifacts, add a brief edit hint."""
+    def _get_edit_hint(self, session_id: str) -> str | None:
+        """If the session has existing PPT artifacts, add an edit hint with file paths."""
+        import os as _os
         try:
             artifact = self.ppt_artifacts.get_latest_for_session(session_id)
             if artifact is None:
                 return None
             title = artifact.get("title", "未命名")
             slide_count = artifact.get("slide_count", 0)
-            if mode == "ppt-svg":
-                return (
-                    f"\n\n---\n"
-                    f"## 注意：当前对话已有一个 PPT（{title}，{slide_count} 页）\n"
-                    f"用户可能要修改它。从对话历史中找到上次的 SVG，在此基础上修改后输出**完整的修改后 SVG**（每页一个 ```svg 代码块）。\n"
-                    f"如果是新建 PPT 要求，忽略此提示。\n"
-                )
+            artifact_id = artifact.get("artifact_id", "")
+            project_root = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))))
+            svg_dir = _os.path.join(project_root, "data", "ppt-output", artifact_id)
+            svg_files = sorted(
+                [f for f in _os.listdir(svg_dir) if f.startswith("source_slide_") and f.endswith(".svg")]
+            ) if _os.path.isdir(svg_dir) else []
+            file_list = "\n".join(f"  - {_os.path.join(svg_dir, f)}" for f in svg_files) if svg_files else "  （文件列表读取失败，请从对话历史中找到上次的 SVG）"
             return (
                 f"\n\n---\n"
                 f"## 注意：当前对话已有一个 PPT（{title}，{slide_count} 页）\n"
-                f"用户可能要修改它。从对话历史中找到上次的 HTML，在此基础上修改后输出**完整的修改后 HTML**（包裹在 ```html 中）。\n"
+                f"用户可能要修改它。请先用文件工具读取以下 SVG 源文件，在此基础上修改后输出**完整的修改后 SVG**（每页一个 ```svg 代码块）：\n"
+                f"{file_list}\n"
                 f"如果是新建 PPT 要求，忽略此提示。\n"
             )
         except Exception:
@@ -493,7 +393,7 @@ class AgentService:
         response_mode: str,
         requested_max_steps: int | None,
     ) -> None:
-        if response_mode not in ("ppt", "ppt-svg") or requested_max_steps is not None:
+        if response_mode != "ppt-svg" or requested_max_steps is not None:
             return
         current_max_steps = getattr(session, "max_steps", self.settings.agent_max_steps)
         if current_max_steps < self.settings.agent_max_steps:
@@ -684,23 +584,17 @@ class AgentService:
     async def stream_chat(self, request: AgentStreamRequest, user: UserModel | None = None) -> AsyncIterator[dict[str, Any]]:
         runtime_profile = self._resolve_runtime_profile(request, user)
         response_mode = runtime_profile.response_mode
-        ppt_mode = response_mode == "ppt"
-        svg_mode = response_mode == "ppt-svg"
+        ppt_mode = response_mode == "ppt-svg"
         agent = self._get_agent(runtime_profile)
         if user is not None:
             await self.ensure_session_access(request, user)
         await self._load_session_if_needed(agent, request)
 
-        # Inject design system catalog for PPT modes
+        # Inject design system catalog for PPT mode
         message = request.message
         if ppt_mode:
             message = self._inject_design_catalog(message)
             edit_hint = self._get_edit_hint(request.session_id)
-            if edit_hint:
-                message = message + edit_hint
-        elif svg_mode:
-            message = self._inject_svg_design_catalog(message)
-            edit_hint = self._get_edit_hint(request.session_id, mode="ppt-svg")
             if edit_hint:
                 message = message + edit_hint
 
@@ -785,7 +679,7 @@ class AgentService:
                         first_text_delta = not saw_text_delta
                         saw_text_delta = True
                         collected_text += event.data.get("content", "")
-                        if ppt_mode or svg_mode:
+                        if ppt_mode:
                             if first_text_delta:
                                 yield {
                                     "event": "run_status",
@@ -812,12 +706,12 @@ class AgentService:
                         if isinstance(tool_name, str) and tool_name:
                             tool_names.append(tool_name)
 
-                    if (ppt_mode or svg_mode) and event.type == "done":
+                    if ppt_mode and event.type == "done":
                         artifact = await self.ppt_artifacts.create_from_text(
                             session.session_id, collected_text,
-                            mode="ppt-svg" if svg_mode else "ppt",
+                            mode="ppt-svg",
                         )
-                        visible_text = strip_html_block_from_text(collected_text) if artifact else collected_text
+                        visible_text = collected_text
                         if artifact is not None:
                             yield {
                                 "event": "run_status",
