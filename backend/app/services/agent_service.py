@@ -928,6 +928,9 @@ class AgentService:
             svg_paths: list[Path] = []
             for i, svg_content in enumerate(svgs):
                 svg_path = tmpdir_path / f"slide{i + 1}.svg"
+                # Sanitize: escape raw < and & in text content
+                from app.services.ppt_artifact_service import sanitize_svg_xml
+                svg_content = sanitize_svg_xml(svg_content)
                 svg_path.write_text(svg_content, encoding="utf-8")
                 svg_paths.append(svg_path)
 

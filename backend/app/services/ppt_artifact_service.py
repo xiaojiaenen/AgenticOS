@@ -4,6 +4,67 @@ import re
 import uuid
 from typing import Any
 
+
+def sanitize_svg_xml(svg: str) -> str:
+    """Fix unescaped XML special characters (&, <) in SVG text/tspan content.
+
+    LLMs often write literal ``<`` and ``&`` in human-readable text (e.g.
+    "Delta E < 0.5" or "A & B"), which breaks XML parsing downstream.
+    This function escapes those characters inside ``<text>`` and ``<tspan>``
+    leaf content while leaving tags and attributes untouched.
+    """
+
+    def _escape_content(text: str) -> str:
+        parts = re.split(r"(<[^>]+>)", text)
+        out: list[str] = []
+        for part in parts:
+            if part.startswith("<"):
+                out.append(part)
+            else:
+                part = part.replace("&", "&amp;")
+                part = part.replace("<", "&lt;")
+                # Undo double-escaping of already-valid entities
+                part = part.replace("&amp;amp;", "&amp;")
+                part = part.replace("&amp;lt;", "&lt;")
+                part = part.replace("&amp;gt;", "&gt;")
+                part = part.replace("&amp;quot;", "&quot;")
+                part = part.replace("&amp;apos;", "&apos;")
+                out.append(part)
+        return "".join(out)
+
+    def _fix_text_elem(match: re.Match) -> str:
+        full = match.group(0)
+        tag_m = re.match(r"<text\b[^>]*>", full)
+        if not tag_m:
+            return full
+        tag_open = tag_m.group(0)
+        rest = full[tag_m.end() :]
+        end_m = re.search(r"</text>", rest)
+        if not end_m:
+            return full
+        content = rest[: end_m.start()]
+        tag_close = end_m.group(0)
+        return tag_open + _escape_content(content) + tag_close
+
+    def _fix_tspan_elem(match: re.Match) -> str:
+        full = match.group(0)
+        tag_m = re.match(r"<tspan\b[^>]*>", full)
+        if not tag_m:
+            return full
+        tag_open = tag_m.group(0)
+        rest = full[tag_m.end() :]
+        end_m = re.search(r"</tspan>", rest)
+        if not end_m:
+            return full
+        content = rest[: end_m.start()]
+        tag_close = end_m.group(0)
+        return tag_open + _escape_content(content) + tag_close
+
+    # Process innermost first (tspan), then text
+    svg = re.sub(r"<tspan\b[^>]*>.*?</tspan>", _fix_tspan_elem, svg, flags=re.DOTALL)
+    svg = re.sub(r"<text\b[^>]*>.*?</text>", _fix_text_elem, svg, flags=re.DOTALL)
+    return svg
+
 from app.db.models import PptArtifactModel
 from app.db.session import create_db_session
 from app.services.session_storage import dump_json, load_json
@@ -137,6 +198,9 @@ class PptArtifactService:
 
         # Resolve var(--xxx) references to actual color values
         resolved_svgs = [resolve_token_values(svg, tokens) for svg in svgs]
+
+        # Sanitize: escape < and & in text content that LLMs often leave raw
+        resolved_svgs = [sanitize_svg_xml(svg) for svg in resolved_svgs]
 
         preview_html = prepare_svg_preview(resolved_svgs, theme_name)
         artifact_id = uuid.uuid4().hex
