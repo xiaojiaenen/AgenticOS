@@ -114,7 +114,21 @@ TOOL_CATALOG = {
     },
     "search_icons": {
         "label": "图标搜索",
-        "description": "按关键词搜索 PPT 图标库，返回可用的图标名列表。",
+        "description": "按关键词批量搜索 PPT 图标库，返回可用的图标名列表。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "save_slide": {
+        "label": "保存幻灯片",
+        "description": "将一页 SVG 幻灯片写入会话工作目录，新建或覆盖已有页。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "read_slide": {
+        "label": "读取幻灯片",
+        "description": "读取已有幻灯片的 SVG 内容，用于修改前查看。",
         "builtin_name": None,
         "approval_scope": [],
         "sub_tools": {},
@@ -139,6 +153,9 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "git": {"enabled": False, "requires_approval": True},
         "npm": {"enabled": False, "requires_approval": True},
         "skill": {"enabled": True, "requires_approval": False},
+        "search_icons": {"enabled": True, "requires_approval": False},
+        "save_slide": {"enabled": True, "requires_approval": False},
+        "read_slide": {"enabled": True, "requires_approval": False},
     },
     "website": {
         "calc": {"enabled": True, "requires_approval": False},
