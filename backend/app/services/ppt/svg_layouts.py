@@ -38,7 +38,7 @@ SVG_LAYOUTS: dict[str, str] = {
   <!-- notes: 开场白，150-300 字 -->
 </svg>""",
 
-    "toc": """<!-- layout: toc | 目录 | 2×3 网格目录 -->
+    "toc": """<!-- layout: toc | 目录 | 2×3 网格目录（可保留编号或替换为图标） -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
   <text x="80" y="70" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">目录</text>
@@ -126,28 +126,33 @@ SVG_LAYOUTS: dict[str, str] = {
   <g font-family="Inter,Noto Sans SC,sans-serif">
     <!-- 卡片 1 -->
     <rect x="60" y="160" width="560" height="220" rx="16" fill="var(--surface)"/>
-    <text x="100" y="210" font-size="14" fill="var(--text-2)">月活跃用户 (MAU)</text>
+    <!-- 图标：先用 search_icons 搜索关键词，再填入 data-icon -->
+    <use data-icon="chunk-filled/users" x="100" y="188" width="24" height="24" fill="var(--accent)"/>
+    <text x="135" y="210" font-size="14" fill="var(--text-2)">月活跃用户 (MAU)</text>
     <text x="100" y="290" font-size="64" font-weight="800" fill="var(--text-1)">2.4M</text>
     <rect x="100" y="320" width="80" height="28" rx="14" fill="var(--good)" opacity="0.15"/>
     <text x="140" y="339" font-size="14" fill="var(--good)" font-weight="600">↑ 12.5%</text>
     <text x="200" y="339" font-size="13" fill="var(--text-3)">vs 上季度</text>
     <!-- 卡片 2 -->
     <rect x="660" y="160" width="560" height="220" rx="16" fill="var(--surface)"/>
-    <text x="700" y="210" font-size="14" fill="var(--text-2)">总营收 (MRR)</text>
+    <use data-icon="chunk-filled/dollar" x="700" y="188" width="24" height="24" fill="var(--accent-2)"/>
+    <text x="735" y="210" font-size="14" fill="var(--text-2)">总营收 (MRR)</text>
     <text x="700" y="290" font-size="64" font-weight="800" fill="var(--text-1)">$12.8M</text>
     <rect x="700" y="320" width="80" height="28" rx="14" fill="var(--good)" opacity="0.15"/>
     <text x="740" y="339" font-size="14" fill="var(--good)" font-weight="600">↑ 8.2%</text>
     <text x="800" y="339" font-size="13" fill="var(--text-3)">vs 上季度</text>
     <!-- 卡片 3 -->
     <rect x="60" y="420" width="560" height="220" rx="16" fill="var(--surface)"/>
-    <text x="100" y="470" font-size="14" fill="var(--text-2)">客户流失率</text>
+    <use data-icon="chunk-filled/chart" x="100" y="448" width="24" height="24" fill="var(--bad)"/>
+    <text x="135" y="470" font-size="14" fill="var(--text-2)">客户流失率</text>
     <text x="100" y="550" font-size="64" font-weight="800" fill="var(--text-1)">1.8%</text>
     <rect x="100" y="580" width="80" height="28" rx="14" fill="var(--good)" opacity="0.15"/>
     <text x="140" y="599" font-size="14" fill="var(--good)" font-weight="600">↓ 0.3%</text>
     <text x="200" y="599" font-size="13" fill="var(--text-3)">vs 上季度</text>
     <!-- 卡片 4 -->
     <rect x="660" y="420" width="560" height="220" rx="16" fill="var(--surface)"/>
-    <text x="700" y="470" font-size="14" fill="var(--text-2)">NPS 净推荐值</text>
+    <use data-icon="chunk-filled/star" x="700" y="448" width="24" height="24" fill="var(--good)"/>
+    <text x="735" y="470" font-size="14" fill="var(--text-2)">NPS 净推荐值</text>
     <text x="700" y="550" font-size="64" font-weight="800" fill="var(--text-1)">78</text>
     <rect x="700" y="580" width="80" height="28" rx="14" fill="var(--good)" opacity="0.15"/>
     <text x="740" y="599" font-size="14" fill="var(--good)" font-weight="600">↑ 5 分</text>
@@ -361,7 +366,7 @@ SVG_LAYOUTS: dict[str, str] = {
 </svg>""",
 
     # ── Text ────────────────────────────────────────────────────────────
-    "bullets": """<!-- layout: bullets | 要点列表 | 左侧色条 + 标题 + 描述 -->
+    "bullets": """<!-- layout: bullets | 要点列表 | 图标 + 标题 + 描述 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
   <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">要点</text>
@@ -369,16 +374,20 @@ SVG_LAYOUTS: dict[str, str] = {
   <g font-family="Inter,Noto Sans SC,sans-serif">
     <rect x="80" y="170" width="1120" height="120" rx="12" fill="var(--surface)"/>
     <rect x="80" y="170" width="6" height="120" rx="3" fill="var(--accent)"/>
-    <text x="120" y="220" font-size="22" font-weight="600" fill="var(--text-1)">要点标题 1</text>
-    <text x="120" y="255" font-size="15" fill="var(--text-2)">展开说明：可以写 1-2 行具体细节、数据支撑或案例引用</text>
+    <!-- 图标：先用 search_icons 工具搜索关键词，再填入 data-icon -->
+    <use data-icon="chunk-filled/rocket" x="120" y="195" width="28" height="28" fill="var(--accent)"/>
+    <text x="165" y="220" font-size="22" font-weight="600" fill="var(--text-1)">要点标题 1</text>
+    <text x="165" y="255" font-size="15" fill="var(--text-2)">展开说明：可以写 1-2 行具体细节、数据支撑或案例引用</text>
     <rect x="80" y="310" width="1120" height="120" rx="12" fill="var(--surface)"/>
     <rect x="80" y="310" width="6" height="120" rx="3" fill="var(--accent-2)"/>
-    <text x="120" y="360" font-size="22" font-weight="600" fill="var(--text-1)">要点标题 2</text>
-    <text x="120" y="395" font-size="15" fill="var(--text-2)">展开说明：可以写 1-2 行具体细节、数据支撑或案例引用</text>
+    <use data-icon="chunk-filled/star" x="120" y="335" width="28" height="28" fill="var(--accent-2)"/>
+    <text x="165" y="360" font-size="22" font-weight="600" fill="var(--text-1)">要点标题 2</text>
+    <text x="165" y="395" font-size="15" fill="var(--text-2)">展开说明：可以写 1-2 行具体细节、数据支撑或案例引用</text>
     <rect x="80" y="450" width="1120" height="120" rx="12" fill="var(--surface)"/>
     <rect x="80" y="450" width="6" height="120" rx="3" fill="var(--good)"/>
-    <text x="120" y="500" font-size="22" font-weight="600" fill="var(--text-1)">要点标题 3</text>
-    <text x="120" y="535" font-size="15" fill="var(--text-2)">展开说明：可以写 1-2 行具体细节、数据支撑或案例引用</text>
+    <use data-icon="chunk-filled/check-circle" x="120" y="475" width="28" height="28" fill="var(--good)"/>
+    <text x="165" y="500" font-size="22" font-weight="600" fill="var(--text-1)">要点标题 3</text>
+    <text x="165" y="535" font-size="15" fill="var(--text-2)">展开说明：可以写 1-2 行具体细节、数据支撑或案例引用</text>
   </g>
 </svg>""",
 
@@ -411,25 +420,23 @@ SVG_LAYOUTS: dict[str, str] = {
   </g>
 </svg>""",
 
-    "three-column": """<!-- layout: three-column | 三栏展示 | 3 个并列主题 -->
+    "three-column": """<!-- layout: three-column | 三栏展示 | 图标 + 标题 + 描述 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
   <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">三大支柱</text>
   <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">战略方向</text>
   <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle">
     <rect x="60" y="170" width="370" height="420" rx="16" fill="var(--surface)"/>
-    <circle cx="245" cy="230" r="40" fill="var(--accent)" opacity="0.12"/>
-    <text x="245" y="240" font-size="28" fill="var(--accent)">01</text>
+    <!-- 图标：先用 search_icons 搜索，再替换 data-icon 值 -->
+    <use data-icon="chunk-filled/cube" x="210" y="195" width="48" height="48" fill="var(--accent)"/>
     <text x="245" y="300" font-size="22" font-weight="700" fill="var(--text-1)">产品创新</text>
     <text x="245" y="340" font-size="14" fill="var(--text-2)">三行以内的简要说明，概括这个方向的核心内容</text>
     <rect x="455" y="170" width="370" height="420" rx="16" fill="var(--surface)"/>
-    <circle cx="640" cy="230" r="40" fill="var(--accent-2)" opacity="0.12"/>
-    <text x="640" y="240" font-size="28" fill="var(--accent-2)">02</text>
+    <use data-icon="chunk-filled/globe" x="600" y="195" width="48" height="48" fill="var(--accent-2)"/>
     <text x="640" y="300" font-size="22" font-weight="700" fill="var(--text-1)">市场拓展</text>
     <text x="640" y="340" font-size="14" fill="var(--text-2)">三行以内的简要说明，概括这个方向的核心内容</text>
     <rect x="850" y="170" width="370" height="420" rx="16" fill="var(--surface)"/>
-    <circle cx="1035" cy="230" r="40" fill="var(--good)" opacity="0.12"/>
-    <text x="1035" y="240" font-size="28" fill="var(--good)">03</text>
+    <use data-icon="chunk-filled/lightning" x="1000" y="195" width="48" height="48" fill="var(--good)"/>
     <text x="1035" y="300" font-size="22" font-weight="700" fill="var(--text-1)">效能提升</text>
     <text x="1035" y="340" font-size="14" fill="var(--text-2)">三行以内的简要说明，概括这个方向的核心内容</text>
   </g>
@@ -460,7 +467,9 @@ SVG_LAYOUTS: dict[str, str] = {
   <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle">
     <rect x="60" y="160" width="520" height="440" rx="16" fill="var(--surface)"/>
     <rect x="60" y="160" width="520" height="6" rx="3" fill="var(--bad)"/>
-    <text x="320" y="220" font-size="24" font-weight="700" fill="var(--bad)">传统方案</text>
+    <!-- 图标：先用 search_icons 搜索关键词，再填入 data-icon -->
+    <use data-icon="chunk-filled/close" x="290" y="192" width="28" height="28" fill="var(--bad)"/>
+    <text x="340" y="216" font-size="24" font-weight="700" fill="var(--bad)">传统方案</text>
     <text x="320" y="290" font-size="14" fill="var(--text-2)">劣势项 1</text>
     <text x="320" y="340" font-size="14" fill="var(--text-2)">劣势项 2</text>
     <text x="320" y="390" font-size="14" fill="var(--text-2)">劣势项 3</text>
@@ -469,7 +478,8 @@ SVG_LAYOUTS: dict[str, str] = {
     <text x="640" y="388" font-size="18" font-weight="800" fill="var(--text-2)">VS</text>
     <rect x="700" y="160" width="520" height="440" rx="16" fill="var(--surface)"/>
     <rect x="700" y="160" width="520" height="6" rx="3" fill="var(--good)"/>
-    <text x="960" y="220" font-size="24" font-weight="700" fill="var(--good)">新方案</text>
+    <use data-icon="chunk-filled/check" x="930" y="192" width="28" height="28" fill="var(--good)"/>
+    <text x="980" y="216" font-size="24" font-weight="700" fill="var(--good)">新方案</text>
     <text x="960" y="290" font-size="14" fill="var(--text-2)">优势项 1</text>
     <text x="960" y="340" font-size="14" fill="var(--text-2)">优势项 2</text>
     <text x="960" y="390" font-size="14" fill="var(--text-2)">优势项 3</text>
@@ -484,7 +494,9 @@ SVG_LAYOUTS: dict[str, str] = {
   <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">方案优缺点</text>
   <g font-family="Inter,Noto Sans SC,sans-serif">
     <rect x="60" y="160" width="560" height="460" rx="16" fill="var(--surface)"/>
-    <text x="340" y="210" text-anchor="middle" font-size="24" font-weight="700" fill="var(--good)">优点 Pros</text>
+    <!-- 图标：先用 search_icons 搜索关键词，再填入 data-icon -->
+    <use data-icon="chunk-filled/check-circle" x="300" y="188" width="28" height="28" fill="var(--good)"/>
+    <text x="345" y="210" font-size="24" font-weight="700" fill="var(--good)">优点 Pros</text>
     <line x1="100" y1="230" x2="580" y2="230" stroke="var(--good)" opacity="0.3"/>
     <circle cx="120" cy="280" r="6" fill="var(--good)"/>
     <text x="150" y="285" font-size="16" fill="var(--text-1)">优点项 1</text>
@@ -495,7 +507,8 @@ SVG_LAYOUTS: dict[str, str] = {
     <circle cx="120" cy="460" r="6" fill="var(--good)"/>
     <text x="150" y="465" font-size="16" fill="var(--text-1)">优点项 4</text>
     <rect x="660" y="160" width="560" height="460" rx="16" fill="var(--surface)"/>
-    <text x="940" y="210" text-anchor="middle" font-size="24" font-weight="700" fill="var(--bad)">缺点 Cons</text>
+    <use data-icon="chunk-filled/close-circle" x="900" y="188" width="28" height="28" fill="var(--bad)"/>
+    <text x="945" y="210" font-size="24" font-weight="700" fill="var(--bad)">缺点 Cons</text>
     <line x1="700" y1="230" x2="1180" y2="230" stroke="var(--bad)" opacity="0.3"/>
     <circle cx="720" cy="280" r="6" fill="var(--bad)"/>
     <text x="750" y="285" font-size="16" fill="var(--text-1)">缺点项 1</text>
@@ -549,21 +562,25 @@ SVG_LAYOUTS: dict[str, str] = {
   <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle">
     <!-- 步骤 1 -->
     <rect x="60" y="260" width="200" height="100" rx="12" fill="var(--accent)"/>
-    <text x="160" y="305" font-size="18" font-weight="700" fill="var(--bg)">数据采集</text>
-    <text x="160" y="335" font-size="12" fill="var(--bg)" opacity="0.8">采集原始数据</text>
+    <!-- 图标：先用 search_icons 搜索关键词，再填入 data-icon -->
+    <use data-icon="chunk-filled/download" x="150" y="288" width="22" height="22" fill="var(--bg)"/>
+    <text x="160" y="318" font-size="18" font-weight="700" fill="var(--bg)">数据采集</text>
+    <text x="160" y="344" font-size="12" fill="var(--bg)" opacity="0.8">采集原始数据</text>
     <!-- 箭头 1→2 -->
     <line x1="264" y1="310" x2="306" y2="310" stroke="var(--accent)" stroke-width="3"/>
     <polygon points="310,305 320,310 310,315" fill="var(--accent)"/>
     <!-- 步骤 2 -->
     <rect x="320" y="260" width="200" height="100" rx="12" fill="var(--accent-2)"/>
-    <text x="420" y="305" font-size="18" font-weight="700" fill="var(--bg)">数据清洗</text>
-    <text x="420" y="335" font-size="12" fill="var(--bg)" opacity="0.8">去重 / 缺失处理</text>
+    <use data-icon="chunk-filled/filter" x="410" y="288" width="22" height="22" fill="var(--bg)"/>
+    <text x="420" y="318" font-size="18" font-weight="700" fill="var(--bg)">数据清洗</text>
+    <text x="420" y="344" font-size="12" fill="var(--bg)" opacity="0.8">去重 / 缺失处理</text>
     <!-- 箭头 2→3 -->
     <line x1="524" y1="310" x2="566" y2="310" stroke="var(--accent)" stroke-width="3"/>
     <polygon points="570,305 580,310 570,315" fill="var(--accent)"/>
     <!-- 步骤 3 -->
     <rect x="580" y="260" width="200" height="100" rx="12" fill="var(--surface)"/>
     <rect x="580" y="260" width="200" height="100" rx="12" fill="none" stroke="var(--accent-3)" stroke-width="2"/>
+    <use data-icon="chunk-filled/code" x="670" y="288" width="22" height="22" fill="var(--accent-3)"/>
     <text x="680" y="305" font-size="18" font-weight="700" fill="var(--accent-3)">特征工程</text>
     <text x="680" y="335" font-size="12" fill="var(--text-2)">归一化 / 编码</text>
     <!-- 箭头 3→4 -->
@@ -572,6 +589,7 @@ SVG_LAYOUTS: dict[str, str] = {
     <!-- 步骤 4 -->
     <rect x="840" y="260" width="200" height="100" rx="12" fill="var(--surface)"/>
     <rect x="840" y="260" width="200" height="100" rx="12" fill="none" stroke="var(--accent-3)" stroke-width="2"/>
+    <use data-icon="chunk-filled/settings" x="930" y="288" width="22" height="22" fill="var(--accent-3)"/>
     <text x="940" y="305" font-size="18" font-weight="700" fill="var(--accent-3)">模型训练</text>
     <text x="940" y="335" font-size="12" fill="var(--text-2)">超参调优</text>
     <!-- 箭头 4→5 -->
@@ -579,8 +597,9 @@ SVG_LAYOUTS: dict[str, str] = {
     <polygon points="1090,305 1100,310 1090,315" fill="var(--accent)"/>
     <!-- 步骤 5 -->
     <rect x="1100" y="260" width="120" height="100" rx="12" fill="var(--good)"/>
-    <text x="1160" y="305" font-size="18" font-weight="700" fill="var(--bg)">上线</text>
-    <text x="1160" y="335" font-size="12" fill="var(--bg)" opacity="0.8">部署发布</text>
+    <use data-icon="chunk-filled/rocket" x="1150" y="288" width="22" height="22" fill="var(--bg)"/>
+    <text x="1160" y="318" font-size="18" font-weight="700" fill="var(--bg)">上线</text>
+    <text x="1160" y="344" font-size="12" fill="var(--bg)" opacity="0.8">部署发布</text>
   </g>
 </svg>""",
 
@@ -612,30 +631,35 @@ SVG_LAYOUTS: dict[str, str] = {
   </g>
 </svg>""",
 
-    "process-steps": """<!-- layout: process-steps | 步骤 | 4 步编号卡片 -->
+    "process-steps": """<!-- layout: process-steps | 步骤 | 4 步编号卡片（图标+编号） -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
   <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">步骤</text>
   <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">4 步实施流程</text>
   <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle">
     <rect x="60" y="170" width="270" height="380" rx="16" fill="var(--surface)"/>
-    <circle cx="195" cy="220" r="30" fill="var(--accent)"/>
-    <text x="195" y="228" font-size="20" font-weight="800" fill="var(--bg)">1</text>
+    <!-- 图标：先用 search_icons 搜索，再替换 data-icon -->
+    <use data-icon="chunk-filled/search" x="175" y="195" width="40" height="40" fill="var(--accent)"/>
+    <circle cx="195" cy="220" r="14" fill="var(--accent)"/>
+    <text x="195" y="225" font-size="13" font-weight="800" fill="var(--bg)">1</text>
     <text x="195" y="290" font-size="20" font-weight="700" fill="var(--text-1)">调研分析</text>
     <text x="195" y="340" font-size="13" fill="var(--text-2)">需求收集和现状分析阶段</text>
     <rect x="350" y="170" width="270" height="380" rx="16" fill="var(--surface)"/>
-    <circle cx="485" cy="220" r="30" fill="var(--accent-2)"/>
-    <text x="485" y="228" font-size="20" font-weight="800" fill="var(--bg)">2</text>
+    <use data-icon="chunk-filled/edit" x="465" y="195" width="40" height="40" fill="var(--accent-2)"/>
+    <circle cx="485" cy="220" r="14" fill="var(--accent-2)"/>
+    <text x="485" y="225" font-size="13" font-weight="800" fill="var(--bg)">2</text>
     <text x="485" y="290" font-size="20" font-weight="700" fill="var(--text-1)">方案设计</text>
     <text x="485" y="340" font-size="13" fill="var(--text-2)">架构设计和原型验证</text>
     <rect x="640" y="170" width="270" height="380" rx="16" fill="var(--surface)"/>
-    <circle cx="775" cy="220" r="30" fill="var(--accent-3)"/>
-    <text x="775" y="228" font-size="20" font-weight="800" fill="var(--bg)">3</text>
+    <use data-icon="chunk-filled/code" x="755" y="195" width="40" height="40" fill="var(--accent-3)"/>
+    <circle cx="775" cy="220" r="14" fill="var(--accent-3)"/>
+    <text x="775" y="225" font-size="13" font-weight="800" fill="var(--bg)">3</text>
     <text x="775" y="290" font-size="20" font-weight="700" fill="var(--text-1)">迭代开发</text>
     <text x="775" y="340" font-size="13" fill="var(--text-2)">敏捷迭代和持续集成</text>
     <rect x="930" y="170" width="270" height="380" rx="16" fill="var(--surface)"/>
-    <circle cx="1065" cy="220" r="30" fill="var(--good)"/>
-    <text x="1065" y="228" font-size="20" font-weight="800" fill="var(--bg)">4</text>
+    <use data-icon="chunk-filled/rocket" x="1045" y="195" width="40" height="40" fill="var(--good)"/>
+    <circle cx="1065" cy="220" r="14" fill="var(--good)"/>
+    <text x="1065" y="225" font-size="13" font-weight="800" fill="var(--bg)">4</text>
     <text x="1065" y="290" font-size="20" font-weight="700" fill="var(--text-1)">上线运营</text>
     <text x="1065" y="340" font-size="13" fill="var(--text-2)">灰度发布和持续优化</text>
   </g>
