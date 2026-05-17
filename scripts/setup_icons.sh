@@ -1,28 +1,36 @@
 #!/bin/bash
-# 解压图标库到 data/icons/
-# 图标压缩包独立自包含，不依赖外部仓库
+# 下载并解压图标库到 data/icons/
+# 图标库通过 GitHub Release 分发，独立自包含
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ARCHIVES_DIR="$PROJECT_ROOT/data/icons_archives"
 TARGET="$PROJECT_ROOT/data/icons"
+VERSION="${ICONS_VERSION:-v1.0.0}"
+RELEASE_URL="https://github.com/xiaojiaenen/AgenticOS/releases/download/icons-${VERSION}/icons.tar.gz"
 
 if [ -d "$TARGET" ] && [ "$(ls -A "$TARGET" 2>/dev/null)" ]; then
-    echo "data/icons/ 已存在且非空，跳过解压"
+    echo "data/icons/ 已存在且非空，跳过"
     exit 0
 fi
 
-if [ ! -d "$ARCHIVES_DIR" ]; then
-    echo "错误: 找不到 $ARCHIVES_DIR"
-    exit 1
+mkdir -p "$TARGET"
+
+ARCHIVE="/tmp/icons-${VERSION}.tar.gz"
+
+if [ -f "$ARCHIVE" ]; then
+    echo "使用本地缓存 $ARCHIVE"
+else
+    echo "从 GitHub Release 下载图标库 ..."
+    curl -L -o "$ARCHIVE" "$RELEASE_URL" || {
+        echo "错误: 下载失败，请手动下载 $RELEASE_URL"
+        echo "      并解压到 $TARGET"
+        exit 1
+    }
 fi
 
 echo "解压图标库到 $TARGET ..."
-mkdir -p "$TARGET"
-for archive in "$ARCHIVES_DIR"/*.tar.gz; do
-    echo "  解压 $(basename "$archive") ..."
-    tar -xzf "$archive" -C "$TARGET"
-done
+tar -xzf "$ARCHIVE" -C "$TARGET" --strip-components=1
+rm -f "$ARCHIVE"
 echo "完成: $(find "$TARGET" -name '*.svg' | wc -l) 个图标文件"
