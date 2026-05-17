@@ -310,7 +310,6 @@ class AgentService:
     _layout_catalog_cache: str | None = None
 
     @classmethod
-    @classmethod
     def _build_layout_catalog(cls) -> str:
         """Build a compact catalog of all 31 SVG layout structural templates."""
         parts: list[str] = []
@@ -322,7 +321,7 @@ class AgentService:
     @classmethod
     def _inject_design_catalog(cls, message: str, theme_name: str = "apple") -> str:
         """Inject SVG layout templates + color token table + token reference."""
-        layout_catalog = cls._build_svg_layout_catalog()
+        layout_catalog = cls._build_layout_catalog()
         color_table = build_color_token_table(theme_name)
         token_ref = build_token_quick_ref()
 
@@ -342,7 +341,7 @@ class AgentService:
             "",
             token_ref,
             "",
-            "**主题选择快速决策（149 个品牌主题可用，列表见 theme_token_resolver.list_available_themes()）:**",
+            "**主题选择快速决策（data-theme 只能从下方完整列表或分类推荐中选，禁止自创）：**",
             "- 商业 / 管理层汇报 → apple, stripe, ibm, corporate, professional, enterprise, mastercard",
             "- 技术分享 / 开发者 → github, vercel, cursor, linear-app, expo, warp, mongodb, hashicorp",
             "- 创意 / 发布会 → nike, spotify, playstation, ferrari, brutalism, neobrutalism, glassmorphism",
@@ -353,6 +352,9 @@ class AgentService:
             "- 活泼 / 年轻化 → discord, colorful, energetic, tetris, pacman, vibrant",
             "- 暗色系 → spotify, github, trading-terminal, hud, mission-control",
             "- 金融 / 支付 → stripe, revolut, binance, coinbase, kraken, wise",
+            "",
+            "**完整 149 主题名列表（data-theme 只能从下面选）：**",
+            ", ".join(sorted(list_available_themes())),
             "",
             "### 关键规则",
             "1. 推荐 1 个最匹配主题写入 `<svg data-theme=\"xxx\">`",

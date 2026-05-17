@@ -88,7 +88,7 @@ def build_color_token_table(theme_name: str) -> str:
     """
     tokens = load_theme_tokens(theme_name)
     if not tokens:
-        return f"(Theme '{theme_name}' not found — using minimal-white)\n"
+        return f"(Theme '{theme_name}' not found)\n"
 
     lines = ["| Token | Value |", "|-------|-------|"]
     for name in sorted(tokens):

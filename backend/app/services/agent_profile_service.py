@@ -130,11 +130,14 @@ class AgentProfileService:
                         changed = True
                 if slug == "ppt" or slug == "ppt-svg":
                     current_prompt = profile.system_prompt or ""
-                    if "<!-- notes:" not in current_prompt:
+                    if "36 个已有主题" in current_prompt or "tokyo-night" in current_prompt:
                         profile.system_prompt = PPT_SYSTEM_PROMPT
                         changed = True
+                    if profile.response_mode != defaults["response_mode"]:
+                        profile.response_mode = defaults["response_mode"]
+                        changed = True
 
-            changed = self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS[slug]) or changed
+            changed = self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS[defaults["response_mode"]]) or changed
             if slug == "website":
                 changed = self._upgrade_website_profile_tools(db, profile) or changed
         for profile in db.scalars(select(AgentProfileModel)).all():

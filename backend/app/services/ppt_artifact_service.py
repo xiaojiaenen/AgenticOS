@@ -49,18 +49,34 @@ def _count_svg_pages(text: str) -> int:
     return len(_SVG_CODE_BLOCK_RE.findall(text))
 
 
-def prepare_svg_preview(svgs: list[str], theme_name: str = "minimal-white") -> str:
+def prepare_svg_preview(svgs: list[str], theme_name: str = "apple") -> str:
     """Wrap a list of SVG slide strings into a simple stand-alone HTML document.
 
-    SVG colors are self-contained, so no CSS inlining is required.
+    Embeds the theme's CSS tokens so ``var(--xxx)`` references resolve even if
+    token substitution was skipped (e.g. unknown theme name).
     """
+    # Safety net: load theme tokens as CSS custom properties for browser resolution
+    try:
+        from app.services.ppt.theme_token_resolver import load_theme_tokens
+        tokens = load_theme_tokens(theme_name)
+    except Exception:
+        tokens = {}
+    token_css = ""
+    if tokens:
+        token_lines = "\n".join(f"    {k}: {v};" for k, v in sorted(tokens.items()))
+        token_css = f"""
+  /* Theme tokens for var() resolution */
+  :root {{
+{token_lines}
+  }}"""
+
     slides_html = "\n".join(svgs)
     return f"""<!DOCTYPE html>
 <html lang="zh-CN" data-theme="{theme_name}">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<style>
+<style>{token_css}
   body {{ margin:0; padding:0; background:#111; font-family:Inter,Noto Sans SC,sans-serif; }}
   body.single .deck {{ overflow:auto!important; height:auto!important; }}
   .deck {{ display:flex; flex-direction:column; align-items:center; gap:16px; padding:16px; }}
@@ -81,7 +97,7 @@ def _detect_theme_name_from_svg(svgs: list[str]) -> str:
         m = _DATA_THEME_RE.search(svgs[0])
         if m:
             return m.group(1)
-    return "minimal-white"
+    return "apple"
 
 
 def _write_svg_artifact_files(artifact_id: str, resolved_svgs: list[str], preview_html: str) -> None:
