@@ -27,7 +27,7 @@ from app.services.approval_manager import ApprovalManager
 from app.services.agent_profile_service import AgentProfileService, RuntimeAgentProfile
 from app.services.ppt_artifact_service import PptArtifactService
 from app.services.ppt.svg_layouts import SVG_LAYOUTS
-from app.services.ppt.theme_token_resolver import build_color_token_table, build_token_quick_ref, list_available_themes
+from app.services.ppt.theme_token_resolver import build_token_quick_ref, list_available_themes
 from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.services.tool_config_service import ToolConfigService
 from app.schemas.agent import AgentStreamRequest
@@ -323,10 +323,9 @@ class AgentService:
         return "\n".join(parts)
 
     @classmethod
-    def _inject_design_catalog(cls, message: str, theme_name: str = "apple") -> str:
-        """Inject SVG layout templates + color token table + token reference + icon catalog."""
+    def _inject_design_catalog(cls, message: str) -> str:
+        """Inject SVG layout templates + token reference + icon rules + theme selection guide."""
         layout_catalog = cls._build_layout_catalog()
-        color_table = build_color_token_table(theme_name)
         token_ref = build_token_quick_ref()
 
         lines = [
@@ -339,9 +338,7 @@ class AgentService:
             layout_catalog,
             "",
             "---",
-            "## 当前主题颜色令牌表",
-            "",
-            color_table,
+            "## Token 语义速查（颜色用 var(--xxx) 引用，具体色值由主题决定，后端自动解析）",
             "",
             token_ref,
             "",
