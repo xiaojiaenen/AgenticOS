@@ -987,7 +987,7 @@ class AgentService:
         _logger = logging.getLogger("ppt_export")
 
         if current_user is not None:
-            await self._ensure_record_owner(artifact_id, PptArtifactModel, "artifact_id", current_user)
+            await self._ensure_record_owner(artifact_id, PptArtifactModel, current_user)
 
         artifact = await self.ppt_artifacts.get(artifact_id)
         if artifact is None:
