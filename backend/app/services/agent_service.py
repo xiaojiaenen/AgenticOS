@@ -612,7 +612,12 @@ class AgentService:
             finally:
                 try:
                     if hasattr(session, "system_prompt"):
-                        await self.storage.save_meta(session)
+                        # Shield to ensure DB write completes even when the
+                        # producer task is cancelled by client disconnecting
+                        # the SSE stream, so connections are returned to the pool.
+                        await asyncio.shield(self.storage.save_meta(session))
+                except asyncio.CancelledError:
+                    pass
                 finally:
                     await runtime_queue.put(None)
 
@@ -772,8 +777,11 @@ class AgentService:
                         await task
             if not producer.done():
                 producer.cancel()
+                # Shield to keep the producer's DB cleanup (save_meta) from
+                # being cancelled alongside the SSE stream — prevents leaked
+                # connections when the client disconnects mid-stream.
                 with contextlib.suppress(asyncio.CancelledError):
-                    await producer
+                    await asyncio.shield(producer)
             else:
                 with contextlib.suppress(Exception):
                     producer.result()
