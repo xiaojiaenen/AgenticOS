@@ -541,6 +541,20 @@ class AgentService:
         await asyncio.to_thread(_run)
 
     async def stream_chat(self, request: AgentStreamRequest, user: UserModel | None = None) -> AsyncIterator[dict[str, Any]]:
+        # 从存储的会话元数据恢复 profile 信息，防止前端刷新后丢失 mode/profileId
+        # 导致后端解析出不同的工具集，进而引发 ToolNotFound
+        if request.session_id and user is not None:
+            stored = await self.storage.describe(request.session_id)
+            if stored:
+                meta = stored.get("metadata") or {}
+                if request.agent_profile_id is None:
+                    stored_id = meta.get("agent_profile_id")
+                    if isinstance(stored_id, int) and stored_id > 0:
+                        request.agent_profile_id = stored_id
+                stored_mode = meta.get("response_mode")
+                if isinstance(stored_mode, str) and stored_mode in ("general", "ppt", "website"):
+                    request.response_mode = stored_mode
+
         runtime_profile = self._resolve_runtime_profile(request, user)
         response_mode = runtime_profile.response_mode
         ppt_mode = response_mode == "ppt"

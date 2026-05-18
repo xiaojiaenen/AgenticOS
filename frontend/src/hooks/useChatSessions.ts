@@ -83,6 +83,8 @@ export function useChatSessions() {
           updatedAt: s.updated_at ? new Date(s.updated_at).getTime() : Date.now(),
           summary: s.summary,
           messageCount: s.message_count,
+          mode: (s.metadata?.response_mode as Session['mode']) || undefined,
+          agentProfileId: (s.metadata?.agent_profile_id as number) ?? undefined,
         }));
 
         // Merge with cached sessions (preserve messages from cache)
@@ -92,7 +94,13 @@ export function useChatSessions() {
         const merged = converted.map((s) => {
           const cached = cachedMap.get(s.id);
           if (cached && cached.messages.length > 0) {
-            return { ...s, messages: cached.messages, title: cached.title || s.title };
+            return {
+              ...s,
+              messages: cached.messages,
+              title: cached.title || s.title,
+              mode: cached.mode || s.mode,
+              agentProfileId: cached.agentProfileId ?? s.agentProfileId,
+            };
           }
           return s;
         });
@@ -205,6 +213,8 @@ export function useChatSessions() {
         updatedAt: s.updated_at ? new Date(s.updated_at).getTime() : Date.now(),
         summary: s.summary,
         messageCount: s.message_count,
+        mode: (s.metadata?.response_mode as Session['mode']) || undefined,
+        agentProfileId: (s.metadata?.agent_profile_id as number) ?? undefined,
       }));
 
       // Preserve messages from current sessions
@@ -212,7 +222,13 @@ export function useChatSessions() {
       const merged = converted.map((s) => {
         const current = currentMap.get(s.id);
         if (current && current.messages.length > 0) {
-          return { ...s, messages: current.messages, title: current.title || s.title };
+          return {
+            ...s,
+            messages: current.messages,
+            title: current.title || s.title,
+            mode: current.mode || s.mode,
+            agentProfileId: current.agentProfileId ?? s.agentProfileId,
+          };
         }
         return s;
       });
