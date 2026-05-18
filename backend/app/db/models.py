@@ -175,7 +175,7 @@ class SkillModel(Base):
     name: Mapped[str] = mapped_column(String(120))
     slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
     description: Mapped[str] = mapped_column(Text, default="")
-    root_dir: Mapped[str] = mapped_column(String(1024), unique=True)
+    root_dir: Mapped[str] = mapped_column(String(767), unique=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
