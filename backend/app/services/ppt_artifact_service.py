@@ -277,6 +277,19 @@ class PptArtifactService:
             else:
                 _logger.warning(f"Slide file doesn't start with <svg>: {f}")
 
+        # Run SVG quality check (logs only, does not block pipeline)
+        try:
+            from app.services.ppt.svg_quality_checker import SVGQualityChecker
+            checker = SVGQualityChecker()
+            for f in svg_files:
+                result = checker.check_file(str(f), "ppt169")
+                if result.get("errors"):
+                    _logger.warning("Quality check errors in %s: %s", f.name, result["errors"])
+                for w in result.get("warnings", []):
+                    _logger.info("Quality check warning in %s: %s", f.name, w)
+        except Exception as exc:
+            _logger.warning("Quality check skipped (error initializing): %s", exc)
+
         if not validate_svg_slides(svgs):
             _logger.warning(f"validate_svg_slides failed: count={len(svgs)}")
             return None

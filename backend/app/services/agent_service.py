@@ -27,6 +27,7 @@ from app.services.approval_manager import ApprovalManager
 from app.services.agent_profile_service import AgentProfileService, RuntimeAgentProfile
 from app.services.ppt_artifact_service import PptArtifactService
 from app.services.ppt.svg_layouts import SVG_LAYOUTS
+from app.services.ppt.svg_to_pptx.config import SVG_CONSTRAINTS
 from app.services.ppt.theme_token_resolver import build_token_quick_ref, list_available_themes
 from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.services.tool_config_service import ToolConfigService
@@ -212,6 +213,14 @@ class AgentService:
             _register_icon_tools(registry)
             from app.tools.ppt_tools import register_ppt_tools as _register_ppt_tools
             _register_ppt_tools(registry)
+            from app.tools.chart_tools import register_chart_tools as _register_chart_tools
+            _register_chart_tools(registry)
+            from app.tools.quality_checker_tools import register_quality_checker_tools as _register_qc_tools
+            _register_qc_tools(registry)
+            from app.tools.pptx_reverse_tools import register_pptx_reverse_tools as _register_pptx_reverse
+            _register_pptx_reverse(registry)
+            from app.tools.template_tools import register_template_tools as _register_template_tools
+            _register_template_tools(registry)
 
         return registry
 
@@ -314,7 +323,20 @@ class AgentService:
             parts.append("")
         return "\n".join(parts)
 
-    @classmethod
+    @staticmethod
+    def _build_svg_constraints_text() -> str:
+        """从 SVG_CONSTRAINTS 动态生成 SVG 禁止清单文本。"""
+        fc = SVG_CONSTRAINTS
+        elements = ", ".join(f"`<{e}>`" for e in fc["forbidden_elements"])
+        attributes = ", ".join(f"`{a}`" for a in fc["forbidden_attributes"])
+        patterns = ", ".join(f"`{p}`" for p in fc["forbidden_patterns"])
+        return (
+            f"**禁止元素**：{elements}\n"
+            f"**禁止属性**：{attributes}\n"
+            f"**禁止模式**：{patterns}\n"
+            f"→ 透明度用 `fill-opacity` / `stroke-opacity`"
+        )
+
     def _inject_design_catalog(cls, message: str) -> str:
         """Inject SVG layout templates + token reference + icon rules + theme selection guide."""
         layout_catalog = cls._build_layout_catalog()
@@ -351,7 +373,7 @@ class AgentService:
             "---",
             "## SVG 技术速查（详细规范见 data/skills/ppt-svg-reference/SKILL.md）",
             "",
-            "**禁止清单**：`<style>` `class` `<foreignObject>` `<mask>` `<animate>` `rgba()` `<g opacity>` → 用 `fill-opacity`/`stroke-opacity`",
+            cls._build_svg_constraints_text(),
             "",
             "**tspan 合并**：同一行文字（含混色/混粗）必须合并到一个 `<text><tspan>...</tspan></text>`。数值结果用 `<tspan fill=\"var(--accent)\" font-weight=\"bold\">` 加粗高亮。",
             "",
