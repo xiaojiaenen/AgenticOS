@@ -1,6 +1,11 @@
 from pydantic import BaseModel, Field
 
 
+class FileAttachment(BaseModel):
+    filename: str = Field(..., description="Original filename.")
+    text_content: str = Field(..., description="Text content extracted from the file.")
+
+
 class AgentStreamRequest(BaseModel):
     message: str = Field(..., min_length=1, description="User message sent to the agent.")
     session_id: str | None = Field(default=None, description="Session ID reused across turns.")
@@ -13,6 +18,7 @@ class AgentStreamRequest(BaseModel):
     )
     max_steps: int | None = Field(default=None, ge=1, le=50, description="Max runtime steps for one turn.")
     parallel_tool_calls: bool | None = Field(default=None, description="Whether parallel tool calls are allowed.")
+    files: list[FileAttachment] | None = Field(default=None, description="Attached files with extracted text.")
 
 
 class PptExportRequest(BaseModel):

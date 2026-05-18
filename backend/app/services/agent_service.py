@@ -446,6 +446,18 @@ class AgentService:
         if current_max_steps < ppt_max_steps:
             session.max_steps = ppt_max_steps
 
+    def _build_user_message(self, request: AgentStreamRequest) -> str:
+        """Build the user message, optionally prepending attached file contents."""
+        if not request.files:
+            return request.message
+
+        file_blocks: list[str] = []
+        for f in request.files:
+            header = f"### 📎 {f.filename} ({len(f.text_content)} chars)"
+            file_blocks.append(f"{header}\n{f.text_content}")
+
+        return "\n\n".join(file_blocks) + f"\n\n---\n{request.message}"
+
     def _session_payload(self, session) -> dict[str, Any]:
         metadata = getattr(session, "metadata", {}) or {}
         return {
@@ -569,14 +581,15 @@ class AgentService:
         self,
         record_id: str,
         model_type: type[ApprovalModel | PptArtifactModel],
-        id_column: str,
         user: UserModel,
     ) -> None:
-        with create_db_session() as db:
-            row = db.get(model_type, record_id)
-            if row is None:
-                return
-            session_id = row.session_id
+        def _run():
+            with create_db_session() as db:
+                row = db.get(model_type, record_id)
+                if row is None:
+                    return None
+                return row.session_id
+        session_id = await asyncio.to_thread(_run)
         if not session_id:
             return
         owner_id = await self.storage.get_owner_id(session_id)
@@ -593,7 +606,7 @@ class AgentService:
         total_tokens = int(usage.get("total_tokens") or input_tokens + output_tokens)
         return input_tokens, output_tokens, total_tokens
 
-    def _record_usage_event(
+    async def _record_usage_event(
         self,
         *,
         session,
@@ -609,24 +622,26 @@ class AgentService:
         latency_ms = int(event_data.get("latency_ms") or getattr(session, "last_latency_ms", 0) or 0)
         llm_calls = int(event_data.get("llm_calls") or getattr(session, "last_llm_calls", 0) or 0)
 
-        with self.storage.session_factory() as db:
-            db.add(
-                AgentUsageEventModel(
-                    user_id=user.id if user is not None else None,
-                    agent_profile_id=agent_profile_id,
-                    session_id=session.session_id,
-                    model_name=str(event_data.get("model") or self.settings.openai_model),
-                    response_mode=response_mode,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                    total_tokens=total_tokens,
-                    llm_calls=llm_calls,
-                    tool_calls=len(tool_names),
-                    tool_names_json=dump_json(tool_names),
-                    latency_ms=latency_ms,
+        def _run():
+            with self.storage.session_factory() as db:
+                db.add(
+                    AgentUsageEventModel(
+                        user_id=user.id if user is not None else None,
+                        agent_profile_id=agent_profile_id,
+                        session_id=session.session_id,
+                        model_name=str(event_data.get("model") or self.settings.openai_model),
+                        response_mode=response_mode,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        total_tokens=total_tokens,
+                        llm_calls=llm_calls,
+                        tool_calls=len(tool_names),
+                        tool_names_json=dump_json(tool_names),
+                        latency_ms=latency_ms,
+                    )
                 )
-            )
-            db.commit()
+                db.commit()
+        await asyncio.to_thread(_run)
 
     async def stream_chat(self, request: AgentStreamRequest, user: UserModel | None = None) -> AsyncIterator[dict[str, Any]]:
         runtime_profile = self._resolve_runtime_profile(request, user)
@@ -698,7 +713,8 @@ class AgentService:
 
         async def produce_events() -> None:
             try:
-                async for event in agent.stream_events(message, session=session):
+                user_message = self._build_user_message(request)
+                async for event in agent.stream_events(user_message, session=session):
                     await runtime_queue.put(event)
             finally:
                 try:
@@ -797,7 +813,7 @@ class AgentService:
                         }
                         mapped = self._map_agent_event(event, session)
                         if not usage_recorded:
-                            self._record_usage_event(
+                            await self._record_usage_event(
                                 session=session,
                                 request=request,
                                 user=user,
@@ -822,7 +838,7 @@ class AgentService:
                             },
                         }
                         if not usage_recorded:
-                            self._record_usage_event(
+                            await self._record_usage_event(
                                 session=session,
                                 request=request,
                                 user=user,
@@ -834,7 +850,7 @@ class AgentService:
                             usage_recorded = True
 
                     if event.type == "error" and not usage_recorded:
-                        self._record_usage_event(
+                        await self._record_usage_event(
                             session=session,
                             request=request,
                             user=user,
@@ -881,7 +897,7 @@ class AgentService:
         current_user: UserModel | None = None,
     ) -> dict[str, Any]:
         if current_user is not None:
-            await self._ensure_record_owner(approval_id, ApprovalModel, "approval_id", current_user)
+            await self._ensure_record_owner(approval_id, ApprovalModel, current_user)
         return await self.approval_manager.decide(approval_id, status=status, reason=reason)
 
     async def get_session_state(self, session_id: str) -> dict[str, Any]:
@@ -893,7 +909,7 @@ class AgentService:
 
     async def get_ppt_artifact(self, artifact_id: str, current_user: UserModel | None = None) -> dict[str, Any] | None:
         if current_user is not None:
-            await self._ensure_record_owner(artifact_id, PptArtifactModel, "artifact_id", current_user)
+            await self._ensure_record_owner(artifact_id, PptArtifactModel, current_user)
         return await self.ppt_artifacts.get(artifact_id)
 
     async def export_pptx(

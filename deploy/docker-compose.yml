@@ -1,42 +1,67 @@
+name: agenticos
+
 services:
   backend:
+    image: ${IMAGE_REGISTRY:-172.73.0.156:85}/agenticos-backend:latest
     build:
       context: ..
       dockerfile: deploy/Dockerfile.backend
+      network: host
+      args:
+        BASE_REGISTRY: ${BASE_REGISTRY:-172.73.0.156:85}
+        PYPI_MIRROR: ${PYPI_MIRROR:-https://pypi.org/simple}
     restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8000/api/v1/health/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     environment:
-      # 数据库配置
-      DATABASE_URL: ${DATABASE_URL:-sqlite:///./data/agenticos.db}
+      # 数据库
+      DATABASE_URL: ${DATABASE_URL:-mysql+pymysql://user:password@host:3306/agenticos}
 
-      # OpenAI 配置
+      # OpenAI
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4}
 
-      # 认证配置
-      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:-change-this-to-a-long-random-secret}
+      # 认证
+      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY}
       AUTH_TOKEN_EXPIRE_MINUTES: ${AUTH_TOKEN_EXPIRE_MINUTES:-10080}
 
-      # Skill 配置
-      SKILL_STORAGE_DIR: ${SKILL_STORAGE_DIR:-./data/skills}
-
-      # 其他配置
+      # 环境
       ENVIRONMENT: ${ENVIRONMENT:-production}
       CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3001}
+
+      # OpenBLAS（避免容器内线程创建被拦截）
+      OPENBLAS_NUM_THREADS: 1
+
+      # Skill
+      SKILL_STORAGE_DIR: ${SKILL_STORAGE_DIR:-./data/skills}
     volumes:
-      # 数据持久化
       - ../data:/app/data
     ports:
-      - "${BACKEND_PORT:-8001}:8001"
+      - "${BACKEND_PORT:-10007}:8000"
 
   frontend:
+    image: ${IMAGE_REGISTRY:-172.73.0.156:85}/agenticos-frontend:latest
     build:
       context: ..
       dockerfile: deploy/Dockerfile.frontend
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        BASE_REGISTRY: ${BASE_REGISTRY:-172.73.0.156:85}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     ports:
-      - "${FRONTEND_PORT:-3001}:80"
+      - "${FRONTEND_PORT:-10008}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy

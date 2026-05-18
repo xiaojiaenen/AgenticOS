@@ -9,6 +9,7 @@ import {
   AgentRunStatus,
 } from '../services/agentService';
 import { AgentProfile } from '../services/agentProfileService';
+import { uploadFiles } from '../services/fileService';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
 
 interface UseChatStreamDeps {
@@ -115,6 +116,17 @@ export function useChatStream({
           url: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
         }));
 
+        // Upload files and extract text
+        let uploadedFiles: { filename: string; text_content: string }[] = [];
+        if (files && files.length > 0) {
+          setRunStatus({ phase: 'thinking', label: '正在解析文件内容' });
+          const results = await uploadFiles(files);
+          uploadedFiles = results.map((r) => ({
+            filename: r.filename,
+            text_content: r.text_content,
+          }));
+        }
+
         userMessage = {
           id: Date.now().toString(),
           role: 'user',
@@ -125,14 +137,6 @@ export function useChatStream({
         const history = sessions.find((s) => s.id === currentSessionId)?.messages || [];
         targetId = currentSessionId || userMessage.id;
         assistantMessageId = `${userMessage.id}-assistant`;
-        const outboundMessage =
-          attachments.length > 0
-            ? `${currentText}\n\n附带文件：${attachments.map((item) => item.name).join('、')}\n说明：当前后端暂不支持直接解析附件内容，请结合文件名理解需求。`
-            : currentText;
-
-        if (attachments.length > 0) {
-          setError('当前后端暂不支持直接解析附件内容，本次仅向模型发送文本和文件名。');
-        }
 
         queueMicrotask(() => {
           setIsLoading(true);
@@ -175,12 +179,13 @@ export function useChatStream({
 
         await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
 
-        const response = await sendMessageStream(outboundMessage, {
+        const response = await sendMessageStream(currentText, {
           sessionId: targetId,
           systemPrompt:
             currentSession || selectedAgentProfileId ? undefined : MODE_SYSTEM_PROMPTS[chatMode],
           responseMode: chatMode,
           agentProfileId: selectedAgentProfileId,
+          files: uploadedFiles.length > 0 ? uploadedFiles : undefined,
           signal: abortController.signal,
           onSessionState: (state) => {
             applySessionState(targetId!, state);
