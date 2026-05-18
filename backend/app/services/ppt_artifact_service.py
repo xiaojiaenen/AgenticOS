@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 import uuid
 from pathlib import Path
@@ -445,23 +446,25 @@ class PptArtifactService:
         title_match = re.search(r'<(?:h1|h2)[^>]*>(.+?)</(?:h1|h2)>', slides_html)
         title = title_match.group(1).strip() if title_match else "演示文稿"
 
-        with self.session_factory() as db:
-            db.add(
-                PptArtifactModel(
-                    artifact_id=artifact_id,
-                    session_id=session_id,
-                    title=title,
-                    slide_count=slide_count,
-                    deck_json=dump_json({"design_system": design_system_name, "slides_html": slides_html}),
-                    preview_html=preview_html,
-                    metadata_json=dump_json({
-                        "source": "html",
-                        "design_system": design_system_name,
-                        "raw_chars": len(text),
-                    }),
+        def _run():
+            with self.session_factory() as db:
+                db.add(
+                    PptArtifactModel(
+                        artifact_id=artifact_id,
+                        session_id=session_id,
+                        title=title,
+                        slide_count=slide_count,
+                        deck_json=dump_json({"design_system": design_system_name, "slides_html": slides_html}),
+                        preview_html=preview_html,
+                        metadata_json=dump_json({
+                            "source": "html",
+                            "design_system": design_system_name,
+                            "raw_chars": len(text),
+                        }),
+                    )
                 )
-            )
-            db.commit()
+                db.commit()
+        await asyncio.to_thread(_run)
 
         return {
             "artifact_id": artifact_id,
@@ -473,15 +476,17 @@ class PptArtifactService:
         }
 
     async def get(self, artifact_id: str) -> dict[str, Any] | None:
-        with self.session_factory() as db:
-            row = db.get(PptArtifactModel, artifact_id)
-            if row is None:
-                return None
-            return {
-                "artifact_id": row.artifact_id,
-                "session_id": row.session_id,
-                "title": row.title,
-                "slide_count": row.slide_count,
-                "html": row.preview_html,
-                "metadata": load_json(row.metadata_json, {}),
-            }
+        def _run():
+            with self.session_factory() as db:
+                row = db.get(PptArtifactModel, artifact_id)
+                if row is None:
+                    return None
+                return {
+                    "artifact_id": row.artifact_id,
+                    "session_id": row.session_id,
+                    "title": row.title,
+                    "slide_count": row.slide_count,
+                    "html": row.preview_html,
+                    "metadata": load_json(row.metadata_json, {}),
+                }
+        return await asyncio.to_thread(_run)

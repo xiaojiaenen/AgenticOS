@@ -64,16 +64,19 @@ class ApprovalManager:
         if status not in {"approved", "rejected"}:
             raise ValueError("status must be approved or rejected")
 
-        with self.session_factory() as db:
-            row = db.get(ApprovalModel, approval_id)
-            if row is None:
-                raise KeyError(f"approval not found: {approval_id}")
-            row.status = status
-            row.reason = reason
-            row.decided_at = app_now()
-            db.commit()
-            db.refresh(row)
-            record = self._serialize_row(row)
+        def _run():
+            with self.session_factory() as db:
+                row = db.get(ApprovalModel, approval_id)
+                if row is None:
+                    raise KeyError(f"approval not found: {approval_id}")
+                row.status = status
+                row.reason = reason
+                row.decided_at = app_now()
+                db.commit()
+                db.refresh(row)
+                return self._serialize_row(row)
+
+        record = await asyncio.to_thread(_run)
 
         future = self._futures.get(approval_id)
         if future is not None and not future.done():
@@ -82,32 +85,37 @@ class ApprovalManager:
         return record
 
     async def get_pending(self, session_id: str) -> list[dict[str, Any]]:
-        with self.session_factory() as db:
-            rows = db.scalars(
-                select(ApprovalModel)
-                .where(ApprovalModel.session_id == session_id, ApprovalModel.status == "pending")
-                .order_by(ApprovalModel.created_at.asc())
-            ).all()
-            return [self._serialize_row(row) for row in rows]
+        def _run():
+            with self.session_factory() as db:
+                rows = db.scalars(
+                    select(ApprovalModel)
+                    .where(ApprovalModel.session_id == session_id, ApprovalModel.status == "pending")
+                    .order_by(ApprovalModel.created_at.asc())
+                ).all()
+                return [self._serialize_row(row) for row in rows]
+        return await asyncio.to_thread(_run)
 
     async def _save_pending(self, request: ApprovalRequest) -> None:
         payload = request.payload or {}
-        with self.session_factory() as db:
-            row = db.get(ApprovalModel, request.id)
-            if row is None:
-                row = ApprovalModel(
-                    approval_id=request.id,
-                    session_id=request.session_id,
-                    tool_call_id=payload.get("tool_call_id"),
-                    tool_name=payload.get("tool_name", request.action_type),
-                )
-                db.add(row)
 
-            row.arguments_json = dump_json(payload.get("arguments", {}))
-            row.status = "pending"
-            row.reason = None
-            row.metadata_json = dump_json(request.metadata or {})
-            db.commit()
+        def _run():
+            with self.session_factory() as db:
+                row = db.get(ApprovalModel, request.id)
+                if row is None:
+                    row = ApprovalModel(
+                        approval_id=request.id,
+                        session_id=request.session_id,
+                        tool_call_id=payload.get("tool_call_id"),
+                        tool_name=payload.get("tool_name", request.action_type),
+                    )
+                    db.add(row)
+
+                row.arguments_json = dump_json(payload.get("arguments", {}))
+                row.status = "pending"
+                row.reason = None
+                row.metadata_json = dump_json(request.metadata or {})
+                db.commit()
+        await asyncio.to_thread(_run)
 
     def _event_from_request(self, request: ApprovalRequest) -> dict[str, Any]:
         payload = request.payload or {}
