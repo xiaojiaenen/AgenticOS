@@ -19,12 +19,24 @@ def _sqlite_path_from_url(database_url: str) -> Path | None:
 
 def _create_engine() -> Engine:
     settings = get_settings()
-    sqlite_path = _sqlite_path_from_url(settings.database_url)
+    database_url = settings.database_url
+
+    sqlite_path = _sqlite_path_from_url(database_url)
     if sqlite_path and sqlite_path.parent != Path("."):
         sqlite_path.parent.mkdir(parents=True, exist_ok=True)
 
-    connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
-    return create_engine(settings.database_url, connect_args=connect_args, pool_pre_ping=True)
+    is_sqlite = database_url.startswith("sqlite")
+    connect_args = {"check_same_thread": False} if is_sqlite else {}
+
+    engine_kwargs: dict = {
+        "pool_pre_ping": True,
+    }
+    if not is_sqlite:
+        engine_kwargs["pool_recycle"] = 3600
+        engine_kwargs["pool_size"] = 5
+        engine_kwargs["max_overflow"] = 10
+
+    return create_engine(database_url, connect_args=connect_args, **engine_kwargs)
 
 
 engine = _create_engine()

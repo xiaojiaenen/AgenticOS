@@ -1,23 +1,17 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
-
-ENV UV_COMPILE_BYTECODE=1
-ENV UV_LINK_MODE=copy
-
+ARG BASE_REGISTRY=172.73.0.156:85
+FROM ${BASE_REGISTRY}/python:3.13-slim
 WORKDIR /app
 
-# 复制依赖文件
-COPY backend/pyproject.toml backend/uv.lock ./
+ARG PYPI_MIRROR=https://pypi.org/simple
 
-# 安装依赖
-RUN uv sync --frozen --no-dev
-
-# 复制应用代码
+# 复制后端代码
+COPY backend/pyproject.toml ./
 COPY backend/app/ ./app/
 COPY backend/main.py ./
 
-# 复制数据目录（skills、websites 等）
-COPY data/ ./data/
+# 安装依赖
+RUN pip install --no-cache-dir --progress-bar off -i ${PYPI_MIRROR} hatchling && \
+    pip install --no-cache-dir --progress-bar off -i ${PYPI_MIRROR} --no-build-isolation .
 
-EXPOSE 8001
-
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+EXPOSE 8000
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,184 +1,225 @@
-# AgenticOS 部署指南
+# AgenticOS 生产部署指南
 
-## 目录结构
+## 架构概览
 
 ```
-deploy/
-├── DEPLOY.md              # 部署文档（本文件）
-├── Dockerfile.backend     # 后端 Docker 镜像
-├── Dockerfile.frontend    # 前端 Docker 镜像
-├── docker-compose.yml     # Docker Compose 配置
-├── .env.example           # 环境变量示例
-└── nginx/
-    └── nginx.conf         # Nginx 配置
+                    ┌──────────────────────────┐
+                    │     Nginx (:10008)        │
+                    │  /api/*  → Backend        │
+                    │  /*      → Vite SPA       │
+                    └──────────┬───────────────┘
+                               │
+              ┌────────────────┼────────────────┐
+              │                │                │
+     ┌────────▼────────┐  ┌───▼──────────┐  ┌──▼────────┐
+     │  Backend :10007 │  │  外部 MySQL  │  │ 外部 AI   │
+     │  Python/FastAPI │  │              │  │ 服务      │
+     └─────────────────┘  └──────────────┘  └───────────┘
 ```
 
-## 快速部署
+## 前置条件
 
-### 1. 准备环境变量
+- **Docker 20.10+** 和 **Docker Compose 2.0+**
+- **MySQL 8.0**（已部署可访问）
+- **Node.js 22+**（仅本地打包前端时需要）
+- 能访问内网基础镜像仓库 `172.73.0.156:85`
+
+## 1. 初始化 MySQL 数据库
+
+首次部署需要创建数据库和用户，后端启动时会自动建表：
+
+```sql
+CREATE DATABASE IF NOT EXISTS agenticos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'agenticos'@'%' IDENTIFIED BY '你的密码';
+GRANT ALL PRIVILEGES ON agenticos.* TO 'agenticos'@'%';
+FLUSH PRIVILEGES;
+```
+
+## 2. 配置环境变量
 
 ```bash
 cd deploy
 cp .env.example .env
 ```
 
-编辑 `.env` 文件，至少配置以下必填项：
+编辑 `.env`，必填项：
 
 ```env
-# 必填：OpenAI API Key
-OPENAI_API_KEY=sk-your-api-key-here
+# 数据库
+DATABASE_URL=mysql+pymysql://agenticos:你的密码@mysql-host:3306/agenticos
 
-# 必填：认证密钥（改为随机长字符串）
-AUTH_SECRET_KEY=your-random-secret-key-here
+# AI 服务
+OPENAI_API_KEY=sk-your-api-key-here
+OPENAI_BASE_URL=https://your-ai-backend.com
+
+# 认证密钥（务必替换为随机值）
+AUTH_SECRET_KEY=生成一个随机长字符串
 ```
 
-### 2. 构建并启动
+## 3. 打包前端（本地执行）
+
+前端不在 Docker 内构建，需要先在本地打包：
 
 ```bash
-# 构建镜像
-docker compose build
+cd frontend
 
-# 启动服务
-docker compose up -d
+# 可选：配置 API 地址（非同域部署时）
+# 编辑 .env.local，设置 VITE_API_BASE_URL
 
-# 查看日志
-docker compose logs -f
+npm install
+npm run build
 ```
 
-### 3. 访问服务
+构建产物输出到 `frontend/dist/`，Docker 构建时直接复制进 nginx 镜像。
 
-- 前端：http://localhost:3001
-- 后端 API：http://localhost:8001
-- API 文档：http://localhost:8001/docs
+## 4. 构建镜像并启动
+
+```bash
+cd deploy
+docker compose up -d --build
+```
+
+基础镜像自动从 `172.73.0.156:85` 拉取：
+- `python:3.13-slim`
+- `nginx:1.27-alpine`
+
+## 5. 验证服务
+
+```bash
+# 后端健康检查
+curl http://localhost:10007/api/v1/health/
+
+# 前端页面
+curl -I http://localhost:10008/
+```
+
+浏览器访问 `http://服务器IP:10008` 进入系统。
 
 ## 环境变量说明
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |--------|------|--------|------|
-| OPENAI_API_KEY | 是 | - | OpenAI API Key |
-| AUTH_SECRET_KEY | 是 | - | JWT 认证密钥 |
-| OPENAI_BASE_URL | 否 | https://api.openai.com/v1 | OpenAI API 地址 |
-| OPENAI_MODEL | 否 | gpt-5.4 | 使用的模型 |
-| DATABASE_URL | 否 | sqlite:///./data/agenticos.db | 数据库连接字符串 |
+| DATABASE_URL | 是 | - | MySQL 连接字符串 |
+| OPENAI_API_KEY | 是 | - | AI 服务 API Key |
+| AUTH_SECRET_KEY | 是 | - | JWT 签名密钥 |
+| OPENAI_BASE_URL | 否 | https://api.openai.com/v1 | AI 服务地址 |
+| OPENAI_MODEL | 否 | gpt-5.4 | 模型名称 |
+| AUTH_TOKEN_EXPIRE_MINUTES | 否 | 10080 | Token 有效期（分钟） |
+| CORS_ALLOW_ORIGINS | 否 | http://localhost:3001 | CORS 允许来源 |
 | SKILL_STORAGE_DIR | 否 | ./data/skills | Skill 存储目录 |
-| ENVIRONMENT | 否 | production | 运行环境 |
-| CORS_ALLOW_ORIGINS | 否 | http://localhost:3001 | CORS 允许的源 |
-| BACKEND_PORT | 否 | 8001 | 后端端口 |
-| FRONTEND_PORT | 否 | 3001 | 前端端口 |
-| VITE_API_BASE_URL | 否 | - | 前端 API 地址（留空使用相对路径） |
+| BASE_REGISTRY | 否 | 172.73.0.156:85 | 基础镜像仓库地址 |
+| PYPI_MIRROR | 否 | https://pypi.org/simple | PyPI 镜像源 |
+| BACKEND_PORT | 否 | 10007 | 后端端口 |
+| FRONTEND_PORT | 否 | 10008 | 前端端口 |
 
 ## 数据持久化
 
-数据目录 `data/` 挂载到容器中，包含：
+宿主机 `data/` 目录挂载到容器 `/app/data/`：
 
-- `agenticos.db` - SQLite 数据库
-- `skills/` - Skill 文件
-- `websites/` - 网站文件
+- `skills/` — Skill 文件
+- 其他运行时文件（SQLite 模式下数据库文件也在此目录）
+
+## 前端更新
+
+前端代码变更后，需重新本地打包：
+
+```bash
+cd frontend
+npm run build
+cd ../deploy
+docker compose up -d --build frontend
+```
 
 ## 常用命令
 
 ```bash
-# 启动服务
+# 启动
 docker compose up -d
 
-# 停止服务
+# 停止
 docker compose down
 
-# 重启服务
+# 重启
 docker compose restart
+
+# 重新构建
+docker compose up -d --build
+
+# 仅重建前端
+docker compose up -d --build frontend
 
 # 查看日志
 docker compose logs -f
 
-# 查看后端日志
+# 只看后端
 docker compose logs -f backend
 
-# 查看前端日志
-docker compose logs -f frontend
-
-# 进入后端容器
+# 进入容器
 docker compose exec backend bash
-
-# 进入前端容器
-docker compose exec frontend sh
-```
-
-## 数据库配置
-
-### SQLite（默认）
-
-```env
-DATABASE_URL=sqlite:///./data/agenticos.db
-```
-
-### MySQL
-
-```env
-DATABASE_URL=mysql+pymysql://user:password@host:3306/database
-```
-
-## 更新部署
-
-```bash
-# 拉取最新代码
-git pull
-
-# 重新构建并部署
-cd deploy
-docker compose down
-docker compose build --no-cache
-docker compose up -d
 ```
 
 ## 故障排查
 
-### 1. 启动失败
+### 启动失败
 
-查看日志：
 ```bash
 docker compose logs backend
 docker compose logs frontend
 ```
 
-### 2. 数据库问题
+### 数据库连接问题
 
-检查数据库文件权限：
+验证 MySQL 连通性：
+
 ```bash
-ls -la data/
+docker compose exec backend python -c "
+from app.db.session import engine
+with engine.connect() as conn:
+    print('数据库连接成功')
+"
 ```
 
-### 3. 端口冲突
+### 基础镜像拉取失败
 
-修改 `.env` 中的端口配置：
+确认能访问内网仓库：
+
+```bash
+curl http://172.73.0.156:85/v2/_catalog
+```
+
+### 端口冲突
+
+修改 `.env`：
+
 ```env
-BACKEND_PORT=8002
-FRONTEND_PORT=3002
+BACKEND_PORT=10009
+FRONTEND_PORT=10010
 ```
 
-### 4. OpenAI API 问题
+### 前端白屏或 404
 
-检查 API Key 和网络连接：
+检查 `frontend/dist/` 目录是否存在（本地构建产物）：
+
 ```bash
-curl -H "Authorization: Bearer $OPENAI_API_KEY" https://api.openai.com/v1/models
+ls frontend/dist/index.html
 ```
 
-## 生产环境建议
+如果不存在，先执行 `cd frontend && npm run build`。
 
-1. **使用 MySQL**：生产环境建议使用 MySQL 替代 SQLite
-2. **配置 HTTPS**：使用 Nginx 反向代理并配置 SSL 证书
-3. **定期备份**：定期备份 `data/` 目录
-4. **监控日志**：配置日志收集和监控
-5. **限制资源**：在 docker-compose.yml 中配置资源限制
+## 生产建议
 
-```yaml
-services:
-  backend:
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 4G
-        reservations:
-          cpus: '1'
-          memory: 2G
-```
+1. **HTTPS**：在 Nginx 前加反向代理处理 SSL 终止
+2. **MySQL**：启用 SSL 连接，定期备份数据库
+3. **密钥管理**：`AUTH_SECRET_KEY` 和 `OPENAI_API_KEY` 通过 secrets 管理
+4. **日志轮转**：配置 Docker 日志 driver 限制日志大小
+5. **资源限制**：在 docker-compose.yml 中添加 `deploy.resources`
+
+   ```yaml
+   services:
+     backend:
+       deploy:
+         resources:
+           limits:
+             cpus: '2'
+             memory: 4G
+   ```

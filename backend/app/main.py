@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -10,12 +11,18 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.db.session import init_db
 
+logger = logging.getLogger(__name__)
+
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    init_db()
+    try:
+        init_db()
+    except Exception:
+        logger.critical("Database initialization failed. Check DATABASE_URL and disk space.", exc_info=True)
+        raise
     yield
 
 

@@ -2,6 +2,7 @@
 
 import contextvars
 import imaplib
+import logging
 import smtplib
 import email
 from email.mime.text import MIMEText
@@ -15,6 +16,8 @@ from wuwei.tools import ToolRegistry
 
 from app.db.models import AgentSessionModel, UserEmailCredentialsModel
 from app.db.session import create_db_session
+
+logger = logging.getLogger(__name__)
 
 _current_session_id: contextvars.ContextVar[str] = contextvars.ContextVar(
     "email_session_id", default=""
@@ -129,6 +132,7 @@ def _safe_fetch_message(imap: imaplib.IMAP4, msg_id: bytes | str) -> email.messa
             return None
         return None
     except Exception:
+        logger.warning("Failed to fetch email message", exc_info=True)
         return None
 
 
@@ -174,6 +178,7 @@ def _detect_server_utc_offset(imap: imaplib.IMAP4, host: str, port: int) -> floa
         _server_tz_cache[cache_key] = offset
         return offset
     except Exception:
+        logger.warning("Failed to detect server UTC offset", exc_info=True)
         return 0.0
 
 
@@ -208,6 +213,7 @@ def _email_date_utc(date_header: str | None) -> "datetime.datetime | None":
         from email.utils import parsedate_to_datetime
         return parsedate_to_datetime(date_header)
     except Exception:
+        logger.warning("Failed to parse email date header", exc_info=True)
         return None
 
 
@@ -427,7 +433,7 @@ def register_email_tools(registry: ToolRegistry):
                         flags_str = d[0].decode() if isinstance(d[0], bytes) else str(d[0])
                         is_read = "\\Seen" in flags_str
                 except Exception:
-                    pass
+                    logger.debug("Failed to determine read status for message", exc_info=True)
 
                 emails.append({
                     "id": msg_id.decode() if isinstance(msg_id, bytes) else msg_id,
@@ -702,7 +708,7 @@ def register_email_tools(registry: ToolRegistry):
         to: str,
         subject: str,
         body: str,
-        cc: str = None,
+        cc: str | None = None,
         is_html: bool = False,
     ) -> str:
         """

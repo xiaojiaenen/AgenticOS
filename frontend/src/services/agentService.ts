@@ -6,6 +6,7 @@ type AgentServiceOptions = {
   systemPrompt?: string;
   responseMode?: 'general' | 'ppt' | 'website';
   agentProfileId?: number | null;
+  files?: { filename: string; text_content: string }[];
   onDelta?: (delta: string, fullText: string) => void;
   onReasoningDelta?: (delta: string, fullText: string) => void;
   onToolCalls?: (toolCalls: ToolCall[]) => void;
@@ -233,6 +234,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
       system_prompt: options.systemPrompt,
       agent_profile_id: options.agentProfileId || undefined,
       response_mode: options.responseMode || 'general',
+      files: options.files?.length ? options.files : undefined,
     }),
     signal: options.signal,
   });
