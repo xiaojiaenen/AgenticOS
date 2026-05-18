@@ -150,6 +150,46 @@ def _parse_imap_date(date_str: str, delta_days: int = 0) -> str:
 # Cache: host:port → UTC offset in hours
 _server_tz_cache: dict[str, float] = {}
 
+# IMAP folder name → Chinese display name
+_FOLDER_DISPLAY_NAMES: dict[str, str] = {
+    "inbox": "收件箱",
+    "sent": "已发送",
+    "draft": "草稿箱",
+    "trash": "已删除",
+    "junk": "垃圾邮件",
+    "spam": "垃圾邮件",
+    "archive": "归档",
+    "templates": "模板",
+}
+
+# User-facing folder name → IMAP SELECT target (try common providers)
+_FOLDER_IMAP_TARGETS: dict[str, list[str]] = {
+    "inbox": ["INBOX"],
+    "sent": ["SENT", "Sent", "Sent Items", "[Gmail]/Sent Mail"],
+    "draft": ["DRAFTS", "Draft", "Drafts", "[Gmail]/Drafts"],
+    "trash": ["TRASH", "Trash", "Deleted Items", "[Gmail]/Trash"],
+    "junk": ["Junk", "Junk E-mail", "[Gmail]/Spam"],
+    "spam": ["Junk", "Junk E-mail", "[Gmail]/Spam"],
+    "archive": ["Archive", "[Gmail]/All Mail"],
+    "templates": ["Templates"],
+}
+
+
+def _resolve_imap_folder(imap: imaplib.IMAP4, folder: str) -> str:
+    """Resolve a user-facing folder name to an actual IMAP mailbox name."""
+    candidates = _FOLDER_IMAP_TARGETS.get(folder.lower(), [folder])
+    for candidate in candidates:
+        status, _ = imap.select(candidate)
+        if status == "OK":
+            return candidate
+    # Last resort: try the folder name as-is
+    return folder
+
+
+def _folder_display_name(folder: str) -> str:
+    """Get Chinese display name for a folder, falling back to raw name."""
+    return _FOLDER_DISPLAY_NAMES.get(folder.lower(), folder)
+
 
 def _detect_server_utc_offset(imap: imaplib.IMAP4, host: str, port: int) -> float:
     """探测 IMAP 服务器的时区偏移（小时），结果会被缓存。"""
@@ -352,7 +392,7 @@ def register_email_tools(registry: ToolRegistry):
         读取邮件列表，支持分页、时间范围和未读筛选
 
         Args:
-            folder: 邮箱文件夹，可选值: inbox(收件箱), sent(已发送), draft(草稿箱)
+            folder: 邮箱文件夹，常见值: inbox, sent, draft, trash, junk, archive
             limit: 返回邮件数量，默认10
             offset: 跳过前N封邮件，默认0（用于分页）
             unread_only: 是否只显示未读邮件，默认false
@@ -369,8 +409,7 @@ def register_email_tools(registry: ToolRegistry):
             )
             imap.login(str(creds["email"]), str(creds["password"]))
 
-            folder_map = {"inbox": "INBOX", "sent": "SENT", "draft": "DRAFTS"}
-            imap.select(folder_map.get(folder, "INBOX"))
+            imap.select(_resolve_imap_folder(imap, folder))
 
             # Detect server timezone offset for precise date conversion
             server_offset = _detect_server_utc_offset(
@@ -402,8 +441,7 @@ def register_email_tools(registry: ToolRegistry):
 
             if status != "OK" or not message_ids or not message_ids[0]:
                 imap.logout()
-                folder_names = {"inbox": "收件箱", "sent": "已发送", "draft": "草稿箱"}
-                return f"📭 {folder_names.get(folder, folder)} 没有找到匹配的邮件"
+                return f"📭 {_folder_display_name(folder)} 没有找到匹配的邮件"
 
             all_ids = message_ids[0].split()
             total_count = len(all_ids)
@@ -449,9 +487,8 @@ def register_email_tools(registry: ToolRegistry):
             if since or before:
                 emails = [m for m in emails if _is_date_in_range(m.get("date", ""), since, before)]
 
-            folder_names = {"inbox": "收件箱", "sent": "已发送", "draft": "草稿箱"}
             range_info = f"第 {offset + 1}-{offset + len(emails)} 封" if offset > 0 else f"最新 {len(emails)} 封"
-            result = f"📬 {folder_names.get(folder, folder)} 共 {total_count} 封邮件（{range_info}）\n\n"
+            result = f"📬 {_folder_display_name(folder)} 共 {total_count} 封邮件（{range_info}）\n\n"
             for i, mail in enumerate(emails, offset + 1 if offset > 0 else 1):
                 status_icon = "●" if not mail["is_read"] else "○"
                 result += f"{status_icon} {i}. {mail['subject']}\n"
@@ -475,7 +512,7 @@ def register_email_tools(registry: ToolRegistry):
         统计邮件数量
 
         Args:
-            folder: 邮箱文件夹，可选值: inbox(收件箱), sent(已发送), draft(草稿箱)
+            folder: 邮箱文件夹，常见值: inbox, sent, draft, trash, junk, archive
             unread_only: 是否只统计未读邮件，默认false
             since: 起始日期，格式 YYYY-MM-DD
             before: 结束日期，格式 YYYY-MM-DD
@@ -490,8 +527,7 @@ def register_email_tools(registry: ToolRegistry):
             )
             imap.login(str(creds["email"]), str(creds["password"]))
 
-            folder_map = {"inbox": "INBOX", "sent": "SENT", "draft": "DRAFTS"}
-            imap.select(folder_map.get(folder, "INBOX"))
+            imap.select(_resolve_imap_folder(imap, folder))
 
             # Detect server timezone offset for precise date conversion
             server_offset = _detect_server_utc_offset(
@@ -528,10 +564,7 @@ def register_email_tools(registry: ToolRegistry):
                 total = len(message_ids[0].split())
 
             # Also get total and unread counts for inbox
-            folder_names = {"inbox": "收件箱", "sent": "已发送", "draft": "草稿箱"}
-            folder_name = folder_names.get(folder, folder)
-
-            result = f"📊 {folder_name} 统计\n"
+            result = f"📊 {_folder_display_name(folder)} 统计\n"
             result += f"   当前筛选: {criteria}\n"
             result += f"   邮件数量: {total} 封\n"
 
