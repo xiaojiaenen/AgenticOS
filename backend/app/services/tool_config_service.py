@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import AgentToolConfigModel
 from app.db.session import create_db_session
+from app.services.session_storage import parse_approval_sub_tools
 
 AGENT_MODES = {
     "general": {
@@ -20,10 +21,6 @@ AGENT_MODES = {
     "website": {
         "label": "网站模式",
         "description": "用于页面方案、前端代码和交互式应用生成。",
-    },
-    "email": {
-        "label": "邮件模式",
-        "description": "读取、搜索、发送公司邮件，支持抄送功能。",
     },
 }
 
@@ -142,15 +139,6 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "npm": {"enabled": True, "requires_approval": True},
         "skill": {"enabled": False, "requires_approval": False},
     },
-    "email": {
-        "calc": {"enabled": True, "requires_approval": False},
-        "time": {"enabled": True, "requires_approval": False},
-        "file": {"enabled": False, "requires_approval": True},
-        "python": {"enabled": False, "requires_approval": True},
-        "git": {"enabled": False, "requires_approval": True},
-        "npm": {"enabled": False, "requires_approval": True},
-        "skill": {"enabled": True, "requires_approval": False},
-    },
 }
 
 
@@ -206,17 +194,6 @@ class ToolConfigService:
         return False
 
     @staticmethod
-    def _parse_approval_sub_tools(row: AgentToolConfigModel) -> list[str]:
-        import json
-        try:
-            parsed = json.loads(row.approval_sub_tools_json)
-            if isinstance(parsed, list):
-                return [str(item) for item in parsed]
-        except (json.JSONDecodeError, TypeError):
-            pass
-        return []
-
-    @staticmethod
     def _build_sub_tools_list(catalog_item: dict) -> list[dict[str, str]]:
         return [
             {"name": name, "label": info["label"], "description": info["description"]}
@@ -238,7 +215,7 @@ class ToolConfigService:
                     "tool_name": row.tool_name,
                     "enabled": row.enabled,
                     "requires_approval": row.requires_approval,
-                    "approval_sub_tools": self._parse_approval_sub_tools(row),
+                    "approval_sub_tools": parse_approval_sub_tools(row.approval_sub_tools_json),
                 }
             )
 
@@ -315,7 +292,7 @@ class ToolConfigService:
                 continue
             builtin_tools.append(str(catalog_item["builtin_name"]))
             if row.requires_approval:
-                configured_sub_tools = self._parse_approval_sub_tools(row)
+                configured_sub_tools = parse_approval_sub_tools(row.approval_sub_tools_json)
                 all_sub_tools = list(catalog_item["sub_tools"].keys())
                 if configured_sub_tools:
                     # Only the explicitly listed sub-tools require approval

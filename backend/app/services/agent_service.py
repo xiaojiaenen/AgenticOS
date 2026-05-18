@@ -476,7 +476,6 @@ class AgentService:
         self,
         record_id: str,
         model_type: type[ApprovalModel | PptArtifactModel],
-        id_column: str,
         user: UserModel,
     ) -> None:
         with create_db_session() as db:
@@ -776,7 +775,7 @@ class AgentService:
         current_user: UserModel | None = None,
     ) -> dict[str, Any]:
         if current_user is not None:
-            await self._ensure_record_owner(approval_id, ApprovalModel, "approval_id", current_user)
+            await self._ensure_record_owner(approval_id, ApprovalModel, current_user)
         return await self.approval_manager.decide(approval_id, status=status, reason=reason)
 
     async def get_session_state(self, session_id: str) -> dict[str, Any]:
@@ -788,7 +787,7 @@ class AgentService:
 
     async def get_ppt_artifact(self, artifact_id: str, current_user: UserModel | None = None) -> dict[str, Any] | None:
         if current_user is not None:
-            await self._ensure_record_owner(artifact_id, PptArtifactModel, "artifact_id", current_user)
+            await self._ensure_record_owner(artifact_id, PptArtifactModel, current_user)
         return await self.ppt_artifacts.get(artifact_id)
 
     async def list_user_sessions(self, user_id: int) -> list[dict[str, Any]]:

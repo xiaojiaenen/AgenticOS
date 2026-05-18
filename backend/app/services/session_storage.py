@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from typing import Any
 
@@ -152,16 +153,28 @@ class DatabaseAgentStorage:
                 .limit(limit)
             ).all()
 
+            session_ids = [row.session_id for row in rows]
+            if not session_ids:
+                return []
+
+            message_counts = dict(
+                db.execute(
+                    select(
+                        AgentMessageModel.session_id,
+                        func.count(AgentMessageModel.id),
+                    )
+                    .where(AgentMessageModel.session_id.in_(session_ids))
+                    .group_by(AgentMessageModel.session_id)
+                ).all()
+            )
+
             sessions = []
             for row in rows:
-                message_count = db.scalar(
-                    select(func.count(AgentMessageModel.id)).where(AgentMessageModel.session_id == row.session_id)
-                ) or 0
                 sessions.append({
                     "session_id": row.session_id,
                     "summary": row.summary,
                     "metadata": _loads(row.metadata_json, {}),
-                    "message_count": message_count,
+                    "message_count": message_counts.get(row.session_id, 0),
                     "created_at": _iso(row.created_at),
                     "updated_at": _iso(row.updated_at),
                 })
@@ -196,3 +209,23 @@ def dump_json(value: Any) -> str:
 
 def load_json(value: str | None, default: Any) -> Any:
     return _loads(value, default)
+
+
+def parse_approval_sub_tools(json_str: str | None) -> list[str]:
+    """Parse a JSON array of sub-tool names from a string, returning [] on failure."""
+    if not json_str:
+        return []
+    try:
+        parsed = json.loads(json_str)
+        if isinstance(parsed, list):
+            return [str(item) for item in parsed]
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return []
+
+
+def slugify(value: str, *, fallback: str = "agent") -> str:
+    """Convert a string to a URL-safe slug."""
+    slug = re.sub(r"[^a-z0-9-]+", "-", value.strip().lower().replace("_", "-"))
+    slug = re.sub(r"-+", "-", slug).strip("-")
+    return slug or fallback

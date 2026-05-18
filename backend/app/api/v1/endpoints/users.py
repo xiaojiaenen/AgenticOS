@@ -179,7 +179,11 @@ def delete_user(
     db.execute(delete(UserInstalledAgentModel).where(UserInstalledAgentModel.user_id == user_id))
     db.execute(delete(AgentProfileAudienceModel).where(AgentProfileAudienceModel.user_id == user_id))
     db.execute(delete(AuthSessionModel).where(AuthSessionModel.user_id == user_id))
-    db.execute(delete(AuthRateLimitModel).where(AuthRateLimitModel.key.like(f"%:{user.email}%")))
+    db.execute(
+        delete(AuthRateLimitModel).where(
+            AuthRateLimitModel.key.startswith(f"login:{user.email}:")
+        )
+    )
     db.execute(delete(AgentUsageEventModel).where(AgentUsageEventModel.user_id == user_id))
 
     db.delete(user)

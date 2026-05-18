@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,8 +18,9 @@ from app.db.models import (
     UserModel,
 )
 from app.db.session import create_db_session
-from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_SYSTEM_PROMPT, EMAIL_SYSTEM_PROMPT
+from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_SYSTEM_PROMPT
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
+from app.services.session_storage import parse_approval_sub_tools, slugify
 from app.services.skill_service import RuntimeSkill, SkillService
 from app.services.tool_config_service import AGENT_MODES, DEFAULT_MODE_TOOLS, TOOL_CATALOG
 
@@ -32,13 +32,11 @@ MODE_DEFAULT_PROMPTS: dict[str, str] = {
     "general": GENERAL_SYSTEM_PROMPT,
     "ppt": PPT_SYSTEM_PROMPT,
     "website": WEBSITE_SYSTEM_PROMPT,
-    "email": EMAIL_SYSTEM_PROMPT,
 }
 
 GENERIC_PROMPTS = {
     "你是 AgenticOS 的通用智能助手，请优先给出准确、清晰、可执行的回答。",
     "你是一个专注于特定任务的 AgenticOS 智能体。请根据用户目标主动拆解任务，必要时调用可用工具，并给出清晰可执行的结果。",
-    "",
 }
 
 
@@ -67,14 +65,6 @@ BUILTIN_AGENT_PROFILES = {
         "avatar": "globe",
         "listed": True,
     },
-    "email": {
-        "name": "邮件助手",
-        "description": "帮助用户读取、搜索、发送公司邮件，支持抄送功能。",
-        "system_prompt": EMAIL_SYSTEM_PROMPT,
-        "response_mode": "general",
-        "avatar": "mail",
-        "listed": True,
-    },
 }
 
 
@@ -89,12 +79,6 @@ class RuntimeAgentProfile:
     approval_tools: frozenset[str]
     signature: tuple[tuple[str, bool, bool], ...]
     skills: tuple[RuntimeSkill, ...]
-
-
-def _slugify(value: str) -> str:
-    slug = re.sub(r"[^a-z0-9-]+", "-", value.strip().lower().replace("_", "-"))
-    slug = re.sub(r"-+", "-", slug).strip("-")
-    return slug or "agent"
 
 
 class AgentProfileService:
@@ -344,7 +328,7 @@ class AgentProfileService:
                     "tool_name": tool.tool_name,
                     "enabled": tool.enabled,
                     "requires_approval": tool.requires_approval,
-                    "approval_sub_tools": self._parse_approval_sub_tools(tool.approval_sub_tools_json),
+                    "approval_sub_tools": parse_approval_sub_tools(tool.approval_sub_tools_json),
                 }
                 for tool in tools
                 if tool.tool_name in TOOL_CATALOG
@@ -382,7 +366,7 @@ class AgentProfileService:
                     "tool_name": tool.tool_name,
                     "enabled": tool.enabled,
                     "requires_approval": tool.requires_approval,
-                    "approval_sub_tools": self._parse_approval_sub_tools(tool.approval_sub_tools_json),
+                    "approval_sub_tools": parse_approval_sub_tools(tool.approval_sub_tools_json),
                 }
                 for tool in tools
                 if tool.tool_name in TOOL_CATALOG
@@ -514,7 +498,7 @@ class AgentProfileService:
             }
 
     def _unique_slug(self, db: Session, base: str, *, ignore_id: int | None = None) -> str:
-        base = _slugify(base)
+        base = slugify(base)
         slug = base
         index = 2
         while True:
@@ -524,17 +508,6 @@ class AgentProfileService:
                 return slug
             slug = f"{base}-{index}"
             index += 1
-
-    @staticmethod
-    def _parse_approval_sub_tools(json_str: str) -> list[str]:
-        import json
-        try:
-            parsed = json.loads(json_str)
-            if isinstance(parsed, list):
-                return [str(item) for item in parsed]
-        except (json.JSONDecodeError, TypeError):
-            pass
-        return []
 
     def _apply_tools(self, db: Session, profile: AgentProfileModel, tools: list[AgentProfileTool]) -> None:
         import json
@@ -769,7 +742,7 @@ class AgentProfileService:
                 continue
             builtin_tools.append(str(catalog_item["builtin_name"]))
             if row.requires_approval:
-                configured_sub_tools = self._parse_approval_sub_tools(row.approval_sub_tools_json)
+                configured_sub_tools = parse_approval_sub_tools(row.approval_sub_tools_json)
                 all_sub_tools = list(catalog_item["sub_tools"].keys())
                 if configured_sub_tools:
                     approval_tools.update(

@@ -26,6 +26,9 @@ class RuntimeSkill:
     updated_at: str
 
 
+from app.services.session_storage import slugify as _shared_slugify
+
+
 class SkillService:
     def __init__(
         self,
@@ -335,7 +338,7 @@ class SkillService:
         return metadata, parts[2].strip()
 
     def _unique_slug(self, db: Session, base: str, *, ignore_id: int | None = None) -> str:
-        base_slug = self._slugify(base)
+        base_slug = _shared_slugify(base, fallback="skill")
         slug = base_slug
         index = 2
         while True:
@@ -345,11 +348,4 @@ class SkillService:
             slug = f"{base_slug}-{index}"
             index += 1
 
-    @staticmethod
-    def _slugify(value: str) -> str:
-        cleaned = value.strip().lower().replace("_", "-").replace(" ", "-")
-        parts = [char for char in cleaned if char.isalnum() or char == "-"]
-        slug = "".join(parts).strip("-")
-        while "--" in slug:
-            slug = slug.replace("--", "-")
-        return slug or "skill"
+    # _slugify moved to app.services.session_storage.slugify (shared with agent_profile_service)
