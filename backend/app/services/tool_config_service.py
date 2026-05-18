@@ -130,6 +130,29 @@ TOOL_CATALOG = {
         "approval_scope": [],
         "sub_tools": {},
     },
+    "email": {
+        "label": "邮件工具",
+        "description": "通过 IMAP/SMTP 管理邮件，支持读取、搜索和发送。",
+        "builtin_name": "email",
+        "approval_scope": [
+            "setup_email",
+            "count_emails",
+            "read_emails",
+            "search_emails",
+            "get_email",
+            "send_email",
+            "clear_email_credentials",
+        ],
+        "sub_tools": {
+            "setup_email": {"label": "配置邮箱", "description": "存储当前会话的 IMAP/SMTP 凭据"},
+            "count_emails": {"label": "邮件统计", "description": "按条件统计邮件数量"},
+            "read_emails": {"label": "读取邮件", "description": "分页获取邮件列表"},
+            "search_emails": {"label": "搜索邮件", "description": "在主题和正文中搜索关键词"},
+            "get_email": {"label": "查看邮件", "description": "获取单封邮件的完整内容"},
+            "send_email": {"label": "发送邮件", "description": "通过 SMTP 发送邮件，可选 CC"},
+            "clear_email_credentials": {"label": "清除凭据", "description": "清除当前会话的邮箱凭据"},
+        },
+    },
 }
 
 DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
@@ -141,6 +164,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "git": {"enabled": False, "requires_approval": True},
         "npm": {"enabled": False, "requires_approval": True},
         "skill": {"enabled": False, "requires_approval": False},
+        "email": {"enabled": True, "requires_approval": True},
     },
     "ppt": {
         "calc": {"enabled": False, "requires_approval": False},
@@ -153,6 +177,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "search_icons": {"enabled": True, "requires_approval": False},
         "save_slide": {"enabled": True, "requires_approval": False},
         "read_slide": {"enabled": True, "requires_approval": False},
+        "email": {"enabled": False, "requires_approval": True},
     },
     "website": {
         "calc": {"enabled": True, "requires_approval": False},
@@ -162,6 +187,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "git": {"enabled": False, "requires_approval": True},
         "npm": {"enabled": True, "requires_approval": True},
         "skill": {"enabled": False, "requires_approval": False},
+        "email": {"enabled": False, "requires_approval": True},
     },
 }
 
@@ -177,6 +203,15 @@ class RuntimeToolProfile:
 class ToolConfigService:
     def __init__(self, session_factory=create_db_session) -> None:
         self.session_factory = session_factory
+
+    @staticmethod
+    def build_display_name_map() -> dict[str, str]:
+        """Build a flat {function_name: chinese_label} map from TOOL_CATALOG sub_tools."""
+        name_map: dict[str, str] = {}
+        for catalog_item in TOOL_CATALOG.values():
+            for name, info in catalog_item.get("sub_tools", {}).items():
+                name_map[name] = info["label"]
+        return name_map
 
     def ensure_defaults(self, db: Session) -> None:
         changed = False

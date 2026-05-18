@@ -71,6 +71,12 @@ class AgentService:
         self.agent_profiles = AgentProfileService()
         self.tool_configs = ToolConfigService()
         self._agents: dict[tuple[object, ...], Agent] = {}
+        self._cached_display_name_map: dict[str, str] | None = None
+
+    def _get_display_name_map(self) -> dict[str, str]:
+        if self._cached_display_name_map is None:
+            self._cached_display_name_map = self.tool_configs.build_display_name_map()
+        return self._cached_display_name_map
 
     def ensure_ready(self) -> None:
         self._ensure_openai_key()
@@ -146,16 +152,7 @@ class AgentService:
 
         hooks = [StorageHook(self.storage)]
 
-        # 合并审批工具：原始审批工具 + 邮件发送工具（如果包含邮件 skill）
         approval_tools = set(profile.approval_tools)
-        skill_names = [skill.name.lower() for skill in profile.skills]
-        skill_slugs = [skill.slug.lower() for skill in profile.skills]
-        has_email_skill = any(
-            "email" in name or "邮件" in name or "email" in slug
-            for name, slug in zip(skill_names, skill_slugs)
-        )
-        if has_email_skill:
-            approval_tools.add("send_email")
 
         if approval_tools and self.settings.hitl_enabled:
             hooks.append(
@@ -200,22 +197,14 @@ class AgentService:
 
     @staticmethod
     def _build_tool_registry(profile: RuntimeAgentProfile) -> ToolRegistry:
-        builtin_tools = [name for name in profile.builtin_tools if name != "skill"]
+        builtin_tools = [name for name in profile.builtin_tools if name not in ("skill", "email")]
         registry = ToolRegistry.from_builtin(builtin_tools)
         if "skill" in profile.builtin_tools:
             skill_manager = SkillManager(
                 [FileSystemSkillProvider(skill.root_dir) for skill in profile.skills]
             )
             register_skill_tools(registry, skill_manager)
-
-        # 检查是否包含邮件 skill，如果有则注册邮件工具
-        skill_names = [skill.name.lower() for skill in profile.skills]
-        skill_slugs = [skill.slug.lower() for skill in profile.skills]
-        has_email_skill = any(
-            "email" in name or "邮件" in name or "email" in slug
-            for name, slug in zip(skill_names, skill_slugs)
-        )
-        if has_email_skill:
+        if "email" in profile.builtin_tools:
             register_email_tools(registry)
 
         if profile.response_mode == "ppt":
@@ -868,6 +857,9 @@ class AgentService:
 
                 if approval_task in done:
                     approval = approval_task.result()
+                    func_name = approval.get("tool_name", "")
+                    display_name_map = self._get_display_name_map()
+                    approval["tool_name"] = display_name_map.get(func_name, func_name)
                     yield {
                         "event": "approval_required",
                         "data": approval,
