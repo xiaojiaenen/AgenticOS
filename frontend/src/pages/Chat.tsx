@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { useLocation } from 'react-router-dom';
 import { Sidebar } from '../components/chat/Sidebar';
@@ -210,8 +210,10 @@ export const Chat = () => {
   }, [error]);
 
   // 处理首页带过来的首条消息
+  const initialMessageSent = useRef(false);
   useEffect(() => {
-    if (initialMessage && !currentSessionId) {
+    if (initialMessage && !initialMessageSent.current) {
+      initialMessageSent.current = true;
       handleSend(initialMessage);
       window.history.replaceState({}, document.title);
     }
