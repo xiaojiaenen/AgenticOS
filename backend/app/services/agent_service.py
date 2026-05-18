@@ -589,6 +589,14 @@ class AgentService:
         total_tokens = int(usage.get("total_tokens") or input_tokens + output_tokens)
         return input_tokens, output_tokens, total_tokens
 
+    @staticmethod
+    def _estimate_tokens_from_text(text: str) -> int:
+        """Rough token estimation when the LLM provider doesn't return usage in streaming mode."""
+        if not text:
+            return 0
+        # ~4 chars per token for Latin, ~1.5 for CJK; use 3 as a balanced average
+        return max(1, round(len(text) / 3))
+
     async def _record_usage_event(
         self,
         *,
@@ -599,9 +607,14 @@ class AgentService:
         tool_names: list[str],
         response_mode: str,
         agent_profile_id: int | None,
+        collected_text: str = "",
     ) -> None:
         usage = event_data.get("usage") or getattr(session, "last_usage", None)
         input_tokens, output_tokens, total_tokens = self._extract_usage_numbers(usage)
+        if total_tokens <= 0:
+            estimated_output = self._estimate_tokens_from_text(collected_text)
+            total_tokens = estimated_output
+            output_tokens = estimated_output
         latency_ms = int(event_data.get("latency_ms") or getattr(session, "last_latency_ms", 0) or 0)
         llm_calls = int(event_data.get("llm_calls") or getattr(session, "last_llm_calls", 0) or 0)
 
@@ -795,6 +808,7 @@ class AgentService:
                                 tool_names=tool_names,
                                 response_mode=response_mode,
                                 agent_profile_id=runtime_profile.profile_id,
+                                collected_text=collected_text,
                             )
                             usage_recorded = True
                         if mapped is not None:
@@ -820,6 +834,7 @@ class AgentService:
                                 tool_names=tool_names,
                                 response_mode=response_mode,
                                 agent_profile_id=runtime_profile.profile_id,
+                                collected_text=collected_text,
                             )
                             usage_recorded = True
 
@@ -832,6 +847,7 @@ class AgentService:
                             tool_names=tool_names,
                             response_mode=response_mode,
                             agent_profile_id=runtime_profile.profile_id,
+                            collected_text=collected_text,
                         )
                         usage_recorded = True
 
