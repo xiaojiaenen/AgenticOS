@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 import uuid
 from typing import Any
@@ -219,23 +220,25 @@ class PptArtifactService:
             title_match = re.search(r'<text[^>]*font-weight="(?:800|700|bold)"[^>]*>([^<]+)</text>', resolved_svgs[0])
         title = title_match.group(1).strip() if title_match else "演示文稿"
 
-        with self.session_factory() as db:
-            db.add(
-                PptArtifactModel(
-                    artifact_id=artifact_id,
-                    session_id=session_id,
-                    title=title,
-                    slide_count=slide_count,
-                    deck_json=dump_json({"theme": theme_name, "svgs": resolved_svgs}),
-                    preview_html=preview_html,
-                    metadata_json=dump_json({
-                        "source": "svg-ppt",
-                        "theme": theme_name,
-                        "raw_chars": len(text),
-                    }),
+        def _run():
+            with self.session_factory() as db:
+                db.add(
+                    PptArtifactModel(
+                        artifact_id=artifact_id,
+                        session_id=session_id,
+                        title=title,
+                        slide_count=slide_count,
+                        deck_json=dump_json({"theme": theme_name, "svgs": resolved_svgs}),
+                        preview_html=preview_html,
+                        metadata_json=dump_json({
+                            "source": "svg-ppt",
+                            "theme": theme_name,
+                            "raw_chars": len(text),
+                        }),
+                    )
                 )
-            )
-            db.commit()
+                db.commit()
+        await asyncio.to_thread(_run)
 
         # Write SVG source files for debugging and manual editing
         _write_svg_artifact_files(artifact_id, resolved_svgs, preview_html)
@@ -292,23 +295,25 @@ class PptArtifactService:
             title_match = re.search(r'<text[^>]*font-weight="(?:800|700|bold)"[^>]*>([^<]+)</text>', resolved_svgs[0])
         title = title_match.group(1).strip() if title_match else "演示文稿"
 
-        with self.session_factory() as db:
-            db.add(
-                PptArtifactModel(
-                    artifact_id=artifact_id,
-                    session_id=session_id,
-                    title=title,
-                    slide_count=slide_count,
-                    deck_json=dump_json({"theme": theme_name, "svgs": resolved_svgs}),
-                    preview_html=preview_html,
-                    metadata_json=dump_json({
-                        "source": "svg-ppt",
-                        "theme": theme_name,
-                        "raw_chars": sum(len(s) for s in svgs),
-                    }),
+        def _run():
+            with self.session_factory() as db:
+                db.add(
+                    PptArtifactModel(
+                        artifact_id=artifact_id,
+                        session_id=session_id,
+                        title=title,
+                        slide_count=slide_count,
+                        deck_json=dump_json({"theme": theme_name, "svgs": resolved_svgs}),
+                        preview_html=preview_html,
+                        metadata_json=dump_json({
+                            "source": "svg-ppt",
+                            "theme": theme_name,
+                            "raw_chars": sum(len(s) for s in svgs),
+                        }),
+                    )
                 )
-            )
-            db.commit()
+                db.commit()
+        await asyncio.to_thread(_run)
 
         _write_svg_artifact_files(artifact_id, resolved_svgs, preview_html)
 
@@ -321,17 +326,19 @@ class PptArtifactService:
         }
 
     async def get_latest_for_session(self, session_id: str) -> dict[str, Any] | None:
-        with self.session_factory() as db:
-            from sqlalchemy import select, desc
-            row = db.scalar(
-                select(PptArtifactModel)
-                .where(PptArtifactModel.session_id == session_id)
-                .order_by(desc(PptArtifactModel.created_at))
-                .limit(1)
-            )
-            if row is None:
-                return None
-            return self._row_to_dict(row)
+        def _run():
+            with self.session_factory() as db:
+                from sqlalchemy import select, desc
+                row = db.scalar(
+                    select(PptArtifactModel)
+                    .where(PptArtifactModel.session_id == session_id)
+                    .order_by(desc(PptArtifactModel.created_at))
+                    .limit(1)
+                )
+                if row is None:
+                    return None
+                return self._row_to_dict(row)
+        return await asyncio.to_thread(_run)
 
     def _row_to_dict(self, row: PptArtifactModel) -> dict[str, Any]:
         return {
@@ -346,11 +353,13 @@ class PptArtifactService:
         }
 
     async def get(self, artifact_id: str) -> dict[str, Any] | None:
-        with self.session_factory() as db:
-            row = db.get(PptArtifactModel, artifact_id)
-            if row is None:
-                return None
-            return self._row_to_dict(row)
+        def _run():
+            with self.session_factory() as db:
+                row = db.get(PptArtifactModel, artifact_id)
+                if row is None:
+                    return None
+                return self._row_to_dict(row)
+        return await asyncio.to_thread(_run)
 
     @staticmethod
     def extract_svgs_from_artifact(artifact: dict[str, Any]) -> list[str]:
