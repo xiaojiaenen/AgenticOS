@@ -61,25 +61,41 @@ backend/
     schemas/                        # Pydantic request/response models for each endpoint group
     tools/
       email_tools.py               # IMAP/SMTP email tools — setup, count, read, search, get, send
+      ppt_tools.py                  # save_slide, read_slide — per-page SVG file I/O
+      chart_tools.py                # calc_chart_positions — bar, pie, donut, line, radar, grid
+      icon_tools.py                 # search_icons — search icon libraries by keyword
+      quality_checker_tools.py      # check_svg_quality — run SVG quality checker on slides
+      pptx_reverse_tools.py         # convert_pptx_to_svg — reverse-engineer PPTX to SVG
+      template_tools.py             # import_pptx_template — import PPTX as design template
     services/
       agent_service.py             # core orchestrator — creates wuwei Agent, manages SSE streaming,
-                                   #   approval integration, usage recording, PPT artifact extraction,
+                                   #   approval integration, usage recording, injects design catalog
+                                   #   (31 SVG layouts + 149 themes) into PPT-mode messages,
                                    #   ThinkingHistoryCompatibilityHook
       agent_profile_service.py     # profile CRUD, built-in default profiles, runtime resolution
       skill_service.py             # skill CRUD, zip upload, filesystem management
       approval_manager.py          # HITL approval workflow with futures and subscriber broadcast
       tool_config_service.py       # tool catalog (8 tools) with per-mode defaults, sub-tool approval
       session_storage.py           # DB-backed wuwei storage (sessions, messages)
-      ppt_artifact_service.py      # parses ```html code blocks from LLM output, injects design system
-                                   #   tokens.css, validates slides, persists artifacts
-      design_system.py             # DesignSystem model + DesignSystemLoader + DesignSystemRegistry —
-                                   #   scans data/design-systems/ for ~149 brand design systems (stripe,
-                                   #   apple, airbnb, etc.) each with DESIGN.md and tokens.css
+      ppt_artifact_service.py      # collects save_slide SVG files from ppt-sessions/, resolves
+                                   #   var(--token) → hex via theme CSS, validates ≥3 slides, persists artifacts
+      ppt/                         # SVG-native PPT pipeline
+        svg_layouts.py             # 31 complete SVG structural templates injected into LLM context
+        theme_token_resolver.py    # parses data/design-themes/*.css, resolves var(--xxx) to hex
+        svg_to_pptx/               # SVG → native DrawingML PPTX conversion (pptx_builder, drawingml_*)
+        pptx_to_svg/               # reverse: PPTX → SVG conversion (slide_to_svg, shape_walker, etc.)
+        svg_finalize/              # SVG post-processing (icon embedding, image alignment, tspan flatten)
+        svg_editor/                # Flask-based visual SVG annotation editor
+        template_import/           # PPTX template import, extracts theme/layout metadata
+        svg_position_calculator.py # chart coordinate generation (bar, pie, radar, line)
+        svg_quality_checker.py     # 9-dim SVG validation before PPTX export
       auth_service.py              # registration, login, session management, rate limiting
       local_skill_import_service.py
-    prompts.py                     # system prompts for 4 agent modes (general, ppt, website, email)
+    prompts.py                     # system prompts for 4 agent modes — PPT prompt is 250+ lines
+                                   #   covering SVG constraints, 31 layouts, 149 themes, narrative
+                                   #   framework, tspan rules, speaker notes discipline
   scripts/
-    sync_design_systems.py         # (deprecated) sync design systems from GitHub API — prefer local copy
+    convert_design_systems.py      # convert open-design design systems to data/design-themes/*.css
     import_local_skills.py         # import local skill folders into the database
 ```
 
@@ -89,47 +105,53 @@ The wuwei framework (>=1.0.3) provides `Agent`, `LLMGateway`, `ToolRegistry`, `S
 
 ```
 data/
-  design-systems/                  # 149 brand design systems (stripe, apple, airbnb, etc.)
-                                   #   each with DESIGN.md (visual theme, palette, typography, rules);
-                                   #   17 also have tokens.css with CSS custom properties
+  design-themes/                   # 149 brand design theme CSS files (apple.css, github.css,
+                                   #   spotify.css, etc.) — each defines :root { --bg, --accent,
+                                   #   --text-1, ... } color tokens for SVG slide rendering
+  ppt-output/                      # generated PPT artifacts (source SVGs + preview HTML)
+  ppt-sessions/                    # per-session working dirs — save_slide writes slide_N.svg here
   skills/                          # local skill files (zip uploads extracted here)
 ```
-
-Design systems are sourced from a local clone of [nexu-io/open-design](https://github.com/nexu-io/open-design) at `~/code/open-design/design-systems/`. Copy new/updated design systems into `data/design-systems/` directly. Design systems are organized into 9 categories (fintech, developer, productivity, ecommerce, media, automotive, ai, enterprise, general).
 
 ### Four agent modes
 
 | Mode | Default tools | Behavior summary |
 |------|--------------|-----------------|
 | `general` | calc, time, file (approval required) | Daily Q&A, lightweight tool use |
-| `ppt` | calc only | Slide deck generation via html-ppt template system (36 themes, 31 layouts, 27 CSS animations, 20 canvas FX), dom-to-pptx export |
+| `ppt` | icon, ppt, chart, quality_checker, pptx_reverse, template | SVG-native slide deck generation: LLM calls save_slide tool per page, 149 design themes with CSS token system (var(--bg), var(--accent), ...), 31 SVG layout templates, SVG→native PPTX export via DrawingML conversion |
 | `website` | calc, time, file, npm | Web/frontend development mode |
 | `email` | calc, time, skill | Email management via IMAP/SMTP — read, search, send with CC |
 
-### PPT generation — html-ppt template system
+### PPT generation — SVG-native pipeline
 
-PPT generation uses the **html-ppt template system** from [open-design](https://github.com/nexu-io/open-design) (not to be confused with the legacy design-systems approach below):
+PPT generation uses a **pure SVG → native PPTX pipeline**. No HTML, no Tailwind, no dom-to-pptx.
 
-- **`services/ppt/html-ppt/`**: Complete html-ppt skill assets copied from `~/code/open-design/design-templates/html-ppt/`:
-  - `assets/base.css` — token-based design system (colors, spacing, typography via CSS custom properties)
-  - `assets/fonts.css` — Noto Sans SC + Noto Serif SC + JetBrains Mono webfont imports
-  - `assets/themes/*.css` — 36 theme CSS files (each overrides `:root` custom properties)
-  - `assets/animations/animations.css` — 27 named CSS entry animations
-  - `assets/animations/fx-runtime.js` + `fx/*.js` — 20 canvas FX (particles, confetti, knowledge-graph, etc.)
-  - `assets/runtime.js` — keyboard navigation (← → / T themes / A anim / F fullscreen / O overview / S presenter mode)
-  - `templates/single-page/*.html` — 31 layout templates with demo data
-  - `templates/full-decks/*/` — 15 complete multi-slide deck templates (pitch-deck, tech-sharing, xhs-post, presenter-mode-reveal, etc.)
-- **`services/ppt_artifact_service.py`**: Extracts ```html code blocks from LLM output, validates ≥3 slides + deck class, detects theme from `data-theme` attribute, inlines all CSS/JS assets via `html_ppt_inliner.py`, persists to `ppt_artifacts` table.
-- **`services/ppt/html_ppt_inliner.py`**: Replaces `<link>` and `<script src>` tags pointing to local html-ppt assets with inline `<style>` / `<script>` blocks for sandboxed iframe rendering.
-- **`services/agent_service.py`**:
-  - `_build_layout_catalog()` — reads all 31 single-page layout files, extracts their `<section>` and `<style>` blocks (36KB total).
-  - `_inject_design_catalog()` — appends layout HTML samples + full-deck template index + animation reference to every PPT-mode user message, so the LLM can **copy-paste real HTML structures** instead of regenerating from memory.
-- **System prompt** (`prompts.py:PPT_SYSTEM_PROMPT`): Comprehensive authoring guide covering the "copy from injected samples → replace content" workflow, 36 themes, 31 layouts, 27 CSS + 20 canvas FX animations, 15 full-deck templates, presenter mode (S key), speaker notes discipline (150-300 words, oral style), narrative structure framework, and pre-flight checklist.
-- **Export**: Frontend `PptArtifactPanel.tsx` uses `@halobiron/dom-to-pptx` (vendor bundle at `public/vendor/dom-to-pptx.js`) to convert rendered slides to `.pptx`. Export uses a hidden iframe with `srcdoc` to preserve full DOM for CSS variable resolution.
+**Design token system:** 149 brand design themes at `data/design-themes/*.css`, each defining 16 color tokens as CSS custom properties:
+```css
+:root {
+  --bg: #ffffff;        --bg-soft: #f5f5f7;   --surface: #fbfbfd;
+  --surface-2: #eeeef0; --border: #d2d2d7;    --border-strong: #e8e8ed;
+  --text-1: #1d1d1f;   --text-2: #424245;     --text-3: #86868b;
+  --accent: #0071e3;   --accent-2: #0077ed;   --accent-3: #0066cc;
+  --good: #16a34a;     --warn: #eab308;       --bad: #dc2626;
+}
+```
 
-### Legacy: data/design-systems/ (deprecated for PPT generation)
+**How design is injected (6 layers):**
 
-The `data/design-systems/` directory (150 brand design systems — stripe, apple, airbnb, etc.) and `services/design_system.py` are **no longer used by the PPT pipeline**. They remain accessible via the `/api/v1/agent/design-systems` API endpoints for reference, but the html-ppt themes (36 CSS files) have replaced them for actual slide generation.
+1. **`_inject_design_catalog()`** in `agent_service.py` — on every PPT-mode request, appends to the user message: (a) 31 complete SVG layout templates from `svg_layouts.py`, (b) token semantic quick reference, (c) icon rules, (d) SVG forbidden-elements list, (e) 149 theme names + selection guide — so the LLM copy-pastes real SVG structures.
+
+2. **System prompt** (`prompts.py:PPT_SYSTEM_PROMPT`) — 250+ lines constraining the LLM: must use `save_slide` tool (not chat output), all colors via `var(--token)`, `data-theme` must be from the 149 list, no `<style>`/`<foreignObject>`/`<mask>`/`class`/`rgba()`, top-level `<g id="...">` groups for animation anchoring, `<!-- notes: ... -->` speaker notes, 8-14 pages with ≥2 section dividers.
+
+3. **31 SVG layouts** (`svg_layouts.py`) — structural templates across 7 categories (Opening, Data, Text, Comparison, Flow, Time, Image, Ending). LLM copies the SVG, replaces placeholder content with real data, preserves `var(--token)` color refs.
+
+4. **Theme CSS files** (`data/design-themes/*.css`) — the value source for all 16 color tokens. `theme_token_resolver.py` parses them at storage time.
+
+5. **Token resolution** — `PptArtifactService.create_from_slides_dir()` loads the theme CSS for the chosen theme, calls `resolve_token_values()` to replace every `var(--bg)` → `#ffffff` etc., producing self-contained SVGs.
+
+6. **SVG→PPTX export** — `export_pptx()` in agent_service.py runs 4 post-processing steps (embed_icons, align_embed_images, flatten_tspan, fix_rounded), then `svg_to_pptx/pptx_builder.py` converts each SVG element to native DrawingML shapes for a .pptx file.
+
+**Tool-based workflow:** LLM calls `save_slide(slide_num=N, svg="...")` per page, writing to `data/ppt-sessions/<session_id>/slide_N.svg`. On "done", agent_service collects these files and creates the artifact. PPT mode includes 6 tool groups: icon_tools, ppt_tools (save_slide, read_slide), chart_tools, quality_checker_tools, pptx_reverse_tools, template_tools.
 
 ### Sub-tool approval
 
