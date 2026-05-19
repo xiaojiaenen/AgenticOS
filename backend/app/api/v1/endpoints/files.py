@@ -13,7 +13,7 @@ router = APIRouter(prefix="/files", tags=["文件"])
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 # 项目根目录，用于计算相对路径给 Agent
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent.parent
 
 
 def _get_upload_dir(user_id: int) -> Path:
