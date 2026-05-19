@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import json
+import logging
 from typing import Any, AsyncIterator
 
 from wuwei import (
@@ -56,6 +57,8 @@ class ThinkingHistoryCompatibilityHook(RuntimeHook):
         ]
         return filtered_messages, tools
 
+
+_logger = logging.getLogger("agent")
 
 class AgentService:
     def __init__(
@@ -423,6 +426,21 @@ class AgentService:
         ]
         return message + "\n".join(lines)
 
+    async def _create_ppt_artifact(self, session_id: str) -> dict[str, Any] | None:
+        """Create a PPT artifact from saved slides in the session work directory."""
+        from pathlib import Path as _Path
+        _slides_dir = _Path(__file__).resolve().parent.parent.parent.parent / "data" / "ppt-sessions" / session_id
+        try:
+            artifact = await self.ppt_artifacts.create_from_slides_dir(session_id, _slides_dir)
+            if artifact is not None:
+                _logger.info("ppt artifact created: session=%s slides=%d", session_id, artifact.get("slide_count", 0))
+            else:
+                _logger.info("ppt artifact skipped: session=%s (no slides found)", session_id)
+            return artifact
+        except Exception:
+            _logger.exception("ppt artifact creation failed: session=%s", session_id)
+            return None
+
     async def _get_edit_hint(self, session_id: str) -> str | None:
         """If the session has existing PPT artifacts, add an edit hint for save_slide."""
         from pathlib import Path as _Path
@@ -447,6 +465,7 @@ class AgentService:
                 f"如果是新建 PPT 要求，忽略此提示。\n"
             )
         except Exception:
+            _logger.warning("_get_edit_hint failed for session=%s", session_id, exc_info=True)
             return None
 
     def _normalize_session_limits(
@@ -700,6 +719,15 @@ class AgentService:
         response_mode = runtime_profile.response_mode
         ppt_mode = response_mode == "ppt"
         agent = self._get_agent(runtime_profile)
+
+        _logger.info(
+            "stream_chat start: session=%s mode=%s profile=%s msg_len=%d files=%d",
+            request.session_id or "(new)",
+            response_mode,
+            runtime_profile.slug,
+            len(request.message),
+            len(request.files or ()),
+        )
         if user is not None:
             await self.ensure_session_access(request, user)
         await self._load_session_if_needed(agent, request)
@@ -824,18 +852,9 @@ class AgentService:
                             tool_names.append(tool_name)
 
                     if ppt_mode and event.type == "done":
-                        # 从 session 工作目录收集 save_slide 写入的文件
-                        from pathlib import Path as _Path
-                        _slides_dir = _Path(__file__).resolve().parent.parent.parent.parent / "data" / "ppt-sessions" / session.session_id
-                        artifact = await self.ppt_artifacts.create_from_slides_dir(
-                            session.session_id, _slides_dir,
-                        )
-                        # 构建简短的文字摘要给前端展示
+                        artifact = await self._create_ppt_artifact(session.session_id)
                         if artifact is not None:
                             visible_text = f"已生成 {artifact['slide_count']} 页 PPT：{artifact['title']}"
-                        else:
-                            visible_text = collected_text
-                        if artifact is not None:
                             yield {
                                 "event": "run_status",
                                 "data": {
@@ -848,6 +867,8 @@ class AgentService:
                                 "event": "artifact_ready",
                                 "data": artifact,
                             }
+                        else:
+                            visible_text = collected_text
                         if visible_text:
                             yield {
                                 "event": "delta",
@@ -905,6 +926,12 @@ class AgentService:
                             usage_recorded = True
 
                     if event.type == "error" and not usage_recorded:
+                        _logger.warning(
+                            "agent error event: session=%s error=%s tools=%s",
+                            session.session_id,
+                            event.data.get("message", "")[:200],
+                            tool_names,
+                        )
                         await self._record_usage_event(
                             session=session,
                             request=request,
@@ -933,6 +960,13 @@ class AgentService:
                     }
                     approval_task = asyncio.create_task(approval_queue.get())
         finally:
+            _logger.info(
+                "stream_chat end: session=%s mode=%s tools=%s text_len=%d",
+                session.session_id,
+                response_mode,
+                tool_names,
+                len(collected_text),
+            )
             self.approval_manager.unsubscribe(session.session_id, approval_queue)
             for task in (runtime_task, approval_task):
                 if not task.done():
@@ -1038,7 +1072,7 @@ class AgentService:
                         tree.write(str(svg_path), encoding="unicode", xml_declaration=False)
                         _processed += 1
                 except Exception:
-                    pass
+                    _logger.warning("tspan flatten failed for %s", svg_path.name, exc_info=True)
                 try:
                     raw = svg_path.read_text(encoding="utf-8")
                     new_content, count = _fix_rounded(raw, verbose=False)
@@ -1046,7 +1080,7 @@ class AgentService:
                         svg_path.write_text(new_content, encoding="utf-8")
                         _processed += count
                 except Exception:
-                    pass
+                    _logger.warning("rounded rect fix failed for %s", svg_path.name, exc_info=True)
             _logger.info(f"SVG post-processing: {_processed} changes across {len(svg_paths)} slides")
 
             output_path = tmpdir_path / "output.pptx"

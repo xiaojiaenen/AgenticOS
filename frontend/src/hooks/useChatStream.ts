@@ -12,6 +12,30 @@ import { AgentProfile } from '../services/agentProfileService';
 import { uploadFiles } from '../services/fileService';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
 
+// ---------------------------------------------------------------------------
+// extracted helpers
+// ---------------------------------------------------------------------------
+
+function buildAttachments(files: File[]): Attachment[] {
+  return files.map((file) => ({
+    name: file.name,
+    type: file.type,
+    url: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+  }));
+}
+
+async function prepareUploadedFiles(
+  files: File[],
+  onStatus: (label: string) => void,
+): Promise<{ filename: string; file_path: string }[]> {
+  onStatus('正在上传文件');
+  const results = await uploadFiles(files);
+  return results.map((r) => ({
+    filename: r.filename,
+    file_path: r.file_path,
+  }));
+}
+
 interface UseChatStreamDeps {
   sessions: Session[];
   currentSessionId: string | null;
@@ -110,22 +134,10 @@ export function useChatStream({
       abortControllerRef.current = abortController;
 
       try {
-        const attachments: Attachment[] = (files || []).map((file) => ({
-          name: file.name,
-          type: file.type,
-          url: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
-        }));
-
-        // Upload files to server
-        let uploadedFiles: { filename: string; file_path: string }[] = [];
-        if (files && files.length > 0) {
-          setRunStatus({ phase: 'thinking', label: '正在上传文件' });
-          const results = await uploadFiles(files);
-          uploadedFiles = results.map((r) => ({
-            filename: r.filename,
-            file_path: r.file_path,
-          }));
-        }
+        const attachments = files ? buildAttachments(files) : [];
+        const uploadedFiles = files && files.length > 0
+          ? await prepareUploadedFiles(files, (label) => setRunStatus({ phase: 'thinking', label }))
+          : [];
 
         userMessage = {
           id: Date.now().toString(),

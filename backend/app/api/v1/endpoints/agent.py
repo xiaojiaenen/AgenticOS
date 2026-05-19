@@ -1,4 +1,6 @@
 import json
+import logging
+import traceback
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,6 +13,8 @@ from app.services.agent_service import AgentService, get_agent_service
 from app.services.design_system import get_design_system_registry
 
 router = APIRouter(prefix="/agent", tags=["智能体"])
+
+_logger = logging.getLogger("agent.stream")
 
 
 def _format_sse(event: str, data: dict[str, Any]) -> str:
@@ -32,11 +36,17 @@ async def stream_agent(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     async def event_stream():
+        session_id = request.session_id or "(new)"
         try:
             async for event in agent_service.stream_chat(request, current_user):
                 yield _format_sse(event["event"], event["data"])
         except Exception as exc:
-            yield _format_sse("error", {"message": str(exc)})
+            _logger.exception("stream_chat fatal error: session=%s", session_id)
+            yield _format_sse("error", {
+                "message": str(exc),
+                "error_type": type(exc).__name__,
+                "session_id": session_id,
+            })
 
     return StreamingResponse(
         event_stream(),
