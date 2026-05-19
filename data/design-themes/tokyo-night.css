@@ -1,0 +1,21 @@
+/* PPT theme: tokyo-night — deep navy with vibrant neon accents */
+
+:root {
+  --bg: #1a1b26;
+  --bg-soft: #1f2035;
+  --surface: #24253d;
+  --surface-2: #2e3054;
+  --border: #3b3d60;
+  --border-strong: #565a7e;
+  --text-1: #c0caf5;
+  --text-2: #a9b1d6;
+  --text-3: #6c7086;
+  --accent: #7aa2f7;
+  --accent-2: #bb9af7;
+  --accent-3: #f7768e;
+  --good: #9ece6a;
+  --warn: #e0af68;
+  --bad: #f7768e;
+  --grad: linear-gradient(135deg, #7aa2f7, #bb9af7);
+  --grad-soft: linear-gradient(135deg, rgba(122,162,247,0.08), rgba(187,154,247,0.04));
+}

@@ -1,0 +1,17 @@
+/* Sunset — warm orange to purple gradient, dramatic and emotional */
+:root {
+  --bg: #1a0a1e;
+  --surface: #200d26;
+  --surface-warm: #281533;
+  --fg: #f5e6f0;
+  --fg-2: #d4b8d8;
+  --muted: #9a80a8;
+  --border: #452956;
+  --border-soft: #5a3870;
+  --accent: #ff6b6b;
+  --accent-hover: #ffa07a;
+  --accent-active: #ffd93d;
+  --success: #7bc67e;
+  --warn: #ffb347;
+  --danger: #ff4757;
+}

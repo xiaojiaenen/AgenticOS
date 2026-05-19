@@ -1,0 +1,17 @@
+/* Aurora — northern lights inspired, ethereal green on deep sky */
+:root {
+  --bg: #0a1628;
+  --surface: #0d1d35;
+  --surface-warm: #112240;
+  --fg: #dce6f5;
+  --fg-2: #8899bb;
+  --muted: #556688;
+  --border: #1e3a5f;
+  --border-soft: #2a5080;
+  --accent: #64ffda;
+  --accent-hover: #00e5a0;
+  --accent-active: #00b8d4;
+  --success: #64ffda;
+  --warn: #ffd54f;
+  --danger: #ff5c8a;
+}

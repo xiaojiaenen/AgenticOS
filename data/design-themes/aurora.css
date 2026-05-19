@@ -1,0 +1,21 @@
+/* PPT theme: aurora — northern lights inspired, ethereal green on deep sky */
+
+:root {
+  --bg: #0a1628;
+  --bg-soft: #0d1d35;
+  --surface: #112240;
+  --surface-2: #1a3055;
+  --border: #1e3a5f;
+  --border-strong: #2a5080;
+  --text-1: #dce6f5;
+  --text-2: #8899bb;
+  --text-3: #556688;
+  --accent: #64ffda;
+  --accent-2: #00e5a0;
+  --accent-3: #00b8d4;
+  --good: #64ffda;
+  --warn: #ffd54f;
+  --bad: #ff5c8a;
+  --grad: linear-gradient(135deg, #64ffda 0%, #00e5a0 30%, #00b8d4 70%, #6c5ce7 100%);
+  --grad-soft: linear-gradient(135deg, rgba(100,255,218,0.06), rgba(0,184,212,0.04));
+}

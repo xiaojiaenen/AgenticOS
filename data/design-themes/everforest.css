@@ -1,0 +1,21 @@
+/* PPT theme: everforest — earthy sage green tones, natural and calming */
+
+:root {
+  --bg: #fdf6e3;
+  --bg-soft: #f5eed8;
+  --surface: #ffffff;
+  --surface-2: #fdf3e0;
+  --border: #e5dbc4;
+  --border-strong: #d3c9b0;
+  --text-1: #3c4a3e;
+  --text-2: #5a6a5c;
+  --text-3: #8a9a8c;
+  --accent: #7aac7a;
+  --accent-2: #5b8c5b;
+  --accent-3: #a7c9a7;
+  --good: #8bbb8b;
+  --warn: #dbbc7c;
+  --bad: #e67e80;
+  --grad: linear-gradient(135deg, #7aac7a, #5b8c5b);
+  --grad-soft: linear-gradient(135deg, rgba(122,172,122,0.08), rgba(91,140,91,0.04));
+}

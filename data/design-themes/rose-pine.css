@@ -1,0 +1,21 @@
+/* PPT theme: rose-pine — warm rose gold on deep plum, elegant and modern */
+
+:root {
+  --bg: #191724;
+  --bg-soft: #1f1d2e;
+  --surface: #242234;
+  --surface-2: #2e2a43;
+  --border: #3f3956;
+  --border-strong: #56506e;
+  --text-1: #e0def4;
+  --text-2: #c2bedb;
+  --text-3: #817c9c;
+  --accent: #ebbcba;
+  --accent-2: #c4a7e7;
+  --accent-3: #9ccfd8;
+  --good: #31748f;
+  --warn: #f6c177;
+  --bad: #eb6f92;
+  --grad: linear-gradient(135deg, #ebbcba, #c4a7e7);
+  --grad-soft: linear-gradient(135deg, rgba(235,188,186,0.08), rgba(196,167,231,0.04));
+}

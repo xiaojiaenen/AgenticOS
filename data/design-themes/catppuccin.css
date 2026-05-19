@@ -1,0 +1,21 @@
+/* PPT theme: catppuccin — warm latte tones, soft and cozy (mocha dark) */
+
+:root {
+  --bg: #1e1e2e;
+  --bg-soft: #242438;
+  --surface: #2a2a42;
+  --surface-2: #333356;
+  --border: #454575;
+  --border-strong: #585b70;
+  --text-1: #cdd6f4;
+  --text-2: #bac2de;
+  --text-3: #7f849c;
+  --accent: #cba6f7;
+  --accent-2: #f5c2e7;
+  --accent-3: #89b4fa;
+  --good: #a6e3a1;
+  --warn: #f9e2af;
+  --bad: #f38ba8;
+  --grad: linear-gradient(135deg, #cba6f7, #f5c2e7);
+  --grad-soft: linear-gradient(135deg, rgba(203,166,247,0.06), rgba(245,194,231,0.04));
+}

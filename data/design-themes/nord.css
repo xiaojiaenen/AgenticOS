@@ -1,0 +1,21 @@
+/* PPT theme: nord — arctic cool tones, calm and professional */
+
+:root {
+  --bg: #eceff4;
+  --bg-soft: #e5e9f0;
+  --surface: #ffffff;
+  --surface-2: #f4f6fa;
+  --border: #d8dee9;
+  --border-strong: #b0bec5;
+  --text-1: #2e3440;
+  --text-2: #4c566a;
+  --text-3: #7b88a1;
+  --accent: #5e81ac;
+  --accent-2: #81a1c1;
+  --accent-3: #88c0d0;
+  --good: #a3be8c;
+  --warn: #ebcb8b;
+  --bad: #bf616a;
+  --grad: linear-gradient(135deg, #5e81ac, #81a1c1);
+  --grad-soft: linear-gradient(135deg, rgba(94,129,172,0.06), rgba(129,161,193,0.04));
+}
