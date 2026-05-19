@@ -459,16 +459,24 @@ class AgentService:
             session.max_steps = ppt_max_steps
 
     def _build_user_message(self, request: AgentStreamRequest) -> str:
-        """Build the user message, optionally prepending attached file contents."""
+        """Build the user message, describing attached files so the Agent can use tools to process them."""
         if not request.files:
             return request.message
 
-        file_blocks: list[str] = []
+        file_descriptions: list[str] = []
         for f in request.files:
-            header = f"### 📎 {f.filename} ({len(f.text_content)} chars)"
-            file_blocks.append(f"{header}\n{f.text_content}")
+            ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+            if ext in ("pptx", "ppt"):
+                hint = f"PPTX 文件，用 convert_pptx_to_svg(file_path=\"{f.file_path}\") 转换为 SVG 后编辑"
+            else:
+                hint = f"文档文件，用 file_to_md(path=\"{f.file_path}\") 读取内容"
+            file_descriptions.append(f"- **{f.filename}** → 路径 `{f.file_path}` → {hint}")
 
-        return "\n\n".join(file_blocks) + f"\n\n---\n{request.message}"
+        return (
+            "## 📎 用户上传了以下文件\n\n"
+            + "\n".join(file_descriptions)
+            + f"\n\n---\n\n{request.message}"
+        )
 
     def _session_payload(self, session) -> dict[str, Any]:
         metadata = getattr(session, "metadata", {}) or {}

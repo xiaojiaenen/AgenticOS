@@ -116,14 +116,14 @@ export function useChatStream({
           url: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
         }));
 
-        // Upload files and extract text
-        let uploadedFiles: { filename: string; text_content: string }[] = [];
+        // Upload files to server
+        let uploadedFiles: { filename: string; file_path: string }[] = [];
         if (files && files.length > 0) {
-          setRunStatus({ phase: 'thinking', label: '正在解析文件内容' });
+          setRunStatus({ phase: 'thinking', label: '正在上传文件' });
           const results = await uploadFiles(files);
           uploadedFiles = results.map((r) => ({
             filename: r.filename,
-            text_content: r.text_content,
+            file_path: r.file_path,
           }));
         }
 

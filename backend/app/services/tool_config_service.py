@@ -197,7 +197,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
     "ppt": {
         "calc": {"enabled": False, "requires_approval": False},
         "time": {"enabled": False, "requires_approval": False},
-        "file": {"enabled": False, "requires_approval": True},
+        "file": {"enabled": True, "requires_approval": False},
         "python": {"enabled": False, "requires_approval": True},
         "git": {"enabled": False, "requires_approval": True},
         "npm": {"enabled": False, "requires_approval": True},

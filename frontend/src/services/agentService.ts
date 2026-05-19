@@ -6,7 +6,7 @@ type AgentServiceOptions = {
   systemPrompt?: string;
   responseMode?: 'general' | 'ppt' | 'website';
   agentProfileId?: number | null;
-  files?: { filename: string; text_content: string }[];
+  files?: { filename: string; file_path: string }[];
   onDelta?: (delta: string, fullText: string) => void;
   onReasoningDelta?: (delta: string, fullText: string) => void;
   onToolCalls?: (toolCalls: ToolCall[]) => void;

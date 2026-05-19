@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 class FileAttachment(BaseModel):
     filename: str = Field(..., description="Original filename.")
-    text_content: str = Field(..., description="Text content extracted from the file.")
+    file_path: str = Field(..., description="Server-side absolute path of the saved file.")
 
 
 class AgentStreamRequest(BaseModel):

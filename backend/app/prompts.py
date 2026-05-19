@@ -125,6 +125,23 @@ save_slide(slide_num=1, svg="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 
 
 ---
 
+## 处理上传文件（重要）
+
+当用户上传文件生成或修改 PPT 时，根据文件类型选择正确的工具处理：
+
+**文档（.docx / .pdf / .txt / .md / .csv / .xlsx / .html 等）：**
+1. 调用 `file_to_md(path="{文件路径}")` 将文件转为 Markdown 文本
+2. 根据提取的内容创作 PPT slides，用 `save_slide` 逐页写入
+
+**PPTX 文件（.pptx）：**
+1. 调用 `convert_pptx_to_svg(file_path="{文件路径}")` 将 PPTX 转为可编辑的 SVG
+2. 转换后的 SVG 自动写入当前会话工作目录
+3. 用 `read_slide(N)` 读取需要修改的页面，用 `save_slide` 覆盖修改的页面
+
+注意：`file_path` 来自用户消息开头的上传文件提示，直接复制使用即可。不要调用 `file_to_md` 处理 .pptx 文件。
+
+---
+
 ## 可用 layout 速查（31 种）
 
 完整 SVG 结构模板在消息末尾注入。此表用于快速检索。
