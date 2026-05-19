@@ -105,8 +105,34 @@ export function useChatSessions() {
           return s;
         });
 
-        setSessions(merged);
-        saveSessionsToCache(merged);
+        // Use functional update to preserve sessions created in-flight
+        // (e.g. from home page navigation) that haven't reached the backend yet
+        setSessions((prev) => {
+          const prevMap = new Map(prev.map((s) => [s.id, s]));
+          const backendIds = new Set(merged.map((s) => s.id));
+          // Start with backend sessions, merging in cached messages
+          const result = merged.map((s) => {
+            const existing = prevMap.get(s.id);
+            if (existing) {
+              return {
+                ...s,
+                messages: existing.messages.length > 0 ? existing.messages : s.messages,
+                title: existing.title || s.title,
+                mode: existing.mode || s.mode,
+                agentProfileId: existing.agentProfileId ?? s.agentProfileId,
+              };
+            }
+            return s;
+          });
+          // Preserve prev sessions not yet on backend (newly created)
+          for (const s of prev) {
+            if (!backendIds.has(s.id)) {
+              result.unshift(s);
+            }
+          }
+          saveSessionsToCache(result);
+          return result;
+        });
       } catch (error) {
         console.error('Failed to load sessions from backend:', error);
         // Keep cached sessions on error
@@ -233,8 +259,30 @@ export function useChatSessions() {
         return s;
       });
 
-      setSessions(merged);
-      saveSessionsToCache(merged);
+      setSessions((prev) => {
+        const prevMap = new Map(prev.map((s) => [s.id, s]));
+        const backendIds = new Set(converted.map((s) => s.id));
+        const result = converted.map((s) => {
+          const existing = prevMap.get(s.id);
+          if (existing && existing.messages.length > 0) {
+            return {
+              ...s,
+              messages: existing.messages,
+              title: existing.title || s.title,
+              mode: existing.mode || s.mode,
+              agentProfileId: existing.agentProfileId ?? s.agentProfileId,
+            };
+          }
+          return s;
+        });
+        for (const s of prev) {
+          if (!backendIds.has(s.id)) {
+            result.unshift(s);
+          }
+        }
+        saveSessionsToCache(result);
+        return result;
+      });
     } catch (error) {
       console.error('Failed to refresh sessions:', error);
     }
