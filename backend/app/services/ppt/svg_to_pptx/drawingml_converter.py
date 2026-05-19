@@ -325,7 +325,7 @@ _CONVERTERS = {
     'svg': convert_nested_svg,
 }
 
-_SUPPORTED_VISUAL_CHILD_TAGS = frozenset(('tspan',))
+_SUPPORTED_VISUAL_CHILD_TAGS = frozenset(('tspan', 'span'))
 
 
 def collect_defs(root: ET.Element) -> dict[str, ET.Element]:
@@ -552,6 +552,7 @@ def convert_svg_to_slide_shapes(
     shapes: list[str] = []
     converted = 0
     skipped = 0
+    errors: list[str] = []
     # Per-element shape ids of every top-level child, used as an animation
     # fallback when no <g id="..."> groups are present at the root.
     fallback_targets: list = []
@@ -560,7 +561,20 @@ def convert_svg_to_slide_shapes(
         tag = child.tag.replace(f'{{{SVG_NS}}}', '')
         if tag == 'defs':
             continue
-        result = convert_element(child, ctx)
+        try:
+            result = convert_element(child, ctx)
+        except SvgNativeConversionError as e:
+            skipped += 1
+            errors.append(f'{svg_path.name}: {e}')
+            if verbose:
+                print(f'  [skip] {e}')
+            continue
+        except Exception as e:
+            skipped += 1
+            errors.append(f'{svg_path.name}: unexpected error converting <{tag}>: {e}')
+            if verbose:
+                print(f'  [skip] unexpected error converting <{tag}>: {e}')
+            continue
         if result:
             shapes.append(result.xml)
             converted += 1

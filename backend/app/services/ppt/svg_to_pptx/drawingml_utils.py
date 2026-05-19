@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import math
 from xml.etree import ElementTree as ET
 
 from .drawingml_context import AffineMatrix, ConvertContext, IDENTITY_MATRIX
+
+logger = logging.getLogger("svg_to_pptx.utils")
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -359,7 +362,7 @@ def parse_stop_style(style_str: str) -> tuple[str | None, float]:
             try:
                 opacity = float(part.split(':', 1)[1].strip())
             except ValueError:
-                pass
+                logger.debug("Unparseable stop-opacity '%s'", part)
 
     return color, opacity
 
@@ -433,23 +436,88 @@ def is_cjk_char(ch: str) -> bool:
             0x20000 <= cp <= 0x2A6DF)
 
 
+def _is_emoji(ch: str) -> bool:
+    """Check if a character is an emoji (wide display width)."""
+    cp = ord(ch)
+    return (0x1F000 <= cp <= 0x1FFFF or 0x2600 <= cp <= 0x27BF or
+            0xFE00 <= cp <= 0xFE0F or 0x1F300 <= cp <= 0x1FAFF or
+            0x2300 <= cp <= 0x23FF or 0x2934 <= cp <= 0x2935 or
+            0x25AA <= cp <= 0x25FE or 0x2B05 <= cp <= 0x2B07 or
+            0x2B1B <= cp <= 0x2B1C or 0x2B50 <= cp <= 0x2B55 or
+            0x3030 <= cp <= 0x3030 or 0x303D <= cp <= 0x303D or
+            0x3297 <= cp <= 0x3299 or 0x1F000 <= cp <= 0x1F02F)
+
+
+def _is_fullwidth_latin(ch: str) -> bool:
+    """Check if a character is a fullwidth Latin letter or digit."""
+    cp = ord(ch)
+    return 0xFF01 <= cp <= 0xFF5E
+
+
+def _is_halfwidth_kana(ch: str) -> bool:
+    """Check if a character is halfwidth katakana."""
+    cp = ord(ch)
+    return 0xFF65 <= cp <= 0xFF9F
+
+
+def detect_cjk_language(text: str) -> str:
+    """Auto-detect the dominant CJK language from text content.
+
+    Heuristic: count characters unique to each language.
+    Returns 'zh-CN', 'ja-JP', 'ko-KR', or 'zh-CN' as default.
+    """
+    ja_kana = 0
+    ko_jamo = 0
+    zh_chars = 0
+
+    for ch in text:
+        cp = ord(ch)
+        if 0x3040 <= cp <= 0x309F or 0x30A0 <= cp <= 0x30FF:
+            ja_kana += 1
+        elif 0xAC00 <= cp <= 0xD7AF or 0x1100 <= cp <= 0x11FF:
+            ko_jamo += 1
+        elif 0x4E00 <= cp <= 0x9FFF:
+            zh_chars += 1
+
+    if ko_jamo > ja_kana and ko_jamo > zh_chars * 0.3:
+        return 'ko-KR'
+    if ja_kana > 0 and ja_kana >= ko_jamo:
+        return 'ja-JP'
+    return 'zh-CN'
+
+
 def estimate_text_width(text: str, font_size: float, font_weight: str = '400') -> float:
-    """Estimate text width in SVG pixels."""
+    """Estimate text width in SVG pixels using per-character heuristics.
+
+    CJK characters are estimated at full em-width. Latin characters use
+    width-class buckets. Emoji are treated as wide characters. Bold adds
+    a per-glyph advance-width penalty that varies by character class.
+    """
+    is_bold = font_weight in ('bold', '600', '700', '800', '900')
     width = 0.0
     for ch in text:
-        if is_cjk_char(ch):
-            width += font_size
+        if _is_emoji(ch):
+            width += font_size * 1.1
+        elif is_cjk_char(ch):
+            if _is_halfwidth_kana(ch):
+                width += font_size * 0.55
+            elif _is_fullwidth_latin(ch):
+                width += font_size
+            else:
+                width += font_size
         elif ch == ' ':
             width += font_size * 0.3
-        elif ch in 'mMwWOQ':
+        elif ch in 'mMwWOQ@%':
             width += font_size * 0.75
-        elif ch in 'iIlj1!|':
+        elif ch in 'iIlj1!|:;,.\'`':
             width += font_size * 0.3
+        elif ch in 'ftr':
+            width += font_size * 0.4
         else:
             width += font_size * 0.55
 
-    if font_weight in ('bold', '600', '700', '800', '900'):
-        width *= 1.05
+    if is_bold:
+        width *= 1.12
 
     return width
 

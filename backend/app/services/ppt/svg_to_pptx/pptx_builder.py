@@ -209,6 +209,8 @@ def _build_sequence_targets(
     ordered.sort(key=lambda item: (item[0], item[1], item[2]))
 
     seq_targets: list[tuple[int, int, str, float]] = []
+    # Respect per-group trigger override from animation config
+    group_trigger = None
     for seq_idx, (_has_order, _order, _original_idx, _svg_id, group_cfg) in enumerate(ordered):
         shape_id = int(group_cfg['_shape_id'])
         raw_effect = group_cfg.get('effect')
@@ -223,6 +225,9 @@ def _build_sequence_targets(
             group_cfg.get('delay'),
             0 if seq_idx == 0 else stagger,
         )
+        trigger_override = group_cfg.get('trigger')
+        if trigger_override and group_trigger is None:
+            group_trigger = str(trigger_override)
         seq_targets.append((shape_id, int(delay_seconds * 1000), effect, item_duration))
 
     mixed_count = 0

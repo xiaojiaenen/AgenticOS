@@ -185,6 +185,31 @@ def validate_animation_config(
                 warnings.append(
                     f'animations.json group "{slide_name}/{group_id}" has unknown effect: {effect}'
                 )
+            duration = group_cfg.get('duration')
+            if duration is not None:
+                try:
+                    d = float(duration)
+                    if d < 0:
+                        warnings.append(
+                            f'animations.json group "{slide_name}/{group_id}" has negative duration'
+                        )
+                except (TypeError, ValueError):
+                    warnings.append(
+                        f'animations.json group "{slide_name}/{group_id}" has invalid duration: {duration}'
+                    )
+            delay = group_cfg.get('delay')
+            if delay is not None:
+                try:
+                    float(delay)
+                except (TypeError, ValueError):
+                    warnings.append(
+                        f'animations.json group "{slide_name}/{group_id}" has invalid delay: {delay}'
+                    )
+            trigger = group_cfg.get('trigger')
+            if trigger is not None and trigger not in ('on-click', 'with-previous', 'after-previous'):
+                warnings.append(
+                    f'animations.json group "{slide_name}/{group_id}" has unknown trigger: {trigger}'
+                )
     return warnings
 
 

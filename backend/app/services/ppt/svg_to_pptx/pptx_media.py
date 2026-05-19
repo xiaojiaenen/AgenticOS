@@ -47,14 +47,16 @@ def convert_svg_to_png(
     png_path: Path,
     width: int | None = None,
     height: int | None = None,
+    scale: float = 1.0,
 ) -> bool:
     """Convert SVG to PNG using the available renderer.
 
     Args:
         svg_path: SVG file path.
         png_path: Output PNG file path.
-        width: Output width in pixels.
-        height: Output height in pixels.
+        width: Output width in pixels (before scale).
+        height: Output height in pixels (before scale).
+        scale: Scale multiplier for high-DPI output (e.g. 2.0 for 2x).
 
     Returns:
         Whether the conversion was successful.
@@ -62,13 +64,17 @@ def convert_svg_to_png(
     if PNG_RENDERER is None:
         return False
 
+    scaled_width = int(width * scale) if width else None
+    scaled_height = int(height * scale) if height else None
+
     try:
         if PNG_RENDERER == 'cairosvg':
             cairosvg.svg2png(
                 url=str(svg_path),
                 write_to=str(png_path),
-                output_width=width,
-                output_height=height,
+                output_width=scaled_width,
+                output_height=scaled_height,
+                scale=scale,
             )
             return True
 
@@ -83,6 +89,15 @@ def convert_svg_to_png(
                 fmt="PNG",
                 configPIL={'quality': 95},
             )
+            # svglib doesn't support direct scale; post-scale with PIL
+            if scale != 1.0 and scaled_width and scaled_height:
+                try:
+                    from PIL import Image
+                    img = Image.open(str(png_path))
+                    img = img.resize((scaled_width, scaled_height), Image.LANCZOS)
+                    img.save(str(png_path), 'PNG')
+                except ImportError:
+                    pass
             return True
 
     except Exception as e:
@@ -92,12 +107,12 @@ def convert_svg_to_png(
     return False
 
 
-def _cache_key(svg_path: Path, width: int | None, height: int | None) -> str:
+def _cache_key(svg_path: Path, width: int | None, height: int | None, scale: float = 1.0) -> str:
     h = hashlib.sha256()
     with open(svg_path, 'rb') as f:
         for chunk in iter(lambda: f.read(65536), b''):
             h.update(chunk)
-    return f"{h.hexdigest()}_{width or 0}x{height or 0}_{PNG_RENDERER or 'none'}"
+    return f"{h.hexdigest()}_{width or 0}x{height or 0}_s{scale}_{PNG_RENDERER or 'none'}"
 
 
 def convert_svg_to_png_cached(
@@ -106,6 +121,7 @@ def convert_svg_to_png_cached(
     width: int | None = None,
     height: int | None = None,
     cache_dir: Path | None = None,
+    scale: float = 1.0,
 ) -> bool:
     """Cache-aware SVG→PNG conversion.
 
@@ -114,13 +130,13 @@ def convert_svg_to_png_cached(
     naturally. Failures are never cached.
     """
     if cache_dir is None:
-        return convert_svg_to_png(svg_path, png_path, width, height)
+        return convert_svg_to_png(svg_path, png_path, width, height, scale)
 
     if PNG_RENDERER is None:
         return False
 
     try:
-        key = _cache_key(svg_path, width, height)
+        key = _cache_key(svg_path, width, height, scale)
     except OSError as e:
         logger.warning("Failed to hash SVG (%s): %s", svg_path.name, e)
         return convert_svg_to_png(svg_path, png_path, width, height)
@@ -139,7 +155,7 @@ def convert_svg_to_png_cached(
     import os
     os.close(tmp_fd)
 
-    ok = convert_svg_to_png(svg_path, tmp_path, width, height)
+    ok = convert_svg_to_png(svg_path, tmp_path, width, height, scale)
     if not ok:
         try:
             tmp_path.unlink()

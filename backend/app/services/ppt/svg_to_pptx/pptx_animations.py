@@ -47,32 +47,232 @@ TRANSITIONS: Dict[str, Dict[str, Any]] = {
     'push': {
         'name': 'Push',
         'element': 'push',
-        'attrs': {'dir': 'r'},  # Push from right
+        'attrs': {'dir': 'r'},
+    },
+    'push-left': {
+        'name': 'Push Left',
+        'element': 'push',
+        'attrs': {'dir': 'l'},
+    },
+    'push-up': {
+        'name': 'Push Up',
+        'element': 'push',
+        'attrs': {'dir': 'u'},
+    },
+    'push-down': {
+        'name': 'Push Down',
+        'element': 'push',
+        'attrs': {'dir': 'd'},
     },
     'wipe': {
-        'name': 'Wipe',
+        'name': 'Wipe Right',
         'element': 'wipe',
-        'attrs': {'dir': 'r'},  # Wipe from right
+        'attrs': {'dir': 'r'},
+    },
+    'wipe-left': {
+        'name': 'Wipe Left',
+        'element': 'wipe',
+        'attrs': {'dir': 'l'},
+    },
+    'wipe-up': {
+        'name': 'Wipe Up',
+        'element': 'wipe',
+        'attrs': {'dir': 'u'},
+    },
+    'wipe-down': {
+        'name': 'Wipe Down',
+        'element': 'wipe',
+        'attrs': {'dir': 'd'},
     },
     'split': {
-        'name': 'Split',
+        'name': 'Split Horizontal Out',
         'element': 'split',
         'attrs': {'orient': 'horz', 'dir': 'out'},
+    },
+    'split-vertical': {
+        'name': 'Split Vertical Out',
+        'element': 'split',
+        'attrs': {'orient': 'vert', 'dir': 'out'},
+    },
+    'split-in': {
+        'name': 'Split Horizontal In',
+        'element': 'split',
+        'attrs': {'orient': 'horz', 'dir': 'in'},
     },
     'strips': {
         'name': 'Strips',
         'element': 'strips',
-        'attrs': {'dir': 'rd'},  # Diagonal wipe from bottom-right
+        'attrs': {'dir': 'rd'},
     },
     'cover': {
-        'name': 'Cover',
+        'name': 'Cover Right',
         'element': 'cover',
         'attrs': {'dir': 'r'},
+    },
+    'cover-left': {
+        'name': 'Cover Left',
+        'element': 'cover',
+        'attrs': {'dir': 'l'},
+    },
+    'cover-up': {
+        'name': 'Cover Up',
+        'element': 'cover',
+        'attrs': {'dir': 'u'},
+    },
+    'cover-down': {
+        'name': 'Cover Down',
+        'element': 'cover',
+        'attrs': {'dir': 'd'},
+    },
+    'uncover': {
+        'name': 'Uncover Right',
+        'element': 'cover',
+        'attrs': {'dir': 'l'},
     },
     'random': {
         'name': 'Random',
         'element': 'random',
         'attrs': {},
+    },
+    'dissolve': {
+        'name': 'Dissolve',
+        'element': 'dissolve',
+        'attrs': {},
+    },
+    'pan': {
+        'name': 'Pan Right',
+        'element': 'pan',
+        'attrs': {'dir': 'r'},
+    },
+    'pan-left': {
+        'name': 'Pan Left',
+        'element': 'pan',
+        'attrs': {'dir': 'l'},
+    },
+    'pan-up': {
+        'name': 'Pan Up',
+        'element': 'pan',
+        'attrs': {'dir': 'u'},
+    },
+    'pan-down': {
+        'name': 'Pan Down',
+        'element': 'pan',
+        'attrs': {'dir': 'd'},
+    },
+    'cube': {
+        'name': 'Cube Right',
+        'element': 'cube',
+        'attrs': {'dir': 'r'},
+    },
+    'cube-left': {
+        'name': 'Cube Left',
+        'element': 'cube',
+        'attrs': {'dir': 'l'},
+    },
+    'zoom': {
+        'name': 'Zoom In',
+        'element': 'zoom',
+        'attrs': {'dir': 'in'},
+    },
+    'zoom-out': {
+        'name': 'Zoom Out',
+        'element': 'zoom',
+        'attrs': {'dir': 'out'},
+    },
+    'glitter': {
+        'name': 'Glitter Right',
+        'element': 'glitter',
+        'attrs': {'dir': 'r'},
+    },
+    'glitter-left': {
+        'name': 'Glitter Left',
+        'element': 'glitter',
+        'attrs': {'dir': 'l'},
+    },
+    'vortex': {
+        'name': 'Vortex Right',
+        'element': 'vortex',
+        'attrs': {'dir': 'r'},
+    },
+    'vortex-left': {
+        'name': 'Vortex Left',
+        'element': 'vortex',
+        'attrs': {'dir': 'l'},
+    },
+    'ripple': {
+        'name': 'Ripple',
+        'element': 'ripple',
+        'attrs': {'dir': 'c'},
+    },
+    'honeycomb': {
+        'name': 'Honeycomb',
+        'element': 'honeycomb',
+        'attrs': {},
+    },
+    'wind': {
+        'name': 'Wind Right',
+        'element': 'wind',
+        'attrs': {'dir': 'r'},
+    },
+    'wind-left': {
+        'name': 'Wind Left',
+        'element': 'wind',
+        'attrs': {'dir': 'l'},
+    },
+    'ferris': {
+        'name': 'Ferris Wheel',
+        'element': 'ferris',
+        'attrs': {},
+    },
+    'flash': {
+        'name': 'Flash',
+        'element': 'flash',
+        'attrs': {},
+    },
+    'gallery': {
+        'name': 'Gallery Right',
+        'element': 'gallery',
+        'attrs': {'dir': 'r'},
+    },
+    'gallery-left': {
+        'name': 'Gallery Left',
+        'element': 'gallery',
+        'attrs': {'dir': 'l'},
+    },
+    'doors': {
+        'name': 'Doors Vertical',
+        'element': 'doors',
+        'attrs': {'orient': 'vert'},
+    },
+    'doors-horizontal': {
+        'name': 'Doors Horizontal',
+        'element': 'doors',
+        'attrs': {'orient': 'horz'},
+    },
+    'newsflash': {
+        'name': 'Newsflash',
+        'element': 'newsflash',
+        'attrs': {},
+    },
+    'switch': {
+        'name': 'Switch Right',
+        'element': 'switch',
+        'attrs': {'dir': 'r'},
+    },
+    'switch-left': {
+        'name': 'Switch Left',
+        'element': 'switch',
+        'attrs': {'dir': 'l'},
+    },
+    'flythrough': {
+        'name': 'Fly Through',
+        'element': 'flythrough',
+        'attrs': {'dir': 'in'},
+    },
+    'flythrough-out': {
+        'name': 'Fly Through Out',
+        'element': 'flythrough',
+        'attrs': {'dir': 'out'},
     },
 }
 
@@ -129,29 +329,72 @@ def create_transition_xml(
 # (see ECMA-376 §19.5.10 ST_TLAnimateEffectTransition / filter dictionary).
 # Effects with filter=None render as plain "Appear" (visibility flip only).
 #
+# Map of animation type to presetClass (ECMA-376 §19.5.8)
+# entr = entrance, emph = emphasis, exit = exit
 ANIMATIONS: Dict[str, Dict[str, Any]] = {
-    'appear':   {'name': 'Appear',   'filter': None, 'presetID': 1, 'presetSubtype': 0},
-    'fade':     {'name': 'Fade',     'filter': 'fade', 'presetID': 10, 'presetSubtype': 0},
-    'fly':      {'name': 'Fly In',   'filter': 'slide(fromBottom)', 'presetID': 2, 'presetSubtype': 4},
-    'cut':      {'name': 'Cut In',   'filter': 'slide(fromLeft)', 'presetID': 42, 'presetSubtype': 8},
-    'zoom':     {'name': 'Zoom',     'filter': 'image', 'presetID': 23, 'presetSubtype': 0},
-    'wipe':     {'name': 'Wipe',     'filter': 'wipe(left)', 'presetID': 22, 'presetSubtype': 1},
-    'split':    {'name': 'Split',    'filter': 'barn(inVertical)', 'presetID': 16, 'presetSubtype': 21},
-    'blinds':   {'name': 'Blinds',   'filter': 'blinds(horizontal)', 'presetID': 3, 'presetSubtype': 10},
-    'checkerboard': {'name': 'Checkerboard', 'filter': 'checkerboard(across)', 'presetID': 5, 'presetSubtype': 6},
-    'dissolve': {'name': 'Dissolve', 'filter': 'dissolve', 'presetID': 9, 'presetSubtype': 0},
-    'random_bars': {'name': 'Random Bars', 'filter': 'randombar(horizontal)', 'presetID': 14, 'presetSubtype': 10},
-    'peek':     {'name': 'Peek',     'filter': 'wipe(down)', 'presetID': 12, 'presetSubtype': 4},
-    'wheel':    {'name': 'Wheel',    'filter': 'wheel(4)', 'presetID': 21, 'presetSubtype': 0},
-    'box':      {'name': 'Box',      'filter': 'box(in)', 'presetID': 4, 'presetSubtype': 0},
-    'circle':   {'name': 'Circle',   'filter': 'circle(in)', 'presetID': 6, 'presetSubtype': 0},
-    'diamond':  {'name': 'Diamond',  'filter': 'diamond(in)', 'presetID': 8, 'presetSubtype': 0},
-    'plus':     {'name': 'Plus',     'filter': 'plus(in)', 'presetID': 13, 'presetSubtype': 0},
-    'strips':   {'name': 'Strips',   'filter': 'strips(downRight)', 'presetID': 18, 'presetSubtype': 12},
-    'wedge':    {'name': 'Wedge',    'filter': 'wedge', 'presetID': 20, 'presetSubtype': 0},
-    'stretch':  {'name': 'Stretch',  'filter': 'stretch(across)', 'presetID': 17, 'presetSubtype': 0},
-    'expand':   {'name': 'Expand',   'filter': 'stretch(across)', 'presetID': 50, 'presetSubtype': 0},
-    'swivel':   {'name': 'Swivel',   'filter': 'wheel(1)', 'presetID': 19, 'presetSubtype': 0},
+    # --- Entrance ---
+    'appear':   {'name': 'Appear',   'filter': None, 'presetID': 1, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'fade':     {'name': 'Fade',     'filter': 'fade', 'presetID': 10, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'fly':      {'name': 'Fly In',   'filter': 'slide(fromBottom)', 'presetID': 2, 'presetSubtype': 4, 'presetClass': 'entr'},
+    'cut':      {'name': 'Cut In',   'filter': 'slide(fromLeft)', 'presetID': 42, 'presetSubtype': 8, 'presetClass': 'entr'},
+    'zoom':     {'name': 'Zoom',     'filter': 'image', 'presetID': 23, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'wipe':     {'name': 'Wipe',     'filter': 'wipe(left)', 'presetID': 22, 'presetSubtype': 1, 'presetClass': 'entr'},
+    'split':    {'name': 'Split',    'filter': 'barn(inVertical)', 'presetID': 16, 'presetSubtype': 21, 'presetClass': 'entr'},
+    'blinds':   {'name': 'Blinds',   'filter': 'blinds(horizontal)', 'presetID': 3, 'presetSubtype': 10, 'presetClass': 'entr'},
+    'checkerboard': {'name': 'Checkerboard', 'filter': 'checkerboard(across)', 'presetID': 5, 'presetSubtype': 6, 'presetClass': 'entr'},
+    'dissolve': {'name': 'Dissolve', 'filter': 'dissolve', 'presetID': 9, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'random_bars': {'name': 'Random Bars', 'filter': 'randombar(horizontal)', 'presetID': 14, 'presetSubtype': 10, 'presetClass': 'entr'},
+    'peek':     {'name': 'Peek',     'filter': 'wipe(down)', 'presetID': 12, 'presetSubtype': 4, 'presetClass': 'entr'},
+    'wheel':    {'name': 'Wheel',    'filter': 'wheel(4)', 'presetID': 21, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'box':      {'name': 'Box',      'filter': 'box(in)', 'presetID': 4, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'circle':   {'name': 'Circle',   'filter': 'circle(in)', 'presetID': 6, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'diamond':  {'name': 'Diamond',  'filter': 'diamond(in)', 'presetID': 8, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'plus':     {'name': 'Plus',     'filter': 'plus(in)', 'presetID': 13, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'strips':   {'name': 'Strips',   'filter': 'strips(downRight)', 'presetID': 18, 'presetSubtype': 12, 'presetClass': 'entr'},
+    'wedge':    {'name': 'Wedge',    'filter': 'wedge', 'presetID': 20, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'stretch':  {'name': 'Stretch',  'filter': 'stretch(across)', 'presetID': 17, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'expand':   {'name': 'Expand',   'filter': 'stretch(across)', 'presetID': 50, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'swivel':   {'name': 'Swivel',   'filter': 'wheel(1)', 'presetID': 19, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'flash_once': {'name': 'Flash Once', 'filter': 'flashbulb', 'presetID': 11, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'crawl':    {'name': 'Crawl In', 'filter': 'slide(fromLeft)', 'presetID': 7, 'presetSubtype': 0, 'presetClass': 'entr'},
+    'float_in': {'name': 'Float In', 'filter': 'float(in)', 'presetID': 24, 'presetSubtype': 0, 'presetClass': 'entr'},
+    # --- Emphasis ---
+    'pulse':        {'name': 'Pulse',        'filter': None, 'presetID': 25, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'spin':         {'name': 'Spin',         'filter': None, 'presetID': 26, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'grow_shrink':  {'name': 'Grow/Shrink',  'filter': None, 'presetID': 27, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'teeter':       {'name': 'Teeter',       'filter': None, 'presetID': 33, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'color_pulse':  {'name': 'Color Pulse',  'filter': None, 'presetID': 31, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'desaturate':   {'name': 'Desaturate',   'filter': None, 'presetID': 28, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'darken':       {'name': 'Darken',       'filter': None, 'presetID': 29, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'lighten':      {'name': 'Lighten',      'filter': None, 'presetID': 30, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'transparency': {'name': 'Transparency', 'filter': None, 'presetID': 32, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'object_color': {'name': 'Object Color', 'filter': None, 'presetID': 34, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'complementary':{'name': 'Complementary Color', 'filter': None, 'presetID': 35, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'line_color':   {'name': 'Line Color',   'filter': None, 'presetID': 36, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'fill_color':   {'name': 'Fill Color',   'filter': None, 'presetID': 37, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'brush_color':  {'name': 'Brush Color',  'filter': None, 'presetID': 38, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'font_color':   {'name': 'Font Color',   'filter': None, 'presetID': 39, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'underline':    {'name': 'Underline',    'filter': None, 'presetID': 40, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'bold_flash':   {'name': 'Bold Flash',   'filter': None, 'presetID': 41, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'bold_reveal':  {'name': 'Bold Reveal',  'filter': None, 'presetID': 42, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'wave':         {'name': 'Wave',         'filter': None, 'presetID': 43, 'presetSubtype': 0, 'presetClass': 'emph'},
+    'float':        {'name': 'Float',        'filter': None, 'presetID': 24, 'presetSubtype': 0, 'presetClass': 'emph'},
+    # --- Exit ---
+    'fade_out':     {'name': 'Fade Out',     'filter': 'fade', 'presetID': 10, 'presetSubtype': 0, 'presetClass': 'exit'},
+    'fly_out':      {'name': 'Fly Out',      'filter': 'slide(toBottom)', 'presetID': 2, 'presetSubtype': 12, 'presetClass': 'exit'},
+    'wipe_out':     {'name': 'Wipe Out',     'filter': 'wipe(right)', 'presetID': 22, 'presetSubtype': 0, 'presetClass': 'exit'},
+    'zoom_out':     {'name': 'Zoom Out',     'filter': 'image', 'presetID': 23, 'presetSubtype': 0, 'presetClass': 'exit'},
+    'dissolve_out': {'name': 'Dissolve Out', 'filter': 'dissolve', 'presetID': 9, 'presetSubtype': 0, 'presetClass': 'exit'},
+    'shrink_out':   {'name': 'Shrink Out',   'filter': 'stretch(across)', 'presetID': 50, 'presetSubtype': 0, 'presetClass': 'exit'},
+    'disappear':    {'name': 'Disappear',    'filter': None, 'presetID': 1, 'presetSubtype': 0, 'presetClass': 'exit'},
+    'fly_out_left': {'name': 'Fly Out Left',  'filter': 'slide(toLeft)', 'presetID': 2, 'presetSubtype': 13, 'presetClass': 'exit'},
+    'fly_out_right': {'name': 'Fly Out Right', 'filter': 'slide(toRight)', 'presetID': 2, 'presetSubtype': 14, 'presetClass': 'exit'},
+    'fly_out_up':   {'name': 'Fly Out Up',   'filter': 'slide(toTop)', 'presetID': 2, 'presetSubtype': 15, 'presetClass': 'exit'},
+    'fly_out_down': {'name': 'Fly Out Down', 'filter': 'slide(toBottom)', 'presetID': 2, 'presetSubtype': 12, 'presetClass': 'exit'},
+    'wipe_out_left':  {'name': 'Wipe Out Left',  'filter': 'wipe(left)',  'presetID': 22, 'presetSubtype': 1, 'presetClass': 'exit'},
+    'wipe_out_up':    {'name': 'Wipe Out Up',    'filter': 'wipe(up)',    'presetID': 22, 'presetSubtype': 4, 'presetClass': 'exit'},
+    'wipe_out_right': {'name': 'Wipe Out Right', 'filter': 'wipe(right)', 'presetID': 22, 'presetSubtype': 0, 'presetClass': 'exit'},
+    'wipe_out_down':  {'name': 'Wipe Out Down',  'filter': 'wipe(down)',  'presetID': 22, 'presetSubtype': 5, 'presetClass': 'exit'},
 }
 
 # Pool used by 'mixed' / 'random' modes. Excludes 'appear' because it has no
@@ -159,7 +402,8 @@ ANIMATIONS: Dict[str, Dict[str, Any]] = {
 _MIXED_POOL = [
     'blinds', 'checkerboard', 'dissolve', 'fly', 'cut',
     'random_bars', 'box', 'split', 'strips', 'wedge', 'wheel',
-    'wipe', 'expand', 'fade', 'swivel', 'zoom',
+    'wipe', 'expand', 'fade', 'swivel', 'zoom', 'float_in',
+    'crawl', 'flash_once',
 ]
 
 
@@ -273,6 +517,10 @@ def _build_effect_xml(
     to avoid duplicate rows for the same shape in PowerPoint.
     """
     anim_info = ANIMATIONS.get(animation, ANIMATIONS['fade'])
+    preset_class = anim_info.get('presetClass', 'entr')
+    preset_id = anim_info.get('presetID', 1)
+    preset_subtype = anim_info.get('presetSubtype', 0)
+
     set_block = f'''<p:set>
   <p:cBhvr>
     <p:cTn id="{set_id}" dur="1" fill="hold">
@@ -288,7 +536,7 @@ def _build_effect_xml(
     return set_block + f'''
 <p:animEffect transition="in" filter="{anim_info["filter"]}">
   <p:cBhvr>
-    <p:cTn id="{eff_id}" dur="{duration_ms}"/>
+    <p:cTn id="{eff_id}" dur="{duration_ms}" presetClass="{preset_class}" presetID="{preset_id}" presetSubtype="{preset_subtype}"/>
     <p:tgtEl><p:spTgt spid="{shape_id}"/></p:tgtEl>
   </p:cBhvr>
 </p:animEffect>'''
@@ -350,6 +598,7 @@ def create_sequence_timing_xml(
             anim_info = ANIMATIONS[animation]
             preset_id = anim_info.get('presetID', 1)
             preset_subtype = anim_info.get('presetSubtype', 0)
+            preset_class = anim_info.get('presetClass', 'entr')
             wrapper_id = next_id
             inner_id = next_id + 1
             leaf_id = next_id + 2
@@ -366,7 +615,7 @@ def create_sequence_timing_xml(
           <p:stCondLst><p:cond delay="0"/></p:stCondLst>
           <p:childTnLst>
             <p:par>
-              <p:cTn id="{leaf_id}" presetID="{preset_id}" presetClass="entr" presetSubtype="{preset_subtype}" fill="hold" nodeType="clickEffect">
+              <p:cTn id="{leaf_id}" presetID="{preset_id}" presetClass="{preset_class}" presetSubtype="{preset_subtype}" fill="hold" nodeType="clickEffect">
                 <p:stCondLst><p:cond delay="0"/></p:stCondLst>
                 <p:childTnLst>
                   {effect_xml}
@@ -403,6 +652,7 @@ def create_sequence_timing_xml(
             anim_info = ANIMATIONS[animation]
             preset_id = anim_info.get('presetID', 1)
             preset_subtype = anim_info.get('presetSubtype', 0)
+            preset_class = anim_info.get('presetClass', 'entr')
 
             if trigger == 'with-previous':
                 leaf_id = next_id
@@ -411,7 +661,7 @@ def create_sequence_timing_xml(
                 next_id += 3
                 effect_xml = _build_effect_xml(animation, shape_id, item_dur_ms, set_id, eff_id)
                 inner_steps.append(f'''<p:par>
-                  <p:cTn id="{leaf_id}" presetID="{preset_id}" presetClass="entr" presetSubtype="{preset_subtype}" fill="hold" nodeType="withEffect">
+                  <p:cTn id="{leaf_id}" presetID="{preset_id}" presetClass="{preset_class}" presetSubtype="{preset_subtype}" fill="hold" nodeType="withEffect">
                     <p:stCondLst><p:cond delay="0"/></p:stCondLst>
                     <p:childTnLst>
                       {effect_xml}
@@ -434,7 +684,7 @@ def create_sequence_timing_xml(
                     <p:stCondLst><p:cond delay="{elapsed_ms}"/></p:stCondLst>
                     <p:childTnLst>
                       <p:par>
-                        <p:cTn id="{leaf_id}" presetID="{preset_id}" presetClass="entr" presetSubtype="{preset_subtype}" fill="hold" nodeType="afterEffect">
+                        <p:cTn id="{leaf_id}" presetID="{preset_id}" presetClass="{preset_class}" presetSubtype="{preset_subtype}" fill="hold" nodeType="afterEffect">
                           <p:stCondLst><p:cond delay="0"/></p:stCondLst>
                           <p:childTnLst>
                             {effect_xml}

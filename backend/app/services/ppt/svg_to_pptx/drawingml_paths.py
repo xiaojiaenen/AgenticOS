@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import re
 from dataclasses import dataclass, field
 
 from .drawingml_utils import px_to_emu
+
+logger = logging.getLogger("svg_to_pptx.paths")
 
 
 @dataclass
@@ -68,7 +71,11 @@ def parse_svg_path(d: str) -> list[PathCommand]:
             try:
                 current_args.append(float(token))
             except ValueError:
-                pass
+                logger.warning(
+                    "Skipping unparseable path token '%s' in path d='%s...' — "
+                    "this may cause coordinate misalignment in the output shape",
+                    token, d[:80],
+                )
 
     flush()
     return commands
@@ -346,8 +353,16 @@ def normalize_path_commands(commands: list[PathCommand]) -> list[PathCommand]:
             result.append(PathCommand('C', cubic))
             cx, cy = a[0], a[1]
         elif cmd.cmd == 'A':
+            la = int(a[3]) if a[3] in (0, 1, 0.0, 1.0) else 0
+            sw = int(a[4]) if a[4] in (0, 1, 0.0, 1.0) else 0
+            if a[3] not in (0, 1, 0.0, 1.0) or a[4] not in (0, 1, 0.0, 1.0):
+                logger.warning(
+                    "Arc flags have non-standard values (large_arc=%s, sweep=%s) "
+                    "— truncating to %d/%d",
+                    a[3], a[4], la, sw,
+                )
             arc_beziers = _arc_to_cubic_beziers(
-                cx, cy, a[0], a[1], a[2], int(a[3]), int(a[4]), a[5], a[6],
+                cx, cy, a[0], a[1], a[2], la, sw, a[5], a[6],
             )
             for bc in arc_beziers:
                 result.append(bc)
@@ -361,6 +376,13 @@ def normalize_path_commands(commands: list[PathCommand]) -> list[PathCommand]:
         last_cmd = cmd.cmd
 
     return result
+
+
+# PowerPoint has a practical limit on the number of path segments in a single
+# custGeom. Exceeding ~2000 segments can produce .pptx files that fail to open
+# or render. Complex paths (topographical contours, highly detailed maps, etc.)
+# should be simplified or rasterized.
+_MAX_PATH_SEGMENTS = 2000
 
 
 def path_commands_to_drawingml(
@@ -377,6 +399,15 @@ def path_commands_to_drawingml(
     """
     if not commands:
         return '', 0, 0, 0, 0
+
+    segment_count = len([c for c in commands if c.cmd in ('M', 'L', 'C', 'Z')])
+    if segment_count > _MAX_PATH_SEGMENTS:
+        logger.warning(
+            "Path has %d segments, exceeding PowerPoint's ~%d practical "
+            "limit. The resulting .pptx may fail to open or render this "
+            "shape. Consider simplifying the path.",
+            segment_count, _MAX_PATH_SEGMENTS,
+        )
 
     # First pass: calculate bounding box
     points: list[tuple[float, float]] = []
