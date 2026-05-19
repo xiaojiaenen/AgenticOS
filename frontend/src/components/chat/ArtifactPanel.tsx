@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { MotionValue } from 'motion/react';
 import { Artifact } from '../../types';
 import { buildSandboxedHtmlDocument, createObjectUrl } from '../../lib/safePreview';
+import { copyToClipboard } from '../../lib/utils';
 import { AlertCircleIcon, CodeIcon, DownloadIcon, RefreshIcon } from '../ui/AnimatedIcons';
 
 interface ArtifactPanelProps {
@@ -86,7 +87,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
           <button
             type="button"
             onClick={() => {
-              navigator.clipboard.writeText(artifact.code);
+              copyToClipboard(artifact.code);
             }}
             className="rounded-xl p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-zinc-600"
             title="复制代码"

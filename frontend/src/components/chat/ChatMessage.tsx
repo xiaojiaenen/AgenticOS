@@ -10,7 +10,7 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { BrainCircuit, Presentation, Sparkles } from 'lucide-react';
 import { Artifact, Message, ToolCall } from '../../types';
 import { APP_TIME_ZONE } from '../../lib/datetime';
-import { cn } from '../../lib/utils';
+import { cn, copyToClipboard } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
 import { UserAvatarIcon, MascotCool, CopyIcon, CheckIcon, WrenchIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
 
@@ -502,9 +502,9 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
     });
   };
 
-  const handleCopy = React.useCallback(() => {
+  const handleCopy = React.useCallback(async () => {
     if (visibleText) {
-      navigator.clipboard.writeText(visibleText);
+      await copyToClipboard(visibleText);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     }
@@ -520,8 +520,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
       return <MermaidChart chart={codeString} />;
     }
 
-    const handleBlockCopy = () => {
-      navigator.clipboard.writeText(codeString);
+    const handleBlockCopy = async () => {
+      await copyToClipboard(codeString);
       setIsBlockCopied(true);
       setTimeout(() => setIsBlockCopied(false), 2000);
     };
