@@ -15,7 +15,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({ className }) => (
 );
 
 export const SkeletonCard: React.FC<{ lines?: number }> = ({ lines = 3 }) => (
-  <div className="rounded-3xl border border-white/60 bg-white/50 p-5 space-y-4">
+  <div className="rounded-2xl border border-white/60 bg-white/50 p-5 space-y-4">
     <Skeleton className="h-5 w-1/3" />
     <Skeleton className="h-4 w-full" />
     {Array.from({ length: lines - 1 }).map((_, i) => (

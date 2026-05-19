@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/ui/Button';
 import { RandomMascot } from '../components/ui/RandomMascot';
-import { MascotSurprised, MascotHappy, SendIcon, ChevronDownIcon } from '../components/ui/AnimatedIcons';
-import { cn } from '../lib/utils';
+import { AgentSelector } from '../components/ui/AgentSelector';
+import { MascotSurprised, SendIcon } from '../components/ui/AnimatedIcons';
 import { getStoredUser } from '../services/authService';
 import { AgentProfile, getMyAgents } from '../services/agentProfileService';
 
@@ -13,15 +13,10 @@ export const Home = () => {
   const [inputValue, setInputValue] = useState('');
   const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
   const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>(null);
-  const [showMenu, setShowMenu] = useState(false);
-  const [menuFocusIndex, setMenuFocusIndex] = useState(-1);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const menuItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const navigate = useNavigate();
   const user = getStoredUser();
 
   const selectedAgent = agentProfiles.find((a) => a.id === selectedAgentProfileId) || null;
-  const selectableAgents = agentProfiles;
 
   useEffect(() => {
     if (user) {
@@ -34,54 +29,6 @@ export const Home = () => {
         .catch(() => {});
     }
   }, []);
-
-  // Handle click outside to close menu
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowMenu(false);
-      }
-    };
-    if (showMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showMenu]);
-
-  const handleMenuKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setMenuFocusIndex((prev) => (prev + 1) % selectableAgents.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setMenuFocusIndex((prev) => (prev - 1 + selectableAgents.length) % selectableAgents.length);
-    } else if (e.key === 'Enter' && menuFocusIndex >= 0) {
-      e.preventDefault();
-      const agent = selectableAgents[menuFocusIndex];
-      if (agent) {
-        setSelectedAgentProfileId(agent.id);
-        setShowMenu(false);
-        setMenuFocusIndex(-1);
-      }
-    } else if (e.key === 'Escape') {
-      setShowMenu(false);
-      setMenuFocusIndex(-1);
-    }
-  };
-
-  // Focus the active menu item when focus index changes
-  useEffect(() => {
-    if (showMenu && menuFocusIndex >= 0 && menuItemRefs.current[menuFocusIndex]) {
-      menuItemRefs.current[menuFocusIndex]?.focus();
-    }
-  }, [menuFocusIndex, showMenu]);
-
-  // Reset focus index when menu opens/closes
-  useEffect(() => {
-    if (!showMenu) setMenuFocusIndex(-1);
-  }, [showMenu]);
 
   const handleSend = () => {
     if (!inputValue.trim()) return;
@@ -111,14 +58,31 @@ export const Home = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.3 } }}
-      className="min-h-screen bg-gradient-to-br from-[#e0fbfc] via-[#cffafe] to-[#7dd3fc] relative overflow-hidden font-sans flex flex-col selection:bg-zinc-200 selection:text-zinc-900"
+      className="min-h-screen relative overflow-hidden font-sans flex flex-col selection:bg-zinc-200 selection:text-zinc-900"
+      style={{
+        background:
+          'radial-gradient(ellipse 700px 500px at 15% 5%, rgba(14,165,233,0.15), transparent 52%),' +
+          'radial-gradient(ellipse 550px 500px at 90% 6%, rgba(139,92,246,0.10), transparent 50%),' +
+          'radial-gradient(ellipse 450px 420px at 80% 65%, rgba(251,191,36,0.09), transparent 48%),' +
+          'radial-gradient(ellipse 500px 450px at 8% 88%, rgba(16,185,129,0.10), transparent 48%),' +
+          'radial-gradient(ellipse 400px 380px at 50% 94%, rgba(56,189,248,0.12), transparent 46%),' +
+          'linear-gradient(180deg, #e8f2fa 0%, #f2f7fc 28%, #eff4fa 55%, #ecf2f7 100%)',
+      }}
     >
-      {/* Mesh Gradient Background with Noise and Giant Mascot */}
+      <a href="#main-content" className="skip-link">跳转到主要内容</a>
+
+      {/* Multicolor ambient glows + dot grid + Giant Mascot */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] right-[-10%] w-[60vw] h-[60vw] bg-sky-200 rounded-full mix-blend-overlay filter blur-[80px] opacity-25"></div>
+        <div className="absolute inset-0" style={{
+          backgroundImage:
+            'linear-gradient(90deg, rgba(15,23,42,0.025) 1px, transparent 1px),' +
+            'linear-gradient(0deg, rgba(15,23,42,0.018) 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+          maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.5), rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.18))',
+        }} />
 
         {/* Giant Mascot Background */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] text-slate-900 mix-blend-overlay pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center opacity-[0.025] text-slate-900 mix-blend-overlay pointer-events-none">
           <RandomMascot size={1000} />
         </div>
 
@@ -149,6 +113,8 @@ export const Home = () => {
         </div>
       </nav>
 
+      <a href="#main-content" className="skip-link">跳转到主要内容</a>
+
       {/* Hero Section */}
       <main id="main-content" className="flex-1 flex flex-col items-center justify-center px-4 relative z-10 w-full max-w-[1400px] mx-auto">
         <motion.h1 
@@ -178,7 +144,7 @@ export const Home = () => {
           className="w-full max-w-3xl bg-white/60 backdrop-blur-2xl rounded-[2rem] shadow-lg shadow-brand-500/10 border border-white/60 p-3 transition-all focus-within:shadow-glow focus-within:bg-white/90 z-20"
         >
           <textarea
-            className="w-full h-32 bg-transparent resize-none outline-none text-slate-800 placeholder:text-slate-400 text-lg p-4 leading-relaxed"
+            className="w-full h-32 bg-transparent resize-none outline-none text-slate-800 placeholder:text-slate-400 text-lg p-4 leading-relaxed focus:outline-none"
             placeholder="输入你想聊的内容，例如：帮我写一段 Python 代码..."
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -186,57 +152,13 @@ export const Home = () => {
             autoFocus
           />
           <div className="flex justify-between items-center px-4 pb-3">
-            {user && selectableAgents.length > 0 ? (
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl text-sm font-bold transition-all active:scale-95 border border-slate-200/50"
-                aria-label="选择智能体"
-              >
-                <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center transition-all shadow-sm",
-                  selectedAgentProfileId ? "bg-sky-500 text-white shadow-glow" : "bg-slate-200")}>
-                  <MascotHappy size={14} />
-                </div>
-                {selectedAgent?.name || '选择智能体'}
-                <ChevronDownIcon size={14} className={cn("transition-transform", showMenu && "rotate-180")} />
-              </button>
-
-              <AnimatePresence>
-                {showMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                    className="absolute bottom-full left-0 mb-2 max-h-64 w-56 overflow-y-auto bg-white/95 backdrop-blur-xl border border-slate-200/50 rounded-3xl shadow-2xl z-40 p-2"
-                    onKeyDown={handleMenuKeyDown}
-                  >
-                    {selectableAgents.map((agent, idx) => (
-                      <button
-                        key={agent.id}
-                        ref={(el) => { menuItemRefs.current[idx] = el; }}
-                        onClick={() => {
-                          setSelectedAgentProfileId(agent.id);
-                          setShowMenu(false);
-                        }}
-                        className={cn(
-                          'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
-                          selectedAgentProfileId === agent.id ? 'bg-sky-50/70 ring-1 ring-sky-100' : '',
-                        )}
-                      >
-                        <span className={cn('flex h-8 w-8 items-center justify-center rounded-xl text-sm shadow-sm transition-transform',
-                          selectedAgentProfileId === agent.id ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-500')}>
-                          <MascotHappy size={20} />
-                        </span>
-                        <div className="min-w-0 flex flex-col">
-                          <span className={cn('truncate text-xs font-bold transition-colors', selectedAgentProfileId === agent.id ? 'text-sky-700' : 'text-slate-700')}>{agent.name}</span>
-                          <span className="truncate text-[9px] font-medium text-slate-400">{agent.description || '智能体'}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            {user && agentProfiles.length > 0 ? (
+              <AgentSelector
+                agents={agentProfiles}
+                selectedId={selectedAgentProfileId}
+                onSelect={(agent) => setSelectedAgentProfileId(agent.id)}
+                variant="full"
+              />
             ) : (
               <div />
             )}
@@ -247,7 +169,7 @@ export const Home = () => {
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 group ${
                 inputValue.trim()
                   ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-md'
-                  : 'bg-slate-200 text-white'
+                  : 'bg-slate-200 text-slate-400'
               }`}
               aria-label="发送消息"
             >

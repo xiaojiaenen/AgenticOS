@@ -14,12 +14,13 @@ const AdminDashboard = lazy(() =>
 );
 
 const LoadingPage = () => (
-  <div className="flex h-screen w-full items-center justify-center bg-zinc-50">
+  <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-zinc-50">
     <motion.div
       animate={{ rotate: 360 }}
       transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
       className="h-8 w-8 rounded-full border-4 border-sky-500 border-t-transparent"
     />
+    <p className="text-sm font-medium text-slate-400">正在加载页面...</p>
   </div>
 );
 

@@ -97,7 +97,7 @@ export const Sidebar = React.memo(({
                 e.stopPropagation();
                 setDeleteConfirm({ id: session.id, title: session.title });
               }}
-              className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all opacity-0 group-hover:opacity-100 sm:opacity-0 touch:opacity-40"
               aria-label="删除对话"
             >
               <TrashIcon size={16} />

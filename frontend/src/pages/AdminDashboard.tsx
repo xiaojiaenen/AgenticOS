@@ -180,24 +180,24 @@ export const AdminDashboard = () => {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <div className="admin-page-stage space-y-4">
-            {/* Top row: overview + key metrics — semi-transparent tinted cards, no nesting */}
-            <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_360px]">
-              <div className="rounded-2xl border border-white/50 bg-[linear-gradient(135deg,rgba(255,255,255,0.62),rgba(255,255,255,0.38),rgba(186,230,253,0.34))] p-4 shadow-md">
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="admin-page-stage space-y-5">
+            {/* Top row: overview + key metrics — semi-transparent tinted cards */}
+            <section className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_400px]">
+              <div className="rounded-2xl border border-white/50 bg-[linear-gradient(135deg,rgba(255,255,255,0.62),rgba(255,255,255,0.38),rgba(186,230,253,0.34))] p-5 shadow-md">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="max-w-3xl">
                     <p className="admin-section-kicker">系统总览</p>
-                    <h1 className="mt-1 text-xl font-black tracking-tight text-slate-950 lg:text-2xl">后台数据看板</h1>
-                    <div className="mt-2.5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    <h1 className="mt-1.5 text-2xl font-black tracking-tight text-slate-950 lg:text-3xl">后台数据看板</h1>
+                    <div className="mt-3 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
                       {headerInsights.map((item) => (
-                        <div key={item.label} className="admin-stat-card rounded-xl px-3 py-2.5">
-                          <p className="text-[10px] font-black tracking-[0.14em] text-slate-400">{item.label}</p>
-                          <p className="mt-1 text-base font-black tracking-tight text-slate-950">{item.value}</p>
+                        <div key={item.label} className="admin-stat-card rounded-xl px-4 py-3">
+                          <p className="text-[11px] font-black tracking-[0.14em] text-slate-400">{item.label}</p>
+                          <p className="mt-1.5 text-lg font-black tracking-tight text-slate-950">{item.value}</p>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2.5">
                     <div className="admin-kpi-pill text-xs font-black">
                       {isDashboardLoading ? '正在同步数据' : '数据已同步'}
                     </div>
@@ -207,30 +207,30 @@ export const AdminDashboard = () => {
                     </Button>
                   </div>
                 </div>
-                <div className="mt-3 grid gap-2.5 sm:grid-cols-2 2xl:grid-cols-4">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
                   {topSummary.map((item) => (
-                    <div key={item.label} className={`admin-stat-card px-3 py-3 ${item.tone}`}>
+                    <div key={item.label} className={`admin-stat-card px-4 py-4 ${item.tone}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-black tracking-[0.16em] text-slate-500">{item.label}</span>
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/70 bg-white/65 text-slate-900 shadow-sm transition-transform duration-300 group-hover:scale-110">
-                          <item.icon size={14} />
+                        <span className="text-xs font-black tracking-[0.16em] text-slate-500">{item.label}</span>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/70 bg-white/65 text-slate-900 shadow-sm transition-transform duration-300 group-hover:scale-110">
+                          <item.icon size={18} />
                         </div>
                       </div>
-                      <p className="mt-2 text-xl font-black tracking-tight text-slate-950">{item.value}</p>
-                      <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-500">{item.meta}</p>
+                      <p className="mt-3 text-2xl font-black tracking-tight text-slate-950">{item.value}</p>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{item.meta}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/50 bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(233,213,255,0.28),rgba(255,255,255,0.36))] p-4 shadow-md">
+              <div className="rounded-2xl border border-white/50 bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(233,213,255,0.28),rgba(255,255,255,0.36))] p-5 shadow-md">
                 <p className="admin-section-kicker">关键刻度</p>
-                <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
+                <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
                   {sideSummary.map((item, index) => (
                     <div
                       key={item.label}
                       className={cn(
-                        'admin-stat-card rounded-xl px-3 py-2.5',
+                        'admin-stat-card rounded-xl px-4 py-3.5',
                         index === 0 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(56,189,248,0.12))]',
                         index === 1 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(125,211,252,0.12))]',
                         index === 2 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(244,114,182,0.10))]',
@@ -238,10 +238,10 @@ export const AdminDashboard = () => {
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-bold text-slate-500">{item.label}</span>
-                        <span className="text-base font-black tracking-tight text-slate-950">{item.value}</span>
+                        <span className="text-xs font-bold text-slate-500">{item.label}</span>
+                        <span className="text-lg font-black tracking-tight text-slate-950">{item.value}</span>
                       </div>
-                      <p className="mt-0.5 text-[11px] font-medium text-slate-500">{item.meta}</p>
+                      <p className="mt-1 text-xs font-medium text-slate-500">{item.meta}</p>
                     </div>
                   ))}
                 </div>
@@ -344,6 +344,7 @@ export const AdminDashboard = () => {
         </button>
       )}
 
+      <a href="#main-content" className="skip-link">跳转到主要内容</a>
       <main id="main-content" className="relative z-10 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[1540px] px-4 pb-10 pt-6 md:px-6 xl:px-8">
           <AnimatePresence mode="wait">

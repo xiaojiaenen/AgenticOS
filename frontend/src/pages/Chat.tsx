@@ -279,12 +279,30 @@ export const Chat = () => {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={onDrop}
-      className="flex h-screen bg-gradient-to-br from-[#e0fbfc] via-[#a5f3fc] to-[#60a5fa] text-slate-800 font-sans overflow-hidden selection:bg-zinc-200 selection:text-zinc-900 relative"
+      className="flex h-screen text-slate-800 font-sans overflow-hidden selection:bg-zinc-200 selection:text-zinc-900 relative"
+      style={{
+        background:
+          'radial-gradient(ellipse 800px 500px at 10% 5%, rgba(14,165,233,0.16), transparent 55%),' +
+          'radial-gradient(ellipse 600px 550px at 92% 8%, rgba(139,92,246,0.12), transparent 52%),' +
+          'radial-gradient(ellipse 500px 450px at 85% 60%, rgba(251,191,36,0.10), transparent 50%),' +
+          'radial-gradient(ellipse 550px 480px at 6% 85%, rgba(16,185,129,0.12), transparent 50%),' +
+          'radial-gradient(ellipse 450px 400px at 50% 92%, rgba(56,189,248,0.14), transparent 48%),' +
+          'linear-gradient(180deg, #e4f0f8 0%, #f0f6fb 28%, #edf3f9 55%, #eaf2f6 100%)',
+      }}
     >
       <DragOverlay isDragging={isDragging} />
 
+      <a href="#main-content" className="skip-link">跳转到主要内容</a>
+
       {/* 聊天页全局背景装饰 */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className="absolute inset-0" style={{
+          backgroundImage:
+            'linear-gradient(90deg, rgba(15,23,42,0.03) 1px, transparent 1px),' +
+            'linear-gradient(0deg, rgba(15,23,42,0.02) 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+          maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.08) 65%, rgba(0,0,0,0.2))',
+        }} />
         <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.02]" />
       </div>
 

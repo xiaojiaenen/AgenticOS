@@ -87,14 +87,14 @@ function PanelHeader({
   extra?: React.ReactNode;
 }) {
   return (
-    <div className="mb-4 flex items-start justify-between gap-4">
+    <div className="mb-5 flex items-start justify-between gap-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/80 bg-white/70 text-slate-900 shadow-sm">
-          <Icon size={18} />
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/80 bg-white/70 text-slate-900 shadow-sm">
+          <Icon size={20} />
         </div>
         <div>
           <p className="admin-section-kicker">{kicker}</p>
-          <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">{title}</h3>
+          <h3 className="mt-1 text-[22px] font-black tracking-tight text-slate-950">{title}</h3>
         </div>
       </div>
       {extra}
@@ -165,7 +165,7 @@ function UserUsageRow({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.16) }}
       whileHover={{ x: 2 }}
-      className="admin-table-row grid grid-cols-1 gap-4 border-b border-white/55 px-4 py-3 text-center last:border-b-0 lg:grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:items-center lg:gap-0"
+      className="admin-table-row grid grid-cols-1 gap-4 border-b border-white/55 px-5 py-4 text-center last:border-b-0 lg:grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:items-center lg:gap-0"
     >
       <div className="flex min-w-0 items-center justify-center gap-4">
         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-white/75 bg-white/65 text-sm font-black text-slate-800 shadow-sm">
@@ -241,8 +241,8 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
   ];
 
   return (
-    <div className="admin-page-stage space-y-4">
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_340px]">
+    <div className="admin-page-stage space-y-5">
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_340px]">
         <PanelShell delay={0.05} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.62),rgba(255,255,255,0.38),rgba(186,230,253,0.34))]">
           <PanelHeader
             icon={Waves}
@@ -256,23 +256,23 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           />
 
           <div className="mb-4 grid gap-3 sm:grid-cols-3">
-            <div className="admin-stat-card rounded-2xl bg-white/65 px-3.5 py-3.5">
+            <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4">
               <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计 Token</p>
-              <p className="mt-1.5 text-xl font-black tracking-tight text-slate-950">{formatTokenNumber(data.summary.total_tokens)}</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatTokenNumber(data.summary.total_tokens)}</p>
             </div>
-            <div className="admin-stat-card rounded-2xl bg-white/65 px-3.5 py-3.5">
+            <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4">
               <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计运行</p>
-              <p className="mt-1.5 text-xl font-black tracking-tight text-slate-950">{formatNumber(data.summary.total_runs)}</p>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(data.summary.total_runs)}</p>
             </div>
-            <div className="admin-stat-card rounded-2xl bg-white/65 px-3.5 py-3.5">
+            <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4">
               <p className="text-xs font-black tracking-[0.18em] text-slate-400">平均单次负载</p>
-              <p className="mt-1.5 text-xl font-black tracking-tight text-slate-950">
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">
                 {formatTokenNumber(Math.round(data.summary.total_tokens / Math.max(data.summary.total_runs, 1)))}
               </p>
             </div>
           </div>
 
-          <div className="h-[300px]">
+          <div className="h-[320px]">
             {hasTrend ? (
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={trendData} margin={{ top: 10, right: 18, bottom: 2, left: 0 }}>
@@ -352,23 +352,23 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <div
                 key={item.label}
                 className={cn(
-                  'admin-stat-card rounded-2xl px-3.5 py-3',
+                  'admin-stat-card rounded-2xl px-4 py-3.5',
                   index < 2
                     ? 'bg-[linear-gradient(135deg,rgba(224,242,254,0.52),rgba(255,255,255,0.65))]'
                     : 'bg-[linear-gradient(135deg,rgba(233,213,255,0.28),rgba(255,255,255,0.65))]',
                 )}
               >
                 <p className="text-xs font-black tracking-[0.18em] text-slate-400">{item.label}</p>
-                <p className="mt-1.5 text-xl font-black tracking-tight text-slate-950">{item.value}</p>
+                <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{item.value}</p>
               </div>
             ))}
           </div>
         </PanelShell>
 
-        <div className="grid gap-4">
+        <div className="grid gap-5">
           <PanelShell delay={0.12} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(224,242,254,0.48),rgba(255,255,255,0.36))]">
             <PanelHeader icon={Activity} kicker="运行脉冲" title="最近几天调用强度" />
-            <div className="h-[220px]">
+            <div className="h-[240px]">
               {pulseData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={pulseData} margin={{ top: 4, right: 4, bottom: 0, left: -12 }}>
@@ -404,7 +404,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
 
           <PanelShell delay={0.18} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(233,213,255,0.34),rgba(255,255,255,0.36))]">
             <PanelHeader icon={Gauge} kicker="效率水位" title="单次运行负载走势" />
-            <div className="h-[220px]">
+            <div className="h-[240px]">
               {hasTrend ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trendData} margin={{ top: 8, right: 8, bottom: 0, left: -10 }}>
@@ -446,10 +446,10 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,0.78fr)_minmax(0,0.62fr)_minmax(0,1fr)]">
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,0.78fr)_minmax(0,0.62fr)_minmax(0,1fr)]">
         <PanelShell delay={0.24} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(186,230,253,0.22),rgba(255,255,255,0.34))]">
           <PanelHeader icon={Cpu} kicker="模型分布" title="模型调用构成" />
-          <div className="h-[250px]">
+          <div className="h-[260px]">
             {data.model_distribution.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -484,16 +484,16 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <EmptyPanel label="暂时还没有模型调用数据" />
             )}
           </div>
-          <div className="admin-stat-card rounded-2xl bg-white/65 px-3.5 py-3.5 text-center">
+          <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4 text-center">
             <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计模型调用</p>
-            <p className="mt-1.5 text-xl font-black tracking-tight text-slate-950">{formatNumber(totalModelCalls)}</p>
+            <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(totalModelCalls)}</p>
           </div>
           <DistributionLegend items={data.model_distribution} />
         </PanelShell>
 
         <PanelShell delay={0.30} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(254,240,138,0.22),rgba(255,255,255,0.34))]">
           <PanelHeader icon={Activity} kicker="调用混合" title="模型与工具占比" />
-          <div className="h-[250px]">
+          <div className="h-[260px]">
             {callMix.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -530,7 +530,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           </div>
           <div className="space-y-3">
             {callMix.map((item, index) => (
-              <div key={item.name} className="admin-stat-card rounded-2xl bg-white/65 px-3.5 py-2.5">
+              <div key={item.name} className="admin-stat-card rounded-2xl bg-white/65 px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-bold text-slate-700">{item.name}</span>
                   <span className="text-base font-black text-slate-950">{formatNumber(item.value)}</span>
@@ -594,14 +594,14 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <EmptyPanel label="暂时还没有工具调用数据" />
             )}
           </div>
-          <div className="admin-stat-card rounded-2xl bg-white/65 px-3.5 py-3.5 text-center">
+          <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4 text-center">
             <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计工具调用</p>
-            <p className="mt-1.5 text-xl font-black tracking-tight text-slate-950">{formatNumber(totalToolCalls)}</p>
+            <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(totalToolCalls)}</p>
           </div>
         </PanelShell>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <PanelShell delay={0.42} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(125,211,252,0.22),rgba(255,255,255,0.36))]">
           <PanelHeader icon={Trophy} kicker="用户热区" title="高负载用户分布" />
           <div className="h-[340px]">

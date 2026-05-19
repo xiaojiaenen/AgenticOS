@@ -3,7 +3,8 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Square } from 'lucide-react';
 import { AgentProfile } from '../../services/agentProfileService';
 import { cn } from '../../lib/utils';
-import { MascotHappy, PaperclipIcon, SendIcon } from '../ui/AnimatedIcons';
+import { AgentSelector } from '../ui/AgentSelector';
+import { PaperclipIcon, SendIcon } from '../ui/AnimatedIcons';
 
 interface ChatInputProps {
   value: string;
@@ -42,27 +43,13 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const modeMenuRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
-  const [showModeMenu, setShowModeMenu] = useState(false);
-  const [modeMenuFocusIndex, setModeMenuFocusIndex] = useState(-1);
-  const modeMenuItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useImperativeHandle(ref, () => ({
     addFiles: (newFiles: File[]) => setFiles((prev) => [...prev, ...newFiles]),
   }));
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modeMenuRef.current && !modeMenuRef.current.contains(event.target as Node)) {
-        setShowModeMenu(false);
-      }
-    };
-    if (showModeMenu) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showModeMenu]);
 
   useEffect(() => {
     if (!textareaRef.current) return;
@@ -75,36 +62,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     setPreviews(nextPreviews);
     return () => nextPreviews.forEach((url) => { if (url) URL.revokeObjectURL(url); });
   }, [files]);
-
-  useEffect(() => {
-    if (showModeMenu && modeMenuFocusIndex >= 0 && modeMenuItemRefs.current[modeMenuFocusIndex]) {
-      modeMenuItemRefs.current[modeMenuFocusIndex]?.focus();
-    }
-  }, [modeMenuFocusIndex, showModeMenu]);
-
-  useEffect(() => {
-    if (!showModeMenu) setModeMenuFocusIndex(-1);
-  }, [showModeMenu]);
-
-  const handleModeMenuKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setModeMenuFocusIndex((prev) => (prev + 1) % selectableAgents.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setModeMenuFocusIndex((prev) => (prev - 1 + selectableAgents.length) % selectableAgents.length);
-    } else if (e.key === 'Enter' && modeMenuFocusIndex >= 0) {
-      e.preventDefault();
-      const agent = selectableAgents[modeMenuFocusIndex];
-      if (agent) {
-        onAgentProfileChange?.(agent);
-        setChatMode(agent.response_mode as 'general' | 'ppt' | 'website');
-        setShowModeMenu(false);
-      }
-    } else if (e.key === 'Escape') {
-      setShowModeMenu(false);
-    }
-  };
 
   const handleInternalSend = React.useCallback(() => {
     if ((!value.trim() && files.length === 0) || isLoading) return;
@@ -148,7 +105,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   }, []);
 
   const selectableAgents = agentProfiles.filter((agent) => agent.listed !== false);
-  const selectedAgent = selectableAgents.find((agent) => agent.id === selectedAgentProfileId);
 
   return (
     <div
@@ -196,63 +152,17 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           <PaperclipIcon size={20} />
         </button>
 
-        <div className="relative mb-0.5 ml-1" ref={modeMenuRef}>
-          <button
-            onClick={() => !isModeLocked && setShowModeMenu(!showModeMenu)}
-            className={cn(
-              'flex items-center justify-center rounded-full p-2.5 text-slate-400 transition-all hover:text-sky-600',
-              isModeLocked ? 'cursor-not-allowed opacity-60' : 'border border-transparent hover:border-sky-100 hover:bg-sky-50 active:scale-95',
-            )}
-            title={isModeLocked ? '对话已开始，无法更改智能体' : '选择智能体'}
-            aria-label="选择智能体"
-          >
-            <div className={cn('flex h-5 w-5 items-center justify-center rounded-md border-2 text-[10px] font-bold',
-              selectedAgentProfileId ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-slate-300 text-slate-400')}>
-              <MascotHappy size={12} />
-            </div>
-          </button>
-
-          <AnimatePresence>
-            {showModeMenu && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: -20 }}
-                animate={{ opacity: 1, scale: 1, y: -10 }}
-                exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                className="absolute bottom-full left-0 z-40 mb-4 max-h-[360px] w-64 overflow-y-auto rounded-3xl border border-slate-200/50 bg-white/95 p-2 shadow-2xl ring-1 ring-black/5 backdrop-blur-2xl"
-                onKeyDown={handleModeMenuKeyDown}
-              >
-                {selectedAgent && (
-                  <div className="mb-2 rounded-2xl border border-sky-100 bg-sky-50/70 px-3 py-2 text-xs font-bold text-sky-700">
-                    当前：{selectedAgent.name}
-                  </div>
-                )}
-                {selectableAgents.map((agent, idx) => (
-                  <button
-                    key={agent.id}
-                    ref={(el) => { modeMenuItemRefs.current[idx] = el; }}
-                    onClick={() => {
-                      onAgentProfileChange?.(agent);
-                      setChatMode(agent.response_mode as 'general' | 'ppt' | 'website');
-                      setShowModeMenu(false);
-                    }}
-                    className={cn(
-                      'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
-                      selectedAgentProfileId === agent.id ? 'bg-sky-50/70 ring-1 ring-sky-100' : '',
-                    )}
-                  >
-                    <span className={cn('flex h-8 w-8 items-center justify-center rounded-xl text-sm shadow-sm transition-transform',
-                      selectedAgentProfileId === agent.id ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-500')}>
-                      <MascotHappy size={20} />
-                    </span>
-                    <div className="min-w-0 flex flex-col">
-                      <span className={cn('truncate text-xs font-bold transition-colors', selectedAgentProfileId === agent.id ? 'text-sky-700' : 'text-slate-700')}>{agent.name}</span>
-                      <span className="truncate text-[9px] font-medium text-slate-400">{agent.description || '智能体'}</span>
-                    </div>
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <div className="relative mb-0.5 ml-1">
+          <AgentSelector
+            agents={selectableAgents}
+            selectedId={selectedAgentProfileId ?? null}
+            onSelect={(agent) => {
+              onAgentProfileChange?.(agent);
+              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website');
+            }}
+            variant="compact"
+            disabled={isModeLocked}
+          />
         </div>
 
         <textarea

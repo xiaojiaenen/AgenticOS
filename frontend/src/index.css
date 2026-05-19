@@ -1,4 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
+
+/* Ensure text remains visible during font load */
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-display: swap;
+}
 @import "katex/dist/katex.min.css";
 @import "tailwindcss";
 
@@ -121,7 +135,7 @@ html, body {
 
 /* ===== Admin Shared Classes ===== */
 .admin-section-kicker {
-  @apply text-[11px] font-black uppercase tracking-[0.2em] text-slate-400;
+  @apply text-[11px] font-black uppercase tracking-[0.2em] text-slate-500;
 }
 
 .admin-glass-panel {
@@ -143,7 +157,7 @@ html, body {
 }
 
 .admin-dashboard-shell {
-  background: #eef7f8;
+  background: #ecf4fa;
   isolation: isolate;
 }
 
@@ -183,11 +197,20 @@ body.admin-modal-open .admin-dashboard-backdrop {
   z-index: 0;
   overflow: hidden;
   background-image:
-    linear-gradient(110deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.28) 32%, rgba(255,255,255,0.68) 64%, rgba(255,255,255,0.42) 100%),
-    radial-gradient(ellipse at 18% 10%, rgba(125,211,252,0.44), transparent 34%),
-    radial-gradient(ellipse at 88% 8%, rgba(254,240,138,0.34), transparent 31%),
-    radial-gradient(ellipse at 68% 92%, rgba(134,239,172,0.32), transparent 34%),
-    linear-gradient(180deg, #e8f7fa 0%, #f7fbfc 42%, #edf8f3 100%);
+    /* large sky-blue glow top-left */
+    radial-gradient(ellipse 900px 600px at 12% 8%, rgba(14,165,233,0.18), transparent 62%),
+    /* violet glow top-right */
+    radial-gradient(ellipse 700px 700px at 92% 4%, rgba(139,92,246,0.15), transparent 58%),
+    /* warm amber glow middle-right */
+    radial-gradient(ellipse 500px 500px at 82% 55%, rgba(251,191,36,0.12), transparent 55%),
+    /* emerald glow bottom-left */
+    radial-gradient(ellipse 650px 550px at 8% 88%, rgba(16,185,129,0.14), transparent 54%),
+    /* sky-blue glow bottom-center */
+    radial-gradient(ellipse 550px 450px at 55% 94%, rgba(56,189,248,0.16), transparent 52%),
+    /* soft white sheen for glass depth */
+    linear-gradient(165deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.12) 28%, rgba(255,255,255,0.48) 55%, rgba(255,255,255,0.18) 78%, rgba(255,255,255,0.52) 100%),
+    /* base gradient */
+    linear-gradient(180deg, #e4f0f8 0%, #f3f7fb 30%, #eef4f9 58%, #e8f4f5 100%);
 }
 
 .admin-dashboard-backdrop::before {
@@ -195,10 +218,10 @@ body.admin-modal-open .admin-dashboard-backdrop {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(90deg, rgba(15,23,42,0.035) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(15,23,42,0.028) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: linear-gradient(180deg, rgba(0,0,0,0.72), rgba(0,0,0,0.18) 72%, rgba(0,0,0,0.34));
+    linear-gradient(90deg, rgba(15,23,42,0.045) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15,23,42,0.032) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.68), rgba(0,0,0,0.12) 70%, rgba(0,0,0,0.28));
 }
 
 .admin-dashboard-backdrop::after {
@@ -206,27 +229,30 @@ body.admin-modal-open .admin-dashboard-backdrop {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.55)),
-    linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.32) 18%, transparent 36%, transparent 58%, rgba(255,255,255,0.2) 72%, transparent 100%);
+    /* soft top highlight */
+    linear-gradient(180deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.08) 22%, transparent 58%),
+    /* diagonal light sweep */
+    linear-gradient(128deg, transparent 0%, rgba(255,255,255,0.35) 15%, transparent 32%, transparent 60%, rgba(255,255,255,0.25) 78%, transparent 100%);
 }
 
 .admin-backdrop-mascot {
   position: absolute;
-  color: rgba(15, 23, 42, 0.045);
-  filter: drop-shadow(0 30px 70px rgba(14, 165, 233, 0.12));
+  color: rgba(15, 23, 42, 0.035);
+  filter: drop-shadow(0 40px 90px rgba(14, 165, 233, 0.15));
   mix-blend-mode: multiply;
 }
 
 .admin-backdrop-mascot-primary {
-  right: -140px;
-  bottom: -180px;
+  right: -180px;
+  bottom: -220px;
   transform: rotate(-8deg);
+  color: rgba(14, 165, 233, 0.04);
 }
 
 .admin-backdrop-mascot-secondary {
-  left: 270px;
-  top: 12%;
-  color: rgba(14, 165, 233, 0.035);
+  left: 310px;
+  top: 10%;
+  color: rgba(139, 92, 246, 0.032);
   transform: rotate(10deg);
 }
 

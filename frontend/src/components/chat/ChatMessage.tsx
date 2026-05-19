@@ -154,7 +154,7 @@ const MermaidChart = React.memo(({ chart }: { chart: string }) => {
     mermaid.initialize({
       startOnLoad: true,
       theme: 'neutral',
-      fontFamily: 'Inter',
+      fontFamily: 'Plus Jakarta Sans',
       securityLevel: 'strict',
     });
 

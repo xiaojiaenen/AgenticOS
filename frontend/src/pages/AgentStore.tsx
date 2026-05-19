@@ -96,6 +96,7 @@ export const AgentStore = () => {
         </div>
       </nav>
 
+      <a href="#main-content" className="skip-link">跳转到主要内容</a>
       <main id="main-content" className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 pt-5 md:px-8">
         <div className="mb-7 flex flex-col gap-2">
           <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-slate-500">
@@ -113,12 +114,12 @@ export const AgentStore = () => {
         )}
 
         {isLoading ? (
-          <div className="flex h-72 items-center justify-center gap-3 rounded-3xl border border-white/60 bg-white/45 text-sm font-bold text-slate-500 backdrop-blur-2xl">
+          <div className="flex h-72 items-center justify-center gap-3 rounded-2xl border border-white/60 bg-white/45 text-sm font-bold text-slate-500 backdrop-blur-2xl">
             <Loader2 size={18} className="animate-spin" />
             正在加载智能体
           </div>
         ) : agents.length === 0 ? (
-          <div className="flex h-72 flex-col items-center justify-center gap-4 rounded-3xl border border-white/60 bg-white/45 text-sm font-bold text-slate-500 backdrop-blur-2xl">
+          <div className="flex h-72 flex-col items-center justify-center gap-4 rounded-2xl border border-white/60 bg-white/45 text-sm font-bold text-slate-500 backdrop-blur-2xl">
             <Bot size={48} className="text-slate-300" />
             <div className="text-center">
               <p className="text-base font-bold text-slate-600">暂无可用智能体</p>
@@ -136,7 +137,7 @@ export const AgentStore = () => {
                   layout
                   whileHover={{ y: -4 }}
                   transition={{ duration: 0.2 }}
-                  className="group flex min-h-[190px] flex-col rounded-3xl border border-white/65 bg-white/62 p-4 shadow-md backdrop-blur-2xl"
+                  className="group flex min-h-[190px] flex-col rounded-2xl border border-white/65 bg-white/62 p-4 shadow-md backdrop-blur-2xl"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg shadow-sky-500/15 transition-transform duration-300 group-hover:scale-110', accent)}>
