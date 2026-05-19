@@ -1,5 +1,7 @@
 from wuwei.tools import ToolRegistry
 
+from app.tools.ppt_tools import _current_session_id
+
 
 def register_quality_checker_tools(registry: ToolRegistry) -> None:
     @registry.tool(display_name="检查SVG质量")
@@ -10,13 +12,10 @@ def register_quality_checker_tools(registry: ToolRegistry) -> None:
         检查项目包括：XML 合法性、viewBox 一致性、禁止元素检测、
         字体安全性、尺寸一致性、文本溢出等。
         """
-        import contextvars
         from pathlib import Path as _Path
 
         from app.services.ppt.svg_quality_checker import SVGQualityChecker
 
-        # Get session ID from context (set by agent_service)
-        _current_session_id = contextvars.ContextVar("ppt_session_id", default=None)
         session_id = _current_session_id.get()
         if not session_id:
             return "错误：无法获取当前会话 ID"
