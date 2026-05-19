@@ -76,24 +76,8 @@ def _slide_num_key(p) -> int:
     return int(m.group(1)) if m else 0
 
 
-_SVG_TAG_RE = re.compile(r"<svg\b[^>]*>", re.IGNORECASE)
-_SVG_CODE_BLOCK_RE = re.compile(r"```(?:svg|SVG)\s*\n(.*?)```", re.DOTALL)
 _VIEWBOX_RE = re.compile(r'viewBox\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
 _DATA_THEME_RE = re.compile(r'data-theme\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
-
-
-def extract_svgs_from_text(text: str) -> list[str]:
-    """Extract SVG page strings from `` ```svg `` fenced code blocks in LLM output.
-
-    Each code block is expected to contain one ``<svg>`` element. Multiple blocks
-    together form a complete slide deck.
-    """
-    svgs: list[str] = []
-    for match in _SVG_CODE_BLOCK_RE.finditer(text):
-        content = match.group(1).strip()
-        if content.startswith("<svg"):
-            svgs.append(content)
-    return svgs
 
 
 def validate_svg_slides(svgs: list[str]) -> bool:
@@ -110,11 +94,6 @@ def validate_svg_slides(svgs: list[str]) -> bool:
         view_boxes.add(vb)
     # All slides must share the same viewBox
     return len(view_boxes) == 1
-
-
-def _count_svg_pages(text: str) -> int:
-    """Count ```svg code blocks in LLM output."""
-    return len(_SVG_CODE_BLOCK_RE.findall(text))
 
 
 def prepare_svg_preview(svgs: list[str], theme_name: str = "apple") -> str:
@@ -184,72 +163,6 @@ def _write_svg_artifact_files(artifact_id: str, resolved_svgs: list[str], previe
 class PptArtifactService:
     def __init__(self, session_factory=create_db_session) -> None:
         self.session_factory = session_factory
-
-    async def create_from_text(self, session_id: str, text: str, mode: str = "ppt") -> dict[str, Any] | None:
-        """Create a PPT artifact from LLM output text containing SVG code blocks."""
-        import logging
-        from app.services.ppt.theme_token_resolver import load_theme_tokens, resolve_token_values
-
-        _logger = logging.getLogger("ppt_artifact.svg")
-        svgs = extract_svgs_from_text(text)
-        if not svgs:
-            _logger.warning(f"extract_svgs_from_text returned empty for session={session_id}, "
-                           f"text_len={len(text)}, has_svg_block={'```svg' in text.lower()}")
-            return None
-        if not validate_svg_slides(svgs):
-            _logger.warning(f"validate_svg_slides failed: count={len(svgs)}")
-            return None
-
-        theme_name = _detect_theme_name_from_svg(svgs)
-        tokens = load_theme_tokens(theme_name)
-
-        # Resolve var(--xxx) references to actual color values
-        resolved_svgs = [resolve_token_values(svg, tokens) for svg in svgs]
-
-        # Sanitize: escape < and & in text content that LLMs often leave raw
-        resolved_svgs = [sanitize_svg_xml(svg) for svg in resolved_svgs]
-
-        preview_html = prepare_svg_preview(resolved_svgs, theme_name)
-        artifact_id = uuid.uuid4().hex
-
-        slide_count = len(resolved_svgs)
-
-        # Extract title from first SVG
-        title_match = re.search(r'<text[^>]*font-size="(?:68|72|56|60)"[^>]*>([^<]+)</text>', resolved_svgs[0])
-        if not title_match:
-            title_match = re.search(r'<text[^>]*font-weight="(?:800|700|bold)"[^>]*>([^<]+)</text>', resolved_svgs[0])
-        title = title_match.group(1).strip() if title_match else "演示文稿"
-
-        def _run():
-            with self.session_factory() as db:
-                db.add(
-                    PptArtifactModel(
-                        artifact_id=artifact_id,
-                        session_id=session_id,
-                        title=title,
-                        slide_count=slide_count,
-                        deck_json=dump_json({"theme": theme_name, "svgs": resolved_svgs}),
-                        preview_html=preview_html,
-                        metadata_json=dump_json({
-                            "source": "svg-ppt",
-                            "theme": theme_name,
-                            "raw_chars": len(text),
-                        }),
-                    )
-                )
-                db.commit()
-        await asyncio.to_thread(_run)
-
-        # Write SVG source files for debugging and manual editing
-        _write_svg_artifact_files(artifact_id, resolved_svgs, preview_html)
-
-        return {
-            "artifact_id": artifact_id,
-            "session_id": session_id,
-            "title": title,
-            "slide_count": slide_count,
-            "html": preview_html,
-        }
 
     async def create_from_slides_dir(
         self, session_id: str, slides_dir: Path,
@@ -361,7 +274,6 @@ class PptArtifactService:
             "slide_count": row.slide_count,
             "html": row.preview_html,
             "deck_json": row.deck_json,
-            "source_html": load_json(row.deck_json, {}).get("slides_html", ""),
             "metadata": load_json(row.metadata_json, {}),
         }
 
@@ -376,27 +288,10 @@ class PptArtifactService:
 
     @staticmethod
     def extract_svgs_from_artifact(artifact: dict[str, Any]) -> list[str]:
-        """Extract SVG page strings from an artifact dict.
-
-        Supports both the new SVG-based format (``deck_json.svgs``) and the
-        legacy HTML-based format (``deck_json.slides_html``) via a best-effort
-        extraction of inline ``<svg>`` elements.
-        """
-        import re as _re
-
+        """Extract SVG page strings from an artifact's ``deck_json.svgs``."""
         deck = load_json(artifact.get("deck_json", "{}"), {})
         if isinstance(deck, dict) and "svgs" in deck:
             svgs = deck["svgs"]
             if isinstance(svgs, list) and svgs:
                 return svgs
-
-        # Legacy fallback: extract <svg> elements from slides_html
-        slides_html = deck.get("slides_html", "") if isinstance(deck, dict) else ""
-        if not slides_html:
-            slides_html = artifact.get("source_html", "")
-        if slides_html:
-            svg_matches = _re.findall(r"<svg\b[^>]*>.*?</svg>", slides_html, _re.DOTALL)
-            if svg_matches:
-                return svg_matches
-
         return []

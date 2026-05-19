@@ -394,17 +394,17 @@ class AgentService:
             "---",
             "**主题选择快速决策（data-theme 只能从下方完整列表或分类推荐中选，禁止自创）：**",
             "- 商业 / 管理层汇报 → apple, stripe, ibm, corporate, professional, enterprise, mastercard",
-            "- 技术分享 / 开发者 → github, vercel, cursor, linear-app, expo, warp, mongodb, hashicorp",
-            "- 创意 / 发布会 → nike, spotify, playstation, ferrari, brutalism, neobrutalism, glassmorphism",
-            "- AI / 前沿科技 → openai, claude, nvidia, huggingface, spacex, hud, mission-control",
-            "- 学术 / 研究报告 → kami, paper, editorial, atelier-zero, publication",
-            "- 社交媒体 / 小红书 → airbnb, pinterest, duolingo, xiaohongshu, framer",
-            "- 简约 / 纯净 → minimal, clean, mono, refined, simple, sleek",
-            "- 活泼 / 年轻化 → discord, colorful, energetic, tetris, pacman, vibrant",
-            "- 暗色系 → spotify, github, trading-terminal, hud, mission-control",
+            "- 技术分享 / 开发者 → github, vercel, cursor, linear-app, expo, warp, mongodb, hashicorp, dracula, monokai",
+            "- 创意 / 发布会 → nike, spotify, playstation, ferrari, brutalism, neobrutalism, glassmorphism, cyberpunk, sunset",
+            "- AI / 前沿科技 → openai, claude, nvidia, huggingface, spacex, hud, mission-control, aurora, tokyo-night",
+            "- 学术 / 研究报告 → kami, paper, editorial, atelier-zero, publication, solarized, everforest",
+            "- 社交媒体 / 小红书 → airbnb, pinterest, duolingo, xiaohongshu, framer, rose-pine",
+            "- 简约 / 纯净 → minimal, clean, mono, refined, simple, sleek, nord, catppuccin-latte",
+            "- 活泼 / 年轻化 → discord, colorful, energetic, tetris, pacman, vibrant, catppuccin",
+            "- 暗色系 → spotify, github, dracula, cyberpunk, tokyo-night, monokai, trading-terminal, hud, mission-control",
             "- 金融 / 支付 → stripe, revolut, binance, coinbase, kraken, wise",
             "",
-            "**完整 149 主题名列表（data-theme 只能从下面选）：**",
+            "**完整 161 主题名列表（data-theme 只能从下面选）：**",
             ", ".join(sorted(list_available_themes())),
             "",
             "### 关键规则",
@@ -418,11 +418,11 @@ class AgentService:
         ]
         return message + "\n".join(lines)
 
-    def _get_edit_hint(self, session_id: str) -> str | None:
+    async def _get_edit_hint(self, session_id: str) -> str | None:
         """If the session has existing PPT artifacts, add an edit hint for save_slide."""
         from pathlib import Path as _Path
         try:
-            artifact = self.ppt_artifacts.get_latest_for_session(session_id)
+            artifact = await self.ppt_artifacts.get_latest_for_session(session_id)
             if artifact is None:
                 return None
             title = artifact.get("title", "未命名")
@@ -695,7 +695,7 @@ class AgentService:
         message = request.message
         if ppt_mode:
             message = self._inject_design_catalog(message)
-            edit_hint = self._get_edit_hint(request.session_id)
+            edit_hint = await self._get_edit_hint(request.session_id)
             if edit_hint:
                 message = message + edit_hint
 

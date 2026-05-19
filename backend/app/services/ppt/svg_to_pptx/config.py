@@ -2,16 +2,13 @@
 """
 PPT Master - Unified Configuration Management Module
 
-Centrally manages all project configuration items to ensure consistency and maintainability.
+Centrally manages canvas format and SVG constraint configuration.
 
 Usage:
-    from config import Config, CANVAS_FORMATS, DESIGN_COLORS
+    from config import Config, CANVAS_FORMATS
 
     # Get canvas format
     ppt169 = Config.get_canvas_format('ppt169')
-
-    # Get color scheme
-    colors = Config.get_color_scheme('consulting')
 """
 
 from pathlib import Path
@@ -234,249 +231,8 @@ CANVAS_FORMATS = {
 }
 
 
-# ============================================================
-# Design Color Configuration
-# ============================================================
-
-DESIGN_COLORS = {
-    'consulting': {
-        'name': 'Consulting Style',
-        'primary': '#005587',
-        'secondary': '#0076A8',
-        'accent': '#F5A623',
-        'success': '#27AE60',
-        'warning': '#E74C3C',
-        'text_dark': '#1A252F',
-        'text_light': '#FFFFFF',
-        'text_muted': '#7F8C8D',
-        'background': '#FFFFFF',
-        'background_alt': '#F8F9FA'
-    },
-    'general': {
-        'name': 'General Flexible Style',
-        'primary': '#2196F3',
-        'secondary': '#4CAF50',
-        'accent': '#FF9800',
-        'purple': '#9C27B0',
-        'success': '#27AE60',
-        'warning': '#E74C3C',
-        'text_dark': '#2C3E50',
-        'text_light': '#FFFFFF',
-        'text_muted': '#7F8C8D',
-        'background': '#FFFFFF',
-        'background_alt': '#F8F9FA'
-    },
-    'tech': {
-        'name': 'Tech Style',
-        'primary': '#00D1FF',
-        'secondary': '#7B61FF',
-        'accent': '#00FF88',
-        'success': '#00FF88',
-        'warning': '#FF6B6B',
-        'text_dark': '#0A0E17',
-        'text_light': '#FFFFFF',
-        'text_muted': '#8892A0',
-        'background': '#0A0E17',
-        'background_alt': '#1A1F2E'
-    },
-    'academic': {
-        'name': 'Academic Style',
-        'primary': '#8B0000',
-        'secondary': '#1E3A5F',
-        'accent': '#C9B037',
-        'success': '#2E7D32',
-        'warning': '#D32F2F',
-        'text_dark': '#1A1A1A',
-        'text_light': '#FFFFFF',
-        'text_muted': '#666666',
-        'background': '#FFFFFF',
-        'background_alt': '#F5F5F5'
-    },
-    'government': {
-        'name': 'Government Style',
-        'primary': '#C41E3A',
-        'secondary': '#1E3A5F',
-        'accent': '#D4AF37',
-        'success': '#2E7D32',
-        'warning': '#B71C1C',
-        'text_dark': '#1A1A1A',
-        'text_light': '#FFFFFF',
-        'text_muted': '#555555',
-        'background': '#FFFFFF',
-        'background_alt': '#FFF8E1'
-    }
-}
-
-
-# ============================================================
-# Industry Color Templates
-# ============================================================
-
-INDUSTRY_COLORS = {
-    'finance': {
-        'name': 'Finance/Banking',
-        'primary': '#003366',
-        'secondary': '#4A90D9',
-        'accent': '#D4AF37'
-    },
-    'healthcare': {
-        'name': 'Healthcare/Medical',
-        'primary': '#00796B',
-        'secondary': '#4DB6AC',
-        'accent': '#FF7043'
-    },
-    'technology': {
-        'name': 'Technology/Internet',
-        'primary': '#1565C0',
-        'secondary': '#42A5F5',
-        'accent': '#00E676'
-    },
-    'education': {
-        'name': 'Education/Training',
-        'primary': '#5E35B1',
-        'secondary': '#7E57C2',
-        'accent': '#FFD54F'
-    },
-    'retail': {
-        'name': 'Retail/Consumer',
-        'primary': '#E53935',
-        'secondary': '#EF5350',
-        'accent': '#FFB300'
-    },
-    'manufacturing': {
-        'name': 'Manufacturing/Industrial',
-        'primary': '#455A64',
-        'secondary': '#78909C',
-        'accent': '#FF6F00'
-    },
-    'energy': {
-        'name': 'Energy/Environmental',
-        'primary': '#2E7D32',
-        'secondary': '#66BB6A',
-        'accent': '#FDD835'
-    },
-    'realestate': {
-        'name': 'Real Estate/Construction',
-        'primary': '#795548',
-        'secondary': '#A1887F',
-        'accent': '#4CAF50'
-    },
-    'legal': {
-        'name': 'Legal/Compliance',
-        'primary': '#37474F',
-        'secondary': '#546E7A',
-        'accent': '#8D6E63'
-    },
-    'media': {
-        'name': 'Media/Entertainment',
-        'primary': '#7B1FA2',
-        'secondary': '#AB47BC',
-        'accent': '#FF4081'
-    },
-    'logistics': {
-        'name': 'Logistics/Supply Chain',
-        'primary': '#F57C00',
-        'secondary': '#FFB74D',
-        'accent': '#0288D1'
-    },
-    'agriculture': {
-        'name': 'Agriculture/Food',
-        'primary': '#558B2F',
-        'secondary': '#8BC34A',
-        'accent': '#FFCA28'
-    },
-    'tourism': {
-        'name': 'Tourism/Hospitality',
-        'primary': '#00ACC1',
-        'secondary': '#4DD0E1',
-        'accent': '#FF7043'
-    },
-    'automotive': {
-        'name': 'Automotive/Transportation',
-        'primary': '#263238',
-        'secondary': '#455A64',
-        'accent': '#D32F2F'
-    }
-}
-
-
-# ============================================================
-# Font Configuration
-# ============================================================
-
-FONTS = {
-    'system_ui': "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    'sans_serif': "'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif",
-    'monospace': "'SF Mono', Monaco, Consolas, 'Liberation Mono', monospace"
-}
-
-FONT_SIZES = {
-    'title_large': 48,
-    'title': 36,
-    'title_small': 28,
-    'heading': 24,
-    'subheading': 20,
-    'body': 18,
-    'body_small': 16,
-    'caption': 14,
-    'footnote': 12
-}
-
-
-# ============================================================
-# Layout Configuration
-# ============================================================
-
-LAYOUT_MARGINS = {
-    'ppt169': {
-        'top': 60,
-        'right': 60,
-        'bottom': 60,
-        'left': 60,
-        'content_width': 1160,
-        'content_height': 600
-    },
-    'ppt43': {
-        'top': 50,
-        'right': 50,
-        'bottom': 50,
-        'left': 50,
-        'content_width': 924,
-        'content_height': 608
-    },
-    'xiaohongshu': {
-        'top': 80,
-        'right': 60,
-        'bottom': 80,
-        'left': 60,
-        'content_width': 1122,
-        'content_height': 1500
-    },
-    'moments': {
-        'top': 60,
-        'right': 60,
-        'bottom': 60,
-        'left': 60,
-        'content_width': 960,
-        'content_height': 960
-    },
-    'story': {
-        'top': 120,
-        'right': 60,
-        'bottom': 180,
-        'left': 60,
-        'content_width': 960,
-        'content_height': 1620
-    },
-    'wechat': {
-        'top': 40,
-        'right': 40,
-        'bottom': 40,
-        'left': 40,
-        'content_width': 820,
-        'content_height': 303
-    },
-}
+# Removed DESIGN_COLORS, INDUSTRY_COLORS, FONTS, FONT_SIZES, LAYOUT_MARGINS
+# (legacy HTML→PPTX pipeline — replaced by data/design-themes/*.css token system)
 
 
 # ============================================================
@@ -567,76 +323,6 @@ class Config:
         return CANVAS_FORMATS.copy()
 
     @staticmethod
-    def get_color_scheme(style: str) -> Optional[Dict]:
-        """
-        Get color scheme.
-
-        Args:
-            style: Style name (e.g. 'consulting', 'general', 'tech')
-
-        Returns:
-            Color scheme dict
-        """
-        return DESIGN_COLORS.get(style)
-
-    @staticmethod
-    def get_industry_colors(industry: str) -> Optional[Dict]:
-        """
-        Get industry color palette.
-
-        Args:
-            industry: Industry name (e.g. 'finance', 'healthcare')
-
-        Returns:
-            Industry color dict
-        """
-        return INDUSTRY_COLORS.get(industry)
-
-    @staticmethod
-    def get_all_industries() -> List[str]:
-        """Get list of all industries."""
-        return list(INDUSTRY_COLORS.keys())
-
-    @staticmethod
-    def get_layout_margins(format_key: str) -> Optional[Dict]:
-        """
-        Get layout margin configuration.
-
-        Args:
-            format_key: Format key name
-
-        Returns:
-            Margin configuration dict
-        """
-        return LAYOUT_MARGINS.get(format_key)
-
-    @staticmethod
-    def get_font(font_type: str = 'system_ui') -> str:
-        """
-        Get font declaration.
-
-        Args:
-            font_type: Font type ('system_ui', 'sans_serif', 'monospace')
-
-        Returns:
-            Font declaration string
-        """
-        return FONTS.get(font_type, FONTS['system_ui'])
-
-    @staticmethod
-    def get_font_size(size_name: str) -> int:
-        """
-        Get font size.
-
-        Args:
-            size_name: Size name (e.g. 'title', 'body', 'caption')
-
-        Returns:
-            Font size (pixels)
-        """
-        return FONT_SIZES.get(size_name, FONT_SIZES['body'])
-
-    @staticmethod
     def validate_svg_element(element_name: str) -> bool:
         """
         Validate whether an SVG element is allowed.
@@ -664,29 +350,6 @@ class Config:
             return PROJECT_ROOT / subdir
         return PROJECT_ROOT
 
-    @staticmethod
-    def export_config(output_file: str = 'config_export.json'):
-        """
-        Export configuration to a JSON file.
-
-        Args:
-            output_file: Output file path
-        """
-        config_data = {
-            'canvas_formats': CANVAS_FORMATS,
-            'design_colors': DESIGN_COLORS,
-            'industry_colors': INDUSTRY_COLORS,
-            'fonts': FONTS,
-            'font_sizes': FONT_SIZES,
-            'svg_constraints': SVG_CONSTRAINTS
-        }
-
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(config_data, f, ensure_ascii=False, indent=2)
-
-        print(f"Configuration exported to: {output_file}")
-
-
 # ============================================================
 # Command Line Interface
 # ============================================================
@@ -696,9 +359,6 @@ def print_usage() -> None:
     print("PPT Master - Configuration Management Tool\n")
     print("Usage:")
     print("  python3 scripts/config.py list-formats     # List all canvas formats")
-    print("  python3 scripts/config.py list-colors      # List all color schemes")
-    print("  python3 scripts/config.py list-industries  # List all industry colors")
-    print("  python3 scripts/config.py export           # Export configuration to JSON")
     print("  python3 scripts/config.py format <key>     # View a specific canvas format")
 
 
@@ -720,21 +380,6 @@ def main() -> None:
         for key, info in CANVAS_FORMATS.items():
             print(
                 f"  {key:15} | {info['name']:15} | {info['dimensions']:12} | {info['use_case']}")
-
-    elif command == 'list-colors':
-        print("\nColor Scheme List:\n")
-        for key, info in DESIGN_COLORS.items():
-            print(f"  {key:12} | {info['name']:15} | Primary: {info['primary']}")
-
-    elif command == 'list-industries':
-        print("\nIndustry Color List:\n")
-        for key, info in INDUSTRY_COLORS.items():
-            print(f"  {key:15} | {info['name']:15} | Primary: {info['primary']}")
-
-    elif command == 'export':
-        output_file = sys.argv[2] if len(
-            sys.argv) > 2 else 'config_export.json'
-        Config.export_config(output_file)
 
     elif command == 'format' and len(sys.argv) > 2:
         format_key = sys.argv[2]
