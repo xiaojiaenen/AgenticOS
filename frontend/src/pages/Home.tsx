@@ -14,7 +14,9 @@ export const Home = () => {
   const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
   const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [menuFocusIndex, setMenuFocusIndex] = useState(-1);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const navigate = useNavigate();
   const user = getStoredUser();
 
@@ -48,6 +50,39 @@ export const Home = () => {
     };
   }, [showMenu]);
 
+  const handleMenuKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setMenuFocusIndex((prev) => (prev + 1) % selectableAgents.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setMenuFocusIndex((prev) => (prev - 1 + selectableAgents.length) % selectableAgents.length);
+    } else if (e.key === 'Enter' && menuFocusIndex >= 0) {
+      e.preventDefault();
+      const agent = selectableAgents[menuFocusIndex];
+      if (agent) {
+        setSelectedAgentProfileId(agent.id);
+        setShowMenu(false);
+        setMenuFocusIndex(-1);
+      }
+    } else if (e.key === 'Escape') {
+      setShowMenu(false);
+      setMenuFocusIndex(-1);
+    }
+  };
+
+  // Focus the active menu item when focus index changes
+  useEffect(() => {
+    if (showMenu && menuFocusIndex >= 0 && menuItemRefs.current[menuFocusIndex]) {
+      menuItemRefs.current[menuFocusIndex]?.focus();
+    }
+  }, [menuFocusIndex, showMenu]);
+
+  // Reset focus index when menu opens/closes
+  useEffect(() => {
+    if (!showMenu) setMenuFocusIndex(-1);
+  }, [showMenu]);
+
   const handleSend = () => {
     if (!inputValue.trim()) return;
     navigate('/chat', {
@@ -76,14 +111,12 @@ export const Home = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.3 } }}
-      className="min-h-screen bg-gradient-to-br from-[#e0fbfc] via-[#a5f3fc] to-[#60a5fa] relative overflow-hidden font-sans flex flex-col selection:bg-zinc-200 selection:text-zinc-900"
+      className="min-h-screen bg-gradient-to-br from-[#e0fbfc] via-[#cffafe] to-[#7dd3fc] relative overflow-hidden font-sans flex flex-col selection:bg-zinc-200 selection:text-zinc-900"
     >
       {/* Mesh Gradient Background with Noise and Giant Mascot */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute bottom-[-20%] left-[-10%] w-[70vw] h-[70vw] bg-teal-300 rounded-full mix-blend-overlay filter blur-[120px] opacity-40"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[80vw] h-[80vw] bg-blue-400 rounded-full mix-blend-overlay filter blur-[120px] opacity-40"></div>
-        <div className="absolute top-[10%] left-[30%] w-[50vw] h-[50vw] bg-cyan-300 rounded-full mix-blend-overlay filter blur-[120px] opacity-30"></div>
-        
+        <div className="absolute top-[-10%] right-[-10%] w-[60vw] h-[60vw] bg-sky-200 rounded-full mix-blend-overlay filter blur-[80px] opacity-25"></div>
+
         {/* Giant Mascot Background */}
         <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] text-slate-900 mix-blend-overlay pointer-events-none">
           <RandomMascot size={1000} />
@@ -117,7 +150,7 @@ export const Home = () => {
       </nav>
 
       {/* Hero Section */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 relative z-10 w-full max-w-[1400px] mx-auto">
+      <main id="main-content" className="flex-1 flex flex-col items-center justify-center px-4 relative z-10 w-full max-w-[1400px] mx-auto">
         <motion.h1 
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -175,16 +208,18 @@ export const Home = () => {
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
                     className="absolute bottom-full left-0 mb-2 max-h-64 w-56 overflow-y-auto bg-white/95 backdrop-blur-xl border border-slate-200/50 rounded-3xl shadow-2xl z-40 p-2"
+                    onKeyDown={handleMenuKeyDown}
                   >
-                    {selectableAgents.map((agent) => (
+                    {selectableAgents.map((agent, idx) => (
                       <button
                         key={agent.id}
+                        ref={(el) => { menuItemRefs.current[idx] = el; }}
                         onClick={() => {
                           setSelectedAgentProfileId(agent.id);
                           setShowMenu(false);
                         }}
                         className={cn(
-                          'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-slate-50',
+                          'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
                           selectedAgentProfileId === agent.id ? 'bg-sky-50/70 ring-1 ring-sky-100' : '',
                         )}
                       >

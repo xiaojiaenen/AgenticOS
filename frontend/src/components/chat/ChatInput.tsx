@@ -47,6 +47,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [showModeMenu, setShowModeMenu] = useState(false);
+  const [modeMenuFocusIndex, setModeMenuFocusIndex] = useState(-1);
+  const modeMenuItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useImperativeHandle(ref, () => ({
     addFiles: (newFiles: File[]) => setFiles((prev) => [...prev, ...newFiles]),
@@ -73,6 +75,36 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     setPreviews(nextPreviews);
     return () => nextPreviews.forEach((url) => { if (url) URL.revokeObjectURL(url); });
   }, [files]);
+
+  useEffect(() => {
+    if (showModeMenu && modeMenuFocusIndex >= 0 && modeMenuItemRefs.current[modeMenuFocusIndex]) {
+      modeMenuItemRefs.current[modeMenuFocusIndex]?.focus();
+    }
+  }, [modeMenuFocusIndex, showModeMenu]);
+
+  useEffect(() => {
+    if (!showModeMenu) setModeMenuFocusIndex(-1);
+  }, [showModeMenu]);
+
+  const handleModeMenuKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setModeMenuFocusIndex((prev) => (prev + 1) % selectableAgents.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setModeMenuFocusIndex((prev) => (prev - 1 + selectableAgents.length) % selectableAgents.length);
+    } else if (e.key === 'Enter' && modeMenuFocusIndex >= 0) {
+      e.preventDefault();
+      const agent = selectableAgents[modeMenuFocusIndex];
+      if (agent) {
+        onAgentProfileChange?.(agent);
+        setChatMode(agent.response_mode as 'general' | 'ppt' | 'website');
+        setShowModeMenu(false);
+      }
+    } else if (e.key === 'Escape') {
+      setShowModeMenu(false);
+    }
+  };
 
   const handleInternalSend = React.useCallback(() => {
     if ((!value.trim() && files.length === 0) || isLoading) return;
@@ -187,22 +219,24 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
                 animate={{ opacity: 1, scale: 1, y: -10 }}
                 exit={{ opacity: 0, scale: 0.95, y: -20 }}
                 className="absolute bottom-full left-0 z-40 mb-4 max-h-[360px] w-64 overflow-y-auto rounded-3xl border border-slate-200/50 bg-white/95 p-2 shadow-2xl ring-1 ring-black/5 backdrop-blur-2xl"
+                onKeyDown={handleModeMenuKeyDown}
               >
                 {selectedAgent && (
                   <div className="mb-2 rounded-2xl border border-sky-100 bg-sky-50/70 px-3 py-2 text-xs font-bold text-sky-700">
                     当前：{selectedAgent.name}
                   </div>
                 )}
-                {selectableAgents.map((agent) => (
+                {selectableAgents.map((agent, idx) => (
                   <button
                     key={agent.id}
+                    ref={(el) => { modeMenuItemRefs.current[idx] = el; }}
                     onClick={() => {
                       onAgentProfileChange?.(agent);
                       setChatMode(agent.response_mode as 'general' | 'ppt' | 'website');
                       setShowModeMenu(false);
                     }}
                     className={cn(
-                      'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-slate-50',
+                      'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
                       selectedAgentProfileId === agent.id ? 'bg-sky-50/70 ring-1 ring-sky-100' : '',
                     )}
                   >

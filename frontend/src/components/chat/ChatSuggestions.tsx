@@ -28,7 +28,7 @@ export const ChatSuggestions: React.FC<ChatSuggestionsProps> = ({ onSelect }) =>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400 fill-yellow-400"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
         </motion.div>
       </div>
-      <h2 className="text-2xl font-bold text-slate-800 mb-2">今天想聊些什么？</h2>
+      <h1 className="text-2xl font-bold text-slate-800 mb-2">今天想聊些什么？</h1>
       <p className="text-slate-500 mb-8 max-w-sm text-center">你可以尝试点击下方的建议，或者直接在下方输入框告诉我你的想法。</p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl w-full px-4 text-left">

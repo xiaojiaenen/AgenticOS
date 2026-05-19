@@ -37,8 +37,9 @@ export const Login = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen bg-gradient-to-br from-[#e0fbfc] via-[#a5f3fc] to-[#60a5fa] relative flex items-center justify-center p-4 selection:bg-zinc-200 selection:text-zinc-900 overflow-hidden"
+      className="min-h-screen bg-gradient-to-br from-[#fef3c7] via-[#fde68a] to-[#fbbf24] relative flex items-center justify-center p-4 selection:bg-zinc-200 selection:text-zinc-900 overflow-hidden"
     >
+      <a href="#main-content" className="skip-link">跳转到主要内容</a>
       <motion.button
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -52,23 +53,23 @@ export const Login = () => {
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.03]" />
-        <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-teal-300 rounded-full mix-blend-overlay filter blur-[150px] opacity-40" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[60vw] h-[60vw] bg-blue-400 rounded-full mix-blend-overlay filter blur-[150px] opacity-40" />
+        <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-amber-200 rounded-full mix-blend-overlay filter blur-[60px] opacity-25" />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-md bg-white/60 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-brand-500/10 border border-white/60 p-10 relative z-10"
-      >
-        <div className="flex flex-col items-center mb-10">
-          <div className="mb-6">
-            <Logo iconSize={48} showText={false} />
+      <main id="main-content" className="w-full max-w-md relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full bg-white/60 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-brand-500/10 border border-white/60 p-10"
+        >
+          <div className="flex flex-col items-center mb-10">
+            <div className="mb-6">
+              <Logo iconSize={48} showText={false} />
+            </div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">登录 AgenticOS</h1>
+            <p className="text-slate-500 mt-2.5 text-sm font-medium">欢迎回来，登录以继续使用</p>
           </div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">欢迎回来</h2>
-          <p className="text-slate-500 mt-2.5 text-sm font-medium">登录以继续使用 AgenticOS</p>
-        </div>
 
         <form className="space-y-5" onSubmit={handleLogin}>
           <Input
@@ -125,6 +126,7 @@ export const Login = () => {
           还没有账号？ <a href="#" onClick={(e) => { e.preventDefault(); navigate('/signup'); }} className="text-brand-600 hover:text-brand-700 font-bold underline decoration-brand-200 underline-offset-4">立即注册</a>
         </div>
       </motion.div>
+      </main>
     </motion.div>
   );
 };

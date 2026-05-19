@@ -180,94 +180,83 @@ export const AdminDashboard = () => {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <div className="admin-page-stage space-y-5">
-            <section className="admin-data-panel relative">
-              <div className="relative grid gap-4 px-5 py-5 xl:items-start xl:grid-cols-[minmax(0,1.35fr)_420px] xl:px-6">
-                <div className="self-start rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(248,250,252,0.72))] p-5 shadow-lg">
-                  <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                    <div className="max-w-3xl">
-                      <p className="admin-section-kicker">系统总览</p>
-                      <h2 className="mt-2.5 text-3xl font-black tracking-tight text-slate-950 lg:text-[2.45rem]">
-                        后台数据看板
-                      </h2>
-                      <div className="mt-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-                        {headerInsights.map((item) => (
-                          <div
-                            key={item.label}
-                            className="admin-stat-card rounded-2xl px-3.5 py-3"
-                          >
-                            <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">{item.label}</p>
-                            <p className="mt-2 text-lg font-black tracking-tight text-slate-950">{item.value}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="admin-kpi-pill text-xs font-black">
-                        {isDashboardLoading ? '正在同步数据' : '数据已同步'}
-                      </div>
-                      <Button variant="secondary" onClick={loadDashboard} disabled={isDashboardLoading} className="gap-2">
-                        {isDashboardLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                        刷新数据
-                      </Button>
+          <div className="admin-page-stage space-y-4">
+            {/* Top row: overview + key metrics — semi-transparent tinted cards, no nesting */}
+            <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_360px]">
+              <div className="rounded-2xl border border-white/50 bg-[linear-gradient(135deg,rgba(255,255,255,0.62),rgba(255,255,255,0.38),rgba(186,230,253,0.34))] p-4 shadow-md">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="max-w-3xl">
+                    <p className="admin-section-kicker">系统总览</p>
+                    <h1 className="mt-1 text-xl font-black tracking-tight text-slate-950 lg:text-2xl">后台数据看板</h1>
+                    <div className="mt-2.5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      {headerInsights.map((item) => (
+                        <div key={item.label} className="admin-stat-card rounded-xl px-3 py-2.5">
+                          <p className="text-[10px] font-black tracking-[0.14em] text-slate-400">{item.label}</p>
+                          <p className="mt-1 text-base font-black tracking-tight text-slate-950">{item.value}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
-
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-                    {topSummary.map((item) => (
-                      <div
-                        key={item.label}
-                        className={`admin-stat-card px-4 py-4 ${item.tone}`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs font-black tracking-[0.18em] text-slate-500">{item.label}</span>
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/75 bg-white/70 text-slate-900 shadow-sm transition-transform duration-300 group-hover:scale-110">
-                            <item.icon size={18} />
-                          </div>
-                        </div>
-                        <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{item.value}</p>
-                        <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-600">{item.meta}</p>
-                      </div>
-                    ))}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="admin-kpi-pill text-xs font-black">
+                      {isDashboardLoading ? '正在同步数据' : '数据已同步'}
+                    </div>
+                    <Button variant="secondary" onClick={loadDashboard} disabled={isDashboardLoading} className="gap-1.5" size="sm">
+                      {isDashboardLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                      刷新
+                    </Button>
                   </div>
                 </div>
-
-                <div className="self-start rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(240,253,250,0.6),rgba(255,255,255,0.72))] p-5 shadow-lg">
-                  <p className="admin-section-kicker">关键刻度</p>
-                  <div className="mt-3.5 grid gap-3 sm:grid-cols-2">
-                    {sideSummary.map((item, index) => (
-                      <div
-                        key={item.label}
-                        className={cn(
-                          'admin-stat-card rounded-2xl px-4 py-3.5',
-                          index === 0 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.75),rgba(56,189,248,0.15))]',
-                          index === 1 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.75),rgba(125,211,252,0.15))]',
-                          index === 2 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.75),rgba(244,114,182,0.13))]',
-                          index === 3 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.75),rgba(196,181,253,0.15))]',
-                        )}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-sm font-bold text-slate-500">{item.label}</span>
-                          <span className="text-xl font-black tracking-tight text-slate-950">{item.value}</span>
+                <div className="mt-3 grid gap-2.5 sm:grid-cols-2 2xl:grid-cols-4">
+                  {topSummary.map((item) => (
+                    <div key={item.label} className={`admin-stat-card px-3 py-3 ${item.tone}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-black tracking-[0.16em] text-slate-500">{item.label}</span>
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/70 bg-white/65 text-slate-900 shadow-sm transition-transform duration-300 group-hover:scale-110">
+                          <item.icon size={14} />
                         </div>
-                        <p className="mt-1.5 text-sm font-medium text-slate-600">{item.meta}</p>
                       </div>
-                    ))}
-                  </div>
+                      <p className="mt-2 text-xl font-black tracking-tight text-slate-950">{item.value}</p>
+                      <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-500">{item.meta}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/50 bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(233,213,255,0.28),rgba(255,255,255,0.36))] p-4 shadow-md">
+                <p className="admin-section-kicker">关键刻度</p>
+                <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
+                  {sideSummary.map((item, index) => (
+                    <div
+                      key={item.label}
+                      className={cn(
+                        'admin-stat-card rounded-xl px-3 py-2.5',
+                        index === 0 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(56,189,248,0.12))]',
+                        index === 1 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(125,211,252,0.12))]',
+                        index === 2 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(244,114,182,0.10))]',
+                        index === 3 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(196,181,253,0.12))]',
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold text-slate-500">{item.label}</span>
+                        <span className="text-base font-black tracking-tight text-slate-950">{item.value}</span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] font-medium text-slate-500">{item.meta}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </section>
 
             {dashboardError && (
-              <div className="flex items-center gap-2 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+              <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                 <AlertCircle size={18} />
                 {dashboardError}
               </div>
             )}
 
             {isDashboardLoading && !dashboardData ? (
-              <div className="flex h-80 items-center justify-center gap-3 rounded-[2rem] border border-white/60 bg-white/50 text-sm font-bold text-slate-500 shadow-xl backdrop-blur-2xl">
+              <div className="flex h-64 items-center justify-center gap-3 rounded-2xl border border-white/60 bg-white/50 text-sm font-bold text-slate-500 shadow-xl backdrop-blur-2xl">
                 <Loader2 size={18} className="animate-spin" />
                 正在汇总系统统计数据
               </div>
@@ -355,7 +344,7 @@ export const AdminDashboard = () => {
         </button>
       )}
 
-      <main className="relative z-10 flex-1 overflow-y-auto">
+      <main id="main-content" className="relative z-10 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[1540px] px-4 pb-10 pt-6 md:px-6 xl:px-8">
           <AnimatePresence mode="wait">
             <motion.div

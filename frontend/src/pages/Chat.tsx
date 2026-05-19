@@ -201,10 +201,10 @@ export const Chat = () => {
     return () => window.cancelAnimationFrame(frame);
   }, [sessions, currentSessionId, isLoading, isUserScrolledUp, isStreamingResponse, scrollToBottom]);
 
-  // 自动收起错误提示
+  // 自动收起错误提示（延长至15秒，给用户充足时间阅读）
   useEffect(() => {
     if (error) {
-      const timer = setTimeout(() => setError(null), 5000);
+      const timer = setTimeout(() => setError(null), 15000);
       return () => clearTimeout(timer);
     }
   }, [error]);
@@ -350,6 +350,7 @@ export const Chat = () => {
       {/* 主聊天区域与制品面板 */}
       <div className="flex-1 flex overflow-hidden relative">
         <main
+          id="main-content"
           className={cn(
             "flex flex-col h-full transition-all duration-700 ease-[0.16,1,0.3,1] min-w-0 relative",
             artifact ? "w-[40%] border-r border-slate-200/60" : "w-full",

@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { Button } from './Button';
 
 interface ModalProps {
   open: boolean;
@@ -75,25 +76,13 @@ export const ModalFooter: React.FC<{
   <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
     {children || (
       <>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isSaving}
-          className="inline-flex h-11 items-center justify-center rounded-2xl border border-white/80 bg-white/68 px-5 text-sm font-black text-slate-700 shadow-sm ring-1 ring-white/40 transition-all hover:-translate-y-0.5 hover:bg-white/88 disabled:opacity-45"
-          aria-label="取消"
-        >
+        <Button variant="secondary" type="button" onClick={onCancel} disabled={isSaving}>
           取消
-        </button>
+        </Button>
         {onSubmit && (
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={isSaving}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-900/80 bg-[linear-gradient(180deg,#1f2937_0%,#020617_100%)] px-5 text-sm font-black text-white shadow-button shadow-brand-500/10 transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-45"
-            aria-label={submitLabel}
-          >
+          <Button variant="primary" type="button" onClick={onSubmit} disabled={isSaving}>
             {submitLabel}
-          </button>
+          </Button>
         )}
       </>
     )}

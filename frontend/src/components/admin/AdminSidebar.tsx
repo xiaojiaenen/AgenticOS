@@ -51,14 +51,14 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
         !isOpen && !isMobile && 'hidden',
       )}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[linear-gradient(135deg,rgba(14,165,233,0.12),rgba(16,185,129,0.08),transparent)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[linear-gradient(135deg,rgba(14,165,233,0.14),rgba(16,185,129,0.10),rgba(139,92,246,0.04),transparent)]" />
 
       <div className="relative z-10 flex items-center justify-between border-b border-white/70 px-4 py-4">
         <Logo iconSize={22} className="text-lg" />
         <button
           type="button"
           onClick={onClose}
-          className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-white/80 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
+          className="rounded-xl p-2 text-slate-400 transition-all hover:bg-white/80 hover:text-slate-700 hover:shadow-sm active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
           aria-label="关闭导航"
         >
           <MenuIcon size={20} />
@@ -66,9 +66,16 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
       </div>
 
       <div className="relative z-10 px-4 pt-4">
-        <div className="rounded-3xl border border-white/80 bg-white/64 px-4 py-3 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Admin Console</p>
-          <p className="mt-1 text-sm font-black text-slate-950">AgenticOS 工作台</p>
+        <div className="rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.78),rgba(248,250,252,0.62))] px-4 py-3.5 shadow-md ring-1 ring-white/60">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Admin Console</p>
+              <p className="text-sm font-black text-slate-950">AgenticOS 工作台</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -121,18 +128,18 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
         </div>
       </div>
 
-      <div className="relative z-10 border-t border-white/70 p-4">
+      <div className="relative z-10 border-t border-white/70 p-4 space-y-3">
         <button
           type="button"
           onClick={() => navigate('/chat')}
-          className="mb-3 flex w-full items-center gap-3 rounded-2xl bg-zinc-900 px-3 py-2.5 text-sm font-bold text-white shadow-button transition-all hover:-translate-y-0.5 hover:bg-zinc-800 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
+          className="flex w-full items-center gap-3 rounded-2xl bg-zinc-900 px-3 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-zinc-800 hover:shadow-button active:translate-y-0 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
         >
           <MessageCircle size={18} />
           进入对话
         </button>
 
-        <div className="flex items-center gap-3 rounded-2xl border border-white/70 bg-white/58 p-2 transition-colors hover:bg-white/82">
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 text-zinc-600 shadow-sm">
+        <div className="flex items-center gap-3 rounded-2xl border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(248,250,252,0.58))] p-2.5 shadow-sm transition-all hover:bg-white/88 hover:shadow-md">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-200 bg-[linear-gradient(135deg,rgba(15,23,42,0.06),rgba(255,255,255,0.9))] text-zinc-600 shadow-sm">
             <UserAvatarIcon size={20} />
           </div>
           <div className="min-w-0 flex-1">
@@ -142,7 +149,7 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
           <button
             type="button"
             onClick={handleLogout}
-            className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
+            className="rounded-xl p-2 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-500 hover:scale-110 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
             title="退出登录"
             aria-label="退出登录"
           >

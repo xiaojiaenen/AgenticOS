@@ -76,13 +76,11 @@ export const AgentStore = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#e0fbfc] via-[#a5f3fc] to-[#60a5fa] font-sans text-slate-800 selection:bg-zinc-200 selection:text-zinc-900"
+      className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#bae6fd] font-sans text-slate-800 selection:bg-zinc-200 selection:text-zinc-900"
     >
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <RandomMascot size={720} className="absolute -bottom-44 -right-32 text-slate-900 opacity-[0.025]" />
-        <div className="absolute bottom-[-20%] left-[-10%] h-[70vw] w-[70vw] rounded-full bg-teal-300 opacity-35 mix-blend-overlay blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] h-[80vw] w-[80vw] rounded-full bg-blue-400 opacity-35 mix-blend-overlay blur-[120px]" />
-        <div className="absolute left-[30%] top-[10%] h-[50vw] w-[50vw] rounded-full bg-cyan-300 opacity-25 mix-blend-overlay blur-[120px]" />
+        <div className="absolute top-[-10%] right-[-10%] h-[50vw] w-[50vw] rounded-full bg-sky-200 opacity-20 mix-blend-overlay blur-[80px]" />
       </div>
 
       <nav className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 py-4">
@@ -98,7 +96,7 @@ export const AgentStore = () => {
         </div>
       </nav>
 
-      <main className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 pt-5 md:px-8">
+      <main id="main-content" className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 pt-5 md:px-8">
         <div className="mb-7 flex flex-col gap-2">
           <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-slate-500">
             <Sparkles size={16} />

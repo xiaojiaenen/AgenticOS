@@ -69,7 +69,7 @@ body::after {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 99;
   pointer-events: none;
   opacity: 0.025;
   mix-blend-mode: overlay;
@@ -77,16 +77,15 @@ body::after {
 }
 
 html::-webkit-scrollbar,
-body::-webkit-scrollbar,
-div::-webkit-scrollbar,
-textarea::-webkit-scrollbar,
-aside::-webkit-scrollbar,
-section::-webkit-scrollbar {
+body::-webkit-scrollbar {
   display: none;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html, body {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -233,17 +232,17 @@ body.admin-modal-open .admin-dashboard-backdrop {
 
 /* ===== Admin Page Components ===== */
 .admin-page-header {
-  @apply relative overflow-hidden rounded-3xl border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(255,255,255,0.68))] px-6 py-5 shadow-lg ring-1 ring-white/55 backdrop-blur-2xl;
+  @apply relative overflow-hidden rounded-2xl border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.65))] px-5 py-3.5 shadow-md ring-1 ring-white/50 backdrop-blur-2xl;
 }
 
 .admin-page-header::before {
   content: "";
-  @apply pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(14,165,233,0.42),rgba(16,185,129,0.28),transparent)];
+  @apply pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(14,165,233,0.35),rgba(16,185,129,0.22),transparent)];
 }
 
 .admin-page-header::after {
   content: "";
-  @apply pointer-events-none absolute -right-16 -top-24 h-48 w-80 rotate-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.42),transparent)] opacity-60;
+  @apply pointer-events-none absolute -right-16 -top-24 h-48 w-80 rotate-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent)] opacity-50;
 }
 
 .admin-page-header > * {
@@ -251,27 +250,27 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-kpi-pill {
-  @apply inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/72 px-4 py-2 text-sm font-semibold text-slate-500 shadow-sm transition-all duration-200;
+  @apply inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/68 px-3.5 py-1.5 text-xs font-bold text-slate-500 shadow-sm transition-all duration-200;
 }
 
 .admin-kpi-pill:hover {
-  transform: translateY(-2px);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
 }
 
 .admin-data-panel {
-  @apply relative overflow-hidden rounded-3xl border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.74),rgba(248,250,252,0.58),rgba(255,255,255,0.48))] shadow-lg ring-1 ring-white/50 backdrop-blur-2xl;
+  @apply relative overflow-hidden rounded-2xl border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(248,250,252,0.55),rgba(255,255,255,0.45))] shadow-md ring-1 ring-white/45 backdrop-blur-2xl;
 }
 
 .admin-data-panel::before {
   content: "";
-  @apply pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.96),rgba(14,165,233,0.3),transparent)];
+  @apply pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.9),rgba(14,165,233,0.25),transparent)];
 }
 
 .admin-data-panel::after {
   content: "";
-  @apply pointer-events-none absolute -right-24 -top-24 h-64 w-96 rotate-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.36),transparent)] opacity-80;
+  @apply pointer-events-none absolute -right-24 -top-24 h-64 w-96 rotate-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.28),transparent)] opacity-60;
 }
 
 .admin-data-panel > * {
@@ -279,20 +278,29 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-panel-toolbar {
-  @apply flex flex-col gap-4 border-b border-white/75 bg-white/44 px-6 py-5 lg:flex-row lg:items-end lg:justify-between;
+  @apply flex flex-col gap-3 border-b border-white/65 bg-white/38 px-5 py-3.5 lg:flex-row lg:items-end lg:justify-between;
 }
 
 .admin-table-head {
-  @apply hidden border-b border-slate-200/70 bg-slate-50/75 px-5 py-3 text-center text-xs font-black uppercase tracking-[0.16em] text-slate-400 xl:grid;
+  @apply hidden border-b border-slate-200/60 bg-slate-50/65 px-4 py-2.5 text-center text-[11px] font-black uppercase tracking-[0.14em] text-slate-400 xl:grid;
   position: sticky;
   top: 0;
   z-index: 5;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .admin-table-head > * {
-  @apply min-w-0 truncate px-2;
+  @apply min-w-0 truncate px-1.5;
+}
+
+/* ===== Admin Table Row Alternating ===== */
+.admin-table-row:nth-child(even) {
+  background: rgba(248, 250, 252, 0.55);
+}
+
+.admin-table-row:nth-child(even):hover {
+  background: linear-gradient(90deg, rgba(255,255,255,0.9), rgba(248,250,252,0.82));
 }
 
 .admin-empty-state {
@@ -376,32 +384,35 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-table-row {
-  @apply relative bg-white/46 transition-all duration-200 xl:gap-0;
+  @apply relative bg-white/42 transition-all duration-200;
 }
 
 .admin-table-row:hover {
-  background: rgba(255, 255, 255, 0.9);
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.9), rgba(240,249,255,0.7));
   box-shadow:
-    inset 4px 0 0 rgba(14, 165, 233, 0.55),
-    0 8px 24px rgba(15, 23, 42, 0.07);
-  transform: translateX(2px);
+    inset 3px 0 0 rgba(14, 165, 233, 0.65),
+    0 6px 22px rgba(15, 23, 42, 0.07),
+    0 1px 4px rgba(14, 165, 233, 0.05);
+  z-index: 2;
 }
 
 .admin-table-row > * {
-  @apply min-w-0 px-2;
+  @apply min-w-0 px-1.5;
 }
 
 /* ===== Admin Stat Cards ===== */
 .admin-stat-card {
-  @apply relative overflow-hidden rounded-3xl border border-white/80 transition-all duration-300;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+  @apply relative overflow-hidden rounded-2xl border border-white/70 transition-all duration-300;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04);
 }
 
 .admin-stat-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-2px);
   box-shadow:
-    0 16px 40px rgba(15, 23, 42, 0.10),
-    0 0 0 1px rgba(255, 255, 255, 0.9);
+    0 12px 32px rgba(15, 23, 42, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.85);
+  border-color: rgba(186, 230, 253, 0.7);
 }
 
 .admin-stat-card::before {
@@ -409,8 +420,13 @@ body.admin-modal-open .admin-dashboard-backdrop {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255,255,255,0.6) 0%, transparent 50%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.55) 0%, transparent 45%);
   pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.admin-stat-card:hover::before {
+  opacity: 0.75;
 }
 
 .admin-stat-card::after {
@@ -420,8 +436,21 @@ body.admin-modal-open .admin-dashboard-backdrop {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent);
   pointer-events: none;
+}
+
+/* ===== Admin Empty State ===== */
+.admin-empty-state {
+  @apply flex flex-col items-center justify-center text-center py-12;
+}
+
+.admin-empty-state-icon {
+  @apply mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(248,250,252,0.52))] shadow-md;
+}
+
+.admin-empty-state-icon svg {
+  @apply text-slate-400;
 }
 
 /* ===== Admin Metric Progress Bar ===== */
@@ -439,12 +468,14 @@ body.admin-modal-open .admin-dashboard-backdrop {
 
 /* ===== Admin Chart Panel ===== */
 .admin-chart-panel {
-  @apply relative overflow-hidden rounded-3xl border border-white/75 transition-all duration-300;
+  @apply relative overflow-hidden rounded-2xl border border-white/50 transition-all duration-300;
   box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
 }
 
 .admin-chart-panel:hover {
-  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.09);
+  box-shadow:
+    0 12px 40px rgba(15, 23, 42, 0.09),
+    0 0 0 1px rgba(186, 230, 253, 0.5);
   transform: translateY(-2px);
 }
 
@@ -452,6 +483,16 @@ body.admin-modal-open .admin-dashboard-backdrop {
   content: "";
   @apply pointer-events-none absolute inset-x-0 top-0 h-px;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.9), rgba(14,165,233,0.35), transparent);
+}
+
+.admin-chart-panel::after {
+  content: "";
+  @apply pointer-events-none absolute -top-32 -right-32 h-64 w-64 rounded-full opacity-0 transition-opacity duration-500;
+  background: radial-gradient(circle, rgba(255,255,255,0.4), transparent 70%);
+}
+
+.admin-chart-panel:hover::after {
+  opacity: 1;
 }
 
 /* ===== Admin Sidebar Enhancement ===== */
@@ -483,7 +524,7 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-search-input {
-  @apply w-full rounded-3xl border border-white/80 bg-white/72 py-3.5 pl-11 pr-5 text-sm font-semibold text-slate-700 outline-none transition-all duration-200 placeholder:text-slate-400;
+  @apply w-full rounded-2xl border border-white/80 bg-white/72 py-3 pl-11 pr-4 text-sm font-semibold text-slate-700 outline-none transition-all duration-200 placeholder:text-slate-400;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
 }
 
@@ -499,24 +540,26 @@ body.admin-modal-open .admin-dashboard-backdrop {
 
 /* ===== Admin Status Pill ===== */
 .admin-status-pill {
-  @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black;
+  @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black transition-all duration-200;
 }
 
 .admin-status-pill.active {
-  @apply bg-emerald-50 text-emerald-700;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.1);
+  @apply bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/50;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.08);
 }
 
 .admin-status-pill.inactive {
-  @apply bg-slate-100 text-slate-500;
+  @apply bg-slate-100 text-slate-500 ring-1 ring-slate-200/50;
 }
 
 .admin-status-pill.warning {
-  @apply bg-amber-50 text-amber-700;
+  @apply bg-amber-50 text-amber-700 ring-1 ring-amber-200/50;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.06);
 }
 
 .admin-status-pill.info {
-  @apply bg-sky-50 text-sky-700;
+  @apply bg-sky-50 text-sky-700 ring-1 ring-sky-200/50;
+  box-shadow: 0 0 6px rgba(14, 165, 233, 0.06);
 }
 
 /* ===== Admin Staggered Animations ===== */
@@ -552,7 +595,7 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .prose pre {
-  @apply rounded-3xl border border-slate-200/50 shadow-md;
+  @apply rounded-2xl border border-slate-200/50 shadow-md;
 }
 
 .prose strong {
@@ -581,6 +624,30 @@ body.admin-modal-open .admin-dashboard-backdrop {
 
 .prose td {
   @apply min-w-0;
+}
+
+/* ===== Custom Scrollbar (thin, subtle) ===== */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  display: block;
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
 }
 
 /* ===== Scrollbar ===== */

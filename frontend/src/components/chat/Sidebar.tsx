@@ -5,6 +5,7 @@ import { Session } from '../../types';
 import { cn } from '../../lib/utils';
 import { Logo } from '../Logo';
 import { PlusIcon, ChatBubbleIcon, TrashIcon, MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
+import { EmptyState } from '../ui/EmptyState';
 import { getStoredUser, logout } from '../../services/authService';
 import { Modal, ModalHeader, ModalFooter } from '../ui/Modal';
 
@@ -116,9 +117,11 @@ export const Sidebar = React.memo(({
           </div>
         )}
         {sessions.length === 0 && (
-          <div className="text-center text-slate-400 text-sm mt-10">
-            暂无历史对话
-          </div>
+          <EmptyState
+            icon={<ChatBubbleIcon size={24} />}
+            title="暂无历史对话"
+            description="开始新的对话，记录将显示在这里"
+          />
         )}
       </div>
 
