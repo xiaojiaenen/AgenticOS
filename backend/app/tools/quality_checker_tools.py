@@ -20,7 +20,7 @@ def register_quality_checker_tools(registry: ToolRegistry) -> None:
         if not session_id:
             return "错误：无法获取当前会话 ID"
 
-        project_root = _Path(__file__).resolve().parent.parent
+        project_root = _Path(__file__).resolve().parent.parent.parent.parent
         slides_dir = project_root / "data" / "ppt-sessions" / session_id
 
         if not slides_dir.exists():
