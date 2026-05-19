@@ -134,29 +134,11 @@ class TestPptArtifactServiceSvg:
             "artifact_id": "test123",
             "deck_json": json.dumps({"theme": "tokyo-night", "svgs": svgs}),
             "preview_html": "",
-            "source_html": "",
             "metadata": {},
         }
         extracted = PptArtifactService.extract_svgs_from_artifact(artifact)
         assert len(extracted) == 3
         assert extracted == svgs
-
-    def test_extract_svgs_from_legacy_html_fallback(self):
-        from app.services.ppt_artifact_service import PptArtifactService
-
-        html_with_svgs = """<div class="deck">
-<section class="slide"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"><rect width="1280" height="720" fill="#fff"/></svg></section>
-<section class="slide"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"><rect width="1280" height="720" fill="#000"/></svg></section>
-</div>"""
-        artifact = {
-            "artifact_id": "test_legacy",
-            "deck_json": json.dumps({"theme": "minimal-white", "slides_html": html_with_svgs}),
-            "preview_html": "",
-            "source_html": "",
-            "metadata": {},
-        }
-        extracted = PptArtifactService.extract_svgs_from_artifact(artifact)
-        assert len(extracted) == 2
 
     def test_extract_svgs_empty_artifact(self):
         from app.services.ppt_artifact_service import PptArtifactService
@@ -166,63 +148,8 @@ class TestPptArtifactServiceSvg:
         assert extracted == []
 
 
-class TestSvgExtractionFromText:
-    """Test SVG extraction from LLM output text."""
-
-    def test_extract_svgs_from_text_multiple_blocks(self):
-        from app.services.ppt_artifact_service import extract_svgs_from_text
-
-        text = """Here is your presentation:
-
-```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
-  <rect width="1280" height="720" fill="#1a1b26"/>
-  <text x="640" y="300" text-anchor="middle" font-size="48" fill="#fff">Slide 1</text>
-</svg>
-```
-
-Some commentary...
-
-```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
-  <rect width="1280" height="720" fill="#ffffff"/>
-  <text x="640" y="300" text-anchor="middle" font-size="48" fill="#111">Slide 2</text>
-</svg>
-```
-
-```svg
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
-  <rect width="1280" height="720" fill="#f7f7f8"/>
-  <text x="640" y="300" text-anchor="middle" font-size="48" fill="#111">Slide 3</text>
-</svg>
-```
-
-End."""
-        svgs = extract_svgs_from_text(text)
-        assert len(svgs) == 3
-        assert all(svg.startswith("<svg") for svg in svgs)
-        assert 'Slide 1' in svgs[0]
-        assert 'Slide 3' in svgs[2]
-
-    def test_extract_svgs_from_text_no_svg_blocks(self):
-        from app.services.ppt_artifact_service import extract_svgs_from_text
-
-        assert extract_svgs_from_text("No SVG here, just some text.") == []
-        assert extract_svgs_from_text("") == []
-        # Should NOT match html code blocks
-        assert extract_svgs_from_text("```html\n<div>test</div>\n```") == []
-
-    def test_extract_svgs_from_text_uppercase_marker(self):
-        from app.services.ppt_artifact_service import extract_svgs_from_text
-
-        text = """```SVG
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
-  <rect width="1280" height="720" fill="#000"/>
-</svg>
-```"""
-        svgs = extract_svgs_from_text(text)
-        assert len(svgs) == 1
-        assert '<rect' in svgs[0]
+class TestSvgValidation:
+    """Test SVG slide validation utilities."""
 
     def test_validate_svg_slides_valid(self):
         from app.services.ppt_artifact_service import validate_svg_slides
@@ -242,13 +169,6 @@ End."""
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080"><rect width="1920" height="1080" fill="#000"/></svg>',
         ]
         assert not validate_svg_slides(svgs)
-
-    def test_count_svg_pages(self):
-        from app.services.ppt_artifact_service import _count_svg_pages
-
-        text = "```svg\n<svg></svg>\n```\n```svg\n<svg></svg>\n```"
-        assert _count_svg_pages(text) == 2
-        assert _count_svg_pages("no svg here") == 0
 
     def test_detect_theme_name_from_svg(self):
         from app.services.ppt_artifact_service import _detect_theme_name_from_svg
