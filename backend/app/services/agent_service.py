@@ -209,6 +209,11 @@ class AgentService:
         if "email" in profile.builtin_tools:
             register_email_tools(registry)
 
+        # 独立 file_to_md 工具：当 file 工具组未启用时单独注册
+        if "file" not in profile.builtin_tools:
+            from app.tools.file_to_md_tool import register_file_to_md_tool as _register_file_to_md
+            _register_file_to_md(registry)
+
         if profile.response_mode == "ppt":
             from app.tools.icon_tools import register_icon_tools as _register_icon_tools
             _register_icon_tools(registry)

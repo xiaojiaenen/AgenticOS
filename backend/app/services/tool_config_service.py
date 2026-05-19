@@ -48,7 +48,6 @@ TOOL_CATALOG = {
         "description": "读取、转换、写入、追加、替换、列出或删除 workspace 内文件。",
         "builtin_name": "file",
         "approval_scope": [
-            "file_to_md",
             "read_text_file",
             "write_text_file",
             "append_text_file",
@@ -57,7 +56,6 @@ TOOL_CATALOG = {
             "list_files",
         ],
         "sub_tools": {
-            "file_to_md": {"label": "文件转Markdown", "description": "将文件转换为 Markdown 格式"},
             "read_text_file": {"label": "读取文件", "description": "读取文本文件内容"},
             "write_text_file": {"label": "写入文件", "description": "创建或覆盖文件"},
             "append_text_file": {"label": "追加文件", "description": "向文件追加内容"},
@@ -65,6 +63,13 @@ TOOL_CATALOG = {
             "delete_file": {"label": "删除文件", "description": "删除 workspace 内文件"},
             "list_files": {"label": "列出文件", "description": "列出 workspace 内文件和目录"},
         },
+    },
+    "file_to_md": {
+        "label": "文件转Markdown",
+        "description": "将文档转换为 Markdown 文本，支持 .docx/.pdf/.txt/.md/.csv/.xlsx/.html 等格式。独立于文件工具组，可单独启用。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
     },
     "python": {
         "label": "Python 脚本",
@@ -188,6 +193,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "calc": {"enabled": True, "requires_approval": False},
         "time": {"enabled": True, "requires_approval": False},
         "file": {"enabled": True, "requires_approval": True},
+        "file_to_md": {"enabled": True, "requires_approval": False},
         "python": {"enabled": False, "requires_approval": True},
         "git": {"enabled": False, "requires_approval": True},
         "npm": {"enabled": False, "requires_approval": True},
@@ -197,7 +203,8 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
     "ppt": {
         "calc": {"enabled": False, "requires_approval": False},
         "time": {"enabled": False, "requires_approval": False},
-        "file": {"enabled": True, "requires_approval": False},
+        "file": {"enabled": False, "requires_approval": True},
+        "file_to_md": {"enabled": True, "requires_approval": False},
         "python": {"enabled": False, "requires_approval": True},
         "git": {"enabled": False, "requires_approval": True},
         "npm": {"enabled": False, "requires_approval": True},
@@ -215,6 +222,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "calc": {"enabled": True, "requires_approval": False},
         "time": {"enabled": True, "requires_approval": False},
         "file": {"enabled": True, "requires_approval": True},
+        "file_to_md": {"enabled": True, "requires_approval": False},
         "python": {"enabled": False, "requires_approval": True},
         "git": {"enabled": False, "requires_approval": True},
         "npm": {"enabled": True, "requires_approval": True},
