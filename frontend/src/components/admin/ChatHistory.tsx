@@ -457,7 +457,7 @@ export const ChatHistory = () => {
                 <button
                   type="button"
                   onClick={closeDetail}
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
                 >
                   <X size={18} />
                 </button>

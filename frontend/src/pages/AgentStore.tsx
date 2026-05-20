@@ -79,8 +79,11 @@ export const AgentStore = () => {
       className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#bae6fd] font-sans text-slate-800 selection:bg-zinc-200 selection:text-zinc-900"
     >
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        {/* Animated ambient blobs */}
+        <div className="absolute -top-20 -left-10 w-[45vw] h-[45vw] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.15),transparent_70%)] blur-[70px] animate-[bg-blob-1_16s_ease-in-out_infinite]" />
+        <div className="absolute -bottom-16 -right-8 w-[42vw] h-[42vw] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.14),transparent_70%)] blur-[70px] animate-[bg-blob-3_18s_ease-in-out_infinite]" />
+        <div className="absolute top-1/3 right-1/4 w-[36vw] h-[36vw] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.12),transparent_70%)] blur-[80px] animate-[bg-blob-2_15s_ease-in-out_infinite]" />
         <RandomMascot size={720} className="absolute -bottom-44 -right-32 text-slate-900 opacity-[0.025]" />
-        <div className="absolute top-[-10%] right-[-10%] h-[50vw] w-[50vw] rounded-full bg-sky-200 opacity-20 mix-blend-overlay blur-[80px]" />
       </div>
 
       <nav className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 py-4">
@@ -99,11 +102,11 @@ export const AgentStore = () => {
       <a href="#main-content" className="skip-link">跳转到主要内容</a>
       <main id="main-content" className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 pt-5 md:px-8">
         <div className="mb-7 flex flex-col gap-2">
-          <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.25em] text-slate-500">
+          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
             <Sparkles size={16} />
             Agent Store
           </p>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900">智能体商店</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-slate-900">智能体商店</h1>
         </div>
 
         {error && (
@@ -137,7 +140,11 @@ export const AgentStore = () => {
                   layout
                   whileHover={{ y: -4 }}
                   transition={{ duration: 0.2 }}
-                  className="group flex min-h-[190px] flex-col rounded-2xl border border-white/65 bg-white/62 p-4 shadow-md backdrop-blur-2xl"
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`${agent.name} - ${agent.installed ? '已安装' : '未安装'}`}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); agent.installed ? startChat(agent) : toggleInstall(agent); } }}
+                  className="group flex min-h-[190px] flex-col rounded-2xl border border-white/65 bg-white/62 p-4 shadow-md backdrop-blur-2xl focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2 outline-none"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg shadow-sky-500/15 transition-transform duration-300 group-hover:scale-110', accent)}>
@@ -152,7 +159,7 @@ export const AgentStore = () => {
                   </div>
 
                   <div className="mt-4 min-h-[86px]">
-                    <h2 className="line-clamp-1 text-lg font-black tracking-tight text-slate-900">{agent.name}</h2>
+                    <h2 className="line-clamp-1 text-lg font-bold tracking-tight text-slate-900">{agent.name}</h2>
                     <p className="mt-2 line-clamp-3 text-sm font-medium leading-6 text-slate-500">
                       {agent.description || '适合处理特定任务的智能体。'}
                     </p>

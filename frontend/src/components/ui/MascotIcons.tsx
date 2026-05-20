@@ -160,7 +160,7 @@ export const MascotWink = ({ size = 24, className }: { size?: number; className?
       <ellipse cx="40" cy="48" rx="4" ry="4" fill="#0f172a" />
       <path d="M55 48 L65 48" stroke="#0f172a" strokeWidth="3" strokeLinecap="round" />
       <path d="M45 58 Q50 62 55 58" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" fill="none" />
-      <motion.path d="M48 60 Q50 66 52 60 Z" fill="#f43f5e" animate={{ scaleY: [1, 1.2, 1] }} transition={{ duration: 1, repeat: Infinity }} style={{ transformOrigin: '50px 60px' }} />
+      <motion.path d="M48 60 Q50 66 52 60 Z" fill="#f43f5e" animate={{ scaleY: [1, 1.2, 1] }} transition={{ duration: 1, repeat: Infinity }} style={{ transformOrigin: '50% 60%' }} />
     </motion.g>
   </motion.svg>
 );

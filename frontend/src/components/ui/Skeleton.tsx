@@ -7,15 +7,17 @@ interface SkeletonProps {
 
 export const Skeleton: React.FC<SkeletonProps> = ({ className }) => (
   <div
+    role="status"
+    aria-label="Loading"
     className={cn(
-      'animate-pulse rounded-2xl bg-slate-200/60',
+      'animate-pulse rounded-2xl bg-gradient-to-r from-sky-100/60 via-sky-200/40 to-sky-100/60',
       className,
     )}
   />
 );
 
-export const SkeletonCard: React.FC<{ lines?: number }> = ({ lines = 3 }) => (
-  <div className="rounded-2xl border border-white/60 bg-white/50 p-5 space-y-4">
+export const SkeletonCard: React.FC<{ lines?: number; className?: string }> = ({ lines = 3, className }) => (
+  <div className={cn('rounded-2xl border border-white/60 bg-white/50 p-5 space-y-4', className)}>
     <Skeleton className="h-5 w-1/3" />
     <Skeleton className="h-4 w-full" />
     {Array.from({ length: lines - 1 }).map((_, i) => (
@@ -24,8 +26,8 @@ export const SkeletonCard: React.FC<{ lines?: number }> = ({ lines = 3 }) => (
   </div>
 );
 
-export const SkeletonList: React.FC<{ count?: number }> = ({ count = 3 }) => (
-  <div className="space-y-3">
+export const SkeletonList: React.FC<{ count?: number; className?: string }> = ({ count = 3, className }) => (
+  <div className={cn('space-y-3', className)}>
     {Array.from({ length: count }).map((_, i) => (
       <div key={i} className="flex items-center gap-4 rounded-2xl border border-white/50 bg-white/45 p-4">
         <Skeleton className="h-10 w-10 rounded-xl" />

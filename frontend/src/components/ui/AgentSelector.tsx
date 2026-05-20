@@ -80,6 +80,8 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
             disabled ? 'cursor-not-allowed opacity-60' : 'border border-transparent hover:border-sky-100 hover:bg-sky-50 active:scale-95',
           )}
           title={disabled ? '对话已开始，无法更改智能体' : '选择智能体'}
+          aria-expanded={showMenu}
+          aria-haspopup="listbox"
           aria-label="选择智能体"
         >
           <div className={cn(
@@ -96,7 +98,8 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
               initial={{ opacity: 0, scale: 0.95, y: -20 }}
               animate={{ opacity: 1, scale: 1, y: -10 }}
               exit={{ opacity: 0, scale: 0.95, y: -20 }}
-              className="absolute bottom-full left-0 z-40 mb-4 max-h-[360px] w-64 overflow-y-auto rounded-3xl border border-slate-200/50 bg-white/95 p-2 shadow-2xl ring-1 ring-black/5 backdrop-blur-2xl"
+              className="absolute bottom-full left-0 z-40 mb-4 max-h-[360px] w-64 overflow-y-auto rounded-3xl border border-white/60 bg-white/95 p-2 shadow-2xl ring-1 ring-black/5 backdrop-blur-2xl"
+              role="listbox"
               onKeyDown={handleKeyDown}
             >
               {selected && (
@@ -112,14 +115,16 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                     onSelect(agent);
                     setShowMenu(false);
                   }}
+                  role="option"
+                  aria-selected={selectedId === agent.id}
                   className={cn(
-                    'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
+                    'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
                     selectedId === agent.id ? 'bg-sky-50/70 ring-1 ring-sky-100' : '',
                   )}
                 >
                   <span className={cn(
                     'flex h-8 w-8 items-center justify-center rounded-xl text-sm shadow-sm transition-transform',
-                    selectedId === agent.id ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-500',
+                    selectedId === agent.id ? 'bg-sky-500 text-white' : 'bg-sky-50 text-slate-500',
                   )}>
                     <MascotHappy size={20} />
                   </span>
@@ -143,13 +148,16 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   return (
     <div className={cn('relative', className)} ref={menuRef}>
       <button
-        onClick={() => setShowMenu(!showMenu)}
-        className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl text-sm font-bold transition-all active:scale-95 border border-slate-200/50"
+        onClick={() => !disabled && setShowMenu(!showMenu)}
+        disabled={disabled}
+        className="flex items-center gap-2 px-4 py-2 bg-white/60 hover:bg-sky-50 text-slate-600 rounded-2xl text-sm font-bold transition-all active:scale-95 border border-white/60 disabled:opacity-50 disabled:cursor-not-allowed"
+        aria-expanded={showMenu}
+        aria-haspopup="listbox"
         aria-label="选择智能体"
       >
         <div className={cn(
           'w-6 h-6 rounded-lg flex items-center justify-center transition-all shadow-sm',
-          selectedId ? 'bg-sky-500 text-white shadow-glow' : 'bg-slate-200',
+          selectedId ? 'bg-sky-500 text-white shadow-glow' : 'bg-sky-100',
         )}>
           <MascotHappy size={14} />
         </div>
@@ -163,7 +171,8 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="absolute bottom-full left-0 mb-2 max-h-64 w-56 overflow-y-auto bg-white/95 backdrop-blur-xl border border-slate-200/50 rounded-3xl shadow-2xl z-40 p-2"
+            className="absolute bottom-full left-0 mb-2 max-h-64 w-56 overflow-y-auto bg-white/95 backdrop-blur-xl border border-white/60 rounded-3xl shadow-2xl z-40 p-2"
+            role="listbox"
             onKeyDown={handleKeyDown}
           >
             {agents.map((agent, idx) => (
@@ -174,14 +183,16 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                   onSelect(agent);
                   setShowMenu(false);
                 }}
+                role="option"
+                aria-selected={selectedId === agent.id}
                 className={cn(
-                  'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
+                  'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
                   selectedId === agent.id ? 'bg-sky-50/70 ring-1 ring-sky-100' : '',
                 )}
               >
                 <span className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-xl text-sm shadow-sm transition-transform',
-                  selectedId === agent.id ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-500',
+                  selectedId === agent.id ? 'bg-sky-500 text-white' : 'bg-sky-50 text-slate-500',
                 )}>
                   <MascotHappy size={20} />
                 </span>

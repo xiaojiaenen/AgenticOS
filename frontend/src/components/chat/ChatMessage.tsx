@@ -901,7 +901,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                             {tool.result ? (
                               <ToolResultPreview result={tool.result} isError={isError} />
                             ) : (
-                              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2 text-[11px] text-slate-400">
+                              <div className="rounded-xl border border-dashed border-sky-200/60 bg-sky-50/40 px-3 py-2 text-[11px] text-slate-500">
                                 等待工具返回内容
                               </div>
                             )}
@@ -1015,17 +1015,17 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                 <details
                   open={isReasoningOpen}
                   onToggle={(event) => setIsReasoningOpen(event.currentTarget.open)}
-                  className="group mb-3 rounded-2xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-slate-500 [&_summary::-webkit-details-marker]:hidden"
+                  className="group mb-3 rounded-2xl border border-sky-200/50 bg-sky-50/50 px-3 py-2 text-slate-600 [&_summary::-webkit-details-marker]:hidden"
                 >
-                  <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                    <BrainCircuit size={13} className="text-slate-400" />
+                  <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600">
+                    <BrainCircuit size={13} className="text-sky-500" />
                     <span>思考过程</span>
                     {shouldAutoOpenReasoning && (
-                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-pulse" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-sky-500 animate-pulse" />
                     )}
                     <ChevronDownIcon size={12} className="ml-auto transition-transform duration-300 group-open:-rotate-180" />
                   </summary>
-                  <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-slate-200/70 pt-2 text-xs leading-relaxed text-slate-500">
+                  <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-sky-200/40 pt-2 text-xs leading-relaxed text-slate-600">
                     {reasoningText}
                   </div>
                 </details>
@@ -1071,7 +1071,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
 
         {/* Timestamp + copy */}
         {message?.id && !isTyping && (
-          <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400/70 px-2 mt-1.5 flex items-center gap-2">
+          <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-500 px-2 mt-1.5 flex items-center gap-2">
             <span>{new Date(parseInt(message.id)).toLocaleTimeString('zh-CN', { timeZone: APP_TIME_ZONE, hour: '2-digit', minute: '2-digit' })}</span>
             {!isUser && visibleText && (
               <motion.span

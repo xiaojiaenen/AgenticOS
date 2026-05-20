@@ -67,8 +67,8 @@ function MetricRail({
   return (
     <div className="admin-stat-card group rounded-xl px-3.5 py-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-black tracking-[0.16em] text-slate-500 group-hover:text-slate-700 transition-colors">{label}</span>
-        <span className="text-sm font-black text-slate-900">{value}</span>
+        <span className="text-[11px] font-bold tracking-[0.12em] text-slate-500 group-hover:text-slate-700 transition-colors">{label}</span>
+        <span className="text-sm font-bold text-slate-900">{value}</span>
       </div>
       <div className="admin-progress-bar mt-2.5">
         <div
@@ -106,8 +106,8 @@ function SignalTile({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-black tracking-[0.16em] text-slate-600">{label}</p>
-          <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{value}</p>
+          <p className="text-xs font-bold tracking-[0.16em] text-slate-600">{label}</p>
+          <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{value}</p>
           <p className="mt-1.5 text-xs font-semibold leading-5 text-slate-500">{meta}</p>
           {detail && (
             <p className="mt-1 text-[11px] font-medium leading-4 text-slate-400">{detail}</p>
@@ -122,42 +122,43 @@ function SignalTile({
 }
 
 export const DashboardStats = ({ summary }: DashboardStatsProps) => {
-  const activeRate = ratio(summary.active_users, summary.total_users);
-  const toolAssistRate = ratio(summary.tool_calls, summary.tool_calls + summary.llm_calls);
-  const outputShare = ratio(summary.output_tokens, summary.total_tokens);
-  const avgTokensPerSession = summary.total_sessions > 0 ? Math.round(summary.total_tokens / summary.total_sessions) : 0;
-  const avgRunsPerSession = summary.total_sessions > 0 ? (summary.total_runs / summary.total_sessions).toFixed(1) : '0.0';
+  const s = summary ?? {} as DashboardSummary;
+  const activeRate = ratio(s.active_users ?? 0, s.total_users ?? 0);
+  const toolAssistRate = ratio(s.tool_calls ?? 0, (s.tool_calls ?? 0) + (s.llm_calls ?? 0));
+  const outputShare = ratio(s.output_tokens ?? 0, s.total_tokens ?? 1);
+  const avgTokensPerSession = (s.total_sessions ?? 0) > 0 ? Math.round((s.total_tokens ?? 0) / s.total_sessions!) : 0;
+  const avgRunsPerSession = (s.total_sessions ?? 0) > 0 ? ((s.total_runs ?? 0) / s.total_sessions!).toFixed(1) : '0.0';
   const quickSignals = [
     {
       label: '输入 Token',
-      value: formatTokenNumber(summary.input_tokens),
+      value: formatTokenNumber(s.input_tokens ?? 0),
     },
     {
       label: '输出 Token',
-      value: formatTokenNumber(summary.output_tokens),
+      value: formatTokenNumber(s.output_tokens ?? 0),
     },
     {
       label: '每用户会话',
-      value: summary.total_users > 0 ? (summary.total_sessions / summary.total_users).toFixed(1) : '0.0',
+      value: (s.total_users ?? 0) > 0 ? ((s.total_sessions ?? 0) / s.total_users!).toFixed(1) : '0.0',
     },
     {
       label: '每次运行工具',
-      value: summary.total_runs > 0 ? (summary.tool_calls / summary.total_runs).toFixed(2) : '0.00',
+      value: (s.total_runs ?? 0) > 0 ? ((s.tool_calls ?? 0) / s.total_runs!).toFixed(2) : '0.00',
     },
   ];
 
   const signalTiles = [
     {
       label: '模型调用',
-      value: formatNumber(summary.llm_calls),
+      value: formatNumber(s.llm_calls ?? 0),
       meta: `工具协同 ${formatPercent(toolAssistRate)}`,
-      detail: summary.total_sessions > 0 ? `每会话 ${(summary.llm_calls / summary.total_sessions).toFixed(1)} 次推理` : undefined,
+      detail: (s.total_sessions ?? 0) > 0 ? `每会话 ${((s.llm_calls ?? 0) / s.total_sessions!).toFixed(1)} 次推理` : undefined,
       icon: Activity,
       accent: 'bg-[linear-gradient(135deg,rgba(16,185,129,0.28),rgba(255,255,255,0.72),rgba(6,182,212,0.16))]',
     },
     {
       label: '平均耗时',
-      value: formatLatency(summary.avg_latency_ms),
+      value: formatLatency(s.avg_latency_ms ?? 0),
       meta: '按单次运行统计',
       detail: undefined,
       icon: Clock3,
@@ -165,17 +166,17 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
     },
     {
       label: 'Token 总量',
-      value: formatTokenNumber(summary.total_tokens),
-      meta: `输入 ${formatTokenNumber(summary.input_tokens)} / 输出 ${formatTokenNumber(summary.output_tokens)}`,
-      detail: summary.total_sessions > 0 ? `每会话平均 ${formatTokenNumber(avgTokensPerSession)} Token · 输出占比 ${formatPercent(outputShare)}` : undefined,
+      value: formatTokenNumber(s.total_tokens ?? 0),
+      meta: `输入 ${formatTokenNumber(s.input_tokens ?? 0)} / 输出 ${formatTokenNumber(s.output_tokens ?? 0)}`,
+      detail: (s.total_sessions ?? 0) > 0 ? `每会话平均 ${formatTokenNumber(avgTokensPerSession)} Token · 输出占比 ${formatPercent(outputShare)}` : undefined,
       icon: Sparkles,
       accent: 'bg-[linear-gradient(135deg,rgba(139,92,246,0.22),rgba(255,255,255,0.72),rgba(59,130,246,0.15))]',
     },
     {
       label: '工具调用',
-      value: formatNumber(summary.tool_calls),
-      meta: summary.tool_calls > 0 ? '已形成工具链路' : '暂未触发工具调用',
-      detail: summary.total_sessions > 0 ? `每会话 ${(summary.tool_calls / summary.total_sessions).toFixed(2)} 次 · 每次运行 ${(summary.tool_calls / Math.max(summary.total_runs, 1)).toFixed(1)} 个` : undefined,
+      value: formatNumber(s.tool_calls ?? 0),
+      meta: (s.tool_calls ?? 0) > 0 ? '已形成工具链路' : '暂未触发工具调用',
+      detail: (s.total_sessions ?? 0) > 0 ? `每会话 ${((s.tool_calls ?? 0) / s.total_sessions!).toFixed(2)} 次 · 每次运行 ${((s.tool_calls ?? 0) / Math.max(s.total_runs ?? 0, 1)).toFixed(1)} 个` : undefined,
       icon: MousePointerClick,
       accent: 'bg-[linear-gradient(135deg,rgba(251,191,36,0.22),rgba(255,255,255,0.76),rgba(244,114,182,0.14))]',
     },
@@ -194,8 +195,8 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-500">总会话规模</p>
-                <p className="mt-1 text-5xl font-black tracking-tight text-slate-950 lg:text-6xl">
-                  {formatNumber(summary.total_sessions)}
+                <p className="mt-1 text-5xl font-bold tracking-tight text-slate-950 lg:text-6xl">
+                  {formatNumber(s.total_sessions ?? 0)}
                 </p>
               </div>
             </div>
@@ -204,18 +205,18 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
           <div className="grid min-w-[220px] gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
             <div className="admin-stat-card rounded-xl bg-white/68 px-4 py-3.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-black tracking-[0.16em] text-slate-500">活跃用户</span>
+                <span className="text-[11px] font-bold tracking-[0.12em] text-slate-500">活跃用户</span>
                 <Users size={16} className="text-cyan-600" />
               </div>
-              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">{formatNumber(summary.active_users)}</p>
+              <p className="mt-2 text-xl font-bold tracking-tight text-slate-950">{formatNumber(s.active_users ?? 0)}</p>
               <p className="mt-1.5 text-xs font-semibold text-slate-500">占全体用户 {formatPercent(activeRate)}</p>
             </div>
             <div className="admin-stat-card rounded-xl bg-white/68 px-4 py-3.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-black tracking-[0.16em] text-slate-500">会话密度</span>
+                <span className="text-[11px] font-bold tracking-[0.12em] text-slate-500">会话密度</span>
                 <ArrowUpRight size={16} className="text-violet-600" />
               </div>
-              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">{avgRunsPerSession}</p>
+              <p className="mt-2 text-xl font-bold tracking-tight text-slate-950">{avgRunsPerSession}</p>
               <p className="mt-1.5 text-xs font-semibold text-slate-500">平均每个会话触发运行次数</p>
             </div>
           </div>
@@ -238,24 +239,24 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
                   : 'bg-[linear-gradient(135deg,rgba(196,181,253,0.12),rgba(255,255,255,0.72))]',
               )}
             >
-              <p className="text-[11px] font-black tracking-[0.16em] text-slate-500">{item.label}</p>
-              <p className="mt-2 text-xl font-black tracking-tight text-slate-950">{item.value}</p>
+              <p className="text-[11px] font-bold tracking-[0.12em] text-slate-500">{item.label}</p>
+              <p className="mt-2 text-xl font-bold tracking-tight text-slate-950">{item.value}</p>
             </div>
           ))}
         </div>
 
         <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
           <div className="admin-stat-card rounded-xl bg-[linear-gradient(135deg,rgba(56,189,248,0.16),rgba(255,255,255,0.72))] px-4 py-3.5">
-            <p className="text-[11px] font-black tracking-[0.16em] text-slate-500">总用户数</p>
-            <p className="mt-2 text-xl font-black tracking-tight text-slate-950">{formatNumber(summary.total_users)}</p>
+            <p className="text-[11px] font-bold tracking-[0.12em] text-slate-500">总用户数</p>
+            <p className="mt-2 text-xl font-bold tracking-tight text-slate-950">{formatNumber(s.total_users ?? 0)}</p>
           </div>
           <div className="admin-stat-card rounded-xl bg-[linear-gradient(135deg,rgba(196,181,253,0.20),rgba(255,255,255,0.72))] px-4 py-3.5">
-            <p className="text-[11px] font-black tracking-[0.16em] text-slate-500">运行次数</p>
-            <p className="mt-2 text-xl font-black tracking-tight text-slate-950">{formatNumber(summary.total_runs)}</p>
+            <p className="text-[11px] font-bold tracking-[0.12em] text-slate-500">运行次数</p>
+            <p className="mt-2 text-xl font-bold tracking-tight text-slate-950">{formatNumber(s.total_runs ?? 0)}</p>
           </div>
           <div className="admin-stat-card rounded-xl bg-[linear-gradient(135deg,rgba(74,222,128,0.17),rgba(255,255,255,0.72))] px-4 py-3.5">
-            <p className="text-[11px] font-black tracking-[0.16em] text-slate-500">单会话 Token</p>
-            <p className="mt-2 text-xl font-black tracking-tight text-slate-950">{formatTokenNumber(avgTokensPerSession)}</p>
+            <p className="text-[11px] font-bold tracking-[0.12em] text-slate-500">单会话 Token</p>
+            <p className="mt-2 text-xl font-bold tracking-tight text-slate-950">{formatTokenNumber(avgTokensPerSession)}</p>
           </div>
         </div>
       </div>

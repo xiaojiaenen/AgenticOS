@@ -235,11 +235,13 @@ export const AdminDashboard = () => {
                         index === 1 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(125,211,252,0.12))]',
                         index === 2 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(244,114,182,0.10))]',
                         index === 3 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(196,181,253,0.12))]',
+                        index === 4 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(251,191,36,0.10))]',
+                        index === 5 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(16,185,129,0.10))]',
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-bold text-slate-500">{item.label}</span>
-                        <span className="text-lg font-black tracking-tight text-slate-950">{item.value}</span>
+                        <span className="text-lg font-bold tracking-tight text-slate-950">{item.value}</span>
                       </div>
                       <p className="mt-1 text-xs font-medium text-slate-500">{item.meta}</p>
                     </div>
@@ -290,6 +292,11 @@ export const AdminDashboard = () => {
       className="admin-dashboard-shell relative flex h-screen overflow-hidden font-sans text-slate-800 selection:bg-zinc-200 selection:text-zinc-900"
     >
       <div className="admin-dashboard-backdrop pointer-events-none">
+        {/* Animated blobs — professional, deeper tones */}
+        <div className="absolute -top-20 -left-10 w-[550px] h-[550px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.15),transparent_70%)] blur-[80px] animate-[bg-blob-1_16s_ease-in-out_infinite]" />
+        <div className="absolute top-1/4 -right-8 w-[460px] h-[460px] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.12),transparent_70%)] blur-[70px] animate-[bg-blob-2_18s_ease-in-out_infinite]" />
+        <div className="absolute -bottom-12 left-1/3 w-[480px] h-[480px] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.13),transparent_70%)] blur-[80px] animate-[bg-blob-3_17s_ease-in-out_infinite]" />
+
         <RandomMascot size={760} className="admin-backdrop-mascot admin-backdrop-mascot-primary" />
         <RandomMascot size={360} className="admin-backdrop-mascot admin-backdrop-mascot-secondary" />
       </div>

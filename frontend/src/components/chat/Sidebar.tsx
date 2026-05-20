@@ -56,9 +56,9 @@ export const Sidebar = React.memo(({
         isMobile ? "fixed inset-y-0 left-0 shadow-2xl w-[280px]" : "h-full"
       )}
     >
-      <div className="p-4 flex items-center justify-between border-b border-slate-100">
+      <div className="p-4 flex items-center justify-between border-b border-white/50">
         <Logo iconSize={20} className="text-lg" />
-        <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg group transition-colors" aria-label="关闭侧边栏">
+        <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-sky-50/60 rounded-lg group transition-colors" aria-label="关闭侧边栏">
           <MenuIcon size={20} />
         </button>
       </div>
@@ -126,10 +126,10 @@ export const Sidebar = React.memo(({
       </div>
 
       {/* User Profile & Logout at bottom */}
-      <div className="p-4 border-t border-slate-100 flex flex-col gap-2">
+      <div className="p-4 border-t border-white/50 flex flex-col gap-2">
         <button
           onClick={() => navigate('/agents')}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors font-bold text-sm text-slate-700"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sky-50/60 transition-colors font-bold text-sm text-slate-700"
           aria-label="智能体商店"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
@@ -145,7 +145,7 @@ export const Sidebar = React.memo(({
             管理后台 (Admin)
           </button>
         )}
-        <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
+        <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-sky-50/60 transition-colors">
           <div className="w-9 h-9 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-600 border border-zinc-200 shadow-sm overflow-hidden flex-shrink-0">
             <UserAvatarIcon size={20} />
           </div>

@@ -37,7 +37,7 @@ export const Login = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen bg-gradient-to-br from-[#fef3c7] via-[#fde68a] to-[#fbbf24] relative flex items-center justify-center p-4 selection:bg-zinc-200 selection:text-zinc-900 overflow-hidden"
+      className="min-h-screen bg-gradient-to-br from-[#cffafe] via-[#a5f3fc] to-[#22d3ee] relative flex items-center justify-center p-4 selection:bg-zinc-200 selection:text-zinc-900 overflow-hidden"
     >
       <a href="#main-content" className="skip-link">跳转到主要内容</a>
       <motion.button
@@ -52,8 +52,11 @@ export const Login = () => {
       </motion.button>
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        {/* Animated ambient blobs */}
+        <div className="absolute -top-24 -left-16 w-[55vw] h-[55vw] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.22),transparent_70%)] blur-[70px] animate-[bg-blob-1_12s_ease-in-out_infinite]" />
+        <div className="absolute -bottom-20 -right-12 w-[50vw] h-[50vw] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.19),transparent_70%)] blur-[70px] animate-[bg-blob-2_14s_ease-in-out_infinite]" />
+        <div className="absolute top-1/3 left-1/4 w-[40vw] h-[40vw] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.16),transparent_70%)] blur-[80px] animate-[bg-blob-3_13s_ease-in-out_infinite]" />
         <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.03]" />
-        <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-amber-200 rounded-full mix-blend-overlay filter blur-[60px] opacity-25" />
       </div>
 
       <main id="main-content" className="w-full max-w-md relative z-10">
@@ -83,7 +86,7 @@ export const Login = () => {
           />
           <div>
             <div className="flex justify-between items-center mb-2 ml-1">
-              <label className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">密码</label>
+              <label className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">密码</label>
               <span className="text-xs text-slate-400 font-bold">忘记密码请联系管理员</span>
             </div>
             <div className="relative">
@@ -118,7 +121,7 @@ export const Login = () => {
           )}
 
           <Button variant="primary" type="submit" disabled={isSubmitting} className="w-full h-14 text-lg rounded-2xl mt-4">
-            {isSubmitting ? 'Signing in...' : '进入工作台'}
+            {isSubmitting ? '正在登录...' : '进入工作台'}
           </Button>
         </form>
 

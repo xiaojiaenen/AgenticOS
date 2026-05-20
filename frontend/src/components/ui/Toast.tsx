@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useId } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 
@@ -19,7 +19,7 @@ function notify() {
   listeners.forEach((fn) => fn([...currentToasts]));
 }
 
-export function toast(message: string, options?: { variant?: ToastVariant; duration?: number }) {
+export function toast(message: string, options?: { variant?: ToastVariant; duration?: number }): number {
   toastId += 1;
   const item: ToastItem = {
     id: toastId,
@@ -28,6 +28,12 @@ export function toast(message: string, options?: { variant?: ToastVariant; durat
     duration: options?.duration ?? 4000,
   };
   currentToasts = [...currentToasts, item];
+  notify();
+  return item.id;
+}
+
+export function dismissToast(id: number) {
+  currentToasts = currentToasts.filter((t) => t.id !== id);
   notify();
 }
 
@@ -81,8 +87,18 @@ const variantIcons: Record<ToastVariant, React.ReactNode> = {
   ),
 };
 
+function useAutoDismiss(toasts: ToastItem[], onDismiss: (id: number) => void) {
+  useEffect(() => {
+    const timers = toasts.map((item) =>
+      setTimeout(() => onDismiss(item.id), item.duration ?? 4000)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [toasts, onDismiss]);
+}
+
 export const ToastContainer: React.FC = () => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const alertId = useId();
 
   useEffect(() => {
     const handler = (next: ToastItem[]) => setToasts(next);
@@ -90,33 +106,35 @@ export const ToastContainer: React.FC = () => {
     return () => { listeners.delete(handler); };
   }, []);
 
-  const remove = useCallback((id: number) => {
-    currentToasts = currentToasts.filter((t) => t.id !== id);
-    notify();
+  const dismiss = useCallback((id: number) => {
+    dismissToast(id);
   }, []);
 
+  useAutoDismiss(toasts, dismiss);
+
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col-reverse gap-3 pointer-events-none">
+    <div className="fixed bottom-6 right-6 z-[70] flex flex-col-reverse gap-3 pointer-events-none" aria-live="polite">
       <AnimatePresence>
         {toasts.map((item) => {
           const style = variantStyles[item.variant];
           return (
             <motion.div
               key={item.id}
+              role="alert"
               initial={{ opacity: 0, y: 24, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12, scale: 0.96 }}
+              exit={{ opacity: 0, x: 50, scale: 0.96 }}
               className={cn(
-                'pointer-events-auto flex items-center gap-3 rounded-2xl border px-5 py-3.5 shadow-lg backdrop-blur-xl',
+                'pointer-events-auto flex items-center gap-3 rounded-2xl border px-5 py-3.5 shadow-lg backdrop-blur-xl max-w-[380px]',
                 style.bg, style.border,
               )}
             >
               <span className={cn('flex-shrink-0', style.icon)}>
                 {variantIcons[item.variant]}
               </span>
-              <p className={cn('text-sm font-bold', style.text)}>{item.message}</p>
+              <p className={cn('text-sm font-bold break-words min-w-0', style.text)}>{item.message}</p>
               <button
-                onClick={() => remove(item.id)}
+                onClick={() => dismiss(item.id)}
                 className={cn('ml-2 flex-shrink-0 rounded-lg p-1 transition-colors hover:bg-black/5', style.text)}
                 aria-label="关闭通知"
               >
@@ -129,12 +147,3 @@ export const ToastContainer: React.FC = () => {
     </div>
   );
 };
-
-export function useAutoDismiss(onDismiss: (id: number) => void, toasts: ToastItem[]) {
-  useEffect(() => {
-    const timers = toasts.map((item) =>
-      setTimeout(() => onDismiss(item.id), item.duration ?? 4000)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [toasts, onDismiss]);
-}

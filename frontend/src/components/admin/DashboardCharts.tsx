@@ -288,14 +288,14 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                     tickFormatter={formatDay}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     dy={10}
                   />
                   <YAxis
                     yAxisId="left"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     tickFormatter={formatTokenNumber}
                     width={56}
                   />
@@ -304,7 +304,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                     orientation="right"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     tickFormatter={formatNumber}
                     width={36}
                   />
@@ -378,7 +378,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                       tickFormatter={formatDay}
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }}
+                      tick={{ fill: '#475569', fontSize: 11, fontWeight: 700 }}
                     />
                     <YAxis hide />
                     <Tooltip
@@ -414,7 +414,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                       tickFormatter={formatDay}
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }}
+                      tick={{ fill: '#475569', fontSize: 11, fontWeight: 700 }}
                     />
                     <YAxis hide />
                     <Tooltip
@@ -562,7 +562,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                     type="number"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     tickFormatter={formatTokenNumber}
                   />
                   <YAxis
@@ -570,7 +570,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     width={92}
                   />
                   <Tooltip
@@ -613,7 +613,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                     type="number"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     tickFormatter={formatNumber}
                   />
                   <YAxis
@@ -621,7 +621,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     width={84}
                   />
                   <Tooltip

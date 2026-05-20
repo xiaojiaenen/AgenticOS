@@ -36,7 +36,7 @@ export const Signup = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen bg-gradient-to-br from-[#d1fae5] via-[#a7f3d0] to-[#34d399] relative flex items-center justify-center p-4 selection:bg-zinc-200 selection:text-zinc-900 overflow-hidden"
+      className="min-h-screen bg-gradient-to-br from-[#dbeafe] via-[#bae6fd] to-[#38bdf8] relative flex items-center justify-center p-4 selection:bg-zinc-200 selection:text-zinc-900 overflow-hidden"
     >
       <a href="#main-content" className="skip-link">跳转到主要内容</a>
       <motion.button
@@ -51,8 +51,11 @@ export const Signup = () => {
       </motion.button>
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        {/* Animated ambient blobs */}
+        <div className="absolute -top-20 -left-12 w-[50vw] h-[50vw] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.20),transparent_70%)] blur-[70px] animate-[bg-blob-2_15s_ease-in-out_infinite]" />
+        <div className="absolute -bottom-16 -right-10 w-[48vw] h-[48vw] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.18),transparent_70%)] blur-[70px] animate-[bg-blob-4_17s_ease-in-out_infinite]" />
+        <div className="absolute top-1/2 left-1/5 w-[38vw] h-[38vw] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.15),transparent_70%)] blur-[80px] animate-[bg-blob-1_14s_ease-in-out_infinite]" />
         <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.03]" />
-        <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-emerald-200 rounded-full mix-blend-overlay filter blur-[60px] opacity-25" />
       </div>
 
       <main id="main-content" className="w-full max-w-md relative z-10">
@@ -90,7 +93,7 @@ export const Signup = () => {
             autoComplete="email"
           />
           <div>
-            <label className="mb-2 ml-1 block text-xs font-black uppercase tracking-[0.2em] text-slate-400">密码</label>
+            <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-[0.15em] text-slate-500">密码</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -124,7 +127,7 @@ export const Signup = () => {
           )}
 
           <Button variant="primary" type="submit" disabled={isSubmitting} className="w-full h-14 text-lg rounded-2xl mt-4">
-            {isSubmitting ? 'Creating...' : '注册账号'}
+            {isSubmitting ? '正在注册...' : '注册账号'}
           </Button>
         </form>
 

@@ -26,7 +26,7 @@ export const Home = () => {
           const general = res.items.find((a) => a.slug === 'general');
           if (general) setSelectedAgentProfileId(general.id);
         })
-        .catch(() => {});
+        .catch(() => { /* non-critical, silent */ });
     }
   }, []);
 
@@ -53,7 +53,7 @@ export const Home = () => {
   };
 
   return (
-    <motion.div 
+    <motion.div
       key="home"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -61,31 +61,35 @@ export const Home = () => {
       className="min-h-screen relative overflow-hidden font-sans flex flex-col selection:bg-zinc-200 selection:text-zinc-900"
       style={{
         background:
-          'radial-gradient(ellipse 700px 500px at 15% 5%, rgba(14,165,233,0.15), transparent 52%),' +
-          'radial-gradient(ellipse 550px 500px at 90% 6%, rgba(139,92,246,0.10), transparent 50%),' +
-          'radial-gradient(ellipse 450px 420px at 80% 65%, rgba(251,191,36,0.09), transparent 48%),' +
-          'radial-gradient(ellipse 500px 450px at 8% 88%, rgba(16,185,129,0.10), transparent 48%),' +
-          'radial-gradient(ellipse 400px 380px at 50% 94%, rgba(56,189,248,0.12), transparent 46%),' +
-          'linear-gradient(180deg, #e8f2fa 0%, #f2f7fc 28%, #eff4fa 55%, #ecf2f7 100%)',
+          'linear-gradient(180deg, #def0f6 0%, #e7f4f9 28%, #e1f2f7 55%, #e3f2f7 100%)',
       }}
     >
-      <a href="#main-content" className="skip-link">跳转到主要内容</a>
-
-      {/* Multicolor ambient glows + dot grid + Giant Mascot */}
+      {/* Animated ambient blob layer */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        {/* Large cyan blob — top left */}
+        <div className="absolute -top-32 -left-20 w-[620px] h-[620px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.18),transparent_70%)] blur-[80px] animate-[bg-blob-1_14s_ease-in-out_infinite]" />
+        {/* Teal blob — top right */}
+        <div className="absolute -top-28 -right-16 w-[540px] h-[540px] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.15),transparent_70%)] blur-[80px] animate-[bg-blob-2_16s_ease-in-out_infinite]" />
+        {/* Sky blue blob — bottom left */}
+        <div className="absolute -bottom-24 left-1/3 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.14),transparent_70%)] blur-[90px] animate-[bg-blob-3_15s_ease-in-out_infinite]" />
+        {/* Cyan blob — bottom right */}
+        <div className="absolute -bottom-20 -right-10 w-[460px] h-[460px] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.13),transparent_70%)] blur-[80px] animate-[bg-blob-4_13s_ease-in-out_infinite]" />
+
+        {/* Subtle dot grid */}
         <div className="absolute inset-0" style={{
           backgroundImage:
-            'linear-gradient(90deg, rgba(15,23,42,0.025) 1px, transparent 1px),' +
-            'linear-gradient(0deg, rgba(15,23,42,0.018) 1px, transparent 1px)',
-          backgroundSize: '48px 48px',
-          maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.5), rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.18))',
+            'radial-gradient(circle, rgba(14,165,233,0.10) 1px, transparent 1px)',
+          backgroundSize: '52px 52px',
+          maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.06) 55%, rgba(0,0,0,0.15))',
         }} />
 
+        {/* Shimmer overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(105deg,transparent_35%,rgba(255,255,255,0.18)_48%,transparent_62%)] animate-[bg-drift-slow_18s_ease-in-out_infinite]" />
+
         {/* Giant Mascot Background */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-[0.025] text-slate-900 mix-blend-overlay pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center opacity-[0.035] text-slate-900 mix-blend-overlay pointer-events-none">
           <RandomMascot size={1000} />
         </div>
-
       </div>
 
       {/* Top Navigation */}
@@ -101,7 +105,7 @@ export const Home = () => {
           {user ? (
             <Button
               variant="secondary"
-              onClick={() => navigate('/chat')}
+              onClick={() => navigate('/agents')}
             >
               {user.name}
             </Button>
@@ -149,6 +153,7 @@ export const Home = () => {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
+            maxLength={4000}
             autoFocus
           />
           <div className="flex justify-between items-center px-4 pb-3">
