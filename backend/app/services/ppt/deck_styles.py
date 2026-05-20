@@ -89,6 +89,19 @@ DECK_STYLES: dict[str, dict] = {
         "recommended_themes": ["glassmorphism", "vaporwave", "memphis-pop", "bauhaus", "y2k-chrome", "retro-tv", "futuristic", "cosmic", "creative"],
         "best_for": ["设计作品集", "艺术展览", "潮流发布", "年终总结"],
     },
+    "swiss_international": {
+        "label": "瑞士国际主义",
+        "description": "16列网格 + 直角 + 单一饱和accent + 1px hairline + 无渐变无阴影 + 极端字号反差",
+        "font_display": "Inter Tight, Inter, Noto Sans SC, sans-serif",
+        "font_body": "Inter, Noto Sans SC, sans-serif",
+        "font_mono": "JetBrains Mono, monospace",
+        "accent_usage": "single saturated accent, max 2 uses per slide",
+        "radius": "0px — strictly no rounded corners",
+        "shadow": "none — strictly forbidden",
+        "forbidden": ["rounded corners (border-radius > 0)", "gradients", "drop shadows", "blur", "serif fonts", "decorative emoji", "more than 2 accent uses per slide"],
+        "recommended_themes": ["klein-blue", "swiss-grid", "minimal", "mono", "bauhaus", "brutalist"],
+        "best_for": ["商业报告", "AI/设计提案", "事实演讲", "工业分析"],
+    },
 }
 
 
@@ -110,4 +123,13 @@ def build_deck_styles_text() -> str:
         )
     lines.append("")
     lines.append("**使用方法**：根据用户需求匹配一个风格，遵循其 accent_usage、radius、forbidden 约束。推荐主题仅供参考——可从 161 个完整列表中另选。")
+    lines.append("")
+    lines.append("### 瑞士国际主义风格特别约束（选择此风格时必须遵守）")
+    lines.append("")
+    lines.append("- **只用直角**：所有 rect 的 rx/ry=0，严禁圆角。圆角 = 立刻违反风格契约")
+    lines.append("- **1px hairline 边框**：用 `stroke=\"var(--border)\" stroke-width=\"1\"`，严禁阴影滤镜/gradient/blur")
+    lines.append("- **极端字号反差**：封面标题 9-12vw 级（48-72px），正文 14-16px，标签 11px uppercase letter-spacing=0.08em")
+    lines.append("- **16 列隐式网格**：所有元素对齐到 1280/16=80px 的列网格上")
+    lines.append("- **单一饱和 accent**：整份 deck 仅使用一个高饱和强调色，其余为黑白灰中性色")
+    lines.append("- **不许编造数据**：数字必须来自用户输入，图表柱高/弧度为真实数据按比例")
     return "\n".join(lines)
