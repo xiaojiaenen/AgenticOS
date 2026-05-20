@@ -18,10 +18,10 @@ SVG_LAYOUTS: dict[str, str] = {
   <rect width="1280" height="720" fill="var(--bg)"/>
   <!-- 顶部装饰条 -->
   <rect x="0" y="0" width="1280" height="4" fill="var(--accent)"/>
-  <g text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <g text-anchor="middle" font-family="var(--font-sans)" id="bg-layer">
         <g id="cover-header">
 <text x="640" y="180" font-size="18" fill="var(--accent)" font-weight="600">KICKER · 分类标签</text>
-    <text x="640" y="300" font-size="68" font-weight="800" fill="var(--text-1)">
+    <text x="640" y="300" font-size="68" font-weight="800" fill="var(--text-1)" font-family="var(--font-display)">
       <tspan x="640" dy="0">主标题第一行</tspan>
       <tspan x="640" dy="82" fill="var(--accent)">高亮关键词</tspan>
       <tspan x="640" dy="82">主标题第三行</tspan>
@@ -44,18 +44,18 @@ SVG_LAYOUTS: dict[str, str] = {
     </g>
 </g>
   <!-- 页脚 -->
-  <text x="80" y="680" font-size="12" fill="var(--text-3)" font-family="Inter,Noto Sans SC,sans-serif">公司名</text>
-  <text x="1200" y="680" text-anchor="middle" font-size="12" fill="var(--text-3)" font-family="Inter,Noto Sans SC,sans-serif">1 / 10</text>
+  <text x="80" y="680" font-size="12" fill="var(--text-3)" font-family="var(--font-sans)">公司名</text>
+  <text x="1200" y="680" text-anchor="middle" font-size="12" fill="var(--text-3)" font-family="var(--font-sans)">1 / 10</text>
   <!-- notes: 开场白，150-300 字 -->
 </svg>""",
 
     "toc": """<!-- layout: toc | 目录 | 2×3 网格目录（可保留编号或替换为图标） -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="70" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">目录</text>
-  <text x="80" y="120" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">内容概览</text>
+  <text x="80" y="70" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">目录</text>
+  <text x="80" y="120" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">内容概览</text>
   <!-- 6 个目录卡片 2×3 网格 -->
-  <g font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <g font-family="var(--font-sans)" id="bg-layer">
     
     <g id="toc-01">
 <rect x="60" y="170" width="370" height="150" rx="8" fill="var(--surface)"/>
@@ -121,13 +121,15 @@ SVG_LAYOUTS: dict[str, str] = {
     "section-divider": """<!-- layout: section-divider | 章节分隔 | 大号编号 + 章节标题 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg-soft)"/>
-  <!-- 左侧色块装饰 -->
-  <rect x="0" y="0" width="8" height="720" fill="var(--accent)"/>
-  <g font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
-    <text x="120" y="300" font-size="120" font-weight="900" fill="var(--accent)" opacity="0.15">03</text>
-    <text x="120" y="340" font-size="22" fill="var(--accent)" font-weight="600">SECTION 03</text>
-    <text x="120" y="410" font-size="48" font-weight="800" fill="var(--text-1)">章节标题</text>
-    <text x="120" y="470" font-size="20" fill="var(--text-2)">本章节的核心问题或主题引导语</text>
+  <!-- 顶部装饰条 + 右侧装饰几何 -->
+  <rect x="0" y="0" width="1280" height="4" fill="var(--accent)"/>
+  <circle cx="1100" cy="360" r="220" fill="var(--accent)" opacity="0.04"/>
+  <circle cx="1100" cy="360" r="140" fill="var(--accent)" opacity="0.06"/>
+  <g font-family="var(--font-sans)" id="bg-layer">
+    <text x="120" y="260" font-size="140" font-weight="900" fill="var(--accent)" opacity="0.12">03</text>
+    <text x="120" y="310" font-size="20" fill="var(--accent)" font-weight="600" letter-spacing="4">SECTION 03</text>
+    <text x="120" y="380" font-size="48" font-weight="800" fill="var(--text-1)">章节标题</text>
+    <text x="120" y="440" font-size="20" fill="var(--text-2)">本章节的核心问题或主题引导语</text>
   </g>
 </svg>""",
 
@@ -135,9 +137,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "stat-highlight": """<!-- layout: stat-highlight | 数据突出 | 超大数字 + 说明 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <g text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <g text-anchor="middle" font-family="var(--font-sans)" id="bg-layer">
     <text x="640" y="140" font-size="18" fill="var(--accent)" font-weight="600">KICKER</text>
-    <text x="640" y="240" font-size="120" font-weight="900" fill="var(--text-1)">+42%</text>
+    <text x="640" y="240" font-size="120" font-weight="900" fill="var(--text-1)" font-family="var(--font-display)">+42%</text>
     <text x="640" y="320" font-size="28" fill="var(--text-1)" font-weight="600">核心指标标题</text>
     <text x="640" y="380" font-size="16" fill="var(--text-2)">对比周期：2024 Q3 vs 2025 Q3</text>
     <!-- 三个支撑数据点 -->
@@ -168,9 +170,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "kpi-grid": """<!-- layout: kpi-grid | KPI 面板 | 2×2 指标卡片带涨跌 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">核心指标</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">Q3 关键数据</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">核心指标</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">Q3 关键数据</text>
+  <g font-family="var(--font-sans)" id="bg-layer">
     
     <g id="kpi-1">
 <!-- 卡片 1 -->
@@ -226,50 +228,50 @@ SVG_LAYOUTS: dict[str, str] = {
     "chart-bar": """<!-- layout: chart-bar | 柱状图 | 7 根柱子 + 标签 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">数据分析</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">月度营收趋势</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" font-size="13" text-anchor="middle" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">数据分析</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">月度营收趋势</text>
+  <g font-family="var(--font-sans)" font-size="13" text-anchor="middle" id="bg-layer">
     <!-- Y 轴网格线 -->
     <line x1="100" y1="150" x2="100" y2="620" stroke="var(--border)"/>
     <line x1="100" y1="620" x2="1180" y2="620" stroke="var(--border)"/>
-    <!-- 7 根柱子，h 值决定高度，y = 620 - h -->
+    <!-- 7 根柱子：前 6 根用 surface-2 作中性底色，最新/最高柱子用 accent 突出 -->
     <!-- 1月 -->
-    <rect x="150" y="420" width="80" height="200" rx="4" fill="var(--accent)"/>
+    <rect x="150" y="420" width="80" height="200" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
     <text x="190" y="650" fill="var(--text-2)">1月</text>
-    <text x="190" y="405" fill="var(--text-1)" font-weight="600">2.1M</text>
+    <text x="190" y="405" fill="var(--text-2)" font-weight="600">2.1M</text>
     <!-- 2月 -->
-    <rect x="280" y="380" width="80" height="240" rx="4" fill="var(--accent)"/>
+    <rect x="280" y="380" width="80" height="240" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
     <text x="320" y="650" fill="var(--text-2)">2月</text>
-    <text x="320" y="365" fill="var(--text-1)" font-weight="600">2.5M</text>
+    <text x="320" y="365" fill="var(--text-2)" font-weight="600">2.5M</text>
     <!-- 3月 -->
-    <rect x="410" y="350" width="80" height="270" rx="4" fill="var(--accent)"/>
+    <rect x="410" y="350" width="80" height="270" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
     <text x="450" y="650" fill="var(--text-2)">3月</text>
-    <text x="450" y="335" fill="var(--text-1)" font-weight="600">2.8M</text>
+    <text x="450" y="335" fill="var(--text-2)" font-weight="600">2.8M</text>
     <!-- 4月 -->
-    <rect x="540" y="310" width="80" height="310" rx="4" fill="var(--accent-2)"/>
+    <rect x="540" y="310" width="80" height="310" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
     <text x="580" y="650" fill="var(--text-2)">4月</text>
-    <text x="580" y="295" fill="var(--text-1)" font-weight="600">3.2M</text>
+    <text x="580" y="295" fill="var(--text-2)" font-weight="600">3.2M</text>
     <!-- 5月 -->
-    <rect x="670" y="290" width="80" height="330" rx="4" fill="var(--accent-2)"/>
+    <rect x="670" y="290" width="80" height="330" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
     <text x="710" y="650" fill="var(--text-2)">5月</text>
-    <text x="710" y="275" fill="var(--text-1)" font-weight="600">3.4M</text>
+    <text x="710" y="275" fill="var(--text-2)" font-weight="600">3.4M</text>
     <!-- 6月 -->
-    <rect x="800" y="240" width="80" height="380" rx="4" fill="var(--accent-2)"/>
+    <rect x="800" y="240" width="80" height="380" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
     <text x="840" y="650" fill="var(--text-2)">6月</text>
-    <text x="840" y="225" fill="var(--text-1)" font-weight="600">3.9M</text>
-    <!-- 7月 -->
-    <rect x="930" y="160" width="80" height="460" rx="4" fill="var(--good)"/>
+    <text x="840" y="225" fill="var(--text-2)" font-weight="600">3.9M</text>
+    <!-- 7月 ★ 最新高亮 -->
+    <rect x="930" y="160" width="80" height="460" rx="4" fill="var(--accent)"/>
     <text x="970" y="650" fill="var(--text-2)">7月</text>
-    <text x="970" y="145" fill="var(--text-1)" font-weight="600">4.7M</text>
+    <text x="970" y="145" fill="var(--accent)" font-weight="700">4.7M</text>
   </g>
 </svg>""",
 
     "chart-line": """<!-- layout: chart-line | 折线图 | 双折线对比 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">趋势对比</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">营收 vs 用户增长</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" font-size="12" text-anchor="middle" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">趋势对比</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">营收 vs 用户增长</text>
+  <g font-family="var(--font-sans)" font-size="12" text-anchor="middle" id="bg-layer">
     <line x1="100" y1="150" x2="100" y2="600" stroke="var(--border)"/>
     <line x1="100" y1="600" x2="1180" y2="600" stroke="var(--border)"/>
     <!-- 网格线 -->
@@ -319,9 +321,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "chart-pie": """<!-- layout: chart-pie | 饼图 | 5 块扇形 + 图例 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">构成分析</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">营收来源分布</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">构成分析</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">营收来源分布</text>
+  <g font-family="var(--font-sans)" text-anchor="middle" id="bg-layer">
     <!-- 饼图扇形：5 块，从 12 点方向顺时针，用 SVG path A 命令绘制 -->
     <!-- 45%: 0°→162°, 25%: 162°→252°, 15%: 252°→306°, 10%: 306°→342°, 5%: 342°→360° -->
     <path d="M 480 420 L 480.0 240.0 A 180 180 0 0 1 535.6 591.2 Z" fill="var(--accent)"/>
@@ -350,9 +352,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "chart-radar": """<!-- layout: chart-radar | 雷达图 | 5 维度评估 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">能力评估</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">五维度雷达图</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">能力评估</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">五维度雷达图</text>
+  <g font-family="var(--font-sans)" text-anchor="middle" id="bg-layer">
     <!-- 5 条轴线（从中心到顶点） -->
     <!-- 中心: (640, 390), 半径: 180 -->
     <!-- 顶点角度（12 点方向起顺时针）: 技术=0°, 产品=72°, 运营=144°, 商业=216°, 组织=288° -->
@@ -384,9 +386,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "table": """<!-- layout: table | 数据表格 | 6 行 × 4 列 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">数据明细</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">Top 5 客户</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">数据明细</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">Top 5 客户</text>
+  <g font-family="var(--font-sans)" id="bg-layer">
     <!-- 表头 -->
     <rect x="60" y="150" width="1160" height="44" rx="8" fill="var(--accent)"/>
     <text x="100" y="177" font-size="14" font-weight="700" fill="var(--bg)">客户名称</text>
@@ -432,9 +434,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "bullets": """<!-- layout: bullets | 要点列表 | 图标 + 标题 + 描述 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">要点</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">核心观点</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">要点</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">核心观点</text>
+  <g font-family="var(--font-sans)" id="bg-layer">
     
     <g id="bullet-1">
 <rect x="80" y="170" width="1120" height="120" rx="8" fill="var(--surface)"/>
@@ -466,9 +468,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "two-column": """<!-- layout: two-column | 双栏对比 | 左概念右示例 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">对比分析</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">方案 A vs 方案 B</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">对比分析</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">方案 A vs 方案 B</text>
+  <g font-family="var(--font-sans)" id="bg-layer">
     <!-- 左栏 -->
         <g id="column-left">
 <rect x="60" y="160" width="560" height="480" rx="16" fill="var(--surface)"/>
@@ -501,9 +503,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "three-column": """<!-- layout: three-column | 三栏展示 | 图标 + 标题 + 描述 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">三大支柱</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">战略方向</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">三大支柱</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">战略方向</text>
+  <g font-family="var(--font-sans)" text-anchor="middle" id="bg-layer">
     
     <g id="column-1">
 <rect x="60" y="170" width="370" height="420" rx="16" fill="var(--surface)"/>
@@ -536,10 +538,10 @@ SVG_LAYOUTS: dict[str, str] = {
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
   <rect x="0" y="0" width="1280" height="6" fill="var(--accent)"/>
-  <g text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <g text-anchor="middle" font-family="var(--font-sans)" id="bg-layer">
         <g id="quote-text">
 <text x="640" y="240" font-size="120" font-weight="900" fill="var(--accent)" opacity="0.12">"</text>
-    <text x="640" y="340" font-size="32" fill="var(--text-1)" font-weight="600">
+    <text x="640" y="340" font-size="32" fill="var(--text-1)" font-weight="600" font-family="var(--font-display)">
       <tspan x="640" dy="0">好的产品不是功能的堆砌，</tspan>
       <tspan x="640" dy="48">而是每一个决策背后的用户洞察。</tspan>
     </text>
@@ -558,9 +560,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "comparison": """<!-- layout: comparison | 对比 | 左右对比 + 中间 VS -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">对比分析</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">传统方案 vs 新方案</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">对比分析</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">传统方案 vs 新方案</text>
+  <g font-family="var(--font-sans)" text-anchor="middle" id="bg-layer">
         <g id="cmp-old">
 <rect x="60" y="160" width="520" height="440" rx="16" fill="var(--surface)"/>
     <rect x="60" y="160" width="520" height="6" rx="3" fill="var(--bad)"/>
@@ -595,9 +597,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "pros-cons": """<!-- layout: pros-cons | 优缺点 | 绿色优点 + 红色缺点 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">评估</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">方案优缺点</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">评估</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">方案优缺点</text>
+  <g font-family="var(--font-sans)" id="bg-layer">
         <g id="pc-pros">
 <rect x="60" y="160" width="560" height="460" rx="16" fill="var(--surface)"/>
     <!-- 图标：先用 search_icons 搜索关键词，再填入 data-icon -->
@@ -635,9 +637,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "diff": """<!-- layout: diff | 代码差异 | +/- 对比视图 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">变更分析</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">代码变更 diff</text>
-  <g font-family="JetBrains Mono,monospace" font-size="14" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">变更分析</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">代码变更 diff</text>
+  <g font-family="var(--font-mono)" font-size="14" id="bg-layer">
     <rect x="60" y="150" width="1160" height="500" rx="12" fill="var(--surface)"/>
     <!-- 上下文 -->
     <text x="90" y="185" fill="var(--text-2)">  123  function processData(input) {</text>
@@ -658,9 +660,9 @@ SVG_LAYOUTS: dict[str, str] = {
     <text x="90" y="421" fill="var(--good)">+ 128  export { processData as default };</text>
     <!-- 图例 -->
     <rect x="90" y="610" width="12" height="12" rx="2" fill="var(--bad)" opacity="0.15"/>
-    <text x="110" y="621" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" fill="var(--text-2)">删除</text>
+    <text x="110" y="621" font-family="var(--font-sans)" font-size="13" fill="var(--text-2)">删除</text>
     <rect x="180" y="610" width="12" height="12" rx="2" fill="var(--good)" opacity="0.15"/>
-    <text x="200" y="621" font-family="Inter,Noto Sans SC,sans-serif" font-size="13" fill="var(--text-2)">新增</text>
+    <text x="200" y="621" font-family="var(--font-sans)" font-size="13" fill="var(--text-2)">新增</text>
   </g>
 </svg>""",
 
@@ -668,9 +670,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "flow-diagram": """<!-- layout: flow-diagram | 流程图 | 5 步骤水平管道 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">流程</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">数据处理管道</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">流程</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">数据处理管道</text>
+  <g font-family="var(--font-sans)" text-anchor="middle" id="bg-layer">
     
     <g id="step-1">
 <!-- 步骤 1 -->
@@ -737,9 +739,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "arch-diagram": """<!-- layout: arch-diagram | 架构图 | 3 层架构 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">架构</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">系统架构总览</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">架构</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">系统架构总览</text>
+  <g font-family="var(--font-sans)" text-anchor="middle" id="bg-layer">
     <!-- 展示层 -->
     <rect x="80" y="160" width="1120" height="130" rx="12" fill="var(--accent)" opacity="0.08"/>
     <text x="640" y="190" font-size="18" font-weight="700" fill="var(--accent)">展示层 Presentation</text>
@@ -765,9 +767,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "process-steps": """<!-- layout: process-steps | 步骤 | 4 步编号卡片（图标+编号） -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">步骤</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">4 步实施流程</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">步骤</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">4 步实施流程</text>
+  <g font-family="var(--font-sans)" text-anchor="middle" id="bg-layer">
     
     <g id="step-1">
 <rect x="60" y="170" width="270" height="380" rx="16" fill="var(--surface)"/>
@@ -815,9 +817,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "mindmap": """<!-- layout: mindmap | 思维导图 | 中心 + 4 分支 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">思维导图</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">产品规划全景</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">思维导图</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">产品规划全景</text>
+  <g font-family="var(--font-sans)" text-anchor="middle" id="bg-layer">
     <!-- 中心节点 -->
     <circle cx="640" cy="380" r="70" fill="var(--accent)"/>
     <text x="640" y="375" font-size="20" font-weight="800" fill="var(--bg)">产品</text>
@@ -865,9 +867,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "timeline": """<!-- layout: timeline | 时间线 | 5 事件水平时间轴 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">时间线</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">项目里程碑</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">时间线</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">项目里程碑</text>
+  <g font-family="var(--font-sans)" text-anchor="middle" id="bg-layer">
     <!-- 水平线 -->
     <line x1="100" y1="350" x2="1180" y2="350" stroke="var(--accent)" stroke-width="2"/>
     
@@ -926,9 +928,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "roadmap": """<!-- layout: roadmap | 路线图 | NOW/NEXT/LATER/VISION 4 列 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">路线图</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">产品路线图</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">路线图</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">产品路线图</text>
+  <g font-family="var(--font-sans)" text-anchor="middle" id="bg-layer">
     <!-- NOW -->
     
     <g id="rm-now">
@@ -988,9 +990,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "gantt": """<!-- layout: gantt | 甘特图 | 4 条轨道的进度条 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">项目计划</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">甘特图</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">项目计划</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">甘特图</text>
+  <g font-family="var(--font-sans)" id="bg-layer">
     <!-- 表头 -->
     <rect x="300" y="150" width="900" height="30" rx="4" fill="var(--surface)"/>
     <text x="340" y="170" font-size="11" fill="var(--text-2)">Q1</text><text x="430" y="170" font-size="11" fill="var(--text-2)">Q2</text>
@@ -1024,9 +1026,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "code": """<!-- layout: code | 代码块 | 语法高亮代码展示 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">代码示例</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">核心实现</text>
-  <g font-family="JetBrains Mono,monospace" font-size="14" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">代码示例</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">核心实现</text>
+  <g font-family="var(--font-mono)" font-size="14" id="bg-layer">
     <!-- 代码框 -->
     <rect x="60" y="150" width="1160" height="470" rx="12" fill="var(--surface)"/>
     <!-- 窗口控制点 -->
@@ -1077,9 +1079,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "terminal": """<!-- layout: terminal | 终端窗口 | 命令行录屏 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">操作演示</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">命令行部署</text>
-  <g font-family="JetBrains Mono,monospace" font-size="14" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">操作演示</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">命令行部署</text>
+  <g font-family="var(--font-mono)" font-size="14" id="bg-layer">
     <rect x="60" y="160" width="1160" height="440" rx="12" fill="#1a1b26"/>
     <circle cx="85" cy="195" r="7" fill="#ff5f57"/>
     <circle cx="110" cy="195" r="7" fill="#febc2e"/>
@@ -1108,24 +1110,24 @@ SVG_LAYOUTS: dict[str, str] = {
   <rect width="1280" height="720" fill="var(--bg-soft)"/>
   <!-- 模拟大图区域（用渐变 + pattern 表示） -->
   <rect x="0" y="0" width="1280" height="520" fill="var(--surface)"/>
-  <text x="640" y="250" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" font-size="24" fill="var(--text-3)">[ 图片区域 ]</text>
+  <text x="640" y="250" text-anchor="middle" font-family="var(--font-sans)" font-size="24" fill="var(--text-3)">[ 图片区域 ]</text>
   <!-- 底部蒙版 -->
   <rect x="0" y="380" width="1280" height="140" fill="var(--bg)" opacity="0.85"/>
   <!-- 叠加文字 -->
-  <g text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <g text-anchor="middle" font-family="var(--font-sans)" id="bg-layer">
     <text x="640" y="450" font-size="44" font-weight="800" fill="var(--text-1)">视觉冲击标题</text>
     <text x="640" y="500" font-size="18" fill="var(--text-2)">副标题或描述文字</text>
   </g>
   <!-- 底部信息 -->
-  <text x="80" y="620" font-size="14" fill="var(--text-2)" font-family="Inter,Noto Sans SC,sans-serif">图片来源 · 摄影师</text>
+  <text x="80" y="620" font-size="14" fill="var(--text-2)" font-family="var(--font-sans)">图片来源 · 摄影师</text>
 </svg>""",
 
     "image-grid": """<!-- layout: image-grid | 图片网格 | Bento 风格 7 宫格 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">产品展示</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">界面截图</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" text-anchor="middle" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">产品展示</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">界面截图</text>
+  <g font-family="var(--font-sans)" text-anchor="middle" id="bg-layer">
     <!-- Bento 网格布局 -->
     <!-- 大图（左） -->
     
@@ -1172,7 +1174,7 @@ SVG_LAYOUTS: dict[str, str] = {
     "cta": """<!-- layout: cta | 行动号召 | 居中大字 CTA + 按钮 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg-soft)"/>
-  <g text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <g text-anchor="middle" font-family="var(--font-sans)" id="bg-layer">
         <g id="cta-text">
 <text x="640" y="220" font-size="52" font-weight="800" fill="var(--text-1)">
       <tspan x="640" dy="0">准备好了吗？</tspan>
@@ -1208,9 +1210,9 @@ SVG_LAYOUTS: dict[str, str] = {
   <!-- 装饰色块 -->
   <rect x="0" y="0" width="1280" height="8" fill="var(--accent)"/>
   <circle cx="640" cy="320" r="80" fill="var(--accent)" opacity="0.08"/>
-  <g text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <g text-anchor="middle" font-family="var(--font-sans)" id="bg-layer">
         <g id="thanks-text">
-<text x="640" y="310" font-size="64" font-weight="900" fill="var(--text-1)">Thank You</text>
+<text x="640" y="310" font-size="64" font-weight="900" fill="var(--text-1)" font-family="var(--font-display)">Thank You</text>
     <text x="640" y="360" font-size="22" fill="var(--text-2)">感谢您的宝贵时间</text>
     <line x1="520" y1="420" x2="760" y2="420" stroke="var(--accent)" stroke-width="2"/>
         
@@ -1227,9 +1229,9 @@ SVG_LAYOUTS: dict[str, str] = {
     "todo-checklist": """<!-- layout: todo-checklist | 待办清单 | 勾选完成列表 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
   <rect width="1280" height="720" fill="var(--bg)"/>
-  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="Inter,Noto Sans SC,sans-serif">执行清单</text>
-  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">下一步行动清单</text>
-  <g font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">执行清单</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">下一步行动清单</text>
+  <g font-family="var(--font-sans)" id="bg-layer">
     <rect x="60" y="160" width="1160" height="460" rx="16" fill="var(--surface)"/>
     <!-- 已完成项 -->
     
