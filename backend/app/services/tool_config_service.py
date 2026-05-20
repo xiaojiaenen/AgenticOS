@@ -153,15 +153,19 @@ TOOL_CATALOG = {
         "label": "PPTX转SVG",
         "description": "将上传的PPTX文件转换为SVG，提取幻灯片中的矢量图形用于设计参考。",
         "builtin_name": None,
-        "approval_scope": [],
-        "sub_tools": {},
+        "approval_scope": ["convert_pptx_to_svg"],
+        "sub_tools": {
+            "convert_pptx_to_svg": {"label": "转换PPTX为SVG", "description": "将上传的PPTX文件转换为SVG矢量图形"},
+        },
     },
     "import_pptx_template": {
         "label": "导入PPTX模板",
         "description": "将PPTX文件作为设计模板导入，提取主题颜色、布局结构和媒体资源。",
         "builtin_name": None,
-        "approval_scope": [],
-        "sub_tools": {},
+        "approval_scope": ["import_pptx_template"],
+        "sub_tools": {
+            "import_pptx_template": {"label": "导入PPTX模板", "description": "将PPTX文件导入为设计模板，提取主题和布局"},
+        },
     },
     "email": {
         "label": "邮件工具",
