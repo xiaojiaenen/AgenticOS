@@ -87,9 +87,10 @@ _COLOR_TOKEN_NAMES = {
     "--text-1", "--text-2", "--text-3",
     "--accent", "--accent-2", "--accent-3",
     "--good", "--warn", "--bad",
+    "--grad", "--grad-soft",
 }
 
-# Tokens that can be resolved with string replacement (colors + fonts)
+# Tokens that can be resolved with string replacement (colors + gradients + fonts)
 _RESOLVABLE_TOKEN_NAMES = _COLOR_TOKEN_NAMES | {
     "--font-sans", "--font-display", "--font-mono", "--font-serif",
 }

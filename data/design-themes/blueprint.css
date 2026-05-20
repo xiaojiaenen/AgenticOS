@@ -1,30 +1,30 @@
-/* PPT theme: blueprint — auto-generated from open-design */
+/* PPT theme: blueprint — manually converted from open-design html-ppt */
 
 :root {
   --bg: #0b3a6f;
-  --bg-soft: #234d7d;
-  --surface: #0a386c;
-  --surface-2: #204875;
-  --border: #f9fcff;
-  --border-strong: #f4f9ff;
+  --bg-soft: #0a3260;
+  --surface: rgba(255,255,255,.06);
+  --surface-2: rgba(255,255,255,.1);
+  --border: rgba(190,220,255,.3);
+  --border-strong: rgba(190,220,255,.55);
   --text-1: #e8f3ff;
-  --text-2: #f1f7ff;
-  --text-3: #f6faff;
+  --text-2: #b8d4f0;
+  --text-3: #7da8cf;
   --accent: #ffffff;
-  --accent-2: #60a5fa;
-  --accent-3: #2563eb;
+  --accent-2: #aee1ff;
+  --accent-3: #ffd27a;
   --good: #8ef0a6;
-  --warn: #eab308;
-  --bad: #dc2626;
-  --grad: linear-gradient(135deg, #ffffff, #ffffff);
-  --grad-soft: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+  --warn: #ffd27a;
+  --bad: #ff8a96;
+  --grad: linear-gradient(135deg, #ffffff, #aee1ff);
+  --grad-soft: linear-gradient(135deg, #0a3260, #0b3a6f);
   --font-sans: 'JetBrains Mono','IBM Plex Mono',monospace;
   --font-display: 'JetBrains Mono',monospace;
-  --font-mono: JetBrains Mono, monospace;
-  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
   --radius: 2px;
-  --radius-sm: 8px;
-  --radius-lg: 20px;
+  --radius-sm: 2px;
+  --radius-lg: 4px;
   --shadow: none;
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --shadow-lg: 0 16px 40px rgba(0,0,0,.3);
 }

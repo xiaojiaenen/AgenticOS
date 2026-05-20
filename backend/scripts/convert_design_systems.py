@@ -315,23 +315,60 @@ def _classify_flat(colors: list[tuple[str, str]]) -> dict[str, str]:
     return result
 
 
+def _is_dark_theme(result: dict[str, str]) -> bool:
+    """Detect whether the theme is dark by checking background lightness."""
+    bg = result.get("--bg", "")
+    if bg and is_hex6(bg):
+        return perceived_lightness(bg) < 128
+    return False
+
+
 def _fill_neutral_gaps(result: dict[str, str]) -> None:
-    """Derive missing neutral tokens from what we have."""
+    """Derive missing neutral tokens from what we have.
+
+    Only fills tokens that are genuinely absent. Never overwrites
+    existing values. Uses dark/light-aware synthesis.
+    """
+    dark = _is_dark_theme(result)
+
     if "--bg-soft" not in result and "--bg" in result:
-        result["--bg-soft"] = darken(result["--bg"], 0.03) if perceived_lightness(result["--bg"]) > 200 else lighten(result["--bg"], 0.1)
-    if "--surface" not in result:
-        result["--surface"] = darken(result.get("--bg", FALLBACKS["--bg"]), 0.02)
+        bg = result["--bg"]
+        if dark:
+            result["--bg-soft"] = darken(bg, 0.05)
+        else:
+            result["--bg-soft"] = darken(bg, 0.03)
+    if "--surface" not in result and "--bg" in result:
+        if dark:
+            result["--surface"] = lighten(result["--bg"], 0.06)
+        else:
+            result["--surface"] = result["--bg"]
     if "--surface-2" not in result:
-        src = result.get("--bg-soft", result.get("--bg", FALLBACKS["--bg"]))
-        result["--surface-2"] = darken(src, 0.06)
+        src = result.get("--surface", result.get("--bg-soft", result.get("--bg", FALLBACKS["--bg"])))
+        if dark:
+            result["--surface-2"] = lighten(src, 0.12)
+        else:
+            result["--surface-2"] = darken(src, 0.04)
     if "--border" not in result:
-        result["--border"] = lighten(result.get("--text-1", FALLBACKS["--text-1"]), 0.75)
+        if dark:
+            result["--border"] = "rgba(255,255,255,.10)"
+        else:
+            result["--border"] = darken(result.get("--bg", FALLBACKS["--bg"]), 0.10)
     if "--border-strong" not in result:
-        result["--border-strong"] = lighten(result.get("--text-1", FALLBACKS["--text-1"]), 0.55)
+        if dark:
+            result["--border-strong"] = "rgba(255,255,255,.22)"
+        else:
+            result["--border-strong"] = darken(result.get("--bg", FALLBACKS["--bg"]), 0.30)
     if "--text-2" not in result and "--text-1" in result:
-        result["--text-2"] = lighten(result["--text-1"], 0.4)
+        if dark:
+            result["--text-2"] = darken(result["--text-1"], 0.15)
+        else:
+            result["--text-2"] = lighten(result["--text-1"], 0.40)
     if "--text-3" not in result:
-        result["--text-3"] = lighten(result.get("--text-1", FALLBACKS["--text-1"]), 0.65)
+        text1 = result.get("--text-1", FALLBACKS["--text-1"])
+        if dark:
+            result["--text-3"] = darken(text1, 0.40)
+        else:
+            result["--text-3"] = lighten(text1, 0.65)
 
 
 def _classify_heuristic(colors: list[tuple[str, str]]) -> dict[str, str]:
@@ -774,28 +811,34 @@ def convert_from_html_ppt_theme(theme_css_path: Path) -> dict[str, str]:
         val = tokens.get(html_token, "")
         if not val:
             continue
+        val = val.strip().rstrip(";")
         if ppt_token.startswith("--font") or ppt_token.startswith("--radius") or ppt_token.startswith("--shadow"):
-            result[ppt_token] = val.strip().rstrip(";")
+            result[ppt_token] = val
         elif ppt_token in ("--grad", "--grad-soft"):
             continue
-        elif is_hex6(val.split()[0]):
-            result[ppt_token] = val.strip().lower()
+        elif ppt_token in ("--surface", "--surface-2", "--border", "--border-strong"):
+            result[ppt_token] = val
+        elif is_hex6(val.split()[0]) or val.startswith("rgba(") or val.startswith("hsla("):
+            result[ppt_token] = val.lower()
 
     # Pass 2: direct pass-through for any PPT token not yet filled
     # (html-ppt themes often use the same --text-1 / --bg-soft names directly)
     for token_name in PPT_TOKENS:
         if token_name in result:
             continue
+        val = tokens.get(token_name, "")
+        if not val:
+            continue
+        val = val.strip().rstrip(";")
         if token_name.startswith("--font") or token_name.startswith("--radius") or token_name.startswith("--shadow"):
-            val = tokens.get(token_name, "")
-            if val:
-                result[token_name] = val.strip().rstrip(";")
+            result[token_name] = val
         elif token_name in ("--grad", "--grad-soft"):
             continue
-        else:
-            val = tokens.get(token_name, "")
-            if val and is_hex6(val.split()[0]):
-                result[token_name] = val.strip().lower()
+        elif token_name in ("--surface", "--surface-2", "--border", "--border-strong"):
+            # Allow rgba() / hsla() values — common in dark/glass themes
+            result[token_name] = val
+        elif is_hex6(val.split()[0]) or val.startswith("rgba(") or val.startswith("hsla("):
+            result[token_name] = val.lower()
 
     # Fill gaps — but only for tokens still missing
     _fill_neutral_gaps(result)

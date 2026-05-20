@@ -1,30 +1,30 @@
-/* PPT theme: memphis-pop — auto-generated from open-design */
+/* PPT theme: memphis-pop — manually converted from open-design html-ppt */
 
 :root {
   --bg: #fef6e8;
-  --bg-soft: #f6eee1;
-  --surface: #f8f1e3;
-  --surface-2: #e7dfd3;
+  --bg-soft: #fdebc7;
+  --surface: #ffffff;
+  --surface-2: #fff1d1;
   --border: #111111;
-  --border-strong: #939393;
+  --border-strong: #111111;
   --text-1: #111111;
-  --text-2: #707070;
-  --text-3: #ababab;
+  --text-2: #333333;
+  --text-3: #666666;
   --accent: #ff3d8b;
-  --accent-2: #60a5fa;
-  --accent-3: #2563eb;
+  --accent-2: #37c2d7;
+  --accent-3: #ffcc00;
   --good: #6ac04c;
-  --warn: #eab308;
-  --bad: #dc2626;
-  --grad: linear-gradient(135deg, #ff3d8b, #ff3d8b);
-  --grad-soft: linear-gradient(135deg, rgba(255,61,139,0.08), rgba(255,61,139,0.04));
+  --warn: #ffcc00;
+  --bad: #ff3d8b;
+  --grad: linear-gradient(135deg, #ff3d8b, #ffcc00 50%, #37c2d7);
+  --grad-soft: linear-gradient(135deg, #fdebc7, #fff1d1);
   --font-sans: 'Space Grotesk','Inter','Noto Sans SC',sans-serif;
   --font-display: 'Archivo Black',sans-serif;
-  --font-mono: JetBrains Mono, monospace;
-  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
   --radius: 10px;
-  --radius-sm: 8px;
-  --radius-lg: 20px;
+  --radius-sm: 6px;
+  --radius-lg: 18px;
   --shadow: 5px 5px 0 #111;
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --shadow-lg: 9px 9px 0 #111;
 }
