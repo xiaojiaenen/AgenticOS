@@ -1,30 +1,30 @@
-/* PPT theme: clay — auto-generated from open-design */
+/* PPT theme: clay — manually converted from open-design DESIGN.md */
 
 :root {
   --bg: #ffffff;
-  --bg-soft: #eff1f3;
+  --bg-soft: #f7f5f2;
   --surface: #faf9f7;
-  --surface-2: #f0f8ff;
-  --border: #eee9df;
+  --surface-2: #f0ece5;
+  --border: #dad4c8;
   --border-strong: #9f9b93;
-  --text-1: #333333;
-  --text-2: #000000;
-  --text-3: #a0a0a8;
+  --text-1: #000000;
+  --text-2: #333333;
+  --text-3: #9f9b93;
   --accent: #0089ad;
-  --accent-2: #01418d;
-  --accent-3: #007493;
+  --accent-2: #fbbd41;
+  --accent-3: #01418d;
   --good: #16a34a;
   --warn: #eab308;
   --bad: #dc2626;
-  --grad: linear-gradient(135deg, #0089ad, #01418d);
-  --grad-soft: linear-gradient(135deg, rgba(0,137,173,0.08), rgba(1,65,141,0.04));
-  --font-sans: Inter, Noto Sans SC, sans-serif;
-  --font-display: Inter, Noto Sans SC, sans-serif;
-  --font-mono: JetBrains Mono, monospace;
-  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --grad: linear-gradient(135deg, #0089ad, #fbbd41);
+  --grad-soft: linear-gradient(135deg, rgba(0,137,173,0.06), rgba(251,189,65,0.06));
+  --font-sans: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'Space Mono', 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
   --radius: 12px;
   --radius-sm: 8px;
   --radius-lg: 20px;
-  --shadow: 0 2px 8px rgba(0,0,0,0.08);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
 }

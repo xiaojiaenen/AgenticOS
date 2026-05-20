@@ -1,30 +1,30 @@
-/* PPT theme: expo — auto-generated from open-design */
+/* PPT theme: expo — manually converted from open-design DESIGN.md */
 
 :root {
   --bg: #ffffff;
-  --bg-soft: #f0f0f3;
-  --surface: #e0e1e6;
-  --surface-2: #d9d9e0;
+  --bg-soft: #f5f5f5;
+  --surface: #f0f0f3;
+  --surface-2: #e0e1e6;
   --border: #cccccc;
   --border-strong: #b0b4ba;
-  --text-1: #363a3f;
-  --text-2: #333333;
+  --text-1: #1c2024;
+  --text-2: #60646c;
   --text-3: #999999;
-  --accent: #ab6400;
+  --accent: #000000;
   --accent-2: #0d74ce;
-  --accent-3: #915500;
+  --accent-3: #333333;
   --good: #16a34a;
   --warn: #eab308;
   --bad: #dc2626;
-  --grad: linear-gradient(135deg, #ab6400, #0d74ce);
-  --grad-soft: linear-gradient(135deg, rgba(171,100,0,0.08), rgba(13,116,206,0.04));
-  --font-sans: Inter;
-  --font-display: Inter, Noto Sans SC, sans-serif;
-  --font-mono: JetBrains Mono;
-  --font-serif: Playfair Display, Noto Serif SC, serif;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-lg: 20px;
-  --shadow: 0 2px 8px rgba(0,0,0,0.08);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --grad: linear-gradient(135deg, #000000, #333333);
+  --grad-soft: linear-gradient(135deg, rgba(0,0,0,0.04), rgba(51,51,51,0.02));
+  --font-sans: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
 }

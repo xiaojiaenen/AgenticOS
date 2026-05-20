@@ -1,4 +1,4 @@
-/* PPT theme: webflow — auto-generated from open-design */
+/* PPT theme: webflow — manually converted from open-design DESIGN.md */
 
 :root {
   --bg: #ffffff;
@@ -7,24 +7,24 @@
   --surface-2: #d8d8d8;
   --border: #ababab;
   --border-strong: #898989;
-  --text-1: #363636;
-  --text-2: #222222;
+  --text-1: #080808;
+  --text-2: #363636;
   --text-3: #a0a0a8;
-  --accent: #006acc;
-  --accent-2: #00d722;
-  --accent-3: #005aad;
-  --good: #16a34a;
-  --warn: #eab308;
-  --bad: #dc2626;
-  --grad: linear-gradient(135deg, #006acc, #00d722);
-  --grad-soft: linear-gradient(135deg, rgba(0,106,204,0.08), rgba(0,215,34,0.04));
-  --font-sans: WF Visual Sans Variable;
-  --font-display: Inter, Noto Sans SC, sans-serif;
-  --font-mono: JetBrains Mono, monospace;
-  --font-serif: Playfair Display, Noto Serif SC, serif;
-  --radius: 2px;
-  --radius-sm: 4px;
-  --radius-lg: 3px;
-  --shadow: 0 2px 8px rgba(0,0,0,0.08);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --accent: #146ef5;
+  --accent-2: #7a3dff;
+  --accent-3: #ed52cb;
+  --good: #00d722;
+  --warn: #ffae13;
+  --bad: #ee1d36;
+  --grad: linear-gradient(135deg, #146ef5, #7a3dff);
+  --grad-soft: linear-gradient(135deg, rgba(20,110,245,0.08), rgba(122,61,255,0.04));
+  --font-sans: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 8px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
 }

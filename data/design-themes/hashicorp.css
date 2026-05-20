@@ -1,30 +1,30 @@
-/* PPT theme: hashicorp — auto-generated from open-design */
+/* PPT theme: hashicorp — manually converted from open-design DESIGN.md */
 
 :root {
   --bg: #f1f2f3;
   --bg-soft: #efeff1;
   --surface: #fafafa;
-  --surface-2: #d5d7db;
-  --border: #b2b6bd;
-  --border-strong: #656a76;
-  --text-1: #3b3d45;
-  --text-2: #000000;
-  --text-3: #a0a0a8;
-  --accent: #12b6bb;
-  --accent-2: #bb5a00;
-  --accent-3: #0f9a9e;
+  --surface-2: #e8e9eb;
+  --border: #d5d7db;
+  --border-strong: #b2b6bd;
+  --text-1: #000000;
+  --text-2: #3b3d45;
+  --text-3: #656a76;
+  --accent: #7b42bc;
+  --accent-2: #1868f2;
+  --accent-3: #14c6cb;
   --good: #16a34a;
   --warn: #eab308;
   --bad: #dc2626;
-  --grad: linear-gradient(135deg, #12b6bb, #bb5a00);
-  --grad-soft: linear-gradient(135deg, rgba(18,182,187,0.08), rgba(187,90,0,0.04));
-  --font-sans: HashiCorp Sans;
-  --font-display: Inter, Noto Sans SC, sans-serif;
-  --font-mono: JetBrains Mono, monospace;
-  --font-serif: Playfair Display, Noto Serif SC, serif;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-lg: 20px;
-  --shadow: 0 2px 8px rgba(0,0,0,0.08);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --grad: linear-gradient(135deg, #7b42bc, #1868f2);
+  --grad-soft: linear-gradient(135deg, rgba(123,66,188,0.08), rgba(24,104,242,0.04));
+  --font-sans: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 8px;
+  --shadow: 0 0 0 1px rgba(97,104,117,0.05), 0 1px 2px rgba(97,104,117,0.05);
+  --shadow-lg: 0 0 0 1px rgba(97,104,117,0.08), 0 4px 12px rgba(97,104,117,0.08);
 }
