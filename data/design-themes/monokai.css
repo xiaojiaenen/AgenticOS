@@ -1,12 +1,12 @@
-/* PPT theme: monokai — auto-generated from open-design */
+/* PPT theme: monokai — manually converted from open-design design-system */
 
 :root {
   --bg: #272822;
-  --bg-soft: #2e2f28;
+  --bg-soft: #1e1f1c;
   --surface: #333530;
-  --surface-2: #30322d;
-  --border: #49483e;
-  --border-strong: #75715e;
+  --surface-2: #3e3d32;
+  --border: rgba(255,255,255,0.10);
+  --border-strong: rgba(255,255,255,0.18);
   --text-1: #f8f8f2;
   --text-2: #cfcfc2;
   --text-3: #8b8b7e;
@@ -16,15 +16,15 @@
   --good: #a6e22e;
   --warn: #e6db74;
   --bad: #f92672;
-  --grad: linear-gradient(135deg, #a6e22e, #f92672);
+  --grad: linear-gradient(135deg, #a6e22e, #f92672 50%, #66d9ef);
   --grad-soft: linear-gradient(135deg, rgba(166,226,46,0.08), rgba(249,38,114,0.04));
-  --font-sans: Inter, Noto Sans SC, sans-serif;
-  --font-display: Inter, Noto Sans SC, sans-serif;
-  --font-mono: JetBrains Mono, monospace;
-  --font-serif: Playfair Display, Noto Serif SC, serif;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-lg: 20px;
-  --shadow: 0 2px 8px rgba(0,0,0,0.08);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --font-sans: 'Fira Code', 'JetBrains Mono', 'Noto Sans SC', monospace;
+  --font-display: 'Fira Code', 'JetBrains Mono', 'Noto Sans SC', monospace;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-lg: 12px;
+  --shadow: 0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.6);
 }

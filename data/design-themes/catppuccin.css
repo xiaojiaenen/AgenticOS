@@ -1,30 +1,30 @@
-/* PPT theme: catppuccin — auto-generated from open-design */
+/* PPT theme: catppuccin — manually converted from open-design design-system */
 
 :root {
   --bg: #1e1e2e;
-  --bg-soft: #242438;
-  --surface: #2a2a42;
-  --surface-2: #27273e;
-  --border: #454575;
-  --border-strong: #585b70;
+  --bg-soft: #181825;
+  --surface: #313244;
+  --surface-2: #45475a;
+  --border: rgba(205,214,244,0.10);
+  --border-strong: rgba(205,214,244,0.22);
   --text-1: #cdd6f4;
-  --text-2: #bac2de;
+  --text-2: #a6adc8;
   --text-3: #7f849c;
   --accent: #cba6f7;
-  --accent-2: #f5c2e7;
-  --accent-3: #89b4fa;
+  --accent-2: #89b4fa;
+  --accent-3: #f5c2e7;
   --good: #a6e3a1;
   --warn: #f9e2af;
   --bad: #f38ba8;
-  --grad: linear-gradient(135deg, #cba6f7, #f5c2e7);
-  --grad-soft: linear-gradient(135deg, rgba(203,166,247,0.08), rgba(245,194,231,0.04));
-  --font-sans: Inter, Noto Sans SC, sans-serif;
-  --font-display: Inter, Noto Sans SC, sans-serif;
-  --font-mono: JetBrains Mono, monospace;
-  --font-serif: Playfair Display, Noto Serif SC, serif;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-lg: 20px;
-  --shadow: 0 2px 8px rgba(0,0,0,0.08);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --grad: linear-gradient(135deg, #cba6f7, #89b4fa 50%, #94e2d5);
+  --grad-soft: linear-gradient(135deg, rgba(203,166,247,0.08), rgba(137,180,250,0.04));
+  --font-sans: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-lg: 22px;
+  --shadow: 0 10px 30px rgba(0,0,0,0.35);
+  --shadow-lg: 0 24px 60px rgba(0,0,0,0.5);
 }
