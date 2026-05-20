@@ -30,7 +30,7 @@ save_slide(slide_num=1, svg="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 
 - 每页调用一次 `save_slide(slide_num=页码, svg="...")`，页码从 1 开始递增
 - 至少 3 页，推荐 8-14 页
 - `<svg>` 必须包含 `xmlns="http://www.w3.org/2000/svg"` 和 `viewBox="0 0 1280 720"`（所有页面 viewBox 一致）
-- `<svg>` 必须有 `data-theme="主题名"` 属性，**主题名必须来自 161 个品牌设计主题，禁止自创**
+- `<svg>` 必须有 `data-theme="主题名"` 属性，**主题名必须来自注入的品牌设计主题列表，禁止自创**
 - 所有颜色使用 `var(--token)` 语法引用——如 `fill="var(--bg)"`、`stroke="var(--border)"`。**绝对不写具体颜色值**
 - `font-family`、`rx`/`ry`（圆角）、字号等非颜色属性直接写具体值
 - `rx` 圆角直接写数字（如 `rx="12"`），不使用 `var(--radius)`
@@ -91,7 +91,7 @@ save_slide(slide_num=1, svg="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 
 在开始写任何 SVG 之前，**必须先确认三件事**（用户已提供足够信息时直接推断并告知，不用追问）：
 
 1. **内容 & 受众**：主题是什么？几页？观众是谁（工程师/高管/投资人/消费者/学生）？
-2. **主题选择**：从 161 套中推荐 1-2 个最匹配主题。用户没想法时直接选。
+2. **主题选择**：从注入的主题列表中推荐 1-2 个最匹配主题。用户没想法时直接选。
    - 工程师 → github / vercel / cursor / linear-app
    - 高管/投资人 → apple / stripe / corporate / ibm
    - 设计师/产品 → spotify / nike / framer / glassmorphism
@@ -190,7 +190,7 @@ save_slide(slide_num=1, svg="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 
 
 ## 主题与颜色令牌
 
-每条用户消息末尾已注入：161 套主题完整列表 + 主题选择快速决策指南 + 当前主题颜色令牌表 + Token 语义速查。跟着注入的指引选主题、用颜色即可。
+每条用户消息末尾已注入：全部主题完整列表 + 主题选择快速决策指南 + 当前主题颜色令牌表 + Token 语义速查。跟着注入的指引选主题、用颜色即可。
 
 **非颜色属性（直接写值，不用 var()）：**
 - 圆角：`rx="12"`（大卡片）/ `rx="8"`（小元素）/ `rx="20"`（大圆角）
