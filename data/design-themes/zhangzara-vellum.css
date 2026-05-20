@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-vellum — from open-design zhangzara html-ppt template */
+/* Vellum: Deep navy canvas with warm-yellow italic Cormorant serifs and a single dusty teal accent. A quiet, scholarly aesthetic. */
+
+:root {
+  --bg: #2a3870;
+  --bg-soft: #2c3b76;
+  --surface: #343f80;
+  --surface-2: #dfe1e9;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+  --text-1: #E8D85C;
+  --text-2: #b2ab61;
+  --text-3: #767868;
+  --accent: #E8D85C;
+  --accent-2: #C4B848;
+  --accent-3: #3a7878;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #E8D85C, #C4B848);
+  --grad-soft: linear-gradient(135deg, rgba(58,120,120,0.08), rgba(69,132,108,0.04));
+  --font-sans: 'DM Sans', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Cormorant Garamond Italic', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 6px;
+  --radius-sm: 3px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.20);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.30);
+}

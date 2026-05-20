@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-soft-editorial — from open-design zhangzara html-ppt template */
+/* Soft Editorial: Cormorant Garamond serif on warm paper with sage, blush, and lemon accents. */
+
+:root {
+  --bg: #F2EEDF;
+  --bg-soft: #e3dfd1;
+  --surface: #e3dfd1;
+  --surface-2: #d4d1c4;
+  --border: #454036;
+  --border-strong: #615c51;
+  --text-1: #2A241B;
+  --text-2: #a29d90;
+  --text-3: #7e786d;
+  --accent: #2A241B;
+  --accent-2: #B7C7A8;
+  --accent-3: #E1A4C2;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #2A241B, #B7C7A8);
+  --grad-soft: linear-gradient(135deg, rgba(225,164,194,0.08), rgba(180,147,223,0.04));
+  --font-sans: 'Work Sans', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Cormorant Garamond', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 6px;
+  --radius-sm: 3px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

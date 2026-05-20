@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-bold-poster — from open-design zhangzara html-ppt template */
+/* Bold Poster: Editorial poster aesthetic with massive Shrikhand display and a single fire-engine red accent. */
+
+:root {
+  --bg: #FFFFFF;
+  --bg-soft: #efefef;
+  --surface: #efefef;
+  --surface-2: #e0e0e0;
+  --border: #3b3431;
+  --border-strong: #5b5552;
+  --text-1: #1C1410;
+  --text-2: #a4a19f;
+  --text-3: #7b7674;
+  --accent: #D8000F;
+  --accent-2: #ac0011;
+  --accent-3: #76000a;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #D8000F, #ac0011);
+  --grad-soft: linear-gradient(135deg, rgba(216,0,15,0.08), rgba(172,0,17,0.04));
+  --font-sans: 'Space Grotesk', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Shrikhand', 'Libre Baskerville', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Libre Baskerville', 'Noto Serif SC', serif;
+  --radius: 6px;
+  --radius-sm: 3px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-raw-grid — from open-design zhangzara html-ppt template */
+/* Raw Grid: Neo-brutalist deck with thick borders, offset shadows, and a pink/sage/ink palette. */
+
+:root {
+  --bg: #FFFFFF;
+  --bg-soft: #efefef;
+  --surface: #efefef;
+  --surface-2: #e0e0e0;
+  --border: #2c2c2c;
+  --border-strong: #4e4e4e;
+  --text-1: #0A0A0A;
+  --text-2: #9d9d9d;
+  --text-3: #707070;
+  --accent: #0A0A0A;
+  --accent-2: #555555;
+  --accent-3: #F2D4CF;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0A0A0A, #555555);
+  --grad-soft: linear-gradient(135deg, rgba(242,212,207,0.08), rgba(193,190,238,0.04));
+  --font-sans: 'Segoe UI / system-ui', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Segoe UI / system-ui', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

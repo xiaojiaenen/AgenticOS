@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-retro-windows — from open-design zhangzara html-ppt template */
+/* Retro Windows: Windows 95 chrome: gray title bars, MS Sans Serif, pixel typography, full nostalgia. */
+
+:root {
+  --bg: #FFFFFF;
+  --bg-soft: #efefef;
+  --surface: #efefef;
+  --surface-2: #e0e0e0;
+  --border: #232323;
+  --border-strong: #474747;
+  --text-1: #000000;
+  --text-2: #999999;
+  --text-3: #6b6b6b;
+  --accent: #1084D0;
+  --accent-2: #0c76ef;
+  --accent-3: #084f91;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #1084D0, #0c76ef);
+  --grad-soft: linear-gradient(135deg, rgba(16,132,208,0.08), rgba(12,118,239,0.04));
+  --font-sans: 'MS Sans Serif', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Press Start 2P', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}
