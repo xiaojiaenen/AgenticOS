@@ -26,7 +26,7 @@ DECK_STYLES: dict[str, dict] = {
         "radius": "8-12px",
         "shadow": "minimal or none",
         "forbidden": ["decorative blobs", "heavy borders", "loud gradients"],
-        "recommended_themes": ["apple", "minimal", "clean", "mono", "refined", "sleek", "swiss-grid", "simple"],
+        "recommended_themes": ["github", "apple", "minimal", "clean", "mono", "refined", "sleek", "swiss-grid", "simple"],
         "best_for": ["产品发布", "SaaS 汇报", "技术分享", "初创路演"],
     },
     "bold_statement": {
@@ -50,7 +50,7 @@ DECK_STYLES: dict[str, dict] = {
         "radius": "4-8px",
         "shadow": "none or glow",
         "forbidden": ["warm color palettes", "serif fonts", "paper-like textures"],
-        "recommended_themes": ["github", "dracula", "tokyo-night", "monokai", "terminal-green", "cyberpunk-neon", "nord", "mission-control", "hud"],
+        "recommended_themes": ["dracula", "tokyo-night", "monokai", "terminal-green", "cyberpunk-neon", "nord", "mission-control", "hud"],
         "best_for": ["开发者大会", "安全报告", "技术架构", "黑客松"],
     },
     "warm_human": {
