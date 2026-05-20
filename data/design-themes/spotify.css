@@ -5,8 +5,8 @@
   --bg-soft: #181818;
   --surface: #1f1f1f;
   --surface-2: #282828;
-  --border: #4d4d4d;
-  --border-strong: rgba(255,255,255,0.1);
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
   --text-1: #ffffff;
   --text-2: #fdfdfd;
   --text-3: #b3b3b3;
