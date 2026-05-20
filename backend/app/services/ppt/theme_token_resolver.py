@@ -79,12 +79,17 @@ _COLOR_TOKEN_NAMES = {
     "--good", "--warn", "--bad",
 }
 
+# Tokens that can be resolved with string replacement (colors + fonts)
+_RESOLVABLE_TOKEN_NAMES = _COLOR_TOKEN_NAMES | {
+    "--font-sans", "--font-display", "--font-mono", "--font-serif",
+}
+
 
 def build_color_token_table(theme_name: str) -> str:
-    """Build a compact Markdown table of colour tokens for *theme_name*.
+    """Build a compact Markdown table of tokens for *theme_name*.
 
-    Only colour tokens are included — radius, shadow, and font tokens are
-    skipped because they are not valid SVG attribute values.
+    Includes color tokens and font tokens (radius/shadow tokens are
+    skipped because they are not valid SVG attribute values).
     """
     tokens = load_theme_tokens(theme_name)
     if not tokens:
@@ -92,7 +97,7 @@ def build_color_token_table(theme_name: str) -> str:
 
     lines = ["| Token | Value |", "|-------|-------|"]
     for name in sorted(tokens):
-        if name not in _COLOR_TOKEN_NAMES:
+        if name not in _RESOLVABLE_TOKEN_NAMES:
             continue
         lines.append(f"| {name} | {tokens[name]} |")
     return "\n".join(lines)
@@ -101,24 +106,36 @@ def build_color_token_table(theme_name: str) -> str:
 def build_token_quick_ref() -> str:
     """Return a compact semantic reference for every CSS token the AI may use."""
     return """**Token 语义速查**（颜色用 `var(--xxx)` 引用，数值直接从下表取值）：
-| Token | 用途 | 值（非颜色直接写死） |
-|-------|------|---------------------|
-| --bg | 幻灯片背景 | （颜色） |
-| --bg-soft | 柔化背景（浅遮罩） | （颜色） |
-| --surface / --surface-2 | 卡片/面板背景 | （颜色） |
-| --text-1 / --text-2 / --text-3 | 一级/二级/三级文字 | （颜色） |
-| --accent / --accent-2 / --accent-3 | 强调/品牌色 | （颜色） |
-| --good / --warn / --bad | 正向/警告/负面语义色 | （颜色） |
-| --border / --border-strong | 边框/分割线 | （颜色） |
-| --radius: 12px | 卡片圆角 → SVG: rx="12" | **直接用数值 12** |
-| --radius-sm: 8px | 小圆角 → SVG: rx="8" | **直接用数值 8** |
-| --radius-lg: 20px | 大圆角 → SVG: rx="20" | **直接用数值 20** |
-| --font-sans | 正文无衬线字体 | Inter, Noto Sans SC, sans-serif |
-| --font-serif | 衬线字体 | Playfair Display, Noto Serif SC, serif |
-| --font-mono | 等宽字体 | JetBrains Mono, monospace |
-| --font-display | 展示字体 | 同 sans 或 serif（看主题） |
+| Token | 用途 | 用法 |
+|-------|------|------|
+| --bg | 幻灯片背景 | `fill="var(--bg)"` |
+| --bg-soft | 柔化背景（浅遮罩） | `fill="var(--bg-soft)"` |
+| --surface / --surface-2 | 卡片/面板背景 | `fill="var(--surface)"` |
+| --text-1 / --text-2 / --text-3 | 一级/二级/三级文字 | `fill="var(--text-1)"` |
+| --accent / --accent-2 / --accent-3 | 强调/品牌色 | `fill="var(--accent)"` |
+| --good / --warn / --bad | 正向/警告/负面语义色 | `fill="var(--good)"` |
+| --border / --border-strong | 边框/分割线 | `stroke="var(--border)"` |
 
-**重要**：SVG 中颜色以外的 token（radius、font-family、shadow）不要使用 var() 语法，直接写数值/字体名。"""
+**字体 Token**（在 font-family 中使用 var() 引用，后端自动解析）：
+| Token | 默认值 |
+|-------|--------|
+| --font-sans | Inter, Noto Sans SC, sans-serif |
+| --font-serif | Playfair Display, Noto Serif SC, serif |
+| --font-display | 展示字体（封面/标题用） |
+| --font-mono | JetBrains Mono, monospace |
+
+用法：`font-family="var(--font-sans)"` — 封面标题用 `var(--font-display)`，正文用 `var(--font-sans)`，代码用 `var(--font-mono)`。
+
+**非颜色 Token**（直接取值使用，不用 var() 语法）：
+| Token | 默认值 | SVG 用法 |
+|-------|--------|---------|
+| --radius: 12px | 卡片圆角 | `rx="12"` |
+| --radius-sm: 8px | 小圆角 | `rx="8"` |
+| --radius-lg: 20px | 大圆角 | `rx="20"` |
+| --shadow | 参考值 | SVG `<filter><feDropShadow...>`，不用 CSS 值 |
+| --shadow-lg | 参考值 |同上 |
+
+**重要**：radius、shadow 等非颜色属性**不要使用 var() 语法**，直接在 SVG 属性中写数值。font-family 可以使用 var() 引用字体 token。"""
 
 
 def list_available_themes() -> list[str]:

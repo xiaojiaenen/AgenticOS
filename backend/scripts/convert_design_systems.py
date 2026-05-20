@@ -17,18 +17,25 @@ import re
 import sys
 from pathlib import Path
 
-# ── 17 PPT theme tokens ─────────────────────────────────────────────
+# ── 28 PPT theme tokens ─────────────────────────────────────────────
 PPT_TOKENS = [
+    # Color tokens (17)
     "--bg", "--bg-soft", "--surface", "--surface-2",
     "--border", "--border-strong",
     "--text-1", "--text-2", "--text-3",
     "--accent", "--accent-2", "--accent-3",
     "--good", "--warn", "--bad",
     "--grad", "--grad-soft",
+    # Typography tokens (4)
+    "--font-sans", "--font-display", "--font-mono", "--font-serif",
+    # Layout tokens (5)
+    "--radius", "--radius-sm", "--radius-lg",
+    "--shadow", "--shadow-lg",
 ]
 
 # Mapping: design-system token name → PPT token name
 DS_TO_PPT: dict[str, str] = {
+    # Colors
     "--bg":            "--bg",
     "--surface":       "--bg-soft",
     "--surface-warm":  "--surface",
@@ -44,6 +51,17 @@ DS_TO_PPT: dict[str, str] = {
     "--success":       "--good",
     "--warn":          "--warn",
     "--danger":        "--bad",
+    # Typography
+    "--font-sans":     "--font-sans",
+    "--font-display":  "--font-display",
+    "--font-mono":     "--font-mono",
+    "--font-serif":    "--font-serif",
+    # Layout
+    "--radius":        "--radius",
+    "--radius-sm":     "--radius-sm",
+    "--radius-lg":     "--radius-lg",
+    "--shadow":        "--shadow",
+    "--shadow-lg":     "--shadow-lg",
 }
 
 FALLBACKS: dict[str, str] = {
@@ -64,6 +82,17 @@ FALLBACKS: dict[str, str] = {
     "--bad": "#dc2626",
     "--grad": "linear-gradient(135deg, #3b82f6, #60a5fa)",
     "--grad-soft": "linear-gradient(135deg, rgba(59,130,246,0.08), rgba(96,165,250,0.04))",
+    # Typography
+    "--font-sans": "Inter, Noto Sans SC, sans-serif",
+    "--font-display": "Inter, Noto Sans SC, sans-serif",
+    "--font-mono": "JetBrains Mono, monospace",
+    "--font-serif": "Playfair Display, Noto Serif SC, serif",
+    # Layout
+    "--radius": "12px",
+    "--radius-sm": "8px",
+    "--radius-lg": "20px",
+    "--shadow": "0 2px 8px rgba(0,0,0,0.08)",
+    "--shadow-lg": "0 8px 24px rgba(0,0,0,0.12)",
 }
 
 HEX6_RE = re.compile(r"#[0-9a-fA-F]{6}\b")
@@ -566,10 +595,202 @@ def convert_from_design_md(design_md_path: Path) -> dict[str, str]:
     subs = parse_section2_subsections(text)
     if not subs:
         return {}
-    return classify_colors_for_ppt(subs)
+    result = classify_colors_for_ppt(subs)
+    # Also extract typography and layout tokens
+    result.update(_extract_typography_tokens(text))
+    result.update(_extract_layout_tokens(text))
+    return result
 
 
-# ── Gradient synthesis ──────────────────────────────────────────────
+# ── Typography extraction from DESIGN.md §3 ──────────────────────────
+
+def _extract_typography_tokens(design_md_text: str) -> dict[str, str]:
+    """Extract font stacks from DESIGN.md §3 (Typography Rules)."""
+    result: dict[str, str] = {}
+    # Find section 3 (or unnumbered Typography section)
+    m = re.search(
+        r"## 3\.\s*(?:Typography|Type|Font).*?(?=## [45]\.\s)",
+        design_md_text, re.DOTALL,
+    )
+    if not m:
+        m = re.search(
+            r"##\s*(?:Typography|Type|Font).*?(?=##\s+(?:Component|Layout|Spacing|Depth|Motion|Color|Brand|Icon))",
+            design_md_text, re.DOTALL,
+        )
+    if not m:
+        return result
+    section = m.group(0)
+
+    # Extract font-family values from code spans or inline mentions
+    # Pattern: `font-family: "Inter", sans-serif` or mentions like "Heading: Inter Bold"
+    font_blocks = re.findall(
+        r'(?:font-family|font|family)[:\s]+[\`"]?([A-Za-z][A-Za-z0-9\s,\-]+?)(?:[\`"]|$|;|\))',
+        section, re.IGNORECASE,
+    )
+    # Pattern: **Heading**: "Inter", 700 or similar
+    heading_font = re.findall(
+        r'Heading.*?(?:font|family|type|face)?[:\s]+[\`"]*([A-Za-z][A-Za-z0-9\s\-]+)[\`"]*',
+        section, re.IGNORECASE,
+    )
+    # Pattern: **Body**: followed by font name
+    body_font = re.findall(
+        r'Body.*?(?:font|family|type|face)?[:\s]+[\`"]*([A-Za-z][A-Za-z0-9\s\-]+)[\`"]*',
+        section, re.IGNORECASE,
+    )
+
+    all_mentions = font_blocks + heading_font + body_font
+
+    # Classify fonts into sans/serif/mono/display
+    sans_candidates: list[str] = []
+    serif_candidates: list[str] = []
+    mono_candidates: list[str] = []
+
+    for f in all_mentions:
+        f = f.strip().rstrip(",").rstrip(";")
+        if not f or len(f) < 3:
+            continue
+        fl = f.lower()
+        if any(kw in fl for kw in ["mono", "code", "console", "terminal", "jetbrains", "fira code", "source code", "cascadia"]):
+            mono_candidates.append(f)
+        elif any(kw in fl for kw in ["serif", "playfair", "times", "georgia", "garamond", "merriweather", "noto serif", "lora", "spectral", "eb garamond"]):
+            serif_candidates.append(f)
+        elif any(kw in fl for kw in ["sans", "inter", "system-ui", "roboto", "helvetica", "arial", "noto sans", "sf pro", "segoe"]):
+            sans_candidates.append(f)
+
+    if sans_candidates:
+        result["--font-sans"] = sans_candidates[0]
+    if serif_candidates:
+        result["--font-serif"] = serif_candidates[0]
+        result["--font-display"] = serif_candidates[0]  # display defaults to serif if available
+    if mono_candidates:
+        result["--font-mono"] = mono_candidates[0]
+
+    return result
+
+
+# ── Layout token extraction from DESIGN.md §5/§6 ─────────────────────
+
+def _extract_layout_tokens(design_md_text: str) -> dict[str, str]:
+    """Extract radius and shadow values from DESIGN.md §5 (Layout) and §6 (Depth)."""
+    result: dict[str, str] = {}
+    # Try to find layout/spacing section
+    layout_m = re.search(
+        r"## [56]\.\s*(?:Layout|Spacing|Depth|Elevation|Shadow).*?(?=## [67]\.\s|##\s+\w)",
+        design_md_text, re.DOTALL,
+    )
+    if not layout_m:
+        layout_m = re.search(
+            r"##\s*(?:Layout|Spacing|Depth|Elevation|Shadow|Component).*?(?=##\s+(?:Animation|Motion|Responsive|Do|Icon|Accessibility))",
+            design_md_text, re.DOTALL,
+        )
+    if not layout_m:
+        return result
+    section = layout_m.group(0)
+
+    # Extract border-radius values
+    radius_vals = re.findall(r'(?:border-radius|radius|rounded|rounding)[:\s]+(\d+)px', section, re.IGNORECASE)
+    if radius_vals:
+        radii = sorted(set(int(v) for v in radius_vals))
+        if len(radii) >= 3:
+            result["--radius-sm"] = f"{radii[0]}px"
+            result["--radius"] = f"{radii[len(radii)//2]}px"
+            result["--radius-lg"] = f"{radii[-1]}px"
+        elif len(radii) == 2:
+            result["--radius-sm"] = f"{radii[0]}px"
+            result["--radius"] = f"{radii[1]}px"
+            result["--radius-lg"] = f"{int(radii[1] * 1.6)}px"
+        elif radii:
+            r = radii[0]
+            result["--radius-sm"] = f"{max(4, int(r * 0.6))}px"
+            result["--radius"] = f"{r}px"
+            result["--radius-lg"] = f"{int(r * 1.6)}px"
+
+    # Extract shadow values
+    shadow_matches = re.findall(
+        r'(?:shadow|elevation).*?(\d+)\s*(?:px)?.*?(\d+)\s*(?:px)?.*?(?:rgba?\([^)]+\)|#[0-9a-fA-F]+)',
+        section, re.IGNORECASE,
+    )
+    if shadow_matches:
+        # Simple extraction — use reasonable defaults based on found values
+        for dy, blur in shadow_matches:
+            dy_val = int(dy)
+            blur_val = int(blur)
+            if dy_val <= 4 and blur_val <= 12:
+                result["--shadow"] = f"0 {dy}px {blur}px rgba(0,0,0,0.08)"
+            else:
+                result["--shadow-lg"] = f"0 {dy}px {blur}px rgba(0,0,0,0.12)"
+
+    return result
+
+
+# ── Path C: html-ppt theme CSS → PPT tokens ──────────────────────────
+
+_HTML_PPT_THEMES_DIR = Path.home() / "code" / "open-design" / "design-templates" / "html-ppt" / "assets" / "themes"
+
+# html-ppt token → PPT token mapping
+_HTML_PPT_TO_PPT: dict[str, str] = {
+    "--bg": "--bg",
+    "--bg-card": "--surface",
+    "--bg-alt": "--bg-soft",
+    "--fg": "--text-1",
+    "--fg-secondary": "--text-2",
+    "--fg-muted": "--text-3",
+    "--border": "--border",
+    "--accent": "--accent",
+    "--accent-hover": "--accent-2",
+    "--accent-active": "--accent-3",
+    "--success": "--good",
+    "--warning": "--warn",
+    "--danger": "--bad",
+    "--font-sans": "--font-sans",
+    "--font-display": "--font-display",
+    "--font-mono": "--font-mono",
+    "--font-serif": "--font-serif",
+    "--radius": "--radius",
+    "--radius-sm": "--radius-sm",
+    "--radius-lg": "--radius-lg",
+    "--shadow": "--shadow",
+    "--shadow-lg": "--shadow-lg",
+}
+
+
+def convert_from_html_ppt_theme(theme_css_path: Path) -> dict[str, str]:
+    """Convert an html-ppt theme CSS file to PPT theme tokens."""
+    if not theme_css_path.is_file():
+        return {}
+    raw = parse_css_tokens(theme_css_path.read_text(encoding="utf-8"))
+    if not raw:
+        return {}
+    tokens = resolve_var_references(raw)
+    result: dict[str, str] = {}
+
+    for html_token, ppt_token in _HTML_PPT_TO_PPT.items():
+        val = tokens.get(html_token, "")
+        if not val:
+            continue
+        if ppt_token.startswith("--font") or ppt_token.startswith("--radius") or ppt_token.startswith("--shadow"):
+            # Non-color tokens: use as-is
+            result[ppt_token] = val.strip().rstrip(";")
+        elif ppt_token in ("--grad", "--grad-soft"):
+            continue  # gradients handled by synthesis
+        elif is_hex6(val.split()[0]):  # might be "rgba(...)" for shadows, skip those
+            result[ppt_token] = val.strip().lower()
+
+    # Synthesize missing color tokens
+    _fill_neutral_gaps(result)
+    _synthesize_gradients(result)
+    return result
+
+
+def sync_html_ppt_themes() -> list[str]:
+    """Discover available html-ppt theme names from the open-design repo."""
+    if not _HTML_PPT_THEMES_DIR.is_dir():
+        return []
+    return sorted(
+        p.stem for p in _HTML_PPT_THEMES_DIR.glob("*.css")
+        if p.stem not in ("base", "fonts", "animations")
+    )
+
 
 def _synthesize_gradients(result: dict[str, str]) -> None:
     if "--grad" not in result:
@@ -616,6 +837,11 @@ def write_theme_css(theme_name: str, tokens: dict[str, str]) -> Path:
 # ── Main ────────────────────────────────────────────────────────────
 
 def main() -> None:
+    import argparse
+    parser = argparse.ArgumentParser(description="Convert design systems to PPT theme CSS")
+    parser.add_argument("--html-ppt", action="store_true", help="Also convert html-ppt themes from open-design")
+    args = parser.parse_args()
+
     if not DESIGN_SYSTEMS_DIR.is_dir():
         print(f"Design systems directory not found: {DESIGN_SYSTEMS_DIR}")
         sys.exit(1)
@@ -627,7 +853,9 @@ def main() -> None:
 
     token_count = 0
     heuristic_count = 0
+    html_ppt_count = 0
     skipped = 0
+    num_tokens = len(PPT_TOKENS)
 
     for ds_dir in ds_dirs:
         name = ds_dir.name
@@ -656,9 +884,26 @@ def main() -> None:
             1 for t in PPT_TOKENS
             if t in tokens and tokens[t] != FALLBACKS.get(t, "")
         )
-        print(f"  {name:20s} ← {source:10s}  ({custom_count}/17 custom)")
+        print(f"  {name:20s} ← {source:10s}  ({custom_count}/{num_tokens} custom)")
 
-    print(f"\nDone: {token_count} from tokens.css, {heuristic_count} from DESIGN.md, {skipped} skipped")
+    # Path C: html-ppt themes
+    if args.html_ppt:
+        html_themes = sync_html_ppt_themes()
+        print(f"\nFound {len(html_themes)} html-ppt themes. Converting...\n")
+        for theme_name in html_themes:
+            theme_path = _HTML_PPT_THEMES_DIR / f"{theme_name}.css"
+            tokens = convert_from_html_ppt_theme(theme_path)
+            if tokens:
+                tokens = fill_fallbacks(tokens)
+                write_theme_css(theme_name, tokens)
+                custom_count = sum(
+                    1 for t in PPT_TOKENS
+                    if t in tokens and tokens[t] != FALLBACKS.get(t, "")
+                )
+                print(f"  {theme_name:20s} ← html-ppt   ({custom_count}/{num_tokens} custom)")
+                html_ppt_count += 1
+
+    print(f"\nDone: {token_count} from tokens.css, {heuristic_count} from DESIGN.md, {html_ppt_count} from html-ppt, {skipped} skipped")
     print(f"Output: {OUTPUT_DIR}")
 
 

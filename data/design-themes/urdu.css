@@ -18,4 +18,13 @@
   --bad: #dc2626;
   --grad: linear-gradient(135deg, #0f595e, #c05621);
   --grad-soft: linear-gradient(135deg, rgba(15,89,94,0.08), rgba(192,86,33,0.04));
+  --font-sans: Inter;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
 }

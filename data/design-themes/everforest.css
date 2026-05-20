@@ -1,10 +1,10 @@
-/* PPT theme: everforest — earthy sage green tones, natural and calming */
+/* PPT theme: everforest — auto-generated from open-design */
 
 :root {
   --bg: #fdf6e3;
   --bg-soft: #f5eed8;
   --surface: #ffffff;
-  --surface-2: #fdf3e0;
+  --surface-2: #f2f2f2;
   --border: #e5dbc4;
   --border-strong: #d3c9b0;
   --text-1: #3c4a3e;
@@ -18,4 +18,13 @@
   --bad: #e67e80;
   --grad: linear-gradient(135deg, #7aac7a, #5b8c5b);
   --grad-soft: linear-gradient(135deg, rgba(122,172,122,0.08), rgba(91,140,91,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
 }

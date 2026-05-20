@@ -1,10 +1,10 @@
-/* PPT theme: catppuccin — warm latte tones, soft and cozy (mocha dark) */
+/* PPT theme: catppuccin — auto-generated from open-design */
 
 :root {
   --bg: #1e1e2e;
   --bg-soft: #242438;
   --surface: #2a2a42;
-  --surface-2: #333356;
+  --surface-2: #27273e;
   --border: #454575;
   --border-strong: #585b70;
   --text-1: #cdd6f4;
@@ -17,5 +17,14 @@
   --warn: #f9e2af;
   --bad: #f38ba8;
   --grad: linear-gradient(135deg, #cba6f7, #f5c2e7);
-  --grad-soft: linear-gradient(135deg, rgba(203,166,247,0.06), rgba(245,194,231,0.04));
+  --grad-soft: linear-gradient(135deg, rgba(203,166,247,0.08), rgba(245,194,231,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
 }

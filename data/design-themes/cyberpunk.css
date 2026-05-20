@@ -1,10 +1,10 @@
-/* PPT theme: cyberpunk — neon on dark, high-contrast futuristic */
+/* PPT theme: cyberpunk — auto-generated from open-design */
 
 :root {
   --bg: #0a0a1a;
   --bg-soft: #0f0f2a;
   --surface: #12123a;
-  --surface-2: #1a1a4a;
+  --surface-2: #111137;
   --border: #2a2a6a;
   --border-strong: #4a3aaa;
   --text-1: #e0e0ff;
@@ -18,4 +18,13 @@
   --bad: #ff3366;
   --grad: linear-gradient(135deg, #00ffcc, #ff00aa);
   --grad-soft: linear-gradient(135deg, rgba(0,255,204,0.08), rgba(255,0,170,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
 }

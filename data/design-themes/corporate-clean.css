@@ -1,0 +1,30 @@
+/* PPT theme: corporate-clean — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f7f7;
+  --surface: #f9f9f9;
+  --surface-2: #e8e8e8;
+  --border: #c5c5c6;
+  --border-strong: #979799;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #aeaeb0;
+  --accent: #0a2540;
+  --accent-2: #60a5fa;
+  --accent-3: #2563eb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0a2540, #0a2540);
+  --grad-soft: linear-gradient(135deg, rgba(10,37,64,0.08), rgba(10,37,64,0.04));
+  --font-sans: 'Inter','Noto Sans SC',sans-serif;
+  --font-display: 'Inter','Noto Sans SC',sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 6px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 1px 3px rgba(10,37,64,.08),0 4px 12px rgba(10,37,64,.05);
+  --shadow-lg: 0 4px 12px rgba(10,37,64,.1),0 16px 40px rgba(10,37,64,.08);
+}

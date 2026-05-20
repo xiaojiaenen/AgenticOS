@@ -1,21 +1,30 @@
-/* PPT theme: nord — arctic cool tones, calm and professional */
+/* PPT theme: nord — auto-generated from open-design */
 
 :root {
-  --bg: #eceff4;
-  --bg-soft: #e5e9f0;
-  --surface: #ffffff;
-  --surface-2: #f4f6fa;
-  --border: #d8dee9;
-  --border-strong: #b0bec5;
-  --text-1: #2e3440;
-  --text-2: #4c566a;
-  --text-3: #7b88a1;
-  --accent: #5e81ac;
-  --accent-2: #81a1c1;
-  --accent-3: #88c0d0;
-  --good: #a3be8c;
-  --warn: #ebcb8b;
-  --bad: #bf616a;
-  --grad: linear-gradient(135deg, #5e81ac, #81a1c1);
-  --grad-soft: linear-gradient(135deg, rgba(94,129,172,0.06), rgba(129,161,193,0.04));
+  --bg: #2e3440;
+  --bg-soft: #424853;
+  --surface: #2d323e;
+  --surface-2: #3e434e;
+  --border: #c5c5c6;
+  --border-strong: #979799;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #aeaeb0;
+  --accent: #88c0d0;
+  --accent-2: #60a5fa;
+  --accent-3: #2563eb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #88c0d0, #88c0d0);
+  --grad-soft: linear-gradient(135deg, rgba(136,192,208,0.08), rgba(136,192,208,0.04));
+  --font-sans: 'Inter','Noto Sans SC',sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 10px 30px rgba(0,0,0,.35);
+  --shadow-lg: 0 22px 60px rgba(0,0,0,.5);
 }

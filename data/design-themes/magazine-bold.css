@@ -1,0 +1,30 @@
+/* PPT theme: magazine-bold — auto-generated from open-design */
+
+:root {
+  --bg: #f5efe2;
+  --bg-soft: #ede7db;
+  --surface: #f0eadd;
+  --surface-2: #ded9cd;
+  --border: #c5c5c6;
+  --border-strong: #979799;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #aeaeb0;
+  --accent: #ea5a1a;
+  --accent-2: #60a5fa;
+  --accent-3: #2563eb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #ea5a1a, #ea5a1a);
+  --grad-soft: linear-gradient(135deg, rgba(234,90,26,0.08), rgba(234,90,26,0.04));
+  --font-sans: 'Inter','Noto Sans SC',sans-serif;
+  --font-display: 'Playfair Display','Noto Serif SC',Georgia,serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',Georgia,serif;
+  --radius: 0px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: none;
+  --shadow-lg: 6px 6px 0 var(--accent);
+}

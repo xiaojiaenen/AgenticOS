@@ -1,0 +1,30 @@
+/* PPT theme: japanese-minimal — auto-generated from open-design */
+
+:root {
+  --bg: #fafaf5;
+  --bg-soft: #f2f2ed;
+  --surface: #f5f5f0;
+  --surface-2: #e3e3de;
+  --border: #c5c5c6;
+  --border-strong: #979799;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #aeaeb0;
+  --accent: #d93a2a;
+  --accent-2: #60a5fa;
+  --accent-3: #2563eb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #d93a2a, #d93a2a);
+  --grad-soft: linear-gradient(135deg, rgba(217,58,42,0.08), rgba(217,58,42,0.04));
+  --font-sans: 'Inter','Noto Sans SC',sans-serif;
+  --font-display: 'Noto Serif SC','Playfair Display',serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: 'Noto Serif SC','Playfair Display',serif;
+  --radius: 0px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: none;
+  --shadow-lg: 0 1px 0 rgba(40,30,20,.12);
+}

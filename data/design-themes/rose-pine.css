@@ -1,21 +1,30 @@
-/* PPT theme: rose-pine — warm rose gold on deep plum, elegant and modern */
+/* PPT theme: rose-pine — auto-generated from open-design */
 
 :root {
   --bg: #191724;
-  --bg-soft: #1f1d2e;
-  --surface: #242234;
-  --surface-2: #2e2a43;
-  --border: #3f3956;
-  --border-strong: #56506e;
-  --text-1: #e0def4;
-  --text-2: #c2bedb;
-  --text-3: #817c9c;
+  --bg-soft: #302e39;
+  --surface: #181623;
+  --surface-2: #2d2b35;
+  --border: #c5c5c6;
+  --border-strong: #979799;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #aeaeb0;
   --accent: #ebbcba;
-  --accent-2: #c4a7e7;
-  --accent-3: #9ccfd8;
-  --good: #31748f;
-  --warn: #f6c177;
-  --bad: #eb6f92;
-  --grad: linear-gradient(135deg, #ebbcba, #c4a7e7);
-  --grad-soft: linear-gradient(135deg, rgba(235,188,186,0.08), rgba(196,167,231,0.04));
+  --accent-2: #60a5fa;
+  --accent-3: #2563eb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #ebbcba, #ebbcba);
+  --grad-soft: linear-gradient(135deg, rgba(235,188,186,0.08), rgba(235,188,186,0.04));
+  --font-sans: 'Inter','Noto Sans SC',sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 10px 30px rgba(0,0,0,.4);
+  --shadow-lg: 0 22px 58px rgba(0,0,0,.55);
 }

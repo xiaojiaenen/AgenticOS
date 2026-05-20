@@ -1,0 +1,30 @@
+/* PPT theme: solarized-light — auto-generated from open-design */
+
+:root {
+  --bg: #fdf6e3;
+  --bg-soft: #f5eedc;
+  --surface: #f7f1de;
+  --surface-2: #e6dfce;
+  --border: #c5c5c6;
+  --border-strong: #979799;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #aeaeb0;
+  --accent: #268bd2;
+  --accent-2: #60a5fa;
+  --accent-3: #2563eb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #268bd2, #268bd2);
+  --grad-soft: linear-gradient(135deg, rgba(38,139,210,0.08), rgba(38,139,210,0.04));
+  --font-sans: 'Inter','Noto Sans SC',sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 10px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 6px 20px rgba(88,110,117,.14);
+  --shadow-lg: 0 18px 50px rgba(88,110,117,.24);
+}

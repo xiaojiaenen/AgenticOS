@@ -1,0 +1,30 @@
+/* PPT theme: retro-tv — auto-generated from open-design */
+
+:root {
+  --bg: #f5ecd7;
+  --bg-soft: #ede4d0;
+  --surface: #f0e7d2;
+  --surface-2: #ded6c3;
+  --border: #c5c5c6;
+  --border-strong: #979799;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #aeaeb0;
+  --accent: #e67e14;
+  --accent-2: #60a5fa;
+  --accent-3: #2563eb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #e67e14, #e67e14);
+  --grad-soft: linear-gradient(135deg, rgba(230,126,20,0.08), rgba(230,126,20,0.04));
+  --font-sans: 'Inter','Noto Sans SC',sans-serif;
+  --font-display: 'Playfair Display','Noto Serif SC',serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 10px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 6px 0 rgba(80,40,0,.12),0 12px 28px rgba(80,40,0,.15);
+  --shadow-lg: 0 10px 0 rgba(80,40,0,.15),0 24px 50px rgba(80,40,0,.2);
+}

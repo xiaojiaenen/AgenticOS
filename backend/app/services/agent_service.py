@@ -29,6 +29,8 @@ from app.services.agent_profile_service import AgentProfileService, RuntimeAgent
 from app.services.ppt_artifact_service import PptArtifactService
 from app.services.ppt.svg_layouts import SVG_LAYOUTS
 from app.services.ppt.svg_to_pptx.config import SVG_CONSTRAINTS
+from app.services.ppt.design_craft import build_craft_rules_text as craft_rules_text
+from app.services.ppt.deck_styles import build_deck_styles_text
 from app.services.ppt.theme_token_resolver import build_token_quick_ref, list_available_themes
 from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.services.tool_config_service import ToolConfigService
@@ -398,6 +400,12 @@ class AgentService:
             "**图表**：柱状=`<rect>` + `<text>` / 折线=`<polyline>` + `<circle>` / 饼图=`<path>` 扇形 / 雷达=`<polygon>`",
             "**表格**：`<rect>` 行背景交替 + `<text>` / **虚线**：`stroke-dasharray=\"4,4\"`",
             "**图片**：`<image href=\"../images/photo.jpg\" ... preserveAspectRatio=\"xMidYMid slice\"/>`（后处理自动内嵌）",
+            "",
+            "---",
+            craft_rules_text(),
+            "",
+            "---",
+            build_deck_styles_text(),
             "",
             "---",
             "**主题选择快速决策（data-theme 只能从下方完整列表或分类推荐中选，禁止自创）：**",

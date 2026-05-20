@@ -1,0 +1,30 @@
+/* PPT theme: engineering-whiteprint — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f7f7;
+  --surface: #f9f9f9;
+  --surface-2: #e8e8e8;
+  --border: #c5c5c6;
+  --border-strong: #979799;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #aeaeb0;
+  --accent: #0a1e46;
+  --accent-2: #60a5fa;
+  --accent-3: #2563eb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0a1e46, #0a1e46);
+  --grad-soft: linear-gradient(135deg, rgba(10,30,70,0.08), rgba(10,30,70,0.04));
+  --font-sans: 'Inter','Noto Sans SC',sans-serif;
+  --font-display: 'JetBrains Mono','Inter',monospace;
+  --font-mono: 'JetBrains Mono','IBM Plex Mono',monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 0px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: none;
+  --shadow-lg: 0 0 0 1px var(--border-strong);
+}

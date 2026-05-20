@@ -151,11 +151,37 @@ def sync(brands: list[str] | None = None, delay: float = 0.3) -> tuple[int, int]
     return success, fail
 
 
+def sync_html_ppt_themes() -> None:
+    """Copy html-ppt theme CSS files from local open-design repo."""
+    import shutil
+
+    html_ppt_dir = Path.home() / "code" / "open-design" / "design-templates" / "html-ppt" / "assets" / "themes"
+    if not html_ppt_dir.is_dir():
+        print(f"\nhtml-ppt themes directory not found: {html_ppt_dir}")
+        print("Skipping html-ppt theme sync.")
+        return
+
+    # Copy to data/design-themes-html-ppt/ for later conversion
+    dest_dir = PROJECT_ROOT / "data" / "design-themes-html-ppt"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    copied = 0
+    for css_file in sorted(html_ppt_dir.glob("*.css")):
+        if css_file.stem in ("base", "fonts", "animations"):
+            continue
+        dest_path = dest_dir / css_file.name
+        shutil.copy2(css_file, dest_path)
+        copied += 1
+
+    print(f"Synced {copied} html-ppt themes to {dest_dir}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sync design systems from open-design")
     parser.add_argument("--brands", help="Comma-separated brand names to sync")
     parser.add_argument("--list", action="store_true", help="List available brands")
     parser.add_argument("--delay", type=float, default=0.3, help="Delay between API calls (seconds)")
+    parser.add_argument("--html-ppt", action="store_true", help="Also sync html-ppt themes from open-design")
     args = parser.parse_args()
 
     if args.list:
@@ -175,6 +201,10 @@ def main() -> None:
     print(f"Will sync {len(brands)} brands to {TARGET_DIR}\n")
     ok, failed = sync(brands, delay=args.delay)
     print(f"\nDone: {ok} succeeded, {failed} failed.")
+
+    # html-ppt themes sync (local copy from open-design repo)
+    if args.html_ppt:
+        sync_html_ppt_themes()
 
     # Validate
     sys.path.insert(0, str(PROJECT_ROOT / "backend"))

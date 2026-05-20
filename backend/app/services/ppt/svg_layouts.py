@@ -58,8 +58,8 @@ SVG_LAYOUTS: dict[str, str] = {
   <g font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
     
     <g id="toc-01">
-<rect x="60" y="170" width="370" height="150" rx="12" fill="var(--surface)"/>
-    <rect x="60" y="170" width="6" height="150" rx="3" fill="var(--accent)"/>
+<rect x="60" y="170" width="370" height="150" rx="8" fill="var(--surface)"/>
+    <rect x="60" y="170" width="370" height="4" rx="2" fill="var(--accent)"/>
     <text x="100" y="240" font-size="48" font-weight="800" fill="var(--accent)">01</text>
     <text x="190" y="240" font-size="22" font-weight="600" fill="var(--text-1)">章节名称</text>
     <text x="100" y="280" font-size="14" fill="var(--text-2)">章节简要描述</text>
@@ -68,8 +68,8 @@ SVG_LAYOUTS: dict[str, str] = {
     </g>
 
     <g id="toc-02">
-<rect x="455" y="170" width="370" height="150" rx="12" fill="var(--surface)"/>
-    <rect x="455" y="170" width="6" height="150" rx="3" fill="var(--accent-2)"/>
+<rect x="455" y="170" width="370" height="150" rx="8" fill="var(--surface)"/>
+    <rect x="455" y="170" width="370" height="4" rx="2" fill="var(--accent-2)"/>
     <text x="495" y="240" font-size="48" font-weight="800" fill="var(--accent-2)">02</text>
     <text x="585" y="240" font-size="22" font-weight="600" fill="var(--text-1)">章节名称</text>
     <text x="495" y="280" font-size="14" fill="var(--text-2)">章节简要描述</text>
@@ -437,8 +437,7 @@ SVG_LAYOUTS: dict[str, str] = {
   <g font-family="Inter,Noto Sans SC,sans-serif" id="bg-layer">
     
     <g id="bullet-1">
-<rect x="80" y="170" width="1120" height="120" rx="12" fill="var(--surface)"/>
-    <rect x="80" y="170" width="6" height="120" rx="3" fill="var(--accent)"/>
+<rect x="80" y="170" width="1120" height="120" rx="8" fill="var(--surface)"/>
     <!-- 图标：先用 search_icons 工具搜索关键词，再填入 data-icon -->
     <use data-icon="chunk-filled/rocket" x="120" y="195" width="28" height="28" fill="var(--accent)"/>
     <text x="165" y="220" font-size="22" font-weight="600" fill="var(--text-1)">要点标题 1</text>
@@ -447,8 +446,7 @@ SVG_LAYOUTS: dict[str, str] = {
     </g>
 
     <g id="bullet-2">
-<rect x="80" y="310" width="1120" height="120" rx="12" fill="var(--surface)"/>
-    <rect x="80" y="310" width="6" height="120" rx="3" fill="var(--accent-2)"/>
+<rect x="80" y="310" width="1120" height="120" rx="8" fill="var(--surface)"/>
     <use data-icon="chunk-filled/star" x="120" y="335" width="28" height="28" fill="var(--accent-2)"/>
     <text x="165" y="360" font-size="22" font-weight="600" fill="var(--text-1)">要点标题 2</text>
     <text x="165" y="395" font-size="15" fill="var(--text-2)">展开说明：可以写 1-2 行具体细节、数据支撑或案例引用</text>
@@ -456,8 +454,7 @@ SVG_LAYOUTS: dict[str, str] = {
     </g>
 
     <g id="bullet-3">
-<rect x="80" y="450" width="1120" height="120" rx="12" fill="var(--surface)"/>
-    <rect x="80" y="450" width="6" height="120" rx="3" fill="var(--good)"/>
+<rect x="80" y="450" width="1120" height="120" rx="8" fill="var(--surface)"/>
     <use data-icon="chunk-filled/check-circle" x="120" y="475" width="28" height="28" fill="var(--good)"/>
     <text x="165" y="500" font-size="22" font-weight="600" fill="var(--text-1)">要点标题 3</text>
     <text x="165" y="535" font-size="15" fill="var(--text-2)">展开说明：可以写 1-2 行具体细节、数据支撑或案例引用</text>

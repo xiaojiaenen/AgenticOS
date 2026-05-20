@@ -1,0 +1,30 @@
+/* PPT theme: sunset-warm — auto-generated from open-design */
+
+:root {
+  --bg: #fff7ef;
+  --bg-soft: #f7efe7;
+  --surface: #f9f2ea;
+  --surface-2: #e8e0d9;
+  --border: #c5c5c6;
+  --border-strong: #979799;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #aeaeb0;
+  --accent: #e36a2d;
+  --accent-2: #60a5fa;
+  --accent-3: #2563eb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #e36a2d, #e36a2d);
+  --grad-soft: linear-gradient(135deg, rgba(227,106,45,0.08), rgba(227,106,45,0.04));
+  --font-sans: 'Inter','Noto Sans SC',sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 18px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 12px 32px rgba(227,106,45,.16);
+  --shadow-lg: 0 24px 64px rgba(227,106,45,.22);
+}

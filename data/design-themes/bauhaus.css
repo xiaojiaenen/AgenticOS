@@ -1,0 +1,30 @@
+/* PPT theme: bauhaus — auto-generated from open-design */
+
+:root {
+  --bg: #f4efe3;
+  --bg-soft: #ece7dc;
+  --surface: #efeade;
+  --surface-2: #ddd9ce;
+  --border: #111111;
+  --border-strong: #979799;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #aeaeb0;
+  --accent: #e03c27;
+  --accent-2: #60a5fa;
+  --accent-3: #2563eb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #e03c27, #e03c27);
+  --grad-soft: linear-gradient(135deg, rgba(224,60,39,0.08), rgba(224,60,39,0.04));
+  --font-sans: 'Space Grotesk','Inter','Noto Sans SC',sans-serif;
+  --font-display: 'Archivo Black',sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 0;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 4px 4px 0 #111;
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

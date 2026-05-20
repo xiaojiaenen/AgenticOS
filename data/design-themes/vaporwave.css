@@ -1,0 +1,30 @@
+/* PPT theme: vaporwave — auto-generated from open-design */
+
+:root {
+  --bg: #1a0938;
+  --bg-soft: #30214b;
+  --surface: #190836;
+  --surface-2: #2d1f46;
+  --border: #c5c5c6;
+  --border-strong: #979799;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #aeaeb0;
+  --accent: #ff6ec7;
+  --accent-2: #60a5fa;
+  --accent-3: #2563eb;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #ff6ec7, #ff6ec7);
+  --grad-soft: linear-gradient(135deg, rgba(255,110,199,0.08), rgba(255,110,199,0.04));
+  --font-sans: 'Space Grotesk','Inter','Noto Sans SC',sans-serif;
+  --font-display: 'Space Grotesk','Inter',sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 18px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 20px 60px rgba(255,110,199,.2),0 0 1px rgba(0,245,255,.6);
+  --shadow-lg: 0 30px 80px rgba(255,110,199,.3),0 0 2px rgba(0,245,255,.8);
+}
