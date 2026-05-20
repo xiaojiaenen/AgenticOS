@@ -51,10 +51,10 @@ interface AnimConfig {
 
 const A: Record<CompanionPhase, AnimConfig> = {
   thinking: {
-    container: { rotate: [-3, 4, -3] },
-    containerTrans: { duration: 3, ease: 'easeInOut', repeat: Infinity },
+    container: { y: [0, -5, 0] },
+    containerTrans: { duration: 2.8, ease: 'easeInOut', repeat: Infinity },
     orbitSpeed: 5,
-    arm: { range: [-5, 8, -5], duration: 2.8 },
+    arm: { range: [-4, 6, -4], duration: 3 },
     pupilWander: true,
     blinkEvery: 4,
     earWiggle: true,
@@ -64,11 +64,8 @@ const A: Record<CompanionPhase, AnimConfig> = {
     bodyShake: false,
   },
   streaming: {
-    container: {
-      y: [0, -2, 0, -2, 0, -2, 0, -2, 0, -3, 0, -2, 0],
-      rotate: [0, 1, 0, 1, 0],
-    },
-    containerTrans: { duration: 0.6, ease: 'easeInOut', repeat: Infinity },
+    container: { y: [0, -4, 0] },
+    containerTrans: { duration: 2.2, ease: 'easeInOut', repeat: Infinity },
     orbitSpeed: 6,
     pupilWander: false,
     blinkEvery: 3.5,
@@ -79,10 +76,10 @@ const A: Record<CompanionPhase, AnimConfig> = {
     bodyShake: false,
   },
   generating_ppt: {
-    container: { rotate: [-4, 5, -4] },
-    containerTrans: { duration: 2, ease: 'easeInOut', repeat: Infinity },
+    container: { y: [0, -6, 0] },
+    containerTrans: { duration: 2.5, ease: 'easeInOut', repeat: Infinity },
     orbitSpeed: 4,
-    arm: { range: [-6, 9, -6], duration: 2.2 },
+    arm: { range: [-5, 7, -5], duration: 2.6 },
     pupilWander: true,
     blinkEvery: 4,
     earWiggle: true,
@@ -92,10 +89,10 @@ const A: Record<CompanionPhase, AnimConfig> = {
     bodyShake: false,
   },
   rendering_ppt: {
-    container: { rotate: [-4, 5, -4] },
-    containerTrans: { duration: 2, ease: 'easeInOut', repeat: Infinity },
+    container: { y: [0, -6, 0] },
+    containerTrans: { duration: 2.5, ease: 'easeInOut', repeat: Infinity },
     orbitSpeed: 4,
-    arm: { range: [-6, 9, -6], duration: 2.2 },
+    arm: { range: [-5, 7, -5], duration: 2.6 },
     pupilWander: true,
     blinkEvery: 4,
     earWiggle: true,
@@ -105,7 +102,7 @@ const A: Record<CompanionPhase, AnimConfig> = {
     bodyShake: false,
   },
   done: {
-    container: { y: [0, -18, 0, -10, 0, -5, 0, -1, 1, -1, 0] },
+    container: { y: [0, -18, 0, -10, 0, -5, 0] },
     containerTrans: { duration: 0.9, ease: 'easeOut' },
     orbitSpeed: 0,
     pupilWander: false,
@@ -117,8 +114,8 @@ const A: Record<CompanionPhase, AnimConfig> = {
     bodyShake: false,
   },
   error: {
-    container: { x: [-5, 5, -4, 4, -3, 3, -2, 2, -1, 1, 0], rotate: [-2, 2, -1, 1, 0] },
-    containerTrans: { duration: 0.5, ease: 'easeInOut', repeat: 2 },
+    container: {},
+    containerTrans: { duration: 0.3, ease: 'easeInOut' },
     orbitSpeed: 0,
     pupilWander: false,
     blinkEvery: 0,
@@ -126,7 +123,7 @@ const A: Record<CompanionPhase, AnimConfig> = {
     streamingDots: false,
     pptExtra: false,
     sweatDrops: 3,
-    bodyShake: true,
+    bodyShake: false,
   },
 };
 
