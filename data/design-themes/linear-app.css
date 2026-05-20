@@ -1,15 +1,15 @@
-/* PPT theme: linear-app — auto-generated from open-design */
+/* PPT theme: linear-app — manually converted from open-design tokens.css */
 
 :root {
   --bg: #08090a;
   --bg-soft: #191a1b;
   --surface: #191a1b;
-  --surface-2: #171819;
-  --border: #d9d9de;
-  --border-strong: #a0a0a8;
+  --surface-2: #1e1f20;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.14);
   --text-1: #f7f8f8;
   --text-2: #d0d6e0;
-  --text-3: #62666d;
+  --text-3: #8a8f98;
   --accent: #5e6ad2;
   --accent-2: #828fff;
   --accent-3: #4752c4;
@@ -18,13 +18,13 @@
   --bad: #dc2626;
   --grad: linear-gradient(135deg, #5e6ad2, #828fff);
   --grad-soft: linear-gradient(135deg, rgba(94,106,210,0.08), rgba(130,143,255,0.04));
-  --font-sans: Inter, Noto Sans SC, sans-serif;
-  --font-display: Inter, Noto Sans SC, sans-serif;
-  --font-mono: JetBrains Mono, monospace;
-  --font-serif: Playfair Display, Noto Serif SC, serif;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-lg: 20px;
-  --shadow: 0 2px 8px rgba(0,0,0,0.08);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --font-sans: 'Inter Variable','Inter','SF Pro Display',-apple-system,system-ui,'Noto Sans SC',sans-serif;
+  --font-display: 'Inter Variable','Inter','SF Pro Display',-apple-system,system-ui,'Noto Sans SC',sans-serif;
+  --font-mono: 'Berkeley Mono',ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+  --shadow: none;
+  --shadow-lg: rgba(0,0,0,0.4) 0px 2px 4px, 0 0 0 1px rgba(255,255,255,0.05);
 }

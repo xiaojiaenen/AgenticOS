@@ -1,30 +1,30 @@
-/* PPT theme: luxury — auto-generated from open-design */
+/* PPT theme: luxury — manually converted from open-design DESIGN.md */
 
 :root {
   --bg: #000000;
-  --bg-soft: #000000;
-  --surface: #000000;
-  --surface-2: #000000;
-  --border: #ffffff;
-  --border-strong: #ffffff;
+  --bg-soft: #0a0a0a;
+  --surface: #141414;
+  --surface-2: #1f1f1f;
+  --border: rgba(255,255,255,0.1);
+  --border-strong: rgba(255,255,255,0.22);
   --text-1: #ffffff;
-  --text-2: #ffffff;
-  --text-3: #ffffff;
+  --text-2: #cccccc;
+  --text-3: #888888;
   --accent: #fafafa;
-  --accent-2: #fafafa;
-  --accent-3: #d4d4d4;
+  --accent-2: #d4af37;
+  --accent-3: #c0a030;
   --good: #16a34a;
   --warn: #d97706;
   --bad: #dc2626;
-  --grad: linear-gradient(135deg, #fafafa, #fafafa);
-  --grad-soft: linear-gradient(135deg, rgba(250,250,250,0.08), rgba(250,250,250,0.04));
-  --font-sans: Inter, Noto Sans SC, sans-serif;
-  --font-display: Inter, Noto Sans SC, sans-serif;
-  --font-mono: JetBrains Mono, monospace;
-  --font-serif: Playfair Display, Noto Serif SC, serif;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-lg: 20px;
-  --shadow: 0 2px 8px rgba(0,0,0,0.08);
-  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+  --grad: linear-gradient(135deg, #fafafa, #d4af37);
+  --grad-soft: linear-gradient(135deg, rgba(250,250,250,0.06), rgba(212,175,55,0.04));
+  --font-sans: 'Oswald','Inter','Noto Sans SC',sans-serif;
+  --font-display: 'Oswald','Inter','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 8px;
+  --shadow: 0 4px 20px rgba(0,0,0,0.5);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.7);
 }

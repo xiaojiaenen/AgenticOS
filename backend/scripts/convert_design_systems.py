@@ -53,6 +53,7 @@ DS_TO_PPT: dict[str, str] = {
     "--danger":        "--bad",
     # Typography
     "--font-sans":     "--font-sans",
+    "--font-body":     "--font-sans",
     "--font-display":  "--font-display",
     "--font-mono":     "--font-mono",
     "--font-serif":    "--font-serif",
@@ -207,13 +208,24 @@ def convert_from_tokens_css(tokens_css_path: Path) -> dict[str, str]:
 
     for ds_name, ppt_name in DS_TO_PPT.items():
         val = tokens.get(ds_name, "")
-        if val and is_hex6(val):
+        if not val:
+            continue
+        val = val.strip().rstrip(";")
+        if ppt_name.startswith("--font") or ppt_name.startswith("--radius") or ppt_name.startswith("--shadow"):
+            result[ppt_name] = val
+        elif ppt_name in ("--surface", "--surface-2", "--border", "--border-strong"):
+            # Accept rgba() / hsla() — common in dark themes
+            result[ppt_name] = val
+        elif is_hex6(val.split()[0]) or val.startswith("rgba(") or val.startswith("hsla("):
             result[ppt_name] = val.lower()
+        elif "var(" in val:
+            # Unresolved var() — skip, will be filled by fallbacks
+            pass
 
-    # surface-2: darken bg-soft or surface
+    # surface-2: derive from surface or bg-soft if missing
     if "--surface-2" not in result:
         src = result.get("--surface", result.get("--bg-soft"))
-        if src:
+        if src and is_hex6(src):
             result["--surface-2"] = darken(src, 0.05)
 
     _synthesize_gradients(result)
@@ -942,6 +954,7 @@ def main() -> None:
             source = "DESIGN.md"
             heuristic_count += 1
 
+        _fill_neutral_gaps(tokens)
         tokens = fill_fallbacks(tokens)
         write_theme_css(name, tokens)
         custom_count = sum(
