@@ -349,9 +349,11 @@ class AgentService:
         )
 
     def _inject_design_catalog(cls, message: str) -> str:
-        """Inject SVG layout templates + token reference + icon rules + theme selection guide."""
+        """Inject theme selection first, then token reference, then layout templates, then craft rules."""
         layout_catalog = cls._build_layout_catalog()
         token_ref = build_token_quick_ref()
+        theme_count = len(list_available_themes())
+        theme_list = ", ".join(sorted(list_available_themes()))
 
         lines = [
             "",
@@ -362,16 +364,47 @@ class AgentService:
             "技能中包含图标嵌入语法、tspan 铁律、阴影模板、分组动画规则等关键约束，不加载将导致导出失败。",
             "",
             "---",
-            "## SVG Layout 结构模板（31 个，可直接复制替换内容）",
+            "## ⭐ 主题选择（必须先选主题，再写 SVG）",
             "",
-            "**工作流：list_skills → load_skill(\"ppt-svg-reference\") → search_icons 搜索图标 → 为每页选择 layout → 调用 save_slide(slide_num=N, svg=\"...\") 写入每页 → 不再调工具即完成。**",
+            f"**共 {theme_count} 个品牌设计主题可用。data-theme 只能从下方列表选，禁止自创或编造主题名。**",
             "",
-            layout_catalog,
+            "**快速决策（按场景匹配）：**",
+            "- 商业 / 管理层汇报 → apple, stripe, ibm, corporate, professional, enterprise, mastercard",
+            "- 技术分享 / 开发者 → github, vercel, cursor, linear-app, expo, warp, mongodb, hashicorp, dracula, monokai",
+            "- 创意 / 发布会 → nike, spotify, playstation, ferrari, brutalism, neobrutalism, glassmorphism, cyberpunk, sunset",
+            "- AI / 前沿科技 → openai, claude, nvidia, huggingface, spacex, hud, mission-control, aurora, tokyo-night",
+            "- 学术 / 研究报告 → kami, paper, editorial, atelier-zero, publication, solarized, everforest",
+            "- 社交媒体 / 小红书 → airbnb, pinterest, duolingo, xiaohongshu, framer, rose-pine",
+            "- 简约 / 纯净 → minimal, clean, mono, refined, simple, sleek, nord, catppuccin-latte",
+            "- 活泼 / 年轻化 → discord, colorful, energetic, tetris, pacman, vibrant, catppuccin",
+            "- 暗色系 → spotify, dracula, cyberpunk, tokyo-night, monokai, trading-terminal, hud, mission-control",
+            "- 金融 / 支付 → stripe, revolut, binance, coinbase, kraken, wise",
+            "- 编辑排版（zhangzara 衬线风）→ zhangzara-editorial-tri-tone, zhangzara-soft-editorial, zhangzara-broadside, zhangzara-mat, zhangzara-vellum, zhangzara-pin-and-paper",
+            "- 现代海报/粗野风（zhangzara）→ zhangzara-bold-poster, zhangzara-neo-grid-bold, zhangzara-raw-grid, zhangzara-capsule, zhangzara-signal, zhangzara-block-frame",
+            "- 温暖/活泼（zhangzara）→ zhangzara-coral, zhangzara-daisy-days, zhangzara-pink-script, zhangzara-sakura-chroma, zhangzara-scatterbrain, zhangzara-playful",
+            "- 创意/艺术（zhangzara）→ zhangzara-studio, zhangzara-grove, zhangzara-cartesian, zhangzara-creative-mode, zhangzara-biennale-yellow, zhangzara-monochrome",
+            "- 复古（zhangzara）→ zhangzara-retro-windows, zhangzara-retro-zine, zhangzara-8-bit-orbit",
+            "- 专业/商务（zhangzara）→ zhangzara-blue-professional, zhangzara-long-table, zhangzara-peoples-platform, zhangzara-cobalt-grid, zhangzara-stencil-tablet",
+            "",
+            f"**完整 {theme_count} 主题名列表：**",
+            theme_list,
+            "",
+            "**关键规则：**",
+            "1. 从上面选 1 个主题，写入 `<svg data-theme=\"xxx\">`",
+            "2. 所有颜色用 var(--xxx) 令牌，非颜色属性（圆角、字号、字体）直接写值",
+            "3. 每页调用 save_slide(slide_num=N, svg=\"...\") 写入，共 8-14 页",
             "",
             "---",
             "## Token 语义速查（颜色用 var(--xxx) 引用，具体色值由主题决定，后端自动解析）",
             "",
             token_ref,
+            "",
+            "---",
+            "## SVG Layout 结构模板（31 个，可直接复制替换内容）",
+            "",
+            "**工作流：list_skills → load_skill(\"ppt-svg-reference\") → 选主题 → search_icons 搜索图标 → 为每页选择 layout → 调用 save_slide(slide_num=N, svg=\"...\") 写入每页 → 不再调工具即完成。**",
+            "",
+            layout_catalog,
             "",
             "---",
             "## 图标引用（使用 `search_icons` 工具按关键词搜索，再通过 `<use data-icon=\"库名/图标名\" fill=\"var(--accent)\" x=\"..\" y=\"..\" width=\"..\" height=\"..\"/>` 引用）",
@@ -407,39 +440,9 @@ class AgentService:
             "---",
             build_deck_styles_text(),
             "",
-            "---",
-            "**主题选择快速决策（data-theme 只能从下方完整列表或分类推荐中选，禁止自创）：**",
-            "- 商业 / 管理层汇报 → apple, stripe, ibm, corporate, professional, enterprise, mastercard",
-            "- 技术分享 / 开发者 → github, vercel, cursor, linear-app, expo, warp, mongodb, hashicorp, dracula, monokai",
-            "- 创意 / 发布会 → nike, spotify, playstation, ferrari, brutalism, neobrutalism, glassmorphism, cyberpunk, sunset",
-            "- AI / 前沿科技 → openai, claude, nvidia, huggingface, spacex, hud, mission-control, aurora, tokyo-night",
-            "- 学术 / 研究报告 → kami, paper, editorial, atelier-zero, publication, solarized, everforest",
-            "- 社交媒体 / 小红书 → airbnb, pinterest, duolingo, xiaohongshu, framer, rose-pine",
-            "- 简约 / 纯净 → minimal, clean, mono, refined, simple, sleek, nord, catppuccin-latte",
-            "- 活泼 / 年轻化 → discord, colorful, energetic, tetris, pacman, vibrant, catppuccin",
-            "- 暗色系 → spotify, dracula, cyberpunk, tokyo-night, monokai, trading-terminal, hud, mission-control",
-            "- 金融 / 支付 → stripe, revolut, binance, coinbase, kraken, wise",
-            "- 编辑排版（zhangzara 衬线风）→ zhangzara-editorial-tri-tone, zhangzara-soft-editorial, zhangzara-broadside, zhangzara-mat, zhangzara-vellum, zhangzara-pin-and-paper",
-            "- 现代海报/粗野风（zhangzara）→ zhangzara-bold-poster, zhangzara-neo-grid-bold, zhangzara-raw-grid, zhangzara-capsule, zhangzara-signal, zhangzara-block-frame",
-            "- 温暖/活泼（zhangzara）→ zhangzara-coral, zhangzara-daisy-days, zhangzara-pink-script, zhangzara-sakura-chroma, zhangzara-scatterbrain, zhangzara-playful",
-            "- 创意/艺术（zhangzara）→ zhangzara-studio, zhangzara-grove, zhangzara-cartesian, zhangzara-creative-mode, zhangzara-biennale-yellow, zhangzara-monochrome",
-            "- 复古（zhangzara）→ zhangzara-retro-windows, zhangzara-retro-zine, zhangzara-8-bit-orbit",
-            "- 专业/商务（zhangzara）→ zhangzara-blue-professional, zhangzara-long-table, zhangzara-peoples-platform, zhangzara-cobalt-grid, zhangzara-stencil-tablet",
-            "",
-            f"**完整 {len(list_available_themes())} 主题名列表（data-theme 只能从下面选）：**",
-            ", ".join(sorted(list_available_themes())),
-            "",
-            "### 关键规则",
-            "1. 推荐 1 个最匹配主题写入 `<svg data-theme=\"xxx\">`",
-            "2. 每页从上面的 SVG layout 样本中**复制粘贴**，替换内容但保留结构和 var(--token) 引用",
-            "3. 所有颜色用 var(--xxx) 令牌，非颜色属性（圆角、字号、字体）直接写值",
-            "4. 每页调用一次 save_slide(slide_num=N, svg=\"...\")，共 8-14 页",
-            "5. 演讲者备注：在 SVG 开头附近添加 `<!-- notes: ... -->`",
-            "",
             "**CURRENT TIME:** " + __import__("datetime").datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
         ]
         return message + "\n".join(lines)
-
     async def _create_ppt_artifact(self, session_id: str) -> dict[str, Any] | None:
         """Create a PPT artifact from saved slides in the session work directory."""
         from pathlib import Path as _Path
