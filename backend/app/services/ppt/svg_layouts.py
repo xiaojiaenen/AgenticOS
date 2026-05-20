@@ -1,4 +1,4 @@
-"""SVG structural templates for each of the 31 html-ppt layout types.
+"""SVG structural templates for each of the 36 html-ppt layout types.
 
 Each value is a self-contained ``<svg>`` snippet that the AI can copy-paste
 and then replace placeholder content with real data.  Templates use
@@ -1224,6 +1224,219 @@ SVG_LAYOUTS: dict[str, str] = {
   
     </g>
 </g>
+</svg>""",
+
+    # ── Asymmetric & Magazine (new archetypes) ──────────────────────────
+    "asymmetric-spread": """<!-- layout: asymmetric-spread | 杂志跨页 | 左右不对称 + 文字叠图 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <g font-family="var(--font-sans)" id="bg-layer">
+    <g id="asymmetric-layout">
+      <!-- 左侧大图片区：占比 55% -->
+      <rect x="0" y="0" width="700" height="720" fill="var(--surface)" rx="0"/>
+      <rect x="0" y="0" width="700" height="400" fill="var(--bg-soft)" rx="0"/>
+      <text x="350" y="200" text-anchor="middle" font-size="16" fill="var(--text-3)">[ 主视觉图片区域 700x400 ]</text>
+      <!-- 左下方装饰图形 -->
+      <circle cx="350" cy="560" r="120" fill="var(--accent)" opacity="0.06"/>
+      <rect x="60" y="440" width="580" height="80" rx="8" fill="var(--surface-2)"/>
+      <text x="350" y="488" text-anchor="middle" font-size="14" fill="var(--text-2)">说明文字 / 数据标注</text>
+      <!-- 右侧文字区：偏移叠加 -->
+      <rect x="620" y="100" width="600" height="140" fill="var(--bg)" rx="4" opacity="0.95"/>
+      <text x="660" y="145" font-size="20" fill="var(--accent)" font-weight="600" font-family="var(--font-display)">CHAPTER 01</text>
+      <text x="660" y="205" font-size="48" fill="var(--text-1)" font-weight="800" font-family="var(--font-display)">
+        <tspan x="660" dy="0">大标题跨越</tspan>
+        <tspan x="660" dy="60" fill="var(--accent)">左右不对称</tspan>
+      </text>
+      <!-- 右侧正文 -->
+      <text x="660" y="300" font-size="18" fill="var(--text-2)">
+        <tspan x="660" dy="0">正文内容从右侧开始，与左侧图片区域</tspan>
+        <tspan x="660" dy="28">形成自然的视觉张力。标题可以跨越</tspan>
+        <tspan x="660" dy="28">左右分界线，制造层次感。</tspan>
+      </text>
+      <!-- 右下角数据点 -->
+      <rect x="660" y="420" width="180" height="100" rx="12" fill="var(--surface-2)"/>
+      <text x="750" y="455" text-anchor="middle" font-size="36" font-weight="800" fill="var(--accent)">73%</text>
+      <text x="750" y="488" text-anchor="middle" font-size="12" fill="var(--text-3)">关键指标</text>
+      <rect x="870" y="420" width="180" height="100" rx="12" fill="var(--surface-2)"/>
+      <text x="960" y="455" text-anchor="middle" font-size="36" font-weight="800" fill="var(--text-1)">2.4x</text>
+      <text x="960" y="488" text-anchor="middle" font-size="12" fill="var(--text-3)">同比增长</text>
+      <!-- 底部装饰线 -->
+      <rect x="660" y="640" width="540" height="3" fill="var(--accent)" opacity="0.3"/>
+      <text x="660" y="680" font-size="13" fill="var(--text-3)">数据来源：2026 Q3 内部统计 · 基准年 2025</text>
+    </g>
+  </g>
+</svg>""",
+
+    "overlap-cards": """<!-- layout: overlap-cards | 叠层卡片 | 卡片故意重叠 + 偏移阴影 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <defs>
+    <filter id="cardShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+  <g font-family="var(--font-sans)" id="bg-layer">
+    <g id="overlap-cards-layout">
+      <!-- 顶部标题：右对齐 -->
+      <text x="1200" y="80" text-anchor="end" font-size="18" fill="var(--accent)" font-weight="600">OVERLAPPING CARDS</text>
+      <text x="1200" y="130" text-anchor="end" font-size="40" fill="var(--text-1)" font-weight="700" font-family="var(--font-display)">三个优先级</text>
+      <!-- 卡片 1：最下层，左上 -->
+      <rect x="60" y="200" width="400" height="380" rx="16" fill="var(--surface)" filter="url(#cardShadow)"/>
+      <rect x="60" y="200" width="400" height="6" rx="3" fill="var(--accent)"/>
+      <circle cx="110" cy="270" r="28" fill="var(--accent)" opacity="0.12"/>
+      <text x="110" y="280" text-anchor="middle" font-size="22" fill="var(--accent)" font-weight="700">1</text>
+      <text x="140" y="320" font-size="26" fill="var(--text-1)" font-weight="700">基础能力建设</text>
+      <text x="100" y="370" font-size="15" fill="var(--text-2)">
+        <tspan x="100" dy="0">基础设施升级与稳定性</tspan>
+        <tspan x="100" dy="28">保障，2026 Q3 前完成核心</tspan>
+        <tspan x="100" dy="28">模块重构。</tspan>
+      </text>
+      <!-- 卡片 2：中层，偏移到右上方 -->
+      <rect x="320" y="160" width="400" height="380" rx="16" fill="var(--surface-2)" filter="url(#cardShadow)"/>
+      <rect x="320" y="160" width="400" height="6" rx="3" fill="var(--accent-2)"/>
+      <circle cx="370" cy="230" r="28" fill="var(--accent-2)" opacity="0.12"/>
+      <text x="370" y="240" text-anchor="middle" font-size="22" fill="var(--accent-2)" font-weight="700">2</text>
+      <text x="400" y="280" font-size="26" fill="var(--text-1)" font-weight="700">用户体验优化</text>
+      <text x="360" y="330" font-size="15" fill="var(--text-2)">
+        <tspan x="360" dy="0">界面焕新与交互流程简化</tspan>
+        <tspan x="360" dy="28">，目标用户满意度提升至</tspan>
+        <tspan x="360" dy="28">4.5/5 分。</tspan>
+      </text>
+      <!-- 卡片 3：最上层，右下 -->
+      <rect x="580" y="250" width="400" height="380" rx="16" fill="var(--bg)" filter="url(#cardShadow)" stroke="var(--border)"/>
+      <rect x="580" y="250" width="400" height="6" rx="3" fill="var(--good)"/>
+      <circle cx="630" cy="320" r="28" fill="var(--good)" opacity="0.12"/>
+      <text x="630" y="330" text-anchor="middle" font-size="22" fill="var(--good)" font-weight="700">3</text>
+      <text x="660" y="370" font-size="26" fill="var(--text-1)" font-weight="700">AI 能力集成</text>
+      <text x="620" y="420" font-size="15" fill="var(--text-2)">
+        <tspan x="620" dy="0">智能推荐与自动化工作流</tspan>
+        <tspan x="620" dy="28">，2026 Q4 推出 Beta 版本</tspan>
+        <tspan x="620" dy="28">内测。</tspan>
+      </text>
+      <!-- 右下角页码 -->
+      <text x="1200" y="690" text-anchor="end" font-size="12" fill="var(--text-3)">2 / 10</text>
+    </g>
+  </g>
+</svg>""",
+
+    "full-bleed-split": """<!-- layout: full-bleed-split | 全幅分割 | 对角线/不规则分割 + 两边不同背景 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <g font-family="var(--font-sans)" id="bg-layer">
+    <g id="bleed-split-layout">
+      <!-- 对角线分割：下方暗色区域 -->
+      <path d="M0,720 L1280,280 L1280,720 Z" fill="var(--surface)"/>
+      <!-- 上方亮色区域的装饰 -->
+      <circle cx="120" cy="80" r="200" fill="var(--accent)" opacity="0.04"/>
+      <!-- 上半部分内容：左对齐 -->
+      <text x="80" y="100" font-size="16" fill="var(--accent)" font-weight="600">PROBLEM STATEMENT</text>
+      <text x="80" y="165" font-size="44" fill="var(--text-1)" font-weight="800" font-family="var(--font-display)">
+        <tspan x="80" dy="0">当前面临的核心</tspan>
+        <tspan x="80" dy="55">挑战与机遇</tspan>
+      </text>
+      <text x="80" y="250" font-size="18" fill="var(--text-2)">
+        <tspan x="80" dy="0">市场环境快速变化，传统方案难以满足</tspan>
+        <tspan x="80" dy="28">新一代用户对体验与效率的双重期待。</tspan>
+      </text>
+      <!-- 下半部分内容：右对齐 -->
+      <text x="1200" y="520" text-anchor="end" font-size="16" fill="var(--accent-2)" font-weight="600">OUR APPROACH</text>
+      <text x="1200" y="580" text-anchor="end" font-size="36" fill="var(--text-1)" font-weight="700" font-family="var(--font-display)">三步解决框架</text>
+      <rect x="750" y="610" width="450" height="3" rx="1.5" fill="var(--accent)" opacity="0.4"/>
+      <text x="1200" y="655" text-anchor="end" font-size="15" fill="var(--text-2)">
+        <tspan x="1200" dy="0">Step 1: 诊断分析 → Step 2: 敏捷试点 → Step 3: 规模化推广</tspan>
+      </text>
+    </g>
+  </g>
+</svg>""",
+
+    "staggered-grid": """<!-- layout: staggered-grid | 错位网格 | 砖块式不规则排列 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <g font-family="var(--font-sans)" id="bg-layer">
+    <g id="staggered-layout">
+      <!-- 标题：顶部居中 -->
+      <text x="640" y="65" text-anchor="middle" font-size="18" fill="var(--accent)" font-weight="600">FEATURE HIGHLIGHTS</text>
+      <text x="640" y="120" text-anchor="middle" font-size="42" fill="var(--text-1)" font-weight="800" font-family="var(--font-display)">产品核心能力矩阵</text>
+      <!-- 第1行：2个卡片错位 -->
+      <!-- 卡片1：左起，大 -->
+      <rect x="40" y="170" width="580" height="180" rx="12" fill="var(--surface)"/>
+      <rect x="40" y="170" width="6" height="180" rx="3" fill="var(--accent)"/>
+      <text x="80" y="220" font-size="24" fill="var(--text-1)" font-weight="700">智能分析与洞察</text>
+      <text x="80" y="260" font-size="15" fill="var(--text-2)">
+        <tspan x="80" dy="0">实时数据流处理 + 多维度交叉分析引擎，从海量数据中自动提取</tspan>
+        <tspan x="80" dy="26">关键业务洞察，支持自然语言查询与可视化报告一键生成。</tspan>
+      </text>
+      <rect x="80" y="295" width="100" height="28" rx="14" fill="var(--accent)" opacity="0.1"/>
+      <text x="130" y="315" text-anchor="middle" font-size="12" fill="var(--accent)" font-weight="600">核心能力</text>
+      <!-- 卡片2：右起，偏向下方跟卡片1有错位 -->
+      <rect x="660" y="210" width="580" height="180" rx="12" fill="var(--surface-2)"/>
+      <rect x="660" y="210" width="6" height="180" rx="3" fill="var(--accent-2)"/>
+      <text x="700" y="260" font-size="24" fill="var(--text-1)" font-weight="700">自动化工作流引擎</text>
+      <text x="700" y="300" font-size="15" fill="var(--text-2)">
+        <tspan x="700" dy="0">低代码拖拽式流程编排 + 条件触发与定时任务调度，支持跨系统</tspan>
+        <tspan x="700" dy="26">集成，减少 60% 重复人工操作。</tspan>
+      </text>
+      <rect x="700" y="335" width="100" height="28" rx="14" fill="var(--accent-2)" opacity="0.1"/>
+      <text x="750" y="355" text-anchor="middle" font-size="12" fill="var(--accent-2)" font-weight="600">效率提升</text>
+      <!-- 第2行：3个卡片错位 -->
+      <rect x="40" y="400" width="360" height="260" rx="12" fill="var(--bg-soft)"/>
+      <text x="80" y="460" font-size="22" fill="var(--text-1)" font-weight="700">安全合规</text>
+      <text x="80" y="500" font-size="14" fill="var(--text-2)">
+        <tspan x="80" dy="0">SOC 2 Type II 认证</tspan>
+        <tspan x="80" dy="24">GDPR / CCPA 合规</tspan>
+        <tspan x="80" dy="24">端到端加密传输</tspan>
+        <tspan x="80" dy="24">细粒度权限控制</tspan>
+      </text>
+      <rect x="440" y="430" width="360" height="230" rx="12" fill="var(--surface)"/>
+      <text x="480" y="490" font-size="22" fill="var(--text-1)" font-weight="700">开放生态</text>
+      <text x="480" y="530" font-size="14" fill="var(--text-2)">
+        <tspan x="480" dy="0">RESTful API & GraphQL</tspan>
+        <tspan x="480" dy="24">Webhook 事件订阅</tspan>
+        <tspan x="480" dy="24">50+ 第三方集成</tspan>
+      </text>
+      <rect x="840" y="460" width="400" height="200" rx="12" fill="var(--surface-2)"/>
+      <text x="880" y="520" font-size="22" fill="var(--text-1)" font-weight="700">全球部署</text>
+      <text x="880" y="560" font-size="14" fill="var(--text-2)">
+        <tspan x="880" dy="0">8 个可用区 · 99.99% SLA</tspan>
+        <tspan x="880" dy="24">自动故障转移 &lt; 30 秒</tspan>
+      </text>
+    </g>
+  </g>
+</svg>""",
+
+    "mega-stat": """<!-- layout: mega-stat | 巨型数据 | 突破容器的超大数字 + 环绕说明 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <g font-family="var(--font-sans)" id="bg-layer">
+    <g id="mega-stat-layout">
+      <!-- 背景装饰：大圆 -->
+      <circle cx="640" cy="380" r="280" fill="var(--surface)" opacity="0.5"/>
+      <circle cx="640" cy="380" r="200" fill="var(--accent)" opacity="0.05"/>
+      <!-- 打破容器的超级数字 -->
+      <text x="640" y="420" text-anchor="middle" font-size="180" font-weight="900" fill="var(--accent)" font-family="var(--font-display)" opacity="0.9">42%</text>
+      <!-- 主标题压在数字上 -->
+      <text x="640" y="200" text-anchor="middle" font-size="20" fill="var(--accent)" font-weight="600">YOY REVENUE GROWTH</text>
+      <text x="640" y="260" text-anchor="middle" font-size="44" fill="var(--text-1)" font-weight="800" font-family="var(--font-display)">营收同比增长创历史新高</text>
+      <!-- 环绕数据点：左上 -->
+      <rect x="80" y="500" width="250" height="90" rx="10" fill="var(--surface-2)"/>
+      <text x="205" y="535" text-anchor="middle" font-size="28" font-weight="800" fill="var(--text-1)">$128M</text>
+      <text x="205" y="565" text-anchor="middle" font-size="12" fill="var(--text-3)">全年总营收</text>
+      <!-- 环绕数据点：左下 -->
+      <rect x="80" y="610" width="250" height="90" rx="10" fill="var(--bg-soft)"/>
+      <text x="205" y="645" text-anchor="middle" font-size="28" font-weight="800" fill="var(--good)">+18%</text>
+      <text x="205" y="675" text-anchor="middle" font-size="12" fill="var(--text-3)">客户留存率提升</text>
+      <!-- 环绕数据点：右上 -->
+      <rect x="950" y="500" width="250" height="90" rx="10" fill="var(--surface-2)"/>
+      <text x="1075" y="535" text-anchor="middle" font-size="28" font-weight="800" fill="var(--text-1)">3.2M</text>
+      <text x="1075" y="565" text-anchor="middle" font-size="12" fill="var(--text-3)">月活跃用户数</text>
+      <!-- 环绕数据点：右下 -->
+      <rect x="950" y="610" width="250" height="90" rx="10" fill="var(--bg-soft)"/>
+      <text x="1075" y="645" text-anchor="middle" font-size="28" font-weight="800" fill="var(--accent-2)">#1</text>
+      <text x="1075" y="675" text-anchor="middle" font-size="12" fill="var(--text-3)">行业市场份额排名</text>
+      <!-- 底部说明 -->
+      <rect x="340" y="100" width="600" height="2" fill="var(--border)"/>
+    </g>
+  </g>
 </svg>""",
 
     "todo-checklist": """<!-- layout: todo-checklist | 待办清单 | 勾选完成列表 -->
