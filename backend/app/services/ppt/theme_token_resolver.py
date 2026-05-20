@@ -62,11 +62,21 @@ def load_theme_tokens(theme_name: str) -> dict[str, str]:
 def resolve_token_values(svg_content: str, tokens: dict[str, str]) -> str:
     """Replace every ``var(--token_name)`` in *svg_content* with its resolved value."""
     result = svg_content
+    unresolved: list[str] = []
     for token_name, value in tokens.items():
         if not value:
             continue
         placeholder = f"var({token_name})"
         result = result.replace(placeholder, value)
+    # Warn if any var() references remain unresolved (theme mismatch / invalid theme)
+    remaining = re.findall(r"var\(--[\w-]+\)", result)
+    if remaining:
+        logger.warning(
+            "Unresolved var() references remain in SVG: %s. "
+            "Theme tokens may be missing or theme name is invalid. "
+            "Consider using a valid theme like 'apple' as fallback.",
+            sorted(set(remaining)),
+        )
     return result
 
 

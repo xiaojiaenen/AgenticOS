@@ -153,10 +153,11 @@ async def get_ppt_artifact(
 @router.get("/ppt/preview/{artifact_id}", summary="PPT SVG 实时预览")
 async def preview_pptx(
     artifact_id: str,
+    current_user: UserModel = Depends(get_current_user),
     agent_service: AgentService = Depends(get_agent_service),
 ) -> Response:
     """Return an HTML page that displays all SVG slides with keyboard navigation."""
-    artifact = await agent_service.get_ppt_artifact(artifact_id)
+    artifact = await agent_service.get_ppt_artifact(artifact_id, current_user)
     if artifact is None:
         raise HTTPException(status_code=404, detail=f"PPT artifact '{artifact_id}' not found")
 

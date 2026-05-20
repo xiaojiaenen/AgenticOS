@@ -626,8 +626,16 @@ class AgentService:
         if not request.session_id:
             return
         owner_id = await self.storage.get_owner_id(request.session_id)
-        if owner_id is not None and owner_id != user.id and user.role != "admin":
-            raise PermissionError("当前用户无权访问该会话。")
+        if owner_id is not None:
+            if owner_id != user.id and user.role != "admin":
+                raise PermissionError("当前用户无权访问该会话。")
+        else:
+            # Session is unowned — allow access but verify it's empty or new.
+            # If the session already has messages with a different user context,
+            # it's likely a stale unowned session, deny access.
+            msg_count = await self.storage.get_message_count(request.session_id)
+            if msg_count > 0 and user.role != "admin":
+                raise PermissionError("会话未绑定用户且已有消息记录，当前用户无权访问。")
 
     async def _ensure_record_owner(
         self,
@@ -647,6 +655,9 @@ class AgentService:
         owner_id = await self.storage.get_owner_id(session_id)
         if owner_id is not None and owner_id != user.id and user.role != "admin":
             raise PermissionError("当前用户无权访问此资源。")
+        # Reject access when session owner is unset but the artifact exists
+        if owner_id is None and user.role != "admin":
+            raise PermissionError("资源所属会话未绑定用户，当前用户无权访问。")
 
     @staticmethod
     def _extract_usage_numbers(usage: Any) -> tuple[int, int, int]:

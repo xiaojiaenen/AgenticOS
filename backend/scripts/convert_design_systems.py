@@ -755,7 +755,12 @@ _HTML_PPT_TO_PPT: dict[str, str] = {
 
 
 def convert_from_html_ppt_theme(theme_css_path: Path) -> dict[str, str]:
-    """Convert an html-ppt theme CSS file to PPT theme tokens."""
+    """Convert an html-ppt theme CSS file to PPT theme tokens.
+
+    Two-pass extraction:
+    1. Map known aliases (--fg → --text-1, --success → --good, etc.)
+    2. Direct pass-through: if a PPT token exists in the CSS with the same name, use it
+    """
     if not theme_css_path.is_file():
         return {}
     raw = parse_css_tokens(theme_css_path.read_text(encoding="utf-8"))
@@ -764,19 +769,35 @@ def convert_from_html_ppt_theme(theme_css_path: Path) -> dict[str, str]:
     tokens = resolve_var_references(raw)
     result: dict[str, str] = {}
 
+    # Pass 1: mapped aliases
     for html_token, ppt_token in _HTML_PPT_TO_PPT.items():
         val = tokens.get(html_token, "")
         if not val:
             continue
         if ppt_token.startswith("--font") or ppt_token.startswith("--radius") or ppt_token.startswith("--shadow"):
-            # Non-color tokens: use as-is
             result[ppt_token] = val.strip().rstrip(";")
         elif ppt_token in ("--grad", "--grad-soft"):
-            continue  # gradients handled by synthesis
-        elif is_hex6(val.split()[0]):  # might be "rgba(...)" for shadows, skip those
+            continue
+        elif is_hex6(val.split()[0]):
             result[ppt_token] = val.strip().lower()
 
-    # Synthesize missing color tokens
+    # Pass 2: direct pass-through for any PPT token not yet filled
+    # (html-ppt themes often use the same --text-1 / --bg-soft names directly)
+    for token_name in PPT_TOKENS:
+        if token_name in result:
+            continue
+        if token_name.startswith("--font") or token_name.startswith("--radius") or token_name.startswith("--shadow"):
+            val = tokens.get(token_name, "")
+            if val:
+                result[token_name] = val.strip().rstrip(";")
+        elif token_name in ("--grad", "--grad-soft"):
+            continue
+        else:
+            val = tokens.get(token_name, "")
+            if val and is_hex6(val.split()[0]):
+                result[token_name] = val.strip().lower()
+
+    # Fill gaps — but only for tokens still missing
     _fill_neutral_gaps(result)
     _synthesize_gradients(result)
     return result

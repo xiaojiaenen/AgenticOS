@@ -51,7 +51,7 @@ class DatabaseAgentStorage:
 
                 metadata = getattr(session, "metadata", {}) or {}
                 row.system_prompt = session.system_prompt
-                row.user_id = metadata.get("user_id") or row.user_id
+                row.user_id = row.user_id or metadata.get("user_id")
                 row.agent_profile_id = metadata.get("agent_profile_id") or row.agent_profile_id
                 row.max_steps = session.max_steps
                 row.parallel_tool_calls = session.parallel_tool_calls
@@ -193,6 +193,17 @@ class DatabaseAgentStorage:
                         "updated_at": _iso(row.updated_at),
                     })
                 return sessions
+        return await asyncio.to_thread(_run)
+
+    async def get_message_count(self, session_id: str) -> int:
+        """Return the number of messages in a session."""
+        def _run():
+            with self.session_factory() as db:
+                return db.scalar(
+                    select(func.count(AgentMessageModel.id)).where(
+                        AgentMessageModel.session_id == session_id
+                    )
+                ) or 0
         return await asyncio.to_thread(_run)
 
     async def assign_owner(self, session_id: str, user_id: int) -> None:

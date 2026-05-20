@@ -7,13 +7,20 @@ from typing import Any
 
 
 def sanitize_svg_xml(svg: str) -> str:
-    """Fix unescaped XML special characters (&, <) in SVG text/tspan content.
+    """Fix unescaped XML special characters (&, <) in SVG text/tspan content,
+    and strip attribute values set to the literal string ``"undefined"``.
 
     LLMs often write literal ``<`` and ``&`` in human-readable text (e.g.
     "Delta E < 0.5" or "A & B"), which breaks XML parsing downstream.
     This function escapes those characters inside ``<text>`` and ``<tspan>``
     leaf content while leaving tags and attributes untouched.
+
+    Also strips attribute-value pairs where the value is ``"undefined"``
+    (e.g. ``cx="undefined"`` becomes just removed), since the LLM
+    occasionally emits these for computed SVG attributes.
     """
+    # Strip "undefined" attribute values first
+    svg = re.sub(r'\s+\w+="undefined"', "", svg)
 
     def _escape_content(text: str) -> str:
         parts = re.split(r"(<[^>]+>)", text)
@@ -102,10 +109,14 @@ def prepare_svg_preview(svgs: list[str], theme_name: str = "apple") -> str:
     Embeds the theme's CSS tokens so ``var(--xxx)`` references resolve even if
     token substitution was skipped (e.g. unknown theme name).
     """
-    # Safety net: load theme tokens as CSS custom properties for browser resolution
+    # Safety net: load theme tokens as CSS custom properties for browser resolution.
+    # If the theme is invalid/missing, fall back to "apple" to prevent
+    # black-on-dark rendering (CSS var() with no definition = initial `fill: black`).
     try:
         from app.services.ppt.theme_token_resolver import load_theme_tokens
         tokens = load_theme_tokens(theme_name)
+        if not tokens:
+            tokens = load_theme_tokens("apple")
     except Exception:
         tokens = {}
     token_css = ""
@@ -139,11 +150,19 @@ def prepare_svg_preview(svgs: list[str], theme_name: str = "apple") -> str:
 
 
 def _detect_theme_name_from_svg(svgs: list[str]) -> str:
-    """Detect theme name from ``data-theme`` attribute on the first SVG element."""
+    """Detect theme name from ``data-theme`` attribute on the first SVG element.
+
+    Validates the theme exists on disk. Falls back to ``"apple"`` when the
+    detected theme name is invalid or missing.
+    """
     if svgs:
         m = _DATA_THEME_RE.search(svgs[0])
         if m:
-            return m.group(1)
+            theme_name = m.group(1)
+            # Validate theme CSS file exists
+            from app.services.ppt.theme_token_resolver import _THEMES_DIR
+            if (_THEMES_DIR / f"{theme_name}.css").is_file():
+                return theme_name
     return "apple"
 
 
