@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart3, Bot, LogOut, MessageCircle, MessageSquare, Puzzle, Users } from 'lucide-react';
+import { BarChart3, BellRing, Bot, LogOut, MessageCircle, MessageSquare, Puzzle, Users } from 'lucide-react';
 import { Logo } from '../Logo';
 import { MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
 import { getStoredUser, logout } from '../../services/authService';
@@ -17,10 +17,11 @@ interface AdminSidebarProps {
 
 const navItems = [
   { id: 'dashboard', icon: BarChart3, label: '系统总览', description: '查看用户、会话和资源统计' },
-  { id: 'history', icon: MessageSquare, label: '聊天记录', description: '检索会话与查看完整详情' },
+  { id: 'history', icon: MessageSquare, label: '聊天记录', description: '检索会话并查看完整详情' },
   { id: 'users', icon: Users, label: '用户管理', description: '管理账号、角色和启用状态' },
   { id: 'agents', icon: Bot, label: '智能体配置', description: '维护智能体、工具审批与绑定' },
   { id: 'skills', icon: Puzzle, label: 'Skill 管理', description: '管理本地 Skill 与脚本目录' },
+  { id: 'announcements', icon: BellRing, label: '公告设计', description: '设计用户进入系统时看到的公告' },
 ] as const;
 
 export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isOpen, onClose }: AdminSidebarProps) => {
@@ -69,7 +70,9 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
         <div className="rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.78),rgba(248,250,252,0.62))] px-4 py-3.5 shadow-md ring-1 ring-white/60">
           <div className="flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-sm">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
             </div>
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Admin Console</p>
@@ -118,7 +121,7 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
                 {active && (
                   <motion.div
                     layoutId="admin-active-dot"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-sky-500"
+                    className="absolute right-3 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-sky-500"
                     transition={{ type: 'spring', damping: 25, stiffness: 350 }}
                   />
                 )}
@@ -128,7 +131,7 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
         </div>
       </div>
 
-      <div className="relative z-10 border-t border-white/70 p-4 space-y-3">
+      <div className="relative z-10 space-y-3 border-t border-white/70 p-4">
         <button
           type="button"
           onClick={() => navigate('/chat')}

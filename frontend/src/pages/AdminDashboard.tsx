@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Activity, AlertCircle, Gauge, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
+import { AnnouncementManagement } from '../components/admin/AnnouncementManagement';
 import { AgentManagement } from '../components/admin/AgentManagement';
 import { ChatHistory } from '../components/admin/ChatHistory';
 import { DashboardCharts } from '../components/admin/DashboardCharts';
@@ -278,6 +279,8 @@ export const AdminDashboard = () => {
         return <AgentManagement />;
       case 'skills':
         return <SkillManagement />;
+      case 'announcements':
+        return <AnnouncementManagement />;
       default:
         return null;
     }
@@ -351,7 +354,6 @@ export const AdminDashboard = () => {
         </button>
       )}
 
-      <a href="#main-content" className="skip-link">跳转到主要内容</a>
       <main id="main-content" className="relative z-10 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[1540px] px-4 pb-10 pt-6 md:px-6 xl:px-8">
           <AnimatePresence mode="wait">
