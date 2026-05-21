@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
+import { GlobalAnnouncementLayer } from './components/announcement/GlobalAnnouncementLayer';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ToastContainer } from './components/ui/Toast';
 
@@ -53,6 +54,7 @@ const AnimatedRoutes = () => {
 function App() {
   return (
     <Router>
+      <GlobalAnnouncementLayer />
       <AnimatedRoutes />
       <ToastContainer />
     </Router>
