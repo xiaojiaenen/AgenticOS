@@ -114,13 +114,23 @@ body::-webkit-scrollbar {
   box-sizing: border-box;
 }
 
-/* ===== Focus Ring & Skip Link ===== */
+/* ===== Skip Link (a11y only, invisible unless focused) ===== */
 .skip-link {
-  @apply fixed top-[-100%] left-4 z-[9999] rounded-xl bg-brand-600 px-4 py-2 text-sm font-bold text-white transition-[top] duration-200;
-}
-
-.skip-link:focus {
+  position: fixed;
   top: 16px;
+  left: 50%;
+  z-index: 9999;
+  transform: translateX(-50%) translateY(-120%);
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  transition: none;
+}
+.skip-link:focus {
+  clip: auto;
+  clip-path: none;
+  transform: translateX(-50%) translateY(0);
+  @apply rounded-2xl bg-white/95 px-5 py-3 text-sm font-bold text-slate-800 shadow-xl ring-2 ring-brand-400/50 backdrop-blur-md;
 }
 
 /* ===== Glass Panel Utilities (with backdrop-filter fallback) ===== */

@@ -117,8 +117,6 @@ export const Home = () => {
         </div>
       </nav>
 
-      <a href="#main-content" className="skip-link">跳转到主要内容</a>
-
       {/* Hero Section */}
       <main id="main-content" className="flex-1 flex flex-col items-center justify-center px-4 relative z-10 w-full max-w-[1400px] mx-auto">
         <motion.h1 

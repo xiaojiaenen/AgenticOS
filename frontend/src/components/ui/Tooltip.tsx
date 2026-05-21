@@ -37,15 +37,15 @@ export const Tooltip: React.FC<TooltipProps> = ({
     right: 'left-full top-1/2 -translate-y-1/2 ml-2',
   };
 
-  const child = React.Children.only(children) as React.ReactElement;
+  const child = React.Children.only(children) as React.ReactElement<{ [key: string]: unknown }>;
   const trigger = React.cloneElement(child, {
     'aria-describedby': isOpen ? tooltipId : undefined,
-    onMouseEnter: (e: React.MouseEvent) => { show(); child.props.onMouseEnter?.(e); },
-    onMouseLeave: (e: React.MouseEvent) => { hide(); child.props.onMouseLeave?.(e); },
-    onFocus: (e: React.FocusEvent) => { show(); child.props.onFocus?.(e); },
-    onBlur: (e: React.FocusEvent) => { hide(); child.props.onBlur?.(e); },
-    tabIndex: child.props.tabIndex ?? 0,
-  } as React.HTMLAttributes<HTMLElement>);
+    onMouseEnter: (e: React.MouseEvent) => { show(); (child.props.onMouseEnter as ((e: React.MouseEvent) => void) | undefined)?.(e); },
+    onMouseLeave: (e: React.MouseEvent) => { hide(); (child.props.onMouseLeave as ((e: React.MouseEvent) => void) | undefined)?.(e); },
+    onFocus: (e: React.FocusEvent) => { show(); (child.props.onFocus as ((e: React.FocusEvent) => void) | undefined)?.(e); },
+    onBlur: (e: React.FocusEvent) => { hide(); (child.props.onBlur as ((e: React.FocusEvent) => void) | undefined)?.(e); },
+    tabIndex: (child.props.tabIndex as number | undefined) ?? 0,
+  });
 
   return (
     <div className="relative inline-flex">

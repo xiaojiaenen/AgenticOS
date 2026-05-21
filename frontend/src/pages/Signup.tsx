@@ -38,7 +38,6 @@ export const Signup = () => {
       exit={{ opacity: 0 }}
       className="min-h-screen bg-gradient-to-br from-[#dbeafe] via-[#bae6fd] to-[#38bdf8] relative flex items-center justify-center p-4 selection:bg-zinc-200 selection:text-zinc-900 overflow-hidden"
     >
-      <a href="#main-content" className="skip-link">跳转到主要内容</a>
       <motion.button
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}

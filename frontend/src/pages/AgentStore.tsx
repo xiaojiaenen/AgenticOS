@@ -99,7 +99,6 @@ export const AgentStore = () => {
         </div>
       </nav>
 
-      <a href="#main-content" className="skip-link">跳转到主要内容</a>
       <main id="main-content" className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 pt-5 md:px-8">
         <div className="mb-7 flex flex-col gap-2">
           <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">

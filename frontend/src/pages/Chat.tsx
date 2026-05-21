@@ -287,8 +287,6 @@ export const Chat = () => {
     >
       <DragOverlay isDragging={isDragging} />
 
-      <a href="#main-content" className="skip-link">跳转到主要内容</a>
-
       {/* 聊天页全局背景装饰 */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         {/* Animated blobs — subtle, low opacity for working context */}
