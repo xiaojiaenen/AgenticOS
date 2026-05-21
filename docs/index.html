@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgenticOS 文档首页</title>
+  <style>
+    :root {
+      --bg: #eef6fb;
+      --bg-2: #f9fcfe;
+      --panel: rgba(255, 255, 255, 0.9);
+      --panel-strong: rgba(255, 255, 255, 0.97);
+      --line: #cadeec;
+      --text: #163247;
+      --muted: #5e7a90;
+      --accent: #1274c0;
+      --accent-2: #28a3da;
+      --teal: #12877f;
+      --amber: #cc852a;
+      --shadow: 0 24px 60px rgba(27, 76, 108, 0.12);
+      --radius: 28px;
+      --mono: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --sans: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(40, 163, 218, 0.16), transparent 28%),
+        radial-gradient(circle at 100% 8%, rgba(18, 135, 127, 0.12), transparent 24%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    body {
+      padding: 28px 0 64px;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .page {
+      width: min(1440px, calc(100vw - 28px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 38px 40px 34px;
+      border-radius: 36px;
+      border: 1px solid rgba(255, 255, 255, 0.88);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.84)),
+        linear-gradient(120deg, rgba(18, 116, 192, 0.05), rgba(40, 163, 218, 0.03));
+      box-shadow: var(--shadow);
+    }
+
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      pointer-events: none;
+    }
+
+    .hero::before {
+      width: 360px;
+      height: 360px;
+      right: -90px;
+      top: -110px;
+      background: radial-gradient(circle, rgba(40, 163, 218, 0.18), transparent 68%);
+    }
+
+    .hero::after {
+      width: 280px;
+      height: 280px;
+      left: -100px;
+      bottom: -120px;
+      background: radial-gradient(circle, rgba(18, 135, 127, 0.13), transparent 72%);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 8px 13px;
+      border-radius: 999px;
+      border: 1px solid rgba(18, 116, 192, 0.14);
+      background: rgba(18, 116, 192, 0.08);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(34px, 4.2vw, 56px);
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+    }
+
+    .hero-copy {
+      max-width: 980px;
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.8;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(360px, 0.9fr);
+      gap: 18px;
+      margin-top: 28px;
+      align-items: stretch;
+    }
+
+    .hero-panel,
+    .orbit-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 24px;
+      border: 1px solid rgba(202, 222, 236, 0.82);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 251, 254, 0.88));
+    }
+
+    .hero-panel {
+      padding: 20px 20px 18px;
+    }
+
+    .hero-panel h2,
+    .orbit-card h2,
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 20px;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-panel p,
+    .orbit-card p,
+    .overview-card p,
+    .doc-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.75;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .chip {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(18, 116, 192, 0.08);
+      border: 1px solid rgba(18, 116, 192, 0.14);
+      color: var(--accent);
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    .orbit-card {
+      min-height: 280px;
+      padding: 22px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 250, 253, 0.92)),
+        linear-gradient(120deg, rgba(18, 116, 192, 0.03), rgba(18, 135, 127, 0.02));
+    }
+
+    .orbit-svg {
+      width: 100%;
+      height: 210px;
+      margin-top: 8px;
+      display: block;
+    }
+
+    .section {
+      margin-top: 22px;
+      padding: 24px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: 0 14px 40px rgba(27, 76, 108, 0.06);
+      backdrop-filter: blur(10px);
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .section-note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .overview-card,
+    .doc-card {
+      border-radius: 22px;
+      border: 1px solid rgba(202, 222, 236, 0.84);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 251, 254, 0.9));
+    }
+
+    .overview-card {
+      padding: 18px;
+    }
+
+    .overview-card strong {
+      display: inline-block;
+      margin-bottom: 8px;
+      font-size: 17px;
+    }
+
+    .docs-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .doc-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: 280px;
+      padding: 20px;
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }
+
+    .doc-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 18px 36px rgba(27, 76, 108, 0.12);
+      border-color: rgba(18, 116, 192, 0.2);
+    }
+
+    .doc-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .badge.map {
+      background: rgba(18, 116, 192, 0.1);
+      color: var(--accent);
+    }
+
+    .badge.flow {
+      background: rgba(18, 135, 127, 0.1);
+      color: var(--teal);
+    }
+
+    .badge.note {
+      background: rgba(204, 133, 42, 0.12);
+      color: var(--amber);
+    }
+
+    .doc-card h3 {
+      margin: 0 0 10px;
+      font-size: 24px;
+      letter-spacing: -0.03em;
+    }
+
+    .doc-meta {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    .doc-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: auto;
+      padding-top: 18px;
+    }
+
+    .doc-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .doc-link::after {
+      content: "→";
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .time {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .pathline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .path-node {
+      position: relative;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(202, 222, 236, 0.86);
+      background: rgba(255, 255, 255, 0.88);
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .path-node strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+
+    .path-node:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      width: 12px;
+      height: 1px;
+      background: rgba(18, 116, 192, 0.3);
+    }
+
+    .footer {
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    @media (max-width: 1100px) {
+      .hero-grid,
+      .overview-grid,
+      .docs-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-head {
+        display: block;
+      }
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding-top: 18px;
+      }
+
+      .page {
+        width: min(100vw - 18px, 100%);
+      }
+
+      .hero,
+      .section {
+        padding-left: 18px;
+        padding-right: 18px;
+      }
+
+      h1 {
+        font-size: 34px;
+      }
+
+      .path-node:not(:last-child)::after {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="eyebrow">AgenticOS Docs Hub</div>
+      <h1>AgenticOS 文档首页</h1>
+      <p class="hero-copy">
+        这里汇总了当前最值得先读的系统图和链路文档。入口页不追求“堆满资料”，而是把项目里最关键的几条主线先摆出来：
+        平台整体架构、聊天请求如何穿过 Wuwei、以及 PPT 生成如何从结构化 SVG 一路变成原生 PowerPoint。
+      </p>
+
+      <div class="hero-grid">
+        <div class="hero-panel">
+          <h2>推荐阅读顺序</h2>
+          <p>如果你是第一次进入这个仓库，先建立系统骨架，再看单条能力链，会更容易把“平台层”和“能力层”分开理解。</p>
+          <div class="pathline">
+            <div class="path-node">
+              <strong>1. 平台骨架</strong>
+              先看整体架构图，理解前后端、SSE、Agent runtime、运营后台之间的关系。
+            </div>
+            <div class="path-node">
+              <strong>2. PPT 主链</strong>
+              再看 PPT 全链路，理解为什么要拆成生成、artifact、导出三层。
+            </div>
+            <div class="path-node">
+              <strong>3. 方案补充</strong>
+              最后再看历史计划文档，把演进背景和实现优先级补齐。
+            </div>
+          </div>
+          <div class="chip-row">
+            <span class="chip">architecture</span>
+            <span class="chip">sse-stream</span>
+            <span class="chip">agent-runtime</span>
+            <span class="chip">ppt-pipeline</span>
+            <span class="chip">docs</span>
+          </div>
+        </div>
+
+        <div class="orbit-card">
+          <h2>当前文档地图</h2>
+          <p>首页只挂“高信号”文档，让它像一个导航站，而不是文件夹索引。</p>
+          <svg class="orbit-svg" viewBox="0 0 520 250" role="img" aria-label="文档关系图">
+            <defs>
+              <linearGradient id="orbA" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#1274c0" stop-opacity="0.95" />
+                <stop offset="100%" stop-color="#28a3da" stop-opacity="0.95" />
+              </linearGradient>
+              <linearGradient id="orbB" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#12877f" stop-opacity="0.92" />
+                <stop offset="100%" stop-color="#2ab7ac" stop-opacity="0.9" />
+              </linearGradient>
+              <linearGradient id="orbC" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#cc852a" stop-opacity="0.92" />
+                <stop offset="100%" stop-color="#f0b35d" stop-opacity="0.92" />
+              </linearGradient>
+            </defs>
+            <ellipse cx="260" cy="125" rx="180" ry="76" fill="none" stroke="rgba(18, 116, 192, 0.14)" stroke-width="1.5" />
+            <ellipse cx="260" cy="125" rx="116" ry="44" fill="none" stroke="rgba(18, 135, 127, 0.12)" stroke-width="1.5" />
+            <circle cx="260" cy="125" r="48" fill="url(#orbA)" />
+            <text x="260" y="118" text-anchor="middle" fill="#ffffff" font-size="18" font-weight="700">AgenticOS</text>
+            <text x="260" y="142" text-anchor="middle" fill="rgba(255,255,255,0.92)" font-size="12">system docs</text>
+
+            <circle cx="92" cy="124" r="34" fill="url(#orbB)" />
+            <text x="92" y="118" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">架构图</text>
+            <text x="92" y="136" text-anchor="middle" fill="rgba(255,255,255,0.9)" font-size="11">平台骨架</text>
+
+            <circle cx="410" cy="96" r="30" fill="url(#orbC)" />
+            <text x="410" y="92" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">PPT</text>
+            <text x="410" y="109" text-anchor="middle" fill="rgba(255,255,255,0.9)" font-size="10.5">生成链</text>
+
+            <circle cx="394" cy="182" r="26" fill="url(#orbB)" />
+            <text x="394" y="178" text-anchor="middle" fill="#fff" font-size="12.5" font-weight="700">计划</text>
+            <text x="394" y="194" text-anchor="middle" fill="rgba(255,255,255,0.9)" font-size="10">补充背景</text>
+
+            <line x1="124" y1="124" x2="210" y2="125" stroke="rgba(18, 116, 192, 0.28)" stroke-width="2" />
+            <line x1="380" y1="104" x2="305" y2="117" stroke="rgba(18, 116, 192, 0.28)" stroke-width="2" />
+            <line x1="370" y1="176" x2="302" y2="149" stroke="rgba(18, 116, 192, 0.24)" stroke-width="2" />
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">先看什么</h2>
+          <div class="section-note">把“平台是什么”和“PPT 为什么这样实现”分开看，会更清楚。</div>
+        </div>
+      </div>
+      <div class="overview-grid">
+        <article class="overview-card">
+          <strong>平台层</strong>
+          <p>关注 AgentProfile、ToolConfig、Skill、Approval、Session、SSE 和管理后台，这部分回答“AgenticOS 到底是什么系统”。</p>
+        </article>
+        <article class="overview-card">
+          <strong>能力层</strong>
+          <p>当前最成熟的是 PPT 主链。它不是普通聊天输出，而是约束模型产出结构化 SVG，再组装 artifact，再导出原生 `.pptx`。</p>
+        </article>
+        <article class="overview-card">
+          <strong>演进层</strong>
+          <p>计划文档适合在建立主干理解后补读，用来理解产品方向、功能优先级和某些设计决策的历史背景。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">文档入口</h2>
+          <div class="section-note">每张卡片都指向一个独立页面或文档，适合按主题跳转。</div>
+        </div>
+      </div>
+      <div class="docs-grid">
+        <a class="doc-card" href="./agentic-architecture-maps.html">
+          <div class="doc-top">
+            <span class="badge map">System Map</span>
+            <span class="time">HTML</span>
+          </div>
+          <h3>系统架构图谱</h3>
+          <p>梳理聊天请求从前端到 Wuwei 再回前端的时序图，同时把 AgentProfile、ToolConfig、Skill、Approval 的领域关系画出来。</p>
+          <div class="chip-row">
+            <span class="chip">chat-stream</span>
+            <span class="chip">domain-model</span>
+            <span class="chip">sse</span>
+          </div>
+          <div class="doc-actions">
+            <span class="doc-link">打开文档</span>
+            <span class="doc-meta">docs/agentic-architecture-maps.html</span>
+          </div>
+        </a>
+
+        <a class="doc-card" href="./ppt-generation-pipeline.html">
+          <div class="doc-top">
+            <span class="badge flow">Pipeline</span>
+            <span class="time">HTML</span>
+          </div>
+          <h3>PPT 生成全链路</h3>
+          <p>从 `PPT_SYSTEM_PROMPT`、`save_slide` 和会话目录写盘开始，一路解释到 artifact 预览、SVG 后处理和原生 `.pptx` 导出。</p>
+          <div class="chip-row">
+            <span class="chip">ppt</span>
+            <span class="chip">artifact</span>
+            <span class="chip">svg-to-pptx</span>
+          </div>
+          <div class="doc-actions">
+            <span class="doc-link">打开文档</span>
+            <span class="doc-meta">docs/ppt-generation-pipeline.html</span>
+          </div>
+        </a>
+
+        <a class="doc-card" href="./bigdata-agent-plan.md">
+          <div class="doc-top">
+            <span class="badge note">Plan</span>
+            <span class="time">Markdown</span>
+          </div>
+          <h3>Bigdata Agent Plan</h3>
+          <p>已有的方案文档，适合在理解系统主干之后补读，帮助串起某些业务设想、策略方向和后续落地目标。</p>
+          <div class="chip-row">
+            <span class="chip">plan</span>
+            <span class="chip">product</span>
+            <span class="chip">history</span>
+          </div>
+          <div class="doc-actions">
+            <span class="doc-link">打开文档</span>
+            <span class="doc-meta">docs/bigdata-agent-plan.md</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <p class="footer">
+      这个首页是静态入口页，不依赖前端构建；后续如果你继续在 <code>docs/</code> 下补专题页面，直接按同样的卡片结构扩展就可以。
+    </p>
+  </main>
+</body>
+</html>
