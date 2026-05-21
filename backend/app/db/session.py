@@ -88,6 +88,15 @@ def _ensure_compatible_schema() -> None:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE agent_profile_tools ADD COLUMN approval_sub_tools_json TEXT DEFAULT '[]'"))
 
+    if "announcements" in inspector.get_table_names():
+        announcement_columns = {column["name"] for column in inspector.get_columns("announcements")}
+        if "content_format" not in announcement_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE announcements ADD COLUMN content_format VARCHAR(16) DEFAULT 'markdown'"))
+        if "image_url" not in announcement_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE announcements ADD COLUMN image_url TEXT"))
+
 
 def create_db_session() -> Session:
     return SessionLocal()

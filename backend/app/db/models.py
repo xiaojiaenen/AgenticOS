@@ -251,3 +251,29 @@ class PptArtifactModel(Base):
     preview_html: Mapped[str] = mapped_column(Text)
     metadata_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
+class AnnouncementModel(Base):
+    __tablename__ = "announcements"
+    __table_args__ = (
+        Index("ix_announcements_publish_window", "is_published", "starts_at", "ends_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    eyebrow: Mapped[str] = mapped_column(String(80), default="系统公告")
+    title: Mapped[str] = mapped_column(String(160))
+    subtitle: Mapped[str] = mapped_column(Text, default="")
+    body: Mapped[str] = mapped_column(Text, default="")
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content_format: Mapped[str] = mapped_column(String(16), default="markdown")
+    theme: Mapped[str] = mapped_column(String(32), default="aurora", index=True)
+    cta_label: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    cta_link: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    dismissible: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_once: Mapped[bool] = mapped_column(Boolean, default=True)
+    starts_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True, index=True)
+    ends_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True, index=True)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)

@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1.endpoints.announcements import router as announcements_router
 from app.api.v1.endpoints.agent import router as agent_router
 from app.api.v1.endpoints.agent_profiles import router as agent_profiles_router
 from app.api.v1.endpoints.auth import router as auth_router
@@ -11,6 +12,7 @@ from app.api.v1.endpoints.tool_config import router as tool_config_router
 from app.api.v1.endpoints.users import router as users_router
 
 router = APIRouter()
+router.include_router(announcements_router)
 router.include_router(agent_router)
 router.include_router(agent_profiles_router)
 router.include_router(auth_router)
