@@ -7,7 +7,7 @@ import rehypeKatex from 'rehype-katex';
 import mermaid from 'mermaid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { BrainCircuit, Presentation, Sparkles } from 'lucide-react';
+import { BrainCircuit, Globe, Presentation, Sparkles } from 'lucide-react';
 import { Artifact, Message, ToolCall } from '../../types';
 import { APP_TIME_ZONE } from '../../lib/datetime';
 import { cn, copyToClipboard } from '../../lib/utils';
@@ -281,6 +281,72 @@ const PptArtifactCard = ({
   );
 };
 
+const WebsiteArtifactCard = ({
+  message,
+  onOpenArtifact,
+}: {
+  message: Message;
+  onOpenArtifact?: (artifact: Artifact) => void;
+}) => {
+  const html = message.websiteArtifact?.html;
+  const status = html ? 'ready' : message.websiteArtifact?.status;
+
+  if (!status) return null;
+
+  const isReady = status === 'ready' && Boolean(html);
+  const title = message.websiteArtifact?.title || 'Website';
+  const slug = message.websiteArtifact?.projectSlug || '';
+  const stack = message.websiteArtifact?.stack || '';
+  const handleOpen = () => {
+    if (html) {
+      onOpenArtifact?.({
+        language: 'website',
+        artifactId: message.websiteArtifact?.artifactId || '',
+        html,
+        title,
+        projectSlug: slug,
+        stack,
+        fileCount: 0,
+      });
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      className={cn(
+        "mb-3 flex w-fit max-w-[34rem] items-center gap-3 rounded-3xl border px-4 py-3 shadow-lg backdrop-blur-xl",
+        isReady ? "border-white/70 bg-white/84" : "border-emerald-200/70 bg-emerald-50/80",
+      )}
+    >
+      <div className={cn(
+        "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl text-white",
+        isReady ? "bg-zinc-900" : "bg-emerald-500",
+      )}>
+        {isReady ? <Globe size={19} /> : <Sparkles size={18} className="animate-pulse" />}
+      </div>
+      <div className="min-w-0">
+        <div className="truncate text-sm font-black text-slate-900">
+          {isReady ? title : '正在生成网站'}
+        </div>
+        <div className="mt-0.5 text-[11px] font-medium text-slate-500">
+          {isReady ? `${stack} · ${slug}` : '正在规划页面结构和内容，请稍候'}
+        </div>
+      </div>
+      {isReady && (
+        <button
+          type="button"
+          onClick={handleOpen}
+          className="ml-2 flex-shrink-0 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-zinc-800 active:scale-95"
+        >
+          预览
+        </button>
+      )}
+    </motion.div>
+  );
+};
+
 const AnimatedDots = () => (
   <span className="flex items-center gap-1" aria-hidden="true">
     {[0, 1, 2].map((dot) => (
@@ -359,7 +425,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   const visibleText = rawText;
   const reasoningText = message?.reasoningText || '';
   const hasPptArtifact = !isUser && Boolean(message?.pptArtifact);
-  const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || reasoningText.trim().length > 0 || !hasPptArtifact;
+  const hasWebsiteArtifact = !isUser && Boolean(message?.websiteArtifact);
+  const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || reasoningText.trim().length > 0 || (!hasPptArtifact && !hasWebsiteArtifact);
   const hasStructuredContent = !isUser && /```|(?:^|\n)\|.+\|/.test(visibleText);
   const showAssistantWaiting = !isUser && Boolean(isStreaming) && !visibleText.trim() && !reasoningText.trim() && !isTyping;
   const shouldAutoOpenReasoning = !isUser && Boolean(isStreaming) && reasoningText.trim().length > 0 && !visibleText.trim();
@@ -920,7 +987,10 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
         )}
 
         {!isUser && message && (
-          <PptArtifactCard message={message} onOpenArtifact={onOpenArtifact} />
+          <>
+            <PptArtifactCard message={message} onOpenArtifact={onOpenArtifact} />
+            <WebsiteArtifactCard message={message} onOpenArtifact={onOpenArtifact} />
+          </>
         )}
 
         {shouldRenderBubble && (

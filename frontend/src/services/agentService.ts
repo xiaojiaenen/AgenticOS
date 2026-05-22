@@ -13,6 +13,7 @@ type AgentServiceOptions = {
   onSessionState?: (state: AgentSessionState) => void;
   onRunStatus?: (status: AgentRunStatus) => void;
   onPptArtifact?: (artifact: AgentPptArtifact) => void;
+  onWebsiteArtifact?: (artifact: AgentWebsiteArtifact) => void;
   signal?: AbortSignal;
 };
 
@@ -24,6 +25,7 @@ type StreamResult = {
   finishReason: string;
   sessionState?: AgentSessionState;
   pptArtifact?: AgentPptArtifact;
+  websiteArtifact?: AgentWebsiteArtifact;
 };
 
 type AgentToolCall = {
@@ -89,6 +91,17 @@ export type AgentPptArtifact = {
   title: string;
   slide_count: number;
   html: string;
+};
+
+export type AgentWebsiteArtifact = {
+  type: 'website';
+  artifact_id: string;
+  session_id: string;
+  title: string;
+  project_slug: string;
+  stack: string;
+  file_count: number;
+  preview_html: string;
 };
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -258,6 +271,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
   let finishReason = 'completed';
   let sessionState: AgentSessionState | undefined;
   let pptArtifact: AgentPptArtifact | undefined;
+  let websiteArtifact: AgentWebsiteArtifact | undefined;
 
   while (true) {
     const { value, done } = await reader.read();
@@ -301,8 +315,14 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
       }
 
       if (parsed.event === 'artifact_ready') {
-        pptArtifact = payload as AgentPptArtifact;
-        options.onPptArtifact?.(pptArtifact);
+        const artifactPayload = payload as Record<string, unknown>;
+        if (artifactPayload.type === 'website') {
+          websiteArtifact = artifactPayload as unknown as AgentWebsiteArtifact;
+          options.onWebsiteArtifact?.(websiteArtifact);
+        } else {
+          pptArtifact = payload as AgentPptArtifact;
+          options.onPptArtifact?.(pptArtifact);
+        }
       }
 
       if (parsed.event === 'tool_calls' && Array.isArray(payload.tool_calls)) {
@@ -379,6 +399,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
     finishReason,
     sessionState,
     pptArtifact,
+    websiteArtifact,
   };
 }
 

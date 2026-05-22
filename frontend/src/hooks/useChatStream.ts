@@ -6,6 +6,7 @@ import {
   submitApprovalDecision,
   AgentSessionState,
   AgentPptArtifact,
+  AgentWebsiteArtifact,
   AgentRunStatus,
 } from '../services/agentService';
 import { AgentProfile } from '../services/agentProfileService';
@@ -66,7 +67,7 @@ export function useChatStream({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<{
-    phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'done' | 'error';
+    phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'done' | 'error';
     label: string;
   }>({ phase: 'idle', label: '已就绪' });
 
@@ -130,6 +131,7 @@ export function useChatStream({
       let hasStreamedContent = false;
       let hasAssistantActivity = false;
       let receivedPptArtifact: AgentPptArtifact | undefined;
+      let receivedWebsiteArtifact: AgentWebsiteArtifact | undefined;
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
@@ -163,6 +165,7 @@ export function useChatStream({
               role: 'model',
               text: '',
               pptArtifact: (chatMode === 'ppt') ? { status: 'generating', mode: 'ppt' as const } : undefined,
+              websiteArtifact: (chatMode === 'website') ? { status: 'generating' } : undefined,
             };
 
             if (!currentSessionId) {
@@ -242,11 +245,49 @@ export function useChatStream({
               ),
             );
           },
+          onWebsiteArtifact: (wsArtifact) => {
+            receivedWebsiteArtifact = wsArtifact;
+            const nextArtifact: Artifact = {
+              language: 'website',
+              artifactId: wsArtifact.artifact_id,
+              html: wsArtifact.preview_html,
+              title: wsArtifact.title,
+              projectSlug: wsArtifact.project_slug,
+              stack: wsArtifact.stack,
+              fileCount: wsArtifact.file_count,
+            };
+            setArtifact(nextArtifact);
+            setSessions((prev) =>
+              prev.map((session) =>
+                session.id === targetId
+                  ? {
+                      ...session,
+                      updatedAt: Date.now(),
+                      messages: session.messages.map((message) =>
+                        message.id === assistantMessageId
+                          ? {
+                              ...message,
+                              websiteArtifact: {
+                                status: 'ready',
+                                artifactId: wsArtifact.artifact_id,
+                                title: wsArtifact.title,
+                                projectSlug: wsArtifact.project_slug,
+                                stack: wsArtifact.stack,
+                                html: wsArtifact.preview_html,
+                              },
+                            }
+                          : message,
+                      ),
+                    }
+                  : session,
+              ),
+            );
+          },
           onDelta: (_, fullText) => {
             hasStreamedContent = true;
             hasAssistantActivity = true;
             setRunStatus((prev) =>
-              prev.phase === 'generating_ppt' || prev.phase === 'rendering_ppt'
+              prev.phase === 'generating_ppt' || prev.phase === 'rendering_ppt' || prev.phase === 'rendering_website'
                 ? prev
                 : { phase: 'streaming', label: '大模型正在输出' },
             );
@@ -313,6 +354,7 @@ export function useChatStream({
         });
 
         const pptArtifact = response.pptArtifact || receivedPptArtifact;
+        const websiteArtifact = response.websiteArtifact || receivedWebsiteArtifact;
 
         setSessions((prev) =>
           prev.map((session) =>
@@ -334,6 +376,16 @@ export function useChatStream({
                                 title: pptArtifact.title,
                                 slideCount: pptArtifact.slide_count,
                                 html: pptArtifact.html,
+                              }
+                            : undefined,
+                          websiteArtifact: websiteArtifact
+                            ? {
+                                status: 'ready',
+                                artifactId: websiteArtifact.artifact_id,
+                                title: websiteArtifact.title,
+                                projectSlug: websiteArtifact.project_slug,
+                                stack: websiteArtifact.stack,
+                                html: websiteArtifact.preview_html,
                               }
                             : undefined,
                         }
@@ -360,6 +412,16 @@ export function useChatStream({
             html: pptArtifact.html,
             title: pptArtifact.title,
             slideCount: pptArtifact.slide_count,
+          });
+        else if (websiteArtifact)
+          setArtifact({
+            language: 'website',
+            artifactId: websiteArtifact.artifact_id,
+            html: websiteArtifact.preview_html,
+            title: websiteArtifact.title,
+            projectSlug: websiteArtifact.project_slug,
+            stack: websiteArtifact.stack,
+            fileCount: websiteArtifact.file_count,
           });
         else if (htmlMatch) setArtifact({ code: htmlMatch[1], language: 'html' });
         else if (svgMatch) setArtifact({ code: svgMatch[1], language: 'svg' });

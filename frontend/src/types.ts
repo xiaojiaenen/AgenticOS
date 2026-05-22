@@ -44,6 +44,14 @@ export type Message = {
     html?: string;
     mode?: 'ppt';
   };
+  websiteArtifact?: {
+    status: 'generating' | 'ready';
+    artifactId?: string;
+    title?: string;
+    projectSlug?: string;
+    stack?: string;
+    html?: string;
+  };
 };
 
 export type Session = {
@@ -112,4 +120,6 @@ export type PptDeck = {
 
 export type Artifact =
   | {language: 'html' | 'svg'; code: string}
-  | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number};
+  | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number}
+  | {language: 'website'; artifactId: string; html: string; title: string;
+      projectSlug: string; stack: string; fileCount: number};
