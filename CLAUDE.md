@@ -264,3 +264,17 @@ Also important for configuration:
 - `AUTH_RATE_LIMIT_MAX_ATTEMPTS` / `AUTH_RATE_LIMIT_WINDOW_SECONDS` / `AUTH_RATE_LIMIT_BLOCK_SECONDS` — rate limiting
 
 See `backend/.env.example` for the full list (21 vars).
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues, operated via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout — `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
