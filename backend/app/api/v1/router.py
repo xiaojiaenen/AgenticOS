@@ -10,6 +10,8 @@ from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.skills import router as skills_router
 from app.api.v1.endpoints.tool_config import router as tool_config_router
 from app.api.v1.endpoints.users import router as users_router
+from app.api.v1.endpoints.website import router as website_router
+from app.api.v1.endpoints.website import admin_router as website_admin_router
 
 router = APIRouter()
 router.include_router(announcements_router)
@@ -22,3 +24,5 @@ router.include_router(health_router)
 router.include_router(skills_router)
 router.include_router(tool_config_router)
 router.include_router(users_router)
+router.include_router(website_router)
+router.include_router(website_admin_router)

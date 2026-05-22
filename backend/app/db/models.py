@@ -277,3 +277,21 @@ class AnnouncementModel(Base):
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class WebsiteDeployModel(Base):
+    __tablename__ = "website_deploys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(128), index=True)
+    project_slug: Mapped[str] = mapped_column(String(128))
+    stack: Mapped[str] = mapped_column(String(16))
+    dist_path: Mapped[str] = mapped_column(String(512))
+    target_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    deploy_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    requested_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
