@@ -233,6 +233,10 @@ class AgentService:
             from app.tools.template_tools import register_template_tools as _register_template_tools
             _register_template_tools(registry)
 
+        if profile.response_mode == "website":
+            from app.tools.website_tools import register_website_tools as _register_website_tools
+            _register_website_tools(registry)
+
         return registry
 
     @staticmethod
@@ -457,6 +461,80 @@ class AgentService:
             "**CURRENT TIME:** " + __import__("datetime").datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
         ]
         return message + "\n".join(lines)
+
+    @staticmethod
+    def _inject_website_catalog(message: str) -> str:
+        """Inject template structure overview and theme guide for website mode."""
+        from pathlib import Path
+
+        templates_dir = Path(__file__).resolve().parent.parent.parent.parent / "data" / "website-templates"
+        template_info: list[str] = []
+        for stack in ("vanilla", "vue", "react"):
+            pkg = templates_dir / stack / "package.json"
+            if not pkg.exists():
+                continue
+            import json
+            deps = json.loads(pkg.read_text("utf-8")).get("dependencies", {})
+            dep_list = ", ".join(deps.keys()) if deps else "无"
+            template_info.append(f"  **{stack}** — 依赖: {dep_list}")
+
+        theme_dir = Path(__file__).resolve().parent.parent.parent.parent / "data" / "design-themes"
+        theme_count = len(list(theme_dir.glob("*.css"))) if theme_dir.exists() else 0
+
+        lines = [
+            "",
+            "---",
+            "## Website 模式资源速查",
+            "",
+            "### 致命错误警告",
+            "",
+            "**在调用 `copy_template` 之前，`data/websites/<slug>/` 下的文件根本不存在！**",
+            "直接 `read_text_file` 一个尚不存在的路径必然报错 FileNotFoundError。",
+            "正确流程永远是：先 `list_website_projects()` → 再 `copy_template()` → 然后才能操作文件。",
+            "",
+            "### 可用模板",
+            "",
+            *template_info,
+            "",
+            "### 工作流程（必须严格按顺序）",
+            "",
+            "1. 分析需求 → 选择 vanilla/vue/react",
+            "2. `list_website_projects()` 检查项目是否已存在",
+            f"3. `copy_template(stack, slug)` 复制模板到 data/websites/<slug>/ ← 绝对不能跳过！",
+            "4. 用文件工具（write_text_file / replace_text_in_file）修改已存在的模板文件",
+            "5. 调用 `build_website(slug)` 验证构建",
+            "6. 告知用户项目路径和构建结果",
+            "",
+            "### 依赖约束",
+            "",
+            "- 模板 package.json 已包含所有必需依赖，**禁止调用 npm_install_package**",
+            "- **禁止 `npm_run_script` 和 `npm_list_scripts`** — 构建验证只用 `build_website(slug)`，不要直接调用 npm 工具",
+            "- 如需额外依赖，必须先告知用户获得同意",
+            "- 禁止安装 UI 组件库和 CSS 框架",
+            "",
+            f"### 设计主题（{theme_count} 套可用）",
+            "",
+            "所有模板 CSS 使用 var(--bg) / var(--accent) / var(--text-1) 等 CSS 变量。",
+            "设置 :root 中的变量值即可切换主题。已内置 apple 主题作为默认。",
+            f"完整主题列表见 data/design-themes/ 目录下的 {theme_count} 个 CSS 文件。",
+            "",
+            "### 项目目录结构",
+            "",
+            "```",
+            "data/websites/<slug>/",
+            "  ├── index.html       # 入口 HTML",
+            "  ├── package.json     # 依赖配置（不要修改）",
+            "  ├── vite.config.js   # 构建配置（不要修改）",
+            "  ├── src/             # 源码目录（vue/react）",
+            "  ├── css/             # 样式目录（vanilla）",
+            "  ├── js/              # 脚本目录（vanilla）",
+            "  └── dist/            # 构建产物（build_website 后生成）",
+            "```",
+            "",
+            "---",
+        ]
+        return message + "\n".join(lines)
+
     async def _create_ppt_artifact(self, session_id: str) -> dict[str, Any] | None:
         """Create a PPT artifact from saved slides in the session work directory."""
         from pathlib import Path as _Path
@@ -470,6 +548,146 @@ class AgentService:
             return artifact
         except Exception:
             _logger.exception("ppt artifact creation failed: session=%s", session_id)
+            return None
+
+    @staticmethod
+    def _infer_project_slug_from_tools(tool_names: list[str], messages: list | None = None) -> str | None:
+        """Try to find the project slug from recent tool calls.
+
+        We can't directly access tool call arguments here, so we scan
+        data/websites/ for directories with recent dist/ folders.
+        """
+        from pathlib import Path as _Path
+        _websites_dir = _Path(__file__).resolve().parent.parent.parent.parent / "data" / "websites"
+        if not _websites_dir.exists():
+            return None
+
+        # Find directories with dist/ that have been modified recently
+        candidates: list[tuple[str, float]] = []
+        for proj in _websites_dir.iterdir():
+            if not proj.is_dir() or proj.name.startswith("."):
+                continue
+            dist = proj / "dist"
+            if dist.exists() and dist.is_dir():
+                index_html = dist / "index.html"
+                if index_html.exists():
+                    candidates.append((proj.name, index_html.stat().st_mtime))
+
+        if not candidates:
+            return None
+
+        # Return the most recently modified one
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        return candidates[0][0]
+
+    @staticmethod
+    def _inline_dist_assets(dist_dir: "Path", html: str) -> str:
+        """Inline CSS and JS assets from dist/ into a self-contained HTML document.
+
+        Vite-built index.html references /assets/... paths which can't resolve
+        inside an iframe srcdoc. This reads each local asset and inlines it.
+        """
+        import re as _re
+
+        def _read_asset(href: str) -> str | None:
+            path = href.lstrip("/")
+            file_path = dist_dir / path
+            if not file_path.exists():
+                return None
+            try:
+                return file_path.read_text(encoding="utf-8")
+            except Exception:
+                return None
+
+        # Inline CSS: <link rel="stylesheet" href="/assets/xxx.css" /> → <style>
+        link_re = _re.compile(
+            r'<link\b[^>]*\brel\s*=\s*["\']stylesheet["\'][^>]*\bhref\s*=\s*["\']([^"\']+\.css)["\'][^>]*/?>',
+            _re.IGNORECASE,
+        )
+        def _replace_link(match: _re.Match) -> str:
+            href = match.group(1)
+            content = _read_asset(href)
+            if content is None:
+                return match.group(0)
+            return f"<style>{content}</style>"
+
+        html = link_re.sub(_replace_link, html)
+
+        # Inline JS: <script src="/assets/xxx.js"></script> → <script>...</script>
+        script_re = _re.compile(
+            r'<script\b([^>]*)\bsrc\s*=\s*["\']([^"\']+)["\']([^>]*)>\s*</script>',
+            _re.IGNORECASE,
+        )
+        def _replace_script(match: _re.Match) -> str:
+            src = match.group(2)
+            if src.startswith(("http://", "https://", "data:")):
+                return match.group(0)
+            content = _read_asset(src)
+            if content is None:
+                return match.group(0)
+            before = match.group(1)
+            after = match.group(3)
+            return f"<script{before}{after}>{content}</script>"
+
+        html = script_re.sub(_replace_script, html)
+
+        return html
+
+    async def _create_website_artifact(
+        self, session_id: str, tool_names: list[str]
+    ) -> dict[str, Any] | None:
+        """Create a website artifact from the built dist/ directory."""
+        from pathlib import Path as _Path
+        _project_root = _Path(__file__).resolve().parent.parent.parent.parent
+        _websites_dir = _project_root / "data" / "websites"
+
+        try:
+            slug = self._infer_project_slug_from_tools(tool_names)
+            if not slug:
+                _logger.info("website artifact skipped: could not infer project slug")
+                return None
+
+            project_dir = _websites_dir / slug
+            dist_dir = project_dir / "dist"
+            index_html = dist_dir / "index.html"
+            if not index_html.exists():
+                _logger.info("website artifact skipped: dist/index.html not found in %s", dist_dir)
+                return None
+
+            raw_html = index_html.read_text(encoding="utf-8")
+            preview_html = self._inline_dist_assets(dist_dir, raw_html)
+
+            # Count files in dist
+            file_count = len([f for f in dist_dir.rglob("*") if f.is_file()])
+
+            # Detect stack
+            has_vue = any(f.suffix == ".vue" for f in project_dir.rglob("*"))
+            has_jsx = any(f.suffix == ".jsx" for f in project_dir.rglob("*"))
+            if has_vue:
+                stack = "vue"
+            elif has_jsx:
+                stack = "react"
+            else:
+                stack = "vanilla"
+
+            artifact = {
+                "type": "website",
+                "artifact_id": session_id,  # use session_id as artifact_id for now
+                "session_id": session_id,
+                "title": slug.replace("-", " ").title(),
+                "project_slug": slug,
+                "stack": stack,
+                "file_count": file_count,
+                "preview_html": preview_html,
+            }
+
+            _logger.info(
+                "website artifact created: session=%s slug=%s stack=%s files=%d",
+                session_id, slug, stack, file_count,
+            )
+            return artifact
+        except Exception:
+            _logger.exception("website artifact creation failed: session=%s", session_id)
             return None
 
     async def _get_edit_hint(self, session_id: str) -> str | None:
@@ -782,6 +1000,10 @@ class AgentService:
             if edit_hint:
                 message = message + edit_hint
 
+        website_mode = response_mode == "website"
+        if website_mode:
+            message = self._inject_website_catalog(message)
+
         session = agent.create_or_get_session(
             session_id=request.session_id,
             system_prompt=runtime_profile.system_prompt,
@@ -940,6 +1162,49 @@ class AgentService:
                                 collected_text=collected_text,
                             )
                             usage_recorded = True
+                        if mapped is not None:
+                            yield mapped
+                        runtime_task = asyncio.create_task(runtime_queue.get())
+                        continue
+
+                    if website_mode and event.type == "done":
+                        artifact = await self._create_website_artifact(
+                            session.session_id, tool_names
+                        )
+                        if artifact is not None:
+                            yield {
+                                "event": "run_status",
+                                "data": {
+                                    "session_id": session.session_id,
+                                    "phase": "rendering_website",
+                                    "label": "正在渲染网站预览",
+                                },
+                            }
+                            yield {
+                                "event": "artifact_ready",
+                                "data": artifact,
+                            }
+                        if not usage_recorded:
+                            await self._record_usage_event(
+                                session=session,
+                                request=request,
+                                user=user,
+                                event_data=event.data,
+                                tool_names=tool_names,
+                                response_mode=response_mode,
+                                agent_profile_id=runtime_profile.profile_id,
+                                collected_text=collected_text,
+                            )
+                            usage_recorded = True
+                        yield {
+                            "event": "run_status",
+                            "data": {
+                                "session_id": session.session_id,
+                                "phase": "done",
+                                "label": "本轮回复已完成",
+                            },
+                        }
+                        mapped = self._map_agent_event(event, session)
                         if mapped is not None:
                             yield mapped
                         runtime_task = asyncio.create_task(runtime_queue.get())

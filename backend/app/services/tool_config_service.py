@@ -167,6 +167,33 @@ TOOL_CATALOG = {
             "import_pptx_template": {"label": "导入PPTX模板", "description": "将PPTX文件导入为设计模板，提取主题和布局"},
         },
     },
+    "copy_template": {
+        "label": "复制网站模板",
+        "description": "将预置的 vanilla/vue/react 基础模板复制到 data/websites/ 下作为新项目起点。",
+        "builtin_name": None,
+        "approval_scope": ["copy_template"],
+        "sub_tools": {
+            "copy_template": {"label": "复制模板", "description": "复制基础项目模板到目标目录"},
+        },
+    },
+    "list_website_projects": {
+        "label": "列出网站项目",
+        "description": "列出 data/websites/ 下所有已创建的网站项目及其概况。",
+        "builtin_name": None,
+        "approval_scope": ["list_website_projects"],
+        "sub_tools": {
+            "list_website_projects": {"label": "列出项目", "description": "列出所有已创建的网站项目"},
+        },
+    },
+    "build_website": {
+        "label": "构建网站",
+        "description": "对指定项目执行 npm install && npm run build 并返回结果。",
+        "builtin_name": None,
+        "approval_scope": ["build_website"],
+        "sub_tools": {
+            "build_website": {"label": "构建项目", "description": "执行 npm install && npm run build"},
+        },
+    },
     "email": {
         "label": "邮件工具",
         "description": "通过 IMAP/SMTP 管理邮件，支持读取、搜索和发送。",
@@ -232,6 +259,9 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "npm": {"enabled": True, "requires_approval": True},
         "skill": {"enabled": False, "requires_approval": False},
         "email": {"enabled": False, "requires_approval": True},
+        "copy_template": {"enabled": True, "requires_approval": False},
+        "list_website_projects": {"enabled": True, "requires_approval": False},
+        "build_website": {"enabled": True, "requires_approval": False},
     },
 }
 

@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     auth_rate_limit_block_seconds: int = Field(default=900, validation_alias="AUTH_RATE_LIMIT_BLOCK_SECONDS")
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(PROJECT_ROOT / "backend" / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
