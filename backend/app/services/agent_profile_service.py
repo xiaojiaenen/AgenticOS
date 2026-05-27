@@ -109,7 +109,7 @@ class AgentProfileService:
                 profile.is_builtin = True
                 if slug == "website":
                     current_prompt = profile.system_prompt or ""
-                    if "data/websites/<project_slug>/" not in current_prompt:
+                    if "copy_template(stack)" not in current_prompt:
                         profile.system_prompt = WEBSITE_ROUTER_PROMPT
                         changed = True
                 if slug == "ppt":

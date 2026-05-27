@@ -1,13 +1,18 @@
-"""Website 生成工具 — copy_template 复制基础模板到工作目录"""
+﻿"""Website 生成工具 — copy_template 复制基础模板到工作目录"""
 
 import shutil
 from pathlib import Path
 
 from wuwei.tools import ToolRegistry
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-_TEMPLATES_DIR = _PROJECT_ROOT / "data" / "website-templates"
-_WEBSITES_DIR = _PROJECT_ROOT / "data" / "websites"
+from app.core.data_path import (
+    WEBSITES_DIR,
+    WEBSITE_TEMPLATES_DIR,
+    get_current_session_id,
+    get_current_user_id,
+    next_version_dir, _parse_dir_name,
+    set_current_website_dir,
+)
 
 ALLOWED_STACKS = {"vanilla", "vue", "react"}
 
@@ -15,29 +20,36 @@ ALLOWED_STACKS = {"vanilla", "vue", "react"}
 def register_website_tools(registry: ToolRegistry) -> None:
 
     @registry.tool(display_name="复制网站模板")
-    async def copy_template(stack: str, target_slug: str) -> str:
+    async def copy_template(stack: str) -> str:
         """复制基础模板到目标目录，作为新项目的起点。
+
+        目录名自动生成，格式为 u<用户ID>_s<会话ID>_v<版本号>，无需手动指定。
 
         参数:
           stack: 技术栈，可选 "vanilla"、"vue"、"react"
-          target_slug: 项目标识，kebab-case，如 "my-homepage"
 
         返回:
-          操作结果描述
+          操作结果描述，包含生成的目录名
         """
         if stack not in ALLOWED_STACKS:
             return f"不支持的技术栈：{stack}。可选：{', '.join(sorted(ALLOWED_STACKS))}"
 
-        source_dir = _TEMPLATES_DIR / stack
+        source_dir = WEBSITE_TEMPLATES_DIR / stack
         if not source_dir.exists():
             return f"模板目录不存在：{source_dir}"
 
-        target_dir = _WEBSITES_DIR / target_slug
+        user_id = get_current_user_id()
+        session_id = get_current_session_id()
+        if not session_id:
+            return "错误：无法获取当前会话 ID，请刷新页面重试"
+
+        target_dir = next_version_dir(WEBSITES_DIR, user_id, session_id)
+        # Should never collide since we always +1, but guard anyway
         if target_dir.exists():
             return (
                 f"目标目录已存在：{target_dir}\n"
                 f"如果要修改已有项目，请直接使用文件工具编辑 {target_dir} 下的文件，"
-                f"或调用 list_website_projects 查看所有项目。"
+                f"或调用 check_website_project 查看所有项目。"
             )
 
         try:
@@ -51,66 +63,70 @@ def register_website_tools(registry: ToolRegistry) -> None:
         )
         file_list = "\n".join(f"  {f}" for f in files)
 
+        # Set current website dir so file tools resolve relative paths here
+        set_current_website_dir(str(target_dir))
+
         return (
             f"已复制 {stack} 模板到 {target_dir}\n"
+            f"项目目录名：{target_dir.name}\n"
             f"\n项目文件：\n{file_list}\n"
-            f"\n下一步：使用文件工具编辑项目文件，然后调用 build_website('{target_slug}') 构建。"
+            f"\n项目目录已设置，后续文件操作会自动定位到此目录。"
+            f"\n下一步：使用文件工具编辑项目文件（只需提供相对路径如 css/style.css），然后调用 build_website('{target_dir.name}') 构建。"
         )
+    @registry.tool(display_name="检查当前项目")
+    async def check_website_project() -> str:
+        """检查当前会话的网站项目是否存在。
 
-    @registry.tool(display_name="列出网站项目")
-    async def list_website_projects() -> str:
-        """列出 data/websites/ 下所有已创建的网站项目。
+        根据 user_id 和 session_id 查找匹配的项目目录。
+        如果找到，自动设置为当前项目目录并返回信息。
+        如果未找到，返回提示需要先调用 copy_template。
 
         返回:
-          项目列表，包含名称、技术栈推测、文件数
+          项目状态信息，包含目录名和文件数
         """
-        if not _WEBSITES_DIR.exists():
-            return "暂无项目（data/websites/ 目录不存在）"
+        user_id = get_current_user_id()
+        session_id = get_current_session_id()
+        if not session_id:
+            return "错误：无法获取当前会话 ID"
 
-        projects = sorted(
-            d for d in _WEBSITES_DIR.iterdir()
-            if d.is_dir() and not d.name.startswith(".")
+        if not WEBSITES_DIR.exists():
+            return "当前会话暂无项目，请调用 copy_template(stack) 创建"
+
+        # 查找匹配 user_id + session_id 的最新版本
+        candidates = []
+        for d in WEBSITES_DIR.iterdir():
+            if not d.is_dir():
+                continue
+            parsed = _parse_dir_name(d.name)
+            if parsed and parsed[0] == user_id and parsed[1] == session_id:
+                candidates.append((d, parsed[2]))
+
+        if not candidates:
+            return "当前会话暂无项目，请调用 copy_template(stack) 创建"
+
+        # 取最新版本
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        project_dir, version = candidates[0]
+        file_count = len([f for f in project_dir.rglob("*") if f.is_file()])
+
+        # 自动设置为当前项目目录
+        set_current_website_dir(str(project_dir))
+
+        has_dist = (project_dir / "dist").exists()
+        status = "已构建" if has_dist else "未构建"
+
+        return (
+            f"项目已存在：{project_dir.name}\n"
+            f"版本：v{version}，文件数：{file_count}，状态：{status}\n"
+            f"项目目录已设置，可直接使用文件工具编辑（只需提供相对路径）。"
         )
-
-        if not projects:
-            return "暂无项目"
-
-        lines = []
-        for proj in projects:
-            files = list(proj.rglob("*"))
-            file_count = len([f for f in files if f.is_file()])
-            # 推测技术栈
-            has_vue = any(f.suffix == ".vue" for f in files)
-            has_jsx = any(f.suffix == ".jsx" for f in files)
-            has_tsx = any(f.suffix == ".tsx" for f in files)
-            if has_vue:
-                stack_guess = "vue"
-            elif has_jsx or has_tsx:
-                stack_guess = "react"
-            else:
-                stack_guess = "vanilla"
-
-            has_pkg = (proj / "package.json").exists()
-            has_dist = (proj / "dist").exists()
-            extra = []
-            if not has_pkg:
-                extra.append("无 package.json")
-            if has_dist:
-                extra.append("已构建")
-
-            note = f" ({', '.join(extra)})" if extra else ""
-            lines.append(
-                f"  {proj.name} — {stack_guess}，{file_count} 个文件{note}"
-            )
-
-        return "已创建的项目：\n" + "\n".join(lines)
 
     @registry.tool(display_name="构建网站")
     async def build_website(project_slug: str) -> str:
         """对指定项目执行 npm install && npm run build。
 
         参数:
-          project_slug: 项目标识（data/websites/ 下的目录名）
+          project_slug: 项目目录名（data/websites/ 下的目录名，如 u1_abc123_v1）
 
         返回:
           构建结果
@@ -118,7 +134,7 @@ def register_website_tools(registry: ToolRegistry) -> None:
         import subprocess
         import sys
 
-        target_dir = _WEBSITES_DIR / project_slug
+        target_dir = WEBSITES_DIR / project_slug
         if not target_dir.exists():
             return f"项目目录不存在：{target_dir}"
 
@@ -174,6 +190,7 @@ def register_website_tools(registry: ToolRegistry) -> None:
 
         return (
             f"构建成功！\n"
+            f"项目目录：{target_dir}\n"
             f"产物目录：{dist_dir}\n"
             f"产物文件（{len(dist_files)} 个）：\n" +
             "\n".join(f"  {f}" for f in dist_files[:30]) +

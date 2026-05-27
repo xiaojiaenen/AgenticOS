@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import contextlib
 import json
 import logging
@@ -35,9 +35,9 @@ from app.services.ppt.theme_token_resolver import build_token_quick_ref, list_av
 from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.services.tool_config_service import ToolConfigService
 from app.schemas.agent import AgentStreamRequest
-from app.tools.email_tools import register_email_tools, set_current_session_id
-from app.tools.ppt_tools import set_current_session_id as set_ppt_session_id
-from app.tools.pptx_reverse_tools import set_current_session_id as set_pptx_reverse_session_id
+from app.tools.email_tools import register_email_tools, set_current_session_id as set_email_session_id
+from app.core.data_path import set_current_session_id as set_data_session_id, set_current_user_id, restore_website_dir_for_session, PPT_SESSIONS_DIR, PPT_OUTPUT_DIR, WEBSITES_DIR, WEBSITE_TEMPLATES_DIR, DESIGN_THEMES_DIR, _parse_dir_name
+# pptx_reverse_session_id removed — now uses data_path contextvars directly
 
 
 MAX_STEPS_LIMIT_MESSAGE = "任务未完成，已达到最大步骤限制。"
@@ -204,7 +204,11 @@ class AgentService:
 
     @staticmethod
     def _build_tool_registry(profile: RuntimeAgentProfile) -> ToolRegistry:
-        builtin_tools = [name for name in profile.builtin_tools if name not in ("skill", "email")]
+        # Exclude "skill", "email", and "file" (file is handled per-mode below)
+        _exclude = {"skill", "email"}
+        if profile.response_mode == "website":
+            _exclude.add("file")
+        builtin_tools = [name for name in profile.builtin_tools if name not in _exclude]
         registry = ToolRegistry.from_builtin(builtin_tools)
         if "skill" in profile.builtin_tools:
             skill_manager = SkillManager(
@@ -236,6 +240,8 @@ class AgentService:
         if profile.response_mode == "website":
             from app.tools.website_tools import register_website_tools as _register_website_tools
             _register_website_tools(registry)
+            from app.tools.website_file_tools import register_website_file_tools as _register_website_file_tools
+            _register_website_file_tools(registry)
 
         return registry
 
@@ -467,7 +473,7 @@ class AgentService:
         """Inject template structure overview and theme guide for website mode."""
         from pathlib import Path
 
-        templates_dir = Path(__file__).resolve().parent.parent.parent.parent / "data" / "website-templates"
+        templates_dir = WEBSITE_TEMPLATES_DIR
         template_info: list[str] = []
         for stack in ("vanilla", "vue", "react"):
             pkg = templates_dir / stack / "package.json"
@@ -478,7 +484,7 @@ class AgentService:
             dep_list = ", ".join(deps.keys()) if deps else "无"
             template_info.append(f"  **{stack}** — 依赖: {dep_list}")
 
-        theme_dir = Path(__file__).resolve().parent.parent.parent.parent / "data" / "design-themes"
+        theme_dir = DESIGN_THEMES_DIR
         theme_count = len(list(theme_dir.glob("*.css"))) if theme_dir.exists() else 0
 
         lines = [
@@ -488,9 +494,9 @@ class AgentService:
             "",
             "### 致命错误警告",
             "",
-            "**在调用 `copy_template` 之前，`data/websites/<slug>/` 下的文件根本不存在！**",
+            "**在调用 `copy_template` 之前，项目目录根本不存在！**",
             "直接 `read_text_file` 一个尚不存在的路径必然报错 FileNotFoundError。",
-            "正确流程永远是：先 `list_website_projects()` → 再 `copy_template()` → 然后才能操作文件。",
+            "正确流程永远是：先 `check_website_project()` → 再 `copy_template(stack)` → 然后才能操作文件。目录名自动生成，格式为 u<用户ID>_s<会话ID>_v<版本号>。",
             "",
             "### 可用模板",
             "",
@@ -499,8 +505,8 @@ class AgentService:
             "### 工作流程（必须严格按顺序）",
             "",
             "1. 分析需求 → 选择 vanilla/vue/react",
-            "2. `list_website_projects()` 检查项目是否已存在",
-            f"3. `copy_template(stack, slug)` 复制模板到 data/websites/<slug>/ ← 绝对不能跳过！",
+            "2. `check_website_project()` 检查项目是否已存在",
+            f"3. `copy_template(stack)` 复制模板（目录名自动生成）← 绝对不能跳过！",
             "4. 用文件工具（write_text_file / replace_text_in_file）修改已存在的模板文件",
             "5. 调用 `build_website(slug)` 验证构建",
             "6. 告知用户项目路径和构建结果",
@@ -521,7 +527,7 @@ class AgentService:
             "### 项目目录结构",
             "",
             "```",
-            "data/websites/<slug>/",
+            "data/websites/u<用户ID>_s<会话ID>_v<版本号>/",
             "  ├── index.html       # 入口 HTML",
             "  ├── package.json     # 依赖配置（不要修改）",
             "  ├── vite.config.js   # 构建配置（不要修改）",
@@ -531,6 +537,20 @@ class AgentService:
             "  └── dist/            # 构建产物（build_website 后生成）",
             "```",
             "",
+            "### 文件路径规则（极其重要）",
+            "",
+            "文件工具已自动绑定到当前项目目录，**只需提供相对路径**：",
+            "",
+            "```",
+            "✅ 正确：write_text_file(path=\"index.html\", ...)",
+            "✅ 正确：write_text_file(path=\"src/main.js\", ...)",
+            "✅ 正确：replace_text_in_file(path=\"css/style.css\", ...)",
+            "❌ 错误：write_text_file(path=\"data/websites/u1_xxx_v1/index.html\", ...)",
+            "❌ 错误：write_text_file(path=\"D:/code/AgenticOS/data/websites/...\", ...)",
+            "```",
+            "",
+            "**绝对不要在文件路径中包含 `data/websites/` 前缀或完整目录名！**",
+            "",
             "---",
         ]
         return message + "\n".join(lines)
@@ -538,7 +558,7 @@ class AgentService:
     async def _create_ppt_artifact(self, session_id: str) -> dict[str, Any] | None:
         """Create a PPT artifact from saved slides in the session work directory."""
         from pathlib import Path as _Path
-        _slides_dir = _Path(__file__).resolve().parent.parent.parent.parent / "data" / "ppt-sessions" / session_id
+        _slides_dir = PPT_SESSIONS_DIR / session_id
         try:
             artifact = await self.ppt_artifacts.create_from_slides_dir(session_id, _slides_dir)
             if artifact is not None:
@@ -558,7 +578,7 @@ class AgentService:
         data/websites/ for directories with recent dist/ folders.
         """
         from pathlib import Path as _Path
-        _websites_dir = _Path(__file__).resolve().parent.parent.parent.parent / "data" / "websites"
+        _websites_dir = WEBSITES_DIR
         if not _websites_dir.exists():
             return None
 
@@ -637,9 +657,7 @@ class AgentService:
         self, session_id: str, tool_names: list[str]
     ) -> dict[str, Any] | None:
         """Create a website artifact from the built dist/ directory."""
-        from pathlib import Path as _Path
-        _project_root = _Path(__file__).resolve().parent.parent.parent.parent
-        _websites_dir = _project_root / "data" / "websites"
+        _websites_dir = WEBSITES_DIR
 
         try:
             slug = self._infer_project_slug_from_tools(tool_names)
@@ -699,8 +717,7 @@ class AgentService:
                 return None
             title = artifact.get("title", "未命名")
             slide_count = artifact.get("slide_count", 0)
-            project_root = _Path(__file__).resolve().parent.parent.parent.parent
-            slides_dir = project_root / "data" / "ppt-sessions" / session_id
+            slides_dir = PPT_SESSIONS_DIR / session_id
             svg_files = sorted(slides_dir.glob("slide_*.svg"),
                                 key=lambda p: int(p.stem.replace("slide_", ""))) if slides_dir.exists() else []
             file_list = "\n".join(
@@ -1033,9 +1050,10 @@ class AgentService:
         await self.storage.assign_agent_profile(session.session_id, runtime_profile.profile_id)
         await self.storage.save_meta(session)
         approval_queue = self.approval_manager.subscribe(session.session_id)
-        set_current_session_id(session.session_id)
-        set_ppt_session_id(session.session_id)
-        set_pptx_reverse_session_id(session.session_id)
+        set_email_session_id(session.session_id)
+        set_data_session_id(session.session_id)
+        restore_website_dir_for_session(session.session_id)
+        if user is not None: set_current_user_id(user.id)
 
         yield {
             "event": "session",
@@ -1376,7 +1394,7 @@ class AgentService:
                 svg_paths.append(svg_path)
 
             # SVG post-processing (icon embedding + image alignment + text flatten + rounded rect fix)
-            _icons_dir = Path(__file__).resolve().parent.parent.parent.parent / "data" / "icons"
+            _icons_dir = DATA_DIR / "icons"
             _processed = 0
             for svg_path in svg_paths:
                 _processed += _embed_icons(svg_path, _icons_dir, dry_run=False, verbose=False)
@@ -1437,3 +1455,7 @@ def get_agent_service() -> AgentService:
 def clear_agent_service_cache() -> None:
     global _agent_service
     _agent_service = None
+
+
+
+

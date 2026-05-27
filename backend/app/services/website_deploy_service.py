@@ -15,11 +15,11 @@ from app.db.session import create_db_session
 
 _logger = logging.getLogger("website_deploy")
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-_WEBSITES_DIR = _PROJECT_ROOT / "data" / "websites"
+from app.core.data_path import WEBSITES_DIR, NGINX_SERVE_DIR
 
-# Configurable via env or settings — where nginx serves from
-NGINX_SERVE_ROOT = Path(_PROJECT_ROOT / "data" / "nginx-serve")
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_WEBSITES_DIR = WEBSITES_DIR
+NGINX_SERVE_ROOT = NGINX_SERVE_DIR
 
 
 class WebsiteDeployService:

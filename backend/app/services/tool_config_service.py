@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -169,25 +169,25 @@ TOOL_CATALOG = {
     },
     "copy_template": {
         "label": "复制网站模板",
-        "description": "将预置的 vanilla/vue/react 基础模板复制到 data/websites/ 下作为新项目起点。",
+        "description": "将预置的 vanilla/vue/react 基础模板复制到 data/websites/ 下，目录名自动生成（u用户ID_s会话ID_v版本号）。",
         "builtin_name": None,
         "approval_scope": ["copy_template"],
         "sub_tools": {
             "copy_template": {"label": "复制模板", "description": "复制基础项目模板到目标目录"},
         },
     },
-    "list_website_projects": {
+    "check_website_project": {
         "label": "列出网站项目",
-        "description": "列出 data/websites/ 下所有已创建的网站项目及其概况。",
+        "description": "列出 data/websites/ 下所有已创建的网站项目（含版本化目录名）。",
         "builtin_name": None,
-        "approval_scope": ["list_website_projects"],
+        "approval_scope": ["check_website_project"],
         "sub_tools": {
-            "list_website_projects": {"label": "列出项目", "description": "列出所有已创建的网站项目"},
+            "check_website_project": {"label": "列出项目", "description": "列出所有已创建的网站项目"},
         },
     },
     "build_website": {
         "label": "构建网站",
-        "description": "对指定项目执行 npm install && npm run build 并返回结果。",
+        "description": "对指定项目目录执行 npm install && npm run build。",
         "builtin_name": None,
         "approval_scope": ["build_website"],
         "sub_tools": {
@@ -260,7 +260,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "skill": {"enabled": False, "requires_approval": False},
         "email": {"enabled": False, "requires_approval": True},
         "copy_template": {"enabled": True, "requires_approval": False},
-        "list_website_projects": {"enabled": True, "requires_approval": False},
+        "check_website_project": {"enabled": True, "requires_approval": False},
         "build_website": {"enabled": True, "requires_approval": False},
     },
 }
