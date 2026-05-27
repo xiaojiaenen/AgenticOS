@@ -98,8 +98,8 @@ export const Signup = () => {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="至少 8 位"
-                minLength={8}
+                placeholder="至少 6 位"
+                minLength={6}
                 required
                 autoComplete="new-password"
                 className="w-full rounded-2xl border border-white/75 bg-white/72 px-5 py-3.5 pr-12 text-sm font-semibold text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] outline-none transition-all placeholder:text-slate-400 focus:border-brand-200 focus:bg-white focus:ring-4 focus:ring-brand-100/80"
