@@ -1,18 +1,18 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from app.db.models import AgentProfileModel, AgentProfileToolModel, AgentToolConfigModel, Base
-from app.prompts import WEBSITE_SYSTEM_PROMPT
+from app.prompts import WEBSITE_ROUTER_PROMPT
 from app.services.agent_profile_service import AgentProfileService
 from app.services.tool_config_service import DEFAULT_MODE_TOOLS, ToolConfigService
 
 
 def test_website_prompt_contains_directory_and_build_rules() -> None:
-    assert "data/websites/<project-slug>/" in WEBSITE_SYSTEM_PROMPT
-    assert "npm install" in WEBSITE_SYSTEM_PROMPT
-    assert "npm run build" in WEBSITE_SYSTEM_PROMPT
+    assert "copy_template(stack)" in WEBSITE_ROUTER_PROMPT
+    assert "check_website_project()" in WEBSITE_ROUTER_PROMPT
+    assert "build_website(" in WEBSITE_ROUTER_PROMPT
 
 
 def test_website_mode_enables_npm_by_default() -> None:
@@ -28,10 +28,10 @@ def test_existing_website_defaults_are_upgraded(tmp_path: Path) -> None:
 
     with SessionLocal() as db:
         profile = AgentProfileModel(
-            name="网站工程师",
+            name="\u7f51\u7ad9\u5de5\u7a0b\u5e08",
             slug="website",
-            description="旧描述",
-            system_prompt="你是 AgenticOS 的网站与前端助手，请优先提供页面结构、交互说明和可运行代码。",
+            description="\u65e7\u63cf\u8ff0",
+            system_prompt="\u4f60\u662f AgenticOS \u7684\u7f51\u7ad9\u4e0e\u524d\u7aef\u52a9\u624b\uff0c\u8bf7\u4f18\u5148\u63d0\u4f9b\u9875\u9762\u7ed3\u6784\u3001\u4ea4\u4e92\u8bf4\u660e\u548c\u53ef\u8fd0\u884c\u4ee3\u7801\u3002",
             response_mode="website",
             avatar="globe",
             enabled=True,
@@ -73,7 +73,7 @@ def test_existing_website_defaults_are_upgraded(tmp_path: Path) -> None:
 
         profile = db.scalar(select(AgentProfileModel).where(AgentProfileModel.slug == "website"))
         assert profile is not None
-        assert "data/websites/<project-slug>/" in profile.system_prompt
+        assert "copy_template(stack)" in profile.system_prompt
 
         profile_tool = db.scalar(
             select(AgentProfileToolModel).where(
