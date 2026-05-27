@@ -1,15 +1,13 @@
-import contextvars
-from pathlib import Path as _Path
+﻿from pathlib import Path as _Path
 
 from wuwei.tools import ToolRegistry
 
-_current_session_id: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "ppt_session_id", default="",
+from app.core.data_path import (
+    PPT_SESSIONS_DIR,
+    get_current_session_id,
+    get_current_user_id,
+    next_version_dir,
 )
-
-
-def set_current_session_id(session_id: str) -> None:
-    _current_session_id.set(session_id)
 
 
 def register_pptx_reverse_tools(registry: ToolRegistry) -> None:
@@ -47,12 +45,22 @@ def register_pptx_reverse_tools(registry: ToolRegistry) -> None:
             colors = result.theme_colors
 
             # Write slides to session directory so Agent can read / modify them
-            session_id = _current_session_id.get()
+            session_id = get_current_session_id()
             imported_count = 0
             if session_id:
-                project_root = _Path(__file__).resolve().parent.parent.parent.parent
-                # File is at backend/app/tools/pptx_reverse_tools.py, need project root
-                slides_dir = project_root / "data" / "ppt-sessions" / session_id
+                # Find or create versioned slides dir (same logic as ppt_tools)
+                slides_dir = None
+                user_id = get_current_user_id()
+                if PPT_SESSIONS_DIR.exists():
+                    for child in sorted(PPT_SESSIONS_DIR.iterdir()):
+                        if not child.is_dir():
+                            continue
+                        parts = child.name.split("_v", 1)
+                        if len(parts) == 2 and parts[0] == f"u{user_id}_s{session_id}":
+                            slides_dir = child
+                            break
+                if slides_dir is None:
+                    slides_dir = next_version_dir(PPT_SESSIONS_DIR, user_id, session_id)
                 slides_dir.mkdir(parents=True, exist_ok=True)
                 for slide in result.slides:
                     slide_file = slides_dir / f"slide_{slide.index}.svg"

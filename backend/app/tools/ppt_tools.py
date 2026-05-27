@@ -1,34 +1,54 @@
-"""PPT 生成工具 — save_slide 将 SVG 写入会话工作目录"""
+﻿"""PPT 生成工具 — save_slide 将 SVG 写入会话工作目录"""
 
-import contextvars
 import os
 from pathlib import Path
 
 from wuwei.tools import ToolRegistry
 
-# ---------------------------------------------------------------------------
-# 项目根目录（用于构建 data/ 路径）
-# ---------------------------------------------------------------------------
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-
-# ---------------------------------------------------------------------------
-# session 上下文（由 agent_service 在创建 agent 前注入）
-# ---------------------------------------------------------------------------
-_current_session_id: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "ppt_session_id", default="",
+from app.core.data_path import (
+    PPT_SESSIONS_DIR,
+    get_current_session_id,
+    get_current_user_id,
+    next_version_dir,
 )
 
+# ---------------------------------------------------------------------------
+# slides directory — uses versioned naming: u<user_id>_s<session_id>_v<N>
+# ---------------------------------------------------------------------------
+_slides_dir_cache: Path | None = None
 
-def set_current_session_id(session_id: str) -> None:
-    _current_session_id.set(session_id)
+
+def reset_slides_dir_cache() -> None:
+    """Reset the cached slides dir (called at the start of each stream)."""
+    global _slides_dir_cache
+    _slides_dir_cache = None
 
 
 def _get_slides_dir() -> Path:
-    session_id = _current_session_id.get()
+    global _slides_dir_cache
+    if _slides_dir_cache is not None and _slides_dir_cache.exists():
+        return _slides_dir_cache
+
+    session_id = get_current_session_id()
     if not session_id:
         raise RuntimeError("save_slide: session_id 未设置，无法确定写入目录")
-    slides_dir = _PROJECT_ROOT / "data" / "ppt-sessions" / session_id
+
+    user_id = get_current_user_id()
+    # Check if there's already a directory for this user+session
+    if PPT_SESSIONS_DIR.exists():
+        for child in sorted(PPT_SESSIONS_DIR.iterdir()):
+            if not child.is_dir():
+                continue
+            parts = child.name.split("_v", 1)
+            if len(parts) == 2 and parts[0] == f"u{user_id}_s{session_id}":
+                _slides_dir_cache = child
+                child.mkdir(parents=True, exist_ok=True)
+                return child
+
+    # No existing dir — create next version
+    slides_dir = next_version_dir(PPT_SESSIONS_DIR, user_id, session_id)
     slides_dir.mkdir(parents=True, exist_ok=True)
+    _slides_dir_cache = slides_dir
     return slides_dir
 
 
@@ -39,7 +59,7 @@ def _count_slides(slides_dir: Path) -> int:
 
 
 # ---------------------------------------------------------------------------
-# 工具注册
+# Tool registration
 # ---------------------------------------------------------------------------
 def register_ppt_tools(registry: ToolRegistry) -> None:
 
@@ -68,13 +88,12 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
         if not svg.strip().startswith("<svg"):
             return "错误：svg 参数必须以 <svg> 开头"
         if "viewBox" not in svg:
-            return "错误：svg 必须包含 viewBox 属性，例如 viewBox=\"0 0 1280 720\""
+            return '错误：svg 必须包含 viewBox 属性，例如 viewBox="0 0 1280 720"'
 
         slides_dir = _get_slides_dir()
         file_path = slides_dir / f"slide_{slide_num}.svg"
         existed = file_path.exists()
         file_path.write_text(svg, encoding="utf-8")
-
         count = _count_slides(slides_dir)
         action = "已更新" if existed else "已保存"
         return f"第 {slide_num} 页{action}（共 {count} 页）"
