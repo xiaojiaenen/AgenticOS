@@ -1,8 +1,8 @@
-import React from 'react'
+﻿import React from 'react'
 import { motion, MotionValue } from 'motion/react'
 import { CheckCircle2, Globe, RefreshCcw, Rocket, X, XCircle } from 'lucide-react'
 import { Artifact } from '../../types'
-import { buildSandboxedHtmlDocument } from '../../lib/safePreview'
+import { buildSandboxedHtmlDocument, createObjectUrl } from '../../lib/safePreview'
 import { requestDeploy, DeployStatus } from '../../services/websiteService'
 
 type WebsiteArtifactPanelProps = {
@@ -21,14 +21,25 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
   const [deployUrl, setDeployUrl] = React.useState<string | null>(null)
   const [deployError, setDeployError] = React.useState<string | null>(null)
   const iframeRef = React.useRef<HTMLIFrameElement | null>(null)
-  const previewSrcDoc = React.useMemo(
-    () => buildSandboxedHtmlDocument(artifact.html),
-    [artifact.html],
-  )
+  const blobUrlRef = React.useRef<string>('')
+
+  const previewUrl = React.useMemo(() => {
+    if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+    const html = buildSandboxedHtmlDocument(artifact.html)
+    const url = createObjectUrl(html, 'text/html')
+    blobUrlRef.current = url
+    return url
+  }, [artifact.html])
+
+  React.useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+    }
+  }, [])
 
   const handleRefresh = () => {
-    if (iframeRef.current) {
-      iframeRef.current.srcdoc = buildSandboxedHtmlDocument(artifact.html)
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.location.reload()
     }
   }
 
@@ -170,10 +181,10 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
         >
           <iframe
             ref={iframeRef}
-            srcDoc={previewSrcDoc}
+            src={previewUrl}
             title={artifact.title}
             className="min-h-[calc(100vh-10rem)] w-full border-0"
-            sandbox="allow-scripts"
+            sandbox="allow-scripts allow-same-origin"
             allow="fullscreen"
             referrerPolicy="no-referrer"
           />
