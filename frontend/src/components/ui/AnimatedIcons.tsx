@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 
@@ -16,10 +16,9 @@ export const AbstractLogoIcon = ({ size = 24, className }: { size?: number; clas
 
 export const UserAvatarIcon = ({ size = 24, className }: { size?: number; className?: string }) => (
   <motion.svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} role="img" aria-label="User avatar">
-    <motion.circle cx="12" cy="8" r="4"
-      animate={{ y: [-0.5, 0.5, -0.5] }}
-      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-    />
+    <motion.g animate={{ y: [-0.5, 0.5, -0.5] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
+      <circle cx="12" cy="8" r="4" />
+    </motion.g>
     <path d="M20 21C20 16.5817 16.4183 13 12 13C7.58172 13 4 16.5817 4 21" />
   </motion.svg>
 );
@@ -44,7 +43,7 @@ export const ChatBubbleIcon = ({ size = 24, className, active }: { size?: number
   >
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     {active && (
-      <motion.circle cx="12" cy="10" r="1.5" fill="currentColor" stroke="none" animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.5, repeat: Infinity }} />
+      <circle cx="12" cy="10" r="1.5" fill="currentColor" stroke="none"><animate attributeName="opacity" values="0;1;0" dur="1.5s" repeatCount="indefinite" /></circle>
     )}
   </motion.svg>
 );
