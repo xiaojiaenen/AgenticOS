@@ -168,15 +168,12 @@ def _detect_theme_name_from_svg(svgs: list[str]) -> str:
 
 def _write_svg_artifact_files(artifact_id: str, resolved_svgs: list[str], preview_html: str) -> None:
     """Write SVG source files and preview to data/ppt-output/ for debugging and manual editing."""
-    import os as _os
-    project_root = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))))
-    output_dir = _os.path.join(project_root, "data", "ppt-output", artifact_id)
-    _os.makedirs(output_dir, exist_ok=True)
+    from app.core.data_path import PPT_OUTPUT_DIR
+    output_dir = PPT_OUTPUT_DIR / artifact_id
+    output_dir.mkdir(parents=True, exist_ok=True)
     for i, svg in enumerate(resolved_svgs):
-        with open(_os.path.join(output_dir, f"source_slide_{i + 1}.svg"), "w", encoding="utf-8") as f:
-            f.write(svg)
-    with open(_os.path.join(output_dir, "preview.html"), "w", encoding="utf-8") as f:
-        f.write(preview_html)
+        (output_dir / f"source_slide_{i + 1}.svg").write_text(svg, encoding="utf-8")
+    (output_dir / "preview.html").write_text(preview_html, encoding="utf-8")
 
 
 class PptArtifactService:

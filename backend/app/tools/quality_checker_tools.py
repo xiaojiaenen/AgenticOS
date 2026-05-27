@@ -1,6 +1,24 @@
-from wuwei.tools import ToolRegistry
+﻿from wuwei.tools import ToolRegistry
 
-from app.tools.ppt_tools import _current_session_id
+from app.core.data_path import PPT_SESSIONS_DIR, get_current_session_id, get_current_user_id
+
+
+def _find_slides_dir():
+    """Resolve the current session's slides directory using versioned naming."""
+    from app.core.data_path import _parse_dir_name
+    session_id = get_current_session_id()
+    if not session_id:
+        return None
+    user_id = get_current_user_id()
+    if not PPT_SESSIONS_DIR.exists():
+        return None
+    for child in sorted(PPT_SESSIONS_DIR.iterdir()):
+        if not child.is_dir():
+            continue
+        parsed = _parse_dir_name(child.name)
+        if parsed and parsed[0] == user_id and parsed[1] == session_id:
+            return child
+    return None
 
 
 def register_quality_checker_tools(registry: ToolRegistry) -> None:
@@ -12,16 +30,11 @@ def register_quality_checker_tools(registry: ToolRegistry) -> None:
         检查项目包括：XML 合法性、viewBox 一致性、禁止元素检测、
         字体安全性、尺寸一致性、文本溢出等。
         """
-        from pathlib import Path as _Path
-
         from app.services.ppt.svg_quality_checker import SVGQualityChecker
 
-        session_id = _current_session_id.get()
-        if not session_id:
-            return "错误：无法获取当前会话 ID"
-
-        project_root = _Path(__file__).resolve().parent.parent.parent.parent
-        slides_dir = project_root / "data" / "ppt-sessions" / session_id
+        slides_dir = _find_slides_dir()
+        if slides_dir is None:
+            return "错误：无法获取当前会话的幻灯片目录"
 
         if not slides_dir.exists():
             return f"会话目录不存在：{slides_dir}"

@@ -3,7 +3,8 @@
 from pathlib import Path
 from wuwei.tools import ToolRegistry
 
-_ICON_INDEX_PATH = Path(__file__).resolve().parent.parent.parent.parent / "data" / "icons" / "icon_index.json"
+from app.core.data_path import DATA_DIR
+_ICON_INDEX_PATH = DATA_DIR / "icons" / "icon_index.json"
 
 
 def _load_index() -> dict[str, list[str]]:
