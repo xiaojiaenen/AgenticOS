@@ -44,8 +44,6 @@ frontend/.vite/
 backend/data/
 data/icons/
 data/*.db
-data/skills/*
-!data/skills/ppt-svg-reference/
 data/websites/
 data/ppt-output/
 data/ppt-sessions/

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Activity, AlertCircle, Gauge, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
@@ -9,32 +9,13 @@ import { DashboardCharts } from '../components/admin/DashboardCharts';
 import { DashboardStats } from '../components/admin/DashboardStats';
 import { SkillManagement } from '../components/admin/SkillManagement';
 import { UserManagement } from '../components/admin/UserManagement';
+import { ChartSkeleton } from '../components/ui/ChartSkeleton';
 import { Button } from '../components/ui/Button';
 import { MascotCool } from '../components/ui/AnimatedIcons';
 import { RandomMascot } from '../components/ui/RandomMascot';
-import { cn } from '../lib/utils';
+import { cn, formatNumber, formatTokenNumber, formatLatency } from '../lib/utils';
 import { DashboardStats as DashboardStatsData, getDashboardStats } from '../services/dashboardService';
 
-function formatNumber(value?: number): string {
-  if (value === undefined || value === null) return '--';
-  return Intl.NumberFormat('zh-CN', { notation: value >= 10000 ? 'compact' : 'standard' }).format(value);
-}
-
-function formatTokenNumber(value?: number): string {
-  if (value === undefined || value === null) return '--';
-  const abs = Math.abs(value);
-  if (abs <= 10000) return `${value}`;
-  if (abs >= 1e12) return `${(value / 1e12).toFixed(abs >= 1e13 ? 0 : 1)}T`;
-  if (abs >= 1e9) return `${(value / 1e9).toFixed(abs >= 1e10 ? 0 : 1)}B`;
-  if (abs >= 1e6) return `${(value / 1e6).toFixed(abs >= 1e7 ? 0 : 1)}M`;
-  if (abs >= 1e3) return `${(value / 1e3).toFixed(abs >= 1e4 ? 0 : 1)}K`;
-  return `${value}`;
-}
-
-function formatLatency(value?: number): string {
-  if (!value) return '--';
-  return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`;
-}
 
 export const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -43,18 +24,20 @@ export const AdminDashboard = () => {
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [timeRange, setTimeRange] = useState(14);
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
   const loadDashboard = React.useCallback(async () => {
     setIsDashboardLoading(true);
     setDashboardError(null);
     try {
-      setDashboardData(await getDashboardStats());
+      setDashboardData(await getDashboardStats(timeRange));
     } catch (err) {
       setDashboardError(err instanceof Error ? err.message : '仪表盘数据加载失败');
     } finally {
       setIsDashboardLoading(false);
     }
-  }, []);
+  }, [timeRange]);
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -206,6 +189,24 @@ export const AdminDashboard = () => {
                       {isDashboardLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                       刷新
                     </Button>
+                    <div className="flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 p-0.5 text-xs">
+                      {[7, 14, 30].map((d) => (
+                        <button
+                          key={d}
+                          onClick={() => setTimeRange(d)}
+                          className={`rounded-lg px-2.5 py-1 font-bold transition-colors ${timeRange === d ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-700"}`}
+                        >
+                          {d}天
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setAutoRefresh(!autoRefresh)}
+                      className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors ${autoRefresh ? "bg-emerald-100 text-emerald-700" : "text-slate-400 hover:text-slate-600"}`}
+                      title={autoRefresh ? "关闭自动刷新" : "开启自动刷新（30秒）"}
+                    >
+                      {autoRefresh ? "自动: 开" : "自动: 关"}
+                    </button>
                   </div>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
@@ -259,9 +260,26 @@ export const AdminDashboard = () => {
             )}
 
             {isDashboardLoading && !dashboardData ? (
-              <div className="flex h-64 items-center justify-center gap-3 rounded-2xl border border-white/60 bg-white/50 text-sm font-bold text-slate-500 shadow-xl backdrop-blur-2xl">
-                <Loader2 size={18} className="animate-spin" />
-                正在汇总系统统计数据
+              <div className="space-y-5">
+                <section className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_400px]">
+                  <div className="rounded-2xl border border-white/60 bg-white/50 p-6 shadow-xl backdrop-blur-2xl">
+                    <div className="h-3 w-20 animate-pulse rounded bg-slate-200 mb-4" />
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      {[0,1,2,3].map(i => <ChartSkeleton key={i} variant="stat" />)}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-white/60 bg-white/50 p-6 shadow-xl backdrop-blur-2xl">
+                    <ChartSkeleton variant="stat" />
+                  </div>
+                </section>
+                <section className="grid gap-5 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-white/60 bg-white/50 p-6 shadow-xl backdrop-blur-2xl">
+                    <ChartSkeleton variant="area" height={220} />
+                  </div>
+                  <div className="rounded-2xl border border-white/60 bg-white/50 p-6 shadow-xl backdrop-blur-2xl">
+                    <ChartSkeleton variant="pie" height={220} />
+                  </div>
+                </section>
               </div>
             ) : dashboardData ? (
               <>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -26,6 +26,7 @@ import {
   getConversationDetail,
   listConversations,
 } from '../../services/conversationService';
+import { ChatAnalytics } from './ChatAnalytics';
 import { cn } from '../../lib/utils';
 import { useAdminModalBackdrop } from './useAdminModalBackdrop';
 
@@ -170,6 +171,7 @@ export const ChatHistory = () => {
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [detailSessionId, setDetailSessionId] = useState<string | null>(null);
   const [detail, setDetail] = useState<AdminConversationDetail | null>(null);
@@ -317,6 +319,18 @@ export const ChatHistory = () => {
           {error}
         </div>
       )}
+
+      {/* Analytics toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setShowAnalytics(!showAnalytics)}
+          className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${showAnalytics ? "bg-slate-900 text-white" : "border border-slate-200 text-slate-500 hover:text-slate-700"}`}
+        >
+          {showAnalytics ? "隐藏分析" : "数据分析"}
+        </button>
+      </div>
+
+      {showAnalytics && <ChatAnalytics timeRange={14} />}
 
       <section className="admin-data-panel">
         <div className="admin-panel-toolbar">

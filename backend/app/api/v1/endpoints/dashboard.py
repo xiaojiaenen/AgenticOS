@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import datetime, time, timedelta
@@ -38,6 +38,7 @@ def _day_key(value: datetime) -> str:
 
 @router.get("/stats", response_model=DashboardStatsResponse)
 def get_dashboard_stats(
+    days: int = Query(14, ge=1, le=90),
     _: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> DashboardStatsResponse:
@@ -79,11 +80,11 @@ def get_dashboard_stats(
             "latency_ms": int(row.latency_ms or 0),
         }
 
-    start_day = app_today() - timedelta(days=13)
+    start_day = app_today() - timedelta(days=days - 1)
     start_boundary = datetime.combine(start_day, time.min, tzinfo=APP_TIMEZONE)
     trend_map: dict[str, dict[str, int]] = {
         (start_day + timedelta(days=index)).isoformat(): {"runs": 0, "tokens": 0, "tool_calls": 0}
-        for index in range(14)
+        for index in range(days)
     }
 
     for row in db.execute(
@@ -569,6 +570,81 @@ def get_conversation_detail(
     )
 
 
+
+@router.get("/analytics")
+def get_analytics(
+    days: int = Query(14, ge=1, le=90),
+    _: UserModel = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Return analytics data for chat history visualizations."""
+    start_day = app_today() - timedelta(days=days - 1)
+    start_boundary = datetime.combine(start_day, time.min, tzinfo=APP_TIMEZONE)
+
+    # 1. Session timeline: sessions created per day
+    session_timeline: dict[str, int] = {
+        (start_day + timedelta(days=i)).isoformat(): 0 for i in range(days)
+    }
+    for row in db.execute(
+        select(AgentSessionModel.created_at)
+        .where(AgentSessionModel.created_at >= start_boundary)
+    ).all():
+        key = _day_key(row.created_at)
+        if key in session_timeline:
+            session_timeline[key] += 1
+
+    # 2. Hourly distribution: messages per hour (0-23)
+    hourly_dist: dict[int, int] = {h: 0 for h in range(24)}
+    for row in db.execute(
+        select(AgentMessageModel.message_json)
+        .where(AgentMessageModel.id.in_(
+            select(AgentMessageModel.id)
+            .where(AgentMessageModel.created_at >= start_boundary)
+        ))
+    ).all():
+        pass  # Messages don't have created_at in current schema
+
+    # Fallback: use usage events for hourly distribution
+    for row in db.execute(
+        select(AgentUsageEventModel.created_at)
+        .where(AgentUsageEventModel.created_at >= start_boundary)
+    ).all():
+        converted = to_app_timezone(row.created_at)
+        if converted:
+            hourly_dist[converted.hour] = hourly_dist.get(converted.hour, 0) + 1
+
+    # 3. Tool call frequency from usage events
+    tool_freq: dict[str, int] = {}
+    for row in db.execute(
+        select(AgentUsageEventModel.tool_calls)
+        .where(AgentUsageEventModel.created_at >= start_boundary)
+    ).all():
+        count = int(row.tool_calls or 0)
+        if count > 0:
+            tool_freq["_total"] = tool_freq.get("_total", 0) + count
+
+    # 4. Mode distribution
+    mode_dist: dict[str, int] = {}
+    for row in db.execute(
+        select(AgentSessionModel.agent_profile_id, func.count(AgentSessionModel.session_id))
+        .where(AgentSessionModel.created_at >= start_boundary)
+        .group_by(AgentSessionModel.agent_profile_id)
+    ).all():
+        profile_id = row[0]
+        count = int(row[1])
+        if profile_id:
+            profile = db.get(AgentProfileModel, profile_id)
+            mode = profile.name if profile else "unknown"
+        else:
+            mode = "default"
+        mode_dist[mode] = mode_dist.get(mode, 0) + count
+
+    return {
+        "session_timeline": [{"date": k, "count": v} for k, v in sorted(session_timeline.items())],
+        "hourly_distribution": [{"hour": h, "count": hourly_dist.get(h, 0)} for h in range(24)],
+        "tool_frequency": tool_freq,
+        "mode_distribution": [{"mode": k, "count": v} for k, v in mode_dist.items()],
+    }
 @router.delete("/conversations/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_conversation(
     session_id: str,

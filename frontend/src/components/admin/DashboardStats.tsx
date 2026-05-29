@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { motion } from 'motion/react';
 import {
   Activity,
@@ -9,41 +9,13 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, formatNumber, formatTokenNumber, formatLatency, formatPercent, ratio } from '../../lib/utils';
 import { DashboardSummary } from '../../services/dashboardService';
 
 interface DashboardStatsProps {
   summary: DashboardSummary;
 }
 
-function formatNumber(value: number): string {
-  return Intl.NumberFormat('zh-CN', { notation: value >= 10000 ? 'compact' : 'standard' }).format(value);
-}
-
-function formatTokenNumber(value: number): string {
-  const abs = Math.abs(value);
-  if (abs <= 10000) return `${value}`;
-  if (abs >= 1e12) return `${(value / 1e12).toFixed(abs >= 1e13 ? 0 : 1)}T`;
-  if (abs >= 1e9) return `${(value / 1e9).toFixed(abs >= 1e10 ? 0 : 1)}B`;
-  if (abs >= 1e6) return `${(value / 1e6).toFixed(abs >= 1e7 ? 0 : 1)}M`;
-  if (abs >= 1e3) return `${(value / 1e3).toFixed(abs >= 1e4 ? 0 : 1)}K`;
-  return `${value}`;
-}
-
-function formatLatency(value: number): string {
-  if (!value) return '0 ms';
-  if (value >= 1000) return `${(value / 1000).toFixed(1)} s`;
-  return `${value} ms`;
-}
-
-function formatPercent(value: number): string {
-  return `${Math.round(value)}%`;
-}
-
-function ratio(value: number, total: number): number {
-  if (!total) return 0;
-  return Math.max(0, Math.min(100, (value / total) * 100));
-}
 
 function MetricRail({
   label,
