@@ -28,6 +28,7 @@ function compactMessageForStorage(message: Message): Message {
           artifactId: message.pptArtifact.artifactId,
           title: message.pptArtifact.title,
           slideCount: message.pptArtifact.slideCount,
+          html: message.pptArtifact.html,
         }
       : undefined,
   };
