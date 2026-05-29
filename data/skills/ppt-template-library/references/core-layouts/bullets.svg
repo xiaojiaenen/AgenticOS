@@ -1,0 +1,33 @@
+<!-- layout: bullets | 要点列表 | 图标 + 标题 + 描述 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">要点</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">核心观点</text>
+  <g font-family="var(--font-sans)" id="bg-layer">
+    
+    <g id="bullet-1">
+<rect x="80" y="170" width="1120" height="120" rx="8" fill="var(--surface)"/>
+    <!-- 图标：先用 search_icons 工具搜索关键词，再填入 data-icon -->
+    <use data-icon="chunk-filled/rocket" x="120" y="195" width="28" height="28" fill="var(--accent)"/>
+    <text x="165" y="220" font-size="22" font-weight="600" fill="var(--text-1)">要点标题 1</text>
+    <text x="165" y="255" font-size="15" fill="var(--text-2)">展开说明：可以写 1-2 行具体细节、数据支撑或案例引用</text>
+    
+    </g>
+
+    <g id="bullet-2">
+<rect x="80" y="310" width="1120" height="120" rx="8" fill="var(--surface)"/>
+    <use data-icon="chunk-filled/star" x="120" y="335" width="28" height="28" fill="var(--accent-2)"/>
+    <text x="165" y="360" font-size="22" font-weight="600" fill="var(--text-1)">要点标题 2</text>
+    <text x="165" y="395" font-size="15" fill="var(--text-2)">展开说明：可以写 1-2 行具体细节、数据支撑或案例引用</text>
+    
+    </g>
+
+    <g id="bullet-3">
+<rect x="80" y="450" width="1120" height="120" rx="8" fill="var(--surface)"/>
+    <use data-icon="chunk-filled/check-circle" x="120" y="475" width="28" height="28" fill="var(--good)"/>
+    <text x="165" y="500" font-size="22" font-weight="600" fill="var(--text-1)">要点标题 3</text>
+    <text x="165" y="535" font-size="15" fill="var(--text-2)">展开说明：可以写 1-2 行具体细节、数据支撑或案例引用</text>
+  
+    </g>
+</g>
+</svg>

@@ -1,0 +1,14 @@
+<!-- layout: section-divider | 章节分隔 | 大号编号 + 章节标题 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg-soft)"/>
+  <!-- 顶部装饰条 + 右侧装饰几何 -->
+  <rect x="0" y="0" width="1280" height="4" fill="var(--accent)"/>
+  <circle cx="1100" cy="360" r="220" fill="var(--accent)" opacity="0.04"/>
+  <circle cx="1100" cy="360" r="140" fill="var(--accent)" opacity="0.06"/>
+  <g font-family="var(--font-sans)" id="bg-layer">
+    <text x="120" y="260" font-size="140" font-weight="900" fill="var(--accent)" opacity="0.12">03</text>
+    <text x="120" y="310" font-size="20" fill="var(--accent)" font-weight="600" letter-spacing="4">SECTION 03</text>
+    <text x="120" y="380" font-size="48" font-weight="800" fill="var(--text-1)">章节标题</text>
+    <text x="120" y="440" font-size="20" fill="var(--text-2)">本章节的核心问题或主题引导语</text>
+  </g>
+</svg>

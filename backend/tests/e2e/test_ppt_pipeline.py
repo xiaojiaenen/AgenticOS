@@ -49,22 +49,32 @@ if __name__ == "__main__":
     
     conn = sqlite3.connect(str(DB_PATH))
     
-    # 1a. Check ppt-svg-reference skill exists
+    # 1a. Check ppt-design-guide skill exists
     cursor = conn.execute(
-        "SELECT id, name, slug, root_dir FROM skills WHERE slug='ppt-svg-reference'"
+        "SELECT id, name, slug, root_dir FROM skills WHERE slug='ppt-design-guide'"
     )
     skill = cursor.fetchone()
-    check("ppt-svg-reference skill registered in DB", skill is not None)
+    check("ppt-design-guide skill registered in DB", skill is not None)
     if skill:
         skill_id, name, slug, root_dir = skill
         check(f"Skill root_dir exists: {root_dir}", Path(root_dir).is_dir())
         check(f"SKILL.md exists", (Path(root_dir) / "SKILL.md").is_file())
-        # Verify SKILL.md has animation content
         skill_md = (Path(root_dir) / "SKILL.md").read_text()
         check("SKILL.md contains animation chapter",
               "元素分组与 PPTX 动画" in skill_md or "分组与动画" in skill_md)
         check("SKILL.md contains icon chapter",
               "图标" in skill_md)
+
+    # 1a2. Check ppt-template-library skill exists
+    cursor = conn.execute(
+        "SELECT id, name, slug, root_dir FROM skills WHERE slug='ppt-template-library'"
+    )
+    skill = cursor.fetchone()
+    check("ppt-template-library skill registered in DB", skill is not None)
+    if skill:
+        skill_id, name, slug, root_dir = skill
+        check(f"Skill root_dir exists: {root_dir}", Path(root_dir).is_dir())
+        check(f"SKILL.md exists", (Path(root_dir) / "SKILL.md").is_file())
         check("SKILL.md contains chrome group rules",
               "bg-layer" in skill_md and "跳过动画" in skill_md)
     

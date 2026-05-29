@@ -1,0 +1,33 @@
+<!-- layout: three-column | 三栏展示 | 图标 + 标题 + 描述 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">三大支柱</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">战略方向</text>
+  <g font-family="var(--font-sans)" text-anchor="middle" id="bg-layer">
+    
+    <g id="column-1">
+<rect x="60" y="170" width="370" height="420" rx="16" fill="var(--surface)"/>
+    <!-- 图标：先用 search_icons 搜索，再替换 data-icon 值 -->
+    <use data-icon="chunk-filled/cube" x="210" y="195" width="48" height="48" fill="var(--accent)"/>
+    <text x="245" y="300" font-size="22" font-weight="700" fill="var(--text-1)">产品创新</text>
+    <text x="245" y="340" font-size="14" fill="var(--text-2)">三行以内的简要说明，概括这个方向的核心内容</text>
+    
+    </g>
+
+    <g id="column-2">
+<rect x="455" y="170" width="370" height="420" rx="16" fill="var(--surface)"/>
+    <use data-icon="chunk-filled/globe" x="600" y="195" width="48" height="48" fill="var(--accent-2)"/>
+    <text x="640" y="300" font-size="22" font-weight="700" fill="var(--text-1)">市场拓展</text>
+    <text x="640" y="340" font-size="14" fill="var(--text-2)">三行以内的简要说明，概括这个方向的核心内容</text>
+    
+    </g>
+
+    <g id="column-3">
+<rect x="850" y="170" width="370" height="420" rx="16" fill="var(--surface)"/>
+    <use data-icon="chunk-filled/lightning" x="1000" y="195" width="48" height="48" fill="var(--good)"/>
+    <text x="1035" y="300" font-size="22" font-weight="700" fill="var(--text-1)">效能提升</text>
+    <text x="1035" y="340" font-size="14" fill="var(--text-2)">三行以内的简要说明，概括这个方向的核心内容</text>
+  
+    </g>
+</g>
+</svg>

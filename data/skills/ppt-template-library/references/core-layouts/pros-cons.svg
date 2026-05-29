@@ -1,0 +1,39 @@
+<!-- layout: pros-cons | 优缺点 | 绿色优点 + 红色缺点 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">评估</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">方案优缺点</text>
+  <g font-family="var(--font-sans)" id="bg-layer">
+        <g id="pc-pros">
+<rect x="60" y="160" width="560" height="460" rx="16" fill="var(--surface)"/>
+    <!-- 图标：先用 search_icons 搜索关键词，再填入 data-icon -->
+    <use data-icon="chunk-filled/check-circle" x="300" y="188" width="28" height="28" fill="var(--good)"/>
+    <text x="345" y="210" font-size="24" font-weight="700" fill="var(--good)">优点 Pros</text>
+    <line x1="100" y1="230" x2="580" y2="230" stroke="var(--good)" opacity="0.3"/>
+    <circle cx="120" cy="280" r="6" fill="var(--good)"/>
+    <text x="150" y="285" font-size="16" fill="var(--text-1)">优点项 1</text>
+    <circle cx="120" cy="340" r="6" fill="var(--good)"/>
+    <text x="150" y="345" font-size="16" fill="var(--text-1)">优点项 2</text>
+    <circle cx="120" cy="400" r="6" fill="var(--good)"/>
+    <text x="150" y="405" font-size="16" fill="var(--text-1)">优点项 3</text>
+    <circle cx="120" cy="460" r="6" fill="var(--good)"/>
+    <text x="150" y="465" font-size="16" fill="var(--text-1)">优点项 4</text>
+        
+    </g>
+<g id="pc-cons">
+<rect x="660" y="160" width="560" height="460" rx="16" fill="var(--surface)"/>
+    <use data-icon="chunk-filled/close-circle" x="900" y="188" width="28" height="28" fill="var(--bad)"/>
+    <text x="945" y="210" font-size="24" font-weight="700" fill="var(--bad)">缺点 Cons</text>
+    <line x1="700" y1="230" x2="1180" y2="230" stroke="var(--bad)" opacity="0.3"/>
+    <circle cx="720" cy="280" r="6" fill="var(--bad)"/>
+    <text x="750" y="285" font-size="16" fill="var(--text-1)">缺点项 1</text>
+    <circle cx="720" cy="340" r="6" fill="var(--bad)"/>
+    <text x="750" y="345" font-size="16" fill="var(--text-1)">缺点项 2</text>
+    <circle cx="720" cy="400" r="6" fill="var(--bad)"/>
+    <text x="750" y="405" font-size="16" fill="var(--text-1)">缺点项 3</text>
+    <circle cx="720" cy="460" r="6" fill="var(--bad)"/>
+    <text x="750" y="465" font-size="16" fill="var(--text-1)">缺点项 4</text>
+  
+    </g>
+</g>
+</svg>
