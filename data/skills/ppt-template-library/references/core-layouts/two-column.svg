@@ -1,0 +1,34 @@
+<!-- layout: two-column | 双栏对比 | 左概念右示例 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">对比分析</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">方案 A vs 方案 B</text>
+  <g font-family="var(--font-sans)" id="bg-layer">
+    <!-- 左栏 -->
+        <g id="column-left">
+<rect x="60" y="160" width="560" height="480" rx="16" fill="var(--surface)"/>
+    <rect x="60" y="160" width="560" height="6" rx="3" fill="var(--accent)"/>
+    <text x="340" y="210" text-anchor="middle" font-size="24" font-weight="700" fill="var(--accent)">方案 A</text>
+    <line x1="100" y1="230" x2="580" y2="230" stroke="var(--border)"/>
+    <text x="100" y="270" font-size="15" fill="var(--text-1)">核心优势：...</text>
+    <text x="100" y="310" font-size="15" fill="var(--text-1)">关键指标：...</text>
+    <text x="100" y="350" font-size="15" fill="var(--text-1)">风险等级：...</text>
+    <text x="100" y="390" font-size="15" fill="var(--text-1)">实施周期：...</text>
+    <text x="100" y="430" font-size="15" fill="var(--text-1)">团队规模：...</text>
+    <!-- 右栏 -->
+        
+    </g>
+<g id="column-right">
+<rect x="660" y="160" width="560" height="480" rx="16" fill="var(--surface)"/>
+    <rect x="660" y="160" width="560" height="6" rx="3" fill="var(--accent-2)"/>
+    <text x="940" y="210" text-anchor="middle" font-size="24" font-weight="700" fill="var(--accent-2)">方案 B</text>
+    <line x1="700" y1="230" x2="1180" y2="230" stroke="var(--border)"/>
+    <text x="700" y="270" font-size="15" fill="var(--text-1)">核心优势：...</text>
+    <text x="700" y="310" font-size="15" fill="var(--text-1)">关键指标：...</text>
+    <text x="700" y="350" font-size="15" fill="var(--text-1)">风险等级：...</text>
+    <text x="700" y="390" font-size="15" fill="var(--text-1)">实施周期：...</text>
+    <text x="700" y="430" font-size="15" fill="var(--text-1)">团队规模：...</text>
+  
+    </g>
+</g>
+</svg>

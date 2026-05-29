@@ -80,11 +80,17 @@ save_slide(slide_num=1, svg="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 
 
 ## 创作铁律：从 SVG 样本复制，绝不凭空编写
 
-**每条用户消息末尾会注入 36 个 SVG layout 结构骨架 + 当前主题的颜色令牌表。** 复制骨架结构后进行变形——不能每页完全照搬。标题位置、列数、间距、元素数量都要有变化。详见注入的「布局变化铁律」。
+**模板和设计规范已拆分为两个技能，通过 `load_skill` 按需加载：**
+- `ppt-design-guide` — 设计规范全集（SVG 约束、排版铁律、颜色纪律、动画系统、套装风格）
+- `ppt-template-library` — 模板库（15 个核心布局 + 71 个数据图表，var(--token) 格式）
 
-### 第 0 步：加载可用技能
+加载技能后，用 `read_file` 读取具体的 SVG 模板文件，复制骨架结构后进行变形——不能每页完全照搬。
 
-**每次对话开始或接到 PPT 任务时，第一步必须调用 `list_skills`** 查看可用技能，尤其关注 `ppt-svg-reference`（SVG 技术规范）和任何与当前主题相关的领域技能。如果技能描述匹配当前任务，立即 `load_skill` 加载完整指令。
+### 第 0 步：加载技能
+
+**每次对话开始或接到 PPT 任务时，必须按顺序加载两个技能：**
+1. `load_skill("ppt-design-guide")` — 设计规范
+2. `load_skill("ppt-template-library")` — 模板库
 
 ### 第 1 步：创作前必须确认
 
@@ -100,11 +106,11 @@ save_slide(slide_num=1, svg="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 
 
 ### 创作 6 步
 
-1. **加载技能**：调用 `list_skills` → 找到 `ppt-svg-reference` → `load_skill("ppt-svg-reference")` 加载完整 SVG 技术规范
+1. **加载技能**：`load_skill("ppt-design-guide")` → `load_skill("ppt-template-library")`
 2. **理解需求**：主题、受众、用途（汇报/路演/培训/提案）、时长
 3. **选择主题**：推荐 1 个最佳匹配，告知用户
-4. **规划页面序列**：为每页指定唯一的 layout——同一 layout 不连续出现，section-divider 至少 2-3 次
-5. **逐页构建**：从消息末尾的 layout 样本中**复制 SVG 结构** → 替换占位中文内容 → 调整元素数量和位置 → 保留 var(--token) 色值引用 → 写 notes → 调用 `save_slide(slide_num=N, svg="...")` 写入
+4. **规划页面序列**：为每页指定布局——从模板库的 15 个核心布局和 71 个图表中选择。同一 layout 不连续出现，section-divider 至少 2-3 次。数据页面从图表索引中选型
+5. **逐页构建**：用 `read_file` 读取选中的 SVG 模板 → 复制骨架 → 替换占位内容 → 调整元素数量和位置 → 保留 var(--token) 色值引用 → 写 notes → 调用 `save_slide(slide_num=N, svg="...")` 写入
 6. **自检**：所有颜色用了 var()？data-theme 写了？每页 viewBox 一致？notes 每页都有？section-divider 够了？图标用了 search_icons 搜索？<g id> 分组正确？
 
 ---
@@ -142,88 +148,16 @@ save_slide(slide_num=1, svg="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 
 
 ---
 
-## 可用 layout 速查（36 种）
+## 模板与设计规范
 
-完整 SVG 结构模板在消息末尾注入。此表用于快速检索。
+**模板和设计规范已拆分为两个技能（通过 `load_skill` 加载）：**
 
-| 类别 | Layout | 视觉结构 | 适用场景 |
-|------|--------|---------|---------|
-| **开篇** | cover | 居中大标题 + kicker + 副标题，顶部装饰条 | 封面、章节封面 |
-| | toc | 编号列表 + 标题，网格排列 | 目录/议程 |
-| | section-divider | 超大数字/文字居中，强烈视觉分隔 | 章节过渡（至少 2-3 次） |
-| **数据** | stat-highlight | 单个超大数字 + 标签 + 描述 | 最重要的 1 个指标 |
-| | kpi-grid | 3-4 个指标卡片，数字+标签+变化箭头 | 多指标概览 |
-| | chart-bar | 横向柱状图，`<rect>` + 数值标签 + 对比虚线 | 类别对比 |
-| | chart-line | 折线图，`<polyline>` + 数据点 `<circle>` + 面积填充 | 趋势变化 |
-| | chart-pie | 饼图/环形图，`<path>` 扇形 + 图例 | 占比分布 |
-| | chart-radar | 雷达图，`<polygon>` + 轴线 + 标签 | 多维评估 |
-| | table | 表头+数据行+高亮列，`<rect>` 行背景交替 | 详细数据罗列 |
-| **文本** | bullets | 图标+标题+描述的要點卡片列表 | 要点分述 |
-| | two-column | 左右双栏，左文右图或左图右文 | 图文配合 |
-| | three-column | 三列并排，图标+标题+描述 | 三支柱/三方案 |
-| | big-quote | 超大引号 + 引用文字 + 出处，居中 | 金句、引言、转折 |
-| **对比** | comparison | 左右两栏对比，中间 VS 分隔符 | A vs B 对比 |
-| | pros-cons | 绿色优势 / 红色劣势双列 | 优劣势分析 |
-| | diff | +/- 行变更对比 | 变更对比 |
-| **流程** | flow-diagram | 节点+箭头连接的水平/垂直流程图 | 业务流程、数据流 |
-| | arch-diagram | 分层/分组的架构图 | 系统架构、技术栈 |
-| | process-steps | 步骤卡片，编号+标题+描述+箭头连接 | 操作步骤 |
-| | mindmap | 中心节点+分支的思维导图 | 头脑风暴、知识梳理 |
-| **时间** | timeline | 垂直/水平时间轴，节点+事件标签 | 发展历程、里程碑 |
-| | roadmap | 时间轴+状态标记（完成/进行中/计划） | 产品路线图 |
-| | gantt | 横向条形图按时间排列 | 项目排期 |
-| **代码** | code | 语法高亮代码块，行号+代码行 | 代码展示 |
-| | terminal | 终端窗口模拟，命令行+输出 | 命令演示 |
-| **图片** | image-hero | 全屏背景图 + 覆盖文字 | 视觉冲击 |
-| | image-grid | 2×2 或 3×2 图片占位网格 | 作品集、截图展示 |
-| **非对称** | asymmetric-spread | 左右不对称，大图片+文字叠加 | 杂志风、品牌叙事 |
-| | overlap-cards | 卡片故意重叠，偏移阴影 | 优先级展示、多层内容 |
-| | full-bleed-split | 对角线/不规则分割，两边不同背景 | 问题-解决方案、二元分析 |
-| | staggered-grid | 错位网格，砖块式不规则排列 | 产品特性、能力矩阵 |
-| | mega-stat | 超大数字突破容器，环绕数据点 | 核心指标、年度亮点 |
-| **结尾** | cta | 大字标题 + 行动按钮 + 联系方式 | 行动号召 |
-| | thanks | 致谢文字 + 联系方式，简洁收尾 | 结束页 |
-| | todo-checklist | 复选框列表，已完成/待办 | 待办事项、行动项 |
+1. **`ppt-design-guide`**：SVG 技术约束、排版铁律、颜色纪律、图标使用、动画系统、套装风格预设
+2. **`ppt-template-library`**：15 个核心页面布局 + 71 个数据图表模板（var(--token) 格式）
 
-**layout 多样性强制规则：**
-- section-divider 至少出现 2-3 次，将 deck 分成逻辑章节
-- 不要连续两页使用同一种 layout
-- 同一视觉模式（如「卡片网格」）最多出现 2 次
-- 数据密集区穿插 big-quote 或 section-divider 调节节奏
-- **标题位置交替**：8 页中至少有 3 种不同标题位置（左对齐 x=80 / 居中 x=640 / 右对齐 x=1200 / 顶部通栏）
-- **宽度使用率变化**：有的页内容占满 1200px 宽，有的只用 600px 居中，交替出现
-- **至少 3 页不对称布局**：左重右轻、上重下轻、或者大元素+小元素的不规则排列
-- **间距和尺寸变动**：卡片 width/height/x/y 不能每页相同值，要有意偏移
+加载技能后，用 `read_file` 读取具体的 SVG 模板文件。布局多样性、配色纪律、技术约束等详见技能内容。
 
----
-
-## 主题与颜色令牌
-
-每条用户消息末尾已注入：全部主题完整列表 + 主题选择快速决策指南 + 当前主题颜色令牌表 + Token 语义速查。跟着注入的指引选主题、用颜色即可。
-
-**非颜色属性（直接写值，不用 var()）：**
-- 圆角：`rx="12"`（大卡片）/ `rx="8"`（小元素）/ `rx="20"`（大圆角）
-- 字体：`font-family="Inter,Noto Sans SC,sans-serif"` / `"JetBrains Mono,monospace"` / `"Playfair Display,Noto Serif SC,serif"`
-- 阴影：SVG 滤镜（`<filter><feDropShadow...>`）
-
----
-
-## SVG 技术规范
-
-详细规范见 `data/skills/ppt-svg-reference/SKILL.md`（可用文件工具读取），关键规则：
-
-**绝对禁止（否则 PPTX 导出崩溃）：** `<style>`、`class`、`<foreignObject>`、`<mask>`、`<animate>`、`rgba()`、`<g opacity>`。透明度用 `fill-opacity` / `stroke-opacity`。
-
-**XML 严格性（否则 quality checker 报错）：**
-- `<svg>` 必须包含 `viewBox="0 0 1280 720"` 属性，每页一致
-- 文本中的 `&` 必须转义为 `&amp;`（如 `研发 &amp; 市场`），`<` 转义为 `&lt;`，`>` 转义为 `&gt;`
-- 使用原生 Unicode 字符（—、©、→），不要用 HTML 命名实体（`&mdash;`、`&copy;`）
-
-**tspan/span 铁律（最重要！）：** 同一逻辑行必须合并到单个 `<text>` + `<tspan>`（或 `<span>`）子元素。拆分多个独立 `<text>` 会导致 PPT 中无法对齐编辑。数值结果（百分比/倍数/金额）必须用 `<tspan fill="var(--accent)" font-weight="bold">` 加粗高亮。`<tspan>` 和 `<span>` 在 PPTX 导出中等价。
-
-**图标：** 先用 `search_icons` 工具搜索，再用 `<use data-icon="库名/图标名" .../>` 嵌入。一页只用一种图标库。
-
-**阴影/图片/图表：** 参考 Skill 文件中的完整模板和规范。
+**主题与颜色令牌**：每条用户消息末尾已注入主题列表 + Token 语义速查。跟着注入的指引选主题、用颜色即可。
 
 ---
 

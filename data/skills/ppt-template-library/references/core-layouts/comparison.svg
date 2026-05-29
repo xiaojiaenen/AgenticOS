@@ -1,0 +1,36 @@
+<!-- layout: comparison | 对比 | 左右对比 + 中间 VS -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">对比分析</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">传统方案 vs 新方案</text>
+  <g font-family="var(--font-sans)" text-anchor="middle" id="bg-layer">
+        <g id="cmp-old">
+<rect x="60" y="160" width="520" height="440" rx="16" fill="var(--surface)"/>
+    <rect x="60" y="160" width="520" height="6" rx="3" fill="var(--bad)"/>
+    <!-- 图标：先用 search_icons 搜索关键词，再填入 data-icon -->
+    <use data-icon="chunk-filled/close" x="290" y="192" width="28" height="28" fill="var(--bad)"/>
+    <text x="340" y="216" font-size="24" font-weight="700" fill="var(--bad)">传统方案</text>
+    <text x="320" y="290" font-size="14" fill="var(--text-2)">劣势项 1</text>
+    <text x="320" y="340" font-size="14" fill="var(--text-2)">劣势项 2</text>
+    <text x="320" y="390" font-size="14" fill="var(--text-2)">劣势项 3</text>
+    <text x="320" y="440" font-size="14" fill="var(--text-2)">劣势项 4</text>
+        
+    </g>
+<g id="cmp-vs">
+<circle cx="640" cy="380" r="36" fill="var(--surface)" stroke="var(--border)" stroke-width="3"/>
+    <text x="640" y="388" font-size="18" font-weight="800" fill="var(--text-2)">VS</text>
+        
+    </g>
+<g id="cmp-new">
+<rect x="700" y="160" width="520" height="440" rx="16" fill="var(--surface)"/>
+    <rect x="700" y="160" width="520" height="6" rx="3" fill="var(--good)"/>
+    <use data-icon="chunk-filled/check" x="930" y="192" width="28" height="28" fill="var(--good)"/>
+    <text x="980" y="216" font-size="24" font-weight="700" fill="var(--good)">新方案</text>
+    <text x="960" y="290" font-size="14" fill="var(--text-2)">优势项 1</text>
+    <text x="960" y="340" font-size="14" fill="var(--text-2)">优势项 2</text>
+    <text x="960" y="390" font-size="14" fill="var(--text-2)">优势项 3</text>
+    <text x="960" y="440" font-size="14" fill="var(--text-2)">优势项 4</text>
+  
+    </g>
+</g>
+</svg>

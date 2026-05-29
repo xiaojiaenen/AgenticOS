@@ -35,9 +35,6 @@ REPO_ROOT = PROJECT_ROOT.parent.parent
 EXAMPLES_DIR = REPO_ROOT / 'examples'
 PROJECTS_DIR = REPO_ROOT / 'projects'
 
-# Template subdirectories
-CHART_TEMPLATES_DIR = TEMPLATES_DIR / 'charts'
-
 
 # ============================================================
 # Environment Configuration

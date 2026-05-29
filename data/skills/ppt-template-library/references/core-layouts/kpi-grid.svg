@@ -1,0 +1,57 @@
+<!-- layout: kpi-grid | KPI 面板 | 2×2 指标卡片带涨跌 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <text x="80" y="60" font-size="18" fill="var(--accent)" font-weight="600" font-family="var(--font-sans)">核心指标</text>
+  <text x="80" y="110" font-size="36" font-weight="700" fill="var(--text-1)" font-family="var(--font-sans)">Q3 关键数据</text>
+  <g font-family="var(--font-sans)" id="bg-layer">
+    
+    <g id="kpi-1">
+<!-- 卡片 1 -->
+    <rect x="60" y="160" width="560" height="220" rx="16" fill="var(--surface)"/>
+    <!-- 图标：先用 search_icons 搜索关键词，再填入 data-icon -->
+    <use data-icon="chunk-filled/users" x="100" y="188" width="24" height="24" fill="var(--accent)"/>
+    <text x="135" y="210" font-size="14" fill="var(--text-2)">月活跃用户 (MAU)</text>
+    <text x="100" y="290" font-size="64" font-weight="800" fill="var(--text-1)">2.4M</text>
+    <rect x="100" y="320" width="80" height="28" rx="14" fill="var(--good)" opacity="0.15"/>
+    <text x="140" y="339" font-size="14" fill="var(--good)" font-weight="600">↑ 12.5%</text>
+    <text x="200" y="339" font-size="13" fill="var(--text-3)">vs 上季度</text>
+    
+    </g>
+
+    <g id="kpi-2">
+<!-- 卡片 2 -->
+    <rect x="660" y="160" width="560" height="220" rx="16" fill="var(--surface)"/>
+    <use data-icon="chunk-filled/dollar" x="700" y="188" width="24" height="24" fill="var(--accent-2)"/>
+    <text x="735" y="210" font-size="14" fill="var(--text-2)">总营收 (MRR)</text>
+    <text x="700" y="290" font-size="64" font-weight="800" fill="var(--text-1)">$12.8M</text>
+    <rect x="700" y="320" width="80" height="28" rx="14" fill="var(--good)" opacity="0.15"/>
+    <text x="740" y="339" font-size="14" fill="var(--good)" font-weight="600">↑ 8.2%</text>
+    <text x="800" y="339" font-size="13" fill="var(--text-3)">vs 上季度</text>
+    
+    </g>
+
+    <g id="kpi-3">
+<!-- 卡片 3 -->
+    <rect x="60" y="420" width="560" height="220" rx="16" fill="var(--surface)"/>
+    <use data-icon="chunk-filled/chart" x="100" y="448" width="24" height="24" fill="var(--bad)"/>
+    <text x="135" y="470" font-size="14" fill="var(--text-2)">客户流失率</text>
+    <text x="100" y="550" font-size="64" font-weight="800" fill="var(--text-1)">1.8%</text>
+    <rect x="100" y="580" width="80" height="28" rx="14" fill="var(--good)" opacity="0.15"/>
+    <text x="140" y="599" font-size="14" fill="var(--good)" font-weight="600">↓ 0.3%</text>
+    <text x="200" y="599" font-size="13" fill="var(--text-3)">vs 上季度</text>
+    
+    </g>
+
+    <g id="kpi-4">
+<!-- 卡片 4 -->
+    <rect x="660" y="420" width="560" height="220" rx="16" fill="var(--surface)"/>
+    <use data-icon="chunk-filled/star" x="700" y="448" width="24" height="24" fill="var(--good)"/>
+    <text x="735" y="470" font-size="14" fill="var(--text-2)">NPS 净推荐值</text>
+    <text x="700" y="550" font-size="64" font-weight="800" fill="var(--text-1)">78</text>
+    <rect x="700" y="580" width="80" height="28" rx="14" fill="var(--good)" opacity="0.15"/>
+    <text x="740" y="599" font-size="14" fill="var(--good)" font-weight="600">↑ 5 分</text>
+    <text x="800" y="599" font-size="13" fill="var(--text-3)">vs 上季度</text>
+  
+    </g>
+</g>
+</svg>

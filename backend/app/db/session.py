@@ -52,6 +52,8 @@ def init_db() -> None:
 
     seed_tool_configs()
     seed_agent_profiles()
+    from app.services.local_skill_import_service import LocalSkillImportService
+    LocalSkillImportService().import_from_storage()
 
 
 def _ensure_compatible_schema() -> None:

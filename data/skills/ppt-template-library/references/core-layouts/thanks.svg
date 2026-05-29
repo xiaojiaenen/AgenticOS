@@ -1,0 +1,21 @@
+<!-- layout: thanks | 致谢 | 居中感谢 + 联系方式 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <!-- 装饰色块 -->
+  <rect x="0" y="0" width="1280" height="8" fill="var(--accent)"/>
+  <circle cx="640" cy="320" r="80" fill="var(--accent)" opacity="0.08"/>
+  <g text-anchor="middle" font-family="var(--font-sans)" id="bg-layer">
+        <g id="thanks-text">
+<text x="640" y="310" font-size="64" font-weight="900" fill="var(--text-1)" font-family="var(--font-display)">Thank You</text>
+    <text x="640" y="360" font-size="22" fill="var(--text-2)">感谢您的宝贵时间</text>
+    <line x1="520" y1="420" x2="760" y2="420" stroke="var(--accent)" stroke-width="2"/>
+        
+    </g>
+<g id="thanks-contact">
+<text x="640" y="470" font-size="16" fill="var(--text-1)">email@company.com</text>
+    <text x="640" y="510" font-size="16" fill="var(--text-2)">twitter · github · linkedin</text>
+    <text x="640" y="580" font-size="14" fill="var(--text-3)">© 2025 Company. All rights reserved.</text>
+  
+    </g>
+</g>
+</svg>

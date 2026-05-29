@@ -27,10 +27,6 @@ from app.db.session import create_db_session
 from app.services.approval_manager import ApprovalManager
 from app.services.agent_profile_service import AgentProfileService, RuntimeAgentProfile
 from app.services.ppt_artifact_service import PptArtifactService
-from app.services.ppt.svg_layouts import SVG_LAYOUTS
-from app.services.ppt.svg_to_pptx.config import SVG_CONSTRAINTS
-from app.services.ppt.design_craft import build_craft_rules_text as craft_rules_text
-from app.services.ppt.deck_styles import build_deck_styles_text
 from app.services.ppt.theme_token_resolver import build_token_quick_ref, list_available_themes
 from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.services.tool_config_service import ToolConfigService
@@ -333,34 +329,14 @@ class AgentService:
         if loaded is not None:
             sessions[request.session_id] = loaded
 
-    _layout_catalog_cache: str | None = None
-
-    @classmethod
-    def _build_layout_catalog(cls) -> str:
-        """Build a compact catalog of all 36 SVG layout structural templates."""
-        parts: list[str] = []
-        for name, svg in SVG_LAYOUTS.items():
-            parts.append(svg)
-            parts.append("")
-        return "\n".join(parts)
-
-    @staticmethod
-    def _build_svg_constraints_text() -> str:
-        """从 SVG_CONSTRAINTS 动态生成 SVG 禁止清单文本。"""
-        fc = SVG_CONSTRAINTS
-        elements = ", ".join(f"`<{e}>`" for e in fc["forbidden_elements"])
-        attributes = ", ".join(f"`{a}`" for a in fc["forbidden_attributes"])
-        patterns = ", ".join(f"`{p}`" for p in fc["forbidden_patterns"])
-        return (
-            f"**禁止元素**：{elements}\n"
-            f"**禁止属性**：{attributes}\n"
-            f"**禁止模式**：{patterns}\n"
-            f"→ 透明度用 `fill-opacity` / `stroke-opacity`"
-        )
-
     def _inject_design_catalog(cls, message: str) -> str:
-        """Inject theme selection first, then token reference, then layout templates, then craft rules."""
-        layout_catalog = cls._build_layout_catalog()
+        """Inject minimal context: theme selection + token reference + skill loading instructions.
+
+        Design rules, SVG constraints, layout templates, and chart templates
+        are now delivered via two skills (ppt-design-guide and ppt-template-library)
+        that the LLM loads once at conversation start. This reduces per-message
+        injection from ~119K chars to ~5K chars.
+        """
         token_ref = build_token_quick_ref()
         theme_count = len(list_available_themes())
         theme_list = ", ".join(sorted(list_available_themes()))
@@ -368,10 +344,14 @@ class AgentService:
         lines = [
             "",
             "---",
-            "## ⚠️ 第一步：调用 `list_skills` 加载 ppt-svg-reference 技能",
+            "## ⚠️ 生成 SVG 前必须加载两个技能",
             "",
-            "在生成任何 SVG 之前，**必须先调用 `list_skills` 查看可用技能，然后 `load_skill(\"ppt-svg-reference\")` 加载 SVG 技术规范**。",
-            "技能中包含图标嵌入语法、tspan 铁律、阴影模板、分组动画规则等关键约束，不加载将导致导出失败。",
+            "在生成任何 SVG 之前，**必须按顺序加载以下两个技能**：",
+            "",
+            "1. `load_skill(\"ppt-design-guide\")` — 设计规范全集（SVG 约束、排版铁律、颜色纪律、动画系统、套装风格）",
+            "2. `load_skill(\"ppt-template-library\")` — 模板库（15 个核心布局 + 71 个数据图表，均为 var(--token) 格式）",
+            "",
+            "**技能加载后，按需用 `read_file` 读取具体的 SVG 模板文件。**",
             "",
             "---",
             "## ⭐ 主题选择（必须先选主题，再写 SVG）",
@@ -408,61 +388,6 @@ class AgentService:
             "## Token 语义速查（颜色用 var(--xxx) 引用，具体色值由主题决定，后端自动解析）",
             "",
             token_ref,
-            "",
-            "---",
-            "## SVG Layout 结构模板（36 个骨架，必须变形后使用）",
-            "",
-            "**布局变化铁律（禁止直接复制粘贴模板——必须每次变形）：**",
-            "",
-            "1. **标题位置切换**：不能每页都是 x=80 左标题。交替使用：左对齐(80,60)、居中(640,60)、右对齐(1200,60)、顶部大标题(640,40)、底部标题等",
-            "2. **间距和尺寸 ±30%**：模板中的卡片的 width/height/x/y 必须变动，不可照抄。例如模板是 560px，你的可以是 480px 或 600px",
-            "3. **列数变化**：模板是 2 列？改成 3 列。模板是 3 列？改成 4 列或 2 列不等宽",
-            "4. **不对称布局**：至少 3 页采用不对称设计——左重右轻、上重下轻、或者一个大元素 + 两个小元素的不规则排列",
-            "5. **元素数量变化**：模板有 5 个卡片？你的可以是 3、4、6 个。模板有 7 个图表数据点？你的可以是 5、8、10 个",
-            "6. **装饰位移动**：模板的装饰线条/圆形在 (x,y)？把你的移到不同位置，或者改成不同形状（线变圆、圆变矩形）",
-            "7. **视觉密度交替**：连续两页必须有明显的密度差异——满版接留白、数据密集接大图、网格卡片接 big-quote",
-            "8. **font-size 变动**：模板标题用 36px？根据内容长度在 28-52px 之间调整。模板正文 16px？改成 14-20px 之间",
-            "",
-            "**检查：8 页 PPT 的 8 个标题位置应该至少有 3 种不同模式，页面宽度使用率应该有变化（60%-95%），至少 3 页不是 x=80 起始。**",
-            "",
-            "",
-            "**工作流：list_skills → load_skill(\"ppt-svg-reference\") → 选主题 → search_icons 搜索图标 → 为每页选择 layout → 调用 save_slide(slide_num=N, svg=\"...\") 写入每页 → 不再调工具即完成。**",
-            "",
-            layout_catalog,
-            "",
-            "---",
-            "## 图标引用（使用 `search_icons` 工具按关键词搜索，再通过 `<use data-icon=\"库名/图标名\" fill=\"var(--accent)\" x=\"..\" y=\"..\" width=\"..\" height=\"..\"/>` 引用）",
-            "",
-            "**图标使用规则：**",
-            "- 先用 search_icons 工具搜索需要的图标名",
-            "- 一页内只能用**一个**图标库的图标，不要混用",
-            "- 图标名严格从搜索结果中复制",
-            "",
-            "---",
-            "## SVG 技术速查（详细规范见 data/skills/ppt-svg-reference/SKILL.md）",
-            "",
-            cls._build_svg_constraints_text(),
-            "",
-            "**tspan 合并**：同一行文字（含混色/混粗）必须合并到一个 `<text><tspan>...</tspan></text>`。数值结果用 `<tspan fill=\"var(--accent)\" font-weight=\"bold\">` 加粗高亮。",
-            "",
-            "**图标**：先用 `search_icons` 搜，再用 `<use data-icon=\"库名/图标名\" x=\"..\" y=\"..\" width=\"..\" height=\"..\" fill=\"var(--accent)\"/>` 嵌入。一页一种库。",
-            "",
-            "**阴影模板（克制使用，每页 ≤3 个）**：",
-            "```svg",
-            "<filter id=\"softShadow\" x=\"-15%\" y=\"-15%\" width=\"140%\" height=\"140%\">",
-            "  <feDropShadow dx=\"0\" dy=\"4\" stdDeviation=\"8\" flood-color=\"#000000\" flood-opacity=\"0.08\"/>",
-            "</filter>",
-            "```",
-            "",
-            "**图表**：柱状=`<rect>` + `<text>` / 折线=`<polyline>` + `<circle>` / 饼图=`<path>` 扇形 / 雷达=`<polygon>`",
-            "**表格**：`<rect>` 行背景交替 + `<text>` / **虚线**：`stroke-dasharray=\"4,4\"`",
-            "**图片**：`<image href=\"../images/photo.jpg\" ... preserveAspectRatio=\"xMidYMid slice\"/>`（后处理自动内嵌）",
-            "",
-            "---",
-            craft_rules_text(),
-            "",
-            "---",
-            build_deck_styles_text(),
             "",
             "**CURRENT TIME:** " + __import__("datetime").datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
         ]
