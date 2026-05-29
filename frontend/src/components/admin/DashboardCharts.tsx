@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { motion } from 'motion/react';
 import {
   Area,
@@ -17,7 +17,7 @@ import {
   YAxis,
 } from 'recharts';
 import { Activity, Cpu, Gauge, Hammer, Trophy, Waves } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, formatNumber, formatTokenNumber, formatLatency, formatDay, shortName, initials, CHART_COLORS } from '../../lib/utils';
 import {
   DashboardDistributionItem,
   DashboardStats as DashboardStatsData,
@@ -28,44 +28,6 @@ interface DashboardChartsProps {
   data: DashboardStatsData;
 }
 
-const CHART_COLORS = ['#0f172a', '#0ea5e9', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e', '#14b8a6', '#6366f1'];
-
-function formatNumber(value: number): string {
-  return Intl.NumberFormat('zh-CN', { notation: value >= 10000 ? 'compact' : 'standard' }).format(value);
-}
-
-function formatTokenNumber(value: number): string {
-  const abs = Math.abs(value);
-  if (abs <= 10000) return `${value}`;
-  if (abs >= 1e12) return `${(value / 1e12).toFixed(abs >= 1e13 ? 0 : 1)}T`;
-  if (abs >= 1e9) return `${(value / 1e9).toFixed(abs >= 1e10 ? 0 : 1)}B`;
-  if (abs >= 1e6) return `${(value / 1e6).toFixed(abs >= 1e7 ? 0 : 1)}M`;
-  if (abs >= 1e3) return `${(value / 1e3).toFixed(abs >= 1e4 ? 0 : 1)}K`;
-  return `${value}`;
-}
-
-function formatLatency(value: number): string {
-  if (!value) return '0 ms';
-  if (value >= 1000) return `${(value / 1000).toFixed(1)} s`;
-  return `${value} ms`;
-}
-
-function formatDay(value: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (match) {
-    return `${Number(match[2])}/${Number(match[3])}`;
-  }
-  return value.slice(5);
-}
-
-function shortName(name: string): string {
-  if (!name) return '未知';
-  return name.length > 7 ? `${name.slice(0, 7)}…` : name;
-}
-
-function initials(name: string): string {
-  return (name || 'U').slice(0, 1).toUpperCase();
-}
 
 function EmptyPanel({ label }: { label: string }) {
   return (

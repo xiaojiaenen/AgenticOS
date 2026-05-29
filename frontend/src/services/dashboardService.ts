@@ -1,4 +1,4 @@
-import { authHeaders } from './authService';
+﻿import { authHeaders } from './authService';
 
 export type DashboardSummary = {
   total_users: number;
@@ -65,9 +65,28 @@ async function parseResponse<T>(response: Response): Promise<T> {
   throw new Error(message);
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
-  const response = await fetch(`${DASHBOARD_ENDPOINT}/stats`, {
-    headers: authHeaders(),
+export async function getDashboardStats(days?: number): Promise<DashboardStats> {
+  const qs = days ? `?days=${days}` : "";
+  const response = await fetch(`${DASHBOARD_ENDPOINT}/stats${qs}`, {
   });
   return parseResponse<DashboardStats>(response);
+}
+
+export type AnalyticsTimelinePoint = { date: string; count: number };
+export type AnalyticsHourlyPoint = { hour: number; count: number };
+export type AnalyticsModePoint = { mode: string; count: number };
+
+export type AnalyticsData = {
+  session_timeline: AnalyticsTimelinePoint[];
+  hourly_distribution: AnalyticsHourlyPoint[];
+  tool_frequency: Record<string, number>;
+  mode_distribution: AnalyticsModePoint[];
+};
+
+export async function getAnalytics(days?: number): Promise<AnalyticsData> {
+  const qs = days ? `?days=${days}` : '';
+  const response = await fetch(`${DASHBOARD_ENDPOINT}/analytics${qs}`, {
+    headers: authHeaders(),
+  });
+  return parseResponse<AnalyticsData>(response);
 }
