@@ -68,6 +68,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
 export async function getDashboardStats(days?: number): Promise<DashboardStats> {
   const qs = days ? `?days=${days}` : "";
   const response = await fetch(`${DASHBOARD_ENDPOINT}/stats${qs}`, {
+    headers: authHeaders(),
   });
   return parseResponse<DashboardStats>(response);
 }
