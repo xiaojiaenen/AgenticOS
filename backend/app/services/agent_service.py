@@ -482,8 +482,22 @@ class AgentService:
 
     async def _create_ppt_artifact(self, session_id: str) -> dict[str, Any] | None:
         """Create a PPT artifact from saved slides in the session work directory."""
-        from pathlib import Path as _Path
-        _slides_dir = PPT_SESSIONS_DIR / session_id
+        from app.core.data_path import _parse_dir_name
+        # Find the latest versioned directory for this session.
+        # Directory naming: u{user_id}_s{session_id}_v{version}
+        _slides_dir = None
+        max_ver = 0
+        if PPT_SESSIONS_DIR.exists():
+            for child in PPT_SESSIONS_DIR.iterdir():
+                if not child.is_dir():
+                    continue
+                parsed = _parse_dir_name(child.name)
+                if parsed and str(parsed[1]) == session_id:
+                    if parsed[2] > max_ver:
+                        max_ver = parsed[2]
+                        _slides_dir = child
+        if _slides_dir is None:
+            _slides_dir = PPT_SESSIONS_DIR / session_id
         try:
             artifact = await self.ppt_artifacts.create_from_slides_dir(session_id, _slides_dir)
             if artifact is not None:
