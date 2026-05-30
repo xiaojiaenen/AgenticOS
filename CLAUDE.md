@@ -99,7 +99,7 @@ backend/
     import_local_skills.py         # import local skill folders into the database
 ```
 
-The wuwei framework (>=1.0.3) provides `Agent`, `LLMGateway`, `ToolRegistry`, `SkillManager`, `HitlHook`, and `ContextCompressionHook`. The backend wraps these with FastAPI endpoints and database persistence.
+The wuwei framework (>=2.0.0) provides `Agent`, `LLMGateway`, `ToolRegistry`, `SkillManager`, `HitlHook`, and `ContextCompressionHook`. The backend wraps these with FastAPI endpoints and database persistence. Wuwei 2.0 adds multi-provider LLM support (OpenAI/Anthropic/智谱/DashScope/Ollama), state graph orchestration, middleware system, and MCP support.
 
 ### Data directory
 

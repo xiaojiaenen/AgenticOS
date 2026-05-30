@@ -389,7 +389,7 @@ class AgentService:
             "",
             token_ref,
             "",
-            "**CURRENT TIME:** " + __import__("datetime").datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+            "**CURRENT TIME:** " + __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         ]
         return message + "\n".join(lines)
 
