@@ -304,8 +304,8 @@ export function useChatStream({
                                 ...message,
                                 text: fullText,
                                 pptArtifact:
-                                  message.pptArtifact?.status === 'ready'
-                                    ? message.pptArtifact
+                                  message.pptArtifact?.status === 'ready' || receivedPptArtifact
+                                    ? (message.pptArtifact?.status === 'ready' ? message.pptArtifact : { status: 'ready' as const, artifactId: receivedPptArtifact!.artifact_id })
                                     : { status: 'generating' },
                               }
                             : { ...message, text: fullText }
