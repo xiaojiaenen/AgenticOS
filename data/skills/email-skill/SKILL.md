@@ -2,6 +2,10 @@
 name: email-skill
 description: 帮助用户读取、搜索、发送公司邮件，支持抄送、附件等
 version: 1.0.0
+tags: [email, imap, smtp, communication]
+when_to_use: 用户需要读取、搜索、发送邮件，或管理邮箱凭据时使用
+allowed_tools: [setup_email, read_emails, search_emails, get_email, send_email, count_emails, clear_email_credentials]
+required_tools: [setup_email]
 ---
 
 # 公司邮件助手
