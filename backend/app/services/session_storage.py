@@ -107,7 +107,12 @@ class DatabaseAgentStorage:
                     .order_by(AgentMessageModel.id.asc())
                 ).all()
                 for message in messages:
-                    session.context._messages.append(Message.model_validate_json(message.message_json))
+                    # wuwei 2.1 的 BaseMessage 严格验证 tool_calls 不能为 null，
+                    # 但旧数据可能存储了 "tool_calls": null，清理后再反序列化。
+                    raw = message.message_json
+                    if '"tool_calls": null' in raw:
+                        raw = raw.replace('"tool_calls": null', '"tool_calls": []')
+                    session.context._messages.append(Message.model_validate_json(raw))
 
                 return session
         return await asyncio.to_thread(_run)
