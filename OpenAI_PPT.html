@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenAI - 3页演示文稿</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', Roboto, sans-serif;
+            background: #1a1a2e;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .slide-container {
+            max-width: 1024px;
+            width: 100%;
+            background: #fff;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            margin-bottom: 40px;
+            transition: transform 0.3s;
+        }
+        .slide-container:hover { transform: translateY(-4px); }
+        .slide-header {
+            background: #10a37f;
+            color: #fff;
+            padding: 28px 48px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .slide-header .page-num {
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+        }
+        .slide-header h2 {
+            font-size: 26px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+        .slide-body {
+            padding: 52px 64px 56px;
+        }
+        .slide-body h1 {
+            font-size: 40px;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 16px;
+            line-height: 1.3;
+        }
+        .slide-body h1 .highlight {
+            color: #10a37f;
+        }
+        .slide-body .subtitle {
+            font-size: 20px;
+            color: #555;
+            margin-bottom: 28px;
+            line-height: 1.6;
+        }
+        .slide-body p {
+            font-size: 18px;
+            color: #333;
+            line-height: 1.8;
+            margin-bottom: 18px;
+        }
+        .grid-2, .grid-3 {
+            display: grid;
+            gap: 24px;
+            margin: 28px 0;
+        }
+        .grid-2 { grid-template-columns: 1fr 1fr; }
+        .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .card {
+            background: #f9f9fb;
+            border-radius: 16px;
+            padding: 28px 24px;
+            border-left: 5px solid #10a37f;
+            transition: background 0.2s;
+        }
+        .card:hover { background: #eefaf7; }
+        .card h3 {
+            font-size: 20px;
+            color: #10a37f;
+            margin-bottom: 10px;
+        }
+        .card p {
+            font-size: 15px;
+            color: #555;
+            margin-bottom: 0;
+        }
+        .model-tag {
+            display: inline-block;
+            background: #10a37f;
+            color: #fff;
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 4px 6px 4px 0;
+        }
+        .model-tag.gray { background: #e8e8ed; color: #333; }
+        .timeline {
+            position: relative;
+            padding-left: 32px;
+            border-left: 3px solid #10a37f;
+            margin: 20px 0;
+        }
+        .timeline-item {
+            margin-bottom: 24px;
+            position: relative;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -38px;
+            top: 6px;
+            width: 12px;
+            height: 12px;
+            background: #10a37f;
+            border-radius: 50%;
+        }
+        .timeline-item .year {
+            font-weight: 700;
+            color: #10a37f;
+            font-size: 16px;
+        }
+        .timeline-item p {
+            font-size: 16px;
+            margin-bottom: 0;
+        }
+        .footer-note {
+            text-align: center;
+            color: #888;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        @media (max-width: 768px) {
+            .slide-body { padding: 32px 24px; }
+            .slide-body h1 { font-size: 28px; }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .slide-header { padding: 20px 24px; }
+            .slide-header h2 { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 第1页：封面 / 简介 -->
+    <div class="slide-container">
+        <div class="slide-header">
+            <div class="page-num">1</div>
+            <h2>OpenAI · 概览</h2>
+        </div>
+        <div class="slide-body" style="text-align: center;">
+            <h1 style="font-size: 52px; margin-bottom: 8px;">
+                <span class="highlight">OpenAI</span>
+            </h1>
+            <p style="font-size: 22px; color: #666; margin-bottom: 12px;">
+                致力于确保通用人工智能（AGI）造福全人类
+            </p>
+            <div style="width: 80px; height: 4px; background: #10a37f; margin: 20px auto 28px; border-radius: 2px;"></div>
+            <p style="font-size: 18px; max-width: 640px; margin: 0 auto; color: #444;">
+                2015 年创立 · 从非营利到 capped-profit 转型 · 全球领先的 AI 研究机构<br>
+                旗舰产品：ChatGPT · GPT-4o · DALL·E · Sora
+            </p>
+            <div style="margin-top: 32px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+                <span class="model-tag">ChatGPT</span>
+                <span class="model-tag">GPT-4o</span>
+                <span class="model-tag">DALL·E 3</span>
+                <span class="model-tag">Sora</span>
+                <span class="model-tag gray">Whisper</span>
+                <span class="model-tag gray">OpenAI API</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 第2页：发展历程 & 关键模型 -->
+    <div class="slide-container">
+        <div class="slide-header">
+            <div class="page-num">2</div>
+            <h2>发展历程 · 里程碑</h2>
+        </div>
+        <div class="slide-body">
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="year">2015</div>
+                    <p>由 Sam Altman、Elon Musk 等人联合创立，初始为非营利组织</p>
+                </div>
+                <div class="timeline-item">
+                    <div class="year">2018</div>
+                    <p>发布 GPT-1 —— 首个生成式预训练 Transformer 模型</p>
+                </div>
+                <div class="timeline-item">
+                    <div class="year">2019</div>
+                    <p>GPT-2 问世 · 转向 capped-profit 模式 · 获微软 10 亿美元投资</p>
+                </div>
+                <div class="timeline-item">
+                    <div class="year">2020</div>
+                    <p>GPT-3（1750 亿参数）发布，掀起大语言模型浪潮</p>
+                </div>
+                <div class="timeline-item">
+                    <div class="year">2022</div>
+                    <p>ChatGPT 上线（2022.11）—— 两个月突破 1 亿用户</p>
+                </div>
+                <div class="timeline-item">
+                    <div class="year">2023 ~ 2024</div>
+                    <p>GPT-4 / GPT-4 Turbo / GPT-4o · DALL·E 3 · Sora 视频生成 · o1 推理模型</p>
+                </div>
+                <div class="timeline-item">
+                    <div class="year">2025</div>
+                    <p>持续迭代，推进 AGI 研究，模型能力不断提升</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 第3页：核心产品 & 未来愿景 -->
+    <div class="slide-container">
+        <div class="slide-header">
+            <div class="page-num">3</div>
+            <h2>产品矩阵 & 未来愿景</h2>
+        </div>
+        <div class="slide-body">
+            <h1>从对话到创造</h1>
+            <p class="subtitle">OpenAI 正在构建多模态、全场景的 AI 生态</p>
+
+            <div class="grid-3">
+                <div class="card">
+                    <h3>💬 对话</h3>
+                    <p>ChatGPT 与 GPT-4o 提供自然流畅的多模态对话，支持文本、图像、语音输入输出。</p>
+                </div>
+                <div class="card">
+                    <h3>🎨 创造</h3>
+                    <p>DALL·E 3 文生图 · Sora 文生视频 · 让想象力转化为视觉作品。</p>
+                </div>
+                <div class="card">
+                    <h3>⚙️ 开发</h3>
+                    <p>OpenAI API · Assistants API · 企业级模型微调 · 赋能全球开发者。</p>
+                </div>
+            </div>
+
+            <div style="margin-top: 32px; padding: 24px 28px; background: #f0f9f6; border-radius: 16px;">
+                <h3 style="color: #10a37f; font-size: 20px; margin-bottom: 8px;">🎯 未来愿景</h3>
+                <p style="font-size: 16px; margin-bottom: 0;">
+                    向 <strong>通用人工智能（AGI）</strong> 迈进 —— 构建安全、有益、普惠的 AI 系统，<br>
+                    让 AI 成为人类探索与创新的最强助力。
+                </p>
+            </div>
+
+            <p style="text-align: right; margin-top: 20px; font-size: 14px; color: #999;">
+                — 引用自 OpenAI 官方使命陈述
+            </p>
+        </div>
+    </div>
+
+    <div class="footer-note">
+        OpenAI · 3 页演示文稿 · 2025
+    </div>
+
+</body>
+</html>

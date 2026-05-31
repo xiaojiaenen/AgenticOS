@@ -1102,7 +1102,9 @@ class AgentService:
                             tool_names.append(tool_name)
 
                     if ppt_mode and event.type == "done":
+                        _logger.info("ppt done: session=%s, creating artifact...", session.session_id)
                         artifact = await self._create_ppt_artifact(session.session_id)
+                        _logger.info("ppt artifact result: session=%s, artifact=%s", session.session_id, "OK" if artifact else "None")
                         if artifact is not None:
                             visible_text = f"已生成 {artifact['slide_count']} 页 PPT：{artifact['title']}"
                             yield {
