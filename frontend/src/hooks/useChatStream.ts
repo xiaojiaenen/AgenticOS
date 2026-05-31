@@ -209,6 +209,7 @@ export function useChatStream({
             setRunStatus({ phase: status.phase, label: status.label });
           },
           onPptArtifact: (pptArtifact) => {
+            console.log('[PPT] onPptArtifact received:', pptArtifact.artifact_id, 'html length:', pptArtifact.html?.length);
             receivedPptArtifact = pptArtifact;
             const pptLanguage = 'ppt' as const;
             const nextArtifact: Artifact = {
