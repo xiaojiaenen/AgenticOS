@@ -153,7 +153,7 @@ const OrbitDot: React.FC<{ color: string; angle: number; delay: number; opacityR
 
 const Sparkle: React.FC<{ x: number; y: number; delay: number; size?: number; color: string }> = ({ x, y, delay, size = 4, color }) => (
   <motion.circle
-    cx={String(x)} cy={String(y)} r={size}
+    cx={String(x)} cy={String(y)} r={String(size)}
     fill={color}
     opacity={0}
     animate={{ opacity: [0, 1, 0], scale: [0.2, 1.3, 0.2] }}
@@ -196,7 +196,7 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
   /* ── Eye catchlights (with pupil wander for thinking states) ── */
   const leftPupil = (!isError && !isDone) && (
     <motion.circle
-      r={1.5} fill="white"
+      r="1.5" fill="white"
       cx={isThinking ? '39' : '39.5'}
       cy={isThinking ? '45' : '45.5'}
       animate={cfg.pupilWander
@@ -210,7 +210,7 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
 
   const rightPupil = (!isError && !isDone) && (
     <motion.circle
-      r={1.5} fill="white"
+      r="1.5" fill="white"
       cx={isThinking ? '63' : '63.5'}
       cy={isThinking ? '45' : '45.5'}
       animate={cfg.pupilWander
@@ -377,7 +377,7 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
             {isError && [0, 1, 2].map(i => (
               <motion.circle
                 key={i}
-                cx={String(68 + i * 4)} cy={String(38 - i * 3)} r={2}
+                cx={String(68 + i * 4)} cy={String(38 - i * 3)} r="2"
                 fill="#94a3b8"
                 animate={{ y: [0, 10, 10], opacity: [1, 1, 0] }}
                 transition={{ duration: 1.4, delay: i * 0.35, repeat: Infinity }}
@@ -391,7 +391,7 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
                   <motion.circle
                     key={i}
                     cx={String(20 + i * 30)} cy="85"
-                    r={2} fill={c.particle}
+                    r="2" fill={c.particle}
                     animate={{ opacity: [0, 1, 0], y: [0, -8, 0] }}
                     transition={{ duration: 1.2, delay: i * 0.3, repeat: Infinity }}
                   />
