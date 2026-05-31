@@ -184,10 +184,19 @@ export const SkillManagement = () => {
     setMessage(null);
     try {
       const saved = await uploadSkill(uploadFileValue, uploadSlug || undefined, true);
-      setSkills((prev) => [saved, ...prev]);
-      setUploadFileValue(null);
-      setUploadSlug('');
-      setMessage('Skill 包上传成功');
+      if ('items' in saved) {
+        // 多 skill 批量上传
+        setSkills((prev) => [...saved.items, ...prev]);
+        setUploadFileValue(null);
+        setUploadSlug('');
+        setMessage(`成功上传 ${saved.count} 个 Skill`);
+      } else {
+        // 单 skill 上传
+        setSkills((prev) => [saved, ...prev]);
+        setUploadFileValue(null);
+        setUploadSlug('');
+        setMessage('Skill 包上传成功');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Skill 包上传失败');
     } finally {

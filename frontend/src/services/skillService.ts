@@ -85,7 +85,9 @@ export async function deleteSkill(skillId: number): Promise<void> {
   }
 }
 
-export async function uploadSkill(file: File, slug?: string, enabled = true): Promise<Skill> {
+export type SkillUploadResponse = Skill | { items: Skill[]; count: number };
+
+export async function uploadSkill(file: File, slug?: string, enabled = true): Promise<SkillUploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
   if (slug) formData.append('slug', slug);
@@ -96,5 +98,5 @@ export async function uploadSkill(file: File, slug?: string, enabled = true): Pr
     headers: authHeaders(),
     body: formData,
   });
-  return parseResponse<Skill>(response);
+  return parseResponse<SkillUploadResponse>(response);
 }
