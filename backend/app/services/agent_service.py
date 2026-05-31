@@ -202,13 +202,11 @@ class AgentService:
                 auto_reject_tools=[],
             ))
 
-        # 2. 上下文压缩中间件（替代 ContextCompressionHook）
-        if self.settings.context_compression_enabled:
-            stack.add(ContextCompressionMiddleware(
-                llm=llm,
-                trigger_tokens=self.settings.context_compress_after_turns * 500,
-                keep_recent=self.settings.context_keep_recent_turns,
-            ))
+        # 2. 上下文压缩：ContextCompressionMiddleware 将 wuwei.core.message.BaseMessage
+        #    （缺少 tool_calls 属性）混入 AgentRunner 的消息流，导致 OpenAIAdapter
+        #    .build_request() 访问 msg.tool_calls 时报错。
+        #    wuwei 2.1.2 已修复 reasoning_content，但 tool_calls 仍未修复。
+        #    暂时跳过，待 wuwei 完全统一消息类型后重新启用。
 
         # 3. Skill 指令中间件（替代 SkillHook）
         if "skill" in profile.builtin_tools:
