@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 
 type CompanionPhase = 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'done' | 'error';
@@ -153,10 +153,10 @@ const OrbitDot: React.FC<{ color: string; angle: number; delay: number; opacityR
 
 const Sparkle: React.FC<{ x: number; y: number; delay: number; size?: number; color: string }> = ({ x, y, delay, size = 4, color }) => (
   <motion.circle
-    cx={String(x)} cy={String(y)} r={String(size)}
+    cx={`${x}`} cy={`${y}`} r={`${size}`}
     fill={color}
     opacity={0}
-    animate={{ opacity: [0, 1, 0], scale: [0.2, 1.3, 0.2] }}
+    animate={{ opacity: [0, 1, 0] }}
     transition={{ duration: 1.6, delay, repeat: Infinity, ease: 'easeInOut' }}
   />
 );
@@ -271,12 +271,10 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
      ══════════════════════════════════════════════════════ */
 
   return (
-    <AnimatePresence mode="wait">
       <motion.div
         key={phase}
         initial={{ opacity: 0, scale: 0.7, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.7, y: -16 }}
         transition={{ type: 'spring', damping: 20, stiffness: 280 }}
         className={cn('flex flex-col items-center gap-3 select-none pointer-events-none', className)}
       >
@@ -433,6 +431,5 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
           {text}
         </motion.p>
       </motion.div>
-    </AnimatePresence>
   );
 };
