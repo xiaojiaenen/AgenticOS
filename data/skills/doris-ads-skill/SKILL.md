@@ -1,6 +1,11 @@
 ---
 name: doris-ads-skill
 description: 用于设计面向分析服务的 Doris ADS 表、指标层和发布方案。适用于定义 ADS schema、把 DWS 输出转成适合查询的表、制定导入策略、优化表布局，或输出结构化的 Doris 发布草稿。
+version: 1.0.0
+tags: [doris, ads, olap, data-warehouse]
+when_to_use: 需要设计 Doris ADS 层表结构、指标定义、导入策略或发布方案时使用
+allowed_tools: [run_skill_python_script]
+required_tools: []
 ---
 
 设计 ADS 表时，要服务稳定指标查询，而不是承接原始明细存储。

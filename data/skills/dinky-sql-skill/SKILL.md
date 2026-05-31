@@ -1,6 +1,11 @@
 ---
 name: dinky-sql-skill
 description: 用于生成、审查和修正面向 Dinky 的 Flink SQL 任务。适用于把业务需求转成可执行的 Flink SQL、设计 DWD 或 DWS 实时任务、排查 SQL 报错、整理运行参数，或输出结构化的 Dinky 任务提交草稿。
+version: 1.0.0
+tags: [flink, sql, dinky, real-time]
+when_to_use: 需要编写、审查或修正 Flink SQL 任务，或生成 Dinky 任务提交配置时使用
+allowed_tools: [run_skill_python_script]
+required_tools: []
 ---
 
 生成面向 Dinky 的 Flink SQL，并让结果适合后续审阅、审批和 API 执行。

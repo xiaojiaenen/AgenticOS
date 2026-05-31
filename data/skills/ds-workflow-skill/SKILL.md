@@ -1,6 +1,11 @@
 ---
 name: ds-workflow-skill
 description: 用于生成和审查 DolphinScheduler 工作流、补数方案、任务依赖和调度配置。适用于把离线数仓需求转成工作流 DAG、设计补数方案、安排任务顺序，或输出结构化的 DolphinScheduler 发布草稿。
+version: 1.0.0
+tags: [dolphin-scheduler, workflow, dag, scheduling]
+when_to_use: 需要设计、审查或生成 DolphinScheduler 工作流 DAG、补数方案或调度配置时使用
+allowed_tools: [run_skill_python_script]
+required_tools: []
 ---
 
 生成适合审阅、审批，并可在后续通过受控 API 发布的离线工作流草稿。

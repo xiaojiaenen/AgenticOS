@@ -1,6 +1,11 @@
 ---
 name: ppt-design-guide
 description: PPT 设计规范全集——反 AI-Slop 规则、排版铁律、颜色纪律、SVG 技术约束、图标使用、动画系统、套装风格预设。生成 PPT SVG 前必读。
+version: 1.0.0
+tags: [ppt, svg, design, presentation]
+when_to_use: 生成或编辑 PPT SVG 幻灯片时，必须先加载此技能以获取设计规范
+allowed_tools: [save_slide, read_slide, search_icons, calc_chart_positions, check_svg_quality]
+required_tools: []
 ---
 
 # PPT 设计规范全集

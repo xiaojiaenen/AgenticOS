@@ -1,6 +1,11 @@
 ---
 name: ppt-template-library
 description: PPT 模板库——15 个核心页面布局 + 71 个数据图表模板（均为 var(--token) 格式）。生成 PPT SVG 时从这里选取结构骨架。
+version: 1.0.0
+tags: [ppt, svg, template, layout, chart]
+when_to_use: 生成 PPT SVG 时，从此模板库选取结构骨架，复制后替换为真实内容
+allowed_tools: [save_slide, read_slide, read_text_file]
+required_tools: []
 ---
 
 # PPT 模板库

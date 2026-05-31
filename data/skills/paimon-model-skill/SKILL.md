@@ -1,6 +1,11 @@
 ---
 name: paimon-model-skill
 description: 用于设计面向 ODS、DWD、DWS 的 Paimon 表和分层模型。适用于确定主键、分区、bucket、merge 策略、schema 演进规则，或把业务需求转成 Paimon 的表设计与 DDL。
+version: 1.0.0
+tags: [paimon, data-lake, olap, schema-design]
+when_to_use: 需要设计 Paimon 表结构、分层模型、DDL 或 schema 演进方案时使用
+allowed_tools: [run_skill_python_script]
+required_tools: []
 ---
 
 设计 Paimon 数据模型时，要明确分层、写入语义和下游使用方式。
