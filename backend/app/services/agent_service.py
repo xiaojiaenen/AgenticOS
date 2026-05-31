@@ -12,7 +12,6 @@ from wuwei.middleware import (
     MiddlewareStack,
     ContextCompressionMiddleware,
     HitlMiddleware,
-    SkillMiddleware,
 )
 from wuwei.tools import ToolRegistry
 from wuwei.tools.builtin import register_skill_tools
@@ -49,6 +48,46 @@ class ThinkingHistoryCompatibilityMiddleware(Middleware):
                 and not getattr(message, "tool_calls", None)
             )
         ]
+        return ctx
+
+
+SKILL_INSTRUCTION = (
+    "你有可用的 Skill（专门技能），它们是处理特定领域任务的增强能力。\n"
+    "在对话开始时或遇到可能匹配的请求时，先调用 `list_skills` 查看可用技能摘要。\n"
+    "如果某个技能的描述与用户当前任务相关，调用 `load_skill` 加载其完整指令并遵循执行。\n"
+    "技能声明的 references 和 Python scripts 是宝贵资源，按正文指引使用。"
+)
+
+
+class SkillInstructionMiddleware(Middleware):
+    """将 Skill 使用指引注入系统提示词（替代旧版 SkillHook）。
+
+    与 wuwei 内置 SkillMiddleware 不同，本中间件保留了项目自定义的指令文本，
+    并匹配 register_skill_tools() 注册的 list_skills/load_skill 工具名。
+    """
+
+    def __init__(self, instruction: str = SKILL_INSTRUCTION) -> None:
+        self.instruction = instruction.strip()
+        self._injected = False
+
+    async def before_llm(self, ctx: MiddlewareContext) -> MiddlewareContext:
+        if self._injected:
+            return ctx
+        if not self.instruction:
+            return ctx
+
+        for msg in ctx.state.messages:
+            if msg.role == "system":
+                base_prompt = (msg.content or "").rstrip()
+                msg.content = (
+                    f"{base_prompt}\n\n{self.instruction}" if base_prompt else self.instruction
+                )
+                break
+        else:
+            from wuwei.core.message import SystemMessage
+            ctx.state.messages.insert(0, SystemMessage(content=self.instruction))
+
+        self._injected = True
         return ctx
 
 
@@ -186,10 +225,7 @@ class AgentService:
 
         # 3. Skill 指令中间件（替代 SkillHook）
         if "skill" in profile.builtin_tools:
-            skill_manager = SkillManager(
-                [FileSystemSkillProvider(skill.root_dir) for skill in profile.skills]
-            )
-            stack.add(SkillMiddleware(skill_manager=skill_manager))
+            stack.add(SkillInstructionMiddleware())
 
         # 4. 思考历史兼容中间件（替代 ThinkingHistoryCompatibilityHook）
         stack.add(ThinkingHistoryCompatibilityMiddleware())
