@@ -202,10 +202,13 @@ class AgentService:
                 auto_reject_tools=[],
             ))
 
-        # 2. 上下文压缩：ContextCompressionMiddleware 使用 wuwei.core.message 类型，
-        #    但 AgentRunner 内部使用 wuwei.llm.types.Message，两者混用会导致
-        #    HumanMessage 被传入 OpenAIAdapter.build_request() 报错。
-        #    暂时跳过，上下文压缩由 wuwei Agent 内部的 session context 管理。
+        # 2. 上下文压缩中间件（替代 ContextCompressionHook）
+        if self.settings.context_compression_enabled:
+            stack.add(ContextCompressionMiddleware(
+                llm=llm,
+                trigger_tokens=self.settings.context_compress_after_turns * 500,
+                keep_recent=self.settings.context_keep_recent_turns,
+            ))
 
         # 3. Skill 指令中间件（替代 SkillHook）
         if "skill" in profile.builtin_tools:
