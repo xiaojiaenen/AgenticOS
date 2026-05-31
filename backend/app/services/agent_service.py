@@ -93,6 +93,12 @@ class SkillInstructionMiddleware(Middleware):
 
 _logger = logging.getLogger("agent")
 
+
+def _unregister_if_exists(registry: ToolRegistry, name: str) -> None:
+    """wuwei 2.1 的 ToolRegistry.register() 拒绝重名，注册前先移除旧工具。"""
+    if registry.get(name) is not None:
+        registry.unregister(registry.get(name))
+
 class AgentService:
     def __init__(
         self,
@@ -231,6 +237,7 @@ class AgentService:
 
         # 独立 file_to_md 工具：当 file 工具组未启用时单独注册
         if "file" not in profile.builtin_tools:
+            _unregister_if_exists(registry, "file_to_md")
             from app.tools.file_to_md_tool import register_file_to_md_tool as _register_file_to_md
             _register_file_to_md(registry)
 
