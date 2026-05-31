@@ -151,7 +151,15 @@ class SkillService:
         creator: UserModel,
         slug: str | None = None,
         enabled: bool = True,
-    ) -> dict[str, object]:
+    ) -> dict[str, object] | list[dict[str, object]]:
+        """上传 skill zip 包。
+
+        支持两种格式：
+        1. 单 skill 包：zip 根目录或子目录包含一个 SKILL.md
+        2. 多 skill 包：zip 内每个子目录各自包含一个 SKILL.md
+
+        返回单个 skill dict（单包）或 skill dict 列表（多包）。
+        """
         if not filename.lower().endswith(".zip"):
             raise ValueError("Only .zip skill packages are supported")
 
@@ -166,36 +174,71 @@ class SkillService:
 
             extract_root = temp_dir / "src"
             skill_files = sorted(extract_root.rglob("SKILL.md"))
-            if len(skill_files) != 1:
-                raise ValueError("Uploaded package must contain exactly one SKILL.md")
 
-            skill_file = skill_files[0]
-            meta, instruction = self._read_skill_file(skill_file)
-            requested_slug = slug or str(meta.get("slug") or meta.get("name") or Path(filename).stem)
+            if not skill_files:
+                raise ValueError("Uploaded package contains no SKILL.md files")
 
-            with self.session_factory() as db:
-                unique_slug = self._unique_slug(db, requested_slug)
-                entry_dir = self._storage_entry_dir(unique_slug)
-                entry_dir.mkdir(parents=True, exist_ok=False)
-
-                for child in extract_root.iterdir():
-                    shutil.move(str(child), str(entry_dir / child.name))
-
-                relative_root = skill_file.parent.relative_to(extract_root)
-                stored_root = entry_dir / relative_root
-
-                row = SkillModel(
-                    name=str(meta.get("name") or unique_slug),
-                    slug=unique_slug,
-                    description=str(meta.get("description") or ""),
-                    enabled=enabled,
-                    root_dir=str(stored_root),
-                    created_by=creator.id,
+            # 单 skill 包：保持原有行为
+            if len(skill_files) == 1:
+                return self._install_single_skill(
+                    skill_files[0], extract_root, creator, slug=slug, enabled=enabled,
                 )
-                db.add(row)
-                db.commit()
-                db.refresh(row)
-                return self._serialize(row)
+
+            # 多 skill 包：每个 SKILL.md 所在子目录视为独立 skill
+            results: list[dict[str, object]] = []
+            errors: list[str] = []
+            for skill_file in skill_files:
+                try:
+                    result = self._install_single_skill(
+                        skill_file, extract_root, creator, slug=None, enabled=enabled,
+                    )
+                    results.append(result)
+                except Exception as exc:
+                    meta, _ = self._read_skill_file(skill_file)
+                    skill_name = str(meta.get("name") or skill_file.parent.name)
+                    errors.append(f"{skill_name}: {exc}")
+
+            if errors and not results:
+                raise ValueError("All skills failed:\n" + "\n".join(errors))
+
+            return results
+
+    def _install_single_skill(
+        self,
+        skill_file: Path,
+        extract_root: Path,
+        creator: UserModel,
+        *,
+        slug: str | None = None,
+        enabled: bool = True,
+    ) -> dict[str, object]:
+        """从解压目录中安装单个 skill。"""
+        meta, instruction = self._read_skill_file(skill_file)
+        requested_slug = slug or str(meta.get("slug") or meta.get("name") or skill_file.parent.name)
+
+        with self.session_factory() as db:
+            unique_slug = self._unique_slug(db, requested_slug)
+            entry_dir = self._storage_entry_dir(unique_slug)
+            entry_dir.mkdir(parents=True, exist_ok=False)
+
+            for child in extract_root.iterdir():
+                shutil.move(str(child), str(entry_dir / child.name))
+
+            relative_root = skill_file.parent.relative_to(extract_root)
+            stored_root = entry_dir / relative_root
+
+            row = SkillModel(
+                name=str(meta.get("name") or unique_slug),
+                slug=unique_slug,
+                description=str(meta.get("description") or ""),
+                enabled=enabled,
+                root_dir=str(stored_root),
+                created_by=creator.id,
+            )
+            db.add(row)
+            db.commit()
+            db.refresh(row)
+            return self._serialize(row)
 
     def delete(self, skill_id: int) -> None:
         entry_dir = None
