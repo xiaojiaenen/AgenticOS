@@ -153,7 +153,7 @@ const OrbitDot: React.FC<{ color: string; angle: number; delay: number; opacityR
 
 const Sparkle: React.FC<{ x: number; y: number; delay: number; size?: number; color: string }> = ({ x, y, delay, size = 4, color }) => (
   <motion.circle
-    cx={x} cy={y} r={size}
+    cx={String(x)} cy={String(y)} r={size}
     fill={color}
     opacity={0}
     animate={{ opacity: [0, 1, 0], scale: [0.2, 1.3, 0.2] }}
@@ -197,10 +197,10 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
   const leftPupil = (!isError && !isDone) && (
     <motion.circle
       r={1.5} fill="white"
-      cx={isThinking ? 39 : 39.5}
-      cy={isThinking ? 45 : 45.5}
+      cx={isThinking ? '39' : '39.5'}
+      cy={isThinking ? '45' : '45.5'}
       animate={cfg.pupilWander
-        ? { cx: [39, 40, 38, 39.5, 39], cy: [45, 44, 46, 44.5, 45] }
+        ? { cx: ['39', '40', '38', '39.5', '39'], cy: ['45', '44', '46', '44.5', '45'] }
         : {}}
       transition={cfg.pupilWander
         ? { duration: 4, repeat: Infinity, ease: 'easeInOut' }
@@ -211,10 +211,10 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
   const rightPupil = (!isError && !isDone) && (
     <motion.circle
       r={1.5} fill="white"
-      cx={isThinking ? 63 : 63.5}
-      cy={isThinking ? 45 : 45.5}
+      cx={isThinking ? '63' : '63.5'}
+      cy={isThinking ? '45' : '45.5'}
       animate={cfg.pupilWander
-        ? { cx: [63, 64, 62, 63.5, 63], cy: [45, 44, 46, 44.5, 45] }
+        ? { cx: ['63', '64', '62', '63.5', '63'], cy: ['45', '44', '46', '44.5', '45'] }
         : {}}
       transition={cfg.pupilWander
         ? { duration: 4, repeat: Infinity, ease: 'easeInOut' }
@@ -377,7 +377,7 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
             {isError && [0, 1, 2].map(i => (
               <motion.circle
                 key={i}
-                cx={68 + i * 4} cy={38 - i * 3} r={2}
+                cx={String(68 + i * 4)} cy={String(38 - i * 3)} r={2}
                 fill="#94a3b8"
                 animate={{ y: [0, 10, 10], opacity: [1, 1, 0] }}
                 transition={{ duration: 1.4, delay: i * 0.35, repeat: Infinity }}
@@ -390,7 +390,7 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
                 {[0, 1, 2].map(i => (
                   <motion.circle
                     key={i}
-                    cx={20 + i * 30} cy={85}
+                    cx={String(20 + i * 30)} cy="85"
                     r={2} fill={c.particle}
                     animate={{ opacity: [0, 1, 0], y: [0, -8, 0] }}
                     transition={{ duration: 1.2, delay: i * 0.3, repeat: Infinity }}
