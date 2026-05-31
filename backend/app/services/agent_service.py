@@ -16,6 +16,17 @@ from wuwei.middleware import (
 from wuwei.tools import ToolRegistry
 from wuwei.tools.builtin import register_skill_tools
 
+# wuwei 2.1.3 bug: Context.add_ai_message(tool_calls=None) 传 None 给
+# Message(tool_calls=None)，但 BaseMessage 的 Pydantic 验证拒绝 None。
+# Monkey-patch 自动将 None 转为 []。
+from wuwei.memory.context import Context as _Ctx
+_orig_add_ai = _Ctx.add_ai_message
+
+def _safe_add_ai(self, content, tool_calls=None, reasoning_content=None):
+    return _orig_add_ai(self, content, tool_calls=tool_calls or [], reasoning_content=reasoning_content)
+
+_Ctx.add_ai_message = _safe_add_ai
+
 from app.core.config import Settings, get_settings
 from app.db.models import AgentUsageEventModel, ApprovalModel, PptArtifactModel, UserModel
 from app.db.session import create_db_session
