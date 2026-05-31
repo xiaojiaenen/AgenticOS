@@ -202,13 +202,11 @@ class AgentService:
                 auto_reject_tools=[],
             ))
 
-        # 2. 上下文压缩中间件（替代 ContextCompressionHook）
-        if self.settings.context_compression_enabled:
-            stack.add(ContextCompressionMiddleware(
-                llm=llm,
-                trigger_tokens=self.settings.context_compress_after_turns * 500,
-                keep_recent=self.settings.context_keep_recent_turns,
-            ))
+        # 2. 上下文压缩：ContextCompressionMiddleware 压缩时可能切断
+        #    tool_call/response 消息配对，导致 OpenAI API 返回 400。
+        #    例如：assistant(tool_calls=[...]) 在旧消息中，tool response 在新消息中，
+        #    压缩后 assistant 被摘要替代，tool response 失去前置消息。
+        #    暂时禁用，待 wuwei 修复消息配对保护后重新启用。
 
         # 3. Skill 指令中间件（替代 SkillHook）
         if "skill" in profile.builtin_tools:
