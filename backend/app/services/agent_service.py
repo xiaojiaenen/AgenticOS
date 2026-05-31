@@ -126,25 +126,6 @@ class AgentService:
         if not self.settings.openai_api_key:
             raise RuntimeError("缺少 OPENAI_API_KEY，请先在环境变量或 .env 中配置后再调用 /agent/stream。")
 
-    def _register_runtime_hooks(self, agent: Agent, *, approval_tools: set[str] | frozenset[str]) -> None:
-        if approval_tools and self.settings.hitl_enabled:
-            agent.hooks.register(
-                HitlHook(
-                    provider=self.approval_manager,
-                    policy=ApprovalPolicy(
-                        require_approval_tools=set(approval_tools)
-                    ),
-                )
-            )
-        if self.settings.context_compression_enabled:
-            agent.hooks.register(
-                ContextCompressionHook(
-                    compressor=LLMContextCompressor(agent.llm),
-                    compress_after_turns=self.settings.context_compress_after_turns,
-                    keep_recent_turns=self.settings.context_keep_recent_turns,
-                )
-            )
-
     def _runtime_from_mode(self, response_mode: str, system_prompt: str | None = None) -> RuntimeAgentProfile:
         profile = self.tool_configs.get_runtime_profile(response_mode)
         return RuntimeAgentProfile(
