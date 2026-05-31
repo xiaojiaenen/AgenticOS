@@ -271,13 +271,13 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
      ══════════════════════════════════════════════════════ */
 
   return (
-      <motion.div
-        key={phase}
-        initial={{ opacity: 0, scale: 0.7, y: 16 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ type: 'spring', damping: 20, stiffness: 280 }}
-        className={cn('flex flex-col items-center gap-3 select-none pointer-events-none', className)}
-      >
+    <motion.div
+      key={phase}
+      initial={{ opacity: 0, scale: 0.7, y: 16 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ type: 'spring', damping: 20, stiffness: 280 }}
+      className={cn('flex flex-col items-center gap-3 select-none pointer-events-none', className)}
+    >
         {/* ── Character + glow + orbit ───────────────── */}
         <motion.div
           className="relative"
