@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 from typing import Any
 
 from sqlalchemy import select
-from wuwei.runtime import ApprovalDecision, ApprovalRequest
 
 from app.core.timezone import app_now, isoformat_app_timezone
 from app.db.models import ApprovalModel
@@ -13,10 +13,17 @@ from app.services.session_storage import dump_json, load_json
 
 
 class ApprovalManager:
+    """Human-in-the-Loop 审批管理器（适配 wuwei 2.1 Middleware）。
+
+    提供两种接口：
+    1. request_approval_bool(tool_call) -> bool — 供 HitlMiddleware 使用
+    2. subscribe/unsubscribe — 供前端 SSE 推送审批请求
+    """
+
     def __init__(self, *, timeout_seconds: int = 300, session_factory=create_db_session) -> None:
         self.timeout_seconds = timeout_seconds
         self.session_factory = session_factory
-        self._futures: dict[str, asyncio.Future[ApprovalDecision]] = {}
+        self._futures: dict[str, asyncio.Future[bool]] = {}
         self._subscribers: dict[str, set[asyncio.Queue[dict[str, Any]]]] = {}
 
     def subscribe(self, session_id: str) -> asyncio.Queue[dict[str, Any]]:
@@ -41,24 +48,48 @@ class ApprovalManager:
         for sid in empty_sessions:
             self._subscribers.pop(sid, None)
 
-    async def request_approval(self, request: ApprovalRequest) -> ApprovalDecision:
+    async def request_approval_bool(self, tool_call) -> bool:
+        """适配 HitlMiddleware 的 approval_provider: Callable[[ToolCall], Awaitable[bool]]。
+
+        将工具调用转为内部审批流程，返回 True/False。
+        """
         self._purge_stale_entries()
-        await self._save_pending(request)
-        event = self._event_from_request(request)
-        for queue in list(self._subscribers.get(request.session_id, set())):
+
+        approval_id = uuid.uuid4().hex
+        tool_name = tool_call.function.name
+        arguments = tool_call.function.arguments
+        tool_call_id = getattr(tool_call, "id", None)
+
+        # 从 tool_call 中提取 session_id（通过 metadata 或默认值）
+        session_id = getattr(tool_call, "session_id", None) or "default"
+
+        # 持久化到数据库
+        await self._save_pending(approval_id, session_id, tool_name, arguments, tool_call_id)
+
+        # 推送给前端
+        event = {
+            "approval_id": approval_id,
+            "session_id": session_id,
+            "tool_call_id": tool_call_id,
+            "tool_name": tool_name,
+            "arguments": arguments,
+            "status": "pending",
+            "metadata": {},
+        }
+        for queue in list(self._subscribers.get(session_id, set())):
             await queue.put(event)
 
+        # 等待审批决策
         loop = asyncio.get_running_loop()
-        future = loop.create_future()
-        self._futures[request.id] = future
+        future: asyncio.Future[bool] = loop.create_future()
+        self._futures[approval_id] = future
         try:
             return await asyncio.wait_for(future, timeout=self.timeout_seconds)
         except asyncio.TimeoutError:
-            decision = ApprovalDecision(status="rejected", reason="approval timed out")
-            await self.decide(request.id, status="rejected", reason=decision.reason)
-            return decision
+            await self.decide(approval_id, status="rejected", reason="approval timed out")
+            return False
         finally:
-            self._futures.pop(request.id, None)
+            self._futures.pop(approval_id, None)
 
     async def decide(self, approval_id: str, *, status: str, reason: str | None = None) -> dict[str, Any]:
         if status not in {"approved", "rejected"}:
@@ -80,7 +111,7 @@ class ApprovalManager:
 
         future = self._futures.get(approval_id)
         if future is not None and not future.done():
-            future.set_result(ApprovalDecision(status=status, reason=reason))
+            future.set_result(status == "approved")
 
         return record
 
@@ -95,39 +126,32 @@ class ApprovalManager:
                 return [self._serialize_row(row) for row in rows]
         return await asyncio.to_thread(_run)
 
-    async def _save_pending(self, request: ApprovalRequest) -> None:
-        payload = request.payload or {}
-
+    async def _save_pending(
+        self,
+        approval_id: str,
+        session_id: str,
+        tool_name: str,
+        arguments: dict,
+        tool_call_id: str | None,
+    ) -> None:
         def _run():
             with self.session_factory() as db:
-                row = db.get(ApprovalModel, request.id)
+                row = db.get(ApprovalModel, approval_id)
                 if row is None:
                     row = ApprovalModel(
-                        approval_id=request.id,
-                        session_id=request.session_id,
-                        tool_call_id=payload.get("tool_call_id"),
-                        tool_name=payload.get("tool_name", request.action_type),
+                        approval_id=approval_id,
+                        session_id=session_id,
+                        tool_call_id=tool_call_id,
+                        tool_name=tool_name,
                     )
                     db.add(row)
 
-                row.arguments_json = dump_json(payload.get("arguments", {}))
+                row.arguments_json = dump_json(arguments)
                 row.status = "pending"
                 row.reason = None
-                row.metadata_json = dump_json(request.metadata or {})
+                row.metadata_json = dump_json({})
                 db.commit()
         await asyncio.to_thread(_run)
-
-    def _event_from_request(self, request: ApprovalRequest) -> dict[str, Any]:
-        payload = request.payload or {}
-        return {
-            "approval_id": request.id,
-            "session_id": request.session_id,
-            "tool_call_id": payload.get("tool_call_id"),
-            "tool_name": payload.get("tool_name", request.action_type),
-            "arguments": payload.get("arguments", {}),
-            "status": "pending",
-            "metadata": request.metadata,
-        }
 
     def _serialize_row(self, row: ApprovalModel) -> dict[str, Any]:
         return {

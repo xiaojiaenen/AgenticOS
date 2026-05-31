@@ -2,7 +2,7 @@ import pytest
 
 from app.core.config import Settings
 from app.schemas.agent import AgentStreamRequest
-from app.services.agent_service import AgentService, MAX_STEPS_LIMIT_MESSAGE, ThinkingHistoryCompatibilityHook
+from app.services.agent_service import AgentService, MAX_STEPS_LIMIT_MESSAGE, ThinkingHistoryCompatibilityMiddleware
 from wuwei import AgentEvent
 from wuwei.llm import Message
 
@@ -294,7 +294,10 @@ async def test_ppt_mode_lifts_legacy_one_step_session_limit() -> None:
 
 @pytest.mark.anyio
 async def test_thinking_history_hook_removes_synthetic_step_limit_reply() -> None:
-    hook = ThinkingHistoryCompatibilityHook()
+    from wuwei.middleware import MiddlewareContext
+    from wuwei.graph.state import State
+
+    middleware = ThinkingHistoryCompatibilityMiddleware()
     messages = [
         Message(role="system", content="system"),
         Message(role="user", content="generate PPT"),
@@ -303,8 +306,11 @@ async def test_thinking_history_hook_removes_synthetic_step_limit_reply() -> Non
         Message(role="user", content="continue"),
     ]
 
-    filtered_messages, _ = await hook.before_llm(None, messages, [], step=0)
+    state = State(messages=messages)
+    ctx = MiddlewareContext(state=state, config={}, step=0)
+    ctx = await middleware.before_llm(ctx)
 
+    filtered_messages = ctx.state.messages
     assert [message.content for message in filtered_messages] == [
         "system",
         "generate PPT",

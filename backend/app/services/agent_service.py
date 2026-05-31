@@ -4,20 +4,16 @@ import json
 import logging
 from typing import Any, AsyncIterator
 
-from wuwei import (
-    Agent,
-    AgentEvent,
-    ContextCompressionHook,
-    FileSystemSkillProvider,
-    HitlHook,
-    SkillHook,
-    SkillManager,
-    StorageHook,
-)
+from wuwei import Agent, AgentEvent, FileSystemSkillProvider, SkillManager
 from wuwei.llm import LLMGateway
-from wuwei.memory.context_compressor import LLMContextCompressor
-from wuwei.runtime import ApprovalPolicy
-from wuwei.runtime.hooks import RuntimeHook
+from wuwei.middleware import (
+    Middleware,
+    MiddlewareContext,
+    MiddlewareStack,
+    ContextCompressionMiddleware,
+    HitlMiddleware,
+    SkillMiddleware,
+)
 from wuwei.tools import ToolRegistry
 from wuwei.tools.builtin import register_skill_tools
 
@@ -39,21 +35,21 @@ from app.core.data_path import set_current_session_id as set_data_session_id, se
 MAX_STEPS_LIMIT_MESSAGE = "任务未完成，已达到最大步骤限制。"
 
 
-class ThinkingHistoryCompatibilityHook(RuntimeHook):
+class ThinkingHistoryCompatibilityMiddleware(Middleware):
     """Keep provider thinking-mode histories free of local synthetic replies."""
 
-    async def before_llm(self, session, messages, tools, *, step: int, task=None):
-        filtered_messages = [
+    async def before_llm(self, ctx: MiddlewareContext) -> MiddlewareContext:
+        ctx.state.messages = [
             message
-            for message in messages
+            for message in ctx.state.messages
             if not (
                 message.role == "assistant"
                 and message.content == MAX_STEPS_LIMIT_MESSAGE
-                and not message.reasoning_content
-                and not message.tool_calls
+                and not getattr(message, "reasoning_content", None)
+                and not getattr(message, "tool_calls", None)
             )
         ]
-        return filtered_messages, tools
+        return ctx
 
 
 _logger = logging.getLogger("agent")
@@ -153,50 +149,52 @@ class AgentService:
         if cached is not None:
             return cached
 
-        hooks = [StorageHook(self.storage)]
-
-        approval_tools = set(profile.approval_tools)
-
-        if approval_tools and self.settings.hitl_enabled:
-            hooks.append(
-                HitlHook(
-                    provider=self.approval_manager,
-                    policy=ApprovalPolicy(
-                        require_approval_tools=approval_tools
-                    ),
-                )
-            )
-        if "skill" in profile.builtin_tools:
-            hooks.append(
-                SkillHook(
-                    instruction=(
-                        "你有可用的 Skill（专门技能），它们是处理特定领域任务的增强能力。\n"
-                        "在对话开始时或遇到可能匹配的请求时，先调用 `list_skills` 查看可用技能摘要。\n"
-                        "如果某个技能的描述与用户当前任务相关，调用 `load_skill` 加载其完整指令并遵循执行。\n"
-                        "技能声明的 references 和 Python scripts 是宝贵资源，按正文指引使用。"
-                    ),
-                )
-            )
+        llm = LLMGateway.from_env(max_tokens=self.settings.agent_max_tokens)
+        middleware_stack = self._build_middleware_stack(profile, llm)
 
         agent = Agent(
-            llm=LLMGateway.from_env(max_tokens=self.settings.agent_max_tokens),
+            llm=llm,
             tools=self._build_tool_registry(profile),
             default_system_prompt=profile.system_prompt,
             default_max_steps=self.settings.agent_max_steps,
             default_parallel_tool_calls=self.settings.agent_parallel_tool_calls,
-            hooks=hooks,
+            middleware=middleware_stack,
         )
-        if self.settings.context_compression_enabled:
-            agent.hooks.register(
-                ContextCompressionHook(
-                    compressor=LLMContextCompressor(agent.llm),
-                    compress_after_turns=self.settings.context_compress_after_turns,
-                    keep_recent_turns=self.settings.context_keep_recent_turns,
-                )
-            )
-        agent.hooks.register(ThinkingHistoryCompatibilityHook())
         self._agents[cache_key] = agent
         return agent
+
+    def _build_middleware_stack(self, profile: RuntimeAgentProfile, llm: LLMGateway) -> MiddlewareStack:
+        """构建中间件栈，替代旧版 Hook 注册。"""
+        stack = MiddlewareStack()
+
+        # 1. HITL 审批中间件（替代 HitlHook）
+        approval_tools = set(profile.approval_tools)
+        if approval_tools and self.settings.hitl_enabled:
+            stack.add(HitlMiddleware(
+                approval_provider=self.approval_manager.request_approval_bool,
+                auto_approve_tools=[],
+                auto_reject_tools=[],
+            ))
+
+        # 2. 上下文压缩中间件（替代 ContextCompressionHook）
+        if self.settings.context_compression_enabled:
+            stack.add(ContextCompressionMiddleware(
+                llm=llm,
+                trigger_tokens=self.settings.context_compress_after_turns * 500,
+                keep_recent=self.settings.context_keep_recent_turns,
+            ))
+
+        # 3. Skill 指令中间件（替代 SkillHook）
+        if "skill" in profile.builtin_tools:
+            skill_manager = SkillManager(
+                [FileSystemSkillProvider(skill.root_dir) for skill in profile.skills]
+            )
+            stack.add(SkillMiddleware(skill_manager=skill_manager))
+
+        # 4. 思考历史兼容中间件（替代 ThinkingHistoryCompatibilityHook）
+        stack.add(ThinkingHistoryCompatibilityMiddleware())
+
+        return stack
 
     @staticmethod
     def _build_tool_registry(profile: RuntimeAgentProfile) -> ToolRegistry:
