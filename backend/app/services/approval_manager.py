@@ -60,8 +60,9 @@ class ApprovalManager:
         arguments = tool_call.function.arguments
         tool_call_id = getattr(tool_call, "id", None)
 
-        # 从 tool_call 中提取 session_id（通过 metadata 或默认值）
-        session_id = getattr(tool_call, "session_id", None) or "default"
+        # 从 contextvars 获取当前会话 ID
+        from app.services.agent_service import _current_session_id
+        session_id = _current_session_id.get() or "default"
 
         # 持久化到数据库
         await self._save_pending(approval_id, session_id, tool_name, arguments, tool_call_id)
