@@ -1076,6 +1076,16 @@ class AgentService:
         tool_names: list[str] = []
         usage_recorded = False
 
+        # 注入用户记忆上下文
+        if user is not None and not ppt_mode and not website_mode:
+            try:
+                from app.services.memory_service import get_memory_service
+                memory_context = get_memory_service().get_memory_context(user.id, request.message)
+                if memory_context:
+                    message = memory_context + "\n\n---\n\n" + message
+            except Exception:
+                pass  # 记忆服务不可用时静默跳过
+
         async def produce_events() -> None:
             try:
                 user_message = self._build_user_message(request)
@@ -1343,6 +1353,23 @@ class AgentService:
                         "data": approval,
                     }
                     approval_task = asyncio.create_task(approval_queue.get())
+            # 对话结束时提取记忆
+            if user is not None and collected_text and not ppt_mode:
+                try:
+                    from app.services.memory_service import get_memory_service
+                    memory_svc = get_memory_service()
+                    # 提取用户偏好和关键信息
+                    if len(collected_text) > 50:
+                        memory_svc.add_memory(
+                            user.id,
+                            f"用户问：{request.message[:100]}，AI答：{collected_text[:200]}",
+                            memory_type="conversation",
+                            importance=0.3,
+                            tags=[response_mode],
+                        )
+                except Exception:
+                    pass
+
         finally:
             _logger.info(
                 "stream_chat end: session=%s mode=%s tools=%s text_len=%d",
