@@ -383,7 +383,7 @@ class AgentService:
         """Inject design catalog: skill loading instructions + theme selection + token reference.
 
         技能加载是 PPT 生成的核心——没有设计规范和模板库，SVG 质量会很差。
-        但要高效加载：只加载两个主技能，不要逐个读取 references。
+        模板文件需要按需读取，每页读 1-2 个相关模板即可。
         """
         token_ref = build_token_quick_ref()
         theme_count = len(list_available_themes())
@@ -394,13 +394,20 @@ class AgentService:
             "---",
             "## ⚠️ 生成 SVG 前必须加载两个技能",
             "",
-            "**按顺序加载，然后直接开始生成 SVG，不要读取 references 文件：**",
+            "**第一步：加载技能（2 步）**",
             "",
             "1. `load_skill(\"ppt-design-guide\")` — 设计规范（SVG 约束、排版规则、颜色纪律）",
             "2. `load_skill(\"ppt-template-library\")` — 模板库（布局 + 图表模板）",
             "",
-            "**加载后直接开始生成，不要调用 `load_skill_reference` 或 `read_text_file` 读取模板文件。**",
-            "**不要调用 `search_icons`，用 SVG 原语（圆、矩形、线条）代替图标。**",
+            "**第二步：按需读取模板（每页 1-2 个）**",
+            "",
+            "加载 ppt-template-library 后，用 `read_text_file` 读取具体的 SVG 模板文件。",
+            "模板文件路径格式：`references/xxx.svg`，每页只读 1-2 个相关模板。",
+            "**不要读取所有模板**，根据页面类型选择：封面读 cover，数据页读 bar-chart 等。",
+            "",
+            "**第三步：生成 SVG 并调用 save_slide**",
+            "",
+            "读取模板后，复制模板结构，替换为实际内容，调用 `save_slide` 写入。",
             "",
             "---",
             "## ⭐ 主题选择",
