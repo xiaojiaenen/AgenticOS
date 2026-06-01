@@ -14,6 +14,7 @@ type AgentServiceOptions = {
   onRunStatus?: (status: AgentRunStatus) => void;
   onPptArtifact?: (artifact: AgentPptArtifact) => void;
   onWebsiteArtifact?: (artifact: AgentWebsiteArtifact) => void;
+  onUserDecision?: (decision: unknown) => void;
   signal?: AbortSignal;
 };
 
@@ -353,6 +354,10 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
           },
         ]);
         options.onToolCalls?.(toolCalls);
+      }
+
+      if (parsed.event === 'user_decision') {
+        options.onUserDecision?.(payload);
       }
 
       if (parsed.event === 'error') {

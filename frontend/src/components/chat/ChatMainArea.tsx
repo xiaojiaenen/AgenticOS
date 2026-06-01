@@ -4,6 +4,7 @@ import { ChatTimeline } from './ChatTimeline';
 import { ChatSearch } from './ChatSearch';
 import { MessagesList } from './MessagesList';
 import { PendingApprovalPanel } from './PendingApprovalPanel';
+import { DecisionPanel } from './DecisionPanel';
 import { ChatInput, ChatInputHandle } from './ChatInput';
 import { MascotState } from '../ui/MascotState';
 import { MascotCompanion } from '../ui/MascotCompanion';
@@ -46,6 +47,8 @@ interface ChatMainAreaProps {
   onSearchClose: () => void;
   onToggleSearch: () => void;
   onApprovalDecision: (approvalId: string, status: 'approved' | 'rejected') => void;
+  pendingDecisions: any[];
+  onDecisionMade: (decisionId: string, answer: string) => void;
   onErrorDismiss: () => void;
   onSuggestionClick: (text: string) => void;
   onOpenArtifact: (artifact: Artifact) => void;
@@ -86,6 +89,8 @@ export const ChatMainArea = React.memo(({
   onSearchClose,
   onToggleSearch,
   onApprovalDecision,
+  pendingDecisions,
+  onDecisionMade,
   onErrorDismiss,
   onSuggestionClick,
   onOpenArtifact,
@@ -225,6 +230,10 @@ export const ChatMainArea = React.memo(({
       </AnimatePresence>
 
       <div className={cn("mx-auto", isWideConversation ? "max-w-[92rem] px-8" : "max-w-4xl")}>
+        <DecisionPanel
+          decisions={pendingDecisions}
+          onDecision={onDecisionMade}
+        />
         <PendingApprovalPanel
           approvals={pendingApprovals}
           onDecision={onApprovalDecision}

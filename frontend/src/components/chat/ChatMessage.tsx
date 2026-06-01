@@ -377,13 +377,22 @@ const AssistantWaitingIndicator = ({ statusText = '正在思考' }: { statusText
 
 function getActiveToolLabel(tool: ToolCall): string {
   const status = tool.status;
-  if (status === 'approval_required') return `等待审批: ${tool.name}`;
-  if (status === 'approved') return `正在执行: ${tool.name}`;
-  if (status === 'pending') return `正在调用: ${tool.name}`;
-  if (status === 'success') return `已完成: ${tool.name}`;
-  if (status === 'error') return `执行失败: ${tool.name}`;
-  if (status === 'rejected') return `已拒绝: ${tool.name}`;
-  return tool.name;
+  const name = tool.name;
+  if (status === 'approval_required') return `等待审批: ${name}`;
+  if (status === 'approved') return `正在执行: ${name}`;
+  if (status === 'pending') return `正在调用: ${name}`;
+  if (status === 'success') return `已完成: ${name}`;
+  if (status === 'error') return `执行失败: ${name}`;
+  if (status === 'rejected') return `已拒绝: ${name}`;
+  return name;
+}
+
+/** 简化工具名：只显示中文名，不显示技术细节 */
+function getSimpleToolLabel(tool: ToolCall): string {
+  const name = tool.name;
+  const status = tool.status;
+  const statusLabel = status === 'success' ? '✓' : status === 'error' ? '✗' : '⏳';
+  return `${statusLabel} ${name}`;
 }
 
 function isToolActive(tool: ToolCall): boolean {

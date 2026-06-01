@@ -206,7 +206,16 @@ export function useChatStream({
             applySessionState(targetId!, state);
           },
           onRunStatus: (status: AgentRunStatus) => {
-            setRunStatus({ phase: status.phase, label: status.label });
+            const labelMap: Record<string, string> = {
+              thinking: '思考中...',
+              streaming: '正在回复...',
+              generating_ppt: '正在生成 PPT...',
+              rendering_ppt: '正在渲染预览...',
+              rendering_website: '正在渲染网站...',
+              done: '已完成',
+              error: '出错了',
+            };
+            setRunStatus({ phase: status.phase, label: labelMap[status.phase] || status.label });
           },
           onPptArtifact: (pptArtifact) => {
             console.log('[PPT] onPptArtifact received:', pptArtifact.artifact_id, 'html length:', pptArtifact.html?.length);

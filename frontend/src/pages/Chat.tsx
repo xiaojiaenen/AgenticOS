@@ -414,6 +414,8 @@ export const Chat = () => {
             }}
             onToggleSearch={() => setShowSearch(!showSearch)}
             onApprovalDecision={handleApprovalDecision}
+            pendingDecisions={[]}
+            onDecisionMade={() => {}}
             onErrorDismiss={() => setError(null)}
             onSuggestionClick={(text) => setInputValue(text)}
             onOpenArtifact={handleOpenArtifact}
