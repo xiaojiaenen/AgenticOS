@@ -271,6 +271,18 @@ class AgentService:
             from app.tools.website_file_tools import register_website_file_tools as _register_website_file_tools
             _register_website_file_tools(registry)
 
+        # MCP 工具集成：如果 MCP 服务已连接，将 MCP 工具添加到注册表
+        try:
+            from app.services.mcp_service import get_mcp_service
+            mcp_svc = get_mcp_service()
+            mcp_tools = mcp_svc.get_tools()
+            if mcp_tools:
+                for tool in mcp_tools:
+                    if registry.get(tool.name) is None:
+                        registry.register(tool)
+        except Exception:
+            pass  # MCP 未配置或未连接时静默跳过
+
         return registry
 
     @staticmethod
@@ -1131,17 +1143,54 @@ class AgentService:
                                 "data": artifact,
                             }
                         else:
-                            # Artifact 创建失败，通知前端
-                            _logger.warning("ppt artifact creation failed: session=%s, slides may be insufficient or invalid", session.session_id)
-                            visible_text = collected_text or "PPT 预览生成失败：SVG 页数不足或格式不正确，请检查生成的幻灯片。"
+                            # Artifact 创建失败，尝试 Multi-Agent 重新生成
+                            _logger.warning("ppt artifact creation failed: session=%s, trying multi-agent fallback", session.session_id)
                             yield {
                                 "event": "run_status",
                                 "data": {
                                     "session_id": session.session_id,
-                                    "phase": "error",
-                                    "label": "PPT 预览生成失败",
+                                    "phase": "regenerating_ppt",
+                                    "label": "正在用多 Agent 重新生成 PPT",
                                 },
                             }
+                            try:
+                                # 优先使用 StateGraph Pipeline
+                                from app.services.ppt_pipeline import PptPipeline
+                                pipeline = PptPipeline()
+                                pipeline_result = await pipeline.run(
+                                    user_message=request.message,
+                                    session_id=session.session_id,
+                                )
+                                if pipeline_result.get("success") and pipeline_result.get("artifact"):
+                                    artifact = await self._create_ppt_artifact(session.session_id)
+                                    if artifact is not None:
+                                        visible_text = f"已生成 {artifact['slide_count']} 页 PPT：{artifact['title']}"
+                                        yield {"event": "run_status", "data": {"session_id": session.session_id, "phase": "rendering_ppt", "label": "正在渲染 PPT 预览"}}
+                                        yield {"event": "artifact_ready", "data": artifact}
+                                    else:
+                                        visible_text = collected_text or "PPT 预览生成失败：SVG 页数不足或格式不正确。"
+                                        yield {"event": "run_status", "data": {"session_id": session.session_id, "phase": "error", "label": "PPT 预览生成失败"}}
+                                else:
+                                    # Pipeline 失败，回退到 Multi-Agent
+                                    from app.services.multi_agent_ppt_service import MultiAgentPptService
+                                    multi_svc = MultiAgentPptService(self.settings)
+                                    async for _event in multi_svc.generate_ppt(
+                                        user_message=request.message,
+                                        session_id=session.session_id,
+                                    ):
+                                        if _event.get("event") == "done":
+                                            artifact = await self._create_ppt_artifact(session.session_id)
+                                            if artifact is not None:
+                                                visible_text = f"已生成 {artifact['slide_count']} 页 PPT：{artifact['title']}"
+                                                yield {"event": "run_status", "data": {"session_id": session.session_id, "phase": "rendering_ppt", "label": "正在渲染 PPT 预览"}}
+                                                yield {"event": "artifact_ready", "data": artifact}
+                                            else:
+                                                visible_text = collected_text or "PPT 预览生成失败：SVG 页数不足或格式不正确。"
+                                                yield {"event": "run_status", "data": {"session_id": session.session_id, "phase": "error", "label": "PPT 预览生成失败"}}
+                            except Exception as e:
+                                _logger.error(f"Multi-agent PPT fallback failed: {e}")
+                                visible_text = collected_text or f"PPT 生成失败：{e}"
+                                yield {"event": "run_status", "data": {"session_id": session.session_id, "phase": "error", "label": "PPT 生成失败"}}
                         if visible_text:
                             yield {
                                 "event": "delta",
