@@ -1076,11 +1076,11 @@ class AgentService:
         tool_names: list[str] = []
         usage_recorded = False
 
-        # 注入用户记忆上下文
+        # 注入用户记忆上下文（异步调用）
         if user is not None and not ppt_mode and not website_mode:
             try:
                 from app.services.memory_service import get_memory_service
-                memory_context = get_memory_service().get_memory_context(user.id, request.message)
+                memory_context = await get_memory_service().get_memory_context(user.id, request.message)
                 if memory_context:
                     message = memory_context + "\n\n---\n\n" + message
             except Exception:
@@ -1353,20 +1353,15 @@ class AgentService:
                         "data": approval,
                     }
                     approval_task = asyncio.create_task(approval_queue.get())
-            # 对话结束时提取记忆
-            if user is not None and collected_text and not ppt_mode:
+            # 对话结束时用 LLM 提取记忆（仅通用模式，且对话有一定长度）
+            if user is not None and collected_text and not ppt_mode and not website_mode and len(collected_text) > 100:
                 try:
                     from app.services.memory_service import get_memory_service
-                    memory_svc = get_memory_service()
-                    # 提取用户偏好和关键信息
-                    if len(collected_text) > 50:
-                        memory_svc.add_memory(
-                            user.id,
-                            f"用户问：{request.message[:100]}，AI答：{collected_text[:200]}",
-                            memory_type="conversation",
-                            importance=0.3,
-                            tags=[response_mode],
-                        )
+                    await get_memory_service().extract_and_save_memories(
+                        user.id,
+                        request.message,
+                        collected_text,
+                    )
                 except Exception:
                     pass
 

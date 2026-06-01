@@ -3,7 +3,7 @@
 使用 wuwei 2.2.0 的 InMemoryMemoryStore 实现跨会话记忆。
 
 触发时机：
-- 提取：对话结束时（done 事件），从对话中提取关键信息
+- 提取：对话结束时（done 事件），用 LLM 从对话中提取关键信息
 - 注入：发送消息前，根据用户消息搜索相关记忆，注入到上下文中
 
 存储方式：
@@ -11,6 +11,7 @@
 - 每用户独立命名空间（namespace = user_{id}）
 """
 
+import asyncio
 import logging
 from typing import Any
 
@@ -18,21 +19,36 @@ from wuwei.memory import InMemoryMemoryStore, SimpleEmbedder
 
 _logger = logging.getLogger("memory_service")
 
+# 记忆提取提示词
+MEMORY_EXTRACTION_PROMPT = """从以下对话中提取用户的关键信息，用于后续个性化服务。
+
+只提取以下类型的信息：
+- 用户偏好（喜欢的主题、风格、习惯）
+- 重要事实（职业、项目、需求）
+- 明确指令（"我总是要用xx主题"、"我不喜欢xx"）
+
+忽略：
+- 临时性对话内容
+- 工具调用细节
+- 不重要的寒暄
+
+输出 JSON 数组，每条包含 content（事实描述）和 importance（0.0-1.0）。
+如果没有值得记忆的信息，输出空数组 []。
+
+对话内容：
+{conversation}
+
+输出（纯 JSON，不要代码块）："""
+
 
 class UserMemoryService:
-    """用户记忆服务"""
+    """用户记忆服务（所有方法为 async）"""
 
     def __init__(self):
         self._embedder = SimpleEmbedder(dim=256)
         self._store = InMemoryMemoryStore(embedder=self._embedder)
-        self._initialized = False
 
-    def _ensure_initialized(self) -> None:
-        if not self._initialized:
-            self._initialized = True
-            _logger.info("UserMemoryService initialized")
-
-    def add_memory(
+    async def add_memory(
         self,
         user_id: int,
         content: str,
@@ -43,9 +59,8 @@ class UserMemoryService:
         metadata: dict[str, Any] | None = None,
     ) -> None:
         """为用户添加一条记忆"""
-        self._ensure_initialized()
         namespace = f"user_{user_id}"
-        self._store.add(
+        await self._store.add(
             content=content,
             namespace=namespace,
             memory_type=memory_type,
@@ -55,7 +70,7 @@ class UserMemoryService:
         )
         _logger.debug(f"Added memory for user {user_id}: {content[:50]}...")
 
-    def search_memory(
+    async def search_memory(
         self,
         user_id: int,
         query: str,
@@ -63,9 +78,8 @@ class UserMemoryService:
         limit: int = 5,
     ) -> list[dict[str, Any]]:
         """搜索用户的记忆"""
-        self._ensure_initialized()
         namespace = f"user_{user_id}"
-        records = self._store.search(query, namespace=namespace, limit=limit)
+        records = await self._store.search(query, namespace=namespace, limit=limit)
         return [
             {
                 "id": r.id,
@@ -78,11 +92,10 @@ class UserMemoryService:
             for r in records
         ]
 
-    def get_all_memories(self, user_id: int) -> list[dict[str, Any]]:
+    async def get_all_memories(self, user_id: int) -> list[dict[str, Any]]:
         """获取用户的所有记忆"""
-        self._ensure_initialized()
         namespace = f"user_{user_id}"
-        records = self._store.list_all(namespace=namespace)
+        records = await self._store.list_all(namespace=namespace)
         return [
             {
                 "id": r.id,
@@ -95,26 +108,77 @@ class UserMemoryService:
             for r in records
         ]
 
-    def delete_memory(self, user_id: int, memory_id: str) -> bool:
+    async def delete_memory(self, user_id: int, memory_id: str) -> bool:
         """删除用户的一条记忆"""
-        self._ensure_initialized()
         namespace = f"user_{user_id}"
         try:
-            self._store.delete(memory_id, namespace=namespace)
+            await self._store.delete(memory_id, namespace=namespace)
             return True
         except Exception:
             return False
 
-    def get_memory_context(self, user_id: int, query: str, *, limit: int = 3) -> str:
+    async def get_memory_context(self, user_id: int, query: str, *, limit: int = 3) -> str:
         """获取与查询相关的记忆上下文，用于注入到 LLM 提示词中"""
-        self._ensure_initialized()
-        records = self.search_memory(user_id, query, limit=limit)
+        records = await self.search_memory(user_id, query, limit=limit)
         if not records:
             return ""
         lines = ["## 用户记忆（来自历史对话）"]
         for r in records:
             lines.append(f"- [{r['memory_type']}] {r['content']}")
         return "\n".join(lines)
+
+    async def extract_and_save_memories(
+        self,
+        user_id: int,
+        user_message: str,
+        assistant_response: str,
+        llm_gateway=None,
+    ) -> None:
+        """用 LLM 从对话中提取关键信息并保存为记忆"""
+        try:
+            from wuwei.llm import LLMGateway
+
+            if llm_gateway is None:
+                llm_gateway = LLMGateway.from_env()
+
+            conversation = f"用户: {user_message}\nAI: {assistant_response[:500]}"
+            prompt = MEMORY_EXTRACTION_PROMPT.format(conversation=conversation)
+
+            from wuwei.core.message import SystemMessage, HumanMessage
+            response = await llm_gateway.generate(
+                messages=[
+                    SystemMessage(content="你是记忆提取器，只输出 JSON。"),
+                    HumanMessage(content=prompt),
+                ],
+            )
+
+            import json
+            content = response.message.content or "[]"
+            # 提取 JSON
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0]
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0]
+
+            memories = json.loads(content.strip())
+            if not isinstance(memories, list):
+                return
+
+            for mem in memories:
+                if isinstance(mem, dict) and mem.get("content"):
+                    await self.add_memory(
+                        user_id,
+                        str(mem["content"]),
+                        memory_type="fact",
+                        importance=float(mem.get("importance", 0.5)),
+                        tags=["auto-extracted"],
+                    )
+
+            if memories:
+                _logger.info(f"Extracted {len(memories)} memories for user {user_id}")
+
+        except Exception as e:
+            _logger.debug(f"Memory extraction failed (non-critical): {e}")
 
 
 # 全局单例
