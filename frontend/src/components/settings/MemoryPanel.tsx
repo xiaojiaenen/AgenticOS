@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Trash2, Search, Loader2 } from 'lucide-react';
+import { Brain, Loader2, Search, Trash2 } from 'lucide-react';
 import { getMemories, deleteMemory, MemoryItem } from '../../services/memoryService';
+import { formatApiDate } from '../../lib/datetime';
 
 export const MemoryPanel: React.FC = () => {
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadMemories();
@@ -29,6 +31,7 @@ export const MemoryPanel: React.FC = () => {
     try {
       await deleteMemory(memoryId);
       setMemories((prev) => prev.filter((m) => m.id !== memoryId));
+      setMessage('记忆已删除');
     } catch (err) {
       console.error('Failed to delete memory:', err);
     } finally {
@@ -48,18 +51,29 @@ export const MemoryPanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100">
-          <Brain size={20} className="text-purple-600" />
+    <div className="admin-page-stage space-y-4">
+      <section className="admin-page-header">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="admin-section-kicker">记忆管理</p>
+            <h2 className="mt-1.5 text-xl font-black tracking-tight text-slate-950">用户记忆</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              AI 会记住你的偏好和历史对话中的关键信息，用于个性化服务
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {message && (
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                {message}
+              </div>
+            )}
+            <div className="admin-kpi-pill">
+              共 <span className="font-black text-slate-900">{memories.length}</span> 条
+            </div>
+          </div>
         </div>
-        <div>
-          <h3 className="text-lg font-bold text-slate-900">记忆管理</h3>
-          <p className="text-sm text-slate-500">
-            AI 会记住你的偏好和历史对话中的关键信息
-          </p>
-        </div>
-      </div>
+      </section>
 
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -73,13 +87,13 @@ export const MemoryPanel: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-8">
+        <div className="flex items-center justify-center py-12">
           <Loader2 size={24} className="animate-spin text-slate-400" />
         </div>
       ) : filteredMemories.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
-          <Brain size={32} className="mx-auto mb-2 text-slate-300" />
-          <p className="text-sm text-slate-500">
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-12 text-center">
+          <Brain size={40} className="mx-auto mb-3 text-slate-300" />
+          <p className="text-sm font-bold text-slate-500">
             {searchQuery ? '没有找到匹配的记忆' : '还没有记忆，AI 会在对话中自动学习'}
           </p>
         </div>
@@ -88,7 +102,7 @@ export const MemoryPanel: React.FC = () => {
           {filteredMemories.map((memory) => (
             <div
               key={memory.id}
-              className="group flex items-start gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 transition-colors hover:border-slate-200"
+              className="group flex items-start gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 transition-colors hover:border-slate-200"
             >
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-slate-700 leading-relaxed">{memory.content}</p>
@@ -106,7 +120,7 @@ export const MemoryPanel: React.FC = () => {
                   ))}
                   {memory.created_at && (
                     <span className="text-[10px] text-slate-400">
-                      {new Date(memory.created_at).toLocaleDateString()}
+                      {formatApiDate(memory.created_at)}
                     </span>
                   )}
                 </div>
@@ -128,12 +142,6 @@ export const MemoryPanel: React.FC = () => {
           ))}
         </div>
       )}
-
-      <div className="rounded-xl bg-slate-50 px-4 py-3">
-        <p className="text-xs text-slate-500">
-          共 {memories.length} 条记忆 · AI 在对话中自动提取关键信息
-        </p>
-      </div>
     </div>
   );
 };
