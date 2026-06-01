@@ -1131,7 +1131,17 @@ class AgentService:
                                 "data": artifact,
                             }
                         else:
-                            visible_text = collected_text
+                            # Artifact 创建失败，通知前端
+                            _logger.warning("ppt artifact creation failed: session=%s, slides may be insufficient or invalid", session.session_id)
+                            visible_text = collected_text or "PPT 预览生成失败：SVG 页数不足或格式不正确，请检查生成的幻灯片。"
+                            yield {
+                                "event": "run_status",
+                                "data": {
+                                    "session_id": session.session_id,
+                                    "phase": "error",
+                                    "label": "PPT 预览生成失败",
+                                },
+                            }
                         if visible_text:
                             yield {
                                 "event": "delta",
