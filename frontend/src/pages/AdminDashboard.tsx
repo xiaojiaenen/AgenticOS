@@ -9,6 +9,7 @@ import { DashboardCharts } from '../components/admin/DashboardCharts';
 import { DashboardStats } from '../components/admin/DashboardStats';
 import { SkillManagement } from '../components/admin/SkillManagement';
 import { UserManagement } from '../components/admin/UserManagement';
+import { MemoryPanel } from '../components/settings/MemoryPanel';
 import { ChartSkeleton } from '../components/ui/ChartSkeleton';
 import { Button } from '../components/ui/Button';
 import { MascotCool } from '../components/ui/AnimatedIcons';
@@ -299,6 +300,8 @@ export const AdminDashboard = () => {
         return <SkillManagement />;
       case 'announcements':
         return <AnnouncementManagement />;
+      case 'memory':
+        return <MemoryPanel />;
       default:
         return null;
     }
