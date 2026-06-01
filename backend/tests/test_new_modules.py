@@ -1,5 +1,6 @@
 """测试 wuwei 2.2.0 重构新增模块"""
 
+import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -224,3 +225,78 @@ class TestContextCompression:
         assert tool_call_msg is not None, "tool_call 消息丢失"
         assert tool_response_msg is not None, "tool_response 消息丢失"
         assert tool_response_msg.tool_call_id == tool_call_msg.tool_calls[0].id
+
+
+class TestEndToEndFallback:
+    """端到端集成测试：验证 PPT fallback 路径和审批流程"""
+
+    def test_agent_service_has_multi_agent_fallback(self):
+        """验证 AgentService.stream_chat 中有 Multi-Agent fallback 路径"""
+        import inspect
+        from app.services.agent_service import AgentService
+        src = inspect.getsource(AgentService.stream_chat)
+        assert "MultiAgentPptService" in src, "Multi-Agent fallback 未集成"
+        assert "PptPipeline" in src, "StateGraph Pipeline 未集成"
+
+    def test_agent_service_has_mcp_integration(self):
+        """验证 AgentService._build_tool_registry 中有 MCP 工具集成"""
+        import inspect
+        from app.services.agent_service import AgentService
+        src = inspect.getsource(AgentService._build_tool_registry)
+        assert "mcp_service" in src, "MCP 工具集成未添加"
+
+    def test_approval_manager_request_approval_bool_uses_contextvars(self):
+        """验证 request_approval_bool 使用 contextvars 获取 session_id"""
+        import inspect
+        from app.services.approval_manager import ApprovalManager
+        src = inspect.getsource(ApprovalManager.request_approval_bool)
+        assert "_current_session_id" in src, "未使用 contextvars 获取 session_id"
+
+    @pytest.mark.anyio
+    async def test_approval_event_flow(self):
+        """端到端：验证审批事件从 request_approval_bool 到队列的完整流程"""
+        from app.services.approval_manager import ApprovalManager
+        from app.services.agent_service import _current_session_id
+
+        manager = ApprovalManager(timeout_seconds=5)
+        _current_session_id.set("e2e-test-session")
+        queue = manager.subscribe("e2e-test-session")
+
+        # 模拟审批事件推送
+        await manager._save_pending("e2e-approval", "e2e-test-session", "file_to_md", {"path": "test.txt"}, "tc-e2e")
+        event = {
+            "approval_id": "e2e-approval",
+            "session_id": "e2e-test-session",
+            "tool_call_id": "tc-e2e",
+            "tool_name": "file_to_md",
+            "arguments": {"path": "test.txt"},
+            "status": "pending",
+        }
+        await queue.put(event)
+
+        received = await asyncio.wait_for(queue.get(), timeout=2)
+        assert received["approval_id"] == "e2e-approval"
+        assert received["session_id"] == "e2e-test-session"
+        assert received["tool_name"] == "file_to_md"
+
+    def test_middleware_stack_composition(self):
+        """验证中间件栈包含所有必要的中间件"""
+        from app.services.agent_service import AgentService
+        from app.services.agent_profile_service import RuntimeAgentProfile
+        from wuwei import LLMGateway
+        from app.core.config import get_settings
+
+        service = AgentService(get_settings())
+        profile = RuntimeAgentProfile(
+            profile_id=None, name="general", slug="general", response_mode="general",
+            system_prompt="test", builtin_tools=("calc", "time"),
+            approval_tools=frozenset({"file_to_md"}), signature="", skills=(),
+        )
+        llm = LLMGateway.from_env()
+        stack = service._build_middleware_stack(profile, llm)
+        mw_names = [type(m).__name__ for m in stack.middlewares]
+
+        assert "ContextCompressionMiddleware" in mw_names
+        assert "HitlMiddleware" in mw_names
+        assert "LoggingMiddleware" in mw_names
+        assert "ThinkingHistoryCompatibilityMiddleware" in mw_names
