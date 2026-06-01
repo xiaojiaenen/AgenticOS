@@ -12,6 +12,7 @@ from wuwei.middleware import (
     MiddlewareStack,
     ContextCompressionMiddleware,
     HitlMiddleware,
+    LoggingMiddleware,
 )
 from wuwei.tools import ToolRegistry
 from wuwei.tools.builtin import register_skill_tools
@@ -61,7 +62,7 @@ SKILL_INSTRUCTION = (
 
 
 class SkillInstructionMiddleware(Middleware):
-    """将 Skill 使用指引注入系统提示词（替代旧版 SkillHook）。
+    """将 Skill 使用指引注入系统提示词。
 
     与 wuwei 内置 SkillMiddleware 不同，本中间件保留了项目自定义的指令文本，
     并匹配 register_skill_tools() 注册的 list_skills/load_skill 工具名。
@@ -194,7 +195,7 @@ class AgentService:
         """构建中间件栈，替代旧版 Hook 注册。"""
         stack = MiddlewareStack()
 
-        # 1. HITL 审批中间件（替代 HitlHook）
+        # 1. HITL 审批中间件
         # approval_tools 是需要审批的工具列表，不在列表中的工具自动批准
         approval_tools = set(profile.approval_tools)
         if approval_tools and self.settings.hitl_enabled:
@@ -207,17 +208,23 @@ class AgentService:
                 auto_reject_tools=[],
             ))
 
-        # 2. 上下文压缩：ContextCompressionMiddleware 压缩时可能切断
-        #    tool_call/response 消息配对，导致 OpenAI API 返回 400。
-        #    例如：assistant(tool_calls=[...]) 在旧消息中，tool response 在新消息中，
-        #    压缩后 assistant 被摘要替代，tool response 失去前置消息。
-        #    暂时禁用，待 wuwei 修复消息配对保护后重新启用。
+        # 2. 上下文压缩中间件
+        if self.settings.context_compression_enabled:
+            stack.add(ContextCompressionMiddleware(
+                llm=llm,
+                trigger_tokens=self.settings.context_compress_after_turns * 500,
+                keep_recent_turns=self.settings.context_keep_recent_turns,
+            ))
 
-        # 3. Skill 指令中间件（替代 SkillHook）
+        # 3. 日志中间件（开发环境启用，生产环境可关闭）
+        if self.settings.environment == "development":
+            stack.add(LoggingMiddleware())
+
+        # 4. Skill 指令中间件
         if "skill" in profile.builtin_tools:
             stack.add(SkillInstructionMiddleware())
 
-        # 4. 思考历史兼容中间件（替代 ThinkingHistoryCompatibilityHook）
+        # 4. 思考历史兼容中间件
         stack.add(ThinkingHistoryCompatibilityMiddleware())
 
         return stack
