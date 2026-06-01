@@ -62,7 +62,6 @@ SKILL_INSTRUCTION = (
     "你有可用的 Skill（专门技能），它们是处理特定领域任务的增强能力。\n"
     "遇到可能匹配的请求时，调用 `list_skills` 查看可用技能摘要。\n"
     "如果某个技能描述与用户任务相关，调用 `load_skill` 加载其完整指令并遵循执行。\n"
-    "**PPT 模式下不要加载技能，直接根据用户需求生成 SVG 并调用 save_slide。**\n"
     "技能正文已包含核心知识，**不要逐个读取 references 文件**，除非正文明确要求读取某个具体文件。\n"
     "references 是补充资料，不是必须全部加载的。"
 )
@@ -381,15 +380,27 @@ class AgentService:
             sessions[request.session_id] = loaded
 
     def _inject_design_catalog(cls, message: str) -> str:
-        """Inject minimal context: theme selection + token reference.
+        """Inject design catalog: skill loading instructions + theme selection + token reference.
 
-        直接注入设计规范，不要求 LLM 先加载技能，避免浪费工具调用步骤。
+        技能加载是 PPT 生成的核心——没有设计规范和模板库，SVG 质量会很差。
+        但要高效加载：只加载两个主技能，不要逐个读取 references。
         """
         token_ref = build_token_quick_ref()
         theme_count = len(list_available_themes())
         theme_list = ", ".join(sorted(list_available_themes()))
 
         lines = [
+            "",
+            "---",
+            "## ⚠️ 生成 SVG 前必须加载两个技能",
+            "",
+            "**按顺序加载，然后直接开始生成 SVG，不要读取 references 文件：**",
+            "",
+            "1. `load_skill(\"ppt-design-guide\")` — 设计规范（SVG 约束、排版规则、颜色纪律）",
+            "2. `load_skill(\"ppt-template-library\")` — 模板库（布局 + 图表模板）",
+            "",
+            "**加载后直接开始生成，不要调用 `load_skill_reference` 或 `read_text_file` 读取模板文件。**",
+            "**不要调用 `search_icons`，用 SVG 原语（圆、矩形、线条）代替图标。**",
             "",
             "---",
             "## ⭐ 主题选择",
@@ -419,7 +430,6 @@ class AgentService:
             "3. 所有颜色用 `var(--xxx)` 令牌，非颜色属性（圆角、字号、字体）直接写值",
             "4. 禁止 `<style>`、`<foreignObject>`、`<mask>`、`class`、`rgba()`",
             "5. 每页必须有 `<!-- notes: 演讲者备注 -->`",
-            "6. 不要调用 load_skill、search_icons 等工具，直接生成 SVG",
             "",
             "---",
             "## Token 语义速查",
