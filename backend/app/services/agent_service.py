@@ -195,11 +195,15 @@ class AgentService:
         stack = MiddlewareStack()
 
         # 1. HITL 审批中间件（替代 HitlHook）
+        # approval_tools 是需要审批的工具列表，不在列表中的工具自动批准
         approval_tools = set(profile.approval_tools)
         if approval_tools and self.settings.hitl_enabled:
+            from wuwei.tools import ToolRegistry as _TR
+            all_tool_names = [t.name for t in self._build_tool_registry(profile).list_tools()]
+            auto_approve = [name for name in all_tool_names if name not in approval_tools]
             stack.add(HitlMiddleware(
                 approval_provider=self.approval_manager.request_approval_bool,
-                auto_approve_tools=[],
+                auto_approve_tools=auto_approve,
                 auto_reject_tools=[],
             ))
 
