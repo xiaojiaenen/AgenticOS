@@ -47,10 +47,12 @@ class AnnouncementAIService:
         if not content:
             raise ValueError("AI generation returned an empty response")
 
+        from wuwei.parsers import JsonOutputParser
+        parser = JsonOutputParser()
         try:
-            generated = json.loads(content)
-        except json.JSONDecodeError as exc:
-            raise ValueError("AI generation returned invalid JSON") from exc
+            generated = parser.parse(content)
+        except Exception as exc:
+            raise ValueError(f"AI generation returned invalid JSON: {exc}") from exc
 
         body = str(generated.get("body") or "").strip()
         if request.content_format == "html":
