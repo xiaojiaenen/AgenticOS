@@ -71,48 +71,47 @@ class PptPipeline:
         return graph.compile()
 
     async def _plan_node(self, state: PptPipelineState) -> PptPipelineState:
-        """规划节点：分析需求，确定页面结构"""
+        """规划节点：使用 wuwei Planner 分析需求，确定页面结构"""
         _logger.info(f"Planning PPT: {state.user_message[:50]}...")
 
-        # 使用 LLM 规划页面结构
-        from wuwei import LLMGateway
-        from wuwei.core.message import SystemMessage, HumanMessage
-
-        llm = LLMGateway.from_env()
-
-        planner_prompt = f"""分析用户需求，输出 PPT 页面结构。
-
-用户需求：{state.user_message}
-主题：{state.theme}
-页数：{state.page_count}
-
-输出 JSON：
-{{
-  "pages": [
-    {{"type": "cover", "title": "..."}},
-    {{"type": "section", "title": "..."}},
-    {{"type": "content", "title": "...", "layout": "bullets"}},
-    {{"type": "ending", "title": "..."}}
-  ]
-}}"""
-
         try:
-            response = await llm.generate(
-                messages=[
-                    SystemMessage(content="你是 PPT 规划专家，只输出 JSON。"),
-                    HumanMessage(content=planner_prompt),
-                ],
+            from wuwei import LLMGateway, Planner
+            from wuwei.parsers import PydanticOutputParser
+            from pydantic import BaseModel
+
+            llm = LLMGateway.from_env()
+            planner = Planner(llm)
+
+            # 使用 wuwei Planner 规划任务
+            tasks = await planner.plan_task(
+                f"创建一个关于'{state.user_message}'的 PPT，主题：{state.theme}，页数：{state.page_count}"
             )
-            import json
-            content = response.message.content
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
-            plan = json.loads(content.strip())
-            state.pages = plan.get("pages", [])
+
+            # 将 Task 转换为页面结构
+            state.pages = []
+            for task in tasks:
+                page = {
+                    "type": getattr(task, "type", "content"),
+                    "title": getattr(task, "title", "未命名页面"),
+                    "layout": getattr(task, "layout", "bullets"),
+                }
+                state.pages.append(page)
+
+            if not state.pages:
+                # Planner 没有返回任务，使用默认结构
+                state.pages = [
+                    {"type": "cover", "title": state.user_message[:30]},
+                    {"type": "section", "title": "概览"},
+                    {"type": "content", "title": "核心内容", "layout": "bullets"},
+                    {"type": "ending", "title": "总结"},
+                ]
+
             state.step = 1
+            _logger.info(f"Planned {len(state.pages)} pages")
+
         except Exception as e:
-            state.error = f"规划失败: {e}"
             _logger.error(f"Planning failed: {e}")
+            state.error = f"规划失败: {e}"
 
         return state
 

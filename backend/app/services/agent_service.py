@@ -226,6 +226,14 @@ class AgentService:
         if self.settings.environment == "development":
             stack.add(LoggingMiddleware())
 
+        # 4. 追踪中间件（开发环境启用，输出 OpenTelemetry span）
+        if self.settings.environment == "development":
+            try:
+                from wuwei.observability import TracingMiddleware
+                stack.add(TracingMiddleware(service_name="agenticos"))
+            except ImportError:
+                pass  # opentelemetry 未安装时跳过
+
         # 4. Skill 指令中间件
         if "skill" in profile.builtin_tools:
             stack.add(SkillInstructionMiddleware())
