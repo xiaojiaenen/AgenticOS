@@ -21,7 +21,7 @@ from wuwei.tools.builtin import register_skill_tools
 
 from app.core.config import Settings, get_settings
 from app.services.agent_service import AgentService
-from app.services.ppt_theme_token_resolver import list_available_themes
+from app.services.ppt.theme_token_resolver import list_available_themes
 
 _logger = logging.getLogger("multi_agent_ppt")
 
