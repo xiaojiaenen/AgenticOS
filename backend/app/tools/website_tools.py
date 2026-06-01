@@ -131,8 +131,7 @@ def register_website_tools(registry: ToolRegistry) -> None:
         返回:
           构建结果
         """
-        import subprocess
-        import sys
+        from wuwei.sandbox import LocalSandbox
 
         target_dir = WEBSITES_DIR / project_slug
         if not target_dir.exists():
@@ -142,43 +141,20 @@ def register_website_tools(registry: ToolRegistry) -> None:
         if not pkg_json.exists():
             return f"项目缺少 package.json：{pkg_json}"
 
-        npm = "npm.cmd" if sys.platform == "win32" else "npm"
+        sandbox = LocalSandbox(workspace=str(target_dir))
 
         # npm install
-        try:
-            result = subprocess.run(
-                [npm, "install"],
-                cwd=str(target_dir),
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=120,
-            )
-        except subprocess.TimeoutExpired:
-            return "npm install 超时（120 秒）"
-
-        if result.returncode != 0:
-            out = (result.stdout or "")[-2000:] + (result.stderr or "")[-2000:]
-            return f"npm install 失败（退出码 {result.returncode}）：\n{out}"
+        install_result = await sandbox.execute("npm install", timeout=120)
+        if not install_result.success:
+            out = (install_result.stdout or "")[-2000:] + (install_result.stderr or "")[-2000:]
+            return f"npm install 失败（退出码 {install_result.exit_code}）：\n{out}"
 
         # npm run build
-        try:
-            result = subprocess.run(
-                [npm, "run", "build"],
-                cwd=str(target_dir),
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=120,
-            )
-        except subprocess.TimeoutExpired:
-            return "npm run build 超时（120 秒）"
+        build_result = await sandbox.execute("npm run build", timeout=120)
 
-        if result.returncode != 0:
-            out = (result.stdout or "")[-3000:] + (result.stderr or "")[-3000:]
-            return f"npm run build 失败（退出码 {result.returncode}）：\n{out}"
+        if not build_result.success:
+            out = (build_result.stdout or "")[-3000:] + (build_result.stderr or "")[-3000:]
+            return f"npm run build 失败（退出码 {build_result.exit_code}）：\n{out}"
 
         dist_dir = target_dir / "dist"
         dist_files = []
