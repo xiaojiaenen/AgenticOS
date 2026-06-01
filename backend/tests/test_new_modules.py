@@ -147,8 +147,7 @@ class TestAgentServiceIntegration:
         llm = LLMGateway.from_env()
         stack = service._build_middleware_stack(profile, llm)
         mw_names = [type(m).__name__ for m in stack.middlewares]
-        # ContextCompressionMiddleware 暂时禁用（tool_call 配对问题）
-        assert "ContextCompressionMiddleware" not in mw_names
+        assert "ContextCompressionMiddleware" in mw_names
         assert "ThinkingHistoryCompatibilityMiddleware" in mw_names
         assert "LoggingMiddleware" in mw_names
         assert "HitlMiddleware" not in mw_names  # approval_tools 为空

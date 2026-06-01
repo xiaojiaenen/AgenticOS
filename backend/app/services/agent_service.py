@@ -214,9 +214,13 @@ class AgentService:
                 auto_reject_tools=[],
             ))
 
-        # 2. 上下文压缩：ContextCompressionMiddleware 压缩时无法保证
-        #    tool_call/tool_response 消息配对完整性，导致 OpenAI API 400 错误。
-        #    暂时禁用，待 wuwei 修复 _compress_context 的配对保护后重新启用。
+        # 2. 上下文压缩中间件
+        if self.settings.context_compression_enabled:
+            stack.add(ContextCompressionMiddleware(
+                llm=llm,
+                trigger_tokens=self.settings.context_compress_after_turns * 500,
+                keep_recent_turns=self.settings.context_keep_recent_turns,
+            ))
 
         # 3. 日志中间件（开发环境启用，生产环境可关闭）
         if self.settings.environment == "development":
