@@ -217,6 +217,15 @@ TOOL_CATALOG = {
             "clear_email_credentials": {"label": "清除凭据", "description": "清除当前会话的邮箱凭据"},
         },
     },
+    "decision": {
+        "label": "决策工具",
+        "description": "向用户提出决策问题，提供选项让用户选择或自定义输入。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {
+            "ask_user_decision": {"label": "请求决策", "description": "向用户提出决策问题，提供选项"},
+        },
+    },
 }
 
 DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
@@ -230,6 +239,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "npm": {"enabled": False, "requires_approval": True},
         "skill": {"enabled": False, "requires_approval": False},
         "email": {"enabled": True, "requires_approval": True},
+        "decision": {"enabled": True, "requires_approval": False},
     },
     "ppt": {
         "calc": {"enabled": False, "requires_approval": False},
@@ -248,6 +258,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "convert_pptx_to_svg": {"enabled": True, "requires_approval": True},
         "import_pptx_template": {"enabled": True, "requires_approval": True},
         "email": {"enabled": False, "requires_approval": True},
+        "decision": {"enabled": True, "requires_approval": False},
     },
     "website": {
         "calc": {"enabled": True, "requires_approval": False},
@@ -259,6 +270,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "npm": {"enabled": True, "requires_approval": True},
         "skill": {"enabled": False, "requires_approval": False},
         "email": {"enabled": False, "requires_approval": True},
+        "decision": {"enabled": True, "requires_approval": False},
         "copy_template": {"enabled": True, "requires_approval": False},
         "check_website_project": {"enabled": True, "requires_approval": False},
         "build_website": {"enabled": True, "requires_approval": False},
