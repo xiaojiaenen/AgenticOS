@@ -1347,6 +1347,15 @@ class AgentService:
                         yield mapped
                     runtime_task = asyncio.create_task(runtime_queue.get())
 
+                # 检查决策工具队列（工具在 agent 内部执行时可能产生决策事件）
+                from app.tools.decision_tools import get_decision_queue
+                pending_decisions = get_decision_queue(session.session_id)
+                for decision in pending_decisions:
+                    yield {
+                        "event": "user_decision",
+                        "data": decision,
+                    }
+
                 if approval_task in done:
                     approval = approval_task.result()
                     func_name = approval.get("tool_name", "")
