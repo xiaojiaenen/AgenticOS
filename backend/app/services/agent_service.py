@@ -60,8 +60,9 @@ class ThinkingHistoryCompatibilityMiddleware(Middleware):
 
 SKILL_INSTRUCTION = (
     "你有可用的 Skill（专门技能），它们是处理特定领域任务的增强能力。\n"
-    "在对话开始时或遇到可能匹配的请求时，先调用 `list_skills` 查看可用技能摘要。\n"
-    "如果某个技能的描述与用户当前任务相关，调用 `load_skill` 加载其完整指令并遵循执行。\n"
+    "遇到可能匹配的请求时，调用 `list_skills` 查看可用技能摘要。\n"
+    "如果某个技能描述与用户任务相关，调用 `load_skill` 加载其完整指令并遵循执行。\n"
+    "**PPT 模式下不要加载技能，直接根据用户需求生成 SVG 并调用 save_slide。**\n"
     "技能正文已包含核心知识，**不要逐个读取 references 文件**，除非正文明确要求读取某个具体文件。\n"
     "references 是补充资料，不是必须全部加载的。"
 )
@@ -380,12 +381,9 @@ class AgentService:
             sessions[request.session_id] = loaded
 
     def _inject_design_catalog(cls, message: str) -> str:
-        """Inject minimal context: theme selection + token reference + skill loading instructions.
+        """Inject minimal context: theme selection + token reference.
 
-        Design rules, SVG constraints, layout templates, and chart templates
-        are now delivered via two skills (ppt-design-guide and ppt-template-library)
-        that the LLM loads once at conversation start. This reduces per-message
-        injection from ~119K chars to ~5K chars.
+        直接注入设计规范，不要求 LLM 先加载技能，避免浪费工具调用步骤。
         """
         token_ref = build_token_quick_ref()
         theme_count = len(list_available_themes())
@@ -394,48 +392,37 @@ class AgentService:
         lines = [
             "",
             "---",
-            "## ⚠️ 生成 SVG 前必须加载两个技能",
+            "## ⭐ 主题选择",
             "",
-            "在生成任何 SVG 之前，**必须按顺序加载以下两个技能**：",
+            f"**共 {theme_count} 个主题可用。data-theme 只能从下方列表选。**",
             "",
-            "1. `load_skill(\"ppt-design-guide\")` — 设计规范全集（SVG 约束、排版铁律、颜色纪律、动画系统、套装风格）",
-            "2. `load_skill(\"ppt-template-library\")` — 模板库（15 个核心布局 + 71 个数据图表，均为 var(--token) 格式）",
+            "**快速决策：**",
+            "- 商业汇报 → apple, stripe, ibm, corporate",
+            "- 技术分享 → github, vercel, cursor, linear-app",
+            "- 创意发布 → nike, spotify, cyberpunk, sunset",
+            "- AI 科技 → openai, claude, nvidia, huggingface",
+            "- 学术报告 → kami, paper, editorial, solarized",
+            "- 社交媒体 → airbnb, xiaohongshu, framer, rose-pine",
+            "- 简约纯净 → minimal, clean, mono, nord, catppuccin-latte",
+            "- 活泼年轻 → vibrant, colorful, catppuccin, zhangzara-sakura-chroma",
+            "- 暗色系 → dracula, tokyo-night, monokai, trading-terminal",
+            "- 金融支付 → stripe, revolut, binance, kraken",
             "",
-            "**技能加载后，按需用 `read_file` 读取具体的 SVG 模板文件。**",
-            "",
-            "---",
-            "## ⭐ 主题选择（必须先选主题，再写 SVG）",
-            "",
-            f"**共 {theme_count} 个品牌设计主题可用。data-theme 只能从下方列表选，禁止自创或编造主题名。**",
-            "",
-            "**快速决策（按场景匹配）：**",
-            "- 商业 / 管理层汇报 → apple, stripe, ibm, corporate, professional, enterprise, mastercard",
-            "- 技术分享 / 开发者 → github, vercel, cursor, linear-app, expo, warp, mongodb, hashicorp, dracula, monokai",
-            "- 创意 / 发布会 → nike, spotify, playstation, ferrari, brutalism, neobrutalism, glassmorphism, cyberpunk, sunset",
-            "- AI / 前沿科技 → openai, claude, nvidia, huggingface, spacex, hud, mission-control, aurora, tokyo-night",
-            "- 学术 / 研究报告 → kami, paper, editorial, atelier-zero, publication, solarized, everforest",
-            "- 社交媒体 / 小红书 → airbnb, pinterest, duolingo, xiaohongshu, framer, rose-pine",
-            "- 简约 / 纯净 → minimal, clean, mono, refined, simple, sleek, nord, catppuccin-latte",
-            "- 活泼 / 年轻化 → discord, colorful, energetic, tetris, pacman, vibrant, catppuccin",
-            "- 暗色系 → spotify, dracula, cyberpunk, tokyo-night, monokai, trading-terminal, hud, mission-control",
-            "- 金融 / 支付 → stripe, revolut, binance, coinbase, kraken, wise",
-            "- 编辑排版（zhangzara 衬线风）→ zhangzara-editorial-tri-tone, zhangzara-soft-editorial, zhangzara-broadside, zhangzara-mat, zhangzara-vellum, zhangzara-pin-and-paper",
-            "- 现代海报/粗野风（zhangzara）→ zhangzara-bold-poster, zhangzara-neo-grid-bold, zhangzara-raw-grid, zhangzara-capsule, zhangzara-signal, zhangzara-block-frame",
-            "- 温暖/活泼（zhangzara）→ zhangzara-coral, zhangzara-daisy-days, zhangzara-pink-script, zhangzara-sakura-chroma, zhangzara-scatterbrain, zhangzara-playful",
-            "- 创意/艺术（zhangzara）→ zhangzara-studio, zhangzara-grove, zhangzara-cartesian, zhangzara-creative-mode, zhangzara-biennale-yellow, zhangzara-monochrome",
-            "- 复古（zhangzara）→ zhangzara-retro-windows, zhangzara-retro-zine, zhangzara-8-bit-orbit",
-            "- 专业/商务（zhangzara）→ zhangzara-blue-professional, zhangzara-long-table, zhangzara-peoples-platform, zhangzara-cobalt-grid, zhangzara-stencil-tablet",
-            "",
-            f"**完整 {theme_count} 主题名列表：**",
+            f"**全部 {theme_count} 个主题：**",
             theme_list,
             "",
-            "**关键规则：**",
-            "1. 从上面选 1 个主题，写入 `<svg data-theme=\"xxx\">`",
-            "2. 所有颜色用 var(--xxx) 令牌，非颜色属性（圆角、字号、字体）直接写值",
-            "3. 每页调用 save_slide(slide_num=N, svg=\"...\") 写入，共 8-14 页",
+            "---",
+            "## SVG 关键规则",
+            "",
+            "1. 每页调用 `save_slide(slide_num=N, svg=\"...\")` 写入",
+            "2. SVG 根元素：`<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1280 720\" data-theme=\"xxx\">`",
+            "3. 所有颜色用 `var(--xxx)` 令牌，非颜色属性（圆角、字号、字体）直接写值",
+            "4. 禁止 `<style>`、`<foreignObject>`、`<mask>`、`class`、`rgba()`",
+            "5. 每页必须有 `<!-- notes: 演讲者备注 -->`",
+            "6. 不要调用 load_skill、search_icons 等工具，直接生成 SVG",
             "",
             "---",
-            "## Token 语义速查（颜色用 var(--xxx) 引用，具体色值由主题决定，后端自动解析）",
+            "## Token 语义速查",
             "",
             token_ref,
             "",
