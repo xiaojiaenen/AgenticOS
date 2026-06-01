@@ -47,6 +47,7 @@ class UserMemoryService:
     def __init__(self):
         self._embedder = SimpleEmbedder(dim=256)
         self._store = InMemoryMemoryStore(embedder=self._embedder)
+        self._conversation_counts: dict[int, int] = {}  # user_id -> 对话计数
 
     async def add_memory(
         self,
@@ -134,7 +135,16 @@ class UserMemoryService:
         assistant_response: str,
         llm_gateway=None,
     ) -> None:
-        """用 LLM 从对话中提取关键信息并保存为记忆"""
+        """用 LLM 从对话中提取关键信息并保存为记忆。
+
+        每 5 次对话提取一次，避免过度调用 LLM。
+        """
+        # 每 5 次对话提取一次
+        count = self._conversation_counts.get(user_id, 0) + 1
+        self._conversation_counts[user_id] = count
+        if count % 5 != 0:
+            return
+
         try:
             from wuwei.llm import LLMGateway
 

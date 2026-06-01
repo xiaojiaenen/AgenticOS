@@ -259,6 +259,10 @@ class AgentService:
         if "email" in profile.builtin_tools:
             register_email_tools(registry)
 
+        # 决策工具：所有模式都可用
+        from app.tools.decision_tools import register_decision_tools
+        register_decision_tools(registry)
+
         # 独立 file_to_md 工具：当 file 工具组未启用时单独注册
         if "file" not in profile.builtin_tools:
             _unregister_if_exists(registry, "file_to_md")
