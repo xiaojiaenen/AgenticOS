@@ -1,52 +1,35 @@
 """用户记忆服务
 
-使用 wuwei 2.2.0 的 InMemoryMemoryStore 实现跨会话记忆。
-
-触发时机：
-- 提取：对话结束时（done 事件），用 LLM 从对话中提取关键信息
-- 注入：发送消息前，根据用户消息搜索相关记忆，注入到上下文中
+数据库持久化存储，支持：
+- 跨会话记忆（用户所有会话共享）
+- 跨重启持久化（数据库存储）
+- LLM 工具调用（search_memory / save_memory）
+- 管理后台查看所有用户记忆
 
 存储方式：
-- 内存存储（InMemoryMemoryStore），进程重启后丢失
-- 每用户独立命名空间（namespace = user_{id}）
+- SQLAlchemy + SQLite/MySQL
+- 每用户独立（user_id 隔离）
 """
 
 import asyncio
+import json
 import logging
 from typing import Any
 
-from wuwei.memory import InMemoryMemoryStore, SimpleEmbedder
+from sqlalchemy import func, select, delete
+from sqlalchemy.orm import Session
+
+from app.db.models import MemoryModel
+from app.db.session import create_db_session
 
 _logger = logging.getLogger("memory_service")
 
-# 记忆提取提示词
-MEMORY_EXTRACTION_PROMPT = """从以下对话中提取用户的关键信息，用于后续个性化服务。
-
-只提取以下类型的信息：
-- 用户偏好（喜欢的主题、风格、习惯）
-- 重要事实（职业、项目、需求）
-- 明确指令（"我总是要用xx主题"、"我不喜欢xx"）
-
-忽略：
-- 临时性对话内容
-- 工具调用细节
-- 不重要的寒暄
-
-输出 JSON 数组，每条包含 content（事实描述）和 importance（0.0-1.0）。
-如果没有值得记忆的信息，输出空数组 []。
-
-对话内容：
-{conversation}
-
-输出（纯 JSON，不要代码块）："""
-
 
 class UserMemoryService:
-    """用户记忆服务（所有方法为 async）"""
+    """用户记忆服务（数据库持久化）"""
 
-    def __init__(self):
-        self._embedder = SimpleEmbedder(dim=256)
-        self._store = InMemoryMemoryStore(embedder=self._embedder)
+    def __init__(self, session_factory=create_db_session) -> None:
+        self.session_factory = session_factory
         self._conversation_counts: dict[int, int] = {}  # user_id -> 对话计数
         self._conversation_buffers: dict[int, list[dict]] = {}  # user_id -> 多轮对话缓冲
 
@@ -58,19 +41,27 @@ class UserMemoryService:
         memory_type: str = "fact",
         importance: float = 0.5,
         tags: list[str] | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> None:
-        """为用户添加一条记忆"""
-        namespace = f"user_{user_id}"
-        await self._store.add(
-            content=content,
-            namespace=namespace,
-            memory_type=memory_type,
-            importance=importance,
-            tags=tags,
-            metadata=metadata,
-        )
-        _logger.debug(f"Added memory for user {user_id}: {content[:50]}...")
+        source: str = "auto",
+    ) -> int:
+        """为用户添加一条记忆，返回记忆 ID。"""
+
+        def _run() -> int:
+            with self.session_factory() as db:
+                row = MemoryModel(
+                    user_id=user_id,
+                    content=content,
+                    memory_type=memory_type,
+                    importance=importance,
+                    tags_json=json.dumps(tags, ensure_ascii=False) if tags else None,
+                    source=source,
+                )
+                db.add(row)
+                db.commit()
+                return row.id
+
+        memory_id = await asyncio.to_thread(_run)
+        _logger.info(f"Added memory for user {user_id}: {content[:50]}...")
+        return memory_id
 
     async def search_memory(
         self,
@@ -79,48 +70,66 @@ class UserMemoryService:
         *,
         limit: int = 5,
     ) -> list[dict[str, Any]]:
-        """搜索用户的记忆"""
-        namespace = f"user_{user_id}"
-        records = await self._store.search(query, namespace=namespace, limit=limit)
-        return [
-            {
-                "id": r.id,
-                "content": r.content,
-                "memory_type": r.memory_type,
-                "importance": r.importance,
-                "tags": r.tags,
-                "created_at": r.created_at.isoformat() if r.created_at else None,
-            }
-            for r in records
-        ]
+        """搜索用户的记忆（关键词匹配）。"""
+
+        def _run() -> list[dict[str, Any]]:
+            with self.session_factory() as db:
+                rows = db.scalars(
+                    select(MemoryModel)
+                    .where(MemoryModel.user_id == user_id)
+                    .where(MemoryModel.content.contains(query))
+                    .order_by(MemoryModel.importance.desc(), MemoryModel.created_at.desc())
+                    .limit(limit)
+                ).all()
+                return [self._row_to_dict(r) for r in rows]
+
+        return await asyncio.to_thread(_run)
 
     async def get_all_memories(self, user_id: int) -> list[dict[str, Any]]:
-        """获取用户的所有记忆"""
-        namespace = f"user_{user_id}"
-        records = await self._store.list_all(namespace=namespace)
-        return [
-            {
-                "id": r.id,
-                "content": r.content,
-                "memory_type": r.memory_type,
-                "importance": r.importance,
-                "tags": r.tags,
-                "created_at": r.created_at.isoformat() if r.created_at else None,
-            }
-            for r in records
-        ]
+        """获取用户的所有记忆。"""
 
-    async def delete_memory(self, user_id: int, memory_id: str) -> bool:
-        """删除用户的一条记忆"""
-        namespace = f"user_{user_id}"
-        try:
-            await self._store.delete(memory_id, namespace=namespace)
-            return True
-        except Exception:
-            return False
+        def _run() -> list[dict[str, Any]]:
+            with self.session_factory() as db:
+                rows = db.scalars(
+                    select(MemoryModel)
+                    .where(MemoryModel.user_id == user_id)
+                    .order_by(MemoryModel.importance.desc(), MemoryModel.created_at.desc())
+                ).all()
+                return [self._row_to_dict(r) for r in rows]
+
+        return await asyncio.to_thread(_run)
+
+    async def get_all_memories_admin(self) -> list[dict[str, Any]]:
+        """管理员：获取所有用户的记忆。"""
+
+        def _run() -> list[dict[str, Any]]:
+            with self.session_factory() as db:
+                rows = db.scalars(
+                    select(MemoryModel)
+                    .order_by(MemoryModel.user_id, MemoryModel.importance.desc())
+                ).all()
+                return [self._row_to_dict(r) for r in rows]
+
+        return await asyncio.to_thread(_run)
+
+    async def delete_memory(self, memory_id: int, user_id: int | None = None) -> bool:
+        """删除一条记忆。user_id 为 None 时管理员可删除任意记忆。"""
+
+        def _run() -> bool:
+            with self.session_factory() as db:
+                row = db.get(MemoryModel, memory_id)
+                if row is None:
+                    return False
+                if user_id is not None and row.user_id != user_id:
+                    return False
+                db.delete(row)
+                db.commit()
+                return True
+
+        return await asyncio.to_thread(_run)
 
     async def get_memory_context(self, user_id: int, query: str, *, limit: int = 3) -> str:
-        """获取与查询相关的记忆上下文，用于注入到 LLM 提示词中"""
+        """获取与查询相关的记忆上下文，用于注入到 LLM 提示词中。"""
         records = await self.search_memory(user_id, query, limit=limit)
         if not records:
             return ""
@@ -150,7 +159,7 @@ class UserMemoryService:
         # 只保留最近 6 轮对话
         self._conversation_buffers[user_id] = self._conversation_buffers[user_id][-6:]
 
-        # 每 2 次对话提取一次（测试期间降低频率）
+        # 每 2 次对话提取一次
         count = self._conversation_counts.get(user_id, 0) + 1
         self._conversation_counts[user_id] = count
         _logger.info(f"Memory extraction check: user={user_id}, count={count}, will_extract={count % 2 == 0}")
@@ -180,7 +189,7 @@ class UserMemoryService:
                 ],
             )
 
-            import json
+            import json as json_lib
             content = response.message.content or "[]"
             # 提取 JSON
             if "```json" in content:
@@ -188,7 +197,7 @@ class UserMemoryService:
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0]
 
-            memories = json.loads(content.strip())
+            memories = json_lib.loads(content.strip())
             if not isinstance(memories, list):
                 return
 
@@ -197,9 +206,10 @@ class UserMemoryService:
                     await self.add_memory(
                         user_id,
                         str(mem["content"]),
-                        memory_type="fact",
+                        memory_type=mem.get("type", "fact"),
                         importance=float(mem.get("importance", 0.5)),
                         tags=["auto-extracted"],
+                        source="auto",
                     )
 
             if memories:
@@ -207,6 +217,50 @@ class UserMemoryService:
 
         except Exception as e:
             _logger.debug(f"Memory extraction failed (non-critical): {e}")
+
+    @staticmethod
+    def _row_to_dict(row: MemoryModel) -> dict[str, Any]:
+        tags = []
+        if row.tags_json:
+            try:
+                tags = json.loads(row.tags_json)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return {
+            "id": row.id,
+            "user_id": row.user_id,
+            "content": row.content,
+            "memory_type": row.memory_type,
+            "importance": row.importance,
+            "tags": tags,
+            "source": row.source,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+
+
+MEMORY_EXTRACTION_PROMPT = """从以下对话中提取用户的关键信息，用于后续个性化服务。
+
+只提取以下类型的信息：
+- 用户的身份信息（姓名、职业、所在地等）
+- 用户的偏好（喜欢什么、不喜欢什么）
+- 用户的技术栈（使用什么语言、框架、工具）
+- 用户的项目信息（在做什么项目、遇到什么问题）
+
+对话内容：
+{conversation}
+
+输出 JSON 数组，每个元素包含：
+- content: 记忆内容（简短明确）
+- type: 记忆类型（fact/preference/tech/project）
+- importance: 重要性（0.1-1.0）
+
+如果没有值得提取的信息，返回空数组 []。
+
+示例输出：
+[
+  {{"content": "用户叫张三", "type": "fact", "importance": 0.9}},
+  {{"content": "用户喜欢用 Vue 3", "type": "preference", "importance": 0.7}}
+]"""
 
 
 # 全局单例
