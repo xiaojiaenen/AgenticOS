@@ -1114,12 +1114,29 @@ class AgentService:
         runtime_task = asyncio.create_task(runtime_queue.get())
         approval_task = asyncio.create_task(approval_queue.get())
 
+        # Keepalive: 每 15 秒发送一次注释防止连接超时
+        KEEPALIVE_INTERVAL = 15
+        loop = asyncio.get_running_loop()
+        last_event_time = loop.time()
+
         try:
             while True:
+                # 使用 timeout 避免无限等待，以便发送 keepalive
                 done, _ = await asyncio.wait(
                     {runtime_task, approval_task},
+                    timeout=KEEPALIVE_INTERVAL,
                     return_when=asyncio.FIRST_COMPLETED,
                 )
+
+                # 如果没有事件且距上次事件超过 keepalive 间隔，发送 keepalive
+                current_time = loop.time()
+                if not done and (current_time - last_event_time) >= KEEPALIVE_INTERVAL:
+                    yield {"event": "keepalive", "data": {"timestamp": int(current_time)}}
+                    last_event_time = current_time
+                    continue
+
+                if done:
+                    last_event_time = current_time
 
                 if runtime_task in done:
                     event = runtime_task.result()
