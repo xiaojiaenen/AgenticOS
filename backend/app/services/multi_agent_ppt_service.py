@@ -17,7 +17,6 @@ from typing import Any, AsyncIterator
 
 from wuwei import Agent, LLMGateway, SkillManager, FileSystemSkillProvider
 from wuwei.tools import ToolRegistry
-from wuwei.tools.builtin import register_skill_tools
 
 from app.core.config import Settings, get_settings
 from app.services.agent_service import AgentService
