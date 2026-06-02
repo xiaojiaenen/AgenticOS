@@ -137,12 +137,13 @@ class UserMemoryService:
     ) -> None:
         """用 LLM 从对话中提取关键信息并保存为记忆。
 
-        每 5 次对话提取一次，避免过度调用 LLM。
+        每 3 次对话提取一次，避免过度调用 LLM。
         """
-        # 每 3 次对话提取一次（降低频率减少 LLM 调用）
+        # 每 2 次对话提取一次（测试期间降低频率）
         count = self._conversation_counts.get(user_id, 0) + 1
         self._conversation_counts[user_id] = count
-        if count % 3 != 0:
+        _logger.info(f"Memory extraction check: user={user_id}, count={count}, will_extract={count % 2 == 0}")
+        if count % 2 != 0:
             return
 
         try:
