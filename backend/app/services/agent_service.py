@@ -1198,6 +1198,7 @@ class AgentService:
                 _logger.warning(f"Memory context injection failed: {e}")
 
         async def produce_events() -> None:
+            nonlocal message
             try:
                 # message 变量已经包含记忆注入或设计目录注入
                 # 如果有文件附件，追加文件描述
@@ -1206,8 +1207,15 @@ class AgentService:
                     if file_desc != request.message:
                         message = message + "\n\n" + file_desc
                 user_message = message
+                _logger.info(f"produce_events: starting, user_msg_len={len(user_message)}, context_msgs={len(getattr(session.context, '_messages', []))}")
+                event_count = 0
                 async for event in agent.stream_events(user_message, session=session):
+                    event_count += 1
                     await runtime_queue.put(event)
+                _logger.info(f"produce_events: done, events={event_count}, context_msgs={len(getattr(session.context, '_messages', []))}")
+            except Exception as e:
+                _logger.error(f"produce_events: exception: {e}", exc_info=True)
+                raise
             finally:
                 try:
                     if hasattr(session, "system_prompt"):
