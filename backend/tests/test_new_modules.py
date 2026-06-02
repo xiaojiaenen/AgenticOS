@@ -168,7 +168,7 @@ class TestAgentServiceIntegration:
         llm = LLMGateway.from_env()
         stack = service._build_middleware_stack(profile, llm)
         mw_names = [type(m).__name__ for m in stack.middlewares]
-        assert "HitlMiddleware" in mw_names
+        assert "LenientHitlMiddleware" in mw_names
 
     def test_build_tool_registry_with_mcp(self):
         from app.services.agent_service import AgentService
@@ -297,6 +297,6 @@ class TestEndToEndFallback:
         mw_names = [type(m).__name__ for m in stack.middlewares]
 
         assert "ContextCompressionMiddleware" in mw_names
-        assert "HitlMiddleware" in mw_names
+        assert "LenientHitlMiddleware" in mw_names
         assert "LoggingMiddleware" in mw_names
         assert "ThinkingHistoryCompatibilityMiddleware" in mw_names

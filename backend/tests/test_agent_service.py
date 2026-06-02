@@ -13,6 +13,7 @@ class FakeSession:
         self.max_steps = max_steps
         self.system_prompt = system_prompt
         self.parallel_tool_calls = parallel_tool_calls
+        self.context = None
 
 
 class FakeAgent:

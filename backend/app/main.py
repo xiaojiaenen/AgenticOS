@@ -1,11 +1,20 @@
 import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, OperationalError
+
+# 在读取 Settings 之前，将 .env 加载到 os.environ
+# 这样 wuwei 等直接读 os.environ 的库也能拿到配置
+_env_file = Path(__file__).resolve().parent.parent / ".env"
+if _env_file.exists():
+    load_dotenv(_env_file, override=False)
 
 from app.api.router import api_router
 from app.core.config import get_settings
