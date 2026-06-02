@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Loader2, Search, Trash2 } from 'lucide-react';
+import { Brain, Loader2, Search, Trash2, User } from 'lucide-react';
 import { getMemories, deleteMemory, MemoryItem } from '../../services/memoryService';
 import { formatApiDate } from '../../lib/datetime';
+import { getStoredUser } from '../../services/authService';
 
 export const MemoryPanel: React.FC = () => {
   const [memories, setMemories] = useState<MemoryItem[]>([]);
@@ -9,6 +10,7 @@ export const MemoryPanel: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const user = getStoredUser();
 
   useEffect(() => {
     loadMemories();
@@ -60,6 +62,12 @@ export const MemoryPanel: React.FC = () => {
             <p className="mt-1 text-sm text-slate-500">
               AI 会记住你的偏好和历史对话中的关键信息，用于个性化服务
             </p>
+            {user && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                <User size={14} />
+                <span>当前用户：{user.name} ({user.email})</span>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

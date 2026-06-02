@@ -48,6 +48,7 @@ class UserMemoryService:
         self._embedder = SimpleEmbedder(dim=256)
         self._store = InMemoryMemoryStore(embedder=self._embedder)
         self._conversation_counts: dict[int, int] = {}  # user_id -> 对话计数
+        self._conversation_buffers: dict[int, list[dict]] = {}  # user_id -> 多轮对话缓冲
 
     async def add_memory(
         self,
@@ -137,8 +138,18 @@ class UserMemoryService:
     ) -> None:
         """用 LLM 从对话中提取关键信息并保存为记忆。
 
-        每 3 次对话提取一次，避免过度调用 LLM。
+        每 2 次对话提取一次，使用多轮对话历史进行提取。
         """
+        # 收集多轮对话历史
+        if user_id not in self._conversation_buffers:
+            self._conversation_buffers[user_id] = []
+        self._conversation_buffers[user_id].append({
+            "user": user_message,
+            "assistant": assistant_response[:500],
+        })
+        # 只保留最近 6 轮对话
+        self._conversation_buffers[user_id] = self._conversation_buffers[user_id][-6:]
+
         # 每 2 次对话提取一次（测试期间降低频率）
         count = self._conversation_counts.get(user_id, 0) + 1
         self._conversation_counts[user_id] = count
@@ -152,7 +163,13 @@ class UserMemoryService:
             if llm_gateway is None:
                 llm_gateway = LLMGateway.from_env()
 
-            conversation = f"用户: {user_message}\nAI: {assistant_response[:500]}"
+            # 使用多轮对话历史
+            history = self._conversation_buffers.get(user_id, [])
+            conversation_lines = []
+            for turn in history:
+                conversation_lines.append(f"用户: {turn['user']}")
+                conversation_lines.append(f"AI: {turn['assistant']}")
+            conversation = "\n".join(conversation_lines)
             prompt = MEMORY_EXTRACTION_PROMPT.format(conversation=conversation)
 
             from wuwei.core.message import SystemMessage, HumanMessage

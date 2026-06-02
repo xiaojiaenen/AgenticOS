@@ -1405,16 +1405,18 @@ class AgentService:
             if user is not None and request.message and not ppt_mode and not website_mode:
                 try:
                     from app.services.memory_service import get_memory_service
-                    # 使用用户消息和 AI 回复进行记忆提取
+                    # 使用用户消息和 AI 回复进行记忆提取（异步非阻塞）
                     ai_response = collected_text[:500] if collected_text else ""
-                    await get_memory_service().extract_and_save_memories(
-                        user.id,
-                        request.message,
-                        ai_response,
+                    asyncio.create_task(
+                        get_memory_service().extract_and_save_memories(
+                            user.id,
+                            request.message,
+                            ai_response,
+                        )
                     )
-                    _logger.info(f"Memory extraction triggered for user {user.id}")
+                    _logger.info(f"Memory extraction task created for user {user.id}")
                 except Exception as e:
-                    _logger.warning(f"Memory extraction failed: {e}")
+                    _logger.warning(f"Memory extraction task creation failed: {e}")
 
         finally:
             _logger.info(
