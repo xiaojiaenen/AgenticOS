@@ -3,9 +3,9 @@ import { Session, Message } from '../types';
 import { listSessions, deleteSession as deleteSessionApi, generateTitle } from '../services/agentService';
 import { getStoredUser } from '../services/authService';
 
-const MAX_PERSISTED_MESSAGES_PER_SESSION = 80;
-const MAX_PERSISTED_TEXT_LENGTH = 12_000;
-const MAX_PERSISTED_TOOL_RESULT_LENGTH = 4_000;
+const MAX_PERSISTED_MESSAGES_PER_SESSION = 120;
+const MAX_PERSISTED_TEXT_LENGTH = 30_000;
+const MAX_PERSISTED_TOOL_RESULT_LENGTH = 10_000;
 
 // 按用户 ID 隔离缓存 key
 function getCacheKey(): string {

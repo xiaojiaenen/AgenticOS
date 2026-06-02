@@ -303,12 +303,19 @@ class AgentService:
 
         return registry
 
-    @staticmethod
-    def _build_tool_call_payload(event: AgentEvent) -> dict[str, Any]:
+    def _build_tool_call_payload(self, event: AgentEvent) -> dict[str, Any]:
+        # 优先使用事件中的 display_name，否则从 TOOL_CATALOG 查找中文名
+        tool_name = event.data.get("tool_name") or ""
+        display_name = (
+            event.data.get("display_name")
+            or self._get_display_name_map().get(tool_name)
+            or tool_name
+            or "工具调用"
+        )
         payload = {
             "id": event.data.get("tool_call_id"),
             "function": {
-                "name": event.data.get("display_name") or event.data.get("tool_name") or "工具调用",
+                "name": display_name,
                 "arguments": event.data.get("args") or {},
             },
         }
@@ -321,16 +328,23 @@ class AgentService:
                 payload[target_key] = value
         return payload
 
-    @staticmethod
     def _build_tool_result_payload(
+        self,
         event: AgentEvent,
         *,
         status: str,
         result: str | None,
     ) -> dict[str, Any]:
+        tool_name = event.data.get("tool_name") or ""
+        display_name = (
+            event.data.get("display_name")
+            or self._get_display_name_map().get(tool_name)
+            or tool_name
+            or "工具调用"
+        )
         payload = {
             "tool_call_id": event.data.get("tool_call_id"),
-            "name": event.data.get("display_name") or event.data.get("tool_name") or "工具调用",
+            "name": display_name,
             "status": status,
             "result": result,
         }
