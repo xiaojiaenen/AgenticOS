@@ -427,6 +427,24 @@ export async function submitApprovalDecision(
   return response.json();
 }
 
+export async function submitUserDecision(
+  decisionId: string,
+  answer: string,
+): Promise<{ ok: boolean; decision_id: string; answer: string }> {
+  const response = await fetch(`${AGENT_ENDPOINT}/decisions/${decisionId}/decision`, {
+    method: 'POST',
+    headers: {...authHeaders(), 'Content-Type': 'application/json'},
+    body: JSON.stringify({answer}),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || '决策提交失败。');
+  }
+
+  return response.json();
+}
+
 export async function getAgentSessionState(sessionId: string): Promise<AgentSessionState> {
   const response = await fetch(`${AGENT_ENDPOINT}/sessions/${sessionId}`, {
     headers: authHeaders(),

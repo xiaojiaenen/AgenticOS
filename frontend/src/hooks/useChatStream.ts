@@ -4,6 +4,7 @@ import {
   sendMessageStream,
   generateTitle,
   submitApprovalDecision,
+  submitUserDecision,
   AgentSessionState,
   AgentPptArtifact,
   AgentWebsiteArtifact,
@@ -12,6 +13,7 @@ import {
 import { AgentProfile } from '../services/agentProfileService';
 import { uploadFiles } from '../services/fileService';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
+import { UserDecision, normalizeDecision } from '../components/chat/DecisionPanel';
 
 // ---------------------------------------------------------------------------
 // extracted helpers
@@ -66,6 +68,7 @@ export function useChatStream({
 }: UseChatStreamDeps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDecisions, setPendingDecisions] = useState<UserDecision[]>([]);
   const [runStatus, setRunStatus] = useState<{
     phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'done' | 'error';
     label: string;
@@ -123,6 +126,9 @@ export function useChatStream({
   const handleSend = useCallback(
     async (text: string, files?: File[]) => {
       if ((!text.trim() && (!files || files.length === 0)) || isLoading) return;
+
+      // 清除待处理的决策（用户开始新输入时）
+      setPendingDecisions([]);
 
       const currentText = text.trim();
       let userMessage: Message | null = null;
@@ -361,6 +367,15 @@ export function useChatStream({
               ),
             );
           },
+          onUserDecision: (decision: unknown) => {
+            const d = normalizeDecision(decision);
+            if (!d) return;
+            setPendingDecisions((prev) => {
+              // 避免重复添加
+              if (prev.some((item) => item.decision_id === d.decision_id)) return prev;
+              return [...prev, d];
+            });
+          },
         });
 
         const pptArtifact = response.pptArtifact || receivedPptArtifact;
@@ -525,6 +540,21 @@ export function useChatStream({
     ],
   );
 
+  const handleDecisionMade = useCallback(
+    async (decisionId: string, answer: string) => {
+      // 移除已回答的决策
+      setPendingDecisions((prev) => prev.filter((d) => d.decision_id !== decisionId));
+      // 调用 API 解析决策（后端工具正在阻塞等待）
+      try {
+        await submitUserDecision(decisionId, answer);
+      } catch (err) {
+        console.error('Decision submit error:', err);
+        setError('决策提交失败，请检查后端服务。');
+      }
+    },
+    [setError],
+  );
+
   return {
     isLoading,
     error,
@@ -532,8 +562,10 @@ export function useChatStream({
     runStatus,
     setRunStatus,
     abortControllerRef,
+    pendingDecisions,
     handleSend,
     handleStopGeneration,
     handleApprovalDecision,
+    handleDecisionMade,
   };
 }
