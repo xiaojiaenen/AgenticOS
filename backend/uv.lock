@@ -40,7 +40,7 @@ requires-dist = [
     { name = "python-pptx", specifier = ">=1.0.2" },
     { name = "sqlalchemy", specifier = ">=2.0.44,<3.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.35.0,<1.0.0" },
-    { name = "wuwei", specifier = ">=3.0.0" },
+    { name = "wuwei", specifier = ">=3.0.1" },
 ]
 
 [package.metadata.requires-dev]
@@ -919,17 +919,17 @@ wheels = [
 
 [[package]]
 name = "wuwei"
-version = "3.0.0"
-source = { registry = "https://pypi.org/simple" }
+version = "3.0.1"
+source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c6/b0/14524318c94eaa0a5e8d32a9d5bf0f7145c71a23e52be1393edc08032c6e/wuwei-3.0.0.tar.gz", hash = "sha256:0cc9c51c372f3b8397e7343712f632cd480e491096ae36ecb024ab88bf64111b", size = 136119, upload-time = "2026-06-02T14:30:33.807Z" }
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/e2/78/84ce48ac95ea759151c39cf9bb20e96a22596d7010d94d49d86be528ffce/wuwei-3.0.1.tar.gz", hash = "sha256:5205dc3611ac65f3aed27695d345f848cda6ee2ac68c780ddd40263c98e3d595", size = 136208, upload-time = "2026-06-02T16:17:16.092Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/60/7e/a67970946121eaf21ca061900f49ac90668178f4149e6daae61c4c224485/wuwei-3.0.0-py3-none-any.whl", hash = "sha256:51ea5c1c9447e12e63e2b160dfb6e83a455b4cebf14ae6a93380d8d1c60b979f", size = 144393, upload-time = "2026-06-02T14:30:30.974Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/58/29/f308d59c6a71a92e4795236ad28f473517f56585c7df587e2b764ac264d3/wuwei-3.0.1-py3-none-any.whl", hash = "sha256:338e93dddadc135660906d49ccc10bdad074a8daf082b8dd2dff47ed711a38aa", size = 144487, upload-time = "2026-06-02T16:17:20.124Z" },
 ]
 
 [[package]]
