@@ -226,6 +226,16 @@ TOOL_CATALOG = {
             "ask_user_decision": {"label": "请求决策", "description": "向用户提出决策问题，提供选项"},
         },
     },
+    "memory": {
+        "label": "记忆工具",
+        "description": "搜索和保存用户记忆，用于个性化服务。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {
+            "search_memory": {"label": "搜索记忆", "description": "搜索用户的历史记忆"},
+            "save_memory": {"label": "保存记忆", "description": "保存关于用户的重要信息"},
+        },
+    },
 }
 
 DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
@@ -240,6 +250,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "skill": {"enabled": False, "requires_approval": False},
         "email": {"enabled": True, "requires_approval": True},
         "decision": {"enabled": True, "requires_approval": False},
+        "memory": {"enabled": True, "requires_approval": False},
     },
     "ppt": {
         "calc": {"enabled": False, "requires_approval": False},
@@ -250,6 +261,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "git": {"enabled": False, "requires_approval": True},
         "npm": {"enabled": False, "requires_approval": True},
         "skill": {"enabled": True, "requires_approval": False},
+        "memory": {"enabled": False, "requires_approval": False},
         "search_icons": {"enabled": True, "requires_approval": False},
         "save_slide": {"enabled": True, "requires_approval": False},
         "read_slide": {"enabled": True, "requires_approval": False},
@@ -271,6 +283,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "skill": {"enabled": False, "requires_approval": False},
         "email": {"enabled": False, "requires_approval": True},
         "decision": {"enabled": True, "requires_approval": False},
+        "memory": {"enabled": False, "requires_approval": False},
         "copy_template": {"enabled": True, "requires_approval": False},
         "check_website_project": {"enabled": True, "requires_approval": False},
         "build_website": {"enabled": True, "requires_approval": False},
