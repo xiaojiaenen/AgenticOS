@@ -24,31 +24,38 @@ from wuwei.tools import ToolRegistry
 from wuwei.tools.builtin import register_skill_tools
 from wuwei.core.message import ToolCall
 
+# 特殊工具名：用户拒绝时替换原工具调用，让 LLM 收到明确的拒绝消息
+_REJECTED_TOOL_NAME = "__tool_rejected__"
+
 
 class LenientHitlMiddleware(HitlMiddleware):
-    """宽松的 HITL 中间件：用户拒绝时不抛异常，返回 None 跳过工具执行。"""
+    """宽松的 HITL 中间件：用户拒绝时不抛异常，替换为拒绝消息让 LLM 继续。"""
 
     async def before_tool(
         self,
         ctx: MiddlewareContext,
         tool_call: ToolCall,
     ) -> ToolCall | None:
-        """工具执行前进行审批，用户拒绝时返回 None 跳过。"""
+        """工具执行前进行审批，用户拒绝时替换为拒绝工具。"""
         tool_name = tool_call.function.name
 
         # 自动批准
         if tool_name in self.auto_approve_tools:
             return tool_call
 
-        # 自动拒绝 - 返回 None 跳过
+        # 自动拒绝 - 替换为拒绝工具
         if tool_name in self.auto_reject_tools:
-            return None
+            tool_call.function.name = _REJECTED_TOOL_NAME
+            tool_call.function.arguments = {"original_tool": tool_name, "reason": "自动拒绝"}
+            return tool_call
 
         # 请求用户审批
         approved = await self.approval_provider(tool_call)
         if not approved:
-            # 用户拒绝，返回 None 跳过工具执行（不抛异常）
-            return None
+            # 用户拒绝，替换为拒绝工具（LLM 会收到明确的拒绝消息）
+            tool_call.function.name = _REJECTED_TOOL_NAME
+            tool_call.function.arguments = {"original_tool": tool_name, "reason": "用户拒绝了此工具的执行"}
+            return tool_call
 
         return tool_call
 
@@ -292,6 +299,15 @@ class AgentService:
         from app.tools.decision_tools import register_decision_tools
         register_decision_tools(registry)
 
+        # 注册拒绝工具：用户拒绝工具执行时，替换原工具调用，让 LLM 收到明确的拒绝消息
+        @registry.tool(
+            name=_REJECTED_TOOL_NAME,
+            display_name="工具被拒绝",
+            description="用户拒绝了工具的执行。此工具由系统自动调用，不需要手动使用。",
+        )
+        async def _tool_rejected(original_tool: str = "", reason: str = "用户拒绝了此工具的执行") -> dict:
+            return {"rejected": True, "original_tool": original_tool, "message": reason}
+
         # 独立 file_to_md 工具：当 file 工具组未启用时单独注册
         if "file" not in profile.builtin_tools:
             _unregister_if_exists(registry, "file_to_md")
@@ -335,12 +351,17 @@ class AgentService:
     def _build_tool_call_payload(self, event: AgentEvent) -> dict[str, Any]:
         # 优先使用事件中的 display_name，否则从 TOOL_CATALOG 查找中文名
         tool_name = event.data.get("tool_name") or ""
-        display_name = (
-            event.data.get("display_name")
-            or self._get_display_name_map().get(tool_name)
-            or tool_name
-            or "工具调用"
-        )
+        # 拒绝工具显示原始工具名 + "已拒绝"
+        if tool_name == _REJECTED_TOOL_NAME:
+            original = event.data.get("args", {}).get("original_tool", "") if isinstance(event.data.get("args"), dict) else ""
+            display_name = f"{self._get_display_name_map().get(original, original) or '工具'}（已拒绝）"
+        else:
+            display_name = (
+                event.data.get("display_name")
+                or self._get_display_name_map().get(tool_name)
+                or tool_name
+                or "工具调用"
+            )
         payload = {
             "id": event.data.get("tool_call_id"),
             "function": {
