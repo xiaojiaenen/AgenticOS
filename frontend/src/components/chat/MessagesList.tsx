@@ -69,6 +69,7 @@ export const MessagesList: React.FC<MessagesListProps> = ({
           index={idx}
           isStreaming={message.id === streamingMessageId}
           wideLayout={wideLayout}
+          isAdmin={isAdmin}
           searchQuery={searchQuery}
           activeMatchId={activeMatchId}
           onOpenArtifact={onOpenArtifact}
