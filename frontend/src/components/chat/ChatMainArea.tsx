@@ -152,7 +152,7 @@ export const ChatMainArea = React.memo(({
       />
 
       {/* 右下角浮动工具栏 */}
-      <div className="fixed right-6 bottom-10 flex flex-col gap-3 z-40">
+      <div className="fixed right-6 bottom-24 flex flex-col gap-3 z-40">
         <button
           onClick={onToggleSearch}
           className={cn(
