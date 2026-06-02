@@ -85,10 +85,17 @@ export function setAuthSession(response: AuthResponse): void {
 }
 
 export function clearAuthSession(): void {
+  // 清理当前用户的会话缓存
+  const user = getStoredUser();
+  if (user) {
+    localStorage.removeItem(`chat_sessions_${user.id}`);
+  }
+  localStorage.removeItem('chat_sessions_guest');
+  localStorage.removeItem('chat_sessions'); // 清理旧的通用 key
+
   removeStorageValue(TOKEN_KEY);
   removeStorageValue(USER_KEY);
   removeStorageValue(ROLE_KEY);
-  localStorage.removeItem('chat_sessions');
 }
 
 export async function login(email: string, password: string): Promise<AuthUser> {
