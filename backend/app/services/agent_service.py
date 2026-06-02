@@ -230,6 +230,7 @@ class AgentService:
             default_max_steps=self.settings.agent_max_steps,
             default_parallel_tool_calls=self.settings.agent_parallel_tool_calls,
             middleware=middleware_stack,
+            load_builtins=False,
         )
         self._agents[cache_key] = agent
         return agent
