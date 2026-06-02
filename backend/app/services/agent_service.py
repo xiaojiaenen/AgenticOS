@@ -1195,10 +1195,13 @@ class AgentService:
 
         async def produce_events() -> None:
             try:
-                user_message = self._build_user_message(request)
-                # 注入后的 message 包含主题列表等设计系统信息，需要覆盖原始消息
-                if ppt_mode or website_mode:
-                    user_message = message
+                # message 变量已经包含记忆注入或设计目录注入
+                # 如果有文件附件，追加文件描述
+                if request.files:
+                    file_desc = self._build_user_message(request)
+                    if file_desc != request.message:
+                        message = message + "\n\n" + file_desc
+                user_message = message
                 async for event in agent.stream_events(user_message, session=session):
                     await runtime_queue.put(event)
             finally:
