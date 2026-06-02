@@ -80,6 +80,22 @@ async def decide_approval(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.post("/decisions/{decision_id}/decision", summary="提交用户决策结果")
+async def decide_user_decision(
+    decision_id: str,
+    request: dict[str, str],
+    current_user: UserModel = Depends(get_current_user),
+) -> dict[str, Any]:
+    from app.tools.decision_tools import resolve_decision
+    answer = request.get("answer", "")
+    if not answer:
+        raise HTTPException(status_code=400, detail="answer 不能为空")
+    resolved = await resolve_decision(decision_id, answer)
+    if not resolved:
+        raise HTTPException(status_code=404, detail="决策不存在或已超时")
+    return {"ok": True, "decision_id": decision_id, "answer": answer}
+
+
 @router.get("/sessions/{session_id}", summary="获取智能体会话运行状态")
 async def get_session_state(
     session_id: str,
