@@ -809,24 +809,35 @@ class AgentService:
         wuwei 的 AgentSession 只在内存中存储消息，需要手动持久化。
         """
         try:
-            messages = getattr(session.context, "_messages", [])
+            context = getattr(session, "context", None)
+            if context is None:
+                _logger.warning(f"No context found for session {session.session_id}")
+                return
+
+            messages = getattr(context, "_messages", [])
+            _logger.info(f"Persist check: session={session.session_id}, context_messages={len(messages)}")
+
             if not messages:
                 return
 
             # 检查数据库中已有的消息数量，避免重复插入
             existing_count = await self.storage.get_message_count(session.session_id)
+            _logger.info(f"Persist check: existing_count={existing_count}")
+
             if existing_count >= len(messages):
                 return
 
             # 只保存新增的消息
             new_messages = messages[existing_count:]
             for msg in new_messages:
-                await self.storage.append_message(session.session_id, msg)
+                try:
+                    await self.storage.append_message(session.session_id, msg)
+                except Exception as e:
+                    _logger.warning(f"Failed to append message: {e}, type={type(msg)}")
 
-            if new_messages:
-                _logger.info(f"Persisted {len(new_messages)} messages for session {session.session_id}")
+            _logger.info(f"Persisted {len(new_messages)} messages for session {session.session_id}")
         except Exception as e:
-            _logger.warning(f"Failed to persist messages for session {session.session_id}: {e}")
+            _logger.warning(f"Failed to persist messages for session {session.session_id}: {e}", exc_info=True)
 
     def _normalize_session_limits(
         self,
@@ -1196,11 +1207,16 @@ class AgentService:
                         # Shield to ensure DB write completes even when the
                         # producer task is cancelled by client disconnecting
                         # the SSE stream, so connections are returned to the pool.
+                        _logger.info(f"produce_events finally: saving meta for session {session.session_id}")
                         await asyncio.shield(self.storage.save_meta(session))
                         # 保存消息到数据库（wuwei 的 AgentSession 只在内存中存储消息）
+                        _logger.info(f"produce_events finally: persisting messages for session {session.session_id}")
                         await asyncio.shield(self._persist_session_messages(session))
+                        _logger.info(f"produce_events finally: done for session {session.session_id}")
                 except asyncio.CancelledError:
-                    pass
+                    _logger.warning(f"produce_events finally: cancelled for session {session.session_id}")
+                except Exception as e:
+                    _logger.warning(f"produce_events finally: error for session {session.session_id}: {e}", exc_info=True)
                 finally:
                     await runtime_queue.put(None)
 
