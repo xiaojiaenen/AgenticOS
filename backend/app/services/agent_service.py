@@ -803,6 +803,31 @@ class AgentService:
             _logger.warning("_get_edit_hint failed for session=%s", session_id, exc_info=True)
             return None
 
+    async def _persist_session_messages(self, session) -> None:
+        """将 session.context 中的消息持久化到数据库。
+
+        wuwei 的 AgentSession 只在内存中存储消息，需要手动持久化。
+        """
+        try:
+            messages = getattr(session.context, "_messages", [])
+            if not messages:
+                return
+
+            # 检查数据库中已有的消息数量，避免重复插入
+            existing_count = await self.storage.get_message_count(session.session_id)
+            if existing_count >= len(messages):
+                return
+
+            # 只保存新增的消息
+            new_messages = messages[existing_count:]
+            for msg in new_messages:
+                await self.storage.append_message(session.session_id, msg)
+
+            if new_messages:
+                _logger.info(f"Persisted {len(new_messages)} messages for session {session.session_id}")
+        except Exception as e:
+            _logger.warning(f"Failed to persist messages for session {session.session_id}: {e}")
+
     def _normalize_session_limits(
         self,
         session,
@@ -1172,6 +1197,8 @@ class AgentService:
                         # producer task is cancelled by client disconnecting
                         # the SSE stream, so connections are returned to the pool.
                         await asyncio.shield(self.storage.save_meta(session))
+                        # 保存消息到数据库（wuwei 的 AgentSession 只在内存中存储消息）
+                        await asyncio.shield(self._persist_session_messages(session))
                 except asyncio.CancelledError:
                     pass
                 finally:
