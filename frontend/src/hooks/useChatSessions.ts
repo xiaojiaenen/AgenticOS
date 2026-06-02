@@ -1,11 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Session, Message } from '../types';
 import { listSessions, deleteSession as deleteSessionApi, generateTitle } from '../services/agentService';
+import { getStoredUser } from '../services/authService';
 
-const CHAT_CACHE_KEY = 'chat_sessions';
 const MAX_PERSISTED_MESSAGES_PER_SESSION = 80;
 const MAX_PERSISTED_TEXT_LENGTH = 12_000;
 const MAX_PERSISTED_TOOL_RESULT_LENGTH = 4_000;
+
+// 按用户 ID 隔离缓存 key
+function getCacheKey(): string {
+  const user = getStoredUser();
+  return user ? `chat_sessions_${user.id}` : 'chat_sessions_guest';
+}
 
 function clampText(value: string | undefined, limit: number): string | undefined {
   if (!value) return value;
@@ -35,7 +41,8 @@ function compactMessageForStorage(message: Message): Message {
 }
 
 function loadCachedSessions(): Session[] {
-  const saved = localStorage.getItem(CHAT_CACHE_KEY);
+  const key = getCacheKey();
+  const saved = localStorage.getItem(key);
   if (!saved) return [];
   try {
     const parsed = JSON.parse(saved);
@@ -46,13 +53,16 @@ function loadCachedSessions(): Session[] {
 }
 
 function saveSessionsToCache(sessions: Session[]) {
-  const compacted = sessions.map((session) => ({
+  const key = getCacheKey();
+  // 过滤掉空会话（没有消息的会话，除了当前正在创建的）
+  const nonEmptySessions = sessions.filter(s => s.messages.length > 0);
+  const compacted = nonEmptySessions.map((session) => ({
     ...session,
     messages: session.messages
       .slice(-MAX_PERSISTED_MESSAGES_PER_SESSION)
       .map((message) => compactMessageForStorage(message)),
   }));
-  localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(compacted));
+  localStorage.setItem(key, JSON.stringify(compacted));
 }
 
 export function useChatSessions() {
