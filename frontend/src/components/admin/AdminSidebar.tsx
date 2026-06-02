@@ -48,12 +48,12 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
       exit={isMobile ? { x: -300 } : { width: 0 }}
       transition={{ type: 'spring', damping: 30, stiffness: 300 }}
       className={cn(
-        'relative z-20 flex h-full flex-shrink-0 flex-col overflow-hidden border-r border-white/70 bg-white/78 shadow-[10px_0_36px_rgba(15,23,42,0.06)] ring-1 ring-white/50 backdrop-blur-2xl',
+        'relative z-20 flex h-full flex-shrink-0 flex-col overflow-hidden border-r border-white/70 bg-[var(--admin-sidebar-bg)] shadow-[10px_0_36px_rgba(15,23,42,0.06)] ring-1 ring-white/50 backdrop-blur-2xl',
         isMobile ? 'fixed inset-y-0 left-0 w-[296px] shadow-2xl' : 'w-[296px]',
         !isOpen && !isMobile && 'hidden',
       )}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[linear-gradient(135deg,rgba(14,165,233,0.14),rgba(16,185,129,0.10),rgba(139,92,246,0.04),transparent)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-br from-[var(--admin-accent-soft)] to-transparent" />
 
       <div className="relative z-10 flex items-center justify-between border-b border-white/70 px-4 py-4">
         <Logo iconSize={22} className="text-lg" />
@@ -68,9 +68,9 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
       </div>
 
       <div className="relative z-10 px-4 pt-4">
-        <div className="rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.78),rgba(248,250,252,0.62))] px-4 py-3.5 shadow-md ring-1 ring-white/60">
+        <div className="rounded-3xl border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] backdrop-blur-xl px-4 py-3.5 shadow-md">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-sm">
+            <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-[var(--admin-accent)] text-white shadow-sm">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
@@ -101,7 +101,7 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
                 {active && (
                   <motion.span
                     layoutId="admin-active-nav"
-                    className="absolute inset-0 rounded-2xl border border-white/80 bg-white/90 shadow-md"
+                    className="absolute inset-0 rounded-2xl bg-[var(--admin-card-bg)] border-l-3 border-l-[var(--admin-accent)] shadow-md"
                     transition={{ type: 'spring', damping: 28, stiffness: 380 }}
                   />
                 )}
@@ -142,7 +142,7 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
           进入对话
         </button>
 
-        <div className="flex items-center gap-3 rounded-2xl border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(248,250,252,0.58))] p-2.5 shadow-sm transition-all hover:bg-white/88 hover:shadow-md">
+        <div className="flex items-center gap-3 rounded-2xl border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] p-2.5 shadow-sm transition-all hover:shadow-md">
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-200 bg-[linear-gradient(135deg,rgba(15,23,42,0.06),rgba(255,255,255,0.9))] text-zinc-600 shadow-sm">
             <UserAvatarIcon size={20} />
           </div>

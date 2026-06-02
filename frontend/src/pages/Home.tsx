@@ -55,9 +55,10 @@ export const Home = () => {
   return (
     <motion.div
       key="home"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, transition: { duration: 0.3 } }}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8, transition: { duration: 0.2 } }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className="min-h-screen relative overflow-hidden font-sans flex flex-col selection:bg-zinc-200 selection:text-zinc-900"
       style={{
         background:
@@ -179,6 +180,18 @@ export const Home = () => {
               <SendIcon size={20} className="group-hover:-translate-y-1 group-hover:scale-110" />
             </button>
           </div>
+        </motion.div>
+        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.45, duration: 0.6 }} className="mt-6 flex flex-wrap justify-center gap-2 max-w-3xl">
+          {[
+            { text: '帮我做个 PPT', mode: 'ppt' },
+            { text: '写一个网站首页', mode: 'website' },
+            { text: '帮我分析数据', mode: 'general' },
+            { text: '写一封邮件', mode: 'general' },
+          ].map((s) => (
+            <button key={s.text} onClick={() => setInputValue(s.text)} className="px-4 py-2 rounded-full text-sm font-medium bg-white/50 backdrop-blur-sm border border-white/40 text-slate-600 hover:bg-white/80 hover:text-slate-900 hover:shadow-sm transition-all">
+              {s.text}
+            </button>
+          ))}
         </motion.div>
       </main>
     </motion.div>
