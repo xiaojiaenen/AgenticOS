@@ -67,28 +67,28 @@ export const AdminDashboard = () => {
         label: '总 Token',
         value: formatTokenNumber(summary?.total_tokens),
         meta: summary ? `${formatNumber(summary?.total_sessions || 0)} 个会话累计产生` : '平台内容总负载',
-        tone: 'bg-[linear-gradient(135deg,rgba(56,189,248,0.2),rgba(255,255,255,0.72),rgba(14,165,233,0.08))]',
+        tone: 'bg-[var(--admin-card-bg)] border-l-4 border-l-[var(--admin-accent)]',
         icon: Gauge,
       },
       {
         label: '输入 Token',
         value: formatTokenNumber(summary?.input_tokens),
         meta: summary ? `${Math.round((summary.input_tokens / Math.max(summary.total_tokens, 1)) * 100)}% 输入占比` : '用户输入内容沉淀',
-        tone: 'bg-[linear-gradient(135deg,rgba(74,222,128,0.2),rgba(255,255,255,0.72),rgba(45,212,191,0.08))]',
+        tone: 'bg-[var(--admin-card-bg)] border-l-4 border-l-emerald-500',
         icon: Activity,
       },
       {
         label: '输出 Token',
         value: formatTokenNumber(summary?.output_tokens),
         meta: summary ? `${Math.round((summary.output_tokens / Math.max(summary.total_tokens, 1)) * 100)}% 输出占比` : '模型输出内容沉淀',
-        tone: 'bg-[linear-gradient(135deg,rgba(196,181,253,0.26),rgba(255,255,255,0.72),rgba(244,114,182,0.08))]',
+        tone: 'bg-[var(--admin-card-bg)] border-l-4 border-l-violet-500',
         icon: Sparkles,
       },
       {
         label: '总运行',
         value: formatNumber(summary?.total_runs),
         meta: summary ? `${formatNumber(summary.llm_calls)} 次模型调用` : '观察执行总规模',
-        tone: 'bg-[linear-gradient(135deg,rgba(251,191,36,0.24),rgba(255,255,255,0.72),rgba(34,197,94,0.08))]',
+        tone: 'bg-[var(--admin-card-bg)] border-l-4 border-l-amber-500',
         icon: Activity,
       },
     ];
@@ -168,7 +168,7 @@ export const AdminDashboard = () => {
           <div className="admin-page-stage space-y-5">
             {/* Top row: overview + key metrics — semi-transparent tinted cards */}
             <section className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_400px]">
-              <div className="rounded-2xl border border-white/50 bg-[linear-gradient(135deg,rgba(255,255,255,0.62),rgba(255,255,255,0.38),rgba(186,230,253,0.34))] p-5 shadow-md">
+              <div className="rounded-2xl border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] backdrop-blur-xl p-5 shadow-md">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="max-w-3xl">
                     <p className="admin-section-kicker">系统总览</p>
@@ -195,7 +195,7 @@ export const AdminDashboard = () => {
                         <button
                           key={d}
                           onClick={() => setTimeRange(d)}
-                          className={`rounded-lg px-2.5 py-1 font-bold transition-colors ${timeRange === d ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-700"}`}
+                          className={`rounded-lg px-2.5 py-1 font-bold transition-colors ${timeRange === d ? "bg-[var(--admin-accent)] text-white" : "text-slate-500 hover:text-slate-700"}`}
                         >
                           {d}天
                         </button>
@@ -226,20 +226,20 @@ export const AdminDashboard = () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/50 bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(233,213,255,0.28),rgba(255,255,255,0.36))] p-5 shadow-md">
+              <div className="rounded-2xl border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] backdrop-blur-xl p-5 shadow-md">
                 <p className="admin-section-kicker">关键刻度</p>
                 <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
                   {sideSummary.map((item, index) => (
                     <div
                       key={item.label}
                       className={cn(
-                        'admin-stat-card rounded-xl px-4 py-3.5',
-                        index === 0 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(56,189,248,0.12))]',
-                        index === 1 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(125,211,252,0.12))]',
-                        index === 2 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(244,114,182,0.10))]',
-                        index === 3 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(196,181,253,0.12))]',
-                        index === 4 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(251,191,36,0.10))]',
-                        index === 5 && 'bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(16,185,129,0.10))]',
+                        'admin-stat-card rounded-xl px-4 py-3.5 bg-[var(--admin-card-bg)]',
+                        index === 0 && 'border-l-4 border-l-[var(--admin-accent)]',
+                        index === 1 && 'border-l-4 border-l-sky-400',
+                        index === 2 && 'border-l-4 border-l-pink-400',
+                        index === 3 && 'border-l-4 border-l-violet-400',
+                        index === 4 && 'border-l-4 border-l-amber-400',
+                        index === 5 && 'border-l-4 border-l-emerald-400',
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -263,21 +263,21 @@ export const AdminDashboard = () => {
             {isDashboardLoading && !dashboardData ? (
               <div className="space-y-5">
                 <section className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_400px]">
-                  <div className="rounded-2xl border border-white/60 bg-white/50 p-6 shadow-xl backdrop-blur-2xl">
+                  <div className="rounded-2xl border border-white/60 bg-[var(--admin-card-bg)] p-6 shadow-xl backdrop-blur-2xl">
                     <div className="h-3 w-20 animate-pulse rounded bg-slate-200 mb-4" />
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       {[0,1,2,3].map(i => <ChartSkeleton key={i} variant="stat" />)}
                     </div>
                   </div>
-                  <div className="rounded-2xl border border-white/60 bg-white/50 p-6 shadow-xl backdrop-blur-2xl">
+                  <div className="rounded-2xl border border-white/60 bg-[var(--admin-card-bg)] p-6 shadow-xl backdrop-blur-2xl">
                     <ChartSkeleton variant="stat" />
                   </div>
                 </section>
                 <section className="grid gap-5 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-white/60 bg-white/50 p-6 shadow-xl backdrop-blur-2xl">
+                  <div className="rounded-2xl border border-white/60 bg-[var(--admin-card-bg)] p-6 shadow-xl backdrop-blur-2xl">
                     <ChartSkeleton variant="area" height={220} />
                   </div>
-                  <div className="rounded-2xl border border-white/60 bg-white/50 p-6 shadow-xl backdrop-blur-2xl">
+                  <div className="rounded-2xl border border-white/60 bg-[var(--admin-card-bg)] p-6 shadow-xl backdrop-blur-2xl">
                     <ChartSkeleton variant="pie" height={220} />
                   </div>
                 </section>
@@ -310,9 +310,10 @@ export const AdminDashboard = () => {
   return (
     <motion.div
       key="admin"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
       className="admin-dashboard-shell relative flex h-screen overflow-hidden font-sans text-slate-800 selection:bg-zinc-200 selection:text-zinc-900"
     >
       <div className="admin-dashboard-backdrop pointer-events-none">
@@ -332,7 +333,7 @@ export const AdminDashboard = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 z-10 bg-white/30"
+            className="fixed inset-0 z-10 bg-black/20 backdrop-blur-sm"
           />
         )}
       </AnimatePresence>

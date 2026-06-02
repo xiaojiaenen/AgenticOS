@@ -73,9 +73,10 @@ export const AgentStore = () => {
   return (
     <motion.div
       key="agent-store"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#bae6fd] font-sans text-slate-800 selection:bg-zinc-200 selection:text-zinc-900"
     >
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">

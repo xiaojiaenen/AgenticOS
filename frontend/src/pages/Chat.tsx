@@ -71,9 +71,11 @@ export const Chat = () => {
     error,
     setError,
     runStatus,
+    pendingDecisions,
     handleSend,
     handleStopGeneration,
     handleApprovalDecision,
+    handleDecisionMade,
   } = useChatStream({
     sessions,
     currentSessionId,
@@ -272,9 +274,10 @@ export const Chat = () => {
   return (
     <motion.div
       key="chat"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -414,8 +417,8 @@ export const Chat = () => {
             }}
             onToggleSearch={() => setShowSearch(!showSearch)}
             onApprovalDecision={handleApprovalDecision}
-            pendingDecisions={[]}
-            onDecisionMade={() => {}}
+            pendingDecisions={pendingDecisions}
+            onDecisionMade={handleDecisionMade}
             onErrorDismiss={() => setError(null)}
             onSuggestionClick={(text) => setInputValue(text)}
             onOpenArtifact={handleOpenArtifact}
