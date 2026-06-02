@@ -19,6 +19,7 @@ interface ChatMessageProps {
   isTyping?: boolean;
   isStreaming?: boolean;
   wideLayout?: boolean;
+  isAdmin?: boolean;
   onOpenArtifact?: (artifact: Artifact) => void;
   index?: number;
   searchQuery?: string;
@@ -428,7 +429,7 @@ const LiveToolCall = ({ tool }: { tool: ToolCall }) => {
   );
 };
 
-export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, onOpenArtifact, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
+export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, isAdmin = false, onOpenArtifact, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
   const isUser = message?.role === 'user';
   const rawText = message?.text || '';
   const visibleText = rawText;
@@ -926,65 +927,74 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                       </span>
                     </div>
 
-                    {metaItems.length > 0 && (
-                      <div className="mb-3 flex flex-wrap gap-1.5">
-                        {metaItems.map((item) => (
-                          <span
-                            key={item}
-                            className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500"
-                          >
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {detailText && (
-                      <div
-                        className={cn(
-                          "mb-3 rounded-xl border px-3 py-2 text-[11px] leading-relaxed",
-                          isError
-                            ? "border-rose-200/90 bg-rose-50/90 text-rose-700"
-                            : "border-slate-200/80 bg-slate-50/90 text-slate-600",
+                    {/* 非管理员只显示简要状态，管理员显示完整详情 */}
+                    {isAdmin ? (
+                      <>
+                        {metaItems.length > 0 && (
+                          <div className="mb-3 flex flex-wrap gap-1.5">
+                            {metaItems.map((item) => (
+                              <span
+                                key={item}
+                                className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500"
+                              >
+                                {item}
+                              </span>
+                            ))}
+                          </div>
                         )}
-                      >
-                        {detailText}
+
+                        {detailText && (
+                          <div
+                            className={cn(
+                              "mb-3 rounded-xl border px-3 py-2 text-[11px] leading-relaxed",
+                              isError
+                                ? "border-rose-200/90 bg-rose-50/90 text-rose-700"
+                                : "border-slate-200/80 bg-slate-50/90 text-slate-600",
+                            )}
+                          >
+                            {detailText}
+                          </div>
+                        )}
+
+                        <div className="flex flex-col">
+                          <ToolTimelineStep
+                            title="调用阶段"
+                            state="done"
+                            body="已向运行时发起工具调用，请求参数已发送。"
+                          />
+                          <ToolTimelineStep
+                            title="执行状态"
+                            state={executionState}
+                            body={executionBody}
+                          />
+                          <div className="grid grid-cols-[1rem_1fr] gap-3">
+                            <div className="flex justify-center">
+                              <div
+                                className={cn("mt-1 h-3 w-3 rounded-full border-2", resultDotClass)}
+                              />
+                            </div>
+                            <div>
+                              <div className={cn("text-[11px] font-bold uppercase tracking-[0.14em]", resultTitleClass)}>
+                                返回结果
+                              </div>
+                              <div className="mt-1">
+                                {tool.result ? (
+                                  <ToolResultPreview result={tool.result} isError={isError} />
+                                ) : (
+                                  <div className="rounded-xl border border-dashed border-sky-200/60 bg-sky-50/40 px-3 py-2 text-[11px] text-slate-500">
+                                    等待工具返回内容
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-[11px] text-slate-500">
+                        {isSuccess ? '工具执行完成' : isError ? '工具执行失败' : executionBody}
                       </div>
                     )}
-
-                    <div className="flex flex-col">
-                      <ToolTimelineStep
-                        title="调用阶段"
-                        state="done"
-                        body="已向运行时发起工具调用，请求参数已发送。"
-                      />
-                      <ToolTimelineStep
-                        title="执行状态"
-                        state={executionState}
-                        body={executionBody}
-                      />
-                      <div className="grid grid-cols-[1rem_1fr] gap-3">
-                        <div className="flex justify-center">
-                          <div
-                            className={cn("mt-1 h-3 w-3 rounded-full border-2", resultDotClass)}
-                          />
-                        </div>
-                        <div>
-                          <div className={cn("text-[11px] font-bold uppercase tracking-[0.14em]", resultTitleClass)}>
-                            返回结果
-                          </div>
-                          <div className="mt-1">
-                            {tool.result ? (
-                              <ToolResultPreview result={tool.result} isError={isError} />
-                            ) : (
-                              <div className="rounded-xl border border-dashed border-sky-200/60 bg-sky-50/40 px-3 py-2 text-[11px] text-slate-500">
-                                等待工具返回内容
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                         </>
                       );
                     })()}
