@@ -809,8 +809,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   return (
     <motion.div
       id={message?.id ? `msg-${message.id}` : undefined}
-      initial={{ opacity: 0, y: 30, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{
         duration: 0.6,
@@ -827,7 +827,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
       <motion.div
         whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
         className={cn(
-          "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm z-10 cursor-help transition-all",
+          "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm z-10 cursor-help transition-all",
           isUser ? "bg-zinc-900 text-white" : "bg-white border border-slate-200 text-zinc-800"
         )}
       >
@@ -1010,21 +1010,9 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             hasStructuredContent ? "w-full" : "w-fit",
             !isUser && isStreaming && "min-h-[3.5rem] min-w-[10rem]",
             isUser
-              ? "bg-gradient-to-br from-zinc-800 to-zinc-950 text-white rounded-tr-none shadow-lg hover:shadow-xl"
-              : "bg-white/80 backdrop-blur-2xl text-slate-800 rounded-tl-none border border-slate-100 hover:bg-white border-l-[3px] border-l-brand-400/60"
+              ? "bg-[var(--bubble-user)] text-[var(--bubble-user-text)] rounded-tr-none shadow-lg hover:shadow-xl"
+              : "bg-[var(--bubble-ai)] backdrop-blur-xl text-slate-800 rounded-tl-none border border-slate-100 hover:bg-white shadow-xs"
           )}>
-          {/* AI 气泡尾巴 */}
-          {!isUser && (
-            <svg className="absolute top-0 -left-[8px] w-3 h-4 text-white/90" viewBox="0 0 8 12" fill="currentColor">
-              <path d="M8 0H0L8 12V0Z" />
-            </svg>
-          )}
-          {/* Tail for User */}
-          {isUser && (
-            <svg className="absolute top-0 -right-[8px] w-3 h-4 text-zinc-900" viewBox="0 0 8 12" fill="currentColor">
-              <path d="M0 0H8L0 12V0Z" />
-            </svg>
-          )}
 
           {/* Live tool calls during streaming */}
           {!isUser && !isTyping && message?.toolCalls && message.toolCalls.length > 0 && isStreaming && (

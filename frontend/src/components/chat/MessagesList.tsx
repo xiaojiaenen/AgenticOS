@@ -51,7 +51,7 @@ export const MessagesList: React.FC<MessagesListProps> = ({
   const streamingMessageId = isLoading && lastMessage?.role === 'model' ? lastMessage.id : null;
 
   return (
-    <div className="space-y-8 pb-4">
+    <div className="space-y-5 pb-4">
       {(displayMessages || currentSession.messages).map((message, idx) => (
         <ChatMessage
           key={message.id}
