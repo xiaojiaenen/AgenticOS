@@ -21,7 +21,8 @@ from wuwei.middleware import (
     LoggingMiddleware,
 )
 from wuwei.tools import ToolRegistry
-from wuwei.tools.builtin import register_skill_tools
+from wuwei.plugin import PluginContext
+from wuwei.plugin.builtin.skill import setup as setup_skill_plugin
 from wuwei.core.message import ToolCall
 
 # 特殊工具名：用户拒绝时替换原工具调用，让 LLM 收到明确的拒绝消息
@@ -286,12 +287,50 @@ class AgentService:
         if profile.response_mode == "website":
             _exclude.add("file")
         builtin_tools = [name for name in profile.builtin_tools if name not in _exclude]
-        registry = ToolRegistry.from_builtin(builtin_tools)
+
+        registry = ToolRegistry()
+        ctx = PluginContext(tool_registry=registry)
+
+        # 按需加载内置插件
+        from wuwei.plugin.builtin import (
+            calc as calc_mod,
+            time_plugin as time_mod,
+            file as file_mod,
+            git as git_mod,
+            npm as npm_mod,
+            python as python_mod,
+            decision as decision_mod,
+            json_tools as json_mod,
+            http as http_mod,
+            text as text_mod,
+        )
+        _PLUGIN_MAP = {
+            "calc": calc_mod,
+            "time": time_mod,
+            "file": file_mod,
+            "git": git_mod,
+            "npm": npm_mod,
+            "python": python_mod,
+            "decision": decision_mod,
+            "json": json_mod,
+            "http": http_mod,
+            "text": text_mod,
+        }
+        for name in builtin_tools:
+            mod = _PLUGIN_MAP.get(name)
+            if mod is not None:
+                mod.setup(ctx)
+
         if "skill" in profile.builtin_tools:
             skill_manager = SkillManager(
                 [FileSystemSkillProvider(skill.root_dir) for skill in profile.skills]
             )
-            register_skill_tools(registry, skill_manager)
+            skill_ctx = PluginContext(
+                tool_registry=registry,
+                skill_manager=skill_manager,
+                middleware_stack=None,  # middleware 在 Agent 层处理
+            )
+            setup_skill_plugin(skill_ctx)
         if "email" in profile.builtin_tools:
             register_email_tools(registry)
 

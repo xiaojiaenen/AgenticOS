@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from wuwei.tools.builtin.file_tools import (
+from wuwei.plugin.builtin.file import (
     _collect_files,
     _resolve_workspace_path,
     _truncate_text,
