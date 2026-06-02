@@ -1066,24 +1066,33 @@ class AgentService:
         llm_calls = int(event_data.get("llm_calls") or getattr(session, "last_llm_calls", 0) or 0)
 
         def _run():
-            with self.storage.session_factory() as db:
-                db.add(
-                    AgentUsageEventModel(
-                        user_id=user.id if user is not None else None,
-                        agent_profile_id=agent_profile_id,
-                        session_id=session.session_id,
-                        model_name=str(event_data.get("model") or self.settings.openai_model),
-                        response_mode=response_mode,
-                        input_tokens=input_tokens,
-                        output_tokens=output_tokens,
-                        total_tokens=total_tokens,
-                        llm_calls=llm_calls,
-                        tool_calls=len(tool_names),
-                        tool_names_json=dump_json(tool_names),
-                        latency_ms=latency_ms,
-                    )
-                )
-                db.commit()
+            import time
+            for attempt in range(3):
+                try:
+                    with self.storage.session_factory() as db:
+                        db.add(
+                            AgentUsageEventModel(
+                                user_id=user.id if user is not None else None,
+                                agent_profile_id=agent_profile_id,
+                                session_id=session.session_id,
+                                model_name=str(event_data.get("model") or self.settings.openai_model),
+                                response_mode=response_mode,
+                                input_tokens=input_tokens,
+                                output_tokens=output_tokens,
+                                total_tokens=total_tokens,
+                                llm_calls=llm_calls,
+                                tool_calls=len(tool_names),
+                                tool_names_json=dump_json(tool_names),
+                                latency_ms=latency_ms,
+                            )
+                        )
+                        db.commit()
+                    return
+                except Exception as e:
+                    if "database is locked" in str(e) and attempt < 2:
+                        time.sleep(0.5 * (attempt + 1))
+                        continue
+                    raise
         await asyncio.to_thread(_run)
 
     async def stream_chat(self, request: AgentStreamRequest, user: UserModel | None = None) -> AsyncIterator[dict[str, Any]]:
