@@ -139,10 +139,10 @@ class UserMemoryService:
 
         每 5 次对话提取一次，避免过度调用 LLM。
         """
-        # 每 5 次对话提取一次
+        # 每 3 次对话提取一次（降低频率减少 LLM 调用）
         count = self._conversation_counts.get(user_id, 0) + 1
         self._conversation_counts[user_id] = count
-        if count % 5 != 0:
+        if count % 3 != 0:
             return
 
         try:
