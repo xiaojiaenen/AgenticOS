@@ -1100,9 +1100,12 @@ class AgentService:
                 from app.services.memory_service import get_memory_service
                 memory_context = await get_memory_service().get_memory_context(user.id, request.message)
                 if memory_context:
+                    _logger.info(f"Injecting memory context for user {user.id}: {memory_context[:100]}...")
                     message = memory_context + "\n\n---\n\n" + message
-            except Exception:
-                pass  # 记忆服务不可用时静默跳过
+                else:
+                    _logger.info(f"No memory context found for user {user.id}")
+            except Exception as e:
+                _logger.warning(f"Memory context injection failed: {e}")
 
         async def produce_events() -> None:
             try:
@@ -1397,17 +1400,21 @@ class AgentService:
                         "data": approval,
                     }
                     approval_task = asyncio.create_task(approval_queue.get())
-            # 对话结束时用 LLM 提取记忆（仅通用模式，且对话有一定长度）
-            if user is not None and collected_text and not ppt_mode and not website_mode and len(collected_text) > 100:
+            # 对话结束时用 LLM 提取记忆（仅通用模式）
+            _logger.info(f"Memory extraction conditions: user={user is not None}, collected_text_len={len(collected_text) if collected_text else 0}, ppt_mode={ppt_mode}, website_mode={website_mode}, message={request.message[:50] if request.message else ''}")
+            if user is not None and request.message and not ppt_mode and not website_mode:
                 try:
                     from app.services.memory_service import get_memory_service
+                    # 使用用户消息和 AI 回复进行记忆提取
+                    ai_response = collected_text[:500] if collected_text else ""
                     await get_memory_service().extract_and_save_memories(
                         user.id,
                         request.message,
-                        collected_text,
+                        ai_response,
                     )
-                except Exception:
-                    pass
+                    _logger.info(f"Memory extraction triggered for user {user.id}")
+                except Exception as e:
+                    _logger.warning(f"Memory extraction failed: {e}")
 
         finally:
             _logger.info(
