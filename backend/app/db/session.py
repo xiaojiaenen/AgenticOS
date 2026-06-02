@@ -26,7 +26,8 @@ def _create_engine() -> Engine:
         sqlite_path.parent.mkdir(parents=True, exist_ok=True)
 
     is_sqlite = database_url.startswith("sqlite")
-    connect_args = {"check_same_thread": False} if is_sqlite else {}
+    # SQLite: 增加超时到 30 秒，启用 WAL 模式提升并发性能
+    connect_args = {"check_same_thread": False, "timeout": 30} if is_sqlite else {}
 
     engine_kwargs: dict = {
         "pool_pre_ping": True,
@@ -36,7 +37,20 @@ def _create_engine() -> Engine:
         engine_kwargs["pool_size"] = 5
         engine_kwargs["max_overflow"] = 10
 
-    return create_engine(database_url, connect_args=connect_args, **engine_kwargs)
+    engine = create_engine(database_url, connect_args=connect_args, **engine_kwargs)
+
+    # SQLite 启用 WAL 模式，减少锁冲突
+    if is_sqlite:
+        from sqlalchemy import event
+
+        @event.listens_for(engine, "connect")
+        def _set_sqlite_pragma(dbapi_conn, connection_record):
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=5000")
+            cursor.close()
+
+    return engine
 
 
 engine = _create_engine()

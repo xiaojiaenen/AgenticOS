@@ -65,14 +65,23 @@ class DatabaseAgentStorage:
 
     async def append_message(self, session_id: str, message) -> None:
         def _run():
-            with self.session_factory() as db:
-                db.add(
-                    AgentMessageModel(
-                        session_id=session_id,
-                        message_json=message.model_dump_json(exclude_none=True),
-                    )
-                )
-                db.commit()
+            import time
+            for attempt in range(3):
+                try:
+                    with self.session_factory() as db:
+                        db.add(
+                            AgentMessageModel(
+                                session_id=session_id,
+                                message_json=message.model_dump_json(exclude_none=True),
+                            )
+                        )
+                        db.commit()
+                    return
+                except Exception as e:
+                    if "database is locked" in str(e) and attempt < 2:
+                        time.sleep(0.5 * (attempt + 1))
+                        continue
+                    raise
         await asyncio.to_thread(_run)
 
     async def load(self, session_id: str):
