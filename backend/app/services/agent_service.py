@@ -22,6 +22,35 @@ from wuwei.middleware import (
 )
 from wuwei.tools import ToolRegistry
 from wuwei.tools.builtin import register_skill_tools
+from wuwei.core.message import ToolCall
+
+
+class LenientHitlMiddleware(HitlMiddleware):
+    """宽松的 HITL 中间件：用户拒绝时不抛异常，返回 None 跳过工具执行。"""
+
+    async def before_tool(
+        self,
+        ctx: MiddlewareContext,
+        tool_call: ToolCall,
+    ) -> ToolCall | None:
+        """工具执行前进行审批，用户拒绝时返回 None 跳过。"""
+        tool_name = tool_call.function.name
+
+        # 自动批准
+        if tool_name in self.auto_approve_tools:
+            return tool_call
+
+        # 自动拒绝 - 返回 None 跳过
+        if tool_name in self.auto_reject_tools:
+            return None
+
+        # 请求用户审批
+        approved = await self.approval_provider(tool_call)
+        if not approved:
+            # 用户拒绝，返回 None 跳过工具执行（不抛异常）
+            return None
+
+        return tool_call
 
 from app.core.config import Settings, get_settings
 from app.db.models import AgentUsageEventModel, ApprovalModel, PptArtifactModel, UserModel
@@ -208,7 +237,7 @@ class AgentService:
             from wuwei.tools import ToolRegistry as _TR
             all_tool_names = [t.name for t in self._build_tool_registry(profile).list_tools()]
             auto_approve = [name for name in all_tool_names if name not in approval_tools]
-            stack.add(HitlMiddleware(
+            stack.add(LenientHitlMiddleware(
                 approval_provider=self.approval_manager.request_approval_bool,
                 auto_approve_tools=auto_approve,
                 auto_reject_tools=[],
