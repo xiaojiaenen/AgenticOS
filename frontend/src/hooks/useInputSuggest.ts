@@ -35,10 +35,6 @@ export function useInputSuggest() {
       return;
     }
 
-    // 跳过重复请求
-    if (query === lastQueryRef.current) return;
-    lastQueryRef.current = query;
-
     // 先查本地缓存
     const cached = getCached(query);
     if (cached !== undefined) {
@@ -63,7 +59,10 @@ export function useInputSuggest() {
       const first = data.suggestions?.[0] || '';
       const result = (first && first !== query && first.startsWith(query)) ? first : '';
       setCache(query, result);
-      setSuggestion(result);
+      // 只在请求成功后更新 suggestion，避免 abort 时误清
+      if (!controller.signal.aborted) {
+        setSuggestion(result);
+      }
     } catch {
       // 忽略 abort 和网络错误
     }
