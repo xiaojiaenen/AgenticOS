@@ -27,6 +27,43 @@ class CacheService:
     def __init__(self):
         self._input_cache_loaded = False
 
+    async def load_history_from_db(self) -> None:
+        """启动时从数据库加载历史用户输入到缓存"""
+        if self._input_cache_loaded:
+            return
+        self._input_cache_loaded = True
+        try:
+            from app.db.session import create_db_session
+            from app.db.models import AgentMessageModel
+            from sqlalchemy import select
+
+            def _load():
+                with create_db_session() as db:
+                    rows = db.scalars(
+                        select(AgentMessageModel.message_json)
+                        .order_by(AgentMessageModel.id.desc())
+                        .limit(2000)
+                    ).all()
+                    return rows
+
+            import asyncio
+            rows = await asyncio.to_thread(_load)
+            count = 0
+            for raw in rows:
+                try:
+                    import json
+                    data = json.loads(raw)
+                    if data.get("role") == "user" and data.get("content"):
+                        text = data["content"].strip()
+                        if len(text) >= 2:
+                            await self.add_global_input(text)
+                            count += 1
+                except Exception:
+                    continue
+            _logger.info(f"Loaded {count} historical inputs into cache")
+        except Exception as e:
+            _logger.warning(f"Failed to load history into cache: {e}")
+
     # ============================================================
     # 1. 输入补全 — Sorted Set 前缀匹配
     # ============================================================
