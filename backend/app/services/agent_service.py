@@ -1167,6 +1167,16 @@ class AgentService:
             await self.ensure_session_access(request, user)
         await self._load_session_if_needed(agent, request)
 
+        # 记录用户输入到补全缓存
+        if user is not None and request.message:
+            try:
+                from app.services.cache_service import get_cache_service
+                cache = get_cache_service()
+                await cache.add_user_input(user.id, request.message)
+                await cache.add_global_input(request.message)
+            except Exception:
+                pass  # 缓存失败不影响主流程
+
         # Inject design system catalog for PPT mode
         message = request.message
         if ppt_mode:

@@ -5,6 +5,7 @@ import { AgentProfile } from '../../services/agentProfileService';
 import { cn } from '../../lib/utils';
 import { AgentSelector } from '../ui/AgentSelector';
 import { PaperclipIcon, SendIcon } from '../ui/AnimatedIcons';
+import { useInputSuggest } from '../../hooks/useInputSuggest';
 
 interface ChatInputProps {
   value: string;
@@ -46,6 +47,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const { suggestion, onChange: suggestOnChange, accept, dismiss } = useInputSuggest();
 
   useImperativeHandle(ref, () => ({
     addFiles: (newFiles: File[]) => setFiles((prev) => [...prev, ...newFiles]),
@@ -69,9 +71,31 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     setFiles([]);
   }, [files, isLoading, onSend, value]);
 
+  const handleChange = React.useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    onChange(val);
+    suggestOnChange(val);
+  }, [onChange, suggestOnChange]);
+
   const handleKeyDown = React.useCallback((e: React.KeyboardEvent) => {
     const nativeEvent = e.nativeEvent as KeyboardEvent;
     if (nativeEvent.isComposing || e.key === 'Process') return;
+
+    // Tab 接受补全建议
+    if (e.key === 'Tab' && suggestion) {
+      e.preventDefault();
+      const accepted = accept();
+      onChange(accepted);
+      return;
+    }
+
+    // Esc 关闭建议
+    if (e.key === 'Escape' && suggestion) {
+      e.preventDefault();
+      dismiss();
+      return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleInternalSend();
@@ -165,15 +189,27 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           />
         </div>
 
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={isDragging ? '把文件拖到这里...' : placeholder}
-          className="max-h-[200px] w-full resize-none bg-transparent p-3 leading-relaxed tracking-tight text-slate-800 outline-none placeholder:text-slate-400"
-          rows={1}
-        />
+        <div className="relative max-h-[200px] w-full">
+          {/* Ghost text 补全建议 */}
+          {suggestion && value && (
+            <div
+              className="pointer-events-none absolute left-0 top-0 p-3 leading-relaxed tracking-tight text-slate-300 whitespace-pre-wrap"
+              aria-hidden="true"
+            >
+              <span className="invisible">{value}</span>
+              <span>{suggestion.slice(value.length)}</span>
+            </div>
+          )}
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder={isDragging ? '把文件拖到这里...' : placeholder}
+            className="max-h-[200px] w-full resize-none bg-transparent p-3 leading-relaxed tracking-tight text-slate-800 outline-none placeholder:text-slate-400"
+            rows={1}
+          />
+        </div>
         {isLoading ? (
           <button
             type="button"
