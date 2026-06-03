@@ -56,8 +56,10 @@ export function useInputSuggest() {
       );
       if (!response.ok) return;
       const data = await response.json();
-      const first = data.suggestions?.[0] || '';
-      const result = (first && first !== query && first.startsWith(query)) ? first : '';
+      const suggestions: string[] = data.suggestions || [];
+      // 优先找前缀匹配（用于 ghost text 续写），没有则用第一个子串匹配
+      const prefixMatch = suggestions.find(s => s !== query && s.startsWith(query));
+      const result = prefixMatch || '';
       setCache(query, result);
       // 只在请求成功后更新 suggestion，避免 abort 时误清
       if (!controller.signal.aborted) {
