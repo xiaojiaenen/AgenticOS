@@ -129,13 +129,14 @@ class MemoryRedis:
     async def zrangebylex(self, key: str, min_val: str, max_val: str, start: int = 0, num: int = -1) -> list[str]:
         self._is_expired(key)
         items = self._sorted_sets.get(key, [])
-        # 简单前缀匹配
-        min_str = min_val.lstrip("[(")
-        max_str = max_val.lstrip("[(")
+        # 前缀匹配：min_val 是 [prefix，max_val 是 [prefix\xff
+        prefix = min_val.lstrip("[(")
         results = []
         for member, score in items:
-            if min_str <= member <= max_str:
+            if member.startswith(prefix):
                 results.append(member)
+        # 按 score 降序排列（最近使用的在前）
+        results.sort(key=lambda m: next((s for mb, s in items if mb == m), 0), reverse=True)
         if num > 0:
             results = results[start:start + num]
         return results
