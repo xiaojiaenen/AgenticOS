@@ -37,6 +37,10 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # 初始化 Redis（留空则使用内存 fallback）
     await init_redis(settings.redis_url, settings.redis_cluster)
 
+    # 从数据库加载历史输入到缓存
+    from app.services.cache_service import get_cache_service
+    await get_cache_service().load_history_from_db()
+
     yield
 
     # 关闭 Redis
