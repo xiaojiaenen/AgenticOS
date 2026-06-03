@@ -82,11 +82,15 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     if (nativeEvent.isComposing || e.key === 'Process') return;
 
     // Tab 接受补全建议
-    if (e.key === 'Tab' && suggestion) {
-      e.preventDefault();
-      const accepted = accept();
-      onChange(accepted);
-      return;
+    if (e.key === 'Tab') {
+      const currentSuggestion = suggestion;
+      if (currentSuggestion) {
+        e.preventDefault();
+        e.stopPropagation();
+        const accepted = accept();
+        onChange(accepted);
+        return;
+      }
     }
 
     // Esc 关闭建议
@@ -100,7 +104,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
       e.preventDefault();
       handleInternalSend();
     }
-  }, [handleInternalSend]);
+  }, [handleInternalSend, suggestion, accept, dismiss, onChange]);
 
   const handleFileChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) setFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
