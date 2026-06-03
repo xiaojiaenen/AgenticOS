@@ -251,3 +251,150 @@ class PptArtifactModel(Base):
     preview_html: Mapped[str] = mapped_column(Text)
     metadata_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
+class AnnouncementModel(Base):
+    __tablename__ = "announcements"
+    __table_args__ = (
+        Index("ix_announcements_publish_window", "is_published", "starts_at", "ends_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    eyebrow: Mapped[str] = mapped_column(String(80), default="系统公告")
+    title: Mapped[str] = mapped_column(String(160))
+    subtitle: Mapped[str] = mapped_column(Text, default="")
+    body: Mapped[str] = mapped_column(Text, default="")
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content_format: Mapped[str] = mapped_column(String(16), default="markdown")
+    theme: Mapped[str] = mapped_column(String(32), default="aurora", index=True)
+    cta_label: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    cta_link: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    dismissible: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_once: Mapped[bool] = mapped_column(Boolean, default=True)
+    starts_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True, index=True)
+    ends_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True, index=True)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class WebsiteDeployModel(Base):
+    __tablename__ = "website_deploys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(128), index=True)
+    project_slug: Mapped[str] = mapped_column(String(128))
+    stack: Mapped[str] = mapped_column(String(16))
+    dist_path: Mapped[str] = mapped_column(String(512))
+    target_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    deploy_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    requested_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class MemoryModel(Base):
+    __tablename__ = "memories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    content: Mapped[str] = mapped_column(Text)
+    memory_type: Mapped[str] = mapped_column(String(32), default="fact")
+    importance: Mapped[float] = mapped_column(default=0.5)
+    tags_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String(32), default="auto")  # auto / manual / tool
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+# ---------------------------------------------------------------------------
+# External system integration
+# ---------------------------------------------------------------------------
+
+
+class ExternalSystemModel(Base):
+    __tablename__ = "external_systems"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128))
+    description: Mapped[str] = mapped_column(Text, default="")
+    base_url: Mapped[str] = mapped_column(String(512))
+    auth_type: Mapped[str] = mapped_column(String(32))  # api_key / bearer / basic / oauth2 / custom
+    credential_template_json: Mapped[str] = mapped_column(Text, default="{}")  # user credential field definitions
+    oauth_client_id_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    oauth_client_secret_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    oauth_auth_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    oauth_token_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    oauth_scope: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    headers_json: Mapped[str] = mapped_column(Text, default="{}")  # extra fixed headers
+    published: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class ExternalUserCredentialModel(Base):
+    __tablename__ = "external_user_credentials"
+    __table_args__ = (UniqueConstraint("user_id", "system_id", name="uq_user_ext_credential"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    system_id: Mapped[int] = mapped_column(ForeignKey("external_systems.id"), index=True)
+    credential_data_encrypted: Mapped[str] = mapped_column(Text, default="")
+    oauth_access_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    oauth_refresh_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    oauth_expires_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    connection_status: Mapped[str] = mapped_column(String(32), default="connected", index=True)
+    last_checked_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class ExternalApiModel(Base):
+    __tablename__ = "external_apis"
+    __table_args__ = (UniqueConstraint("system_id", "name", name="uq_external_api_system_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    system_id: Mapped[int] = mapped_column(ForeignKey("external_systems.id"), index=True)
+    name: Mapped[str] = mapped_column(String(128))  # tool function name, e.g. jira_create_issue
+    display_name: Mapped[str] = mapped_column(String(128))
+    description: Mapped[str] = mapped_column(Text, default="")
+    method: Mapped[str] = mapped_column(String(8))  # GET / POST / PUT / DELETE / PATCH
+    path: Mapped[str] = mapped_column(String(512))  # relative path, e.g. /rest/api/2/issue
+    request_body_schema: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON Schema
+    response_example: Mapped[str | None] = mapped_column(Text, nullable=True)
+    requires_approval: Mapped[bool] = mapped_column(Boolean, default=False)
+    timeout_seconds: Mapped[int] = mapped_column(Integer, default=30)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class ExternalApiParamModel(Base):
+    __tablename__ = "external_api_params"
+    __table_args__ = (UniqueConstraint("api_id", "name", name="uq_external_param_api_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    api_id: Mapped[int] = mapped_column(ForeignKey("external_apis.id"), index=True)
+    name: Mapped[str] = mapped_column(String(64))
+    param_type: Mapped[str] = mapped_column(String(16))  # path / query / body
+    data_type: Mapped[str] = mapped_column(String(16), default="string")  # string / integer / boolean / object
+    required: Mapped[bool] = mapped_column(Boolean, default=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    default_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class AgentProfileExternalSystemModel(Base):
+    __tablename__ = "agent_profile_external_systems"
+    __table_args__ = (UniqueConstraint("profile_id", "system_id", name="uq_profile_ext_system"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("agent_profiles.id"), index=True)
+    system_id: Mapped[int] = mapped_column(ForeignKey("external_systems.id"), index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)

@@ -9,10 +9,12 @@ from sqlalchemy.orm import Session
 
 from app.core.timezone import isoformat_app_timezone
 from app.db.models import (
+    AgentProfileExternalSystemModel,
     AgentProfileModel,
     AgentProfileAudienceModel,
     AgentProfileSkillModel,
     AgentProfileToolModel,
+    ExternalSystemModel,
     SkillModel,
     UserInstalledAgentModel,
     UserModel,
@@ -79,6 +81,7 @@ class RuntimeAgentProfile:
     approval_tools: frozenset[str]
     signature: tuple[tuple[str, bool, bool], ...]
     skills: tuple[RuntimeSkill, ...]
+    external_system_ids: tuple[int, ...] = ()
 
 
 class AgentProfileService:
@@ -225,6 +228,42 @@ class AgentProfileService:
             .order_by(UserModel.name.asc(), UserModel.email.asc())
         ).all()
 
+    def _load_profile_external_systems(self, db: Session, profile_id: int) -> list[dict[str, object]]:
+        rows = db.scalars(
+            select(AgentProfileExternalSystemModel).where(
+                AgentProfileExternalSystemModel.profile_id == profile_id
+            )
+        ).all()
+        result = []
+        for row in rows:
+            sys = db.get(ExternalSystemModel, row.system_id)
+            if sys:
+                result.append({
+                    "system_id": row.system_id,
+                    "system_name": sys.name,
+                    "enabled": row.enabled,
+                })
+        return result
+
+    def _apply_external_systems(self, db: Session, profile: AgentProfileModel, system_refs: list) -> None:
+        """Replace profile-external-system associations."""
+        from app.schemas.agent_profiles import AgentProfileExternalSystemRef
+        db.execute(delete(AgentProfileExternalSystemModel).where(
+            AgentProfileExternalSystemModel.profile_id == profile.id
+        ))
+        for ref in system_refs:
+            if isinstance(ref, dict):
+                system_id = ref["system_id"]
+                enabled = ref.get("enabled", True)
+            else:
+                system_id = ref.system_id
+                enabled = ref.enabled
+            db.add(AgentProfileExternalSystemModel(
+                profile_id=profile.id,
+                system_id=system_id,
+                enabled=enabled,
+            ))
+
     def _apply_audience(
         self,
         db: Session,
@@ -309,6 +348,7 @@ class AgentProfileService:
         ).all()
         skills = self._load_profile_skill_rows(db, profile.id)
         audience_users = self._load_audience_users(db, profile.id)
+        ext_systems = self._load_profile_external_systems(db, profile.id)
         return {
             "id": profile.id,
             "name": profile.name,
@@ -334,6 +374,7 @@ class AgentProfileService:
                 if tool.tool_name in TOOL_CATALOG
             ],
             "skills": [self._serialize_skill_reference(skill) for skill in skills],
+            "external_systems": ext_systems,
             "created_at": profile.created_at,
             "updated_at": profile.updated_at,
         }
@@ -346,6 +387,7 @@ class AgentProfileService:
         skills: list[SkillModel],
         audience_users: list[UserModel],
         installed: bool,
+        external_systems: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
         return {
             "id": profile.id,
@@ -372,6 +414,7 @@ class AgentProfileService:
                 if tool.tool_name in TOOL_CATALOG
             ],
             "skills": [self._serialize_skill_reference(skill) for skill in skills],
+            "external_systems": external_systems or [],
             "created_at": profile.created_at,
             "updated_at": profile.updated_at,
         }
@@ -431,6 +474,21 @@ class AgentProfileService:
                 ).all()
             }
 
+        # Prefetch external systems for all profiles
+        ext_systems_by_profile: dict[int, list[dict[str, object]]] = defaultdict(list)
+        for row in db.scalars(
+            select(AgentProfileExternalSystemModel).where(
+                AgentProfileExternalSystemModel.profile_id.in_(profile_ids)
+            )
+        ).all():
+            sys = db.get(ExternalSystemModel, row.system_id)
+            if sys:
+                ext_systems_by_profile[row.profile_id].append({
+                    "system_id": row.system_id,
+                    "system_name": sys.name,
+                    "enabled": row.enabled,
+                })
+
         return [
             self._serialize_prefetched(
                 profile,
@@ -438,6 +496,7 @@ class AgentProfileService:
                 skills=skills_by_profile.get(profile.id, []),
                 audience_users=audience_by_profile.get(profile.id, []),
                 installed=profile.id in installed_ids if user_id is not None else False,
+                external_systems=ext_systems_by_profile.get(profile.id, []),
             )
             for profile in profiles
         ]
@@ -570,6 +629,8 @@ class AgentProfileService:
                 self._apply_tools(db, profile, request.tools)
             if request.skill_ids:
                 self._apply_skill_ids(db, profile, request.skill_ids)
+            if request.external_systems:
+                self._apply_external_systems(db, profile, request.external_systems)
             self._apply_audience(
                 db,
                 profile,
@@ -618,6 +679,8 @@ class AgentProfileService:
                 self._apply_tools(db, profile, request.tools)
             if request.skill_ids is not None:
                 self._apply_skill_ids(db, profile, request.skill_ids)
+            if request.external_systems is not None:
+                self._apply_external_systems(db, profile, request.external_systems)
             if request.audience_mode is not None or request.audience_user_ids is not None:
                 current_audience_users = self._load_audience_users(db, profile.id)
                 current_audience_ids = [user.id for user in current_audience_users]
@@ -649,6 +712,7 @@ class AgentProfileService:
             db.execute(delete(AgentProfileAudienceModel).where(AgentProfileAudienceModel.profile_id == profile_id))
             db.execute(delete(AgentProfileSkillModel).where(AgentProfileSkillModel.profile_id == profile_id))
             db.execute(delete(AgentProfileToolModel).where(AgentProfileToolModel.profile_id == profile_id))
+            db.execute(delete(AgentProfileExternalSystemModel).where(AgentProfileExternalSystemModel.profile_id == profile_id))
             db.delete(profile)
             db.commit()
 
@@ -752,6 +816,29 @@ class AgentProfileService:
                 else:
                     approval_tools.update(str(item) for item in catalog_item["approval_scope"])
 
+        # Load enabled external system IDs for this profile
+        ext_system_ids = tuple(
+            db.scalars(
+                select(AgentProfileExternalSystemModel.system_id).where(
+                    AgentProfileExternalSystemModel.profile_id == profile.id,
+                    AgentProfileExternalSystemModel.enabled.is_(True),
+                )
+            ).all()
+        )
+
+        # Add external API tool names that require approval
+        if ext_system_ids:
+            from app.db.models import ExternalApiModel
+            ext_apis = db.scalars(
+                select(ExternalApiModel).where(
+                    ExternalApiModel.system_id.in_(ext_system_ids),
+                    ExternalApiModel.enabled.is_(True),
+                    ExternalApiModel.requires_approval.is_(True),
+                )
+            ).all()
+            for api in ext_apis:
+                approval_tools.add(api.name)
+
         return RuntimeAgentProfile(
             profile_id=profile.id,
             name=profile.name,
@@ -762,6 +849,7 @@ class AgentProfileService:
             approval_tools=frozenset(approval_tools),
             signature=tuple(signature),
             skills=skills,
+            external_system_ids=ext_system_ids,
         )
 
     def _load_profile_skill_rows(

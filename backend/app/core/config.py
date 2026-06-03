@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     openai_model: str = Field(default="gpt-5.4", validation_alias="OPENAI_MODEL")
     agent_system_prompt: str = "你是 AgenticOS 的 AI 助手。"
     agent_max_steps: int = 10
+    agent_max_tokens: int = 16384
     agent_parallel_tool_calls: bool = False
     database_url: str = Field(default=f"sqlite:///{PROJECT_ROOT / 'data' / 'agenticos.db'}", validation_alias="DATABASE_URL")
     skill_storage_dir: str = Field(
@@ -36,8 +37,15 @@ class Settings(BaseSettings):
     auth_rate_limit_window_seconds: int = Field(default=600, validation_alias="AUTH_RATE_LIMIT_WINDOW_SECONDS")
     auth_rate_limit_block_seconds: int = Field(default=900, validation_alias="AUTH_RATE_LIMIT_BLOCK_SECONDS")
 
+    # Redis 配置（留空则使用内存 fallback）
+    redis_url: str = Field(default="", validation_alias="REDIS_URL")
+    redis_cluster: bool = Field(default=False, validation_alias="REDIS_CLUSTER")
+
+    # 外部系统凭据加密密钥（留空则从 AUTH_SECRET_KEY 派生）
+    external_system_encryption_key: str = Field(default="", validation_alias="EXTERNAL_SYSTEM_ENCRYPTION_KEY")
+
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(PROJECT_ROOT / "backend" / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

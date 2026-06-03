@@ -88,6 +88,20 @@ def _ensure_compatible_schema() -> None:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE agent_profile_tools ADD COLUMN approval_sub_tools_json TEXT DEFAULT '[]'"))
 
+    if "external_systems" in inspector.get_table_names():
+        es_columns = {column["name"] for column in inspector.get_columns("external_systems")}
+        for col_name, col_def in [
+            ("credential_template_json", "TEXT DEFAULT '{}'"),
+            ("oauth_client_id_encrypted", "TEXT"),
+            ("oauth_client_secret_encrypted", "TEXT"),
+            ("oauth_auth_url", "TEXT"),
+            ("oauth_scope", "TEXT"),
+            ("published", "BOOLEAN DEFAULT 1"),
+        ]:
+            if col_name not in es_columns:
+                with engine.begin() as connection:
+                    connection.execute(text(f"ALTER TABLE external_systems ADD COLUMN {col_name} {col_def}"))
+
 
 def create_db_session() -> Session:
     return SessionLocal()

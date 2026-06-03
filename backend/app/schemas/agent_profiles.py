@@ -58,9 +58,15 @@ class AgentProfileBase(BaseModel):
         return value.strip().lower().replace(" ", "-")
 
 
+class AgentProfileExternalSystemRef(BaseModel):
+    system_id: int
+    enabled: bool = True
+
+
 class AgentProfileCreateRequest(AgentProfileBase):
     tools: list[AgentProfileTool] = Field(default_factory=list)
     skill_ids: list[int] = Field(default_factory=list)
+    external_systems: list[AgentProfileExternalSystemRef] = Field(default_factory=list)
 
 
 class AgentProfileUpdateRequest(BaseModel):
@@ -76,6 +82,7 @@ class AgentProfileUpdateRequest(BaseModel):
     audience_user_ids: list[int] | None = None
     tools: list[AgentProfileTool] | None = None
     skill_ids: list[int] | None = None
+    external_systems: list[AgentProfileExternalSystemRef] | None = None
 
     @field_validator("name", "description", "system_prompt", "avatar")
     @classmethod
@@ -88,6 +95,12 @@ class AgentProfileUpdateRequest(BaseModel):
         if value is None:
             return value
         return value.strip().lower().replace(" ", "-")
+
+
+class AgentProfileExternalSystemInfo(BaseModel):
+    system_id: int
+    system_name: str
+    enabled: bool
 
 
 class AgentProfileResponse(AppBaseModel):
@@ -106,6 +119,7 @@ class AgentProfileResponse(AppBaseModel):
     audience_users: list[AgentProfileAudienceUser] = Field(default_factory=list)
     tools: list[AgentProfileTool]
     skills: list[AgentProfileSkillReference] = Field(default_factory=list)
+    external_systems: list[AgentProfileExternalSystemInfo] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

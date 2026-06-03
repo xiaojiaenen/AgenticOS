@@ -7,6 +7,7 @@ import { ChatHistory } from '../components/admin/ChatHistory';
 import { DashboardCharts } from '../components/admin/DashboardCharts';
 import { DashboardStats } from '../components/admin/DashboardStats';
 import { SkillManagement } from '../components/admin/SkillManagement';
+import { IntegrationManagement } from '../components/admin/IntegrationManagement';
 import { UserManagement } from '../components/admin/UserManagement';
 import { Button } from '../components/ui/Button';
 import { MascotCool } from '../components/ui/AnimatedIcons';
@@ -287,6 +288,8 @@ export const AdminDashboard = () => {
         return <AgentManagement />;
       case 'skills':
         return <SkillManagement />;
+      case 'integrations':
+        return <IntegrationManagement />;
       default:
         return null;
     }
