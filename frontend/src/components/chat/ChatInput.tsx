@@ -193,11 +193,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           {/* Ghost text 补全建议 */}
           {suggestion && value && (
             <div
-              className="pointer-events-none absolute left-0 top-0 p-3 leading-relaxed tracking-tight text-slate-300 whitespace-pre-wrap"
+              className="pointer-events-none absolute inset-0 p-3 leading-relaxed tracking-tight whitespace-pre-wrap overflow-hidden"
               aria-hidden="true"
             >
-              <span className="invisible">{value}</span>
-              <span>{suggestion.slice(value.length)}</span>
+              <span className="text-transparent">{value}</span>
+              <span className="text-slate-300">{suggestion.slice(value.length)}</span>
             </div>
           )}
           <textarea
