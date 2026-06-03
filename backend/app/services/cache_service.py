@@ -82,16 +82,18 @@ class CacheService:
         if count > 500:
             await redis.zremrangebyscore(key, 0, time.time() - 7 * 86400)  # 压缩到 7 天
 
-    async def suggest_input(self, user_id: int, prefix: str, limit: int = 5) -> list[str]:
-        """根据前缀匹配用户历史输入"""
-        if not prefix or len(prefix) < 2:
+    async def suggest_input(self, user_id: int, query: str, limit: int = 5) -> list[str]:
+        """子串匹配 + 续写预测
+
+        返回格式：原始完整文本（前端从中截取续写部分）
+        评分：前缀匹配 > 子串匹配，最近使用 > 早期使用
+        """
+        if not query or len(query) < 2:
             return []
         redis = get_redis()
         key = f"suggest:user:{user_id}"
-        # 使用 ZRANGEBYLEX 进行前缀匹配
-        # Redis lexicographic range: [prefix to prefix\xff
-        results = await redis.zrangebylex(key, f"[{prefix}", f"[{prefix}\xff", 0, limit)
-        return results
+        items = await redis.zrevrange(key, 0, -1)  # 按时间降序
+        return self._match_and_rank(items, query, limit)
 
     async def add_global_input(self, text: str) -> None:
         """记录全局输入（所有用户共享）"""
@@ -105,13 +107,42 @@ class CacheService:
         if count > 2000:
             await redis.zremrangebyscore(key, 0, time.time() - 7 * 86400)
 
-    async def suggest_global(self, prefix: str, limit: int = 5) -> list[str]:
-        """全局前缀匹配"""
-        if not prefix or len(prefix) < 2:
+    async def suggest_global(self, query: str, limit: int = 5) -> list[str]:
+        """全局子串匹配 + 续写预测"""
+        if not query or len(query) < 2:
             return []
         redis = get_redis()
         key = "suggest:global"
-        return await redis.zrangebylex(key, f"[{prefix}", f"[{prefix}\xff", 0, limit)
+        items = await redis.zrevrange(key, 0, -1)
+        return self._match_and_rank(items, query, limit)
+
+    @staticmethod
+    def _match_and_rank(items: list[str], query: str, limit: int) -> list[str]:
+        """子串匹配 + 评分排序
+
+        评分规则：
+        - 前缀匹配：1.0 分（用户输入是文本开头）
+        - 子串匹配：0.7 分（用户输入在文本中间）
+        - 位置靠前加分：匹配位置越靠前，分越高
+        """
+        query_lower = query.lower()
+        scored: list[tuple[str, float]] = []
+
+        for text in items:
+            text_lower = text.lower()
+            idx = text_lower.find(query_lower)
+            if idx < 0:
+                continue
+            # 前缀匹配得 1.0，子串匹配得 0.7，位置越靠前越高
+            base_score = 1.0 if idx == 0 else 0.7
+            # 位置惩罚：每偏移一个字符扣 0.02
+            pos_penalty = min(idx * 0.02, 0.3)
+            score = base_score - pos_penalty
+            scored.append((text, score))
+
+        # 按分数降序，同分按长度升序（短的优先）
+        scored.sort(key=lambda x: (-x[1], len(x[0])))
+        return [text for text, _ in scored[:limit]]
 
     # ============================================================
     # 2. 频率限制 — String INCR + EXPIRE
