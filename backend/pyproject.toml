@@ -14,6 +14,7 @@ dependencies = [
     "python-pptx>=1.0.2",
     "pillow>=12.2.0",
     "markitdown>=0.1.5",
+    "redis>=5.0.0,<6.0.0",
 ]
 
 [dependency-groups]

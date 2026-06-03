@@ -18,6 +18,7 @@ if _env_file.exists():
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.redis import init_redis, close_redis
 from app.db.session import init_db
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,14 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     except Exception:
         logger.critical("Database initialization failed. Check DATABASE_URL and disk space.", exc_info=True)
         raise
+
+    # 初始化 Redis（留空则使用内存 fallback）
+    await init_redis(settings.redis_url, settings.redis_cluster)
+
     yield
+
+    # 关闭 Redis
+    await close_redis()
 
 
 app = FastAPI(
