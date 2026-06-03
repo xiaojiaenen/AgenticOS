@@ -1168,17 +1168,13 @@ class AgentService:
         await self._load_session_if_needed(agent, request)
 
         # 记录用户输入到补全缓存
-        print(f"[CACHE] check: user={user is not None}, msg_len={len(request.message) if request.message else 0}", flush=True)
         if user is not None and request.message:
             try:
                 from app.services.cache_service import get_cache_service
-                cache = get_cache_service()
-                print(f"[CACHE] saving: user={user.id}, msg={request.message[:30]}", flush=True)
-                await cache.add_user_input(user.id, request.message)
-                await cache.add_global_input(request.message)
-                print(f"[CACHE] saved ok", flush=True)
-            except Exception as e:
-                print(f"[CACHE] error: {e}", flush=True)
+                await get_cache_service().add_user_input(user.id, request.message)
+                await get_cache_service().add_global_input(request.message)
+            except Exception:
+                pass
 
         # Inject design system catalog for PPT mode
         message = request.message
