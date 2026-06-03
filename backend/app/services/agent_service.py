@@ -1174,8 +1174,9 @@ class AgentService:
                 cache = get_cache_service()
                 await cache.add_user_input(user.id, request.message)
                 await cache.add_global_input(request.message)
-            except Exception:
-                pass  # 缓存失败不影响主流程
+                _logger.info(f"Cached user input: user={user.id}, msg={request.message[:30]}")
+            except Exception as e:
+                _logger.warning(f"Failed to cache user input: {e}")
 
         # Inject design system catalog for PPT mode
         message = request.message
