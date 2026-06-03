@@ -76,8 +76,8 @@ export function useInputSuggest() {
       lastQueryRef.current = '';
       return;
     }
-    // 500ms 防抖，减少请求频率
-    debounceRef.current = setTimeout(() => fetchSuggestion(value), 500);
+    // 300ms 防抖，平衡响应速度和请求频率
+    debounceRef.current = setTimeout(() => fetchSuggestion(value), 300);
   }, [fetchSuggestion]);
 
   const accept = useCallback((): string => {
