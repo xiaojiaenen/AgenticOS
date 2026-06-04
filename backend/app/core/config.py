@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     openai_model: str = Field(default="gpt-5.4", validation_alias="OPENAI_MODEL")
     agent_system_prompt: str = "你是 AgenticOS 的 AI 助手。"
     agent_max_steps: int = 10
-    agent_max_tokens: int = 16384
+    agent_max_tokens: int = 65536
     agent_parallel_tool_calls: bool = False
     database_url: str = Field(default=f"sqlite:///{PROJECT_ROOT / 'data' / 'agenticos.db'}", validation_alias="DATABASE_URL")
     skill_storage_dir: str = Field(

@@ -41,6 +41,24 @@ class ApprovalManager:
         for sid in empty_sessions:
             self._subscribers.pop(sid, None)
 
+    async def request_approval_bool(self, tool_call) -> bool:
+        """兼容 wuwei HitlMiddleware 的 approval_provider 接口：接收 ToolCall 返回 bool。"""
+        import uuid
+        from app.services.agent_service import _current_session_id
+        session_id = _current_session_id.get() or "default"
+        request = ApprovalRequest(
+            id=uuid.uuid4().hex,
+            session_id=session_id,
+            action_type="tool_call",
+            payload={
+                "tool_call_id": getattr(tool_call, "id", None),
+                "tool_name": tool_call.function.name,
+                "arguments": tool_call.function.arguments,
+            },
+        )
+        decision = await self.request_approval(request)
+        return decision.status == "approved"
+
     async def request_approval(self, request: ApprovalRequest) -> ApprovalDecision:
         self._purge_stale_entries()
         await self._save_pending(request)

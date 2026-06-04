@@ -116,14 +116,20 @@ class PptPipeline:
         return state
 
     async def _generate_slides_node(self, state: PptPipelineState) -> PptPipelineState:
-        """生成节点：逐页生成 SVG"""
+        """生成节点：逐页生成 SVG 并写入磁盘"""
         _logger.info(f"Generating {len(state.pages)} slides...")
 
         from wuwei import LLMGateway
         from wuwei.core.message import SystemMessage, HumanMessage
+        from pathlib import Path
+        from app.core.data_path import PPT_SESSIONS_DIR
 
         llm = LLMGateway.from_env()
         svgs = []
+
+        # 确保 slides 目录存在
+        slides_dir = PPT_SESSIONS_DIR / state.session_id
+        slides_dir.mkdir(parents=True, exist_ok=True)
 
         for i, page in enumerate(state.pages):
             try:
@@ -137,7 +143,12 @@ class PptPipeline:
                 if "<svg" in content:
                     start = content.index("<svg")
                     end = content.rfind("</svg>") + 6
-                    svgs.append(content[start:end])
+                    svg = content[start:end]
+                    svgs.append(svg)
+                    # 写入磁盘
+                    slide_path = slides_dir / f"slide_{i + 1}.svg"
+                    slide_path.write_text(svg, encoding="utf-8")
+                    _logger.info(f"Saved slide {i + 1} to {slide_path}")
             except Exception as e:
                 _logger.error(f"Slide generation failed: {e}")
 

@@ -150,6 +150,7 @@ class AgentProfileModel(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     listed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_builtin: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    max_steps: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)

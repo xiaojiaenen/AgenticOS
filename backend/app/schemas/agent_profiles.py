@@ -42,6 +42,7 @@ class AgentProfileBase(BaseModel):
     avatar: str | None = Field(default=None, max_length=64)
     enabled: bool = True
     listed: bool = False
+    max_steps: int | None = Field(default=None, ge=1, le=200)
     audience_mode: str = Field(default="all", pattern="^(all|selected)$")
     audience_user_ids: list[int] = Field(default_factory=list)
 
@@ -78,6 +79,7 @@ class AgentProfileUpdateRequest(BaseModel):
     avatar: str | None = Field(default=None, max_length=64)
     enabled: bool | None = None
     listed: bool | None = None
+    max_steps: int | None = Field(default=None, ge=1, le=200)
     audience_mode: str | None = Field(default=None, pattern="^(all|selected)$")
     audience_user_ids: list[int] | None = None
     tools: list[AgentProfileTool] | None = None
@@ -115,6 +117,7 @@ class AgentProfileResponse(AppBaseModel):
     listed: bool
     is_builtin: bool
     installed: bool = False
+    max_steps: int | None = None
     audience_mode: str
     audience_users: list[AgentProfileAudienceUser] = Field(default_factory=list)
     tools: list[AgentProfileTool]

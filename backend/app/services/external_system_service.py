@@ -370,6 +370,10 @@ def _build_system_tool_handler(
     available_names = list(api_map.keys())
 
     async def handler(api_name: str, params: dict = {}) -> str:
+        # 运行时动态获取 user_id（agent 可能被不同用户共享）
+        from app.services.external_system_service import get_ext_user_id as _get_uid
+        effective_user_id = _get_uid() or user_id
+
         entry = api_map.get(api_name)
         if not entry:
             return json.dumps({
@@ -384,7 +388,7 @@ def _build_system_tool_handler(
         db = create_db_session()
         try:
             cred = db.query(ExternalUserCredentialModel).filter_by(
-                user_id=user_id, system_id=system.id
+                user_id=effective_user_id, system_id=system.id
             ).first()
             if not cred or cred.connection_status != "connected":
                 return json.dumps({
@@ -456,14 +460,17 @@ def _build_system_tool_handler(
     return handler
 
 
-def register_external_tools(registry, system_ids: list[int], db: Session) -> None:
+def register_external_tools(registry, system_ids: list[int], db: Session) -> list[str]:
     """Register one wuwei tool per external system.
 
     Each tool's description lists available APIs. The handler dispatches by api_name.
+    Returns list of system names that were successfully registered.
     """
     user_id = get_ext_user_id()
     if not user_id:
-        return
+        return []
+
+    registered_systems: list[str] = []
 
     systems = db.execute(
         select(ExternalSystemModel).where(
@@ -534,7 +541,10 @@ def register_external_tools(registry, system_ids: list[int], db: Session) -> Non
             timeout_seconds=30,
         )(handler)
 
+        registered_systems.append(system.name)
         logger.info("Registered system tool: %s (%d APIs)", tool_name, len(api_map))
+
+    return registered_systems
 
 
 # ── CRUD Service ────────────────────────────────────────────────────────────
