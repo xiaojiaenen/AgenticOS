@@ -1,4 +1,4 @@
-﻿import React from 'react'
+import React from 'react'
 import { motion, MotionValue } from 'motion/react'
 import { CheckCircle2, Globe, RefreshCcw, Rocket, X, XCircle } from 'lucide-react'
 import { Artifact } from '../../types'
