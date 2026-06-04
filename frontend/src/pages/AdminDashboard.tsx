@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Activity, AlertCircle, Gauge, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import { Activity, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
 import { AnnouncementManagement } from '../components/admin/AnnouncementManagement';
 import { AgentManagement } from '../components/admin/AgentManagement';
@@ -60,104 +60,33 @@ export const AdminDashboard = () => {
     }
   }, [activeTab, loadDashboard, dashboardData]);
 
-  const topSummary = useMemo(() => {
-    const summary = dashboardData?.summary;
-
-    return [
-      {
-        label: '总 Token',
-        value: formatTokenNumber(summary?.total_tokens),
-        meta: summary ? `${formatNumber(summary?.total_sessions || 0)} 个会话累计产生` : '平台内容总负载',
-        tone: 'bg-[var(--admin-card-bg)] border-l-4 border-l-[var(--admin-accent)]',
-        icon: Gauge,
-      },
-      {
-        label: '输入 Token',
-        value: formatTokenNumber(summary?.input_tokens),
-        meta: summary ? `${Math.round((summary.input_tokens / Math.max(summary.total_tokens, 1)) * 100)}% 输入占比` : '用户输入内容沉淀',
-        tone: 'bg-[var(--admin-card-bg)] border-l-4 border-l-emerald-500',
-        icon: Activity,
-      },
-      {
-        label: '输出 Token',
-        value: formatTokenNumber(summary?.output_tokens),
-        meta: summary ? `${Math.round((summary.output_tokens / Math.max(summary.total_tokens, 1)) * 100)}% 输出占比` : '模型输出内容沉淀',
-        tone: 'bg-[var(--admin-card-bg)] border-l-4 border-l-violet-500',
-        icon: Sparkles,
-      },
-      {
-        label: '总运行',
-        value: formatNumber(summary?.total_runs),
-        meta: summary ? `${formatNumber(summary.llm_calls)} 次模型调用` : '观察执行总规模',
-        tone: 'bg-[var(--admin-card-bg)] border-l-4 border-l-amber-500',
-        icon: Activity,
-      },
-    ];
-  }, [dashboardData]);
-
-  const sideSummary = useMemo(() => {
-    const summary = dashboardData?.summary;
-    return [
-      {
-        label: '总用户',
-        value: formatNumber(summary?.total_users),
-        meta: '平台累计用户规模',
-      },
-      {
-        label: '总会话',
-        value: formatNumber(summary?.total_sessions),
-        meta: '会话沉淀总量',
-      },
-      {
-        label: '活跃用户',
-        value: formatNumber(summary?.active_users),
-        meta: '当前活跃账号数量',
-      },
-      {
-        label: '总运行',
-        value: formatNumber(summary?.total_runs),
-        meta: '全局执行次数',
-      },
-      {
-        label: '平均耗时',
-        value: formatLatency(summary?.avg_latency_ms),
-        meta: '按单次运行统计',
-      },
-      {
-        label: '模型调用',
-        value: formatNumber(summary?.llm_calls),
-        meta: '全局推理触发次数',
-      },
-    ];
-  }, [dashboardData]);
-
   const headerInsights = useMemo(() => {
     const summary = dashboardData?.summary;
     if (!summary) {
       return [
-        { label: '输出占比', value: '--' },
-        { label: '每用户会话', value: '--' },
-        { label: '每次运行工具', value: '--' },
-        { label: '输入 Token', value: '--' },
+        { label: '模型调用', value: '--' },
+        { label: '总运行', value: '--' },
+        { label: '总用户', value: '--' },
+        { label: '单会话 Token', value: '--' },
       ];
     }
 
     return [
       {
-        label: '输出占比',
-        value: `${Math.round((summary.output_tokens / Math.max(summary.total_tokens, 1)) * 100)}%`,
+        label: '模型调用',
+        value: formatNumber(summary.llm_calls),
       },
       {
-        label: '每用户会话',
-        value: (summary.total_sessions / Math.max(summary.total_users, 1)).toFixed(1),
+        label: '总运行',
+        value: formatNumber(summary.total_runs),
       },
       {
-        label: '每次运行工具',
-        value: (summary.tool_calls / Math.max(summary.total_runs, 1)).toFixed(2),
+        label: '总用户',
+        value: formatNumber(summary.total_users),
       },
       {
-        label: '输入 Token',
-        value: formatTokenNumber(summary.input_tokens),
+        label: '单会话 Token',
+        value: formatTokenNumber(summary.total_sessions > 0 ? Math.round(summary.total_tokens / summary.total_sessions) : 0),
       },
     ];
   }, [dashboardData]);
@@ -167,90 +96,42 @@ export const AdminDashboard = () => {
       case 'dashboard':
         return (
           <div className="admin-page-stage space-y-5">
-            {/* Top row: overview + key metrics — semi-transparent tinted cards */}
-            <section className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_400px]">
-              <div className="rounded-2xl border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] backdrop-blur-xl p-5 shadow-md">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="max-w-3xl">
-                    <p className="admin-section-kicker">系统总览</p>
-                    <h1 className="mt-1.5 text-2xl font-black tracking-tight text-slate-950 lg:text-3xl">后台数据看板</h1>
-                    <div className="mt-3 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-                      {headerInsights.map((item) => (
-                        <div key={item.label} className="admin-stat-card rounded-xl px-4 py-3">
-                          <p className="text-[11px] font-black tracking-[0.14em] text-slate-400">{item.label}</p>
-                          <p className="mt-1.5 text-lg font-black tracking-tight text-slate-950">{item.value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <div className="admin-kpi-pill text-xs font-black">
-                      {isDashboardLoading ? '正在同步数据' : '数据已同步'}
-                    </div>
-                    <Button variant="secondary" onClick={loadDashboard} disabled={isDashboardLoading} className="gap-1.5" size="sm">
-                      {isDashboardLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                      刷新
-                    </Button>
-                    <div className="flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 p-0.5 text-xs">
-                      {[7, 14, 30].map((d) => (
-                        <button
-                          key={d}
-                          onClick={() => setTimeRange(d)}
-                          className={`rounded-lg px-2.5 py-1 font-bold transition-colors ${timeRange === d ? "bg-[var(--admin-accent)] text-white" : "text-slate-500 hover:text-slate-700"}`}
-                        >
-                          {d}天
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => setAutoRefresh(!autoRefresh)}
-                      className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors ${autoRefresh ? "bg-emerald-100 text-emerald-700" : "text-slate-400 hover:text-slate-600"}`}
-                      title={autoRefresh ? "关闭自动刷新" : "开启自动刷新（30秒）"}
-                    >
-                      {autoRefresh ? "自动: 开" : "自动: 关"}
-                    </button>
-                  </div>
+            {/* Overview header */}
+            <section className="rounded-2xl border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] backdrop-blur-xl p-5 shadow-md">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="admin-section-kicker">系统总览</p>
+                  <h1 className="mt-1.5 text-2xl font-black tracking-tight text-slate-950 lg:text-3xl">后台数据看板</h1>
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-                  {topSummary.map((item) => (
-                    <div key={item.label} className={`admin-stat-card px-4 py-4 ${item.tone}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-black tracking-[0.16em] text-slate-500">{item.label}</span>
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/70 bg-white/65 text-slate-900 shadow-sm transition-transform duration-300 group-hover:scale-110">
-                          <item.icon size={18} />
-                        </div>
-                      </div>
-                      <p className="mt-3 text-2xl font-black tracking-tight text-slate-950">{item.value}</p>
-                      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{item.meta}</p>
-                    </div>
-                  ))}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <div className="admin-kpi-pill text-xs font-black">
+                    {isDashboardLoading ? '正在同步数据' : '数据已同步'}
+                  </div>
+                  <Button variant="secondary" onClick={loadDashboard} disabled={isDashboardLoading} className="gap-1.5" size="sm">
+                    {isDashboardLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                    刷新
+                  </Button>
+                  <div className="flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 p-0.5 text-xs">
+                    {[7, 14, 30].map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => setTimeRange(d)}
+                        className={`rounded-lg px-2.5 py-1 font-bold transition-colors ${timeRange === d ? "bg-[var(--admin-accent)] text-white" : "text-slate-500 hover:text-slate-700"}`}
+                      >
+                        {d}天
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              <div className="rounded-2xl border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] backdrop-blur-xl p-5 shadow-md">
-                <p className="admin-section-kicker">关键刻度</p>
-                <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
-                  {sideSummary.map((item, index) => (
-                    <div
-                      key={item.label}
-                      className={cn(
-                        'admin-stat-card rounded-xl px-4 py-3.5 bg-[var(--admin-card-bg)]',
-                        index === 0 && 'border-l-4 border-l-[var(--admin-accent)]',
-                        index === 1 && 'border-l-4 border-l-sky-400',
-                        index === 2 && 'border-l-4 border-l-pink-400',
-                        index === 3 && 'border-l-4 border-l-violet-400',
-                        index === 4 && 'border-l-4 border-l-amber-400',
-                        index === 5 && 'border-l-4 border-l-emerald-400',
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-slate-500">{item.label}</span>
-                        <span className="text-lg font-bold tracking-tight text-slate-950">{item.value}</span>
-                      </div>
-                      <p className="mt-1 text-xs font-medium text-slate-500">{item.meta}</p>
-                    </div>
-                  ))}
-                </div>
+              {/* Quick insights */}
+              <div className="mt-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+                {headerInsights.map((item) => (
+                  <div key={item.label} className="admin-stat-card rounded-xl px-4 py-3">
+                    <p className="text-[11px] font-black tracking-[0.14em] text-slate-400">{item.label}</p>
+                    <p className="mt-1.5 text-lg font-black tracking-tight text-slate-950">{item.value}</p>
+                  </div>
+                ))}
               </div>
             </section>
 
@@ -263,16 +144,14 @@ export const AdminDashboard = () => {
 
             {isDashboardLoading && !dashboardData ? (
               <div className="space-y-5">
-                <section className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_400px]">
-                  <div className="rounded-2xl border border-white/60 bg-[var(--admin-card-bg)] p-6 shadow-xl backdrop-blur-2xl">
-                    <div className="h-3 w-20 animate-pulse rounded bg-slate-200 mb-4" />
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                      {[0,1,2,3].map(i => <ChartSkeleton key={i} variant="stat" />)}
-                    </div>
+                <section className="rounded-2xl border border-white/60 bg-[var(--admin-card-bg)] p-6 shadow-xl backdrop-blur-2xl">
+                  <div className="h-3 w-20 animate-pulse rounded bg-slate-200 mb-4" />
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {[0,1,2,3].map(i => <ChartSkeleton key={i} variant="stat" />)}
                   </div>
-                  <div className="rounded-2xl border border-white/60 bg-[var(--admin-card-bg)] p-6 shadow-xl backdrop-blur-2xl">
-                    <ChartSkeleton variant="stat" />
-                  </div>
+                </section>
+                <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                  {[0,1,2,3,4].map(i => <ChartSkeleton key={i} variant="stat" />)}
                 </section>
                 <section className="grid gap-5 lg:grid-cols-2">
                   <div className="rounded-2xl border border-white/60 bg-[var(--admin-card-bg)] p-6 shadow-xl backdrop-blur-2xl">
