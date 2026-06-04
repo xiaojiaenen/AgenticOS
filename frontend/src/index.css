@@ -615,6 +615,26 @@ body.admin-modal-open .admin-dashboard-backdrop {
   box-shadow: 0 4px 20px rgba(14, 165, 233, 0.08);
 }
 
+/* ===== Admin Form Input ===== */
+.admin-input {
+  @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800 outline-none transition-all duration-200;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+}
+
+.admin-input:hover {
+  @apply border-slate-300;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.admin-input:focus {
+  @apply border-sky-400 ring-4 ring-sky-100/60;
+  box-shadow: 0 2px 12px rgba(14, 165, 233, 0.1);
+}
+
+.admin-input::placeholder {
+  @apply text-slate-400;
+}
+
 /* ===== Admin Status Pill ===== */
 .admin-status-pill {
   @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold transition-all duration-200;

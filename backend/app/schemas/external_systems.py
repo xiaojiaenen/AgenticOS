@@ -53,14 +53,19 @@ class ExternalSystemCreateRequest(BaseModel):
     oauth_auth_url: str | None = Field(default=None, max_length=512)
     oauth_token_url: str | None = Field(default=None, max_length=512)
     oauth_scope: str | None = None
+    oauth_refresh_token_url: str | None = Field(default=None, max_length=512)
     jwt_login_url: str | None = Field(default=None, max_length=512)
+    jwt_refresh_url: str | None = Field(default=None, max_length=512)
+    jwt_refresh_body_template: str | None = None
+    jwt_refresh_token_path: str | None = None
     jwt_request_body_template: str | None = None
     jwt_response_token_path: str | None = None
     jwt_response_expires_path: str | None = None
     published: bool = True
     headers: dict[str, str] = Field(default_factory=dict)
+    advanced_auth: dict = Field(default_factory=dict)
 
-    @field_validator("name", "description", "base_url")
+    @field_validator("name", "description", "base_url", "jwt_login_url", "jwt_refresh_url", "oauth_auth_url", "oauth_token_url", "oauth_refresh_token_url")
     @classmethod
     def strip_text(cls, v: str) -> str:
         return v.strip() if isinstance(v, str) else v
@@ -82,15 +87,20 @@ class ExternalSystemUpdateRequest(BaseModel):
     oauth_auth_url: str | None = Field(default=None, max_length=512)
     oauth_token_url: str | None = Field(default=None, max_length=512)
     oauth_scope: str | None = None
+    oauth_refresh_token_url: str | None = Field(default=None, max_length=512)
     jwt_login_url: str | None = Field(default=None, max_length=512)
+    jwt_refresh_url: str | None = Field(default=None, max_length=512)
+    jwt_refresh_body_template: str | None = None
+    jwt_refresh_token_path: str | None = None
     jwt_request_body_template: str | None = None
     jwt_response_token_path: str | None = None
     jwt_response_expires_path: str | None = None
     published: bool | None = None
     headers: dict[str, str] | None = None
+    advanced_auth: dict | None = None
     enabled: bool | None = None
 
-    @field_validator("name", "description", "base_url")
+    @field_validator("name", "description", "base_url", "jwt_login_url", "jwt_refresh_url", "oauth_auth_url", "oauth_token_url", "oauth_refresh_token_url")
     @classmethod
     def strip_text(cls, v: str | None) -> str | None:
         return v.strip() if isinstance(v, str) else v
@@ -111,12 +121,17 @@ class ExternalSystemResponse(AppBaseModel):
     oauth_auth_url: str | None
     oauth_token_url: str | None
     oauth_scope: str | None
+    oauth_refresh_token_url: str | None
     jwt_login_url: str | None
+    jwt_refresh_url: str | None
+    jwt_refresh_body_template: str | None
+    jwt_refresh_token_path: str | None
     jwt_request_body_template: str | None
     jwt_response_token_path: str | None
     jwt_response_expires_path: str | None
     published: bool
     headers: dict[str, str]
+    advanced_auth: dict
     enabled: bool
     api_count: int = 0
     created_by: int | None
