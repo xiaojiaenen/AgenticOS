@@ -30,6 +30,7 @@ const TOOL_RESULT_PREVIEW_CHAR_LIMIT = 520;
 const TOOL_RESULT_PREVIEW_LINE_LIMIT = 10;
 
 function normalizeToolResult(result: string): string {
+  if (!result) return '';
   return result
     .replace(
       /(data:image\/[a-zA-Z0-9.+-]+;base64,)[A-Za-z0-9+/=\n\r]{40,}/g,
@@ -41,21 +42,26 @@ function normalizeToolResult(result: string): string {
     );
 }
 
+
 function buildToolResultPreview(result: string): { text: string; truncated: boolean } {
-  if (result.length <= TOOL_RESULT_PREVIEW_CHAR_LIMIT) {
+  if (!result) return { text: '', truncated: false };
+  const charLimit = TOOL_RESULT_PREVIEW_CHAR_LIMIT;
+  const lineLimit = TOOL_RESULT_PREVIEW_LINE_LIMIT;
+
+  if (result.length <= charLimit) {
     const lineCount = result.split('\n').length;
-    if (lineCount <= TOOL_RESULT_PREVIEW_LINE_LIMIT) {
+    if (lineCount <= lineLimit) {
       return { text: result, truncated: false };
     }
   }
 
   const lines = result.split('\n');
-  const previewLines = lines.slice(0, TOOL_RESULT_PREVIEW_LINE_LIMIT);
+  const previewLines = lines.slice(0, lineLimit);
   let preview = previewLines.join('\n');
 
-  if (preview.length > TOOL_RESULT_PREVIEW_CHAR_LIMIT) {
-    preview = `${preview.slice(0, TOOL_RESULT_PREVIEW_CHAR_LIMIT).trimEnd()}...`;
-  } else if (lines.length > TOOL_RESULT_PREVIEW_LINE_LIMIT || result.length > preview.length) {
+  if (preview.length > charLimit) {
+    preview = `${preview.slice(0, charLimit).trimEnd()}...`;
+  } else if (lines.length > lineLimit || result.length > preview.length) {
     preview = `${preview.trimEnd()}\n...`;
   }
 
@@ -79,7 +85,8 @@ const ToolResultPreview = ({
       <div className="relative">
         <div
           className={cn(
-            "rounded-xl px-3 py-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-words",
+            "rounded-xl px-3 py-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-all max-w-full overflow-hidden",
+            expanded && "max-h-[32rem] overflow-y-auto",
             isError
               ? "border border-rose-200/90 bg-rose-50/90 text-rose-700"
               : "border border-slate-200/80 bg-slate-50/90 text-slate-500",

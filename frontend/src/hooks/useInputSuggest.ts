@@ -50,8 +50,10 @@ export function useInputSuggest() {
     abortRef.current = controller;
 
     try {
+      // 后端 max_length=200，截断避免 422
+      const truncated = query.length > 200 ? query.slice(0, 200) : query;
       const response = await fetch(
-        `${SUGGEST_ENDPOINT}?q=${encodeURIComponent(query)}&limit=1`,
+        `${SUGGEST_ENDPOINT}?q=${encodeURIComponent(truncated)}&limit=1`,
         { headers: authHeaders(), signal: controller.signal },
       );
       if (!response.ok) return;

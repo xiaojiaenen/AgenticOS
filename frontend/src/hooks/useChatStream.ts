@@ -14,6 +14,7 @@ import { AgentProfile } from '../services/agentProfileService';
 import { uploadFiles } from '../services/fileService';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
 import { UserDecision, normalizeDecision } from '../components/chat/DecisionPanel';
+import { toast } from '../components/ui/Toast';
 
 // ---------------------------------------------------------------------------
 // extracted helpers
@@ -377,6 +378,14 @@ export function useChatStream({
             });
           },
         });
+
+        // 截断提示
+        if (response.finishReason === 'length') {
+          toast('回复被截断：输出达到 token 上限，内容可能不完整。可以发送「继续」接续，或精简需求后重试。', {
+            variant: 'warning',
+            duration: 8000,
+          });
+        }
 
         const pptArtifact = response.pptArtifact || receivedPptArtifact;
         const websiteArtifact = response.websiteArtifact || receivedWebsiteArtifact;
