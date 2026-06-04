@@ -104,6 +104,12 @@ def _ensure_compatible_schema() -> None:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE agent_profile_tools ADD COLUMN approval_sub_tools_json TEXT DEFAULT '[]'"))
 
+    if "agent_profiles" in inspector.get_table_names():
+        ap_columns = {column["name"] for column in inspector.get_columns("agent_profiles")}
+        if "max_steps" not in ap_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE agent_profiles ADD COLUMN max_steps INTEGER"))
+
     if "announcements" in inspector.get_table_names():
         announcement_columns = {column["name"] for column in inspector.get_columns("announcements")}
         if "content_format" not in announcement_columns:
@@ -112,6 +118,34 @@ def _ensure_compatible_schema() -> None:
         if "image_url" not in announcement_columns:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE announcements ADD COLUMN image_url TEXT"))
+
+    if "external_systems" in inspector.get_table_names():
+        es_columns = {column["name"] for column in inspector.get_columns("external_systems")}
+        for col_name, col_def in [
+            ("credential_template_json", "TEXT DEFAULT '{}'"),
+            ("oauth_client_id_encrypted", "TEXT"),
+            ("oauth_client_secret_encrypted", "TEXT"),
+            ("oauth_auth_url", "TEXT"),
+            ("oauth_scope", "TEXT"),
+            ("published", "BOOLEAN DEFAULT 1"),
+            ("jwt_login_url", "TEXT"),
+            ("jwt_request_body_template", "TEXT"),
+            ("jwt_response_token_path", "TEXT"),
+            ("jwt_response_expires_path", "TEXT"),
+        ]:
+            if col_name not in es_columns:
+                with engine.begin() as connection:
+                    connection.execute(text(f"ALTER TABLE external_systems ADD COLUMN {col_name} {col_def}"))
+
+    if "external_user_credentials" in inspector.get_table_names():
+        uc_columns = {column["name"] for column in inspector.get_columns("external_user_credentials")}
+        for col_name, col_def in [
+            ("cached_jwt_encrypted", "TEXT"),
+            ("jwt_expires_at", "DATETIME"),
+        ]:
+            if col_name not in uc_columns:
+                with engine.begin() as connection:
+                    connection.execute(text(f"ALTER TABLE external_user_credentials ADD COLUMN {col_name} {col_def}"))
 
 
 def create_db_session() -> Session:
