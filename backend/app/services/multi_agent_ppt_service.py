@@ -81,9 +81,22 @@ class MultiAgentPptService:
         review_result = await self._run_reviewer(llm, session_id)
 
         if review_result and review_result.get("needs_revision"):
-            yield {"event": "run_status", "data": {"phase": "revising", "label": "正在修订 PPT"}}
-            # 简化处理：标记需要修订但不自动重试
-            yield {"event": "delta", "data": {"content": f"PPT 生成完成，但有 {review_result.get('issues', 0)} 个问题需要检查。"}}
+            # 自动重试有问题的页面（最多 1 轮）
+            issues = review_result.get("issues", [])
+            if issues and len(issues) <= 3:
+                yield {"event": "run_status", "data": {"phase": "revising", "label": f"正在修订 {len(issues)} 页"}}
+                for issue_page in issues:
+                    page_idx = issue_page.get("page", 1) - 1
+                    if 0 <= page_idx < len(pages):
+                        svg = await self._run_designer(
+                            llm=llm, registry=registry,
+                            page_spec={**pages[page_idx], "revision_hint": issue_page.get("message", "")},
+                            theme=theme, page_num=page_idx + 1, total_pages=len(pages),
+                        )
+                        if svg:
+                            await self._save_slide(session_id, page_idx + 1, svg)
+            else:
+                yield {"event": "delta", "data": {"content": f"PPT 生成完成，但有 {len(issues)} 个问题需要检查。"}}
 
         yield {"event": "done", "data": {"reason": "multi_agent_ppt_complete"}}
 
@@ -95,9 +108,10 @@ class MultiAgentPptService:
         profile = RuntimeAgentProfile(
             profile_id=None, name="ppt", slug="ppt", response_mode="ppt",
             system_prompt="", builtin_tools=("skill",),
-            approval_tools=(), signature="", skills=(),
+            approval_tools=frozenset(), signature=(), skills=(),
         )
-        return AgentService._build_tool_registry(profile)
+        registry, _ = AgentService._build_tool_registry(profile)
+        return registry
 
     async def _run_planner(self, llm: LLMGateway, user_message: str) -> dict[str, Any] | None:
         """Planner Agent：分析需求，输出 PPT 大纲"""
@@ -154,13 +168,17 @@ class MultiAgentPptService:
         page_num: int,
         total_pages: int,
     ) -> str | None:
-        """Designer Agent：根据页面规格生成 SVG"""
+        """Designer Agent：加载设计规范后生成 SVG"""
         from wuwei.core.message import SystemMessage, HumanMessage
 
         page_type = page_spec.get("type", "content")
         title = page_spec.get("title", "")
         content = page_spec.get("content", "")
         layout = page_spec.get("layout", "bullets")
+
+        # 加载设计指南（如有）
+        design_guide = self._load_design_guide()
+        theme_css = self._load_theme_css(theme)
 
         designer_prompt = f"""你是 SVG 幻灯片设计专家。根据以下规格生成一个 SVG 页面。
 
@@ -179,6 +197,10 @@ class MultiAgentPptService:
 4. 字体：Inter, Noto Sans SC, sans-serif
 5. 包含 <!-- notes: 演讲者备注 -->
 
+{design_guide}
+
+{theme_css}
+
 只输出 SVG 代码，不要其他内容。"""
 
         try:
@@ -190,7 +212,6 @@ class MultiAgentPptService:
             )
             content = response.message.content
             if content:
-                # 提取 SVG
                 if "<svg" in content:
                     start = content.index("<svg")
                     end = content.rfind("</svg>") + 6
@@ -198,6 +219,38 @@ class MultiAgentPptService:
         except Exception as e:
             _logger.error(f"Designer failed for page {page_num}: {e}")
         return None
+
+    def _load_design_guide(self) -> str:
+        """加载 PPT 设计指南 skill 内容"""
+        try:
+            from app.services.skill_service import SkillService
+            svc = SkillService()
+            with svc.session_factory() as db:
+                from sqlalchemy import select
+                from app.db.models import SkillModel
+                skill = db.scalar(select(SkillModel).where(SkillModel.slug == "ppt-design-guide"))
+                if skill and skill.root_dir:
+                    from pathlib import Path
+                    skill_md = Path(skill.root_dir) / "SKILL.md"
+                    if skill_md.exists():
+                        text = skill_md.read_text(encoding="utf-8")
+                        # 截取前 3000 字符避免 prompt 过长
+                        return f"## 设计规范\n\n{text[:3000]}"
+        except Exception as e:
+            _logger.debug(f"Could not load design guide: {e}")
+        return ""
+
+    def _load_theme_css(self, theme: str) -> str:
+        """加载主题 CSS token 定义"""
+        try:
+            from app.services.ppt.theme_token_resolver import load_theme_tokens
+            tokens = load_theme_tokens(theme)
+            if tokens:
+                css_vars = "\n".join(f"  --{k}: {v};" for k, v in list(tokens.items())[:30])
+                return f"## 主题 CSS 变量\n\n```css\n:root {{\n{css_vars}\n}}\n```"
+        except Exception as e:
+            _logger.debug(f"Could not load theme CSS: {e}")
+        return ""
 
     async def _save_slide(self, session_id: str | None, slide_num: int, svg: str) -> bool:
         """保存 slide SVG 文件"""
@@ -215,7 +268,7 @@ class MultiAgentPptService:
         return True
 
     async def _run_reviewer(self, llm: LLMGateway, session_id: str | None) -> dict[str, Any] | None:
-        """Reviewer Agent：检查 SVG 质量"""
+        """Reviewer Agent：检查 SVG 质量，返回有问题的页面列表"""
         from pathlib import Path
         from app.core.data_path import PPT_SESSIONS_DIR
 
@@ -228,18 +281,38 @@ class MultiAgentPptService:
 
         svg_files = sorted(slides_dir.glob("slide_*.svg"))
         if not svg_files:
-            return {"needs_revision": True, "issues": 1, "message": "没有找到 SVG 文件"}
+            return {"needs_revision": True, "issues": [{"page": 1, "message": "没有找到 SVG 文件"}]}
 
-        # 简单检查：viewBox 一致性
+        issues = []
         import re
-        viewboxes = set()
+
         for f in svg_files:
+            page_num = int(re.search(r'slide_(\d+)', f.name).group(1))
             content = f.read_text(encoding="utf-8")
+
+            # 基础检查
+            if "<svg" not in content:
+                issues.append({"page": page_num, "message": "无效 SVG：缺少 <svg> 标签"})
+                continue
+
+            # viewBox 检查
             m = re.search(r'viewBox=["\']([^"\']+)["\']', content)
-            if m:
-                viewboxes.add(m.group(1))
+            if not m:
+                issues.append({"page": page_num, "message": "缺少 viewBox 属性"})
+            elif m.group(1) != "0 0 1280 720":
+                issues.append({"page": page_num, "message": f"viewBox 不标准: {m.group(1)}"})
 
-        if len(viewboxes) > 1:
-            return {"needs_revision": True, "issues": 1, "message": "SVG viewBox 不一致"}
+            # 内容过少检查
+            if len(content) < 200:
+                issues.append({"page": page_num, "message": "SVG 内容过少，可能生成不完整"})
 
-        return {"needs_revision": False, "issues": 0}
+            # 空白页检查
+            text_match = re.findall(r'>([^<]+)<', content)
+            visible_text = " ".join(t.strip() for t in text_match if t.strip())
+            if len(visible_text) < 10 and page_num > 1:
+                issues.append({"page": page_num, "message": "页面几乎没有可见文字内容"})
+
+        if issues:
+            return {"needs_revision": True, "issues": issues}
+
+        return {"needs_revision": False, "issues": []}

@@ -215,6 +215,7 @@ class AgentService:
             tuple(sorted(profile.approval_tools)),
             profile.signature,
             profile.skills,
+            profile.external_system_ids,
             self.settings.context_compression_enabled,
         )
         cached = self._agents.get(cache_key)
@@ -222,12 +223,18 @@ class AgentService:
             return cached
 
         llm = LLMGateway.from_env(max_tokens=self.settings.agent_max_tokens)
+        tools, ext_instruction = self._build_tool_registry(profile)
         middleware_stack = self._build_middleware_stack(profile, llm)
+
+        # 追加外部系统指引到 system prompt
+        system_prompt = profile.system_prompt
+        if ext_instruction:
+            system_prompt = f"{system_prompt}{ext_instruction}"
 
         agent = Agent(
             llm=llm,
-            tools=self._build_tool_registry(profile),
-            default_system_prompt=profile.system_prompt,
+            tools=tools,
+            default_system_prompt=system_prompt,
             default_max_steps=self.settings.agent_max_steps,
             default_parallel_tool_calls=self.settings.agent_parallel_tool_calls,
             middleware=middleware_stack,
@@ -245,7 +252,8 @@ class AgentService:
         approval_tools = set(profile.approval_tools)
         if approval_tools and self.settings.hitl_enabled:
             from wuwei.tools import ToolRegistry as _TR
-            all_tool_names = [t.name for t in self._build_tool_registry(profile).list_tools()]
+            _reg, _ = self._build_tool_registry(profile)
+            all_tool_names = [t.name for t in _reg.list_tools()]
             auto_approve = [name for name in all_tool_names if name not in approval_tools]
             stack.add(LenientHitlMiddleware(
                 approval_provider=self.approval_manager.request_approval_bool,
@@ -283,7 +291,7 @@ class AgentService:
         return stack
 
     @staticmethod
-    def _build_tool_registry(profile: RuntimeAgentProfile) -> ToolRegistry:
+    def _build_tool_registry(profile: RuntimeAgentProfile) -> tuple[ToolRegistry, str]:
         # Exclude "skill", "email", and "file" (file is handled per-mode below)
         _exclude = {"skill", "email"}
         if profile.response_mode == "website":
@@ -337,13 +345,20 @@ class AgentService:
             register_email_tools(registry)
 
         # 外部系统工具：根据 agent profile 关联的外部系统动态注册
+        ext_instruction = ""
         if profile.external_system_ids:
             from app.services.external_system_service import register_external_tools
             _db = create_db_session()
             try:
-                register_external_tools(registry, list(profile.external_system_ids), _db)
+                registered_names = register_external_tools(registry, list(profile.external_system_ids), _db)
             finally:
                 _db.close()
+            if registered_names:
+                ext_instruction = (
+                    f"\n\n你已连接以下外部集成系统：{', '.join(registered_names)}。"
+                    "当用户的需求涉及这些系统时，优先调用对应的集成工具完成操作。"
+                    "例如：查询数据、创建记录、调用接口等。"
+                )
 
         # 决策工具：所有模式都可用
         from app.tools.decision_tools import register_decision_tools
@@ -400,7 +415,7 @@ class AgentService:
         except Exception:
             pass  # MCP 未配置或未连接时静默跳过
 
-        return registry
+        return registry, ext_instruction
 
     def _build_tool_call_payload(self, event: AgentEvent) -> dict[str, Any]:
         # 优先使用事件中的 display_name，否则从 TOOL_CATALOG 查找中文名
@@ -899,13 +914,14 @@ class AgentService:
         *,
         response_mode: str,
         requested_max_steps: int | None,
+        profile_max_steps: int | None = None,
     ) -> None:
-        if response_mode != "ppt" or requested_max_steps is not None:
+        if requested_max_steps is not None:
             return
-        ppt_max_steps = 50
+        effective = profile_max_steps or self.settings.agent_max_steps
         current_max_steps = getattr(session, "max_steps", self.settings.agent_max_steps)
-        if current_max_steps < ppt_max_steps:
-            session.max_steps = ppt_max_steps
+        if current_max_steps < effective:
+            session.max_steps = effective
 
     def _build_user_message(self, request: AgentStreamRequest) -> str:
         """Build the user message, describing attached files so the Agent can use tools to process them."""
@@ -1163,6 +1179,12 @@ class AgentService:
         runtime_profile = self._resolve_runtime_profile(request, user)
         response_mode = runtime_profile.response_mode
         ppt_mode = response_mode == "ppt"
+
+        # 提前设置 user context，确保 register_external_tools 能获取 user_id
+        if user is not None:
+            set_current_user_id(user.id)
+            set_ext_user_id(user.id)
+
         agent = self._get_agent(runtime_profile)
 
         _logger.info(
@@ -1208,6 +1230,7 @@ class AgentService:
             session,
             response_mode=response_mode,
             requested_max_steps=request.max_steps,
+            profile_max_steps=runtime_profile.max_steps,
         )
         metadata = getattr(session, "metadata", {}) or {}
         metadata.update(
@@ -1514,6 +1537,7 @@ class AgentService:
                         continue
 
                     if event.type == "done":
+                        reason = event.data.get("reason", "stop")
                         yield {
                             "event": "run_status",
                             "data": {
@@ -1522,6 +1546,23 @@ class AgentService:
                                 "label": "本轮回复已完成",
                             },
                         }
+                        # 输出被截断时追加提示
+                        if reason == "length":
+                            yield {
+                                "event": "delta",
+                                "data": {
+                                    "session_id": session.session_id,
+                                    "content": (
+                                        "\n\n---\n⚠️ **回复被截断**：模型输出已达到 token 上限，内容不完整。"
+                                        "你可以发送「继续」让模型接着输出，或精简需求后重新提问。"
+                                    ),
+                                },
+                            }
+                            _logger.warning(
+                                "Output truncated (finish_reason=length): session=%s tokens_used=%s",
+                                session.session_id,
+                                event.data.get("usage"),
+                            )
                         if not usage_recorded:
                             await self._record_usage_event(
                                 session=session,
