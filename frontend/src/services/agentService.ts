@@ -6,13 +6,15 @@ type AgentServiceOptions = {
   systemPrompt?: string;
   responseMode?: 'general' | 'ppt' | 'website';
   agentProfileId?: number | null;
-  files?: { filename: string; text_content: string }[];
+  files?: { filename: string; file_path: string }[];
   onDelta?: (delta: string, fullText: string) => void;
   onReasoningDelta?: (delta: string, fullText: string) => void;
   onToolCalls?: (toolCalls: ToolCall[]) => void;
   onSessionState?: (state: AgentSessionState) => void;
   onRunStatus?: (status: AgentRunStatus) => void;
   onPptArtifact?: (artifact: AgentPptArtifact) => void;
+  onWebsiteArtifact?: (artifact: AgentWebsiteArtifact) => void;
+  onUserDecision?: (decision: unknown) => void;
   signal?: AbortSignal;
 };
 
@@ -24,6 +26,7 @@ type StreamResult = {
   finishReason: string;
   sessionState?: AgentSessionState;
   pptArtifact?: AgentPptArtifact;
+  websiteArtifact?: AgentWebsiteArtifact;
 };
 
 type AgentToolCall = {
@@ -79,7 +82,7 @@ export type AgentApproval = {
 
 export type AgentRunStatus = {
   session_id: string;
-  phase: 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'done';
+  phase: 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'done';
   label: string;
 };
 
@@ -89,6 +92,17 @@ export type AgentPptArtifact = {
   title: string;
   slide_count: number;
   html: string;
+};
+
+export type AgentWebsiteArtifact = {
+  type: 'website';
+  artifact_id: string;
+  session_id: string;
+  title: string;
+  project_slug: string;
+  stack: string;
+  file_count: number;
+  preview_html: string;
 };
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -258,6 +272,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
   let finishReason = 'completed';
   let sessionState: AgentSessionState | undefined;
   let pptArtifact: AgentPptArtifact | undefined;
+  let websiteArtifact: AgentWebsiteArtifact | undefined;
 
   while (true) {
     const { value, done } = await reader.read();
@@ -301,8 +316,14 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
       }
 
       if (parsed.event === 'artifact_ready') {
-        pptArtifact = payload as AgentPptArtifact;
-        options.onPptArtifact?.(pptArtifact);
+        const artifactPayload = payload as Record<string, unknown>;
+        if (artifactPayload.type === 'website') {
+          websiteArtifact = artifactPayload as unknown as AgentWebsiteArtifact;
+          options.onWebsiteArtifact?.(websiteArtifact);
+        } else {
+          pptArtifact = payload as AgentPptArtifact;
+          options.onPptArtifact?.(pptArtifact);
+        }
       }
 
       if (parsed.event === 'tool_calls' && Array.isArray(payload.tool_calls)) {
@@ -333,6 +354,10 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
           },
         ]);
         options.onToolCalls?.(toolCalls);
+      }
+
+      if (parsed.event === 'user_decision') {
+        options.onUserDecision?.(payload);
       }
 
       if (parsed.event === 'error') {
@@ -379,6 +404,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
     finishReason,
     sessionState,
     pptArtifact,
+    websiteArtifact,
   };
 }
 
@@ -396,6 +422,24 @@ export async function submitApprovalDecision(
   if (!response.ok) {
     const detail = await response.text();
     throw new Error(detail || '审批提交失败。');
+  }
+
+  return response.json();
+}
+
+export async function submitUserDecision(
+  decisionId: string,
+  answer: string,
+): Promise<{ ok: boolean; decision_id: string; answer: string }> {
+  const response = await fetch(`${AGENT_ENDPOINT}/decisions/${decisionId}/decision`, {
+    method: 'POST',
+    headers: {...authHeaders(), 'Content-Type': 'application/json'},
+    body: JSON.stringify({answer}),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || '决策提交失败。');
   }
 
   return response.json();
@@ -447,4 +491,23 @@ export async function deleteSession(sessionId: string): Promise<void> {
     const detail = await response.text();
     throw new Error(detail || '删除会话失败。');
   }
+}
+
+export async function exportPptx(artifactId: string): Promise<Blob> {
+  const response = await fetch(
+    `${AGENT_ENDPOINT}/ppt/export`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ artifact_id: artifactId }),
+    },
+  );
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || 'PPT 导出失败。');
+  }
+  return response.blob();
 }

@@ -4,8 +4,10 @@ import { ChatTimeline } from './ChatTimeline';
 import { ChatSearch } from './ChatSearch';
 import { MessagesList } from './MessagesList';
 import { PendingApprovalPanel } from './PendingApprovalPanel';
+import { DecisionPanel } from './DecisionPanel';
 import { ChatInput, ChatInputHandle } from './ChatInput';
 import { MascotState } from '../ui/MascotState';
+import { MascotCompanion } from '../ui/MascotCompanion';
 import { AlertCircleIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
 import { Artifact, Session } from '../../types';
 import { AgentProfile } from '../../services/agentProfileService';
@@ -45,6 +47,8 @@ interface ChatMainAreaProps {
   onSearchClose: () => void;
   onToggleSearch: () => void;
   onApprovalDecision: (approvalId: string, status: 'approved' | 'rejected') => void;
+  pendingDecisions: any[];
+  onDecisionMade: (decisionId: string, answer: string) => void;
   onErrorDismiss: () => void;
   onSuggestionClick: (text: string) => void;
   onOpenArtifact: (artifact: Artifact) => void;
@@ -85,6 +89,8 @@ export const ChatMainArea = React.memo(({
   onSearchClose,
   onToggleSearch,
   onApprovalDecision,
+  pendingDecisions,
+  onDecisionMade,
   onErrorDismiss,
   onSuggestionClick,
   onOpenArtifact,
@@ -98,15 +104,41 @@ export const ChatMainArea = React.memo(({
       )}
     </AnimatePresence>
 
-    {/* 消息区域 */}
-    <div
-      ref={scrollRef as React.RefObject<HTMLDivElement>}
-      onScroll={onScroll}
-      className={cn(
-        "flex-1 overflow-y-auto custom-scrollbar relative pr-16",
-        isWideConversation ? "px-6 py-8 md:px-10 lg:px-14 xl:px-16" : "p-4 md:p-8"
-      )}
-    >
+    {/* 消息区域 + 精灵叠加层 */}
+    <div className="flex-1 relative overflow-hidden">
+      {/* 动态陪伴精灵 — 固定在消息区域中心不随滚动移动 */}
+      <AnimatePresence>
+        {isLoading && runStatus.phase !== 'streaming' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
+          >
+            <MascotCompanion
+              size={100}
+              phase={
+                runStatus.phase === 'generating_ppt' ? 'generating_ppt'
+                : runStatus.phase === 'rendering_ppt' ? 'rendering_ppt'
+                : runStatus.phase === 'error' ? 'error'
+                : 'thinking'
+              }
+              label={runStatus.label}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 可滚动消息列表 */}
+      <div
+        ref={scrollRef as React.RefObject<HTMLDivElement>}
+        onScroll={onScroll}
+        className={cn(
+          "h-full overflow-y-auto custom-scrollbar pr-16",
+          isWideConversation ? "px-6 py-8 md:px-10 lg:px-14 xl:px-16" : "p-4 md:p-8"
+        )}
+      >
+
       {/* 搜索浮层 */}
       <ChatSearch
         showSearch={showSearch}
@@ -120,7 +152,7 @@ export const ChatMainArea = React.memo(({
       />
 
       {/* 右下角浮动工具栏 */}
-      <div className="fixed right-6 bottom-10 flex flex-col gap-3 z-40">
+      <div className="fixed right-6 bottom-24 flex flex-col gap-3 z-40">
         <button
           onClick={onToggleSearch}
           className={cn(
@@ -172,7 +204,9 @@ export const ChatMainArea = React.memo(({
         onOpenArtifact={onOpenArtifact}
         messagesEndRef={messagesEndRef as React.RefObject<HTMLDivElement>}
       />
-    </div>
+    </div>{/* end scrollable */}
+
+    </div>{/* end message-area-wrapper */}
 
     {/* 输入区域 */}
     <div className="p-4 md:p-6 bg-transparent flex-shrink-0 relative">
@@ -196,6 +230,10 @@ export const ChatMainArea = React.memo(({
       </AnimatePresence>
 
       <div className={cn("mx-auto", isWideConversation ? "max-w-[92rem] px-8" : "max-w-4xl")}>
+        <DecisionPanel
+          decisions={pendingDecisions}
+          onDecision={onDecisionMade}
+        />
         <PendingApprovalPanel
           approvals={pendingApprovals}
           onDecision={onApprovalDecision}

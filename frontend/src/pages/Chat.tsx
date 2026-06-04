@@ -71,9 +71,11 @@ export const Chat = () => {
     error,
     setError,
     runStatus,
+    pendingDecisions,
     handleSend,
     handleStopGeneration,
     handleApprovalDecision,
+    handleDecisionMade,
   } = useChatStream({
     sessions,
     currentSessionId,
@@ -201,10 +203,10 @@ export const Chat = () => {
     return () => window.cancelAnimationFrame(frame);
   }, [sessions, currentSessionId, isLoading, isUserScrolledUp, isStreamingResponse, scrollToBottom]);
 
-  // 自动收起错误提示
+  // 自动收起错误提示（延长至15秒，给用户充足时间阅读）
   useEffect(() => {
     if (error) {
-      const timer = setTimeout(() => setError(null), 5000);
+      const timer = setTimeout(() => setError(null), 15000);
       return () => clearTimeout(timer);
     }
   }, [error]);
@@ -272,19 +274,40 @@ export const Chat = () => {
   return (
     <motion.div
       key="chat"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={onDrop}
-      className="flex h-screen bg-gradient-to-br from-[#e0fbfc] via-[#a5f3fc] to-[#60a5fa] text-slate-800 font-sans overflow-hidden selection:bg-zinc-200 selection:text-zinc-900 relative"
+      className="flex h-screen text-slate-800 font-sans overflow-hidden selection:bg-zinc-200 selection:text-zinc-900 relative"
+      style={{
+        background:
+          'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)',
+      }}
     >
       <DragOverlay isDragging={isDragging} />
 
       {/* 聊天页全局背景装饰 */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        {/* Animated blobs — subtle, low opacity for working context */}
+        <div className="absolute top-0 -left-16 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.12),transparent_70%)] blur-[80px] animate-[bg-blob-1_18s_ease-in-out_infinite]" />
+        <div className="absolute top-8 -right-10 w-[440px] h-[440px] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.10),transparent_70%)] blur-[70px] animate-[bg-blob-2_20s_ease-in-out_infinite]" />
+        <div className="absolute bottom-0 left-1/4 w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.11),transparent_70%)] blur-[80px] animate-[bg-blob-3_17s_ease-in-out_infinite]" />
+
+        {/* Subtle dot grid */}
+        <div className="absolute inset-0" style={{
+          backgroundImage:
+            'radial-gradient(circle, rgba(14,165,233,0.07) 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+          maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.50), rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.16))',
+        }} />
+
+        {/* Subtle shimmer */}
+        <div className="absolute inset-0 bg-[linear-gradient(108deg,transparent_38%,rgba(255,255,255,0.14)_50%,transparent_64%)] animate-[bg-drift-slow_20s_ease-in-out_infinite]" />
+
         <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.02]" />
       </div>
 
@@ -350,6 +373,7 @@ export const Chat = () => {
       {/* 主聊天区域与制品面板 */}
       <div className="flex-1 flex overflow-hidden relative">
         <main
+          id="main-content"
           className={cn(
             "flex flex-col h-full transition-all duration-700 ease-[0.16,1,0.3,1] min-w-0 relative",
             artifact ? "w-[40%] border-r border-slate-200/60" : "w-full",
@@ -393,6 +417,8 @@ export const Chat = () => {
             }}
             onToggleSearch={() => setShowSearch(!showSearch)}
             onApprovalDecision={handleApprovalDecision}
+            pendingDecisions={pendingDecisions}
+            onDecisionMade={handleDecisionMade}
             onErrorDismiss={() => setError(null)}
             onSuggestionClick={(text) => setInputValue(text)}
             onOpenArtifact={handleOpenArtifact}

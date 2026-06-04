@@ -19,7 +19,7 @@ class UserPublic(BaseModel):
 class AuthRegisterRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=255)
     name: str = Field(..., min_length=1, max_length=120)
-    password: str = Field(..., min_length=8, max_length=128)
+    password: str = Field(..., min_length=6, max_length=128)
 
     @field_validator("email")
     @classmethod

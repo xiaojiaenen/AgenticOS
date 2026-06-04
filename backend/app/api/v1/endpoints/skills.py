@@ -29,13 +29,14 @@ def create_skill(
     return result
 
 
-@router.post("/upload", response_model=SkillResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_skill(
     file: UploadFile = File(...),
     slug: str | None = Form(default=None),
     enabled: bool = Form(default=True),
     current_user: UserModel = Depends(require_admin),
-) -> dict[str, object]:
+):
+    """上传 skill zip 包。支持单 skill 或多 skill 打包上传。"""
     try:
         content = await file.read()
         result = SkillService().upload_zip(
@@ -48,6 +49,9 @@ async def upload_skill(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     get_agent_service().clear_agent_cache()
+    # 多 skill 上传返回列表，单 skill 保持兼容
+    if isinstance(result, list):
+        return {"items": result, "count": len(result)}
     return result
 
 

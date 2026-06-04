@@ -184,10 +184,19 @@ export const SkillManagement = () => {
     setMessage(null);
     try {
       const saved = await uploadSkill(uploadFileValue, uploadSlug || undefined, true);
-      setSkills((prev) => [saved, ...prev]);
-      setUploadFileValue(null);
-      setUploadSlug('');
-      setMessage('Skill 包上传成功');
+      if ('items' in saved) {
+        // 多 skill 批量上传
+        setSkills((prev) => [...saved.items, ...prev]);
+        setUploadFileValue(null);
+        setUploadSlug('');
+        setMessage(`成功上传 ${saved.count} 个 Skill`);
+      } else {
+        // 单 skill 上传
+        setSkills((prev) => [saved, ...prev]);
+        setUploadFileValue(null);
+        setUploadSlug('');
+        setMessage('Skill 包上传成功');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Skill 包上传失败');
     } finally {
@@ -196,80 +205,83 @@ export const SkillManagement = () => {
   };
 
   return (
-    <div className="admin-page-stage space-y-5">
+    <div className="admin-page-stage space-y-4">
       <section className="admin-page-header">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="admin-section-kicker">Skill 管理</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">本地 Skill 目录</h2>
+            <h2 className="mt-1.5 text-xl font-black tracking-tight text-slate-950">本地 Skill 目录</h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             {message && (
-              <div className="rounded-3xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
                 {message}
               </div>
             )}
             <div className="admin-kpi-pill">
-              共 <span className="font-black text-slate-900">{skills.length}</span> 个 Skill
+              共 <span className="font-black text-slate-900">{skills.length}</span> 个
             </div>
             <div className="admin-kpi-pill">
-              已启用 <span className="font-black text-slate-900">{enabledCount}</span>
+              启用 <span className="font-black text-slate-900">{enabledCount}</span>
             </div>
             <div className="admin-kpi-pill">
-              含脚本 <span className="font-black text-slate-900">{pythonSkillCount}</span>
+              脚本 <span className="font-black text-slate-900">{pythonSkillCount}</span>
             </div>
             <div className="admin-kpi-pill">
-              含参考 <span className="font-black text-slate-900">{referenceSkillCount}</span>
+              参考 <span className="font-black text-slate-900">{referenceSkillCount}</span>
             </div>
-            <Button variant="secondary" onClick={loadSkills} disabled={isLoading || isSaving || isUploading}>
-              {isLoading ? <Loader2 size={16} className="animate-spin" /> : '重新加载'}
+            <Button variant="secondary" onClick={loadSkills} disabled={isLoading || isSaving || isUploading} size="sm">
+              {isLoading ? <Loader2 size={14} className="animate-spin" /> : '刷新'}
             </Button>
-            <Button onClick={openCreateModal} disabled={isLoading || isSaving || isUploading} className="gap-2">
-              <Plus size={16} />
-              新建 Skill
+            <Button onClick={openCreateModal} disabled={isLoading || isSaving || isUploading} size="sm" className="gap-1.5">
+              <Plus size={14} />
+              新建
             </Button>
           </div>
         </div>
       </section>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
-          <AlertCircle size={18} />
+        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">
+          <AlertCircle size={16} />
           {error}
         </div>
       )}
 
       <section className="admin-data-panel">
-        <div className="grid grid-cols-1 gap-4 border-b border-white/75 bg-white/44 px-6 py-5 xl:grid-cols-[minmax(0,1fr)_260px_auto] xl:items-end">
+        <div className="grid grid-cols-1 gap-4 border-b border-white/65 bg-[linear-gradient(135deg,rgba(255,255,255,0.45),rgba(248,250,252,0.32))] px-5 py-4 xl:grid-cols-[minmax(0,1fr)_200px_auto] xl:items-end">
           <div className="text-center xl:text-left">
             <p className="admin-section-kicker">上传入口</p>
-            <h3 className="mt-2 text-lg font-black tracking-tight text-slate-900">支持上传 Zip Skill 包</h3>
-            <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
-              上传成功后会自动写入本地 Skill 目录，并出现在当前列表中。
+            <h3 className="mt-1.5 text-base font-black tracking-tight text-slate-900">上传 Zip Skill 包</h3>
+            <p className="mt-1.5 text-xs font-medium leading-5 text-slate-500">
+              上传成功后自动写入本地目录并出现在列表中
             </p>
           </div>
 
-          <label className="space-y-2">
-            <span className="text-xs font-black tracking-[0.18em] text-slate-400">Slug 覆盖</span>
+          <label className="space-y-1.5">
+            <span className="text-[11px] font-black tracking-[0.16em] text-slate-400">Slug 覆盖</span>
             <input
               value={uploadSlug}
               onChange={(event) => setUploadSlug(event.target.value)}
               placeholder="可选 slug"
-              className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+              className="w-full rounded-2xl border border-white/70 bg-white/68 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80 placeholder:text-slate-300"
             />
           </label>
 
-          <div className="flex flex-col gap-3 sm:flex-row xl:justify-end">
-            <input
-              type="file"
-              accept=".zip"
-              onChange={handleFileChange}
-              className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-700 outline-none sm:max-w-[300px]"
-            />
-            <Button onClick={handleUpload} disabled={!uploadFileValue || isUploading} className="gap-2">
-              {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-              上传 Skill 包
+          <div className="flex flex-col gap-2.5 sm:flex-row xl:justify-end">
+            <label className="w-full rounded-2xl border-2 border-dashed border-sky-200/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.55),rgba(240,249,255,0.35))] px-3.5 py-2.5 text-sm font-semibold text-slate-500 transition-all hover:border-sky-300 hover:bg-sky-50/50 cursor-pointer sm:max-w-[260px]">
+              <span className="truncate block">{uploadFileValue ? uploadFileValue.name : '选择 Zip...'}</span>
+              <input
+                type="file"
+                accept=".zip"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+            <Button onClick={handleUpload} disabled={!uploadFileValue || isUploading} size="sm" className="gap-1.5">
+              {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              上传
             </Button>
           </div>
         </div>
@@ -296,7 +308,7 @@ export const SkillManagement = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.22, delay: Math.min(index * 0.025, 0.16) }}
               whileHover={{ x: 2 }}
-              className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(240px,1.3fr)_100px_140px_160px_120px_170px] xl:items-center xl:gap-0"
+              className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-4 py-3 text-center xl:grid-cols-[minmax(240px,1.3fr)_100px_140px_160px_120px_170px] xl:items-center xl:gap-0"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-black text-slate-900">{skill.name}</p>
@@ -343,8 +355,8 @@ export const SkillManagement = () => {
           ))
         ) : (
           <div className="flex h-80 flex-col items-center justify-center text-center">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border border-white/70 bg-white/70 text-slate-400 shadow-sm">
-              <FileCode2 size={24} />
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/70 bg-white/70 text-slate-400 shadow-sm">
+              <FileCode2 size={20} />
             </div>
             <p className="text-sm font-black text-slate-600">还没有 Skill</p>
             <p className="mt-1 text-xs font-medium text-slate-400">你可以先创建一个本地 Skill，或者直接上传 Zip Skill 包。</p>
@@ -370,49 +382,49 @@ export const SkillManagement = () => {
               onMouseDown={(event) => event.stopPropagation()}
               className="admin-solid-panel admin-modal-panel flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden"
             >
-              <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+              <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
                 <div>
                   <p className="admin-section-kicker">{draft.id ? '编辑 Skill' : '新建 Skill'}</p>
-                  <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-900">{draft.name || '新 Skill'}</h3>
+                  <h3 className="mt-1.5 text-xl font-black tracking-tight text-slate-900">{draft.name || '新 Skill'}</h3>
                 </div>
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
                 >
                   <X size={18} />
                 </button>
               </div>
 
               <div className="grid flex-1 grid-cols-1 overflow-hidden xl:grid-cols-[minmax(0,1fr)_340px]">
-                <div className="overflow-y-auto p-6">
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <label className="space-y-2">
+                <div className="overflow-y-auto p-5">
+                  <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+                    <label className="space-y-1.5">
                       <span className="text-xs font-black tracking-[0.18em] text-slate-400">名称</span>
                       <input
                         value={draft.name}
                         onChange={(event) => patchDraft({ name: event.target.value })}
-                        className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full rounded-2xl border border-white/75 bg-white/72 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
-                    <label className="space-y-2">
+                    <label className="space-y-1.5">
                       <span className="text-xs font-black tracking-[0.18em] text-slate-400">Slug</span>
                       <input
                         value={draft.slug || ''}
                         onChange={(event) => patchDraft({ slug: event.target.value })}
-                        className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full rounded-2xl border border-white/75 bg-white/72 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
-                    <label className="space-y-2 lg:col-span-2">
+                    <label className="space-y-1.5 lg:col-span-2">
                       <span className="text-xs font-black tracking-[0.18em] text-slate-400">描述</span>
                       <input
                         value={draft.description}
                         onChange={(event) => patchDraft({ description: event.target.value })}
-                        className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full rounded-2xl border border-white/75 bg-white/72 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
 
-                    <div className="flex items-center justify-between rounded-3xl border border-white/80 bg-white/72 px-4 py-3 lg:col-span-2">
+                    <div className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/72 px-3.5 py-2.5 lg:col-span-2">
                       <div>
                         <p className="text-sm font-black text-slate-700">启用</p>
                         {draft.root_dir && <p className="mt-1 text-xs font-medium text-slate-500">{draft.root_dir}</p>}
@@ -429,68 +441,72 @@ export const SkillManagement = () => {
                       </button>
                     </div>
 
-                    <label className="space-y-2 lg:col-span-2">
+                    <label className="space-y-1.5 lg:col-span-2">
                       <span className="text-xs font-black tracking-[0.18em] text-slate-400">SKILL.md 正文</span>
                       <textarea
                         value={draft.instruction}
                         onChange={(event) => patchDraft({ instruction: event.target.value })}
                         rows={16}
-                        className="w-full resize-y rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-medium leading-6 text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full resize-y rounded-2xl border border-white/75 bg-white/72 px-3.5 py-2.5 text-sm font-medium leading-6 text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
                   </div>
                 </div>
 
-                <div className="overflow-y-auto border-l border-slate-100 bg-white/50 p-6">
-                  <div className="rounded-3xl border border-white/80 bg-white/82 p-5 shadow-lg">
-                    <div className="mb-4 flex items-center gap-2">
-                      <FileCode2 size={18} className="text-slate-500" />
-                      <h4 className="text-lg font-black text-slate-900">脚本清单</h4>
+                <div className="overflow-y-auto border-l border-slate-100 bg-[linear-gradient(135deg,rgba(255,255,255,0.55),rgba(248,250,252,0.42))] p-5 space-y-3.5">
+                  <div className="rounded-2xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.72))] p-4 shadow-md">
+                    <div className="mb-3 flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600 shadow-sm ring-1 ring-amber-100">
+                        <FileCode2 size={16} />
+                      </div>
+                      <h4 className="text-base font-black text-slate-900">脚本清单</h4>
                     </div>
                     {draft.script_paths && draft.script_paths.length > 0 ? (
                       <div className="space-y-2">
                         {draft.script_paths.map((scriptPath) => (
                           <div
                             key={scriptPath}
-                            className="rounded-3xl border border-white/80 bg-white/75 px-3 py-2 text-sm font-bold text-slate-700"
+                            className="rounded-2xl border border-white/80 bg-white/80 px-3 py-2.5 text-sm font-mono font-bold text-slate-700 shadow-sm transition-all hover:bg-white hover:shadow-md"
                           >
                             {scriptPath}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-3xl border border-dashed border-slate-200 bg-white/60 px-4 py-5 text-sm font-medium text-slate-500">
-                        当前 Skill 的 `scripts/` 目录下还没有发现 Python 脚本。
+                      <div className="rounded-2xl border border-dashed border-slate-200/80 bg-white/50 px-4 py-5 text-sm font-medium text-slate-400">
+                        当前 Skill 的 scripts/ 目录下还没有发现 Python 脚本。
                       </div>
                     )}
                   </div>
 
-                  <div className="mt-4 rounded-3xl border border-white/80 bg-white/82 p-5 shadow-lg">
-                    <div className="mb-4 flex items-center gap-2">
-                      <FileCode2 size={18} className="text-slate-500" />
-                      <h4 className="text-lg font-black text-slate-900">References</h4>
+                  <div className="rounded-2xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.72))] p-4 shadow-md">
+                    <div className="mb-3 flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm ring-1 ring-sky-100">
+                        <FileCode2 size={16} />
+                      </div>
+                      <h4 className="text-base font-black text-slate-900">References</h4>
                     </div>
                     {draft.reference_paths && draft.reference_paths.length > 0 ? (
                       <div className="space-y-2">
                         {draft.reference_paths.map((referencePath) => (
                           <div
                             key={referencePath}
-                            className="rounded-3xl border border-white/80 bg-white/75 px-3 py-2 text-sm font-bold text-slate-700"
+                            className="rounded-2xl border border-white/80 bg-white/80 px-3 py-2.5 text-sm font-mono font-bold text-slate-700 shadow-sm transition-all hover:bg-white hover:shadow-md"
                           >
                             {referencePath}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-3xl border border-dashed border-slate-200 bg-white/60 px-4 py-5 text-sm font-medium text-slate-500">
-                        当前 Skill 的 `references/` 目录下还没有发现参考文件。
+                      <div className="rounded-2xl border border-dashed border-slate-200/80 bg-white/50 px-4 py-5 text-sm font-medium text-slate-400">
+                        当前 Skill 的 references/ 目录下还没有发现参考文件。
                       </div>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm font-medium text-slate-500">保存后将更新当前 Skill 配置。</p>
                 <div className="flex items-center gap-3">
                   <Button type="button" variant="secondary" onClick={closeModal} disabled={isSaving}>

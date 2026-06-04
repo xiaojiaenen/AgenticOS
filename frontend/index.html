@@ -5,8 +5,35 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AgenticOS 前端</title>
+    <style>
+      .skip-link {
+        position: fixed;
+        top: 16px;
+        left: 50%;
+        z-index: 9999;
+        transform: translateX(-50%) translateY(-120%);
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      .skip-link:focus {
+        clip: auto;
+        clip-path: none;
+        transform: translateX(-50%) translateY(0);
+        border-radius: 16px;
+        background: rgba(255,255,255,0.95);
+        padding: 12px 20px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #1e293b;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        outline: 2px solid rgba(56,189,248,0.5);
+        backdrop-filter: blur(12px);
+      }
+    </style>
   </head>
   <body>
+    <a class="skip-link" href="#main-content">跳转到主要内容</a>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

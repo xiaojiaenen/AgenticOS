@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
+import { GlobalAnnouncementLayer } from './components/announcement/GlobalAnnouncementLayer';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ToastContainer } from './components/ui/Toast';
 
@@ -14,12 +15,13 @@ const AdminDashboard = lazy(() =>
 );
 
 const LoadingPage = () => (
-  <div className="flex h-screen w-full items-center justify-center bg-zinc-50">
+  <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-zinc-50">
     <motion.div
       animate={{ rotate: 360 }}
       transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
       className="h-8 w-8 rounded-full border-4 border-sky-500 border-t-transparent"
     />
+    <p className="text-sm font-medium text-slate-400">正在加载页面...</p>
   </div>
 );
 
@@ -37,11 +39,17 @@ const AnimatedRoutes = () => {
           <Route path="/signup" element={<Signup />} />
           <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
           <Route path="*" element={
-            <div className="flex h-screen flex-col items-center justify-center gap-4 bg-zinc-50 text-slate-600">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="flex h-screen flex-col items-center justify-center gap-4 bg-zinc-50 text-slate-600"
+            >
               <p className="text-6xl font-black text-slate-300">404</p>
               <p className="text-lg font-bold">页面未找到</p>
               <a href="/" className="text-sm font-medium text-sky-600 hover:text-sky-700">返回首页</a>
-            </div>
+            </motion.div>
           } />
         </Routes>
       </AnimatePresence>
@@ -52,6 +60,7 @@ const AnimatedRoutes = () => {
 function App() {
   return (
     <Router>
+      <GlobalAnnouncementLayer />
       <AnimatedRoutes />
       <ToastContainer />
     </Router>

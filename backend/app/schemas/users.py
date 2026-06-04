@@ -28,7 +28,7 @@ class UserListResponse(AppBaseModel):
 class UserCreateRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=255)
     name: str = Field(..., min_length=1, max_length=120)
-    password: str = Field(..., min_length=8, max_length=128)
+    password: str = Field(..., min_length=6, max_length=128)
     role: str = Field(default="user", pattern="^(admin|user)$")
     is_active: bool = True
 
@@ -49,7 +49,7 @@ class UserCreateRequest(BaseModel):
 class UserUpdateRequest(BaseModel):
     email: str | None = Field(default=None, min_length=3, max_length=255)
     name: str | None = Field(default=None, min_length=1, max_length=120)
-    password: str | None = Field(default=None, min_length=8, max_length=128)
+    password: str | None = Field(default=None, min_length=6, max_length=128)
     role: str | None = Field(default=None, pattern="^(admin|user)$")
     is_active: bool | None = None
 

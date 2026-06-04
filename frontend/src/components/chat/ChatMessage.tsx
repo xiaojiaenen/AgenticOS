@@ -7,7 +7,7 @@ import rehypeKatex from 'rehype-katex';
 import mermaid from 'mermaid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { BrainCircuit, Presentation, Sparkles } from 'lucide-react';
+import { BrainCircuit, Globe, Presentation, Sparkles } from 'lucide-react';
 import { Artifact, Message, ToolCall } from '../../types';
 import { APP_TIME_ZONE } from '../../lib/datetime';
 import { cn, copyToClipboard } from '../../lib/utils';
@@ -19,6 +19,7 @@ interface ChatMessageProps {
   isTyping?: boolean;
   isStreaming?: boolean;
   wideLayout?: boolean;
+  isAdmin?: boolean;
   onOpenArtifact?: (artifact: Artifact) => void;
   index?: number;
   searchQuery?: string;
@@ -154,7 +155,7 @@ const MermaidChart = React.memo(({ chart }: { chart: string }) => {
     mermaid.initialize({
       startOnLoad: true,
       theme: 'neutral',
-      fontFamily: 'Inter',
+      fontFamily: 'Plus Jakarta Sans',
       securityLevel: 'strict',
     });
 
@@ -281,6 +282,72 @@ const PptArtifactCard = ({
   );
 };
 
+const WebsiteArtifactCard = ({
+  message,
+  onOpenArtifact,
+}: {
+  message: Message;
+  onOpenArtifact?: (artifact: Artifact) => void;
+}) => {
+  const html = message.websiteArtifact?.html;
+  const status = html ? 'ready' : message.websiteArtifact?.status;
+
+  if (!status) return null;
+
+  const isReady = status === 'ready' && Boolean(html);
+  const title = message.websiteArtifact?.title || 'Website';
+  const slug = message.websiteArtifact?.projectSlug || '';
+  const stack = message.websiteArtifact?.stack || '';
+  const handleOpen = () => {
+    if (html) {
+      onOpenArtifact?.({
+        language: 'website',
+        artifactId: message.websiteArtifact?.artifactId || '',
+        html,
+        title,
+        projectSlug: slug,
+        stack,
+        fileCount: 0,
+      });
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      className={cn(
+        "mb-3 flex w-fit max-w-[34rem] items-center gap-3 rounded-3xl border px-4 py-3 shadow-lg backdrop-blur-xl",
+        isReady ? "border-white/70 bg-white/84" : "border-emerald-200/70 bg-emerald-50/80",
+      )}
+    >
+      <div className={cn(
+        "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl text-white",
+        isReady ? "bg-zinc-900" : "bg-emerald-500",
+      )}>
+        {isReady ? <Globe size={19} /> : <Sparkles size={18} className="animate-pulse" />}
+      </div>
+      <div className="min-w-0">
+        <div className="truncate text-sm font-black text-slate-900">
+          {isReady ? title : '正在生成网站'}
+        </div>
+        <div className="mt-0.5 text-[11px] font-medium text-slate-500">
+          {isReady ? `${stack} · ${slug}` : '正在规划页面结构和内容，请稍候'}
+        </div>
+      </div>
+      {isReady && (
+        <button
+          type="button"
+          onClick={handleOpen}
+          className="ml-2 flex-shrink-0 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-zinc-800 active:scale-95"
+        >
+          预览
+        </button>
+      )}
+    </motion.div>
+  );
+};
+
 const AnimatedDots = () => (
   <span className="flex items-center gap-1" aria-hidden="true">
     {[0, 1, 2].map((dot) => (
@@ -311,13 +378,22 @@ const AssistantWaitingIndicator = ({ statusText = '正在思考' }: { statusText
 
 function getActiveToolLabel(tool: ToolCall): string {
   const status = tool.status;
-  if (status === 'approval_required') return `等待审批: ${tool.name}`;
-  if (status === 'approved') return `正在执行: ${tool.name}`;
-  if (status === 'pending') return `正在调用: ${tool.name}`;
-  if (status === 'success') return `已完成: ${tool.name}`;
-  if (status === 'error') return `执行失败: ${tool.name}`;
-  if (status === 'rejected') return `已拒绝: ${tool.name}`;
-  return tool.name;
+  const name = tool.name;
+  if (status === 'approval_required') return `等待审批: ${name}`;
+  if (status === 'approved') return `正在执行: ${name}`;
+  if (status === 'pending') return `正在调用: ${name}`;
+  if (status === 'success') return `已完成: ${name}`;
+  if (status === 'error') return `执行失败: ${name}`;
+  if (status === 'rejected') return `已拒绝: ${name}`;
+  return name;
+}
+
+/** 简化工具名：只显示中文名，不显示技术细节 */
+function getSimpleToolLabel(tool: ToolCall): string {
+  const name = tool.name;
+  const status = tool.status;
+  const statusLabel = status === 'success' ? '✓' : status === 'error' ? '✗' : '⏳';
+  return `${statusLabel} ${name}`;
 }
 
 function isToolActive(tool: ToolCall): boolean {
@@ -353,13 +429,14 @@ const LiveToolCall = ({ tool }: { tool: ToolCall }) => {
   );
 };
 
-export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, onOpenArtifact, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
+export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, isAdmin = false, onOpenArtifact, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
   const isUser = message?.role === 'user';
   const rawText = message?.text || '';
   const visibleText = rawText;
   const reasoningText = message?.reasoningText || '';
   const hasPptArtifact = !isUser && Boolean(message?.pptArtifact);
-  const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || reasoningText.trim().length > 0 || !hasPptArtifact;
+  const hasWebsiteArtifact = !isUser && Boolean(message?.websiteArtifact);
+  const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || reasoningText.trim().length > 0 || (!hasPptArtifact && !hasWebsiteArtifact);
   const hasStructuredContent = !isUser && /```|(?:^|\n)\|.+\|/.test(visibleText);
   const showAssistantWaiting = !isUser && Boolean(isStreaming) && !visibleText.trim() && !reasoningText.trim() && !isTyping;
   const shouldAutoOpenReasoning = !isUser && Boolean(isStreaming) && reasoningText.trim().length > 0 && !visibleText.trim();
@@ -733,8 +810,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   return (
     <motion.div
       id={message?.id ? `msg-${message.id}` : undefined}
-      initial={{ opacity: 0, y: 30, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{
         duration: 0.6,
@@ -751,7 +828,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
       <motion.div
         whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
         className={cn(
-          "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm z-10 cursor-help transition-all",
+          "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm z-10 cursor-help transition-all",
           isUser ? "bg-zinc-900 text-white" : "bg-white border border-slate-200 text-zinc-800"
         )}
       >
@@ -850,65 +927,74 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                       </span>
                     </div>
 
-                    {metaItems.length > 0 && (
-                      <div className="mb-3 flex flex-wrap gap-1.5">
-                        {metaItems.map((item) => (
-                          <span
-                            key={item}
-                            className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500"
-                          >
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {detailText && (
-                      <div
-                        className={cn(
-                          "mb-3 rounded-xl border px-3 py-2 text-[11px] leading-relaxed",
-                          isError
-                            ? "border-rose-200/90 bg-rose-50/90 text-rose-700"
-                            : "border-slate-200/80 bg-slate-50/90 text-slate-600",
+                    {/* 非管理员只显示简要状态，管理员显示完整详情 */}
+                    {isAdmin ? (
+                      <>
+                        {metaItems.length > 0 && (
+                          <div className="mb-3 flex flex-wrap gap-1.5">
+                            {metaItems.map((item) => (
+                              <span
+                                key={item}
+                                className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500"
+                              >
+                                {item}
+                              </span>
+                            ))}
+                          </div>
                         )}
-                      >
-                        {detailText}
+
+                        {detailText && (
+                          <div
+                            className={cn(
+                              "mb-3 rounded-xl border px-3 py-2 text-[11px] leading-relaxed",
+                              isError
+                                ? "border-rose-200/90 bg-rose-50/90 text-rose-700"
+                                : "border-slate-200/80 bg-slate-50/90 text-slate-600",
+                            )}
+                          >
+                            {detailText}
+                          </div>
+                        )}
+
+                        <div className="flex flex-col">
+                          <ToolTimelineStep
+                            title="调用阶段"
+                            state="done"
+                            body="已向运行时发起工具调用，请求参数已发送。"
+                          />
+                          <ToolTimelineStep
+                            title="执行状态"
+                            state={executionState}
+                            body={executionBody}
+                          />
+                          <div className="grid grid-cols-[1rem_1fr] gap-3">
+                            <div className="flex justify-center">
+                              <div
+                                className={cn("mt-1 h-3 w-3 rounded-full border-2", resultDotClass)}
+                              />
+                            </div>
+                            <div>
+                              <div className={cn("text-[11px] font-bold uppercase tracking-[0.14em]", resultTitleClass)}>
+                                返回结果
+                              </div>
+                              <div className="mt-1">
+                                {tool.result ? (
+                                  <ToolResultPreview result={tool.result} isError={isError} />
+                                ) : (
+                                  <div className="rounded-xl border border-dashed border-sky-200/60 bg-sky-50/40 px-3 py-2 text-[11px] text-slate-500">
+                                    等待工具返回内容
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-[11px] text-slate-500">
+                        {isSuccess ? '工具执行完成' : isError ? '工具执行失败' : executionBody}
                       </div>
                     )}
-
-                    <div className="flex flex-col">
-                      <ToolTimelineStep
-                        title="调用阶段"
-                        state="done"
-                        body="已向运行时发起工具调用，请求参数已发送。"
-                      />
-                      <ToolTimelineStep
-                        title="执行状态"
-                        state={executionState}
-                        body={executionBody}
-                      />
-                      <div className="grid grid-cols-[1rem_1fr] gap-3">
-                        <div className="flex justify-center">
-                          <div
-                            className={cn("mt-1 h-3 w-3 rounded-full border-2", resultDotClass)}
-                          />
-                        </div>
-                        <div>
-                          <div className={cn("text-[11px] font-bold uppercase tracking-[0.14em]", resultTitleClass)}>
-                            返回结果
-                          </div>
-                          <div className="mt-1">
-                            {tool.result ? (
-                              <ToolResultPreview result={tool.result} isError={isError} />
-                            ) : (
-                              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2 text-[11px] text-slate-400">
-                                等待工具返回内容
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                         </>
                       );
                     })()}
@@ -920,7 +1006,10 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
         )}
 
         {!isUser && message && (
-          <PptArtifactCard message={message} onOpenArtifact={onOpenArtifact} />
+          <>
+            <PptArtifactCard message={message} onOpenArtifact={onOpenArtifact} />
+            <WebsiteArtifactCard message={message} onOpenArtifact={onOpenArtifact} />
+          </>
         )}
 
         {shouldRenderBubble && (
@@ -931,21 +1020,9 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             hasStructuredContent ? "w-full" : "w-fit",
             !isUser && isStreaming && "min-h-[3.5rem] min-w-[10rem]",
             isUser
-              ? "bg-gradient-to-br from-zinc-800 to-zinc-950 text-white rounded-tr-none shadow-lg hover:shadow-xl"
-              : "bg-white/80 backdrop-blur-2xl text-slate-800 rounded-tl-none border border-slate-100 hover:bg-white border-l-[3px] border-l-brand-400/60"
+              ? "bg-[var(--bubble-user)] text-[var(--bubble-user-text)] rounded-tr-none shadow-lg hover:shadow-xl"
+              : "bg-[var(--bubble-ai)] backdrop-blur-xl text-slate-800 rounded-tl-none border border-slate-100 hover:bg-white shadow-xs"
           )}>
-          {/* AI 气泡尾巴 */}
-          {!isUser && (
-            <svg className="absolute top-0 -left-[8px] w-3 h-4 text-white/90" viewBox="0 0 8 12" fill="currentColor">
-              <path d="M8 0H0L8 12V0Z" />
-            </svg>
-          )}
-          {/* Tail for User */}
-          {isUser && (
-            <svg className="absolute top-0 -right-[8px] w-3 h-4 text-zinc-900" viewBox="0 0 8 12" fill="currentColor">
-              <path d="M0 0H8L0 12V0Z" />
-            </svg>
-          )}
 
           {/* Live tool calls during streaming */}
           {!isUser && !isTyping && message?.toolCalls && message.toolCalls.length > 0 && isStreaming && (
@@ -1015,17 +1092,17 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                 <details
                   open={isReasoningOpen}
                   onToggle={(event) => setIsReasoningOpen(event.currentTarget.open)}
-                  className="group mb-3 rounded-2xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-slate-500 [&_summary::-webkit-details-marker]:hidden"
+                  className="group mb-3 rounded-2xl border border-sky-200/50 bg-sky-50/50 px-3 py-2 text-slate-600 [&_summary::-webkit-details-marker]:hidden"
                 >
-                  <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                    <BrainCircuit size={13} className="text-slate-400" />
+                  <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600">
+                    <BrainCircuit size={13} className="text-sky-500" />
                     <span>思考过程</span>
                     {shouldAutoOpenReasoning && (
-                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-pulse" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-sky-500 animate-pulse" />
                     )}
                     <ChevronDownIcon size={12} className="ml-auto transition-transform duration-300 group-open:-rotate-180" />
                   </summary>
-                  <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-slate-200/70 pt-2 text-xs leading-relaxed text-slate-500">
+                  <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-sky-200/40 pt-2 text-xs leading-relaxed text-slate-600">
                     {reasoningText}
                   </div>
                 </details>
@@ -1071,7 +1148,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
 
         {/* Timestamp + copy */}
         {message?.id && !isTyping && (
-          <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400/70 px-2 mt-1.5 flex items-center gap-2">
+          <div className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-500 px-2 mt-1.5 flex items-center gap-2">
             <span>{new Date(parseInt(message.id)).toLocaleTimeString('zh-CN', { timeZone: APP_TIME_ZONE, hour: '2-digit', minute: '2-digit' })}</span>
             {!isUser && visibleText && (
               <motion.span

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { motion } from 'motion/react';
 import {
   Area,
@@ -17,7 +17,7 @@ import {
   YAxis,
 } from 'recharts';
 import { Activity, Cpu, Gauge, Hammer, Trophy, Waves } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, formatNumber, formatTokenNumber, formatLatency, formatDay, shortName, initials, CHART_COLORS } from '../../lib/utils';
 import {
   DashboardDistributionItem,
   DashboardStats as DashboardStatsData,
@@ -28,48 +28,10 @@ interface DashboardChartsProps {
   data: DashboardStatsData;
 }
 
-const CHART_COLORS = ['#0f172a', '#0ea5e9', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e', '#14b8a6', '#6366f1'];
-
-function formatNumber(value: number): string {
-  return Intl.NumberFormat('zh-CN', { notation: value >= 10000 ? 'compact' : 'standard' }).format(value);
-}
-
-function formatTokenNumber(value: number): string {
-  const abs = Math.abs(value);
-  if (abs <= 10000) return `${value}`;
-  if (abs >= 1e12) return `${(value / 1e12).toFixed(abs >= 1e13 ? 0 : 1)}T`;
-  if (abs >= 1e9) return `${(value / 1e9).toFixed(abs >= 1e10 ? 0 : 1)}B`;
-  if (abs >= 1e6) return `${(value / 1e6).toFixed(abs >= 1e7 ? 0 : 1)}M`;
-  if (abs >= 1e3) return `${(value / 1e3).toFixed(abs >= 1e4 ? 0 : 1)}K`;
-  return `${value}`;
-}
-
-function formatLatency(value: number): string {
-  if (!value) return '0 ms';
-  if (value >= 1000) return `${(value / 1000).toFixed(1)} s`;
-  return `${value} ms`;
-}
-
-function formatDay(value: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (match) {
-    return `${Number(match[2])}/${Number(match[3])}`;
-  }
-  return value.slice(5);
-}
-
-function shortName(name: string): string {
-  if (!name) return '未知';
-  return name.length > 7 ? `${name.slice(0, 7)}…` : name;
-}
-
-function initials(name: string): string {
-  return (name || 'U').slice(0, 1).toUpperCase();
-}
 
 function EmptyPanel({ label }: { label: string }) {
   return (
-    <div className="flex h-full min-h-[220px] items-center justify-center rounded-3xl border border-dashed border-white/65 bg-white/30 text-sm font-bold text-slate-500">
+    <div className="flex h-full min-h-[200px] items-center justify-center rounded-2xl border border-dashed border-white/65 bg-white/30 text-sm font-bold text-slate-500">
       {label}
     </div>
   );
@@ -106,21 +68,26 @@ function PanelShell({
   className,
   children,
   tone,
+  delay = 0,
 }: {
   className?: string;
   children: React.ReactNode;
   tone?: string;
+  delay?: number;
 }) {
   return (
-    <section
+    <motion.section
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         'admin-chart-panel',
         tone ?? 'bg-white/52',
         className,
       )}
     >
-      <div className="relative h-full px-6 py-6">{children}</div>
-    </section>
+      <div className="relative h-full px-5 py-5">{children}</div>
+    </motion.section>
   );
 }
 
@@ -237,8 +204,8 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
 
   return (
     <div className="admin-page-stage space-y-5">
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_360px]">
-        <PanelShell tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.62),rgba(255,255,255,0.38),rgba(186,230,253,0.34))]">
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_340px]">
+        <PanelShell delay={0.05} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.62),rgba(255,255,255,0.38),rgba(186,230,253,0.34))]">
           <PanelHeader
             icon={Waves}
             kicker="趋势主视图"
@@ -251,15 +218,15 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           />
 
           <div className="mb-4 grid gap-3 sm:grid-cols-3">
-            <div className="admin-stat-card rounded-3xl bg-white/65 px-4 py-4">
+            <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4">
               <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计 Token</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatTokenNumber(data.summary.total_tokens)}</p>
             </div>
-            <div className="admin-stat-card rounded-3xl bg-white/65 px-4 py-4">
+            <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4">
               <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计运行</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(data.summary.total_runs)}</p>
             </div>
-            <div className="admin-stat-card rounded-3xl bg-white/65 px-4 py-4">
+            <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4">
               <p className="text-xs font-black tracking-[0.18em] text-slate-400">平均单次负载</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">
                 {formatTokenNumber(Math.round(data.summary.total_tokens / Math.max(data.summary.total_runs, 1)))}
@@ -267,7 +234,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
             </div>
           </div>
 
-          <div className="h-[300px]">
+          <div className="h-[320px]">
             {hasTrend ? (
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={trendData} margin={{ top: 10, right: 18, bottom: 2, left: 0 }}>
@@ -283,14 +250,14 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                     tickFormatter={formatDay}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     dy={10}
                   />
                   <YAxis
                     yAxisId="left"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     tickFormatter={formatTokenNumber}
                     width={56}
                   />
@@ -299,7 +266,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                     orientation="right"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     tickFormatter={formatNumber}
                     width={36}
                   />
@@ -347,7 +314,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <div
                 key={item.label}
                 className={cn(
-                  'admin-stat-card rounded-3xl px-4 py-3.5',
+                  'admin-stat-card rounded-2xl px-4 py-3.5',
                   index < 2
                     ? 'bg-[linear-gradient(135deg,rgba(224,242,254,0.52),rgba(255,255,255,0.65))]'
                     : 'bg-[linear-gradient(135deg,rgba(233,213,255,0.28),rgba(255,255,255,0.65))]',
@@ -361,9 +328,9 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
         </PanelShell>
 
         <div className="grid gap-5">
-          <PanelShell tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(224,242,254,0.48),rgba(255,255,255,0.36))]">
+          <PanelShell delay={0.12} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(224,242,254,0.48),rgba(255,255,255,0.36))]">
             <PanelHeader icon={Activity} kicker="运行脉冲" title="最近几天调用强度" />
-            <div className="h-[220px]">
+            <div className="h-[240px]">
               {pulseData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={pulseData} margin={{ top: 4, right: 4, bottom: 0, left: -12 }}>
@@ -373,7 +340,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                       tickFormatter={formatDay}
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }}
+                      tick={{ fill: '#475569', fontSize: 11, fontWeight: 700 }}
                     />
                     <YAxis hide />
                     <Tooltip
@@ -397,9 +364,9 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
             </div>
           </PanelShell>
 
-          <PanelShell tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(233,213,255,0.34),rgba(255,255,255,0.36))]">
+          <PanelShell delay={0.18} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(233,213,255,0.34),rgba(255,255,255,0.36))]">
             <PanelHeader icon={Gauge} kicker="效率水位" title="单次运行负载走势" />
-            <div className="h-[220px]">
+            <div className="h-[240px]">
               {hasTrend ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trendData} margin={{ top: 8, right: 8, bottom: 0, left: -10 }}>
@@ -409,7 +376,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                       tickFormatter={formatDay}
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }}
+                      tick={{ fill: '#475569', fontSize: 11, fontWeight: 700 }}
                     />
                     <YAxis hide />
                     <Tooltip
@@ -442,9 +409,9 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,0.78fr)_minmax(0,0.62fr)_minmax(0,1fr)]">
-        <PanelShell tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(186,230,253,0.22),rgba(255,255,255,0.34))]">
+        <PanelShell delay={0.24} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(186,230,253,0.22),rgba(255,255,255,0.34))]">
           <PanelHeader icon={Cpu} kicker="模型分布" title="模型调用构成" />
-          <div className="h-[250px]">
+          <div className="h-[260px]">
             {data.model_distribution.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -479,16 +446,16 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <EmptyPanel label="暂时还没有模型调用数据" />
             )}
           </div>
-          <div className="admin-stat-card rounded-3xl bg-white/65 px-4 py-4 text-center">
+          <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4 text-center">
             <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计模型调用</p>
             <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(totalModelCalls)}</p>
           </div>
           <DistributionLegend items={data.model_distribution} />
         </PanelShell>
 
-        <PanelShell tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(254,240,138,0.22),rgba(255,255,255,0.34))]">
+        <PanelShell delay={0.30} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(254,240,138,0.22),rgba(255,255,255,0.34))]">
           <PanelHeader icon={Activity} kicker="调用混合" title="模型与工具占比" />
-          <div className="h-[250px]">
+          <div className="h-[260px]">
             {callMix.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -525,7 +492,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           </div>
           <div className="space-y-3">
             {callMix.map((item, index) => (
-              <div key={item.name} className="admin-stat-card rounded-3xl bg-white/65 px-4 py-3">
+              <div key={item.name} className="admin-stat-card rounded-2xl bg-white/65 px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-bold text-slate-700">{item.name}</span>
                   <span className="text-base font-black text-slate-950">{formatNumber(item.value)}</span>
@@ -546,7 +513,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           </div>
         </PanelShell>
 
-        <PanelShell tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(196,181,253,0.22),rgba(255,255,255,0.34))]">
+        <PanelShell delay={0.36} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(196,181,253,0.22),rgba(255,255,255,0.34))]">
           <PanelHeader icon={Hammer} kicker="工具分布" title="工具调用排行" />
           <div className="h-[332px]">
             {data.tool_distribution.length > 0 ? (
@@ -557,7 +524,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                     type="number"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     tickFormatter={formatTokenNumber}
                   />
                   <YAxis
@@ -565,7 +532,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     width={92}
                   />
                   <Tooltip
@@ -589,7 +556,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <EmptyPanel label="暂时还没有工具调用数据" />
             )}
           </div>
-          <div className="admin-stat-card rounded-3xl bg-white/65 px-4 py-4 text-center">
+          <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4 text-center">
             <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计工具调用</p>
             <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(totalToolCalls)}</p>
           </div>
@@ -597,7 +564,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <PanelShell tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(125,211,252,0.22),rgba(255,255,255,0.36))]">
+        <PanelShell delay={0.42} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(125,211,252,0.22),rgba(255,255,255,0.36))]">
           <PanelHeader icon={Trophy} kicker="用户热区" title="高负载用户分布" />
           <div className="h-[340px]">
             {topUsersChartData.length > 0 ? (
@@ -608,7 +575,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                     type="number"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     tickFormatter={formatNumber}
                   />
                   <YAxis
@@ -616,7 +583,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
                     width={84}
                   />
                   <Tooltip
@@ -643,7 +610,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
         </PanelShell>
 
         <section className="admin-data-panel">
-          <div className="border-b border-white/60 px-6 py-5">
+          <div className="border-b border-white/55 px-5 py-4">
             <PanelHeader icon={Trophy} kicker="用户排行" title="资源消耗前列用户" />
           </div>
 
@@ -661,7 +628,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <UserUsageRow key={user.user_id} user={user} index={index} maxTokens={maxUserTokens} />
             ))
           ) : (
-            <div className="p-6">
+            <div className="p-4">
               <EmptyPanel label="暂时还没有用户使用数据" />
             </div>
           )}

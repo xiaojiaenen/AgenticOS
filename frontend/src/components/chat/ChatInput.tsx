@@ -3,7 +3,9 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Square } from 'lucide-react';
 import { AgentProfile } from '../../services/agentProfileService';
 import { cn } from '../../lib/utils';
-import { MascotHappy, PaperclipIcon, SendIcon } from '../ui/AnimatedIcons';
+import { AgentSelector } from '../ui/AgentSelector';
+import { PaperclipIcon, SendIcon } from '../ui/AnimatedIcons';
+import { useInputSuggest } from '../../hooks/useInputSuggest';
 
 interface ChatInputProps {
   value: string;
@@ -42,25 +44,14 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const modeMenuRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
-  const [showModeMenu, setShowModeMenu] = useState(false);
+  const { suggestion, onChange: suggestOnChange, accept, dismiss } = useInputSuggest();
 
   useImperativeHandle(ref, () => ({
     addFiles: (newFiles: File[]) => setFiles((prev) => [...prev, ...newFiles]),
   }));
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modeMenuRef.current && !modeMenuRef.current.contains(event.target as Node)) {
-        setShowModeMenu(false);
-      }
-    };
-    if (showModeMenu) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showModeMenu]);
 
   useEffect(() => {
     if (!textareaRef.current) return;
@@ -80,14 +71,40 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     setFiles([]);
   }, [files, isLoading, onSend, value]);
 
+  const handleChange = React.useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    onChange(val);
+    suggestOnChange(val);
+  }, [onChange, suggestOnChange]);
+
   const handleKeyDown = React.useCallback((e: React.KeyboardEvent) => {
     const nativeEvent = e.nativeEvent as KeyboardEvent;
     if (nativeEvent.isComposing || e.key === 'Process') return;
+
+    // Tab 接受补全建议
+    if (e.key === 'Tab') {
+      const currentSuggestion = suggestion;
+      if (currentSuggestion) {
+        e.preventDefault();
+        e.stopPropagation();
+        const accepted = accept();
+        onChange(accepted);
+        return;
+      }
+    }
+
+    // Esc 关闭建议
+    if (e.key === 'Escape' && suggestion) {
+      e.preventDefault();
+      dismiss();
+      return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleInternalSend();
     }
-  }, [handleInternalSend]);
+  }, [handleInternalSend, suggestion, accept, dismiss, onChange]);
 
   const handleFileChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) setFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
@@ -116,7 +133,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   }, []);
 
   const selectableAgents = agentProfiles.filter((agent) => agent.listed !== false);
-  const selectedAgent = selectableAgents.find((agent) => agent.id === selectedAgentProfileId);
 
   return (
     <div
@@ -153,7 +169,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 
       <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.md,.py,.js,.ts,.tsx,.jsx,.json,.yaml,.yml,.xml,.html,.css,.svg,.java,.c,.cpp,.h,.rs,.go,.rb,.php,.sql,.sh,.bat,.ps1,.zip,.epub,.rtf,.odt,.ods,.odp,image/*" />
 
-      <div className="relative flex items-end rounded-[2rem] border border-white/60 bg-white/60 p-2 px-3 shadow-lg shadow-brand-500/10 backdrop-blur-2xl transition-all duration-300 focus-within:border-brand-200 focus-within:bg-white/90 focus-within:shadow-glow">
+      <div className="relative flex items-end rounded-[2rem] border border-[var(--border-medium)] bg-[var(--surface-2)] p-2 px-3 shadow-lg shadow-brand-500/10 backdrop-blur-2xl transition-all duration-300 focus-within:border-brand-200 focus-within:bg-white/90 focus-within:shadow-glow">
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
@@ -164,72 +180,40 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           <PaperclipIcon size={20} />
         </button>
 
-        <div className="relative mb-0.5 ml-1" ref={modeMenuRef}>
-          <button
-            onClick={() => !isModeLocked && setShowModeMenu(!showModeMenu)}
-            className={cn(
-              'flex items-center justify-center rounded-full p-2.5 text-slate-400 transition-all hover:text-sky-600',
-              isModeLocked ? 'cursor-not-allowed opacity-60' : 'border border-transparent hover:border-sky-100 hover:bg-sky-50 active:scale-95',
-            )}
-            title={isModeLocked ? '对话已开始，无法更改智能体' : '选择智能体'}
-            aria-label="选择智能体"
-          >
-            <div className={cn('flex h-5 w-5 items-center justify-center rounded-md border-2 text-[10px] font-bold',
-              selectedAgentProfileId ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-slate-300 text-slate-400')}>
-              <MascotHappy size={12} />
-            </div>
-          </button>
-
-          <AnimatePresence>
-            {showModeMenu && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: -20 }}
-                animate={{ opacity: 1, scale: 1, y: -10 }}
-                exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                className="absolute bottom-full left-0 z-40 mb-4 max-h-[360px] w-64 overflow-y-auto rounded-3xl border border-slate-200/50 bg-white/95 p-2 shadow-2xl ring-1 ring-black/5 backdrop-blur-2xl"
-              >
-                {selectedAgent && (
-                  <div className="mb-2 rounded-2xl border border-sky-100 bg-sky-50/70 px-3 py-2 text-xs font-bold text-sky-700">
-                    当前：{selectedAgent.name}
-                  </div>
-                )}
-                {selectableAgents.map((agent) => (
-                  <button
-                    key={agent.id}
-                    onClick={() => {
-                      onAgentProfileChange?.(agent);
-                      setChatMode(agent.response_mode as 'general' | 'ppt' | 'website');
-                      setShowModeMenu(false);
-                    }}
-                    className={cn(
-                      'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-slate-50',
-                      selectedAgentProfileId === agent.id ? 'bg-sky-50/70 ring-1 ring-sky-100' : '',
-                    )}
-                  >
-                    <span className={cn('flex h-8 w-8 items-center justify-center rounded-xl text-sm shadow-sm transition-transform',
-                      selectedAgentProfileId === agent.id ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-500')}>
-                      <MascotHappy size={20} />
-                    </span>
-                    <div className="min-w-0 flex flex-col">
-                      <span className={cn('truncate text-xs font-bold transition-colors', selectedAgentProfileId === agent.id ? 'text-sky-700' : 'text-slate-700')}>{agent.name}</span>
-                      <span className="truncate text-[9px] font-medium text-slate-400">{agent.description || '智能体'}</span>
-                    </div>
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <div className="relative mb-0.5 ml-1">
+          <AgentSelector
+            agents={selectableAgents}
+            selectedId={selectedAgentProfileId ?? null}
+            onSelect={(agent) => {
+              onAgentProfileChange?.(agent);
+              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website');
+            }}
+            variant="compact"
+            disabled={isModeLocked}
+          />
         </div>
 
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={isDragging ? '把文件拖到这里...' : placeholder}
-          className="max-h-[200px] w-full resize-none bg-transparent p-3 leading-relaxed tracking-tight text-slate-800 outline-none placeholder:text-slate-400"
-          rows={1}
-        />
+        <div className="relative max-h-[200px] w-full">
+          {/* Ghost text 补全建议 */}
+          {suggestion && value && (
+            <div
+              className="pointer-events-none absolute inset-0 p-3 leading-relaxed tracking-tight whitespace-pre-wrap overflow-hidden"
+              aria-hidden="true"
+            >
+              <span className="text-transparent">{value}</span>
+              <span className="text-slate-300">{suggestion.slice(value.length)}</span>
+            </div>
+          )}
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder={isDragging ? '把文件拖到这里...' : placeholder}
+            className="max-h-[200px] w-full resize-none bg-transparent p-3 leading-relaxed tracking-tight text-slate-800 outline-none placeholder:text-slate-400"
+            rows={1}
+          />
+        </div>
         {isLoading ? (
           <button
             type="button"
@@ -248,7 +232,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             className={cn(
               'group mb-1 ml-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all duration-300',
               value.trim() || files.length > 0
-                ? 'bg-zinc-900 text-white shadow-md hover:scale-105 hover:bg-zinc-700 active:scale-95'
+                ? 'bg-[var(--accent-send)] text-white shadow-md hover:scale-105 hover:bg-[var(--accent-send-hover)] active:scale-95'
                 : 'bg-slate-100/50 text-slate-300',
             )}
             title="发送"
