@@ -316,7 +316,7 @@ export const AgentManagement = () => {
 
   const removeProfile = async (profile: AgentProfile) => {
     if (profile.is_builtin) return;
-    const confirmed = window.confirm(`确认删除智能体“${profile.name}”吗？`);
+    const confirmed = window.confirm("确认删除智能体“${profile.name}”吗？");
     if (!confirmed) return;
     setIsSaving(true);
     setError(null);

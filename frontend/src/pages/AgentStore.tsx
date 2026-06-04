@@ -140,11 +140,7 @@ export const AgentStore = () => {
                   layout
                   whileHover={{ y: -4 }}
                   transition={{ duration: 0.2 }}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`${agent.name} - ${agent.installed ? '已安装' : '未安装'}`}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); agent.installed ? startChat(agent) : toggleInstall(agent); } }}
-                  className="group flex min-h-[190px] flex-col rounded-2xl border border-white/65 bg-white/62 p-4 shadow-md backdrop-blur-2xl focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2 outline-none"
+                  className="group flex min-h-[190px] flex-col rounded-2xl border border-white/65 bg-white/62 p-4 shadow-md backdrop-blur-2xl"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg shadow-sky-500/15 transition-transform duration-300 group-hover:scale-110', accent)}>

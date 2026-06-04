@@ -82,7 +82,11 @@ export const Sidebar = React.memo(({
         {sessions.map(session => (
           <div
             key={session.id}
+            role="button"
+            tabIndex={0}
             onClick={() => onSelectSession(session.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectSession(session.id); } }}
+            aria-current={currentSessionId === session.id ? 'page' : undefined}
             className={cn(
               "group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all",
               currentSessionId === session.id
@@ -99,7 +103,7 @@ export const Sidebar = React.memo(({
                 e.stopPropagation();
                 setDeleteConfirm({ id: session.id, title: session.title });
               }}
-              className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+              className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
               aria-label="删除对话"
             >
               <TrashIcon size={16} />

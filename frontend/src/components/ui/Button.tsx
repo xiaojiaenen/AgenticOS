@@ -23,7 +23,7 @@ const variants = {
 const sizes = {
   sm: 'h-9 rounded-xl px-4 text-xs font-bold',
   md: 'h-11 rounded-2xl px-5 text-sm font-bold',
-  lg: 'h-14 rounded-xl px-7 text-base font-bold',
+  lg: 'h-14 rounded-2xl px-7 text-base font-bold',
   icon: 'h-11 w-11 rounded-2xl',
 };
 
