@@ -70,11 +70,11 @@ export const IntegrationManagement = () => {
           {isLoading ? <div className="flex h-40 items-center justify-center gap-3 text-sm font-bold text-slate-500"><Loader2 size={18} className="animate-spin"/> 加载中</div>
            : systems.length===0 ? <div className="flex h-40 flex-col items-center justify-center gap-3 text-sm text-slate-500"><Plug size={32} className="text-slate-300"/><p className="font-bold">暂无集成</p><p>点击「新增集成」创建第一个第三方系统连接</p></div>
            : (
-            <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+            <div className="overflow-x-auto"><div className="px-5 pb-2 text-xs text-slate-400">点击行进入接口管理 →</div><table className="w-full text-left text-sm">
               <thead><tr className="border-b border-slate-200 text-xs font-black uppercase tracking-wider text-slate-400"><th className="px-5 py-3">名称</th><th className="px-5 py-3">描述</th><th className="px-5 py-3">鉴权</th><th className="px-5 py-3 text-center">接口</th><th className="px-5 py-3 text-center">状态</th><th className="px-5 py-3 text-right">操作</th></tr></thead>
               <tbody>{systems.map(sys=>{const Icon=authTypeIcon(sys.auth_type);return(
-                <motion.tr key={sys.id} initial={{opacity:0}} animate={{opacity:1}} className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-white/60" onClick={()=>setSelectedSystem(sys)}>
-                  <td className="px-5 py-3.5"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/70 bg-white/70 text-slate-600 shadow-sm"><Icon size={18}/></div><div><p className="font-black text-slate-900">{sys.name}</p><p className="text-xs text-slate-400">{sys.base_url}</p></div></div></td>
+                <motion.tr key={sys.id} initial={{opacity:0}} animate={{opacity:1}} className="group cursor-pointer border-b border-slate-100 transition-colors hover:bg-white/60" onClick={()=>setSelectedSystem(sys)}>
+                  <td className="px-5 py-3.5"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/70 bg-white/70 text-slate-600 shadow-sm"><Icon size={18}/></div><div><div className="flex items-center gap-1"><p className="font-black text-slate-900">{sys.name}</p><ChevronLeft size={14} className="rotate-180 text-slate-300 group-hover:text-slate-500 transition-colors"/></div><p className="text-xs text-slate-400">{sys.base_url}</p></div></div></td>
                   <td className="max-w-[200px] truncate px-5 py-3.5 text-slate-600">{sys.description||"-"}</td>
                   <td className="px-5 py-3.5"><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">{authTypeLabel(sys.auth_type)}</span></td>
                   <td className="px-5 py-3.5 text-center font-bold text-slate-700">{sys.api_count}</td>
