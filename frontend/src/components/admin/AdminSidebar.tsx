@@ -68,22 +68,6 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
         </button>
       </div>
 
-      <div className="relative z-10 px-4 pt-4">
-        <div className="rounded-3xl border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] backdrop-blur-xl px-4 py-3.5 shadow-md">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-[var(--admin-accent)] text-white shadow-sm">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Admin Console</p>
-              <p className="text-sm font-black text-slate-950">AgenticOS 工作台</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="relative z-10 flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-1">
           {navItems.map((item) => {
