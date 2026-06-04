@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-peoples-platform — from open-design zhangzara html-ppt template */
+/* People's Platform (Block & Bold): Activist poster energy: blue, orange, red on cream, with Alfa Slab + Caveat Brush. */
+
+:root {
+  --bg: #F4E9D6;
+  --bg-soft: #e5dbc9;
+  --surface: #e5dbc9;
+  --surface-2: #d6cdbc;
+  --border: #2e2c2f;
+  --border-strong: #4e4b4a;
+  --text-1: #0E0E14;
+  --text-2: #989188;
+  --text-3: #6e6965;
+  --accent: #E83A2A;
+  --accent-2: #b93430;
+  --accent-3: #7f221d;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #E83A2A, #b93430);
+  --grad-soft: linear-gradient(135deg, rgba(232,58,42,0.08), rgba(185,52,48,0.04));
+  --font-sans: 'Inter', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Alfa Slab One', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

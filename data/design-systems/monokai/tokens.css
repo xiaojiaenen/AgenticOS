@@ -1,0 +1,17 @@
+/* Monokai — iconic code editor dark theme with warm highlights */
+:root {
+  --bg: #272822;
+  --surface: #2e2f28;
+  --surface-warm: #333530;
+  --fg: #f8f8f2;
+  --fg-2: #cfcfc2;
+  --muted: #8b8b7e;
+  --border: #49483e;
+  --border-soft: #75715e;
+  --accent: #a6e22e;
+  --accent-hover: #f92672;
+  --accent-active: #66d9ef;
+  --success: #a6e22e;
+  --warn: #e6db74;
+  --danger: #f92672;
+}

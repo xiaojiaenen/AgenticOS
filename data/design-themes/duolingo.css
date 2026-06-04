@@ -1,0 +1,30 @@
+/* PPT theme: duolingo — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f7f7;
+  --surface: #e5e5e5;
+  --surface-2: #e5e5e5;
+  --border: #afafaf;
+  --border-strong: #afafaf;
+  --text-1: #3c3c3c;
+  --text-2: #777777;
+  --text-3: #777777;
+  --accent: #58a700;
+  --accent-2: #ff9600;
+  --accent-3: #4a8d00;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #58a700, #ff9600);
+  --grad-soft: linear-gradient(135deg, rgba(88,167,0,0.08), rgba(255,150,0,0.04));
+  --font-sans: Mona Sans;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

@@ -4,15 +4,15 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from app.db.models import AgentProfileModel, AgentProfileToolModel, AgentToolConfigModel, Base
-from app.prompts import WEBSITE_SYSTEM_PROMPT
+from app.prompts import WEBSITE_ROUTER_PROMPT
 from app.services.agent_profile_service import AgentProfileService
 from app.services.tool_config_service import DEFAULT_MODE_TOOLS, ToolConfigService
 
 
 def test_website_prompt_contains_directory_and_build_rules() -> None:
-    assert "data/websites/<project-slug>/" in WEBSITE_SYSTEM_PROMPT
-    assert "npm install" in WEBSITE_SYSTEM_PROMPT
-    assert "npm run build" in WEBSITE_SYSTEM_PROMPT
+    assert "data/websites/" in WEBSITE_ROUTER_PROMPT
+    assert "npm install" in WEBSITE_ROUTER_PROMPT
+    assert "npm run build" in WEBSITE_ROUTER_PROMPT
 
 
 def test_website_mode_enables_npm_by_default() -> None:

@@ -1,0 +1,17 @@
+/* Nord — arctic cool tones, calm and professional */
+:root {
+  --bg: #eceff4;
+  --surface: #e5e9f0;
+  --surface-warm: #ffffff;
+  --fg: #2e3440;
+  --fg-2: #4c566a;
+  --muted: #7b88a1;
+  --border: #d8dee9;
+  --border-soft: #b0bec5;
+  --accent: #5e81ac;
+  --accent-hover: #81a1c1;
+  --accent-active: #88c0d0;
+  --success: #a3be8c;
+  --warn: #ebcb8b;
+  --danger: #bf616a;
+}

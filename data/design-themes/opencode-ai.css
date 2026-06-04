@@ -1,0 +1,30 @@
+/* PPT theme: opencode-ai — manually converted from open-design DESIGN.md */
+
+:root {
+  --bg: #201d1d;
+  --bg-soft: #171515;
+  --surface: #2a2626;
+  --surface-2: #353030;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.14);
+  --text-1: #fdfcfc;
+  --text-2: #9a9898;
+  --text-3: #6e6e73;
+  --accent: #007aff;
+  --accent-2: #30d158;
+  --accent-3: #ff9f0a;
+  --good: #30d158;
+  --warn: #ff9f0a;
+  --bad: #ff3b30;
+  --grad: linear-gradient(135deg, #007aff, #30d158);
+  --grad-soft: linear-gradient(135deg, rgba(0,122,255,0.08), rgba(48,209,88,0.04));
+  --font-sans: 'Berkeley Mono', 'JetBrains Mono', 'Noto Sans SC', monospace;
+  --font-display: 'Berkeley Mono', 'JetBrains Mono', 'Noto Sans SC', monospace;
+  --font-mono: 'Berkeley Mono', 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 8px;
+  --shadow: 0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.6);
+}

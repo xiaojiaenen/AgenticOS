@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-biennale-yellow — from open-design zhangzara html-ppt template */
+/* Biennale Yellow: Solar yellow on warm parchment with deep indigo serif and atmospheric sun-glow gradients. */
+
+:root {
+  --bg: #E9E5DB;
+  --bg-soft: #dbd7cd;
+  --surface: #dbd7cd;
+  --surface-2: #cdc9c0;
+  --border: #373f75;
+  --border-strong: #545a84;
+  --text-1: #1B2566;
+  --text-2: #9698ac;
+  --text-3: #717597;
+  --accent: #1B2566;
+  --accent-2: #152175;
+  --accent-3: #0e1647;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #1B2566, #152175);
+  --grad-soft: linear-gradient(135deg, rgba(27,37,102,0.08), rgba(21,33,117,0.04));
+  --font-sans: 'Archivo', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Instrument Serif', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 6px;
+  --radius-sm: 3px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

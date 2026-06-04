@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-monochrome — from open-design zhangzara html-ppt template */
+/* Monochrome: Ivory ledger paper with all-black type; Lora serif headlines, Jost body, no color at all. */
+
+:root {
+  --bg: #fafadf;
+  --bg-soft: #ebebd1;
+  --surface: #f2f2d2;
+  --surface-2: #f2f2d2;
+  --border: #3a3a32;
+  --border-strong: #5a5a4e;
+  --text-1: #1a1a16;
+  --text-2: #a0a08e;
+  --text-3: #78786a;
+  --accent: #5e5e54;
+  --accent-2: #8a8a7e;
+  --accent-3: #1a1a16;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #5e5e54, #8a8a7e);
+  --grad-soft: linear-gradient(135deg, rgba(245,240,228,0.08), rgba(196,216,255,0.04));
+  --font-sans: 'Jost', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Lora', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 6px;
+  --radius-sm: 3px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

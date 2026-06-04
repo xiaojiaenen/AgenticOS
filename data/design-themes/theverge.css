@@ -1,0 +1,30 @@
+/* PPT theme: theverge — manually converted from open-design DESIGN.md */
+
+:root {
+  --bg: #131313;
+  --bg-soft: #0d0d0d;
+  --surface: #1f1f1f;
+  --surface-2: #2d2d2d;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+  --text-1: #ffffff;
+  --text-2: #949494;
+  --text-3: #6b6b6b;
+  --accent: #5200ff;
+  --accent-2: #3cffd0;
+  --accent-3: #ffdd00;
+  --good: #3cffd0;
+  --warn: #ffdd00;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #5200ff, #3cffd0);
+  --grad-soft: linear-gradient(135deg, rgba(82,0,255,0.10), rgba(60,255,208,0.06));
+  --font-sans: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 2px;
+  --radius-sm: 1px;
+  --radius-lg: 4px;
+  --shadow: 0 1px 0 rgba(255,255,255,0.06);
+  --shadow-lg: 0 1px 0 rgba(255,255,255,0.10), 0 8px 24px rgba(0,0,0,0.5);
+}

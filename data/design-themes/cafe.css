@@ -1,0 +1,30 @@
+/* PPT theme: cafe — auto-generated from open-design */
+
+:root {
+  --bg: #f9f7f5;
+  --bg-soft: #f9f7f5;
+  --surface: #f4f2f0;
+  --surface-2: #eae8e6;
+  --border: #cecac6;
+  --border-strong: #a89f99;
+  --text-1: #3e2b1e;
+  --text-2: #8b7f78;
+  --text-3: #bbb4b0;
+  --accent: #5d4432;
+  --accent-2: #e9e3dd;
+  --accent-3: #4f392a;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #5d4432, #e9e3dd);
+  --grad-soft: linear-gradient(135deg, rgba(93,68,50,0.08), rgba(233,227,221,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

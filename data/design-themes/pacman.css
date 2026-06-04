@@ -1,0 +1,30 @@
+/* PPT theme: pacman — manually converted from open-design DESIGN.md */
+
+:root {
+  --bg: #000000;
+  --bg-soft: #0a0a10;
+  --surface: #141420;
+  --surface-2: #1e1e2e;
+  --border: rgba(255,255,255,0.10);
+  --border-strong: rgba(255,255,255,0.18);
+  --text-1: #f0eff5;
+  --text-2: #a09db8;
+  --text-3: #6b6880;
+  --accent: #2a3fe5;
+  --accent-2: #f4b9b0;
+  --accent-3: #ffeb3b;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #2a3fe5, #f4b9b0);
+  --grad-soft: linear-gradient(135deg, rgba(42,63,229,0.10), rgba(244,185,176,0.06));
+  --font-sans: 'Press Start 2P', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Press Start 2P', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'Space Mono', 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 0px;
+  --radius-sm: 0px;
+  --radius-lg: 4px;
+  --shadow: 0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.6);
+}

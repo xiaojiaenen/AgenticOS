@@ -736,7 +736,7 @@ def register_email_tools(registry: ToolRegistry):
         except Exception as e:
             return f"❌ 读取邮件失败: {str(e)}"
 
-    @registry.tool(display_name="发送邮件")
+    @registry.tool(display_name="发送邮件", requires_approval=True)
     async def send_email(
         to: str,
         subject: str,

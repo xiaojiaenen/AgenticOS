@@ -1,0 +1,30 @@
+/* PPT theme: totality-festival — manually converted from open-design DESIGN.md */
+
+:root {
+  --bg: #121318;
+  --bg-soft: #1a1b21;
+  --surface: rgba(52,52,58,0.35);
+  --surface-2: rgba(52,52,58,0.55);
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+  --text-1: #e3e1e9;
+  --text-2: #d0c6ab;
+  --text-3: #999077;
+  --accent: #ffd700;
+  --accent-2: #fff6df;
+  --accent-3: #bdf4ff;
+  --good: #00e3fd;
+  --warn: #ffd700;
+  --bad: #ffb4ab;
+  --grad: linear-gradient(135deg, #ffd700, #fff6df 50%, #bdf4ff);
+  --grad-soft: linear-gradient(135deg, rgba(255,215,0,0.08), rgba(189,244,255,0.06));
+  --font-sans: 'Inter','Noto Sans SC',sans-serif;
+  --font-display: 'Space Grotesk','Inter','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 8px 32px rgba(0,0,0,0.4),0 0 1px rgba(255,255,255,0.1);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,0.5),0 0 2px rgba(255,215,0,0.2);
+}

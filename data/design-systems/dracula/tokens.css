@@ -1,0 +1,17 @@
+/* Dracula — iconic dark purple/cyan theme */
+:root {
+  --bg: #282a36;
+  --surface: #2d3040;
+  --surface-warm: #313548;
+  --fg: #f8f8f2;
+  --fg-2: #c8c8c0;
+  --muted: #7c7d94;
+  --border: #4a4d70;
+  --border-soft: #6272a4;
+  --accent: #bd93f9;
+  --accent-hover: #ff79c6;
+  --accent-active: #8be9fd;
+  --success: #50fa7b;
+  --warn: #f1fa8c;
+  --danger: #ff5555;
+}

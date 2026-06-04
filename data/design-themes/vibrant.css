@@ -1,0 +1,30 @@
+/* PPT theme: vibrant — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #f9f9f9;
+  --surface-2: #efefef;
+  --border: #cbc9c6;
+  --border-strong: #a19e99;
+  --text-1: #2f281d;
+  --text-2: #827e77;
+  --text-3: #b6b3af;
+  --accent: #7c61d4;
+  --accent-2: #eaae87;
+  --accent-3: #6952b4;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #7c61d4, #eaae87);
+  --grad-soft: linear-gradient(135deg, rgba(124,97,212,0.08), rgba(234,174,135,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

@@ -1,0 +1,30 @@
+/* PPT theme: webex — manually converted from open-design DESIGN.md */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f7f7;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #000000;
+  --text-2: #4d4d4d;
+  --text-3: #a0a0a8;
+  --accent: #0353a8;
+  --accent-2: #f2990a;
+  --accent-3: #02468e;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0353a8, #f2990a);
+  --grad-soft: linear-gradient(135deg, rgba(3,83,168,0.08), rgba(242,153,10,0.04));
+  --font-sans: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

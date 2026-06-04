@@ -1,0 +1,30 @@
+/* PPT theme: energetic — auto-generated from open-design */
+
+:root {
+  --bg: #fdba74;
+  --bg-soft: #fdba74;
+  --surface: #f7b671;
+  --surface-2: #edae6d;
+  --border: #f9d5c2;
+  --border-strong: #f5b391;
+  --text-1: #ea580c;
+  --text-2: #f29a6d;
+  --text-3: #f7c4a9;
+  --accent: #ea580b;
+  --accent-2: #f59e0b;
+  --accent-3: #c64a09;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #ea580b, #f59e0b);
+  --grad-soft: linear-gradient(135deg, rgba(234,88,11,0.08), rgba(245,158,11,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

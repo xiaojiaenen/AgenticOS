@@ -1,0 +1,17 @@
+/* Catppuccin — warm latte tones, soft and cozy (mocha dark) */
+:root {
+  --bg: #1e1e2e;
+  --surface: #242438;
+  --surface-warm: #2a2a42;
+  --fg: #cdd6f4;
+  --fg-2: #bac2de;
+  --muted: #7f849c;
+  --border: #454575;
+  --border-soft: #585b70;
+  --accent: #cba6f7;
+  --accent-hover: #f5c2e7;
+  --accent-active: #89b4fa;
+  --success: #a6e3a1;
+  --warn: #f9e2af;
+  --danger: #f38ba8;
+}

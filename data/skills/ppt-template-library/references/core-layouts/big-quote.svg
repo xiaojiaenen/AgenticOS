@@ -1,0 +1,21 @@
+<!-- layout: big-quote | 引用金句 | 居中大字引用 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <rect x="0" y="0" width="1280" height="6" fill="var(--accent)"/>
+  <g text-anchor="middle" font-family="var(--font-sans)" id="bg-layer">
+        <g id="quote-text">
+<text x="640" y="240" font-size="120" font-weight="900" fill="var(--accent)" opacity="0.12">"</text>
+    <text x="640" y="340" font-size="32" fill="var(--text-1)" font-weight="600" font-family="var(--font-display)">
+      <tspan x="640" dy="0">好的产品不是功能的堆砌，</tspan>
+      <tspan x="640" dy="48">而是每一个决策背后的用户洞察。</tspan>
+    </text>
+        
+    </g>
+<g id="quote-author">
+<line x1="540" y1="420" x2="740" y2="420" stroke="var(--accent)" stroke-width="2"/>
+    <text x="640" y="470" font-size="18" fill="var(--accent)" font-weight="600">—— 史蒂夫·乔布斯</text>
+    <text x="640" y="510" font-size="14" fill="var(--text-2)">Apple Inc. 联合创始人</text>
+  
+    </g>
+</g>
+</svg>

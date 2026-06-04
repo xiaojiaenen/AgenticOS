@@ -1,0 +1,30 @@
+/* PPT theme: stripe — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #f6f9fc;
+  --surface-2: #e9ecef;
+  --border: #e5edf5;
+  --border-strong: #e5edf5;
+  --text-1: #061b31;
+  --text-2: #273951;
+  --text-3: #64748d;
+  --accent: #533afd;
+  --accent-2: #4434d4;
+  --accent-3: #2e2b8c;
+  --good: #15be53;
+  --warn: #9b6829;
+  --bad: #ea2261;
+  --grad: linear-gradient(135deg, #533afd, #4434d4);
+  --grad-soft: linear-gradient(135deg, rgba(83,58,253,0.08), rgba(68,52,212,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

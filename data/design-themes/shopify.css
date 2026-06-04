@@ -1,0 +1,30 @@
+/* PPT theme: shopify — manually converted from open-design tokens.css */
+
+:root {
+  --bg: #000000;
+  --bg-soft: #02090a;
+  --surface: #02090a;
+  --surface-2: #061a1c;
+  --border: rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.14);
+  --text-1: #ffffff;
+  --text-2: #a1a1aa;
+  --text-3: #71717a;
+  --accent: #36f4a4;
+  --accent-2: #2de097;
+  --accent-3: #2563eb;
+  --good: #36f4a4;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #36f4a4, #2de097);
+  --grad-soft: linear-gradient(135deg, rgba(54,244,164,0.08), rgba(45,224,151,0.04));
+  --font-sans: 'Inter Variable', 'Inter', 'Helvetica Neue', 'Noto Sans SC', sans-serif;
+  --font-display: 'NeueHaasGrotesk', 'Helvetica Neue', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 8px;
+  --radius-sm: 9999px;
+  --radius-lg: 12px;
+  --shadow: 0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.7);
+}

@@ -1,0 +1,30 @@
+/* PPT theme: atelier-zero — auto-generated from open-design */
+
+:root {
+  --bg: #f7f1de;
+  --bg-soft: #efe7d2;
+  --surface: #ece4cf;
+  --surface-2: #e0d9c5;
+  --border: #efe7d2;
+  --border-strong: #f6f2e9;
+  --text-1: #ece4cf;
+  --text-2: #efe7d2;
+  --text-3: #f8f5ee;
+  --accent: #e9b94a;
+  --accent-2: #ecc365;
+  --accent-3: #c69d3e;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #e9b94a, #ecc365);
+  --grad-soft: linear-gradient(135deg, rgba(233,185,74,0.08), rgba(236,195,101,0.04));
+  --font-sans: Inter;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

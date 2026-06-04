@@ -26,7 +26,8 @@ def _create_engine() -> Engine:
         sqlite_path.parent.mkdir(parents=True, exist_ok=True)
 
     is_sqlite = database_url.startswith("sqlite")
-    connect_args = {"check_same_thread": False} if is_sqlite else {}
+    # SQLite: 增加超时到 30 秒，启用 WAL 模式提升并发性能
+    connect_args = {"check_same_thread": False, "timeout": 30} if is_sqlite else {}
 
     engine_kwargs: dict = {
         "pool_pre_ping": True,
@@ -36,7 +37,20 @@ def _create_engine() -> Engine:
         engine_kwargs["pool_size"] = 5
         engine_kwargs["max_overflow"] = 10
 
-    return create_engine(database_url, connect_args=connect_args, **engine_kwargs)
+    engine = create_engine(database_url, connect_args=connect_args, **engine_kwargs)
+
+    # SQLite 启用 WAL 模式，减少锁冲突
+    if is_sqlite:
+        from sqlalchemy import event
+
+        @event.listens_for(engine, "connect")
+        def _set_sqlite_pragma(dbapi_conn, connection_record):
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=5000")
+            cursor.close()
+
+    return engine
 
 
 engine = _create_engine()
@@ -52,6 +66,8 @@ def init_db() -> None:
 
     seed_tool_configs()
     seed_agent_profiles()
+    from app.services.local_skill_import_service import LocalSkillImportService
+    LocalSkillImportService().import_from_storage()
 
 
 def _ensure_compatible_schema() -> None:
@@ -88,33 +104,14 @@ def _ensure_compatible_schema() -> None:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE agent_profile_tools ADD COLUMN approval_sub_tools_json TEXT DEFAULT '[]'"))
 
-    if "external_systems" in inspector.get_table_names():
-        es_columns = {column["name"] for column in inspector.get_columns("external_systems")}
-        for col_name, col_def in [
-            ("credential_template_json", "TEXT DEFAULT '{}'"),
-            ("oauth_client_id_encrypted", "TEXT"),
-            ("oauth_client_secret_encrypted", "TEXT"),
-            ("oauth_auth_url", "TEXT"),
-            ("oauth_scope", "TEXT"),
-            ("published", "BOOLEAN DEFAULT 1"),
-            ("jwt_login_url", "TEXT"),
-            ("jwt_request_body_template", "TEXT"),
-            ("jwt_response_token_path", "TEXT"),
-            ("jwt_response_expires_path", "TEXT"),
-        ]:
-            if col_name not in es_columns:
-                with engine.begin() as connection:
-                    connection.execute(text(f"ALTER TABLE external_systems ADD COLUMN {col_name} {col_def}"))
-
-    if "external_user_credentials" in inspector.get_table_names():
-        uc_columns = {column["name"] for column in inspector.get_columns("external_user_credentials")}
-        for col_name, col_def in [
-            ("cached_jwt_encrypted", "TEXT"),
-            ("jwt_expires_at", "DATETIME"),
-        ]:
-            if col_name not in uc_columns:
-                with engine.begin() as connection:
-                    connection.execute(text(f"ALTER TABLE external_user_credentials ADD COLUMN {col_name} {col_def}"))
+    if "announcements" in inspector.get_table_names():
+        announcement_columns = {column["name"] for column in inspector.get_columns("announcements")}
+        if "content_format" not in announcement_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE announcements ADD COLUMN content_format VARCHAR(16) DEFAULT 'markdown'"))
+        if "image_url" not in announcement_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE announcements ADD COLUMN image_url TEXT"))
 
 
 def create_db_session() -> Session:

@@ -1,0 +1,30 @@
+/* PPT theme: loom — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f7f7f8;
+  --surface: #e4e4e7;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #9b9ca3;
+  --text-1: #1f1f23;
+  --text-2: #6b6d76;
+  --text-3: #a0a0a8;
+  --accent: #ef440c;
+  --accent-2: #5048e5;
+  --accent-3: #cb390a;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #ef440c, #5048e5);
+  --grad-soft: linear-gradient(135deg, rgba(239,68,12,0.08), rgba(80,72,229,0.04));
+  --font-sans: Inter;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

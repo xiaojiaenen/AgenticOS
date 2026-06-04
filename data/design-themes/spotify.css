@@ -1,0 +1,30 @@
+/* PPT theme: spotify — manually converted from open-design tokens.css */
+
+:root {
+  --bg: #121212;
+  --bg-soft: #181818;
+  --surface: #1f1f1f;
+  --surface-2: #282828;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+  --text-1: #ffffff;
+  --text-2: #fdfdfd;
+  --text-3: #b3b3b3;
+  --accent: #1ed760;
+  --accent-2: #1db954;
+  --accent-3: #169c46;
+  --good: #1ed760;
+  --warn: #ffa42b;
+  --bad: #f3727f;
+  --grad: linear-gradient(135deg, #1ed760, #1db954);
+  --grad-soft: linear-gradient(135deg, rgba(30,215,96,0.08), rgba(29,185,84,0.04));
+  --font-sans: 'SpotifyMixUI','CircularSp','Helvetica Neue',Helvetica,Arial,'Noto Sans SC',sans-serif;
+  --font-display: 'SpotifyMixUITitle','CircularSp','Helvetica Neue',Helvetica,Arial,'Noto Sans SC',sans-serif;
+  --font-mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 6px;
+  --radius-sm: 500px;
+  --radius-lg: 8px;
+  --shadow: rgba(0,0,0,0.3) 0px 8px 8px;
+  --shadow-lg: rgba(0,0,0,0.4) 0px 16px 24px;
+}

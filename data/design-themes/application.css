@@ -1,0 +1,30 @@
+/* PPT theme: application — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #f9f9f9;
+  --surface-2: #efefef;
+  --border: #c1c1c2;
+  --border-strong: #909091;
+  --text-1: #09090b;
+  --text-2: #6b6b6c;
+  --text-3: #a8a8a9;
+  --accent: #9333ea;
+  --accent-2: #a855f7;
+  --accent-3: #7c2bc6;
+  --good: #10b981;
+  --warn: #f59e0b;
+  --bad: #ef4444;
+  --grad: linear-gradient(135deg, #9333ea, #a855f7);
+  --grad-soft: linear-gradient(135deg, rgba(147,51,234,0.08), rgba(168,85,247,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

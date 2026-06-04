@@ -1,0 +1,30 @@
+/* PPT theme: discord — manually converted from open-design tokens.css */
+
+:root {
+  --bg: #313338;
+  --bg-soft: #2b2d31;
+  --surface: #1e1f22;
+  --surface-2: #232428;
+  --border: rgba(255,255,255,0.06);
+  --border-strong: #3f4147;
+  --text-1: #dbdee1;
+  --text-2: #f2f3f5;
+  --text-3: #949ba4;
+  --accent: #5865f2;
+  --accent-2: #4752c4;
+  --accent-3: #3c45a0;
+  --good: #23a55a;
+  --warn: #f0b232;
+  --bad: #f23f43;
+  --grad: linear-gradient(135deg, #5865f2, #4752c4);
+  --grad-soft: linear-gradient(135deg, rgba(88,101,242,0.08), rgba(71,82,196,0.04));
+  --font-sans: 'gg sans','Helvetica Neue',Helvetica,Arial,'Noto Sans SC',sans-serif;
+  --font-display: 'gg sans','Helvetica Neue',Helvetica,Arial,'Noto Sans SC',sans-serif;
+  --font-mono: 'gg mono',Consolas,'Andale Mono','Courier New',Courier,monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: none;
+  --shadow-lg: 0 0 0 1px rgba(255,255,255,0.06);
+}

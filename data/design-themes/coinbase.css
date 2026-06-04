@@ -1,0 +1,30 @@
+/* PPT theme: coinbase — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #eef0f3;
+  --surface: #fafafa;
+  --surface-2: #e8e8ec;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #1a1a1e;
+  --text-2: #6b6b75;
+  --text-3: #a0a0a8;
+  --accent: #0052ff;
+  --accent-2: #0667d0;
+  --accent-3: #578bfa;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0052ff, #0667d0);
+  --grad-soft: linear-gradient(135deg, rgba(0,82,255,0.08), rgba(6,103,208,0.04));
+  --font-sans: CoinbaseSans;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

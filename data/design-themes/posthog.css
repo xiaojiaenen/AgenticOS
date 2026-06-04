@@ -1,0 +1,30 @@
+/* PPT theme: posthog — auto-generated from open-design */
+
+:root {
+  --bg: #fdfdf8;
+  --bg-soft: #f4f4f4;
+  --surface: #eeefe9;
+  --surface-2: #e5e7e0;
+  --border: #d4c9b8;
+  --border-strong: #9ea096;
+  --text-1: #4d4f46;
+  --text-2: #4d4f46;
+  --text-3: #65675e;
+  --accent: #f54e00;
+  --accent-2: #f54e00;
+  --accent-3: #d04200;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #f54e00, #f54e00);
+  --grad-soft: linear-gradient(135deg, rgba(245,78,0,0.08), rgba(245,78,0,0.04));
+  --font-sans: IBM Plex Sans Variable;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

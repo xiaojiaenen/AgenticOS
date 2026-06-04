@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-daisy-days — from open-design zhangzara html-ppt template */
+/* Daisy Days: Cheerful pastel deck with hand-drawn daisies, stars, and rainbows. Friendly, soft, and warm. */
+
+:root {
+  --bg: #F5F0E6;
+  --bg-soft: #e6e1d8;
+  --surface: #e6e1d8;
+  --surface-2: #d7d3ca;
+  --border: #484846;
+  --border-strong: #646360;
+  --text-1: #2D2D2D;
+  --text-2: #a5a29c;
+  --text-3: #817e7a;
+  --accent: #2D2D2D;
+  --accent-2: #7ECDC0;
+  --accent-3: #F8635F;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #2D2D2D, #7ECDC0);
+  --grad-soft: linear-gradient(135deg, rgba(248,99,95,0.08), rgba(198,89,109,0.04));
+  --font-sans: 'Quicksand', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Fredoka One', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

@@ -1,0 +1,32 @@
+<!-- layout: cta | 行动号召 | 居中大字 CTA + 按钮 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg-soft)"/>
+  <g text-anchor="middle" font-family="var(--font-sans)" id="bg-layer">
+        <g id="cta-text">
+<text x="640" y="220" font-size="52" font-weight="800" fill="var(--text-1)">
+      <tspan x="640" dy="0">准备好了吗？</tspan>
+    </text>
+    <text x="640" y="310" font-size="22" fill="var(--text-2)">立即开始你的 14 天免费试用，无需信用卡</text>
+        
+    </g>
+<g id="cta-buttons">
+<!-- CTA 按钮 -->
+    <rect x="440" y="370" width="240" height="56" rx="28" fill="var(--accent)"/>
+    <text x="560" y="405" font-size="18" font-weight="700" fill="var(--bg)">免费试用</text>
+    <rect x="700" y="370" width="140" height="56" rx="28" fill="var(--surface)" stroke="var(--border)"/>
+    <text x="770" y="405" font-size="16" fill="var(--text-2)">了解更多</text>
+    <text x="640" y="500" font-size="14" fill="var(--text-3)">已有 10,000+ 团队在使用</text>
+        
+    </g>
+<g id="cta-logos">
+<!-- 客户 logo 占位 -->
+    <rect x="340" y="530" width="80" height="32" rx="6" fill="var(--surface)"/>
+    <rect x="440" y="530" width="80" height="32" rx="6" fill="var(--surface)"/>
+    <rect x="540" y="530" width="80" height="32" rx="6" fill="var(--surface)"/>
+    <rect x="640" y="530" width="80" height="32" rx="6" fill="var(--surface)"/>
+    <rect x="740" y="530" width="80" height="32" rx="6" fill="var(--surface)"/>
+    <rect x="840" y="530" width="80" height="32" rx="6" fill="var(--surface)"/>
+  
+    </g>
+</g>
+</svg>

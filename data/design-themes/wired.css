@@ -1,0 +1,30 @@
+/* PPT theme: wired — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #ffffff;
+  --surface: #e2e8f0;
+  --surface-2: #e2e8f0;
+  --border: #d9d9de;
+  --border-strong: #999999;
+  --text-1: #1a1a1a;
+  --text-2: #1a1a1a;
+  --text-3: #757575;
+  --accent: #057dbc;
+  --accent-2: #057dbc;
+  --accent-3: #046a9f;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #057dbc, #057dbc);
+  --grad-soft: linear-gradient(135deg, rgba(5,125,188,0.08), rgba(5,125,188,0.04));
+  --font-sans: Inter;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

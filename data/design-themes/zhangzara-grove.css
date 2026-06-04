@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-grove — from open-design zhangzara html-ppt template */
+/* Grove: Forest-green canvas with cream type, classical Playfair serifs, and a single rust accent. */
+
+:root {
+  --bg: #192b1b;
+  --bg-soft: #1a2d1c;
+  --surface: #1e3221;
+  --surface-2: #e8e4d6;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+  --text-1: #d4cfbf;
+  --text-2: #9fa191;
+  --text-3: #636c5c;
+  --accent: #c8524a;
+  --accent-2: #f05a42;
+  --accent-3: #6e3133;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #c8524a, #f05a42);
+  --grad-soft: linear-gradient(135deg, rgba(200,82,74,0.08), rgba(240,90,66,0.04));
+  --font-sans: 'Jost', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Playfair Display', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 6px;
+  --radius-sm: 3px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.20);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.30);
+}

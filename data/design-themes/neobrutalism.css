@@ -1,0 +1,30 @@
+/* PPT theme: neobrutalism — auto-generated from open-design */
+
+:root {
+  --bg: #fbfbf9;
+  --bg-soft: #fbfbf9;
+  --surface: #f5f5f4;
+  --surface-2: #ebebea;
+  --border: #c6c9ce;
+  --border-strong: #989ea7;
+  --text-1: #1c293c;
+  --text-2: #767e8a;
+  --text-3: #afb4ba;
+  --accent: #fdc800;
+  --accent-2: #432dd7;
+  --accent-3: #d7aa00;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #fdc800, #432dd7);
+  --grad-soft: linear-gradient(135deg, rgba(253,200,0,0.08), rgba(67,45,215,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

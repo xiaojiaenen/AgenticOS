@@ -1,0 +1,17 @@
+/* Catppuccin Latte — warm cream tones, light and gentle */
+:root {
+  --bg: #eff1f5;
+  --surface: #e6e9ef;
+  --surface-warm: #ffffff;
+  --fg: #4c4f69;
+  --fg-2: #5c5f77;
+  --muted: #8c8fa1;
+  --border: #d1d5e0;
+  --border-soft: #bcc0cc;
+  --accent: #8839ef;
+  --accent-hover: #ea76cb;
+  --accent-active: #1e66f5;
+  --success: #40a02b;
+  --warn: #df8e1d;
+  --danger: #d20f39;
+}

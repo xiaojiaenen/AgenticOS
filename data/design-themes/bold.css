@@ -1,0 +1,30 @@
+/* PPT theme: bold — manually converted from open-design DESIGN.md */
+
+:root {
+  --bg: #111111;
+  --bg-soft: #18181b;
+  --surface: #1f1f24;
+  --surface-2: #27272d;
+  --border: rgba(255,255,255,0.10);
+  --border-strong: rgba(255,255,255,0.20);
+  --text-1: #f5f5f5;
+  --text-2: #a1a1aa;
+  --text-3: #71717a;
+  --accent: #0077bc;
+  --accent-2: #009866;
+  --accent-3: #005a8e;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0077bc, #009866);
+  --grad-soft: linear-gradient(135deg, rgba(0,119,188,0.10), rgba(0,152,102,0.06));
+  --font-sans: 'Archivo Black', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Archivo Black', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.6);
+}
