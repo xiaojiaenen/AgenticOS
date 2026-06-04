@@ -1,4 +1,4 @@
-﻿import { authHeaders } from './authService';
+import { authHeaders } from './authService';
 
 export type DashboardSummary = {
   total_users: number;

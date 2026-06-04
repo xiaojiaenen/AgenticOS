@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
 
 export const MascotHappy = ({ size = 24, className }: { size?: number; className?: string }) => (

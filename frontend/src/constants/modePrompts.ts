@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Frontend-side mode prompt templates.
  *
  * NOTE: The backend is the source of truth for actual system prompts
