@@ -165,14 +165,14 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
   // credential_template 可视化编辑
   const credFields = useMemo(() => {
     const fields = draft.credential_template?.fields;
-    return Array.isArray(fields) ? fields as CredentialField[] : [];
+    return Array.isArray(fields) ? (fields as unknown as CredentialField[]) : [];
   }, [draft.credential_template]);
   const updateCredField = (i: number, key: keyof CredentialField, val: string | boolean) => {
     const fields = [...credFields]; fields[i] = { ...fields[i], [key]: val };
-    setDraft({ ...draft, credential_template: { fields } });
+    setDraft({ ...draft, credential_template: { fields } as any });
   };
-  const addCredField = () => setDraft({ ...draft, credential_template: { fields: [...credFields, { key: "", label: "", type: "text", required: true, placeholder: "" }] } });
-  const removeCredField = (i: number) => { const f = credFields.filter((_, x) => x !== i); setDraft({ ...draft, credential_template: { fields: f } }); };
+  const addCredField = () => setDraft({ ...draft, credential_template: { fields: [...credFields, { key: "", label: "", type: "text", required: true, placeholder: "" }] } as any });
+  const removeCredField = (i: number) => { const f = credFields.filter((_, x) => x !== i); setDraft({ ...draft, credential_template: { fields: f } as any }); };
 
   // jwt_request_body_template key-value 编辑
   const jwtPairs = useMemo(() => {

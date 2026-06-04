@@ -4,6 +4,14 @@ import { AnimatePresence, motion } from 'motion/react';
 import { BellRing, CalendarClock, Eye, FileCode, FileText, Loader2, Megaphone, Plus, RefreshCw, Sparkles, Trash2, Wand2, X } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+
+/** Basic HTML sanitizer — strips script/event handler attributes */
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/\bon\w+\s*=\s*\S+/gi, '');
+}
 import { toast } from '../ui/Toast';
 import {
   Announcement,
@@ -828,7 +836,7 @@ export const AnnouncementManagement = () => {
                       form.content_format === 'html' ? (
                         <div
                           className="mt-6 text-sm font-medium leading-7 text-slate-500"
-                          dangerouslySetInnerHTML={{ __html: form.body }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(form.body) }}
                         />
                       ) : (
                         <div className="mt-6 text-sm font-medium leading-7 text-slate-500 [&_strong]:text-slate-800 [&_h1]:text-slate-900 [&_h2]:text-slate-900 [&_h3]:text-slate-900 [&_pre]:bg-slate-100 [&_pre]:border [&_pre]:border-slate-200 [&_pre]:rounded-xl [&_pre]:p-4 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:text-[13px] [&_code]:bg-slate-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_code]:text-[0.9em] [&_code]:text-brand-700 [&_blockquote]:border-l-[3px] [&_blockquote]:border-brand-300 [&_blockquote]:pl-3.5 [&_blockquote]:my-2.5 [&_blockquote]:text-slate-500 [&_blockquote]:italic [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2.5 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2.5 [&_ol]:space-y-1 [&_a]:text-brand-600 [&_a]:underline [&_hr]:border-t [&_hr]:border-slate-200 [&_hr]:my-4">

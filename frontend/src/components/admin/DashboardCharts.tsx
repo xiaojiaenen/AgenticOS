@@ -217,21 +217,13 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
             }
           />
 
-          <div className="mb-4 grid gap-3 sm:grid-cols-3">
-            <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4">
-              <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计 Token</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatTokenNumber(data.summary.total_tokens)}</p>
-            </div>
-            <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4">
-              <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计运行</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(data.summary.total_runs)}</p>
-            </div>
-            <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4">
-              <p className="text-xs font-black tracking-[0.18em] text-slate-400">平均单次负载</p>
-              <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">
-                {formatTokenNumber(Math.round(data.summary.total_tokens / Math.max(data.summary.total_runs, 1)))}
-              </p>
-            </div>
+          <div className="mb-4 grid gap-3 sm:grid-cols-4">
+            {trendSignals.map((item) => (
+              <div key={item.label} className="admin-stat-card rounded-xl bg-white/65 px-3 py-2.5">
+                <p className="text-[10px] font-black tracking-[0.16em] text-slate-400">{item.label}</p>
+                <p className="mt-1 text-base font-black tracking-tight text-slate-950">{item.value}</p>
+              </div>
+            ))}
           </div>
 
           <div className="h-[320px]">
