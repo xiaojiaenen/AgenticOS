@@ -20,6 +20,10 @@ export type IntegrationSystem = {
   oauth_auth_url: string | null;
   oauth_token_url: string | null;
   oauth_scope: string | null;
+  jwt_login_url: string | null;
+  jwt_request_body_template: string | null;
+  jwt_response_token_path: string | null;
+  jwt_response_expires_path: string | null;
   published: boolean;
   headers: Record<string, string>;
   enabled: boolean;
@@ -88,6 +92,10 @@ export type IntegrationSystemPayload = {
   oauth_auth_url?: string;
   oauth_token_url?: string;
   oauth_scope?: string;
+  jwt_login_url?: string;
+  jwt_request_body_template?: string;
+  jwt_response_token_path?: string;
+  jwt_response_expires_path?: string;
   published: boolean;
   headers: Record<string, string>;
 };

@@ -11,7 +11,7 @@ type SystemDraft = IntegrationSystemPayload & { id?: number };
 type ApiDraft = IntegrationApiPayload & { id?: number };
 type TestState = { apiId: number; params: Record<string, string>; result: IntegrationTestResult | null; loading: boolean } | null;
 
-const AUTH_TYPES = [{value:"api_key",label:"API Key"},{value:"bearer",label:"Bearer Token"},{value:"basic",label:"Basic Auth"},{value:"oauth2",label:"OAuth 2.0"},{value:"custom",label:"自定义"}];
+const AUTH_TYPES = [{value:"api_key",label:"API Key"},{value:"bearer",label:"Bearer Token"},{value:"basic",label:"Basic Auth"},{value:"oauth2",label:"OAuth 2.0"},{value:"custom",label:"自定义"},{value:"jwt_login",label:"JWT 登录"}];
 const METHODS = ["GET","POST","PUT","DELETE","PATCH"];
 function emptySystemDraft(): SystemDraft { return {name:"",description:"",base_url:"",auth_type:"api_key",credential_template:{},published:true,headers:{}}; }
 function emptyApiDraft(): ApiDraft { return {name:"",display_name:"",description:"",method:"GET",path:"/",requires_approval:false,timeout_seconds:30,params:[]}; }
@@ -45,7 +45,7 @@ export const IntegrationManagement = () => {
   useEffect(() => { if(selectedSystem) loadApis(selectedSystem.id); }, [selectedSystem?.id]);
 
   const openCreateSystem = () => { setSystemDraft(emptySystemDraft()); setIsSystemModalOpen(true); };
-  const openEditSystem = (sys: IntegrationSystem) => { setSystemDraft({id:sys.id,name:sys.name,description:sys.description,base_url:sys.base_url,auth_type:sys.auth_type,credential_template:sys.credential_template,oauth_auth_url:sys.oauth_auth_url||undefined,oauth_token_url:sys.oauth_token_url||undefined,oauth_scope:sys.oauth_scope||undefined,published:sys.published,headers:sys.headers}); setIsSystemModalOpen(true); };
+  const openEditSystem = (sys: IntegrationSystem) => { setSystemDraft({id:sys.id,name:sys.name,description:sys.description,base_url:sys.base_url,auth_type:sys.auth_type,credential_template:sys.credential_template,oauth_auth_url:sys.oauth_auth_url||undefined,oauth_token_url:sys.oauth_token_url||undefined,oauth_scope:sys.oauth_scope||undefined,jwt_login_url:sys.jwt_login_url||undefined,jwt_request_body_template:sys.jwt_request_body_template||undefined,jwt_response_token_path:sys.jwt_response_token_path||undefined,jwt_response_expires_path:sys.jwt_response_expires_path||undefined,published:sys.published,headers:sys.headers}); setIsSystemModalOpen(true); };
   const handleSaveSystem = async () => { if(!systemDraft)return; setIsSaving(true); setError(null); try { if(systemDraft.id){await updateSystem(systemDraft.id,systemDraft);}else{await createSystem(systemDraft);} setIsSystemModalOpen(false); setMessage(systemDraft.id?"集成已更新":"集成已创建"); setTimeout(()=>setMessage(null),3000); await loadSystems(); } catch(e){setError(e instanceof Error?e.message:"保存失败");} finally{setIsSaving(false);} };
   const handleDeleteSystem = async (sys:IntegrationSystem) => { if(!confirm(`确定删除集成 "${sys.name}"？`))return; try{await deleteSystem(sys.id); if(selectedSystem?.id===sys.id){setSelectedSystem(null);setApis([]);} setMessage("集成已删除");setTimeout(()=>setMessage(null),3000);await loadSystems();}catch(e){setError(e instanceof Error?e.message:"删除失败");} };
   const openCreateApi = () => { setApiDraft(emptyApiDraft()); setIsApiModalOpen(true); };
@@ -170,6 +170,12 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
             <Field label="授权 URL"><input className="admin-input font-mono text-sm" value={draft.oauth_auth_url||""} onChange={e=>setDraft({...draft,oauth_auth_url:e.target.value})} placeholder="https://..."/></Field>
             <Field label="Token URL"><input className="admin-input font-mono text-sm" value={draft.oauth_token_url||""} onChange={e=>setDraft({...draft,oauth_token_url:e.target.value})} placeholder="https://..."/></Field>
             <Field label="Scope"><input className="admin-input" value={draft.oauth_scope||""} onChange={e=>setDraft({...draft,oauth_scope:e.target.value})}/></Field>
+          </>)}
+          {draft.auth_type==="jwt_login"&&(<>
+            <Field label="登录地址"><input className="admin-input font-mono text-sm" value={draft.jwt_login_url||""} onChange={e=>setDraft({...draft,jwt_login_url:e.target.value})} placeholder="https://api.internal.com/auth/login"/></Field>
+            <Field label="请求体模板"><input className="admin-input font-mono text-xs" value={draft.jwt_request_body_template||""} onChange={e=>setDraft({...draft,jwt_request_body_template:e.target.value})} placeholder='{"username":"{username}","password":"{password}"}'/></Field>
+            <Field label="Token 路径"><input className="admin-input font-mono text-xs" value={draft.jwt_response_token_path||""} onChange={e=>setDraft({...draft,jwt_response_token_path:e.target.value})} placeholder="data.access_token"/></Field>
+            <Field label="过期时间路径"><input className="admin-input font-mono text-xs" value={draft.jwt_response_expires_path||""} onChange={e=>setDraft({...draft,jwt_response_expires_path:e.target.value})} placeholder="data.expires_in (可选)"/></Field>
           </>)}
           <Field label="凭据模板 (JSON)"><textarea className="admin-input min-h-[100px] resize-y font-mono text-xs" value={JSON.stringify(draft.credential_template,null,2)} onChange={e=>{try{setDraft({...draft,credential_template:JSON.parse(e.target.value)})}catch{}}} placeholder='{"fields": [{"key": "token", "label": "API Token", "type": "password", "required": true}]}'/></Field>
           <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input type="checkbox" checked={draft.published} onChange={e=>setDraft({...draft,published:e.target.checked})} className="rounded"/>发布（用户可见）</label>

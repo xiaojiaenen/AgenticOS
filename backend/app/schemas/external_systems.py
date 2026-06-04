@@ -46,13 +46,17 @@ class ExternalSystemCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
     description: str = ""
     base_url: str = Field(..., min_length=1, max_length=512)
-    auth_type: str = Field(..., pattern="^(api_key|bearer|basic|oauth2|custom)$")
+    auth_type: str = Field(..., pattern="^(api_key|bearer|basic|oauth2|custom|jwt_login)$")
     credential_template: dict = Field(default_factory=dict)
     oauth_client_id: str | None = None
     oauth_client_secret: str | None = None
     oauth_auth_url: str | None = Field(default=None, max_length=512)
     oauth_token_url: str | None = Field(default=None, max_length=512)
     oauth_scope: str | None = None
+    jwt_login_url: str | None = Field(default=None, max_length=512)
+    jwt_request_body_template: str | None = None
+    jwt_response_token_path: str | None = None
+    jwt_response_expires_path: str | None = None
     published: bool = True
     headers: dict[str, str] = Field(default_factory=dict)
 
@@ -71,13 +75,17 @@ class ExternalSystemUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     description: str | None = None
     base_url: str | None = Field(default=None, min_length=1, max_length=512)
-    auth_type: str | None = Field(default=None, pattern="^(api_key|bearer|basic|oauth2|custom)$")
+    auth_type: str | None = Field(default=None, pattern="^(api_key|bearer|basic|oauth2|custom|jwt_login)$")
     credential_template: dict | None = None
     oauth_client_id: str | None = None
     oauth_client_secret: str | None = None
     oauth_auth_url: str | None = Field(default=None, max_length=512)
     oauth_token_url: str | None = Field(default=None, max_length=512)
     oauth_scope: str | None = None
+    jwt_login_url: str | None = Field(default=None, max_length=512)
+    jwt_request_body_template: str | None = None
+    jwt_response_token_path: str | None = None
+    jwt_response_expires_path: str | None = None
     published: bool | None = None
     headers: dict[str, str] | None = None
     enabled: bool | None = None
@@ -103,6 +111,10 @@ class ExternalSystemResponse(AppBaseModel):
     oauth_auth_url: str | None
     oauth_token_url: str | None
     oauth_scope: str | None
+    jwt_login_url: str | None
+    jwt_request_body_template: str | None
+    jwt_response_token_path: str | None
+    jwt_response_expires_path: str | None
     published: bool
     headers: dict[str, str]
     enabled: bool

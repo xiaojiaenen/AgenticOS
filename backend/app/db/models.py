@@ -330,6 +330,10 @@ class ExternalSystemModel(Base):
     oauth_auth_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     oauth_token_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     oauth_scope: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    jwt_login_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    jwt_request_body_template: Mapped[str | None] = mapped_column(Text, nullable=True)  # e.g. {"username":"{username}","password":"{password}"}
+    jwt_response_token_path: Mapped[str | None] = mapped_column(String(256), nullable=True)  # e.g. data.access_token
+    jwt_response_expires_path: Mapped[str | None] = mapped_column(String(256), nullable=True)  # e.g. data.expires_in
     headers_json: Mapped[str] = mapped_column(Text, default="{}")  # extra fixed headers
     published: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
@@ -349,6 +353,8 @@ class ExternalUserCredentialModel(Base):
     oauth_access_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     oauth_refresh_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     oauth_expires_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    cached_jwt_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    jwt_expires_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
     connection_status: Mapped[str] = mapped_column(String(32), default="connected", index=True)
     last_checked_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)

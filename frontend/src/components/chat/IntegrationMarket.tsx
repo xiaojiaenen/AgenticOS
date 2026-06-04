@@ -15,7 +15,7 @@ function authTypeIcon(t: string) {
 }
 
 function authTypeLabel(t: string) {
-  const map: Record<string, string> = { api_key: "API Key", bearer: "Bearer Token", basic: "Basic Auth", oauth2: "OAuth 2.0", custom: "自定义" };
+  const map: Record<string, string> = { api_key: "API Key", bearer: "Bearer Token", basic: "Basic Auth", oauth2: "OAuth 2.0", custom: "自定义", jwt_login: "JWT 登录" };
   return map[t] || t;
 }
 
@@ -32,6 +32,7 @@ function getCredentialFields(system: IntegrationSystem): CredentialField[] {
     case "api_key": return [{ key: "key", label: "API Key", type: "password", required: true }];
     case "bearer": return [{ key: "token", label: "Token", type: "password", required: true }];
     case "basic": return [{ key: "username", label: "用户名", type: "text", required: true }, { key: "password", label: "密码", type: "password", required: true }];
+    case "jwt_login": return [{ key: "username", label: "用户名", type: "text", required: true }, { key: "password", label: "密码", type: "password", required: true }];
     default: return [{ key: "token", label: "凭据", type: "password", required: true }];
   }
 }

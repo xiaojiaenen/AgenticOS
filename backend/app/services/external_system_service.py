@@ -76,6 +76,10 @@ def _serialize_system(sys: ExternalSystemModel, api_count: int = 0) -> dict:
         "oauth_auth_url": sys.oauth_auth_url,
         "oauth_token_url": sys.oauth_token_url,
         "oauth_scope": sys.oauth_scope,
+        "jwt_login_url": sys.jwt_login_url,
+        "jwt_request_body_template": sys.jwt_request_body_template,
+        "jwt_response_token_path": sys.jwt_response_token_path,
+        "jwt_response_expires_path": sys.jwt_response_expires_path,
         "published": sys.published,
         "headers": _serialize_headers(sys.headers_json),
         "enabled": sys.enabled,
@@ -149,6 +153,9 @@ class AuthInjector:
 
         if auth_type == "oauth2":
             token = await AuthInjector._ensure_valid_token(system, cred)
+            request.headers["Authorization"] = f"Bearer {token}"
+        elif auth_type == "jwt_login":
+            token = await AuthInjector._ensure_jwt(system, cred)
             request.headers["Authorization"] = f"Bearer {token}"
         else:
             config_raw = decrypt_safe(cred.credential_data_encrypted, "{}")
@@ -241,6 +248,88 @@ class AuthInjector:
             db.close()
 
         return new_access
+
+    @staticmethod
+    async def _ensure_jwt(system: ExternalSystemModel, cred: ExternalUserCredentialModel) -> str:
+        """Return a valid JWT by logging in with username/password, caching the result."""
+        # Check cached JWT (with 60s buffer)
+        if (
+            cred.jwt_expires_at
+            and cred.cached_jwt_encrypted
+            and cred.jwt_expires_at > datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=60)
+        ):
+            return decrypt_safe(cred.cached_jwt_encrypted)
+
+        # Need to login
+        config_raw = decrypt_safe(cred.credential_data_encrypted, "{}")
+        try:
+            config: dict = json.loads(config_raw) if config_raw else {}
+        except (json.JSONDecodeError, TypeError):
+            config = {}
+
+        login_url = system.jwt_login_url
+        if not login_url:
+            raise ValueError("JWT 登录地址未配置")
+
+        # Build request body from template
+        body_template = system.jwt_request_body_template or '{"username":"{username}","password":"{password}"}'
+        try:
+            body_str = body_template
+            for key, value in config.items():
+                body_str = body_str.replace(f"{{{key}}}", str(value))
+            body = json.loads(body_str)
+        except (json.JSONDecodeError, TypeError):
+            body = {"username": config.get("username", ""), "password": config.get("password", "")}
+
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            resp = await client.post(login_url, json=body)
+            resp.raise_for_status()
+            resp_data = resp.json()
+
+        # Extract token from response using configured path
+        token_path = system.jwt_response_token_path or "token"
+        token = _extract_nested(resp_data, token_path)
+        if not token:
+            raise ValueError(f"登录响应中未找到 token（路径: {token_path}）")
+
+        # Extract expiry if configured
+        expires_at = None
+        if system.jwt_response_expires_path:
+            expires_in = _extract_nested(resp_data, system.jwt_response_expires_path)
+            if isinstance(expires_in, (int, float)):
+                expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=int(expires_in))
+
+        # If no expiry from response, default to 1 hour
+        if not expires_at:
+            expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)
+
+        # Persist cached JWT
+        from app.db.session import create_db_session
+
+        db = create_db_session()
+        try:
+            db_cred = db.get(ExternalUserCredentialModel, cred.id)
+            if db_cred:
+                db_cred.cached_jwt_encrypted = encrypt(str(token))
+                db_cred.jwt_expires_at = expires_at
+                db_cred.connection_status = "connected"
+                db.commit()
+        finally:
+            db.close()
+
+        return str(token)
+
+
+def _extract_nested(data: dict, path: str) -> Any:
+    """Extract a value from nested dict using dot-separated path, e.g. 'data.access_token'."""
+    keys = path.split(".")
+    current = data
+    for key in keys:
+        if isinstance(current, dict):
+            current = current.get(key)
+        else:
+            return None
+    return current
 
 
 # ── helpers for tool building ───────────────────────────────────────────────
@@ -497,6 +586,10 @@ class ExternalSystemService:
             oauth_auth_url=data.oauth_auth_url,
             oauth_token_url=data.oauth_token_url,
             oauth_scope=data.oauth_scope,
+            jwt_login_url=data.jwt_login_url,
+            jwt_request_body_template=data.jwt_request_body_template,
+            jwt_response_token_path=data.jwt_response_token_path,
+            jwt_response_expires_path=data.jwt_response_expires_path,
             published=data.published,
             headers_json=json.dumps(data.headers) if data.headers else "{}",
             created_by=user_id,
@@ -531,6 +624,14 @@ class ExternalSystemService:
             sys.oauth_token_url = data.oauth_token_url
         if data.oauth_scope is not None:
             sys.oauth_scope = data.oauth_scope
+        if data.jwt_login_url is not None:
+            sys.jwt_login_url = data.jwt_login_url
+        if data.jwt_request_body_template is not None:
+            sys.jwt_request_body_template = data.jwt_request_body_template
+        if data.jwt_response_token_path is not None:
+            sys.jwt_response_token_path = data.jwt_response_token_path
+        if data.jwt_response_expires_path is not None:
+            sys.jwt_response_expires_path = data.jwt_response_expires_path
         if data.published is not None:
             sys.published = data.published
         if data.headers is not None:
