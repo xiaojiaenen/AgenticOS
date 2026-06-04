@@ -1,0 +1,40 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <g id='page-header'>
+    <text x='80' y='65' font-size='18' fill='#111111' font-weight='700' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='2'>STAR PRODUCT</text>
+    <text x='80' y='115' font-size='38' font-weight='700' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>格力·云佳 硬核参数</text>
+  </g>
+  <!-- KPI 1 -->
+  <g id='kpi-1'>
+    <rect x='60' y='160' width='560' height='220' rx='16' fill='#f5f5f5'/>
+    <text x='100' y='200' font-size='15' fill='#4b4b4d' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>能效等级</text>
+    <text x='100' y='300' font-size='72' font-weight='900' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>APF 5.27</text>
+    <text x='100' y='350' font-size='15' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>新国标一级能效 · 行业领先水平</text>
+  </g>
+  <!-- KPI 2 -->
+  <g id='kpi-2'>
+    <rect x='660' y='160' width='560' height='220' rx='16' fill='#f5f5f5'/>
+    <text x='700' y='200' font-size='15' fill='#4b4b4d' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>噪音控制</text>
+    <text x='700' y='300' font-size='72' font-weight='900' fill='#d30005' font-family='Inter,Noto Sans SC,sans-serif'>18dB</text>
+    <text x='700' y='350' font-size='15' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>静音模式低至 18 分贝 · 安睡无忧</text>
+  </g>
+  <!-- KPI 3 -->
+  <g id='kpi-3'>
+    <rect x='60' y='420' width='560' height='220' rx='16' fill='#f5f5f5'/>
+    <text x='100' y='460' font-size='15' fill='#4b4b4d' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>自清洁技术</text>
+    <text x='100' y='560' font-size='72' font-weight='900' fill='#16a34a' font-family='Inter,Noto Sans SC,sans-serif'>56℃</text>
+    <text x='100' y='610' font-size='15' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>高温自清洁杀菌率 99.9% · 告别霉菌异味</text>
+  </g>
+  <!-- KPI 4 -->
+  <g id='kpi-4'>
+    <rect x='660' y='420' width='560' height='220' rx='16' fill='#f5f5f5'/>
+    <text x='700' y='460' font-size='15' fill='#4b4b4d' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>适用面积</text>
+    <text x='700' y='560' font-size='72' font-weight='900' fill='#eab308' font-family='Inter,Noto Sans SC,sans-serif'>15-22㎡</text>
+    <text x='700' y='610' font-size='15' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>1.5 匹大风量 · 客厅卧室全覆盖</text>
+  </g>
+  <!-- 页脚 -->
+  <g id='page-footer'>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>7 / 10</text>
+  </g>
+  <!-- notes: 产品参数页——用 KPI 大数字卡片展示格力·云佳的核心卖点。APF 5.27 是新国标一级能效，比普通空调省电很多；18dB 静音，比图书馆还安静；56℃高温自清洁，这个功能对有小孩的家庭特别有吸引力。每个数字都可以展开讲一个消费者故事。比如"你知道普通空调用久了蒸发器有多脏吗？格力的56℃高温自清洁可以杀死99.9%的细菌。" -->
+</svg>

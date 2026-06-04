@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
+  <!-- notes: 市场份额页——用柱状图展示格力在各品类的领先优势，数据说话 -->
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+  </g>
+  <g id="page-header">
+    <text x="100" y="80" font-size="14" fill="var(--accent)" font-weight="600">MARKET SHARE</text>
+    <text x="100" y="120" font-size="36" font-weight="700" fill="var(--text-1)">市场份额领先</text>
+    <rect x="100" y="140" width="60" height="3" fill="var(--accent)"/>
+  </g>
+  <g id="chart-container">
+    <rect x="100" y="170" width="1060" height="420" rx="16" fill="var(--surface)"/>
+  </g>
+  <g id="chart-bars">
+    <rect x="200" y="480" width="140" height="180" rx="8" fill="var(--accent)"/>
+    <text x="270" y="470" font-size="20" font-weight="700" fill="var(--accent)" text-anchor="middle">33%</text>
+    <text x="270" y="530" font-size="14" fill="white" text-anchor="middle">家用空调</text>
+    
+    <rect x="380" y="390" width="140" height="270" rx="8" fill="var(--accent)"/>
+    <text x="450" y="380" font-size="20" font-weight="700" fill="var(--accent)" text-anchor="middle">28%</text>
+    <text x="450" y="530" font-size="14" fill="white" text-anchor="middle">中央空调</text>
+    
+    <rect x="560" y="420" width="140" height="240" rx="8" fill="var(--accent)"/>
+    <text x="630" y="410" font-size="20" font-weight="700" fill="var(--accent)" text-anchor="middle">25%</text>
+    <text x="630" y="530" font-size="14" fill="white" text-anchor="middle">商用空调</text>
+    
+    <rect x="740" y="450" width="140" height="210" rx="8" fill="var(--accent)"/>
+    <text x="810" y="440" font-size="20" font-weight="700" fill="var(--accent)" text-anchor="middle">22%</text>
+    <text x="810" y="530" font-size="14" fill="white" text-anchor="middle">空气能热水器</text>
+    
+    <rect x="920" y="480" width="140" height="180" rx="8" fill="var(--accent)"/>
+    <text x="990" y="470" font-size="20" font-weight="700" fill="var(--accent)" text-anchor="middle">18%</text>
+    <text x="990" y="530" font-size="14" fill="white" text-anchor="middle">生活电器</text>
+  </g>
+  <g id="chart-note">
+    <text x="630" y="640" font-size="14" fill="var(--text-3)" text-anchor="middle">数据来源: 2024年中国家电行业研究报告 · 示意数据</text>
+  </g>
+  <g id="footer-pagenum">
+    <text x="1220" y="690" font-size="14" fill="var(--text-3)" text-anchor="end">09 / 10</text>
+  </g>
+</svg>

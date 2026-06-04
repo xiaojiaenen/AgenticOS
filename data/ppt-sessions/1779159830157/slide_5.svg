@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="airbnb">
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+    <rect x="60" y="60" width="1160" height="600" rx="30" fill="var(--surface)" fill-opacity="0.5"/>
+    <rect x="60" y="60" width="1160" height="600" rx="30" fill="none" stroke="var(--border)" stroke-width="1"/>
+  </g>
+  <g id="decoration" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif">
+    <text x="160" y="240" font-size="120" fill="var(--accent)" fill-opacity="0.15" font-weight="900">"</text>
+  </g>
+  <g id="quote-content" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif">
+    <text x="640" y="320" font-size="32" fill="var(--text-1)" font-weight="500" font-style="italic">
+      <tspan x="640" dy="0">愿你有酒可以醉，酒醒有人陪</tspan>
+    </text>
+    <text x="640" y="400" font-size="32" fill="var(--text-1)" font-weight="500" font-style="italic">
+      <tspan x="640" dy="0">愿你的笑容永远灿烂如初</tspan>
+    </text>
+    <text x="640" y="480" font-size="32" fill="var(--accent)" font-weight="500" font-style="italic">
+      <tspan x="640" dy="0">生日快乐，我最亲爱的朋友</tspan>
+    </text>
+    <rect x="580" y="530" width="120" height="3" rx="1.5" fill="var(--accent)"/>
+    <text x="640" y="580" font-size="18" fill="var(--text-3)">— 致最特别的你 —</text>
+  </g>
+  <!-- notes: 金句页——温暖走心的生日祝福语，大引号装饰增强仪式感 -->
+</svg>

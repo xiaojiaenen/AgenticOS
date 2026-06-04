@@ -1,0 +1,88 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='fantasy'>
+  <defs>
+    <linearGradient id='skyGrad2' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='#ffffff'/>
+      <stop offset='100%' stop-color='#ffffff'/>
+    </linearGradient>
+    <linearGradient id='accentGrad2' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='#0250cc'/>
+      <stop offset='100%' stop-color='#fdc800'/>
+    </linearGradient>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='url(#skyGrad2)'/>
+    <!-- 装饰山丘 -->
+    <ellipse cx='0' cy='720' rx='400' ry='120' fill='#0250cc' fill-opacity='0.04'/>
+    <ellipse cx='1280' cy='720' rx='500' ry='150' fill='#fdc800' fill-opacity='0.03'/>
+  </g>
+  <!-- 星尘装饰 -->
+  <g id='decor-dots'>
+    <circle cx='200' cy='100' r='2.5' fill='#0250cc' fill-opacity='0.3'/>
+    <circle cx='1100' cy='150' r='2' fill='#fdc800' fill-opacity='0.25'/>
+    <circle cx='150' cy='500' r='1.5' fill='#0250cc' fill-opacity='0.2'/>
+    <circle cx='1050' cy='550' r='2' fill='#fdc800' fill-opacity='0.2'/>
+    <path d='M300,80 Q306,73 312,80 Q306,87 300,80 Z' fill='#0250cc' fill-opacity='0.35'/>
+    <path d='M1000,100 Q1008,92 1016,100 Q1008,108 1000,100 Z' fill='#fdc800' fill-opacity='0.3'/>
+  </g>
+  <!-- 页眉 -->
+  <g id='page-header'>
+    <text x='80' y='100' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>目录 CONTENTS</text>
+    <rect x='80' y='115' width='60' height='3' rx='1.5' fill='url(#accentGrad2)'/>
+  </g>
+  <!-- 主标题 -->
+  <g id='toc-title'>
+    <text x='80' y='190' font-size='42' font-weight='800' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>
+      探索奇幻世界
+    </text>
+    <text x='80' y='230' font-size='16' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>四大篇章 · 从宫崎骏的魔法到二次元未来</text>
+  </g>
+  <!-- 目录项网格 -->
+  <g id='toc-items' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 01 -->
+    <rect x='80' y='290' width='520' height='80' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+    <text x='110' y='320' font-size='28' font-weight='900' fill='#0250cc' fill-opacity='0.3'>01</text>
+    <text x='155' y='330' font-size='20' font-weight='700' fill='#111827'>展会概览</text>
+    <text x='450' y='330' font-size='14' fill='#abaeb3' text-anchor='end'>P.03</text>
+    <rect x='110' y='345' width='460' height='1' fill='#c3c5c9'/>
+    <text x='110' y='362' font-size='13' fill='#70747d'>数据亮点 · 参展阵容 · 展区布局</text>
+    <!-- 02 -->
+    <rect x='80' y='390' width='520' height='80' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+    <text x='110' y='420' font-size='28' font-weight='900' fill='#fdc800' fill-opacity='0.3'>02</text>
+    <text x='155' y='430' font-size='20' font-weight='700' fill='#111827'>精彩活动</text>
+    <text x='450' y='430' font-size='14' fill='#abaeb3' text-anchor='end'>P.06</text>
+    <rect x='110' y='445' width='460' height='1' fill='#c3c5c9'/>
+    <text x='110' y='462' font-size='13' fill='#70747d'>三日日程 · 重磅嘉宾 · Cosplay大赛</text>
+    <!-- 03 -->
+    <rect x='80' y='490' width='520' height='80' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+    <text x='110' y='520' font-size='28' font-weight='900' fill='#0250cc' fill-opacity='0.3'>03</text>
+    <text x='155' y='530' font-size='20' font-weight='700' fill='#111827'>参与方式</text>
+    <text x='450' y='530' font-size='14' fill='#abaeb3' text-anchor='end'>P.09</text>
+    <rect x='110' y='545' width='460' height='1' fill='#c3c5c9'/>
+    <text x='110' y='562' font-size='13' fill='#70747d'>购票信息 · 交通指南 · 周边福利</text>
+    <!-- 04 -->
+    <rect x='80' y='590' width='520' height='80' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+    <text x='110' y='620' font-size='28' font-weight='900' fill='#fdc800' fill-opacity='0.3'>04</text>
+    <text x='155' y='630' font-size='20' font-weight='700' fill='#111827'>关于我们</text>
+    <text x='450' y='630' font-size='14' fill='#abaeb3' text-anchor='end'>P.11</text>
+    <rect x='110' y='645' width='460' height='1' fill='#c3c5c9'/>
+    <text x='110' y='662' font-size='13' fill='#70747d'>主办方介绍 · 合作伙伴 · 联系我们</text>
+    <!-- 右侧装饰 -->
+    <g transform='translate(720, 290)'>
+      <rect width='480' height='380' rx='20' fill='#0250cc' fill-opacity='0.04'/>
+      <!-- 装饰性圆形图案 -->
+      <circle cx='240' cy='190' r='120' fill='none' stroke='#0250cc' stroke-width='1' stroke-opacity='0.08' stroke-dasharray='8,8'/>
+      <circle cx='240' cy='190' r='80' fill='none' stroke='#fdc800' stroke-width='1' stroke-opacity='0.1' stroke-dasharray='6,6'/>
+      <circle cx='240' cy='190' r='40' fill='#0250cc' fill-opacity='0.05'/>
+      <text x='240' y='196' text-anchor='middle' font-size='48' font-weight='900' fill='#0250cc' fill-opacity='0.12' font-family='Inter,Noto Sans SC,sans-serif'>夏</text>
+      <!-- 周围星尘 -->
+      <path d='M180,130 Q186,123 192,130 Q186,137 180,130 Z' fill='#0250cc' fill-opacity='0.4'/>
+      <path d='M300,140 Q308,132 316,140 Q308,148 300,140 Z' fill='#fdc800' fill-opacity='0.3'/>
+      <circle cx='160' cy='260' r='2' fill='#0250cc' fill-opacity='0.3'/>
+      <circle cx='320' cy='230' r='2.5' fill='#fdc800' fill-opacity='0.25'/>
+    </g>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>02 / 11</text>
+  </g>
+  <!-- notes: 目录页——快速浏览四大篇章。"这是今天的路线图，先从展会概况开始热身。" -->
+</svg>

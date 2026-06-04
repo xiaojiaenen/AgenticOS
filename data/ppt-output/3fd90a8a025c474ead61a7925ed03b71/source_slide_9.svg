@@ -1,0 +1,26 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <circle cx='150' cy='100' r='1.5' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='1050' cy='150' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='200' cy='600' r='2' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1150' cy='500' r='1' fill='#abaeb3' fill-opacity='0.5'/>
+  </g>
+  <g id='section-number'>
+    <text x='120' y='320' font-family='Inter,Noto Sans SC,sans-serif' font-size='120' font-weight='200' fill='#3b82f6' fill-opacity='0.15'>04</text>
+    <rect x='120' y='345' width='80' height='3' fill='#3b82f6'/>
+  </g>
+  <g id='section-title'>
+    <text x='120' y='420' font-family='Inter,Noto Sans SC,sans-serif' font-size='56' font-weight='800' fill='#111827'>从九到八</text>
+    <text x='120' y='480' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' fill='#abaeb3'>From Nine to Eight · 冥王星降级风波</text>
+  </g>
+  <g id='section-sub'>
+    <text x='120' y='550' font-family='Inter,Noto Sans SC,sans-serif' font-size='18' fill='#70747d'>2006年，冥王星被重新分类为矮行星——一场天文学的革命</text>
+  </g>
+  <g id='decor-pluto'>
+    <circle cx='1000' cy='380' r='8' fill='#abaeb3' fill-opacity='0.15'/>
+    <ellipse cx='1000' cy='380' rx='25' ry='10' fill='none' stroke='#3b82f6' stroke-width='0.5' stroke-opacity='0.2'/>
+    <text x='1040' y='385' font-family='Inter,Noto Sans SC,sans-serif' font-size='14' fill='#abaeb3' fill-opacity='0.3'>冥王星</text>
+  </g>
+  <!-- notes: 章节分隔页——04 从九到八。这是全PPT最有争议和故事性的部分，用"一场天文学的革命"制造悬念。 -->
+</svg>

@@ -1,0 +1,62 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <defs>
+    <filter id='starGlow' x='-100%' y='-100%' width='300%' height='300%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='1.5'/>
+    </filter>
+  </defs>
+  <!-- notes: 目录页——列清楚三个章节，让观众了解整个旅程的路线 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='80' cy='100' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='1200' cy='80' r='1.5' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='200' cy='600' r='1.2' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1100' cy='550' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='50' cy='350' r='0.8' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1230' cy='300' r='1.3' fill='#abaeb3' fill-opacity='0.5'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='100' font-size='38' font-weight='800' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>探索路线</text>
+    <rect x='80' y='115' width='60' height='3' fill='#3b82f6'/>
+    <text x='80' y='145' font-size='16' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>AGENDA</text>
+  </g>
+  <g id='toc-item-1'>
+    <rect x='80' y='200' width='340' height='130' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+    <text x='115' y='245' font-size='48' font-weight='800' fill='#3b82f6' font-family='Inter,Noto Sans SC,sans-serif'>01</text>
+    <text x='115' y='290' font-size='22' font-weight='bold' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>太阳系大家庭</text>
+    <text x='115' y='315' font-size='14' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>从太阳出发 · 认识我们的恒星系统</text>
+  </g>
+  <g id='toc-item-2'>
+    <rect x='470' y='200' width='340' height='130' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+    <text x='505' y='245' font-size='48' font-weight='800' fill='#3b82f6' font-family='Inter,Noto Sans SC,sans-serif'>02</text>
+    <text x='505' y='290' font-size='22' font-weight='bold' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>八大行星巡礼</text>
+    <text x='505' y='315' font-size='14' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>内行星 · 外行星 · 各具风采</text>
+  </g>
+  <g id='toc-item-3'>
+    <rect x='860' y='200' width='340' height='130' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+    <text x='895' y='245' font-size='48' font-weight='800' fill='#3b82f6' font-family='Inter,Noto Sans SC,sans-serif'>03</text>
+    <text x='895' y='290' font-size='22' font-weight='bold' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>从九大到八大</text>
+    <text x='895' y='315' font-size='14' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>冥王星降级 · 矮行星的诞生</text>
+  </g>
+  <g id='toc-item-4'>
+    <rect x='80' y='370' width='340' height='130' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+    <text x='115' y='415' font-size='48' font-weight='800' fill='#3b82f6' font-family='Inter,Noto Sans SC,sans-serif'>04</text>
+    <text x='115' y='460' font-size='22' font-weight='bold' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>行星大比拼</text>
+    <text x='115' y='485' font-size='14' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>数据对比 · 谁最大？谁最快？</text>
+  </g>
+  <g id='toc-item-5'>
+    <rect x='470' y='370' width='340' height='130' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+    <text x='505' y='415' font-size='48' font-weight='800' fill='#3b82f6' font-family='Inter,Noto Sans SC,sans-serif'>05</text>
+    <text x='505' y='460' font-size='22' font-weight='bold' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>探索与未来</text>
+    <text x='505' y='485' font-size='14' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>人类探索史 · 下一站星辰大海</text>
+  </g>
+  <g id='toc-decoration'>
+    <circle cx='1200' cy='620' r='60' fill='none' stroke='#3b82f6' stroke-opacity='0.06' stroke-width='1'/>
+    <circle cx='1200' cy='620' r='40' fill='none' stroke='#3b82f6' stroke-opacity='0.04' stroke-width='1'/>
+    <circle cx='1200' cy='620' r='5' fill='#3b82f6' fill-opacity='0.3' filter='url(#starGlow)'/>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#abaeb3' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>2 / 12</text>
+  </g>
+</svg>

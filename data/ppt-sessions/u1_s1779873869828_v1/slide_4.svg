@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
+  <!-- notes: KPI数据页——用四个核心指标展示格力品牌的硬实力，数据支撑品牌地位 -->
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+  </g>
+  <g id="page-header">
+    <text x="100" y="80" font-size="14" fill="var(--accent)" font-weight="600">BRAND STRENGTH</text>
+    <text x="100" y="120" font-size="36" font-weight="700" fill="var(--text-1)">格力品牌核心数据</text>
+    <rect x="100" y="140" width="60" height="3" fill="var(--accent)"/>
+  </g>
+  <g id="kpi-1">
+    <rect x="80" y="180" width="260" height="200" rx="16" fill="var(--surface)"/>
+    <text x="210" y="250" font-size="56" font-weight="800" fill="var(--accent)" text-anchor="middle">28年</text>
+    <text x="210" y="290" font-size="18" fill="var(--text-2)" text-anchor="middle">连续销量领先</text>
+  </g>
+  <g id="kpi-2">
+    <rect x="360" y="180" width="260" height="200" rx="16" fill="var(--surface)"/>
+    <text x="490" y="250" font-size="56" font-weight="800" fill="var(--accent)" text-anchor="middle">10万+</text>
+    <text x="490" y="290" font-size="18" fill="var(--text-2)" text-anchor="middle">研发人员</text>
+  </g>
+  <g id="kpi-3">
+    <rect x="640" y="180" width="260" height="200" rx="16" fill="var(--surface)"/>
+    <text x="770" y="250" font-size="56" font-weight="800" fill="var(--accent)" text-anchor="middle">11万项</text>
+    <text x="770" y="290" font-size="18" fill="var(--text-2)" text-anchor="middle">技术专利</text>
+  </g>
+  <g id="kpi-4">
+    <rect x="920" y="180" width="260" height="200" rx="16" fill="var(--surface)"/>
+    <text x="1050" y="250" font-size="56" font-weight="800" fill="var(--accent)" text-anchor="middle">190+</text>
+    <text x="1050" y="290" font-size="18" fill="var(--text-2)" text-anchor="middle">覆盖国家</text>
+  </g>
+  <g id="highlight-card">
+    <rect x="80" y="410" width="1100" height="180" rx="16" fill="var(--surface)"/>
+    <text x="140" y="470" font-size="24" font-weight="700" fill="var(--text-1)">格力电器</text>
+    <text x="140" y="510" font-size="16" fill="var(--text-2)">成立于1991年，是全球最大的集研发、生产、销售、服务于一体的专业化空调企业</text>
+    <text x="140" y="540" font-size="16" fill="var(--text-2)">拥有珠海、重庆、合肥、郑州、武汉、石家庄、芜湖、长沙、杭州、洛阳、南京等14个生产基地</text>
+  </g>
+  <g id="footer-pagenum">
+    <text x="1220" y="690" font-size="14" fill="var(--text-3)" text-anchor="end">04 / 10</text>
+  </g>
+</svg>

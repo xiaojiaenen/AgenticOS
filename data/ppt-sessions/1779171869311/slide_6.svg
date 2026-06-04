@@ -1,0 +1,88 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <circle cx='100' cy='50' r='1' fill='var(--text-3)' fill-opacity='0.4'/>
+    <circle cx='1180' cy='80' r='1.5' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='1200' cy='650' r='1' fill='var(--text-3)' fill-opacity='0.3'/>
+  </g>
+  <g id='page-header'>
+    <rect x='0' y='0' width='1280' height='3' fill='var(--accent)'/>
+    <text x='80' y='100' font-family='Inter,Noto Sans SC,sans-serif' font-size='36' font-weight='800' fill='var(--text-1)'>类地行星 · 四兄弟</text>
+    <text x='80' y='135' font-family='Inter,Noto Sans SC,sans-serif' font-size='17' fill='var(--text-3)'>大小、温度、大气——各有不同</text>
+    <rect x='80' y='150' width='50' height='3' fill='var(--accent)'/>
+  </g>
+  <g id='card-mercury'>
+    <rect x='60' y='200' width='280' height='450' rx='16' fill='var(--surface)'/>
+    <circle cx='200' cy='270' r='30' fill='var(--accent)' fill-opacity='0.12'/>
+    <circle cx='200' cy='270' r='18' fill='var(--accent)' fill-opacity='0.2'/>
+    <circle cx='200' cy='270' r='6' fill='var(--accent)' fill-opacity='0.4'/>
+    <text x='200' y='330' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' font-weight='700' fill='var(--text-1)'>水星</text>
+    <text x='200' y='355' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='14' fill='var(--text-3)'>Mercury</text>
+    <rect x='100' y='375' width='200' height='1' fill='var(--border)'/>
+    <text x='100' y='410' font-family='Inter,Noto Sans SC,sans-serif' font-size='28' font-weight='800' fill='var(--accent)'>4,879</text>
+    <text x='100' y='433' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='var(--text-3)'>km 直径</text>
+    <text x='100' y='470' font-family='Inter,Noto Sans SC,sans-serif' font-size='28' font-weight='800' fill='var(--accent-2)'>-180°C</text>
+    <text x='100' y='493' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='var(--text-3)'>夜间温度</text>
+    <text x='100' y='530' font-family='Inter,Noto Sans SC,sans-serif' font-size='28' font-weight='800' fill='var(--accent)'>88</text>
+    <text x='100' y='553' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='var(--text-3)'>天 · 公转周期</text>
+    <text x='100' y='590' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='var(--text-2)'>距太阳最近</text>
+    <text x='100' y='613' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='var(--text-2)'>无大气层</text>
+  </g>
+  <g id='card-venus'>
+    <rect x='355' y='200' width='280' height='450' rx='16' fill='var(--surface)'/>
+    <circle cx='495' cy='270' r='32' fill='var(--accent-2)' fill-opacity='0.1'/>
+    <circle cx='495' cy='270' r='20' fill='var(--accent-2)' fill-opacity='0.18'/>
+    <circle cx='495' cy='270' r='8' fill='var(--accent-2)' fill-opacity='0.3'/>
+    <text x='495' y='330' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' font-weight='700' fill='var(--text-1)'>金星</text>
+    <text x='495' y='355' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='14' fill='var(--text-3)'>Venus</text>
+    <rect x='395' y='375' width='200' height='1' fill='var(--border)'/>
+    <text x='395' y='410' font-family='Inter,Noto Sans SC,sans-serif' font-size='28' font-weight='800' fill='var(--accent)'>12,104</text>
+    <text x='395' y='433' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='var(--text-3)'>km 直径</text>
+    <text x='395' y='470' font-family='Inter,Noto Sans SC,sans-serif' font-size='28' font-weight='800' fill='var(--bad)'>462°C</text>
+    <text x='395' y='493' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='var(--text-3)'>表面温度</text>
+    <text x='395' y='530' font-family='Inter,Noto Sans SC,sans-serif' font-size='28' font-weight='800' fill='var(--accent)'>225</text>
+    <text x='395' y='553' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='var(--text-3)'>天 · 公转周期</text>
+    <text x='395' y='590' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='var(--text-2)'>最热行星</text>
+    <text x='395' y='613' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='var(--text-2)'>浓厚CO₂大气</text>
+  </g>
+  <g id='card-earth'>
+    <rect x='650' y='200' width='280' height='450' rx='16' fill='var(--surface)'/>
+    <circle cx='790' cy='270' r='32' fill='var(--good)' fill-opacity='0.1'/>
+    <circle cx='790' cy='270' r='20' fill='var(--good)' fill-opacity='0.2'/>
+    <circle cx='790' cy='270' r='10' fill='var(--good)' fill-opacity='0.4'/>
+    <circle cx='785' cy='265' r='4' fill='var(--text-3)' fill-opacity='0.3'/>
+    <text x='790' y='330' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' font-weight='700' fill='var(--text-1)'>地球</text>
+    <text x='790' y='355' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='14' fill='var(--text-3)'>Earth</text>
+    <rect x='690' y='375' width='200' height='1' fill='var(--border)'/>
+    <text x='690' y='410' font-family='Inter,Noto Sans SC,sans-serif' font-size='28' font-weight='800' fill='var(--good)'>12,756</text>
+    <text x='690' y='433' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='var(--text-3)'>km 直径</text>
+    <text x='690' y='470' font-family='Inter,Noto Sans SC,sans-serif' font-size='28' font-weight='800' fill='var(--good)'>15°C</text>
+    <text x='690' y='493' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='var(--text-3)'>平均温度</text>
+    <text x='690' y='530' font-family='Inter,Noto Sans SC,sans-serif' font-size='28' font-weight='800' fill='var(--good)'>365</text>
+    <text x='690' y='553' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='var(--text-3)'>天 · 公转周期</text>
+    <text x='690' y='590' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='var(--text-2)'>唯一已知生命</text>
+    <text x='690' y='613' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='var(--text-2)'>71% 海洋覆盖</text>
+  </g>
+  <g id='card-mars'>
+    <rect x='945' y='200' width='280' height='450' rx='16' fill='var(--surface)'/>
+    <circle cx='1085' cy='270' r='28' fill='var(--warn)' fill-opacity='0.1'/>
+    <circle cx='1085' cy='270' r='16' fill='var(--warn)' fill-opacity='0.18'/>
+    <circle cx='1085' cy='270' r='6' fill='var(--warn)' fill-opacity='0.3'/>
+    <text x='1085' y='330' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' font-weight='700' fill='var(--text-1)'>火星</text>
+    <text x='1085' y='355' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='14' fill='var(--text-3)'>Mars</text>
+    <rect x='985' y='375' width='200' height='1' fill='var(--border)'/>
+    <text x='985' y='410' font-family='Inter,Noto Sans SC,sans-serif' font-size='28' font-weight='800' fill='var(--warn)'>6,792</text>
+    <text x='985' y='433' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='var(--text-3)'>km 直径</text>
+    <text x='985' y='470' font-family='Inter,Noto Sans SC,sans-serif' font-size='28' font-weight='800' fill='var(--warn)'>-63°C</text>
+    <text x='985' y='493' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='var(--text-3)'>平均温度</text>
+    <text x='985' y='530' font-family='Inter,Noto Sans SC,sans-serif' font-size='28' font-weight='800' fill='var(--warn)'>687</text>
+    <text x='985' y='553' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='var(--text-3)'>天 · 公转周期</text>
+    <text x='985' y='590' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='var(--text-2)'>红色星球</text>
+    <text x='985' y='613' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='var(--text-2)'>人类探索目标</text>
+  </g>
+  <g id='footer'>
+    <rect x='80' y='698' width='40' height='2' fill='var(--accent)'/>
+    <text x='135' y='708' font-family='Inter,Noto Sans SC,sans-serif' font-size='12' fill='var(--text-3)'>06 / 12</text>
+  </g>
+  <!-- notes: 四大类地行星数据对比卡。水星最小最接近太阳、金星最热（温室效应）、地球唯一有生命、火星红色氧化铁表面。按水星→金星→地球→火星顺序横扫介绍。 -->
+</svg>

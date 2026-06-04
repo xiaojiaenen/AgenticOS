@@ -1,0 +1,15 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id='section-number' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='340' font-size='200' font-weight='900' fill='var(--accent)' fill-opacity='0.08'>01</text>
+    <text x='640' y='320' font-size='18' fill='var(--accent)' font-weight='600' letter-spacing='6'>CHAPTER ONE</text>
+    <text x='640' y='430' font-size='56' font-weight='800' fill='var(--text-1)'>
+      <tspan x='640' dy='0'>技术趋势</tspan>
+    </text>
+    <line x1='540' y1='480' x2='740' y2='480' stroke='var(--accent)' stroke-width='2'/>
+    <text x='640' y='530' font-size='20' fill='var(--text-2)'>从 GPT 到多模态，大模型能力的指数级跃迁</text>
+  </g>
+  <!-- notes: 第一章视觉断点。超大透明数字"01"作为背景纹理，绿色装饰线分隔标题和副标题。演讲节奏：此处放慢，深呼吸，准备进入技术深度内容 -->
+</svg>

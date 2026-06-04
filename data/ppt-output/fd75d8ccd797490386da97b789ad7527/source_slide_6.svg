@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="airbnb">
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="#ffffff"/>
+  </g>
+  <g id="section-decoration">
+    <rect x="0" y="280" width="1280" height="160" fill="#ff385c" fill-opacity="0.08"/>
+    <circle cx="200" cy="600" r="180" fill="#ff385c" fill-opacity="0.04"/>
+    <circle cx="1080" cy="120" r="140" fill="#ff385c" fill-opacity="0.04"/>
+  </g>
+  <g id="section-number" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif">
+    <text x="640" y="300" font-size="180" font-weight="900" fill="#ff385c" fill-opacity="0.15">02</text>
+  </g>
+  <g id="section-title" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif">
+    <rect x="540" y="360" width="200" height="3" rx="1.5" fill="#ff385c"/>
+    <text x="640" y="430" font-size="16" fill="#ff385c" font-weight="600" letter-spacing="4">CHAPTER TWO</text>
+    <text x="640" y="500" font-size="56" font-weight="800" fill="#222222">真挚祝福</text>
+    <text x="640" y="560" font-size="20" fill="#3f3f3f">每一句祝福都发自真心</text>
+  </g>
+  <!-- notes: 章节分隔页——第二章「真挚祝福」，节奏转折点 -->
+</svg>

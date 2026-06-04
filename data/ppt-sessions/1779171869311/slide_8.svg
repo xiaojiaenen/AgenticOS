@@ -1,0 +1,65 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <circle cx='100' cy='50' r='1' fill='var(--text-3)' fill-opacity='0.4'/>
+    <circle cx='1180' cy='650' r='1.5' fill='var(--text-3)' fill-opacity='0.3'/>
+  </g>
+  <g id='page-header'>
+    <rect x='0' y='0' width='1280' height='3' fill='var(--accent)'/>
+    <text x='80' y='100' font-family='Inter,Noto Sans SC,sans-serif' font-size='36' font-weight='800' fill='var(--text-1)'>气态巨行星 · 四巨神</text>
+    <text x='80' y='135' font-family='Inter,Noto Sans SC,sans-serif' font-size='17' fill='var(--text-3)'>体积与质量的绝对统治</text>
+    <rect x='80' y='150' width='50' height='3' fill='var(--accent)'/>
+  </g>
+  <g id='card-jupiter'>
+    <rect x='60' y='200' width='560' height='240' rx='16' fill='var(--surface)'/>
+    <!-- 木星条纹装饰 -->
+    <rect x='72' y='212' width='536' height='6' rx='3' fill='var(--warn)' fill-opacity='0.2'/>
+    <rect x='72' y='224' width='536' height='3' rx='1.5' fill='var(--accent-2)' fill-opacity='0.15'/>
+    <rect x='72' y='233' width='536' height='8' rx='4' fill='var(--warn)' fill-opacity='0.25'/>
+    <!-- 大红斑装饰 -->
+    <ellipse cx='440' cy='380' rx='25' ry='15' fill='var(--bad)' fill-opacity='0.3'/>
+    <text x='100' y='265' font-family='Inter,Noto Sans SC,sans-serif' font-size='24' font-weight='700' fill='var(--text-1)'>木星</text>
+    <text x='100' y='288' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='var(--text-3)'>Jupiter · 太阳系最大行星</text>
+    <rect x='100' y='305' width='200' height='1' fill='var(--border)'/>
+    <text x='100' y='340' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' font-weight='700' fill='var(--warn)'>142,984<span font-size='14' fill='var(--text-3)' font-weight='400'> km 直径</span></text>
+    <text x='100' y='375' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' font-weight='700' fill='var(--warn)'>11.2<span font-size='14' fill='var(--text-3)' font-weight='400'> 倍地球直径</span></text>
+    <text x='100' y='410' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' font-weight='700' fill='var(--warn)'>95<span font-size='14' fill='var(--text-3)' font-weight='400'> 颗卫星</span></text>
+  </g>
+  <g id='card-saturn'>
+    <rect x='640' y='200' width='580' height='240' rx='16' fill='var(--surface)'/>
+    <!-- 土星环装饰 -->
+    <ellipse cx='900' cy='230' rx='80' ry='12' fill='none' stroke='var(--accent)' stroke-width='2' stroke-opacity='0.2'/>
+    <ellipse cx='900' cy='230' rx='65' ry='8' fill='none' stroke='var(--accent)' stroke-width='1.5' stroke-opacity='0.15'/>
+    <text x='680' y='265' font-family='Inter,Noto Sans SC,sans-serif' font-size='24' font-weight='700' fill='var(--text-1)'>土星</text>
+    <text x='680' y='288' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='var(--text-3)'>Saturn · 壮观的环系统</text>
+    <rect x='680' y='305' width='200' height='1' fill='var(--border)'/>
+    <text x='680' y='340' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' font-weight='700' fill='var(--accent)'>120,536<span font-size='14' fill='var(--text-3)' font-weight='400'> km 直径</span></text>
+    <text x='680' y='375' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' font-weight='700' fill='var(--accent)'>9.5<span font-size='14' fill='var(--text-3)' font-weight='400'> 倍地球直径</span></text>
+    <text x='680' y='410' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' font-weight='700' fill='var(--accent)'>146<span font-size='14' fill='var(--text-3)' font-weight='400'> 颗卫星 · 最多</span></text>
+  </g>
+  <g id='card-uranus'>
+    <rect x='60' y='460' width='560' height='220' rx='16' fill='var(--surface)'/>
+    <text x='100' y='505' font-family='Inter,Noto Sans SC,sans-serif' font-size='24' font-weight='700' fill='var(--text-1)'>天王星</text>
+    <text x='100' y='528' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='var(--text-3)'>Uranus · 侧躺的冰巨星</text>
+    <rect x='100' y='545' width='200' height='1' fill='var(--border)'/>
+    <text x='100' y='580' font-family='Inter,Noto Sans SC,sans-serif' font-size='20' font-weight='700' fill='var(--accent-2)'>51,118<span font-size='14' fill='var(--text-3)' font-weight='400'> km 直径</span></text>
+    <text x='350' y='580' font-family='Inter,Noto Sans SC,sans-serif' font-size='20' font-weight='700' fill='var(--accent-2)'>4.0<span font-size='14' fill='var(--text-3)' font-weight='400'> 倍地球</span></text>
+    <text x='100' y='618' font-family='Inter,Noto Sans SC,sans-serif' font-size='20' font-weight='700' fill='var(--accent-2)'>27<span font-size='14' fill='var(--text-3)' font-weight='400'> 颗卫星</span></text>
+    <text x='350' y='618' font-family='Inter,Noto Sans SC,sans-serif' font-size='20' font-weight='700' fill='var(--accent-2)'>-224°C<span font-size='14' fill='var(--text-3)' font-weight='400'> 极寒</span></text>
+  </g>
+  <g id='card-neptune'>
+    <rect x='640' y='460' width='580' height='220' rx='16' fill='var(--surface)'/>
+    <text x='680' y='505' font-family='Inter,Noto Sans SC,sans-serif' font-size='24' font-weight='700' fill='var(--text-1)'>海王星</text>
+    <text x='680' y='528' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='var(--text-3)'>Neptune · 风暴之蓝</text>
+    <rect x='680' y='545' width='200' height='1' fill='var(--border)'/>
+    <text x='680' y='580' font-family='Inter,Noto Sans SC,sans-serif' font-size='20' font-weight='700' fill='var(--accent)'>49,528<span font-size='14' fill='var(--text-3)' font-weight='400'> km 直径</span></text>
+    <text x='930' y='580' font-family='Inter,Noto Sans SC,sans-serif' font-size='20' font-weight='700' fill='var(--accent)'>3.9<span font-size='14' fill='var(--text-3)' font-weight='400'> 倍地球</span></text>
+    <text x='680' y='618' font-family='Inter,Noto Sans SC,sans-serif' font-size='20' font-weight='700' fill='var(--accent)'>16<span font-size='14' fill='var(--text-3)' font-weight='400'> 颗卫星</span></text>
+    <text x='930' y='618' font-family='Inter,Noto Sans SC,sans-serif' font-size='20' font-weight='700' fill='var(--accent)'>风速 2,100km/h<span font-size='14' fill='var(--text-3)' font-weight='400'> 最快</span></text>
+  </g>
+  <g id='footer'>
+    <rect x='80' y='698' width='40' height='2' fill='var(--accent)'/>
+    <text x='135' y='708' font-family='Inter,Noto Sans SC,sans-serif' font-size='12' fill='var(--text-3)'>08 / 12</text>
+  </g>
+  <!-- notes: 气态巨行星——两行两列。木星有标志性大红斑风暴；土星环由冰粒和岩石构成；天王星自转轴倾斜98°"躺着转"；海王星风速可达2100km/h，太阳系之最。 -->
+</svg>

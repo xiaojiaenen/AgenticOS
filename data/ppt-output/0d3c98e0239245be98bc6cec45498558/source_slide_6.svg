@@ -1,0 +1,15 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='section-number' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='340' font-size='200' font-weight='900' fill='#10a37f' fill-opacity='0.08'>02</text>
+    <text x='640' y='320' font-size='18' fill='#10a37f' font-weight='600' letter-spacing='6'>CHAPTER TWO</text>
+    <text x='640' y='430' font-size='56' font-weight='800' fill='#0d0d0d'>
+      <tspan x='640' dy='0'>应用场景</tspan>
+    </text>
+    <line x1='540' y1='480' x2='740' y2='480' stroke='#10a37f' stroke-width='2'/>
+    <text x='640' y='530' font-size='20' fill='#1a1a1a'>从对话助手到行业智能体，大模型正在重塑每一个行业</text>
+  </g>
+  <!-- notes: 第二章分隔页。从这里开始进入"实际应用"部分。演讲过渡语："技术讲完了，我们来看看这些能力到底能用在哪儿" -->
+</svg>

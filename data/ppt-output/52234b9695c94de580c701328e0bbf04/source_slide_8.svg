@@ -1,0 +1,81 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='ghibli'>
+  <defs>
+    <linearGradient id='skyGrad8' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='var(--bg)'/>
+      <stop offset='100%' stop-color='var(--surface)'/>
+    </linearGradient>
+  </defs>
+  <!-- notes: 活动日程页——垂直时间轴展示三天展期核心活动：Day1 开幕式/声优见面会，Day2 Cosplay大赛/同人市集，Day3 闭幕演出/限定贩售。每个节点有时间+活动标题+地点 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='url(#skyGrad8)'/>
+  </g>
+  <g id='decoration-clouds'>
+    <g fill='var(--surface)' fill-opacity='0.3'>
+      <ellipse cx='1100' cy='100' rx='70' ry='25'/>
+      <ellipse cx='1150' cy='90' rx='45' ry='22'/>
+    </g>
+  </g>
+  <g id='timeline-header'>
+    <text x='100' y='90' font-size='20' fill='var(--accent)' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>📅 活动日程</text>
+    <text x='100' y='130' font-size='42' font-weight='900' fill='var(--text-1)' font-family='Playfair Display,Noto Serif SC,serif'>三天精彩不间断</text>
+    <rect x='100' y='155' width='50' height='4' rx='2' fill='var(--accent)'/>
+  </g>
+  <g id='timeline-line'>
+    <!-- 时间轴竖线 -->
+    <line x1='640' y1='210' x2='640' y2='660' stroke='var(--accent)' stroke-width='3' stroke-opacity='0.25' stroke-dasharray='6,4'/>
+  </g>
+  <g id='timeline-events'>
+    <!-- Day 1 -->
+    <g>
+      <rect x='100' y='210' width='490' height='120' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <rect x='100' y='210' width='6' height='120' rx='3' fill='var(--accent)'/>
+      <text x='130' y='240' font-size='14' fill='var(--accent)' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>DAY 1 · 7月18日</text>
+      <text x='130' y='270' font-size='20' font-weight='bold' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>开幕式 &amp; 声优见面会</text>
+      <text x='130' y='300' font-size='14' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>09:00 - 12:00 · 主舞台</text>
+      <!-- 圆形节点 -->
+      <circle cx='640' cy='270' r='12' fill='var(--surface)' stroke='var(--accent)' stroke-width='3'/>
+      <circle cx='640' cy='270' r='5' fill='var(--accent)'/>
+    </g>
+    <!-- Day 1 下午 -->
+    <g>
+      <rect x='690' y='230' width='490' height='90' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <rect x='690' y='230' width='6' height='90' rx='3' fill='var(--accent)' fill-opacity='0.6'/>
+      <text x='720' y='258' font-size='14' fill='var(--accent)' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>DAY 1 · 下午</text>
+      <text x='720' y='283' font-size='18' font-weight='bold' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>新番首映 · 原画展</text>
+      <text x='720' y='305' font-size='13' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>14:00 - 18:00 · 放映厅 &amp; 艺术廊</text>
+    </g>
+    <!-- Day 2 -->
+    <g>
+      <rect x='100' y='360' width='490' height='120' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <rect x='100' y='360' width='6' height='120' rx='3' fill='var(--accent)'/>
+      <text x='130' y='390' font-size='14' fill='var(--accent)' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>DAY 2 · 7月19日</text>
+      <text x='130' y='420' font-size='20' font-weight='bold' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>Cosplay 全国大赛</text>
+      <text x='130' y='450' font-size='14' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>10:00 - 17:00 · 主舞台 &amp; 外场</text>
+      <!-- 圆形节点 -->
+      <circle cx='640' cy='420' r='12' fill='var(--surface)' stroke='var(--accent)' stroke-width='3'/>
+      <circle cx='640' cy='420' r='5' fill='var(--accent)'/>
+    </g>
+    <!-- Day 2 晚上 -->
+    <g>
+      <rect x='690' y='380' width='490' height='90' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <rect x='690' y='380' width='6' height='90' rx='3' fill='var(--accent)' fill-opacity='0.6'/>
+      <text x='720' y='408' font-size='14' fill='var(--accent)' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>DAY 2 · 夜间</text>
+      <text x='720' y='433' font-size='18' font-weight='bold' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>星空音乐节 · 夜场限定</text>
+      <text x='720' y='455' font-size='13' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>19:00 - 22:00 · 星空广场</text>
+    </g>
+    <!-- Day 3 -->
+    <g>
+      <rect x='100' y='510' width='490' height='120' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <rect x='100' y='510' width='6' height='120' rx='3' fill='var(--accent)'/>
+      <text x='130' y='540' font-size='14' fill='var(--accent)' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>DAY 3 · 7月20日</text>
+      <text x='130' y='570' font-size='20' font-weight='bold' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>闭幕盛典 &amp; 限定周边贩售</text>
+      <text x='130' y='600' font-size='14' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>10:00 - 18:00 · 全展区</text>
+      <!-- 圆形节点 -->
+      <circle cx='640' cy='570' r='12' fill='var(--surface)' stroke='var(--accent)' stroke-width='3'/>
+      <circle cx='640' cy='570' r='5' fill='var(--accent)'/>
+    </g>
+  </g>
+  <g id='pagenumber'>
+    <text x='1240' y='700' font-size='14' fill='var(--text-3)' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>08 / 10</text>
+  </g>
+</svg>

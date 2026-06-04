@@ -1,0 +1,19 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <rect x='0' y='0' width='1280' height='4' fill='var(--accent)'/>
+  </g>
+  <g id='section-decor'>
+    <text x='120' y='260' font-size='220' font-weight='900' fill='var(--accent)' fill-opacity='0.06' font-family='Inter,Noto Sans SC,sans-serif'>03</text>
+  </g>
+  <g id='section-content' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='120' y='300' width='60' height='4' fill='var(--accent)'/>
+    <text x='120' y='360' font-size='16' fill='var(--accent)' font-weight='600' letter-spacing='3'>CHAPTER 03</text>
+    <text x='120' y='440' font-size='64' font-weight='800' fill='var(--text-1)'>产业影响与未来</text>
+    <text x='120' y='510' font-size='24' fill='var(--text-2)' font-weight='400'>AI 正在重塑每一个行业</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='var(--text-3)'>9 / 11</text>
+  </g>
+  <!-- notes: 第三章——产业影响与未来。承上启下："看完了技术本身，我们来看看它在真实世界引发的连锁反应。" -->
+</svg>

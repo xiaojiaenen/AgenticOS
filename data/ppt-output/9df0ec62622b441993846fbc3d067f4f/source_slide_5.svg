@@ -1,0 +1,19 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='section-decor'>
+    <text x='120' y='260' font-size='220' font-weight='900' fill='#10a37f' fill-opacity='0.06' font-family='Inter,Noto Sans SC,sans-serif'>02</text>
+  </g>
+  <g id='section-content' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='120' y='300' width='60' height='4' fill='#10a37f'/>
+    <text x='120' y='360' font-size='16' fill='#10a37f' font-weight='600' letter-spacing='3'>CHAPTER 02</text>
+    <text x='120' y='440' font-size='64' font-weight='800' fill='#0d0d0d'>核心技术</text>
+    <text x='120' y='510' font-size='24' fill='#1a1a1a' font-weight='400'>大语言模型 · 多模态 · 推理能力</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>5 / 11</text>
+  </g>
+  <!-- notes: 进入第二章——核心技术。这是整场演讲的技术核心部分。前情提要："刚刚我们回顾了 OpenAI 的发展历程，接下来看看真正驱动这一切的技术引擎。" -->
+</svg>

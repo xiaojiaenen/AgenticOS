@@ -1,0 +1,54 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <radialGradient id='chap2Glow' cx='50%' cy='50%' r='55%'>
+      <stop offset='0%' stop-color='var(--accent)' stop-opacity='0.15'/>
+      <stop offset='60%' stop-color='var(--accent-2)' stop-opacity='0.05'/>
+      <stop offset='100%' stop-color='var(--bg)' stop-opacity='0'/>
+    </radialGradient>
+    <filter id='glowBig2' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='8'/>
+    </filter>
+  </defs>
+  <!-- notes: 戏剧化章节过渡——巨大的"9→8"用对比色对冲，中间一道撕裂的亮光，象征着天体分类的历史性转折点 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <rect width='1280' height='720' fill='url(#chap2Glow)'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='80' cy='80' r='2' fill='var(--text-3)' fill-opacity='0.6'/>
+    <circle cx='300' cy='40' r='1.2' fill='var(--text-3)' fill-opacity='0.4'/>
+    <circle cx='1000' cy='70' r='2.5' fill='var(--text-3)' fill-opacity='0.7'/>
+    <circle cx='1180' cy='180' r='1' fill='var(--text-3)' fill-opacity='0.4'/>
+    <circle cx='60' cy='550' r='1.5' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='1200' cy='580' r='2' fill='var(--text-3)' fill-opacity='0.6'/>
+    <circle cx='200' cy='650' r='1' fill='var(--text-3)' fill-opacity='0.3'/>
+    <circle cx='1100' cy='650' r='1.5' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='650' cy='50' r='1.2' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='500' cy='600' r='0.8' fill='var(--text-3)' fill-opacity='0.3'/>
+  </g>
+  <!-- 巨大数字冲突 -->
+  <g id='big-numbers'>
+    <text x='400' y='420' font-size='240' font-weight='900' fill='var(--text-1)' fill-opacity='0.06' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>9</text>
+    <text x='640' y='380' font-size='90' font-weight='900' fill='var(--accent)' fill-opacity='0.12' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>→</text>
+    <text x='880' y='420' font-size='240' font-weight='900' fill='var(--accent)' fill-opacity='0.06' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>8</text>
+  </g>
+  <!-- 中央光柱 -->
+  <g id='light-beam-2'>
+    <rect x='635' y='160' width='10' height='400' fill='var(--accent)' fill-opacity='0.04'/>
+    <rect x='638' y='200' width='4' height='320' fill='var(--accent)' fill-opacity='0.06'/>
+  </g>
+  <g id='section-content'>
+    <text x='640' y='180' font-size='18' font-weight='700' fill='var(--accent)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='8'>C H A P T E R &nbsp; T W O</text>
+    <line x1='480' y1='210' x2='800' y2='210' stroke='var(--accent)' stroke-opacity='0.3' stroke-width='1'/>
+    <text x='640' y='350' font-size='72' font-weight='900' fill='var(--text-1)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='640' dy='0'>从</tspan>
+      <tspan x='640' dy='88' fill='var(--accent)'>九大</tspan>
+      <tspan x='640' dy='88'>到</tspan>
+      <tspan x='640' dy='88' fill='var(--accent)'>八大</tspan>
+    </text>
+    <text x='640' y='580' font-size='18' fill='var(--text-2)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>冥王星降级事件 · IAU 决议 · 矮行星的诞生</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='var(--text-3)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>8 / 12</text>
+  </g>
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+    <rect x='0' y='0' width='1280' height='6' fill='#1ed760'/>
+  </g>
+  <g id="decorative-particles">
+    <circle cx='200' cy='180' r='4' fill='#1ed760' fill-opacity='0.3'/>
+    <circle cx='1050' cy='150' r='3' fill='#1ed760' fill-opacity='0.4'/>
+    <circle cx='350' cy='600' r='3.5' fill='#1ed760' fill-opacity='0.25'/>
+    <circle cx='900' cy='580' r='2' fill='#1ed760' fill-opacity='0.5'/>
+    <circle cx='150' cy='450' r='2.5' fill='#1ed760' fill-opacity='0.35'/>
+    <circle cx='1100' cy='400' r='3' fill='#1ed760' fill-opacity='0.3'/>
+  </g>
+  <g id="thanks-content" text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='260' font-size='22' fill='#1ed760' font-weight='600' letter-spacing='6'>THANK YOU</text>
+    <text x='640' y='360' font-size='62' font-weight='800' fill='#ffffff'>谢谢 每一位 你</text>
+    <text x='640' y='440' font-size='22' fill='#fdfdfd' font-weight='300'>因为有你们，今天才如此特别</text>
+    <rect x='540' y='475' width='200' height='3' rx='1.5' fill='#1ed760'/>
+    <text x='640' y='530' font-size='16' fill='#cbcbcb'>愿友谊长存 · 愿快乐常伴</text>
+    <text x='640' y='570' font-size='14' fill='#cbcbcb'>— 爱你们 —</text>
+  </g>
+  <g id="footer-chrome">
+    <text x='640' y='680' font-size='12' fill='#cbcbcb' text-anchor='middle'>🎂 Happy Birthday 🎂</text>
+  </g>
+  <!-- notes: 致谢页——温馨收尾。感谢所有到场的朋友，可以邀请大家一起合影留念。完美的生日派对 Ending！ -->
+</svg>

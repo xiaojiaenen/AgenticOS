@@ -1,0 +1,31 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='var(--bg)'/>
+  <rect x='0' y='0' width='1280' height='6' fill='var(--accent)'/>
+  <!-- 装饰引号 -->
+  <g id='quote-decor'>
+    <text x='120' y='280' font-size='200' font-weight='900' fill='var(--accent)' fill-opacity='0.08' font-family='Inter,Noto Sans SC,sans-serif'>&quot;</text>
+  </g>
+  <!-- 金句 -->
+  <g id='quote-text'>
+    <text x='640' y='340' font-size='36' fill='var(--text-1)' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='640' dy='0'>质量是企业的生命，</tspan>
+      <tspan x='640' dy='56'>核心技术是企业的灵魂。</tspan>
+    </text>
+  </g>
+  <!-- 分割线和署名 -->
+  <g id='quote-author'>
+    <line x1='540' y1='450' x2='740' y2='450' stroke='var(--accent)' stroke-width='2'/>
+    <text x='640' y='500' font-size='22' fill='var(--accent)' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>—— 董明珠</text>
+    <text x='640' y='545' font-size='16' fill='var(--text-2)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>格力电器董事长兼总裁</text>
+  </g>
+  <!-- 装饰几何 -->
+  <g id='quote-geo'>
+    <circle cx='1150' cy='600' r='120' fill='var(--accent)' fill-opacity='0.04'/>
+    <circle cx='1150' cy='600' r='70' fill='var(--accent)' fill-opacity='0.06'/>
+  </g>
+  <!-- 页脚 -->
+  <g id='page-footer'>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>8 / 10</text>
+  </g>
+  <!-- notes: 品牌理念页——用董明珠的经典语录收束前面的技术和产品内容。"质量是企业的生命，核心技术是企业的灵魂"这句话完美呼应前面讲的三大核心技术。讲这页的时候语气可以慢下来，停顿一下，让观众消化前面的信息。然后可以补充一个细节：格力的出厂检测标准是行业的1.5倍，每一台空调都要经过300多项检测才能出厂。 -->
+</svg>

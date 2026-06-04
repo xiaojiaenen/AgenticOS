@@ -1,0 +1,70 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 快速回顾时间！我们今天学了什么呢？六种动物单词、两个重要句型。现在来个小测验——看图选单词，大家用手势回答，A还是B？（老师依次展示，学生举手抢答） -->
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='1280' height='4' fill='#58a700'/>
+  <g id='quiz-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='55' font-size='16' fill='#58a700' font-weight='700' letter-spacing='2'>REVIEW</text>
+    <text x='80' y='100' font-size='34' font-weight='800' fill='#3c3c3c'>课堂小测 Quiz Time</text>
+  </g>
+  <!-- 回顾条 -->
+  <g id='quiz-recap'>
+    <rect x='60' y='120' width='1160' height='70' rx='14' fill='#58a700' fill-opacity='0.08'/>
+    <text x='120' y='165' font-size='18' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>📝 今天学了什么 Today's Summary</text>
+    <text x='450' y='165' font-size='17' fill='#58a700' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>6个单词</text>
+    <text x='590' y='165' font-size='17' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>+</text>
+    <text x='620' y='165' font-size='17' fill='#ff9600' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>2个句型</text>
+    <text x='760' y='165' font-size='17' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>+</text>
+    <text x='790' y='165' font-size='17' fill='#4a8d00' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>1个游戏</text>
+    <text x='940' y='165' font-size='17' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>= 🎉</text>
+  </g>
+  <!-- Quiz 1 -->
+  <g id='quiz-q1'>
+    <rect x='60' y='215' width='560' height='200' rx='16' fill='#e5e5e5'/>
+    <rect x='60' y='215' width='50' height='200' rx='16' fill='#58a700' fill-opacity='0.15'/>
+    <text x='85' y='325' text-anchor='middle' font-size='22' font-weight='900' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>Q1</text>
+    <text x='140' y='265' font-size='20' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>看图选单词：🐰</text>
+    <rect x='140' y='290' width='210' height='55' rx='12' fill='#ff9600' fill-opacity='0.1' stroke='#ff9600' stroke-width='2'/>
+    <text x='245' y='327' text-anchor='middle' font-size='22' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>A. fish</text>
+    <rect x='380' y='290' width='210' height='55' rx='12' fill='#58a700' fill-opacity='0.12' stroke='#58a700' stroke-width='2'/>
+    <text x='485' y='327' text-anchor='middle' font-size='22' font-weight='700' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>B. rabbit</text>
+    <text x='140' y='385' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>答案：B. rabbit 🐰</text>
+  </g>
+  <!-- Quiz 2 -->
+  <g id='quiz-q2'>
+    <rect x='660' y='215' width='560' height='200' rx='16' fill='#e5e5e5'/>
+    <rect x='660' y='215' width='50' height='200' rx='16' fill='#ff9600' fill-opacity='0.15'/>
+    <text x='685' y='325' text-anchor='middle' font-size='22' font-weight='900' fill='#ff9600' font-family='Inter,Noto Sans SC,sans-serif'>Q2</text>
+    <text x='740' y='265' font-size='20' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>填空：I _____ a cat.</text>
+    <rect x='740' y='290' width='210' height='55' rx='12' fill='#58a700' fill-opacity='0.12' stroke='#58a700' stroke-width='2'/>
+    <text x='845' y='327' text-anchor='middle' font-size='22' font-weight='700' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>A. have</text>
+    <rect x='980' y='290' width='210' height='55' rx='12' fill='#4a8d00' fill-opacity='0.1' stroke='#4a8d00' stroke-width='2'/>
+    <text x='1085' y='327' text-anchor='middle' font-size='22' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>B. like</text>
+    <text x='740' y='385' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>答案：A. have (I have a cat.)</text>
+  </g>
+  <!-- Quiz 3 -->
+  <g id='quiz-q3'>
+    <rect x='60' y='440' width='560' height='130' rx='16' fill='#e5e5e5'/>
+    <rect x='60' y='440' width='50' height='130' rx='16' fill='#4a8d00' fill-opacity='0.15'/>
+    <text x='85' y='515' text-anchor='middle' font-size='22' font-weight='900' fill='#4a8d00' font-family='Inter,Noto Sans SC,sans-serif'>Q3</text>
+    <text x='140' y='490' font-size='20' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>Monkey 是什么意思？</text>
+    <rect x='140' y='510' width='180' height='40' rx='10' fill='#ff9600' fill-opacity='0.1' stroke='#ff9600' stroke-width='2'/>
+    <text x='230' y='538' text-anchor='middle' font-size='17' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>A. 兔子</text>
+    <rect x='340' y='510' width='250' height='40' rx='10' fill='#58a700' fill-opacity='0.12' stroke='#58a700' stroke-width='2'/>
+    <text x='465' y='538' text-anchor='middle' font-size='17' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>B. 猴子 hóuzi</text>
+  </g>
+  <!-- Quiz 4 -->
+  <g id='quiz-q4'>
+    <rect x='660' y='440' width='560' height='130' rx='16' fill='#e5e5e5'/>
+    <rect x='660' y='440' width='50' height='130' rx='16' fill='#58a700' fill-opacity='0.15'/>
+    <text x='685' y='515' text-anchor='middle' font-size='22' font-weight='900' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>Q4</text>
+    <text x='740' y='490' font-size='20' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>I like ____. (复数形式)</text>
+    <rect x='740' y='510' width='210' height='40' rx='10' fill='#4a8d00' fill-opacity='0.1' stroke='#4a8d00' stroke-width='2'/>
+    <text x='845' y='538' text-anchor='middle' font-size='17' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>A. dog</text>
+    <rect x='980' y='510' width='210' height='40' rx='10' fill='#58a700' fill-opacity='0.12' stroke='#58a700' stroke-width='2'/>
+    <text x='1085' y='538' text-anchor='middle' font-size='17' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>B. dogs</text>
+  </g>
+  <g id='quiz-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='690' font-size='13' fill='#777777'>My Animal Friends</text>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='#777777'>9 / 10</text>
+  </g>
+</svg>

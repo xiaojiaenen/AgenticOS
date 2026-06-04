@@ -1,0 +1,21 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='thankyou-decor'>
+    <circle cx='640' cy='360' r='260' fill='#10a37f' fill-opacity='0.03'/>
+    <circle cx='640' cy='360' r='180' fill='#10a37f' fill-opacity='0.05'/>
+  </g>
+  <g id='thankyou-content' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='280' font-size='18' fill='#10a37f' font-weight='600' letter-spacing='4'>THANK YOU</text>
+    <text x='640' y='370' font-size='52' font-weight='800' fill='#0d0d0d'>感谢聆听</text>
+    <text x='640' y='430' font-size='20' fill='#1a1a1a'>The future is already here — it's just not evenly distributed yet.</text>
+    <rect x='540' y='470' width='200' height='2' fill='#10a37f'/>
+    <text x='640' y='520' font-size='16' fill='#9b9b9b'>如需了解更多信息，请访问 openai.com</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>11 / 11</text>
+  </g>
+  <!-- notes: 致谢收尾页。使用 OpenAI 标志性的居中排版，双装饰圆环呼应封面设计。引用 William Gibson 的名言作结："未来已来，只是分布不均。"——恰好点出 OpenAI 的使命：让 AGI 普惠全人类。 -->
+</svg>

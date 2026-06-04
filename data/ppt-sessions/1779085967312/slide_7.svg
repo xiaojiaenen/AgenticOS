@@ -1,0 +1,59 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='36' font-weight='800' fill='var(--text-1)'>三大核心应用方向</text>
+    <text x='80' y='140' font-size='18' fill='var(--text-2)'>Core Application Pillars</text>
+    <line x1='80' y1='162' x2='280' y2='162' stroke='var(--accent)' stroke-width='3'/>
+  </g>
+  <g id='col-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='210' width='360' height='430' rx='20' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+    <!-- 顶部图标区 -->
+    <rect x='80' y='210' width='360' height='120' rx='20' fill='var(--accent)' fill-opacity='0.08'/>
+    <circle cx='260' cy='270' r='36' fill='var(--accent)' fill-opacity='0.15'/>
+    <text x='260' y='279' font-size='28' text-anchor='middle' fill='var(--accent)'>💬</text>
+    <text x='260' y='375' font-size='24' font-weight='bold' text-anchor='middle' fill='var(--text-1)'>智能对话与内容生成</text>
+    <text x='120' y='425' font-size='16' fill='var(--text-2)' line-height='1.6'>
+      <tspan x='120' dy='0'>• 智能客服与知识问答</tspan>
+      <tspan x='120' dy='36'>• 营销文案自动生成</tspan>
+      <tspan x='120' dy='36'>• 代码辅助与审查</tspan>
+      <tspan x='120' dy='36'>• 教育辅导个性化</tspan>
+    </text>
+    <rect x='140' y='570' width='240' height='40' rx='20' fill='var(--accent)' fill-opacity='0.1'/>
+    <text x='260' y='595' font-size='14' text-anchor='middle' fill='var(--accent)' font-weight='600'>适用：全行业通用</text>
+  </g>
+  <g id='col-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='460' y='210' width='360' height='430' rx='20' fill='var(--surface)' stroke='var(--accent)' stroke-width='2'/>
+    <!-- 顶部图标区 -->
+    <rect x='460' y='210' width='360' height='120' rx='20' fill='var(--accent)' fill-opacity='0.12'/>
+    <circle cx='640' cy='270' r='36' fill='var(--accent)' fill-opacity='0.2'/>
+    <text x='640' y='279' font-size='28' text-anchor='middle' fill='var(--accent)'>🎨</text>
+    <text x='640' y='375' font-size='24' font-weight='bold' text-anchor='middle' fill='var(--text-1)'>多模态理解与创作</text>
+    <text x='500' y='425' font-size='16' fill='var(--text-2)' line-height='1.6'>
+      <tspan x='500' dy='0'>• 图像/视频内容生成</tspan>
+      <tspan x='500' dy='36'>• 语音识别与合成</tspan>
+      <tspan x='500' dy='36'>• 文档智能分析</tspan>
+      <tspan x='500' dy='36'>• 创意设计与原型</tspan>
+    </text>
+    <rect x='520' y='570' width='240' height='40' rx='20' fill='var(--accent)'/>
+    <text x='640' y='595' font-size='14' text-anchor='middle' fill='var(--bg)' font-weight='600'>🔥 增长最快赛道</text>
+  </g>
+  <g id='col-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='840' y='210' width='360' height='430' rx='20' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+    <!-- 顶部图标区 -->
+    <rect x='840' y='210' width='360' height='120' rx='20' fill='var(--accent)' fill-opacity='0.08'/>
+    <circle cx='1020' cy='270' r='36' fill='var(--accent)' fill-opacity='0.15'/>
+    <text x='1020' y='279' font-size='28' text-anchor='middle' fill='var(--accent)'>🤖</text>
+    <text x='1020' y='375' font-size='24' font-weight='bold' text-anchor='middle' fill='var(--text-1)'>流程自动化与 Agent</text>
+    <text x='880' y='425' font-size='16' fill='var(--text-2)' line-height='1.6'>
+      <tspan x='880' dy='0'>• 业务流程自动化</tspan>
+      <tspan x='880' dy='36'>• 数据提取与报告生成</tspan>
+      <tspan x='880' dy='36'>• 智能体系统协同</tspan>
+      <tspan x='880' dy='36'>• 供应链优化决策</tspan>
+    </text>
+    <rect x='900' y='570' width='240' height='40' rx='20' fill='var(--accent)' fill-opacity='0.1'/>
+    <text x='1020' y='595' font-size='14' text-anchor='middle' fill='var(--accent)' font-weight='600'>适用：企业级场景</text>
+  </g>
+  <!-- notes: 三大应用方向，中间列用高亮边框强调"多模态"是当前增长最快的赛道。演讲节奏：每列1分钟，重点在中间列（标注了🔥）上多停留。最后一句过渡："这么多场景，怎么选？咱们对比一下两种路径" -->
+</svg>

@@ -1,0 +1,25 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='decor'>
+    <circle cx='640' cy='360' r='280' fill='#10a37f' fill-opacity='0.03'/>
+    <circle cx='640' cy='360' r='180' fill='#10a37f' fill-opacity='0.04'/>
+  </g>
+  <g id='thanks-content' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='260' font-size='18' fill='#10a37f' font-weight='600' letter-spacing='4'>THANK YOU</text>
+    <text x='640' y='360' font-size='56' font-weight='800' fill='#0d0d0d'>
+      <tspan x='640' dy='0'>拥抱大模型时代</tspan>
+      <tspan x='640' dy='76' fill='#10a37f'>现在就是最好的时机</tspan>
+    </text>
+    <text x='640' y='500' font-size='20' fill='#1a1a1a'>从今天开始，选择一个场景，跑通一个原型</text>
+    <!-- CTA 按钮 -->
+    <rect x='520' y='540' width='240' height='50' rx='25' fill='#10a37f'/>
+    <text x='640' y='571' font-size='18' font-weight='bold' fill='#ffffff'>立即启动 AI 战略规划 →</text>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='660' font-size='14' fill='#9b9b9b'>contact@yourcompany.com  ·  AI Strategy Brief 2026 Q1</text>
+  </g>
+  <!-- notes: 结束页。用大标题制造收束感，CTA按钮引导下一步行动。演讲节奏：总结三个核心信息——1.大模型不是未来而是现在 2.从试点开始 3.现在就行动。Q&A前留30秒沉默让受众消化 -->
+</svg>

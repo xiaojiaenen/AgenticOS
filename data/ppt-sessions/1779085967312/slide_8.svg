@@ -1,0 +1,44 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='36' font-weight='800' fill='var(--text-1)'>开源 vs 闭源：路径选择</text>
+    <text x='80' y='140' font-size='18' fill='var(--text-2)'>Open Source vs. Proprietary Models</text>
+    <line x1='80' y1='162' x2='280' y2='162' stroke='var(--accent)' stroke-width='3'/>
+  </g>
+  <g id='vs-area' font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <!-- 左：开源 -->
+    <rect x='80' y='210' width='500' height='440' rx='20' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+    <rect x='80' y='210' width='500' height='80' rx='20' fill='var(--accent)' fill-opacity='0.1'/>
+    <text x='330' y='262' font-size='28' font-weight='bold' fill='var(--accent)'>⬡ 开源模型</text>
+    <text x='130' y='340' font-size='16' fill='var(--text-2)' line-height='2'>
+      <tspan x='130' dy='0'>✅ 完全可控，可私有化部署</tspan>
+      <tspan x='130' dy='44'>✅ 无数据泄露风险</tspan>
+      <tspan x='130' dy='44'>✅ 可自主微调与蒸馏</tspan>
+      <tspan x='130' dy='44'>✅ 社区生态快速迭代</tspan>
+      <tspan x='130' dy='44'>⚠️ 需要自建 Infra 能力</tspan>
+      <tspan x='130' dy='44'>⚠️ 前期投入较高</tspan>
+    </text>
+    <text x='130' y='610' font-size='14' fill='var(--text-3)'>代表：LLaMA 3, Qwen, Mistral, DeepSeek</text>
+
+    <!-- VS 分隔符 -->
+    <circle cx='640' cy='430' r='40' fill='var(--accent)'/>
+    <text x='640' y='440' font-size='20' font-weight='bold' fill='var(--bg)'>VS</text>
+
+    <!-- 右：闭源 -->
+    <rect x='700' y='210' width='500' height='440' rx='20' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+    <rect x='700' y='210' width='500' height='80' rx='20' fill='var(--accent)' fill-opacity='0.1'/>
+    <text x='950' y='262' font-size='28' font-weight='bold' fill='var(--accent)'>⬢ 闭源模型</text>
+    <text x='750' y='340' font-size='16' fill='var(--text-2)' line-height='2'>
+      <tspan x='750' dy='0'>✅ 开箱即用，上手最快</tspan>
+      <tspan x='750' dy='44'>✅ 持续更新自动升级</tspan>
+      <tspan x='750' dy='44'>✅ 无需关心底层设施</tspan>
+      <tspan x='750' dy='44'>✅ 按量付费，现金流友好</tspan>
+      <tspan x='750' dy='44'>⚠️ 数据可能出境合规风险</tspan>
+      <tspan x='750' dy='44'>⚠️ 长期成本不可控</tspan>
+    </text>
+    <text x='750' y='610' font-size='14' fill='var(--text-3)'>代表：GPT-4o, Claude, Gemini, 文心一言</text>
+  </g>
+  <!-- notes: 开源 vs 闭源的经典对比页。演讲节奏：先讲左边开源再讲右边闭源，最后给出建议——"短期用闭源快速验证，长期布局开源构建壁垒"。VS圆圈居中分隔，视觉上有辩论感 -->
+</svg>

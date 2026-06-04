@@ -1,0 +1,86 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='ghibli'>
+  <defs>
+    <linearGradient id='skyGrad7' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='var(--bg)'/>
+      <stop offset='100%' stop-color='var(--surface)'/>
+    </linearGradient>
+  </defs>
+  <!-- notes: 三大展区页——三列并排展示"奇幻森林""蒸汽都市""星空物语"三个主题沉浸展区，每张卡片含图标占位+标题+描述+特色标签 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='url(#skyGrad7)'/>
+  </g>
+  <g id='decoration-clouds'>
+    <g fill='var(--surface)' fill-opacity='0.3'>
+      <ellipse cx='200' cy='100' rx='80' ry='30'/>
+      <ellipse cx='260' cy='85' rx='55' ry='25'/>
+    </g>
+  </g>
+  <g id='three-col-header'>
+    <text x='100' y='90' font-size='20' fill='var(--accent)' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>🏘️ 三大主题展区</text>
+    <text x='100' y='130' font-size='42' font-weight='900' fill='var(--text-1)' font-family='Playfair Display,Noto Serif SC,serif'>沉浸式奇幻空间</text>
+    <rect x='100' y='155' width='50' height='4' rx='2' fill='var(--accent)'/>
+  </g>
+  <g id='cards'>
+    <!-- 卡片1：奇幻森林 -->
+    <g>
+      <rect x='70' y='220' width='360' height='440' rx='24' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <!-- 装饰色块模拟图片 -->
+      <rect x='70' y='220' width='360' height='180' rx='24' fill='var(--accent)' fill-opacity='0.08'/>
+      <rect x='70' y='262' width='360' height='138' fill='var(--accent)' fill-opacity='0.05'/>
+      <!-- 树叶/自然装饰 -->
+      <circle cx='250' cy='310' r='50' fill='var(--accent)' fill-opacity='0.1'/>
+      <circle cx='220' cy='290' r='35' fill='var(--accent)' fill-opacity='0.08'/>
+      <circle cx='280' cy='330' r='30' fill='var(--accent)' fill-opacity='0.06'/>
+      <text x='250' y='320' font-size='40' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🌿</text>
+      <!-- 文字内容 -->
+      <text x='110' y='440' font-size='28' font-weight='bold' fill='var(--text-1)' font-family='Playfair Display,Noto Serif SC,serif'>奇幻森林</text>
+      <text x='110' y='478' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>踏入宫崎骏笔下的魔法森林</text>
+      <text x='110' y='505' font-size='14' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>巨木参天 · 萤火微光 · 神秘生物</text>
+      <text x='110' y='535' font-size='14' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>龙猫主题打卡点 · 森林音乐盒</text>
+      <!-- 标签 -->
+      <rect x='110' y='570' width='80' height='28' rx='14' fill='var(--accent)' fill-opacity='0.12'/>
+      <text x='150' y='589' font-size='13' fill='var(--accent)' text-anchor='middle' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>沉浸体验</text>
+      <rect x='200' y='570' width='80' height='28' rx='14' fill='var(--accent)' fill-opacity='0.12'/>
+      <text x='240' y='589' font-size='13' fill='var(--accent)' text-anchor='middle' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>拍照打卡</text>
+    </g>
+    <!-- 卡片2：蒸汽都市 -->
+    <g>
+      <rect x='460' y='220' width='360' height='440' rx='24' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <rect x='460' y='220' width='360' height='180' rx='24' fill='var(--accent)' fill-opacity='0.08'/>
+      <rect x='460' y='262' width='360' height='138' fill='var(--accent)' fill-opacity='0.05'/>
+      <circle cx='640' cy='310' r='50' fill='var(--accent)' fill-opacity='0.1'/>
+      <circle cx='610' cy='290' r='35' fill='var(--accent)' fill-opacity='0.08'/>
+      <circle cx='670' cy='330' r='30' fill='var(--accent)' fill-opacity='0.06'/>
+      <text x='640' y='320' font-size='40' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>⚙️</text>
+      <text x='500' y='440' font-size='28' font-weight='bold' fill='var(--text-1)' font-family='Playfair Display,Noto Serif SC,serif'>蒸汽都市</text>
+      <text x='500' y='478' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>《天空之城》与《哈尔的移动城堡》</text>
+      <text x='500' y='505' font-size='14' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>蒸汽齿轮 · 飞行器 · 空中堡垒</text>
+      <text x='500' y='535' font-size='14' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>机械装置互动 · 复古飞艇模型展</text>
+      <rect x='500' y='570' width='80' height='28' rx='14' fill='var(--accent)' fill-opacity='0.12'/>
+      <text x='540' y='589' font-size='13' fill='var(--accent)' text-anchor='middle' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>机械互动</text>
+      <rect x='590' y='570' width='80' height='28' rx='14' fill='var(--accent)' fill-opacity='0.12'/>
+      <text x='630' y='589' font-size='13' fill='var(--accent)' text-anchor='middle' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>装置艺术</text>
+    </g>
+    <!-- 卡片3：星空物语 -->
+    <g>
+      <rect x='850' y='220' width='360' height='440' rx='24' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <rect x='850' y='220' width='360' height='180' rx='24' fill='var(--accent)' fill-opacity='0.08'/>
+      <rect x='850' y='262' width='360' height='138' fill='var(--accent)' fill-opacity='0.05'/>
+      <circle cx='1030' cy='310' r='50' fill='var(--accent)' fill-opacity='0.1'/>
+      <circle cx='1000' cy='290' r='35' fill='var(--accent)' fill-opacity='0.08'/>
+      <circle cx='1060' cy='330' r='30' fill='var(--accent)' fill-opacity='0.06'/>
+      <text x='1030' y='320' font-size='40' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🌙</text>
+      <text x='890' y='440' font-size='28' font-weight='bold' fill='var(--text-1)' font-family='Playfair Display,Noto Serif SC,serif'>星空物语</text>
+      <text x='890' y='478' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>《千与千寻》与《萤火虫之墓》</text>
+      <text x='890' y='505' font-size='14' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>星空隧道 · 水上灯会 · 祈愿风铃</text>
+      <text x='890' y='535' font-size='14' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>和风庭院 · 夜光灯笼手作工坊</text>
+      <rect x='890' y='570' width='80' height='28' rx='14' fill='var(--accent)' fill-opacity='0.12'/>
+      <text x='930' y='589' font-size='13' fill='var(--accent)' text-anchor='middle' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>和风体验</text>
+      <rect x='980' y='570' width='80' height='28' rx='14' fill='var(--accent)' fill-opacity='0.12'/>
+      <text x='1020' y='589' font-size='13' fill='var(--accent)' text-anchor='middle' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>夜间限定</text>
+    </g>
+  </g>
+  <g id='pagenumber'>
+    <text x='1240' y='700' font-size='14' fill='var(--text-3)' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>07 / 10</text>
+  </g>
+</svg>

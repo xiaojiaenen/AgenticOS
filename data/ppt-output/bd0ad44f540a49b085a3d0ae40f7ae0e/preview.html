@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="neon">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  /* Theme tokens for CSS custom property resolution */
+  :root {
+    --accent: #bbf351;
+    --accent-2: #00bcff;
+    --accent-3: #9ece44;
+    --bad: #dc2626;
+    --bg: #ffffff;
+    --bg-soft: #ffffff;
+    --border: #c3c5c9;
+    --border-strong: #93979d;
+    --good: #16a34a;
+    --grad: linear-gradient(135deg, #bbf351, #00bcff);
+    --grad-soft: linear-gradient(135deg, rgba(187,243,81,0.08), rgba(0,188,255,0.04));
+    --surface: #f9f9f9;
+    --surface-2: #efefef;
+    --text-1: #111827;
+    --text-2: #70747d;
+    --text-3: #abaeb3;
+    --warn: #d97706;
+  }
+  body { margin:0; padding:0; background:#111; font-family:Inter,Noto Sans SC,sans-serif; }
+  body.single .deck { overflow:auto!important; height:auto!important; }
+  .deck { display:flex; flex-direction:column; align-items:center; gap:16px; padding:16px; }
+  .deck svg { width:100%; max-width:1280px; height:auto; display:block; border-radius:8px; box-shadow:0 4px 24px rgba(0,0,0,.4); }
+</style>
+</head>
+<body class="single">
+<div class="deck">
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <linearGradient id='neonGlow' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='#bbf351'/>
+      <stop offset='50%' stop-color='#00bcff'/>
+      <stop offset='100%' stop-color='#bbf351'/>
+    </linearGradient>
+    <filter id='neonGlow' x='-40%' y='-40%' width='180%' height='180%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='6'/>
+    </filter>
+    <filter id='strongGlow' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='12'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <!-- 霓虹网格背景 -->
+    <line x1='0' y1='180' x2='1280' y2='180' stroke='#bbf351' stroke-opacity='0.04' stroke-width='1'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#bbf351' stroke-opacity='0.04' stroke-width='1'/>
+    <line x1='0' y1='540' x2='1280' y2='540' stroke='#bbf351' stroke-opacity='0.04' stroke-width='1'/>
+    <line x1='320' y1='0' x2='320' y2='720' stroke='#00bcff' stroke-opacity='0.04' stroke-width='1'/>
+    <line x1='640' y1='0' x2='640' y2='720' stroke='#00bcff' stroke-opacity='0.04' stroke-width='1'/>
+    <line x1='960' y1='0' x2='960' y2='720' stroke='#00bcff' stroke-opacity='0.04' stroke-width='1'/>
+  </g>
+  <!-- 霓虹光晕圈 -->
+  <g id='decor-neon'>
+    <circle cx='640' cy='320' r='250' fill='none' stroke='#bbf351' stroke-opacity='0.06' stroke-width='2'/>
+    <circle cx='640' cy='320' r='200' fill='none' stroke='#00bcff' stroke-opacity='0.04' stroke-width='1' stroke-dasharray='4,8'/>
+    <!-- 发光粒子 -->
+    <circle cx='180' cy='150' r='3' fill='#bbf351' fill-opacity='0.3' filter='url(#neonGlow)'/>
+    <circle cx='1100' cy='200' r='2.5' fill='#00bcff' fill-opacity='0.3' filter='url(#neonGlow)'/>
+    <circle cx='200' cy='500' r='2' fill='#bbf351' fill-opacity='0.2' filter='url(#neonGlow)'/>
+    <circle cx='1050' cy='480' r='3' fill='#00bcff' fill-opacity='0.25' filter='url(#neonGlow)'/>
+    <circle cx='400' cy='100' r='2' fill='#bbf351' fill-opacity='0.2'/>
+    <circle cx='900' cy='550' r='2' fill='#00bcff' fill-opacity='0.2'/>
+  </g>
+  <!-- 主标题 -->
+  <g id='cover-main' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='220' font-size='15' fill='#bbf351' font-weight='600' letter-spacing='8'>SUMMER ANIME FESTIVAL 2025</text>
+    <text x='640' y='320' font-size='80' font-weight='900' fill='#111827' letter-spacing='6' filter='url(#strongGlow)'>
+      夏日动漫嘉年华
+    </text>
+    <!-- 霓虹装饰线 -->
+    <rect x='540' y='350' width='200' height='2' rx='1' fill='url(#neonGlow)'/>
+    <rect x='540' y='353' width='200' height='2' rx='1' fill='#bbf351' fill-opacity='0.3' filter='url(#neonGlow)'/>
+    <text x='640' y='415' font-size='20' fill='#70747d' font-weight='300' letter-spacing='4'>
+      宫崎骏主题特展 · 二次元文化盛会
+    </text>
+    <text x='640' y='465' font-size='14' fill='#abaeb3' letter-spacing='2'>2025.08.15 — 08.17 · 国家会展中心</text>
+    <!-- 霓虹按钮 -->
+    <rect x='580' y='500' width='120' height='38' rx='19' fill='none' stroke='#bbf351' stroke-width='1.5'/>
+    <rect x='580' y='500' width='120' height='38' rx='19' fill='#bbf351' fill-opacity='0.08'/>
+    <text x='640' y='525' font-size='13' fill='#bbf351' font-weight='600'>立即购票</text>
+  </g>
+  <!-- 底部霓虹线 -->
+  <g id='decor-bottom'>
+    <rect x='0' y='710' width='1280' height='1' fill='#bbf351' fill-opacity='0.15'/>
+    <rect x='0' y='712' width='1280' height='1' fill='#00bcff' fill-opacity='0.08'/>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3'>01 / 11</text>
+  </g>
+  <!-- notes: 封面——霓虹开场，灯光暗下来，正文案从屏幕中间浮现。先念标题，停顿，再念日期。 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <linearGradient id='neonGrad2' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='#bbf351'/>
+      <stop offset='100%' stop-color='#00bcff'/>
+    </linearGradient>
+    <filter id='glowDot' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='4'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <!-- 网格 -->
+    <line x1='0' y1='180' x2='1280' y2='180' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='540' x2='1280' y2='540' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='640' y1='0' x2='640' y2='720' stroke='#00bcff' stroke-opacity='0.03' stroke-width='1'/>
+  </g>
+  <!-- 光点 -->
+  <g id='decor-dots'>
+    <circle cx='200' cy='100' r='2.5' fill='#bbf351' fill-opacity='0.3' filter='url(#glowDot)'/>
+    <circle cx='1100' cy='120' r='2' fill='#00bcff' fill-opacity='0.25' filter='url(#glowDot)'/>
+    <circle cx='150' cy='550' r='1.5' fill='#bbf351' fill-opacity='0.2'/>
+    <circle cx='1150' cy='500' r='2' fill='#00bcff' fill-opacity='0.2'/>
+  </g>
+  <!-- 页眉 -->
+  <g id='page-header'>
+    <text x='80' y='80' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>目录 CONTENTS</text>
+    <rect x='80' y='95' width='60' height='2' rx='1' fill='url(#neonGrad2)'/>
+  </g>
+  <!-- 主标题 -->
+  <g id='toc-title'>
+    <text x='80' y='190' font-size='42' font-weight='800' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>
+      探索奇幻世界
+    </text>
+    <text x='80' y='230' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>四大篇章 · 从宫崎骏的魔法到二次元未来</text>
+  </g>
+  <!-- 目录项 -->
+  <g id='toc-items' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 01 -->
+    <g transform='translate(80, 290)'>
+      <rect width='520' height='80' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='30' y='46' font-size='28' font-weight='900' fill='#bbf351'>01</text>
+      <text x='75' y='46' font-size='20' font-weight='700' fill='#111827'>展会概览</text>
+      <text x='480' y='46' font-size='13' fill='#abaeb3' text-anchor='end'>P.03</text>
+      <line x1='30' y1='58' x2='490' y2='58' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='30' y='72' font-size='13' fill='#70747d'>数据亮点 · 参展阵容 · 展区布局</text>
+    </g>
+    <!-- 02 -->
+    <g transform='translate(80, 390)'>
+      <rect width='520' height='80' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='30' y='46' font-size='28' font-weight='900' fill='#00bcff'>02</text>
+      <text x='75' y='46' font-size='20' font-weight='700' fill='#111827'>精彩活动</text>
+      <text x='480' y='46' font-size='13' fill='#abaeb3' text-anchor='end'>P.06</text>
+      <line x1='30' y1='58' x2='490' y2='58' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='30' y='72' font-size='13' fill='#70747d'>三日日程 · 重磅嘉宾 · Cosplay大赛</text>
+    </g>
+    <!-- 03 -->
+    <g transform='translate(80, 490)'>
+      <rect width='520' height='80' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='30' y='46' font-size='28' font-weight='900' fill='#bbf351'>03</text>
+      <text x='75' y='46' font-size='20' font-weight='700' fill='#111827'>参与方式</text>
+      <text x='480' y='46' font-size='13' fill='#abaeb3' text-anchor='end'>P.09</text>
+      <line x1='30' y1='58' x2='490' y2='58' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='30' y='72' font-size='13' fill='#70747d'>购票信息 · 交通指南 · 周边福利</text>
+    </g>
+    <!-- 04 -->
+    <g transform='translate(80, 590)'>
+      <rect width='520' height='80' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='30' y='46' font-size='28' font-weight='900' fill='#00bcff'>04</text>
+      <text x='75' y='46' font-size='20' font-weight='700' fill='#111827'>关于我们</text>
+      <text x='480' y='46' font-size='13' fill='#abaeb3' text-anchor='end'>P.11</text>
+      <line x1='30' y1='58' x2='490' y2='58' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='30' y='72' font-size='13' fill='#70747d'>主办方介绍 · 合作伙伴 · 联系我们</text>
+    </g>
+    <!-- 右侧霓虹装饰 -->
+    <g transform='translate(720, 290)'>
+      <rect width='480' height='380' rx='16' fill='#f9f9f9' fill-opacity='0.3' stroke='#bbf351' stroke-opacity='0.08' stroke-width='1'/>
+      <rect x='40' y='40' width='400' height='300' rx='12' fill='none' stroke='#bbf351' stroke-opacity='0.06' stroke-width='1' stroke-dasharray='4,6'/>
+      <!-- 中心发光符号 -->
+      <circle cx='240' cy='190' r='90' fill='none' stroke='#bbf351' stroke-opacity='0.08' stroke-width='1.5'/>
+      <circle cx='240' cy='190' r='60' fill='#bbf351' fill-opacity='0.04'/>
+      <text x='240' y='200' text-anchor='middle' font-size='52' font-weight='900' fill='#bbf351' fill-opacity='0.12' font-family='Inter,Noto Sans SC,sans-serif'>夏</text>
+      <circle cx='240' cy='190' r='4' fill='#bbf351' fill-opacity='0.15' filter='url(#glowDot)'/>
+      <!-- 周围光点 -->
+      <circle cx='160' cy='130' r='2' fill='#bbf351' fill-opacity='0.25' filter='url(#glowDot)'/>
+      <circle cx='320' cy='140' r='2' fill='#00bcff' fill-opacity='0.2' filter='url(#glowDot)'/>
+      <circle cx='160' cy='260' r='1.5' fill='#bbf351' fill-opacity='0.2'/>
+      <circle cx='330' cy='260' r='2' fill='#00bcff' fill-opacity='0.2'/>
+    </g>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>02 / 11</text>
+  </g>
+  <!-- notes: 目录页——"路线图。四个板块带大家走完今天的内容。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <linearGradient id='neonDiv1' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='#bbf351'/>
+      <stop offset='100%' stop-color='#00bcff'/>
+    </linearGradient>
+    <filter id='glowBig' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='15'/>
+    </filter>
+    <filter id='glowSmall' x='-40%' y='-40%' width='180%' height='180%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='5'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <!-- 网格 -->
+    <line x1='0' y1='180' x2='1280' y2='180' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='540' x2='1280' y2='540' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+  </g>
+  <g id='decor-neon-bg'>
+    <!-- 大圆环 -->
+    <circle cx='640' cy='360' r='280' fill='none' stroke='#bbf351' stroke-opacity='0.04' stroke-width='1.5'/>
+    <circle cx='640' cy='360' r='240' fill='none' stroke='#00bcff' stroke-opacity='0.03' stroke-width='1' stroke-dasharray='3,8'/>
+    <circle cx='640' cy='360' r='160' fill='none' stroke='#bbf351' stroke-opacity='0.04' stroke-width='1'/>
+    <!-- 动感光线 -->
+    <line x1='360' y1='360' x2='920' y2='360' stroke='#bbf351' stroke-opacity='0.06' stroke-width='1'/>
+    <line x1='640' y1='80' x2='640' y2='640' stroke='#bbf351' stroke-opacity='0.06' stroke-width='1'/>
+  </g>
+  <!-- 发光粒子 -->
+  <g id='decor-particles'>
+    <circle cx='200' cy='200' r='3' fill='#bbf351' fill-opacity='0.25' filter='url(#glowSmall)'/>
+    <circle cx='1080' cy='180' r='2.5' fill='#00bcff' fill-opacity='0.2' filter='url(#glowSmall)'/>
+    <circle cx='250' cy='500' r='2' fill='#bbf351' fill-opacity='0.2'/>
+    <circle cx='1050' cy='520' r='2' fill='#00bcff' fill-opacity='0.2'/>
+  </g>
+  <!-- 大数字 -->
+  <g id='section-number' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='330' font-size='200' font-weight='900' fill='#bbf351' fill-opacity='0.08'>01</text>
+    <text x='640' y='320' font-size='200' font-weight='900' fill='#bbf351' fill-opacity='0.04' filter='url(#glowBig)'>01</text>
+  </g>
+  <!-- 标题 -->
+  <g id='section-title' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='310' font-size='14' fill='#bbf351' font-weight='600' letter-spacing='8'>CHAPTER 01</text>
+    <text x='640' y='395' font-size='56' font-weight='800' fill='#111827' letter-spacing='6'>展会概览</text>
+    <rect x='590' y='425' width='100' height='2' rx='1' fill='url(#neonDiv1)'/>
+    <rect x='590' y='428' width='100' height='2' rx='1' fill='#bbf351' fill-opacity='0.3' filter='url(#glowSmall)'/>
+    <text x='640' y='475' font-size='18' fill='#70747d' font-weight='300'>数据与规模 · 参展阵容 · 展区规划</text>
+    <!-- 底部装饰 -->
+    <line x1='540' y1='520' x2='740' y2='520' stroke='#c3c5c9' stroke-width='1'/>
+    <circle cx='640' cy='520' r='3' fill='#bbf351' fill-opacity='0.4' filter='url(#glowSmall)'/>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>03 / 11</text>
+  </g>
+  <!-- notes: 章节过渡——"第一章，用数据感受这届漫展的规模和温度。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <filter id='glowDot4' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='4'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <!-- 角落光晕 -->
+    <circle cx='0' cy='0' r='400' fill='#bbf351' fill-opacity='0.03'/>
+    <circle cx='1280' cy='720' r='400' fill='#00bcff' fill-opacity='0.03'/>
+  </g>
+  <g id='decor-dots'>
+    <circle cx='200' cy='120' r='2' fill='#bbf351' fill-opacity='0.2' filter='url(#glowDot4)'/>
+    <circle cx='1100' cy='150' r='2.5' fill='#00bcff' fill-opacity='0.2' filter='url(#glowDot4)'/>
+    <path d='M300,80 Q306,73 312,80 Q306,87 300,80 Z' fill='#bbf351' fill-opacity='0.3'/>
+    <path d='M1000,100 Q1008,92 1016,100 Q1008,108 1000,100 Z' fill='#00bcff' fill-opacity='0.25'/>
+  </g>
+  <!-- 页眉 -->
+  <g id='page-header'>
+    <text x='80' y='80' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>展会数据</text>
+    <rect x='80' y='95' width='40' height='2' rx='1' fill='#bbf351'/>
+  </g>
+  <!-- 标题 -->
+  <g id='section-title'>
+    <text x='80' y='165' font-size='38' font-weight='800' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>
+      以数据看规模
+    </text>
+    <text x='80' y='200' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>本届嘉年华创历届之最，四大核心指标全面突破</text>
+  </g>
+  <!-- KPI 网格 -->
+  <g id='kpi-grid' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- KPI 1 -->
+    <g transform='translate(80, 260)'>
+      <rect width='540' height='190' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='540' height='3' rx='1.5' fill='#bbf351'/>
+      <text x='40' y='50' font-size='13' fill='#abaeb3' letter-spacing='2'>参展品牌</text>
+      <text x='40' y='115' font-size='56' font-weight='900' fill='#bbf351'>
+        <tspan font-size='24' fill='#70747d'>+</tspan>200
+      </text>
+      <text x='40' y='155' font-size='14' fill='#16a34a' font-weight='600'>较上届增长<tspan font-weight='bold'>35%</tspan></text>
+    </g>
+    <!-- KPI 2 -->
+    <g transform='translate(660, 260)'>
+      <rect width='540' height='190' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='540' height='3' rx='1.5' fill='#00bcff'/>
+      <text x='40' y='50' font-size='13' fill='#abaeb3' letter-spacing='2'>预计观众</text>
+      <text x='40' y='115' font-size='56' font-weight='900' fill='#00bcff'>
+        <tspan font-size='24' fill='#70747d'>~</tspan>5<tspan font-size='24'>万</tspan>
+      </text>
+      <text x='40' y='155' font-size='14' fill='#16a34a' font-weight='600'>覆盖全国<tspan font-weight='bold'>28</tspan>个省份</text>
+    </g>
+    <!-- KPI 3 -->
+    <g transform='translate(80, 475)'>
+      <rect width='540' height='190' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='540' height='3' rx='1.5' fill='#bbf351'/>
+      <text x='40' y='50' font-size='13' fill='#abaeb3' letter-spacing='2'>特邀嘉宾</text>
+      <text x='40' y='115' font-size='56' font-weight='900' fill='#bbf351'>
+        <tspan font-size='24' fill='#70747d'>+</tspan>30<tspan font-size='24'>位</tspan>
+      </text>
+      <text x='40' y='155' font-size='14' fill='#70747d' font-weight='600'>日本·中国·欧美声优与创作者</text>
+    </g>
+    <!-- KPI 4 -->
+    <g transform='translate(660, 475)'>
+      <rect width='540' height='190' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='540' height='3' rx='1.5' fill='#00bcff'/>
+      <text x='40' y='50' font-size='13' fill='#abaeb3' letter-spacing='2'>媒体曝光</text>
+      <text x='40' y='115' font-size='56' font-weight='900' fill='#00bcff'>
+        <tspan font-size='24' fill='#70747d'>+</tspan>100<tspan font-size='24'>家</tspan>
+      </text>
+      <text x='40' y='155' font-size='14' fill='#70747d' font-weight='600'>全媒体覆盖 · 预计触达<tspan font-weight='bold'>5000万+</tspan></text>
+    </g>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>04 / 11</text>
+  </g>
+  <!-- notes: KPIs——"四个数字：200+品牌、5万观众、30+嘉宾、100+媒体。每一项都在刷新纪录。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <filter id='glowDot5' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='4'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <circle cx='1280' cy='0' r='350' fill='#00bcff' fill-opacity='0.03'/>
+  </g>
+  <g id='decor-dots'>
+    <circle cx='120' cy='130' r='2' fill='#bbf351' fill-opacity='0.25' filter='url(#glowDot5)'/>
+    <circle cx='1160' cy='180' r='2.5' fill='#00bcff' fill-opacity='0.2' filter='url(#glowDot5)'/>
+    <path d='M280,100 Q286,93 292,100 Q286,107 280,100 Z' fill='#bbf351' fill-opacity='0.25'/>
+    <path d='M1050,120 Q1058,112 1066,120 Q1058,128 1050,120 Z' fill='#00bcff' fill-opacity='0.2'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='80' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>展区规划</text>
+    <rect x='80' y='95' width='40' height='2' rx='1' fill='#bbf351'/>
+  </g>
+  <g id='section-title'>
+    <text x='80' y='165' font-size='38' font-weight='800' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>
+      三大主题展区
+    </text>
+    <text x='80' y='200' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>从经典到前沿，沉浸式体验二次元文化</text>
+  </g>
+  <!-- 三个展区卡片 -->
+  <g id='zone-cards' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 展区 1 -->
+    <g transform='translate(80, 260)'>
+      <rect width='360' height='400' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='360' height='4' rx='2' fill='#bbf351'/>
+      <rect x='20' y='40' width='320' height='1' fill='#c3c5c9'/>
+      <circle cx='50' cy='65' r='20' fill='#bbf351' fill-opacity='0.1'/>
+      <text x='50' y='72' text-anchor='middle' font-size='16' font-weight='900' fill='#bbf351'>01</text>
+      <text x='90' y='72' font-size='20' font-weight='700' fill='#111827'>吉卜力经典</text>
+      <text x='20' y='110' font-size='12' fill='#bbf351' font-weight='600' letter-spacing='2'>宫崎骏动画世界</text>
+      <circle cx='30' cy='155' r='2.5' fill='#bbf351' fill-opacity='0.6'/>
+      <text x='45' y='160' font-size='14' fill='#70747d'>《千与千寻》沉浸式场景</text>
+      <circle cx='30' cy='195' r='2.5' fill='#bbf351' fill-opacity='0.6'/>
+      <text x='45' y='200' font-size='14' fill='#70747d'>《龙猫》森林漫步体验</text>
+      <circle cx='30' cy='235' r='2.5' fill='#bbf351' fill-opacity='0.6'/>
+      <text x='45' y='240' font-size='14' fill='#70747d'>《天空之城》原画展</text>
+      <circle cx='30' cy='275' r='2.5' fill='#bbf351' fill-opacity='0.6'/>
+      <text x='45' y='280' font-size='14' fill='#70747d'>《哈尔的移动城堡》装置</text>
+      <circle cx='30' cy='315' r='2.5' fill='#bbf351' fill-opacity='0.6'/>
+      <text x='45' y='320' font-size='14' fill='#70747d'>吉卜力周边限定商店</text>
+      <rect x='20' y='355' width='80' height='24' rx='12' fill='none' stroke='#bbf351' stroke-width='1'/>
+      <text x='60' y='372' text-anchor='middle' font-size='11' fill='#bbf351' font-weight='600'>经典必看</text>
+    </g>
+    <!-- 展区 2 -->
+    <g transform='translate(460, 260)'>
+      <rect width='360' height='400' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='360' height='4' rx='2' fill='#00bcff'/>
+      <rect x='20' y='40' width='320' height='1' fill='#c3c5c9'/>
+      <circle cx='50' cy='65' r='20' fill='#00bcff' fill-opacity='0.1'/>
+      <text x='50' y='72' text-anchor='middle' font-size='16' font-weight='900' fill='#00bcff'>02</text>
+      <text x='90' y='72' font-size='20' font-weight='700' fill='#111827'>二次元新浪潮</text>
+      <text x='20' y='110' font-size='12' fill='#00bcff' font-weight='600' letter-spacing='2'>当代动漫文化</text>
+      <circle cx='30' cy='155' r='2.5' fill='#00bcff' fill-opacity='0.6'/>
+      <text x='45' y='160' font-size='14' fill='#70747d'>热门番剧主题展区</text>
+      <circle cx='30' cy='195' r='2.5' fill='#00bcff' fill-opacity='0.6'/>
+      <text x='45' y='200' font-size='14' fill='#70747d'>Cosplay 表演大舞台</text>
+      <circle cx='30' cy='235' r='2.5' fill='#00bcff' fill-opacity='0.6'/>
+      <text x='45' y='240' font-size='14' fill='#70747d'>同人创作市集</text>
+      <circle cx='30' cy='275' r='2.5' fill='#00bcff' fill-opacity='0.6'/>
+      <text x='45' y='280' font-size='14' fill='#70747d'>声优见面会专区</text>
+      <circle cx='30' cy='315' r='2.5' fill='#00bcff' fill-opacity='0.6'/>
+      <text x='45' y='320' font-size='14' fill='#70747d'>VR 互动体验区</text>
+      <rect x='20' y='355' width='80' height='24' rx='12' fill='none' stroke='#00bcff' stroke-width='1'/>
+      <text x='60' y='372' text-anchor='middle' font-size='11' fill='#00bcff' font-weight='600'>潮流打卡</text>
+    </g>
+    <!-- 展区 3 -->
+    <g transform='translate(840, 260)'>
+      <rect width='360' height='400' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='360' height='4' rx='2' fill='#bbf351' fill-opacity='0.6'/>
+      <rect x='20' y='40' width='320' height='1' fill='#c3c5c9'/>
+      <circle cx='50' cy='65' r='20' fill='#bbf351' fill-opacity='0.1'/>
+      <text x='50' y='72' text-anchor='middle' font-size='16' font-weight='900' fill='#bbf351' fill-opacity='0.7'>03</text>
+      <text x='90' y='72' font-size='20' font-weight='700' fill='#111827'>创作与交流</text>
+      <text x='20' y='110' font-size='12' fill='#bbf351' fill-opacity='0.7' font-weight='600' letter-spacing='2'>深度体验</text>
+      <circle cx='30' cy='155' r='2.5' fill='#bbf351' fill-opacity='0.6'/>
+      <text x='45' y='160' font-size='14' fill='#70747d'>动画制作工作坊</text>
+      <circle cx='30' cy='195' r='2.5' fill='#bbf351' fill-opacity='0.6'/>
+      <text x='45' y='200' font-size='14' fill='#70747d'>插画师现场签绘</text>
+      <circle cx='30' cy='235' r='2.5' fill='#bbf351' fill-opacity='0.6'/>
+      <text x='45' y='240' font-size='14' fill='#70747d'>行业大咖分享会</text>
+      <circle cx='30' cy='275' r='2.5' fill='#bbf351' fill-opacity='0.6'/>
+      <text x='45' y='280' font-size='14' fill='#70747d'>原创 IP 孵化路演</text>
+      <circle cx='30' cy='315' r='2.5' fill='#bbf351' fill-opacity='0.6'/>
+      <text x='45' y='320' font-size='14' fill='#70747d'>动漫音乐 Live 现场</text>
+      <rect x='20' y='355' width='80' height='24' rx='12' fill='none' stroke='#bbf351' stroke-width='1'/>
+      <text x='60' y='372' text-anchor='middle' font-size='11' fill='#bbf351' fill-opacity='0.7' font-weight='600'>深度体验</text>
+    </g>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>05 / 11</text>
+  </g>
+  <!-- notes: 三大展区——"经典区、潮流区、创作区，三大板块各有各的玩法。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <linearGradient id='neonDiv2' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='#00bcff'/>
+      <stop offset='100%' stop-color='#bbf351'/>
+    </linearGradient>
+    <filter id='glowBig2' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='15'/>
+    </filter>
+    <filter id='glowSmall2' x='-40%' y='-40%' width='180%' height='180%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='5'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <line x1='0' y1='180' x2='1280' y2='180' stroke='#00bcff' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#00bcff' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='540' x2='1280' y2='540' stroke='#00bcff' stroke-opacity='0.03' stroke-width='1'/>
+  </g>
+  <g id='decor-neon-bg'>
+    <circle cx='640' cy='360' r='300' fill='none' stroke='#00bcff' stroke-opacity='0.04' stroke-width='1.5'/>
+    <circle cx='640' cy='360' r='250' fill='none' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1' stroke-dasharray='3,8'/>
+    <circle cx='640' cy='360' r='170' fill='none' stroke='#00bcff' stroke-opacity='0.04' stroke-width='1'/>
+    <line x1='340' y1='360' x2='940' y2='360' stroke='#00bcff' stroke-opacity='0.06' stroke-width='1'/>
+    <line x1='640' y1='60' x2='640' y2='660' stroke='#00bcff' stroke-opacity='0.06' stroke-width='1'/>
+  </g>
+  <g id='decor-particles'>
+    <circle cx='250' cy='220' r='3' fill='#00bcff' fill-opacity='0.25' filter='url(#glowSmall2)'/>
+    <circle cx='1050' cy='200' r='2.5' fill='#bbf351' fill-opacity='0.2' filter='url(#glowSmall2)'/>
+    <circle cx='220' cy='500' r='2' fill='#00bcff' fill-opacity='0.2'/>
+    <circle cx='1080' cy='520' r='2' fill='#bbf351' fill-opacity='0.2'/>
+  </g>
+  <g id='section-number' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='330' font-size='200' font-weight='900' fill='#00bcff' fill-opacity='0.08'>02</text>
+    <text x='640' y='320' font-size='200' font-weight='900' fill='#00bcff' fill-opacity='0.04' filter='url(#glowBig2)'>02</text>
+  </g>
+  <g id='section-title' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='310' font-size='14' fill='#00bcff' font-weight='600' letter-spacing='8'>CHAPTER 02</text>
+    <text x='640' y='395' font-size='56' font-weight='800' fill='#111827' letter-spacing='6'>精彩活动</text>
+    <rect x='590' y='425' width='100' height='2' rx='1' fill='url(#neonDiv2)'/>
+    <rect x='590' y='428' width='100' height='2' rx='1' fill='#00bcff' fill-opacity='0.3' filter='url(#glowSmall2)'/>
+    <text x='640' y='475' font-size='18' fill='#70747d' font-weight='300'>三日不间断 · 从早到晚的二次元狂欢</text>
+    <line x1='540' y1='520' x2='740' y2='520' stroke='#c3c5c9' stroke-width='1'/>
+    <circle cx='640' cy='520' r='3' fill='#00bcff' fill-opacity='0.4' filter='url(#glowSmall2)'/>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>06 / 11</text>
+  </g>
+  <!-- notes: 章节过渡——"第二章，三天活动，每天都有重头戏。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <linearGradient id='lineNeon' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='#bbf351'/>
+      <stop offset='50%' stop-color='#00bcff'/>
+      <stop offset='100%' stop-color='#bbf351'/>
+    </linearGradient>
+    <filter id='glowDot7' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='4'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <circle cx='0' cy='720' r='350' fill='#bbf351' fill-opacity='0.03'/>
+  </g>
+  <g id='decor-dots'>
+    <circle cx='200' cy='80' r='2' fill='#bbf351' fill-opacity='0.2' filter='url(#glowDot7)'/>
+    <circle cx='1100' cy='100' r='1.5' fill='#00bcff' fill-opacity='0.2'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='80' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>活动日程</text>
+    <rect x='80' y='95' width='40' height='2' rx='1' fill='#bbf351'/>
+  </g>
+  <g id='section-title'>
+    <text x='80' y='165' font-size='38' font-weight='800' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>
+      三日狂欢日程
+    </text>
+    <text x='80' y='200' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>三天三主题，天天都有重头戏</text>
+  </g>
+  <!-- 时间轴 -->
+  <g id='timeline' font-family='Inter,Noto Sans SC,sans-serif'>
+    <line x1='120' y1='260' x2='120' y2='660' stroke='url(#lineNeon)' stroke-width='2' stroke-opacity='0.3' stroke-linecap='round'/>
+    
+    <!-- Day 1 -->
+    <circle cx='120' cy='300' r='10' fill='#ffffff' stroke='#bbf351' stroke-width='2.5'/>
+    <circle cx='120' cy='300' r='4' fill='#bbf351' filter='url(#glowDot7)'/>
+    <text x='155' y='300' font-size='20' font-weight='700' fill='#111827'>8月15日 · 经典日</text>
+    <text x='155' y='328' font-size='13' fill='#70747d'>09:00 开幕仪式 · 主舞台</text>
+    <text x='155' y='352' font-size='13' fill='#70747d'>10:30 宫崎骏动画回顾展 · 吉卜力区</text>
+    <text x='155' y='376' font-size='13' fill='#70747d'>14:00 《龙猫》主题交响音乐会 · 演艺厅</text>
+    <text x='155' y='400' font-size='13' fill='#70747d'>19:00 经典动画放映夜 · 露天影院</text>
+
+    <!-- Day 2 -->
+    <circle cx='120' cy='450' r='10' fill='#ffffff' stroke='#00bcff' stroke-width='2.5'/>
+    <circle cx='120' cy='450' r='4' fill='#00bcff' filter='url(#glowDot7)'/>
+    <text x='155' y='450' font-size='20' font-weight='700' fill='#111827'>8月16日 · 潮流日</text>
+    <text x='155' y='478' font-size='13' fill='#70747d'>10:00 Cosplay 大赛海选 · 新浪潮舞台</text>
+    <text x='155' y='502' font-size='13' fill='#70747d'>13:00 人气声优见面会 · 主舞台</text>
+    <text x='155' y='526' font-size='13' fill='#70747d'>15:30 同人画师签售会 · 创作交流区</text>
+    <text x='155' y='550' font-size='13' fill='#70747d'>20:00 动漫电音派对 · 户外广场</text>
+
+    <!-- Day 3 -->
+    <circle cx='120' cy='600' r='10' fill='#ffffff' stroke='#bbf351' stroke-width='2.5' stroke-opacity='0.6'/>
+    <circle cx='120' cy='600' r='4' fill='#bbf351' fill-opacity='0.6'/>
+    <text x='155' y='600' font-size='20' font-weight='700' fill='#111827'>8月17日 · 创作日</text>
+    <text x='155' y='628' font-size='13' fill='#70747d'>10:00 动画制作公开课 · 工作坊区</text>
+    <text x='155' y='652' font-size='13' fill='#70747d'>14:00 原创 IP 路演决赛 · 主舞台</text>
+    <text x='155' y='676' font-size='13' fill='#70747d'>17:00 闭幕颁奖典礼 · 主舞台</text>
+    
+    <!-- 右侧亮点 -->
+    <g transform='translate(800, 260)'>
+      <rect width='400' height='410' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='400' height='3' rx='1.5' fill='#bbf351'/>
+      <text x='25' y='40' font-size='16' font-weight='700' fill='#111827'>🌟 每日亮点</text>
+      <line x1='25' y1='55' x2='375' y2='55' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='25' y='85' font-size='13' fill='#bbf351' font-weight='700'>Day 1 经典日</text>
+      <text x='25' y='108' font-size='13' fill='#70747d'>《龙猫》交响音乐会 · 限量版海报赠送</text>
+      <text x='25' y='145' font-size='13' fill='#00bcff' font-weight='700'>Day 2 潮流日</text>
+      <text x='25' y='168' font-size='13' fill='#70747d'>Cosplay 大赛冠军<tspan font-weight='bold'>奖金 3 万元</tspan></text>
+      <text x='25' y='205' font-size='13' fill='#bbf351' fill-opacity='0.6' font-weight='700'>Day 3 创作日</text>
+      <text x='25' y='228' font-size='13' fill='#70747d'>得奖 IP 可获投资孵化机会</text>
+      <line x1='25' y1='260' x2='375' y2='260' stroke='#c3c5c9' stroke-width='1' stroke-dasharray='4,4'/>
+      <text x='25' y='295' font-size='15' font-weight='600' fill='#111827'>通票福利</text>
+      <line x1='25' y1='312' x2='375' y2='312' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='25' y='340' font-size='13' fill='#70747d'>🎫 三日通票含全部主题活动</text>
+      <text x='25' y='368' font-size='13' fill='#70747d'>🎁 限量版纪念周边礼包</text>
+    </g>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>07 / 11</text>
+  </g>
+  <!-- notes: 日程页——"三天安排，经典日、潮流日、创作日，每天一个主题。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <filter id='cardGlow' x='-15%' y='-15%' width='130%' height='130%'>
+      <feGaussianBlur in='SourceAlpha' stdDeviation='6'/>
+      <feOffset dx='0' dy='4'/>
+      <feFlood flood-color='#bbf351' flood-opacity='0.08'/>
+      <feComposite in2='SourceGraphic' operator='in'/>
+      <feMerge><feMergeNode/><feMergeNode in='SourceGraphic'/></feMerge>
+    </filter>
+    <filter id='glowDot8' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='4'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <circle cx='1280' cy='0' r='350' fill='#00bcff' fill-opacity='0.03'/>
+    <circle cx='0' cy='720' r='350' fill='#bbf351' fill-opacity='0.03'/>
+  </g>
+  <g id='decor-dots'>
+    <circle cx='180' cy='120' r='2' fill='#bbf351' fill-opacity='0.2' filter='url(#glowDot8)'/>
+    <circle cx='1120' cy='100' r='2.5' fill='#00bcff' fill-opacity='0.2' filter='url(#glowDot8)'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='80' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>重磅嘉宾</text>
+    <rect x='80' y='95' width='40' height='2' rx='1' fill='#bbf351'/>
+  </g>
+  <g id='section-title'>
+    <text x='80' y='165' font-size='38' font-weight='800' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>
+      重磅嘉宾阵容
+    </text>
+    <text x='80' y='200' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>跨越中日 · 声优·画师·导演齐聚一堂</text>
+  </g>
+  <g id='guest-cards' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 嘉宾 1 -->
+    <g filter='url(#cardGlow)'>
+      <rect x='80' y='250' width='530' height='200' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='80' y='250' width='530' height='3' rx='1.5' fill='#bbf351'/>
+      <circle cx='135' cy='350' r='38' fill='#bbf351' fill-opacity='0.08'/>
+      <text x='135' y='358' text-anchor='middle' font-size='24' fill='#bbf351'>🎙</text>
+      <text x='195' y='310' font-size='22' font-weight='700' fill='#111827'>宫崎 骏</text>
+      <rect x='195' y='324' width='80' height='22' rx='11' fill='#bbf351' fill-opacity='0.12'/>
+      <text x='235' y='339' text-anchor='middle' font-size='11' fill='#bbf351' font-weight='600'>吉卜力创始人</text>
+      <text x='195' y='370' font-size='13' fill='#70747d'>吉卜力工作室创始人之一</text>
+      <text x='195' y='394' font-size='13' fill='#70747d'>动画电影大师 · 奥斯卡终身成就奖</text>
+      <text x='195' y='422' font-size='12' fill='#bbf351' font-weight='600'>📅 8月15日 经典区</text>
+    </g>
+    <!-- 嘉宾 2 -->
+    <g filter='url(#cardGlow)'>
+      <rect x='670' y='250' width='530' height='200' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='670' y='250' width='530' height='3' rx='1.5' fill='#00bcff'/>
+      <circle cx='725' cy='350' r='38' fill='#00bcff' fill-opacity='0.08'/>
+      <text x='725' y='358' text-anchor='middle' font-size='24' fill='#00bcff'>🎵</text>
+      <text x='785' y='310' font-size='22' font-weight='700' fill='#111827'>久石 让</text>
+      <rect x='785' y='324' width='80' height='22' rx='11' fill='#00bcff' fill-opacity='0.12'/>
+      <text x='825' y='339' text-anchor='middle' font-size='11' fill='#00bcff' font-weight='600'>传奇作曲家</text>
+      <text x='785' y='370' font-size='13' fill='#70747d'>吉卜力御用配乐大师</text>
+      <text x='785' y='394' font-size='13' fill='#70747d'>《千与千寻》《龙猫》主题曲创作者</text>
+      <text x='785' y='422' font-size='12' fill='#00bcff' font-weight='600'>📅 8月15日 交响音乐会</text>
+    </g>
+    <!-- 嘉宾 3 -->
+    <g filter='url(#cardGlow)'>
+      <rect x='80' y='480' width='530' height='200' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='80' y='480' width='530' height='3' rx='1.5' fill='#bbf351' fill-opacity='0.6'/>
+      <circle cx='135' cy='580' r='38' fill='#bbf351' fill-opacity='0.08'/>
+      <text x='135' y='588' text-anchor='middle' font-size='24' fill='#bbf351'>🎨</text>
+      <text x='195' y='540' font-size='22' font-weight='700' fill='#111827'>新海 诚</text>
+      <rect x='195' y='554' width='80' height='22' rx='11' fill='#bbf351' fill-opacity='0.12'/>
+      <text x='235' y='569' text-anchor='middle' font-size='11' fill='#bbf351' font-weight='600'>动画导演</text>
+      <text x='195' y='600' font-size='13' fill='#70747d'>《你的名字。》《铃芽之旅》导演</text>
+      <text x='195' y='624' font-size='13' fill='#70747d'>新世代动画美学代表人物</text>
+      <text x='195' y='652' font-size='12' fill='#bbf351' fill-opacity='0.6' font-weight='600'>📅 8月16日 主舞台</text>
+    </g>
+    <!-- 嘉宾 4 -->
+    <g filter='url(#cardGlow)'>
+      <rect x='670' y='480' width='530' height='200' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='670' y='480' width='530' height='3' rx='1.5' fill='#00bcff'/>
+      <circle cx='725' cy='580' r='38' fill='#00bcff' fill-opacity='0.08'/>
+      <text x='725' y='588' text-anchor='middle' font-size='24' fill='#00bcff'>🌸</text>
+      <text x='785' y='540' font-size='22' font-weight='700' fill='#111827'>花江夏树</text>
+      <rect x='785' y='554' width='80' height='22' rx='11' fill='#00bcff' fill-opacity='0.12'/>
+      <text x='825' y='569' text-anchor='middle' font-size='11' fill='#00bcff' font-weight='600'>人气声优</text>
+      <text x='785' y='600' font-size='13' fill='#70747d'>《鬼灭之刃》灶门炭治郎 CV</text>
+      <text x='785' y='624' font-size='13' fill='#70747d'>代表作：《东京喰种》《四月是你的谎言》</text>
+      <text x='785' y='652' font-size='12' fill='#00bcff' font-weight='600'>📅 8月16日 声优见面会</text>
+    </g>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>08 / 11</text>
+  </g>
+  <!-- notes: 嘉宾页——"四位重量级。宫崎骏和久石让同一天，新海诚和花江夏树在第二天。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <linearGradient id='neonDiv3' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='#bbf351'/>
+      <stop offset='100%' stop-color='#00bcff'/>
+    </linearGradient>
+    <filter id='glowBig3' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='15'/>
+    </filter>
+    <filter id='glowSmall3' x='-40%' y='-40%' width='180%' height='180%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='5'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <line x1='0' y1='180' x2='1280' y2='180' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='540' x2='1280' y2='540' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+  </g>
+  <g id='decor-neon-bg'>
+    <circle cx='640' cy='360' r='320' fill='none' stroke='#bbf351' stroke-opacity='0.04' stroke-width='1.5'/>
+    <circle cx='640' cy='360' r='260' fill='none' stroke='#00bcff' stroke-opacity='0.03' stroke-width='1' stroke-dasharray='4,10'/>
+    <circle cx='640' cy='360' r='180' fill='none' stroke='#bbf351' stroke-opacity='0.04' stroke-width='1'/>
+    <line x1='320' y1='360' x2='960' y2='360' stroke='#bbf351' stroke-opacity='0.06' stroke-width='1'/>
+    <line x1='640' y1='40' x2='640' y2='680' stroke='#bbf351' stroke-opacity='0.06' stroke-width='1'/>
+  </g>
+  <g id='decor-particles'>
+    <circle cx='280' cy='200' r='3' fill='#bbf351' fill-opacity='0.25' filter='url(#glowSmall3)'/>
+    <circle cx='1020' cy='180' r='2.5' fill='#00bcff' fill-opacity='0.2' filter='url(#glowSmall3)'/>
+    <circle cx='200' cy='500' r='2' fill='#bbf351' fill-opacity='0.2'/>
+    <circle cx='1100' cy='520' r='2' fill='#00bcff' fill-opacity='0.2'/>
+  </g>
+  <g id='section-number' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='330' font-size='200' font-weight='900' fill='#bbf351' fill-opacity='0.08'>03</text>
+    <text x='640' y='320' font-size='200' font-weight='900' fill='#bbf351' fill-opacity='0.04' filter='url(#glowBig3)'>03</text>
+  </g>
+  <g id='section-title' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='310' font-size='14' fill='#bbf351' font-weight='600' letter-spacing='8'>CHAPTER 03</text>
+    <text x='640' y='395' font-size='56' font-weight='800' fill='#111827' letter-spacing='6'>参与方式</text>
+    <rect x='590' y='425' width='100' height='2' rx='1' fill='url(#neonDiv3)'/>
+    <rect x='590' y='428' width='100' height='2' rx='1' fill='#bbf351' fill-opacity='0.3' filter='url(#glowSmall3)'/>
+    <text x='640' y='475' font-size='18' fill='#70747d' font-weight='300'>立即加入 · 开启你的二次元夏日记</text>
+    <line x1='540' y1='520' x2='740' y2='520' stroke='#c3c5c9' stroke-width='1'/>
+    <circle cx='640' cy='520' r='3' fill='#bbf351' fill-opacity='0.4' filter='url(#glowSmall3)'/>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>09 / 11</text>
+  </g>
+  <!-- notes: 章节过渡——"最后说说怎么参与。票种、价格、交通，都安排好了。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <linearGradient id='btnGrad10' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='#bbf351'/>
+      <stop offset='100%' stop-color='#00bcff'/>
+    </linearGradient>
+    <filter id='btnGlow' x='-30%' y='-30%' width='160%' height='160%'>
+      <feGaussianBlur in='SourceAlpha' stdDeviation='10'/>
+      <feOffset dx='0' dy='5'/>
+      <feFlood flood-color='#bbf351' flood-opacity='0.25'/>
+      <feComposite in2='SourceGraphic' operator='in'/>
+      <feMerge><feMergeNode/><feMergeNode in='SourceGraphic'/></feMerge>
+    </filter>
+    <filter id='cardShadow10' x='-10%' y='-10%' width='130%' height='130%'>
+      <feGaussianBlur in='SourceAlpha' stdDeviation='6'/>
+      <feOffset dx='0' dy='3'/>
+      <feFlood flood-color='#000000' flood-opacity='0.15'/>
+      <feComposite in2='SourceGraphic' operator='in'/>
+      <feMerge><feMergeNode/><feMergeNode in='SourceGraphic'/></feMerge>
+    </filter>
+    <filter id='glowDot10' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='4'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <circle cx='0' cy='0' r='400' fill='#bbf351' fill-opacity='0.03'/>
+    <circle cx='1280' cy='720' r='400' fill='#00bcff' fill-opacity='0.03'/>
+  </g>
+  <g id='decor-dots'>
+    <circle cx='200' cy='150' r='2' fill='#bbf351' fill-opacity='0.2' filter='url(#glowDot10)'/>
+    <circle cx='1100' cy='120' r='1.5' fill='#00bcff' fill-opacity='0.2'/>
+    <circle cx='100' cy='500' r='2' fill='#bbf351' fill-opacity='0.2'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='80' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>购票信息</text>
+    <rect x='80' y='95' width='40' height='2' rx='1' fill='#bbf351'/>
+  </g>
+  <g id='section-title'>
+    <text x='80' y='165' font-size='38' font-weight='800' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>
+      加入这场夏日狂想
+    </text>
+    <text x='80' y='200' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>早鸟优惠进行中 · 选一份属于你的入场券</text>
+  </g>
+  <g id='ticket-cards' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 基础票 -->
+    <g transform='translate(80, 260)'>
+      <rect width='350' height='350' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1' filter='url(#cardShadow10)'/>
+      <rect x='0' y='0' width='350' height='3' rx='1.5' fill='#bbf351' fill-opacity='0.4'/>
+      <text x='175' y='55' text-anchor='middle' font-size='18' font-weight='700' fill='#111827'>单日票</text>
+      <text x='175' y='105' text-anchor='middle' font-size='42' font-weight='900' fill='#bbf351'>
+        ¥<tspan font-size='56'>128</tspan>
+      </text>
+      <text x='175' y='130' text-anchor='middle' font-size='13' fill='#abaeb3'>早鸟价 ¥88（限前1000张）</text>
+      <line x1='30' y1='150' x2='320' y2='150' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='35' y='178' font-size='13' fill='#70747d'>✔ 单日展区通行</text>
+      <text x='35' y='208' font-size='13' fill='#70747d'>✔ 基础舞台表演</text>
+      <text x='35' y='238' font-size='13' fill='#70747d'>✔ 展会周边手册</text>
+      <text x='35' y='268' font-size='13' fill='#abaeb3'>✘ 声优见面会</text>
+      <text x='35' y='298' font-size='13' fill='#abaeb3'>✘ 限定周边礼包</text>
+    </g>
+    <!-- 推荐票 -->
+    <g transform='translate(465, 250)'>
+      <rect width='350' height='370' rx='12' fill='#f9f9f9' stroke='#bbf351' stroke-width='2'/>
+      <rect x='0' y='0' width='350' height='3' rx='1.5' fill='#bbf351'/>
+      <rect x='100' y='0' width='150' height='28' rx='14' fill='#bbf351'/>
+      <text x='175' y='19' text-anchor='middle' font-size='12' fill='#ffffff' font-weight='700'>🔥 最受欢迎</text>
+      <text x='175' y='75' text-anchor='middle' font-size='18' font-weight='700' fill='#111827'>三日通票</text>
+      <text x='175' y='125' text-anchor='middle' font-size='42' font-weight='900' fill='#bbf351'>
+        ¥<tspan font-size='56'>268</tspan>
+      </text>
+      <text x='175' y='150' text-anchor='middle' font-size='13' fill='#abaeb3'>早鸟价 ¥198（省<tspan font-weight='bold'>70</tspan>元）</text>
+      <line x1='30' y1='170' x2='320' y2='170' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='35' y='198' font-size='13' fill='#70747d'>✔ 三日全域通行</text>
+      <text x='35' y='228' font-size='13' fill='#70747d'>✔ 所有舞台 &amp; 见面会</text>
+      <text x='35' y='258' font-size='13' fill='#70747d'>✔ 工作坊体验名额</text>
+      <text x='35' y='288' font-size='13' fill='#70747d'>✔ 限定周边礼包</text>
+      <text x='35' y='318' font-size='13' fill='#70747d'>✔ VIP 优先入场通道</text>
+    </g>
+    <!-- VIP票 -->
+    <g transform='translate(850, 260)'>
+      <rect width='350' height='350' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1' filter='url(#cardShadow10)'/>
+      <rect x='0' y='0' width='350' height='3' rx='1.5' fill='#00bcff'/>
+      <text x='175' y='55' text-anchor='middle' font-size='18' font-weight='700' fill='#111827'>VIP 尊享票</text>
+      <text x='175' y='105' text-anchor='middle' font-size='42' font-weight='900' fill='#00bcff'>
+        ¥<tspan font-size='56'>688</tspan>
+      </text>
+      <text x='175' y='130' text-anchor='middle' font-size='13' fill='#abaeb3'>限量 200 张 · 含签名会资格</text>
+      <line x1='30' y1='150' x2='320' y2='150' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='35' y='178' font-size='13' fill='#70747d'>✔ 三日通票全部权益</text>
+      <text x='35' y='208' font-size='13' fill='#70747d'>✔ 嘉宾签名会优先资格</text>
+      <text x='35' y='238' font-size='13' fill='#70747d'>✔ VIP 专属休息区</text>
+      <text x='35' y='268' font-size='13' fill='#70747d'>✔ 限定版纪念画册</text>
+      <text x='35' y='298' font-size='13' fill='#70747d'>✔ 官方答谢晚宴</text>
+    </g>
+  </g>
+  <!-- 购票按钮 -->
+  <g id='cta-button' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='464' y='650' width='352' height='48' rx='24' fill='url(#btnGrad10)' filter='url(#btnGlow)'/>
+    <text x='640' y='680' font-size='16' font-weight='700' fill='#ffffff' letter-spacing='2'>立即购票 · 早鸟倒计时</text>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>10 / 11</text>
+  </g>
+  <!-- notes: CTA——"三档票价，中间通票最划算。VIP限量200张。早鸟价倒计时中。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <linearGradient id='neonThanks' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='#bbf351'/>
+      <stop offset='100%' stop-color='#00bcff'/>
+    </linearGradient>
+    <filter id='glowBig' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='8'/>
+    </filter>
+    <filter id='glowDot11' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='4'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <!-- 网格 -->
+    <line x1='0' y1='180' x2='1280' y2='180' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='540' x2='1280' y2='540' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <!-- 背景光晕 -->
+    <circle cx='640' cy='360' r='300' fill='#bbf351' fill-opacity='0.03'/>
+    <circle cx='640' cy='360' r='200' fill='#00bcff' fill-opacity='0.02'/>
+  </g>
+  <!-- 星尘粒子 -->
+  <g id='decor-particles'>
+    <circle cx='180' cy='180' r='3' fill='#bbf351' fill-opacity='0.3' filter='url(#glowDot11)'/>
+    <circle cx='1100' cy='200' r='2.5' fill='#00bcff' fill-opacity='0.25' filter='url(#glowDot11)'/>
+    <circle cx='200' cy='500' r='2' fill='#bbf351' fill-opacity='0.2' filter='url(#glowDot11)'/>
+    <circle cx='1050' cy='480' r='2.5' fill='#00bcff' fill-opacity='0.2' filter='url(#glowDot11)'/>
+    <circle cx='400' cy='120' r='2' fill='#bbf351' fill-opacity='0.2'/>
+    <circle cx='880' cy='100' r='1.5' fill='#00bcff' fill-opacity='0.2'/>
+    <circle cx='350' cy='550' r='2' fill='#bbf351' fill-opacity='0.15'/>
+    <circle cx='900' cy='580' r='1.5' fill='#00bcff' fill-opacity='0.15'/>
+  </g>
+  <!-- 主内容 -->
+  <g id='thanks-content' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='240' font-size='80' font-weight='900' fill='#bbf351' fill-opacity='0.08' font-family='serif'>✦</text>
+    <text x='640' y='300' font-size='15' fill='#bbf351' font-weight='600' letter-spacing='6'>THANK YOU</text>
+    <text x='640' y='370' font-size='56' font-weight='800' fill='#111827' letter-spacing='6'>
+      感谢遇见
+    </text>
+    <rect x='590' y='400' width='100' height='2' rx='1' fill='url(#neonThanks)'/>
+    <rect x='590' y='403' width='100' height='2' rx='1' fill='#bbf351' fill-opacity='0.3' filter='url(#glowBig)'/>
+    <text x='640' y='445' font-size='20' fill='#70747d' font-weight='300' letter-spacing='2'>
+      每个热爱二次元的你，都是这场梦的主角
+    </text>
+    <!-- 金句 -->
+    <text x='640' y='510' font-size='15' fill='#abaeb3' font-style='italic'>
+      "不管前方的路有多苦，只要走的方向正确，不管多么崎岖不平，都比站在原地更接近幸福。"
+    </text>
+    <text x='640' y='540' font-size='13' fill='#abaeb3'>—— 宫崎骏《千与千寻》</text>
+    <!-- 联系信息 -->
+    <line x1='440' y1='575' x2='840' y2='575' stroke='#c3c5c9' stroke-width='1'/>
+    <text x='640' y='605' font-size='14' fill='#70747d'>2025 夏日动漫嘉年华 · 国家会展中心</text>
+    <text x='640' y='630' font-size='13' fill='#abaeb3'>官网：www.summeranime2025.com · 公众号：夏日动漫嘉年华</text>
+  </g>
+  <!-- 底部霓虹线 -->
+  <g id='decor-footer'>
+    <rect x='0' y='710' width='1280' height='1' fill='#bbf351' fill-opacity='0.15'/>
+    <rect x='0' y='712' width='1280' height='1' fill='#00bcff' fill-opacity='0.08'/>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>11 / 11</text>
+  </g>
+  <!-- notes: 致谢页——"千与千寻的金句收尾。门票在官网和公众号都能买。这个夏天，国家会展中心见。" -->
+</svg>
+</div>
+</body>
+</html>

@@ -1,0 +1,23 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+  </g>
+  <g id="quote-decoration" text-anchor='middle'>
+    <text x='640' y='240' font-size='180' font-weight='800' fill='#1ed760' fill-opacity='0.06' font-family='Playfair Display,Noto Serif SC,serif'>"</text>
+  </g>
+  <g id="quote-content" font-family='Noto Serif SC,serif' text-anchor='middle'>
+    <text x='640' y='340' font-size='38' fill='#ffffff' font-weight='700'>
+      <tspan x='640' dy='0'>愿你的世界永远阳光明媚</tspan>
+      <tspan x='640' dy='60' font-family='Inter,Noto Sans SC,sans-serif' font-weight='400' font-size='28' fill='#fdfdfd'>愿你眼中有光，心中有爱，脚下有路</tspan>
+    </text>
+  </g>
+  <g id="quote-source" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <rect x='540' y='480' width='200' height='2' rx='1' fill='#1ed760'/>
+    <text x='640' y='520' font-size='18' fill='#1ed760' font-weight='600'>— 致最特别的你 —</text>
+    <text x='640' y='550' font-size='14' fill='#cbcbcb'>Happy Birthday · 生日快乐</text>
+  </g>
+  <g id="footer-chrome">
+    <text x='80' y='680' font-size='12' fill='#cbcbcb'>08 / 11</text>
+  </g>
+  <!-- notes: 金句页——用优美祝福语营造温馨氛围。这里可以举杯共祝，或者播放一段生日主题的背景音乐，让情绪达到小高潮 -->
+</svg>

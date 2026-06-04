@@ -1,0 +1,54 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='80' font-size='14' fill='#10a37f' font-weight='600' letter-spacing='2'>CHAPTER 02 · 核心技术</text>
+    <text x='80' y='130' font-size='42' font-weight='800' fill='#0d0d0d'>核心产品矩阵</text>
+    <rect x='80' y='155' width='50' height='3' fill='#10a37f'/>
+  </g>
+  <g id='product-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='210' width='350' height='450' rx='16' fill='#fafafa'/>
+    <rect x='80' y='210' width='350' height='6' rx='3' fill='#10a37f'/>
+    <text x='160' y='290' font-size='32' font-weight='800' fill='#0d0d0d'>GPT</text>
+    <text x='160' y='320' font-size='16' fill='#9b9b9b'>大语言模型</text>
+    <text x='110' y='370' font-size='15' fill='#1a1a1a'>从 GPT-1 到 GPT-4o，参数规模从</text>
+    <text x='110' y='395' font-size='15' fill='#1a1a1a'>1.17 亿增长至万亿级。支持文本</text>
+    <text x='110' y='420' font-size='15' fill='#1a1a1a'>理解、生成、代码编写、逻辑推理</text>
+    <text x='110' y='445' font-size='15' fill='#1a1a1a'>等多重能力，是 OpenAI 的旗舰</text>
+    <text x='110' y='470' font-size='15' fill='#1a1a1a'>技术底座。</text>
+    <rect x='110' y='500' width='280' height='40' rx='20' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='250' y='525' text-anchor='middle' font-size='14' fill='#10a37f' font-weight='600'>ChatGPT · API · Copilot</text>
+  </g>
+  <g id='product-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='465' y='210' width='350' height='450' rx='16' fill='#fafafa'/>
+    <rect x='465' y='210' width='350' height='6' rx='3' fill='#10a37f'/>
+    <text x='545' y='290' font-size='32' font-weight='800' fill='#0d0d0d'>DALL-E</text>
+    <text x='545' y='320' font-size='16' fill='#9b9b9b'>图像生成</text>
+    <text x='495' y='370' font-size='15' fill='#1a1a1a'>文本到图像生成模型，从 DALL-E 1</text>
+    <text x='495' y='395' font-size='15' fill='#1a1a1a'>到 DALL-E 3，图像质量与文本理解</text>
+    <text x='495' y='420' font-size='15' fill='#1a1a1a'>能力飞跃。集成至 ChatGPT Plus</text>
+    <text x='495' y='445' font-size='15' fill='#1a1a1a'>和 Bing Image Creator，月均生成</text>
+    <text x='495' y='470' font-size='15' fill='#1a1a1a'>图像超 10 亿张。</text>
+    <rect x='495' y='500' width='280' height='40' rx='20' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='635' y='525' text-anchor='middle' font-size='14' fill='#10a37f' font-weight='600'>ChatGPT · Bing · API</text>
+  </g>
+  <g id='product-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='850' y='210' width='350' height='450' rx='16' fill='#fafafa'/>
+    <rect x='850' y='210' width='350' height='6' rx='3' fill='#10a37f'/>
+    <text x='930' y='290' font-size='32' font-weight='800' fill='#0d0d0d'>Sora</text>
+    <text x='930' y='320' font-size='16' fill='#9b9b9b'>视频生成</text>
+    <text x='880' y='370' font-size='15' fill='#1a1a1a'>2024 年发布的文生视频模型，</text>
+    <text x='880' y='395' font-size='15' fill='#1a1a1a'>可生成长达 60 秒的高清视频。</text>
+    <text x='880' y='420' font-size='15' fill='#1a1a1a'>理解物理世界运动规律，模拟</text>
+    <text x='880' y='445' font-size='15' fill='#1a1a1a'>真实场景。与 Whisper（语音）</text>
+    <text x='880' y='470' font-size='15' fill='#1a1a1a'>共同构成多模态产品矩阵。</text>
+    <rect x='880' y='500' width='280' height='40' rx='20' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='1020' y='525' text-anchor='middle' font-size='14' fill='#10a37f' font-weight='600'>视频创作 · 影视 · 设计</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>6 / 11</text>
+  </g>
+  <!-- notes: 三大产品卡片——GPT（语言）、DALL-E（图像）、Sora（视频），展示 OpenAI 多模态版图。演讲时可以强调："从只有文字，到看懂图像，再到理解物理世界——OpenAI 正在构建能感知和生成所有内容形式的 AI 引擎。" -->
+</svg>

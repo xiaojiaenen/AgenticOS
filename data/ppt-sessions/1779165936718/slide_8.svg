@@ -1,0 +1,53 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='stripe'>
+  <!-- notes: 对比页——凸出DeepSeek的差异化优势：开源、MoE架构、高性价比、数学推理 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='3'>DIFFERENCE</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='var(--text-1)'>DeepSeek 的独特之处</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='var(--accent)'/>
+  </g>
+  <g id="vs-container">
+    <rect x='100' y='240' width='480' height='380' rx='20' fill='var(--surface)' stroke='var(--accent)' stroke-width='2'/>
+    <rect x='100' y='240' width='480' height='60' rx='20' fill='var(--accent)'/>
+    <rect x='100' y='280' width='480' height='20' fill='var(--accent)'/>
+    <text x='340' y='278' font-size='22' font-weight='700' fill='var(--bg)' text-anchor='middle'>DeepSeek</text>
+    
+    <text x='140' y='335' font-size='16' font-weight='600' fill='var(--text-1)'>✅ 全面开源</text>
+    <text x='140' y='360' font-size='14' fill='var(--text-3)'>模型权重 + 论文 + 技术细节</text>
+    
+    <text x='140' y='410' font-size='16' font-weight='600' fill='var(--text-1)'>✅ MoE 架构</text>
+    <text x='140' y='435' font-size='14' fill='var(--text-3)'>671B 总参数 · 仅激活 37B</text>
+    
+    <text x='140' y='485' font-size='16' font-weight='600' fill='var(--text-1)'>✅ 深度推理</text>
+    <text x='140' y='510' font-size='14' fill='var(--text-3)'>数学竞赛 · 代码竞赛领先</text>
+    
+    <text x='140' y='560' font-size='16' font-weight='600' fill='var(--text-1)'>✅ 极致性价比</text>
+    <text x='140' y='585' font-size='14' fill='var(--text-3)'>训练成本仅同类 1/10</text>
+
+    <circle cx='640' cy='430' r='36' fill='var(--bg)' stroke='var(--border)' stroke-width='2'/>
+    <text x='640' y='442' font-size='22' font-weight='800' fill='var(--accent)' text-anchor='middle'>VS</text>
+
+    <rect x='700' y='240' width='480' height='380' rx='20' fill='var(--surface)' stroke='var(--border)' stroke-width='1.5'/>
+    <rect x='700' y='240' width='480' height='60' rx='20' fill='var(--border)'/>
+    <rect x='700' y='280' width='480' height='20' fill='var(--border)'/>
+    <text x='940' y='278' font-size='22' font-weight='700' fill='var(--text-3)' text-anchor='middle'>其他 AI 助手</text>
+    
+    <text x='740' y='335' font-size='16' font-weight='600' fill='var(--text-1)'>⚠️ 闭源为主</text>
+    <text x='740' y='360' font-size='14' fill='var(--text-3)'>技术细节不透明</text>
+    
+    <text x='740' y='410' font-size='16' font-weight='600' fill='var(--text-1)'>⚠️ 密集架构</text>
+    <text x='740' y='435' font-size='14' fill='var(--text-3)'>全参数激活，算力消耗大</text>
+    
+    <text x='740' y='485' font-size='16' font-weight='600' fill='var(--text-1)'>⚠️ 推理能力一般</text>
+    <text x='740' y='510' font-size='14' fill='var(--text-3)'>复杂推理场景表现有限</text>
+    
+    <text x='740' y='560' font-size='16' font-weight='600' fill='var(--text-1)'>⚠️ 成本高昂</text>
+    <text x='740' y='585' font-size='14' fill='var(--text-3)'>训练和推理费用高</text>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='var(--border)'/>
+    <text x='100' y='690' font-size='14' fill='var(--text-3)'>08 / 11 · 独特之处</text>
+  </g>
+</svg>

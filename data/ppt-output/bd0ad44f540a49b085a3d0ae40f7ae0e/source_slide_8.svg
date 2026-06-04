@@ -1,0 +1,92 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <filter id='cardGlow' x='-15%' y='-15%' width='130%' height='130%'>
+      <feGaussianBlur in='SourceAlpha' stdDeviation='6'/>
+      <feOffset dx='0' dy='4'/>
+      <feFlood flood-color='#bbf351' flood-opacity='0.08'/>
+      <feComposite in2='SourceGraphic' operator='in'/>
+      <feMerge><feMergeNode/><feMergeNode in='SourceGraphic'/></feMerge>
+    </filter>
+    <filter id='glowDot8' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='4'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <circle cx='1280' cy='0' r='350' fill='#00bcff' fill-opacity='0.03'/>
+    <circle cx='0' cy='720' r='350' fill='#bbf351' fill-opacity='0.03'/>
+  </g>
+  <g id='decor-dots'>
+    <circle cx='180' cy='120' r='2' fill='#bbf351' fill-opacity='0.2' filter='url(#glowDot8)'/>
+    <circle cx='1120' cy='100' r='2.5' fill='#00bcff' fill-opacity='0.2' filter='url(#glowDot8)'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='80' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>重磅嘉宾</text>
+    <rect x='80' y='95' width='40' height='2' rx='1' fill='#bbf351'/>
+  </g>
+  <g id='section-title'>
+    <text x='80' y='165' font-size='38' font-weight='800' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>
+      重磅嘉宾阵容
+    </text>
+    <text x='80' y='200' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>跨越中日 · 声优·画师·导演齐聚一堂</text>
+  </g>
+  <g id='guest-cards' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 嘉宾 1 -->
+    <g filter='url(#cardGlow)'>
+      <rect x='80' y='250' width='530' height='200' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='80' y='250' width='530' height='3' rx='1.5' fill='#bbf351'/>
+      <circle cx='135' cy='350' r='38' fill='#bbf351' fill-opacity='0.08'/>
+      <text x='135' y='358' text-anchor='middle' font-size='24' fill='#bbf351'>🎙</text>
+      <text x='195' y='310' font-size='22' font-weight='700' fill='#111827'>宫崎 骏</text>
+      <rect x='195' y='324' width='80' height='22' rx='11' fill='#bbf351' fill-opacity='0.12'/>
+      <text x='235' y='339' text-anchor='middle' font-size='11' fill='#bbf351' font-weight='600'>吉卜力创始人</text>
+      <text x='195' y='370' font-size='13' fill='#70747d'>吉卜力工作室创始人之一</text>
+      <text x='195' y='394' font-size='13' fill='#70747d'>动画电影大师 · 奥斯卡终身成就奖</text>
+      <text x='195' y='422' font-size='12' fill='#bbf351' font-weight='600'>📅 8月15日 经典区</text>
+    </g>
+    <!-- 嘉宾 2 -->
+    <g filter='url(#cardGlow)'>
+      <rect x='670' y='250' width='530' height='200' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='670' y='250' width='530' height='3' rx='1.5' fill='#00bcff'/>
+      <circle cx='725' cy='350' r='38' fill='#00bcff' fill-opacity='0.08'/>
+      <text x='725' y='358' text-anchor='middle' font-size='24' fill='#00bcff'>🎵</text>
+      <text x='785' y='310' font-size='22' font-weight='700' fill='#111827'>久石 让</text>
+      <rect x='785' y='324' width='80' height='22' rx='11' fill='#00bcff' fill-opacity='0.12'/>
+      <text x='825' y='339' text-anchor='middle' font-size='11' fill='#00bcff' font-weight='600'>传奇作曲家</text>
+      <text x='785' y='370' font-size='13' fill='#70747d'>吉卜力御用配乐大师</text>
+      <text x='785' y='394' font-size='13' fill='#70747d'>《千与千寻》《龙猫》主题曲创作者</text>
+      <text x='785' y='422' font-size='12' fill='#00bcff' font-weight='600'>📅 8月15日 交响音乐会</text>
+    </g>
+    <!-- 嘉宾 3 -->
+    <g filter='url(#cardGlow)'>
+      <rect x='80' y='480' width='530' height='200' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='80' y='480' width='530' height='3' rx='1.5' fill='#bbf351' fill-opacity='0.6'/>
+      <circle cx='135' cy='580' r='38' fill='#bbf351' fill-opacity='0.08'/>
+      <text x='135' y='588' text-anchor='middle' font-size='24' fill='#bbf351'>🎨</text>
+      <text x='195' y='540' font-size='22' font-weight='700' fill='#111827'>新海 诚</text>
+      <rect x='195' y='554' width='80' height='22' rx='11' fill='#bbf351' fill-opacity='0.12'/>
+      <text x='235' y='569' text-anchor='middle' font-size='11' fill='#bbf351' font-weight='600'>动画导演</text>
+      <text x='195' y='600' font-size='13' fill='#70747d'>《你的名字。》《铃芽之旅》导演</text>
+      <text x='195' y='624' font-size='13' fill='#70747d'>新世代动画美学代表人物</text>
+      <text x='195' y='652' font-size='12' fill='#bbf351' fill-opacity='0.6' font-weight='600'>📅 8月16日 主舞台</text>
+    </g>
+    <!-- 嘉宾 4 -->
+    <g filter='url(#cardGlow)'>
+      <rect x='670' y='480' width='530' height='200' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='670' y='480' width='530' height='3' rx='1.5' fill='#00bcff'/>
+      <circle cx='725' cy='580' r='38' fill='#00bcff' fill-opacity='0.08'/>
+      <text x='725' y='588' text-anchor='middle' font-size='24' fill='#00bcff'>🌸</text>
+      <text x='785' y='540' font-size='22' font-weight='700' fill='#111827'>花江夏树</text>
+      <rect x='785' y='554' width='80' height='22' rx='11' fill='#00bcff' fill-opacity='0.12'/>
+      <text x='825' y='569' text-anchor='middle' font-size='11' fill='#00bcff' font-weight='600'>人气声优</text>
+      <text x='785' y='600' font-size='13' fill='#70747d'>《鬼灭之刃》灶门炭治郎 CV</text>
+      <text x='785' y='624' font-size='13' fill='#70747d'>代表作：《东京喰种》《四月是你的谎言》</text>
+      <text x='785' y='652' font-size='12' fill='#00bcff' font-weight='600'>📅 8月16日 声优见面会</text>
+    </g>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>08 / 11</text>
+  </g>
+  <!-- notes: 嘉宾页——"四位重量级。宫崎骏和久石让同一天，新海诚和花江夏树在第二天。" -->
+</svg>

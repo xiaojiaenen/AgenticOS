@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
+  <!-- notes: 目录页——展示四个核心章节，让观众对内容有整体预期 -->
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+  </g>
+  <g id="toc-header">
+    <text x="100" y="100" font-size="14" fill="var(--accent)" font-weight="600">CONTENTS</text>
+    <text x="100" y="145" font-size="42" font-weight="700" fill="var(--text-1)">目录</text>
+    <rect x="100" y="165" width="60" height="3" fill="var(--accent)"/>
+  </g>
+  <g id="toc-item-1">
+    <rect x="100" y="220" width="500" height="100" rx="12" fill="var(--surface)"/>
+    <text x="140" y="265" font-size="36" font-weight="700" fill="var(--accent)">01</text>
+    <text x="200" y="265" font-size="22" font-weight="600" fill="var(--text-1)">品牌实力</text>
+    <text x="200" y="295" font-size="14" fill="var(--text-3)">Brand Strength</text>
+  </g>
+  <g id="toc-item-2">
+    <rect x="100" y="340" width="500" height="100" rx="12" fill="var(--surface)"/>
+    <text x="140" y="385" font-size="36" font-weight="700" fill="var(--accent)">02</text>
+    <text x="200" y="385" font-size="22" font-weight="600" fill="var(--text-1)">核心技术</text>
+    <text x="200" y="415" font-size="14" fill="var(--text-3)">Core Technology</text>
+  </g>
+  <g id="toc-item-3">
+    <rect x="100" y="460" width="500" height="100" rx="12" fill="var(--surface)"/>
+    <text x="140" y="505" font-size="36" font-weight="700" fill="var(--accent)">03</text>
+    <text x="200" y="505" font-size="22" font-weight="600" fill="var(--text-1)">产品矩阵</text>
+    <text x="200" y="535" font-size="14" fill="var(--text-3)">Product Matrix</text>
+  </g>
+  <g id="toc-item-4">
+    <rect x="100" y="580" width="500" height="100" rx="12" fill="var(--surface)"/>
+    <text x="140" y="625" font-size="36" font-weight="700" fill="var(--accent)">04</text>
+    <text x="200" y="625" font-size="22" font-weight="600" fill="var(--text-1)">市场表现</text>
+    <text x="200" y="655" font-size="14" fill="var(--text-3)">Market Performance</text>
+  </g>
+  <g id="footer-pagenum">
+    <text x="1220" y="690" font-size="14" fill="var(--text-3)" text-anchor="end">02 / 10</text>
+  </g>
+</svg>

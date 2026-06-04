@@ -1,0 +1,65 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='fantasy'>
+  <defs>
+    <linearGradient id='skyGrad' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='#ffffff'/>
+      <stop offset='100%' stop-color='#ffffff'/>
+    </linearGradient>
+    <linearGradient id='accentGrad' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='#0250cc'/>
+      <stop offset='100%' stop-color='#fdc800'/>
+    </linearGradient>
+    <filter id='glow' x='-30%' y='-30%' width='160%' height='160%'>
+      <feGaussianBlur in='SourceAlpha' stdDeviation='8'/>
+      <feFlood flood-color='#0250cc' flood-opacity='0.35'/>
+      <feComposite in2='SourceGraphic' operator='out'/>
+      <feMerge><feMergeNode/><feMergeNode in='SourceGraphic'/></feMerge>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='url(#skyGrad)'/>
+    <!-- 底部渐变山丘 -->
+    <ellipse cx='200' cy='720' rx='350' ry='160' fill='#0250cc' fill-opacity='0.06'/>
+    <ellipse cx='800' cy='720' rx='450' ry='180' fill='#fdc800' fill-opacity='0.05'/>
+    <ellipse cx='1200' cy='720' rx='300' ry='140' fill='#0250cc' fill-opacity='0.04'/>
+  </g>
+  <!-- 装饰：漂浮的星尘 -->
+  <g id='decor-sparkles'>
+    <path d='M180,120 Q185,115 190,120 Q185,125 180,120 Z' fill='#0250cc' fill-opacity='0.5'/>
+    <path d='M280,200 Q287,193 294,200 Q287,207 280,200 Z' fill='#0250cc' fill-opacity='0.35' transform='scale(1.2) translate(-50,-35)'/>
+    <path d='M1000,150 Q1006,143 1012,150 Q1006,157 1000,150 Z' fill='#fdc800' fill-opacity='0.4'/>
+    <path d='M1100,300 Q1108,292 1116,300 Q1108,308 1100,300 Z' fill='#0250cc' fill-opacity='0.3'/>
+    <path d='M120,400 Q126,393 132,400 Q126,407 120,400 Z' fill='#fdc800' fill-opacity='0.35'/>
+    <!-- 小圆点星尘 -->
+    <circle cx='350' cy='100' r='2.5' fill='#0250cc' fill-opacity='0.3'/>
+    <circle cx='900' cy='80' r='2' fill='#fdc800' fill-opacity='0.25'/>
+    <circle cx='150' cy='300' r='2' fill='#0250cc' fill-opacity='0.2'/>
+    <circle cx='1150' cy='200' r='1.5' fill='#fdc800' fill-opacity='0.3'/>
+    <circle cx='950' cy='400' r='2' fill='#0250cc' fill-opacity='0.2'/>
+  </g>
+  <!-- 主标题区 -->
+  <g id='cover-main' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='220' font-size='16' fill='#0250cc' font-weight='600' letter-spacing='6'>SUMMER ANIME FESTIVAL 2025</text>
+    <text x='640' y='320' font-size='72' font-weight='900' fill='#111827' letter-spacing='4'>
+      夏日动漫嘉年华
+    </text>
+    <!-- 装饰线 -->
+    <rect x='540' y='350' width='200' height='3' rx='1.5' fill='url(#accentGrad)'/>
+    <text x='640' y='410' font-size='22' fill='#70747d' font-weight='400' letter-spacing='2'>
+      宫崎骏主题特展 · 二次元文化盛会
+    </text>
+    <text x='640' y='460' font-size='14' fill='#abaeb3' letter-spacing='1'>2025.08.15 — 08.17 · 国家会展中心</text>
+    <!-- 底部装饰 -->
+    <rect x='580' y='500' width='120' height='36' rx='18' fill='#0250cc' fill-opacity='0.15'/>
+    <text x='640' y='524' font-size='13' fill='#0250cc' font-weight='600'>立即购票 · 早鸟特惠</text>
+  </g>
+  <!-- 装饰：右下角龙猫风格树叶 -->
+  <g id='decor-leaves' fill='#0250cc' fill-opacity='0.12'>
+    <path d='M1180,580 Q1190,550 1220,540 Q1230,570 1210,590 Q1195,600 1180,580 Z'/>
+    <path d='M1220,600 Q1235,575 1260,570 Q1265,595 1245,615 Q1230,625 1220,600 Z'/>
+    <path d='M1140,560 Q1148,540 1170,535 Q1175,560 1158,575 Q1148,580 1140,560 Z'/>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3'>01 / 11</text>
+  </g>
+  <!-- notes: 封面——标题要制造期待感。先念"夏日动漫嘉年华"，停顿，再念副标题。早鸟票信息用肢体语言指向右下角。 -->
+</svg>

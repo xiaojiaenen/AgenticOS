@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="duolingo">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  /* Theme tokens for CSS custom property resolution */
+  :root {
+    --accent: #58a700;
+    --accent-2: #ff9600;
+    --accent-3: #4a8d00;
+    --bad: #dc2626;
+    --bg: #ffffff;
+    --bg-soft: #f7f7f7;
+    --border: #afafaf;
+    --border-strong: #afafaf;
+    --font-display: Inter, Noto Sans SC, sans-serif;
+    --font-mono: JetBrains Mono, monospace;
+    --font-sans: Mona Sans;
+    --font-serif: Playfair Display, Noto Serif SC, serif;
+    --good: #16a34a;
+    --grad: linear-gradient(135deg, #58a700, #ff9600);
+    --grad-soft: linear-gradient(135deg, rgba(88,167,0,0.08), rgba(255,150,0,0.04));
+    --radius: 12px;
+    --radius-lg: 20px;
+    --radius-sm: 8px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+    --surface: #e5e5e5;
+    --surface-2: #e5e5e5;
+    --text-1: #3c3c3c;
+    --text-2: #777777;
+    --text-3: #777777;
+    --warn: #eab308;
+  }
+  body { margin:0; padding:0; background:#111; font-family:Inter,Noto Sans SC,sans-serif; }
+  body.single .deck { overflow:auto!important; height:auto!important; }
+  .deck { display:flex; flex-direction:column; align-items:center; gap:16px; padding:16px; }
+  .deck svg { width:100%; max-width:1280px; height:auto; display:block; border-radius:8px; box-shadow:0 4px 24px rgba(0,0,0,.4); }
+</style>
+</head>
+<body class="single">
+<div class="deck">
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 开场——同学们好！今天我们要一起认识六位动物朋友。谁能告诉老师，你最喜欢什么动物？（等学生举手回答）好，那我们来看看今天要学的动物吧！ -->
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='1280' height='6' fill='#58a700'/>
+  <!-- 装饰圆形 -->
+  <circle cx='200' cy='180' r='120' fill='#58a700' fill-opacity='0.06'/>
+  <circle cx='1080' cy='540' r='160' fill='#ff9600' fill-opacity='0.05'/>
+  <circle cx='100' cy='600' r='60' fill='#4a8d00' fill-opacity='0.06'/>
+  <g id='cover-decor'>
+    <!-- 小动物剪影装饰 -->
+    <circle cx='180' cy='160' r='30' fill='#58a700' fill-opacity='0.12'/>
+    <circle cx='1100' cy='520' r='40' fill='#ff9600' fill-opacity='0.1'/>
+    <circle cx='90' cy='580' r='20' fill='#4a8d00' fill-opacity='0.1'/>
+  </g>
+  <g id='cover-header' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='170' font-size='20' fill='#58a700' font-weight='700' letter-spacing='3'>PRIMARY SCHOOL ENGLISH</text>
+    <text x='640' y='220' font-size='16' fill='#777777' font-weight='500'>趣味英语课堂 · 三年级上册</text>
+  </g>
+  <g id='cover-title' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='340' font-size='72' font-weight='900' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='640' dy='0'>My Animal</tspan>
+      <tspan x='640' dy='86' fill='#58a700'>Friends</tspan>
+    </text>
+    <text x='640' y='480' font-size='32' fill='#777777' font-weight='600'>我 的 动 物 朋 友</text>
+  </g>
+  <g id='cover-animals' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 6个小动物 emoji 装饰 -->
+    <text x='260' y='570' font-size='48' text-anchor='middle'>🐱</text>
+    <text x='400' y='555' font-size='52' text-anchor='middle'>🐶</text>
+    <text x='540' y='570' font-size='48' text-anchor='middle'>🐦</text>
+    <text x='680' y='555' font-size='52' text-anchor='middle'>🐟</text>
+    <text x='820' y='570' font-size='48' text-anchor='middle'>🐰</text>
+    <text x='960' y='555' font-size='52' text-anchor='middle'>🐒</text>
+  </g>
+  <g id='cover-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='690' font-size='13' fill='#777777'>English Class · 2025</text>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='#777777'>1 / 10</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 今天我们有三个学习目标。第一个：认识6种动物的英文名字。第二个：学会说"I have a..."和"I like..."这两个句型。第三个：通过游戏巩固所学内容。我们一步一步来！ -->
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='1280' height='4' fill='#58a700'/>
+  <g id='toc-title' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='70' font-size='16' fill='#58a700' font-weight='700' letter-spacing='2'>TODAY'S GOALS</text>
+    <text x='80' y='120' font-size='38' font-weight='800' fill='#3c3c3c'>今日学习目标</text>
+  </g>
+  <g id='toc-01'>
+    <rect x='60' y='170' width='370' height='200' rx='16' fill='#e5e5e5'/>
+    <rect x='60' y='170' width='370' height='6' rx='3' fill='#58a700'/>
+    <text x='100' y='235' font-size='52' font-weight='900' fill='#58a700' fill-opacity='0.15' font-family='Inter,Noto Sans SC,sans-serif'>01</text>
+    <text x='100' y='290' font-size='24' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>学一学 Learn</text>
+    <text x='100' y='330' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>认识 6 种动物的英文单词</text>
+    <text x='100' y='352' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>cat · dog · bird · fish · rabbit · monkey</text>
+  </g>
+  <g id='toc-02'>
+    <rect x='455' y='170' width='370' height='200' rx='16' fill='#e5e5e5'/>
+    <rect x='455' y='170' width='370' height='6' rx='3' fill='#ff9600'/>
+    <text x='495' y='235' font-size='52' font-weight='900' fill='#ff9600' fill-opacity='0.15' font-family='Inter,Noto Sans SC,sans-serif'>02</text>
+    <text x='495' y='290' font-size='24' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>练一练 Practice</text>
+    <text x='495' y='330' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>练习两个核心句型</text>
+    <text x='495' y='352' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>I have a... · I like...</text>
+  </g>
+  <g id='toc-03'>
+    <rect x='850' y='170' width='370' height='200' rx='16' fill='#e5e5e5'/>
+    <rect x='850' y='170' width='6' height='200' rx='3' fill='#4a8d00'/>
+    <text x='890' y='235' font-size='52' font-weight='900' fill='#4a8d00' fill-opacity='0.15' font-family='Inter,Noto Sans SC,sans-serif'>03</text>
+    <text x='890' y='290' font-size='24' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>玩一玩 Play</text>
+    <text x='890' y='330' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>趣味配对游戏</text>
+    <text x='890' y='352' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>看图说英语，赢星星奖励</text>
+  </g>
+  <g id='toc-stars' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 底部激励元素 -->
+    <rect x='60' y='430' width='1160' height='160' rx='16' fill='#e5e5e5'/>
+    <text x='640' y='480' text-anchor='middle' font-size='22' font-weight='700' fill='#3c3c3c'>⭐ 学习小贴士 Learning Tips ⭐</text>
+    <text x='640' y='520' text-anchor='middle' font-size='16' fill='#777777'>大胆开口说，不要怕犯错！每说对一个句子，就能得到一颗星星哦～</text>
+    <text x='640' y='555' text-anchor='middle' font-size='16' fill='#777777'>Speak up bravely! Don't be afraid of mistakes!</text>
+  </g>
+  <g id='toc-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='690' font-size='13' fill='#777777'>My Animal Friends</text>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='#777777'>2 / 10</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 第一个环节——学一学！我们先来认识六种可爱的小动物。老师会展示图片，大家跟着一起读。准备好了吗？Let's learn together! -->
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='400' height='720' fill='#58a700' fill-opacity='0.08'/>
+  <circle cx='200' cy='360' r='150' fill='#58a700' fill-opacity='0.06'/>
+  <circle cx='200' cy='360' r='80' fill='#58a700' fill-opacity='0.08'/>
+  <g id='section1-badge'>
+    <rect x='80' y='80' width='100' height='36' rx='18' fill='#58a700' fill-opacity='0.15'/>
+    <text x='130' y='104' text-anchor='middle' font-size='14' font-weight='700' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>PART 01</text>
+  </g>
+  <g id='section1-title' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='200' y='330' text-anchor='middle' font-size='100' font-weight='900' fill='#3c3c3c'>A</text>
+    <text x='640' y='280' font-size='56' font-weight='900' fill='#3c3c3c'>学一学</text>
+    <text x='640' y='350' font-size='28' font-weight='600' fill='#58a700'>Let's Learn!</text>
+    <text x='640' y='420' font-size='18' fill='#777777'>认识六种动物朋友的英文名字</text>
+    <text x='640' y='455' font-size='18' fill='#777777'>Learn 6 animal names in English</text>
+  </g>
+  <g id='section1-decor'>
+    <text x='900' y='520' font-size='48'>🐾</text>
+    <text x='1000' y='560' font-size='36'>🌿</text>
+    <text x='1100' y='500' font-size='42'>✨</text>
+  </g>
+  <g id='section1-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='#777777'>3 / 10</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 认识我们的动物朋友！大家跟我一起读。Cat，猫——喵喵叫！Dog，狗——汪汪叫！Bird，鸟——会飞的小精灵！Fish，鱼——在水里游来游去！Rabbit，兔子——蹦蹦跳跳真可爱！Monkey，猴子——最爱吃香蕉！每读一个，让同学跟着模仿动物叫声。 -->
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='1280' height='4' fill='#58a700'/>
+  <g id='vocab-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='55' font-size='16' fill='#58a700' font-weight='700' letter-spacing='2'>ANIMAL VOCABULARY</text>
+    <text x='80' y='100' font-size='34' font-weight='800' fill='#3c3c3c'>认识动物朋友 Meet Our Animal Friends</text>
+  </g>
+  <!-- Row 1: 3 animals -->
+  <g id='vocab-cat'>
+    <rect x='60' y='130' width='370' height='155' rx='16' fill='#e5e5e5'/>
+    <text x='120' y='220' font-size='56' text-anchor='middle'>🐱</text>
+    <text x='280' y='185' font-size='32' font-weight='800' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>Cat</text>
+    <text x='280' y='215' font-size='20' fill='#58a700' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>猫 māo</text>
+    <text x='280' y='250' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>Meow! Meow! 🐱</text>
+  </g>
+  <g id='vocab-dog'>
+    <rect x='455' y='130' width='370' height='155' rx='16' fill='#e5e5e5'/>
+    <text x='515' y='220' font-size='56' text-anchor='middle'>🐶</text>
+    <text x='675' y='185' font-size='32' font-weight='800' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>Dog</text>
+    <text x='675' y='215' font-size='20' fill='#58a700' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>狗 gǒu</text>
+    <text x='675' y='250' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>Woof! Woof! 🐶</text>
+  </g>
+  <g id='vocab-bird'>
+    <rect x='850' y='130' width='370' height='155' rx='16' fill='#e5e5e5'/>
+    <text x='910' y='220' font-size='56' text-anchor='middle'>🐦</text>
+    <text x='1070' y='185' font-size='32' font-weight='800' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>Bird</text>
+    <text x='1070' y='215' font-size='20' fill='#58a700' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>鸟 niǎo</text>
+    <text x='1070' y='250' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>Tweet! Tweet! 🐦</text>
+  </g>
+  <!-- Row 2: 3 animals -->
+  <g id='vocab-fish'>
+    <rect x='60' y='310' width='370' height='155' rx='16' fill='#e5e5e5'/>
+    <text x='120' y='400' font-size='56' text-anchor='middle'>🐟</text>
+    <text x='280' y='365' font-size='32' font-weight='800' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>Fish</text>
+    <text x='280' y='395' font-size='20' fill='#58a700' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>鱼 yú</text>
+    <text x='280' y='430' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>Blub! Blub! 🐟</text>
+  </g>
+  <g id='vocab-rabbit'>
+    <rect x='455' y='310' width='370' height='155' rx='16' fill='#e5e5e5'/>
+    <text x='515' y='400' font-size='56' text-anchor='middle'>🐰</text>
+    <text x='675' y='365' font-size='32' font-weight='800' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>Rabbit</text>
+    <text x='675' y='395' font-size='20' fill='#58a700' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>兔子 tùzi</text>
+    <text x='675' y='430' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>Hop! Hop! 🐰</text>
+  </g>
+  <g id='vocab-monkey'>
+    <rect x='850' y='310' width='370' height='155' rx='16' fill='#e5e5e5'/>
+    <text x='910' y='400' font-size='56' text-anchor='middle'>🐒</text>
+    <text x='1070' y='365' font-size='32' font-weight='800' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>Monkey</text>
+    <text x='1070' y='395' font-size='20' fill='#58a700' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>猴子 hóuzi</text>
+    <text x='1070' y='430' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>Ooh ooh! 🐒</text>
+  </g>
+  <g id='vocab-tip'>
+    <rect x='60' y='500' width='1160' height='120' rx='16' fill='#58a700' fill-opacity='0.1' stroke='#58a700' stroke-width='2' stroke-dasharray='8 4'/>
+    <text x='640' y='545' text-anchor='middle' font-size='20' font-weight='700' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>📝 跟读小练习 Read Together</text>
+    <text x='640' y='580' text-anchor='middle' font-size='16' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>老师指到哪个动物，大家一起大声读出来！大声读对的有小贴纸哦～</text>
+  </g>
+  <g id='vocab-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='690' font-size='13' fill='#777777'>My Animal Friends</text>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='#777777'>4 / 10</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 练习第一个句型——I have a... 意思是"我有一个..."。看左边的例子：I have a cat. 我有一只猫。现在轮到你们了！看右边的图，用"I have a..."造句。谁来说？（请同学举手回答） -->
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='1280' height='4' fill='#58a700'/>
+  <g id='sentence1-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='55' font-size='16' fill='#ff9600' font-weight='700' letter-spacing='2'>SENTENCE PATTERN 1</text>
+    <text x='80' y='100' font-size='34' font-weight='800' fill='#3c3c3c'>句型一 我有一个… I have a...</text>
+  </g>
+  <!-- 左栏：示例 -->
+  <g id='sentence1-example'>
+    <rect x='60' y='130' width='560' height='440' rx='16' fill='#e5e5e5'/>
+    <rect x='60' y='130' width='560' height='6' rx='3' fill='#58a700'/>
+    <text x='340' y='185' text-anchor='middle' font-size='22' font-weight='700' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>💡 看例子 Example</text>
+    <!-- 示例句子 -->
+    <text x='120' y='250' font-size='36' font-weight='800' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>I have a <tspan fill='#58a700'>cat</tspan>.</text>
+    <text x='120' y='290' font-size='18' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>我有一只猫。🐱</text>
+    <line x1='100' y1='320' x2='580' y2='320' stroke='#afafaf'/>
+    <text x='120' y='370' font-size='36' font-weight='800' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>I have a <tspan fill='#58a700'>dog</tspan>.</text>
+    <text x='120' y='410' font-size='18' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>我有一只狗。🐶</text>
+    <line x1='100' y1='440' x2='580' y2='440' stroke='#afafaf'/>
+    <text x='120' y='490' font-size='36' font-weight='800' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>I have a <tspan fill='#58a700'>fish</tspan>.</text>
+    <text x='120' y='530' font-size='18' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>我有一条鱼。🐟</text>
+  </g>
+  <!-- 右栏：练习 -->
+  <g id='sentence1-practice'>
+    <rect x='660' y='130' width='560' height='440' rx='16' fill='#e5e5e5'/>
+    <rect x='660' y='130' width='6' height='440' rx='3' fill='#4a8d00'/>
+    <text x='940' y='185' text-anchor='middle' font-size='22' font-weight='700' fill='#4a8d00' font-family='Inter,Noto Sans SC,sans-serif'>✏️ 试一试 Your Turn</text>
+    <!-- 练习卡片 -->
+    <rect x='700' y='210' width='480' height='70' rx='12' fill='#58a700' fill-opacity='0.08'/>
+    <text x='720' y='255' font-size='28' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>🐰  I have a <tspan fill='#4a8d00' text-decoration='underline'>rabbit</tspan>.</text>
+    <rect x='700' y='300' width='480' height='70' rx='12' fill='#58a700' fill-opacity='0.08'/>
+    <text x='720' y='345' font-size='28' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>🐦  I have a <tspan fill='#4a8d00' text-decoration='underline'>bird</tspan>.</text>
+    <rect x='700' y='390' width='480' height='70' rx='12' fill='#58a700' fill-opacity='0.08'/>
+    <text x='720' y='435' font-size='28' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>🐒  I have a <tspan fill='#4a8d00' text-decoration='underline'>monkey</tspan>.</text>
+    <text x='940' y='520' text-anchor='middle' font-size='16' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>填入正确的动物单词！</text>
+  </g>
+  <g id='sentence1-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='690' font-size='13' fill='#777777'>My Animal Friends</text>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='#777777'>5 / 10</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 句型二——I like... 意思是"我喜欢..."。这个句型可以用来表达你对动物的喜爱。I like cats. 我喜欢猫。注意！like后面的动物单词要用复数形式，加s。大家来造句，说说你喜欢什么动物？ -->
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='1280' height='4' fill='#ff9600'/>
+  <g id='sentence2-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='55' font-size='16' fill='#ff9600' font-weight='700' letter-spacing='2'>SENTENCE PATTERN 2</text>
+    <text x='80' y='100' font-size='34' font-weight='800' fill='#3c3c3c'>句型二 我喜欢… I like...</text>
+  </g>
+  <!-- 主卡片 -->
+  <g id='sentence2-main'>
+    <rect x='60' y='130' width='700' height='440' rx='16' fill='#e5e5e5'/>
+    <rect x='60' y='130' width='700' height='6' rx='3' fill='#ff9600'/>
+    <text x='410' y='190' text-anchor='middle' font-size='22' font-weight='700' fill='#ff9600' font-family='Inter,Noto Sans SC,sans-serif'>💡 句型结构 Sentence Structure</text>
+    <!-- 大句型公式 -->
+    <rect x='100' y='215' width='620' height='80' rx='12' fill='#ff9600' fill-opacity='0.1'/>
+    <text x='410' y='270' text-anchor='middle' font-size='34' font-weight='900' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>I <tspan fill='#ff9600'>like</tspan> <tspan fill='#4a8d00'>animal</tspan><tspan fill='#777777'>s</tspan><tspan fill='#777777'>.</tspan></text>
+    <text x='410' y='310' text-anchor='middle' font-size='16' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>I + like + 动物名复数（加 s）</text>
+    <!-- 例句 -->
+    <text x='120' y='370' font-size='28' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>I like <tspan fill='#ff9600'>cats</tspan>. 🐱</text>
+    <text x='120' y='405' font-size='18' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>我喜欢猫。</text>
+    <text x='120' y='455' font-size='28' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>I like <tspan fill='#ff9600'>monkeys</tspan>. 🐒</text>
+    <text x='120' y='490' font-size='18' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>我喜欢猴子。</text>
+    <text x='120' y='540' font-size='28' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>I like <tspan fill='#ff9600'>rabbits</tspan>. 🐰</text>
+    <text x='120' y='575' font-size='18' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>我喜欢兔子。</text>
+  </g>
+  <!-- 右栏：注意事项 -->
+  <g id='sentence2-tips'>
+    <rect x='800' y='130' width='420' height='210' rx='16' fill='#4a8d00' fill-opacity='0.1' stroke='#4a8d00' stroke-width='2'/>
+    <text x='1010' y='180' text-anchor='middle' font-size='20' font-weight='700' fill='#4a8d00' font-family='Inter,Noto Sans SC,sans-serif'>⚠️ 小提醒 Remember</text>
+    <text x='840' y='220' font-size='16' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>cat → cat<tspan font-weight='800' fill='#4a8d00'>s</tspan></text>
+    <text x='840' y='250' font-size='16' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>dog → dog<tspan font-weight='800' fill='#4a8d00'>s</tspan></text>
+    <text x='840' y='280' font-size='16' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>fish → fish <tspan font-size='14' fill='#777777'>(不变哦！)</tspan></text>
+    <text x='840' y='310' font-size='16' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>bird → bird<tspan font-weight='800' fill='#4a8d00'>s</tspan></text>
+  </g>
+  <!-- 右下：你来造句 -->
+  <g id='sentence2-do'>
+    <rect x='800' y='370' width='420' height='200' rx='16' fill='#ff9600' fill-opacity='0.08'/>
+    <text x='1010' y='420' text-anchor='middle' font-size='20' font-weight='700' fill='#ff9600' font-family='Inter,Noto Sans SC,sans-serif'>🎤 说一说 Speak</text>
+    <text x='1010' y='460' text-anchor='middle' font-size='16' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>用 "I like..." 造两个句子</text>
+    <text x='1010' y='490' text-anchor='middle' font-size='16' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>告诉同桌你喜欢什么动物</text>
+    <text x='1010' y='530' text-anchor='middle' font-size='22' font-weight='800' fill='#ff9600' font-family='Inter,Noto Sans SC,sans-serif'>I like ________s.</text>
+  </g>
+  <g id='sentence2-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='690' font-size='13' fill='#777777'>My Animal Friends</text>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='#777777'>6 / 10</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 游戏时间到！现在我们玩一个"看图猜动物"的游戏。老师展示图片，你们用英语说出动物名。答对的同学可以得一颗星星⭐！准备好了吗？Let's play! -->
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='1280' height='720' fill='#4a8d00' fill-opacity='0.05'/>
+  <rect x='880' y='0' width='400' height='720' fill='#4a8d00' fill-opacity='0.06'/>
+  <circle cx='1080' cy='360' r='150' fill='#4a8d00' fill-opacity='0.06'/>
+  <circle cx='1080' cy='360' r='80' fill='#4a8d00' fill-opacity='0.08'/>
+  <g id='section2-badge'>
+    <rect x='80' y='80' width='100' height='36' rx='18' fill='#4a8d00' fill-opacity='0.15'/>
+    <text x='130' y='104' text-anchor='middle' font-size='14' font-weight='700' fill='#4a8d00' font-family='Inter,Noto Sans SC,sans-serif'>PART 03</text>
+  </g>
+  <g id='section2-title' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='280' text-anchor='middle' font-size='56' font-weight='900' fill='#3c3c3c'>玩一玩</text>
+    <text x='640' y='350' text-anchor='middle' font-size='28' font-weight='600' fill='#4a8d00'>Let's Play!</text>
+    <text x='640' y='420' text-anchor='middle' font-size='18' fill='#777777'>看图猜动物 · 说出英语赢星星</text>
+    <text x='640' y='455' text-anchor='middle' font-size='18' fill='#777777'>Guess the animal and win a star!</text>
+  </g>
+  <g id='section2-decor'>
+    <text x='1080' y='330' text-anchor='middle' font-size='80'>🎮</text>
+    <text x='180' y='520' font-size='42'>⭐</text>
+    <text x='280' y='560' font-size='30'>🌟</text>
+    <text x='1100' y='560' font-size='36'>🏆</text>
+  </g>
+  <g id='section2-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='#777777'>7 / 10</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 这是我们的配对游戏！左边是动物图片，右边是英文单词。大家来连线配对，把图片和正确的单词连起来。谁来试试？（请同学上台操作或口头回答） -->
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='1280' height='4' fill='#4a8d00'/>
+  <g id='game-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='55' font-size='16' fill='#4a8d00' font-weight='700' letter-spacing='2'>MATCHING GAME</text>
+    <text x='80' y='100' font-size='34' font-weight='800' fill='#3c3c3c'>配对游戏 Match the Animals!</text>
+  </g>
+  <!-- 左列：动物图 -->
+  <g id='game-left'>
+    <rect x='80' y='140' width='300' height='95' rx='16' fill='#e5e5e5'/>
+    <text x='230' y='200' text-anchor='middle' font-size='48'>🐱</text>
+    <text x='290' y='205' font-size='14' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>A</text>
+    <rect x='80' y='260' width='300' height='95' rx='16' fill='#e5e5e5'/>
+    <text x='230' y='320' text-anchor='middle' font-size='48'>🐶</text>
+    <text x='290' y='325' font-size='14' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>B</text>
+    <rect x='80' y='380' width='300' height='95' rx='16' fill='#e5e5e5'/>
+    <text x='230' y='440' text-anchor='middle' font-size='48'>🐦</text>
+    <text x='290' y='445' font-size='14' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>C</text>
+    <rect x='80' y='500' width='300' height='95' rx='16' fill='#e5e5e5'/>
+    <text x='230' y='560' text-anchor='middle' font-size='48'>🐟</text>
+    <text x='290' y='565' font-size='14' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>D</text>
+  </g>
+  <!-- 连线提示 -->
+  <g id='game-lines' stroke='#4a8d00' stroke-width='3' stroke-dasharray='8 6' fill='none'>
+    <path d='M380,187 C540,187 540,210 700,210'/>
+    <path d='M380,307 C540,307 540,330 700,330'/>
+    <path d='M380,427 C540,427 540,450 700,450'/>
+    <path d='M380,547 C540,547 540,570 700,570'/>
+  </g>
+  <!-- 右列：单词 -->
+  <g id='game-right'>
+    <rect x='700' y='170' width='500' height='60' rx='14' fill='#ff9600' fill-opacity='0.1' stroke='#ff9600' stroke-width='2'/>
+    <text x='730' y='210' font-size='22' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>③ bird</text>
+    <text x='900' y='210' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>鸟 niǎo</text>
+    <rect x='700' y='290' width='500' height='60' rx='14' fill='#ff9600' fill-opacity='0.1' stroke='#ff9600' stroke-width='2'/>
+    <text x='730' y='330' font-size='22' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>① cat</text>
+    <text x='900' y='330' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>猫 māo</text>
+    <rect x='700' y='410' width='500' height='60' rx='14' fill='#ff9600' fill-opacity='0.1' stroke='#ff9600' stroke-width='2'/>
+    <text x='730' y='450' font-size='22' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>④ fish</text>
+    <text x='900' y='450' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>鱼 yú</text>
+    <rect x='700' y='530' width='500' height='60' rx='14' fill='#ff9600' fill-opacity='0.1' stroke='#ff9600' stroke-width='2'/>
+    <text x='730' y='570' font-size='22' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>② dog</text>
+    <text x='900' y='570' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>狗 gǒu</text>
+  </g>
+  <g id='game-tip' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='620' y='630' width='40' height='40' rx='10' fill='#4a8d00' fill-opacity='0.12'/>
+    <text x='640' y='658' text-anchor='middle' font-size='20'>⭐</text>
+    <text x='680' y='658' font-size='15' fill='#777777'>连对一组得一颗星！Match all pairs to earn stars!</text>
+  </g>
+  <g id='game-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='690' font-size='13' fill='#777777'>My Animal Friends</text>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='#777777'>8 / 10</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 快速回顾时间！我们今天学了什么呢？六种动物单词、两个重要句型。现在来个小测验——看图选单词，大家用手势回答，A还是B？（老师依次展示，学生举手抢答） -->
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='1280' height='4' fill='#58a700'/>
+  <g id='quiz-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='55' font-size='16' fill='#58a700' font-weight='700' letter-spacing='2'>REVIEW</text>
+    <text x='80' y='100' font-size='34' font-weight='800' fill='#3c3c3c'>课堂小测 Quiz Time</text>
+  </g>
+  <!-- 回顾条 -->
+  <g id='quiz-recap'>
+    <rect x='60' y='120' width='1160' height='70' rx='14' fill='#58a700' fill-opacity='0.08'/>
+    <text x='120' y='165' font-size='18' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>📝 今天学了什么 Today's Summary</text>
+    <text x='450' y='165' font-size='17' fill='#58a700' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>6个单词</text>
+    <text x='590' y='165' font-size='17' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>+</text>
+    <text x='620' y='165' font-size='17' fill='#ff9600' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>2个句型</text>
+    <text x='760' y='165' font-size='17' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>+</text>
+    <text x='790' y='165' font-size='17' fill='#4a8d00' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>1个游戏</text>
+    <text x='940' y='165' font-size='17' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>= 🎉</text>
+  </g>
+  <!-- Quiz 1 -->
+  <g id='quiz-q1'>
+    <rect x='60' y='215' width='560' height='200' rx='16' fill='#e5e5e5'/>
+    <rect x='60' y='215' width='50' height='200' rx='16' fill='#58a700' fill-opacity='0.15'/>
+    <text x='85' y='325' text-anchor='middle' font-size='22' font-weight='900' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>Q1</text>
+    <text x='140' y='265' font-size='20' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>看图选单词：🐰</text>
+    <rect x='140' y='290' width='210' height='55' rx='12' fill='#ff9600' fill-opacity='0.1' stroke='#ff9600' stroke-width='2'/>
+    <text x='245' y='327' text-anchor='middle' font-size='22' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>A. fish</text>
+    <rect x='380' y='290' width='210' height='55' rx='12' fill='#58a700' fill-opacity='0.12' stroke='#58a700' stroke-width='2'/>
+    <text x='485' y='327' text-anchor='middle' font-size='22' font-weight='700' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>B. rabbit</text>
+    <text x='140' y='385' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>答案：B. rabbit 🐰</text>
+  </g>
+  <!-- Quiz 2 -->
+  <g id='quiz-q2'>
+    <rect x='660' y='215' width='560' height='200' rx='16' fill='#e5e5e5'/>
+    <rect x='660' y='215' width='50' height='200' rx='16' fill='#ff9600' fill-opacity='0.15'/>
+    <text x='685' y='325' text-anchor='middle' font-size='22' font-weight='900' fill='#ff9600' font-family='Inter,Noto Sans SC,sans-serif'>Q2</text>
+    <text x='740' y='265' font-size='20' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>填空：I _____ a cat.</text>
+    <rect x='740' y='290' width='210' height='55' rx='12' fill='#58a700' fill-opacity='0.12' stroke='#58a700' stroke-width='2'/>
+    <text x='845' y='327' text-anchor='middle' font-size='22' font-weight='700' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>A. have</text>
+    <rect x='980' y='290' width='210' height='55' rx='12' fill='#4a8d00' fill-opacity='0.1' stroke='#4a8d00' stroke-width='2'/>
+    <text x='1085' y='327' text-anchor='middle' font-size='22' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>B. like</text>
+    <text x='740' y='385' font-size='15' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>答案：A. have (I have a cat.)</text>
+  </g>
+  <!-- Quiz 3 -->
+  <g id='quiz-q3'>
+    <rect x='60' y='440' width='560' height='130' rx='16' fill='#e5e5e5'/>
+    <rect x='60' y='440' width='50' height='130' rx='16' fill='#4a8d00' fill-opacity='0.15'/>
+    <text x='85' y='515' text-anchor='middle' font-size='22' font-weight='900' fill='#4a8d00' font-family='Inter,Noto Sans SC,sans-serif'>Q3</text>
+    <text x='140' y='490' font-size='20' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>Monkey 是什么意思？</text>
+    <rect x='140' y='510' width='180' height='40' rx='10' fill='#ff9600' fill-opacity='0.1' stroke='#ff9600' stroke-width='2'/>
+    <text x='230' y='538' text-anchor='middle' font-size='17' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>A. 兔子</text>
+    <rect x='340' y='510' width='250' height='40' rx='10' fill='#58a700' fill-opacity='0.12' stroke='#58a700' stroke-width='2'/>
+    <text x='465' y='538' text-anchor='middle' font-size='17' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>B. 猴子 hóuzi</text>
+  </g>
+  <!-- Quiz 4 -->
+  <g id='quiz-q4'>
+    <rect x='660' y='440' width='560' height='130' rx='16' fill='#e5e5e5'/>
+    <rect x='660' y='440' width='50' height='130' rx='16' fill='#58a700' fill-opacity='0.15'/>
+    <text x='685' y='515' text-anchor='middle' font-size='22' font-weight='900' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>Q4</text>
+    <text x='740' y='490' font-size='20' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>I like ____. (复数形式)</text>
+    <rect x='740' y='510' width='210' height='40' rx='10' fill='#4a8d00' fill-opacity='0.1' stroke='#4a8d00' stroke-width='2'/>
+    <text x='845' y='538' text-anchor='middle' font-size='17' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>A. dog</text>
+    <rect x='980' y='510' width='210' height='40' rx='10' fill='#58a700' fill-opacity='0.12' stroke='#58a700' stroke-width='2'/>
+    <text x='1085' y='538' text-anchor='middle' font-size='17' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>B. dogs</text>
+  </g>
+  <g id='quiz-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='690' font-size='13' fill='#777777'>My Animal Friends</text>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='#777777'>9 / 10</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 今天的课到这里就结束啦！大家一起说——I like animals! 太棒了！回家后记得用英语和爸爸妈妈说说你今天学到了什么动物。下次课我们继续学习更多有趣的动物！Goodbye everyone! See you next time! -->
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='1280' height='4' fill='#58a700'/>
+  <!-- 装饰圆形 -->
+  <circle cx='100' cy='100' r='60' fill='#58a700' fill-opacity='0.06'/>
+  <circle cx='1180' cy='620' r='80' fill='#ff9600' fill-opacity='0.06'/>
+  <circle cx='1100' cy='150' r='40' fill='#4a8d00' fill-opacity='0.06'/>
+  <g id='thanks-content' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='160' text-anchor='middle' font-size='56' font-weight='900' fill='#3c3c3c'>Great Job!</text>
+    <text x='640' y='220' text-anchor='middle' font-size='56' font-weight='900' fill='#58a700'>太棒了！</text>
+    <line x1='490' y1='255' x2='790' y2='255' stroke='#58a700' stroke-width='3' stroke-linecap='round'/>
+  </g>
+  <g id='thanks-recap' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='190' y='290' width='900' height='90' rx='16' fill='#e5e5e5'/>
+    <text x='640' y='330' text-anchor='middle' font-size='20' font-weight='700' fill='#777777'>今天我们学会了</text>
+    <text x='640' y='360' text-anchor='middle' font-size='16' fill='#777777'>cat · dog · bird · fish · rabbit · monkey · I have a... · I like...</text>
+  </g>
+  <g id='thanks-homework' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='340' y='410' width='600' height='90' rx='16' fill='#58a700' fill-opacity='0.1' stroke='#58a700' stroke-width='2'/>
+    <text x='640' y='450' text-anchor='middle' font-size='20' font-weight='700' fill='#58a700'>🏠 课后小任务 Homework</text>
+    <text x='640' y='480' text-anchor='middle' font-size='16' fill='#777777'>用英语告诉爸爸妈妈你喜欢什么动物！</text>
+  </g>
+  <g id='thanks-decor'>
+    <text x='640' y='580' text-anchor='middle' font-size='48'>🐱 🐶 🐦 🐟 🐰 🐒</text>
+  </g>
+  <g id='thanks-greeting' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='660' text-anchor='middle' font-size='20' fill='#777777' font-weight='600'>See you next time! 下次课再见！👋</text>
+  </g>
+</svg>
+</div>
+</body>
+</html>

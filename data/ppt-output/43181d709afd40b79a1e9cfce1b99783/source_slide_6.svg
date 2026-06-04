@@ -1,0 +1,41 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='stripe'>
+  <!-- notes: 关键数据——用4个核心指标展示DeepSeek的能力广度 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='#533afd' font-weight='600' letter-spacing='3'>METRICS</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='#061b31'>关键数据</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='#533afd'/>
+  </g>
+  <g id="kpi-row-1">
+    <rect x='100' y='260' width='520' height='150' rx='16' fill='#f6f9fc'/>
+    <text x='140' y='310' font-size='16' fill='#64748d'>上下文窗口</text>
+    <text x='140' y='370' font-size='56' font-weight='800' fill='#533afd' font-family='JetBrains Mono,monospace'>128K</text>
+    <text x='340' y='370' font-size='20' fill='#273951'>tokens</text>
+    <text x='140' y='398' font-size='15' fill='#64748d'>≈ 一本 <tspan font-weight='600' fill='#273951'>100页</tspan> 的技术文档</text>
+
+    <rect x='660' y='260' width='520' height='150' rx='16' fill='#f6f9fc'/>
+    <text x='700' y='310' font-size='16' fill='#64748d'>训练数据</text>
+    <text x='700' y='370' font-size='56' font-weight='800' fill='#533afd' font-family='JetBrains Mono,monospace'>万亿</text>
+    <text x='880' y='370' font-size='20' fill='#273951'>token 级</text>
+    <text x='700' y='398' font-size='15' fill='#64748d'>高质量多源语料训练</text>
+  </g>
+  <g id="kpi-row-2">
+    <rect x='100' y='440' width='520' height='150' rx='16' fill='#f6f9fc'/>
+    <text x='140' y='490' font-size='16' fill='#64748d'>模型参数</text>
+    <text x='140' y='550' font-size='56' font-weight='800' fill='#533afd' font-family='JetBrains Mono,monospace'>671B</text>
+    <text x='340' y='550' font-size='20' fill='#273951'>总参数</text>
+    <text x='140' y='578' font-size='15' fill='#64748d'>MoE 架构 · 激活仅 <tspan font-weight='600' fill='#273951'>37B</tspan></text>
+
+    <rect x='660' y='440' width='520' height='150' rx='16' fill='#f6f9fc'/>
+    <text x='700' y='490' font-size='16' fill='#64748d'>开源生态</text>
+    <text x='700' y='550' font-size='56' font-weight='800' fill='#533afd' font-family='JetBrains Mono,monospace'>100%</text>
+    <text x='880' y='550' font-size='20' fill='#273951'>开源</text>
+    <text x='700' y='578' font-size='15' fill='#64748d'>模型权重 · 论文 · 技术报告</text>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='#e5edf5'/>
+    <text x='100' y='690' font-size='14' fill='#64748d'>06 / 11 · 关键数据</text>
+  </g>
+</svg>

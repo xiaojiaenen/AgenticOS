@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="airbnb">
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+  </g>
+  <g id="header" font-family="Inter,Noto Sans SC,sans-serif">
+    <text x="80" y="100" font-size="14" fill="var(--accent)" font-weight="600" letter-spacing="3">MEMORIES</text>
+    <rect x="80" y="115" width="40" height="3" rx="1.5" fill="var(--accent)"/>
+    <text x="80" y="170" font-size="40" font-weight="800" fill="var(--text-1)">美好时光 · 岁月轴</text>
+  </g>
+  <!-- 时间轴线 -->
+  <g id="timeline-line">
+    <rect x="635" y="220" width="10" height="420" rx="5" fill="var(--accent)" fill-opacity="0.15"/>
+  </g>
+  <g id="timeline-items" font-family="Inter,Noto Sans SC,sans-serif">
+    <!-- 2020 -->
+    <g transform="translate(0, 0)">
+      <circle cx="640" cy="270" r="20" fill="var(--accent)"/>
+      <circle cx="640" cy="270" r="10" fill="#ffffff"/>
+      <rect x="300" y="245" width="300" height="50" rx="10" fill="var(--surface)"/>
+      <text x="316" y="276" font-size="18" font-weight="600" fill="var(--text-1)">2020 · 初次相遇</text>
+      <text x="690" y="276" font-size="16" fill="var(--text-2)">缘分开始的夏天</text>
+    </g>
+    <!-- 2021 -->
+    <g transform="translate(0, 100)">
+      <circle cx="640" cy="270" r="20" fill="var(--accent)"/>
+      <circle cx="640" cy="270" r="10" fill="#ffffff"/>
+      <rect x="300" y="245" width="300" height="50" rx="10" fill="var(--surface)"/>
+      <text x="316" y="276" font-size="18" font-weight="600" fill="var(--text-1)">2021 · 一起旅行</text>
+      <text x="690" y="276" font-size="16" fill="var(--text-2)">最美的风景在身边</text>
+    </g>
+    <!-- 2022 -->
+    <g transform="translate(0, 200)">
+      <circle cx="640" cy="270" r="20" fill="var(--accent)"/>
+      <circle cx="640" cy="270" r="10" fill="#ffffff"/>
+      <rect x="300" y="245" width="300" height="50" rx="10" fill="var(--surface)"/>
+      <text x="316" y="276" font-size="18" font-weight="600" fill="var(--text-1)">2022 · 并肩成长</text>
+      <text x="690" y="276" font-size="16" fill="var(--text-2)">相互鼓励的岁月</text>
+    </g>
+    <!-- 2023 -->
+    <g transform="translate(0, 300)">
+      <circle cx="640" cy="270" r="20" fill="var(--accent)"/>
+      <circle cx="640" cy="270" r="10" fill="#ffffff"/>
+      <rect x="300" y="245" width="300" height="50" rx="10" fill="var(--surface)"/>
+      <text x="316" y="276" font-size="18" font-weight="600" fill="var(--text-1)">2023 · 珍贵回忆</text>
+      <text x="690" y="276" font-size="16" fill="var(--text-2)">笑与泪的收藏</text>
+    </g>
+  </g>
+  <!-- notes: 时间线页——逐年展示重要回忆，中间轴线连接，左右分布 -->
+</svg>

@@ -1,0 +1,40 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='ghibli'>
+  <defs>
+    <linearGradient id='dividerGrad' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='var(--bg)'/>
+      <stop offset='50%' stop-color='var(--surface)'/>
+      <stop offset='100%' stop-color='var(--bg)'/>
+    </linearGradient>
+  </defs>
+  <!-- notes: 章节分隔页——巨型数字"01"居中，柔和大圆弧和云朵围绕，"漫展概览"章节标题大气展现 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='url(#dividerGrad)'/>
+  </g>
+  <g id='decoration-clouds'>
+    <g fill='var(--surface)' fill-opacity='0.5'>
+      <ellipse cx='100' cy='100' rx='120' ry='45'/>
+      <ellipse cx='180' cy='80' rx='80' ry='35'/>
+      <ellipse cx='50' cy='90' rx='60' ry='30'/>
+    </g>
+    <g fill='var(--surface)' fill-opacity='0.4'>
+      <ellipse cx='1180' cy='620' rx='100' ry='40'/>
+      <ellipse cx='1240' cy='600' rx='70' ry='32'/>
+    </g>
+  </g>
+  <g id='decoration-arcs'>
+    <path d='M100 360 Q320 280 640 360 Q960 440 1180 360' fill='none' stroke='var(--accent)' stroke-width='2' stroke-opacity='0.2'/>
+    <path d='M200 420 Q420 350 640 420 Q860 490 1080 420' fill='none' stroke='var(--accent)' stroke-width='1.5' stroke-opacity='0.12'/>
+  </g>
+  <g id='section-number'>
+    <text x='640' y='370' font-size='200' font-weight='900' fill='var(--accent)' fill-opacity='0.08' text-anchor='middle' font-family='Playfair Display,Noto Serif SC,serif'>01</text>
+  </g>
+  <g id='section-title'>
+    <text x='640' y='350' font-size='24' fill='var(--accent)' font-weight='600' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='6'>CHAPTER ONE</text>
+    <text x='640' y='430' font-size='64' font-weight='900' fill='var(--text-1)' text-anchor='middle' font-family='Playfair Display,Noto Serif SC,serif'>漫展概览</text>
+    <rect x='580' y='460' width='120' height='3' rx='1.5' fill='var(--accent)'/>
+    <text x='640' y='510' font-size='20' fill='var(--text-2)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>一场属于所有动漫爱好者的夏日盛会</text>
+  </g>
+  <g id='pagenumber'>
+    <text x='1240' y='700' font-size='14' fill='var(--text-3)' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>03 / 10</text>
+  </g>
+</svg>

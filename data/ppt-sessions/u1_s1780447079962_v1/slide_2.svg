@@ -1,0 +1,44 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 今天我们有三个学习目标。第一个：认识6种动物的英文名字。第二个：学会说"I have a..."和"I like..."这两个句型。第三个：通过游戏巩固所学内容。我们一步一步来！ -->
+  <rect width='1280' height='720' fill='var(--bg)'/>
+  <rect x='0' y='0' width='1280' height='4' fill='var(--accent)'/>
+  <g id='toc-title' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='70' font-size='16' fill='var(--accent)' font-weight='700' letter-spacing='2'>TODAY'S GOALS</text>
+    <text x='80' y='120' font-size='38' font-weight='800' fill='var(--text-1)'>今日学习目标</text>
+  </g>
+  <g id='toc-01'>
+    <rect x='60' y='170' width='370' height='200' rx='16' fill='var(--surface)'/>
+    <rect x='60' y='170' width='370' height='6' rx='3' fill='var(--accent)'/>
+    <text x='100' y='235' font-size='52' font-weight='900' fill='var(--accent)' fill-opacity='0.15' font-family='Inter,Noto Sans SC,sans-serif'>01</text>
+    <text x='100' y='290' font-size='24' font-weight='700' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>学一学 Learn</text>
+    <text x='100' y='330' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>认识 6 种动物的英文单词</text>
+    <text x='100' y='352' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>cat · dog · bird · fish · rabbit · monkey</text>
+  </g>
+  <g id='toc-02'>
+    <rect x='455' y='170' width='370' height='200' rx='16' fill='var(--surface)'/>
+    <rect x='455' y='170' width='370' height='6' rx='3' fill='var(--accent-2)'/>
+    <text x='495' y='235' font-size='52' font-weight='900' fill='var(--accent-2)' fill-opacity='0.15' font-family='Inter,Noto Sans SC,sans-serif'>02</text>
+    <text x='495' y='290' font-size='24' font-weight='700' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>练一练 Practice</text>
+    <text x='495' y='330' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>练习两个核心句型</text>
+    <text x='495' y='352' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>I have a... · I like...</text>
+  </g>
+  <g id='toc-03'>
+    <rect x='850' y='170' width='370' height='200' rx='16' fill='var(--surface)'/>
+    <rect x='850' y='170' width='6' height='200' rx='3' fill='var(--accent-3)'/>
+    <text x='890' y='235' font-size='52' font-weight='900' fill='var(--accent-3)' fill-opacity='0.15' font-family='Inter,Noto Sans SC,sans-serif'>03</text>
+    <text x='890' y='290' font-size='24' font-weight='700' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>玩一玩 Play</text>
+    <text x='890' y='330' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>趣味配对游戏</text>
+    <text x='890' y='352' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>看图说英语，赢星星奖励</text>
+  </g>
+  <g id='toc-stars' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 底部激励元素 -->
+    <rect x='60' y='430' width='1160' height='160' rx='16' fill='var(--surface)'/>
+    <text x='640' y='480' text-anchor='middle' font-size='22' font-weight='700' fill='var(--text-1)'>⭐ 学习小贴士 Learning Tips ⭐</text>
+    <text x='640' y='520' text-anchor='middle' font-size='16' fill='var(--text-2)'>大胆开口说，不要怕犯错！每说对一个句子，就能得到一颗星星哦～</text>
+    <text x='640' y='555' text-anchor='middle' font-size='16' fill='var(--text-2)'>Speak up bravely! Don't be afraid of mistakes!</text>
+  </g>
+  <g id='toc-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='690' font-size='13' fill='var(--text-3)'>My Animal Friends</text>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='var(--text-3)'>2 / 10</text>
+  </g>
+</svg>

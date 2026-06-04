@@ -1,0 +1,21 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='apple'>
+  <!-- notes: 章节分隔——品质之选。从技术回到用户视角，讲格力如何影响千万家庭的日常生活。过渡句：技术再好，最终还是要落到用户体验上。格力的品质，是千万家庭用真金白银投票的结果。 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg-soft)'/>
+    <rect x='0' y='0' width='1280' height='4' fill='var(--accent-3)'/>
+  </g>
+  <g id='section-decor'>
+    <circle cx='1060' cy='360' r='260' fill='var(--accent-3)' fill-opacity='0.04'/>
+    <circle cx='1060' cy='360' r='160' fill='var(--accent-3)' fill-opacity='0.06'/>
+    <circle cx='1060' cy='360' r='80' fill='var(--accent-3)' fill-opacity='0.10'/>
+  </g>
+  <g id='section-content' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='120' y='240' font-size='160' font-weight='900' fill='var(--accent-3)' fill-opacity='0.10'>03</text>
+    <text x='120' y='290' font-size='20' fill='var(--accent-3)' font-weight='600' letter-spacing='4'>SECTION 03</text>
+    <text x='120' y='370' font-size='52' font-weight='800' fill='var(--text-1)' font-family='Playfair Display,Noto Serif SC,serif'>品质之选</text>
+    <text x='120' y='430' font-size='20' fill='var(--text-2)'>千万家庭的共同信赖 · 品质生活的标配</text>
+  </g>
+  <g id='section-footer'>
+    <text x='1200' y='680' text-anchor='end' font-size='12' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>8 / 11</text>
+  </g>
+</svg>

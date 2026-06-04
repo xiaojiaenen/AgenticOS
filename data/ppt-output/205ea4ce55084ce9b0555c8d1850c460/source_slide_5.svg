@@ -1,0 +1,42 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 练习第一个句型——I have a... 意思是"我有一个..."。看左边的例子：I have a cat. 我有一只猫。现在轮到你们了！看右边的图，用"I have a..."造句。谁来说？（请同学举手回答） -->
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='1280' height='4' fill='#58a700'/>
+  <g id='sentence1-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='55' font-size='16' fill='#ff9600' font-weight='700' letter-spacing='2'>SENTENCE PATTERN 1</text>
+    <text x='80' y='100' font-size='34' font-weight='800' fill='#3c3c3c'>句型一 我有一个… I have a...</text>
+  </g>
+  <!-- 左栏：示例 -->
+  <g id='sentence1-example'>
+    <rect x='60' y='130' width='560' height='440' rx='16' fill='#e5e5e5'/>
+    <rect x='60' y='130' width='560' height='6' rx='3' fill='#58a700'/>
+    <text x='340' y='185' text-anchor='middle' font-size='22' font-weight='700' fill='#58a700' font-family='Inter,Noto Sans SC,sans-serif'>💡 看例子 Example</text>
+    <!-- 示例句子 -->
+    <text x='120' y='250' font-size='36' font-weight='800' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>I have a <tspan fill='#58a700'>cat</tspan>.</text>
+    <text x='120' y='290' font-size='18' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>我有一只猫。🐱</text>
+    <line x1='100' y1='320' x2='580' y2='320' stroke='#afafaf'/>
+    <text x='120' y='370' font-size='36' font-weight='800' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>I have a <tspan fill='#58a700'>dog</tspan>.</text>
+    <text x='120' y='410' font-size='18' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>我有一只狗。🐶</text>
+    <line x1='100' y1='440' x2='580' y2='440' stroke='#afafaf'/>
+    <text x='120' y='490' font-size='36' font-weight='800' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>I have a <tspan fill='#58a700'>fish</tspan>.</text>
+    <text x='120' y='530' font-size='18' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>我有一条鱼。🐟</text>
+  </g>
+  <!-- 右栏：练习 -->
+  <g id='sentence1-practice'>
+    <rect x='660' y='130' width='560' height='440' rx='16' fill='#e5e5e5'/>
+    <rect x='660' y='130' width='6' height='440' rx='3' fill='#4a8d00'/>
+    <text x='940' y='185' text-anchor='middle' font-size='22' font-weight='700' fill='#4a8d00' font-family='Inter,Noto Sans SC,sans-serif'>✏️ 试一试 Your Turn</text>
+    <!-- 练习卡片 -->
+    <rect x='700' y='210' width='480' height='70' rx='12' fill='#58a700' fill-opacity='0.08'/>
+    <text x='720' y='255' font-size='28' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>🐰  I have a <tspan fill='#4a8d00' text-decoration='underline'>rabbit</tspan>.</text>
+    <rect x='700' y='300' width='480' height='70' rx='12' fill='#58a700' fill-opacity='0.08'/>
+    <text x='720' y='345' font-size='28' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>🐦  I have a <tspan fill='#4a8d00' text-decoration='underline'>bird</tspan>.</text>
+    <rect x='700' y='390' width='480' height='70' rx='12' fill='#58a700' fill-opacity='0.08'/>
+    <text x='720' y='435' font-size='28' font-weight='700' fill='#3c3c3c' font-family='Inter,Noto Sans SC,sans-serif'>🐒  I have a <tspan fill='#4a8d00' text-decoration='underline'>monkey</tspan>.</text>
+    <text x='940' y='520' text-anchor='middle' font-size='16' fill='#777777' font-family='Inter,Noto Sans SC,sans-serif'>填入正确的动物单词！</text>
+  </g>
+  <g id='sentence1-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='690' font-size='13' fill='#777777'>My Animal Friends</text>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='#777777'>5 / 10</text>
+  </g>
+</svg>

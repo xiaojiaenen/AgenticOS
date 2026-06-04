@@ -1,0 +1,46 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='80' font-size='14' fill='#10a37f' font-weight='600' letter-spacing='2'>CHAPTER 02 · 核心技术</text>
+    <text x='80' y='130' font-size='42' font-weight='800' fill='#0d0d0d'>关键影响力数据</text>
+    <rect x='80' y='155' width='50' height='3' fill='#10a37f'/>
+  </g>
+  <g id='kpi-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='210' width='260' height='220' rx='16' fill='#fafafa'/>
+    <text x='210' y='290' text-anchor='middle' font-size='48' font-weight='800' fill='#10a37f'>3亿+</text>
+    <text x='210' y='330' text-anchor='middle' font-size='16' fill='#1a1a1a'>ChatGPT 周活跃用户</text>
+    <text x='210' y='355' text-anchor='middle' font-size='13' fill='#9b9b9b'>2024 年数据</text>
+  </g>
+  <g id='kpi-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='365' y='210' width='260' height='220' rx='16' fill='#fafafa'/>
+    <text x='495' y='290' text-anchor='middle' font-size='48' font-weight='800' fill='#10a37f'>100M</text>
+    <text x='495' y='330' text-anchor='middle' font-size='16' fill='#1a1a1a'>API 日调用次数</text>
+    <text x='495' y='355' text-anchor='middle' font-size='13' fill='#9b9b9b'>全球开发者生态</text>
+  </g>
+  <g id='kpi-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='650' y='210' width='260' height='220' rx='16' fill='#fafafa'/>
+    <text x='780' y='290' text-anchor='middle' font-size='48' font-weight='800' fill='#10a37f'>$130亿</text>
+    <text x='780' y='330' text-anchor='middle' font-size='16' fill='#1a1a1a'>微软投资规模</text>
+    <text x='780' y='355' text-anchor='middle' font-size='13' fill='#9b9b9b'>战略合作伙伴</text>
+  </g>
+  <g id='kpi-4' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='935' y='210' width='260' height='220' rx='16' fill='#fafafa'/>
+    <text x='1065' y='290' text-anchor='middle' font-size='48' font-weight='800' fill='#10a37f'>100+</text>
+    <text x='1065' y='330' text-anchor='middle' font-size='16' fill='#1a1a1a'>支持语言</text>
+    <text x='1065' y='355' text-anchor='middle' font-size='13' fill='#9b9b9b'>覆盖全球 95%+ 人口</text>
+  </g>
+  <g id='insight-card' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='460' width='1115' height='200' rx='16' fill='#fafafa'/>
+    <text x='120' y='510' font-size='20' font-weight='700' fill='#0d0d0d'>从研究实验室到全球基础设施</text>
+    <text x='120' y='545' font-size='15' fill='#1a1a1a'>OpenAI 已从一个小型研究机构成长为全球 AI 基础设施提供商。其 API 被超过 200 万开发者使用，</text>
+    <text x='120' y='570' font-size='15' fill='#1a1a1a'>赋能从财富 500 强到初创公司的各类组织。ChatGPT 已成为历史上增长最快的消费级应用，</text>
+    <text x='120' y='595' font-size='15' fill='#1a1a1a'>重新定义了人机交互的方式。</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>8 / 11</text>
+  </g>
+  <!-- notes: 四个关键 KPI 卡片展示 OpenAI 的影响力规模。3亿周活 + 1亿日API调用 + 130亿微软投资 + 100+语言。底部卡片总结从研究到基础设施的转型。演讲时可以请观众感受："3亿用户是什么概念？相当于每 25 个人中就有 1 个人每周在使用 ChatGPT。" -->
+</svg>

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="airbnb">
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="#ffffff"/>
+  </g>
+  <g id="header" font-family="Inter,Noto Sans SC,sans-serif">
+    <text x="80" y="100" font-size="14" fill="#ff385c" font-weight="600" letter-spacing="3">BIRTHDAY STATS</text>
+    <rect x="80" y="115" width="40" height="3" rx="1.5" fill="#ff385c"/>
+    <text x="80" y="170" font-size="40" font-weight="800" fill="#222222">今日主角·数据档案</text>
+  </g>
+  <g id="kpi-grid" font-family="Inter,Noto Sans SC,sans-serif">
+    <!-- KPI 1 -->
+    <g transform="translate(80, 240)">
+      <rect width="260" height="180" rx="20" fill="#f7f7f7"/>
+      <rect width="260" height="4" rx="2" fill="#ff385c"/>
+      <text x="130" y="60" text-anchor="middle" font-size="14" fill="#929292" letter-spacing="2">年 龄</text>
+      <text x="130" y="120" text-anchor="middle" font-size="52" font-weight="800" fill="#ff385c">+1</text>
+      <text x="130" y="155" text-anchor="middle" font-size="16" fill="#3f3f3f">又长大一岁啦</text>
+    </g>
+    <!-- KPI 2 -->
+    <g transform="translate(370, 240)">
+      <rect width="260" height="180" rx="20" fill="#f7f7f7"/>
+      <rect width="260" height="4" rx="2" fill="#ff385c"/>
+      <text x="130" y="60" text-anchor="middle" font-size="14" fill="#929292" letter-spacing="2">相识天数</text>
+      <text x="130" y="120" text-anchor="middle" font-size="52" font-weight="800" fill="#ff385c">1,825</text>
+      <text x="130" y="155" text-anchor="middle" font-size="16" fill="#3f3f3f">5年美好时光</text>
+    </g>
+    <!-- KPI 3 -->
+    <g transform="translate(660, 240)">
+      <rect width="260" height="180" rx="20" fill="#f7f7f7"/>
+      <rect width="260" height="4" rx="2" fill="#ff385c"/>
+      <text x="130" y="60" text-anchor="middle" font-size="14" fill="#929292" letter-spacing="2">一起旅行</text>
+      <text x="130" y="120" text-anchor="middle" font-size="52" font-weight="800" fill="#ff385c">12</text>
+      <text x="130" y="155" text-anchor="middle" font-size="16" fill="#3f3f3f">座城市</text>
+    </g>
+    <!-- KPI 4 -->
+    <g transform="translate(950, 240)">
+      <rect width="260" height="180" rx="20" fill="#f7f7f7"/>
+      <rect width="260" height="4" rx="2" fill="#ff385c"/>
+      <text x="130" y="60" text-anchor="middle" font-size="14" fill="#929292" letter-spacing="2">笑容次数</text>
+      <text x="130" y="120" text-anchor="middle" font-size="52" font-weight="800" fill="#ff385c">∞</text>
+      <text x="130" y="155" text-anchor="middle" font-size="16" fill="#3f3f3f">无法计数</text>
+    </g>
+  </g>
+  <!-- 底部装饰 -->
+  <g id="decoration-bottm" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif">
+    <text x="640" y="540" font-size="18" fill="#929292">每一个数字背后，都是我们的故事</text>
+  </g>
+  <!-- notes: 数据卡片——用4个趣味数据卡片展示生日相关信息，轻松有趣 -->
+</svg>

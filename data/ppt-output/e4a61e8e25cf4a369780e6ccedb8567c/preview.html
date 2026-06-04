@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="nike">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  /* Theme tokens for CSS custom property resolution */
+  :root {
+    --accent: #111111;
+    --accent-2: #d30005;
+    --accent-3: #28282a;
+    --bad: #dc2626;
+    --bg: #ffffff;
+    --bg-soft: #fafafa;
+    --border: #d0d0d0;
+    --border-strong: #9e9ea0;
+    --font-display: 'Helvetica Now', 'Inter', 'Noto Sans SC', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: 'Helvetica Now', 'Inter', 'Noto Sans SC', sans-serif;
+    --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+    --good: #16a34a;
+    --grad: linear-gradient(135deg, #111111, #4b4b4d);
+    --grad-soft: linear-gradient(135deg, rgba(17,17,17,0.04), rgba(75,75,77,0.02));
+    --radius: 30px;
+    --radius-lg: 9999px;
+    --radius-sm: 8px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+    --surface: #f5f5f5;
+    --surface-2: #e5e5e5;
+    --text-1: #111111;
+    --text-2: #4b4b4d;
+    --text-3: #707072;
+    --warn: #eab308;
+  }
+  body { margin:0; padding:0; background:#111; font-family:Inter,Noto Sans SC,sans-serif; }
+  body.single .deck { overflow:auto!important; height:auto!important; }
+  .deck { display:flex; flex-direction:column; align-items:center; gap:16px; padding:16px; }
+  .deck svg { width:100%; max-width:1280px; height:auto; display:block; border-radius:8px; box-shadow:0 4px 24px rgba(0,0,0,.4); }
+</style>
+</head>
+<body class="single">
+<div class="deck">
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <!-- 装饰几何 -->
+  <g id='bg-decor'>
+    <rect x='0' y='0' width='1280' height='5' fill='#111111'/>
+    <circle cx='1050' cy='180' r='300' fill='#111111' fill-opacity='0.06'/>
+    <circle cx='1050' cy='180' r='180' fill='#111111' fill-opacity='0.08'/>
+    <circle cx='1050' cy='180' r='80' fill='#111111' fill-opacity='0.12'/>
+    <rect x='-60' y='500' width='400' height='400' rx='200' fill='#111111' fill-opacity='0.04' transform='rotate(-15, 140, 700)'/>
+  </g>
+  <!-- 主标题区 -->
+  <g id='cover-header'>
+    <text x='100' y='200' font-size='20' fill='#111111' font-weight='700' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='6'>GREE · 格力空调</text>
+    <text x='100' y='320' font-size='72' font-weight='900' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='100' dy='0'>掌握核心科技</tspan>
+    </text>
+    <text x='100' y='380' font-size='72' font-weight='900' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='100' dy='0'>让世界爱上中国造</tspan>
+    </text>
+  </g>
+  <!-- 副标题 -->
+  <g id='cover-subtitle'>
+    <text x='100' y='450' font-size='22' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>31 年专注空调领域 · 全球销量领先 · 连续多年市场占有率第一</text>
+  </g>
+  <!-- 标签 -->
+  <g id='cover-tags'>
+    <rect x='100' y='510' width='140' height='40' rx='20' fill='#111111'/>
+    <text x='170' y='536' font-size='15' fill='#ffffff' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>科技领先</text>
+    <rect x='260' y='510' width='140' height='40' rx='20' fill='#f5f5f5' stroke='#d0d0d0' stroke-width='1'/>
+    <text x='330' y='536' font-size='15' fill='#4b4b4d' font-weight='600' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>节能环保</text>
+    <rect x='420' y='510' width='140' height='40' rx='20' fill='#f5f5f5' stroke='#d0d0d0' stroke-width='1'/>
+    <text x='490' y='536' font-size='15' fill='#4b4b4d' font-weight='600' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>品质之选</text>
+  </g>
+  <!-- 页脚 -->
+  <g id='cover-footer'>
+    <text x='100' y='680' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>珠海格力电器股份有限公司</text>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>1 / 10</text>
+  </g>
+  <!-- notes: 封面页——开场要制造品牌张力。"掌握核心科技，让世界爱上中国造"是格力经典 slogan，直接唤起品牌认知。31年专注、全球销量领先、市占率第一，三个标签快速建立信任锚点。演讲时可以先问观众"你们家用的什么空调？"，再切入格力的品牌故事。 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#fafafa'/>
+  <!-- 装饰 -->
+  <g id='section-decor'>
+    <rect x='0' y='0' width='1280' height='5' fill='#111111'/>
+    <circle cx='1100' cy='360' r='250' fill='#111111' fill-opacity='0.05'/>
+    <circle cx='1100' cy='360' r='160' fill='#111111' fill-opacity='0.07'/>
+    <circle cx='1100' cy='360' r='70' fill='#111111' fill-opacity='0.10'/>
+  </g>
+  <!-- 章节内容 -->
+  <g id='section-content'>
+    <text x='120' y='260' font-size='150' font-weight='900' fill='#111111' fill-opacity='0.10' font-family='Inter,Noto Sans SC,sans-serif'>01</text>
+    <text x='120' y='320' font-size='20' fill='#111111' font-weight='700' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='5'>SECTION 01</text>
+    <text x='120' y='400' font-size='52' font-weight='800' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>核心科技</text>
+    <text x='120' y='460' font-size='22' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>三大自主研发技术，驱动极致舒适体验</text>
+  </g>
+  <!-- 页脚 -->
+  <g id='section-footer'>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>2 / 10</text>
+  </g>
+  <!-- notes: 章节分隔页——用大号编号01建立视觉断点。这里要停顿一下，告诉观众"接下来我要讲格力最核心的东西——技术"。格力和其他品牌最大的区别就是自主掌握压缩机、变频、智能控制三大核心技术，这也是"掌握核心科技"这句 slogan 的底气所在。 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <g id='page-header'>
+    <text x='80' y='65' font-size='18' fill='#111111' font-weight='700' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='2'>CORE TECHNOLOGY</text>
+    <text x='80' y='115' font-size='38' font-weight='700' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>三大核心技术，引领行业标准</text>
+  </g>
+  <!-- 卡片1：压缩机技术 -->
+  <g id='tech-card-1'>
+    <rect x='60' y='170' width='370' height='440' rx='20' fill='#f5f5f5'/>
+    <rect x='60' y='170' width='370' height='6' rx='3' fill='#111111'/>
+    <circle cx='245' cy='250' r='36' fill='#111111' fill-opacity='0.12'/>
+    <use data-icon='chunk-filled/lightning' x='221' y='226' width='48' height='48' fill='#111111'/>
+    <text x='245' y='330' font-size='26' font-weight='800' fill='#111111' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>凌达压缩机</text>
+    <text x='100' y='375' font-size='15' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='100' dy='0'>自主研发生产，年产超 6000 万台</tspan>
+      <tspan x='100' dy='28'>COP 值高达 4.8，远超国家一级能效</tspan>
+      <tspan x='100' dy='28'>-35℃~54℃ 极端环境稳定运行</tspan>
+      <tspan x='100' dy='28'>10 年质保承诺，行业最长</tspan>
+    </text>
+    <rect x='100' y='510' width='90' height='32' rx='16' fill='#111111' fill-opacity='0.12'/>
+    <text x='145' y='531' font-size='13' fill='#111111' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>自主研发</text>
+  </g>
+  <!-- 卡片2：变频技术 -->
+  <g id='tech-card-2'>
+    <rect x='455' y='170' width='370' height='440' rx='20' fill='#f5f5f5'/>
+    <rect x='455' y='170' width='370' height='6' rx='3' fill='#d30005'/>
+    <circle cx='640' cy='250' r='36' fill='#d30005' fill-opacity='0.12'/>
+    <use data-icon='chunk-filled/chart' x='616' y='226' width='48' height='48' fill='#d30005'/>
+    <text x='640' y='330' font-size='26' font-weight='800' fill='#111111' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>变频节能技术</text>
+    <text x='495' y='375' font-size='15' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='495' dy='0'>1Hz 超低频运行，精确控温 ±0.5℃</tspan>
+      <tspan x='495' dy='28'>全直流变频，省电高达 40%</tspan>
+      <tspan x='495' dy='28'>启动电流仅为定频空调的 1/3</tspan>
+      <tspan x='495' dy='28'>噪音低至 18dB，安静如图书馆</tspan>
+    </text>
+    <rect x='495' y='510' width='90' height='32' rx='16' fill='#d30005' fill-opacity='0.12'/>
+    <text x='540' y='531' font-size='13' fill='#d30005' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>节能 40%</text>
+  </g>
+  <!-- 卡片3：智能控制 -->
+  <g id='tech-card-3'>
+    <rect x='850' y='170' width='370' height='440' rx='20' fill='#f5f5f5'/>
+    <rect x='850' y='170' width='370' height='6' rx='3' fill='#16a34a'/>
+    <circle cx='1035' cy='250' r='36' fill='#16a34a' fill-opacity='0.12'/>
+    <use data-icon='chunk-filled/cube' x='1011' y='226' width='48' height='48' fill='#16a34a'/>
+    <text x='1035' y='330' font-size='26' font-weight='800' fill='#111111' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>智能物联控制</text>
+    <text x='890' y='375' font-size='15' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='890' dy='0'>格力+ APP 远程操控，随时随地</tspan>
+      <tspan x='890' dy='28'>AI 语音交互，说句话就能调温度</tspan>
+      <tspan x='890' dy='28'>智能学习用户习惯，自动调节</tspan>
+      <tspan x='890' dy='28'>全屋智能联动，打造智慧家庭</tspan>
+    </text>
+    <rect x='890' y='510' width='90' height='32' rx='16' fill='#16a34a' fill-opacity='0.12'/>
+    <text x='935' y='531' font-size='13' fill='#16a34a' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>智慧生活</text>
+  </g>
+  <!-- 页脚 -->
+  <g id='page-footer'>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>3 / 10</text>
+  </g>
+  <!-- notes: 三大核心技术是格力的护城河。讲这页的时候，重点讲"自主研发"——格力是行业唯一自己做压缩机的品牌，凌达压缩机年产6000万台，这个数字要强调。变频技术的1Hz超低频运行和18dB静音，都是消费者能直接感知的卖点。智能物联是面向未来的布局，年轻消费者会很感兴趣。每张卡片可以各讲1分钟。 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <!-- 装饰 -->
+  <g id='stat-decor'>
+    <circle cx='640' cy='360' r='280' fill='#111111' fill-opacity='0.03'/>
+    <circle cx='640' cy='360' r='180' fill='#111111' fill-opacity='0.04'/>
+  </g>
+  <g id='stat-header'>
+    <text x='640' y='80' font-size='18' fill='#111111' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='4'>GLOBAL PRESENCE</text>
+  </g>
+  <!-- 超大数字 -->
+  <g id='stat-hero'>
+    <text x='640' y='260' font-size='140' font-weight='900' fill='#111111' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>NO.1</text>
+    <text x='640' y='330' font-size='28' fill='#4b4b4d' font-weight='600' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>全球家用空调市场占有率连续多年领先</text>
+  </g>
+  <!-- 三个支撑数据 -->
+  <g id='stat-support-1'>
+    <rect x='160' y='400' width='280' height='140' rx='16' fill='#f5f5f5'/>
+    <text x='300' y='460' font-size='52' font-weight='900' fill='#111111' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>200+</text>
+    <text x='300' y='510' font-size='16' fill='#4b4b4d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>产品销往全球 200+ 国家和地区</text>
+  </g>
+  <g id='stat-support-2'>
+    <rect x='500' y='400' width='280' height='140' rx='16' fill='#f5f5f5'/>
+    <text x='640' y='460' font-size='52' font-weight='900' fill='#d30005' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>9万+</text>
+    <text x='640' y='510' font-size='16' fill='#4b4b4d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>全球专利申请数量</text>
+  </g>
+  <g id='stat-support-3'>
+    <rect x='840' y='400' width='280' height='140' rx='16' fill='#f5f5f5'/>
+    <text x='980' y='460' font-size='52' font-weight='900' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>31年</text>
+    <text x='980' y='510' font-size='16' fill='#4b4b4d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>专注空调领域深耕</text>
+  </g>
+  <!-- 页脚 -->
+  <g id='page-footer'>
+    <text x='80' y='680' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>数据来源：格力电器年报及第三方机构统计</text>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>4 / 10</text>
+  </g>
+  <!-- notes: 数据页——用 NO.1 超大字制造视觉冲击。三个支撑数据各有侧重：200+国家强调全球化，9万+专利强调技术积累，31年强调专注和底蕴。讲的时候可以说"很多人不知道，格力的产品已经卖到了全球200多个国家"，用反差感强化品牌认知。这些都是真实数据，不用标注示意。 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#fafafa'/>
+  <g id='section-decor'>
+    <rect x='0' y='0' width='1280' height='5' fill='#111111'/>
+    <circle cx='200' cy='400' r='300' fill='#111111' fill-opacity='0.04'/>
+    <circle cx='200' cy='400' r='180' fill='#111111' fill-opacity='0.06'/>
+    <circle cx='200' cy='400' r='80' fill='#111111' fill-opacity='0.10'/>
+  </g>
+  <g id='section-content'>
+    <text x='120' y='260' font-size='150' font-weight='900' fill='#111111' fill-opacity='0.10' font-family='Inter,Noto Sans SC,sans-serif'>02</text>
+    <text x='120' y='320' font-size='20' fill='#111111' font-weight='700' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='5'>SECTION 02</text>
+    <text x='120' y='400' font-size='52' font-weight='800' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>产品矩阵</text>
+    <text x='120' y='460' font-size='22' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>从家用到商用，覆盖全场景空气解决方案</text>
+  </g>
+  <g id='section-footer'>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>5 / 10</text>
+  </g>
+  <!-- notes: 第二章节——产品矩阵。前面讲了技术，现在要让观众看到"这些技术落地成了什么产品"。格力不只是做家用空调，还有中央空调、商用暖通、特种空调等等。接下来几页会展开讲。 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <g id='page-header'>
+    <text x='80' y='65' font-size='18' fill='#111111' font-weight='700' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='2'>PRODUCT SERIES</text>
+    <text x='80' y='115' font-size='38' font-weight='700' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>四大明星产品系列</text>
+  </g>
+  <!-- 产品1 -->
+  <g id='product-1'>
+    <rect x='60' y='160' width='1160' height='115' rx='12' fill='#f5f5f5'/>
+    <rect x='60' y='160' width='6' height='115' rx='3' fill='#111111'/>
+    <text x='100' y='205' font-size='24' font-weight='800' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>格力·玫瑰</text>
+    <rect x='260' y='183' width='70' height='26' rx='13' fill='#111111' fill-opacity='0.12'/>
+    <text x='295' y='201' font-size='12' fill='#111111' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>旗舰款</text>
+    <text x='100' y='250' font-size='15' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>高端艺术空调，新中式美学设计 · 双级变频压缩机 · 新风净化一体 · 售价 ¥8,999 起</text>
+  </g>
+  <!-- 产品2 -->
+  <g id='product-2'>
+    <rect x='60' y='295' width='1160' height='115' rx='12' fill='#f5f5f5'/>
+    <rect x='60' y='295' width='6' height='115' rx='3' fill='#d30005'/>
+    <text x='100' y='340' font-size='24' font-weight='800' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>格力·云佳</text>
+    <rect x='260' y='318' width='70' height='26' rx='13' fill='#d30005' fill-opacity='0.12'/>
+    <text x='295' y='336' font-size='12' fill='#d30005' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>爆款</text>
+    <text x='100' y='385' font-size='15' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>性价比之王，线上销量冠军 · 一级能效 · 自清洁 · 低噪静音 · 售价 ¥2,499 起</text>
+  </g>
+  <!-- 产品3 -->
+  <g id='product-3'>
+    <rect x='60' y='430' width='1160' height='115' rx='12' fill='#f5f5f5'/>
+    <rect x='60' y='430' width='6' height='115' rx='3' fill='#16a34a'/>
+    <text x='100' y='475' font-size='24' font-weight='800' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>格力·星空</text>
+    <rect x='260' y='453' width='90' height='26' rx='13' fill='#16a34a' fill-opacity='0.12'/>
+    <text x='305' y='471' font-size='12' fill='#16a34a' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>新风款</text>
+    <text x='100' y='520' font-size='15' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>新风增氧，不开窗也能换新鲜空气 · HEPA H13 滤网 · PM2.5 实时监测 · 售价 ¥4,599 起</text>
+  </g>
+  <!-- 产品4 -->
+  <g id='product-4'>
+    <rect x='60' y='565' width='1160' height='80' rx='12' fill='#f5f5f5'/>
+    <rect x='60' y='565' width='6' height='80' rx='3' fill='#eab308'/>
+    <text x='100' y='610' font-size='24' font-weight='800' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>格力·大松 <tspan font-size='15' fill='#4b4b4d' font-weight='400'>（生活电器）</tspan></text>
+    <text x='400' y='610' font-size='15' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>电饭煲 · 净水器 · 电风扇 · 加湿器 · 全品类品质生活</text>
+  </g>
+  <!-- 页脚 -->
+  <g id='page-footer'>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>6 / 10</text>
+  </g>
+  <!-- notes: 产品系列页——用列表形式展示格力的产品矩阵。重点讲三个空调系列：玫瑰是旗舰，代表格力最高的设计和技术水平；云佳是爆款，线上卖得最好的性价比之王；星空是新风款，主打健康空气概念。最后带一句大松生活电器，展示格力不只是空调。讲的时候可以根据观众类型调整重点——家庭用户多讲云佳和星空，高端用户多讲玫瑰。 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <g id='page-header'>
+    <text x='80' y='65' font-size='18' fill='#111111' font-weight='700' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='2'>STAR PRODUCT</text>
+    <text x='80' y='115' font-size='38' font-weight='700' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>格力·云佳 硬核参数</text>
+  </g>
+  <!-- KPI 1 -->
+  <g id='kpi-1'>
+    <rect x='60' y='160' width='560' height='220' rx='16' fill='#f5f5f5'/>
+    <text x='100' y='200' font-size='15' fill='#4b4b4d' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>能效等级</text>
+    <text x='100' y='300' font-size='72' font-weight='900' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>APF 5.27</text>
+    <text x='100' y='350' font-size='15' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>新国标一级能效 · 行业领先水平</text>
+  </g>
+  <!-- KPI 2 -->
+  <g id='kpi-2'>
+    <rect x='660' y='160' width='560' height='220' rx='16' fill='#f5f5f5'/>
+    <text x='700' y='200' font-size='15' fill='#4b4b4d' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>噪音控制</text>
+    <text x='700' y='300' font-size='72' font-weight='900' fill='#d30005' font-family='Inter,Noto Sans SC,sans-serif'>18dB</text>
+    <text x='700' y='350' font-size='15' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>静音模式低至 18 分贝 · 安睡无忧</text>
+  </g>
+  <!-- KPI 3 -->
+  <g id='kpi-3'>
+    <rect x='60' y='420' width='560' height='220' rx='16' fill='#f5f5f5'/>
+    <text x='100' y='460' font-size='15' fill='#4b4b4d' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>自清洁技术</text>
+    <text x='100' y='560' font-size='72' font-weight='900' fill='#16a34a' font-family='Inter,Noto Sans SC,sans-serif'>56℃</text>
+    <text x='100' y='610' font-size='15' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>高温自清洁杀菌率 99.9% · 告别霉菌异味</text>
+  </g>
+  <!-- KPI 4 -->
+  <g id='kpi-4'>
+    <rect x='660' y='420' width='560' height='220' rx='16' fill='#f5f5f5'/>
+    <text x='700' y='460' font-size='15' fill='#4b4b4d' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>适用面积</text>
+    <text x='700' y='560' font-size='72' font-weight='900' fill='#eab308' font-family='Inter,Noto Sans SC,sans-serif'>15-22㎡</text>
+    <text x='700' y='610' font-size='15' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>1.5 匹大风量 · 客厅卧室全覆盖</text>
+  </g>
+  <!-- 页脚 -->
+  <g id='page-footer'>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>7 / 10</text>
+  </g>
+  <!-- notes: 产品参数页——用 KPI 大数字卡片展示格力·云佳的核心卖点。APF 5.27 是新国标一级能效，比普通空调省电很多；18dB 静音，比图书馆还安静；56℃高温自清洁，这个功能对有小孩的家庭特别有吸引力。每个数字都可以展开讲一个消费者故事。比如"你知道普通空调用久了蒸发器有多脏吗？格力的56℃高温自清洁可以杀死99.9%的细菌。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='1280' height='6' fill='#111111'/>
+  <!-- 装饰引号 -->
+  <g id='quote-decor'>
+    <text x='120' y='280' font-size='200' font-weight='900' fill='#111111' fill-opacity='0.08' font-family='Inter,Noto Sans SC,sans-serif'>&quot;</text>
+  </g>
+  <!-- 金句 -->
+  <g id='quote-text'>
+    <text x='640' y='340' font-size='36' fill='#111111' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='640' dy='0'>质量是企业的生命，</tspan>
+      <tspan x='640' dy='56'>核心技术是企业的灵魂。</tspan>
+    </text>
+  </g>
+  <!-- 分割线和署名 -->
+  <g id='quote-author'>
+    <line x1='540' y1='450' x2='740' y2='450' stroke='#111111' stroke-width='2'/>
+    <text x='640' y='500' font-size='22' fill='#111111' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>—— 董明珠</text>
+    <text x='640' y='545' font-size='16' fill='#4b4b4d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>格力电器董事长兼总裁</text>
+  </g>
+  <!-- 装饰几何 -->
+  <g id='quote-geo'>
+    <circle cx='1150' cy='600' r='120' fill='#111111' fill-opacity='0.04'/>
+    <circle cx='1150' cy='600' r='70' fill='#111111' fill-opacity='0.06'/>
+  </g>
+  <!-- 页脚 -->
+  <g id='page-footer'>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>8 / 10</text>
+  </g>
+  <!-- notes: 品牌理念页——用董明珠的经典语录收束前面的技术和产品内容。"质量是企业的生命，核心技术是企业的灵魂"这句话完美呼应前面讲的三大核心技术。讲这页的时候语气可以慢下来，停顿一下，让观众消化前面的信息。然后可以补充一个细节：格力的出厂检测标准是行业的1.5倍，每一台空调都要经过300多项检测才能出厂。 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#fafafa'/>
+  <g id='section-decor'>
+    <rect x='0' y='0' width='1280' height='5' fill='#111111'/>
+    <rect x='900' y='100' width='500' height='500' rx='250' fill='#111111' fill-opacity='0.04'/>
+    <rect x='960' y='160' width='380' height='380' rx='190' fill='#111111' fill-opacity='0.06'/>
+    <rect x='1020' y='220' width='260' height='260' rx='130' fill='#111111' fill-opacity='0.08'/>
+  </g>
+  <g id='section-content'>
+    <text x='120' y='260' font-size='150' font-weight='900' fill='#111111' fill-opacity='0.10' font-family='Inter,Noto Sans SC,sans-serif'>03</text>
+    <text x='120' y='320' font-size='20' fill='#111111' font-weight='700' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='5'>SECTION 03</text>
+    <text x='120' y='400' font-size='52' font-weight='800' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>选择格力的理由</text>
+    <text x='120' y='460' font-size='22' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>不只是买一台空调，更是选择一种品质生活方式</text>
+  </g>
+  <g id='section-footer'>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>9 / 10</text>
+  </g>
+  <!-- notes: 第三章节——选择格力的理由。前面讲了技术和产品，现在要回到消费者视角：为什么要选格力？不只是参数好，更是品质生活的选择。这页停顿一下，让观众带着期待往下看。 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#fafafa'/>
+  <!-- 装饰 -->
+  <g id='cta-decor'>
+    <circle cx='640' cy='360' r='320' fill='#111111' fill-opacity='0.04'/>
+    <circle cx='640' cy='360' r='200' fill='#111111' fill-opacity='0.06'/>
+    <circle cx='640' cy='360' r='100' fill='#111111' fill-opacity='0.08'/>
+  </g>
+  <!-- 主 CTA -->
+  <g id='cta-main'>
+    <text x='640' y='220' font-size='56' font-weight='900' fill='#111111' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>让舒适，从一台好空调开始</text>
+    <text x='640' y='290' font-size='22' fill='#4b4b4d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>格力空调，掌握核心科技 · 品质改变生活</text>
+  </g>
+  <!-- 按钮 -->
+  <g id='cta-buttons'>
+    <rect x='400' y='350' width='240' height='60' rx='30' fill='#111111'/>
+    <text x='520' y='388' font-size='20' fill='#ffffff' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>立即选购</text>
+    <rect x='660' y='350' width='240' height='60' rx='30' fill='#f5f5f5' stroke='#d0d0d0' stroke-width='2'/>
+    <text x='780' y='388' font-size='20' fill='#4b4b4d' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>预约体验</text>
+  </g>
+  <!-- 信任背书 -->
+  <g id='cta-trust'>
+    <text x='640' y='480' font-size='16' fill='#707072' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>全国 30,000+ 服务网点 · 24 小时极速安装 · 10 年压缩机质保</text>
+  </g>
+  <!-- 底部服务承诺 -->
+  <g id='cta-promises'>
+    <rect x='280' y='530' width='200' height='80' rx='12' fill='#f5f5f5'/>
+    <text x='380' y='570' font-size='15' fill='#111111' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>免费上门设计</text>
+    <text x='380' y='595' font-size='13' fill='#707072' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>专业方案定制</text>
+    <rect x='540' y='530' width='200' height='80' rx='12' fill='#f5f5f5'/>
+    <text x='640' y='570' font-size='15' fill='#d30005' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>以旧换新补贴</text>
+    <text x='640' y='595' font-size='13' fill='#707072' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>最高补贴 ¥1,000</text>
+    <rect x='800' y='530' width='200' height='80' rx='12' fill='#f5f5f5'/>
+    <text x='900' y='570' font-size='15' fill='#16a34a' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>365 天只换不修</text>
+    <text x='900' y='595' font-size='13' fill='#707072' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>首年质量问题换新机</text>
+  </g>
+  <!-- 页脚 -->
+  <g id='page-footer'>
+    <text x='640' y='680' text-anchor='middle' font-size='14' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>格力电器 · www.gree.com · 全国服务热线 400-836-5315</text>
+  </g>
+  <!-- notes: 行动号召页——收束全篇，把观众从"了解格力"推向"选择格力"。核心 slogan"让舒适，从一台好空调开始"既点题又有行动力。底部三个服务承诺是临门一脚：免费上门设计降低决策门槛，以旧换新补贴给价格优惠，365天只换不修消除后顾之忧。讲的时候可以说"现在下单还享受以旧换新补贴"，制造紧迫感。最后留一下格力的官网和服务热线，方便观众后续行动。 -->
+</svg>
+</div>
+</body>
+</html>

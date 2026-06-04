@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
+  <!-- notes: 章节分隔页——产品矩阵章节开始，展示格力丰富的产品线 -->
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+  </g>
+  <g id="section-number">
+    <text x="200" y="350" font-size="180" font-weight="800" fill="var(--surface-2)" opacity="0.5">03</text>
+  </g>
+  <g id="section-title">
+    <text x="200" y="420" font-size="64" font-weight="800" fill="var(--text-1)">产品矩阵</text>
+    <text x="200" y="470" font-size="22" fill="var(--text-3)">Product Matrix</text>
+  </g>
+  <g id="section-desc">
+    <text x="200" y="530" font-size="18" fill="var(--text-2)">家用、商用、中央空调全覆盖</text>
+  </g>
+  <g id="footer-pagenum">
+    <text x="1220" y="690" font-size="14" fill="var(--text-3)" text-anchor="end">07 / 10</text>
+  </g>
+</svg>

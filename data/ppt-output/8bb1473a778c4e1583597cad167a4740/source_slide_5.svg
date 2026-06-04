@@ -1,0 +1,38 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='claude'>
+  <!-- notes: 能力架构——三层能力金字塔：底层基础能力→中层专业能力→顶层核心优势。每层用暖橙高亮递进 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='#dedc01' font-weight='600' letter-spacing='3'>CAPABILITIES</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='#4d4c48'>能力图谱</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='#dedc01'/>
+    <text x='100' y='210' font-size='18' fill='#3d3d3a'>三层能力体系，覆盖从理解到创造的完整链条</text>
+  </g>
+  <g id="layer-3">
+    <rect x='390' y='240' width='500' height='110' rx='16' fill='#dedc01' fill-opacity='0.1' stroke='#dedc01' stroke-width='2'/>
+    <text x='640' y='280' font-size='18' font-weight='700' fill='#dedc01' text-anchor='middle'>✦ 核心优势</text>
+    <text x='640' y='310' font-size='15' fill='#3d3d3a' text-anchor='middle'>安全性 · 诚实性 · 有用性 · 长文本理解</text>
+    <text x='640' y='334' font-size='13' fill='#87867f' text-anchor='middle'>Constitutional AI · 拒绝有害请求 · 引用来源</text>
+  </g>
+  <g id="layer-2">
+    <rect x='240' y='380' width='800' height='110' rx='16' fill='#f5f4ed' stroke='#e8e6dc' stroke-width='1.5'/>
+    <text x='640' y='418' font-size='18' font-weight='700' fill='#4d4c48' text-anchor='middle'>▸ 专业能力</text>
+    <text x='640' y='448' font-size='15' fill='#3d3d3a' text-anchor='middle'>编程 · 数据分析 · 写作翻译 · 图像理解 · 数学推理</text>
+    <text x='640' y='472' font-size='13' fill='#87867f' text-anchor='middle'>支持 Python 执行 · 多文件处理 · 多模态输入</text>
+  </g>
+  <g id="layer-1">
+    <rect x='90' y='520' width='1100' height='110' rx='16' fill='#f5f4ed' stroke='#e8e6dc' stroke-width='1.5'/>
+    <text x='640' y='558' font-size='18' font-weight='700' fill='#4d4c48' text-anchor='middle'>▸ 基础能力</text>
+    <text x='640' y='588' font-size='15' fill='#3d3d3a' text-anchor='middle'>自然语言理解 · 多轮对话 · 知识问答 · 文档分析 · 摘要总结</text>
+    <text x='640' y='612' font-size='13' fill='#87867f' text-anchor='middle'>支持 50+ 语言 · 上下文 200K tokens · 实时交互</text>
+  </g>
+  <g id="decor-arrows">
+    <line x1='640' y1='350' x2='640' y2='380' stroke='#dedc01' stroke-width='2' stroke-dasharray='4,4'/>
+    <line x1='640' y1='490' x2='640' y2='520' stroke='#dedc01' stroke-width='2' stroke-dasharray='4,4'/>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='#e8e6dc'/>
+    <text x='100' y='690' font-size='14' fill='#87867f'>05 / 11 · 能力图谱</text>
+  </g>
+</svg>

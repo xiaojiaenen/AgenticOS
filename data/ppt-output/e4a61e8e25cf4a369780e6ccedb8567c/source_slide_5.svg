@@ -1,0 +1,19 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#fafafa'/>
+  <g id='section-decor'>
+    <rect x='0' y='0' width='1280' height='5' fill='#111111'/>
+    <circle cx='200' cy='400' r='300' fill='#111111' fill-opacity='0.04'/>
+    <circle cx='200' cy='400' r='180' fill='#111111' fill-opacity='0.06'/>
+    <circle cx='200' cy='400' r='80' fill='#111111' fill-opacity='0.10'/>
+  </g>
+  <g id='section-content'>
+    <text x='120' y='260' font-size='150' font-weight='900' fill='#111111' fill-opacity='0.10' font-family='Inter,Noto Sans SC,sans-serif'>02</text>
+    <text x='120' y='320' font-size='20' fill='#111111' font-weight='700' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='5'>SECTION 02</text>
+    <text x='120' y='400' font-size='52' font-weight='800' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>产品矩阵</text>
+    <text x='120' y='460' font-size='22' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>从家用到商用，覆盖全场景空气解决方案</text>
+  </g>
+  <g id='section-footer'>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>5 / 10</text>
+  </g>
+  <!-- notes: 第二章节——产品矩阵。前面讲了技术，现在要让观众看到"这些技术落地成了什么产品"。格力不只是做家用空调，还有中央空调、商用暖通、特种空调等等。接下来几页会展开讲。 -->
+</svg>

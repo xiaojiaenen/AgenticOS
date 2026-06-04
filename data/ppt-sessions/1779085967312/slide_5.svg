@@ -1,0 +1,38 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='36' font-weight='800' fill='var(--text-1)'>大模型关键指标速览</text>
+    <text x='80' y='140' font-size='18' fill='var(--text-2)'>Key Metrics at a Glance</text>
+    <line x1='80' y1='162' x2='280' y2='162' stroke='var(--accent)' stroke-width='3'/>
+  </g>
+  <g id='stat-row-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 指标1 -->
+    <rect x='80' y='210' width='545' height='130' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+    <text x='120' y='270' font-size='48' font-weight='900' fill='var(--accent)'>10,000x</text>
+    <text x='120' y='315' font-size='18' fill='var(--text-1)'>训练算力需求</text>
+    <text x='340' y='315' font-size='16' fill='var(--text-2)'>从 GPT-1 到 GPT-4，训练计算量增长超万倍</text>
+    <!-- 指标2 -->
+    <rect x='655' y='210' width='545' height='130' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+    <text x='695' y='270' font-size='48' font-weight='900' fill='var(--accent)'>90%</text>
+    <text x='695' y='315' font-size='18' fill='var(--text-1)'>推理成本下降</text>
+    <text x='915' y='315' font-size='16' fill='var(--text-2)'>过去三年，单 token 推理成本年降超 50%</text>
+  </g>
+  <g id='stat-row-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 指标3 -->
+    <rect x='80' y='360' width='545' height='130' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+    <text x='120' y='420' font-size='48' font-weight='900' fill='var(--accent)'>3.2x</text>
+    <text x='120' y='465' font-size='18' fill='var(--text-1)'>开发效率提升</text>
+    <text x='340' y='465' font-size='16' fill='var(--text-2)'>AI 编程辅助工具使开发效率平均提升 3.2 倍</text>
+    <!-- 指标4 -->
+    <rect x='655' y='360' width='545' height='130' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+    <text x='695' y='420' font-size='48' font-weight='900' fill='var(--accent)'>80%</text>
+    <text x='695' y='465' font-size='18' fill='var(--text-1)'>企业已试点</text>
+    <text x='915' y='465' font-size='16' fill='var(--text-2)'>全球 80% 的科技企业已开始部署大模型试点项目</text>
+  </g>
+  <g id='source-note'>
+    <text x='80' y='680' font-size='13' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>数据来源：Stanford HAI, Gartner 2025 · 示意数据仅供参考</text>
+  </g>
+  <!-- notes: 四个核心数据指标，展示大模型领域的量价齐升趋势。上万倍的算力投入 vs 90%的成本下降形成强烈对比。演讲节奏：每个数字都值得停顿3秒让受众消化 -->
+</svg>

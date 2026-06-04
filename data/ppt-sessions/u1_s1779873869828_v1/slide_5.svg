@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
+  <!-- notes: 章节分隔页——核心技术章节开始，强调格力在技术领域的领先优势 -->
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+  </g>
+  <g id="section-number">
+    <text x="200" y="350" font-size="180" font-weight="800" fill="var(--surface-2)" opacity="0.5">02</text>
+  </g>
+  <g id="section-title">
+    <text x="200" y="420" font-size="64" font-weight="800" fill="var(--text-1)">核心技术</text>
+    <text x="200" y="470" font-size="22" fill="var(--text-3)">Core Technology</text>
+  </g>
+  <g id="section-desc">
+    <text x="200" y="530" font-size="18" fill="var(--text-2)">自主研发 · 掌握压缩机、电机等核心科技</text>
+  </g>
+  <g id="footer-pagenum">
+    <text x="1220" y="690" font-size="14" fill="var(--text-3)" text-anchor="end">05 / 10</text>
+  </g>
+</svg>

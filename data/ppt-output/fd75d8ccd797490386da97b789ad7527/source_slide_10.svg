@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="airbnb">
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="#ffffff"/>
+  </g>
+  <g id="header" font-family="Inter,Noto Sans SC,sans-serif">
+    <text x="80" y="100" font-size="14" fill="#ff385c" font-weight="600" letter-spacing="3">WISH LIST</text>
+    <rect x="80" y="115" width="40" height="3" rx="1.5" fill="#ff385c"/>
+    <text x="80" y="170" font-size="40" font-weight="800" fill="#222222">新一岁想做的事</text>
+  </g>
+  <g id="wish-list" font-family="Inter,Noto Sans SC,sans-serif">
+    <!-- Item 1 -->
+    <g transform="translate(120, 260)">
+      <circle cx="25" cy="25" r="25" fill="#ff385c"/>
+      <text x="25" y="33" text-anchor="middle" font-size="18" font-weight="700" fill="#ffffff">1</text>
+      <text x="70" y="32" font-size="22" font-weight="600" fill="#222222">学会一门新技能</text>
+      <text x="70" y="58" font-size="16" fill="#3f3f3f">摄影、烹饪或一门外语</text>
+    </g>
+    <!-- Item 2 -->
+    <g transform="translate(120, 360)">
+      <circle cx="25" cy="25" r="25" fill="#ff385c"/>
+      <text x="25" y="33" text-anchor="middle" font-size="18" font-weight="700" fill="#ffffff">2</text>
+      <text x="70" y="32" font-size="22" font-weight="600" fill="#222222">去三个新地方旅行</text>
+      <text x="70" y="58" font-size="16" fill="#3f3f3f">探索未知的风景与文化</text>
+    </g>
+    <!-- Item 3 -->
+    <g transform="translate(120, 460)">
+      <circle cx="25" cy="25" r="25" fill="#ff385c"/>
+      <text x="25" y="33" text-anchor="middle" font-size="18" font-weight="700" fill="#ffffff">3</text>
+      <text x="70" y="32" font-size="22" font-weight="600" fill="#222222">认识更多有趣的人</text>
+      <text x="70" y="58" font-size="16" fill="#3f3f3f">拓展圈子，遇见精彩</text>
+    </g>
+    <!-- Item 4 -->
+    <g transform="translate(120, 560)">
+      <circle cx="25" cy="25" r="25" fill="#ff385c"/>
+      <text x="25" y="33" text-anchor="middle" font-size="18" font-weight="700" fill="#ffffff">4</text>
+      <text x="70" y="32" font-size="22" font-weight="600" fill="#222222">每天都要开开心心</text>
+      <text x="70" y="58" font-size="16" fill="#3f3f3f">这是最重要的事</text>
+    </g>
+  </g>
+  <!-- 右侧装饰 -->
+  <g id="decoration-right" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif">
+    <circle cx="950" cy="400" r="180" fill="#ff385c" fill-opacity="0.06"/>
+    <text x="950" y="420" font-size="100" fill="#ff385c" fill-opacity="0.15">🎯</text>
+  </g>
+  <!-- notes: 心愿清单页——用编号列表展示新一岁想做的事情，右侧装饰圆增强视觉平衡 -->
+</svg>

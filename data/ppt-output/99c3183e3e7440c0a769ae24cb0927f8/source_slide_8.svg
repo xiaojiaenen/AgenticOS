@@ -1,0 +1,51 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <defs>
+    <radialGradient id='dividerGlow2' cx='50%' cy='50%' r='55%'>
+      <stop offset='0%' stop-color='#3b82f6' stop-opacity='0.12'/>
+      <stop offset='100%' stop-color='#ffffff' stop-opacity='0'/>
+    </radialGradient>
+    <filter id='glowBig2' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='6'/>
+    </filter>
+  </defs>
+  <!-- notes: 章节分隔页——"从九大到八大"，用两个巨大的数字9→8作为视觉焦点，暗示冥王星的故事 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect width='1280' height='720' fill='url(#dividerGlow2)'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='100' cy='80' r='1.5' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='300' cy='40' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='1000' cy='60' r='2' fill='#abaeb3' fill-opacity='0.6'/>
+    <circle cx='1180' cy='180' r='1' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='80' cy='550' r='1.2' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='1200' cy='550' r='1.5' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='200' cy='650' r='0.8' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1100' cy='650' r='1.3' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='650' cy='60' r='1' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='500' cy='600' r='0.7' fill='#abaeb3' fill-opacity='0.3'/>
+  </g>
+  <g id='section-number-big'>
+    <text x='430' y='400' font-size='200' font-weight='900' fill='#111827' fill-opacity='0.04' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>9</text>
+    <text x='640' y='360' font-size='80' font-weight='900' fill='#3b82f6' fill-opacity='0.08' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>→</text>
+    <text x='850' y='400' font-size='200' font-weight='900' fill='#3b82f6' fill-opacity='0.04' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>8</text>
+  </g>
+  <g id='section-content'>
+    <text x='640' y='200' font-size='18' fill='#3b82f6' font-weight='600' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='6'>CHAPTER 02</text>
+    <rect x='540' y='230' width='200' height='2' fill='#3b82f6' fill-opacity='0.5'/>
+    <text x='640' y='340' font-size='64' font-weight='800' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='640' dy='0'>从</tspan>
+      <tspan x='640' dy='75' fill='#3b82f6'>九大</tspan>
+      <tspan x='640' dy='75'>到</tspan>
+      <tspan x='640' dy='75' fill='#3b82f6'>八大</tspan>
+    </text>
+    <text x='640' y='570' font-size='20' fill='#70747d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>冥王星降级事件 · 国际天文学联合会决议 · 矮行星的诞生</text>
+  </g>
+  <g id='orbit-ring-2'>
+    <ellipse cx='640' cy='600' rx='300' ry='20' fill='none' stroke='#3b82f6' stroke-opacity='0.05' stroke-width='1'/>
+    <circle cx='640' cy='600' r='3' fill='#3b82f6' fill-opacity='0.3' filter='url(#glowBig2)'/>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#abaeb3' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>8 / 12</text>
+  </g>
+</svg>

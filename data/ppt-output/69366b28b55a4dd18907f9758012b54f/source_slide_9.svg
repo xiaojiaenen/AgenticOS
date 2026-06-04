@@ -1,0 +1,63 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='deepseek'>
+  <!-- notes: 使用方式——展示DeepSeek的三种使用入口。流程从左到右，用箭头连接 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='3'>HOW TO USE</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='var(--text-1)'>如何使用 DeepSeek</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='var(--accent)'/>
+    <text x='100' y='210' font-size='18' fill='var(--text-2)'>三种方式，随时随地体验 DeepSeek</text>
+  </g>
+  <g id="flow-steps">
+    <!-- Step 1 -->
+    <rect x='100' y='280' width='300' height='100' rx='16' fill='var(--surface)' stroke='var(--accent)' stroke-width='2'/>
+    <circle cx='140' cy='330' r='20' fill='var(--accent)'/>
+    <text x='140' y='337' font-size='18' font-weight='700' fill='var(--bg)' text-anchor='middle'>1</text>
+    <text x='180' y='320' font-size='18' font-weight='600' fill='var(--text-1)'>网页端</text>
+    <text x='180' y='348' font-size='14' fill='var(--text-3)'>chat.deepseek.com 对话</text>
+    
+    <!-- Arrow 1 -->
+    <text x='420' y='330' font-size='28' fill='var(--accent)' text-anchor='middle'>→</text>
+    
+    <!-- Step 2 -->
+    <rect x='490' y='280' width='300' height='100' rx='16' fill='var(--surface)' stroke='var(--accent)' stroke-width='2'/>
+    <circle cx='530' cy='330' r='20' fill='var(--accent)'/>
+    <text x='530' y='337' font-size='18' font-weight='700' fill='var(--bg)' text-anchor='middle'>2</text>
+    <text x='570' y='320' font-size='18' font-weight='600' fill='var(--text-1)'>移动端 App</text>
+    <text x='570' y='348' font-size='14' fill='var(--text-3)'>iOS / Android 应用商店</text>
+    
+    <!-- Arrow 2 -->
+    <text x='810' y='330' font-size='28' fill='var(--accent)' text-anchor='middle'>→</text>
+    
+    <!-- Step 3 -->
+    <rect x='880' y='280' width='300' height='100' rx='16' fill='var(--surface)' stroke='var(--accent)' stroke-width='2'/>
+    <circle cx='920' cy='330' r='20' fill='var(--accent)'/>
+    <text x='920' y='337' font-size='18' font-weight='700' fill='var(--bg)' text-anchor='middle'>3</text>
+    <text x='960' y='320' font-size='18' font-weight='600' fill='var(--text-1)'>API / 开源部署</text>
+    <text x='960' y='348' font-size='14' fill='var(--text-3)'>开发者自由调用</text>
+  </g>
+  <g id="use-cases">
+    <rect x='100' y='430' width='350' height='180' rx='14' fill='var(--surface)'/>
+    <text x='130' y='475' font-size='18' font-weight='700' fill='var(--accent)'>✎ 写作与创作</text>
+    <text x='130' y='505' font-size='15' fill='var(--text-2)'>报告 · 文案 · 翻译</text>
+    <text x='130' y='535' font-size='15' fill='var(--text-2)'>故事 · 邮件 · 脚本</text>
+    <text x='130' y='565' font-size='15' fill='var(--text-2)'>内容润色 · 风格改写</text>
+
+    <rect x='465' y='430' width='350' height='180' rx='14' fill='var(--surface)'/>
+    <text x='495' y='475' font-size='18' font-weight='700' fill='var(--accent)'>⌨ 编程与开发</text>
+    <text x='495' y='505' font-size='15' fill='var(--text-2)'>代码生成 · Debug</text>
+    <text x='495' y='535' font-size='15' fill='var(--text-2)'>架构设计 · 代码审查</text>
+    <text x='495' y='565' font-size='15' fill='var(--text-2)'>技术文档 · API 对接</text>
+
+    <rect x='830' y='430' width='350' height='180' rx='14' fill='var(--surface)'/>
+    <text x='860' y='475' font-size='18' font-weight='700' fill='var(--accent)'>🧮 数学与推理</text>
+    <text x='860' y='505' font-size='15' fill='var(--text-2)'>数学竞赛 · 逻辑推演</text>
+    <text x='860' y='535' font-size='15' fill='var(--text-2)'>数据分析 · 科学计算</text>
+    <text x='860' y='565' font-size='15' fill='var(--text-2)'>知识问答 · 学习辅导</text>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='var(--border)'/>
+    <text x='100' y='690' font-size='14' fill='var(--text-3)'>09 / 11 · 使用方式</text>
+  </g>
+</svg>

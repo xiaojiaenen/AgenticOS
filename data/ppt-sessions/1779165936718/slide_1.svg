@@ -1,0 +1,23 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='stripe'>
+  <!-- notes: 封面页——开场制造悬念，用"DeepSeek是谁"引发好奇，深蓝色标识建立品牌认知 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="decor-top">
+    <rect x='0' y='0' width='1280' height='6' fill='var(--accent)'/>
+  </g>
+  <g id="cover-header">
+    <text x='640' y='200' font-size='20' fill='var(--accent)' font-weight='600' letter-spacing='4' text-anchor='middle'>深度求索 · DEEPSEEK</text>
+    <text x='640' y='320' font-size='76' font-weight='800' fill='var(--text-1)' text-anchor='middle'>
+      <tspan x='640' dy='0'>DeepSeek</tspan>
+    </text>
+    <text x='640' y='400' font-size='36' font-weight='400' fill='var(--text-2)' text-anchor='middle'>探索智能边界 · 赋能无限可能</text>
+    <text x='640' y='464' font-size='20' fill='var(--text-3)' text-anchor='middle'>开源 · 高效 · 全面</text>
+  </g>
+  <g id="cover-decor">
+    <rect x='555' y='520' width='170' height='3' rx='1.5' fill='var(--accent)'/>
+  </g>
+  <g id="footer">
+    <text x='640' y='660' font-size='14' fill='var(--text-3)' text-anchor='middle'>2026 · 认识 DeepSeek 演示文稿</text>
+  </g>
+</svg>

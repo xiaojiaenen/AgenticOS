@@ -1,0 +1,80 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <defs>
+    <radialGradient id='jupiterGrad' cx='40%' cy='40%' r='60%'>
+      <stop offset='0%' stop-color='#E8C99A'/>
+      <stop offset='50%' stop-color='#D4A574'/>
+      <stop offset='100%' stop-color='#B8845A'/>
+    </radialGradient>
+    <radialGradient id='saturnGrad' cx='40%' cy='40%' r='60%'>
+      <stop offset='0%' stop-color='#F0E0B8'/>
+      <stop offset='100%' stop-color='#C8B57A'/>
+    </radialGradient>
+    <radialGradient id='uranusGrad' cx='40%' cy='40%' r='60%'>
+      <stop offset='0%' stop-color='#9FE0F0'/>
+      <stop offset='100%' stop-color='#5AA8C8'/>
+    </radialGradient>
+    <radialGradient id='neptuneGrad' cx='40%' cy='40%' r='60%'>
+      <stop offset='0%' stop-color='#6A8FE8'/>
+      <stop offset='100%' stop-color='#3A5FC8'/>
+    </radialGradient>
+  </defs>
+  <!-- notes: 外行星——木星土星天王星海王星，全是气态/冰态巨星。木星大红斑风暴已持续400年，土星环最壮观 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='60' cy='80' r='1' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1220' cy='120' r='1.2' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='100' cy='650' r='0.8' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1150' cy='600' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='70' font-size='16' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>CHAPTER 01 · 太阳系大家庭</text>
+    <text x='640' y='90' font-size='34' font-weight='800' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>外行星 · 气态巨行星</text>
+    <text x='640' y='118' font-size='15' fill='#abaeb3' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>OUTER PLANETS — JUPITER, SATURN, URANUS, NEPTUNE</text>
+    <rect x='560' y='130' width='160' height='2' fill='#3b82f6'/>
+  </g>
+  <g id='outer-planet-1'>
+    <rect x='60' y='170' width='560' height='230' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <circle cx='150' cy='285' r='50' fill='url(#jupiterGrad)'/>
+    <circle cx='135' cy='270' r='6' fill='#D4735E'/>
+    <circle cx='145' cy='295' r='3' fill='#E8C99A'/>
+    <text x='230' y='260' font-size='24' font-weight='bold' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>木星</text>
+    <text x='230' y='285' font-size='14' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>JUPITER</text>
+    <text x='230' y='320' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>太阳系<tspan font-weight='bold' fill='#3b82f6'>最大行星</tspan> · 质量是其他行星总和的2.5倍</text>
+    <text x='230' y='345' font-size='14' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>大红斑风暴已持续<tspan font-weight='bold' fill='#d97706'>400年</tspan></text>
+    <text x='230' y='370' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>公转：11.86年 · 已知95颗卫星</text>
+  </g>
+  <g id='outer-planet-2'>
+    <rect x='660' y='170' width='560' height='230' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <circle cx='750' cy='285' r='42' fill='url(#saturnGrad)'/>
+    <ellipse cx='750' cy='285' rx='62' ry='10' fill='none' stroke='#B8A060' stroke-width='3' transform='rotate(-18 750 285)'/>
+    <ellipse cx='750' cy='285' rx='58' ry='9' fill='none' stroke='#D0B878' stroke-width='1.5' transform='rotate(-18 750 285)'/>
+    <text x='830' y='260' font-size='24' font-weight='bold' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>土星</text>
+    <text x='830' y='285' font-size='14' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>SATURN</text>
+    <text x='830' y='320' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>以壮观的行星环闻名 · 密度小于水</text>
+    <text x='830' y='345' font-size='14' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>拥有<tspan font-weight='bold' fill='#3b82f6'>146颗</tspan>已知卫星 · 太阳系最多</text>
+    <text x='830' y='370' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>公转：29.46年 · 土卫六有浓密大气</text>
+  </g>
+  <g id='outer-planet-3'>
+    <rect x='60' y='420' width='560' height='230' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <circle cx='150' cy='535' r='32' fill='url(#uranusGrad)'/>
+    <text x='210' y='510' font-size='24' font-weight='bold' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>天王星</text>
+    <text x='210' y='535' font-size='14' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>URANUS</text>
+    <text x='210' y='570' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>侧躺自转 · 自转轴倾斜<tspan font-weight='bold' fill='#3b82f6'>98°</tspan></text>
+    <text x='210' y='595' font-size='14' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>冰巨星 · 大气含甲烷呈蓝绿色</text>
+    <text x='210' y='620' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>公转：84.01年 · 27颗已知卫星</text>
+  </g>
+  <g id='outer-planet-4'>
+    <rect x='660' y='420' width='560' height='230' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <circle cx='750' cy='535' r='30' fill='url(#neptuneGrad)'/>
+    <text x='810' y='510' font-size='24' font-weight='bold' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>海王星</text>
+    <text x='810' y='535' font-size='14' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>NEPTUNE</text>
+    <text x='810' y='570' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>距太阳最远 · 风速可达<tspan font-weight='bold' fill='#d97706'>2,100 km/h</tspan></text>
+    <text x='810' y='595' font-size='14' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>太阳系风速最快 · 被数学预测发现</text>
+    <text x='810' y='620' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>公转：164.8年 · 16颗已知卫星</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#abaeb3' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>7 / 12</text>
+  </g>
+</svg>

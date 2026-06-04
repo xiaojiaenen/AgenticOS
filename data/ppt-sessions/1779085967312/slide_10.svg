@@ -1,0 +1,15 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id='section-number' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='340' font-size='200' font-weight='900' fill='var(--accent)' fill-opacity='0.08'>03</text>
+    <text x='640' y='320' font-size='18' fill='var(--accent)' font-weight='600' letter-spacing='6'>CHAPTER THREE</text>
+    <text x='640' y='430' font-size='56' font-weight='800' fill='var(--text-1)'>
+      <tspan x='640' dy='0'>落地路径</tspan>
+    </text>
+    <line x1='540' y1='480' x2='740' y2='480' stroke='var(--accent)' stroke-width='2'/>
+    <text x='640' y='530' font-size='20' fill='var(--text-2)'>从战略规划到组织变革，构建企业 AI 核心能力</text>
+  </g>
+  <!-- notes: 第三章分隔页，也是全 deck 的收束章节。过渡语："前面讲了趋势、场景和架构，最关键的问题来了——怎么落地？" -->
+</svg>

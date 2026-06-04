@@ -1,0 +1,34 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='apple'>
+  <!-- notes: 节能数据——用一个超大数字"40%"建立视觉冲击。这是格力空调相比普通空调的节能幅度。三个支撑数据：一级能效、变频技术、智能待机。对比基准是行业平均水平。 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='stat-header' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='100' font-size='18' fill='#0077ed' font-weight='600'>节能表现</text>
+    <text x='640' y='220' font-size='120' font-weight='900' fill='#1d1d1f' font-family='Playfair Display,Noto Serif SC,serif'>-40%</text>
+    <text x='640' y='300' font-size='28' fill='#1d1d1f' font-weight='600'>年均电费节省</text>
+    <text x='640' y='340' font-size='16' fill='#424245'>对比：格力一级能效 vs 行业三级能效（示意数据）</text>
+  </g>
+  <g id='stat-support-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='240' y='400' width='220' height='100' rx='12' fill='#fbfbfd'/>
+    <text x='350' y='445' font-size='36' font-weight='800' fill='#0077ed' text-anchor='middle'>APF 5.2</text>
+    <text x='350' y='475' font-size='13' fill='#424245' text-anchor='middle'>能效比远超国标</text>
+  </g>
+  <g id='stat-support-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='530' y='400' width='220' height='100' rx='12' fill='#fbfbfd'/>
+    <text x='640' y='445' font-size='36' font-weight='800' fill='#0071e3' text-anchor='middle'>1Hz</text>
+    <text x='640' y='475' font-size='13' fill='#424245' text-anchor='middle'>超低频精准变频</text>
+  </g>
+  <g id='stat-support-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='820' y='400' width='220' height='100' rx='12' fill='#fbfbfd'/>
+    <text x='930' y='445' font-size='36' font-weight='800' fill='#16a34a' text-anchor='middle'>0.1W</text>
+    <text x='930' y='475' font-size='13' fill='#424245' text-anchor='middle'>待机功耗近乎为零</text>
+  </g>
+  <g id='stat-bottom' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='570' font-size='16' fill='#86868b' text-anchor='middle'>一台格力空调，10年可节省电费约 ¥4,800（按日均运行8小时计算）</text>
+  </g>
+  <g id='stat-footer'>
+    <text x='80' y='680' font-size='12' fill='#86868b' font-family='Inter,Noto Sans SC,sans-serif'>数据来源：格力电器技术白皮书（示意数据）</text>
+    <text x='1200' y='680' text-anchor='end' font-size='12' fill='#86868b' font-family='Inter,Noto Sans SC,sans-serif'>9 / 11</text>
+  </g>
+</svg>

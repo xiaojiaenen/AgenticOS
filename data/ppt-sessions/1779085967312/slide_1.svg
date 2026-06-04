@@ -1,0 +1,22 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <rect x='0' y='0' width='1280' height='4' fill='var(--accent)'/>
+  </g>
+  <g id='cover-decor'>
+    <circle cx='1100' cy='120' r='320' fill='var(--accent)' fill-opacity='0.04'/>
+    <circle cx='1150' cy='80' r='180' fill='var(--accent)' fill-opacity='0.06'/>
+    <circle cx='200' cy='550' r='240' fill='var(--accent)' fill-opacity='0.03'/>
+  </g>
+  <g id='cover-content' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='180' font-size='18' fill='var(--accent)' font-weight='600' letter-spacing='4'>THE AI FRONTIER · 2026</text>
+    <text x='640' y='300' font-size='72' font-weight='800' fill='var(--text-1)'>
+      <tspan x='640' dy='0'>大模型时代的</tspan>
+      <tspan x='640' dy='88' fill='var(--accent)'>变革与机遇</tspan>
+    </text>
+    <text x='640' y='480' font-size='24' fill='var(--text-2)'>从技术突破到商业落地的全景路线图</text>
+    <rect x='560' y='520' width='160' height='44' rx='22' fill='var(--accent)'/>
+    <text x='640' y='549' font-size='16' fill='var(--bg)' font-weight='600'>战略简报 · 2026 Q1</text>
+  </g>
+  <!-- notes: 大模型战略开篇。用两圈光晕暗示AI的"涌现"感，绿色强调色保持 openai 品牌感知。标题用判断句式"变革与机遇"建立期待 -->
+</svg>

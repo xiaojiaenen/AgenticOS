@@ -1,0 +1,27 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <rect x='0' y='0' width='1280' height='6' fill='var(--accent)'/>
+  </g>
+  <g id="decorative-stars">
+    <circle cx='180' cy='140' r='3' fill='var(--accent)' fill-opacity='0.6'/>
+    <circle cx='1100' cy='120' r='4' fill='var(--accent)' fill-opacity='0.4'/>
+    <circle cx='950' cy='200' r='2' fill='var(--accent)' fill-opacity='0.7'/>
+    <circle cx='300' cy='580' r='3' fill='var(--accent)' fill-opacity='0.5'/>
+    <circle cx='1000' cy='600' r='2' fill='var(--accent)' fill-opacity='0.6'/>
+    <circle cx='200' cy='400' r='2.5' fill='var(--accent)' fill-opacity='0.3'/>
+  </g>
+  <g id="cover-content" text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='180' font-size='20' fill='var(--accent)' font-weight='600' letter-spacing='8'>HAPPY BIRTHDAY</text>
+    <text x='640' y='320' font-size='78' font-weight='800' fill='var(--text-1)'>
+      <tspan x='640' dy='0'>生 日 快 乐</tspan>
+    </text>
+    <text x='640' y='420' font-size='28' fill='var(--text-2)' font-weight='300'>愿 你 的 每 一 天 都 闪 闪 发 光</text>
+    <rect x='540' y='460' width='200' height='3' rx='1.5' fill='var(--accent)'/>
+    <text x='640' y='530' font-size='18' fill='var(--text-3)'>2025 · 生日快乐派对</text>
+  </g>
+  <g id="footer-chrome">
+    <text x='640' y='690' font-size='12' fill='var(--text-3)' text-anchor='middle'>❤ 每一岁都珍贵</text>
+  </g>
+  <!-- notes: 封面页——用大标题制造仪式感，"闪闪发光"点出祝福主题。背景点缀小圆点营造派对星星氛围 -->
+</svg>

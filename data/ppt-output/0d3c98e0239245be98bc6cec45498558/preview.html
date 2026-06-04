@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="openai">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  /* Theme tokens for CSS custom property resolution */
+  :root {
+    --accent: #10a37f;
+    --accent-2: #0a7a5e;
+    --accent-3: #2563eb;
+    --bad: #ef4146;
+    --bg: #ffffff;
+    --bg-soft: #f5f5f5;
+    --border: #e5e5e5;
+    --border-strong: #ededed;
+    --good: #10a37f;
+    --grad: linear-gradient(135deg, #10a37f, #0a7a5e);
+    --grad-soft: linear-gradient(135deg, rgba(16,163,127,0.08), rgba(10,122,94,0.04));
+    --surface: #fafafa;
+    --surface-2: #ededed;
+    --text-1: #0d0d0d;
+    --text-2: #1a1a1a;
+    --text-3: #9b9b9b;
+    --warn: #f5a623;
+  }
+  body { margin:0; padding:0; background:#111; font-family:Inter,Noto Sans SC,sans-serif; }
+  body.single .deck { overflow:auto!important; height:auto!important; }
+  .deck { display:flex; flex-direction:column; align-items:center; gap:16px; padding:16px; }
+  .deck svg { width:100%; max-width:1280px; height:auto; display:block; border-radius:8px; box-shadow:0 4px 24px rgba(0,0,0,.4); }
+</style>
+</head>
+<body class="single">
+<div class="deck">
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='cover-decor'>
+    <circle cx='1100' cy='120' r='320' fill='#10a37f' fill-opacity='0.04'/>
+    <circle cx='1150' cy='80' r='180' fill='#10a37f' fill-opacity='0.06'/>
+    <circle cx='200' cy='550' r='240' fill='#10a37f' fill-opacity='0.03'/>
+  </g>
+  <g id='cover-content' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='180' font-size='18' fill='#10a37f' font-weight='600' letter-spacing='4'>THE AI FRONTIER · 2026</text>
+    <text x='640' y='300' font-size='72' font-weight='800' fill='#0d0d0d'>
+      <tspan x='640' dy='0'>大模型时代的</tspan>
+      <tspan x='640' dy='88' fill='#10a37f'>变革与机遇</tspan>
+    </text>
+    <text x='640' y='480' font-size='24' fill='#1a1a1a'>从技术突破到商业落地的全景路线图</text>
+    <rect x='560' y='520' width='160' height='44' rx='22' fill='#10a37f'/>
+    <text x='640' y='549' font-size='16' fill='#ffffff' font-weight='600'>战略简报 · 2026 Q1</text>
+  </g>
+  <!-- notes: 大模型战略开篇。用两圈光晕暗示AI的"涌现"感，绿色强调色保持 openai 品牌感知。标题用判断句式"变革与机遇"建立期待 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='section-number' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='340' font-size='200' font-weight='900' fill='#10a37f' fill-opacity='0.08'>01</text>
+    <text x='640' y='320' font-size='18' fill='#10a37f' font-weight='600' letter-spacing='6'>CHAPTER ONE</text>
+    <text x='640' y='430' font-size='56' font-weight='800' fill='#0d0d0d'>
+      <tspan x='640' dy='0'>技术趋势</tspan>
+    </text>
+    <line x1='540' y1='480' x2='740' y2='480' stroke='#10a37f' stroke-width='2'/>
+    <text x='640' y='530' font-size='20' fill='#1a1a1a'>从 GPT 到多模态，大模型能力的指数级跃迁</text>
+  </g>
+  <!-- notes: 第一章视觉断点。超大透明数字"01"作为背景纹理，绿色装饰线分隔标题和副标题。演讲节奏：此处放慢，深呼吸，准备进入技术深度内容 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='36' font-weight='800' fill='#0d0d0d'>技术演进三大里程碑</text>
+    <text x='80' y='140' font-size='18' fill='#1a1a1a'>Three Milestones in LLM Evolution</text>
+    <line x1='80' y1='162' x2='280' y2='162' stroke='#10a37f' stroke-width='3'/>
+  </g>
+  <g id='card-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='210' width='360' height='420' rx='16' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <rect x='80' y='210' width='360' height='100' rx='16' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='120' y='260' font-size='48' font-weight='900' fill='#10a37f' fill-opacity='0.3'>01</text>
+    <text x='120' y='280' font-size='26' font-weight='bold' fill='#0d0d0d'>基础语言模型</text>
+    <text x='120' y='350' font-size='16' fill='#1a1a1a' line-height='1.6'>
+      <tspan x='120' dy='0'>• 自回归语言建模</tspan>
+      <tspan x='120' dy='36'>• 大规模预训练 + 指令微调</tspan>
+      <tspan x='120' dy='36'>• RLHF 人类反馈对齐</tspan>
+      <tspan x='120' dy='36'>• 代表：GPT-3, LLaMA-1/2</tspan>
+    </text>
+    <text x='120' y='560' font-size='14' fill='#9b9b9b'>参数规模突破千亿级</text>
+  </g>
+  <g id='card-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='460' y='210' width='360' height='420' rx='16' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <rect x='460' y='210' width='360' height='100' rx='16' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='500' y='260' font-size='48' font-weight='900' fill='#10a37f' fill-opacity='0.3'>02</text>
+    <text x='500' y='280' font-size='26' font-weight='bold' fill='#0d0d0d'>推理与多模态</text>
+    <text x='500' y='350' font-size='16' fill='#1a1a1a' line-height='1.6'>
+      <tspan x='500' dy='0'>• 思维链 CoT 推理能力</tspan>
+      <tspan x='500' dy='36'>• 视觉语言多模态融合</tspan>
+      <tspan x='500' dy='36'>• 工具调用与代码执行</tspan>
+      <tspan x='500' dy='36'>• 代表：GPT-4, Gemini, DALL·E</tspan>
+    </text>
+    <text x='500' y='560' font-size='14' fill='#9b9b9b'>从文本走向图像/语音/视频</text>
+  </g>
+  <g id='card-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='840' y='210' width='360' height='420' rx='16' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <rect x='840' y='210' width='360' height='100' rx='16' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='880' y='260' font-size='48' font-weight='900' fill='#10a37f' fill-opacity='0.3'>03</text>
+    <text x='880' y='280' font-size='26' font-weight='bold' fill='#0d0d0d'>AI Agent 智能体</text>
+    <text x='880' y='350' font-size='16' fill='#1a1a1a' line-height='1.6'>
+      <tspan x='880' dy='0'>• 自主规划与任务分解</tspan>
+      <tspan x='880' dy='36'>• 多工具协同调用</tspan>
+      <tspan x='880' dy='36'>• 长期记忆与反思能力</tspan>
+      <tspan x='880' dy='36'>• 代表：Claude, GPT-4o, AutoGPT</tspan>
+    </text>
+    <text x='880' y='560' font-size='14' fill='#9b9b9b'>从"对话"走向"自主执行"</text>
+  </g>
+  <!-- notes: 三卡片并列展示大模型能力的三次跃迁。演讲节奏：每个卡片停留40秒，用"从...走向..."的句式串联。强调第三个阶段（智能体）是当前最大的机会窗口 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='36' font-weight='800' fill='#0d0d0d'>模型性能持续跃升</text>
+    <text x='80' y='140' font-size='18' fill='#1a1a1a'>MMLU 基准测试得分趋势 · 2019-2025</text>
+    <line x1='80' y1='162' x2='280' y2='162' stroke='#10a37f' stroke-width='3'/>
+  </g>
+  <g id='chart-area' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- Y轴标签 -->
+    <text x='100' y='270' font-size='14' fill='#9b9b9b'>100</text>
+    <text x='100' y='370' font-size='14' fill='#9b9b9b'>75</text>
+    <text x='100' y='470' font-size='14' fill='#9b9b9b'>50</text>
+    <text x='100' y='570' font-size='14' fill='#9b9b9b'>25</text>
+    <!-- 网格线 -->
+    <line x1='160' y1='270' x2='1180' y2='270' stroke='#e5e5e5' stroke-width='0.5'/>
+    <line x1='160' y1='370' x2='1180' y2='370' stroke='#e5e5e5' stroke-width='0.5'/>
+    <line x1='160' y1='470' x2='1180' y2='470' stroke='#e5e5e5' stroke-width='0.5'/>
+    <line x1='160' y1='570' x2='1180' y2='570' stroke='#e5e5e5' stroke-width='0.5'/>
+    <!-- X轴标签 -->
+    <text x='190' y='610' font-size='14' fill='#9b9b9b' text-anchor='middle'>2019</text>
+    <text x='380' y='610' font-size='14' fill='#9b9b9b' text-anchor='middle'>2020</text>
+    <text x='570' y='610' font-size='14' fill='#9b9b9b' text-anchor='middle'>2021</text>
+    <text x='760' y='610' font-size='14' fill='#9b9b9b' text-anchor='middle'>2022</text>
+    <text x='950' y='610' font-size='14' fill='#9b9b9b' text-anchor='middle'>2023</text>
+    <text x='1140' y='610' font-size='14' fill='#9b9b9b' text-anchor='middle'>2025</text>
+    <!-- 面积填充 -->
+    <polygon points='190,570 190,550 380,520 570,470 760,400 950,300 1140,270 1140,570' fill='#10a37f' fill-opacity='0.08'/>
+    <!-- 折线 -->
+    <polyline points='190,550 380,520 570,470 760,400 950,300 1140,270' fill='none' stroke='#10a37f' stroke-width='3' stroke-linejoin='round'/>
+    <!-- 数据点 -->
+    <circle cx='190' cy='550' r='6' fill='#10a37f' stroke='#ffffff' stroke-width='2'/>
+    <circle cx='380' cy='520' r='6' fill='#10a37f' stroke='#ffffff' stroke-width='2'/>
+    <circle cx='570' cy='470' r='6' fill='#10a37f' stroke='#ffffff' stroke-width='2'/>
+    <circle cx='760' cy='400' r='6' fill='#10a37f' stroke='#ffffff' stroke-width='2'/>
+    <circle cx='950' cy='300' r='8' fill='#10a37f' stroke='#ffffff' stroke-width='2'/>
+    <circle cx='1140' cy='270' r='10' fill='#10a37f' stroke='#ffffff' stroke-width='3'/>
+    <!-- 数据标签 -->
+    <text x='190' y='540' font-size='13' fill='#10a37f' text-anchor='middle'>~32%</text>
+    <text x='380' y='510' font-size='13' fill='#10a37f' text-anchor='middle'>~40%</text>
+    <text x='570' y='460' font-size='13' fill='#10a37f' text-anchor='middle'>~50%</text>
+    <text x='760' y='390' font-size='13' fill='#10a37f' text-anchor='middle'>~65%</text>
+    <text x='950' y='285' font-size='14' font-weight='bold' fill='#10a37f' text-anchor='middle'>~86%</text>
+    <text x='1140' y='255' font-size='16' font-weight='bold' fill='#10a37f' text-anchor='middle'>~92%</text>
+  </g>
+  <g id='insight-note' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='840' y='630' width='340' height='48' rx='12' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='860' y='658' font-size='14' fill='#10a37f'>📈 6 年间 MMLU 得分从 32% 跃升至 92%</text>
+  </g>
+  <!-- notes: 展示大模型在 MMLU 基准上的持续进步。关键信息：2019年GPT-2约32%，到2025年顶级模型达92%接近人类专家水平。强调增长曲线在2022-2023年最为陡峭（GPT-4发布）。示意数据，非精确值 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='36' font-weight='800' fill='#0d0d0d'>大模型关键指标速览</text>
+    <text x='80' y='140' font-size='18' fill='#1a1a1a'>Key Metrics at a Glance</text>
+    <line x1='80' y1='162' x2='280' y2='162' stroke='#10a37f' stroke-width='3'/>
+  </g>
+  <g id='stat-row-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 指标1 -->
+    <rect x='80' y='210' width='545' height='130' rx='16' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <text x='120' y='270' font-size='48' font-weight='900' fill='#10a37f'>10,000x</text>
+    <text x='120' y='315' font-size='18' fill='#0d0d0d'>训练算力需求</text>
+    <text x='340' y='315' font-size='16' fill='#1a1a1a'>从 GPT-1 到 GPT-4，训练计算量增长超万倍</text>
+    <!-- 指标2 -->
+    <rect x='655' y='210' width='545' height='130' rx='16' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <text x='695' y='270' font-size='48' font-weight='900' fill='#10a37f'>90%</text>
+    <text x='695' y='315' font-size='18' fill='#0d0d0d'>推理成本下降</text>
+    <text x='915' y='315' font-size='16' fill='#1a1a1a'>过去三年，单 token 推理成本年降超 50%</text>
+  </g>
+  <g id='stat-row-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 指标3 -->
+    <rect x='80' y='360' width='545' height='130' rx='16' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <text x='120' y='420' font-size='48' font-weight='900' fill='#10a37f'>3.2x</text>
+    <text x='120' y='465' font-size='18' fill='#0d0d0d'>开发效率提升</text>
+    <text x='340' y='465' font-size='16' fill='#1a1a1a'>AI 编程辅助工具使开发效率平均提升 3.2 倍</text>
+    <!-- 指标4 -->
+    <rect x='655' y='360' width='545' height='130' rx='16' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <text x='695' y='420' font-size='48' font-weight='900' fill='#10a37f'>80%</text>
+    <text x='695' y='465' font-size='18' fill='#0d0d0d'>企业已试点</text>
+    <text x='915' y='465' font-size='16' fill='#1a1a1a'>全球 80% 的科技企业已开始部署大模型试点项目</text>
+  </g>
+  <g id='source-note'>
+    <text x='80' y='680' font-size='13' fill='#9b9b9b' font-family='Inter,Noto Sans SC,sans-serif'>数据来源：Stanford HAI, Gartner 2025 · 示意数据仅供参考</text>
+  </g>
+  <!-- notes: 四个核心数据指标，展示大模型领域的量价齐升趋势。上万倍的算力投入 vs 90%的成本下降形成强烈对比。演讲节奏：每个数字都值得停顿3秒让受众消化 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='section-number' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='340' font-size='200' font-weight='900' fill='#10a37f' fill-opacity='0.08'>02</text>
+    <text x='640' y='320' font-size='18' fill='#10a37f' font-weight='600' letter-spacing='6'>CHAPTER TWO</text>
+    <text x='640' y='430' font-size='56' font-weight='800' fill='#0d0d0d'>
+      <tspan x='640' dy='0'>应用场景</tspan>
+    </text>
+    <line x1='540' y1='480' x2='740' y2='480' stroke='#10a37f' stroke-width='2'/>
+    <text x='640' y='530' font-size='20' fill='#1a1a1a'>从对话助手到行业智能体，大模型正在重塑每一个行业</text>
+  </g>
+  <!-- notes: 第二章分隔页。从这里开始进入"实际应用"部分。演讲过渡语："技术讲完了，我们来看看这些能力到底能用在哪儿" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='36' font-weight='800' fill='#0d0d0d'>三大核心应用方向</text>
+    <text x='80' y='140' font-size='18' fill='#1a1a1a'>Core Application Pillars</text>
+    <line x1='80' y1='162' x2='280' y2='162' stroke='#10a37f' stroke-width='3'/>
+  </g>
+  <g id='col-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='210' width='360' height='430' rx='20' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <!-- 顶部图标区 -->
+    <rect x='80' y='210' width='360' height='120' rx='20' fill='#10a37f' fill-opacity='0.08'/>
+    <circle cx='260' cy='270' r='36' fill='#10a37f' fill-opacity='0.15'/>
+    <text x='260' y='279' font-size='28' text-anchor='middle' fill='#10a37f'>💬</text>
+    <text x='260' y='375' font-size='24' font-weight='bold' text-anchor='middle' fill='#0d0d0d'>智能对话与内容生成</text>
+    <text x='120' y='425' font-size='16' fill='#1a1a1a' line-height='1.6'>
+      <tspan x='120' dy='0'>• 智能客服与知识问答</tspan>
+      <tspan x='120' dy='36'>• 营销文案自动生成</tspan>
+      <tspan x='120' dy='36'>• 代码辅助与审查</tspan>
+      <tspan x='120' dy='36'>• 教育辅导个性化</tspan>
+    </text>
+    <rect x='140' y='570' width='240' height='40' rx='20' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='260' y='595' font-size='14' text-anchor='middle' fill='#10a37f' font-weight='600'>适用：全行业通用</text>
+  </g>
+  <g id='col-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='460' y='210' width='360' height='430' rx='20' fill='#fafafa' stroke='#10a37f' stroke-width='2'/>
+    <!-- 顶部图标区 -->
+    <rect x='460' y='210' width='360' height='120' rx='20' fill='#10a37f' fill-opacity='0.12'/>
+    <circle cx='640' cy='270' r='36' fill='#10a37f' fill-opacity='0.2'/>
+    <text x='640' y='279' font-size='28' text-anchor='middle' fill='#10a37f'>🎨</text>
+    <text x='640' y='375' font-size='24' font-weight='bold' text-anchor='middle' fill='#0d0d0d'>多模态理解与创作</text>
+    <text x='500' y='425' font-size='16' fill='#1a1a1a' line-height='1.6'>
+      <tspan x='500' dy='0'>• 图像/视频内容生成</tspan>
+      <tspan x='500' dy='36'>• 语音识别与合成</tspan>
+      <tspan x='500' dy='36'>• 文档智能分析</tspan>
+      <tspan x='500' dy='36'>• 创意设计与原型</tspan>
+    </text>
+    <rect x='520' y='570' width='240' height='40' rx='20' fill='#10a37f'/>
+    <text x='640' y='595' font-size='14' text-anchor='middle' fill='#ffffff' font-weight='600'>🔥 增长最快赛道</text>
+  </g>
+  <g id='col-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='840' y='210' width='360' height='430' rx='20' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <!-- 顶部图标区 -->
+    <rect x='840' y='210' width='360' height='120' rx='20' fill='#10a37f' fill-opacity='0.08'/>
+    <circle cx='1020' cy='270' r='36' fill='#10a37f' fill-opacity='0.15'/>
+    <text x='1020' y='279' font-size='28' text-anchor='middle' fill='#10a37f'>🤖</text>
+    <text x='1020' y='375' font-size='24' font-weight='bold' text-anchor='middle' fill='#0d0d0d'>流程自动化与 Agent</text>
+    <text x='880' y='425' font-size='16' fill='#1a1a1a' line-height='1.6'>
+      <tspan x='880' dy='0'>• 业务流程自动化</tspan>
+      <tspan x='880' dy='36'>• 数据提取与报告生成</tspan>
+      <tspan x='880' dy='36'>• 智能体系统协同</tspan>
+      <tspan x='880' dy='36'>• 供应链优化决策</tspan>
+    </text>
+    <rect x='900' y='570' width='240' height='40' rx='20' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='1020' y='595' font-size='14' text-anchor='middle' fill='#10a37f' font-weight='600'>适用：企业级场景</text>
+  </g>
+  <!-- notes: 三大应用方向，中间列用高亮边框强调"多模态"是当前增长最快的赛道。演讲节奏：每列1分钟，重点在中间列（标注了🔥）上多停留。最后一句过渡："这么多场景，怎么选？咱们对比一下两种路径" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='36' font-weight='800' fill='#0d0d0d'>开源 vs 闭源：路径选择</text>
+    <text x='80' y='140' font-size='18' fill='#1a1a1a'>Open Source vs. Proprietary Models</text>
+    <line x1='80' y1='162' x2='280' y2='162' stroke='#10a37f' stroke-width='3'/>
+  </g>
+  <g id='vs-area' font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <!-- 左：开源 -->
+    <rect x='80' y='210' width='500' height='440' rx='20' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <rect x='80' y='210' width='500' height='80' rx='20' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='330' y='262' font-size='28' font-weight='bold' fill='#10a37f'>⬡ 开源模型</text>
+    <text x='130' y='340' font-size='16' fill='#1a1a1a' line-height='2'>
+      <tspan x='130' dy='0'>✅ 完全可控，可私有化部署</tspan>
+      <tspan x='130' dy='44'>✅ 无数据泄露风险</tspan>
+      <tspan x='130' dy='44'>✅ 可自主微调与蒸馏</tspan>
+      <tspan x='130' dy='44'>✅ 社区生态快速迭代</tspan>
+      <tspan x='130' dy='44'>⚠️ 需要自建 Infra 能力</tspan>
+      <tspan x='130' dy='44'>⚠️ 前期投入较高</tspan>
+    </text>
+    <text x='130' y='610' font-size='14' fill='#9b9b9b'>代表：LLaMA 3, Qwen, Mistral, DeepSeek</text>
+
+    <!-- VS 分隔符 -->
+    <circle cx='640' cy='430' r='40' fill='#10a37f'/>
+    <text x='640' y='440' font-size='20' font-weight='bold' fill='#ffffff'>VS</text>
+
+    <!-- 右：闭源 -->
+    <rect x='700' y='210' width='500' height='440' rx='20' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <rect x='700' y='210' width='500' height='80' rx='20' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='950' y='262' font-size='28' font-weight='bold' fill='#10a37f'>⬢ 闭源模型</text>
+    <text x='750' y='340' font-size='16' fill='#1a1a1a' line-height='2'>
+      <tspan x='750' dy='0'>✅ 开箱即用，上手最快</tspan>
+      <tspan x='750' dy='44'>✅ 持续更新自动升级</tspan>
+      <tspan x='750' dy='44'>✅ 无需关心底层设施</tspan>
+      <tspan x='750' dy='44'>✅ 按量付费，现金流友好</tspan>
+      <tspan x='750' dy='44'>⚠️ 数据可能出境合规风险</tspan>
+      <tspan x='750' dy='44'>⚠️ 长期成本不可控</tspan>
+    </text>
+    <text x='750' y='610' font-size='14' fill='#9b9b9b'>代表：GPT-4o, Claude, Gemini, 文心一言</text>
+  </g>
+  <!-- notes: 开源 vs 闭源的经典对比页。演讲节奏：先讲左边开源再讲右边闭源，最后给出建议——"短期用闭源快速验证，长期布局开源构建壁垒"。VS圆圈居中分隔，视觉上有辩论感 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='36' font-weight='800' fill='#0d0d0d'>AI 应用落地技术架构</text>
+    <text x='80' y='140' font-size='18' fill='#1a1a1a'>Technology Architecture for Enterprise AI</text>
+    <line x1='80' y1='162' x2='280' y2='162' stroke='#10a37f' stroke-width='3'/>
+  </g>
+  <g id='arch-layers' font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <!-- 第1层：应用层 -->
+    <rect x='80' y='210' width='1120' height='70' rx='12' fill='#10a37f' fill-opacity='0.12' stroke='#10a37f' stroke-width='1'/>
+    <text x='640' y='235' font-size='18' font-weight='bold' fill='#10a37f'>应用层</text>
+    <text x='640' y='260' font-size='14' fill='#1a1a1a'>智能客服 · 代码助手 · 内容生成 · 数据分析 · 自动化流程</text>
+    <!-- 箭头向下 -->
+    <text x='640' y='300' font-size='20' fill='#9b9b9b'>▼</text>
+
+    <!-- 第2层：模型服务层 -->
+    <rect x='80' y='310' width='1120' height='70' rx='12' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <text x='640' y='335' font-size='18' font-weight='bold' fill='#0d0d0d'>模型服务层</text>
+    <text x='640' y='360' font-size='14' fill='#1a1a1a'>模型推理 · 提示词管理 · RAG 检索增强 · 模型路由与负载均衡</text>
+    <!-- 箭头向下 -->
+    <text x='640' y='400' font-size='20' fill='#9b9b9b'>▼</text>
+
+    <!-- 第3层：数据与基础设施层 -->
+    <rect x='80' y='410' width='1120' height='70' rx='12' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <text x='640' y='435' font-size='18' font-weight='bold' fill='#0d0d0d'>数据与基础设施层</text>
+    <text x='640' y='460' font-size='14' fill='#1a1a1a'>向量数据库 · 模型微调平台 · GPU 集群 · MLOps 持续交付</text>
+
+    <!-- 右侧标注：关键能力 -->
+    <rect x='340' y='510' width='600' height='50' rx='25' fill='#10a37f' fill-opacity='0.08' stroke='#10a37f' stroke-width='1' stroke-dasharray='4,4'/>
+    <text x='640' y='541' font-size='15' fill='#10a37f'>关键成功要素：数据质量 &gt; 模型选择 &gt; 工程落地 &gt; 组织变革</text>
+  </g>
+  <g id='side-tags' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='30' y='232' width='36' height='26' rx='6' fill='#10a37f'/>
+    <text x='48' y='251' font-size='12' text-anchor='middle' fill='#ffffff' font-weight='bold'>1</text>
+    <rect x='30' y='332' width='36' height='26' rx='6' fill='#10a37f'/>
+    <text x='48' y='351' font-size='12' text-anchor='middle' fill='#ffffff' font-weight='bold'>2</text>
+    <rect x='30' y='432' width='36' height='26' rx='6' fill='#10a37f'/>
+    <text x='48' y='451' font-size='12' text-anchor='middle' fill='#ffffff' font-weight='bold'>3</text>
+  </g>
+  <!-- notes: 三层架构图，从应用到基础设施。强调RAG（检索增强生成）在第二层的核心位置，以及数据质量在底部的关键作用。演讲节奏：从下往上讲（基础设施→模型→应用），或者从上往下（以终为始）均可 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='section-number' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='340' font-size='200' font-weight='900' fill='#10a37f' fill-opacity='0.08'>03</text>
+    <text x='640' y='320' font-size='18' fill='#10a37f' font-weight='600' letter-spacing='6'>CHAPTER THREE</text>
+    <text x='640' y='430' font-size='56' font-weight='800' fill='#0d0d0d'>
+      <tspan x='640' dy='0'>落地路径</tspan>
+    </text>
+    <line x1='540' y1='480' x2='740' y2='480' stroke='#10a37f' stroke-width='2'/>
+    <text x='640' y='530' font-size='20' fill='#1a1a1a'>从战略规划到组织变革，构建企业 AI 核心能力</text>
+  </g>
+  <!-- notes: 第三章分隔页，也是全 deck 的收束章节。过渡语："前面讲了趋势、场景和架构，最关键的问题来了——怎么落地？" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='36' font-weight='800' fill='#0d0d0d'>企业 AI 落地路线图</text>
+    <text x='80' y='140' font-size='18' fill='#1a1a1a'>Roadmap: 4 Phases to AI Maturity</text>
+    <line x1='80' y1='162' x2='280' y2='162' stroke='#10a37f' stroke-width='3'/>
+  </g>
+  <g id='timeline' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 时间轴线 -->
+    <line x1='120' y1='360' x2='1160' y2='360' stroke='#e5e5e5' stroke-width='2'/>
+    <!-- 阶段1 -->
+    <circle cx='240' cy='360' r='18' fill='#10a37f' stroke='#ffffff' stroke-width='4'/>
+    <rect x='140' y='210' width='200' height='110' rx='14' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <text x='240' y='255' font-size='20' font-weight='bold' text-anchor='middle' fill='#0d0d0d'>Phase 1</text>
+    <text x='240' y='285' font-size='14' text-anchor='middle' fill='#10a37f' font-weight='600'>试点验证</text>
+    <text x='240' y='310' font-size='13' text-anchor='middle' fill='#1a1a1a'>1-3 个月</text>
+    <text x='240' y='420' font-size='14' text-anchor='middle' fill='#9b9b9b'>选场景·测效果</text>
+
+    <!-- 阶段2 -->
+    <circle cx='500' cy='360' r='18' fill='#fafafa' stroke='#10a37f' stroke-width='3'/>
+    <rect x='400' y='210' width='200' height='110' rx='14' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <text x='500' y='255' font-size='20' font-weight='bold' text-anchor='middle' fill='#0d0d0d'>Phase 2</text>
+    <text x='500' y='285' font-size='14' text-anchor='middle' fill='#10a37f' font-weight='600'>规模化落地</text>
+    <text x='500' y='310' font-size='13' text-anchor='middle' fill='#1a1a1a'>3-6 个月</text>
+    <text x='500' y='420' font-size='14' text-anchor='middle' fill='#9b9b9b'>建平台·扩覆盖</text>
+
+    <!-- 阶段3 -->
+    <circle cx='760' cy='360' r='18' fill='#fafafa' stroke='#10a37f' stroke-width='3'/>
+    <rect x='660' y='210' width='200' height='110' rx='14' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <text x='760' y='255' font-size='20' font-weight='bold' text-anchor='middle' fill='#0d0d0d'>Phase 3</text>
+    <text x='760' y='285' font-size='14' text-anchor='middle' fill='#10a37f' font-weight='600'>能力内化</text>
+    <text x='760' y='310' font-size='13' text-anchor='middle' fill='#1a1a1a'>6-12 个月</text>
+    <text x='760' y='420' font-size='14' text-anchor='middle' fill='#9b9b9b'>训模型·建壁垒</text>
+
+    <!-- 阶段4 -->
+    <circle cx='1020' cy='360' r='18' fill='#fafafa' stroke='#10a37f' stroke-width='3'/>
+    <rect x='920' y='210' width='200' height='110' rx='14' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <text x='1020' y='255' font-size='20' font-weight='bold' text-anchor='middle' fill='#0d0d0d'>Phase 4</text>
+    <text x='1020' y='285' font-size='14' text-anchor='middle' fill='#10a37f' font-weight='600'>AI 原生</text>
+    <text x='1020' y='310' font-size='13' text-anchor='middle' fill='#1a1a1a'>12-18 个月</text>
+    <text x='1020' y='420' font-size='14' text-anchor='middle' fill='#9b9b9b'>重构业务·创新</text>
+
+    <!-- 连接箭头 -->
+    <polygon points='370,354 390,360 370,366' fill='#e5e5e5'/>
+    <polygon points='630,354 650,360 630,366' fill='#e5e5e5'/>
+    <polygon points='890,354 910,360 890,366' fill='#e5e5e5'/>
+  </g>
+  <g id='bottom-summary' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='300' y='510' width='680' height='50' rx='25' fill='#10a37f' fill-opacity='0.08'/>
+    <text x='640' y='541' font-size='15' text-anchor='middle' fill='#10a37f'>💡 建议：6 个月内完成 Phase 1-2，12 个月内启动 Phase 3</text>
+  </g>
+  <!-- notes: 四阶段路线图，从试点到AI原生。核心建议：不要贪大求全，先在一个场景跑通。每阶段都标了时间建议。演讲节奏：用手指着从左到右依次讲解，最后落在建议时间线上 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='decor'>
+    <circle cx='640' cy='360' r='280' fill='#10a37f' fill-opacity='0.03'/>
+    <circle cx='640' cy='360' r='180' fill='#10a37f' fill-opacity='0.04'/>
+  </g>
+  <g id='thanks-content' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='260' font-size='18' fill='#10a37f' font-weight='600' letter-spacing='4'>THANK YOU</text>
+    <text x='640' y='360' font-size='56' font-weight='800' fill='#0d0d0d'>
+      <tspan x='640' dy='0'>拥抱大模型时代</tspan>
+      <tspan x='640' dy='76' fill='#10a37f'>现在就是最好的时机</tspan>
+    </text>
+    <text x='640' y='500' font-size='20' fill='#1a1a1a'>从今天开始，选择一个场景，跑通一个原型</text>
+    <!-- CTA 按钮 -->
+    <rect x='520' y='540' width='240' height='50' rx='25' fill='#10a37f'/>
+    <text x='640' y='571' font-size='18' font-weight='bold' fill='#ffffff'>立即启动 AI 战略规划 →</text>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='660' font-size='14' fill='#9b9b9b'>contact@yourcompany.com  ·  AI Strategy Brief 2026 Q1</text>
+  </g>
+  <!-- notes: 结束页。用大标题制造收束感，CTA按钮引导下一步行动。演讲节奏：总结三个核心信息——1.大模型不是未来而是现在 2.从试点开始 3.现在就行动。Q&A前留30秒沉默让受众消化 -->
+</svg>
+</div>
+</body>
+</html>

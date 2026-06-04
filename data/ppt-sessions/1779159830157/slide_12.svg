@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="airbnb">
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+    <rect x="0" y="0" width="1280" height="6" fill="var(--accent)"/>
+  </g>
+  <g id="decoration-confetti" text-anchor="middle">
+    <circle cx="160" cy="120" r="8" fill="var(--accent)" fill-opacity="0.3"/>
+    <circle cx="380" cy="80" r="5" fill="var(--accent)" fill-opacity="0.4"/>
+    <circle cx="880" cy="100" r="7" fill="var(--accent)" fill-opacity="0.3"/>
+    <circle cx="1120" cy="130" r="6" fill="var(--accent)" fill-opacity="0.4"/>
+    <circle cx="180" cy="600" r="6" fill="var(--accent)" fill-opacity="0.3"/>
+    <circle cx="1100" cy="580" r="8" fill="var(--accent)" fill-opacity="0.3"/>
+    <circle cx="640" cy="680" r="5" fill="var(--accent)" fill-opacity="0.4"/>
+    <circle cx="300" cy="680" r="4" fill="var(--accent)" fill-opacity="0.3"/>
+    <circle cx="980" cy="660" r="6" fill="var(--accent)" fill-opacity="0.3"/>
+  </g>
+  <g id="end-content" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif">
+    <text x="640" y="240" font-size="100" fill="var(--accent)" fill-opacity="0.12" font-weight="900">HBD</text>
+    <text x="640" y="340" font-size="56" font-weight="800" fill="var(--text-1)">🎂 生日快乐</text>
+    <text x="640" y="420" font-size="28" fill="var(--text-2)">愿你的每一天都闪闪发光</text>
+    <rect x="540" y="460" width="200" height="3" rx="1.5" fill="var(--accent)"/>
+    <text x="640" y="530" font-size="18" fill="var(--text-3)">— Happy Birthday to You —</text>
+    <text x="640" y="620" font-size="16" fill="var(--text-3)">与你相遇，好幸运</text>
+  </g>
+  <!-- notes: 结束页——温暖收尾，彩蛋式散落圆点装饰，生日快乐主题回归 -->
+</svg>

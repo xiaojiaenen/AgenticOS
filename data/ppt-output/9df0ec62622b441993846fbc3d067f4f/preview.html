@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="openai">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  /* Theme tokens for CSS custom property resolution */
+  :root {
+    --accent: #10a37f;
+    --accent-2: #0a7a5e;
+    --accent-3: #2563eb;
+    --bad: #ef4146;
+    --bg: #ffffff;
+    --bg-soft: #f5f5f5;
+    --border: #e5e5e5;
+    --border-strong: #ededed;
+    --good: #10a37f;
+    --grad: linear-gradient(135deg, #10a37f, #0a7a5e);
+    --grad-soft: linear-gradient(135deg, rgba(16,163,127,0.08), rgba(10,122,94,0.04));
+    --surface: #fafafa;
+    --surface-2: #ededed;
+    --text-1: #0d0d0d;
+    --text-2: #1a1a1a;
+    --text-3: #9b9b9b;
+    --warn: #f5a623;
+  }
+  body { margin:0; padding:0; background:#111; font-family:Inter,Noto Sans SC,sans-serif; }
+  body.single .deck { overflow:auto!important; height:auto!important; }
+  .deck { display:flex; flex-direction:column; align-items:center; gap:16px; padding:16px; }
+  .deck svg { width:100%; max-width:1280px; height:auto; display:block; border-radius:8px; box-shadow:0 4px 24px rgba(0,0,0,.4); }
+</style>
+</head>
+<body class="single">
+<div class="deck">
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='cover-decor'>
+    <circle cx='1100' cy='120' r='320' fill='#10a37f' fill-opacity='0.04'/>
+    <circle cx='1180' cy='200' r='200' fill='#10a37f' fill-opacity='0.06'/>
+  </g>
+  <g id='cover-content' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='200' font-size='20' fill='#10a37f' font-weight='600' letter-spacing='4'>REDEFINING THE FRONTIERS OF ARTIFICIAL INTELLIGENCE</text>
+    <rect x='580' y='230' width='120' height='2' fill='#10a37f'/>
+    <text x='640' y='320' font-size='80' font-weight='800' fill='#0d0d0d' letter-spacing='2'>OpenAI</text>
+    <text x='640' y='410' font-size='36' fill='#1a1a1a' font-weight='400'>重新定义人工智能的边界</text>
+    <text x='640' y='520' font-size='18' fill='#9b9b9b'>2025 年度战略报告 · 从研究到产品的 AI 革新之路</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>1 / 11</text>
+  </g>
+  <!-- notes: 封面页——用 OpenAI 品牌绿色做装饰圆环，营造科技感与探索氛围。标题英文先行建立国际化基调，中文副标题承接。演讲开头建议从"人工智能正在重塑每一个行业"切入，引出 OpenAI 的角色。 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='section-decor'>
+    <text x='120' y='260' font-size='220' font-weight='900' fill='#10a37f' fill-opacity='0.06' font-family='Inter,Noto Sans SC,sans-serif'>01</text>
+  </g>
+  <g id='section-content' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='120' y='300' width='60' height='4' fill='#10a37f'/>
+    <text x='120' y='360' font-size='16' fill='#10a37f' font-weight='600' letter-spacing='3'>CHAPTER 01</text>
+    <text x='120' y='440' font-size='64' font-weight='800' fill='#0d0d0d'>使命与愿景</text>
+    <text x='120' y='510' font-size='24' fill='#1a1a1a' font-weight='400'>从非营利实验室到全球 AI 领导者</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>2 / 11</text>
+  </g>
+  <!-- notes: 章节分隔页，进入第一章"使命与愿景"。用超大淡出数字 01 做视觉符号，左侧对齐营造叙事节奏。建议简要回顾 OpenAI 2015 年创立时的初心："确保 AGI 惠及全人类"。 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='80' font-size='14' fill='#10a37f' font-weight='600' letter-spacing='2'>CHAPTER 01 · 使命与愿景</text>
+    <text x='80' y='130' font-size='42' font-weight='800' fill='#0d0d0d'>从实验室到世界舞台</text>
+    <rect x='80' y='155' width='50' height='3' fill='#10a37f'/>
+  </g>
+  <g id='card-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='210' width='350' height='440' rx='16' fill='#fafafa'/>
+    <circle cx='130' cy='280' r='28' fill='#10a37f' fill-opacity='0.12'/>
+    <text x='130' y='288' text-anchor='middle' font-size='22' font-weight='700' fill='#10a37f'>01</text>
+    <text x='180' y='278' font-size='22' font-weight='700' fill='#0d0d0d'>保证 AGI 惠及全人类</text>
+    <text x='110' y='340' font-size='16' fill='#1a1a1a'>2015 年，OpenAI 由 Sam Altman、Elon Musk</text>
+    <text x='110' y='365' font-size='16' fill='#1a1a1a'>等人创立，使命是确保通用人工智能</text>
+    <text x='110' y='390' font-size='16' fill='#1a1a1a'>（AGI）能够安全、公平地造福</text>
+    <text x='110' y='415' font-size='16' fill='#1a1a1a'>每一个人。</text>
+  </g>
+  <g id='card-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='465' y='210' width='350' height='440' rx='16' fill='#fafafa'/>
+    <circle cx='515' cy='280' r='28' fill='#10a37f' fill-opacity='0.12'/>
+    <text x='515' y='288' text-anchor='middle' font-size='22' font-weight='700' fill='#10a37f'>02</text>
+    <text x='565' y='278' font-size='22' font-weight='700' fill='#0d0d0d'>非营利到"有限盈利"</text>
+    <text x='495' y='340' font-size='16' fill='#1a1a1a'>2019 年转型为"有限盈利"结构，</text>
+    <text x='495' y='365' font-size='16' fill='#1a1a1a'>在吸引资本与科研独立性之间</text>
+    <text x='495' y='390' font-size='16' fill='#1a1a1a'>寻找平衡。微软投资 130 亿美元，</text>
+    <text x='495' y='415' font-size='16' fill='#1a1a1a'>成为重要战略伙伴。</text>
+  </g>
+  <g id='card-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='850' y='210' width='350' height='440' rx='16' fill='#fafafa'/>
+    <circle cx='900' cy='280' r='28' fill='#10a37f' fill-opacity='0.12'/>
+    <text x='900' y='288' text-anchor='middle' font-size='22' font-weight='700' fill='#10a37f'>03</text>
+    <text x='950' y='278' font-size='22' font-weight='700' fill='#0d0d0d'>顶级人才密度</text>
+    <text x='880' y='340' font-size='16' fill='#1a1a1a'>汇聚全球顶尖 AI 研究员，包括</text>
+    <text x='880' y='365' font-size='16' fill='#1a1a1a'>Ilya Sutskever（AlexNet 发明者）、</text>
+    <text x='880' y='390' font-size='16' fill='#1a1a1a'>Greg Brockman（前 Stripe CTO）</text>
+    <text x='880' y='415' font-size='16' fill='#1a1a1a'>等。团队规模从不到 50 人</text>
+    <text x='880' y='440' font-size='16' fill='#1a1a1a'>增长至 3000+ 人。</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>3 / 11</text>
+  </g>
+  <!-- notes: 三张卡片分别讲述 OpenAI 的创立初心、商业模式转型和人才密度。这是理解 OpenAI 独特性的基础。演讲时强调："不是任何一家普通公司——它的基因里写满了使命驱动。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='80' font-size='14' fill='#10a37f' font-weight='600' letter-spacing='2'>CHAPTER 01 · 使命与愿景</text>
+    <text x='80' y='130' font-size='42' font-weight='800' fill='#0d0d0d'>OpenAI 发展历程</text>
+    <rect x='80' y='155' width='50' height='3' fill='#10a37f'/>
+  </g>
+  <g id='timeline-line'>
+    <line x1='120' y1='230' x2='120' y2='650' stroke='#e5e5e5' stroke-width='2'/>
+  </g>
+  <g id='milestone-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <circle cx='120' cy='250' r='10' fill='#10a37f'/>
+    <text x='160' y='246' font-size='14' fill='#10a37f' font-weight='600'>2015</text>
+    <text x='160' y='270' font-size='14' fill='#1a1a1a'>OpenAI 在旧金山创立，使命宣言：</text>
+    <text x='160' y='290' font-size='14' fill='#1a1a1a'>"确保 AGI 惠及全人类"</text>
+  </g>
+  <g id='milestone-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <circle cx='120' cy='335' r='10' fill='#10a37f'/>
+    <text x='160' y='331' font-size='14' fill='#10a37f' font-weight='600'>2018</text>
+    <text x='160' y='355' font-size='14' fill='#1a1a1a'>发布 GPT-1（1.17 亿参数），</text>
+    <text x='160' y='375' font-size='14' fill='#1a1a1a'>开启生成式预训练模型时代</text>
+  </g>
+  <g id='milestone-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <circle cx='120' cy='420' r='10' fill='#10a37f'/>
+    <text x='160' y='416' font-size='14' fill='#10a37f' font-weight='600'>2020</text>
+    <text x='160' y='440' font-size='14' fill='#1a1a1a'>GPT-3（1750 亿参数）震撼发布，</text>
+    <text x='160' y='460' font-size='14' fill='#1a1a1a'>能力大幅度提升，引发行业震动</text>
+  </g>
+  <g id='milestone-4' font-family='Inter,Noto Sans SC,sans-serif'>
+    <circle cx='120' cy='505' r='10' fill='#10a37f'/>
+    <text x='160' y='501' font-size='14' fill='#10a37f' font-weight='600'>2022.11</text>
+    <text x='160' y='525' font-size='14' fill='#1a1a1a'>ChatGPT 上线，5 天注册 100 万用户，</text>
+    <text x='160' y='545' font-size='14' fill='#1a1a1a'>两个月突破 1 亿用户，史上最快</text>
+  </g>
+  <g id='milestone-5' font-family='Inter,Noto Sans SC,sans-serif'>
+    <circle cx='120' cy='590' r='10' fill='#10a37f'/>
+    <text x='160' y='586' font-size='14' fill='#10a37f' font-weight='600'>2023-2024</text>
+    <text x='160' y='610' font-size='14' fill='#1a1a1a'>GPT-4 · GPT-4o · Sora · o1 推理模型</text>
+    <text x='160' y='630' font-size='14' fill='#1a1a1a'>多模态能力全面爆发</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>4 / 11</text>
+  </g>
+  <!-- notes: 时间线展示 OpenAI 从 2015 年创立到 2024 年的关键节点。重点强调节奏——前面 5 年只有 2 个节点，2020 年后加速爆发。演讲时可以引导注意力："注意看，从 GPT-3 到 ChatGPT 只用了两年，但用户增长曲线超过了历史上任何产品。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='section-decor'>
+    <text x='120' y='260' font-size='220' font-weight='900' fill='#10a37f' fill-opacity='0.06' font-family='Inter,Noto Sans SC,sans-serif'>02</text>
+  </g>
+  <g id='section-content' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='120' y='300' width='60' height='4' fill='#10a37f'/>
+    <text x='120' y='360' font-size='16' fill='#10a37f' font-weight='600' letter-spacing='3'>CHAPTER 02</text>
+    <text x='120' y='440' font-size='64' font-weight='800' fill='#0d0d0d'>核心技术</text>
+    <text x='120' y='510' font-size='24' fill='#1a1a1a' font-weight='400'>大语言模型 · 多模态 · 推理能力</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>5 / 11</text>
+  </g>
+  <!-- notes: 进入第二章——核心技术。这是整场演讲的技术核心部分。前情提要："刚刚我们回顾了 OpenAI 的发展历程，接下来看看真正驱动这一切的技术引擎。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='80' font-size='14' fill='#10a37f' font-weight='600' letter-spacing='2'>CHAPTER 02 · 核心技术</text>
+    <text x='80' y='130' font-size='42' font-weight='800' fill='#0d0d0d'>核心产品矩阵</text>
+    <rect x='80' y='155' width='50' height='3' fill='#10a37f'/>
+  </g>
+  <g id='product-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='210' width='350' height='450' rx='16' fill='#fafafa'/>
+    <rect x='80' y='210' width='350' height='6' rx='3' fill='#10a37f'/>
+    <text x='160' y='290' font-size='32' font-weight='800' fill='#0d0d0d'>GPT</text>
+    <text x='160' y='320' font-size='16' fill='#9b9b9b'>大语言模型</text>
+    <text x='110' y='370' font-size='15' fill='#1a1a1a'>从 GPT-1 到 GPT-4o，参数规模从</text>
+    <text x='110' y='395' font-size='15' fill='#1a1a1a'>1.17 亿增长至万亿级。支持文本</text>
+    <text x='110' y='420' font-size='15' fill='#1a1a1a'>理解、生成、代码编写、逻辑推理</text>
+    <text x='110' y='445' font-size='15' fill='#1a1a1a'>等多重能力，是 OpenAI 的旗舰</text>
+    <text x='110' y='470' font-size='15' fill='#1a1a1a'>技术底座。</text>
+    <rect x='110' y='500' width='280' height='40' rx='20' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='250' y='525' text-anchor='middle' font-size='14' fill='#10a37f' font-weight='600'>ChatGPT · API · Copilot</text>
+  </g>
+  <g id='product-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='465' y='210' width='350' height='450' rx='16' fill='#fafafa'/>
+    <rect x='465' y='210' width='350' height='6' rx='3' fill='#10a37f'/>
+    <text x='545' y='290' font-size='32' font-weight='800' fill='#0d0d0d'>DALL-E</text>
+    <text x='545' y='320' font-size='16' fill='#9b9b9b'>图像生成</text>
+    <text x='495' y='370' font-size='15' fill='#1a1a1a'>文本到图像生成模型，从 DALL-E 1</text>
+    <text x='495' y='395' font-size='15' fill='#1a1a1a'>到 DALL-E 3，图像质量与文本理解</text>
+    <text x='495' y='420' font-size='15' fill='#1a1a1a'>能力飞跃。集成至 ChatGPT Plus</text>
+    <text x='495' y='445' font-size='15' fill='#1a1a1a'>和 Bing Image Creator，月均生成</text>
+    <text x='495' y='470' font-size='15' fill='#1a1a1a'>图像超 10 亿张。</text>
+    <rect x='495' y='500' width='280' height='40' rx='20' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='635' y='525' text-anchor='middle' font-size='14' fill='#10a37f' font-weight='600'>ChatGPT · Bing · API</text>
+  </g>
+  <g id='product-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='850' y='210' width='350' height='450' rx='16' fill='#fafafa'/>
+    <rect x='850' y='210' width='350' height='6' rx='3' fill='#10a37f'/>
+    <text x='930' y='290' font-size='32' font-weight='800' fill='#0d0d0d'>Sora</text>
+    <text x='930' y='320' font-size='16' fill='#9b9b9b'>视频生成</text>
+    <text x='880' y='370' font-size='15' fill='#1a1a1a'>2024 年发布的文生视频模型，</text>
+    <text x='880' y='395' font-size='15' fill='#1a1a1a'>可生成长达 60 秒的高清视频。</text>
+    <text x='880' y='420' font-size='15' fill='#1a1a1a'>理解物理世界运动规律，模拟</text>
+    <text x='880' y='445' font-size='15' fill='#1a1a1a'>真实场景。与 Whisper（语音）</text>
+    <text x='880' y='470' font-size='15' fill='#1a1a1a'>共同构成多模态产品矩阵。</text>
+    <rect x='880' y='500' width='280' height='40' rx='20' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='1020' y='525' text-anchor='middle' font-size='14' fill='#10a37f' font-weight='600'>视频创作 · 影视 · 设计</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>6 / 11</text>
+  </g>
+  <!-- notes: 三大产品卡片——GPT（语言）、DALL-E（图像）、Sora（视频），展示 OpenAI 多模态版图。演讲时可以强调："从只有文字，到看懂图像，再到理解物理世界——OpenAI 正在构建能感知和生成所有内容形式的 AI 引擎。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='80' font-size='14' fill='#10a37f' font-weight='600' letter-spacing='2'>CHAPTER 02 · 核心技术</text>
+    <text x='80' y='130' font-size='42' font-weight='800' fill='#0d0d0d'>GPT 系列模型进化</text>
+    <rect x='80' y='155' width='50' height='3' fill='#10a37f'/>
+  </g>
+  <g id='stat-highlight' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='240' text-anchor='middle' font-size='18' fill='#9b9b9b'>参数规模增长曲线（单位：百万）</text>
+  </g>
+  <g id='gpt-bars' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- GPT-1 -->
+    <rect x='140' y='280' width='2' height='32' rx='2' fill='#10a37f' fill-opacity='0.3'/>
+    <text x='160' y='300' font-size='14' fill='#9b9b9b'>GPT-1</text>
+    <text x='240' y='300' font-size='14' fill='#1a1a1a'>117M</text>
+    
+    <!-- GPT-2 -->
+    <rect x='140' y='330' width='16' height='32' rx='2' fill='#10a37f' fill-opacity='0.4'/>
+    <text x='160' y='350' font-size='14' fill='#9b9b9b'>GPT-2</text>
+    <text x='240' y='350' font-size='14' fill='#1a1a1a'>1.5B</text>
+    
+    <!-- GPT-3 -->
+    <rect x='140' y='380' width='180' height='32' rx='2' fill='#10a37f' fill-opacity='0.6'/>
+    <text x='160' y='400' font-size='14' fill='#9b9b9b'>GPT-3</text>
+    <text x='240' y='400' font-size='14' fill='#1a1a1a' font-weight='600'>175B</text>
+    <text x='340' y='400' font-size='12' fill='#10a37f' font-weight='600'>+11,666%</text>
+    
+    <!-- GPT-4 -->
+    <rect x='140' y='430' width='400' height='32' rx='2' fill='#10a37f' fill-opacity='0.8'/>
+    <text x='160' y='450' font-size='14' fill='#9b9b9b'>GPT-4</text>
+    <text x='240' y='450' font-size='14' fill='#1a1a1a' font-weight='600'>1T+</text>
+    <text x='340' y='450' font-size='12' fill='#10a37f' font-weight='600'>+471%</text>
+    
+    <!-- GPT-4o -->
+    <rect x='140' y='480' width='520' height='32' rx='2' fill='#10a37f'/>
+    <text x='160' y='500' font-size='14' fill='#9b9b9b'>GPT-4o</text>
+    <text x='240' y='500' font-size='14' fill='#0d0d0d' font-weight='700'>多模态</text>
+    <text x='340' y='500' font-size='12' fill='#10a37f' font-weight='600'>+100%能力扩展</text>
+  </g>
+  <g id='key-insight' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='720' y='280' width='480' height='230' rx='16' fill='#fafafa'/>
+    <text x='760' y='320' font-size='20' font-weight='700' fill='#0d0d0d'>不只是参数增长</text>
+    <text x='760' y='360' font-size='15' fill='#1a1a1a'>从 GPT-1 到 GPT-4o，OpenAI 的突破</text>
+    <text x='760' y='385' font-size='15' fill='#1a1a1a'>不仅体现在参数规模的指数级增长。</text>
+    <text x='760' y='420' font-size='15' fill='#1a1a1a'>更关键的跨越：</text>
+    <text x='760' y='450' font-size='15' fill='#10a37f' font-weight='600'>文本 → 代码 → 图像 → 语音 → 视频</text>
+    <text x='760' y='480' font-size='15' fill='#1a1a1a'>多模态理解与生成能力的全面爆发。</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>7 / 11</text>
+  </g>
+  <!-- notes: GPT 模型进化纵览。左侧用横向条形图直观展示参数规模从 117M 到万亿级的暴增，右侧卡片总结更深层变革——多模态能力。演讲时强调："从只能处理文字，到看懂图片、听懂语音、生成视频——这才是真正的革命。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='80' font-size='14' fill='#10a37f' font-weight='600' letter-spacing='2'>CHAPTER 02 · 核心技术</text>
+    <text x='80' y='130' font-size='42' font-weight='800' fill='#0d0d0d'>关键影响力数据</text>
+    <rect x='80' y='155' width='50' height='3' fill='#10a37f'/>
+  </g>
+  <g id='kpi-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='210' width='260' height='220' rx='16' fill='#fafafa'/>
+    <text x='210' y='290' text-anchor='middle' font-size='48' font-weight='800' fill='#10a37f'>3亿+</text>
+    <text x='210' y='330' text-anchor='middle' font-size='16' fill='#1a1a1a'>ChatGPT 周活跃用户</text>
+    <text x='210' y='355' text-anchor='middle' font-size='13' fill='#9b9b9b'>2024 年数据</text>
+  </g>
+  <g id='kpi-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='365' y='210' width='260' height='220' rx='16' fill='#fafafa'/>
+    <text x='495' y='290' text-anchor='middle' font-size='48' font-weight='800' fill='#10a37f'>100M</text>
+    <text x='495' y='330' text-anchor='middle' font-size='16' fill='#1a1a1a'>API 日调用次数</text>
+    <text x='495' y='355' text-anchor='middle' font-size='13' fill='#9b9b9b'>全球开发者生态</text>
+  </g>
+  <g id='kpi-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='650' y='210' width='260' height='220' rx='16' fill='#fafafa'/>
+    <text x='780' y='290' text-anchor='middle' font-size='48' font-weight='800' fill='#10a37f'>$130亿</text>
+    <text x='780' y='330' text-anchor='middle' font-size='16' fill='#1a1a1a'>微软投资规模</text>
+    <text x='780' y='355' text-anchor='middle' font-size='13' fill='#9b9b9b'>战略合作伙伴</text>
+  </g>
+  <g id='kpi-4' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='935' y='210' width='260' height='220' rx='16' fill='#fafafa'/>
+    <text x='1065' y='290' text-anchor='middle' font-size='48' font-weight='800' fill='#10a37f'>100+</text>
+    <text x='1065' y='330' text-anchor='middle' font-size='16' fill='#1a1a1a'>支持语言</text>
+    <text x='1065' y='355' text-anchor='middle' font-size='13' fill='#9b9b9b'>覆盖全球 95%+ 人口</text>
+  </g>
+  <g id='insight-card' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='460' width='1115' height='200' rx='16' fill='#fafafa'/>
+    <text x='120' y='510' font-size='20' font-weight='700' fill='#0d0d0d'>从研究实验室到全球基础设施</text>
+    <text x='120' y='545' font-size='15' fill='#1a1a1a'>OpenAI 已从一个小型研究机构成长为全球 AI 基础设施提供商。其 API 被超过 200 万开发者使用，</text>
+    <text x='120' y='570' font-size='15' fill='#1a1a1a'>赋能从财富 500 强到初创公司的各类组织。ChatGPT 已成为历史上增长最快的消费级应用，</text>
+    <text x='120' y='595' font-size='15' fill='#1a1a1a'>重新定义了人机交互的方式。</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>8 / 11</text>
+  </g>
+  <!-- notes: 四个关键 KPI 卡片展示 OpenAI 的影响力规模。3亿周活 + 1亿日API调用 + 130亿微软投资 + 100+语言。底部卡片总结从研究到基础设施的转型。演讲时可以请观众感受："3亿用户是什么概念？相当于每 25 个人中就有 1 个人每周在使用 ChatGPT。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='section-decor'>
+    <text x='120' y='260' font-size='220' font-weight='900' fill='#10a37f' fill-opacity='0.06' font-family='Inter,Noto Sans SC,sans-serif'>03</text>
+  </g>
+  <g id='section-content' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='120' y='300' width='60' height='4' fill='#10a37f'/>
+    <text x='120' y='360' font-size='16' fill='#10a37f' font-weight='600' letter-spacing='3'>CHAPTER 03</text>
+    <text x='120' y='440' font-size='64' font-weight='800' fill='#0d0d0d'>产业影响与未来</text>
+    <text x='120' y='510' font-size='24' fill='#1a1a1a' font-weight='400'>AI 正在重塑每一个行业</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>9 / 11</text>
+  </g>
+  <!-- notes: 第三章——产业影响与未来。承上启下："看完了技术本身，我们来看看它在真实世界引发的连锁反应。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='quote-decor' font-family='Playfair Display,Noto Serif SC,serif'>
+    <text x='640' y='200' text-anchor='middle' font-size='120' fill='#10a37f' fill-opacity='0.15' font-weight='400'>"</text>
+  </g>
+  <g id='quote-content' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='320' text-anchor='middle' font-size='32' fill='#0d0d0d' font-weight='500'>我们相信 AGI 将成为人类历史上</text>
+    <text x='640' y='370' text-anchor='middle' font-size='32' fill='#0d0d0d' font-weight='500'>最具影响力的技术</text>
+    <rect x='580' y='400' width='120' height='2' fill='#10a37f'/>
+    <text x='640' y='450' text-anchor='middle' font-size='16' fill='#9b9b9b'>Our mission is to ensure that AGI benefits all of humanity</text>
+  </g>
+  <g id='impact-grid' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='160' y='510' width='280' height='120' rx='12' fill='#fafafa'/>
+    <text x='300' y='550' text-anchor='middle' font-size='18' font-weight='600' fill='#0d0d0d'>医疗</text>
+    <text x='300' y='580' text-anchor='middle' font-size='14' fill='#1a1a1a'>诊断辅助 · 药物发现</text>
+    
+    <rect x='500' y='510' width='280' height='120' rx='12' fill='#fafafa'/>
+    <text x='640' y='550' text-anchor='middle' font-size='18' font-weight='600' fill='#0d0d0d'>教育</text>
+    <text x='640' y='580' text-anchor='middle' font-size='14' fill='#1a1a1a'>个性化学习 · 智能辅导</text>
+    
+    <rect x='840' y='510' width='280' height='120' rx='12' fill='#fafafa'/>
+    <text x='980' y='550' text-anchor='middle' font-size='18' font-weight='600' fill='#0d0d0d'>科学</text>
+    <text x='980' y='580' text-anchor='middle' font-size='14' fill='#1a1a1a'>蛋白质折叠 · 数学证明</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>10 / 11</text>
+  </g>
+  <!-- notes: 金句页，用 OpenAI 的官方使命宣言做核心，下方三个行业影响卡片展示 AGI 的实际应用前景。演讲时先停顿，读出引号内的中文翻译，然后自然过渡："这不是空谈——在医疗、教育和科学领域，我们已经看到了切实的成果。" -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='thankyou-decor'>
+    <circle cx='640' cy='360' r='260' fill='#10a37f' fill-opacity='0.03'/>
+    <circle cx='640' cy='360' r='180' fill='#10a37f' fill-opacity='0.05'/>
+  </g>
+  <g id='thankyou-content' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='280' font-size='18' fill='#10a37f' font-weight='600' letter-spacing='4'>THANK YOU</text>
+    <text x='640' y='370' font-size='52' font-weight='800' fill='#0d0d0d'>感谢聆听</text>
+    <text x='640' y='430' font-size='20' fill='#1a1a1a'>The future is already here — it's just not evenly distributed yet.</text>
+    <rect x='540' y='470' width='200' height='2' fill='#10a37f'/>
+    <text x='640' y='520' font-size='16' fill='#9b9b9b'>如需了解更多信息，请访问 openai.com</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>11 / 11</text>
+  </g>
+  <!-- notes: 致谢收尾页。使用 OpenAI 标志性的居中排版，双装饰圆环呼应封面设计。引用 William Gibson 的名言作结："未来已来，只是分布不均。"——恰好点出 OpenAI 的使命：让 AGI 普惠全人类。 -->
+</svg>
+</div>
+</body>
+</html>

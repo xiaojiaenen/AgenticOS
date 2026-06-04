@@ -1,0 +1,40 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <!-- 装饰几何 -->
+  <g id='bg-decor'>
+    <rect x='0' y='0' width='1280' height='5' fill='#111111'/>
+    <circle cx='1050' cy='180' r='300' fill='#111111' fill-opacity='0.06'/>
+    <circle cx='1050' cy='180' r='180' fill='#111111' fill-opacity='0.08'/>
+    <circle cx='1050' cy='180' r='80' fill='#111111' fill-opacity='0.12'/>
+    <rect x='-60' y='500' width='400' height='400' rx='200' fill='#111111' fill-opacity='0.04' transform='rotate(-15, 140, 700)'/>
+  </g>
+  <!-- 主标题区 -->
+  <g id='cover-header'>
+    <text x='100' y='200' font-size='20' fill='#111111' font-weight='700' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='6'>GREE · 格力空调</text>
+    <text x='100' y='320' font-size='72' font-weight='900' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='100' dy='0'>掌握核心科技</tspan>
+    </text>
+    <text x='100' y='380' font-size='72' font-weight='900' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='100' dy='0'>让世界爱上中国造</tspan>
+    </text>
+  </g>
+  <!-- 副标题 -->
+  <g id='cover-subtitle'>
+    <text x='100' y='450' font-size='22' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>31 年专注空调领域 · 全球销量领先 · 连续多年市场占有率第一</text>
+  </g>
+  <!-- 标签 -->
+  <g id='cover-tags'>
+    <rect x='100' y='510' width='140' height='40' rx='20' fill='#111111'/>
+    <text x='170' y='536' font-size='15' fill='#ffffff' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>科技领先</text>
+    <rect x='260' y='510' width='140' height='40' rx='20' fill='#f5f5f5' stroke='#d0d0d0' stroke-width='1'/>
+    <text x='330' y='536' font-size='15' fill='#4b4b4d' font-weight='600' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>节能环保</text>
+    <rect x='420' y='510' width='140' height='40' rx='20' fill='#f5f5f5' stroke='#d0d0d0' stroke-width='1'/>
+    <text x='490' y='536' font-size='15' fill='#4b4b4d' font-weight='600' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>品质之选</text>
+  </g>
+  <!-- 页脚 -->
+  <g id='cover-footer'>
+    <text x='100' y='680' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>珠海格力电器股份有限公司</text>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>1 / 10</text>
+  </g>
+  <!-- notes: 封面页——开场要制造品牌张力。"掌握核心科技，让世界爱上中国造"是格力经典 slogan，直接唤起品牌认知。31年专注、全球销量领先、市占率第一，三个标签快速建立信任锚点。演讲时可以先问观众"你们家用的什么空调？"，再切入格力的品牌故事。 -->
+</svg>

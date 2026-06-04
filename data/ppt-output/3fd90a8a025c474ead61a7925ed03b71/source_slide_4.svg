@@ -1,0 +1,61 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <circle cx='200' cy='50' r='1' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='1100' cy='120' r='1.5' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='80' cy='600' r='1' fill='#abaeb3' fill-opacity='0.3'/>
+  </g>
+  <g id='page-header'>
+    <rect x='0' y='0' width='1280' height='3' fill='#3b82f6'/>
+    <text x='80' y='100' font-family='Inter,Noto Sans SC,sans-serif' font-size='36' font-weight='800' fill='#111827'>太阳系数字速览</text>
+    <text x='80' y='135' font-family='Inter,Noto Sans SC,sans-serif' font-size='17' fill='#abaeb3'>一组数据看清我们的恒星家园</text>
+    <rect x='80' y='150' width='50' height='3' fill='#3b82f6'/>
+  </g>
+  <g id='stat-sun'>
+    <rect x='80' y='200' width='255' height='220' rx='16' fill='#f9f9f9'/>
+    <circle cx='207' cy='260' r='36' fill='#3b82f6' fill-opacity='0.15'/>
+    <circle cx='207' cy='260' r='20' fill='#3b82f6' fill-opacity='0.3'/>
+    <circle cx='207' cy='260' r='8' fill='#3b82f6' fill-opacity='0.5'/>
+    <text x='207' y='330' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='38' font-weight='800' fill='#3b82f6'>1</text>
+    <text x='207' y='360' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='16' fill='#70747d'>颗恒星（太阳）</text>
+    <text x='207' y='385' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='#abaeb3'>占太阳系总质量 99.86%</text>
+  </g>
+  <g id='stat-planets'>
+    <rect x='355' y='200' width='255' height='220' rx='16' fill='#f9f9f9'/>
+    <circle cx='482' cy='260' r='30' fill='none' stroke='#8b5cf6' stroke-width='1.5' stroke-opacity='0.4'/>
+    <circle cx='467' cy='248' r='6' fill='#8b5cf6' fill-opacity='0.6'/>
+    <circle cx='497' cy='272' r='4' fill='#8b5cf6' fill-opacity='0.4'/>
+    <circle cx='482' cy='260' r='2' fill='#8b5cf6'/>
+    <text x='482' y='330' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='38' font-weight='800' fill='#8b5cf6'>8</text>
+    <text x='482' y='360' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='16' fill='#70747d'>颗大行星</text>
+    <text x='482' y='385' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='#abaeb3'>4颗类地 + 4颗气态</text>
+  </g>
+  <g id='stat-moons'>
+    <rect x='630' y='200' width='255' height='220' rx='16' fill='#f9f9f9'/>
+    <circle cx='757' cy='255' r='18' fill='none' stroke='#3b82f6' stroke-width='0.8' fill-opacity='0.3'/>
+    <circle cx='757' cy='255' r='10' fill='#3b82f6' fill-opacity='0.15'/>
+    <circle cx='750' cy='243' r='3' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='740' cy='258' r='2' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='767' cy='248' r='2' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='770' cy='262' r='3' fill='#abaeb3' fill-opacity='0.3'/>
+    <text x='757' y='330' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='38' font-weight='800' fill='#3b82f6'>200+</text>
+    <text x='757' y='360' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='16' fill='#70747d'>颗已知卫星</text>
+    <text x='757' y='385' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='13' fill='#abaeb3'>木星 95 颗 · 土星 146 颗</text>
+  </g>
+  <g id='stat-distance'>
+    <rect x='905' y='200' width='295' height='220' rx='16' fill='#f9f9f9'/>
+    <rect x='935' y='245' width='60' height='2' fill='#c3c5c9'/>
+    <rect x='935' y='265' width='60' height='2' fill='#c3c5c9'/>
+    <rect x='995' y='245' width='60' height='2' fill='#c3c5c9'/>
+    <rect x='995' y='265' width='60' height='2' fill='#c3c5c9'/>
+    <text x='1052' y='310' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='34' font-weight='800' fill='#8b5cf6'>4.6</text>
+    <text x='1052' y='340' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='34' font-weight='800' fill='#8b5cf6'>10亿 km</text>
+    <text x='1052' y='370' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='#70747d'>太阳系直径</text>
+    <text x='1052' y='393' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='12' fill='#abaeb3'>从太阳到海王星轨道</text>
+  </g>
+  <g id='footer'>
+    <rect x='80' y='698' width='40' height='2' fill='#3b82f6'/>
+    <text x='135' y='708' font-family='Inter,Noto Sans SC,sans-serif' font-size='12' fill='#abaeb3'>04 / 12</text>
+  </g>
+  <!-- notes: 数据页——四个核心数字：1颗恒星（占质量99.86%）、8颗大行星、200+颗卫星、46亿km直径。用环形轨道元素装饰卡片。建议依次指向每个卡片讲解。 -->
+</svg>

@@ -1,0 +1,23 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='claude'>
+  <!-- notes: 封面页——开场制造悬念，用"Claude是谁"引发好奇，暖橙色标识建立品牌认知 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id="decor-top">
+    <rect x='0' y='0' width='1280' height='6' fill='#dedc01'/>
+  </g>
+  <g id="cover-header">
+    <text x='640' y='200' font-size='20' fill='#dedc01' font-weight='600' letter-spacing='4' text-anchor='middle'>ANTHROPIC</text>
+    <text x='640' y='320' font-size='76' font-weight='800' fill='#4d4c48' text-anchor='middle'>
+      <tspan x='640' dy='0'>Claude</tspan>
+    </text>
+    <text x='640' y='400' font-size='36' font-weight='400' fill='#3d3d3a' text-anchor='middle'>你的 AI 助手 · 你的思考伙伴</text>
+    <text x='640' y='464' font-size='20' fill='#87867f' text-anchor='middle'>安全 · 可靠 · 有温度</text>
+  </g>
+  <g id="cover-decor">
+    <rect x='555' y='520' width='170' height='3' rx='1.5' fill='#dedc01'/>
+  </g>
+  <g id="footer">
+    <text x='640' y='660' font-size='14' fill='#87867f' text-anchor='middle'>2026 · 认识 Claude 演示文稿</text>
+  </g>
+</svg>

@@ -1,0 +1,66 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <linearGradient id='neonThanks' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='#bbf351'/>
+      <stop offset='100%' stop-color='#00bcff'/>
+    </linearGradient>
+    <filter id='glowBig' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='8'/>
+    </filter>
+    <filter id='glowDot11' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='4'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <!-- 网格 -->
+    <line x1='0' y1='180' x2='1280' y2='180' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='540' x2='1280' y2='540' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <!-- 背景光晕 -->
+    <circle cx='640' cy='360' r='300' fill='#bbf351' fill-opacity='0.03'/>
+    <circle cx='640' cy='360' r='200' fill='#00bcff' fill-opacity='0.02'/>
+  </g>
+  <!-- 星尘粒子 -->
+  <g id='decor-particles'>
+    <circle cx='180' cy='180' r='3' fill='#bbf351' fill-opacity='0.3' filter='url(#glowDot11)'/>
+    <circle cx='1100' cy='200' r='2.5' fill='#00bcff' fill-opacity='0.25' filter='url(#glowDot11)'/>
+    <circle cx='200' cy='500' r='2' fill='#bbf351' fill-opacity='0.2' filter='url(#glowDot11)'/>
+    <circle cx='1050' cy='480' r='2.5' fill='#00bcff' fill-opacity='0.2' filter='url(#glowDot11)'/>
+    <circle cx='400' cy='120' r='2' fill='#bbf351' fill-opacity='0.2'/>
+    <circle cx='880' cy='100' r='1.5' fill='#00bcff' fill-opacity='0.2'/>
+    <circle cx='350' cy='550' r='2' fill='#bbf351' fill-opacity='0.15'/>
+    <circle cx='900' cy='580' r='1.5' fill='#00bcff' fill-opacity='0.15'/>
+  </g>
+  <!-- 主内容 -->
+  <g id='thanks-content' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='240' font-size='80' font-weight='900' fill='#bbf351' fill-opacity='0.08' font-family='serif'>✦</text>
+    <text x='640' y='300' font-size='15' fill='#bbf351' font-weight='600' letter-spacing='6'>THANK YOU</text>
+    <text x='640' y='370' font-size='56' font-weight='800' fill='#111827' letter-spacing='6'>
+      感谢遇见
+    </text>
+    <rect x='590' y='400' width='100' height='2' rx='1' fill='url(#neonThanks)'/>
+    <rect x='590' y='403' width='100' height='2' rx='1' fill='#bbf351' fill-opacity='0.3' filter='url(#glowBig)'/>
+    <text x='640' y='445' font-size='20' fill='#70747d' font-weight='300' letter-spacing='2'>
+      每个热爱二次元的你，都是这场梦的主角
+    </text>
+    <!-- 金句 -->
+    <text x='640' y='510' font-size='15' fill='#abaeb3' font-style='italic'>
+      "不管前方的路有多苦，只要走的方向正确，不管多么崎岖不平，都比站在原地更接近幸福。"
+    </text>
+    <text x='640' y='540' font-size='13' fill='#abaeb3'>—— 宫崎骏《千与千寻》</text>
+    <!-- 联系信息 -->
+    <line x1='440' y1='575' x2='840' y2='575' stroke='#c3c5c9' stroke-width='1'/>
+    <text x='640' y='605' font-size='14' fill='#70747d'>2025 夏日动漫嘉年华 · 国家会展中心</text>
+    <text x='640' y='630' font-size='13' fill='#abaeb3'>官网：www.summeranime2025.com · 公众号：夏日动漫嘉年华</text>
+  </g>
+  <!-- 底部霓虹线 -->
+  <g id='decor-footer'>
+    <rect x='0' y='710' width='1280' height='1' fill='#bbf351' fill-opacity='0.15'/>
+    <rect x='0' y='712' width='1280' height='1' fill='#00bcff' fill-opacity='0.08'/>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>11 / 11</text>
+  </g>
+  <!-- notes: 致谢页——"千与千寻的金句收尾。门票在官网和公众号都能买。这个夏天，国家会展中心见。" -->
+</svg>

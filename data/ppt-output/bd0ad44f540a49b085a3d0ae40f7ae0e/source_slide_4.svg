@@ -1,0 +1,79 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <filter id='glowDot4' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='4'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1'/>
+    <!-- 角落光晕 -->
+    <circle cx='0' cy='0' r='400' fill='#bbf351' fill-opacity='0.03'/>
+    <circle cx='1280' cy='720' r='400' fill='#00bcff' fill-opacity='0.03'/>
+  </g>
+  <g id='decor-dots'>
+    <circle cx='200' cy='120' r='2' fill='#bbf351' fill-opacity='0.2' filter='url(#glowDot4)'/>
+    <circle cx='1100' cy='150' r='2.5' fill='#00bcff' fill-opacity='0.2' filter='url(#glowDot4)'/>
+    <path d='M300,80 Q306,73 312,80 Q306,87 300,80 Z' fill='#bbf351' fill-opacity='0.3'/>
+    <path d='M1000,100 Q1008,92 1016,100 Q1008,108 1000,100 Z' fill='#00bcff' fill-opacity='0.25'/>
+  </g>
+  <!-- 页眉 -->
+  <g id='page-header'>
+    <text x='80' y='80' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>展会数据</text>
+    <rect x='80' y='95' width='40' height='2' rx='1' fill='#bbf351'/>
+  </g>
+  <!-- 标题 -->
+  <g id='section-title'>
+    <text x='80' y='165' font-size='38' font-weight='800' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>
+      以数据看规模
+    </text>
+    <text x='80' y='200' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>本届嘉年华创历届之最，四大核心指标全面突破</text>
+  </g>
+  <!-- KPI 网格 -->
+  <g id='kpi-grid' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- KPI 1 -->
+    <g transform='translate(80, 260)'>
+      <rect width='540' height='190' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='540' height='3' rx='1.5' fill='#bbf351'/>
+      <text x='40' y='50' font-size='13' fill='#abaeb3' letter-spacing='2'>参展品牌</text>
+      <text x='40' y='115' font-size='56' font-weight='900' fill='#bbf351'>
+        <tspan font-size='24' fill='#70747d'>+</tspan>200
+      </text>
+      <text x='40' y='155' font-size='14' fill='#16a34a' font-weight='600'>较上届增长<tspan font-weight='bold'>35%</tspan></text>
+    </g>
+    <!-- KPI 2 -->
+    <g transform='translate(660, 260)'>
+      <rect width='540' height='190' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='540' height='3' rx='1.5' fill='#00bcff'/>
+      <text x='40' y='50' font-size='13' fill='#abaeb3' letter-spacing='2'>预计观众</text>
+      <text x='40' y='115' font-size='56' font-weight='900' fill='#00bcff'>
+        <tspan font-size='24' fill='#70747d'>~</tspan>5<tspan font-size='24'>万</tspan>
+      </text>
+      <text x='40' y='155' font-size='14' fill='#16a34a' font-weight='600'>覆盖全国<tspan font-weight='bold'>28</tspan>个省份</text>
+    </g>
+    <!-- KPI 3 -->
+    <g transform='translate(80, 475)'>
+      <rect width='540' height='190' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='540' height='3' rx='1.5' fill='#bbf351'/>
+      <text x='40' y='50' font-size='13' fill='#abaeb3' letter-spacing='2'>特邀嘉宾</text>
+      <text x='40' y='115' font-size='56' font-weight='900' fill='#bbf351'>
+        <tspan font-size='24' fill='#70747d'>+</tspan>30<tspan font-size='24'>位</tspan>
+      </text>
+      <text x='40' y='155' font-size='14' fill='#70747d' font-weight='600'>日本·中国·欧美声优与创作者</text>
+    </g>
+    <!-- KPI 4 -->
+    <g transform='translate(660, 475)'>
+      <rect width='540' height='190' rx='12' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='540' height='3' rx='1.5' fill='#00bcff'/>
+      <text x='40' y='50' font-size='13' fill='#abaeb3' letter-spacing='2'>媒体曝光</text>
+      <text x='40' y='115' font-size='56' font-weight='900' fill='#00bcff'>
+        <tspan font-size='24' fill='#70747d'>+</tspan>100<tspan font-size='24'>家</tspan>
+      </text>
+      <text x='40' y='155' font-size='14' fill='#70747d' font-weight='600'>全媒体覆盖 · 预计触达<tspan font-weight='bold'>5000万+</tspan></text>
+    </g>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>04 / 11</text>
+  </g>
+  <!-- notes: KPIs——"四个数字：200+品牌、5万观众、30+嘉宾、100+媒体。每一项都在刷新纪录。" -->
+</svg>

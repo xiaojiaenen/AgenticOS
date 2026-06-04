@@ -1,0 +1,46 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="page-header" font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='4'>WISHES</text>
+    <text x='80' y='150' font-size='42' font-weight='800' fill='var(--text-1)'>朋友们的祝福</text>
+    <rect x='80' y='170' width='50' height='4' rx='2' fill='var(--accent)'/>
+  </g>
+  <g id="wish-cards" font-family='Inter,Noto Sans SC,sans-serif'>
+    <g transform='translate(80, 250)'>
+      <rect x='0' y='0' width='340' height='190' rx='16' fill='var(--surface)'/>
+      <rect x='0' y='0' width='8' height='190' rx='4' fill='var(--accent)'/>
+      <text x='35' y='45' font-size='18' font-weight='700' fill='var(--text-1)'>小明</text>
+      <text x='35' y='78' font-size='14' fill='var(--text-2)' font-weight='400'>认识你这么多年，看着你一路成长，真的为你骄傲！新的一岁，继续闪闪发光吧 ✨</text>
+    </g>
+    <g transform='translate(450, 250)'>
+      <rect x='0' y='0' width='340' height='190' rx='16' fill='var(--surface)'/>
+      <rect x='0' y='0' width='8' height='190' rx='4' fill='var(--accent)'/>
+      <text x='35' y='45' font-size='18' font-weight='700' fill='var(--text-1)'>小芳</text>
+      <text x='35' y='78' font-size='14' fill='var(--text-2)' font-weight='400'>生日快乐！愿你的每一天都像今天的蛋糕一样甜，像你的笑容一样灿烂 🎂</text>
+    </g>
+    <g transform='translate(820, 250)'>
+      <rect x='0' y='0' width='340' height='190' rx='16' fill='var(--surface)'/>
+      <rect x='0' y='0' width='8' height='190' rx='4' fill='var(--accent)'/>
+      <text x='35' y='45' font-size='18' font-weight='700' fill='var(--text-1)'>阿杰</text>
+      <text x='35' y='78' font-size='14' fill='var(--text-2)' font-weight='400'>最好的寿星！感谢你一直以来的陪伴和照顾，新的一岁我们一起去看更远的世界 🚀</text>
+    </g>
+    <g transform='translate(265, 470)'>
+      <rect x='0' y='0' width='340' height='150' rx='16' fill='var(--surface)'/>
+      <rect x='0' y='0' width='8' height='150' rx='4' fill='var(--accent)'/>
+      <text x='35' y='40' font-size='18' font-weight='700' fill='var(--text-1)'>莉莉</text>
+      <text x='35' y='73' font-size='14' fill='var(--text-2)' font-weight='400'>愿所有的幸福都围绕着你，愿所有的美好都属于你。生日快乐，我最亲爱的朋友！💕</text>
+    </g>
+    <g transform='translate(635, 470)'>
+      <rect x='0' y='0' width='340' height='150' rx='16' fill='var(--surface)'/>
+      <rect x='0' y='0' width='8' height='150' rx='4' fill='var(--accent)'/>
+      <text x='35' y='40' font-size='18' font-weight='700' fill='var(--text-1)'>大伟</text>
+      <text x='35' y='73' font-size='14' fill='var(--text-2)' font-weight='400'>兄弟生日快乐！认识你是这些年最幸运的事，祝你前程似锦，万事胜意！🎉</text>
+    </g>
+  </g>
+  <g id="footer-chrome">
+    <text x='80' y='680' font-size='12' fill='var(--text-3)'>07 / 11</text>
+  </g>
+  <!-- notes: 祝福卡片页——五张朋友寄语卡片。实际使用时可以替换为现场朋友的真实祝福，或者提前录好的视频片段截图。建议念其中2-3条，其余让大家自己看 -->
+</svg>

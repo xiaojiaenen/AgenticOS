@@ -1,0 +1,44 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <!-- 星空装饰 - 散布的小星星 -->
+    <circle cx='120' cy='80' r='1.5' fill='#abaeb3' fill-opacity='0.6'/>
+    <circle cx='350' cy='120' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='900' cy='60' r='2' fill='#abaeb3' fill-opacity='0.7'/>
+    <circle cx='1100' cy='200' r='1.5' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='200' cy='500' r='1' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1050' cy='450' r='1.5' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='600' cy='650' r='2' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='80' cy='350' r='1' fill='#abaeb3' fill-opacity='0.6'/>
+    <circle cx='1180' cy='350' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='750' cy='100' r='1.5' fill='#abaeb3' fill-opacity='0.5'/>
+  </g>
+  <g id='cover-decoration'>
+    <!-- 顶部装饰弧线 -->
+    <rect x='0' y='0' width='1280' height='3' fill='#3b82f6'/>
+    <!-- 左侧轨道装饰 -->
+    <ellipse cx='300' cy='520' rx='280' ry='80' fill='none' stroke='#3b82f6' stroke-width='0.5' stroke-opacity='0.3' stroke-dasharray='4,6'/>
+    <ellipse cx='400' cy='560' rx='180' ry='50' fill='none' stroke='#3b82f6' stroke-width='0.5' stroke-opacity='0.2' stroke-dasharray='2,8'/>
+    <!-- 大圆环装饰 -->
+    <circle cx='980' cy='500' r='180' fill='none' stroke='#3b82f6' stroke-width='1' stroke-opacity='0.12'/>
+    <circle cx='980' cy='500' r='140' fill='none' stroke='#3b82f6' stroke-width='0.5' stroke-opacity='0.08'/>
+    <!-- 小行星点 -->
+    <circle cx='980' cy='320' r='3' fill='#3b82f6' fill-opacity='0.6'/>
+    <circle cx='1160' cy='500' r='2' fill='#8b5cf6' fill-opacity='0.5'/>
+    <circle cx='870' cy='620' r='4' fill='#3b82f6' fill-opacity='0.4'/>
+  </g>
+  <g id='cover-title'>
+    <text x='640' y='220' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='20' fill='#3b82f6' font-weight='600' letter-spacing='6'>太 阳 系 巡 礼</text>
+    <text x='640' y='340' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='72' font-weight='800' fill='#111827'>
+      宇宙探测：
+      <tspan fill='#3b82f6'>八大行星</tspan>
+      的奥秘
+    </text>
+    <text x='640' y='420' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' fill='#abaeb3'>从水星到海王星 · 穿越四十六亿年的星河之旅</text>
+  </g>
+  <g id='cover-footer'>
+    <rect x='560' y='600' width='160' height='1' fill='#c3c5c9'/>
+    <text x='640' y='630' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='14' fill='#abaeb3'>天文科普 · 2024</text>
+  </g>
+  <!-- notes: 封面页——用"宇宙探测：八大行星的奥秘"制造标题张力，副标题强调46亿年跨度，轨道装饰营造太空氛围。开场建议从"仰望星空"切入。 -->
+</svg>

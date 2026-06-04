@@ -1,0 +1,47 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 句型二——I like... 意思是"我喜欢..."。这个句型可以用来表达你对动物的喜爱。I like cats. 我喜欢猫。注意！like后面的动物单词要用复数形式，加s。大家来造句，说说你喜欢什么动物？ -->
+  <rect width='1280' height='720' fill='var(--bg)'/>
+  <rect x='0' y='0' width='1280' height='4' fill='var(--accent-2)'/>
+  <g id='sentence2-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='55' font-size='16' fill='var(--accent-2)' font-weight='700' letter-spacing='2'>SENTENCE PATTERN 2</text>
+    <text x='80' y='100' font-size='34' font-weight='800' fill='var(--text-1)'>句型二 我喜欢… I like...</text>
+  </g>
+  <!-- 主卡片 -->
+  <g id='sentence2-main'>
+    <rect x='60' y='130' width='700' height='440' rx='16' fill='var(--surface)'/>
+    <rect x='60' y='130' width='700' height='6' rx='3' fill='var(--accent-2)'/>
+    <text x='410' y='190' text-anchor='middle' font-size='22' font-weight='700' fill='var(--accent-2)' font-family='Inter,Noto Sans SC,sans-serif'>💡 句型结构 Sentence Structure</text>
+    <!-- 大句型公式 -->
+    <rect x='100' y='215' width='620' height='80' rx='12' fill='var(--accent-2)' fill-opacity='0.1'/>
+    <text x='410' y='270' text-anchor='middle' font-size='34' font-weight='900' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>I <tspan fill='var(--accent-2)'>like</tspan> <tspan fill='var(--accent-3)'>animal</tspan><tspan fill='var(--text-2)'>s</tspan><tspan fill='var(--text-2)'>.</tspan></text>
+    <text x='410' y='310' text-anchor='middle' font-size='16' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>I + like + 动物名复数（加 s）</text>
+    <!-- 例句 -->
+    <text x='120' y='370' font-size='28' font-weight='700' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>I like <tspan fill='var(--accent-2)'>cats</tspan>. 🐱</text>
+    <text x='120' y='405' font-size='18' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>我喜欢猫。</text>
+    <text x='120' y='455' font-size='28' font-weight='700' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>I like <tspan fill='var(--accent-2)'>monkeys</tspan>. 🐒</text>
+    <text x='120' y='490' font-size='18' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>我喜欢猴子。</text>
+    <text x='120' y='540' font-size='28' font-weight='700' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>I like <tspan fill='var(--accent-2)'>rabbits</tspan>. 🐰</text>
+    <text x='120' y='575' font-size='18' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>我喜欢兔子。</text>
+  </g>
+  <!-- 右栏：注意事项 -->
+  <g id='sentence2-tips'>
+    <rect x='800' y='130' width='420' height='210' rx='16' fill='var(--accent-3)' fill-opacity='0.1' stroke='var(--accent-3)' stroke-width='2'/>
+    <text x='1010' y='180' text-anchor='middle' font-size='20' font-weight='700' fill='var(--accent-3)' font-family='Inter,Noto Sans SC,sans-serif'>⚠️ 小提醒 Remember</text>
+    <text x='840' y='220' font-size='16' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>cat → cat<tspan font-weight='800' fill='var(--accent-3)'>s</tspan></text>
+    <text x='840' y='250' font-size='16' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>dog → dog<tspan font-weight='800' fill='var(--accent-3)'>s</tspan></text>
+    <text x='840' y='280' font-size='16' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>fish → fish <tspan font-size='14' fill='var(--text-3)'>(不变哦！)</tspan></text>
+    <text x='840' y='310' font-size='16' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>bird → bird<tspan font-weight='800' fill='var(--accent-3)'>s</tspan></text>
+  </g>
+  <!-- 右下：你来造句 -->
+  <g id='sentence2-do'>
+    <rect x='800' y='370' width='420' height='200' rx='16' fill='var(--accent-2)' fill-opacity='0.08'/>
+    <text x='1010' y='420' text-anchor='middle' font-size='20' font-weight='700' fill='var(--accent-2)' font-family='Inter,Noto Sans SC,sans-serif'>🎤 说一说 Speak</text>
+    <text x='1010' y='460' text-anchor='middle' font-size='16' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>用 "I like..." 造两个句子</text>
+    <text x='1010' y='490' text-anchor='middle' font-size='16' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>告诉同桌你喜欢什么动物</text>
+    <text x='1010' y='530' text-anchor='middle' font-size='22' font-weight='800' fill='var(--accent-2)' font-family='Inter,Noto Sans SC,sans-serif'>I like ________s.</text>
+  </g>
+  <g id='sentence2-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='690' font-size='13' fill='var(--text-3)'>My Animal Friends</text>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='var(--text-3)'>6 / 10</text>
+  </g>
+</svg>

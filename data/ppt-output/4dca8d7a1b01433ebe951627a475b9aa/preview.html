@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dramatic">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  /* Theme tokens for CSS custom property resolution */
+  :root {
+    --accent: #8b5cf6;
+    --accent-2: #f43f5e;
+    --accent-3: #764ed1;
+    --bad: #dc2626;
+    --bg: #09090b;
+    --bg-soft: #09090b;
+    --border: #fdfdfd;
+    --border-strong: #fcfcfc;
+    --good: #16a34a;
+    --grad: linear-gradient(135deg, #8b5cf6, #f43f5e);
+    --grad-soft: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(244,63,94,0.04));
+    --surface: #08080a;
+    --surface-2: #08080a;
+    --text-1: #fafafa;
+    --text-2: #fcfcfc;
+    --text-3: #fdfdfd;
+    --warn: #d97706;
+  }
+  body { margin:0; padding:0; background:#111; font-family:Inter,Noto Sans SC,sans-serif; }
+  body.single .deck { overflow:auto!important; height:auto!important; }
+  .deck { display:flex; flex-direction:column; align-items:center; gap:16px; padding:16px; }
+  .deck svg { width:100%; max-width:1280px; height:auto; display:block; border-radius:8px; box-shadow:0 4px 24px rgba(0,0,0,.4); }
+</style>
+</head>
+<body class="single">
+<div class="deck">
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <radialGradient id='bgGlow' cx='50%' cy='35%' r='65%'>
+      <stop offset='0%' stop-color='#8b5cf6' stop-opacity='0.18'/>
+      <stop offset='50%' stop-color='#f43f5e' stop-opacity='0.06'/>
+      <stop offset='100%' stop-color='#09090b' stop-opacity='0'/>
+    </radialGradient>
+    <filter id='glow' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='5'/>
+    </filter>
+    <filter id='starGlow' x='-100%' y='-100%' width='300%' height='300%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='2'/>
+    </filter>
+  </defs>
+  <!-- notes: 戏剧化开场——强光从画面中心爆发，行星轨道环绕，标题叠加金色高光，给观众一种史诗级开篇的冲击力 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#09090b'/>
+    <rect width='1280' height='720' fill='url(#bgGlow)'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='100' cy='60' r='2' fill='#fdfdfd' fill-opacity='0.7'/>
+    <circle cx='300' cy='40' r='1.2' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='900' cy='80' r='2.5' fill='#fdfdfd' fill-opacity='0.8'/>
+    <circle cx='1150' cy='50' r='1.5' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='200' cy='180' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1050' cy='180' r='1.8' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='60' cy='450' r='1.3' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='1220' cy='380' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='500' cy='60' r='1.5' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='750' cy='30' r='1.2' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='40' cy='600' r='1.8' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='1240' cy='520' r='1.5' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='600' cy='680' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='150' cy='550' r='1.2' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='1000' cy='600' r='1.5' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='820' cy='140' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='280' cy='300' r='1.2' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='1120' cy='450' r='2' fill='#fdfdfd' fill-opacity='0.7'/>
+  </g>
+  <g id='orbit-decor'>
+    <ellipse cx='640' cy='420' rx='540' ry='85' fill='none' stroke='#8b5cf6' stroke-opacity='0.1' stroke-width='1.5'/>
+    <ellipse cx='640' cy='420' rx='450' ry='72' fill='none' stroke='#f43f5e' stroke-opacity='0.07' stroke-width='1'/>
+    <ellipse cx='640' cy='420' rx='360' ry='58' fill='none' stroke='#8b5cf6' stroke-opacity='0.05' stroke-width='1'/>
+    <circle cx='640' cy='420' r='38' fill='#8b5cf6' fill-opacity='0.15' filter='url(#glow)'/>
+    <circle cx='640' cy='420' r='22' fill='#8b5cf6'/>
+    <circle cx='640' cy='420' r='15' fill='#FFF3E0'/>
+    <circle cx='640' cy='335' r='3.5' fill='#f43f5e'/>
+    <circle cx='640' cy='348' r='5' fill='#764ed1'/>
+    <circle cx='640' cy='365' r='6' fill='#fcfcfc'/>
+    <circle cx='640' cy='385' r='4' fill='#dc2626'/>
+    <circle cx='640' cy='458' r='14' fill='#d97706'/>
+    <circle cx='640' cy='478' r='12' fill='#16a34a'/>
+    <circle cx='640' cy='492' r='9' fill='#f43f5e'/>
+    <circle cx='640' cy='500' r='7' fill='#8b5cf6'/>
+  </g>
+  <g id='cover-title'>
+    <text x='640' y='170' font-size='20' fill='#8b5cf6' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='6'>✦ 太阳系探秘之旅 ✦</text>
+    <line x1='400' y1='185' x2='880' y2='185' stroke='#8b5cf6' stroke-opacity='0.3' stroke-width='1'/>
+    <text x='640' y='260' font-size='80' font-weight='900' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='640' dy='0'>八大行星与</tspan>
+      <tspan x='640' dy='96' fill='#8b5cf6'>九大行星</tspan>
+    </text>
+    <text x='640' y='490' font-size='22' font-weight='600' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='2'>四十六亿年的宇宙史诗</text>
+    <text x='640' y='530' font-size='16' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>从水星到冥王星 · 从伽利略到新视野号</text>
+  </g>
+  <g id='cover-footer' chrome='true'>
+    <text x='640' y='680' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>1 / 12</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <linearGradient id='tocAccent' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#8b5cf6' stop-opacity='0.15'/>
+      <stop offset='100%' stop-color='#f43f5e' stop-opacity='0.05'/>
+    </linearGradient>
+  </defs>
+  <!-- notes: 目录页——每个章节用大数字+斜杠分隔，营造电影章节的感觉，让观众对旅程充满期待 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#09090b'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='60' cy='80' r='1.2' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='1220' cy='60' r='1.5' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='180' cy='600' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1100' cy='550' r='1.3' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='50' cy='350' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1230' cy='280' r='1.5' fill='#fdfdfd' fill-opacity='0.6'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='90' font-size='42' font-weight='900' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>剧 目</text>
+    <rect x='80' y='105' width='70' height='4' fill='#8b5cf6'/>
+    <text x='80' y='140' font-size='16' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='4'>CHAPTERS</text>
+  </g>
+  <g id='toc-item-1'>
+    <rect x='60' y='180' width='365' height='105' rx='14' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <text x='95' y='230' font-size='42' font-weight='900' fill='#8b5cf6' font-family='Inter,Noto Sans SC,sans-serif'>01</text>
+    <text x='160' y='228' font-size='20' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>太阳系大家庭</text>
+    <text x='160' y='255' font-size='14' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>从太阳出发 · 认识我们的恒星系统</text>
+  </g>
+  <g id='toc-item-2'>
+    <rect x='455' y='180' width='365' height='105' rx='14' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <text x='490' y='230' font-size='42' font-weight='900' fill='#8b5cf6' font-family='Inter,Noto Sans SC,sans-serif'>02</text>
+    <text x='555' y='228' font-size='20' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>八大行星巡礼</text>
+    <text x='555' y='255' font-size='14' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>内行星 · 外行星 · 各具风采</text>
+  </g>
+  <g id='toc-item-3'>
+    <rect x='850' y='180' width='365' height='105' rx='14' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <text x='885' y='230' font-size='42' font-weight='900' fill='#8b5cf6' font-family='Inter,Noto Sans SC,sans-serif'>03</text>
+    <text x='950' y='228' font-size='20' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>从九大到八大</text>
+    <text x='950' y='255' font-size='14' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>冥王星降级 · 矮行星诞生</text>
+  </g>
+  <g id='toc-item-4'>
+    <rect x='60' y='315' width='365' height='105' rx='14' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <text x='95' y='365' font-size='42' font-weight='900' fill='#8b5cf6' font-family='Inter,Noto Sans SC,sans-serif'>04</text>
+    <text x='160' y='363' font-size='20' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>行星大比拼</text>
+    <text x='160' y='390' font-size='14' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>数据对比 · 谁最大？谁最快？</text>
+  </g>
+  <g id='toc-item-5'>
+    <rect x='455' y='315' width='365' height='105' rx='14' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <text x='490' y='365' font-size='42' font-weight='900' fill='#8b5cf6' font-family='Inter,Noto Sans SC,sans-serif'>05</text>
+    <text x='555' y='363' font-size='20' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>探索与未来</text>
+    <text x='555' y='390' font-size='14' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>人类探索史 · 下一站星辰大海</text>
+  </g>
+  <g id='toc-divider'>
+    <line x1='60' y1='450' x2='1215' y2='450' stroke='#8b5cf6' stroke-opacity='0.08' stroke-width='1'/>
+  </g>
+  <g id='toc-quote'>
+    <text x='640' y='510' font-size='18' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-style='italic'>"宇宙最令人震撼的，不是它的浩瀚，而是我们竟然能够理解它。"</text>
+    <text x='640' y='540' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>—— 卡尔·萨根</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>2 / 12</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <radialGradient id='chapGlow' cx='50%' cy='45%' r='60%'>
+      <stop offset='0%' stop-color='#8b5cf6' stop-opacity='0.2'/>
+      <stop offset='60%' stop-color='#f43f5e' stop-opacity='0.05'/>
+      <stop offset='100%' stop-color='#09090b' stop-opacity='0'/>
+    </radialGradient>
+    <filter id='chapGlowFilter' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='10'/>
+    </filter>
+  </defs>
+  <!-- notes: 章节分隔——巨大的01号数字占据画面左侧，右侧一行亮光穿透黑暗，象征着太阳系在宇宙中的位置 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#09090b'/>
+    <rect width='1280' height='720' fill='url(#chapGlow)'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='80' cy='100' r='2' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='250' cy='50' r='1.2' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1000' cy='90' r='2.5' fill='#fdfdfd' fill-opacity='0.7'/>
+    <circle cx='1180' cy='160' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='150' cy='500' r='1.5' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='1100' cy='580' r='2' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='60' cy='650' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1230' cy='400' r='1.5' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='700' cy='60' r='1.2' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='500' cy='650' r='0.8' fill='#fdfdfd' fill-opacity='0.3'/>
+  </g>
+  <!-- 大数字 -->
+  <g id='big-number'>
+    <text x='220' y='520' font-size='360' font-weight='900' fill='#8b5cf6' fill-opacity='0.06' font-family='Inter,Noto Sans SC,sans-serif'>01</text>
+  </g>
+  <!-- 光柱 -->
+  <g id='light-beam'>
+    <rect x='640' y='0' width='2' height='720' fill='#8b5cf6' fill-opacity='0.06'/>
+    <rect x='638' y='220' width='6' height='280' fill='#8b5cf6' fill-opacity='0.03'/>
+  </g>
+  <g id='section-content'>
+    <text x='640' y='200' font-size='18' font-weight='700' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='8'>C H A P T E R &amp;nbsp; O N E</text>
+    <line x1='500' y1='230' x2='780' y2='230' stroke='#8b5cf6' stroke-opacity='0.3' stroke-width='1'/>
+    <text x='640' y='370' font-size='70' font-weight='900' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='640' dy='0'>太阳系</tspan>
+      <tspan x='640' dy='85' fill='#8b5cf6'>大家庭</tspan>
+    </text>
+    <text x='640' y='560' font-size='18' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>太阳 · 行星 · 卫星 · 小行星 · 彗星</text>
+    <text x='640' y='590' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>46亿年的宇宙之舞</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>3 / 12</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <radialGradient id='sunBurst' cx='50%' cy='38%' r='55%'>
+      <stop offset='0%' stop-color='#8b5cf6' stop-opacity='0.25'/>
+      <stop offset='30%' stop-color='#8b5cf6' stop-opacity='0.1'/>
+      <stop offset='60%' stop-color='#f43f5e' stop-opacity='0.05'/>
+      <stop offset='100%' stop-color='#09090b' stop-opacity='0'/>
+    </radialGradient>
+    <filter id='sunGlowFilter' x='-60%' y='-60%' width='220%' height='220%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='8'/>
+    </filter>
+  </defs>
+  <!-- notes: 太阳——用一个震撼的数据"99.86%"开场，背后巨大的发光太阳让观众直观感受到太阳在太阳系中的绝对统治力 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#09090b'/>
+    <rect width='1280' height='720' fill='url(#sunBurst)'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='80' cy='60' r='1.5' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='300' cy='100' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1150' cy='70' r='2' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='100' cy='550' r='1.2' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1200' cy='600' r='1.8' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='400' cy='650' r='1' fill='#fdfdfd' fill-opacity='0.3'/>
+    <circle cx='900' cy='650' r='1.3' fill='#fdfdfd' fill-opacity='0.4'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='60' font-size='14' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>CHAPTER 01 · 太阳系大家庭</text>
+  </g>
+  <!-- 巨大太阳 -->
+  <g id='sun-visual'>
+    <circle cx='640' cy='280' r='160' fill='#8b5cf6' fill-opacity='0.03' filter='url(#sunGlowFilter)'/>
+    <circle cx='640' cy='280' r='120' fill='#8b5cf6' fill-opacity='0.06' filter='url(#sunGlowFilter)'/>
+    <circle cx='640' cy='280' r='85' fill='#8b5cf6' fill-opacity='0.1' filter='url(#sunGlowFilter)'/>
+    <circle cx='640' cy='280' r='55' fill='#8b5cf6' fill-opacity='0.25' filter='url(#sunGlowFilter)'/>
+    <circle cx='640' cy='280' r='38' fill='#8b5cf6' fill-opacity='0.6'/>
+    <circle cx='640' cy='280' r='28' fill='#FFD54F'/>
+    <circle cx='640' cy='280' r='22' fill='#FFE082'/>
+  </g>
+  <g id='stat-content'>
+    <text x='640' y='480' font-size='100' font-weight='900' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>99.86%</text>
+    <text x='640' y='535' font-size='26' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>太阳占太阳系总质量</text>
+    <line x1='560' y1='555' x2='720' y2='555' stroke='#8b5cf6' stroke-opacity='0.4' stroke-width='1'/>
+    <text x='640' y='585' font-size='16' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>直径 1,392,700 km · 表面 5,500°C · 核心 15,000,000°C</text>
+    <text x='640' y='615' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>所有行星、卫星、小行星、彗星加起来只占 0.14%</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>4 / 12</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <linearGradient id='innerGrad' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#8b5cf6' stop-opacity='0.08'/>
+      <stop offset='100%' stop-color='#f43f5e' stop-opacity='0.02'/>
+    </linearGradient>
+    <linearGradient id='outerGrad' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#f43f5e' stop-opacity='0.08'/>
+      <stop offset='100%' stop-color='#764ed1' stop-opacity='0.02'/>
+    </linearGradient>
+  </defs>
+  <!-- notes: 八大行星速览——内行星和外行星用不同色调区分，每张卡片都是一个小"角色卡"，名字+颜色+关键参数一目了然 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#09090b'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='50' cy='80' r='1.2' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1230' cy='60' r='1.5' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='200' cy='650' r='1' fill='#fdfdfd' fill-opacity='0.3'/>
+    <circle cx='1100' cy='620' r='1.2' fill='#fdfdfd' fill-opacity='0.4'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='60' font-size='14' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>CHAPTER 01 · 太阳系大家庭</text>
+    <text x='640' y='90' font-size='38' font-weight='900' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>八大行星</text>
+    <text x='640' y='118' font-size='15' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='4'>EIGHT PLANETS · ONE SYSTEM</text>
+    <line x1='570' y1='135' x2='710' y2='135' stroke='#8b5cf6' stroke-width='2'/>
+  </g>
+  <!-- 内行星标签 -->
+  <g id='inner-label'>
+    <rect x='230' y='160' width='180' height='28' rx='14' fill='#8b5cf6' fill-opacity='0.12'/>
+    <text x='320' y='179' font-size='12' font-weight='700' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='2'>内行星 · 岩石星球</text>
+  </g>
+  <g id='planet-1'>
+    <rect x='60' y='205' width='270' height='145' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='195' cy='260' r='14' fill='#BDBDBD'/>
+    <text x='195' y='300' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>水星</text>
+    <text x='195' y='322' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>4,879 km</text>
+    <text x='195' y='340' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 5,790万 km</text>
+  </g>
+  <g id='planet-2'>
+    <rect x='350' y='205' width='270' height='145' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='485' cy='260' r='18' fill='#E8C07A'/>
+    <text x='485' y='300' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>金星</text>
+    <text x='485' y='322' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>12,104 km</text>
+    <text x='485' y='340' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 10,820万 km</text>
+  </g>
+  <g id='planet-3'>
+    <rect x='640' y='205' width='270' height='145' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='775' cy='260' r='19' fill='#4A90D9'/>
+    <circle cx='766' cy='252' r='4' fill='#6BBF6A'/>
+    <text x='775' y='300' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>地球</text>
+    <text x='775' y='322' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>12,756 km</text>
+    <text x='775' y='340' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 14,960万 km</text>
+  </g>
+  <g id='planet-4'>
+    <rect x='930' y='205' width='270' height='145' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='1065' cy='260' r='12' fill='#D4735E'/>
+    <text x='1065' y='300' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>火星</text>
+    <text x='1065' y='322' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>6,792 km</text>
+    <text x='1065' y='340' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 22,794万 km</text>
+  </g>
+  <!-- 外行星标签 -->
+  <g id='outer-label'>
+    <rect x='230' y='380' width='180' height='28' rx='14' fill='#f43f5e' fill-opacity='0.12'/>
+    <text x='320' y='399' font-size='12' font-weight='700' fill='#f43f5e' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='2'>外行星 · 气态巨行星</text>
+  </g>
+  <g id='planet-5'>
+    <rect x='60' y='425' width='270' height='195' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='195' cy='485' r='30' fill='#D4A574'/>
+    <circle cx='182' cy='475' r='5' fill='#C08A5A'/>
+    <circle cx='205' cy='495' r='3' fill='#C08A5A'/>
+    <text x='195' y='535' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>木星</text>
+    <text x='195' y='558' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>142,984 km</text>
+    <text x='195' y='578' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 77,833万 km</text>
+    <text x='195' y='598' font-size='11' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>95颗卫星</text>
+  </g>
+  <g id='planet-6'>
+    <rect x='350' y='425' width='270' height='195' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='485' cy='485' r='26' fill='#E8D5A3'/>
+    <ellipse cx='485' cy='485' rx='38' ry='7' fill='none' stroke='#C8B57A' stroke-width='2.5' transform='rotate(-15 485 485)'/>
+    <text x='485' y='535' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>土星</text>
+    <text x='485' y='558' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>120,536 km</text>
+    <text x='485' y='578' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 142,940万 km</text>
+    <text x='485' y='598' font-size='11' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>146颗卫星</text>
+  </g>
+  <g id='planet-7'>
+    <rect x='640' y='425' width='270' height='195' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='775' cy='485' r='20' fill='#7EC8E3'/>
+    <text x='775' y='535' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>天王星</text>
+    <text x='775' y='558' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>51,118 km</text>
+    <text x='775' y='578' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 287,099万 km</text>
+    <text x='775' y='598' font-size='11' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>27颗卫星</text>
+  </g>
+  <g id='planet-8'>
+    <rect x='930' y='425' width='270' height='195' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='1065' cy='485' r='18' fill='#4A6FE8'/>
+    <text x='1065' y='535' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>海王星</text>
+    <text x='1065' y='558' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>49,528 km</text>
+    <text x='1065' y='578' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 450,430万 km</text>
+    <text x='1065' y='598' font-size='11' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>16颗卫星</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>5 / 12</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <linearGradient id='mercuryGrad' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#BDBDBD'/>
+      <stop offset='100%' stop-color='#757575'/>
+    </linearGradient>
+    <linearGradient id='venusGrad' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#F5C882'/>
+      <stop offset='100%' stop-color='#E0A050'/>
+    </linearGradient>
+    <linearGradient id='earthGrad' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#4A90D9'/>
+      <stop offset='100%' stop-color='#2E6BA4'/>
+    </linearGradient>
+    <linearGradient id='marsGrad' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#D4735E'/>
+      <stop offset='100%' stop-color='#B05C4A'/>
+    </linearGradient>
+  </defs>
+  <!-- notes: 内行星四颗——水星昼夜温差610度、金星是地狱温室、地球唯一有生命、火星有太阳系最高峰。每个都有戏剧性的爆点 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#09090b'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='60' cy='60' r='1.2' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='1220' cy='100' r='1.5' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='100' cy='650' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1150' cy='600' r='1.3' fill='#fdfdfd' fill-opacity='0.5'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='60' font-size='14' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>CHAPTER 01 · 太阳系大家庭</text>
+    <text x='640' y='90' font-size='36' font-weight='900' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>内行星 · 岩石星球</text>
+    <text x='640' y='115' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>INNER PLANETS</text>
+    <line x1='550' y1='130' x2='730' y2='130' stroke='#8b5cf6' stroke-width='2'/>
+  </g>
+  <g id='inner-planet-1'>
+    <rect x='60' y='160' width='560' height='240' rx='14' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='160' cy='280' r='32' fill='url(#mercuryGrad)'/>
+    <text x='220' y='250' font-size='26' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>水星</text>
+    <text x='220' y='275' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>MERCURY</text>
+    <text x='220' y='310' font-size='15' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>距太阳最近 · 没有大气层</text>
+    <text x='220' y='340' font-size='14' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>白天 <tspan fill='#d97706' font-weight='bold'>430°C</tspan> → 夜晚 <tspan fill='#8b5cf6' font-weight='bold'>-180°C</tspan></text>
+    <text x='220' y='370' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>公转 88天 · 太阳系最小行星</text>
+  </g>
+  <g id='inner-planet-2'>
+    <rect x='660' y='160' width='560' height='240' rx='14' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='760' cy='280' r='38' fill='url(#venusGrad)'/>
+    <text x='820' y='250' font-size='26' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>金星</text>
+    <text x='820' y='275' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>VENUS</text>
+    <text x='820' y='310' font-size='15' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>太阳系最热 · 失控温室效应</text>
+    <text x='820' y='340' font-size='14' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>表面 <tspan fill='#d97706' font-weight='bold'>465°C</tspan> · 足以熔化铅</text>
+    <text x='820' y='370' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>自转方向与其他行星相反</text>
+  </g>
+  <g id='inner-planet-3'>
+    <rect x='60' y='420' width='560' height='240' rx='14' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='160' cy='540' r='38' fill='url(#earthGrad)'/>
+    <circle cx='148' cy='525' r='6' fill='#6BBF6A'/>
+    <circle cx='168' cy='545' r='4' fill='#6BBF6A'/>
+    <text x='220' y='510' font-size='26' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>地球</text>
+    <text x='220' y='535' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>EARTH</text>
+    <text x='220' y='570' font-size='15' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'><tspan fill='#16a34a' font-weight='bold'>唯一已知有生命</tspan>的星球</text>
+    <text x='220' y='600' font-size='14' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>液态水覆盖 <tspan font-weight='bold' fill='#8b5cf6'>71%</tspan> 表面</text>
+    <text x='220' y='630' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>公转 365.25天 · 1颗卫星（月球）</text>
+  </g>
+  <g id='inner-planet-4'>
+    <rect x='660' y='420' width='560' height='240' rx='14' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='760' cy='540' r='28' fill='url(#marsGrad)'/>
+    <text x='820' y='510' font-size='26' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>火星</text>
+    <text x='820' y='535' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>MARS</text>
+    <text x='820' y='570' font-size='15' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>红色星球 · 人类下一个家</text>
+    <text x='820' y='600' font-size='14' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>太阳系最高峰 <tspan font-weight='bold' fill='#8b5cf6'>21.9km</tspan></text>
+    <text x='820' y='630' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>公转 687天 · 2颗卫星</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>6 / 12</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <radialGradient id='jupiterGrad' cx='40%' cy='40%' r='60%'>
+      <stop offset='0%' stop-color='#E8C99A'/>
+      <stop offset='50%' stop-color='#D4A574'/>
+      <stop offset='100%' stop-color='#B8845A'/>
+    </radialGradient>
+    <radialGradient id='saturnGrad' cx='40%' cy='40%' r='60%'>
+      <stop offset='0%' stop-color='#F0E0B8'/>
+      <stop offset='100%' stop-color='#C8B57A'/>
+    </radialGradient>
+    <radialGradient id='uranusGrad' cx='40%' cy='40%' r='60%'>
+      <stop offset='0%' stop-color='#9FE0F0'/>
+      <stop offset='100%' stop-color='#5AA8C8'/>
+    </radialGradient>
+    <radialGradient id='neptuneGrad' cx='40%' cy='40%' r='60%'>
+      <stop offset='0%' stop-color='#6A8FE8'/>
+      <stop offset='100%' stop-color='#3A5FC8'/>
+    </radialGradient>
+  </defs>
+  <!-- notes: 外行星——木星质量超其他行星总和2.5倍、土星环壮观、天王星侧躺、海王星风速2100km/h，每个都有戏剧性爆点 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#09090b'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='60' cy='60' r='1.2' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='1220' cy='100' r='1.5' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='100' cy='650' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1150' cy='600' r='1.3' fill='#fdfdfd' fill-opacity='0.5'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='60' font-size='14' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>CHAPTER 01 · 太阳系大家庭</text>
+    <text x='640' y='90' font-size='36' font-weight='900' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>外行星 · 气态巨行星</text>
+    <text x='640' y='115' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>OUTER PLANETS</text>
+    <line x1='550' y1='130' x2='730' y2='130' stroke='#8b5cf6' stroke-width='2'/>
+  </g>
+  <g id='outer-planet-1'>
+    <rect x='60' y='160' width='560' height='240' rx='14' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='160' cy='280' r='55' fill='url(#jupiterGrad)'/>
+    <circle cx='142' cy='262' r='8' fill='#D4735E'/>
+    <circle cx='155' cy='295' r='4' fill='#E8C99A'/>
+    <text x='240' y='250' font-size='26' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>木星</text>
+    <text x='240' y='275' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>JUPITER</text>
+    <text x='240' y='310' font-size='15' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>太阳系 <tspan font-weight='bold' fill='#8b5cf6'>最大行星</tspan></text>
+    <text x='240' y='340' font-size='14' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>质量是其他行星总和的 <tspan font-weight='bold' fill='#8b5cf6'>2.5倍</tspan></text>
+    <text x='240' y='370' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>大红斑风暴持续 400年 · 95颗卫星</text>
+  </g>
+  <g id='outer-planet-2'>
+    <rect x='660' y='160' width='560' height='240' rx='14' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='760' cy='280' r='45' fill='url(#saturnGrad)'/>
+    <ellipse cx='760' cy='280' rx='68' ry='12' fill='none' stroke='#B8A060' stroke-width='3' transform='rotate(-18 760 280)'/>
+    <ellipse cx='760' cy='280' rx='62' ry='10' fill='none' stroke='#D0B878' stroke-width='1.5' transform='rotate(-18 760 280)'/>
+    <text x='850' y='250' font-size='26' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>土星</text>
+    <text x='850' y='275' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>SATURN</text>
+    <text x='850' y='310' font-size='15' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>以壮观 <tspan font-weight='bold' fill='#8b5cf6'>行星环</tspan>闻名</text>
+    <text x='850' y='340' font-size='14' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>密度小于水 · 可以浮在水上</text>
+    <text x='850' y='370' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>146颗卫星 · 太阳系最多</text>
+  </g>
+  <g id='outer-planet-3'>
+    <rect x='60' y='420' width='560' height='240' rx='14' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='160' cy='540' r='34' fill='url(#uranusGrad)'/>
+    <text x='220' y='510' font-size='26' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>天王星</text>
+    <text x='220' y='535' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>URANUS</text>
+    <text x='220' y='570' font-size='15' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'><tspan font-weight='bold' fill='#8b5cf6'>侧躺自转</tspan> · 轴倾斜 98°</text>
+    <text x='220' y='600' font-size='14' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>冰巨星 · 甲烷让它呈蓝绿色</text>
+    <text x='220' y='630' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>公转 84年 · 27颗卫星</text>
+  </g>
+  <g id='outer-planet-4'>
+    <rect x='660' y='420' width='560' height='240' rx='14' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='760' cy='540' r='32' fill='url(#neptuneGrad)'/>
+    <text x='820' y='510' font-size='26' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>海王星</text>
+    <text x='820' y='535' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>NEPTUNE</text>
+    <text x='820' y='570' font-size='15' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>太阳系 <tspan font-weight='bold' fill='#d97706'>风速最快</tspan></text>
+    <text x='820' y='600' font-size='14' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>风速可达 <tspan font-weight='bold' fill='#8b5cf6'>2,100 km/h</tspan></text>
+    <text x='820' y='630' font-size='13' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>被数学预测发现 · 16颗卫星</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>7 / 12</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <radialGradient id='chap2Glow' cx='50%' cy='50%' r='55%'>
+      <stop offset='0%' stop-color='#8b5cf6' stop-opacity='0.15'/>
+      <stop offset='60%' stop-color='#f43f5e' stop-opacity='0.05'/>
+      <stop offset='100%' stop-color='#09090b' stop-opacity='0'/>
+    </radialGradient>
+    <filter id='glowBig2' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='8'/>
+    </filter>
+  </defs>
+  <!-- notes: 戏剧化章节过渡——巨大的"9→8"用对比色对冲，中间一道撕裂的亮光，象征着天体分类的历史性转折点 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#09090b'/>
+    <rect width='1280' height='720' fill='url(#chap2Glow)'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='80' cy='80' r='2' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='300' cy='40' r='1.2' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1000' cy='70' r='2.5' fill='#fdfdfd' fill-opacity='0.7'/>
+    <circle cx='1180' cy='180' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='60' cy='550' r='1.5' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='1200' cy='580' r='2' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='200' cy='650' r='1' fill='#fdfdfd' fill-opacity='0.3'/>
+    <circle cx='1100' cy='650' r='1.5' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='650' cy='50' r='1.2' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='500' cy='600' r='0.8' fill='#fdfdfd' fill-opacity='0.3'/>
+  </g>
+  <!-- 巨大数字冲突 -->
+  <g id='big-numbers'>
+    <text x='400' y='420' font-size='240' font-weight='900' fill='#fafafa' fill-opacity='0.06' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>9</text>
+    <text x='640' y='380' font-size='90' font-weight='900' fill='#8b5cf6' fill-opacity='0.12' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>→</text>
+    <text x='880' y='420' font-size='240' font-weight='900' fill='#8b5cf6' fill-opacity='0.06' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>8</text>
+  </g>
+  <!-- 中央光柱 -->
+  <g id='light-beam-2'>
+    <rect x='635' y='160' width='10' height='400' fill='#8b5cf6' fill-opacity='0.04'/>
+    <rect x='638' y='200' width='4' height='320' fill='#8b5cf6' fill-opacity='0.06'/>
+  </g>
+  <g id='section-content'>
+    <text x='640' y='180' font-size='18' font-weight='700' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='8'>C H A P T E R &amp;nbsp; T W O</text>
+    <line x1='480' y1='210' x2='800' y2='210' stroke='#8b5cf6' stroke-opacity='0.3' stroke-width='1'/>
+    <text x='640' y='350' font-size='72' font-weight='900' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='640' dy='0'>从</tspan>
+      <tspan x='640' dy='88' fill='#8b5cf6'>九大</tspan>
+      <tspan x='640' dy='88'>到</tspan>
+      <tspan x='640' dy='88' fill='#8b5cf6'>八大</tspan>
+    </text>
+    <text x='640' y='580' font-size='18' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>冥王星降级事件 · IAU 决议 · 矮行星的诞生</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>8 / 12</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <radialGradient id='plutoGlow' cx='50%' cy='50%' r='50%'>
+      <stop offset='0%' stop-color='#8b5cf6' stop-opacity='0.1'/>
+      <stop offset='100%' stop-color='#09090b' stop-opacity='0'/>
+    </radialGradient>
+    <filter id='plutoFilter' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='3'/>
+    </filter>
+  </defs>
+  <!-- notes: 冥王星——这颗曾经的行星九号，2006年被IAU降级为矮行星。用金句唤起情感共鸣，同时展示它的动人数据 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#09090b'/>
+    <rect width='1280' height='720' fill='url(#plutoGlow)'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='60' cy='50' r='1.5' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='1220' cy='70' r='2' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='80' cy='600' r='1.2' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1200' cy='550' r='1.5' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='350' cy='40' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='900' cy='50' r='1.3' fill='#fdfdfd' fill-opacity='0.5'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='60' font-size='14' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>CHAPTER 02 · 从九大到八大</text>
+  </g>
+  <!-- 冥王星 + 卡戎 -->
+  <g id='pluto-visual'>
+    <circle cx='640' cy='250' r='48' fill='#C8A878' fill-opacity='0.9'/>
+    <circle cx='640' cy='250' r='43' fill='#D4B896'/>
+    <ellipse cx='630' cy='245' rx='14' ry='10' fill='#E0C898' fill-opacity='0.5'/>
+    <ellipse cx='648' cy='238' rx='10' ry='7' fill='#E0C898' fill-opacity='0.4'/>
+    <!-- 卡戎 -->
+    <circle cx='700' cy='230' r='16' fill='#A89878'/>
+  </g>
+  <g id='quote-section'>
+    <text x='120' y='320' font-size='100' font-weight='900' fill='#8b5cf6' fill-opacity='0.1' font-family='Georgia,serif'>"</text>
+    <text x='640' y='400' font-size='34' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='640' dy='0'>冥王星并没有变，</tspan>
+      <tspan x='640' dy='52' fill='#8b5cf6'>改变的是我们对 "行星" 的定义。</tspan>
+    </text>
+    <text x='640' y='510' font-size='15' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>2006 年国际天文学联合会（IAU）决议</text>
+  </g>
+  <g id='pluto-facts'>
+    <line x1='400' y1='545' x2='880' y2='545' stroke='#8b5cf6' stroke-opacity='0.15' stroke-width='1'/>
+    <text x='640' y='575' font-size='15' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>1930年发现 · 直径 2,377 km · 公转 247.94年</text>
+    <text x='640' y='605' font-size='15' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan fill='#d97706' font-weight='bold'>2006年降级</tspan><tspan>为矮行星</tspan>
+      <tspan fill='#8b5cf6' font-weight='bold'> · 编号 134340</tspan>
+    </text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>9 / 12</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <!-- notes: 数据对比页——内行星直径柱状图+外行星对比卡片，用戏剧化的视觉呈现体积的悬殊差距 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#09090b'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='60' cy='50' r='1.2' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1220' cy='70' r='1.5' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='80' cy='650' r='1' fill='#fdfdfd' fill-opacity='0.3'/>
+    <circle cx='1200' cy='600' r='1.2' fill='#fdfdfd' fill-opacity='0.4'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='60' font-size='14' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>CHAPTER 04 · 行星大比拼</text>
+    <text x='640' y='90' font-size='36' font-weight='900' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>行星数据大比拼</text>
+    <text x='640' y='115' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>PLANET COMPARISON</text>
+    <line x1='530' y1='130' x2='750' y2='130' stroke='#8b5cf6' stroke-width='2'/>
+  </g>
+  <!-- 内行星直径柱状图 -->
+  <g id='inner-chart'>
+    <text x='120' y='170' font-size='16' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>内行星直径 (km)</text>
+    <text x='130' y='210' font-size='13' fill='#fcfcfc' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>水星</text>
+    <rect x='140' y='194' width='155' height='24' rx='4' fill='#BDBDBD'/>
+    <text x='305' y='211' font-size='13' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>4,879</text>
+    <text x='130' y='248' font-size='13' fill='#fcfcfc' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>金星</text>
+    <rect x='140' y='232' width='385' height='24' rx='4' fill='#E8C07A'/>
+    <text x='535' y='249' font-size='13' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>12,104</text>
+    <text x='130' y='286' font-size='13' fill='#fcfcfc' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>地球</text>
+    <rect x='140' y='270' width='405' height='24' rx='4' fill='#4A90D9'/>
+    <text x='555' y='287' font-size='13' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>12,756</text>
+    <text x='130' y='324' font-size='13' fill='#fcfcfc' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>火星</text>
+    <rect x='140' y='308' width='215' height='24' rx='4' fill='#D4735E'/>
+    <text x='365' y='325' font-size='13' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>6,792</text>
+  </g>
+  <!-- 外行星对比卡片 -->
+  <g id='outer-chart'>
+    <text x='660' y='170' font-size='16' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>外行星 · 惊人对比</text>
+    <rect x='660' y='185' width='270' height='135' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='690' cy='220' r='18' fill='#D4A574'/>
+    <text x='720' y='216' font-size='17' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>木星</text>
+    <text x='720' y='238' font-size='12' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>142,984 km</text>
+    <text x='680' y='268' font-size='13' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>直径是地球的<tspan font-weight='bold' fill='#8b5cf6'>11.2倍</tspan></text>
+    <text x='680' y='295' font-size='13' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>质量 = 其他行星总和的2.5倍</text>
+    <rect x='950' y='185' width='270' height='135' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='980' cy='220' r='16' fill='#E8D5A3'/>
+    <ellipse cx='980' cy='220' rx='26' ry='5' fill='none' stroke='#C8B57A' stroke-width='1.5' transform='rotate(-18 980 220)'/>
+    <text x='1010' y='216' font-size='17' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>土星</text>
+    <text x='1010' y='238' font-size='12' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>120,536 km</text>
+    <text x='970' y='268' font-size='13' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>密度 &lt; 水 · 可以浮在水上</text>
+    <text x='970' y='295' font-size='13' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>146颗卫星 · 太阳系最多</text>
+    <rect x='660' y='340' width='270' height='135' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='690' cy='375' r='12' fill='#7EC8E3'/>
+    <text x='720' y='371' font-size='17' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>天王星</text>
+    <text x='720' y='393' font-size='12' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>51,118 km</text>
+    <text x='680' y='423' font-size='13' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>自转轴倾斜<tspan font-weight='bold' fill='#8b5cf6'>98°</tspan> · 侧躺旋转</text>
+    <text x='680' y='450' font-size='13' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>甲烷大气呈蓝绿色</text>
+    <rect x='950' y='340' width='270' height='135' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='980' cy='375' r='11' fill='#4A6FE8'/>
+    <text x='1010' y='371' font-size='17' font-weight='bold' fill='#fafafa' font-family='Inter,Noto Sans SC,sans-serif'>海王星</text>
+    <text x='1010' y='393' font-size='12' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif'>49,528 km</text>
+    <text x='970' y='423' font-size='13' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>风速 <tspan font-weight='bold' fill='#d97706'>2,100 km/h</tspan> 太阳系之最</text>
+    <text x='970' y='450' font-size='13' fill='#fcfcfc' font-family='Inter,Noto Sans SC,sans-serif'>被数学计算预言发现</text>
+  </g>
+  <!-- 比例提示 -->
+  <g id='scale-note'>
+    <rect x='140' y='348' width='405' height='130' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <text x='343' y='382' font-size='15' font-weight='bold' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>⚡ 尺度震撼 ⚡</text>
+    <text x='343' y='412' font-size='14' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>如果木星是篮球大小</text>
+    <text x='343' y='440' font-size='14' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>地球就是一颗豌豆</text>
+    <text x='343' y='465' font-size='12' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>水星只相当于一粒芝麻</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>10 / 12</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <filter id='dotGlow' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='2'/>
+    </filter>
+  </defs>
+  <!-- notes: 人类探索史——从1610年伽利略到2030+载人火星，五个里程碑节点串起四百年探索史诗 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#09090b'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='60' cy='50' r='1.2' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='1220' cy='80' r='1.5' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='80' cy='650' r='1' fill='#fdfdfd' fill-opacity='0.3'/>
+    <circle cx='1200' cy='600' r='1.3' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='400' cy='30' r='0.8' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='900' cy='40' r='1.2' fill='#fdfdfd' fill-opacity='0.5'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='60' font-size='14' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>CHAPTER 05 · 探索与未来</text>
+    <text x='640' y='90' font-size='36' font-weight='900' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>探索星辰大海</text>
+    <text x='640' y='115' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>HUMAN EXPLORATION</text>
+    <line x1='540' y1='130' x2='740' y2='130' stroke='#8b5cf6' stroke-width='2'/>
+  </g>
+  <!-- 时间轴主干 -->
+  <g id='timeline-main'>
+    <line x1='80' y1='280' x2='1200' y2='280' stroke='#8b5cf6' stroke-opacity='0.25' stroke-width='2'/>
+    <line x1='80' y1='280' x2='1200' y2='280' stroke='#8b5cf6' stroke-opacity='0.08' stroke-width='6'/>
+  </g>
+  <g id='tl-1'>
+    <circle cx='200' cy='280' r='12' fill='#09090b' stroke='#8b5cf6' stroke-width='2'/>
+    <circle cx='200' cy='280' r='5' fill='#8b5cf6' filter='url(#dotGlow)'/>
+    <text x='200' y='245' font-size='16' font-weight='bold' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>1610</text>
+    <text x='200' y='318' font-size='14' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>伽利略</text>
+    <text x='200' y='338' font-size='12' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>望远镜发现</text>
+    <text x='200' y='355' font-size='12' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>木星卫星</text>
+  </g>
+  <g id='tl-2'>
+    <circle cx='400' cy='280' r='12' fill='#09090b' stroke='#8b5cf6' stroke-width='2'/>
+    <circle cx='400' cy='280' r='5' fill='#8b5cf6' filter='url(#dotGlow)'/>
+    <text x='400' y='245' font-size='16' font-weight='bold' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>1930</text>
+    <text x='400' y='318' font-size='14' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>汤博</text>
+    <text x='400' y='338' font-size='12' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>发现冥王星</text>
+  </g>
+  <g id='tl-3'>
+    <circle cx='600' cy='280' r='12' fill='#09090b' stroke='#8b5cf6' stroke-width='2'/>
+    <circle cx='600' cy='280' r='5' fill='#8b5cf6' filter='url(#dotGlow)'/>
+    <text x='600' y='245' font-size='16' font-weight='bold' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>1969</text>
+    <text x='600' y='318' font-size='14' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>阿波罗11号</text>
+    <text x='600' y='338' font-size='12' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>人类首次</text>
+    <text x='600' y='355' font-size='12' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>登月</text>
+  </g>
+  <g id='tl-4'>
+    <circle cx='800' cy='280' r='12' fill='#09090b' stroke='#8b5cf6' stroke-width='2'/>
+    <circle cx='800' cy='280' r='5' fill='#8b5cf6' filter='url(#dotGlow)'/>
+    <text x='800' y='245' font-size='16' font-weight='bold' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>2015</text>
+    <text x='800' y='318' font-size='14' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>新视野号</text>
+    <text x='800' y='338' font-size='12' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>飞越冥王星</text>
+    <text x='800' y='355' font-size='12' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>首张高清照</text>
+  </g>
+  <g id='tl-5'>
+    <circle cx='1020' cy='280' r='12' fill='#09090b' stroke='#8b5cf6' stroke-width='2'/>
+    <circle cx='1020' cy='280' r='5' fill='#8b5cf6' filter='url(#dotGlow)'/>
+    <text x='1020' y='245' font-size='16' font-weight='bold' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>2030+</text>
+    <text x='1020' y='318' font-size='14' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>载人登火</text>
+    <text x='1020' y='338' font-size='12' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>NASA &amp; SpaceX</text>
+    <text x='1020' y='355' font-size='12' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>目标火星</text>
+  </g>
+  <!-- 已探索星球网格 -->
+  <g id='explored'>
+    <text x='640' y='420' font-size='20' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>人类探测器到访过的星球</text>
+    <rect x='110' y='450' width='145' height='65' rx='10' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <text x='183' y='482' font-size='14' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🌙 月球</text>
+    <text x='183' y='502' font-size='11' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✅ 已载人登陆</text>
+    <rect x='275' y='450' width='145' height='65' rx='10' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <text x='348' y='482' font-size='14' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🔴 火星</text>
+    <text x='348' y='502' font-size='11' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✅ 探测器多次着陆</text>
+    <rect x='440' y='450' width='145' height='65' rx='10' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <text x='513' y='482' font-size='14' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🟤 金星</text>
+    <text x='513' y='502' font-size='11' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✅ 苏联探测器着陆</text>
+    <rect x='605' y='450' width='145' height='65' rx='10' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <text x='678' y='482' font-size='14' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🪐 木星</text>
+    <text x='678' y='502' font-size='11' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✅ 探测器飞越</text>
+    <rect x='770' y='450' width='145' height='65' rx='10' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <text x='843' y='482' font-size='14' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>⭕ 土星</text>
+    <text x='843' y='502' font-size='11' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✅ 卡西尼号探测</text>
+    <rect x='935' y='450' width='145' height='65' rx='10' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <text x='1008' y='482' font-size='14' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🏔️ 冥王星</text>
+    <text x='1008' y='502' font-size='11' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✅ 新视野号飞越</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>11 / 12</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <radialGradient id='endGlow' cx='50%' cy='42%' r='55%'>
+      <stop offset='0%' stop-color='#8b5cf6' stop-opacity='0.15'/>
+      <stop offset='60%' stop-color='#f43f5e' stop-opacity='0.05'/>
+      <stop offset='100%' stop-color='#09090b' stop-opacity='0'/>
+    </radialGradient>
+    <filter id='endGlowBig' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='5'/>
+    </filter>
+  </defs>
+  <!-- notes: 结尾——用"我们的征途是星辰大海"作为收束，配合太阳系缩略图和卡尔·萨根的名言，给观众留下震撼和久久回味的宇宙视野 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#09090b'/>
+    <rect width='1280' height='720' fill='url(#endGlow)'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='80' cy='50' r='2' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='200' cy='100' r='1.2' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='400' cy='40' r='2.5' fill='#fdfdfd' fill-opacity='0.7'/>
+    <circle cx='900' cy='60' r='1.5' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='1150' cy='80' r='2' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='1200' cy='300' r='1.2' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='80' cy='400' r='1.5' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='60' cy='550' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1220' cy='550' r='1.8' fill='#fdfdfd' fill-opacity='0.6'/>
+    <circle cx='350' cy='650' r='1.2' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='950' cy='650' r='1.5' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='600' cy='50' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='750' cy='40' r='1.2' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='150' cy='200' r='1' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1100' cy='450' r='1.3' fill='#fdfdfd' fill-opacity='0.5'/>
+  </g>
+  <!-- 太阳系微缩 -->
+  <g id='solar-system-mini'>
+    <ellipse cx='640' cy='200' rx='420' ry='50' fill='none' stroke='#8b5cf6' stroke-opacity='0.06' stroke-width='0.8'/>
+    <ellipse cx='640' cy='200' rx='340' ry='40' fill='none' stroke='#f43f5e' stroke-opacity='0.04' stroke-width='0.8'/>
+    <ellipse cx='640' cy='200' rx='260' ry='30' fill='none' stroke='#8b5cf6' stroke-opacity='0.03' stroke-width='0.8'/>
+    <ellipse cx='640' cy='200' rx='180' ry='20' fill='none' stroke='#f43f5e' stroke-opacity='0.02' stroke-width='0.8'/>
+    <circle cx='640' cy='200' r='12' fill='#8b5cf6' fill-opacity='0.2' filter='url(#endGlowBig)'/>
+    <circle cx='640' cy='200' r='7' fill='#FFD54F'/>
+    <circle cx='640' cy='168' r='2.5' fill='#BDBDBD'/>
+    <circle cx='640' cy='178' r='3.5' fill='#E8C07A'/>
+    <circle cx='640' cy='188' r='4' fill='#4A90D9'/>
+    <circle cx='640' cy='196' r='3' fill='#D4735E'/>
+    <circle cx='640' cy='214' r='7' fill='#D4A574'/>
+    <circle cx='640' cy='225' r='6' fill='#E8D5A3'/>
+    <circle cx='640' cy='234' r='4.5' fill='#7EC8E3'/>
+    <circle cx='640' cy='240' r='4' fill='#4A6FE8'/>
+  </g>
+  <g id='final-content'>
+    <text x='640' y='340' font-size='64' font-weight='900' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='640' dy='0'>我们的征途是</tspan>
+      <tspan x='640' dy='82' fill='#8b5cf6'>星辰大海</tspan>
+    </text>
+    <line x1='480' y1='435' x2='800' y2='435' stroke='#8b5cf6' stroke-opacity='0.3' stroke-width='1'/>
+    <text x='640' y='480' font-size='18' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>"天文学让人谦卑、也让人得以成长。"</text>
+    <text x='640' y='508' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>—— 卡尔·萨根</text>
+  </g>
+  <g id='ending-note'>
+    <text x='640' y='575' font-size='16' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>感谢观看 · 对宇宙的好奇心，是人类最宝贵的本能</text>
+    <text x='640' y='605' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✦ THANK YOU · KEEP LOOKING UP ✦</text>
+    <text x='640' y='645' font-size='16' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-weight='600'>汇报人：小贾</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>12 / 12</text>
+  </g>
+</svg>
+</div>
+</body>
+</html>
