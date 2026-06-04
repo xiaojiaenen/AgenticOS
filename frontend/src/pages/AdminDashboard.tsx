@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Activity, AlertCircle, Gauge, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
@@ -300,8 +300,6 @@ export const AdminDashboard = () => {
       case 'integrations':
         return <IntegrationManagement />;
       case 'skills':
-      case 'integrations':
-        return <IntegrationManagement />;
         return <SkillManagement />;
       case 'announcements':
         return <AnnouncementManagement />;

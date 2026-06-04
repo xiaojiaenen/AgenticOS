@@ -42,6 +42,8 @@ export type AgentProfile = {
   audience_users: AgentProfileAudienceUser[];
   tools: AgentProfileTool[];
   skills: AgentProfileSkill[];
+  external_systems?: { system_id: number; system_name: string; enabled: boolean }[];
+  max_steps?: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -65,6 +67,8 @@ export type AgentProfilePayload = {
   audience_user_ids: number[];
   tools: AgentProfileTool[];
   skill_ids: number[];
+  external_systems?: { system_id: number; enabled: boolean }[];
+  max_steps?: number | null;
 };
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
