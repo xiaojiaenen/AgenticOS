@@ -158,7 +158,7 @@ export const SkillManagement = () => {
   };
 
   const removeSkill = async (skill: Skill) => {
-    const confirmed = window.confirm(`确认删除 Skill“${skill.name}”吗？`);
+    const confirmed = window.confirm("确认删除 Skill“${skill.name}”吗？");
     if (!confirmed) return;
     setIsSaving(true);
     setError(null);

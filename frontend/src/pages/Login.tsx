@@ -86,14 +86,14 @@ export const Login = () => {
           />
           <div>
   <div className="flex justify-between items-center mb-2 ml-1">
-    <label className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">密码</label>
+    <label htmlFor="login-password" className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">密码</label>
     <span className="text-xs text-slate-400 font-bold">忘记密码请联系管理员</span>
   </div>
-  <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+  <PasswordInput id="login-password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
 </div>
 
           {error && (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm font-medium text-rose-700">
+            <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm font-medium text-rose-700">
               {error}
             </div>
           )}

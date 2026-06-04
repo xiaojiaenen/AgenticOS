@@ -76,7 +76,9 @@ export const MessagesList: React.FC<MessagesListProps> = ({
         />
       ))}
       {showTyping && (
-        <ChatMessage isTyping={true} index={currentSession.messages.length} wideLayout={wideLayout} />
+        <div role="status" aria-live="polite" aria-label="AI 正在输入">
+          <ChatMessage isTyping={true} index={currentSession.messages.length} wideLayout={wideLayout} />
+        </div>
       )}
       <div ref={messagesEndRef} />
     </div>

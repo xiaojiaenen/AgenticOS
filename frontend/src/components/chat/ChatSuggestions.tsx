@@ -39,7 +39,7 @@ export const ChatSuggestions: React.FC<ChatSuggestionsProps> = ({ onSelect }) =>
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 + i * 0.1 }}
             onClick={() => onSelect(prompt.text)}
-            className="p-4 bg-white/60 hover:bg-white border border-sky-200/60 rounded-2xl text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] group"
+            className="p-4 bg-white/60 hover:bg-white border border-sky-200/60 rounded-2xl text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:outline-none group"
           >
             <div className="flex items-center gap-3 mb-1">
               <div className="w-8 h-8 rounded-lg bg-sky-50/60 flex items-center justify-center group-hover:bg-sky-100 transition-colors">
