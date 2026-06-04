@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils';
 import { Logo } from '../Logo';
 import { PlusIcon, ChatBubbleIcon, TrashIcon, MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
 import { getStoredUser, logout } from '../../services/authService';
+import { IntegrationMarket } from './IntegrationMarket';
 import { Modal, ModalHeader, ModalFooter } from '../ui/Modal';
 
 interface SidebarProps {
@@ -35,6 +36,7 @@ export const Sidebar = React.memo(({
   const navigate = useNavigate();
   const user = getStoredUser();
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
+  const [showMarket, setShowMarket] = useState(false);
 
   const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -168,6 +170,7 @@ export const Sidebar = React.memo(({
         </div>
       </div>
     </motion.aside>
+    <IntegrationMarket open={showMarket} onClose={() => setShowMarket(false)} />
     {/* Delete Confirmation Modal */}
     <Modal open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} maxWidth="max-w-sm">
       <ModalHeader title="删除对话" subtitle="确认删除" onClose={() => setDeleteConfirm(null)} />

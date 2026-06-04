@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db, require_admin
 from app.db.models import UserModel
 from app.schemas.external_systems import (
+    OpenApiImportRequest,
     ExternalApiCreateRequest,
     ExternalApiListResponse,
     ExternalApiTestRequest,
@@ -261,3 +262,32 @@ def list_my_connections(
     db: Session = Depends(get_db),
 ):
     return UserConnectionListResponse(items=ExternalSystemService(db).list_user_connections(user.id))
+
+
+# ── OpenAPI import (admin) ──────────────────────────────────────────────────
+
+
+@admin_router.post("/import-openapi/preview")
+async def preview_openapi_import(
+    body: OpenApiImportRequest,
+    admin: UserModel = Depends(require_admin),
+):
+    try:
+        from app.services.external_system_service import ExternalSystemService as ESS
+        preview = await ESS.parse_openapi(body.openapi_json, body.openapi_url)
+        return preview
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@admin_router.post("/import-openapi/confirm", status_code=status.HTTP_201_CREATED)
+def confirm_openapi_import(
+    body: dict,
+    admin: UserModel = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        svc = ExternalSystemService(db)
+        return svc.import_from_openapi_preview(body, admin.id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

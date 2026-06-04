@@ -872,3 +872,95 @@ class ExternalSystemService:
                 AgentProfileExternalSystemModel.enabled.is_(True),
             )
         ).scalars().all())
+
+    # ── OpenAPI import ──
+
+    @staticmethod
+    async def parse_openapi(openapi_json=None, openapi_url=None):
+        import re as _re
+        if openapi_url:
+            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+                resp = await client.get(openapi_url)
+                resp.raise_for_status()
+                spec = resp.json()
+        elif openapi_json:
+            spec = json.loads(openapi_json)
+        else:
+            raise ValueError("Please provide OpenAPI JSON or URL")
+        info = spec.get("info", {})
+        system_name = info.get("title", "Imported API")
+        system_description = info.get("description", "")
+        base_url = ""
+        if "servers" in spec and spec["servers"]:
+            base_url = spec["servers"][0].get("url", "").rstrip("/")
+        elif "host" in spec:
+            scheme = (spec.get("schemes") or ["https"])[0]
+            base_url = f"{scheme}://{spec['host']}{spec.get('basePath', '')}".rstrip("/")
+        auth_type = "api_key"
+        security_schemes = {}
+        if "components" in spec:
+            security_schemes = spec.get("components", {}).get("securitySchemes", {})
+        elif "securityDefinitions" in spec:
+            security_schemes = spec.get("securityDefinitions", {})
+        if security_schemes:
+            first_scheme = next(iter(security_schemes.values()), {})
+            stype = first_scheme.get("type", "")
+            if stype == "http" and first_scheme.get("scheme") == "bearer":
+                auth_type = "bearer"
+            elif stype == "http" and first_scheme.get("scheme") == "basic":
+                auth_type = "basic"
+            elif stype == "oauth2":
+                auth_type = "oauth2"
+        apis_list = []
+        for path, path_item in spec.get("paths", {}).items():
+            for method in ["get", "post", "put", "delete", "patch"]:
+                operation = path_item.get(method)
+                if not operation:
+                    continue
+                op_id = operation.get("operationId", "")
+                if not op_id:
+                    op_id = f"{method}_{path}".replace("/", "_").replace("{", "").replace("}", "").strip("_")
+                op_id = _re.sub(r"[^a-zA-Z0-9_]", "_", op_id).lower().strip("_")
+                summary = operation.get("summary", "")
+                description = operation.get("description", "")
+                display_name = summary or op_id.replace("_", " ").title()
+                params = []
+                for p in operation.get("parameters", []):
+                    param_in = p.get("in", "query")
+                    schema = p.get("schema", {})
+                    dt = schema.get("type", "string")
+                    if dt not in ("string", "integer", "boolean", "object"):
+                        dt = "string"
+                    params.append({"name": p.get("name", ""), "param_type": "path" if param_in == "path" else "query", "data_type": dt, "required": p.get("required", False), "description": p.get("description", ""), "default_value": None})
+                request_body = operation.get("requestBody", {})
+                if request_body:
+                    content = request_body.get("content", {})
+                    json_content = content.get("application/json", {})
+                    body_schema = json_content.get("schema", {})
+                    if body_schema:
+                        props = body_schema.get("properties", {})
+                        req_fields = set(body_schema.get("required", []))
+                        if props:
+                            for pn, ps in props.items():
+                                pt = ps.get("type", "string")
+                                if pt not in ("string", "integer", "boolean", "object"):
+                                    pt = "string"
+                                params.append({"name": pn, "param_type": "body", "data_type": pt, "required": pn in req_fields, "description": ps.get("description", ""), "default_value": None})
+                apis_list.append({"name": op_id, "display_name": display_name, "description": description or summary, "method": method.upper(), "path": path, "requires_approval": method in ("post", "put", "delete", "patch"), "timeout_seconds": 30, "params": params})
+        return {"system_name": system_name, "system_description": system_description, "base_url": base_url, "auth_type": auth_type, "apis": apis_list}
+
+    def import_from_openapi_preview(self, preview, user_id):
+        system = ExternalSystemModel(name=preview["system_name"], description=preview["system_description"], base_url=preview["base_url"], auth_type=preview["auth_type"], credential_template_json="{}", published=True, headers_json="{}", created_by=user_id)
+        self.db.add(system)
+        self.db.flush()
+        created = []
+        for ad in preview["apis"]:
+            api = ExternalApiModel(system_id=system.id, name=ad["name"], display_name=ad["display_name"], description=ad.get("description", ""), method=ad["method"], path=ad["path"], requires_approval=ad.get("requires_approval", False), timeout_seconds=ad.get("timeout_seconds", 30))
+            self.db.add(api)
+            self.db.flush()
+            for p in ad.get("params", []):
+                self.db.add(ExternalApiParamModel(api_id=api.id, name=p["name"], param_type=p["param_type"], data_type=p.get("data_type", "string"), required=p.get("required", False), description=p.get("description", ""), default_value=p.get("default_value")))
+            created.append(api)
+        self.db.commit()
+        self.db.refresh(system)
+        return _serialize_system(system, len(created))

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { AlertCircle, ChevronLeft, ExternalLink, Globe, Key, Loader2, Pencil, Plug, Plus, Save, Shield, TestTube, Trash2, X } from "lucide-react";
+import { AlertCircle, ChevronLeft, ExternalLink, Globe, Key, Loader2, Pencil, Plug, Plus, Save, Shield, TestTube, Trash2, Upload, X } from "lucide-react";
 import { Button } from "../ui/Button";
 import { cn } from "../../lib/utils";
 import { createSystem, updateSystem, deleteSystem, listSystems, listApis, createApi, updateApi, deleteApi, testApi, IntegrationSystem, IntegrationApi, IntegrationSystemPayload, IntegrationApiPayload, IntegrationApiParam, IntegrationTestResult } from "../../services/integrationService";
@@ -32,6 +32,10 @@ export const IntegrationManagement = () => {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [testState, setTestState] = useState<TestState>(null);
+  const [openApiModal, setOpenApiModal] = useState(false);
+  const [openApiInput, setOpenApiInput] = useState("");
+  const [openApiPreview, setOpenApiPreview] = useState<any>(null);
+  const [openApiLoading, setOpenApiLoading] = useState(false);
   useAdminModalBackdrop(isSystemModalOpen || isApiModalOpen);
   const enabledCount = useMemo(() => systems.filter(s => s.enabled).length, [systems]);
 
@@ -49,6 +53,9 @@ export const IntegrationManagement = () => {
   const handleSaveApi = async () => { if(!apiDraft||!selectedSystem)return; setIsSaving(true); setError(null); try{if(apiDraft.id){await updateApi(selectedSystem.id,apiDraft.id,apiDraft);}else{await createApi(selectedSystem.id,apiDraft);} setIsApiModalOpen(false); setMessage(apiDraft.id?"接口已更新":"接口已创建");setTimeout(()=>setMessage(null),3000);await loadApis(selectedSystem.id);await loadSystems();}catch(e){setError(e instanceof Error?e.message:"保存失败");}finally{setIsSaving(false);} };
   const handleDeleteApi = async (api:IntegrationApi) => { if(!selectedSystem)return; if(!confirm(`确定删除接口 "${api.display_name}"？`))return; try{await deleteApi(selectedSystem.id,api.id);setMessage("接口已删除");setTimeout(()=>setMessage(null),3000);await loadApis(selectedSystem.id);await loadSystems();}catch(e){setError(e instanceof Error?e.message:"删除失败");} };
   const handleTestApi = async (api:IntegrationApi) => { if(!selectedSystem)return; const p:Record<string,string>={}; api.params.forEach(pp=>{p[pp.name]=pp.default_value||"";}); setTestState({apiId:api.id,params:p,result:null,loading:true}); try{const r=await testApi(selectedSystem.id,api.id,p);setTestState(prev=>prev?{...prev,result:r,loading:false}:null);}catch(e){setTestState(prev=>prev?{...prev,result:{success:false,status_code:0,body:String(e),elapsed_ms:0},loading:false}:null);} };
+  const openOpenApiImport = () => { setOpenApiModal(true); setOpenApiInput(""); setOpenApiPreview(null); setError(null); };
+  const handlePreviewOpenApi = async () => { if (!openApiInput.trim()) return; setOpenApiLoading(true); setError(null); try { const { previewOpenApiImport: previewFn } = await import("../../services/integrationService"); const isUrl = openApiInput.trim().startsWith("http"); const preview = await previewFn(isUrl ? undefined : openApiInput.trim(), isUrl ? openApiInput.trim() : undefined); setOpenApiPreview(preview); } catch(e) { setError(e instanceof Error ? e.message : "解析失败"); } finally { setOpenApiLoading(false); } };
+  const handleConfirmOpenApi = async () => { if (!openApiPreview) return; setIsSaving(true); setError(null); try { const { confirmOpenApiImport: confirmFn } = await import("../../services/integrationService"); await confirmFn(openApiPreview); setOpenApiModal(false); setOpenApiPreview(null); setMessage("导入成功"); setTimeout(() => setMessage(null), 3000); await loadSystems(); } catch(e) { setError(e instanceof Error ? e.message : "导入失败"); } finally { setIsSaving(false); } };
 
   if(!selectedSystem){
     return (
@@ -56,7 +63,7 @@ export const IntegrationManagement = () => {
         <section className="admin-data-panel">
           <div className="flex items-center justify-between px-5 py-4">
             <div><p className="admin-section-kicker">集成管理</p><h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">第三方集成</h2><p className="mt-1 text-sm text-slate-500">{enabledCount} 个已启用 / {systems.length} 个总计</p></div>
-            <Button variant="primary" onClick={openCreateSystem} className="gap-2"><Plus size={16}/>新增集成</Button>
+            <div className="flex gap-2"><Button variant="secondary" onClick={openOpenApiImport} className="gap-2"><Upload size={16}/>导入 OpenAPI</Button><Button variant="primary" onClick={openCreateSystem} className="gap-2"><Plus size={16}/>新增集成</Button></div>
           </div>
           {error && <div className="mx-5 mb-4 flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700"><AlertCircle size={16}/> {error}</div>}
           {message && <div className="mx-5 mb-4 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{message}</div>}
@@ -77,6 +84,40 @@ export const IntegrationManagement = () => {
             </table></div>
           )}
         </section>
+        {openApiModal && createPortal(
+          <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+            <motion.div initial={{scale:0.95,y:20}} animate={{scale:1,y:0}} className="relative max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white/60 bg-white p-6 shadow-2xl">
+              <div className="flex items-center justify-between"><h3 className="text-lg font-black text-slate-900">从 OpenAPI 导入</h3><Button variant="ghost" size="icon" onClick={() => setOpenApiModal(false)}><X size={18}/></Button></div>
+              <div className="mt-5 space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-bold text-slate-700">OpenAPI JSON 或 URL</label>
+                  <textarea className="w-full min-h-[120px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-mono text-xs shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/20" value={openApiInput} onChange={e => setOpenApiInput(e.target.value)} placeholder="粘贴 OpenAPI JSON 或输入 URL..." />
+                </div>
+                <Button variant="primary" onClick={handlePreviewOpenApi} disabled={openApiLoading || !openApiInput.trim()} className="gap-2 w-full">{openApiLoading ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}解析预览</Button>
+                {openApiPreview && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="font-black text-slate-900">{openApiPreview.system_name}</p>
+                    <p className="text-sm text-slate-500">{openApiPreview.system_description}</p>
+                    <p className="mt-2 text-xs text-slate-600">Base URL: <span className="font-mono">{openApiPreview.base_url}</span></p>
+                    <p className="text-xs text-slate-600">鉴权: {openApiPreview.auth_type}</p>
+                    <p className="mt-2 text-sm font-bold text-slate-700">{openApiPreview.apis.length} 个接口将被导入:</p>
+                    <div className="mt-2 max-h-[200px] overflow-y-auto space-y-1">
+                      {openApiPreview.apis.map((a: any, i: number) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          <span className="rounded bg-slate-200 px-1.5 py-0.5 font-black">{a.method}</span>
+                          <span className="font-mono text-slate-600">{a.path}</span>
+                          <span className="text-slate-400">{a.display_name}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Button variant="primary" onClick={handleConfirmOpenApi} disabled={isSaving} className="gap-2 mt-4 w-full">{isSaving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>}确认导入</Button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>,
+          document.body
+        )}
         {isSystemModalOpen && systemDraft && createPortal(<SystemModal draft={systemDraft} setDraft={setSystemDraft} onSave={handleSaveSystem} onClose={()=>setIsSystemModalOpen(false)} isSaving={isSaving}/>, document.body)}
       </div>
     );

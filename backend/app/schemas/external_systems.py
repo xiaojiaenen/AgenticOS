@@ -212,3 +212,21 @@ class UserConnectionResponse(AppBaseModel):
 
 class UserConnectionListResponse(AppBaseModel):
     items: list[UserConnectionResponse]
+
+
+# ── OpenAPI import ──────────────────────────────────────────────────────────
+
+
+class OpenApiImportRequest(BaseModel):
+    """Import from OpenAPI/Swagger JSON."""
+    openapi_json: str | None = None
+    openapi_url: str | None = None
+
+
+class OpenApiImportPreview(BaseModel):
+    """Preview of what will be imported from OpenAPI."""
+    system_name: str
+    system_description: str
+    base_url: str
+    auth_type: str
+    apis: list[dict]

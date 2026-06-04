@@ -214,3 +214,40 @@ export async function listMyConnections(): Promise<{ items: UserConnection[] }> 
   const response = await fetch(`${USER_ENDPOINT}/my/connections`, { headers: authHeaders() });
   return parseResponse(response);
 }
+
+// ── OpenAPI Import ─────────────────────────────────────────────────────────
+
+export type OpenApiPreview = {
+  system_name: string;
+  system_description: string;
+  base_url: string;
+  auth_type: string;
+  apis: Array<{
+    name: string;
+    display_name: string;
+    description: string;
+    method: string;
+    path: string;
+    requires_approval: boolean;
+    timeout_seconds: number;
+    params: IntegrationApiParam[];
+  }>;
+};
+
+export async function previewOpenApiImport(openapiJson?: string, openapiUrl?: string): Promise<OpenApiPreview> {
+  const response = await fetch(`${ADMIN_ENDPOINT}/import-openapi/preview`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ openapi_json: openapiJson, openapi_url: openapiUrl }),
+  });
+  return parseResponse(response);
+}
+
+export async function confirmOpenApiImport(preview: OpenApiPreview): Promise<IntegrationSystem> {
+  const response = await fetch(`${ADMIN_ENDPOINT}/import-openapi/confirm`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(preview),
+  });
+  return parseResponse(response);
+}
