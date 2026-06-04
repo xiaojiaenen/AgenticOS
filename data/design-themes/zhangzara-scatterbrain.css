@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-scatterbrain — from open-design zhangzara html-ppt template */
+/* Scatterbrain: Post-it inspired: pastel sticky notes, Caveat handwriting, Shrikhand and Zilla Slab type stack. */
+
+:root {
+  --bg: #F7F5F0;
+  --bg-soft: #e8e6e1;
+  --surface: #e8e6e1;
+  --surface-2: #d9d7d3;
+  --border: #494642;
+  --border-strong: #65625e;
+  --text-1: #2D2A26;
+  --text-2: #a6a39f;
+  --text-3: #817f7a;
+  --accent: #2D2A26;
+  --accent-2: #FFE066;
+  --accent-3: #A5D8FF;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #2D2A26, #FFE066);
+  --grad-soft: linear-gradient(135deg, rgba(255,201,201,0.08), rgba(204,180,231,0.04));
+  --font-sans: 'Zilla Slab', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Shrikhand', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

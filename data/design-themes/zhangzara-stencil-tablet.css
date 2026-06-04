@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-stencil-tablet — from open-design zhangzara html-ppt template */
+/* Stencil & Tablet: Bone paper with stencil-cut headlines and a six-color earth palette: archaeology meets brand. */
+
+:root {
+  --bg: #F4EFE0;
+  --bg-soft: #e5e0d2;
+  --surface: #e5e0d2;
+  --surface-2: #d6d2c5;
+  --border: #2a2a28;
+  --border-strong: #4b4a46;
+  --text-1: #0A0A0A;
+  --text-2: #96938a;
+  --text-3: #6c6a63;
+  --accent: #C73B7A;
+  --accent-2: #EE7A2E;
+  --accent-3: #2D7E73;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #C73B7A, #EE7A2E);
+  --grad-soft: linear-gradient(135deg, rgba(238,122,46,0.08), rgba(190,109,52,0.04));
+  --font-sans: 'Inter', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Bowlby One', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

@@ -1,0 +1,30 @@
+/* PPT theme: ibm — manually converted from open-design DESIGN.md */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #fafafa;
+  --surface: #f4f4f4;
+  --surface-2: #e0e0e0;
+  --border: #e0e0e0;
+  --border-strong: #8d8d8d;
+  --text-1: #161616;
+  --text-2: #525252;
+  --text-3: #8d8d8d;
+  --accent: #0f62fe;
+  --accent-2: #0043ce;
+  --accent-3: #002d9c;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0f62fe, #0043ce);
+  --grad-soft: linear-gradient(135deg, rgba(15,98,254,0.08), rgba(0,67,206,0.04));
+  --font-sans: 'IBM Plex Sans', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'IBM Plex Sans', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 8px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

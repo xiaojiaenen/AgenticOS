@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-long-table — from open-design zhangzara html-ppt template */
+/* Long Table: Warm cream and rust-red supper-club aesthetic with bold uppercase grotesk headlines, italic Fraunces, and pill-shaped outlined buttons. */
+
+:root {
+  --bg: #FAF1E2;
+  --bg-soft: #ebe2d4;
+  --surface: #ebe2d4;
+  --surface-2: #dcd4c6;
+  --border: #bd5543;
+  --border-strong: #c56e5d;
+  --text-1: #B53D2A;
+  --text-2: #dea998;
+  --text-3: #d18877;
+  --accent: #8E2D1F;
+  --accent-2: #712823;
+  --accent-3: #4e1b15;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #8E2D1F, #712823);
+  --grad-soft: linear-gradient(135deg, rgba(142,45,31,0.08), rgba(113,40,35,0.04));
+  --font-sans: 'Fraunces', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

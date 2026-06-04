@@ -1,0 +1,30 @@
+/* PPT theme: mastercard — manually converted from open-design DESIGN.md */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #fcfbfa;
+  --surface: #f4f4f4;
+  --surface-2: #e8e5e2;
+  --border: #d1cdc7;
+  --border-strong: #696969;
+  --text-1: #141413;
+  --text-2: #696969;
+  --text-3: #9a9a9a;
+  --accent: #eb001b;
+  --accent-2: #f15a22;
+  --accent-3: #cf4500;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #eb001b, #f15a22);
+  --grad-soft: linear-gradient(135deg, rgba(235,0,27,0.06), rgba(241,90,34,0.04));
+  --font-sans: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 20px;
+  --radius-sm: 12px;
+  --radius-lg: 28px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

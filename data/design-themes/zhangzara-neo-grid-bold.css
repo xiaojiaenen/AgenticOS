@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-neo-grid-bold — from open-design zhangzara html-ppt template */
+/* Neo-Grid Bold: Editorial neo-brutalism with a single neon yellow accent on off-white paper. */
+
+:root {
+  --bg: #F5F4EF;
+  --bg-soft: #e6e5e0;
+  --surface: #e6e5e0;
+  --surface-2: #d7d6d2;
+  --border: #8A8A85;
+  --border-strong: #4c4b4a;
+  --text-1: #0A0A0A;
+  --text-2: #979693;
+  --text-3: #6c6c6a;
+  --accent: #0A0A0A;
+  --accent-2: #8A8A85;
+  --accent-3: #E6FF3D;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0A0A0A, #8A8A85);
+  --grad-soft: linear-gradient(135deg, rgba(230,255,61,0.08), rgba(184,229,70,0.04));
+  --font-sans: 'Space Grotesk', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Space Grotesk', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 6px;
+  --radius-sm: 3px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

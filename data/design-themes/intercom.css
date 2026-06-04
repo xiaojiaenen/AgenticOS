@@ -1,0 +1,30 @@
+/* PPT theme: intercom — manually converted from open-design DESIGN.md */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #faf9f6;
+  --surface: #fafafa;
+  --surface-2: #f0ede8;
+  --border: #dedbd6;
+  --border-strong: #9c9fa5;
+  --text-1: #111111;
+  --text-2: #313130;
+  --text-3: #7b7b78;
+  --accent: #ff5600;
+  --accent-2: #626260;
+  --accent-3: #d84900;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #ff5600, #d84900);
+  --grad-soft: linear-gradient(135deg, rgba(255,86,0,0.08), rgba(216,73,0,0.04));
+  --font-sans: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 8px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

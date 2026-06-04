@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-editorial-tri-tone — from open-design zhangzara html-ppt template */
+/* Editorial Tri-Tone: Three-color editorial system: dusty pink, mustard cream, and deep burgundy, set in Bricolage + Instrument Serif. */
+
+:root {
+  --bg: #7A1F35;
+  --bg-soft: #812038;
+  --surface: #f4edee;
+  --surface-2: #ebdde0;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+  --text-1: #F2D86A;
+  --text-2: #d0a45b;
+  --text-3: #aa694a;
+  --accent: #F2B6C6;
+  --accent-2: #ffc8b2;
+  --accent-3: #856d8a;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #F2B6C6, #ffc8b2);
+  --grad-soft: linear-gradient(135deg, rgba(242,182,198,0.08), rgba(255,200,178,0.04));
+  --font-sans: 'Inter', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Instrument Serif', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Instrument Serif', 'Noto Serif SC', serif;
+  --radius: 6px;
+  --radius-sm: 3px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.20);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.30);
+}

@@ -1,0 +1,30 @@
+/* PPT theme: starbucks — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f9f9f9;
+  --surface: #faf6ee;
+  --surface-2: #f2f0eb;
+  --border: #edebe9;
+  --border-strong: #a0a0a8;
+  --text-1: #000000;
+  --text-2: #6b6b75;
+  --text-3: #a0a0a8;
+  --accent: #006241;
+  --accent-2: #fbbc05;
+  --accent-3: #005337;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #006241, #fbbc05);
+  --grad-soft: linear-gradient(135deg, rgba(0,98,65,0.08), rgba(251,188,5,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

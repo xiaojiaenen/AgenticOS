@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-retro-zine — from open-design zhangzara html-ppt template */
+/* Retro Zine: Beige paper with green accent and Bebas Neue + Caveat: a riso-printed zine in HTML form. */
+
+:root {
+  --bg: #F4EFE6;
+  --bg-soft: #e5e0d8;
+  --surface: #e5e0d8;
+  --surface-2: #d6d2ca;
+  --border: #383736;
+  --border-strong: #565553;
+  --text-1: #1A1A1A;
+  --text-2: #9c9994;
+  --text-3: #75736f;
+  --accent: #008F4D;
+  --accent-2: #008058;
+  --accent-3: #005535;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #008F4D, #008058);
+  --grad-soft: linear-gradient(135deg, rgba(0,143,77,0.08), rgba(0,128,88,0.04));
+  --font-sans: 'Space Grotesk', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Bebas Neue', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-sakura-chroma — from open-design zhangzara html-ppt template */
+/* Sakura Chroma: Vintage Japanese cassette-package aesthetic: cream paper, diagonal rainbow ribbons, condensed bold type, JIS-style spec checkboxes. */
+
+:root {
+  --bg: #F1E6CB;
+  --bg-soft: #e2d8be;
+  --surface: #e2d8be;
+  --surface-2: #d4cab2;
+  --border: #533f2f;
+  --border-strong: #6c5a48;
+  --text-1: #3A2516;
+  --text-2: #a79882;
+  --text-3: #867662;
+  --accent: #E54489;
+  --accent-2: #b73d9d;
+  --accent-3: #7d285f;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #E54489, #b73d9d);
+  --grad-soft: linear-gradient(135deg, rgba(229,68,137,0.08), rgba(183,61,157,0.04));
+  --font-sans: 'Albert Sans', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Big Shoulders Display', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

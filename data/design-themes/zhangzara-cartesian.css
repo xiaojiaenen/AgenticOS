@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-cartesian — from open-design zhangzara html-ppt template */
+/* Cartesian: Quiet warm-neutral palette with classical Playfair serifs; tasteful and unhurried. */
+
+:root {
+  --bg: #EDE8E0;
+  --bg-soft: #dedad2;
+  --surface: #E2DBD1;
+  --surface-2: #d0ccc5;
+  --border: #B8B0A4;
+  --border-strong: #565350;
+  --text-1: #1A1A1A;
+  --text-2: #989590;
+  --text-3: #72706d;
+  --accent: #8A8178;
+  --accent-2: #6e748a;
+  --accent-3: #4b4d54;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #8A8178, #6e748a);
+  --grad-soft: linear-gradient(135deg, rgba(138,129,120,0.08), rgba(110,116,138,0.04));
+  --font-sans: 'Inter', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Playfair Display', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

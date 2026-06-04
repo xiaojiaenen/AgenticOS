@@ -1,0 +1,17 @@
+/* Cyberpunk — neon on dark, high-contrast futuristic */
+:root {
+  --bg: #0a0a1a;
+  --surface: #0f0f2a;
+  --surface-warm: #12123a;
+  --fg: #e0e0ff;
+  --fg-2: #a0a0dd;
+  --muted: #6060aa;
+  --border: #2a2a6a;
+  --border-soft: #4a3aaa;
+  --accent: #00ffcc;
+  --accent-hover: #ff00aa;
+  --accent-active: #ffdd00;
+  --success: #00ff88;
+  --warn: #ffaa00;
+  --danger: #ff3366;
+}

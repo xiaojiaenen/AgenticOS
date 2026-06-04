@@ -1,0 +1,30 @@
+/* PPT theme: miro — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #fde0f0;
+  --surface: #fafafa;
+  --surface-2: #e3c5c5;
+  --border: #c7cad5;
+  --border-strong: #a5a8b5;
+  --text-1: #1c1c1e;
+  --text-2: #6b6b75;
+  --text-3: #a0a0a8;
+  --accent: #2a41b6;
+  --accent-2: #fbd4d4;
+  --accent-3: #23379a;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #2a41b6, #fbd4d4);
+  --grad-soft: linear-gradient(135deg, rgba(42,65,182,0.08), rgba(251,212,212,0.04));
+  --font-sans: Noto Sans;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

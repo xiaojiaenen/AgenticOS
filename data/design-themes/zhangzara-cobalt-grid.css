@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-cobalt-grid — from open-design zhangzara html-ppt template */
+/* Cobalt Grid: Electric cobalt italic serifs on a graph-paper canvas, anchored by stair-stepped pixel-glitch decorations and slim hairline rules. */
+
+:root {
+  --bg: #F0EBDE;
+  --bg-soft: #e1dcd0;
+  --surface: #e1dcd0;
+  --surface-2: #d3cec3;
+  --border: #3c45dd;
+  --border-strong: #5960db;
+  --text-1: #1F2BE0;
+  --text-2: #9c9ede;
+  --text-3: #767bdf;
+  --accent: #5560E5;
+  --accent-2: #4456ff;
+  --accent-3: #2e39a0;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #5560E5, #4456ff);
+  --grad-soft: linear-gradient(135deg, rgba(85,96,229,0.08), rgba(68,86,255,0.04));
+  --font-sans: 'Hanken Grotesk', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Newsreader', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 6px;
+  --radius-sm: 3px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

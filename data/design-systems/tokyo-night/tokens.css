@@ -1,0 +1,17 @@
+/* Tokyo Night — deep navy with vibrant neon accents */
+:root {
+  --bg: #1a1b26;
+  --surface: #1f2035;
+  --surface-warm: #24253d;
+  --fg: #c0caf5;
+  --fg-2: #a9b1d6;
+  --muted: #6c7086;
+  --border: #3b3d60;
+  --border-soft: #565a7e;
+  --accent: #7aa2f7;
+  --accent-hover: #bb9af7;
+  --accent-active: #f7768e;
+  --success: #9ece6a;
+  --warn: #e0af68;
+  --danger: #f7768e;
+}

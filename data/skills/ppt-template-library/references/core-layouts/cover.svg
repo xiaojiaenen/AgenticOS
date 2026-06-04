@@ -1,0 +1,35 @@
+<!-- layout: cover | 开篇 | 居中大标题 + 副标题 + 标签 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <!-- 顶部装饰条 -->
+  <rect x="0" y="0" width="1280" height="4" fill="var(--accent)"/>
+  <g text-anchor="middle" font-family="var(--font-sans)" id="bg-layer">
+        <g id="cover-header">
+<text x="640" y="180" font-size="18" fill="var(--accent)" font-weight="600">KICKER · 分类标签</text>
+    <text x="640" y="300" font-size="68" font-weight="800" fill="var(--text-1)" font-family="var(--font-display)">
+      <tspan x="640" dy="0">主标题第一行</tspan>
+      <tspan x="640" dy="82" fill="var(--accent)">高亮关键词</tspan>
+      <tspan x="640" dy="82">主标题第三行</tspan>
+    </text>
+    <text x="640" y="480" font-size="22" fill="var(--text-2)">副标题或日期 · 演讲者姓名</text>
+    <!-- 底部标签 -->
+        
+    </g>
+<g id="cover-tagline">
+<rect x="500" y="540" width="110" height="36" rx="18" fill="var(--accent)"/>
+    <text x="555" y="564" font-size="14" fill="var(--bg)" font-weight="600">标签</text>
+    <rect x="630" y="540" width="150" height="36" rx="18" fill="var(--surface)" stroke="var(--border)"/>
+    <text x="705" y="564" font-size="14" fill="var(--text-2)">副标签</text>
+  </g>
+  <!-- 页脚 -->
+      
+    
+<g id="cover-footer">
+
+    </g>
+</g>
+  <!-- 页脚 -->
+  <text x="80" y="680" font-size="12" fill="var(--text-3)" font-family="var(--font-sans)">公司名</text>
+  <text x="1200" y="680" text-anchor="middle" font-size="12" fill="var(--text-3)" font-family="var(--font-sans)">1 / 10</text>
+  <!-- notes: 开场白，150-300 字 -->
+</svg>

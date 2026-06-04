@@ -1,0 +1,30 @@
+/* PPT theme: notion — auto-generated from open-design */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f6f5f4;
+  --surface: #f6f5f4;
+  --surface-2: #e9e8e7;
+  --border: #d9d9de;
+  --border-strong: #a0a0a8;
+  --text-1: #1a1a1e;
+  --text-2: #31302e;
+  --text-3: #a39e98;
+  --accent: #0075de;
+  --accent-2: #005bab;
+  --accent-3: #2563eb;
+  --good: #1aae39;
+  --warn: #dd5b00;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0075de, #005bab);
+  --grad-soft: linear-gradient(135deg, rgba(0,117,222,0.08), rgba(0,91,171,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

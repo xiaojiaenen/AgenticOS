@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-capsule — from open-design zhangzara html-ppt template */
+/* Capsule: Modular pill-shaped cards on warm bone with a full pastel-pop palette. */
+
+:root {
+  --bg: #F5F5F0;
+  --bg-soft: #e6e6e1;
+  --surface: #e6e6e1;
+  --surface-2: #d7d7d3;
+  --border: #383837;
+  --border-strong: #575755;
+  --text-1: #1A1A1A;
+  --text-2: #9d9d9a;
+  --text-3: #757573;
+  --accent: #E85D4E;
+  --accent-2: #b95359;
+  --accent-3: #7f3736;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #E85D4E, #b95359);
+  --grad-soft: linear-gradient(135deg, rgba(232,93,78,0.08), rgba(185,83,89,0.04));
+  --font-sans: 'Space Grotesk', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Bodoni Moda', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

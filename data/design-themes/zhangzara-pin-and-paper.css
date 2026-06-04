@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-pin-and-paper — from open-design zhangzara html-ppt template */
+/* Pin & Paper: Yellow paper with safety-pin illustrations, ink-blue handwritten Caveat, paper-grain texture. */
+
+:root {
+  --bg: #EFE56A;
+  --bg-soft: #e0d763;
+  --surface: #e0d763;
+  --surface-2: #d2c95d;
+  --border: #3b5184;
+  --border-strong: #58697e;
+  --text-1: #1F3A8A;
+  --text-2: #9ba076;
+  --text-3: #76817c;
+  --accent: #C2342B;
+  --accent-2: #9b2e31;
+  --accent-3: #6a1f1e;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #C2342B, #9b2e31);
+  --grad-soft: linear-gradient(135deg, rgba(194,52,43,0.08), rgba(155,46,49,0.04));
+  --font-sans: 'Space Grotesk', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Caveat', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 6px;
+  --radius-sm: 3px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

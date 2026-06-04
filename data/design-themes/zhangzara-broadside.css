@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-broadside — from open-design zhangzara html-ppt template */
+/* Broadside: Dark editorial canvas with a single fire orange accent and bilingual Latin/Chinese type stack. */
+
+:root {
+  --bg: #111111;
+  --bg-soft: #121212;
+  --surface: #1a1a18;
+  --surface-2: #dbdbdb;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+  --text-1: #f0ece5;
+  --text-2: #b1aea9;
+  --text-3: #6a6865;
+  --accent: #e85d26;
+  --accent-2: #ff6622;
+  --accent-3: #7f371a;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #e85d26, #ff6622);
+  --grad-soft: linear-gradient(135deg, rgba(232,93,38,0.08), rgba(255,102,34,0.04));
+  --font-sans: 'Barlow', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Barlow', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 6px;
+  --radius-sm: 3px;
+  --radius-lg: 12px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.20);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.30);
+}

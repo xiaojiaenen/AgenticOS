@@ -1,0 +1,30 @@
+/* PPT theme: rainbow-gradient — manually converted from open-design html-ppt */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f8f8fb;
+  --surface: #ffffff;
+  --surface-2: #f4f4f8;
+  --border: rgba(20,20,40,.08);
+  --border-strong: rgba(20,20,40,.2);
+  --text-1: #0c0d10;
+  --text-2: #4d5162;
+  --text-3: #9096a8;
+  --accent: #ff4d8b;
+  --accent-2: #7a5cff;
+  --accent-3: #36b6ff;
+  --good: #1aaf6c;
+  --warn: #f5a524;
+  --bad: #e0445a;
+  --grad: linear-gradient(90deg, #ff0080, #ff4d00, #ff9900, #ffe600, #00c853, #0091ea, #6200ea, #ff0080);
+  --grad-soft: linear-gradient(135deg, #fff, #f8f8fb);
+  --font-sans: 'Inter','Noto Sans SC',sans-serif;
+  --font-display: 'Inter','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-lg: 24px;
+  --shadow: 0 12px 32px rgba(124,92,255,.1);
+  --shadow-lg: 0 24px 60px rgba(124,92,255,.18);
+}

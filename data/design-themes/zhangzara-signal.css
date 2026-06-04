@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-signal — from open-design zhangzara html-ppt template */
+/* Signal: Deep navy canvas with bone paper and a single muted-gold accent; institutional with quiet weight. */
+
+:root {
+  --bg: #1c2644;
+  --bg-soft: #1d2848;
+  --surface: #232f55;
+  --surface-2: #f0ece3;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+  --text-1: #e2dcd0;
+  --text-2: #aaa9a8;
+  --text-3: #6b6e7c;
+  --accent: #c8a870;
+  --accent-2: #f0b864;
+  --accent-3: #6e644e;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #c8a870, #f0b864);
+  --grad-soft: linear-gradient(135deg, rgba(200,168,112,0.08), rgba(240,184,100,0.04));
+  --font-sans: 'DM Sans', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Source Serif 4', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.20);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.30);
+}

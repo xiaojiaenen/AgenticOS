@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-8-bit-orbit — from open-design zhangzara html-ppt template */
+/* 8-Bit Orbit: Pixel-art neon arcade aesthetic on a deep navy void. */
+
+:root {
+  --bg: #0A0E27;
+  --bg-soft: #0a0e29;
+  --surface: #ebebed;
+  --surface-2: #dadade;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+  --text-1: #E2D5F2;
+  --text-2: #a59db9;
+  --text-3: #605d78;
+  --accent: #E2D5F2;
+  --accent-2: #ffead9;
+  --accent-3: #7c7fa9;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #E2D5F2, #ffead9);
+  --grad-soft: linear-gradient(135deg, rgba(226,213,242,0.08), rgba(255,234,217,0.04));
+  --font-sans: 'Chakra Petch', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Tektur', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.20);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.30);
+}

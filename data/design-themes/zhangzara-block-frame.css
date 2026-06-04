@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-block-frame — from open-design zhangzara html-ppt template */
+/* BlockFrame: Neobrutalist deck with pastel-neon color blocks and chunky black borders. */
+
+:root {
+  --bg: #FFDC8B;
+  --bg-soft: #efce82;
+  --surface: #efce82;
+  --surface-2: #e0c17a;
+  --border: #231e13;
+  --border-strong: #473d27;
+  --text-1: #000000;
+  --text-2: #998453;
+  --text-3: #6b5c3a;
+  --accent: #000000;
+  --accent-2: #333333;
+  --accent-3: #C0F7FE;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #000000, #333333);
+  --grad-soft: linear-gradient(135deg, rgba(254,144,232,0.08), rgba(203,129,255,0.04));
+  --font-sans: 'Inter', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Space Grotesk', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

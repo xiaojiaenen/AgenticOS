@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-playful — from open-design zhangzara html-ppt template */
+/* Playful: Sun-warm peach background with Syne display: a friendly indie launch deck. */
+
+:root {
+  --bg: #F0C8A0;
+  --bg-soft: #e1bc96;
+  --surface: #E8B88E;
+  --surface-2: #E8B88E;
+  --border: #38312b;
+  --border-strong: #57493c;
+  --text-1: #1A1A1A;
+  --text-2: #9a826a;
+  --text-3: #736352;
+  --accent: #1A1A1A;
+  --accent-2: #8B6B4A;
+  --accent-3: #C07030;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #1A1A1A, #8B6B4A);
+  --grad-soft: linear-gradient(135deg, rgba(247,222,198,0.08), rgba(197,199,227,0.04));
+  --font-sans: 'Space Grotesk', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Syne', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

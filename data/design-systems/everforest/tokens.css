@@ -1,0 +1,17 @@
+/* Everforest — earthy sage green tones, natural and calming */
+:root {
+  --bg: #fdf6e3;
+  --surface: #f5eed8;
+  --surface-warm: #ffffff;
+  --fg: #3c4a3e;
+  --fg-2: #5a6a5c;
+  --muted: #8a9a8c;
+  --border: #e5dbc4;
+  --border-soft: #d3c9b0;
+  --accent: #7aac7a;
+  --accent-hover: #5b8c5b;
+  --accent-active: #a7c9a7;
+  --success: #8bbb8b;
+  --warn: #dbbc7c;
+  --danger: #e67e80;
+}

@@ -1,0 +1,30 @@
+/* PPT theme: minimax — manually converted from open-design DESIGN.md */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f2f3f5;
+  --surface: #f9f9f9;
+  --surface-2: #f0f0f0;
+  --border: #e5e7eb;
+  --border-strong: #8e8e93;
+  --text-1: #222222;
+  --text-2: #45515e;
+  --text-3: #8e8e93;
+  --accent: #f02da6;
+  --accent-2: #ea5ec1;
+  --accent-3: #1456f0;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #f02da6, #1456f0);
+  --grad-soft: linear-gradient(135deg, rgba(240,45,166,0.06), rgba(20,86,240,0.04));
+  --font-sans: 'DM Sans', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'DM Sans', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

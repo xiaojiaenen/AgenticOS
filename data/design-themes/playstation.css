@@ -1,0 +1,30 @@
+/* PPT theme: playstation — manually converted from open-design DESIGN.md */
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f5f7fa;
+  --surface: #ffffff;
+  --surface-2: #f3f3f3;
+  --border: #cccccc;
+  --border-strong: #6b6b6b;
+  --text-1: #000000;
+  --text-2: #1f1f1f;
+  --text-3: #6b6b6b;
+  --accent: #0070cc;
+  --accent-2: #1eaedb;
+  --accent-3: #d53b00;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #0070cc, #1eaedb);
+  --grad-soft: linear-gradient(135deg, rgba(0,112,204,0.08), rgba(30,174,219,0.04));
+  --font-sans: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.14);
+}

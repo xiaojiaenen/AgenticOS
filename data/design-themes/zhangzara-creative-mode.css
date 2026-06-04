@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-creative-mode — from open-design zhangzara html-ppt template */
+/* Creative Mode: Cream paper canvas with confident multi-color (green, pink, orange, yellow) accents and Archivo Black display. */
+
+:root {
+  --bg: #EFE9D9;
+  --bg-soft: #e0dbcb;
+  --surface: #e0dbcb;
+  --surface-2: #d2cdbe;
+  --border: #2e2d2b;
+  --border-strong: #4d4c47;
+  --text-1: #0F0F0F;
+  --text-2: #959188;
+  --text-3: #6d6a63;
+  --accent: #1F8A4C;
+  --accent-2: #187c57;
+  --accent-3: #115235;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #1F8A4C, #187c57);
+  --grad-soft: linear-gradient(135deg, rgba(31,138,76,0.08), rgba(24,124,87,0.04));
+  --font-sans: 'Space Grotesk', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Archivo Black', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10);
+}

@@ -1,0 +1,30 @@
+/* PPT theme: kami — auto-generated from open-design */
+
+:root {
+  --bg: #f5f4ed;
+  --bg-soft: #faf9f5;
+  --surface: #e8e6dc;
+  --surface-2: #dcdad1;
+  --border: #e8e6dc;
+  --border-strong: #e5e3d8;
+  --text-1: #141413;
+  --text-2: #3d3d3a;
+  --text-3: #6b6a64;
+  --accent: #1b365d;
+  --accent-2: #1b365d;
+  --accent-3: #142a48;
+  --good: #4a6b3a;
+  --warn: #8a6b1f;
+  --bad: #8a3a30;
+  --grad: linear-gradient(135deg, #1b365d, #1b365d);
+  --grad-soft: linear-gradient(135deg, rgba(27,54,93,0.08), rgba(27,54,93,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

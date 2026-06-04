@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgenticOS 架构图谱</title>
+  <style>
+    :root {
+      --bg: #eef6fb;
+      --bg-2: #f9fcfe;
+      --panel: rgba(255, 255, 255, 0.86);
+      --panel-strong: rgba(255, 255, 255, 0.96);
+      --line: #c6d8e6;
+      --text: #163247;
+      --muted: #5d778d;
+      --accent: #1274c0;
+      --accent-2: #21a1d8;
+      --accent-3: #0f8f7f;
+      --warning: #cf7e22;
+      --danger: #c25454;
+      --shadow: 0 18px 50px rgba(28, 74, 110, 0.12);
+      --radius: 24px;
+      --mono: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --sans: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background:
+        radial-gradient(circle at top left, rgba(44, 156, 215, 0.16), transparent 34%),
+        radial-gradient(circle at top right, rgba(18, 116, 192, 0.12), transparent 28%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    body {
+      min-height: 100vh;
+    }
+
+    .page {
+      width: min(1440px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 40px 0 64px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 32px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.8)),
+        linear-gradient(120deg, rgba(18, 116, 192, 0.06), rgba(33, 161, 216, 0.03));
+      box-shadow: var(--shadow);
+      padding: 34px 36px 30px;
+      margin-bottom: 22px;
+    }
+
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      pointer-events: none;
+      filter: blur(4px);
+    }
+
+    .hero::before {
+      width: 320px;
+      height: 320px;
+      right: -80px;
+      top: -90px;
+      background: radial-gradient(circle, rgba(33, 161, 216, 0.18), transparent 68%);
+    }
+
+    .hero::after {
+      width: 240px;
+      height: 240px;
+      left: -70px;
+      bottom: -90px;
+      background: radial-gradient(circle, rgba(15, 143, 127, 0.14), transparent 72%);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(18, 116, 192, 0.14);
+      background: rgba(18, 116, 192, 0.08);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 46px);
+      line-height: 1.04;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      max-width: 980px;
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.75;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 26px;
+    }
+
+    .summary-card {
+      position: relative;
+      border-radius: 22px;
+      border: 1px solid rgba(198, 216, 230, 0.72);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 252, 255, 0.86));
+      padding: 18px 18px 16px;
+      min-height: 132px;
+    }
+
+    .summary-card h2 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+
+    .summary-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .chip {
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(18, 116, 192, 0.08);
+      color: var(--accent);
+      border: 1px solid rgba(18, 116, 192, 0.14);
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    .section {
+      margin-top: 20px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255, 255, 255, 0.92);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 24px 28px 12px;
+      border-bottom: 1px solid rgba(198, 216, 230, 0.52);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.56), rgba(255, 255, 255, 0.18));
+    }
+
+    .section-header h2 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: -0.02em;
+    }
+
+    .section-header p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.75;
+      max-width: 1050px;
+    }
+
+    .section-body {
+      padding: 18px 20px 24px;
+    }
+
+    .diagram-frame {
+      position: relative;
+      overflow-x: auto;
+      border-radius: 22px;
+      border: 1px solid rgba(198, 216, 230, 0.7);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 250, 253, 0.98));
+      padding: 16px;
+    }
+
+    .diagram-frame svg {
+      display: block;
+      width: 100%;
+      min-width: 1180px;
+      height: auto;
+    }
+
+    .notes {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .note-card {
+      border-radius: 20px;
+      border: 1px solid rgba(198, 216, 230, 0.7);
+      background: var(--panel-strong);
+      padding: 16px 18px;
+    }
+
+    .note-card h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .note-card ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.8;
+      font-size: 14px;
+    }
+
+    .note-card li + li {
+      margin-top: 4px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(198, 216, 230, 0.7);
+    }
+
+    .legend-line {
+      width: 26px;
+      height: 0;
+      border-top: 2px solid var(--accent);
+    }
+
+    .legend-line.dashed {
+      border-top-style: dashed;
+      border-top-color: var(--warning);
+    }
+
+    .legend-line.runtime {
+      border-top-color: var(--accent-3);
+    }
+
+    .footer {
+      margin-top: 18px;
+      padding: 16px 20px 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .footer code {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+      background: rgba(18, 116, 192, 0.08);
+      border-radius: 8px;
+      padding: 2px 6px;
+    }
+
+    @media (max-width: 980px) {
+      .page {
+        width: min(100vw - 20px, 1440px);
+        padding-top: 18px;
+      }
+
+      .hero {
+        padding: 24px 20px 22px;
+      }
+
+      .summary-grid,
+      .notes {
+        grid-template-columns: 1fr;
+      }
+
+      .section-header {
+        padding: 20px 18px 12px;
+      }
+
+      .section-body {
+        padding: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="eyebrow">AgenticOS · Docs · Architecture Maps</div>
+      <h1>聊天请求时序图 与 Agent 领域关系图</h1>
+      <p>
+        这份页面基于当前仓库源码和 CodeGraph 索引整理，重点回答两件事：
+        一是一次聊天请求如何从前端发出、进入 FastAPI、落到 Wuwei 运行时，再以 SSE 事件回到前端；
+        二是 <code>AgentProfile / ToolConfig / Skill / Approval</code> 四个核心概念如何在配置层和运行时层发生关系。
+      </p>
+
+      <div class="summary-grid">
+        <article class="summary-card">
+          <h2>前端主线</h2>
+          <p>
+            <code>Chat</code> 负责页面编排，<code>useChatStream</code> 负责发送、审批和乐观更新，
+            <code>sendMessageStream</code> 负责解析 SSE 并把事件回调给 UI。
+          </p>
+          <div class="chips">
+            <span class="chip">Chat.tsx</span>
+            <span class="chip">useChatStream.ts</span>
+            <span class="chip">agentService.ts</span>
+          </div>
+        </article>
+
+        <article class="summary-card">
+          <h2>后端主线</h2>
+          <p>
+            <code>/api/v1/agent/stream</code> 把请求交给 <code>AgentService.stream_chat</code>，
+            它负责解析运行时 Agent、恢复会话、接入审批、记录 usage，并映射 SSE。
+          </p>
+          <div class="chips">
+            <span class="chip">agent.py</span>
+            <span class="chip">agent_service.py</span>
+            <span class="chip">session_storage.py</span>
+          </div>
+        </article>
+
+        <article class="summary-card">
+          <h2>PPT / 治理主线</h2>
+          <p>
+            PPT 模式在 <code>done</code> 时会生成 artifact；审批则由运行时命中
+            <code>approval_tools</code> 时触发，走 <code>ApprovalManager</code> 回推到前端。
+          </p>
+          <div class="chips">
+            <span class="chip">PptArtifactService</span>
+            <span class="chip">ApprovalManager</span>
+            <span class="chip">AgentProfileService</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h2>一、聊天请求从前端到 Wuwei 再回前端的完整时序图</h2>
+        <p>
+          这张图把“正常回复主线”与“审批分支”“PPT artifact 分支”画在同一条时序里。
+          主干入口来自 <code>frontend/src/hooks/useChatStream.ts</code>、
+          <code>frontend/src/services/agentService.ts</code>、
+          <code>backend/app/api/v1/endpoints/agent.py</code> 和
+          <code>backend/app/services/agent_service.py</code>。
+        </p>
+      </div>
+      <div class="section-body">
+        <div class="diagram-frame">
+          <svg viewBox="0 0 1880 1420" role="img" aria-label="聊天请求时序图">
+            <defs>
+              <marker id="arrowBlue" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#1274c0"></path>
+              </marker>
+              <marker id="arrowTeal" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f8f7f"></path>
+              </marker>
+              <marker id="arrowOrange" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#cf7e22"></path>
+              </marker>
+              <linearGradient id="actorFillA" x1="0" x2="1">
+                <stop offset="0%" stop-color="#f7fbff"></stop>
+                <stop offset="100%" stop-color="#e8f3fb"></stop>
+              </linearGradient>
+              <linearGradient id="actorFillB" x1="0" x2="1">
+                <stop offset="0%" stop-color="#f4fcfb"></stop>
+                <stop offset="100%" stop-color="#e3f7f4"></stop>
+              </linearGradient>
+            </defs>
+
+            <rect x="0" y="0" width="1880" height="1420" rx="28" fill="#fbfdff"></rect>
+
+            <g font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" fill="#163247">
+              <rect x="54" y="38" width="180" height="72" rx="18" fill="url(#actorFillA)" stroke="#c6d8e6"></rect>
+              <text x="144" y="68" text-anchor="middle" font-size="18" font-weight="700">用户 / 管理员</text>
+              <text x="144" y="92" text-anchor="middle" font-size="12" fill="#5d778d">输入消息、审批决策</text>
+
+              <rect x="288" y="38" width="196" height="72" rx="18" fill="url(#actorFillA)" stroke="#c6d8e6"></rect>
+              <text x="386" y="68" text-anchor="middle" font-size="18" font-weight="700">Chat.tsx</text>
+              <text x="386" y="92" text-anchor="middle" font-size="12" fill="#5d778d">聊天页编排 / artifact 面板</text>
+
+              <rect x="536" y="38" width="214" height="72" rx="18" fill="url(#actorFillA)" stroke="#c6d8e6"></rect>
+              <text x="643" y="68" text-anchor="middle" font-size="18" font-weight="700">useChatStream.ts</text>
+              <text x="643" y="92" text-anchor="middle" font-size="12" fill="#5d778d">发送、乐观更新、审批回写</text>
+
+              <rect x="808" y="38" width="220" height="72" rx="18" fill="url(#actorFillA)" stroke="#c6d8e6"></rect>
+              <text x="918" y="68" text-anchor="middle" font-size="18" font-weight="700">agentService.ts</text>
+              <text x="918" y="92" text-anchor="middle" font-size="12" fill="#5d778d">POST / SSE 解析</text>
+
+              <rect x="1090" y="38" width="230" height="72" rx="18" fill="url(#actorFillA)" stroke="#c6d8e6"></rect>
+              <text x="1205" y="68" text-anchor="middle" font-size="18" font-weight="700">FastAPI /agent/stream</text>
+              <text x="1205" y="92" text-anchor="middle" font-size="12" fill="#5d778d">stream_agent()</text>
+
+              <rect x="1378" y="38" width="222" height="72" rx="18" fill="url(#actorFillB)" stroke="#c6d8e6"></rect>
+              <text x="1489" y="68" text-anchor="middle" font-size="18" font-weight="700">AgentService</text>
+              <text x="1489" y="92" text-anchor="middle" font-size="12" fill="#5d778d">stream_chat() 编排中枢</text>
+
+              <rect x="1652" y="38" width="180" height="72" rx="18" fill="url(#actorFillB)" stroke="#c6d8e6"></rect>
+              <text x="1742" y="68" text-anchor="middle" font-size="18" font-weight="700">Wuwei Runtime</text>
+              <text x="1742" y="92" text-anchor="middle" font-size="12" fill="#5d778d">Agent + Hooks + Tools</text>
+
+              <line x1="144" y1="124" x2="144" y2="1360" stroke="#d7e4ed" stroke-width="2"></line>
+              <line x1="386" y1="124" x2="386" y2="1360" stroke="#d7e4ed" stroke-width="2"></line>
+              <line x1="643" y1="124" x2="643" y2="1360" stroke="#d7e4ed" stroke-width="2"></line>
+              <line x1="918" y1="124" x2="918" y2="1360" stroke="#d7e4ed" stroke-width="2"></line>
+              <line x1="1205" y1="124" x2="1205" y2="1360" stroke="#d7e4ed" stroke-width="2"></line>
+              <line x1="1489" y1="124" x2="1489" y2="1360" stroke="#d7e4ed" stroke-width="2"></line>
+              <line x1="1742" y1="124" x2="1742" y2="1360" stroke="#d7e4ed" stroke-width="2"></line>
+
+              <text x="56" y="166" font-size="14" font-weight="700" fill="#1274c0">主干流程</text>
+
+              <line x1="144" y1="208" x2="386" y2="208" stroke="#1274c0" stroke-width="3" marker-end="url(#arrowBlue)"></line>
+              <text x="262" y="194" text-anchor="middle" font-size="14" font-weight="700">1. 输入消息 / 模式 / Agent / 附件</text>
+              <text x="262" y="226" text-anchor="middle" font-size="12" fill="#5d778d">用户在 Chat 页面触发发送</text>
+
+              <line x1="386" y1="266" x2="643" y2="266" stroke="#1274c0" stroke-width="3" marker-end="url(#arrowBlue)"></line>
+              <text x="514" y="252" text-anchor="middle" font-size="14" font-weight="700">2. Chat 调用 useChatStream.handleSend()</text>
+              <text x="514" y="284" text-anchor="middle" font-size="12" fill="#5d778d">准备本地 session、临时 model message、runStatus</text>
+
+              <line x1="643" y1="324" x2="643" y2="362" stroke="#1274c0" stroke-width="3"></line>
+              <text x="658" y="348" font-size="13" fill="#163247">3. 可选：上传附件 -> fileService.uploadFiles()</text>
+              <text x="658" y="367" font-size="12" fill="#5d778d">把文件转成后端可访问的 file_path</text>
+
+              <line x1="643" y1="416" x2="918" y2="416" stroke="#1274c0" stroke-width="3" marker-end="url(#arrowBlue)"></line>
+              <text x="780" y="402" text-anchor="middle" font-size="14" font-weight="700">4. sendMessageStream(message, options)</text>
+              <text x="780" y="434" text-anchor="middle" font-size="12" fill="#5d778d">携带 session_id / response_mode / agent_profile_id / files</text>
+
+              <line x1="918" y1="486" x2="1205" y2="486" stroke="#1274c0" stroke-width="3" marker-end="url(#arrowBlue)"></line>
+              <text x="1062" y="470" text-anchor="middle" font-size="14" font-weight="700">5. POST /api/v1/agent/stream</text>
+              <text x="1062" y="502" text-anchor="middle" font-size="12" fill="#5d778d">Accept: text/event-stream</text>
+
+              <line x1="1205" y1="556" x2="1489" y2="556" stroke="#1274c0" stroke-width="3" marker-end="url(#arrowBlue)"></line>
+              <text x="1346" y="540" text-anchor="middle" font-size="14" font-weight="700">6. stream_agent -> ensure_ready / ensure_session_access / stream_chat</text>
+              <text x="1346" y="572" text-anchor="middle" font-size="12" fill="#5d778d">API 层只做鉴权、异常转 HTTP 和 SSE 包装</text>
+
+              <line x1="1489" y1="620" x2="1489" y2="668" stroke="#0f8f7f" stroke-width="3"></line>
+              <text x="1504" y="638" font-size="13">7. 解析运行时 Agent</text>
+              <text x="1504" y="657" font-size="12" fill="#5d778d">resolve_runtime_profile -> AgentProfileService / ToolConfigService</text>
+
+              <line x1="1489" y1="712" x2="1742" y2="712" stroke="#0f8f7f" stroke-width="3" marker-end="url(#arrowTeal)"></line>
+              <text x="1615" y="696" text-anchor="middle" font-size="14" font-weight="700">8. 构建或复用 Wuwei Agent</text>
+              <text x="1615" y="728" text-anchor="middle" font-size="12" fill="#5d778d">StorageHook / HitlHook / SkillHook / ContextCompressionHook</text>
+
+              <line x1="1489" y1="772" x2="1489" y2="820" stroke="#0f8f7f" stroke-width="3"></line>
+              <text x="1504" y="791" font-size="13">9. create_or_get_session + save_meta + subscribe approval queue</text>
+              <text x="1504" y="810" font-size="12" fill="#5d778d">恢复历史消息，写入 owner / agent_profile_id / metadata</text>
+
+              <line x1="1489" y1="872" x2="1205" y2="872" stroke="#1274c0" stroke-width="3" marker-end="url(#arrowBlue)"></line>
+              <text x="1346" y="856" text-anchor="middle" font-size="14" font-weight="700">10. 先推 session + run_status(thinking)</text>
+              <text x="1346" y="888" text-anchor="middle" font-size="12" fill="#5d778d">SSE 首包让前端拿到真实 session_id 与状态</text>
+
+              <line x1="1205" y1="930" x2="918" y2="930" stroke="#1274c0" stroke-width="3" marker-end="url(#arrowBlue)"></line>
+              <text x="1062" y="914" text-anchor="middle" font-size="14" font-weight="700">11. SSE 回前端，sendMessageStream 逐块解析</text>
+              <text x="1062" y="946" text-anchor="middle" font-size="12" fill="#5d778d">parseSseEvent -> onSessionState / onRunStatus</text>
+
+              <line x1="1489" y1="1000" x2="1742" y2="1000" stroke="#0f8f7f" stroke-width="3" marker-end="url(#arrowTeal)"></line>
+              <text x="1615" y="984" text-anchor="middle" font-size="14" font-weight="700">12. agent.stream_events(user_message, session)</text>
+              <text x="1615" y="1016" text-anchor="middle" font-size="12" fill="#5d778d">Wuwei 持续产生 text_delta / tool_start / done / error</text>
+
+              <line x1="1742" y1="1060" x2="1489" y2="1060" stroke="#0f8f7f" stroke-width="3" marker-end="url(#arrowTeal)"></line>
+              <text x="1615" y="1044" text-anchor="middle" font-size="14" font-weight="700">13. AgentService 映射运行时事件</text>
+              <text x="1615" y="1076" text-anchor="middle" font-size="12" fill="#5d778d">text_delta -> delta，tool_* -> tool_calls/tool_results，done -> done</text>
+
+              <line x1="1489" y1="1130" x2="1205" y2="1130" stroke="#1274c0" stroke-width="3" marker-end="url(#arrowBlue)"></line>
+              <line x1="1205" y1="1130" x2="918" y2="1130" stroke="#1274c0" stroke-width="3" marker-end="url(#arrowBlue)"></line>
+              <line x1="918" y1="1130" x2="643" y2="1130" stroke="#1274c0" stroke-width="3" marker-end="url(#arrowBlue)"></line>
+              <line x1="643" y1="1130" x2="386" y2="1130" stroke="#1274c0" stroke-width="3" marker-end="url(#arrowBlue)"></line>
+              <text x="938" y="1114" text-anchor="middle" font-size="14" font-weight="700">14. delta / tool_calls / tool_results / done 逐层回推</text>
+              <text x="938" y="1146" text-anchor="middle" font-size="12" fill="#5d778d">前端把流式文本、推理、工具状态和 usage 落回当前 session</text>
+
+              <line x1="386" y1="1200" x2="144" y2="1200" stroke="#1274c0" stroke-width="3" marker-end="url(#arrowBlue)"></line>
+              <text x="266" y="1184" text-anchor="middle" font-size="14" font-weight="700">15. 页面展示最终回复 / artifact / 会话标题</text>
+              <text x="266" y="1216" text-anchor="middle" font-size="12" fill="#5d778d">必要时 generateTitle() 更新会话标题</text>
+
+              <text x="56" y="1274" font-size="14" font-weight="700" fill="#cf7e22">审批分支（HitlHook 命中时）</text>
+
+              <line x1="1742" y1="1308" x2="1489" y2="1308" stroke="#cf7e22" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#arrowOrange)"></line>
+              <text x="1615" y="1292" text-anchor="middle" font-size="14" font-weight="700">A1. 工具命中 approval_tools</text>
+              <text x="1615" y="1324" text-anchor="middle" font-size="12" fill="#5d778d">HitlHook -> ApprovalManager.save pending + publish queue</text>
+
+              <line x1="1489" y1="1354" x2="1205" y2="1354" stroke="#cf7e22" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#arrowOrange)"></line>
+              <line x1="1205" y1="1354" x2="918" y2="1354" stroke="#cf7e22" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#arrowOrange)"></line>
+              <line x1="918" y1="1354" x2="643" y2="1354" stroke="#cf7e22" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#arrowOrange)"></line>
+              <line x1="643" y1="1354" x2="144" y2="1354" stroke="#cf7e22" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#arrowOrange)"></line>
+              <text x="858" y="1338" text-anchor="middle" font-size="14" font-weight="700">A2. approval_required SSE -> UI 审批按钮 -> POST 决策</text>
+            </g>
+
+            <rect x="102" y="1238" width="1668" height="74" rx="18" fill="rgba(255, 246, 234, 0.84)" stroke="#efd4ad"></rect>
+            <text x="132" y="1264" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="13" fill="#8c5e1d">
+              PPT 模式额外分支：在 AgentService 收到 done 事件后，会调用 _create_ppt_artifact() -> PptArtifactService.create_from_slides_dir()
+            </text>
+            <text x="132" y="1287" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="13" fill="#8c5e1d">
+              校验 SVG、解析 data-theme、生成 preview_html，然后额外发一条 artifact_ready SSE；前端 onPptArtifact 立即打开右侧 artifact 预览面板。
+            </text>
+          </svg>
+        </div>
+
+        <div class="legend">
+          <div class="legend-item"><span class="legend-line"></span> 蓝色实线：HTTP / SSE 主干</div>
+          <div class="legend-item"><span class="legend-line runtime"></span> 绿色实线：Agent 运行时内部步骤</div>
+          <div class="legend-item"><span class="legend-line dashed"></span> 橙色虚线：审批分支 / 人机回路</div>
+        </div>
+
+        <div class="notes">
+          <article class="note-card">
+            <h3>时序图里最关键的设计点</h3>
+            <ul>
+              <li>前端不是等完整回复才更新，而是先创建本地 session，再靠 SSE 不断补全。</li>
+              <li>后端的 API 层很薄，真正的状态编排几乎都在 <code>AgentService.stream_chat()</code>。</li>
+              <li>审批不是单独接口轮询模型状态，而是运行时通过 <code>ApprovalManager</code> 直接向 SSE 通道塞事件。</li>
+              <li>PPT artifact 不是另一条 API 任务队列，而是聊天运行结束后在同一轮 SSE 中产出的附加制品。</li>
+            </ul>
+          </article>
+
+          <article class="note-card">
+            <h3>对应源码锚点</h3>
+            <ul>
+              <li><code>frontend/src/hooks/useChatStream.ts:122</code> 负责发送。</li>
+              <li><code>frontend/src/services/agentService.ts:223</code> 负责 SSE 解析。</li>
+              <li><code>backend/app/api/v1/endpoints/agent.py:25</code> 是流式入口。</li>
+              <li><code>backend/app/services/agent_service.py:745</code> 是后端主流程。</li>
+              <li><code>backend/app/services/agent_service.py:909</code> 会发 <code>artifact_ready</code>。</li>
+              <li><code>backend/app/services/agent_service.py:1000</code> 会发 <code>approval_required</code>。</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h2>二、AgentProfile / ToolConfig / Skill / Approval 的领域关系图</h2>
+        <p>
+          这张图把“配置层”和“运行时层”分开画。
+          核心结论是：<code>ToolConfig</code> 主要定义模式级默认工具策略，<code>AgentProfile</code> 是真正面向用户的可安装 Agent 单元，
+          <code>Skill</code> 通过多对多挂到 AgentProfile 上，而 <code>Approval</code> 不是静态配置实体，它是运行时根据工具审批策略产生的会话事件。
+        </p>
+      </div>
+      <div class="section-body">
+        <div class="diagram-frame">
+          <svg viewBox="0 0 1680 1080" role="img" aria-label="AgentProfile、ToolConfig、Skill、Approval 关系图">
+            <defs>
+              <marker id="domainArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#1274c0"></path>
+              </marker>
+              <marker id="runtimeArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f8f7f"></path>
+              </marker>
+              <marker id="eventArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#cf7e22"></path>
+              </marker>
+            </defs>
+
+            <rect x="0" y="0" width="1680" height="1080" rx="28" fill="#fbfdff"></rect>
+
+            <rect x="40" y="40" width="1600" height="420" rx="30" fill="rgba(248, 252, 255, 0.98)" stroke="#d7e4ed" stroke-width="2"></rect>
+            <text x="78" y="82" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="22" font-weight="700" fill="#163247">配置层</text>
+            <text x="78" y="110" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="13" fill="#5d778d">定义 Agent 长什么样、默认有哪些工具、可附着哪些技能</text>
+
+            <rect x="40" y="500" width="1600" height="540" rx="30" fill="rgba(244, 252, 250, 0.98)" stroke="#cfe6df" stroke-width="2"></rect>
+            <text x="78" y="542" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="22" font-weight="700" fill="#163247">运行时层</text>
+            <text x="78" y="570" font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" font-size="13" fill="#5d778d">用户发起对话后，把配置层组合成 RuntimeAgentProfile；审批只在这个阶段变成真实事件</text>
+
+            <g font-family="Segoe UI, PingFang SC, Microsoft YaHei, sans-serif" fill="#163247">
+              <rect x="90" y="142" width="330" height="194" rx="24" fill="#ffffff" stroke="#c6d8e6" stroke-width="2"></rect>
+              <text x="118" y="176" font-size="22" font-weight="700">AgentToolConfigModel</text>
+              <text x="118" y="204" font-size="13" fill="#5d778d">模式级工具默认值</text>
+              <text x="118" y="240" font-size="14">键：<tspan font-family="JetBrains Mono, Consolas, monospace">mode + tool_name</tspan></text>
+              <text x="118" y="267" font-size="14">字段：enabled / requires_approval / approval_sub_tools_json</text>
+              <text x="118" y="302" font-size="13" fill="#5d778d">由 ToolConfigService 管理；当只给 response_mode 没选具体 AgentProfile 时，</text>
+              <text x="118" y="324" font-size="13" fill="#5d778d">会直接生成 RuntimeToolProfile。</text>
+
+              <rect x="522" y="118" width="382" height="242" rx="24" fill="#ffffff" stroke="#c6d8e6" stroke-width="2"></rect>
+              <text x="550" y="152" font-size="22" font-weight="700">AgentProfileModel</text>
+              <text x="550" y="180" font-size="13" fill="#5d778d">真正面向用户的 Agent 定义</text>
+              <text x="550" y="216" font-size="14">字段：name / slug / response_mode / system_prompt / listed / enabled</text>
+              <text x="550" y="243" font-size="14">语义：一个“可安装、可受众控制、可挂工具和技能”的 Agent</text>
+              <text x="550" y="279" font-size="13" fill="#5d778d">内置 Agent 会在启动时由 AgentProfileService.ensure_defaults() 自动补齐。</text>
+              <text x="550" y="301" font-size="13" fill="#5d778d">用户通常最终使用的是 AgentProfile，而不是裸 mode。</text>
+              <text x="550" y="334" font-size="14" font-weight="700" fill="#1274c0">旁路关系：</text>
+              <text x="640" y="334" font-size="14">UserInstalledAgent / Audience / AgentSession 都会挂它</text>
+
+              <rect x="1010" y="142" width="300" height="194" rx="24" fill="#ffffff" stroke="#c6d8e6" stroke-width="2"></rect>
+              <text x="1038" y="176" font-size="22" font-weight="700">SkillModel</text>
+              <text x="1038" y="204" font-size="13" fill="#5d778d">本地技能实体</text>
+              <text x="1038" y="240" font-size="14">字段：name / slug / description / root_dir / enabled</text>
+              <text x="1038" y="267" font-size="14">对应磁盘目录中的 <tspan font-family="JetBrains Mono, Consolas, monospace">SKILL.md</tspan>、references、scripts</text>
+              <text x="1038" y="302" font-size="13" fill="#5d778d">由 SkillService 管理；可创建、上传 zip、导入本地目录。</text>
+
+              <rect x="1370" y="160" width="208" height="158" rx="24" fill="#ffffff" stroke="#c6d8e6" stroke-width="2"></rect>
+              <text x="1398" y="194" font-size="20" font-weight="700">ApprovalModel</text>
+              <text x="1398" y="223" font-size="13" fill="#5d778d">不是配置实体</text>
+              <text x="1398" y="258" font-size="14">它不属于设计期关系</text>
+              <text x="1398" y="285" font-size="14">而是运行时生成的</text>
+
+              <rect x="640" y="386" width="146" height="46" rx="14" fill="#edf5fb" stroke="#c6d8e6"></rect>
+              <text x="713" y="415" text-anchor="middle" font-size="14" font-weight="700">AgentProfileToolModel</text>
+
+              <rect x="1118" y="386" width="162" height="46" rx="14" fill="#edf5fb" stroke="#c6d8e6"></rect>
+              <text x="1199" y="415" text-anchor="middle" font-size="14" font-weight="700">AgentProfileSkillModel</text>
+
+              <line x1="420" y1="240" x2="522" y2="240" stroke="#1274c0" stroke-width="3" marker-end="url(#domainArrow)"></line>
+              <text x="472" y="224" text-anchor="middle" font-size="14" font-weight="700">默认工具策略</text>
+              <text x="472" y="259" text-anchor="middle" font-size="12" fill="#5d778d">seed / fallback</text>
+
+              <line x1="713" y1="360" x2="713" y2="386" stroke="#1274c0" stroke-width="3"></line>
+              <line x1="648" y1="360" x2="713" y2="360" stroke="#1274c0" stroke-width="3"></line>
+              <line x1="713" y1="432" x2="713" y2="470" stroke="#1274c0" stroke-width="3"></line>
+              <text x="734" y="446" font-size="13" fill="#5d778d">1 个 AgentProfile</text>
+              <text x="734" y="463" font-size="13" fill="#5d778d">可挂多条 tool 配置</text>
+
+              <line x1="904" y1="240" x2="1010" y2="240" stroke="#1274c0" stroke-width="3" marker-end="url(#domainArrow)"></line>
+              <text x="957" y="224" text-anchor="middle" font-size="14" font-weight="700">通过关联表挂技能</text>
+
+              <line x1="1199" y1="336" x2="1199" y2="386" stroke="#1274c0" stroke-width="3"></line>
+              <line x1="1166" y1="336" x2="1199" y2="336" stroke="#1274c0" stroke-width="3"></line>
+              <text x="1222" y="363" font-size="13" fill="#5d778d">多对多桥表</text>
+
+              <rect x="150" y="632" width="370" height="236" rx="26" fill="#ffffff" stroke="#bfe1d8" stroke-width="2"></rect>
+              <text x="180" y="668" font-size="22" font-weight="700">RuntimeAgentProfile</text>
+              <text x="180" y="696" font-size="13" fill="#5d778d">stream_chat() 里真正喂给 Wuwei 的运行时对象</text>
+              <text x="180" y="734" font-size="14">包含：</text>
+              <text x="214" y="761" font-size="14">• system_prompt</text>
+              <text x="214" y="786" font-size="14">• builtin_tools</text>
+              <text x="214" y="811" font-size="14">• approval_tools</text>
+              <text x="214" y="836" font-size="14">• skills</text>
+              <text x="180" y="874" font-size="13" fill="#5d778d">来源有两种：resolve_runtime(profile) 或 _runtime_from_mode(mode)</text>
+
+              <rect x="640" y="632" width="354" height="236" rx="26" fill="#ffffff" stroke="#bfe1d8" stroke-width="2"></rect>
+              <text x="670" y="668" font-size="22" font-weight="700">Wuwei Agent + Hooks</text>
+              <text x="670" y="696" font-size="13" fill="#5d778d">根据 RuntimeAgentProfile 构建出来的执行体</text>
+              <text x="670" y="734" font-size="14">核心注入：</text>
+              <text x="704" y="761" font-size="14">• ToolRegistry</text>
+              <text x="704" y="786" font-size="14">• StorageHook(DatabaseAgentStorage)</text>
+              <text x="704" y="811" font-size="14">• HitlHook(ApprovalManager)</text>
+              <text x="704" y="836" font-size="14">• SkillHook / ContextCompressionHook</text>
+              <text x="670" y="874" font-size="13" fill="#5d778d">此时 approval_tools 已经是可执行层面的真实审批范围</text>
+
+              <rect x="1110" y="632" width="256" height="236" rx="26" fill="#ffffff" stroke="#bfe1d8" stroke-width="2"></rect>
+              <text x="1140" y="668" font-size="22" font-weight="700">AgentSessionModel</text>
+              <text x="1140" y="696" font-size="13" fill="#5d778d">一次真实会话</text>
+              <text x="1140" y="734" font-size="14">保存：</text>
+              <text x="1174" y="761" font-size="14">• user_id</text>
+              <text x="1174" y="786" font-size="14">• agent_profile_id</text>
+              <text x="1174" y="811" font-size="14">• summary / metadata / usage</text>
+              <text x="1140" y="848" font-size="13" fill="#5d778d">Approval 和 PptArtifact 都沿 session_id 归属</text>
+
+              <rect x="1424" y="632" width="164" height="236" rx="26" fill="#fff8ef" stroke="#efd4ad" stroke-width="2"></rect>
+              <text x="1454" y="668" font-size="22" font-weight="700">ApprovalModel</text>
+              <text x="1454" y="696" font-size="13" fill="#8c5e1d">运行时事件</text>
+              <text x="1454" y="734" font-size="14">字段：</text>
+              <text x="1488" y="761" font-size="14">• session_id</text>
+              <text x="1488" y="786" font-size="14">• tool_name</text>
+              <text x="1488" y="811" font-size="14">• arguments_json</text>
+              <text x="1488" y="836" font-size="14">• status / reason</text>
+              <text x="1454" y="874" font-size="13" fill="#8c5e1d">pending -> approved / rejected</text>
+
+              <line x1="520" y1="750" x2="640" y2="750" stroke="#0f8f7f" stroke-width="3" marker-end="url(#runtimeArrow)"></line>
+              <text x="580" y="735" text-anchor="middle" font-size="14" font-weight="700">构建执行体</text>
+              <text x="580" y="770" text-anchor="middle" font-size="12" fill="#5d778d">AgentService._get_agent()</text>
+
+              <line x1="994" y1="750" x2="1110" y2="750" stroke="#0f8f7f" stroke-width="3" marker-end="url(#runtimeArrow)"></line>
+              <text x="1052" y="735" text-anchor="middle" font-size="14" font-weight="700">create_or_get_session</text>
+
+              <line x1="1366" y1="750" x2="1424" y2="750" stroke="#cf7e22" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#eventArrow)"></line>
+              <text x="1395" y="735" text-anchor="middle" font-size="14" font-weight="700">命中审批</text>
+
+              <line x1="330" y1="336" x2="330" y2="632" stroke="#1274c0" stroke-width="2" stroke-dasharray="10 7" marker-end="url(#domainArrow)"></line>
+              <text x="348" y="496" font-size="13" fill="#5d778d">只给 mode 时</text>
+              <text x="348" y="515" font-size="13" fill="#5d778d">可直接走</text>
+              <text x="348" y="534" font-size="13" fill="#5d778d">_runtime_from_mode()</text>
+
+              <line x1="713" y1="360" x2="335" y2="632" stroke="#1274c0" stroke-width="2" stroke-dasharray="10 7" marker-end="url(#domainArrow)"></line>
+              <text x="462" y="454" font-size="13" fill="#5d778d">resolve_runtime(profile)</text>
+
+              <line x1="1160" y1="336" x2="368" y2="632" stroke="#1274c0" stroke-width="2" stroke-dasharray="10 7" marker-end="url(#domainArrow)"></line>
+              <text x="736" y="524" font-size="13" fill="#5d778d">profile.skills -> RuntimeSkill[]</text>
+
+              <line x1="1474" y1="318" x2="1506" y2="632" stroke="#cf7e22" stroke-width="2" stroke-dasharray="10 7" marker-end="url(#eventArrow)"></line>
+              <text x="1528" y="480" font-size="13" fill="#8c5e1d">真正的 Approval 只在会话执行时出现</text>
+
+              <line x1="1199" y1="868" x2="1454" y2="868" stroke="#cf7e22" stroke-width="3" marker-end="url(#eventArrow)"></line>
+              <text x="1326" y="853" text-anchor="middle" font-size="14" font-weight="700">1 个 session 可产生多条 approval 记录</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="legend">
+          <div class="legend-item"><span class="legend-line"></span> 蓝色：配置关系 / 默认值来源</div>
+          <div class="legend-item"><span class="legend-line runtime"></span> 绿色：运行时对象组装</div>
+          <div class="legend-item"><span class="legend-line dashed"></span> 橙色：审批事件生成与会话归属</div>
+        </div>
+
+        <div class="notes">
+          <article class="note-card">
+            <h3>四个概念的正确理解</h3>
+            <ul>
+              <li><code>AgentProfile</code> 是产品层实体，用户感知到的是它，不是裸 <code>mode</code>。</li>
+              <li><code>ToolConfig</code> 主要提供模式级默认工具策略，并在启动时帮助补齐内置 Agent 的工具配置。</li>
+              <li><code>Skill</code> 通过 <code>AgentProfileSkillModel</code> 多对多挂到 AgentProfile 上，进入运行时后变成 <code>RuntimeSkill</code>。</li>
+              <li><code>Approval</code> 不是设计时配置，而是运行时命中 <code>approval_tools</code> 后落库的会话事件。</li>
+            </ul>
+          </article>
+
+          <article class="note-card">
+            <h3>对应源码锚点</h3>
+            <ul>
+              <li><code>backend/app/db/models.py:127</code> 定义模式级工具配置。</li>
+              <li><code>backend/app/db/models.py:140</code> 定义 AgentProfile。</li>
+              <li><code>backend/app/db/models.py:158</code> 定义 Agent 与工具的关联表。</li>
+              <li><code>backend/app/db/models.py:171</code> 与 <code>:185</code> 定义 Skill 及其关联表。</li>
+              <li><code>backend/app/services/agent_profile_service.py</code> 负责把配置层折叠成 RuntimeAgentProfile。</li>
+              <li><code>backend/app/db/models.py:227</code> 定义 ApprovalModel。</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer">
+      生成位置：<code>docs/agentic-architecture-maps.html</code>。<br />
+      解读范围覆盖：<code>Chat.tsx</code>、<code>useChatStream.ts</code>、<code>agentService.ts</code>、
+      <code>backend/app/api/v1/endpoints/agent.py</code>、<code>backend/app/services/agent_service.py</code>、
+      <code>agent_profile_service.py</code>、<code>tool_config_service.py</code>、<code>skill_service.py</code>、
+      <code>approval_manager.py</code>、<code>session_storage.py</code>、<code>ppt_artifact_service.py</code>。
+    </div>
+  </div>
+</body>
+</html>

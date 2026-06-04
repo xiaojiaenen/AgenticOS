@@ -51,7 +51,7 @@ class DatabaseAgentStorage:
 
                 metadata = getattr(session, "metadata", {}) or {}
                 row.system_prompt = session.system_prompt
-                row.user_id = metadata.get("user_id") or row.user_id
+                row.user_id = row.user_id or metadata.get("user_id")
                 row.agent_profile_id = metadata.get("agent_profile_id") or row.agent_profile_id
                 row.max_steps = session.max_steps
                 row.parallel_tool_calls = session.parallel_tool_calls
@@ -65,14 +65,23 @@ class DatabaseAgentStorage:
 
     async def append_message(self, session_id: str, message) -> None:
         def _run():
-            with self.session_factory() as db:
-                db.add(
-                    AgentMessageModel(
-                        session_id=session_id,
-                        message_json=message.model_dump_json(exclude_none=True),
-                    )
-                )
-                db.commit()
+            import time
+            for attempt in range(3):
+                try:
+                    with self.session_factory() as db:
+                        db.add(
+                            AgentMessageModel(
+                                session_id=session_id,
+                                message_json=message.model_dump_json(exclude_none=True),
+                            )
+                        )
+                        db.commit()
+                    return
+                except Exception as e:
+                    if "database is locked" in str(e) and attempt < 2:
+                        time.sleep(0.5 * (attempt + 1))
+                        continue
+                    raise
         await asyncio.to_thread(_run)
 
     async def load(self, session_id: str):
@@ -107,7 +116,18 @@ class DatabaseAgentStorage:
                     .order_by(AgentMessageModel.id.asc())
                 ).all()
                 for message in messages:
-                    session.context._messages.append(Message.model_validate_json(message.message_json))
+                    # wuwei 2.1 的 BaseMessage 严格验证 tool_calls 不能为 null，
+                    # 但旧数据或 LLM 返回可能存储了 "tool_calls": null，清理后再反序列化。
+                    raw = message.message_json
+                    if '"tool_calls": null' in raw:
+                        raw = raw.replace('"tool_calls": null', '"tool_calls": []')
+                    if '"reasoning_content": null' in raw:
+                        raw = raw.replace('"reasoning_content": null', '"reasoning_content": ""')
+                    try:
+                        session.context._messages.append(Message.model_validate_json(raw))
+                    except Exception:
+                        # 最后兜底：跳过无法解析的消息
+                        continue
 
                 return session
         return await asyncio.to_thread(_run)
@@ -193,6 +213,17 @@ class DatabaseAgentStorage:
                         "updated_at": _iso(row.updated_at),
                     })
                 return sessions
+        return await asyncio.to_thread(_run)
+
+    async def get_message_count(self, session_id: str) -> int:
+        """Return the number of messages in a session."""
+        def _run():
+            with self.session_factory() as db:
+                return db.scalar(
+                    select(func.count(AgentMessageModel.id)).where(
+                        AgentMessageModel.session_id == session_id
+                    )
+                ) or 0
         return await asyncio.to_thread(_run)
 
     async def assign_owner(self, session_id: str, user_id: int) -> None:

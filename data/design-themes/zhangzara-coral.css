@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-coral — from open-design zhangzara html-ppt template */
+/* Coral: Cream and coral on near-black, set in oversized Bebas Neue. */
+
+:root {
+  --bg: #1A1A1A;
+  --bg-soft: #1b1b1b;
+  --surface: #E8E0D4;
+  --surface-2: #dcdcdc;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+  --text-1: #F5F0E8;
+  --text-2: #b7b4ae;
+  --text-3: #716f6c;
+  --accent: #E85D5D;
+  --accent-2: #ff6653;
+  --accent-3: #7f3741;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #E85D5D, #ff6653);
+  --grad-soft: linear-gradient(135deg, rgba(232,93,93,0.08), rgba(255,102,83,0.04));
+  --font-sans: 'Inter', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Bebas Neue', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.20);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.30);
+}

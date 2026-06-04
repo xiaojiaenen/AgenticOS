@@ -1,0 +1,17 @@
+/* Rose Pine — warm rose gold on deep plum, elegant and modern */
+:root {
+  --bg: #191724;
+  --surface: #1f1d2e;
+  --surface-warm: #242234;
+  --fg: #e0def4;
+  --fg-2: #c2bedb;
+  --muted: #817c9c;
+  --border: #3f3956;
+  --border-soft: #56506e;
+  --accent: #ebbcba;
+  --accent-hover: #c4a7e7;
+  --accent-active: #9ccfd8;
+  --success: #31748f;
+  --warn: #f6c177;
+  --danger: #eb6f92;
+}

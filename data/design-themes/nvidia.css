@@ -1,0 +1,30 @@
+/* PPT theme: nvidia — manually converted from open-design DESIGN.md */
+
+:root {
+  --bg: #000000;
+  --bg-soft: #0a0a0a;
+  --surface: #141414;
+  --surface-2: #1f1f1f;
+  --border: rgba(255,255,255,0.10);
+  --border-strong: rgba(255,255,255,0.20);
+  --text-1: #ffffff;
+  --text-2: #a0a0a0;
+  --text-3: #666666;
+  --accent: #76b900;
+  --accent-2: #df6500;
+  --accent-3: #007fff;
+  --good: #76b900;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #76b900, #df6500);
+  --grad-soft: linear-gradient(135deg, rgba(118,185,0,0.08), rgba(223,101,0,0.04));
+  --font-sans: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 2px;
+  --radius-sm: 1px;
+  --radius-lg: 4px;
+  --shadow: 0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.7);
+}

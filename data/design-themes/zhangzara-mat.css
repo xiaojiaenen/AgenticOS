@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-mat — from open-design zhangzara html-ppt template */
+/* Mat: Dark sage canvas with bone paper and burnt-orange accent; mid-century modern with wood undertones. */
+
+:root {
+  --bg: #232e26;
+  --bg-soft: #253028;
+  --surface: #2e3d30;
+  --surface-2: #ede6d0;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+  --text-1: #f0e8d2;
+  --text-2: #b6b3a1;
+  --text-3: #75786a;
+  --accent: #c07030;
+  --accent-2: #e67b2b;
+  --accent-3: #694321;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #c07030, #e67b2b);
+  --grad-soft: linear-gradient(135deg, rgba(192,112,48,0.08), rgba(230,123,43,0.04));
+  --font-sans: 'DM Sans', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --radius-lg: 24px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.20);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.30);
+}

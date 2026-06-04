@@ -1,0 +1,32 @@
+<!-- layout: stat-highlight | 数据突出 | 超大数字 + 说明 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="theme-name">
+  <rect width="1280" height="720" fill="var(--bg)"/>
+  <g text-anchor="middle" font-family="var(--font-sans)" id="bg-layer">
+    <text x="640" y="140" font-size="18" fill="var(--accent)" font-weight="600">KICKER</text>
+    <text x="640" y="240" font-size="120" font-weight="900" fill="var(--text-1)" font-family="var(--font-display)">+42%</text>
+    <text x="640" y="320" font-size="28" fill="var(--text-1)" font-weight="600">核心指标标题</text>
+    <text x="640" y="380" font-size="16" fill="var(--text-2)">对比周期：2024 Q3 vs 2025 Q3</text>
+    <!-- 三个支撑数据点 -->
+    
+    <g id="stat-support-1">
+<rect x="240" y="450" width="220" height="80" rx="12" fill="var(--surface)"/>
+    <text x="350" y="485" font-size="32" font-weight="800" fill="var(--accent)">2.4M</text>
+    <text x="350" y="510" font-size="12" fill="var(--text-2)">月活用户</text>
+    
+    </g>
+
+    <g id="stat-support-2">
+<rect x="530" y="450" width="220" height="80" rx="12" fill="var(--surface)"/>
+    <text x="640" y="485" font-size="32" font-weight="800" fill="var(--accent-2)">$12.8M</text>
+    <text x="640" y="510" font-size="12" fill="var(--text-2)">营收</text>
+    
+    </g>
+
+    <g id="stat-support-3">
+<rect x="820" y="450" width="220" height="80" rx="12" fill="var(--surface)"/>
+    <text x="930" y="485" font-size="32" font-weight="800" fill="var(--good)">78</text>
+    <text x="930" y="510" font-size="12" fill="var(--text-2)">NPS 得分</text>
+  
+    </g>
+</g>
+</svg>

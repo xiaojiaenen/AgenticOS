@@ -1,0 +1,30 @@
+/* PPT theme: dramatic — manually converted from open-design DESIGN.md */
+
+:root {
+  --bg: #09090b;
+  --bg-soft: #131317;
+  --surface: #18181d;
+  --surface-2: #222228;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.18);
+  --text-1: #fafafa;
+  --text-2: #c0bdd8;
+  --text-3: #7a778e;
+  --accent: #8b5cf6;
+  --accent-2: #a78bfa;
+  --accent-3: #f43f5e;
+  --good: #16a34a;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #8b5cf6, #f43f5e);
+  --grad-soft: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(244,63,94,0.06));
+  --font-sans: 'Outfit','Inter','Noto Sans SC',sans-serif;
+  --font-display: 'Outfit','Inter','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 4px 16px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.5);
+}

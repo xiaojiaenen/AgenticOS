@@ -1,0 +1,30 @@
+/* PPT theme: mono — auto-generated from open-design */
+
+:root {
+  --bg: #e7e5e4;
+  --bg-soft: #e7e5e4;
+  --surface: #e2e0df;
+  --surface-2: #d9d7d6;
+  --border: #dddbda;
+  --border-strong: #c2bfbc;
+  --text-1: #78716b;
+  --text-2: #aea9a6;
+  --text-3: #cfcdcb;
+  --accent: #37f712;
+  --accent-2: #00a6f4;
+  --accent-3: #2ed10f;
+  --good: #00a63d;
+  --warn: #fe9900;
+  --bad: #ff2157;
+  --grad: linear-gradient(135deg, #37f712, #00a6f4);
+  --grad-soft: linear-gradient(135deg, rgba(55,247,18,0.08), rgba(0,166,244,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}

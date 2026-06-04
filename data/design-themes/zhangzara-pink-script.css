@@ -1,0 +1,31 @@
+/* PPT theme: zhangzara-pink-script — from open-design zhangzara html-ppt template */
+/* Pink Script — After Hours: Black canvas, hot pink accent, pearl-cream paper, Instrument Serif headlines: late-night editorial luxury. */
+
+:root {
+  --bg: #060507;
+  --bg-soft: #060507;
+  --surface: #ebebeb;
+  --surface-2: #d9d9d9;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.16);
+  --text-1: #F5EDF1;
+  --text-2: #b2acaf;
+  --text-3: #656164;
+  --accent: #ED3D8C;
+  --accent-2: #ff437e;
+  --accent-3: #822462;
+  --good: #16a34a;
+  --warn: #eab308;
+  --bad: #dc2626;
+  --grad: linear-gradient(135deg, #ED3D8C, #ff437e);
+  --grad-soft: linear-gradient(135deg, rgba(237,61,140,0.08), rgba(255,67,126,0.04));
+  --font-sans: 'Inter', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-display: 'Instrument Serif', 'Playfair Display', 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Playfair Display', 'Noto Serif SC', serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.20);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.30);
+}
