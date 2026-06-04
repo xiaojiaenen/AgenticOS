@@ -8,7 +8,17 @@ const sanitizedCache = new WeakMap<Message, Message>();
 
 function sanitizeForNonAdmin(message: Message): Message {
   if (sanitizedCache.has(message)) return sanitizedCache.get(message)!;
-  const sanitized: Message = { ...message, reasoningText: undefined, toolCalls: undefined };
+  const sanitized: Message = {
+    ...message,
+    reasoningText: undefined,
+    // 保留工具名称和状态，隐藏参数和结果
+    toolCalls: message.toolCalls?.map((tc) => ({
+      id: tc.id,
+      name: tc.name,
+      status: tc.status,
+      // 不暴露参数、结果、approvalId 等细节
+    })),
+  };
   sanitizedCache.set(message, sanitized);
   return sanitized;
 }
@@ -51,7 +61,7 @@ export const MessagesList: React.FC<MessagesListProps> = ({
   const streamingMessageId = isLoading && lastMessage?.role === 'model' ? lastMessage.id : null;
 
   return (
-    <div className="space-y-8 pb-4">
+    <div className="space-y-5 pb-4">
       {(displayMessages || currentSession.messages).map((message, idx) => (
         <ChatMessage
           key={message.id}
@@ -59,6 +69,7 @@ export const MessagesList: React.FC<MessagesListProps> = ({
           index={idx}
           isStreaming={message.id === streamingMessageId}
           wideLayout={wideLayout}
+          isAdmin={isAdmin}
           searchQuery={searchQuery}
           activeMatchId={activeMatchId}
           onOpenArtifact={onOpenArtifact}

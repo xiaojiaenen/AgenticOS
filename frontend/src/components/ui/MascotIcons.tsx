@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { motion } from 'motion/react';
 
 export const MascotHappy = ({ size = 24, className }: { size?: number; className?: string }) => (
@@ -42,7 +42,7 @@ export const MascotSleepy = ({ size = 24, className }: { size?: number; classNam
       <rect x="25" y="35" width="50" height="35" rx="15" fill="white" />
       <path d="M35 48 L45 48" stroke="#0f172a" strokeWidth="3" strokeLinecap="round" />
       <path d="M55 48 L65 48" stroke="#0f172a" strokeWidth="3" strokeLinecap="round" />
-      <motion.circle cx="50" cy="58" r="2" fill="#0f172a" animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2, repeat: Infinity }} />
+      <circle cx="50" cy="58" r="2" fill="#0f172a"><animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite" /></circle>
     </motion.g>
   </motion.svg>
 );
@@ -143,8 +143,8 @@ export const MascotSad = ({ size = 24, className }: { size?: number; className?:
       <rect x="25" y="35" width="50" height="35" rx="15" fill="white" />
       <path d="M35 45 Q40 42 45 45" stroke="#0f172a" strokeWidth="3" strokeLinecap="round" fill="none" />
       <path d="M55 45 Q60 42 65 45" stroke="#0f172a" strokeWidth="3" strokeLinecap="round" fill="none" />
-      <motion.circle cx="35" cy="52" r="2" fill="#94a3b8" animate={{ y: [0, 10, 10], opacity: [1, 1, 0] }} transition={{ duration: 2, repeat: Infinity }} />
-      <motion.circle cx="65" cy="52" r="2" fill="#94a3b8" animate={{ y: [0, 10, 10], opacity: [1, 1, 0] }} transition={{ duration: 2, repeat: Infinity, delay: 1 }} />
+      <motion.g animate={{ y: [0, 10, 10], opacity: [1, 1, 0] }} transition={{ duration: 2, repeat: Infinity }}><circle cx="35" cy="52" r="2" fill="#94a3b8" /></motion.g>
+      <motion.g animate={{ y: [0, 10, 10], opacity: [1, 1, 0] }} transition={{ duration: 2, repeat: Infinity, delay: 1 }}><circle cx="65" cy="52" r="2" fill="#94a3b8" /></motion.g>
       <path d="M45 62 Q50 58 55 62" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" fill="none" />
     </motion.g>
   </motion.svg>
@@ -160,7 +160,7 @@ export const MascotWink = ({ size = 24, className }: { size?: number; className?
       <ellipse cx="40" cy="48" rx="4" ry="4" fill="#0f172a" />
       <path d="M55 48 L65 48" stroke="#0f172a" strokeWidth="3" strokeLinecap="round" />
       <path d="M45 58 Q50 62 55 58" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" fill="none" />
-      <motion.path d="M48 60 Q50 66 52 60 Z" fill="#f43f5e" animate={{ scaleY: [1, 1.2, 1] }} transition={{ duration: 1, repeat: Infinity }} style={{ transformOrigin: '50px 60px' }} />
+      <motion.path d="M48 60 Q50 66 52 60 Z" fill="#f43f5e" animate={{ scaleY: [1, 1.2, 1] }} transition={{ duration: 1, repeat: Infinity }} style={{ transformOrigin: '50% 60%' }} />
     </motion.g>
   </motion.svg>
 );

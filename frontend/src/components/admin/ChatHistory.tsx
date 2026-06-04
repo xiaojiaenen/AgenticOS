@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
@@ -26,6 +26,7 @@ import {
   getConversationDetail,
   listConversations,
 } from '../../services/conversationService';
+import { ChatAnalytics } from './ChatAnalytics';
 import { cn } from '../../lib/utils';
 import { useAdminModalBackdrop } from './useAdminModalBackdrop';
 
@@ -99,7 +100,7 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
   return (
     <div className="mt-3 space-y-3">
       {message.reasoning_text && (
-        <details className="group rounded-3xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
+        <details className="group rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
           <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-black tracking-[0.14em] text-slate-500">
             <BrainCircuit size={14} />
             思考过程
@@ -114,7 +115,7 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
         <details
           key={`${message.id}-call-${tool.id || tool.name}`}
           open
-          className="group rounded-3xl border border-sky-100 bg-sky-50/55 px-4 py-3 [&_summary::-webkit-details-marker]:hidden"
+          className="group rounded-2xl border border-sky-100 bg-sky-50/55 px-4 py-3 [&_summary::-webkit-details-marker]:hidden"
         >
           <summary className="flex cursor-pointer select-none items-center justify-between gap-3">
             <span className="flex min-w-0 items-center gap-2">
@@ -138,7 +139,7 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
             key={`${message.id}-result-${result.tool_call_id || result.name || result.result.slice(0, 12)}`}
             open
             className={cn(
-              'group rounded-3xl border px-4 py-3 [&_summary::-webkit-details-marker]:hidden',
+              'group rounded-2xl border px-4 py-3 [&_summary::-webkit-details-marker]:hidden',
               isError ? 'border-rose-100 bg-rose-50/70' : 'border-violet-100 bg-violet-50/60',
             )}
           >
@@ -170,6 +171,7 @@ export const ChatHistory = () => {
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [detailSessionId, setDetailSessionId] = useState<string | null>(null);
   const [detail, setDetail] = useState<AdminConversationDetail | null>(null);
@@ -285,49 +287,61 @@ export const ChatHistory = () => {
   };
 
   return (
-    <div className="admin-page-stage space-y-5">
+    <div className="admin-page-stage space-y-4">
       <section className="admin-page-header">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="admin-section-kicker">聊天记录</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">会话列表</h2>
+            <h2 className="mt-1.5 text-xl font-black tracking-tight text-slate-950">会话列表</h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="admin-kpi-pill">
-              共 <span className="font-black text-slate-900">{total}</span> 条会话
+              共 <span className="font-black text-slate-900">{total}</span> 条
             </div>
             <div className="admin-kpi-pill">
-              本页 Token <span className="font-black text-slate-900">{formatNumber(pageTotals.tokens)}</span>
+              Token <span className="font-black text-slate-900">{formatNumber(pageTotals.tokens)}</span>
             </div>
             <div className="admin-kpi-pill">
-              模型/工具 <span className="font-black text-slate-900">{formatNumber(pageTotals.calls)} / {formatNumber(pageTotals.tools)}</span>
+              模型/工具 <span className="font-black text-slate-900">{formatNumber(pageTotals.calls)}/{formatNumber(pageTotals.tools)}</span>
             </div>
-            <Button variant="secondary" onClick={loadData} disabled={isLoading} className="gap-2">
-              {isLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-              刷新数据
+            <Button variant="secondary" onClick={loadData} disabled={isLoading} size="sm" className="gap-1.5">
+              {isLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              刷新
             </Button>
           </div>
         </div>
       </section>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
-          <AlertCircle size={18} />
+        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">
+          <AlertCircle size={16} />
           {error}
         </div>
       )}
+
+      {/* Analytics toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setShowAnalytics(!showAnalytics)}
+          className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${showAnalytics ? "bg-slate-900 text-white" : "border border-slate-200 text-slate-500 hover:text-slate-700"}`}
+        >
+          {showAnalytics ? "隐藏分析" : "数据分析"}
+        </button>
+      </div>
+
+      {showAnalytics && <ChatAnalytics timeRange={14} />}
 
       <section className="admin-data-panel">
         <div className="admin-panel-toolbar">
           <div className="text-center lg:text-left">
             <p className="admin-section-kicker">会话目录</p>
-            <h3 className="mt-2 text-lg font-black tracking-tight text-slate-900">按用户、摘要或 Session 检索</h3>
+            <h3 className="mt-1.5 text-base font-black tracking-tight text-slate-900">按用户、摘要或 Session 检索</h3>
           </div>
 
-          <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
-            <div className="admin-search-wrapper lg:w-[420px]">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <div className="flex w-full flex-col gap-2.5 lg:w-auto lg:flex-row lg:items-center">
+            <div className="admin-search-wrapper lg:w-[380px]">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
@@ -362,7 +376,7 @@ export const ChatHistory = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.22, delay: Math.min(index * 0.025, 0.16) }}
                 whileHover={{ x: 2 }}
-                className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(220px,1.15fr)_minmax(280px,1.9fr)_90px_110px_120px_140px_130px] xl:items-center xl:gap-0"
+                className="admin-table-row grid grid-cols-1 gap-3 border-b border-slate-100/60 px-4 py-3 text-center xl:grid-cols-[minmax(220px,1.15fr)_minmax(280px,1.9fr)_90px_110px_120px_140px_130px] xl:items-center xl:gap-0"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-black text-slate-900">{item.user_name || '未知用户'}</p>
@@ -414,8 +428,8 @@ export const ChatHistory = () => {
             ))
           ) : (
             <div className="flex h-[460px] flex-col items-center justify-center text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border border-white/70 bg-white/70 text-slate-400 shadow-sm">
-                <MessageSquare size={24} />
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/70 bg-white/70 text-slate-400 shadow-sm">
+                <MessageSquare size={20} />
               </div>
               <p className="text-sm font-black text-slate-600">没有找到会话记录</p>
               <p className="mt-1 text-xs font-medium text-slate-400">新的会话会自动汇总到这里</p>
@@ -446,63 +460,58 @@ export const ChatHistory = () => {
               onMouseDown={(event) => event.stopPropagation()}
               className="admin-solid-panel admin-modal-panel flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden"
             >
-              <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+              <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
                 <div>
                   <p className="admin-section-kicker">会话详情</p>
-                  <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-900">
+                  <h3 className="mt-1.5 text-xl font-black tracking-tight text-slate-900">
                     {detail?.user_name || detail?.user_email || detailSessionId}
                   </h3>
-                  <p className="mt-2 text-xs font-medium text-slate-500">{detail?.session_id || detailSessionId}</p>
+                  <p className="mt-1.5 text-xs font-medium text-slate-500">{detail?.session_id || detailSessionId}</p>
                 </div>
                 <button
                   type="button"
                   onClick={closeDetail}
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
                 >
                   <X size={18} />
                 </button>
               </div>
 
               <div className="grid flex-1 grid-cols-1 overflow-hidden xl:grid-cols-[340px_minmax(0,1fr)]">
-                <div className="overflow-y-auto border-r border-slate-100 bg-white/55 p-6">
+                <div className="overflow-y-auto border-r border-slate-100 bg-white/55 p-5">
                   {detailLoading ? (
                     <div className="flex h-48 items-center justify-center gap-3 text-sm font-bold text-slate-400">
                       <Loader2 size={18} className="animate-spin" />
                       正在加载详情
                     </div>
                   ) : detailError ? (
-                    <div className="rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                       {detailError}
                     </div>
                   ) : detail ? (
                     <div className="space-y-4">
-                      <div className="rounded-3xl border border-white/80 bg-white/80 p-5">
+                      <div className="rounded-2xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.72))] p-4 shadow-sm">
                         <p className="admin-section-kicker">摘要</p>
-                        <p className="mt-3 text-sm font-medium leading-6 text-slate-600">{detail.summary || '暂无摘要'}</p>
+                        <p className="mt-2.5 text-sm font-medium leading-6 text-slate-600">{detail.summary || '暂无摘要'}</p>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-3xl border border-white/80 bg-white/80 px-4 py-4">
-                          <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">消息数</p>
-                          <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(detail.message_count)}</p>
-                        </div>
-                        <div className="rounded-3xl border border-white/80 bg-white/80 px-4 py-4">
-                          <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">Token</p>
-                          <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(detail.total_tokens)}</p>
-                        </div>
-                        <div className="rounded-3xl border border-white/80 bg-white/80 px-4 py-4">
-                          <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">模型调用</p>
-                          <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(detail.llm_calls)}</p>
-                        </div>
-                        <div className="rounded-3xl border border-white/80 bg-white/80 px-4 py-4">
-                          <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">工具调用</p>
-                          <p className="mt-2 text-2xl font-black text-slate-900">{formatNumber(detail.tool_calls)}</p>
-                        </div>
+                        {[
+                          { label: '消息数', value: formatNumber(detail.message_count) },
+                          { label: 'Token', value: formatNumber(detail.total_tokens) },
+                          { label: '模型调用', value: formatNumber(detail.llm_calls) },
+                          { label: '工具调用', value: formatNumber(detail.tool_calls) },
+                        ].map((item) => (
+                          <div key={item.label} className="admin-stat-card rounded-2xl bg-white/80 px-3.5 py-3.5">
+                            <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">{item.label}</p>
+                            <p className="mt-1.5 text-xl font-black text-slate-900">{item.value}</p>
+                          </div>
+                        ))}
                       </div>
 
-                      <div className="rounded-3xl border border-white/80 bg-white/80 p-5">
+                      <div className="rounded-2xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.72))] p-4 shadow-sm">
                         <p className="admin-section-kicker">会话信息</p>
-                        <div className="mt-3 space-y-2 text-sm font-medium text-slate-600">
+                        <div className="mt-2.5 space-y-2 text-sm font-medium text-slate-600">
                           <p>用户：{detail.user_name || '-'}</p>
                           <p>邮箱：{detail.user_email || '-'}</p>
                           {detail.agent_profile_name && (
@@ -518,11 +527,11 @@ export const ChatHistory = () => {
                   ) : null}
                 </div>
 
-                <div className="overflow-y-auto p-6">
+                <div className="overflow-y-auto p-5">
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <p className="admin-section-kicker">消息时间线</p>
-                      <h4 className="mt-1 text-lg font-black text-slate-900">完整会话内容</h4>
+                      <h4 className="mt-1 text-base font-black text-slate-900">完整会话内容</h4>
                     </div>
                     {detail && (
                       <div className="rounded-full border border-white/80 bg-white/80 px-3 py-1 text-xs font-black text-slate-500">
@@ -537,13 +546,13 @@ export const ChatHistory = () => {
                       正在加载消息
                     </div>
                   ) : detailError ? (
-                    <div className="rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                       {detailError}
                     </div>
                   ) : detail && detail.messages.length > 0 ? (
                     <div className="space-y-3">
                       {detail.messages.map((message) => (
-                        <div key={message.id} className="rounded-3xl border border-white/80 bg-white/82 p-4">
+                        <div key={message.id} className="rounded-2xl border border-white/80 bg-white/82 p-3.5">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${roleTone(message.role)}`}>
                               {roleLabel(message.role)}
@@ -574,7 +583,7 @@ export const ChatHistory = () => {
                       )}
                     </div>
                   ) : detail ? (
-                    <div className="flex h-64 items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white/50 text-sm font-bold text-slate-400">
+                    <div className="flex h-56 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/50 text-sm font-bold text-slate-400">
                       这条会话还没有可展示的消息内容
                     </div>
                   ) : null}

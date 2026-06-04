@@ -5,6 +5,7 @@ import { Logo } from '../components/Logo';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { PasswordInput } from '../components/ui/PasswordInput';
 import { register as registerUser } from '../services/authService';
 
 export const Signup = () => {
@@ -12,7 +13,6 @@ export const Signup = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -33,10 +33,11 @@ export const Signup = () => {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="min-h-screen bg-gradient-to-br from-[#e0fbfc] via-[#a5f3fc] to-[#60a5fa] relative flex items-center justify-center p-4 selection:bg-zinc-200 selection:text-zinc-900 overflow-hidden"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="min-h-screen bg-gradient-to-br from-[#dbeafe] via-[#bae6fd] to-[#38bdf8] relative flex items-center justify-center p-4 selection:bg-zinc-200 selection:text-zinc-900 overflow-hidden"
     >
       <motion.button
         initial={{ opacity: 0, x: -20 }}
@@ -50,24 +51,27 @@ export const Signup = () => {
       </motion.button>
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        {/* Animated ambient blobs */}
+        <div className="absolute -top-20 -left-12 w-[50vw] h-[50vw] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.20),transparent_70%)] blur-[70px] animate-[bg-blob-2_15s_ease-in-out_infinite]" />
+        <div className="absolute -bottom-16 -right-10 w-[48vw] h-[48vw] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.18),transparent_70%)] blur-[70px] animate-[bg-blob-4_17s_ease-in-out_infinite]" />
+        <div className="absolute top-1/2 left-1/5 w-[38vw] h-[38vw] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.15),transparent_70%)] blur-[80px] animate-[bg-blob-1_14s_ease-in-out_infinite]" />
         <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.03]" />
-        <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-teal-300 rounded-full mix-blend-overlay filter blur-[150px] opacity-40" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[60vw] h-[60vw] bg-blue-400 rounded-full mix-blend-overlay filter blur-[150px] opacity-40" />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-md bg-white/60 backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-brand-500/10 border border-white/60 p-10 relative z-10"
-      >
-        <div className="flex flex-col items-center mb-10">
-          <div className="mb-6">
-            <Logo iconSize={48} showText={false} />
+      <main id="main-content" className="w-full max-w-md relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full bg-[var(--surface-2)] backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-brand-500/10 border border-white/60 p-10"
+        >
+          <div className="flex flex-col items-center mb-10">
+            <div className="mb-6">
+              <Logo iconSize={48} showText={false} />
+            </div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">注册 AgenticOS</h1>
+            <p className="text-slate-500 mt-2.5 text-sm font-medium">创建账号，开始你的智能协作</p>
           </div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">创建账号</h2>
-          <p className="text-slate-500 mt-2.5 text-sm font-medium">加入 AgenticOS，开始你的智能协作</p>
-        </div>
 
         <form className="space-y-5" onSubmit={handleSignup}>
           <Input
@@ -89,32 +93,9 @@ export const Signup = () => {
             autoComplete="email"
           />
           <div>
-            <label className="mb-2 ml-1 block text-xs font-black uppercase tracking-[0.2em] text-slate-400">密码</label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="至少 8 位"
-                minLength={8}
-                required
-                autoComplete="new-password"
-                className="w-full rounded-2xl border border-white/75 bg-white/72 px-5 py-3.5 pr-12 text-sm font-semibold text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] outline-none transition-all placeholder:text-slate-400 focus:border-brand-200 focus:bg-white focus:ring-4 focus:ring-brand-100/80"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
-                aria-label={showPassword ? '隐藏密码' : '显示密码'}
-              >
-                {showPassword ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                )}
-              </button>
-            </div>
-          </div>
+  <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-[0.15em] text-slate-500">密码</label>
+  <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} placeholder="至少 6 位" minLength={6} autoComplete="new-password" />
+</div>
 
           {error && (
             <div className="rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm font-medium text-rose-700">
@@ -123,7 +104,7 @@ export const Signup = () => {
           )}
 
           <Button variant="primary" type="submit" disabled={isSubmitting} className="w-full h-14 text-lg rounded-2xl mt-4">
-            {isSubmitting ? 'Creating...' : '注册账号'}
+            {isSubmitting ? '正在注册...' : '注册账号'}
           </Button>
         </form>
 
@@ -131,6 +112,7 @@ export const Signup = () => {
           已有账号？ <a href="#" onClick={(e) => { e.preventDefault(); navigate('/login'); }} className="text-brand-600 hover:text-brand-700 font-bold underline decoration-brand-200 underline-offset-4">立即登录</a>
         </div>
       </motion.div>
+      </main>
     </motion.div>
   );
 };

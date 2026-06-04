@@ -370,15 +370,6 @@ def _build_system_tool_handler(
     available_names = list(api_map.keys())
 
     async def handler(api_name: str, params: dict = {}) -> str:
-        # Handle params being passed as JSON string
-        if isinstance(params, str):
-            try:
-                params = json.loads(params)
-            except (json.JSONDecodeError, TypeError):
-                params = {}
-
-        logger.info("External tool call: %s.%s(%s)", _safe_name(system.name), api_name, params)
-
         entry = api_map.get(api_name)
         if not entry:
             return json.dumps({
@@ -429,8 +420,6 @@ def _build_system_tool_handler(
 
             headers = _serialize_headers(system.headers_json)
 
-            logger.info("External request: %s %s (path_params=%s, query_params=%s)", api.method, url, path_params, query_params)
-
             async with httpx.AsyncClient(timeout=api.timeout_seconds, follow_redirects=True) as client:
                 request = client.build_request(
                     method=api.method,
@@ -440,10 +429,6 @@ def _build_system_tool_handler(
                     headers=headers,
                 )
                 await AuthInjector.inject(system, cred, request)
-                # Log auth header (masked)
-                auth_header = request.headers.get("authorization", "")
-                masked_auth = auth_header[:20] + "..." if len(auth_header) > 20 else auth_header
-                logger.info("Auth injected: %s", masked_auth)
                 response = await client.send(request)
 
             # Mark auth errors

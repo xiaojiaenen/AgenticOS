@@ -1,14 +1,24 @@
 import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, OperationalError
 
+# 在读取 Settings 之前，将 .env 加载到 os.environ
+# 这样 wuwei 等直接读 os.environ 的库也能拿到配置
+_env_file = Path(__file__).resolve().parent.parent / ".env"
+if _env_file.exists():
+    load_dotenv(_env_file, override=False)
+
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.redis import init_redis, close_redis
 from app.db.session import init_db
 
 logger = logging.getLogger(__name__)
@@ -23,7 +33,18 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     except Exception:
         logger.critical("Database initialization failed. Check DATABASE_URL and disk space.", exc_info=True)
         raise
+
+    # 初始化 Redis（留空则使用内存 fallback）
+    await init_redis(settings.redis_url, settings.redis_cluster)
+
+    # 从数据库加载历史输入到缓存
+    from app.services.cache_service import get_cache_service
+    await get_cache_service().load_history_from_db()
+
     yield
+
+    # 关闭 Redis
+    await close_redis()
 
 
 app = FastAPI(

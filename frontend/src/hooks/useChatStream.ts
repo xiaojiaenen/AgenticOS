@@ -4,13 +4,40 @@ import {
   sendMessageStream,
   generateTitle,
   submitApprovalDecision,
+  submitUserDecision,
   AgentSessionState,
   AgentPptArtifact,
+  AgentWebsiteArtifact,
   AgentRunStatus,
 } from '../services/agentService';
 import { AgentProfile } from '../services/agentProfileService';
 import { uploadFiles } from '../services/fileService';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
+import { UserDecision, normalizeDecision } from '../components/chat/DecisionPanel';
+
+// ---------------------------------------------------------------------------
+// extracted helpers
+// ---------------------------------------------------------------------------
+
+function buildAttachments(files: File[]): Attachment[] {
+  return files.map((file) => ({
+    name: file.name,
+    type: file.type,
+    url: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
+  }));
+}
+
+async function prepareUploadedFiles(
+  files: File[],
+  onStatus: (label: string) => void,
+): Promise<{ filename: string; file_path: string }[]> {
+  onStatus('正在上传文件');
+  const results = await uploadFiles(files);
+  return results.map((r) => ({
+    filename: r.filename,
+    file_path: r.file_path,
+  }));
+}
 
 interface UseChatStreamDeps {
   sessions: Session[];
@@ -41,8 +68,9 @@ export function useChatStream({
 }: UseChatStreamDeps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDecisions, setPendingDecisions] = useState<UserDecision[]>([]);
   const [runStatus, setRunStatus] = useState<{
-    phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'done' | 'error';
+    phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'done' | 'error';
     label: string;
   }>({ phase: 'idle', label: '已就绪' });
 
@@ -99,6 +127,9 @@ export function useChatStream({
     async (text: string, files?: File[]) => {
       if ((!text.trim() && (!files || files.length === 0)) || isLoading) return;
 
+      // 清除待处理的决策（用户开始新输入时）
+      setPendingDecisions([]);
+
       const currentText = text.trim();
       let userMessage: Message | null = null;
       let targetId: string | null = null;
@@ -106,26 +137,15 @@ export function useChatStream({
       let hasStreamedContent = false;
       let hasAssistantActivity = false;
       let receivedPptArtifact: AgentPptArtifact | undefined;
+      let receivedWebsiteArtifact: AgentWebsiteArtifact | undefined;
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
       try {
-        const attachments: Attachment[] = (files || []).map((file) => ({
-          name: file.name,
-          type: file.type,
-          url: file.type.startsWith('image/') ? URL.createObjectURL(file) : '',
-        }));
-
-        // Upload files and extract text
-        let uploadedFiles: { filename: string; text_content: string }[] = [];
-        if (files && files.length > 0) {
-          setRunStatus({ phase: 'thinking', label: '正在解析文件内容' });
-          const results = await uploadFiles(files);
-          uploadedFiles = results.map((r) => ({
-            filename: r.filename,
-            text_content: r.text_content,
-          }));
-        }
+        const attachments = files ? buildAttachments(files) : [];
+        const uploadedFiles = files && files.length > 0
+          ? await prepareUploadedFiles(files, (label) => setRunStatus({ phase: 'thinking', label }))
+          : [];
 
         userMessage = {
           id: Date.now().toString(),
@@ -141,8 +161,8 @@ export function useChatStream({
         queueMicrotask(() => {
           setIsLoading(true);
           setRunStatus({
-            phase: chatMode === 'ppt' ? 'generating_ppt' : 'thinking',
-            label: chatMode === 'ppt' ? '正在生成 PPT 内容与版式' : '大模型正在思考',
+            phase: (chatMode === 'ppt') ? 'generating_ppt' : 'thinking',
+            label: (chatMode === 'ppt') ? '正在生成 PPT 内容与版式' : '大模型正在思考',
           });
           setInputValue('');
           setSessions((prev) => {
@@ -150,7 +170,8 @@ export function useChatStream({
               id: assistantMessageId!,
               role: 'model',
               text: '',
-              pptArtifact: chatMode === 'ppt' ? { status: 'generating' } : undefined,
+              pptArtifact: (chatMode === 'ppt') ? { status: 'generating', mode: 'ppt' as const } : undefined,
+              websiteArtifact: (chatMode === 'website') ? { status: 'generating' } : undefined,
             };
 
             if (!currentSessionId) {
@@ -191,12 +212,23 @@ export function useChatStream({
             applySessionState(targetId!, state);
           },
           onRunStatus: (status: AgentRunStatus) => {
-            setRunStatus({ phase: status.phase, label: status.label });
+            const labelMap: Record<string, string> = {
+              thinking: '思考中...',
+              streaming: '正在回复...',
+              generating_ppt: '正在生成 PPT...',
+              rendering_ppt: '正在渲染预览...',
+              rendering_website: '正在渲染网站...',
+              done: '已完成',
+              error: '出错了',
+            };
+            setRunStatus({ phase: status.phase, label: labelMap[status.phase] || status.label });
           },
           onPptArtifact: (pptArtifact) => {
+            console.log('[PPT] onPptArtifact received:', pptArtifact.artifact_id, 'html length:', pptArtifact.html?.length);
             receivedPptArtifact = pptArtifact;
+            const pptLanguage = 'ppt' as const;
             const nextArtifact: Artifact = {
-              language: 'ppt',
+              language: pptLanguage,
               artifactId: pptArtifact.artifact_id,
               html: pptArtifact.html,
               title: pptArtifact.title,
@@ -219,6 +251,45 @@ export function useChatStream({
                                 title: pptArtifact.title,
                                 slideCount: pptArtifact.slide_count,
                                 html: pptArtifact.html,
+                                mode: pptLanguage,
+                              },
+                            }
+                          : message,
+                      ),
+                    }
+                  : session,
+              ),
+            );
+          },
+          onWebsiteArtifact: (wsArtifact) => {
+            receivedWebsiteArtifact = wsArtifact;
+            const nextArtifact: Artifact = {
+              language: 'website',
+              artifactId: wsArtifact.artifact_id,
+              html: wsArtifact.preview_html,
+              title: wsArtifact.title,
+              projectSlug: wsArtifact.project_slug,
+              stack: wsArtifact.stack,
+              fileCount: wsArtifact.file_count,
+            };
+            setArtifact(nextArtifact);
+            setSessions((prev) =>
+              prev.map((session) =>
+                session.id === targetId
+                  ? {
+                      ...session,
+                      updatedAt: Date.now(),
+                      messages: session.messages.map((message) =>
+                        message.id === assistantMessageId
+                          ? {
+                              ...message,
+                              websiteArtifact: {
+                                status: 'ready',
+                                artifactId: wsArtifact.artifact_id,
+                                title: wsArtifact.title,
+                                projectSlug: wsArtifact.project_slug,
+                                stack: wsArtifact.stack,
+                                html: wsArtifact.preview_html,
                               },
                             }
                           : message,
@@ -232,7 +303,7 @@ export function useChatStream({
             hasStreamedContent = true;
             hasAssistantActivity = true;
             setRunStatus((prev) =>
-              prev.phase === 'generating_ppt' || prev.phase === 'rendering_ppt'
+              prev.phase === 'generating_ppt' || prev.phase === 'rendering_ppt' || prev.phase === 'rendering_website'
                 ? prev
                 : { phase: 'streaming', label: '大模型正在输出' },
             );
@@ -249,8 +320,8 @@ export function useChatStream({
                                 ...message,
                                 text: fullText,
                                 pptArtifact:
-                                  message.pptArtifact?.status === 'ready'
-                                    ? message.pptArtifact
+                                  message.pptArtifact?.status === 'ready' || receivedPptArtifact
+                                    ? (message.pptArtifact?.status === 'ready' ? message.pptArtifact : { status: 'ready' as const, artifactId: receivedPptArtifact!.artifact_id })
                                     : { status: 'generating' },
                               }
                             : { ...message, text: fullText }
@@ -296,9 +367,19 @@ export function useChatStream({
               ),
             );
           },
+          onUserDecision: (decision: unknown) => {
+            const d = normalizeDecision(decision);
+            if (!d) return;
+            setPendingDecisions((prev) => {
+              // 避免重复添加
+              if (prev.some((item) => item.decision_id === d.decision_id)) return prev;
+              return [...prev, d];
+            });
+          },
         });
 
         const pptArtifact = response.pptArtifact || receivedPptArtifact;
+        const websiteArtifact = response.websiteArtifact || receivedWebsiteArtifact;
 
         setSessions((prev) =>
           prev.map((session) =>
@@ -322,6 +403,16 @@ export function useChatStream({
                                 html: pptArtifact.html,
                               }
                             : undefined,
+                          websiteArtifact: websiteArtifact
+                            ? {
+                                status: 'ready',
+                                artifactId: websiteArtifact.artifact_id,
+                                title: websiteArtifact.title,
+                                projectSlug: websiteArtifact.project_slug,
+                                stack: websiteArtifact.stack,
+                                html: websiteArtifact.preview_html,
+                              }
+                            : undefined,
                         }
                       : message,
                   ),
@@ -341,11 +432,21 @@ export function useChatStream({
         const svgMatch = /```svg\n([\s\S]*?)\n```/.exec(response.text);
         if (pptArtifact)
           setArtifact({
-            language: 'ppt',
+            language: 'ppt' as const,
             artifactId: pptArtifact.artifact_id,
             html: pptArtifact.html,
             title: pptArtifact.title,
             slideCount: pptArtifact.slide_count,
+          });
+        else if (websiteArtifact)
+          setArtifact({
+            language: 'website',
+            artifactId: websiteArtifact.artifact_id,
+            html: websiteArtifact.preview_html,
+            title: websiteArtifact.title,
+            projectSlug: websiteArtifact.project_slug,
+            stack: websiteArtifact.stack,
+            fileCount: websiteArtifact.file_count,
           });
         else if (htmlMatch) setArtifact({ code: htmlMatch[1], language: 'html' });
         else if (svgMatch) setArtifact({ code: svgMatch[1], language: 'svg' });
@@ -439,6 +540,21 @@ export function useChatStream({
     ],
   );
 
+  const handleDecisionMade = useCallback(
+    async (decisionId: string, answer: string) => {
+      // 移除已回答的决策
+      setPendingDecisions((prev) => prev.filter((d) => d.decision_id !== decisionId));
+      // 调用 API 解析决策（后端工具正在阻塞等待）
+      try {
+        await submitUserDecision(decisionId, answer);
+      } catch (err) {
+        console.error('Decision submit error:', err);
+        setError('决策提交失败，请检查后端服务。');
+      }
+    },
+    [setError],
+  );
+
   return {
     isLoading,
     error,
@@ -446,8 +562,10 @@ export function useChatStream({
     runStatus,
     setRunStatus,
     abortControllerRef,
+    pendingDecisions,
     handleSend,
     handleStopGeneration,
     handleApprovalDecision,
+    handleDecisionMade,
   };
 }

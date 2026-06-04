@@ -222,14 +222,6 @@ class DatabaseAgentStorage:
                     db.commit()
         await asyncio.to_thread(_run)
 
-    async def get_message_count(self, session_id: str) -> int:
-        def _run():
-            with self.session_factory() as db:
-                return db.query(AgentMessageModel).filter(
-                    AgentMessageModel.session_id == session_id
-                ).count()
-        return await asyncio.to_thread(_run)
-
 
 def dump_json(value: Any) -> str:
     return _dumps(value)

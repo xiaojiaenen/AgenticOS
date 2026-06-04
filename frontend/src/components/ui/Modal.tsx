@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { Button } from './Button';
 
 interface ModalProps {
   open: boolean;
@@ -9,6 +10,7 @@ interface ModalProps {
   children: React.ReactNode;
   className?: string;
   maxWidth?: string;
+  title?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -17,7 +19,31 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   className,
   maxWidth = 'max-w-lg',
+  title,
 }) => {
+  const id = useId();
+  const titleId = `${id}-title`;
+
+  // Escape key handler
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, onClose]);
+
+  // Lock body scroll
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
   return (
     <AnimatePresence>
       {open && (
@@ -26,14 +52,16 @@ export const Modal: React.FC<ModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="admin-modal-shell"
-          onMouseDown={onClose}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? titleId : undefined}
+          onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
           <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
             transition={{ duration: 0.22 }}
-            onMouseDown={(e) => e.stopPropagation()}
             className={cn('admin-solid-panel admin-modal-panel w-full p-6', maxWidth, className)}
           >
             {children}
@@ -52,12 +80,12 @@ export const ModalHeader: React.FC<{
   <div className="mb-6 flex items-center justify-between">
     <div>
       <p className="admin-section-kicker">{subtitle || ''}</p>
-      <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-900">{title}</h3>
+      <h3 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{title}</h3>
     </div>
     <button
       type="button"
       onClick={onClose}
-      className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+      className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
       aria-label="关闭"
     >
       <X size={19} />
@@ -75,25 +103,13 @@ export const ModalFooter: React.FC<{
   <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
     {children || (
       <>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isSaving}
-          className="inline-flex h-11 items-center justify-center rounded-2xl border border-white/80 bg-white/68 px-5 text-sm font-black text-slate-700 shadow-sm ring-1 ring-white/40 transition-all hover:-translate-y-0.5 hover:bg-white/88 disabled:opacity-45"
-          aria-label="取消"
-        >
+        <Button variant="secondary" type="button" onClick={onCancel} disabled={isSaving}>
           取消
-        </button>
+        </Button>
         {onSubmit && (
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={isSaving}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-900/80 bg-[linear-gradient(180deg,#1f2937_0%,#020617_100%)] px-5 text-sm font-black text-white shadow-button shadow-brand-500/10 transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-45"
-            aria-label={submitLabel}
-          >
+          <Button variant="primary" type="button" onClick={onSubmit} disabled={isSaving} isLoading={isSaving}>
             {submitLabel}
-          </button>
+          </Button>
         )}
       </>
     )}

@@ -37,6 +37,7 @@ export const Sidebar = React.memo(({
   const user = getStoredUser();
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const [showMarket, setShowMarket] = useState(false);
+  
 
   const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -178,6 +179,7 @@ export const Sidebar = React.memo(({
         </div>
       </div>
     </motion.aside>
+    <IntegrationMarket open={showMarket} onClose={() => setShowMarket(false)} />
     <IntegrationMarket open={showMarket} onClose={() => setShowMarket(false)} />
     {/* Delete Confirmation Modal */}
     <Modal open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} maxWidth="max-w-sm">

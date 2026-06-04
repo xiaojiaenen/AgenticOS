@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/ui/Button';
 import { RandomMascot } from '../components/ui/RandomMascot';
-import { MascotSurprised, MascotHappy, SendIcon, ChevronDownIcon } from '../components/ui/AnimatedIcons';
-import { cn } from '../lib/utils';
+import { AgentSelector } from '../components/ui/AgentSelector';
+import { MascotSurprised, SendIcon } from '../components/ui/AnimatedIcons';
 import { getStoredUser } from '../services/authService';
 import { AgentProfile, getMyAgents } from '../services/agentProfileService';
 
@@ -13,13 +13,10 @@ export const Home = () => {
   const [inputValue, setInputValue] = useState('');
   const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
   const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>(null);
-  const [showMenu, setShowMenu] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const user = getStoredUser();
 
   const selectedAgent = agentProfiles.find((a) => a.id === selectedAgentProfileId) || null;
-  const selectableAgents = agentProfiles;
 
   useEffect(() => {
     if (user) {
@@ -29,24 +26,9 @@ export const Home = () => {
           const general = res.items.find((a) => a.slug === 'general');
           if (general) setSelectedAgentProfileId(general.id);
         })
-        .catch(() => {});
+        .catch(() => { /* non-critical, silent */ });
     }
   }, []);
-
-  // Handle click outside to close menu
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowMenu(false);
-      }
-    };
-    if (showMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showMenu]);
 
   const handleSend = () => {
     if (!inputValue.trim()) return;
@@ -71,24 +53,44 @@ export const Home = () => {
   };
 
   return (
-    <motion.div 
+    <motion.div
       key="home"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, transition: { duration: 0.3 } }}
-      className="min-h-screen bg-gradient-to-br from-[#e0fbfc] via-[#a5f3fc] to-[#60a5fa] relative overflow-hidden font-sans flex flex-col selection:bg-zinc-200 selection:text-zinc-900"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8, transition: { duration: 0.2 } }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="min-h-screen relative overflow-hidden font-sans flex flex-col selection:bg-zinc-200 selection:text-zinc-900"
+      style={{
+        background:
+          'linear-gradient(180deg, #def0f6 0%, #e7f4f9 28%, #e1f2f7 55%, #e3f2f7 100%)',
+      }}
     >
-      {/* Mesh Gradient Background with Noise and Giant Mascot */}
+      {/* Animated ambient blob layer */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute bottom-[-20%] left-[-10%] w-[70vw] h-[70vw] bg-teal-300 rounded-full mix-blend-overlay filter blur-[120px] opacity-40"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[80vw] h-[80vw] bg-blue-400 rounded-full mix-blend-overlay filter blur-[120px] opacity-40"></div>
-        <div className="absolute top-[10%] left-[30%] w-[50vw] h-[50vw] bg-cyan-300 rounded-full mix-blend-overlay filter blur-[120px] opacity-30"></div>
-        
+        {/* Large cyan blob — top left */}
+        <div className="absolute -top-32 -left-20 w-[620px] h-[620px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.18),transparent_70%)] blur-[80px] animate-[bg-blob-1_14s_ease-in-out_infinite]" />
+        {/* Teal blob — top right */}
+        <div className="absolute -top-28 -right-16 w-[540px] h-[540px] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.15),transparent_70%)] blur-[80px] animate-[bg-blob-2_16s_ease-in-out_infinite]" />
+        {/* Sky blue blob — bottom left */}
+        <div className="absolute -bottom-24 left-1/3 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.14),transparent_70%)] blur-[90px] animate-[bg-blob-3_15s_ease-in-out_infinite]" />
+        {/* Cyan blob — bottom right */}
+        <div className="absolute -bottom-20 -right-10 w-[460px] h-[460px] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.13),transparent_70%)] blur-[80px] animate-[bg-blob-4_13s_ease-in-out_infinite]" />
+
+        {/* Subtle dot grid */}
+        <div className="absolute inset-0" style={{
+          backgroundImage:
+            'radial-gradient(circle, rgba(14,165,233,0.10) 1px, transparent 1px)',
+          backgroundSize: '52px 52px',
+          maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.06) 55%, rgba(0,0,0,0.15))',
+        }} />
+
+        {/* Shimmer overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(105deg,transparent_35%,rgba(255,255,255,0.18)_48%,transparent_62%)] animate-[bg-drift-slow_18s_ease-in-out_infinite]" />
+
         {/* Giant Mascot Background */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] text-slate-900 mix-blend-overlay pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center opacity-[0.035] text-slate-900 mix-blend-overlay pointer-events-none">
           <RandomMascot size={1000} />
         </div>
-
       </div>
 
       {/* Top Navigation */}
@@ -104,7 +106,7 @@ export const Home = () => {
           {user ? (
             <Button
               variant="secondary"
-              onClick={() => navigate('/chat')}
+              onClick={() => navigate('/agents')}
             >
               {user.name}
             </Button>
@@ -117,7 +119,7 @@ export const Home = () => {
       </nav>
 
       {/* Hero Section */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 relative z-10 w-full max-w-[1400px] mx-auto">
+      <main id="main-content" className="flex-1 flex flex-col items-center justify-center px-4 relative z-10 w-full max-w-[1400px] mx-auto">
         <motion.h1 
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -145,63 +147,22 @@ export const Home = () => {
           className="w-full max-w-3xl bg-white/60 backdrop-blur-2xl rounded-[2rem] shadow-lg shadow-brand-500/10 border border-white/60 p-3 transition-all focus-within:shadow-glow focus-within:bg-white/90 z-20"
         >
           <textarea
-            className="w-full h-32 bg-transparent resize-none outline-none text-slate-800 placeholder:text-slate-400 text-lg p-4 leading-relaxed"
+            className="w-full h-32 bg-transparent resize-none outline-none text-slate-800 placeholder:text-slate-400 text-lg p-4 leading-relaxed focus:outline-none"
             placeholder="输入你想聊的内容，例如：帮我写一段 Python 代码..."
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
+            maxLength={4000}
             autoFocus
           />
           <div className="flex justify-between items-center px-4 pb-3">
-            {user && selectableAgents.length > 0 ? (
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl text-sm font-bold transition-all active:scale-95 border border-slate-200/50"
-                aria-label="选择智能体"
-              >
-                <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center transition-all shadow-sm",
-                  selectedAgentProfileId ? "bg-sky-500 text-white shadow-glow" : "bg-slate-200")}>
-                  <MascotHappy size={14} />
-                </div>
-                {selectedAgent?.name || '选择智能体'}
-                <ChevronDownIcon size={14} className={cn("transition-transform", showMenu && "rotate-180")} />
-              </button>
-
-              <AnimatePresence>
-                {showMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                    className="absolute bottom-full left-0 mb-2 max-h-64 w-56 overflow-y-auto bg-white/95 backdrop-blur-xl border border-slate-200/50 rounded-3xl shadow-2xl z-40 p-2"
-                  >
-                    {selectableAgents.map((agent) => (
-                      <button
-                        key={agent.id}
-                        onClick={() => {
-                          setSelectedAgentProfileId(agent.id);
-                          setShowMenu(false);
-                        }}
-                        className={cn(
-                          'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-slate-50',
-                          selectedAgentProfileId === agent.id ? 'bg-sky-50/70 ring-1 ring-sky-100' : '',
-                        )}
-                      >
-                        <span className={cn('flex h-8 w-8 items-center justify-center rounded-xl text-sm shadow-sm transition-transform',
-                          selectedAgentProfileId === agent.id ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-500')}>
-                          <MascotHappy size={20} />
-                        </span>
-                        <div className="min-w-0 flex flex-col">
-                          <span className={cn('truncate text-xs font-bold transition-colors', selectedAgentProfileId === agent.id ? 'text-sky-700' : 'text-slate-700')}>{agent.name}</span>
-                          <span className="truncate text-[9px] font-medium text-slate-400">{agent.description || '智能体'}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            {user && agentProfiles.length > 0 ? (
+              <AgentSelector
+                agents={agentProfiles}
+                selectedId={selectedAgentProfileId}
+                onSelect={(agent) => setSelectedAgentProfileId(agent.id)}
+                variant="full"
+              />
             ) : (
               <div />
             )}
@@ -212,13 +173,25 @@ export const Home = () => {
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 group ${
                 inputValue.trim()
                   ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-md'
-                  : 'bg-slate-200 text-white'
+                  : 'bg-slate-200 text-slate-400'
               }`}
               aria-label="发送消息"
             >
               <SendIcon size={20} className="group-hover:-translate-y-1 group-hover:scale-110" />
             </button>
           </div>
+        </motion.div>
+        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.45, duration: 0.6 }} className="mt-6 flex flex-wrap justify-center gap-2 max-w-3xl">
+          {[
+            { text: '帮我做个 PPT', mode: 'ppt' },
+            { text: '写一个网站首页', mode: 'website' },
+            { text: '帮我分析数据', mode: 'general' },
+            { text: '写一封邮件', mode: 'general' },
+          ].map((s) => (
+            <button key={s.text} onClick={() => setInputValue(s.text)} className="px-4 py-2 rounded-full text-sm font-medium bg-white/50 backdrop-blur-sm border border-white/40 text-slate-600 hover:bg-white/80 hover:text-slate-900 hover:shadow-sm transition-all">
+              {s.text}
+            </button>
+          ))}
         </motion.div>
       </main>
     </motion.div>

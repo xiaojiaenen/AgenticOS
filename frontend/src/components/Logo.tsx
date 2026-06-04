@@ -5,7 +5,7 @@ import { MascotHappy } from './ui/AnimatedIcons';
 
 export const Logo = ({ className, iconSize = 28, showText = true }: { className?: string; iconSize?: number; showText?: boolean }) => {
   return (
-    <div className={cn("flex items-center gap-3 select-none group cursor-pointer", className)}>
+    <div className={cn("flex items-center gap-3 select-none group", className)}>
       <div className="relative">
         <motion.div
           animate={{ 

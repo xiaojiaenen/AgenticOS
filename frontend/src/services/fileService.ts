@@ -7,9 +7,7 @@ export type UploadedFile = {
   filename: string;
   size: number;
   mime_type: string;
-  text_content: string;
-  text_truncated: boolean;
-  text_length: number;
+  file_path: string;
 };
 
 export async function uploadFile(file: File): Promise<UploadedFile> {

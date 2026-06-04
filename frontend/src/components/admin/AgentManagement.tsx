@@ -53,13 +53,19 @@ function Toggle({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'flex h-8 w-14 items-center rounded-full p-1 transition-all disabled:cursor-not-allowed disabled:opacity-50',
-        checked ? 'justify-end bg-slate-900' : 'justify-start bg-slate-200',
+        'flex h-8 w-14 items-center rounded-full p-1 transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50',
+        checked
+          ? 'justify-end bg-slate-900 shadow-md shadow-slate-900/20'
+          : 'justify-start bg-slate-200 hover:bg-slate-300',
       )}
     >
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm">
+      <motion.span
+        layout
+        transition={{ type: 'spring', damping: 22, stiffness: 380 }}
+        className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm"
+      >
         {checked ? <Check size={12} className="text-slate-900" /> : <X size={12} className="text-slate-400" />}
-      </span>
+      </motion.span>
     </button>
   );
 }
@@ -313,22 +319,22 @@ export const AgentManagement = () => {
   };
 
   return (
-    <div className="admin-page-stage space-y-5">
+    <div className="admin-page-stage space-y-4">
       <section className="admin-page-header">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="admin-section-kicker">智能体配置</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">智能体目录</h2>
+            <h2 className="mt-1.5 text-xl font-black tracking-tight text-slate-950">智能体目录</h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             {message && (
-              <div className="rounded-3xl border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
                 {message}
               </div>
             )}
             <div className="admin-kpi-pill">
-              共 <span className="font-black text-slate-900">{profiles.length}</span> 个智能体
+              共 <span className="font-black text-slate-900">{profiles.length}</span> 个
             </div>
             <div className="admin-kpi-pill">
               已启用 <span className="font-black text-slate-900">{enabledAgents}</span>
@@ -337,23 +343,23 @@ export const AgentManagement = () => {
               已上架 <span className="font-black text-slate-900">{listedAgents}</span>
             </div>
             <div className="admin-kpi-pill">
-              Skill 绑定 <span className="font-black text-slate-900">{totalBindings}</span>
+              绑定 <span className="font-black text-slate-900">{totalBindings}</span>
             </div>
-            <Button variant="secondary" onClick={loadProfiles} disabled={isLoading || isSaving} className="gap-2">
-              {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Wrench size={16} />}
-              重新加载
+            <Button variant="secondary" onClick={loadProfiles} disabled={isLoading || isSaving} size="sm" className="gap-1.5">
+              {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Wrench size={14} />}
+              刷新
             </Button>
-            <Button onClick={openCreateModal} disabled={isLoading || isSaving} className="gap-2">
-              <Plus size={16} />
-              新建智能体
+            <Button onClick={openCreateModal} disabled={isLoading || isSaving} size="sm" className="gap-1.5">
+              <Plus size={14} />
+              新建
             </Button>
           </div>
         </div>
       </section>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
-          <AlertCircle size={18} />
+        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">
+          <AlertCircle size={16} />
           {error}
         </div>
       )}
@@ -362,7 +368,7 @@ export const AgentManagement = () => {
         <div className="admin-panel-toolbar">
           <div className="text-center lg:text-left">
             <p className="admin-section-kicker">智能体列表</p>
-            <h3 className="mt-2 text-lg font-black tracking-tight text-slate-900">已创建的智能体</h3>
+            <h3 className="mt-1.5 text-base font-black tracking-tight text-slate-900">已创建的智能体</h3>
           </div>
         </div>
 
@@ -389,7 +395,7 @@ export const AgentManagement = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.22, delay: Math.min(index * 0.025, 0.16) }}
               whileHover={{ x: 2 }}
-              className="admin-table-row grid grid-cols-1 gap-4 border-b border-slate-100/80 px-5 py-4 text-center xl:grid-cols-[minmax(250px,1.35fr)_110px_120px_minmax(220px,1fr)_120px_130px_170px] xl:items-center xl:gap-0"
+              className="admin-table-row grid grid-cols-1 gap-3 border-b border-slate-100/60 px-4 py-3 text-center xl:grid-cols-[minmax(250px,1.35fr)_110px_120px_minmax(220px,1fr)_120px_130px_170px] xl:items-center xl:gap-0"
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center justify-center gap-2">
@@ -474,8 +480,8 @@ export const AgentManagement = () => {
           ))
         ) : (
           <div className="flex h-80 flex-col items-center justify-center text-center">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl border border-white/70 bg-white/70 text-slate-400 shadow-sm">
-              <Bot size={24} />
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/70 bg-white/70 text-slate-400 shadow-sm">
+              <Bot size={20} />
             </div>
             <p className="text-sm font-black text-slate-600">还没有智能体配置</p>
             <p className="mt-1 text-xs font-medium text-slate-400">先创建一个智能体，再绑定工具和 Skill</p>
@@ -501,36 +507,36 @@ export const AgentManagement = () => {
               onMouseDown={(event) => event.stopPropagation()}
               className="admin-solid-panel admin-modal-panel flex max-h-[min(88vh,900px)] w-[min(1180px,calc(100vw-32px))] flex-col overflow-hidden xl:w-[min(1220px,calc(100vw-64px))]"
             >
-              <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+              <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
                 <div>
                   <p className="admin-section-kicker">{draft.id ? '编辑智能体' : '新建智能体'}</p>
-                  <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-900">{draft.name || '新的智能体'}</h3>
-                  <p className="mt-2 text-sm font-medium text-slate-500">
+                  <h3 className="mt-1.5 text-xl font-black tracking-tight text-slate-900">{draft.name || '新的智能体'}</h3>
+                  <p className="mt-1.5 text-sm font-medium text-slate-500">
                     在这里完成基础信息、工具审批和 Skill 绑定。
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
                 >
                   <X size={18} />
                 </button>
               </div>
 
               <div className="grid flex-1 grid-cols-1 overflow-hidden xl:grid-cols-[minmax(0,1.05fr)_420px]">
-                <div className="overflow-y-auto p-6">
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <label className="space-y-2">
+                <div className="overflow-y-auto p-5">
+                  <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+                    <label className="space-y-1.5">
                       <span className="text-xs font-black tracking-[0.18em] text-slate-400">名称</span>
                       <input
                         value={draft.name}
                         onChange={(event) => patchDraft({ name: event.target.value })}
-                        className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full rounded-2xl border border-white/75 bg-white/72 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
 
-                    <label className="space-y-2">
+                    <label className="space-y-1.5">
                       <span className="text-xs font-black tracking-[0.18em] text-slate-400">Slug</span>
                       <input
                         value={draft.slug || ''}
@@ -545,11 +551,11 @@ export const AgentManagement = () => {
                       <input
                         value={draft.description}
                         onChange={(event) => patchDraft({ description: event.target.value })}
-                        className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full rounded-2xl border border-white/75 bg-white/72 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
 
-                    <label className="space-y-2">
+                    <label className="space-y-1.5">
                       <span className="text-xs font-black tracking-[0.18em] text-slate-400">响应模式</span>
                       <select
                         value={draft.response_mode}
@@ -564,7 +570,7 @@ export const AgentManagement = () => {
                             ...(isDefaultPrompt ? { system_prompt: modeDefaultPrompt(newMode) } : {}),
                           });
                         }}
-                        className="w-full rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full rounded-2xl border border-white/75 bg-white/72 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       >
                         <option value="general">general</option>
                         <option value="ppt">ppt</option>
@@ -573,11 +579,11 @@ export const AgentManagement = () => {
                     </label>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="flex items-center justify-between rounded-3xl border border-white/80 bg-white/72 px-4 py-3">
+                      <div className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/72 px-3.5 py-2.5">
                         <span className="text-sm font-black text-slate-700">启用</span>
                         <Toggle checked={draft.enabled} onClick={() => patchDraft({ enabled: !draft.enabled })} />
                       </div>
-                      <div className="flex items-center justify-between rounded-3xl border border-white/80 bg-white/72 px-4 py-3">
+                      <div className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/72 px-3.5 py-2.5">
                         <span className="text-sm font-black text-slate-700">上架</span>
                         <Toggle checked={draft.listed} onClick={() => patchDraft({ listed: !draft.listed })} />
                       </div>
@@ -595,7 +601,7 @@ export const AgentManagement = () => {
                           type="button"
                           onClick={() => patchDraft({ audience_mode: 'all' })}
                           className={cn(
-                            'rounded-3xl border px-4 py-3 text-left transition-all',
+                            'rounded-2xl border px-3.5 py-2.5 text-left transition-all',
                             draft.audience_mode === 'all'
                               ? 'border-sky-200 bg-sky-50/80 shadow-sm'
                               : 'border-white/80 bg-white/72 hover:bg-white',
@@ -608,7 +614,7 @@ export const AgentManagement = () => {
                           type="button"
                           onClick={() => patchDraft({ audience_mode: 'selected' })}
                           className={cn(
-                            'rounded-3xl border px-4 py-3 text-left transition-all',
+                            'rounded-2xl border px-3.5 py-2.5 text-left transition-all',
                             draft.audience_mode === 'selected'
                               ? 'border-sky-200 bg-sky-50/80 shadow-sm'
                               : 'border-white/80 bg-white/72 hover:bg-white',
@@ -620,7 +626,7 @@ export const AgentManagement = () => {
                       </div>
 
                       {draft.audience_mode === 'selected' && (
-                        <div className="max-h-52 overflow-y-auto rounded-3xl border border-white/80 bg-white/70 p-3">
+                        <div className="max-h-52 overflow-y-auto rounded-2xl border border-white/80 bg-white/70 p-3">
                           {availableUsers.length > 0 ? (
                             <div className="grid gap-2 md:grid-cols-2">
                               {availableUsers.map((user) => {
@@ -666,19 +672,19 @@ export const AgentManagement = () => {
                         value={draft.system_prompt}
                         onChange={(event) => patchDraft({ system_prompt: event.target.value })}
                         rows={10}
-                        className="w-full resize-y rounded-3xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-medium leading-6 text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                        className="w-full resize-y rounded-2xl border border-white/75 bg-white/72 px-3.5 py-2.5 text-sm font-medium leading-6 text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                       />
                     </label>
                   </div>
                 </div>
 
-                <div className="overflow-y-auto border-l border-slate-100 bg-white/50 p-6">
+                <div className="overflow-y-auto border-l border-slate-100 bg-white/50 p-5">
                   <div className="space-y-4">
-                    <div className="rounded-3xl border border-white/80 bg-white/82 p-5 shadow-lg">
-                      <div className="mb-4 flex items-center justify-between">
+                    <div className="rounded-2xl border border-white/80 bg-white/82 p-4 shadow-md">
+                      <div className="mb-3 flex items-center justify-between">
                         <div>
                           <p className="admin-section-kicker">工具与审批</p>
-                          <h4 className="mt-1 text-lg font-black text-slate-900">启用状态与审批开关</h4>
+                          <h4 className="mt-1 text-base font-black text-slate-900">启用状态与审批开关</h4>
                         </div>
                         <span className="rounded-full border border-white/80 bg-white px-3 py-1 text-xs font-black text-slate-500">
                           已启用 {enabledTools}/{draft.tools.length}
@@ -697,7 +703,7 @@ export const AgentManagement = () => {
                           const allSubToolsApproved = tool.requires_approval && approvedSubTools.length === 0;
 
                           return (
-                            <div key={tool.tool_name} className="rounded-3xl border border-white/85 bg-white/78 p-4">
+                            <div key={tool.tool_name} className="rounded-2xl border border-white/85 bg-white/78 p-3.5">
                               {/* Header */}
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0 flex-1">
@@ -718,7 +724,7 @@ export const AgentManagement = () => {
 
                               {/* Controls row */}
                               <div className="mt-4 flex items-center gap-3">
-                                <div className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/72 px-4 py-3 flex-1">
+                                <div className="flex items-center justify-between rounded-xl border border-white/80 bg-white/72 px-3.5 py-2.5 flex-1">
                                   <span className="text-sm font-black text-slate-700">启用</span>
                                   <Toggle checked={tool.enabled} onClick={() => updateTool(tool.tool_name, { enabled: !tool.enabled })} />
                                 </div>
@@ -727,7 +733,7 @@ export const AgentManagement = () => {
                                     type="button"
                                     onClick={() => toggleToolExpand(tool.tool_name)}
                                     className={cn(
-                                      'flex items-center gap-2 rounded-2xl border border-white/80 bg-white/72 px-4 py-3 text-sm font-black transition-colors hover:bg-sky-50',
+                                      'flex items-center gap-2 rounded-xl border border-white/80 bg-white/72 px-3.5 py-2.5 text-sm font-black transition-colors hover:bg-sky-50',
                                       isExpanded ? 'text-sky-700' : 'text-slate-500',
                                     )}
                                   >
@@ -738,7 +744,7 @@ export const AgentManagement = () => {
                                     </svg>
                                   </button>
                                 ) : (
-                                  <div className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/72 px-4 py-3 flex-1">
+                                  <div className="flex items-center justify-between rounded-xl border border-white/80 bg-white/72 px-3.5 py-2.5 flex-1">
                                     <span className="text-sm font-black text-slate-700">需要审批</span>
                                     <Toggle
                                       checked={isSkillTool ? true : tool.requires_approval}
@@ -750,8 +756,15 @@ export const AgentManagement = () => {
                               </div>
 
                               {/* Expandable sub-tools */}
+                              <AnimatePresence>
                               {hasSubTools && isExpanded && (
-                                <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: 'auto' }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                  className="mt-4 space-y-2 border-t border-slate-100 pt-4 overflow-hidden"
+                                >
                                   <div className="mb-3 flex items-center justify-between">
                                     <span className="text-xs font-bold text-slate-500">选择需要审批的子工具（未选中的子工具将跳过审批直接执行）</span>
                                     <button
@@ -790,19 +803,20 @@ export const AgentManagement = () => {
                                       </div>
                                     );
                                   })}
-                                </div>
+                                </motion.div>
                               )}
+                              </AnimatePresence>
                             </div>
                           );
                         })}
                       </div>
                     </div>
 
-                    <div className="rounded-3xl border border-white/80 bg-white/82 p-5 shadow-lg">
-                      <div className="mb-4 flex items-center justify-between">
+                    <div className="rounded-2xl border border-white/80 bg-white/82 p-4 shadow-md">
+                      <div className="mb-3 flex items-center justify-between">
                         <div>
                           <p className="admin-section-kicker">可用 Skill</p>
-                          <h4 className="mt-1 text-lg font-black text-slate-900">按智能体选择 Skill</h4>
+                          <h4 className="mt-1 text-base font-black text-slate-900">按智能体选择 Skill</h4>
                         </div>
                         <span className="rounded-full border border-white/80 bg-white px-3 py-1 text-xs font-black text-slate-500">
                           已选 {selectedSkills.length}/{availableSkills.length}
@@ -810,7 +824,7 @@ export const AgentManagement = () => {
                       </div>
 
                       {!skillToolEnabled && (
-                        <div className="mb-4 rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
+                        <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm font-bold text-amber-700">
                           选中 Skill 后，系统会自动打开 `skill` 工具；脚本执行审批由 Wuwei 0.2.1 在运行时接管。
                         </div>
                       )}
@@ -825,7 +839,7 @@ export const AgentManagement = () => {
                                 type="button"
                                 onClick={() => toggleSkill(skill.id)}
                                 className={cn(
-                                  'w-full rounded-3xl border p-4 text-left transition-all',
+                                  'w-full rounded-2xl border p-3.5 text-left transition-all',
                                   selected
                                     ? 'border-sky-200 bg-sky-50/72 shadow-sm'
                                     : 'border-white/80 bg-white/72 hover:bg-white',
@@ -866,7 +880,7 @@ export const AgentManagement = () => {
                             );
                           })
                         ) : (
-                          <div className="rounded-3xl border border-dashed border-slate-200 bg-white/60 px-4 py-5 text-sm font-medium text-slate-500">
+                          <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-4 py-4 text-sm font-medium text-slate-500">
                             还没有可绑定的 Skill，请先去 Skill 管理页创建或上传。
                           </div>
                         )}
@@ -876,7 +890,7 @@ export const AgentManagement = () => {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm font-medium text-slate-500">保存后将更新当前智能体配置。</p>
                 <div className="flex items-center gap-3">
                   <Button type="button" variant="secondary" onClick={closeModal} disabled={isSaving}>
