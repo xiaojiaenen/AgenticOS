@@ -1,0 +1,80 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='ghibli'>
+  <defs>
+    <linearGradient id='skyGrad2' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='var(--bg)'/>
+      <stop offset='100%' stop-color='var(--surface)'/>
+    </linearGradient>
+  </defs>
+  <!-- notes: 目录页——6个议程条目网格排列，云朵装饰延续封面调性 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='url(#skyGrad2)'/>
+  </g>
+  <g id='decoration-clouds'>
+    <g fill='var(--surface)' fill-opacity='0.4'>
+      <ellipse cx='150' cy='100' rx='70' ry='30'/>
+      <ellipse cx='200' cy='85' rx='50' ry='25'/>
+    </g>
+    <g fill='var(--surface)' fill-opacity='0.3'>
+      <ellipse cx='1130' cy='650' rx='80' ry='30'/>
+      <ellipse cx='1200' cy='635' rx='55' ry='25'/>
+    </g>
+  </g>
+  <g id='toc-header'>
+    <text x='100' y='110' font-size='48' font-weight='900' fill='var(--text-1)' font-family='Playfair Display,Noto Serif SC,serif'>目录</text>
+    <text x='100' y='150' font-size='20' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>Contents</text>
+    <rect x='100' y='175' width='60' height='4' rx='2' fill='var(--accent)'/>
+  </g>
+  <g id='toc-items'>
+    <!-- 条目1 -->
+    <g>
+      <rect x='100' y='230' width='320' height='130' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <circle cx='145' cy='290' r='24' fill='var(--accent)' fill-opacity='0.15'/>
+      <text x='145' y='297' font-size='22' font-weight='bold' fill='var(--accent)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>01</text>
+      <text x='195' y='280' font-size='22' font-weight='bold' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>漫展概览</text>
+      <text x='195' y='310' font-size='15' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>规模、数据与亮点回顾</text>
+    </g>
+    <!-- 条目2 -->
+    <g>
+      <rect x='480' y='230' width='320' height='130' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <circle cx='525' cy='290' r='24' fill='var(--accent)' fill-opacity='0.15'/>
+      <text x='525' y='297' font-size='22' font-weight='bold' fill='var(--accent)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>02</text>
+      <text x='575' y='280' font-size='22' font-weight='bold' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>精彩活动</text>
+      <text x='575' y='310' font-size='15' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>舞台表演、签售与互动体验</text>
+    </g>
+    <!-- 条目3 -->
+    <g>
+      <rect x='860' y='230' width='320' height='130' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <circle cx='905' cy='290' r='24' fill='var(--accent)' fill-opacity='0.15'/>
+      <text x='905' y='297' font-size='22' font-weight='bold' fill='var(--accent)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>03</text>
+      <text x='955' y='280' font-size='22' font-weight='bold' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>主题展区</text>
+      <text x='955' y='310' font-size='15' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>三大沉浸式体验空间</text>
+    </g>
+    <!-- 条目4 -->
+    <g>
+      <rect x='100' y='400' width='320' height='130' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <circle cx='145' cy='460' r='24' fill='var(--accent)' fill-opacity='0.15'/>
+      <text x='145' y='467' font-size='22' font-weight='bold' fill='var(--accent)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>04</text>
+      <text x='195' y='450' font-size='22' font-weight='bold' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>活动日程</text>
+      <text x='195' y='480' font-size='15' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>三天展期精彩时刻表</text>
+    </g>
+    <!-- 条目5 -->
+    <g>
+      <rect x='480' y='400' width='320' height='130' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <circle cx='525' cy='460' r='24' fill='var(--accent)' fill-opacity='0.15'/>
+      <text x='525' y='467' font-size='22' font-weight='bold' fill='var(--accent)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>05</text>
+      <text x='575' y='450' font-size='22' font-weight='bold' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>参展指南</text>
+      <text x='575' y='480' font-size='15' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>购票、交通与入场须知</text>
+    </g>
+    <!-- 条目6 -->
+    <g>
+      <rect x='860' y='400' width='320' height='130' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <circle cx='905' cy='460' r='24' fill='var(--accent)' fill-opacity='0.15'/>
+      <text x='905' y='467' font-size='22' font-weight='bold' fill='var(--accent)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>06</text>
+      <text x='955' y='450' font-size='22' font-weight='bold' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>联系我们</text>
+      <text x='955' y='480' font-size='15' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>合作洽谈与咨询方式</text>
+    </g>
+  </g>
+  <g id='pagenumber'>
+    <text x='1240' y='700' font-size='14' fill='var(--text-3)' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>02 / 10</text>
+  </g>
+</svg>

@@ -1,0 +1,107 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <linearGradient id='btnGrad10' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='var(--accent)'/>
+      <stop offset='100%' stop-color='var(--accent-2)'/>
+    </linearGradient>
+    <filter id='btnGlow' x='-30%' y='-30%' width='160%' height='160%'>
+      <feGaussianBlur in='SourceAlpha' stdDeviation='10'/>
+      <feOffset dx='0' dy='5'/>
+      <feFlood flood-color='var(--accent)' flood-opacity='0.25'/>
+      <feComposite in2='SourceGraphic' operator='in'/>
+      <feMerge><feMergeNode/><feMergeNode in='SourceGraphic'/></feMerge>
+    </filter>
+    <filter id='cardShadow10' x='-10%' y='-10%' width='130%' height='130%'>
+      <feGaussianBlur in='SourceAlpha' stdDeviation='6'/>
+      <feOffset dx='0' dy='3'/>
+      <feFlood flood-color='#000000' flood-opacity='0.15'/>
+      <feComposite in2='SourceGraphic' operator='in'/>
+      <feMerge><feMergeNode/><feMergeNode in='SourceGraphic'/></feMerge>
+    </filter>
+    <filter id='glowDot10' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='4'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='var(--accent)' stroke-opacity='0.03' stroke-width='1'/>
+    <circle cx='0' cy='0' r='400' fill='var(--accent)' fill-opacity='0.03'/>
+    <circle cx='1280' cy='720' r='400' fill='var(--accent-2)' fill-opacity='0.03'/>
+  </g>
+  <g id='decor-dots'>
+    <circle cx='200' cy='150' r='2' fill='var(--accent)' fill-opacity='0.2' filter='url(#glowDot10)'/>
+    <circle cx='1100' cy='120' r='1.5' fill='var(--accent-2)' fill-opacity='0.2'/>
+    <circle cx='100' cy='500' r='2' fill='var(--accent)' fill-opacity='0.2'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='80' font-size='13' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>购票信息</text>
+    <rect x='80' y='95' width='40' height='2' rx='1' fill='var(--accent)'/>
+  </g>
+  <g id='section-title'>
+    <text x='80' y='165' font-size='38' font-weight='800' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>
+      加入这场夏日狂想
+    </text>
+    <text x='80' y='200' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>早鸟优惠进行中 · 选一份属于你的入场券</text>
+  </g>
+  <g id='ticket-cards' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 基础票 -->
+    <g transform='translate(80, 260)'>
+      <rect width='350' height='350' rx='12' fill='var(--surface)' stroke='var(--border)' stroke-width='1' filter='url(#cardShadow10)'/>
+      <rect x='0' y='0' width='350' height='3' rx='1.5' fill='var(--accent)' fill-opacity='0.4'/>
+      <text x='175' y='55' text-anchor='middle' font-size='18' font-weight='700' fill='var(--text-1)'>单日票</text>
+      <text x='175' y='105' text-anchor='middle' font-size='42' font-weight='900' fill='var(--accent)'>
+        ¥<tspan font-size='56'>128</tspan>
+      </text>
+      <text x='175' y='130' text-anchor='middle' font-size='13' fill='var(--text-3)'>早鸟价 ¥88（限前1000张）</text>
+      <line x1='30' y1='150' x2='320' y2='150' stroke='var(--border)' stroke-width='1'/>
+      <text x='35' y='178' font-size='13' fill='var(--text-2)'>✔ 单日展区通行</text>
+      <text x='35' y='208' font-size='13' fill='var(--text-2)'>✔ 基础舞台表演</text>
+      <text x='35' y='238' font-size='13' fill='var(--text-2)'>✔ 展会周边手册</text>
+      <text x='35' y='268' font-size='13' fill='var(--text-3)'>✘ 声优见面会</text>
+      <text x='35' y='298' font-size='13' fill='var(--text-3)'>✘ 限定周边礼包</text>
+    </g>
+    <!-- 推荐票 -->
+    <g transform='translate(465, 250)'>
+      <rect width='350' height='370' rx='12' fill='var(--surface)' stroke='var(--accent)' stroke-width='2'/>
+      <rect x='0' y='0' width='350' height='3' rx='1.5' fill='var(--accent)'/>
+      <rect x='100' y='0' width='150' height='28' rx='14' fill='var(--accent)'/>
+      <text x='175' y='19' text-anchor='middle' font-size='12' fill='var(--bg)' font-weight='700'>🔥 最受欢迎</text>
+      <text x='175' y='75' text-anchor='middle' font-size='18' font-weight='700' fill='var(--text-1)'>三日通票</text>
+      <text x='175' y='125' text-anchor='middle' font-size='42' font-weight='900' fill='var(--accent)'>
+        ¥<tspan font-size='56'>268</tspan>
+      </text>
+      <text x='175' y='150' text-anchor='middle' font-size='13' fill='var(--text-3)'>早鸟价 ¥198（省<tspan font-weight='bold'>70</tspan>元）</text>
+      <line x1='30' y1='170' x2='320' y2='170' stroke='var(--border)' stroke-width='1'/>
+      <text x='35' y='198' font-size='13' fill='var(--text-2)'>✔ 三日全域通行</text>
+      <text x='35' y='228' font-size='13' fill='var(--text-2)'>✔ 所有舞台 &amp; 见面会</text>
+      <text x='35' y='258' font-size='13' fill='var(--text-2)'>✔ 工作坊体验名额</text>
+      <text x='35' y='288' font-size='13' fill='var(--text-2)'>✔ 限定周边礼包</text>
+      <text x='35' y='318' font-size='13' fill='var(--text-2)'>✔ VIP 优先入场通道</text>
+    </g>
+    <!-- VIP票 -->
+    <g transform='translate(850, 260)'>
+      <rect width='350' height='350' rx='12' fill='var(--surface)' stroke='var(--border)' stroke-width='1' filter='url(#cardShadow10)'/>
+      <rect x='0' y='0' width='350' height='3' rx='1.5' fill='var(--accent-2)'/>
+      <text x='175' y='55' text-anchor='middle' font-size='18' font-weight='700' fill='var(--text-1)'>VIP 尊享票</text>
+      <text x='175' y='105' text-anchor='middle' font-size='42' font-weight='900' fill='var(--accent-2)'>
+        ¥<tspan font-size='56'>688</tspan>
+      </text>
+      <text x='175' y='130' text-anchor='middle' font-size='13' fill='var(--text-3)'>限量 200 张 · 含签名会资格</text>
+      <line x1='30' y1='150' x2='320' y2='150' stroke='var(--border)' stroke-width='1'/>
+      <text x='35' y='178' font-size='13' fill='var(--text-2)'>✔ 三日通票全部权益</text>
+      <text x='35' y='208' font-size='13' fill='var(--text-2)'>✔ 嘉宾签名会优先资格</text>
+      <text x='35' y='238' font-size='13' fill='var(--text-2)'>✔ VIP 专属休息区</text>
+      <text x='35' y='268' font-size='13' fill='var(--text-2)'>✔ 限定版纪念画册</text>
+      <text x='35' y='298' font-size='13' fill='var(--text-2)'>✔ 官方答谢晚宴</text>
+    </g>
+  </g>
+  <!-- 购票按钮 -->
+  <g id='cta-button' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='464' y='650' width='352' height='48' rx='24' fill='url(#btnGrad10)' filter='url(#btnGlow)'/>
+    <text x='640' y='680' font-size='16' font-weight='700' fill='var(--bg)' letter-spacing='2'>立即购票 · 早鸟倒计时</text>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='var(--text-3)' text-anchor='end'>10 / 11</text>
+  </g>
+  <!-- notes: CTA——"三档票价，中间通票最划算。VIP限量200张。早鸟价倒计时中。" -->
+</svg>

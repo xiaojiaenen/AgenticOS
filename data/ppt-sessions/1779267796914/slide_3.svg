@@ -1,0 +1,46 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <rect x='0' y='0' width='1280' height='4' fill='var(--accent)'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='80' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='2'>CHAPTER 01 · 使命与愿景</text>
+    <text x='80' y='130' font-size='42' font-weight='800' fill='var(--text-1)'>从实验室到世界舞台</text>
+    <rect x='80' y='155' width='50' height='3' fill='var(--accent)'/>
+  </g>
+  <g id='card-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='210' width='350' height='440' rx='16' fill='var(--surface)'/>
+    <circle cx='130' cy='280' r='28' fill='var(--accent)' fill-opacity='0.12'/>
+    <text x='130' y='288' text-anchor='middle' font-size='22' font-weight='700' fill='var(--accent)'>01</text>
+    <text x='180' y='278' font-size='22' font-weight='700' fill='var(--text-1)'>保证 AGI 惠及全人类</text>
+    <text x='110' y='340' font-size='16' fill='var(--text-2)'>2015 年，OpenAI 由 Sam Altman、Elon Musk</text>
+    <text x='110' y='365' font-size='16' fill='var(--text-2)'>等人创立，使命是确保通用人工智能</text>
+    <text x='110' y='390' font-size='16' fill='var(--text-2)'>（AGI）能够安全、公平地造福</text>
+    <text x='110' y='415' font-size='16' fill='var(--text-2)'>每一个人。</text>
+  </g>
+  <g id='card-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='465' y='210' width='350' height='440' rx='16' fill='var(--surface)'/>
+    <circle cx='515' cy='280' r='28' fill='var(--accent)' fill-opacity='0.12'/>
+    <text x='515' y='288' text-anchor='middle' font-size='22' font-weight='700' fill='var(--accent)'>02</text>
+    <text x='565' y='278' font-size='22' font-weight='700' fill='var(--text-1)'>非营利到"有限盈利"</text>
+    <text x='495' y='340' font-size='16' fill='var(--text-2)'>2019 年转型为"有限盈利"结构，</text>
+    <text x='495' y='365' font-size='16' fill='var(--text-2)'>在吸引资本与科研独立性之间</text>
+    <text x='495' y='390' font-size='16' fill='var(--text-2)'>寻找平衡。微软投资 130 亿美元，</text>
+    <text x='495' y='415' font-size='16' fill='var(--text-2)'>成为重要战略伙伴。</text>
+  </g>
+  <g id='card-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='850' y='210' width='350' height='440' rx='16' fill='var(--surface)'/>
+    <circle cx='900' cy='280' r='28' fill='var(--accent)' fill-opacity='0.12'/>
+    <text x='900' y='288' text-anchor='middle' font-size='22' font-weight='700' fill='var(--accent)'>03</text>
+    <text x='950' y='278' font-size='22' font-weight='700' fill='var(--text-1)'>顶级人才密度</text>
+    <text x='880' y='340' font-size='16' fill='var(--text-2)'>汇聚全球顶尖 AI 研究员，包括</text>
+    <text x='880' y='365' font-size='16' fill='var(--text-2)'>Ilya Sutskever（AlexNet 发明者）、</text>
+    <text x='880' y='390' font-size='16' fill='var(--text-2)'>Greg Brockman（前 Stripe CTO）</text>
+    <text x='880' y='415' font-size='16' fill='var(--text-2)'>等。团队规模从不到 50 人</text>
+    <text x='880' y='440' font-size='16' fill='var(--text-2)'>增长至 3000+ 人。</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='var(--text-3)'>3 / 11</text>
+  </g>
+  <!-- notes: 三张卡片分别讲述 OpenAI 的创立初心、商业模式转型和人才密度。这是理解 OpenAI 独特性的基础。演讲时强调："不是任何一家普通公司——它的基因里写满了使命驱动。" -->
+</svg>

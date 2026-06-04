@@ -1,0 +1,56 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='apple'>
+  <!-- notes: KPI数据页——四个核心指标一目了然。28年连续第一、6亿+全球用户、33.9%市占率、10年整机保修。每个数据都要有上下文：跟谁比、什么时间。示意数据基于公开市场信息。 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='kpi-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='60' font-size='18' fill='#0071e3' font-weight='600'>品牌实力</text>
+    <text x='80' y='110' font-size='36' font-weight='700' fill='#1d1d1f'>核心数据一览</text>
+  </g>
+  <g id='kpi-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='60' y='160' width='560' height='220' rx='16' fill='#fbfbfd'/>
+    <rect x='100' y='188' width='24' height='24' rx='4' fill='#0071e3' fill-opacity='0.15'/>
+    <text x='112' y='206' font-size='14' fill='#0071e3' text-anchor='middle' font-weight='700'>★</text>
+    <text x='135' y='208' font-size='14' fill='#424245'>连续销量冠军</text>
+    <text x='100' y='290' font-size='64' font-weight='800' fill='#1d1d1f'>28</text>
+    <text x='210' y='290' font-size='28' fill='#424245' font-weight='400'>年</text>
+    <rect x='100' y='320' width='120' height='28' rx='14' fill='#16a34a' fill-opacity='0.12'/>
+    <text x='160' y='339' font-size='14' fill='#16a34a' font-weight='600' text-anchor='middle'>连续第一</text>
+  </g>
+  <g id='kpi-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='660' y='160' width='560' height='220' rx='16' fill='#fbfbfd'/>
+    <circle cx='712' cy='200' r='12' fill='none' stroke='#0077ed' stroke-width='2'/>
+    <line x1='700' y1='200' x2='724' y2='200' stroke='#0077ed' stroke-width='1.5'/>
+    <ellipse cx='712' cy='200' rx='6' ry='12' fill='none' stroke='#0077ed' stroke-width='1.5'/>
+    <text x='735' y='208' font-size='14' fill='#424245'>全球用户覆盖</text>
+    <text x='700' y='290' font-size='64' font-weight='800' fill='#1d1d1f'>6亿</text>
+    <text x='820' y='290' font-size='28' fill='#424245' font-weight='400'>+</text>
+    <rect x='700' y='320' width='100' height='28' rx='14' fill='#16a34a' fill-opacity='0.12'/>
+    <text x='750' y='339' font-size='14' fill='#16a34a' font-weight='600' text-anchor='middle'>↑ 12%</text>
+    <text x='820' y='339' font-size='13' fill='#86868b'>vs 2023</text>
+  </g>
+  <g id='kpi-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='60' y='420' width='560' height='220' rx='16' fill='#fbfbfd'/>
+    <rect x='100' y='448' width='4' height='14' rx='2' fill='#0066cc'/>
+    <rect x='108' y='442' width='4' height='20' rx='2' fill='#0066cc'/>
+    <rect x='116' y='436' width='4' height='26' rx='2' fill='#0066cc'/>
+    <text x='135' y='470' font-size='14' fill='#424245'>中国家用空调市占率</text>
+    <text x='100' y='550' font-size='64' font-weight='800' fill='#1d1d1f'>33.9</text>
+    <text x='280' y='550' font-size='28' fill='#424245' font-weight='400'>%</text>
+    <rect x='100' y='580' width='130' height='28' rx='14' fill='#16a34a' fill-opacity='0.12'/>
+    <text x='165' y='599' font-size='14' fill='#16a34a' font-weight='600' text-anchor='middle'>行业领先</text>
+  </g>
+  <g id='kpi-4' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='660' y='420' width='560' height='220' rx='16' fill='#fbfbfd'/>
+    <path d='M712,448 L712,462 Q712,472 700,476 Q712,476 712,462' fill='#16a34a' fill-opacity='0.3'/>
+    <text x='735' y='470' font-size='14' fill='#424245'>整机保修承诺</text>
+    <text x='700' y='550' font-size='64' font-weight='800' fill='#1d1d1f'>10</text>
+    <text x='770' y='550' font-size='28' fill='#424245' font-weight='400'>年</text>
+    <rect x='700' y='580' width='120' height='28' rx='14' fill='#0071e3' fill-opacity='0.12'/>
+    <text x='760' y='599' font-size='14' fill='#0071e3' font-weight='600' text-anchor='middle'>行业唯一</text>
+  </g>
+  <g id='kpi-footer'>
+    <text x='80' y='680' font-size='12' fill='#86868b' font-family='Inter,Noto Sans SC,sans-serif'>数据来源：格力电器2024年度报告、中怡康市场监测数据</text>
+    <text x='1200' y='680' text-anchor='end' font-size='12' fill='#86868b' font-family='Inter,Noto Sans SC,sans-serif'>4 / 11</text>
+  </g>
+</svg>

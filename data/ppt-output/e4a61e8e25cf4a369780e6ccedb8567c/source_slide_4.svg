@@ -1,0 +1,38 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <!-- 装饰 -->
+  <g id='stat-decor'>
+    <circle cx='640' cy='360' r='280' fill='#111111' fill-opacity='0.03'/>
+    <circle cx='640' cy='360' r='180' fill='#111111' fill-opacity='0.04'/>
+  </g>
+  <g id='stat-header'>
+    <text x='640' y='80' font-size='18' fill='#111111' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='4'>GLOBAL PRESENCE</text>
+  </g>
+  <!-- 超大数字 -->
+  <g id='stat-hero'>
+    <text x='640' y='260' font-size='140' font-weight='900' fill='#111111' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>NO.1</text>
+    <text x='640' y='330' font-size='28' fill='#4b4b4d' font-weight='600' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>全球家用空调市场占有率连续多年领先</text>
+  </g>
+  <!-- 三个支撑数据 -->
+  <g id='stat-support-1'>
+    <rect x='160' y='400' width='280' height='140' rx='16' fill='#f5f5f5'/>
+    <text x='300' y='460' font-size='52' font-weight='900' fill='#111111' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>200+</text>
+    <text x='300' y='510' font-size='16' fill='#4b4b4d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>产品销往全球 200+ 国家和地区</text>
+  </g>
+  <g id='stat-support-2'>
+    <rect x='500' y='400' width='280' height='140' rx='16' fill='#f5f5f5'/>
+    <text x='640' y='460' font-size='52' font-weight='900' fill='#d30005' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>9万+</text>
+    <text x='640' y='510' font-size='16' fill='#4b4b4d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>全球专利申请数量</text>
+  </g>
+  <g id='stat-support-3'>
+    <rect x='840' y='400' width='280' height='140' rx='16' fill='#f5f5f5'/>
+    <text x='980' y='460' font-size='52' font-weight='900' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>31年</text>
+    <text x='980' y='510' font-size='16' fill='#4b4b4d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>专注空调领域深耕</text>
+  </g>
+  <!-- 页脚 -->
+  <g id='page-footer'>
+    <text x='80' y='680' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>数据来源：格力电器年报及第三方机构统计</text>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>4 / 10</text>
+  </g>
+  <!-- notes: 数据页——用 NO.1 超大字制造视觉冲击。三个支撑数据各有侧重：200+国家强调全球化，9万+专利强调技术积累，31年强调专注和底蕴。讲的时候可以说"很多人不知道，格力的产品已经卖到了全球200多个国家"，用反差感强化品牌认知。这些都是真实数据，不用标注示意。 -->
+</svg>

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
+  <!-- notes: 产品对比页——用左右对比展示两款热销产品，帮助消费者快速选择 -->
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+  </g>
+  <g id="page-header">
+    <text x="100" y="80" font-size="14" fill="var(--accent)" font-weight="600">HOT PRODUCTS</text>
+    <text x="100" y="120" font-size="36" font-weight="700" fill="var(--text-1)">热销产品推荐</text>
+    <rect x="100" y="140" width="60" height="3" fill="var(--accent)"/>
+  </g>
+  <g id="product-left">
+    <rect x="80" y="180" width="530" height="440" rx="20" fill="var(--surface)"/>
+    <rect x="80" y="180" width="530" height="60" rx="20" fill="var(--accent)"/>
+    <rect x="80" y="220" width="530" height="20" fill="var(--accent)"/>
+    <text x="345" y="220" font-size="22" font-weight="700" fill="white" text-anchor="middle">格力·云佳系列</text>
+    <text x="345" y="290" font-size="48" font-weight="800" fill="var(--accent)" text-anchor="middle">¥3,299</text>
+    <text x="345" y="330" font-size="16" fill="var(--text-3)" text-anchor="middle">1.5匹 变频冷暖</text>
+    <text x="345" y="380" font-size="16" fill="var(--text-2)" text-anchor="middle">新一级能效 · 自清洁</text>
+    <text x="345" y="410" font-size="16" fill="var(--text-2)" text-anchor="middle">WiFi智控 · 超静音</text>
+    <text x="345" y="440" font-size="16" fill="var(--text-2)" text-anchor="middle">适用面积: 15-22㎡</text>
+    <rect x="225" y="480" width="240" height="50" rx="25" fill="var(--accent)"/>
+    <text x="345" y="512" font-size="18" font-weight="600" fill="white" text-anchor="middle">了解更多</text>
+  </g>
+  <g id="product-right">
+    <rect x="660" y="180" width="530" height="440" rx="20" fill="var(--surface)"/>
+    <rect x="660" y="180" width="530" height="60" rx="20" fill="var(--text-1)"/>
+    <rect x="660" y="220" width="530" height="20" fill="var(--text-1)"/>
+    <text x="925" y="220" font-size="22" font-weight="700" fill="white" text-anchor="middle">格力·臻新风系列</text>
+    <text x="925" y="290" font-size="48" font-weight="800" fill="var(--accent)" text-anchor="middle">¥5,999</text>
+    <text x="925" y="330" font-size="16" fill="var(--text-3)" text-anchor="middle">3匹 变频柜机</text>
+    <text x="925" y="380" font-size="16" fill="var(--text-2)" text-anchor="middle">新风功能 · 双向换气</text>
+    <text x="925" y="410" font-size="16" fill="var(--text-2)" text-anchor="middle">UVC除菌 · 自清洁</text>
+    <text x="925" y="440" font-size="16" fill="var(--text-2)" text-anchor="middle">适用面积: 30-40㎡</text>
+    <rect x="805" y="480" width="240" height="50" rx="25" fill="var(--text-1)"/>
+    <text x="925" y="512" font-size="18" font-weight="600" fill="white" text-anchor="middle">了解更多</text>
+  </g>
+  <g id="vs-badge">
+    <circle cx="640" cy="400" r="30" fill="var(--accent)"/>
+    <text x="640" y="408" font-size="18" font-weight="700" fill="white" text-anchor="middle">VS</text>
+  </g>
+  <g id="footer-pagenum">
+    <text x="1220" y="690" font-size="14" fill="var(--text-3)" text-anchor="end">08 / 10</text>
+  </g>
+</svg>

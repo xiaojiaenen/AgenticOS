@@ -1,0 +1,48 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="page-header" font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='4'>HIGHLIGHTS</text>
+    <text x='80' y='150' font-size='42' font-weight='800' fill='var(--text-1)'>你的高光时刻</text>
+    <rect x='80' y='170' width='50' height='4' rx='2' fill='var(--accent)'/>
+  </g>
+  <g id="highlight-cards" font-family='Inter,Noto Sans SC,sans-serif'>
+    <g transform='translate(80, 260)'>
+      <rect x='0' y='0' width='260' height='180' rx='16' fill='var(--surface)'/>
+      <text x='130' y='55' font-size='46' fill='var(--accent)' text-anchor='middle'>🎓</text>
+      <text x='130' y='105' font-size='26' font-weight='700' fill='var(--text-1)' text-anchor='middle'>毕业</text>
+      <text x='130' y='135' font-size='15' fill='var(--text-2)' text-anchor='middle'>以优异成绩完成学业</text>
+      <text x='130' y='160' font-size='13' fill='var(--text-3)' text-anchor='middle'>2023</text>
+    </g>
+    <g transform='translate(360, 260)'>
+      <rect x='0' y='0' width='260' height='180' rx='16' fill='var(--surface)'/>
+      <text x='130' y='55' font-size='46' fill='var(--accent)' text-anchor='middle'>🏆</text>
+      <text x='130' y='105' font-size='26' font-weight='700' fill='var(--text-1)' text-anchor='middle'>突破</text>
+      <text x='130' y='135' font-size='15' fill='var(--text-2)' text-anchor='middle'>完成第一个大项目</text>
+      <text x='130' y='160' font-size='13' fill='var(--text-3)' text-anchor='middle'>2024</text>
+    </g>
+    <g transform='translate(640, 260)'>
+      <rect x='0' y='0' width='260' height='180' rx='16' fill='var(--surface)'/>
+      <text x='130' y='55' font-size='46' fill='var(--accent)' text-anchor='middle'>✈️</text>
+      <text x='130' y='105' font-size='26' font-weight='700' fill='var(--text-1)' text-anchor='middle'>旅行</text>
+      <text x='130' y='135' font-size='15' fill='var(--text-2)' text-anchor='middle'>踏足 5 个新国度</text>
+      <text x='130' y='160' font-size='13' fill='var(--text-3)' text-anchor='middle'>世界在脚下</text>
+    </g>
+    <g transform='translate(920, 260)'>
+      <rect x='0' y='0' width='260' height='180' rx='16' fill='var(--surface)'/>
+      <text x='130' y='55' font-size='46' fill='var(--accent)' text-anchor='middle'>💖</text>
+      <text x='130' y='105' font-size='26' font-weight='700' fill='var(--text-1)' text-anchor='middle'>相遇</text>
+      <text x='130' y='135' font-size='15' fill='var(--text-2)' text-anchor='middle'>遇见生命中的美好</text>
+      <text x='130' y='160' font-size='13' fill='var(--text-3)' text-anchor='middle'>感恩有你</text>
+    </g>
+  </g>
+  <g id="summary-line" font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='490' width='1120' height='70' rx='12' fill='var(--accent)' fill-opacity='0.08'/>
+    <text x='640' y='534' font-size='22' fill='var(--text-1)' text-anchor='middle' font-weight='500'>每一程都精彩 · 每一步都算数</text>
+  </g>
+  <g id="footer-chrome">
+    <text x='80' y='680' font-size='12' fill='var(--text-3)'>05 / 11</text>
+  </g>
+  <!-- notes: 高光时刻页——四张卡片展示寿星的重要成就。每张卡片可以展开讲一个小故事，让现场气氛轻松而温馨 -->
+</svg>

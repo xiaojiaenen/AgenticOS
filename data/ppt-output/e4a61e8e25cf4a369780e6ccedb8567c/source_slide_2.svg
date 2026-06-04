@@ -1,0 +1,22 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#fafafa'/>
+  <!-- 装饰 -->
+  <g id='section-decor'>
+    <rect x='0' y='0' width='1280' height='5' fill='#111111'/>
+    <circle cx='1100' cy='360' r='250' fill='#111111' fill-opacity='0.05'/>
+    <circle cx='1100' cy='360' r='160' fill='#111111' fill-opacity='0.07'/>
+    <circle cx='1100' cy='360' r='70' fill='#111111' fill-opacity='0.10'/>
+  </g>
+  <!-- 章节内容 -->
+  <g id='section-content'>
+    <text x='120' y='260' font-size='150' font-weight='900' fill='#111111' fill-opacity='0.10' font-family='Inter,Noto Sans SC,sans-serif'>01</text>
+    <text x='120' y='320' font-size='20' fill='#111111' font-weight='700' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='5'>SECTION 01</text>
+    <text x='120' y='400' font-size='52' font-weight='800' fill='#111111' font-family='Inter,Noto Sans SC,sans-serif'>核心科技</text>
+    <text x='120' y='460' font-size='22' fill='#4b4b4d' font-family='Inter,Noto Sans SC,sans-serif'>三大自主研发技术，驱动极致舒适体验</text>
+  </g>
+  <!-- 页脚 -->
+  <g id='section-footer'>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>2 / 10</text>
+  </g>
+  <!-- notes: 章节分隔页——用大号编号01建立视觉断点。这里要停顿一下，告诉观众"接下来我要讲格力最核心的东西——技术"。格力和其他品牌最大的区别就是自主掌握压缩机、变频、智能控制三大核心技术，这也是"掌握核心科技"这句 slogan 的底气所在。 -->
+</svg>

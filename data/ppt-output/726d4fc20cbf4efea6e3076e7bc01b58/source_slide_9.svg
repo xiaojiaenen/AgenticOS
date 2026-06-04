@@ -1,0 +1,44 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='ghibli'>
+  <defs>
+    <linearGradient id='dividerGrad3' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='var(--bg)'/>
+      <stop offset='50%' stop-color='var(--surface)'/>
+      <stop offset='100%' stop-color='var(--bg)'/>
+    </linearGradient>
+  </defs>
+  <!-- notes: 章节分隔页——第三章"参展指南"，巨型03数字，本章开始进入实用信息部分：购票、交通、入场须知 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='url(#dividerGrad3)'/>
+  </g>
+  <g id='decoration-clouds'>
+    <g fill='var(--surface)' fill-opacity='0.4'>
+      <ellipse cx='120' cy='140' rx='90' ry='35'/>
+      <ellipse cx='180' cy='125' rx='60' ry='28'/>
+    </g>
+    <g fill='var(--surface)' fill-opacity='0.35'>
+      <ellipse cx='1100' cy='600' rx='100' ry='38'/>
+      <ellipse cx='1170' cy='580' rx='65' ry='30'/>
+    </g>
+  </g>
+  <g id='decoration-arcs'>
+    <path d='M80 340 Q340 420 640 340 Q940 260 1200 340' fill='none' stroke='var(--accent)' stroke-width='2' stroke-opacity='0.18'/>
+    <path d='M140 400 Q400 470 640 400 Q880 330 1140 400' fill='none' stroke='var(--accent)' stroke-width='1.5' stroke-opacity='0.1'/>
+  </g>
+  <g id='decoration-stars'>
+    <circle cx='1050' cy='180' r='3' fill='var(--accent)' fill-opacity='0.3'/>
+    <circle cx='200' cy='520' r='2.5' fill='var(--accent)' fill-opacity='0.25'/>
+    <circle cx='800' cy='160' r='2' fill='var(--accent)' fill-opacity='0.3'/>
+  </g>
+  <g id='section-number'>
+    <text x='640' y='370' font-size='200' font-weight='900' fill='var(--accent)' fill-opacity='0.08' text-anchor='middle' font-family='Playfair Display,Noto Serif SC,serif'>03</text>
+  </g>
+  <g id='section-title'>
+    <text x='640' y='350' font-size='24' fill='var(--accent)' font-weight='600' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='6'>CHAPTER THREE</text>
+    <text x='640' y='430' font-size='64' font-weight='900' fill='var(--text-1)' text-anchor='middle' font-family='Playfair Display,Noto Serif SC,serif'>参展指南</text>
+    <rect x='580' y='460' width='120' height='3' rx='1.5' fill='var(--accent)'/>
+    <text x='640' y='510' font-size='20' fill='var(--text-2)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>购票通道 · 交通路线 · 入场须知</text>
+  </g>
+  <g id='pagenumber'>
+    <text x='1240' y='700' font-size='14' fill='var(--text-3)' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>09 / 10</text>
+  </g>
+</svg>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
+  <!-- notes: 结尾页——用品牌口号收束，提供联系方式，引导行动 -->
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+    <rect x="0" y="716" width="1280" height="4" fill="var(--accent)"/>
+  </g>
+  <g id="cta-title">
+    <text x="640" y="240" font-size="56" font-weight="800" fill="var(--text-1)" text-anchor="middle">让世界爱上中国造</text>
+    <text x="640" y="310" font-size="22" fill="var(--text-2)" text-anchor="middle">格力空调 · 掌握核心科技</text>
+  </g>
+  <g id="cta-contacts">
+    <rect x="340" y="380" width="600" height="160" rx="16" fill="var(--surface)"/>
+    <text x="640" y="430" font-size="20" font-weight="600" fill="var(--text-1)" text-anchor="middle">联系我们</text>
+    <text x="640" y="470" font-size="16" fill="var(--text-2)" text-anchor="middle">全国服务热线: 400-836-5315</text>
+    <text x="640" y="500" font-size="16" fill="var(--text-2)" text-anchor="middle">官方网站: www.gree.com</text>
+  </g>
+  <g id="cta-button">
+    <rect x="480" y="580" width="320" height="60" rx="30" fill="var(--accent)"/>
+    <text x="640" y="618" font-size="20" font-weight="600" fill="white" text-anchor="middle">立即选购</text>
+  </g>
+  <g id="footer-brand">
+    <text x="640" y="690" font-size="14" fill="var(--text-3)" text-anchor="middle">GREE 格力电器 · 好空调 格力造</text>
+  </g>
+</svg>

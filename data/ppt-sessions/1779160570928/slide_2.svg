@@ -1,0 +1,38 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="toc-header" font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='100' y='110' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='4'>CONTENT</text>
+    <text x='100' y='160' font-size='48' font-weight='800' fill='var(--text-1)'>今晚的议程</text>
+    <rect x='100' y='185' width='60' height='4' rx='2' fill='var(--accent)'/>
+  </g>
+  <g id="toc-items" font-family='Inter,Noto Sans SC,sans-serif'>
+    <g transform='translate(100, 270)'>
+      <rect x='0' y='0' width='500' height='56' rx='8' fill='var(--surface)'/>
+      <circle cx='28' cy='28' r='16' fill='var(--accent)'/>
+      <text x='28' y='34' font-size='14' fill='var(--bg-bright)' text-anchor='middle' font-weight='700'>01</text>
+      <text x='60' y='34' font-size='20' fill='var(--text-1)' font-weight='600'>回忆篇 · 那些闪亮的日子</text>
+    </g>
+    <g transform='translate(100, 340)'>
+      <rect x='0' y='0' width='500' height='56' rx='8' fill='var(--surface)'/>
+      <circle cx='28' cy='28' r='16' fill='var(--accent)'/>
+      <text x='28' y='34' font-size='14' fill='var(--bg-bright)' text-anchor='middle' font-weight='700'>02</text>
+      <text x='60' y='34' font-size='20' fill='var(--text-1)' font-weight='600'>祝福篇 · 朋友们的心里话</text>
+    </g>
+    <g transform='translate(100, 410)'>
+      <rect x='0' y='0' width='500' height='56' rx='8' fill='var(--surface)'/>
+      <circle cx='28' cy='28' r='16' fill='var(--accent)'/>
+      <text x='28' y='34' font-size='14' fill='var(--bg-bright)' text-anchor='middle' font-weight='700'>03</text>
+      <text x='60' y='34' font-size='20' fill='var(--text-1)' font-weight='600'>未来篇 · 许下新一岁的愿望</text>
+    </g>
+  </g>
+  <g id="toc-decoration">
+    <circle cx='1100' cy='200' r='120' fill='var(--accent)' fill-opacity='0.05'/>
+    <circle cx='1150' cy='500' r='180' fill='var(--accent)' fill-opacity='0.03'/>
+  </g>
+  <g id="footer-chrome">
+    <text x='100' y='680' font-size='12' fill='var(--text-3)'>02 / 11</text>
+  </g>
+  <!-- notes: 目录页——三个章节清晰呈现。注意每段之间留呼吸感，念议程时语速放慢，让观众有期待感 -->
+</svg>

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="spotify">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  /* Theme tokens for CSS custom property resolution */
+  :root {
+    --accent: #1ed760;
+    --accent-2: #1db954;
+    --accent-3: #2563eb;
+    --bad: #f3727f;
+    --bg: #121212;
+    --bg-soft: #181818;
+    --border: #4d4d4d;
+    --border-strong: #a0a0a8;
+    --good: #1ed760;
+    --grad: linear-gradient(135deg, #1ed760, #1db954);
+    --grad-soft: linear-gradient(135deg, rgba(30,215,96,0.08), rgba(29,185,84,0.04));
+    --surface: #1f1f1f;
+    --surface-2: #1d1d1d;
+    --text-1: #ffffff;
+    --text-2: #fdfdfd;
+    --text-3: #cbcbcb;
+    --warn: #ffa42b;
+  }
+  body { margin:0; padding:0; background:#111; font-family:Inter,Noto Sans SC,sans-serif; }
+  body.single .deck { overflow:auto!important; height:auto!important; }
+  .deck { display:flex; flex-direction:column; align-items:center; gap:16px; padding:16px; }
+  .deck svg { width:100%; max-width:1280px; height:auto; display:block; border-radius:8px; box-shadow:0 4px 24px rgba(0,0,0,.4); }
+</style>
+</head>
+<body class="single">
+<div class="deck">
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+    <rect x='0' y='0' width='1280' height='6' fill='#1ed760'/>
+  </g>
+  <g id="decorative-stars">
+    <circle cx='180' cy='140' r='3' fill='#1ed760' fill-opacity='0.6'/>
+    <circle cx='1100' cy='120' r='4' fill='#1ed760' fill-opacity='0.4'/>
+    <circle cx='950' cy='200' r='2' fill='#1ed760' fill-opacity='0.7'/>
+    <circle cx='300' cy='580' r='3' fill='#1ed760' fill-opacity='0.5'/>
+    <circle cx='1000' cy='600' r='2' fill='#1ed760' fill-opacity='0.6'/>
+    <circle cx='200' cy='400' r='2.5' fill='#1ed760' fill-opacity='0.3'/>
+  </g>
+  <g id="cover-content" text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='180' font-size='20' fill='#1ed760' font-weight='600' letter-spacing='8'>HAPPY BIRTHDAY</text>
+    <text x='640' y='320' font-size='78' font-weight='800' fill='#ffffff'>
+      <tspan x='640' dy='0'>生 日 快 乐</tspan>
+    </text>
+    <text x='640' y='420' font-size='28' fill='#fdfdfd' font-weight='300'>愿 你 的 每 一 天 都 闪 闪 发 光</text>
+    <rect x='540' y='460' width='200' height='3' rx='1.5' fill='#1ed760'/>
+    <text x='640' y='530' font-size='18' fill='#cbcbcb'>2025 · 生日快乐派对</text>
+  </g>
+  <g id="footer-chrome">
+    <text x='640' y='690' font-size='12' fill='#cbcbcb' text-anchor='middle'>❤ 每一岁都珍贵</text>
+  </g>
+  <!-- notes: 封面页——用大标题制造仪式感，"闪闪发光"点出祝福主题。背景点缀小圆点营造派对星星氛围 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+  </g>
+  <g id="toc-header" font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='100' y='110' font-size='14' fill='#1ed760' font-weight='600' letter-spacing='4'>CONTENT</text>
+    <text x='100' y='160' font-size='48' font-weight='800' fill='#ffffff'>今晚的议程</text>
+    <rect x='100' y='185' width='60' height='4' rx='2' fill='#1ed760'/>
+  </g>
+  <g id="toc-items" font-family='Inter,Noto Sans SC,sans-serif'>
+    <g transform='translate(100, 270)'>
+      <rect x='0' y='0' width='500' height='56' rx='8' fill='#1f1f1f'/>
+      <circle cx='28' cy='28' r='16' fill='#1ed760'/>
+      <text x='28' y='34' font-size='14' fill='var(--bg-bright)' text-anchor='middle' font-weight='700'>01</text>
+      <text x='60' y='34' font-size='20' fill='#ffffff' font-weight='600'>回忆篇 · 那些闪亮的日子</text>
+    </g>
+    <g transform='translate(100, 340)'>
+      <rect x='0' y='0' width='500' height='56' rx='8' fill='#1f1f1f'/>
+      <circle cx='28' cy='28' r='16' fill='#1ed760'/>
+      <text x='28' y='34' font-size='14' fill='var(--bg-bright)' text-anchor='middle' font-weight='700'>02</text>
+      <text x='60' y='34' font-size='20' fill='#ffffff' font-weight='600'>祝福篇 · 朋友们的心里话</text>
+    </g>
+    <g transform='translate(100, 410)'>
+      <rect x='0' y='0' width='500' height='56' rx='8' fill='#1f1f1f'/>
+      <circle cx='28' cy='28' r='16' fill='#1ed760'/>
+      <text x='28' y='34' font-size='14' fill='var(--bg-bright)' text-anchor='middle' font-weight='700'>03</text>
+      <text x='60' y='34' font-size='20' fill='#ffffff' font-weight='600'>未来篇 · 许下新一岁的愿望</text>
+    </g>
+  </g>
+  <g id="toc-decoration">
+    <circle cx='1100' cy='200' r='120' fill='#1ed760' fill-opacity='0.05'/>
+    <circle cx='1150' cy='500' r='180' fill='#1ed760' fill-opacity='0.03'/>
+  </g>
+  <g id="footer-chrome">
+    <text x='100' y='680' font-size='12' fill='#cbcbcb'>02 / 11</text>
+  </g>
+  <!-- notes: 目录页——三个章节清晰呈现。注意每段之间留呼吸感，念议程时语速放慢，让观众有期待感 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+    <rect x='0' y='320' width='1280' height='80' fill='#1ed760' fill-opacity='0.08'/>
+  </g>
+  <g id="section-number" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='280' font-size='160' font-weight='800' fill='#1ed760' fill-opacity='0.15'>01</text>
+  </g>
+  <g id="section-title" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='350' font-size='60' font-weight='800' fill='#ffffff'>回 忆 篇</text>
+    <text x='640' y='420' font-size='22' fill='#fdfdfd' font-weight='300'>那些闪亮的日子 · Moments That Shine</text>
+    <rect x='560' y='445' width='160' height='3' rx='1.5' fill='#1ed760'/>
+  </g>
+  <g id="footer-chrome">
+    <text x='100' y='680' font-size='12' fill='#cbcbcb'>03 / 11</text>
+  </g>
+  <!-- notes: 第一个章节分隔页——"回忆篇"。从这里开始进入温情回顾环节，放慢节奏，引导大家回想共同的美好时光 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+  </g>
+  <g id="page-header" font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='14' fill='#1ed760' font-weight='600' letter-spacing='4'>TIMELINE</text>
+    <text x='80' y='150' font-size='42' font-weight='800' fill='#ffffff'>美好时光回顾</text>
+    <rect x='80' y='170' width='50' height='4' rx='2' fill='#1ed760'/>
+  </g>
+  <g id="timeline-line">
+    <line x1='140' y1='300' x2='140' y2='620' stroke='#4d4d4d' stroke-width='3'/>
+    <line x1='140' y1='300' x2='140' y2='620' stroke='#1ed760' stroke-width='3' stroke-dasharray='8 6' fill-opacity='0.5'/>
+  </g>
+  <g id="timeline-nodes" font-family='Inter,Noto Sans SC,sans-serif'>
+    <g transform='translate(140, 300)'>
+      <circle cx='0' cy='0' r='14' fill='#1ed760'/>
+      <circle cx='0' cy='0' r='6' fill='var(--bg-bright)'/>
+      <text x='40' y='6' font-size='20' font-weight='700' fill='#ffffff'>第一次相遇</text>
+      <text x='40' y='32' font-size='15' fill='#fdfdfd'>还记得那天阳光正好，你笑着走进来</text>
+      <text x='40' y='54' font-size='13' fill='#cbcbcb'>2019 年 9 月</text>
+    </g>
+    <g transform='translate(140, 390)'>
+      <circle cx='0' cy='0' r='14' fill='#1ed760'/>
+      <circle cx='0' cy='0' r='6' fill='var(--bg-bright)'/>
+      <text x='40' y='6' font-size='20' font-weight='700' fill='#ffffff'>一起走过的旅程</text>
+      <text x='40' y='32' font-size='15' fill='#fdfdfd'>旅途中那些笑声，至今还在耳边回响</text>
+      <text x='40' y='54' font-size='13' fill='#cbcbcb'>2021 年夏</text>
+    </g>
+    <g transform='translate(140, 480)'>
+      <circle cx='0' cy='0' r='14' fill='#1ed760'/>
+      <circle cx='0' cy='0' r='6' fill='var(--bg-bright)'/>
+      <text x='40' y='6' font-size='20' font-weight='700' fill='#ffffff'>每一个平凡的日子</text>
+      <text x='40' y='32' font-size='15' fill='#fdfdfd'>日常的陪伴，是最长情的告白</text>
+      <text x='40' y='54' font-size='13' fill='#cbcbcb'>2022 - 2024</text>
+    </g>
+    <g transform='translate(140, 570)'>
+      <circle cx='0' cy='0' r='14' fill='#1ed760'/>
+      <circle cx='0' cy='0' r='6' fill='var(--bg-bright)'/>
+      <text x='40' y='6' font-size='20' font-weight='700' fill='#ffffff'>今天 · 你的生日</text>
+      <text x='40' y='32' font-size='15' fill='#fdfdfd'><tspan fill='#1ed760' font-weight='600'>最好的你</tspan>，值得最好的祝福</text>
+      <text x='40' y='54' font-size='13' fill='#cbcbcb'>2025 年 · 此刻</text>
+    </g>
+  </g>
+  <g id="footer-chrome">
+    <text x='80' y='680' font-size='12' fill='#cbcbcb'>04 / 11</text>
+  </g>
+  <!-- notes: 时间轴页——四个关键节点串起珍贵回忆。演讲时每个节点稍作停顿，分享一两个具体小故事让情感更饱满 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+  </g>
+  <g id="page-header" font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='14' fill='#1ed760' font-weight='600' letter-spacing='4'>HIGHLIGHTS</text>
+    <text x='80' y='150' font-size='42' font-weight='800' fill='#ffffff'>你的高光时刻</text>
+    <rect x='80' y='170' width='50' height='4' rx='2' fill='#1ed760'/>
+  </g>
+  <g id="highlight-cards" font-family='Inter,Noto Sans SC,sans-serif'>
+    <g transform='translate(80, 260)'>
+      <rect x='0' y='0' width='260' height='180' rx='16' fill='#1f1f1f'/>
+      <text x='130' y='55' font-size='46' fill='#1ed760' text-anchor='middle'>🎓</text>
+      <text x='130' y='105' font-size='26' font-weight='700' fill='#ffffff' text-anchor='middle'>毕业</text>
+      <text x='130' y='135' font-size='15' fill='#fdfdfd' text-anchor='middle'>以优异成绩完成学业</text>
+      <text x='130' y='160' font-size='13' fill='#cbcbcb' text-anchor='middle'>2023</text>
+    </g>
+    <g transform='translate(360, 260)'>
+      <rect x='0' y='0' width='260' height='180' rx='16' fill='#1f1f1f'/>
+      <text x='130' y='55' font-size='46' fill='#1ed760' text-anchor='middle'>🏆</text>
+      <text x='130' y='105' font-size='26' font-weight='700' fill='#ffffff' text-anchor='middle'>突破</text>
+      <text x='130' y='135' font-size='15' fill='#fdfdfd' text-anchor='middle'>完成第一个大项目</text>
+      <text x='130' y='160' font-size='13' fill='#cbcbcb' text-anchor='middle'>2024</text>
+    </g>
+    <g transform='translate(640, 260)'>
+      <rect x='0' y='0' width='260' height='180' rx='16' fill='#1f1f1f'/>
+      <text x='130' y='55' font-size='46' fill='#1ed760' text-anchor='middle'>✈️</text>
+      <text x='130' y='105' font-size='26' font-weight='700' fill='#ffffff' text-anchor='middle'>旅行</text>
+      <text x='130' y='135' font-size='15' fill='#fdfdfd' text-anchor='middle'>踏足 5 个新国度</text>
+      <text x='130' y='160' font-size='13' fill='#cbcbcb' text-anchor='middle'>世界在脚下</text>
+    </g>
+    <g transform='translate(920, 260)'>
+      <rect x='0' y='0' width='260' height='180' rx='16' fill='#1f1f1f'/>
+      <text x='130' y='55' font-size='46' fill='#1ed760' text-anchor='middle'>💖</text>
+      <text x='130' y='105' font-size='26' font-weight='700' fill='#ffffff' text-anchor='middle'>相遇</text>
+      <text x='130' y='135' font-size='15' fill='#fdfdfd' text-anchor='middle'>遇见生命中的美好</text>
+      <text x='130' y='160' font-size='13' fill='#cbcbcb' text-anchor='middle'>感恩有你</text>
+    </g>
+  </g>
+  <g id="summary-line" font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='490' width='1120' height='70' rx='12' fill='#1ed760' fill-opacity='0.08'/>
+    <text x='640' y='534' font-size='22' fill='#ffffff' text-anchor='middle' font-weight='500'>每一程都精彩 · 每一步都算数</text>
+  </g>
+  <g id="footer-chrome">
+    <text x='80' y='680' font-size='12' fill='#cbcbcb'>05 / 11</text>
+  </g>
+  <!-- notes: 高光时刻页——四张卡片展示寿星的重要成就。每张卡片可以展开讲一个小故事，让现场气氛轻松而温馨 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+    <rect x='0' y='320' width='1280' height='80' fill='#1ed760' fill-opacity='0.08'/>
+  </g>
+  <g id="section-number" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='280' font-size='160' font-weight='800' fill='#1ed760' fill-opacity='0.15'>02</text>
+  </g>
+  <g id="section-title" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='350' font-size='60' font-weight='800' fill='#ffffff'>祝 福 篇</text>
+    <text x='640' y='420' font-size='22' fill='#fdfdfd' font-weight='300'>来自朋友们的心里话 · Words from the Heart</text>
+    <rect x='560' y='445' width='160' height='3' rx='1.5' fill='#1ed760'/>
+  </g>
+  <g id="footer-chrome">
+    <text x='100' y='680' font-size='12' fill='#cbcbcb'>06 / 11</text>
+  </g>
+  <!-- notes: 第二个章节分隔页——"祝福篇"。这里可以提醒大家"接下来是来自朋友们准备的惊喜"，营造期待感 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+  </g>
+  <g id="page-header" font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='14' fill='#1ed760' font-weight='600' letter-spacing='4'>WISHES</text>
+    <text x='80' y='150' font-size='42' font-weight='800' fill='#ffffff'>朋友们的祝福</text>
+    <rect x='80' y='170' width='50' height='4' rx='2' fill='#1ed760'/>
+  </g>
+  <g id="wish-cards" font-family='Inter,Noto Sans SC,sans-serif'>
+    <g transform='translate(80, 250)'>
+      <rect x='0' y='0' width='340' height='190' rx='16' fill='#1f1f1f'/>
+      <rect x='0' y='0' width='8' height='190' rx='4' fill='#1ed760'/>
+      <text x='35' y='45' font-size='18' font-weight='700' fill='#ffffff'>小明</text>
+      <text x='35' y='78' font-size='14' fill='#fdfdfd' font-weight='400'>认识你这么多年，看着你一路成长，真的为你骄傲！新的一岁，继续闪闪发光吧 ✨</text>
+    </g>
+    <g transform='translate(450, 250)'>
+      <rect x='0' y='0' width='340' height='190' rx='16' fill='#1f1f1f'/>
+      <rect x='0' y='0' width='8' height='190' rx='4' fill='#1ed760'/>
+      <text x='35' y='45' font-size='18' font-weight='700' fill='#ffffff'>小芳</text>
+      <text x='35' y='78' font-size='14' fill='#fdfdfd' font-weight='400'>生日快乐！愿你的每一天都像今天的蛋糕一样甜，像你的笑容一样灿烂 🎂</text>
+    </g>
+    <g transform='translate(820, 250)'>
+      <rect x='0' y='0' width='340' height='190' rx='16' fill='#1f1f1f'/>
+      <rect x='0' y='0' width='8' height='190' rx='4' fill='#1ed760'/>
+      <text x='35' y='45' font-size='18' font-weight='700' fill='#ffffff'>阿杰</text>
+      <text x='35' y='78' font-size='14' fill='#fdfdfd' font-weight='400'>最好的寿星！感谢你一直以来的陪伴和照顾，新的一岁我们一起去看更远的世界 🚀</text>
+    </g>
+    <g transform='translate(265, 470)'>
+      <rect x='0' y='0' width='340' height='150' rx='16' fill='#1f1f1f'/>
+      <rect x='0' y='0' width='8' height='150' rx='4' fill='#1ed760'/>
+      <text x='35' y='40' font-size='18' font-weight='700' fill='#ffffff'>莉莉</text>
+      <text x='35' y='73' font-size='14' fill='#fdfdfd' font-weight='400'>愿所有的幸福都围绕着你，愿所有的美好都属于你。生日快乐，我最亲爱的朋友！💕</text>
+    </g>
+    <g transform='translate(635, 470)'>
+      <rect x='0' y='0' width='340' height='150' rx='16' fill='#1f1f1f'/>
+      <rect x='0' y='0' width='8' height='150' rx='4' fill='#1ed760'/>
+      <text x='35' y='40' font-size='18' font-weight='700' fill='#ffffff'>大伟</text>
+      <text x='35' y='73' font-size='14' fill='#fdfdfd' font-weight='400'>兄弟生日快乐！认识你是这些年最幸运的事，祝你前程似锦，万事胜意！🎉</text>
+    </g>
+  </g>
+  <g id="footer-chrome">
+    <text x='80' y='680' font-size='12' fill='#cbcbcb'>07 / 11</text>
+  </g>
+  <!-- notes: 祝福卡片页——五张朋友寄语卡片。实际使用时可以替换为现场朋友的真实祝福，或者提前录好的视频片段截图。建议念其中2-3条，其余让大家自己看 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+  </g>
+  <g id="quote-decoration" text-anchor='middle'>
+    <text x='640' y='240' font-size='180' font-weight='800' fill='#1ed760' fill-opacity='0.06' font-family='Playfair Display,Noto Serif SC,serif'>"</text>
+  </g>
+  <g id="quote-content" font-family='Noto Serif SC,serif' text-anchor='middle'>
+    <text x='640' y='340' font-size='38' fill='#ffffff' font-weight='700'>
+      <tspan x='640' dy='0'>愿你的世界永远阳光明媚</tspan>
+      <tspan x='640' dy='60' font-family='Inter,Noto Sans SC,sans-serif' font-weight='400' font-size='28' fill='#fdfdfd'>愿你眼中有光，心中有爱，脚下有路</tspan>
+    </text>
+  </g>
+  <g id="quote-source" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <rect x='540' y='480' width='200' height='2' rx='1' fill='#1ed760'/>
+    <text x='640' y='520' font-size='18' fill='#1ed760' font-weight='600'>— 致最特别的你 —</text>
+    <text x='640' y='550' font-size='14' fill='#cbcbcb'>Happy Birthday · 生日快乐</text>
+  </g>
+  <g id="footer-chrome">
+    <text x='80' y='680' font-size='12' fill='#cbcbcb'>08 / 11</text>
+  </g>
+  <!-- notes: 金句页——用优美祝福语营造温馨氛围。这里可以举杯共祝，或者播放一段生日主题的背景音乐，让情绪达到小高潮 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+    <rect x='0' y='320' width='1280' height='80' fill='#1ed760' fill-opacity='0.08'/>
+  </g>
+  <g id="section-number" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='280' font-size='160' font-weight='800' fill='#1ed760' fill-opacity='0.15'>03</text>
+  </g>
+  <g id="section-title" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='350' font-size='60' font-weight='800' fill='#ffffff'>未 来 篇</text>
+    <text x='640' y='420' font-size='22' fill='#fdfdfd' font-weight='300'>许下新一岁的愿望 · A New Chapter Begins</text>
+    <rect x='560' y='445' width='160' height='3' rx='1.5' fill='#1ed760'/>
+  </g>
+  <g id="footer-chrome">
+    <text x='100' y='680' font-size='12' fill='#cbcbcb'>09 / 11</text>
+  </g>
+  <!-- notes: 第三个章节分隔页——"未来篇"。从回忆过去转向展望未来，气氛从温情转向昂扬，准备进入许愿环节 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+  </g>
+  <g id="candle-decoration" text-anchor='middle'>
+    <!-- candle body -->
+    <rect x='610' y='300' width='30' height='150' rx='4' fill='#1ed760' fill-opacity='0.2'/>
+    <rect x='616' y='300' width='18' height='150' rx='3' fill='#1ed760' fill-opacity='0.4'/>
+    <!-- flame -->
+    <ellipse cx='625' cy='270' rx='8' ry='18' fill='#1ed760' fill-opacity='0.6'/>
+    <ellipse cx='625' cy='265' rx='4' ry='10' fill='#1ed760' fill-opacity='0.9'/>
+    <!-- stripes on candle -->
+    <rect x='610' y='320' width='30' height='3' fill='#121212' fill-opacity='0.3'/>
+    <rect x='610' y='360' width='30' height='3' fill='#121212' fill-opacity='0.3'/>
+    <rect x='610' y='400' width='30' height='3' fill='#121212' fill-opacity='0.3'/>
+  </g>
+  <g id="wish-content" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='200' font-size='14' fill='#1ed760' font-weight='600' letter-spacing='6'>MAKE A WISH</text>
+    <text x='640' y='550' font-size='42' font-weight='800' fill='#ffffff'>许一个愿 吧</text>
+    <text x='640' y='600' font-size='20' fill='#fdfdfd' font-weight='300'>闭上眼睛，深吸一口气，吹灭蜡烛 ✨</text>
+    <text x='640' y='640' font-size='16' fill='#cbcbcb'>所有愿望都会实现，因为你是最值得的人</text>
+  </g>
+  <g id="decorative-sparkles">
+    <circle cx='400' cy='300' r='3' fill='#1ed760' fill-opacity='0.5'/>
+    <circle cx='850' cy='280' r='2.5' fill='#1ed760' fill-opacity='0.4'/>
+    <circle cx='350' cy='500' r='2' fill='#1ed760' fill-opacity='0.6'/>
+    <circle cx='900' cy='520' r='3' fill='#1ed760' fill-opacity='0.5'/>
+    <circle cx='500' cy='220' r='2' fill='#1ed760' fill-opacity='0.3'/>
+    <circle cx='780' cy='350' r='2.5' fill='#1ed760' fill-opacity='0.4'/>
+  </g>
+  <g id="footer-chrome">
+    <text x='80' y='680' font-size='12' fill='#cbcbcb'>10 / 11</text>
+  </g>
+  <!-- notes: 许愿页——这是全场最温馨的环节。建议关灯、点亮蜡烛、放生日歌，大家一起唱生日歌后让寿星许愿吹蜡烛。SVG 中的蜡烛和火焰用来烘托氛围 -->
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+    <rect x='0' y='0' width='1280' height='6' fill='#1ed760'/>
+  </g>
+  <g id="decorative-particles">
+    <circle cx='200' cy='180' r='4' fill='#1ed760' fill-opacity='0.3'/>
+    <circle cx='1050' cy='150' r='3' fill='#1ed760' fill-opacity='0.4'/>
+    <circle cx='350' cy='600' r='3.5' fill='#1ed760' fill-opacity='0.25'/>
+    <circle cx='900' cy='580' r='2' fill='#1ed760' fill-opacity='0.5'/>
+    <circle cx='150' cy='450' r='2.5' fill='#1ed760' fill-opacity='0.35'/>
+    <circle cx='1100' cy='400' r='3' fill='#1ed760' fill-opacity='0.3'/>
+  </g>
+  <g id="thanks-content" text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='260' font-size='22' fill='#1ed760' font-weight='600' letter-spacing='6'>THANK YOU</text>
+    <text x='640' y='360' font-size='62' font-weight='800' fill='#ffffff'>谢谢 每一位 你</text>
+    <text x='640' y='440' font-size='22' fill='#fdfdfd' font-weight='300'>因为有你们，今天才如此特别</text>
+    <rect x='540' y='475' width='200' height='3' rx='1.5' fill='#1ed760'/>
+    <text x='640' y='530' font-size='16' fill='#cbcbcb'>愿友谊长存 · 愿快乐常伴</text>
+    <text x='640' y='570' font-size='14' fill='#cbcbcb'>— 爱你们 —</text>
+  </g>
+  <g id="footer-chrome">
+    <text x='640' y='680' font-size='12' fill='#cbcbcb' text-anchor='middle'>🎂 Happy Birthday 🎂</text>
+  </g>
+  <!-- notes: 致谢页——温馨收尾。感谢所有到场的朋友，可以邀请大家一起合影留念。完美的生日派对 Ending！ -->
+</svg>
+</div>
+</body>
+</html>

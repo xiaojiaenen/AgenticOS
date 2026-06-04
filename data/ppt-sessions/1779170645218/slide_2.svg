@@ -1,0 +1,96 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <linearGradient id='neonGrad2' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='var(--accent)'/>
+      <stop offset='100%' stop-color='var(--accent-2)'/>
+    </linearGradient>
+    <filter id='glowDot' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='4'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <!-- 网格 -->
+    <line x1='0' y1='180' x2='1280' y2='180' stroke='var(--accent)' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='var(--accent)' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='540' x2='1280' y2='540' stroke='var(--accent)' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='640' y1='0' x2='640' y2='720' stroke='var(--accent-2)' stroke-opacity='0.03' stroke-width='1'/>
+  </g>
+  <!-- 光点 -->
+  <g id='decor-dots'>
+    <circle cx='200' cy='100' r='2.5' fill='var(--accent)' fill-opacity='0.3' filter='url(#glowDot)'/>
+    <circle cx='1100' cy='120' r='2' fill='var(--accent-2)' fill-opacity='0.25' filter='url(#glowDot)'/>
+    <circle cx='150' cy='550' r='1.5' fill='var(--accent)' fill-opacity='0.2'/>
+    <circle cx='1150' cy='500' r='2' fill='var(--accent-2)' fill-opacity='0.2'/>
+  </g>
+  <!-- 页眉 -->
+  <g id='page-header'>
+    <text x='80' y='80' font-size='13' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>目录 CONTENTS</text>
+    <rect x='80' y='95' width='60' height='2' rx='1' fill='url(#neonGrad2)'/>
+  </g>
+  <!-- 主标题 -->
+  <g id='toc-title'>
+    <text x='80' y='190' font-size='42' font-weight='800' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>
+      探索奇幻世界
+    </text>
+    <text x='80' y='230' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>四大篇章 · 从宫崎骏的魔法到二次元未来</text>
+  </g>
+  <!-- 目录项 -->
+  <g id='toc-items' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 01 -->
+    <g transform='translate(80, 290)'>
+      <rect width='520' height='80' rx='12' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <text x='30' y='46' font-size='28' font-weight='900' fill='var(--accent)'>01</text>
+      <text x='75' y='46' font-size='20' font-weight='700' fill='var(--text-1)'>展会概览</text>
+      <text x='480' y='46' font-size='13' fill='var(--text-3)' text-anchor='end'>P.03</text>
+      <line x1='30' y1='58' x2='490' y2='58' stroke='var(--border)' stroke-width='1'/>
+      <text x='30' y='72' font-size='13' fill='var(--text-2)'>数据亮点 · 参展阵容 · 展区布局</text>
+    </g>
+    <!-- 02 -->
+    <g transform='translate(80, 390)'>
+      <rect width='520' height='80' rx='12' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <text x='30' y='46' font-size='28' font-weight='900' fill='var(--accent-2)'>02</text>
+      <text x='75' y='46' font-size='20' font-weight='700' fill='var(--text-1)'>精彩活动</text>
+      <text x='480' y='46' font-size='13' fill='var(--text-3)' text-anchor='end'>P.06</text>
+      <line x1='30' y1='58' x2='490' y2='58' stroke='var(--border)' stroke-width='1'/>
+      <text x='30' y='72' font-size='13' fill='var(--text-2)'>三日日程 · 重磅嘉宾 · Cosplay大赛</text>
+    </g>
+    <!-- 03 -->
+    <g transform='translate(80, 490)'>
+      <rect width='520' height='80' rx='12' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <text x='30' y='46' font-size='28' font-weight='900' fill='var(--accent)'>03</text>
+      <text x='75' y='46' font-size='20' font-weight='700' fill='var(--text-1)'>参与方式</text>
+      <text x='480' y='46' font-size='13' fill='var(--text-3)' text-anchor='end'>P.09</text>
+      <line x1='30' y1='58' x2='490' y2='58' stroke='var(--border)' stroke-width='1'/>
+      <text x='30' y='72' font-size='13' fill='var(--text-2)'>购票信息 · 交通指南 · 周边福利</text>
+    </g>
+    <!-- 04 -->
+    <g transform='translate(80, 590)'>
+      <rect width='520' height='80' rx='12' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+      <text x='30' y='46' font-size='28' font-weight='900' fill='var(--accent-2)'>04</text>
+      <text x='75' y='46' font-size='20' font-weight='700' fill='var(--text-1)'>关于我们</text>
+      <text x='480' y='46' font-size='13' fill='var(--text-3)' text-anchor='end'>P.11</text>
+      <line x1='30' y1='58' x2='490' y2='58' stroke='var(--border)' stroke-width='1'/>
+      <text x='30' y='72' font-size='13' fill='var(--text-2)'>主办方介绍 · 合作伙伴 · 联系我们</text>
+    </g>
+    <!-- 右侧霓虹装饰 -->
+    <g transform='translate(720, 290)'>
+      <rect width='480' height='380' rx='16' fill='var(--surface)' fill-opacity='0.3' stroke='var(--accent)' stroke-opacity='0.08' stroke-width='1'/>
+      <rect x='40' y='40' width='400' height='300' rx='12' fill='none' stroke='var(--accent)' stroke-opacity='0.06' stroke-width='1' stroke-dasharray='4,6'/>
+      <!-- 中心发光符号 -->
+      <circle cx='240' cy='190' r='90' fill='none' stroke='var(--accent)' stroke-opacity='0.08' stroke-width='1.5'/>
+      <circle cx='240' cy='190' r='60' fill='var(--accent)' fill-opacity='0.04'/>
+      <text x='240' y='200' text-anchor='middle' font-size='52' font-weight='900' fill='var(--accent)' fill-opacity='0.12' font-family='Inter,Noto Sans SC,sans-serif'>夏</text>
+      <circle cx='240' cy='190' r='4' fill='var(--accent)' fill-opacity='0.15' filter='url(#glowDot)'/>
+      <!-- 周围光点 -->
+      <circle cx='160' cy='130' r='2' fill='var(--accent)' fill-opacity='0.25' filter='url(#glowDot)'/>
+      <circle cx='320' cy='140' r='2' fill='var(--accent-2)' fill-opacity='0.2' filter='url(#glowDot)'/>
+      <circle cx='160' cy='260' r='1.5' fill='var(--accent)' fill-opacity='0.2'/>
+      <circle cx='330' cy='260' r='2' fill='var(--accent-2)' fill-opacity='0.2'/>
+    </g>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='var(--text-3)' text-anchor='end'>02 / 11</text>
+  </g>
+  <!-- notes: 目录页——"路线图。四个板块带大家走完今天的内容。" -->
+</svg>

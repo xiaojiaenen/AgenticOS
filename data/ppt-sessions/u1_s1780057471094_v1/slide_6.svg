@@ -1,0 +1,59 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='apple'>
+  <!-- notes: 三大核心技术——压缩机、变频控制、智能温感。这是格力区别于其他品牌的核心壁垒。压缩机是空调的心脏，格力是全球唯一自主研发压缩机的空调企业。变频技术让省电不是口号。智能温感让舒适成为标准配置。 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id='tech-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='60' font-size='18' fill='var(--accent)' font-weight='600'>核心科技</text>
+    <text x='80' y='110' font-size='36' font-weight='700' fill='var(--text-1)'>三大核心技术</text>
+  </g>
+  <g id='tech-col-1' font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <rect x='60' y='160' width='370' height='440' rx='16' fill='var(--surface)'/>
+    <!-- 压缩机图标：齿轮 -->
+    <circle cx='245' cy='230' r='28' fill='var(--accent)' fill-opacity='0.12'/>
+    <text x='245' y='238' font-size='28' fill='var(--accent)' font-weight='700'>⚙</text>
+    <text x='245' y='300' font-size='24' font-weight='700' fill='var(--text-1)'>凌达压缩机</text>
+    <text x='245' y='340' font-size='14' fill='var(--text-2)' text-anchor='middle'>
+      <tspan x='245' dy='0'>全球唯一自主研发</tspan>
+      <tspan x='245' dy='22'>压缩机的空调企业</tspan>
+    </text>
+    <line x1='120' y1='380' x2='370' y2='380' stroke='var(--border)' stroke-width='1'/>
+    <text x='245' y='420' font-size='48' font-weight='800' fill='var(--accent)'>100%</text>
+    <text x='245' y='450' font-size='14' fill='var(--text-2)'>自主知识产权</text>
+    <text x='245' y='510' font-size='13' fill='var(--text-3)'>从研发到生产全链路自主掌控</text>
+  </g>
+  <g id='tech-col-2' font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <rect x='455' y='160' width='370' height='440' rx='16' fill='var(--surface)'/>
+    <!-- 变频图标：波浪 -->
+    <circle cx='640' cy='230' r='28' fill='var(--accent-2)' fill-opacity='0.12'/>
+    <text x='640' y='238' font-size='28' fill='var(--accent-2)' font-weight='700'>⚡</text>
+    <text x='640' y='300' font-size='24' font-weight='700' fill='var(--text-1)'>变频节能技术</text>
+    <text x='640' y='340' font-size='14' fill='var(--text-2)' text-anchor='middle'>
+      <tspan x='640' dy='0'>1Hz超低频运行</tspan>
+      <tspan x='640' dy='22'>精准控温更省电</tspan>
+    </text>
+    <line x1='515' y1='380' x2='765' y2='380' stroke='var(--border)' stroke-width='1'/>
+    <text x='640' y='420' font-size='48' font-weight='800' fill='var(--accent-2)'>40%</text>
+    <text x='640' y='450' font-size='14' fill='var(--text-2)'>节能效率提升</text>
+    <text x='640' y='510' font-size='13' fill='var(--text-3)'>一级能效领跑行业标准</text>
+  </g>
+  <g id='tech-col-3' font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <rect x='850' y='160' width='370' height='440' rx='16' fill='var(--surface)'/>
+    <!-- 智能图标：芯片 -->
+    <circle cx='1035' cy='230' r='28' fill='var(--accent-3)' fill-opacity='0.12'/>
+    <text x='1035' y='238' font-size='28' fill='var(--accent-3)' font-weight='700'>◈</text>
+    <text x='1035' y='300' font-size='24' font-weight='700' fill='var(--text-1)'>AI 智能温控</text>
+    <text x='1035' y='340' font-size='14' fill='var(--text-2)' text-anchor='middle'>
+      <tspan x='1035' dy='0'>AI算法自动学习</tspan>
+      <tspan x='1035' dy='22'>用户习惯智能调节</tspan>
+    </text>
+    <line x1='910' y1='380' x2='1160' y2='380' stroke='var(--border)' stroke-width='1'/>
+    <text x='1035' y='420' font-size='48' font-weight='800' fill='var(--accent-3)'>±0.5°C</text>
+    <text x='1035' y='450' font-size='14' fill='var(--text-2)'>精准控温</text>
+    <text x='1035' y='510' font-size='13' fill='var(--text-3)'>感知环境自动调节运行状态</text>
+  </g>
+  <g id='tech-footer'>
+    <text x='80' y='680' font-size='12' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>GREE · 核心科技</text>
+    <text x='1200' y='680' text-anchor='end' font-size='12' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>6 / 11</text>
+  </g>
+</svg>

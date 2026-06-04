@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="airbnb">
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="#ffffff"/>
+    <rect x="0" y="0" width="1280" height="720" fill="#ff385c" fill-opacity="0.04"/>
+  </g>
+  <g id="decoration" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif">
+    <circle cx="640" cy="280" r="200" fill="#ff385c" fill-opacity="0.06"/>
+    <circle cx="640" cy="280" r="140" fill="#ff385c" fill-opacity="0.08"/>
+    <text x="640" y="300" font-size="160" fill="#ff385c" fill-opacity="0.1">🎉</text>
+  </g>
+  <g id="cta-content" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif">
+    <text x="640" y="420" font-size="48" font-weight="800" fill="#222222">一起来庆祝吧</text>
+    <text x="640" y="480" font-size="22" fill="#3f3f3f">最好的生日，是有你在身边</text>
+  </g>
+  <g id="cta-buttons" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif">
+    <rect x="450" y="520" width="300" height="56" rx="28" fill="#ff385c"/>
+    <text x="600" y="556" font-size="20" font-weight="700" fill="#ffffff">🎈 我要参加派对</text>
+  </g>
+  <g id="party-details" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif">
+    <text x="640" y="640" font-size="18" fill="#929292">
+      <tspan x="640" dy="0">📅 2025年8月15日 18:00 &amp;nbsp;&amp;nbsp;|&amp;nbsp;&amp;nbsp; 📍 青春餐厅三楼包间</tspan>
+    </text>
+  </g>
+  <!-- notes: 行动号召页——邀请参加生日派对，包含时间和地点信息 -->
+</svg>

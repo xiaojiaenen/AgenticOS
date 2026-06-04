@@ -1,0 +1,73 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='ghibli'>
+  <defs>
+    <linearGradient id='skyGrad' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='var(--bg)'/>
+      <stop offset='100%' stop-color='var(--surface)'/>
+    </linearGradient>
+  </defs>
+  <!-- notes: 封面页——宫崎骏风格天空渐变，云朵浮动，标题"2026 夏日动漫展"，营造梦幻开幕氛围 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='url(#skyGrad)'/>
+  </g>
+  <g id='decoration-clouds'>
+    <!-- 云朵1 左上 -->
+    <g fill='var(--surface)' fill-opacity='0.6'>
+      <ellipse cx='180' cy='120' rx='80' ry='40'/>
+      <ellipse cx='240' cy='100' rx='60' ry='35'/>
+      <ellipse cx='130' cy='110' rx='50' ry='30'/>
+    </g>
+    <!-- 云朵2 右上 -->
+    <g fill='var(--surface)' fill-opacity='0.5'>
+      <ellipse cx='1100' cy='160' rx='90' ry='45'/>
+      <ellipse cx='1170' cy='140' rx='65' ry='38'/>
+      <ellipse cx='1040' cy='150' rx='55' ry='32'/>
+    </g>
+    <!-- 云朵3 中下 -->
+    <g fill='var(--surface)' fill-opacity='0.4'>
+      <ellipse cx='350' cy='580' rx='100' ry='40'/>
+      <ellipse cx='430' cy='560' rx='70' ry='35'/>
+      <ellipse cx='290' cy='570' rx='60' ry='30'/>
+    </g>
+    <!-- 云朵4 右下 -->
+    <g fill='var(--surface)' fill-opacity='0.35'>
+      <ellipse cx='950' cy='620' rx='85' ry='35'/>
+      <ellipse cx='1020' cy='600' rx='60' ry='30'/>
+    </g>
+  </g>
+  <g id='decoration-arcs'>
+    <!-- 底部弧线装饰 -->
+    <path d='M0 660 Q320 580 640 660 Q960 740 1280 660' fill='none' stroke='var(--accent)' stroke-width='3' stroke-opacity='0.25'/>
+    <path d='M0 680 Q320 610 640 680 Q960 750 1280 680' fill='none' stroke='var(--accent)' stroke-width='2' stroke-opacity='0.15'/>
+  </g>
+  <g id='cover-kicker'>
+    <text x='640' y='200' font-size='20' fill='var(--accent)' font-weight='600' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✨ 2026 · 盛夏之约 ✨</text>
+  </g>
+  <g id='cover-title'>
+    <text x='640' y='310' font-size='78' font-weight='900' fill='var(--text-1)' text-anchor='middle' font-family='Playfair Display,Noto Serif SC,serif'>
+      <tspan x='640' dy='0'>夏日动漫展</tspan>
+    </text>
+    <text x='640' y='380' font-size='36' fill='var(--text-2)' text-anchor='middle' font-family='Playfair Display,Noto Serif SC,serif' font-style='italic'>
+      Summer Anime Expo
+    </text>
+  </g>
+  <g id='cover-subtitle'>
+    <rect x='540' y='420' width='200' height='2' fill='var(--accent)' fill-opacity='0.5'/>
+    <text x='640' y='470' font-size='22' fill='var(--text-2)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      2026年7月18日 - 7月20日 ｜ 国家会展中心
+    </text>
+    <text x='640' y='510' font-size='18' fill='var(--text-3)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      二次元的夏日狂欢 · 邀你共赴奇幻之旅
+    </text>
+  </g>
+  <g id='decoration-stars'>
+    <!-- 点缀小星星 -->
+    <circle cx='100' cy='80' r='3' fill='var(--accent)' fill-opacity='0.5'/>
+    <circle cx='1180' cy='70' r='2.5' fill='var(--accent)' fill-opacity='0.4'/>
+    <circle cx='640' cy='60' r='2' fill='var(--accent)' fill-opacity='0.6'/>
+    <circle cx='300' cy='90' r='2' fill='var(--accent)' fill-opacity='0.3'/>
+    <circle cx='980' cy='100' r='3' fill='var(--accent)' fill-opacity='0.35'/>
+  </g>
+  <g id='pagenumber'>
+    <text x='1240' y='700' font-size='14' fill='var(--text-3)' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>01 / 10</text>
+  </g>
+</svg>

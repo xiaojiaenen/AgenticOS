@@ -1,0 +1,69 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='fantasy'>
+  <defs>
+    <linearGradient id='bgGrad11' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='#ffffff'/>
+      <stop offset='50%' stop-color='#ffffff'/>
+      <stop offset='100%' stop-color='#ffffff'/>
+    </linearGradient>
+    <linearGradient id='accentGrad11' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='#0250cc'/>
+      <stop offset='100%' stop-color='#fdc800'/>
+    </linearGradient>
+    <filter id='titleGlow' x='-30%' y='-30%' width='160%' height='160%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='3'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='url(#bgGrad11)'/>
+    <!-- 装饰性弧形 -->
+    <ellipse cx='640' cy='720' rx='600' ry='200' fill='#0250cc' fill-opacity='0.04'/>
+    <ellipse cx='640' cy='720' rx='450' ry='140' fill='#fdc800' fill-opacity='0.03'/>
+  </g>
+  <!-- 大量星尘 - 梦幻结尾 -->
+  <g id='decor-stars'>
+    <path d='M180,200 Q186,193 192,200 Q186,207 180,200 Z' fill='#0250cc' fill-opacity='0.45'/>
+    <path d='M1100,180 Q1108,172 1116,180 Q1108,188 1100,180 Z' fill='#fdc800' fill-opacity='0.4'/>
+    <path d='M200,450 Q206,443 212,450 Q206,457 200,450 Z' fill='#0250cc' fill-opacity='0.35'/>
+    <path d='M1080,500 Q1088,492 1096,500 Q1088,508 1080,500 Z' fill='#fdc800' fill-opacity='0.3'/>
+    <path d='M350,150 Q356,143 362,150 Q356,157 350,150 Z' fill='#0250cc' fill-opacity='0.3'/>
+    <path d='M920,130 Q928,122 936,130 Q928,138 920,130 Z' fill='#fdc800' fill-opacity='0.25'/>
+    <circle cx='130' cy='350' r='2.5' fill='#0250cc' fill-opacity='0.25'/>
+    <circle cx='1150' cy='350' r='2' fill='#fdc800' fill-opacity='0.2'/>
+    <circle cx='500' cy='100' r='2' fill='#0250cc' fill-opacity='0.2'/>
+    <circle cx='800' cy='80' r='1.5' fill='#fdc800' fill-opacity='0.2'/>
+    <circle cx='250' cy='580' r='2' fill='#0250cc' fill-opacity='0.15'/>
+    <circle cx='1050' cy='600' r='2.5' fill='#fdc800' fill-opacity='0.15'/>
+  </g>
+  <!-- 主内容 -->
+  <g id='thanks-content' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 大引号 -->
+    <text x='640' y='240' font-size='120' font-weight='900' fill='#0250cc' fill-opacity='0.1' font-family='serif'>"</text>
+    <!-- 感谢语 -->
+    <text x='640' y='300' font-size='15' fill='#0250cc' font-weight='600' letter-spacing='4'>THANK YOU</text>
+    <text x='640' y='370' font-size='48' font-weight='800' fill='#111827' letter-spacing='3'>
+      感谢遇见
+    </text>
+    <rect x='590' y='400' width='100' height='3' rx='1.5' fill='url(#accentGrad11)'/>
+    <text x='640' y='440' font-size='20' fill='#70747d' font-weight='400'>
+      每个热爱二次元的你，都是这场梦的主角
+    </text>
+    <!-- 金句 -->
+    <text x='640' y='500' font-size='16' fill='#abaeb3' font-style='italic'>
+      "不管前方的路有多苦，只要走的方向正确，不管多么崎岖不平，都比站在原地更接近幸福。"
+    </text>
+    <text x='640' y='530' font-size='13' fill='#abaeb3'>—— 宫崎骏《千与千寻》</text>
+    <!-- 联系信息 -->
+    <rect x='440' y='570' width='400' height='1' fill='#c3c5c9'/>
+    <text x='640' y='600' font-size='14' fill='#70747d'>2025 夏日动漫嘉年华 · 国家会展中心</text>
+    <text x='640' y='625' font-size='13' fill='#abaeb3'>官网：www.summeranime2025.com · 公众号：夏日动漫嘉年华</text>
+  </g>
+  <!-- 底部装饰 -->
+  <g id='decor-footer' fill='#0250cc' fill-opacity='0.08'>
+    <path d='M580,660 Q586,650 596,648 Q600,658 592,664 Q586,668 580,660 Z'/>
+    <path d='M700,660 Q706,650 716,648 Q720,658 712,664 Q706,668 700,660 Z'/>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>11 / 11</text>
+  </g>
+  <!-- notes: 致谢页——"最后用千与千寻的金句收尾。门票在官网和公众号都能买。这个夏天，我们在国家会展中心等你。" -->
+</svg>

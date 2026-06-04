@@ -1,0 +1,63 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='ghibli'>
+  <defs>
+    <linearGradient id='ctaGrad' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='var(--bg)'/>
+      <stop offset='100%' stop-color='var(--surface)'/>
+    </linearGradient>
+    <filter id='btnShadow' x='-10%' y='-20%' width='130%' height='160%'>
+      <feGaussianBlur in='SourceAlpha' stdDeviation='6'/>
+      <feOffset dx='0' dy='4'/>
+      <feFlood flood-color='#000000' flood-opacity='0.15'/>
+      <feComposite in='...' in2='...' operator='in'/>
+      <feMerge>
+        <feMergeNode in='...'/>
+        <feMergeNode in='SourceGraphic'/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- notes: 结尾行动号召页——大字标题"准备好奔赴夏日之约了吗？"，醒目的购票按钮（带阴影浮动效果），下方附联系方式、社交媒体信息。营造迫不及待的紧迫感 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='url(#ctaGrad)'/>
+  </g>
+  <g id='decoration-clouds'>
+    <g fill='var(--surface)' fill-opacity='0.4'>
+      <ellipse cx='150' cy='100' rx='100' ry='35'/>
+      <ellipse cx='220' cy='85' rx='65' ry='28'/>
+    </g>
+    <g fill='var(--surface)' fill-opacity='0.3'>
+      <ellipse cx='1100' cy='620' rx='90' ry='35'/>
+      <ellipse cx='1170' cy='605' rx='60' ry='28'/>
+    </g>
+  </g>
+  <g id='decoration-arcs'>
+    <path d='M0 350 Q320 280 640 350 Q960 420 1280 350' fill='none' stroke='var(--accent)' stroke-width='2' stroke-opacity='0.12'/>
+    <path d='M0 380 Q320 320 640 380 Q960 440 1280 380' fill='none' stroke='var(--accent)' stroke-width='1.5' stroke-opacity='0.08'/>
+  </g>
+  <g id='decoration-stars'>
+    <circle cx='200' cy='200' r='3' fill='var(--accent)' fill-opacity='0.4'/>
+    <circle cx='1080' cy='200' r='2.5' fill='var(--accent)' fill-opacity='0.35'/>
+    <circle cx='640' cy='150' r='3' fill='var(--accent)' fill-opacity='0.3'/>
+    <circle cx='400' cy='180' r='2' fill='var(--accent)' fill-opacity='0.25'/>
+    <circle cx='880' cy='170' r='2.5' fill='var(--accent)' fill-opacity='0.3'/>
+  </g>
+  <g id='cta-content'>
+    <text x='640' y='260' font-size='22' fill='var(--accent)' font-weight='600' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🌸 夏日之约 · 等你赴会 🌸</text>
+    <text x='640' y='350' font-size='56' font-weight='900' fill='var(--text-1)' text-anchor='middle' font-family='Playfair Display,Noto Serif SC,serif'>
+      <tspan x='640' dy='0'>准备好奔赴这场</tspan>
+      <tspan x='640' dy='70' fill='var(--accent)'>二次元夏日之约</tspan>
+      <tspan x='640' dy='70'>了吗？</tspan>
+    </text>
+  </g>
+  <g id='cta-button'>
+    <rect x='490' y='500' width='300' height='60' rx='30' fill='var(--accent)' filter='url(#btnShadow)'/>
+    <text x='640' y='537' font-size='22' font-weight='bold' fill='var(--bg)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🎫 立即购票</text>
+  </g>
+  <g id='cta-info'>
+    <text x='640' y='600' font-size='16' fill='var(--text-2)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>早鸟票 ¥128 ｜ 普通票 ¥168 ｜ 三日通票 ¥388</text>
+    <text x='640' y='640' font-size='14' fill='var(--text-3)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>官方网址：www.summer-anime-expo.com ｜ 咨询热线：400-888-6666</text>
+    <text x='640' y='670' font-size='14' fill='var(--text-3)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>微博 @夏日动漫展官方 ｜ 公众号：夏日动漫展 ｜ B站：夏日动漫展</text>
+  </g>
+  <g id='pagenumber'>
+    <text x='1240' y='700' font-size='14' fill='var(--text-3)' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>10 / 10</text>
+  </g>
+</svg>

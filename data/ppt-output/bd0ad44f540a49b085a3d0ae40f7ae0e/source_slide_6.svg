@@ -1,0 +1,50 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <linearGradient id='neonDiv2' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='#00bcff'/>
+      <stop offset='100%' stop-color='#bbf351'/>
+    </linearGradient>
+    <filter id='glowBig2' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='15'/>
+    </filter>
+    <filter id='glowSmall2' x='-40%' y='-40%' width='180%' height='180%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='5'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <line x1='0' y1='180' x2='1280' y2='180' stroke='#00bcff' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='#00bcff' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='540' x2='1280' y2='540' stroke='#00bcff' stroke-opacity='0.03' stroke-width='1'/>
+  </g>
+  <g id='decor-neon-bg'>
+    <circle cx='640' cy='360' r='300' fill='none' stroke='#00bcff' stroke-opacity='0.04' stroke-width='1.5'/>
+    <circle cx='640' cy='360' r='250' fill='none' stroke='#bbf351' stroke-opacity='0.03' stroke-width='1' stroke-dasharray='3,8'/>
+    <circle cx='640' cy='360' r='170' fill='none' stroke='#00bcff' stroke-opacity='0.04' stroke-width='1'/>
+    <line x1='340' y1='360' x2='940' y2='360' stroke='#00bcff' stroke-opacity='0.06' stroke-width='1'/>
+    <line x1='640' y1='60' x2='640' y2='660' stroke='#00bcff' stroke-opacity='0.06' stroke-width='1'/>
+  </g>
+  <g id='decor-particles'>
+    <circle cx='250' cy='220' r='3' fill='#00bcff' fill-opacity='0.25' filter='url(#glowSmall2)'/>
+    <circle cx='1050' cy='200' r='2.5' fill='#bbf351' fill-opacity='0.2' filter='url(#glowSmall2)'/>
+    <circle cx='220' cy='500' r='2' fill='#00bcff' fill-opacity='0.2'/>
+    <circle cx='1080' cy='520' r='2' fill='#bbf351' fill-opacity='0.2'/>
+  </g>
+  <g id='section-number' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='330' font-size='200' font-weight='900' fill='#00bcff' fill-opacity='0.08'>02</text>
+    <text x='640' y='320' font-size='200' font-weight='900' fill='#00bcff' fill-opacity='0.04' filter='url(#glowBig2)'>02</text>
+  </g>
+  <g id='section-title' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='310' font-size='14' fill='#00bcff' font-weight='600' letter-spacing='8'>CHAPTER 02</text>
+    <text x='640' y='395' font-size='56' font-weight='800' fill='#111827' letter-spacing='6'>精彩活动</text>
+    <rect x='590' y='425' width='100' height='2' rx='1' fill='url(#neonDiv2)'/>
+    <rect x='590' y='428' width='100' height='2' rx='1' fill='#00bcff' fill-opacity='0.3' filter='url(#glowSmall2)'/>
+    <text x='640' y='475' font-size='18' fill='#70747d' font-weight='300'>三日不间断 · 从早到晚的二次元狂欢</text>
+    <line x1='540' y1='520' x2='740' y2='520' stroke='#c3c5c9' stroke-width='1'/>
+    <circle cx='640' cy='520' r='3' fill='#00bcff' fill-opacity='0.4' filter='url(#glowSmall2)'/>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>06 / 11</text>
+  </g>
+  <!-- notes: 章节过渡——"第二章，三天活动，每天都有重头戏。" -->
+</svg>

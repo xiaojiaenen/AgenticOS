@@ -1,0 +1,51 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <radialGradient id='chapGlow' cx='50%' cy='45%' r='60%'>
+      <stop offset='0%' stop-color='var(--accent)' stop-opacity='0.2'/>
+      <stop offset='60%' stop-color='var(--accent-2)' stop-opacity='0.05'/>
+      <stop offset='100%' stop-color='var(--bg)' stop-opacity='0'/>
+    </radialGradient>
+    <filter id='chapGlowFilter' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='10'/>
+    </filter>
+  </defs>
+  <!-- notes: 章节分隔——巨大的01号数字占据画面左侧，右侧一行亮光穿透黑暗，象征着太阳系在宇宙中的位置 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <rect width='1280' height='720' fill='url(#chapGlow)'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='80' cy='100' r='2' fill='var(--text-3)' fill-opacity='0.6'/>
+    <circle cx='250' cy='50' r='1.2' fill='var(--text-3)' fill-opacity='0.4'/>
+    <circle cx='1000' cy='90' r='2.5' fill='var(--text-3)' fill-opacity='0.7'/>
+    <circle cx='1180' cy='160' r='1' fill='var(--text-3)' fill-opacity='0.4'/>
+    <circle cx='150' cy='500' r='1.5' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='1100' cy='580' r='2' fill='var(--text-3)' fill-opacity='0.6'/>
+    <circle cx='60' cy='650' r='1' fill='var(--text-3)' fill-opacity='0.4'/>
+    <circle cx='1230' cy='400' r='1.5' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='700' cy='60' r='1.2' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='500' cy='650' r='0.8' fill='var(--text-3)' fill-opacity='0.3'/>
+  </g>
+  <!-- 大数字 -->
+  <g id='big-number'>
+    <text x='220' y='520' font-size='360' font-weight='900' fill='var(--accent)' fill-opacity='0.06' font-family='Inter,Noto Sans SC,sans-serif'>01</text>
+  </g>
+  <!-- 光柱 -->
+  <g id='light-beam'>
+    <rect x='640' y='0' width='2' height='720' fill='var(--accent)' fill-opacity='0.06'/>
+    <rect x='638' y='220' width='6' height='280' fill='var(--accent)' fill-opacity='0.03'/>
+  </g>
+  <g id='section-content'>
+    <text x='640' y='200' font-size='18' font-weight='700' fill='var(--accent)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='8'>C H A P T E R &nbsp; O N E</text>
+    <line x1='500' y1='230' x2='780' y2='230' stroke='var(--accent)' stroke-opacity='0.3' stroke-width='1'/>
+    <text x='640' y='370' font-size='70' font-weight='900' fill='var(--text-1)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='640' dy='0'>太阳系</tspan>
+      <tspan x='640' dy='85' fill='var(--accent)'>大家庭</tspan>
+    </text>
+    <text x='640' y='560' font-size='18' fill='var(--text-2)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>太阳 · 行星 · 卫星 · 小行星 · 彗星</text>
+    <text x='640' y='590' font-size='14' fill='var(--text-3)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>46亿年的宇宙之舞</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='var(--text-3)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>3 / 12</text>
+  </g>
+</svg>

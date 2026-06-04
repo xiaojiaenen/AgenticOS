@@ -1,0 +1,27 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='claude'>
+  <!-- notes: 结尾页——行动号召。用大字标题+按钮+联系方式，引导观众行动。暖橙色CTA按钮突出 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id="close-decor">
+    <rect x='0' y='0' width='1280' height='6' fill='#dedc01'/>
+  </g>
+  <g id="cta-title">
+    <text x='640' y='240' font-size='20' fill='#dedc01' font-weight='600' letter-spacing='4' text-anchor='middle'>开始你的 Claude 之旅</text>
+    <text x='640' y='340' font-size='56' font-weight='800' fill='#4d4c48' text-anchor='middle'>与最有温度的 AI</text>
+    <text x='640' y='415' font-size='56' font-weight='800' fill='#dedc01' text-anchor='middle'>一起思考</text>
+  </g>
+  <g id="cta-button">
+    <rect x='490' y='480' width='300' height='60' rx='30' fill='#dedc01'/>
+    <text x='640' y='518' font-size='20' font-weight='700' fill='#ffffff' text-anchor='middle'>访问 claude.ai →</text>
+  </g>
+  <g id="cta-links">
+    <text x='640' y='590' font-size='16' fill='#87867f' text-anchor='middle'>或扫描二维码 · 在 App Store / Google Play 搜索 "Claude"</text>
+  </g>
+  <g id="cta-social">
+    <text x='640' y='640' font-size='14' fill='#87867f' text-anchor='middle'>anthropic.com · @AnthropicAI · #Claude</text>
+  </g>
+  <g id="footer">
+    <text x='640' y='690' font-size='14' fill='#87867f' text-anchor='middle'>11 / 11 · 感谢聆听</text>
+  </g>
+</svg>

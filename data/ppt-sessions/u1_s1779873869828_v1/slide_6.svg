@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
+  <!-- notes: 核心技术页——用三列布局展示格力三大核心科技优势，支撑品牌实力 -->
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+  </g>
+  <g id="page-header">
+    <text x="100" y="80" font-size="14" fill="var(--accent)" font-weight="600">CORE TECHNOLOGY</text>
+    <text x="100" y="120" font-size="36" font-weight="700" fill="var(--text-1)">三大核心技术</text>
+    <rect x="100" y="140" width="60" height="3" fill="var(--accent)"/>
+  </g>
+  <g id="tech-1">
+    <rect x="80" y="180" width="350" height="420" rx="16" fill="var(--surface)"/>
+    <circle cx="255" cy="260" r="40" fill="var(--accent)" opacity="0.15"/>
+    <text x="255" y="270" font-size="36" font-weight="700" fill="var(--accent)" text-anchor="middle">变</text>
+    <text x="255" y="330" font-size="24" font-weight="700" fill="var(--text-1)" text-anchor="middle">变频技术</text>
+    <text x="255" y="370" font-size="14" fill="var(--text-2)" text-anchor="middle">1Hz超低频运行</text>
+    <text x="255" y="400" font-size="14" fill="var(--text-2)" text-anchor="middle">精准控温±0.5°C</text>
+    <text x="255" y="430" font-size="14" fill="var(--text-2)" text-anchor="middle">节能效果提升40%</text>
+  </g>
+  <g id="tech-2">
+    <rect x="460" y="180" width="350" height="420" rx="16" fill="var(--surface)"/>
+    <circle cx="635" cy="260" r="40" fill="var(--accent)" opacity="0.15"/>
+    <text x="635" y="270" font-size="36" font-weight="700" fill="var(--accent)" text-anchor="middle">冷</text>
+    <text x="635" y="330" font-size="24" font-weight="700" fill="var(--text-1)" text-anchor="middle">压缩机技术</text>
+    <text x="635" y="370" font-size="14" fill="var(--text-2)" text-anchor="middle">100%自主研发</text>
+    <text x="635" y="400" font-size="14" fill="var(--text-2)" text-anchor="middle">高效节能双转子</text>
+    <text x="635" y="430" font-size="14" fill="var(--text-2)" text-anchor="middle">10年质保承诺</text>
+  </g>
+  <g id="tech-3">
+    <rect x="840" y="180" width="350" height="420" rx="16" fill="var(--surface)"/>
+    <circle cx="1015" cy="260" r="40" fill="var(--accent)" opacity="0.15"/>
+    <text x="1015" y="270" font-size="36" font-weight="700" fill="var(--accent)" text-anchor="middle">智</text>
+    <text x="1015" y="330" font-size="24" font-weight="700" fill="var(--text-1)" text-anchor="middle">智能控制</text>
+    <text x="1015" y="370" font-size="14" fill="var(--text-2)" text-anchor="middle">WiFi远程控制</text>
+    <text x="1015" y="400" font-size="14" fill="var(--text-2)" text-anchor="middle">语音交互支持</text>
+    <text x="1015" y="430" font-size="14" fill="var(--text-2)" text-anchor="middle">自学习节能算法</text>
+  </g>
+  <g id="footer-pagenum">
+    <text x="1220" y="690" font-size="14" fill="var(--text-3)" text-anchor="end">06 / 10</text>
+  </g>
+</svg>

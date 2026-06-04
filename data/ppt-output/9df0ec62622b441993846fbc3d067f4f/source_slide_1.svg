@@ -1,0 +1,21 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='cover-decor'>
+    <circle cx='1100' cy='120' r='320' fill='#10a37f' fill-opacity='0.04'/>
+    <circle cx='1180' cy='200' r='200' fill='#10a37f' fill-opacity='0.06'/>
+  </g>
+  <g id='cover-content' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='200' font-size='20' fill='#10a37f' font-weight='600' letter-spacing='4'>REDEFINING THE FRONTIERS OF ARTIFICIAL INTELLIGENCE</text>
+    <rect x='580' y='230' width='120' height='2' fill='#10a37f'/>
+    <text x='640' y='320' font-size='80' font-weight='800' fill='#0d0d0d' letter-spacing='2'>OpenAI</text>
+    <text x='640' y='410' font-size='36' fill='#1a1a1a' font-weight='400'>重新定义人工智能的边界</text>
+    <text x='640' y='520' font-size='18' fill='#9b9b9b'>2025 年度战略报告 · 从研究到产品的 AI 革新之路</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>1 / 11</text>
+  </g>
+  <!-- notes: 封面页——用 OpenAI 品牌绿色做装饰圆环，营造科技感与探索氛围。标题英文先行建立国际化基调，中文副标题承接。演讲开头建议从"人工智能正在重塑每一个行业"切入，引出 OpenAI 的角色。 -->
+</svg>

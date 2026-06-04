@@ -1,0 +1,105 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <linearGradient id='innerGrad' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#8b5cf6' stop-opacity='0.08'/>
+      <stop offset='100%' stop-color='#f43f5e' stop-opacity='0.02'/>
+    </linearGradient>
+    <linearGradient id='outerGrad' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#f43f5e' stop-opacity='0.08'/>
+      <stop offset='100%' stop-color='#764ed1' stop-opacity='0.02'/>
+    </linearGradient>
+  </defs>
+  <!-- notes: 八大行星速览——内行星和外行星用不同色调区分，每张卡片都是一个小"角色卡"，名字+颜色+关键参数一目了然 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#09090b'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='50' cy='80' r='1.2' fill='#fdfdfd' fill-opacity='0.4'/>
+    <circle cx='1230' cy='60' r='1.5' fill='#fdfdfd' fill-opacity='0.5'/>
+    <circle cx='200' cy='650' r='1' fill='#fdfdfd' fill-opacity='0.3'/>
+    <circle cx='1100' cy='620' r='1.2' fill='#fdfdfd' fill-opacity='0.4'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='60' font-size='14' fill='#fdfdfd' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>CHAPTER 01 · 太阳系大家庭</text>
+    <text x='640' y='90' font-size='38' font-weight='900' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>八大行星</text>
+    <text x='640' y='118' font-size='15' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='4'>EIGHT PLANETS · ONE SYSTEM</text>
+    <line x1='570' y1='135' x2='710' y2='135' stroke='#8b5cf6' stroke-width='2'/>
+  </g>
+  <!-- 内行星标签 -->
+  <g id='inner-label'>
+    <rect x='230' y='160' width='180' height='28' rx='14' fill='#8b5cf6' fill-opacity='0.12'/>
+    <text x='320' y='179' font-size='12' font-weight='700' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='2'>内行星 · 岩石星球</text>
+  </g>
+  <g id='planet-1'>
+    <rect x='60' y='205' width='270' height='145' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='195' cy='260' r='14' fill='#BDBDBD'/>
+    <text x='195' y='300' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>水星</text>
+    <text x='195' y='322' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>4,879 km</text>
+    <text x='195' y='340' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 5,790万 km</text>
+  </g>
+  <g id='planet-2'>
+    <rect x='350' y='205' width='270' height='145' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='485' cy='260' r='18' fill='#E8C07A'/>
+    <text x='485' y='300' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>金星</text>
+    <text x='485' y='322' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>12,104 km</text>
+    <text x='485' y='340' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 10,820万 km</text>
+  </g>
+  <g id='planet-3'>
+    <rect x='640' y='205' width='270' height='145' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='775' cy='260' r='19' fill='#4A90D9'/>
+    <circle cx='766' cy='252' r='4' fill='#6BBF6A'/>
+    <text x='775' y='300' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>地球</text>
+    <text x='775' y='322' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>12,756 km</text>
+    <text x='775' y='340' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 14,960万 km</text>
+  </g>
+  <g id='planet-4'>
+    <rect x='930' y='205' width='270' height='145' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='1065' cy='260' r='12' fill='#D4735E'/>
+    <text x='1065' y='300' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>火星</text>
+    <text x='1065' y='322' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>6,792 km</text>
+    <text x='1065' y='340' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 22,794万 km</text>
+  </g>
+  <!-- 外行星标签 -->
+  <g id='outer-label'>
+    <rect x='230' y='380' width='180' height='28' rx='14' fill='#f43f5e' fill-opacity='0.12'/>
+    <text x='320' y='399' font-size='12' font-weight='700' fill='#f43f5e' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='2'>外行星 · 气态巨行星</text>
+  </g>
+  <g id='planet-5'>
+    <rect x='60' y='425' width='270' height='195' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='195' cy='485' r='30' fill='#D4A574'/>
+    <circle cx='182' cy='475' r='5' fill='#C08A5A'/>
+    <circle cx='205' cy='495' r='3' fill='#C08A5A'/>
+    <text x='195' y='535' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>木星</text>
+    <text x='195' y='558' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>142,984 km</text>
+    <text x='195' y='578' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 77,833万 km</text>
+    <text x='195' y='598' font-size='11' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>95颗卫星</text>
+  </g>
+  <g id='planet-6'>
+    <rect x='350' y='425' width='270' height='195' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='485' cy='485' r='26' fill='#E8D5A3'/>
+    <ellipse cx='485' cy='485' rx='38' ry='7' fill='none' stroke='#C8B57A' stroke-width='2.5' transform='rotate(-15 485 485)'/>
+    <text x='485' y='535' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>土星</text>
+    <text x='485' y='558' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>120,536 km</text>
+    <text x='485' y='578' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 142,940万 km</text>
+    <text x='485' y='598' font-size='11' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>146颗卫星</text>
+  </g>
+  <g id='planet-7'>
+    <rect x='640' y='425' width='270' height='195' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='775' cy='485' r='20' fill='#7EC8E3'/>
+    <text x='775' y='535' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>天王星</text>
+    <text x='775' y='558' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>51,118 km</text>
+    <text x='775' y='578' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 287,099万 km</text>
+    <text x='775' y='598' font-size='11' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>27颗卫星</text>
+  </g>
+  <g id='planet-8'>
+    <rect x='930' y='425' width='270' height='195' rx='12' fill='#08080a' stroke='#fdfdfd' stroke-width='0.5'/>
+    <circle cx='1065' cy='485' r='18' fill='#4A6FE8'/>
+    <text x='1065' y='535' font-size='19' font-weight='bold' fill='#fafafa' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>海王星</text>
+    <text x='1065' y='558' font-size='13' fill='#fcfcfc' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>49,528 km</text>
+    <text x='1065' y='578' font-size='11' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>距日 450,430万 km</text>
+    <text x='1065' y='598' font-size='11' fill='#8b5cf6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>16颗卫星</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#fdfdfd' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>5 / 12</text>
+  </g>
+</svg>

@@ -1,0 +1,32 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='quote-decor' font-family='Playfair Display,Noto Serif SC,serif'>
+    <text x='640' y='200' text-anchor='middle' font-size='120' fill='#10a37f' fill-opacity='0.15' font-weight='400'>"</text>
+  </g>
+  <g id='quote-content' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='320' text-anchor='middle' font-size='32' fill='#0d0d0d' font-weight='500'>我们相信 AGI 将成为人类历史上</text>
+    <text x='640' y='370' text-anchor='middle' font-size='32' fill='#0d0d0d' font-weight='500'>最具影响力的技术</text>
+    <rect x='580' y='400' width='120' height='2' fill='#10a37f'/>
+    <text x='640' y='450' text-anchor='middle' font-size='16' fill='#9b9b9b'>Our mission is to ensure that AGI benefits all of humanity</text>
+  </g>
+  <g id='impact-grid' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='160' y='510' width='280' height='120' rx='12' fill='#fafafa'/>
+    <text x='300' y='550' text-anchor='middle' font-size='18' font-weight='600' fill='#0d0d0d'>医疗</text>
+    <text x='300' y='580' text-anchor='middle' font-size='14' fill='#1a1a1a'>诊断辅助 · 药物发现</text>
+    
+    <rect x='500' y='510' width='280' height='120' rx='12' fill='#fafafa'/>
+    <text x='640' y='550' text-anchor='middle' font-size='18' font-weight='600' fill='#0d0d0d'>教育</text>
+    <text x='640' y='580' text-anchor='middle' font-size='14' fill='#1a1a1a'>个性化学习 · 智能辅导</text>
+    
+    <rect x='840' y='510' width='280' height='120' rx='12' fill='#fafafa'/>
+    <text x='980' y='550' text-anchor='middle' font-size='18' font-weight='600' fill='#0d0d0d'>科学</text>
+    <text x='980' y='580' text-anchor='middle' font-size='14' fill='#1a1a1a'>蛋白质折叠 · 数学证明</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>10 / 11</text>
+  </g>
+  <!-- notes: 金句页，用 OpenAI 的官方使命宣言做核心，下方三个行业影响卡片展示 AGI 的实际应用前景。演讲时先停顿，读出引号内的中文翻译，然后自然过渡："这不是空谈——在医疗、教育和科学领域，我们已经看到了切实的成果。" -->
+</svg>

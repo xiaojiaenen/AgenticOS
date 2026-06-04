@@ -1,0 +1,46 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='var(--bg)'/>
+  <g id='page-header'>
+    <text x='80' y='65' font-size='18' fill='var(--accent)' font-weight='700' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='2'>PRODUCT SERIES</text>
+    <text x='80' y='115' font-size='38' font-weight='700' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>四大明星产品系列</text>
+  </g>
+  <!-- 产品1 -->
+  <g id='product-1'>
+    <rect x='60' y='160' width='1160' height='115' rx='12' fill='var(--surface)'/>
+    <rect x='60' y='160' width='6' height='115' rx='3' fill='var(--accent)'/>
+    <text x='100' y='205' font-size='24' font-weight='800' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>格力·玫瑰</text>
+    <rect x='260' y='183' width='70' height='26' rx='13' fill='var(--accent)' fill-opacity='0.12'/>
+    <text x='295' y='201' font-size='12' fill='var(--accent)' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>旗舰款</text>
+    <text x='100' y='250' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>高端艺术空调，新中式美学设计 · 双级变频压缩机 · 新风净化一体 · 售价 ¥8,999 起</text>
+  </g>
+  <!-- 产品2 -->
+  <g id='product-2'>
+    <rect x='60' y='295' width='1160' height='115' rx='12' fill='var(--surface)'/>
+    <rect x='60' y='295' width='6' height='115' rx='3' fill='var(--accent-2)'/>
+    <text x='100' y='340' font-size='24' font-weight='800' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>格力·云佳</text>
+    <rect x='260' y='318' width='70' height='26' rx='13' fill='var(--accent-2)' fill-opacity='0.12'/>
+    <text x='295' y='336' font-size='12' fill='var(--accent-2)' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>爆款</text>
+    <text x='100' y='385' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>性价比之王，线上销量冠军 · 一级能效 · 自清洁 · 低噪静音 · 售价 ¥2,499 起</text>
+  </g>
+  <!-- 产品3 -->
+  <g id='product-3'>
+    <rect x='60' y='430' width='1160' height='115' rx='12' fill='var(--surface)'/>
+    <rect x='60' y='430' width='6' height='115' rx='3' fill='var(--good)'/>
+    <text x='100' y='475' font-size='24' font-weight='800' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>格力·星空</text>
+    <rect x='260' y='453' width='90' height='26' rx='13' fill='var(--good)' fill-opacity='0.12'/>
+    <text x='305' y='471' font-size='12' fill='var(--good)' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>新风款</text>
+    <text x='100' y='520' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>新风增氧，不开窗也能换新鲜空气 · HEPA H13 滤网 · PM2.5 实时监测 · 售价 ¥4,599 起</text>
+  </g>
+  <!-- 产品4 -->
+  <g id='product-4'>
+    <rect x='60' y='565' width='1160' height='80' rx='12' fill='var(--surface)'/>
+    <rect x='60' y='565' width='6' height='80' rx='3' fill='var(--warn)'/>
+    <text x='100' y='610' font-size='24' font-weight='800' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>格力·大松 <tspan font-size='15' fill='var(--text-2)' font-weight='400'>（生活电器）</tspan></text>
+    <text x='400' y='610' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>电饭煲 · 净水器 · 电风扇 · 加湿器 · 全品类品质生活</text>
+  </g>
+  <!-- 页脚 -->
+  <g id='page-footer'>
+    <text x='1180' y='680' text-anchor='end' font-size='13' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>6 / 10</text>
+  </g>
+  <!-- notes: 产品系列页——用列表形式展示格力的产品矩阵。重点讲三个空调系列：玫瑰是旗舰，代表格力最高的设计和技术水平；云佳是爆款，线上卖得最好的性价比之王；星空是新风款，主打健康空气概念。最后带一句大松生活电器，展示格力不只是空调。讲的时候可以根据观众类型调整重点——家庭用户多讲云佳和星空，高端用户多讲玫瑰。 -->
+</svg>

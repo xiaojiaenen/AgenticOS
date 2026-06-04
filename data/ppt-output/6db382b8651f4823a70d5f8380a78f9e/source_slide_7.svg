@@ -1,0 +1,43 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='apple'>
+  <!-- notes: 智能体验——四个核心功能点。格力的智能化不只是远程控制，更是主动学习、主动调节。自清洁、新风、静音、全屋联动，这四点是用户选择格力的核心理由。每点用一句话讲清价值。 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='smart-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='60' font-size='18' fill='#0071e3' font-weight='600'>智能体验</text>
+    <text x='80' y='110' font-size='36' font-weight='700' fill='#1d1d1f'>不只是空调，更是智能管家</text>
+  </g>
+  <g id='smart-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='60' y='160' width='560' height='110' rx='12' fill='#fbfbfd'/>
+    <rect x='60' y='160' width='4' height='110' rx='2' fill='#0071e3'/>
+    <text x='100' y='200' font-size='20' font-weight='700' fill='#1d1d1f'>56°C 高温自清洁</text>
+    <text x='100' y='235' font-size='14' fill='#424245'>蒸发器自动高温杀菌，除菌率达99%，呼吸更健康</text>
+  </g>
+  <g id='smart-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='660' y='160' width='560' height='110' rx='12' fill='#fbfbfd'/>
+    <rect x='660' y='160' width='4' height='110' rx='2' fill='#0077ed'/>
+    <text x='700' y='200' font-size='20' font-weight='700' fill='#1d1d1f'>双向换新风</text>
+    <text x='700' y='235' font-size='14' fill='#424245'>引入室外新鲜空气，排出室内浊气，不开窗也能通风</text>
+  </g>
+  <g id='smart-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='60' y='295' width='560' height='110' rx='12' fill='#fbfbfd'/>
+    <rect x='60' y='295' width='4' height='110' rx='2' fill='#0066cc'/>
+    <text x='100' y='335' font-size='20' font-weight='700' fill='#1d1d1f'>18dB 超静音运行</text>
+    <text x='100' y='370' font-size='14' fill='#424245'>比翻书声还安静，深度睡眠不被打扰</text>
+  </g>
+  <g id='smart-4' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='660' y='295' width='560' height='110' rx='12' fill='#fbfbfd'/>
+    <rect x='660' y='295' width='4' height='110' rx='2' fill='#16a34a'/>
+    <text x='700' y='335' font-size='20' font-weight='700' fill='#1d1d1f'>全屋智能联动</text>
+    <text x='700' y='370' font-size='14' fill='#424245'>接入格力+APP，远程操控、定时开关、场景联动</text>
+  </g>
+  <g id='smart-highlight' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='60' y='440' width='1160' height='180' rx='16' fill='#0071e3' fill-opacity='0.05'/>
+    <text x='640' y='510' font-size='28' font-weight='700' fill='#1d1d1f' text-anchor='middle'>一句话总结</text>
+    <text x='640' y='560' font-size='18' fill='#424245' text-anchor='middle'>格力不只是卖空调，而是在卖一种更健康、更舒适、更聪明的生活方式</text>
+  </g>
+  <g id='smart-footer'>
+    <text x='80' y='680' font-size='12' fill='#86868b' font-family='Inter,Noto Sans SC,sans-serif'>GREE · 智能体验</text>
+    <text x='1200' y='680' text-anchor='end' font-size='12' fill='#86868b' font-family='Inter,Noto Sans SC,sans-serif'>7 / 11</text>
+  </g>
+</svg>

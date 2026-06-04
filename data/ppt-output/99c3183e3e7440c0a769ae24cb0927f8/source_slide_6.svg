@@ -1,0 +1,77 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <defs>
+    <linearGradient id='mercuryGrad' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#9E9E9E'/>
+      <stop offset='100%' stop-color='#616161'/>
+    </linearGradient>
+    <linearGradient id='venusGrad' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#F5C882'/>
+      <stop offset='100%' stop-color='#D4A050'/>
+    </linearGradient>
+    <linearGradient id='earthGrad' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#4A90D9'/>
+      <stop offset='100%' stop-color='#2E6BA4'/>
+    </linearGradient>
+    <linearGradient id='marsGrad' x1='0' y1='0' x2='1' y2='1'>
+      <stop offset='0%' stop-color='#D4735E'/>
+      <stop offset='100%' stop-color='#B05C4A'/>
+    </linearGradient>
+  </defs>
+  <!-- notes: 内行星——水星金星地球火星，全是岩石星球。重点突出地球的特殊性（液态水+生命），和金星的可怕温室效应 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='60' cy='80' r='1' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1220' cy='120' r='1.2' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='100' cy='650' r='0.8' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1150' cy='600' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='70' font-size='16' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>CHAPTER 01 · 太阳系大家庭</text>
+    <text x='640' y='90' font-size='34' font-weight='800' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>内行星 · 岩石星球</text>
+    <text x='640' y='118' font-size='15' fill='#abaeb3' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>INNER PLANETS — MERCURY, VENUS, EARTH, MARS</text>
+    <rect x='560' y='130' width='160' height='2' fill='#3b82f6'/>
+  </g>
+  <g id='inner-planet-1'>
+    <rect x='60' y='170' width='560' height='230' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <circle cx='150' cy='285' r='30' fill='url(#mercuryGrad)'/>
+    <text x='210' y='260' font-size='24' font-weight='bold' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>水星</text>
+    <text x='210' y='285' font-size='14' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>MERCURY</text>
+    <text x='210' y='320' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>距太阳最近 · 没有大气层</text>
+    <text x='210' y='345' font-size='14' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>白天<tspan fill='#d97706' font-weight='bold'>430°C</tspan> · 夜晚<tspan fill='#3b82f6' font-weight='bold'>-180°C</tspan></text>
+    <text x='210' y='370' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>公转：88天 · 太阳系最小行星</text>
+  </g>
+  <g id='inner-planet-2'>
+    <rect x='660' y='170' width='560' height='230' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <circle cx='750' cy='285' r='35' fill='url(#venusGrad)'/>
+    <text x='810' y='260' font-size='24' font-weight='bold' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>金星</text>
+    <text x='810' y='285' font-size='14' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>VENUS</text>
+    <text x='810' y='320' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>太阳系最热 · 浓厚CO₂大气</text>
+    <text x='810' y='345' font-size='14' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>表面温度<tspan fill='#d97706' font-weight='bold'>465°C</tspan> · 温室效应失控</text>
+    <text x='810' y='370' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>自转方向与其它行星相反</text>
+  </g>
+  <g id='inner-planet-3'>
+    <rect x='60' y='420' width='560' height='230' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <circle cx='150' cy='535' r='35' fill='url(#earthGrad)'/>
+    <circle cx='140' cy='523' r='5' fill='#6BBF6A'/>
+    <circle cx='155' cy='540' r='3' fill='#6BBF6A'/>
+    <text x='210' y='510' font-size='24' font-weight='bold' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>地球</text>
+    <text x='210' y='535' font-size='14' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>EARTH</text>
+    <text x='210' y='570' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'><tspan fill='#16a34a' font-weight='bold'>唯一已知有生命</tspan>的星球</text>
+    <text x='210' y='595' font-size='14' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>液态水覆盖<tspan font-weight='bold' fill='#3b82f6'>71%</tspan>表面</text>
+    <text x='210' y='620' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>公转：365.25天 · 1颗卫星（月球）</text>
+  </g>
+  <g id='inner-planet-4'>
+    <rect x='660' y='420' width='560' height='230' rx='16' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <circle cx='750' cy='535' r='25' fill='url(#marsGrad)'/>
+    <text x='810' y='510' font-size='24' font-weight='bold' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>火星</text>
+    <text x='810' y='535' font-size='14' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>MARS</text>
+    <text x='810' y='570' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>红色星球 · 人类探索的下一个家</text>
+    <text x='810' y='595' font-size='14' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>拥有<tspan font-weight='bold' fill='#3b82f6'>太阳系最高峰</tspan>（奥林匹斯山 21.9km）</text>
+    <text x='810' y='620' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>公转：687天 · 2颗卫星</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#abaeb3' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>6 / 12</text>
+  </g>
+</svg>

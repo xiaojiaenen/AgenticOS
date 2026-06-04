@@ -1,0 +1,30 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 今天的课到这里就结束啦！大家一起说——I like animals! 太棒了！回家后记得用英语和爸爸妈妈说说你今天学到了什么动物。下次课我们继续学习更多有趣的动物！Goodbye everyone! See you next time! -->
+  <rect width='1280' height='720' fill='#ffffff'/>
+  <rect x='0' y='0' width='1280' height='4' fill='#58a700'/>
+  <!-- 装饰圆形 -->
+  <circle cx='100' cy='100' r='60' fill='#58a700' fill-opacity='0.06'/>
+  <circle cx='1180' cy='620' r='80' fill='#ff9600' fill-opacity='0.06'/>
+  <circle cx='1100' cy='150' r='40' fill='#4a8d00' fill-opacity='0.06'/>
+  <g id='thanks-content' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='160' text-anchor='middle' font-size='56' font-weight='900' fill='#3c3c3c'>Great Job!</text>
+    <text x='640' y='220' text-anchor='middle' font-size='56' font-weight='900' fill='#58a700'>太棒了！</text>
+    <line x1='490' y1='255' x2='790' y2='255' stroke='#58a700' stroke-width='3' stroke-linecap='round'/>
+  </g>
+  <g id='thanks-recap' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='190' y='290' width='900' height='90' rx='16' fill='#e5e5e5'/>
+    <text x='640' y='330' text-anchor='middle' font-size='20' font-weight='700' fill='#777777'>今天我们学会了</text>
+    <text x='640' y='360' text-anchor='middle' font-size='16' fill='#777777'>cat · dog · bird · fish · rabbit · monkey · I have a... · I like...</text>
+  </g>
+  <g id='thanks-homework' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='340' y='410' width='600' height='90' rx='16' fill='#58a700' fill-opacity='0.1' stroke='#58a700' stroke-width='2'/>
+    <text x='640' y='450' text-anchor='middle' font-size='20' font-weight='700' fill='#58a700'>🏠 课后小任务 Homework</text>
+    <text x='640' y='480' text-anchor='middle' font-size='16' fill='#777777'>用英语告诉爸爸妈妈你喜欢什么动物！</text>
+  </g>
+  <g id='thanks-decor'>
+    <text x='640' y='580' text-anchor='middle' font-size='48'>🐱 🐶 🐦 🐟 🐰 🐒</text>
+  </g>
+  <g id='thanks-greeting' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='660' text-anchor='middle' font-size='20' fill='#777777' font-weight='600'>See you next time! 下次课再见！👋</text>
+  </g>
+</svg>

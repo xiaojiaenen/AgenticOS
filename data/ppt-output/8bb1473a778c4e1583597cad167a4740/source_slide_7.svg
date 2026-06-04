@@ -1,0 +1,20 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='claude'>
+  <!-- notes: 第二个章节分隔页——从能力过渡到应用。大数字02提醒观众进入第二章 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id="section-decor-left">
+    <rect x='80' y='200' width='4' height='320' rx='2' fill='#dedc01'/>
+  </g>
+  <g id="section-number">
+    <text x='160' y='460' font-size='200' font-weight='800' fill='#dedc01' fill-opacity='0.15' font-family='Inter,Noto Sans SC,sans-serif'>02</text>
+  </g>
+  <g id="section-title">
+    <text x='160' y='320' font-size='18' fill='#dedc01' font-weight='600' letter-spacing='6'>CHAPTER 02</text>
+    <text x='160' y='400' font-size='64' font-weight='700' fill='#4d4c48'>实际应用</text>
+    <text x='160' y='470' font-size='22' fill='#3d3d3a'>不止是对话 · 更是生产力引擎</text>
+  </g>
+  <g id="footer">
+    <text x='640' y='680' font-size='14' fill='#87867f' text-anchor='middle'>07 / 11 · 章节二</text>
+  </g>
+</svg>

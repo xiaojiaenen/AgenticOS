@@ -1,0 +1,56 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='claude'>
+  <!-- notes: 对比页——凸出Claude的差异化优势：安全、诚实、长文本。不是贬低竞品，而是强调独特价值 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='#dedc01' font-weight='600' letter-spacing='3'>DIFFERENCE</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='#4d4c48'>Claude 的独特之处</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='#dedc01'/>
+  </g>
+  <g id="vs-container">
+    <!-- Claude 侧 -->
+    <rect x='100' y='240' width='480' height='380' rx='20' fill='#f5f4ed' stroke='#dedc01' stroke-width='2'/>
+    <rect x='100' y='240' width='480' height='60' rx='20' fill='#dedc01'/>
+    <rect x='100' y='280' width='480' height='20' fill='#dedc01'/>
+    <text x='340' y='278' font-size='22' font-weight='700' fill='#ffffff' text-anchor='middle'>Claude</text>
+    
+    <text x='140' y='335' font-size='16' font-weight='600' fill='#4d4c48'>✅ 安全优先</text>
+    <text x='140' y='360' font-size='14' fill='#87867f'>Constitutional AI 对齐训练</text>
+    
+    <text x='140' y='410' font-size='16' font-weight='600' fill='#4d4c48'>✅ 诚实透明</text>
+    <text x='140' y='435' font-size='14' fill='#87867f'>不确定时主动说"不知道"</text>
+    
+    <text x='140' y='485' font-size='16' font-weight='600' fill='#4d4c48'>✅ 超长上下文</text>
+    <text x='140' y='510' font-size='14' fill='#87867f'>200K tokens 精准理解</text>
+    
+    <text x='140' y='560' font-size='16' font-weight='600' fill='#4d4c48'>✅ 有温度的对话</text>
+    <text x='140' y='585' font-size='14' fill='#87867f'>自然、贴心、尊重用户</text>
+
+    <!-- VS 分隔 -->
+    <circle cx='640' cy='430' r='36' fill='#ffffff' stroke='#e8e6dc' stroke-width='2'/>
+    <text x='640' y='442' font-size='22' font-weight='800' fill='#dedc01' text-anchor='middle'>VS</text>
+
+    <!-- 其他 AI 侧 -->
+    <rect x='700' y='240' width='480' height='380' rx='20' fill='#f5f4ed' stroke='#e8e6dc' stroke-width='1.5'/>
+    <rect x='700' y='240' width='480' height='60' rx='20' fill='#e8e6dc'/>
+    <rect x='700' y='280' width='480' height='20' fill='#e8e6dc'/>
+    <text x='940' y='278' font-size='22' font-weight='700' fill='#87867f' text-anchor='middle'>其他 AI 助手</text>
+    
+    <text x='740' y='335' font-size='16' font-weight='600' fill='#4d4c48'>⚠️ 安全标准参差</text>
+    <text x='740' y='360' font-size='14' fill='#87867f'>各平台对齐策略不一</text>
+    
+    <text x='740' y='410' font-size='16' font-weight='600' fill='#4d4c48'>⚠️ 倾向过度承诺</text>
+    <text x='740' y='435' font-size='14' fill='#87867f'>常给出不确定的答案</text>
+    
+    <text x='740' y='485' font-size='16' font-weight='600' fill='#4d4c48'>⚠️ 上下文有限</text>
+    <text x='740' y='510' font-size='14' fill='#87867f'>大部分 4K-128K tokens</text>
+    
+    <text x='740' y='560' font-size='16' font-weight='600' fill='#4d4c48'>⚠️ 沟通风格僵硬</text>
+    <text x='740' y='585' font-size='14' fill='#87867f'>模板化回复偏多</text>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='#e8e6dc'/>
+    <text x='100' y='690' font-size='14' fill='#87867f'>08 / 11 · 独特之处</text>
+  </g>
+</svg>

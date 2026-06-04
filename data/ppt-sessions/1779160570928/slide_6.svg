@@ -1,0 +1,18 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <rect x='0' y='320' width='1280' height='80' fill='var(--accent)' fill-opacity='0.08'/>
+  </g>
+  <g id="section-number" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='280' font-size='160' font-weight='800' fill='var(--accent)' fill-opacity='0.15'>02</text>
+  </g>
+  <g id="section-title" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='350' font-size='60' font-weight='800' fill='var(--text-1)'>祝 福 篇</text>
+    <text x='640' y='420' font-size='22' fill='var(--text-2)' font-weight='300'>来自朋友们的心里话 · Words from the Heart</text>
+    <rect x='560' y='445' width='160' height='3' rx='1.5' fill='var(--accent)'/>
+  </g>
+  <g id="footer-chrome">
+    <text x='100' y='680' font-size='12' fill='var(--text-3)'>06 / 11</text>
+  </g>
+  <!-- notes: 第二个章节分隔页——"祝福篇"。这里可以提醒大家"接下来是来自朋友们准备的惊喜"，营造期待感 -->
+</svg>

@@ -1,0 +1,50 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <radialGradient id='sunBurst' cx='50%' cy='38%' r='55%'>
+      <stop offset='0%' stop-color='var(--accent)' stop-opacity='0.25'/>
+      <stop offset='30%' stop-color='var(--accent)' stop-opacity='0.1'/>
+      <stop offset='60%' stop-color='var(--accent-2)' stop-opacity='0.05'/>
+      <stop offset='100%' stop-color='var(--bg)' stop-opacity='0'/>
+    </radialGradient>
+    <filter id='sunGlowFilter' x='-60%' y='-60%' width='220%' height='220%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='8'/>
+    </filter>
+  </defs>
+  <!-- notes: 太阳——用一个震撼的数据"99.86%"开场，背后巨大的发光太阳让观众直观感受到太阳在太阳系中的绝对统治力 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <rect width='1280' height='720' fill='url(#sunBurst)'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='80' cy='60' r='1.5' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='300' cy='100' r='1' fill='var(--text-3)' fill-opacity='0.4'/>
+    <circle cx='1150' cy='70' r='2' fill='var(--text-3)' fill-opacity='0.6'/>
+    <circle cx='100' cy='550' r='1.2' fill='var(--text-3)' fill-opacity='0.4'/>
+    <circle cx='1200' cy='600' r='1.8' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='400' cy='650' r='1' fill='var(--text-3)' fill-opacity='0.3'/>
+    <circle cx='900' cy='650' r='1.3' fill='var(--text-3)' fill-opacity='0.4'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='60' font-size='14' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>CHAPTER 01 · 太阳系大家庭</text>
+  </g>
+  <!-- 巨大太阳 -->
+  <g id='sun-visual'>
+    <circle cx='640' cy='280' r='160' fill='var(--accent)' fill-opacity='0.03' filter='url(#sunGlowFilter)'/>
+    <circle cx='640' cy='280' r='120' fill='var(--accent)' fill-opacity='0.06' filter='url(#sunGlowFilter)'/>
+    <circle cx='640' cy='280' r='85' fill='var(--accent)' fill-opacity='0.1' filter='url(#sunGlowFilter)'/>
+    <circle cx='640' cy='280' r='55' fill='var(--accent)' fill-opacity='0.25' filter='url(#sunGlowFilter)'/>
+    <circle cx='640' cy='280' r='38' fill='var(--accent)' fill-opacity='0.6'/>
+    <circle cx='640' cy='280' r='28' fill='#FFD54F'/>
+    <circle cx='640' cy='280' r='22' fill='#FFE082'/>
+  </g>
+  <g id='stat-content'>
+    <text x='640' y='480' font-size='100' font-weight='900' fill='var(--accent)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>99.86%</text>
+    <text x='640' y='535' font-size='26' font-weight='bold' fill='var(--text-1)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>太阳占太阳系总质量</text>
+    <line x1='560' y1='555' x2='720' y2='555' stroke='var(--accent)' stroke-opacity='0.4' stroke-width='1'/>
+    <text x='640' y='585' font-size='16' fill='var(--text-2)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>直径 1,392,700 km · 表面 5,500°C · 核心 15,000,000°C</text>
+    <text x='640' y='615' font-size='14' fill='var(--text-3)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>所有行星、卫星、小行星、彗星加起来只占 0.14%</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='var(--text-3)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>4 / 12</text>
+  </g>
+</svg>

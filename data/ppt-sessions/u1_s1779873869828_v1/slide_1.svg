@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
+  <!-- notes: 封面页——格力空调品牌宣传，用品牌slogan建立第一印象，强调"掌握核心科技"的品牌定位 -->
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+    <rect x="0" y="0" width="1280" height="4" fill="var(--accent)"/>
+  </g>
+  <g id="cover-brand">
+    <text x="640" y="160" font-size="20" fill="var(--text-3)" text-anchor="middle" letter-spacing="4">GREE ELECTRIC</text>
+  </g>
+  <g id="cover-title">
+    <text x="640" y="300" font-size="72" font-weight="800" fill="var(--text-1)" text-anchor="middle">掌握核心科技</text>
+    <text x="640" y="390" font-size="28" fill="var(--text-2)" text-anchor="middle">让世界爱上中国造</text>
+  </g>
+  <g id="cover-subtitle">
+    <text x="640" y="500" font-size="18" fill="var(--text-3)" text-anchor="middle">格力空调 · 连续28年销量领先</text>
+  </g>
+  <g id="cover-decor">
+    <rect x="580" y="560" width="120" height="3" rx="1.5" fill="var(--accent)"/>
+  </g>
+  <g id="footer-pagenum">
+    <text x="1220" y="690" font-size="14" fill="var(--text-3)" text-anchor="end">01 / 10</text>
+  </g>
+</svg>

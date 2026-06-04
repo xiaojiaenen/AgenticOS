@@ -1,0 +1,21 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='apple'>
+  <!-- notes: 章节分隔——品牌实力。用大数字"34年"建立时间维度的信任感。格力从1991年创立至今，一直专注空调领域。过渡句：先看看格力的品牌底蕴有多深。 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg-soft)'/>
+    <rect x='0' y='0' width='1280' height='4' fill='var(--accent)'/>
+  </g>
+  <g id='section-decor'>
+    <circle cx='1060' cy='360' r='260' fill='var(--accent)' fill-opacity='0.04'/>
+    <circle cx='1060' cy='360' r='160' fill='var(--accent)' fill-opacity='0.06'/>
+    <circle cx='1060' cy='360' r='80' fill='var(--accent)' fill-opacity='0.10'/>
+  </g>
+  <g id='section-content' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='120' y='240' font-size='160' font-weight='900' fill='var(--accent)' fill-opacity='0.10'>01</text>
+    <text x='120' y='290' font-size='20' fill='var(--accent)' font-weight='600' letter-spacing='4'>SECTION 01</text>
+    <text x='120' y='370' font-size='52' font-weight='800' fill='var(--text-1)' font-family='Playfair Display,Noto Serif SC,serif'>品牌实力</text>
+    <text x='120' y='430' font-size='20' fill='var(--text-2)'>34年专注空调 · 连续28年中国销量第一 · 全球用户超6亿</text>
+  </g>
+  <g id='section-footer'>
+    <text x='1200' y='680' text-anchor='end' font-size='12' fill='var(--text-3)' font-family='Inter,Noto Sans SC,sans-serif'>3 / 11</text>
+  </g>
+</svg>

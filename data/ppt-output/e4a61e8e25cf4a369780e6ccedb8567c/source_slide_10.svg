@@ -1,0 +1,42 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='nike'>
+  <rect width='1280' height='720' fill='#fafafa'/>
+  <!-- 装饰 -->
+  <g id='cta-decor'>
+    <circle cx='640' cy='360' r='320' fill='#111111' fill-opacity='0.04'/>
+    <circle cx='640' cy='360' r='200' fill='#111111' fill-opacity='0.06'/>
+    <circle cx='640' cy='360' r='100' fill='#111111' fill-opacity='0.08'/>
+  </g>
+  <!-- 主 CTA -->
+  <g id='cta-main'>
+    <text x='640' y='220' font-size='56' font-weight='900' fill='#111111' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>让舒适，从一台好空调开始</text>
+    <text x='640' y='290' font-size='22' fill='#4b4b4d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>格力空调，掌握核心科技 · 品质改变生活</text>
+  </g>
+  <!-- 按钮 -->
+  <g id='cta-buttons'>
+    <rect x='400' y='350' width='240' height='60' rx='30' fill='#111111'/>
+    <text x='520' y='388' font-size='20' fill='#ffffff' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>立即选购</text>
+    <rect x='660' y='350' width='240' height='60' rx='30' fill='#f5f5f5' stroke='#d0d0d0' stroke-width='2'/>
+    <text x='780' y='388' font-size='20' fill='#4b4b4d' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>预约体验</text>
+  </g>
+  <!-- 信任背书 -->
+  <g id='cta-trust'>
+    <text x='640' y='480' font-size='16' fill='#707072' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>全国 30,000+ 服务网点 · 24 小时极速安装 · 10 年压缩机质保</text>
+  </g>
+  <!-- 底部服务承诺 -->
+  <g id='cta-promises'>
+    <rect x='280' y='530' width='200' height='80' rx='12' fill='#f5f5f5'/>
+    <text x='380' y='570' font-size='15' fill='#111111' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>免费上门设计</text>
+    <text x='380' y='595' font-size='13' fill='#707072' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>专业方案定制</text>
+    <rect x='540' y='530' width='200' height='80' rx='12' fill='#f5f5f5'/>
+    <text x='640' y='570' font-size='15' fill='#d30005' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>以旧换新补贴</text>
+    <text x='640' y='595' font-size='13' fill='#707072' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>最高补贴 ¥1,000</text>
+    <rect x='800' y='530' width='200' height='80' rx='12' fill='#f5f5f5'/>
+    <text x='900' y='570' font-size='15' fill='#16a34a' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>365 天只换不修</text>
+    <text x='900' y='595' font-size='13' fill='#707072' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>首年质量问题换新机</text>
+  </g>
+  <!-- 页脚 -->
+  <g id='page-footer'>
+    <text x='640' y='680' text-anchor='middle' font-size='14' fill='#707072' font-family='Inter,Noto Sans SC,sans-serif'>格力电器 · www.gree.com · 全国服务热线 400-836-5315</text>
+  </g>
+  <!-- notes: 行动号召页——收束全篇，把观众从"了解格力"推向"选择格力"。核心 slogan"让舒适，从一台好空调开始"既点题又有行动力。底部三个服务承诺是临门一脚：免费上门设计降低决策门槛，以旧换新补贴给价格优惠，365天只换不修消除后顾之忧。讲的时候可以说"现在下单还享受以旧换新补贴"，制造紧迫感。最后留一下格力的官网和服务热线，方便观众后续行动。 -->
+</svg>

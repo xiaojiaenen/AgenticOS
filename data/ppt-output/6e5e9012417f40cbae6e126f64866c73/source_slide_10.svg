@@ -1,0 +1,72 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <circle cx='80' cy='50' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='1200' cy='100' r='1.5' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='100' cy='650' r='1' fill='#abaeb3' fill-opacity='0.3'/>
+  </g>
+  <g id='page-header'>
+    <rect x='0' y='0' width='1280' height='3' fill='#3b82f6'/>
+    <text x='80' y='100' font-family='Inter,Noto Sans SC,sans-serif' font-size='36' font-weight='800' fill='#111827'>冥王星为什么被"开除"？</text>
+    <text x='80' y='135' font-family='Inter,Noto Sans SC,sans-serif' font-size='17' fill='#abaeb3'>2006年国际天文学联合会（IAU）重新定义"行星"</text>
+    <rect x='80' y='150' width='50' height='3' fill='#3b82f6'/>
+  </g>
+  <g id='condition-1'>
+    <rect x='80' y='200' width='360' height='120' rx='14' fill='#f9f9f9'/>
+    <circle cx='110' cy='240' r='16' fill='#16a34a' fill-opacity='0.2'/>
+    <text x='110' y='246' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='16' font-weight='700' fill='#16a34a'>✓</text>
+    <text x='145' y='240' font-family='Inter,Noto Sans SC,sans-serif' font-size='18' font-weight='700' fill='#111827'>绕太阳公转</text>
+    <text x='145' y='268' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='#70747d'>冥王星 ✓ · 符合条件</text>
+  </g>
+  <g id='condition-2'>
+    <rect x='460' y='200' width='360' height='120' rx='14' fill='#f9f9f9'/>
+    <circle cx='490' cy='240' r='16' fill='#16a34a' fill-opacity='0.2'/>
+    <text x='490' y='246' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='16' font-weight='700' fill='#16a34a'>✓</text>
+    <text x='525' y='240' font-family='Inter,Noto Sans SC,sans-serif' font-size='18' font-weight='700' fill='#111827'>足够大的质量</text>
+    <text x='525' y='268' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='#70747d'>冥王星 ✓ · 形成球形</text>
+  </g>
+  <g id='condition-3'>
+    <rect x='840' y='200' width='360' height='120' rx='14' fill='#f9f9f9'/>
+    <circle cx='870' cy='240' r='16' fill='#dc2626' fill-opacity='0.2'/>
+    <text x='870' y='246' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='16' font-weight='700' fill='#dc2626'>✗</text>
+    <text x='905' y='240' font-family='Inter,Noto Sans SC,sans-serif' font-size='18' font-weight='700' fill='#111827'>清除轨道区域</text>
+    <text x='905' y='268' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='#70747d'>冥王星 ✗ · 轨道有大量</text>
+    <text x='905' y='288' font-family='Inter,Noto Sans SC,sans-serif' font-size='15' fill='#70747d'>其他天体（柯伊伯带）</text>
+  </g>
+  <g id='result-card'>
+    <rect x='80' y='360' width='1120' height='160' rx='16' fill='#f9f9f9'/>
+    <rect x='80' y='360' width='1120' height='6' rx='3' fill='#3b82f6' fill-opacity='0.3'/>
+    <text x='120' y='415' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' font-weight='700' fill='#111827'>结论：冥王星 → 矮行星（Dwarf Planet）</text>
+    <text x='120' y='458' font-family='Inter,Noto Sans SC,sans-serif' font-size='17' fill='#70747d'>2006年8月24日，IAU将冥王星从第九大行星重新分类为矮行星</text>
+    <text x='120' y='498' font-family='Inter,Noto Sans SC,sans-serif' font-size='17' fill='#70747d'>太阳系从此变为八大行星 · 与冥王星类似的还有阋神星、谷神星等</text>
+  </g>
+  <g id='planet-lineup'>
+    <text x='120' y='580' font-family='Inter,Noto Sans SC,sans-serif' font-size='18' font-weight='700' fill='#111827'>八大行星排列</text>
+    <!-- 八大行星小圆点 -->
+    <circle cx='120' cy='620' r='6' fill='#8b5cf6' fill-opacity='0.6'/>
+    <circle cx='155' cy='620' r='8' fill='#d97706' fill-opacity='0.6'/>
+    <circle cx='195' cy='620' r='10' fill='#16a34a' fill-opacity='0.6'/>
+    <circle cx='230' cy='620' r='7' fill='#dc2626' fill-opacity='0.6'/>
+    <circle cx='275' cy='620' r='18' fill='#d97706' fill-opacity='0.4'/>
+    <circle cx='315' cy='620' r='15' fill='#3b82f6' fill-opacity='0.4'/>
+    <circle cx='355' cy='620' r='12' fill='#8b5cf6' fill-opacity='0.4'/>
+    <circle cx='395' cy='620' r='11' fill='#3b82f6' fill-opacity='0.4'/>
+    <!-- 文字标签 -->
+    <text x='120' y='650' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='10' fill='#abaeb3'>水</text>
+    <text x='155' y='650' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='10' fill='#abaeb3'>金</text>
+    <text x='195' y='650' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='10' fill='#abaeb3'>地</text>
+    <text x='230' y='650' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='10' fill='#abaeb3'>火</text>
+    <text x='275' y='650' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='10' fill='#abaeb3'>木</text>
+    <text x='315' y='650' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='10' fill='#abaeb3'>土</text>
+    <text x='355' y='650' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='10' fill='#abaeb3'>天</text>
+    <text x='395' y='650' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' font-size='10' fill='#abaeb3'>海</text>
+    <!-- 删除线冥王星 -->
+    <text x='435' y='625' font-family='Inter,Noto Sans SC,sans-serif' font-size='14' fill='#dc2626' text-decoration='line-through'>冥王星</text>
+    <text x='435' y='650' font-family='Inter,Noto Sans SC,sans-serif' font-size='10' fill='#abaeb3'>矮行星</text>
+  </g>
+  <g id='footer'>
+    <rect x='80' y='698' width='40' height='2' fill='#3b82f6'/>
+    <text x='135' y='708' font-family='Inter,Noto Sans SC,sans-serif' font-size='12' fill='#abaeb3'>10 / 12</text>
+  </g>
+  <!-- notes: 冥王星降级原因——IAU三条行星定义：1)绕太阳公转✓ 2)质量够大呈球形✓ 3)清空轨道区域✗。冥王星轨道在柯伊伯带中与其他天体共享区域，因此被降级为矮行星。底部展示八大行星排列，冥王星打删除线标注。 -->
+</svg>

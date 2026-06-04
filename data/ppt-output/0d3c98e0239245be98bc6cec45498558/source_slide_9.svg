@@ -1,0 +1,43 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='36' font-weight='800' fill='#0d0d0d'>AI 应用落地技术架构</text>
+    <text x='80' y='140' font-size='18' fill='#1a1a1a'>Technology Architecture for Enterprise AI</text>
+    <line x1='80' y1='162' x2='280' y2='162' stroke='#10a37f' stroke-width='3'/>
+  </g>
+  <g id='arch-layers' font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <!-- 第1层：应用层 -->
+    <rect x='80' y='210' width='1120' height='70' rx='12' fill='#10a37f' fill-opacity='0.12' stroke='#10a37f' stroke-width='1'/>
+    <text x='640' y='235' font-size='18' font-weight='bold' fill='#10a37f'>应用层</text>
+    <text x='640' y='260' font-size='14' fill='#1a1a1a'>智能客服 · 代码助手 · 内容生成 · 数据分析 · 自动化流程</text>
+    <!-- 箭头向下 -->
+    <text x='640' y='300' font-size='20' fill='#9b9b9b'>▼</text>
+
+    <!-- 第2层：模型服务层 -->
+    <rect x='80' y='310' width='1120' height='70' rx='12' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <text x='640' y='335' font-size='18' font-weight='bold' fill='#0d0d0d'>模型服务层</text>
+    <text x='640' y='360' font-size='14' fill='#1a1a1a'>模型推理 · 提示词管理 · RAG 检索增强 · 模型路由与负载均衡</text>
+    <!-- 箭头向下 -->
+    <text x='640' y='400' font-size='20' fill='#9b9b9b'>▼</text>
+
+    <!-- 第3层：数据与基础设施层 -->
+    <rect x='80' y='410' width='1120' height='70' rx='12' fill='#fafafa' stroke='#e5e5e5' stroke-width='1'/>
+    <text x='640' y='435' font-size='18' font-weight='bold' fill='#0d0d0d'>数据与基础设施层</text>
+    <text x='640' y='460' font-size='14' fill='#1a1a1a'>向量数据库 · 模型微调平台 · GPU 集群 · MLOps 持续交付</text>
+
+    <!-- 右侧标注：关键能力 -->
+    <rect x='340' y='510' width='600' height='50' rx='25' fill='#10a37f' fill-opacity='0.08' stroke='#10a37f' stroke-width='1' stroke-dasharray='4,4'/>
+    <text x='640' y='541' font-size='15' fill='#10a37f'>关键成功要素：数据质量 &gt; 模型选择 &gt; 工程落地 &gt; 组织变革</text>
+  </g>
+  <g id='side-tags' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='30' y='232' width='36' height='26' rx='6' fill='#10a37f'/>
+    <text x='48' y='251' font-size='12' text-anchor='middle' fill='#ffffff' font-weight='bold'>1</text>
+    <rect x='30' y='332' width='36' height='26' rx='6' fill='#10a37f'/>
+    <text x='48' y='351' font-size='12' text-anchor='middle' fill='#ffffff' font-weight='bold'>2</text>
+    <rect x='30' y='432' width='36' height='26' rx='6' fill='#10a37f'/>
+    <text x='48' y='451' font-size='12' text-anchor='middle' fill='#ffffff' font-weight='bold'>3</text>
+  </g>
+  <!-- notes: 三层架构图，从应用到基础设施。强调RAG（检索增强生成）在第二层的核心位置，以及数据质量在底部的关键作用。演讲节奏：从下往上讲（基础设施→模型→应用），或者从上往下（以终为始）均可 -->
+</svg>

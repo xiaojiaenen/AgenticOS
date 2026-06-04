@@ -1,0 +1,69 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='dramatic'>
+  <defs>
+    <radialGradient id='bgGlow' cx='50%' cy='35%' r='65%'>
+      <stop offset='0%' stop-color='var(--accent)' stop-opacity='0.18'/>
+      <stop offset='50%' stop-color='var(--accent-2)' stop-opacity='0.06'/>
+      <stop offset='100%' stop-color='var(--bg)' stop-opacity='0'/>
+    </radialGradient>
+    <filter id='glow' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='5'/>
+    </filter>
+    <filter id='starGlow' x='-100%' y='-100%' width='300%' height='300%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='2'/>
+    </filter>
+  </defs>
+  <!-- notes: 戏剧化开场——强光从画面中心爆发，行星轨道环绕，标题叠加金色高光，给观众一种史诗级开篇的冲击力 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <rect width='1280' height='720' fill='url(#bgGlow)'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='100' cy='60' r='2' fill='var(--text-3)' fill-opacity='0.7'/>
+    <circle cx='300' cy='40' r='1.2' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='900' cy='80' r='2.5' fill='var(--text-3)' fill-opacity='0.8'/>
+    <circle cx='1150' cy='50' r='1.5' fill='var(--text-3)' fill-opacity='0.6'/>
+    <circle cx='200' cy='180' r='1' fill='var(--text-3)' fill-opacity='0.4'/>
+    <circle cx='1050' cy='180' r='1.8' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='60' cy='450' r='1.3' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='1220' cy='380' r='1' fill='var(--text-3)' fill-opacity='0.4'/>
+    <circle cx='500' cy='60' r='1.5' fill='var(--text-3)' fill-opacity='0.6'/>
+    <circle cx='750' cy='30' r='1.2' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='40' cy='600' r='1.8' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='1240' cy='520' r='1.5' fill='var(--text-3)' fill-opacity='0.6'/>
+    <circle cx='600' cy='680' r='1' fill='var(--text-3)' fill-opacity='0.4'/>
+    <circle cx='150' cy='550' r='1.2' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='1000' cy='600' r='1.5' fill='var(--text-3)' fill-opacity='0.6'/>
+    <circle cx='820' cy='140' r='1' fill='var(--text-3)' fill-opacity='0.4'/>
+    <circle cx='280' cy='300' r='1.2' fill='var(--text-3)' fill-opacity='0.5'/>
+    <circle cx='1120' cy='450' r='2' fill='var(--text-3)' fill-opacity='0.7'/>
+  </g>
+  <g id='orbit-decor'>
+    <ellipse cx='640' cy='420' rx='540' ry='85' fill='none' stroke='var(--accent)' stroke-opacity='0.1' stroke-width='1.5'/>
+    <ellipse cx='640' cy='420' rx='450' ry='72' fill='none' stroke='var(--accent-2)' stroke-opacity='0.07' stroke-width='1'/>
+    <ellipse cx='640' cy='420' rx='360' ry='58' fill='none' stroke='var(--accent)' stroke-opacity='0.05' stroke-width='1'/>
+    <circle cx='640' cy='420' r='38' fill='var(--accent)' fill-opacity='0.15' filter='url(#glow)'/>
+    <circle cx='640' cy='420' r='22' fill='var(--accent)'/>
+    <circle cx='640' cy='420' r='15' fill='#FFF3E0'/>
+    <circle cx='640' cy='335' r='3.5' fill='var(--accent-2)'/>
+    <circle cx='640' cy='348' r='5' fill='var(--accent-3)'/>
+    <circle cx='640' cy='365' r='6' fill='var(--text-2)'/>
+    <circle cx='640' cy='385' r='4' fill='var(--bad)'/>
+    <circle cx='640' cy='458' r='14' fill='var(--warn)'/>
+    <circle cx='640' cy='478' r='12' fill='var(--good)'/>
+    <circle cx='640' cy='492' r='9' fill='var(--accent-2)'/>
+    <circle cx='640' cy='500' r='7' fill='var(--accent)'/>
+  </g>
+  <g id='cover-title'>
+    <text x='640' y='170' font-size='20' fill='var(--accent)' font-weight='700' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='6'>✦ 太阳系探秘之旅 ✦</text>
+    <line x1='400' y1='185' x2='880' y2='185' stroke='var(--accent)' stroke-opacity='0.3' stroke-width='1'/>
+    <text x='640' y='260' font-size='80' font-weight='900' fill='var(--text-1)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='640' dy='0'>八大行星与</tspan>
+      <tspan x='640' dy='96' fill='var(--accent)'>九大行星</tspan>
+    </text>
+    <text x='640' y='490' font-size='22' font-weight='600' fill='var(--text-2)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='2'>四十六亿年的宇宙史诗</text>
+    <text x='640' y='530' font-size='16' fill='var(--text-3)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>从水星到冥王星 · 从伽利略到新视野号</text>
+  </g>
+  <g id='cover-footer' chrome='true'>
+    <text x='640' y='680' font-size='14' fill='var(--text-3)' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>1 / 12</text>
+  </g>
+</svg>

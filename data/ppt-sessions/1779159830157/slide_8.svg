@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="airbnb">
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+  </g>
+  <g id="header" font-family="Inter,Noto Sans SC,sans-serif">
+    <text x="80" y="100" font-size="14" fill="var(--accent)" font-weight="600" letter-spacing="3">WISHES</text>
+    <rect x="80" y="115" width="40" height="3" rx="1.5" fill="var(--accent)"/>
+    <text x="80" y="170" font-size="40" font-weight="800" fill="var(--text-1)">送给你的生日祝福</text>
+  </g>
+  <g id="wishes-cards" font-family="Inter,Noto Sans SC,sans-serif">
+    <!-- Wish 1 -->
+    <g transform="translate(80, 240)">
+      <rect width="540" height="120" rx="16" fill="var(--surface)"/>
+      <rect x="0" y="0" width="6" height="120" rx="3" fill="var(--accent)"/>
+      <text x="36" y="50" font-size="22" font-weight="700" fill="var(--text-1)">❤️ 健康快乐</text>
+      <text x="36" y="85" font-size="16" fill="var(--text-2)">愿你身体棒棒，每天都有好心情</text>
+    </g>
+    <!-- Wish 2 -->
+    <g transform="translate(660, 240)">
+      <rect width="540" height="120" rx="16" fill="var(--surface)"/>
+      <rect x="0" y="0" width="6" height="120" rx="3" fill="var(--accent)"/>
+      <text x="36" y="50" font-size="22" font-weight="700" fill="var(--text-1)">🌟 梦想成真</text>
+      <text x="36" y="85" font-size="16" fill="var(--text-2)">愿你许下的每一个愿望都能实现</text>
+    </g>
+    <!-- Wish 3 -->
+    <g transform="translate(80, 390)">
+      <rect width="540" height="120" rx="16" fill="var(--surface)"/>
+      <rect x="0" y="0" width="6" height="120" rx="3" fill="var(--accent)"/>
+      <text x="36" y="50" font-size="22" font-weight="700" fill="var(--text-1)">🌈 前程似锦</text>
+      <text x="36" y="85" font-size="16" fill="var(--text-2)">愿你前路浩浩荡荡，万事皆可期待</text>
+    </g>
+    <!-- Wish 4 -->
+    <g transform="translate(660, 390)">
+      <rect width="540" height="120" rx="16" fill="var(--surface)"/>
+      <rect x="0" y="0" width="6" height="120" rx="3" fill="var(--accent)"/>
+      <text x="36" y="50" font-size="22" font-weight="700" fill="var(--text-1)">🎈 永远年轻</text>
+      <text x="36" y="85" font-size="16" fill="var(--text-2)">愿你出走半生，归来仍是少年</text>
+    </g>
+  </g>
+  <!-- notes: 祝福卡片页——四条生日祝福以卡片形式呈现，左侧彩色竖线装饰 -->
+</svg>

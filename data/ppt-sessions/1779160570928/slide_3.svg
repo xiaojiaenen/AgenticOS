@@ -1,0 +1,18 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <rect x='0' y='320' width='1280' height='80' fill='var(--accent)' fill-opacity='0.08'/>
+  </g>
+  <g id="section-number" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='280' font-size='160' font-weight='800' fill='var(--accent)' fill-opacity='0.15'>01</text>
+  </g>
+  <g id="section-title" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='350' font-size='60' font-weight='800' fill='var(--text-1)'>回 忆 篇</text>
+    <text x='640' y='420' font-size='22' fill='var(--text-2)' font-weight='300'>那些闪亮的日子 · Moments That Shine</text>
+    <rect x='560' y='445' width='160' height='3' rx='1.5' fill='var(--accent)'/>
+  </g>
+  <g id="footer-chrome">
+    <text x='100' y='680' font-size='12' fill='var(--text-3)'>03 / 11</text>
+  </g>
+  <!-- notes: 第一个章节分隔页——"回忆篇"。从这里开始进入温情回顾环节，放慢节奏，引导大家回想共同的美好时光 -->
+</svg>

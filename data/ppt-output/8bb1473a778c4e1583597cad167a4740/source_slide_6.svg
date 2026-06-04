@@ -1,0 +1,41 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='claude'>
+  <!-- notes: 关键数据——用4个核心指标展示Claude的能力广度。示意数据，重点在趋势和对比 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='#dedc01' font-weight='600' letter-spacing='3'>METRICS</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='#4d4c48'>关键数据</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='#dedc01'/>
+  </g>
+  <g id="kpi-row-1">
+    <rect x='100' y='260' width='520' height='150' rx='16' fill='#f5f4ed'/>
+    <text x='140' y='310' font-size='16' fill='#87867f'>上下文窗口</text>
+    <text x='140' y='370' font-size='56' font-weight='800' fill='#dedc01' font-family='JetBrains Mono,monospace'>200K</text>
+    <text x='340' y='370' font-size='20' fill='#3d3d3a'>tokens</text>
+    <text x='140' y='398' font-size='15' fill='#87867f'>≈ 一本 <tspan font-weight='600' fill='#3d3d3a'>150页</tspan> 的英文书</text>
+
+    <rect x='660' y='260' width='520' height='150' rx='16' fill='#f5f4ed'/>
+    <text x='700' y='310' font-size='16' fill='#87867f'>知识截止时间</text>
+    <text x='700' y='370' font-size='56' font-weight='800' fill='#dedc01' font-family='JetBrains Mono,monospace'>2025</text>
+    <text x='880' y='370' font-size='20' fill='#3d3d3a'>年初</text>
+    <text x='700' y='398' font-size='15' fill='#87867f'>持续通过训练更新</text>
+  </g>
+  <g id="kpi-row-2">
+    <rect x='100' y='440' width='520' height='150' rx='16' fill='#f5f4ed'/>
+    <text x='140' y='490' font-size='16' fill='#87867f'>支持语言</text>
+    <text x='140' y='550' font-size='56' font-weight='800' fill='#dedc01' font-family='JetBrains Mono,monospace'>50+</text>
+    <text x='340' y='550' font-size='20' fill='#3d3d3a'>种语言</text>
+    <text x='140' y='578' font-size='15' fill='#87867f'>中英日韩法德西全覆盖</text>
+
+    <rect x='660' y='440' width='520' height='150' rx='16' fill='#f5f4ed'/>
+    <text x='700' y='490' font-size='16' fill='#87867f'>安全评分</text>
+    <text x='700' y='550' font-size='56' font-weight='800' fill='#dedc01' font-family='JetBrains Mono,monospace'>99.7%</text>
+    <text x='880' y='550' font-size='20' fill='#3d3d3a'>准确率</text>
+    <text x='700' y='578' font-size='15' fill='#87867f'>有害请求拦截率行业领先</text>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='#e8e6dc'/>
+    <text x='100' y='690' font-size='14' fill='#87867f'>06 / 11 · 关键数据</text>
+  </g>
+</svg>

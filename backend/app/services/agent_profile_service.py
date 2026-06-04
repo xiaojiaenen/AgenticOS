@@ -20,7 +20,7 @@ from app.db.models import (
     UserModel,
 )
 from app.db.session import create_db_session
-from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT
+from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_SYSTEM_PROMPT
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
 from app.services.session_storage import parse_approval_sub_tools, slugify
 from app.services.skill_service import RuntimeSkill, SkillService
@@ -33,7 +33,7 @@ AUDIENCE_MODE_SELECTED = "selected"
 MODE_DEFAULT_PROMPTS: dict[str, str] = {
     "general": GENERAL_SYSTEM_PROMPT,
     "ppt": PPT_SYSTEM_PROMPT,
-    "website": WEBSITE_ROUTER_PROMPT,
+    "website": WEBSITE_SYSTEM_PROMPT,
 }
 
 GENERIC_PROMPTS = {
@@ -62,7 +62,7 @@ BUILTIN_AGENT_PROFILES = {
     "website": {
         "name": "网站工程师",
         "description": "用于页面方案、前端代码、交互原型和网站结构设计。",
-        "system_prompt": WEBSITE_ROUTER_PROMPT,
+        "system_prompt": WEBSITE_SYSTEM_PROMPT,
         "response_mode": "website",
         "avatar": "globe",
         "listed": True,
@@ -113,7 +113,7 @@ class AgentProfileService:
                 if slug == "website":
                     current_prompt = profile.system_prompt or ""
                     if "data/websites/<project_slug>/" not in current_prompt:
-                        profile.system_prompt = WEBSITE_ROUTER_PROMPT
+                        profile.system_prompt = WEBSITE_SYSTEM_PROMPT
                         changed = True
 
             changed = self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS[slug]) or changed

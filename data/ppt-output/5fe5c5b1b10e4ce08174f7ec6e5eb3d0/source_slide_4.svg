@@ -1,0 +1,47 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <defs>
+    <radialGradient id='sunGlow' cx='50%' cy='50%' r='50%'>
+      <stop offset='0%' stop-color='#3b82f6' stop-opacity='0.2'/>
+      <stop offset='40%' stop-color='#3b82f6' stop-opacity='0.08'/>
+      <stop offset='100%' stop-color='#ffffff' stop-opacity='0'/>
+    </radialGradient>
+    <filter id='sunFilter' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='6'/>
+    </filter>
+  </defs>
+  <!-- notes: 太阳作为太阳系的绝对中心——质量占99.86%，用这个惊人数据开场，让观众先震撼再进入行星部分 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect width='1280' height='720' fill='url(#sunGlow)'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='100' cy='60' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='300' cy='100' r='1.5' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='1150' cy='80' r='1.2' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='80' cy='500' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='1200' cy='600' r='1.5' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='400' cy='650' r='0.8' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='900' cy='650' r='1.2' fill='#abaeb3' fill-opacity='0.4'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='80' font-size='16' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>CHAPTER 01 · 太阳系大家庭</text>
+  </g>
+  <g id='sun-visual'>
+    <!-- 太阳发光视觉效果 -->
+    <circle cx='640' cy='350' r='120' fill='#3b82f6' fill-opacity='0.04' filter='url(#sunFilter)'/>
+    <circle cx='640' cy='350' r='90' fill='#3b82f6' fill-opacity='0.08' filter='url(#sunFilter)'/>
+    <circle cx='640' cy='350' r='65' fill='#3b82f6' fill-opacity='0.15' filter='url(#sunFilter)'/>
+    <circle cx='640' cy='350' r='45' fill='#3b82f6' fill-opacity='0.5' filter='url(#sunFilter)'/>
+    <circle cx='640' cy='350' r='35' fill='#3b82f6' fill-opacity='0.8'/>
+    <circle cx='640' cy='350' r='28' fill='#FFE082' fill-opacity='0.9'/>
+  </g>
+  <g id='stat-content'>
+    <text x='640' y='530' font-size='80' font-weight='900' fill='#3b82f6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>99.86%</text>
+    <text x='640' y='580' font-size='24' font-weight='bold' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>太阳占太阳系总质量的百分比</text>
+    <text x='640' y='615' font-size='16' fill='#70747d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>直径 1,392,700 km · 表面温度 5,500°C · 核心温度 15,000,000°C</text>
+    <text x='640' y='645' font-size='14' fill='#abaeb3' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>剩下所有行星、卫星、小行星加起来只占 0.14%</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#abaeb3' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>4 / 12</text>
+  </g>
+</svg>

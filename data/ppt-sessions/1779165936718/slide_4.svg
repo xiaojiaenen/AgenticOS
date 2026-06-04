@@ -1,0 +1,58 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='stripe'>
+  <!-- notes: 发展历程——展示DeepSeek从创立到现在的里程碑 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='3'>JOURNEY</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='var(--text-1)'>发展历程</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='var(--accent)'/>
+    <text x='100' y='210' font-size='18' fill='var(--text-2)'>从中国出发，DeepSeek 的每一步都在重新定义 AI</text>
+  </g>
+  <g id="timeline-axis">
+    <line x1='160' y1='340' x2='1180' y2='340' stroke='var(--border)' stroke-width='2'/>
+  </g>
+  <g id="timeline-2023">
+    <circle cx='280' cy='340' r='12' fill='var(--accent)'/>
+    <circle cx='280' cy='340' r='5' fill='var(--bg)'/>
+    <text x='280' y='300' font-size='16' font-weight='600' fill='var(--text-1)' text-anchor='middle'>2023</text>
+    <text x='280' y='408' font-size='15' fill='var(--text-2)' text-anchor='middle'>DeepSeek 成立</text>
+    <text x='280' y='432' font-size='13' fill='var(--text-3)' text-anchor='middle'>深度求索 AI 启航</text>
+  </g>
+  <g id="timeline-2024">
+    <circle cx='560' cy='340' r='12' fill='var(--accent)'/>
+    <circle cx='560' cy='340' r='5' fill='var(--bg)'/>
+    <text x='560' y='300' font-size='16' font-weight='600' fill='var(--text-1)' text-anchor='middle'>2024</text>
+    <text x='560' y='408' font-size='15' fill='var(--text-2)' text-anchor='middle'>DeepSeek-V2 · DeepSeek-Coder</text>
+    <text x='560' y='432' font-size='13' fill='var(--text-3)' text-anchor='middle'>MoE 架构 · 开源模型</text>
+  </g>
+  <g id="timeline-2025">
+    <circle cx='840' cy='340' r='12' fill='var(--accent)'/>
+    <circle cx='840' cy='340' r='5' fill='var(--bg)'/>
+    <text x='840' y='300' font-size='16' font-weight='600' fill='var(--text-1)' text-anchor='middle'>2025</text>
+    <text x='840' y='408' font-size='15' fill='var(--text-2)' text-anchor='middle'>DeepSeek-R1 推理模型</text>
+    <text x='840' y='432' font-size='13' fill='var(--text-3)' text-anchor='middle'>强化学习 · 深度推理</text>
+  </g>
+  <g id="timeline-2026">
+    <circle cx='1080' cy='340' r='14' fill='var(--accent)'/>
+    <circle cx='1080' cy='340' r='6' fill='var(--bg)'/>
+    <text x='1080' y='300' font-size='16' font-weight='600' fill='var(--text-1)' text-anchor='middle'>2026+</text>
+    <text x='1080' y='408' font-size='15' fill='var(--text-2)' text-anchor='middle'>持续进化</text>
+    <text x='1080' y='432' font-size='13' fill='var(--text-3)' text-anchor='middle'>更强大 · 更开放 · 更普惠</text>
+  </g>
+  <g id="highlights-row">
+    <rect x='140' y='510' width='300' height='100' rx='12' fill='var(--surface)'/>
+    <text x='170' y='552' font-size='28' font-weight='700' fill='var(--accent)' font-family='Inter,Noto Sans SC,sans-serif'>开源</text>
+    <text x='170' y='586' font-size='15' fill='var(--text-2)'>模型全面开源</text>
+    <rect x='490' y='510' width='300' height='100' rx='12' fill='var(--surface)'/>
+    <text x='520' y='552' font-size='28' font-weight='700' fill='var(--accent)' font-family='Inter,Noto Sans SC,sans-serif'>128K</text>
+    <text x='520' y='586' font-size='15' fill='var(--text-2)'>token 上下文窗口</text>
+    <rect x='840' y='510' width='300' height='100' rx='12' fill='var(--surface)'/>
+    <text x='870' y='552' font-size='28' font-weight='700' fill='var(--accent)' font-family='Inter,Noto Sans SC,sans-serif'>MoE</text>
+    <text x='870' y='586' font-size='15' fill='var(--text-2)'>混合专家架构</text>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='var(--border)'/>
+    <text x='100' y='690' font-size='14' fill='var(--text-3)'>04 / 11 · 发展历程</text>
+  </g>
+</svg>

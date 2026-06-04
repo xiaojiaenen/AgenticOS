@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="airbnb">
+  <g id="bg-layer">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+  </g>
+  <g id="header" font-family="Inter,Noto Sans SC,sans-serif">
+    <text x="80" y="100" font-size="14" fill="var(--accent)" font-weight="600" letter-spacing="3">CONTENT</text>
+    <rect x="80" y="115" width="40" height="3" rx="1.5" fill="var(--accent)"/>
+    <text x="80" y="170" font-size="48" font-weight="800" fill="var(--text-1)">生日派对流程</text>
+  </g>
+  <g id="toc-items" font-family="Inter,Noto Sans SC,sans-serif">
+    <!-- 1 -->
+    <g transform="translate(80, 250)">
+      <circle cx="30" cy="30" r="30" fill="var(--accent)" fill-opacity="0.15"/>
+      <text x="30" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="var(--accent)">01</text>
+      <text x="80" y="38" font-size="24" font-weight="600" fill="var(--text-1)">我们的回忆</text>
+      <text x="80" y="62" font-size="16" fill="var(--text-3)">一起走过的美好时光</text>
+    </g>
+    <!-- 2 -->
+    <g transform="translate(80, 360)">
+      <circle cx="30" cy="30" r="30" fill="var(--accent)" fill-opacity="0.15"/>
+      <text x="30" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="var(--accent)">02</text>
+      <text x="80" y="38" font-size="24" font-weight="600" fill="var(--text-1)">真挚祝福</text>
+      <text x="80" y="62" font-size="16" fill="var(--text-3)">写下最暖心的生日祝愿</text>
+    </g>
+    <!-- 3 -->
+    <g transform="translate(80, 470)">
+      <circle cx="30" cy="30" r="30" fill="var(--accent)" fill-opacity="0.15"/>
+      <text x="30" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="var(--accent)">03</text>
+      <text x="80" y="38" font-size="24" font-weight="600" fill="var(--text-1)">未来可期</text>
+      <text x="80" y="62" font-size="16" fill="var(--text-3)">许下新一岁的心愿</text>
+    </g>
+    <!-- 4 -->
+    <g transform="translate(80, 580)">
+      <circle cx="30" cy="30" r="30" fill="var(--accent)" fill-opacity="0.15"/>
+      <text x="30" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="var(--accent)">04</text>
+      <text x="80" y="38" font-size="24" font-weight="600" fill="var(--text-1)">一起庆祝</text>
+      <text x="80" y="62" font-size="16" fill="var(--text-3)">派对时间 & 地点</text>
+    </g>
+  </g>
+  <g id="toc-decoration" text-anchor="middle" font-family="Inter,Noto Sans SC,sans-serif">
+    <circle cx="1050" cy="300" r="160" fill="var(--accent)" fill-opacity="0.05"/>
+    <circle cx="1050" cy="300" r="100" fill="var(--accent)" fill-opacity="0.08"/>
+    <text x="1050" y="310" font-size="120" font-weight="800" fill="var(--accent)" fill-opacity="0.1">🎂</text>
+  </g>
+  <!-- notes: 目录页——四个章节清晰展示，从回忆到庆祝的完整流程 -->
+</svg>

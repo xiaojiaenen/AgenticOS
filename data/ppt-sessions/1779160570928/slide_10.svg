@@ -1,0 +1,35 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="candle-decoration" text-anchor='middle'>
+    <!-- candle body -->
+    <rect x='610' y='300' width='30' height='150' rx='4' fill='var(--accent)' fill-opacity='0.2'/>
+    <rect x='616' y='300' width='18' height='150' rx='3' fill='var(--accent)' fill-opacity='0.4'/>
+    <!-- flame -->
+    <ellipse cx='625' cy='270' rx='8' ry='18' fill='var(--accent)' fill-opacity='0.6'/>
+    <ellipse cx='625' cy='265' rx='4' ry='10' fill='var(--accent)' fill-opacity='0.9'/>
+    <!-- stripes on candle -->
+    <rect x='610' y='320' width='30' height='3' fill='var(--bg)' fill-opacity='0.3'/>
+    <rect x='610' y='360' width='30' height='3' fill='var(--bg)' fill-opacity='0.3'/>
+    <rect x='610' y='400' width='30' height='3' fill='var(--bg)' fill-opacity='0.3'/>
+  </g>
+  <g id="wish-content" font-family='Inter,Noto Sans SC,sans-serif' text-anchor='middle'>
+    <text x='640' y='200' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='6'>MAKE A WISH</text>
+    <text x='640' y='550' font-size='42' font-weight='800' fill='var(--text-1)'>许一个愿 吧</text>
+    <text x='640' y='600' font-size='20' fill='var(--text-2)' font-weight='300'>闭上眼睛，深吸一口气，吹灭蜡烛 ✨</text>
+    <text x='640' y='640' font-size='16' fill='var(--text-3)'>所有愿望都会实现，因为你是最值得的人</text>
+  </g>
+  <g id="decorative-sparkles">
+    <circle cx='400' cy='300' r='3' fill='var(--accent)' fill-opacity='0.5'/>
+    <circle cx='850' cy='280' r='2.5' fill='var(--accent)' fill-opacity='0.4'/>
+    <circle cx='350' cy='500' r='2' fill='var(--accent)' fill-opacity='0.6'/>
+    <circle cx='900' cy='520' r='3' fill='var(--accent)' fill-opacity='0.5'/>
+    <circle cx='500' cy='220' r='2' fill='var(--accent)' fill-opacity='0.3'/>
+    <circle cx='780' cy='350' r='2.5' fill='var(--accent)' fill-opacity='0.4'/>
+  </g>
+  <g id="footer-chrome">
+    <text x='80' y='680' font-size='12' fill='var(--text-3)'>10 / 11</text>
+  </g>
+  <!-- notes: 许愿页——这是全场最温馨的环节。建议关灯、点亮蜡烛、放生日歌，大家一起唱生日歌后让寿星许愿吹蜡烛。SVG 中的蜡烛和火焰用来烘托氛围 -->
+</svg>

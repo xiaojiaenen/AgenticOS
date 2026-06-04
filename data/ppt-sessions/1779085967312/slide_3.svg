@@ -1,0 +1,50 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='36' font-weight='800' fill='var(--text-1)'>技术演进三大里程碑</text>
+    <text x='80' y='140' font-size='18' fill='var(--text-2)'>Three Milestones in LLM Evolution</text>
+    <line x1='80' y1='162' x2='280' y2='162' stroke='var(--accent)' stroke-width='3'/>
+  </g>
+  <g id='card-1' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='80' y='210' width='360' height='420' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+    <rect x='80' y='210' width='360' height='100' rx='16' fill='var(--accent)' fill-opacity='0.1'/>
+    <text x='120' y='260' font-size='48' font-weight='900' fill='var(--accent)' fill-opacity='0.3'>01</text>
+    <text x='120' y='280' font-size='26' font-weight='bold' fill='var(--text-1)'>基础语言模型</text>
+    <text x='120' y='350' font-size='16' fill='var(--text-2)' line-height='1.6'>
+      <tspan x='120' dy='0'>• 自回归语言建模</tspan>
+      <tspan x='120' dy='36'>• 大规模预训练 + 指令微调</tspan>
+      <tspan x='120' dy='36'>• RLHF 人类反馈对齐</tspan>
+      <tspan x='120' dy='36'>• 代表：GPT-3, LLaMA-1/2</tspan>
+    </text>
+    <text x='120' y='560' font-size='14' fill='var(--text-3)'>参数规模突破千亿级</text>
+  </g>
+  <g id='card-2' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='460' y='210' width='360' height='420' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+    <rect x='460' y='210' width='360' height='100' rx='16' fill='var(--accent)' fill-opacity='0.1'/>
+    <text x='500' y='260' font-size='48' font-weight='900' fill='var(--accent)' fill-opacity='0.3'>02</text>
+    <text x='500' y='280' font-size='26' font-weight='bold' fill='var(--text-1)'>推理与多模态</text>
+    <text x='500' y='350' font-size='16' fill='var(--text-2)' line-height='1.6'>
+      <tspan x='500' dy='0'>• 思维链 CoT 推理能力</tspan>
+      <tspan x='500' dy='36'>• 视觉语言多模态融合</tspan>
+      <tspan x='500' dy='36'>• 工具调用与代码执行</tspan>
+      <tspan x='500' dy='36'>• 代表：GPT-4, Gemini, DALL·E</tspan>
+    </text>
+    <text x='500' y='560' font-size='14' fill='var(--text-3)'>从文本走向图像/语音/视频</text>
+  </g>
+  <g id='card-3' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='840' y='210' width='360' height='420' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+    <rect x='840' y='210' width='360' height='100' rx='16' fill='var(--accent)' fill-opacity='0.1'/>
+    <text x='880' y='260' font-size='48' font-weight='900' fill='var(--accent)' fill-opacity='0.3'>03</text>
+    <text x='880' y='280' font-size='26' font-weight='bold' fill='var(--text-1)'>AI Agent 智能体</text>
+    <text x='880' y='350' font-size='16' fill='var(--text-2)' line-height='1.6'>
+      <tspan x='880' dy='0'>• 自主规划与任务分解</tspan>
+      <tspan x='880' dy='36'>• 多工具协同调用</tspan>
+      <tspan x='880' dy='36'>• 长期记忆与反思能力</tspan>
+      <tspan x='880' dy='36'>• 代表：Claude, GPT-4o, AutoGPT</tspan>
+    </text>
+    <text x='880' y='560' font-size='14' fill='var(--text-3)'>从"对话"走向"自主执行"</text>
+  </g>
+  <!-- notes: 三卡片并列展示大模型能力的三次跃迁。演讲节奏：每个卡片停留40秒，用"从...走向..."的句式串联。强调第三个阶段（智能体）是当前最大的机会窗口 -->
+</svg>

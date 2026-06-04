@@ -1,0 +1,50 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='neon'>
+  <defs>
+    <linearGradient id='neonDiv3' x1='0' y1='0' x2='1' y2='0'>
+      <stop offset='0%' stop-color='var(--accent)'/>
+      <stop offset='100%' stop-color='var(--accent-2)'/>
+    </linearGradient>
+    <filter id='glowBig3' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='15'/>
+    </filter>
+    <filter id='glowSmall3' x='-40%' y='-40%' width='180%' height='180%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='5'/>
+    </filter>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <line x1='0' y1='180' x2='1280' y2='180' stroke='var(--accent)' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='360' x2='1280' y2='360' stroke='var(--accent)' stroke-opacity='0.03' stroke-width='1'/>
+    <line x1='0' y1='540' x2='1280' y2='540' stroke='var(--accent)' stroke-opacity='0.03' stroke-width='1'/>
+  </g>
+  <g id='decor-neon-bg'>
+    <circle cx='640' cy='360' r='320' fill='none' stroke='var(--accent)' stroke-opacity='0.04' stroke-width='1.5'/>
+    <circle cx='640' cy='360' r='260' fill='none' stroke='var(--accent-2)' stroke-opacity='0.03' stroke-width='1' stroke-dasharray='4,10'/>
+    <circle cx='640' cy='360' r='180' fill='none' stroke='var(--accent)' stroke-opacity='0.04' stroke-width='1'/>
+    <line x1='320' y1='360' x2='960' y2='360' stroke='var(--accent)' stroke-opacity='0.06' stroke-width='1'/>
+    <line x1='640' y1='40' x2='640' y2='680' stroke='var(--accent)' stroke-opacity='0.06' stroke-width='1'/>
+  </g>
+  <g id='decor-particles'>
+    <circle cx='280' cy='200' r='3' fill='var(--accent)' fill-opacity='0.25' filter='url(#glowSmall3)'/>
+    <circle cx='1020' cy='180' r='2.5' fill='var(--accent-2)' fill-opacity='0.2' filter='url(#glowSmall3)'/>
+    <circle cx='200' cy='500' r='2' fill='var(--accent)' fill-opacity='0.2'/>
+    <circle cx='1100' cy='520' r='2' fill='var(--accent-2)' fill-opacity='0.2'/>
+  </g>
+  <g id='section-number' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='330' font-size='200' font-weight='900' fill='var(--accent)' fill-opacity='0.08'>03</text>
+    <text x='640' y='320' font-size='200' font-weight='900' fill='var(--accent)' fill-opacity='0.04' filter='url(#glowBig3)'>03</text>
+  </g>
+  <g id='section-title' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='310' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='8'>CHAPTER 03</text>
+    <text x='640' y='395' font-size='56' font-weight='800' fill='var(--text-1)' letter-spacing='6'>参与方式</text>
+    <rect x='590' y='425' width='100' height='2' rx='1' fill='url(#neonDiv3)'/>
+    <rect x='590' y='428' width='100' height='2' rx='1' fill='var(--accent)' fill-opacity='0.3' filter='url(#glowSmall3)'/>
+    <text x='640' y='475' font-size='18' fill='var(--text-2)' font-weight='300'>立即加入 · 开启你的二次元夏日记</text>
+    <line x1='540' y1='520' x2='740' y2='520' stroke='var(--border)' stroke-width='1'/>
+    <circle cx='640' cy='520' r='3' fill='var(--accent)' fill-opacity='0.4' filter='url(#glowSmall3)'/>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='var(--text-3)' text-anchor='end'>09 / 11</text>
+  </g>
+  <!-- notes: 章节过渡——"最后说说怎么参与。票种、价格、交通，都安排好了。" -->
+</svg>

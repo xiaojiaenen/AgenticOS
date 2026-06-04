@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="deepseek">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  body { margin:0; padding:0; background:#111; font-family:Inter,Noto Sans SC,sans-serif; }
+  body.single .deck { overflow:auto!important; height:auto!important; }
+  .deck { display:flex; flex-direction:column; align-items:center; gap:16px; padding:16px; }
+  .deck svg { width:100%; max-width:1280px; height:auto; display:block; border-radius:8px; box-shadow:0 4px 24px rgba(0,0,0,.4); }
+</style>
+</head>
+<body class="single">
+<div class="deck">
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='deepseek'>
+  <!-- notes: 封面页——开场制造悬念，用"DeepSeek是谁"引发好奇，蓝色渐变标识建立品牌认知 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="decor-top">
+    <rect x='0' y='0' width='1280' height='6' fill='var(--accent)'/>
+  </g>
+  <g id="cover-header">
+    <text x='640' y='200' font-size='20' fill='var(--accent)' font-weight='600' letter-spacing='4' text-anchor='middle'>深度求索 · DEEPSEEK</text>
+    <text x='640' y='320' font-size='76' font-weight='800' fill='var(--text-1)' text-anchor='middle'>
+      <tspan x='640' dy='0'>DeepSeek</tspan>
+    </text>
+    <text x='640' y='400' font-size='36' font-weight='400' fill='var(--text-2)' text-anchor='middle'>探索智能边界 · 赋能无限可能</text>
+    <text x='640' y='464' font-size='20' fill='var(--text-3)' text-anchor='middle'>开源 · 高效 · 全面</text>
+  </g>
+  <g id="cover-decor">
+    <rect x='555' y='520' width='170' height='3' rx='1.5' fill='var(--accent)'/>
+  </g>
+  <g id="footer">
+    <text x='640' y='660' font-size='14' fill='var(--text-3)' text-anchor='middle'>2026 · 认识 DeepSeek 演示文稿</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='deepseek'>
+  <!-- notes: 目录页——用编号列出三个章节，让观众对整场演讲有清晰预期 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='3'>AGENDA</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='var(--text-1)'>目录</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='var(--accent)'/>
+  </g>
+  <g id="toc-list">
+    <rect x='100' y='240' width='340' height='100' rx='12' fill='var(--surface)'/>
+    <text x='130' y='280' font-size='36' font-weight='700' fill='var(--accent)' font-family='Inter,Noto Sans SC,sans-serif'>01</text>
+    <text x='130' y='316' font-size='22' font-weight='600' fill='var(--text-1)'>认识 DeepSeek</text>
+    <text x='280' y='316' font-size='16' fill='var(--text-3)'>背景 · 发展历程</text>
+
+    <rect x='470' y='240' width='340' height='100' rx='12' fill='var(--surface)'/>
+    <text x='500' y='280' font-size='36' font-weight='700' fill='var(--accent)' font-family='Inter,Noto Sans SC,sans-serif'>02</text>
+    <text x='500' y='316' font-size='22' font-weight='600' fill='var(--text-1)'>核心能力</text>
+    <text x='650' y='316' font-size='16' fill='var(--text-3)'>数据 · 特色 · 使用</text>
+
+    <rect x='840' y='240' width='340' height='100' rx='12' fill='var(--surface)'/>
+    <text x='870' y='280' font-size='36' font-weight='700' fill='var(--accent)' font-family='Inter,Noto Sans SC,sans-serif'>03</text>
+    <text x='870' y='316' font-size='22' font-weight='600' fill='var(--text-1)'>未来方向</text>
+    <text x='1020' y='316' font-size='16' fill='var(--text-3)'>愿景 · 行动号召</text>
+  </g>
+  <g id="toc-detail-items">
+    <circle cx='130' cy='420' r='5' fill='var(--accent)'/>
+    <text x='150' y='426' font-size='18' fill='var(--text-2)'>从深度求索实验室到开源社区</text>
+    <circle cx='130' cy='470' r='5' fill='var(--accent)'/>
+    <text x='150' y='476' font-size='18' fill='var(--text-2)'>MoE 架构引领行业变革</text>
+    <circle cx='130' cy='520' r='5' fill='var(--accent)'/>
+    <text x='150' y='526' font-size='18' fill='var(--text-2)'>数学推理到代码生成的全能表现</text>
+    <circle cx='130' cy='570' r='5' fill='var(--accent)'/>
+    <text x='150' y='576' font-size='18' fill='var(--text-2)'>让 AI 真正普惠每个人</text>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='var(--border)'/>
+    <text x='100' y='690' font-size='14' fill='var(--text-3)'>02 / 11 · 目录</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='deepseek'>
+  <!-- notes: 章节分隔页——视觉强烈的大数字和蓝色，标记第一章开始。用"从何而来"引发好奇 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="section-decor-left">
+    <rect x='80' y='200' width='4' height='320' rx='2' fill='var(--accent)'/>
+  </g>
+  <g id="section-number">
+    <text x='160' y='460' font-size='200' font-weight='800' fill='var(--accent)' fill-opacity='0.15' font-family='Inter,Noto Sans SC,sans-serif'>01</text>
+  </g>
+  <g id="section-title">
+    <text x='160' y='320' font-size='18' fill='var(--accent)' font-weight='600' letter-spacing='6'>CHAPTER 01</text>
+    <text x='160' y='400' font-size='64' font-weight='700' fill='var(--text-1)'>认识 DeepSeek</text>
+    <text x='160' y='470' font-size='22' fill='var(--text-2)'>从何而来 · 为何而生 · 为谁而在</text>
+  </g>
+  <g id="footer">
+    <text x='640' y='680' font-size='14' fill='var(--text-3)' text-anchor='middle'>03 / 11 · 章节一</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='deepseek'>
+  <!-- notes: 发展历程——展示DeepSeek从创立到现在的里程碑。用时间轴降低阅读负担，每个节点一句话 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='3'>JOURNEY</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='var(--text-1)'>发展历程</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='var(--accent)'/>
+    <text x='100' y='210' font-size='18' fill='var(--text-2)'>从中国出发，DeepSeek 的每一步都在重新定义 AI</text>
+  </g>
+  <g id="timeline-axis">
+    <line x1='160' y1='340' x2='1180' y2='340' stroke='var(--border)' stroke-width='2'/>
+  </g>
+  <g id="timeline-2023">
+    <circle cx='280' cy='340' r='12' fill='var(--accent)'/>
+    <circle cx='280' cy='340' r='5' fill='var(--bg)'/>
+    <text x='280' y='300' font-size='16' font-weight='600' fill='var(--text-1)' text-anchor='middle'>2023</text>
+    <text x='280' y='408' font-size='15' fill='var(--text-2)' text-anchor='middle'>DeepSeek 成立</text>
+    <text x='280' y='432' font-size='13' fill='var(--text-3)' text-anchor='middle'>深度求索 AI 启航</text>
+  </g>
+  <g id="timeline-2024">
+    <circle cx='560' cy='340' r='12' fill='var(--accent)'/>
+    <circle cx='560' cy='340' r='5' fill='var(--bg)'/>
+    <text x='560' y='300' font-size='16' font-weight='600' fill='var(--text-1)' text-anchor='middle'>2024</text>
+    <text x='560' y='408' font-size='15' fill='var(--text-2)' text-anchor='middle'>DeepSeek-V2 · DeepSeek-Coder</text>
+    <text x='560' y='432' font-size='13' fill='var(--text-3)' text-anchor='middle'>MoE 架构 · 开源模型</text>
+  </g>
+  <g id="timeline-2025">
+    <circle cx='840' cy='340' r='12' fill='var(--accent)'/>
+    <circle cx='840' cy='340' r='5' fill='var(--bg)'/>
+    <text x='840' y='300' font-size='16' font-weight='600' fill='var(--text-1)' text-anchor='middle'>2025</text>
+    <text x='840' y='408' font-size='15' fill='var(--text-2)' text-anchor='middle'>DeepSeek-R1 推理模型</text>
+    <text x='840' y='432' font-size='13' fill='var(--text-3)' text-anchor='middle'>强化学习 · 深度推理</text>
+  </g>
+  <g id="timeline-2026">
+    <circle cx='1080' cy='340' r='14' fill='var(--accent)'/>
+    <circle cx='1080' cy='340' r='6' fill='var(--bg)'/>
+    <text x='1080' y='300' font-size='16' font-weight='600' fill='var(--text-1)' text-anchor='middle'>2026+</text>
+    <text x='1080' y='408' font-size='15' fill='var(--text-2)' text-anchor='middle'>持续进化</text>
+    <text x='1080' y='432' font-size='13' fill='var(--text-3)' text-anchor='middle'>更强大 · 更开放 · 更普惠</text>
+  </g>
+  <g id="highlights-row">
+    <rect x='140' y='510' width='300' height='100' rx='12' fill='var(--surface)'/>
+    <text x='170' y='552' font-size='28' font-weight='700' fill='var(--accent)' font-family='Inter,Noto Sans SC,sans-serif'>开源</text>
+    <text x='170' y='586' font-size='15' fill='var(--text-2)'>模型全面开源</text>
+    <rect x='490' y='510' width='300' height='100' rx='12' fill='var(--surface)'/>
+    <text x='520' y='552' font-size='28' font-weight='700' fill='var(--accent)' font-family='Inter,Noto Sans SC,sans-serif'>128K</text>
+    <text x='520' y='586' font-size='15' fill='var(--text-2)'>token 上下文窗口</text>
+    <rect x='840' y='510' width='300' height='100' rx='12' fill='var(--surface)'/>
+    <text x='870' y='552' font-size='28' font-weight='700' fill='var(--accent)' font-family='Inter,Noto Sans SC,sans-serif'>MoE</text>
+    <text x='870' y='586' font-size='15' fill='var(--text-2)'>混合专家架构</text>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='var(--border)'/>
+    <text x='100' y='690' font-size='14' fill='var(--text-3)'>04 / 11 · 发展历程</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='deepseek'>
+  <!-- notes: 能力架构——三层能力金字塔：底层基础能力→中层专业能力→顶层核心优势。每层用蓝色高亮递进 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='3'>CAPABILITIES</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='var(--text-1)'>能力图谱</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='var(--accent)'/>
+    <text x='100' y='210' font-size='18' fill='var(--text-2)'>三层能力体系，覆盖从理解到推理的完整链条</text>
+  </g>
+  <g id="layer-3">
+    <rect x='390' y='240' width='500' height='110' rx='16' fill='var(--accent)' fill-opacity='0.1' stroke='var(--accent)' stroke-width='2'/>
+    <text x='640' y='280' font-size='18' font-weight='700' fill='var(--accent)' text-anchor='middle'>✦ 核心优势</text>
+    <text x='640' y='310' font-size='15' fill='var(--text-2)' text-anchor='middle'>深度推理 · 数学证明 · 代码生成 · MoE 架构</text>
+    <text x='640' y='334' font-size='13' fill='var(--text-3)' text-anchor='middle'>强化学习训练 · 思维链推理 · 开源生态</text>
+  </g>
+  <g id="layer-2">
+    <rect x='240' y='380' width='800' height='110' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1.5'/>
+    <text x='640' y='418' font-size='18' font-weight='700' fill='var(--text-1)' text-anchor='middle'>▸ 专业能力</text>
+    <text x='640' y='448' font-size='15' fill='var(--text-2)' text-anchor='middle'>编程开发 · 数据分析 · 数学推理 · 文档理解 · 多语言对话</text>
+    <text x='640' y='472' font-size='13' fill='var(--text-3)' text-anchor='middle'>支持代码执行 · 文件上传 · 联网搜索</text>
+  </g>
+  <g id="layer-1">
+    <rect x='90' y='520' width='1100' height='110' rx='16' fill='var(--surface)' stroke='var(--border)' stroke-width='1.5'/>
+    <text x='640' y='558' font-size='18' font-weight='700' fill='var(--text-1)' text-anchor='middle'>▸ 基础能力</text>
+    <text x='640' y='588' font-size='15' fill='var(--text-2)' text-anchor='middle'>自然语言理解 · 多轮对话 · 知识问答 · 文本创作 · 翻译摘要</text>
+    <text x='640' y='612' font-size='13' fill='var(--text-3)' text-anchor='middle'>支持中英日韩法德西 · 上下文 128K tokens · 实时响应</text>
+  </g>
+  <g id="decor-arrows">
+    <line x1='640' y1='350' x2='640' y2='380' stroke='var(--accent)' stroke-width='2' stroke-dasharray='4,4'/>
+    <line x1='640' y1='490' x2='640' y2='520' stroke='var(--accent)' stroke-width='2' stroke-dasharray='4,4'/>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='var(--border)'/>
+    <text x='100' y='690' font-size='14' fill='var(--text-3)'>05 / 11 · 能力图谱</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='deepseek'>
+  <!-- notes: 关键数据——用4个核心指标展示DeepSeek的能力广度。示意数据，重点在趋势和对比 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='3'>METRICS</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='var(--text-1)'>关键数据</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='var(--accent)'/>
+  </g>
+  <g id="kpi-row-1">
+    <rect x='100' y='260' width='520' height='150' rx='16' fill='var(--surface)'/>
+    <text x='140' y='310' font-size='16' fill='var(--text-3)'>上下文窗口</text>
+    <text x='140' y='370' font-size='56' font-weight='800' fill='var(--accent)' font-family='JetBrains Mono,monospace'>128K</text>
+    <text x='340' y='370' font-size='20' fill='var(--text-2)'>tokens</text>
+    <text x='140' y='398' font-size='15' fill='var(--text-3)'>≈ 一本 <tspan font-weight='600' fill='var(--text-2)'>100页</tspan> 的技术文档</text>
+
+    <rect x='660' y='260' width='520' height='150' rx='16' fill='var(--surface)'/>
+    <text x='700' y='310' font-size='16' fill='var(--text-3)'>训练数据</text>
+    <text x='700' y='370' font-size='56' font-weight='800' fill='var(--accent)' font-family='JetBrains Mono,monospace'>万亿</text>
+    <text x='880' y='370' font-size='20' fill='var(--text-2)'>token 级</text>
+    <text x='700' y='398' font-size='15' fill='var(--text-3)'>高质量多源语料训练</text>
+  </g>
+  <g id="kpi-row-2">
+    <rect x='100' y='440' width='520' height='150' rx='16' fill='var(--surface)'/>
+    <text x='140' y='490' font-size='16' fill='var(--text-3)'>模型参数</text>
+    <text x='140' y='550' font-size='56' font-weight='800' fill='var(--accent)' font-family='JetBrains Mono,monospace'>671B</text>
+    <text x='340' y='550' font-size='20' fill='var(--text-2)'>总参数</text>
+    <text x='140' y='578' font-size='15' fill='var(--text-3)'>MoE 架构 · 激活仅 <tspan font-weight='600' fill='var(--text-2)'>37B</tspan></text>
+
+    <rect x='660' y='440' width='520' height='150' rx='16' fill='var(--surface)'/>
+    <text x='700' y='490' font-size='16' fill='var(--text-3)'>开源生态</text>
+    <text x='700' y='550' font-size='56' font-weight='800' fill='var(--accent)' font-family='JetBrains Mono,monospace'>100%</text>
+    <text x='880' y='550' font-size='20' fill='var(--text-2)'>开源</text>
+    <text x='700' y='578' font-size='15' fill='var(--text-3)'>模型权重 · 论文 · 技术报告</text>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='var(--border)'/>
+    <text x='100' y='690' font-size='14' fill='var(--text-3)'>06 / 11 · 关键数据</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='deepseek'>
+  <!-- notes: 第二个章节分隔页——从能力过渡到应用。大数字02提醒观众进入第二章 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="section-decor-left">
+    <rect x='80' y='200' width='4' height='320' rx='2' fill='var(--accent)'/>
+  </g>
+  <g id="section-number">
+    <text x='160' y='460' font-size='200' font-weight='800' fill='var(--accent)' fill-opacity='0.15' font-family='Inter,Noto Sans SC,sans-serif'>02</text>
+  </g>
+  <g id="section-title">
+    <text x='160' y='320' font-size='18' fill='var(--accent)' font-weight='600' letter-spacing='6'>CHAPTER 02</text>
+    <text x='160' y='400' font-size='64' font-weight='700' fill='var(--text-1)'>核心能力</text>
+    <text x='160' y='470' font-size='22' fill='var(--text-2)'>从深度推理到代码生成 · 全面领先</text>
+  </g>
+  <g id="footer">
+    <text x='640' y='680' font-size='14' fill='var(--text-3)' text-anchor='middle'>07 / 11 · 章节二</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='deepseek'>
+  <!-- notes: 对比页——凸出DeepSeek的差异化优势：开源、MoE架构、高性价比、数学推理。不是贬低竞品，而是强调独特价值 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='3'>DIFFERENCE</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='var(--text-1)'>DeepSeek 的独特之处</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='var(--accent)'/>
+  </g>
+  <g id="vs-container">
+    <!-- DeepSeek 侧 -->
+    <rect x='100' y='240' width='480' height='380' rx='20' fill='var(--surface)' stroke='var(--accent)' stroke-width='2'/>
+    <rect x='100' y='240' width='480' height='60' rx='20' fill='var(--accent)'/>
+    <rect x='100' y='280' width='480' height='20' fill='var(--accent)'/>
+    <text x='340' y='278' font-size='22' font-weight='700' fill='var(--bg)' text-anchor='middle'>DeepSeek</text>
+    
+    <text x='140' y='335' font-size='16' font-weight='600' fill='var(--text-1)'>✅ 全面开源</text>
+    <text x='140' y='360' font-size='14' fill='var(--text-3)'>模型权重 + 论文 + 技术细节</text>
+    
+    <text x='140' y='410' font-size='16' font-weight='600' fill='var(--text-1)'>✅ MoE 架构</text>
+    <text x='140' y='435' font-size='14' fill='var(--text-3)'>671B 总参数 · 仅激活 37B</text>
+    
+    <text x='140' y='485' font-size='16' font-weight='600' fill='var(--text-1)'>✅ 深度推理</text>
+    <text x='140' y='510' font-size='14' fill='var(--text-3)'>数学竞赛 · 代码竞赛领先</text>
+    
+    <text x='140' y='560' font-size='16' font-weight='600' fill='var(--text-1)'>✅ 极致性价比</text>
+    <text x='140' y='585' font-size='14' fill='var(--text-3)'>训练成本仅同类 1/10</text>
+
+    <!-- VS 分隔 -->
+    <circle cx='640' cy='430' r='36' fill='var(--bg)' stroke='var(--border)' stroke-width='2'/>
+    <text x='640' y='442' font-size='22' font-weight='800' fill='var(--accent)' text-anchor='middle'>VS</text>
+
+    <!-- 其他 AI 侧 -->
+    <rect x='700' y='240' width='480' height='380' rx='20' fill='var(--surface)' stroke='var(--border)' stroke-width='1.5'/>
+    <rect x='700' y='240' width='480' height='60' rx='20' fill='var(--border)'/>
+    <rect x='700' y='280' width='480' height='20' fill='var(--border)'/>
+    <text x='940' y='278' font-size='22' font-weight='700' fill='var(--text-3)' text-anchor='middle'>其他 AI 助手</text>
+    
+    <text x='740' y='335' font-size='16' font-weight='600' fill='var(--text-1)'>⚠️ 闭源为主</text>
+    <text x='740' y='360' font-size='14' fill='var(--text-3)'>技术细节不透明</text>
+    
+    <text x='740' y='410' font-size='16' font-weight='600' fill='var(--text-1)'>⚠️ 密集架构</text>
+    <text x='740' y='435' font-size='14' fill='var(--text-3)'>全参数激活，算力消耗大</text>
+    
+    <text x='740' y='485' font-size='16' font-weight='600' fill='var(--text-1)'>⚠️ 推理能力一般</text>
+    <text x='740' y='510' font-size='14' fill='var(--text-3)'>复杂推理场景表现有限</text>
+    
+    <text x='740' y='560' font-size='16' font-weight='600' fill='var(--text-1)'>⚠️ 成本高昂</text>
+    <text x='740' y='585' font-size='14' fill='var(--text-3)'>训练和推理费用高</text>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='var(--border)'/>
+    <text x='100' y='690' font-size='14' fill='var(--text-3)'>08 / 11 · 独特之处</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='deepseek'>
+  <!-- notes: 使用方式——展示DeepSeek的三种使用入口。流程从左到右，用箭头连接 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='var(--accent)' font-weight='600' letter-spacing='3'>HOW TO USE</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='var(--text-1)'>如何使用 DeepSeek</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='var(--accent)'/>
+    <text x='100' y='210' font-size='18' fill='var(--text-2)'>三种方式，随时随地体验 DeepSeek</text>
+  </g>
+  <g id="flow-steps">
+    <!-- Step 1 -->
+    <rect x='100' y='280' width='300' height='100' rx='16' fill='var(--surface)' stroke='var(--accent)' stroke-width='2'/>
+    <circle cx='140' cy='330' r='20' fill='var(--accent)'/>
+    <text x='140' y='337' font-size='18' font-weight='700' fill='var(--bg)' text-anchor='middle'>1</text>
+    <text x='180' y='320' font-size='18' font-weight='600' fill='var(--text-1)'>网页端</text>
+    <text x='180' y='348' font-size='14' fill='var(--text-3)'>chat.deepseek.com 对话</text>
+    
+    <!-- Arrow 1 -->
+    <text x='420' y='330' font-size='28' fill='var(--accent)' text-anchor='middle'>→</text>
+    
+    <!-- Step 2 -->
+    <rect x='490' y='280' width='300' height='100' rx='16' fill='var(--surface)' stroke='var(--accent)' stroke-width='2'/>
+    <circle cx='530' cy='330' r='20' fill='var(--accent)'/>
+    <text x='530' y='337' font-size='18' font-weight='700' fill='var(--bg)' text-anchor='middle'>2</text>
+    <text x='570' y='320' font-size='18' font-weight='600' fill='var(--text-1)'>移动端 App</text>
+    <text x='570' y='348' font-size='14' fill='var(--text-3)'>iOS / Android 应用商店</text>
+    
+    <!-- Arrow 2 -->
+    <text x='810' y='330' font-size='28' fill='var(--accent)' text-anchor='middle'>→</text>
+    
+    <!-- Step 3 -->
+    <rect x='880' y='280' width='300' height='100' rx='16' fill='var(--surface)' stroke='var(--accent)' stroke-width='2'/>
+    <circle cx='920' cy='330' r='20' fill='var(--accent)'/>
+    <text x='920' y='337' font-size='18' font-weight='700' fill='var(--bg)' text-anchor='middle'>3</text>
+    <text x='960' y='320' font-size='18' font-weight='600' fill='var(--text-1)'>API / 开源部署</text>
+    <text x='960' y='348' font-size='14' fill='var(--text-3)'>开发者自由调用</text>
+  </g>
+  <g id="use-cases">
+    <rect x='100' y='430' width='350' height='180' rx='14' fill='var(--surface)'/>
+    <text x='130' y='475' font-size='18' font-weight='700' fill='var(--accent)'>✎ 写作与创作</text>
+    <text x='130' y='505' font-size='15' fill='var(--text-2)'>报告 · 文案 · 翻译</text>
+    <text x='130' y='535' font-size='15' fill='var(--text-2)'>故事 · 邮件 · 脚本</text>
+    <text x='130' y='565' font-size='15' fill='var(--text-2)'>内容润色 · 风格改写</text>
+
+    <rect x='465' y='430' width='350' height='180' rx='14' fill='var(--surface)'/>
+    <text x='495' y='475' font-size='18' font-weight='700' fill='var(--accent)'>⌨ 编程与开发</text>
+    <text x='495' y='505' font-size='15' fill='var(--text-2)'>代码生成 · Debug</text>
+    <text x='495' y='535' font-size='15' fill='var(--text-2)'>架构设计 · 代码审查</text>
+    <text x='495' y='565' font-size='15' fill='var(--text-2)'>技术文档 · API 对接</text>
+
+    <rect x='830' y='430' width='350' height='180' rx='14' fill='var(--surface)'/>
+    <text x='860' y='475' font-size='18' font-weight='700' fill='var(--accent)'>🧮 数学与推理</text>
+    <text x='860' y='505' font-size='15' fill='var(--text-2)'>数学竞赛 · 逻辑推演</text>
+    <text x='860' y='535' font-size='15' fill='var(--text-2)'>数据分析 · 科学计算</text>
+    <text x='860' y='565' font-size='15' fill='var(--text-2)'>知识问答 · 学习辅导</text>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='var(--border)'/>
+    <text x='100' y='690' font-size='14' fill='var(--text-3)'>09 / 11 · 使用方式</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='deepseek'>
+  <!-- notes: 核心理念——大引述页作为节奏调节。引用深度求索的使命宣言，强调开放与普惠。用serif字体增加庄重感 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="quote-bg">
+    <text x='120' y='200' font-size='200' font-weight='700' fill='var(--accent)' fill-opacity='0.08' font-family='Playfair Display,Noto Serif SC,serif'>&amp;ldquo;</text>
+  </g>
+  <g id="quote-content">
+    <text x='180' y='340' font-size='38' font-weight='500' fill='var(--text-1)' font-family='Playfair Display,Noto Serif SC,serif' line-height='1.6'>
+      <tspan x='180' dy='0'>AI 的终极意义不是取代人类，</tspan>
+      <tspan x='180' dy='60'>而是让每个人都能 </tspan>
+      <tspan fill='var(--accent)' font-weight='700'>站在智能的肩膀上</tspan>
+      <tspan>。</tspan>
+    </text>
+  </g>
+  <g id="quote-source">
+    <rect x='180' y='480' width='60' height='3' rx='1.5' fill='var(--accent)'/>
+    <text x='260' y='493' font-size='18' font-weight='600' fill='var(--text-1)'>深度求索 · 使命宣言</text>
+    <text x='260' y='520' font-size='16' fill='var(--text-3)'>开源、高效、让 AI 普惠每个人</text>
+  </g>
+  <g id="quote-values">
+    <rect x='180' y='570' width='280' height='50' rx='25' fill='var(--surface)' stroke='var(--accent)' stroke-width='1.5'/>
+    <text x='320' y='600' font-size='16' font-weight='600' fill='var(--accent)' text-anchor='middle'>开源开放 · 技术透明</text>
+    <rect x='500' y='570' width='280' height='50' rx='25' fill='var(--surface)' stroke='var(--accent)' stroke-width='1.5'/>
+    <text x='640' y='600' font-size='16' font-weight='600' fill='var(--accent)' text-anchor='middle'>极致效率 · 成本可控</text>
+    <rect x='820' y='570' width='280' height='50' rx='25' fill='var(--surface)' stroke='var(--accent)' stroke-width='1.5'/>
+    <text x='960' y='600' font-size='16' font-weight='600' fill='var(--accent)' text-anchor='middle'>探求真理 · 赋能人类</text>
+  </g>
+  <g id="footer">
+    <text x='640' y='690' font-size='14' fill='var(--text-3)' text-anchor='middle'>10 / 11 · 核心理念</text>
+  </g>
+</svg>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='deepseek'>
+  <!-- notes: 结尾页——行动号召。用大字标题+按钮+联系方式，引导观众行动。蓝色CTA按钮突出 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="close-decor">
+    <rect x='0' y='0' width='1280' height='6' fill='var(--accent)'/>
+  </g>
+  <g id="cta-title">
+    <text x='640' y='240' font-size='20' fill='var(--accent)' font-weight='600' letter-spacing='4' text-anchor='middle'>开始你的 DeepSeek 之旅</text>
+    <text x='640' y='340' font-size='56' font-weight='800' fill='var(--text-1)' text-anchor='middle'>探索智能的</text>
+    <text x='640' y='415' font-size='56' font-weight='800' fill='var(--accent)' text-anchor='middle'>无限可能</text>
+  </g>
+  <g id="cta-button">
+    <rect x='490' y='480' width='300' height='60' rx='30' fill='var(--accent)'/>
+    <text x='640' y='518' font-size='20' font-weight='700' fill='var(--bg)' text-anchor='middle'>访问 chat.deepseek.com →</text>
+  </g>
+  <g id="cta-links">
+    <text x='640' y='590' font-size='16' fill='var(--text-3)' text-anchor='middle'>或扫描二维码 · 在 App Store / Google Play 搜索 "DeepSeek"</text>
+  </g>
+  <g id="cta-social">
+    <text x='640' y='640' font-size='14' fill='var(--text-3)' text-anchor='middle'>deepseek.com · @DeepSeek · 深度求索</text>
+  </g>
+  <g id="footer">
+    <text x='640' y='690' font-size='14' fill='var(--text-3)' text-anchor='middle'>11 / 11 · 感谢聆听</text>
+  </g>
+</svg>
+</div>
+</body>
+</html>

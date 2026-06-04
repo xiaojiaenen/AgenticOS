@@ -1,0 +1,108 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='fantasy'>
+  <defs>
+    <linearGradient id='bgGrad5' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='#ffffff'/>
+      <stop offset='100%' stop-color='#ffffff'/>
+    </linearGradient>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='url(#bgGrad5)'/>
+    <ellipse cx='0' cy='0' rx='500' ry='250' fill='#0250cc' fill-opacity='0.03'/>
+  </g>
+  <!-- 星尘 -->
+  <g id='decor-dots'>
+    <circle cx='150' cy='150' r='2' fill='#0250cc' fill-opacity='0.2'/>
+    <circle cx='1180' cy='200' r='1.5' fill='#fdc800' fill-opacity='0.25'/>
+    <path d='M280,100 Q286,93 292,100 Q286,107 280,100 Z' fill='#0250cc' fill-opacity='0.3'/>
+    <path d='M1050,120 Q1058,112 1066,120 Q1058,128 1050,120 Z' fill='#fdc800' fill-opacity='0.25'/>
+  </g>
+  <!-- 页眉 -->
+  <g id='page-header'>
+    <text x='80' y='80' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>展区规划</text>
+    <rect x='80' y='95' width='40' height='3' rx='1.5' fill='#0250cc'/>
+  </g>
+  <!-- 标题 -->
+  <g id='section-title'>
+    <text x='80' y='165' font-size='38' font-weight='800' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>
+      三大主题展区
+    </text>
+    <text x='80' y='200' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>从经典到前沿，沉浸式体验二次元文化</text>
+  </g>
+  <!-- 三个展区卡片 -->
+  <g id='zone-cards' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 展区 1 -->
+    <g transform='translate(80, 260)'>
+      <rect width='360' height='400' rx='20' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <!-- 顶部色条 -->
+      <rect x='0' y='0' width='360' height='6' rx='3' fill='#0250cc'/>
+      <!-- 装饰圈 -->
+      <circle cx='60' cy='60' r='28' fill='#0250cc' fill-opacity='0.1'/>
+      <text x='60' y='70' text-anchor='middle' font-size='24' font-weight='900' fill='#0250cc'>01</text>
+      <text x='110' y='70' font-size='22' font-weight='700' fill='#111827'>吉卜力经典</text>
+      <rect x='40' y='95' width='280' height='1' fill='#c3c5c9'/>
+      <text x='40' y='130' font-size='13' fill='#0250cc' font-weight='600'>宫崎骏动画世界</text>
+      <!-- 展区内容列表 -->
+      <circle cx='50' cy='180' r='3' fill='#0250cc' fill-opacity='0.6'/>
+      <text x='65' y='185' font-size='14' fill='#70747d'>《千与千寻》沉浸式场景</text>
+      <circle cx='50' cy='220' r='3' fill='#0250cc' fill-opacity='0.6'/>
+      <text x='65' y='225' font-size='14' fill='#70747d'>《龙猫》森林漫步体验</text>
+      <circle cx='50' cy='260' r='3' fill='#0250cc' fill-opacity='0.6'/>
+      <text x='65' y='265' font-size='14' fill='#70747d'>《天空之城》原画展</text>
+      <circle cx='50' cy='300' r='3' fill='#0250cc' fill-opacity='0.6'/>
+      <text x='65' y='305' font-size='14' fill='#70747d'>《哈尔的移动城堡》装置</text>
+      <circle cx='50' cy='340' r='3' fill='#0250cc' fill-opacity='0.6'/>
+      <text x='65' y='345' font-size='14' fill='#70747d'>吉卜力周边限定商店</text>
+      <!-- 标签 -->
+      <rect x='40' y='370' width='80' height='22' rx='11' fill='#0250cc' fill-opacity='0.12'/>
+      <text x='80' y='385' text-anchor='middle' font-size='11' fill='#0250cc' font-weight='600'>经典必看</text>
+    </g>
+    <!-- 展区 2 -->
+    <g transform='translate(460, 260)'>
+      <rect width='360' height='400' rx='20' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='360' height='6' rx='3' fill='#fdc800'/>
+      <circle cx='60' cy='60' r='28' fill='#fdc800' fill-opacity='0.1'/>
+      <text x='60' y='70' text-anchor='middle' font-size='24' font-weight='900' fill='#fdc800'>02</text>
+      <text x='110' y='70' font-size='22' font-weight='700' fill='#111827'>二次元新浪潮</text>
+      <rect x='40' y='95' width='280' height='1' fill='#c3c5c9'/>
+      <text x='40' y='130' font-size='13' fill='#fdc800' font-weight='600'>当代动漫文化</text>
+      <circle cx='50' cy='180' r='3' fill='#fdc800' fill-opacity='0.6'/>
+      <text x='65' y='185' font-size='14' fill='#70747d'>热门番剧主题展区</text>
+      <circle cx='50' cy='220' r='3' fill='#fdc800' fill-opacity='0.6'/>
+      <text x='65' y='225' font-size='14' fill='#70747d'>Cosplay 表演大舞台</text>
+      <circle cx='50' cy='260' r='3' fill='#fdc800' fill-opacity='0.6'/>
+      <text x='65' y='265' font-size='14' fill='#70747d'>同人创作市集</text>
+      <circle cx='50' cy='300' r='3' fill='#fdc800' fill-opacity='0.6'/>
+      <text x='65' y='305' font-size='14' fill='#70747d'>声优见面会专区</text>
+      <circle cx='50' cy='340' r='3' fill='#fdc800' fill-opacity='0.6'/>
+      <text x='65' y='345' font-size='14' fill='#70747d'>VR 互动体验区</text>
+      <rect x='40' y='370' width='96' height='22' rx='11' fill='#fdc800' fill-opacity='0.12'/>
+      <text x='88' y='385' text-anchor='middle' font-size='11' fill='#fdc800' font-weight='600'>潮流打卡</text>
+    </g>
+    <!-- 展区 3 -->
+    <g transform='translate(840, 260)'>
+      <rect width='360' height='400' rx='20' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <rect x='0' y='0' width='360' height='6' rx='3' fill='#0250cc' fill-opacity='0.6'/>
+      <circle cx='60' cy='60' r='28' fill='#0250cc' fill-opacity='0.1'/>
+      <text x='60' y='70' text-anchor='middle' font-size='24' font-weight='900' fill='#0250cc' fill-opacity='0.7'>03</text>
+      <text x='110' y='70' font-size='22' font-weight='700' fill='#111827'>创作与交流</text>
+      <rect x='40' y='95' width='280' height='1' fill='#c3c5c9'/>
+      <text x='40' y='130' font-size='13' fill='#0250cc' fill-opacity='0.7' font-weight='600'>深度体验</text>
+      <circle cx='50' cy='180' r='3' fill='#0250cc' fill-opacity='0.6'/>
+      <text x='65' y='185' font-size='14' fill='#70747d'>动画制作工作坊</text>
+      <circle cx='50' cy='220' r='3' fill='#0250cc' fill-opacity='0.6'/>
+      <text x='65' y='225' font-size='14' fill='#70747d'>插画师现场签绘</text>
+      <circle cx='50' cy='260' r='3' fill='#0250cc' fill-opacity='0.6'/>
+      <text x='65' y='265' font-size='14' fill='#70747d'>行业大咖分享会</text>
+      <circle cx='50' cy='300' r='3' fill='#0250cc' fill-opacity='0.6'/>
+      <text x='65' y='305' font-size='14' fill='#70747d'>原创 IP 孵化路演</text>
+      <circle cx='50' cy='340' r='3' fill='#0250cc' fill-opacity='0.6'/>
+      <text x='65' y='345' font-size='14' fill='#70747d'>动漫音乐 Live 现场</text>
+      <rect x='40' y='370' width='80' height='22' rx='11' fill='#0250cc' fill-opacity='0.12'/>
+      <text x='80' y='385' text-anchor='middle' font-size='11' fill='#0250cc' font-weight='600'>深度体验</text>
+    </g>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>05 / 11</text>
+  </g>
+  <!-- notes: 三大展区——"今年分三大板块：左边吉卜力经典区必看，中间新浪潮区年轻人最爱，右边创作区适合深度参与的观众。每个区都有独家内容。" -->
+</svg>

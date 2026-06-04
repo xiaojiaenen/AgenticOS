@@ -1,0 +1,29 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <circle cx='100' cy='80' r='1.5' fill='#abaeb3' fill-opacity='0.6'/>
+    <circle cx='950' cy='100' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='1200' cy='300' r='2' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='50' cy='550' r='1' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1050' cy='600' r='1.5' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='700' cy='650' r='1' fill='#abaeb3' fill-opacity='0.5'/>
+  </g>
+  <g id='section-number'>
+    <text x='120' y='320' font-family='Inter,Noto Sans SC,sans-serif' font-size='120' font-weight='200' fill='#3b82f6' fill-opacity='0.15'>02</text>
+    <rect x='120' y='345' width='80' height='3' fill='#3b82f6'/>
+  </g>
+  <g id='section-title'>
+    <text x='120' y='420' font-family='Inter,Noto Sans SC,sans-serif' font-size='56' font-weight='800' fill='#111827'>类地行星</text>
+    <text x='120' y='480' font-family='Inter,Noto Sans SC,sans-serif' font-size='22' fill='#abaeb3'>Terrestrial Planets · 岩石构筑的四个世界</text>
+  </g>
+  <g id='section-sub'>
+    <text x='120' y='550' font-family='Inter,Noto Sans SC,sans-serif' font-size='18' fill='#70747d'>水星 · 金星 · 地球 · 火星——太阳系内四颗岩石行星</text>
+  </g>
+  <g id='decor-rocks'>
+    <circle cx='980' cy='280' r='8' fill='#3b82f6' fill-opacity='0.15'/>
+    <circle cx='1050' cy='340' r='5' fill='#8b5cf6' fill-opacity='0.12'/>
+    <circle cx='920' cy='380' r='6' fill='#3b82f6' fill-opacity='0.1'/>
+    <rect x='1060' y='360' width='8' height='8' rx='2' fill='#8b5cf6' fill-opacity='0.1'/>
+  </g>
+  <!-- notes: 章节分隔页——02 类地行星。从太阳系全貌转向四颗内行星，用"岩石构筑的四个世界"强调它们的共同特征。 -->
+</svg>

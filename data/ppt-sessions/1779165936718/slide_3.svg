@@ -1,0 +1,20 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='stripe'>
+  <!-- notes: 章节分隔页——视觉强烈的大数字和深蓝色，标记第一章开始 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="section-decor-left">
+    <rect x='80' y='200' width='4' height='320' rx='2' fill='var(--accent)'/>
+  </g>
+  <g id="section-number">
+    <text x='160' y='460' font-size='200' font-weight='800' fill='var(--accent)' fill-opacity='0.15' font-family='Inter,Noto Sans SC,sans-serif'>01</text>
+  </g>
+  <g id="section-title">
+    <text x='160' y='320' font-size='18' fill='var(--accent)' font-weight='600' letter-spacing='6'>CHAPTER 01</text>
+    <text x='160' y='400' font-size='64' font-weight='700' fill='var(--text-1)'>认识 DeepSeek</text>
+    <text x='160' y='470' font-size='22' fill='var(--text-2)'>从何而来 · 为何而生 · 为谁而在</text>
+  </g>
+  <g id="footer">
+    <text x='640' y='680' font-size='14' fill='var(--text-3)' text-anchor='middle'>03 / 11 · 章节一</text>
+  </g>
+</svg>

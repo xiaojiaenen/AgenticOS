@@ -1,0 +1,55 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 这是我们的配对游戏！左边是动物图片，右边是英文单词。大家来连线配对，把图片和正确的单词连起来。谁来试试？（请同学上台操作或口头回答） -->
+  <rect width='1280' height='720' fill='var(--bg)'/>
+  <rect x='0' y='0' width='1280' height='4' fill='var(--accent-3)'/>
+  <g id='game-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='55' font-size='16' fill='var(--accent-3)' font-weight='700' letter-spacing='2'>MATCHING GAME</text>
+    <text x='80' y='100' font-size='34' font-weight='800' fill='var(--text-1)'>配对游戏 Match the Animals!</text>
+  </g>
+  <!-- 左列：动物图 -->
+  <g id='game-left'>
+    <rect x='80' y='140' width='300' height='95' rx='16' fill='var(--surface)'/>
+    <text x='230' y='200' text-anchor='middle' font-size='48'>🐱</text>
+    <text x='290' y='205' font-size='14' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>A</text>
+    <rect x='80' y='260' width='300' height='95' rx='16' fill='var(--surface)'/>
+    <text x='230' y='320' text-anchor='middle' font-size='48'>🐶</text>
+    <text x='290' y='325' font-size='14' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>B</text>
+    <rect x='80' y='380' width='300' height='95' rx='16' fill='var(--surface)'/>
+    <text x='230' y='440' text-anchor='middle' font-size='48'>🐦</text>
+    <text x='290' y='445' font-size='14' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>C</text>
+    <rect x='80' y='500' width='300' height='95' rx='16' fill='var(--surface)'/>
+    <text x='230' y='560' text-anchor='middle' font-size='48'>🐟</text>
+    <text x='290' y='565' font-size='14' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>D</text>
+  </g>
+  <!-- 连线提示 -->
+  <g id='game-lines' stroke='var(--accent-3)' stroke-width='3' stroke-dasharray='8 6' fill='none'>
+    <path d='M380,187 C540,187 540,210 700,210'/>
+    <path d='M380,307 C540,307 540,330 700,330'/>
+    <path d='M380,427 C540,427 540,450 700,450'/>
+    <path d='M380,547 C540,547 540,570 700,570'/>
+  </g>
+  <!-- 右列：单词 -->
+  <g id='game-right'>
+    <rect x='700' y='170' width='500' height='60' rx='14' fill='var(--accent-2)' fill-opacity='0.1' stroke='var(--accent-2)' stroke-width='2'/>
+    <text x='730' y='210' font-size='22' font-weight='700' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>③ bird</text>
+    <text x='900' y='210' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>鸟 niǎo</text>
+    <rect x='700' y='290' width='500' height='60' rx='14' fill='var(--accent-2)' fill-opacity='0.1' stroke='var(--accent-2)' stroke-width='2'/>
+    <text x='730' y='330' font-size='22' font-weight='700' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>① cat</text>
+    <text x='900' y='330' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>猫 māo</text>
+    <rect x='700' y='410' width='500' height='60' rx='14' fill='var(--accent-2)' fill-opacity='0.1' stroke='var(--accent-2)' stroke-width='2'/>
+    <text x='730' y='450' font-size='22' font-weight='700' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>④ fish</text>
+    <text x='900' y='450' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>鱼 yú</text>
+    <rect x='700' y='530' width='500' height='60' rx='14' fill='var(--accent-2)' fill-opacity='0.1' stroke='var(--accent-2)' stroke-width='2'/>
+    <text x='730' y='570' font-size='22' font-weight='700' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>② dog</text>
+    <text x='900' y='570' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>狗 gǒu</text>
+  </g>
+  <g id='game-tip' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='620' y='630' width='40' height='40' rx='10' fill='var(--accent-3)' fill-opacity='0.12'/>
+    <text x='640' y='658' text-anchor='middle' font-size='20'>⭐</text>
+    <text x='680' y='658' font-size='15' fill='var(--text-2)'>连对一组得一颗星！Match all pairs to earn stars!</text>
+  </g>
+  <g id='game-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='690' font-size='13' fill='var(--text-3)'>My Animal Friends</text>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='var(--text-3)'>8 / 10</text>
+  </g>
+</svg>

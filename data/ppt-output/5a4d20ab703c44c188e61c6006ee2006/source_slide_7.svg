@@ -1,0 +1,89 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='fantasy'>
+  <defs>
+    <linearGradient id='bgGrad7' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='#ffffff'/>
+      <stop offset='100%' stop-color='#ffffff'/>
+    </linearGradient>
+    <linearGradient id='lineGrad' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='#0250cc'/>
+      <stop offset='50%' stop-color='#fdc800'/>
+      <stop offset='100%' stop-color='#0250cc'/>
+    </linearGradient>
+  </defs>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='url(#bgGrad7)'/>
+    <ellipse cx='1280' cy='0' rx='400' ry='200' fill='#0250cc' fill-opacity='0.03'/>
+  </g>
+  <!-- 星尘 -->
+  <g id='decor-dots'>
+    <circle cx='200' cy='60' r='2' fill='#0250cc' fill-opacity='0.2'/>
+    <circle cx='1100' cy='80' r='1.5' fill='#fdc800' fill-opacity='0.2'/>
+    <path d='M150,120 Q156,113 162,120 Q156,127 150,120 Z' fill='#0250cc' fill-opacity='0.25'/>
+  </g>
+  <!-- 页眉 -->
+  <g id='page-header'>
+    <text x='80' y='80' font-size='13' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif' letter-spacing='3'>活动日程</text>
+    <rect x='80' y='95' width='40' height='3' rx='1.5' fill='#0250cc'/>
+  </g>
+  <!-- 标题 -->
+  <g id='section-title'>
+    <text x='80' y='165' font-size='38' font-weight='800' fill='#111827' font-family='Inter,Noto Sans SC,sans-serif'>
+      三日狂欢日程
+    </text>
+    <text x='80' y='200' font-size='15' fill='#70747d' font-family='Inter,Noto Sans SC,sans-serif'>三天三主题，天天都有重头戏</text>
+  </g>
+  <!-- 时间轴 -->
+  <g id='timeline' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- 竖线 -->
+    <line x1='120' y1='260' x2='120' y2='660' stroke='url(#lineGrad)' stroke-width='3' stroke-opacity='0.3' stroke-linecap='round'/>
+    
+    <!-- Day 1 -->
+    <circle cx='120' cy='300' r='12' fill='#ffffff' stroke='#0250cc' stroke-width='3'/>
+    <circle cx='120' cy='300' r='5' fill='#0250cc'/>
+    <text x='155' y='300' font-size='20' font-weight='700' fill='#111827'>8月15日 · 经典日</text>
+    <text x='155' y='328' font-size='14' fill='#70747d'>09:00 开幕仪式 · 主舞台</text>
+    <text x='155' y='352' font-size='14' fill='#70747d'>10:30 宫崎骏动画回顾展 · 吉卜力区</text>
+    <text x='155' y='376' font-size='14' fill='#70747d'>14:00 《龙猫》主题交响音乐会 · 演艺厅</text>
+    <text x='155' y='400' font-size='14' fill='#70747d'>19:00 经典动画放映夜 · 露天影院</text>
+
+    <!-- Day 2 -->
+    <circle cx='120' cy='450' r='12' fill='#ffffff' stroke='#fdc800' stroke-width='3'/>
+    <circle cx='120' cy='450' r='5' fill='#fdc800'/>
+    <text x='155' y='450' font-size='20' font-weight='700' fill='#111827'>8月16日 · 潮流日</text>
+    <text x='155' y='478' font-size='14' fill='#70747d'>10:00 Cosplay 大赛海选 · 新浪潮舞台</text>
+    <text x='155' y='502' font-size='14' fill='#70747d'>13:00 人气声优见面会 · 主舞台</text>
+    <text x='155' y='526' font-size='14' fill='#70747d'>15:30 同人画师签售会 · 创作交流区</text>
+    <text x='155' y='550' font-size='14' fill='#70747d'>20:00 动漫电音派对 · 户外广场</text>
+
+    <!-- Day 3 -->
+    <circle cx='120' cy='600' r='12' fill='#ffffff' stroke='#0250cc' stroke-width='3' stroke-opacity='0.7'/>
+    <circle cx='120' cy='600' r='5' fill='#0250cc' fill-opacity='0.7'/>
+    <text x='155' y='600' font-size='20' font-weight='700' fill='#111827'>8月17日 · 创作日</text>
+    <text x='155' y='628' font-size='14' fill='#70747d'>10:00 动画制作公开课 · 工作坊区</text>
+    <text x='155' y='652' font-size='14' fill='#70747d'>14:00 原创 IP 路演决赛 · 主舞台</text>
+    <text x='155' y='676' font-size='14' fill='#70747d'>17:00 闭幕颁奖典礼 · 主舞台</text>
+    
+    <!-- 右侧亮点 -->
+    <g transform='translate(800, 260)'>
+      <rect width='400' height='410' rx='20' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='1'/>
+      <text x='30' y='45' font-size='18' font-weight='700' fill='#111827'>🌟 每日亮点</text>
+      <rect x='30' y='62' width='340' height='1' fill='#c3c5c9'/>
+      <text x='30' y='95' font-size='14' fill='#0250cc' font-weight='700'>Day 1 经典日</text>
+      <text x='30' y='118' font-size='13' fill='#70747d'>《龙猫》交响音乐会 · 限量版海报赠送</text>
+      <text x='30' y='155' font-size='14' fill='#fdc800' font-weight='700'>Day 2 潮流日</text>
+      <text x='30' y='178' font-size='13' fill='#70747d'>Cosplay 大赛冠军<tspan font-weight='bold'>奖金 3 万元</tspan></text>
+      <text x='30' y='215' font-size='14' fill='#0250cc' fill-opacity='0.7' font-weight='700'>Day 3 创作日</text>
+      <text x='30' y='238' font-size='13' fill='#70747d'>得奖 IP 可获投资孵化机会</text>
+      <!-- 分隔 -->
+      <rect x='30' y='270' width='340' height='1' fill='#c3c5c9' stroke-dasharray='4,4'/>
+      <text x='30' y='305' font-size='15' font-weight='600' fill='#111827'>通票福利</text>
+      <rect x='30' y='325' width='340' height='1' fill='#c3c5c9'/>
+      <text x='30' y='352' font-size='13' fill='#70747d'>🎫 三日通票含全部主题活动</text>
+      <text x='30' y='378' font-size='13' fill='#70747d'>🎁 限量版纪念周边礼包</text>
+    </g>
+  </g>
+  <g id='footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='12' fill='#abaeb3' text-anchor='end'>07 / 11</text>
+  </g>
+  <!-- notes: 日程页——"三天安排，经典日适合全家，潮流日年轻人扎堆，创作日行业干货。通票最划算，三天全勤不亏。" -->
+</svg>

@@ -1,0 +1,56 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox="0 0 1280 720" data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect x='0' y='0' width='1280' height='4' fill='#10a37f'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='80' font-size='14' fill='#10a37f' font-weight='600' letter-spacing='2'>CHAPTER 02 · 核心技术</text>
+    <text x='80' y='130' font-size='42' font-weight='800' fill='#0d0d0d'>GPT 系列模型进化</text>
+    <rect x='80' y='155' width='50' height='3' fill='#10a37f'/>
+  </g>
+  <g id='stat-highlight' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='240' text-anchor='middle' font-size='18' fill='#9b9b9b'>参数规模增长曲线（单位：百万）</text>
+  </g>
+  <g id='gpt-bars' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- GPT-1 -->
+    <rect x='140' y='280' width='2' height='32' rx='2' fill='#10a37f' fill-opacity='0.3'/>
+    <text x='160' y='300' font-size='14' fill='#9b9b9b'>GPT-1</text>
+    <text x='240' y='300' font-size='14' fill='#1a1a1a'>117M</text>
+    
+    <!-- GPT-2 -->
+    <rect x='140' y='330' width='16' height='32' rx='2' fill='#10a37f' fill-opacity='0.4'/>
+    <text x='160' y='350' font-size='14' fill='#9b9b9b'>GPT-2</text>
+    <text x='240' y='350' font-size='14' fill='#1a1a1a'>1.5B</text>
+    
+    <!-- GPT-3 -->
+    <rect x='140' y='380' width='180' height='32' rx='2' fill='#10a37f' fill-opacity='0.6'/>
+    <text x='160' y='400' font-size='14' fill='#9b9b9b'>GPT-3</text>
+    <text x='240' y='400' font-size='14' fill='#1a1a1a' font-weight='600'>175B</text>
+    <text x='340' y='400' font-size='12' fill='#10a37f' font-weight='600'>+11,666%</text>
+    
+    <!-- GPT-4 -->
+    <rect x='140' y='430' width='400' height='32' rx='2' fill='#10a37f' fill-opacity='0.8'/>
+    <text x='160' y='450' font-size='14' fill='#9b9b9b'>GPT-4</text>
+    <text x='240' y='450' font-size='14' fill='#1a1a1a' font-weight='600'>1T+</text>
+    <text x='340' y='450' font-size='12' fill='#10a37f' font-weight='600'>+471%</text>
+    
+    <!-- GPT-4o -->
+    <rect x='140' y='480' width='520' height='32' rx='2' fill='#10a37f'/>
+    <text x='160' y='500' font-size='14' fill='#9b9b9b'>GPT-4o</text>
+    <text x='240' y='500' font-size='14' fill='#0d0d0d' font-weight='700'>多模态</text>
+    <text x='340' y='500' font-size='12' fill='#10a37f' font-weight='600'>+100%能力扩展</text>
+  </g>
+  <g id='key-insight' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='720' y='280' width='480' height='230' rx='16' fill='#fafafa'/>
+    <text x='760' y='320' font-size='20' font-weight='700' fill='#0d0d0d'>不只是参数增长</text>
+    <text x='760' y='360' font-size='15' fill='#1a1a1a'>从 GPT-1 到 GPT-4o，OpenAI 的突破</text>
+    <text x='760' y='385' font-size='15' fill='#1a1a1a'>不仅体现在参数规模的指数级增长。</text>
+    <text x='760' y='420' font-size='15' fill='#1a1a1a'>更关键的跨越：</text>
+    <text x='760' y='450' font-size='15' fill='#10a37f' font-weight='600'>文本 → 代码 → 图像 → 语音 → 视频</text>
+    <text x='760' y='480' font-size='15' fill='#1a1a1a'>多模态理解与生成能力的全面爆发。</text>
+  </g>
+  <g id='footer' text-anchor='end' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='1240' y='690' font-size='14' fill='#9b9b9b'>7 / 11</text>
+  </g>
+  <!-- notes: GPT 模型进化纵览。左侧用横向条形图直观展示参数规模从 117M 到万亿级的暴增，右侧卡片总结更深层变革——多模态能力。演讲时强调："从只能处理文字，到看懂图片、听懂语音、生成视频——这才是真正的革命。" -->
+</svg>

@@ -1,0 +1,48 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='spotify'>
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#121212'/>
+  </g>
+  <g id="page-header" font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='14' fill='#1ed760' font-weight='600' letter-spacing='4'>TIMELINE</text>
+    <text x='80' y='150' font-size='42' font-weight='800' fill='#ffffff'>美好时光回顾</text>
+    <rect x='80' y='170' width='50' height='4' rx='2' fill='#1ed760'/>
+  </g>
+  <g id="timeline-line">
+    <line x1='140' y1='300' x2='140' y2='620' stroke='#4d4d4d' stroke-width='3'/>
+    <line x1='140' y1='300' x2='140' y2='620' stroke='#1ed760' stroke-width='3' stroke-dasharray='8 6' fill-opacity='0.5'/>
+  </g>
+  <g id="timeline-nodes" font-family='Inter,Noto Sans SC,sans-serif'>
+    <g transform='translate(140, 300)'>
+      <circle cx='0' cy='0' r='14' fill='#1ed760'/>
+      <circle cx='0' cy='0' r='6' fill='var(--bg-bright)'/>
+      <text x='40' y='6' font-size='20' font-weight='700' fill='#ffffff'>第一次相遇</text>
+      <text x='40' y='32' font-size='15' fill='#fdfdfd'>还记得那天阳光正好，你笑着走进来</text>
+      <text x='40' y='54' font-size='13' fill='#cbcbcb'>2019 年 9 月</text>
+    </g>
+    <g transform='translate(140, 390)'>
+      <circle cx='0' cy='0' r='14' fill='#1ed760'/>
+      <circle cx='0' cy='0' r='6' fill='var(--bg-bright)'/>
+      <text x='40' y='6' font-size='20' font-weight='700' fill='#ffffff'>一起走过的旅程</text>
+      <text x='40' y='32' font-size='15' fill='#fdfdfd'>旅途中那些笑声，至今还在耳边回响</text>
+      <text x='40' y='54' font-size='13' fill='#cbcbcb'>2021 年夏</text>
+    </g>
+    <g transform='translate(140, 480)'>
+      <circle cx='0' cy='0' r='14' fill='#1ed760'/>
+      <circle cx='0' cy='0' r='6' fill='var(--bg-bright)'/>
+      <text x='40' y='6' font-size='20' font-weight='700' fill='#ffffff'>每一个平凡的日子</text>
+      <text x='40' y='32' font-size='15' fill='#fdfdfd'>日常的陪伴，是最长情的告白</text>
+      <text x='40' y='54' font-size='13' fill='#cbcbcb'>2022 - 2024</text>
+    </g>
+    <g transform='translate(140, 570)'>
+      <circle cx='0' cy='0' r='14' fill='#1ed760'/>
+      <circle cx='0' cy='0' r='6' fill='var(--bg-bright)'/>
+      <text x='40' y='6' font-size='20' font-weight='700' fill='#ffffff'>今天 · 你的生日</text>
+      <text x='40' y='32' font-size='15' fill='#fdfdfd'><tspan fill='#1ed760' font-weight='600'>最好的你</tspan>，值得最好的祝福</text>
+      <text x='40' y='54' font-size='13' fill='#cbcbcb'>2025 年 · 此刻</text>
+    </g>
+  </g>
+  <g id="footer-chrome">
+    <text x='80' y='680' font-size='12' fill='#cbcbcb'>04 / 11</text>
+  </g>
+  <!-- notes: 时间轴页——四个关键节点串起珍贵回忆。演讲时每个节点稍作停顿，分享一两个具体小故事让情感更饱满 -->
+</svg>

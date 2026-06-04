@@ -1,0 +1,38 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='stripe'>
+  <!-- notes: 能力架构——三层能力金字塔：底层基础能力→中层专业能力→顶层核心优势 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id="page-header">
+    <text x='100' y='100' font-size='14' fill='#533afd' font-weight='600' letter-spacing='3'>CAPABILITIES</text>
+    <text x='100' y='150' font-size='44' font-weight='700' fill='#061b31'>能力图谱</text>
+    <rect x='100' y='172' width='60' height='4' rx='2' fill='#533afd'/>
+    <text x='100' y='210' font-size='18' fill='#273951'>三层能力体系，覆盖从理解到推理的完整链条</text>
+  </g>
+  <g id="layer-3">
+    <rect x='390' y='240' width='500' height='110' rx='16' fill='#533afd' fill-opacity='0.1' stroke='#533afd' stroke-width='2'/>
+    <text x='640' y='280' font-size='18' font-weight='700' fill='#533afd' text-anchor='middle'>✦ 核心优势</text>
+    <text x='640' y='310' font-size='15' fill='#273951' text-anchor='middle'>深度推理 · 数学证明 · 代码生成 · MoE 架构</text>
+    <text x='640' y='334' font-size='13' fill='#64748d' text-anchor='middle'>强化学习训练 · 思维链推理 · 开源生态</text>
+  </g>
+  <g id="layer-2">
+    <rect x='240' y='380' width='800' height='110' rx='16' fill='#f6f9fc' stroke='#e5edf5' stroke-width='1.5'/>
+    <text x='640' y='418' font-size='18' font-weight='700' fill='#061b31' text-anchor='middle'>▸ 专业能力</text>
+    <text x='640' y='448' font-size='15' fill='#273951' text-anchor='middle'>编程开发 · 数据分析 · 数学推理 · 文档理解 · 多语言对话</text>
+    <text x='640' y='472' font-size='13' fill='#64748d' text-anchor='middle'>支持代码执行 · 文件上传 · 联网搜索</text>
+  </g>
+  <g id="layer-1">
+    <rect x='90' y='520' width='1100' height='110' rx='16' fill='#f6f9fc' stroke='#e5edf5' stroke-width='1.5'/>
+    <text x='640' y='558' font-size='18' font-weight='700' fill='#061b31' text-anchor='middle'>▸ 基础能力</text>
+    <text x='640' y='588' font-size='15' fill='#273951' text-anchor='middle'>自然语言理解 · 多轮对话 · 知识问答 · 文本创作 · 翻译摘要</text>
+    <text x='640' y='612' font-size='13' fill='#64748d' text-anchor='middle'>支持中英日韩法德西 · 上下文 128K tokens · 实时响应</text>
+  </g>
+  <g id="decor-arrows">
+    <line x1='640' y1='350' x2='640' y2='380' stroke='#533afd' stroke-width='2' stroke-dasharray='4,4'/>
+    <line x1='640' y1='490' x2='640' y2='520' stroke='#533afd' stroke-width='2' stroke-dasharray='4,4'/>
+  </g>
+  <g id="footer">
+    <rect x='100' y='660' width='1080' height='1' fill='#e5edf5'/>
+    <text x='100' y='690' font-size='14' fill='#64748d'>05 / 11 · 能力图谱</text>
+  </g>
+</svg>

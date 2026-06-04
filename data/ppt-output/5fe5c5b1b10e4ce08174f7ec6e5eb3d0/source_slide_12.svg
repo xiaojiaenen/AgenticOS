@@ -1,0 +1,65 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <defs>
+    <radialGradient id='endGlow' cx='50%' cy='45%' r='55%'>
+      <stop offset='0%' stop-color='#3b82f6' stop-opacity='0.1'/>
+      <stop offset='100%' stop-color='#ffffff' stop-opacity='0'/>
+    </radialGradient>
+    <filter id='endGlowFilter' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='4'/>
+    </filter>
+  </defs>
+  <!-- notes: 结尾页——"我们的征途是星辰大海"，用宇宙视野收束整场演讲，给观众留下震撼和向往 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+    <rect width='1280' height='720' fill='url(#endGlow)'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='80' cy='60' r='1.5' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='200' cy='120' r='1' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='400' cy='50' r='2' fill='#abaeb3' fill-opacity='0.6'/>
+    <circle cx='900' cy='70' r='1.2' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='1150' cy='100' r='1.8' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='1200' cy='300' r='1' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='80' cy='400' r='1.3' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='70' cy='550' r='0.8' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1200' cy='550' r='1.5' fill='#abaeb3' fill-opacity='0.5'/>
+    <circle cx='350' cy='650' r='1' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='950' cy='650' r='1.2' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='600' cy='60' r='0.7' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='750' cy='50' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='150' cy='200' r='0.9' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1100' cy='450' r='1.1' fill='#abaeb3' fill-opacity='0.4'/>
+  </g>
+  <!-- 太阳系缩略图装饰 -->
+  <g id='solar-system-mini'>
+    <ellipse cx='640' cy='220' rx='400' ry='50' fill='none' stroke='#3b82f6' stroke-opacity='0.05' stroke-width='0.8'/>
+    <ellipse cx='640' cy='220' rx='320' ry='40' fill='none' stroke='#3b82f6' stroke-opacity='0.04' stroke-width='0.8'/>
+    <ellipse cx='640' cy='220' rx='240' ry='30' fill='none' stroke='#3b82f6' stroke-opacity='0.03' stroke-width='0.8'/>
+    <ellipse cx='640' cy='220' rx='160' ry='20' fill='none' stroke='#3b82f6' stroke-opacity='0.02' stroke-width='0.8'/>
+    <circle cx='640' cy='220' r='10' fill='#3b82f6' filter='url(#endGlowFilter)'/>
+    <circle cx='640' cy='220' r='6' fill='#FFE082'/>
+    <!-- 各行星小点 -->
+    <circle cx='640' cy='190' r='2' fill='#BDBDBD'/>
+    <circle cx='640' cy='198' r='3' fill='#E8C07A'/>
+    <circle cx='640' cy='208' r='3.5' fill='#4A90D9'/>
+    <circle cx='640' cy='215' r='2.5' fill='#D4735E'/>
+    <circle cx='640' cy='232' r='6' fill='#D4A574'/>
+    <circle cx='640' cy='242' r='5' fill='#E8D5A3'/>
+    <circle cx='640' cy='250' r='4' fill='#7EC8E3'/>
+    <circle cx='640' cy='255' r='3.5' fill='#4A6FE8'/>
+  </g>
+  <g id='thanks-content'>
+    <text x='640' y='360' font-size='60' font-weight='800' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+      <tspan x='640' dy='0'>我们的征途是</tspan>
+      <tspan x='640' dy='80' fill='#3b82f6'>星辰大海</tspan>
+    </text>
+    <text x='640' y='500' font-size='20' fill='#70747d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>感谢观看 · 愿你对宇宙的好奇心永不熄灭</text>
+    <text x='640' y='540' font-size='16' fill='#abaeb3' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>THANK YOU · KEEP LOOKING UP</text>
+  </g>
+  <g id='contact-info'>
+    <text x='640' y='600' font-size='14' fill='#abaeb3' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>太阳系探秘 · 八大行星与九大行星的星际传奇</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#abaeb3' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>12 / 12</text>
+  </g>
+</svg>

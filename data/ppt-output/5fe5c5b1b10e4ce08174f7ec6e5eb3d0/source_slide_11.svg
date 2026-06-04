@@ -1,0 +1,95 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='cosmic'>
+  <defs>
+    <filter id='glowDot' x='-50%' y='-50%' width='200%' height='200%'>
+      <feGaussianBlur in='SourceGraphic' stdDeviation='2'/>
+    </filter>
+  </defs>
+  <!-- notes: 人类探索史时间线——从伽利略到新视野号，从肉眼观测到探测器飞越冥王星，最后展望下一代载人登火星 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='stars-decor'>
+    <circle cx='60' cy='60' r='1' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1220' cy='100' r='1.2' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='80' cy='650' r='0.8' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='1200' cy='600' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+    <circle cx='400' cy='40' r='0.7' fill='#abaeb3' fill-opacity='0.3'/>
+    <circle cx='900' cy='50' r='1' fill='#abaeb3' fill-opacity='0.4'/>
+  </g>
+  <g id='page-header'>
+    <text x='80' y='70' font-size='16' fill='#abaeb3' font-family='Inter,Noto Sans SC,sans-serif'>CHAPTER 05 · 探索与未来</text>
+    <text x='640' y='95' font-size='34' font-weight='800' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>探索星辰大海</text>
+    <text x='640' y='120' font-size='15' fill='#abaeb3' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>HUMAN EXPLORATION OF THE SOLAR SYSTEM</text>
+    <rect x='540' y='130' width='200' height='2' fill='#3b82f6'/>
+  </g>
+  <!-- 时间轴 -->
+  <g id='timeline-line'>
+    <line x1='100' y1='280' x2='1180' y2='280' stroke='#3b82f6' stroke-opacity='0.3' stroke-width='2'/>
+  </g>
+  <g id='timeline-1'>
+    <circle cx='200' cy='280' r='10' fill='#3b82f6' fill-opacity='0.2'/>
+    <circle cx='200' cy='280' r='5' fill='#3b82f6' filter='url(#glowDot)'/>
+    <text x='200' y='250' font-size='14' font-weight='bold' fill='#3b82f6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>1610</text>
+    <text x='200' y='320' font-size='13' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>伽利略</text>
+    <text x='200' y='340' font-size='12' fill='#70747d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>首次用望远镜</text>
+    <text x='200' y='358' font-size='12' fill='#70747d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>观察木星卫星</text>
+  </g>
+  <g id='timeline-2'>
+    <circle cx='420' cy='280' r='10' fill='#3b82f6' fill-opacity='0.2'/>
+    <circle cx='420' cy='280' r='5' fill='#3b82f6' filter='url(#glowDot)'/>
+    <text x='420' y='250' font-size='14' font-weight='bold' fill='#3b82f6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>1930</text>
+    <text x='420' y='320' font-size='13' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>汤博发现</text>
+    <text x='420' y='340' font-size='12' fill='#70747d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>冥王星</text>
+  </g>
+  <g id='timeline-3'>
+    <circle cx='640' cy='280' r='10' fill='#3b82f6' fill-opacity='0.2'/>
+    <circle cx='640' cy='280' r='5' fill='#3b82f6' filter='url(#glowDot)'/>
+    <text x='640' y='250' font-size='14' font-weight='bold' fill='#3b82f6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>1969</text>
+    <text x='640' y='320' font-size='13' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>阿波罗11号</text>
+    <text x='640' y='340' font-size='12' fill='#70747d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>人类首次</text>
+    <text x='640' y='358' font-size='12' fill='#70747d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>登月</text>
+  </g>
+  <g id='timeline-4'>
+    <circle cx='860' cy='280' r='10' fill='#3b82f6' fill-opacity='0.2'/>
+    <circle cx='860' cy='280' r='5' fill='#3b82f6' filter='url(#glowDot)'/>
+    <text x='860' y='250' font-size='14' font-weight='bold' fill='#3b82f6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>2015</text>
+    <text x='860' y='320' font-size='13' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>新视野号</text>
+    <text x='860' y='340' font-size='12' fill='#70747d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>飞越冥王星</text>
+    <text x='860' y='358' font-size='12' fill='#70747d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>首张高清照片</text>
+  </g>
+  <g id='timeline-5'>
+    <circle cx='1080' cy='280' r='10' fill='#3b82f6' fill-opacity='0.2'/>
+    <circle cx='1080' cy='280' r='5' fill='#3b82f6' filter='url(#glowDot)'/>
+    <text x='1080' y='250' font-size='14' font-weight='bold' fill='#3b82f6' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>2030+</text>
+    <text x='1080' y='320' font-size='13' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>载人登火</text>
+    <text x='1080' y='340' font-size='12' fill='#70747d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>NASA &amp; SpaceX</text>
+    <text x='1080' y='358' font-size='12' fill='#70747d' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>目标火星</text>
+  </g>
+  <!-- 下方探测器探索区域 -->
+  <g id='exploration-note'>
+    <text x='640' y='430' font-size='22' font-weight='bold' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>人类已经探索了哪些星球？</text>
+  </g>
+  <g id='exploration-grid'>
+    <rect x='160' y='465' width='140' height='70' rx='10' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <text x='230' y='497' font-size='14' font-weight='bold' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🌙 月球</text>
+    <text x='230' y='520' font-size='11' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✅ 已载人登陆</text>
+    <rect x='320' y='465' width='140' height='70' rx='10' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <text x='390' y='497' font-size='14' font-weight='bold' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🔴 火星</text>
+    <text x='390' y='520' font-size='11' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✅ 探测器多次着陆</text>
+    <rect x='480' y='465' width='140' height='70' rx='10' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <text x='550' y='497' font-size='14' font-weight='bold' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🟤 金星</text>
+    <text x='550' y='520' font-size='11' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✅ 苏联探测器着陆</text>
+    <rect x='640' y='465' width='140' height='70' rx='10' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <text x='710' y='497' font-size='14' font-weight='bold' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🪐 木星</text>
+    <text x='710' y='520' font-size='11' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✅ 探测器飞越/轨道</text>
+    <rect x='800' y='465' width='140' height='70' rx='10' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <text x='870' y='497' font-size='14' font-weight='bold' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>⭕ 土星</text>
+    <text x='870' y='520' font-size='11' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✅ 卡西尼号探测</text>
+    <rect x='960' y='465' width='140' height='70' rx='10' fill='#f9f9f9' stroke='#c3c5c9' stroke-width='0.5'/>
+    <text x='1030' y='497' font-size='14' font-weight='bold' fill='#111827' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>🏔️ 冥王星</text>
+    <text x='1030' y='520' font-size='11' fill='#16a34a' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>✅ 新视野号飞越</text>
+  </g>
+  <g id='footer' chrome='true'>
+    <text x='640' y='690' font-size='14' fill='#abaeb3' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>11 / 12</text>
+  </g>
+</svg>

@@ -1,0 +1,27 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='deepseek'>
+  <!-- notes: 结尾页——行动号召。用大字标题+按钮+联系方式，引导观众行动。蓝色CTA按钮突出 -->
+  <g id="bg-layer">
+    <rect width='1280' height='720' fill='var(--bg)'/>
+  </g>
+  <g id="close-decor">
+    <rect x='0' y='0' width='1280' height='6' fill='var(--accent)'/>
+  </g>
+  <g id="cta-title">
+    <text x='640' y='240' font-size='20' fill='var(--accent)' font-weight='600' letter-spacing='4' text-anchor='middle'>开始你的 DeepSeek 之旅</text>
+    <text x='640' y='340' font-size='56' font-weight='800' fill='var(--text-1)' text-anchor='middle'>探索智能的</text>
+    <text x='640' y='415' font-size='56' font-weight='800' fill='var(--accent)' text-anchor='middle'>无限可能</text>
+  </g>
+  <g id="cta-button">
+    <rect x='490' y='480' width='300' height='60' rx='30' fill='var(--accent)'/>
+    <text x='640' y='518' font-size='20' font-weight='700' fill='var(--bg)' text-anchor='middle'>访问 chat.deepseek.com →</text>
+  </g>
+  <g id="cta-links">
+    <text x='640' y='590' font-size='16' fill='var(--text-3)' text-anchor='middle'>或扫描二维码 · 在 App Store / Google Play 搜索 "DeepSeek"</text>
+  </g>
+  <g id="cta-social">
+    <text x='640' y='640' font-size='14' fill='var(--text-3)' text-anchor='middle'>deepseek.com · @DeepSeek · 深度求索</text>
+  </g>
+  <g id="footer">
+    <text x='640' y='690' font-size='14' fill='var(--text-3)' text-anchor='middle'>11 / 11 · 感谢聆听</text>
+  </g>
+</svg>

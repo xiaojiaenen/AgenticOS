@@ -1,0 +1,30 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='apple'>
+  <!-- notes: 结尾页——品牌口号收束。"让世界爱上中国造"是格力的品牌主张，也是整个演示的核心信息。留下联系方式和官网，引导下一步行动。语速恢复正常，用自信的语气收尾。 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='var(--bg)'/>
+    <rect x='0' y='0' width='1280' height='8' fill='var(--accent)'/>
+  </g>
+  <g id='thanks-decor'>
+    <circle cx='640' cy='300' r='100' fill='var(--accent)' fill-opacity='0.05'/>
+    <circle cx='640' cy='300' r='60' fill='var(--accent)' fill-opacity='0.08'/>
+  </g>
+  <g id='thanks-text' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='280' font-size='56' font-weight='900' fill='var(--text-1)' font-family='Playfair Display,Noto Serif SC,serif'>Thank You</text>
+    <text x='640' y='340' font-size='24' fill='var(--accent)' font-weight='600'>让世界爱上中国造</text>
+    <line x1='500' y1='390' x2='780' y2='390' stroke='var(--accent)' stroke-width='2'/>
+  </g>
+  <g id='thanks-contact' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='640' y='440' font-size='18' fill='var(--text-1)'>www.gree.com</text>
+    <text x='640' y='480' font-size='16' fill='var(--text-2)'>全国服务热线：400-836-5315</text>
+    <text x='640' y='520' font-size='16' fill='var(--text-2)'>关注格力官方微信公众号获取更多资讯</text>
+  </g>
+  <g id='thanks-badges' text-anchor='middle' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='400' y='570' width='150' height='36' rx='18' fill='var(--accent)'/>
+    <text x='475' y='594' font-size='14' fill='var(--bg)' font-weight='600'>立即体验</text>
+    <rect x='570' y='570' width='150' height='36' rx='18' fill='var(--surface)' stroke='var(--border)' stroke-width='1'/>
+    <text x='645' y='594' font-size='14' fill='var(--text-2)'>了解更多</text>
+  </g>
+  <g id='thanks-footer'>
+    <text x='640' y='660' font-size='13' fill='var(--text-3)' text-anchor='middle'>© 2025 珠海格力电器股份有限公司 · All rights reserved</text>
+  </g>
+</svg>

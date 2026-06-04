@@ -1,0 +1,46 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='apple'>
+  <!-- notes: 目录页——快速过一遍今天要讲的四大板块。从品牌实力到核心技术，再到智能体验，最后落脚到品质生活。每个板块用一句话概括核心内容，不要念标题，而是用引导语激发兴趣。 -->
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='toc-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='70' font-size='18' fill='#0071e3' font-weight='600'>目录</text>
+    <text x='80' y='120' font-size='36' font-weight='700' fill='#1d1d1f'>内容概览</text>
+  </g>
+  <g id='toc-01' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='60' y='170' width='280' height='240' rx='12' fill='#fbfbfd'/>
+    <rect x='60' y='170' width='280' height='4' rx='2' fill='#0071e3'/>
+    <text x='100' y='250' font-size='56' font-weight='900' fill='#0071e3' fill-opacity='0.2'>01</text>
+    <text x='100' y='310' font-size='22' font-weight='700' fill='#1d1d1f'>品牌实力</text>
+    <text x='100' y='350' font-size='14' fill='#424245'>34年专注空调领域</text>
+    <text x='100' y='375' font-size='14' fill='#424245'>连续28年销量第一</text>
+  </g>
+  <g id='toc-02' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='360' y='170' width='280' height='240' rx='12' fill='#fbfbfd'/>
+    <rect x='360' y='170' width='280' height='4' rx='2' fill='#0077ed'/>
+    <text x='400' y='250' font-size='56' font-weight='900' fill='#0077ed' fill-opacity='0.2'>02</text>
+    <text x='400' y='310' font-size='22' font-weight='700' fill='#1d1d1f'>核心科技</text>
+    <text x='400' y='350' font-size='14' fill='#424245'>自主研发压缩机技术</text>
+    <text x='400' y='375' font-size='14' fill='#424245'>变频节能行业领先</text>
+  </g>
+  <g id='toc-03' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='660' y='170' width='280' height='240' rx='12' fill='#fbfbfd'/>
+    <rect x='660' y='170' width='280' height='4' rx='2' fill='#0066cc'/>
+    <text x='700' y='250' font-size='56' font-weight='900' fill='#0066cc' fill-opacity='0.2'>03</text>
+    <text x='700' y='310' font-size='22' font-weight='700' fill='#1d1d1f'>智能体验</text>
+    <text x='700' y='350' font-size='14' fill='#424245'>AI 智能温控系统</text>
+    <text x='700' y='375' font-size='14' fill='#424245'>全屋智能联动</text>
+  </g>
+  <g id='toc-04' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='960' y='170' width='260' height='240' rx='12' fill='#fbfbfd'/>
+    <rect x='960' y='170' width='260' height='4' rx='2' fill='#16a34a'/>
+    <text x='1000' y='250' font-size='56' font-weight='900' fill='#16a34a' fill-opacity='0.2'>04</text>
+    <text x='1000' y='310' font-size='22' font-weight='700' fill='#1d1d1f'>品质之选</text>
+    <text x='1000' y='350' font-size='14' fill='#424245'>千万家庭的共同选择</text>
+    <text x='1000' y='375' font-size='14' fill='#424245'>10年整机保修</text>
+  </g>
+  <g id='toc-footer'>
+    <text x='80' y='680' font-size='12' fill='#86868b' font-family='Inter,Noto Sans SC,sans-serif'>GREE · 格力空调</text>
+    <text x='1200' y='680' text-anchor='end' font-size='12' fill='#86868b' font-family='Inter,Noto Sans SC,sans-serif'>2 / 11</text>
+  </g>
+</svg>

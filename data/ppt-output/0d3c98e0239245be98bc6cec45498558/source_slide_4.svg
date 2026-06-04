@@ -1,0 +1,52 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='openai'>
+  <g id='bg-layer'>
+    <rect width='1280' height='720' fill='#ffffff'/>
+  </g>
+  <g id='page-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='100' font-size='36' font-weight='800' fill='#0d0d0d'>模型性能持续跃升</text>
+    <text x='80' y='140' font-size='18' fill='#1a1a1a'>MMLU 基准测试得分趋势 · 2019-2025</text>
+    <line x1='80' y1='162' x2='280' y2='162' stroke='#10a37f' stroke-width='3'/>
+  </g>
+  <g id='chart-area' font-family='Inter,Noto Sans SC,sans-serif'>
+    <!-- Y轴标签 -->
+    <text x='100' y='270' font-size='14' fill='#9b9b9b'>100</text>
+    <text x='100' y='370' font-size='14' fill='#9b9b9b'>75</text>
+    <text x='100' y='470' font-size='14' fill='#9b9b9b'>50</text>
+    <text x='100' y='570' font-size='14' fill='#9b9b9b'>25</text>
+    <!-- 网格线 -->
+    <line x1='160' y1='270' x2='1180' y2='270' stroke='#e5e5e5' stroke-width='0.5'/>
+    <line x1='160' y1='370' x2='1180' y2='370' stroke='#e5e5e5' stroke-width='0.5'/>
+    <line x1='160' y1='470' x2='1180' y2='470' stroke='#e5e5e5' stroke-width='0.5'/>
+    <line x1='160' y1='570' x2='1180' y2='570' stroke='#e5e5e5' stroke-width='0.5'/>
+    <!-- X轴标签 -->
+    <text x='190' y='610' font-size='14' fill='#9b9b9b' text-anchor='middle'>2019</text>
+    <text x='380' y='610' font-size='14' fill='#9b9b9b' text-anchor='middle'>2020</text>
+    <text x='570' y='610' font-size='14' fill='#9b9b9b' text-anchor='middle'>2021</text>
+    <text x='760' y='610' font-size='14' fill='#9b9b9b' text-anchor='middle'>2022</text>
+    <text x='950' y='610' font-size='14' fill='#9b9b9b' text-anchor='middle'>2023</text>
+    <text x='1140' y='610' font-size='14' fill='#9b9b9b' text-anchor='middle'>2025</text>
+    <!-- 面积填充 -->
+    <polygon points='190,570 190,550 380,520 570,470 760,400 950,300 1140,270 1140,570' fill='#10a37f' fill-opacity='0.08'/>
+    <!-- 折线 -->
+    <polyline points='190,550 380,520 570,470 760,400 950,300 1140,270' fill='none' stroke='#10a37f' stroke-width='3' stroke-linejoin='round'/>
+    <!-- 数据点 -->
+    <circle cx='190' cy='550' r='6' fill='#10a37f' stroke='#ffffff' stroke-width='2'/>
+    <circle cx='380' cy='520' r='6' fill='#10a37f' stroke='#ffffff' stroke-width='2'/>
+    <circle cx='570' cy='470' r='6' fill='#10a37f' stroke='#ffffff' stroke-width='2'/>
+    <circle cx='760' cy='400' r='6' fill='#10a37f' stroke='#ffffff' stroke-width='2'/>
+    <circle cx='950' cy='300' r='8' fill='#10a37f' stroke='#ffffff' stroke-width='2'/>
+    <circle cx='1140' cy='270' r='10' fill='#10a37f' stroke='#ffffff' stroke-width='3'/>
+    <!-- 数据标签 -->
+    <text x='190' y='540' font-size='13' fill='#10a37f' text-anchor='middle'>~32%</text>
+    <text x='380' y='510' font-size='13' fill='#10a37f' text-anchor='middle'>~40%</text>
+    <text x='570' y='460' font-size='13' fill='#10a37f' text-anchor='middle'>~50%</text>
+    <text x='760' y='390' font-size='13' fill='#10a37f' text-anchor='middle'>~65%</text>
+    <text x='950' y='285' font-size='14' font-weight='bold' fill='#10a37f' text-anchor='middle'>~86%</text>
+    <text x='1140' y='255' font-size='16' font-weight='bold' fill='#10a37f' text-anchor='middle'>~92%</text>
+  </g>
+  <g id='insight-note' font-family='Inter,Noto Sans SC,sans-serif'>
+    <rect x='840' y='630' width='340' height='48' rx='12' fill='#10a37f' fill-opacity='0.1'/>
+    <text x='860' y='658' font-size='14' fill='#10a37f'>📈 6 年间 MMLU 得分从 32% 跃升至 92%</text>
+  </g>
+  <!-- notes: 展示大模型在 MMLU 基准上的持续进步。关键信息：2019年GPT-2约32%，到2025年顶级模型达92%接近人类专家水平。强调增长曲线在2022-2023年最为陡峭（GPT-4发布）。示意数据，非精确值 -->
+</svg>

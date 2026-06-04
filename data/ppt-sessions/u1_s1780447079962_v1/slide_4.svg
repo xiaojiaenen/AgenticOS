@@ -1,0 +1,62 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 720' data-theme='duolingo'>
+  <!-- notes: 认识我们的动物朋友！大家跟我一起读。Cat，猫——喵喵叫！Dog，狗——汪汪叫！Bird，鸟——会飞的小精灵！Fish，鱼——在水里游来游去！Rabbit，兔子——蹦蹦跳跳真可爱！Monkey，猴子——最爱吃香蕉！每读一个，让同学跟着模仿动物叫声。 -->
+  <rect width='1280' height='720' fill='var(--bg)'/>
+  <rect x='0' y='0' width='1280' height='4' fill='var(--accent)'/>
+  <g id='vocab-header' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='55' font-size='16' fill='var(--accent)' font-weight='700' letter-spacing='2'>ANIMAL VOCABULARY</text>
+    <text x='80' y='100' font-size='34' font-weight='800' fill='var(--text-1)'>认识动物朋友 Meet Our Animal Friends</text>
+  </g>
+  <!-- Row 1: 3 animals -->
+  <g id='vocab-cat'>
+    <rect x='60' y='130' width='370' height='155' rx='16' fill='var(--surface)'/>
+    <text x='120' y='220' font-size='56' text-anchor='middle'>🐱</text>
+    <text x='280' y='185' font-size='32' font-weight='800' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>Cat</text>
+    <text x='280' y='215' font-size='20' fill='var(--accent)' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>猫 māo</text>
+    <text x='280' y='250' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>Meow! Meow! 🐱</text>
+  </g>
+  <g id='vocab-dog'>
+    <rect x='455' y='130' width='370' height='155' rx='16' fill='var(--surface)'/>
+    <text x='515' y='220' font-size='56' text-anchor='middle'>🐶</text>
+    <text x='675' y='185' font-size='32' font-weight='800' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>Dog</text>
+    <text x='675' y='215' font-size='20' fill='var(--accent)' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>狗 gǒu</text>
+    <text x='675' y='250' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>Woof! Woof! 🐶</text>
+  </g>
+  <g id='vocab-bird'>
+    <rect x='850' y='130' width='370' height='155' rx='16' fill='var(--surface)'/>
+    <text x='910' y='220' font-size='56' text-anchor='middle'>🐦</text>
+    <text x='1070' y='185' font-size='32' font-weight='800' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>Bird</text>
+    <text x='1070' y='215' font-size='20' fill='var(--accent)' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>鸟 niǎo</text>
+    <text x='1070' y='250' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>Tweet! Tweet! 🐦</text>
+  </g>
+  <!-- Row 2: 3 animals -->
+  <g id='vocab-fish'>
+    <rect x='60' y='310' width='370' height='155' rx='16' fill='var(--surface)'/>
+    <text x='120' y='400' font-size='56' text-anchor='middle'>🐟</text>
+    <text x='280' y='365' font-size='32' font-weight='800' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>Fish</text>
+    <text x='280' y='395' font-size='20' fill='var(--accent)' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>鱼 yú</text>
+    <text x='280' y='430' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>Blub! Blub! 🐟</text>
+  </g>
+  <g id='vocab-rabbit'>
+    <rect x='455' y='310' width='370' height='155' rx='16' fill='var(--surface)'/>
+    <text x='515' y='400' font-size='56' text-anchor='middle'>🐰</text>
+    <text x='675' y='365' font-size='32' font-weight='800' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>Rabbit</text>
+    <text x='675' y='395' font-size='20' fill='var(--accent)' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>兔子 tùzi</text>
+    <text x='675' y='430' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>Hop! Hop! 🐰</text>
+  </g>
+  <g id='vocab-monkey'>
+    <rect x='850' y='310' width='370' height='155' rx='16' fill='var(--surface)'/>
+    <text x='910' y='400' font-size='56' text-anchor='middle'>🐒</text>
+    <text x='1070' y='365' font-size='32' font-weight='800' fill='var(--text-1)' font-family='Inter,Noto Sans SC,sans-serif'>Monkey</text>
+    <text x='1070' y='395' font-size='20' fill='var(--accent)' font-weight='600' font-family='Inter,Noto Sans SC,sans-serif'>猴子 hóuzi</text>
+    <text x='1070' y='430' font-size='15' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>Ooh ooh! 🐒</text>
+  </g>
+  <g id='vocab-tip'>
+    <rect x='60' y='500' width='1160' height='120' rx='16' fill='var(--accent)' fill-opacity='0.1' stroke='var(--accent)' stroke-width='2' stroke-dasharray='8 4'/>
+    <text x='640' y='545' text-anchor='middle' font-size='20' font-weight='700' fill='var(--accent)' font-family='Inter,Noto Sans SC,sans-serif'>📝 跟读小练习 Read Together</text>
+    <text x='640' y='580' text-anchor='middle' font-size='16' fill='var(--text-2)' font-family='Inter,Noto Sans SC,sans-serif'>老师指到哪个动物，大家一起大声读出来！大声读对的有小贴纸哦～</text>
+  </g>
+  <g id='vocab-footer' font-family='Inter,Noto Sans SC,sans-serif'>
+    <text x='80' y='690' font-size='13' fill='var(--text-3)'>My Animal Friends</text>
+    <text x='1200' y='690' text-anchor='end' font-size='13' fill='var(--text-3)'>4 / 10</text>
+  </g>
+</svg>
