@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="", validation_alias="REDIS_URL")
     redis_cluster: bool = Field(default=False, validation_alias="REDIS_CLUSTER")
 
-    # 外部系统凭据加密密钥（留空则从 AUTH_SECRET_KEY 派生）
+    # External system credential encryption key (optional — derived from AUTH_SECRET_KEY if empty)
     external_system_encryption_key: str = Field(default="", validation_alias="EXTERNAL_SYSTEM_ENCRYPTION_KEY")
 
     model_config = SettingsConfigDict(

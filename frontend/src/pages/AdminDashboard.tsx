@@ -286,7 +286,11 @@ export const AdminDashboard = () => {
         return <UserManagement />;
       case 'agents':
         return <AgentManagement />;
+      case 'integrations':
+        return <IntegrationManagement />;
       case 'skills':
+      case 'integrations':
+        return <IntegrationManagement />;
         return <SkillManagement />;
       case 'integrations':
         return <IntegrationManagement />;

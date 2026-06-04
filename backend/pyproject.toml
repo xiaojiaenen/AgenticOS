@@ -10,13 +10,12 @@ dependencies = [
     "pydantic-settings>=2.10.0,<3.0.0",
     "sqlalchemy>=2.0.44,<3.0.0",
     "uvicorn[standard]>=0.35.0,<1.0.0",
-    "wuwei>=3.0.2",
+    "wuwei>=3.0.1",
     "python-pptx>=1.0.2",
     "pillow>=12.2.0",
     "markitdown>=0.1.5",
     "redis>=5.0.0,<6.0.0",
     "cryptography>=44.0.0,<45.0.0",
-    "httpx>=0.28.0,<1.0.0",
 ]
 
 [dependency-groups]

@@ -71,6 +71,7 @@ from app.services.session_storage import DatabaseAgentStorage, dump_json
 from app.services.tool_config_service import ToolConfigService
 from app.schemas.agent import AgentStreamRequest
 from app.tools.email_tools import register_email_tools, set_current_session_id as set_email_session_id
+from app.services.external_system_service import set_ext_user_id
 from app.core.data_path import set_current_session_id as set_data_session_id, set_current_user_id, restore_website_dir_for_session, DATA_DIR, PPT_SESSIONS_DIR, PPT_OUTPUT_DIR, WEBSITES_DIR, WEBSITE_TEMPLATES_DIR, DESIGN_THEMES_DIR, _parse_dir_name
 from app.services.external_system_service import set_ext_user_id
 # pptx_reverse_session_id removed — now uses data_path contextvars directly
