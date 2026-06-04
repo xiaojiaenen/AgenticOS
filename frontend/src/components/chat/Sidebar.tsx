@@ -180,7 +180,6 @@ export const Sidebar = React.memo(({
       </div>
     </motion.aside>
     <IntegrationMarket open={showMarket} onClose={() => setShowMarket(false)} />
-    <IntegrationMarket open={showMarket} onClose={() => setShowMarket(false)} />
     {/* Delete Confirmation Modal */}
     <Modal open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} maxWidth="max-w-sm">
       <ModalHeader title="删除对话" subtitle="确认删除" onClose={() => setDeleteConfirm(null)} />

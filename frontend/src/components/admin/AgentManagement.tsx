@@ -27,6 +27,7 @@ import {
 } from '../../services/agentProfileService';
 import { AdminUser, listUsers } from '../../services/userService';
 import { AgentMode, ToolCatalogItem } from '../../services/toolConfigService';
+import { listSystems, IntegrationSystem } from '../../services/integrationService';
 import { useAdminModalBackdrop } from './useAdminModalBackdrop';
 import { MODE_SYSTEM_PROMPTS } from '../../constants/modePrompts';
 
@@ -86,6 +87,8 @@ function makeDraft(profile: AgentProfile | null, catalog: ToolCatalogItem[]): Dr
       audience_user_ids: profile.audience_users.map((user) => user.id),
       tools: profile.tools.map((tool) => ({ ...tool })),
       skill_ids: profile.skills.map((skill) => skill.id),
+      external_systems: (profile.external_systems || []).map((es) => ({ system_id: es.system_id, enabled: es.enabled })),
+      max_steps: profile.max_steps ?? null,
       is_builtin: profile.is_builtin,
     };
   }
@@ -108,6 +111,8 @@ function makeDraft(profile: AgentProfile | null, catalog: ToolCatalogItem[]): Dr
       approval_sub_tools: [] as string[],
     })),
     skill_ids: [],
+    external_systems: [],
+    max_steps: null,
   };
 }
 
@@ -122,6 +127,7 @@ export const AgentManagement = () => {
   const [catalog, setCatalog] = useState<ToolCatalogItem[]>([]);
   const [availableSkills, setAvailableSkills] = useState<AgentProfileSkill[]>([]);
   const [availableUsers, setAvailableUsers] = useState<AdminUser[]>([]);
+  const [externalSystems, setExternalSystems] = useState<IntegrationSystem[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -131,6 +137,7 @@ export const AgentManagement = () => {
   useAdminModalBackdrop(isModalOpen);
 
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+  const [rightTab, setRightTab] = useState<'tools' | 'skills' | 'integrations'>('tools');
 
   const catalogByName = useMemo(() => new Map(catalog.map((item) => [item.name, item])), [catalog]);
   const enabledAgents = profiles.filter((profile) => profile.enabled).length;
@@ -150,6 +157,10 @@ export const AgentManagement = () => {
       setCatalog(response.catalog);
       setAvailableSkills(response.available_skills);
       setAvailableUsers(userResponse.items.filter((user) => user.is_active));
+      try {
+        const sysResp = await listSystems();
+        setExternalSystems(sysResp.items.filter((s) => s.enabled));
+      } catch { /* 集成系统加载失败不阻塞 */ }
     } catch (err) {
       setError(err instanceof Error ? err.message : '智能体配置加载失败');
     } finally {
@@ -288,6 +299,8 @@ export const AgentManagement = () => {
         audience_user_ids: draft.audience_user_ids,
         tools: draft.tools,
         skill_ids: draft.skill_ids,
+        external_systems: draft.external_systems || [],
+        max_steps: draft.max_steps ?? null,
       };
       const saved = draft.id ? await updateAgentProfile(draft.id, payload) : await createAgentProfile(payload);
       setProfiles((prev) => (draft.id ? prev.map((item) => (item.id === saved.id ? saved : item)) : [saved, ...prev]));
@@ -578,6 +591,25 @@ export const AgentManagement = () => {
                       </select>
                     </label>
 
+                    <label className="space-y-1.5">
+                      <span className="text-xs font-black tracking-[0.18em] text-slate-400">最大步数</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={200}
+                        placeholder="留空使用全局默认（10）"
+                        value={draft.max_steps ?? ''}
+                        onChange={(event) => {
+                          const v = event.target.value;
+                          patchDraft({ max_steps: v === '' ? null : Math.min(200, Math.max(1, Number(v))) });
+                        }}
+                        className="w-full rounded-2xl border border-white/75 bg-white/72 px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                      />
+                      <span className="text-[11px] text-slate-400">
+                        控制智能体单次对话的最大工具调用轮数，PPT 模式建议 30–50
+                      </span>
+                    </label>
+
                     <div className="grid grid-cols-2 gap-3">
                       <div className="flex items-center justify-between rounded-2xl border border-white/80 bg-white/72 px-3.5 py-2.5">
                         <span className="text-sm font-black text-slate-700">启用</span>
@@ -680,6 +712,28 @@ export const AgentManagement = () => {
 
                 <div className="overflow-y-auto border-l border-slate-100 bg-white/50 p-5">
                   <div className="space-y-4">
+                    {/* 右侧面板 Tab 切换 */}
+                    <div className="sticky top-0 z-10 -mx-5 -mt-5 bg-white/50 px-5 pt-5 pb-3 backdrop-blur-sm">
+                      <div className="flex gap-1 rounded-xl bg-slate-100/80 p-1">
+                            {([['tools', '工具'], ['skills', '技能'], ['integrations', '集成']] as const).map(([key, label]) => (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() => setRightTab(key)}
+                                className={cn(
+                                  'flex-1 rounded-lg px-3 py-1.5 text-xs font-black transition-all',
+                                  rightTab === key
+                                    ? 'bg-white text-slate-900 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700',
+                                )}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                    </div>
+
+                    {rightTab === 'tools' && (
                     <div className="rounded-2xl border border-white/80 bg-white/82 p-4 shadow-md">
                       <div className="mb-3 flex items-center justify-between">
                         <div>
@@ -811,7 +865,9 @@ export const AgentManagement = () => {
                         })}
                       </div>
                     </div>
+                    )}
 
+                    {rightTab === 'skills' && (
                     <div className="rounded-2xl border border-white/80 bg-white/82 p-4 shadow-md">
                       <div className="mb-3 flex items-center justify-between">
                         <div>
@@ -886,6 +942,73 @@ export const AgentManagement = () => {
                         )}
                       </div>
                     </div>
+                    )}
+
+                    {/* 外部系统集成 */}
+                    {rightTab === 'integrations' && externalSystems.length > 0 && (
+                      <div className="rounded-2xl border border-white/80 bg-white/82 p-4 shadow-md">
+                        <div className="mb-3 flex items-center justify-between">
+                          <div>
+                            <p className="admin-section-kicker">集成系统</p>
+                            <h4 className="mt-1 text-base font-black text-slate-900">绑定外部系统</h4>
+                          </div>
+                          <span className="rounded-full border border-white/80 bg-white px-3 py-1 text-xs font-black text-slate-500">
+                            已选 {(draft.external_systems || []).filter((es) => es.enabled).length}/{externalSystems.length}
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          {externalSystems.map((sys) => {
+                            const selected = (draft.external_systems || []).some((es) => es.system_id === sys.id && es.enabled);
+                            return (
+                              <button
+                                key={sys.id}
+                                type="button"
+                                onClick={() => {
+                                  const current = draft.external_systems || [];
+                                  const exists = current.find((es) => es.system_id === sys.id);
+                                  const updated = exists
+                                    ? current.map((es) => es.system_id === sys.id ? { ...es, enabled: !es.enabled } : es)
+                                    : [...current, { system_id: sys.id, enabled: true }];
+                                  patchDraft({ external_systems: updated.filter((es) => es.enabled) });
+                                }}
+                                className={cn(
+                                  'w-full rounded-2xl border p-3.5 text-left transition-all',
+                                  selected
+                                    ? 'border-emerald-200 bg-emerald-50/72 shadow-sm'
+                                    : 'border-white/80 bg-white/72 hover:bg-white',
+                                )}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-black text-slate-900">{sys.name}</p>
+                                    <p className="mt-1 truncate text-[11px] font-black tracking-[0.14em] text-slate-400">
+                                      {sys.base_url}
+                                    </p>
+                                  </div>
+                                  <span
+                                    className={cn(
+                                      'rounded-full px-2 py-1 text-[10px] font-black',
+                                      selected ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-500',
+                                    )}
+                                  >
+                                    {selected ? '已绑定' : '未绑定'}
+                                  </span>
+                                </div>
+                                <p className="mt-3 text-xs font-medium leading-5 text-slate-500">{sys.description || '暂无描述'}</p>
+                                <div className="mt-2 flex gap-2">
+                                  <span className="rounded-full border border-slate-100 bg-slate-50 px-2.5 py-1 text-[10px] font-black text-slate-600">
+                                    {sys.auth_type}
+                                  </span>
+                                  <span className="rounded-full border border-slate-100 bg-slate-50 px-2.5 py-1 text-[10px] font-black text-slate-600">
+                                    {sys.api_count} API
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
