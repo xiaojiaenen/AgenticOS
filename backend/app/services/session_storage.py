@@ -51,7 +51,7 @@ class DatabaseAgentStorage:
 
                 metadata = getattr(session, "metadata", {}) or {}
                 row.system_prompt = session.system_prompt
-                row.user_id = row.user_id or metadata.get("user_id")
+                row.user_id = metadata.get("user_id") or row.user_id
                 row.agent_profile_id = metadata.get("agent_profile_id") or row.agent_profile_id
                 row.max_steps = session.max_steps
                 row.parallel_tool_calls = session.parallel_tool_calls
