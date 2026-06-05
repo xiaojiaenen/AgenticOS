@@ -24,9 +24,240 @@ from wuwei.tools import ToolRegistry
 from wuwei.plugin import PluginContext
 from wuwei.plugin.builtin.skill import setup as setup_skill_plugin
 from wuwei.core.message import ToolCall
+from wuwei.agent.async_sub_agent import AsyncSubAgent, AsyncSubAgentMiddleware
+from wuwei.agent.multi_agent import MultiAgentGraph, TeamMember
+from wuwei.runtime.agent_runner import AgentRunner
 
 # 特殊工具名：用户拒绝时替换原工具调用，让 LLM 收到明确的拒绝消息
 _REJECTED_TOOL_NAME = "__tool_rejected__"
+
+# ── 并发工具执行补丁 ──────────────────────────────────────────────────
+# wuwei 的 AgentRunner 默认逐个执行工具调用。
+# 本补丁将安全工具（is_concurrency_safe=True）分批并发执行，
+# 非安全工具仍保持顺序串行。对前端 SSE 事件流完全透明。
+
+_original_stream_events = AgentRunner.stream_events
+
+
+async def _patched_stream_events(self, user_input: str, *, task=None):
+    """并发版 stream_events：安全工具用 asyncio.gather 并行，其余与原版相同。
+
+    与原始实现的唯一区别：工具执行阶段按 is_concurrency_safe 分批并发。
+    LLM 调用、中间件生命周期、事件格式完全不变。
+    """
+    import time
+    from collections.abc import AsyncIterator
+    from uuid import uuid4
+    from wuwei.core.message import AIMessage as AIMsg, ToolMessage as TMsg
+    from wuwei.llm import LLMResponseChunk, Message
+    from wuwei.middleware.base import MiddlewareContext
+
+    step_count = 0
+    llm_calls = 0
+    total_latency_ms = 0
+    total_usage = self._empty_usage()
+    run_id = uuid4().hex
+    context = self.session.context
+    context.add_user_message(user_input)
+    yield self._build_event("run_start", step=0, run_id=run_id, data={"input": user_input})
+
+    try:
+        while step_count < self.session.max_steps:
+            content_parts: list[str] = []
+            reasoning_parts: list[str] = []
+            full_tool_calls = None
+            messages = self._copy_messages()
+            tools = list(self.tools)
+
+            # --- before_llm 中间件 ---
+            ctx = MiddlewareContext(state=None, config={}, step=step_count)
+            ctx.state = type('State', (), {'messages': messages, 'metadata': {}})()
+            ctx = await self.middleware.execute_before_llm(ctx)
+            messages = ctx.state.messages
+
+            llm_start = time.monotonic()
+            yield self._build_event(
+                "llm_start", step=step_count, run_id=run_id,
+                data={"tools": [tool.name for tool in tools]},
+            )
+
+            stream: AsyncIterator[LLMResponseChunk] = await self.llm.generate(
+                messages, tools=tools, stream=True,
+            )
+            llm_calls += 1
+
+            async for chunk in stream:
+                if chunk.reasoning_content:
+                    reasoning_parts.append(chunk.reasoning_content)
+                    yield self._build_event(
+                        "reasoning_delta", step=step_count, run_id=run_id,
+                        data={"content": chunk.reasoning_content},
+                    )
+                if chunk.content:
+                    content_parts.append(chunk.content)
+                    yield self._build_event(
+                        "text_delta", step=step_count, run_id=run_id,
+                        data={"content": chunk.content},
+                    )
+                self._merge_usage(total_usage, chunk.usage)
+                if chunk.tool_calls_complete:
+                    full_tool_calls = chunk.tool_calls_complete
+
+            total_latency_ms += int((time.monotonic() - llm_start) * 1000)
+            yield self._build_event(
+                "llm_end", step=step_count, run_id=run_id,
+                data={"latency_ms": total_latency_ms, "usage": dict(total_usage), "has_tool_calls": bool(full_tool_calls)},
+            )
+
+            # 构建 AIMessage 并调用 after_llm 中间件
+            ai_msg = AIMsg(
+                content="".join(content_parts),
+                tool_calls=full_tool_calls or [],
+                reasoning_content="".join(reasoning_parts) or None,
+            )
+            ctx = await self.middleware.execute_after_llm(ctx, ai_msg)
+            context.add_ai_message(
+                "".join(content_parts),
+                tool_calls=full_tool_calls,
+                reasoning_content="".join(reasoning_parts) or None,
+            )
+
+            if full_tool_calls:
+                # ── 并发工具执行 ──
+                # 按 is_concurrency_safe 分组：连续安全工具并发，非安全工具串行
+                batches: list[list] = []
+                current_batch: list = []
+                current_safe = True
+
+                for tc in full_tool_calls:
+                    tool_obj = self.tool_executor.registry.get(tc.function.name)
+                    is_safe = tool_obj.is_concurrency_safe if tool_obj else True
+
+                    if not current_batch:
+                        current_batch = [tc]
+                        current_safe = is_safe
+                    elif is_safe == current_safe:
+                        current_batch.append(tc)
+                    else:
+                        batches.append(current_batch)
+                        current_batch = [tc]
+                        current_safe = is_safe
+                if current_batch:
+                    batches.append(current_batch)
+
+                for batch in batches:
+                    tool_obj = self.tool_executor.registry.get(batch[0].function.name)
+                    is_safe = tool_obj.is_concurrency_safe if tool_obj else True
+
+                    if is_safe and len(batch) > 1:
+                        # ── 并发执行安全工具 ──
+                        async def _exec_safe(tc):
+                            modified = await self.middleware.execute_before_tool(ctx, tc)
+                            if modified is None:
+                                return None
+                            t = self.tool_executor.registry.get(modified.function.name)
+                            start_evt = self._build_event(
+                                "tool_start", step=step_count, run_id=run_id,
+                                data={
+                                    "tool_name": modified.function.name,
+                                    "display_name": t.display_name if t else None,
+                                    "args": modified.function.arguments,
+                                    "tool_call_id": modified.id,
+                                },
+                            )
+                            msg = await self._execute_one_tool_call(modified, step=step_count, task=task, run_id=run_id)
+                            tmsg = TMsg(content=msg.content or "", tool_call_id=msg.tool_call_id or "", name=msg.name or "")
+                            modified_msg = await self.middleware.execute_after_tool(ctx, tmsg)
+                            final_msg = Message(role="tool", content=modified_msg.content or "", tool_call_id=modified_msg.tool_call_id, name=modified_msg.name)
+                            end_evt = self._build_event(
+                                "tool_end", step=step_count, run_id=run_id,
+                                data={"tool_name": modified.function.name, "tool_call_id": modified.id, "output": final_msg.content},
+                            )
+                            return (modified, final_msg, start_evt, end_evt)
+
+                        results = await asyncio.gather(
+                            *(_exec_safe(tc) for tc in batch),
+                            return_exceptions=True,
+                        )
+                        for result in results:
+                            if isinstance(result, Exception):
+                                _logger.error(f"Concurrent tool error: {result}")
+                                continue
+                            if result is None:
+                                continue
+                            tc, final_msg, start_evt, end_evt = result
+                            yield start_evt
+                            self.session.context.add_tool_message(final_msg.content or "", final_msg.tool_call_id)
+                            yield end_evt
+                            err = self.tool_executor.extract_error_message(final_msg.content)
+                            if err:
+                                yield self._build_event(
+                                    "error", step=step_count, run_id=run_id,
+                                    data={"message": err, "tool_name": tc.function.name, "tool_call_id": tc.id},
+                                )
+                    else:
+                        # ── 串行执行非安全工具或单个工具 ──
+                        for tc in batch:
+                            modified = await self.middleware.execute_before_tool(ctx, tc)
+                            if modified is None:
+                                continue
+                            t = self.tool_executor.registry.get(modified.function.name)
+                            yield self._build_event(
+                                "tool_start", step=step_count, run_id=run_id,
+                                data={
+                                    "tool_name": modified.function.name,
+                                    "display_name": t.display_name if t else None,
+                                    "args": modified.function.arguments,
+                                    "tool_call_id": modified.id,
+                                },
+                            )
+                            tool_message = await self._execute_one_tool_call(modified, step=step_count, task=task, run_id=run_id)
+                            tmsg = TMsg(content=tool_message.content or "", tool_call_id=tool_message.tool_call_id or "", name=tool_message.name or "")
+                            modified_msg = await self.middleware.execute_after_tool(ctx, tmsg)
+                            tool_message = Message(role="tool", content=modified_msg.content or "", tool_call_id=modified_msg.tool_call_id, name=modified_msg.name)
+                            self.session.context.add_tool_message(tool_message.content or "", tool_message.tool_call_id)
+                            yield self._build_event(
+                                "tool_end", step=step_count, run_id=run_id,
+                                data={"tool_name": modified.function.name, "tool_call_id": modified.id, "output": tool_message.content},
+                            )
+                            err = self.tool_executor.extract_error_message(tool_message.content)
+                            if err:
+                                yield self._build_event(
+                                    "error", step=step_count, run_id=run_id,
+                                    data={"message": err, "tool_name": modified.function.name, "tool_call_id": modified.id},
+                                )
+
+                step_count += 1
+                continue
+
+            # 无工具调用 → 结束
+            done_event = self._build_event(
+                "done", step=step_count, run_id=run_id,
+                data={"usage": dict(total_usage), "latency_ms": total_latency_ms, "llm_calls": llm_calls},
+            )
+            yield done_event
+            yield self._build_event("run_end", step=step_count, run_id=run_id, data=dict(done_event.data))
+            self._set_session_run_stats(usage=total_usage, latency_ms=total_latency_ms, llm_calls=llm_calls)
+            return
+
+        # 达到最大步数
+        context.add_assistant_message("任务未完成，已达到最大步骤限制。")
+        yield self._build_event(
+            "done", step=step_count, run_id=run_id,
+            data={"reason": "max_steps", "usage": dict(total_usage), "latency_ms": total_latency_ms, "llm_calls": llm_calls},
+        )
+        self._set_session_run_stats(usage=total_usage, latency_ms=total_latency_ms, llm_calls=llm_calls)
+
+    except Exception as exc:
+        await self.middleware.execute_on_error(ctx if 'ctx' in dir() else MiddlewareContext(state=None, config={}, step=step_count), exc)
+        yield self._build_event(
+            "error", step=step_count, run_id=run_id,
+            data={"message": str(exc), "error_type": type(exc).__name__, "latency_ms": total_latency_ms},
+        )
+
+
+# 应用补丁（启用并发工具执行）
+AgentRunner.stream_events = _patched_stream_events
 
 
 class LenientHitlMiddleware(HitlMiddleware):
@@ -261,7 +492,16 @@ class AgentService:
                 auto_reject_tools=[],
             ))
 
-        # 2. 上下文压缩中间件
+        # 4. 异步子代理中间件（后台任务能力）
+        if self.settings.async_sub_agents_enabled:
+            sub_agents = self._build_async_sub_agents()
+            if sub_agents:
+                stack.add(AsyncSubAgentMiddleware(
+                    sub_agents=sub_agents,
+                    parent_llm=llm,
+                ))
+
+        # 5. 上下文压缩中间件
         if self.settings.context_compression_enabled:
             stack.add(ContextCompressionMiddleware(
                 llm=llm,
@@ -289,6 +529,63 @@ class AgentService:
         stack.add(ThinkingHistoryCompatibilityMiddleware())
 
         return stack
+
+    def _build_async_sub_agents(self) -> list[AsyncSubAgent]:
+        """构建异步子代理列表。
+
+        子代理在后台运行，不阻塞主对话。LLM 通过 start/check/cancel/list 操作管理。
+        """
+        from wuwei.tools import ToolRegistry as _TR
+
+        sub_agents: list[AsyncSubAgent] = []
+
+        # 1. 代码分析子代理
+        code_registry = _TR()
+        code_ctx = PluginContext(tool_registry=code_registry)
+        try:
+            from wuwei.plugin.builtin import calc as calc_mod, python as python_mod, git as git_mod
+            calc_mod.setup(code_ctx)
+            python_mod.setup(code_ctx)
+            git_mod.setup(code_ctx)
+        except Exception:
+            pass
+
+        sub_agents.append(AsyncSubAgent(
+            name="code_analyst",
+            description="代码分析与执行：运行 Python 脚本、数学计算、Git 操作。适合需要后台运行代码或分析的场景。",
+            system_prompt=(
+                "你是一个代码分析助手。你可以执行 Python 脚本、进行数学计算、查看 Git 状态。"
+                "请直接运行代码并返回结果，不要解释代码本身。"
+                "返回时用简洁的格式说明执行结果。"
+            ),
+            tools=list(code_registry.list_tools()),
+            max_steps=5,
+            inherit_context=False,
+        ))
+
+        # 2. 文件处理子代理
+        file_registry = _TR()
+        file_ctx = PluginContext(tool_registry=file_registry)
+        try:
+            from wuwei.plugin.builtin import file as file_mod, text as text_mod
+            file_mod.setup(file_ctx)
+            text_mod.setup(file_ctx)
+        except Exception:
+            pass
+
+        sub_agents.append(AsyncSubAgent(
+            name="file_processor",
+            description="文件处理：读取、搜索、整理文件内容。适合需要在后台批量处理文件的场景。",
+            system_prompt=(
+                "你是一个文件处理助手。你可以读取文件、搜索文本、整理内容。"
+                "工作时保持高效，直接返回处理结果。"
+            ),
+            tools=list(file_registry.list_tools()),
+            max_steps=8,
+            inherit_context=False,
+        ))
+
+        return sub_agents
 
     @staticmethod
     def _build_tool_registry(profile: RuntimeAgentProfile) -> tuple[ToolRegistry, str]:
