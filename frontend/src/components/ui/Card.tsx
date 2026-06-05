@@ -7,7 +7,7 @@ export const Card = ({ className, children, ...props }: CardProps) => {
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-3xl border border-white/65 glass-medium shadow-lg ring-1 ring-white/35 p-6',
+        'rounded-lg border border-slate-200 bg-white p-6 shadow-xs',
         className,
       )}
       {...props}
@@ -24,13 +24,13 @@ export const CardHeader = ({ className, children, ...props }: CardProps) => (
 );
 
 export const CardTitle = ({ className, children, as: Component = 'h3', ...props }: CardProps & { as?: 'h1' | 'h2' | 'h3' | 'h4' }) => (
-  <Component className={cn('flex items-center gap-3 text-xl font-bold tracking-tight text-slate-900', className)} {...props}>
+  <Component className={cn('flex items-center gap-3 text-lg font-semibold text-slate-900', className)} {...props}>
     {children}
   </Component>
 );
 
 export const CardContent = ({ className, children, ...props }: CardProps) => (
-  <div className={cn('space-y-6', className)} {...props}>
+  <div className={cn('space-y-4', className)} {...props}>
     {children}
   </div>
 );
