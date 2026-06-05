@@ -4,6 +4,17 @@ import { Mail, CheckCircle, AlertCircle, Loader2, X, Eye, EyeOff, Trash2 } from 
 import { Button } from '../ui/Button';
 import { getEmailStatus, saveEmailCredentials, deleteEmailCredentials, EmailStatus } from '../../services/emailService';
 
+const EMAIL_PRESETS = [
+  { label: '腾讯企业邮箱', value: 'exmail_qq', imap_host: 'imap.exmail.qq.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.exmail.qq.com', smtp_port: 465, smtp_ssl: true },
+  { label: 'QQ 邮箱', value: 'qq', imap_host: 'imap.qq.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.qq.com', smtp_port: 465, smtp_ssl: true },
+  { label: '163 邮箱', value: '163', imap_host: 'imap.163.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.163.com', smtp_port: 465, smtp_ssl: true },
+  { label: '126 邮箱', value: '126', imap_host: 'imap.126.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.126.com', smtp_port: 465, smtp_ssl: true },
+  { label: 'Gmail', value: 'gmail', imap_host: 'imap.gmail.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.gmail.com', smtp_port: 587, smtp_ssl: false },
+  { label: 'Outlook / Hotmail', value: 'outlook', imap_host: 'outlook.office365.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.office365.com', smtp_port: 587, smtp_ssl: false },
+  { label: '阿里企业邮箱', value: 'aliyun', imap_host: 'imap.qiye.aliyun.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.qiye.aliyun.com', smtp_port: 465, smtp_ssl: true },
+  { label: '自定义', value: 'custom', imap_host: '', imap_port: 993, imap_ssl: true, smtp_host: '', smtp_port: 465, smtp_ssl: true },
+];
+
 interface EmailSettingsPanelProps {
   open: boolean;
   onClose: () => void;
@@ -17,6 +28,7 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
   const [success, setSuccess] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [preset, setPreset] = useState('exmail_qq');
 
   const [form, setForm] = useState({
     email_address: '',
@@ -28,6 +40,23 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
     smtp_port: 465,
     smtp_ssl: true,
   });
+
+  const handlePresetChange = (value: string) => {
+    setPreset(value);
+    const p = EMAIL_PRESETS.find((x) => x.value === value);
+    if (p && value !== 'custom') {
+      setForm((f) => ({
+        ...f,
+        imap_host: p.imap_host,
+        imap_port: p.imap_port,
+        imap_ssl: p.imap_ssl,
+        smtp_host: p.smtp_host,
+        smtp_port: p.smtp_port,
+        smtp_ssl: p.smtp_ssl,
+      }));
+    }
+    setShowAdvanced(value === 'custom');
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -128,6 +157,19 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
             </div>
           ) : (
             <>
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-slate-500">邮箱服务商</label>
+                <select
+                  className="admin-input"
+                  value={preset}
+                  onChange={(e) => handlePresetChange(e.target.value)}
+                >
+                  {EMAIL_PRESETS.map((p) => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="mb-1.5 block text-xs font-bold uppercase tracking-[0.12em] text-slate-500">邮箱地址</label>
                 <input
