@@ -8,16 +8,18 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants = {
+  /* 品牌色只用在这里 — 主 CTA */
   primary:
-    'bg-brand-500 text-white shadow-sm hover:bg-brand-600 active:bg-brand-700',
+    'bg-brand-500 text-white shadow-button hover:bg-brand-600 active:bg-brand-700 active:scale-[0.98]',
+  /* 次要按钮：纯 slate 色系，不用品牌色 */
   secondary:
-    'bg-white text-slate-700 border border-slate-200 shadow-xs hover:bg-slate-50 active:bg-slate-100',
+    'bg-white text-slate-700 border border-slate-200 shadow-xs hover:bg-slate-50 hover:border-slate-300 active:bg-slate-100 active:scale-[0.98]',
   outline:
-    'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:text-slate-800 active:bg-slate-50',
+    'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:text-slate-800 active:bg-slate-50 active:scale-[0.98]',
   ghost:
-    'bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700',
+    'bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700 active:bg-slate-200',
   danger:
-    'bg-error-50 text-error-600 border border-error-200 hover:bg-error-100',
+    'bg-error-50 text-error-600 border border-error-200 hover:bg-error-100 active:scale-[0.98]',
 };
 
 const sizes = {
@@ -36,7 +38,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || isLoading}
         aria-busy={isLoading || undefined}
         className={cn(
-          'inline-flex items-center justify-center whitespace-nowrap transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-40',
+          'inline-flex items-center justify-center whitespace-nowrap transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-40',
           variants[variant],
           sizes[size],
           className,
