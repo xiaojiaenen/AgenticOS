@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     auth_rate_limit_window_seconds: int = Field(default=600, validation_alias="AUTH_RATE_LIMIT_WINDOW_SECONDS")
     auth_rate_limit_block_seconds: int = Field(default=900, validation_alias="AUTH_RATE_LIMIT_BLOCK_SECONDS")
 
+    # 异步子代理配置
+    async_sub_agents_enabled: bool = Field(default=True, validation_alias="ASYNC_SUB_AGENTS_ENABLED")
+
     # Redis 配置（留空则使用内存 fallback）
     redis_url: str = Field(default="", validation_alias="REDIS_URL")
     redis_cluster: bool = Field(default=False, validation_alias="REDIS_CLUSTER")
