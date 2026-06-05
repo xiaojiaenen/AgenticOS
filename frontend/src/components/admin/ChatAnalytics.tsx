@@ -43,11 +43,11 @@ export const ChatAnalytics: React.FC<ChatAnalyticsProps> = ({ timeRange }) => {
   if (loading && !data) {
     return (
       <div className="grid gap-5 lg:grid-cols-2">
-        <div className="rounded-2xl border border-white/60 bg-white/50 p-5 shadow-xl backdrop-blur-2xl">
+        <div className="rounded-lg border border-white/60 bg-white/50 p-5 shadow-md backdrop-blur-2xl">
           <div className="mb-3 h-4 w-32 animate-pulse rounded bg-slate-200" />
           <ChartSkeleton variant="area" height={200} />
         </div>
-        <div className="rounded-2xl border border-white/60 bg-white/50 p-5 shadow-xl backdrop-blur-2xl">
+        <div className="rounded-lg border border-white/60 bg-white/50 p-5 shadow-md backdrop-blur-2xl">
           <div className="mb-3 h-4 w-32 animate-pulse rounded bg-slate-200" />
           <ChartSkeleton variant="bar" height={200} />
         </div>
@@ -57,7 +57,7 @@ export const ChatAnalytics: React.FC<ChatAnalyticsProps> = ({ timeRange }) => {
 
   if (error) {
     return (
-      <div className="flex h-40 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 text-sm font-bold text-rose-600">
+      <div className="flex h-40 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-sm font-bold text-rose-600">
         {error}
       </div>
     );
@@ -81,10 +81,10 @@ export const ChatAnalytics: React.FC<ChatAnalyticsProps> = ({ timeRange }) => {
     <div className="space-y-5">
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Session Timeline */}
-        <div className="rounded-2xl border border-white/60 bg-white/50 p-5 shadow-xl backdrop-blur-2xl">
+        <div className="rounded-lg border border-white/60 bg-white/50 p-5 shadow-md backdrop-blur-2xl">
           <div className="mb-4 flex items-center gap-2">
             <BarChart3 size={16} className="text-slate-400" />
-            <h3 className="text-sm font-black text-slate-700">会话趋势</h3>
+            <h3 className="text-sm font-semibold text-slate-700">会话趋势</h3>
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={timelineData}>
@@ -106,10 +106,10 @@ export const ChatAnalytics: React.FC<ChatAnalyticsProps> = ({ timeRange }) => {
         </div>
 
         {/* Hourly Distribution */}
-        <div className="rounded-2xl border border-white/60 bg-white/50 p-5 shadow-xl backdrop-blur-2xl">
+        <div className="rounded-lg border border-white/60 bg-white/50 p-5 shadow-md backdrop-blur-2xl">
           <div className="mb-4 flex items-center gap-2">
             <Clock size={16} className="text-slate-400" />
-            <h3 className="text-sm font-black text-slate-700">时段分布</h3>
+            <h3 className="text-sm font-semibold text-slate-700">时段分布</h3>
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={hourlyData}>
@@ -134,15 +134,15 @@ export const ChatAnalytics: React.FC<ChatAnalyticsProps> = ({ timeRange }) => {
 
       {/* Mode Distribution */}
       {modeData.length > 0 && (
-        <div className="rounded-2xl border border-white/60 bg-white/50 p-5 shadow-xl backdrop-blur-2xl">
-          <h3 className="mb-4 text-sm font-black text-slate-700">模式使用分布</h3>
+        <div className="rounded-lg border border-white/60 bg-white/50 p-5 shadow-md backdrop-blur-2xl">
+          <h3 className="mb-4 text-sm font-semibold text-slate-700">模式使用分布</h3>
           <div className="flex flex-wrap gap-3">
             {modeData.map((item) => {
               const total = modeData.reduce((s, m) => s + m.count, 0);
               const pct = total > 0 ? Math.round((item.count / total) * 100) : 0;
               return (
-                <div key={item.mode} className="flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-2">
-                  <div className="text-sm font-black text-slate-800">{item.mode}</div>
+                <div key={item.mode} className="flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white px-3 py-2">
+                  <div className="text-sm font-semibold text-slate-800">{item.mode}</div>
                   <div className="text-xs font-bold text-slate-500">{formatNumber(item.count)} ({pct}%)</div>
                 </div>
               );

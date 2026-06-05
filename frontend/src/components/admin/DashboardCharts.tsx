@@ -31,7 +31,7 @@ interface DashboardChartsProps {
 
 function EmptyPanel({ label }: { label: string }) {
   return (
-    <div className="flex h-full min-h-[200px] items-center justify-center rounded-2xl border border-dashed border-white/65 bg-white/30 text-sm font-bold text-slate-500">
+    <div className="flex h-full min-h-[200px] items-center justify-center rounded-lg border border-dashed border-white/65 bg-white/30 text-sm font-bold text-slate-500">
       {label}
     </div>
   );
@@ -51,12 +51,12 @@ function PanelHeader({
   return (
     <div className="mb-5 flex items-start justify-between gap-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/80 bg-white/70 text-slate-900 shadow-sm">
+        <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white/70 text-slate-900 shadow-sm">
           <Icon size={20} />
         </div>
         <div>
           <p className="admin-section-kicker">{kicker}</p>
-          <h3 className="mt-1 text-[22px] font-black tracking-tight text-slate-950">{title}</h3>
+          <h3 className="mt-1 text-[22px] font-semibold tracking-tight text-slate-950">{title}</h3>
         </div>
       </div>
       {extra}
@@ -130,18 +130,18 @@ function UserUsageRow({
       className="admin-table-row grid grid-cols-1 gap-4 border-b border-white/55 px-5 py-4 text-center last:border-b-0 lg:grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:items-center lg:gap-0"
     >
       <div className="flex min-w-0 items-center justify-center gap-4">
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-white/75 bg-white/65 text-sm font-black text-slate-800 shadow-sm">
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-white/75 bg-white/65 text-sm font-semibold text-slate-800 shadow-sm">
           {initials(user.name)}
         </div>
         <div className="min-w-0">
           <div className="flex items-center justify-center gap-2">
-            <span className="text-xs font-black text-slate-400">#{index + 1}</span>
-            <p className="truncate text-sm font-black text-slate-900">{user.name}</p>
+            <span className="text-xs font-semibold text-slate-400">#{index + 1}</span>
+            <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
           </div>
           <p className="mt-1 truncate text-xs font-medium text-slate-500">{user.email}</p>
         </div>
       </div>
-      <div className="text-sm font-black text-slate-900">{formatTokenNumber(user.total_tokens)}</div>
+      <div className="text-sm font-semibold text-slate-900">{formatTokenNumber(user.total_tokens)}</div>
       <div className="text-sm font-bold text-slate-600">{formatNumber(user.llm_calls)}</div>
       <div className="text-sm font-bold text-slate-600">{formatNumber(user.tool_calls)}</div>
       <div className="text-sm font-bold text-slate-600">{formatLatency(user.avg_latency_ms)}</div>
@@ -211,7 +211,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
             kicker="趋势主视图"
             title="Token、运行与工具节奏"
             extra={
-              <div className="rounded-full border border-white/80 bg-white/65 px-3 py-2 text-xs font-black text-slate-500">
+              <div className="rounded-full border border-slate-200 bg-white/65 px-3 py-2 text-xs font-semibold text-slate-500">
                 最近 {trendData.length || 14} 个统计点
               </div>
             }
@@ -220,8 +220,8 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           <div className="mb-4 grid gap-3 sm:grid-cols-4">
             {trendSignals.map((item) => (
               <div key={item.label} className="admin-stat-card rounded-xl bg-white/65 px-3 py-2.5">
-                <p className="text-[10px] font-black tracking-[0.16em] text-slate-400">{item.label}</p>
-                <p className="mt-1 text-base font-black tracking-tight text-slate-950">{item.value}</p>
+                <p className="text-[10px] font-semibold tracking-[0.16em] text-slate-400">{item.label}</p>
+                <p className="mt-1 text-base font-semibold tracking-tight text-slate-950">{item.value}</p>
               </div>
             ))}
           </div>
@@ -306,14 +306,14 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <div
                 key={item.label}
                 className={cn(
-                  'admin-stat-card rounded-2xl px-4 py-3.5',
+                  'admin-stat-card rounded-lg px-4 py-3.5',
                   index < 2
                     ? 'bg-[linear-gradient(135deg,rgba(224,242,254,0.52),rgba(255,255,255,0.65))]'
                     : 'bg-[linear-gradient(135deg,rgba(233,213,255,0.28),rgba(255,255,255,0.65))]',
                 )}
               >
-                <p className="text-xs font-black tracking-[0.18em] text-slate-400">{item.label}</p>
-                <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{item.value}</p>
+                <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">{item.label}</p>
+                <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{item.value}</p>
               </div>
             ))}
           </div>
@@ -438,9 +438,9 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <EmptyPanel label="暂时还没有模型调用数据" />
             )}
           </div>
-          <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4 text-center">
-            <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计模型调用</p>
-            <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(totalModelCalls)}</p>
+          <div className="admin-stat-card rounded-lg bg-white/65 px-4 py-4 text-center">
+            <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">累计模型调用</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{formatNumber(totalModelCalls)}</p>
           </div>
           <DistributionLegend items={data.model_distribution} />
         </PanelShell>
@@ -484,10 +484,10 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           </div>
           <div className="space-y-3">
             {callMix.map((item, index) => (
-              <div key={item.name} className="admin-stat-card rounded-2xl bg-white/65 px-4 py-3">
+              <div key={item.name} className="admin-stat-card rounded-lg bg-white/65 px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-bold text-slate-700">{item.name}</span>
-                  <span className="text-base font-black text-slate-950">{formatNumber(item.value)}</span>
+                  <span className="text-base font-semibold text-slate-950">{formatNumber(item.value)}</span>
                 </div>
                 <div className="admin-progress-bar mt-3">
                   <div
@@ -548,9 +548,9 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
               <EmptyPanel label="暂时还没有工具调用数据" />
             )}
           </div>
-          <div className="admin-stat-card rounded-2xl bg-white/65 px-4 py-4 text-center">
-            <p className="text-xs font-black tracking-[0.18em] text-slate-400">累计工具调用</p>
-            <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{formatNumber(totalToolCalls)}</p>
+          <div className="admin-stat-card rounded-lg bg-white/65 px-4 py-4 text-center">
+            <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">累计工具调用</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{formatNumber(totalToolCalls)}</p>
           </div>
         </PanelShell>
       </section>

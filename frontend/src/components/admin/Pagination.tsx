@@ -33,7 +33,7 @@ export const Pagination = ({ currentPage, totalPages, onPageChange }: Pagination
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
           aria-label="上一页"
-          className="rounded-2xl border border-white/80 bg-white/80 px-3 py-2 text-xs font-bold text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:text-slate-900 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:text-slate-900 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
         >
           上一页
         </button>
@@ -45,10 +45,10 @@ export const Pagination = ({ currentPage, totalPages, onPageChange }: Pagination
               type="button"
               onClick={() => onPageChange(page)}
               aria-current={currentPage === page ? 'page' : undefined}
-              className={`flex h-9 w-9 items-center justify-center rounded-2xl text-sm font-bold transition-all duration-200 ${
+              className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold transition-all duration-200 ${
                 currentPage === page
                   ? 'border border-slate-900/80 bg-slate-900 text-white shadow-lg shadow-slate-900/15 hover:bg-slate-800'
-                  : 'border border-white/80 bg-white/80 text-slate-600 shadow-sm hover:-translate-y-0.5 hover:text-slate-900 hover:shadow-md hover:border-sky-200 active:translate-y-0'
+                  : 'border border-slate-200 bg-white text-slate-600 shadow-sm hover:-translate-y-0.5 hover:text-slate-900 hover:shadow-md hover:border-sky-200 active:translate-y-0'
               }`}
             >
               {page}
@@ -61,7 +61,7 @@ export const Pagination = ({ currentPage, totalPages, onPageChange }: Pagination
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
           aria-label="下一页"
-          className="rounded-2xl border border-white/80 bg-white/80 px-3 py-2 text-xs font-bold text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:text-slate-900 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:text-slate-900 hover:shadow-md active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
         >
           下一页
         </button>

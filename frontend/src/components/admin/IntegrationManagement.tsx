@@ -62,19 +62,19 @@ export const IntegrationManagement = () => {
       <div className="admin-page-stage space-y-5">
         <section className="admin-data-panel">
           <div className="flex items-center justify-between px-5 py-4">
-            <div><p className="admin-section-kicker">集成管理</p><h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">第三方集成</h2><p className="mt-1 text-sm text-slate-500">{enabledCount} 个已启用 / {systems.length} 个总计</p></div>
+            <div><p className="admin-section-kicker">集成管理</p><h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">第三方集成</h2><p className="mt-1 text-sm text-slate-500">{enabledCount} 个已启用 / {systems.length} 个总计</p></div>
             <div className="flex gap-2"><Button variant="secondary" onClick={openOpenApiImport} className="gap-2"><Upload size={16}/>导入 OpenAPI</Button><Button variant="primary" onClick={openCreateSystem} className="gap-2"><Plus size={16}/>新增集成</Button></div>
           </div>
-          {error && <div className="mx-5 mb-4 flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700"><AlertCircle size={16}/> {error}</div>}
-          {message && <div className="mx-5 mb-4 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{message}</div>}
+          {error && <div className="mx-5 mb-4 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700"><AlertCircle size={16}/> {error}</div>}
+          {message && <div className="mx-5 mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{message}</div>}
           {isLoading ? <div className="flex h-40 items-center justify-center gap-3 text-sm font-bold text-slate-500"><Loader2 size={18} className="animate-spin"/> 加载中</div>
            : systems.length===0 ? <div className="flex h-40 flex-col items-center justify-center gap-3 text-sm text-slate-500"><Plug size={32} className="text-slate-300"/><p className="font-bold">暂无集成</p><p>点击「新增集成」创建第一个第三方系统连接</p></div>
            : (
             <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-              <thead><tr className="border-b border-slate-200 text-xs font-black uppercase tracking-wider text-slate-400"><th className="px-5 py-3">名称</th><th className="px-5 py-3">描述</th><th className="px-5 py-3">鉴权</th><th className="px-5 py-3 text-center">接口</th><th className="px-5 py-3 text-center">状态</th><th className="px-5 py-3 text-right">操作</th></tr></thead>
+              <thead><tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-400"><th className="px-5 py-3">名称</th><th className="px-5 py-3">描述</th><th className="px-5 py-3">鉴权</th><th className="px-5 py-3 text-center">接口</th><th className="px-5 py-3 text-center">状态</th><th className="px-5 py-3 text-right">操作</th></tr></thead>
               <tbody>{systems.map(sys=>{const Icon=authTypeIcon(sys.auth_type);return(
-                <motion.tr key={sys.id} initial={{opacity:0}} animate={{opacity:1}} className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-white/60" onClick={()=>setSelectedSystem(sys)}>
-                  <td className="px-5 py-3.5"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/70 bg-white/70 text-slate-600 shadow-sm"><Icon size={18}/></div><div><p className="font-black text-slate-900">{sys.name}</p><p className="text-xs text-slate-400">{sys.base_url}</p></div></div></td>
+                <motion.tr key={sys.id} initial={{opacity:0}} animate={{opacity:1}} className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-white/80" onClick={()=>setSelectedSystem(sys)}>
+                  <td className="px-5 py-3.5"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-white/70 text-slate-600 shadow-sm"><Icon size={18}/></div><div><p className="font-semibold text-slate-900">{sys.name}</p><p className="text-xs text-slate-400">{sys.base_url}</p></div></div></td>
                   <td className="max-w-[200px] truncate px-5 py-3.5 text-slate-600">{sys.description||"-"}</td>
                   <td className="px-5 py-3.5"><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">{authTypeLabel(sys.auth_type)}</span></td>
                   <td className="px-5 py-3.5 text-center font-bold text-slate-700">{sys.api_count}</td>
@@ -88,15 +88,15 @@ export const IntegrationManagement = () => {
           <div className="admin-modal-shell" onMouseDown={() => setOpenApiModal(false)}>
             <motion.div initial={{opacity:0,y:24,scale:0.96}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:24,scale:0.96}} transition={{duration:0.22}} onMouseDown={e=>e.stopPropagation()} className="admin-solid-panel admin-modal-panel flex max-h-[min(88vh,900px)] w-full max-w-2xl flex-col overflow-hidden">
               <div className="flex items-center justify-between px-6 pt-5 pb-0">
-                <div><p className="admin-section-kicker">快速导入</p><h3 className="mt-1.5 text-xl font-black tracking-tight text-slate-900">从 OpenAPI 导入</h3></div>
-                <button type="button" onClick={() => setOpenApiModal(false)} className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"><X size={19}/></button>
+                <div><p className="admin-section-kicker">快速导入</p><h3 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">从 OpenAPI 导入</h3></div>
+                <button type="button" onClick={() => setOpenApiModal(false)} className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"><X size={19}/></button>
               </div>
               <div className="flex-1 overflow-y-auto px-6 pt-5 pb-6 space-y-4">
                 <Field label="OpenAPI JSON 或 URL"><textarea className="admin-input min-h-[120px] resize-y font-mono text-xs" value={openApiInput} onChange={e => setOpenApiInput(e.target.value)} placeholder="粘贴 OpenAPI JSON 内容或输入 URL..." /></Field>
                 <Button variant="primary" onClick={handlePreviewOpenApi} disabled={openApiLoading || !openApiInput.trim()} className="gap-2 w-full">{openApiLoading ? <Loader2 size={16} className="animate-spin"/> : <Upload size={16}/>}解析预览</Button>
                 {openApiPreview && (
-                  <div className="rounded-2xl border border-sky-100 bg-sky-50/50 p-4 space-y-2">
-                    <p className="font-black text-slate-900">{openApiPreview.system_name}</p>
+                  <div className="rounded-lg border border-sky-100 bg-sky-50/50 p-4 space-y-2">
+                    <p className="font-semibold text-slate-900">{openApiPreview.system_name}</p>
                     <p className="text-sm text-slate-500">{openApiPreview.system_description}</p>
                     <div className="flex items-center gap-4 text-xs text-slate-600">
                       <span>Base URL: <span className="font-mono">{openApiPreview.base_url}</span></span>
@@ -106,7 +106,7 @@ export const IntegrationManagement = () => {
                     <div className="max-h-[200px] overflow-y-auto space-y-1">
                       {openApiPreview.apis.map((a: any, i: number) => (
                         <div key={i} className="flex items-center gap-2 text-xs">
-                          <span className={cn("rounded-lg px-1.5 py-0.5 font-black", methodBadgeColor(a.method))}>{a.method}</span>
+                          <span className={cn("rounded-lg px-1.5 py-0.5 font-semibold", methodBadgeColor(a.method))}>{a.method}</span>
                           <span className="font-mono text-slate-600">{a.path}</span>
                           <span className="text-slate-400">{a.display_name}</span>
                         </div>
@@ -135,18 +135,18 @@ export const IntegrationManagement = () => {
       <section className="admin-data-panel">
         <div className="flex items-center gap-3 px-5 py-4">
           <Button variant="ghost" size="icon" onClick={()=>{setSelectedSystem(null);setApis([]);}}><ChevronLeft size={20}/></Button>
-          <div className="flex-1"><p className="admin-section-kicker">集成详情</p><h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">{selectedSystem.name}</h2><p className="mt-0.5 text-sm text-slate-500">{selectedSystem.description||selectedSystem.base_url}</p></div>
+          <div className="flex-1"><p className="admin-section-kicker">集成详情</p><h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{selectedSystem.name}</h2><p className="mt-0.5 text-sm text-slate-500">{selectedSystem.description||selectedSystem.base_url}</p></div>
           <Button variant="primary" onClick={openCreateApi} className="gap-2"><Plus size={16}/>新增接口</Button>
         </div>
-        {error && <div className="mx-5 mb-4 flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700"><AlertCircle size={16}/> {error}</div>}
+        {error && <div className="mx-5 mb-4 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700"><AlertCircle size={16}/> {error}</div>}
         {apis.length===0 ? <div className="flex h-40 flex-col items-center justify-center gap-3 text-sm text-slate-500"><ExternalLink size={32} className="text-slate-300"/><p className="font-bold">暂无接口</p><p>为 {selectedSystem.name} 定义可用的 API 接口</p></div>
         : (
           <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-            <thead><tr className="border-b border-slate-200 text-xs font-black uppercase tracking-wider text-slate-400"><th className="px-5 py-3">接口</th><th className="px-5 py-3">方法</th><th className="px-5 py-3">路径</th><th className="px-5 py-3 text-center">参数</th><th className="px-5 py-3 text-center">审批</th><th className="px-5 py-3 text-right">操作</th></tr></thead>
+            <thead><tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-400"><th className="px-5 py-3">接口</th><th className="px-5 py-3">方法</th><th className="px-5 py-3">路径</th><th className="px-5 py-3 text-center">参数</th><th className="px-5 py-3 text-center">审批</th><th className="px-5 py-3 text-right">操作</th></tr></thead>
             <tbody>{apis.map(api=>(
-              <motion.tr key={api.id} initial={{opacity:0}} animate={{opacity:1}} className="border-b border-slate-100 transition-colors hover:bg-white/60">
+              <motion.tr key={api.id} initial={{opacity:0}} animate={{opacity:1}} className="border-b border-slate-100 transition-colors hover:bg-white/80">
                 <td className="px-5 py-3.5"><p className="font-bold text-slate-900">{api.display_name}</p><p className="text-xs text-slate-400">{api.name}</p></td>
-                <td className="px-5 py-3.5"><span className={cn("rounded-lg px-2 py-1 text-xs font-black",methodBadgeColor(api.method))}>{api.method}</span></td>
+                <td className="px-5 py-3.5"><span className={cn("rounded-lg px-2 py-1 text-xs font-semibold",methodBadgeColor(api.method))}>{api.method}</span></td>
                 <td className="max-w-[250px] truncate px-5 py-3.5 font-mono text-xs text-slate-600">{api.path}</td>
                 <td className="px-5 py-3.5 text-center font-bold text-slate-700">{api.params.length}</td>
                 <td className="px-5 py-3.5 text-center">{api.requires_approval&&<span className="rounded-lg bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">需审批</span>}</td>
@@ -189,8 +189,8 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
     <div className="admin-modal-shell" onMouseDown={onClose}>
       <motion.div initial={{opacity:0,y:24,scale:0.96}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:24,scale:0.96}} transition={{duration:0.22}} onMouseDown={e=>e.stopPropagation()} className="admin-solid-panel admin-modal-panel flex max-h-[min(88vh,900px)] w-full max-w-xl flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 pt-5 pb-0">
-          <div><p className="admin-section-kicker">集成配置</p><h3 className="mt-1.5 text-xl font-black tracking-tight text-slate-900">{draft.id?"编辑集成":"新增集成"}</h3></div>
-          <button type="button" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"><X size={19}/></button>
+          <div><p className="admin-section-kicker">集成配置</p><h3 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">{draft.id?"编辑集成":"新增集成"}</h3></div>
+          <button type="button" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"><X size={19}/></button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 pt-5 pb-6 space-y-5">
           <SectionTitle title="基本信息"/>
@@ -204,8 +204,8 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
           <Field label="鉴权类型"><select className="admin-input" value={draft.auth_type} onChange={e=>setDraft({...draft,auth_type:e.target.value})}>{AUTH_TYPES.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}</select></Field>
 
           {draft.auth_type==="oauth2"&&(
-            <div className="rounded-2xl border border-sky-100 bg-sky-50/50 p-4 space-y-3">
-              <p className="text-xs font-black tracking-wider text-sky-500 uppercase">OAuth 2.0 配置</p>
+            <div className="rounded-lg border border-sky-100 bg-sky-50/50 p-4 space-y-3">
+              <p className="text-xs font-semibold tracking-wider text-sky-500 uppercase">OAuth 2.0 配置</p>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <Field label="Client ID" required><input className="admin-input font-mono text-sm" value={draft.oauth_client_id||""} onChange={e=>setDraft({...draft,oauth_client_id:e.target.value})} placeholder="应用 Client ID"/></Field>
                 <Field label="Client Secret" required><input className="admin-input font-mono text-sm" type="password" value={draft.oauth_client_secret||""} onChange={e=>setDraft({...draft,oauth_client_secret:e.target.value})} placeholder="应用 Client Secret"/></Field>
@@ -220,8 +220,8 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
           )}
 
           {draft.auth_type==="jwt_login"&&(
-            <div className="rounded-2xl border border-violet-100 bg-violet-50/50 p-4 space-y-3">
-              <p className="text-xs font-black tracking-wider text-violet-500 uppercase">JWT 登录配置</p>
+            <div className="rounded-lg border border-violet-100 bg-violet-50/50 p-4 space-y-3">
+              <p className="text-xs font-semibold tracking-wider text-violet-500 uppercase">JWT 登录配置</p>
               <Field label="登录地址" required><input className="admin-input font-mono text-sm" value={draft.jwt_login_url||""} onChange={e=>setDraft({...draft,jwt_login_url:e.target.value})} placeholder="https://api.internal.com/auth/login"/></Field>
               <Field label="刷新地址"><input className="admin-input font-mono text-sm" value={draft.jwt_refresh_url||""} onChange={e=>setDraft({...draft,jwt_refresh_url:e.target.value})} placeholder="https://api.internal.com/auth/refresh (可选)"/></Field>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -258,7 +258,7 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
             <p className="mb-3 text-xs text-slate-400">定义用户连接此系统时需要填写的凭据信息</p>
             {credFields.length===0 && <p className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">暂无凭据字段</p>}
             {credFields.map((f,i)=>(
-              <div key={i} className="mb-2 rounded-2xl border border-slate-200 bg-white/60 p-3">
+              <div key={i} className="mb-2 rounded-lg border border-slate-200 bg-white/80 p-3">
                 <div className="grid grid-cols-4 gap-2">
                   <input className="admin-input text-sm" placeholder="字段标识 (key)" value={f.key} onChange={e=>updateCredField(i,"key",e.target.value)}/>
                   <input className="admin-input text-sm" placeholder="显示名称" value={f.label} onChange={e=>updateCredField(i,"label",e.target.value)}/>
@@ -296,8 +296,8 @@ function ApiModal({draft,setDraft,onSave,onClose,isSaving}:{draft:ApiDraft;setDr
     <div className="admin-modal-shell" onMouseDown={onClose}>
       <motion.div initial={{opacity:0,y:24,scale:0.96}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:24,scale:0.96}} transition={{duration:0.22}} onMouseDown={e=>e.stopPropagation()} className="admin-solid-panel admin-modal-panel flex max-h-[min(88vh,900px)] w-full max-w-2xl flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 pt-5 pb-0">
-          <div><p className="admin-section-kicker">接口配置</p><h3 className="mt-1.5 text-xl font-black tracking-tight text-slate-900">{draft.id?"编辑接口":"新增接口"}</h3></div>
-          <button type="button" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"><X size={19}/></button>
+          <div><p className="admin-section-kicker">接口配置</p><h3 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">{draft.id?"编辑接口":"新增接口"}</h3></div>
+          <button type="button" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"><X size={19}/></button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 pt-5 pb-6 space-y-5">
           <SectionTitle title="基本信息"/>
@@ -322,7 +322,7 @@ function ApiModal({draft,setDraft,onSave,onClose,isSaving}:{draft:ApiDraft;setDr
             <div className="mb-2 flex items-center justify-between"><span className="text-sm font-bold text-slate-700">请求参数</span><button type="button" onClick={addParam} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-sky-600 transition-colors hover:bg-sky-50"><Plus size={13}/>添加</button></div>
             {draft.params.length===0&&<p className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">暂无参数</p>}
             {draft.params.map((p,i)=>(
-              <div key={i} className="mb-2 rounded-2xl border border-slate-200 bg-white/60 p-3">
+              <div key={i} className="mb-2 rounded-lg border border-slate-200 bg-white/80 p-3">
                 <div className="grid grid-cols-4 gap-2">
                   <input className="admin-input text-sm" placeholder="参数名" value={p.name} onChange={e=>updateParam(i,"name",e.target.value)}/>
                   <select className="admin-input text-sm" value={p.param_type} onChange={e=>updateParam(i,"param_type",e.target.value)}><option value="path">path</option><option value="query">query</option><option value="body">body</option></select>
@@ -349,15 +349,15 @@ function TestDrawer({state,api,onClose,onParamChange,onRun}:{state:TestState;api
   return(
     <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex justify-end bg-black/20">
       <motion.div initial={{x:400}} animate={{x:0}} className="h-full w-full max-w-md overflow-y-auto border-l border-white/60 bg-white p-6 shadow-2xl">
-        <div className="flex items-center justify-between"><h3 className="text-lg font-black text-slate-900">测试: {api.display_name}</h3><Button variant="ghost" size="icon" onClick={onClose}><X size={18}/></Button></div>
+        <div className="flex items-center justify-between"><h3 className="text-lg font-semibold text-slate-900">测试: {api.display_name}</h3><Button variant="ghost" size="icon" onClick={onClose}><X size={18}/></Button></div>
         <div className="mt-5 space-y-3">
           {api.params.map(p=>(<Field key={p.name} label={p.name} required={p.required}><input className="admin-input text-sm" value={state.params[p.name]||""} onChange={e=>onParamChange(p.name,e.target.value)} placeholder={p.description||p.name}/></Field>))}
           <Button variant="primary" onClick={onRun} disabled={state.loading} className="gap-2 w-full">{state.loading?<Loader2 size={16} className="animate-spin"/>:<TestTube size={16}/>}发送请求</Button>
         </div>
         {state.result&&(
           <div className="mt-5">
-            <div className={cn("rounded-2xl border p-4",state.result.success?"border-emerald-200 bg-emerald-50":"border-rose-200 bg-rose-50")}>
-              <div className="flex items-center justify-between"><span className={cn("text-sm font-black",state.result.success?"text-emerald-700":"text-rose-700")}>{state.result.success?"成功":"失败"} {state.result.status_code>0&&`(${state.result.status_code})`}</span><span className="text-xs text-slate-500">{state.result.elapsed_ms}ms</span></div>
+            <div className={cn("rounded-lg border p-4",state.result.success?"border-emerald-200 bg-emerald-50":"border-rose-200 bg-rose-50")}>
+              <div className="flex items-center justify-between"><span className={cn("text-sm font-semibold",state.result.success?"text-emerald-700":"text-rose-700")}>{state.result.success?"成功":"失败"} {state.result.status_code>0&&`(${state.result.status_code})`}</span><span className="text-xs text-slate-500">{state.result.elapsed_ms}ms</span></div>
               <pre className="mt-3 max-h-[300px] overflow-auto rounded-xl bg-slate-900 p-3 text-xs text-slate-100">{state.result.body}</pre>
             </div>
           </div>
@@ -368,7 +368,7 @@ function TestDrawer({state,api,onClose,onParamChange,onRun}:{state:TestState;api
 }
 
 function Field({label,required,children}:{label:string;required?:boolean;children:React.ReactNode}){return(<div><label className="mb-1 block text-sm font-bold text-slate-700">{label} {required&&<span className="text-rose-500">*</span>}</label>{children}</div>);}
-function SectionTitle({title}:{title:string}){return(<div className="flex items-center gap-3"><span className="text-xs font-black tracking-[0.2em] uppercase text-slate-400">{title}</span><div className="flex-1 border-t border-slate-100"/></div>);}
+function SectionTitle({title}:{title:string}){return(<div className="flex items-center gap-3"><span className="text-xs font-semibold tracking-[0.2em] uppercase text-slate-400">{title}</span><div className="flex-1 border-t border-slate-100"/></div>);}
 
 function AdvancedAuthPanel({aa,onChange}:{aa:Record<string,any>,onChange:(v:Record<string,any>)=>void}){
   const [open,setOpen]=useState(false);
@@ -383,7 +383,7 @@ function AdvancedAuthPanel({aa,onChange}:{aa:Record<string,any>,onChange:(v:Reco
   const hasEnc=enc.algorithm&&enc.algorithm!=="none";
   const hasDec=dec.algorithm&&dec.algorithm!=="none";
   return(
-    <div className="rounded-2xl border border-slate-200 overflow-hidden">
+    <div className="rounded-lg border border-slate-200 overflow-hidden">
       <button type="button" onClick={()=>setOpen(!open)} className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-slate-50">
         <span className="text-sm font-bold text-slate-700">🔒 签名 / 加密 / 解密</span>
         <span className="text-xs text-slate-400">{open?"收起":"展开"}{hasSign||hasEnc||hasDec?" · 已配置":""}</span>
@@ -392,7 +392,7 @@ function AdvancedAuthPanel({aa,onChange}:{aa:Record<string,any>,onChange:(v:Reco
       <div className="space-y-5 border-t border-slate-100 px-4 py-4">
         {/* ── Signing ── */}
         <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-3.5 space-y-3">
-          <p className="text-xs font-black tracking-wider text-amber-600 uppercase">请求签名</p>
+          <p className="text-xs font-semibold tracking-wider text-amber-600 uppercase">请求签名</p>
           <Field label="签名算法"><select className="admin-input text-sm" value={sign.algorithm||"none"} onChange={e=>set("sign","algorithm",e.target.value)}>{SIGN_ALGOS.map(a=><option key={a.v} value={a.v}>{a.l}</option>)}</select></Field>
           {hasSign&&(<>
             <Field label={sign.algorithm?.startsWith("rsa")?"RSA 私钥 (PEM)":"签名密钥"}><textarea className="admin-input min-h-[56px] resize-y font-mono text-xs" value={sign.secret||""} onChange={e=>set("sign","secret",e.target.value)} placeholder={sign.algorithm?.startsWith("rsa")?"-----BEGIN PRIVATE KEY-----\n...":"输入密钥"}/></Field>
@@ -406,7 +406,7 @@ function AdvancedAuthPanel({aa,onChange}:{aa:Record<string,any>,onChange:(v:Reco
         </div>
         {/* ── Request Encryption ── */}
         <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-3.5 space-y-3">
-          <p className="text-xs font-black tracking-wider text-sky-600 uppercase">请求加密</p>
+          <p className="text-xs font-semibold tracking-wider text-sky-600 uppercase">请求加密</p>
           <Field label="加密算法"><select className="admin-input text-sm" value={enc.algorithm||"none"} onChange={e=>set("request_encrypt","algorithm",e.target.value)}>{AES_ALGOS.map(a=><option key={a.v} value={a.v}>{a.l}</option>)}</select></Field>
           {hasEnc&&(<>
             <div className="grid grid-cols-2 gap-3">
@@ -421,7 +421,7 @@ function AdvancedAuthPanel({aa,onChange}:{aa:Record<string,any>,onChange:(v:Reco
         </div>
         {/* ── Response Decryption ── */}
         <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3.5 space-y-3">
-          <p className="text-xs font-black tracking-wider text-emerald-600 uppercase">响应解密</p>
+          <p className="text-xs font-semibold tracking-wider text-emerald-600 uppercase">响应解密</p>
           <Field label="解密算法"><select className="admin-input text-sm" value={dec.algorithm||"none"} onChange={e=>set("response_decrypt","algorithm",e.target.value)}>{AES_ALGOS.map(a=><option key={a.v} value={a.v}>{a.l}</option>)}</select></Field>
           {hasDec&&(<>
             <div className="grid grid-cols-2 gap-3">
@@ -437,7 +437,7 @@ function AdvancedAuthPanel({aa,onChange}:{aa:Record<string,any>,onChange:(v:Reco
         {/* ── Common Params ── */}
         {(hasSign||hasEnc)&&(
         <div className="rounded-xl border border-slate-200 bg-slate-50/40 p-3.5 space-y-3">
-          <p className="text-xs font-black tracking-wider text-slate-500 uppercase">公共参数</p>
+          <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase">公共参数</p>
           <div className="grid grid-cols-3 gap-3">
             <Field label="时间戳字段名"><input className="admin-input text-sm" value={common.timestamp_field||""} onChange={e=>set("common","timestamp_field",e.target.value)} placeholder="timestamp"/></Field>
             <Field label="时间戳格式"><select className="admin-input text-sm" value={common.timestamp_format||"unix"} onChange={e=>set("common","timestamp_format",e.target.value)}><option value="unix">Unix 时间戳</option><option value="iso8601">ISO 8601</option></select></Field>

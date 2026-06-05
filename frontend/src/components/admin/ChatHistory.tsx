@@ -75,7 +75,7 @@ function AdminMarkdown({ text }: { text: string }) {
             </a>
           ),
           pre: ({ children }) => (
-            <pre className="visible-scrollbar overflow-x-auto rounded-2xl border border-slate-200/70 bg-slate-950/95 p-4 text-slate-100 shadow-none">
+            <pre className="visible-scrollbar overflow-x-auto rounded-lg border border-slate-200/70 bg-slate-950/95 p-4 text-slate-100 shadow-none">
               {children}
             </pre>
           ),
@@ -100,8 +100,8 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
   return (
     <div className="mt-3 space-y-3">
       {message.reasoning_text && (
-        <details className="group rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
-          <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-black tracking-[0.14em] text-slate-500">
+        <details className="group rounded-lg border border-slate-200/80 bg-slate-50/80 px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-semibold tracking-[0.08em] text-slate-500">
             <BrainCircuit size={14} />
             思考过程
           </summary>
@@ -115,18 +115,18 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
         <details
           key={`${message.id}-call-${tool.id || tool.name}`}
           open
-          className="group rounded-2xl border border-sky-100 bg-sky-50/55 px-4 py-3 [&_summary::-webkit-details-marker]:hidden"
+          className="group rounded-lg border border-sky-100 bg-sky-50/55 px-4 py-3 [&_summary::-webkit-details-marker]:hidden"
         >
           <summary className="flex cursor-pointer select-none items-center justify-between gap-3">
             <span className="flex min-w-0 items-center gap-2">
               <Wrench size={14} className="text-sky-700" />
-              <span className="truncate font-mono text-xs font-black uppercase tracking-[0.14em] text-sky-800">
+              <span className="truncate font-mono text-xs font-semibold uppercase tracking-[0.08em] text-sky-800">
                 {tool.name}
               </span>
             </span>
-            <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-black text-sky-600">调用参数</span>
+            <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-sky-600">调用参数</span>
           </summary>
-          <pre className="visible-scrollbar mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-white/80 bg-white/82 p-3 text-xs font-medium leading-5 text-slate-600">
+          <pre className="visible-scrollbar mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-white p-3 text-xs font-medium leading-5 text-slate-600">
             {formatJson(tool.arguments)}
           </pre>
         </details>
@@ -139,22 +139,22 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
             key={`${message.id}-result-${result.tool_call_id || result.name || result.result.slice(0, 12)}`}
             open
             className={cn(
-              'group rounded-2xl border px-4 py-3 [&_summary::-webkit-details-marker]:hidden',
+              'group rounded-lg border px-4 py-3 [&_summary::-webkit-details-marker]:hidden',
               isError ? 'border-rose-100 bg-rose-50/70' : 'border-violet-100 bg-violet-50/60',
             )}
           >
             <summary className="flex cursor-pointer select-none items-center justify-between gap-3">
               <span className="flex min-w-0 items-center gap-2">
                 <Wrench size={14} className={isError ? 'text-rose-700' : 'text-violet-700'} />
-                <span className={cn('truncate text-xs font-black tracking-[0.14em]', isError ? 'text-rose-800' : 'text-violet-800')}>
+                <span className={cn('truncate text-xs font-semibold tracking-[0.08em]', isError ? 'text-rose-800' : 'text-violet-800')}>
                   {result.name || result.tool_call_id || '工具返回结果'}
                 </span>
               </span>
-              <span className={cn('rounded-full bg-white/80 px-2 py-1 text-[10px] font-black', isError ? 'text-rose-600' : 'text-violet-600')}>
+              <span className={cn('rounded-full bg-white px-2 py-1 text-[10px] font-semibold', isError ? 'text-rose-600' : 'text-violet-600')}>
                 {isError ? '失败' : '结果'}
               </span>
             </summary>
-            <pre className="visible-scrollbar mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-white/80 bg-white/84 p-3 text-xs font-medium leading-5 text-slate-700">
+            <pre className="visible-scrollbar mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-white/84 p-3 text-xs font-medium leading-5 text-slate-700">
               {result.result || '工具没有返回可展示内容。'}
             </pre>
           </details>
@@ -292,18 +292,18 @@ export const ChatHistory = () => {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="admin-section-kicker">聊天记录</p>
-            <h2 className="mt-1.5 text-xl font-black tracking-tight text-slate-950">会话列表</h2>
+            <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-950">会话列表</h2>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="admin-kpi-pill">
-              共 <span className="font-black text-slate-900">{total}</span> 条
+              共 <span className="font-semibold text-slate-900">{total}</span> 条
             </div>
             <div className="admin-kpi-pill">
-              Token <span className="font-black text-slate-900">{formatNumber(pageTotals.tokens)}</span>
+              Token <span className="font-semibold text-slate-900">{formatNumber(pageTotals.tokens)}</span>
             </div>
             <div className="admin-kpi-pill">
-              模型/工具 <span className="font-black text-slate-900">{formatNumber(pageTotals.calls)}/{formatNumber(pageTotals.tools)}</span>
+              模型/工具 <span className="font-semibold text-slate-900">{formatNumber(pageTotals.calls)}/{formatNumber(pageTotals.tools)}</span>
             </div>
             <Button variant="secondary" onClick={loadData} disabled={isLoading} size="sm" className="gap-1.5">
               {isLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
@@ -314,7 +314,7 @@ export const ChatHistory = () => {
       </section>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">
+        <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">
           <AlertCircle size={16} />
           {error}
         </div>
@@ -336,7 +336,7 @@ export const ChatHistory = () => {
         <div className="admin-panel-toolbar">
           <div className="text-center lg:text-left">
             <p className="admin-section-kicker">会话目录</p>
-            <h3 className="mt-1.5 text-base font-black tracking-tight text-slate-900">按用户、摘要或 Session 检索</h3>
+            <h3 className="mt-1.5 text-base font-semibold tracking-tight text-slate-900">按用户、摘要或 Session 检索</h3>
           </div>
 
           <div className="flex w-full flex-col gap-2.5 lg:w-auto lg:flex-row lg:items-center">
@@ -379,7 +379,7 @@ export const ChatHistory = () => {
                 className="admin-table-row grid grid-cols-1 gap-3 border-b border-slate-100/60 px-4 py-3 text-center xl:grid-cols-[minmax(220px,1.15fr)_minmax(280px,1.9fr)_90px_110px_120px_140px_130px] xl:items-center xl:gap-0"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-slate-900">{item.user_name || '未知用户'}</p>
+                  <p className="truncate text-sm font-semibold text-slate-900">{item.user_name || '未知用户'}</p>
                   <p className="mt-1 truncate text-xs font-medium text-slate-500">{item.user_email || item.session_id}</p>
                   {item.agent_profile_name && (
                     <span className="mt-1 inline-block truncate rounded-full border border-indigo-200/70 bg-indigo-50/80 px-2.5 py-0.5 text-[11px] font-bold text-indigo-600">
@@ -389,12 +389,12 @@ export const ChatHistory = () => {
                 </div>
 
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-slate-900">{item.summary || item.first_message || '暂无摘要'}</p>
+                  <p className="truncate text-sm font-semibold text-slate-900">{item.summary || item.first_message || '暂无摘要'}</p>
                   <p className="mt-1 truncate text-xs font-medium text-slate-500">{item.last_message || '暂无最新消息'}</p>
                 </div>
 
-                <div className="text-sm font-black text-slate-900">{formatNumber(item.message_count)}</div>
-                <div className="text-sm font-black text-slate-900">{formatNumber(item.total_tokens)}</div>
+                <div className="text-sm font-semibold text-slate-900">{formatNumber(item.message_count)}</div>
+                <div className="text-sm font-semibold text-slate-900">{formatNumber(item.total_tokens)}</div>
                 <div className="text-sm font-bold text-slate-600">
                   {formatNumber(item.llm_calls)} / {formatNumber(item.tool_calls)}
                 </div>
@@ -408,7 +408,7 @@ export const ChatHistory = () => {
                     variant="secondary"
                     size="sm"
                     onClick={() => openDetail(item.session_id)}
-                    className="gap-2 bg-white/85"
+                    className="gap-2 bg-white"
                   >
                     <Eye size={15} />
                     详情
@@ -428,10 +428,10 @@ export const ChatHistory = () => {
             ))
           ) : (
             <div className="flex h-[460px] flex-col items-center justify-center text-center">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/70 bg-white/70 text-slate-400 shadow-sm">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200/80 bg-white/70 text-slate-400 shadow-sm">
                 <MessageSquare size={20} />
               </div>
-              <p className="text-sm font-black text-slate-600">没有找到会话记录</p>
+              <p className="text-sm font-semibold text-slate-600">没有找到会话记录</p>
               <p className="mt-1 text-xs font-medium text-slate-400">新的会话会自动汇总到这里</p>
             </div>
           )}
@@ -463,7 +463,7 @@ export const ChatHistory = () => {
               <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
                 <div>
                   <p className="admin-section-kicker">会话详情</p>
-                  <h3 className="mt-1.5 text-xl font-black tracking-tight text-slate-900">
+                  <h3 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">
                     {detail?.user_name || detail?.user_email || detailSessionId}
                   </h3>
                   <p className="mt-1.5 text-xs font-medium text-slate-500">{detail?.session_id || detailSessionId}</p>
@@ -471,7 +471,7 @@ export const ChatHistory = () => {
                 <button
                   type="button"
                   onClick={closeDetail}
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
                 >
                   <X size={18} />
                 </button>
@@ -485,12 +485,12 @@ export const ChatHistory = () => {
                       正在加载详情
                     </div>
                   ) : detailError ? (
-                    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                    <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                       {detailError}
                     </div>
                   ) : detail ? (
                     <div className="space-y-4">
-                      <div className="rounded-2xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.72))] p-4 shadow-sm">
+                      <div className="rounded-lg border border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.72))] p-4 shadow-sm">
                         <p className="admin-section-kicker">摘要</p>
                         <p className="mt-2.5 text-sm font-medium leading-6 text-slate-600">{detail.summary || '暂无摘要'}</p>
                       </div>
@@ -502,14 +502,14 @@ export const ChatHistory = () => {
                           { label: '模型调用', value: formatNumber(detail.llm_calls) },
                           { label: '工具调用', value: formatNumber(detail.tool_calls) },
                         ].map((item) => (
-                          <div key={item.label} className="admin-stat-card rounded-2xl bg-white/80 px-3.5 py-3.5">
-                            <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">{item.label}</p>
-                            <p className="mt-1.5 text-xl font-black text-slate-900">{item.value}</p>
+                          <div key={item.label} className="admin-stat-card rounded-lg bg-white px-3.5 py-3.5">
+                            <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-400">{item.label}</p>
+                            <p className="mt-1.5 text-xl font-semibold text-slate-900">{item.value}</p>
                           </div>
                         ))}
                       </div>
 
-                      <div className="rounded-2xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.72))] p-4 shadow-sm">
+                      <div className="rounded-lg border border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.72))] p-4 shadow-sm">
                         <p className="admin-section-kicker">会话信息</p>
                         <div className="mt-2.5 space-y-2 text-sm font-medium text-slate-600">
                           <p>用户：{detail.user_name || '-'}</p>
@@ -531,10 +531,10 @@ export const ChatHistory = () => {
                   <div className="mb-4 flex items-center justify-between">
                     <div>
                       <p className="admin-section-kicker">消息时间线</p>
-                      <h4 className="mt-1 text-base font-black text-slate-900">完整会话内容</h4>
+                      <h4 className="mt-1 text-base font-semibold text-slate-900">完整会话内容</h4>
                     </div>
                     {detail && (
-                      <div className="rounded-full border border-white/80 bg-white/80 px-3 py-1 text-xs font-black text-slate-500">
+                      <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500">
                         已加载 {detail.messages.length} / {detail.message_count} 条
                       </div>
                     )}
@@ -546,15 +546,15 @@ export const ChatHistory = () => {
                       正在加载消息
                     </div>
                   ) : detailError ? (
-                    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                    <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                       {detailError}
                     </div>
                   ) : detail && detail.messages.length > 0 ? (
                     <div className="space-y-3">
                       {detail.messages.map((message) => (
-                        <div key={message.id} className="rounded-2xl border border-white/80 bg-white/82 p-3.5">
+                        <div key={message.id} className="rounded-lg border border-slate-200 bg-white p-3.5">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${roleTone(message.role)}`}>
+                            <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${roleTone(message.role)}`}>
                               {roleLabel(message.role)}
                             </span>
                             <span className="text-xs font-medium text-slate-400">{formatApiDateTime(message.created_at)}</span>
@@ -574,7 +574,7 @@ export const ChatHistory = () => {
                             variant="secondary"
                             onClick={loadMoreDetailMessages}
                             disabled={detailMessagesLoading}
-                            className="gap-2 bg-white/85"
+                            className="gap-2 bg-white"
                           >
                             {detailMessagesLoading && <Loader2 size={16} className="animate-spin" />}
                             加载更多消息
@@ -583,7 +583,7 @@ export const ChatHistory = () => {
                       )}
                     </div>
                   ) : detail ? (
-                    <div className="flex h-56 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/50 text-sm font-bold text-slate-400">
+                    <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white/50 text-sm font-bold text-slate-400">
                       这条会话还没有可展示的消息内容
                     </div>
                   ) : null}

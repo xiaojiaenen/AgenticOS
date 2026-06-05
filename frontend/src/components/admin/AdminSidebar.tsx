@@ -49,19 +49,19 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
       exit={isMobile ? { x: -300 } : { width: 0 }}
       transition={{ type: 'spring', damping: 30, stiffness: 300 }}
       className={cn(
-        'relative z-20 flex h-full flex-shrink-0 flex-col overflow-hidden border-r border-white/70 bg-[var(--admin-sidebar-bg)] shadow-[10px_0_36px_rgba(15,23,42,0.06)] ring-1 ring-white/50 backdrop-blur-2xl',
+        'relative z-20 flex h-full flex-shrink-0 flex-col overflow-hidden border-r border-slate-200/80 bg-[var(--admin-sidebar-bg)] shadow-[10px_0_36px_rgba(15,23,42,0.06)] ring-1 ring-white/50 backdrop-blur-2xl',
         isMobile ? 'fixed inset-y-0 left-0 w-[296px] shadow-2xl' : 'w-[296px]',
         !isOpen && !isMobile && 'hidden',
       )}
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-br from-[var(--admin-accent-soft)] to-transparent" />
 
-      <div className="relative z-10 flex items-center justify-between border-b border-white/70 px-4 py-4">
+      <div className="relative z-10 flex items-center justify-between border-b border-slate-200/80 px-4 py-4">
         <Logo iconSize={22} className="text-lg" />
         <button
           type="button"
           onClick={onClose}
-          className="rounded-xl p-2 text-slate-400 transition-all hover:bg-white/80 hover:text-slate-700 hover:shadow-sm active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
+          className="rounded-xl p-2 text-slate-400 transition-all hover:bg-white hover:text-slate-700 hover:shadow-sm active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
           aria-label="关闭导航"
         >
           <MenuIcon size={20} />
@@ -86,7 +86,7 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
                 {active && (
                   <motion.span
                     layoutId="admin-active-nav"
-                    className="absolute inset-0 rounded-2xl bg-[var(--admin-card-bg)] border-l-3 border-l-[var(--admin-accent)] shadow-md"
+                    className="absolute inset-0 rounded-lg bg-[var(--admin-card-bg)] border-l-3 border-l-[var(--admin-accent)] shadow-md"
                     transition={{ type: 'spring', damping: 28, stiffness: 380 }}
                   />
                 )}
@@ -95,13 +95,13 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
                     'admin-nav-icon',
                     active
                       ? 'border-zinc-900 bg-zinc-900 text-white shadow-button'
-                      : 'border-white/70 bg-white/70 text-slate-500 group-hover:text-slate-700',
+                      : 'border-slate-200/80 bg-white/70 text-slate-500 group-hover:text-slate-700',
                   )}
                 >
                   <item.icon size={18} />
                 </div>
                 <div className="relative min-w-0">
-                  <p className="truncate text-sm font-black">{item.label}</p>
+                  <p className="truncate text-sm font-semibold">{item.label}</p>
                   <p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-slate-400">{item.description}</p>
                 </div>
                 {active && (
@@ -117,17 +117,17 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
         </div>
       </div>
 
-      <div className="relative z-10 space-y-3 border-t border-white/70 p-4">
+      <div className="relative z-10 space-y-3 border-t border-slate-200/80 p-4">
         <button
           type="button"
           onClick={() => navigate('/chat')}
-          className="flex w-full items-center gap-3 rounded-2xl bg-zinc-900 px-3 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-zinc-800 hover:shadow-button active:translate-y-0 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
+          className="flex w-full items-center gap-3 rounded-lg bg-zinc-900 px-3 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-zinc-800 hover:shadow-button active:translate-y-0 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
         >
           <MessageCircle size={18} />
           进入对话
         </button>
 
-        <div className="flex items-center gap-3 rounded-2xl border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] p-2.5 shadow-sm transition-all hover:shadow-md">
+        <div className="flex items-center gap-3 rounded-lg border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] p-2.5 shadow-sm transition-all hover:shadow-md">
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-200 bg-[linear-gradient(135deg,rgba(15,23,42,0.06),rgba(255,255,255,0.9))] text-zinc-600 shadow-sm">
             <UserAvatarIcon size={20} />
           </div>
