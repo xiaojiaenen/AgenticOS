@@ -304,7 +304,7 @@ export const AnnouncementManagement = () => {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="admin-section-kicker">Announcement Studio</p>
-              <h1 className="mt-1.5 text-3xl font-black tracking-tight text-slate-950">用户公告设计台</h1>
+              <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-slate-950">用户公告设计台</h1>
               <p className="mt-3 max-w-3xl text-sm font-medium leading-7 text-slate-500">
                 撰写支持 Markdown 和 HTML 的公告，或让 AI 帮你一键生成。用户进入聊天或 Agent Store 时就会看到它。
               </p>
@@ -332,23 +332,23 @@ export const AnnouncementManagement = () => {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-          <div className="admin-stat-card rounded-3xl border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.62),rgba(56,189,248,0.18))] px-5 py-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">总公告数</p>
-            <p className="mt-2 text-3xl font-black tracking-tight text-slate-950">{stats.total}</p>
+          <div className="admin-stat-card rounded-xl border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.62),rgba(56,189,248,0.18))] px-5 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">总公告数</p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{stats.total}</p>
           </div>
-          <div className="admin-stat-card rounded-3xl border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.62),rgba(251,191,36,0.16))] px-5 py-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">已发布</p>
-            <p className="mt-2 text-3xl font-black tracking-tight text-slate-950">{stats.published}</p>
+          <div className="admin-stat-card rounded-xl border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.62),rgba(251,191,36,0.16))] px-5 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">已发布</p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{stats.published}</p>
           </div>
-          <div className="admin-stat-card rounded-3xl border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.62),rgba(16,185,129,0.18))] px-5 py-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">当前生效</p>
-            <p className="mt-2 text-3xl font-black tracking-tight text-slate-950">{stats.activeNow}</p>
+          <div className="admin-stat-card rounded-xl border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.62),rgba(16,185,129,0.18))] px-5 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">当前生效</p>
+            <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{stats.activeNow}</p>
           </div>
         </div>
       </section>
 
       {error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
           {error}
         </div>
       )}
@@ -375,7 +375,7 @@ export const AnnouncementManagement = () => {
                 <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4">
                   <div>
                     <p className="admin-section-kicker">AI 公告生成器</p>
-                    <h3 className="mt-1.5 text-xl font-black tracking-tight text-slate-900">用一句话描述公告要点</h3>
+                    <h3 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">用一句话描述公告要点</h3>
                     <p className="mt-1 text-sm font-medium text-slate-500">
                       填写公告需求，选择格式和主题，一键生成完整草稿
                     </p>
@@ -383,7 +383,7 @@ export const AnnouncementManagement = () => {
                   <button
                     type="button"
                     onClick={() => setShowAIPanel(false)}
-                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
                   >
                     <X size={19} />
                   </button>
@@ -420,7 +420,7 @@ export const AnnouncementManagement = () => {
                       <label className="mb-2 ml-1 block text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
                         内容格式
                       </label>
-                      <div className="flex rounded-2xl border border-white/70 bg-white/70 p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+                      <div className="flex rounded-lg border border-slate-200/80 bg-white/70 p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
                         {(Object.keys(FORMAT_META) as AnnouncementContentFormat[]).map((fmt) => {
                           const meta = FORMAT_META[fmt];
                           const active = aiFormat === fmt;
@@ -458,10 +458,10 @@ export const AnnouncementManagement = () => {
                               type="button"
                               onClick={() => setAiTheme(theme)}
                               className={cn(
-                                'rounded-2xl border p-2 text-center transition-all',
+                                'rounded-lg border p-2 text-center transition-all',
                                 active
                                   ? 'border-sky-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(224,242,254,0.9))] shadow-sm'
-                                  : 'border-white/70 bg-white/65 hover:shadow-sm',
+                                  : 'border-slate-200/80 bg-white/65 hover:shadow-sm',
                               )}
                             >
                               <div className="h-8 rounded-xl" style={{ background: meta.chipGradient }} />
@@ -495,23 +495,23 @@ export const AnnouncementManagement = () => {
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <p className="admin-section-kicker">已保存公告</p>
-              <h2 className="mt-1 text-xl font-black tracking-tight text-slate-950">公告列表</h2>
+              <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">公告列表</h2>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70 bg-white/75 text-slate-800 shadow-sm">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200/80 bg-white/75 text-slate-800 shadow-sm">
               <Megaphone size={18} />
             </div>
           </div>
 
           {isLoading ? (
-            <div className="flex h-52 items-center justify-center gap-3 rounded-3xl border border-dashed border-slate-200 bg-slate-50/70 text-sm font-bold text-slate-500">
+            <div className="flex h-52 items-center justify-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 text-sm font-bold text-slate-500">
               <Loader2 size={16} className="animate-spin" />
               正在加载公告
             </div>
           ) : items.length === 0 ? (
-            <div className="flex h-52 flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-slate-200 bg-slate-50/70 text-center">
+            <div className="flex h-52 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 text-center">
               <BellRing size={30} className="text-slate-300" />
               <div>
-                <p className="text-sm font-black text-slate-700">还没有公告</p>
+                <p className="text-sm font-semibold text-slate-700">还没有公告</p>
                 <p className="mt-1 text-xs font-medium text-slate-400">先创建一条给用户的入场提示吧。</p>
               </div>
             </div>
@@ -523,24 +523,24 @@ export const AnnouncementManagement = () => {
                   type="button"
                   onClick={() => handleSelect(item)}
                   className={cn(
-                    'w-full rounded-3xl border px-4 py-4 text-left transition-all',
+                    'w-full rounded-xl border px-4 py-4 text-left transition-all',
                     selectedId === item.id
                       ? 'border-sky-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(224,242,254,0.92))] shadow-md'
                       : 'border-white/75 bg-white/72 hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-sm',
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="h-11 w-11 rounded-2xl" style={{ background: THEME_DEFS[item.theme].chipGradient }} />
+                    <div className="h-11 w-11 rounded-lg" style={{ background: THEME_DEFS[item.theme].chipGradient }} />
                     <div className="flex flex-wrap justify-end gap-2">
                       <span className={cn(
-                        'rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em]',
+                        'rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]',
                         item.active_now ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500',
                       )}>
                         {item.active_now ? 'live' : item.is_published ? 'scheduled' : 'draft'}
                       </span>
                     </div>
                   </div>
-                  <p className="mt-4 text-lg font-black tracking-tight text-slate-950">{item.title}</p>
+                  <p className="mt-4 text-lg font-semibold tracking-tight text-slate-950">{item.title}</p>
                   <p className="mt-2 line-clamp-2 text-sm font-medium leading-6 text-slate-500">
                     {item.subtitle || item.body || '暂无补充文案'}
                   </p>
@@ -569,7 +569,7 @@ export const AnnouncementManagement = () => {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="admin-section-kicker">编辑器</p>
-                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
                   {selectedId === null ? '创建新公告' : '编辑公告'}
                 </h2>
                 <p className="mt-2 text-sm font-medium leading-7 text-slate-500">
@@ -625,7 +625,7 @@ export const AnnouncementManagement = () => {
                   <label className="ml-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
                     正文
                   </label>
-                  <div className="flex rounded-2xl border border-white/70 bg-white/70 p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+                  <div className="flex rounded-lg border border-slate-200/80 bg-white/70 p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
                     {(Object.keys(FORMAT_META) as AnnouncementContentFormat[]).map((fmt) => {
                       const meta = FORMAT_META[fmt];
                       const active = form.content_format === fmt;
@@ -692,14 +692,14 @@ export const AnnouncementManagement = () => {
                       type="button"
                       onClick={() => setForm((prev) => ({ ...prev, theme }))}
                       className={cn(
-                        'rounded-3xl border p-3 text-left transition-all',
+                        'rounded-xl border p-3 text-left transition-all',
                         active
                           ? 'border-sky-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(224,242,254,0.9))] shadow-md'
-                          : 'border-white/70 bg-white/65 hover:-translate-y-0.5 hover:shadow-sm',
+                          : 'border-slate-200/80 bg-white/65 hover:-translate-y-0.5 hover:shadow-sm',
                       )}
                     >
-                      <div className="h-16 rounded-2xl" style={{ background: meta.chipGradient }} />
-                      <p className="mt-3 text-sm font-black text-slate-900">{meta.label}</p>
+                      <div className="h-16 rounded-lg" style={{ background: meta.chipGradient }} />
+                      <p className="mt-3 text-sm font-semibold text-slate-900">{meta.label}</p>
                     </button>
                   );
                 })}
@@ -734,7 +734,7 @@ export const AnnouncementManagement = () => {
             </div>
 
             <div className="mt-6 grid gap-3 md:grid-cols-3">
-              <label className="flex items-start gap-3 rounded-3xl border border-white/75 bg-white/70 px-4 py-4 text-sm font-semibold text-slate-600">
+              <label className="flex items-start gap-3 rounded-xl border border-white/75 bg-white/70 px-4 py-4 text-sm font-semibold text-slate-600">
                 <input
                   type="checkbox"
                   className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-500"
@@ -742,11 +742,11 @@ export const AnnouncementManagement = () => {
                   onChange={(event) => setForm((prev) => ({ ...prev, is_published: event.target.checked }))}
                 />
                 <span>
-                  <span className="block font-black text-slate-900">立即发布</span>
+                  <span className="block font-semibold text-slate-900">立即发布</span>
                   保存后直接进入发布状态，配合时间窗决定是否生效。
                 </span>
               </label>
-              <label className="flex items-start gap-3 rounded-3xl border border-white/75 bg-white/70 px-4 py-4 text-sm font-semibold text-slate-600">
+              <label className="flex items-start gap-3 rounded-xl border border-white/75 bg-white/70 px-4 py-4 text-sm font-semibold text-slate-600">
                 <input
                   type="checkbox"
                   className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-500"
@@ -754,11 +754,11 @@ export const AnnouncementManagement = () => {
                   onChange={(event) => setForm((prev) => ({ ...prev, dismissible: event.target.checked }))}
                 />
                 <span>
-                  <span className="block font-black text-slate-900">允许轻松关闭</span>
+                  <span className="block font-semibold text-slate-900">允许轻松关闭</span>
                   用户可以点右上角关闭，或点遮罩直接退出。
                 </span>
               </label>
-              <label className="flex items-start gap-3 rounded-3xl border border-white/75 bg-white/70 px-4 py-4 text-sm font-semibold text-slate-600">
+              <label className="flex items-start gap-3 rounded-xl border border-white/75 bg-white/70 px-4 py-4 text-sm font-semibold text-slate-600">
                 <input
                   type="checkbox"
                   className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-500"
@@ -766,7 +766,7 @@ export const AnnouncementManagement = () => {
                   onChange={(event) => setForm((prev) => ({ ...prev, show_once: event.target.checked }))}
                 />
                 <span>
-                  <span className="block font-black text-slate-900">只提醒一次</span>
+                  <span className="block font-semibold text-slate-900">只提醒一次</span>
                   用户关闭后会记住，等你下次修改公告内容再重新展示。
                 </span>
               </label>
@@ -774,12 +774,12 @@ export const AnnouncementManagement = () => {
           </form>
 
           <div className="admin-solid-panel overflow-hidden p-0">
-            <div className="flex items-center justify-between border-b border-white/70 px-5 py-4">
+            <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4">
               <div>
                 <p className="admin-section-kicker">Live Preview</p>
-                <h2 className="mt-1 text-xl font-black tracking-tight text-slate-950">用户看到的效果</h2>
+                <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">用户看到的效果</h2>
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/75 bg-white/80 text-slate-900 shadow-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/75 bg-white text-slate-900 shadow-sm">
                 <Eye size={17} />
               </div>
             </div>
@@ -806,7 +806,7 @@ export const AnnouncementManagement = () => {
                     <div className="flex items-center gap-3 flex-wrap">
                       <span
                         className={cn(
-                          'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em]',
+                          'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]',
                           previewTheme.accentLightClass, previewTheme.accentTextClass,
                         )}
                         style={{ borderColor: 'currentColor', background: 'rgba(255,255,255,0.6)' }}
@@ -815,17 +815,17 @@ export const AnnouncementManagement = () => {
                         {form.eyebrow || '系统公告'}
                       </span>
                       <div className="flex gap-2">
-                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200/60 bg-white/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200/60 bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                           <FormatIcon size={11} />
                           {FORMAT_META[form.content_format].label}
                         </span>
-                        <span className="rounded-full border border-slate-200/60 bg-white/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+                        <span className="rounded-full border border-slate-200/60 bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                           {previewTheme.label}
                         </span>
                       </div>
                     </div>
 
-                    <h3 className="mt-6 font-display text-3xl font-black leading-tight tracking-[-0.03em] text-slate-900">
+                    <h3 className="mt-6 font-display text-3xl font-semibold leading-tight tracking-[-0.03em] text-slate-900">
                       {form.title || '这里会显示你的公告主标题'}
                     </h3>
                     <p className="mt-4 text-sm font-semibold leading-7 text-slate-600">
@@ -855,7 +855,7 @@ export const AnnouncementManagement = () => {
                       <button
                         type="button"
                         className={cn(
-                          'rounded-2xl px-5 py-3 text-sm font-black text-white shadow-lg shadow-black/10',
+                          'rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-black/10',
                           previewTheme.ctaBg,
                         )}
                       >
@@ -900,21 +900,21 @@ export const AnnouncementManagement = () => {
                         initial={{ opacity: 0, x: 24, scale: 0.94 }}
                         animate={{ opacity: 1, x: 0, scale: 1 }}
                         transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                        className="absolute bottom-5 right-5 z-10 w-[64%] cursor-pointer overflow-hidden rounded-2xl border border-white/60 shadow-lg shadow-black/6 transition-transform hover:scale-[1.03]"
+                        className="absolute bottom-5 right-5 z-10 w-[64%] cursor-pointer overflow-hidden rounded-lg border border-white/60 shadow-lg shadow-black/6 transition-transform hover:scale-[1.03]"
                       >
-                        <div className="absolute -inset-2 rounded-2xl bg-white/25 blur-md" />
+                        <div className="absolute -inset-2 rounded-lg bg-white/25 blur-md" />
                         <img
                           src={form.image_url}
                           alt="announcement illustration"
-                          className="relative w-full rounded-2xl object-cover"
+                          className="relative w-full rounded-lg object-cover"
                           style={{ aspectRatio: '4/3' }}
                           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                         />
-                        <div className="absolute inset-0 rounded-2xl bg-[linear-gradient(35deg,rgba(0,0,0,0.06)_0%,transparent_45%,rgba(255,255,255,0.08)_100%)]" />
+                        <div className="absolute inset-0 rounded-lg bg-[linear-gradient(35deg,rgba(0,0,0,0.06)_0%,transparent_45%,rgba(255,255,255,0.08)_100%)]" />
                       </motion.div>
                     ) : (
                       /* glass placeholder card when no image */
-                      <div className="absolute bottom-5 right-5 left-5 rounded-[24px] border border-white/70 bg-white/72 p-5 shadow-lg backdrop-blur-xl">
+                      <div className="absolute bottom-5 right-5 left-5 rounded-[24px] border border-slate-200/80 bg-white/72 p-5 shadow-lg backdrop-blur-xl">
                         <div className="mb-2 h-1.5 w-10 rounded-full bg-slate-300/80" />
                         <div className="space-y-2">
                           <div className="h-2.5 w-full rounded-full bg-slate-200/90" />
@@ -926,7 +926,7 @@ export const AnnouncementManagement = () => {
                             <Sparkles size={13} />
                           </div>
                           <div>
-                            <p className="text-xs font-black text-slate-800">AgenticOS</p>
+                            <p className="text-xs font-semibold text-slate-800">AgenticOS</p>
                             <p className="text-[10px] font-semibold text-slate-400">Platform Notice</p>
                           </div>
                         </div>
@@ -936,7 +936,7 @@ export const AnnouncementManagement = () => {
                 </div>
               </div>
 
-              <div className="mt-4 rounded-3xl border border-slate-100 bg-slate-50/80 px-4 py-4 text-xs font-medium leading-6 text-slate-500">
+              <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-4 text-xs font-medium leading-6 text-slate-500">
                 预览说明：正文将按照所选格式渲染。Markdown 会自动转换为富文本，HTML 将直接渲染。
                 真正对用户生效时，会在进入聊天或 Agent Store 后弹出。
               </div>

@@ -254,18 +254,18 @@ export const UserManagement = () => {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="admin-section-kicker">用户管理</p>
-            <h2 className="mt-1.5 text-xl font-black tracking-tight text-slate-950">账号与权限</h2>
+            <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-950">账号与权限</h2>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="admin-kpi-pill">
-              共 <span className="font-black text-slate-900">{total}</span> 个
+              共 <span className="font-semibold text-slate-900">{total}</span> 个
             </div>
             <div className="admin-kpi-pill">
-              启用 <span className="font-black text-slate-900">{activeUsers}</span>
+              启用 <span className="font-semibold text-slate-900">{activeUsers}</span>
             </div>
             <div className="admin-kpi-pill">
-              管理员 <span className="font-black text-slate-900">{adminUsers}</span>
+              管理员 <span className="font-semibold text-slate-900">{adminUsers}</span>
             </div>
             <Button onClick={openCreateForm} size="sm" className="gap-1.5">
               <Plus size={14} />
@@ -276,7 +276,7 @@ export const UserManagement = () => {
       </section>
 
       {error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">
           {error}
         </div>
       )}
@@ -285,7 +285,7 @@ export const UserManagement = () => {
         <div className="admin-panel-toolbar">
           <div className="text-center lg:text-left">
             <p className="admin-section-kicker">用户目录</p>
-            <h3 className="mt-1.5 text-base font-black tracking-tight text-slate-900">按名称和邮箱检索</h3>
+            <h3 className="mt-1.5 text-base font-semibold tracking-tight text-slate-900">按名称和邮箱检索</h3>
           </div>
 
           <div className="flex w-full flex-col gap-2.5 lg:w-auto lg:flex-row lg:items-center">
@@ -331,9 +331,9 @@ export const UserManagement = () => {
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center justify-center gap-2">
-                      <p className="truncate text-sm font-black text-slate-900">{user.name}</p>
+                      <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
                       {isSelf && (
-                        <span className="rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[10px] font-black text-sky-700">
+                        <span className="rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
                           当前账号
                         </span>
                       )}
@@ -355,7 +355,7 @@ export const UserManagement = () => {
                   <div className="text-sm font-bold text-slate-600">{formatApiDate(user.created_at)}</div>
 
                   <div className="flex flex-wrap justify-center gap-2">
-                    <Button variant="secondary" size="sm" onClick={() => openEditForm(user)} className="gap-2 bg-white/85">
+                    <Button variant="secondary" size="sm" onClick={() => openEditForm(user)} className="gap-2 bg-white">
                       <Edit3 size={15} />
                       编辑
                     </Button>
@@ -385,10 +385,10 @@ export const UserManagement = () => {
             })
           ) : (
             <div className="flex h-[420px] flex-col items-center justify-center text-center">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/70 bg-white/70 text-slate-400 shadow-sm">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200/80 bg-white/70 text-slate-400 shadow-sm">
                 <User size={20} />
               </div>
-              <p className="text-sm font-black text-slate-600">没有找到匹配的用户</p>
+              <p className="text-sm font-semibold text-slate-600">没有找到匹配的用户</p>
               <p className="mt-1 text-xs font-medium text-slate-400">换个关键词，或者直接创建新账号</p>
             </div>
           )}
@@ -422,14 +422,14 @@ export const UserManagement = () => {
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <p className="admin-section-kicker">{editingUser ? '编辑用户' : '新增用户'}</p>
-                  <h3 className="mt-1.5 text-xl font-black tracking-tight text-slate-900">
+                  <h3 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">
                     {editingUser ? '调整用户资料' : '创建后台账号'}
                   </h3>
                 </div>
                 <button
                   type="button"
                   onClick={closeForm}
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
                 >
                   <X size={19} />
                 </button>
@@ -457,11 +457,11 @@ export const UserManagement = () => {
                   placeholder={editingUser ? '留空则不修改' : '至少 6 位'}
                 />
                 <div>
-                  <label className="mb-2 ml-1 block text-xs font-black tracking-[0.18em] text-slate-400">角色</label>
+                  <label className="mb-2 ml-1 block text-xs font-semibold tracking-[0.18em] text-slate-400">角色</label>
                   <select
                     value={form.role}
                     onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value as 'admin' | 'user' }))}
-                    className="w-full rounded-2xl border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
+                    className="w-full rounded-lg border border-white/75 bg-white/72 px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
                   >
                     <option value="user">普通用户</option>
                     <option value="admin">管理员</option>
@@ -472,10 +472,10 @@ export const UserManagement = () => {
               <button
                 type="button"
                 onClick={() => setForm((prev) => ({ ...prev, is_active: !prev.is_active }))}
-                className="mt-4 flex w-full items-center justify-between rounded-2xl border border-white/80 bg-white/70 px-4 py-3.5 text-left transition-all hover:bg-white hover:shadow-md active:scale-[0.99]"
+                className="mt-4 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white/70 px-4 py-3.5 text-left transition-all hover:bg-white hover:shadow-md active:scale-[0.99]"
               >
                 <span>
-                  <span className="block text-sm font-black text-slate-800">账号状态</span>
+                  <span className="block text-sm font-semibold text-slate-800">账号状态</span>
                   <span className="mt-0.5 block text-xs font-medium text-slate-400">
                     {form.is_active ? '允许登录和使用系统' : '禁止登录和使用系统'}
                   </span>
@@ -494,7 +494,7 @@ export const UserManagement = () => {
               </button>
 
               {formError && (
-                <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                   {formError}
                 </div>
               )}
@@ -529,10 +529,10 @@ export const UserManagement = () => {
               onMouseDown={(event) => event.stopPropagation()}
               className="admin-solid-panel admin-modal-panel w-full max-w-md p-5"
             >
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(244,63,94,0.12),rgba(251,113,133,0.08))] text-rose-500 shadow-sm ring-1 ring-rose-100">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-[linear-gradient(135deg,rgba(244,63,94,0.12),rgba(251,113,133,0.08))] text-rose-500 shadow-sm ring-1 ring-rose-100">
                 <Trash2 size={20} />
               </div>
-              <h3 className="text-xl font-black tracking-tight text-slate-900">删除用户</h3>
+              <h3 className="text-xl font-semibold tracking-tight text-slate-900">删除用户</h3>
               <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
                 确认删除 <span className="font-bold text-slate-800">{deletingUser.name}</span>？删除后该账号将无法继续登录，所有关联数据将被清理。
               </p>

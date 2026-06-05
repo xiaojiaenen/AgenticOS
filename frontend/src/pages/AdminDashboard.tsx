@@ -97,21 +97,21 @@ export const AdminDashboard = () => {
         return (
           <div className="admin-page-stage space-y-5">
             {/* Overview header */}
-            <section className="rounded-2xl border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] backdrop-blur-xl p-5 shadow-md">
+            <section className="rounded-lg border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] backdrop-blur-xl p-5 shadow-md">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="admin-section-kicker">系统总览</p>
-                  <h1 className="mt-1.5 text-2xl font-black tracking-tight text-slate-950 lg:text-3xl">后台数据看板</h1>
+                  <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-950 lg:text-3xl">后台数据看板</h1>
                 </div>
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <div className="admin-kpi-pill text-xs font-black">
+                  <div className="admin-kpi-pill text-xs font-semibold">
                     {isDashboardLoading ? '正在同步数据' : '数据已同步'}
                   </div>
                   <Button variant="secondary" onClick={loadDashboard} disabled={isDashboardLoading} className="gap-1.5" size="sm">
                     {isDashboardLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                     刷新
                   </Button>
-                  <div className="flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 p-0.5 text-xs">
+                  <div className="flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white p-0.5 text-xs">
                     {[7, 14, 30].map((d) => (
                       <button
                         key={d}
@@ -128,15 +128,15 @@ export const AdminDashboard = () => {
               <div className="mt-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
                 {headerInsights.map((item) => (
                   <div key={item.label} className="admin-stat-card rounded-xl px-4 py-3">
-                    <p className="text-[11px] font-black tracking-[0.14em] text-slate-400">{item.label}</p>
-                    <p className="mt-1.5 text-lg font-black tracking-tight text-slate-950">{item.value}</p>
+                    <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-400">{item.label}</p>
+                    <p className="mt-1.5 text-lg font-semibold tracking-tight text-slate-950">{item.value}</p>
                   </div>
                 ))}
               </div>
             </section>
 
             {dashboardError && (
-              <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+              <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                 <AlertCircle size={18} />
                 {dashboardError}
               </div>
@@ -144,7 +144,7 @@ export const AdminDashboard = () => {
 
             {isDashboardLoading && !dashboardData ? (
               <div className="space-y-5">
-                <section className="rounded-2xl border border-white/60 bg-[var(--admin-card-bg)] p-6 shadow-xl backdrop-blur-2xl">
+                <section className="rounded-lg border border-slate-200/80 bg-[var(--admin-card-bg)] p-6 shadow-md backdrop-blur-2xl">
                   <div className="h-3 w-20 animate-pulse rounded bg-slate-200 mb-4" />
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {[0,1,2,3].map(i => <ChartSkeleton key={i} variant="stat" />)}
@@ -154,10 +154,10 @@ export const AdminDashboard = () => {
                   {[0,1,2,3,4].map(i => <ChartSkeleton key={i} variant="stat" />)}
                 </section>
                 <section className="grid gap-5 lg:grid-cols-2">
-                  <div className="rounded-2xl border border-white/60 bg-[var(--admin-card-bg)] p-6 shadow-xl backdrop-blur-2xl">
+                  <div className="rounded-lg border border-slate-200/80 bg-[var(--admin-card-bg)] p-6 shadow-md backdrop-blur-2xl">
                     <ChartSkeleton variant="area" height={220} />
                   </div>
-                  <div className="rounded-2xl border border-white/60 bg-[var(--admin-card-bg)] p-6 shadow-xl backdrop-blur-2xl">
+                  <div className="rounded-lg border border-slate-200/80 bg-[var(--admin-card-bg)] p-6 shadow-md backdrop-blur-2xl">
                     <ChartSkeleton variant="pie" height={220} />
                   </div>
                 </section>
@@ -196,16 +196,16 @@ export const AdminDashboard = () => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      className="admin-dashboard-shell relative flex h-screen overflow-hidden font-sans text-slate-800 selection:bg-zinc-200 selection:text-zinc-900"
+      className="admin-dashboard-shell relative flex h-screen overflow-hidden font-sans text-slate-800 "
     >
       <div className="admin-dashboard-backdrop pointer-events-none">
         {/* Animated blobs — professional, deeper tones */}
-        <div className="absolute -top-20 -left-10 w-[550px] h-[550px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.15),transparent_70%)] blur-[80px] animate-[bg-blob-1_16s_ease-in-out_infinite]" />
-        <div className="absolute top-1/4 -right-8 w-[460px] h-[460px] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.12),transparent_70%)] blur-[70px] animate-[bg-blob-2_18s_ease-in-out_infinite]" />
-        <div className="absolute -bottom-12 left-1/3 w-[480px] h-[480px] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.13),transparent_70%)] blur-[80px] animate-[bg-blob-3_17s_ease-in-out_infinite]" />
+        {/* blob removed */}
+        {/* blob removed */}
+        {/* blob removed */}
 
-        <RandomMascot size={760} className="admin-backdrop-mascot admin-backdrop-mascot-primary" />
-        <RandomMascot size={360} className="admin-backdrop-mascot admin-backdrop-mascot-secondary" />
+        {/* mascot removed */}
+        {/* mascot removed */}
       </div>
 
       <AnimatePresence>
@@ -215,7 +215,7 @@ export const AdminDashboard = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 z-10 bg-black/20 backdrop-blur-sm"
+            className="fixed inset-0 z-10 bg-black/20 "
           />
         )}
       </AnimatePresence>
@@ -239,7 +239,7 @@ export const AdminDashboard = () => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             onClick={() => setIsSidebarOpen(true)}
-            className="fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/60 bg-white/80 text-zinc-800 shadow-sm backdrop-blur-md transition-all hover:bg-white hover:shadow-md"
+            className="fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200/80 bg-white text-zinc-800 shadow-sm  transition-all hover:bg-white hover:shadow-md"
             aria-label="展开侧栏"
           >
             <MascotCool size={24} className="transition-transform hover:scale-110" />
@@ -251,7 +251,7 @@ export const AdminDashboard = () => {
         <button
           type="button"
           onClick={() => setIsSidebarOpen(true)}
-          className="fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/60 bg-white/80 text-zinc-800 shadow-sm backdrop-blur-md"
+          className="fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200/80 bg-white text-zinc-800 shadow-sm "
           aria-label="展开侧栏"
         >
           <MascotCool size={24} />
