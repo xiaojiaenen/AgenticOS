@@ -7,7 +7,7 @@ export const Card = ({ className, children, ...props }: CardProps) => {
   return (
     <div
       className={cn(
-        'rounded-lg border border-slate-200 bg-white p-6 shadow-xs',
+        'rounded-lg border border-slate-200/80 bg-white p-6 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md',
         className,
       )}
       {...props}
