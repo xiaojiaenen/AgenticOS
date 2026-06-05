@@ -8,18 +8,16 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants = {
-  /* 品牌色只用在这里 — 主 CTA */
   primary:
     'bg-brand-500 text-white shadow-button hover:bg-brand-600 active:bg-brand-700 active:scale-[0.98]',
-  /* 次要按钮：纯 slate 色系，不用品牌色 */
   secondary:
-    'bg-white text-slate-700 border border-slate-200 shadow-xs hover:bg-slate-50 hover:border-slate-300 active:bg-slate-100 active:scale-[0.98]',
+    'border border-slate-200 bg-white text-slate-700 shadow-xs hover:bg-slate-50 hover:border-slate-300 active:bg-slate-100 active:scale-[0.98]',
   outline:
-    'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:text-slate-800 active:bg-slate-50 active:scale-[0.98]',
+    'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800 active:bg-slate-50 active:scale-[0.98]',
   ghost:
     'bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700 active:bg-slate-200',
   danger:
-    'bg-error-50 text-error-600 border border-error-200 hover:bg-error-100 active:scale-[0.98]',
+    'border border-error-200 bg-error-50 text-error-600 hover:bg-error-100 active:scale-[0.98]',
 };
 
 const sizes = {
