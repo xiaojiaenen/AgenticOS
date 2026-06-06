@@ -62,6 +62,8 @@ services:
       start_period: 10s
     ports:
       - "${FRONTEND_PORT:-10008}:80"
+    volumes:
+      - ../data/nginx-serve:/usr/share/nginx/sites
     depends_on:
       backend:
         condition: service_healthy
