@@ -1,4 +1,4 @@
-﻿"""Website 生成工具 — copy_template 复制基础模板到工作目录"""
+﻿"""Website 生成工具 — copy_template / build / deploy"""
 
 import shutil
 from pathlib import Path
@@ -171,4 +171,72 @@ def register_website_tools(registry: ToolRegistry) -> None:
             f"产物文件（{len(dist_files)} 个）：\n" +
             "\n".join(f"  {f}" for f in dist_files[:30]) +
             ("\n  ..." if len(dist_files) > 30 else "")
+        )
+
+    @registry.tool(display_name="部署网站（需管理员审批）")
+    async def deploy_website(project_slug: str) -> str:
+        """请求部署网站到 nginx 服务器。需要管理员审批后才能上线。
+
+        部署流程：
+        1. 检查项目是否已构建（dist/ 目录存在）
+        2. 创建部署请求（状态：pending）
+        3. 管理员在后台审批
+        4. 审批通过后自动复制 dist/ 到 nginx 服务目录
+        5. 网站可通过 /sites/{slug}/ 访问
+
+        参数:
+          project_slug: 项目目录名（如 u1_abc123_v1）
+
+        返回:
+          部署请求状态
+        """
+        from app.services.website_deploy_service import WebsiteDeployService
+
+        target_dir = WEBSITES_DIR / project_slug
+        if not target_dir.exists():
+            return f"项目目录不存在：{target_dir}"
+
+        dist_dir = target_dir / "dist"
+        if not dist_dir.exists():
+            return (
+                f"项目尚未构建（dist/ 目录不存在）。\n"
+                f"请先调用 build_website('{project_slug}') 构建项目，"
+                f"构建成功后再请求部署。"
+            )
+
+        # 检查 dist 内容
+        dist_files = [f for f in dist_dir.rglob("*") if f.is_file()]
+        if not dist_files:
+            return "dist/ 目录为空，没有可部署的文件"
+
+        # 获取用户信息
+        user_id = get_current_user_id()
+        session_id = get_current_session_id()
+
+        # 从目录名解析 stack
+        parsed = _parse_dir_name(project_slug)
+        stack = "vanilla"  # default
+
+        # 创建部署请求
+        deploy_service = WebsiteDeployService()
+        try:
+            deploy = deploy_service.request_deploy(
+                session_id=session_id or "",
+                project_slug=project_slug,
+                stack=stack,
+                requested_by=user_id or 0,
+            )
+        except FileNotFoundError as e:
+            return str(e)
+
+        deploy_id = deploy.get("id", "?")
+
+        return (
+            f"部署请求已提交（ID: {deploy_id}）\n"
+            f"\n📋 部署信息：\n"
+            f"  项目：{project_slug}\n"
+            f"  文件数：{len(dist_files)}\n"
+            f"  状态：等待管理员审批\n"
+            f"\n⏳ 管理员审批通过后，网站将自动部署到 /sites/{project_slug}/\n"
+            f"你可以在后台「网站部署管理」中查看审批状态。"
         )
