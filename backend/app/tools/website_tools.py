@@ -123,7 +123,7 @@ def register_website_tools(registry: ToolRegistry) -> None:
 
     @registry.tool(display_name="构建网站")
     async def build_website(project_slug: str) -> str:
-        """对指定项目执行 npm install && npm run build。
+        """对指定项目执行 npm install && npm run build（沙箱隔离）。
 
         参数:
           project_slug: 项目目录名（data/websites/ 下的目录名，如 u1_abc123_v1）
@@ -131,7 +131,7 @@ def register_website_tools(registry: ToolRegistry) -> None:
         返回:
           构建结果
         """
-        from wuwei.sandbox import LocalSandbox
+        from app.services.sandbox import Sandbox
 
         target_dir = WEBSITES_DIR / project_slug
         if not target_dir.exists():
@@ -141,20 +141,24 @@ def register_website_tools(registry: ToolRegistry) -> None:
         if not pkg_json.exists():
             return f"项目缺少 package.json：{pkg_json}"
 
-        sandbox = LocalSandbox(workspace=str(target_dir))
+        sandbox = Sandbox(workspace=target_dir, timeout=120, max_output=12000)
 
-        # npm install
-        install_result = await sandbox.execute("npm install", timeout=120)
+        # npm install（使用 --ignore-scripts 防止恶意包脚本）
+        install_result = await sandbox.execute("npm install --ignore-scripts", timeout=120)
         if not install_result.success:
-            out = (install_result.stdout or "")[-2000:] + (install_result.stderr or "")[-2000:]
-            return f"npm install 失败（退出码 {install_result.exit_code}）：\n{out}"
+            return (
+                f"npm install 失败（退出码 {install_result.exit_code}）：\n"
+                f"{install_result.stderr[-3000:]}"
+            )
 
         # npm run build
         build_result = await sandbox.execute("npm run build", timeout=120)
 
         if not build_result.success:
-            out = (build_result.stdout or "")[-3000:] + (build_result.stderr or "")[-3000:]
-            return f"npm run build 失败（退出码 {build_result.exit_code}）：\n{out}"
+            return (
+                f"npm run build 失败（退出码 {build_result.exit_code}）：\n"
+                f"{build_result.stderr[-3000:]}"
+            )
 
         dist_dir = target_dir / "dist"
         dist_files = []

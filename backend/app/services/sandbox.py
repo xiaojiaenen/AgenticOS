@@ -159,7 +159,7 @@ class Sandbox:
                 await proc.wait()
                 timed_out = True
                 stdout = b""
-                stderr = b"Command timed out after {} seconds".format(timeout).encode()
+                stderr = f"Command timed out after {timeout} seconds".encode()
 
             stdout_str = stdout.decode("utf-8", errors="replace")[:max_output]
             stderr_str = stderr.decode("utf-8", errors="replace")[:max_output]
