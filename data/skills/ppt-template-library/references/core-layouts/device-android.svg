@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
+  <!-- 背景 -->
+  <g id="background">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+  </g>
+
+  <!-- 右侧标题区 -->
+  <g id="title-area">
+    <text x="720" y="180" font-size="14" font-weight="600" fill="var(--accent)" font-family="Inter,Noto Sans SC,sans-serif" letter-spacing="4">ANDROID APP</text>
+    <text x="720" y="230" font-size="42" font-weight="800" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">应用名称</text>
+    <text x="720" y="280" font-size="18" fill="var(--text-2)" font-family="Inter,Noto Sans SC,sans-serif">一句话描述这个应用的核心价值</text>
+    <text x="720" y="340" font-size="14" fill="var(--text-3)" font-family="Inter,Noto Sans SC,sans-serif">• 功能亮点一</text>
+    <text x="720" y="370" font-size="14" fill="var(--text-3)" font-family="Inter,Noto Sans SC,sans-serif">• 功能亮点二</text>
+    <text x="720" y="400" font-size="14" fill="var(--text-3)" font-family="Inter,Noto Sans SC,sans-serif">• 功能亮点三</text>
+  </g>
+
+  <!-- Android 设备框架 -->
+  <g id="android-frame" transform="translate(180, 50)">
+    <!-- 设备外壳 -->
+    <rect x="0" y="0" width="300" height="620" rx="24" fill="var(--text-1)" stroke="var(--border)" stroke-width="2"/>
+    <!-- 内屏 -->
+    <rect x="6" y="6" width="288" height="608" rx="20" fill="var(--bg)"/>
+
+    <!-- 打孔相机 -->
+    <circle cx="150" cy="20" r="6" fill="var(--text-1)"/>
+
+    <!-- 状态栏 -->
+    <text x="24" y="34" font-size="11" font-weight="600" fill="var(--text-1)" font-family="Inter,sans-serif">12:30</text>
+    <g transform="translate(230, 24)">
+      <!-- 信号 -->
+      <rect x="0" y="4" width="3" height="6" rx="1" fill="var(--text-1)"/>
+      <rect x="5" y="2" width="3" height="8" rx="1" fill="var(--text-1)"/>
+      <rect x="10" y="0" width="3" height="10" rx="1" fill="var(--text-1)"/>
+      <!-- WiFi -->
+      <path d="M20 8 Q24 2 28 8" stroke="var(--text-1)" fill="none" stroke-width="1.5"/>
+      <!-- 电池 -->
+      <rect x="36" y="2" width="18" height="10" rx="2" fill="none" stroke="var(--text-1)" stroke-width="1"/>
+      <rect x="54" y="4" width="2" height="6" rx="1" fill="var(--text-1)"/>
+      <rect x="37" y="3" width="12" height="8" rx="1" fill="var(--text-1)"/>
+    </g>
+
+    <!-- App 内容区：顶部 AppBar -->
+    <rect x="6" y="44" width="288" height="48" fill="var(--accent)"/>
+    <text x="24" y="74" font-size="16" font-weight="600" fill="white" font-family="Inter,sans-serif">Dashboard</text>
+
+    <!-- App 内容区：搜索栏 -->
+    <rect x="18" y="104" width="264" height="36" rx="18" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+    <text x="42" y="126" font-size="12" fill="var(--text-3)" font-family="Inter,sans-serif">搜索...</text>
+
+    <!-- App 内容区：统计卡片网格 -->
+    <rect x="18" y="152" width="126" height="80" rx="10" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+    <text x="30" y="175" font-size="10" fill="var(--text-3)" font-family="Inter,sans-serif">用户</text>
+    <text x="30" y="205" font-size="22" font-weight="700" fill="var(--text-1)" font-family="Inter,sans-serif">12.8K</text>
+
+    <rect x="156" y="152" width="126" height="80" rx="10" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+    <text x="168" y="175" font-size="10" fill="var(--text-3)" font-family="Inter,sans-serif">收入</text>
+    <text x="168" y="205" font-size="22" font-weight="700" fill="var(--good)" font-family="Inter,sans-serif">¥84K</text>
+
+    <!-- App 内容区：列表 -->
+    <rect x="18" y="248" width="264" height="52" rx="8" fill="var(--surface)"/>
+    <rect x="30" y="258" width="32" height="32" rx="8" fill="var(--accent)" opacity="0.15"/>
+    <text x="74" y="278" font-size="12" font-weight="500" fill="var(--text-1)" font-family="Inter,sans-serif">项目 A</text>
+    <text x="250" y="278" font-size="11" fill="var(--good)" font-family="Inter,sans-serif" text-anchor="end">+15%</text>
+
+    <rect x="18" y="308" width="264" height="52" rx="8" fill="var(--surface)"/>
+    <rect x="30" y="318" width="32" height="32" rx="8" fill="var(--good)" opacity="0.15"/>
+    <text x="74" y="338" font-size="12" font-weight="500" fill="var(--text-1)" font-family="Inter,sans-serif">项目 B</text>
+    <text x="250" y="338" font-size="11" fill="var(--good)" font-family="Inter,sans-serif" text-anchor="end">+8%</text>
+
+    <rect x="18" y="368" width="264" height="52" rx="8" fill="var(--surface)"/>
+    <rect x="30" y="378" width="32" height="32" rx="8" fill="var(--warn)" opacity="0.15"/>
+    <text x="74" y="398" font-size="12" font-weight="500" fill="var(--text-1)" font-family="Inter,sans-serif">项目 C</text>
+    <text x="250" y="398" font-size="11" fill="var(--warn)" font-family="Inter,sans-serif" text-anchor="end">-3%</text>
+
+    <!-- 底部导航栏 -->
+    <rect x="6" y="540" width="288" height="56" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+    <text x="52" y="575" font-size="10" fill="var(--accent)" font-family="Inter,sans-serif" text-anchor="middle">首页</text>
+    <text x="112" y="575" font-size="10" fill="var(--text-3)" font-family="Inter,sans-serif" text-anchor="middle">分析</text>
+    <text x="172" y="575" font-size="10" fill="var(--text-3)" font-family="Inter,sans-serif" text-anchor="middle">消息</text>
+    <text x="232" y="575" font-size="10" fill="var(--text-3)" font-family="Inter,sans-serif" text-anchor="middle">设置</text>
+
+    <!-- 手势导航条 -->
+    <rect x="100" y="600" width="100" height="4" rx="2" fill="var(--text-3)" opacity="0.3"/>
+  </g>
+
+  <!-- 页脚 -->
+  <g id="footer">
+    <text x="80" y="700" font-size="11" fill="var(--text-3)" font-family="Inter,sans-serif">Android App Preview</text>
+    <text x="1200" y="700" font-size="11" fill="var(--text-3)" font-family="Inter,sans-serif" text-anchor="end">01</text>
+  </g>
+
+  <!-- notes: Android 原型展示页——左侧 Pixel 设备框架内的 App UI，右侧文案介绍 -->
+</svg>

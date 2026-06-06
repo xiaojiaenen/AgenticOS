@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-theme="apple">
+  <!-- 背景 -->
+  <g id="background">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+  </g>
+
+  <!-- 左侧标题区 -->
+  <g id="title-area">
+    <text x="80" y="180" font-size="14" font-weight="600" fill="var(--accent)" font-family="Inter,Noto Sans SC,sans-serif" letter-spacing="4">MOBILE APP</text>
+    <text x="80" y="230" font-size="42" font-weight="800" fill="var(--text-1)" font-family="Inter,Noto Sans SC,sans-serif">应用名称</text>
+    <text x="80" y="280" font-size="18" fill="var(--text-2)" font-family="Inter,Noto Sans SC,sans-serif">一句话描述这个应用的核心价值</text>
+    <text x="80" y="340" font-size="14" fill="var(--text-3)" font-family="Inter,Noto Sans SC,sans-serif">• 功能亮点一</text>
+    <text x="80" y="370" font-size="14" fill="var(--text-3)" font-family="Inter,Noto Sans SC,sans-serif">• 功能亮点二</text>
+    <text x="80" y="400" font-size="14" fill="var(--text-3)" font-family="Inter,Noto Sans SC,sans-serif">• 功能亮点三</text>
+  </g>
+
+  <!-- iPhone 15 Pro 设备框架 -->
+  <g id="iphone-frame" transform="translate(780, 60)">
+    <!-- 设备外壳 -->
+    <rect x="0" y="0" width="320" height="600" rx="40" fill="var(--text-1)" stroke="var(--border)" stroke-width="2"/>
+    <!-- 内屏 -->
+    <rect x="8" y="8" width="304" height="584" rx="32" fill="var(--bg)"/>
+
+    <!-- Dynamic Island -->
+    <rect x="108" y="16" width="104" height="28" rx="14" fill="var(--text-1)"/>
+
+    <!-- 状态栏 -->
+    <text x="28" y="30" font-size="11" font-weight="600" fill="var(--text-1)" font-family="Inter,sans-serif">9:41</text>
+    <g transform="translate(248, 20)">
+      <!-- 信号 -->
+      <rect x="0" y="4" width="3" height="6" rx="1" fill="var(--text-1)"/>
+      <rect x="5" y="2" width="3" height="8" rx="1" fill="var(--text-1)"/>
+      <rect x="10" y="0" width="3" height="10" rx="1" fill="var(--text-1)"/>
+      <!-- WiFi -->
+      <path d="M20 8 Q24 2 28 8" stroke="var(--text-1)" fill="none" stroke-width="1.5"/>
+      <!-- 电池 -->
+      <rect x="36" y="2" width="20" height="10" rx="2" fill="none" stroke="var(--text-1)" stroke-width="1"/>
+      <rect x="56" y="4" width="2" height="6" rx="1" fill="var(--text-1)"/>
+      <rect x="37" y="3" width="14" height="8" rx="1" fill="var(--text-1)"/>
+    </g>
+
+    <!-- App 内容区：导航栏 -->
+    <rect x="8" y="50" width="304" height="44" fill="var(--surface)"/>
+    <text x="28" y="78" font-size="13" font-weight="700" fill="var(--text-1)" font-family="Inter,sans-serif">首页</text>
+
+    <!-- App 内容区：卡片 1 -->
+    <rect x="20" y="108" width="280" height="100" rx="12" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+    <rect x="32" y="120" width="40" height="40" rx="8" fill="var(--accent)" opacity="0.15"/>
+    <text x="84" y="138" font-size="13" font-weight="600" fill="var(--text-1)" font-family="Inter,sans-serif">功能模块 A</text>
+    <text x="84" y="158" font-size="11" fill="var(--text-2)" font-family="Inter,sans-serif">简短描述文字</text>
+    <text x="84" y="190" font-size="18" font-weight="700" fill="var(--accent)" font-family="Inter,sans-serif">+42%</text>
+
+    <!-- App 内容区：卡片 2 -->
+    <rect x="20" y="220" width="280" height="100" rx="12" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+    <rect x="32" y="232" width="40" height="40" rx="8" fill="var(--good)" opacity="0.15"/>
+    <text x="84" y="250" font-size="13" font-weight="600" fill="var(--text-1)" font-family="Inter,sans-serif">功能模块 B</text>
+    <text x="84" y="270" font-size="11" fill="var(--text-2)" font-family="Inter,sans-serif">简短描述文字</text>
+    <text x="84" y="302" font-size="18" font-weight="700" fill="var(--good)" font-family="Inter,sans-serif">已完成</text>
+
+    <!-- App 内容区：列表项 -->
+    <rect x="20" y="332" width="280" height="52" rx="8" fill="var(--surface)"/>
+    <text x="36" y="363" font-size="12" fill="var(--text-2)" font-family="Inter,sans-serif">列表项 1</text>
+    <rect x="20" y="392" width="280" height="52" rx="8" fill="var(--surface)"/>
+    <text x="36" y="423" font-size="12" fill="var(--text-2)" font-family="Inter,sans-serif">列表项 2</text>
+    <rect x="20" y="452" width="280" height="52" rx="8" fill="var(--surface)"/>
+    <text x="36" y="483" font-size="12" fill="var(--text-2)" font-family="Inter,sans-serif">列表项 3</text>
+
+    <!-- Tab 栏 -->
+    <rect x="8" y="520" width="304" height="56" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+    <text x="52" y="555" font-size="10" fill="var(--accent)" font-family="Inter,sans-serif" text-anchor="middle">首页</text>
+    <text x="132" y="555" font-size="10" fill="var(--text-3)" font-family="Inter,sans-serif" text-anchor="middle">发现</text>
+    <text x="212" y="555" font-size="10" fill="var(--text-3)" font-family="Inter,sans-serif" text-anchor="middle">消息</text>
+    <text x="272" y="555" font-size="10" fill="var(--text-3)" font-family="Inter,sans-serif" text-anchor="middle">我的</text>
+
+    <!-- Home 指示器 -->
+    <rect x="120" y="576" width="80" height="4" rx="2" fill="var(--text-3)" opacity="0.3"/>
+  </g>
+
+  <!-- 页脚 -->
+  <g id="footer">
+    <text x="80" y="700" font-size="11" fill="var(--text-3)" font-family="Inter,sans-serif">App Design Preview</text>
+    <text x="1200" y="700" font-size="11" fill="var(--text-3)" font-family="Inter,sans-serif" text-anchor="end">01</text>
+  </g>
+
+  <!-- notes: iPhone 原型展示页——左侧文案介绍 + 右侧 iPhone 设备框架内的 App UI 预览 -->
+</svg>
