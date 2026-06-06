@@ -21,8 +21,8 @@ class AgentStreamRequest(BaseModel):
     files: list[FileAttachment] | None = Field(default=None, description="Attached files with extracted text.")
     ppt_phase: str | None = Field(
         default=None,
-        pattern="^(planning|generating)$",
-        description="PPT generation phase: 'planning' (output spec_lock only) or 'generating' (generate SVGs). None for backward-compatible single-phase.",
+        pattern="^(planning|confirming|generating|done)$",
+        description="PPT generation phase: 'planning' (output spec_lock), 'confirming' (wait for user), 'generating' (generate SVGs), 'done'. None for single-phase mode.",
     )
 
 

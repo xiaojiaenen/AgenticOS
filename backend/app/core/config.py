@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     hitl_enabled: bool = True
     hitl_require_approval_tools: str = "file_to_md,run_skill_python_script"
     hitl_timeout_seconds: int = 300
-    auth_secret_key: str = Field(default="agenticos-dev-secret-change-me", validation_alias="AUTH_SECRET_KEY")
+    auth_secret_key: str = Field(default="", validation_alias="AUTH_SECRET_KEY")
     auth_token_expire_minutes: int = Field(default=60 * 24, validation_alias="AUTH_TOKEN_EXPIRE_MINUTES")
     auth_rate_limit_max_attempts: int = Field(default=5, validation_alias="AUTH_RATE_LIMIT_MAX_ATTEMPTS")
     auth_rate_limit_window_seconds: int = Field(default=600, validation_alias="AUTH_RATE_LIMIT_WINDOW_SECONDS")
@@ -65,4 +65,13 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    import secrets
+    import logging
+    settings = Settings()
+    if not settings.auth_secret_key:
+        settings.auth_secret_key = secrets.token_hex(32)
+        logging.getLogger("config").warning(
+            "AUTH_SECRET_KEY 未设置，已自动生成随机密钥。"
+            "生产环境请在 .env 中设置 AUTH_SECRET_KEY。"
+        )
+    return settings
