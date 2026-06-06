@@ -35,6 +35,10 @@ required_tools: []
 | 代码 | `terminal` | `references/core-layouts/terminal.svg` | 终端窗口——命令行录屏 |
 | 结尾 | `cta` | `references/core-layouts/cta.svg` | 行动号召——居中大字 CTA + 按钮 |
 | 结尾 | `thanks` | `references/core-layouts/thanks.svg` | 致谢——居中感谢 + 联系方式 |
+| 设备 | `device-iphone` | `references/core-layouts/device-iphone.svg` | iPhone 原型——左侧文案 + 右侧 iPhone 设备框架 |
+| 设备 | `device-android` | `references/core-layouts/device-android.svg` | Android 原型——左侧 Pixel 设备 + 右侧文案 |
+| 设备 | `device-browser` | `references/core-layouts/device-browser.svg` | 浏览器窗口——Chrome 框架内展示网站 |
+| 设备 | `device-macos` | `references/core-layouts/device-macos.svg` | macOS 应用——窗口框架 + 侧边栏 + 仪表盘 |
 
 ### 使用流程（⚠️ 重要：不要照搬坐标）
 
@@ -116,6 +120,10 @@ required_tools: []
 | 代码展示 | code, terminal |
 | 行动号召 | cta |
 | 致谢 | thanks |
+| **iOS App 原型** | **device-iphone** |
+| **Android App 原型** | **device-android** |
+| **网站/落地页展示** | **device-browser** |
+| **桌面应用展示** | **device-macos** |
 
 ### 布局多样性强制规则
 
