@@ -1144,6 +1144,90 @@ class AgentService:
             _logger.exception("website artifact creation failed: session=%s", session_id)
             return None
 
+    # ------------------------------------------------------------------
+    # PPT Phase State Machine
+    # ------------------------------------------------------------------
+
+    # Phase constants
+    PPT_PHASE_PLANNING = "planning"
+    PPT_PHASE_CONFIRMING = "confirming"
+    PPT_PHASE_GENERATING = "generating"
+    PPT_PHASE_DONE = "done"
+
+    def _get_ppt_phase(self, session: Any) -> str:
+        """Get the current PPT phase from session metadata."""
+        meta = getattr(session, "metadata", {}) or {}
+        return meta.get("ppt_phase", self.PPT_PHASE_PLANNING)
+
+    def _set_ppt_phase(self, session: Any, phase: str) -> None:
+        """Set the PPT phase in session metadata."""
+        meta = getattr(session, "metadata", {}) or {}
+        meta["ppt_phase"] = phase
+        session.metadata = meta
+
+    def _get_ppt_phase_injection(self, phase: str) -> str:
+        """Return phase-specific instructions to inject into the user message."""
+        if phase == self.PPT_PHASE_PLANNING:
+            return (
+                "## 当前阶段：规划（Strategist）\n\n"
+                "你是策略师。你的任务是：\n"
+                "1. 分析用户需求\n"
+                "2. 推荐主题\n"
+                "3. 输出 spec_lock（设计参数锁定表）\n"
+                "4. 规划页面序列\n\n"
+                "**禁止**：不要调用 save_slide 生成 SVG。规划完成后停止。\n"
+                "输出 spec_lock 后，等待用户确认再继续。"
+            )
+        elif phase == self.PPT_PHASE_CONFIRMING:
+            return (
+                "## 当前阶段：等待确认\n\n"
+                "spec_lock 已输出，等待用户确认。\n"
+                "如果用户说'确认'、'可以'、'开始生成'等肯定词，切换到 generating 阶段。\n"
+                "如果用户要求修改 spec_lock，更新后重新输出。"
+            )
+        elif phase == self.PPT_PHASE_GENERATING:
+            return (
+                "## 当前阶段：生成（Executor）\n\n"
+                "你是执行者。spec_lock 已确认。\n"
+                "按以下流程逐页生成：\n"
+                "1. 回顾 spec_lock 中的颜色/字体/icon\n"
+                "2. 读取 1 个 SVG 模板\n"
+                "3. 生成 SVG 并调用 save_slide\n"
+                "4. 重复直到所有页面完成\n\n"
+                "**每页生成前必须回顾 spec_lock**，绝不从记忆中取色值。"
+            )
+        return ""
+
+    def _detect_phase_transition(self, session: Any, collected_text: str, tool_names: list[str]) -> str | None:
+        """Detect if a phase transition should happen based on collected output.
+
+        Returns the new phase, or None if no transition.
+        """
+        current = self._get_ppt_phase(session)
+
+        if current == self.PPT_PHASE_PLANNING:
+            # Planning → Confirming: when spec_lock is output or save_slide is called
+            has_spec_lock = "spec_lock" in collected_text.lower()
+            has_save_slide = "save_slide" in tool_names
+            if has_spec_lock or has_save_slide:
+                return self.PPT_PHASE_CONFIRMING
+
+        elif current == self.PPT_PHASE_CONFIRMING:
+            # Confirming → Generating: when user confirms
+            lower = collected_text.lower()
+            confirm_words = ["确认", "可以", "开始", "生成", "没问题", "就这样", "ok", "go"]
+            if any(w in lower for w in confirm_words):
+                return self.PPT_PHASE_GENERATING
+
+        elif current == self.PPT_PHASE_GENERATING:
+            # Generating → Done: when artifact is mentioned or save_slide was called
+            has_save_slide = "save_slide" in tool_names
+            has_artifact = "artifact" in collected_text.lower()
+            if has_artifact or has_save_slide:
+                return self.PPT_PHASE_DONE
+
+        return None
+
     async def _get_edit_hint(self, session_id: str) -> str | None:
         """If the session has existing PPT artifacts, add an edit hint for save_slide."""
         from pathlib import Path as _Path
@@ -1513,6 +1597,15 @@ class AgentService:
             edit_hint = await self._get_edit_hint(request.session_id)
             if edit_hint:
                 message = message + edit_hint
+            # Phase-specific injection (when frontend sends ppt_phase parameter)
+            request_phase = getattr(request, "ppt_phase", None)
+            if request_phase:
+                # Frontend is driving phase control — use request phase
+                self._set_ppt_phase(session, request_phase)
+                phase_injection = self._get_ppt_phase_injection(request_phase)
+                if phase_injection:
+                    message = message + "\n\n---\n" + phase_injection
+            # If no request_phase, no injection — backward compatible single-phase mode
 
         website_mode = response_mode == "website"
         if website_mode:
@@ -1543,6 +1636,12 @@ class AgentService:
             }
         )
         session.metadata = metadata
+        # Initialize PPT phase for new sessions
+        if ppt_mode and not getattr(session, "_ppt_phase_initialized", False):
+            existing_phase = self._get_ppt_phase(session)
+            if not existing_phase or existing_phase == self.PPT_PHASE_DONE:
+                self._set_ppt_phase(session, self.PPT_PHASE_PLANNING)
+            session._ppt_phase_initialized = True
         if user is not None:
             await self.storage.assign_owner(session.session_id, user.id)
         await self.storage.assign_agent_profile(session.session_id, runtime_profile.profile_id)
@@ -1691,6 +1790,55 @@ class AgentService:
                             tool_names.append(tool_name)
 
                     if ppt_mode and event.type == "done":
+                        # Phase transition detection
+                        new_phase = self._detect_phase_transition(session, collected_text, tool_names)
+                        if new_phase and new_phase != self._get_ppt_phase(session):
+                            old_phase = self._get_ppt_phase(session)
+                            self._set_ppt_phase(session, new_phase)
+                            _logger.info("PPT phase: %s → %s", old_phase, new_phase)
+                            yield {
+                                "event": "ppt_phase",
+                                "data": {
+                                    "session_id": session.session_id,
+                                    "phase": new_phase,
+                                    "old_phase": old_phase,
+                                },
+                            }
+                            # Save phase to DB
+                            try:
+                                await self.storage.save_meta(session)
+                            except Exception:
+                                pass
+
+                        # If still in planning/confirming phase, don't create artifact yet
+                        current_phase = self._get_ppt_phase(session)
+                        if current_phase in (self.PPT_PHASE_PLANNING, self.PPT_PHASE_CONFIRMING):
+                            _logger.info("PPT in %s phase, skipping artifact creation", current_phase)
+                            if visible_text:
+                                yield {
+                                    "event": "delta",
+                                    "data": {
+                                        "session_id": session.session_id,
+                                        "content": visible_text,
+                                    },
+                                }
+                            yield {
+                                "event": "run_status",
+                                "data": {
+                                    "session_id": session.session_id,
+                                    "phase": current_phase,
+                                    "label": "规划完成，等待确认" if current_phase == self.PPT_PHASE_CONFIRMING else "正在规划",
+                                },
+                            }
+                            yield {
+                                "event": "done",
+                                "data": {
+                                    "session_id": session.session_id,
+                                    "reason": f"ppt_{current_phase}",
+                                },
+                            }
+                            continue
+
                         _logger.info("ppt done: session=%s, creating artifact...", session.session_id)
                         artifact = await self._create_ppt_artifact(session.session_id)
                         _logger.info("ppt artifact result: session=%s, artifact=%s", session.session_id, "OK" if artifact else "None")
