@@ -61,6 +61,7 @@ async def _patched_stream_events(self, user_input: str, *, task=None):
     context.add_user_message(user_input)
     yield self._build_event("run_start", step=0, run_id=run_id, data={"input": user_input})
 
+    ctx = None  # Pre-initialize for exception handler
     try:
         while step_count < self.session.max_steps:
             content_parts: list[str] = []
@@ -249,7 +250,7 @@ async def _patched_stream_events(self, user_input: str, *, task=None):
         self._set_session_run_stats(usage=total_usage, latency_ms=total_latency_ms, llm_calls=llm_calls)
 
     except Exception as exc:
-        await self.middleware.execute_on_error(ctx if 'ctx' in dir() else MiddlewareContext(state=None, config={}, step=step_count), exc)
+        await self.middleware.execute_on_error(ctx if ctx is not None else MiddlewareContext(state=None, config={}, step=step_count), exc)
         yield self._build_event(
             "error", step=step_count, run_id=run_id,
             data={"message": str(exc), "error_type": type(exc).__name__, "latency_ms": total_latency_ms},
@@ -821,7 +822,8 @@ class AgentService:
         if loaded is not None:
             sessions[request.session_id] = loaded
 
-    def _inject_design_catalog(cls, message: str) -> str:
+    @staticmethod
+    def _inject_design_catalog(message: str) -> str:
         """Inject design catalog: phased skill loading + theme selection + token reference.
 
         分阶段加载策略：LLM 按工作流阶段依次加载技能，避免一次性注入过多规则。
@@ -1597,15 +1599,7 @@ class AgentService:
             edit_hint = await self._get_edit_hint(request.session_id)
             if edit_hint:
                 message = message + edit_hint
-            # Phase-specific injection (when frontend sends ppt_phase parameter)
-            request_phase = getattr(request, "ppt_phase", None)
-            if request_phase:
-                # Frontend is driving phase control — use request phase
-                self._set_ppt_phase(session, request_phase)
-                phase_injection = self._get_ppt_phase_injection(request_phase)
-                if phase_injection:
-                    message = message + "\n\n---\n" + phase_injection
-            # If no request_phase, no injection — backward compatible single-phase mode
+            # Phase-specific injection — deferred to after session creation (see below)
 
         website_mode = response_mode == "website"
         if website_mode:
@@ -1654,6 +1648,15 @@ class AgentService:
             set_current_user_id(user.id)
             set_ext_user_id(user.id)
         _current_session_id.set(session.session_id)
+
+        # Phase-specific injection (after session creation, before agent runs)
+        if ppt_mode:
+            request_phase = getattr(request, "ppt_phase", None)
+            if request_phase:
+                self._set_ppt_phase(session, request_phase)
+                phase_injection = self._get_ppt_phase_injection(request_phase)
+                if phase_injection:
+                    message = message + "\n\n---\n" + phase_injection
 
         yield {
             "event": "session",
@@ -1790,6 +1793,7 @@ class AgentService:
                             tool_names.append(tool_name)
 
                     if ppt_mode and event.type == "done":
+                        visible_text = ""  # Initialize before phase checks
                         # Phase transition detection
                         new_phase = self._detect_phase_transition(session, collected_text, tool_names)
                         if new_phase and new_phase != self._get_ppt_phase(session):

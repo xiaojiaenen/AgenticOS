@@ -59,3 +59,21 @@ export function buildSandboxedHtmlDocument(source: string): string {
 export function createObjectUrl(source: string, mimeType: string): string {
   return URL.createObjectURL(new Blob([source], { type: mimeType }));
 }
+
+/**
+ * Simple HTML sanitizer — strips dangerous tags and event handlers.
+ * For announcements rendered via dangerouslySetInnerHTML.
+ */
+export function sanitizeHtml(html: string): string {
+  if (!html) return '';
+  // Remove script tags and their content
+  let sanitized = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  // Remove event handlers (onclick, onerror, onload, etc.)
+  sanitized = sanitized.replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '');
+  // Remove dangerous tags
+  sanitized = sanitized.replace(/<(iframe|object|embed|form|input|button|select|textarea)\b[^>]*>/gi, '');
+  sanitized = sanitized.replace(/<\/(iframe|object|embed|form|input|button|select|textarea)>/gi, '');
+  // Remove javascript: and data: URLs in href/src
+  sanitized = sanitized.replace(/(?:href|src)\s*=\s*["']\s*(?:javascript:|data:text\/html)/gi, '');
+  return sanitized;
+}
