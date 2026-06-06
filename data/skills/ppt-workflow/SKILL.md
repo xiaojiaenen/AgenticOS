@@ -137,8 +137,31 @@ PPT 创作分为两个角色，**绝不在同一个回复中混合两个角色�
 - 库: chunk-filled（或 tabler-filled 等）
 - 清单: 从 search_icons 确认可用的图标名
 
-**页面节奏**
-- 每页标注节奏标签：anchor / dense / breathing
+**页面节奏（防千篇一律的核心机制）**
+
+每页标注节奏标签：anchor / dense / breathing
+
+**节奏规则**：
+- 8 页至少 2 个 anchor + 1 个 breathing
+- 不允许连续 3 页同节奏
+- dense 页后必须接 breathing 或 anchor
+- section-divider 固定为 anchor
+
+**⚠️ breathing 页的硬约束（借鉴 ppt-master）**：
+
+breathing 页**禁止**多卡片网格布局。具体禁止：
+- 禁止 2×2 KPI 卡片网格
+- 禁止 3 列并排卡片
+- 禁止任何"多个圆角容器并排"的结构
+
+breathing 页**应该**使用：
+- 大号引文（big-quote 布局）
+- 单个超大数字（stat-highlight 布局）
+- 全出血背景 + 浮动文字
+- 大量留白 + 单个核心信息
+- 分割线 + 过渡文字
+
+**没有节奏变化，每页都会默认变成卡片网格（"AI 生成感"的根源）。breathing 是打破这种默认行为的唯一武器。**
 
 **执行纪律**：
 - 每页生成前回顾 spec_lock，确认颜色、字体、图标与锁定值一致
