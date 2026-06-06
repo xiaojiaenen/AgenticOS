@@ -53,6 +53,13 @@ P0_PATTERNS = [
         "message": "避免'圆角卡片+左侧 accent 竖条'模式（典型 AI dashboard）",
         "min_gap": 200,  # characters between rx and fill
     },
+    # --- huashu-design 增强 ---
+    {
+        "code": "bento_overuse",
+        "pattern": r'<svg[^>]*>.*?<g\s+id="card-\d+".*?<g\s+id="card-\d+".*?<g\s+id="card-\d+"',
+        "message": "避免 Bento Grid 滥用（每页 >3 个相同结构的卡片）",
+        "dotall": True,
+    },
 ]
 
 # P1 checks — warn but don't block
@@ -107,7 +114,8 @@ def check_anti_slop(svg_content: str) -> list[Finding]:
                     findings.append(Finding("P0", rule["code"], rule["message"]))
                     break
         elif rule["pattern"]:
-            if re.search(rule["pattern"], svg_content):
+            flags = re.DOTALL if rule.get("dotall") else 0
+            if re.search(rule["pattern"], svg_content, flags):
                 findings.append(Finding("P0", rule["code"], rule["message"]))
 
     # Run P1 checks
