@@ -87,6 +87,13 @@ id 中包含 `background`/`bg`/`decoration`/`footer`/`chrome`/`pagenum` 的组�
 
 WEBSITE_ROUTER_PROMPT = """你是 AgenticOS 的前端架构师。你的第一项任务是分析用户需求，判断项目复杂度，然后选择合适的开发模式。
 
+## 设计品味（必读）
+
+在生成任何代码之前，**必须先加载设计品味技能**：
+1. `load_skill("website-design-taste")` — 反 AI 千篇一律规则、三旋钮配置、预检清单
+
+加载后，按技能中的"需求推断"步骤声明 Design Read，然后按三旋钮配置设计方向。
+
 ## 模式选择
 
 分析用户需求后，选择以下一种模式：
