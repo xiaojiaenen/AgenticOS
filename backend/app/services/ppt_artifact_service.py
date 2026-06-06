@@ -238,6 +238,21 @@ class PptArtifactService:
                 for w in spec_warnings + layout_warnings:
                     all_warnings.append(f"{slide_name}: {w}")
 
+            # Anti-AI-Slop check
+            try:
+                from app.services.ppt.anti_slop_checker import check_anti_slop
+                for i, svg_content in enumerate(svgs):
+                    slide_name = f"slide_{i+1}.svg"
+                    slop_findings = check_anti_slop(svg_content)
+                    for f in slop_findings:
+                        msg = f"{slide_name}: [{f.severity}] {f.code} — {f.message}"
+                        if f.severity == "P0":
+                            critical_errors.append(msg)
+                        else:
+                            all_warnings.append(msg)
+            except Exception as exc:
+                _logger.debug("Anti-slop check skipped: %s", exc)
+
             # Block on critical errors — triggers fallback chain
             if critical_errors:
                 _logger.error(
@@ -259,6 +274,18 @@ class PptArtifactService:
         theme_name = _detect_theme_name_from_svg(svgs)
         tokens = load_theme_tokens(theme_name)
         resolved_svgs = [resolve_token_values(svg, tokens) for svg in svgs]
+
+        # Post-processing: rect-to-path conversion for PPTX compatibility
+        try:
+            from app.services.ppt.svg_finalize.svg_rect_to_path import process_svg as rect_to_path
+            processed = []
+            for svg in resolved_svgs:
+                svg, _count = rect_to_path(svg)
+                processed.append(svg)
+            resolved_svgs = processed
+        except Exception as exc:
+            _logger.debug("rect-to-path post-processing skipped: %s", exc)
+
         resolved_svgs = [sanitize_svg_xml(svg) for svg in resolved_svgs]
 
         preview_html = prepare_svg_preview(resolved_svgs, theme_name)
