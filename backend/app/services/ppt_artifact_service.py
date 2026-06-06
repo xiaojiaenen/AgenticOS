@@ -206,16 +206,49 @@ class PptArtifactService:
             else:
                 _logger.warning(f"Slide file doesn't start with <svg>: {f}")
 
-        # Run SVG quality check (logs only, does not block pipeline)
+        # Run SVG quality check with blocking for critical errors
+        _CRITICAL_KEYWORDS = [
+            "forbidden element", "viewBox mismatch", "Invalid XML",
+            "rgba()", "Missing viewBox",
+        ]
         try:
-            from app.services.ppt.svg_quality_checker import SVGQualityChecker
+            from app.services.ppt.svg_quality_checker import (
+                SVGQualityChecker,
+                check_spec_lock_consistency,
+                check_layout_discipline,
+            )
             checker = SVGQualityChecker()
+            critical_errors: list[str] = []
+            all_warnings: list[str] = []
             for f in svg_files:
                 result = checker.check_file(str(f), "ppt169")
-                if result.get("errors"):
-                    _logger.warning("Quality check errors in %s: %s", f.name, result["errors"])
+                for err in result.get("errors", []):
+                    if any(kw.lower() in err.lower() for kw in _CRITICAL_KEYWORDS):
+                        critical_errors.append(f"{f.name}: {err}")
+                    else:
+                        all_warnings.append(f"{f.name}: {err}")
                 for w in result.get("warnings", []):
-                    _logger.info("Quality check warning in %s: %s", f.name, w)
+                    all_warnings.append(f"{f.name}: {w}")
+
+            # New checks: spec_lock consistency + layout discipline
+            for i, svg_content in enumerate(svgs):
+                slide_name = f"slide_{i+1}.svg"
+                spec_warnings = check_spec_lock_consistency(svg_content)
+                layout_warnings = check_layout_discipline(svg_content)
+                for w in spec_warnings + layout_warnings:
+                    all_warnings.append(f"{slide_name}: {w}")
+
+            # Block on critical errors — triggers fallback chain
+            if critical_errors:
+                _logger.error(
+                    "SVG quality gate BLOCKED %d critical errors: %s",
+                    len(critical_errors), critical_errors,
+                )
+                return None
+
+            # Log non-critical warnings (do not block)
+            for w in all_warnings:
+                _logger.info("Quality check: %s", w)
         except Exception as exc:
             _logger.warning("Quality check skipped (error initializing): %s", exc)
 

@@ -822,10 +822,9 @@ class AgentService:
             sessions[request.session_id] = loaded
 
     def _inject_design_catalog(cls, message: str) -> str:
-        """Inject design catalog: skill loading instructions + theme selection + token reference.
+        """Inject design catalog: phased skill loading + theme selection + token reference.
 
-        技能加载是 PPT 生成的核心——没有设计规范和模板库，SVG 质量会很差。
-        模板文件需要按需读取，每页读 1-2 个相关模板即可。
+        分阶段加载策略：LLM 按工作流阶段依次加载技能，避免一次性注入过多规则。
         """
         token_ref = build_token_quick_ref()
         theme_count = len(list_available_themes())
@@ -834,22 +833,33 @@ class AgentService:
         lines = [
             "",
             "---",
-            "## ⚠️ 生成 SVG 前必须加载两个技能",
+            "## ⚠️ 分阶段技能加载（严格遵守）",
             "",
-            "**第一步：加载技能（2 步）**",
+            "**不要一次加载所有技能。** 按以下阶段依次加载：",
             "",
-            "1. `load_skill(\"ppt-design-guide\")` — 设计规范（SVG 约束、排版规则、颜色纪律）",
-            "2. `load_skill(\"ppt-template-library\")` — 模板库（布局 + 图表模板）",
+            "### 阶段 1：开始创作（立即执行）",
+            "1. `load_skill(\"ppt-design-guide\")` — SVG 技术约束 + 排版铁律 + 颜色纪律",
+            "2. `load_skill(\"ppt-template-library\")` — 15 个布局 + 71 个图表模板",
             "",
-            "**第二步：按需读取模板（每页 1-2 个）**",
+            "### 阶段 2：规划完成后",
+            "3. `load_skill(\"ppt-workflow\")` — 7 步工作流 + spec_lock 格式 + 修改流程",
             "",
-            "加载 ppt-template-library 后，用 `read_text_file` 读取具体的 SVG 模板文件。",
-            "模板文件路径格式：`references/xxx.svg`，每页只读 1-2 个相关模板。",
-            "**不要读取所有模板**，根据页面类型选择：封面读 cover，数据页读 bar-chart 等。",
+            "### 阶段 3：每次 save_slide 前",
+            "4. `load_skill(\"ppt-quality-budgets\")` — 颜色预算 + 字号预算 + 自检清单",
             "",
-            "**第三步：生成 SVG 并调用 save_slide**",
+            "**懒加载纪律**：加载技能后不要预读所有模板。每页只读 1 个模板 SVG，读完立即生成。",
             "",
-            "读取模板后，复制模板结构，替换为实际内容，调用 `save_slide` 写入。",
+            "示例正确流程：",
+            "  load_skill(\"ppt-design-guide\")",
+            "  load_skill(\"ppt-template-library\")",
+            "  → 确认需求 + 选择主题",
+            "  load_skill(\"ppt-workflow\")",
+            "  → 生成 spec_lock + 规划页面",
+            "  load_skill(\"ppt-quality-budgets\")",
+            "  load_skill_reference(\"references/core-layouts/cover.svg\")",
+            "  → save_slide(1, svg=\"...\")",
+            "  load_skill_reference(\"references/core-layouts/toc.svg\")",
+            "  → save_slide(2, svg=\"...\")",
             "",
             "---",
             "## ⭐ 主题选择",
@@ -870,15 +880,6 @@ class AgentService:
             "",
             f"**全部 {theme_count} 个主题：**",
             theme_list,
-            "",
-            "---",
-            "## SVG 关键规则",
-            "",
-            "1. 每页调用 `save_slide(slide_num=N, svg=\"...\")` 写入",
-            "2. SVG 根元素：`<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1280 720\" data-theme=\"xxx\">`",
-            "3. 所有颜色用 `var(--xxx)` 令牌，非颜色属性（圆角、字号、字体）直接写值",
-            "4. 禁止 `<style>`、`<foreignObject>`、`<mask>`、`class`、`rgba()`",
-            "5. 每页必须有 `<!-- notes: 演讲者备注 -->`",
             "",
             "---",
             "## Token 语义速查",
