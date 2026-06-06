@@ -88,6 +88,11 @@ backend/
       announcement_service.py      # announcement CRUD
       design_system.py             # design system utilities
     prompts.py                     # system prompts for agent modes
+  examples/
+    run_all_examples.py            # combined test for all 3 wuwei features
+    test_async_sub_agent.py        # AsyncSubAgent background tasks
+    test_multi_agent_graph.py      # MultiAgentGraph leader-worker
+    test_concurrent_tools.py       # concurrent tool execution
 ```
 
 The wuwei framework (>=3.0.2) provides `Agent`, `LLMGateway`, `ToolRegistry`, `SkillManager`, and a middleware stack (`HitlMiddleware`, `ContextCompressionMiddleware`, `LoggingMiddleware`, `TracingMiddleware`). The backend wraps these with FastAPI endpoints, custom middlewares, and database persistence.
@@ -108,6 +113,14 @@ Custom middlewares in agent_service.py:
 - `AsyncSubAgentMiddleware` — enables background async sub-agent tasks (code_analyst, file_processor)
 
 Concurrent tool execution: `AgentRunner.stream_events` is monkey-patched to batch safe tools (`is_concurrency_safe=True`) via `asyncio.gather`. Unsafe tools remain sequential. Transparent to frontend SSE events.
+
+### Multi-Agent Graph
+
+`multi_agent_graph_service.py` wraps wuwei's `MultiAgentGraph` for leader-worker parallel orchestration. Leader decomposes tasks, workers (researcher/writer/reviewer) execute in parallel via `asyncio.gather`, leader synthesizes results. Available via `get_multi_agent_graph_service().run(task)`.
+
+### Async Sub-Agents
+
+`AsyncSubAgentMiddleware` in agent_service.py injects 4 tools: `start_async_task`, `check_async_task`, `cancel_async_task`, `list_async_tasks`. Two built-in sub-agents: `code_analyst` (Python/calc/git) and `file_processor` (file read/write/search). Controlled by `ASYNC_SUB_AGENTS_ENABLED` env var.
 
 ### PPT multi-template system
 
@@ -150,6 +163,18 @@ When an agent invokes a tool that requires approval:
 ### Context compression
 
 When `context_compression_enabled` is true (default), `ContextCompressionMiddleware` triggers after `context_compress_after_turns` (default 16) turns. It uses the LLM itself to summarize conversation history, keeping the most recent `context_keep_recent_turns` (default 6) turns intact.
+
+### Frontend design system
+
+Tailwind 4 + custom `@theme` tokens in `src/index.css`. Key conventions:
+- **Brand color** `#2b87c2` (desaturated sky) — used sparingly: primary CTA and focus states only. Secondary interactions use slate.
+- **Font weights**: `font-medium`(500) / `font-semibold`(600). No `font-bold`(700) or `font-black`(900).
+- **Border radius**: `rounded-md`(8px) for buttons/inputs, `rounded-lg`(12px) for cards, `rounded-xl`(16px) for modals.
+- **Shadows**: Dual-layer system (`shadow-sm` through `shadow-xl`). Each level uses two stacked box-shadows for realistic depth.
+- **Surfaces**: `--surface-0: #f4f6f8` (page bg) → `--surface-1: #ffffff` (cards/panels). Cards use `border-slate-200/80` + `shadow-sm`, with `hover:border-slate-300 hover:shadow-md`.
+- **Glass**: `backdrop-blur` only on sidebar and modal overlays. Not on cards, inputs, or scrolling content.
+- **Micro-interactions**: `active:scale-[0.98]` on buttons, `transition-all duration-150` on interactive elements.
+- **Admin**: Unified style with chat (same tokens). No separate admin color scheme.
 
 ### Frontend (React 19 + TypeScript + Tailwind 4 + Vite)
 
