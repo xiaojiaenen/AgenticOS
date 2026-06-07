@@ -1329,8 +1329,15 @@ class AgentService:
             has_save_slide = "save_slide" in tool_names
 
             if has_save_slide:
-                # Check if all planned slides are saved
+                # 检查是否有待修复的错误
                 meta = getattr(session, "metadata", {}) or {}
+                pending_fix = meta.get("ppt_pending_fix")
+                if pending_fix and pending_fix.get("errors"):
+                    # 有待修复的错误，保持在 generating 阶段
+                    _logger.debug("PPT generating: has pending fix errors, staying in generating")
+                    return None
+
+                # Check if all planned slides are saved
                 slide_plan = meta.get("ppt_slide_plan")
                 if slide_plan and isinstance(slide_plan, list):
                     planned_count = len(slide_plan)
@@ -1839,6 +1846,37 @@ class AgentService:
             if phase_injection:
                 message = message + "\n\n---\n" + phase_injection
 
+            # 检查是否有待修复的 PPT 错误
+            meta = getattr(session, "metadata", {}) or {}
+            pending_fix = meta.get("ppt_pending_fix")
+            if pending_fix and pending_fix.get("errors"):
+                retry_count = pending_fix.get("retry_count", 0)
+                if retry_count <= 3:  # 最多重试3次
+                    fix_injection = (
+                        "\n\n---\n"
+                        "## ⚠️ PPT 质量门未通过，请自动修复\n\n"
+                        "上次生成的幻灯片存在以下问题：\n"
+                    )
+                    for err in pending_fix["errors"][:5]:
+                        fix_injection += f"- ❌ {err}\n"
+                    if pending_fix.get("warnings"):
+                        fix_injection += "\n警告：\n"
+                        for warn in pending_fix["warnings"][:3]:
+                            fix_injection += f"- ⚠️ {warn}\n"
+                    fix_injection += (
+                        "\n**请立即修复这些问题：**\n"
+                        "1. 读取需要修复的幻灯片（read_slide）\n"
+                        "2. 根据错误信息修改 SVG\n"
+                        "3. 重新保存（save_slide）\n"
+                        "4. 修复完成后，系统会自动重新尝试创建 PPT\n\n"
+                        f"这是第 {retry_count}/3 次重试。"
+                    )
+                    message = message + fix_injection
+                    _logger.info(
+                        "PPT pending fix injected: %d errors, retry %d/3",
+                        len(pending_fix["errors"]), retry_count,
+                    )
+
         yield {
             "event": "session",
             "data": self._session_payload(session),
@@ -2025,10 +2063,17 @@ class AgentService:
                             continue
 
                         _logger.info("ppt done: session=%s, creating artifact...", session.session_id)
+
+                        # 清除待修复错误标记（每次重新尝试创建）
+                        meta = getattr(session, "metadata", {}) or {}
+                        if "ppt_pending_fix" in meta:
+                            del meta["ppt_pending_fix"]
+                            session.metadata = meta
+                            _logger.info("Cleared ppt_pending_fix before retry")
+
                         artifact = await self._create_ppt_artifact(session.session_id)
                         _logger.info("ppt artifact result: session=%s, artifact=%s", session.session_id, "OK" if artifact else "None")
                         if artifact is not None:
-                            visible_text = f"已生成 {artifact['slide_count']} 页 PPT：{artifact['title']}"
                             yield {
                                 "event": "run_status",
                                 "data": {
@@ -2042,21 +2087,37 @@ class AgentService:
                                 "data": artifact,
                             }
                         else:
-                            # 质量门失败，返回具体原因给前端
+                            # 质量门失败，将错误信息注入到 session 让 Agent 自动修复
                             quality_errors = getattr(self.ppt_artifacts, '_last_quality_errors', [])
                             quality_warnings = getattr(self.ppt_artifacts, '_last_quality_warnings', [])
-                            error_detail = "; ".join(quality_errors[:3]) if quality_errors else "未知原因"
+                            error_detail = "; ".join(quality_errors[:5]) if quality_errors else "未知原因"
                             _logger.warning(
                                 "ppt artifact creation failed: session=%s, errors=%s",
                                 session.session_id, quality_errors,
                             )
-                            visible_text = f"PPT 预览生成失败：{error_detail}"
+
+                            # 将错误信息存储到 session metadata，供下次请求注入
+                            meta = getattr(session, "metadata", {}) or {}
+                            meta["ppt_pending_fix"] = {
+                                "errors": quality_errors,
+                                "warnings": quality_warnings,
+                                "retry_count": meta.get("ppt_pending_fix", {}).get("retry_count", 0) + 1,
+                            }
+                            session.metadata = meta
+                            await self.storage.save_meta(session)
+
+                            # 返回错误信息，让 Agent 知道需要修复
+                            visible_text = (
+                                f"PPT 预览生成失败，请自动修复以下问题后重新生成：\n"
+                                f"错误：{error_detail}\n"
+                                f"请逐个修复这些问题，然后重新调用 save_slide 保存修复后的幻灯片。"
+                            )
                             yield {
                                 "event": "run_status",
                                 "data": {
                                     "session_id": session.session_id,
-                                    "phase": "error",
-                                    "label": f"PPT 质量门未通过：{error_detail}",
+                                    "phase": "generating_ppt",
+                                    "label": "PPT 需要修复，请等待 Agent 自动处理",
                                     "quality_errors": quality_errors,
                                     "quality_warnings": quality_warnings,
                                 },
