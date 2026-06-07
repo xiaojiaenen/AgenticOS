@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 
-type CompanionPhase = 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'done' | 'error';
+type CompanionPhase = 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'ppt_fixing' | 'done' | 'error';
 
 interface MascotCompanionProps {
   phase: CompanionPhase;
@@ -18,6 +18,7 @@ const palette: Record<CompanionPhase, { body: string; glow: string; particle: st
   streaming:       { body: '#38bdf8', glow: 'rgba(14,165,233,0.28)',  particle: '#7dd3fc' },
   generating_ppt:  { body: '#a78bfa', glow: 'rgba(124,58,237,0.22)',  particle: '#c4b5fd' },
   rendering_ppt:   { body: '#a78bfa', glow: 'rgba(124,58,237,0.22)',  particle: '#c4b5fd' },
+  ppt_fixing:      { body: '#fbbf24', glow: 'rgba(251,191,36,0.22)',  particle: '#fde68a' },
   done:            { body: '#34d399', glow: 'rgba(52,211,153,0.28)',  particle: '#6ee7b7' },
   error:           { body: '#fb7185', glow: 'rgba(251,113,133,0.22)', particle: '#fda4af' },
 };
@@ -27,6 +28,7 @@ const defaultLabel: Record<CompanionPhase, string> = {
   streaming:      '正在输出...',
   generating_ppt: '正在生成 PPT...',
   rendering_ppt:  '正在渲染预览...',
+  ppt_fixing:     '正在修复 PPT...',
   done:           '完成啦',
   error:          '出错了',
 };
@@ -96,6 +98,19 @@ const A: Record<CompanionPhase, AnimConfig> = {
     pupilWander: true,
     blinkEvery: 4,
     earWiggle: true,
+    streamingDots: false,
+    pptExtra: true,
+    sweatDrops: 0,
+    bodyShake: false,
+  },
+  ppt_fixing: {
+    container: { y: [0, -4, 0] },
+    containerTrans: { duration: 1.8, ease: 'easeInOut', repeat: Infinity },
+    orbitSpeed: 6,
+    arm: { range: [-3, 5, -3], duration: 2 },
+    pupilWander: true,
+    blinkEvery: 3,
+    earWiggle: false,
     streamingDots: false,
     pptExtra: true,
     sweatDrops: 0,
