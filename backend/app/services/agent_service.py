@@ -1801,7 +1801,7 @@ class AgentService:
         )
         session.metadata = metadata
         # Initialize PPT phase for new sessions
-        if ppt_mode and not getattr(session, "_ppt_phase_initialized", False):
+        if ppt_mode:
             existing_phase = self._get_ppt_phase(session)
             # 新请求进来时，始终重置为 planning（除非用户消息是确认词）
             if existing_phase == self.PPT_PHASE_CONFIRMING:
@@ -1814,7 +1814,6 @@ class AgentService:
             elif existing_phase != self.PPT_PHASE_PLANNING:
                 # generating / done / 其他 → 重置为 planning
                 self._set_ppt_phase(session, self.PPT_PHASE_PLANNING)
-            session._ppt_phase_initialized = True
         if user is not None:
             await self.storage.assign_owner(session.session_id, user.id)
         await self.storage.assign_agent_profile(session.session_id, runtime_profile.profile_id)
