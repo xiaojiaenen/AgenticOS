@@ -36,6 +36,9 @@ P0_PATTERNS = [
         "code": "emoji_icon",
         "pattern": r'[\U0001F300-\U0001F9FF\U00002702-\U000027B0\U0000FE00-\U0000FE0F]',
         "message": "禁止使用 Emoji 作为功能图标，应使用 search_icons 搜索真实图标",
+        "exclude_patterns": [
+            r'[\U00002764\U0000FE0F\U0001F491\U0001F492\U0001F493\U0001F494\U0001F495\U0001F496\U0001F497\U0001F498\U0001F499\U0001F49A\U0001F49B\U0001F49C\U0001F48D\U0001F48E\U0001F339\U0001F33A\U0001F338\U0001F337\U0001F33B\U0001F33C]',  # 爱情/花朵相关Emoji
+        ],
     },
     {
         "code": "lorem_ipsum",
@@ -115,8 +118,19 @@ def check_anti_slop(svg_content: str) -> list[Finding]:
                     break
         elif rule["pattern"]:
             flags = re.DOTALL if rule.get("dotall") else 0
-            if re.search(rule["pattern"], svg_content, flags):
-                findings.append(Finding("P0", rule["code"], rule["message"]))
+            matches = re.finditer(rule["pattern"], svg_content, flags)
+            for m in matches:
+                match_text = m.group(0)
+                # Check if match should be excluded
+                excluded = False
+                if rule.get("exclude_patterns"):
+                    for exclude_pattern in rule["exclude_patterns"]:
+                        if re.search(exclude_pattern, match_text):
+                            excluded = True
+                            break
+                if not excluded:
+                    findings.append(Finding("P0", rule["code"], rule["message"]))
+                    break
 
     # Run P1 checks
     for rule in P1_PATTERNS:
