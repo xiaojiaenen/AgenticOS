@@ -1327,11 +1327,6 @@ class AgentService:
         elif current == self.PPT_PHASE_GENERATING:
             # Generating → Done: only when ALL slides from the plan are saved
             has_save_slide = "save_slide" in tool_names
-            has_artifact = "artifact" in collected_text.lower()
-
-            if has_artifact:
-                # Explicit artifact mention — trust the agent knows it's done
-                return self.PPT_PHASE_DONE
 
             if has_save_slide:
                 # Check if all planned slides are saved
@@ -1359,8 +1354,18 @@ class AgentService:
                     except Exception as exc:
                         _logger.debug("Slide count check failed: %s", exc)
                 else:
-                    # No slide plan — fallback: any save_slide triggers done
-                    return self.PPT_PHASE_DONE
+                    # No slide plan — fallback: need at least 3 slides for artifact
+                    try:
+                        from app.tools.ppt_tools import _get_slides_dir
+                        slides_dir = _get_slides_dir()
+                        actual_count = len([f for f in slides_dir.iterdir() if f.suffix == ".svg"]) if slides_dir.exists() else 0
+                        if actual_count >= 3:
+                            _logger.info("PPT generating → done: %d slides (no plan)", actual_count)
+                            return self.PPT_PHASE_DONE
+                        else:
+                            _logger.debug("PPT generating: %d slides, need at least 3", actual_count)
+                    except Exception as exc:
+                        _logger.debug("Slide count check failed: %s", exc)
 
         return None
 
