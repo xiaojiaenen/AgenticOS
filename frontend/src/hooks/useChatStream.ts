@@ -71,7 +71,7 @@ export function useChatStream({
   const [error, setError] = useState<string | null>(null);
   const [pendingDecisions, setPendingDecisions] = useState<UserDecision[]>([]);
   const [runStatus, setRunStatus] = useState<{
-    phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'ppt_fixing' | 'done' | 'error';
+    phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'done' | 'error';
     label: string;
   }>({ phase: 'idle', label: '已就绪' });
 
@@ -219,27 +219,10 @@ export function useChatStream({
               generating_ppt: '正在生成 PPT...',
               rendering_ppt: '正在渲染预览...',
               rendering_website: '正在渲染网站...',
-              ppt_fixing: 'PPT 需要修复，正在自动处理...',
               done: '已完成',
               error: '出错了',
             };
             setRunStatus({ phase: status.phase, label: labelMap[status.phase] || status.label });
-
-            // 当收到 ppt_fixing phase 时，自动发送修复请求
-            if (status.phase === 'ppt_fixing') {
-              console.log('[PPT] ppt_fixing detected, will auto-send fix request');
-              // 延迟500ms后自动发送修复请求，让前端有时间更新状态
-              // 使用当前会话的 session_id，确保在同一个会话中继续执行
-              const fixSessionId = status.session_id;
-              if (fixSessionId) {
-                // 立即设置 currentSessionId，确保在同一个会话中继续
-                setCurrentSessionId(fixSessionId);
-                // 等待状态更新后再发送请求
-                setTimeout(() => {
-                  handleSend('请修复PPT问题并重新生成');
-                }, 100);
-              }
-            }
           },
           onPptArtifact: (pptArtifact) => {
             console.log('[PPT] onPptArtifact received:', pptArtifact.artifact_id, 'html length:', pptArtifact.html?.length);

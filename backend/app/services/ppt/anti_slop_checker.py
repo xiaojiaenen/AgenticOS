@@ -32,14 +32,7 @@ P0_PATTERNS = [
         "message": "避免紫蓝/蓝青双色渐变背景（AI 指纹）",
         "exclude_colors": True,  # skip if stops are var() references
     },
-    {
-        "code": "emoji_icon",
-        "pattern": r'[\U0001F300-\U0001F9FF\U00002702-\U000027B0\U0000FE00-\U0000FE0F]',
-        "message": "禁止使用 Emoji 作为功能图标，应使用 search_icons 搜索真实图标",
-        "exclude_patterns": [
-            r'[\U00002764\U0000FE0F\U0001F491\U0001F492\U0001F493\U0001F494\U0001F495\U0001F496\U0001F497\U0001F498\U0001F499\U0001F49A\U0001F49B\U0001F49C\U0001F48D\U0001F48E\U0001F339\U0001F33A\U0001F338\U0001F337\U0001F33B\U0001F33C]',  # 爱情/花朵相关Emoji
-        ],
-    },
+    # emoji_icon check removed -允许使用Emoji
     {
         "code": "lorem_ipsum",
         "pattern": r'Lorem ipsum|占位文字|placeholder text|示例文字',
