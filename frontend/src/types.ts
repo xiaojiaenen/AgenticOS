@@ -35,10 +35,16 @@ export type ReasoningChunk = {
   timestamp: number;
 };
 
+export type MessageContent =
+  | { type: 'reasoning'; id: string; text: string; timestamp: number }
+  | { type: 'text'; text: string; timestamp: number }
+  | { type: 'tool_call'; id: string; toolName: string; status: string; timestamp: number };
+
 export type Message = {
   id: string;
   role: 'user' | 'model';
   text: string;
+  content?: MessageContent[];
   reasoningChunks?: ReasoningChunk[];
   reasoningText?: string; // 保留用于兼容
   toolCalls?: ToolCall[];

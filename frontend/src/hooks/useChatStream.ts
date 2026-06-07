@@ -139,8 +139,9 @@ export function useChatStream({
       let hasAssistantActivity = false;
       let receivedPptArtifact: AgentPptArtifact | undefined;
       let receivedWebsiteArtifact: AgentWebsiteArtifact | undefined;
-      let currentReasoningChunk = ''; // 当前思考片段
-      let chunkCounter = 0; // 片段计数器
+      let currentReasoningText = ''; // 当前正在累积的思考文本
+      let lastReasoningEndTime = 0; // 上一次思考结束的时间
+      let contentCounter = 0; // 内容计数器
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
@@ -311,12 +312,12 @@ export function useChatStream({
                 : { phase: 'streaming', label: '大模型正在输出' },
             );
 
-            // 如果有未保存的思考片段，保存到reasoningChunks
-            const shouldSaveChunk = currentReasoningChunk.trim().length > 0;
-            const chunkToSave = shouldSaveChunk ? currentReasoningChunk : '';
-            if (shouldSaveChunk) {
-              currentReasoningChunk = '';
-              chunkCounter++;
+            // 如果有未保存的思考文本，保存到content数组
+            const shouldSaveReasoning = currentReasoningText.trim().length > 0;
+            const reasoningToSave = shouldSaveReasoning ? currentReasoningText : '';
+            if (shouldSaveReasoning) {
+              currentReasoningText = '';
+              lastReasoningEndTime = Date.now();
             }
 
             setSessions((prev) =>
@@ -331,13 +332,22 @@ export function useChatStream({
                               ...message,
                               text: fullText,
                               _currentReasoning: undefined, // 清除临时思考内容
-                              reasoningChunks: shouldSaveChunk
-                                ? [...(message.reasoningChunks || []), {
-                                    id: `chunk-${chunkCounter}`,
-                                    text: chunkToSave,
-                                    timestamp: Date.now(),
-                                  }]
-                                : message.reasoningChunks,
+                              content: [
+                                ...(message.content || []),
+                                // 如果有思考内容，先添加
+                                ...(shouldSaveReasoning ? [{
+                                  type: 'reasoning' as const,
+                                  id: `reasoning-${++contentCounter}`,
+                                  text: reasoningToSave,
+                                  timestamp: lastReasoningEndTime,
+                                }] : []),
+                                // 添加输出内容
+                                {
+                                  type: 'text' as const,
+                                  text: fullText,
+                                  timestamp: Date.now(),
+                                },
+                              ],
                               pptArtifact: chatMode === 'ppt'
                                 ? (message.pptArtifact?.status === 'ready' || receivedPptArtifact
                                     ? (message.pptArtifact?.status === 'ready' ? message.pptArtifact : { status: 'ready' as const, artifactId: receivedPptArtifact!.artifact_id })
@@ -353,7 +363,7 @@ export function useChatStream({
           },
           onReasoningDelta: (_, fullReasoning) => {
             hasAssistantActivity = true;
-            currentReasoningChunk = fullReasoning;
+            currentReasoningText = fullReasoning;
             setSessions((prev) =>
               prev.map((session) =>
                 session.id === targetId
@@ -364,8 +374,7 @@ export function useChatStream({
                         message.id === assistantMessageId
                           ? {
                               ...message,
-                              reasoningChunks: message.reasoningChunks || [],
-                              // 临时显示当前正在累积的思考片段
+                              // 临时显示当前正在累积的思考内容
                               _currentReasoning: fullReasoning,
                             }
                           : message,
@@ -377,6 +386,18 @@ export function useChatStream({
           },
           onToolCalls: (toolCalls) => {
             hasAssistantActivity = true;
+
+            // 如果有未保存的思考文本，保存到content数组
+            const shouldSaveReasoning = currentReasoningText.trim().length > 0;
+            const reasoningToSave = shouldSaveReasoning ? currentReasoningText : '';
+            if (shouldSaveReasoning) {
+              currentReasoningText = '';
+              lastReasoningEndTime = Date.now();
+            }
+
+            // 获取最新的工具调用
+            const latestToolCalls = toolCalls.filter(tc => tc.status !== 'pending');
+
             setSessions((prev) =>
               prev.map((session) =>
                 session.id === targetId
@@ -384,7 +405,28 @@ export function useChatStream({
                       ...session,
                       messages: session.messages.map((message) =>
                         message.id === assistantMessageId
-                          ? { ...message, toolCalls }
+                          ? {
+                              ...message,
+                              toolCalls,
+                              content: [
+                                ...(message.content || []),
+                                // 如果有思考内容，先添加
+                                ...(shouldSaveReasoning ? [{
+                                  type: 'reasoning' as const,
+                                  id: `reasoning-${++contentCounter}`,
+                                  text: reasoningToSave,
+                                  timestamp: lastReasoningEndTime,
+                                }] : []),
+                                // 添加工具调用
+                                ...latestToolCalls.map(tc => ({
+                                  type: 'tool_call' as const,
+                                  id: tc.id || `tool-${++contentCounter}`,
+                                  toolName: tc.name,
+                                  status: tc.status,
+                                  timestamp: Date.now(),
+                                })),
+                              ],
+                            }
                           : message,
                       ),
                     }
