@@ -230,7 +230,7 @@ export function useChatStream({
               console.log('[PPT] ppt_fixing detected, will auto-send fix request');
               // 延迟500ms后自动发送修复请求，让前端有时间更新状态
               setTimeout(() => {
-                handleSend('请修复PPT问题并重新生成', true);
+                handleSend('请修复PPT问题并重新生成');
               }, 500);
             }
           },
