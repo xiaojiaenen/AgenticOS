@@ -151,7 +151,7 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
             )
             import asyncio
             import uuid
-            from app.services.agent_service import _current_session_id, _current_ppt_phase
+            from app.services.agent_service import _current_session_id
 
             session_id = _current_session_id.get() or "default"
             decision_id = str(uuid.uuid4())[:8]
@@ -188,9 +188,6 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
                 _logger.info("PPT decision resolved: %s → %s", decision_id, answer)
 
                 if "确认" in answer or "开始生成" in answer:
-                    # 立即更新 phase 到 generating，确保后续工具调用不被拦截
-                    _current_ppt_phase.set("generating")
-                    _logger.info("PPT phase updated to generating after user confirmation")
                     return (
                         f"已提交 {len(plan)} 页计划，用户已确认。\n"
                         f"页面列表：\n{summary}\n"
