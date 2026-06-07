@@ -1393,3 +1393,161 @@ class ExternalSystemService:
         self.db.commit()
         self.db.refresh(system)
         return _serialize_system(system, len(created))
+
+
+def seed_preset_external_systems() -> None:
+    """Seed preset external systems on startup (idempotent)."""
+    from app.db.session import create_db_session
+
+    PRESETS = [
+        {
+            "name": "GitHub",
+            "description": "GitHub 代码托管平台 - 仓库管理、Issues、Pull Requests",
+            "base_url": "https://api.github.com",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "Personal Access Token", "type": "password", "required": True, "help_text": "在 GitHub Settings > Developer settings > Personal access tokens 中生成", "help_url": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token"}]},
+            "apis": [
+                {"name": "list_repos", "display_name": "获取仓库列表", "method": "GET", "path": "/user/repos", "description": "获取当前用户的仓库列表"},
+                {"name": "get_repo", "display_name": "获取仓库详情", "method": "GET", "path": "/repos/{owner}/{repo}", "description": "获取指定仓库的详细信息"},
+                {"name": "list_issues", "display_name": "获取 Issues 列表", "method": "GET", "path": "/repos/{owner}/{repo}/issues", "description": "获取仓库的 Issues 列表"},
+                {"name": "create_issue", "display_name": "创建 Issue", "method": "POST", "path": "/repos/{owner}/{repo}/issues", "description": "在仓库中创建新 Issue"},
+                {"name": "list_pull_requests", "display_name": "获取 PR 列表", "method": "GET", "path": "/repos/{owner}/{repo}/pulls", "description": "获取仓库的 Pull Request 列表"},
+                {"name": "get_pull_request", "display_name": "获取 PR 详情", "method": "GET", "path": "/repos/{owner}/{repo}/pulls/{pull_number}", "description": "获取指定 PR 的详细信息"},
+                {"name": "list_commits", "display_name": "获取提交记录", "method": "GET", "path": "/repos/{owner}/{repo}/commits", "description": "获取仓库的提交历史"},
+            ],
+        },
+        {
+            "name": "GitLab",
+            "description": "GitLab 代码托管平台 - 仓库管理、Issues、Merge Requests",
+            "base_url": "https://gitlab.com/api/v4",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "Personal Access Token", "type": "password", "required": True, "help_text": "在 GitLab User Settings > Access Tokens 中生成", "help_url": "https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html"}]},
+            "apis": [
+                {"name": "list_projects", "display_name": "获取项目列表", "method": "GET", "path": "/projects", "description": "获取当前用户的项目列表"},
+                {"name": "get_project", "display_name": "获取项目详情", "method": "GET", "path": "/projects/{id}", "description": "获取指定项目的详细信息"},
+                {"name": "list_issues", "display_name": "获取 Issues 列表", "method": "GET", "path": "/projects/{id}/issues", "description": "获取项目的 Issues 列表"},
+                {"name": "create_issue", "display_name": "创建 Issue", "method": "POST", "path": "/projects/{id}/issues", "description": "在项目中创建新 Issue"},
+                {"name": "list_merge_requests", "display_name": "获取 MR 列表", "method": "GET", "path": "/projects/{id}/merge_requests", "description": "获取项目的 Merge Request 列表"},
+                {"name": "get_merge_request", "display_name": "获取 MR 详情", "method": "GET", "path": "/projects/{id}/merge_requests/{merge_request_iid}", "description": "获取指定 MR 的详细信息"},
+            ],
+        },
+        {
+            "name": "Slack",
+            "description": "Slack 团队协作平台 - 消息发送、频道管理",
+            "base_url": "https://slack.com/api",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "Bot Token / User Token", "type": "password", "required": True, "help_text": "在 Slack API > Your Apps > OAuth & Permissions 中获取", "help_url": "https://api.slack.com/authentication/token-types"}]},
+            "apis": [
+                {"name": "post_message", "display_name": "发送消息", "method": "POST", "path": "/chat.postMessage", "description": "向指定频道发送消息"},
+                {"name": "list_channels", "display_name": "获取频道列表", "method": "GET", "path": "/conversations.list", "description": "获取可用频道列表"},
+                {"name": "get_channel_info", "display_name": "获取频道信息", "method": "GET", "path": "/conversations.info", "description": "获取指定频道的详细信息"},
+                {"name": "list_users", "display_name": "获取用户列表", "method": "GET", "path": "users.list", "description": "获取工作区用户列表"},
+            ],
+        },
+        {
+            "name": "Notion",
+            "description": "Notion 知识管理平台 - 页面、数据库操作",
+            "base_url": "https://api.notion.com/v1",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "Integration Token", "type": "password", "required": True, "help_text": "在 Notion Settings > Connections > Develop or manage integrations 中创建", "help_url": "https://developers.notion.com/docs/getting-started"}]},
+            "apis": [
+                {"name": "search", "display_name": "搜索页面", "method": "POST", "path": "/search", "description": "搜索 Notion 中的页面和数据库"},
+                {"name": "get_page", "display_name": "获取页面", "method": "GET", "path": "/pages/{page_id}", "description": "获取指定页面的内容"},
+                {"name": "create_page", "display_name": "创建页面", "method": "POST", "path": "/pages", "description": "创建新页面"},
+                {"name": "update_page", "display_name": "更新页面", "method": "PATCH", "path": "/pages/{page_id}", "description": "更新页面内容"},
+                {"name": "query_database", "display_name": "查询数据库", "method": "POST", "path": "/databases/{database_id}/query", "description": "查询 Notion 数据库"},
+            ],
+        },
+        {
+            "name": "Jira",
+            "description": "Jira 项目管理平台 - Issues、项目、Sprint 管理",
+            "base_url": "https://your-domain.atlassian.net",
+            "auth_type": "basic",
+            "credential_template": {"fields": [
+                {"key": "username", "label": "邮箱地址", "type": "text", "required": True, "help_text": "你的 Atlassian 账户邮箱"},
+                {"key": "password", "label": "API Token", "type": "password", "required": True, "help_text": "在 https://id.atlassian.com/manage-profile/security/api-tokens 中生成", "help_url": "https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/"},
+            ]},
+            "apis": [
+                {"name": "list_projects", "display_name": "获取项目列表", "method": "GET", "path": "/rest/api/3/project", "description": "获取所有可访问的项目"},
+                {"name": "get_issue", "display_name": "获取 Issue", "method": "GET", "path": "/rest/api/3/issue/{issueIdOrKey}", "description": "获取指定 Issue 的详细信息"},
+                {"name": "create_issue", "display_name": "创建 Issue", "method": "POST", "path": "/rest/api/3/issue", "description": "创建新 Issue"},
+                {"name": "search_issues", "display_name": "搜索 Issues", "method": "GET", "path": "/rest/api/3/search", "description": "使用 JQL 搜索 Issues"},
+                {"name": "update_issue", "display_name": "更新 Issue", "method": "PUT", "path": "/rest/api/3/issue/{issueIdOrKey}", "description": "更新 Issue 状态或字段"},
+            ],
+        },
+        {
+            "name": "Feishu",
+            "description": "飞书企业协作平台 - 消息、文档、日历",
+            "base_url": "https://open.feishu.cn/open-apis",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "Tenant Access Token", "type": "password", "required": True, "help_text": "在飞书开放平台 > 应用管理 > 凭证与基础信息 中获取", "help_url": "https://open.feishu.cn/document/home/introduction-to-permissions-and-authentication/access-token/tenant-access-token"}]},
+            "apis": [
+                {"name": "send_message", "display_name": "发送消息", "method": "POST", "path": "/im/v1/messages", "description": "向用户或群组发送消息"},
+                {"name": "list_contacts", "display_name": "获取通讯录", "method": "GET", "path": "/contact/v3/users", "description": "获取企业通讯录用户列表"},
+                {"name": "create_document", "display_name": "创建文档", "method": "POST", "path": "/docx/v1/documents", "description": "创建飞书文档"},
+                {"name": "get_calendar_events", "display_name": "获取日程", "method": "GET", "path": "/calendar/v4/calendars/{calendar_id}/events", "description": "获取日历日程列表"},
+            ],
+        },
+        {
+            "name": "DingTalk",
+            "description": "钉钉企业协作平台 - 消息、审批、日程",
+            "base_url": "https://oapi.dingtalk.com",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "Access Token", "type": "password", "required": True, "help_text": "在钉钉开放平台 > 应用开发 > 企业内部应用 > 凭证与基础信息 中获取", "help_url": "https://open.dingtalk.com/document/isvapp/isv-obtain-configuration-parameters"}]},
+            "apis": [
+                {"name": "send_work_notification", "display_name": "发送工作通知", "method": "POST", "path": "/topapi/message/corpconversation/asyncsend_v2", "description": "向员工发送工作通知"},
+                {"name": "get_user_info", "display_name": "获取用户信息", "method": "GET", "path": "/topapi/v2/user/get", "description": "获取员工详细信息"},
+                {"name": "list_users", "display_name": "获取员工列表", "method": "GET", "path": "/topapi/v2/user/listbypage", "description": "分页获取员工列表"},
+                {"name": "create_approval", "display_name": "创建审批", "method": "POST", "path": "/topapi/processinstance/create", "description": "发起审批流程"},
+            ],
+        },
+        {
+            "name": "Linear",
+            "description": "Linear 项目管理工具 - Issues、Projects、Teams",
+            "base_url": "https://api.linear.app/graphql",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "API Key", "type": "password", "required": True, "help_text": "在 Linear Settings > API > Personal API keys 中生成", "help_url": "https://linear.app/docs/api-reference"}]},
+            "apis": [
+                {"name": "list_teams", "display_name": "获取团队列表", "method": "POST", "path": "/", "description": "获取所有团队"},
+                {"name": "list_issues", "display_name": "获取 Issue 列表", "method": "POST", "path": "/", "description": "获取 Issues 列表"},
+                {"name": "create_issue", "display_name": "创建 Issue", "method": "POST", "path": "/", "description": "创建新 Issue"},
+                {"name": "update_issue", "display_name": "更新 Issue", "method": "POST", "path": "/", "description": "更新 Issue 状态或字段"},
+                {"name": "list_projects", "display_name": "获取项目列表", "method": "POST", "path": "/", "description": "获取所有项目"},
+            ],
+        },
+    ]
+
+    with create_db_session() as db:
+        existing = {s.name for s in db.execute(select(ExternalSystemModel)).scalars().all()}
+        created_count = 0
+        for preset in PRESETS:
+            if preset["name"] in existing:
+                continue
+            system = ExternalSystemModel(
+                name=preset["name"],
+                description=preset["description"],
+                base_url=preset["base_url"],
+                auth_type=preset["auth_type"],
+                credential_template_json=json.dumps(preset.get("credential_template", {})),
+                published=True,
+                headers_json="{}",
+                created_by=1,
+            )
+            db.add(system)
+            db.flush()
+            for api_def in preset.get("apis", []):
+                api = ExternalApiModel(
+                    system_id=system.id,
+                    name=api_def["name"],
+                    display_name=api_def["display_name"],
+                    description=api_def.get("description", ""),
+                    method=api_def["method"],
+                    path=api_def["path"],
+                    requires_approval=api_def["method"] in ("POST", "PUT", "DELETE", "PATCH"),
+                    timeout_seconds=30,
+                )
+                db.add(api)
+            created_count += 1
+        if created_count > 0:
+            db.commit()
+            logger.info("Seeded %d preset external systems", created_count)

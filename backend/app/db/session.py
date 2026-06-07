@@ -63,9 +63,11 @@ def init_db() -> None:
     _ensure_compatible_schema()
     from app.services.tool_config_service import seed_tool_configs
     from app.services.agent_profile_service import seed_agent_profiles
+    from app.services.external_system_service import seed_preset_external_systems
 
     seed_tool_configs()
     seed_agent_profiles()
+    seed_preset_external_systems()
     from app.services.local_skill_import_service import LocalSkillImportService
     LocalSkillImportService().import_from_storage()
 
