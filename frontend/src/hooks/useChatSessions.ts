@@ -22,7 +22,7 @@ function compactMessageForStorage(message: Message): Message {
   return {
     ...message,
     text: clampText(message.text, MAX_PERSISTED_TEXT_LENGTH) || '',
-    content: undefined, // 不持久化思考内容，太大
+    reasoningText: clampText(message.reasoningText, MAX_PERSISTED_TEXT_LENGTH),
     attachments: undefined,
     toolCalls: message.toolCalls?.map((tool) => ({
       ...tool,

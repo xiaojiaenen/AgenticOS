@@ -139,11 +139,6 @@ export function useChatStream({
       let hasAssistantActivity = false;
       let receivedPptArtifact: AgentPptArtifact | undefined;
       let receivedWebsiteArtifact: AgentWebsiteArtifact | undefined;
-      let currentReasoningText = ''; // 当前正在累积的思考文本
-      let lastReasoningEndTime = 0; // 上一次思考结束的时间
-      let contentCounter = 0; // 内容计数器
-      let processedToolCallIds = new Set<string>(); // 已处理的工具调用ID
-      let lastContentLength = 0; // 上一次content数组长度
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
@@ -313,15 +308,6 @@ export function useChatStream({
                 ? prev
                 : { phase: 'streaming', label: '大模型正在输出' },
             );
-
-            // 如果有未保存的思考文本，保存到content数组
-            const shouldSaveReasoning = currentReasoningText.trim().length > 0;
-            const reasoningToSave = shouldSaveReasoning ? currentReasoningText : '';
-            if (shouldSaveReasoning) {
-              currentReasoningText = '';
-              lastReasoningEndTime = Date.now();
-            }
-
             setSessions((prev) =>
               prev.map((session) =>
                 session.id === targetId
@@ -330,27 +316,16 @@ export function useChatStream({
                       updatedAt: Date.now(),
                       messages: session.messages.map((message) =>
                         message.id === assistantMessageId
-                          ? {
-                              ...message,
-                              text: fullText,
-                              _currentReasoning: undefined, // 清除临时思考内容
-                              content: [
-                                ...(message.content || []),
-                                // 如果有思考内容，先添加
-                                ...(shouldSaveReasoning ? [{
-                                  type: 'reasoning' as const,
-                                  id: `reasoning-${++contentCounter}`,
-                                  text: reasoningToSave,
-                                  timestamp: lastReasoningEndTime,
-                                }] : []),
-                                // 只在文本变化时更新text内容（不是增量添加）
-                              ],
-                              pptArtifact: chatMode === 'ppt'
-                                ? (message.pptArtifact?.status === 'ready' || receivedPptArtifact
+                          ? chatMode === 'ppt'
+                            ? {
+                                ...message,
+                                text: fullText,
+                                pptArtifact:
+                                  message.pptArtifact?.status === 'ready' || receivedPptArtifact
                                     ? (message.pptArtifact?.status === 'ready' ? message.pptArtifact : { status: 'ready' as const, artifactId: receivedPptArtifact!.artifact_id })
-                                    : { status: 'generating' })
-                                : undefined,
-                            }
+                                    : { status: 'generating' },
+                              }
+                            : { ...message, text: fullText }
                           : message,
                       ),
                     }
@@ -360,7 +335,6 @@ export function useChatStream({
           },
           onReasoningDelta: (_, fullReasoning) => {
             hasAssistantActivity = true;
-            currentReasoningText = fullReasoning;
             setSessions((prev) =>
               prev.map((session) =>
                 session.id === targetId
@@ -369,11 +343,7 @@ export function useChatStream({
                       updatedAt: Date.now(),
                       messages: session.messages.map((message) =>
                         message.id === assistantMessageId
-                          ? {
-                              ...message,
-                              // 临时显示当前正在累积的思考内容
-                              _currentReasoning: fullReasoning,
-                            }
+                          ? { ...message, reasoningText: fullReasoning }
                           : message,
                       ),
                     }
@@ -383,23 +353,6 @@ export function useChatStream({
           },
           onToolCalls: (toolCalls) => {
             hasAssistantActivity = true;
-
-            // 如果有未保存的思考文本，保存到content数组
-            const shouldSaveReasoning = currentReasoningText.trim().length > 0;
-            const reasoningToSave = shouldSaveReasoning ? currentReasoningText : '';
-            if (shouldSaveReasoning) {
-              currentReasoningText = '';
-              lastReasoningEndTime = Date.now();
-            }
-
-            // 只添加新增的工具调用（未处理过的）
-            const newToolCalls = toolCalls.filter(tc => {
-              if (!tc.id || processedToolCallIds.has(tc.id)) return false;
-              if (tc.status === 'pending') return false;
-              processedToolCallIds.add(tc.id);
-              return true;
-            });
-
             setSessions((prev) =>
               prev.map((session) =>
                 session.id === targetId
@@ -407,28 +360,7 @@ export function useChatStream({
                       ...session,
                       messages: session.messages.map((message) =>
                         message.id === assistantMessageId
-                          ? {
-                              ...message,
-                              toolCalls,
-                              content: [
-                                ...(message.content || []),
-                                // 如果有思考内容，先添加
-                                ...(shouldSaveReasoning ? [{
-                                  type: 'reasoning' as const,
-                                  id: `reasoning-${++contentCounter}`,
-                                  text: reasoningToSave,
-                                  timestamp: lastReasoningEndTime,
-                                }] : []),
-                                // 只添加新的工具调用
-                                ...newToolCalls.map(tc => ({
-                                  type: 'tool_call' as const,
-                                  id: tc.id || `tool-${++contentCounter}`,
-                                  toolName: tc.name,
-                                  status: tc.status,
-                                  timestamp: Date.now(),
-                                })),
-                              ],
-                            }
+                          ? { ...message, toolCalls }
                           : message,
                       ),
                     }
