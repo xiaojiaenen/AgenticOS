@@ -1810,40 +1810,46 @@ class AgentService:
         # Initialize PPT phase for new sessions
         if ppt_mode:
             existing_phase = self._get_ppt_phase(session)
-            lower = request.message.lower()
 
-            # 检测是否为修改请求（不是新的PPT需求）
-            is_modification = any(w in lower for w in [
-                "修改", "改", "换", "调整", "更新", "加", "删", "移",
-                "修改方案", "换个主题", "换个布局", "加一页", "删掉",
-            ])
+            # 根据实际状态判断，而不是关键词
+            # 检查是否有已生成的幻灯片文件
+            has_existing_slides = False
+            try:
+                from app.tools.ppt_tools import _get_slides_dir
+                slides_dir = _get_slides_dir()
+                has_existing_slides = slides_dir.exists() and any(slides_dir.glob("slide_*.svg"))
+            except Exception:
+                pass
 
-            # 检测是否为确认词
-            is_confirmation = any(w in lower for w in [
-                "确认", "可以", "开始", "生成", "没问题", "就这样", "ok", "go", "继续",
-            ])
-
-            # 检测是否为新的PPT需求
-            is_new_ppt = any(w in lower for w in [
-                "做一个", "创建", "新建", "帮我做", "生成一个", "帮我创建",
-            ])
+            # 检查是否有待修复的错误
+            meta = getattr(session, "metadata", {}) or {}
+            has_pending_fix = bool(meta.get("ppt_pending_fix"))
 
             if existing_phase == self.PPT_PHASE_CONFIRMING:
-                # 在确认阶段：确认词 → generating，其他 → planning
+                # 在确认阶段：检测确认词
+                lower = request.message.lower()
+                is_confirmation = any(w in lower for w in [
+                    "确认", "可以", "开始", "生成", "没问题", "就这样", "ok", "go", "继续",
+                ])
                 if is_confirmation:
                     self._set_ppt_phase(session, self.PPT_PHASE_GENERATING)
                 else:
                     self._set_ppt_phase(session, self.PPT_PHASE_PLANNING)
+
             elif existing_phase == self.PPT_PHASE_GENERATING:
-                # 在生成阶段：修改请求 → 保持 generating（允许修改）
-                # 新需求 → 重置为 planning
-                if is_new_ppt:
+                # 在生成阶段：
+                # - 有待修复错误 → 保持 generating（让Agent修复）
+                # - 有已生成的幻灯片 → 保持 generating（允许修改）
+                # - 无幻灯片且无待修复 → 重置为 planning
+                if not has_existing_slides and not has_pending_fix:
                     self._set_ppt_phase(session, self.PPT_PHASE_PLANNING)
-                # 否则保持 generating，允许修改
+                # 否则保持 generating，允许修改或修复
+
             elif existing_phase == self.PPT_PHASE_DONE:
-                # 完成阶段：修改请求 → 保持 done（允许修改）
-                # 新需求 → 重置为 planning
-                if is_new_ppt:
+                # 完成阶段：
+                # - 有已生成的幻灯片 → 保持 done（允许修改）
+                # - 无幻灯片 → 重置为 planning
+                if not has_existing_slides:
                     self._set_ppt_phase(session, self.PPT_PHASE_PLANNING)
                 # 否则保持 done，允许修改
         if user is not None:
