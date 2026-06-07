@@ -1810,8 +1810,12 @@ class AgentService:
         # Initialize PPT phase for new sessions
         if ppt_mode:
             existing_phase = self._get_ppt_phase(session)
+            lower = request.message.lower()
 
-            # 根据实际状态判断，而不是关键词
+            # 检查是否有待修复的错误
+            meta = getattr(session, "metadata", {}) or {}
+            has_pending_fix = bool(meta.get("ppt_pending_fix"))
+
             # 检查是否有已生成的幻灯片文件
             has_existing_slides = False
             try:
@@ -1821,13 +1825,11 @@ class AgentService:
             except Exception:
                 pass
 
-            # 检查是否有待修复的错误
-            meta = getattr(session, "metadata", {}) or {}
-            has_pending_fix = bool(meta.get("ppt_pending_fix"))
+            # 检测是否为自动修复请求（由前端自动发送）
+            is_auto_fix_request = "请修复PPT问题并重新生成" in request.message
 
             if existing_phase == self.PPT_PHASE_CONFIRMING:
                 # 在确认阶段：检测确认词
-                lower = request.message.lower()
                 is_confirmation = any(w in lower for w in [
                     "确认", "可以", "开始", "生成", "没问题", "就这样", "ok", "go", "继续",
                 ])
@@ -1838,20 +1840,26 @@ class AgentService:
 
             elif existing_phase == self.PPT_PHASE_GENERATING:
                 # 在生成阶段：
+                # - 自动修复请求 → 保持 generating（让Agent修复）
                 # - 有待修复错误 → 保持 generating（让Agent修复）
                 # - 有已生成的幻灯片 → 保持 generating（允许修改）
                 # - 无幻灯片且无待修复 → 重置为 planning
-                if not has_existing_slides and not has_pending_fix:
+                if is_auto_fix_request or has_pending_fix or has_existing_slides:
+                    # 保持 generating
+                    pass
+                else:
                     self._set_ppt_phase(session, self.PPT_PHASE_PLANNING)
-                # 否则保持 generating，允许修改或修复
 
             elif existing_phase == self.PPT_PHASE_DONE:
                 # 完成阶段：
+                # - 自动修复请求 → 保持 done（允许修复）
                 # - 有已生成的幻灯片 → 保持 done（允许修改）
                 # - 无幻灯片 → 重置为 planning
-                if not has_existing_slides:
+                if is_auto_fix_request or has_existing_slides:
+                    # 保持 done
+                    pass
+                else:
                     self._set_ppt_phase(session, self.PPT_PHASE_PLANNING)
-                # 否则保持 done，允许修改
         if user is not None:
             await self.storage.assign_owner(session.session_id, user.id)
         await self.storage.assign_agent_profile(session.session_id, runtime_profile.profile_id)
