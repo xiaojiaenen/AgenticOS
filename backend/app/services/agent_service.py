@@ -9,10 +9,6 @@ from typing import Any, AsyncIterator
 _current_session_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "current_session_id", default=None
 )
-# 当前 PPT 阶段，供 PptPhaseGateMiddleware 使用
-_current_ppt_phase: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "current_ppt_phase", default="planning"
-)
 
 from wuwei import Agent, AgentEvent, FileSystemSkillProvider, SkillManager
 from wuwei.llm import LLMGateway
@@ -314,31 +310,6 @@ from app.services.external_system_service import set_ext_user_id
 
 MAX_STEPS_LIMIT_MESSAGE = "任务未完成，已达到最大步骤限制。"
 
-# 规划阶段禁止调用的工具（硬约束）
-_PLANNING_BLOCKED_TOOLS = frozenset({
-    "load_skill_reference",  # 读模板留给生成阶段
-    "search_icons",          # 搜图标留给生成阶段
-    "save_slide",            # 规划阶段不生成 slide
-    "read_slide",            # 规划阶段不读 slide
-    "check_svg_quality",     # 规划阶段不检查质量
-    "calc_chart_positions",  # 规划阶段不计算坐标
-})
-
-
-class PptPhaseGateMiddleware(Middleware):
-    """PPT 阶段门控：在规划阶段拦截不该调用的工具，强制 agent 专注规划。"""
-
-    async def before_tool(self, ctx: MiddlewareContext, tool_call: ToolCall) -> ToolCall | None:
-        phase = _current_ppt_phase.get()
-        if phase == "planning" and tool_call.function.name in _PLANNING_BLOCKED_TOOLS:
-            # 替换为拒绝工具，返回明确消息让 LLM 知道原因
-            tool_call.function.name = "__tool_rejected__"
-            tool_call.function.arguments = {
-                "original_tool": tool_call.function.name,
-                "reason": f"当前处于规划阶段，{tool_call.function.name} 不可用。请先完成 spec_lock + submit_slide_plan，用户确认后再使用此工具。",
-            }
-        return tool_call
-
 
 class ThinkingHistoryCompatibilityMiddleware(Middleware):
     """Keep provider thinking-mode histories free of local synthetic replies."""
@@ -522,11 +493,7 @@ class AgentService:
                 auto_reject_tools=[],
             ))
 
-        # 2. PPT 阶段门控中间件（规划阶段拦截不该调用的工具）
-        if profile.response_mode == "ppt":
-            stack.add(PptPhaseGateMiddleware())
-
-        # 4. 异步子代理中间件（后台任务能力）
+        # 2. 异步子代理中间件（后台任务能力）
         if self.settings.async_sub_agents_enabled:
             sub_agents = self._build_async_sub_agents()
             if sub_agents:
@@ -1183,222 +1150,6 @@ class AgentService:
             _logger.exception("website artifact creation failed: session=%s", session_id)
             return None
 
-    # ------------------------------------------------------------------
-    # PPT Phase State Machine
-    # ------------------------------------------------------------------
-
-    # Phase constants
-    PPT_PHASE_PLANNING = "planning"
-    PPT_PHASE_CONFIRMING = "confirming"
-    PPT_PHASE_GENERATING = "generating"
-    PPT_PHASE_DONE = "done"
-
-    def _get_ppt_phase(self, session: Any) -> str:
-        """Get the current PPT phase from session metadata."""
-        meta = getattr(session, "metadata", {}) or {}
-        return meta.get("ppt_phase", self.PPT_PHASE_PLANNING)
-
-    def _set_ppt_phase(self, session: Any, phase: str) -> None:
-        """Set the PPT phase in session metadata and context variable."""
-        meta = getattr(session, "metadata", {}) or {}
-        meta["ppt_phase"] = phase
-        session.metadata = meta
-        _current_ppt_phase.set(phase)
-
-    def _get_ppt_phase_injection(self, phase: str, session: Any = None) -> str:
-        """Return phase-specific instructions to inject into the user message."""
-        if phase == self.PPT_PHASE_PLANNING:
-            return (
-                "## 当前阶段：规划（Strategist）\n\n"
-                "**步骤预算：最多 5 步完成规划，超时将被截断。**\n\n"
-                "严格按以下顺序执行，每步只调用 1 个工具：\n"
-                "1. `load_skill(\"ppt-design-guide\")` + `load_skill(\"ppt-template-library\")`（并行，1 步）\n"
-                "2. `load_skill(\"ppt-workflow\")`（1 步）\n"
-                "3. 输出 spec_lock 文本（0 步，纯文本）\n"
-                "4. `submit_slide_plan(slides='[...]')`（1 步）\n"
-                "5. **立即停止**。不要读模板、不要搜图标、不要调用任何其他工具。\n\n"
-                "**禁止在规划阶段做的事：**\n"
-                "- ❌ 读取 SVG 模板文件（留给生成阶段）\n"
-                "- ❌ 搜索图标（留给生成阶段）\n"
-                "- ❌ 调用 save_slide\n"
-                "- ❌ 反复修改页面计划\n\n"
-                "规划阶段的唯一产出是 spec_lock + submit_slide_plan。模板和图标在生成阶段按需读取。"
-            )
-        elif phase == self.PPT_PHASE_CONFIRMING:
-            return (
-                "## 当前阶段：等待确认\n\n"
-                "spec_lock 已输出，等待用户确认。\n"
-                "如果用户说'确认'、'可以'、'开始生成'等肯定词，切换到 generating 阶段。\n"
-                "如果用户要求修改 spec_lock，更新后重新输出。"
-            )
-        elif phase == self.PPT_PHASE_GENERATING:
-            parts = [
-                "## 当前阶段：生成（Executor）\n",
-                "**按页面计划逐页执行，禁止重新规划、禁止重新加载技能。**\n",
-            ]
-            # 注入持久化的 spec_lock
-            if session is not None:
-                meta = getattr(session, "metadata", {}) or {}
-                spec_lock = meta.get("ppt_spec_lock", "")
-                if spec_lock:
-                    parts.append("### spec_lock（设计参数锁定）\n")
-                    parts.append(spec_lock)
-                    parts.append("")
-                # 注入结构化页面计划
-                slide_plan = meta.get("ppt_slide_plan", [])
-                if slide_plan:
-                    parts.append("### 页面计划（已确认，严格按此执行）")
-                    for s in slide_plan:
-                        num = s.get("slide_num", "?")
-                        layout = s.get("layout", "?")
-                        title = s.get("title", s.get("notes", ""))
-                        parts.append(f"- 第 {num} 页: **{layout}** — {title}")
-                    parts.append("")
-                # 注入当前进度
-                progress = self._get_ppt_progress(session)
-                if progress:
-                    parts.append(progress)
-            parts.append(
-                "\n**每页流程**：读 1 个模板 → 生成 SVG → save_slide → 下一页。"
-                "不要回头修改已完成的页。不要读取与当前页无关的模板。"
-            )
-            return "\n".join(parts)
-        return ""
-
-    def _get_ppt_progress(self, session: Any) -> str:
-        """扫描 slides 目录，返回当前进度摘要。"""
-        from pathlib import Path as _Path
-        session_id = getattr(session, "session_id", None)
-        if not session_id:
-            return ""
-        # 查找 slides 目录
-        slides_dir = None
-        if PPT_SESSIONS_DIR.exists():
-            candidates = sorted(
-                PPT_SESSIONS_DIR.glob(f"u*_s{session_id}_v*"),
-                key=lambda p: p.name,
-                reverse=True,
-            )
-            if candidates:
-                slides_dir = candidates[0]
-        if slides_dir is None or not slides_dir.exists():
-            return "### 进度\n尚未开始生成。\n"
-        svg_files = sorted(
-            slides_dir.glob("slide_*.svg"),
-            key=lambda p: int(p.stem.replace("slide_", "")),
-        )
-        if not svg_files:
-            return "### 进度\n尚未开始生成。\n"
-        done_nums = [f.stem.replace("slide_", "") for f in svg_files]
-        next_num = int(done_nums[-1]) + 1
-        lines = [
-            "### 进度",
-            f"**已完成 {len(svg_files)} 页**: {', '.join('slide_' + n for n in done_nums)}",
-            f"**下一页**: slide_{next_num}",
-        ]
-        return "\n".join(lines)
-
-    def _detect_phase_transition(self, session: Any, collected_text: str, tool_names: list[str]) -> str | None:
-        """Detect if a phase transition should happen based on collected output.
-
-        Returns the new phase, or None if no transition.
-        """
-        current = self._get_ppt_phase(session)
-
-        if current == self.PPT_PHASE_PLANNING:
-            # Planning → Confirming: when spec_lock is output, submit_slide_plan or save_slide is called
-            has_spec_lock = "spec_lock" in collected_text.lower()
-            has_save_slide = "save_slide" in tool_names
-            has_slide_plan = "submit_slide_plan" in tool_names
-            if has_spec_lock or has_save_slide or has_slide_plan:
-                # 持久化 spec_lock 到 session metadata，供 generating 阶段注入
-                self._store_spec_lock(session, collected_text)
-                # 同步 slide plan（从 ppt_tools 模块级缓存）
-                self._sync_slide_plan(session)
-                return self.PPT_PHASE_CONFIRMING
-
-        elif current == self.PPT_PHASE_CONFIRMING:
-            # Confirming → Generating: when user confirms
-            lower = collected_text.lower()
-            confirm_words = ["确认", "可以", "开始", "生成", "没问题", "就这样", "ok", "go"]
-            if any(w in lower for w in confirm_words):
-                return self.PPT_PHASE_GENERATING
-
-        elif current == self.PPT_PHASE_GENERATING:
-            # Generating → Done: only when ALL slides from the plan are saved
-            has_save_slide = "save_slide" in tool_names
-
-            if has_save_slide:
-                # Check if all planned slides are saved
-                slide_plan = meta.get("ppt_slide_plan")
-                if slide_plan and isinstance(slide_plan, list):
-                    planned_count = len(slide_plan)
-                    # Count actual saved slides from ppt_tools
-                    try:
-                        from app.tools.ppt_tools import _get_slides_dir
-                        from app.core.data_path import PPT_SESSIONS_DIR, get_current_session_id, get_current_user_id
-                        slides_dir = _get_slides_dir()
-                        actual_count = len([f for f in slides_dir.iterdir() if f.suffix == ".svg"]) if slides_dir.exists() else 0
-                        if actual_count >= planned_count:
-                            _logger.info(
-                                "PPT generating → done: all %d/%d slides saved",
-                                actual_count, planned_count,
-                            )
-                            return self.PPT_PHASE_DONE
-                        else:
-                            _logger.debug(
-                                "PPT generating: %d/%d slides saved, waiting for more",
-                                actual_count, planned_count,
-                            )
-                    except Exception as exc:
-                        _logger.debug("Slide count check failed: %s", exc)
-                else:
-                    # No slide plan — fallback: need at least 3 slides for artifact
-                    try:
-                        from app.tools.ppt_tools import _get_slides_dir
-                        slides_dir = _get_slides_dir()
-                        actual_count = len([f for f in slides_dir.iterdir() if f.suffix == ".svg"]) if slides_dir.exists() else 0
-                        if actual_count >= 3:
-                            _logger.info("PPT generating → done: %d slides (no plan)", actual_count)
-                            return self.PPT_PHASE_DONE
-                        else:
-                            _logger.debug("PPT generating: %d slides, need at least 3", actual_count)
-                    except Exception as exc:
-                        _logger.debug("Slide count check failed: %s", exc)
-
-        return None
-
-    @staticmethod
-    def _store_spec_lock(session: Any, planning_text: str) -> None:
-        """从规划阶段输出中提取 spec_lock 并存入 session metadata。"""
-        import re
-        meta = getattr(session, "metadata", {}) or {}
-        # 尝试提取 ```spec_lock ... ``` 代码块
-        m = re.search(r"```(?:spec_lock)?\s*\n(.*?)```", planning_text, re.DOTALL)
-        if m:
-            meta["ppt_spec_lock"] = m.group(1).strip()
-        else:
-            # 回退：取 "spec_lock" 关键词之后的内容（最多 2000 字符）
-            idx = planning_text.lower().find("spec_lock")
-            if idx >= 0:
-                meta["ppt_spec_lock"] = planning_text[idx:idx + 2000].strip()
-            else:
-                meta["ppt_spec_lock"] = planning_text[:2000].strip()
-        session.metadata = meta
-
-    @staticmethod
-    def _sync_slide_plan(session: Any) -> None:
-        """从 ppt_tools 模块级缓存中取出 pending slide plan 并存入 session metadata。"""
-        try:
-            from app.tools.ppt_tools import pop_pending_slide_plan
-            plan = pop_pending_slide_plan()
-            if plan:
-                meta = getattr(session, "metadata", {}) or {}
-                meta["ppt_slide_plan"] = plan
-                session.metadata = meta
-        except Exception:
-            pass  # 非致命
-
     async def _get_edit_hint(self, session_id: str) -> str | None:
         """If the session has existing PPT artifacts, add an edit hint for save_slide."""
         from pathlib import Path as _Path
@@ -1799,43 +1550,6 @@ class AgentService:
             }
         )
         session.metadata = metadata
-        # Initialize PPT phase for new sessions
-        if ppt_mode:
-            existing_phase = self._get_ppt_phase(session)
-            lower = request.message.lower()
-
-            # 检查是否有已生成的幻灯片文件
-            has_existing_slides = False
-            try:
-                from app.tools.ppt_tools import _get_slides_dir
-                slides_dir = _get_slides_dir()
-                has_existing_slides = slides_dir.exists() and any(slides_dir.glob("slide_*.svg"))
-            except Exception:
-                pass
-
-            if existing_phase == self.PPT_PHASE_CONFIRMING:
-                # 在确认阶段：检测确认词
-                is_confirmation = any(w in lower for w in [
-                    "确认", "可以", "开始", "生成", "没问题", "就这样", "ok", "go", "继续",
-                ])
-                if is_confirmation:
-                    self._set_ppt_phase(session, self.PPT_PHASE_GENERATING)
-                else:
-                    self._set_ppt_phase(session, self.PPT_PHASE_PLANNING)
-
-            elif existing_phase == self.PPT_PHASE_GENERATING:
-                # 在生成阶段：
-                # - 有已生成的幻灯片 → 保持 generating（允许修改）
-                # - 无幻灯片 → 重置为 planning
-                if not has_existing_slides:
-                    self._set_ppt_phase(session, self.PPT_PHASE_PLANNING)
-
-            elif existing_phase == self.PPT_PHASE_DONE:
-                # 完成阶段：
-                # - 有已生成的幻灯片 → 保持 done（允许修改）
-                # - 无幻灯片 → 重置为 planning
-                if not has_existing_slides:
-                    self._set_ppt_phase(session, self.PPT_PHASE_PLANNING)
         if user is not None:
             await self.storage.assign_owner(session.session_id, user.id)
         await self.storage.assign_agent_profile(session.session_id, runtime_profile.profile_id)
@@ -1848,19 +1562,6 @@ class AgentService:
             set_current_user_id(user.id)
             set_ext_user_id(user.id)
         _current_session_id.set(session.session_id)
-
-        # Phase-specific injection (after session creation, before agent runs)
-        if ppt_mode:
-            request_phase = getattr(request, "ppt_phase", None)
-            if request_phase:
-                self._set_ppt_phase(session, request_phase)
-            # 始终根据当前阶段注入指引
-            current_phase = self._get_ppt_phase(session)
-            _current_ppt_phase.set(current_phase)
-            phase_injection = self._get_ppt_phase_injection(current_phase, session=session)
-            if phase_injection:
-                message = message + "\n\n---\n" + phase_injection
-
 
         yield {
             "event": "session",
@@ -1997,55 +1698,7 @@ class AgentService:
                             tool_names.append(tool_name)
 
                     if ppt_mode and event.type == "done":
-                        visible_text = ""  # Initialize before phase checks
-                        # Phase transition detection
-                        new_phase = self._detect_phase_transition(session, collected_text, tool_names)
-                        if new_phase and new_phase != self._get_ppt_phase(session):
-                            old_phase = self._get_ppt_phase(session)
-                            self._set_ppt_phase(session, new_phase)
-                            _logger.info("PPT phase: %s → %s", old_phase, new_phase)
-                            yield {
-                                "event": "ppt_phase",
-                                "data": {
-                                    "session_id": session.session_id,
-                                    "phase": new_phase,
-                                    "old_phase": old_phase,
-                                },
-                            }
-                            # Save phase to DB
-                            try:
-                                await self.storage.save_meta(session)
-                            except Exception:
-                                pass
-
-                        # If still in planning/confirming phase, don't create artifact yet
-                        current_phase = self._get_ppt_phase(session)
-                        if current_phase in (self.PPT_PHASE_PLANNING, self.PPT_PHASE_CONFIRMING):
-                            _logger.info("PPT in %s phase, skipping artifact creation", current_phase)
-                            if visible_text:
-                                yield {
-                                    "event": "delta",
-                                    "data": {
-                                        "session_id": session.session_id,
-                                        "content": visible_text,
-                                    },
-                                }
-                            yield {
-                                "event": "run_status",
-                                "data": {
-                                    "session_id": session.session_id,
-                                    "phase": current_phase,
-                                    "label": "规划完成，等待确认" if current_phase == self.PPT_PHASE_CONFIRMING else "正在规划",
-                                },
-                            }
-                            yield {
-                                "event": "done",
-                                "data": {
-                                    "session_id": session.session_id,
-                                    "reason": f"ppt_{current_phase}",
-                                },
-                            }
-                            continue
+                        visible_text = ""
 
                         _logger.info("ppt done: session=%s, creating artifact...", session.session_id)
 
