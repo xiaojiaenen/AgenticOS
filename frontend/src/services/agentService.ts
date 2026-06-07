@@ -82,7 +82,7 @@ export type AgentApproval = {
 
 export type AgentRunStatus = {
   session_id: string;
-  phase: 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'ppt_fixing' | 'done';
+  phase: 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'done';
   label: string;
 };
 
