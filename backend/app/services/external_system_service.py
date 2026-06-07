@@ -1396,7 +1396,10 @@ class ExternalSystemService:
 
 
 def seed_preset_external_systems() -> None:
-    """Seed preset external systems on startup (idempotent)."""
+    """Seed preset external systems on startup (idempotent).
+
+    每次启动检查并添加缺失的预设，已存在的不会重复添加。
+    """
     from app.db.session import create_db_session
 
     PRESETS = [
