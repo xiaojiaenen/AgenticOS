@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { BrainCircuit } from 'lucide-react';
-import { Artifact, Message, ToolCall } from '../../types';
+import { Artifact, Message, ToolCall, ReasoningChunk } from '../../types';
 import { APP_TIME_ZONE } from '../../lib/datetime';
 import { cn, copyToClipboard } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
@@ -43,15 +43,16 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   const isUser = message?.role === 'user';
   const rawText = message?.text || '';
   const visibleText = rawText;
-  const reasoningText = message?.reasoningText || '';
+  const reasoningChunks = message?.reasoningChunks || [];
+  const currentReasoning = (message as any)?._currentReasoning || ''; // 临时思考内容
   const hasPptArtifact = !isUser && Boolean(message?.pptArtifact);
   const hasWebsiteArtifact = !isUser && Boolean(message?.websiteArtifact);
-  const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || reasoningText.trim().length > 0 || (!hasPptArtifact && !hasWebsiteArtifact);
+  const hasAnyReasoning = reasoningChunks.length > 0 || currentReasoning.trim().length > 0;
+  const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || hasAnyReasoning || (!hasPptArtifact && !hasWebsiteArtifact);
   const hasStructuredContent = !isUser && /```|(?:^|\n)\|.+\|/.test(visibleText);
-  const showAssistantWaiting = !isUser && Boolean(isStreaming) && !visibleText.trim() && !reasoningText.trim() && !isTyping;
+  const showAssistantWaiting = !isUser && Boolean(isStreaming) && !visibleText.trim() && !hasAnyReasoning && !isTyping;
   const canCopyMessage = visibleText.trim().length > 0;
   const [isCopied, setIsCopied] = useState(false);
-  const [isReasoningOpen, setIsReasoningOpen] = useState(true); // 默认展开思考内容
   const config = getAppConfig();
   const sessionCounter = useRef({ current: 0 });
 
@@ -234,14 +235,23 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
               </div>
             ) : (
               <div className="prose prose-slate prose-sm max-w-none break-words [overflow-wrap:anywhere] prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
-                {reasoningText && (
-                  <details open={isReasoningOpen} onToggle={(e) => setIsReasoningOpen(e.currentTarget.open)}
-                    className="group mb-3 rounded-2xl border border-slate-200/60 bg-slate-50/50 px-3 py-2 text-slate-500 [&_summary::-webkit-details-marker]:hidden">
+                {/* 渲染已完成的思考片段 */}
+                {reasoningChunks.map((chunk) => (
+                  <details key={chunk.id} className="group mb-2 rounded-2xl border border-slate-200/60 bg-slate-50/50 px-3 py-2 text-slate-500 [&_summary::-webkit-details-marker]:hidden">
                     <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
                       <BrainCircuit size={13} className="text-slate-400" /><span>思考过程</span>
                       <ChevronDownIcon size={12} className="ml-auto transition-transform duration-300 group-open:-rotate-180" />
                     </summary>
-                    <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-slate-200/40 pt-2 text-xs leading-relaxed text-slate-500 italic">{reasoningText}</div>
+                    <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-slate-200/40 pt-2 text-xs leading-relaxed text-slate-500 italic">{chunk.text}</div>
+                  </details>
+                ))}
+                {/* 渲染当前正在累积的思考片段（流式输出中） */}
+                {currentReasoning && (
+                  <details open className="group mb-2 rounded-2xl border border-sky-200/60 bg-sky-50/50 px-3 py-2 text-slate-500 [&_summary::-webkit-details-marker]:hidden">
+                    <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                      <BrainCircuit size={13} className="text-sky-400 animate-pulse" /><span>思考中...</span>
+                    </summary>
+                    <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-sky-200/40 pt-2 text-xs leading-relaxed text-slate-500 italic">{currentReasoning}</div>
                   </details>
                 )}
                 {visibleText ? (

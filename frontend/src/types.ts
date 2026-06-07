@@ -29,11 +29,18 @@ export type AuthUser = {
   is_active: boolean;
 };
 
+export type ReasoningChunk = {
+  id: string;
+  text: string;
+  timestamp: number;
+};
+
 export type Message = {
   id: string;
   role: 'user' | 'model';
   text: string;
-  reasoningText?: string;
+  reasoningChunks?: ReasoningChunk[];
+  reasoningText?: string; // 保留用于兼容
   toolCalls?: ToolCall[];
   attachments?: Attachment[];
   pptArtifact?: {

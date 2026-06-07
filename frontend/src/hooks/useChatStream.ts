@@ -139,6 +139,8 @@ export function useChatStream({
       let hasAssistantActivity = false;
       let receivedPptArtifact: AgentPptArtifact | undefined;
       let receivedWebsiteArtifact: AgentWebsiteArtifact | undefined;
+      let currentReasoningChunk = ''; // 当前思考片段
+      let chunkCounter = 0; // 片段计数器
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
@@ -308,6 +310,15 @@ export function useChatStream({
                 ? prev
                 : { phase: 'streaming', label: '大模型正在输出' },
             );
+
+            // 如果有未保存的思考片段，保存到reasoningChunks
+            const shouldSaveChunk = currentReasoningChunk.trim().length > 0;
+            const chunkToSave = shouldSaveChunk ? currentReasoningChunk : '';
+            if (shouldSaveChunk) {
+              currentReasoningChunk = '';
+              chunkCounter++;
+            }
+
             setSessions((prev) =>
               prev.map((session) =>
                 session.id === targetId
@@ -316,16 +327,23 @@ export function useChatStream({
                       updatedAt: Date.now(),
                       messages: session.messages.map((message) =>
                         message.id === assistantMessageId
-                          ? chatMode === 'ppt'
-                            ? {
-                                ...message,
-                                text: fullText,
-                                pptArtifact:
-                                  message.pptArtifact?.status === 'ready' || receivedPptArtifact
+                          ? {
+                              ...message,
+                              text: fullText,
+                              _currentReasoning: undefined, // 清除临时思考内容
+                              reasoningChunks: shouldSaveChunk
+                                ? [...(message.reasoningChunks || []), {
+                                    id: `chunk-${chunkCounter}`,
+                                    text: chunkToSave,
+                                    timestamp: Date.now(),
+                                  }]
+                                : message.reasoningChunks,
+                              pptArtifact: chatMode === 'ppt'
+                                ? (message.pptArtifact?.status === 'ready' || receivedPptArtifact
                                     ? (message.pptArtifact?.status === 'ready' ? message.pptArtifact : { status: 'ready' as const, artifactId: receivedPptArtifact!.artifact_id })
-                                    : { status: 'generating' },
-                              }
-                            : { ...message, text: fullText }
+                                    : { status: 'generating' })
+                                : undefined,
+                            }
                           : message,
                       ),
                     }
@@ -335,6 +353,7 @@ export function useChatStream({
           },
           onReasoningDelta: (_, fullReasoning) => {
             hasAssistantActivity = true;
+            currentReasoningChunk = fullReasoning;
             setSessions((prev) =>
               prev.map((session) =>
                 session.id === targetId
@@ -343,7 +362,12 @@ export function useChatStream({
                       updatedAt: Date.now(),
                       messages: session.messages.map((message) =>
                         message.id === assistantMessageId
-                          ? { ...message, reasoningText: fullReasoning }
+                          ? {
+                              ...message,
+                              reasoningChunks: message.reasoningChunks || [],
+                              // 临时显示当前正在累积的思考片段
+                              _currentReasoning: fullReasoning,
+                            }
                           : message,
                       ),
                     }
