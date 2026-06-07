@@ -33,20 +33,15 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
     : rounds;
   const hiddenRoundsCount = Math.max(0, rounds.length - visibleRounds.length);
 
+  const [highlightedRound, setHighlightedRound] = useState<string | null>(null);
+
   const scrollToRound = (round: any) => {
     const rowEl = document.getElementById(`msg-${round.id}`);
-    const bubbleEl = document.getElementById(`bubble-${round.id}`);
-    
     if (rowEl) {
       rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-    
-      if (bubbleEl) {
-        bubbleEl.classList.add('scale-[1.03]', 'shadow-glow', 'ring-2', 'ring-zinc-900');
-        setTimeout(() => {
-          bubbleEl.classList.remove('scale-[1.03]', 'shadow-glow', 'ring-2', 'ring-zinc-900');
-        }, 1500);
-      }
+    setHighlightedRound(round.id);
+    setTimeout(() => setHighlightedRound(null), 1500);
   };
 
   // Only show if there are multiple rounds

@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import { getActiveAnnouncement, type Announcement, type AnnouncementTheme } from '../../services/announcementService';
 import { getStoredUser, isAuthenticated } from '../../services/authService';
 import { cn } from '../../lib/utils';
+import { sanitizeHtml } from '../../lib/safePreview';
 import { THEME_DEFS } from './announcementTheme';
 
 function dismissalKey(item: Announcement): string {
@@ -294,7 +295,7 @@ export const GlobalAnnouncementLayer: React.FC = () => {
                   item.content_format === 'html' ? (
                     <div
                       className="mt-5 max-w-xl text-sm font-medium leading-7 text-slate-500 sm:text-[15px]"
-                      dangerouslySetInnerHTML={{ __html: item.body }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(item.body) }}
                     />
                   ) : (
                     <div className="mt-5 max-w-xl text-sm font-medium leading-7 text-slate-500 sm:text-[15px] [&_strong]:text-slate-800 [&_h1]:text-slate-900 [&_h2]:text-slate-900 [&_h3]:text-slate-900 [&_pre]:bg-slate-100 [&_pre]:border [&_pre]:border-slate-200 [&_pre]:rounded-xl [&_pre]:p-4 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:text-[13px] [&_code]:bg-slate-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_code]:text-[0.9em] [&_code]:text-brand-700 [&_blockquote]:border-l-[3px] [&_blockquote]:border-brand-300 [&_blockquote]:pl-3.5 [&_blockquote]:my-2.5 [&_blockquote]:text-slate-500 [&_blockquote]:italic [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2.5 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2.5 [&_ol]:space-y-1 [&_a]:text-brand-600 [&_a]:underline [&_hr]:border-t [&_hr]:border-slate-200 [&_hr]:my-4">

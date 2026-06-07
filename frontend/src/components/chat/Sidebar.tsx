@@ -7,6 +7,7 @@ import { Logo } from '../Logo';
 import { PlusIcon, ChatBubbleIcon, TrashIcon, MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
 import { getStoredUser, logout } from '../../services/authService';
 import { IntegrationMarket } from './IntegrationMarket';
+import { EmailSettingsPanel } from './EmailSettingsPanel';
 import { Modal, ModalHeader, ModalFooter } from '../ui/Modal';
 
 interface SidebarProps {
@@ -37,6 +38,7 @@ export const Sidebar = React.memo(({
   const user = getStoredUser();
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const [showMarket, setShowMarket] = useState(false);
+  const [showEmailSettings, setShowEmailSettings] = useState(false);
   
 
   const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -82,7 +84,11 @@ export const Sidebar = React.memo(({
         {sessions.map(session => (
           <div
             key={session.id}
+            role="button"
+            tabIndex={0}
             onClick={() => onSelectSession(session.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectSession(session.id); } }}
+            aria-current={currentSessionId === session.id ? 'page' : undefined}
             className={cn(
               "group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all",
               currentSessionId === session.id
@@ -99,7 +105,7 @@ export const Sidebar = React.memo(({
                 e.stopPropagation();
                 setDeleteConfirm({ id: session.id, title: session.title });
               }}
-              className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+              className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
               aria-label="删除对话"
             >
               <TrashIcon size={16} />
@@ -143,6 +149,14 @@ export const Sidebar = React.memo(({
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4M12 16h.01"/></svg>
           集成市场
         </button>
+        <button
+          onClick={() => setShowEmailSettings(true)}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sky-50/60 transition-colors font-bold text-sm text-slate-700"
+          aria-label="邮箱设置"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          邮箱设置
+        </button>
         {user?.role === 'admin' && (
           <button
             onClick={() => navigate('/admin')}
@@ -180,6 +194,7 @@ export const Sidebar = React.memo(({
       </div>
     </motion.aside>
     <IntegrationMarket open={showMarket} onClose={() => setShowMarket(false)} />
+    <EmailSettingsPanel open={showEmailSettings} onClose={() => setShowEmailSettings(false)} />
     {/* Delete Confirmation Modal */}
     <Modal open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} maxWidth="max-w-sm">
       <ModalHeader title="删除对话" subtitle="确认删除" onClose={() => setDeleteConfirm(null)} />

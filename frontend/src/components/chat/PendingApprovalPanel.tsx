@@ -39,7 +39,7 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
                   <button
                     type="button"
                     onClick={() => onDecision(approval.approvalId!, 'approved')}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-zinc-800 active:scale-95"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-zinc-800 active:scale-95 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:outline-none"
                     aria-label="批准工具调用"
                   >
                     <Check size={13} />
@@ -48,7 +48,7 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
                   <button
                     type="button"
                     onClick={() => onDecision(approval.approvalId!, 'rejected')}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-white px-3 py-1.5 text-[11px] font-bold text-rose-600 transition-colors hover:bg-rose-50 active:scale-95"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-white px-3 py-1.5 text-[11px] font-bold text-rose-600 transition-colors hover:bg-rose-50 active:scale-95 focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:outline-none"
                     aria-label="拒绝工具调用"
                   >
                     <X size={13} />

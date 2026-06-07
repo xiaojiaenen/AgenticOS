@@ -35,14 +35,25 @@ required_tools: []
 | 代码 | `terminal` | `references/core-layouts/terminal.svg` | 终端窗口——命令行录屏 |
 | 结尾 | `cta` | `references/core-layouts/cta.svg` | 行动号召——居中大字 CTA + 按钮 |
 | 结尾 | `thanks` | `references/core-layouts/thanks.svg` | 致谢——居中感谢 + 联系方式 |
+| 设备 | `device-iphone` | `references/core-layouts/device-iphone.svg` | iPhone 原型——左侧文案 + 右侧 iPhone 设备框架 |
+| 设备 | `device-android` | `references/core-layouts/device-android.svg` | Android 原型——左侧 Pixel 设备 + 右侧文案 |
+| 设备 | `device-browser` | `references/core-layouts/device-browser.svg` | 浏览器窗口——Chrome 框架内展示网站 |
+| 设备 | `device-macos` | `references/core-layouts/device-macos.svg` | macOS 应用——窗口框架 + 侧边栏 + 仪表盘 |
 
-### 使用流程
+### 使用流程（⚠️ 重要：不要照搬坐标）
 
 1. 根据页面内容类型选择布局
-2. 用 `read_file` 读取对应 SVG 文件
-3. 复制 SVG 骨架，替换占位内容为真实数据
+2. 用 `read_file` 读取对应 SVG 文件，**理解其结构模式**（居中/左对齐/网格等）
+3. **不要复制精确坐标**——参考结构后，自行决定具体参数：
+   - 左边距：60-120px 范围内选择（不要每页都用 60）
+   - 标题位置：居中/左对齐/偏上/偏下（不要每页都用 80,110）
+   - 卡片圆角：0/8/12/16/20/24（不要每页都用 16）
+   - 卡片间距：20-60px（不要每页都用 40）
+   - 卡片尺寸：根据内容量调整（不要每页都用固定尺寸）
 4. 保持所有 `var(--token)` 引用不变
 5. 将 `data-theme="theme-name"` 替换为选定的主题名
+
+**核心原则：模板是参考骨架，不是精确坐标。每页至少 2 个空间参数与上一页不同。**
 
 ---
 
@@ -109,6 +120,10 @@ required_tools: []
 | 代码展示 | code, terminal |
 | 行动号召 | cta |
 | 致谢 | thanks |
+| **iOS App 原型** | **device-iphone** |
+| **Android App 原型** | **device-android** |
+| **网站/落地页展示** | **device-browser** |
+| **桌面应用展示** | **device-macos** |
 
 ### 布局多样性强制规则
 

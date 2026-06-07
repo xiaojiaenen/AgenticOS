@@ -25,7 +25,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       )}
     >
       {icon && (
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/70 bg-white/70 text-sky-400 shadow-sm transition-all duration-300 hover:scale-110 hover:bg-sky-50/60 hover:text-sky-500 hover:shadow-md">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/70 bg-white/70 text-sky-400 shadow-sm">
           {icon}
         </div>
       )}

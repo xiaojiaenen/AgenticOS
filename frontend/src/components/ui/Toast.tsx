@@ -113,7 +113,7 @@ export const ToastContainer: React.FC = () => {
   useAutoDismiss(toasts, dismiss);
 
   return (
-    <div className="fixed bottom-6 right-6 z-[999] flex flex-col-reverse gap-3 pointer-events-none" aria-live="polite">
+    <div className="fixed bottom-4 right-4 z-[999] flex flex-col-reverse gap-3 pointer-events-none" aria-live="polite">
       <AnimatePresence>
         {toasts.map((item) => {
           const style = variantStyles[item.variant];
@@ -125,7 +125,7 @@ export const ToastContainer: React.FC = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, x: 50, scale: 0.96 }}
               className={cn(
-                'pointer-events-auto flex items-center gap-3 rounded-2xl border px-5 py-3.5 shadow-lg backdrop-blur-xl max-w-[380px]',
+                'pointer-events-auto flex items-center gap-3 rounded-2xl border px-5 py-3.5 shadow-lg backdrop-blur-xl max-w-[calc(100vw-2rem)] sm:max-w-[380px]',
                 style.bg, style.border,
               )}
             >

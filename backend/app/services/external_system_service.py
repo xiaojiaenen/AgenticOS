@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import base64
 import contextvars
+import hashlib
+import hmac
 import json
 import logging
 import re
@@ -61,6 +63,18 @@ def _safe_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
 
 
+def _naive_utc_now() -> datetime:
+    """Return a naive UTC datetime (no tzinfo) for safe DB comparison."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _make_naive(dt: datetime) -> datetime:
+    """Strip tzinfo so comparisons never fail across naive/aware boundaries."""
+    if dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
+
+
 def _serialize_system(sys: ExternalSystemModel, api_count: int = 0) -> dict:
     try:
         tpl = json.loads(sys.credential_template_json) if sys.credential_template_json else {}
@@ -76,12 +90,17 @@ def _serialize_system(sys: ExternalSystemModel, api_count: int = 0) -> dict:
         "oauth_auth_url": sys.oauth_auth_url,
         "oauth_token_url": sys.oauth_token_url,
         "oauth_scope": sys.oauth_scope,
+        "oauth_refresh_token_url": sys.oauth_refresh_token_url,
         "jwt_login_url": sys.jwt_login_url,
+        "jwt_refresh_url": sys.jwt_refresh_url,
+        "jwt_refresh_body_template": sys.jwt_refresh_body_template,
+        "jwt_refresh_token_path": sys.jwt_refresh_token_path,
         "jwt_request_body_template": sys.jwt_request_body_template,
         "jwt_response_token_path": sys.jwt_response_token_path,
         "jwt_response_expires_path": sys.jwt_response_expires_path,
         "published": sys.published,
         "headers": _serialize_headers(sys.headers_json),
+        "advanced_auth": json.loads(sys.advanced_auth_json) if sys.advanced_auth_json else {},
         "enabled": sys.enabled,
         "api_count": api_count,
         "created_by": sys.created_by,
@@ -198,7 +217,7 @@ class AuthInjector:
         if (
             cred.oauth_expires_at
             and cred.oauth_access_token_encrypted
-            and cred.oauth_expires_at > datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=60)
+            and _make_naive(cred.oauth_expires_at) > _naive_utc_now() - timedelta(seconds=60)
         ):
             return decrypt_safe(cred.oauth_access_token_encrypted)
 
@@ -241,7 +260,7 @@ class AuthInjector:
             if db_cred:
                 db_cred.oauth_access_token_encrypted = encrypt(new_access)
                 db_cred.oauth_refresh_token_encrypted = encrypt(new_refresh)
-                db_cred.oauth_expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=expires_in)
+                db_cred.oauth_expires_at = _naive_utc_now() + timedelta(seconds=expires_in)
                 db_cred.connection_status = "connected"
                 db.commit()
         finally:
@@ -251,16 +270,65 @@ class AuthInjector:
 
     @staticmethod
     async def _ensure_jwt(system: ExternalSystemModel, cred: ExternalUserCredentialModel) -> str:
-        """Return a valid JWT by logging in with username/password, caching the result."""
+        """Return a valid JWT — try refresh_token first, fall back to login."""
         # Check cached JWT (with 60s buffer)
         if (
             cred.jwt_expires_at
             and cred.cached_jwt_encrypted
-            and cred.jwt_expires_at > datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=60)
+            and _make_naive(cred.jwt_expires_at) > _naive_utc_now() - timedelta(seconds=60)
         ):
             return decrypt_safe(cred.cached_jwt_encrypted)
 
-        # Need to login
+        # ── Try refresh_token first ──────────────────────────────────────
+        refresh_token = decrypt_safe(cred.oauth_refresh_token_encrypted or "")
+        if refresh_token and system.jwt_refresh_url:
+            try:
+                # Build refresh request body from template
+                refresh_body: dict = {"refresh_token": refresh_token}
+                if system.jwt_refresh_body_template:
+                    try:
+                        body_str = system.jwt_refresh_body_template.replace("{refresh_token}", refresh_token)
+                        refresh_body = json.loads(body_str)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+                async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+                    resp = await client.post(system.jwt_refresh_url, json=refresh_body)
+                    resp.raise_for_status()
+                    resp_data = resp.json()
+
+                token_path = system.jwt_response_token_path or "token"
+                new_token = _extract_nested(resp_data, token_path)
+                if new_token:
+                    expires_at = None
+                    if system.jwt_response_expires_path:
+                        expires_in = _extract_nested(resp_data, system.jwt_response_expires_path)
+                        if isinstance(expires_in, (int, float)):
+                            expires_at = _naive_utc_now() + timedelta(seconds=int(expires_in))
+                    if not expires_at:
+                        expires_at = _naive_utc_now() + timedelta(hours=1)
+
+                    # Extract new refresh token from response
+                    rt_path = system.jwt_refresh_token_path or "refresh_token"
+                    new_refresh = _extract_nested(resp_data, rt_path) or refresh_token
+
+                    from app.db.session import create_db_session
+                    db = create_db_session()
+                    try:
+                        db_cred = db.get(ExternalUserCredentialModel, cred.id)
+                        if db_cred:
+                            db_cred.cached_jwt_encrypted = encrypt(str(new_token))
+                            db_cred.jwt_expires_at = expires_at
+                            db_cred.oauth_refresh_token_encrypted = encrypt(str(new_refresh))
+                            db_cred.connection_status = "connected"
+                            db.commit()
+                    finally:
+                        db.close()
+                    return str(new_token)
+            except Exception:
+                pass  # refresh failed, fall through to login
+
+        # ── Login with username/password ─────────────────────────────────
         config_raw = decrypt_safe(cred.credential_data_encrypted, "{}")
         try:
             config: dict = json.loads(config_raw) if config_raw else {}
@@ -297,11 +365,11 @@ class AuthInjector:
         if system.jwt_response_expires_path:
             expires_in = _extract_nested(resp_data, system.jwt_response_expires_path)
             if isinstance(expires_in, (int, float)):
-                expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=int(expires_in))
+                expires_at = _naive_utc_now() + timedelta(seconds=int(expires_in))
 
         # If no expiry from response, default to 1 hour
         if not expires_at:
-            expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)
+            expires_at = _naive_utc_now() + timedelta(hours=1)
 
         # Persist cached JWT
         from app.db.session import create_db_session
@@ -330,6 +398,238 @@ def _extract_nested(data: dict, path: str) -> Any:
         else:
             return None
     return current
+
+
+# ── Security Processor (signing / encryption) ──────────────────────────────
+
+
+class SecurityProcessor:
+    """Handle request signing, request encryption, and response decryption."""
+
+    @staticmethod
+    def sign_hmac(data: str, secret: str, algorithm: str) -> str:
+        """HMAC signing: hmac_sha256, hmac_sha512, hmac_md5."""
+        algo_map = {"hmac_sha256": "sha256", "hmac_sha512": "sha512", "hmac_md5": "md5"}
+        hash_name = algo_map.get(algorithm, "sha256")
+        sig = hmac.new(secret.encode("utf-8"), data.encode("utf-8"), getattr(__import__("hashlib", fromlist=[hash_name]), hash_name)).digest()
+        return sig
+
+    @staticmethod
+    def sign_rsa(data: str, private_key_pem: str, algorithm: str) -> bytes:
+        """RSA signing: sha256_with_rsa, sha1_with_rsa, md5_with_rsa."""
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import padding
+
+        hash_algo_map = {
+            "sha256_with_rsa": hashes.SHA256(),
+            "sha1_with_rsa": hashes.SHA1(),
+            "md5_with_rsa": hashes.MD5(),
+        }
+        hash_algo = hash_algo_map.get(algorithm, hashes.SHA256())
+
+        key = serialization.load_pem_private_key(private_key_pem.encode("utf-8"), password=None)
+        sig = key.sign(data.encode("utf-8"), padding.PKCS1v15(), hash_algo)
+        return sig
+
+    @staticmethod
+    def encrypt_aes(plaintext: str, key: str, iv: str, algorithm: str) -> bytes:
+        """AES encryption: aes_128_cbc, aes_256_cbc, aes_256_gcm, aes_ecb."""
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        from cryptography.hazmat.primitives import padding as sym_padding
+
+        key_bytes = key.encode("utf-8")
+        data = plaintext.encode("utf-8")
+
+        if algorithm == "aes_ecb" or algorithm == "aes_128_ecb":
+            cipher = Cipher(algorithms.AES(key_bytes), modes.ECB())
+            padder = sym_padding.PKCS7(128).padder()
+            data = padder.update(data) + padder.finalize()
+        elif algorithm == "aes_256_gcm":
+            iv_bytes = iv.encode("utf-8")[:12]
+            cipher = Cipher(algorithms.AES(key_bytes), modes.GCM(iv_bytes))
+            encryptor = cipher.encryptor()
+            return encryptor.update(data) + encryptor.finalize() + encryptor.tag
+        else:
+            iv_bytes = iv.encode("utf-8")[:16]
+            cipher = Cipher(algorithms.AES(key_bytes), modes.CBC(iv_bytes))
+            padder = sym_padding.PKCS7(128).padder()
+            data = padder.update(data) + padder.finalize()
+
+        encryptor = cipher.encryptor()
+        return encryptor.update(data) + encryptor.finalize()
+
+    @staticmethod
+    def decrypt_aes(ciphertext: bytes, key: str, iv: str, algorithm: str) -> str:
+        """AES decryption."""
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        from cryptography.hazmat.primitives import padding as sym_padding
+
+        key_bytes = key.encode("utf-8")
+
+        if algorithm == "aes_ecb" or algorithm == "aes_128_ecb":
+            cipher = Cipher(algorithms.AES(key_bytes), modes.ECB())
+            decryptor = cipher.decryptor()
+            data = decryptor.update(ciphertext) + decryptor.finalize()
+            unpadder = sym_padding.PKCS7(128).unpadder()
+            data = unpadder.update(data) + unpadder.finalize()
+            return data.decode("utf-8")
+        elif algorithm == "aes_256_gcm":
+            iv_bytes = iv.encode("utf-8")[:12]
+            tag = ciphertext[-16:]
+            ct = ciphertext[:-16]
+            cipher = Cipher(algorithms.AES(key_bytes), modes.GCM(iv_bytes, tag))
+            decryptor = cipher.decryptor()
+            return (decryptor.update(ct) + decryptor.finalize()).decode("utf-8")
+        else:
+            iv_bytes = iv.encode("utf-8")[:16]
+            cipher = Cipher(algorithms.AES(key_bytes), modes.CBC(iv_bytes))
+            decryptor = cipher.decryptor()
+            data = decryptor.update(ciphertext) + decryptor.finalize()
+            unpadder = sym_padding.PKCS7(128).unpadder()
+            data = unpadder.update(data) + unpadder.finalize()
+            return data.decode("utf-8")
+
+    @classmethod
+    async def process_request(cls, system: ExternalSystemModel, request: httpx.Request) -> None:
+        """Apply signing and encryption to the outgoing request."""
+        try:
+            aa = json.loads(system.advanced_auth_json) if system.advanced_auth_json else {}
+        except (json.JSONDecodeError, TypeError):
+            return
+
+        sign_cfg = aa.get("sign", {})
+        enc_cfg = aa.get("request_encrypt", {})
+        common_cfg = aa.get("common", {})
+
+        algorithm = sign_cfg.get("algorithm", "none")
+        if algorithm == "none" and enc_cfg.get("algorithm", "none") == "none":
+            return
+
+        # Generate timestamp + nonce
+        now = _naive_utc_now()
+        timestamp = ""
+        nonce = ""
+        ts_field = common_cfg.get("timestamp_field", "")
+        nonce_field = common_cfg.get("nonce_field", "")
+
+        if ts_field:
+            if common_cfg.get("timestamp_format") == "iso8601":
+                timestamp = now.isoformat()
+            else:
+                timestamp = str(int(now.timestamp()))
+
+        if nonce_field:
+            import secrets
+            length = common_cfg.get("nonce_length", 16)
+            nonce = secrets.token_hex(length // 2)
+
+        # ── Signing ──
+        if algorithm != "none":
+            secret = decrypt_safe(sign_cfg.get("secret", ""))
+            placement = sign_cfg.get("placement", "header")
+            field_name = sign_cfg.get("field_name", "X-Signature")
+            content_template = sign_cfg.get("content_template", "{body}")
+            encoding = sign_cfg.get("encoding", "base64")
+
+            body_text = ""
+            if request.content:
+                body_text = request.content.decode("utf-8", errors="replace")
+
+            sign_content = content_template.replace("{timestamp}", timestamp).replace("{nonce}", nonce).replace("{body}", body_text)
+
+            if algorithm.startswith("hmac"):
+                raw_sig = cls.sign_hmac(sign_content, secret, algorithm)
+            else:
+                raw_sig = cls.sign_rsa(sign_content, secret, algorithm)
+
+            if encoding == "hex":
+                sig_str = raw_sig.hex()
+            else:
+                sig_str = base64.b64encode(raw_sig).decode("ascii")
+
+            if placement == "header":
+                request.headers[field_name] = sig_str
+            elif placement == "query":
+                url = str(request.url)
+                sep = "&" if "?" in url else "?"
+                request.url = httpx.URL(f"{url}{sep}{field_name}={sig_str}")
+            elif placement == "body":
+                # For body placement, we'd need to modify the body — skip for now
+                pass
+
+        # ── Request Encryption ──
+        enc_algorithm = enc_cfg.get("algorithm", "none")
+        if enc_algorithm != "none" and request.content:
+            enc_key = decrypt_safe(enc_cfg.get("key", ""))
+            enc_iv = decrypt_safe(enc_cfg.get("iv", ""))
+            encoding = enc_cfg.get("encoding", "base64")
+
+            plaintext = request.content.decode("utf-8", errors="replace")
+            encrypted = cls.encrypt_aes(plaintext, enc_key, enc_iv, enc_algorithm)
+
+            if encoding == "hex":
+                result = encrypted.hex()
+            else:
+                result = base64.b64encode(encrypted).decode("ascii")
+
+            scope = enc_cfg.get("scope", "body")
+            if scope == "body":
+                request.content = json.dumps({"encrypted": result}).encode("utf-8")
+                request.headers["Content-Type"] = "application/json"
+
+        # Add common fields to headers
+        if ts_field and timestamp:
+            request.headers[ts_field] = timestamp
+        if nonce_field and nonce:
+            request.headers[nonce_field] = nonce
+
+    @classmethod
+    async def process_response(cls, system: ExternalSystemModel, response_text: str) -> str:
+        """Decrypt response if configured."""
+        try:
+            aa = json.loads(system.advanced_auth_json) if system.advanced_auth_json else {}
+        except (json.JSONDecodeError, TypeError):
+            return response_text
+
+        dec_cfg = aa.get("response_decrypt", {})
+        dec_algorithm = dec_cfg.get("algorithm", "none")
+        if dec_algorithm == "none":
+            return response_text
+
+        try:
+            resp_json = json.loads(response_text)
+        except (json.JSONDecodeError, TypeError):
+            return response_text
+
+        path = dec_cfg.get("path", "")
+        if not path:
+            return response_text
+
+        ciphertext_b64 = _extract_nested(resp_json, path)
+        if not ciphertext_b64:
+            return response_text
+
+        dec_key = decrypt_safe(dec_cfg.get("key", ""))
+        dec_iv = decrypt_safe(dec_cfg.get("iv", ""))
+        encoding = dec_cfg.get("encoding", "base64")
+
+        try:
+            if encoding == "hex":
+                ct_bytes = bytes.fromhex(str(ciphertext_b64))
+            else:
+                ct_bytes = base64.b64decode(str(ciphertext_b64))
+
+            plaintext = cls.decrypt_aes(ct_bytes, dec_key, dec_iv, dec_algorithm)
+
+            # Replace the encrypted field with decrypted content
+            keys = path.split(".")
+            current = resp_json
+            for key in keys[:-1]:
+                current = current.get(key, {})
+            current[keys[-1]] = json.loads(plaintext) if plaintext.startswith(("{", "[")) else plaintext
+            return json.dumps(resp_json, ensure_ascii=False)
+        except Exception:
+            return response_text
 
 
 # ── helpers for tool building ───────────────────────────────────────────────
@@ -433,6 +733,7 @@ def _build_system_tool_handler(
                     headers=headers,
                 )
                 await AuthInjector.inject(system, cred, request)
+                await SecurityProcessor.process_request(system, request)
                 response = await client.send(request)
 
             # Mark auth errors
@@ -444,9 +745,11 @@ def _build_system_tool_handler(
                     "status_code": response.status_code,
                 }, ensure_ascii=False)
 
+            # Decrypt response if configured
+            body_text = await SecurityProcessor.process_response(system, response.text)
             result: dict[str, Any] = {
                 "status_code": response.status_code,
-                "body": response.text,
+                "body": body_text,
             }
             return json.dumps(result, ensure_ascii=False)
 
@@ -596,12 +899,16 @@ class ExternalSystemService:
             oauth_auth_url=data.oauth_auth_url,
             oauth_token_url=data.oauth_token_url,
             oauth_scope=data.oauth_scope,
+            oauth_refresh_token_url=data.oauth_refresh_token_url,
             jwt_login_url=data.jwt_login_url,
+            jwt_refresh_url=data.jwt_refresh_url,
+            jwt_refresh_body_template=data.jwt_refresh_body_template,
+            jwt_refresh_token_path=data.jwt_refresh_token_path,
             jwt_request_body_template=data.jwt_request_body_template,
             jwt_response_token_path=data.jwt_response_token_path,
             jwt_response_expires_path=data.jwt_response_expires_path,
-            published=data.published,
             headers_json=json.dumps(data.headers) if data.headers else "{}",
+            advanced_auth_json=json.dumps(data.advanced_auth) if data.advanced_auth else "{}",
             created_by=user_id,
         )
         self.db.add(sys)
@@ -634,8 +941,16 @@ class ExternalSystemService:
             sys.oauth_token_url = data.oauth_token_url
         if data.oauth_scope is not None:
             sys.oauth_scope = data.oauth_scope
+        if data.oauth_refresh_token_url is not None:
+            sys.oauth_refresh_token_url = data.oauth_refresh_token_url
         if data.jwt_login_url is not None:
             sys.jwt_login_url = data.jwt_login_url
+        if data.jwt_refresh_url is not None:
+            sys.jwt_refresh_url = data.jwt_refresh_url
+        if data.jwt_refresh_body_template is not None:
+            sys.jwt_refresh_body_template = data.jwt_refresh_body_template
+        if data.jwt_refresh_token_path is not None:
+            sys.jwt_refresh_token_path = data.jwt_refresh_token_path
         if data.jwt_request_body_template is not None:
             sys.jwt_request_body_template = data.jwt_request_body_template
         if data.jwt_response_token_path is not None:
@@ -646,6 +961,8 @@ class ExternalSystemService:
             sys.published = data.published
         if data.headers is not None:
             sys.headers_json = json.dumps(data.headers)
+        if data.advanced_auth is not None:
+            sys.advanced_auth_json = json.dumps(data.advanced_auth)
         if data.enabled is not None:
             sys.enabled = data.enabled
 
@@ -870,14 +1187,15 @@ class ExternalSystemService:
                         ).first()
                         if cred:
                             await AuthInjector.inject(system, cred, request)
-
+                await SecurityProcessor.process_request(system, request)
                 response = await client.send(request)
 
             elapsed = int((time.monotonic() - start) * 1000)
+            body_text = await SecurityProcessor.process_response(system, response.text)
             return ExternalApiTestResponse(
                 success=200 <= response.status_code < 300,
                 status_code=response.status_code,
-                body=response.text,
+                body=body_text,
                 elapsed_ms=elapsed,
             )
         except Exception as e:
@@ -1075,3 +1393,201 @@ class ExternalSystemService:
         self.db.commit()
         self.db.refresh(system)
         return _serialize_system(system, len(created))
+
+
+def seed_preset_external_systems() -> None:
+    """Seed preset external systems on startup (idempotent).
+
+    每次启动检查并添加缺失的预设，已存在的不会重复添加。
+    """
+    from app.db.session import create_db_session
+
+    PRESETS = [
+        {
+            "name": "GitHub",
+            "description": "GitHub 代码托管平台 - 仓库管理、Issues、Pull Requests",
+            "base_url": "https://api.github.com",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "Personal Access Token", "type": "password", "required": True, "help_text": "在 GitHub Settings > Developer settings > Personal access tokens 中生成", "help_url": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token"}]},
+            "apis": [
+                {"name": "list_repos", "display_name": "获取仓库列表", "method": "GET", "path": "/user/repos", "description": "获取当前用户的仓库列表"},
+                {"name": "get_repo", "display_name": "获取仓库详情", "method": "GET", "path": "/repos/{owner}/{repo}", "description": "获取指定仓库的详细信息"},
+                {"name": "list_issues", "display_name": "获取 Issues 列表", "method": "GET", "path": "/repos/{owner}/{repo}/issues", "description": "获取仓库的 Issues 列表"},
+                {"name": "create_issue", "display_name": "创建 Issue", "method": "POST", "path": "/repos/{owner}/{repo}/issues", "description": "在仓库中创建新 Issue"},
+                {"name": "list_pull_requests", "display_name": "获取 PR 列表", "method": "GET", "path": "/repos/{owner}/{repo}/pulls", "description": "获取仓库的 Pull Request 列表"},
+                {"name": "get_pull_request", "display_name": "获取 PR 详情", "method": "GET", "path": "/repos/{owner}/{repo}/pulls/{pull_number}", "description": "获取指定 PR 的详细信息"},
+                {"name": "list_commits", "display_name": "获取提交记录", "method": "GET", "path": "/repos/{owner}/{repo}/commits", "description": "获取仓库的提交历史"},
+            ],
+        },
+        {
+            "name": "GitLab",
+            "description": "GitLab 代码托管平台 - 仓库管理、Issues、Merge Requests",
+            "base_url": "https://gitlab.com/api/v4",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "Personal Access Token", "type": "password", "required": True, "help_text": "在 GitLab User Settings > Access Tokens 中生成", "help_url": "https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html"}]},
+            "apis": [
+                {"name": "list_projects", "display_name": "获取项目列表", "method": "GET", "path": "/projects", "description": "获取当前用户的项目列表"},
+                {"name": "get_project", "display_name": "获取项目详情", "method": "GET", "path": "/projects/{id}", "description": "获取指定项目的详细信息"},
+                {"name": "list_issues", "display_name": "获取 Issues 列表", "method": "GET", "path": "/projects/{id}/issues", "description": "获取项目的 Issues 列表"},
+                {"name": "create_issue", "display_name": "创建 Issue", "method": "POST", "path": "/projects/{id}/issues", "description": "在项目中创建新 Issue"},
+                {"name": "list_merge_requests", "display_name": "获取 MR 列表", "method": "GET", "path": "/projects/{id}/merge_requests", "description": "获取项目的 Merge Request 列表"},
+                {"name": "get_merge_request", "display_name": "获取 MR 详情", "method": "GET", "path": "/projects/{id}/merge_requests/{merge_request_iid}", "description": "获取指定 MR 的详细信息"},
+            ],
+        },
+        {
+            "name": "Slack",
+            "description": "Slack 团队协作平台 - 消息发送、频道管理",
+            "base_url": "https://slack.com/api",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "Bot Token / User Token", "type": "password", "required": True, "help_text": "在 Slack API > Your Apps > OAuth & Permissions 中获取", "help_url": "https://api.slack.com/authentication/token-types"}]},
+            "apis": [
+                {"name": "post_message", "display_name": "发送消息", "method": "POST", "path": "/chat.postMessage", "description": "向指定频道发送消息"},
+                {"name": "list_channels", "display_name": "获取频道列表", "method": "GET", "path": "/conversations.list", "description": "获取可用频道列表"},
+                {"name": "get_channel_info", "display_name": "获取频道信息", "method": "GET", "path": "/conversations.info", "description": "获取指定频道的详细信息"},
+                {"name": "list_users", "display_name": "获取用户列表", "method": "GET", "path": "users.list", "description": "获取工作区用户列表"},
+            ],
+        },
+        {
+            "name": "Notion",
+            "description": "Notion 知识管理平台 - 页面、数据库操作",
+            "base_url": "https://api.notion.com/v1",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "Integration Token", "type": "password", "required": True, "help_text": "在 Notion Settings > Connections > Develop or manage integrations 中创建", "help_url": "https://developers.notion.com/docs/getting-started"}]},
+            "apis": [
+                {"name": "search", "display_name": "搜索页面", "method": "POST", "path": "/search", "description": "搜索 Notion 中的页面和数据库"},
+                {"name": "get_page", "display_name": "获取页面", "method": "GET", "path": "/pages/{page_id}", "description": "获取指定页面的内容"},
+                {"name": "create_page", "display_name": "创建页面", "method": "POST", "path": "/pages", "description": "创建新页面"},
+                {"name": "update_page", "display_name": "更新页面", "method": "PATCH", "path": "/pages/{page_id}", "description": "更新页面内容"},
+                {"name": "query_database", "display_name": "查询数据库", "method": "POST", "path": "/databases/{database_id}/query", "description": "查询 Notion 数据库"},
+            ],
+        },
+        {
+            "name": "Jira",
+            "description": "Jira 项目管理平台 - Issues、项目、Sprint 管理",
+            "base_url": "https://your-domain.atlassian.net",
+            "auth_type": "basic",
+            "credential_template": {"fields": [
+                {"key": "username", "label": "邮箱地址", "type": "text", "required": True, "help_text": "你的 Atlassian 账户邮箱"},
+                {"key": "password", "label": "API Token", "type": "password", "required": True, "help_text": "在 https://id.atlassian.com/manage-profile/security/api-tokens 中生成", "help_url": "https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/"},
+            ]},
+            "apis": [
+                {"name": "list_projects", "display_name": "获取项目列表", "method": "GET", "path": "/rest/api/3/project", "description": "获取所有可访问的项目"},
+                {"name": "get_issue", "display_name": "获取 Issue", "method": "GET", "path": "/rest/api/3/issue/{issueIdOrKey}", "description": "获取指定 Issue 的详细信息"},
+                {"name": "create_issue", "display_name": "创建 Issue", "method": "POST", "path": "/rest/api/3/issue", "description": "创建新 Issue"},
+                {"name": "search_issues", "display_name": "搜索 Issues", "method": "GET", "path": "/rest/api/3/search", "description": "使用 JQL 搜索 Issues"},
+                {"name": "update_issue", "display_name": "更新 Issue", "method": "PUT", "path": "/rest/api/3/issue/{issueIdOrKey}", "description": "更新 Issue 状态或字段"},
+            ],
+        },
+        {
+            "name": "Feishu",
+            "description": "飞书企业协作平台 - 消息、文档、日历",
+            "base_url": "https://open.feishu.cn/open-apis",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "Tenant Access Token", "type": "password", "required": True, "help_text": "在飞书开放平台 > 应用管理 > 凭证与基础信息 中获取", "help_url": "https://open.feishu.cn/document/home/introduction-to-permissions-and-authentication/access-token/tenant-access-token"}]},
+            "apis": [
+                {"name": "send_message", "display_name": "发送消息", "method": "POST", "path": "/im/v1/messages", "description": "向用户或群组发送消息"},
+                {"name": "list_contacts", "display_name": "获取通讯录", "method": "GET", "path": "/contact/v3/users", "description": "获取企业通讯录用户列表"},
+                {"name": "create_document", "display_name": "创建文档", "method": "POST", "path": "/docx/v1/documents", "description": "创建飞书文档"},
+                {"name": "get_calendar_events", "display_name": "获取日程", "method": "GET", "path": "/calendar/v4/calendars/{calendar_id}/events", "description": "获取日历日程列表"},
+            ],
+        },
+        {
+            "name": "DingTalk",
+            "description": "钉钉企业协作平台 - 消息、审批、日程",
+            "base_url": "https://oapi.dingtalk.com",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "Access Token", "type": "password", "required": True, "help_text": "在钉钉开放平台 > 应用开发 > 企业内部应用 > 凭证与基础信息 中获取", "help_url": "https://open.dingtalk.com/document/isvapp/isv-obtain-configuration-parameters"}]},
+            "apis": [
+                {"name": "send_work_notification", "display_name": "发送工作通知", "method": "POST", "path": "/topapi/message/corpconversation/asyncsend_v2", "description": "向员工发送工作通知"},
+                {"name": "get_user_info", "display_name": "获取用户信息", "method": "GET", "path": "/topapi/v2/user/get", "description": "获取员工详细信息"},
+                {"name": "list_users", "display_name": "获取员工列表", "method": "GET", "path": "/topapi/v2/user/listbypage", "description": "分页获取员工列表"},
+                {"name": "create_approval", "display_name": "创建审批", "method": "POST", "path": "/topapi/processinstance/create", "description": "发起审批流程"},
+            ],
+        },
+        {
+            "name": "Linear",
+            "description": "Linear 项目管理工具 - Issues、Projects、Teams",
+            "base_url": "https://api.linear.app/graphql",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [{"key": "token", "label": "API Key", "type": "password", "required": True, "help_text": "在 Linear Settings > API > Personal API keys 中生成", "help_url": "https://linear.app/docs/api-reference"}]},
+            "apis": [
+                {"name": "list_teams", "display_name": "获取团队列表", "method": "POST", "path": "/", "description": "获取所有团队"},
+                {"name": "list_issues", "display_name": "获取 Issue 列表", "method": "POST", "path": "/", "description": "获取 Issues 列表"},
+                {"name": "create_issue", "display_name": "创建 Issue", "method": "POST", "path": "/", "description": "创建新 Issue"},
+                {"name": "update_issue", "display_name": "更新 Issue", "method": "POST", "path": "/", "description": "更新 Issue 状态或字段"},
+                {"name": "list_projects", "display_name": "获取项目列表", "method": "POST", "path": "/", "description": "获取所有项目"},
+            ],
+        },
+        {
+            "name": "OpenSpider",
+            "description": "OpenSpider 爬虫管理平台 - 爬虫生命周期管理、数据采集、定时调度",
+            "base_url": "http://localhost:8000",
+            "auth_type": "jwt_login",
+            "credential_template": {"fields": [
+                {"key": "username", "label": "用户名", "type": "text", "required": True, "help_text": "OpenSpider 账户用户名"},
+                {"key": "password", "label": "密码", "type": "password", "required": True, "help_text": "OpenSpider 账户密码"},
+            ]},
+            "jwt_login_url": "/auth/login/json",
+            "jwt_refresh_url": "/auth/refresh",
+            "jwt_request_body_template": '{"username": "{username}", "password": "{password}"}',
+            "jwt_response_token_path": "access_token",
+            "jwt_response_expires_path": "expires_in",
+            "jwt_refresh_body_template": '{"refresh_token": "{refresh_token}"}',
+            "apis": [
+                {"name": "list_spiders", "display_name": "获取爬虫列表", "method": "GET", "path": "/spiders", "description": "列出当前用户可见的爬虫"},
+                {"name": "get_spider", "display_name": "获取爬虫详情", "method": "GET", "path": "/spiders/{name}", "description": "获取单个爬虫的详细信息"},
+                {"name": "start_spider", "display_name": "启动爬虫", "method": "POST", "path": "/spiders/{spider_id}/start", "description": "启动指定爬虫"},
+                {"name": "stop_spider", "display_name": "停止爬虫", "method": "POST", "path": "/spiders/{spider_id}/stop", "description": "停止正在运行的爬虫"},
+                {"name": "pause_spider", "display_name": "暂停爬虫", "method": "POST", "path": "/spiders/{spider_id}/pause", "description": "暂停爬虫，保留断点"},
+                {"name": "resume_spider", "display_name": "恢复爬虫", "method": "POST", "path": "/spiders/{spider_id}/resume", "description": "从断点恢复爬虫运行"},
+                {"name": "delete_spider", "display_name": "删除爬虫", "method": "DELETE", "path": "/spiders/{spider_id}", "description": "删除爬虫"},
+                {"name": "upload_spider", "display_name": "上传爬虫文件", "method": "POST", "path": "/spiders/upload", "description": "上传 .py 爬虫文件，自动注册"},
+                {"name": "list_tasks", "display_name": "获取任务列表", "method": "GET", "path": "/tasks", "description": "查询任务列表，支持按爬虫和状态筛选"},
+                {"name": "get_task", "display_name": "获取任务详情", "method": "GET", "path": "/tasks/{task_id}", "description": "获取单个任务的详细信息"},
+                {"name": "get_task_logs", "display_name": "获取任务日志", "method": "GET", "path": "/tasks/{task_id}/logs", "description": "获取指定任务的运行日志"},
+                {"name": "get_spider_data", "display_name": "查询爬虫数据", "method": "GET", "path": "/spiders/{spider_id}/data", "description": "分页查询爬虫采集的数据"},
+                {"name": "export_spider_data", "display_name": "导出爬虫数据", "method": "GET", "path": "/spiders/{spider_id}/export", "description": "导出爬虫数据，支持 JSON/JSONL/CSV"},
+                {"name": "list_schedules", "display_name": "获取调度列表", "method": "GET", "path": "/schedules", "description": "列出所有定时调度"},
+                {"name": "create_schedule", "display_name": "创建调度", "method": "POST", "path": "/schedules", "description": "创建新的定时调度任务"},
+                {"name": "update_schedule", "display_name": "修改调度", "method": "PUT", "path": "/schedules/{schedule_id}", "description": "修改调度的 cron 表达式和参数"},
+                {"name": "delete_schedule", "display_name": "删除调度", "method": "DELETE", "path": "/schedules/{schedule_id}", "description": "删除定时调度"},
+                {"name": "enable_schedule", "display_name": "启用调度", "method": "POST", "path": "/schedules/{schedule_id}/enable", "description": "启用已禁用的调度"},
+                {"name": "disable_schedule", "display_name": "禁用调度", "method": "POST", "path": "/schedules/{schedule_id}/disable", "description": "禁用调度"},
+            ],
+        },
+    ]
+
+    with create_db_session() as db:
+        existing = {s.name for s in db.execute(select(ExternalSystemModel)).scalars().all()}
+        created_count = 0
+        for preset in PRESETS:
+            if preset["name"] in existing:
+                continue
+            system = ExternalSystemModel(
+                name=preset["name"],
+                description=preset["description"],
+                base_url=preset["base_url"],
+                auth_type=preset["auth_type"],
+                credential_template_json=json.dumps(preset.get("credential_template", {})),
+                published=True,
+                headers_json="{}",
+                created_by=1,
+            )
+            db.add(system)
+            db.flush()
+            for api_def in preset.get("apis", []):
+                api = ExternalApiModel(
+                    system_id=system.id,
+                    name=api_def["name"],
+                    display_name=api_def["display_name"],
+                    description=api_def.get("description", ""),
+                    method=api_def["method"],
+                    path=api_def["path"],
+                    requires_approval=api_def["method"] in ("POST", "PUT", "DELETE", "PATCH"),
+                    timeout_seconds=30,
+                )
+                db.add(api)
+            created_count += 1
+        if created_count > 0:
+            db.commit()
+            logger.info("Seeded %d preset external systems", created_count)

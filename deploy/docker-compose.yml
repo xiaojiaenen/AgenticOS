@@ -11,8 +11,21 @@ services:
         BASE_REGISTRY: ${BASE_REGISTRY:-172.73.0.156:85}
         PYPI_MIRROR: ${PYPI_MIRROR:-https://pypi.org/simple}
     restart: unless-stopped
-    security_opt:
-      - seccomp:unconfined
+    # 安全：移除 seccomp:unconfined，使用默认 seccomp profile
+    # 资源限制：防止失控进程耗尽主机资源
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+    # 只读根文件系统（数据卷单独挂载）
+    read_only: true
+    tmpfs:
+      - /tmp:size=512M
+      - /var/tmp:size=256M
     healthcheck:
       test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8000/api/v1/health/')"]
       interval: 30s
@@ -62,6 +75,8 @@ services:
       start_period: 10s
     ports:
       - "${FRONTEND_PORT:-10008}:80"
+    volumes:
+      - ../data/nginx-serve:/usr/share/nginx/sites
     depends_on:
       backend:
         condition: service_healthy

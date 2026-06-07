@@ -401,7 +401,6 @@ export function useChatStream({
                       ? {
                           ...message,
                           text: response.text,
-                          reasoningText: response.reasoningText ?? message.reasoningText,
                           toolCalls: response.toolCalls,
                           pptArtifact: pptArtifact
                             ? {

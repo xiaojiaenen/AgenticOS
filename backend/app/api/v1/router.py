@@ -5,6 +5,7 @@ from app.api.v1.endpoints.agent import router as agent_router
 from app.api.v1.endpoints.agent_profiles import router as agent_profiles_router
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.dashboard import router as dashboard_router
+from app.api.v1.endpoints.email import router as email_router
 from app.api.v1.endpoints.external_systems import admin_router as external_systems_admin_router
 from app.api.v1.endpoints.external_systems import router as integrations_router
 from app.api.v1.endpoints.files import router as files_router
@@ -23,6 +24,7 @@ router.include_router(agent_router)
 router.include_router(agent_profiles_router)
 router.include_router(auth_router)
 router.include_router(dashboard_router)
+router.include_router(email_router)
 router.include_router(external_systems_admin_router)
 router.include_router(integrations_router)
 router.include_router(files_router)

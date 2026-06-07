@@ -8,17 +8,17 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-display: "Space Grotesk", sans-serif;
 
-  /* Brand color scale — sky-based primary */
-  --color-brand-50: #f0f9ff;
-  --color-brand-100: #e0f2fe;
-  --color-brand-200: #bae6fd;
-  --color-brand-300: #7dd3fc;
-  --color-brand-400: #38bdf8;
-  --color-brand-500: #0ea5e9;
-  --color-brand-600: #0284c7;
-  --color-brand-700: #0369a1;
-  --color-brand-800: #075985;
-  --color-brand-900: #0c4a6e;
+  /* Brand color scale — desaturated sky, softer for UI */
+  --color-brand-50: #f0f7ff;
+  --color-brand-100: #ddeaf8;
+  --color-brand-200: #b8d8f0;
+  --color-brand-300: #85bfe5;
+  --color-brand-400: #4da3d6;
+  --color-brand-500: #2b87c2;
+  --color-brand-600: #1e6ea0;
+  --color-brand-700: #175680;
+  --color-brand-800: #114063;
+  --color-brand-900: #0c2d47;
 
   /* Semantic color tokens */
   --color-success-50: #ecfdf5;
@@ -54,14 +54,14 @@
   --radius-lg: 24px;
   --radius-xl: 32px;
 
-  /* Shadow scale — low to high elevation */
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.07);
-  --shadow-md: 0 8px 22px rgba(15, 23, 42, 0.09);
-  --shadow-lg: 0 16px 38px rgba(15, 23, 42, 0.11);
-  --shadow-xl: 0 24px 56px rgba(15, 23, 42, 0.15);
-  --shadow-glow: 0 0 20px 4px rgba(14, 165, 233, 0.28);
-  --shadow-button: 0 12px 28px rgba(15, 23, 42, 0.18);
+  /* Shadow scale — dual-layer for realistic depth */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.07);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
+  --shadow-glow: 0 0 0 3px rgba(43, 135, 194, 0.15);
+  --shadow-button: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.08);
 
   /* Glass opacity levels (light-mode) */
   --glass-subtle: rgba(255, 255, 255, 0.52);
@@ -69,34 +69,33 @@
   --glass-strong: rgba(255, 255, 255, 0.86);
   --glass-backdrop: blur(20px);
 
-  /* Surface hierarchy */
-  --surface-0: rgba(255, 255, 255, 0.52);
-  --surface-1: rgba(255, 255, 255, 0.72);
-  --surface-2: rgba(255, 255, 255, 0.88);
-  --surface-3: rgba(255, 255, 255, 0.96);
-  --border-subtle: rgba(255, 255, 255, 0.40);
-  --border-medium: rgba(255, 255, 255, 0.60);
-  --border-strong: rgba(255, 255, 255, 0.80);
+  /* Surface hierarchy — subtle depth between layers */
+  --surface-0: #f4f6f8;
+  --surface-1: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #fafbfc;
+  --border-subtle: rgba(15, 23, 42, 0.06);
+  --border-medium: rgba(15, 23, 42, 0.10);
+  --border-strong: rgba(15, 23, 42, 0.15);
   --bubble-user: #18181b;
   --bubble-user-text: #ffffff;
   --bubble-ai: rgba(255, 255, 255, 0.92);
   --bubble-ai-border: rgba(226, 232, 240, 0.6);
-  --accent-send: #0ea5e9;
-  --accent-send-hover: #0284c7;
-  --shadow-input-glow: 0 0 16px 2px rgba(14, 165, 233, 0.12);
+  --accent-send: #2b87c2;
+  --accent-send-hover: #1e6ea0;
+  --shadow-input-glow: 0 0 0 3px rgba(43, 135, 194, 0.12);
 
-  /* Admin dashboard — distinct from chat */
-  --admin-bg: #dceef5;
-  --admin-sidebar-bg: rgba(255, 255, 255, 0.78);
-  --admin-card-bg: rgba(255, 255, 255, 0.62);
-  --admin-card-border: rgba(255, 255, 255, 0.50);
-  --admin-accent: #0369a1;              /* brand-700 — deeper than chat's brand-500 */
-  --admin-accent-soft: rgba(3, 105, 161, 0.08);
+  /* Admin dashboard — unified with chat */
+  --admin-bg: #f8fafc;
+  --admin-sidebar-bg: #ffffff;
+  --admin-card-bg: #ffffff;
+  --admin-card-border: rgba(15, 23, 42, 0.06);
+  --admin-accent: #1e6ea0;
+  --admin-accent-soft: rgba(43, 135, 194, 0.06);
 
-  --animate-blob: blob 7s infinite;
-  --animate-fade-in: fade-in 0.5s ease-out both;
-  --animate-slide-up: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-scale-in: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade-in: fade-in 0.3s ease-out both;
+  --animate-slide-up: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-scale-in: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* ===== Base ===== */
@@ -107,29 +106,12 @@ html, body {
 }
 
 body {
-  background:
-    radial-gradient(ellipse 1100px 700px at 8% 10%, rgba(14, 165, 233, 0.22), transparent 40%),
-    radial-gradient(ellipse 800px 650px at 92% 6%, rgba(6, 182, 212, 0.16), transparent 36%),
-    radial-gradient(ellipse 900px 600px at 78% 82%, rgba(14, 165, 233, 0.15), transparent 34%),
-    radial-gradient(ellipse 700px 500px at 15% 88%, rgba(56, 189, 248, 0.14), transparent 32%),
-    radial-gradient(ellipse 600px 450px at 55% 50%, rgba(34, 211, 238, 0.12), transparent 35%),
-    linear-gradient(175deg, #e1f1f7 0%, #daedf5 20%, #dff0f6 48%, #d6ecf2 72%, #ddeef6 100%);
-  background-attachment: fixed;
+  background: var(--surface-0);
 }
 
-/* Noise texture — sits behind all content */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.028;
-  mix-blend-mode: soft-light;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-}
+/* Noise texture removed — was invisible GPU cost */
 
-::selection { background: rgba(14, 165, 233, 0.25); color: inherit; }
+::selection { background: rgba(43, 135, 194, 0.18); color: inherit; }
 
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
@@ -156,7 +138,7 @@ body::-webkit-scrollbar {
   clip: auto;
   clip-path: none;
   transform: translateX(-50%) translateY(0);
-  @apply rounded-2xl bg-white/95 px-5 py-3 text-sm font-bold text-slate-800 shadow-xl ring-2 ring-brand-400/50 backdrop-blur-md;
+  @apply rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-md border border-slate-200;
 }
 
 /* ===== Glass Panel Utilities (with backdrop-filter fallback) ===== */
@@ -192,33 +174,21 @@ body::-webkit-scrollbar {
 
 /* ===== Admin Shared Classes ===== */
 .admin-section-kicker {
-  @apply text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500;
+  @apply text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400;
 }
 
 .admin-glass-panel {
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: var(--shadow-md);
-}
-@supports (backdrop-filter: blur(1px)) {
-  .admin-glass-panel {
-    background: var(--glass-medium);
-    backdrop-filter: var(--glass-backdrop);
-  }
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-xs);
 }
 
 .admin-solid-panel {
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: var(--shadow-md), 0 0 0 1px rgba(255, 255, 255, 0.55);
-}
-@supports (backdrop-filter: blur(1px)) {
-  .admin-solid-panel {
-    background: var(--glass-strong);
-    backdrop-filter: var(--glass-backdrop);
-  }
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-xs);
 }
 
 .admin-dashboard-shell {
@@ -315,17 +285,16 @@ body.admin-modal-open .admin-dashboard-backdrop {
 
 /* ===== Admin Page Components ===== */
 .admin-page-header {
-  @apply relative overflow-hidden rounded-2xl border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.65))] px-5 py-3.5 shadow-md ring-1 ring-white/50 backdrop-blur-2xl;
+  @apply relative overflow-hidden rounded-lg border px-5 py-3.5;
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-xs);
 }
 
-.admin-page-header::before {
-  content: "";
-  @apply pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(14,165,233,0.35),rgba(16,185,129,0.22),transparent)];
-}
-
+/* Decorative pseudo-elements removed — visual noise */
+.admin-page-header::before,
 .admin-page-header::after {
-  content: "";
-  @apply pointer-events-none absolute -right-16 -top-24 h-48 w-80 rotate-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent)] opacity-50;
+  display: none;
 }
 
 .admin-page-header > * {
@@ -333,27 +302,26 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-kpi-pill {
-  @apply inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/68 px-3.5 py-1.5 text-xs font-bold text-slate-500 shadow-sm transition-all duration-200;
+  @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors duration-150;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-1);
 }
 
 .admin-kpi-pill:hover {
-  transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+  background: var(--surface-0);
 }
 
 .admin-data-panel {
-  @apply relative overflow-hidden rounded-2xl border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.72),rgba(248,250,252,0.55),rgba(255,255,255,0.45))] shadow-md ring-1 ring-white/45 backdrop-blur-2xl;
+  @apply relative overflow-hidden rounded-lg border;
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-xs);
 }
 
-.admin-data-panel::before {
-  content: "";
-  @apply pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.9),rgba(14,165,233,0.25),transparent)];
-}
-
+/* Decorative pseudo-elements removed */
+.admin-data-panel::before,
 .admin-data-panel::after {
-  content: "";
-  @apply pointer-events-none absolute -right-24 -top-24 h-64 w-96 rotate-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.28),transparent)] opacity-60;
+  display: none;
 }
 
 .admin-data-panel > * {
@@ -361,60 +329,34 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-panel-toolbar {
-  @apply flex flex-col gap-3 border-b border-white/65 bg-white/38 px-5 py-3.5 lg:flex-row lg:items-end lg:justify-between;
+  @apply flex flex-col gap-3 border-b px-5 py-3.5 lg:flex-row lg:items-end lg:justify-between;
+  border-color: var(--border-subtle);
+  background: var(--surface-0);
 }
 
 .admin-table-head {
-  @apply hidden border-b border-slate-200/60 bg-slate-50/65 px-4 py-2.5 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400 lg:grid xl:grid;
+  @apply hidden border-b px-4 py-2.5 text-center text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400 lg:grid xl:grid;
+  border-color: var(--border-subtle);
   position: sticky;
   top: 0;
   z-index: 5;
-  backdrop-filter: blur(10px);
+  background: var(--surface-0);
 }
 
 /* ===== Admin Table Row Alternating ===== */
 .admin-table-row:nth-child(even) {
-  background: rgba(248, 250, 252, 0.55);
+  background: rgba(248, 250, 252, 0.5);
 }
 
 .admin-table-row:nth-child(even):hover {
-  background: linear-gradient(90deg, rgba(255,255,255,0.9), rgba(248,250,252,0.82));
+  background: rgba(248, 250, 252, 0.8);
 }
 
 /* ===== Admin Modals ===== */
 .admin-modal-shell {
   @apply fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6;
-  position: fixed;
-  isolation: isolate;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.08) 18%, rgba(255,255,255,0) 42%),
-    linear-gradient(180deg, rgba(236, 244, 249, 0.38) 0%, rgba(218, 230, 238, 0.52) 100%);
-  backdrop-filter: blur(22px) saturate(135%);
-}
-
-.admin-modal-shell::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg, rgba(15,23,42,0.18) 0%, rgba(15,23,42,0.28) 100%),
-    radial-gradient(circle at 18% 16%, rgba(56,189,248,0.16), transparent 28%),
-    radial-gradient(circle at 84% 14%, rgba(244,114,182,0.12), transparent 26%),
-    radial-gradient(circle at 72% 78%, rgba(34,197,94,0.1), transparent 28%);
-  opacity: 0.96;
-  z-index: 0;
-}
-
-.admin-modal-shell::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0.1) 24%, transparent 54%),
-    linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.08) 22%, transparent 46%, transparent 68%, rgba(255,255,255,0.06) 82%, transparent 100%);
-  opacity: 0.92;
-  z-index: 0;
-  pointer-events: none;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(8px);
 }
 
 .admin-modal-shell > * {
@@ -423,32 +365,10 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-modal-panel {
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.96);
-  position: relative;
-  box-shadow:
-    0 36px 110px rgba(15,23,42,0.22),
-    0 10px 28px rgba(255,255,255,0.18),
-    inset 0 1px 0 rgba(255,255,255,0.85),
-    0 0 0 1px rgba(255, 255, 255, 0.7);
-}
-@supports (backdrop-filter: blur(1px)) {
-  .admin-modal-panel {
-    background: var(--glass-strong);
-    backdrop-filter: var(--glass-backdrop);
-  }
-}
-
-.admin-modal-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.5), transparent 24%, transparent 76%, rgba(255,255,255,0.18)),
-    radial-gradient(circle at top right, rgba(56,189,248,0.08), transparent 26%);
-  pointer-events: none;
-  z-index: 0;
+  border: 1px solid var(--border-medium);
+  background: var(--surface-1);
+  border-radius: 16px;
+  box-shadow: var(--shadow-xl);
 }
 
 .admin-modal-panel > * {
@@ -457,21 +377,16 @@ body.admin-modal-open .admin-dashboard-backdrop {
 }
 
 .admin-soft-divider {
-  @apply border-white/60;
+  border-color: var(--border-subtle);
 }
 
 .admin-table-row {
-  @apply relative bg-white/42 transition-all duration-200;
+  @apply relative transition-colors duration-150;
+  background: transparent;
 }
 
 .admin-table-row:hover {
-  background:
-    linear-gradient(90deg, rgba(255,255,255,0.9), rgba(240,249,255,0.7));
-  box-shadow:
-    inset 3px 0 0 rgba(14, 165, 233, 0.65),
-    0 6px 22px rgba(15, 23, 42, 0.07),
-    0 1px 4px rgba(14, 165, 233, 0.05);
-  z-index: 2;
+  background: rgba(43, 135, 194, 0.04);
 }
 
 .admin-table-row > * {
@@ -613,6 +528,26 @@ body.admin-modal-open .admin-dashboard-backdrop {
 .admin-search-input:focus {
   @apply border-sky-200 bg-white ring-4 ring-sky-100/80;
   box-shadow: 0 4px 20px rgba(14, 165, 233, 0.08);
+}
+
+/* ===== Admin Form Input ===== */
+.admin-input {
+  @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800 outline-none transition-all duration-200;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+}
+
+.admin-input:hover {
+  @apply border-slate-300;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.admin-input:focus {
+  @apply border-sky-400 ring-4 ring-sky-100/60;
+  box-shadow: 0 2px 12px rgba(14, 165, 233, 0.1);
+}
+
+.admin-input::placeholder {
+  @apply text-slate-400;
 }
 
 /* ===== Admin Status Pill ===== */

@@ -147,13 +147,13 @@ export const Home = () => {
           className="w-full max-w-3xl bg-white/60 backdrop-blur-2xl rounded-[2rem] shadow-lg shadow-brand-500/10 border border-white/60 p-3 transition-all focus-within:shadow-glow focus-within:bg-white/90 z-20"
         >
           <textarea
+            aria-label="输入消息"
             className="w-full h-32 bg-transparent resize-none outline-none text-slate-800 placeholder:text-slate-400 text-lg p-4 leading-relaxed focus:outline-none"
             placeholder="输入你想聊的内容，例如：帮我写一段 Python 代码..."
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             maxLength={4000}
-            autoFocus
           />
           <div className="flex justify-between items-center px-4 pb-3">
             {user && agentProfiles.length > 0 ? (

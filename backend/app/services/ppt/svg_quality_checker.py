@@ -1286,3 +1286,169 @@ def check_svg_quality(
     """
     checker = SVGQualityChecker()
     return checker.check_svg_string(svg_content, name, expected_format)
+
+
+# ---------------------------------------------------------------------------
+# 新增：spec_lock 一致性检查 & 排版纪律检查
+# ---------------------------------------------------------------------------
+
+# 支持的画布格式 → viewBox 映射
+SUPPORTED_VIEWBOXES = {
+    "ppt169": "0 0 1280 720",
+    "ppt43": "0 0 1024 768",
+    "xiaohongshu": "0 0 1242 1660",
+    "moments": "0 0 1080 1080",
+    "story": "0 0 1080 1920",
+}
+
+# Footer-rail: 内容区域底部边界（720 - 64 = 656）
+FOOTER_RAIL_Y = 656
+
+# 常见允许的硬编码背景色（不是 accent/text 色，排除误报）
+_ALLOWED_HARDCODED = {
+    "#FFFFFF", "#FFFFFE", "#F8FAFC", "#FAFBFC", "#F5F5F5",
+    "#000000", "#0F172A", "#1E293B", "#334155", "#111827",
+    "#1A1A2E", "#0D1117", "#161B22",
+}
+
+
+def check_spec_lock_consistency(
+    svg_content: str, spec_lock: dict | None = None
+) -> list[str]:
+    """检查 SVG 中的颜色/字体是否与 spec_lock 一致，或是否存在可疑硬编码。
+
+    Args:
+        svg_content: SVG 文件内容
+        spec_lock: 可选的 spec_lock 字典，包含 colors / typography / icons 节。
+                   为 None 时仅做通用硬编码检测。
+
+    Returns:
+        警告消息列表
+    """
+    warnings: list[str] = []
+
+    # 1. 检查是否使用了硬编码颜色（非 var(--token) 引用）
+    hex_in_attrs = re.findall(
+        r'(?:fill|stroke|stop-color|flood-color)="(#[0-9a-fA-F]{3,8})"', svg_content
+    )
+    allowed = _ALLOWED_HARDCODED
+    if spec_lock and "colors" in spec_lock:
+        allowed = allowed | set(spec_lock["colors"].values())
+
+    seen_hardcoded: set[str] = set()
+    for color in hex_in_attrs:
+        cu = color.upper()
+        if cu not in {c.upper() for c in allowed} and cu not in seen_hardcoded:
+            seen_hardcoded.add(cu)
+            warnings.append(
+                f"⚠️ 硬编码颜色 {color} — 应使用 var(--token)。"
+                f"如需新增允许色，在 spec_lock 的 colors 节中声明。"
+            )
+
+    # 2. 检查字号范围
+    sizes = [int(s) for s in re.findall(r'font-size="(\d+)"', svg_content)]
+    if sizes:
+        if max(sizes) > 80:
+            warnings.append(f"⚠️ 最大字号 {max(sizes)}px — 建议 ≤72px")
+        if min(sizes) < 10:
+            warnings.append(f"⚠️ 最小字号 {min(sizes)}px — 建议 ≥12px")
+
+    # 3. 检查 rgba 使用（应用 fill-opacity / stroke-opacity）
+    rgba_uses = re.findall(r'rgba\([^)]+\)', svg_content)
+    if rgba_uses:
+        warnings.append(
+            f"⚠️ 使用了 {len(rgba_uses)} 处 rgba() — PPTX 不兼容，"
+            f"请改用 fill-opacity / stroke-opacity"
+        )
+
+    return warnings
+
+
+def check_layout_discipline(svg_content: str) -> list[str]:
+    """排版纪律检查（从 open-design 引入的 footer-rail / 层级 / accent 密度规则）。
+
+    Returns:
+        警告消息列表
+    """
+    warnings: list[str] = []
+
+    # 1. Footer-rail：内容文本不得侵入底部 64px 区域
+    # 排除 chrome 组（footer/pagenum/watermark 等）中的文本
+    _CHROME_ID_RE = re.compile(
+        r'<g[^>]*id="[^"]*(?:footer|pagenum|pagenumber|watermark|chrome|page-num)[^"]*"',
+        re.IGNORECASE,
+    )
+    # 分割 SVG 为 chrome 块和非 chrome 块
+    chrome_ranges: list[tuple[int, int]] = []
+    for m in _CHROME_ID_RE.finditer(svg_content):
+        start = m.start()
+        # 找到对应的 </g>
+        close_pos = svg_content.find("</g>", m.end())
+        if close_pos != -1:
+            chrome_ranges.append((start, close_pos + 4))
+
+    def _in_chrome(pos: int) -> bool:
+        return any(s <= pos <= e for s, e in chrome_ranges)
+
+    text_y_pattern = re.compile(r'<text[^>]*\sy="(\d+)"')
+    for m in text_y_pattern.finditer(svg_content):
+        y = int(m.group(1))
+        if y > FOOTER_RAIL_Y and not _in_chrome(m.start()):
+            warnings.append(
+                f"⚠️ 文本 y={y} 侵入 footer-rail 区域 (>{FOOTER_RAIL_Y})。"
+                f"底部 64px 留给页脚/水印。"
+            )
+            break  # 只报一次
+
+    # 2. 字号种类 ≤ 4（每页）
+    unique_sizes = set(re.findall(r'font-size="(\d+)"', svg_content))
+    if len(unique_sizes) > 4:
+        warnings.append(
+            f"⚠️ 使用了 {len(unique_sizes)} 种字号 {sorted(unique_sizes, key=int)}"
+            f" — 建议 ≤4 种"
+        )
+
+    # 3. Accent 使用 ≤ 2 处（装饰 + 数据高亮）
+    accent_count = len(re.findall(r'(?:fill|stroke)="var\(--accent\)"', svg_content))
+    if accent_count > 2:
+        warnings.append(
+            f"⚠️ accent 色使用了 {accent_count} 处 — 建议 ≤2（装饰 + 数据高亮）"
+        )
+
+    # 4. <g> 分组检查：svg 直接子元素应全部是 <g>
+    # 简化检查：查找 </svg> 前最后一个 </g> 之后是否有裸元素
+    svg_inner = re.search(r'<svg[^>]*>(.*)</svg>', svg_content, re.DOTALL)
+    if svg_inner:
+        inner = svg_inner.group(1).strip()
+        # 去掉注释
+        inner_no_comment = re.sub(r'<!--.*?-->', '', inner, flags=re.DOTALL).strip()
+        # 去掉空白和 <g> 块
+        # 简化：如果第一个非空白字符不是 <g，可能有裸元素
+        if inner_no_comment and not re.match(r'<g[\s>]', inner_no_comment):
+            warnings.append(
+                "⚠️ <svg> 根下可能有裸元素（非 <g>）— "
+                "所有直接子元素必须是 <g id='...'> 语义分组"
+            )
+
+    return warnings
+
+
+def check_canvas_format(viewbox: str, expected_format: str = "ppt169") -> str | None:
+    """检查 viewBox 是否匹配预期画布格式。
+
+    Args:
+        viewbox: viewBox 属性值（如 "0 0 1280 720"）
+        expected_format: 格式标识（如 "ppt169"）
+
+    Returns:
+        None 表示匹配，否则返回错误消息
+    """
+    expected = SUPPORTED_VIEWBOXES.get(expected_format)
+    if expected is None:
+        return f"未知画布格式: {expected_format}"
+
+    # 标准化空白
+    normalized = " ".join(viewbox.split())
+    if normalized != expected:
+        return f"viewBox 不匹配: 期望 '{expected}' ({expected_format})，实际 '{normalized}'"
+    return None
