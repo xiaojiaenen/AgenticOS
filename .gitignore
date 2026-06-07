@@ -58,7 +58,7 @@ data/ppt-sessions/
 
 # Misc
 *.log
-.startup_error.txt
+startup_error.txt
 
 # Claude Code
 .claude/
