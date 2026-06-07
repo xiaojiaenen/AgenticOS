@@ -8,7 +8,7 @@ interface SkeletonProps {
 export const Skeleton: React.FC<SkeletonProps> = ({ className }) => (
   <div
     role="status"
-    aria-label="Loading"
+    aria-label="正在加载"
     className={cn(
       'animate-pulse rounded-2xl bg-gradient-to-r from-sky-100/60 via-sky-200/40 to-sky-100/60',
       className,

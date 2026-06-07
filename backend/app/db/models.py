@@ -331,7 +331,12 @@ class ExternalSystemModel(Base):
     oauth_auth_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     oauth_token_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     oauth_scope: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    oauth_refresh_token_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     jwt_login_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    jwt_refresh_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    jwt_refresh_body_template: Mapped[str | None] = mapped_column(Text, nullable=True)  # e.g. {"grant_type":"refresh_token","refresh_token":"{refresh_token}"}
+    jwt_refresh_token_path: Mapped[str | None] = mapped_column(String(256), nullable=True)  # e.g. data.refresh_token
+    advanced_auth_json: Mapped[str] = mapped_column(Text, default="{}")  # sign/encrypt/decrypt config
     jwt_request_body_template: Mapped[str | None] = mapped_column(Text, nullable=True)  # e.g. {"username":"{username}","password":"{password}"}
     jwt_response_token_path: Mapped[str | None] = mapped_column(String(256), nullable=True)  # e.g. data.access_token
     jwt_response_expires_path: Mapped[str | None] = mapped_column(String(256), nullable=True)  # e.g. data.expires_in

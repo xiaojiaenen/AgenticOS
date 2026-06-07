@@ -4,27 +4,27 @@ import { AnimatePresence, motion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
-  AlertCircle,
-  BrainCircuit,
-  Eye,
-  Loader2,
-  MessageSquare,
-  RefreshCw,
-  Search,
-  Trash2,
-  Wrench,
-  X,
+ AlertCircle,
+ BrainCircuit,
+ Eye,
+ Loader2,
+ MessageSquare,
+ RefreshCw,
+ Search,
+ Trash2,
+ Wrench,
+ X,
 } from 'lucide-react';
 import { Pagination } from './Pagination';
 import { Button } from '../ui/Button';
 import { formatApiDateTime } from '../../lib/datetime';
 import {
-  AdminConversation,
-  AdminConversationDetail,
-  AdminConversationDetailMessage,
-  deleteConversation,
-  getConversationDetail,
-  listConversations,
+ AdminConversation,
+ AdminConversationDetail,
+ AdminConversationDetailMessage,
+ deleteConversation,
+ getConversationDetail,
+ listConversations,
 } from '../../services/conversationService';
 import { ChatAnalytics } from './ChatAnalytics';
 import { cn } from '../../lib/utils';
@@ -34,567 +34,567 @@ const ITEMS_PER_PAGE = 12;
 const DETAIL_MESSAGES_PAGE_SIZE = 20;
 
 function formatNumber(value: number): string {
-  return Intl.NumberFormat('zh-CN', { notation: value >= 10000 ? 'compact' : 'standard' }).format(value);
+ return Intl.NumberFormat('zh-CN', { notation: value >= 10000 ? 'compact' : 'standard' }).format(value);
 }
 
 function formatLatency(value: number): string {
-  if (!value) return '0ms';
-  return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`;
+ if (!value) return '0ms';
+ return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`;
 }
 
 function roleLabel(role?: string | null): string {
-  if (role === 'user') return '用户';
-  if (role === 'model' || role === 'assistant') return '模型';
-  if (role === 'tool') return '工具';
-  if (role === 'system') return '系统';
-  return '消息';
+ if (role === 'user') return '用户';
+ if (role === 'model' || role === 'assistant') return '模型';
+ if (role === 'tool') return '工具';
+ if (role === 'system') return '系统';
+ return '消息';
 }
 
 function roleTone(role?: string | null): string {
-  if (role === 'user') return 'border-sky-100 bg-sky-50 text-sky-700';
-  if (role === 'model' || role === 'assistant') return 'border-emerald-100 bg-emerald-50 text-emerald-700';
-  if (role === 'tool') return 'border-violet-100 bg-violet-50 text-violet-700';
-  if (role === 'system') return 'border-amber-100 bg-amber-50 text-amber-700';
-  return 'border-slate-200 bg-slate-100 text-slate-600';
+ if (role === 'user') return 'border-sky-100 bg-sky-50 text-sky-700';
+ if (role === 'model' || role === 'assistant') return 'border-emerald-100 bg-emerald-50 text-emerald-700';
+ if (role === 'tool') return 'border-violet-100 bg-violet-50 text-violet-700';
+ if (role === 'system') return 'border-amber-100 bg-amber-50 text-amber-700';
+ return 'border-slate-200 bg-slate-100 text-slate-600';
 }
 
 function formatJson(value?: Record<string, unknown> | null): string {
-  if (!value || Object.keys(value).length === 0) return '{}';
-  return JSON.stringify(value, null, 2);
+ if (!value || Object.keys(value).length === 0) return '{}';
+ return JSON.stringify(value, null, 2);
 }
 
 function AdminMarkdown({ text }: { text: string }) {
-  return (
-    <div className="prose prose-slate prose-sm max-w-none prose-p:my-2 prose-pre:my-3 prose-pre:whitespace-pre-wrap prose-pre:break-words prose-code:break-words">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ children, href }) => (
-            <a href={href} target="_blank" rel="noreferrer">
-              {children}
-            </a>
-          ),
-          pre: ({ children }) => (
-            <pre className="visible-scrollbar overflow-x-auto rounded-2xl border border-slate-200/70 bg-slate-950/95 p-4 text-slate-100 shadow-none">
-              {children}
-            </pre>
-          ),
-          code: ({ children, className }) => (
-            <code className={className ? `${className} font-mono` : 'rounded-md bg-slate-100 px-1 py-0.5 font-mono text-slate-700'}>
-              {children}
-            </code>
-          ),
-        }}
-      >
-        {text}
-      </ReactMarkdown>
-    </div>
-  );
+ return (
+  <div className="prose prose-slate prose-sm max-w-none prose-p:my-2 prose-pre:my-3 prose-pre:whitespace-pre-wrap prose-pre:break-words prose-code:break-words">
+   <ReactMarkdown
+    remarkPlugins={[remarkGfm]}
+    components={{
+     a: ({ children, href }) => (
+      <a href={href} target="_blank" rel="noreferrer">
+       {children}
+      </a>
+     ),
+     pre: ({ children }) => (
+      <pre className="visible-scrollbar overflow-x-auto rounded-lg border border-slate-200/70 bg-slate-950/95 p-4 text-slate-100 shadow-none">
+       {children}
+      </pre>
+     ),
+     code: ({ children, className }) => (
+      <code className={className ? `${className} font-mono` : 'rounded-md bg-slate-100 px-1 py-0.5 font-mono text-slate-700'}>
+       {children}
+      </code>
+     ),
+    }}
+   >
+    {text}
+   </ReactMarkdown>
+  </div>
+ );
 }
 
 function ToolCallBlock({ message }: { message: AdminConversationDetailMessage }) {
-  const toolCalls = message.tool_calls || [];
-  const toolResults = message.tool_results || [];
-  if (toolCalls.length === 0 && toolResults.length === 0 && !message.reasoning_text) return null;
+ const toolCalls = message.tool_calls || [];
+ const toolResults = message.tool_results || [];
+ if (toolCalls.length === 0 && toolResults.length === 0 && !message.reasoning_text) return null;
 
-  return (
-    <div className="mt-3 space-y-3">
-      {message.reasoning_text && (
-        <details className="group rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
-          <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-black tracking-[0.14em] text-slate-500">
-            <BrainCircuit size={14} />
-            思考过程
-          </summary>
-          <div className="mt-3 whitespace-pre-wrap break-words border-t border-slate-200/70 pt-3 text-sm font-medium leading-6 text-slate-500">
-            {message.reasoning_text}
-          </div>
-        </details>
+ return (
+  <div className="mt-3 space-y-3">
+   {message.reasoning_text && (
+    <details className="group rounded-lg border border-slate-200/80 bg-slate-50/80 px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
+     <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-semibold tracking-[0.08em] text-slate-500">
+      <BrainCircuit size={14} />
+      思考过程
+     </summary>
+     <div className="mt-3 whitespace-pre-wrap break-words border-t border-slate-200/70 pt-3 text-sm font-medium leading-6 text-slate-500">
+      {message.reasoning_text}
+     </div>
+    </details>
+   )}
+
+   {toolCalls.map((tool) => (
+    <details
+     key={`${message.id}-call-${tool.id || tool.name}`}
+     open
+     className="group rounded-lg border border-sky-100 bg-sky-50/55 px-4 py-3 [&_summary::-webkit-details-marker]:hidden"
+    >
+     <summary className="flex cursor-pointer select-none items-center justify-between gap-3">
+      <span className="flex min-w-0 items-center gap-2">
+       <Wrench size={14} className="text-sky-700" />
+       <span className="truncate font-mono text-xs font-semibold uppercase tracking-[0.08em] text-sky-800">
+        {tool.name}
+       </span>
+      </span>
+      <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-sky-600">调用参数</span>
+     </summary>
+     <pre className="visible-scrollbar mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-white p-3 text-xs font-medium leading-5 text-slate-600">
+      {formatJson(tool.arguments)}
+     </pre>
+    </details>
+   ))}
+
+   {toolResults.map((result) => {
+    const isError = result.status === 'error';
+    return (
+     <details
+      key={`${message.id}-result-${result.tool_call_id || result.name || result.result.slice(0, 12)}`}
+      open
+      className={cn(
+       'group rounded-lg border px-4 py-3 [&_summary::-webkit-details-marker]:hidden',
+       isError ? 'border-rose-100 bg-rose-50/70' : 'border-violet-100 bg-violet-50/60',
       )}
-
-      {toolCalls.map((tool) => (
-        <details
-          key={`${message.id}-call-${tool.id || tool.name}`}
-          open
-          className="group rounded-2xl border border-sky-100 bg-sky-50/55 px-4 py-3 [&_summary::-webkit-details-marker]:hidden"
-        >
-          <summary className="flex cursor-pointer select-none items-center justify-between gap-3">
-            <span className="flex min-w-0 items-center gap-2">
-              <Wrench size={14} className="text-sky-700" />
-              <span className="truncate font-mono text-xs font-black uppercase tracking-[0.14em] text-sky-800">
-                {tool.name}
-              </span>
-            </span>
-            <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-black text-sky-600">调用参数</span>
-          </summary>
-          <pre className="visible-scrollbar mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-white/80 bg-white/82 p-3 text-xs font-medium leading-5 text-slate-600">
-            {formatJson(tool.arguments)}
-          </pre>
-        </details>
-      ))}
-
-      {toolResults.map((result) => {
-        const isError = result.status === 'error';
-        return (
-          <details
-            key={`${message.id}-result-${result.tool_call_id || result.name || result.result.slice(0, 12)}`}
-            open
-            className={cn(
-              'group rounded-2xl border px-4 py-3 [&_summary::-webkit-details-marker]:hidden',
-              isError ? 'border-rose-100 bg-rose-50/70' : 'border-violet-100 bg-violet-50/60',
-            )}
-          >
-            <summary className="flex cursor-pointer select-none items-center justify-between gap-3">
-              <span className="flex min-w-0 items-center gap-2">
-                <Wrench size={14} className={isError ? 'text-rose-700' : 'text-violet-700'} />
-                <span className={cn('truncate text-xs font-black tracking-[0.14em]', isError ? 'text-rose-800' : 'text-violet-800')}>
-                  {result.name || result.tool_call_id || '工具返回结果'}
-                </span>
-              </span>
-              <span className={cn('rounded-full bg-white/80 px-2 py-1 text-[10px] font-black', isError ? 'text-rose-600' : 'text-violet-600')}>
-                {isError ? '失败' : '结果'}
-              </span>
-            </summary>
-            <pre className="visible-scrollbar mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-white/80 bg-white/84 p-3 text-xs font-medium leading-5 text-slate-700">
-              {result.result || '工具没有返回可展示内容。'}
-            </pre>
-          </details>
-        );
-      })}
-    </div>
-  );
+     >
+      <summary className="flex cursor-pointer select-none items-center justify-between gap-3">
+       <span className="flex min-w-0 items-center gap-2">
+        <Wrench size={14} className={isError ? 'text-rose-700' : 'text-violet-700'} />
+        <span className={cn('truncate text-xs font-semibold tracking-[0.08em]', isError ? 'text-rose-800' : 'text-violet-800')}>
+         {result.name || result.tool_call_id || '工具返回结果'}
+        </span>
+       </span>
+       <span className={cn('rounded-full bg-white px-2 py-1 text-[10px] font-semibold', isError ? 'text-rose-600' : 'text-violet-600')}>
+        {isError ? '失败' : '结果'}
+       </span>
+      </summary>
+      <pre className="visible-scrollbar mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-white p-3 text-xs font-medium leading-5 text-slate-700">
+       {result.result || '工具没有返回可展示内容。'}
+      </pre>
+     </details>
+    );
+   })}
+  </div>
+ );
 }
 
 export const ChatHistory = () => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [items, setItems] = useState<AdminConversation[]>([]);
-  const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showAnalytics, setShowAnalytics] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [detailSessionId, setDetailSessionId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<AdminConversationDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailMessagesLoading, setDetailMessagesLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  useAdminModalBackdrop(Boolean(detailSessionId));
+ const [currentPage, setCurrentPage] = useState(1);
+ const [searchQuery, setSearchQuery] = useState('');
+ const [items, setItems] = useState<AdminConversation[]>([]);
+ const [total, setTotal] = useState(0);
+ const [isLoading, setIsLoading] = useState(false);
+ const [error, setError] = useState<string | null>(null);
+ const [showAnalytics, setShowAnalytics] = useState(false);
+ const [deletingId, setDeletingId] = useState<string | null>(null);
+ const [detailSessionId, setDetailSessionId] = useState<string | null>(null);
+ const [detail, setDetail] = useState<AdminConversationDetail | null>(null);
+ const [detailLoading, setDetailLoading] = useState(false);
+ const [detailMessagesLoading, setDetailMessagesLoading] = useState(false);
+ const [detailError, setDetailError] = useState<string | null>(null);
+ useAdminModalBackdrop(Boolean(detailSessionId));
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / ITEMS_PER_PAGE)), [total]);
-  const pageTotals = useMemo(
-    () => ({
-      tokens: items.reduce((sum, item) => sum + item.total_tokens, 0),
-      calls: items.reduce((sum, item) => sum + item.llm_calls, 0),
-      tools: items.reduce((sum, item) => sum + item.tool_calls, 0),
-    }),
-    [items],
-  );
+ const totalPages = useMemo(() => Math.max(1, Math.ceil(total / ITEMS_PER_PAGE)), [total]);
+ const pageTotals = useMemo(
+  () => ({
+   tokens: items.reduce((sum, item) => sum + item.total_tokens, 0),
+   calls: items.reduce((sum, item) => sum + item.llm_calls, 0),
+   tools: items.reduce((sum, item) => sum + item.tool_calls, 0),
+  }),
+  [items],
+ );
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await listConversations({
-        search: searchQuery,
-        offset: (currentPage - 1) * ITEMS_PER_PAGE,
-        limit: ITEMS_PER_PAGE,
-      });
-      setItems(response.items);
-      setTotal(response.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '对话数据加载失败');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentPage, searchQuery]);
+ const loadData = useCallback(async () => {
+  setIsLoading(true);
+  setError(null);
+  try {
+   const response = await listConversations({
+    search: searchQuery,
+    offset: (currentPage - 1) * ITEMS_PER_PAGE,
+    limit: ITEMS_PER_PAGE,
+   });
+   setItems(response.items);
+   setTotal(response.total);
+  } catch (err) {
+   setError(err instanceof Error ? err.message : '对话数据加载失败');
+  } finally {
+   setIsLoading(false);
+  }
+ }, [currentPage, searchQuery]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
+ useEffect(() => {
+  setCurrentPage(1);
+ }, [searchQuery]);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      loadData();
-    }, 180);
-    return () => window.clearTimeout(timer);
-  }, [loadData]);
+ useEffect(() => {
+  const timer = window.setTimeout(() => {
+   loadData();
+  }, 180);
+  return () => window.clearTimeout(timer);
+ }, [loadData]);
 
-  const loadDetail = async (sessionId: string, offset: number, append = false) => {
-    if (append) {
-      setDetailMessagesLoading(true);
-    } else {
-      setDetailLoading(true);
-    }
-    setDetailError(null);
-    try {
-      const response = await getConversationDetail(sessionId, {
-        messagesOffset: offset,
-        messagesLimit: DETAIL_MESSAGES_PAGE_SIZE,
-      });
-      setDetail((prev) => {
-        if (!append || !prev) return response;
-        return {
-          ...response,
-          messages: [...prev.messages, ...response.messages],
-        };
-      });
-    } catch (err) {
-      setDetailError(err instanceof Error ? err.message : '会话详情加载失败');
-    } finally {
-      setDetailLoading(false);
-      setDetailMessagesLoading(false);
-    }
-  };
+ const loadDetail = async (sessionId: string, offset: number, append = false) => {
+  if (append) {
+   setDetailMessagesLoading(true);
+  } else {
+   setDetailLoading(true);
+  }
+  setDetailError(null);
+  try {
+   const response = await getConversationDetail(sessionId, {
+    messagesOffset: offset,
+    messagesLimit: DETAIL_MESSAGES_PAGE_SIZE,
+   });
+   setDetail((prev) => {
+    if (!append || !prev) return response;
+    return {
+     ...response,
+     messages: [...prev.messages, ...response.messages],
+    };
+   });
+  } catch (err) {
+   setDetailError(err instanceof Error ? err.message : '会话详情加载失败');
+  } finally {
+   setDetailLoading(false);
+   setDetailMessagesLoading(false);
+  }
+ };
 
-  const openDetail = async (sessionId: string) => {
-    setDetailSessionId(sessionId);
-    setDetail(null);
-    setDetailError(null);
-    await loadDetail(sessionId, 0);
-  };
+ const openDetail = async (sessionId: string) => {
+  setDetailSessionId(sessionId);
+  setDetail(null);
+  setDetailError(null);
+  await loadDetail(sessionId, 0);
+ };
 
-  const loadMoreDetailMessages = async () => {
-    if (!detailSessionId || !detail || detailMessagesLoading) return;
-    await loadDetail(detailSessionId, detail.messages.length, true);
-  };
+ const loadMoreDetailMessages = async () => {
+  if (!detailSessionId || !detail || detailMessagesLoading) return;
+  await loadDetail(detailSessionId, detail.messages.length, true);
+ };
 
-  const closeDetail = () => {
-    if (detailLoading || detailMessagesLoading) return;
-    setDetailSessionId(null);
-    setDetail(null);
-    setDetailError(null);
-  };
+ const closeDetail = () => {
+  if (detailLoading || detailMessagesLoading) return;
+  setDetailSessionId(null);
+  setDetail(null);
+  setDetailError(null);
+ };
 
-  const handleDelete = async (sessionId: string) => {
-    if (!window.confirm('确认删除这条会话及其统计记录？')) return;
-    setDeletingId(sessionId);
-    setError(null);
-    try {
-      await deleteConversation(sessionId);
-      if (detailSessionId === sessionId) {
-        closeDetail();
-      }
-      if (items.length === 1 && currentPage > 1) {
-        setCurrentPage((page) => page - 1);
-      } else {
-        await loadData();
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '删除对话失败');
-    } finally {
-      setDeletingId(null);
-    }
-  };
+ const handleDelete = async (sessionId: string) => {
+  if (!window.confirm('确认删除这条会话及其统计记录？')) return;
+  setDeletingId(sessionId);
+  setError(null);
+  try {
+   await deleteConversation(sessionId);
+   if (detailSessionId === sessionId) {
+    closeDetail();
+   }
+   if (items.length === 1 && currentPage > 1) {
+    setCurrentPage((page) => page - 1);
+   } else {
+    await loadData();
+   }
+  } catch (err) {
+   setError(err instanceof Error ? err.message : '删除对话失败');
+  } finally {
+   setDeletingId(null);
+  }
+ };
 
-  return (
-    <div className="admin-page-stage space-y-4">
-      <section className="admin-page-header">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="admin-section-kicker">聊天记录</p>
-            <h2 className="mt-1.5 text-xl font-black tracking-tight text-slate-950">会话列表</h2>
-          </div>
+ return (
+  <div className="admin-page-stage space-y-4">
+   <section className="admin-page-header">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+     <div>
+      <p className="admin-section-kicker">聊天记录</p>
+      <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-950">会话列表</h2>
+     </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="admin-kpi-pill">
-              共 <span className="font-black text-slate-900">{total}</span> 条
-            </div>
-            <div className="admin-kpi-pill">
-              Token <span className="font-black text-slate-900">{formatNumber(pageTotals.tokens)}</span>
-            </div>
-            <div className="admin-kpi-pill">
-              模型/工具 <span className="font-black text-slate-900">{formatNumber(pageTotals.calls)}/{formatNumber(pageTotals.tools)}</span>
-            </div>
-            <Button variant="secondary" onClick={loadData} disabled={isLoading} size="sm" className="gap-1.5">
-              {isLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-              刷新
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {error && (
-        <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">
-          <AlertCircle size={16} />
-          {error}
-        </div>
-      )}
-
-      {/* Analytics toggle */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setShowAnalytics(!showAnalytics)}
-          className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${showAnalytics ? "bg-slate-900 text-white" : "border border-slate-200 text-slate-500 hover:text-slate-700"}`}
-        >
-          {showAnalytics ? "隐藏分析" : "数据分析"}
-        </button>
+     <div className="flex flex-wrap items-center gap-2">
+      <div className="admin-kpi-pill">
+       共 <span className="font-semibold text-slate-900">{total}</span> 条
       </div>
-
-      {showAnalytics && <ChatAnalytics timeRange={14} />}
-
-      <section className="admin-data-panel">
-        <div className="admin-panel-toolbar">
-          <div className="text-center lg:text-left">
-            <p className="admin-section-kicker">会话目录</p>
-            <h3 className="mt-1.5 text-base font-black tracking-tight text-slate-900">按用户、摘要或 Session 检索</h3>
-          </div>
-
-          <div className="flex w-full flex-col gap-2.5 lg:w-auto lg:flex-row lg:items-center">
-            <div className="admin-search-wrapper lg:w-[380px]">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="搜索用户、邮箱、Session 或摘要"
-                className="admin-search-input"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="admin-table-head grid-cols-[minmax(220px,1.15fr)_minmax(280px,1.9fr)_90px_110px_120px_140px_130px]">
-          <span>用户</span>
-          <span>摘要</span>
-          <span>消息数</span>
-          <span>Token</span>
-          <span>模型/工具</span>
-          <span>更新时间</span>
-          <span>操作</span>
-        </div>
-
-        <div className="min-h-[460px]">
-          {isLoading ? (
-            <div className="flex h-[460px] items-center justify-center gap-3 text-sm font-bold text-slate-400">
-              <Loader2 size={18} className="animate-spin" />
-              正在加载会话
-            </div>
-          ) : items.length > 0 ? (
-            items.map((item, index) => (
-              <motion.div
-                key={item.session_id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.22, delay: Math.min(index * 0.025, 0.16) }}
-                whileHover={{ x: 2 }}
-                className="admin-table-row grid grid-cols-1 gap-3 border-b border-slate-100/60 px-4 py-3 text-center xl:grid-cols-[minmax(220px,1.15fr)_minmax(280px,1.9fr)_90px_110px_120px_140px_130px] xl:items-center xl:gap-0"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-slate-900">{item.user_name || '未知用户'}</p>
-                  <p className="mt-1 truncate text-xs font-medium text-slate-500">{item.user_email || item.session_id}</p>
-                  {item.agent_profile_name && (
-                    <span className="mt-1 inline-block truncate rounded-full border border-indigo-200/70 bg-indigo-50/80 px-2.5 py-0.5 text-[11px] font-bold text-indigo-600">
-                      {item.agent_profile_name}
-                    </span>
-                  )}
-                </div>
-
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-slate-900">{item.summary || item.first_message || '暂无摘要'}</p>
-                  <p className="mt-1 truncate text-xs font-medium text-slate-500">{item.last_message || '暂无最新消息'}</p>
-                </div>
-
-                <div className="text-sm font-black text-slate-900">{formatNumber(item.message_count)}</div>
-                <div className="text-sm font-black text-slate-900">{formatNumber(item.total_tokens)}</div>
-                <div className="text-sm font-bold text-slate-600">
-                  {formatNumber(item.llm_calls)} / {formatNumber(item.tool_calls)}
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-bold text-slate-700">{formatApiDateTime(item.updated_at)}</p>
-                  <p className="mt-1 text-xs font-medium text-slate-400">{formatLatency(item.avg_latency_ms)}</p>
-                </div>
-
-                <div className="flex flex-wrap justify-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => openDetail(item.session_id)}
-                    className="gap-2 bg-white/85"
-                  >
-                    <Eye size={15} />
-                    详情
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(item.session_id)}
-                    disabled={deletingId === item.session_id}
-                    className="h-9 w-9 text-rose-500 hover:bg-rose-50"
-                    title="删除会话"
-                  >
-                    {deletingId === item.session_id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                  </Button>
-                </div>
-              </motion.div>
-            ))
-          ) : (
-            <div className="flex h-[460px] flex-col items-center justify-center text-center">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/70 bg-white/70 text-slate-400 shadow-sm">
-                <MessageSquare size={20} />
-              </div>
-              <p className="text-sm font-black text-slate-600">没有找到会话记录</p>
-              <p className="mt-1 text-xs font-medium text-slate-400">新的会话会自动汇总到这里</p>
-            </div>
-          )}
-        </div>
-
-        {total > ITEMS_PER_PAGE && (
-          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-        )}
-      </section>
-
-      {typeof document !== 'undefined' && createPortal(
-        <AnimatePresence>
-          {detailSessionId && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="admin-modal-shell"
-            onMouseDown={closeDetail}
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.97 }}
-              transition={{ duration: 0.22 }}
-              onMouseDown={(event) => event.stopPropagation()}
-              className="admin-solid-panel admin-modal-panel flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden"
-            >
-              <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
-                <div>
-                  <p className="admin-section-kicker">会话详情</p>
-                  <h3 className="mt-1.5 text-xl font-black tracking-tight text-slate-900">
-                    {detail?.user_name || detail?.user_email || detailSessionId}
-                  </h3>
-                  <p className="mt-1.5 text-xs font-medium text-slate-500">{detail?.session_id || detailSessionId}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeDetail}
-                  className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="grid flex-1 grid-cols-1 overflow-hidden xl:grid-cols-[340px_minmax(0,1fr)]">
-                <div className="overflow-y-auto border-r border-slate-100 bg-white/55 p-5">
-                  {detailLoading ? (
-                    <div className="flex h-48 items-center justify-center gap-3 text-sm font-bold text-slate-400">
-                      <Loader2 size={18} className="animate-spin" />
-                      正在加载详情
-                    </div>
-                  ) : detailError ? (
-                    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
-                      {detailError}
-                    </div>
-                  ) : detail ? (
-                    <div className="space-y-4">
-                      <div className="rounded-2xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.72))] p-4 shadow-sm">
-                        <p className="admin-section-kicker">摘要</p>
-                        <p className="mt-2.5 text-sm font-medium leading-6 text-slate-600">{detail.summary || '暂无摘要'}</p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        {[
-                          { label: '消息数', value: formatNumber(detail.message_count) },
-                          { label: 'Token', value: formatNumber(detail.total_tokens) },
-                          { label: '模型调用', value: formatNumber(detail.llm_calls) },
-                          { label: '工具调用', value: formatNumber(detail.tool_calls) },
-                        ].map((item) => (
-                          <div key={item.label} className="admin-stat-card rounded-2xl bg-white/80 px-3.5 py-3.5">
-                            <p className="text-[11px] font-black tracking-[0.16em] text-slate-400">{item.label}</p>
-                            <p className="mt-1.5 text-xl font-black text-slate-900">{item.value}</p>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="rounded-2xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.72))] p-4 shadow-sm">
-                        <p className="admin-section-kicker">会话信息</p>
-                        <div className="mt-2.5 space-y-2 text-sm font-medium text-slate-600">
-                          <p>用户：{detail.user_name || '-'}</p>
-                          <p>邮箱：{detail.user_email || '-'}</p>
-                          {detail.agent_profile_name && (
-                            <p>智能体：<span className="inline-block rounded-full border border-indigo-200/70 bg-indigo-50/80 px-2.5 py-0.5 text-xs font-bold text-indigo-600">{detail.agent_profile_name}</span></p>
-                          )}
-                          <p>创建时间：{formatApiDateTime(detail.created_at)}</p>
-                          <p>更新时间：{formatApiDateTime(detail.updated_at)}</p>
-                          <p>平均耗时：{formatLatency(detail.avg_latency_ms)}</p>
-                          <p>模型：{detail.model_names.length > 0 ? detail.model_names.join(' / ') : '-'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="overflow-y-auto p-5">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div>
-                      <p className="admin-section-kicker">消息时间线</p>
-                      <h4 className="mt-1 text-base font-black text-slate-900">完整会话内容</h4>
-                    </div>
-                    {detail && (
-                      <div className="rounded-full border border-white/80 bg-white/80 px-3 py-1 text-xs font-black text-slate-500">
-                        已加载 {detail.messages.length} / {detail.message_count} 条
-                      </div>
-                    )}
-                  </div>
-
-                  {detailLoading ? (
-                    <div className="flex h-64 items-center justify-center gap-3 text-sm font-bold text-slate-400">
-                      <Loader2 size={18} className="animate-spin" />
-                      正在加载消息
-                    </div>
-                  ) : detailError ? (
-                    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
-                      {detailError}
-                    </div>
-                  ) : detail && detail.messages.length > 0 ? (
-                    <div className="space-y-3">
-                      {detail.messages.map((message) => (
-                        <div key={message.id} className="rounded-2xl border border-white/80 bg-white/82 p-3.5">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${roleTone(message.role)}`}>
-                              {roleLabel(message.role)}
-                            </span>
-                            <span className="text-xs font-medium text-slate-400">{formatApiDateTime(message.created_at)}</span>
-                          </div>
-                          {message.text ? (
-                            <AdminMarkdown text={message.text} />
-                          ) : message.tool_results && message.tool_results.length > 0 ? null : (
-                            <p className="mt-3 text-sm font-medium leading-6 text-slate-400">该消息没有可展示的文本内容。</p>
-                          )}
-                          <ToolCallBlock message={message} />
-                        </div>
-                      ))}
-                      {detail.messages.length < detail.message_count && (
-                        <div className="pt-2 text-center">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={loadMoreDetailMessages}
-                            disabled={detailMessagesLoading}
-                            className="gap-2 bg-white/85"
-                          >
-                            {detailMessagesLoading && <Loader2 size={16} className="animate-spin" />}
-                            加载更多消息
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ) : detail ? (
-                    <div className="flex h-56 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/50 text-sm font-bold text-slate-400">
-                      这条会话还没有可展示的消息内容
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-          )}
-        </AnimatePresence>,
-        document.body,
-      )}
+      <div className="admin-kpi-pill">
+       Token <span className="font-semibold text-slate-900">{formatNumber(pageTotals.tokens)}</span>
+      </div>
+      <div className="admin-kpi-pill">
+       模型/工具 <span className="font-semibold text-slate-900">{formatNumber(pageTotals.calls)}/{formatNumber(pageTotals.tools)}</span>
+      </div>
+      <Button variant="secondary" onClick={loadData} disabled={isLoading} size="sm" className="gap-1.5">
+       {isLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+       刷新
+      </Button>
+     </div>
     </div>
-  );
+   </section>
+
+   {error && (
+    <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-medium text-rose-700">
+     <AlertCircle size={16} />
+     {error}
+    </div>
+   )}
+
+   {/* Analytics toggle */}
+   <div className="flex items-center gap-2">
+    <button
+     onClick={() => setShowAnalytics(!showAnalytics)}
+     className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${showAnalytics ? "bg-slate-900 text-white" : "border border-slate-200 text-slate-500 hover:text-slate-700"}`}
+    >
+     {showAnalytics ? "隐藏分析" : "数据分析"}
+    </button>
+   </div>
+
+   {showAnalytics && <ChatAnalytics timeRange={14} />}
+
+   <section className="admin-data-panel">
+    <div className="admin-panel-toolbar">
+     <div className="text-center lg:text-left">
+      <p className="admin-section-kicker">会话目录</p>
+      <h3 className="mt-1.5 text-base font-semibold tracking-tight text-slate-900">按用户、摘要或 Session 检索</h3>
+     </div>
+
+     <div className="flex w-full flex-col gap-2.5 lg:w-auto lg:flex-row lg:items-center">
+      <div className="admin-search-wrapper lg:w-[380px]">
+       <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+       <input
+        value={searchQuery}
+        onChange={(event) => setSearchQuery(event.target.value)}
+        placeholder="搜索用户、邮箱、Session 或摘要"
+        className="admin-search-input"
+       />
+      </div>
+     </div>
+    </div>
+
+    <div className="admin-table-head grid-cols-[minmax(220px,1.15fr)_minmax(280px,1.9fr)_90px_110px_120px_140px_130px]">
+     <span>用户</span>
+     <span>摘要</span>
+     <span>消息数</span>
+     <span>Token</span>
+     <span>模型/工具</span>
+     <span>更新时间</span>
+     <span>操作</span>
+    </div>
+
+    <div className="min-h-[460px]">
+     {isLoading ? (
+      <div className="flex h-[460px] items-center justify-center gap-3 text-sm font-medium text-slate-400">
+       <Loader2 size={18} className="animate-spin" />
+       正在加载会话
+      </div>
+     ) : items.length > 0 ? (
+      items.map((item, index) => (
+       <motion.div
+        key={item.session_id}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.22, delay: Math.min(index * 0.025, 0.16) }}
+        whileHover={{ x: 2 }}
+        className="admin-table-row grid grid-cols-1 gap-3 border-b border-slate-100/60 px-4 py-3 text-center xl:grid-cols-[minmax(220px,1.15fr)_minmax(280px,1.9fr)_90px_110px_120px_140px_130px] xl:items-center xl:gap-0"
+       >
+        <div className="min-w-0">
+         <p className="truncate text-sm font-semibold text-slate-900">{item.user_name || '未知用户'}</p>
+         <p className="mt-1 truncate text-xs font-medium text-slate-500">{item.user_email || item.session_id}</p>
+         {item.agent_profile_name && (
+          <span className="mt-1 inline-block truncate rounded-full border border-indigo-200/70 bg-indigo-50/80 px-2.5 py-0.5 text-[11px] font-medium text-indigo-600">
+           {item.agent_profile_name}
+          </span>
+         )}
+        </div>
+
+        <div className="min-w-0">
+         <p className="truncate text-sm font-semibold text-slate-900">{item.summary || item.first_message || '暂无摘要'}</p>
+         <p className="mt-1 truncate text-xs font-medium text-slate-500">{item.last_message || '暂无最新消息'}</p>
+        </div>
+
+        <div className="text-sm font-semibold text-slate-900">{formatNumber(item.message_count)}</div>
+        <div className="text-sm font-semibold text-slate-900">{formatNumber(item.total_tokens)}</div>
+        <div className="text-sm font-medium text-slate-600">
+         {formatNumber(item.llm_calls)} / {formatNumber(item.tool_calls)}
+        </div>
+        <div className="text-center">
+         <p className="text-sm font-medium text-slate-700">{formatApiDateTime(item.updated_at)}</p>
+         <p className="mt-1 text-xs font-medium text-slate-400">{formatLatency(item.avg_latency_ms)}</p>
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-2">
+         <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => openDetail(item.session_id)}
+          className="gap-2 bg-white"
+         >
+          <Eye size={15} />
+          详情
+         </Button>
+         <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => handleDelete(item.session_id)}
+          disabled={deletingId === item.session_id}
+          className="h-9 w-9 text-rose-500 hover:bg-rose-50"
+          title="删除会话"
+         >
+          {deletingId === item.session_id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+         </Button>
+        </div>
+       </motion.div>
+      ))
+     ) : (
+      <div className="flex h-[460px] flex-col items-center justify-center text-center">
+       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200/80 bg-white text-slate-400 shadow-sm">
+        <MessageSquare size={20} />
+       </div>
+       <p className="text-sm font-semibold text-slate-600">没有找到会话记录</p>
+       <p className="mt-1 text-xs font-medium text-slate-400">新的会话会自动汇总到这里</p>
+      </div>
+     )}
+    </div>
+
+    {total > ITEMS_PER_PAGE && (
+     <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+    )}
+   </section>
+
+   {typeof document !== 'undefined' && createPortal(
+    <AnimatePresence>
+     {detailSessionId && (
+     <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="admin-modal-shell"
+      onMouseDown={closeDetail}
+     >
+      <motion.div
+       initial={{ opacity: 0, y: 20, scale: 0.97 }}
+       animate={{ opacity: 1, y: 0, scale: 1 }}
+       exit={{ opacity: 0, y: 20, scale: 0.97 }}
+       transition={{ duration: 0.22 }}
+       onMouseDown={(event) => event.stopPropagation()}
+       className="admin-solid-panel admin-modal-panel flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden"
+      >
+       <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
+        <div>
+         <p className="admin-section-kicker">会话详情</p>
+         <h3 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">
+          {detail?.user_name || detail?.user_email || detailSessionId}
+         </h3>
+         <p className="mt-1.5 text-xs font-medium text-slate-500">{detail?.session_id || detailSessionId}</p>
+        </div>
+        <button
+         type="button"
+         onClick={closeDetail}
+         className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
+        >
+         <X size={18} />
+        </button>
+       </div>
+
+       <div className="grid flex-1 grid-cols-1 overflow-hidden xl:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="overflow-y-auto border-r border-slate-100 bg-white/80 p-5">
+         {detailLoading ? (
+          <div className="flex h-48 items-center justify-center gap-3 text-sm font-medium text-slate-400">
+           <Loader2 size={18} className="animate-spin" />
+           正在加载详情
+          </div>
+         ) : detailError ? (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+           {detailError}
+          </div>
+         ) : detail ? (
+          <div className="space-y-4">
+           <div className="rounded-lg border border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.72))] p-4 shadow-sm">
+            <p className="admin-section-kicker">摘要</p>
+            <p className="mt-2.5 text-sm font-medium leading-6 text-slate-600">{detail.summary || '暂无摘要'}</p>
+           </div>
+
+           <div className="grid grid-cols-2 gap-3">
+            {[
+             { label: '消息数', value: formatNumber(detail.message_count) },
+             { label: 'Token', value: formatNumber(detail.total_tokens) },
+             { label: '模型调用', value: formatNumber(detail.llm_calls) },
+             { label: '工具调用', value: formatNumber(detail.tool_calls) },
+            ].map((item) => (
+             <div key={item.label} className="admin-stat-card rounded-lg bg-white px-3.5 py-3.5">
+              <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-400">{item.label}</p>
+              <p className="mt-1.5 text-xl font-semibold text-slate-900">{item.value}</p>
+             </div>
+            ))}
+           </div>
+
+           <div className="rounded-lg border border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.72))] p-4 shadow-sm">
+            <p className="admin-section-kicker">会话信息</p>
+            <div className="mt-2.5 space-y-2 text-sm font-medium text-slate-600">
+             <p>用户：{detail.user_name || '-'}</p>
+             <p>邮箱：{detail.user_email || '-'}</p>
+             {detail.agent_profile_name && (
+              <p>智能体：<span className="inline-block rounded-full border border-indigo-200/70 bg-indigo-50/80 px-2.5 py-0.5 text-xs font-medium text-indigo-600">{detail.agent_profile_name}</span></p>
+             )}
+             <p>创建时间：{formatApiDateTime(detail.created_at)}</p>
+             <p>更新时间：{formatApiDateTime(detail.updated_at)}</p>
+             <p>平均耗时：{formatLatency(detail.avg_latency_ms)}</p>
+             <p>模型：{detail.model_names.length > 0 ? detail.model_names.join(' / ') : '-'}</p>
+            </div>
+           </div>
+          </div>
+         ) : null}
+        </div>
+
+        <div className="overflow-y-auto p-5">
+         <div className="mb-4 flex items-center justify-between">
+          <div>
+           <p className="admin-section-kicker">消息时间线</p>
+           <h4 className="mt-1 text-base font-semibold text-slate-900">完整会话内容</h4>
+          </div>
+          {detail && (
+           <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500">
+            已加载 {detail.messages.length} / {detail.message_count} 条
+           </div>
+          )}
+         </div>
+
+         {detailLoading ? (
+          <div className="flex h-64 items-center justify-center gap-3 text-sm font-medium text-slate-400">
+           <Loader2 size={18} className="animate-spin" />
+           正在加载消息
+          </div>
+         ) : detailError ? (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+           {detailError}
+          </div>
+         ) : detail && detail.messages.length > 0 ? (
+          <div className="space-y-3">
+           {detail.messages.map((message) => (
+            <div key={message.id} className="rounded-lg border border-slate-200 bg-white p-3.5">
+             <div className="flex flex-wrap items-center gap-2">
+              <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${roleTone(message.role)}`}>
+               {roleLabel(message.role)}
+              </span>
+              <span className="text-xs font-medium text-slate-400">{formatApiDateTime(message.created_at)}</span>
+             </div>
+             {message.text ? (
+              <AdminMarkdown text={message.text} />
+             ) : message.tool_results && message.tool_results.length > 0 ? null : (
+              <p className="mt-3 text-sm font-medium leading-6 text-slate-400">该消息没有可展示的文本内容。</p>
+             )}
+             <ToolCallBlock message={message} />
+            </div>
+           ))}
+           {detail.messages.length < detail.message_count && (
+            <div className="pt-2 text-center">
+             <Button
+              type="button"
+              variant="secondary"
+              onClick={loadMoreDetailMessages}
+              disabled={detailMessagesLoading}
+              className="gap-2 bg-white"
+             >
+              {detailMessagesLoading && <Loader2 size={16} className="animate-spin" />}
+              加载更多消息
+             </Button>
+            </div>
+           )}
+          </div>
+         ) : detail ? (
+          <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white/80 text-sm font-medium text-slate-400">
+           这条会话还没有可展示的消息内容
+          </div>
+         ) : null}
+        </div>
+       </div>
+      </motion.div>
+     </motion.div>
+     )}
+    </AnimatePresence>,
+    document.body,
+   )}
+  </div>
+ );
 };

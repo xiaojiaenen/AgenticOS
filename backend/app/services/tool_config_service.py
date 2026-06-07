@@ -194,6 +194,15 @@ TOOL_CATALOG = {
             "build_website": {"label": "构建项目", "description": "执行 npm install && npm run build"},
         },
     },
+    "deploy_website": {
+        "label": "部署网站",
+        "description": "请求部署网站到 nginx 服务器，需要管理员审批。",
+        "builtin_name": None,
+        "approval_scope": ["deploy_website"],
+        "sub_tools": {
+            "deploy_website": {"label": "部署网站", "description": "提交部署请求，等待管理员审批"},
+        },
+    },
     "email": {
         "label": "邮件工具",
         "description": "通过 IMAP/SMTP 管理邮件，支持读取、搜索和发送。",
@@ -287,6 +296,7 @@ DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
         "copy_template": {"enabled": True, "requires_approval": False},
         "check_website_project": {"enabled": True, "requires_approval": False},
         "build_website": {"enabled": True, "requires_approval": False},
+        "deploy_website": {"enabled": True, "requires_approval": True},
     },
 }
 

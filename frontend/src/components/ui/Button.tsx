@@ -9,22 +9,22 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants = {
   primary:
-    'border border-slate-900/80 bg-[linear-gradient(180deg,#1f2937_0%,#020617_100%)] text-white shadow-button shadow-brand-500/10 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-brand-500/20 active:translate-y-0',
+    'bg-brand-500 text-white shadow-button hover:bg-brand-600 active:bg-brand-700 active:scale-[0.98]',
   secondary:
-    'border border-white/80 bg-white/68 text-slate-700 shadow-sm ring-1 ring-white/40 hover:-translate-y-0.5 hover:bg-white/88 hover:text-slate-900 hover:shadow-md',
+    'border border-slate-200 bg-white text-slate-700 shadow-xs hover:bg-slate-50 hover:border-slate-300 active:bg-slate-100 active:scale-[0.98]',
   outline:
-    'border border-slate-200/90 bg-white/84 text-slate-700 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white',
+    'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800 active:bg-slate-50 active:scale-[0.98]',
   ghost:
-    'border border-transparent bg-transparent text-slate-600 hover:bg-white/65 hover:text-slate-900',
+    'bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700 active:bg-slate-200',
   danger:
-    'border border-rose-100/90 bg-rose-50/95 text-rose-600 shadow-sm shadow-rose-500/10 hover:-translate-y-0.5 hover:bg-rose-100',
+    'border border-error-200 bg-error-50 text-error-600 hover:bg-error-100 active:scale-[0.98]',
 };
 
 const sizes = {
-  sm: 'h-9 rounded-xl px-4 text-xs font-bold',
-  md: 'h-11 rounded-2xl px-5 text-sm font-bold',
-  lg: 'h-14 rounded-xl px-7 text-base font-bold',
-  icon: 'h-11 w-11 rounded-2xl',
+  sm: 'h-8 rounded-md px-3 text-xs font-medium',
+  md: 'h-9 rounded-md px-4 text-sm font-medium',
+  lg: 'h-10 rounded-lg px-5 text-sm font-semibold',
+  icon: 'h-9 w-9 rounded-md',
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -36,16 +36,15 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || isLoading}
         aria-busy={isLoading || undefined}
         className={cn(
-          'inline-flex items-center justify-center whitespace-nowrap tracking-[0.01em] transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-100/80 disabled:pointer-events-none disabled:opacity-50',
+          'inline-flex items-center justify-center whitespace-nowrap transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-40',
           variants[variant],
           sizes[size],
-          size === 'sm' ? 'font-bold' : 'font-black',
           className,
         )}
         {...props}
       >
         {isLoading && (
-          <svg className="mr-2 h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+          <svg className="mr-2 h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>

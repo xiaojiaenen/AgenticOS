@@ -19,6 +19,11 @@ class AgentStreamRequest(BaseModel):
     max_steps: int | None = Field(default=None, ge=1, le=50, description="Max runtime steps for one turn.")
     parallel_tool_calls: bool | None = Field(default=None, description="Whether parallel tool calls are allowed.")
     files: list[FileAttachment] | None = Field(default=None, description="Attached files with extracted text.")
+    ppt_phase: str | None = Field(
+        default=None,
+        pattern="^(planning|confirming|generating|done)$",
+        description="PPT generation phase: 'planning' (output spec_lock), 'confirming' (wait for user), 'generating' (generate SVGs), 'done'. None for single-phase mode.",
+    )
 
 
 class PptExportRequest(BaseModel):

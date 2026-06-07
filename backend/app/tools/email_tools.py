@@ -289,42 +289,15 @@ def _is_date_in_range(date_header: str | None, since: str, before: str) -> bool:
 def register_email_tools(registry: ToolRegistry):
     """注册邮件工具到 ToolRegistry"""
 
-    @registry.tool(display_name="设置邮箱")
-    async def setup_email(
-        email_address: str,
-        password: str,
-        imap_host: str = "imap.exmail.qq.com",
-        imap_port: int = 993,
-        imap_ssl: bool = True,
-        smtp_host: str = "smtp.exmail.qq.com",
-        smtp_port: int = 465,
-        smtp_ssl: bool = True,
-    ) -> str:
+    @registry.tool(display_name="检查邮箱配置")
+    async def setup_email() -> str:
         """
-        设置邮箱凭据（首次使用时调用，后续可更新）
-
-        Args:
-            email_address: 公司邮箱地址
-            password: 应用专用密码（不是登录密码，在邮箱设置中生成）
-            imap_host: IMAP 服务器地址（默认腾讯企业邮箱）
-            imap_port: IMAP 端口（默认 993）
-            imap_ssl: IMAP 是否使用 SSL（默认 true）
-            smtp_host: SMTP 服务器地址（默认腾讯企业邮箱）
-            smtp_port: SMTP 端口（默认 465）
-            smtp_ssl: SMTP 是否使用 SSL（默认 true）
+        检查当前用户的邮箱是否已配置。
+        邮箱凭据需在侧边栏「邮箱设置」中配置，不在对话中输入密码。
         """
         session_id = _current_session_id.get()
         if not session_id:
             return "❌ 找不到当前会话信息"
-
-        try:
-            imap = _imap_connect(imap_host, imap_port, imap_ssl)
-            imap.login(email_address, password)
-            imap.logout()
-        except imaplib.IMAP4.error as e:
-            return f"❌ 登录失败: 邮箱地址或密码错误\n{str(e)}"
-        except Exception as e:
-            return f"❌ 连接失败: {str(e)}\n请检查网络连接、服务器地址和端口"
 
         db = create_db_session()
         try:
@@ -335,49 +308,23 @@ def register_email_tools(registry: ToolRegistry):
             )
             if row is None:
                 return "❌ 找不到当前会话的用户信息"
-            user_id = row
 
-            existing = db.scalar(
+            cred = db.scalar(
                 select(UserEmailCredentialsModel).where(
-                    UserEmailCredentialsModel.user_id == user_id
+                    UserEmailCredentialsModel.user_id == row
                 )
             )
-            if existing:
-                existing.email_address = email_address
-                existing.password = password
-                existing.imap_host = imap_host
-                existing.imap_port = imap_port
-                existing.imap_ssl = imap_ssl
-                existing.smtp_host = smtp_host
-                existing.smtp_port = smtp_port
-                existing.smtp_ssl = smtp_ssl
-                action = "更新"
-            else:
-                db.add(UserEmailCredentialsModel(
-                    user_id=user_id,
-                    email_address=email_address,
-                    password=password,
-                    imap_host=imap_host,
-                    imap_port=imap_port,
-                    imap_ssl=imap_ssl,
-                    smtp_host=smtp_host,
-                    smtp_port=smtp_port,
-                    smtp_ssl=smtp_ssl,
-                ))
-                action = "保存"
+            if not cred:
+                return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据，配置完成后即可使用邮件功能。"
 
-            db.commit()
+            return (
+                f"✅ 邮箱已配置：{cred.email_address}\n"
+                f"IMAP: {cred.imap_host}:{cred.imap_port}\n"
+                f"SMTP: {cred.smtp_host}:{cred.smtp_port}\n"
+                f"现在可以使用 read_emails、search_emails、send_emails 等工具。"
+            )
         finally:
             db.close()
-
-        imap_label = "SSL" if imap_ssl else "明文"
-        smtp_label = "SSL" if smtp_ssl else "明文"
-        return (
-            f"✅ 邮箱配置{action}成功！已连接到 {email_address}\n"
-            f"IMAP: {imap_host}:{imap_port} ({imap_label})\n"
-            f"SMTP: {smtp_host}:{smtp_port} ({smtp_label})\n"
-            f"现在可以使用 read_emails、search_emails 等工具了。"
-        )
 
     @registry.tool(display_name="读取邮件")
     async def read_emails(

@@ -205,6 +205,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             </div>
           )}
           <textarea
+            aria-label="输入消息"
             ref={textareaRef}
             value={value}
             onChange={handleChange}

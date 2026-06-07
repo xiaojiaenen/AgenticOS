@@ -24,9 +24,241 @@ from wuwei.tools import ToolRegistry
 from wuwei.plugin import PluginContext
 from wuwei.plugin.builtin.skill import setup as setup_skill_plugin
 from wuwei.core.message import ToolCall
+from wuwei.agent.async_sub_agent import AsyncSubAgent, AsyncSubAgentMiddleware
+from wuwei.agent.multi_agent import MultiAgentGraph, TeamMember
+from wuwei.runtime.agent_runner import AgentRunner
 
 # 特殊工具名：用户拒绝时替换原工具调用，让 LLM 收到明确的拒绝消息
 _REJECTED_TOOL_NAME = "__tool_rejected__"
+
+# ── 并发工具执行补丁 ──────────────────────────────────────────────────
+# wuwei 的 AgentRunner 默认逐个执行工具调用。
+# 本补丁将安全工具（is_concurrency_safe=True）分批并发执行，
+# 非安全工具仍保持顺序串行。对前端 SSE 事件流完全透明。
+
+_original_stream_events = AgentRunner.stream_events
+
+
+async def _patched_stream_events(self, user_input: str, *, task=None):
+    """并发版 stream_events：安全工具用 asyncio.gather 并行，其余与原版相同。
+
+    与原始实现的唯一区别：工具执行阶段按 is_concurrency_safe 分批并发。
+    LLM 调用、中间件生命周期、事件格式完全不变。
+    """
+    import time
+    from collections.abc import AsyncIterator
+    from uuid import uuid4
+    from wuwei.core.message import AIMessage as AIMsg, ToolMessage as TMsg
+    from wuwei.llm import LLMResponseChunk, Message
+    from wuwei.middleware.base import MiddlewareContext
+
+    step_count = 0
+    llm_calls = 0
+    total_latency_ms = 0
+    total_usage = self._empty_usage()
+    run_id = uuid4().hex
+    context = self.session.context
+    context.add_user_message(user_input)
+    yield self._build_event("run_start", step=0, run_id=run_id, data={"input": user_input})
+
+    ctx = None  # Pre-initialize for exception handler
+    try:
+        while step_count < self.session.max_steps:
+            content_parts: list[str] = []
+            reasoning_parts: list[str] = []
+            full_tool_calls = None
+            messages = self._copy_messages()
+            tools = list(self.tools)
+
+            # --- before_llm 中间件 ---
+            ctx = MiddlewareContext(state=None, config={}, step=step_count)
+            ctx.state = type('State', (), {'messages': messages, 'metadata': {}})()
+            ctx = await self.middleware.execute_before_llm(ctx)
+            messages = ctx.state.messages
+
+            llm_start = time.monotonic()
+            yield self._build_event(
+                "llm_start", step=step_count, run_id=run_id,
+                data={"tools": [tool.name for tool in tools]},
+            )
+
+            stream: AsyncIterator[LLMResponseChunk] = await self.llm.generate(
+                messages, tools=tools, stream=True,
+            )
+            llm_calls += 1
+
+            async for chunk in stream:
+                if chunk.reasoning_content:
+                    reasoning_parts.append(chunk.reasoning_content)
+                    yield self._build_event(
+                        "reasoning_delta", step=step_count, run_id=run_id,
+                        data={"content": chunk.reasoning_content},
+                    )
+                if chunk.content:
+                    content_parts.append(chunk.content)
+                    yield self._build_event(
+                        "text_delta", step=step_count, run_id=run_id,
+                        data={"content": chunk.content},
+                    )
+                self._merge_usage(total_usage, chunk.usage)
+                if chunk.tool_calls_complete:
+                    full_tool_calls = chunk.tool_calls_complete
+
+            total_latency_ms += int((time.monotonic() - llm_start) * 1000)
+            yield self._build_event(
+                "llm_end", step=step_count, run_id=run_id,
+                data={"latency_ms": total_latency_ms, "usage": dict(total_usage), "has_tool_calls": bool(full_tool_calls)},
+            )
+
+            # 构建 AIMessage 并调用 after_llm 中间件
+            ai_msg = AIMsg(
+                content="".join(content_parts),
+                tool_calls=full_tool_calls or [],
+                reasoning_content="".join(reasoning_parts) or None,
+            )
+            ctx = await self.middleware.execute_after_llm(ctx, ai_msg)
+            context.add_ai_message(
+                "".join(content_parts),
+                tool_calls=full_tool_calls,
+                reasoning_content="".join(reasoning_parts) or None,
+            )
+
+            if full_tool_calls:
+                # ── 并发工具执行 ──
+                # 按 is_concurrency_safe 分组：连续安全工具并发，非安全工具串行
+                batches: list[list] = []
+                current_batch: list = []
+                current_safe = True
+
+                for tc in full_tool_calls:
+                    tool_obj = self.tool_executor.registry.get(tc.function.name)
+                    is_safe = tool_obj.is_concurrency_safe if tool_obj else True
+
+                    if not current_batch:
+                        current_batch = [tc]
+                        current_safe = is_safe
+                    elif is_safe == current_safe:
+                        current_batch.append(tc)
+                    else:
+                        batches.append(current_batch)
+                        current_batch = [tc]
+                        current_safe = is_safe
+                if current_batch:
+                    batches.append(current_batch)
+
+                for batch in batches:
+                    tool_obj = self.tool_executor.registry.get(batch[0].function.name)
+                    is_safe = tool_obj.is_concurrency_safe if tool_obj else True
+
+                    if is_safe and len(batch) > 1:
+                        # ── 并发执行安全工具 ──
+                        async def _exec_safe(tc):
+                            modified = await self.middleware.execute_before_tool(ctx, tc)
+                            if modified is None:
+                                return None
+                            t = self.tool_executor.registry.get(modified.function.name)
+                            start_evt = self._build_event(
+                                "tool_start", step=step_count, run_id=run_id,
+                                data={
+                                    "tool_name": modified.function.name,
+                                    "display_name": t.display_name if t else None,
+                                    "args": modified.function.arguments,
+                                    "tool_call_id": modified.id,
+                                },
+                            )
+                            msg = await self._execute_one_tool_call(modified, step=step_count, task=task, run_id=run_id)
+                            tmsg = TMsg(content=msg.content or "", tool_call_id=msg.tool_call_id or "", name=msg.name or "")
+                            modified_msg = await self.middleware.execute_after_tool(ctx, tmsg)
+                            final_msg = Message(role="tool", content=modified_msg.content or "", tool_call_id=modified_msg.tool_call_id, name=modified_msg.name)
+                            end_evt = self._build_event(
+                                "tool_end", step=step_count, run_id=run_id,
+                                data={"tool_name": modified.function.name, "tool_call_id": modified.id, "output": final_msg.content},
+                            )
+                            return (modified, final_msg, start_evt, end_evt)
+
+                        results = await asyncio.gather(
+                            *(_exec_safe(tc) for tc in batch),
+                            return_exceptions=True,
+                        )
+                        for result in results:
+                            if isinstance(result, Exception):
+                                _logger.error(f"Concurrent tool error: {result}")
+                                continue
+                            if result is None:
+                                continue
+                            tc, final_msg, start_evt, end_evt = result
+                            yield start_evt
+                            self.session.context.add_tool_message(final_msg.content or "", final_msg.tool_call_id)
+                            yield end_evt
+                            err = self.tool_executor.extract_error_message(final_msg.content)
+                            if err:
+                                yield self._build_event(
+                                    "error", step=step_count, run_id=run_id,
+                                    data={"message": err, "tool_name": tc.function.name, "tool_call_id": tc.id},
+                                )
+                    else:
+                        # ── 串行执行非安全工具或单个工具 ──
+                        for tc in batch:
+                            modified = await self.middleware.execute_before_tool(ctx, tc)
+                            if modified is None:
+                                continue
+                            t = self.tool_executor.registry.get(modified.function.name)
+                            yield self._build_event(
+                                "tool_start", step=step_count, run_id=run_id,
+                                data={
+                                    "tool_name": modified.function.name,
+                                    "display_name": t.display_name if t else None,
+                                    "args": modified.function.arguments,
+                                    "tool_call_id": modified.id,
+                                },
+                            )
+                            tool_message = await self._execute_one_tool_call(modified, step=step_count, task=task, run_id=run_id)
+                            tmsg = TMsg(content=tool_message.content or "", tool_call_id=tool_message.tool_call_id or "", name=tool_message.name or "")
+                            modified_msg = await self.middleware.execute_after_tool(ctx, tmsg)
+                            tool_message = Message(role="tool", content=modified_msg.content or "", tool_call_id=modified_msg.tool_call_id, name=modified_msg.name)
+                            self.session.context.add_tool_message(tool_message.content or "", tool_message.tool_call_id)
+                            yield self._build_event(
+                                "tool_end", step=step_count, run_id=run_id,
+                                data={"tool_name": modified.function.name, "tool_call_id": modified.id, "output": tool_message.content},
+                            )
+                            err = self.tool_executor.extract_error_message(tool_message.content)
+                            if err:
+                                yield self._build_event(
+                                    "error", step=step_count, run_id=run_id,
+                                    data={"message": err, "tool_name": modified.function.name, "tool_call_id": modified.id},
+                                )
+
+                step_count += 1
+                continue
+
+            # 无工具调用 → 结束
+            done_event = self._build_event(
+                "done", step=step_count, run_id=run_id,
+                data={"usage": dict(total_usage), "latency_ms": total_latency_ms, "llm_calls": llm_calls},
+            )
+            yield done_event
+            yield self._build_event("run_end", step=step_count, run_id=run_id, data=dict(done_event.data))
+            self._set_session_run_stats(usage=total_usage, latency_ms=total_latency_ms, llm_calls=llm_calls)
+            return
+
+        # 达到最大步数
+        context.add_ai_message("任务未完成，已达到最大步骤限制。")
+        yield self._build_event(
+            "done", step=step_count, run_id=run_id,
+            data={"reason": "max_steps", "usage": dict(total_usage), "latency_ms": total_latency_ms, "llm_calls": llm_calls},
+        )
+        self._set_session_run_stats(usage=total_usage, latency_ms=total_latency_ms, llm_calls=llm_calls)
+
+    except Exception as exc:
+        await self.middleware.execute_on_error(ctx if ctx is not None else MiddlewareContext(state=None, config={}, step=step_count), exc)
+        yield self._build_event(
+            "error", step=step_count, run_id=run_id,
+            data={"message": str(exc), "error_type": type(exc).__name__, "latency_ms": total_latency_ms},
+        )
+
+
+# 应用补丁（启用并发工具执行）
+AgentRunner.stream_events = _patched_stream_events
 
 
 class LenientHitlMiddleware(HitlMiddleware):
@@ -261,7 +493,16 @@ class AgentService:
                 auto_reject_tools=[],
             ))
 
-        # 2. 上下文压缩中间件
+        # 2. 异步子代理中间件（后台任务能力）
+        if self.settings.async_sub_agents_enabled:
+            sub_agents = self._build_async_sub_agents()
+            if sub_agents:
+                stack.add(AsyncSubAgentMiddleware(
+                    sub_agents=sub_agents,
+                    parent_llm=llm,
+                ))
+
+        # 5. 上下文压缩中间件
         if self.settings.context_compression_enabled:
             stack.add(ContextCompressionMiddleware(
                 llm=llm,
@@ -289,6 +530,63 @@ class AgentService:
         stack.add(ThinkingHistoryCompatibilityMiddleware())
 
         return stack
+
+    def _build_async_sub_agents(self) -> list[AsyncSubAgent]:
+        """构建异步子代理列表。
+
+        子代理在后台运行，不阻塞主对话。LLM 通过 start/check/cancel/list 操作管理。
+        """
+        from wuwei.tools import ToolRegistry as _TR
+
+        sub_agents: list[AsyncSubAgent] = []
+
+        # 1. 代码分析子代理
+        code_registry = _TR()
+        code_ctx = PluginContext(tool_registry=code_registry)
+        try:
+            from wuwei.plugin.builtin import calc as calc_mod, python as python_mod, git as git_mod
+            calc_mod.setup(code_ctx)
+            python_mod.setup(code_ctx)
+            git_mod.setup(code_ctx)
+        except Exception:
+            pass
+
+        sub_agents.append(AsyncSubAgent(
+            name="code_analyst",
+            description="代码分析与执行：运行 Python 脚本、数学计算、Git 操作。适合需要后台运行代码或分析的场景。",
+            system_prompt=(
+                "你是一个代码分析助手。你可以执行 Python 脚本、进行数学计算、查看 Git 状态。"
+                "请直接运行代码并返回结果，不要解释代码本身。"
+                "返回时用简洁的格式说明执行结果。"
+            ),
+            tools=list(code_registry.list_tools()),
+            max_steps=5,
+            inherit_context=False,
+        ))
+
+        # 2. 文件处理子代理
+        file_registry = _TR()
+        file_ctx = PluginContext(tool_registry=file_registry)
+        try:
+            from wuwei.plugin.builtin import file as file_mod, text as text_mod
+            file_mod.setup(file_ctx)
+            text_mod.setup(file_ctx)
+        except Exception:
+            pass
+
+        sub_agents.append(AsyncSubAgent(
+            name="file_processor",
+            description="文件处理：读取、搜索、整理文件内容。适合需要在后台批量处理文件的场景。",
+            system_prompt=(
+                "你是一个文件处理助手。你可以读取文件、搜索文本、整理内容。"
+                "工作时保持高效，直接返回处理结果。"
+            ),
+            tools=list(file_registry.list_tools()),
+            max_steps=8,
+            inherit_context=False,
+        ))
+
+        return sub_agents
 
     @staticmethod
     def _build_tool_registry(profile: RuntimeAgentProfile) -> tuple[ToolRegistry, str]:
@@ -524,11 +822,11 @@ class AgentService:
         if loaded is not None:
             sessions[request.session_id] = loaded
 
-    def _inject_design_catalog(cls, message: str) -> str:
-        """Inject design catalog: skill loading instructions + theme selection + token reference.
+    @staticmethod
+    def _inject_design_catalog(message: str) -> str:
+        """Inject design catalog: phased skill loading + theme selection + token reference.
 
-        技能加载是 PPT 生成的核心——没有设计规范和模板库，SVG 质量会很差。
-        模板文件需要按需读取，每页读 1-2 个相关模板即可。
+        分阶段加载策略：LLM 按工作流阶段依次加载技能，避免一次性注入过多规则。
         """
         token_ref = build_token_quick_ref()
         theme_count = len(list_available_themes())
@@ -537,22 +835,35 @@ class AgentService:
         lines = [
             "",
             "---",
-            "## ⚠️ 生成 SVG 前必须加载两个技能",
+            "## ⚠️ 分阶段技能加载（严格遵守）",
             "",
-            "**第一步：加载技能（2 步）**",
+            "**不要一次加载所有技能。** 按以下阶段依次加载：",
             "",
-            "1. `load_skill(\"ppt-design-guide\")` — 设计规范（SVG 约束、排版规则、颜色纪律）",
-            "2. `load_skill(\"ppt-template-library\")` — 模板库（布局 + 图表模板）",
+            "### 阶段 1：开始创作（立即执行）",
+            "1. `load_skill(\"ppt-design-guide\")` — SVG 技术约束 + 排版铁律 + 颜色纪律",
+            "2. `load_skill(\"ppt-template-library\")` — 15 个布局 + 71 个图表模板",
             "",
-            "**第二步：按需读取模板（每页 1-2 个）**",
+            "### 阶段 2：规划完成后",
+            "3. `load_skill(\"ppt-workflow\")` — 7 步工作流 + spec_lock 格式 + 修改流程",
             "",
-            "加载 ppt-template-library 后，用 `read_text_file` 读取具体的 SVG 模板文件。",
-            "模板文件路径格式：`references/xxx.svg`，每页只读 1-2 个相关模板。",
-            "**不要读取所有模板**，根据页面类型选择：封面读 cover，数据页读 bar-chart 等。",
+            "### 阶段 3：每次 save_slide 前",
+            "4. `load_skill(\"ppt-quality-budgets\")` — 颜色预算 + 字号预算 + 自检清单",
             "",
-            "**第三步：生成 SVG 并调用 save_slide**",
+            "**懒加载纪律**：加载技能后不要预读所有模板。每页只读 1 个模板 SVG，读完立即生成。",
             "",
-            "读取模板后，复制模板结构，替换为实际内容，调用 `save_slide` 写入。",
+            "示例正确流程：",
+            "  load_skill(\"ppt-design-guide\")",
+            "  load_skill(\"ppt-template-library\")",
+            "  → 确认需求 + 选择主题",
+            "  load_skill(\"ppt-workflow\")",
+            "  → 生成 spec_lock + 规划页面",
+            "  submit_slide_plan(slides='[{...}]')  ← 提交结构化页面计划",
+            "  → 等待用户确认",
+            "  load_skill(\"ppt-quality-budgets\")",
+            "  load_skill_reference(\"references/core-layouts/cover.svg\")",
+            "  → save_slide(1, svg=\"...\")",
+            "  load_skill_reference(\"references/core-layouts/toc.svg\")",
+            "  → save_slide(2, svg=\"...\")",
             "",
             "---",
             "## ⭐ 主题选择",
@@ -573,15 +884,6 @@ class AgentService:
             "",
             f"**全部 {theme_count} 个主题：**",
             theme_list,
-            "",
-            "---",
-            "## SVG 关键规则",
-            "",
-            "1. 每页调用 `save_slide(slide_num=N, svg=\"...\")` 写入",
-            "2. SVG 根元素：`<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1280 720\" data-theme=\"xxx\">`",
-            "3. 所有颜色用 `var(--xxx)` 令牌，非颜色属性（圆角、字号、字体）直接写值",
-            "4. 禁止 `<style>`、`<foreignObject>`、`<mask>`、`class`、`rgba()`",
-            "5. 每页必须有 `<!-- notes: 演讲者备注 -->`",
             "",
             "---",
             "## Token 语义速查",
@@ -704,8 +1006,10 @@ class AgentService:
             else:
                 _logger.info("ppt artifact skipped: session=%s (no slides found)", session_id)
             return artifact
-        except Exception:
+        except Exception as exc:
             _logger.exception("ppt artifact creation failed: session=%s", session_id)
+            self.ppt_artifacts._last_quality_errors = [f"artifact 创建异常: {type(exc).__name__}: {exc}"]
+            self.ppt_artifacts._last_quality_warnings = []
             return None
 
     @staticmethod
@@ -1215,6 +1519,7 @@ class AgentService:
             edit_hint = await self._get_edit_hint(request.session_id)
             if edit_hint:
                 message = message + edit_hint
+            # Phase-specific injection — deferred to after session creation (see below)
 
         website_mode = response_mode == "website"
         if website_mode:
@@ -1393,11 +1698,13 @@ class AgentService:
                             tool_names.append(tool_name)
 
                     if ppt_mode and event.type == "done":
+                        visible_text = ""
+
                         _logger.info("ppt done: session=%s, creating artifact...", session.session_id)
+
                         artifact = await self._create_ppt_artifact(session.session_id)
                         _logger.info("ppt artifact result: session=%s, artifact=%s", session.session_id, "OK" if artifact else "None")
                         if artifact is not None:
-                            visible_text = f"已生成 {artifact['slide_count']} 页 PPT：{artifact['title']}"
                             yield {
                                 "event": "run_status",
                                 "data": {
@@ -1411,54 +1718,15 @@ class AgentService:
                                 "data": artifact,
                             }
                         else:
-                            # Artifact 创建失败，尝试 Multi-Agent 重新生成
-                            _logger.warning("ppt artifact creation failed: session=%s, trying multi-agent fallback", session.session_id)
-                            yield {
-                                "event": "run_status",
-                                "data": {
-                                    "session_id": session.session_id,
-                                    "phase": "regenerating_ppt",
-                                    "label": "正在用多 Agent 重新生成 PPT",
-                                },
-                            }
-                            try:
-                                # 优先使用 StateGraph Pipeline
-                                from app.services.ppt_pipeline import PptPipeline
-                                pipeline = PptPipeline()
-                                pipeline_result = await pipeline.run(
-                                    user_message=request.message,
-                                    session_id=session.session_id,
-                                )
-                                if pipeline_result.get("success") and pipeline_result.get("artifact"):
-                                    artifact = await self._create_ppt_artifact(session.session_id)
-                                    if artifact is not None:
-                                        visible_text = f"已生成 {artifact['slide_count']} 页 PPT：{artifact['title']}"
-                                        yield {"event": "run_status", "data": {"session_id": session.session_id, "phase": "rendering_ppt", "label": "正在渲染 PPT 预览"}}
-                                        yield {"event": "artifact_ready", "data": artifact}
-                                    else:
-                                        visible_text = collected_text or "PPT 预览生成失败：SVG 页数不足或格式不正确。"
-                                        yield {"event": "run_status", "data": {"session_id": session.session_id, "phase": "error", "label": "PPT 预览生成失败"}}
-                                else:
-                                    # Pipeline 失败，回退到 Multi-Agent
-                                    from app.services.multi_agent_ppt_service import MultiAgentPptService
-                                    multi_svc = MultiAgentPptService(self.settings)
-                                    async for _event in multi_svc.generate_ppt(
-                                        user_message=request.message,
-                                        session_id=session.session_id,
-                                    ):
-                                        if _event.get("event") == "done":
-                                            artifact = await self._create_ppt_artifact(session.session_id)
-                                            if artifact is not None:
-                                                visible_text = f"已生成 {artifact['slide_count']} 页 PPT：{artifact['title']}"
-                                                yield {"event": "run_status", "data": {"session_id": session.session_id, "phase": "rendering_ppt", "label": "正在渲染 PPT 预览"}}
-                                                yield {"event": "artifact_ready", "data": artifact}
-                                            else:
-                                                visible_text = collected_text or "PPT 预览生成失败：SVG 页数不足或格式不正确。"
-                                                yield {"event": "run_status", "data": {"session_id": session.session_id, "phase": "error", "label": "PPT 预览生成失败"}}
-                            except Exception as e:
-                                _logger.error(f"Multi-agent PPT fallback failed: {e}")
-                                visible_text = collected_text or f"PPT 生成失败：{e}"
-                                yield {"event": "run_status", "data": {"session_id": session.session_id, "phase": "error", "label": "PPT 生成失败"}}
+                            # 质量门失败，返回错误信息给用户
+                            quality_errors = getattr(self.ppt_artifacts, '_last_quality_errors', [])
+                            quality_warnings = getattr(self.ppt_artifacts, '_last_quality_warnings', [])
+                            error_detail = "; ".join(quality_errors[:3]) if quality_errors else "未知原因"
+                            _logger.warning(
+                                "ppt artifact creation failed: session=%s, errors=%s",
+                                session.session_id, quality_errors,
+                            )
+                            visible_text = f"PPT 预览生成失败：{error_detail}"
                         if visible_text:
                             yield {
                                 "event": "delta",
