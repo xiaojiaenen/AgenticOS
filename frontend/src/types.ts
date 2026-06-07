@@ -45,8 +45,6 @@ export type Message = {
   role: 'user' | 'model';
   text: string;
   content?: MessageContent[];
-  reasoningChunks?: ReasoningChunk[];
-  reasoningText?: string; // 保留用于兼容
   toolCalls?: ToolCall[];
   attachments?: Attachment[];
   pptArtifact?: {

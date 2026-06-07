@@ -10,7 +10,7 @@ function sanitizeForNonAdmin(message: Message): Message {
   if (sanitizedCache.has(message)) return sanitizedCache.get(message)!;
   const sanitized: Message = {
     ...message,
-    reasoningText: undefined,
+    content: undefined, // 清除思考内容
     // 保留工具名称和状态，隐藏参数和结果
     toolCalls: message.toolCalls?.map((tc) => ({
       id: tc.id,
