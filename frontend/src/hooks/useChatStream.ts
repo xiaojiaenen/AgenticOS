@@ -142,6 +142,8 @@ export function useChatStream({
       let currentReasoningText = ''; // 当前正在累积的思考文本
       let lastReasoningEndTime = 0; // 上一次思考结束的时间
       let contentCounter = 0; // 内容计数器
+      let processedToolCallIds = new Set<string>(); // 已处理的工具调用ID
+      let lastContentLength = 0; // 上一次content数组长度
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
@@ -341,12 +343,7 @@ export function useChatStream({
                                   text: reasoningToSave,
                                   timestamp: lastReasoningEndTime,
                                 }] : []),
-                                // 添加输出内容
-                                {
-                                  type: 'text' as const,
-                                  text: fullText,
-                                  timestamp: Date.now(),
-                                },
+                                // 只在文本变化时更新text内容（不是增量添加）
                               ],
                               pptArtifact: chatMode === 'ppt'
                                 ? (message.pptArtifact?.status === 'ready' || receivedPptArtifact
@@ -395,8 +392,13 @@ export function useChatStream({
               lastReasoningEndTime = Date.now();
             }
 
-            // 获取最新的工具调用
-            const latestToolCalls = toolCalls.filter(tc => tc.status !== 'pending');
+            // 只添加新增的工具调用（未处理过的）
+            const newToolCalls = toolCalls.filter(tc => {
+              if (!tc.id || processedToolCallIds.has(tc.id)) return false;
+              if (tc.status === 'pending') return false;
+              processedToolCallIds.add(tc.id);
+              return true;
+            });
 
             setSessions((prev) =>
               prev.map((session) =>
@@ -417,8 +419,8 @@ export function useChatStream({
                                   text: reasoningToSave,
                                   timestamp: lastReasoningEndTime,
                                 }] : []),
-                                // 添加工具调用
-                                ...latestToolCalls.map(tc => ({
+                                // 只添加新的工具调用
+                                ...newToolCalls.map(tc => ({
                                   type: 'tool_call' as const,
                                   id: tc.id || `tool-${++contentCounter}`,
                                   toolName: tc.name,
