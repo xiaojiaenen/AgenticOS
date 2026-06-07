@@ -60,6 +60,9 @@ data/ppt-sessions/
 *.log
 startup_error.txt
 
+# CodeGraph
+.codegraph/
+
 # Claude Code
 .claude/
 CLAUDE.md
