@@ -596,12 +596,12 @@ export const AgentManagement = () => {
            <input
             type="number"
             min={1}
-            max={200}
+            max={2147483647}
             placeholder="留空使用全局默认（10）"
             value={draft.max_steps ?? ''}
             onChange={(event) => {
              const v = event.target.value;
-             patchDraft({ max_steps: v === '' ? null : Math.min(200, Math.max(1, Number(v))) });
+             patchDraft({ max_steps: v === '' ? null : Math.min(2147483647, Math.max(1, Number(v))) });
             }}
             className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-200 focus:bg-white focus:ring-4 focus:ring-sky-100/80"
            />
