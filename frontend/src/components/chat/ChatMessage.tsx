@@ -4,8 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { BrainCircuit, Wrench } from 'lucide-react';
-import { Artifact, Message, ToolCall, MessageContent } from '../../types';
+import { BrainCircuit } from 'lucide-react';
+import { Artifact, Message, ToolCall } from '../../types';
 import { APP_TIME_ZONE } from '../../lib/datetime';
 import { cn, copyToClipboard } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
@@ -43,14 +43,13 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   const isUser = message?.role === 'user';
   const rawText = message?.text || '';
   const visibleText = rawText;
-  const content = message?.content || [];
-  const currentReasoning = (message as any)?._currentReasoning || ''; // 临时思考内容
+  const reasoningText = message?.reasoningText || '';
   const hasPptArtifact = !isUser && Boolean(message?.pptArtifact);
   const hasWebsiteArtifact = !isUser && Boolean(message?.websiteArtifact);
-  const hasAnyContent = content.length > 0 || currentReasoning.trim().length > 0 || visibleText.trim().length > 0;
+  const hasAnyReasoning = reasoningText.trim().length > 0;
+  const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || hasAnyReasoning || (!hasPptArtifact && !hasWebsiteArtifact);
   const hasStructuredContent = !isUser && /```|(?:^|\n)\|.+\|/.test(visibleText);
-  const shouldRenderBubble = isTyping || isUser || hasAnyContent || (!hasPptArtifact && !hasWebsiteArtifact);
-  const showAssistantWaiting = !isUser && Boolean(isStreaming) && !hasAnyContent && !isTyping;
+  const showAssistantWaiting = !isUser && Boolean(isStreaming) && !visibleText.trim() && !hasAnyReasoning && !isTyping;
   const canCopyMessage = visibleText.trim().length > 0;
   const [isCopied, setIsCopied] = useState(false);
   const config = getAppConfig();
@@ -235,50 +234,15 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
               </div>
             ) : (
               <div className="prose prose-slate prose-sm max-w-none break-words [overflow-wrap:anywhere] prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
-                {/* 按顺序渲染content数组中的内容 */}
-                {content.map((item) => {
-                  if (item.type === 'reasoning') {
-                    return (
-                      <details key={item.id} className="group mb-2 rounded-2xl border border-slate-200/60 bg-slate-50/50 px-3 py-2 text-slate-500 [&_summary::-webkit-details-marker]:hidden">
-                        <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                          <BrainCircuit size={13} className="text-slate-400" /><span>思考过程</span>
-                          <ChevronDownIcon size={12} className="ml-auto transition-transform duration-300 group-open:-rotate-180" />
-                        </summary>
-                        <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-slate-200/40 pt-2 text-xs leading-relaxed text-slate-500 italic">{item.text}</div>
-                      </details>
-                    );
-                  }
-                  if (item.type === 'tool_call') {
-                    return (
-                      <div key={item.id} className="mb-2 rounded-xl border border-amber-200/60 bg-amber-50/50 px-3 py-2 text-amber-700">
-                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em]">
-                          <Wrench size={13} className="text-amber-500" />
-                          <span>{item.toolName}</span>
-                          <span className={`ml-auto px-2 py-0.5 rounded-full text-[10px] ${
-                            item.status === 'success' ? 'bg-green-100 text-green-700' :
-                            item.status === 'error' ? 'bg-red-100 text-red-700' :
-                            'bg-slate-100 text-slate-600'
-                          }`}>
-                            {item.status === 'success' ? '完成' : item.status === 'error' ? '失败' : '执行中'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                })}
-
-                {/* 渲染当前正在累积的思考内容（流式输出中） */}
-                {currentReasoning && (
-                  <details open className="group mb-2 rounded-2xl border border-sky-200/60 bg-sky-50/50 px-3 py-2 text-slate-500 [&_summary::-webkit-details-marker]:hidden">
+                {reasoningText && (
+                  <details className="group mb-3 rounded-2xl border border-slate-200/60 bg-slate-50/50 px-3 py-2 text-slate-500 [&_summary::-webkit-details-marker]:hidden">
                     <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                      <BrainCircuit size={13} className="text-sky-400 animate-pulse" /><span>思考中...</span>
+                      <BrainCircuit size={13} className="text-slate-400" /><span>思考过程</span>
+                      <ChevronDownIcon size={12} className="ml-auto transition-transform duration-300 group-open:-rotate-180" />
                     </summary>
-                    <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-sky-200/40 pt-2 text-xs leading-relaxed text-slate-500 italic">{currentReasoning}</div>
+                    <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-slate-200/40 pt-2 text-xs leading-relaxed text-slate-500 italic">{reasoningText}</div>
                   </details>
                 )}
-
-                {/* 渲染输出文本 */}
                 {visibleText ? (
                   <ReactMarkdown remarkPlugins={[remarkGfm, ...(config.enableLaTeX ? [remarkMath] : [])]} rehypePlugins={[...(config.enableLaTeX ? [rehypeKatex] : [])]}
                     components={{
