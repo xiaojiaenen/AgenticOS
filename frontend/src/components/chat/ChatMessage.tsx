@@ -265,10 +265,6 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                       </div>
                     );
                   }
-                  if (item.type === 'text') {
-                    // 文本内容在最后统一渲染，这里跳过
-                    return null;
-                  }
                   return null;
                 })}
 
