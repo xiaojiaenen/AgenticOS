@@ -2098,10 +2098,11 @@ class AgentService:
 
                             # 将错误信息存储到 session metadata，供下次请求注入
                             meta = getattr(session, "metadata", {}) or {}
+                            retry_count = meta.get("ppt_pending_fix", {}).get("retry_count", 0) + 1
                             meta["ppt_pending_fix"] = {
                                 "errors": quality_errors,
                                 "warnings": quality_warnings,
-                                "retry_count": meta.get("ppt_pending_fix", {}).get("retry_count", 0) + 1,
+                                "retry_count": retry_count,
                             }
                             session.metadata = meta
                             await self.storage.save_meta(session)
@@ -2112,14 +2113,17 @@ class AgentService:
                                 f"错误：{error_detail}\n"
                                 f"请逐个修复这些问题，然后重新调用 save_slide 保存修复后的幻灯片。"
                             )
+
+                            # 发送 run_status 事件，让前端知道需要等待 Agent 修复
                             yield {
                                 "event": "run_status",
                                 "data": {
                                     "session_id": session.session_id,
-                                    "phase": "generating_ppt",
-                                    "label": "PPT 需要修复，请等待 Agent 自动处理",
+                                    "phase": "ppt_fixing",
+                                    "label": "PPT 需要修复，Agent 正在自动处理",
                                     "quality_errors": quality_errors,
                                     "quality_warnings": quality_warnings,
+                                    "retry_count": retry_count,
                                 },
                             }
                         if visible_text:
