@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.encryption import decrypt, decrypt_safe, encrypt
+from app.core.redis import get_redis
 from app.db.models import (
     AgentProfileExternalSystemModel,
     ExternalApiModel,
@@ -34,6 +35,105 @@ from app.schemas.external_systems import (
 )
 
 logger = logging.getLogger(__name__)
+
+# ── 集成分类常量（预设，不提供管理 API） ────────────────────────────────────
+INTEGRATION_CATEGORIES: list[dict[str, str]] = [
+    {"key": "collaboration",  "label": "协作办公",  "icon": "💬"},
+    {"key": "devops",         "label": "研发效能",  "icon": "🔧"},
+    {"key": "compute",        "label": "计算引擎",  "icon": "⚡"},
+    {"key": "scheduler",      "label": "任务调度",  "icon": "📋"},
+    {"key": "storage",        "label": "数据存储",  "icon": "💾"},
+    {"key": "resource",       "label": "资源管理",  "icon": "🖥️"},
+    {"key": "integration",    "label": "数据集成",  "icon": "🔄"},
+    {"key": "governance",     "label": "数据治理",  "icon": "🔍"},
+    {"key": "bi",             "label": "BI 监控",   "icon": "📊"},
+    {"key": "other",          "label": "其他",      "icon": "📦"},
+]
+
+# ── Redis-backed cache for external system config ──────────────────────────
+# Key: agenticos:ext_system:{id}  |  TTL: 24h (auto-refresh on access)
+_SYSTEM_CACHE_TTL = 86400  # 24 hours
+
+
+def _system_cache_key(system_id: int) -> str:
+    return f"agenticos:ext_system:{system_id}"
+
+
+# Fields cached from ExternalSystemModel (only what handler + AuthInjector need)
+_CACHE_FIELDS = [
+    "id", "name", "base_url", "auth_type", "headers_json",
+    "jwt_login_url", "jwt_refresh_url", "jwt_request_body_template",
+    "jwt_response_token_path", "jwt_response_expires_path",
+    "jwt_refresh_body_template",
+    "oauth_auth_url", "oauth_token_url", "oauth_scope",
+    "oauth_refresh_token_url", "oauth_client_id_encrypted",
+    "oauth_client_secret_encrypted", "advanced_auth_json",
+]
+
+
+def _serialize_system_for_cache(sys: ExternalSystemModel) -> dict[str, str]:
+    """Extract cacheable fields from ORM object → dict of strings."""
+    data: dict[str, str] = {}
+    for f in _CACHE_FIELDS:
+        val = getattr(sys, f, None)
+        data[f] = str(val) if val is not None else ""
+    return data
+
+
+class _CachedSystem:
+    """Lightweight read-only proxy that mimics ExternalSystemModel attribute access."""
+
+    __slots__ = _CACHE_FIELDS
+
+    def __init__(self, data: dict[str, str]):
+        for f in _CACHE_FIELDS:
+            raw = data.get(f, "")
+            # Restore int for id
+            if f == "id":
+                setattr(self, f, int(raw) if raw else 0)
+            else:
+                setattr(self, f, raw if raw else None)
+
+
+async def _cache_put(system: ExternalSystemModel) -> None:
+    """Write system config to Redis."""
+    r = get_redis()
+    key = _system_cache_key(system.id)
+    data = _serialize_system_for_cache(system)
+    await r.set(key, json.dumps(data, ensure_ascii=False), ex=_SYSTEM_CACHE_TTL)
+
+
+async def _cache_get(system_id: int) -> _CachedSystem | None:
+    """Read system config from Redis. Returns None on miss."""
+    r = get_redis()
+    key = _system_cache_key(system_id)
+    raw = await r.get(key)
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+        return _CachedSystem(data)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
+async def _cache_delete(system_id: int) -> None:
+    """Remove system from cache."""
+    r = get_redis()
+    await r.delete(_system_cache_key(system_id))
+
+
+async def refresh_system_cache(system_id: int) -> None:
+    """Reload system from DB and push to Redis. Called after update_system()."""
+    from app.db.session import create_db_session
+    db = create_db_session()
+    try:
+        sys = db.get(ExternalSystemModel, system_id)
+        if sys:
+            await _cache_put(sys)
+    finally:
+        db.close()
+
 
 # ── context vars for current user (like email_tools pattern) ────────────────
 
@@ -84,6 +184,7 @@ def _serialize_system(sys: ExternalSystemModel, api_count: int = 0) -> dict:
         "id": sys.id,
         "name": sys.name,
         "description": sys.description,
+        "category": getattr(sys, "category", "other") or "other",
         "base_url": sys.base_url,
         "auth_type": sys.auth_type,
         "credential_template": tpl,
@@ -292,8 +393,9 @@ class AuthInjector:
                     except (json.JSONDecodeError, TypeError):
                         pass
 
+                base = system.base_url.rstrip("/")
                 async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-                    resp = await client.post(system.jwt_refresh_url, json=refresh_body)
+                    resp = await client.post(base + system.jwt_refresh_url, json=refresh_body)
                     resp.raise_for_status()
                     resp_data = resp.json()
 
@@ -349,8 +451,9 @@ class AuthInjector:
         except (json.JSONDecodeError, TypeError):
             body = {"username": config.get("username", ""), "password": config.get("password", "")}
 
+        base = system.base_url.rstrip("/")
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-            resp = await client.post(login_url, json=body)
+            resp = await client.post(base + login_url, json=body)
             resp.raise_for_status()
             resp_data = resp.json()
 
@@ -687,12 +790,16 @@ def _build_system_tool_handler(
 
         db = create_db_session()
         try:
+            # 从 Redis 缓存获取最新配置；miss 则用注册时的 system 对象
+            cached = await _cache_get(system.id)
+            fresh_system = cached if cached else system
+
             cred = db.query(ExternalUserCredentialModel).filter_by(
                 user_id=effective_user_id, system_id=system.id
             ).first()
             if not cred or cred.connection_status != "connected":
                 return json.dumps({
-                    "error": f"请先在集成市场连接 {system.name}",
+                    "error": f"请先在集成市场连接 {fresh_system.name}",
                 }, ensure_ascii=False)
 
             # Separate params by type
@@ -713,7 +820,8 @@ def _build_system_tool_handler(
                 elif pdef.param_type == "body":
                     body_params[name] = casted
 
-            url = system.base_url + _resolve_path(api.path, path_params)
+            base = fresh_system.base_url.rstrip("/")
+            url = base + _resolve_path(api.path, path_params)
 
             body: Any = None
             if body_params:
@@ -722,7 +830,7 @@ def _build_system_tool_handler(
                 else:
                     body = body_params
 
-            headers = _serialize_headers(system.headers_json)
+            headers = _serialize_headers(fresh_system.headers_json)
 
             async with httpx.AsyncClient(timeout=api.timeout_seconds, follow_redirects=True) as client:
                 request = client.build_request(
@@ -732,7 +840,7 @@ def _build_system_tool_handler(
                     json=body,
                     headers=headers,
                 )
-                await AuthInjector.inject(system, cred, request)
+                await AuthInjector.inject(fresh_system, cred, request)
                 await SecurityProcessor.process_request(system, request)
                 response = await client.send(request)
 
@@ -741,12 +849,12 @@ def _build_system_tool_handler(
                 cred.connection_status = "auth_error"
                 db.commit()
                 return json.dumps({
-                    "error": f"{system.name} 凭据无效（HTTP {response.status_code}），请重新连接",
+                    "error": f"{fresh_system.name} 凭据无效（HTTP {response.status_code}），请重新连接",
                     "status_code": response.status_code,
                 }, ensure_ascii=False)
 
             # Decrypt response if configured
-            body_text = await SecurityProcessor.process_response(system, response.text)
+            body_text = await SecurityProcessor.process_response(fresh_system, response.text)
             result: dict[str, Any] = {
                 "status_code": response.status_code,
                 "body": body_text,
@@ -783,6 +891,14 @@ def register_external_tools(registry, system_ids: list[int], db: Session) -> lis
     ).scalars().all()
 
     for system in systems:
+        # Populate Redis cache so handler uses latest config
+        import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(_cache_put(system))
+        except RuntimeError:
+            pass  # 无运行中事件循环时跳过（首次启动 seed 阶段）
+
         apis = list(db.execute(
             select(ExternalApiModel).where(
                 ExternalApiModel.system_id == system.id,
@@ -916,7 +1032,7 @@ class ExternalSystemService:
         self.db.refresh(sys)
         return _serialize_system(sys)
 
-    def update_system(self, system_id: int, data: ExternalSystemUpdateRequest) -> dict:
+    async def update_system(self, system_id: int, data: ExternalSystemUpdateRequest) -> dict:
         sys = self.db.get(ExternalSystemModel, system_id)
         if not sys:
             raise KeyError(f"External system {system_id} not found")
@@ -968,6 +1084,8 @@ class ExternalSystemService:
 
         self.db.commit()
         self.db.refresh(sys)
+        # 刷新 Redis 缓存，让运行中的 agent 工具立即使用新配置
+        await refresh_system_cache(system_id)
         api_count = len(self.db.execute(
             select(ExternalApiModel.id).where(ExternalApiModel.system_id == system_id)
         ).all())
@@ -1401,11 +1519,13 @@ def seed_preset_external_systems() -> None:
     每次启动检查并添加缺失的预设，已存在的不会重复添加。
     """
     from app.db.session import create_db_session
+    from app.services.bigdata_presets import ALL_BIGDATA_PRESETS
 
     PRESETS = [
         {
             "name": "GitHub",
             "description": "GitHub 代码托管平台 - 仓库管理、Issues、Pull Requests",
+            "category": "devops",
             "base_url": "https://api.github.com",
             "auth_type": "bearer",
             "credential_template": {"fields": [{"key": "token", "label": "Personal Access Token", "type": "password", "required": True, "help_text": "在 GitHub Settings > Developer settings > Personal access tokens 中生成", "help_url": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token"}]},
@@ -1422,6 +1542,7 @@ def seed_preset_external_systems() -> None:
         {
             "name": "GitLab",
             "description": "GitLab 代码托管平台 - 仓库管理、Issues、Merge Requests",
+            "category": "devops",
             "base_url": "https://gitlab.com/api/v4",
             "auth_type": "bearer",
             "credential_template": {"fields": [{"key": "token", "label": "Personal Access Token", "type": "password", "required": True, "help_text": "在 GitLab User Settings > Access Tokens 中生成", "help_url": "https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html"}]},
@@ -1437,6 +1558,7 @@ def seed_preset_external_systems() -> None:
         {
             "name": "Slack",
             "description": "Slack 团队协作平台 - 消息发送、频道管理",
+            "category": "collaboration",
             "base_url": "https://slack.com/api",
             "auth_type": "bearer",
             "credential_template": {"fields": [{"key": "token", "label": "Bot Token / User Token", "type": "password", "required": True, "help_text": "在 Slack API > Your Apps > OAuth & Permissions 中获取", "help_url": "https://api.slack.com/authentication/token-types"}]},
@@ -1450,6 +1572,7 @@ def seed_preset_external_systems() -> None:
         {
             "name": "Notion",
             "description": "Notion 知识管理平台 - 页面、数据库操作",
+            "category": "collaboration",
             "base_url": "https://api.notion.com/v1",
             "auth_type": "bearer",
             "credential_template": {"fields": [{"key": "token", "label": "Integration Token", "type": "password", "required": True, "help_text": "在 Notion Settings > Connections > Develop or manage integrations 中创建", "help_url": "https://developers.notion.com/docs/getting-started"}]},
@@ -1464,6 +1587,7 @@ def seed_preset_external_systems() -> None:
         {
             "name": "Jira",
             "description": "Jira 项目管理平台 - Issues、项目、Sprint 管理",
+            "category": "devops",
             "base_url": "https://your-domain.atlassian.net",
             "auth_type": "basic",
             "credential_template": {"fields": [
@@ -1481,6 +1605,7 @@ def seed_preset_external_systems() -> None:
         {
             "name": "Feishu",
             "description": "飞书企业协作平台 - 消息、文档、日历",
+            "category": "collaboration",
             "base_url": "https://open.feishu.cn/open-apis",
             "auth_type": "bearer",
             "credential_template": {"fields": [{"key": "token", "label": "Tenant Access Token", "type": "password", "required": True, "help_text": "在飞书开放平台 > 应用管理 > 凭证与基础信息 中获取", "help_url": "https://open.feishu.cn/document/home/introduction-to-permissions-and-authentication/access-token/tenant-access-token"}]},
@@ -1494,6 +1619,7 @@ def seed_preset_external_systems() -> None:
         {
             "name": "DingTalk",
             "description": "钉钉企业协作平台 - 消息、审批、日程",
+            "category": "collaboration",
             "base_url": "https://oapi.dingtalk.com",
             "auth_type": "bearer",
             "credential_template": {"fields": [{"key": "token", "label": "Access Token", "type": "password", "required": True, "help_text": "在钉钉开放平台 > 应用开发 > 企业内部应用 > 凭证与基础信息 中获取", "help_url": "https://open.dingtalk.com/document/isvapp/isv-obtain-configuration-parameters"}]},
@@ -1507,6 +1633,7 @@ def seed_preset_external_systems() -> None:
         {
             "name": "Linear",
             "description": "Linear 项目管理工具 - Issues、Projects、Teams",
+            "category": "devops",
             "base_url": "https://api.linear.app/graphql",
             "auth_type": "bearer",
             "credential_template": {"fields": [{"key": "token", "label": "API Key", "type": "password", "required": True, "help_text": "在 Linear Settings > API > Personal API keys 中生成", "help_url": "https://linear.app/docs/api-reference"}]},
@@ -1521,6 +1648,7 @@ def seed_preset_external_systems() -> None:
         {
             "name": "OpenSpider",
             "description": "OpenSpider 爬虫管理平台 - 爬虫生命周期管理、数据采集、定时调度",
+            "category": "devops",
             "base_url": "http://localhost:8000",
             "auth_type": "jwt_login",
             "credential_template": {"fields": [
@@ -1557,21 +1685,38 @@ def seed_preset_external_systems() -> None:
         },
     ]
 
+    # 合并大数据生态预设
+    PRESETS.extend(ALL_BIGDATA_PRESETS)
+
     with create_db_session() as db:
         existing = {s.name for s in db.execute(select(ExternalSystemModel)).scalars().all()}
         created_count = 0
+        updated_count = 0
         for preset in PRESETS:
             if preset["name"] in existing:
+                # 更新已有系统的分类（如果还是默认值）
+                sys = db.scalar(select(ExternalSystemModel).where(ExternalSystemModel.name == preset["name"]))
+                preset_cat = preset.get("category", "other")
+                if sys and sys.category == "other" and preset_cat != "other":
+                    sys.category = preset_cat
+                    updated_count += 1
                 continue
             system = ExternalSystemModel(
                 name=preset["name"],
                 description=preset["description"],
+                category=preset.get("category", "other"),
                 base_url=preset["base_url"],
                 auth_type=preset["auth_type"],
                 credential_template_json=json.dumps(preset.get("credential_template", {})),
                 published=True,
                 headers_json="{}",
                 created_by=1,
+                jwt_login_url=preset.get("jwt_login_url"),
+                jwt_refresh_url=preset.get("jwt_refresh_url"),
+                jwt_request_body_template=preset.get("jwt_request_body_template"),
+                jwt_response_token_path=preset.get("jwt_response_token_path"),
+                jwt_response_expires_path=preset.get("jwt_response_expires_path"),
+                jwt_refresh_body_template=preset.get("jwt_refresh_body_template"),
             )
             db.add(system)
             db.flush()
@@ -1588,6 +1733,9 @@ def seed_preset_external_systems() -> None:
                 )
                 db.add(api)
             created_count += 1
-        if created_count > 0:
+        if created_count > 0 or updated_count > 0:
             db.commit()
-            logger.info("Seeded %d preset external systems", created_count)
+            if created_count > 0:
+                logger.info("Seeded %d preset external systems", created_count)
+            if updated_count > 0:
+                logger.info("Updated category for %d existing external systems", updated_count)
