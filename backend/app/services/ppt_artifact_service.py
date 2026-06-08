@@ -179,6 +179,8 @@ def _write_svg_artifact_files(artifact_id: str, resolved_svgs: list[str], previe
 class PptArtifactService:
     def __init__(self, session_factory=create_db_session) -> None:
         self.session_factory = session_factory
+        self._last_quality_errors: list[str] = []
+        self._last_quality_warnings: list[str] = []
 
     async def create_from_slides_dir(
         self, session_id: str, slides_dir: Path,
@@ -191,11 +193,15 @@ class PptArtifactService:
 
         if not slides_dir.exists():
             _logger.debug(f"slides_dir does not exist: {slides_dir}")
+            self._last_quality_errors = [f"幻灯片目录不存在: {slides_dir}"]
+            self._last_quality_warnings = []
             return None
 
         svg_files = sorted(slides_dir.glob("slide_*.svg"), key=_slide_num_key)
         if len(svg_files) < 3:
             _logger.debug(f"Not enough slides: {len(svg_files)} < 3")
+            self._last_quality_errors = [f"幻灯片不足 3 页（当前 {len(svg_files)} 页）"]
+            self._last_quality_warnings = []
             return None
 
         svgs = []
@@ -238,7 +244,7 @@ class PptArtifactService:
                 for w in spec_warnings + layout_warnings:
                     all_warnings.append(f"{slide_name}: {w}")
 
-            # Anti-AI-Slop check
+            # Anti-AI-Slop check — findings are warnings, never block preview
             try:
                 from app.services.ppt.anti_slop_checker import check_anti_slop
                 for i, svg_content in enumerate(svgs):
@@ -246,10 +252,8 @@ class PptArtifactService:
                     slop_findings = check_anti_slop(svg_content)
                     for f in slop_findings:
                         msg = f"{slide_name}: [{f.severity}] {f.code} — {f.message}"
-                        if f.severity == "P0":
-                            critical_errors.append(msg)
-                        else:
-                            all_warnings.append(msg)
+                        # anti-slop 是设计风格检查，不阻断预览
+                        all_warnings.append(msg)
             except Exception as exc:
                 _logger.debug("Anti-slop check skipped: %s", exc)
 
@@ -259,6 +263,8 @@ class PptArtifactService:
                     "SVG quality gate BLOCKED %d critical errors: %s",
                     len(critical_errors), critical_errors,
                 )
+                self._last_quality_errors = critical_errors
+                self._last_quality_warnings = all_warnings[:10]
                 return None
 
             # Log non-critical warnings (do not block)
@@ -269,6 +275,17 @@ class PptArtifactService:
 
         if not validate_svg_slides(svgs):
             _logger.warning(f"validate_svg_slides failed: count={len(svgs)}")
+            # 诊断具体原因
+            reasons = []
+            if len(svgs) < 3:
+                reasons.append(f"SVG 页数不足: {len(svgs)} < 3")
+            for i, svg in enumerate(svgs):
+                if not _VIEWBOX_RE.search(svg):
+                    reasons.append(f"slide_{i+1}.svg 缺少 viewBox 属性")
+            if not reasons:
+                reasons.append("所有幻灯片的 viewBox 不一致")
+            self._last_quality_errors = reasons
+            self._last_quality_warnings = []
             return None
 
         theme_name = _detect_theme_name_from_svg(svgs)

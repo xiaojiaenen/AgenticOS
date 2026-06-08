@@ -28,9 +28,10 @@ def register_quality_checker_tools(registry: ToolRegistry) -> None:
 
         如果不指定 slide_num，则检查所有已保存的幻灯片。
         检查项目包括：XML 合法性、viewBox 一致性、禁止元素检测、
-        字体安全性、尺寸一致性、文本溢出等。
+        字体安全性、尺寸一致性、文本溢出、Anti-AI-Slop 模式检测等。
         """
         from app.services.ppt.svg_quality_checker import SVGQualityChecker
+        from app.services.ppt.anti_slop_checker import check_anti_slop
 
         slides_dir = _find_slides_dir()
         if slides_dir is None:
@@ -69,6 +70,33 @@ def register_quality_checker_tools(registry: ToolRegistry) -> None:
             for w in r.get("warnings", []):
                 lines.append(f"  - ⚠️ {w}")
                 total_warnings += 1
+
+        # Anti-AI-Slop check — P0 treated as errors for LLM to fix, P1 as warnings
+        slop_errors = 0
+        slop_warnings = 0
+        for f in sorted(slides_dir.glob("slide_*.svg")):
+            try:
+                svg_content = f.read_text(encoding="utf-8")
+                findings = check_anti_slop(svg_content)
+                if findings:
+                    lines.append(f"\n**{f.name} Anti-Slop 检查：**")
+                    for finding in findings:
+                        if finding.severity == "P0":
+                            lines.append(f"  - ❌ [P0] {finding.code} — {finding.message}")
+                            slop_errors += 1
+                        else:
+                            lines.append(f"  - ⚠️ [P1] {finding.code} — {finding.message}")
+                            slop_warnings += 1
+            except Exception:
+                pass
+
+        total_errors += slop_errors
+        total_warnings += slop_warnings
+
+        if slop_errors > 0:
+            lines.append(f"\n❌ 发现 {slop_errors} 个 P0 级 Anti-Slop 问题，**必须修复后才能正常预览**。请逐页用 `read_slide` 读取 → 修改 → `save_slide` 覆盖。")
+        elif slop_warnings > 0:
+            lines.append(f"\n⚠️ 发现 {slop_warnings} 个 P1 级 Anti-Slop 问题，建议优化。")
 
         lines.insert(1, f"检查 {len(results)} 个文件：{total_errors} 个错误，{total_warnings} 个警告\n")
         return "\n".join(lines)
