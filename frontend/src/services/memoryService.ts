@@ -20,14 +20,14 @@ export type MemoryResponse = {
 };
 
 async function parseResponse<T>(response: Response): Promise<T> {
-  if (response.ok) return response.json();
+  const raw = await response.text();
+  if (response.ok) return JSON.parse(raw) as T;
   let message = 'Request failed';
   try {
-    const payload = await response.json();
+    const payload = JSON.parse(raw);
     if (typeof payload.detail === 'string') message = payload.detail;
   } catch {
-    const text = await response.text();
-    if (text) message = text;
+    if (raw) message = raw;
   }
   throw new Error(message);
 }
