@@ -47,6 +47,14 @@ class Settings(BaseSettings):
     # 外部系统凭据加密密钥（留空则从 AUTH_SECRET_KEY 派生）
     external_system_encryption_key: str = Field(default="", validation_alias="EXTERNAL_SYSTEM_ENCRYPTION_KEY")
 
+    # 系统通知邮箱配置（用于任务完成通知等系统邮件）
+    notify_email_address: str = Field(default="", validation_alias="NOTIFY_EMAIL_ADDRESS")
+    notify_email_password: str = Field(default="", validation_alias="NOTIFY_EMAIL_PASSWORD")
+    notify_smtp_host: str = Field(default="", validation_alias="NOTIFY_SMTP_HOST")
+    notify_smtp_port: int = Field(default=465, validation_alias="NOTIFY_SMTP_PORT")
+    notify_smtp_ssl: bool = Field(default=True, validation_alias="NOTIFY_SMTP_SSL")
+    notify_task_min_seconds: int = Field(default=120, validation_alias="NOTIFY_TASK_MIN_SECONDS")
+
     model_config = SettingsConfigDict(
         env_file=str(PROJECT_ROOT / "backend" / ".env"),
         env_file_encoding="utf-8",

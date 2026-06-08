@@ -176,6 +176,57 @@ class AuthService:
         self._clear_rate_limit("login", email=normalized_email, client_ip=client_ip)
         return self._auth_response(user)
 
+    def login_with_code(self, *, email: str, code: str) -> dict[str, object]:
+        """验证码登录"""
+        from app.services.verification_service import verify_code
+
+        normalized_email = email.strip().lower()
+
+        # 验证验证码
+        if not verify_code(normalized_email, code, "login"):
+            raise AuthError("验证码错误或已过期")
+
+        # 查找用户
+        user = self.db.scalar(select(UserModel).where(func.lower(UserModel.email) == normalized_email))
+        if user is None:
+            raise AuthError("用户不存在")
+        if not user.is_active:
+            raise AuthError("用户已被禁用")
+
+        return self._auth_response(user)
+
+    def register_with_code(self, *, email: str, name: str, password: str, code: str) -> dict[str, object]:
+        """验证码注册"""
+        from app.services.verification_service import verify_code
+
+        normalized_email = email.strip().lower()
+
+        # 验证验证码
+        if not verify_code(normalized_email, code, "register"):
+            raise AuthError("验证码错误或已过期")
+
+        # 检查邮箱是否已注册
+        existing = self.db.scalar(select(UserModel).where(func.lower(UserModel.email) == normalized_email))
+        if existing is not None:
+            raise AuthError("Email already registered")
+
+        # 创建用户
+        user_count = self.db.scalar(select(func.count(UserModel.id))) or 0
+        user = UserModel(
+            email=email,
+            name=name,
+            password_hash=hash_password(password),
+            role="admin" if user_count == 0 else "user",
+        )
+        self.db.add(user)
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            raise AuthError("Email already registered")
+        self.db.refresh(user)
+        return self._auth_response(user)
+
     def get_user(self, user_id: int) -> UserModel | None:
         return self.db.get(UserModel, user_id)
 

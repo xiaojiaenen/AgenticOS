@@ -1,35 +1,133 @@
-import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { PasswordInput } from '../components/ui/PasswordInput';
-import { register as registerUser } from '../services/authService';
+import { registerWithCode, sendVerificationCode } from '../services/authService';
+
+const EMAIL_SUFFIXES = [
+  '@qq.com', '@163.com', '@126.com', '@gmail.com',
+  '@outlook.com', '@hotmail.com', '@foxmail.com',
+  '@yeah.net', '@sina.com', '@aliyun.com',
+];
 
 export const Signup = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [codeCountdown, setCodeCountdown] = useState(0);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
+
+  const emailRef = useRef<HTMLDivElement>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 邮箱后缀补全
+  const getEmailSuggestions = useCallback(() => {
+    if (!email || email.includes('@')) return [];
+    return EMAIL_SUFFIXES.map((suffix) => email + suffix);
+  }, [email]);
+
+  // 点击外部关闭建议
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (emailRef.current && !emailRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // 倒计时
+  useEffect(() => {
+    if (codeCountdown > 0) {
+      countdownRef.current = setInterval(() => {
+        setCodeCountdown((prev) => {
+          if (prev <= 1) {
+            if (countdownRef.current) clearInterval(countdownRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, [codeCountdown]);
+
+  const handleSendCode = async () => {
+    if (!email.trim()) {
+      setError('请输入邮箱地址');
+      return;
+    }
+    setError(null);
+    try {
+      await sendVerificationCode(email, 'register');
+      setCodeSent(true);
+      setCodeCountdown(60);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '发送验证码失败');
+    }
+  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+    if (!codeSent) {
+      setError('请先发送验证码');
+      return;
+    }
+    if (code.length !== 6) {
+      setError('请输入 6 位验证码');
+      return;
+    }
     setError(null);
     setIsSubmitting(true);
     try {
-      const user = await registerUser(name, email, password);
+      const user = await registerWithCode(name, email, password, code);
       navigate(user.role === 'admin' ? '/admin' : '/chat', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Signup failed');
+      setError(err instanceof Error ? err.message : '注册失败');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const selectSuggestion = (value: string) => {
+    setEmail(value);
+    setShowSuggestions(false);
+    setSelectedSuggestionIdx(-1);
+  };
+
+  const handleEmailKeyDown = (e: React.KeyboardEvent) => {
+    const suggestions = getEmailSuggestions();
+    if (!showSuggestions || suggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedSuggestionIdx((prev) => Math.min(prev + 1, suggestions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedSuggestionIdx((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === 'Enter' && selectedSuggestionIdx >= 0) {
+      e.preventDefault();
+      selectSuggestion(suggestions[selectedSuggestionIdx]);
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
+
+  const suggestions = getEmailSuggestions();
 
   return (
     <motion.div
@@ -51,7 +149,6 @@ export const Signup = () => {
       </motion.button>
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        {/* Animated ambient blobs */}
         <div className="absolute -top-20 -left-12 w-[50vw] h-[50vw] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.20),transparent_70%)] blur-[70px] animate-[bg-blob-2_15s_ease-in-out_infinite]" />
         <div className="absolute -bottom-16 -right-10 w-[48vw] h-[48vw] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.18),transparent_70%)] blur-[70px] animate-[bg-blob-4_17s_ease-in-out_infinite]" />
         <div className="absolute top-1/2 left-1/5 w-[38vw] h-[38vw] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.15),transparent_70%)] blur-[80px] animate-[bg-blob-1_14s_ease-in-out_infinite]" />
@@ -73,45 +170,113 @@ export const Signup = () => {
             <p className="text-slate-500 mt-2.5 text-sm font-medium">创建账号，开始你的智能协作</p>
           </div>
 
-        <form className="space-y-5" onSubmit={handleSignup}>
-          <Input
-            label="昵称"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="请输入您的昵称"
-            required
-            autoComplete="name"
-          />
-          <Input
-            label="邮箱地址"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            required
-            autoComplete="email"
-          />
-          <div>
-  <label htmlFor="signup-password" className="mb-2 ml-1 block text-xs font-bold uppercase tracking-[0.15em] text-slate-500">密码</label>
-  <PasswordInput id="signup-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="至少 6 位" minLength={6} autoComplete="new-password" />
-</div>
+          <form className="space-y-5" onSubmit={handleSignup}>
+            <Input
+              label="昵称"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="请输入您的昵称"
+              required
+              autoComplete="name"
+            />
 
-          {error && (
-            <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm font-medium text-rose-700">
-              {error}
+            {/* 邮箱输入 + 补全 */}
+            <div ref={emailRef} className="relative">
+              <Input
+                label="邮箱地址"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setShowSuggestions(true);
+                  setSelectedSuggestionIdx(-1);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onKeyDown={handleEmailKeyDown}
+                placeholder="you@example.com"
+                required
+                autoComplete="email"
+              />
+              {/* 邮箱后缀建议 */}
+              <AnimatePresence>
+                {showSuggestions && suggestions.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden z-50"
+                  >
+                    {suggestions.map((s, i) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
+                        className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
+                          i === selectedSuggestionIdx
+                            ? 'bg-sky-50 text-sky-700'
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="text-slate-400">{email}</span>
+                        <span className="font-medium">{s.slice(email.length)}</span>
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-          )}
 
-          <Button variant="primary" type="submit" disabled={isSubmitting} className="w-full h-14 text-lg rounded-2xl mt-4">
-            {isSubmitting ? '正在注册...' : '注册账号'}
-          </Button>
-        </form>
+            <div>
+              <label htmlFor="signup-password" className="mb-2 ml-1 block text-xs font-bold uppercase tracking-[0.15em] text-slate-500">密码</label>
+              <PasswordInput id="signup-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="至少 6 位" minLength={6} autoComplete="new-password" />
+            </div>
 
-        <div className="mt-10 text-center text-sm text-slate-500 font-medium">
-          已有账号？ <a href="#" onClick={(e) => { e.preventDefault(); navigate('/login'); }} className="text-brand-600 hover:text-brand-700 font-bold underline decoration-brand-200 underline-offset-4">立即登录</a>
-        </div>
-      </motion.div>
+            {/* 邮箱验证码（必填） */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 ml-1">
+                  邮箱验证码
+                </label>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleSendCode}
+                  disabled={codeCountdown > 0}
+                  className="shrink-0 px-3 py-1 text-xs"
+                >
+                  {codeCountdown > 0 ? `${codeCountdown}s` : '发送验证码'}
+                </Button>
+              </div>
+              <Input
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="输入 6 位验证码"
+                maxLength={6}
+                required
+              />
+              {codeSent && (
+                <p className="text-xs text-emerald-600 font-medium">验证码已发送到您的邮箱，请查收</p>
+              )}
+            </div>
+
+            {error && (
+              <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm font-medium text-rose-700">
+                {error}
+              </div>
+            )}
+
+            <Button variant="primary" type="submit" disabled={isSubmitting} className="w-full h-14 text-lg rounded-2xl mt-4">
+              {isSubmitting ? '正在注册...' : '注册账号'}
+            </Button>
+          </form>
+
+          <div className="mt-10 text-center text-sm text-slate-500 font-medium">
+            已有账号？ <a href="#" onClick={(e) => { e.preventDefault(); navigate('/login'); }} className="text-brand-600 hover:text-brand-700 font-bold underline decoration-brand-200 underline-offset-4">立即登录</a>
+          </div>
+        </motion.div>
       </main>
     </motion.div>
   );
