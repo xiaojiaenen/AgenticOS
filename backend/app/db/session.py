@@ -139,6 +139,7 @@ def _ensure_compatible_schema() -> None:
             ("jwt_request_body_template", "TEXT"),
             ("jwt_response_token_path", "TEXT"),
             ("jwt_response_expires_path", "TEXT"),
+            ("category", "VARCHAR(32) DEFAULT 'other'"),
         ]:
             if col_name not in es_columns:
                 with engine.begin() as connection:

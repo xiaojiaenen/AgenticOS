@@ -61,14 +61,14 @@ def get_system(
 
 
 @admin_router.patch("/{system_id}", response_model=ExternalSystemResponse)
-def update_system(
+async def update_system(
     system_id: int,
     body: ExternalSystemUpdateRequest,
     admin: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     try:
-        return ExternalSystemService(db).update_system(system_id, body)
+        return await ExternalSystemService(db).update_system(system_id, body)
     except KeyError:
         raise HTTPException(status_code=404, detail="External system not found")
 
@@ -194,6 +194,13 @@ def apply_profile_systems(
 # ── User router (integrations) ──────────────────────────────────────────────
 
 router = APIRouter(prefix="/integrations", tags=["Integrations"])
+
+
+@router.get("/categories")
+def list_categories():
+    """返回集成分类列表（预设常量，不提供管理 API）。"""
+    from app.services.external_system_service import INTEGRATION_CATEGORIES
+    return {"items": INTEGRATION_CATEGORIES}
 
 
 @router.get("", response_model=ExternalSystemListResponse)

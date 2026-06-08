@@ -323,6 +323,7 @@ class ExternalSystemModel(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(128))
     description: Mapped[str] = mapped_column(Text, default="")
+    category: Mapped[str] = mapped_column(String(32), default="other", index=True)  # 预设分类，见 INTEGRATION_CATEGORIES
     base_url: Mapped[str] = mapped_column(String(512))
     auth_type: Mapped[str] = mapped_column(String(32))  # api_key / bearer / basic / oauth2 / custom
     credential_template_json: Mapped[str] = mapped_column(Text, default="{}")  # user credential field definitions
