@@ -9,18 +9,25 @@
                     │  /*      → Vite SPA       │
                     └──────────┬───────────────┘
                                │
+                    ┌──────────▼──────────┐
+                    │  Backend :10007     │
+                    │  Python/FastAPI     │
+                    └──────────┬──────────┘
+                               │
               ┌────────────────┼────────────────┐
               │                │                │
      ┌────────▼────────┐  ┌───▼──────────┐  ┌──▼────────┐
-     │  Backend :10007 │  │  外部 MySQL  │  │ 外部 AI   │
-     │  Python/FastAPI │  │              │  │ 服务      │
+     │  外部 MySQL     │  │  外部 Redis  │  │ 外部 AI   │
+     │  （可选）       │  │  （可选）    │  │ 服务      │
      └─────────────────┘  └──────────────┘  └───────────┘
 ```
+
+- MySQL 和 Redis 都是外部服务，不由 docker-compose 管理
+- Redis 留空则自动 fallback 到内存模式（开发环境可用）
 
 ## 前置条件
 
 - **Docker 20.10+** 和 **Docker Compose 2.0+**
-- **MySQL 8.0**（已部署可访问）
 - **Node.js 22+**（仅本地打包前端时需要）
 - 能访问内网基础镜像仓库 `172.73.0.156:85`
 
@@ -54,6 +61,20 @@ OPENAI_BASE_URL=https://your-ai-backend.com
 
 # 认证密钥（务必替换为随机值）
 AUTH_SECRET_KEY=生成一个随机长字符串
+```
+
+可选但推荐：
+
+```env
+# Redis（验证码、输入补全等缓存功能，留空则内存 fallback）
+REDIS_URL=redis://your-redis-host:6379/0
+
+# 系统通知邮箱（验证码发送、任务完成通知、欢迎邮件）
+NOTIFY_EMAIL_ADDRESS=noreply@yourdomain.com
+NOTIFY_EMAIL_PASSWORD=your-app-password
+NOTIFY_SMTP_HOST=smtp.exmail.qq.com
+NOTIFY_SMTP_PORT=465
+NOTIFY_SMTP_SSL=true
 ```
 
 ## 3. 打包前端（本地执行）
@@ -97,27 +118,67 @@ curl -I http://localhost:10008/
 
 ## 环境变量说明
 
-| 变量名 | 必填 | 默认值 | 说明 |
-|--------|------|--------|------|
-| DATABASE_URL | 是 | - | MySQL 连接字符串 |
-| OPENAI_API_KEY | 是 | - | AI 服务 API Key |
-| AUTH_SECRET_KEY | 是 | - | JWT 签名密钥 |
-| OPENAI_BASE_URL | 否 | https://api.openai.com/v1 | AI 服务地址 |
-| OPENAI_MODEL | 否 | gpt-5.4 | 模型名称 |
-| AUTH_TOKEN_EXPIRE_MINUTES | 否 | 10080 | Token 有效期（分钟） |
-| CORS_ALLOW_ORIGINS | 否 | http://localhost:3001 | CORS 允许来源 |
-| SKILL_STORAGE_DIR | 否 | ./data/skills | Skill 存储目录 |
-| BASE_REGISTRY | 否 | 172.73.0.156:85 | 基础镜像仓库地址 |
-| PYPI_MIRROR | 否 | https://pypi.org/simple | PyPI 镜像源 |
-| BACKEND_PORT | 否 | 10007 | 后端端口 |
-| FRONTEND_PORT | 否 | 10008 | 前端端口 |
+### 必填
+
+| 变量名 | 说明 |
+|--------|------|
+| DATABASE_URL | MySQL 连接字符串 |
+| OPENAI_API_KEY | AI 服务 API Key |
+| AUTH_SECRET_KEY | JWT 签名密钥 |
+
+### Redis（可选）
+
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| REDIS_URL | 空（内存 fallback） | Redis 连接地址，如 `redis://your-redis-host:6379/0` |
+| REDIS_CLUSTER | false | 是否使用 Redis 集群模式 |
+
+### 系统通知邮箱（可选）
+
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| NOTIFY_EMAIL_ADDRESS | 空 | 发件邮箱地址 |
+| NOTIFY_EMAIL_PASSWORD | 空 | 邮箱密码/应用专用密码 |
+| NOTIFY_SMTP_HOST | 空 | SMTP 服务器地址 |
+| NOTIFY_SMTP_PORT | 465 | SMTP 端口 |
+| NOTIFY_SMTP_SSL | true | 是否使用 SSL |
+| NOTIFY_TASK_MIN_SECONDS | 120 | 任务完成通知阈值（秒） |
+
+### AI 服务
+
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| OPENAI_BASE_URL | https://api.openai.com/v1 | AI 服务地址 |
+| OPENAI_MODEL | gpt-5.4 | 模型名称 |
+
+### 认证
+
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| AUTH_TOKEN_EXPIRE_MINUTES | 10080 | Token 有效期（分钟） |
+
+### 其他
+
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| CORS_ALLOW_ORIGINS | http://localhost:3001 | CORS 允许来源 |
+| SKILL_STORAGE_DIR | ./data/skills | Skill 存储目录 |
+| BASE_REGISTRY | 172.73.0.156:85 | 基础镜像仓库地址 |
+| PYPI_MIRROR | https://pypi.org/simple | PyPI 镜像源 |
+| BACKEND_PORT | 10007 | 后端端口 |
+| FRONTEND_PORT | 10008 | 前端端口 |
 
 ## 数据持久化
 
 宿主机 `data/` 目录挂载到容器 `/app/data/`：
 
-- `skills/` — Skill 文件
-- 其他运行时文件（SQLite 模式下数据库文件也在此目录）
+- `charts/` — SVG 图表模板（PPT 图表生成）
+- `design-systems/` — 设计系统定义（PPT/网站主题）
+- `design-themes/` — 设计主题
+- `layouts/` — 布局模板
+- `skills/` — Agent 技能
+- `website-templates/` — 网站模板
+- 运行时产物（ppt-output/、ppt-sessions/、websites/）由应用自动创建
 
 ## 前端更新
 
@@ -179,6 +240,31 @@ with engine.connect() as conn:
 "
 ```
 
+### Redis 连接问题
+
+验证 Redis 连通性：
+
+```bash
+docker compose exec backend python -c "
+from app.core.redis import get_redis, is_redis_memory
+print('内存模式' if is_redis_memory() else 'Redis 已连接')
+"
+```
+
+### 验证码发送失败
+
+检查系统邮箱配置：
+
+```bash
+docker compose exec backend python -c "
+from app.core.config import get_settings
+s = get_settings()
+print(f'邮箱: {s.notify_email_address}')
+print(f'SMTP: {s.notify_smtp_host}:{s.notify_smtp_port}')
+print('配置完整' if s.notify_email_address and s.notify_smtp_host else '配置缺失')
+"
+```
+
 ### 基础镜像拉取失败
 
 确认能访问内网仓库：
@@ -210,16 +296,7 @@ ls frontend/dist/index.html
 
 1. **HTTPS**：在 Nginx 前加反向代理处理 SSL 终止
 2. **MySQL**：启用 SSL 连接，定期备份数据库
-3. **密钥管理**：`AUTH_SECRET_KEY` 和 `OPENAI_API_KEY` 通过 secrets 管理
-4. **日志轮转**：配置 Docker 日志 driver 限制日志大小
-5. **资源限制**：在 docker-compose.yml 中添加 `deploy.resources`
-
-   ```yaml
-   services:
-     backend:
-       deploy:
-         resources:
-           limits:
-             cpus: '2'
-             memory: 4G
-   ```
+3. **Redis**：生产环境建议使用外部 Redis 服务，配置密码认证
+4. **密钥管理**：`AUTH_SECRET_KEY`、`OPENAI_API_KEY`、`NOTIFY_EMAIL_PASSWORD` 通过 secrets 管理
+5. **日志轮转**：配置 Docker 日志 driver 限制日志大小
+6. **监控**：配置后端健康检查告警
