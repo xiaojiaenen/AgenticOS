@@ -22,7 +22,7 @@ interface ChatMainAreaProps {
   error: string | null;
   runStatus: { phase: string; label: string };
   inputValue: string;
-  chatMode: 'general' | 'ppt' | 'website';
+  chatMode: 'general' | 'ppt' | 'website' | 'bigdata';
   agentProfiles: AgentProfile[];
   selectedAgentProfileId: number | null;
   showSearch: boolean;
@@ -39,7 +39,7 @@ interface ChatMainAreaProps {
   onSend: (text: string, files?: File[]) => void;
   onStopGeneration: () => void;
   onInputChange: (value: string) => void;
-  onModeChange: (mode: 'general' | 'ppt' | 'website') => void;
+  onModeChange: (mode: 'general' | 'ppt' | 'website' | 'bigdata') => void;
   onAgentProfileChange: (profile: AgentProfile | null) => void;
   onSearchQueryChange: (query: string) => void;
   onSearchPrev: () => void;

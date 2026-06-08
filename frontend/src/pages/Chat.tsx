@@ -49,7 +49,7 @@ export const Chat = () => {
   } = useChatScroll();
 
   const [inputValue, setInputValue] = useState('');
-  const [chatMode, setChatMode] = useState<'general' | 'ppt' | 'website'>(
+  const [chatMode, setChatMode] = useState<'general' | 'ppt' | 'website' | 'bigdata'>(
     (location.state as any)?.mode || 'general',
   );
   const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
@@ -244,8 +244,9 @@ export const Chat = () => {
     setChatMode('general');
     setSelectedAgentProfileId(null);
     setArtifact(null);
+    setInputValue('');
     if (isMobile) setIsSidebarOpen(false);
-  }, [isMobile, setCurrentSessionId]);
+  }, [isMobile, setCurrentSessionId, setArtifact, setInputValue]);
 
   const deleteSession = useCallback(
     (id: string, e: React.MouseEvent) => {
@@ -269,7 +270,7 @@ export const Chat = () => {
   const handleAgentProfileChange = useCallback((profile: AgentProfile | null) => {
     setSelectedAgentProfileId(profile?.id ?? null);
     if (profile) setChatMode(profile.response_mode);
-  }, []);
+  }, [setChatMode]);
 
   return (
     <motion.div

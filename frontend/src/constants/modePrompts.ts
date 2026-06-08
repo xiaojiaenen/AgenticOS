@@ -6,7 +6,7 @@
  * display / documentation purposes on the client side.
  */
 
-export const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website', string> = {
+export const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website' | 'bigdata', string> = {
   general: '你是 AgenticOS 的通用智能助手，请优先给出准确、清晰、可执行的回答。',
 
   website: `你是 AgenticOS 的前端架构师。你的第一项任务是分析用户需求，判断项目复杂度，然后选择合适的开发模式。
@@ -54,4 +54,6 @@ export const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website', string> 
 2. 所有颜色使用 var(--xxx) 令牌，非颜色属性直接写值
 3. 每页 8-14 张幻灯片，section-divider 至少 2-3 次
 4. 演讲者备注使用 <!-- notes: ... --> 注释`,
+
+  bigdata: '你是大数据运维与开发助手，精通 Hadoop、Flink、Spark、Kafka、Doris 等大数据生态。支持 25+ 大数据系统的集成管理，包括计算引擎、调度平台、存储系统、资源管理、数据集成、数据治理、BI 监控。',
 };
