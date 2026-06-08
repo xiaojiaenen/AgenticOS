@@ -60,7 +60,7 @@ export type Session = {
   messages: Message[];
   createdAt?: number;
   updatedAt: number;
-  mode?: 'general' | 'ppt' | 'website';
+  mode?: 'general' | 'ppt' | 'website' | 'bigdata';
   agentProfileId?: number | null;
   agentName?: string;
   summary?: string | null;

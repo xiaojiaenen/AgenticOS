@@ -15,8 +15,8 @@ interface ChatInputProps {
   isLoading: boolean;
   className?: string;
   placeholder?: string;
-  chatMode: 'general' | 'ppt' | 'website';
-  setChatMode: (mode: 'general' | 'ppt' | 'website') => void;
+  chatMode: 'general' | 'ppt' | 'website' | 'bigdata';
+  setChatMode: (mode: 'general' | 'ppt' | 'website' | 'bigdata') => void;
   agentProfiles?: AgentProfile[];
   selectedAgentProfileId?: number | null;
   onAgentProfileChange?: (profile: AgentProfile | null) => void;
@@ -108,6 +108,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 
   const handleFileChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) setFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+    // 重置 input value，否则同一文件再次选择不会触发 onChange
+    e.target.value = '';
   }, []);
 
   const handleDragOver = React.useCallback((e: React.DragEvent) => {
@@ -186,7 +188,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             selectedId={selectedAgentProfileId ?? null}
             onSelect={(agent) => {
               onAgentProfileChange?.(agent);
-              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website');
+              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website' | 'bigdata');
             }}
             variant="compact"
             disabled={isModeLocked}
