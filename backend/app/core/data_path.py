@@ -17,7 +17,11 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Project root — 4 levels up from backend/app/core/data_path.py
 # ---------------------------------------------------------------------------
-PROJECT_ROOT: Path = Path(__file__).resolve().parents[3]
+# os.chdir(PROJECT_ROOT) is called in main.py at startup, so cwd is reliable.
+# Use cwd first (works for both installed-package and source-tree execution).
+_CWD = Path.cwd()
+_FILE_BASED = Path(__file__).resolve().parents[3]
+PROJECT_ROOT: Path = _CWD if (_CWD / "data").is_dir() else _FILE_BASED
 
 # ---------------------------------------------------------------------------
 # Well-known data sub-directories
