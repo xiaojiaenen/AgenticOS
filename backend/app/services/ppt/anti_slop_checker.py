@@ -52,7 +52,7 @@ P0_PATTERNS = [
     # --- huashu-design 增强 ---
     {
         "code": "bento_overuse",
-        "pattern": r'<svg[^>]*>.*?<g\s+id="card-\d+".*?<g\s+id="card-\d+".*?<g\s+id="card-\d+"',
+        "pattern": r'<svg[^>]*>.*?<g\s+id="card-\d+".*?<g\s+id="card-\d+".*?<g\s+id="card-\d+".*?<g\s+id="card-\d+"',
         "message": "避免 Bento Grid 滥用（每页 >3 个相同结构的卡片）",
         "dotall": True,
     },
