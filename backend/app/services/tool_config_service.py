@@ -22,7 +22,122 @@ AGENT_MODES = {
         "label": "网站模式",
         "description": "用于页面方案、前端代码和交互式应用生成。",
     },
+    "bigdata": {
+        "label": "大数据模式",
+        "description": "大数据平台运维与开发助手。支持 Dinky/Flink/Spark/Doris/ClickHouse 计算引擎、"
+                       "DolphinScheduler/Airflow 工作流调度、HDFS/Kafka/MinIO 存储、YARN/K8s 资源管理、"
+                       "SeaTunnel/NiFi 数据集成、OpenMetadata/DataHub 数据治理、Superset/Grafana 监控 BI。",
+    },
 }
+
+
+# ---------------------------------------------------------------------------
+# 工具自动发现：mode → registrar 函数列表
+# 新增工具只需在这里注册，TOOL_CATALOG 和 DEFAULT_MODE_TOOLS 自动生成
+# ---------------------------------------------------------------------------
+_MODE_TOOL_REGISTRARS: dict[str, list[tuple[str, str]]] = {
+    "ppt": [
+        ("app.tools.icon_tools", "register_icon_tools"),
+        ("app.tools.ppt_tools", "register_ppt_tools"),
+        ("app.tools.chart_tools", "register_chart_tools"),
+        ("app.tools.quality_checker_tools", "register_quality_checker_tools"),
+        ("app.tools.pptx_reverse_tools", "register_pptx_reverse_tools"),
+        ("app.tools.template_tools", "register_template_tools"),
+    ],
+    "website": [
+        ("app.tools.website_tools", "register_website_tools"),
+        ("app.tools.website_file_tools", "register_website_file_tools"),
+    ],
+}
+
+
+def _discover_all_mode_tools() -> dict[str, set[str]]:
+    """从各 mode 的 registrar 函数中自动发现工具名。返回 {mode: {tool_name, ...}}。"""
+    from wuwei.tools import ToolRegistry
+    result: dict[str, set[str]] = {}
+    for mode, registrars in _MODE_TOOL_REGISTRARS.items():
+        tools: set[str] = set()
+        for module_path, func_name in registrars:
+            try:
+                import importlib
+                mod = importlib.import_module(module_path)
+                registrar = getattr(mod, func_name)
+                reg = ToolRegistry()
+                registrar(reg)
+                tools.update(t.name for t in reg.list_tools())
+            except Exception:
+                pass
+        result[mode] = tools
+    return result
+
+
+def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
+    """基于自动发现 + 手动覆盖，构建完整的 DEFAULT_MODE_TOOLS。"""
+    # 基础模板：每个 mode 都有的通用工具
+    _BASE: dict[str, dict[str, bool]] = {
+        "calc": {"enabled": False, "requires_approval": False},
+        "time": {"enabled": False, "requires_approval": False},
+        "file": {"enabled": False, "requires_approval": True},
+        "file_to_md": {"enabled": True, "requires_approval": False},
+        "python": {"enabled": False, "requires_approval": True},
+        "git": {"enabled": False, "requires_approval": True},
+        "npm": {"enabled": False, "requires_approval": True},
+        "skill": {"enabled": True, "requires_approval": False},
+        "memory": {"enabled": False, "requires_approval": False},
+        "decision": {"enabled": True, "requires_approval": False},
+        "email": {"enabled": False, "requires_approval": True},
+    }
+    # 每个 mode 的手动覆盖（需要特殊 enabled/approval 配置的工具）
+    _MODE_OVERRIDES: dict[str, dict[str, dict[str, bool]]] = {
+        "general": {
+            "calc": {"enabled": True, "requires_approval": False},
+            "time": {"enabled": True, "requires_approval": False},
+            "file": {"enabled": True, "requires_approval": True},
+            "memory": {"enabled": True, "requires_approval": False},
+            "email": {"enabled": True, "requires_approval": True},
+            "skill": {"enabled": False, "requires_approval": False},
+        },
+        "ppt": {
+            "file_to_md": {"enabled": True, "requires_approval": False},
+            "search_icons": {"enabled": True, "requires_approval": False},
+            "convert_pptx_to_svg": {"enabled": True, "requires_approval": True},
+            "import_pptx_template": {"enabled": True, "requires_approval": True},
+            "email": {"enabled": False, "requires_approval": True},
+            "memory": {"enabled": False, "requires_approval": False},
+        },
+        "website": {
+            "calc": {"enabled": True, "requires_approval": False},
+            "time": {"enabled": True, "requires_approval": False},
+            "file": {"enabled": True, "requires_approval": True},
+            "npm": {"enabled": True, "requires_approval": True},
+            "skill": {"enabled": False, "requires_approval": False},
+            "build_website": {"enabled": True, "requires_approval": False},
+            "deploy_website": {"enabled": True, "requires_approval": True},
+        },
+        "bigdata": {
+            "calc": {"enabled": True, "requires_approval": False},
+            "time": {"enabled": True, "requires_approval": False},
+            "file": {"enabled": False, "requires_approval": True},
+            "file_to_md": {"enabled": True, "requires_approval": False},
+            "memory": {"enabled": True, "requires_approval": False},
+            "skill": {"enabled": False, "requires_approval": False},
+        },
+    }
+    # 从 registrar 自动发现的工具默认 enabled=True, requires_approval=False
+    discovered = _discover_all_mode_tools()
+    result: dict[str, dict[str, dict[str, bool]]] = {}
+    for mode in AGENT_MODES:
+        tools = dict(_BASE)  # copy base
+        # 自动发现的工具：默认 enabled
+        for tool_name in discovered.get(mode, set()):
+            if tool_name not in tools:
+                tools[tool_name] = {"enabled": True, "requires_approval": False}
+        # 手动覆盖
+        for tool_name, cfg in _MODE_OVERRIDES.get(mode, {}).items():
+            tools[tool_name] = cfg
+        result[mode] = tools
+    return result
+
 
 TOOL_CATALOG = {
     "calc": {
@@ -247,58 +362,27 @@ TOOL_CATALOG = {
     },
 }
 
-DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = {
-    "general": {
-        "calc": {"enabled": True, "requires_approval": False},
-        "time": {"enabled": True, "requires_approval": False},
-        "file": {"enabled": True, "requires_approval": True},
-        "file_to_md": {"enabled": True, "requires_approval": False},
-        "python": {"enabled": False, "requires_approval": True},
-        "git": {"enabled": False, "requires_approval": True},
-        "npm": {"enabled": False, "requires_approval": True},
-        "skill": {"enabled": False, "requires_approval": False},
-        "email": {"enabled": True, "requires_approval": True},
-        "decision": {"enabled": True, "requires_approval": False},
-        "memory": {"enabled": True, "requires_approval": False},
-    },
-    "ppt": {
-        "calc": {"enabled": False, "requires_approval": False},
-        "time": {"enabled": False, "requires_approval": False},
-        "file": {"enabled": False, "requires_approval": True},
-        "file_to_md": {"enabled": True, "requires_approval": False},
-        "python": {"enabled": False, "requires_approval": True},
-        "git": {"enabled": False, "requires_approval": True},
-        "npm": {"enabled": False, "requires_approval": True},
-        "skill": {"enabled": True, "requires_approval": False},
-        "memory": {"enabled": False, "requires_approval": False},
-        "search_icons": {"enabled": True, "requires_approval": False},
-        "save_slide": {"enabled": True, "requires_approval": False},
-        "read_slide": {"enabled": True, "requires_approval": False},
-        "calc_chart_positions": {"enabled": True, "requires_approval": False},
-        "check_svg_quality": {"enabled": True, "requires_approval": False},
-        "convert_pptx_to_svg": {"enabled": True, "requires_approval": True},
-        "import_pptx_template": {"enabled": True, "requires_approval": True},
-        "email": {"enabled": False, "requires_approval": True},
-        "decision": {"enabled": True, "requires_approval": False},
-    },
-    "website": {
-        "calc": {"enabled": True, "requires_approval": False},
-        "time": {"enabled": True, "requires_approval": False},
-        "file": {"enabled": True, "requires_approval": True},
-        "file_to_md": {"enabled": True, "requires_approval": False},
-        "python": {"enabled": False, "requires_approval": True},
-        "git": {"enabled": False, "requires_approval": True},
-        "npm": {"enabled": True, "requires_approval": True},
-        "skill": {"enabled": False, "requires_approval": False},
-        "email": {"enabled": False, "requires_approval": True},
-        "decision": {"enabled": True, "requires_approval": False},
-        "memory": {"enabled": False, "requires_approval": False},
-        "copy_template": {"enabled": True, "requires_approval": False},
-        "check_website_project": {"enabled": True, "requires_approval": False},
-        "build_website": {"enabled": True, "requires_approval": False},
-        "deploy_website": {"enabled": True, "requires_approval": True},
-    },
-}
+# 自动生成 DEFAULT_MODE_TOOLS：base 通用工具 + registrar 自动发现 + mode 覆盖
+DEFAULT_MODE_TOOLS: dict[str, dict[str, dict[str, bool]]] = _build_default_mode_tools()
+
+
+def _get_catalog_entry(tool_name: str) -> dict:
+    """获取工具的 catalog 条目。TOOL_CATALOG 中有的用其配置，没有的自动生成默认条目。"""
+    if tool_name in TOOL_CATALOG:
+        return TOOL_CATALOG[tool_name]
+    return {
+        "label": tool_name,
+        "description": "",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    }
+
+
+# 收集所有 DEFAULT_MODE_TOOLS 中出现的工具名，用于兜底
+_ALL_KNOWN_TOOLS: set[str] = set()
+for _mode_tools in DEFAULT_MODE_TOOLS.values():
+    _ALL_KNOWN_TOOLS.update(_mode_tools.keys())
 
 
 @dataclass(frozen=True)
@@ -404,7 +488,7 @@ class ToolConfigService:
 
         configs_by_mode: dict[str, list[dict[str, object]]] = {mode: [] for mode in AGENT_MODES}
         for row in rows:
-            if row.mode not in AGENT_MODES or row.tool_name not in TOOL_CATALOG:
+            if row.mode not in AGENT_MODES:
                 continue
             configs_by_mode[row.mode].append(
                 {
@@ -416,16 +500,18 @@ class ToolConfigService:
                 }
             )
 
+        # catalog: TOOL_CATALOG 手动条目 + DEFAULT_MODE_TOOLS 中自动发现的条目
+        all_tool_names = set(TOOL_CATALOG.keys()) | _ALL_KNOWN_TOOLS
         return {
             "catalog": [
                 {
                     "name": name,
-                    "label": item["label"],
-                    "description": item["description"],
-                    "approval_scope": item["approval_scope"],
-                    "sub_tools": self._build_sub_tools_list(item),
+                    "label": _get_catalog_entry(name)["label"],
+                    "description": _get_catalog_entry(name)["description"],
+                    "approval_scope": _get_catalog_entry(name)["approval_scope"],
+                    "sub_tools": self._build_sub_tools_list(_get_catalog_entry(name)),
                 }
-                for name, item in TOOL_CATALOG.items()
+                for name in sorted(all_tool_names)
             ],
             "modes": [
                 {
@@ -452,7 +538,7 @@ class ToolConfigService:
             }
             for item in tools:
                 tool_name = str(item["tool_name"])
-                if tool_name not in TOOL_CATALOG:
+                if tool_name not in _ALL_KNOWN_TOOLS:
                     raise KeyError(f"Unknown tool: {tool_name}")
                 row = existing.get(tool_name)
                 if row is None:
@@ -481,9 +567,7 @@ class ToolConfigService:
         approval_tools: set[str] = set()
         signature: list[tuple[str, bool, bool]] = []
         for row in rows:
-            catalog_item = TOOL_CATALOG.get(row.tool_name)
-            if not catalog_item:
-                continue
+            catalog_item = _get_catalog_entry(row.tool_name)
             signature.append((row.tool_name, row.enabled, row.requires_approval))
             if not row.enabled:
                 continue
