@@ -1,8 +1,20 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
-import { MascotHappy, ChevronDownIcon } from './AnimatedIcons';
+import { MascotHappy, MascotGeneral, MascotPPT, MascotWebsite, MascotBigData, ChevronDownIcon } from './AnimatedIcons';
 import { AgentProfile } from '../../services/agentProfileService';
+
+// 不同模式的小精灵组件和颜色
+const MODE_STYLES: Record<string, { Mascot: React.FC<{ size?: number; className?: string }>; bg: string; ring: string; text: string }> = {
+  general: { Mascot: MascotGeneral, bg: 'bg-sky-500',    ring: 'ring-sky-100',    text: 'text-sky-700' },
+  ppt:     { Mascot: MascotPPT,     bg: 'bg-violet-500',  ring: 'ring-violet-100', text: 'text-violet-700' },
+  website: { Mascot: MascotWebsite, bg: 'bg-emerald-500', ring: 'ring-emerald-100',text: 'text-emerald-700' },
+  bigdata: { Mascot: MascotBigData, bg: 'bg-orange-500',  ring: 'ring-orange-100', text: 'text-orange-700' },
+};
+
+function getModeStyle(mode?: string) {
+  return MODE_STYLES[mode || ''] || MODE_STYLES.general;
+}
 
 interface AgentSelectorProps {
   agents: AgentProfile[];
@@ -86,9 +98,9 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
         >
           <div className={cn(
             'flex h-5 w-5 items-center justify-center rounded-md border-2 text-[10px] font-bold',
-            selectedId ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-slate-300 text-slate-400',
+            selectedId ? `${getModeStyle(selected?.response_mode).bg} border-transparent text-white` : 'border-slate-300 text-slate-400',
           )}>
-            <MascotHappy size={12} />
+            {(() => { const M = selected ? getModeStyle(selected.response_mode).Mascot : null; return M ? <M size={12} /> : <MascotHappy size={12} />; })()}
           </div>
         </button>
 
@@ -119,17 +131,17 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                   aria-selected={selectedId === agent.id}
                   className={cn(
                     'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
-                    selectedId === agent.id ? 'bg-sky-50/70 ring-1 ring-sky-100' : '',
+                    selectedId === agent.id ? `bg-${getModeStyle(agent.response_mode).ring.replace('ring-', '')}/70 ring-1 ${getModeStyle(agent.response_mode).ring}` : '',
                   )}
                 >
                   <span className={cn(
                     'flex h-8 w-8 items-center justify-center rounded-xl text-sm shadow-sm transition-transform',
-                    selectedId === agent.id ? 'bg-sky-500 text-white' : 'bg-sky-50 text-slate-500',
+                    selectedId === agent.id ? `${getModeStyle(agent.response_mode).bg} text-white` : 'bg-sky-50 text-slate-500',
                   )}>
-                    <MascotHappy size={20} />
+                    {getModeStyle(agent.response_mode).Mascot ? React.createElement(getModeStyle(agent.response_mode).Mascot, { size: 20 }) : <MascotHappy size={20} />}
                   </span>
                   <div className="min-w-0 flex flex-col">
-                    <span className={cn('truncate text-xs font-bold transition-colors', selectedId === agent.id ? 'text-sky-700' : 'text-slate-700')}>
+                    <span className={cn('truncate text-xs font-bold transition-colors', selectedId === agent.id ? getModeStyle(agent.response_mode).text : 'text-slate-700')}>
                       {agent.name}
                     </span>
                     <span className="truncate text-[9px] font-medium text-slate-400">
@@ -157,9 +169,9 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
       >
         <div className={cn(
           'w-6 h-6 rounded-lg flex items-center justify-center transition-all shadow-sm',
-          selectedId ? 'bg-sky-500 text-white shadow-glow' : 'bg-sky-100',
+          selectedId ? `${getModeStyle(selected?.response_mode).bg} text-white shadow-glow` : 'bg-sky-100',
         )}>
-          <MascotHappy size={14} />
+          {(() => { const M = selected ? getModeStyle(selected.response_mode).Mascot : null; return M ? <M size={14} /> : <MascotHappy size={14} />; })()}
         </div>
         {selected?.name || '选择智能体'}
         <ChevronDownIcon size={14} className={cn('transition-transform', showMenu && 'rotate-180')} />
@@ -187,17 +199,17 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                 aria-selected={selectedId === agent.id}
                 className={cn(
                   'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
-                  selectedId === agent.id ? 'bg-sky-50/70 ring-1 ring-sky-100' : '',
+                  selectedId === agent.id ? `bg-${getModeStyle(agent.response_mode).ring.replace('ring-', '')}/70 ring-1 ${getModeStyle(agent.response_mode).ring}` : '',
                 )}
               >
                 <span className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-xl text-sm shadow-sm transition-transform',
-                  selectedId === agent.id ? 'bg-sky-500 text-white' : 'bg-sky-50 text-slate-500',
+                  selectedId === agent.id ? `${getModeStyle(agent.response_mode).bg} text-white` : 'bg-sky-50 text-slate-500',
                 )}>
-                  <MascotHappy size={20} />
+                  {React.createElement(getModeStyle(agent.response_mode).Mascot, { size: 20 })}
                 </span>
                 <div className="min-w-0 flex flex-col">
-                  <span className={cn('truncate text-xs font-bold transition-colors', selectedId === agent.id ? 'text-sky-700' : 'text-slate-700')}>
+                  <span className={cn('truncate text-xs font-bold transition-colors', selectedId === agent.id ? getModeStyle(agent.response_mode).text : 'text-slate-700')}>
                     {agent.name}
                   </span>
                   <span className="truncate text-[9px] font-medium text-slate-400">

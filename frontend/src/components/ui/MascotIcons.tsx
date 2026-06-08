@@ -351,3 +351,114 @@ export const MascotLoveStatic = ({ size = 24, className }: { size?: number; clas
     </g>
   </svg>
 );
+
+// ── Mode-specific mascots: 小精灵 + 模式标识 ──────────────────────────────
+// viewBox 0 0 140 100 — 右侧给大尺寸标识留空间
+// 小精灵占左侧 ~85px，标识占右侧，大小 ~45px，与小精灵身体差不多大
+
+/** 通用模式：小精灵举着聊天气泡 */
+export const MascotGeneral = ({ size = 24, className }: { size?: number; className?: string }) => (
+  <motion.svg width={size} height={size} viewBox="0 0 140 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <motion.g animate={{ y: [-2, 2, -2] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
+      <path d="M20 40 L30 10 L50 30 Z" fill="currentColor" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M80 40 L70 10 L50 30 Z" fill="currentColor" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+      <rect x="15" y="25" width="70" height="55" rx="25" fill="currentColor" />
+      <rect x="25" y="35" width="50" height="35" rx="15" fill="white" />
+      <motion.ellipse cx="40" cy="48" rx="4" ry="4" fill="#0f172a" animate={{ scaleY: [1, 1, 0.15, 1, 1] }} transition={{ duration: 4, repeat: Infinity, times: [0, 0.45, 0.5, 0.55, 1] }} style={{ transformOrigin: '40px 48px' }} />
+      <motion.ellipse cx="60" cy="48" rx="4" ry="4" fill="#0f172a" animate={{ scaleY: [1, 1, 0.15, 1, 1] }} transition={{ duration: 4, repeat: Infinity, times: [0, 0.45, 0.5, 0.55, 1] }} style={{ transformOrigin: '60px 48px' }} />
+      <circle cx="32" cy="54" r="3" fill="#e2e8f0" opacity="0.8" />
+      <circle cx="68" cy="54" r="3" fill="#e2e8f0" opacity="0.8" />
+      <path d="M46 54 Q50 58 54 54" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" fill="none" />
+    </motion.g>
+    {/* 聊天气泡 — 大尺寸，与小精灵身体差不多大 */}
+    <g transform="translate(88, 28)">
+      <rect x="0" y="0" width="44" height="34" rx="10" fill="#38bdf8" />
+      <path d="M8 34 L14 27 L20 34" fill="#38bdf8" />
+      <circle cx="13" cy="17" r="3.5" fill="white" />
+      <circle cx="22" cy="17" r="3.5" fill="white" />
+      <circle cx="31" cy="17" r="3.5" fill="white" />
+    </g>
+  </motion.svg>
+);
+
+/** PPT 模式：小精灵举着图表 */
+export const MascotPPT = ({ size = 24, className }: { size?: number; className?: string }) => (
+  <motion.svg width={size} height={size} viewBox="0 0 140 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <motion.g animate={{ y: [-2, 2, -2] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
+      <path d="M20 40 L30 10 L50 30 Z" fill="currentColor" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M80 40 L70 10 L50 30 Z" fill="currentColor" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+      <rect x="15" y="25" width="70" height="55" rx="25" fill="currentColor" />
+      <rect x="25" y="35" width="50" height="35" rx="15" fill="white" />
+      <motion.ellipse cx="40" cy="48" rx="4" ry="4" fill="#0f172a" animate={{ scaleY: [1, 1, 0.15, 1, 1] }} transition={{ duration: 4, repeat: Infinity, times: [0, 0.45, 0.5, 0.55, 1] }} style={{ transformOrigin: '40px 48px' }} />
+      <motion.ellipse cx="60" cy="48" rx="4" ry="4" fill="#0f172a" animate={{ scaleY: [1, 1, 0.15, 1, 1] }} transition={{ duration: 4, repeat: Infinity, times: [0, 0.45, 0.5, 0.55, 1] }} style={{ transformOrigin: '60px 48px' }} />
+      <circle cx="32" cy="54" r="3" fill="#e2e8f0" opacity="0.8" />
+      <circle cx="68" cy="54" r="3" fill="#e2e8f0" opacity="0.8" />
+      <path d="M46 54 Q50 58 54 54" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" fill="none" />
+    </motion.g>
+    {/* 柱状图 — 大尺寸 */}
+    <g transform="translate(88, 22)">
+      <rect x="0" y="30" width="12" height="40" rx="2" fill="#8b5cf6" />
+      <rect x="16" y="10" width="12" height="60" rx="2" fill="#a78bfa" />
+      <rect x="32" y="20" width="12" height="50" rx="2" fill="#c4b5fd" />
+    </g>
+  </motion.svg>
+);
+
+/** 网站模式：小精灵举着地球仪 */
+export const MascotWebsite = ({ size = 24, className }: { size?: number; className?: string }) => (
+  <motion.svg width={size} height={size} viewBox="0 0 140 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <motion.g animate={{ y: [-2, 2, -2] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
+      <path d="M20 40 L30 10 L50 30 Z" fill="currentColor" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M80 40 L70 10 L50 30 Z" fill="currentColor" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+      <rect x="15" y="25" width="70" height="55" rx="25" fill="currentColor" />
+      <rect x="25" y="35" width="50" height="35" rx="15" fill="white" />
+      <motion.ellipse cx="40" cy="48" rx="4" ry="4" fill="#0f172a" animate={{ scaleY: [1, 1, 0.15, 1, 1] }} transition={{ duration: 4, repeat: Infinity, times: [0, 0.45, 0.5, 0.55, 1] }} style={{ transformOrigin: '40px 48px' }} />
+      <motion.ellipse cx="60" cy="48" rx="4" ry="4" fill="#0f172a" animate={{ scaleY: [1, 1, 0.15, 1, 1] }} transition={{ duration: 4, repeat: Infinity, times: [0, 0.45, 0.5, 0.55, 1] }} style={{ transformOrigin: '60px 48px' }} />
+      <circle cx="32" cy="54" r="3" fill="#e2e8f0" opacity="0.8" />
+      <circle cx="68" cy="54" r="3" fill="#e2e8f0" opacity="0.8" />
+      <path d="M46 54 Q50 58 54 54" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" fill="none" />
+    </motion.g>
+    {/* 地球仪 — 大尺寸 */}
+    <g transform="translate(86, 18)">
+      <circle cx="22" cy="22" r="22" fill="#10b981" stroke="#059669" strokeWidth="1.5" />
+      <ellipse cx="22" cy="22" rx="10" ry="22" fill="none" stroke="white" strokeWidth="1.5" opacity="0.6" />
+      <line x1="0" y1="22" x2="44" y2="22" stroke="white" strokeWidth="1.5" opacity="0.6" />
+      <line x1="22" y1="0" x2="22" y2="44" stroke="white" strokeWidth="1.2" opacity="0.4" />
+      <ellipse cx="22" cy="12" rx="18" ry="4" fill="none" stroke="white" strokeWidth="0.8" opacity="0.4" />
+      <ellipse cx="22" cy="32" rx="18" ry="4" fill="none" stroke="white" strokeWidth="0.8" opacity="0.4" />
+    </g>
+  </motion.svg>
+);
+
+/** 大数据模式：小精灵举着齿轮 */
+export const MascotBigData = ({ size = 24, className }: { size?: number; className?: string }) => (
+  <motion.svg width={size} height={size} viewBox="0 0 140 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <motion.g animate={{ y: [-2, 2, -2] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
+      <path d="M20 40 L30 10 L50 30 Z" fill="currentColor" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M80 40 L70 10 L50 30 Z" fill="currentColor" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+      <rect x="15" y="25" width="70" height="55" rx="25" fill="currentColor" />
+      <rect x="25" y="35" width="50" height="35" rx="15" fill="white" />
+      <motion.ellipse cx="40" cy="48" rx="4" ry="4" fill="#0f172a" animate={{ scaleY: [1, 1, 0.15, 1, 1] }} transition={{ duration: 4, repeat: Infinity, times: [0, 0.45, 0.5, 0.55, 1] }} style={{ transformOrigin: '40px 48px' }} />
+      <motion.ellipse cx="60" cy="48" rx="4" ry="4" fill="#0f172a" animate={{ scaleY: [1, 1, 0.15, 1, 1] }} transition={{ duration: 4, repeat: Infinity, times: [0, 0.45, 0.5, 0.55, 1] }} style={{ transformOrigin: '60px 48px' }} />
+      <circle cx="32" cy="54" r="3" fill="#e2e8f0" opacity="0.8" />
+      <circle cx="68" cy="54" r="3" fill="#e2e8f0" opacity="0.8" />
+      <path d="M46 54 Q50 58 54 54" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" fill="none" />
+    </motion.g>
+    {/* 齿轮 — 大尺寸，旋转动画 */}
+    <g transform="translate(86, 18)">
+      <motion.g animate={{ rotate: [0, 360] }} transition={{ duration: 10, repeat: Infinity, ease: "linear" }} style={{ transformOrigin: '22px 22px' }}>
+        <circle cx="22" cy="22" r="14" fill="#f97316" />
+        <circle cx="22" cy="22" r="6" fill="white" />
+        {/* 8 个齿 */}
+        <rect x="19" y="0" width="6" height="10" rx="2" fill="#f97316" />
+        <rect x="19" y="34" width="6" height="10" rx="2" fill="#f97316" />
+        <rect x="0" y="19" width="10" height="6" rx="2" fill="#f97316" />
+        <rect x="34" y="19" width="10" height="6" rx="2" fill="#f97316" />
+        <rect x="4" y="4" width="7" height="7" rx="2" fill="#f97316" transform="rotate(45 7.5 7.5)" />
+        <rect x="33" y="4" width="7" height="7" rx="2" fill="#f97316" transform="rotate(45 36.5 7.5)" />
+        <rect x="4" y="33" width="7" height="7" rx="2" fill="#f97316" transform="rotate(45 7.5 36.5)" />
+        <rect x="33" y="33" width="7" height="7" rx="2" fill="#f97316" transform="rotate(45 36.5 36.5)" />
+      </motion.g>
+    </g>
+  </motion.svg>
+);

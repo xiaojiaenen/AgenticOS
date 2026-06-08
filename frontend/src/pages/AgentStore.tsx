@@ -6,17 +6,21 @@ import { Logo } from '../components/Logo';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { RandomMascot } from '../components/ui/RandomMascot';
+import { MascotHappy, MascotGeneral, MascotPPT, MascotWebsite, MascotBigData } from '../components/ui/MascotIcons';
 import { AgentProfile, getAgentStore, installAgent, uninstallAgent } from '../services/agentProfileService';
 import { cn } from '../lib/utils';
 
-const agentAccent = [
-  'from-cyan-400 to-sky-500',
-  'from-emerald-400 to-teal-500',
-  'from-amber-300 to-orange-400',
-  'from-fuchsia-400 to-rose-500',
-  'from-indigo-400 to-blue-500',
-  'from-lime-300 to-emerald-500',
-];
+// 模式 → 小精灵 + 颜色
+const MODE_CARD_STYLES: Record<string, { Mascot: React.FC<{ size?: number; className?: string }>; gradient: string; shadow: string }> = {
+  general: { Mascot: MascotGeneral, gradient: 'from-cyan-400 to-sky-500',    shadow: 'shadow-sky-500/15' },
+  ppt:     { Mascot: MascotPPT,     gradient: 'from-violet-400 to-purple-500', shadow: 'shadow-violet-500/15' },
+  website: { Mascot: MascotWebsite, gradient: 'from-emerald-400 to-teal-500',  shadow: 'shadow-emerald-500/15' },
+  bigdata: { Mascot: MascotBigData, gradient: 'from-orange-400 to-amber-500',  shadow: 'shadow-orange-500/15' },
+};
+
+function getCardStyle(mode?: string) {
+  return MODE_CARD_STYLES[mode || ''] || MODE_CARD_STYLES.general;
+}
 
 export const AgentStore = () => {
   const navigate = useNavigate();
@@ -133,7 +137,6 @@ export const AgentStore = () => {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {agents.map((agent, index) => {
               const canUse = agent.installed;
-              const accent = agentAccent[index % agentAccent.length];
               return (
                 <motion.article
                   key={agent.id}
@@ -143,8 +146,8 @@ export const AgentStore = () => {
                   className="group flex min-h-[190px] flex-col rounded-2xl border border-white/65 bg-white/62 p-4 shadow-md backdrop-blur-2xl"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg shadow-sky-500/15 transition-transform duration-300 group-hover:scale-110', accent)}>
-                      <Bot size={21} />
+                    <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg transition-transform duration-300 group-hover:scale-110', getCardStyle(agent.response_mode).gradient, getCardStyle(agent.response_mode).shadow)}>
+                      {(() => { const M = getCardStyle(agent.response_mode).Mascot; return <M size={28} className="text-white" />; })()}
                     </div>
                     {canUse && (
                       <Badge variant="success" size="md">
