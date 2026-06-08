@@ -20,7 +20,7 @@ from app.db.models import (
     UserModel,
 )
 from app.db.session import create_db_session
-from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT
+from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT, BIGDATA_SYSTEM_PROMPT
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
 from app.services.session_storage import parse_approval_sub_tools, slugify
 from app.services.skill_service import RuntimeSkill, SkillService
@@ -34,6 +34,7 @@ MODE_DEFAULT_PROMPTS: dict[str, str] = {
     "general": GENERAL_SYSTEM_PROMPT,
     "ppt": PPT_SYSTEM_PROMPT,
     "website": WEBSITE_ROUTER_PROMPT,
+    "bigdata": BIGDATA_SYSTEM_PROMPT,
 }
 
 GENERIC_PROMPTS = {
