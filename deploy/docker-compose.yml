@@ -10,9 +10,7 @@ services:
       args:
         BASE_REGISTRY: ${BASE_REGISTRY:-172.73.0.156:85}
         PYPI_MIRROR: ${PYPI_MIRROR:-https://pypi.org/simple}
-    restart: unless-stopped
-    # 安全：移除 seccomp:unconfined，使用默认 seccomp profile
-    # 资源限制：防止失控进程耗尽主机资源
+    restart: always
     deploy:
       resources:
         limits:
@@ -21,7 +19,6 @@ services:
         reservations:
           cpus: "0.5"
           memory: 1G
-    # 只读根文件系统（数据卷单独挂载）
     read_only: true
     tmpfs:
       - /tmp:size=512M
@@ -49,7 +46,19 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3001}
 
-      # OpenBLAS（避免容器内线程创建被拦截）
+      # Redis（留空则使用内存 fallback）
+      REDIS_URL: ${REDIS_URL:-}
+      REDIS_CLUSTER: ${REDIS_CLUSTER:-false}
+
+      # 系统通知邮箱
+      NOTIFY_EMAIL_ADDRESS: ${NOTIFY_EMAIL_ADDRESS:-}
+      NOTIFY_EMAIL_PASSWORD: ${NOTIFY_EMAIL_PASSWORD:-}
+      NOTIFY_SMTP_HOST: ${NOTIFY_SMTP_HOST:-}
+      NOTIFY_SMTP_PORT: ${NOTIFY_SMTP_PORT:-465}
+      NOTIFY_SMTP_SSL: ${NOTIFY_SMTP_SSL:-true}
+      NOTIFY_TASK_MIN_SECONDS: ${NOTIFY_TASK_MIN_SECONDS:-120}
+
+      # OpenBLAS
       OPENBLAS_NUM_THREADS: 1
 
       # Skill
@@ -66,7 +75,7 @@ services:
       dockerfile: deploy/Dockerfile.frontend
       args:
         BASE_REGISTRY: ${BASE_REGISTRY:-172.73.0.156:85}
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
       interval: 30s

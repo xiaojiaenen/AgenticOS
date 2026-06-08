@@ -78,6 +78,51 @@ def _smtp_connect(host: str, port: int, ssl: bool) -> smtplib.SMTP:
         return smtplib.SMTP(host, port)
 
 
+async def send_notification_email(
+    creds: dict[str, object],
+    to: str,
+    subject: str,
+    body: str,
+    is_html: bool = False,
+) -> bool:
+    """
+    发送通知邮件（公共函数，供 notification_service 等外部模块调用）
+
+    Args:
+        creds: 邮箱凭据字典，包含 email, password, smtp_host, smtp_port, smtp_ssl
+        to: 收件人邮箱地址
+        subject: 邮件主题
+        body: 邮件正文
+        is_html: 正文是否为 HTML 格式
+
+    Returns:
+        True if sent successfully, False otherwise
+    """
+    email_addr = str(creds["email"])
+    password = str(creds["password"])
+    smtp_host = str(creds["smtp_host"])
+    smtp_port = int(creds["smtp_port"])
+    smtp_ssl = bool(creds["smtp_ssl"])
+
+    try:
+        subtype = "html" if is_html else "plain"
+        msg = MIMEText(body, subtype, "utf-8")
+        msg["From"] = email_addr
+        msg["To"] = to
+        msg["Subject"] = subject
+
+        recipients = [addr.strip() for addr in to.split(",")]
+
+        with _smtp_connect(smtp_host, smtp_port, smtp_ssl) as server:
+            server.login(email_addr, password)
+            server.send_message(msg, email_addr, recipients)
+
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send notification email: {e}")
+        return False
+
+
 def _decode_mime_header(header: str | None) -> str:
     """解码邮件头"""
     if not header:

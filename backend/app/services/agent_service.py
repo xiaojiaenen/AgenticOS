@@ -3,6 +3,7 @@ import contextlib
 import contextvars
 import json
 import logging
+import time
 from typing import Any, AsyncIterator
 
 # 当前会话 ID，供 ApprovalManager 使用
@@ -1595,6 +1596,8 @@ class AgentService:
             except Exception as e:
                 _logger.warning(f"Memory context injection failed: {e}")
 
+        task_start_time = time.time()
+
         async def produce_events() -> None:
             nonlocal message
             try:
@@ -1615,6 +1618,7 @@ class AgentService:
                 _logger.error(f"produce_events: exception: {e}", exc_info=True)
                 raise
             finally:
+                task_had_error = False
                 try:
                     if hasattr(session, "system_prompt"):
                         # Shield to ensure DB write completes even when the
@@ -1626,11 +1630,35 @@ class AgentService:
                         _logger.info(f"produce_events finally: persisting messages for session {session.session_id}")
                         await asyncio.shield(self._persist_session_messages(session))
                         _logger.info(f"produce_events finally: done for session {session.session_id}")
+
                 except asyncio.CancelledError:
                     _logger.warning(f"produce_events finally: cancelled for session {session.session_id}")
+                    task_had_error = True
                 except Exception as e:
                     _logger.warning(f"produce_events finally: error for session {session.session_id}: {e}", exc_info=True)
+                    task_had_error = True
                 finally:
+                    # 任务完成/失败通知（异步，不阻塞 SSE）
+                    if user is not None:
+                        task_duration = time.time() - task_start_time
+                        try:
+                            from app.services.notification_service import send_task_complete_notification
+                            from app.core.config import get_settings
+                            settings = get_settings()
+                            frontend_base = settings.get_cors_allow_origins()[0] if settings.get_cors_allow_origins() else ""
+                            asyncio.create_task(
+                                send_task_complete_notification(
+                                    user_id=user.id,
+                                    session_id=session.session_id,
+                                    task_summary=collected_text[:300] if collected_text else "",
+                                    duration_seconds=task_duration,
+                                    frontend_base_url=frontend_base,
+                                    is_error=task_had_error,
+                                )
+                            )
+                        except Exception as notify_err:
+                            _logger.warning(f"Failed to schedule task notification: {notify_err}")
+
                     await runtime_queue.put(None)
 
         producer = asyncio.create_task(produce_events())

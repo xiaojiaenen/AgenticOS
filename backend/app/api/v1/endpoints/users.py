@@ -63,7 +63,7 @@ def list_users(
 
 
 @router.post("", response_model=UserListItem, status_code=status.HTTP_201_CREATED)
-def create_user(
+async def create_user(
     request: UserCreateRequest,
     _: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -82,6 +82,15 @@ def create_user(
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # 发送欢迎邮件（异步，不阻塞响应）
+    import asyncio
+    from app.core.config import get_settings
+    from app.services.notification_service import send_welcome_email
+    settings = get_settings()
+    frontend_base = settings.get_cors_allow_origins()[0] if settings.get_cors_allow_origins() else ""
+    asyncio.create_task(send_welcome_email(request.email, request.name.strip(), frontend_base))
+
     return _to_item(user)
 
 

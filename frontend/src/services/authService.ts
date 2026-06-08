@@ -143,3 +143,39 @@ export async function logout(): Promise<void> {
     // Local logout is authoritative for the current stateless token flow.
   }
 }
+
+// ---- 验证码相关 ----
+
+export async function sendVerificationCode(email: string, purpose: 'login' | 'register'): Promise<void> {
+  const response = await fetch(`${AUTH_ENDPOINT}/send-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, purpose }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(typeof payload.detail === 'string' ? payload.detail : '发送验证码失败');
+  }
+}
+
+export async function loginWithCode(email: string, code: string): Promise<AuthUser> {
+  const response = await fetch(`${AUTH_ENDPOINT}/login-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+  const payload = await parseResponse<AuthResponse>(response);
+  setAuthSession(payload);
+  return payload.user;
+}
+
+export async function registerWithCode(name: string, email: string, password: string, code: string): Promise<AuthUser> {
+  const response = await fetch(`${AUTH_ENDPOINT}/register-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password, code }),
+  });
+  const payload = await parseResponse<AuthResponse>(response);
+  setAuthSession(payload);
+  return payload.user;
+}
