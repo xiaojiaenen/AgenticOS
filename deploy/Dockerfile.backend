@@ -4,14 +4,13 @@ WORKDIR /app
 
 ARG PYPI_MIRROR=https://pypi.org/simple
 
-# 复制后端代码
-COPY backend/pyproject.toml ./
-COPY backend/app/ ./app/
-COPY backend/main.py ./
+# 复制后端代码（保持 backend/ 目录结构，data_path.py 的 parents[3] 才能正确解析到 /app/）
+COPY backend/ ./backend/
 
 # 安装依赖
-RUN pip install --no-cache-dir --progress-bar off -i ${PYPI_MIRROR} hatchling && \
+RUN cd backend && \
+    pip install --no-cache-dir --progress-bar off -i ${PYPI_MIRROR} hatchling && \
     pip install --no-cache-dir --progress-bar off -i ${PYPI_MIRROR} --no-build-isolation .
 
 EXPOSE 8000
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

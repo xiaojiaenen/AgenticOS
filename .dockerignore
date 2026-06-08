@@ -1,27 +1,61 @@
+# Version control
+.git/
+.gitignore
+
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[oc]
+*.pyd
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
 .venv/
+venv/
+backend/tests/
 
-# Node
+# Node.js
 node_modules/
-dist/
+npm-debug.log*
+pnpm-debug.log*
 
-# Environment
-.env
-.env.local
+# Frontend source (dist/ is needed for nginx image)
+frontend/node_modules/
+frontend/src/
+frontend/public/
+frontend/.vite/
 
-# Git
-.git/
-
-# Data (runtime volume, don't include in image)
+# Local data (runtime volume, not build artifacts)
 data/
+
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Tools
+.codegraph/
+.claude/
+.reasonix/
+.todo
 
 # OS
 .DS_Store
 Thumbs.db
 
-# IDE
-.idea/
-.vscode/
+# Logs
+*.log
+startup_error.txt
+
+# Deploy package output
+agenticos-deploy-*.zip

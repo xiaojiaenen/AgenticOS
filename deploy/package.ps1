@@ -42,6 +42,15 @@ Copy-Item -Recurse backend\app\* -Exclude "__pycache__","*.pyc","tests" "$output
 # 复制 frontend dist
 Copy-Item -Recurse frontend\dist\* "$outputDir\frontend\dist\"
 
+# 复制 data 静态资源（排除运行时产物）
+New-Item -ItemType Directory -Force "$outputDir\data" | Out-Null
+Copy-Item -Recurse data\charts "$outputDir\data\"
+Copy-Item -Recurse data\design-systems "$outputDir\data\"
+Copy-Item -Recurse data\design-themes "$outputDir\data\"
+Copy-Item -Recurse data\layouts "$outputDir\data\"
+Copy-Item -Recurse data\skills "$outputDir\data\"
+Copy-Item -Recurse data\website-templates "$outputDir\data\"
+
 Write-Host "[3/4] Packaging to zip..." -ForegroundColor Cyan
 Remove-Item -Force $outputZip -ErrorAction SilentlyContinue
 Compress-Archive -Path $outputDir -DestinationPath $outputZip -Force
