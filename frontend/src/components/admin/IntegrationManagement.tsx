@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { AlertCircle, ChevronLeft, ExternalLink, Globe, Key, Loader2, Pencil, Plug, Plus, Save, Shield, TestTube, Trash2, Upload, X } from "lucide-react";
 import { Button } from "../ui/Button";
 import { cn } from "../../lib/utils";
-import { createSystem, updateSystem, deleteSystem, listSystems, listApis, createApi, updateApi, deleteApi, testApi, IntegrationSystem, IntegrationApi, IntegrationSystemPayload, IntegrationApiPayload, IntegrationApiParam, IntegrationTestResult, CredentialField } from "../../services/integrationService";
+import { createSystem, updateSystem, deleteSystem, listSystems, listApis, createApi, updateApi, deleteApi, testApi, listCategories, IntegrationSystem, IntegrationApi, IntegrationSystemPayload, IntegrationApiPayload, IntegrationApiParam, IntegrationTestResult, IntegrationCategory, CredentialField } from "../../services/integrationService";
 import { useAdminModalBackdrop } from "./useAdminModalBackdrop";
 
 type SystemDraft = IntegrationSystemPayload & { id?: number };
@@ -36,13 +36,17 @@ export const IntegrationManagement = () => {
  const [openApiInput, setOpenApiInput] = useState("");
  const [openApiPreview, setOpenApiPreview] = useState<any>(null);
  const [openApiLoading, setOpenApiLoading] = useState(false);
+ const [categories, setCategories] = useState<IntegrationCategory[]>([]);
+ const [activeCategory, setActiveCategory] = useState<string>("all");
  useAdminModalBackdrop(isSystemModalOpen || isApiModalOpen);
  const enabledCount = useMemo(() => systems.filter(s => s.enabled).length, [systems]);
 
  const loadSystems = async () => { setIsLoading(true); setError(null); try { const r = await listSystems(); setSystems(r.items); } catch(e){setError(e instanceof Error?e.message:"加载失败");} finally{setIsLoading(false);} };
+ const loadCategories = async () => { try { const r = await listCategories(); setCategories(r.items); } catch(e) { /* ignore */ } };
  const loadApis = async (sid: number) => { try { const r = await listApis(sid); setApis(r.items); } catch(e){setError(e instanceof Error?e.message:"加载接口失败");} };
- useEffect(() => { loadSystems(); }, []);
+ useEffect(() => { loadSystems(); loadCategories(); }, []);
  useEffect(() => { if(selectedSystem) loadApis(selectedSystem.id); }, [selectedSystem?.id]);
+ const filteredSystems = useMemo(() => activeCategory === "all" ? systems : systems.filter(s => s.category === activeCategory), [systems, activeCategory]);
 
  const openCreateSystem = () => { setSystemDraft(emptySystemDraft()); setIsSystemModalOpen(true); };
  const openEditSystem = (sys: IntegrationSystem) => { setSystemDraft({id:sys.id,name:sys.name,description:sys.description,base_url:sys.base_url,auth_type:sys.auth_type,credential_template:sys.credential_template,oauth_auth_url:sys.oauth_auth_url||undefined,oauth_token_url:sys.oauth_token_url||undefined,oauth_scope:sys.oauth_scope||undefined,oauth_refresh_token_url:(sys as any).oauth_refresh_token_url||undefined,jwt_login_url:sys.jwt_login_url||undefined,jwt_refresh_url:sys.jwt_refresh_url||undefined,jwt_refresh_body_template:sys.jwt_refresh_body_template||undefined,jwt_refresh_token_path:sys.jwt_refresh_token_path||undefined,jwt_request_body_template:sys.jwt_request_body_template||undefined,jwt_response_token_path:sys.jwt_response_token_path||undefined,jwt_response_expires_path:sys.jwt_response_expires_path||undefined,published:sys.published,headers:sys.headers,advanced_auth:sys.advanced_auth||{}}); setIsSystemModalOpen(true); };
@@ -67,15 +71,23 @@ export const IntegrationManagement = () => {
      </div>
      {error && <div className="mx-5 mb-4 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"><AlertCircle size={16}/> {error}</div>}
      {message && <div className="mx-5 mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">{message}</div>}
+     {/* 分类 Tab */}
+     <div className="mx-5 mb-4 flex flex-wrap gap-2">
+       <button onClick={() => setActiveCategory("all")} className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-all", activeCategory === "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}>全部 ({systems.length})</button>
+       {categories.filter(c => systems.some(s => s.category === c.key)).map(c => (
+         <button key={c.key} onClick={() => setActiveCategory(c.key)} className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-all", activeCategory === c.key ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}>{c.icon} {c.label} ({systems.filter(s => s.category === c.key).length})</button>
+       ))}
+     </div>
      {isLoading ? <div className="flex h-40 items-center justify-center gap-3 text-sm font-medium text-slate-500"><Loader2 size={18} className="animate-spin"/> 加载中</div>
-      : systems.length===0 ? <div className="flex h-40 flex-col items-center justify-center gap-3 text-sm text-slate-500"><Plug size={32} className="text-slate-300"/><p className="font-medium">暂无集成</p><p>点击「新增集成」创建第一个第三方系统连接</p></div>
+      : filteredSystems.length===0 ? <div className="flex h-40 flex-col items-center justify-center gap-3 text-sm text-slate-500"><Plug size={32} className="text-slate-300"/><p className="font-medium">暂无集成</p><p>点击「新增集成」创建第一个第三方系统连接</p></div>
       : (
       <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-       <thead><tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-400"><th className="px-5 py-3">名称</th><th className="px-5 py-3">描述</th><th className="px-5 py-3">鉴权</th><th className="px-5 py-3 text-center">接口</th><th className="px-5 py-3 text-center">状态</th><th className="px-5 py-3 text-right">操作</th></tr></thead>
-       <tbody>{systems.map(sys=>{const Icon=authTypeIcon(sys.auth_type);return(
+       <thead><tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-400"><th className="px-5 py-3">名称</th><th className="px-5 py-3">描述</th><th className="px-5 py-3">分类</th><th className="px-5 py-3">鉴权</th><th className="px-5 py-3 text-center">接口</th><th className="px-5 py-3 text-center">状态</th><th className="px-5 py-3 text-right">操作</th></tr></thead>
+       <tbody>{filteredSystems.map(sys=>{const Icon=authTypeIcon(sys.auth_type);const cat=categories.find(c=>c.key===sys.category);return(
         <motion.tr key={sys.id} initial={{opacity:0}} animate={{opacity:1}} className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-white/80" onClick={()=>setSelectedSystem(sys)}>
          <td className="px-5 py-3.5"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-600 shadow-sm"><Icon size={18}/></div><div><p className="font-semibold text-slate-900">{sys.name}</p><p className="text-xs text-slate-400">{sys.base_url}</p></div></div></td>
          <td className="max-w-[200px] truncate px-5 py-3.5 text-slate-600">{sys.description||"-"}</td>
+         <td className="px-5 py-3.5"><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">{cat ? `${cat.icon} ${cat.label}` : sys.category}</span></td>
          <td className="px-5 py-3.5"><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">{authTypeLabel(sys.auth_type)}</span></td>
          <td className="px-5 py-3.5 text-center font-medium text-slate-700">{sys.api_count}</td>
          <td className="px-5 py-3.5 text-center"><span className={cn("rounded-lg px-2 py-1 text-xs font-medium",sys.enabled&&sys.published?"bg-emerald-100 text-emerald-700":"bg-slate-100 text-slate-500")}>{sys.enabled&&sys.published?"已发布":sys.enabled?"未发布":"已禁用"}</span></td>
