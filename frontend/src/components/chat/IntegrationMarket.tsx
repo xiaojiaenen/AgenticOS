@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AlertCircle, CheckCircle, ExternalLink, Globe, Key, Loader2, Plug, Shield, Unplug, X } from "lucide-react";
 import { Button } from "../ui/Button";
 import { cn } from "../../lib/utils";
-import { listIntegrations, connectIntegration, disconnectIntegration, listMyConnections, IntegrationSystem, UserConnection, CredentialField } from "../../services/integrationService";
+import { listIntegrations, connectIntegration, disconnectIntegration, listMyConnections, listCategories, IntegrationSystem, UserConnection, IntegrationCategory, CredentialField } from "../../services/integrationService";
 
 interface IntegrationMarketProps {
   open: boolean;
@@ -45,15 +45,18 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
   const [connectingSystem, setConnectingSystem] = useState<IntegrationSystem | null>(null);
   const [credentialValues, setCredentialValues] = useState<Record<string, string>>({});
   const [isConnecting, setIsConnecting] = useState(false);
+  const [categories, setCategories] = useState<IntegrationCategory[]>([]);
+  const [activeCategory, setActiveCategory] = useState<string>("all");
 
   const loadData = async () => {
     setIsLoading(true); setError(null);
     try {
-      const [sysResp, connResp] = await Promise.all([listIntegrations(), listMyConnections()]);
+      const [sysResp, connResp, catResp] = await Promise.all([listIntegrations(), listMyConnections(), listCategories()]);
       setSystems(sysResp.items);
       const connMap = new Map<number, UserConnection>();
       connResp.items.forEach((c) => connMap.set(c.system_id, c));
       setConnections(connMap);
+      setCategories(catResp.items);
     } catch (e) { setError(e instanceof Error ? e.message : "加载失败"); } finally { setIsLoading(false); }
   };
 
@@ -77,6 +80,7 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
   };
 
   const openConnect = (sys: IntegrationSystem) => { setConnectingSystem(sys); setCredentialValues({}); setError(null); };
+  const filteredSystems = useMemo(() => activeCategory === "all" ? systems : systems.filter(s => s.category === activeCategory), [systems, activeCategory]);
 
   if (!open) return null;
 
@@ -91,12 +95,22 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
 
           {error && <div className="mx-6 mt-4 flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700"><AlertCircle size={16} /> {error}</div>}
 
+          {/* 分类 Tab */}
+          {!isLoading && systems.length > 0 && (
+            <div className="mx-6 mt-4 flex flex-wrap gap-2">
+              <button onClick={() => setActiveCategory("all")} className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-all", activeCategory === "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}>全部</button>
+              {categories.filter(c => systems.some(s => s.category === c.key)).map(c => (
+                <button key={c.key} onClick={() => setActiveCategory(c.key)} className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-all", activeCategory === c.key ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")}>{c.icon} {c.label}</button>
+              ))}
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto p-6">
             {isLoading ? <div className="flex h-40 items-center justify-center gap-3 text-sm font-bold text-slate-500"><Loader2 size={18} className="animate-spin" /> 加载中</div>
-            : systems.length === 0 ? <div className="flex h-40 flex-col items-center justify-center gap-3 text-sm text-slate-500"><Plug size={32} className="text-slate-300" /><p className="font-bold">暂无可用集成</p><p>管理员尚未发布任何集成</p></div>
+            : filteredSystems.length === 0 ? <div className="flex h-40 flex-col items-center justify-center gap-3 text-sm text-slate-500"><Plug size={32} className="text-slate-300" /><p className="font-bold">暂无可用集成</p><p>管理员尚未发布任何集成</p></div>
             : (
               <div className="grid gap-4 sm:grid-cols-2">
-                {systems.map((sys) => {
+                {filteredSystems.map((sys) => {
                   const conn = connections.get(sys.id);
                   const Icon = authTypeIcon(sys.auth_type);
                   const isConnected = conn?.connection_status === "connected";
