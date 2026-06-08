@@ -14,6 +14,7 @@ export type IntegrationSystem = {
   id: number;
   name: string;
   description: string;
+  category: string;
   base_url: string;
   auth_type: string;
   credential_template: Record<string, CredentialField>;
@@ -122,14 +123,17 @@ const ADMIN_ENDPOINT = `${API_BASE_URL}/api/v1/external-systems`;
 const USER_ENDPOINT = `${API_BASE_URL}/api/v1/integrations`;
 
 async function parseResponse<T>(response: Response): Promise<T> {
-  if (response.ok) return response.json();
+  // 先读 text，避免 json() 消费 body 后 text() 报 "body stream already read"
+  const raw = await response.text();
+  if (response.ok) {
+    return JSON.parse(raw) as T;
+  }
   let message = "Request failed";
   try {
-    const payload = await response.json();
+    const payload = JSON.parse(raw);
     if (typeof payload.detail === "string") message = payload.detail;
   } catch {
-    const text = await response.text();
-    if (text) message = text;
+    if (raw) message = raw;
   }
   throw new Error(message);
 }
@@ -201,6 +205,17 @@ export async function testApi(systemId: number, apiId: number, params: Record<st
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ params, credential_data: credentialData }),
   });
+  return parseResponse(response);
+}
+
+export type IntegrationCategory = {
+  key: string;
+  label: string;
+  icon: string;
+};
+
+export async function listCategories(): Promise<{ items: IntegrationCategory[] }> {
+  const response = await fetch(`${USER_ENDPOINT}/categories`, { headers: authHeaders() });
   return parseResponse(response);
 }
 

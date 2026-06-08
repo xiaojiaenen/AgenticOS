@@ -43,16 +43,16 @@ function readJson<T>(value: string | null): T | null {
 }
 
 async function parseResponse<T>(response: Response): Promise<T> {
+  const raw = await response.text();
   if (response.ok) {
-    return response.json();
+    return JSON.parse(raw) as AuthResponse;
   }
   let message = 'Request failed';
   try {
-    const payload = await response.json();
+    const payload = JSON.parse(raw);
     if (typeof payload.detail === 'string') message = payload.detail;
   } catch {
-    const text = await response.text();
-    if (text) message = text;
+    if (raw) message = raw;
   }
   throw new Error(message);
 }
