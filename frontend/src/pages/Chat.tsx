@@ -12,9 +12,10 @@ import { useChatSessions } from '../hooks/useChatSessions';
 import { useChatScroll } from '../hooks/useChatScroll';
 import { useChatStream } from '../hooks/useChatStream';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
-import { Artifact } from '../types';
+import { useChatStore } from '../stores/chatStore';
+import { ChatContextProvider, type ChatContextValue } from '../contexts/ChatContext';
 import { getStoredUser } from '../services/authService';
-import { AgentProfile, getMyAgents } from '../services/agentProfileService';
+import { getMyAgents } from '../services/agentProfileService';
 import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
 
@@ -22,98 +23,111 @@ export const Chat = () => {
   const location = useLocation();
   const initialMessage = location.state?.initialMessage as string | undefined;
 
+  // ── Zustand store（UI 状态）──
   const {
-    sessions,
-    setSessions,
-    currentSessionId,
-    setCurrentSessionId,
-    currentSession,
-    visibleSessions,
-    hasMoreSessions,
-    loadMoreSessions,
+    inputValue, setInputValue,
+    chatMode, setChatMode,
+    agentProfiles, setAgentProfiles,
+    selectedAgentProfileId, setSelectedAgentProfileId,
+    isSidebarOpen, setIsSidebarOpen,
+    isMobile, setIsMobile,
+    artifact, setArtifact,
+    isSidebarHiddenByArtifact, setIsSidebarHiddenByArtifact,
+    createNewChat: storeCreateNewChat,
+  } = useChatStore();
+
+  // ── 会话管理 ──
+  const {
+    sessions, setSessions,
+    currentSessionId, setCurrentSessionId,
+    currentSession, visibleSessions,
+    hasMoreSessions, loadMoreSessions,
     applySessionState,
   } = useChatSessions();
 
+  // ── 搜索 ──
   const {
-    searchQuery, setSearchQuery, showSearch, setShowSearch,
-    searchCurrentIndex, searchMatches, nextMatch, prevMatch, activeMatchId
+    searchQuery, setSearchQuery,
+    showSearch, setShowSearch,
+    searchCurrentIndex, searchMatches, nextMatch, prevMatch, activeMatchId,
   } = useChatSearch(currentSession);
 
+  // ── 滚动 ──
   const {
-    scrollRef,
-    messagesEndRef,
-    isUserScrolledUp,
-    scrollToBottom,
-    handleJumpToBottom,
-    handleScroll,
+    scrollRef, messagesEndRef,
+    isUserScrolledUp, scrollToBottom,
+    handleJumpToBottom, handleScroll,
   } = useChatScroll();
 
-  const [inputValue, setInputValue] = useState('');
-  const [chatMode, setChatMode] = useState<'general' | 'ppt' | 'website' | 'bigdata'>(
-    (location.state as any)?.mode || 'general',
-  );
-  const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
-  const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>(
-    (location.state as any)?.agentProfileId || null,
-  );
-  const selectedAgent = agentProfiles.find((agent) => agent.id === selectedAgentProfileId) || null;
-
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [artifact, setArtifact] = useState<Artifact | null>(null);
-  const [isSidebarHiddenByArtifact, setIsSidebarHiddenByArtifact] = useState(false);
-
-  const chatInputRef = React.useRef<ChatInputHandle>(null);
+  // ── Refs ──
+  const chatInputRef = useRef<ChatInputHandle>(null);
   const isAdmin = getStoredUser()?.role === 'admin';
 
+  // ── 流式 ──
   const {
-    isLoading,
-    error,
-    setError,
-    runStatus,
-    pendingDecisions,
-    handleSend,
-    handleStopGeneration,
-    handleApprovalDecision,
-    handleDecisionMade,
+    isLoading, error, setError, runStatus, pendingDecisions,
+    handleSend, handleStopGeneration,
+    handleApprovalDecision, handleDecisionMade,
   } = useChatStream({
-    sessions,
-    currentSessionId,
-    currentSession,
-    chatMode,
-    selectedAgentProfileId,
-    selectedAgent,
-    setSessions,
-    setCurrentSessionId,
-    applySessionState,
-    setArtifact,
-    setInputValue,
+    sessions, currentSessionId, currentSession,
+    chatMode, selectedAgentProfileId,
+    selectedAgent: agentProfiles.find((a) => a.id === selectedAgentProfileId) || null,
+    setSessions, setCurrentSessionId,
+    applySessionState, setArtifact, setInputValue,
   });
 
+  // ── 派生状态 ──
   const currentSessionMessages = currentSession?.messages ?? [];
-  const isStreamingResponse =
-    isLoading && currentSessionMessages[currentSessionMessages.length - 1]?.role === 'model';
+  const isStreamingResponse = isLoading && currentSessionMessages[currentSessionMessages.length - 1]?.role === 'model';
   const isWideConversation = !artifact && !isMobile;
-
   const pendingApprovals = useMemo(
-    () =>
-      isAdmin
-        ? currentSessionMessages
-            .flatMap((message) => message.toolCalls || [])
-            .filter((tool) => tool.status === 'approval_required' && tool.approvalId)
-        : [],
+    () => isAdmin
+      ? currentSessionMessages
+          .flatMap((m) => m.toolCalls || [])
+          .filter((t) => t.status === 'approval_required' && t.approvalId)
+      : [],
     [currentSessionMessages, isAdmin],
   );
+  const isModeLocked = !!currentSession && currentSession.messages.length > 0;
+  const selectedAgent = agentProfiles.find((a) => a.id === selectedAgentProfileId) || null;
 
-  const { isDragging, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } =
-    useDragAndDrop();
+  // ── 拖放 ──
+  const { isDragging, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragAndDrop();
+  const onDrop = (e: React.DragEvent) => handleDrop(e, (files) => chatInputRef.current?.addFiles(files));
 
-  const onDrop = (e: React.DragEvent) => {
-    handleDrop(e, (files) => {
-      chatInputRef.current?.addFiles(files);
+  // ── 制品面板 ──
+  const { scrollYProgress } = useScroll({ container: scrollRef });
+  const borderColor = useTransform(scrollYProgress, [0, 0.2, 1], ['rgba(255,255,255,0.7)', 'rgba(255,255,255,1)', 'rgba(56,189,248,0.4)']);
+
+  // ── 回调 ──
+  const createNewChat = useCallback(() => {
+    storeCreateNewChat();
+    setCurrentSessionId(null);
+    if (isMobile) setIsSidebarOpen(false);
+  }, [isMobile, storeCreateNewChat, setCurrentSessionId, setIsSidebarOpen]);
+
+  const deleteSession = useCallback((id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSessions((prev) => prev.filter((s) => s.id !== id));
+    setCurrentSessionId((prev) => {
+      if (prev !== id) return prev;
+      setArtifact(null);
+      setChatMode('general');
+      setSelectedAgentProfileId(null);
+      return null;
     });
-  };
+  }, [setSessions, setCurrentSessionId, setArtifact, setChatMode, setSelectedAgentProfileId]);
 
+  const handleOpenArtifact = useCallback((next: any) => setArtifact(next), [setArtifact]);
+
+  const handleAgentProfileChange = useCallback((profile: any) => {
+    setSelectedAgentProfileId(profile?.id ?? null);
+    if (profile) setChatMode(profile.response_mode);
+  }, [setSelectedAgentProfileId, setChatMode]);
+
+  const onSuggestionClick = useCallback((text: string) => setInputValue(text), [setInputValue]);
+
+  // ── Effects ──
   // 会话切换时同步模式和智能体
   useEffect(() => {
     if (currentSessionId && currentSession?.mode) {
@@ -136,37 +150,25 @@ export const Chat = () => {
             return;
           }
         }
-        // Auto-select default agent matching current chatMode
         const defaultAgent = response.items.find((a) => a.response_mode === chatMode);
-        if (defaultAgent) {
-          setSelectedAgentProfileId(defaultAgent.id);
-        }
+        if (defaultAgent) setSelectedAgentProfileId(defaultAgent.id);
       })
       .catch((err) => console.error('Load agents error:', err));
   }, []);
 
-  // Auto-select default agent matching chatMode when none selected (e.g. new chat)
+  // Auto-select default agent
   useEffect(() => {
     if (selectedAgentProfileId !== null || agentProfiles.length === 0) return;
     const defaultAgent = agentProfiles.find((a) => a.response_mode === chatMode);
-    if (defaultAgent) {
-      setSelectedAgentProfileId(defaultAgent.id);
-    }
+    if (defaultAgent) setSelectedAgentProfileId(defaultAgent.id);
   }, [chatMode, agentProfiles, selectedAgentProfileId]);
 
   // 智能体被删除时清除关联
   useEffect(() => {
-    if (
-      selectedAgentProfileId &&
-      !agentProfiles.some((agent) => agent.id === selectedAgentProfileId)
-    ) {
+    if (selectedAgentProfileId && !agentProfiles.some((a) => a.id === selectedAgentProfileId)) {
       setSelectedAgentProfileId(null);
       setSessions((prev) =>
-        prev.map((session) =>
-          session.id === currentSessionId
-            ? { ...session, agentProfileId: null, agentName: undefined }
-            : session,
-        ),
+        prev.map((s) => s.id === currentSessionId ? { ...s, agentProfileId: null, agentName: undefined } : s),
       );
     }
   }, [agentProfiles, selectedAgentProfileId, currentSessionId]);
@@ -187,9 +189,7 @@ export const Chat = () => {
   // Escape 键关闭移动端侧边栏
   useEffect(() => {
     if (!isMobile || !isSidebarOpen) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsSidebarOpen(false);
-    };
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsSidebarOpen(false); };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [isMobile, isSidebarOpen]);
@@ -197,13 +197,11 @@ export const Chat = () => {
   // 自动滚动
   useEffect(() => {
     if (isUserScrolledUp && !isStreamingResponse) return;
-    const frame = window.requestAnimationFrame(() => {
-      scrollToBottom(isStreamingResponse ? 'auto' : 'smooth');
-    });
+    const frame = window.requestAnimationFrame(() => scrollToBottom(isStreamingResponse ? 'auto' : 'smooth'));
     return () => window.cancelAnimationFrame(frame);
   }, [sessions, currentSessionId, isLoading, isUserScrolledUp, isStreamingResponse, scrollToBottom]);
 
-  // 自动收起错误提示（延长至15秒，给用户充足时间阅读）
+  // 自动收起错误提示
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => setError(null), 15000);
@@ -232,45 +230,31 @@ export const Chat = () => {
     }
   }, [artifact, isMobile]);
 
-  const { scrollYProgress } = useScroll({ container: scrollRef });
-  const borderColor = useTransform(
-    scrollYProgress,
-    [0, 0.2, 1],
-    ['rgba(255,255,255,0.7)', 'rgba(255,255,255,1)', 'rgba(56,189,248,0.4)'],
-  );
-
-  const createNewChat = useCallback(() => {
-    setCurrentSessionId(null);
-    setChatMode('general');
-    setSelectedAgentProfileId(null);
-    setArtifact(null);
-    setInputValue('');
-    if (isMobile) setIsSidebarOpen(false);
-  }, [isMobile, setCurrentSessionId, setArtifact, setInputValue]);
-
-  const deleteSession = useCallback(
-    (id: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-      setSessions((prev) => prev.filter((s) => s.id !== id));
-      setCurrentSessionId((prev) => {
-        if (prev !== id) return prev;
-        setArtifact(null);
-        setChatMode('general');
-        setSelectedAgentProfileId(null);
-        return null;
-      });
-    },
-    [setSessions, setCurrentSessionId],
-  );
-
-  const handleOpenArtifact = useCallback((nextArtifact: Artifact) => {
-    setArtifact(nextArtifact);
-  }, []);
-
-  const handleAgentProfileChange = useCallback((profile: AgentProfile | null) => {
-    setSelectedAgentProfileId(profile?.id ?? null);
-    if (profile) setChatMode(profile.response_mode);
-  }, [setChatMode]);
+  // ── Context Value ──
+  const ctxValue: ChatContextValue = useMemo(() => ({
+    sessions, currentSessionId, currentSession, visibleSessions,
+    hasMoreSessions, loadMoreSessions,
+    isLoading, error, setError, runStatus, pendingDecisions,
+    handleSend, handleStopGeneration,
+    handleApprovalDecision, handleDecisionMade,
+    scrollRef, messagesEndRef, isUserScrolledUp,
+    scrollToBottom, handleJumpToBottom, handleScroll,
+    showSearch, setShowSearch, searchQuery, setSearchQuery,
+    searchCurrentIndex, searchMatchesCount: searchMatches.length,
+    activeMatchId, prevMatch, nextMatch,
+    chatInputRef,
+    isStreamingResponse, isWideConversation,
+    pendingApprovals, isModeLocked, isAdmin,
+    onSuggestionClick, onOpenArtifact: handleOpenArtifact,
+    onAgentProfileChange: handleAgentProfileChange,
+    deleteSession,
+  }), [
+    sessions, currentSessionId, currentSession, visibleSessions,
+    hasMoreSessions, isLoading, error, runStatus, pendingDecisions,
+    isUserScrolledUp, showSearch, searchQuery, searchCurrentIndex,
+    searchMatches.length, activeMatchId, isStreamingResponse,
+    isWideConversation, pendingApprovals, isModeLocked, isAdmin,
+  ]);
 
   return (
     <motion.div
@@ -284,31 +268,17 @@ export const Chat = () => {
       onDragLeave={handleDragLeave}
       onDrop={onDrop}
       className="flex h-screen text-slate-800 font-sans overflow-hidden selection:bg-zinc-200 selection:text-zinc-900 relative"
-      style={{
-        background:
-          'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)',
-      }}
+      style={{ background: 'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)' }}
     >
       <DragOverlay isDragging={isDragging} />
 
-      {/* 聊天页全局背景装饰 */}
+      {/* 背景装饰 */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        {/* Animated blobs — subtle, low opacity for working context */}
         <div className="absolute top-0 -left-16 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.12),transparent_70%)] blur-[80px] animate-[bg-blob-1_18s_ease-in-out_infinite]" />
         <div className="absolute top-8 -right-10 w-[440px] h-[440px] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.10),transparent_70%)] blur-[70px] animate-[bg-blob-2_20s_ease-in-out_infinite]" />
         <div className="absolute bottom-0 left-1/4 w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.11),transparent_70%)] blur-[80px] animate-[bg-blob-3_17s_ease-in-out_infinite]" />
-
-        {/* Subtle dot grid */}
-        <div className="absolute inset-0" style={{
-          backgroundImage:
-            'radial-gradient(circle, rgba(14,165,233,0.07) 1px, transparent 1px)',
-          backgroundSize: '48px 48px',
-          maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.50), rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.16))',
-        }} />
-
-        {/* Subtle shimmer */}
+        <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(14,165,233,0.07) 1px, transparent 1px)', backgroundSize: '48px 48px', maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.50), rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.16))' }} />
         <div className="absolute inset-0 bg-[linear-gradient(108deg,transparent_38%,rgba(255,255,255,0.14)_50%,transparent_64%)] animate-[bg-drift-slow_20s_ease-in-out_infinite]" />
-
         <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.02]" />
       </div>
 
@@ -316,9 +286,7 @@ export const Chat = () => {
       <AnimatePresence>
         {isMobile && isSidebarOpen && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={() => setIsSidebarOpen(false)}
             className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-10"
           />
@@ -328,9 +296,7 @@ export const Chat = () => {
       <AnimatePresence mode="wait">
         {(isSidebarOpen || (isMobile && isSidebarOpen)) && (!artifact || isMobile || isSidebarOpen) && (
           <motion.div
-            initial={{ x: -250, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -250, opacity: 0 }}
+            initial={{ x: -250, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -250, opacity: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="flex-shrink-0 z-20"
           >
@@ -338,10 +304,7 @@ export const Chat = () => {
               sessions={visibleSessions}
               currentSessionId={currentSessionId}
               onNewChat={createNewChat}
-              onSelectSession={(id) => {
-                setCurrentSessionId(id);
-                if (isMobile) setIsSidebarOpen(false);
-              }}
+              onSelectSession={(id) => { setCurrentSessionId(id); if (isMobile) setIsSidebarOpen(false); }}
               onDeleteSession={deleteSession}
               onClose={() => setIsSidebarOpen(false)}
               isMobile={isMobile}
@@ -352,17 +315,12 @@ export const Chat = () => {
         )}
       </AnimatePresence>
 
-      {/* 侧边栏折叠后的展开按钮 */}
+      {/* 侧边栏展开按钮 */}
       <AnimatePresence>
         {!isSidebarOpen && !isMobile && (
           <motion.button
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            onClick={() => {
-              setIsSidebarOpen(true);
-              setIsSidebarHiddenByArtifact(false);
-            }}
+            initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+            onClick={() => { setIsSidebarOpen(true); setIsSidebarHiddenByArtifact(false); }}
             className="fixed top-4 left-4 z-50 w-12 h-12 bg-white/80 backdrop-blur-md border border-slate-200 rounded-2xl shadow-sm flex items-center justify-center text-zinc-800 hover:bg-white hover:shadow-md transition-all group focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
             aria-label="展开侧边栏"
           >
@@ -371,69 +329,22 @@ export const Chat = () => {
         )}
       </AnimatePresence>
 
-      {/* 主聊天区域与制品面板 */}
-      <div className="flex-1 flex overflow-hidden relative">
-        <main
-          id="main-content"
-          className={cn(
-            "flex flex-col h-full transition-all duration-700 ease-[0.16,1,0.3,1] min-w-0 relative",
-            artifact ? "w-[40%] border-r border-slate-200/60" : "w-full",
-            isWideConversation && "px-4 lg:px-8 xl:px-10",
-          )}
-        >
-          <ChatMainArea
-            currentSession={currentSession}
-            isLoading={isLoading}
-            isMobile={isMobile}
-            isWideConversation={isWideConversation}
-            isUserScrolledUp={isUserScrolledUp}
-            error={error}
-            runStatus={runStatus}
-            inputValue={inputValue}
-            chatMode={chatMode}
-            agentProfiles={agentProfiles}
-            selectedAgentProfileId={selectedAgentProfileId}
-            showSearch={showSearch}
-            searchQuery={searchQuery}
-            searchMatchesCount={searchMatches.length}
-            searchCurrentIndex={searchCurrentIndex}
-            activeMatchId={activeMatchId}
-            pendingApprovals={pendingApprovals}
-            scrollRef={scrollRef}
-            messagesEndRef={messagesEndRef}
-            chatInputRef={chatInputRef}
-            onScroll={handleScroll}
-            onJumpToBottom={handleJumpToBottom}
-            onSend={handleSend}
-            onStopGeneration={handleStopGeneration}
-            onInputChange={setInputValue}
-            onModeChange={setChatMode}
-            onAgentProfileChange={handleAgentProfileChange}
-            onSearchQueryChange={setSearchQuery}
-            onSearchPrev={prevMatch}
-            onSearchNext={nextMatch}
-            onSearchClose={() => {
-              setShowSearch(false);
-              setSearchQuery('');
-            }}
-            onToggleSearch={() => setShowSearch(!showSearch)}
-            onApprovalDecision={handleApprovalDecision}
-            pendingDecisions={pendingDecisions}
-            onDecisionMade={handleDecisionMade}
-            onErrorDismiss={() => setError(null)}
-            onSuggestionClick={(text) => setInputValue(text)}
-            onOpenArtifact={handleOpenArtifact}
-            isModeLocked={!!currentSession && currentSession.messages.length > 0}
-          />
-        </main>
-
-        {/* 制品预览面板 */}
-        <ChatArtifactArea
-          artifact={artifact}
-          onClose={() => setArtifact(null)}
-          borderColor={borderColor}
-        />
-      </div>
+      {/* 主区域 */}
+      <ChatContextProvider value={ctxValue}>
+        <div className="flex-1 flex overflow-hidden relative">
+          <main
+            id="main-content"
+            className={cn(
+              "flex flex-col h-full transition-all duration-700 ease-[0.16,1,0.3,1] min-w-0 relative",
+              artifact ? "w-[40%] border-r border-slate-200/60" : "w-full",
+              isWideConversation && "px-4 lg:px-8 xl:px-10",
+            )}
+          >
+            <ChatMainArea />
+          </main>
+          <ChatArtifactArea artifact={artifact} onClose={() => setArtifact(null)} borderColor={borderColor} />
+        </div>
+      </ChatContextProvider>
     </motion.div>
   );
 };
