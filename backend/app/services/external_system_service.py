@@ -64,6 +64,7 @@ _CACHE_FIELDS = [
     "id", "name", "base_url", "auth_type", "headers_json",
     "jwt_login_url", "jwt_refresh_url", "jwt_request_body_template",
     "jwt_response_token_path", "jwt_response_expires_path",
+    "jwt_response_token_header",
     "jwt_refresh_body_template",
     "oauth_auth_url", "oauth_token_url", "oauth_scope",
     "oauth_refresh_token_url", "oauth_client_id_encrypted",
@@ -199,6 +200,7 @@ def _serialize_system(sys: ExternalSystemModel, api_count: int = 0) -> dict:
         "jwt_request_body_template": sys.jwt_request_body_template,
         "jwt_response_token_path": sys.jwt_response_token_path,
         "jwt_response_expires_path": sys.jwt_response_expires_path,
+        "jwt_response_token_header": sys.jwt_response_token_header,
         "published": sys.published,
         "headers": _serialize_headers(sys.headers_json),
         "advanced_auth": json.loads(sys.advanced_auth_json) if sys.advanced_auth_json else {},
@@ -276,7 +278,11 @@ class AuthInjector:
             request.headers["Authorization"] = f"Bearer {token}"
         elif auth_type == "jwt_login":
             token = await AuthInjector._ensure_jwt(system, cred)
-            request.headers["Authorization"] = f"Bearer {token}"
+            # Sa-Token style: inject as custom header; otherwise use Bearer
+            if system.jwt_response_token_header:
+                request.headers[system.jwt_response_token_header] = token
+            else:
+                request.headers["Authorization"] = f"Bearer {token}"
         else:
             config_raw = decrypt_safe(cred.credential_data_encrypted, "{}")
             try:
@@ -397,10 +403,15 @@ class AuthInjector:
                 async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
                     resp = await client.post(base + system.jwt_refresh_url, json=refresh_body)
                     resp.raise_for_status()
-                    resp_data = resp.json()
 
-                token_path = system.jwt_response_token_path or "token"
-                new_token = _extract_nested(resp_data, token_path)
+                # Extract token: prefer response header (Sa-Token style), fallback to body
+                new_token = None
+                if system.jwt_response_token_header:
+                    new_token = resp.headers.get(system.jwt_response_token_header)
+                if not new_token:
+                    resp_data = resp.json()
+                    token_path = system.jwt_response_token_path or "token"
+                    new_token = _extract_nested(resp_data, token_path)
                 if new_token:
                     expires_at = None
                     if system.jwt_response_expires_path:
@@ -455,13 +466,17 @@ class AuthInjector:
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
             resp = await client.post(base + login_url, json=body)
             resp.raise_for_status()
-            resp_data = resp.json()
 
-        # Extract token from response using configured path
-        token_path = system.jwt_response_token_path or "token"
-        token = _extract_nested(resp_data, token_path)
+        # Extract token: prefer response header (Sa-Token style), fallback to body
+        token = None
+        if system.jwt_response_token_header:
+            token = resp.headers.get(system.jwt_response_token_header)
         if not token:
-            raise ValueError(f"登录响应中未找到 token（路径: {token_path}）")
+            resp_data = resp.json()
+            token_path = system.jwt_response_token_path or "token"
+            token = _extract_nested(resp_data, token_path)
+        if not token:
+            raise ValueError(f"登录响应中未找到 token")
 
         # Extract expiry if configured
         expires_at = None
@@ -1023,6 +1038,7 @@ class ExternalSystemService:
             jwt_request_body_template=data.jwt_request_body_template,
             jwt_response_token_path=data.jwt_response_token_path,
             jwt_response_expires_path=data.jwt_response_expires_path,
+            jwt_response_token_header=data.jwt_response_token_header,
             headers_json=json.dumps(data.headers) if data.headers else "{}",
             advanced_auth_json=json.dumps(data.advanced_auth) if data.advanced_auth else "{}",
             created_by=user_id,
@@ -1073,6 +1089,8 @@ class ExternalSystemService:
             sys.jwt_response_token_path = data.jwt_response_token_path
         if data.jwt_response_expires_path is not None:
             sys.jwt_response_expires_path = data.jwt_response_expires_path
+        if data.jwt_response_token_header is not None:
+            sys.jwt_response_token_header = data.jwt_response_token_header
         if data.published is not None:
             sys.published = data.published
         if data.headers is not None:
@@ -1688,20 +1706,14 @@ def seed_preset_external_systems() -> None:
             "description": "Dinky 实时计算平台 - 基于 Apache Flink 的数据开发、作业管理、运维监控",
             "category": "bigdata",
             "base_url": "http://localhost:8888",
-            "auth_type": "api_key",
-            "credential_template": {
-                "fields": [
-                    {
-                        "key": "key",
-                        "label": "Dinky Token",
-                        "type": "password",
-                        "required": True,
-                        "help_text": "登录 Dinky 后，从浏览器 DevTools → Network → 请求 Headers 中复制 dinky-token 值",
-                    },
-                    {"key": "inject_in", "label": "注入位置", "type": "text", "required": False, "default_value": "header", "help_text": "固定为 header，无需修改"},
-                    {"key": "header_name", "label": "Header 名称", "type": "text", "required": False, "default_value": "dinky-token", "help_text": "Dinky 使用 dinky-token 作为认证 Header"},
-                ],
-            },
+            "auth_type": "jwt_login",
+            "credential_template": {"fields": [
+                {"key": "username", "label": "用户名", "type": "text", "required": True, "help_text": "Dinky 登录用户名"},
+                {"key": "password", "label": "密码", "type": "password", "required": True, "help_text": "Dinky 登录密码"},
+            ]},
+            "jwt_login_url": "/api/login",
+            "jwt_request_body_template": '{"username":"{username}","password":"{password}"}',
+            "jwt_response_token_header": "dinky-token",
             "apis": [
                 # 目录管理
                 {"name": "get_catalogue_tree", "display_name": "获取目录树", "method": "POST", "path": "/api/catalogue/getCatalogueTreeData", "description": "获取作业目录树结构"},
@@ -1767,6 +1779,7 @@ def seed_preset_external_systems() -> None:
                 jwt_request_body_template=preset.get("jwt_request_body_template"),
                 jwt_response_token_path=preset.get("jwt_response_token_path"),
                 jwt_response_expires_path=preset.get("jwt_response_expires_path"),
+                jwt_response_token_header=preset.get("jwt_response_token_header"),
                 jwt_refresh_body_template=preset.get("jwt_refresh_body_template"),
             )
             db.add(system)
