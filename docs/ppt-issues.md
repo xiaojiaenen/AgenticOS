@@ -97,11 +97,7 @@ return f"第 {slide_num} 页已保存（共 {slide_num} 页）\n<svg_preview>{sv
 
 ### 根因分析
 
-**根因 A：无强制读取机制**
-
-系统提示词（`prompts.py:78`）说"必须先调用 `file_to_md` 读取所有上传文件"，但这只是提示词层面的指令。没有代码级强制：没有 Middleware 检查 `file_to_md` 是否被调用，没有 guard 在 `save_slide` 前验证文档是否已读取。
-
-**根因 B：上下文压缩销毁文档内容**
+**根因1 上下文压缩销毁文档内容**
 
 `ContextCompressionMiddleware` 在 ~16 轮后触发，将旧消息替换为 LLM 生成的摘要。`file_to_md` 返回的完整文档文本（可能 5000+ tokens）会被压缩为几个要点，丢失所有具体数据、统计数字和引用。
 
@@ -109,7 +105,7 @@ return f"第 {slide_num} 页已保存（共 {slide_num} 页）\n<svg_preview>{sv
 - 8-12 页 PPT 轻松超过 16 轮（每页至少 2 轮：`save_slide` + 工具结果）
 - 压缩摘要只保留"Resolved Questions / Pending Questions / Active Task / Key Findings"，不保留原始数据
 
-**根因 C：`file_to_md` 输出可能非常大**
+**根因 2：`file_to_md` 输出可能非常大**
 
 大 PDF 转 Markdown 可能产生数千 tokens。这些内容占据对话历史中间位置，压缩时首先被摘要化。
 
