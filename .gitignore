@@ -48,6 +48,10 @@ data/*.db-wal
 data/websites/
 data/ppt-output/
 data/ppt-sessions/
+data/uploads/
+
+# Claude Connect
+.cc-connect/
 
 # Local IDE / editor files
 .idea/
