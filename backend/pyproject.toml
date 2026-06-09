@@ -16,6 +16,8 @@ dependencies = [
     "markitdown>=0.1.5",
     "redis>=5.0.0,<6.0.0",
     "cryptography>=44.0.0,<45.0.0",
+    "cachetools>=5.0.0,<6.0.0",
+    "alembic>=1.14.0,<2.0.0",
 ]
 
 [dependency-groups]

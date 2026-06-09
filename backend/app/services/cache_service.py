@@ -379,13 +379,12 @@ class CacheService:
         return result is not None
 
 
-# 全局单例
-_cache_service: CacheService | None = None
+# 全局单例（线程安全）
+from app.core.singleton import ThreadSafeSingleton
+
+_cache_service_singleton = ThreadSafeSingleton(CacheService)
 
 
 def get_cache_service() -> CacheService:
     """获取缓存服务单例"""
-    global _cache_service
-    if _cache_service is None:
-        _cache_service = CacheService()
-    return _cache_service
+    return _cache_service_singleton.get()

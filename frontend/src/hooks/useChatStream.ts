@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Message, Session, Attachment, Artifact } from '../types';
 import {
   sendMessageStream,
@@ -76,6 +76,14 @@ export function useChatStream({
   }>({ phase: 'idle', label: '已就绪' });
 
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // ── 流式 Delta 批量更新：合并高频 token 到每帧一次 setSessions ──
+  const latestDeltaRef = useRef<{ fullText: string; isPpt: boolean } | null>(null);
+  const latestReasoningRef = useRef<string | null>(null);
+  const deltaFlushRaf = useRef<number | null>(null);
+
+  // Cleanup rAF on unmount
+  useEffect(() => () => { if (deltaFlushRaf.current != null) cancelAnimationFrame(deltaFlushRaf.current); }, []);
 
   // 自动收起错误提示
   // 注意：这个 effect 在 hook 中无法使用，需要在调用方处理
@@ -308,48 +316,83 @@ export function useChatStream({
                 ? prev
                 : { phase: 'streaming', label: '大模型正在输出' },
             );
-            setSessions((prev) =>
-              prev.map((session) =>
-                session.id === targetId
-                  ? {
-                      ...session,
-                      updatedAt: Date.now(),
-                      messages: session.messages.map((message) =>
-                        message.id === assistantMessageId
-                          ? chatMode === 'ppt'
-                            ? {
-                                ...message,
-                                text: fullText,
-                                pptArtifact:
-                                  message.pptArtifact?.status === 'ready' || receivedPptArtifact
-                                    ? (message.pptArtifact?.status === 'ready' ? message.pptArtifact : { status: 'ready' as const, artifactId: receivedPptArtifact!.artifact_id })
-                                    : { status: 'generating' },
-                              }
-                            : { ...message, text: fullText }
-                          : message,
-                      ),
-                    }
-                  : session,
-              ),
-            );
+            // 批量更新：存储最新值，rAF 合并到每帧一次 setSessions
+            latestDeltaRef.current = { fullText, isPpt: chatMode === 'ppt' };
+            if (deltaFlushRaf.current == null) {
+              deltaFlushRaf.current = requestAnimationFrame(() => {
+                deltaFlushRaf.current = null;
+                const delta = latestDeltaRef.current;
+                const reasoning = latestReasoningRef.current;
+                if (!delta && !reasoning) return;
+                setSessions((prev) =>
+                  prev.map((session) =>
+                    session.id === targetId
+                      ? {
+                          ...session,
+                          updatedAt: Date.now(),
+                          messages: session.messages.map((message) =>
+                            message.id === assistantMessageId
+                              ? {
+                                  ...message,
+                                  ...(delta ? { text: delta.fullText } : {}),
+                                  ...(delta?.isPpt ? {
+                                    pptArtifact:
+                                      message.pptArtifact?.status === 'ready' || receivedPptArtifact
+                                        ? (message.pptArtifact?.status === 'ready' ? message.pptArtifact : { status: 'ready' as const, artifactId: receivedPptArtifact!.artifact_id })
+                                        : { status: 'generating' as const },
+                                  } : {}),
+                                  ...(reasoning != null ? { reasoningText: reasoning } : {}),
+                                }
+                              : message,
+                          ),
+                        }
+                      : session,
+                  ),
+                );
+                latestDeltaRef.current = null;
+                latestReasoningRef.current = null;
+              });
+            }
           },
           onReasoningDelta: (_, fullReasoning) => {
             hasAssistantActivity = true;
-            setSessions((prev) =>
-              prev.map((session) =>
-                session.id === targetId
-                  ? {
-                      ...session,
-                      updatedAt: Date.now(),
-                      messages: session.messages.map((message) =>
-                        message.id === assistantMessageId
-                          ? { ...message, reasoningText: fullReasoning }
-                          : message,
-                      ),
-                    }
-                  : session,
-              ),
-            );
+            // 批量更新：存储最新 reasoning，与 delta 共享同一个 rAF flush
+            latestReasoningRef.current = fullReasoning;
+            if (deltaFlushRaf.current == null) {
+              deltaFlushRaf.current = requestAnimationFrame(() => {
+                deltaFlushRaf.current = null;
+                const delta = latestDeltaRef.current;
+                const reasoning = latestReasoningRef.current;
+                if (!delta && !reasoning) return;
+                setSessions((prev) =>
+                  prev.map((session) =>
+                    session.id === targetId
+                      ? {
+                          ...session,
+                          updatedAt: Date.now(),
+                          messages: session.messages.map((message) =>
+                            message.id === assistantMessageId
+                              ? {
+                                  ...message,
+                                  ...(delta ? { text: delta.fullText } : {}),
+                                  ...(delta?.isPpt ? {
+                                    pptArtifact:
+                                      message.pptArtifact?.status === 'ready' || receivedPptArtifact
+                                        ? (message.pptArtifact?.status === 'ready' ? message.pptArtifact : { status: 'ready' as const, artifactId: receivedPptArtifact!.artifact_id })
+                                        : { status: 'generating' as const },
+                                  } : {}),
+                                  ...(reasoning != null ? { reasoningText: reasoning } : {}),
+                                }
+                              : message,
+                          ),
+                        }
+                      : session,
+                  ),
+                );
+                latestDeltaRef.current = null;
+                latestReasoningRef.current = null;
+              });
+            }
           },
           onToolCalls: (toolCalls) => {
             hasAssistantActivity = true;
