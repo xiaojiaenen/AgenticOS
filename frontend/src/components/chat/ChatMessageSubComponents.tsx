@@ -258,10 +258,19 @@ export const ToolTimelineStep = ({ title, state, body }: { title: string; state:
   </div>
 );
 
+// 递归提取 React children 中的文本内容
+function extractTextFromChildren(children: any): string {
+  if (children == null || children === false) return '';
+  if (typeof children === 'string' || typeof children === 'number') return String(children);
+  if (Array.isArray(children)) return children.map(extractTextFromChildren).join('');
+  if (children.props?.children) return extractTextFromChildren(children.props.children);
+  return '';
+}
+
 export const CodeBlock = ({ inline, className, children, onOpenArtifact, ...props }: any) => {
   const [isBlockCopied, setIsBlockCopied] = useState(false);
   const match = /language-(\w+)/.exec(className || '');
-  const codeString = String(children).replace(/\n$/, '');
+  const codeString = extractTextFromChildren(children).replace(/\n$/, '');
   const config = getAppConfig();
 
   if (!inline && match && match[1] === 'mermaid' && config.enableMermaid) return <MermaidChart chart={codeString} />;
