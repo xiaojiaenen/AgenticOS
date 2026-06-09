@@ -100,6 +100,7 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
         "ppt": {
             "file_to_md": {"enabled": True, "requires_approval": False},
             "search_icons": {"enabled": True, "requires_approval": False},
+            "list_icons": {"enabled": True, "requires_approval": False},
             "convert_pptx_to_svg": {"enabled": True, "requires_approval": True},
             "import_pptx_template": {"enabled": True, "requires_approval": True},
             "email": {"enabled": False, "requires_approval": True},
@@ -236,6 +237,13 @@ TOOL_CATALOG = {
         "approval_scope": [],
         "sub_tools": {},
     },
+    "list_icons": {
+        "label": "列出图标库",
+        "description": "列出所有可用的图标库及图标数量，用于确认图标库是否可用。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
     "save_slide": {
         "label": "保存幻灯片",
         "description": "将一页 SVG 幻灯片写入会话工作目录，新建或覆盖已有页。",
@@ -246,6 +254,13 @@ TOOL_CATALOG = {
     "read_slide": {
         "label": "读取幻灯片",
         "description": "读取已有幻灯片的 SVG 内容，用于修改前查看。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "submit_slide_plan": {
+        "label": "提交幻灯片计划",
+        "description": "在规划阶段提交结构化的页面计划（JSON 数组），自动弹出决策面板等待用户确认。",
         "builtin_name": None,
         "approval_scope": [],
         "sub_tools": {},

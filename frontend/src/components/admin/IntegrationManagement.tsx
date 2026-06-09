@@ -197,23 +197,56 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
  const addJwtPair = () => { const pairs = [...jwtPairs, { key: "", value: "" }]; setDraft({ ...draft, jwt_request_body_template: JSON.stringify(Object.fromEntries(pairs.map(p => [p.key, p.value]))) }); };
  const removeJwtPair = (i: number) => { const pairs = jwtPairs.filter((_, x) => x !== i); setDraft({ ...draft, jwt_request_body_template: JSON.stringify(Object.fromEntries(pairs.map(p => [p.key, p.value]))) }); };
 
+ const [step, setStep] = useState(0);
+ const canProceed = step === 0 ? !!(draft.name && draft.base_url) : step === 1 ? (draft.auth_type !== "oauth2" || !!(draft.oauth_auth_url && draft.oauth_token_url)) && (draft.auth_type !== "jwt_login" || !!draft.jwt_login_url) : true;
+
  return createPortal(
   <div className="admin-modal-shell" onMouseDown={onClose}>
-   <motion.div initial={{opacity:0,y:24,scale:0.96}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:24,scale:0.96}} transition={{duration:0.22}} onMouseDown={e=>e.stopPropagation()} className="admin-solid-panel admin-modal-panel flex max-h-[min(88vh,900px)] w-full max-w-xl flex-col overflow-hidden">
+   <motion.div initial={{opacity:0,y:24,scale:0.96}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:24,scale:0.96}} transition={{duration:0.22}} onMouseDown={e=>e.stopPropagation()} className="admin-solid-panel admin-modal-panel flex max-h-[min(88vh,900px)] w-full max-w-2xl flex-col overflow-hidden">
     <div className="flex items-center justify-between px-6 pt-5 pb-0">
      <div><p className="admin-section-kicker">集成配置</p><h3 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">{draft.id?"编辑集成":"新增集成"}</h3></div>
      <button type="button" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"><X size={19}/></button>
     </div>
-    <div className="flex-1 overflow-y-auto px-6 pt-5 pb-6 space-y-5">
-     <SectionTitle title="基本信息"/>
-     <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
-      <Field label="名称" required><input className="admin-input" value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})} placeholder="如 Jira、GitHub"/></Field>
-      <Field label="Base URL" required><input className="admin-input font-mono text-sm" value={draft.base_url} onChange={e=>setDraft({...draft,base_url:e.target.value})} placeholder="https://api.example.com"/></Field>
-     </div>
-     <Field label="描述"><textarea className="admin-input min-h-[56px] resize-y" value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})} placeholder="简要描述该系统的用途"/></Field>
+    <div className="mx-6 mt-4 flex items-center gap-1">
+     {["基本信息","鉴权配置","高级设置"].map((label, i) => (
+      <React.Fragment key={i}>
+       {i > 0 && <div className={cn("mx-1 h-px flex-1", i <= step ? "bg-sky-300" : "bg-slate-200")}/>}
+       <button type="button" onClick={() => { if (i < step || (i === step + 1 && canProceed)) setStep(i); }}
+        className={cn("flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all", i === step ? "bg-sky-100 text-sky-700" : i < step ? "text-sky-500 hover:bg-sky-50" : "text-slate-400 cursor-default")}>
+        <span className={cn("flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold", i === step ? "bg-sky-500 text-white" : i < step ? "bg-sky-200 text-sky-600" : "bg-slate-200 text-slate-400")}>{i < step ? "✓" : i + 1}</span>
+        {label}
+       </button>
+      </React.Fragment>
+     ))}
+    </div>
+    <div className="flex-1 overflow-y-auto px-6 pt-4 pb-6 space-y-5">
+     {step === 0 && (<>
+      <SectionTitle title="基本信息"/>
+      <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+       <Field label="名称" required><input className="admin-input" value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})} placeholder="如 Jira、GitHub"/></Field>
+       <Field label="Base URL" required><input className="admin-input font-mono text-sm" value={draft.base_url} onChange={e=>setDraft({...draft,base_url:e.target.value})} placeholder="https://api.example.com"/></Field>
+      </div>
+      <Field label="描述"><textarea className="admin-input min-h-[56px] resize-y" value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})} placeholder="简要描述该系统的用途"/></Field>
+      <label className="flex items-center gap-2.5 text-sm font-medium text-slate-700">
+       <input type="checkbox" checked={draft.published} onChange={e=>setDraft({...draft,published:e.target.checked})} className="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400"/>
+       发布（用户可见）
+      </label>
+     </>)}
 
+     {step === 1 && (<>
      <SectionTitle title="鉴权方式"/>
-     <Field label="鉴权类型"><select className="admin-input" value={draft.auth_type} onChange={e=>setDraft({...draft,auth_type:e.target.value})}>{AUTH_TYPES.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}</select></Field>
+     <div className="grid grid-cols-3 gap-2">
+      {AUTH_TYPES.map(t => {
+       const Icon = authTypeIcon(t.value);
+       return (
+        <button key={t.value} type="button" onClick={() => setDraft({...draft, auth_type: t.value})}
+         className={cn("flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-center transition-all", draft.auth_type === t.value ? "border-sky-400 bg-sky-50 text-sky-700 shadow-sm" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50")}>
+         <Icon size={18} className={draft.auth_type === t.value ? "text-sky-500" : "text-slate-400"}/>
+         <span className="text-xs font-semibold">{t.label}</span>
+        </button>
+       );
+      })}
+     </div>
 
      {draft.auth_type==="oauth2"&&(
       <div className="rounded-lg border border-sky-100 bg-sky-50/50 p-4 space-y-3">
@@ -227,19 +260,22 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
         <Field label="Token URL" required><input className="admin-input font-mono text-sm" value={draft.oauth_token_url||""} onChange={e=>setDraft({...draft,oauth_token_url:e.target.value})} placeholder="https://.../token"/></Field>
         <Field label="Refresh Token URL"><input className="admin-input font-mono text-sm" value={draft.oauth_refresh_token_url||""} onChange={e=>setDraft({...draft,oauth_refresh_token_url:e.target.value})} placeholder="留空则使用 Token URL"/></Field>
        </div>
-       <Field label="Scope"><input className="admin-input" value={draft.oauth_scope||""} onChange={e=>setDraft({...draft,oauth_scope:e.target.value})} placeholder="read write"/></Field>
+       <Field label="Scope"><input className="admin-input" value={draft.oauth_scope||""} onChange={e=>setDraft({...draft,oauth_scope:e.target.value})} placeholder="read write (可选)"/></Field>
       </div>
      )}
 
-     {draft.auth_type==="jwt_login"&&(
+     {draft.auth_type==="jwt_login"&&(<>
       <div className="rounded-lg border border-violet-100 bg-violet-50/50 p-4 space-y-3">
-       <p className="text-xs font-semibold tracking-wider text-violet-500 uppercase">JWT 登录配置</p>
+       <p className="text-xs font-semibold tracking-wider text-violet-500 uppercase">登录端点</p>
        <Field label="登录地址" required><input className="admin-input font-mono text-sm" value={draft.jwt_login_url||""} onChange={e=>setDraft({...draft,jwt_login_url:e.target.value})} placeholder="https://api.internal.com/auth/login"/></Field>
-       <Field label="刷新地址"><input className="admin-input font-mono text-sm" value={draft.jwt_refresh_url||""} onChange={e=>setDraft({...draft,jwt_refresh_url:e.target.value})} placeholder="https://api.internal.com/auth/refresh (可选)"/></Field>
-       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <Field label="刷新请求体模板"><input className="admin-input font-mono text-xs" value={draft.jwt_refresh_body_template||""} onChange={e=>setDraft({...draft,jwt_refresh_body_template:e.target.value})} placeholder='{"grant_type":"refresh_token","refresh_token":"{refresh_token}"}' /></Field>
-        <Field label="Refresh Token 路径"><input className="admin-input font-mono text-xs" value={draft.jwt_refresh_token_path||""} onChange={e=>setDraft({...draft,jwt_refresh_token_path:e.target.value})} placeholder="refresh_token (默认)"/></Field>
+       <div className="grid grid-cols-2 gap-3">
+        <Field label="刷新地址"><input className="admin-input font-mono text-xs" value={draft.jwt_refresh_url||""} onChange={e=>setDraft({...draft,jwt_refresh_url:e.target.value})} placeholder="可选"/></Field>
+        <Field label="Refresh Token 路径"><input className="admin-input font-mono text-xs" value={draft.jwt_refresh_token_path||""} onChange={e=>setDraft({...draft,jwt_refresh_token_path:e.target.value})} placeholder="refresh_token"/></Field>
        </div>
+       <Field label="刷新请求体模板"><input className="admin-input font-mono text-xs" value={draft.jwt_refresh_body_template||""} onChange={e=>setDraft({...draft,jwt_refresh_body_template:e.target.value})} placeholder='{"grant_type":"refresh_token","refresh_token":"{refresh_token}"}' /></Field>
+      </div>
+      <div className="rounded-lg border border-violet-100 bg-violet-50/50 p-4 space-y-3">
+       <p className="text-xs font-semibold tracking-wider text-violet-500 uppercase">Token 解析与注入</p>
        <div>
         <div className="mb-2 flex items-center justify-between">
          <label className="text-sm font-medium text-slate-700">请求体字段</label>
@@ -275,40 +311,43 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
        </div>
        <p className="text-xs text-slate-400">Token 来源：从响应 Body（JSON）或 Header 中读取 token。注入方式：以 Bearer Token 或自定义 Header 注入请求。</p>
       </div>
-     )}
+     </>)}
 
      <SectionTitle title="用户凭据"/>
      <div>
-      <div className="mb-2 flex items-center justify-between">
-       <label className="text-sm font-medium text-slate-700">凭据字段</label>
-       <button type="button" onClick={addCredField} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-sky-600 transition-colors hover:bg-sky-50"><Plus size={13}/>添加字段</button>
+      <div className="mb-3 flex items-center justify-between">
+       <div><label className="text-sm font-medium text-slate-700">凭据字段</label><p className="mt-0.5 text-xs text-slate-400">定义用户连接此系统时需要填写的凭据信息</p></div>
+       <button type="button" onClick={addCredField} className="flex items-center gap-1 rounded-lg bg-sky-50 px-2.5 py-1.5 text-xs font-semibold text-sky-600 transition-colors hover:bg-sky-100"><Plus size={13}/>添加字段</button>
       </div>
-      <p className="mb-3 text-xs text-slate-400">定义用户连接此系统时需要填写的凭据信息</p>
       {credFields.length===0 && <p className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">暂无凭据字段</p>}
       {credFields.map((f,i)=>(
        <div key={i} className="mb-2 rounded-lg border border-slate-200 bg-white/80 p-3">
-        <div className="grid grid-cols-4 gap-2">
-         <input className="admin-input text-sm" placeholder="字段标识 (key)" value={f.key} onChange={e=>updateCredField(i,"key",e.target.value)}/>
-         <input className="admin-input text-sm" placeholder="显示名称" value={f.label} onChange={e=>updateCredField(i,"label",e.target.value)}/>
+        <div className="grid grid-cols-6 gap-2">
+         <input className="admin-input col-span-2 text-sm" placeholder="字段标识 (key)" value={f.key} onChange={e=>updateCredField(i,"key",e.target.value)}/>
+         <input className="admin-input col-span-2 text-sm" placeholder="显示名称" value={f.label} onChange={e=>updateCredField(i,"label",e.target.value)}/>
          <select className="admin-input text-sm" value={f.type} onChange={e=>updateCredField(i,"type",e.target.value)}><option value="text">文本</option><option value="password">密码</option><option value="url">URL</option><option value="email">邮箱</option></select>
          <div className="flex items-center gap-2"><label className="flex items-center gap-1 text-xs text-slate-600"><input type="checkbox" checked={f.required} onChange={e=>updateCredField(i,"required",e.target.checked)} className="rounded"/>必填</label><button type="button" onClick={()=>removeCredField(i)} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500"><Trash2 size={14}/></button></div>
         </div>
-        <input className="admin-input mt-2 text-xs" placeholder="占位提示文字" value={f.placeholder||""} onChange={e=>updateCredField(i,"placeholder",e.target.value)}/>
+        <input className="admin-input mt-2 text-xs" placeholder="占位提示文字（可选）" value={f.placeholder||""} onChange={e=>updateCredField(i,"placeholder",e.target.value)}/>
        </div>
       ))}
      </div>
+     </>)}
 
-     <SectionTitle title="高级安全设置"/>
-     <AdvancedAuthPanel aa={draft.advanced_auth||{}} onChange={(aa)=>setDraft({...draft,advanced_auth:aa})}/>
-
-     <label className="flex items-center gap-2.5 text-sm font-medium text-slate-700">
-      <input type="checkbox" checked={draft.published} onChange={e=>setDraft({...draft,published:e.target.checked})} className="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400"/>
-      发布（用户可见）
-     </label>
+     {step === 2 && (<>
+      <SectionTitle title="高级安全设置"/>
+      <AdvancedAuthPanel aa={draft.advanced_auth||{}} onChange={(aa)=>setDraft({...draft,advanced_auth:aa})}/>
+     </>)}
     </div>
-    <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
-     <Button variant="secondary" onClick={onClose}>取消</Button>
-     <Button variant="primary" onClick={onSave} disabled={isSaving||!draft.name||!draft.base_url} className="gap-2">{isSaving?<Loader2 size={16} className="animate-spin"/>:<Save size={16}/>}{draft.id?"更新":"创建"}</Button>
+    <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+     <div>{step > 0 && <Button variant="secondary" onClick={() => setStep(step - 1)}>上一步</Button>}</div>
+     <div className="flex gap-3">
+      <Button variant="ghost" onClick={onClose}>取消</Button>
+      {step < 2
+       ? <Button variant="primary" onClick={() => { if (canProceed) setStep(step + 1); }} disabled={!canProceed}>下一步</Button>
+       : <Button variant="primary" onClick={onSave} disabled={isSaving||!draft.name||!draft.base_url} className="gap-2">{isSaving?<Loader2 size={16} className="animate-spin"/>:<Save size={16}/>}{draft.id?"更新":"创建"}</Button>
+      }
+     </div>
     </div>
    </motion.div>
   </div>,
