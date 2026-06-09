@@ -81,6 +81,33 @@ XML 保留字符必须转义：`&` → `&amp;`，`<` → `&lt;`，`>` → `&gt;`
 
 **一页用一种图标库，不要混用。** 先用 `search_icons` 工具搜索需要的图标名，图标名严格从搜索结果中复制，禁止自创图标名。
 
+### 概念→图标速查表（优先使用，减少搜索调用）
+
+| 概念 | 推荐图标（chunk-filled） | 推荐图标（tabler-outline） |
+|------|------------------------|--------------------------|
+| 增长/趋势 | arrow-trend-up | chart-line |
+| 安全/保护 | shield | shield |
+| 速度/快速 | bolt | bolt |
+| AI/智能 | brain, robot, cpu | brain, robot, cpu |
+| 数据/分析 | chart-bar | chart-bar, chart-line |
+| 用户/人物 | user, users | user, users |
+| 设置/配置 | settings, cog | settings |
+| 成功/完成 | circle-check | circle-check |
+| 警告/注意 | triangle-exclamation | alert-triangle |
+| 全球/网络 | globe | globe |
+| 沟通/消息 | message | message |
+| 时间/效率 | clock | clock |
+| 创意/灯泡 | lightbulb | lightbulb |
+| 目标/定位 | target | target |
+| 文档/文件 | file | file-text |
+| 锁定/隐私 | lock | lock |
+| 代码/开发 | code | code |
+| 云端/部署 | cloud | cloud |
+| 协作/团队 | users | users-group |
+| 链接/连接 | link | link |
+
+先从上表查找，表中没有的概念再调用 `search_icons` 搜索。
+
 ---
 
 ## 三、内联文本排版（tspan / span 铁律）
