@@ -28,13 +28,23 @@ function compactMessageForStorage(message: Message): Message {
       ...tool,
       result: clampText(tool.result, MAX_PERSISTED_TOOL_RESULT_LENGTH),
     })),
+    // html 字段可能数百 KB，不存 localStorage（从后端重新加载）
     pptArtifact: message.pptArtifact
       ? {
           status: message.pptArtifact.status,
           artifactId: message.pptArtifact.artifactId,
           title: message.pptArtifact.title,
           slideCount: message.pptArtifact.slideCount,
-          html: message.pptArtifact.html,
+          // html: 不持久化，避免超限
+        }
+      : undefined,
+    websiteArtifact: message.websiteArtifact
+      ? {
+          status: message.websiteArtifact.status,
+          artifactId: message.websiteArtifact.artifactId,
+          title: message.websiteArtifact.title,
+          projectSlug: message.websiteArtifact.projectSlug,
+          // html: 不持久化
         }
       : undefined,
   };
@@ -62,7 +72,25 @@ function saveSessionsToCache(sessions: Session[]) {
       .slice(-MAX_PERSISTED_MESSAGES_PER_SESSION)
       .map((message) => compactMessageForStorage(message)),
   }));
-  localStorage.setItem(key, JSON.stringify(compacted));
+  try {
+    localStorage.setItem(key, JSON.stringify(compacted));
+  } catch (e) {
+    // QuotaExceededError: 配额超限，逐个会话缩减直到能存下
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      console.warn('localStorage quota exceeded, reducing cache size');
+      try {
+        // 只保留最近 5 个会话，每个最多 20 条消息
+        const minimal = compacted.slice(0, 5).map(s => ({
+          ...s,
+          messages: s.messages.slice(-20),
+        }));
+        localStorage.setItem(key, JSON.stringify(minimal));
+      } catch {
+        // 仍然超限，清空缓存
+        try { localStorage.removeItem(key); } catch { /* ignore */ }
+      }
+    }
+  }
 }
 
 export function useChatSessions() {
