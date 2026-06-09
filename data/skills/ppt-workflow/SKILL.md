@@ -4,7 +4,7 @@ description: PPT 创作工作流——7 步流程、spec_lock 执行锁、修改
 version: 1.0.0
 tags: [ppt, workflow, spec_lock]
 when_to_use: 开始 PPT 创作任务时，加载此工作流以获取创作步骤和规范
-allowed_tools: [save_slide, read_slide, load_skill, load_skill_reference, search_icons, file_to_md, convert_pptx_to_svg]
+allowed_tools: [save_slide, read_slide, load_skill, load_skill_reference, list_icons, search_icons, file_to_md, convert_pptx_to_svg]
 required_tools: []
 ---
 
@@ -113,7 +113,7 @@ PPT 创作分为两个角色，**绝不在同一个回复中混合两个角色�
 - mono: 字体族 · 字号 · 字重
 
 **图标**
-- 库: chunk-filled（或 tabler-filled 等，每套 PPT 只选一个，禁止混用）
+- 库: 先调 `list_icons` 确认可用图标库，再从中选一个（每套 PPT 只选一个，禁止混用）
 - 清单: 在 spec_lock 阶段一次性批量搜索所有需要的图标（用逗号分隔多个关键词），结果写入此处。后续页面直接引用，不再重复搜索
 - 降级: 如果 search_icons 返回"未初始化"或连续 2 次返回 0 结果，立即停止搜索，mode 改为 "text-only"，用 `<text>` 元素代替所有图标
 
