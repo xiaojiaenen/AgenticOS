@@ -29,6 +29,7 @@ export type IntegrationSystem = {
   jwt_request_body_template: string | null;
   jwt_response_token_path: string | null;
   jwt_response_expires_path: string | null;
+  jwt_response_token_header: string | null;
   published: boolean;
   headers: Record<string, string>;
   advanced_auth: Record<string, any>;
@@ -106,6 +107,7 @@ export type IntegrationSystemPayload = {
   jwt_request_body_template?: string;
   jwt_response_token_path?: string;
   jwt_response_expires_path?: string;
+  jwt_response_token_header?: string;
   published: boolean;
   headers: Record<string, string>;
   advanced_auth?: Record<string, any>;
