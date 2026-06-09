@@ -8,6 +8,25 @@ import os
 import time
 from typing import Any
 
+from cryptography.fernet import Fernet
+
+
+def _derive_fernet_key(secret: str) -> bytes:
+    """从 AUTH_SECRET_KEY 派生 Fernet 对称加密密钥。"""
+    return base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest())
+
+
+def encrypt_credential(plaintext: str, *, secret: str) -> str:
+    """加密凭据（如邮箱密码），返回 Fernet 密文。"""
+    f = Fernet(_derive_fernet_key(secret))
+    return f.encrypt(plaintext.encode("utf-8")).decode("ascii")
+
+
+def decrypt_credential(ciphertext: str, *, secret: str) -> str:
+    """解密凭据，返回明文。"""
+    f = Fernet(_derive_fernet_key(secret))
+    return f.decrypt(ciphertext.encode("ascii")).decode("utf-8")
+
 
 def _b64encode(value: bytes) -> str:
     return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")

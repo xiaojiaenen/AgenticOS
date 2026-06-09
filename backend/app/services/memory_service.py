@@ -263,13 +263,12 @@ MEMORY_EXTRACTION_PROMPT = """从以下对话中提取用户的关键信息，�
 ]"""
 
 
-# 全局单例
-_memory_service: UserMemoryService | None = None
+# 全局单例（线程安全）
+from app.core.singleton import ThreadSafeSingleton
+
+_memory_service_singleton = ThreadSafeSingleton(UserMemoryService)
 
 
 def get_memory_service() -> UserMemoryService:
     """获取记忆服务单例"""
-    global _memory_service
-    if _memory_service is None:
-        _memory_service = UserMemoryService()
-    return _memory_service
+    return _memory_service_singleton.get()

@@ -27,6 +27,63 @@ import {
   isToolActive,
 } from './ChatMessageSubComponents';
 
+// ── 模块级纯函数：不依赖组件闭包，避免每次渲染重建 ──
+const extractPlainText = (children: React.ReactNode): string =>
+  React.Children.toArray(children).map((child) => {
+    if (typeof child === 'string' || typeof child === 'number') return String(child).replace(/<br\s*\/?>/gi, '\n');
+    if (React.isValidElement(child)) return extractPlainText((child.props as any).children);
+    return '';
+  }).join('').trim();
+
+const isNumericLike = (value: string): boolean => {
+  const normalized = value.replace(/\s+/g, '').replace(/,/g, '');
+  return /^[+-]?(?:[$¥€])?\d+(?:\.\d+)?(?:%|x|ms|s|m|h)?$/i.test(normalized);
+};
+
+const isNumericHeader = (value: string): boolean =>
+  /(数量|金额|价格|总计|占比|比例|得分|评分|次数|耗时|时长|rate|count|amount|price|total|score|percent|percentage|cost|time)$/i.test(value.trim());
+
+// ── 模块级组件：稳定引用，React.memo 生效 ──
+const HighlightedText = React.memo(({ text, counter, searchQuery, activeMatchId, messageId }: { text: string; counter: { current: number }; searchQuery: string; activeMatchId?: string | null; messageId?: string }) => {
+  if (!searchQuery?.trim()) return <>{text}</>;
+  const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${escapedQuery})`, 'gi'));
+  return <>{parts.map((part, i) => {
+    if (part.toLowerCase() === searchQuery.toLowerCase()) {
+      const currentIdx = counter.current++;
+      const elementId = `mark-${messageId}-${currentIdx}`;
+      const isActive = elementId === activeMatchId;
+      return <mark key={i} id={elementId} className={cn("rounded-[2px] px-0.5 font-bold shadow-sm transition-all duration-300", isActive ? "bg-orange-500 text-white ring-2 ring-orange-600 z-10 scale-110 inline-block" : "bg-yellow-300 text-zinc-900 ring-1 ring-yellow-400")}>{part}</mark>;
+    }
+    return part;
+  })}</>;
+});
+
+const processChildren = (children: any, counter: { current: number }, searchQuery: string, activeMatchId?: string | null, messageId?: string): any =>
+  React.Children.map(children, child => {
+    if (typeof child === 'string') {
+      return child.split(/(<br\s*\/?>)/gi).map((segment, index) => {
+        if (/^<br\s*\/?>$/i.test(segment)) return <br key={`br-${index}`} />;
+        if (!segment) return null;
+        return <HighlightedText key={`text-${index}`} text={segment} counter={counter} searchQuery={searchQuery} activeMatchId={activeMatchId} messageId={messageId} />;
+      });
+    }
+    if (React.isValidElement(child) && (child.props as any).children) {
+      return React.cloneElement(child, { ...(child.props as any), children: processChildren((child.props as any).children, counter, searchQuery, activeMatchId, messageId) });
+    }
+    return child;
+  });
+
+const renderTableCellContent = (children: React.ReactNode, counter: { current: number }, searchQuery: string, activeMatchId?: string | null, messageId?: string, options: { placeholder?: string; align?: 'left' | 'right'; truncate?: boolean } = {}) => {
+  const plainText = extractPlainText(children);
+  if (plainText.length === 0) return <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium tracking-wide text-slate-400">{options.placeholder ?? '未填写'}</span>;
+  const processed = processChildren(children, counter, searchQuery, activeMatchId, messageId);
+  const shouldTruncate = options.truncate === true && plainText.length > 64;
+  const alignmentClass = options.align === 'right' ? 'items-end text-right' : 'items-start text-left';
+  if (!shouldTruncate) return <div className={cn('flex min-w-0 flex-col whitespace-pre-wrap break-words', alignmentClass)}>{processed}</div>;
+  return <div className={cn('flex min-w-0 flex-col', alignmentClass)} title={plainText}><span className="max-w-[18rem] overflow-hidden text-ellipsis whitespace-nowrap">{processed}</span></div>;
+};
+
 interface ChatMessageProps {
   message?: Message;
   isTyping?: boolean;
@@ -55,80 +112,25 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   const config = getAppConfig();
   const sessionCounter = useRef({ current: 0 });
 
-  const extractPlainText = (children: React.ReactNode): string =>
-    React.Children.toArray(children).map((child) => {
-      if (typeof child === 'string' || typeof child === 'number') return String(child).replace(/<br\s*\/?>/gi, '\n');
-      if (React.isValidElement(child)) return extractPlainText((child.props as any).children);
-      return '';
-    }).join('').trim();
-
-  const isNumericLike = (value: string): boolean => {
-    const normalized = value.replace(/\s+/g, '').replace(/,/g, '');
-    return /^[+-]?(?:[$¥€])?\d+(?:\.\d+)?(?:%|x|ms|s|m|h)?$/i.test(normalized);
-  };
-
-  const isNumericHeader = (value: string): boolean =>
-    /(数量|金额|价格|总计|占比|比例|得分|评分|次数|耗时|时长|rate|count|amount|price|total|score|percent|percentage|cost|time)$/i.test(value.trim());
-
-  const renderTableCellContent = (children: React.ReactNode, counter: { current: number }, options: { placeholder?: string; align?: 'left' | 'right'; truncate?: boolean } = {}) => {
-    const plainText = extractPlainText(children);
-    if (plainText.length === 0) return <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium tracking-wide text-slate-400">{options.placeholder ?? '未填写'}</span>;
-    const processed = processChildren(children, counter);
-    const shouldTruncate = options.truncate === true && plainText.length > 64;
-    const alignmentClass = options.align === 'right' ? 'items-end text-right' : 'items-start text-left';
-    if (!shouldTruncate) return <div className={cn('flex min-w-0 flex-col whitespace-pre-wrap break-words', alignmentClass)}>{processed}</div>;
-    return <div className={cn('flex min-w-0 flex-col', alignmentClass)} title={plainText}><span className="max-w-[18rem] overflow-hidden text-ellipsis whitespace-nowrap">{processed}</span></div>;
-  };
-
-  const HighlightedText = ({ text, counter }: { text: string; counter: { current: number } }) => {
-    if (!searchQuery?.trim()) return <>{text}</>;
-    const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const parts = text.split(new RegExp(`(${escapedQuery})`, 'gi'));
-    return <>{parts.map((part, i) => {
-      if (part.toLowerCase() === searchQuery.toLowerCase()) {
-        const currentIdx = counter.current++;
-        const elementId = `mark-${message?.id}-${currentIdx}`;
-        const isActive = elementId === activeMatchId;
-        return <mark key={i} id={elementId} className={cn("rounded-[2px] px-0.5 font-bold shadow-sm transition-all duration-300", isActive ? "bg-orange-500 text-white ring-2 ring-orange-600 z-10 scale-110 inline-block" : "bg-yellow-300 text-zinc-900 ring-1 ring-yellow-400")}>{part}</mark>;
-      }
-      return part;
-    })}</>;
-  };
-
-  const processChildren = (children: any, counter: { current: number }): any =>
-    React.Children.map(children, child => {
-      if (typeof child === 'string') {
-        return child.split(/(<br\s*\/?>)/gi).map((segment, index) => {
-          if (/^<br\s*\/?>$/i.test(segment)) return <br key={`br-${index}`} />;
-          if (!segment) return null;
-          return <HighlightedText key={`text-${index}`} text={segment} counter={counter} />;
-        });
-      }
-      if (React.isValidElement(child) && (child.props as any).children) {
-        return React.cloneElement(child, { ...(child.props as any), children: processChildren((child.props as any).children, counter) });
-      }
-      return child;
-    });
-
   const handleCopy = useCallback(async () => {
     if (visibleText) { await copyToClipboard(visibleText); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); }
   }, [visibleText]);
 
-  const TableHeaderCell = ({ children }: { children: React.ReactNode }) => {
+  const TableHeaderCell = React.memo(({ children }: { children: React.ReactNode }) => {
     const plainText = extractPlainText(children);
     const rightAligned = isNumericHeader(plainText);
     return <th className={cn('px-4 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-200/95', rightAligned ? 'text-right' : 'text-left')}>
       <div className={cn('flex min-w-0 items-center gap-2', rightAligned ? 'justify-end' : 'justify-start')}><span className="truncate">{plainText || '字段'}</span></div>
     </th>;
-  };
+  });
 
-  const TableCell = ({ children }: { children: React.ReactNode }) => {
+  const TableCell = React.memo(({ children }: { children: React.ReactNode }) => {
     const plainText = extractPlainText(children);
     const rightAligned = isNumericLike(plainText);
     return <td className={cn('px-4 py-3.5 align-top leading-relaxed text-slate-700', rightAligned && 'font-mono tabular-nums text-slate-800')}>
-      {renderTableCellContent(children, sessionCounter.current, { placeholder: '未填写', align: rightAligned ? 'right' : 'left', truncate: false })}
+      {renderTableCellContent(children, sessionCounter.current, searchQuery, activeMatchId, message?.id, { placeholder: '未填写', align: rightAligned ? 'right' : 'left', truncate: false })}
     </td>;
-  };
+  });
 
   return (
     <motion.div
@@ -230,7 +232,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                     ))}
                   </div>
                 )}
-                <p className="whitespace-pre-wrap break-words leading-relaxed tracking-tight font-medium"><HighlightedText text={message?.text || ''} counter={sessionCounter.current} /></p>
+                <p className="whitespace-pre-wrap break-words leading-relaxed tracking-tight font-medium"><HighlightedText text={message?.text || ''} counter={sessionCounter.current} searchQuery={searchQuery} activeMatchId={activeMatchId} messageId={message?.id} /></p>
               </div>
             ) : (
               <div className="prose prose-slate prose-sm max-w-none break-words [overflow-wrap:anywhere] prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
@@ -248,19 +250,19 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                     components={{
                       code: (props) => <CodeBlock {...props} onOpenArtifact={onOpenArtifact} />,
                       pre: ({ children }) => <>{children}</>,
-                      p: ({ children }) => <p>{processChildren(children, sessionCounter.current)}</p>,
+                      p: ({ children }) => <p>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</p>,
                       table: ({ children }) => <MarkdownTable>{children}</MarkdownTable>,
                       thead: ({ children }) => <MarkdownTableHead>{children}</MarkdownTableHead>,
                       tr: ({ children }) => <MarkdownTableRow>{children}</MarkdownTableRow>,
                       th: ({ children }) => <TableHeaderCell>{children}</TableHeaderCell>,
                       td: ({ children }) => <TableCell>{children}</TableCell>,
-                      li: ({ children }) => <li>{processChildren(children, sessionCounter.current)}</li>,
-                      h1: ({ children }) => <h1>{processChildren(children, sessionCounter.current)}</h1>,
-                      h2: ({ children }) => <h2>{processChildren(children, sessionCounter.current)}</h2>,
-                      h3: ({ children }) => <h3>{processChildren(children, sessionCounter.current)}</h3>,
-                      h4: ({ children }) => <h4>{processChildren(children, sessionCounter.current)}</h4>,
-                      h5: ({ children }) => <h5>{processChildren(children, sessionCounter.current)}</h5>,
-                      h6: ({ children }) => <h6>{processChildren(children, sessionCounter.current)}</h6>,
+                      li: ({ children }) => <li>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</li>,
+                      h1: ({ children }) => <h1>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h1>,
+                      h2: ({ children }) => <h2>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h2>,
+                      h3: ({ children }) => <h3>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h3>,
+                      h4: ({ children }) => <h4>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h4>,
+                      h5: ({ children }) => <h5>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h5>,
+                      h6: ({ children }) => <h6>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h6>,
                     }}>{visibleText}</ReactMarkdown>
                 ) : <span className="text-sm font-medium text-slate-400"> </span>}
                 {!isUser && isStreaming && visibleText && <motion.span className="inline-block w-[2px] h-[1.2em] bg-brand-500 rounded-full align-text-bottom ml-px" animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />}

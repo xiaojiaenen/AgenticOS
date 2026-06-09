@@ -393,7 +393,9 @@ class AgentService:
         self.ppt_artifacts = PptArtifactService()
         self.agent_profiles = AgentProfileService()
         self.tool_configs = ToolConfigService()
-        self._agents: dict[tuple[object, ...], Agent] = {}
+        # LRU 缓存：最多 50 个 Agent，1 小时过期
+        from cachetools import TTLCache
+        self._agents: TTLCache[tuple, Agent] = TTLCache(maxsize=50, ttl=3600)
         self._cached_display_name_map: dict[str, str] | None = None
 
     def _get_display_name_map(self) -> dict[str, str]:
@@ -425,13 +427,13 @@ class AgentService:
             skills=(),
         )
 
-    def _resolve_runtime_profile(self, request: AgentStreamRequest, user: UserModel | None) -> RuntimeAgentProfile:
+    async def _resolve_runtime_profile(self, request: AgentStreamRequest, user: UserModel | None) -> RuntimeAgentProfile:
         if request.agent_profile_id is not None:
             if user is None:
                 raise PermissionError("Agent profile requires an authenticated user")
-            return self.agent_profiles.resolve_runtime(request.agent_profile_id, user)
+            return await asyncio.to_thread(self.agent_profiles.resolve_runtime, request.agent_profile_id, user)
         if user is not None:
-            return self.agent_profiles.resolve_runtime_by_mode(request.response_mode, user)
+            return await asyncio.to_thread(self.agent_profiles.resolve_runtime_by_mode, request.response_mode, user)
         return self._runtime_from_mode(request.response_mode, request.system_prompt)
 
     def _get_agent(self, profile: RuntimeAgentProfile) -> Agent:
@@ -439,15 +441,19 @@ class AgentService:
         if injected is not None:
             return injected
         self._ensure_openai_key()
+        import hashlib
+        # 用 hash 替代完整文本，减少缓存键内存占用
+        prompt_hash = hashlib.md5((profile.system_prompt or "").encode()).hexdigest()[:8]
+        skills_hash = hashlib.md5(str(profile.skills).encode()).hexdigest()[:8]
         cache_key = (
             profile.profile_id,
             profile.slug,
             profile.response_mode,
-            profile.system_prompt,
+            prompt_hash,
             profile.builtin_tools,
             tuple(sorted(profile.approval_tools)),
             profile.signature,
-            profile.skills,
+            skills_hash,
             profile.external_system_ids,
             self.settings.context_compression_enabled,
         )
@@ -549,8 +555,8 @@ class AgentService:
             calc_mod.setup(code_ctx)
             python_mod.setup(code_ctx)
             git_mod.setup(code_ctx)
-        except Exception:
-            pass
+        except Exception as e:
+            _logger.warning("Sub-agent code_analyst plugin setup failed: %s", e)
 
         sub_agents.append(AsyncSubAgent(
             name="code_analyst",
@@ -572,8 +578,8 @@ class AgentService:
             from wuwei.plugin.builtin import file as file_mod, text as text_mod
             file_mod.setup(file_ctx)
             text_mod.setup(file_ctx)
-        except Exception:
-            pass
+        except Exception as e:
+            _logger.warning("Sub-agent file_processor plugin setup failed: %s", e)
 
         sub_agents.append(AsyncSubAgent(
             name="file_processor",
@@ -711,8 +717,8 @@ class AgentService:
                 for tool in mcp_tools:
                     if registry.get(tool.name) is None:
                         registry.register(tool)
-        except Exception:
-            pass  # MCP 未配置或未连接时静默跳过
+        except Exception as e:
+            _logger.debug("MCP tool registration skipped: %s", e)
 
         return registry, ext_instruction
 
@@ -1059,7 +1065,8 @@ class AgentService:
                 return None
             try:
                 return file_path.read_text(encoding="utf-8")
-            except Exception:
+            except Exception as e:
+                _logger.debug("File read failed: %s — %s", file_path, e)
                 return None
 
         # Inline CSS: <link rel="stylesheet" href="/assets/xxx.css" /> → <style>
@@ -1481,7 +1488,7 @@ class AgentService:
                 if isinstance(stored_mode, str) and stored_mode in ("general", "ppt", "website"):
                     request.response_mode = stored_mode
 
-        runtime_profile = self._resolve_runtime_profile(request, user)
+        runtime_profile = await self._resolve_runtime_profile(request, user)
         response_mode = runtime_profile.response_mode
         ppt_mode = response_mode == "ppt"
 
@@ -1510,8 +1517,8 @@ class AgentService:
                 from app.services.cache_service import get_cache_service
                 await get_cache_service().add_user_input(user.id, request.message)
                 await get_cache_service().add_global_input(request.message)
-            except Exception:
-                pass
+            except Exception as e:
+                _logger.debug("Cache input recording failed: %s", e)
 
         # Inject design system catalog for PPT mode
         message = request.message
@@ -2086,19 +2093,17 @@ class AgentService:
         await self.storage.delete(session_id)
 
 
-_agent_service: AgentService | None = None
+from app.core.singleton import ThreadSafeSingleton
+
+_agent_service_singleton = ThreadSafeSingleton(lambda: AgentService(get_settings()))
 
 
 def get_agent_service() -> AgentService:
-    global _agent_service
-    if _agent_service is None:
-        _agent_service = AgentService(get_settings())
-    return _agent_service
+    return _agent_service_singleton.get()
 
 
 def clear_agent_service_cache() -> None:
-    global _agent_service
-    _agent_service = None
+    _agent_service_singleton.reset()
 
 
 

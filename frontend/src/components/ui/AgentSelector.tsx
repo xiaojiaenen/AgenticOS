@@ -5,11 +5,11 @@ import { MascotHappy, MascotGeneral, MascotPPT, MascotWebsite, MascotBigData, Ch
 import { AgentProfile } from '../../services/agentProfileService';
 
 // 不同模式的小精灵组件和颜色
-const MODE_STYLES: Record<string, { Mascot: React.FC<{ size?: number; className?: string }>; bg: string; ring: string; text: string }> = {
-  general: { Mascot: MascotGeneral, bg: 'bg-sky-500',    ring: 'ring-sky-100',    text: 'text-sky-700' },
-  ppt:     { Mascot: MascotPPT,     bg: 'bg-violet-500',  ring: 'ring-violet-100', text: 'text-violet-700' },
-  website: { Mascot: MascotWebsite, bg: 'bg-emerald-500', ring: 'ring-emerald-100',text: 'text-emerald-700' },
-  bigdata: { Mascot: MascotBigData, bg: 'bg-orange-500',  ring: 'ring-orange-100', text: 'text-orange-700' },
+const MODE_STYLES: Record<string, { Mascot: React.FC<{ size?: number; className?: string }>; bg: string; ring: string; text: string; selectedBg: string }> = {
+  general: { Mascot: MascotGeneral, bg: 'bg-sky-500',    ring: 'ring-sky-100',    text: 'text-sky-700',    selectedBg: 'bg-sky-100/70' },
+  ppt:     { Mascot: MascotPPT,     bg: 'bg-violet-500',  ring: 'ring-violet-100', text: 'text-violet-700', selectedBg: 'bg-violet-100/70' },
+  website: { Mascot: MascotWebsite, bg: 'bg-emerald-500', ring: 'ring-emerald-100',text: 'text-emerald-700',selectedBg: 'bg-emerald-100/70' },
+  bigdata: { Mascot: MascotBigData, bg: 'bg-orange-500',  ring: 'ring-orange-100', text: 'text-orange-700', selectedBg: 'bg-orange-100/70' },
 };
 
 function getModeStyle(mode?: string) {
@@ -131,7 +131,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                   aria-selected={selectedId === agent.id}
                   className={cn(
                     'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
-                    selectedId === agent.id ? `bg-${getModeStyle(agent.response_mode).ring.replace('ring-', '')}/70 ring-1 ${getModeStyle(agent.response_mode).ring}` : '',
+                    selectedId === agent.id ? `${getModeStyle(agent.response_mode).selectedBg} ring-1 ${getModeStyle(agent.response_mode).ring}` : '',
                   )}
                 >
                   <span className={cn(
@@ -199,7 +199,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                 aria-selected={selectedId === agent.id}
                 className={cn(
                   'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
-                  selectedId === agent.id ? `bg-${getModeStyle(agent.response_mode).ring.replace('ring-', '')}/70 ring-1 ${getModeStyle(agent.response_mode).ring}` : '',
+                  selectedId === agent.id ? `${getModeStyle(agent.response_mode).selectedBg} ring-1 ${getModeStyle(agent.response_mode).ring}` : '',
                 )}
               >
                 <span className={cn(

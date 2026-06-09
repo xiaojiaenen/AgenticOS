@@ -12,6 +12,8 @@ from typing import Any
 
 from sqlalchemy import select
 
+from app.core.config import get_settings
+from app.core.security import decrypt_credential
 from wuwei.tools import ToolRegistry
 
 from app.db.models import AgentSessionModel, UserEmailCredentialsModel
@@ -50,9 +52,18 @@ def _get_credentials() -> dict[str, object] | None:
         )
         if creds is None:
             return None
+        # 优先使用加密密码，兼容旧数据
+        password = ""
+        if creds.password_encrypted:
+            try:
+                password = decrypt_credential(creds.password_encrypted, secret=get_settings().auth_secret_key)
+            except Exception:
+                password = creds.password  # 降级到明文
+        else:
+            password = creds.password
         return {
             "email": creds.email_address,
-            "password": creds.password,
+            "password": password,
             "imap_host": creds.imap_host,
             "imap_port": creds.imap_port,
             "imap_ssl": creds.imap_ssl,

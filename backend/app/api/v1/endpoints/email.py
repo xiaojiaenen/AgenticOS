@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.deps import get_current_user
+from app.core.config import get_settings
+from app.core.security import encrypt_credential
 from app.db.models import UserEmailCredentialsModel, UserModel
 from app.db.session import create_db_session
 
@@ -96,9 +98,12 @@ def save_email_credentials(
                 UserEmailCredentialsModel.user_id == current_user.id
             )
         )
+        secret = get_settings().auth_secret_key
+        encrypted_pw = encrypt_credential(body.password, secret=secret)
         if existing:
             existing.email_address = body.email_address
-            existing.password = body.password
+            existing.password = ""  # 清除明文
+            existing.password_encrypted = encrypted_pw
             existing.imap_host = body.imap_host
             existing.imap_port = body.imap_port
             existing.imap_ssl = body.imap_ssl
@@ -109,7 +114,8 @@ def save_email_credentials(
             db.add(UserEmailCredentialsModel(
                 user_id=current_user.id,
                 email_address=body.email_address,
-                password=body.password,
+                password="",
+                password_encrypted=encrypted_pw,
                 imap_host=body.imap_host,
                 imap_port=body.imap_port,
                 imap_ssl=body.imap_ssl,

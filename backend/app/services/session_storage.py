@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
+
+_logger = logging.getLogger(__name__)
 from datetime import datetime
 from typing import Any
 
@@ -125,8 +128,8 @@ class DatabaseAgentStorage:
                         raw = raw.replace('"reasoning_content": null', '"reasoning_content": ""')
                     try:
                         session.context._messages.append(Message.model_validate_json(raw))
-                    except Exception:
-                        # 最后兜底：跳过无法解析的消息
+                    except Exception as e:
+                        _logger.debug("Skipping unparseable message in session %s: %s", session_id, e)
                         continue
 
                 return session

@@ -180,13 +180,12 @@ class MultiAgentGraphService:
             yield event
 
 
-# 全局实例（惰性初始化）
-_service_instance: MultiAgentGraphService | None = None
+# 全局实例（线程安全）
+from app.core.singleton import ThreadSafeSingleton
+
+_service_singleton = ThreadSafeSingleton(lambda: MultiAgentGraphService(None))
 
 
 def get_multi_agent_graph_service(settings: Settings | None = None) -> MultiAgentGraphService:
     """获取多 Agent 协作服务的全局实例。"""
-    global _service_instance
-    if _service_instance is None:
-        _service_instance = MultiAgentGraphService(settings)
-    return _service_instance
+    return _service_singleton.get()
