@@ -1683,6 +1683,57 @@ def seed_preset_external_systems() -> None:
                 {"name": "disable_schedule", "display_name": "禁用调度", "method": "POST", "path": "/schedules/{schedule_id}/disable", "description": "禁用调度"},
             ],
         },
+        {
+            "name": "Dinky",
+            "description": "Dinky 实时计算平台 - 基于 Apache Flink 的数据开发、作业管理、运维监控",
+            "category": "bigdata",
+            "base_url": "http://localhost:8888",
+            "auth_type": "api_key",
+            "credential_template": {
+                "fields": [
+                    {
+                        "key": "key",
+                        "label": "Dinky Token",
+                        "type": "password",
+                        "required": True,
+                        "help_text": "登录 Dinky 后，从浏览器 DevTools → Network → 请求 Headers 中复制 dinky-token 值",
+                    },
+                    {"key": "inject_in", "label": "注入位置", "type": "text", "required": False, "default_value": "header", "help_text": "固定为 header，无需修改"},
+                    {"key": "header_name", "label": "Header 名称", "type": "text", "required": False, "default_value": "dinky-token", "help_text": "Dinky 使用 dinky-token 作为认证 Header"},
+                ],
+            },
+            "apis": [
+                # 目录管理
+                {"name": "get_catalogue_tree", "display_name": "获取目录树", "method": "POST", "path": "/api/catalogue/getCatalogueTreeData", "description": "获取作业目录树结构"},
+                {"name": "create_catalogue", "display_name": "创建目录", "method": "POST", "path": "/api/catalogue/createCatalogue", "description": "创建新的作业目录"},
+                {"name": "rename_catalogue", "display_name": "重命名目录", "method": "POST", "path": "/api/catalogue/renameCatalogue", "description": "重命名作业目录"},
+                {"name": "delete_catalogue", "display_name": "删除目录", "method": "POST", "path": "/api/catalogue/deleteCatalogue", "description": "删除作业目录"},
+                # 作业管理
+                {"name": "list_tasks", "display_name": "获取作业列表", "method": "GET", "path": "/api/task/list", "description": "获取作业列表，支持分页和筛选"},
+                {"name": "get_task", "display_name": "获取作业详情", "method": "GET", "path": "/api/task/{taskId}", "description": "获取指定作业的详细信息"},
+                {"name": "create_task", "display_name": "创建作业", "method": "POST", "path": "/api/task/createTask", "description": "创建新的 Flink SQL 作业"},
+                {"name": "update_task", "display_name": "更新作业", "method": "POST", "path": "/api/task/updateTask", "description": "更新作业配置或 SQL"},
+                {"name": "delete_task", "display_name": "删除作业", "method": "DELETE", "path": "/api/task/deleteTask", "description": "删除指定作业"},
+                {"name": "execute_task", "display_name": "执行作业", "method": "POST", "path": "/api/task/submitTask", "description": "提交并执行 Flink 作业"},
+                {"name": "cancel_task", "display_name": "取消作业", "method": "POST", "path": "/api/task/cancelTask", "description": "取消正在运行的 Flink 作业"},
+                {"name": "savepoint_task", "display_name": "触发 Savepoint", "method": "POST", "path": "/api/task/savepointTask", "description": "为运行中的作业触发 Savepoint"},
+                {"name": "restart_task", "display_name": "重启作业", "method": "POST", "path": "/api/task/restartTask", "description": "重启 Flink 作业"},
+                # 作业实例
+                {"name": "list_job_instances", "display_name": "获取作业实例", "method": "GET", "path": "/api/task/listJobInstance", "description": "获取作业运行实例列表"},
+                {"name": "get_job_instance", "display_name": "获取实例详情", "method": "GET", "path": "/api/task/getJobInstance", "description": "获取指定作业实例详情"},
+                # Flink 集群
+                {"name": "list_clusters", "display_name": "获取集群列表", "method": "GET", "path": "/api/cluster/list", "description": "获取 Flink 集群列表"},
+                {"name": "get_cluster", "display_name": "获取集群详情", "method": "GET", "path": "/api/cluster/getClusterInfo", "description": "获取指定集群详情"},
+                # 数据源
+                {"name": "list_datasources", "display_name": "获取数据源列表", "method": "GET", "path": "/api/database/list", "description": "获取已注册的数据源列表"},
+                {"name": "test_datasource", "display_name": "测试数据源连接", "method": "POST", "path": "/api/database/testConnect", "description": "测试数据源连接是否正常"},
+                # 告警
+                {"name": "list_alerts", "display_name": "获取告警列表", "method": "GET", "path": "/api/alert/list", "description": "获取告警实例列表"},
+                {"name": "get_alert_history", "display_name": "获取告警历史", "method": "GET", "path": "/api/alert/history", "description": "获取告警历史记录"},
+                # 系统
+                {"name": "get_version", "display_name": "获取版本", "method": "GET", "path": "/api/version", "description": "获取 Dinky 版本信息"},
+            ],
+        },
     ]
 
     # 合并大数据生态预设
