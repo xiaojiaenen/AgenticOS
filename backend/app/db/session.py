@@ -139,6 +139,10 @@ def _ensure_compatible_schema() -> None:
             ("jwt_request_body_template", "TEXT"),
             ("jwt_response_token_path", "TEXT"),
             ("jwt_response_expires_path", "TEXT"),
+            ("jwt_response_token_header", "VARCHAR(128)"),
+            ("login_token_source", "VARCHAR(16)"),
+            ("login_inject_mode", "VARCHAR(16)"),
+            ("login_inject_header_name", "VARCHAR(128)"),
             ("category", "VARCHAR(32) DEFAULT 'other'"),
         ]:
             if col_name not in es_columns:
