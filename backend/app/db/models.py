@@ -341,6 +341,7 @@ class ExternalSystemModel(Base):
     jwt_request_body_template: Mapped[str | None] = mapped_column(Text, nullable=True)  # e.g. {"username":"{username}","password":"{password}"}
     jwt_response_token_path: Mapped[str | None] = mapped_column(String(256), nullable=True)  # e.g. data.access_token
     jwt_response_expires_path: Mapped[str | None] = mapped_column(String(256), nullable=True)  # e.g. data.expires_in
+    jwt_response_token_header: Mapped[str | None] = mapped_column(String(128), nullable=True)  # e.g. dinky-token (Sa-Token style)
     headers_json: Mapped[str] = mapped_column(Text, default="{}")  # extra fixed headers
     published: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
