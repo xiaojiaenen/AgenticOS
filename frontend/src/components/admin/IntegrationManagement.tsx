@@ -49,7 +49,7 @@ export const IntegrationManagement = () => {
  const filteredSystems = useMemo(() => activeCategory === "all" ? systems : systems.filter(s => s.category === activeCategory), [systems, activeCategory]);
 
  const openCreateSystem = () => { setSystemDraft(emptySystemDraft()); setIsSystemModalOpen(true); };
- const openEditSystem = (sys: IntegrationSystem) => { setSystemDraft({id:sys.id,name:sys.name,description:sys.description,base_url:sys.base_url,auth_type:sys.auth_type,credential_template:sys.credential_template,oauth_auth_url:sys.oauth_auth_url||undefined,oauth_token_url:sys.oauth_token_url||undefined,oauth_scope:sys.oauth_scope||undefined,oauth_refresh_token_url:(sys as any).oauth_refresh_token_url||undefined,jwt_login_url:sys.jwt_login_url||undefined,jwt_refresh_url:sys.jwt_refresh_url||undefined,jwt_refresh_body_template:sys.jwt_refresh_body_template||undefined,jwt_refresh_token_path:sys.jwt_refresh_token_path||undefined,jwt_request_body_template:sys.jwt_request_body_template||undefined,jwt_response_token_path:sys.jwt_response_token_path||undefined,jwt_response_expires_path:sys.jwt_response_expires_path||undefined,jwt_response_token_header:sys.jwt_response_token_header||undefined,published:sys.published,headers:sys.headers,advanced_auth:sys.advanced_auth||{}}); setIsSystemModalOpen(true); };
+ const openEditSystem = (sys: IntegrationSystem) => { setSystemDraft({id:sys.id,name:sys.name,description:sys.description,base_url:sys.base_url,auth_type:sys.auth_type,credential_template:sys.credential_template,oauth_auth_url:sys.oauth_auth_url||undefined,oauth_token_url:sys.oauth_token_url||undefined,oauth_scope:sys.oauth_scope||undefined,oauth_refresh_token_url:(sys as any).oauth_refresh_token_url||undefined,jwt_login_url:sys.jwt_login_url||undefined,jwt_refresh_url:sys.jwt_refresh_url||undefined,jwt_refresh_body_template:sys.jwt_refresh_body_template||undefined,jwt_refresh_token_path:sys.jwt_refresh_token_path||undefined,jwt_request_body_template:sys.jwt_request_body_template||undefined,jwt_response_token_path:sys.jwt_response_token_path||undefined,jwt_response_expires_path:sys.jwt_response_expires_path||undefined,jwt_response_token_header:sys.jwt_response_token_header||undefined,login_token_source:sys.login_token_source||undefined,login_inject_mode:sys.login_inject_mode||undefined,login_inject_header_name:sys.login_inject_header_name||undefined,published:sys.published,headers:sys.headers,advanced_auth:sys.advanced_auth||{}}); setIsSystemModalOpen(true); };
  const handleSaveSystem = async () => { if(!systemDraft)return; setIsSaving(true); setError(null); try { if(systemDraft.id){await updateSystem(systemDraft.id,systemDraft);}else{await createSystem(systemDraft);} setIsSystemModalOpen(false); setMessage(systemDraft.id?"集成已更新":"集成已创建"); setTimeout(()=>setMessage(null),3000); await loadSystems(); } catch(e){setError(e instanceof Error?e.message:"保存失败");} finally{setIsSaving(false);} };
  const handleDeleteSystem = async (sys:IntegrationSystem) => { if(!confirm(`确定删除集成 "${sys.name}"？`))return; try{await deleteSystem(sys.id); if(selectedSystem?.id===sys.id){setSelectedSystem(null);setApis([]);} setMessage("集成已删除");setTimeout(()=>setMessage(null),3000);await loadSystems();}catch(e){setError(e instanceof Error?e.message:"删除失败");} };
  const openCreateApi = () => { setApiDraft(emptyApiDraft()); setIsApiModalOpen(true); };
@@ -254,12 +254,26 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
          </div>
         ))}
        </div>
-       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <Field label="Token 路径"><input className="admin-input font-mono text-xs" value={draft.jwt_response_token_path||""} onChange={e=>setDraft({...draft,jwt_response_token_path:e.target.value})} placeholder="data.access_token"/></Field>
-        <Field label="过期时间路径"><input className="admin-input font-mono text-xs" value={draft.jwt_response_expires_path||""} onChange={e=>setDraft({...draft,jwt_response_expires_path:e.target.value})} placeholder="data.expires_in (可选)"/></Field>
-        <Field label="Token Header"><input className="admin-input font-mono text-xs" value={draft.jwt_response_token_header||""} onChange={e=>setDraft({...draft,jwt_response_token_header:e.target.value})} placeholder="dinky-token (Sa-Token)"/></Field>
+       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <Field label="Token 来源">
+         <select className="admin-input" value={draft.login_token_source||(draft.jwt_response_token_header?"header":"body")} onChange={e=>setDraft({...draft,login_token_source:e.target.value})}>
+          <option value="body">响应 Body</option>
+          <option value="header">响应 Header</option>
+         </select>
+        </Field>
+        <Field label="注入方式">
+         <select className="admin-input" value={draft.login_inject_mode||(draft.jwt_response_token_header?"header":"bearer")} onChange={e=>setDraft({...draft,login_inject_mode:e.target.value})}>
+          <option value="bearer">Authorization: Bearer</option>
+          <option value="header">自定义 Header</option>
+         </select>
+        </Field>
        </div>
-       <p className="text-xs text-slate-400">Token Header：如果 token 在响应 Header 中（如 Sa-Token），填写 Header 名称；如果 token 在响应 Body 中，留空。</p>
+       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <Field label="Token Body 路径"><input className="admin-input font-mono text-xs" value={draft.jwt_response_token_path||""} onChange={e=>setDraft({...draft,jwt_response_token_path:e.target.value})} placeholder="data.access_token"/></Field>
+        <Field label="过期时间路径"><input className="admin-input font-mono text-xs" value={draft.jwt_response_expires_path||""} onChange={e=>setDraft({...draft,jwt_response_expires_path:e.target.value})} placeholder="data.expires_in (可选)"/></Field>
+        <Field label="Header 名称"><input className="admin-input font-mono text-xs" value={draft.login_inject_header_name||draft.jwt_response_token_header||""} onChange={e=>{setDraft({...draft,login_inject_header_name:e.target.value,jwt_response_token_header:e.target.value})}} placeholder="dinky-token / Authorization"/></Field>
+       </div>
+       <p className="text-xs text-slate-400">Token 来源：从响应 Body（JSON）或 Header 中读取 token。注入方式：以 Bearer Token 或自定义 Header 注入请求。</p>
       </div>
      )}
 

@@ -65,6 +65,7 @@ _CACHE_FIELDS = [
     "jwt_login_url", "jwt_refresh_url", "jwt_request_body_template",
     "jwt_response_token_path", "jwt_response_expires_path",
     "jwt_response_token_header",
+    "login_token_source", "login_inject_mode", "login_inject_header_name",
     "jwt_refresh_body_template",
     "oauth_auth_url", "oauth_token_url", "oauth_scope",
     "oauth_refresh_token_url", "oauth_client_id_encrypted",
@@ -201,6 +202,9 @@ def _serialize_system(sys: ExternalSystemModel, api_count: int = 0) -> dict:
         "jwt_response_token_path": sys.jwt_response_token_path,
         "jwt_response_expires_path": sys.jwt_response_expires_path,
         "jwt_response_token_header": sys.jwt_response_token_header,
+        "login_token_source": sys.login_token_source,
+        "login_inject_mode": sys.login_inject_mode,
+        "login_inject_header_name": sys.login_inject_header_name,
         "published": sys.published,
         "headers": _serialize_headers(sys.headers_json),
         "advanced_auth": json.loads(sys.advanced_auth_json) if sys.advanced_auth_json else {},
@@ -278,9 +282,11 @@ class AuthInjector:
             request.headers["Authorization"] = f"Bearer {token}"
         elif auth_type == "jwt_login":
             token = await AuthInjector._ensure_jwt(system, cred)
-            # Sa-Token style: inject as custom header; otherwise use Bearer
-            if system.jwt_response_token_header:
-                request.headers[system.jwt_response_token_header] = token
+            # Determine inject mode: explicit login_inject_mode > legacy jwt_response_token_header > default bearer
+            inject_mode = system.login_inject_mode or ("header" if system.jwt_response_token_header else "bearer")
+            if inject_mode == "header":
+                header_name = system.login_inject_header_name or system.jwt_response_token_header or "X-Auth-Token"
+                request.headers[header_name] = token
             else:
                 request.headers["Authorization"] = f"Bearer {token}"
         else:
@@ -404,17 +410,26 @@ class AuthInjector:
                     resp = await client.post(base + system.jwt_refresh_url, json=refresh_body)
                     resp.raise_for_status()
 
-                # Extract token: prefer response header (Sa-Token style), fallback to body
+                # Determine token source
+                token_source = system.login_token_source
+                if not token_source:
+                    token_source = "header" if system.jwt_response_token_header else "body"
+
+                # Extract token from configured source
                 new_token = None
-                if system.jwt_response_token_header:
-                    new_token = resp.headers.get(system.jwt_response_token_header)
-                if not new_token:
+                resp_data = None
+                if token_source == "header":
+                    header_name = system.jwt_response_token_header or "Authorization"
+                    new_token = resp.headers.get(header_name)
+                else:
                     resp_data = resp.json()
                     token_path = system.jwt_response_token_path or "token"
                     new_token = _extract_nested(resp_data, token_path)
                 if new_token:
                     expires_at = None
                     if system.jwt_response_expires_path:
+                        if resp_data is None:
+                            resp_data = resp.json()
                         expires_in = _extract_nested(resp_data, system.jwt_response_expires_path)
                         if isinstance(expires_in, (int, float)):
                             expires_at = _naive_utc_now() + timedelta(seconds=int(expires_in))
@@ -467,20 +482,33 @@ class AuthInjector:
             resp = await client.post(base + login_url, json=body)
             resp.raise_for_status()
 
-        # Extract token: prefer response header (Sa-Token style), fallback to body
+        # Determine token source: explicit login_token_source > auto-detect
+        token_source = system.login_token_source
+        if not token_source:
+            token_source = "header" if system.jwt_response_token_header else "body"
+
+        # Extract token from configured source
         token = None
-        if system.jwt_response_token_header:
-            token = resp.headers.get(system.jwt_response_token_header)
-        if not token:
+        resp_data = None
+        if token_source == "header":
+            header_name = system.jwt_response_token_header or "Authorization"
+            token = resp.headers.get(header_name)
+            # For Set-Cookie, extract the value
+            if not token and header_name.lower() == "set-cookie":
+                cookie = resp.headers.get("set-cookie", "")
+                token = cookie.split(";")[0] if cookie else None
+        else:
             resp_data = resp.json()
             token_path = system.jwt_response_token_path or "token"
             token = _extract_nested(resp_data, token_path)
         if not token:
-            raise ValueError(f"登录响应中未找到 token")
+            raise ValueError(f"登录响应中未找到 token（来源: {token_source}）")
 
         # Extract expiry if configured
         expires_at = None
         if system.jwt_response_expires_path:
+            if resp_data is None:
+                resp_data = resp.json()
             expires_in = _extract_nested(resp_data, system.jwt_response_expires_path)
             if isinstance(expires_in, (int, float)):
                 expires_at = _naive_utc_now() + timedelta(seconds=int(expires_in))
@@ -1039,6 +1067,9 @@ class ExternalSystemService:
             jwt_response_token_path=data.jwt_response_token_path,
             jwt_response_expires_path=data.jwt_response_expires_path,
             jwt_response_token_header=data.jwt_response_token_header,
+            login_token_source=data.login_token_source,
+            login_inject_mode=data.login_inject_mode,
+            login_inject_header_name=data.login_inject_header_name,
             headers_json=json.dumps(data.headers) if data.headers else "{}",
             advanced_auth_json=json.dumps(data.advanced_auth) if data.advanced_auth else "{}",
             created_by=user_id,
@@ -1091,6 +1122,12 @@ class ExternalSystemService:
             sys.jwt_response_expires_path = data.jwt_response_expires_path
         if data.jwt_response_token_header is not None:
             sys.jwt_response_token_header = data.jwt_response_token_header
+        if data.login_token_source is not None:
+            sys.login_token_source = data.login_token_source
+        if data.login_inject_mode is not None:
+            sys.login_inject_mode = data.login_inject_mode
+        if data.login_inject_header_name is not None:
+            sys.login_inject_header_name = data.login_inject_header_name
         if data.published is not None:
             sys.published = data.published
         if data.headers is not None:
@@ -1714,6 +1751,9 @@ def seed_preset_external_systems() -> None:
             "jwt_login_url": "/api/login",
             "jwt_request_body_template": '{"username":"{username}","password":"{password}"}',
             "jwt_response_token_header": "dinky-token",
+            "login_token_source": "header",
+            "login_inject_mode": "header",
+            "login_inject_header_name": "dinky-token",
             "apis": [
                 # 目录管理
                 {"name": "get_catalogue_tree", "display_name": "获取目录树", "method": "POST", "path": "/api/catalogue/getCatalogueTreeData", "description": "获取作业目录树结构"},
@@ -1780,6 +1820,9 @@ def seed_preset_external_systems() -> None:
                 jwt_response_token_path=preset.get("jwt_response_token_path"),
                 jwt_response_expires_path=preset.get("jwt_response_expires_path"),
                 jwt_response_token_header=preset.get("jwt_response_token_header"),
+                login_token_source=preset.get("login_token_source"),
+                login_inject_mode=preset.get("login_inject_mode"),
+                login_inject_header_name=preset.get("login_inject_header_name"),
                 jwt_refresh_body_template=preset.get("jwt_refresh_body_template"),
             )
             db.add(system)

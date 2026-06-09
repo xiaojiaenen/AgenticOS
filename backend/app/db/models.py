@@ -342,6 +342,9 @@ class ExternalSystemModel(Base):
     jwt_response_token_path: Mapped[str | None] = mapped_column(String(256), nullable=True)  # e.g. data.access_token
     jwt_response_expires_path: Mapped[str | None] = mapped_column(String(256), nullable=True)  # e.g. data.expires_in
     jwt_response_token_header: Mapped[str | None] = mapped_column(String(128), nullable=True)  # e.g. dinky-token (Sa-Token style)
+    login_token_source: Mapped[str | None] = mapped_column(String(16), nullable=True)  # header / body (default: body)
+    login_inject_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)  # bearer / header (default: bearer)
+    login_inject_header_name: Mapped[str | None] = mapped_column(String(128), nullable=True)  # e.g. dinky-token, Cookie, X-Auth-Token
     headers_json: Mapped[str] = mapped_column(Text, default="{}")  # extra fixed headers
     published: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
