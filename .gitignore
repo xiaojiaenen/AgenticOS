@@ -42,7 +42,6 @@ frontend/.vite/
 
 # Local app data
 backend/data/
-data/icons/
 data/*.db
 data/*.db-shm
 data/*.db-wal
