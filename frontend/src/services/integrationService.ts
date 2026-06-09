@@ -30,6 +30,9 @@ export type IntegrationSystem = {
   jwt_response_token_path: string | null;
   jwt_response_expires_path: string | null;
   jwt_response_token_header: string | null;
+  login_token_source: string | null;
+  login_inject_mode: string | null;
+  login_inject_header_name: string | null;
   published: boolean;
   headers: Record<string, string>;
   advanced_auth: Record<string, any>;
@@ -108,6 +111,9 @@ export type IntegrationSystemPayload = {
   jwt_response_token_path?: string;
   jwt_response_expires_path?: string;
   jwt_response_token_header?: string;
+  login_token_source?: string;
+  login_inject_mode?: string;
+  login_inject_header_name?: string;
   published: boolean;
   headers: Record<string, string>;
   advanced_auth?: Record<string, any>;

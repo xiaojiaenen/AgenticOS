@@ -62,6 +62,9 @@ class ExternalSystemCreateRequest(BaseModel):
     jwt_response_token_path: str | None = None
     jwt_response_expires_path: str | None = None
     jwt_response_token_header: str | None = None
+    login_token_source: str | None = Field(default=None, pattern="^(header|body)$")
+    login_inject_mode: str | None = Field(default=None, pattern="^(bearer|header)$")
+    login_inject_header_name: str | None = None
     published: bool = True
     headers: dict[str, str] = Field(default_factory=dict)
     advanced_auth: dict = Field(default_factory=dict)
@@ -97,6 +100,9 @@ class ExternalSystemUpdateRequest(BaseModel):
     jwt_response_token_path: str | None = None
     jwt_response_expires_path: str | None = None
     jwt_response_token_header: str | None = None
+    login_token_source: str | None = Field(default=None, pattern="^(header|body)$")
+    login_inject_mode: str | None = Field(default=None, pattern="^(bearer|header)$")
+    login_inject_header_name: str | None = None
     published: bool | None = None
     headers: dict[str, str] | None = None
     advanced_auth: dict | None = None
@@ -132,6 +138,9 @@ class ExternalSystemResponse(AppBaseModel):
     jwt_response_token_path: str | None
     jwt_response_expires_path: str | None
     jwt_response_token_header: str | None
+    login_token_source: str | None
+    login_inject_mode: str | None
+    login_inject_header_name: str | None
     published: bool
     headers: dict[str, str]
     advanced_auth: dict
