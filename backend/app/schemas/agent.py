@@ -13,7 +13,7 @@ class AgentStreamRequest(BaseModel):
     agent_profile_id: int | None = Field(default=None, ge=1, description="Pluggable agent profile ID.")
     response_mode: str = Field(
         default="general",
-        pattern="^(general|ppt|website)$",
+        pattern="^(general|ppt|website|bigdata)$",
         description="Expected response mode, used as a backward-compatible fallback.",
     )
     max_steps: int | None = Field(default=None, ge=1, le=50, description="Max runtime steps for one turn.")
