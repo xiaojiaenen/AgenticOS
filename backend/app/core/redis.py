@@ -264,9 +264,10 @@ class RedisManager:
 
             if cluster:
                 from redis.asyncio.cluster import ClusterNode, RedisCluster
-                # 解析逗号分隔的多节点 URL: redis://:pass@host1:6379,redis://:pass@host2:6379
+                # 解析逗号分隔的多节点 URL: redis://user:pass@host1:6379,...
                 nodes = []
                 password = None
+                username = None
                 for url in redis_url.split(","):
                     url = url.strip()
                     if not url:
@@ -277,8 +278,15 @@ class RedisManager:
                     port = parsed.port or 6379
                     if parsed.password and not password:
                         password = parsed.password
+                    if parsed.username and not username:
+                        username = parsed.username
                     nodes.append(ClusterNode(host, port))
-                self._client = RedisCluster(startup_nodes=nodes, password=password, decode_responses=True)
+                self._client = RedisCluster(
+                    startup_nodes=nodes,
+                    username=username or "default",
+                    password=password,
+                    decode_responses=True,
+                )
                 _logger.info(f"Redis 集群模式: {len(nodes)} 个节点")
             else:
                 self._client = aioredis.from_url(redis_url, decode_responses=True)
