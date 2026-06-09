@@ -4,7 +4,7 @@ description: PPT 设计规范全集——反 AI-Slop 规则、排版铁律、颜
 version: 1.0.0
 tags: [ppt, svg, design, presentation]
 when_to_use: 生成或编辑 PPT SVG 幻灯片时，必须先加载此技能以获取设计规范
-allowed_tools: [save_slide, read_slide, search_icons, calc_chart_positions, check_svg_quality]
+allowed_tools: [save_slide, read_slide, list_icons, search_icons, calc_chart_positions, check_svg_quality]
 required_tools: []
 ---
 
