@@ -123,4 +123,4 @@ export type Artifact =
   | {language: 'html' | 'svg'; code: string}
   | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number; theme?: string}
   | {language: 'website'; artifactId: string; html: string; title: string;
-      projectSlug: string; stack: string; fileCount: number};
+      projectSlug: string; stack?: string; fileCount?: number};

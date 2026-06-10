@@ -44,6 +44,7 @@ export const Chat = () => {
     currentSession, visibleSessions,
     hasMoreSessions, loadMoreSessions,
     applySessionState,
+    loadSessionMessages,
   } = useChatSessions();
 
   // ── 搜索 ──
@@ -142,6 +143,43 @@ export const Chat = () => {
       setSelectedAgentProfileId(currentSession.agentProfileId ?? null);
     }
   }, [currentSessionId, currentSession?.mode, currentSession?.agentProfileId]);
+
+  // 会话切换时：从后端加载消息
+  useEffect(() => {
+    if (!currentSessionId) return;
+    if (currentSession && currentSession.messages.length === 0) {
+      loadSessionMessages(currentSessionId);
+    }
+  }, [currentSessionId, currentSession?.messages.length]);
+
+  // 恢复 artifact 面板（从最后一条有 artifact 的 model 消息）
+  useEffect(() => {
+    if (!currentSessionId) {
+      setArtifact(null);
+      return;
+    }
+    const lastModelMsg = [...(currentSession?.messages || [])].reverse().find(m => m.role === 'model');
+    if (lastModelMsg?.pptArtifact?.status === 'ready' && lastModelMsg.pptArtifact.html) {
+      setArtifact({
+        language: 'ppt',
+        artifactId: lastModelMsg.pptArtifact.artifactId,
+        html: lastModelMsg.pptArtifact.html,
+        title: lastModelMsg.pptArtifact.title || '',
+        slideCount: lastModelMsg.pptArtifact.slideCount || 0,
+        theme: lastModelMsg.pptArtifact.theme,
+      });
+    } else if (lastModelMsg?.websiteArtifact?.status === 'ready' && lastModelMsg.websiteArtifact.html) {
+      setArtifact({
+        language: 'website',
+        artifactId: lastModelMsg.websiteArtifact.artifactId || '',
+        html: lastModelMsg.websiteArtifact.html,
+        title: lastModelMsg.websiteArtifact.title || '',
+        projectSlug: lastModelMsg.websiteArtifact.projectSlug || '',
+      });
+    } else {
+      setArtifact(null);
+    }
+  }, [currentSessionId, currentSession?.messages.length]);
 
   // 加载智能体列表
   useEffect(() => {

@@ -550,6 +550,28 @@ export function useChatStream({
                   : session,
               ),
             );
+
+            // 中断时保留已有的 artifact（PPT / Website）
+            const currentSession = sessions.find(s => s.id === targetId);
+            const currentMessage = currentSession?.messages.find(m => m.id === assistantMessageId);
+            if (currentMessage?.pptArtifact?.status === 'ready' && currentMessage.pptArtifact.html) {
+              setArtifact({
+                language: 'ppt',
+                artifactId: currentMessage.pptArtifact.artifactId,
+                html: currentMessage.pptArtifact.html,
+                title: currentMessage.pptArtifact.title || '',
+                slideCount: currentMessage.pptArtifact.slideCount || 0,
+                theme: currentMessage.pptArtifact.theme,
+              });
+            } else if (currentMessage?.websiteArtifact?.status === 'ready' && currentMessage.websiteArtifact.html) {
+              setArtifact({
+                language: 'website',
+                artifactId: currentMessage.websiteArtifact.artifactId || '',
+                html: currentMessage.websiteArtifact.html,
+                title: currentMessage.websiteArtifact.title || '',
+                projectSlug: currentMessage.websiteArtifact.projectSlug || '',
+              });
+            }
           }
           setRunStatus({ phase: 'done', label: '已停止请求' });
           return;
