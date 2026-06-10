@@ -92,6 +92,7 @@ export type AgentPptArtifact = {
   title: string;
   slide_count: number;
   html: string;
+  theme?: string;
 };
 
 export type AgentWebsiteArtifact = {
@@ -510,4 +511,39 @@ export async function exportPptx(artifactId: string): Promise<Blob> {
     throw new Error(detail || 'PPT 导出失败。');
   }
   return response.blob();
+}
+
+// PPT 主题相关 API
+export type PptTheme = {
+  name: string;
+  primary_color: string;
+  bg_color: string;
+  text_color: string;
+};
+
+export async function listPptThemes(): Promise<PptTheme[]> {
+  const response = await fetch(`${AGENT_ENDPOINT}/ppt/themes`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || '获取主题列表失败。');
+  }
+  return response.json();
+}
+
+export async function rethemePpt(artifactId: string, theme: string): Promise<AgentPptArtifact & { theme: string }> {
+  const response = await fetch(`${AGENT_ENDPOINT}/ppt/${artifactId}/retheme`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ theme }),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || '主题切换失败。');
+  }
+  return response.json();
 }

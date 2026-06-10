@@ -262,3 +262,57 @@ async def export_pptx(
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={"Content-Disposition": f"attachment; filename=export.pptx"},
     )
+
+
+@router.get("/ppt/themes", summary="获取可用的 PPT 主题列表")
+async def list_ppt_themes() -> list[dict[str, str]]:
+    """返回所有可用的 PPT 主题名称和显示名称。"""
+    from app.services.ppt.theme_token_resolver import list_available_themes, load_theme_tokens
+
+    themes = []
+    for name in list_available_themes():
+        tokens = load_theme_tokens(name)
+        # 从 tokens 中提取主色作为预览色
+        primary_color = tokens.get("--accent", "#2563eb")
+        bg_color = tokens.get("--bg", "#ffffff")
+        text_color = tokens.get("--text-1", "#0f172a")
+        themes.append({
+            "name": name,
+            "primary_color": primary_color,
+            "bg_color": bg_color,
+            "text_color": text_color,
+        })
+    return themes
+
+
+@router.post("/ppt/{artifact_id}/retheme", summary="切换 PPT 主题并重新渲染预览")
+async def retheme_ppt(
+    artifact_id: str,
+    request: dict[str, str],
+    current_user: UserModel = Depends(get_current_user),
+) -> dict[str, Any]:
+    """切换指定 PPT 制品的主题，返回更新后的预览 HTML。
+
+    请求体: {"theme": "主题名称"}
+    """
+    from app.services.ppt_artifact_service import PptArtifactService
+    from app.services.ppt.theme_token_resolver import list_available_themes
+
+    new_theme = request.get("theme", "")
+    if not new_theme:
+        raise HTTPException(status_code=400, detail="theme 不能为空")
+
+    available = list_available_themes()
+    if new_theme not in available:
+        raise HTTPException(
+            status_code=400,
+            detail=f"主题 '{new_theme}' 不存在。可用主题: {', '.join(available)}"
+        )
+
+    service = PptArtifactService()
+    result = await service.retheme(artifact_id, new_theme)
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="PPT 制品不存在或无法切换主题")
+
+    return result

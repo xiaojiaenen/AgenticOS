@@ -290,6 +290,10 @@ class PptArtifactService:
 
         theme_name = _detect_theme_name_from_svg(svgs)
         tokens = load_theme_tokens(theme_name)
+
+        # 保留原始 SVG（带 var(--token) 引用），用于主题切换
+        raw_svgs = svgs.copy()
+
         resolved_svgs = [resolve_token_values(svg, tokens) for svg in svgs]
 
         # Post-processing: rect-to-path conversion for PPTX compatibility
@@ -304,8 +308,9 @@ class PptArtifactService:
             _logger.debug("rect-to-path post-processing skipped: %s", exc)
 
         resolved_svgs = [sanitize_svg_xml(svg) for svg in resolved_svgs]
+        raw_svgs = [sanitize_svg_xml(svg) for svg in raw_svgs]
 
-        preview_html = prepare_svg_preview(resolved_svgs, theme_name)
+        preview_html = prepare_svg_preview(raw_svgs, theme_name)
         artifact_id = uuid.uuid4().hex
         slide_count = len(resolved_svgs)
 
@@ -322,7 +327,11 @@ class PptArtifactService:
                         session_id=session_id,
                         title=title,
                         slide_count=slide_count,
-                        deck_json=dump_json({"theme": theme_name, "svgs": resolved_svgs}),
+                        deck_json=dump_json({
+                            "theme": theme_name,
+                            "svgs": resolved_svgs,
+                            "raw_svgs": raw_svgs,  # 保留原始 SVG 用于主题切换
+                        }),
                         preview_html=preview_html,
                         metadata_json=dump_json({
                             "source": "svg-ppt",
@@ -342,6 +351,7 @@ class PptArtifactService:
             "title": title,
             "slide_count": slide_count,
             "html": preview_html,
+            "theme": theme_name,
         }
 
     async def get_latest_for_session(self, session_id: str) -> dict[str, Any] | None:
@@ -388,3 +398,83 @@ class PptArtifactService:
             if isinstance(svgs, list) and svgs:
                 return svgs
         return []
+
+    async def retheme(self, artifact_id: str, new_theme: str) -> dict[str, Any] | None:
+        """Switch theme for an existing artifact and regenerate preview HTML.
+
+        Uses raw_svgs (with var(--token) references) if available, falls back to resolved svgs.
+        Returns updated artifact dict or None if not found.
+        """
+        import logging
+        from app.services.ppt.theme_token_resolver import (
+            load_theme_tokens,
+            resolve_token_values,
+            list_available_themes,
+        )
+
+        _logger = logging.getLogger("ppt_artifact.retheme")
+
+        # Validate theme exists
+        available = list_available_themes()
+        if new_theme not in available:
+            _logger.warning("Theme '%s' not available. Available: %s", new_theme, available)
+            return None
+
+        def _run():
+            with self.session_factory() as db:
+                row = db.get(PptArtifactModel, artifact_id)
+                if row is None:
+                    return None
+
+                deck = load_json(row.deck_json, {})
+
+                # 优先使用原始 SVG（带 var(--token)），否则用已解析的
+                raw_svgs = deck.get("raw_svgs", deck.get("svgs", []))
+                if not raw_svgs:
+                    _logger.warning("No SVGs found in artifact %s", artifact_id)
+                    return None
+
+                # 用新主题解析 token
+                tokens = load_theme_tokens(new_theme)
+                resolved_svgs = [resolve_token_values(svg, tokens) for svg in raw_svgs]
+
+                # Post-processing
+                try:
+                    from app.services.ppt.svg_finalize.svg_rect_to_path import process_svg as rect_to_path
+                    processed = []
+                    for svg in resolved_svgs:
+                        svg, _count = rect_to_path(svg)
+                        processed.append(svg)
+                    resolved_svgs = processed
+                except Exception:
+                    pass
+
+                resolved_svgs = [sanitize_svg_xml(svg) for svg in resolved_svgs]
+
+                # 生成新的预览 HTML
+                preview_html = prepare_svg_preview(raw_svgs, new_theme)
+
+                # 更新数据库
+                deck["theme"] = new_theme
+                deck["svgs"] = resolved_svgs
+                # raw_svgs 保持不变
+
+                row.deck_json = dump_json(deck)
+                row.preview_html = preview_html
+
+                metadata = load_json(row.metadata_json, {})
+                metadata["theme"] = new_theme
+                row.metadata_json = dump_json(metadata)
+
+                db.commit()
+
+                return {
+                    "artifact_id": row.artifact_id,
+                    "session_id": row.session_id,
+                    "title": row.title,
+                    "slide_count": row.slide_count,
+                    "html": row.preview_html,
+                    "theme": new_theme,
+                }
+
+        return await asyncio.to_thread(_run)

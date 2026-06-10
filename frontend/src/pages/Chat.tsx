@@ -121,6 +121,15 @@ export const Chat = () => {
 
   const handleOpenArtifact = useCallback((next: any) => setArtifact(next), [setArtifact]);
 
+  const handlePptThemeChange = useCallback((newHtml: string, theme: string) => {
+    setArtifact((prev) => {
+      if (prev && prev.language === 'ppt') {
+        return { ...prev, html: newHtml, theme };
+      }
+      return prev;
+    });
+  }, [setArtifact]);
+
   const handleAgentProfileChange = useCallback((profile: any) => {
     setSelectedAgentProfileId(profile?.id ?? null);
     if (profile) setChatMode(profile.response_mode);
@@ -350,7 +359,7 @@ export const Chat = () => {
               hasArtifact={!!artifact}
             />
           </AnimatePresence>
-          <ChatArtifactArea artifact={artifact} onClose={() => setArtifact(null)} borderColor={borderColor} />
+          <ChatArtifactArea artifact={artifact} onClose={() => setArtifact(null)} borderColor={borderColor} onPptThemeChange={handlePptThemeChange} />
         </div>
       </ChatContextProvider>
     </motion.div>

@@ -242,6 +242,7 @@ export function useChatStream({
               html: pptArtifact.html,
               title: pptArtifact.title,
               slideCount: pptArtifact.slide_count,
+              theme: pptArtifact.theme,
             };
             setArtifact(nextArtifact);
             setSessions((prev) =>
@@ -261,6 +262,7 @@ export function useChatStream({
                                 slideCount: pptArtifact.slide_count,
                                 html: pptArtifact.html,
                                 mode: pptLanguage,
+                                theme: pptArtifact.theme,
                               },
                             }
                           : message,
@@ -452,6 +454,7 @@ export function useChatStream({
                                 title: pptArtifact.title,
                                 slideCount: pptArtifact.slide_count,
                                 html: pptArtifact.html,
+                                theme: pptArtifact.theme,
                               }
                             : undefined,
                           websiteArtifact: websiteArtifact
@@ -488,6 +491,7 @@ export function useChatStream({
             html: pptArtifact.html,
             title: pptArtifact.title,
             slideCount: pptArtifact.slide_count,
+            theme: pptArtifact.theme,
           });
         else if (websiteArtifact)
           setArtifact({
