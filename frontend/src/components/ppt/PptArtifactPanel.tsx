@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Download, LayoutDashboard, Palette, Play, RefreshCcw, X } from 'lucide-react';
+import { Download, LayoutDashboard, Palette, Pencil, Play, RefreshCcw, X } from 'lucide-react';
 import { MotionValue } from 'motion/react';
 import { Artifact } from '../../types';
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
@@ -132,6 +132,18 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
               <Play size={14} />
               演示
             </button>
+            {artifact.artifactId && (
+              <button
+                type="button"
+                onClick={() => window.open(`/api/v1/agent/ppt/editor/${artifact.artifactId}`, '_blank')}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                title="编辑幻灯片"
+                aria-label="编辑幻灯片"
+              >
+                <Pencil size={14} />
+                编辑
+              </button>
+            )}
             <div className="mx-2 h-4 w-px bg-slate-200" />
             <button
               type="button"
