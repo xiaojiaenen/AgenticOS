@@ -79,13 +79,20 @@ class ImageSearchService:
 
         count = min(max(count, 1), 20)
 
-        # 并发搜索所有后端
+        # 并发搜索所有后端，设置总超时 10 秒
         tasks = [
             self._search_backend(backend, query, count, orientation, license_type)
             for backend in self.backends
         ]
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        try:
+            results = await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=True),
+                timeout=10.0,
+            )
+        except asyncio.TimeoutError:
+            _logger.warning("Image search timed out after 10 seconds")
+            return []
 
         # 合并结果
         all_results: list[ImageResult] = []

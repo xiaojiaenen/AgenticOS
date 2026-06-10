@@ -665,13 +665,25 @@ class AgentService:
                     "例如：查询数据、创建记录、调用接口等。"
                 )
 
-        # 决策工具：所有模式都可用
-        from app.tools.decision_tools import register_decision_tools
-        register_decision_tools(registry)
+        # 决策工具：检查配置是否启用
+        decision_enabled = True
+        for tool_name, enabled, _ in profile.signature:
+            if tool_name == "decision" and not enabled:
+                decision_enabled = False
+                break
+        if decision_enabled:
+            from app.tools.decision_tools import register_decision_tools
+            register_decision_tools(registry)
 
-        # 记忆工具：所有模式都可用
-        from app.tools.memory_tools import register_memory_tools
-        register_memory_tools(registry)
+        # 记忆工具：检查配置是否启用
+        memory_enabled = True
+        for tool_name, enabled, _ in profile.signature:
+            if tool_name == "memory" and not enabled:
+                memory_enabled = False
+                break
+        if memory_enabled:
+            from app.tools.memory_tools import register_memory_tools
+            register_memory_tools(registry)
 
         # 注册拒绝工具：用户拒绝工具执行时，替换原工具调用，让 LLM 收到明确的拒绝消息
         @registry.tool(
