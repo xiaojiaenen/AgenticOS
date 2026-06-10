@@ -1,5 +1,6 @@
 """PPT 生成工具 — save_slide 将 SVG 写入会话工作目录"""
 
+import json
 import os
 from pathlib import Path
 
@@ -212,6 +213,76 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
         result += f"\n<svg_preview>{svg}</svg_preview>"
 
         return result
+
+    @registry.tool(display_name="批量保存幻灯片")
+    async def save_slides_batch(slides_json: str) -> str:
+        """批量保存多页幻灯片，减少 LLM 调用次数（推荐每 3 页一批）。
+
+        参数:
+          slides_json: JSON 数组字符串，每个元素包含:
+            - slide_num(int): 页码（从 1 开始递增）
+            - svg(str): 完整的 <svg>...</svg> 元素
+            - notes(str,可选): 演讲者备注（150-300字，口语化）
+          示例: '[{"slide_num":1,"svg":"<svg>...</svg>","notes":"备注"},...]'
+
+        使用场景：一次生成 3 页幻灯片，减少 LLM 调用次数 40-60%。
+        """
+        import re
+
+        try:
+            slides = json.loads(slides_json)
+            if not isinstance(slides, list):
+                return "错误：slides_json 必须是 JSON 数组"
+        except json.JSONDecodeError as e:
+            return f"错误：JSON 解析失败 — {e}"
+
+        slides_dir = _get_slides_dir()
+        results = []
+
+        for slide in slides:
+            slide_num = slide.get("slide_num")
+            svg = slide.get("svg", "")
+            notes = slide.get("notes", "")
+
+            if not slide_num:
+                results.append(f"❌ 缺少 slide_num")
+                continue
+
+            if not svg.strip().startswith("<svg"):
+                results.append(f"❌ 第 {slide_num} 页：svg 必须以 <svg> 开头")
+                continue
+
+            if "viewBox" not in svg:
+                results.append(f"❌ 第 {slide_num} 页：svg 必须包含 viewBox 属性")
+                continue
+
+            file_path = slides_dir / f"slide_{slide_num}.svg"
+            existed = file_path.exists()
+            file_path.write_text(svg, encoding="utf-8")
+
+            action = "已更新" if existed else "已保存"
+            results.append(f"✅ 第 {slide_num} 页{action}")
+
+            # 保存演讲者备注
+            if notes:
+                notes_file = slides_dir / f"slide_{slide_num}.notes.md"
+                notes_file.write_text(notes.strip(), encoding="utf-8")
+            else:
+                # 尝试从 SVG 注释中提取备注
+                notes_match = re.search(r'<!--\s*notes:\s*(.*?)\s*-->', svg, re.DOTALL)
+                if notes_match:
+                    extracted_notes = notes_match.group(1).strip()
+                    if extracted_notes:
+                        notes_file = slides_dir / f"slide_{slide_num}.notes.md"
+                        notes_file.write_text(extracted_notes, encoding="utf-8")
+
+        count = _count_slides(slides_dir)
+        summary = "\n".join(results)
+
+        # 注入 spec_lock 摘要
+        spec_hint = _build_spec_lock_hint()
+
+        return f"批量保存完成（共 {count} 页）：\n{summary}{spec_hint}"
 
     @registry.tool(display_name="读取演讲者备注")
     async def read_notes(slide_num: int) -> str:
