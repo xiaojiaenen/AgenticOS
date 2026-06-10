@@ -1,10 +1,10 @@
 ---
 name: ppt-workflow
 description: PPT 创作工作流——8 步流程、spec_lock 执行锁、submit_spec_lock 持久化、内容型计划、修改流程、文件处理。每次 PPT 任务开始时加载。
-version: 1.1.0
+version: 1.2.0
 tags: [ppt, workflow, spec_lock, submit_spec_lock]
 when_to_use: 开始 PPT 创作任务时，加载此工作流以获取创作步骤和规范
-allowed_tools: [save_slide, read_slide, load_skill, load_skill_reference, list_icons, search_icons, submit_spec_lock, submit_slide_plan, file_to_md, convert_pptx_to_svg]
+allowed_tools: [save_slide, read_slide, read_notes, load_skill, load_skill_reference, list_icons, search_icons, submit_spec_lock, submit_slide_plan, file_to_md, convert_pptx_to_svg, search_images, get_image_info, resume_ppt, check_ppt_progress, analyze_template]
 required_tools: []
 ---
 

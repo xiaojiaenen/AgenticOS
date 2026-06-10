@@ -43,6 +43,7 @@ _MODE_TOOL_REGISTRARS: dict[str, list[tuple[str, str]]] = {
         ("app.tools.quality_checker_tools", "register_quality_checker_tools"),
         ("app.tools.pptx_reverse_tools", "register_pptx_reverse_tools"),
         ("app.tools.template_tools", "register_template_tools"),
+        ("app.tools.image_tools", "register_image_tools"),
     ],
     "website": [
         ("app.tools.website_tools", "register_website_tools"),
@@ -402,6 +403,27 @@ TOOL_CATALOG = {
     "read_notes": {
         "label": "读取演讲者备注",
         "description": "读取指定幻灯片的演讲者备注。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "resume_ppt": {
+        "label": "继续生成PPT",
+        "description": "从上次中断的地方继续生成 PPT，恢复 spec_lock 和页面计划。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "check_ppt_progress": {
+        "label": "查看PPT进度",
+        "description": "查看当前 PPT 生成进度，包括已完成页数和剩余页面。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "analyze_template": {
+        "label": "分析PPT模板",
+        "description": "分析 PPTX 模板，提取颜色、字体、布局等设计参数。",
         "builtin_name": None,
         "approval_scope": [],
         "sub_tools": {},
