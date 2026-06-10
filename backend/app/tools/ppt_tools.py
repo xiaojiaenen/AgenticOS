@@ -1,4 +1,4 @@
-﻿"""PPT 生成工具 — save_slide 将 SVG 写入会话工作目录"""
+"""PPT 生成工具 — save_slide 将 SVG 写入会话工作目录"""
 
 import os
 from pathlib import Path
@@ -17,13 +17,17 @@ from app.core.data_path import (
 # ---------------------------------------------------------------------------
 _slides_dir_cache: Path | None = None
 _pending_slide_plan: list[dict] | None = None
+_spec_lock_summary: str = ""
 
 
 def reset_slides_dir_cache() -> None:
-    """Reset the cached slides dir (called at the start of each stream)."""
-    global _slides_dir_cache, _pending_slide_plan
+    """Reset the cached slides dir (called at the start of each stream).
+
+    注意：不再重置 _pending_slide_plan 和 _spec_lock_summary，
+    它们需要跨 stream 保持，防止上下文压缩后丢失计划和设计参数。
+    """
+    global _slides_dir_cache
     _slides_dir_cache = None
-    _pending_slide_plan = None
 
 
 def pop_pending_slide_plan() -> list[dict] | None:
@@ -68,6 +72,34 @@ def _count_slides(slides_dir: Path) -> int:
     return len([f for f in slides_dir.iterdir() if f.suffix == ".svg"])
 
 
+def _build_next_slide_hint(current_slide_num: int) -> str:
+    """构建下一页计划提示，注入到 save_slide 返回值中。"""
+    if not _pending_slide_plan:
+        return ""
+
+    next_slide = next(
+        (s for s in _pending_slide_plan if s.get("slide_num") == current_slide_num + 1),
+        None,
+    )
+    if not next_slide:
+        return ""
+
+    parts = [f"\n\n📋 第{next_slide['slide_num']}页计划："]
+    parts.append(f"  布局: {next_slide['layout']}")
+    if next_slide.get("title"):
+        parts.append(f"  标题: {next_slide['title']}")
+    if next_slide.get("content"):
+        parts.append(f"  内容: {next_slide['content']}")
+    return "\n".join(parts)
+
+
+def _build_spec_lock_hint() -> str:
+    """构建 spec_lock 摘要提示，注入到 save_slide 返回值中。"""
+    if not _spec_lock_summary:
+        return ""
+    return f"\n\n🔒 设计参数：{_spec_lock_summary}"
+
+
 # ---------------------------------------------------------------------------
 # Tool registration
 # ---------------------------------------------------------------------------
@@ -106,17 +138,49 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
         file_path.write_text(svg, encoding="utf-8")
         count = _count_slides(slides_dir)
         action = "已更新" if existed else "已保存"
-        return f"第 {slide_num} 页{action}（共 {count} 页）"
+        result = f"第 {slide_num} 页{action}（共 {count} 页）"
+
+        # 注入下一页计划提示（防上下文压缩丢失）
+        result += _build_next_slide_hint(slide_num)
+
+        # 注入 spec_lock 摘要（每页都注入，防压缩丢失）
+        result += _build_spec_lock_hint()
+
+        # 附带 SVG 预览（前端可提取渲染缩略图）
+        result += f"\n<svg_preview>{svg}</svg_preview>"
+
+        return result
+
+    @registry.tool(display_name="提交设计参数")
+    async def submit_spec_lock(colors: str, fonts: str, icon_library: str) -> str:
+        """提交 spec_lock 的核心设计参数，确保后续页面生成不偏离。
+
+        在输出 spec_lock 表格后调用此工具，将关键参数持久化。
+        每页生成时会自动注入这些参数，防止上下文压缩后丢失。
+
+        参数:
+          colors: 颜色方案摘要，如 "bg:#ffffff, primary:#1a1a2e, accent:#e94560, text:#333"
+          fonts: 字体方案摘要，如 "title:Playfair Display 48px bold, body:Inter 16px"
+          icon_library: 图标库名，如 "chunk-filled" 或 "tabler-outline"
+        """
+        global _spec_lock_summary
+        _spec_lock_summary = f"颜色:{colors} | 字体:{fonts} | 图标:{icon_library}"
+        return f"设计参数已锁定：{_spec_lock_summary}"
 
     @registry.tool(display_name="提交幻灯片计划")
     async def submit_slide_plan(slides: str) -> str:
         """在规划阶段结束时提交结构化的页面计划（JSON 数组），并自动触发用户确认。
 
         参数:
-          slides: JSON 数组字符串，每个元素包含 slide_num(int)、layout(str)、title(str)、notes(str,可选)
-          示例: '[{"slide_num":1,"layout":"cover","title":"AI科普","notes":"封面"}, {"slide_num":2,"layout":"toc","title":"目录"}]'
+          slides: JSON 数组字符串，每个元素必须包含:
+            - slide_num(int): 页码
+            - layout(str): 布局类型
+            - title(str): 页面标题
+            - content(str): 该页需要展示的具体内容/数据（从参考文档提取，不可编造）
+            - notes(str,可选): 备注
+          示例: '[{"slide_num":1,"layout":"cover","title":"AI科普","content":"封面标题: AI科普 | 副标题: 入门指南","notes":"封面"}]'
 
-        调用时机：spec_lock 输出之后。工具会自动弹出决策面板等待用户确认。
+        调用时机：spec_lock 输出、调用 submit_spec_lock 之后。工具会自动弹出决策面板等待用户确认。
         """
         import json
         import logging
@@ -131,14 +195,21 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
             for item in plan:
                 if not isinstance(item, dict) or "slide_num" not in item or "layout" not in item:
                     return "错误：每个元素必须包含 slide_num 和 layout 字段"
+                if "content" not in item:
+                    return (
+                        "错误：每个元素必须包含 content 字段（从参考文档提取的具体数据）。\n"
+                        "示例: {\"slide_num\":2, \"layout\":\"bullets\", \"title\":\"市场背景\", "
+                        "\"content\":\"• 全球AI市场规模5500亿\\n• 年增长率42%\"}\n"
+                        "如果没有参考文档，content 可以是该页要展示的核心信息摘要。"
+                    )
         except json.JSONDecodeError as e:
             return f"错误：JSON 解析失败 — {e}"
 
-        # 暂存到模块级缓存，由 agent_service 在 phase transition 时同步到 session metadata
+        # 持久化到模块级缓存（不再被 reset_slides_dir_cache 重置）
         _pending_slide_plan = plan
 
         summary = "\n".join(
-            f"  {s['slide_num']}. {s['layout']} — {s.get('title', s.get('notes', ''))}"
+            f"  {s['slide_num']}. {s['layout']} — {s.get('title', '')}"
             for s in plan
         )
 

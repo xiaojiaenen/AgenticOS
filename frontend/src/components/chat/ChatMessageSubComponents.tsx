@@ -345,3 +345,46 @@ export const MarkdownTableHead = ({ children }: { children: React.ReactNode }) =
 export const MarkdownTableRow = ({ children }: { children: React.ReactNode }) => (
   <tr className="border-b border-slate-200/80 transition-colors even:bg-slate-50/70 hover:bg-sky-50/50 last:border-b-0">{children}</tr>
 );
+
+// ── Slide Preview Strip ──────────────────────────────────────────────────
+
+function extractSvgPreviews(toolCalls?: ToolCall[]): { slideNum: number; svg: string }[] {
+  if (!toolCalls) return [];
+  const previews: { slideNum: number; svg: string }[] = [];
+  for (const tool of toolCalls) {
+    if (tool.name !== 'save_slide' || !tool.result) continue;
+    const match = tool.result.match(/<svg_preview>([\s\S]*?)<\/svg_preview>/);
+    if (match) {
+      const svg = match[1];
+      const slideMatch = tool.result.match(/第\s*(\d+)\s*页/);
+      const slideNum = slideMatch ? parseInt(slideMatch[1], 10) : previews.length + 1;
+      previews.push({ slideNum, svg });
+    }
+  }
+  return previews.sort((a, b) => a.slideNum - b.slideNum);
+}
+
+export const SlidePreviewStrip = ({ message }: { message: Message }) => {
+  const previews = extractSvgPreviews(message.toolCalls);
+  if (previews.length === 0) return null;
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-3 w-full max-w-[42rem]">
+      <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+        <Presentation size={12} className="text-slate-400" />
+        <span>幻灯片预览 ({previews.length} 页)</span>
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {previews.map(({ slideNum, svg }) => (
+          <div key={slideNum} className="flex-shrink-0">
+            <div className="relative w-40 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+              <div className="aspect-[16/9] overflow-hidden" dangerouslySetInnerHTML={{ __html: svg.replace(/<svg/, '<svg style="width:100%;height:100%"') }} />
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/40 to-transparent px-2 py-1.5">
+                <span className="text-[10px] font-bold text-white">第 {slideNum} 页</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  );
+};

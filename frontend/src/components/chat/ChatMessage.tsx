@@ -20,6 +20,7 @@ import {
   LiveToolCall,
   ToolResultPreview,
   ToolTimelineStep,
+  SlidePreviewStrip,
   MarkdownTable,
   MarkdownTableHead,
   MarkdownTableRow,
@@ -203,7 +204,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
           </div>
         )}
 
-        {!isUser && message && <><PptArtifactCard message={message} onOpenArtifact={onOpenArtifact} /><WebsiteArtifactCard message={message} onOpenArtifact={onOpenArtifact} /></>}
+        {!isUser && message && <><SlidePreviewStrip message={message} /><PptArtifactCard message={message} onOpenArtifact={onOpenArtifact} /><WebsiteArtifactCard message={message} onOpenArtifact={onOpenArtifact} /></>}
 
         {shouldRenderBubble && (
           <div id={message?.id ? `bubble-${message.id}` : undefined}

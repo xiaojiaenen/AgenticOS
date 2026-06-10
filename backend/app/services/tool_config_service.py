@@ -265,6 +265,13 @@ TOOL_CATALOG = {
         "approval_scope": [],
         "sub_tools": {},
     },
+    "submit_spec_lock": {
+        "label": "提交设计参数",
+        "description": "提交 spec_lock 的核心设计参数（颜色、字体、图标库），确保后续页面生成不偏离。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
     "calc_chart_positions": {
         "label": "图表坐标计算",
         "description": "为柱状图、饼图、折线图、雷达图和网格布局计算精确的SVG坐标。",

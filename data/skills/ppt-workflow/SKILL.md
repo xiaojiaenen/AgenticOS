@@ -148,7 +148,13 @@ breathing 页**应该**使用：
 - 绝不从记忆中取色值——每次都要查看 spec_lock
 - 需要修改 spec_lock 时，明确告知用户并重新输出完整 spec_lock
 
-### Step 3：规划页面序列
+**⚠️ 输出 spec_lock 后，必须立即调用 `submit_spec_lock` 持久化设计参数**：
+```
+submit_spec_lock(colors="bg:#fff, primary:#1a1a2e, accent:#e94560", fonts="title:Playfair Display 48px bold, body:Inter 16px", icon_library="chunk-filled")
+```
+这确保后续页面即使上下文被压缩，仍能获取正确的设计参数。
+
+### Step 3：规划页面序列并提交计划
 
 为每页指定布局，从模板库的 15 个核心布局和 71 个图表中选择：
 
@@ -156,6 +162,20 @@ breathing 页**应该**使用：
 - 不允许连续使用同一布局
 - 数据页面必须从图表索引中选型（参考图表选型指南）
 - 数据密集页后接 big-quote 或 section-divider
+
+**提交计划**：调用 `submit_slide_plan(slides='[...]')`，每页必须包含 `content` 字段：
+
+```json
+[
+  {"slide_num":1, "layout":"cover", "title":"2025年AI市场分析", "content":"副标题: 基于行业调研 | 日期: 2025年6月"},
+  {"slide_num":2, "layout":"bullets", "title":"市场背景", "content":"• 全球AI市场规模5500亿美元(来源: 报告P3)\n• 年增长率42%\n• 中国占全球28%"},
+  {"slide_num":3, "layout":"kpi-grid", "title":"关键数据", "content":"KPI1: 5500亿 | 全球市场规模\nKPI2: 42% | 年增长率\nKPI3: 3x | 推理速度提升"}
+]
+```
+
+- `content` 是从参考文档提取的该页具体数据，**禁止编造**
+- 无参考文档时，`content` 为该页核心信息摘要
+- 生成该页时，`save_slide` 返回值会自动注入下一页的计划数据
 
 ### Step 4：逐页构建
 
