@@ -1949,6 +1949,12 @@ class AgentService:
                 len(collected_text),
             )
             self.approval_manager.unsubscribe(session.session_id, approval_queue)
+            # 清理孤儿决策 Future，防止泄漏和阻塞下次请求
+            try:
+                from app.tools.decision_tools import cleanup_session_decisions
+                cleanup_session_decisions(session.session_id)
+            except Exception:
+                pass
             for task in (runtime_task, approval_task):
                 if not task.done():
                     task.cancel()
