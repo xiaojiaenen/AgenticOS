@@ -73,12 +73,11 @@ class TemplateWorkflow:
         # 提取布局类型
         layouts = self._extract_layouts(result)
 
-        # 读取 SVG 内容
+        # 读取 SVG 内容 - 直接从 SlideArtifact.svg 获取
         raw_svgs = []
         for slide in result.slides:
-            svg_path = output_dir / slide.filename
-            if svg_path.exists():
-                raw_svgs.append(svg_path.read_text(encoding="utf-8"))
+            if slide.svg:
+                raw_svgs.append(slide.svg)
 
         return TemplateAnalysis(
             slide_count=len(result.slides),
@@ -124,14 +123,11 @@ class TemplateWorkflow:
         """提取字体信息"""
         fonts = {}
 
-        # 从 SVG 中提取字体
+        # 从 SVG 中提取字体 - 直接使用 slide.svg
         for slide in result.slides:
-            svg_path = Path(result.output_dir) / slide.filename
-            if svg_path.exists():
-                svg_content = svg_path.read_text(encoding="utf-8")
-
+            if slide.svg:
                 # 提取 font-family
-                font_matches = re.findall(r'font-family="([^"]+)"', svg_content)
+                font_matches = re.findall(r'font-family="([^"]+)"', slide.svg)
                 for font in font_matches:
                     if ',' in font:
                         # 取第一个字体
@@ -146,11 +142,9 @@ class TemplateWorkflow:
         layouts = []
 
         for i, slide in enumerate(result.slides):
-            # 根据 SVG 结构推断布局类型
-            svg_path = Path(result.output_dir) / slide.filename
-            if svg_path.exists():
-                svg_content = svg_path.read_text(encoding="utf-8")
-                layout = self._infer_layout(svg_content)
+            # 根据 SVG 结构推断布局类型 - 直接使用 slide.svg
+            if slide.svg:
+                layout = self._infer_layout(slide.svg)
                 layouts.append(layout)
 
         return layouts
