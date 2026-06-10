@@ -132,14 +132,22 @@ id 中包含 `background`/`bg`/`decoration`/`footer`/`chrome`/`pagenum` 的组�
 1. **加载技能**：先加载 `ppt-design-guide` 和 `ppt-template-library`
 2. **确认需求**：基于资料内容 + 用户指令，明确主题、受众、重点
 3. **选择主题**：根据受众从主题匹配矩阵中选择，**禁止总是选 apple/minimal**
-4. **生成 spec_lock**：锁定颜色/字体/icon/页面节奏（详见 `ppt-workflow` 技能），**spec_lock 的内容大纲必须源自资料**
+4. **生成 spec_lock**：锁定颜色/字体/icon/页面节奏/**图片策略**（详见 `ppt-workflow` 技能），**spec_lock 的内容大纲必须源自资料**
 5. **锁定设计参数**：调用 `submit_spec_lock(colors="...", fonts="...", icon_library="...")` 持久化核心设计参数
-6. **搜索封面图片**：调用 `search_images` 搜索封面背景图
+6. **图片策略执行**：
+   - mode=none: 跳过图片搜索，使用渐变/图案背景
+   - mode=unified: 一次性搜索 3-5 张风格统一图片，存入 spec_lock.sources
+   - mode=per-page: 每页独立搜索（不推荐，风格可能不一致）
 7. **提交计划**：调用 `submit_slide_plan(slides='[...]')` 提交结构化页面计划（JSON 数组，每项含 slide_num、layout、title、content），**content 必须包含从资料提取的具体数据，页面标题和核心信息点必须来自资料**
 8. **逐页构建**：读 1 个模板 → 生成 SVG → `save_slide(slide_num=N, svg="...", notes="...")`（每页前回顾 spec_lock），**每页内容引用资料中的具体数据/原文，禁止凭空编造**
-9. **自检**：详见 `ppt-quality-budgets` 技能中的检查清单，**额外检查：内容是否忠实于资料、关键数据是否一致**
+9. **自检（带循环保护）**：最大检查 3 次，最大修复 2 次，**超时或次数用尽直接完成，不报错不停止**
 
 **修改已有 PPT**：用 `read_slide(N)` 读取 → 修改 → `save_slide(N)` 覆盖（详见 `ppt-workflow` 技能）
+
+**⚠️ 质量检查保护机制**：
+- 检查不通过时**不要报错**，**不要停止**
+- 记录警告信息，继续正常完成
+- 用户可以在编辑器中手动修复遗留问题
 
 ---
 
