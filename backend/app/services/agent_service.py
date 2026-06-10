@@ -839,6 +839,13 @@ class AgentService:
         theme_count = len(list_available_themes())
         theme_list = ", ".join(sorted(list_available_themes()))
 
+        # Deck 风格预设（8 种设计语言，帮助 LLM 选择正确的视觉组合）
+        try:
+            from app.services.ppt.deck_styles import build_deck_styles_text
+            deck_styles_text = build_deck_styles_text()
+        except Exception:
+            deck_styles_text = ""
+
         lines = [
             "",
             "---",
@@ -896,6 +903,9 @@ class AgentService:
             "## Token 语义速查",
             "",
             token_ref,
+            "",
+            "---",
+            deck_styles_text,
             "",
             "**CURRENT TIME:** " + __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         ]

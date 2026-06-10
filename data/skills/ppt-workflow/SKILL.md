@@ -156,12 +156,18 @@ submit_spec_lock(colors="bg:#fff, primary:#1a1a2e, accent:#e94560", fonts="title
 
 ### Step 3：规划页面序列并提交计划
 
-为每页指定布局，从模板库的 15 个核心布局和 71 个图表中选择：
+**⚠️ 规划前必须先读取两个索引（不可跳过）：**
 
+1. **图表索引**：`load_skill_reference("ppt-template-library", "references/charts/charts_index.json")` — 读取全部 71 种图表的选型规则，为数据页匹配最佳图表类型
+2. **布局模板列表**：回顾 `ppt-template-library` 技能中的 15 个核心布局，确保每页选择不同的布局结构
+
+为每页指定布局，从 15 个核心布局和 71 个图表中选择：
+
+- **布局多样性铁律**：同一套 PPT 至少使用 4 种不同布局模式，不允许连续使用同一布局
 - section-divider 至少出现 2-3 次
-- 不允许连续使用同一布局
-- 数据页面必须从图表索引中选型（参考图表选型指南）
+- **数据页必须从图表索引中选型**（如 bar_chart、line_chart、pie_chart 等），禁止所有数据页都用 kpi-grid
 - 数据密集页后接 big-quote 或 section-divider
+- **breathing 页禁止卡片网格**：必须用 big-quote、stat-highlight 或全出血背景
 
 **提交计划**：调用 `submit_slide_plan(slides='[...]')`，每页必须包含 `content` 字段：
 
