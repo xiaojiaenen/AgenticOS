@@ -122,13 +122,10 @@ export const Chat = () => {
   const handleOpenArtifact = useCallback((next: any) => setArtifact(next), [setArtifact]);
 
   const handlePptThemeChange = useCallback((newHtml: string, theme: string) => {
-    setArtifact((prev) => {
-      if (prev && prev.language === 'ppt') {
-        return { ...prev, html: newHtml, theme };
-      }
-      return prev;
-    });
-  }, [setArtifact]);
+    if (artifact && artifact.language === 'ppt') {
+      setArtifact({ ...artifact, html: newHtml, theme });
+    }
+  }, [artifact, setArtifact]);
 
   const handleAgentProfileChange = useCallback((profile: any) => {
     setSelectedAgentProfileId(profile?.id ?? null);
