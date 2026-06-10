@@ -1193,7 +1193,19 @@ class AgentService:
                 return None
             title = artifact.get("title", "未命名")
             slide_count = artifact.get("slide_count", 0)
-            slides_dir = PPT_SESSIONS_DIR / session_id
+            # 查找正确的目录（u{user_id}_s{session_id}_v{version} 格式）
+            from app.core.data_path import _parse_dir_name
+            slides_dir = None
+            if PPT_SESSIONS_DIR.exists():
+                for child in PPT_SESSIONS_DIR.iterdir():
+                    if not child.is_dir():
+                        continue
+                    parsed = _parse_dir_name(child.name)
+                    if parsed and str(parsed[1]) == session_id:
+                        slides_dir = child
+                        break
+            if slides_dir is None:
+                slides_dir = PPT_SESSIONS_DIR / session_id  # fallback
             svg_files = sorted(slides_dir.glob("slide_*.svg"),
                                 key=lambda p: int(p.stem.replace("slide_", ""))) if slides_dir.exists() else []
             file_list = "\n".join(
