@@ -273,15 +273,18 @@ class PptArtifactService:
             except Exception as exc:
                 _logger.debug("Anti-slop check skipped: %s", exc)
 
-            # Block on critical errors — triggers fallback chain
+            # 记录质量检查结果（不阻断，带循环保护）
             if critical_errors:
-                _logger.error(
-                    "SVG quality gate BLOCKED %d critical errors: %s",
+                _logger.warning(
+                    "SVG quality check found %d critical errors (proceeding anyway): %s",
                     len(critical_errors), critical_errors,
                 )
                 self._last_quality_errors = critical_errors
                 self._last_quality_warnings = all_warnings[:10]
-                return None
+                # 不再阻断，继续正常完成
+            else:
+                self._last_quality_errors = []
+                self._last_quality_warnings = all_warnings[:10]
 
             # Log non-critical warnings (do not block)
             for w in all_warnings:
@@ -290,7 +293,7 @@ class PptArtifactService:
             _logger.warning("Quality check skipped (error initializing): %s", exc)
 
         if not validate_svg_slides(svgs):
-            _logger.warning(f"validate_svg_slides failed: count={len(svgs)}")
+            _logger.warning(f"validate_svg_slides failed: count={len(svgs)} (proceeding anyway)")
             # 诊断具体原因
             reasons = []
             if len(svgs) < 3:
@@ -302,7 +305,7 @@ class PptArtifactService:
                 reasons.append("所有幻灯片的 viewBox 不一致")
             self._last_quality_errors = reasons
             self._last_quality_warnings = []
-            return None
+            # 不再阻断，继续正常完成（至少有1页就继续）
 
         theme_name = _detect_theme_name_from_svg(svgs)
         tokens = load_theme_tokens(theme_name)

@@ -1,7 +1,7 @@
 ---
 name: ppt-workflow
 description: PPT 创作工作流——8 步流程、spec_lock 执行锁、submit_spec_lock 持久化、内容型计划、修改流程、文件处理。每次 PPT 任务开始时加载。
-version: 1.2.0
+version: 1.3.0
 tags: [ppt, workflow, spec_lock, submit_spec_lock]
 when_to_use: 开始 PPT 创作任务时，加载此工作流以获取创作步骤和规范
 allowed_tools: [save_slide, read_slide, read_notes, load_skill, load_skill_reference, list_icons, search_icons, submit_spec_lock, submit_slide_plan, file_to_md, convert_pptx_to_svg, search_images, get_image_info, resume_ppt, check_ppt_progress, analyze_template]
@@ -117,6 +117,18 @@ PPT 创作分为两个角色，**绝不在同一个回复中混合两个角色�
 - 清单: 在 spec_lock 阶段一次性批量搜索所有需要的图标（用逗号分隔多个关键词），结果写入此处。后续页面直接引用，不再重复搜索
 - 降级: 如果 search_icons 返回"未初始化"或连续 2 次返回 0 结果，立即停止搜索，mode 改为 "text-only"，用 `<text>` 元素代替所有图标
 
+**图片策略**
+- mode: none | unified | per-page
+  - none: 纯色/渐变背景，不使用图片（推荐用于数据密集型PPT）
+  - unified: 统一风格图片背景（封面+章节页共用同一风格图片）
+  - per-page: 每页独立搜索图片（当前行为，风格可能不一致）
+- style: (仅 unified 模式) 图片风格描述，如 "商务蓝调抽象科技"、"自然风光绿色"
+- sources: (仅 unified 模式) 预搜索的图片 URL 列表（3-5张），在 spec_lock 阶段一次性搜索完成
+- background: none 模式的背景策略
+  - solid: 纯色背景（使用 var(--bg)）
+  - gradient: 渐变背景（使用 linearGradient）
+  - pattern: 几何图案背景（使用装饰性 SVG 元素）
+
 **页面节奏（防千篇一律的核心机制）**
 
 每页标注节奏标签：anchor / dense / breathing
@@ -195,7 +207,19 @@ submit_spec_lock(colors="bg:#fff, primary:#1a1a2e, accent:#e94560", fonts="title
 - 无参考文档时，`content` 为该页核心信息摘要
 - 生成该页时，`save_slide` 返回值会自动注入下一页的计划数据
 
-### Step 4：逐页构建
+### Step 4：逐页构建（支持批量生成）
+
+**批量生成模式（推荐，减少 40-60% 调用）**：
+
+每 3 页为一批，每批做 5 步：
+1. `load_skill_reference` 读取第 1 个模板
+2. 生成第 1 个 SVG + `save_slide`
+3. `load_skill_reference` 读取第 2 个模板
+4. 生成第 2 个 SVG + `save_slide`
+5. `load_skill_reference` 读取第 3 个模板
+6. 生成第 3 个 SVG + `save_slide`
+
+**单页生成模式（兼容）**：
 
 每页做 3 步：
 1. `load_skill_reference` 读取 1 个 SVG 模板
@@ -206,6 +230,34 @@ submit_spec_lock(colors="bg:#fff, primary:#1a1a2e, accent:#e94560", fonts="title
 - 重新读取 spec_lock 中的颜色、字体、图标清单
 - 禁止凭记忆使用色值、字体、图标名——每次都要查 spec_lock
 - 这是防止长 PPT 生成过程中参数漂移的唯一保障
+
+**图片使用规则（根据 spec_lock 的图片策略）**：
+
+| 模式 | 封面 | 章节页 | 内容页 | 数据页 |
+|------|------|--------|--------|--------|
+| none | 渐变/图案背景 | 渐变/图案背景 | 纯色背景 | 纯色背景 |
+| unified | 主图背景 | 辅助图背景 | 纯色/小图点缀 | 纯色背景 |
+| per-page | 独立搜索 | 独立搜索 | 独立搜索 | 纯色背景 |
+
+**none 模式背景规范**：
+```xml
+<!-- 渐变背景 -->
+<defs>
+  <linearGradient id="bg-grad" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="var(--bg)"/>
+    <stop offset="100%" stop-color="var(--bg-2)"/>
+  </linearGradient>
+</defs>
+<rect width="1280" height="720" fill="url(#bg-grad)"/>
+
+<!-- 几何图案背景 -->
+<rect width="1280" height="720" fill="var(--bg)"/>
+<g id="pattern" opacity="0.05">
+  <circle cx="100" cy="100" r="50" fill="var(--accent)"/>
+  <circle cx="300" cy="200" r="30" fill="var(--accent)"/>
+  <!-- 更多装饰元素 -->
+</g>
+```
 
 **图标使用规则**：
 - 严格使用 spec_lock 图标清单中已确认的图标名
@@ -234,22 +286,55 @@ save_slide(slide_num=3, svg="...", notes="""
 """)
 ```
 
-### Step 5：自检
+### Step 5：自检（带循环保护）
+
+**质量检查循环保护机制**：
+- 最大检查次数：3 次
+- 最大修复尝试：2 次
+- 最低通过率：80%
+- **超时或次数用尽：直接完成，不报错，正常渲染**
 
 所有页面完成后，按以下清单逐项核对（每页 save_slide 前必须核对）：
 
-| 检查项 | 标准 |
-|--------|------|
-| `data-theme` | 每页 SVG 都有 `data-theme="主题名"` |
-| viewBox | 所有页面 viewBox 一致 |
-| var() 颜色 | 所有颜色用 `var(--token)`，无硬编码 hex |
-| accent 预算 | `var(--accent)` 每页 <= 2 处 |
-| 字号预算 | 每页 <= 4 种 font-size |
-| notes | 每页都有 `<!-- notes: ... -->`，150-300 字，口语化 |
-| section-divider | 至少 2-3 个，不连续重复布局 |
-| `<g id>` 分组 | 每页 3-8 个内容组，裸元素不出现在 `<svg>` 根下 |
-| 动画标记 | 关键元素有 `data-animate` 属性（封面标题、图表等） |
-| 图片 | 封面和章节页必须有图片（调用 `search_images`） |
+| 检查项 | 标准 | 优先级 |
+|--------|------|--------|
+| `data-theme` | 每页 SVG 都有 `data-theme="主题名"` | P0 |
+| viewBox | 所有页面 viewBox 一致 | P0 |
+| var() 颜色 | 所有颜色用 `var(--token)`，无硬编码 hex | P1 |
+| accent 预算 | `var(--accent)` 每页 <= 2 处 | P1 |
+| 字号预算 | 每页 <= 4 种 font-size | P1 |
+| notes | 每页都有 `<!-- notes: ... -->`，150-300 字，口语化 | P1 |
+| section-divider | 至少 2-3 个，不连续重复布局 | P1 |
+| `<g id>` 分组 | 每页 3-8 个内容组，裸元素不出现在 `<svg>` 根下 | P1 |
+| 动画标记 | 关键元素有 `data-animate` 属性（封面标题、图表等） | P2 |
+| 图片策略 | 符合 spec_lock 的图片策略 | P1 |
+
+**自检流程（带保护）**：
+```
+check_count = 0
+fix_count = 0
+
+while check_count < 3:
+  result = check_quality()
+  check_count++
+  
+  if result.pass_rate >= 0.8:
+    break  # 通过
+  
+  if fix_count >= 2:
+    break  # 修复次数用尽
+  
+  fix_critical_errors(result.errors)
+  fix_count++
+
+# 无论结果如何，都正常完成
+return "completed"
+```
+
+**⚠️ 重要**：
+- 检查不通过时**不要报错**，**不要停止**
+- 记录警告信息，继续正常完成
+- 用户可以在编辑器中手动修复遗留问题
 
 **动画标记规范**：
 
