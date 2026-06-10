@@ -156,18 +156,30 @@ submit_spec_lock(colors="bg:#fff, primary:#1a1a2e, accent:#e94560", fonts="title
 
 ### Step 3：规划页面序列并提交计划
 
-**⚠️ 规划前必须先读取两个索引（不可跳过）：**
+**⚠️ 规划前必须先读取三个索引（不可跳过）：**
 
 1. **图表索引**：`load_skill_reference("ppt-template-library", "references/charts/charts_index.json")` — 读取全部 71 种图表的选型规则，为数据页匹配最佳图表类型
 2. **布局模板列表**：回顾 `ppt-template-library` 技能中的 15 个核心布局，确保每页选择不同的布局结构
+3. **图文布局索引**：`load_skill_reference("ppt-template-library", "references/image-layouts-index.json")` — 读取 72 种图文布局模式，为含图片的页面选择最佳布局
 
-为每页指定布局，从 15 个核心布局和 71 个图表中选择：
+为每页指定布局，从 15 个核心布局、71 个图表、72 种图文布局中选择：
 
 - **布局多样性铁律**：同一套 PPT 至少使用 4 种不同布局模式，不允许连续使用同一布局
 - section-divider 至少出现 2-3 次
 - **数据页必须从图表索引中选型**（如 bar_chart、line_chart、pie_chart 等），禁止所有数据页都用 kpi-grid
 - 数据密集页后接 big-quote 或 section-divider
 - **breathing 页禁止卡片网格**：必须用 big-quote、stat-highlight 或全出血背景
+- **图文布局优先**：封面和章节页必须使用图文布局（01-full-bleed、04-hero-overlay 等）
+
+**图文布局选择规则**：
+| 页面类型 | 图片数量 | 推荐布局 |
+|---------|---------|---------|
+| 封面 | 1 | 01-full-bleed, 04-hero-overlay |
+| 章节页 | 1 | 04-hero-overlay, 06-circle-frame |
+| 内容页 | 1 | 02-split-horizontal, 08-offset-float |
+| 对比页 | 2 | 16-duo-side, 20-before-after |
+| 作品集 | 3+ | 31-gallery, 32-masonry |
+| 数据页 | 0-1 | 10-corner-accent（小图点缀） |
 
 **提交计划**：调用 `submit_slide_plan(slides='[...]')`，每页必须包含 `content` 字段：
 

@@ -1,0 +1,41 @@
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" data-theme="figma">
+  <defs>
+    <linearGradient id="overlay" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="var(--bg)" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="var(--bg)" stop-opacity="0.85"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Image -->
+  <g id="background">
+    <image data-slot="main-image" x="0" y="0" width="1280" height="720"
+           preserveAspectRatio="xMidYMid slice"/>
+    <rect x="0" y="0" width="1280" height="720" fill="url(#overlay)"/>
+  </g>
+
+  <!-- Content -->
+  <g id="content" transform="translate(80, 400)">
+    <text data-slot="eyebrow" x="0" y="0"
+          font-family="Inter, sans-serif" font-size="14" font-weight="500"
+          fill="var(--accent)" letter-spacing="2" text-transform="uppercase">
+      EYEBROW TEXT
+    </text>
+    <text data-slot="title" x="0" y="60"
+          font-family="Inter, sans-serif" font-size="56" font-weight="800"
+          fill="var(--text-1)" line-height="1.1">
+      Main Title Here
+    </text>
+    <text data-slot="subtitle" x="0" y="110"
+          font-family="Inter, sans-serif" font-size="20" font-weight="400"
+          fill="var(--text-2)" line-height="1.5">
+      Subtitle or description text goes here
+    </text>
+  </g>
+
+  <!-- Footer -->
+  <g id="footer" transform="translate(80, 670)">
+    <text font-family="Inter, sans-serif" font-size="12" fill="var(--text-3)">
+      Company Name · 2024
+    </text>
+  </g>
+</svg>

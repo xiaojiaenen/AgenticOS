@@ -1,0 +1,177 @@
+{
+  "version": "1.0",
+  "description": "图文布局模式索引",
+  "total_patterns": 72,
+  "categories": {
+    "single_image": {"range": "01-15", "count": 15},
+    "dual_image": {"range": "16-30", "count": 15},
+    "multi_image": {"range": "31-45", "count": 15},
+    "crop_shapes": {"range": "46-55", "count": 10},
+    "overlay_effects": {"range": "56-65", "count": 10},
+    "special_effects": {"range": "66-72", "count": 7}
+  },
+  "patterns": [
+    {
+      "id": "01-full-bleed",
+      "name": "全出血",
+      "name_en": "Full Bleed",
+      "category": "single_image",
+      "use_when": ["封面", "章节页", "视觉冲击", "品牌展示"],
+      "skip_when": ["数据密集", "多图展示", "纯文字"],
+      "slots": ["main-image", "eyebrow", "title", "subtitle"],
+      "rhythm": "anchor"
+    },
+    {
+      "id": "02-split-horizontal",
+      "name": "水平分割",
+      "name_en": "Split Horizontal",
+      "category": "single_image",
+      "use_when": ["图文并排", "产品介绍", "人物介绍", "特性展示"],
+      "skip_when": ["纯数据页", "多图展示"],
+      "slots": ["main-image", "eyebrow", "title", "body"],
+      "rhythm": "dense"
+    },
+    {
+      "id": "03-split-vertical",
+      "name": "垂直分割",
+      "name_en": "Split Vertical",
+      "category": "single_image",
+      "use_when": ["上图下文", "案例展示", "场景介绍"],
+      "skip_when": ["宽幅图片", "纯文字"],
+      "slots": ["main-image", "title", "body"],
+      "rhythm": "dense"
+    },
+    {
+      "id": "04-hero-overlay",
+      "name": "英雄区叠加",
+      "name_en": "Hero with Overlay",
+      "category": "single_image",
+      "use_when": ["封面", "章节页", "重点页面", "故事叙述"],
+      "skip_when": ["数据密集", "多图展示"],
+      "slots": ["hero-image", "eyebrow", "title", "subtitle"],
+      "rhythm": "anchor"
+    },
+    {
+      "id": "05-diagonal-split",
+      "name": "对角分割",
+      "name_en": "Diagonal Split",
+      "category": "single_image",
+      "use_when": ["创意封面", "设计展示", "动感主题"],
+      "skip_when": ["正式商务", "数据展示"],
+      "slots": ["main-image", "title", "body"],
+      "rhythm": "anchor"
+    },
+    {
+      "id": "06-circle-frame",
+      "name": "圆形框架",
+      "name_en": "Circle Frame",
+      "category": "single_image",
+      "use_when": ["人物介绍", "产品特写", "头像展示"],
+      "skip_when": ["风景图", "宽幅图片"],
+      "slots": ["avatar-image", "name", "title", "bio"],
+      "rhythm": "breathing"
+    },
+    {
+      "id": "16-duo-side",
+      "name": "双图并排",
+      "name_en": "Duo Side",
+      "category": "dual_image",
+      "use_when": ["对比展示", "A/B测试", "前后对比"],
+      "skip_when": ["单图展示", "纯文字"],
+      "slots": ["left-image", "right-image", "left-label", "right-label"],
+      "rhythm": "dense"
+    },
+    {
+      "id": "17-duo-stack",
+      "name": "双图堆叠",
+      "name_en": "Duo Stack",
+      "category": "dual_image",
+      "use_when": ["上下展示", "流程说明", "步骤展示"],
+      "skip_when": ["宽幅图片", "纯文字"],
+      "slots": ["top-image", "bottom-image", "title", "body"],
+      "rhythm": "dense"
+    },
+    {
+      "id": "20-before-after",
+      "name": "前后对比",
+      "name_en": "Before After",
+      "category": "dual_image",
+      "use_when": ["效果对比", "改造前后", "优化展示"],
+      "skip_when": ["无对比关系", "纯文字"],
+      "slots": ["before-image", "after-image", "before-label", "after-label"],
+      "rhythm": "dense"
+    },
+    {
+      "id": "21-split-screen",
+      "name": "分屏",
+      "name_en": "Split Screen",
+      "category": "dual_image",
+      "use_when": ["等分展示", "双栏内容", "并列信息"],
+      "skip_when": ["单图展示", "不对称内容"],
+      "slots": ["left-content", "right-content"],
+      "rhythm": "dense"
+    },
+    {
+      "id": "31-gallery",
+      "name": "画廊",
+      "name_en": "Gallery",
+      "category": "multi_image",
+      "use_when": ["作品展示", "产品系列", "案例集"],
+      "skip_when": ["少量图片", "纯文字"],
+      "slots": ["image-1", "image-2", "image-3", "image-4"],
+      "rhythm": "dense"
+    },
+    {
+      "id": "32-masonry",
+      "name": "瀑布流",
+      "name_en": "Masonry",
+      "category": "multi_image",
+      "use_when": ["不等高图片", "创意作品", "Pinterest风格"],
+      "skip_when": ["等高图片", "正式商务"],
+      "slots": ["images[]"],
+      "rhythm": "dense"
+    },
+    {
+      "id": "33-timeline-visual",
+      "name": "时间线视觉",
+      "name_en": "Timeline Visual",
+      "category": "multi_image",
+      "use_when": ["时间序列", "发展历程", "项目进度"],
+      "skip_when": ["非时间线内容"],
+      "slots": ["event-images[]", "event-labels[]"],
+      "rhythm": "dense"
+    },
+    {
+      "id": "34-hub-spoke",
+      "name": "中心辐射",
+      "name_en": "Hub and Spoke",
+      "category": "multi_image",
+      "use_when": ["核心与分支", "产品生态", "功能架构"],
+      "skip_when": ["线性流程", "纯文字"],
+      "slots": ["center-image", "spoke-images[]"],
+      "rhythm": "dense"
+    }
+  ],
+  "selection_rules": {
+    "cover_page": {
+      "preferred": ["01-full-bleed", "04-hero-overlay", "05-diagonal-split"],
+      "required": "must_have_image"
+    },
+    "section_page": {
+      "preferred": ["04-hero-overlay", "06-circle-frame"],
+      "required": "must_have_image_or_quote"
+    },
+    "content_page": {
+      "preferred": ["02-split-horizontal", "08-offset-float", "16-duo-side"],
+      "optional": "can_have_image"
+    },
+    "data_page": {
+      "preferred": ["10-corner-accent", "11-bg-texture"],
+      "note": "image_as_accent_not_main"
+    },
+    "closing_page": {
+      "preferred": ["04-hero-overlay", "01-full-bleed"],
+      "required": "must_have_image_or_quote"
+    }
+  }
+}
