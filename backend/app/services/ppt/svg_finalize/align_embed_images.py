@@ -98,13 +98,39 @@ def _format_number(n: float) -> str:
 def _resolve_image_path(href: str, svg_dir: Path) -> Path | None:
     """Resolve an <image> href to a local filesystem path.
 
-    Returns None for unresolvable references (http/https/etc.) so callers
-    can leave those refs untouched.
+    For http/https URLs, downloads the image to a temp file and returns that path.
+    Returns None for truly unresolvable references.
     """
     if not href:
         return None
     decoded = unquote(href)
-    if decoded.startswith(('http://', 'https://', 'file://')):
+    if decoded.startswith(('http://', 'https://')):
+        # Download external image to temp file
+        import tempfile
+        import urllib.request
+        try:
+            # Determine file extension from URL or content type
+            ext = '.jpg'  # default
+            for img_ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']:
+                if img_ext in decoded.lower():
+                    ext = img_ext
+                    break
+
+            # Create temp file in the SVG directory (so it persists during export)
+            tmp_dir = svg_dir / '_tmp_images'
+            tmp_dir.mkdir(exist_ok=True)
+            # Use hash of URL as filename
+            import hashlib
+            url_hash = hashlib.md5(decoded.encode()).hexdigest()[:12]
+            tmp_path = tmp_dir / f'{url_hash}{ext}'
+
+            if not tmp_path.exists():
+                urllib.request.urlretrieve(decoded, str(tmp_path))
+
+            return tmp_path
+        except Exception:
+            return None
+    if decoded.startswith('file://'):
         return None
     if os.path.isabs(decoded):
         candidate = Path(decoded)
