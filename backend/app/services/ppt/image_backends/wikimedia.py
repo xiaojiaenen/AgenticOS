@@ -18,6 +18,9 @@ _logger = logging.getLogger("ppt.image_search.wikimedia")
 # Wikimedia API 端点
 WIKIMEDIA_API = "https://commons.wikimedia.org/w/api.php"
 
+# Wikimedia 要求设置 User-Agent
+USER_AGENT = "AgenticOS/1.0 (https://github.com/xiaojiaenen/AgenticOS; contact@agenticos.com)"
+
 
 class WikimediaBackend(ImageSearchBackend):
     """Wikimedia Commons 图片搜索"""
@@ -48,9 +51,13 @@ class WikimediaBackend(ImageSearchBackend):
             "format": "json",
         }
 
+        headers = {
+            "User-Agent": USER_AGENT,
+        }
+
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.get(WIKIMEDIA_API, params=params)
+                response = await client.get(WIKIMEDIA_API, params=params, headers=headers)
                 response.raise_for_status()
                 data = response.json()
 
