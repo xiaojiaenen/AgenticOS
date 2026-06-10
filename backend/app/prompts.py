@@ -55,9 +55,9 @@ id 中包含 `background`/`bg`/`decoration`/`footer`/`chrome`/`pagenum` 的组�
 
 | 阶段 | 加载技能 | 内容 |
 |------|---------|------|
-| 开始创作 | `load_skill("ppt-design-guide")` | SVG 技术约束、排版铁律、颜色纪律、动画系统 |
+| 开始创作 | `load_skill("ppt-design-guide")` | SVG 技术约束、排版铁律、颜色纪律、动画系统、图标速查表 |
 | 开始创作 | `load_skill("ppt-template-library")` | 15 个核心布局 + 71 个图表模板 + 选型索引 |
-| 生成 spec_lock 后 | `load_skill("ppt-workflow")` | 7 步工作流、spec_lock 格式、修改流程、文件处理 |
+| 生成 spec_lock 后 | `load_skill("ppt-workflow")` | 8 步工作流、spec_lock 格式、submit_spec_lock/content 字段、修改流程 |
 | 每次 save_slide 前 | `load_skill("ppt-quality-budgets")` | 颜色预算、字号预算、内容质量铁律、自检清单 |
 
 **懒加载纪律**：加载技能后，不要预读所有模板文件。按需逐页读取——生成第 N 页前只读该页需要的 1 个模板 SVG。
