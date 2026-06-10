@@ -106,6 +106,11 @@ P1_PATTERNS = [
             "#1A1A2E", "#0D1117", "#161B22",
         },
     },
+    {
+        "code": "emoji_as_icon",
+        "pattern": None,  # special check
+        "message": "使用 emoji 代替图标，应使用 <use data-icon=\"库名/图标名\" .../> 语法",
+    },
     # --- 新增 P1 规则 ---
     {
         "code": "whitespace_imbalance",
@@ -308,6 +313,15 @@ def check_anti_slop(svg_content: str) -> list[Finding]:
                 if color.upper() not in {c.upper() for c in allowed}:
                     findings.append(Finding("P1", rule["code"], f"{rule['message']}: {color}"))
                     break  # only report once
+        elif rule["code"] == "emoji_as_icon":
+            # 检查是否使用 emoji 作为装饰图标（而不是 <use data-icon="..."/>）
+            has_use_icon = 'data-icon="' in svg_content
+            if not has_use_icon:
+                # 检查是否有 emoji 字符在 <text> 元素中作为装饰
+                emoji_pattern = r'[\U0001F300-\U0001F9FF\U00002702-\U000027B0\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF]'
+                text_with_emoji = re.findall(r'<text[^>]*>([^<]*' + emoji_pattern + r'[^<]*)</text>', svg_content)
+                if text_with_emoji:
+                    findings.append(Finding("P1", rule["code"], rule["message"]))
         elif rule["code"] == "whitespace_imbalance":
             if not _check_whitespace_balance(svg_content):
                 findings.append(Finding("P1", rule["code"], rule["message"]))
