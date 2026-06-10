@@ -176,6 +176,32 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
                     notes_file.write_text(extracted_notes, encoding="utf-8")
                     result += f"\n📝 演讲者备注已从 SVG 注释中提取"
 
+        # 自动保存检查点（用于分段执行）
+        try:
+            from app.services.ppt.resume_service import get_resume_service
+            from app.services.agent_service import _current_session_id
+
+            session_id = _current_session_id.get()
+            if session_id and _pending_slide_plan:
+                resume_service = get_resume_service()
+                # 获取已完成的页码列表
+                completed = []
+                for f in slides_dir.glob("slide_*.svg"):
+                    match = re.search(r'slide_(\d+)', f.name)
+                    if match:
+                        completed.append(int(match.group(1)))
+
+                resume_service.save_checkpoint(
+                    session_id=session_id,
+                    slide_num=slide_num,
+                    spec_lock=_spec_lock_summary,
+                    slide_plan=_pending_slide_plan,
+                    completed_slides=sorted(completed),
+                )
+        except Exception as e:
+            # 检查点保存失败不影响主流程
+            pass
+
         # 注入下一页计划提示（防上下文压缩丢失）
         result += _build_next_slide_hint(slide_num)
 
@@ -345,6 +371,92 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
                 f"已提交 {len(plan)} 页计划：\n{summary}\n"
                 f'请回复"确认"开始生成，或提出修改意见。'
             )
+
+    @registry.tool(display_name="继续生成PPT")
+    async def resume_ppt(from_slide: int = 0) -> str:
+        """从上次中断的地方继续生成 PPT。
+
+        参数:
+            from_slide: 从第几页开始（0=自动检测下一个未完成的页）
+
+        返回: 恢复状态信息，包括 spec_lock 和剩余页面计划
+        """
+        from app.services.ppt.resume_service import get_resume_service
+        from app.services.agent_service import _current_session_id
+
+        session_id = _current_session_id.get() or "default"
+        resume_service = get_resume_service()
+
+        checkpoint = resume_service.load_checkpoint(session_id)
+        if not checkpoint:
+            return "未找到检查点，请开始新的 PPT 生成任务。"
+
+        if from_slide == 0:
+            # 自动找到下一个未完成的页
+            next_slide = resume_service.get_next_slide(session_id)
+            if next_slide is None:
+                return "所有页面已生成完成！"
+            from_slide = next_slide
+
+        # 恢复 spec_lock
+        global _spec_lock_summary
+        _spec_lock_summary = checkpoint.spec_lock
+
+        # 恢复 slide_plan
+        global _pending_slide_plan
+        _pending_slide_plan = checkpoint.slide_plan
+
+        hint = resume_service.get_resume_hint(session_id)
+
+        return f"""已恢复检查点！
+
+{hint}
+
+从第 {from_slide} 页开始继续生成。
+spec_lock 已恢复：{checkpoint.spec_lock}
+
+请调用 save_slide 逐页生成剩余页面。"""
+
+    @registry.tool(display_name="查看生成进度")
+    async def check_ppt_progress() -> str:
+        """查看当前 PPT 生成进度。
+
+        返回: 已完成页数、剩余页数、检查点状态
+        """
+        from app.services.ppt.resume_service import get_resume_service
+        from app.services.agent_service import _current_session_id
+
+        session_id = _current_session_id.get() or "default"
+        resume_service = get_resume_service()
+
+        checkpoint = resume_service.load_checkpoint(session_id)
+        if not checkpoint:
+            return "未找到检查点，请开始新的 PPT 生成任务。"
+
+        completed = checkpoint.completed_slides
+        total = len(checkpoint.slide_plan)
+        remaining = [
+            s for s in checkpoint.slide_plan
+            if s.get("slide_num") not in completed
+        ]
+
+        lines = [
+            f"**PPT 生成进度**",
+            f"",
+            f"总页数: {total}",
+            f"已完成: {len(completed)} 页",
+            f"剩余: {len(remaining)} 页",
+            f"",
+            f"**已完成页面**: {', '.join(f'第{n}页' for n in sorted(completed))}",
+        ]
+
+        if remaining:
+            lines.append("")
+            lines.append("**剩余页面**:")
+            for s in remaining:
+                lines.append(f"  - 第{s['slide_num']}页: {s.get('layout', 'unknown')} - {s.get('title', '无标题')}")
+
+        return "\n".join(lines)
 
     if "save_slide" in os.environ.get("PPT_TOOLS_DISABLED", "").split(","):
         del registry._tools["save_slide"]
