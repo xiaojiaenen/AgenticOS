@@ -122,13 +122,24 @@ class PptPipeline:
         from wuwei import LLMGateway
         from wuwei.core.message import SystemMessage, HumanMessage
         from pathlib import Path
-        from app.core.data_path import PPT_SESSIONS_DIR
+        from app.core.data_path import PPT_SESSIONS_DIR, next_version_dir, _parse_dir_name, get_current_user_id
 
         llm = LLMGateway.from_env()
         svgs = []
 
-        # 确保 slides 目录存在
-        slides_dir = PPT_SESSIONS_DIR / state.session_id
+        # 查找或创建正确格式的目录
+        slides_dir = None
+        if PPT_SESSIONS_DIR.exists():
+            for child in PPT_SESSIONS_DIR.iterdir():
+                if not child.is_dir():
+                    continue
+                parsed = _parse_dir_name(child.name)
+                if parsed and str(parsed[1]) == state.session_id:
+                    slides_dir = child
+                    break
+        if slides_dir is None:
+            user_id = get_current_user_id() or 0
+            slides_dir = next_version_dir(PPT_SESSIONS_DIR, user_id, state.session_id)
         slides_dir.mkdir(parents=True, exist_ok=True)
 
         for i, page in enumerate(state.pages):

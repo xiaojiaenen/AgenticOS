@@ -255,12 +255,24 @@ class MultiAgentPptService:
     async def _save_slide(self, session_id: str | None, slide_num: int, svg: str) -> bool:
         """保存 slide SVG 文件"""
         from pathlib import Path
-        from app.core.data_path import PPT_SESSIONS_DIR
+        from app.core.data_path import PPT_SESSIONS_DIR, next_version_dir, _parse_dir_name, get_current_user_id
 
         if not session_id:
             return False
 
-        slides_dir = PPT_SESSIONS_DIR / session_id
+        # 查找或创建正确格式的目录
+        slides_dir = None
+        if PPT_SESSIONS_DIR.exists():
+            for child in PPT_SESSIONS_DIR.iterdir():
+                if not child.is_dir():
+                    continue
+                parsed = _parse_dir_name(child.name)
+                if parsed and str(parsed[1]) == session_id:
+                    slides_dir = child
+                    break
+        if slides_dir is None:
+            user_id = get_current_user_id() or 0
+            slides_dir = next_version_dir(PPT_SESSIONS_DIR, user_id, session_id)
         slides_dir.mkdir(parents=True, exist_ok=True)
 
         slide_path = slides_dir / f"slide_{slide_num}.svg"
@@ -270,12 +282,23 @@ class MultiAgentPptService:
     async def _run_reviewer(self, llm: LLMGateway, session_id: str | None) -> dict[str, Any] | None:
         """Reviewer Agent：检查 SVG 质量，返回有问题的页面列表"""
         from pathlib import Path
-        from app.core.data_path import PPT_SESSIONS_DIR
+        from app.core.data_path import PPT_SESSIONS_DIR, _parse_dir_name
 
         if not session_id:
             return None
 
-        slides_dir = PPT_SESSIONS_DIR / session_id
+        # 查找正确格式的目录
+        slides_dir = None
+        if PPT_SESSIONS_DIR.exists():
+            for child in PPT_SESSIONS_DIR.iterdir():
+                if not child.is_dir():
+                    continue
+                parsed = _parse_dir_name(child.name)
+                if parsed and str(parsed[1]) == session_id:
+                    slides_dir = child
+                    break
+        if slides_dir is None:
+            slides_dir = PPT_SESSIONS_DIR / session_id  # fallback
         if not slides_dir.exists():
             return None
 
