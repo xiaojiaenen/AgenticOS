@@ -435,6 +435,16 @@ function applyChanges() {{
   document.getElementById('statusText').textContent = `第 ${{currentSlide + 1}} 页已更新`;
 }}
 
+// 从 localStorage/sessionStorage 获取 auth token
+function getAuthToken() {{
+  // AgenticOS 使用 auth_token 作为 key
+  for (const storage of [localStorage, sessionStorage]) {{
+    const val = storage.getItem('auth_token');
+    if (val) return val;
+  }}
+  return '';
+}}
+
 async function saveAll() {{
   const modifiedSlides = Object.keys(modified);
   if (modifiedSlides.length === 0) {{
@@ -443,11 +453,15 @@ async function saveAll() {{
   }}
 
   document.getElementById('statusText').textContent = '正在保存...';
+  const token = getAuthToken();
 
   try {{
     const response = await fetch(`/api/v1/agent/ppt/${{artifactId}}/update-slides`, {{
       method: 'POST',
-      headers: {{ 'Content-Type': 'application/json' }},
+      headers: {{
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${{token}}`,
+      }},
       body: JSON.stringify({{ svgs: svgs }}),
     }});
 
