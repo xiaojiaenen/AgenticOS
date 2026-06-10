@@ -1,0 +1,45 @@
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" data-theme="figma">
+  <defs>
+    <linearGradient id="hero-gradient" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="var(--bg)" stop-opacity="0.1"/>
+      <stop offset="50%" stop-color="var(--bg)" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="var(--bg)" stop-opacity="0.95"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Image -->
+  <g id="background">
+    <image data-slot="hero-image" x="0" y="0" width="1280" height="720"
+           preserveAspectRatio="xMidYMid slice"/>
+    <rect x="0" y="0" width="1280" height="720" fill="url(#hero-gradient)"/>
+  </g>
+
+  <!-- Centered Content -->
+  <g id="content" text-anchor="middle" transform="translate(640, 340)">
+    <text data-slot="eyebrow" x="0" y="-60"
+          font-family="Inter, sans-serif" font-size="14" font-weight="500"
+          fill="var(--accent)" letter-spacing="3">
+      SECTION TITLE
+    </text>
+    <text data-slot="title" x="0" y="20"
+          font-family="Inter, sans-serif" font-size="64" font-weight="800"
+          fill="var(--text-1)" line-height="1.1">
+      Hero Title
+    </text>
+    <line x1="-40" y1="70" x2="40" y2="70" stroke="var(--accent)" stroke-width="3"/>
+    <text data-slot="subtitle" x="0" y="110"
+          font-family="Inter, sans-serif" font-size="18" font-weight="400"
+          fill="var(--text-2)">
+      Supporting description text
+    </text>
+  </g>
+
+  <!-- Scroll Indicator -->
+  <g id="decoration" transform="translate(640, 650)" text-anchor="middle">
+    <rect x="-12" y="0" width="24" height="36" rx="12" fill="none"
+          stroke="var(--text-3)" stroke-width="2"/>
+    <circle cx="0" cy="12" r="3" fill="var(--accent)">
+      <animate attributeName="cy" values="8;20;8" dur="2s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+</svg>

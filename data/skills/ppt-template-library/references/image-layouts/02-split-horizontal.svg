@@ -1,0 +1,60 @@
+<svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" data-theme="figma">
+  <!-- Background -->
+  <g id="background">
+    <rect width="1280" height="720" fill="var(--bg)"/>
+  </g>
+
+  <!-- Left: Image -->
+  <g id="image-area" transform="translate(0, 40)">
+    <clipPath id="image-clip">
+      <rect x="40" y="0" width="560" height="640" rx="16"/>
+    </clipPath>
+    <image data-slot="main-image" x="40" y="0" width="560" height="640"
+           clip-path="url(#image-clip)" preserveAspectRatio="xMidYMid slice"/>
+  </g>
+
+  <!-- Right: Content -->
+  <g id="content" transform="translate(660, 120)">
+    <text data-slot="eyebrow" x="0" y="0"
+          font-family="Inter, sans-serif" font-size="12" font-weight="600"
+          fill="var(--accent)" letter-spacing="2">
+      EYEBROW
+    </text>
+    <text data-slot="title" x="0" y="50"
+          font-family="Inter, sans-serif" font-size="42" font-weight="700"
+          fill="var(--text-1)" line-height="1.2">
+      Section Title
+    </text>
+    <line x1="0" y1="80" x2="60" y2="80" stroke="var(--accent)" stroke-width="3"/>
+    <text data-slot="body" x="0" y="120"
+          font-family="Inter, sans-serif" font-size="16" font-weight="400"
+          fill="var(--text-2)" line-height="1.8">
+      <tspan x="0" dy="0">Description text goes here. This layout is</tspan>
+      <tspan x="0" dy="28">perfect for product introductions, team</tspan>
+      <tspan x="0" dy="28">profiles, and feature explanations.</tspan>
+    </text>
+
+    <!-- Bullet Points -->
+    <g transform="translate(0, 240)">
+      <circle cx="8" cy="8" r="4" fill="var(--accent)"/>
+      <text x="24" y="12" font-family="Inter, sans-serif" font-size="14" fill="var(--text-2)">
+        Key feature or point one
+      </text>
+      <circle cx="8" cy="40" r="4" fill="var(--accent)"/>
+      <text x="24" y="44" font-family="Inter, sans-serif" font-size="14" fill="var(--text-2)">
+        Key feature or point two
+      </text>
+      <circle cx="8" cy="72" r="4" fill="var(--accent)"/>
+      <text x="24" y="76" font-family="Inter, sans-serif" font-size="14" fill="var(--text-2)">
+        Key feature or point three
+      </text>
+    </g>
+  </g>
+
+  <!-- Page Number -->
+  <g id="pagenum" transform="translate(1220, 680)">
+    <text text-anchor="end" font-family="Inter, sans-serif" font-size="12" fill="var(--text-3)">
+      01
+    </text>
+  </g>
+</svg>
