@@ -255,6 +255,13 @@ TOOL_CATALOG = {
         "approval_scope": [],
         "sub_tools": {},
     },
+    "save_slides_batch": {
+        "label": "批量保存幻灯片",
+        "description": "批量保存多页幻灯片，减少 LLM 调用次数（推荐每 3 页一批）。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
     "read_slide": {
         "label": "读取幻灯片",
         "description": "读取已有幻灯片的 SVG 内容，用于修改前查看。",
