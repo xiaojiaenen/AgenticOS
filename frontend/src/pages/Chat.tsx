@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { Sidebar } from '../components/chat/Sidebar';
 import { ChatMainArea } from '../components/chat/ChatMainArea';
 import { ChatArtifactArea } from '../components/chat/ChatArtifactArea';
+import { SlideLivePreview } from '../components/ppt/SlideLivePreview';
 import { DragOverlay } from '../components/chat/DragOverlay';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { MascotCool } from '../components/ui/AnimatedIcons';
@@ -342,6 +343,13 @@ export const Chat = () => {
           >
             <ChatMainArea />
           </main>
+          <AnimatePresence>
+            <SlideLivePreview
+              messages={currentSessionMessages}
+              isStreaming={isStreamingResponse}
+              hasArtifact={!!artifact}
+            />
+          </AnimatePresence>
           <ChatArtifactArea artifact={artifact} onClose={() => setArtifact(null)} borderColor={borderColor} />
         </div>
       </ChatContextProvider>

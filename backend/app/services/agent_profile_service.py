@@ -384,22 +384,47 @@ class AgentProfileService:
             "installed": installed,
             "audience_mode": self._audience_mode_for_users(audience_users),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
-            "tools": [
-                {
-                    "tool_name": tool.tool_name,
-                    "enabled": tool.enabled,
-                    "requires_approval": tool.requires_approval,
-                    "approval_sub_tools": parse_approval_sub_tools(tool.approval_sub_tools_json),
-                }
-                for tool in tools
-                if tool.tool_name in TOOL_CATALOG
-            ],
+            "tools": self._merge_tools_with_catalog(tools),
             "skills": [self._serialize_skill_reference(skill) for skill in skills],
             "external_systems": ext_systems,
             "max_steps": profile.max_steps,
             "created_at": profile.created_at,
             "updated_at": profile.updated_at,
         }
+
+    @staticmethod
+    def _merge_tools_with_catalog(
+        stored_tools: list[AgentProfileToolModel],
+    ) -> list[dict[str, object]]:
+        """Merge stored profile tools with all catalog entries.
+
+        Tools present in TOOL_CATALOG but missing from *stored_tools* are
+        appended with ``enabled=False`` and ``requires_approval=False`` so
+        that newly-added tools automatically appear in the admin UI without
+        breaking existing configurations.
+        """
+        seen: set[str] = set()
+        merged: list[dict[str, object]] = []
+        for tool in stored_tools:
+            if tool.tool_name not in TOOL_CATALOG:
+                continue
+            seen.add(tool.tool_name)
+            merged.append({
+                "tool_name": tool.tool_name,
+                "enabled": tool.enabled,
+                "requires_approval": tool.requires_approval,
+                "approval_sub_tools": parse_approval_sub_tools(tool.approval_sub_tools_json),
+            })
+        for name in TOOL_CATALOG:
+            if name not in seen:
+                merged.append({
+                    "tool_name": name,
+                    "enabled": False,
+                    "requires_approval": False,
+                    "approval_sub_tools": [],
+                })
+        merged.sort(key=lambda t: t["tool_name"])  # type: ignore[index]
+        return merged
 
     def _serialize_prefetched(
         self,
@@ -425,16 +450,7 @@ class AgentProfileService:
             "installed": installed,
             "audience_mode": self._audience_mode_for_users(audience_users),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
-            "tools": [
-                {
-                    "tool_name": tool.tool_name,
-                    "enabled": tool.enabled,
-                    "requires_approval": tool.requires_approval,
-                    "approval_sub_tools": parse_approval_sub_tools(tool.approval_sub_tools_json),
-                }
-                for tool in tools
-                if tool.tool_name in TOOL_CATALOG
-            ],
+            "tools": self._merge_tools_with_catalog(tools),
             "skills": [self._serialize_skill_reference(skill) for skill in skills],
             "external_systems": external_systems or [],
             "max_steps": profile.max_steps,
