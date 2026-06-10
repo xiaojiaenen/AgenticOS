@@ -238,6 +238,50 @@ def generate_icon_group(attrs: dict[str, str | float], elements: list[str], styl
   </g>'''
 
 
+def process_svg_string(svg_content: str, icons_dir: Path) -> tuple[str, int]:
+    """
+    Process an SVG string, replacing all icon placeholders.
+
+    Args:
+        svg_content: SVG content string
+        icons_dir: Icon directory path
+
+    Returns:
+        Tuple of (processed_svg_content, replaced_count)
+    """
+    # Match <use data-icon="xxx" ... /> elements
+    use_pattern = r'<use\s+[^>]*data-icon="[^"]*"[^>]*/>'
+    matches = list(re.finditer(use_pattern, svg_content))
+
+    if not matches:
+        return svg_content, 0
+
+    replaced_count = 0
+    new_content = svg_content
+
+    # Replace from back to front to avoid position offset
+    for match in reversed(matches):
+        use_str = match.group(0)
+        attrs = parse_use_element(use_str)
+
+        icon_name = attrs.get('icon')
+        if not icon_name:
+            continue
+
+        icon_path, _ = resolve_icon_path(str(icon_name), icons_dir)
+        color = str(attrs.get('fill', '#000000'))
+        elements, style, base_size = extract_paths_from_icon(icon_path, color)
+
+        if not elements:
+            continue
+
+        replacement = generate_icon_group(attrs, elements, style, base_size)
+        new_content = new_content[:match.start()] + replacement + new_content[match.end():]
+        replaced_count += 1
+
+    return new_content, replaced_count
+
+
 def process_svg_file(svg_path: Path, icons_dir: Path, dry_run: bool = False, verbose: bool = False) -> int:
     """
     Process a single SVG file, replacing all icon placeholders.
@@ -254,39 +298,22 @@ def process_svg_file(svg_path: Path, icons_dir: Path, dry_run: bool = False, ver
     if not svg_path.exists():
         print(f"[ERROR] File not found: {svg_path}")
         return 0
-    
+
     content = svg_path.read_text(encoding='utf-8')
-    
-    # Match <use data-icon="xxx" ... /> elements
-    use_pattern = r'<use\s+[^>]*data-icon="[^"]*"[^>]*/>'
-    matches = list(re.finditer(use_pattern, content))
-    
-    if not matches:
+    new_content, replaced_count = process_svg_string(content, icons_dir)
+
+    if replaced_count == 0:
         if verbose:
             print(f"[SKIP] No icon placeholders: {svg_path}")
         return 0
-    
-    replaced_count = 0
-    new_content = content
-    
-    # Replace from back to front to avoid position offset
-    for match in reversed(matches):
-        use_str = match.group(0)
-        attrs = parse_use_element(use_str)
-        
-        icon_name = attrs.get('icon')
-        if not icon_name:
-            continue
 
-        icon_path, _ = resolve_icon_path(str(icon_name), icons_dir)
-        color = str(attrs.get('fill', '#000000'))
-        elements, style, base_size = extract_paths_from_icon(icon_path, color)
-        
-        if not elements:
-            print(f"[WARN] Icon not found: {icon_name} (in {svg_path.name})")
-            continue
-        
-        replacement = generate_icon_group(attrs, elements, style, base_size)
+    if not dry_run and replaced_count > 0:
+        svg_path.write_text(new_content, encoding='utf-8')
+
+    if verbose or dry_run:
+        print(f"  {'[PREVIEW]' if dry_run else '[OK]'} {svg_path.name} ({replaced_count} icons)")
+
+    return replaced_count
         
         if verbose or dry_run:
             print(f"  [*] {icon_name}: x={attrs.get('x', 0)}, y={attrs.get('y', 0)}, "
