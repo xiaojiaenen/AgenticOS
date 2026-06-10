@@ -1,10 +1,10 @@
 ---
 name: ppt-workflow
-description: PPT 创作工作流——7 步流程、spec_lock 执行锁、修改流程、文件处理。每次 PPT 任务开始时加载。
-version: 1.0.0
-tags: [ppt, workflow, spec_lock]
+description: PPT 创作工作流——8 步流程、spec_lock 执行锁、submit_spec_lock 持久化、内容型计划、修改流程、文件处理。每次 PPT 任务开始时加载。
+version: 1.1.0
+tags: [ppt, workflow, spec_lock, submit_spec_lock]
 when_to_use: 开始 PPT 创作任务时，加载此工作流以获取创作步骤和规范
-allowed_tools: [save_slide, read_slide, load_skill, load_skill_reference, list_icons, search_icons, file_to_md, convert_pptx_to_svg]
+allowed_tools: [save_slide, read_slide, load_skill, load_skill_reference, list_icons, search_icons, submit_spec_lock, submit_slide_plan, file_to_md, convert_pptx_to_svg]
 required_tools: []
 ---
 
@@ -274,12 +274,14 @@ spec_lock 是本 deck 的设计参数锁定表，作用是防止逐页创作过�
 
 ## 五、输出规范
 
-1. **创作前确认**：内容/受众 + 主题推荐 + 画布格式
+1. **创作前确认**：内容/受众 + 主题推荐 + 画布格式（一次性确认，最多 2 轮）
 2. **选择主题**：推荐最佳匹配，告知用户
 3. **生成 spec_lock**：锁定颜色/字体/icon/页面节奏
-4. **规划叙事线**：确定每页 layout（确保 section-divider >= 2、无连续重复）
-5. **逐页构建**：从模板库复制 SVG 结构 -> 替换内容 -> 保留 var(--token) -> 写 notes
-6. **自检**：按上方清单逐项核对
+4. **锁定设计参数**：调用 `submit_spec_lock` 持久化核心参数
+5. **规划叙事线**：确定每页 layout + content（确保 section-divider >= 2、无连续重复）
+6. **提交计划**：调用 `submit_slide_plan` 提交含 content 字段的页面计划
+7. **逐页构建**：从模板库复制 SVG 结构 -> 替换内容 -> 保留 var(--token) -> 写 notes
+8. **自检**：按上方清单逐项核对
 
 **最后**：在所有 `save_slide` 调用完成后，用 2-3 句话总结设计思路。不要提及"SVG"、"code block"等技术术语。
 
