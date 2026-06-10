@@ -457,6 +457,69 @@ export async function getAgentSessionState(sessionId: string): Promise<AgentSess
   return response.json();
 }
 
+/** 后端消息原始格式 */
+type BackendMessage = {
+  role: string;
+  content: string;
+  tool_calls?: Array<{ id?: string; name: string; arguments?: Record<string, unknown> }>;
+  tool_call_id?: string;
+  name?: string;
+};
+
+/** 从后端加载会话的完整消息历史 */
+export async function getSessionMessages(sessionId: string): Promise<Message[]> {
+  const response = await fetch(`${AGENT_ENDPOINT}/sessions/${sessionId}/messages`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || '加载消息历史失败。');
+  }
+  const raw: BackendMessage[] = await response.json();
+  const messages: Message[] = [];
+  // 按 tool_call_id 分组 tool 消息
+  const toolResultsMap = new Map<string, BackendMessage[]>();
+
+  for (const msg of raw) {
+    if (msg.role === 'tool' && msg.tool_call_id) {
+      const existing = toolResultsMap.get(msg.tool_call_id) || [];
+      existing.push(msg);
+      toolResultsMap.set(msg.tool_call_id, existing);
+    }
+  }
+
+  for (const msg of raw) {
+    if (msg.role === 'system') continue; // 跳过 system prompt
+    if (msg.role === 'tool') continue;   // tool 结果合并到 assistant 的 toolCalls 中
+
+    if (msg.role === 'user') {
+      messages.push({
+        id: `backend-${messages.length}`,
+        role: 'user',
+        text: msg.content || '',
+      });
+    } else if (msg.role === 'assistant') {
+      const toolCalls: import('../types').ToolCall[] | undefined = msg.tool_calls?.map((tc) => {
+        const resultMsg = toolResultsMap.get(tc.id || '');
+        return {
+          id: tc.id,
+          name: tc.name,
+          status: 'success' as const,
+          arguments: tc.arguments,
+          result: resultMsg?.map(r => r.content).join('\n') || undefined,
+        };
+      });
+      messages.push({
+        id: `backend-${messages.length}`,
+        role: 'model',
+        text: msg.content || '',
+        toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined,
+      });
+    }
+  }
+  return messages;
+}
+
 export async function generateTitle(history: Message[]): Promise<string> {
   const firstUserMessage = history.find((item) => item.role === 'user')?.text ?? '';
   const lastAssistantMessage = [...history].reverse().find((item) => item.role === 'model')?.text ?? '';

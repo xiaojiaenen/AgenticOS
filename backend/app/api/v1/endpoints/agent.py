@@ -109,6 +109,46 @@ async def get_session_state(
     return await agent_service.get_session_state(session_id)
 
 
+@router.get("/sessions/{session_id}/messages", summary="获取会话的完整消息历史")
+async def get_session_messages(
+    session_id: str,
+    current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
+) -> list[dict[str, Any]]:
+    """加载指定会话的全部消息，用于前端刷新后恢复聊天记录。"""
+    try:
+        await agent_service.ensure_session_access(
+            AgentStreamRequest(message="load_messages", session_id=session_id), current_user
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    session = await agent_service.storage.load(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="会话不存在")
+
+    result = []
+    for msg in session.context._messages:
+        entry: dict[str, Any] = {
+            "role": msg.role,
+            "content": msg.content or "",
+        }
+        if msg.tool_calls:
+            entry["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "name": tc.function.name if tc.function else "tool_call",
+                    "arguments": tc.function.arguments if tc.function else None,
+                }
+                for tc in msg.tool_calls
+            ]
+        if hasattr(msg, "tool_call_id") and msg.tool_call_id:
+            entry["tool_call_id"] = msg.tool_call_id
+            entry["name"] = getattr(msg, "name", None)
+        result.append(entry)
+    return result
+
+
 @router.get("/sessions", summary="获取当前用户的会话列表")
 async def list_sessions(
     current_user: UserModel = Depends(get_current_user),

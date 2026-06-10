@@ -3,8 +3,28 @@ import { motion } from 'motion/react';
 import { Presentation } from 'lucide-react';
 import { Message } from '../../types';
 
+/** PPT SVG 使用的 CSS 自定义属性默认值（覆盖主流主题） */
+const CSS_VAR_DEFAULTS = `:root {
+  --bg: #ffffff;
+  --bg-2: #f8fafc;
+  --bg-3: #f1f5f9;
+  --surface: #ffffff;
+  --accent: #2563eb;
+  --accent-2: #3b82f6;
+  --accent-soft: #dbeafe;
+  --text-1: #0f172a;
+  --text-2: #334155;
+  --text-3: #64748b;
+  --text-inv: #ffffff;
+  --border: #e2e8f0;
+  --font-sans: 'Inter', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius: 12px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+}`;
+
 function extractSvgPreviews(messages: Message[]): { slideNum: number; svg: string }[] {
-  // 使用 Map 按 slideNum 去重，只保留每个页码最新的预览
   const previewMap = new Map<number, string>();
 
   for (const msg of messages) {
@@ -16,7 +36,6 @@ function extractSvgPreviews(messages: Message[]): { slideNum: number; svg: strin
         const svg = match[1];
         const slideMatch = tool.result.match(/第\s*(\d+)\s*页/);
         const slideNum = slideMatch ? parseInt(slideMatch[1], 10) : previewMap.size + 1;
-        // 直接覆盖，保留最新的
         previewMap.set(slideNum, svg);
       }
     }
@@ -25,6 +44,11 @@ function extractSvgPreviews(messages: Message[]): { slideNum: number; svg: strin
   return Array.from(previewMap.entries())
     .map(([slideNum, svg]) => ({ slideNum, svg }))
     .sort((a, b) => a.slideNum - b.slideNum);
+}
+
+/** 将 SVG 包装为带 CSS 变量的完整 HTML 文档 */
+function buildSvgPreviewHtml(svg: string): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${CSS_VAR_DEFAULTS}html,body{margin:0;padding:0;background:#fff;overflow:hidden}svg{width:100%;height:auto;display:block}</style></head><body>${svg}</body></html>`;
 }
 
 interface SlideLivePreviewProps {
@@ -65,10 +89,15 @@ export const SlideLivePreview: React.FC<SlideLivePreviewProps> = ({ messages, is
             transition={{ delay: 0.1 }}
             className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md"
           >
-            <div
-              className="aspect-[16/9] overflow-hidden"
-              dangerouslySetInnerHTML={{ __html: svg.replace(/<svg/, '<svg style="width:100%;height:100%"') }}
-            />
+            <div className="aspect-[16/9] overflow-hidden">
+              <iframe
+                srcDoc={buildSvgPreviewHtml(svg)}
+                title={`Slide ${slideNum} preview`}
+                className="w-full h-full border-0"
+                sandbox="allow-scripts"
+                style={{ pointerEvents: 'none' }}
+              />
+            </div>
             <div className="border-t border-slate-100 px-3 py-2 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700">第 {slideNum} 页</span>
               <span className="text-[10px] font-medium text-emerald-600">已保存</span>

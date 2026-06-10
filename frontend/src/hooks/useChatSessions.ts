@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Session, Message } from '../types';
-import { listSessions, deleteSession as deleteSessionApi, generateTitle } from '../services/agentService';
+import { listSessions, deleteSession as deleteSessionApi, generateTitle, getSessionMessages } from '../services/agentService';
 import { getStoredUser } from '../services/authService';
 
 const MAX_PERSISTED_MESSAGES_PER_SESSION = 120;
@@ -28,14 +28,15 @@ function compactMessageForStorage(message: Message): Message {
       ...tool,
       result: clampText(tool.result, MAX_PERSISTED_TOOL_RESULT_LENGTH),
     })),
-    // html 字段可能数百 KB，不存 localStorage（从后端重新加载）
+    // 持久化 artifact 信息，包括 html（用于刷新后恢复预览）
     pptArtifact: message.pptArtifact
       ? {
           status: message.pptArtifact.status,
           artifactId: message.pptArtifact.artifactId,
           title: message.pptArtifact.title,
           slideCount: message.pptArtifact.slideCount,
-          // html: 不持久化，避免超限
+          html: clampText(message.pptArtifact.html, 500_000), // 限制 500KB
+          theme: message.pptArtifact.theme,
         }
       : undefined,
     websiteArtifact: message.websiteArtifact
@@ -44,7 +45,7 @@ function compactMessageForStorage(message: Message): Message {
           artifactId: message.websiteArtifact.artifactId,
           title: message.websiteArtifact.title,
           projectSlug: message.websiteArtifact.projectSlug,
-          // html: 不持久化
+          html: clampText(message.websiteArtifact.html, 500_000),
         }
       : undefined,
   };
@@ -327,6 +328,28 @@ export function useChatSessions() {
     }
   }, [sessions]);
 
+  /** 从后端加载指定会话的完整消息历史（用于刷新后恢复） */
+  const loadSessionMessages = useCallback(async (sessionId: string): Promise<boolean> => {
+    // 检查当前会话是否已有消息
+    const session = sessions.find(s => s.id === sessionId);
+    if (session && session.messages.length > 0) return false; // 已有消息，无需加载
+
+    try {
+      const messages = await getSessionMessages(sessionId);
+      if (messages.length === 0) return false;
+
+      setSessions(prev => prev.map(s =>
+        s.id === sessionId
+          ? { ...s, messages, updatedAt: Date.now() }
+          : s
+      ));
+      return true;
+    } catch (error) {
+      console.error('Failed to load session messages:', error);
+      return false;
+    }
+  }, [sessions]);
+
   return {
     sessions,
     setSessions,
@@ -344,5 +367,6 @@ export function useChatSessions() {
     createSession,
     isLoading,
     refreshSessions,
+    loadSessionMessages,
   };
 }
