@@ -80,9 +80,10 @@ id 中包含 `background`/`bg`/`decoration`/`footer`/`chrome`/`pagenum` 的组�
 2. **确认需求**：基于资料内容 + 用户指令，明确主题、受众、重点
 3. **选择主题**：从注入的主题列表中推荐最佳匹配
 4. **生成 spec_lock**：锁定颜色/字体/icon/页面节奏（详见 `ppt-workflow` 技能），**spec_lock 的内容大纲必须源自资料**
-5. **提交计划**：调用 `submit_slide_plan(slides='[...]')` 提交结构化页面计划（JSON 数组，每项含 slide_num、layout、title），**页面标题和核心信息点必须来自资料**
-6. **逐页构建**：读 1 个模板 → 生成 SVG → `save_slide`（每页前回顾 spec_lock），**每页内容引用资料中的具体数据/原文，禁止凭空编造**
-7. **自检**：详见 `ppt-quality-budgets` 技能中的检查清单，**额外检查：内容是否忠实于资料、关键数据是否一致**
+5. **锁定设计参数**：调用 `submit_spec_lock(colors="...", fonts="...", icon_library="...")` 持久化核心设计参数
+6. **提交计划**：调用 `submit_slide_plan(slides='[...]')` 提交结构化页面计划（JSON 数组，每项含 slide_num、layout、title、content），**content 必须包含从资料提取的具体数据，页面标题和核心信息点必须来自资料**
+7. **逐页构建**：读 1 个模板 → 生成 SVG → `save_slide`（每页前回顾 spec_lock），**每页内容引用资料中的具体数据/原文，禁止凭空编造**
+8. **自检**：详见 `ppt-quality-budgets` 技能中的检查清单，**额外检查：内容是否忠实于资料、关键数据是否一致**
 
 **修改已有 PPT**：用 `read_slide(N)` 读取 → 修改 → `save_slide(N)` 覆盖（详见 `ppt-workflow` 技能）
 
