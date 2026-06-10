@@ -248,6 +248,51 @@ save_slide(slide_num=3, svg="...", notes="""
 | notes | 每页都有 `<!-- notes: ... -->`，150-300 字，口语化 |
 | section-divider | 至少 2-3 个，不连续重复布局 |
 | `<g id>` 分组 | 每页 3-8 个内容组，裸元素不出现在 `<svg>` 根下 |
+| 动画标记 | 关键元素有 `data-animate` 属性（封面标题、图表等） |
+| 图片 | 封面和章节页必须有图片（调用 `search_images`） |
+
+**动画标记规范**：
+
+在 `<g>` 或其他元素上添加 `data-animate` 属性：
+
+```xml
+<!-- 基本格式 -->
+<g id="title" data-animate="fade-up">
+  <text>标题文字</text>
+</g>
+
+<!-- 带延迟 -->
+<g id="chart" data-animate="zoom-in" data-delay="0.3">
+  <!-- 图表内容 -->
+</g>
+
+<!-- 带持续时间 -->
+<g id="subtitle" data-animate="fade" data-delay="0.5" data-duration="1.0">
+  <text>副标题</text>
+</g>
+```
+
+**推荐动画组合**：
+| 元素类型 | 推荐动画 | 延迟 |
+|---------|---------|------|
+| 封面标题 | fade-up | 0.3s |
+| 封面副标题 | fade-up | 0.5s |
+| 章节标题 | fade-up | 0.3s |
+| 图表 | zoom-in | 0.5s |
+| KPI 数字 | zoom-in | 0.2s |
+| 列表项 | fade-up | 0.1s 递增 |
+
+**页面转场**：
+
+在 `<svg>` 标签上添加 `data-transition` 属性：
+
+```xml
+<svg data-transition="fade" ...>
+<svg data-transition="push" data-transition-dir="left" ...>
+<svg data-transition="wipe" data-transition-dir="down" ...>
+```
+
+可选转场类型：fade, push, wipe, split, strips, cover, random
 
 ---
 
