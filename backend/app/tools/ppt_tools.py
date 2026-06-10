@@ -138,13 +138,16 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
         return file_path.read_text(encoding="utf-8")
 
     @registry.tool(display_name="保存幻灯片")
-    async def save_slide(slide_num: int, svg: str) -> str:
+    async def save_slide(slide_num: int, svg: str, notes: str = "") -> str:
         """将一页 SVG 幻灯片写入会话工作目录。新建或覆盖已有页。每页调用一次，调用完所有页后停止即可。
 
         参数:
           slide_num: 页码（从 1 开始递增）
           svg: 完整的单个 <svg>...</svg> 元素，必须包含 viewBox="0 0 1280 720"
+          notes: 演讲者备注（150-300字，口语化），可选
         """
+        import re
+
         if not svg.strip().startswith("<svg"):
             return "错误：svg 参数必须以 <svg> 开头"
         if "viewBox" not in svg:
@@ -158,6 +161,21 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
         action = "已更新" if existed else "已保存"
         result = f"第 {slide_num} 页{action}（共 {count} 页）"
 
+        # 保存演讲者备注
+        if notes:
+            notes_file = slides_dir / f"slide_{slide_num}.notes.md"
+            notes_file.write_text(notes.strip(), encoding="utf-8")
+            result += f"\n📝 演讲者备注已保存"
+        else:
+            # 尝试从 SVG 注释中提取备注
+            notes_match = re.search(r'<!--\s*notes:\s*(.*?)\s*-->', svg, re.DOTALL)
+            if notes_match:
+                extracted_notes = notes_match.group(1).strip()
+                if extracted_notes:
+                    notes_file = slides_dir / f"slide_{slide_num}.notes.md"
+                    notes_file.write_text(extracted_notes, encoding="utf-8")
+                    result += f"\n📝 演讲者备注已从 SVG 注释中提取"
+
         # 注入下一页计划提示（防上下文压缩丢失）
         result += _build_next_slide_hint(slide_num)
 
@@ -168,6 +186,29 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
         result += f"\n<svg_preview>{svg}</svg_preview>"
 
         return result
+
+    @registry.tool(display_name="读取演讲者备注")
+    async def read_notes(slide_num: int) -> str:
+        """读取指定幻灯片的演讲者备注。
+
+        参数:
+          slide_num: 要读取备注的页码（从 1 开始）
+        """
+        slides_dir = _get_slides_dir()
+        notes_file = slides_dir / f"slide_{slide_num}.notes.md"
+
+        if not notes_file.exists():
+            # 尝试从 SVG 注释中提取
+            svg_file = slides_dir / f"slide_{slide_num}.svg"
+            if svg_file.exists():
+                import re
+                svg_content = svg_file.read_text(encoding="utf-8")
+                notes_match = re.search(r'<!--\s*notes:\s*(.*?)\s*-->', svg_content, re.DOTALL)
+                if notes_match:
+                    return f"第 {slide_num} 页备注（从 SVG 注释提取）：\n\n{notes_match.group(1).strip()}"
+            return f"第 {slide_num} 页没有演讲者备注"
+
+        return f"第 {slide_num} 页备注：\n\n{notes_file.read_text(encoding='utf-8')}"
 
     @registry.tool(display_name="提交设计参数")
     async def submit_spec_lock(colors: str, fonts: str, icon_library: str) -> str:

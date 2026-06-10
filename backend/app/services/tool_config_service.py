@@ -105,6 +105,7 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
             "import_pptx_template": {"enabled": True, "requires_approval": True},
             "search_images": {"enabled": True, "requires_approval": False},
             "get_image_info": {"enabled": True, "requires_approval": False},
+            "read_notes": {"enabled": True, "requires_approval": False},
             "email": {"enabled": False, "requires_approval": True},
             "memory": {"enabled": False, "requires_approval": False},
         },
@@ -394,6 +395,13 @@ TOOL_CATALOG = {
     "get_image_info": {
         "label": "图片信息",
         "description": "获取图片的元数据信息（尺寸、格式、是否可用）。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "read_notes": {
+        "label": "读取演讲者备注",
+        "description": "读取指定幻灯片的演讲者备注。",
         "builtin_name": None,
         "approval_scope": [],
         "sub_tools": {},
