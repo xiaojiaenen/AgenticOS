@@ -314,21 +314,6 @@ def process_svg_file(svg_path: Path, icons_dir: Path, dry_run: bool = False, ver
         print(f"  {'[PREVIEW]' if dry_run else '[OK]'} {svg_path.name} ({replaced_count} icons)")
 
     return replaced_count
-        
-        if verbose or dry_run:
-            print(f"  [*] {icon_name}: x={attrs.get('x', 0)}, y={attrs.get('y', 0)}, "
-                  f"size={attrs.get('width', base_size)}, fill={color}, style={style}")
-        
-        new_content = new_content[:match.start()] + replacement + new_content[match.end():]
-        replaced_count += 1
-    
-    if not dry_run and replaced_count > 0:
-        svg_path.write_text(new_content, encoding='utf-8')
-    
-    status = "[PREVIEW]" if dry_run else "[OK]"
-    print(f"{status} {svg_path.name} ({replaced_count} icons)")
-    
-    return replaced_count
 
 
 def main() -> None:
