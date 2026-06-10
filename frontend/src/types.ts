@@ -43,6 +43,7 @@ export type Message = {
     slideCount?: number;
     html?: string;
     mode?: 'ppt';
+    theme?: string;
   };
   websiteArtifact?: {
     status: 'generating' | 'ready';
@@ -120,6 +121,6 @@ export type PptDeck = {
 
 export type Artifact =
   | {language: 'html' | 'svg'; code: string}
-  | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number}
+  | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number; theme?: string}
   | {language: 'website'; artifactId: string; html: string; title: string;
       projectSlug: string; stack: string; fileCount: number};

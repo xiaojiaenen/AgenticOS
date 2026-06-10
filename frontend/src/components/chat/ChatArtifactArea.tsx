@@ -9,9 +9,10 @@ interface ChatArtifactAreaProps {
   artifact: Artifact | null;
   onClose: () => void;
   borderColor: MotionValue<string>;
+  onPptThemeChange?: (newHtml: string, theme: string) => void;
 }
 
-export const ChatArtifactArea = React.memo(({ artifact, onClose, borderColor }: ChatArtifactAreaProps) => (
+export const ChatArtifactArea = React.memo(({ artifact, onClose, borderColor, onPptThemeChange }: ChatArtifactAreaProps) => (
   <AnimatePresence mode="wait">
     {artifact?.language === 'ppt' ? (
       <PptArtifactPanel
@@ -19,6 +20,7 @@ export const ChatArtifactArea = React.memo(({ artifact, onClose, borderColor }: 
         artifact={artifact}
         onClose={onClose}
         borderColor={borderColor}
+        onThemeChange={onPptThemeChange}
       />
     ) : artifact?.language === 'website' ? (
       <WebsiteArtifactPanel

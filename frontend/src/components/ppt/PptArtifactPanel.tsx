@@ -1,23 +1,35 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Download, LayoutDashboard, Play, RefreshCcw, X } from 'lucide-react';
+import { Download, LayoutDashboard, Palette, Play, RefreshCcw, X } from 'lucide-react';
 import { MotionValue } from 'motion/react';
 import { Artifact } from '../../types';
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
-import { exportPptx } from '../../services/agentService';
+import { exportPptx, listPptThemes, rethemePpt, type PptTheme } from '../../services/agentService';
 import { PptPresenterMode } from './PptPresenterMode';
 
 type PptArtifactPanelProps = {
   artifact: Extract<Artifact, { language: 'ppt' }>;
   onClose: () => void;
   borderColor: MotionValue<string>;
+  onThemeChange?: (newHtml: string, theme: string) => void;
 };
 
-export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, onClose, borderColor }) => {
+export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, onClose, borderColor, onThemeChange }) => {
   const [isExporting, setIsExporting] = React.useState(false);
   const [isPresenting, setIsPresenting] = React.useState(false);
+  const [showThemePanel, setShowThemePanel] = React.useState(false);
+  const [themes, setThemes] = React.useState<PptTheme[]>([]);
+  const [currentTheme, setCurrentTheme] = React.useState(artifact.theme || 'apple');
+  const [isChangingTheme, setIsChangingTheme] = React.useState(false);
   const iframeRef = React.useRef<HTMLIFrameElement | null>(null);
   const previewSrcDoc = React.useMemo(() => buildSandboxedHtmlDocument(artifact.html), [artifact.html]);
+
+  // 加载主题列表
+  React.useEffect(() => {
+    if (showThemePanel && themes.length === 0) {
+      listPptThemes().then(setThemes).catch(console.error);
+    }
+  }, [showThemePanel, themes.length]);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -42,6 +54,21 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
     }
 
     setIsExporting(false);
+  };
+
+  const handleThemeChange = async (themeName: string) => {
+    if (themeName === currentTheme || isChangingTheme || !artifact.artifactId) return;
+
+    setIsChangingTheme(true);
+    try {
+      const result = await rethemePpt(artifact.artifactId, themeName);
+      setCurrentTheme(themeName);
+      onThemeChange?.(result.html, themeName);
+    } catch (err) {
+      console.error('[Theme Change] Error:', err);
+    } finally {
+      setIsChangingTheme(false);
+    }
   };
 
   return (
@@ -70,6 +97,20 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setShowThemePanel(!showThemePanel)}
+              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition-colors ${
+                showThemePanel
+                  ? 'bg-sky-100 text-sky-700 border border-sky-200'
+                  : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+              title="切换主题"
+              aria-label="切换主题"
+            >
+              <Palette size={14} />
+              主题
+            </button>
             <button
               type="button"
               onClick={handleExport}
@@ -102,6 +143,70 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             </button>
           </div>
         </div>
+        {/* 主题选择面板 */}
+        <AnimatePresence>
+          {showThemePanel && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="z-10 overflow-hidden border-b border-slate-200/80 bg-white/90 backdrop-blur-md"
+            >
+              <div className="p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">选择主题</h3>
+                  {isChangingTheme && (
+                    <div className="flex items-center gap-2 text-xs text-sky-600">
+                      <RefreshCcw size={12} className="animate-spin" />
+                      切换中...
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-4 gap-3 sm:grid-cols-6 md:grid-cols-8">
+                  {themes.map((theme) => (
+                    <button
+                      key={theme.name}
+                      type="button"
+                      onClick={() => handleThemeChange(theme.name)}
+                      disabled={isChangingTheme}
+                      className={`group relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                        currentTheme === theme.name
+                          ? 'border-sky-500 bg-sky-50 shadow-md'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
+                      } ${isChangingTheme ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      {/* 主题颜色预览 */}
+                      <div className="flex gap-1">
+                        <div
+                          className="h-4 w-4 rounded-full border border-white shadow-sm"
+                          style={{ backgroundColor: theme.primary_color }}
+                        />
+                        <div
+                          className="h-4 w-4 rounded-full border border-white shadow-sm"
+                          style={{ backgroundColor: theme.bg_color }}
+                        />
+                        <div
+                          className="h-4 w-4 rounded-full border border-white shadow-sm"
+                          style={{ backgroundColor: theme.text_color }}
+                        />
+                      </div>
+                      <span className="text-[10px] font-medium text-slate-600 capitalize">{theme.name}</span>
+                      {currentTheme === theme.name && (
+                        <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-sky-500 text-white flex items-center justify-center">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="z-10 flex-1 overflow-auto p-6">
           <motion.div
             initial={{ opacity: 0, y: 14 }}
