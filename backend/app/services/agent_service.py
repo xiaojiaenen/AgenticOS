@@ -1014,7 +1014,7 @@ class AgentService:
 
     async def _create_ppt_artifact(self, session_id: str) -> dict[str, Any] | None:
         """Create a PPT artifact from saved slides in the session work directory."""
-        from app.core.data_path import _parse_dir_name
+        from app.core.data_path import _parse_dir_name, next_version_dir
         # Find the latest versioned directory for this session.
         # Directory naming: u{user_id}_s{session_id}_v{version}
         _slides_dir = None
@@ -1029,7 +1029,9 @@ class AgentService:
                         max_ver = parsed[2]
                         _slides_dir = child
         if _slides_dir is None:
-            _slides_dir = PPT_SESSIONS_DIR / session_id
+            # 使用正确的命名格式，而不是直接使用 session_id
+            user_id = _current_user_id.get() or 0
+            _slides_dir = next_version_dir(PPT_SESSIONS_DIR, user_id, session_id)
         try:
             artifact = await self.ppt_artifacts.create_from_slides_dir(session_id, _slides_dir)
             if artifact is not None:
