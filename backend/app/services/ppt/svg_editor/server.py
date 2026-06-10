@@ -418,3 +418,255 @@ def main(argv: Optional[list[str]] = None) -> int:
 
 if __name__ == '__main__':
     raise SystemExit(main())
+
+
+# ============================================================================
+# AgenticOS Integration - WebSocket-based real-time preview
+# ============================================================================
+
+from fastapi import FastAPI as _FastAPI, WebSocket as _WebSocket, WebSocketDisconnect as _WebSocketDisconnect
+from fastapi.responses import HTMLResponse as _HTMLResponse
+
+
+class AgenticOSEditorServer:
+    """AgenticOS SVG 实时编辑器服务"""
+
+    def __init__(self):
+        self.connections: dict[str, _WebSocket] = {}
+        self.svg_cache: dict[str, list[str]] = {}
+        self.app = _FastAPI()
+        self._setup_routes()
+
+    def _setup_routes(self):
+        """设置路由"""
+
+        @self.app.websocket("/ws/{artifact_id}")
+        async def websocket_endpoint(websocket: _WebSocket, artifact_id: str):
+            await self._handle_websocket(websocket, artifact_id)
+
+        @self.app.get("/editor/{artifact_id}")
+        async def editor_page(artifact_id: str):
+            return _HTMLResponse(self._get_editor_html(artifact_id))
+
+    async def _handle_websocket(self, websocket: _WebSocket, artifact_id: str):
+        """处理 WebSocket 连接"""
+        await websocket.accept()
+        self.connections[artifact_id] = websocket
+
+        try:
+            # 发送当前 SVG
+            svgs = self.svg_cache.get(artifact_id, [])
+            await websocket.send_json({
+                "type": "init",
+                "svgs": svgs,
+                "total": len(svgs),
+            })
+
+            # 监听修改
+            while True:
+                data = await websocket.receive_json()
+
+                if data.get("type") == "update":
+                    slide_num = data.get("slide_num")
+                    svg = data.get("svg")
+
+                    if slide_num is not None and svg:
+                        # 更新缓存
+                        if artifact_id not in self.svg_cache:
+                            self.svg_cache[artifact_id] = []
+
+                        # 确保列表足够长
+                        while len(self.svg_cache[artifact_id]) <= slide_num:
+                            self.svg_cache[artifact_id].append("")
+
+                        self.svg_cache[artifact_id][slide_num] = svg
+
+                        # 广播给其他客户端
+                        await self._broadcast(artifact_id, {
+                            "type": "update",
+                            "slide_num": slide_num,
+                            "svg": svg,
+                        })
+
+                elif data.get("type") == "select":
+                    # 广播选中的幻灯片
+                    await self._broadcast(artifact_id, {
+                        "type": "select",
+                        "slide_num": data.get("slide_num"),
+                    })
+
+        except _WebSocketDisconnect:
+            _logger.info("WebSocket disconnected: %s", artifact_id)
+        except Exception as e:
+            _logger.error("WebSocket error: %s", e)
+        finally:
+            if artifact_id in self.connections:
+                del self.connections[artifact_id]
+
+    async def _broadcast(self, artifact_id: str, message: dict):
+        """广播消息给其他客户端"""
+        if artifact_id in self.connections:
+            try:
+                await self.connections[artifact_id].send_json(message)
+            except Exception:
+                pass
+
+    def _get_editor_html(self, artifact_id: str) -> str:
+        """生成编辑器 HTML"""
+        return f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SVG Editor - {artifact_id}</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }}
+        .container {{ display: flex; height: 100vh; }}
+        .sidebar {{ width: 200px; background: white; border-right: 1px solid #e0e0e0; overflow-y: auto; padding: 16px; }}
+        .sidebar h3 {{ font-size: 12px; color: #666; margin-bottom: 12px; text-transform: uppercase; }}
+        .slide-thumb {{ cursor: pointer; margin-bottom: 12px; border: 2px solid transparent; border-radius: 8px; overflow: hidden; }}
+        .slide-thumb.active {{ border-color: #2196F3; }}
+        .slide-thumb:hover {{ border-color: #90CAF9; }}
+        .slide-thumb svg {{ width: 100%; height: auto; display: block; }}
+        .main {{ flex: 1; display: flex; flex-direction: column; }}
+        .toolbar {{ height: 48px; background: white; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; padding: 0 16px; gap: 8px; }}
+        .toolbar button {{ padding: 6px 12px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer; font-size: 13px; }}
+        .toolbar button:hover {{ background: #f5f5f5; }}
+        .editor {{ flex: 1; overflow: auto; padding: 24px; background: #fafafa; }}
+        .slide-preview {{ max-width: 960px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); overflow: hidden; }}
+        .slide-preview svg {{ width: 100%; height: auto; display: block; }}
+        .status {{ padding: 8px 16px; background: white; border-top: 1px solid #e0e0e0; font-size: 12px; color: #666; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h3>幻灯片</h3>
+            <div id="slide-list"></div>
+        </div>
+        <div class="main">
+            <div class="toolbar">
+                <button onclick="prevSlide()">◀ 上一页</button>
+                <button onclick="nextSlide()">下一页 ▶</button>
+                <span id="page-info" style="margin: 0 12px; color: #666;">-</span>
+                <button onclick="zoomIn()">放大</button>
+                <button onclick="zoomOut()">缩小</button>
+                <button onclick="resetZoom()">重置</button>
+            </div>
+            <div class="editor">
+                <div class="slide-preview" id="slide-preview"></div>
+            </div>
+            <div class="status" id="status">连接中...</div>
+        </div>
+    </div>
+
+    <script>
+        const artifactId = "{artifact_id}";
+        let ws = null;
+        let svgs = [];
+        let currentSlide = 0;
+        let zoom = 1;
+
+        function connect() {{
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${{protocol}}://${{window.location.host}}/ws/${{artifactId}}`);
+
+            ws.onopen = () => {{
+                document.getElementById('status').textContent = '已连接';
+            }};
+
+            ws.onmessage = (event) => {{
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'init') {{
+                    svgs = data.svgs;
+                    renderSlideList();
+                    showSlide(0);
+                }} else if (data.type === 'update') {{
+                    svgs[data.slide_num] = data.svg;
+                    renderSlideList();
+                    if (data.slide_num === currentSlide) {{
+                        showSlide(currentSlide);
+                    }}
+                }} else if (data.type === 'select') {{
+                    showSlide(data.slide_num);
+                }}
+            }};
+
+            ws.onclose = () => {{
+                document.getElementById('status').textContent = '已断开，正在重连...';
+                setTimeout(connect, 2000);
+            }};
+        }}
+
+        function renderSlideList() {{
+            const list = document.getElementById('slide-list');
+            list.innerHTML = svgs.map((svg, i) => `
+                <div class="slide-thumb ${{i === currentSlide ? 'active' : ''}}" onclick="showSlide(${{i}})">
+                    ${{svg}}
+                </div>
+            `).join('');
+        }}
+
+        function showSlide(index) {{
+            if (index < 0 || index >= svgs.length) return;
+            currentSlide = index;
+            const preview = document.getElementById('slide-preview');
+            preview.innerHTML = svgs[index];
+            preview.style.transform = `scale(${{zoom}})`;
+            preview.style.transformOrigin = 'top left';
+            document.getElementById('page-info').textContent = `${{index + 1}} / ${{svgs.length}}`;
+            renderSlideList();
+        }}
+
+        function prevSlide() {{ showSlide(currentSlide - 1); }}
+        function nextSlide() {{ showSlide(currentSlide + 1); }}
+        function zoomIn() {{ zoom = Math.min(zoom + 0.1, 2); updateZoom(); }}
+        function zoomOut() {{ zoom = Math.max(zoom - 0.1, 0.5); updateZoom(); }}
+        function resetZoom() {{ zoom = 1; updateZoom(); }}
+        function updateZoom() {{
+            const preview = document.getElementById('slide-preview');
+            preview.style.transform = `scale(${{zoom}})`;
+        }}
+
+        connect();
+    </script>
+</body>
+</html>"""
+
+
+# 全局单例
+_agenticos_editor: Optional[AgenticOSEditorServer] = None
+
+
+def get_agenticos_editor() -> AgenticOSEditorServer:
+    """获取 AgenticOS 编辑器服务器单例"""
+    global _agenticos_editor
+    if _agenticos_editor is None:
+        _agenticos_editor = AgenticOSEditorServer()
+    return _agenticos_editor
+
+
+def load_svgs_into_editor(artifact_id: str, svgs: list[str]):
+    """将 SVG 加载到编辑器
+
+    参数:
+        artifact_id: 制品 ID
+        svgs: SVG 列表
+    """
+    editor = get_agenticos_editor()
+    editor.svg_cache[artifact_id] = svgs
+
+
+def get_editor_url(artifact_id: str, port: int = 8080) -> str:
+    """获取编辑器 URL
+
+    参数:
+        artifact_id: 制品 ID
+        port: 端口号
+
+    返回:
+        编辑器 URL
+    """
+    return f"http://localhost:{port}/editor/{artifact_id}"
