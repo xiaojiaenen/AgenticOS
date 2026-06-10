@@ -103,6 +103,8 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
             "list_icons": {"enabled": True, "requires_approval": False},
             "convert_pptx_to_svg": {"enabled": True, "requires_approval": True},
             "import_pptx_template": {"enabled": True, "requires_approval": True},
+            "search_images": {"enabled": True, "requires_approval": False},
+            "get_image_info": {"enabled": True, "requires_approval": False},
             "email": {"enabled": False, "requires_approval": True},
             "memory": {"enabled": False, "requires_approval": False},
         },
@@ -381,6 +383,20 @@ TOOL_CATALOG = {
             "search_memory": {"label": "搜索记忆", "description": "搜索用户的历史记忆"},
             "save_memory": {"label": "保存记忆", "description": "保存关于用户的重要信息"},
         },
+    },
+    "search_images": {
+        "label": "搜索图片",
+        "description": "搜索免费商用图片，支持 Openverse、Wikimedia、Pexels、Pixabay 等多个来源。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "get_image_info": {
+        "label": "图片信息",
+        "description": "获取图片的元数据信息（尺寸、格式、是否可用）。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
     },
 }
 
