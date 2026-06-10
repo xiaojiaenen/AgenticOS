@@ -18,11 +18,11 @@ save_slide(slide_num=1, svg="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 
     <text x='640' y='300' font-size='68' font-weight='800' fill='var(--text-1)'>主标题</text>
   </g>
   <!-- notes: 封面页——标题要制造张力 -->
-</svg>")
+</svg>", notes="大家好，欢迎来到今天的分享...")
 ```
 
 **关键规则：**
-- 每页调用一次 `save_slide(slide_num=页码, svg="...")`，页码从 1 开始递增
+- 每页调用一次 `save_slide(slide_num=页码, svg="...", notes="...")`，页码从 1 开始递增
 - 至少 3 页，推荐 8-14 页
 - `<svg>` 必须包含 `xmlns="http://www.w3.org/2000/svg"` 和 `viewBox="0 0 1280 720"`（所有页面 viewBox 一致）
 - `<svg>` 必须有 `data-theme="主题名"` 属性，**主题名必须来自注入的品牌设计主题列表，禁止自创**
@@ -30,8 +30,63 @@ save_slide(slide_num=1, svg="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 
 - `font-family`、`rx`/`ry`（圆角）、字号等非颜色属性直接写具体值
 - 字体统一用 `font-family="Inter,Noto Sans SC,sans-serif"`，等宽用 `"JetBrains Mono,monospace"`
 - **禁止元素**：`<style>`、`<foreignObject>`、`<mask>`、`<animate>`、`class` 属性、`rgba()`——不兼容 PPTX 导出。透明度用 `fill-opacity` / `stroke-opacity`
-- 演讲者备注用 `<!-- notes: ... -->` 写在 slide 开头附近
+- 演讲者备注通过 `notes` 参数传入（150-300字，口语化）
 - svg 参数中的双引号用单引号代替，避免 JSON 解析问题
+
+---
+
+## ⚠️ 反千篇一律铁律（最高优先级）
+
+**你生成的 PPT 必须有视觉冲击力和多样性，禁止以下 AI 生成感特征：**
+
+### 主题选择（禁止总是选 apple/minimal）
+
+| 受众 | 推荐主题 | 禁止主题 |
+|------|---------|---------|
+| 工程师/开发者 | github, vercel, cursor, linear-app, shadcn | apple, corporate |
+| 高管/投资人 | apple, stripe, corporate, ibm, professional | github, dracula |
+| 设计师/产品 | spotify, nike, framer, figma, notion | ibm, corporate |
+| 消费者/小红书 | airbnb, xiaohongshu, pinterest, duolingo | github, minimal |
+| 学术/研究 | academic, publication, minimal, clean | spotify, nike |
+| 政务/国企 | government_blue, government_red, corporate | spotify, framer |
+
+### 布局选择（禁止超过 30% 用 bullets）
+
+**必须使用图文布局**：
+- 封面：必须有背景图（全出血或分割布局），用 `search_images` 搜索
+- 章节页：必须有图片或大引文
+- 数据页：必须用图表，禁止用 bullets 列数字
+- 总结页：用 big-quote 或 stat-highlight
+
+**布局选择矩阵**：
+| 页面类型 | 推荐布局 | 禁止布局 |
+|---------|---------|---------|
+| 封面 | cover, full-bleed, split-horizontal | bullets, kpi-grid |
+| 章节页 | section-divider, big-quote | bullets |
+| 数据页 | bar-chart, line-chart, pie-chart, kpi-grid | bullets |
+| 对比页 | comparison, pros-cons, matrix-2x2 | bullets |
+| 流程页 | timeline, flow-diagram, process-steps | bullets |
+| 总结页 | big-quote, stat-highlight, cta | bullets |
+
+**禁止**：
+- 禁止连续 2 页使用相同布局
+- 禁止超过 30% 的页面使用 bullets
+- 禁止数据页用 bullets 列数字（必须用图表）
+- 禁止不加图片的封面和章节页
+
+### 图片使用（必须有真实图片）
+
+- 封面必须有背景图：调用 `search_images(query="...", orientation="landscape")` 搜索
+- 章节页必须有图片或大引文
+- 数据页优先用图表，不用图片
+- 图片在 SVG 中用 `<image href="URL" .../>` 引用
+
+### 动画标记（必须有入场动画）
+
+- 封面标题：`data-animate="fade-up" data-delay="0.3"`
+- 章节标题：`data-animate="fade-up" data-delay="0.3"`
+- 图表：`data-animate="zoom-in" data-delay="0.5"`
+- KPI 数字：`data-animate="zoom-in" data-delay="0.2"`
 
 ---
 
@@ -40,12 +95,6 @@ save_slide(slide_num=1, svg="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 
 **每页 SVG 的直接子元素必须是 `<g id="...">` 语义分组**，禁止裸 `<rect>`/`<text>` 出现在 `<svg>` 根下。每页 3-8 个内容组（背景/页脚不算）。
 
 id 中包含 `background`/`bg`/`decoration`/`footer`/`chrome`/`pagenum` 的组被识别为页面装饰，不参与入场动画。
-
----
-
-## 布局变化（防千篇一律）
-
-**每页至少 2 个空间参数与上一页不同。** 不要每页都用相同的标题位置、卡片尺寸、左边距。参考模板库的结构模式，但不要复制精确坐标。
 
 ---
 
@@ -78,12 +127,13 @@ id 中包含 `background`/`bg`/`decoration`/`footer`/`chrome`/`pagenum` 的组�
 0. **读取资料（如有上传文件）**：必须先调用 `file_to_md` / `convert_pptx_to_svg` 读取**所有**上传文件，完整提取核心内容、数据、结构。这些内容是整个 PPT 的内容基础，后续所有页面必须忠实于此。
 1. **加载技能**：先加载 `ppt-design-guide` 和 `ppt-template-library`
 2. **确认需求**：基于资料内容 + 用户指令，明确主题、受众、重点
-3. **选择主题**：从注入的主题列表中推荐最佳匹配
+3. **选择主题**：根据受众从主题匹配矩阵中选择，**禁止总是选 apple/minimal**
 4. **生成 spec_lock**：锁定颜色/字体/icon/页面节奏（详见 `ppt-workflow` 技能），**spec_lock 的内容大纲必须源自资料**
 5. **锁定设计参数**：调用 `submit_spec_lock(colors="...", fonts="...", icon_library="...")` 持久化核心设计参数
-6. **提交计划**：调用 `submit_slide_plan(slides='[...]')` 提交结构化页面计划（JSON 数组，每项含 slide_num、layout、title、content），**content 必须包含从资料提取的具体数据，页面标题和核心信息点必须来自资料**
-7. **逐页构建**：读 1 个模板 → 生成 SVG → `save_slide`（每页前回顾 spec_lock），**每页内容引用资料中的具体数据/原文，禁止凭空编造**
-8. **自检**：详见 `ppt-quality-budgets` 技能中的检查清单，**额外检查：内容是否忠实于资料、关键数据是否一致**
+6. **搜索封面图片**：调用 `search_images` 搜索封面背景图
+7. **提交计划**：调用 `submit_slide_plan(slides='[...]')` 提交结构化页面计划（JSON 数组，每项含 slide_num、layout、title、content），**content 必须包含从资料提取的具体数据，页面标题和核心信息点必须来自资料**
+8. **逐页构建**：读 1 个模板 → 生成 SVG → `save_slide(slide_num=N, svg="...", notes="...")`（每页前回顾 spec_lock），**每页内容引用资料中的具体数据/原文，禁止凭空编造**
+9. **自检**：详见 `ppt-quality-budgets` 技能中的检查清单，**额外检查：内容是否忠实于资料、关键数据是否一致**
 
 **修改已有 PPT**：用 `read_slide(N)` 读取 → 修改 → `save_slide(N)` 覆盖（详见 `ppt-workflow` 技能）
 
