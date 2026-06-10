@@ -828,5 +828,183 @@ def main() -> None:
     parser.print_help()
 
 
+# ============================================================================
+# SVG Attribute Parsing - Extract animations from data-animate attributes
+# ============================================================================
+
+import re
+from dataclasses import dataclass as _dataclass
+from typing import Optional as _Optional
+
+
+@_dataclass
+class SvgAnimSpec:
+    """Animation specification extracted from SVG"""
+    element_id: str
+    animation_type: str  # fade, fade-up, zoom-in, etc.
+    delay: float = 0.0   # delay in seconds
+    duration: float = 0.8  # duration in seconds
+    group_id: _Optional[str] = None  # parent <g id> group
+
+
+@_dataclass
+class SvgTransitionSpec:
+    """Page transition specification extracted from SVG"""
+    transition_type: str  # fade, push, wipe, etc.
+    direction: _Optional[str] = None  # left, right, up, down
+    duration: float = 0.5
+
+
+# SVG animation type to PPT animation mapping
+SVG_ANIM_MAP = {
+    # Entrance animations
+    "fade": "fade",
+    "fade-up": "fly",
+    "fade-down": "fly",
+    "fade-left": "fly",
+    "fade-right": "fly",
+    "zoom-in": "zoom",
+    "zoom-out": "zoom",
+    "slide-up": "wipe",
+    "slide-down": "wipe",
+    "slide-left": "wipe",
+    "slide-right": "wipe",
+    "flip-x": "split",
+    "flip-y": "split",
+    "bounce-in": "float_in",
+    "rotate-in": "wheel",
+    # Emphasis animations
+    "pulse": "grow",
+    "shake": "shake",
+    "swing": "spin",
+    # Exit animations
+    "fade-out": "fade",
+    "zoom-out-exit": "zoom",
+    "slide-out": "fly",
+}
+
+
+def parse_svg_animations(svg_content: str) -> list[SvgAnimSpec]:
+    """Extract data-animate attributes from SVG content
+
+    Args:
+        svg_content: SVG file content
+
+    Returns:
+        List of animation specifications
+    """
+    specs: list[SvgAnimSpec] = []
+
+    # Pattern to match data-animate attribute
+    # Supports: data-animate="fade-up", data-animate="fade-up" data-delay="0.3"
+    pattern = r'<(?:g|text|rect|circle|path|image)[^>]*?\s+data-animate="([^"]+)"[^>]*>'
+
+    for i, match in enumerate(re.finditer(pattern, svg_content, re.DOTALL)):
+        full_match = match.group(0)
+        anim_type = match.group(1)
+
+        # Extract element id
+        id_match = re.search(r'id="([^"]+)"', full_match)
+        element_id = id_match.group(1) if id_match else f"anim_{i}"
+
+        # Extract delay
+        delay_match = re.search(r'data-delay="([^"]+)"', full_match)
+        delay = float(delay_match.group(1)) if delay_match else 0.0
+
+        # Extract duration
+        duration_match = re.search(r'data-duration="([^"]+)"', full_match)
+        duration = float(duration_match.group(1)) if duration_match else 0.8
+
+        # Find parent <g id> group
+        group_id = None
+        g_pattern = r'<g[^>]*id="([^"]+)"[^>]*>.*?' + re.escape(full_match)
+        g_match = re.search(g_pattern, svg_content, re.DOTALL)
+        if g_match:
+            group_id = g_match.group(1)
+
+        specs.append(SvgAnimSpec(
+            element_id=element_id,
+            animation_type=anim_type,
+            delay=delay,
+            duration=duration,
+            group_id=group_id,
+        ))
+
+    return specs
+
+
+def extract_transition_from_svg(svg_content: str) -> _Optional[SvgTransitionSpec]:
+    """Extract page transition from SVG data-transition attribute
+
+    Args:
+        svg_content: SVG file content
+
+    Returns:
+        Transition specification or None if not found
+    """
+    # Check for data-transition attribute
+    match = re.search(r'data-transition="([^"]+)"', svg_content)
+    if match:
+        transition_type = match.group(1)
+
+        # Extract direction
+        dir_match = re.search(r'data-transition-dir="([^"]+)"', svg_content)
+        direction = dir_match.group(1) if dir_match else None
+
+        # Extract duration
+        dur_match = re.search(r'data-transition-dur="([^"]+)"', svg_content)
+        duration = float(dur_match.group(1)) if dur_match else 0.5
+
+        return SvgTransitionSpec(
+            transition_type=transition_type,
+            direction=direction,
+            duration=duration,
+        )
+
+    return None
+
+
+def svg_anim_to_ppt_anim(svg_anim_type: str) -> str:
+    """Convert SVG animation type to PPT animation name
+
+    Args:
+        svg_anim_type: SVG animation type (e.g., "fade-up", "zoom-in")
+
+    Returns:
+        PPT animation name (e.g., "fly", "zoom")
+    """
+    return SVG_ANIM_MAP.get(svg_anim_type, "fade")
+
+
+def create_animations_from_svg(svg_content: str, shape_id: int = 2) -> str:
+    """Generate PPTX animation XML from SVG data-animate attributes
+
+    Args:
+        svg_content: SVG file content
+        shape_id: Base shape ID for animations
+
+    Returns:
+        PPTX timing XML string
+    """
+    specs = parse_svg_animations(svg_content)
+    if not specs:
+        return ""
+
+    # Build target list for sequence
+    targets = []
+    for i, spec in enumerate(specs):
+        ppt_anim = svg_anim_to_ppt_anim(spec.animation_type)
+        delay_ms = int(spec.delay * 1000)
+        duration_s = spec.duration
+        targets.append((shape_id + i, delay_ms, ppt_anim, duration_s))
+
+    return create_sequence_timing_xml(targets, duration=0.3, trigger="with-previous")
+
+
+def get_default_entrance_animation() -> str:
+    """Get the default entrance animation for slides without explicit animation markers"""
+    return "fade"
+
+
 if __name__ == '__main__':
     main()
