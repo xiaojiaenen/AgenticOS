@@ -27,6 +27,9 @@ LICENSE_MAP = {
     "cc-by-nc-sa": "BY-NC-SA",
 }
 
+# User-Agent
+USER_AGENT = "AgenticOS/1.0 (https://github.com/xiaojiaenen/AgenticOS)"
+
 
 class OpenverseBackend(ImageSearchBackend):
     """Openverse 图片搜索"""
@@ -59,8 +62,9 @@ class OpenverseBackend(ImageSearchBackend):
             params["aspect_ratio"] = "tall"
 
         try:
+            headers = {"User-Agent": USER_AGENT}
             async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.get(OPENVERSE_API, params=params)
+                response = await client.get(OPENVERSE_API, params=params, headers=headers)
                 response.raise_for_status()
                 data = response.json()
 

@@ -143,7 +143,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             </button>
           </div>
         </div>
-        {/* 主题选择面板 */}
+        {/* 主题选择面板 - 固定最大高度，可滚动 */}
         <AnimatePresence>
           {showThemePanel && (
             <motion.div
@@ -152,8 +152,9 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
               className="z-10 overflow-hidden border-b border-slate-200/80 bg-white/90 backdrop-blur-md"
+              style={{ maxHeight: '200px' }}
             >
-              <div className="p-4">
+              <div className="overflow-y-auto p-4" style={{ maxHeight: '200px' }}>
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">选择主题</h3>
                   {isChangingTheme && (
@@ -163,38 +164,38 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
                     </div>
                   )}
                 </div>
-                <div className="grid grid-cols-4 gap-3 sm:grid-cols-6 md:grid-cols-8">
+                <div className="grid grid-cols-6 gap-2 sm:grid-cols-8 md:grid-cols-10">
                   {themes.map((theme) => (
                     <button
                       key={theme.name}
                       type="button"
                       onClick={() => handleThemeChange(theme.name)}
                       disabled={isChangingTheme}
-                      className={`group relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                      className={`group relative flex flex-col items-center gap-1.5 rounded-lg border-2 p-2 transition-all ${
                         currentTheme === theme.name
                           ? 'border-sky-500 bg-sky-50 shadow-md'
                           : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
                       } ${isChangingTheme ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       {/* 主题颜色预览 */}
-                      <div className="flex gap-1">
+                      <div className="flex gap-0.5">
                         <div
-                          className="h-4 w-4 rounded-full border border-white shadow-sm"
+                          className="h-3 w-3 rounded-full border border-white shadow-sm"
                           style={{ backgroundColor: theme.primary_color }}
                         />
                         <div
-                          className="h-4 w-4 rounded-full border border-white shadow-sm"
+                          className="h-3 w-3 rounded-full border border-white shadow-sm"
                           style={{ backgroundColor: theme.bg_color }}
                         />
                         <div
-                          className="h-4 w-4 rounded-full border border-white shadow-sm"
+                          className="h-3 w-3 rounded-full border border-white shadow-sm"
                           style={{ backgroundColor: theme.text_color }}
                         />
                       </div>
-                      <span className="text-[10px] font-medium text-slate-600 capitalize">{theme.name}</span>
+                      <span className="text-[9px] font-medium text-slate-600 truncate w-full text-center">{theme.name}</span>
                       {currentTheme === theme.name && (
-                        <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-sky-500 text-white flex items-center justify-center">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                        <div className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-sky-500 text-white flex items-center justify-center">
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
                         </div>
@@ -219,9 +220,10 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
               srcDoc={previewSrcDoc}
               title={artifact.title}
               className="min-h-[calc(100vh-10rem)] w-full border-0"
-              sandbox="allow-scripts"
+              sandbox="allow-scripts allow-same-origin"
               allow="fullscreen"
               referrerPolicy="no-referrer"
+              style={{ backgroundColor: '#fff' }}
             />
           </motion.div>
         </div>
