@@ -2,6 +2,64 @@ from wuwei.tools import ToolRegistry
 
 
 def register_template_tools(registry: ToolRegistry) -> None:
+    @registry.tool(display_name="分析PPTX模板")
+    async def analyze_template(file_path: str) -> str:
+        """分析 PPTX 模板，提取颜色、字体、布局等设计参数。
+
+        参数:
+            file_path: PPTX 文件的绝对路径
+
+        返回: 模板分析结果，包括颜色方案、字体、布局类型等
+        """
+        from pathlib import Path as _Path
+        from app.services.ppt.template_fill import analyze_template as _analyze
+
+        pptx_path = _Path(file_path)
+        if not pptx_path.exists():
+            return f"文件不存在：{file_path}"
+        if not pptx_path.suffix.lower() in (".pptx",):
+            return f"不是 PPTX 文件：{file_path}"
+
+        try:
+            analysis = _analyze(str(pptx_path))
+
+            lines = [
+                f"### 模板分析结果",
+                f"",
+                f"**幻灯片数**: {analysis.slide_count}",
+                f"**画布尺寸**: {analysis.canvas_width} × {analysis.canvas_height}",
+                f"",
+                f"**颜色方案**:",
+            ]
+
+            if analysis.colors:
+                for name, value in sorted(analysis.colors.items()):
+                    lines.append(f"  - {name}: {value}")
+            else:
+                lines.append("  - (未检测到)")
+
+            lines.append("")
+            lines.append("**字体**:")
+            if analysis.fonts:
+                for font in analysis.fonts:
+                    lines.append(f"  - {font}")
+            else:
+                lines.append("  - (未检测到)")
+
+            lines.append("")
+            lines.append("**布局类型**:")
+            if analysis.layouts:
+                for i, layout in enumerate(analysis.layouts, 1):
+                    lines.append(f"  - 第 {i} 页: {layout}")
+            else:
+                lines.append("  - (未分类)")
+
+            return "\n".join(lines)
+
+        except Exception as e:
+            import traceback
+            return f"模板分析失败：{e}\n\n```\n{traceback.format_exc()}\n```"
+
     @registry.tool(display_name="导入PPTX模板")
     async def import_pptx_template(file_path: str) -> str:
         """将 PPTX 文件作为设计模板导入，提取主题颜色、布局结构和媒体资源。
