@@ -701,6 +701,8 @@ class AgentService:
             _register_pptx_reverse(registry)
             from app.tools.template_tools import register_template_tools as _register_template_tools
             _register_template_tools(registry)
+            from app.tools.image_tools import register_image_tools as _register_image_tools
+            _register_image_tools(registry)
 
         if profile.response_mode == "website":
             from app.tools.website_tools import register_website_tools as _register_website_tools

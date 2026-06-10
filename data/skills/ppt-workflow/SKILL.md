@@ -258,7 +258,81 @@ spec_lock 是本 deck 的设计参数锁定表，作用是防止逐页创作过�
 
 ---
 
-## 四、文件上传处理
+## 四、图片使用规范
+
+### 图片来源
+
+1. **网络搜索**：调用 `search_images` 搜索免费商用图片
+2. **用户提供的 URL**：直接使用用户给出的图片链接
+3. **避免 AI 生图**：优先使用真实图片，而非 AI 生成的图片
+
+### 搜索图片
+
+```
+search_images(query="business meeting", count=3, orientation="landscape")
+```
+
+**参数说明**：
+- `query`: 搜索关键词（英文效果更好）
+- `count`: 返回数量（建议 3-5 张供选择）
+- `orientation`: 方向
+  - `landscape`: 横版（适合 16:9 PPT，推荐）
+  - `portrait`: 竖版
+  - `square`: 方形
+- `license`: 许可证类型
+  - `cc0`: 完全免费，无需署名（推荐）
+  - `cc-by`: 需署名
+
+### 在 SVG 中使用图片
+
+```xml
+<!-- 方式 1: 网络图片 -->
+<image href="https://images.unsplash.com/photo-xxx.jpg"
+       x="0" y="0" width="640" height="360"
+       preserveAspectRatio="xMidYMid slice"/>
+
+<!-- 方式 2: 带遮罩的背景图 -->
+<defs>
+  <linearGradient id="overlay" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="var(--bg)" stop-opacity="0.3"/>
+    <stop offset="100%" stop-color="var(--bg)" stop-opacity="0.8"/>
+  </linearGradient>
+</defs>
+<image href="{URL}" x="0" y="0" width="1280" height="720"
+       preserveAspectRatio="xMidYMid slice"/>
+<rect x="0" y="0" width="1280" height="720" fill="url(#overlay)"/>
+```
+
+### 图片使用规则
+
+**必须使用图片的页面**：
+- 封面：必须有背景图（全出血或分割布局）
+- 章节页：必须有图片或大引文
+- 产品/人物介绍：必须有配图
+
+**可选使用图片的页面**：
+- 数据页：优先用图表，不用图片
+- 对比页：可用图片增强对比效果
+- 总结页：可用背景图增强氛围
+
+**禁止**：
+- 禁止使用 AI 生成的图片（风格不统一）
+- 禁止使用低质量/模糊的图片
+- 禁止图片拉伸变形（使用 `preserveAspectRatio`）
+
+### 署名处理
+
+如果使用了需要署名的图片（CC BY 等），在 PPT 最后一页添加：
+
+```xml
+<text x="40" y="680" font-size="10" fill="var(--text-3)">
+  图片来源: Unsplash / Pexels / Wikimedia Commons
+</text>
+```
+
+---
+
+## 五、文件上传处理
 
 ### 文档类（.docx / .pdf / .txt / .md / .csv / .xlsx / .html）
 
