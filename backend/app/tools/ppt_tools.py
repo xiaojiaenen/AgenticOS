@@ -73,10 +73,28 @@ def _count_slides(slides_dir: Path) -> int:
 
 
 def _build_next_slide_hint(current_slide_num: int) -> str:
-    """构建下一页计划提示，注入到 save_slide 返回值中。"""
+    """构建计划提示，注入到 save_slide 返回值中。
+
+    每页注入下一页计划；每 5 页注入完整剩余计划摘要，防止上下文压缩丢失计划。
+    """
     if not _pending_slide_plan:
         return ""
 
+    # 每 5 页注入完整剩余计划（防压缩丢失）
+    if current_slide_num % 5 == 0:
+        remaining = [s for s in _pending_slide_plan if s.get("slide_num", 0) > current_slide_num]
+        if remaining:
+            parts = [f"\n\n📋 剩余计划（{len(remaining)} 页）："]
+            for s in remaining:
+                line = f"  P{s['slide_num']}: {s['layout']} — {s.get('title', '')}"
+                if s.get("content"):
+                    # 截取 content 前 60 字符避免过长
+                    c = s["content"][:60] + ("..." if len(s["content"]) > 60 else "")
+                    line += f" | {c}"
+                parts.append(line)
+            return "\n".join(parts)
+
+    # 每页注入下一页计划
     next_slide = next(
         (s for s in _pending_slide_plan if s.get("slide_num") == current_slide_num + 1),
         None,

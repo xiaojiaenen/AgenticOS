@@ -128,4 +128,16 @@ def get_decision_queue(session_id: str) -> list[dict[str, Any]]:
     return _decision_queues.pop(session_id, [])
 
 
+def cleanup_session_decisions(session_id: str) -> None:
+    """清理指定 session 的所有待处理决策（stream 结束时调用，防止 Future 泄漏）"""
+    # 清理决策队列
+    _decision_queues.pop(session_id, None)
+    # 清理所有未完成的 Future（取消等待，让工具返回超时错误）
+    orphaned = [fid for fid, f in _decision_futures.items() if not f.done()]
+    for fid in orphaned:
+        future = _decision_futures.pop(fid, None)
+        if future and not future.done():
+            future.cancel()
+
+
 
