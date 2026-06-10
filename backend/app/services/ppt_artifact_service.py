@@ -108,7 +108,22 @@ def prepare_svg_preview(svgs: list[str], theme_name: str = "apple") -> str:
 
     Embeds the theme's CSS tokens so ``var(--xxx)`` references resolve even if
     token substitution was skipped (e.g. unknown theme name).
+    Also embeds icons from placeholders.
     """
+    # Embed icons from <use data-icon="..."/> placeholders
+    try:
+        from app.services.ppt.svg_finalize.embed_icons import process_svg_string
+        from app.core.data_path import DATA_DIR
+        icons_dir = DATA_DIR / "icons"
+        if icons_dir.exists():
+            embedded_svgs = []
+            for svg in svgs:
+                processed, count = process_svg_string(svg, icons_dir)
+                embedded_svgs.append(processed)
+            svgs = embedded_svgs
+    except Exception:
+        pass  # icon embedding is optional, don't break preview
+
     # Safety net: load theme tokens as CSS custom properties for browser resolution.
     # If the theme is invalid/missing, fall back to "apple" to prevent
     # black-on-dark rendering (CSS var() with no definition = initial `fill: black`).
