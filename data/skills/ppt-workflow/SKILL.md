@@ -185,9 +185,10 @@ submit_spec_lock(colors="bg:#fff, primary:#1a1a2e, accent:#e94560", fonts="title
 
 ### Step 4：逐页构建
 
-每页只做 2 步：
+每页做 3 步：
 1. `load_skill_reference` 读取 1 个 SVG 模板
-2. 复制骨架 + 替换内容 + `save_slide(slide_num=N, svg="...")` 写入
+2. 复制骨架 + 替换内容
+3. `save_slide(slide_num=N, svg="...", notes="...")` 写入
 
 **⚠️ 每页生成前必须重读 spec_lock（不可跳过）**：
 - 重新读取 spec_lock 中的颜色、字体、图标清单
@@ -199,6 +200,27 @@ submit_spec_lock(colors="bg:#fff, primary:#1a1a2e, accent:#e94560", fonts="title
 - 禁止自创图标名——如果需要新图标，先调用 `search_icons` 确认存在性
 - 如果 spec_lock 中 mode 为 "text-only"，所有图标用 `<text>` 元素代替，不要调用 search_icons
 - 至少 3 页，推荐 8-14 页
+
+**演讲者备注**：
+- 每页必须提供 150-300 字的口语化备注
+- 备注包含：开场白、关键数据解释、过渡语、互动提示
+- 不要重复页面上已有的文字
+- 使用第一人称（"我接下来要讲的是..."）
+
+**备注示例**：
+```
+save_slide(slide_num=3, svg="...", notes="""
+大家好，接下来我们看一下今年的市场数据。
+
+左边这个柱状图显示的是各季度的增长情况，Q3 达到了 42% 的峰值。
+这个数字比去年同期增长了 15 个百分点，主要得益于新产品的推出。
+
+右边是市场份额对比，我们的份额从 18% 提升到了 23%。
+这里我想特别强调一下，这个增长是在整体市场收缩的背景下实现的。
+
+下一页我会详细介绍增长的驱动因素。
+""")
+```
 
 ### Step 5：自检
 
