@@ -273,6 +273,275 @@ body {{ background:#0f0f0f; color:#e0e0e0; font-family:Inter,Noto Sans SC,sans-s
     return Response(content=html, media_type="text/html; charset=utf-8")
 
 
+@router.get("/ppt/editor/{artifact_id}", summary="PPT SVG 实时编辑器")
+async def ppt_editor(
+    artifact_id: str,
+    current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
+) -> Response:
+    """Return an HTML page for editing SVG slides with live preview."""
+    artifact = await agent_service.get_ppt_artifact(artifact_id, current_user)
+    if artifact is None:
+        raise HTTPException(status_code=404, detail=f"PPT artifact '{artifact_id}' not found")
+
+    svgs = agent_service.ppt_artifacts.extract_svgs_from_artifact(artifact)
+    if not svgs:
+        raise HTTPException(status_code=400, detail="Artifact contains no SVG slides")
+
+    import json
+    svgs_json = json.dumps(svgs, ensure_ascii=False)
+    title = artifact.get("title", "PPT Editor")
+
+    html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>{title} - 编辑器</title>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ font-family:Inter,Noto Sans SC,system-ui,sans-serif; background:#f8fafc; color:#1e293b; }}
+.app {{ display:flex; height:100vh; }}
+.sidebar {{ width:240px; background:#fff; border-right:1px solid #e2e8f0; display:flex; flex-direction:column; }}
+.sidebar-header {{ padding:16px; border-bottom:1px solid #e2e8f0; }}
+.sidebar-header h2 {{ font-size:14px; font-weight:600; color:#0f172a; }}
+.sidebar-header p {{ font-size:11px; color:#64748b; margin-top:4px; }}
+.slide-list {{ flex:1; overflow-y:auto; padding:12px; }}
+.slide-thumb {{ cursor:pointer; margin-bottom:12px; border:2px solid transparent; border-radius:8px; overflow:hidden; transition:all 0.15s; }}
+.slide-thumb:hover {{ border-color:#94a3b8; }}
+.slide-thumb.active {{ border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.2); }}
+.slide-thumb svg {{ width:100%; height:auto; display:block; }}
+.slide-thumb .slide-num {{ font-size:11px; color:#64748b; padding:4px 8px; background:#f1f5f9; text-align:center; }}
+.main {{ flex:1; display:flex; flex-direction:column; }}
+.toolbar {{ height:56px; background:#fff; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; padding:0 20px; gap:8px; }}
+.toolbar button {{ padding:8px 16px; border:1px solid #e2e8f0; background:#fff; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; transition:all 0.15s; }}
+.toolbar button:hover {{ background:#f8fafc; border-color:#94a3b8; }}
+.toolbar button.primary {{ background:#3b82f6; color:#fff; border-color:#3b82f6; }}
+.toolbar button.primary:hover {{ background:#2563eb; }}
+.toolbar .spacer {{ flex:1; }}
+.toolbar .page-info {{ font-size:13px; color:#64748b; font-variant-numeric:tabular-nums; }}
+.editor-area {{ flex:1; display:flex; overflow:hidden; }}
+.preview-panel {{ flex:1; overflow:auto; padding:32px; background:#f1f5f9; display:flex; align-items:flex-start; justify-content:center; }}
+.preview-container {{ width:100%; max-width:960px; background:#fff; border-radius:12px; box-shadow:0 4px 24px rgba(0,0,0,0.08); overflow:hidden; }}
+.preview-container svg {{ width:100%; height:auto; display:block; }}
+.code-panel {{ width:480px; background:#1e293b; border-left:1px solid #334155; display:flex; flex-direction:column; }}
+.code-header {{ padding:12px 16px; background:#0f172a; border-bottom:1px solid #334155; display:flex; align-items:center; justify-content:space-between; }}
+.code-header span {{ font-size:12px; color:#94a3b8; font-weight:500; }}
+.code-header button {{ padding:4px 12px; background:#334155; border:none; border-radius:6px; color:#e2e8f0; font-size:12px; cursor:pointer; }}
+.code-header button:hover {{ background:#475569; }}
+.code-editor {{ flex:1; overflow:hidden; }}
+.code-editor textarea {{ width:100%; height:100%; padding:16px; background:#0f172a; color:#e2e8f0; border:none; font-family:'JetBrains Mono','Fira Code',monospace; font-size:13px; line-height:1.6; resize:none; outline:none; tab-size:2; }}
+.status-bar {{ height:32px; background:#fff; border-top:1px solid #e2e8f0; display:flex; align-items:center; padding:0 16px; font-size:11px; color:#64748b; }}
+.status-bar .saved {{ color:#22c55e; }}
+.status-bar .modified {{ color:#f59e0b; }}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>{title}</h2>
+      <p>{len(svgs)} 页幻灯片</p>
+    </div>
+    <div class="slide-list" id="slideList"></div>
+  </div>
+  <div class="main">
+    <div class="toolbar">
+      <button onclick="prevSlide()" id="btnPrev">◀ 上一页</button>
+      <button onclick="nextSlide()" id="btnNext">下一页 ▶</button>
+      <span class="page-info" id="pageInfo">-</span>
+      <div class="spacer"></div>
+      <button onclick="applyChanges()" class="primary" id="btnApply">应用修改</button>
+      <button onclick="saveAll()">保存全部</button>
+    </div>
+    <div class="editor-area">
+      <div class="preview-panel">
+        <div class="preview-container" id="preview"></div>
+      </div>
+      <div class="code-panel">
+        <div class="code-header">
+          <span>SVG 源码</span>
+          <button onclick="formatCode()">格式化</button>
+        </div>
+        <div class="code-editor">
+          <textarea id="codeEditor" spellcheck="false"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="status-bar">
+      <span id="statusText">就绪</span>
+      <div class="spacer"></div>
+      <span id="saveStatus" class="saved">● 已保存</span>
+    </div>
+  </div>
+</div>
+<script>
+const artifactId = "{artifact_id}";
+let svgs = {svgs_json};
+let currentSlide = 0;
+let modified = {{}};
+
+function init() {{
+  renderSlideList();
+  if (svgs.length > 0) showSlide(0);
+  updateButtons();
+}}
+
+function renderSlideList() {{
+  const list = document.getElementById('slideList');
+  list.innerHTML = svgs.map((svg, i) => `
+    <div class="slide-thumb ${{i === currentSlide ? 'active' : ''}}" onclick="showSlide(${{i}})">
+      <div class="slide-num">第 ${{i + 1}} 页</div>
+      ${{svg}}
+    </div>
+  `).join('');
+}}
+
+function showSlide(index) {{
+  if (index < 0 || index >= svgs.length) return;
+  currentSlide = index;
+  document.getElementById('preview').innerHTML = svgs[index];
+  document.getElementById('codeEditor').value = svgs[index];
+  document.getElementById('pageInfo').textContent = `第 ${{index + 1}} 页 / 共 ${{svgs.length}} 页`;
+  renderSlideList();
+  updateButtons();
+  document.getElementById('statusText').textContent = `正在编辑第 ${{index + 1}} 页`;
+}}
+
+function updateButtons() {{
+  document.getElementById('btnPrev').disabled = currentSlide === 0;
+  document.getElementById('btnNext').disabled = currentSlide === svgs.length - 1;
+}}
+
+function prevSlide() {{ showSlide(currentSlide - 1); }}
+function nextSlide() {{ showSlide(currentSlide + 1); }}
+
+function applyChanges() {{
+  const code = document.getElementById('codeEditor').value;
+  if (!code.trim()) return;
+
+  // 基本验证
+  if (!code.includes('<svg')) {{
+    alert('SVG 代码必须包含 <svg> 标签');
+    return;
+  }}
+
+  svgs[currentSlide] = code;
+  modified[currentSlide] = true;
+  document.getElementById('preview').innerHTML = code;
+  renderSlideList();
+  document.getElementById('saveStatus').className = 'modified';
+  document.getElementById('saveStatus').textContent = '● 已修改（未保存）';
+  document.getElementById('statusText').textContent = `第 ${{currentSlide + 1}} 页已更新`;
+}}
+
+async function saveAll() {{
+  const modifiedSlides = Object.keys(modified);
+  if (modifiedSlides.length === 0) {{
+    alert('没有需要保存的修改');
+    return;
+  }}
+
+  document.getElementById('statusText').textContent = '正在保存...';
+
+  try {{
+    const response = await fetch(`/api/v1/agent/ppt/${{artifactId}}/update-slides`, {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify({{ svgs: svgs }}),
+    }});
+
+    if (response.ok) {{
+      modified = {{}};
+      document.getElementById('saveStatus').className = 'saved';
+      document.getElementById('saveStatus').textContent = '● 已保存';
+      document.getElementById('statusText').textContent = `已保存 ${{modifiedSlides.length}} 页修改`;
+    }} else {{
+      const err = await response.text();
+      alert('保存失败: ' + err);
+    }}
+  }} catch (e) {{
+    alert('保存失败: ' + e.message);
+  }}
+}}
+
+function formatCode() {{
+  const textarea = document.getElementById('codeEditor');
+  let code = textarea.value;
+  // 简单的格式化：在 > 后换行
+  code = code.replace(/>\s*</g, '>\n<');
+  textarea.value = code;
+}}
+
+// 快捷键
+document.addEventListener('keydown', function(e) {{
+  if (e.ctrlKey && e.key === 's') {{
+    e.preventDefault();
+    applyChanges();
+  }}
+  if (e.ctrlKey && e.shiftKey && e.key === 'S') {{
+    e.preventDefault();
+    saveAll();
+  }}
+}});
+
+// 实时预览（延迟更新）
+let previewTimer = null;
+document.getElementById('codeEditor').addEventListener('input', function() {{
+  if (previewTimer) clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {{
+    const code = this.value;
+    if (code.includes('<svg')) {{
+      document.getElementById('preview').innerHTML = code;
+    }}
+  }}, 500);
+}});
+
+init();
+</script>
+</body>
+</html>"""
+    return Response(content=html, media_type="text/html; charset=utf-8")
+
+
+@router.post("/ppt/{artifact_id}/update-slides", summary="更新 PPT 幻灯片")
+async def update_ppt_slides(
+    artifact_id: str,
+    request: dict[str, Any],
+    current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
+) -> dict[str, str]:
+    """Update SVG slides for a PPT artifact."""
+    from app.db.models import PptArtifactModel
+
+    try:
+        await agent_service._ensure_record_owner(artifact_id, PptArtifactModel, current_user)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    svgs = request.get("svgs", [])
+    if not svgs:
+        raise HTTPException(status_code=400, detail="No SVGs provided")
+
+    try:
+        from app.services.ppt_artifact_service import sanitize_svg_xml
+
+        # 清理 SVG
+        cleaned_svgs = [sanitize_svg_xml(svg) for svg in svgs]
+
+        # 获取主题
+        artifact = await agent_service.ppt_artifacts.get(artifact_id)
+        deck = json.loads(artifact.get("deck_json", "{}")) if artifact else {}
+        theme_name = deck.get("theme", "apple")
+
+        # 更新数据库
+        await agent_service.ppt_artifacts.update_svgs(artifact_id, cleaned_svgs, theme_name)
+
+        return {"status": "ok", "slides_updated": len(cleaned_svgs)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/ppt/export", summary="导出 PPT 制品为原生 .pptx 文件")
 async def export_pptx(
     request: PptExportRequest,

@@ -194,6 +194,7 @@ def _write_svg_artifact_files(artifact_id: str, resolved_svgs: list[str], previe
 class PptArtifactService:
     def __init__(self, session_factory=create_db_session) -> None:
         self.session_factory = session_factory
+        self.model = PptArtifactModel
         self._last_quality_errors: list[str] = []
         self._last_quality_warnings: list[str] = []
 
@@ -402,6 +403,25 @@ class PptArtifactService:
                 if row is None:
                     return None
                 return self._row_to_dict(row)
+        return await asyncio.to_thread(_run)
+
+    async def update_svgs(self, artifact_id: str, svgs: list[str], theme_name: str = "apple") -> bool:
+        """Update SVG slides for an artifact and regenerate preview HTML."""
+        def _run():
+            with self.session_factory() as db:
+                row = db.get(PptArtifactModel, artifact_id)
+                if row is None:
+                    return False
+
+                deck = load_json(row.deck_json, {})
+                deck["svgs"] = svgs
+                # 更新预览 HTML
+                preview_html = prepare_svg_preview(svgs, theme_name)
+                row.deck_json = dump_json(deck)
+                row.preview_html = preview_html
+                row.slide_count = len(svgs)
+                db.commit()
+                return True
         return await asyncio.to_thread(_run)
 
     @staticmethod
