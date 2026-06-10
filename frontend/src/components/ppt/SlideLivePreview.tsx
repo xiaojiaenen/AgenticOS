@@ -3,16 +3,10 @@ import { motion } from 'motion/react';
 import { Presentation } from 'lucide-react';
 import { Message } from '../../types';
 
-const THEME_VARS: React.CSSProperties = {
-  '--bg': '#ffffff', '--bg-soft': '#f8fafc', '--surface': '#f1f5f9',
-  '--surface-2': '#e2e8f0', '--border': '#e2e8f0', '--border-strong': '#cbd5e1',
-  '--text-1': '#0f172a', '--text-2': '#475569', '--text-3': '#94a3b8',
-  '--accent': '#2563eb', '--accent-2': '#7c3aed', '--accent-3': '#0891b2',
-  '--good': '#16a34a', '--warn': '#d97706', '--bad': '#dc2626',
-} as React.CSSProperties;
-
 function extractSvgPreviews(messages: Message[]): { slideNum: number; svg: string }[] {
-  const previews: { slideNum: number; svg: string }[] = [];
+  // 使用 Map 按 slideNum 去重，只保留每个页码最新的预览
+  const previewMap = new Map<number, string>();
+
   for (const msg of messages) {
     if (!msg.toolCalls) continue;
     for (const tool of msg.toolCalls) {
@@ -21,12 +15,16 @@ function extractSvgPreviews(messages: Message[]): { slideNum: number; svg: strin
       if (match) {
         const svg = match[1];
         const slideMatch = tool.result.match(/第\s*(\d+)\s*页/);
-        const slideNum = slideMatch ? parseInt(slideMatch[1], 10) : previews.length + 1;
-        previews.push({ slideNum, svg });
+        const slideNum = slideMatch ? parseInt(slideMatch[1], 10) : previewMap.size + 1;
+        // 直接覆盖，保留最新的
+        previewMap.set(slideNum, svg);
       }
     }
   }
-  return previews.sort((a, b) => a.slideNum - b.slideNum);
+
+  return Array.from(previewMap.entries())
+    .map(([slideNum, svg]) => ({ slideNum, svg }))
+    .sort((a, b) => a.slideNum - b.slideNum);
 }
 
 interface SlideLivePreviewProps {
@@ -66,9 +64,11 @@ export const SlideLivePreview: React.FC<SlideLivePreviewProps> = ({ messages, is
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md"
-            style={THEME_VARS}
           >
-            <div className="aspect-[16/9] overflow-hidden" dangerouslySetInnerHTML={{ __html: svg.replace(/<svg/, '<svg style="width:100%;height:100%"') }} />
+            <div
+              className="aspect-[16/9] overflow-hidden"
+              dangerouslySetInnerHTML={{ __html: svg.replace(/<svg/, '<svg style="width:100%;height:100%"') }}
+            />
             <div className="border-t border-slate-100 px-3 py-2 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700">第 {slideNum} 页</span>
               <span className="text-[10px] font-medium text-emerald-600">已保存</span>
