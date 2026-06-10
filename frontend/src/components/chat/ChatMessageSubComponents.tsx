@@ -367,6 +367,13 @@ function extractSvgPreviews(toolCalls?: ToolCall[]): { slideNum: number; svg: st
 export const SlidePreviewStrip = ({ message }: { message: Message }) => {
   const previews = extractSvgPreviews(message.toolCalls);
   if (previews.length === 0) return null;
+  const themeVars = {
+    '--bg': '#ffffff', '--bg-soft': '#f8fafc', '--surface': '#f1f5f9',
+    '--surface-2': '#e2e8f0', '--border': '#e2e8f0', '--border-strong': '#cbd5e1',
+    '--text-1': '#0f172a', '--text-2': '#475569', '--text-3': '#94a3b8',
+    '--accent': '#2563eb', '--accent-2': '#7c3aed', '--accent-3': '#0891b2',
+    '--good': '#16a34a', '--warn': '#d97706', '--bad': '#dc2626',
+  } as React.CSSProperties;
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-3 w-full max-w-[42rem]">
       <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
@@ -376,7 +383,7 @@ export const SlidePreviewStrip = ({ message }: { message: Message }) => {
       <div className="flex gap-2 overflow-x-auto pb-2">
         {previews.map(({ slideNum, svg }) => (
           <div key={slideNum} className="flex-shrink-0">
-            <div className="relative w-40 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+            <div className="relative w-40 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow" style={themeVars}>
               <div className="aspect-[16/9] overflow-hidden" dangerouslySetInnerHTML={{ __html: svg.replace(/<svg/, '<svg style="width:100%;height:100%"') }} />
               <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/40 to-transparent px-2 py-1.5">
                 <span className="text-[10px] font-bold text-white">第 {slideNum} 页</span>
