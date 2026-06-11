@@ -347,10 +347,10 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
 
     @registry.tool(display_name="提交设计参数")
     async def submit_spec_lock(colors: str, fonts: str, icon_library: str) -> str:
-        """提交 spec_lock 的核心设计参数，确保后续页面生成不偏离。
+        """【必须调用】提交 spec_lock 的核心设计参数。不调用此工具 = 任务失败。
 
-        在输出 spec_lock 表格后调用此工具，将关键参数持久化。
-        每页生成时会自动注入这些参数，防止上下文压缩后丢失。
+        在输出 spec_lock 表格后，必须立即调用此工具持久化参数。
+        不调用则后续页面生成时设计参数会丢失，导致风格不一致。
 
         参数:
           colors: 颜色方案摘要，如 "bg:#ffffff, primary:#1a1a2e, accent:#e94560, text:#333"
@@ -363,7 +363,10 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
 
     @registry.tool(display_name="提交幻灯片计划")
     async def submit_slide_plan(slides: str) -> str:
-        """在规划阶段结束时提交结构化的页面计划（JSON 数组），并自动触发用户确认。
+        """【必须调用】提交结构化的页面计划（JSON 数组），触发用户确认面板。不调用此工具 = 任务失败。
+
+        在调用 submit_spec_lock 之后，必须立即调用此工具提交完整计划。
+        计划包含每页的布局、标题和从文档提取的具体内容。不提交计划则无法开始生成。
 
         参数:
           slides: JSON 数组字符串，每个元素必须包含:
