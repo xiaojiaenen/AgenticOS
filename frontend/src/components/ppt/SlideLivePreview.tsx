@@ -50,6 +50,11 @@ export const SlideLivePreview: React.FC<SlideLivePreviewProps> = ({ sessionId, i
     }
   }, [sessionId]);
 
+  // sessionId 变化时立即清空旧预览
+  useEffect(() => {
+    setSlides([]);
+  }, [sessionId]);
+
   useEffect(() => {
     if (!sessionId || !isStreaming || hasArtifact) {
       if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
