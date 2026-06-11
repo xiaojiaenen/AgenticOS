@@ -587,6 +587,46 @@ async def export_pptx(
     )
 
 
+@router.get("/ppt/slides/{session_id}")
+async def get_ppt_slides(session_id: str, current_user: UserModel = Depends(get_current_user)):
+    """Return SVG content of all slides for a session. Used for real-time preview."""
+    import re
+    from pathlib import Path
+    from app.core.data_path import PPT_SESSIONS_DIR
+
+    # Find the slides directory for this session
+    slides_dir = None
+    if PPT_SESSIONS_DIR.exists():
+        for child in sorted(PPT_SESSIONS_DIR.iterdir()):
+            if not child.is_dir():
+                continue
+            parts = child.name.split("_v", 1)
+            if len(parts) == 2 and parts[0] == f"u{current_user.id}_s{session_id}":
+                slides_dir = child
+                break
+
+    if slides_dir is None or not slides_dir.exists():
+        return {"slides": []}
+
+    slides = []
+    for svg_file in sorted(slides_dir.glob("slide_*.svg")):
+        match = re.search(r'slide_(\d+)', svg_file.name)
+        if not match:
+            continue
+        num = int(match.group(1))
+        svg_content = svg_file.read_text(encoding="utf-8")
+        # Inject default CSS variables for preview rendering
+        css_vars = '<style>:root{--bg:#fff;--bg-soft:#f8fafc;--surface:#f1f5f9;--surface-2:#e2e8f0;--border:#e2e8f0;--border-strong:#cbd5e1;--text-1:#0f172a;--text-2:#475569;--text-3:#94a3b8;--accent:#2563eb;--accent-2:#7c3aed;--accent-3:#0891b2;--good:#16a34a;--warn:#d97706;--bad:#dc2626;}</style>'
+        if '<defs>' in svg_content:
+            svg_content = svg_content.replace('<defs>', f'<defs>{css_vars}', 1)
+        else:
+            svg_content = svg_content.replace('<svg', f'<svg>{css_vars}<defs/>', 1)
+        mtime = svg_file.stat().st_mtime
+        slides.append({"num": num, "svg": svg_content, "updated_at": int(mtime * 1000)})
+
+    return {"slides": sorted(slides, key=lambda s: s["num"])}
+
+
 @router.get("/ppt/themes", summary="获取可用的 PPT 主题列表")
 async def list_ppt_themes() -> list[dict[str, str]]:
     """返回所有可用的 PPT 主题名称和显示名称。"""

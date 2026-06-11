@@ -1211,38 +1211,22 @@ class AgentService:
             return None
 
     async def _persist_session_messages(self, session) -> None:
-        """将 session.context 中的消息持久化到数据库。
-
-        wuwei 的 AgentSession 只在内存中存储消息，需要手动持久化。
-        """
+        """Persist session.context messages to DB.
+        wuwei AgentSession only stores messages in memory."""
         try:
             context = getattr(session, "context", None)
             if context is None:
                 _logger.warning(f"No context found for session {session.session_id}")
                 return
-
             messages = getattr(context, "_messages", [])
-            _logger.info(f"Persist check: session={session.session_id}, context_messages={len(messages)}")
-
             if not messages:
                 return
-
-            # 检查数据库中已有的消息数量，避免重复插入
             existing_count = await self.storage.get_message_count(session.session_id)
-            _logger.info(f"Persist check: existing_count={existing_count}")
-
             if existing_count >= len(messages):
                 return
-
-            # 只保存新增的消息
             new_messages = messages[existing_count:]
-            for msg in new_messages:
-                try:
-                    await self.storage.append_message(session.session_id, msg)
-                except Exception as e:
-                    _logger.warning(f"Failed to append message: {e}, type={type(msg)}")
-
-            _logger.info(f"Persisted {len(new_messages)} messages for session {session.session_id}")
+            count = await self.storage.append_messages_batch(session.session_id, new_messages)
+            _logger.info(f"Persisted {count} messages for session {session.session_id}")
         except Exception as e:
             _logger.warning(f"Failed to persist messages for session {session.session_id}: {e}", exc_info=True)
 

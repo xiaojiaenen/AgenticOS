@@ -152,6 +152,12 @@ def build_token_quick_ref() -> str:
 
 def list_available_themes() -> list[str]:
     """Return sorted list of theme names found on disk."""
-    if not _THEMES_DIR.is_dir():
-        return []
-    return sorted(p.stem for p in _THEMES_DIR.glob("*.css"))
+    themes_dir = _THEMES_DIR
+    if not themes_dir.is_dir():
+        # Fallback: resolve from project root
+        fallback = Path(__file__).resolve().parents[3] / "data" / "design-themes"
+        if fallback.is_dir():
+            themes_dir = fallback
+        else:
+            return []
+    return sorted(p.stem for p in themes_dir.glob("*.css"))

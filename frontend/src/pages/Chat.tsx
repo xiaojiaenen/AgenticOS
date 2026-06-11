@@ -389,7 +389,7 @@ export const Chat = () => {
           </main>
           <AnimatePresence>
             <SlideLivePreview
-              messages={currentSessionMessages}
+              sessionId={currentSessionId}
               isStreaming={isStreamingResponse}
               hasArtifact={!!artifact}
             />

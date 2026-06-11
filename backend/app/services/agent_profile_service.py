@@ -26,6 +26,10 @@ from app.services.session_storage import parse_approval_sub_tools, slugify
 from app.services.skill_service import RuntimeSkill, SkillService
 from app.services.tool_config_service import AGENT_MODES, DEFAULT_MODE_TOOLS, TOOL_CATALOG
 
+import time as _time
+
+_ensure_defaults_last_run: float = 0.0
+
 
 AUDIENCE_MODE_ALL = "all"
 AUDIENCE_MODE_SELECTED = "selected"
@@ -92,6 +96,9 @@ class AgentProfileService:
         self.session_factory = session_factory
 
     def ensure_defaults(self, db: Session) -> None:
+        global _ensure_defaults_last_run
+        if _time.time() - _ensure_defaults_last_run < 300:  # 5 min cache
+            return
         changed = False
         existing = {row.slug: row for row in db.scalars(select(AgentProfileModel)).all()}
         for slug, defaults in BUILTIN_AGENT_PROFILES.items():
@@ -162,6 +169,7 @@ class AgentProfileService:
 
         if changed:
             db.commit()
+        _ensure_defaults_last_run = _time.time()
 
     @staticmethod
     def _upgrade_website_profile_tools(db: Session, profile: AgentProfileModel) -> bool:
