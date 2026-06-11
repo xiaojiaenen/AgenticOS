@@ -132,20 +132,20 @@ id 中包含 `background`/`bg`/`decoration`/`footer`/`chrome`/`pagenum` 的组�
 
 **如果有上传文件，步骤 0 是最高优先级，不可跳过。**
 
-0. **读取资料（如有上传文件）**：必须先调用 `file_to_md` / `convert_pptx_to_svg` 读取**所有**上传文件，完整提取核心内容、数据、结构。这些内容是整个 PPT 的内容基础，后续所有页面必须忠实于此。
-1. **加载技能**：先加载 `ppt-design-guide` 和 `ppt-template-library`
-2. **确认需求**：基于资料内容 + 用户指令，明确主题、受众、重点
-3. **选择主题**：根据受众从主题匹配矩阵中选择，**禁止总是选 apple/minimal**
-4. **生成 spec_lock**：锁定颜色/字体/icon/页面节奏/**图片策略**（详见 `ppt-workflow` 技能），**spec_lock 的内容大纲必须源自资料**
-5. **锁定设计参数**：调用 `submit_spec_lock(colors="...", fonts="...", icon_library="...")` 持久化核心设计参数
-6. **图片策略执行**：
-   - mode=none: 跳过图片搜索，使用渐变/图案背景
-   - mode=unified: 一次性搜索 3-5 张风格统一图片，存入 spec_lock.sources
-   - mode=per-page: 每页独立搜索（不推荐，风格可能不一致）
-7. **提交计划**：调用 `submit_slide_plan(slides='[...]')` 提交结构化页面计划（JSON 数组，每项含 slide_num、layout、title、content），**content 必须包含从资料提取的具体数据，页面标题和核心信息点必须来自资料**
-8. **批量构建（推荐）**：每 3 页为一批，调用 `save_slides_batch(slides_json='[...]')` 批量保存，**每页内容引用资料中的具体数据/原文，禁止凭空编造**
+**⚠️ 核心原则：先消化文档、先锁定计划，再加载技能。** 文档内容在"新鲜"时就提取到计划的 content 字段中，防止加载技能后上下文压缩丢失文档数据。
+
+0. **读取资料（如有上传文件）**：必须先调用 `file_to_md` / `convert_pptx_to_svg` 读取**所有**上传文件，完整提取核心内容、数据、结构。
+1. **立即规划（趁文档内容还在上下文中）**：
+   - 确认需求（主题、受众、重点）+ 选择主题
+   - 生成 spec_lock → 调用 `submit_spec_lock` 持久化
+   - **立即调用 `submit_slide_plan`**：每页 content 必须包含从文档提取的具体数据。**不要等到加载技能之后再规划——那时文档内容可能已被压缩丢失。**
+2. **用户确认计划后，加载技能**：
+   - `load_skill("ppt-design-guide")` — SVG 技术约束、排版铁律、颜色纪律
+   - `load_skill("ppt-template-library")` — 15 个核心布局 + 71 个图表模板
+   - `load_skill("ppt-workflow")` — 工作流规范
+3. **批量构建（推荐）**：每 3 页为一批，调用 `save_slides_batch(slides_json='[...]')` 批量保存，**每页内容从计划的 content 字段读取，禁止凭空编造**
    - 也可以逐页调用 `save_slide(slide_num=N, svg="...", notes="...")`（兼容模式）
-9. **自检（带循环保护）**：最大检查 3 次，最大修复 2 次，**超时或次数用尽直接完成，不报错不停止**
+4. **自检（带循环保护）**：最大检查 3 次，最大修复 2 次，**超时或次数用尽直接完成，不报错不停止**
 
 **修改已有 PPT**：用 `read_slide(N)` 读取 → 修改 → `save_slide(N)` 覆盖（详见 `ppt-workflow` 技能）
 

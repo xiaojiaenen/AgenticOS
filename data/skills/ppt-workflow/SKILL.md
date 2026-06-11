@@ -55,17 +55,25 @@ PPT 创作分为两个角色，**绝不在同一个回复中混合两个角色�
 
 ---
 
-## 一、创作 7 步流程
+## 一、创作流程
 
-### Step 0：加载技能
+**⚠️ 核心原则：先消化文档、先锁定计划，再加载技能。**
 
-每次对话开始或接到 PPT 任务时，**必须按顺序加载两个技能**：
-1. `load_skill("ppt-design-guide")` — 设计规范
-2. `load_skill("ppt-template-library")` — 模板库
+文档内容在"新鲜"时就提取到计划的 content 字段中，防止加载技能后上下文压缩丢失文档数据。
 
-**懒加载纪律**：加载技能后，不要预读所有模板文件。按需逐页读取——生成第 N 页前只读该页需要的 1 个模板 SVG，读完立即生成。不要在开始生成前读取 3 个以上模板。
+### Step 0：读取资料（如有上传文件）
 
-### Step 1：确认需求（最多 2 轮）
+如有上传文件，**必须先调用 `file_to_md` / `convert_pptx_to_svg` 读取所有文件**，完整提取核心内容、数据、结构。这些内容是整个 PPT 的内容基础。
+
+### Step 1：确认需求 + 规划（趁文档内容还在上下文中）
+
+**一次性完成以下事项（不要分多轮）：**
+
+1. 确认需求（主题、受众、页数）
+2. 选择主题 + 生成 spec_lock → 调用 `submit_spec_lock` 持久化
+3. **立即调用 `submit_slide_plan`**，每页 content 必须包含从文档提取的具体数据
+
+**不要等到加载技能之后再规划——那时文档内容可能已被压缩丢失。**
 
 **第 1 轮：用户提出需求时，直接给出完整方案（不要逐项追问）**
 
@@ -94,9 +102,9 @@ PPT 创作分为两个角色，**绝不在同一个回复中混合两个角色�
 
 **禁止**：不要分 5 轮分别问主题、受众、页数、风格、最终确认。一次性给出方案。
 
-### Step 2：生成 spec_lock（执行锁）
+**Step 1 内必须完成的事项（按顺序）：**
 
-在规划页面序列后、开始生成 SVG 前，必须先输出 spec_lock 块，锁定本 deck 的所有设计参数。
+1. **生成 spec_lock**：输出 spec_lock 块，锁定本 deck 的所有设计参数
 
 用表格形式输出（不用代码块）：
 
@@ -155,45 +163,14 @@ breathing 页**应该**使用：
 
 **没有节奏变化，每页都会默认变成卡片网格（"AI 生成感"的根源）。breathing 是打破这种默认行为的唯一武器。**
 
-**执行纪律**：
-- 每页生成前回顾 spec_lock，确认颜色、字体、图标与锁定值一致
-- 绝不从记忆中取色值——每次都要查看 spec_lock
-- 需要修改 spec_lock 时，明确告知用户并重新输出完整 spec_lock
-
-**⚠️ 输出 spec_lock 后，必须立即调用 `submit_spec_lock` 持久化设计参数**：
+2. **立即调用 `submit_spec_lock` 持久化设计参数**：
 ```
 submit_spec_lock(colors="bg:#fff, primary:#1a1a2e, accent:#e94560", fonts="title:Playfair Display 48px bold, body:Inter 16px", icon_library="chunk-filled")
 ```
-这确保后续页面即使上下文被压缩，仍能获取正确的设计参数。
 
-### Step 3：规划页面序列并提交计划
+3. **立即调用 `submit_slide_plan` 提交计划**（趁文档内容还在上下文中）：
 
-**⚠️ 规划前必须先读取三个索引（不可跳过）：**
-
-1. **图表索引**：`load_skill_reference("ppt-template-library", "references/charts/charts_index.json")` — 读取全部 71 种图表的选型规则，为数据页匹配最佳图表类型
-2. **布局模板列表**：回顾 `ppt-template-library` 技能中的 15 个核心布局，确保每页选择不同的布局结构
-3. **图文布局索引**：`load_skill_reference("ppt-template-library", "references/image-layouts-index.json")` — 读取 72 种图文布局模式，为含图片的页面选择最佳布局
-
-为每页指定布局，从 15 个核心布局、71 个图表、72 种图文布局中选择：
-
-- **布局多样性铁律**：同一套 PPT 至少使用 4 种不同布局模式，不允许连续使用同一布局
-- section-divider 至少出现 2-3 次
-- **数据页必须从图表索引中选型**（如 bar_chart、line_chart、pie_chart 等），禁止所有数据页都用 kpi-grid
-- 数据密集页后接 big-quote 或 section-divider
-- **breathing 页禁止卡片网格**：必须用 big-quote、stat-highlight 或全出血背景
-- **图文布局优先**：封面和章节页必须使用图文布局（01-full-bleed、04-hero-overlay 等）
-
-**图文布局选择规则**：
-| 页面类型 | 图片数量 | 推荐布局 |
-|---------|---------|---------|
-| 封面 | 1 | 01-full-bleed, 04-hero-overlay |
-| 章节页 | 1 | 04-hero-overlay, 06-circle-frame |
-| 内容页 | 1 | 02-split-horizontal, 08-offset-float |
-| 对比页 | 2 | 16-duo-side, 20-before-after |
-| 作品集 | 3+ | 31-gallery, 32-masonry |
-| 数据页 | 0-1 | 10-corner-accent（小图点缀） |
-
-**提交计划**：调用 `submit_slide_plan(slides='[...]')`，每页必须包含 `content` 字段：
+每页必须包含 `content` 字段，content 是从参考文档提取的该页具体数据，**禁止编造**。无参考文档时，content 为该页核心信息摘要。
 
 ```json
 [
@@ -203,11 +180,15 @@ submit_spec_lock(colors="bg:#fff, primary:#1a1a2e, accent:#e94560", fonts="title
 ]
 ```
 
-- `content` 是从参考文档提取的该页具体数据，**禁止编造**
-- 无参考文档时，`content` 为该页核心信息摘要
-- 生成该页时，`save_slide` 返回值会自动注入下一页的计划数据
+### Step 2：用户确认后，加载技能
 
-### Step 4：逐页构建（支持批量生成）
+用户确认计划后，**按需加载技能**：
+1. `load_skill("ppt-design-guide")` — 设计规范
+2. `load_skill("ppt-template-library")` — 模板库
+
+**懒加载纪律**：加载技能后，不要预读所有模板文件。按需逐页读取——生成第 N 页前只读该页需要的 1 个模板 SVG，读完立即生成。
+
+### Step 3：逐页构建（支持批量生成）
 
 **批量生成模式（推荐，减少 40-60% 调用）**：
 
@@ -286,7 +267,7 @@ save_slide(slide_num=3, svg="...", notes="""
 """)
 ```
 
-### Step 5：自检（带循环保护）
+### Step 4：自检（带循环保护）
 
 **质量检查循环保护机制**：
 - 最大检查次数：3 次
@@ -516,16 +497,14 @@ search_images(query="business meeting", count=3, orientation="landscape")
 
 ---
 
-## 五、输出规范
+## 六、输出规范
 
-1. **创作前确认**：内容/受众 + 主题推荐 + 画布格式（一次性确认，最多 2 轮）
-2. **选择主题**：推荐最佳匹配，告知用户
-3. **生成 spec_lock**：锁定颜色/字体/icon/页面节奏
-4. **锁定设计参数**：调用 `submit_spec_lock` 持久化核心参数
-5. **规划叙事线**：确定每页 layout + content（确保 section-divider >= 2、无连续重复）
-6. **提交计划**：调用 `submit_slide_plan` 提交含 content 字段的页面计划
-7. **逐页构建**：从模板库复制 SVG 结构 -> 替换内容 -> 保留 var(--token) -> 写 notes
-8. **自检**：按上方清单逐项核对
+1. **读取资料**（如有上传文件）：`file_to_md` 提取文档内容
+2. **确认需求 + 规划**（趁文档内容新鲜）：主题 → spec_lock → `submit_spec_lock` → `submit_slide_plan`
+3. **用户确认计划**
+4. **加载技能**：`ppt-design-guide` + `ppt-template-library`
+5. **批量构建**：从模板库复制 SVG 结构 -> 替换内容（从计划 content 读取） -> 保留 var(--token) -> 写 notes
+6. **自检**：按上方清单逐项核对
 
 **最后**：在所有 `save_slide` 调用完成后，用 2-3 句话总结设计思路。不要提及"SVG"、"code block"等技术术语。
 
