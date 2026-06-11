@@ -477,7 +477,7 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
         return f"第 {slide_num} 页备注：\n\n{notes_file.read_text(encoding='utf-8')}"
 
     @registry.tool(display_name="提交设计参数")
-    async def submit_spec_lock(colors: str, fonts: str, icon_library: str) -> str:
+    async def submit_spec_lock(colors: str, fonts: str, icon_library: str, style: str = "") -> str:
         """【必须调用】提交 spec_lock 的核心设计参数。不调用此工具 = 任务失败。
 
         在输出 spec_lock 表格后，必须立即调用此工具持久化参数。
@@ -487,9 +487,11 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
           colors: 颜色方案摘要，如 "bg:#ffffff, primary:#1a1a2e, accent:#e94560, text:#333"
           fonts: 字体方案摘要，如 "title:Playfair Display 48px bold, body:Inter 16px"
           icon_library: 图标库名，如 "chunk-filled" 或 "tabler-outline"
+          style: 设计风格名，如 "瑞士国际"、"编辑墨水"、"现代极简" 等（从秒数轮盘选定的风格）
         """
         global _spec_lock_summary
-        _spec_lock_summary = f"颜色:{colors} | 字体:{fonts} | 图标:{icon_library}"
+        style_part = f" | 风格:{style}" if style else ""
+        _spec_lock_summary = f"颜色:{colors} | 字体:{fonts} | 图标:{icon_library}{style_part}"
         return f"设计参数已锁定：{_spec_lock_summary}"
 
     @registry.tool(display_name="提交幻灯片计划")

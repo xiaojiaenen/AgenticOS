@@ -138,7 +138,7 @@ id 中包含 `background`/`bg`/`decoration`/`footer`/`chrome`/`pagenum` 的组�
 1. **立即规划（趁文档内容还在上下文中）**：
    - **风格选择（秒数轮盘）**：调用 `time` 获取当前时间秒数，用 `calc` 算 `秒数 % 8` 映射风格（0=编辑墨水 1=现代极简 2=大胆宣言 3=科技暗色 4=温暖人文 5=数据驱动 6=创意实验 7=瑞士国际）。然后调用 `ask_user_decision` 展示 3 个风格选项让用户选择，不要自己直接选。
    - 确认需求（主题、受众、重点）+ 选择主题
-   - 生成 spec_lock → 调用 `submit_spec_lock` 持久化
+   - 生成 spec_lock → 调用 `submit_spec_lock(colors="...", fonts="...", icon_library="...", style="用户选的风格名")` 持久化，**必须包含 style 参数**
    - **立即调用 `submit_slide_plan`**：每页 content 必须包含从文档提取的具体数据。**不要等到加载技能之后再规划——那时文档内容可能已被压缩丢失。**
 2. **用户确认计划后，加载技能**：
    - `load_skill("ppt-design-guide")` — SVG 技术约束、排版铁律、颜色纪律

@@ -94,29 +94,6 @@ PPT 创作分为两个角色，**绝不在同一个回复中混合两个角色�
 - 设计师/产品 → spotify / nike / framer / glassmorphism
 - 消费者/小红书 → airbnb / xiaohongshu / pinterest / duolingo
 
-**风格多样化机制（秒数轮盘）**：
-
-不要总是推荐同一个风格。用 `time` 工具获取当前时间的秒数，用 `calc` 工具算 `秒数 % 8` 选择主推荐风格，再加相邻两个作为备选：
-
-```
-秒数 % 8 的映射：
-0 → 编辑墨水    1 → 现代极简    2 → 大胆宣言    3 → 科技暗色
-4 → 温暖人文    5 → 数据驱动    6 → 创意实验    7 → 瑞士国际
-```
-
-**⚠️ 必须调用 `ask_user_decision` 让用户选择风格，不要自己直接选一个。**
-
-调用方式：
-```
-ask_user_decision(
-  question="请选择 PPT 设计风格：",
-  options=["瑞士国际 — 直角+hairline边框+16列网格，适合商业报告", "编辑墨水 — 衬线标题+大量留白，适合战略提案", "现代极简 — 无衬线+大留白+细线条，适合产品发布"],
-  context="根据秒数轮盘推荐了3种风格，请选择一个。"
-)
-```
-
-用户选择后才能进入下一步。
-
 **画布格式**：默认 16:9 (1280x720)。可选：
 - 4:3 → `viewBox="0 0 1024 768"`
 - 小红书/社交 → `viewBox="0 0 1242 1660"`（3:4 竖版）
@@ -134,6 +111,9 @@ ask_user_decision(
 **画布**
 - viewBox: 0 0 1280 720
 - 格式: PPT 16:9
+
+**设计风格**（从秒数轮盘选定的风格，必须写入）
+- 风格名: 如"瑞士国际"、"编辑墨水"、"现代极简"等
 
 **颜色**（用 var(--token) 表示）
 - bg / primary / accent / secondary / surface / border
@@ -188,7 +168,7 @@ breathing 页**应该**使用：
 
 2. **立即调用 `submit_spec_lock` 持久化设计参数**：
 ```
-submit_spec_lock(colors="bg:#fff, primary:#1a1a2e, accent:#e94560", fonts="title:Playfair Display 48px bold, body:Inter 16px", icon_library="chunk-filled")
+submit_spec_lock(colors="bg:#fff, primary:#1a1a2e, accent:#e94560", fonts="title:Playfair Display 48px bold, body:Inter 16px", icon_library="chunk-filled", style="瑞士国际")
 ```
 
 3. **立即调用 `submit_slide_plan` 提交计划**（趁文档内容还在上下文中）：
