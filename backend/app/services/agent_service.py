@@ -461,7 +461,10 @@ class AgentService:
         if cached is not None:
             return cached
 
-        llm = LLMGateway.from_env(max_tokens=self.settings.agent_max_tokens)
+        llm = LLMGateway.from_env(
+            max_tokens=self.settings.agent_max_tokens,
+            timeout=self.settings.llm_timeout,
+        )
         tools, ext_instruction = self._build_tool_registry(profile)
         middleware_stack = self._build_middleware_stack(profile, llm)
 
