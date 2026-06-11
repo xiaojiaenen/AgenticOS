@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     agent_max_steps: int = 10
     agent_max_tokens: int = 65536
     agent_parallel_tool_calls: bool = False
+    llm_timeout: int = Field(default=300, validation_alias="LLM_TIMEOUT")
     database_url: str = Field(default=f"sqlite:///{PROJECT_ROOT / 'data' / 'agenticos.db'}", validation_alias="DATABASE_URL")
     skill_storage_dir: str = Field(
         default=str(PROJECT_ROOT / "data" / "skills"),
