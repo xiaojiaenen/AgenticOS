@@ -134,6 +134,7 @@ id 中包含 `background`/`bg`/`decoration`/`footer`/`chrome`/`pagenum` 的组�
 - `<animate>`、`<set>`、`<script>` → 禁止
 - `rgba()` → 用 `fill-opacity` / `stroke-opacity`
 - `<image opacity="0.3">` → 用覆盖遮罩 `<rect>` 叠加实现半透明，不要直接设置 image 的 opacity
+- HTML 字符引用 `&#x201C;` `&#169;` `&#8226;` 等 → 直接写 Unicode 字符 `"` `©` `•`，不要用 HTML 实体或数字引用
 
 ---
 
