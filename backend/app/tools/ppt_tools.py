@@ -282,7 +282,19 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
         # 注入 spec_lock 摘要
         spec_hint = _build_spec_lock_hint()
 
-        return f"批量保存完成（共 {count} 页）：\n{summary}{spec_hint}"
+        # 注入下一页计划提示（取最后一页的 slide_num）
+        last_slide_num = max((s.get("slide_num", 0) for s in slides), default=0)
+        plan_hint = _build_next_slide_hint(last_slide_num)
+
+        # 为每页附带 SVG 预览（前端可提取渲染缩略图）
+        svg_previews = ""
+        for slide in slides:
+            svg = slide.get("svg", "")
+            sn = slide.get("slide_num", 0)
+            if svg and sn:
+                svg_previews += f"\n<svg_preview>{svg}</svg_preview>"
+
+        return f"批量保存完成（共 {count} 页）：\n{summary}{spec_hint}{plan_hint}{svg_previews}"
 
     @registry.tool(display_name="读取演讲者备注")
     async def read_notes(slide_num: int) -> str:
