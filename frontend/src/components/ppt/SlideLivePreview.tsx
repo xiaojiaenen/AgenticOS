@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { Presentation, RefreshCcw } from 'lucide-react';
+import { authHeaders } from '../../services/authService';
 
 interface SlideData {
   num: number;
@@ -24,9 +25,8 @@ const THEME_VARS: React.CSSProperties = {
 
 async function fetchSlides(sessionId: string): Promise<SlideData[]> {
   try {
-    const token = localStorage.getItem('token');
-    const res = await fetch(`/api/v1/ppt/slides/${sessionId}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    const res = await fetch(`/api/v1/agent/ppt/slides/${sessionId}`, {
+      headers: authHeaders(),
     });
     if (!res.ok) return [];
     const data = await res.json();
