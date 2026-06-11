@@ -87,7 +87,9 @@ export const DecisionPanel: React.FC<DecisionPanelProps> = ({ decisions, onDecis
                 <div>
                   <p className="text-sm font-semibold text-slate-800">{decision.question}</p>
                   {decision.context && (
-                    <p className="mt-1 text-xs text-slate-500">{decision.context}</p>
+                    <div className="mt-2 max-h-60 overflow-y-auto rounded-lg border border-slate-200/60 bg-slate-50/50 p-2.5">
+                      <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-600 font-mono">{decision.context}</pre>
+                    </div>
                   )}
                 </div>
 

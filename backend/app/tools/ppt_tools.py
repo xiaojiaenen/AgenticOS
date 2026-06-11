@@ -74,9 +74,10 @@ def _count_slides(slides_dir: Path) -> int:
 
 
 def _build_next_slide_hint(current_slide_num: int) -> str:
-    """构建计划提示，注入到 save_slide 返回值中。
+    """构建布局约束提示，注入到 save_slide 返回值中。
 
-    每页注入下一页计划；每 5 页注入完整剩余计划摘要，防止上下文压缩丢失计划。
+    硬约束格式：每页注入下一页的布局/标题/内容，禁止偏离。
+    每 5 页注入完整剩余计划摘要。
     """
     if not _pending_slide_plan:
         return ""
@@ -85,17 +86,17 @@ def _build_next_slide_hint(current_slide_num: int) -> str:
     if current_slide_num % 5 == 0:
         remaining = [s for s in _pending_slide_plan if s.get("slide_num", 0) > current_slide_num]
         if remaining:
-            parts = [f"\n\n📋 剩余计划（{len(remaining)} 页）："]
+            parts = [f"\n\n⚠️ 剩余计划约束（{len(remaining)} 页，必须严格遵守）："]
             for s in remaining:
                 line = f"  P{s['slide_num']}: {s['layout']} — {s.get('title', '')}"
                 if s.get("content"):
-                    # 截取 content 前 60 字符避免过长
-                    c = s["content"][:60] + ("..." if len(s["content"]) > 60 else "")
-                    line += f" | {c}"
+                    c = s["content"][:80] + ("..." if len(s["content"]) > 80 else "")
+                    line += f"\n      内容: {c}"
                 parts.append(line)
+            parts.append("  → 禁止跳过、替换或合并页面布局。违反约束 = 任务失败。")
             return "\n".join(parts)
 
-    # 每页注入下一页计划
+    # 每页注入下一页布局约束
     next_slide = next(
         (s for s in _pending_slide_plan if s.get("slide_num") == current_slide_num + 1),
         None,
@@ -103,12 +104,34 @@ def _build_next_slide_hint(current_slide_num: int) -> str:
     if not next_slide:
         return ""
 
-    parts = [f"\n\n📋 第{next_slide['slide_num']}页计划："]
-    parts.append(f"  布局: {next_slide['layout']}")
+    parts = [f"\n\n⚠️ 下一页生成约束（必须严格遵守）："]
+    parts.append(f"  第{next_slide['slide_num']}页 layout: {next_slide['layout']}")
     if next_slide.get("title"):
-        parts.append(f"  标题: {next_slide['title']}")
+        parts.append(f"  第{next_slide['slide_num']}页 title: {next_slide['title']}")
     if next_slide.get("content"):
-        parts.append(f"  内容: {next_slide['content']}")
+        parts.append(f"  第{next_slide['slide_num']}页 content: {next_slide['content']}")
+    parts.append(f"  → 禁止用其他布局替代。生成前必须先读取 {next_slide['layout']} 模板。")
+    return "\n".join(parts)
+
+
+def _build_batch_plan_hint(slides: list[dict]) -> str:
+    """为批量保存构建本批次所有页的布局约束提示。"""
+    if not _pending_slide_plan or not slides:
+        return ""
+
+    slide_nums = [s.get("slide_num", 0) for s in slides]
+    planned = [s for s in _pending_slide_plan if s.get("slide_num") in slide_nums]
+    if not planned:
+        return ""
+
+    parts = [f"\n\n⚠️ 本批次布局约束（{len(planned)} 页，必须严格遵守）："]
+    for s in planned:
+        line = f"  第{s['slide_num']}页: {s['layout']} — {s.get('title', '')}"
+        if s.get("content"):
+            c = s["content"][:60] + ("..." if len(s["content"]) > 60 else "")
+            line += f" | {c}"
+        parts.append(line)
+    parts.append("  → 每页必须按指定布局生成，禁止替换。违反约束 = 任务失败。")
     return "\n".join(parts)
 
 
@@ -279,6 +302,9 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
         count = _count_slides(slides_dir)
         summary = "\n".join(results)
 
+        # 注入本批次布局约束
+        batch_hint = _build_batch_plan_hint(slides)
+
         # 注入 spec_lock 摘要
         spec_hint = _build_spec_lock_hint()
 
@@ -294,7 +320,7 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
             if svg and sn:
                 svg_previews += f"\n<svg_preview>{svg}</svg_preview>"
 
-        return f"批量保存完成（共 {count} 页）：\n{summary}{spec_hint}{plan_hint}{svg_previews}"
+        return f"批量保存完成（共 {count} 页）：\n{summary}{batch_hint}{spec_hint}{plan_hint}{svg_previews}"
 
     @registry.tool(display_name="读取演讲者备注")
     async def read_notes(slide_num: int) -> str:
@@ -376,10 +402,14 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
         # 持久化到模块级缓存（不再被 reset_slides_dir_cache 重置）
         _pending_slide_plan = plan
 
-        summary = "\n".join(
-            f"  {s['slide_num']}. {s['layout']} — {s.get('title', '')}"
-            for s in plan
-        )
+        # 构建完整的计划展示（含布局、标题、内容）
+        plan_lines = []
+        for s in plan:
+            plan_lines.append(f"第{s['slide_num']}页 [{s['layout']}] {s.get('title', '')}")
+            if s.get("content"):
+                plan_lines.append(f"  内容: {s['content']}")
+            plan_lines.append("")
+        summary = "\n".join(plan_lines).strip()
 
         # 自动调用 ask_user_decision 等待用户确认
         try:
@@ -402,7 +432,7 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
                 "type": "user_decision",
                 "question": f"已规划 {len(plan)} 页幻灯片，确认开始生成？",
                 "options": ["确认开始生成", "修改方案"],
-                "context": f"页面计划：\n{summary}",
+                "context": summary,
                 "allow_custom": False,
                 "status": "pending",
             }
