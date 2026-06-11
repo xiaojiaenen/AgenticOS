@@ -909,7 +909,7 @@ class AgentService:
             "---",
             deck_styles_text,
             "",
-            "**CURRENT TIME:** " + __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            "**CURRENT TIME:** " + __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
         ]
         return message + "\n".join(lines)
 
