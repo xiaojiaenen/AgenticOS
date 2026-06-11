@@ -107,6 +107,7 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
             "search_images": {"enabled": True, "requires_approval": False},
             "get_image_info": {"enabled": True, "requires_approval": False},
             "read_notes": {"enabled": True, "requires_approval": False},
+            "batch_edit_slides": {"enabled": True, "requires_approval": False},
             "email": {"enabled": False, "requires_approval": True},
             "memory": {"enabled": False, "requires_approval": False},
         },
@@ -410,6 +411,13 @@ TOOL_CATALOG = {
     "read_notes": {
         "label": "读取演讲者备注",
         "description": "读取指定幻灯片的演讲者备注。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "batch_edit_slides": {
+        "label": "批量编辑幻灯片",
+        "description": "批量编辑已保存的幻灯片：文本替换、页码更新、删除、重排等，无需重新生成。",
         "builtin_name": None,
         "approval_scope": [],
         "sub_tools": {},

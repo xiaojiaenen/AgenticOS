@@ -322,6 +322,137 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
 
         return f"批量保存完成（共 {count} 页）：\n{summary}{batch_hint}{spec_hint}{plan_hint}{svg_previews}"
 
+    @registry.tool(display_name="批量编辑幻灯片")
+    async def batch_edit_slides(operations_json: str) -> str:
+        """批量编辑已保存的幻灯片，无需重新生成。支持文本替换、页码更新、删除、重排等操作。
+
+        参数:
+          operations_json: JSON 数组，每个元素是一个操作:
+            - {"action":"replace_text","slides":[1,2,3],"find":"旧文本","replace":"新文本"}
+            - {"action":"update_page_num","total":12} — 更新所有页的 X/12 页码
+            - {"action":"delete","slides":[5]} — 删除指定页，后续页码前移
+            - {"action":"swap","from":3,"to":7} — 交换两页
+            - {"action":"reorder","new_order":[1,2,3,4,5]} — 按新顺序重排
+        """
+        import re
+        import json
+
+        try:
+            operations = json.loads(operations_json)
+            if not isinstance(operations, list):
+                return "错误：operations_json 必须是 JSON 数组"
+        except json.JSONDecodeError as e:
+            return f"错误：JSON 解析失败 — {e}"
+
+        slides_dir = _get_slides_dir()
+        results = []
+
+        def read_svg(num: int) -> str | None:
+            p = slides_dir / f"slide_{num}.svg"
+            return p.read_text(encoding="utf-8") if p.exists() else None
+
+        def write_svg(num: int, content: str):
+            (slides_dir / f"slide_{num}.svg").write_text(content, encoding="utf-8")
+
+        def read_notes(num: int) -> str | None:
+            p = slides_dir / f"slide_{num}.notes.md"
+            return p.read_text(encoding="utf-8") if p.exists() else None
+
+        def write_notes(num: int, content: str):
+            (slides_dir / f"slide_{num}.notes.md").write_text(content, encoding="utf-8")
+
+        def delete_files(num: int):
+            svg_p = slides_dir / f"slide_{num}.svg"
+            notes_p = slides_dir / f"slide_{num}.notes.md"
+            if svg_p.exists(): svg_p.unlink()
+            if notes_p.exists(): notes_p.unlink()
+
+        for op in operations:
+            action = op.get("action")
+
+            if action == "replace_text":
+                target_slides = op.get("slides", [])
+                find_str = op.get("find", "")
+                replace_str = op.get("replace", "")
+                if not find_str:
+                    results.append("❌ replace_text: 缺少 find 参数"); continue
+                count = 0
+                for sn in target_slides:
+                    svg = read_svg(sn)
+                    if svg and find_str in svg:
+                        write_svg(sn, svg.replace(find_str, replace_str))
+                        count += 1
+                results.append(f"✅ replace_text: {count}/{len(target_slides)} 页已替换 '{find_str}' → '{replace_str}'")
+
+            elif action == "update_page_num":
+                total = op.get("total")
+                if not total:
+                    results.append("❌ update_page_num: 缺少 total 参数"); continue
+                count = 0
+                for svg_file in sorted(slides_dir.glob("slide_*.svg")):
+                    m = re.search(r'slide_(\d+)', svg_file.name)
+                    if not m: continue
+                    num = int(m.group(1))
+                    svg = svg_file.read_text(encoding="utf-8")
+                    # Replace "X / N" patterns
+                    new_svg = re.sub(r'\d+\s*/\s*\d+', f'{num} / {total}', svg)
+                    # Replace "第X页" patterns
+                    new_svg = re.sub(r'第\d+页', f'第{num}页', new_svg)
+                    if new_svg != svg:
+                        svg_file.write_text(new_svg, encoding="utf-8")
+                        count += 1
+                results.append(f"✅ update_page_num: {count} 页页码已更新为 /{total}")
+
+            elif action == "delete":
+                target_slides = sorted(op.get("slides", []), reverse=True)
+                for sn in target_slides:
+                    delete_files(sn)
+                # Renumber remaining slides
+                remaining = sorted(int(re.search(r'slide_(\d+)', f.name).group(1)) for f in slides_dir.glob("slide_*.svg") if re.search(r'slide_(\d+)', f.name))
+                for i, old_num in enumerate(remaining, 1):
+                    if i != old_num:
+                        (slides_dir / f"slide_{old_num}.svg").rename(slides_dir / f"slide_{i}.svg")
+                        notes_old = slides_dir / f"slide_{old_num}.notes.md"
+                        if notes_old.exists():
+                            notes_old.rename(slides_dir / f"slide_{i}.notes.md")
+                results.append(f"✅ delete: 已删除 {len(target_slides)} 页，剩余 {len(remaining) - len(target_slides)} 页已重排")
+
+            elif action == "swap":
+                fr, to = op.get("from"), op.get("to")
+                if not fr or not to:
+                    results.append("❌ swap: 缺少 from/to 参数"); continue
+                svg_fr, svg_to = read_svg(fr), read_svg(to)
+                notes_fr, notes_to = read_notes(fr), read_notes(to)
+                if svg_fr and svg_to:
+                    write_svg(fr, svg_to); write_svg(to, svg_fr)
+                    if notes_fr: write_notes(to, notes_fr)
+                    if notes_to: write_notes(fr, notes_to)
+                    results.append(f"✅ swap: 第{fr}页 ↔ 第{to}页")
+                else:
+                    results.append(f"❌ swap: 页面不存在")
+
+            elif action == "reorder":
+                new_order = op.get("new_order", [])
+                if not new_order:
+                    results.append("❌ reorder: 缺少 new_order 参数"); continue
+                # Read all current slides
+                temp = {}
+                for sn in new_order:
+                    svg = read_svg(sn)
+                    notes = read_notes(sn)
+                    if svg: temp[sn] = {"svg": svg, "notes": notes}
+                # Delete all
+                for f in slides_dir.glob("slide_*"): f.unlink()
+                # Write in new order
+                for i, sn in enumerate(new_order, 1):
+                    if sn in temp:
+                        write_svg(i, temp[sn]["svg"])
+                        if temp[sn]["notes"]: write_notes(i, temp[sn]["notes"])
+                results.append(f"✅ reorder: {len(new_order)} 页已按新顺序重排")
+
+        count = _count_slides(slides_dir)
+        return f"批量编辑完成（共 {count} 页）：\n" + "\n".join(results)
+
     @registry.tool(display_name="读取演讲者备注")
     async def read_notes(slide_num: int) -> str:
         """读取指定幻灯片的演讲者备注。

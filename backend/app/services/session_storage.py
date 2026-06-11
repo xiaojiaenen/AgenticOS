@@ -218,6 +218,29 @@ class DatabaseAgentStorage:
                 return sessions
         return await asyncio.to_thread(_run)
 
+    async def append_messages_batch(self, session_id: str, messages: list) -> int:
+        """Batch insert messages in a single DB transaction. Returns count inserted."""
+        def _run():
+            import time
+            for attempt in range(3):
+                try:
+                    with self.session_factory() as db:
+                        for msg in messages:
+                            db.add(
+                                AgentMessageModel(
+                                    session_id=session_id,
+                                    message_json=msg.model_dump_json(exclude_none=True),
+                                )
+                            )
+                        db.commit()
+                    return len(messages)
+                except Exception as e:
+                    if "database is locked" in str(e) and attempt < 2:
+                        time.sleep(0.5 * (attempt + 1))
+                        continue
+                    raise
+        return await asyncio.to_thread(_run)
+
     async def get_message_count(self, session_id: str) -> int:
         """Return the number of messages in a session."""
         def _run():

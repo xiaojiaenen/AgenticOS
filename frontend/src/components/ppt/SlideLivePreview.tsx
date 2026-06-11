@@ -1,67 +1,67 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'motion/react';
-import { Presentation } from 'lucide-react';
-import { Message } from '../../types';
+import { Presentation, RefreshCcw } from 'lucide-react';
 
-/** PPT SVG 使用的 CSS 自定义属性默认值（覆盖主流主题） */
-const CSS_VAR_DEFAULTS = `:root {
-  --bg: #ffffff;
-  --bg-2: #f8fafc;
-  --bg-3: #f1f5f9;
-  --surface: #ffffff;
-  --accent: #2563eb;
-  --accent-2: #3b82f6;
-  --accent-soft: #dbeafe;
-  --text-1: #0f172a;
-  --text-2: #334155;
-  --text-3: #64748b;
-  --text-inv: #ffffff;
-  --border: #e2e8f0;
-  --font-sans: 'Inter', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-  --radius: 12px;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
-  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
-}`;
-
-function extractSvgPreviews(messages: Message[]): { slideNum: number; svg: string }[] {
-  const previewMap = new Map<number, string>();
-
-  for (const msg of messages) {
-    if (!msg.toolCalls) continue;
-    for (const tool of msg.toolCalls) {
-      if (tool.name !== 'save_slide' || !tool.result) continue;
-      const match = tool.result.match(/<svg_preview>([\s\S]*?)<\/svg_preview>/);
-      if (match) {
-        const svg = match[1];
-        const slideMatch = tool.result.match(/第\s*(\d+)\s*页/);
-        const slideNum = slideMatch ? parseInt(slideMatch[1], 10) : previewMap.size + 1;
-        previewMap.set(slideNum, svg);
-      }
-    }
-  }
-
-  return Array.from(previewMap.entries())
-    .map(([slideNum, svg]) => ({ slideNum, svg }))
-    .sort((a, b) => a.slideNum - b.slideNum);
-}
-
-/** 将 SVG 包装为带 CSS 变量的完整 HTML 文档 */
-function buildSvgPreviewHtml(svg: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${CSS_VAR_DEFAULTS}html,body{margin:0;padding:0;background:#fff;overflow:hidden}svg{width:100%;height:auto;display:block}</style></head><body>${svg}</body></html>`;
+interface SlideData {
+  num: number;
+  svg: string;
+  updated_at: number;
 }
 
 interface SlideLivePreviewProps {
-  messages: Message[];
+  sessionId: string | null;
   isStreaming: boolean;
   hasArtifact: boolean;
 }
 
-export const SlideLivePreview: React.FC<SlideLivePreviewProps> = ({ messages, isStreaming, hasArtifact }) => {
-  const previews = useMemo(() => extractSvgPreviews(messages), [messages]);
+const THEME_VARS: React.CSSProperties = {
+  '--bg': '#ffffff', '--bg-soft': '#f8fafc', '--surface': '#f1f5f9',
+  '--surface-2': '#e2e8f0', '--border': '#e2e8f0', '--border-strong': '#cbd5e1',
+  '--text-1': '#0f172a', '--text-2': '#475569', '--text-3': '#94a3b8',
+  '--accent': '#2563eb', '--accent-2': '#7c3aed', '--accent-3': '#0891b2',
+  '--good': '#16a34a', '--warn': '#d97706', '--bad': '#dc2626',
+} as React.CSSProperties;
 
-  // Only show during streaming when we have previews but no final artifact yet
-  if (!isStreaming || previews.length === 0 || hasArtifact) return null;
+async function fetchSlides(sessionId: string): Promise<SlideData[]> {
+  try {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`/api/v1/ppt/slides/${sessionId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.slides || [];
+  } catch {
+    return [];
+  }
+}
+
+export const SlideLivePreview: React.FC<SlideLivePreviewProps> = ({ sessionId, isStreaming, hasArtifact }) => {
+  const [slides, setSlides] = useState<SlideData[]>([]);
+  const [lastUpdate, setLastUpdate] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const poll = useCallback(async () => {
+    if (!sessionId) return;
+    const data = await fetchSlides(sessionId);
+    if (data.length > 0) {
+      setSlides(data);
+      setLastUpdate(Date.now());
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId || !isStreaming || hasArtifact) {
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+      if (hasArtifact) setSlides([]);
+      return;
+    }
+    poll();
+    intervalRef.current = setInterval(poll, 2000);
+    return () => { if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; } };
+  }, [sessionId, isStreaming, hasArtifact, poll]);
+
+  if (!isStreaming || slides.length === 0 || hasArtifact) return null;
 
   return (
     <motion.aside
@@ -77,30 +77,20 @@ export const SlideLivePreview: React.FC<SlideLivePreviewProps> = ({ messages, is
         </div>
         <div>
           <h2 className="text-sm font-bold leading-none text-slate-800">实时预览</h2>
-          <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">{previews.length} slides generating...</p>
+          <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">{slides.length} slides</p>
         </div>
+        <button type="button" onClick={poll} className="ml-auto rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600" title="刷新">
+          <RefreshCcw size={14} />
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {previews.map(({ slideNum, svg }) => (
-          <motion.div
-            key={slideNum}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md"
-          >
-            <div className="aspect-[16/9] overflow-hidden">
-              <iframe
-                srcDoc={buildSvgPreviewHtml(svg)}
-                title={`Slide ${slideNum} preview`}
-                className="w-full h-full border-0"
-                sandbox="allow-scripts"
-                style={{ pointerEvents: 'none' }}
-              />
-            </div>
+        {slides.map(({ num, svg }) => (
+          <motion.div key={num} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+            className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-md" style={THEME_VARS}>
+            <div className="aspect-[16/9] overflow-hidden" dangerouslySetInnerHTML={{ __html: svg.replace(/<svg/, '<svg style="width:100%;height:100%"') }} />
             <div className="border-t border-slate-100 px-3 py-2 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-700">第 {slideNum} 页</span>
-              <span className="text-[10px] font-medium text-emerald-600">已保存</span>
+              <span className="text-xs font-bold text-slate-700">第 {num} 页</span>
+              <span className="text-[10px] font-medium text-emerald-600">✓ 已保存</span>
             </div>
           </motion.div>
         ))}
