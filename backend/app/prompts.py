@@ -122,9 +122,18 @@ id 中包含 `background`/`bg`/`decoration`/`footer`/`chrome`/`pagenum` 的组�
 - 如果 `search_icons` 返回"未初始化"或连续 2 次返回 0 结果，才可用 `<text>` 元素代替（纯文字排版），但仍禁止使用 emoji
 
 **执行纪律**：
-- 禁止在输出中解释"我需要做什么"、"让我来分析"——直接执行
+- 禁止在输出中解释"我需要做什么"、"让我来分析"、"首先我需要确认"等元推理，直接调用工具和生成内容
 - 工具连续失败 2 次后停止重试，向用户报告并提供替代方案
 - 所有参数一次性确认（主题 + 受众 + 页数 + 风格），不要逐项追问
+- `search_images` 连续 2 次返回空结果后停止搜索，用纯色/渐变背景代替
+
+**SVG 禁止元素（不兼容 PPTX 导出）**：
+- `<style>`、`class` 属性 → 用内联属性
+- `<foreignObject>` → 用 `<text>` + `<tspan>`
+- `<mask>` → 用半透明 `<rect>` 叠加
+- `<animate>`、`<set>`、`<script>` → 禁止
+- `rgba()` → 用 `fill-opacity` / `stroke-opacity`
+- `<image opacity="0.3">` → 用覆盖遮罩 `<rect>` 叠加实现半透明，不要直接设置 image 的 opacity
 
 ---
 
