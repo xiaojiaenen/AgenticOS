@@ -147,7 +147,12 @@ id 中包含 `background`/`bg`/`decoration`/`footer`/`chrome`/`pagenum` 的组�
    - 也可以逐页调用 `save_slide(slide_num=N, svg="...", notes="...")`（兼容模式）
 4. **自检（带循环保护）**：最大检查 3 次，最大修复 2 次，**超时或次数用尽直接完成，不报错不停止**
 
-**修改已有 PPT**：用 `read_slide(N)` 读取 → 修改 → `save_slide(N)` 覆盖（详见 `ppt-workflow` 技能）
+**修改已有 PPT**：
+- 小改（替换文字/数据）：用 `batch_edit_slides` 一次性完成，如 `[{"action":"replace_text","slides":[1,2,3],"find":"2024","replace":"2025"}]`
+- 更新页码：`batch_edit_slides` 的 `update_page_num` 操作自动更新所有页的 `X/N` 和 `第X页`
+- 删除/重排页面：`batch_edit_slides` 的 `delete` / `reorder` / `swap` 操作
+- 大改（重做某页）：用 `read_slide(N)` 读取 → 重新生成 SVG → `save_slide(N)` 覆盖
+- **不要逐页 read_slide + save_slide 做简单替换，用 batch_edit_slides 一次搞定**
 
 **⚠️ 质量检查保护机制**：
 - 检查不通过时**不要报错**，**不要停止**

@@ -382,24 +382,41 @@ spec_lock 是本 deck 的设计参数锁定表，作用是防止逐页创作过�
 
 ## 三、修改已有 PPT
 
-当对话中已经生成过 PPT，用户要求修改时：
+当对话中已经生成过 PPT，用户要求修改时，**优先用 `batch_edit_slides` 一次性完成**：
 
-1. 用 `read_slide(slide_num=N)` 读取需要修改的页
+### 批量编辑（推荐，一次工具调用搞定）
+
+`batch_edit_slides(operations_json='[...]')` 支持 5 种操作：
+
+| 操作 | 示例 | 说明 |
+|------|------|------|
+| `replace_text` | `{"action":"replace_text","slides":[1,2,3],"find":"2024","replace":"2025"}` | 批量替换文字 |
+| `update_page_num` | `{"action":"update_page_num","total":12}` | 自动更新所有页的 X/N 和第X页 |
+| `delete` | `{"action":"delete","slides":[5]}` | 删除指定页，后续页码自动前移 |
+| `swap` | `{"action":"swap","from":3,"to":7}` | 交换两页 |
+| `reorder` | `{"action":"reorder","new_order":[1,2,3,5,4,6,7,8]}` | 按新顺序重排 |
+
+**多个操作可组合**：`[{"action":"replace_text",...},{"action":"update_page_num","total":12}]`
+
+### 逐页修改（大改时使用）
+
+只有当需要重做某页的 SVG 结构时，才用 read_slide + save_slide：
+
+1. `read_slide(slide_num=N)` 读取
 2. 在读取的 SVG 基础上修改
-3. 用 `save_slide(slide_num=N, svg="...")` 只覆盖修改的页
+3. `save_slide(slide_num=N, svg="...")` 覆盖
 
 **修改分级**：
 
 | 改动级别 | 示例 | 操作 |
 |---------|------|------|
-| 小改 | 标题、数据、文字 | `save_slide` 覆盖对应页 |
-| 中改 | 替换某页、调整页序 | `save_slide` 覆盖涉及页 |
-| 大改 | 新增章节、重新规划 | 对新页和改动的页调用 `save_slide` |
+| 小改 | 替换文字/数据/年份 | `batch_edit_slides` 的 `replace_text` |
+| 中改 | 改页码、删页、调顺序 | `batch_edit_slides` 的 `update_page_num`/`delete`/`reorder` |
+| 大改 | 重做某页布局、新增章节 | `read_slide` + 重新生成 SVG + `save_slide` |
 
 **注意**：
-- "加一页"、"删掉第X页"、"调整顺序"、"换个主题"、"改个数字"——这些都是在已有 PPT 上修改，不是重新做
-- 修改后回复"第 X 页已更新"即可，不要重复输出所有 SVG
-- 不要把所有 SVG 放在一个 code block 里——每页一个独立的 `save_slide` 调用
+- 简单替换不要逐页 read_slide + save_slide，用 `batch_edit_slides` 一次搞定
+- 修改后回复"已更新 X 页"即可，不要重复输出所有 SVG
 
 ---
 
