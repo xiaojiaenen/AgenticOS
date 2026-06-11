@@ -1517,8 +1517,7 @@ class AgentService:
             len(request.message),
             len(request.files or ()),
         )
-        if user is not None:
-            await self.ensure_session_access(request, user)
+        # ensure_session_access 已在 endpoint 层调用，此处不再重复
         await self._load_session_if_needed(agent, request)
 
         # 记录用户输入到补全缓存
@@ -1725,9 +1724,9 @@ class AgentService:
                                         "label": "正在生成 PPT 内容与版式",
                                     },
                                 }
-                            runtime_task = asyncio.create_task(runtime_queue.get())
-                            continue
-                        if first_text_delta:
+                            # PPT 模式不转发 text_delta（LLM 思考文本），但继续处理其他事件
+                            # 不 continue — 让 tool_start、tool_results、reasoning 等事件正常处理
+                        if not ppt_mode and first_text_delta:
                             yield {
                                 "event": "run_status",
                                 "data": {
