@@ -256,12 +256,25 @@ XML 保留字符必须转义：`&` → `&amp;`，`<` → `&lt;`，`>` → `&gt;`
 ### 反 AI-Slop 七宗罪（每次创作前自检）
 
 1. **禁止默认 Indigo 强调色**：绝对不写 `#6366f1`、`#4f46e5`、`#8b5cf6` 等 Tailwind indigo/紫罗兰色值。用 `var(--accent)` 引用主题强调色。
-2. **禁止「信任感」双色渐变 Hero**：紫色→蓝色、蓝色→青色、indigo→粉色等双色渐变 Hero 背景是第二常见 AI 指纹。纯色背景 + 排版层次感完胜。
-3. **禁止 Emoji 作为功能图标**：幻灯片中不使用 ✨🚀🎯 等 emoji 作为装饰或图标。用 search_icons 搜索真实图标。
-4. **字体纪律——展示文本用展示字体**：标题/封面/章节分隔页用 `font-family="Playfair Display, Noto Serif SC, serif"`（衬线）或粗重 sans，正文用 `"Inter, Noto Sans SC, sans-serif"`。不要全篇一种字体。
-5. **禁止「圆角卡片 + 左侧 accent 竖条」**：这是最典型的 AI dashboard 模式——圆角卡片左边贴一条 `fill="var(--accent)"` 的窄矩形。要么去掉圆角，要么去掉左侧竖条。
-6. **禁止捏造数据**："10 倍提升"、"99.9% 可用"、"3 倍效率"——要么用真实数据，要么标注「示意数据」。
-7. **禁止 Lorem Ipsum 占位文字**：空白区域是设计问题，用排版解决，不要用假文字填充。
+   **为什么**：这是 AI 最明显的指纹——所有 AI 生成的 PPT 都用这个色系。一眼就能看出是 AI 做的。
+
+2. **禁止「信任感」双色渐变 Hero**：紫色→蓝色、蓝色→青色、indigo→粉色等双色渐变 Hero 背景。
+   **为什么**：这是 AI 的"万能公式"——用渐变填充空白，假装有设计感。纯色背景 + 排版层次感完胜。
+
+3. **禁止 Emoji 作为功能图标**：不使用 ✨🚀🎯 等 emoji 作为装饰或图标。用 `search_icons` 搜索真实图标。
+   **为什么**：Emoji 在不同平台渲染不一致，导出 PPTX 后可能显示为方块。
+
+4. **字体纪律——展示文本用展示字体**：标题/封面用 `Playfair Display, Noto Serif SC, serif`（衬线）或粗重 sans，正文用 `Inter, Noto Sans SC, sans-serif`。
+   **为什么**：全篇一种字体 = 没有层级。衬线标题 + 无衬线正文是最经典的对比组合。
+
+5. **禁止「圆角卡片 + 左侧 accent 竖条」**：圆角卡片左边贴一条 `fill="var(--accent)"` 的窄矩形。
+   **为什么**：这是最典型的 AI dashboard 模式——所有 AI 都这样做，因为训练数据里这种模式最多。去掉圆角或去掉竖条。
+
+6. **禁止捏造数据**："10 倍提升"、"99.9% 可用"、"3 倍效率"。
+   **为什么**：假数据比没有数据更糟糕。要么用真实数据并标注来源，要么标注"示意数据"。
+
+7. **禁止 Lorem Ipsum 占位文字**：空白区域是设计问题。
+   **为什么**：占位文字暴露了"AI 在凑内容"。用排版解决空白，不要用假文字填充。
 
 ### 排版铁律
 
@@ -271,6 +284,16 @@ XML 保留字符必须转义：`&` → `&amp;`，`<` → `&lt;`，`>` → `&gt;`
 | 页面标题 | 28–40px | 600–700 | 1.2 |
 | 正文 | 15–18px | 400 | 1.5–1.6 |
 | 辅助/脚注 | 12–14px | 400 | 1.5 |
+
+**极端反差策略（借鉴 huashu-design）**：
+
+不要每页都用 28-40px 的"安全"标题。偶尔用极端字号制造视觉冲击：
+
+- **数据页**：用 64-96px 的超大数字 + 12px 的小标签，如 `5500亿` (72px) + `全球AI市场规模` (12px)
+- **章节页**：标题用 48-60px，副标题用 14px，制造 4x 的字号反差
+- **封面**：主标题可以用 60-72px，副标题用 14-16px
+
+规则：每套 PPT 至少 2 页使用极端字号反差（标题/正文 >= 3x）。
 
 - 每页最多 3 种字号
 - 正文与卡片边缘留白 ≥ 24px，标题与正文间距 ≥ 16px
@@ -383,21 +406,27 @@ SVG 模式下所有图表用原生 SVG 元素绘制：
 
 ## 十一、套装风格预设（可选）
 
-当用户有明确风格偏好时，从下表选择最匹配的风格并应用其原则。
+当用户有明确风格偏好时，从下表选择最匹配的风格并应用其原则。未指定时根据受众自动推断。
 
-| 风格 | 关键词 | 展示字体 | 推荐主题 |
-|------|--------|---------|---------|
-| 编辑墨水 | 投资报告 / 战略提案 | Playfair Display | kami, paper, editorial |
-| 现代极简 | 产品发布 / SaaS 汇报 | Inter | github, apple, minimal |
-| 大胆宣言 | 品牌发布会 / 创意提案 | Inter | neo-brutalism, nike, spotify |
-| 科技暗色 | 开发者大会 / 安全报告 | JetBrains Mono | dracula, tokyo-night, monokai |
-| 温暖人文 | 品牌故事 / 用户研究 | Playfair Display | airbnb, pinterest, xiaohongshu |
-| 数据驱动 | 季度财报 / 数据分析 | Inter | stripe, corporate, enterprise |
-| 创意实验 | 设计作品集 / 艺术展览 | Playfair Display | glassmorphism, vaporwave, bauhaus |
-| 瑞士国际 | 商业报告 / AI 提案 | Inter Tight | klein-blue, swiss-grid, minimal |
+| 风格 | 视觉 DNA | 展示字体 + 正文字体 | 推荐主题 | 适用场景 |
+|------|---------|-------------------|---------|---------|
+| 编辑墨水 | 衬线标题 + 大量留白 + 深色文字 + 极简装饰 | Playfair Display + Inter | kami, paper, editorial | 投资报告、战略提案、学术演讲 |
+| 现代极简 | 无衬线 + 大留白 + 细线条 + 单色 accent | Inter + Inter | github, apple, minimal | 产品发布、SaaS 汇报、技术分享 |
+| 大胆宣言 | 超大字号 + 高对比 + 撞色 + 几何装饰 | Inter + Inter | neo-brutalism, nike, spotify | 品牌发布会、创意提案 |
+| 科技暗色 | 暗背景 + 等宽字体 + 霓虹 accent + 终端感 | JetBrains Mono + Inter | dracula, tokyo-night, monokai | 开发者大会、安全报告 |
+| 温暖人文 | 暖色调 + 圆角 + 有机形状 + 柔和阴影 | Playfair Display + Inter | airbnb, pinterest, xiaohongshu | 品牌故事、用户研究 |
+| 数据驱动 | 冷色调 + 图表密集 + 数字突出 + 网格对齐 | Inter + Inter | stripe, corporate, enterprise | 季度财报、数据分析 |
+| 创意实验 | 大胆配色 + 非对称 + 装饰元素 + 打破网格 | Playfair Display + Inter | glassmorphism, vaporwave, bauhaus | 设计作品集、艺术展览 |
+| 瑞士国际 | 直角 + hairline 边框 + 16 列网格 + 单一 accent | Inter Tight + Inter | klein-blue, swiss-grid, minimal | 商业报告、AI 提案 |
 
-### 瑞士国际主义特别约束
+**选择规则**：
+- 不要总是选"现代极简"——根据受众和内容选择最匹配的风格
+- 技术受众 → 科技暗色或现代极简
+- 管理层 → 编辑墨水或数据驱动
+- 创意人群 → 大胆宣言或创意实验
+- 消费者 → 温暖人文
 
+**瑞士国际主义特别约束**（选择此风格时必须遵守）：
 - **只用直角**：所有 rect 的 rx/ry=0，严禁圆角
 - **1px hairline 边框**：`stroke="var(--border)" stroke-width="1"`，严禁阴影/gradient/blur
 - **极端字号反差**：封面标题 48-72px，正文 14-16px，标签 11px uppercase
