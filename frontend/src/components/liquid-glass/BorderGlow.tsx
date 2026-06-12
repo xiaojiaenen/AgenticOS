@@ -1,10 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 
 interface BorderGlowProps {
   children: React.ReactNode;
   color?: string;
   glowSize?: number;
-  duration?: number;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -13,40 +12,30 @@ export const BorderGlow: React.FC<BorderGlowProps> = ({
   children,
   color = 'rgba(10, 132, 255, 0.6)',
   glowSize = 8,
-  duration = 3,
   className = '',
   style = {},
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const animationRef = useRef<number>();
+  const [isHovered, setIsHovered] = useState(false);
 
-  useEffect(() => {
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const container = containerRef.current;
     if (!container) return;
 
-    let angle = 0;
     const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-    const animate = () => {
-      angle = (angle + 1) % 360;
-      const radian = (angle * Math.PI) / 180;
+    setPosition({ x, y });
+  }, []);
 
-      // 计算发光点在边框上的位置
-      const x = Math.cos(radian) * (rect.width / 2) + rect.width / 2;
-      const y = Math.sin(radian) * (rect.height / 2) + rect.height / 2;
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered(true);
+  }, []);
 
-      setPosition({ x, y });
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    animate();
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered(false);
   }, []);
 
   return (
@@ -58,6 +47,9 @@ export const BorderGlow: React.FC<BorderGlowProps> = ({
         position: 'relative',
         overflow: 'hidden',
       }}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* 发光边框效果 */}
       <div
@@ -66,12 +58,15 @@ export const BorderGlow: React.FC<BorderGlowProps> = ({
           inset: 0,
           borderRadius: 'inherit',
           padding: 1,
-          background: `radial-gradient(circle at ${position.x}px ${position.y}px, ${color}, transparent 70%)`,
+          background: isHovered
+            ? `radial-gradient(circle at ${position.x}px ${position.y}px, ${color}, transparent 70%)`
+            : 'none',
           WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
           WebkitMaskComposite: 'xor',
           maskComposite: 'exclude',
           pointerEvents: 'none',
-          transition: 'background 0.1s ease',
+          transition: 'opacity 0.3s ease',
+          opacity: isHovered ? 1 : 0,
         }}
       />
 
@@ -81,11 +76,13 @@ export const BorderGlow: React.FC<BorderGlowProps> = ({
           position: 'absolute',
           inset: -glowSize,
           borderRadius: 'inherit',
-          background: `radial-gradient(circle at ${position.x}px ${position.y}px, ${color}, transparent 70%)`,
-          opacity: 0.3,
+          background: isHovered
+            ? `radial-gradient(circle at ${position.x}px ${position.y}px, ${color}, transparent 70%)`
+            : 'none',
+          opacity: isHovered ? 0.3 : 0,
           filter: `blur(${glowSize}px)`,
           pointerEvents: 'none',
-          transition: 'background 0.1s ease',
+          transition: 'opacity 0.3s ease',
         }}
       />
 
