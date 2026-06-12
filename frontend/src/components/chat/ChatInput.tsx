@@ -6,6 +6,8 @@ import { cn } from '../../lib/utils';
 import { AgentSelector } from '../ui/AgentSelector';
 import { PaperclipIcon, SendIcon } from '../ui/AnimatedIcons';
 import { useInputSuggest } from '../../hooks/useInputSuggest';
+import { useIsGlassTheme } from '../liquid-glass';
+import { LiquidGlass, GlassButton, glassPresets, radii } from '@xiaojiaenen/liquid-glass';
 
 interface ChatInputProps {
   value: string;
@@ -48,6 +50,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const { suggestion, onChange: suggestOnChange, accept, dismiss } = useInputSuggest();
+  const isGlass = useIsGlassTheme();
 
   useImperativeHandle(ref, () => ({
     addFiles: (newFiles: File[]) => setFiles((prev) => [...prev, ...newFiles]),
@@ -147,7 +150,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
         {files.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="mb-1 flex flex-wrap gap-3 px-2">
             {files.map((file, idx) => (
-              <motion.div layout key={`${file.name}-${idx}`} className="group relative h-16 w-16 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <motion.div layout key={`${file.name}-${idx}`} className={cn(
+                "group relative h-16 w-16 overflow-hidden rounded-xl border shadow-sm",
+                isGlass ? "border-white/15 bg-white/10" : "border-slate-200 bg-white"
+              )}>
                 {previews[idx] ? (
                   <img src={previews[idx]} alt="preview" className="h-full w-full object-cover" />
                 ) : (
@@ -171,6 +177,98 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 
       <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.md,.py,.js,.ts,.tsx,.jsx,.json,.yaml,.yml,.xml,.html,.css,.svg,.java,.c,.cpp,.h,.rs,.go,.rb,.php,.sql,.sh,.bat,.ps1,.zip,.epub,.rtf,.odt,.ods,.odp,image/*" />
 
+      {isGlass ? (
+      <LiquidGlass
+        {...glassPresets.pill}
+        tint="rgba(255,255,255,0.08)"
+        radius={radii.pill}
+        style={{ display: 'flex', alignItems: 'flex-end', padding: '8px 12px' }}
+      >
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isLoading}
+          className={cn(
+            "mb-0.5 flex-shrink-0 rounded-full p-3 transition-colors active:scale-90",
+            isGlass ? "text-slate-500 hover:bg-white/10 hover:text-sky-600" : "text-slate-400 hover:bg-sky-50 hover:text-sky-600"
+          )}
+          title="上传文件"
+          aria-label="上传文件"
+        >
+          <PaperclipIcon size={20} />
+        </button>
+
+        <div className="relative mb-0.5 ml-1">
+          <AgentSelector
+            agents={selectableAgents}
+            selectedId={selectedAgentProfileId ?? null}
+            onSelect={(agent) => {
+              onAgentProfileChange?.(agent);
+              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website' | 'bigdata');
+            }}
+            variant="compact"
+            disabled={isModeLocked}
+          />
+        </div>
+
+        <div className="relative max-h-[200px] w-full">
+          {/* Ghost text 补全建议 */}
+          {suggestion && value && (
+            <div
+              className="pointer-events-none absolute inset-0 p-3 leading-relaxed tracking-tight whitespace-pre-wrap overflow-hidden"
+              aria-hidden="true"
+            >
+              <span className="text-transparent">{value}</span>
+              <span className="text-slate-300">{suggestion.slice(value.length)}</span>
+            </div>
+          )}
+          <textarea
+            aria-label="输入消息"
+            ref={textareaRef}
+            value={value}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder={isDragging ? '把文件拖到这里...' : placeholder}
+            className={cn(
+              "max-h-[200px] w-full resize-none bg-transparent p-3 leading-relaxed tracking-tight outline-none",
+              isGlass ? "text-slate-800 placeholder:text-slate-400" : "text-slate-800 placeholder:text-slate-400"
+            )}
+            rows={1}
+          />
+        </div>
+        {isLoading ? (
+          <button
+            type="button"
+            onClick={onStop}
+            className={cn(
+              "group mb-1 ml-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full shadow-md transition-all duration-300 hover:scale-105 active:scale-95",
+              isGlass ? "bg-white/10 text-slate-700 hover:bg-white/15 border border-white/15" : "bg-zinc-900 text-white hover:bg-zinc-700"
+            )}
+            title="停止当前回复"
+            aria-label="停止当前回复"
+          >
+            <Square size={15} strokeWidth={2.8} fill="currentColor" className="transition-transform group-hover:scale-110" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleInternalSend}
+            disabled={!value.trim() && files.length === 0}
+            className={cn(
+              'group mb-1 ml-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all duration-300',
+              value.trim() || files.length > 0
+                ? 'bg-[var(--accent-send)] text-white shadow-md hover:scale-105 hover:bg-[var(--accent-send-hover)] active:scale-95'
+                : isGlass
+                  ? 'bg-white/10 text-slate-400'
+                  : 'bg-slate-100/50 text-slate-300',
+            )}
+            title="发送"
+            aria-label="发送"
+          >
+            <SendIcon size={18} className="transition-transform group-hover:-translate-y-0.5 group-hover:scale-110" />
+          </button>
+        )}
+      </LiquidGlass>
+      ) : (
       <div className="relative flex items-end rounded-[2rem] border border-[var(--border-medium)] bg-[var(--surface-2)] p-2 px-3 shadow-lg shadow-brand-500/10 backdrop-blur-2xl transition-all duration-300 focus-within:border-brand-200 focus-within:bg-white/90 focus-within:shadow-glow">
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -196,7 +294,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
         </div>
 
         <div className="relative max-h-[200px] w-full">
-          {/* Ghost text 补全建议 */}
           {suggestion && value && (
             <div
               className="pointer-events-none absolute inset-0 p-3 leading-relaxed tracking-tight whitespace-pre-wrap overflow-hidden"
@@ -245,6 +342,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           </button>
         )}
       </div>
+      )}
     </div>
   );
 });

@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { MascotHappy, MascotGeneral, MascotPPT, MascotWebsite, MascotBigData } from '../components/ui/MascotIcons';
 import { AgentProfile, getAgentStore, installAgent, uninstallAgent } from '../services/agentProfileService';
+import { useIsGlassTheme } from '../components/liquid-glass';
 import { cn } from '../lib/utils';
 
 // 模式 → 小精灵 + 颜色
@@ -24,6 +25,7 @@ function getCardStyle(mode?: string) {
 
 export const AgentStore = () => {
   const navigate = useNavigate();
+  const isGlass = useIsGlassTheme();
   const [agents, setAgents] = useState<AgentProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -81,7 +83,13 @@ export const AgentStore = () => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#bae6fd] font-sans text-slate-800 selection:bg-zinc-200 selection:text-zinc-900"
+      className={cn(
+        'relative min-h-screen overflow-hidden font-sans text-slate-800',
+        isGlass
+          ? 'selection:bg-sky-200/60 selection:text-sky-900'
+          : 'bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#bae6fd] selection:bg-zinc-200 selection:text-zinc-900'
+      )}
+      {...(isGlass ? { style: { background: 'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)' } } : {})}
     >
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         {/* Animated ambient blobs */}
@@ -121,12 +129,18 @@ export const AgentStore = () => {
         )}
 
         {isLoading ? (
-          <div className="flex h-72 items-center justify-center gap-3 rounded-2xl border border-white/60 bg-white/45 text-sm font-bold text-slate-500 backdrop-blur-2xl">
+          <div className={cn(
+            'flex h-72 items-center justify-center gap-3 rounded-2xl border text-sm font-bold text-slate-500 backdrop-blur-2xl',
+            isGlass ? 'border-white/12 bg-white/6' : 'border-white/60 bg-white/45'
+          )}>
             <Loader2 size={18} className="animate-spin" />
             正在加载智能体
           </div>
         ) : agents.length === 0 ? (
-          <div className="flex h-72 flex-col items-center justify-center gap-4 rounded-2xl border border-white/60 bg-white/45 text-sm font-bold text-slate-500 backdrop-blur-2xl">
+          <div className={cn(
+            'flex h-72 flex-col items-center justify-center gap-4 rounded-2xl border text-sm font-bold text-slate-500 backdrop-blur-2xl',
+            isGlass ? 'border-white/12 bg-white/6' : 'border-white/60 bg-white/45'
+          )}>
             <Bot size={48} className="text-slate-300" />
             <div className="text-center">
               <p className="text-base font-bold text-slate-600">暂无可用智能体</p>
@@ -143,7 +157,10 @@ export const AgentStore = () => {
                   layout
                   whileHover={{ y: -4 }}
                   transition={{ duration: 0.2 }}
-                  className="group flex min-h-[190px] flex-col rounded-2xl border border-white/65 bg-white/62 p-4 shadow-md backdrop-blur-2xl"
+                  className={cn(
+                    'group flex min-h-[190px] flex-col rounded-2xl border p-4 shadow-md backdrop-blur-2xl',
+                    isGlass ? 'border-white/15 bg-white/8' : 'border-white/65 bg-white/62'
+                  )}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg transition-transform duration-300 group-hover:scale-110', getCardStyle(agent.response_mode).gradient, getCardStyle(agent.response_mode).shadow)}>

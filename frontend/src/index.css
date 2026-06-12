@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
 @import "katex/dist/katex.min.css";
 @import "tailwindcss";
+/* liquid-glass styles imported via main.tsx */
 
 /* ===== Design Token System ===== */
 @theme {
@@ -96,6 +97,74 @@
   --animate-fade-in: fade-in 0.3s ease-out both;
   --animate-slide-up: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-scale-in: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ===== Liquid Glass Theme Overrides (透明玻璃) ===== */
+html.theme-liquid-glass {
+  --surface-0: transparent;
+  --surface-1: rgba(255, 255, 255, 0.08);
+  --surface-2: rgba(255, 255, 255, 0.10);
+  --surface-3: rgba(255, 255, 255, 0.12);
+  --border-subtle: rgba(255, 255, 255, 0.15);
+  --border-medium: rgba(255, 255, 255, 0.20);
+  --border-strong: rgba(255, 255, 255, 0.30);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.07);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
+  --shadow-glow: 0 0 0 3px rgba(43, 135, 194, 0.15);
+  --shadow-button: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --glass-subtle: rgba(255, 255, 255, 0.05);
+  --glass-medium: rgba(255, 255, 255, 0.08);
+  --glass-strong: rgba(255, 255, 255, 0.12);
+  --glass-backdrop: blur(40px) saturate(1.8);
+  --bubble-user: #18181b;
+  --bubble-user-text: #ffffff;
+  --bubble-ai: rgba(255, 255, 255, 0.70);
+  --bubble-ai-border: rgba(226, 232, 240, 0.6);
+  --accent-send: #2b87c2;
+  --accent-send-hover: #1e6ea0;
+  --shadow-input-glow: 0 0 0 3px rgba(43, 135, 194, 0.12);
+  --admin-bg: transparent;
+  --admin-sidebar-bg: rgba(255, 255, 255, 0.06);
+  --admin-card-bg: rgba(255, 255, 255, 0.08);
+  --admin-card-border: rgba(255, 255, 255, 0.15);
+  --admin-accent: #1e6ea0;
+  --admin-accent-soft: rgba(43, 135, 194, 0.08);
+  color-scheme: light;
+}
+
+html.theme-liquid-glass body {
+  background: linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%);
+  color: #1e293b;
+}
+
+html.theme-liquid-glass .prose p,
+html.theme-liquid-glass .markdown-body p {
+  color: #334155;
+}
+
+html.theme-liquid-glass .prose strong,
+html.theme-liquid-glass .markdown-body strong {
+  color: #0f172a;
+}
+
+html.theme-liquid-glass .prose h1,
+html.theme-liquid-glass .prose h2,
+html.theme-liquid-glass .prose h3,
+html.theme-liquid-glass .markdown-body h1,
+html.theme-liquid-glass .markdown-body h2,
+html.theme-liquid-glass .markdown-body h3 {
+  color: #0f172a;
+}
+
+html.theme-liquid-glass .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+}
+
+html.theme-liquid-glass .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
 }
 
 /* ===== Base ===== */

@@ -1,8 +1,10 @@
 import React, { useEffect, useId, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
+import { LiquidGlass, glassPresets, radii } from '@xiaojiaenen/liquid-glass';
 import { cn } from '../../lib/utils';
 import { Button } from './Button';
+import { useIsGlassTheme } from '../liquid-glass';
 
 interface ModalProps {
   open: boolean;
@@ -26,6 +28,7 @@ export const Modal: React.FC<ModalProps> = ({
   const id = useId();
   const titleId = `${id}-title`;
   const panelRef = useRef<HTMLDivElement>(null);
+  const isGlass = useIsGlassTheme();
 
   // Focus trap
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -68,6 +71,12 @@ export const Modal: React.FC<ModalProps> = ({
     return () => { document.body.style.overflow = ''; };
   }, [open]);
 
+  const panelContent = (
+    <div className={cn('w-full p-6', className)}>
+      {children}
+    </div>
+  );
+
   return (
     <AnimatePresence>
       {open && (
@@ -75,7 +84,7 @@ export const Modal: React.FC<ModalProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="admin-modal-shell"
+          className={cn("admin-modal-shell", isGlass && "!bg-black/50")}
           role="dialog"
           aria-modal="true"
           aria-labelledby={title ? titleId : undefined}
@@ -87,9 +96,22 @@ export const Modal: React.FC<ModalProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
             transition={{ duration: 0.22 }}
-            className={cn('admin-solid-panel admin-modal-panel w-full p-6', maxWidth, className)}
+            className={cn('w-full', maxWidth)}
           >
-            {children}
+            {isGlass ? (
+              <LiquidGlass
+                {...glassPresets.card}
+                tint="rgba(255,255,255,0.08)"
+                radius={radii.card}
+                style={{ width: '100%' }}
+              >
+                {panelContent}
+              </LiquidGlass>
+            ) : (
+              <div className="admin-solid-panel admin-modal-panel">
+                {panelContent}
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}
@@ -101,22 +123,28 @@ export const ModalHeader: React.FC<{
   title: string;
   subtitle?: string;
   onClose: () => void;
-}> = ({ title, subtitle, onClose }) => (
-  <div className="mb-6 flex items-center justify-between">
-    <div>
-      <p className="admin-section-kicker">{subtitle || ''}</p>
-      <h3 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{title}</h3>
+}> = ({ title, subtitle, onClose }) => {
+  const isGlass = useIsGlassTheme();
+  return (
+    <div className="mb-6 flex items-center justify-between">
+      <div>
+        <p className={cn("admin-section-kicker", isGlass && "!text-slate-500")}>{subtitle || ''}</p>
+        <h3 className={cn("mt-2 text-2xl font-bold tracking-tight", isGlass ? "text-slate-900" : "text-slate-900")}>{title}</h3>
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        className={cn(
+          "flex h-10 w-10 items-center justify-center rounded-2xl transition-colors",
+          isGlass ? "text-slate-400 hover:bg-white/[0.08] hover:text-sky-300" : "text-slate-400 hover:bg-sky-50 hover:text-sky-600"
+        )}
+        aria-label="关闭"
+      >
+        <X size={19} />
+      </button>
     </div>
-    <button
-      type="button"
-      onClick={onClose}
-      className="flex h-10 w-10 items-center justify-center rounded-2xl text-slate-400 transition-colors hover:bg-sky-50 hover:text-sky-600"
-      aria-label="关闭"
-    >
-      <X size={19} />
-    </button>
-  </div>
-);
+  );
+};
 
 export const ModalFooter: React.FC<{
   onCancel: () => void;

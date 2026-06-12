@@ -7,6 +7,8 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { PasswordInput } from '../components/ui/PasswordInput';
 import { registerWithCode, sendVerificationCode } from '../services/authService';
+import { useIsGlassTheme } from '../components/liquid-glass';
+import { cn } from '../lib/utils';
 
 const EMAIL_SUFFIXES = [
   '@qq.com', '@163.com', '@126.com', '@gmail.com',
@@ -26,6 +28,8 @@ export const Signup = () => {
   const [codeCountdown, setCodeCountdown] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
+
+  const isGlass = useIsGlassTheme();
 
   const emailRef = useRef<HTMLDivElement>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -135,7 +139,13 @@ export const Signup = () => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="min-h-screen bg-gradient-to-br from-[#dbeafe] via-[#bae6fd] to-[#38bdf8] relative flex items-center justify-center p-4 selection:bg-zinc-200 selection:text-zinc-900 overflow-hidden"
+      className={cn(
+        'min-h-screen relative flex items-center justify-center p-4 overflow-hidden',
+        isGlass
+          ? 'selection:bg-sky-200/60 selection:text-sky-900'
+          : 'bg-gradient-to-br from-[#dbeafe] via-[#bae6fd] to-[#38bdf8] selection:bg-zinc-200 selection:text-zinc-900'
+      )}
+      style={isGlass ? { background: 'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)' } : undefined}
     >
       <motion.button
         initial={{ opacity: 0, x: -20 }}
@@ -160,7 +170,12 @@ export const Signup = () => {
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full bg-[var(--surface-2)] backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-brand-500/10 border border-white/60 p-10"
+          className={cn(
+            'w-full backdrop-blur-2xl rounded-[2rem] shadow-xl p-10',
+            isGlass
+              ? 'bg-white/8 border border-white/15 shadow-brand-500/5'
+              : 'bg-[var(--surface-2)] border border-white/60 shadow-brand-500/10'
+          )}
         >
           <div className="flex flex-col items-center mb-10">
             <div className="mb-6">
@@ -205,7 +220,12 @@ export const Signup = () => {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden z-50"
+                    className={cn(
+                      'absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-50',
+                      isGlass
+                        ? 'bg-white/10 border-white/20 backdrop-blur-xl border shadow-lg'
+                        : 'bg-white border border-slate-200 shadow-lg'
+                    )}
                   >
                     {suggestions.map((s, i) => (
                       <button

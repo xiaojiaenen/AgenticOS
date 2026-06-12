@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        '@xiaojiaenen/liquid-glass': path.resolve(__dirname, 'node_modules/@xiaojiaenen/liquid-glass/dist/lib/index.js'),
       },
     },
     server: {
