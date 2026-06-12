@@ -335,9 +335,9 @@ export const Chat = () => {
             raysOrigin="top-center"
             raysColor="#4a9eff"
             raysSpeed={0.8}
-            lightSpread={1.5}
-            rayLength={3}
-            fadeDistance={1.5}
+            lightSpread={2}
+            rayLength={4}
+            fadeDistance={2}
             saturation={0.6}
             followMouse={true}
             mouseInfluence={0.1}
