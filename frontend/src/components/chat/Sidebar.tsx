@@ -25,31 +25,6 @@ const SessionItemGlass: React.FC<{
 }> = ({ isActive, onClick, onKeyDown, children }) => {
   const [isHovered, setIsHovered] = useState(false);
 
-  if (isHovered || isActive) {
-    return (
-      <LiquidGlass
-        {...glassPresets.control}
-        tint={isActive ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)"}
-        radius={glassRadius}
-        role="button"
-        tabIndex={0}
-        onClick={onClick}
-        onKeyDown={onKeyDown}
-        aria-current={isActive ? 'page' : undefined}
-        className="rounded-xl"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px', cursor: 'pointer', marginBottom: 4,
-          fontWeight: isActive ? 700 : 500, color: '#ffffff',
-        }}
-      >
-        {children}
-      </LiquidGlass>
-    );
-  }
-
   return (
     <div
       role="button"
@@ -59,7 +34,14 @@ const SessionItemGlass: React.FC<{
       aria-current={isActive ? 'page' : undefined}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all text-gray-400 hover:text-white font-medium"
+      className="group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ease-out"
+      style={{
+        background: isHovered || isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+        color: isHovered || isActive ? '#ffffff' : '#9ca3af',
+        backdropFilter: isHovered || isActive ? 'blur(12px)' : 'none',
+        border: isActive ? '1px solid rgba(255,255,255,0.15)' : '1px solid transparent',
+        fontWeight: isActive ? 700 : 500,
+      }}
     >
       {children}
     </div>
@@ -269,11 +251,6 @@ export const Sidebar = React.memo(({
             管理后台 (Admin)
           </button>
         )}
-        {/* 主题切换 */}
-        <ThemeToggle variant="full" className={cn(
-          "w-full justify-start",
-          isGlass ? "text-gray-300 hover:bg-white/10 hover:text-white" : "text-slate-700 hover:bg-slate-50"
-        )} />
         <div className={cn("flex items-center gap-3 p-2 rounded-xl transition-colors", isGlass ? "hover:bg-white/10" : "hover:bg-slate-50")}>
           <div className={cn(
             "w-9 h-9 rounded-xl flex items-center justify-center shadow-sm overflow-hidden flex-shrink-0",
@@ -289,6 +266,11 @@ export const Sidebar = React.memo(({
               {user?.email || 'signed in'}
             </p>
           </div>
+          {/* 主题切换 */}
+          <ThemeToggle variant="icon" className={cn(
+            "",
+            isGlass ? "text-gray-400 hover:text-white hover:bg-white/10" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+          )} />
           <button
             onClick={async () => {
               await logout();
