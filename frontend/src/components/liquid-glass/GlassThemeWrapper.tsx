@@ -1,6 +1,7 @@
 import React from 'react';
 import { LiquidGlass, glassPresets, radii } from '@xiaojiaenen/liquid-glass';
 import { useTheme } from '../../hooks/useTheme';
+import LightRays from './LightRays';
 
 type GlassPreset = 'pill' | 'control' | 'card';
 
@@ -44,13 +45,26 @@ export const GlassThemeWrapper: React.FC<GlassThemeWrapperProps> = ({
   const presetConfig = glassPresets[preset];
 
   return (
-    <LiquidGlass
-      {...presetConfig}
-      tint={tint ?? 'rgba(255,255,255,0.04)'}
-      radius={radius ?? presetRadii[preset]}
-    >
-      <div className={className}>{children}</div>
-    </LiquidGlass>
+    <>
+      <LightRays
+        raysOrigin="top-center"
+        raysColor="rgba(100, 180, 255, 0.15)"
+        raysSpeed={1.5}
+        lightSpread={1.2}
+        rayLength={2.5}
+        fadeDistance={1.2}
+        saturation={0.8}
+        followMouse={true}
+        mouseInfluence={0.15}
+      />
+      <LiquidGlass
+        {...presetConfig}
+        tint={tint ?? 'rgba(255,255,255,0.04)'}
+        radius={radius ?? presetRadii[preset]}
+      >
+        <div className={className}>{children}</div>
+      </LiquidGlass>
+    </>
   );
 };
 
