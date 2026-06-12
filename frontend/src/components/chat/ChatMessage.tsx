@@ -406,7 +406,6 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             )}
           </div>
         )}
-        )}
 
         {message?.id && !isTyping && (
           <div className={cn("text-[9px] font-black uppercase tracking-[0.1em] px-2 mt-1.5 flex items-center gap-2",
