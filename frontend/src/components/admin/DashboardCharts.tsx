@@ -17,12 +17,14 @@ import {
  YAxis,
 } from 'recharts';
 import { Activity, Cpu, Gauge, Hammer, Trophy, Waves } from 'lucide-react';
+import { LiquidGlass, glassPresets } from '@xiaojiaenen/liquid-glass';
 import { cn, formatNumber, formatTokenNumber, formatLatency, formatDay, shortName, initials, CHART_COLORS } from '../../lib/utils';
 import {
  DashboardDistributionItem,
  DashboardStats as DashboardStatsData,
  DashboardUserUsage,
 } from '../../services/dashboardService';
+import { useIsGlassTheme } from '../liquid-glass';
 
 interface DashboardChartsProps {
  data: DashboardStatsData;
@@ -75,6 +77,28 @@ function PanelShell({
  tone?: string;
  delay?: number;
 }) {
+ const isGlass = useIsGlassTheme();
+
+ if (isGlass) {
+  return (
+   <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] }}
+   >
+    <LiquidGlass
+     {...glassPresets.card}
+     tint="rgba(255,255,255,0.06)"
+     radius={12}
+     className={className}
+     style={{ height: '100%' }}
+    >
+     <div className="relative h-full px-5 py-5">{children}</div>
+    </LiquidGlass>
+   </motion.div>
+  );
+ }
+
  return (
   <motion.section
    initial={{ opacity: 0, y: 20 }}
