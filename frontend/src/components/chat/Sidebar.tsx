@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { LiquidGlass, glassPresets, radii } from '@xiaojiaenen/liquid-glass';
-import { GlassButtonWithGlow, glowPresets } from '../liquid-glass';
 
 // 圆角值，与管理后台按钮 rounded-xl 视觉效果一致
 const glassRadius = 16;
@@ -67,16 +66,16 @@ export const Sidebar = React.memo(({
 
       <div className="p-4">
         {isGlass ? (
-          <GlassButtonWithGlow
-            glowColor="blue"
-            glowSize={6}
-            radius={glassRadius}
+          <LiquidGlass
+            as="button"
+            {...glassPresets.control}
             tint="rgba(255,255,255,0.08)"
+            radius={glassRadius}
             onClick={onNewChat}
-            style={{ padding: '12px 16px', gap: 8, border: '1px solid rgba(255,255,255,0.15)' }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)' }}
           >
             <PlusIcon size={18} className="group-hover:rotate-90" /> 新的对话
-          </GlassButtonWithGlow>
+          </LiquidGlass>
         ) : (
           <button
             onClick={onNewChat}
@@ -115,12 +114,11 @@ export const Sidebar = React.memo(({
 
           if (isGlass) {
             return (
-              <GlassButtonWithGlow
+              <LiquidGlass
                 key={session.id}
-                glowColor={isActive ? "blue" : "white"}
-                glowSize={isActive ? 6 : 4}
-                radius={glassRadius}
+                {...glassPresets.control}
                 tint={isActive ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.01)"}
+                radius={glassRadius}
                 role="button"
                 tabIndex={0}
                 onClick={() => onSelectSession(session.id)}
@@ -134,7 +132,7 @@ export const Sidebar = React.memo(({
                 }}
               >
                 {sessionInner}
-              </GlassButtonWithGlow>
+              </LiquidGlass>
             );
           }
 
