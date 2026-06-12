@@ -1,9 +1,11 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
+import { GlassProvider } from '@xiaojiaenen/liquid-glass';
 import { GlobalAnnouncementLayer } from './components/announcement/GlobalAnnouncementLayer';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ToastContainer } from './components/ui/Toast';
+import { useTheme } from './hooks/useTheme';
 
 const Home = lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
 const Chat = lazy(() => import('./pages/Chat').then((module) => ({ default: module.Chat })));
@@ -57,12 +59,32 @@ const AnimatedRoutes = () => {
   );
 };
 
-function App() {
+function AppContent() {
   return (
-    <Router>
+    <>
       <GlobalAnnouncementLayer />
       <AnimatedRoutes />
       <ToastContainer />
+    </>
+  );
+}
+
+function App() {
+  const { theme } = useTheme();
+
+  if (theme === 'liquid-glass') {
+    return (
+      <GlassProvider tint="dark" accent="blue">
+        <Router>
+          <AppContent />
+        </Router>
+      </GlassProvider>
+    );
+  }
+
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }

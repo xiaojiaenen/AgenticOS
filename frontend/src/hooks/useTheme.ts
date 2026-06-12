@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-export type Theme = 'light' | 'dark' | 'system';
+export type Theme = 'light' | 'dark' | 'system' | 'liquid-glass';
 
 const STORAGE_KEY = 'agenticos-theme';
 
@@ -10,16 +10,20 @@ function getSystemTheme(): 'light' | 'dark' {
 
 function getStoredTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
+  if (stored === 'light' || stored === 'dark' || stored === 'system' || stored === 'liquid-glass') return stored;
   return 'system';
 }
 
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
-  const resolved = theme === 'system' ? getSystemTheme() : theme;
+  const isLiquidGlass = theme === 'liquid-glass';
+  const resolved = isLiquidGlass ? 'dark' : (theme === 'system' ? getSystemTheme() : theme);
 
-  root.classList.remove('light', 'dark');
+  root.classList.remove('light', 'dark', 'theme-liquid-glass');
   root.classList.add(resolved);
+  if (isLiquidGlass) {
+    root.classList.add('theme-liquid-glass');
+  }
 
   // Update meta theme-color for mobile browser chrome
   const meta = document.querySelector('meta[name="theme-color"]');
@@ -38,7 +42,7 @@ export function useTheme() {
   }, []);
 
   const toggleTheme = useCallback(() => {
-    const order: Theme[] = ['light', 'dark', 'system'];
+    const order: Theme[] = ['light', 'dark', 'liquid-glass', 'system'];
     const idx = order.indexOf(theme);
     setTheme(order[(idx + 1) % order.length]);
   }, [theme, setTheme]);
@@ -48,11 +52,11 @@ export function useTheme() {
     applyTheme(theme);
   }, [theme]);
 
-  // Listen for system theme changes when in 'system' mode
+  // Listen for system theme changes when in 'system' or 'liquid-glass' mode
   useEffect(() => {
-    if (theme !== 'system') return;
+    if (theme !== 'system' && theme !== 'liquid-glass') return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = () => applyTheme('system');
+    const handler = () => applyTheme(theme);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, [theme]);

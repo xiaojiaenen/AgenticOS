@@ -8,6 +8,9 @@ import { AgentSelector } from '../components/ui/AgentSelector';
 import { MascotSurprised, SendIcon } from '../components/ui/AnimatedIcons';
 import { getStoredUser } from '../services/authService';
 import { AgentProfile, getMyAgents } from '../services/agentProfileService';
+import { useIsGlassTheme } from '../components/liquid-glass';
+import { LiquidGlass, glassPresets, radii } from '@xiaojiaenen/liquid-glass';
+import { cn } from '../lib/utils';
 
 export const Home = () => {
   const [inputValue, setInputValue] = useState('');
@@ -15,6 +18,7 @@ export const Home = () => {
   const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>(null);
   const navigate = useNavigate();
   const user = getStoredUser();
+  const isGlass = useIsGlassTheme();
 
   const selectedAgent = agentProfiles.find((a) => a.id === selectedAgentProfileId) || null;
 
@@ -59,10 +63,14 @@ export const Home = () => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8, transition: { duration: 0.2 } }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="min-h-screen relative overflow-hidden font-sans flex flex-col selection:bg-zinc-200 selection:text-zinc-900"
+      className={cn(
+        "min-h-screen relative overflow-hidden font-sans flex flex-col",
+        isGlass ? "selection:bg-sky-200/60 selection:text-sky-900" : "selection:bg-zinc-200 selection:text-zinc-900"
+      )}
       style={{
-        background:
-          'linear-gradient(180deg, #def0f6 0%, #e7f4f9 28%, #e1f2f7 55%, #e3f2f7 100%)',
+        background: isGlass
+          ? 'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)'
+          : 'linear-gradient(180deg, #def0f6 0%, #e7f4f9 28%, #e1f2f7 55%, #e3f2f7 100%)',
       }}
     >
       {/* Animated ambient blob layer */}
@@ -144,7 +152,12 @@ export const Home = () => {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.6 }}
-          className="w-full max-w-3xl bg-white/60 backdrop-blur-2xl rounded-[2rem] shadow-lg shadow-brand-500/10 border border-white/60 p-3 transition-all focus-within:shadow-glow focus-within:bg-white/90 z-20"
+          className={cn(
+            "w-full max-w-3xl backdrop-blur-2xl rounded-[2rem] shadow-lg p-3 transition-all focus-within:shadow-glow z-20",
+            isGlass
+              ? "bg-white/8 border border-white/15 shadow-brand-500/5 focus-within:bg-white/12 focus-within:border-white/25"
+              : "bg-white/60 border border-white/60 shadow-brand-500/10 focus-within:bg-white/90"
+          )}
         >
           <textarea
             aria-label="输入消息"
@@ -170,11 +183,16 @@ export const Home = () => {
             <button
               onClick={handleSend}
               disabled={!inputValue.trim()}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 group ${
+              className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 group",
                 inputValue.trim()
-                  ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-md'
-                  : 'bg-slate-200 text-slate-400'
-              }`}
+                  ? isGlass
+                    ? 'bg-brand-500/80 hover:bg-brand-600/90 text-white shadow-md backdrop-blur-sm'
+                    : 'bg-slate-900 hover:bg-slate-800 text-white shadow-md'
+                  : isGlass
+                    ? 'bg-white/10 text-slate-400'
+                    : 'bg-slate-200 text-slate-400'
+              )}
               aria-label="发送消息"
             >
               <SendIcon size={20} className="group-hover:-translate-y-1 group-hover:scale-110" />
@@ -188,7 +206,12 @@ export const Home = () => {
             { text: '帮我分析数据', mode: 'general' },
             { text: '写一封邮件', mode: 'general' },
           ].map((s) => (
-            <button key={s.text} onClick={() => setInputValue(s.text)} className="px-4 py-2 rounded-full text-sm font-medium bg-white/50 backdrop-blur-sm border border-white/40 text-slate-600 hover:bg-white/80 hover:text-slate-900 hover:shadow-sm transition-all">
+            <button key={s.text} onClick={() => setInputValue(s.text)} className={cn(
+              "px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border transition-all",
+              isGlass
+                ? "bg-white/8 border-white/15 text-slate-600 hover:bg-white/15 hover:text-slate-900 hover:shadow-sm"
+                : "bg-white/50 border-white/40 text-slate-600 hover:bg-white/80 hover:text-slate-900 hover:shadow-sm"
+            )}>
               {s.text}
             </button>
           ))}

@@ -7,6 +7,8 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { PasswordInput } from '../components/ui/PasswordInput';
 import { login as loginUser, loginWithCode, sendVerificationCode } from '../services/authService';
+import { useIsGlassTheme } from '../components/liquid-glass';
+import { cn } from '../lib/utils';
 
 const EMAIL_SUFFIXES = [
   '@qq.com', '@163.com', '@126.com', '@gmail.com',
@@ -17,6 +19,7 @@ const EMAIL_SUFFIXES = [
 export const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const isGlass = useIsGlassTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -139,8 +142,17 @@ export const Login = () => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="min-h-screen bg-gradient-to-br from-[#cffafe] via-[#a5f3fc] to-[#22d3ee] relative flex items-center justify-center p-4 selection:bg-zinc-200 selection:text-zinc-900 overflow-hidden"
+      className={cn(
+        "min-h-screen relative flex items-center justify-center p-4 overflow-hidden",
+        isGlass ? "selection:bg-sky-200/60 selection:text-sky-900" : "selection:bg-zinc-200 selection:text-zinc-900 bg-gradient-to-br from-[#cffafe] via-[#a5f3fc] to-[#22d3ee]"
+      )}
+      style={{
+        background: isGlass
+          ? 'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)'
+          : undefined,
+      }}
     >
+      {!isGlass && <div className="absolute inset-0 bg-gradient-to-br from-[#cffafe] via-[#a5f3fc] to-[#22d3ee]" />}
       <motion.button
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -164,7 +176,12 @@ export const Login = () => {
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full bg-[var(--surface-2)] backdrop-blur-2xl rounded-[2rem] shadow-xl shadow-brand-500/10 border border-white/60 p-10"
+          className={cn(
+            "w-full backdrop-blur-2xl rounded-[2rem] shadow-xl p-10",
+            isGlass
+              ? "bg-white/8 border border-white/15 shadow-brand-500/5"
+              : "bg-[var(--surface-2)] border border-white/60 shadow-brand-500/10"
+          )}
         >
           <div className="flex flex-col items-center mb-10">
             <div className="mb-6">
@@ -175,26 +192,28 @@ export const Login = () => {
           </div>
 
           {/* 登录模式切换 */}
-          <div className="flex rounded-xl bg-slate-100/80 p-1 mb-6">
+          <div className={cn("flex rounded-xl p-1 mb-6", isGlass ? "bg-white/8" : "bg-slate-100/80")}>
             <button
               type="button"
               onClick={() => { setLoginMode('password'); setError(null); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+              className={cn(
+                "flex-1 py-2 text-sm font-semibold rounded-lg transition-all",
                 loginMode === 'password'
-                  ? 'bg-white text-slate-900 shadow-sm'
+                  ? isGlass ? 'bg-white/15 text-slate-900 shadow-sm backdrop-blur-sm' : 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
-              }`}
+              )}
             >
               密码登录
             </button>
             <button
               type="button"
               onClick={() => { setLoginMode('code'); setError(null); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${
+              className={cn(
+                "flex-1 py-2 text-sm font-semibold rounded-lg transition-all",
                 loginMode === 'code'
-                  ? 'bg-white text-slate-900 shadow-sm'
+                  ? isGlass ? 'bg-white/15 text-slate-900 shadow-sm backdrop-blur-sm' : 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
-              }`}
+              )}
             >
               验证码登录
             </button>
@@ -225,7 +244,10 @@ export const Login = () => {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden z-50"
+                    className={cn(
+                      "absolute left-0 right-0 top-full mt-1 rounded-xl border shadow-lg overflow-hidden z-50 backdrop-blur-xl",
+                      isGlass ? "bg-white/10 border-white/20" : "bg-white border-slate-200"
+                    )}
                   >
                     {suggestions.map((s, i) => (
                       <button

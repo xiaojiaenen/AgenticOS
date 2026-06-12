@@ -17,9 +17,11 @@ import { MascotCool } from '../components/ui/AnimatedIcons';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { cn, formatNumber, formatTokenNumber, formatLatency } from '../lib/utils';
 import { DashboardStats as DashboardStatsData, getDashboardStats } from '../services/dashboardService';
+import { useIsGlassTheme } from '../components/liquid-glass';
 
 
 export const AdminDashboard = () => {
+ const isGlass = useIsGlassTheme();
  const [activeTab, setActiveTab] = useState('dashboard');
  const [dashboardData, setDashboardData] = useState<DashboardStatsData | null>(null);
  const [dashboardError, setDashboardError] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export const AdminDashboard = () => {
     return (
      <div className="admin-page-stage space-y-5">
       {/* Overview header */}
-      <section className="rounded-lg border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] p-5 shadow-md">
+      <section className={cn("rounded-lg p-5 shadow-md", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm" : "border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)]")}>
        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
          <p className="admin-section-kicker">系统总览</p>
@@ -111,7 +113,7 @@ export const AdminDashboard = () => {
           {isDashboardLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
           刷新
          </Button>
-         <div className="flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white p-0.5 text-xs">
+         <div className={cn("flex items-center gap-1 rounded-xl p-0.5 text-xs", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm" : "bg-white border border-slate-200/80")}>
           {[7, 14, 30].map((d) => (
            <button
             key={d}
@@ -144,7 +146,7 @@ export const AdminDashboard = () => {
 
       {isDashboardLoading && !dashboardData ? (
        <div className="space-y-5">
-        <section className="rounded-lg border border-slate-200/80 bg-[var(--admin-card-bg)] p-6 shadow-md">
+        <section className={cn("rounded-lg p-6 shadow-md", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm" : "border border-slate-200/80 bg-[var(--admin-card-bg)]")}>
          <div className="h-3 w-20 animate-pulse rounded bg-slate-200 mb-4" />
          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[0,1,2,3].map(i => <ChartSkeleton key={i} variant="stat" />)}
@@ -154,10 +156,10 @@ export const AdminDashboard = () => {
          {[0,1,2,3,4].map(i => <ChartSkeleton key={i} variant="stat" />)}
         </section>
         <section className="grid gap-5 lg:grid-cols-2">
-         <div className="rounded-lg border border-slate-200/80 bg-[var(--admin-card-bg)] p-6 shadow-md">
+         <div className={cn("rounded-lg p-6 shadow-md", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm" : "border border-slate-200/80 bg-[var(--admin-card-bg)]")}>
           <ChartSkeleton variant="area" height={220} />
          </div>
-         <div className="rounded-lg border border-slate-200/80 bg-[var(--admin-card-bg)] p-6 shadow-md">
+         <div className={cn("rounded-lg p-6 shadow-md", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm" : "border border-slate-200/80 bg-[var(--admin-card-bg)]")}>
           <ChartSkeleton variant="pie" height={220} />
          </div>
         </section>
@@ -239,7 +241,7 @@ export const AdminDashboard = () => {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       onClick={() => setIsSidebarOpen(true)}
-      className="fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200/80 bg-white text-zinc-800 shadow-sm transition-all hover:bg-white hover:shadow-md"
+      className={cn("fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-lg text-zinc-800 shadow-sm transition-all hover:shadow-md", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm hover:bg-white/12" : "bg-white border border-slate-200/80 hover:bg-white")}
       aria-label="展开侧栏"
      >
       <MascotCool size={24} className="transition-transform hover:scale-110" />
@@ -251,7 +253,7 @@ export const AdminDashboard = () => {
     <button
      type="button"
      onClick={() => setIsSidebarOpen(true)}
-     className="fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200/80 bg-white text-zinc-800 shadow-sm "
+     className={cn("fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-lg text-zinc-800 shadow-sm", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm" : "bg-white border border-slate-200/80")}
      aria-label="展开侧栏"
     >
      <MascotCool size={24} />

@@ -19,6 +19,7 @@ import { getStoredUser } from '../services/authService';
 import { getMyAgents } from '../services/agentProfileService';
 import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
+import { useIsGlassTheme } from '../components/liquid-glass';
 
 export const Chat = () => {
   const location = useLocation();
@@ -96,6 +97,7 @@ export const Chat = () => {
   // ── 拖放 ──
   const { isDragging, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragAndDrop();
   const onDrop = (e: React.DragEvent) => handleDrop(e, (files) => chatInputRef.current?.addFiles(files));
+  const isGlassTheme = useIsGlassTheme();
 
   // ── 制品面板 ──
   const { scrollYProgress } = useScroll({ container: scrollRef });
@@ -312,19 +314,41 @@ export const Chat = () => {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={onDrop}
-      className="flex h-screen text-slate-800 font-sans overflow-hidden selection:bg-zinc-200 selection:text-zinc-900 relative"
-      style={{ background: 'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)' }}
+      className={cn(
+        "flex h-screen font-sans overflow-hidden relative",
+        isGlassTheme
+          ? "text-slate-800 selection:bg-sky-200/60 selection:text-sky-900"
+          : "text-slate-800 selection:bg-zinc-200 selection:text-zinc-900",
+      )}
+      style={{
+        background: isGlassTheme
+          ? 'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)'
+          : 'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)',
+      }}
     >
       <DragOverlay isDragging={isDragging} />
 
       {/* 背景装饰 */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 -left-16 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.12),transparent_70%)] blur-[80px] animate-[bg-blob-1_18s_ease-in-out_infinite]" />
-        <div className="absolute top-8 -right-10 w-[440px] h-[440px] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.10),transparent_70%)] blur-[70px] animate-[bg-blob-2_20s_ease-in-out_infinite]" />
-        <div className="absolute bottom-0 left-1/4 w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.11),transparent_70%)] blur-[80px] animate-[bg-blob-3_17s_ease-in-out_infinite]" />
-        <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(14,165,233,0.07) 1px, transparent 1px)', backgroundSize: '48px 48px', maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.50), rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.16))' }} />
-        <div className="absolute inset-0 bg-[linear-gradient(108deg,transparent_38%,rgba(255,255,255,0.14)_50%,transparent_64%)] animate-[bg-drift-slow_20s_ease-in-out_infinite]" />
-        <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.02]" />
+        {isGlassTheme ? (
+          <>
+            <div className="absolute top-0 -left-16 w-[600px] h-[600px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.15),transparent_70%)] blur-[100px] animate-[bg-blob-1_18s_ease-in-out_infinite]" />
+            <div className="absolute top-8 -right-10 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.12),transparent_70%)] blur-[90px] animate-[bg-blob-2_20s_ease-in-out_infinite]" />
+            <div className="absolute bottom-0 left-1/4 w-[480px] h-[480px] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.14),transparent_70%)] blur-[100px] animate-[bg-blob-3_17s_ease-in-out_infinite]" />
+            <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(14,165,233,0.07) 1px, transparent 1px)', backgroundSize: '48px 48px', maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.50), rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.16))' }} />
+            <div className="absolute inset-0 bg-[linear-gradient(108deg,transparent_38%,rgba(255,255,255,0.14)_50%,transparent_64%)] animate-[bg-drift-slow_20s_ease-in-out_infinite]" />
+            <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.02]" />
+          </>
+        ) : (
+          <>
+            <div className="absolute top-0 -left-16 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.12),transparent_70%)] blur-[80px] animate-[bg-blob-1_18s_ease-in-out_infinite]" />
+            <div className="absolute top-8 -right-10 w-[440px] h-[440px] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.10),transparent_70%)] blur-[70px] animate-[bg-blob-2_20s_ease-in-out_infinite]" />
+            <div className="absolute bottom-0 left-1/4 w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.11),transparent_70%)] blur-[80px] animate-[bg-blob-3_17s_ease-in-out_infinite]" />
+            <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(14,165,233,0.07) 1px, transparent 1px)', backgroundSize: '48px 48px', maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.50), rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.16))' }} />
+            <div className="absolute inset-0 bg-[linear-gradient(108deg,transparent_38%,rgba(255,255,255,0.14)_50%,transparent_64%)] animate-[bg-drift-slow_20s_ease-in-out_infinite]" />
+            <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.02]" />
+          </>
+        )}
       </div>
 
       {/* 移动端侧边栏遮罩 */}
@@ -366,7 +390,12 @@ export const Chat = () => {
           <motion.button
             initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
             onClick={() => { setIsSidebarOpen(true); setIsSidebarHiddenByArtifact(false); }}
-            className="fixed top-4 left-4 z-50 w-12 h-12 bg-white/80 backdrop-blur-md border border-slate-200 rounded-2xl shadow-sm flex items-center justify-center text-zinc-800 hover:bg-white hover:shadow-md transition-all group focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
+            className={cn(
+              "fixed top-4 left-4 z-50 w-12 h-12 backdrop-blur-md border rounded-2xl shadow-sm flex items-center justify-center transition-all group focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2",
+              isGlassTheme
+                ? "bg-white/10 border-white/15 text-zinc-800 hover:bg-white/15 hover:shadow-md backdrop-blur-sm"
+                : "bg-white/80 border-slate-200 text-zinc-800 hover:bg-white hover:shadow-md"
+            )}
             aria-label="展开侧边栏"
           >
             <MascotCool size={24} className="group-hover:scale-110 transition-transform" />

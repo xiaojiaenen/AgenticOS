@@ -12,6 +12,8 @@ import { AlertCircleIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
 import { useChat } from '../../contexts/ChatContext';
 import { useChatStore } from '../../stores/chatStore';
 import { cn } from '../../lib/utils';
+import { useIsGlassTheme } from '../liquid-glass';
+import { LiquidGlass, glassPresets, radii } from '@xiaojiaenen/liquid-glass';
 
 export const ChatMainArea = React.memo(() => {
   // 从 Context 获取 hook 返回值和派生状态
@@ -35,6 +37,8 @@ export const ChatMainArea = React.memo(() => {
     agentProfiles, selectedAgentProfileId,
     isMobile,
   } = useChatStore();
+
+  const isGlass = useIsGlassTheme();
 
   return (
     <>
@@ -91,26 +95,48 @@ export const ChatMainArea = React.memo(() => {
 
           {/* 右下角浮动工具栏 */}
           <div className="fixed right-6 bottom-24 flex flex-col gap-3 z-40">
-            <button
-              onClick={() => setShowSearch(!showSearch)}
-              className={cn(
-                "w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg backdrop-blur-md border hover:scale-105 active:scale-95",
-                showSearch
-                  ? "bg-zinc-900 text-white border-zinc-800"
-                  : "bg-white/80 text-slate-600 border-white/60 hover:bg-white"
-              )}
-              aria-label="切换搜索"
-            >
-              <div className={cn("transition-transform duration-500", showSearch && "rotate-90")}>
-                {showSearch ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-                  </svg>
+            {isGlass ? (
+              <LiquidGlass
+                as="button"
+                {...glassPresets.control}
+                tint={showSearch ? "rgba(10,132,255,0.15)" : "rgba(255,255,255,0.08)"}
+                radius={radii.card}
+                onClick={() => setShowSearch(!showSearch)}
+                aria-label="切换搜索"
+                style={{ width: 48, height: 48, display: 'grid', placeItems: 'center' }}
+              >
+                <div className={cn("transition-transform duration-500", showSearch && "rotate-90")}>
+                  {showSearch ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                    </svg>
+                  )}
+                </div>
+              </LiquidGlass>
+            ) : (
+              <button
+                onClick={() => setShowSearch(!showSearch)}
+                className={cn(
+                  "w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg backdrop-blur-md border hover:scale-105 active:scale-95",
+                  showSearch
+                    ? "bg-zinc-900 text-white border-zinc-800"
+                    : "bg-white/80 text-slate-600 border-white/60 hover:bg-white"
                 )}
-              </div>
-            </button>
+                aria-label="切换搜索"
+              >
+                <div className={cn("transition-transform duration-500", showSearch && "rotate-90")}>
+                  {showSearch ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                    </svg>
+                  )}
+                </div>
+              </button>
+            )}
           </div>
 
           {/* 错误提示 */}
@@ -118,7 +144,12 @@ export const ChatMainArea = React.memo(() => {
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-                className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl shadow-lg"
+                className={cn(
+                  "absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-lg border",
+                  isGlass
+                    ? "bg-red-50 border-red-200 text-red-700"
+                    : "bg-red-50 border-red-200 text-red-700"
+                )}
               >
                 <AlertCircleIcon size={18} />
                 <span className="text-sm font-medium">{error}</span>
@@ -151,6 +182,19 @@ export const ChatMainArea = React.memo(() => {
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
               className="absolute -top-4 left-0 right-0 flex justify-center z-30"
             >
+              {isGlass ? (
+                <LiquidGlass
+                  as="button"
+                  {...glassPresets.pill}
+                  tint="rgba(255,255,255,0.08)"
+                  radius={999}
+                  onClick={handleJumpToBottom}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 24px' }}
+                >
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">回到底部</span>
+                  <ChevronDownIcon size={12} />
+                </LiquidGlass>
+              ) : (
               <button
                 onClick={handleJumpToBottom}
                 className="flex items-center gap-2 px-6 py-1.5 bg-zinc-900/90 backdrop-blur-2xl text-white rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl border border-white/10 hover:bg-zinc-800 transition-all active:scale-95 group"
@@ -158,6 +202,7 @@ export const ChatMainArea = React.memo(() => {
                 <span>回到底部</span>
                 <ChevronDownIcon size={12} className="group-hover:translate-y-0.5 transition-transform" />
               </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -179,7 +224,7 @@ export const ChatMainArea = React.memo(() => {
             onAgentProfileChange={onAgentProfileChange}
             isModeLocked={isModeLocked}
           />
-          <div className="mt-3 flex min-h-9 items-center justify-center gap-2 text-xs font-medium text-slate-400">
+          <div className={cn("mt-3 flex min-h-9 items-center justify-center gap-2 text-xs font-medium", isGlass ? "text-slate-500" : "text-slate-400")}>
             {isLoading ? (
               <MascotState
                 phase={
