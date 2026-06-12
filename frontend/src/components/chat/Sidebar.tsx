@@ -3,8 +3,8 @@ import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { LiquidGlass, glassPresets, radii } from '@xiaojiaenen/liquid-glass';
 
-// 使用 radii.control 确保圆角一致性
-const glassRadius = radii.control; // 12px
+// 圆角值，与管理后台按钮 rounded-xl 视觉效果一致
+const glassRadius = 16;
 import { Session } from '../../types';
 import { cn } from '../../lib/utils';
 import { Logo } from '../Logo';
