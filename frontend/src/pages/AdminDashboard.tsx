@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Activity, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { LiquidGlass, glassPresets } from '@xiaojiaenen/liquid-glass';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
 import { AnnouncementManagement } from '../components/admin/AnnouncementManagement';
 import { AgentManagement } from '../components/admin/AgentManagement';
@@ -93,49 +94,78 @@ export const AdminDashboard = () => {
   ];
  }, [dashboardData]);
 
+ // 液态玻璃卡片包装组件
+ const GlassCard: React.FC<{ children: React.ReactNode; className?: string; style?: React.CSSProperties }> = ({ children, className, style }) => {
+  if (isGlass) {
+    return (
+      <LiquidGlass
+        {...glassPresets.card}
+        tint="rgba(255,255,255,0.06)"
+        radius={12}
+        className={className}
+        style={style}
+      >
+        {children}
+      </LiquidGlass>
+    );
+  }
+  return <section className={cn("border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)]", className)} style={style}>{children}</section>;
+ };
+
  const renderContent = () => {
   switch (activeTab) {
    case 'dashboard':
     return (
      <div className="admin-page-stage space-y-5">
       {/* Overview header */}
-      <section className={cn("rounded-lg p-5 shadow-md", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm" : "border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)]")}>
+      <GlassCard className="p-5">
        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-         <p className="admin-section-kicker">系统总览</p>
-         <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-950 lg:text-3xl">后台数据看板</h1>
+         <p className={cn("admin-section-kicker", isGlass && "text-gray-400")}>系统总览</p>
+         <h1 className={cn("mt-1.5 text-2xl font-semibold tracking-tight lg:text-3xl", isGlass ? "text-white" : "text-slate-950")}>后台数据看板</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-         <div className="admin-kpi-pill text-xs font-semibold">
+         <div className={cn("admin-kpi-pill text-xs font-semibold", isGlass && "bg-white/10 text-gray-300")}>
           {isDashboardLoading ? '正在同步数据' : '数据已同步'}
          </div>
          <Button variant="secondary" onClick={loadDashboard} disabled={isDashboardLoading} className="gap-1.5" size="sm">
           {isDashboardLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
           刷新
          </Button>
-         <div className={cn("flex items-center gap-1 rounded-xl p-0.5 text-xs", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm" : "bg-white border border-slate-200/80")}>
+         <LiquidGlass
+           {...glassPresets.control}
+           tint="rgba(255,255,255,0.08)"
+           radius={12}
+           style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px' }}
+         >
           {[7, 14, 30].map((d) => (
            <button
             key={d}
             onClick={() => setTimeRange(d)}
-            className={`rounded-lg px-2.5 py-1 font-medium transition-colors ${timeRange === d ? "bg-[var(--admin-accent)] text-white" : "text-slate-500 hover:text-slate-700"}`}
+            className={`rounded-lg px-2.5 py-1 font-medium transition-colors ${timeRange === d ? "bg-[var(--admin-accent)] text-white" : isGlass ? "text-gray-400 hover:text-white" : "text-slate-500 hover:text-slate-700"}`}
            >
             {d}天
            </button>
           ))}
-         </div>
+         </LiquidGlass>
         </div>
        </div>
        {/* Quick insights */}
        <div className="mt-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
         {headerInsights.map((item) => (
-         <div key={item.label} className="admin-stat-card rounded-xl px-4 py-3">
-          <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-400">{item.label}</p>
-          <p className="mt-1.5 text-lg font-semibold tracking-tight text-slate-950">{item.value}</p>
-         </div>
+         <LiquidGlass
+           key={item.label}
+           {...glassPresets.control}
+           tint="rgba(255,255,255,0.04)"
+           radius={12}
+           style={{ padding: '12px 16px' }}
+         >
+          <p className={cn("text-[11px] font-semibold tracking-[0.08em]", isGlass ? "text-gray-400" : "text-slate-400")}>{item.label}</p>
+          <p className={cn("mt-1.5 text-lg font-semibold tracking-tight", isGlass ? "text-white" : "text-slate-950")}>{item.value}</p>
+         </LiquidGlass>
         ))}
        </div>
-      </section>
+      </GlassCard>
 
       {dashboardError && (
        <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
@@ -146,22 +176,22 @@ export const AdminDashboard = () => {
 
       {isDashboardLoading && !dashboardData ? (
        <div className="space-y-5">
-        <section className={cn("rounded-lg p-6 shadow-md", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm" : "border border-slate-200/80 bg-[var(--admin-card-bg)]")}>
-         <div className="h-3 w-20 animate-pulse rounded bg-slate-200 mb-4" />
+        <GlassCard className="p-6">
+         <div className={cn("h-3 w-20 animate-pulse rounded mb-4", isGlass ? "bg-white/20" : "bg-slate-200")} />
          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[0,1,2,3].map(i => <ChartSkeleton key={i} variant="stat" />)}
          </div>
-        </section>
+        </GlassCard>
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
          {[0,1,2,3,4].map(i => <ChartSkeleton key={i} variant="stat" />)}
         </section>
         <section className="grid gap-5 lg:grid-cols-2">
-         <div className={cn("rounded-lg p-6 shadow-md", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm" : "border border-slate-200/80 bg-[var(--admin-card-bg)]")}>
+         <GlassCard className="p-6">
           <ChartSkeleton variant="area" height={220} />
-         </div>
-         <div className={cn("rounded-lg p-6 shadow-md", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm" : "border border-slate-200/80 bg-[var(--admin-card-bg)]")}>
+         </GlassCard>
+         <GlassCard className="p-6">
           <ChartSkeleton variant="pie" height={220} />
-         </div>
+         </GlassCard>
         </section>
        </div>
       ) : dashboardData ? (
