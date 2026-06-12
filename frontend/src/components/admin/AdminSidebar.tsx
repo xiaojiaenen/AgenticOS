@@ -2,10 +2,12 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart3, BellRing, Bot, Brain, LogOut, MessageCircle, MessageSquare, Plug, Puzzle, Users } from 'lucide-react';
+import { LiquidGlass, glassPresets } from '@xiaojiaenen/liquid-glass';
 import { Logo } from '../Logo';
 import { MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
 import { getStoredUser, logout } from '../../services/authService';
 import { cn } from '../../lib/utils';
+import { useIsGlassTheme } from '../liquid-glass';
 
 interface AdminSidebarProps {
  activeTab: string;
@@ -29,6 +31,7 @@ const navItems = [
 export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isOpen, onClose }: AdminSidebarProps) => {
  const navigate = useNavigate();
  const user = getStoredUser();
+ const isGlass = useIsGlassTheme();
 
  const handleSelect = (tab: string) => {
   setActiveTab(tab);
@@ -56,12 +59,15 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
   >
    <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-br from-[var(--admin-accent-soft)] to-transparent" />
 
-   <div className="relative z-10 flex items-center justify-between border-b border-slate-200/80 px-4 py-4">
+   <div className={cn("relative z-10 flex items-center justify-between border-b px-4 py-4", isGlass ? "border-white/10" : "border-slate-200/80")}>
     <Logo iconSize={22} className="text-lg" />
     <button
      type="button"
      onClick={onClose}
-     className="rounded-xl p-2 text-slate-400 transition-all hover:bg-white hover:text-slate-700 hover:shadow-sm active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
+     className={cn(
+      "rounded-xl p-2 transition-all active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2",
+      isGlass ? "text-gray-400 hover:bg-white/10 hover:text-white" : "text-slate-400 hover:bg-white hover:text-slate-700 hover:shadow-sm"
+     )}
      aria-label="关闭导航"
     >
      <MenuIcon size={20} />
@@ -80,13 +86,18 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
         whileTap={{ scale: 0.985 }}
         className={cn(
          'admin-nav-item focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2',
-         active ? 'admin-nav-item-active text-zinc-900' : 'text-slate-600 hover:text-slate-900',
+         active
+          ? isGlass ? 'admin-nav-item-active text-white' : 'admin-nav-item-active text-zinc-900'
+          : isGlass ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-900',
         )}
        >
         {active && (
          <motion.span
           layoutId="admin-active-nav"
-          className="absolute inset-0 rounded-lg bg-[var(--admin-card-bg)] border-l-3 border-l-[var(--admin-accent)] shadow-md"
+          className={cn(
+           "absolute inset-0 rounded-lg border-l-3 shadow-md",
+           isGlass ? "bg-white/10 border-l-sky-400" : "bg-[var(--admin-card-bg)] border-l-[var(--admin-accent)]"
+          )}
           transition={{ type: 'spring', damping: 28, stiffness: 380 }}
          />
         )}
@@ -94,15 +105,15 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
          className={cn(
           'admin-nav-icon',
           active
-           ? 'border-zinc-900 bg-zinc-900 text-white shadow-button'
-           : 'border-slate-200/80 bg-white/80 text-slate-500 group-hover:text-slate-700',
+           ? isGlass ? 'border-sky-400 bg-sky-400 text-white shadow-button' : 'border-zinc-900 bg-zinc-900 text-white shadow-button'
+           : isGlass ? 'border-white/20 bg-white/10 text-gray-400 group-hover:text-white' : 'border-slate-200/80 bg-white/80 text-slate-500 group-hover:text-slate-700',
          )}
         >
          <item.icon size={18} />
         </div>
         <div className="relative min-w-0">
          <p className="truncate text-sm font-semibold">{item.label}</p>
-         <p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-slate-400">{item.description}</p>
+         <p className={cn("mt-1 line-clamp-2 text-xs font-medium leading-5", isGlass ? "text-gray-500" : "text-slate-400")}>{item.description}</p>
         </div>
         {active && (
          <motion.div
@@ -117,28 +128,40 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
     </div>
    </div>
 
-   <div className="relative z-10 space-y-3 border-t border-slate-200/80 p-4">
+   <div className={cn("relative z-10 space-y-3 border-t p-4", isGlass ? "border-white/10" : "border-slate-200/80")}>
     <button
      type="button"
      onClick={() => navigate('/chat')}
-     className="flex w-full items-center gap-3 rounded-lg bg-zinc-900 px-3 py-2.5 text-sm font-medium text-white shadow-lg transition-all hover:bg-zinc-800 hover:shadow-button focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
+     className={cn(
+      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium shadow-lg transition-all focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2",
+      isGlass ? "bg-white/10 text-white hover:bg-white/15" : "bg-zinc-900 text-white hover:bg-zinc-800 hover:shadow-button"
+     )}
     >
      <MessageCircle size={18} />
      进入对话
     </button>
 
-    <div className="flex items-center gap-3 rounded-lg border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] p-2.5 shadow-sm transition-all hover:shadow-md">
-     <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-200 bg-[linear-gradient(135deg,rgba(15,23,42,0.06),rgba(255,255,255,0.9))] text-zinc-600 shadow-sm">
+    <div className={cn(
+     "flex items-center gap-3 rounded-lg p-2.5 shadow-sm transition-all hover:shadow-md",
+     isGlass ? "border border-white/10 bg-white/5" : "border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)]"
+    )}>
+     <div className={cn(
+      "flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm",
+      isGlass ? "border border-white/20 bg-white/10 text-gray-300" : "border border-zinc-200 bg-[linear-gradient(135deg,rgba(15,23,42,0.06),rgba(255,255,255,0.9))] text-zinc-600"
+     )}>
       <UserAvatarIcon size={20} />
      </div>
      <div className="min-w-0 flex-1">
-      <p className="truncate text-xs font-medium text-slate-800">{user?.name || 'AgenticOS User'}</p>
-      <p className="truncate text-[10px] font-medium text-slate-400">{user?.email || 'signed in'}</p>
+      <p className={cn("truncate text-xs font-medium", isGlass ? "text-white" : "text-slate-800")}>{user?.name || 'AgenticOS User'}</p>
+      <p className={cn("truncate text-[10px] font-medium", isGlass ? "text-gray-400" : "text-slate-400")}>{user?.email || 'signed in'}</p>
      </div>
      <button
       type="button"
       onClick={handleLogout}
-      className="rounded-xl p-2 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-500 hover:scale-110 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2"
+      className={cn(
+       "rounded-xl p-2 transition-all hover:scale-110 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2",
+       isGlass ? "text-gray-400 hover:bg-rose-500/20 hover:text-rose-400" : "text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+      )}
       title="退出登录"
       aria-label="退出登录"
      >
