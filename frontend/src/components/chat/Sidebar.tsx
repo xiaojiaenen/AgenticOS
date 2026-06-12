@@ -3,8 +3,8 @@ import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { LiquidGlass, glassPresets, radii } from '@xiaojiaenen/liquid-glass';
 
-// 圆角值，与管理后台按钮 rounded-xl 视觉效果一致
-const glassRadius = 16;
+// 圆角值，与浅色模式 rounded-xl 一致
+const glassRadius = 12;
 import { Session } from '../../types';
 import { cn } from '../../lib/utils';
 import { Logo } from '../Logo';
@@ -72,7 +72,7 @@ export const Sidebar = React.memo(({
             tint="rgba(255,255,255,0.08)"
             radius={glassRadius}
             onClick={onNewChat}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)' }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', cursor: 'pointer' }}
           >
             <PlusIcon size={18} className="group-hover:rotate-90" /> 新的对话
           </LiquidGlass>
@@ -128,7 +128,6 @@ export const Sidebar = React.memo(({
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '12px', cursor: 'pointer', marginBottom: 4,
                   fontWeight: isActive ? 700 : 500, color: isActive ? '#18181b' : '#475569',
-                  border: isActive ? '1px solid rgba(255,255,255,0.25)' : '1px solid transparent',
                 }}
               >
                 {sessionInner}
