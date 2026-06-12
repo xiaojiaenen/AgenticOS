@@ -17,7 +17,7 @@ import { MascotCool } from '../components/ui/AnimatedIcons';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { cn, formatNumber, formatTokenNumber, formatLatency } from '../lib/utils';
 import { DashboardStats as DashboardStatsData, getDashboardStats } from '../services/dashboardService';
-import { useIsGlassTheme } from '../components/liquid-glass';
+import { useIsGlassTheme, LightRays } from '../components/liquid-glass';
 
 
 export const AdminDashboard = () => {
@@ -198,16 +198,39 @@ export const AdminDashboard = () => {
    animate={{ opacity: 1, y: 0 }}
    exit={{ opacity: 0, y: -6 }}
    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-   className="admin-dashboard-shell relative flex h-screen overflow-hidden font-sans text-slate-800 "
+   className={cn(
+     "admin-dashboard-shell relative flex h-screen overflow-hidden font-sans",
+     isGlass ? "text-white" : "text-slate-800"
+   )}
+   style={{
+     background: isGlass ? '#000000' : undefined,
+   }}
   >
    <div className="admin-dashboard-backdrop pointer-events-none">
-    {/* Animated blobs — professional, deeper tones */}
-    {/* blob removed */}
-    {/* blob removed */}
-    {/* blob removed */}
+    {isGlass ? (
+      <LightRays
+        raysOrigin="top-center"
+        raysColor="#4a9eff"
+        raysSpeed={0.8}
+        lightSpread={1.5}
+        rayLength={3}
+        fadeDistance={1.5}
+        saturation={0.6}
+        followMouse={true}
+        mouseInfluence={0.1}
+        noiseAmount={0.05}
+      />
+    ) : (
+      <>
+        {/* Animated blobs — professional, deeper tones */}
+        {/* blob removed */}
+        {/* blob removed */}
+        {/* blob removed */}
 
-    {/* mascot removed */}
-    {/* mascot removed */}
+        {/* mascot removed */}
+        {/* mascot removed */}
+      </>
+    )}
    </div>
 
    <AnimatePresence>
