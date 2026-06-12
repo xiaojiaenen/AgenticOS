@@ -289,6 +289,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                 hasStructuredContent ? "w-full" : "w-fit", !isUser && isStreaming && "min-h-[3.5rem] min-w-[10rem]",
                 isUser ? "bg-[var(--bubble-user)] text-[var(--bubble-user-text)] rounded-tr-none shadow-lg hover:shadow-xl" : "bg-[var(--bubble-ai)] backdrop-blur-xl text-slate-800 rounded-tl-none border border-slate-100 hover:bg-white shadow-xs")}>
 
+
             {!isUser && message?.toolCalls && message.toolCalls.length > 0 && config.enableSearch && (
               <div className="mb-1 w-full text-left">
                 <details className="group [&_summary::-webkit-details-marker]:hidden">
