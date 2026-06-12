@@ -17,7 +17,7 @@ import { MascotCool } from '../components/ui/AnimatedIcons';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { cn, formatNumber, formatTokenNumber, formatLatency } from '../lib/utils';
 import { DashboardStats as DashboardStatsData, getDashboardStats } from '../services/dashboardService';
-import { useIsGlassTheme, LightRays } from '../components/liquid-glass';
+import { useIsGlassTheme, Ferrofluid } from '../components/liquid-glass';
 
 
 export const AdminDashboard = () => {
@@ -208,17 +208,22 @@ export const AdminDashboard = () => {
   >
    <div className="admin-dashboard-backdrop pointer-events-none">
     {isGlass ? (
-      <LightRays
-        raysOrigin="top-center"
-        raysColor="#4a9eff"
-        raysSpeed={0.8}
-        lightSpread={1.5}
-        rayLength={3}
-        fadeDistance={1.5}
-        saturation={0.6}
-        followMouse={true}
-        mouseInfluence={0.1}
-        noiseAmount={0.05}
+      <Ferrofluid
+        colors={['#1a1a2e', '#16213e', '#0f3460']}
+        speed={0.3}
+        scale={1.2}
+        turbulence={0.8}
+        fluidity={0.15}
+        rimWidth={0.15}
+        sharpness={2}
+        shimmer={1}
+        glow={1.5}
+        flowDirection="down"
+        opacity={0.6}
+        mouseInteraction={true}
+        mouseStrength={0.8}
+        mouseRadius={0.3}
+        mouseDampening={0.2}
       />
     ) : (
       <>
