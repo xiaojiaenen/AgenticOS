@@ -1,15 +1,8 @@
 import React, { useState } from 'react';
-import { Sun, Moon, Monitor, Droplets } from 'lucide-react';
+import { Sun, Droplets } from 'lucide-react';
 import { useTheme, Theme } from '../../hooks/useTheme';
 import { cn } from '../../lib/utils';
 import { ThemeConfirmModal } from './ThemeConfirmModal';
-
-const themeConfig: Record<Theme, { icon: React.ElementType; label: string }> = {
-  light: { icon: Sun, label: '浅色模式' },
-  dark: { icon: Moon, label: '深色模式' },
-  'liquid-glass': { icon: Droplets, label: '液态玻璃' },
-  system: { icon: Monitor, label: '跟随系统' },
-};
 
 interface ThemeToggleProps {
   variant?: 'icon' | 'full';
@@ -17,20 +10,15 @@ interface ThemeToggleProps {
 }
 
 export const ThemeToggle: React.FC<ThemeToggleProps> = ({ variant = 'icon', className }) => {
-  const { theme, setTheme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Override toggleTheme to intercept liquid-glass transition
   const handleToggle = () => {
-    const order: Theme[] = ['light', 'dark', 'liquid-glass', 'system'];
-    const idx = order.indexOf(theme);
-    const nextTheme = order[(idx + 1) % order.length];
-
-    if (nextTheme === 'liquid-glass') {
+    if (theme === 'liquid-glass') {
+      setTheme('light');
+    } else {
       setShowConfirm(true);
-      return;
     }
-    toggleTheme();
   };
 
   const handleConfirm = () => {
@@ -38,7 +26,9 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ variant = 'icon', clas
     setTheme('liquid-glass');
   };
 
-  const { icon: Icon, label } = themeConfig[theme] ?? themeConfig.system;
+  const isGlass = theme === 'liquid-glass';
+  const Icon = isGlass ? Droplets : Sun;
+  const label = isGlass ? '液态玻璃' : '浅色模式';
 
   if (variant === 'icon') {
     return (
@@ -47,8 +37,10 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ variant = 'icon', clas
           type="button"
           onClick={handleToggle}
           className={cn(
-            'flex items-center justify-center rounded-xl p-2 text-slate-500 transition-all hover:bg-white/60 hover:text-slate-700 hover:shadow-sm active:scale-90',
-            theme === 'liquid-glass' && 'text-brand-600 hover:text-brand-700 hover:bg-white/10',
+            'flex items-center justify-center rounded-xl p-2 transition-all active:scale-90',
+            isGlass
+              ? 'text-sky-300 hover:text-sky-200 hover:bg-white/10'
+              : 'text-slate-500 hover:bg-white/60 hover:text-slate-700 hover:shadow-sm',
             className,
           )}
           title={`当前：${label}，点击切换`}
@@ -71,8 +63,10 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ variant = 'icon', clas
         type="button"
         onClick={handleToggle}
         className={cn(
-          'flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-slate-500 transition-all hover:bg-white/60 hover:text-slate-700 hover:shadow-sm active:scale-95',
-          theme === 'liquid-glass' && 'text-sky-300 hover:text-sky-200 hover:bg-white/10',
+          'flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition-all active:scale-95',
+          isGlass
+            ? 'text-sky-300 hover:text-sky-200 hover:bg-white/10'
+            : 'text-slate-500 hover:bg-white/60 hover:text-slate-700 hover:shadow-sm',
           className,
         )}
         aria-label={`切换主题，当前：${label}`}
