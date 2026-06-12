@@ -207,7 +207,7 @@ export const AdminDashboard = () => {
    }}
   >
    <div className="admin-dashboard-backdrop pointer-events-none">
-    {isGlass ? (
+    {isGlass && (
       <Ferrofluid
         colors={['#1a1a2e', '#16213e', '#0f3460']}
         speed={0.3}
@@ -225,16 +225,6 @@ export const AdminDashboard = () => {
         mouseRadius={0.3}
         mouseDampening={0.2}
       />
-    ) : (
-      <>
-        {/* Animated blobs — professional, deeper tones */}
-        {/* blob removed */}
-        {/* blob removed */}
-        {/* blob removed */}
-
-        {/* mascot removed */}
-        {/* mascot removed */}
-      </>
     )}
    </div>
 
