@@ -136,8 +136,8 @@ html.theme-liquid-glass {
 }
 
 html.theme-liquid-glass body {
-  background: linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%);
-  color: #1e293b;
+  background: #000000;
+  color: #ffffff;
 }
 
 html.theme-liquid-glass .prose p,

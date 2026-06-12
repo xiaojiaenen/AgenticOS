@@ -32,8 +32,12 @@ interface DashboardChartsProps {
 
 
 function EmptyPanel({ label }: { label: string }) {
+ const isGlass = useIsGlassTheme();
  return (
-  <div className="flex h-full min-h-[200px] items-center justify-center rounded-lg border border-dashed border-slate-200/80 bg-white/30 text-sm font-medium text-slate-500">
+  <div className={cn(
+   "flex h-full min-h-[200px] items-center justify-center rounded-lg border border-dashed text-sm font-medium",
+   isGlass ? "border-white/20 bg-white/5 text-gray-400" : "border-slate-200/80 bg-white/30 text-slate-500"
+  )}>
    {label}
   </div>
  );
@@ -50,15 +54,19 @@ function PanelHeader({
  title: string;
  extra?: React.ReactNode;
 }) {
+ const isGlass = useIsGlassTheme();
  return (
   <div className="mb-5 flex items-start justify-between gap-4">
    <div className="flex items-center gap-3">
-    <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-900 shadow-sm">
+    <div className={cn(
+     "flex h-11 w-11 items-center justify-center rounded-lg shadow-sm",
+     isGlass ? "bg-white/10 text-white border border-white/15" : "border border-slate-200 bg-white text-slate-900"
+    )}>
      <Icon size={20} />
     </div>
     <div>
-     <p className="admin-section-kicker">{kicker}</p>
-     <h3 className="mt-1 text-[22px] font-semibold tracking-tight text-slate-950">{title}</h3>
+     <p className={cn("admin-section-kicker", isGlass && "text-gray-400")}>{kicker}</p>
+     <h3 className={cn("mt-1 text-[22px] font-semibold tracking-tight", isGlass ? "text-white" : "text-slate-950")}>{title}</h3>
     </div>
    </div>
    {extra}
