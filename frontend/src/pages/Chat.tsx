@@ -333,14 +333,15 @@ export const Chat = () => {
         {isGlassTheme ? (
           <LightRays
             raysOrigin="top-center"
-            raysColor="#64b4ff"
-            raysSpeed={1.5}
-            lightSpread={1.2}
-            rayLength={2.5}
-            fadeDistance={1.2}
-            saturation={0.8}
+            raysColor="#4a9eff"
+            raysSpeed={0.8}
+            lightSpread={1.5}
+            rayLength={3}
+            fadeDistance={1.5}
+            saturation={0.6}
             followMouse={true}
-            mouseInfluence={0.15}
+            mouseInfluence={0.1}
+            noiseAmount={0.05}
           />
         ) : (
           <>

@@ -16,6 +16,56 @@ import { Modal, ModalHeader, ModalFooter } from '../ui/Modal';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { useIsGlassTheme } from '../liquid-glass';
 
+// 会话项组件（液态玻璃主题下，鼠标悬停时显示玻璃效果）
+const SessionItemGlass: React.FC<{
+  isActive: boolean;
+  onClick: () => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  children: React.ReactNode;
+}> = ({ isActive, onClick, onKeyDown, children }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  if (isHovered || isActive) {
+    return (
+      <LiquidGlass
+        {...glassPresets.control}
+        tint={isActive ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)"}
+        radius={glassRadius}
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={onKeyDown}
+        aria-current={isActive ? 'page' : undefined}
+        className="rounded-xl"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px', cursor: 'pointer', marginBottom: 4,
+          fontWeight: isActive ? 700 : 500, color: '#ffffff',
+        }}
+      >
+        {children}
+      </LiquidGlass>
+    );
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={onKeyDown}
+      aria-current={isActive ? 'page' : undefined}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all text-gray-400 hover:text-white font-medium"
+    >
+      {children}
+    </div>
+  );
+};
+
 interface SidebarProps {
   sessions: Session[];
   currentSessionId: string | null;
@@ -115,25 +165,14 @@ export const Sidebar = React.memo(({
 
           if (isGlass) {
             return (
-              <LiquidGlass
+              <SessionItemGlass
                 key={session.id}
-                {...glassPresets.control}
-                tint={isActive ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.01)"}
-                radius={glassRadius}
-                role="button"
-                tabIndex={0}
+                isActive={isActive}
                 onClick={() => onSelectSession(session.id)}
                 onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectSession(session.id); } }}
-                aria-current={isActive ? 'page' : undefined}
-                className="rounded-xl"
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px', cursor: 'pointer', marginBottom: 4,
-                  fontWeight: isActive ? 700 : 500, color: isActive ? '#18181b' : '#475569',
-                }}
               >
                 {sessionInner}
-              </LiquidGlass>
+              </SessionItemGlass>
             );
           }
 
@@ -186,7 +225,7 @@ export const Sidebar = React.memo(({
           onClick={() => navigate('/agents')}
           className={cn(
             "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors font-bold text-sm",
-            isGlass ? "text-slate-700 hover:bg-white/10 hover:text-slate-900" : "text-slate-700 hover:bg-slate-50"
+            isGlass ? "text-gray-300 hover:bg-white/10 hover:text-white" : "text-slate-700 hover:bg-slate-50"
           )}
           aria-label="智能体商店"
         >
@@ -197,7 +236,7 @@ export const Sidebar = React.memo(({
           onClick={() => setShowMarket(true)}
           className={cn(
             "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors font-bold text-sm",
-            isGlass ? "text-slate-700 hover:bg-white/10 hover:text-slate-900" : "text-slate-700 hover:bg-sky-50/60"
+            isGlass ? "text-gray-300 hover:bg-white/10 hover:text-white" : "text-slate-700 hover:bg-sky-50/60"
           )}
           aria-label="集成市场"
         >
@@ -208,7 +247,7 @@ export const Sidebar = React.memo(({
           onClick={() => setShowEmailSettings(true)}
           className={cn(
             "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors font-bold text-sm",
-            isGlass ? "text-slate-700 hover:bg-white/10 hover:text-slate-900" : "text-slate-700 hover:bg-sky-50/60"
+            isGlass ? "text-gray-300 hover:bg-white/10 hover:text-white" : "text-slate-700 hover:bg-sky-50/60"
           )}
           aria-label="邮箱设置"
         >
@@ -221,7 +260,7 @@ export const Sidebar = React.memo(({
             className={cn(
               "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors shadow-sm font-bold text-sm",
               isGlass
-                ? "bg-white/10 text-slate-800 hover:bg-white/15 border border-white/15 backdrop-blur-sm"
+                ? "bg-white/10 text-white hover:bg-white/15 border border-white/15 backdrop-blur-sm"
                 : "bg-zinc-900 text-white hover:bg-zinc-800"
             )}
             aria-label="管理后台"
@@ -233,20 +272,20 @@ export const Sidebar = React.memo(({
         {/* 主题切换 */}
         <ThemeToggle variant="full" className={cn(
           "w-full justify-start",
-          isGlass ? "text-slate-700 hover:bg-white/10 hover:text-slate-900" : "text-slate-700 hover:bg-slate-50"
+          isGlass ? "text-gray-300 hover:bg-white/10 hover:text-white" : "text-slate-700 hover:bg-slate-50"
         )} />
         <div className={cn("flex items-center gap-3 p-2 rounded-xl transition-colors", isGlass ? "hover:bg-white/10" : "hover:bg-slate-50")}>
           <div className={cn(
             "w-9 h-9 rounded-xl flex items-center justify-center shadow-sm overflow-hidden flex-shrink-0",
-            isGlass ? "bg-white/10 text-zinc-600 border border-white/15" : "bg-zinc-100 text-zinc-600 border border-zinc-200"
+            isGlass ? "bg-white/10 text-gray-300 border border-white/15" : "bg-zinc-100 text-zinc-600 border border-zinc-200"
           )}>
             <UserAvatarIcon size={20} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className={cn("text-xs font-bold truncate", isGlass ? "text-slate-800" : "text-slate-800")}>
+            <p className={cn("text-xs font-bold truncate", isGlass ? "text-white" : "text-slate-800")}>
               {user?.name || 'AgenticOS User'}
             </p>
-            <p className={cn("text-[10px] font-medium truncate", isGlass ? "text-slate-500" : "text-slate-400")}>
+            <p className={cn("text-[10px] font-medium truncate", isGlass ? "text-gray-400" : "text-slate-400")}>
               {user?.email || 'signed in'}
             </p>
           </div>
@@ -257,7 +296,7 @@ export const Sidebar = React.memo(({
             }}
             className={cn(
               "p-2 rounded-lg transition-colors",
-              isGlass ? "text-slate-400 hover:text-rose-500 hover:bg-rose-50" : "text-slate-400 hover:text-rose-500 hover:bg-rose-50"
+              isGlass ? "text-gray-400 hover:text-rose-500 hover:bg-rose-50" : "text-slate-400 hover:text-rose-500 hover:bg-rose-50"
             )}
             title="退出登录"
             aria-label="退出登录"
