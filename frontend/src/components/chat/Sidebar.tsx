@@ -72,7 +72,7 @@ export const Sidebar = React.memo(({
             tint="rgba(255,255,255,0.08)"
             radius={glassRadius}
             onClick={onNewChat}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', cursor: 'pointer' }}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', cursor: 'pointer', borderRadius: glassRadius }}
           >
             <PlusIcon size={18} className="group-hover:rotate-90" /> 新的对话
           </LiquidGlass>
@@ -128,6 +128,7 @@ export const Sidebar = React.memo(({
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '12px', cursor: 'pointer', marginBottom: 4,
                   fontWeight: isActive ? 700 : 500, color: isActive ? '#18181b' : '#475569',
+                  borderRadius: glassRadius,
                 }}
               >
                 {sessionInner}
