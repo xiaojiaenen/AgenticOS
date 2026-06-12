@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { LiquidGlass, glassPresets, radii } from '@xiaojiaenen/liquid-glass';
+
+// 使用 radii.control 确保圆角一致性
+const glassRadius = radii.control; // 12px
 import { Session } from '../../types';
 import { cn } from '../../lib/utils';
 import { Logo } from '../Logo';
@@ -67,7 +70,7 @@ export const Sidebar = React.memo(({
             as="button"
             {...glassPresets.control}
             tint="rgba(255,255,255,0.08)"
-            radius={12}
+            radius={glassRadius}
             onClick={onNewChat}
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)' }}
           >
@@ -115,7 +118,7 @@ export const Sidebar = React.memo(({
                 key={session.id}
                 {...glassPresets.control}
                 tint={isActive ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.01)"}
-                radius={12}
+                radius={glassRadius}
                 role="button"
                 tabIndex={0}
                 onClick={() => onSelectSession(session.id)}
