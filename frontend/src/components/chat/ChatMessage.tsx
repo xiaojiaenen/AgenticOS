@@ -403,8 +403,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                 ) : <span className="text-sm font-medium text-slate-400"> </span>}
                 {!isUser && isStreaming && visibleText && <motion.span className="inline-block w-[2px] h-[1.2em] bg-brand-500 rounded-full align-text-bottom ml-px" animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />}
               </div>
-            )}
-          </div>
+            </div>
+          )
         )}
 
         {message?.id && !isTyping && (
