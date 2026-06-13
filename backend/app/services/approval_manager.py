@@ -43,9 +43,19 @@ class ApprovalManager:
 
     async def request_approval_bool(self, tool_call) -> bool:
         """兼容 wuwei HitlMiddleware 的 approval_provider 接口：接收 ToolCall 返回 bool。"""
+        import json
         import uuid
         from app.services.agent_service import _current_session_id
         session_id = _current_session_id.get() or "default"
+
+        # 确保 arguments 是字典而不是 JSON 字符串
+        arguments = tool_call.function.arguments
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except (json.JSONDecodeError, TypeError):
+                arguments = {}
+
         request = ApprovalRequest(
             id=uuid.uuid4().hex,
             session_id=session_id,
@@ -53,7 +63,7 @@ class ApprovalManager:
             payload={
                 "tool_call_id": getattr(tool_call, "id", None),
                 "tool_name": tool_call.function.name,
-                "arguments": tool_call.function.arguments,
+                "arguments": arguments,
             },
         )
         decision = await self.request_approval(request)
