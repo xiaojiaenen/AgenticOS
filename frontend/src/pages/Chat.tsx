@@ -84,12 +84,10 @@ export const Chat = () => {
   const isStreamingResponse = isLoading && currentSessionMessages[currentSessionMessages.length - 1]?.role === 'model';
   const isWideConversation = !artifact && !isMobile;
   const pendingApprovals = useMemo(
-    () => isAdmin
-      ? currentSessionMessages
-          .flatMap((m) => m.toolCalls || [])
-          .filter((t) => t.status === 'approval_required' && t.approvalId)
-      : [],
-    [currentSessionMessages, isAdmin],
+    () => currentSessionMessages
+      .flatMap((m) => m.toolCalls || [])
+      .filter((t) => t.status === 'approval_required' && t.approvalId),
+    [currentSessionMessages],
   );
   const isModeLocked = !!currentSession && currentSession.messages.length > 0;
   const selectedAgent = agentProfiles.find((a) => a.id === selectedAgentProfileId) || null;
