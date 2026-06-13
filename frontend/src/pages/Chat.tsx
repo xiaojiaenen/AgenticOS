@@ -125,11 +125,9 @@ export const Chat = () => {
       }
     } else {
       // 如果没有邮件审批请求，清除邮件 artifact
-      if (artifact?.language === 'email') {
-        setArtifact(null);
-      }
+      setArtifact((prev) => prev?.language === 'email' ? null : prev);
     }
-  }, [pendingApprovals, setArtifact, artifact]);
+  }, [pendingApprovals, setArtifact]);
 
   // ── 拖放 ──
   const { isDragging, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragAndDrop();
