@@ -96,10 +96,13 @@ export const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website' | 'video'
 
 ## 发送邮件流程
 
-1. 根据用户需求撰写邮件内容
-2. 如需发送 HTML 邮件，先 load_skill("email-design") 获取设计规范
-3. 直接调用 send_email 工具
-4. 系统自动弹出右侧边栏邮件预览面板，用户确认后发送
+1. 先询问用户邮件风格（ask_user_decision）：
+   - 好看：HTML 格式，精心设计的排版和配色
+   - 简约：纯文本格式，简洁直接
+2. 如果用户选择"好看"，先 load_skill("email-design") 获取设计规范
+3. 撰写邮件内容
+4. 调用 send_email 工具
+5. 系统自动弹出右侧边栏邮件预览面板，用户确认后发送
 
 ## 可用工具
 
@@ -107,5 +110,6 @@ export const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website' | 'video'
 - read_emails — 读取邮件列表
 - search_emails — 搜索邮件
 - get_email — 查看邮件内容
-- send_email — 发送邮件（自动弹出确认面板）`,
+- send_email — 发送邮件（自动弹出确认面板）
+- ask_user_decision — 询问用户邮件风格`,
 };
