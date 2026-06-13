@@ -52,12 +52,20 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
    exit={isMobile ? { x: -300 } : { width: 0 }}
    transition={{ type: 'spring', damping: 30, stiffness: 300 }}
    className={cn(
-    'relative z-20 flex h-full flex-shrink-0 flex-col overflow-hidden border-r border-slate-200/80 bg-[var(--admin-sidebar-bg)] shadow-[10px_0_36px_rgba(15,23,42,0.06)] backdrop-blur-2xl',
+    'relative z-20 flex h-full flex-shrink-0 flex-col overflow-hidden',
+    isGlass
+      ? 'border-r border-white/10'
+      : 'border-r border-slate-200/80 bg-[var(--admin-sidebar-bg)] shadow-[10px_0_36px_rgba(15,23,42,0.06)] backdrop-blur-2xl',
     isMobile ? 'fixed inset-y-0 left-0 w-[296px] shadow-lg' : 'w-[296px]',
     !isOpen && !isMobile && 'hidden',
    )}
+   style={isGlass ? {
+     background: 'rgba(255,255,255,0.04)',
+     backdropFilter: 'blur(20px)',
+     WebkitBackdropFilter: 'blur(20px)',
+   } : undefined}
   >
-   <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-br from-[var(--admin-accent-soft)] to-transparent" />
+   {!isGlass && <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-br from-[var(--admin-accent-soft)] to-transparent" />}
 
    <div className={cn("relative z-10 flex items-center justify-between border-b px-4 py-4", isGlass ? "border-white/10" : "border-slate-200/80")}>
     <Logo iconSize={22} className="text-lg" />
@@ -88,15 +96,18 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
          'admin-nav-item focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2',
          active
           ? isGlass ? 'admin-nav-item-active text-white' : 'admin-nav-item-active text-zinc-900'
-          : isGlass ? 'text-white/70 hover:text-white' : 'text-slate-600 hover:text-slate-900',
+          : isGlass ? 'text-white/70 hover:text-white hover:bg-white/5' : 'text-slate-600 hover:text-slate-900',
         )}
+        style={isGlass && !active ? {
+          transition: 'all 0.2s ease',
+        } : undefined}
        >
         {active && (
          <motion.span
           layoutId="admin-active-nav"
           className={cn(
-           "absolute inset-0 rounded-lg border-l-3 shadow-md",
-           isGlass ? "bg-white/10 border-l-sky-400" : "bg-[var(--admin-card-bg)] border-l-[var(--admin-accent)]"
+           "absolute inset-0 rounded-lg border-l-3",
+           isGlass ? "bg-white/8 border-l-sky-400 backdrop-blur-xl" : "bg-[var(--admin-card-bg)] border-l-[var(--admin-accent)] shadow-md"
           )}
           transition={{ type: 'spring', damping: 28, stiffness: 380 }}
          />
