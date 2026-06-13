@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>什么是大模型</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{width:1920px;height:1080px;overflow:hidden;background:#EFEAE0;font-family:'Noto Sans SC',sans-serif;position:relative;}
+.bg-wash{position:absolute;top:0;right:0;width:800px;height:1080px;background:radial-gradient(ellipse at 30% 50%,rgba(122,158,127,0.12),transparent 70%);pointer-events:none;z-index:0;}
+.grain{position:absolute;top:0;left:0;width:100%;height:100%;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:1;}
+
+/* 装饰元素 */
+.deco-circle{position:absolute;border-radius:50%;pointer-events:none;z-index:1;}
+.deco-1{width:300px;height:300px;background:radial-gradient(circle,rgba(184,201,186,0.2),transparent);top:-80px;right:100px;}
+.deco-2{width:200px;height:200px;background:radial-gradient(circle,rgba(201,138,94,0.1),transparent);bottom:50px;left:60%;}
+.deco-3{width:120px;height:120px;border:2px solid rgba(122,158,127,0.15);border-radius:50%;top:30%;right:15%;}
+
+/* 左卡 */
+.card-left{position:absolute;top:50%;left:80px;transform:translateY(-50%);width:660px;padding:55px 60px;background:rgba(255,253,248,0.78);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:40px;box-shadow:0 8px 40px rgba(0,0,0,0.04);z-index:10;opacity:0;transform:translateY(40px) scale(0.985);}
+.eyebrow{font-family:'Manrope',sans-serif;font-weight:600;font-size:15px;letter-spacing:5px;text-transform:uppercase;color:#7A9E7F;opacity:0;transform:translateY(12px);margin-bottom:10px;}
+.card-title{font-size:56px;font-weight:900;color:#3D3A35;line-height:1.3;letter-spacing:1px;opacity:0;transform:translateY(20px);}
+.card-title .accent{color:#C98A5E;}
+.card-desc{font-size:20px;color:#8A867C;line-height:1.9;margin-top:18px;opacity:0;transform:translateY(15px);}
+.highlight-box{display:inline-block;padding:4px 14px;background:rgba(201,138,94,0.1);border-radius:6px;color:#C98A5E;font-weight:600;}
+
+/* 右侧信息面板 */
+.info-panel{position:absolute;top:50%;right:80px;transform:translateY(-50%);width:560px;z-index:10;}
+.info-card{background:rgba(255,253,248,0.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:28px;padding:28px 32px;margin-bottom:16px;box-shadow:0 4px 20px rgba(0,0,0,0.03);opacity:0;transform:translateX(30px);border:1px solid rgba(255,255,255,0.5);}
+.info-card .label{font-family:'Manrope',sans-serif;font-size:13px;font-weight:600;color:#B8C9BA;letter-spacing:3px;text-transform:uppercase;}
+.info-card .value{font-size:28px;font-weight:800;color:#3D3A35;margin-top:4px;line-height:1.3;}
+.info-card .value .num{font-family:'Manrope',sans-serif;font-size:36px;font-weight:800;color:#C98A5E;}
+.info-card .sub{font-size:15px;color:#8A867C;margin-top:4px;line-height:1.5;}
+
+/* 底部装饰条 */
+.bottom-bar{position:absolute;bottom:50px;left:50%;transform:translateX(-50%);display:flex;gap:18px;align-items:center;z-index:10;opacity:0;}
+.bottom-bar .bar-dot{width:8px;height:8px;border-radius:50%;background:#B8C9BA;}
+.bottom-bar .bar-line{width:60px;height:1px;background:#B8C9BA;}
+.bottom-bar .bar-text{font-family:'Manrope',sans-serif;font-size:13px;color:#B8C9BA;letter-spacing:3px;}
+
+@keyframes pulseGlow{0%,100%{opacity:0.3;transform:scale(1);}50%{opacity:0.6;transform:scale(1.1);}}
+</style>
+</head>
+<body>
+<div class="bg-wash"></div>
+<div class="grain"></div>
+<div class="deco-circle deco-1"></div>
+<div class="deco-circle deco-2"></div>
+<div class="deco-circle deco-3"></div>
+
+<!-- 左侧解释卡 -->
+<div class="card-left" id="cardLeft">
+  <div class="eyebrow" id="eyebrow">// FOUNDATION MODEL</div>
+  <div class="card-title" id="cardTitle">什么是 <span class="accent">大模型</span>？</div>
+  <div class="card-desc" id="cardDesc">
+    大语言模型是基于<span class="highlight-box">Transformer</span>架构、通过海量文本数据训练的深度神经网络。其核心特征在于：
+    <br><br>
+    <b style="color:#7A9E7F;">规模效应</b> — 参数规模从数十亿到数万亿，数据量达 TB 级别<br>
+    <b style="color:#7A9E7F;">涌现能力</b> — 当规模突破临界点，出现无法预测的新智能<br>
+    <b style="color:#7A9E7F;">通用泛化</b> — 单一模型可处理数百种不同任务
+  </div>
+</div>
+
+<!-- 右侧信息卡片 -->
+<div class="info-panel">
+  <div class="info-card" id="info1">
+    <div class="label">Model Parameters</div>
+    <div class="value"><span class="num">1,000</span>亿+</div>
+    <div class="sub">参数量是传统模型的 1,000 倍以上</div>
+  </div>
+  <div class="info-card" id="info2">
+    <div class="label">Training Data</div>
+    <div class="value"><span class="num">10</span>TB+</div>
+    <div class="sub">涵盖互联网文本、书籍、代码等多源数据</div>
+  </div>
+  <div class="info-card" id="info3">
+    <div class="label">Context Window</div>
+    <div class="value">最高 <span class="num">128</span>K</div>
+    <div class="sub">一次可处理约 10 万字的上下文信息</div>
+  </div>
+  <div class="info-card" id="info4">
+    <div class="label">Capabilities</div>
+    <div class="value"><span class="num">500</span>+ 任务</div>
+    <div class="sub">单一模型覆盖：问答、翻译、编程、创作等</div>
+  </div>
+</div>
+
+<!-- 底部 -->
+<div class="bottom-bar" id="bottomBar">
+  <div class="bar-dot"></div>
+  <div class="bar-line"></div>
+  <div class="bar-text">DEEP LEARNING · TRANSFORMER · EMERGENCE</div>
+  <div class="bar-line"></div>
+  <div class="bar-dot"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+window.addEventListener('load', function(){
+  const tl = gsap.timeline({defaults:{ease:'power3.out'}});
+  
+  // 装饰圆淡入
+  tl.to('.deco-1',{opacity:1,duration:0.8},0);
+  tl.to('.deco-2',{opacity:1,duration:0.8},0.2);
+  tl.to('.deco-3',{opacity:1,duration:0.6,scale:1},0.3);
+  
+  // 左卡滑入
+  tl.to('#cardLeft',{opacity:1,y:0,scale:1,duration:0.9,ease:'power2.out'},0.2);
+  tl.to('#eyebrow',{opacity:1,y:0,duration:0.5},0.7);
+  tl.to('#cardTitle',{opacity:1,y:0,duration:0.7,ease:'power2.out'},0.9);
+  tl.to('#cardDesc',{opacity:1,y:0,duration:0.8,ease:'power2.out'},1.2);
+  
+  // 右侧信息卡片依次滑入
+  tl.to('#info1',{opacity:1,x:0,duration:0.6,ease:'power2.out'},1.3);
+  tl.to('#info2',{opacity:1,x:0,duration:0.6,ease:'power2.out'},1.6);
+  tl.to('#info3',{opacity:1,x:0,duration:0.6,ease:'power2.out'},1.9);
+  tl.to('#info4',{opacity:1,x:0,duration:0.6,ease:'power2.out'},2.2);
+  
+  // 底部栏
+  tl.to('#bottomBar',{opacity:1,duration:0.5},2.5);
+  
+  // 持续动画
+  gsap.to('.deco-1',{rotate:5,duration:6,ease:'sine.inOut',yoyo:true,repeat:-1});
+  gsap.to('.deco-2',{rotate:-3,scale:1.05,duration:5,ease:'sine.inOut',yoyo:true,repeat:-1,delay:0.5});
+  gsap.to('.deco-3',{scale:1.1,rotate:180,duration:20,ease:'none',repeat:-1});
+  gsap.to('.info-card',{y:-3,duration:3,ease:'sine.inOut',yoyo:true,repeat:-1,stagger:0.2});
+});
+</script>
+</body>
+</html>

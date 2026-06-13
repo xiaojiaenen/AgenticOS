@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 大模型 - Intro</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@300;500;700&family=Inter:wght@300;700&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { width:1920px; height:1080px; overflow:hidden; background:#08081a; font-family:'Noto Sans SC',sans-serif; }
+
+/* Fluid Background Container */
+.fluid-bg {
+  position:absolute; inset:0;
+  overflow:hidden;
+}
+.fluid-bg .layer {
+  position:absolute; width:200%; height:200%;
+  top:-50%; left:-50%;
+  border-radius:50%;
+  mix-blend-mode:screen;
+  will-change:transform;
+}
+.layer-1 {
+  background:radial-gradient(ellipse 40% 35% at 30% 40%, #7c5cff 0%, transparent 70%);
+  animation: float1 12s ease-in-out infinite;
+}
+.layer-2 {
+  background:radial-gradient(ellipse 35% 40% at 70% 60%, #a78bfa 0%, transparent 70%);
+  animation: float2 10s ease-in-out infinite;
+}
+.layer-3 {
+  background:radial-gradient(ellipse 30% 30% at 50% 30%, #38bdf8 0%, transparent 70%);
+  animation: float3 14s ease-in-out infinite;
+}
+.layer-4 {
+  background:radial-gradient(ellipse 45% 35% at 20% 70%, #4c1d95 0%, transparent 70%);
+  animation: float4 11s ease-in-out infinite;
+}
+.layer-blur {
+  position:absolute; inset:0;
+  backdrop-filter:blur(80px);
+  -webkit-backdrop-filter:blur(80px);
+}
+
+/* Scanline overlay */
+.scanlines {
+  position:absolute; inset:0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.015) 2px, rgba(255,255,255,0.015) 4px);
+  pointer-events:none;
+  z-index:2;
+}
+
+/* Particle dots */
+.particles {
+  position:absolute; inset:0;
+  z-index:1;
+}
+
+@keyframes float1 {
+  0%, 100% { transform:translate(0,0) scale(1); }
+  33% { transform:translate(-3%,2%) scale(1.05); }
+  66% { transform:translate(2%,-3%) scale(0.95); }
+}
+@keyframes float2 {
+  0%, 100% { transform:translate(0,0) scale(1); }
+  33% { transform:translate(4%,-2%) scale(0.95); }
+  66% { transform:translate(-2%,3%) scale(1.08); }
+}
+@keyframes float3 {
+  0%, 100% { transform:translate(0,0) scale(1); }
+  25% { transform:translate(3%,3%) scale(1.06); }
+  50% { transform:translate(-4%,-1%) scale(0.94); }
+  75% { transform:translate(1%,-4%) scale(1.03); }
+}
+@keyframes float4 {
+  0%, 100% { transform:translate(0,0) scale(1); }
+  33% { transform:translate(-2%,-3%) scale(1.07); }
+  66% { transform:translate(3%,2%) scale(0.93); }
+}
+
+/* Content */
+.content {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  justify-content:center; align-items:center;
+  z-index:3;
+  color:#fafaf8;
+  text-align:center;
+  padding:80px;
+}
+
+.badge {
+  display:inline-block;
+  padding:8px 24px;
+  border:1px solid rgba(167,139,250,0.3);
+  border-radius:100px;
+  font-size:14px;
+  letter-spacing:4px;
+  text-transform:uppercase;
+  color:rgba(167,139,250,0.8);
+  font-family:'Inter',sans-serif;
+  font-weight:300;
+  margin-bottom:40px;
+  backdrop-filter:blur(10px);
+  background:rgba(167,139,250,0.08);
+}
+
+.main-title {
+  font-family:'Noto Serif SC',serif;
+  font-size:92px;
+  font-weight:900;
+  line-height:1.2;
+  margin-bottom:20px;
+  background: linear-gradient(135deg, #fafaf8 0%, #c4b5fd 50%, #38bdf8 100%);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+.subtitle {
+  font-size:28px;
+  font-weight:300;
+  color:rgba(255,255,255,0.6);
+  letter-spacing:8px;
+  font-family:'Noto Sans SC',sans-serif;
+}
+
+.divider {
+  width:80px; height:2px;
+  background: linear-gradient(90deg, transparent, #7c5cff, transparent);
+  margin:30px 0;
+}
+
+/* Corner decorations */
+.corner-tl, .corner-br {
+  position:absolute;
+  width:60px; height:60px;
+  border-color:rgba(167,139,250,0.2);
+  z-index:4;
+}
+.corner-tl {
+  top:40px; left:40px;
+  border-top:1px solid; border-left:1px solid;
+}
+.corner-br {
+  bottom:40px; right:40px;
+  border-bottom:1px solid; border-right:1px solid;
+}
+</style>
+</head>
+<body>
+<div class="fluid-bg">
+  <div class="layer layer-1"></div>
+  <div class="layer layer-2"></div>
+  <div class="layer layer-3"></div>
+  <div class="layer layer-4"></div>
+  <div class="layer-blur"></div>
+</div>
+<div class="scanlines"></div>
+
+<canvas class="particles" id="particles"></canvas>
+
+<div class="corner-tl"></div>
+<div class="corner-br"></div>
+
+<div class="content">
+  <div class="badge" id="badge">✦ EXPLAINER</div>
+  <div class="divider" id="divider1"></div>
+  <h1 class="main-title" id="title">AI 大模型</h1>
+  <div class="divider" id="divider2"></div>
+  <p class="subtitle" id="subtitle">智能新纪元</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+// Particles
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+canvas.width = 1920; canvas.height = 1080;
+
+const particles = [];
+for(let i=0;i<80;i++){
+  particles.push({
+    x: Math.random()*1920,
+    y: Math.random()*1080,
+    r: Math.random()*2+0.5,
+    dx: (Math.random()-0.5)*0.3,
+    dy: (Math.random()-0.5)*0.3,
+    o: Math.random()*0.5+0.1
+  });
+}
+function drawParticles(){
+  ctx.clearRect(0,0,1920,1080);
+  particles.forEach(p=>{
+    p.x+=p.dx; p.y+=p.dy;
+    if(p.x<0) p.x=1920; if(p.x>1920) p.x=0;
+    if(p.y<0) p.y=1080; if(p.y>1080) p.y=0;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(167,139,250,${p.o})`;
+    ctx.fill();
+  });
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+
+// GSAP Animations
+const tl = gsap.timeline({defaults:{ease:'power3.out'}});
+
+tl.fromTo('#badge', {y:-30,opacity:0}, {y:0,opacity:1,duration:0.8})
+  .fromTo('#divider1', {scaleX:0}, {scaleX:1,duration:0.6,transformOrigin:'center'}, '-=0.4')
+  .fromTo('#title', {y:60,opacity:0}, {y:0,opacity:1,duration:1}, '-=0.2')
+  .fromTo('#divider2', {scaleX:0}, {scaleX:1,duration:0.6,transformOrigin:'center'}, '-=0.4')
+  .fromTo('#subtitle', {y:30,opacity:0}, {y:0,opacity:1,duration:0.8}, '-=0.3');
+
+// Subtle continuous glow pulse on title
+gsap.to('#title', {
+  textShadow:'0 0 40px rgba(124,92,255,0.3), 0 0 80px rgba(56,189,248,0.15)',
+  duration:2,
+  yoyo:true,
+  repeat:-1,
+  ease:'sine.inOut'
+});
+</script>
+</body>
+</html>

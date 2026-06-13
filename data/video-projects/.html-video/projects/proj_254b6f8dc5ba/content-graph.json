@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "intent": "explainer",
+  "synopsis": "AI大模型科普解说视频 - 以液态流动炫酷视觉风格，介绍人工智能大模型的核心概念、规模、原理和能力",
+  "nodes": [
+    {
+      "id": "intro",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 6.0,
+      "text": "AI 大模型：智能新纪元"
+    },
+    {
+      "id": "scale",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 7.0,
+      "text": "千亿参数，万亿Token"
+    },
+    {
+      "id": "how",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 8.0,
+      "text": "从海量数据中学习"
+    },
+    {
+      "id": "capabilities",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 7.0,
+      "text": "理解 · 生成 · 推理 · 创造"
+    },
+    {
+      "id": "outro",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 5.0,
+      "text": "未来已来"
+    }
+  ],
+  "edges": [
+    {
+      "from": "intro",
+      "to": "scale",
+      "kind": "sequence",
+      "reason": null
+    },
+    {
+      "from": "scale",
+      "to": "how",
+      "kind": "sequence",
+      "reason": null
+    },
+    {
+      "from": "how",
+      "to": "capabilities",
+      "kind": "sequence",
+      "reason": null
+    },
+    {
+      "from": "capabilities",
+      "to": "outro",
+      "kind": "sequence",
+      "reason": null
+    }
+  ]
+}

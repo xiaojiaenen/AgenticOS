@@ -241,9 +241,10 @@ export const Chat = () => {
     return () => window.removeEventListener('keydown', handleKey);
   }, [isMobile, isSidebarOpen]);
 
-  // 自动滚动
+  // 自动滚动 - 当用户主动向上滚动时，不自动跳到底部
   useEffect(() => {
-    if (isUserScrolledUp && !isStreamingResponse) return;
+    // 如果用户向上滚动了，不自动滚动
+    if (isUserScrolledUp) return;
     const frame = window.requestAnimationFrame(() => scrollToBottom(isStreamingResponse ? 'auto' : 'smooth'));
     return () => window.cancelAnimationFrame(frame);
   }, [sessions, currentSessionId, isLoading, isUserScrolledUp, isStreamingResponse, scrollToBottom]);

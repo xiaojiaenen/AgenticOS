@@ -21,11 +21,21 @@
     "language": null,
     "commercial": null
   },
-  "status": "previewed",
+  "status": "rendered",
   "lastPreviewHtmlPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_a2a298955903/frames/00-intro.html",
   "lastPreviewPosterPath": null,
-  "lastOutputMp4Path": null,
-  "exports": [],
+  "lastOutputMp4Path": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_a2a298955903/output.mp4",
+  "exports": [
+    {
+      "path": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_a2a298955903/output.mp4",
+      "timestamp": "2026-06-13T06:51:44.599038+00:00",
+      "duration_sec": 30.0,
+      "resolution": {
+        "width": 1920,
+        "height": 1080
+      }
+    }
+  ],
   "contentGraphPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_a2a298955903/content-graph.json",
   "frames": [
     {
@@ -86,5 +96,5 @@
   ],
   "soundtrack": null,
   "createdAt": "2026-06-13T06:46:21.973289+00:00",
-  "updatedAt": "2026-06-13T06:48:32.533669+00:00"
+  "updatedAt": "2026-06-13T06:51:44.599120+00:00"
 }

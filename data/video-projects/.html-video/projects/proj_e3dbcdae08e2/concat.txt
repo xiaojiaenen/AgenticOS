@@ -1,0 +1,5 @@
+file '/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_e3dbcdae08e2/frame_000.mp4'
+file '/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_e3dbcdae08e2/frame_001.mp4'
+file '/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_e3dbcdae08e2/frame_002.mp4'
+file '/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_e3dbcdae08e2/frame_003.mp4'
+file '/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_e3dbcdae08e2/frame_004.mp4'

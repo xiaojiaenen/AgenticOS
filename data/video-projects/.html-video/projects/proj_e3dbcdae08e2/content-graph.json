@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "intent": "explainer",
+  "synopsis": "AI大模型深度科普视频：从概念到应用，展现AI大模型的强大能力与未来前景",
+  "nodes": [
+    {
+      "id": "intro",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 6.0,
+      "text": "AI大模型"
+    },
+    {
+      "id": "what-is",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 7.0,
+      "text": "什么是大模型"
+    },
+    {
+      "id": "capabilities",
+      "kind": "data",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 8.0,
+      "data": {
+        "items": []
+      }
+    },
+    {
+      "id": "applications",
+      "kind": "data",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 7.0,
+      "data": {
+        "items": []
+      }
+    },
+    {
+      "id": "outro",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 5.0,
+      "text": "未来已来"
+    }
+  ],
+  "edges": [
+    {
+      "from": "intro",
+      "to": "what-is",
+      "kind": "sequence",
+      "reason": null
+    },
+    {
+      "from": "what-is",
+      "to": "capabilities",
+      "kind": "sequence",
+      "reason": null
+    },
+    {
+      "from": "capabilities",
+      "to": "applications",
+      "kind": "sequence",
+      "reason": null
+    },
+    {
+      "from": "applications",
+      "to": "outro",
+      "kind": "sequence",
+      "reason": null
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "id": "proj_254b6f8dc5ba",
+  "name": "AI大模型 炫酷解说视频",
+  "intent": "explainer",
+  "assets": [],
+  "templateId": "frame-liquid-bg-hero",
+  "variables": {},
+  "preferences": {
+    "aspect": null,
+    "durationTargetSec": null,
+    "format": "mp4",
+    "resolution": null,
+    "fps": null,
+    "mood": null,
+    "brandColors": null,
+    "fontFamilies": null,
+    "language": null,
+    "commercial": null
+  },
+  "status": "rendered",
+  "lastPreviewHtmlPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_254b6f8dc5ba/frames/00-intro.html",
+  "lastPreviewPosterPath": null,
+  "lastOutputMp4Path": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_254b6f8dc5ba/output.mp4",
+  "exports": [
+    {
+      "path": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_254b6f8dc5ba/output.mp4",
+      "timestamp": "2026-06-13T07:15:08.376118+00:00",
+      "duration_sec": 33.0,
+      "resolution": {
+        "width": 1920,
+        "height": 1080
+      }
+    }
+  ],
+  "contentGraphPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_254b6f8dc5ba/content-graph.json",
+  "frames": [
+    {
+      "graphNodeId": "intro",
+      "htmlPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_254b6f8dc5ba/frames/00-intro.html",
+      "durationSec": 6.0,
+      "posterPath": null,
+      "order": 0,
+      "engine": null,
+      "nativeTemplateId": null,
+      "data": null,
+      "previewMp4Path": null
+    },
+    {
+      "graphNodeId": "scale",
+      "htmlPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_254b6f8dc5ba/frames/01-scale.html",
+      "durationSec": 7.0,
+      "posterPath": null,
+      "order": 1,
+      "engine": null,
+      "nativeTemplateId": null,
+      "data": null,
+      "previewMp4Path": null
+    },
+    {
+      "graphNodeId": "how",
+      "htmlPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_254b6f8dc5ba/frames/02-how.html",
+      "durationSec": 8.0,
+      "posterPath": null,
+      "order": 2,
+      "engine": null,
+      "nativeTemplateId": null,
+      "data": null,
+      "previewMp4Path": null
+    },
+    {
+      "graphNodeId": "capabilities",
+      "htmlPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_254b6f8dc5ba/frames/03-capabilities.html",
+      "durationSec": 7.0,
+      "posterPath": null,
+      "order": 3,
+      "engine": null,
+      "nativeTemplateId": null,
+      "data": null,
+      "previewMp4Path": null
+    },
+    {
+      "graphNodeId": "outro",
+      "htmlPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_254b6f8dc5ba/frames/04-outro.html",
+      "durationSec": 5.0,
+      "posterPath": null,
+      "order": 4,
+      "engine": null,
+      "nativeTemplateId": null,
+      "data": null,
+      "previewMp4Path": null
+    }
+  ],
+  "soundtrack": null,
+  "createdAt": "2026-06-13T07:10:53.810021+00:00",
+  "updatedAt": "2026-06-13T07:15:08.376201+00:00"
+}

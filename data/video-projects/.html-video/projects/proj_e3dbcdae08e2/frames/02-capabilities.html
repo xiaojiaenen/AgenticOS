@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>核心能力</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{width:1920px;height:1080px;overflow:hidden;background:#EFEAE0;font-family:'Noto Sans SC',sans-serif;position:relative;}
+.bg-wash{position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at 50% 30%,rgba(122,158,127,0.08),transparent 60%);pointer-events:none;z-index:0;}
+.grain{position:absolute;top:0;left:0;width:100%;height:100%;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:1;}
+
+/* 顶部标题区 */
+.header{position:absolute;top:70px;left:0;width:100%;text-align:center;z-index:10;opacity:0;transform:translateY(-20px);}
+.header .eyebrow{font-family:'Manrope',sans-serif;font-weight:600;font-size:14px;letter-spacing:6px;text-transform:uppercase;color:#7A9E7F;margin-bottom:8px;opacity:0;transform:translateY(10px);}
+.header .title{font-size:50px;font-weight:900;color:#3D3A35;letter-spacing:2px;opacity:0;transform:translateY(15px);}
+.header .title .accent{color:#C98A5E;}
+.header .subtitle{font-size:18px;color:#8A867C;margin-top:8px;opacity:0;transform:translateY(10px);}
+
+/* 装饰线 */
+.deco-line{position:absolute;top:170px;left:50%;transform:translateX(-50%);width:120px;height:2px;background:linear-gradient(90deg,transparent,#C98A5E,transparent);z-index:10;opacity:0;}
+
+/* 能力卡片网格 - 2行2列 */
+.cards-grid{position:absolute;top:220px;left:50%;transform:translateX(-50%);display:grid;grid-template-columns:1fr 1fr;gap:24px;width:1200px;z-index:10;}
+.cap-card{background:rgba(255,253,248,0.75);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:32px;padding:36px 38px;box-shadow:0 6px 30px rgba(0,0,0,0.04);border:1px solid rgba(255,255,255,0.6);opacity:0;transform:translateY(30px);position:relative;overflow:hidden;}
+.cap-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:4px;background:linear-gradient(90deg,#7A9E7F,#C98A5E);opacity:0;transform:scaleX(0);transform-origin:left;}
+.card-icon{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;opacity:0;transform:scale(0.5);}
+.card-icon-1{background:rgba(122,158,127,0.15);}
+.card-icon-2{background:rgba(201,138,94,0.15);}
+.card-icon-3{background:rgba(122,158,127,0.15);}
+.card-icon-4{background:rgba(201,138,94,0.15);}
+.card-icon svg{width:28px;height:28px;}
+.card-name{font-size:26px;font-weight:700;color:#3D3A35;margin-bottom:8px;opacity:0;transform:translateX(-10px);}
+.card-desc{font-size:16px;color:#8A867C;line-height:1.7;opacity:0;transform:translateY(8px);}
+.card-tag{display:inline-block;margin-top:12px;padding:4px 12px;font-size:12px;font-weight:600;font-family:'Manrope',sans-serif;border-radius:20px;letter-spacing:1px;opacity:0;}
+.card-tag-1{background:rgba(122,158,127,0.12);color:#7A9E7F;}
+.card-tag-2{background:rgba(201,138,94,0.12);color:#C98A5E;}
+.card-tag-3{background:rgba(122,158,127,0.12);color:#7A9E7F;}
+.card-tag-4{background:rgba(201,138,94,0.12);color:#C98A5E;}
+
+/* 底部进度装饰 */
+.bottom-deco{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;z-index:10;opacity:0;}
+.bottom-deco .dot-lg{width:10px;height:10px;border-radius:50%;background:#B8C9BA;}
+.bottom-deco .dot-sm{width:6px;height:6px;border-radius:50%;background:rgba(184,201,186,0.5);}
+.bottom-deco .bar{width:40px;height:2px;background:rgba(184,201,186,0.4);}
+</style>
+</head>
+<body>
+<div class="bg-wash"></div>
+<div class="grain"></div>
+
+<!-- 头部 -->
+<div class="header" id="header">
+  <div class="eyebrow" id="eyebrow2">// CORE CAPABILITIES</div>
+  <div class="title" id="headerTitle">大模型 <span class="accent">核心能力</span></div>
+  <div class="subtitle" id="headerSub">从语言理解到多模态感知，AI 大模型正在解锁前所未有的能力边界</div>
+</div>
+<div class="deco-line" id="decoLine"></div>
+
+<!-- 能力卡片 -->
+<div class="cards-grid">
+  <!-- 自然语言理解 -->
+  <div class="cap-card" id="card1">
+    <div class="card-icon card-icon-1">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#7A9E7F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+      </svg>
+    </div>
+    <div class="card-name">自然语言理解</div>
+    <div class="card-desc">精准理解复杂语义，掌握语境、情感、意图与隐含含义，支持多轮深度对话与跨语言交流</div>
+    <div class="card-tag card-tag-1">NLU · 语义理解 · 情感分析</div>
+  </div>
+  
+  <!-- 多模态处理 -->
+  <div class="cap-card" id="card2">
+    <div class="card-icon card-icon-2">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#C98A5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="2" width="20" height="20" rx="2.18"/><circle cx="8" cy="8" r="2"/><path d="M22 16l-6-6-5 5-4-4-5 5"/>
+      </svg>
+    </div>
+    <div class="card-name">多模态处理</div>
+    <div class="card-desc">融合文本、图像、音频、视频等多维信息，实现跨模态理解与生成，打破感知边界</div>
+    <div class="card-tag card-tag-2">Vision · Audio · 跨模态</div>
+  </div>
+  
+  <!-- 代码生成 -->
+  <div class="cap-card" id="card3">
+    <div class="card-icon card-icon-3">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#7A9E7F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+      </svg>
+    </div>
+    <div class="card-name">代码生成与推理</div>
+    <div class="card-desc">理解数十种编程语言，自动生成完整代码、调试修复、性能优化，赋能开发者高效创新</div>
+    <div class="card-tag card-tag-3">CodeGen · Debug · 自动化</div>
+  </div>
+  
+  <!-- 逻辑推理 -->
+  <div class="cap-card" id="card4">
+    <div class="card-icon card-icon-4">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#C98A5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+    <div class="card-name">逻辑推理与规划</div>
+    <div class="card-desc">具备多步推理、数学求解、战略规划能力，能够拆解复杂问题并制定最优解决方案</div>
+    <div class="card-tag card-tag-4">Reasoning · Planning · Math</div>
+  </div>
+</div>
+
+<!-- 底部 -->
+<div class="bottom-deco" id="bottomDeco">
+  <div class="dot-sm"></div>
+  <div class="bar"></div>
+  <div class="dot-lg"></div>
+  <div class="bar"></div>
+  <div class="dot-sm"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+window.addEventListener('load', function(){
+  const tl = gsap.timeline({defaults:{ease:'power3.out'}});
+  
+  // 头部
+  tl.to('#header',{opacity:1,y:0,duration:0.6},0.1);
+  tl.to('#eyebrow2',{opacity:1,y:0,duration:0.4},0.3);
+  tl.to('#headerTitle',{opacity:1,y:0,duration:0.5},0.5);
+  tl.to('#headerSub',{opacity:1,y:0,duration:0.5},0.7);
+  tl.to('#decoLine',{opacity:1,scaleX:1,duration:0.4,ease:'power2.out'},0.8);
+  
+  // 卡片依次入场
+  tl.to('#card1',{opacity:1,y:0,duration:0.7,ease:'power2.out'},1.0);
+  tl.to('#card1 .card-icon',{opacity:1,scale:1,duration:0.5,ease:'back.out(2)'},1.1);
+  tl.to('#card1 .card-name',{opacity:1,x:0,duration:0.4},1.15);
+  tl.to('#card1 .card-desc',{opacity:1,y:0,duration:0.5},1.25);
+  tl.to('#card1 .card-tag',{opacity:1,duration:0.3},1.3);
+  tl.to('#card1::before',{opacity:1,scaleX:1,duration:0.6,ease:'power2.out',transformOrigin:'left'},1.1);
+  
+  tl.to('#card2',{opacity:1,y:0,duration:0.7,ease:'power2.out'},1.4);
+  tl.to('#card2 .card-icon',{opacity:1,scale:1,duration:0.5,ease:'back.out(2)'},1.5);
+  tl.to('#card2 .card-name',{opacity:1,x:0,duration:0.4},1.55);
+  tl.to('#card2 .card-desc',{opacity:1,y:0,duration:0.5},1.65);
+  tl.to('#card2 .card-tag',{opacity:1,duration:0.3},1.7);
+  
+  tl.to('#card3',{opacity:1,y:0,duration:0.7,ease:'power2.out'},1.8);
+  tl.to('#card3 .card-icon',{opacity:1,scale:1,duration:0.5,ease:'back.out(2)'},1.9);
+  tl.to('#card3 .card-name',{opacity:1,x:0,duration:0.4},1.95);
+  tl.to('#card3 .card-desc',{opacity:1,y:0,duration:0.5},2.05);
+  tl.to('#card3 .card-tag',{opacity:1,duration:0.3},2.1);
+  
+  tl.to('#card4',{opacity:1,y:0,duration:0.7,ease:'power2.out'},2.2);
+  tl.to('#card4 .card-icon',{opacity:1,scale:1,duration:0.5,ease:'back.out(2)'},2.3);
+  tl.to('#card4 .card-name',{opacity:1,x:0,duration:0.4},2.35);
+  tl.to('#card4 .card-desc',{opacity:1,y:0,duration:0.5},2.45);
+  tl.to('#card4 .card-tag',{opacity:1,duration:0.3},2.5);
+  
+  // 底部
+  tl.to('#bottomDeco',{opacity:1,duration:0.4},2.8);
+  
+  // 持续浮动动画
+  gsap.to('.cap-card',{y:-4,duration:3,ease:'sine.inOut',yoyo:true,repeat:-1,stagger:0.15,delay:1});
+  
+  // 图标微动
+  gsap.to('.card-icon-1 svg',{rotate:-5,duration:4,ease:'sine.inOut',yoyo:true,repeat:-1,delay:2});
+  gsap.to('.card-icon-2 svg',{rotate:5,duration:3.5,ease:'sine.inOut',yoyo:true,repeat:-1,delay:2.5});
+  gsap.to('.card-icon-3 svg',{scale:1.08,duration:3,ease:'sine.inOut',yoyo:true,repeat:-1,delay:3});
+  gsap.to('.card-icon-4 svg',{rotate:3,duration:4,ease:'sine.inOut',yoyo:true,repeat:-1,delay:3.5});
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 大模型 - Capabilities</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@300;500;700&family=Inter:wght@300;700;900&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { width:1920px; height:1080px; overflow:hidden; background:#08081a; font-family:'Noto Sans SC',sans-serif; }
+
+.fluid-bg {
+  position:absolute; inset:0;
+  overflow:hidden;
+}
+.fluid-bg .layer {
+  position:absolute; width:200%; height:200%;
+  top:-50%; left:-50%;
+  border-radius:50%;
+  mix-blend-mode:screen;
+  will-change:transform;
+}
+.layer-1 { background:radial-gradient(ellipse 35% 40% at 20% 50%, #7c5cff 0%, transparent 70%); animation: float1 12s ease-in-out infinite; }
+.layer-2 { background:radial-gradient(ellipse 40% 30% at 80% 30%, #38bdf8 0%, transparent 70%); animation: float2 14s ease-in-out infinite; }
+.layer-3 { background:radial-gradient(ellipse 30% 35% at 40% 80%, #a78bfa 0%, transparent 70%); animation: float3 10s ease-in-out infinite; }
+.layer-4 { background:radial-gradient(ellipse 45% 25% at 60% 20%, #1e3a8a 0%, transparent 70%); animation: float4 13s ease-in-out infinite; }
+.layer-blur { position:absolute; inset:0; backdrop-filter:blur(80px); -webkit-backdrop-filter:blur(80px); }
+
+.scanlines { position:absolute; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.01) 2px,rgba(255,255,255,0.01) 4px); pointer-events:none; z-index:2; }
+
+@keyframes float1 { 0%,100%{transform:translate(0,0)scale(1);} 33%{transform:translate(-3%,2%)scale(1.06);} 66%{transform:translate(2%,-3%)scale(0.94);} }
+@keyframes float2 { 0%,100%{transform:translate(0,0)scale(1);} 33%{transform:translate(4%,-2%)scale(0.92);} 66%{transform:translate(-2%,3%)scale(1.08);} }
+@keyframes float3 { 0%,100%{transform:translate(0,0)scale(1);} 25%{transform:translate(3%,3%)scale(1.05);} 50%{transform:translate(-4%,-1%)scale(0.93);} 75%{transform:translate(1%,-4%)scale(1.06);} }
+@keyframes float4 { 0%,100%{transform:translate(0,0)scale(1);} 33%{transform:translate(-2%,-3%)scale(1.07);} 66%{transform:translate(3%,2%)scale(0.93);} }
+
+.content { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:3; color:#fafaf8; text-align:center; padding:80px; }
+
+.section-tag {
+  font-family:'Inter',sans-serif;
+  font-size:13px;
+  letter-spacing:5px;
+  color:rgba(56,189,248,0.7);
+  text-transform:uppercase;
+  margin-bottom:30px;
+  font-weight:300;
+}
+
+.main-title {
+  font-family:'Noto Serif SC',serif;
+  font-size:60px;
+  font-weight:900;
+  line-height:1.4;
+  margin-bottom:60px;
+}
+
+/* Capability grid */
+.grid-4 {
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:24px;
+  width:1400px;
+}
+
+.cap-card {
+  padding:40px 24px;
+  border:1px solid rgba(167,139,250,0.12);
+  border-radius:20px;
+  background:rgba(255,255,255,0.02);
+  backdrop-filter:blur(12px);
+  text-align:center;
+  transition:all 0.3s;
+  position:relative;
+  overflow:hidden;
+}
+
+.cap-card::before {
+  content:'';
+  position:absolute;
+  top:-50%; left:-50%;
+  width:200%; height:200%;
+  background:radial-gradient(ellipse at center, rgba(124,92,255,0.06) 0%, transparent 60%);
+  opacity:0;
+  transition:opacity 0.5s;
+}
+
+.cap-icon {
+  font-size:48px;
+  margin-bottom:20px;
+  position:relative;
+  z-index:1;
+}
+
+.cap-title {
+  font-size:28px;
+  font-weight:700;
+  margin-bottom:12px;
+  position:relative;
+  z-index:1;
+  background:linear-gradient(135deg,#fafaf8,#c4b5fd);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+.cap-desc {
+  font-size:14px;
+  color:rgba(255,255,255,0.5);
+  font-weight:300;
+  line-height:1.7;
+  position:relative;
+  z-index:1;
+}
+
+.cap-hl {
+  position:absolute;
+  bottom:0; left:0; right:0;
+  height:2px;
+  background:linear-gradient(90deg,transparent,var(--hl-color),transparent);
+  transform:scaleX(0);
+}
+
+.corner-tl,.corner-br{position:absolute;width:60px;height:60px;border-color:rgba(167,139,250,0.15);z-index:4;}
+.corner-tl{top:40px;left:40px;border-top:1px solid;border-left:1px solid;}
+.corner-br{bottom:40px;right:40px;border-bottom:1px solid;border-right:1px solid;}
+</style>
+</head>
+<body>
+<div class="fluid-bg">
+  <div class="layer layer-1"></div>
+  <div class="layer layer-2"></div>
+  <div class="layer layer-3"></div>
+  <div class="layer layer-4"></div>
+  <div class="layer-blur"></div>
+</div>
+<div class="scanlines"></div>
+
+<div class="corner-tl"></div>
+<div class="corner-br"></div>
+
+<div class="content">
+  <div class="section-tag" id="tag">✦ CAPABILITIES</div>
+  <h1 class="main-title" id="title">理解 · 生成 · 推理 · 创造</h1>
+  
+  <div class="grid-4">
+    <div class="cap-card" id="card1" style="--hl-color:#7c5cff;">
+      <div class="cap-icon">🧠</div>
+      <div class="cap-title">理解</div>
+      <div class="cap-desc">语义分析 · 情感识别<br>上下文理解 · 多语言</div>
+      <div class="cap-hl" id="hl1"></div>
+    </div>
+    <div class="cap-card" id="card2" style="--hl-color:#38bdf8;">
+      <div class="cap-icon">✍️</div>
+      <div class="cap-title">生成</div>
+      <div class="cap-desc">文本创作 · 代码编写<br>图像生成 · 音乐创作</div>
+      <div class="cap-hl" id="hl2"></div>
+    </div>
+    <div class="cap-card" id="card3" style="--hl-color:#a78bfa;">
+      <div class="cap-icon">🔍</div>
+      <div class="cap-title">推理</div>
+      <div class="cap-desc">逻辑推理 · 数学计算<br>因果分析 · 决策建议</div>
+      <div class="cap-hl" id="hl3"></div>
+    </div>
+    <div class="cap-card" id="card4" style="--hl-color:#34d399;">
+      <div class="cap-icon">🚀</div>
+      <div class="cap-title">创造</div>
+      <div class="cap-desc">创意策划 · 产品设计<br>科学研究 · 艺术创新</div>
+      <div class="cap-hl" id="hl4"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+const tl = gsap.timeline({defaults:{ease:'power3.out'}});
+
+tl.fromTo('#tag', {y:-20,opacity:0}, {y:0,opacity:1,duration:0.6})
+  .fromTo('#title', {y:40,opacity:0}, {y:0,opacity:1,duration:0.8}, '-=0.3')
+  .fromTo('#card1', {y:40,opacity:0,scale:0.85}, {y:0,opacity:1,scale:1,duration:0.6}, '-=0.2')
+  .fromTo('#card2', {y:40,opacity:0,scale:0.85}, {y:0,opacity:1,scale:1,duration:0.6}, '-=0.1')
+  .fromTo('#card3', {y:40,opacity:0,scale:0.85}, {y:0,opacity:1,scale:1,duration:0.6}, '-=0.1')
+  .fromTo('#card4', {y:40,opacity:0,scale:0.85}, {y:0,opacity:1,scale:1,duration:0.6}, '-=0.1');
+
+// Highlight lines
+['hl1','hl2','hl3','hl4'].forEach((id,i)=>{
+  gsap.fromTo(`#${id}`,{scaleX:0},{scaleX:1,duration:0.8,delay:1+i*0.2,transformOrigin:'left',ease:'power2.out'});
+});
+
+// Gentle card pulse
+document.querySelectorAll('.cap-card').forEach((el,i)=>{
+  gsap.to(el, {
+    borderColor:'rgba(167,139,250,0.3)',
+    boxShadow:'0 0 30px rgba(124,92,255,0.08)',
+    duration:2,
+    yoyo:true,
+    repeat:-1,
+    delay:i*0.5,
+    ease:'sine.inOut'
+  });
+});
+</script>
+</body>
+</html>
