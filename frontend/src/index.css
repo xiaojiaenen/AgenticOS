@@ -167,6 +167,192 @@ html.theme-liquid-glass .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 116, 139, 0.6);
 }
 
+/* ===== Liquid-glass admin page overrides ===== */
+html.theme-liquid-glass .admin-page-stage,
+html.theme-liquid-glass .admin-page-header,
+html.theme-liquid-glass .admin-data-panel,
+html.theme-liquid-glass .admin-panel-toolbar {
+  color: #e2e8f0;
+}
+
+html.theme-liquid-glass .admin-page-stage h1,
+html.theme-liquid-glass .admin-page-stage h2,
+html.theme-liquid-glass .admin-page-stage h3,
+html.theme-liquid-glass .admin-page-stage h4,
+html.theme-liquid-glass .admin-page-header h1,
+html.theme-liquid-glass .admin-page-header h2,
+html.theme-liquid-glass .admin-page-header h3,
+html.theme-liquid-glass .admin-data-panel h1,
+html.theme-liquid-glass .admin-data-panel h2,
+html.theme-liquid-glass .admin-data-panel h3,
+html.theme-liquid-glass .admin-data-panel h4 {
+  color: #ffffff !important;
+}
+
+html.theme-liquid-glass .admin-page-stage .admin-section-kicker {
+  color: #94a3b8 !important;
+}
+
+html.theme-liquid-glass .admin-page-stage .admin-kpi-pill,
+html.theme-liquid-glass .admin-page-stage .admin-kpi-pill span {
+  color: #cbd5e1 !important;
+}
+
+html.theme-liquid-glass .admin-table-head {
+  color: #94a3b8 !important;
+}
+
+html.theme-liquid-glass .admin-table-row div,
+html.theme-liquid-glass .admin-table-row p,
+html.theme-liquid-glass .admin-table-row span {
+  color: #e2e8f0 !important;
+}
+
+html.theme-liquid-glass .admin-table-row .text-slate-900,
+html.theme-liquid-glass .admin-table-row .text-slate-800,
+html.theme-liquid-glass .admin-table-row .text-slate-700,
+html.theme-liquid-glass .admin-table-row .text-slate-600 {
+  color: #ffffff !important;
+}
+
+html.theme-liquid-glass .admin-table-row .text-slate-500,
+html.theme-liquid-glass .admin-table-row .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+html.theme-liquid-glass .admin-stat-card p {
+  color: #e2e8f0;
+}
+
+html.theme-liquid-glass .admin-stat-card .text-slate-950,
+html.theme-liquid-glass .admin-stat-card .text-slate-900 {
+  color: #ffffff !important;
+}
+
+html.theme-liquid-glass .admin-stat-card .text-slate-400,
+html.theme-liquid-glass .admin-stat-card .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+/* Admin solid-panel / modal overrides */
+html.theme-liquid-glass .admin-solid-panel {
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(20px);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+}
+
+html.theme-liquid-glass .admin-solid-panel h1,
+html.theme-liquid-glass .admin-solid-panel h2,
+html.theme-liquid-glass .admin-solid-panel h3,
+html.theme-liquid-glass .admin-solid-panel h4,
+html.theme-liquid-glass .admin-solid-panel .text-slate-950,
+html.theme-liquid-glass .admin-solid-panel .text-slate-900,
+html.theme-liquid-glass .admin-solid-panel .text-slate-800 {
+  color: #ffffff !important;
+}
+
+html.theme-liquid-glass .admin-solid-panel .text-slate-500,
+html.theme-liquid-glass .admin-solid-panel .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+html.theme-liquid-glass .admin-solid-panel .admin-section-kicker {
+  color: #94a3b8 !important;
+}
+
+html.theme-liquid-glass .admin-modal-panel {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Override for border colors */
+html.theme-liquid-glass .admin-page-header,
+html.theme-liquid-glass .admin-data-panel,
+html.theme-liquid-glass .admin-table-head,
+html.theme-liquid-glass .admin-panel-toolbar,
+html.theme-liquid-glass .border-slate-200,
+html.theme-liquid-glass .border-slate-100,
+html.theme-liquid-glass .border-slate-200\/80,
+html.theme-liquid-glass .border-slate-100\/80,
+html.theme-liquid-glass .border-slate-100\/60 {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Search input in admin */
+html.theme-liquid-glass .admin-search-input {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+}
+
+html.theme-liquid-glass .admin-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+html.theme-liquid-glass .admin-search-input:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2) !important;
+}
+
+html.theme-liquid-glass .admin-search-wrapper .lucide {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Divider in admin modals/panels */
+html.theme-liquid-glass .border-slate-100,
+html.theme-liquid-glass .border-t-slate-100,
+html.theme-liquid-glass .border-b-slate-100 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Form labels in admin panels */
+html.theme-liquid-glass .admin-solid-panel label,
+html.theme-liquid-glass .admin-solid-panel .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+/* Loading/empty states */
+html.theme-liquid-glass .admin-page-stage .text-slate-400,
+html.theme-liquid-glass .admin-page-stage .text-slate-500,
+html.theme-liquid-glass .admin-page-stage .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+/* Chat analytics panels */
+html.theme-liquid-glass .chat-analytics-panel {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #e2e8f0;
+}
+
+html.theme-liquid-glass .chat-analytics-panel h3 {
+  color: #ffffff !important;
+}
+
+/* Markdown prose in admin */
+html.theme-liquid-glass .admin-solid-panel .prose,
+html.theme-liquid-glass .admin-solid-panel .prose p,
+html.theme-liquid-glass .admin-solid-panel .prose span {
+  color: #cbd5e1;
+}
+
+html.theme-liquid-glass .admin-solid-panel .prose strong {
+  color: #ffffff;
+}
+
+/* Tool call blocks in admin chat detail */
+html.theme-liquid-glass .admin-solid-panel summary,
+html.theme-liquid-glass .admin-solid-panel details span,
+html.theme-liquid-glass .admin-solid-panel details p {
+  color: #cbd5e1;
+}
+
+/* Reduce LiquidGlass double-border: override library CSS variables */
+html.theme-liquid-glass .liquid-glass.is-glass {
+  --lg-border-color: 1px solid rgba(255, 255, 255, 0.10);
+  --lg-highlight-opacity: 0.15;
+}
+
 /* ===== Base ===== */
 html, body {
   @apply font-sans antialiased text-slate-800;

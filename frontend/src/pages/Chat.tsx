@@ -19,7 +19,7 @@ import { getStoredUser } from '../services/authService';
 import { getMyAgents } from '../services/agentProfileService';
 import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
-import { useIsGlassTheme, LightRays } from '../components/liquid-glass';
+import { useIsGlassTheme, LightRays, Ferrofluid } from '../components/liquid-glass';
 
 export const Chat = () => {
   const location = useLocation();
@@ -331,18 +331,37 @@ export const Chat = () => {
       {/* 背景装饰 */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         {isGlassTheme ? (
-          <LightRays
-            raysOrigin="top-center"
-            raysColor="#4a9eff"
-            raysSpeed={0.8}
-            lightSpread={2}
-            rayLength={4}
-            fadeDistance={2}
-            saturation={0.6}
-            followMouse={true}
-            mouseInfluence={0.1}
-            noiseAmount={0.05}
-          />
+          <>
+            <Ferrofluid
+              colors={['#1a1a2e', '#16213e', '#0f3460']}
+              speed={0.3}
+              scale={1.2}
+              turbulence={0.8}
+              fluidity={0.15}
+              rimWidth={0.15}
+              sharpness={2}
+              shimmer={1}
+              glow={1.5}
+              flowDirection="down"
+              opacity={0.6}
+              mouseInteraction={true}
+              mouseStrength={0.8}
+              mouseRadius={0.3}
+              mouseDampening={0.2}
+            />
+            <LightRays
+              raysOrigin="top-center"
+              raysColor="#4a9eff"
+              raysSpeed={0.8}
+              lightSpread={2}
+              rayLength={4}
+              fadeDistance={2}
+              saturation={0.6}
+              followMouse={true}
+              mouseInfluence={0.1}
+              noiseAmount={0.05}
+            />
+          </>
         ) : (
           <>
             <div className="absolute top-0 -left-16 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.12),transparent_70%)] blur-[80px] animate-[bg-blob-1_18s_ease-in-out_infinite]" />
@@ -395,10 +414,10 @@ export const Chat = () => {
             initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
             onClick={() => { setIsSidebarOpen(true); setIsSidebarHiddenByArtifact(false); }}
             className={cn(
-              "fixed top-4 left-4 z-50 w-12 h-12 backdrop-blur-md border rounded-2xl shadow-sm flex items-center justify-center transition-all group focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2",
+              "fixed top-4 left-4 z-50 w-12 h-12 border rounded-2xl shadow-sm flex items-center justify-center transition-all group focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2",
               isGlassTheme
-                ? "bg-white/10 border-white/15 text-zinc-800 hover:bg-white/15 hover:shadow-md backdrop-blur-sm"
-                : "bg-white/80 border-slate-200 text-zinc-800 hover:bg-white hover:shadow-md"
+                ? "bg-white/10 border-white/15 text-white hover:bg-white/15 hover:shadow-md"
+                : "bg-white/80 backdrop-blur-md border-slate-200 text-zinc-800 hover:bg-white hover:shadow-md"
             )}
             aria-label="展开侧边栏"
           >

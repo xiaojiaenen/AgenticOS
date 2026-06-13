@@ -20,7 +20,7 @@ from app.db.models import (
     UserModel,
 )
 from app.db.session import create_db_session
-from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT, BIGDATA_SYSTEM_PROMPT
+from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT, BIGDATA_SYSTEM_PROMPT, VIDEO_SYSTEM_PROMPT
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
 from app.services.session_storage import parse_approval_sub_tools, slugify
 from app.services.skill_service import RuntimeSkill, SkillService
@@ -38,6 +38,7 @@ MODE_DEFAULT_PROMPTS: dict[str, str] = {
     "general": GENERAL_SYSTEM_PROMPT,
     "ppt": PPT_SYSTEM_PROMPT,
     "website": WEBSITE_ROUTER_PROMPT,
+    "video": VIDEO_SYSTEM_PROMPT,
     "bigdata": BIGDATA_SYSTEM_PROMPT,
 }
 
@@ -64,6 +65,15 @@ BUILTIN_AGENT_PROFILES = {
         "avatar": "presentation",
         "listed": True,
         "max_steps": 50,
+    },
+    "video": {
+        "name": "视频创作",
+        "description": "智能视频生成，将想法转化为动画 MP4 视频。支持 23 种专业模板，多帧 storyboard 规划。",
+        "system_prompt": VIDEO_SYSTEM_PROMPT,
+        "response_mode": "video",
+        "avatar": "film",
+        "listed": True,
+        "max_steps": 25,
     },
     "website": {
         "name": "网站工程师",

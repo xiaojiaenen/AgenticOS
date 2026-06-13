@@ -5,6 +5,7 @@ import { AlertCircle, FileCode2, Loader2, Plus, Save, Trash2, Upload, X } from '
 import { Button } from '../ui/Button';
 import { formatApiDate } from '../../lib/datetime';
 import { cn } from '../../lib/utils';
+import { useIsGlassTheme } from '../liquid-glass';
 import {
  createSkill,
  deleteSkill,
@@ -66,6 +67,7 @@ function shortRootDir(rootDir: string): string {
 }
 
 export const SkillManagement = () => {
+ const isGlass = useIsGlassTheme();
  const [skills, setSkills] = useState<Skill[]>([]);
  const [draft, setDraft] = useState<Draft | null>(null);
  const [isModalOpen, setIsModalOpen] = useState(false);

@@ -71,8 +71,13 @@ export const GlassThemeWrapper: React.FC<GlassThemeWrapperProps> = ({
 /**
  * Hook to check if liquid-glass theme is active.
  * Useful for inline conditional logic in components.
+ * Also checks for the `theme-liquid-glass` class on <html> (set by AdminDashboard).
  */
 export function useIsGlassTheme() {
   const { theme } = useTheme();
+  // Only check the DOM on the client
+  if (typeof document !== 'undefined' && document.documentElement.classList.contains('theme-liquid-glass')) {
+    return true;
+  }
   return theme === 'liquid-glass';
 }
