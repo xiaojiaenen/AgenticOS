@@ -17,8 +17,8 @@ interface ChatInputProps {
   isLoading: boolean;
   className?: string;
   placeholder?: string;
-  chatMode: 'general' | 'ppt' | 'website' | 'bigdata';
-  setChatMode: (mode: 'general' | 'ppt' | 'website' | 'bigdata') => void;
+  chatMode: 'general' | 'ppt' | 'website' | 'video' | 'bigdata';
+  setChatMode: (mode: 'general' | 'ppt' | 'website' | 'video' | 'bigdata') => void;
   agentProfiles?: AgentProfile[];
   selectedAgentProfileId?: number | null;
   onAgentProfileChange?: (profile: AgentProfile | null) => void;
@@ -203,7 +203,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             selectedId={selectedAgentProfileId ?? null}
             onSelect={(agent) => {
               onAgentProfileChange?.(agent);
-              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website' | 'bigdata');
+              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website' | 'video' | 'bigdata');
             }}
             variant="compact"
             disabled={isModeLocked}
@@ -285,7 +285,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             selectedId={selectedAgentProfileId ?? null}
             onSelect={(agent) => {
               onAgentProfileChange?.(agent);
-              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website' | 'bigdata');
+              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website' | 'video' | 'bigdata');
             }}
             variant="compact"
             disabled={isModeLocked}

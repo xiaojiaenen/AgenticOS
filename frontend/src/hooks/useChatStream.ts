@@ -44,7 +44,7 @@ interface UseChatStreamDeps {
   sessions: Session[];
   currentSessionId: string | null;
   currentSession: Session | null;
-  chatMode: 'general' | 'ppt' | 'website' | 'bigdata';
+  chatMode: 'general' | 'ppt' | 'website' | 'video' | 'bigdata';
   selectedAgentProfileId: number | null;
   selectedAgent: AgentProfile | null;
   setSessions: React.Dispatch<React.SetStateAction<Session[]>>;
@@ -71,7 +71,7 @@ export function useChatStream({
   const [error, setError] = useState<string | null>(null);
   const [pendingDecisions, setPendingDecisions] = useState<UserDecision[]>([]);
   const [runStatus, setRunStatus] = useState<{
-    phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'done' | 'error';
+    phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'generating_video' | 'rendering_video' | 'rendering_website' | 'done' | 'error';
     label: string;
   }>({ phase: 'idle', label: '已就绪' });
 
@@ -169,9 +169,12 @@ export function useChatStream({
 
         queueMicrotask(() => {
           setIsLoading(true);
+          const isPpt = chatMode === 'ppt';
+          const isVideo = chatMode === 'video';
+          const isWebsite = chatMode === 'website';
           setRunStatus({
-            phase: (chatMode === 'ppt') ? 'generating_ppt' : 'thinking',
-            label: (chatMode === 'ppt') ? '正在生成 PPT 内容与版式' : '大模型正在思考',
+            phase: isPpt ? 'generating_ppt' : isVideo ? 'generating_video' : 'thinking',
+            label: isPpt ? '正在生成 PPT 内容与版式' : isVideo ? '正在规划视频内容' : '大模型正在思考',
           });
           setInputValue('');
           setSessions((prev) => {
@@ -179,8 +182,9 @@ export function useChatStream({
               id: assistantMessageId!,
               role: 'model',
               text: '',
-              pptArtifact: (chatMode === 'ppt') ? { status: 'generating', mode: 'ppt' as const } : undefined,
-              websiteArtifact: (chatMode === 'website') ? { status: 'generating' } : undefined,
+              pptArtifact: isPpt ? { status: 'generating', mode: 'ppt' as const } : undefined,
+              websiteArtifact: isWebsite ? { status: 'generating' } : undefined,
+              videoArtifact: isVideo ? { status: 'generating' } : undefined,
             };
 
             if (!currentSessionId) {
@@ -226,6 +230,8 @@ export function useChatStream({
               streaming: '正在回复...',
               generating_ppt: '正在生成 PPT...',
               rendering_ppt: '正在渲染预览...',
+              generating_video: '正在规划视频...',
+              rendering_video: '正在渲染视频...',
               rendering_website: '正在渲染网站...',
               done: '已完成',
               error: '出错了',
@@ -310,11 +316,48 @@ export function useChatStream({
               ),
             );
           },
+          onVideoArtifact: (videoArtifact) => {
+            const nextArtifact: Artifact = {
+              language: 'video',
+              artifactId: videoArtifact.artifact_id,
+              videoUrl: videoArtifact.video_url,
+              thumbnailUrl: videoArtifact.thumbnail_url,
+              title: videoArtifact.title,
+              duration: videoArtifact.duration_sec,
+              fileSize: videoArtifact.file_size_bytes,
+            };
+            setArtifact(nextArtifact);
+            setSessions((prev) =>
+              prev.map((session) =>
+                session.id === targetId
+                  ? {
+                      ...session,
+                      updatedAt: Date.now(),
+                      messages: session.messages.map((message) =>
+                        message.id === assistantMessageId
+                          ? {
+                              ...message,
+                              videoArtifact: {
+                                status: 'ready',
+                                artifactId: videoArtifact.artifact_id,
+                                title: videoArtifact.title,
+                                videoUrl: videoArtifact.video_url,
+                                thumbnailUrl: videoArtifact.thumbnail_url,
+                                duration: videoArtifact.duration_sec,
+                              },
+                            }
+                          : message,
+                      ),
+                    }
+                  : session,
+              ),
+            );
+          },
           onDelta: (_, fullText) => {
             hasStreamedContent = true;
             hasAssistantActivity = true;
             setRunStatus((prev) =>
-              prev.phase === 'generating_ppt' || prev.phase === 'rendering_ppt' || prev.phase === 'rendering_website'
+              prev.phase === 'generating_ppt' || prev.phase === 'rendering_ppt' || prev.phase === 'generating_video' || prev.phase === 'rendering_video' || prev.phase === 'rendering_website'
                 ? prev
                 : { phase: 'streaming', label: '大模型正在输出' },
             );
