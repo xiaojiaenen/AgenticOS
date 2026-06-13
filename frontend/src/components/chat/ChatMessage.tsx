@@ -354,7 +354,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
           <div className={cn("text-[9px] font-black uppercase tracking-[0.1em] px-2 mt-1.5 flex items-center gap-2",
             isGlass ? "text-gray-500" : "text-slate-500"
           )}>
-            <span>{new Date(parseInt(message.id)).toLocaleTimeString('zh-CN', { timeZone: APP_TIME_ZONE, hour: '2-digit', minute: '2-digit' })}</span>
+            <span>{(() => { const ts = parseInt(message.id); return isNaN(ts) ? '' : new Date(ts).toLocaleTimeString('zh-CN', { timeZone: APP_TIME_ZONE, hour: '2-digit', minute: '2-digit' }); })()}</span>
             {!isUser && visibleText && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="opacity-0 group-hover:opacity-100 transition-opacity">· {visibleText.length} 字</motion.span>}
             {canCopyMessage && (
               <button onClick={handleCopy} title="复制" className={cn("transition-colors duration-200",
