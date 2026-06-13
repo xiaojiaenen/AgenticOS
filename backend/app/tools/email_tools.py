@@ -345,43 +345,6 @@ def _is_date_in_range(date_header: str | None, since: str, before: str) -> bool:
 def register_email_tools(registry: ToolRegistry):
     """注册邮件工具到 ToolRegistry"""
 
-    @registry.tool(display_name="检查邮箱配置")
-    async def setup_email() -> str:
-        """
-        检查当前用户的邮箱是否已配置。
-        邮箱凭据需在侧边栏「邮箱设置」中配置，不在对话中输入密码。
-        """
-        session_id = _current_session_id.get()
-        if not session_id:
-            return "❌ 找不到当前会话信息"
-
-        db = create_db_session()
-        try:
-            row = db.scalar(
-                select(AgentSessionModel.user_id).where(
-                    AgentSessionModel.session_id == session_id
-                )
-            )
-            if row is None:
-                return "❌ 找不到当前会话的用户信息"
-
-            cred = db.scalar(
-                select(UserEmailCredentialsModel).where(
-                    UserEmailCredentialsModel.user_id == row
-                )
-            )
-            if not cred:
-                return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据，配置完成后即可使用邮件功能。"
-
-            return (
-                f"✅ 邮箱已配置：{cred.email_address}\n"
-                f"IMAP: {cred.imap_host}:{cred.imap_port}\n"
-                f"SMTP: {cred.smtp_host}:{cred.smtp_port}\n"
-                f"现在可以使用 read_emails、search_emails、send_emails 等工具。"
-            )
-        finally:
-            db.close()
-
     @registry.tool(display_name="读取邮件")
     async def read_emails(
         folder: str = "inbox",
@@ -404,7 +367,7 @@ def register_email_tools(registry: ToolRegistry):
         """
         creds = _get_credentials()
         if not creds:
-            return "❌ 请先调用 setup_email 设置邮箱凭据"
+            return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
 
         try:
             imap = _imap_connect(
@@ -522,7 +485,7 @@ def register_email_tools(registry: ToolRegistry):
         """
         creds = _get_credentials()
         if not creds:
-            return "❌ 请先调用 setup_email 设置邮箱凭据"
+            return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
 
         try:
             imap = _imap_connect(
@@ -594,7 +557,7 @@ def register_email_tools(registry: ToolRegistry):
         """
         creds = _get_credentials()
         if not creds:
-            return "❌ 请先调用 setup_email 设置邮箱凭据"
+            return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
 
         try:
             imap = _imap_connect(
@@ -692,7 +655,7 @@ def register_email_tools(registry: ToolRegistry):
         """
         creds = _get_credentials()
         if not creds:
-            return "❌ 请先调用 setup_email 设置邮箱凭据"
+            return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
 
         try:
             imap = _imap_connect(
@@ -759,7 +722,7 @@ def register_email_tools(registry: ToolRegistry):
         """
         creds = _get_credentials()
         if not creds:
-            return "❌ 请先调用 setup_email 设置邮箱凭据"
+            return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
 
         email_addr = str(creds["email"])
         password = str(creds["password"])
@@ -792,35 +755,3 @@ def register_email_tools(registry: ToolRegistry):
 
         except Exception as e:
             return f"❌ 发送邮件失败: {str(e)}"
-
-    @registry.tool(display_name="清除邮箱凭据")
-    async def clear_email_credentials() -> str:
-        """
-        清除邮箱凭据
-        """
-        session_id = _current_session_id.get()
-        if not session_id:
-            return "❌ 找不到当前会话信息"
-        db = create_db_session()
-        try:
-            row = db.scalar(
-                select(AgentSessionModel.user_id).where(
-                    AgentSessionModel.session_id == session_id
-                )
-            )
-            if row is None:
-                return "❌ 找不到当前会话的用户信息"
-            user_id = row
-
-            creds = db.scalar(
-                select(UserEmailCredentialsModel).where(
-                    UserEmailCredentialsModel.user_id == user_id
-                )
-            )
-            if creds:
-                db.delete(creds)
-                db.commit()
-                return "✅ 邮箱凭据已清除"
-            return "ℹ️ 当前用户没有存储邮箱凭据"
-        finally:
-            db.close()
