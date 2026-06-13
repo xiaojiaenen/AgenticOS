@@ -26,6 +26,10 @@ AGENT_MODES = {
         "label": "视频模式",
         "description": "智能视频生成，将想法转化为动画 MP4 视频。支持 23 种专业模板，多帧 storyboard 规划，Chromium 录制 + ffmpeg 编码。",
     },
+    "email": {
+        "label": "邮箱模式",
+        "description": "邮件管理助手，支持读取、搜索、发送邮件，统计邮件数量。",
+    },
     "bigdata": {
         "label": "大数据模式",
         "description": "大数据平台运维与开发助手。支持 Dinky/Flink/Spark/Doris/ClickHouse 计算引擎、"
@@ -51,6 +55,9 @@ _MODE_TOOL_REGISTRARS: dict[str, list[tuple[str, str]]] = {
     ],
     "video": [
         ("app.tools.video_tools", "register_video_tools"),
+    ],
+    "email": [
+        ("app.tools.email_tools", "register_email_tools"),
     ],
     "website": [
         ("app.tools.website_tools", "register_website_tools"),
@@ -135,6 +142,14 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
             "skill": {"enabled": False, "requires_approval": False},
             "build_website": {"enabled": True, "requires_approval": False},
             "deploy_website": {"enabled": True, "requires_approval": True},
+        },
+        "email": {
+            "calc": {"enabled": False, "requires_approval": False},
+            "time": {"enabled": False, "requires_approval": False},
+            "file": {"enabled": False, "requires_approval": True},
+            "skill": {"enabled": False, "requires_approval": False},
+            "email": {"enabled": True, "requires_approval": True},
+            "memory": {"enabled": True, "requires_approval": False},
         },
         "bigdata": {
             "calc": {"enabled": True, "requires_approval": False},

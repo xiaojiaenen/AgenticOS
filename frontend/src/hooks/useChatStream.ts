@@ -44,7 +44,7 @@ interface UseChatStreamDeps {
   sessions: Session[];
   currentSessionId: string | null;
   currentSession: Session | null;
-  chatMode: 'general' | 'ppt' | 'website' | 'video' | 'bigdata';
+  chatMode: 'general' | 'ppt' | 'website' | 'video' | 'email' | 'bigdata';
   selectedAgentProfileId: number | null;
   selectedAgent: AgentProfile | null;
   setSessions: React.Dispatch<React.SetStateAction<Session[]>>;

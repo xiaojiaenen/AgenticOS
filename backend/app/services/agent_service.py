@@ -1633,13 +1633,14 @@ class AgentService:
                     if isinstance(stored_id, int) and stored_id > 0:
                         request.agent_profile_id = stored_id
                 stored_mode = meta.get("response_mode")
-                if isinstance(stored_mode, str) and stored_mode in ("general", "ppt", "website", "video"):
+                if isinstance(stored_mode, str) and stored_mode in ("general", "ppt", "website", "video", "email"):
                     request.response_mode = stored_mode
 
         runtime_profile = await self._resolve_runtime_profile(request, user)
         response_mode = runtime_profile.response_mode
         ppt_mode = response_mode == "ppt"
         video_mode = response_mode == "video"
+        email_mode = response_mode == "email"
 
         # 提前设置 user context，确保 register_external_tools 能获取 user_id
         if user is not None:
@@ -1742,7 +1743,7 @@ class AgentService:
         usage_recorded = False
 
         # 注入用户记忆上下文（异步调用）
-        if user is not None and not ppt_mode and not website_mode and not video_mode:
+        if user is not None and not ppt_mode and not website_mode and not video_mode and not email_mode:
             try:
                 from app.services.memory_service import get_memory_service
                 memory_context = await get_memory_service().get_memory_context(user.id, request.message)

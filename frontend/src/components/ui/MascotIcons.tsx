@@ -486,3 +486,28 @@ export const MascotVideo = ({ size = 24, className }: { size?: number; className
     </g>
   </motion.svg>
 );
+
+/** 邮箱模式：小精灵举着信封 */
+export const MascotEmail = ({ size = 24, className }: { size?: number; className?: string }) => (
+  <motion.svg width={size} height={size} viewBox="0 0 140 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <motion.g animate={{ y: [-2, 2, -2] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
+      <path d="M20 40 L30 10 L50 30 Z" fill="currentColor" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M80 40 L70 10 L50 30 Z" fill="currentColor" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+      <rect x="15" y="25" width="70" height="55" rx="25" fill="currentColor" />
+      <rect x="25" y="35" width="50" height="35" rx="15" fill="white" />
+      <motion.ellipse cx="40" cy="48" rx="4" ry="4" fill="#0f172a" animate={{ scaleY: [1, 1, 0.15, 1, 1] }} transition={{ duration: 4, repeat: Infinity, times: [0, 0.45, 0.5, 0.55, 1] }} style={{ transformOrigin: '40px 48px' }} />
+      <motion.ellipse cx="60" cy="48" rx="4" ry="4" fill="#0f172a" animate={{ scaleY: [1, 1, 0.15, 1, 1] }} transition={{ duration: 4, repeat: Infinity, times: [0, 0.45, 0.5, 0.55, 1] }} style={{ transformOrigin: '60px 48px' }} />
+      <circle cx="32" cy="54" r="3" fill="#e2e8f0" opacity="0.8" />
+      <circle cx="68" cy="54" r="3" fill="#e2e8f0" opacity="0.8" />
+      <path d="M46 54 Q50 58 54 54" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" fill="none" />
+    </motion.g>
+    {/* 信封 — 摆动动画 */}
+    <g transform="translate(82, 14)">
+      <motion.g animate={{ rotate: [-5, 5, -5] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} style={{ transformOrigin: '28px 28px' }}>
+        <rect x="6" y="10" width="44" height="32" rx="3" fill="#3b82f6" />
+        <motion.path d="M6 10 L28 28 L50 10" stroke="white" strokeWidth="2" fill="none" animate={{ pathLength: [0, 1] }} transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }} />
+        <rect x="6" y="10" width="44" height="32" rx="3" stroke="white" strokeWidth="1.5" fill="none" />
+      </motion.g>
+    </g>
+  </motion.svg>
+);
