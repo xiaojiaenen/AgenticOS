@@ -162,13 +162,13 @@ export const Chat = () => {
     }
   }, [artifact, setArtifact]);
 
-  const handleEmailConfirm = useCallback((approvalId: string) => {
-    handleApprovalDecision(approvalId, 'approved');
+  const handleEmailConfirm = useCallback(async (approvalId: string) => {
+    await handleApprovalDecision(approvalId, 'approved');
     setArtifact(null);
   }, [handleApprovalDecision, setArtifact]);
 
-  const handleEmailCancel = useCallback((approvalId: string) => {
-    handleApprovalDecision(approvalId, 'rejected');
+  const handleEmailCancel = useCallback(async (approvalId: string) => {
+    await handleApprovalDecision(approvalId, 'rejected');
     setArtifact(null);
   }, [handleApprovalDecision, setArtifact]);
 
@@ -483,11 +483,13 @@ export const Chat = () => {
             <ChatMainArea />
           </main>
           <AnimatePresence>
-            <SlideLivePreview
-              sessionId={currentSessionId}
-              isStreaming={isStreamingResponse}
-              hasArtifact={!!artifact}
-            />
+            {chatMode === 'ppt' && (
+              <SlideLivePreview
+                sessionId={currentSessionId}
+                isStreaming={isStreamingResponse}
+                hasArtifact={!!artifact}
+              />
+            )}
           </AnimatePresence>
           <ChatArtifactArea
             artifact={artifact}
