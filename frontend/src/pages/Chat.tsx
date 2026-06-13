@@ -94,7 +94,10 @@ export const Chat = () => {
 
   // ── 检测 send_email 审批请求，自动打开邮件预览面板 ──
   useEffect(() => {
-    const emailApproval = pendingApprovals.find((t) => t.name === 'send_email');
+    // 同时检查英文名和中文名（后端会转换为中文显示名）
+    const emailApproval = pendingApprovals.find(
+      (t) => t.name === 'send_email' || t.name === '发送邮件'
+    );
     if (emailApproval && emailApproval.arguments) {
       const args = emailApproval.arguments as Record<string, unknown>;
       setArtifact({
