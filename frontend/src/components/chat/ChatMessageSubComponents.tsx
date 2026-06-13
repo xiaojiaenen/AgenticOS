@@ -329,21 +329,38 @@ export const CodeBlock = ({ inline, className, children, onOpenArtifact, ...prop
 
 // ── Table components (extracted from render) ──────────────────────────────
 
-export const MarkdownTable = ({ children }: { children: React.ReactNode }) => (
-  <div className="my-5 overflow-hidden rounded-3xl border border-slate-200/90 bg-white/88 shadow-lg ring-1 ring-white/65">
-    <div className="h-2 bg-[linear-gradient(90deg,rgba(15,23,42,0.9),rgba(30,41,59,0.85),rgba(34,211,238,0.75))]" />
-    <div className="visible-scrollbar overflow-x-auto px-1 pb-2">
-      <table className="w-max min-w-full border-collapse text-left text-sm text-slate-700">{children}</table>
+export const MarkdownTable = ({ children, isGlass }: { children: React.ReactNode; isGlass?: boolean }) => (
+  isGlass ? (
+    <div className="my-5 overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-lg">
+      <div className="h-2 bg-[linear-gradient(90deg,rgba(100,180,255,0.3),rgba(150,120,255,0.3),rgba(100,200,255,0.2))]" />
+      <div className="visible-scrollbar overflow-x-auto px-1 pb-2">
+        <table className="w-max min-w-full border-collapse text-left text-sm text-gray-200">{children}</table>
+      </div>
     </div>
-  </div>
+  ) : (
+    <div className="my-5 overflow-hidden rounded-3xl border border-slate-200/90 bg-white/88 shadow-lg ring-1 ring-white/65">
+      <div className="h-2 bg-[linear-gradient(90deg,rgba(15,23,42,0.9),rgba(30,41,59,0.85),rgba(34,211,238,0.75))]" />
+      <div className="visible-scrollbar overflow-x-auto px-1 pb-2">
+        <table className="w-max min-w-full border-collapse text-left text-sm text-slate-700">{children}</table>
+      </div>
+    </div>
+  )
 );
 
-export const MarkdownTableHead = ({ children }: { children: React.ReactNode }) => (
-  <thead className="bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.92))] text-slate-100">{children}</thead>
+export const MarkdownTableHead = ({ children, isGlass }: { children: React.ReactNode; isGlass?: boolean }) => (
+  isGlass ? (
+    <thead className="bg-[linear-gradient(135deg,rgba(255,255,255,0.12),rgba(255,255,255,0.06))] text-gray-200">{children}</thead>
+  ) : (
+    <thead className="bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.92))] text-slate-100">{children}</thead>
+  )
 );
 
-export const MarkdownTableRow = ({ children }: { children: React.ReactNode }) => (
-  <tr className="border-b border-slate-200/80 transition-colors even:bg-slate-50/70 hover:bg-sky-50/50 last:border-b-0">{children}</tr>
+export const MarkdownTableRow = ({ children, isGlass }: { children: React.ReactNode; isGlass?: boolean }) => (
+  isGlass ? (
+    <tr className="border-b border-white/10 transition-colors even:bg-white/5 hover:bg-white/10 last:border-b-0">{children}</tr>
+  ) : (
+    <tr className="border-b border-slate-200/80 transition-colors even:bg-slate-50/70 hover:bg-sky-50/50 last:border-b-0">{children}</tr>
+  )
 );
 
 // ── Slide Preview Strip ──────────────────────────────────────────────────
