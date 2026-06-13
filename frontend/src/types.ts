@@ -53,6 +53,14 @@ export type Message = {
     stack?: string;
     html?: string;
   };
+  videoArtifact?: {
+    status: 'generating' | 'ready';
+    artifactId?: string;
+    title?: string;
+    videoUrl?: string;
+    thumbnailUrl?: string;
+    duration?: number;
+  };
 };
 
 export type Session = {
@@ -61,7 +69,7 @@ export type Session = {
   messages: Message[];
   createdAt?: number;
   updatedAt: number;
-  mode?: 'general' | 'ppt' | 'website' | 'bigdata';
+  mode?: 'general' | 'ppt' | 'website' | 'video' | 'bigdata';
   agentProfileId?: number | null;
   agentName?: string;
   summary?: string | null;
