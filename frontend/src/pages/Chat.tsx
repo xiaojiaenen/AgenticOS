@@ -98,34 +98,31 @@ export const Chat = () => {
     const emailApproval = pendingApprovals.find(
       (t) => t.name === 'send_email' || t.name === '发送邮件'
     );
-    if (emailApproval && emailApproval.arguments) {
-      // 确保 arguments 是对象（可能是 JSON 字符串）
-      let args: Record<string, unknown> = {};
-      if (typeof emailApproval.arguments === 'string') {
-        try {
-          args = JSON.parse(emailApproval.arguments);
-        } catch {
-          args = {};
-        }
-      } else {
-        args = emailApproval.arguments as Record<string, unknown>;
-      }
+    if (!emailApproval || !emailApproval.arguments) return;
 
-      // 只有当 to 和 subject 存在时才显示面板
-      if (args.to && args.subject) {
-        setArtifact({
-          language: 'email',
-          approvalId: emailApproval.approvalId || '',
-          to: String(args.to || ''),
-          subject: String(args.subject || ''),
-          body: String(args.body || ''),
-          cc: args.cc ? String(args.cc) : undefined,
-          isHtml: Boolean(args.is_html),
-        });
+    // 确保 arguments 是对象（可能是 JSON 字符串）
+    let args: Record<string, unknown> = {};
+    if (typeof emailApproval.arguments === 'string') {
+      try {
+        args = JSON.parse(emailApproval.arguments);
+      } catch {
+        return;
       }
     } else {
-      // 如果没有邮件审批请求，清除邮件 artifact
-      setArtifact((prev) => prev?.language === 'email' ? null : prev);
+      args = emailApproval.arguments as Record<string, unknown>;
+    }
+
+    // 只有当 to 和 subject 存在时才显示面板
+    if (args.to && args.subject) {
+      setArtifact({
+        language: 'email',
+        approvalId: emailApproval.approvalId || '',
+        to: String(args.to || ''),
+        subject: String(args.subject || ''),
+        body: String(args.body || ''),
+        cc: args.cc ? String(args.cc) : undefined,
+        isHtml: Boolean(args.is_html),
+      });
     }
   }, [pendingApprovals, setArtifact]);
 
