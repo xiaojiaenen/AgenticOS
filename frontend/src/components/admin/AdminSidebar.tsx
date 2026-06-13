@@ -45,28 +45,9 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
   navigate('/login');
  };
 
- return (
-  <motion.aside
-   initial={isMobile ? { x: -300 } : { width: 296 }}
-   animate={{ x: 0, width: 296 }}
-   exit={isMobile ? { x: -300 } : { width: 0 }}
-   transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-   className={cn(
-    'relative z-20 flex h-full flex-shrink-0 flex-col overflow-hidden',
-    isGlass
-      ? 'border-r border-white/10'
-      : 'border-r border-slate-200/80 bg-[var(--admin-sidebar-bg)] shadow-[10px_0_36px_rgba(15,23,42,0.06)] backdrop-blur-2xl',
-    isMobile ? 'fixed inset-y-0 left-0 w-[296px] shadow-lg' : 'w-[296px]',
-    !isOpen && !isMobile && 'hidden',
-   )}
-   style={isGlass ? {
-     background: 'rgba(255,255,255,0.04)',
-     backdropFilter: 'blur(20px)',
-     WebkitBackdropFilter: 'blur(20px)',
-   } : undefined}
-  >
-   {!isGlass && <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-br from-[var(--admin-accent-soft)] to-transparent" />}
-
+ // 侧边栏内容
+ const sidebarContent = (
+  <>
    <div className={cn("relative z-10 flex items-center justify-between border-b px-4 py-4", isGlass ? "border-white/10" : "border-slate-200/80")}>
     <Logo iconSize={22} className="text-lg" />
     <button
@@ -98,9 +79,6 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
           ? isGlass ? 'admin-nav-item-active text-white' : 'admin-nav-item-active text-zinc-900'
           : isGlass ? 'text-white/70 hover:text-white hover:bg-white/5' : 'text-slate-600 hover:text-slate-900',
         )}
-        style={isGlass && !active ? {
-          transition: 'all 0.2s ease',
-        } : undefined}
        >
         {active && (
          <motion.span
@@ -180,6 +158,39 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
      </button>
     </div>
    </div>
+  </>
+ );
+
+ return (
+  <motion.aside
+   initial={isMobile ? { x: -300 } : { width: 296 }}
+   animate={{ x: 0, width: 296 }}
+   exit={isMobile ? { x: -300 } : { width: 0 }}
+   transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+   className={cn(
+    'flex flex-col z-20 flex-shrink-0 overflow-hidden',
+    isGlass
+      ? 'border-r border-white/10'
+      : 'border-r border-slate-200/80 bg-[var(--admin-sidebar-bg)] shadow-[10px_0_36px_rgba(15,23,42,0.06)] backdrop-blur-2xl',
+    isMobile ? 'fixed inset-y-0 left-0 w-[296px] shadow-lg' : 'w-[296px]',
+    !isOpen && !isMobile && 'hidden',
+   )}
+  >
+   {isGlass ? (
+    <LiquidGlass
+     {...glassPresets.card}
+     tint="rgba(255,255,255,0.06)"
+     radius={0}
+     style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}
+    >
+     {sidebarContent}
+    </LiquidGlass>
+   ) : (
+    <>
+     <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-br from-[var(--admin-accent-soft)] to-transparent" />
+     {sidebarContent}
+    </>
+   )}
   </motion.aside>
  );
 });
