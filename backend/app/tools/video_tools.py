@@ -4,6 +4,7 @@ Video 智能体工具
 """
 
 import json
+import os
 from typing import Any
 
 from wuwei import ToolRegistry
@@ -125,7 +126,7 @@ def register_video_tools(registry: ToolRegistry):
 
     @registry.register(
         name="video_set_template",
-        description="为项目设置视频模板。",
+        description="为项目设置视频模板。会自动返回模板的设计规范（SKILL.md）。",
         parameters={
             "type": "object",
             "properties": {
@@ -143,7 +144,33 @@ def register_video_tools(registry: ToolRegistry):
     )
     async def video_set_template(project_id: str, template_id: str) -> Any:
         await orchestrator.set_template(project_id, template_id)
-        return {"ok": True}
+
+        # 读取模板的 SKILL.md（如果存在）
+        skill_content = None
+        try:
+            template = orchestrator.templates.get(template_id)
+            if template and template._dir:
+                skill_path = os.path.join(template._dir, "SKILL.md")
+                if os.path.exists(skill_path):
+                    with open(skill_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                        # 去掉 YAML frontmatter，只保留正文
+                        if content.startswith("---"):
+                            parts = content.split("---", 2)
+                            if len(parts) >= 3:
+                                skill_content = parts[2].strip()
+                            else:
+                                skill_content = content
+                        else:
+                            skill_content = content
+        except Exception as e:
+            # SKILL.md 读取失败不影响主流程
+            pass
+
+        result = {"ok": True, "template_id": template_id}
+        if skill_content:
+            result["template_design_guide"] = skill_content
+        return result
 
     @registry.register(
         name="video_set_variables",
