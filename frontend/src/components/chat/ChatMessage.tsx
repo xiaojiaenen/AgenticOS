@@ -78,7 +78,7 @@ const processChildren = (children: any, counter: { current: number }, searchQuer
 
 const renderTableCellContent = (children: React.ReactNode, counter: { current: number }, searchQuery: string, activeMatchId?: string | null, messageId?: string, options: { placeholder?: string; align?: 'left' | 'right'; truncate?: boolean } = {}) => {
   const plainText = extractPlainText(children);
-  if (plainText.length === 0) return <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium tracking-wide text-slate-400">{options.placeholder ?? '未填写'}</span>;
+  if (plainText.length === 0) return <span className="inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium tracking-wide text-gray-500">{options.placeholder ?? '未填写'}</span>;
   const processed = processChildren(children, counter, searchQuery, activeMatchId, messageId);
   const shouldTruncate = options.truncate === true && plainText.length > 64;
   const alignmentClass = options.align === 'right' ? 'items-end text-right' : 'items-start text-left';
@@ -122,7 +122,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   const TableHeaderCell = React.memo(({ children }: { children: React.ReactNode }) => {
     const plainText = extractPlainText(children);
     const rightAligned = isNumericHeader(plainText);
-    return <th className={cn('px-4 py-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-slate-200/95', rightAligned ? 'text-right' : 'text-left')}>
+    return <th className={cn('px-4 py-3.5 text-xs font-semibold uppercase tracking-[0.14em]', isGlass ? 'text-gray-200' : 'text-slate-200/95', rightAligned ? 'text-right' : 'text-left')}>
       <div className={cn('flex min-w-0 items-center gap-2', rightAligned ? 'justify-end' : 'justify-start')}><span className="truncate">{plainText || '字段'}</span></div>
     </th>;
   });
@@ -130,7 +130,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   const TableCell = React.memo(({ children }: { children: React.ReactNode }) => {
     const plainText = extractPlainText(children);
     const rightAligned = isNumericLike(plainText);
-    return <td className={cn('px-4 py-3.5 align-top leading-relaxed text-slate-700', rightAligned && 'font-mono tabular-nums text-slate-800')}>
+    return <td className={cn('px-4 py-3.5 align-top leading-relaxed', isGlass ? 'text-gray-300' : 'text-slate-700', rightAligned && 'font-mono tabular-nums')}>
       {renderTableCellContent(children, sessionCounter.current, searchQuery, activeMatchId, message?.id, { placeholder: '未填写', align: rightAligned ? 'right' : 'left', truncate: false })}
     </td>;
   });
@@ -265,9 +265,9 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                       code: (props) => <CodeBlock {...props} onOpenArtifact={onOpenArtifact} />,
                       pre: ({ children }) => <>{children}</>,
                       p: ({ children }) => <p className="text-gray-200">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</p>,
-                      table: ({ children }) => <MarkdownTable>{children}</MarkdownTable>,
-                      thead: ({ children }) => <MarkdownTableHead>{children}</MarkdownTableHead>,
-                      tr: ({ children }) => <MarkdownTableRow>{children}</MarkdownTableRow>,
+                      table: ({ children }) => <MarkdownTable isGlass>{children}</MarkdownTable>,
+                      thead: ({ children }) => <MarkdownTableHead isGlass>{children}</MarkdownTableHead>,
+                      tr: ({ children }) => <MarkdownTableRow isGlass>{children}</MarkdownTableRow>,
                       th: ({ children }) => <TableHeaderCell>{children}</TableHeaderCell>,
                       td: ({ children }) => <TableCell>{children}</TableCell>,
                       li: ({ children }) => <li className="text-gray-200">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</li>,
@@ -305,7 +305,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                   <div className="flex flex-wrap gap-3 mb-1">
                     {message.attachments.map((att, i) => (
                       <motion.div whileHover={{ scale: 1.05 }} key={i} className="max-w-[240px] rounded-2xl overflow-hidden border border-white/20 shadow-lg ring-4 ring-white/5">
-                        {att.type.startsWith('image/') ? <img src={att.url} alt={att.name} className="w-full h-auto object-cover max-h-52" /> : <div className="bg-white/10 p-3 flex items-center gap-3"><WrenchIcon size={16} /><span className="text-xs font-bold truncate">{att.name}</span></div>}
+                        {att.type.startsWith('image/') ? <img src={att.url} alt={att.name} className="w-full h-auto object-cover max-h-52" /> : <div className="bg-white/10 p-3 flex items-center gap-3"><WrenchIcon size={16} /><span className="text-xs font-bold truncate text-white">{att.name}</span></div>}
                       </motion.div>
                     ))}
                   </div>
