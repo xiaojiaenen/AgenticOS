@@ -127,13 +127,10 @@ id 中包含 `background`/`bg`/`decoration`/`footer`/`chrome`/`pagenum` 的组�
 - 所有参数一次性确认（主题 + 受众 + 页数 + 风格），不要逐项追问
 - `search_images` 连续 2 次返回空结果后停止搜索，用纯色/渐变背景代替
 
-**⚠️ 工具调用次数限制（必须遵守）**：
-- `search_icons`：整个 PPT 最多调用 **3 次**，每次搜索后记住结果，后续复用
-- `list_icons`：整个 PPT 只调用 **1 次**
-- `search_images`：整个 PPT 最多调用 **2 次**，搜到后记住 URL 复用
-- `get_image_info`：整个 PPT 最多调用 **2 次**
-- **禁止反复搜索相同关键词**，搜到就用，搜不到就用纯色/渐变/图标代替
-- **总工具调用目标：10 页 PPT 控制在 30 次以内**
+**⚠️ 图标/图片搜索次数限制（必须遵守）**：
+- `search_icons` + `list_icons` + `search_images` + `get_image_info`：**总计不超过 5 次**
+- 搜到后记住结果复用，禁止反复搜索相同关键词
+- 搜不到就用纯色/渐变/文字代替，不要继续搜索
 
 **SVG 禁止元素（不兼容 PPTX 导出）**：
 - `<style>`、`class` 属性 → 用内联属性
