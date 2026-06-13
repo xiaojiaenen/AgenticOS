@@ -148,6 +148,7 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
             "file": {"enabled": False, "requires_approval": True},
             "skill": {"enabled": False, "requires_approval": False},
             "email": {"enabled": True, "requires_approval": True},
+            "decision": {"enabled": True, "requires_approval": False},
             "memory": {"enabled": True, "requires_approval": False},
         },
         "bigdata": {
