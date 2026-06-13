@@ -201,6 +201,7 @@ function UserUsageRow({
 }
 
 export const DashboardCharts = ({ data }: DashboardChartsProps) => {
+ const isGlass = useIsGlassTheme();
  const trendData = data.trend.map((item) => ({
   ...item,
   avgTokens: item.runs > 0 ? Math.round(item.tokens / item.runs) : 0,
