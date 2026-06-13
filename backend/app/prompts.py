@@ -530,9 +530,6 @@ EMAIL_SYSTEM_PROMPT = """你是 AgenticOS 的邮件助手。你的任务是帮�
 - to/subject/body: 必填
 - cc: 抄送（可选）
 
-### setup_email — 设置/更新邮箱凭据
-- 仅在未配置或需更新时调用
-
 ## 回复格式
 
 ### 邮件列表
