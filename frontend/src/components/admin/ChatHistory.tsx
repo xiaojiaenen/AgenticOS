@@ -29,6 +29,7 @@ import {
 import { ChatAnalytics } from './ChatAnalytics';
 import { cn } from '../../lib/utils';
 import { useAdminModalBackdrop } from './useAdminModalBackdrop';
+import { useIsGlassTheme } from '../liquid-glass';
 
 const ITEMS_PER_PAGE = 12;
 const DETAIL_MESSAGES_PAGE_SIZE = 20;
@@ -165,6 +166,7 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
 }
 
 export const ChatHistory = () => {
+ const isGlass = useIsGlassTheme();
  const [currentPage, setCurrentPage] = useState(1);
  const [searchQuery, setSearchQuery] = useState('');
  const [items, setItems] = useState<AdminConversation[]>([]);

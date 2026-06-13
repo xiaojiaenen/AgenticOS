@@ -132,11 +132,11 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
 
     <div className={cn(
      "flex items-center gap-3 rounded-lg p-2.5 shadow-sm transition-all hover:shadow-md",
-     isGlass ? "border border-white/10 bg-white/5" : "border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)]"
+     isGlass ? "bg-white/5" : "border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)]"
     )}>
      <div className={cn(
       "flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm",
-      isGlass ? "border border-white/20 bg-white/10 text-white" : "border border-zinc-200 bg-[linear-gradient(135deg,rgba(15,23,42,0.06),rgba(255,255,255,0.9))] text-zinc-600"
+      isGlass ? "bg-white/10 text-white" : "border border-zinc-200 bg-[linear-gradient(135deg,rgba(15,23,42,0.06),rgba(255,255,255,0.9))] text-zinc-600"
      )}>
       <UserAvatarIcon size={20} />
      </div>
@@ -170,7 +170,7 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
    className={cn(
     'flex flex-col z-20 flex-shrink-0 overflow-hidden',
     isGlass
-      ? 'border-r border-white/10'
+      ? ''
       : 'border-r border-slate-200/80 bg-[var(--admin-sidebar-bg)] shadow-[10px_0_36px_rgba(15,23,42,0.06)] backdrop-blur-2xl',
     isMobile ? 'fixed inset-y-0 left-0 w-[296px] shadow-lg' : 'w-[296px]',
     !isOpen && !isMobile && 'hidden',

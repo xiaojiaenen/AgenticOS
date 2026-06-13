@@ -9,6 +9,8 @@ import { RandomMascot } from '../components/ui/RandomMascot';
 import { MascotHappy, MascotGeneral, MascotPPT, MascotWebsite, MascotBigData } from '../components/ui/MascotIcons';
 import { AgentProfile, getAgentStore, installAgent, uninstallAgent } from '../services/agentProfileService';
 import { useIsGlassTheme } from '../components/liquid-glass';
+import { Ferrofluid, LightRays } from '../components/liquid-glass';
+import { LiquidGlass, glassPresets } from '@xiaojiaenen/liquid-glass';
 import { cn } from '../lib/utils';
 
 // 模式 → 小精灵 + 颜色
@@ -84,13 +86,34 @@ export const AgentStore = () => {
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        'relative min-h-screen overflow-hidden font-sans text-slate-800',
-        isGlass
-          ? 'selection:bg-sky-200/60 selection:text-sky-900'
-          : 'bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#bae6fd] selection:bg-zinc-200 selection:text-zinc-900'
+        'relative min-h-screen overflow-hidden font-sans',
+        isGlass ? 'text-white selection:bg-sky-200/60 selection:text-sky-900' : 'text-slate-800 bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#bae6fd] selection:bg-zinc-200 selection:text-zinc-900'
       )}
-      {...(isGlass ? { style: { background: 'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)' } } : {})}
+      {...(isGlass ? { style: { background: '#000000' } } : {})}
     >
+      {isGlass ? (
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <Ferrofluid
+          colors={['#1a1a2e', '#16213e', '#0f3460']}
+          speed={0.3} scale={1.2} turbulence={0.8} fluidity={0.15}
+          rimWidth={0.15} sharpness={2} shimmer={1} glow={1.5}
+          flowDirection="down" opacity={0.6}
+          mouseInteraction={true} mouseStrength={0.8}
+          mouseRadius={0.3} mouseDampening={0.2}
+        />
+        <LightRays
+          raysOrigin="top-right"
+          raysColor="#4a9eff"
+          raysSpeed={0.7}
+          lightSpread={1.8}
+          rayLength={3}
+          fadeDistance={1.8}
+          saturation={0.6}
+          followMouse={true}
+          mouseInfluence={0.1}
+        />
+      </div>
+      ) : (
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         {/* Animated ambient blobs */}
         <div className="absolute -top-20 -left-10 w-[45vw] h-[45vw] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.15),transparent_70%)] blur-[70px] animate-[bg-blob-1_16s_ease-in-out_infinite]" />
@@ -98,6 +121,7 @@ export const AgentStore = () => {
         <div className="absolute top-1/3 right-1/4 w-[36vw] h-[36vw] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.12),transparent_70%)] blur-[80px] animate-[bg-blob-2_15s_ease-in-out_infinite]" />
         <RandomMascot size={720} className="absolute -bottom-44 -right-32 text-slate-900 opacity-[0.025]" />
       </div>
+      )}
 
       <nav className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 py-4">
         <Logo />
@@ -114,11 +138,11 @@ export const AgentStore = () => {
 
       <main id="main-content" className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 pt-5 md:px-8">
         <div className="mb-7 flex flex-col gap-2">
-          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+          <p className={cn("flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em]", isGlass ? "text-white/50" : "text-slate-500")}>
             <Sparkles size={16} />
             Agent Store
           </p>
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900">智能体商店</h1>
+          <h1 className={cn("text-4xl font-bold tracking-tight", isGlass ? "text-white" : "text-slate-900")}>智能体商店</h1>
         </div>
 
         {error && (
@@ -138,30 +162,21 @@ export const AgentStore = () => {
           </div>
         ) : agents.length === 0 ? (
           <div className={cn(
-            'flex h-72 flex-col items-center justify-center gap-4 rounded-2xl border text-sm font-bold text-slate-500 backdrop-blur-2xl',
-            isGlass ? 'border-white/12 bg-white/6' : 'border-white/60 bg-white/45'
+            'flex h-72 flex-col items-center justify-center gap-4 rounded-2xl border text-sm font-bold backdrop-blur-2xl',
+            isGlass ? 'border-white/12 bg-white/6 text-white/60' : 'border-white/60 bg-white/45 text-slate-500'
           )}>
-            <Bot size={48} className="text-slate-300" />
+            <Bot size={48} className={isGlass ? "text-white/20" : "text-slate-300"} />
             <div className="text-center">
-              <p className="text-base font-bold text-slate-600">暂无可用智能体</p>
-              <p className="mt-1 text-xs font-medium text-slate-400">请检查智能体配置或联系管理员</p>
+              <p className={cn("text-base font-bold", isGlass ? "text-white/80" : "text-slate-600")}>暂无可用智能体</p>
+              <p className={cn("mt-1 text-xs font-medium", isGlass ? "text-white/40" : "text-slate-400")}>请检查智能体配置或联系管理员</p>
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {agents.map((agent, index) => {
               const canUse = agent.installed;
-              return (
-                <motion.article
-                  key={agent.id}
-                  layout
-                  whileHover={{ y: -4 }}
-                  transition={{ duration: 0.2 }}
-                  className={cn(
-                    'group flex min-h-[190px] flex-col rounded-2xl border p-4 shadow-md backdrop-blur-2xl',
-                    isGlass ? 'border-white/15 bg-white/8' : 'border-white/65 bg-white/62'
-                  )}
-                >
+              const cardContent = (
+                <>
                   <div className="flex items-start justify-between gap-3">
                     <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg transition-transform duration-300 group-hover:scale-110', getCardStyle(agent.response_mode).gradient, getCardStyle(agent.response_mode).shadow)}>
                       {(() => { const M = getCardStyle(agent.response_mode).Mascot; return <M size={28} className="text-white" />; })()}
@@ -175,8 +190,8 @@ export const AgentStore = () => {
                   </div>
 
                   <div className="mt-4 min-h-[86px]">
-                    <h2 className="line-clamp-1 text-lg font-bold tracking-tight text-slate-900">{agent.name}</h2>
-                    <p className="mt-2 line-clamp-3 text-sm font-medium leading-6 text-slate-500">
+                    <h2 className={cn("line-clamp-1 text-lg font-bold tracking-tight", isGlass ? "text-white" : "text-slate-900")}>{agent.name}</h2>
+                    <p className={cn("mt-2 line-clamp-3 text-sm font-medium leading-6", isGlass ? "text-white/60" : "text-slate-500")}>
                       {agent.description || '适合处理特定任务的智能体。'}
                     </p>
                   </div>
@@ -206,6 +221,33 @@ export const AgentStore = () => {
                       </Button>
                     )}
                   </div>
+                </>
+              );
+              return (
+                <motion.article
+                  key={agent.id}
+                  layout
+                  whileHover={{ y: -4 }}
+                  transition={{ duration: 0.2 }}
+                  className={cn(
+                    'group flex min-h-[190px] flex-col rounded-2xl',
+                    isGlass ? '' : 'border border-white/65 bg-white/62 shadow-md backdrop-blur-2xl p-4'
+                  )}
+                >
+                  {isGlass ? (
+                    <LiquidGlass
+                      {...glassPresets.card}
+                      tint="rgba(255,255,255,0.06)"
+                      radius={16}
+                      style={{ width: '100%', height: '100%', padding: '16px', display: 'flex', flexDirection: 'column' }}
+                    >
+                      {cardContent}
+                    </LiquidGlass>
+                  ) : (
+                    <div className="flex flex-col flex-1">
+                      {cardContent}
+                    </div>
+                  )}
                 </motion.article>
               );
             })}

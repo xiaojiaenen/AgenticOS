@@ -725,6 +725,10 @@ class AgentService:
             from app.tools.website_file_tools import register_website_file_tools as _register_website_file_tools
             _register_website_file_tools(registry)
 
+        if profile.response_mode == "video":
+            from app.tools.video_tools import register_video_tools as _register_video_tools
+            _register_video_tools(registry)
+
         # MCP 工具集成：如果 MCP 服务已连接，将 MCP 工具添加到注册表
         try:
             from app.services.mcp_service import get_mcp_service
@@ -1034,6 +1038,56 @@ class AgentService:
             _logger.exception("ppt artifact creation failed: session=%s", session_id)
             self.ppt_artifacts._last_quality_errors = [f"artifact 创建异常: {type(exc).__name__}: {exc}"]
             self.ppt_artifacts._last_quality_warnings = []
+            return None
+
+    async def _create_video_artifact(self, session_id: str) -> dict[str, Any] | None:
+        """Create a video artifact from the latest rendered project."""
+        try:
+            from app.services.video import get_video_orchestrator
+            orchestrator = get_video_orchestrator()
+
+            # 查找最新的已渲染项目
+            projects = await orchestrator.list_all()
+            video_project = None
+            for p in projects:
+                if p.status.value == "rendered" and p.last_output_mp4_path:
+                    video_project = p
+                    break
+
+            if video_project is None:
+                _logger.info("video artifact skipped: session=%s (no rendered project found)", session_id)
+                return None
+
+            output_path = video_project.last_output_mp4_path
+            if not os.path.exists(output_path):
+                _logger.warning("video artifact failed: output file not found: %s", output_path)
+                return None
+
+            # 获取视频元数据
+            file_size = os.path.getsize(output_path)
+
+            # 计算时长（从导出历史获取）
+            duration_sec = 0
+            if video_project.exports:
+                duration_sec = video_project.exports[-1].get("duration_sec", 0)
+
+            artifact = {
+                "type": "video",
+                "artifact_id": f"video_{video_project.id}",
+                "session_id": session_id,
+                "project_id": video_project.id,
+                "title": video_project.name,
+                "video_url": f"/api/v1/videos/{video_project.id}/file",
+                "thumbnail_url": f"/api/v1/videos/{video_project.id}/thumbnail",
+                "duration_sec": duration_sec,
+                "file_size_bytes": file_size,
+                "template_id": video_project.template_id,
+            }
+
+            _logger.info("video artifact created: session=%s project=%s", session_id, video_project.id)
+            return artifact
+        except Exception as exc:
+            _logger.exception("video artifact creation failed: session=%s", session_id)
             return None
 
     @staticmethod
@@ -1498,12 +1552,13 @@ class AgentService:
                     if isinstance(stored_id, int) and stored_id > 0:
                         request.agent_profile_id = stored_id
                 stored_mode = meta.get("response_mode")
-                if isinstance(stored_mode, str) and stored_mode in ("general", "ppt", "website"):
+                if isinstance(stored_mode, str) and stored_mode in ("general", "ppt", "website", "video"):
                     request.response_mode = stored_mode
 
         runtime_profile = await self._resolve_runtime_profile(request, user)
         response_mode = runtime_profile.response_mode
         ppt_mode = response_mode == "ppt"
+        video_mode = response_mode == "video"
 
         # 提前设置 user context，确保 register_external_tools 能获取 user_id
         if user is not None:
@@ -1603,7 +1658,7 @@ class AgentService:
         usage_recorded = False
 
         # 注入用户记忆上下文（异步调用）
-        if user is not None and not ppt_mode and not website_mode:
+        if user is not None and not ppt_mode and not website_mode and not video_mode:
             try:
                 from app.services.memory_service import get_memory_service
                 memory_context = await get_memory_service().get_memory_context(user.id, request.message)
@@ -1729,7 +1784,18 @@ class AgentService:
                                 }
                             # PPT 模式不转发 text_delta（LLM 思考文本），但继续处理其他事件
                             # 不 continue — 让 tool_start、tool_results、reasoning 等事件正常处理
-                        if not ppt_mode and first_text_delta:
+                        if video_mode:
+                            if first_text_delta:
+                                yield {
+                                    "event": "run_status",
+                                    "data": {
+                                        "session_id": session.session_id,
+                                        "phase": "generating_video",
+                                        "label": "正在规划视频内容",
+                                    },
+                                }
+                            # Video 模式不转发 text_delta，但继续处理其他事件
+                        if not ppt_mode and not video_mode and first_text_delta:
                             yield {
                                 "event": "run_status",
                                 "data": {
@@ -1774,6 +1840,62 @@ class AgentService:
                                 session.session_id, quality_errors,
                             )
                             visible_text = f"PPT 预览生成失败：{error_detail}"
+                        if visible_text:
+                            yield {
+                                "event": "delta",
+                                "data": {
+                                    "session_id": session.session_id,
+                                    "content": visible_text,
+                                },
+                            }
+                        yield {
+                            "event": "run_status",
+                            "data": {
+                                "session_id": session.session_id,
+                                "phase": "done",
+                                "label": "本轮回复已完成",
+                            },
+                        }
+                        mapped = self._map_agent_event(event, session)
+                        if not usage_recorded:
+                            await self._record_usage_event(
+                                session=session,
+                                request=request,
+                                user=user,
+                                event_data=event.data,
+                                tool_names=tool_names,
+                                response_mode=response_mode,
+                                agent_profile_id=runtime_profile.profile_id,
+                                collected_text=collected_text,
+                            )
+                            usage_recorded = True
+                        if mapped is not None:
+                            yield mapped
+                        runtime_task = asyncio.create_task(runtime_queue.get())
+                        continue
+
+                    if video_mode and event.type == "done":
+                        visible_text = ""
+
+                        _logger.info("video done: session=%s, creating artifact...", session.session_id)
+
+                        artifact = await self._create_video_artifact(session.session_id)
+                        _logger.info("video artifact result: session=%s, artifact=%s", session.session_id, "OK" if artifact else "None")
+                        if artifact is not None:
+                            yield {
+                                "event": "run_status",
+                                "data": {
+                                    "session_id": session.session_id,
+                                    "phase": "rendering_video",
+                                    "label": "正在渲染视频",
+                                },
+                            }
+                            yield {
+                                "event": "artifact_ready",
+                                "data": artifact,
+                            }
+                        else:
+                            visible_text = "视频生成完成，但未能创建预览。请检查项目状态。"
                         if visible_text:
                             yield {
                                 "event": "delta",
@@ -1935,8 +2057,8 @@ class AgentService:
                     }
                     approval_task = asyncio.create_task(approval_queue.get())
             # 对话结束时用 LLM 提取记忆（仅通用模式）
-            _logger.info(f"Memory extraction conditions: user={user is not None}, collected_text_len={len(collected_text) if collected_text else 0}, ppt_mode={ppt_mode}, website_mode={website_mode}, message={request.message[:50] if request.message else ''}")
-            if user is not None and request.message and not ppt_mode and not website_mode:
+            _logger.info(f"Memory extraction conditions: user={user is not None}, collected_text_len={len(collected_text) if collected_text else 0}, ppt_mode={ppt_mode}, website_mode={website_mode}, video_mode={video_mode}, message={request.message[:50] if request.message else ''}")
+            if user is not None and request.message and not ppt_mode and not website_mode and not video_mode:
                 try:
                     from app.services.memory_service import get_memory_service
                     # 使用用户消息和 AI 回复进行记忆提取（异步非阻塞）

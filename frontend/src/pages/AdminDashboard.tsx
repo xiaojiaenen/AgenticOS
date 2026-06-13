@@ -24,6 +24,25 @@ import { useIsGlassTheme, Ferrofluid } from '../components/liquid-glass';
 export const AdminDashboard = () => {
  const isGlass = useIsGlassTheme();
  const [activeTab, setActiveTab] = useState('dashboard');
+
+ // Force liquid-glass theme while admin is mounted
+ React.useEffect(() => {
+  const root = document.documentElement;
+  root.classList.add('dark', 'theme-liquid-glass');
+  return () => {
+   root.classList.remove('theme-liquid-glass');
+   // Only remove dark if the actual theme isn't dark/liquid-glass
+   if (!root.classList.contains('dark')) {
+    // Let useTheme handle the actual theme restoration
+   } else {
+    // If user had dark mode, keep it; otherwise remove dark
+    const stored = localStorage.getItem('agenticos-theme');
+    if (stored !== 'dark' && stored !== 'liquid-glass' && stored !== 'system') {
+     root.classList.remove('dark');
+    }
+   }
+  };
+ }, []);
  const [dashboardData, setDashboardData] = useState<DashboardStatsData | null>(null);
  const [dashboardError, setDashboardError] = useState<string | null>(null);
  const [isDashboardLoading, setIsDashboardLoading] = useState(false);
@@ -237,25 +256,23 @@ export const AdminDashboard = () => {
    }}
   >
    <div className="admin-dashboard-backdrop pointer-events-none">
-    {isGlass && (
-      <Ferrofluid
-        colors={['#1a1a2e', '#16213e', '#0f3460']}
-        speed={0.3}
-        scale={1.2}
-        turbulence={0.8}
-        fluidity={0.15}
-        rimWidth={0.15}
-        sharpness={2}
-        shimmer={1}
-        glow={1.5}
-        flowDirection="down"
-        opacity={0.6}
-        mouseInteraction={true}
-        mouseStrength={0.8}
-        mouseRadius={0.3}
-        mouseDampening={0.2}
-      />
-    )}
+     <Ferrofluid
+       colors={['#1a1a2e', '#16213e', '#0f3460']}
+       speed={0.3}
+       scale={1.2}
+       turbulence={0.8}
+       fluidity={0.15}
+       rimWidth={0.15}
+       sharpness={2}
+       shimmer={1}
+       glow={1.5}
+       flowDirection="down"
+       opacity={0.6}
+       mouseInteraction={true}
+       mouseStrength={0.8}
+       mouseRadius={0.3}
+       mouseDampening={0.2}
+     />
    </div>
 
    <AnimatePresence>
@@ -289,10 +306,23 @@ export const AdminDashboard = () => {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       onClick={() => setIsSidebarOpen(true)}
-      className={cn("fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-lg text-zinc-800 shadow-sm transition-all hover:shadow-md", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm hover:bg-white/12" : "bg-white border border-slate-200/80 hover:bg-white")}
+      className="fixed left-4 top-4 z-40"
       aria-label="展开侧栏"
      >
-      <MascotCool size={24} className="transition-transform hover:scale-110" />
+      {isGlass ? (
+       <LiquidGlass
+        {...glassPresets.control}
+        tint="rgba(255,255,255,0.08)"
+        radius={12}
+        style={{ width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+       >
+        <MascotCool size={24} className="text-white transition-transform hover:scale-110" />
+       </LiquidGlass>
+      ) : (
+       <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-zinc-800 shadow-sm hover:shadow-md hover:bg-white transition-all">
+        <MascotCool size={24} className="transition-transform hover:scale-110" />
+       </div>
+      )}
      </motion.button>
     )}
    </AnimatePresence>
@@ -301,10 +331,22 @@ export const AdminDashboard = () => {
     <button
      type="button"
      onClick={() => setIsSidebarOpen(true)}
-     className={cn("fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-lg text-zinc-800 shadow-sm", isGlass ? "bg-white/8 border border-white/15 backdrop-blur-sm" : "bg-white border border-slate-200/80")}
      aria-label="展开侧栏"
     >
-     <MascotCool size={24} />
+     {isGlass ? (
+      <LiquidGlass
+       {...glassPresets.control}
+       tint="rgba(255,255,255,0.08)"
+       radius={12}
+       style={{ width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+      >
+       <MascotCool size={24} className="text-white" />
+      </LiquidGlass>
+     ) : (
+      <div className="fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-lg bg-white border border-slate-200/80 text-zinc-800 shadow-sm">
+       <MascotCool size={24} />
+      </div>
+     )}
     </button>
    )}
 

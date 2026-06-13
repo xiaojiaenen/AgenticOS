@@ -22,6 +22,10 @@ AGENT_MODES = {
         "label": "网站模式",
         "description": "用于页面方案、前端代码和交互式应用生成。",
     },
+    "video": {
+        "label": "视频模式",
+        "description": "智能视频生成，将想法转化为动画 MP4 视频。支持 23 种专业模板，多帧 storyboard 规划，Chromium 录制 + ffmpeg 编码。",
+    },
     "bigdata": {
         "label": "大数据模式",
         "description": "大数据平台运维与开发助手。支持 Dinky/Flink/Spark/Doris/ClickHouse 计算引擎、"
@@ -44,6 +48,9 @@ _MODE_TOOL_REGISTRARS: dict[str, list[tuple[str, str]]] = {
         ("app.tools.pptx_reverse_tools", "register_pptx_reverse_tools"),
         ("app.tools.template_tools", "register_template_tools"),
         ("app.tools.image_tools", "register_image_tools"),
+    ],
+    "video": [
+        ("app.tools.video_tools", "register_video_tools"),
     ],
     "website": [
         ("app.tools.website_tools", "register_website_tools"),
@@ -108,6 +115,15 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
             "get_image_info": {"enabled": True, "requires_approval": False},
             "read_notes": {"enabled": True, "requires_approval": False},
             "batch_edit_slides": {"enabled": True, "requires_approval": False},
+            "email": {"enabled": False, "requires_approval": True},
+            "memory": {"enabled": False, "requires_approval": False},
+        },
+        "video": {
+            "calc": {"enabled": False, "requires_approval": False},
+            "time": {"enabled": False, "requires_approval": False},
+            "file": {"enabled": False, "requires_approval": True},
+            "file_to_md": {"enabled": False, "requires_approval": False},
+            "skill": {"enabled": False, "requires_approval": False},
             "email": {"enabled": False, "requires_approval": True},
             "memory": {"enabled": False, "requires_approval": False},
         },

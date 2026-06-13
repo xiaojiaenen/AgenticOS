@@ -29,6 +29,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '../../lib/utils';
 import { useAdminModalBackdrop } from './useAdminModalBackdrop';
+import { useIsGlassTheme } from '../liquid-glass';
 import { THEME_DEFS } from '../announcement/announcementTheme';
 
 type AnnouncementForm = {
@@ -125,6 +126,7 @@ function buildPayload(form: AnnouncementForm): AnnouncementPayload {
 
 
 export const AnnouncementManagement = () => {
+ const isGlass = useIsGlassTheme();
  const [items, setItems] = useState<Announcement[]>([]);
  const [selectedId, setSelectedId] = useState<number | null>(null);
  const [form, setForm] = useState<AnnouncementForm>(EMPTY_FORM);
@@ -298,14 +300,14 @@ export const AnnouncementManagement = () => {
  const FormatIcon = FORMAT_META[form.content_format].icon;
 
  return (
-  <div className="admin-page-stage space-y-5">
+  <div className={cn("admin-page-stage space-y-5", isGlass && "text-white")}>
    <section className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_420px]">
-    <div className="rounded-xl border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.50),rgba(186,230,253,0.36))] p-6 shadow-md">
+    <div className={cn("rounded-xl border p-6 shadow-md", isGlass ? "bg-white/8 border-white/15 backdrop-blur-sm" : "border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.50),rgba(186,230,253,0.36))]")}>
      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div>
-       <p className="admin-section-kicker">Announcement Studio</p>
-       <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-slate-950">用户公告设计台</h1>
-       <p className="mt-3 max-w-3xl text-sm font-medium leading-7 text-slate-500">
+       <p className={cn("admin-section-kicker", isGlass && "text-gray-400")}>Announcement Studio</p>
+       <h1 className={cn("mt-1.5 text-3xl font-semibold tracking-tight", isGlass ? "text-white" : "text-slate-950")}>用户公告设计台</h1>
+       <p className={cn("mt-3 max-w-3xl text-sm font-medium leading-7", isGlass ? "text-gray-400" : "text-slate-500")}>
         撰写支持 Markdown 和 HTML 的公告，或让 AI 帮你一键生成。用户进入聊天或 Agent Store 时就会看到它。
        </p>
       </div>
@@ -348,7 +350,7 @@ export const AnnouncementManagement = () => {
    </section>
 
    {error && (
-    <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+    <div className={cn("rounded-lg border px-4 py-3 text-sm font-medium", isGlass ? "border-rose-600/30 bg-rose-900/20 text-rose-400" : "border-rose-200 bg-rose-50 text-rose-700")}>
      {error}
     </div>
    )}

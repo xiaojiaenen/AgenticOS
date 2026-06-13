@@ -4,7 +4,7 @@ import { authHeaders } from './authService';
 type AgentServiceOptions = {
   sessionId: string;
   systemPrompt?: string;
-  responseMode?: 'general' | 'ppt' | 'website' | 'bigdata';
+  responseMode?: 'general' | 'ppt' | 'website' | 'video' | 'bigdata';
   agentProfileId?: number | null;
   files?: { filename: string; file_path: string }[];
   onDelta?: (delta: string, fullText: string) => void;
@@ -14,6 +14,7 @@ type AgentServiceOptions = {
   onRunStatus?: (status: AgentRunStatus) => void;
   onPptArtifact?: (artifact: AgentPptArtifact) => void;
   onWebsiteArtifact?: (artifact: AgentWebsiteArtifact) => void;
+  onVideoArtifact?: (artifact: AgentVideoArtifact) => void;
   onUserDecision?: (decision: unknown) => void;
   signal?: AbortSignal;
 };
@@ -27,6 +28,7 @@ type StreamResult = {
   sessionState?: AgentSessionState;
   pptArtifact?: AgentPptArtifact;
   websiteArtifact?: AgentWebsiteArtifact;
+  videoArtifact?: AgentVideoArtifact;
 };
 
 type AgentToolCall = {
@@ -82,7 +84,7 @@ export type AgentApproval = {
 
 export type AgentRunStatus = {
   session_id: string;
-  phase: 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'done';
+  phase: 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'generating_video' | 'rendering_video' | 'rendering_website' | 'done';
   label: string;
 };
 
@@ -104,6 +106,19 @@ export type AgentWebsiteArtifact = {
   stack: string;
   file_count: number;
   preview_html: string;
+};
+
+export type AgentVideoArtifact = {
+  type: 'video';
+  artifact_id: string;
+  session_id: string;
+  project_id: string;
+  title: string;
+  video_url: string;
+  thumbnail_url?: string;
+  duration_sec?: number;
+  file_size_bytes?: number;
+  template_id?: string;
 };
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -274,6 +289,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
   let sessionState: AgentSessionState | undefined;
   let pptArtifact: AgentPptArtifact | undefined;
   let websiteArtifact: AgentWebsiteArtifact | undefined;
+  let videoArtifact: AgentVideoArtifact | undefined;
 
   while (true) {
     const { value, done } = await reader.read();
@@ -321,6 +337,9 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         if (artifactPayload.type === 'website') {
           websiteArtifact = artifactPayload as unknown as AgentWebsiteArtifact;
           options.onWebsiteArtifact?.(websiteArtifact);
+        } else if (artifactPayload.type === 'video') {
+          videoArtifact = artifactPayload as unknown as AgentVideoArtifact;
+          options.onVideoArtifact?.(videoArtifact);
         } else {
           pptArtifact = payload as AgentPptArtifact;
           options.onPptArtifact?.(pptArtifact);
@@ -406,6 +425,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
     sessionState,
     pptArtifact,
     websiteArtifact,
+    videoArtifact,
   };
 }
 

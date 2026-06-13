@@ -180,19 +180,29 @@ export const Sidebar = React.memo(({
         })}
         {hasMore && (
           <div className="px-2 py-3">
-            <button
-              type="button"
-              onClick={onLoadMore}
-              className={cn(
-                "w-full rounded-xl border px-3 py-2 text-xs font-bold shadow-sm transition-all",
-                isGlass
-                  ? "border-white/15 bg-white/8 text-slate-500 hover:bg-white/12 hover:text-slate-800"
-                  : "border-white/70 bg-white/55 text-slate-500 hover:bg-white/80 hover:text-slate-800"
-              )}
-              aria-label="加载更多对话"
-            >
-              加载更多对话
-            </button>
+            {isGlass ? (
+              <LiquidGlass
+                as="button"
+                type="button"
+                {...glassPresets.control}
+                tint="rgba(255,255,255,0.06)"
+                radius={12}
+                onClick={onLoadMore}
+                style={{ width: '100%', padding: '8px 12px', cursor: 'pointer' }}
+                className="text-xs font-bold text-gray-300"
+              >
+                加载更多对话
+              </LiquidGlass>
+            ) : (
+              <button
+                type="button"
+                onClick={onLoadMore}
+                className="w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2 text-xs font-bold text-slate-500 shadow-sm transition-all hover:bg-white/80 hover:text-slate-800"
+                aria-label="加载更多对话"
+              >
+                加载更多对话
+              </button>
+            )}
           </div>
         )}
         {sessions.length === 0 && (
@@ -238,24 +248,35 @@ export const Sidebar = React.memo(({
           邮箱设置
         </button>
         {user?.role === 'admin' && (
-          <button
-            onClick={() => navigate('/admin')}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors shadow-sm font-bold text-sm",
-              isGlass
-                ? "bg-white/10 text-white hover:bg-white/15 border border-white/15 backdrop-blur-sm"
-                : "bg-zinc-900 text-white hover:bg-zinc-800"
-            )}
-            aria-label="管理后台"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-            管理后台 (Admin)
-          </button>
+          isGlass ? (
+            <LiquidGlass
+              as="button"
+              type="button"
+              {...glassPresets.control}
+              tint="rgba(255,255,255,0.08)"
+              radius={12}
+              onClick={() => navigate('/admin')}
+              style={{ width: '100%', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+              className="text-sm font-bold text-white"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+              管理后台 (Admin)
+            </LiquidGlass>
+          ) : (
+            <button
+              onClick={() => navigate('/admin')}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 transition-colors shadow-sm font-bold text-sm"
+              aria-label="管理后台"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+              管理后台 (Admin)
+            </button>
+          )
         )}
         <div className={cn("flex items-center gap-3 p-2 rounded-xl transition-colors", isGlass ? "hover:bg-white/10" : "hover:bg-slate-50")}>
           <div className={cn(
             "w-9 h-9 rounded-xl flex items-center justify-center shadow-sm overflow-hidden flex-shrink-0",
-            isGlass ? "bg-white/10 text-gray-300 border border-white/15" : "bg-zinc-100 text-zinc-600 border border-zinc-200"
+            isGlass ? "bg-white/10 text-gray-300" : "bg-zinc-100 text-zinc-600 border border-zinc-200"
           )}>
             <UserAvatarIcon size={20} />
           </div>
@@ -301,7 +322,7 @@ export const Sidebar = React.memo(({
       className={cn(
         "flex flex-col z-20 flex-shrink-0 overflow-hidden",
         isGlass
-          ? "border-r border-white/10"
+          ? ""
           : "bg-white/60 backdrop-blur-2xl border-r border-white/40 shadow-sm",
         isMobile ? "fixed inset-y-0 left-0 shadow-2xl w-[280px]" : "h-full"
       )}

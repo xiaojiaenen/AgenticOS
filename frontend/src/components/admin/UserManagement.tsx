@@ -12,6 +12,7 @@ import {
  UserX,
  X,
 } from 'lucide-react';
+import { LiquidGlass, glassPresets } from '@xiaojiaenen/liquid-glass';
 import { Pagination } from './Pagination';
 import { useAdminModalBackdrop } from './useAdminModalBackdrop';
 import { Button } from '../ui/Button';
@@ -28,6 +29,7 @@ import {
 } from '../../services/userService';
 import { getStoredUser } from '../../services/authService';
 import { cn } from '../../lib/utils';
+import { useIsGlassTheme } from '../liquid-glass';
 
 const ITEMS_PER_PAGE = 12;
 

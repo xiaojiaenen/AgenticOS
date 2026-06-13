@@ -2,8 +2,10 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { MascotHappy } from './ui/AnimatedIcons';
+import { useIsGlassTheme } from './liquid-glass';
 
 export const Logo = ({ className, iconSize = 28, showText = true }: { className?: string; iconSize?: number; showText?: boolean }) => {
+  const isGlass = useIsGlassTheme();
   return (
     <div className={cn("flex items-center gap-3 select-none group", className)}>
       <div className="relative">
@@ -13,10 +15,10 @@ export const Logo = ({ className, iconSize = 28, showText = true }: { className?
             opacity: [0.1, 0.3, 0.1]
           }}
           transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute inset-0 bg-sky-400 blur-xl rounded-full"
+          className={cn("absolute inset-0 blur-xl rounded-full", isGlass ? "bg-sky-500/50" : "bg-sky-400")}
         />
         <div className="relative z-10 transition-transform group-hover:scale-110 group-active:scale-95 duration-500">
-          <MascotHappy size={iconSize} className="text-zinc-900" />
+          <MascotHappy size={iconSize} className={isGlass ? "text-white" : "text-zinc-900"} />
         </div>
       </div>
       
@@ -32,7 +34,7 @@ export const Logo = ({ className, iconSize = 28, showText = true }: { className?
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: i * 0.05, type: "spring", stiffness: 200 }}
-                  className="text-zinc-900"
+                  className={isGlass ? "text-white" : "text-zinc-900"}
                 >
                   {char}
                 </motion.span>

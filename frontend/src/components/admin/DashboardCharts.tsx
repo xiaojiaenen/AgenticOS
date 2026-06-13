@@ -36,7 +36,7 @@ function EmptyPanel({ label }: { label: string }) {
  return (
   <div className={cn(
    "flex h-full min-h-[200px] items-center justify-center rounded-lg border border-dashed text-sm font-medium",
-   isGlass ? "border-white/20 bg-white/5 text-white/70" : "border-slate-200/80 bg-white/30 text-slate-500"
+   isGlass ? "border-white/10 bg-white/5 text-white/70" : "border-slate-200/80 bg-white/30 text-slate-500"
   )}>
    {label}
   </div>
@@ -60,7 +60,7 @@ function PanelHeader({
    <div className="flex items-center gap-3">
     <div className={cn(
      "flex h-11 w-11 items-center justify-center rounded-lg shadow-sm",
-     isGlass ? "bg-white/10 text-white border border-white/15" : "border border-slate-200 bg-white text-slate-900"
+     isGlass ? "bg-white/10 text-white" : "border border-slate-200 bg-white text-slate-900"
     )}>
      <Icon size={20} />
     </div>
@@ -167,7 +167,7 @@ function UserUsageRow({
   >
    <div className="flex min-w-0 items-center justify-center gap-4">
     <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-sm font-semibold shadow-sm",
-      isGlass ? "border border-white/20 bg-white/10 text-white" : "border border-slate-200 bg-white/80 text-slate-800"
+      isGlass ? "bg-white/10 text-white" : "border border-slate-200 bg-white/80 text-slate-800"
     )}>
      {initials(user.name)}
     </div>
@@ -660,32 +660,64 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
      </div>
     </PanelShell>
 
-    <section className={cn("admin-data-panel", isGlass && "border border-white/10 bg-white/5 rounded-xl")}>
-     <div className={cn("border-b px-5 py-4", isGlass ? "border-white/10" : "border-slate-200/60")}>
-      <PanelHeader icon={Trophy} kicker="用户排行" title="资源消耗前列用户" />
-     </div>
-
-     <div className={cn("admin-table-head grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:grid xl:grid",
-       isGlass && "text-white/80"
-     )}>
-      <span>用户</span>
-      <span>Token</span>
-      <span>模型调用</span>
-      <span>工具调用</span>
-      <span>平均耗时</span>
-      <span>占比</span>
-     </div>
-
-     {topUsers.length > 0 ? (
-      topUsers.map((user, index) => (
-       <UserUsageRow key={user.user_id} user={user} index={index} maxTokens={maxUserTokens} />
-      ))
-     ) : (
-      <div className="p-4">
-       <EmptyPanel label="暂时还没有用户使用数据" />
+    {isGlass ? (
+     <LiquidGlass
+      {...glassPresets.card}
+      tint="rgba(255,255,255,0.06)"
+      radius={12}
+      style={{ width: '100%', display: 'flex', flexDirection: 'column' }}
+     >
+      <div className={cn("border-b px-5 py-4", isGlass ? "border-white/10" : "border-slate-200/60")}>
+       <PanelHeader icon={Trophy} kicker="用户排行" title="资源消耗前列用户" />
       </div>
-     )}
-    </section>
+
+      <div className={cn("admin-table-head grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:grid xl:grid",
+        isGlass && "text-white/80"
+      )}>
+       <span>用户</span>
+       <span>Token</span>
+       <span>模型调用</span>
+       <span>工具调用</span>
+       <span>平均耗时</span>
+       <span>占比</span>
+      </div>
+
+      {topUsers.length > 0 ? (
+       topUsers.map((user, index) => (
+        <UserUsageRow key={user.user_id} user={user} index={index} maxTokens={maxUserTokens} />
+       ))
+      ) : (
+       <div className="p-4">
+        <EmptyPanel label="暂时还没有用户使用数据" />
+       </div>
+      )}
+     </LiquidGlass>
+    ) : (
+     <section className="admin-data-panel">
+      <div className="border-b border-slate-200/60 px-5 py-4">
+       <PanelHeader icon={Trophy} kicker="用户排行" title="资源消耗前列用户" />
+      </div>
+
+      <div className="admin-table-head grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:grid xl:grid">
+       <span>用户</span>
+       <span>Token</span>
+       <span>模型调用</span>
+       <span>工具调用</span>
+       <span>平均耗时</span>
+       <span>占比</span>
+      </div>
+
+      {topUsers.length > 0 ? (
+       topUsers.map((user, index) => (
+        <UserUsageRow key={user.user_id} user={user} index={index} maxTokens={maxUserTokens} />
+       ))
+      ) : (
+       <div className="p-4">
+        <EmptyPanel label="暂时还没有用户使用数据" />
+       </div>
+      )}
+     </section>
+    )}
    </section>
   </div>
  );

@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { AlertCircle, ChevronLeft, ExternalLink, Globe, Key, Loader2, Pencil, Plug, Plus, Save, Shield, TestTube, Trash2, Upload, X } from "lucide-react";
 import { Button } from "../ui/Button";
 import { cn } from "../../lib/utils";
+import { useIsGlassTheme } from '../liquid-glass';
 import { createSystem, updateSystem, deleteSystem, listSystems, listApis, createApi, updateApi, deleteApi, testApi, listCategories, IntegrationSystem, IntegrationApi, IntegrationSystemPayload, IntegrationApiPayload, IntegrationApiParam, IntegrationTestResult, IntegrationCategory, CredentialField } from "../../services/integrationService";
 import { useAdminModalBackdrop } from "./useAdminModalBackdrop";
 
@@ -20,6 +21,7 @@ function authTypeLabel(t:string){return AUTH_TYPES.find(a=>a.value===t)?.label||
 function authTypeIcon(t:string){switch(t){case"api_key":return Key;case"bearer":case"oauth2":return Shield;default:return Globe}}
 
 export const IntegrationManagement = () => {
+ const isGlass = useIsGlassTheme();
  const [systems, setSystems] = useState<IntegrationSystem[]>([]);
  const [selectedSystem, setSelectedSystem] = useState<IntegrationSystem | null>(null);
  const [apis, setApis] = useState<IntegrationApi[]>([]);

@@ -152,7 +152,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             {files.map((file, idx) => (
               <motion.div layout key={`${file.name}-${idx}`} className={cn(
                 "group relative h-16 w-16 overflow-hidden rounded-xl border shadow-sm",
-                isGlass ? "border-white/15 bg-white/10" : "border-slate-200 bg-white"
+                isGlass ? "bg-white/10" : "border-slate-200 bg-white border shadow-sm"
               )}>
                 {previews[idx] ? (
                   <img src={previews[idx]} alt="preview" className="h-full w-full object-cover" />
@@ -239,9 +239,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           <button
             type="button"
             onClick={onStop}
-            className={cn(
-              "group mb-1 ml-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full shadow-md transition-all duration-300 hover:scale-105 active:scale-95",
-              isGlass ? "bg-white/10 text-slate-700 hover:bg-white/15 border border-white/15" : "bg-zinc-900 text-white hover:bg-zinc-700"
+            className={cn("group mb-1 ml-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full shadow-md transition-all duration-300 hover:scale-105 active:scale-95",
+              isGlass ? "bg-white/10 text-white/70 hover:bg-white/15" : "bg-zinc-900 text-white hover:bg-zinc-700"
             )}
             title="停止当前回复"
             aria-label="停止当前回复"

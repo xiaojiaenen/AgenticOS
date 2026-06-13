@@ -15,6 +15,7 @@ import {
 import { Button } from '../ui/Button';
 import { formatApiDate } from '../../lib/datetime';
 import { cn } from '../../lib/utils';
+import { useIsGlassTheme } from '../liquid-glass';
 import {
  AgentProfile,
  AgentProfilePayload,
@@ -124,6 +125,7 @@ function modeLabel(mode: AgentMode) {
 }
 
 export const AgentManagement = () => {
+ const isGlass = useIsGlassTheme();
  const [profiles, setProfiles] = useState<AgentProfile[]>([]);
  const [catalog, setCatalog] = useState<ToolCatalogItem[]>([]);
  const [availableSkills, setAvailableSkills] = useState<AgentProfileSkill[]>([]);

@@ -251,12 +251,12 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             ) : (
               <div className="prose prose-invert prose-sm max-w-none break-words [overflow-wrap:anywhere] prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
                 {reasoningText && (
-                  <details className="group mb-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-gray-400 [&_summary::-webkit-details-marker]:hidden">
-                    <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-gray-400">
-                      <BrainCircuit size={13} className="text-gray-500" /><span>思考过程</span>
+                  <details className="group mb-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-white/70 [&_summary::-webkit-details-marker]:hidden">
+                    <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-white/70">
+                      <BrainCircuit size={13} className="text-white/50" /><span>思考过程</span>
                       <ChevronDownIcon size={12} className="ml-auto transition-transform duration-300 group-open:-rotate-180" />
                     </summary>
-                    <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-white/10 pt-2 text-xs leading-relaxed text-gray-500 italic">{reasoningText}</div>
+                    <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-white/10 pt-2 text-xs leading-relaxed text-white/50 italic">{reasoningText}</div>
                   </details>
                 )}
                 {visibleText ? (
@@ -264,13 +264,13 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                     components={{
                       code: (props) => <CodeBlock {...props} onOpenArtifact={onOpenArtifact} />,
                       pre: ({ children }) => <>{children}</>,
-                      p: ({ children }) => <p className="text-gray-200">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</p>,
+                      p: ({ children }) => <p className="text-white">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</p>,
                       table: ({ children }) => <MarkdownTable isGlass>{children}</MarkdownTable>,
                       thead: ({ children }) => <MarkdownTableHead isGlass>{children}</MarkdownTableHead>,
                       tr: ({ children }) => <MarkdownTableRow isGlass>{children}</MarkdownTableRow>,
                       th: ({ children }) => <TableHeaderCell>{children}</TableHeaderCell>,
                       td: ({ children }) => <TableCell>{children}</TableCell>,
-                      li: ({ children }) => <li className="text-gray-200">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</li>,
+                      li: ({ children }) => <li className="text-white">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</li>,
                       h1: ({ children }) => <h1 className="text-white">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h1>,
                       h2: ({ children }) => <h2 className="text-white">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h2>,
                       h3: ({ children }) => <h3 className="text-white">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h3>,
@@ -278,7 +278,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                       h5: ({ children }) => <h5 className="text-white">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h5>,
                       h6: ({ children }) => <h6 className="text-white">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h6>,
                     }}>{visibleText}</ReactMarkdown>
-                ) : <span className="text-sm font-medium text-gray-400"> </span>}
+                ) : <span className="text-sm font-medium text-white/70"> </span>}
                 {!isUser && isStreaming && visibleText && <motion.span className="inline-block w-[2px] h-[1.2em] bg-sky-400 rounded-full align-text-bottom ml-px" animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />}
               </div>
             )}

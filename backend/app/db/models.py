@@ -255,6 +255,26 @@ class PptArtifactModel(Base):
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
 
 
+class VideoArtifactModel(Base):
+    __tablename__ = "video_artifacts"
+
+    artifact_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(128), index=True)
+    user_id: Mapped[int] = mapped_column(Integer, index=True)
+    project_id: Mapped[str] = mapped_column(String(64), index=True)
+    title: Mapped[str] = mapped_column(String(256))
+    video_path: Mapped[str] = mapped_column(Text)
+    thumbnail_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    duration_sec: Mapped[float] = mapped_column(Float, default=0)
+    resolution: Mapped[str] = mapped_column(String(32), default="1920x1080")
+    fps: Mapped[int] = mapped_column(Integer, default=30)
+    template_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    has_soundtrack: Mapped[bool] = mapped_column(Boolean, default=False)
+    file_size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    metadata_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
 class AnnouncementModel(Base):
     __tablename__ = "announcements"
     __table_args__ = (

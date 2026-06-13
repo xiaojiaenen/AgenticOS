@@ -9,6 +9,7 @@ import { MascotSurprised, SendIcon } from '../components/ui/AnimatedIcons';
 import { getStoredUser } from '../services/authService';
 import { AgentProfile, getMyAgents } from '../services/agentProfileService';
 import { useIsGlassTheme } from '../components/liquid-glass';
+import { Ferrofluid, LightRays } from '../components/liquid-glass';
 import { LiquidGlass, glassPresets, radii } from '@xiaojiaenen/liquid-glass';
 import { cn } from '../lib/utils';
 
@@ -69,11 +70,34 @@ export const Home = () => {
       )}
       style={{
         background: isGlass
-          ? 'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)'
+          ? '#000000'
           : 'linear-gradient(180deg, #def0f6 0%, #e7f4f9 28%, #e1f2f7 55%, #e3f2f7 100%)',
       }}
     >
-      {/* Animated ambient blob layer */}
+      {/* 背景装饰 — 玻璃模式：液态金属 + 光线；普通模式：blob/dot/shimmer */}
+      {isGlass ? (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <Ferrofluid
+            colors={['#1a1a2e', '#16213e', '#0f3460']}
+            speed={0.3} scale={1.2} turbulence={0.8} fluidity={0.15}
+            rimWidth={0.15} sharpness={2} shimmer={1} glow={1.5}
+            flowDirection="down" opacity={0.6}
+            mouseInteraction={true} mouseStrength={0.8}
+            mouseRadius={0.3} mouseDampening={0.2}
+          />
+          <LightRays
+            raysOrigin="top-left"
+            raysColor="#4a9eff"
+            raysSpeed={0.6}
+            lightSpread={1.5}
+            rayLength={3.5}
+            fadeDistance={1.5}
+            saturation={0.7}
+            followMouse={true}
+            mouseInfluence={0.12}
+          />
+        </div>
+      ) : (
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         {/* Large cyan blob — top left */}
         <div className="absolute -top-32 -left-20 w-[620px] h-[620px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.18),transparent_70%)] blur-[80px] animate-[bg-blob-1_14s_ease-in-out_infinite]" />
@@ -100,6 +124,7 @@ export const Home = () => {
           <RandomMascot size={1000} />
         </div>
       </div>
+      )}
 
       {/* Top Navigation */}
       <nav className="flex items-center justify-between px-6 py-4 relative z-10 w-full max-w-[1400px] mx-auto">
@@ -132,72 +157,106 @@ export const Home = () => {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1, duration: 0.6 }}
-          className="text-5xl md:text-6xl font-extrabold text-slate-900 mb-6 flex items-center gap-4 tracking-tight"
+          className={cn("text-5xl md:text-6xl font-extrabold mb-6 flex items-center gap-4 tracking-tight", isGlass ? "text-white" : "text-slate-900")}
         >
           一句话 
-          <MascotSurprised size={56} className="text-slate-900 transform -rotate-6 drop-shadow-xl" />
+          <MascotSurprised size={56} className={cn("transform -rotate-6 drop-shadow-xl", isGlass ? "text-white" : "text-slate-900")} />
           呈所想
         </motion.h1>
         <motion.p 
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.6 }}
-          className="text-slate-600 mb-10 text-base md:text-lg font-medium tracking-wide"
+          className={cn("mb-10 text-base md:text-lg font-medium tracking-wide", isGlass ? "text-white/70" : "text-slate-600")}
         >
           与 AI 对话轻松创建应用和网站
         </motion.p>
 
         {/* Big Input Box */}
-        <motion.div 
+        <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.6 }}
-          className={cn(
-            "w-full max-w-3xl backdrop-blur-2xl rounded-[2rem] shadow-lg p-3 transition-all focus-within:shadow-glow z-20",
-            isGlass
-              ? "bg-white/8 border border-white/15 shadow-brand-500/5 focus-within:bg-white/12 focus-within:border-white/25"
-              : "bg-white/60 border border-white/60 shadow-brand-500/10 focus-within:bg-white/90"
-          )}
+          className="w-full max-w-3xl z-20"
         >
-          <textarea
-            aria-label="输入消息"
-            className="w-full h-32 bg-transparent resize-none outline-none text-slate-800 placeholder:text-slate-400 text-lg p-4 leading-relaxed focus:outline-none"
-            placeholder="输入你想聊的内容，例如：帮我写一段 Python 代码..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            maxLength={4000}
-          />
-          <div className="flex justify-between items-center px-4 pb-3">
-            {user && agentProfiles.length > 0 ? (
-              <AgentSelector
-                agents={agentProfiles}
-                selectedId={selectedAgentProfileId}
-                onSelect={(agent) => setSelectedAgentProfileId(agent.id)}
-                variant="full"
-              />
-            ) : (
-              <div />
-            )}
-            
-            <button
-              onClick={handleSend}
-              disabled={!inputValue.trim()}
-              className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 group",
-                inputValue.trim()
-                  ? isGlass
-                    ? 'bg-brand-500/80 hover:bg-brand-600/90 text-white shadow-md backdrop-blur-sm'
-                    : 'bg-slate-900 hover:bg-slate-800 text-white shadow-md'
-                  : isGlass
-                    ? 'bg-white/10 text-slate-400'
-                    : 'bg-slate-200 text-slate-400'
-              )}
-              aria-label="发送消息"
+          {isGlass ? (
+            <LiquidGlass
+              {...glassPresets.card}
+              tint="rgba(255,255,255,0.08)"
+              radius={32}
+              style={{ width: '100%', padding: '12px' }}
+              className="focus-within:ring-2 ring-sky-500/20"
             >
-              <SendIcon size={20} className="group-hover:-translate-y-1 group-hover:scale-110" />
-            </button>
-          </div>
+              <textarea
+                aria-label="输入消息"
+                className="w-full h-32 bg-transparent resize-none outline-none text-lg p-4 leading-relaxed focus:outline-none text-white placeholder:text-white/40"
+                placeholder="输入你想聊的内容，例如：帮我写一段 Python 代码..."
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                maxLength={4000}
+              />
+              <div className="flex justify-between items-center px-4 pb-3">
+                {user && agentProfiles.length > 0 ? (
+                  <AgentSelector
+                    agents={agentProfiles}
+                    selectedId={selectedAgentProfileId}
+                    onSelect={(agent) => setSelectedAgentProfileId(agent.id)}
+                    variant="full"
+                  />
+                ) : (
+                  <div />
+                )}
+                
+                <button
+                  onClick={handleSend}
+                  disabled={!inputValue.trim()}
+                  className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 group",
+                    inputValue.trim()
+                      ? 'bg-brand-500/80 hover:bg-brand-600/90 text-white shadow-md backdrop-blur-sm'
+                      : 'bg-white/10 text-slate-400'
+                  )}
+                  aria-label="发送消息"
+                >
+                  <SendIcon size={20} className="group-hover:-translate-y-1 group-hover:scale-110" />
+                </button>
+              </div>
+            </LiquidGlass>
+          ) : (
+            <div className="bg-white/60 border border-white/60 backdrop-blur-2xl rounded-[2rem] shadow-lg p-3 transition-all focus-within:shadow-glow z-20 focus-within:bg-white/90">
+              <textarea
+                aria-label="输入消息"
+                className="w-full h-32 bg-transparent resize-none outline-none text-lg p-4 leading-relaxed focus:outline-none text-slate-800 placeholder:text-slate-400"
+                placeholder="输入你想聊的内容，例如：帮我写一段 Python 代码..."
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                maxLength={4000}
+              />
+              <div className="flex justify-between items-center px-4 pb-3">
+                {user && agentProfiles.length > 0 ? (
+                  <AgentSelector
+                    agents={agentProfiles}
+                    selectedId={selectedAgentProfileId}
+                    onSelect={(agent) => setSelectedAgentProfileId(agent.id)}
+                    variant="full"
+                  />
+                ) : (
+                  <div />
+                )}
+                
+                <button
+                  onClick={handleSend}
+                  disabled={!inputValue.trim()}
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 group bg-slate-900 hover:bg-slate-800 text-white shadow-md"
+                  aria-label="发送消息"
+                >
+                  <SendIcon size={20} className="group-hover:-translate-y-1 group-hover:scale-110" />
+                </button>
+              </div>
+            </div>
+          )}
         </motion.div>
         <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.45, duration: 0.6 }} className="mt-6 flex flex-wrap justify-center gap-2 max-w-3xl">
           {[
@@ -206,14 +265,23 @@ export const Home = () => {
             { text: '帮我分析数据', mode: 'general' },
             { text: '写一封邮件', mode: 'general' },
           ].map((s) => (
-            <button key={s.text} onClick={() => setInputValue(s.text)} className={cn(
-              "px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border transition-all",
-              isGlass
-                ? "bg-white/8 border-white/15 text-slate-600 hover:bg-white/15 hover:text-slate-900 hover:shadow-sm"
-                : "bg-white/50 border-white/40 text-slate-600 hover:bg-white/80 hover:text-slate-900 hover:shadow-sm"
-            )}>
-              {s.text}
-            </button>
+            <React.Fragment key={s.text}>
+              {isGlass ? (
+                <LiquidGlass
+                  {...glassPresets.control}
+                  tint="rgba(255,255,255,0.06)"
+                  radius={24}
+                >
+                  <button onClick={() => setInputValue(s.text)} className="px-4 py-2 rounded-full text-sm font-medium text-white/70 hover:text-white transition-colors">
+                    {s.text}
+                  </button>
+                </LiquidGlass>
+              ) : (
+                <button onClick={() => setInputValue(s.text)} className="px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border border-white/40 bg-white/50 text-slate-600 hover:bg-white/80 hover:text-slate-900 hover:shadow-sm transition-all">
+                  {s.text}
+                </button>
+              )}
+            </React.Fragment>
           ))}
         </motion.div>
       </main>
