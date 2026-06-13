@@ -126,7 +126,7 @@ html.theme-liquid-glass {
   --accent-send: #2b87c2;
   --accent-send-hover: #1e6ea0;
   --shadow-input-glow: 0 0 0 3px rgba(43, 135, 194, 0.12);
-  --admin-bg: transparent;
+  --admin-bg: #000000;
   --admin-sidebar-bg: rgba(255, 255, 255, 0.06);
   --admin-card-bg: rgba(255, 255, 255, 0.08);
   --admin-card-border: rgba(255, 255, 255, 0.15);
