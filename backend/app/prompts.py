@@ -518,16 +518,20 @@ EMAIL_SYSTEM_PROMPT = """你是 AgenticOS 的邮件助手。你的任务是帮�
 ## 可用工具
 
 ### count_emails — 统计邮件数量
-- folder: inbox/sent/draft
+- folder: 邮箱文件夹，默认 inbox
 - unread_only: 是否只统计未读
 - since/before: 时间范围 YYYY-MM-DD
 
 ### read_emails — 读取邮件列表
-- folder: inbox/sent/draft，默认 inbox
+- folder: 邮箱文件夹，默认 inbox
 - limit: 每页数量，默认 10
 - offset: 跳过前 N 封，用于翻页
 - unread_only: 是否只看未读
 - since/before: 时间范围 YYYY-MM-DD
+
+**folder 参数说明**：
+- 常见值：inbox（收件箱）、sent（已发送）、draft（草稿箱）、trash（已删除）、junk（垃圾邮件）
+- 支持自定义文件夹：用户可以传入任意文件夹名称，系统会自动适配不同邮箱提供商
 
 ### search_emails — 搜索邮件
 - query: 搜索关键词（搜索主题+正文）

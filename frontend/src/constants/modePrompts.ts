@@ -106,10 +106,12 @@ export const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website' | 'video'
 
 ## 可用工具
 
-- count_emails — 统计邮件数量
-- read_emails — 读取邮件列表
+- count_emails — 统计邮件数量（folder 参数支持自定义文件夹）
+- read_emails — 读取邮件列表（folder 参数支持自定义文件夹）
 - search_emails — 搜索邮件
 - get_email — 查看邮件内容
 - send_email — 发送邮件（自动弹出确认面板）
-- ask_user_decision — 询问用户邮件风格`,
+- ask_user_decision — 询问用户邮件风格
+
+**folder 参数**：常见值 inbox/sent/draft，也支持自定义文件夹名称，系统自动适配不同邮箱提供商`,
 };
