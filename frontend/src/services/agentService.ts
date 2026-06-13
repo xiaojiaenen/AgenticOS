@@ -4,7 +4,7 @@ import { authHeaders } from './authService';
 type AgentServiceOptions = {
   sessionId: string;
   systemPrompt?: string;
-  responseMode?: 'general' | 'ppt' | 'website' | 'video' | 'bigdata';
+  responseMode?: 'general' | 'ppt' | 'website' | 'video' | 'email' | 'bigdata';
   agentProfileId?: number | null;
   files?: { filename: string; file_path: string }[];
   onDelta?: (delta: string, fullText: string) => void;

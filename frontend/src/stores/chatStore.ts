@@ -8,7 +8,7 @@ import { create } from 'zustand';
 import type { Artifact } from '../types';
 import type { AgentProfile } from '../services/agentProfileService';
 
-export type ChatMode = 'general' | 'ppt' | 'website' | 'video' | 'bigdata';
+export type ChatMode = 'general' | 'ppt' | 'website' | 'video' | 'email' | 'bigdata';
 
 interface ChatUIState {
   // ── 输入 ──

@@ -20,7 +20,7 @@ from app.db.models import (
     UserModel,
 )
 from app.db.session import create_db_session
-from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT, BIGDATA_SYSTEM_PROMPT, VIDEO_SYSTEM_PROMPT
+from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT, BIGDATA_SYSTEM_PROMPT, VIDEO_SYSTEM_PROMPT, EMAIL_SYSTEM_PROMPT
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
 from app.services.session_storage import parse_approval_sub_tools, slugify
 from app.services.skill_service import RuntimeSkill, SkillService
@@ -39,6 +39,7 @@ MODE_DEFAULT_PROMPTS: dict[str, str] = {
     "ppt": PPT_SYSTEM_PROMPT,
     "website": WEBSITE_ROUTER_PROMPT,
     "video": VIDEO_SYSTEM_PROMPT,
+    "email": EMAIL_SYSTEM_PROMPT,
     "bigdata": BIGDATA_SYSTEM_PROMPT,
 }
 
@@ -81,6 +82,14 @@ BUILTIN_AGENT_PROFILES = {
         "system_prompt": WEBSITE_ROUTER_PROMPT,
         "response_mode": "website",
         "avatar": "globe",
+        "listed": True,
+    },
+    "email": {
+        "name": "邮箱助手",
+        "description": "帮助用户高效管理公司邮件，支持读取、搜索、发送和统计。",
+        "system_prompt": EMAIL_SYSTEM_PROMPT,
+        "response_mode": "email",
+        "avatar": "mail",
         "listed": True,
     },
 }
