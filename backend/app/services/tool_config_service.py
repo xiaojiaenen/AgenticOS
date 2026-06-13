@@ -109,7 +109,6 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
             "time": {"enabled": True, "requires_approval": False},
             "file": {"enabled": True, "requires_approval": True},
             "memory": {"enabled": True, "requires_approval": False},
-            "email": {"enabled": True, "requires_approval": True},
             "skill": {"enabled": False, "requires_approval": False},
         },
         "ppt": {

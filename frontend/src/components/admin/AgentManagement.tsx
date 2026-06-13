@@ -761,8 +761,6 @@ export const AgentManagement = () => {
              const hasSubTools = subTools.length > 1;
              const isExpanded = expandedTools.has(tool.tool_name);
              const approvedSubTools = tool.approval_sub_tools || [];
-             // When requires_approval is on and no specific sub-tools configured, all sub-tools are approved
-             const allSubToolsApproved = tool.requires_approval && approvedSubTools.length === 0;
 
              return (
               <div key={tool.tool_name} className="rounded-lg border border-slate-200 bg-white p-3.5">
@@ -828,23 +826,24 @@ export const AgentManagement = () => {
                  className="mt-4 space-y-2 border-t border-slate-100 pt-4 overflow-hidden"
                 >
                  <div className="mb-3 flex items-center justify-between">
-                  <span className="text-xs font-medium text-slate-500">选择需要审批的子工具（未选中的子工具将跳过审批直接执行）</span>
+                  <span className="text-xs font-medium text-slate-500">点击子工具可跳过审批直接执行</span>
                   <button
                    type="button"
                    onClick={() => {
-                    if (allSubToolsApproved) {
-                     updateTool(tool.tool_name, { approval_sub_tools: subTools.map((s) => s.name) });
-                    } else {
-                     updateTool(tool.tool_name, { approval_sub_tools: [] });
-                    }
+                    // 全部跳过审批 = approval_sub_tools 包含所有子工具
+                    const allSkipped = approvedSubTools.length === subTools.length;
+                    updateTool(tool.tool_name, { approval_sub_tools: allSkipped ? [] : subTools.map((s) => s.name) });
                    }}
                    className="text-[10px] font-medium text-sky-600 hover:text-sky-700 whitespace-nowrap"
                   >
-                   {allSubToolsApproved ? '全选当前' : '全部需要审批'}
+                   {approvedSubTools.length === subTools.length ? '全部需要审批' : '全部跳过审批'}
                   </button>
                  </div>
                  {subTools.map((sub) => {
-                  const isApproved = allSubToolsApproved || approvedSubTools.includes(sub.name);
+                  // 当 requires_approval=true 且 approval_sub_tools 为空时，所有子工具都需要审批
+                  // 当 approval_sub_tools 不为空时，只有列表中的子工具需要审批
+                  const isSkipped = tool.requires_approval && approvedSubTools.length > 0 && !approvedSubTools.includes(sub.name);
+                  const isApproved = tool.requires_approval && !isSkipped;
                   return (
                    <div
                     key={sub.name}
