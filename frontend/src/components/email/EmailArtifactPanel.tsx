@@ -126,13 +126,18 @@ export const EmailArtifactPanel: React.FC<EmailArtifactPanelProps> = ({
             </span>
           </div>
           <div className="rounded-lg bg-slate-50 p-3">
-            <div className="max-h-96 overflow-y-auto text-sm leading-relaxed text-slate-700">
-              {artifact.isHtml ? (
-                <div dangerouslySetInnerHTML={{ __html: artifact.body }} />
-              ) : (
+            {artifact.isHtml ? (
+              <iframe
+                srcDoc={artifact.body}
+                className="h-80 w-full rounded border-0"
+                sandbox=""
+                title="邮件预览"
+              />
+            ) : (
+              <div className="max-h-80 overflow-y-auto text-sm leading-relaxed text-slate-700">
                 <pre className="whitespace-pre-wrap font-sans">{artifact.body}</pre>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
