@@ -25,6 +25,36 @@ const SessionItemGlass: React.FC<{
 }> = ({ isActive, onClick, onKeyDown, children }) => {
   const [isHovered, setIsHovered] = useState(false);
 
+  if (isHovered || isActive) {
+    return (
+      <LiquidGlass
+        {...glassPresets.control}
+        tint={isActive ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)"}
+        radius={12}
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={onKeyDown}
+        aria-current={isActive ? 'page' : undefined}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className="group rounded-xl cursor-pointer"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px',
+          marginBottom: 4,
+          fontWeight: isActive ? 700 : 500,
+          color: '#ffffff',
+          border: isActive ? '1px solid rgba(255,255,255,0.15)' : '1px solid transparent',
+        }}
+      >
+        {children}
+      </LiquidGlass>
+    );
+  }
+
   return (
     <div
       role="button"
@@ -34,14 +64,7 @@ const SessionItemGlass: React.FC<{
       aria-current={isActive ? 'page' : undefined}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ease-out"
-      style={{
-        background: isHovered || isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
-        color: isHovered || isActive ? '#ffffff' : '#9ca3af',
-        backdropFilter: isHovered || isActive ? 'blur(12px)' : 'none',
-        border: isActive ? '1px solid rgba(255,255,255,0.15)' : '1px solid transparent',
-        fontWeight: isActive ? 700 : 500,
-      }}
+      className="group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ease-out text-white/60 hover:text-white"
     >
       {children}
     </div>
