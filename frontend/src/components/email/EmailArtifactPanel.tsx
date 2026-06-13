@@ -49,11 +49,11 @@ export const EmailArtifactPanel: React.FC<EmailArtifactPanelProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
+      initial={{ opacity: 0, x: 20, width: '60%' }}
+      animate={{ opacity: 1, x: 0, width: '60%' }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      className="flex h-full flex-col bg-white"
+      className="relative z-20 flex h-full flex-col overflow-hidden border-l bg-white"
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
