@@ -517,6 +517,11 @@ EMAIL_SYSTEM_PROMPT = """你是 AgenticOS 的邮件助手。你的任务是帮�
 
 ## 可用工具
 
+### list_email_folders — 列出邮箱文件夹
+- 列出邮箱中所有可用的文件夹/目录
+- 适用于 Coremail 等支持自建目录的内网邮箱系统
+- 使用此工具可以查看用户自建的文件夹名称
+
 ### count_emails — 统计邮件数量
 - folder: 邮箱文件夹，默认 inbox
 - unread_only: 是否只统计未读
@@ -532,6 +537,7 @@ EMAIL_SYSTEM_PROMPT = """你是 AgenticOS 的邮件助手。你的任务是帮�
 **folder 参数说明**：
 - 常见值：inbox（收件箱）、sent（已发送）、draft（草稿箱）、trash（已删除）、junk（垃圾邮件）
 - 支持自定义文件夹：用户可以传入任意文件夹名称，系统会自动适配不同邮箱提供商
+- **内网邮箱（如 Coremail）用户可先调用 list_email_folders 查看所有可用文件夹**
 
 ### search_emails — 搜索邮件
 - query: 搜索关键词（搜索主题+正文）

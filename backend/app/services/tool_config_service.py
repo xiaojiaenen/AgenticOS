@@ -388,6 +388,7 @@ TOOL_CATALOG = {
         "description": "通过 IMAP/SMTP 管理邮件，支持读取、搜索和发送。",
         "builtin_name": "email",
         "approval_scope": [
+            "list_email_folders",
             "count_emails",
             "read_emails",
             "search_emails",
@@ -395,6 +396,7 @@ TOOL_CATALOG = {
             "send_email",
         ],
         "sub_tools": {
+            "list_email_folders": {"label": "列出文件夹", "description": "列出邮箱中所有可用的文件夹/目录"},
             "count_emails": {"label": "邮件统计", "description": "按条件统计邮件数量"},
             "read_emails": {"label": "读取邮件", "description": "分页获取邮件列表"},
             "search_emails": {"label": "搜索邮件", "description": "在主题和正文中搜索关键词"},
