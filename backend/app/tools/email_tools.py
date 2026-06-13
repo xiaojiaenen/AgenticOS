@@ -345,6 +345,54 @@ def _is_date_in_range(date_header: str | None, since: str, before: str) -> bool:
 def register_email_tools(registry: ToolRegistry):
     """注册邮件工具到 ToolRegistry"""
 
+    @registry.tool(display_name="列出邮箱文件夹")
+    async def list_email_folders() -> str:
+        """
+        列出邮箱中所有可用的文件夹/目录。
+        适用于 Coremail 等支持自建目录的内网邮箱系统。
+        """
+        creds = _get_credentials()
+        if not creds:
+            return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
+
+        try:
+            imap = _imap_connect(
+                str(creds["imap_host"]), int(creds["imap_port"]), bool(creds["imap_ssl"])
+            )
+            imap.login(str(creds["email"]), str(creds["password"]))
+
+            # 列出所有文件夹
+            status, folder_list = imap.list()
+            imap.logout()
+
+            if status != "OK":
+                return "❌ 获取文件夹列表失败"
+
+            folders = []
+            for item in folder_list:
+                # 解析 IMAP LIST 响应格式: (flags) "delimiter" "name"
+                parts = item.decode("utf-8", errors="replace").split('"')
+                if len(parts) >= 3:
+                    name = parts[-1].strip()
+                    if name:
+                        folders.append(name)
+
+            if not folders:
+                return "📭 未找到任何文件夹"
+
+            # 显示文件夹列表
+            result = "📁 邮箱文件夹列表：\n\n"
+            for folder in folders:
+                result += f"• {folder}\n"
+
+            result += f"\n共 {len(folders)} 个文件夹"
+            result += "\n\n💡 使用 read_emails(folder=\"文件夹名\") 读取指定文件夹的邮件"
+
+            return result
+
+        except Exception as e:
+            return f"❌ 获取文件夹列表失败: {str(e)}"
+
     @registry.tool(display_name="读取邮件")
     async def read_emails(
         folder: str = "inbox",
