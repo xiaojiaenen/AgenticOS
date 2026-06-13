@@ -66,7 +66,7 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
      onClick={onClose}
      className={cn(
       "rounded-xl p-2 transition-all active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2",
-      isGlass ? "text-gray-400 hover:bg-white/10 hover:text-white" : "text-slate-400 hover:bg-white hover:text-slate-700 hover:shadow-sm"
+      isGlass ? "text-white/70 hover:bg-white/10 hover:text-white" : "text-slate-400 hover:bg-white hover:text-slate-700 hover:shadow-sm"
      )}
      aria-label="关闭导航"
     >
@@ -88,7 +88,7 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
          'admin-nav-item focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2',
          active
           ? isGlass ? 'admin-nav-item-active text-white' : 'admin-nav-item-active text-zinc-900'
-          : isGlass ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-900',
+          : isGlass ? 'text-white/70 hover:text-white' : 'text-slate-600 hover:text-slate-900',
         )}
        >
         {active && (
@@ -106,14 +106,14 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
           'admin-nav-icon',
           active
            ? isGlass ? 'border-sky-400 bg-sky-400 text-white shadow-button' : 'border-zinc-900 bg-zinc-900 text-white shadow-button'
-           : isGlass ? 'border-white/20 bg-white/10 text-gray-400 group-hover:text-white' : 'border-slate-200/80 bg-white/80 text-slate-500 group-hover:text-slate-700',
+           : isGlass ? 'border-white/20 bg-white/10 text-white/70 group-hover:text-white' : 'border-slate-200/80 bg-white/80 text-slate-500 group-hover:text-slate-700',
          )}
         >
          <item.icon size={18} />
         </div>
         <div className="relative min-w-0">
          <p className="truncate text-sm font-semibold">{item.label}</p>
-         <p className={cn("mt-1 line-clamp-2 text-xs font-medium leading-5", isGlass ? "text-gray-500" : "text-slate-400")}>{item.description}</p>
+         <p className={cn("mt-1 line-clamp-2 text-xs font-medium leading-5", isGlass ? "text-white/50" : "text-slate-400")}>{item.description}</p>
         </div>
         {active && (
          <motion.div
@@ -147,20 +147,20 @@ export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isO
     )}>
      <div className={cn(
       "flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm",
-      isGlass ? "border border-white/20 bg-white/10 text-gray-300" : "border border-zinc-200 bg-[linear-gradient(135deg,rgba(15,23,42,0.06),rgba(255,255,255,0.9))] text-zinc-600"
+      isGlass ? "border border-white/20 bg-white/10 text-white" : "border border-zinc-200 bg-[linear-gradient(135deg,rgba(15,23,42,0.06),rgba(255,255,255,0.9))] text-zinc-600"
      )}>
       <UserAvatarIcon size={20} />
      </div>
      <div className="min-w-0 flex-1">
       <p className={cn("truncate text-xs font-medium", isGlass ? "text-white" : "text-slate-800")}>{user?.name || 'AgenticOS User'}</p>
-      <p className={cn("truncate text-[10px] font-medium", isGlass ? "text-gray-400" : "text-slate-400")}>{user?.email || 'signed in'}</p>
+      <p className={cn("truncate text-[10px] font-medium", isGlass ? "text-white/60" : "text-slate-400")}>{user?.email || 'signed in'}</p>
      </div>
      <button
       type="button"
       onClick={handleLogout}
       className={cn(
        "rounded-xl p-2 transition-all hover:scale-110 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2",
-       isGlass ? "text-gray-400 hover:bg-rose-500/20 hover:text-rose-400" : "text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+       isGlass ? "text-white/70 hover:bg-rose-500/20 hover:text-rose-400" : "text-slate-400 hover:bg-rose-50 hover:text-rose-500"
       )}
       title="退出登录"
       aria-label="退出登录"
