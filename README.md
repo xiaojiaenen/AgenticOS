@@ -16,6 +16,7 @@ AgenticOS 内置了 4 个专业智能体，覆盖常见场景：
 | **通用助手** | `general` | 日常问答、资料整理、轻量工具调用 |
 | **PPT 设计师** | `ppt` | 使用 SVG 原生图形生成演示文稿，支持导出 .pptx |
 | **视频创作** | `video` | 智能视频生成，23 种专业模板，Chromium 录制 + ffmpeg 编码 |
+| **邮箱助手** | `email` | 邮件管理，支持读取、搜索、发送和统计 |
 | **网站工程师** | `website` | 页面方案、前端代码、交互原型，支持 Vue/React |
 
 ### 视频创作模式
@@ -115,7 +116,27 @@ uv run playwright install chromium
 | intro-outro | frame-logo-outro | 片头片尾 |
 | ambient | frame-takram-organic, frame-warm-grain | 氛围背景 |
 
-### 4. 网站工程师（website）
+### 4. 邮箱助手（email）
+
+帮助用户高效管理公司邮件。
+
+**特性**：
+- **邮件概览**：快速查看收件箱、未读邮件、重要邮件
+- **邮件统计**：快速获取邮件总数、未读数量等统计信息
+- **邮件搜索**：按发件人、主题、日期、关键词搜索
+- **邮件阅读**：读取邮件内容、查看附件信息
+- **邮件回复**：帮助用户撰写和发送邮件（需用户确认）
+
+**可用工具**：count_emails、read_emails、search_emails、get_email、send_email、setup_email
+
+**支持的邮箱**：
+- Gmail
+- Outlook/Office 365
+- QQ 邮箱
+- 163/126 邮箱
+- 企业邮箱（IMAP/SMTP）
+
+### 5. 网站工程师（website）
 
 用于页面方案、前端代码、交互原型和网站结构设计。
 
