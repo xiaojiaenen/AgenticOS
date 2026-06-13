@@ -26,6 +26,7 @@ export const ChatArtifactArea = React.memo(({
 }: ChatArtifactAreaProps) => (
   <AnimatePresence mode="wait">
     {artifact?.language === 'ppt' ? (
+
       <PptArtifactPanel
         key="ppt"
         artifact={artifact}
