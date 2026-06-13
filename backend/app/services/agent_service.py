@@ -1007,6 +1007,87 @@ class AgentService:
         ]
         return message + "\n".join(lines)
 
+    @staticmethod
+    def _inject_video_template_catalog(message: str) -> str:
+        """Inject video template catalog and workflow guide for video mode."""
+        try:
+            from app.services.video import get_video_orchestrator
+            orchestrator = get_video_orchestrator()
+            templates = orchestrator.templates.list_all()
+        except Exception:
+            templates = []
+
+        # 按类别分组模板
+        categories: dict[str, list[str]] = {}
+        for t in templates:
+            cat = t.category or "other"
+            if cat not in categories:
+                categories[cat] = []
+            categories[cat].append(f"{t.id} — {t.name}")
+
+        template_lines = []
+        for cat, ids in categories.items():
+            template_lines.append(f"**{cat}**:")
+            for tid in ids[:3]:  # 每个类别最多显示 3 个
+                template_lines.append(f"  - {tid}")
+            if len(ids) > 3:
+                template_lines.append(f"  - ...等 {len(ids)} 个模板")
+
+        lines = [
+            "",
+            "---",
+            "## Video 模式资源速查",
+            "",
+            "### 可用模板（共 {} 个）".format(len(templates)),
+            "",
+            *template_lines,
+            "",
+            "### 工作流程",
+            "",
+            "**单帧视频（快速路径）**：",
+            "1. `video_search_templates(intent)` 搜索合适模板",
+            "2. `video_create_project(name, intent)` 创建项目",
+            "3. `video_set_template(project_id, template_id)` 设置模板",
+            "4. `video_set_variables(project_id, {...})` 设置变量",
+            "5. `video_write_preview_html(project_id, html)` 写入动画 HTML",
+            "6. `video_export_mp4(project_id)` 渲染导出",
+            "",
+            "**多帧视频（storyboard 路径）**：",
+            "1. `video_search_templates(intent)` 搜索合适模板",
+            "2. `video_create_project(name, intent)` 创建项目",
+            "3. `video_set_template(project_id, template_id)` 设置模板",
+            "4. `video_write_content_graph(project_id, graph)` 写入 storyboard",
+            "5. 为每帧调用 `video_write_frame_html(project_id, node_id, html)`",
+            "6. `video_export_mp4(project_id)` 渲染导出",
+            "",
+            "### content-graph 格式",
+            "",
+            "```json",
+            '{',
+            '  "schemaVersion": 1,',
+            '  "intent": "explainer",',
+            '  "synopsis": "视频简介",',
+            '  "nodes": [',
+            '    {"id": "intro", "kind": "text", "text": "标题", "durationSec": 3},',
+            '    {"id": "data", "kind": "data", "data": {...}, "durationSec": 5}',
+            '  ],',
+            '  "edges": [',
+            '    {"from": "intro", "to": "data", "kind": "sequence"}',
+            '  ]',
+            '}',
+            "```",
+            "",
+            "### HTML 生成规则",
+            "",
+            "- 使用 CSS keyframes 或 GSAP 做动画",
+            "- 自包含：所有样式和脚本内联",
+            "- 可引用 Google Fonts 和 GSAP CDN",
+            "- 匹配模板的 CSS 变量和布局约定",
+            "",
+            "---",
+        ]
+        return message + "\n".join(lines)
+
     async def _create_ppt_artifact(self, session_id: str) -> dict[str, Any] | None:
         """Create a PPT artifact from saved slides in the session work directory."""
         from app.core.data_path import _parse_dir_name, next_version_dir
@@ -1599,6 +1680,9 @@ class AgentService:
         website_mode = response_mode == "website"
         if website_mode:
             message = self._inject_website_catalog(message)
+
+        if video_mode:
+            message = self._inject_video_template_catalog(message)
 
         session = agent.create_or_get_session(
             session_id=request.session_id,

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
-import { MascotHappy, MascotGeneral, MascotPPT, MascotWebsite, MascotBigData, ChevronDownIcon } from './AnimatedIcons';
+import { MascotHappy, MascotGeneral, MascotPPT, MascotWebsite, MascotVideo, MascotBigData, ChevronDownIcon } from './AnimatedIcons';
 import { AgentProfile } from '../../services/agentProfileService';
 
 // 不同模式的小精灵组件和颜色
@@ -9,6 +9,7 @@ const MODE_STYLES: Record<string, { Mascot: React.FC<{ size?: number; className?
   general: { Mascot: MascotGeneral, bg: 'bg-sky-500',    ring: 'ring-sky-100',    text: 'text-sky-700',    selectedBg: 'bg-sky-100/70' },
   ppt:     { Mascot: MascotPPT,     bg: 'bg-violet-500',  ring: 'ring-violet-100', text: 'text-violet-700', selectedBg: 'bg-violet-100/70' },
   website: { Mascot: MascotWebsite, bg: 'bg-emerald-500', ring: 'ring-emerald-100',text: 'text-emerald-700',selectedBg: 'bg-emerald-100/70' },
+  video:   { Mascot: MascotVideo,   bg: 'bg-purple-500',  ring: 'ring-purple-100', text: 'text-purple-700', selectedBg: 'bg-purple-100/70' },
   bigdata: { Mascot: MascotBigData, bg: 'bg-orange-500',  ring: 'ring-orange-100', text: 'text-orange-700', selectedBg: 'bg-orange-100/70' },
 };
 
