@@ -69,7 +69,7 @@ export type Session = {
   messages: Message[];
   createdAt?: number;
   updatedAt: number;
-  mode?: 'general' | 'ppt' | 'website' | 'video' | 'bigdata';
+  mode?: 'general' | 'ppt' | 'website' | 'video' | 'email' | 'bigdata';
   agentProfileId?: number | null;
   agentName?: string;
   summary?: string | null;
