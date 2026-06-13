@@ -88,11 +88,14 @@ export const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website' | 'video'
 - 邮件统计：获取邮件总数、未读数量
 - 邮件搜索：按发件人、主题、日期搜索
 - 邮件阅读：读取邮件内容
-- 邮件回复：撰写和发送邮件
+- 邮件发送：撰写和发送邮件
 
-## 发送邮件
+## 发送邮件流程
 
-**直接调用 send_email 工具**，系统会自动弹出右侧边栏的邮件预览面板，用户确认后才会发送。不需要使用 ask_user_decision 工具。
+1. 确认邮件内容（收件人、主题、正文）
+2. 如需用户确认，可使用 ask_user_decision 工具
+3. 调用 send_email 工具
+4. 系统自动弹出右侧边栏邮件预览面板，用户最终确认后发送
 
 ## 可用工具
 
@@ -100,5 +103,6 @@ export const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website' | 'video'
 - read_emails — 读取邮件列表
 - search_emails — 搜索邮件
 - get_email — 查看邮件内容
-- send_email — 发送邮件（系统自动弹出确认面板）`,
+- send_email — 发送邮件
+- ask_user_decision — 请求用户决策`,
 };
