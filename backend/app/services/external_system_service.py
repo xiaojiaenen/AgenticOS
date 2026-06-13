@@ -1435,6 +1435,17 @@ class ExternalSystemService:
                 result.append(_serialize_connection(cred, sys.name))
         return result
 
+    def decrypt_credential_data(self, credential: ExternalUserCredentialModel) -> dict:
+        """解密凭据数据，返回明文字典。
+
+        用于凭据代理 API，供内部系统（如爬虫平台）安全获取用户凭据。
+        """
+        config_raw = decrypt_safe(credential.credential_data_encrypted, "{}")
+        try:
+            return json.loads(config_raw) if config_raw else {}
+        except (json.JSONDecodeError, TypeError):
+            return {}
+
     # ── profile ↔ system association ──
 
     def list_profile_systems(self, profile_id: int) -> list[dict]:

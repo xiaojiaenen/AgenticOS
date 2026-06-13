@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     # 外部系统凭据加密密钥（留空则从 AUTH_SECRET_KEY 派生）
     external_system_encryption_key: str = Field(default="", validation_alias="EXTERNAL_SYSTEM_ENCRYPTION_KEY")
 
+    # 凭据代理 API 内部令牌（供爬虫平台等内部系统调用）
+    credential_proxy_token: str = Field(default="", validation_alias="CREDENTIAL_PROXY_TOKEN")
+
     # 系统通知邮箱配置（用于任务完成通知等系统邮件）
     notify_email_address: str = Field(default="", validation_alias="NOTIFY_EMAIL_ADDRESS")
     notify_email_password: str = Field(default="", validation_alias="NOTIFY_EMAIL_PASSWORD")
