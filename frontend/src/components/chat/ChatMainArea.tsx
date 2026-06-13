@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChatTimeline } from './ChatTimeline';
 import { ChatSearch } from './ChatSearch';
 import { MessagesList } from './MessagesList';
 import { PendingApprovalPanel } from './PendingApprovalPanel';
+import { EmailPreviewPanel, EmailPreview } from './EmailPreviewPanel';
 import { DecisionPanel } from './DecisionPanel';
 import { ChatInput } from './ChatInput';
 import { MascotState } from '../ui/MascotState';
@@ -39,6 +40,36 @@ export const ChatMainArea = React.memo(() => {
   } = useChatStore();
 
   const isGlass = useIsGlassTheme();
+
+  // 分离邮件审批和其他审批
+  const { emailApprovals, otherApprovals } = useMemo(() => {
+    const emailIds = new Set<string>();
+    const emailPreviews: EmailPreview[] = [];
+    const other: typeof pendingApprovals = [];
+
+    for (const approval of pendingApprovals) {
+      // 检查是否是 send_email 工具
+      if (approval.name === 'send_email' && approval.arguments) {
+        const args = approval.arguments as Record<string, unknown>;
+        emailPreviews.push({
+          approval_id: approval.approvalId || '',
+          to: String(args.to || ''),
+          subject: String(args.subject || ''),
+          body: String(args.body || ''),
+          cc: args.cc ? String(args.cc) : undefined,
+          is_html: Boolean(args.is_html),
+        });
+        emailIds.add(approval.approvalId || '');
+      } else {
+        other.push(approval);
+      }
+    }
+
+    return {
+      emailApprovals: emailPreviews,
+      otherApprovals: other,
+    };
+  }, [pendingApprovals]);
 
   return (
     <>
@@ -209,7 +240,8 @@ export const ChatMainArea = React.memo(() => {
 
         <div className={cn("mx-auto", isWideConversation ? "max-w-[92rem] px-8" : "max-w-4xl")}>
           <DecisionPanel decisions={pendingDecisions} onDecision={handleDecisionMade} />
-          <PendingApprovalPanel approvals={pendingApprovals} onDecision={handleApprovalDecision} />
+          <EmailPreviewPanel emails={emailApprovals} onDecision={handleApprovalDecision} />
+          <PendingApprovalPanel approvals={otherApprovals} onDecision={handleApprovalDecision} />
           <ChatInput
             ref={chatInputRef}
             value={inputValue}
