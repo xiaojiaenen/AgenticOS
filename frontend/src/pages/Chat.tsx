@@ -92,6 +92,23 @@ export const Chat = () => {
   const isModeLocked = !!currentSession && currentSession.messages.length > 0;
   const selectedAgent = agentProfiles.find((a) => a.id === selectedAgentProfileId) || null;
 
+  // ── 检测 send_email 审批请求，自动打开邮件预览面板 ──
+  useEffect(() => {
+    const emailApproval = pendingApprovals.find((t) => t.name === 'send_email');
+    if (emailApproval && emailApproval.arguments) {
+      const args = emailApproval.arguments as Record<string, unknown>;
+      setArtifact({
+        language: 'email',
+        approvalId: emailApproval.approvalId || '',
+        to: String(args.to || ''),
+        subject: String(args.subject || ''),
+        body: String(args.body || ''),
+        cc: args.cc ? String(args.cc) : undefined,
+        isHtml: Boolean(args.is_html),
+      });
+    }
+  }, [pendingApprovals, setArtifact]);
+
   // ── 拖放 ──
   const { isDragging, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragAndDrop();
   const onDrop = (e: React.DragEvent) => handleDrop(e, (files) => chatInputRef.current?.addFiles(files));
@@ -127,6 +144,16 @@ export const Chat = () => {
       setArtifact({ ...artifact, html: newHtml, theme });
     }
   }, [artifact, setArtifact]);
+
+  const handleEmailConfirm = useCallback((approvalId: string) => {
+    handleApprovalDecision(approvalId, 'approved');
+    setArtifact(null);
+  }, [handleApprovalDecision, setArtifact]);
+
+  const handleEmailCancel = useCallback((approvalId: string) => {
+    handleApprovalDecision(approvalId, 'rejected');
+    setArtifact(null);
+  }, [handleApprovalDecision, setArtifact]);
 
   const handleAgentProfileChange = useCallback((profile: any) => {
     setSelectedAgentProfileId(profile?.id ?? null);
@@ -445,7 +472,14 @@ export const Chat = () => {
               hasArtifact={!!artifact}
             />
           </AnimatePresence>
-          <ChatArtifactArea artifact={artifact} onClose={() => setArtifact(null)} borderColor={borderColor} onPptThemeChange={handlePptThemeChange} />
+          <ChatArtifactArea
+            artifact={artifact}
+            onClose={() => setArtifact(null)}
+            borderColor={borderColor}
+            onPptThemeChange={handlePptThemeChange}
+            onEmailConfirm={handleEmailConfirm}
+            onEmailCancel={handleEmailCancel}
+          />
         </div>
       </ChatContextProvider>
     </motion.div>

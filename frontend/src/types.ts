@@ -133,4 +133,6 @@ export type Artifact =
   | {language: 'website'; artifactId: string; html: string; title: string;
       projectSlug: string; stack?: string; fileCount?: number}
   | {language: 'video'; artifactId: string; videoUrl: string; thumbnailUrl?: string;
-      title: string; duration?: number; resolution?: string; fileSize?: number};
+      title: string; duration?: number; resolution?: string; fileSize?: number}
+  | {language: 'email'; approvalId: string; to: string; subject: string; body: string;
+      cc?: string; isHtml?: boolean};
