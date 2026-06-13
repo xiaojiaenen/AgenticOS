@@ -588,9 +588,13 @@ class ToolConfigService:
 
     @staticmethod
     def build_display_name_map() -> dict[str, str]:
-        """Build a flat {function_name: chinese_label} map from TOOL_CATALOG sub_tools."""
+        """Build a flat {function_name: chinese_label} map from TOOL_CATALOG."""
         name_map: dict[str, str] = {}
-        for catalog_item in TOOL_CATALOG.values():
+        for tool_name, catalog_item in TOOL_CATALOG.items():
+            # 从 TOOL_CATALOG 的 label 字段提取工具名
+            if "label" in catalog_item:
+                name_map[tool_name] = catalog_item["label"]
+            # 从 sub_tools 中提取子工具名
             for name, info in catalog_item.get("sub_tools", {}).items():
                 name_map[name] = info["label"]
         return name_map
