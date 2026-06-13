@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>什么是大模型</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      width: 1920px; height: 1080px; overflow: hidden;
+      background: #EFEAE0;
+      font-family: 'Noto Sans SC', 'Manrope', sans-serif;
+      position: relative;
+    }
+    .bg-wash {
+      position: absolute; top: 0; right: 0; width: 60%; height: 100%;
+      background: radial-gradient(ellipse at 70% 50%, rgba(122,158,127,0.10) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .glass-card {
+      position: absolute;
+      left: 80px; top: 50%; transform: translateY(-50%);
+      width: 760px; padding: 60px 64px;
+      background: rgba(255,253,248,0.66);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-radius: 40px;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.04);
+      opacity: 0;
+      transform: translateY(26px) scale(0.985);
+      animation: cardRise 0.8s cubic-bezier(0.16,1,0.3,1) 0.2s forwards;
+    }
+    @keyframes cardRise {
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .eyebrow {
+      font-size: 18px; font-weight: 600; letter-spacing: 4px; text-transform: uppercase;
+      color: #7A9E7F; margin-bottom: 20px;
+      opacity: 0; transform: translateY(14px);
+      animation: fadeUp 0.5s ease 0.7s forwards;
+    }
+    .title {
+      font-size: 74px; font-weight: 700; line-height: 1.2;
+      color: #2D2A24; margin-bottom: 16px;
+      opacity: 0; transform: translateY(14px);
+      animation: fadeUp 0.5s ease 0.9s forwards;
+    }
+    .title .accent { color: #C98A5E; }
+    .caption {
+      font-size: 22px; font-weight: 400; line-height: 1.8;
+      color: #8A867C;
+      opacity: 0; transform: translateY(14px);
+      animation: fadeUp 0.5s ease 1.2s forwards;
+    }
+    .caption strong { color: #5A5650; font-weight: 600; }
+    .bullet-list {
+      margin-top: 18px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 1.4s forwards;
+    }
+    .bullet-item {
+      font-size: 18px; color: #6A665E; line-height: 2.2; padding-left: 24px;
+      position: relative;
+    }
+    .bullet-item::before {
+      content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+      width: 8px; height: 8px; border-radius: 50%; background: #B8C9BA;
+    }
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .radial-container {
+      position: absolute;
+      right: 60px; top: 50%; transform: translateY(-50%);
+      width: 720px; height: 720px;
+    }
+    .radial-svg { width: 100%; height: 100%; }
+
+    .core-circle {
+      fill: #C98A5E;
+      opacity: 0;
+      animation: corePop 0.6s cubic-bezier(0.34,1.56,0.64,1) 1.3s forwards;
+    }
+    @keyframes corePop {
+      0% { opacity: 0; r: 0; }
+      60% { opacity: 1; r: 45; }
+      100% { opacity: 1; r: 40; }
+    }
+    .core-label {
+      font-family: 'Noto Sans SC', sans-serif;
+      font-size: 13px; font-weight: 700; fill: #fff; text-anchor: middle; dominant-baseline: central;
+      opacity: 0;
+      animation: labelFade 0.4s ease 1.8s forwards;
+    }
+    @keyframes labelFade { to { opacity: 1; } }
+
+    .link { fill: none; stroke: #B8C9BA; stroke-width: 2.5; stroke-dasharray: 320; stroke-dashoffset: 320; }
+    .link-draw { animation: linkDraw 0.8s ease-in-out forwards; }
+    @keyframes linkDraw { to { stroke-dashoffset: 0; } }
+
+    .node-group { opacity: 0; transform: scale(0); }
+    .node-pop { animation: nodePop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+    @keyframes nodePop {
+      0% { opacity: 0; transform: scale(0); }
+      60% { opacity: 1; transform: scale(1.25); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .node-circle { fill: #7A9E7F; }
+    .node-text {
+      font-family: 'Noto Sans SC', sans-serif;
+      font-size: 12px; font-weight: 600; fill: #2D2A24; text-anchor: middle; dominant-baseline: central;
+    }
+    .node-sub {
+      font-family: 'Noto Sans SC', sans-serif;
+      font-size: 10px; font-weight: 400; fill: #8A867C; text-anchor: middle; dominant-baseline: central;
+    }
+
+    .float-group { animation: float 7s ease-in-out infinite; }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .footer-line {
+      position: absolute; bottom: 40px; left: 80px; right: 80px;
+      height: 1px; background: rgba(184,201,186,0.3);
+      opacity: 0;
+      animation: fadeUp 0.6s ease 4.5s forwards;
+    }
+    .footer-text {
+      position: absolute; bottom: 48px; right: 80px;
+      font-size: 13px; color: #B8C9BA; letter-spacing: 2px; font-weight: 400;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 4.8s forwards;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-wash"></div>
+
+  <div class="glass-card">
+    <div class="eyebrow">Core Concept</div>
+    <div class="title">什么是<span class="accent">大模型</span></div>
+    <div class="caption">
+      大语言模型（LLM）是指参数规模达到<strong>千亿级别</strong>的神经网络，<br>
+      通过海量文本训练，展现出惊人的<strong>涌现能力</strong>。
+    </div>
+    <div class="bullet-list">
+      <div class="bullet-item">📊 <strong>千亿参数</strong> — 模型规模远超传统AI</div>
+      <div class="bullet-item">🧠 <strong>Transformer</strong> — 自注意力机制革命</div>
+      <div class="bullet-item">📚 <strong>海量数据</strong> — TB级文本语料训练</div>
+      <div class="bullet-item">✨ <strong>涌现能力</strong> — 规模带来的质变</div>
+    </div>
+  </div>
+
+  <div class="radial-container">
+    <svg class="radial-svg" viewBox="0 0 720 720">
+      <defs>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="2" stdDeviation="6" flood-opacity="0.08"/>
+        </filter>
+      </defs>
+
+      <g class="float-group">
+        <circle class="core-circle" cx="360" cy="360" r="40" filter="url(#shadow)"/>
+        <text class="core-label" x="360" y="360">LLM</text>
+
+        <!-- 6条连接线（6个概念节点，更清晰） -->
+        <path class="link link-draw" d="M400,360 Q560,300 600,180" style="animation-delay:1.4s"/>
+        <path class="link link-draw" d="M395,330 Q540,200 540,100" style="animation-delay:1.5s"/>
+        <path class="link link-draw" d="M360,320 Q440,120 380,50" style="animation-delay:1.6s"/>
+        <path class="link link-draw" d="M325,330 Q180,200 180,100" style="animation-delay:1.5s"/>
+        <path class="link link-draw" d="M320,360 Q160,300 120,180" style="animation-delay:1.4s"/>
+        <path class="link link-draw" d="M325,390 Q180,520 180,620" style="animation-delay:1.55s"/>
+
+        <!-- 节点1：千亿参数 -->
+        <g class="node-group node-pop" style="animation-delay:1.9s; transform-origin:600px 180px">
+          <circle class="node-circle" cx="600" cy="180" r="36" filter="url(#shadow)"/>
+          <text class="node-text" x="600" y="175">千亿</text>
+          <text class="node-sub" x="600" y="192">参数</text>
+        </g>
+        <!-- 节点2：Transformer -->
+        <g class="node-group node-pop" style="animation-delay:2.0s; transform-origin:540px 100px">
+          <circle class="node-circle" cx="540" cy="100" r="36" filter="url(#shadow)"/>
+          <text class="node-text" x="540" y="95">Transformer</text>
+          <text class="node-sub" x="540" y="112">注意力机制</text>
+        </g>
+        <!-- 节点3：海量数据 -->
+        <g class="node-group node-pop" style="animation-delay:2.1s; transform-origin:380px 50px">
+          <circle class="node-circle" cx="380" cy="50" r="36" filter="url(#shadow)"/>
+          <text class="node-text" x="380" y="45">海量</text>
+          <text class="node-sub" x="380" y="62">训练数据</text>
+        </g>
+        <!-- 节点4：涌现能力 -->
+        <g class="node-group node-pop" style="animation-delay:2.0s; transform-origin:180px 100px">
+          <circle class="node-circle" cx="180" cy="100" r="36" filter="url(#shadow)"/>
+          <text class="node-text" x="180" y="95">涌现</text>
+          <text class="node-sub" x="180" y="112">能力</text>
+        </g>
+        <!-- 节点5：多模态 -->
+        <g class="node-group node-pop" style="animation-delay:1.9s; transform-origin:120px 180px">
+          <circle class="node-circle" cx="120" cy="180" r="36" filter="url(#shadow)"/>
+          <text class="node-text" x="120" y="175">多模态</text>
+          <text class="node-sub" x="120" y="192">图文音</text>
+        </g>
+        <!-- 节点6：微调 -->
+        <g class="node-group node-pop" style="animation-delay:2.05s; transform-origin:180px 620px">
+          <circle class="node-circle" cx="180" cy="620" r="36" filter="url(#shadow)"/>
+          <text class="node-text" x="180" y="615">微调</text>
+          <text class="node-sub" x="180" y="632">SFT / RLHF</text>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <div class="footer-line"></div>
+  <div class="footer-text">规模 · 架构 · 数据 · 涌现</div>
+</body>
+</html>

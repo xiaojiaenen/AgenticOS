@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Noto+Sans+SC:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 1920px; height: 1080px;
+  overflow: hidden;
+  background: #EFEAE0;
+  font-family: 'Manrope', 'Noto Sans SC', sans-serif;
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 80px;
+}
+.bg-wash {
+  position: absolute;
+  top: 0; right: 0;
+  width: 55%; height: 100%;
+  background: radial-gradient(ellipse at 60% 50%, rgba(122,158,127,0.10) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ========== LEFT: Glass Card ========== */
+.card {
+  position: relative;
+  z-index: 2;
+  width: 580px;
+  background: rgba(255,253,248,0.66);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 40px;
+  padding: 60px 50px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.03);
+  border: 1px solid rgba(255,253,248,0.4);
+  opacity: 0;
+  transform: translateY(26px) scale(0.985);
+}
+.eyebrow {
+  font-size: 16px;
+  font-weight: 600;
+  color: #7A9E7F;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  opacity: 0;
+  transform: translateY(12px);
+}
+.card-title {
+  font-size: 56px;
+  font-weight: 700;
+  color: #2C2A24;
+  line-height: 1.2;
+  margin-bottom: 20px;
+  opacity: 0;
+  transform: translateY(12px);
+}
+.card-title .accent { color: #C98A5E; }
+.caption {
+  font-size: 22px;
+  font-weight: 400;
+  color: #8A867C;
+  line-height: 1.8;
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+/* ========== RIGHT: Radial Node Graph ========== */
+.graph-container {
+  position: absolute;
+  right: 80px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 800px;
+  height: 800px;
+  z-index: 1;
+}
+/* Center core */
+.core {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 80px; height: 80px;
+  margin: -40px 0 0 -40px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #D4A882, #C98A5E);
+  box-shadow: 0 4px 20px rgba(201,138,94,0.3);
+  z-index: 5;
+  opacity: 0;
+  transform: scale(0);
+}
+.core-inner {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 120px; height: 120px;
+  margin: -60px 0 0 -60px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(201,138,94,0.15) 0%, transparent 70%);
+  z-index: 4;
+  opacity: 0;
+  transform: scale(0);
+}
+.core-glow {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 200px; height: 200px;
+  margin: -100px 0 0 -100px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(201,138,94,0.08) 0%, transparent 70%);
+  z-index: 3;
+  opacity: 0;
+}
+
+/* SVG for links */
+.node-svg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 2;
+}
+
+/* Peripheral nodes */
+.node {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  opacity: 0;
+  transform: scale(0);
+}
+.node-dot {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #C8D6C9, #7A9E7F);
+  box-shadow: 0 2px 12px rgba(122,158,127,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.node-dot-inner {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: rgba(255,253,248,0.5);
+}
+.node-label {
+  margin-top: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #4A4840;
+  white-space: nowrap;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+.node-desc {
+  font-size: 12px;
+  color: #8A867C;
+  font-weight: 400;
+  margin-top: 2px;
+  white-space: nowrap;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+/* Node positions (8 nodes around center) */
+.node-1 { top: 12%; left: 38%; }
+.node-2 { top: 5%; left: 55%; }
+.node-3 { top: 18%; left: 70%; }
+.node-4 { top: 38%; left: 78%; }
+.node-5 { top: 60%; left: 72%; }
+.node-6 { top: 72%; left: 55%; }
+.node-7 { top: 60%; left: 35%; }
+.node-8 { top: 38%; left: 28%; }
+</style>
+</head>
+<body>
+<div class="bg-wash"></div>
+
+<!-- LEFT: Card -->
+<div class="card">
+  <div class="eyebrow">Core Capabilities</div>
+  <h2 class="card-title">大模型 <span class="accent">核心能力</span></h2>
+  <p class="caption">从理解到创造，八大能力驱动 AI 赋能每一个场景</p>
+</div>
+
+<!-- RIGHT: Radial Graph -->
+<div class="graph-container">
+  <!-- Center -->
+  <div class="core-glow"></div>
+  <div class="core-inner"></div>
+  <div class="core">
+    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+      <span style="font-size:28px;font-weight:800;color:rgba(255,253,248,0.9);">AI</span>
+    </div>
+  </div>
+
+  <!-- SVG Links -->
+  <svg class="node-svg" viewBox="0 0 800 800">
+    <!-- Link 1: Top-left -->
+    <path d="M 400 400 Q 350 300 290 240" stroke="#B8C9BA" stroke-width="2.5" fill="none" stroke-dasharray="250" stroke-dashoffset="250" class="link link-1"/>
+    <!-- Link 2: Top -->
+    <path d="M 400 400 Q 420 280 420 200" stroke="#B8C9BA" stroke-width="2.5" fill="none" stroke-dasharray="250" stroke-dashoffset="250" class="link link-2"/>
+    <!-- Link 3: Top-right -->
+    <path d="M 400 400 Q 500 300 550 270" stroke="#B8C9BA" stroke-width="2.5" fill="none" stroke-dasharray="250" stroke-dashoffset="250" class="link link-3"/>
+    <!-- Link 4: Right -->
+    <path d="M 400 400 Q 520 420 620 430" stroke="#B8C9BA" stroke-width="2.5" fill="none" stroke-dasharray="250" stroke-dashoffset="250" class="link link-4"/>
+    <!-- Link 5: Bottom-right -->
+    <path d="M 400 400 Q 500 520 550 580" stroke="#B8C9BA" stroke-width="2.5" fill="none" stroke-dasharray="250" stroke-dashoffset="250" class="link link-5"/>
+    <!-- Link 6: Bottom -->
+    <path d="M 400 400 Q 380 500 400 580" stroke="#B8C9BA" stroke-width="2.5" fill="none" stroke-dasharray="250" stroke-dashoffset="250" class="link link-6"/>
+    <!-- Link 7: Bottom-left -->
+    <path d="M 400 400 Q 320 480 280 520" stroke="#B8C9BA" stroke-width="2.5" fill="none" stroke-dasharray="250" stroke-dashoffset="250" class="link link-7"/>
+    <!-- Link 8: Left -->
+    <path d="M 400 400 Q 300 380 240 370" stroke="#B8C9BA" stroke-width="2.5" fill="none" stroke-dasharray="250" stroke-dashoffset="250" class="link link-8"/>
+  </svg>
+
+  <!-- Nodes -->
+  <div class="node node-1">
+    <div class="node-dot"><div class="node-dot-inner"></div></div>
+    <div class="node-label">自然语言理解</div>
+    <div class="node-desc">理解人类语言</div>
+  </div>
+  <div class="node node-2">
+    <div class="node-dot"><div class="node-dot-inner"></div></div>
+    <div class="node-label">多模态融合</div>
+    <div class="node-desc">图文音视频处理</div>
+  </div>
+  <div class="node node-3">
+    <div class="node-dot"><div class="node-dot-inner"></div></div>
+    <div class="node-label">推理与规划</div>
+    <div class="node-desc">逻辑推理决策</div>
+  </div>
+  <div class="node node-4">
+    <div class="node-dot"><div class="node-dot-inner"></div></div>
+    <div class="node-label">知识问答</div>
+    <div class="node-desc">海量知识检索</div>
+  </div>
+  <div class="node node-5">
+    <div class="node-dot"><div class="node-dot-inner"></div></div>
+    <div class="node-label">代码生成</div>
+    <div class="node-desc">编程与自动化</div>
+  </div>
+  <div class="node node-6">
+    <div class="node-dot"><div class="node-dot-inner"></div></div>
+    <div class="node-label">创意内容</div>
+    <div class="node-desc">写作绘画作曲</div>
+  </div>
+  <div class="node node-7">
+    <div class="node-dot"><div class="node-dot-inner"></div></div>
+    <div class="node-label">对话交互</div>
+    <div class="node-desc">自然流畅对话</div>
+  </div>
+  <div class="node node-8">
+    <div class="node-dot"><div class="node-dot-inner"></div></div>
+    <div class="node-label">持续学习</div>
+    <div class="node-desc">不断进化升级</div>
+  </div>
+</div>
+
+<script>
+const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+// 1. Card rises
+tl.to('.card', { opacity: 1, y: 0, scale: 1, duration: 0.8 })
+  .to('.eyebrow', { opacity: 1, y: 0, duration: 0.5 }, '-=0.4')
+  .to('.card-title', { opacity: 1, y: 0, duration: 0.6 }, '-=0.2')
+  .to('.caption', { opacity: 1, y: 0, duration: 0.5 }, '-=0.2');
+
+// 2. Core node pops
+tl.to('.core-glow', { opacity: 1, scale: 1, duration: 0.6, ease: 'back.out(2)' }, '-=0.1')
+  .to('.core-inner', { opacity: 1, scale: 1, duration: 0.5, ease: 'back.out(2)' }, '-=0.3')
+  .to('.core', { opacity: 1, scale: 1, duration: 0.6, ease: 'back.out(2.5)' }, '-=0.3');
+
+// 3. Links draw
+tl.to('.link-1', { strokeDashoffset: 0, duration: 0.8, ease: 'power2.inOut' }, '-=0.1')
+  .to('.link-2', { strokeDashoffset: 0, duration: 0.8, ease: 'power2.inOut' }, '-=0.5')
+  .to('.link-3', { strokeDashoffset: 0, duration: 0.8, ease: 'power2.inOut' }, '-=0.5')
+  .to('.link-4', { strokeDashoffset: 0, duration: 0.8, ease: 'power2.inOut' }, '-=0.5')
+  .to('.link-5', { strokeDashoffset: 0, duration: 0.8, ease: 'power2.inOut' }, '-=0.5')
+  .to('.link-6', { strokeDashoffset: 0, duration: 0.8, ease: 'power2.inOut' }, '-=0.5')
+  .to('.link-7', { strokeDashoffset: 0, duration: 0.8, ease: 'power2.inOut' }, '-=0.5')
+  .to('.link-8', { strokeDashoffset: 0, duration: 0.8, ease: 'power2.inOut' }, '-=0.5');
+
+// 4. Nodes pop with stagger
+tl.to('.node', {
+  opacity: 1,
+  scale: 1,
+  duration: 0.5,
+  stagger: 0.08,
+  ease: 'back.out(2.5)'
+}, '-=0.3');
+
+// 5. Gentle floating loop
+tl.to('.graph-container', {
+  y: -6,
+  duration: 3,
+  ease: 'sine.inOut',
+  yoyo: true,
+  repeat: -1
+}, '-=0.1');
+</script>
+</body>
+</html>

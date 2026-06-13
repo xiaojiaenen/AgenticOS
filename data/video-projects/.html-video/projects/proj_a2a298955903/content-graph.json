@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "intent": "explainer",
+  "synopsis": "AI大模型科普介绍 — 从概念、技术原理到应用场景，用有机节点网络视觉风格展示大模型的核心知识",
+  "nodes": [
+    {
+      "id": "intro",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 6.0,
+      "text": "AI 大模型时代"
+    },
+    {
+      "id": "what-is",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 6.0,
+      "text": "什么是大模型"
+    },
+    {
+      "id": "capabilities",
+      "kind": "data",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 7.0,
+      "data": null
+    },
+    {
+      "id": "applications",
+      "kind": "data",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 6.0,
+      "data": null
+    },
+    {
+      "id": "outro",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 5.0,
+      "text": "未来已来"
+    }
+  ],
+  "edges": [
+    {
+      "from": "intro",
+      "to": "what-is",
+      "kind": "sequence",
+      "reason": null
+    },
+    {
+      "from": "what-is",
+      "to": "capabilities",
+      "kind": "sequence",
+      "reason": null
+    },
+    {
+      "from": "capabilities",
+      "to": "applications",
+      "kind": "sequence",
+      "reason": null
+    },
+    {
+      "from": "applications",
+      "to": "outro",
+      "kind": "sequence",
+      "reason": null
+    }
+  ]
+}

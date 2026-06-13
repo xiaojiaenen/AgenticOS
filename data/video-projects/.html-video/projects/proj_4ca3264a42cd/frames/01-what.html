@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Noto+Sans+SC:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 1920px; height: 1080px;
+  overflow: hidden;
+  background: #EFEAE0;
+  font-family: 'Manrope', 'Noto Sans SC', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 100px;
+}
+.bg-wash {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: radial-gradient(ellipse at 30% 50%, rgba(122,158,127,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+/* Glass card */
+.glass-card {
+  position: relative;
+  z-index: 2;
+  background: rgba(255,253,248,0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 50px;
+  padding: 80px 100px;
+  max-width: 1400px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.03);
+  border: 1px solid rgba(255,253,248,0.5);
+  opacity: 0;
+  transform: translateY(30px) scale(0.98);
+}
+.eyebrow {
+  font-size: 16px;
+  font-weight: 600;
+  color: #7A9E7F;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  opacity: 0;
+  transform: translateY(15px);
+}
+.title {
+  font-size: 56px;
+  font-weight: 700;
+  color: #2C2A24;
+  line-height: 1.3;
+  margin-bottom: 28px;
+  opacity: 0;
+  transform: translateY(15px);
+}
+.title .accent { color: #C98A5E; }
+.desc {
+  font-size: 26px;
+  font-weight: 400;
+  color: #6B685E;
+  line-height: 1.8;
+  max-width: 1000px;
+  opacity: 0;
+  transform: translateY(15px);
+}
+.desc em { color: #7A9E7F; font-style: normal; font-weight: 600; }
+/* Stats row */
+.stats {
+  display: flex;
+  gap: 60px;
+  margin-top: 50px;
+  padding-top: 40px;
+  border-top: 1px solid rgba(184,201,186,0.3);
+}
+.stat-item {
+  text-align: center;
+  opacity: 0;
+  transform: translateY(20px);
+}
+.stat-number {
+  font-size: 42px;
+  font-weight: 800;
+  color: #C98A5E;
+}
+.stat-label {
+  font-size: 18px;
+  color: #8A867C;
+  margin-top: 6px;
+  font-weight: 400;
+}
+/* Decorative node */
+.deco-float {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.deco-1 { width: 100px; height: 100px; background: rgba(184,201,186,0.12); top: 10%; right: 8%; }
+.deco-2 { width: 60px; height: 60px; background: rgba(201,138,94,0.08); bottom: 15%; left: 10%; }
+</style>
+</head>
+<body>
+<div class="bg-wash"></div>
+<div class="deco-float deco-1"></div>
+<div class="deco-float deco-2"></div>
+
+<div class="glass-card">
+  <div class="eyebrow">What Is It</div>
+  <h2 class="title">什么是 <span class="accent">AI 大模型</span>？</h2>
+  <p class="desc">
+    AI 大模型是指拥有<em>海量参数</em>和<em>强大学习能力</em>的深度神经网络模型。<br>
+    它们在数十亿级别的文本、图像、代码数据上训练，<br>
+    从而具备了<em>理解、推理、创造</em>的通用智能能力。
+  </p>
+  <div class="stats">
+    <div class="stat-item"><div class="stat-number">千亿+</div><div class="stat-label">参数规模</div></div>
+    <div class="stat-item"><div class="stat-number">万亿+</div><div class="stat-label">训练 tokens</div></div>
+    <div class="stat-item"><div class="stat-number">多模态</div><div class="stat-label">文本·图像·代码</div></div>
+  </div>
+</div>
+
+<script>
+const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+tl.to('.glass-card', { opacity: 1, y: 0, scale: 1, duration: 0.9 })
+  .to('.eyebrow', { opacity: 1, y: 0, duration: 0.5 }, '-=0.4')
+  .to('.title', { opacity: 1, y: 0, duration: 0.6 }, '-=0.2')
+  .to('.desc', { opacity: 1, y: 0, duration: 0.6 }, '-=0.2')
+  .to('.stat-item', { opacity: 1, y: 0, duration: 0.5, stagger: 0.15 }, '-=0.2')
+  .to('.deco-1', { scale: 1.2, opacity: 0.2, duration: 3, ease: 'sine.inOut' }, '-=1')
+  .to('.deco-2', { scale: 0.8, opacity: 0.15, duration: 3.5, ease: 'sine.inOut' }, '-=1.5');
+</script>
+</body>
+</html>

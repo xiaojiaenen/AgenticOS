@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "intent": "explainer",
+  "synopsis": "AI 大模型科普介绍视频 - 从概念到应用，用温暖科技风展示大模型的核心能力与未来展望",
+  "nodes": [
+    {
+      "id": "intro",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 3.0,
+      "text": "AI 大模型"
+    },
+    {
+      "id": "what",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 4.0,
+      "text": "什么是大模型？"
+    },
+    {
+      "id": "core",
+      "kind": "data",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 6.0,
+      "data": {
+        "title": "大模型核心能力",
+        "items": [
+          {
+            "label": "自然语言理解",
+            "desc": "理解人类语言"
+          },
+          {
+            "label": "多模态融合",
+            "desc": "处理图文音视频"
+          },
+          {
+            "label": "推理与规划",
+            "desc": "逻辑推理与决策"
+          },
+          {
+            "label": "知识问答",
+            "desc": "海量知识检索"
+          },
+          {
+            "label": "代码生成",
+            "desc": "编程与自动化"
+          },
+          {
+            "label": "创意内容",
+            "desc": "写作绘画作曲"
+          },
+          {
+            "label": "对话交互",
+            "desc": "自然流畅对话"
+          },
+          {
+            "label": "持续学习",
+            "desc": "不断进化升级"
+          }
+        ]
+      }
+    },
+    {
+      "id": "apps",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 4.0,
+      "text": "应用场景"
+    },
+    {
+      "id": "outro",
+      "kind": "text",
+      "label": null,
+      "frameIntent": null,
+      "durationSec": 3.0,
+      "text": "未来已来"
+    }
+  ],
+  "edges": [
+    {
+      "from": "intro",
+      "to": "what",
+      "kind": "sequence",
+      "reason": null
+    },
+    {
+      "from": "what",
+      "to": "core",
+      "kind": "sequence",
+      "reason": null
+    },
+    {
+      "from": "core",
+      "to": "apps",
+      "kind": "sequence",
+      "reason": null
+    },
+    {
+      "from": "apps",
+      "to": "outro",
+      "kind": "sequence",
+      "reason": null
+    }
+  ]
+}

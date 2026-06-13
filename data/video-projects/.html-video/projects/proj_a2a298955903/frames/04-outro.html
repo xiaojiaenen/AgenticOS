@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>未来已来 — 结尾</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      width: 1920px; height: 1080px; overflow: hidden;
+      background: #EFEAE0;
+      font-family: 'Noto Sans SC', 'Manrope', sans-serif;
+      position: relative;
+    }
+    .bg-wash {
+      position: absolute; top: 0; right: 0; width: 60%; height: 100%;
+      background: radial-gradient(ellipse at 70% 50%, rgba(122,158,127,0.10) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    /* 中心布局 — 结尾用居中的视觉 */
+    .glass-card {
+      position: absolute;
+      left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 960px; padding: 72px 80px;
+      background: rgba(255,253,248,0.66);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-radius: 40px;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.04);
+      text-align: center;
+      opacity: 0;
+      transform: translate(-50%, calc(-50% + 26px)) scale(0.985);
+      animation: cardRise 0.8s cubic-bezier(0.16,1,0.3,1) 0.2s forwards;
+    }
+    @keyframes cardRise {
+      to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+    .eyebrow {
+      font-size: 18px; font-weight: 600; letter-spacing: 6px; text-transform: uppercase;
+      color: #7A9E7F; margin-bottom: 20px;
+      opacity: 0; transform: translateY(14px);
+      animation: fadeUp 0.5s ease 0.7s forwards;
+    }
+    .title {
+      font-size: 96px; font-weight: 700; line-height: 1.15;
+      color: #2D2A24; margin-bottom: 8px;
+      opacity: 0; transform: translateY(14px);
+      animation: fadeUp 0.5s ease 0.9s forwards;
+    }
+    .title .accent { color: #C98A5E; }
+    .subtitle {
+      font-size: 28px; font-weight: 400; line-height: 1.6;
+      color: #8A867C; margin-top: 8px; margin-bottom: 32px;
+      opacity: 0; transform: translateY(14px);
+      animation: fadeUp 0.5s ease 1.2s forwards;
+    }
+    .subtitle strong { color: #5A5650; font-weight: 600; }
+
+    /* 底部节点图 — 三个未来方向 */
+    .future-container {
+      display: flex; justify-content: center; gap: 48px; margin-top: 20px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 1.6s forwards;
+    }
+    .future-item {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 12px;
+    }
+    .future-circle {
+      width: 80px; height: 80px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+    }
+    .future-circle.orange { background: rgba(201,138,94,0.15); color: #C98A5E; }
+    .future-circle.green { background: rgba(122,158,127,0.15); color: #7A9E7F; }
+    .future-circle.light { background: rgba(184,201,186,0.25); color: #7A9E7F; }
+    .future-label {
+      font-size: 16px; font-weight: 600; color: #5A5650; letter-spacing: 1px;
+    }
+    .future-desc {
+      font-size: 13px; color: #8A867C; margin-top: -4px;
+    }
+
+    .future-item:nth-child(1) .future-circle { animation: circlePop 0.5s cubic-bezier(0.34,1.56,0.64,1) 1.9s forwards; opacity: 0; }
+    .future-item:nth-child(2) .future-circle { animation: circlePop 0.5s cubic-bezier(0.34,1.56,0.64,1) 2.1s forwards; opacity: 0; }
+    .future-item:nth-child(3) .future-circle { animation: circlePop 0.5s cubic-bezier(0.34,1.56,0.64,1) 2.3s forwards; opacity: 0; }
+    @keyframes circlePop {
+      0% { opacity: 0; transform: scale(0); }
+      60% { opacity: 1; transform: scale(1.2); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .future-item:nth-child(1) .future-label { animation: fadeUp 0.4s ease 2.3s forwards; opacity: 0; }
+    .future-item:nth-child(2) .future-label { animation: fadeUp 0.4s ease 2.5s forwards; opacity: 0; }
+    .future-item:nth-child(3) .future-label { animation: fadeUp 0.4s ease 2.7s forwards; opacity: 0; }
+    .future-item:nth-child(1) .future-desc { animation: fadeUp 0.4s ease 2.5s forwards; opacity: 0; }
+    .future-item:nth-child(2) .future-desc { animation: fadeUp 0.4s ease 2.7s forwards; opacity: 0; }
+    .future-item:nth-child(3) .future-desc { animation: fadeUp 0.4s ease 2.9s forwards; opacity: 0; }
+
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 分隔装饰 */
+    .divider {
+      width: 120px; height: 2px; background: #B8C9BA; margin: 0 auto;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 3.2s forwards;
+    }
+
+    .footer-line {
+      position: absolute; bottom: 40px; left: 80px; right: 80px;
+      height: 1px; background: rgba(184,201,186,0.3);
+      opacity: 0;
+      animation: fadeUp 0.6s ease 3.5s forwards;
+    }
+    .footer-text {
+      position: absolute; bottom: 48px; left: 50%; transform: translateX(-50%);
+      font-size: 14px; color: #B8C9BA; letter-spacing: 3px; font-weight: 400;
+      white-space: nowrap;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 3.8s forwards;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-wash"></div>
+
+  <div class="glass-card">
+    <div class="eyebrow">The Future is Here</div>
+    <div class="title"><span class="accent">未来</span>已来</div>
+    <div class="subtitle">
+      人工智能大模型正在开启<strong>通用人工智能</strong>的新篇章<br>
+      让我们一起拥抱这场智能革命
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="future-container">
+      <div class="future-item">
+        <div class="future-circle orange">🤖</div>
+        <div class="future-label">AGI</div>
+        <div class="future-desc">通用人工智能</div>
+      </div>
+      <div class="future-item">
+        <div class="future-circle green">🤝</div>
+        <div class="future-label">人机协作</div>
+        <div class="future-desc">增强人类智能</div>
+      </div>
+      <div class="future-item">
+        <div class="future-circle light">🧩</div>
+        <div class="future-label">智能体</div>
+        <div class="future-desc">自主智能系统</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-line"></div>
+  <div class="footer-text">AI 大模型 · 创造未来</div>
+</body>
+</html>

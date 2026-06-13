@@ -153,12 +153,13 @@ class HyperframesEngine:
                             window.__hvPlayAll();
                         }
                     }
-                """).catch(lambda: None)
+                """)
 
                 # Step 9: 解冻动画 + 录制
-                await page.evaluate("() => { window.__hvUnfreeze?.(); }").catch(
-                    lambda: None
-                )
+                try:
+                    await page.evaluate("() => { window.__hvUnfreeze?.(); }")
+                except Exception:
+                    pass
                 lead_in_ms = int(time.time() * 1000) - t_webm_start
 
                 if on_progress:
@@ -436,7 +437,12 @@ class HyperframesEngine:
                     });
             })
         """
-        ).catch(lambda: None)
+        )
+
+        try:
+            await page.evaluate(font_wait_script)
+        except Exception:
+            pass
 
     async def _probe_animation_duration(self, page) -> float:
         """

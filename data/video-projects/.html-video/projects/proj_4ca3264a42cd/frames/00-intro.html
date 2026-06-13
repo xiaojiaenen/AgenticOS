@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, height=1080">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Noto+Sans+SC:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 1920px; height: 1080px;
+  overflow: hidden;
+  background: #EFEAE0;
+  font-family: 'Manrope', 'Noto Sans SC', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.bg-wash {
+  position: absolute;
+  top: 0; right: 0;
+  width: 60%; height: 100%;
+  background: radial-gradient(ellipse at 70% 50%, rgba(122,158,127,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+/* Decorative nodes */
+.deco-node {
+  position: absolute;
+  border-radius: 50%;
+  background: #B8C9BA;
+  opacity: 0.15;
+}
+.deco-node-1 { width: 120px; height: 120px; top: 15%; right: 12%; }
+.deco-node-2 { width: 80px; height: 80px; bottom: 20%; right: 25%; }
+.deco-node-3 { width: 60px; height: 60px; top: 40%; right: 8%; }
+
+/* Curved link decorations */
+.link-svg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+/* Main content */
+.content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+}
+.eyebrow {
+  font-size: 18px;
+  font-weight: 600;
+  color: #7A9E7F;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+  opacity: 0;
+}
+.title {
+  font-size: 96px;
+  font-weight: 800;
+  color: #2C2A24;
+  line-height: 1.1;
+  opacity: 0;
+}
+.title .accent {
+  color: #C98A5E;
+}
+.subtitle {
+  margin-top: 32px;
+  font-size: 28px;
+  font-weight: 400;
+  color: #8A867C;
+  line-height: 1.6;
+  opacity: 0;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+/* Center decorative core */
+.core-node {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 160px; height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(201,138,94,0.08) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+}
+</style>
+</head>
+<body>
+<div class="bg-wash"></div>
+<div class="deco-node deco-node-1"></div>
+<div class="deco-node deco-node-2"></div>
+<div class="deco-node deco-node-3"></div>
+
+<svg class="link-svg" viewBox="0 0 1920 1080">
+  <path d="M 1100 200 Q 1250 300 1380 240" stroke="#B8C9BA" stroke-width="2" fill="none" stroke-dasharray="400" stroke-dashoffset="400" class="link-1"/>
+  <path d="M 1300 700 Q 1450 650 1520 800" stroke="#B8C9BA" stroke-width="2" fill="none" stroke-dasharray="400" stroke-dashoffset="400" class="link-2"/>
+  <path d="M 1400 400 Q 1600 380 1700 500" stroke="#B8C9BA" stroke-width="2" fill="none" stroke-dasharray="400" stroke-dashoffset="400" class="link-3"/>
+</svg>
+
+<div class="core-node"></div>
+
+<div class="content">
+  <div class="eyebrow">Introduction</div>
+  <h1 class="title"><span class="accent">AI</span> 大模型</h1>
+  <p class="subtitle">人工智能的下一场革命 · 重塑千行百业</p>
+</div>
+
+<script>
+const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+tl.to('.core-node', { opacity: 1, scale: 1.5, duration: 1.2, ease: 'power2.out' })
+  .to('.eyebrow', { opacity: 1, y: -10, duration: 0.7 }, '-=0.6')
+  .to('.title', { opacity: 1, y: -10, duration: 0.8 }, '-=0.3')
+  .to('.subtitle', { opacity: 1, y: -10, duration: 0.7 }, '-=0.4')
+  .to('.link-1', { strokeDashoffset: 0, duration: 1.2, ease: 'power2.inOut' }, '-=0.3')
+  .to('.link-2', { strokeDashoffset: 0, duration: 1.0, ease: 'power2.inOut' }, '-=0.5')
+  .to('.link-3', { strokeDashoffset: 0, duration: 0.8, ease: 'power2.inOut' }, '-=0.4')
+  .to('.deco-node-1', { scale: 1.1, opacity: 0.2, duration: 3, ease: 'sine.inOut' }, '-=0.5')
+  .to('.deco-node-2', { scale: 0.9, opacity: 0.1, duration: 3.5, ease: 'sine.inOut' }, '-=1')
+  .to('.deco-node-3', { scale: 1.15, opacity: 0.25, duration: 2.8, ease: 'sine.inOut' }, '-=1.5');
+</script>
+</body>
+</html>

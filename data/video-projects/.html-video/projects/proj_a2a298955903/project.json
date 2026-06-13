@@ -1,0 +1,90 @@
+{
+  "id": "proj_a2a298955903",
+  "name": "AI大模型介绍",
+  "intent": "explainer",
+  "assets": [],
+  "templateId": "frame-takram-organic",
+  "variables": {
+    "title": "AI 大模型 - 科普动画",
+    "style": "organic-node",
+    "totalDurationSec": 30
+  },
+  "preferences": {
+    "aspect": null,
+    "durationTargetSec": null,
+    "format": "mp4",
+    "resolution": null,
+    "fps": null,
+    "mood": null,
+    "brandColors": null,
+    "fontFamilies": null,
+    "language": null,
+    "commercial": null
+  },
+  "status": "previewed",
+  "lastPreviewHtmlPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_a2a298955903/frames/00-intro.html",
+  "lastPreviewPosterPath": null,
+  "lastOutputMp4Path": null,
+  "exports": [],
+  "contentGraphPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_a2a298955903/content-graph.json",
+  "frames": [
+    {
+      "graphNodeId": "intro",
+      "htmlPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_a2a298955903/frames/00-intro.html",
+      "durationSec": 6.0,
+      "posterPath": null,
+      "order": 0,
+      "engine": null,
+      "nativeTemplateId": null,
+      "data": null,
+      "previewMp4Path": null
+    },
+    {
+      "graphNodeId": "what-is",
+      "htmlPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_a2a298955903/frames/01-what-is.html",
+      "durationSec": 6.0,
+      "posterPath": null,
+      "order": 1,
+      "engine": null,
+      "nativeTemplateId": null,
+      "data": null,
+      "previewMp4Path": null
+    },
+    {
+      "graphNodeId": "capabilities",
+      "htmlPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_a2a298955903/frames/02-capabilities.html",
+      "durationSec": 7.0,
+      "posterPath": null,
+      "order": 2,
+      "engine": null,
+      "nativeTemplateId": null,
+      "data": null,
+      "previewMp4Path": null
+    },
+    {
+      "graphNodeId": "applications",
+      "htmlPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_a2a298955903/frames/03-applications.html",
+      "durationSec": 6.0,
+      "posterPath": null,
+      "order": 3,
+      "engine": null,
+      "nativeTemplateId": null,
+      "data": null,
+      "previewMp4Path": null
+    },
+    {
+      "graphNodeId": "outro",
+      "htmlPath": "/Users/xiaojia/code/AgenticOS/data/video-projects/.html-video/projects/proj_a2a298955903/frames/04-outro.html",
+      "durationSec": 5.0,
+      "posterPath": null,
+      "order": 4,
+      "engine": null,
+      "nativeTemplateId": null,
+      "data": null,
+      "previewMp4Path": null
+    }
+  ],
+  "soundtrack": null,
+  "createdAt": "2026-06-13T06:46:21.973289+00:00",
+  "updatedAt": "2026-06-13T06:48:32.533669+00:00"
+}
