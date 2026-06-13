@@ -4,6 +4,7 @@ Video 服务桥接层
 """
 
 import os
+from pathlib import Path
 from typing import Optional
 
 from .template_registry import TemplateRegistry
@@ -30,9 +31,11 @@ def get_video_orchestrator(
     if _orchestrator is not None:
         return _orchestrator
 
-    # 默认路径
+    # 默认路径 - 使用 data/video-projects 目录
     if project_root is None:
-        project_root = os.getcwd()
+        from app.core.data_path import VIDEO_PROJECTS_DIR
+        VIDEO_PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+        project_root = str(VIDEO_PROJECTS_DIR)
 
     if templates_dir is None:
         # 尝试多个可能的模板目录

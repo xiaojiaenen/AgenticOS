@@ -31,6 +31,7 @@ WEBSITES_DIR: Path = DATA_DIR / "websites"
 WEBSITE_TEMPLATES_DIR: Path = DATA_DIR / "website-templates"
 PPT_SESSIONS_DIR: Path = DATA_DIR / "ppt-sessions"
 PPT_OUTPUT_DIR: Path = DATA_DIR / "ppt-output"
+VIDEO_PROJECTS_DIR: Path = DATA_DIR / "video-projects"
 DESIGN_THEMES_DIR: Path = DATA_DIR / "design-themes"
 NGINX_SERVE_DIR: Path = DATA_DIR / "nginx-serve"
 
