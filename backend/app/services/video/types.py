@@ -318,7 +318,7 @@ class TemplateMetadata(BaseModel):
     version: str
     preview: dict
     # 内部字段
-    _dir: Optional[str] = Field(None, alias="dir")  # 模板目录绝对路径
+    template_dir: Optional[str] = Field(None, alias="dir")  # 模板目录绝对路径
 
     class Config:
         populate_by_name = True

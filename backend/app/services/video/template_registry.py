@@ -54,7 +54,7 @@ class TemplateRegistry:
                     data["license"] = data["license"]
 
                 meta = TemplateMetadata(**data)
-                meta._dir = str(subdir)
+                meta.template_dir = str(subdir)
 
                 self._templates[meta.id] = meta
                 templates.append(meta)

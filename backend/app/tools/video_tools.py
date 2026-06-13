@@ -149,8 +149,8 @@ def register_video_tools(registry: ToolRegistry):
         skill_content = None
         try:
             template = orchestrator.templates.get(template_id)
-            if template and template._dir:
-                skill_path = os.path.join(template._dir, "SKILL.md")
+            if template and template.template_dir:
+                skill_path = os.path.join(template.template_dir, "SKILL.md")
                 if os.path.exists(skill_path):
                     with open(skill_path, "r", encoding="utf-8") as f:
                         content = f.read()
