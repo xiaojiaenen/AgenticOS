@@ -96,11 +96,10 @@ export const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website' | 'video'
 
 ## 发送邮件流程
 
-1. 确认邮件内容（收件人、主题、正文）
-2. 如需用户确认，可使用 ask_user_decision 工具
-3. 如需发送 HTML 邮件，先 load_skill("email-design") 获取设计规范
-4. 调用 send_email 工具
-5. 系统自动弹出右侧边栏邮件预览面板，用户最终确认后发送
+1. 根据用户需求撰写邮件内容
+2. 如需发送 HTML 邮件，先 load_skill("email-design") 获取设计规范
+3. 直接调用 send_email 工具
+4. 系统自动弹出右侧边栏邮件预览面板，用户确认后发送
 
 ## 可用工具
 
@@ -108,6 +107,5 @@ export const MODE_SYSTEM_PROMPTS: Record<'general' | 'ppt' | 'website' | 'video'
 - read_emails — 读取邮件列表
 - search_emails — 搜索邮件
 - get_email — 查看邮件内容
-- send_email — 发送邮件
-- ask_user_decision — 请求用户决策`,
+- send_email — 发送邮件（自动弹出确认面板）`,
 };
