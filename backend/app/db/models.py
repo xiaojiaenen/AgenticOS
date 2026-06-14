@@ -425,6 +425,10 @@ class ExternalApiParamModel(Base):
     required: Mapped[bool] = mapped_column(Boolean, default=False)
     description: Mapped[str] = mapped_column(Text, default="")
     default_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 参数来源：static(固定值) / user_input(用户输入) / user_credential(用户凭据)
+    param_source: Mapped[str] = mapped_column(String(16), default="static")
+    # 用户输入/凭据时的显示标签
+    label: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class AgentProfileExternalSystemModel(Base):
