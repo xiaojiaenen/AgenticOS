@@ -828,6 +828,36 @@ def _build_system_tool_handler(
 
         api, param_rows = entry
 
+        # 检查是否有需要用户输入的参数
+        user_input_params = [
+            p for p in param_rows
+            if p.param_source in ('user_input', 'user_credential')
+        ]
+
+        # 如果有需要用户输入的参数，且调用时没有提供这些参数
+        if user_input_params:
+            missing_params = []
+            for p in user_input_params:
+                if p.name not in params:
+                    missing_params.append({
+                        "key": p.name,
+                        "label": p.label or p.name,
+                        "type": "password" if p.param_source == "user_credential" else "text",
+                        "required": p.required,
+                        "description": p.description or "",
+                    })
+
+            if missing_params:
+                # 返回需要用户输入的参数定义
+                return json.dumps({
+                    "type": "user_input_required",
+                    "api_name": api_name,
+                    "api_display_name": api.display_name,
+                    "system_name": system.name,
+                    "fields": missing_params,
+                    "message": f"需要输入以下参数才能调用 {api.display_name}：",
+                }, ensure_ascii=False)
+
         # Look up user credential
         from app.db.session import create_db_session
 
@@ -965,11 +995,22 @@ def register_external_tools(registry, system_ids: list[int], db: Session) -> lis
 
             # Build param description
             param_descs = []
+            user_input_descs = []
             for p in param_rows:
                 req = "*" if p.required else ""
-                param_descs.append(f"{p.name}{req}({p.data_type})")
+                if p.param_source == 'user_credential':
+                    user_input_descs.append(f"{p.label or p.name}(密码)")
+                    param_descs.append(f"{p.name}{req}({p.data_type},需用户输入密码)")
+                elif p.param_source == 'user_input':
+                    user_input_descs.append(p.label or p.name)
+                    param_descs.append(f"{p.name}{req}({p.data_type},需用户输入)")
+                else:
+                    param_descs.append(f"{p.name}{req}({p.data_type})")
             param_str = ", ".join(param_descs) if param_descs else "无参数"
-            description_lines.append(f"- {api.name}({param_str}) — {api.display_name}: {api.description}")
+            desc_line = f"- {api.name}({param_str}) — {api.display_name}: {api.description}"
+            if user_input_descs:
+                desc_line += f" [需要用户输入: {', '.join(user_input_descs)}]"
+            description_lines.append(desc_line)
             if api.requires_approval:
                 has_any_approval = True
 

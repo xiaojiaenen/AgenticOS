@@ -50,6 +50,10 @@ export type IntegrationApiParam = {
   required: boolean;
   description: string;
   default_value: string | null;
+  // 参数来源：static(固定值) / user_input(用户输入) / user_credential(用户凭据)
+  param_source?: string;
+  // 用户输入/凭据时的显示标签
+  label?: string | null;
 };
 
 export type IntegrationApi = {

@@ -359,7 +359,7 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
 
 function ApiModal({draft,setDraft,onSave,onClose,isSaving}:{draft:ApiDraft;setDraft:(d:ApiDraft)=>void;onSave:()=>void;onClose:()=>void;isSaving:boolean}){
  const updateParam=(i:number,f:keyof IntegrationApiParam,v:string|boolean)=>{const p=[...draft.params];p[i]={...p[i],[f]:v};setDraft({...draft,params:p});};
- const addParam=()=>setDraft({...draft,params:[...draft.params,{name:"",param_type:"query",data_type:"string",required:false,description:"",default_value:null}]});
+ const addParam=()=>setDraft({...draft,params:[...draft.params,{name:"",param_type:"query",data_type:"string",required:false,description:"",default_value:null,param_source:"static",label:null}]});
  const removeParam=(i:number)=>setDraft({...draft,params:draft.params.filter((_,x)=>x!==i)});
  return createPortal(
   <div className="admin-modal-shell" onMouseDown={onClose}>
@@ -397,6 +397,16 @@ function ApiModal({draft,setDraft,onSave,onClose,isSaving}:{draft:ApiDraft;setDr
          <select className="admin-input text-sm" value={p.param_type} onChange={e=>updateParam(i,"param_type",e.target.value)}><option value="path">path</option><option value="query">query</option><option value="body">body</option></select>
          <select className="admin-input text-sm" value={p.data_type} onChange={e=>updateParam(i,"data_type",e.target.value)}><option value="string">string</option><option value="integer">integer</option><option value="boolean">boolean</option><option value="object">object</option></select>
          <div className="flex items-center gap-2"><label className="flex items-center gap-1 text-xs text-slate-600"><input type="checkbox" checked={p.required} onChange={e=>updateParam(i,"required",e.target.checked)} className="rounded"/>必填</label><button type="button" onClick={()=>removeParam(i)} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500"><Trash2 size={14}/></button></div>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+         <select className="admin-input text-xs" value={p.param_source||"static"} onChange={e=>updateParam(i,"param_source",e.target.value)}>
+          <option value="static">固定值</option>
+          <option value="user_input">用户输入</option>
+          <option value="user_credential">用户凭据（密码框）</option>
+         </select>
+         {(p.param_source==="user_input"||p.param_source==="user_credential") && (
+          <input className="admin-input text-xs" placeholder="显示标签（如：登录用户名）" value={p.label||""} onChange={e=>updateParam(i,"label",e.target.value)}/>
+         )}
         </div>
         <input className="admin-input mt-2 text-xs" placeholder="参数说明" value={p.description} onChange={e=>updateParam(i,"description",e.target.value)}/>
        </div>
