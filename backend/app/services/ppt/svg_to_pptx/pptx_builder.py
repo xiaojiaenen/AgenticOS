@@ -461,11 +461,14 @@ def create_pptx_with_native_svg(
                 # ---- Native shapes mode ----
                 if use_native_shapes:
                     slide_cfg = _slide_config(animation_config, svg_path.stem)
-                    slide_xml, media_files_dict, rel_entries, anim_targets = (
-                        convert_svg_to_slide_shapes(
-                            svg_path, slide_num=slide_num, verbose=verbose,
-                        )
+                    result = convert_svg_to_slide_shapes(
+                        svg_path, slide_num=slide_num, verbose=verbose,
                     )
+                    if result is None:
+                        # SVG 解析失败，跳过这一页
+                        print(f"Warning: Skipping slide {slide_num} due to SVG parse error")
+                        continue
+                    slide_xml, media_files_dict, rel_entries, anim_targets = result
                     slide_transition, slide_transition_duration, slide_auto_advance = (
                         _slide_transition_settings(
                             slide_cfg,
