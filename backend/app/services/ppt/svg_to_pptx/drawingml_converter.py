@@ -506,7 +506,32 @@ def convert_svg_to_slide_shapes(
           semantic groups, in z-order; consumed by the builder's optional
           per-element entrance timing emitter.
     """
-    tree = ET.parse(str(svg_path))
+    # 读取 SVG 内容并修复无效的 XML 实体
+    with open(svg_path, 'r', encoding='utf-8') as f:
+        svg_content = f.read()
+
+    # 修复常见的 HTML 实体（不是有效的 XML 实体）
+    svg_content = svg_content.replace('&nbsp;', '&#160;')
+    svg_content = svg_content.replace('&copy;', '&#169;')
+    svg_content = svg_content.replace('&reg;', '&#174;')
+    svg_content = svg_content.replace('&trade;', '&#8482;')
+    svg_content = svg_content.replace('&mdash;', '&#8212;')
+    svg_content = svg_content.replace('&ndash;', '&#8211;')
+    svg_content = svg_content.replace('&ldquo;', '&#8220;')
+    svg_content = svg_content.replace('&rdquo;', '&#8221;')
+    svg_content = svg_content.replace('&lsquo;', '&#8216;')
+    svg_content = svg_content.replace('&rsquo;', '&#8217;')
+    svg_content = svg_content.replace('&hellip;', '&#8230;')
+
+    # 修复未闭合的标签（如 <br> -> <br/>）
+    import re
+    svg_content = re.sub(r'<br(?!\s*/)>', '<br/>', svg_content)
+    svg_content = re.sub(r'<hr(?!\s*/)>', '<hr/>', svg_content)
+    svg_content = re.sub(r'<img([^/]*?)(?<!/)>', r'<img\1/>', svg_content)
+
+    # 解析修复后的 SVG
+    import io
+    tree = ET.parse(io.StringIO(svg_content))
     root = tree.getroot()
 
     # Expand <use data-icon="..."/> placeholders in-memory so this dispatcher
