@@ -2302,6 +2302,9 @@ class AgentService:
                     svg_content = svg_content.replace('<br>', '<br/>')
                     svg_content = svg_content.replace('<hr>', '<hr/>')
 
+                    # 将修复后的内容写回文件
+                    svg_path.write_text(svg_content, encoding="utf-8")
+
                     import io
                     tree = ET.parse(io.StringIO(svg_content))
                     if _flatten_tspan_text(tree):
