@@ -2276,7 +2276,29 @@ class AgentService:
                 _processed += _embed_icons(svg_path, _icons_dir, dry_run=False, verbose=False)
                 _processed += _align_images(svg_path, dry_run=False, verbose=False)[0]
                 try:
-                    tree = ET.parse(str(svg_path))
+                    # 读取并修复 SVG 内容
+                    svg_content = svg_path.read_text(encoding="utf-8")
+
+                    # 修复常见的 HTML 实体
+                    svg_content = svg_content.replace('&nbsp;', '&#160;')
+                    svg_content = svg_content.replace('&copy;', '&#169;')
+                    svg_content = svg_content.replace('&reg;', '&#174;')
+                    svg_content = svg_content.replace('&trade;', '&#8482;')
+                    svg_content = svg_content.replace('&mdash;', '&#8212;')
+                    svg_content = svg_content.replace('&ndash;', '&#8211;')
+                    svg_content = svg_content.replace('&ldquo;', '&#8220;')
+                    svg_content = svg_content.replace('&rdquo;', '&#8221;')
+                    svg_content = svg_content.replace('&lsquo;', '&#8216;')
+                    svg_content = svg_content.replace('&rsquo;', '&#8217;')
+                    svg_content = svg_content.replace('&hellip;', '&#8230;')
+                    svg_content = svg_content.replace('&bull;', '&#8226;')
+
+                    # 修复未闭合的标签
+                    svg_content = svg_content.replace('<br>', '<br/>')
+                    svg_content = svg_content.replace('<hr>', '<hr/>')
+
+                    import io
+                    tree = ET.parse(io.StringIO(svg_content))
                     if _flatten_tspan_text(tree):
                         tree.write(str(svg_path), encoding="unicode", xml_declaration=False)
                         _processed += 1
