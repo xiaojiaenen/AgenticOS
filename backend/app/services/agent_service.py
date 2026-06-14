@@ -2293,6 +2293,11 @@ class AgentService:
                     svg_content = svg_content.replace('&hellip;', '&#8230;')
                     svg_content = svg_content.replace('&bull;', '&#8226;')
 
+                    # 修复 & 字符（但不修复已经是 &amp; 或 &#xxx; 的）
+                    import re
+                    # 匹配 & 后面不是字母、#、或 & 的情况
+                    svg_content = re.sub(r'&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9a-fA-F]+;)', '&amp;', svg_content)
+
                     # 修复未闭合的标签
                     svg_content = svg_content.replace('<br>', '<br/>')
                     svg_content = svg_content.replace('<hr>', '<hr/>')
