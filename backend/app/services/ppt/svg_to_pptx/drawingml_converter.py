@@ -522,6 +522,7 @@ def convert_svg_to_slide_shapes(
     svg_content = svg_content.replace('&lsquo;', '&#8216;')
     svg_content = svg_content.replace('&rsquo;', '&#8217;')
     svg_content = svg_content.replace('&hellip;', '&#8230;')
+    svg_content = svg_content.replace('&bull;', '&#8226;')
 
     # 修复未闭合的标签（如 <br> -> <br/>）
     import re
@@ -529,10 +530,41 @@ def convert_svg_to_slide_shapes(
     svg_content = re.sub(r'<hr(?!\s*/)>', '<hr/>', svg_content)
     svg_content = re.sub(r'<img([^/]*?)(?<!/)>', r'<img\1/>', svg_content)
 
+    # 修复可能的标签嵌套错误（如 </g> 前面没有对应的 <g>）
+    # 这是一个简化修复，只处理明显的问题
+    # 移除孤立的 </g> 标签（没有对应的 <g>）
+    open_g = 0
+    lines = svg_content.split('\n')
+    fixed_lines = []
+    for line in lines:
+        # 统计 <g> 和 </g> 标签
+        open_g += line.count('<g ') + line.count('<g>')
+        open_g -= line.count('</g>')
+        if open_g < 0:
+            # 移除孤立的 </g>
+            line = line.replace('</g>', '', 1)
+            open_g = 0
+        fixed_lines.append(line)
+    svg_content = '\n'.join(fixed_lines)
+
     # 解析修复后的 SVG
     import io
-    tree = ET.parse(io.StringIO(svg_content))
-    root = tree.getroot()
+    try:
+        tree = ET.parse(io.StringIO(svg_content))
+        root = tree.getroot()
+    except ET.ParseError as e:
+        # 如果修复后仍然失败，尝试更激进的修复
+        # 移除所有 XML 注释
+        svg_content = re.sub(r'<!--.*?-->', '', svg_content, flags=re.DOTALL)
+        # 移除所有 CDATA 部分
+        svg_content = re.sub(r'<!\[CDATA\[.*?\]\]>', '', svg_content, flags=re.DOTALL)
+        try:
+            tree = ET.parse(io.StringIO(svg_content))
+            root = tree.getroot()
+        except ET.ParseError:
+            # 如果仍然失败，记录错误并跳过这个 SVG
+            print(f"Warning: Failed to parse SVG {svg_path}: {e}")
+            return
 
     # Expand <use data-icon="..."/> placeholders in-memory so this dispatcher
     # can consume svg_output/ directly. Standard renderers and this converter
