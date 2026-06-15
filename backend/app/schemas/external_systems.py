@@ -72,6 +72,7 @@ class ExternalSystemCreateRequest(BaseModel):
     published: bool = True
     headers: dict[str, str] = Field(default_factory=dict)
     advanced_auth: dict = Field(default_factory=dict)
+    default_credential_data: dict | None = None
 
     @field_validator("name", "description", "base_url", "jwt_login_url", "jwt_refresh_url", "oauth_auth_url", "oauth_token_url", "oauth_refresh_token_url")
     @classmethod
@@ -111,6 +112,7 @@ class ExternalSystemUpdateRequest(BaseModel):
     headers: dict[str, str] | None = None
     advanced_auth: dict | None = None
     enabled: bool | None = None
+    default_credential_data: dict | None = None
 
     @field_validator("name", "description", "base_url", "jwt_login_url", "jwt_refresh_url", "oauth_auth_url", "oauth_token_url", "oauth_refresh_token_url")
     @classmethod
@@ -149,6 +151,7 @@ class ExternalSystemResponse(AppBaseModel):
     headers: dict[str, str]
     advanced_auth: dict
     enabled: bool
+    has_default_credential: bool = False
     api_count: int = 0
     created_by: int | None
     created_at: datetime

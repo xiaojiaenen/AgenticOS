@@ -131,6 +131,8 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
                               <div className="flex items-center gap-1"><span className="flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700"><CheckCircle size={12} /> 已连接</span><Button variant="ghost" size="sm" onClick={() => handleDisconnect(sys.id)} className="text-xs text-slate-400 hover:text-rose-500"><Unplug size={14} /></Button></div>
                             ) : isError ? (
                               <Button variant="outline" size="sm" onClick={() => openConnect(sys)} className="gap-1 text-xs text-amber-600 border-amber-300"><AlertCircle size={14} /> 重新连接</Button>
+                            ) : sys.has_default_credential ? (
+                              <span className="flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700"><CheckCircle size={12} /> 已就绪</span>
                             ) : (
                               <Button variant="primary" size="sm" onClick={() => openConnect(sys)} className="gap-1 text-xs"><Plug size={14} /> 连接</Button>
                             )}

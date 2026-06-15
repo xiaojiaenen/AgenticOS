@@ -37,6 +37,7 @@ export type IntegrationSystem = {
   headers: Record<string, string>;
   advanced_auth: Record<string, any>;
   enabled: boolean;
+  has_default_credential?: boolean;
   api_count: number;
   created_by: number | null;
   created_at: string;
@@ -121,6 +122,7 @@ export type IntegrationSystemPayload = {
   published: boolean;
   headers: Record<string, string>;
   advanced_auth?: Record<string, any>;
+  default_credential_data?: Record<string, string> | null;
 };
 
 export type IntegrationTestResult = {

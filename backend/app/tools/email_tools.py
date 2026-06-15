@@ -52,15 +52,10 @@ def _get_credentials() -> dict[str, object] | None:
         )
         if creds is None:
             return None
-        # 优先使用加密密码，兼容旧数据
+        # 使用加密密码
         password = ""
         if creds.password_encrypted:
-            try:
-                password = decrypt_credential(creds.password_encrypted, secret=get_settings().auth_secret_key)
-            except Exception:
-                password = creds.password  # 降级到明文
-        else:
-            password = creds.password
+            password = decrypt_credential(creds.password_encrypted, secret=get_settings().auth_secret_key)
         return {
             "email": creds.email_address,
             "password": password,

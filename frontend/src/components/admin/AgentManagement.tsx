@@ -231,7 +231,7 @@ export const AgentManagement = () => {
      const next = current.includes(subToolName)
       ? current.filter((s) => s !== subToolName)
       : [...current, subToolName];
-     return { ...tool, approval_sub_tools: next };
+     return { ...tool, approval_sub_tools: next, requires_approval: true };
     }),
    };
   });
@@ -830,13 +830,16 @@ export const AgentManagement = () => {
                   <button
                    type="button"
                    onClick={() => {
-                    // 全部跳过审批 = approval_sub_tools 包含所有子工具
-                    const allSkipped = approvedSubTools.length === subTools.length;
-                    updateTool(tool.tool_name, { approval_sub_tools: allSkipped ? [] : subTools.map((s) => s.name) });
+                    const allNeedApproval = tool.requires_approval && approvedSubTools.length === 0;
+                    if (allNeedApproval) {
+                     updateTool(tool.tool_name, { requires_approval: false });
+                    } else {
+                     updateTool(tool.tool_name, { requires_approval: true, approval_sub_tools: [] });
+                    }
                    }}
                    className="text-[10px] font-medium text-sky-600 hover:text-sky-700 whitespace-nowrap"
                   >
-                   {approvedSubTools.length === subTools.length ? '全部需要审批' : '全部跳过审批'}
+                   {tool.requires_approval && approvedSubTools.length === 0 ? '全部跳过审批' : '全部需要审批'}
                   </button>
                  </div>
                  {subTools.map((sub) => {

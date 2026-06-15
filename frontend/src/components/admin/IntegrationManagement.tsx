@@ -52,7 +52,7 @@ export const IntegrationManagement = () => {
 
  const openCreateSystem = () => { setSystemDraft(emptySystemDraft()); setIsSystemModalOpen(true); };
  const openEditSystem = (sys: IntegrationSystem) => { setSystemDraft({id:sys.id,name:sys.name,description:sys.description,base_url:sys.base_url,auth_type:sys.auth_type,credential_template:sys.credential_template,oauth_auth_url:sys.oauth_auth_url||undefined,oauth_token_url:sys.oauth_token_url||undefined,oauth_scope:sys.oauth_scope||undefined,oauth_refresh_token_url:(sys as any).oauth_refresh_token_url||undefined,jwt_login_url:sys.jwt_login_url||undefined,jwt_refresh_url:sys.jwt_refresh_url||undefined,jwt_refresh_body_template:sys.jwt_refresh_body_template||undefined,jwt_refresh_token_path:sys.jwt_refresh_token_path||undefined,jwt_request_body_template:sys.jwt_request_body_template||undefined,jwt_response_token_path:sys.jwt_response_token_path||undefined,jwt_response_expires_path:sys.jwt_response_expires_path||undefined,jwt_response_token_header:sys.jwt_response_token_header||undefined,login_token_source:sys.login_token_source||undefined,login_inject_mode:sys.login_inject_mode||undefined,login_inject_header_name:sys.login_inject_header_name||undefined,published:sys.published,headers:sys.headers,advanced_auth:sys.advanced_auth||{}}); setIsSystemModalOpen(true); };
- const handleSaveSystem = async () => { if(!systemDraft)return; setIsSaving(true); setError(null); try { if(systemDraft.id){await updateSystem(systemDraft.id,systemDraft);}else{await createSystem(systemDraft);} setIsSystemModalOpen(false); setMessage(systemDraft.id?"集成已更新":"集成已创建"); setTimeout(()=>setMessage(null),3000); await loadSystems(); } catch(e){setError(e instanceof Error?e.message:"保存失败");} finally{setIsSaving(false);} };
+ const handleSaveSystem = async () => { if(!systemDraft)return; setIsSaving(true); setError(null); try { const payload = { ...systemDraft, default_credential_data: (systemDraft as any)._defaultCreds || null }; delete (payload as any)._defaultCreds; if(systemDraft.id){await updateSystem(systemDraft.id,payload);}else{await createSystem(payload);} setIsSystemModalOpen(false); setMessage(systemDraft.id?"集成已更新":"集成已创建"); setTimeout(()=>setMessage(null),3000); await loadSystems(); } catch(e){setError(e instanceof Error?e.message:"保存失败");} finally{setIsSaving(false);} };
  const handleDeleteSystem = async (sys:IntegrationSystem) => { if(!confirm(`确定删除集成 "${sys.name}"？`))return; try{await deleteSystem(sys.id); if(selectedSystem?.id===sys.id){setSelectedSystem(null);setApis([]);} setMessage("集成已删除");setTimeout(()=>setMessage(null),3000);await loadSystems();}catch(e){setError(e instanceof Error?e.message:"删除失败");} };
  const openCreateApi = () => { setApiDraft(emptyApiDraft()); setIsApiModalOpen(true); };
  const openEditApi = (api:IntegrationApi) => { setApiDraft({id:api.id,name:api.name,display_name:api.display_name,description:api.description,method:api.method,path:api.path,request_body_schema:api.request_body_schema||undefined,response_example:api.response_example||undefined,requires_approval:api.requires_approval,timeout_seconds:api.timeout_seconds,params:api.params}); setIsApiModalOpen(true); };
@@ -332,6 +332,30 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
         </div>
         <input className="admin-input mt-2 text-xs" placeholder="占位提示文字（可选）" value={f.placeholder||""} onChange={e=>updateCredField(i,"placeholder",e.target.value)}/>
        </div>
+      ))}
+     </div>
+
+     {/* 默认凭据 */}
+     <SectionTitle title="默认凭据（可选）"/>
+     <div className="rounded-lg border border-sky-100 bg-sky-50/30 p-4 space-y-3">
+      <p className="text-xs text-slate-500">管理员设置默认凭据后，普通用户无需配置即可直接使用该集成。用户只能看到「已就绪」状态，无法查看具体凭据值。</p>
+      {credFields.length === 0 ? (
+       <p className="text-xs text-slate-400">请先在上方定义凭据字段</p>
+      ) : credFields.map((f) => (
+       <Field key={f.key} label={f.label || f.key}>
+        <input
+         type={f.type === "password" ? "password" : "text"}
+         className="admin-input font-mono text-sm"
+         placeholder={f.placeholder || `默认 ${f.label || f.key}`}
+         value={(draft as any)._defaultCreds?.[f.key] || ""}
+         onChange={e => {
+          const creds = { ...((draft as any)._defaultCreds || {}), [f.key]: e.target.value };
+          // 如果所有字段都为空，设为 null
+          const allEmpty = Object.values(creds).every(v => !v);
+          setDraft({ ...draft, _defaultCreds: allEmpty ? null : creds } as any);
+         }}
+        />
+       </Field>
       ))}
      </div>
      </>)}
