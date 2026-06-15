@@ -209,6 +209,7 @@ def _serialize_system(sys: ExternalSystemModel, api_count: int = 0) -> dict:
         "headers": _serialize_headers(sys.headers_json),
         "advanced_auth": json.loads(sys.advanced_auth_json) if sys.advanced_auth_json else {},
         "enabled": sys.enabled,
+        "has_default_credential": bool(sys.default_credential_data_encrypted),
         "api_count": api_count,
         "created_by": sys.created_by,
         "created_at": sys.created_at,
@@ -243,6 +244,26 @@ def _serialize_api(api: ExternalApiModel, params: list[ExternalApiParamModel]) -
         "created_at": api.created_at,
         "updated_at": api.updated_at,
     }
+
+
+class _DefaultCredential:
+    """从系统默认凭据构建的轻量凭据对象，兼容 AuthInjector 接口。"""
+    def __init__(self, system: ExternalSystemModel):
+        self.id = 0
+        self.user_id = 0
+        self.system_id = system.id
+        self.credential_data_encrypted = system.default_credential_data_encrypted
+        self.oauth_access_token_encrypted = None
+        self.oauth_refresh_token_encrypted = None
+        self.oauth_expires_at = None
+        self.cached_jwt_encrypted = None
+        self.jwt_expires_at = None
+        self.connection_status = "connected"
+
+
+def _build_default_credential(system: ExternalSystemModel) -> _DefaultCredential:
+    """从系统的 default_credential_data_encrypted 构建伪凭据对象。"""
+    return _DefaultCredential(system)
 
 
 def _serialize_connection(cred: ExternalUserCredentialModel, system_name: str) -> dict:
@@ -871,9 +892,13 @@ def _build_system_tool_handler(
                 user_id=effective_user_id, system_id=system.id
             ).first()
             if not cred or cred.connection_status != "connected":
-                return json.dumps({
-                    "error": f"请先在集成市场连接 {fresh_system.name}",
-                }, ensure_ascii=False)
+                # 回退到管理员设置的默认凭据
+                if fresh_system.default_credential_data_encrypted:
+                    cred = _build_default_credential(fresh_system)
+                else:
+                    return json.dumps({
+                        "error": f"请先在集成市场连接 {fresh_system.name}",
+                    }, ensure_ascii=False)
 
             # Separate params by type
             path_params: dict[str, Any] = {}
@@ -1113,6 +1138,7 @@ class ExternalSystemService:
             login_inject_header_name=data.login_inject_header_name,
             headers_json=json.dumps(data.headers) if data.headers else "{}",
             advanced_auth_json=json.dumps(data.advanced_auth) if data.advanced_auth else "{}",
+            default_credential_data_encrypted=encrypt(json.dumps(data.default_credential_data)) if data.default_credential_data else None,
             created_by=user_id,
         )
         self.db.add(sys)
@@ -1177,6 +1203,8 @@ class ExternalSystemService:
             sys.advanced_auth_json = json.dumps(data.advanced_auth)
         if data.enabled is not None:
             sys.enabled = data.enabled
+        if data.default_credential_data is not None:
+            sys.default_credential_data_encrypted = encrypt(json.dumps(data.default_credential_data)) if data.default_credential_data else None
 
         self.db.commit()
         self.db.refresh(sys)

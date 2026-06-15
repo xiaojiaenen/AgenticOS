@@ -369,6 +369,7 @@ class ExternalSystemModel(Base):
     headers_json: Mapped[str] = mapped_column(Text, default="{}")  # extra fixed headers
     published: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    default_credential_data_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True, comment="管理员默认凭据(加密JSON)")
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
