@@ -31,6 +31,7 @@ class UserCreateRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=128)
     role: str = Field(default="user", pattern="^(admin|user)$")
     is_active: bool = True
+    auth_source: str = Field(default="local", pattern="^(local|ldap)$")
 
     @field_validator("email")
     @classmethod
@@ -52,6 +53,7 @@ class UserUpdateRequest(BaseModel):
     password: str | None = Field(default=None, min_length=6, max_length=128)
     role: str | None = Field(default=None, pattern="^(admin|user)$")
     is_active: bool | None = None
+    auth_source: str | None = Field(default=None, pattern="^(local|ldap)$")
 
     @field_validator("email")
     @classmethod

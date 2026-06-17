@@ -14,6 +14,7 @@ class UserPublic(BaseModel):
     name: str
     role: str
     is_active: bool
+    auth_source: str = "local"
 
 
 class AuthRegisterRequest(BaseModel):

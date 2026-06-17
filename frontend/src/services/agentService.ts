@@ -16,6 +16,7 @@ type AgentServiceOptions = {
   onWebsiteArtifact?: (artifact: AgentWebsiteArtifact) => void;
   onVideoArtifact?: (artifact: AgentVideoArtifact) => void;
   onUserDecision?: (decision: unknown) => void;
+  onUserInputRequired?: (input: UserInputRequest) => void;
   signal?: AbortSignal;
 };
 
@@ -119,6 +120,24 @@ export type AgentVideoArtifact = {
   duration_sec?: number;
   file_size_bytes?: number;
   template_id?: string;
+};
+
+export type UserInputField = {
+  key: string;
+  label: string;
+  type: 'text' | 'password';
+  required: boolean;
+  description?: string;
+};
+
+export type UserInputRequest = {
+  session_id: string;
+  tool_call_id: string;
+  api_name: string;
+  api_display_name: string;
+  system_name: string;
+  fields: UserInputField[];
+  message: string;
 };
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -361,6 +380,10 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         options.onToolCalls?.(toolCalls);
       }
 
+      if (parsed.event === 'user_input_required') {
+        options.onUserInputRequired?.(payload as unknown as UserInputRequest);
+      }
+
       if (parsed.event === 'approval_required') {
         const approval = payload as AgentApproval;
         toolCalls = mergeToolCalls(toolCalls, [
@@ -378,6 +401,10 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
 
       if (parsed.event === 'user_decision') {
         options.onUserDecision?.(payload);
+      }
+
+      if (parsed.event === 'user_input_required') {
+        options.onUserInputRequired?.(payload as unknown as UserInputRequest);
       }
 
       if (parsed.event === 'error') {
@@ -575,6 +602,22 @@ export async function deleteSession(sessionId: string): Promise<void> {
     const detail = await response.text();
     throw new Error(detail || '删除会话失败。');
   }
+}
+
+export async function submitUserInput(sessionId: string, apiName: string, values: Record<string, string>): Promise<{ status: string }> {
+  const response = await fetch(`${AGENT_ENDPOINT}/sessions/${sessionId}/user-input`, {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ api_name: apiName, values }),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || '提交用户输入失败。');
+  }
+  return response.json();
 }
 
 export async function exportPptx(artifactId: string): Promise<Blob> {

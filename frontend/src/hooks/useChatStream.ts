@@ -9,6 +9,7 @@ import {
   AgentPptArtifact,
   AgentWebsiteArtifact,
   AgentRunStatus,
+  UserInputRequest,
 } from '../services/agentService';
 import { AgentProfile } from '../services/agentProfileService';
 import { uploadFiles } from '../services/fileService';
@@ -52,6 +53,7 @@ interface UseChatStreamDeps {
   applySessionState: (sessionId: string, state: AgentSessionState) => void;
   setArtifact: React.Dispatch<React.SetStateAction<Artifact | null>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
+  onUserInputRequired?: (input: UserInputRequest) => void;
 }
 
 export function useChatStream({
@@ -66,6 +68,7 @@ export function useChatStream({
   applySessionState,
   setArtifact,
   setInputValue,
+  onUserInputRequired,
 }: UseChatStreamDeps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -464,6 +467,9 @@ export function useChatStream({
               if (prev.some((item) => item.decision_id === d.decision_id)) return prev;
               return [...prev, d];
             });
+          },
+          onUserInputRequired: (input) => {
+            onUserInputRequired?.(input as unknown as UserInputRequest);
           },
         });
 

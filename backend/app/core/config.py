@@ -51,10 +51,20 @@ class Settings(BaseSettings):
     # 凭据代理 API 内部令牌（供爬虫平台等内部系统调用）
     credential_proxy_token: str = Field(default="", validation_alias="CREDENTIAL_PROXY_TOKEN")
 
+    # LDAP 认证配置（留空 = 不启用）
+    ldap_enabled: bool = Field(default=False, validation_alias="LDAP_ENABLED")
+    ldap_auto_create_users: bool = Field(default=False, validation_alias="LDAP_AUTO_CREATE_USERS")
+    ldap_gateway_url: str = Field(default="", validation_alias="LDAP_GATEWAY_URL")
+    ldap_email_domain: str = Field(default="gree.com.cn", validation_alias="LDAP_EMAIL_DOMAIN")
+    ldap_email_imap_host: str = Field(default="10.12.128.18", validation_alias="LDAP_EMAIL_IMAP_HOST")
+    ldap_email_imap_port: int = Field(default=993, validation_alias="LDAP_EMAIL_IMAP_PORT")
+    ldap_email_smtp_host: str = Field(default="10.12.128.18", validation_alias="LDAP_EMAIL_SMTP_HOST")
+    ldap_email_smtp_port: int = Field(default=465, validation_alias="LDAP_EMAIL_SMTP_PORT")
+
     # 系统通知邮箱配置（用于任务完成通知等系统邮件）
     notify_email_address: str = Field(default="", validation_alias="NOTIFY_EMAIL_ADDRESS")
     notify_email_password: str = Field(default="", validation_alias="NOTIFY_EMAIL_PASSWORD")
-    notify_smtp_host: str = Field(default="", validation_alias="NOTIFY_SMTP_HOST")
+    notify_smtp_host: str = Field(default="10.12.128.18", validation_alias="NOTIFY_SMTP_HOST")
     notify_smtp_port: int = Field(default=465, validation_alias="NOTIFY_SMTP_PORT")
     notify_smtp_ssl: bool = Field(default=True, validation_alias="NOTIFY_SMTP_SSL")
     notify_task_min_seconds: int = Field(default=120, validation_alias="NOTIFY_TASK_MIN_SECONDS")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import contextvars
 import hashlib
@@ -70,6 +71,7 @@ _CACHE_FIELDS = [
     "oauth_auth_url", "oauth_token_url", "oauth_scope",
     "oauth_refresh_token_url", "oauth_client_id_encrypted",
     "oauth_client_secret_encrypted", "advanced_auth_json",
+    "default_credential_data_encrypted",
 ]
 
 
@@ -140,6 +142,7 @@ async def refresh_system_cache(system_id: int) -> None:
 # ── context vars for current user (like email_tools pattern) ────────────────
 
 _current_user_id: contextvars.ContextVar[int] = contextvars.ContextVar("ext_current_user_id", default=0)
+_current_session_id: contextvars.ContextVar[str] = contextvars.ContextVar("ext_current_session_id", default="")
 
 
 def set_ext_user_id(user_id: int) -> None:
@@ -148,6 +151,42 @@ def set_ext_user_id(user_id: int) -> None:
 
 def get_ext_user_id() -> int:
     return _current_user_id.get()
+
+
+# ── UserInput 阻塞机制（类似审批的 queue+Future 模式）────────────────────
+
+class UserInputBlocker:
+    """per-session 的 Future + Queue，让 handler 在需要用户输入时阻塞等待。"""
+    _queues: dict[str, asyncio.Queue] = {}
+    _futures: dict[str, asyncio.Future] = {}
+
+    @classmethod
+    def subscribe(cls, session_id: str) -> asyncio.Queue:
+        q = asyncio.Queue()
+        cls._queues[session_id] = q
+        return q
+
+    @classmethod
+    def unsubscribe(cls, session_id: str) -> None:
+        cls._queues.pop(session_id, None)
+        cls._futures.pop(session_id, None)
+
+    @classmethod
+    async def request_input(cls, session_id: str, payload: dict) -> dict:
+        """阻塞等待用户输入。返回用户提交的 values dict。"""
+        loop = asyncio.get_running_loop()
+        fut = loop.create_future()
+        cls._futures[session_id] = fut
+        q = cls._queues.get(session_id)
+        if q is not None:
+            q.put_nowait(payload)
+        return await fut
+
+    @classmethod
+    def resolve(cls, session_id: str, values: dict) -> None:
+        fut = cls._futures.pop(session_id, None)
+        if fut and not fut.done():
+            fut.set_result(values)
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
@@ -229,6 +268,7 @@ def _serialize_api(api: ExternalApiModel, params: list[ExternalApiParamModel]) -
         "response_example": api.response_example,
         "requires_approval": api.requires_approval,
         "timeout_seconds": api.timeout_seconds,
+        "body_wrapper_key": api.body_wrapper_key,
         "enabled": api.enabled,
         "params": [
             {
@@ -238,6 +278,8 @@ def _serialize_api(api: ExternalApiModel, params: list[ExternalApiParamModel]) -
                 "required": p.required,
                 "description": p.description,
                 "default_value": p.default_value,
+                "param_source": p.param_source,
+                "label": p.label,
             }
             for p in params
         ],
@@ -849,6 +891,20 @@ def _build_system_tool_handler(
 
         api, param_rows = entry
 
+        # 实时刷新参数（避免闭包缓存旧数据）
+        from app.db.session import create_db_session
+        _db = create_db_session()
+        try:
+            param_rows = list(_db.execute(
+                select(ExternalApiParamModel).where(ExternalApiParamModel.api_id == api.id)
+            ).scalars().all())
+            # 同步刷新 api 上的动态字段（闭包缓存的 api 对象可能过期）
+            fresh = _db.get(ExternalApiModel, api.id)
+            if fresh:
+                api.body_wrapper_key = fresh.body_wrapper_key
+        finally:
+            _db.close()
+
         # 检查是否有需要用户输入的参数
         user_input_params = [
             p for p in param_rows
@@ -869,15 +925,28 @@ def _build_system_tool_handler(
                     })
 
             if missing_params:
-                # 返回需要用户输入的参数定义
-                return json.dumps({
-                    "type": "user_input_required",
-                    "api_name": api_name,
-                    "api_display_name": api.display_name,
-                    "system_name": system.name,
-                    "fields": missing_params,
-                    "message": f"需要输入以下参数才能调用 {api.display_name}：",
-                }, ensure_ascii=False)
+                # 阻塞等待用户输入（类似审批的 Future 模式）
+                session_id = _current_session_id.get()
+                logger.warning("UserInput: session=%s missing=%s", session_id, [m['key'] for m in missing_params])
+                if session_id:
+                    payload = {
+                        "type": "user_input_required",
+                        "api_name": api_name,
+                        "api_display_name": api.display_name,
+                        "system_name": system.name,
+                        "fields": missing_params,
+                        "message": f"需要输入以下参数才能调用 {api.display_name}：",
+                    }
+                    user_input = await UserInputBlocker.request_input(session_id, payload)
+                    logger.warning("UserInput: resolved values=%s", {k:v for k,v in (user_input or {}).items() if k!='password'})
+                    if user_input:
+                        params = dict(params)
+                        params.update(user_input)
+                        logger.warning("UserInput received: %s", {k: v for k, v in user_input.items() if k != 'password'})
+                else:
+                    return json.dumps({
+                        "error": "内部错误：无法获取会话 ID",
+                    }, ensure_ascii=False)
 
         # Look up user credential
         from app.db.session import create_db_session
@@ -925,8 +994,14 @@ def _build_system_tool_handler(
             if body_params:
                 if len(body_params) == 1 and "body" in body_params and isinstance(body_params["body"], (dict, list)):
                     body = body_params["body"]
+                elif api.body_wrapper_key:
+                    body = {api.body_wrapper_key: body_params}
                 else:
                     body = body_params
+
+            logger.warning("API call: %s %s, params=%s, body=%s", api.method, url,
+                         {k: v for k, v in params.items() if k != 'password'},
+                         {k: v for k, v in (body_params if isinstance(body_params, dict) else {}).items() if k != 'password'})
 
             headers = _serialize_headers(fresh_system.headers_json)
 
@@ -1018,23 +1093,18 @@ def register_external_tools(registry, system_ids: list[int], db: Session) -> lis
             ).scalars().all())
             api_map[api.name] = (api, param_rows)
 
-            # Build param description
+            # Build param description — 只告诉 LLM 需要它提取的参数
             param_descs = []
-            user_input_descs = []
             for p in param_rows:
                 req = "*" if p.required else ""
-                if p.param_source == 'user_credential':
-                    user_input_descs.append(f"{p.label or p.name}(密码)")
-                    param_descs.append(f"{p.name}{req}({p.data_type},需用户输入密码)")
-                elif p.param_source == 'user_input':
-                    user_input_descs.append(p.label or p.name)
-                    param_descs.append(f"{p.name}{req}({p.data_type},需用户输入)")
+                if p.param_source == 'llm_extract':
+                    param_descs.append(f"{p.name}{req}({p.data_type})")
+                elif p.param_source in ('static', 'user_input', 'user_credential'):
+                    pass  # LLM 无需关心
                 else:
                     param_descs.append(f"{p.name}{req}({p.data_type})")
             param_str = ", ".join(param_descs) if param_descs else "无参数"
             desc_line = f"- {api.name}({param_str}) — {api.display_name}: {api.description}"
-            if user_input_descs:
-                desc_line += f" [需要用户输入: {', '.join(user_input_descs)}]"
             description_lines.append(desc_line)
             if api.requires_approval:
                 has_any_approval = True
@@ -1275,6 +1345,7 @@ class ExternalSystemService:
             response_example=data.response_example,
             requires_approval=data.requires_approval,
             timeout_seconds=data.timeout_seconds,
+            body_wrapper_key=data.body_wrapper_key,
         )
         self.db.add(api)
         self.db.flush()
@@ -1289,6 +1360,8 @@ class ExternalSystemService:
                 required=p.required,
                 description=p.description,
                 default_value=p.default_value,
+                param_source=p.param_source,
+                label=p.label,
             )
             self.db.add(pm)
             param_models.append(pm)
@@ -1320,6 +1393,8 @@ class ExternalSystemService:
             api.requires_approval = data.requires_approval
         if data.timeout_seconds is not None:
             api.timeout_seconds = data.timeout_seconds
+        if data.body_wrapper_key is not None:
+            api.body_wrapper_key = data.body_wrapper_key
         if data.enabled is not None:
             api.enabled = data.enabled
 
@@ -1334,6 +1409,8 @@ class ExternalSystemService:
                     required=p.required,
                     description=p.description,
                     default_value=p.default_value,
+                    param_source=p.param_source,
+                    label=p.label,
                 )
                 self.db.add(pm)
 
@@ -1641,7 +1718,7 @@ class ExternalSystemService:
             self.db.add(api)
             self.db.flush()
             for p in ad.get("params", []):
-                self.db.add(ExternalApiParamModel(api_id=api.id, name=p["name"], param_type=p["param_type"], data_type=p.get("data_type", "string"), required=p.get("required", False), description=p.get("description", ""), default_value=p.get("default_value")))
+                self.db.add(ExternalApiParamModel(api_id=api.id, name=p["name"], param_type=p["param_type"], data_type=p.get("data_type", "string"), required=p.get("required", False), description=p.get("description", ""), default_value=p.get("default_value"), param_source=p.get("param_source", "static"), label=p.get("label")))
             created.append(api)
         self.db.commit()
         self.db.refresh(system)
@@ -1654,132 +1731,8 @@ def seed_preset_external_systems() -> None:
     每次启动检查并添加缺失的预设，已存在的不会重复添加。
     """
     from app.db.session import create_db_session
-    from app.services.bigdata_presets import ALL_BIGDATA_PRESETS
 
     PRESETS = [
-        {
-            "name": "GitHub",
-            "description": "GitHub 代码托管平台 - 仓库管理、Issues、Pull Requests",
-            "category": "devops",
-            "base_url": "https://api.github.com",
-            "auth_type": "bearer",
-            "credential_template": {"fields": [{"key": "token", "label": "Personal Access Token", "type": "password", "required": True, "help_text": "在 GitHub Settings > Developer settings > Personal access tokens 中生成", "help_url": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token"}]},
-            "apis": [
-                {"name": "list_repos", "display_name": "获取仓库列表", "method": "GET", "path": "/user/repos", "description": "获取当前用户的仓库列表"},
-                {"name": "get_repo", "display_name": "获取仓库详情", "method": "GET", "path": "/repos/{owner}/{repo}", "description": "获取指定仓库的详细信息"},
-                {"name": "list_issues", "display_name": "获取 Issues 列表", "method": "GET", "path": "/repos/{owner}/{repo}/issues", "description": "获取仓库的 Issues 列表"},
-                {"name": "create_issue", "display_name": "创建 Issue", "method": "POST", "path": "/repos/{owner}/{repo}/issues", "description": "在仓库中创建新 Issue"},
-                {"name": "list_pull_requests", "display_name": "获取 PR 列表", "method": "GET", "path": "/repos/{owner}/{repo}/pulls", "description": "获取仓库的 Pull Request 列表"},
-                {"name": "get_pull_request", "display_name": "获取 PR 详情", "method": "GET", "path": "/repos/{owner}/{repo}/pulls/{pull_number}", "description": "获取指定 PR 的详细信息"},
-                {"name": "list_commits", "display_name": "获取提交记录", "method": "GET", "path": "/repos/{owner}/{repo}/commits", "description": "获取仓库的提交历史"},
-            ],
-        },
-        {
-            "name": "GitLab",
-            "description": "GitLab 代码托管平台 - 仓库管理、Issues、Merge Requests",
-            "category": "devops",
-            "base_url": "https://gitlab.com/api/v4",
-            "auth_type": "bearer",
-            "credential_template": {"fields": [{"key": "token", "label": "Personal Access Token", "type": "password", "required": True, "help_text": "在 GitLab User Settings > Access Tokens 中生成", "help_url": "https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html"}]},
-            "apis": [
-                {"name": "list_projects", "display_name": "获取项目列表", "method": "GET", "path": "/projects", "description": "获取当前用户的项目列表"},
-                {"name": "get_project", "display_name": "获取项目详情", "method": "GET", "path": "/projects/{id}", "description": "获取指定项目的详细信息"},
-                {"name": "list_issues", "display_name": "获取 Issues 列表", "method": "GET", "path": "/projects/{id}/issues", "description": "获取项目的 Issues 列表"},
-                {"name": "create_issue", "display_name": "创建 Issue", "method": "POST", "path": "/projects/{id}/issues", "description": "在项目中创建新 Issue"},
-                {"name": "list_merge_requests", "display_name": "获取 MR 列表", "method": "GET", "path": "/projects/{id}/merge_requests", "description": "获取项目的 Merge Request 列表"},
-                {"name": "get_merge_request", "display_name": "获取 MR 详情", "method": "GET", "path": "/projects/{id}/merge_requests/{merge_request_iid}", "description": "获取指定 MR 的详细信息"},
-            ],
-        },
-        {
-            "name": "Slack",
-            "description": "Slack 团队协作平台 - 消息发送、频道管理",
-            "category": "collaboration",
-            "base_url": "https://slack.com/api",
-            "auth_type": "bearer",
-            "credential_template": {"fields": [{"key": "token", "label": "Bot Token / User Token", "type": "password", "required": True, "help_text": "在 Slack API > Your Apps > OAuth & Permissions 中获取", "help_url": "https://api.slack.com/authentication/token-types"}]},
-            "apis": [
-                {"name": "post_message", "display_name": "发送消息", "method": "POST", "path": "/chat.postMessage", "description": "向指定频道发送消息"},
-                {"name": "list_channels", "display_name": "获取频道列表", "method": "GET", "path": "/conversations.list", "description": "获取可用频道列表"},
-                {"name": "get_channel_info", "display_name": "获取频道信息", "method": "GET", "path": "/conversations.info", "description": "获取指定频道的详细信息"},
-                {"name": "list_users", "display_name": "获取用户列表", "method": "GET", "path": "users.list", "description": "获取工作区用户列表"},
-            ],
-        },
-        {
-            "name": "Notion",
-            "description": "Notion 知识管理平台 - 页面、数据库操作",
-            "category": "collaboration",
-            "base_url": "https://api.notion.com/v1",
-            "auth_type": "bearer",
-            "credential_template": {"fields": [{"key": "token", "label": "Integration Token", "type": "password", "required": True, "help_text": "在 Notion Settings > Connections > Develop or manage integrations 中创建", "help_url": "https://developers.notion.com/docs/getting-started"}]},
-            "apis": [
-                {"name": "search", "display_name": "搜索页面", "method": "POST", "path": "/search", "description": "搜索 Notion 中的页面和数据库"},
-                {"name": "get_page", "display_name": "获取页面", "method": "GET", "path": "/pages/{page_id}", "description": "获取指定页面的内容"},
-                {"name": "create_page", "display_name": "创建页面", "method": "POST", "path": "/pages", "description": "创建新页面"},
-                {"name": "update_page", "display_name": "更新页面", "method": "PATCH", "path": "/pages/{page_id}", "description": "更新页面内容"},
-                {"name": "query_database", "display_name": "查询数据库", "method": "POST", "path": "/databases/{database_id}/query", "description": "查询 Notion 数据库"},
-            ],
-        },
-        {
-            "name": "Jira",
-            "description": "Jira 项目管理平台 - Issues、项目、Sprint 管理",
-            "category": "devops",
-            "base_url": "https://your-domain.atlassian.net",
-            "auth_type": "basic",
-            "credential_template": {"fields": [
-                {"key": "username", "label": "邮箱地址", "type": "text", "required": True, "help_text": "你的 Atlassian 账户邮箱"},
-                {"key": "password", "label": "API Token", "type": "password", "required": True, "help_text": "在 https://id.atlassian.com/manage-profile/security/api-tokens 中生成", "help_url": "https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/"},
-            ]},
-            "apis": [
-                {"name": "list_projects", "display_name": "获取项目列表", "method": "GET", "path": "/rest/api/3/project", "description": "获取所有可访问的项目"},
-                {"name": "get_issue", "display_name": "获取 Issue", "method": "GET", "path": "/rest/api/3/issue/{issueIdOrKey}", "description": "获取指定 Issue 的详细信息"},
-                {"name": "create_issue", "display_name": "创建 Issue", "method": "POST", "path": "/rest/api/3/issue", "description": "创建新 Issue"},
-                {"name": "search_issues", "display_name": "搜索 Issues", "method": "GET", "path": "/rest/api/3/search", "description": "使用 JQL 搜索 Issues"},
-                {"name": "update_issue", "display_name": "更新 Issue", "method": "PUT", "path": "/rest/api/3/issue/{issueIdOrKey}", "description": "更新 Issue 状态或字段"},
-            ],
-        },
-        {
-            "name": "Feishu",
-            "description": "飞书企业协作平台 - 消息、文档、日历",
-            "category": "collaboration",
-            "base_url": "https://open.feishu.cn/open-apis",
-            "auth_type": "bearer",
-            "credential_template": {"fields": [{"key": "token", "label": "Tenant Access Token", "type": "password", "required": True, "help_text": "在飞书开放平台 > 应用管理 > 凭证与基础信息 中获取", "help_url": "https://open.feishu.cn/document/home/introduction-to-permissions-and-authentication/access-token/tenant-access-token"}]},
-            "apis": [
-                {"name": "send_message", "display_name": "发送消息", "method": "POST", "path": "/im/v1/messages", "description": "向用户或群组发送消息"},
-                {"name": "list_contacts", "display_name": "获取通讯录", "method": "GET", "path": "/contact/v3/users", "description": "获取企业通讯录用户列表"},
-                {"name": "create_document", "display_name": "创建文档", "method": "POST", "path": "/docx/v1/documents", "description": "创建飞书文档"},
-                {"name": "get_calendar_events", "display_name": "获取日程", "method": "GET", "path": "/calendar/v4/calendars/{calendar_id}/events", "description": "获取日历日程列表"},
-            ],
-        },
-        {
-            "name": "DingTalk",
-            "description": "钉钉企业协作平台 - 消息、审批、日程",
-            "category": "collaboration",
-            "base_url": "https://oapi.dingtalk.com",
-            "auth_type": "bearer",
-            "credential_template": {"fields": [{"key": "token", "label": "Access Token", "type": "password", "required": True, "help_text": "在钉钉开放平台 > 应用开发 > 企业内部应用 > 凭证与基础信息 中获取", "help_url": "https://open.dingtalk.com/document/isvapp/isv-obtain-configuration-parameters"}]},
-            "apis": [
-                {"name": "send_work_notification", "display_name": "发送工作通知", "method": "POST", "path": "/topapi/message/corpconversation/asyncsend_v2", "description": "向员工发送工作通知"},
-                {"name": "get_user_info", "display_name": "获取用户信息", "method": "GET", "path": "/topapi/v2/user/get", "description": "获取员工详细信息"},
-                {"name": "list_users", "display_name": "获取员工列表", "method": "GET", "path": "/topapi/v2/user/listbypage", "description": "分页获取员工列表"},
-                {"name": "create_approval", "display_name": "创建审批", "method": "POST", "path": "/topapi/processinstance/create", "description": "发起审批流程"},
-            ],
-        },
-        {
-            "name": "Linear",
-            "description": "Linear 项目管理工具 - Issues、Projects、Teams",
-            "category": "devops",
-            "base_url": "https://api.linear.app/graphql",
-            "auth_type": "bearer",
-            "credential_template": {"fields": [{"key": "token", "label": "API Key", "type": "password", "required": True, "help_text": "在 Linear Settings > API > Personal API keys 中生成", "help_url": "https://linear.app/docs/api-reference"}]},
-            "apis": [
-                {"name": "list_teams", "display_name": "获取团队列表", "method": "POST", "path": "/", "description": "获取所有团队"},
-                {"name": "list_issues", "display_name": "获取 Issue 列表", "method": "POST", "path": "/", "description": "获取 Issues 列表"},
-                {"name": "create_issue", "display_name": "创建 Issue", "method": "POST", "path": "/", "description": "创建新 Issue"},
-                {"name": "update_issue", "display_name": "更新 Issue", "method": "POST", "path": "/", "description": "更新 Issue 状态或字段"},
-                {"name": "list_projects", "display_name": "获取项目列表", "method": "POST", "path": "/", "description": "获取所有项目"},
-            ],
-        },
         {
             "name": "OpenSpider",
             "description": "OpenSpider 爬虫管理平台 - 爬虫生命周期管理、数据采集、定时调度",
@@ -1798,78 +1751,658 @@ def seed_preset_external_systems() -> None:
             "jwt_refresh_body_template": '{"refresh_token": "{refresh_token}"}',
             "apis": [
                 {"name": "list_spiders", "display_name": "获取爬虫列表", "method": "GET", "path": "/spiders", "description": "列出当前用户可见的爬虫"},
-                {"name": "get_spider", "display_name": "获取爬虫详情", "method": "GET", "path": "/spiders/{name}", "description": "获取单个爬虫的详细信息"},
-                {"name": "start_spider", "display_name": "启动爬虫", "method": "POST", "path": "/spiders/{spider_id}/start", "description": "启动指定爬虫"},
-                {"name": "stop_spider", "display_name": "停止爬虫", "method": "POST", "path": "/spiders/{spider_id}/stop", "description": "停止正在运行的爬虫"},
-                {"name": "pause_spider", "display_name": "暂停爬虫", "method": "POST", "path": "/spiders/{spider_id}/pause", "description": "暂停爬虫，保留断点"},
-                {"name": "resume_spider", "display_name": "恢复爬虫", "method": "POST", "path": "/spiders/{spider_id}/resume", "description": "从断点恢复爬虫运行"},
-                {"name": "delete_spider", "display_name": "删除爬虫", "method": "DELETE", "path": "/spiders/{spider_id}", "description": "删除爬虫"},
+                {"name": "get_spider", "display_name": "获取爬虫详情", "method": "GET", "path": "/spiders/{name}", "description": "获取单个爬虫的详细信息",
+                 "params": [{"name": "name", "param_type": "path", "data_type": "string", "required": True, "description": "爬虫名称"}]},
+                {"name": "start_spider", "display_name": "启动爬虫", "method": "POST", "path": "/spiders/{spider_id}/start", "description": "启动指定爬虫",
+                 "params": [{"name": "spider_id", "param_type": "path", "data_type": "integer", "required": True, "description": "爬虫 ID"}]},
+                {"name": "stop_spider", "display_name": "停止爬虫", "method": "POST", "path": "/spiders/{spider_id}/stop", "description": "停止正在运行的爬虫",
+                 "params": [{"name": "spider_id", "param_type": "path", "data_type": "integer", "required": True, "description": "爬虫 ID"}]},
+                {"name": "pause_spider", "display_name": "暂停爬虫", "method": "POST", "path": "/spiders/{spider_id}/pause", "description": "暂停爬虫，保留断点",
+                 "params": [{"name": "spider_id", "param_type": "path", "data_type": "integer", "required": True, "description": "爬虫 ID"}]},
+                {"name": "resume_spider", "display_name": "恢复爬虫", "method": "POST", "path": "/spiders/{spider_id}/resume", "description": "从断点恢复爬虫运行",
+                 "params": [{"name": "spider_id", "param_type": "path", "data_type": "integer", "required": True, "description": "爬虫 ID"}]},
+                {"name": "delete_spider", "display_name": "删除爬虫", "method": "DELETE", "path": "/spiders/{spider_id}", "description": "删除爬虫",
+                 "params": [{"name": "spider_id", "param_type": "path", "data_type": "integer", "required": True, "description": "爬虫 ID"}]},
                 {"name": "upload_spider", "display_name": "上传爬虫文件", "method": "POST", "path": "/spiders/upload", "description": "上传 .py 爬虫文件，自动注册"},
                 {"name": "list_tasks", "display_name": "获取任务列表", "method": "GET", "path": "/tasks", "description": "查询任务列表，支持按爬虫和状态筛选"},
-                {"name": "get_task", "display_name": "获取任务详情", "method": "GET", "path": "/tasks/{task_id}", "description": "获取单个任务的详细信息"},
-                {"name": "get_task_logs", "display_name": "获取任务日志", "method": "GET", "path": "/tasks/{task_id}/logs", "description": "获取指定任务的运行日志"},
-                {"name": "get_spider_data", "display_name": "查询爬虫数据", "method": "GET", "path": "/spiders/{spider_id}/data", "description": "分页查询爬虫采集的数据"},
-                {"name": "export_spider_data", "display_name": "导出爬虫数据", "method": "GET", "path": "/spiders/{spider_id}/export", "description": "导出爬虫数据，支持 JSON/JSONL/CSV"},
+                {"name": "get_task", "display_name": "获取任务详情", "method": "GET", "path": "/tasks/{task_id}", "description": "获取单个任务的详细信息",
+                 "params": [{"name": "task_id", "param_type": "path", "data_type": "integer", "required": True, "description": "任务 ID"}]},
+                {"name": "get_task_logs", "display_name": "获取任务日志", "method": "GET", "path": "/tasks/{task_id}/logs", "description": "获取指定任务的运行日志",
+                 "params": [{"name": "task_id", "param_type": "path", "data_type": "integer", "required": True, "description": "任务 ID"}]},
+                {"name": "get_spider_data", "display_name": "查询爬虫数据", "method": "GET", "path": "/spiders/{spider_id}/data", "description": "分页查询爬虫采集的数据",
+                 "params": [{"name": "spider_id", "param_type": "path", "data_type": "integer", "required": True, "description": "爬虫 ID"}]},
+                {"name": "export_spider_data", "display_name": "导出爬虫数据", "method": "GET", "path": "/spiders/{spider_id}/export", "description": "导出爬虫数据，支持 JSON/JSONL/CSV",
+                 "params": [{"name": "spider_id", "param_type": "path", "data_type": "integer", "required": True, "description": "爬虫 ID"}]},
                 {"name": "list_schedules", "display_name": "获取调度列表", "method": "GET", "path": "/schedules", "description": "列出所有定时调度"},
                 {"name": "create_schedule", "display_name": "创建调度", "method": "POST", "path": "/schedules", "description": "创建新的定时调度任务"},
-                {"name": "update_schedule", "display_name": "修改调度", "method": "PUT", "path": "/schedules/{schedule_id}", "description": "修改调度的 cron 表达式和参数"},
-                {"name": "delete_schedule", "display_name": "删除调度", "method": "DELETE", "path": "/schedules/{schedule_id}", "description": "删除定时调度"},
-                {"name": "enable_schedule", "display_name": "启用调度", "method": "POST", "path": "/schedules/{schedule_id}/enable", "description": "启用已禁用的调度"},
-                {"name": "disable_schedule", "display_name": "禁用调度", "method": "POST", "path": "/schedules/{schedule_id}/disable", "description": "禁用调度"},
+                {"name": "update_schedule", "display_name": "修改调度", "method": "PUT", "path": "/schedules/{schedule_id}", "description": "修改调度的 cron 表达式和参数",
+                 "params": [{"name": "schedule_id", "param_type": "path", "data_type": "integer", "required": True, "description": "调度 ID"}]},
+                {"name": "delete_schedule", "display_name": "删除调度", "method": "DELETE", "path": "/schedules/{schedule_id}", "description": "删除定时调度",
+                 "params": [{"name": "schedule_id", "param_type": "path", "data_type": "integer", "required": True, "description": "调度 ID"}]},
+                {"name": "enable_schedule", "display_name": "启用调度", "method": "POST", "path": "/schedules/{schedule_id}/enable", "description": "启用已禁用的调度",
+                 "params": [{"name": "schedule_id", "param_type": "path", "data_type": "integer", "required": True, "description": "调度 ID"}]},
+                {"name": "disable_schedule", "display_name": "禁用调度", "method": "POST", "path": "/schedules/{schedule_id}/disable", "description": "禁用调度",
+                 "params": [{"name": "schedule_id", "param_type": "path", "data_type": "integer", "required": True, "description": "调度 ID"}]},
             ],
         },
         {
             "name": "Dinky",
-            "description": "Dinky 实时计算平台 - 基于 Apache Flink 的数据开发、作业管理、运维监控",
-            "category": "bigdata",
-            "base_url": "http://localhost:8888",
-            "auth_type": "jwt_login",
+            "description": "Dinky 实时计算平台 - 基于 Apache Flink 的数据开发、作业管理、运维监控。"
+                           "通过 OpenAPI 提供 Flink 作业全生命周期管理能力。",
+            "category": "compute",
+            "base_url": "http://your-dinky-host:8888",
+            "auth_type": "bearer",
             "credential_template": {"fields": [
-                {"key": "username", "label": "用户名", "type": "text", "required": True, "help_text": "Dinky 登录用户名"},
-                {"key": "password", "label": "密码", "type": "password", "required": True, "help_text": "Dinky 登录密码"},
+                {"key": "token", "label": "API Token", "type": "password", "required": True,
+                 "help_text": "在 Dinky 系统管理 → 令牌管理 中创建 API Token",
+                 "help_url": "https://dinky.org.cn/docs/next/openapi/openapi_overview"},
             ]},
-            "jwt_login_url": "/api/login",
-            "jwt_request_body_template": '{"username":"{username}","password":"{password}"}',
-            "jwt_response_token_header": "dinky-token",
-            "login_token_source": "header",
-            "login_inject_mode": "header",
-            "login_inject_header_name": "dinky-token",
             "apis": [
-                # 目录管理
-                {"name": "get_catalogue_tree", "display_name": "获取目录树", "method": "POST", "path": "/api/catalogue/getCatalogueTreeData", "description": "获取作业目录树结构"},
-                {"name": "create_catalogue", "display_name": "创建目录", "method": "POST", "path": "/api/catalogue/createCatalogue", "description": "创建新的作业目录"},
-                {"name": "rename_catalogue", "display_name": "重命名目录", "method": "POST", "path": "/api/catalogue/renameCatalogue", "description": "重命名作业目录"},
-                {"name": "delete_catalogue", "display_name": "删除目录", "method": "POST", "path": "/api/catalogue/deleteCatalogue", "description": "删除作业目录"},
-                # 作业管理
-                {"name": "list_tasks", "display_name": "获取作业列表", "method": "GET", "path": "/api/task/list", "description": "获取作业列表，支持分页和筛选"},
-                {"name": "get_task", "display_name": "获取作业详情", "method": "GET", "path": "/api/task/{taskId}", "description": "获取指定作业的详细信息"},
-                {"name": "create_task", "display_name": "创建作业", "method": "POST", "path": "/api/task/createTask", "description": "创建新的 Flink SQL 作业"},
-                {"name": "update_task", "display_name": "更新作业", "method": "POST", "path": "/api/task/updateTask", "description": "更新作业配置或 SQL"},
-                {"name": "delete_task", "display_name": "删除作业", "method": "DELETE", "path": "/api/task/deleteTask", "description": "删除指定作业"},
-                {"name": "execute_task", "display_name": "执行作业", "method": "POST", "path": "/api/task/submitTask", "description": "提交并执行 Flink 作业"},
-                {"name": "cancel_task", "display_name": "取消作业", "method": "POST", "path": "/api/task/cancelTask", "description": "取消正在运行的 Flink 作业"},
-                {"name": "savepoint_task", "display_name": "触发 Savepoint", "method": "POST", "path": "/api/task/savepointTask", "description": "为运行中的作业触发 Savepoint"},
-                {"name": "restart_task", "display_name": "重启作业", "method": "POST", "path": "/api/task/restartTask", "description": "重启 Flink 作业"},
-                # 作业实例
-                {"name": "list_job_instances", "display_name": "获取作业实例", "method": "GET", "path": "/api/task/listJobInstance", "description": "获取作业运行实例列表"},
-                {"name": "get_job_instance", "display_name": "获取实例详情", "method": "GET", "path": "/api/task/getJobInstance", "description": "获取指定作业实例详情"},
-                # Flink 集群
-                {"name": "list_clusters", "display_name": "获取集群列表", "method": "GET", "path": "/api/cluster/list", "description": "获取 Flink 集群列表"},
-                {"name": "get_cluster", "display_name": "获取集群详情", "method": "GET", "path": "/api/cluster/getClusterInfo", "description": "获取指定集群详情"},
-                # 数据源
-                {"name": "list_datasources", "display_name": "获取数据源列表", "method": "GET", "path": "/api/database/list", "description": "获取已注册的数据源列表"},
-                {"name": "test_datasource", "display_name": "测试数据源连接", "method": "POST", "path": "/api/database/testConnect", "description": "测试数据源连接是否正常"},
-                # 告警
-                {"name": "list_alerts", "display_name": "获取告警列表", "method": "GET", "path": "/api/alert/list", "description": "获取告警实例列表"},
-                {"name": "get_alert_history", "display_name": "获取告警历史", "method": "GET", "path": "/api/alert/history", "description": "获取告警历史记录"},
-                # 系统
-                {"name": "get_version", "display_name": "获取版本", "method": "GET", "path": "/api/version", "description": "获取 Dinky 版本信息"},
+                # ── 系统 ──
+                {"name": "version", "display_name": "获取版本", "method": "GET", "path": "/openapi/version",
+                 "description": "获取 Dinky 服务版本号"},
+                # ── 任务提交与管理 ──
+                {"name": "submit_task", "display_name": "提交任务", "method": "POST", "path": "/openapi/submitTask",
+                 "description": "提交 Flink 任务到集群执行（支持 SQL 和 JAR）",
+                 "params": [
+                     {"name": "id", "param_type": "body", "data_type": "integer", "required": True, "description": "Dinky 任务 ID"},
+                     {"name": "isOnline", "param_type": "body", "data_type": "boolean", "required": False, "description": "是否上线（仅允许一个作业运行）"},
+                     {"name": "savePointPath", "param_type": "body", "data_type": "string", "required": False, "description": "SavePoint 路径（从检查点恢复）"},
+                     {"name": "variables", "param_type": "body", "data_type": "object", "required": False, "description": "变量键值对"},
+                 ]},
+                {"name": "restart_task", "display_name": "重启任务", "method": "GET", "path": "/openapi/restartTask",
+                 "description": "从指定 SavePoint 路径重启 Flink 任务",
+                 "params": [
+                     {"name": "id", "param_type": "query", "data_type": "integer", "required": True, "description": "任务 ID"},
+                     {"name": "savePointPath", "param_type": "query", "data_type": "string", "required": False, "description": "SavePoint 路径"},
+                 ]},
+                {"name": "cancel_job", "display_name": "取消 Flink Job", "method": "GET", "path": "/openapi/cancel",
+                 "description": "取消正在运行的 Flink 作业",
+                 "params": [
+                     {"name": "id", "param_type": "query", "data_type": "integer", "required": True, "description": "任务 ID"},
+                     {"name": "withSavePoint", "param_type": "query", "data_type": "boolean", "required": False, "description": "是否携带 SavePoint，默认 false"},
+                     {"name": "forceCancel", "param_type": "query", "data_type": "boolean", "required": False, "description": "是否强制取消，默认 true"},
+                 ]},
+                # ── SQL 分析 ──
+                {"name": "explain_sql", "display_name": "解释 SQL", "method": "POST", "path": "/openapi/explainSql",
+                 "description": "解释 Flink SQL 语句的执行计划，不实际执行",
+                 "params": [
+                     {"name": "statement", "param_type": "body", "data_type": "string", "required": True, "description": "Flink SQL 语句"},
+                     {"name": "clusterName", "param_type": "body", "data_type": "string", "required": False, "description": "集群实例名称"},
+                     {"name": "databaseName", "param_type": "body", "data_type": "string", "required": False, "description": "数据库名称"},
+                     {"name": "envId", "param_type": "body", "data_type": "integer", "required": False, "description": "环境 ID"},
+                     {"name": "fragment", "param_type": "body", "data_type": "boolean", "required": False, "description": "是否为片段模式"},
+                     {"name": "variables", "param_type": "body", "data_type": "object", "required": False, "description": "变量键值对"},
+                 ]},
+                {"name": "get_job_plan", "display_name": "获取执行计划", "method": "POST", "path": "/openapi/getJobPlan",
+                 "description": "获取 Flink 作业的执行计划（Job Graph）",
+                 "params": [
+                     {"name": "statement", "param_type": "body", "data_type": "string", "required": True, "description": "Flink SQL 语句"},
+                     {"name": "clusterName", "param_type": "body", "data_type": "string", "required": False, "description": "集群实例名称"},
+                     {"name": "parallelism", "param_type": "body", "data_type": "integer", "required": False, "description": "并行度"},
+                     {"name": "fragment", "param_type": "body", "data_type": "boolean", "required": False, "description": "是否为片段模式"},
+                 ]},
+                {"name": "get_stream_graph", "display_name": "获取 Stream Graph", "method": "POST", "path": "/openapi/getStreamGraph",
+                 "description": "获取 Flink 作业的 StreamGraph DAG 图",
+                 "params": [
+                     {"name": "statement", "param_type": "body", "data_type": "string", "required": True, "description": "Flink SQL 语句"},
+                     {"name": "clusterName", "param_type": "body", "data_type": "string", "required": False, "description": "集群实例名称"},
+                     {"name": "parallelism", "param_type": "body", "data_type": "integer", "required": False, "description": "并行度"},
+                     {"name": "fragment", "param_type": "body", "data_type": "boolean", "required": False, "description": "是否为片段模式"},
+                 ]},
+                {"name": "export_sql", "display_name": "导出 SQL", "method": "GET", "path": "/openapi/exportSql",
+                 "description": "导出指定任务的 Flink SQL 语句",
+                 "params": [{"name": "id", "param_type": "query", "data_type": "integer", "required": True, "description": "任务 ID"}]},
+                # ── SavePoint ──
+                {"name": "savepoint", "display_name": "触发 Savepoint", "method": "POST", "path": "/openapi/savepoint",
+                 "description": "为运行中的 Flink 作业触发 Savepoint（通过查询参数）",
+                 "params": [
+                     {"name": "taskId", "param_type": "query", "data_type": "integer", "required": True, "description": "Dinky 任务 ID"},
+                     {"name": "savePointType", "param_type": "query", "data_type": "string", "required": True, "description": "SavePoint 类型：TRIGGER/STOP/CANCEL"},
+                 ]},
+                {"name": "savepoint_task", "display_name": "任务级 Savepoint", "method": "POST", "path": "/openapi/savepointTask",
+                 "description": "以任务维度触发 Savepoint（通过请求体）",
+                 "params": [
+                     {"name": "taskId", "param_type": "body", "data_type": "integer", "required": True, "description": "Dinky 任务 ID"},
+                     {"name": "type", "param_type": "body", "data_type": "string", "required": False, "description": "SavePoint 类型：trigger/stop/cancel，默认 trigger"},
+                 ]},
+                # ── 作业实例 ──
+                {"name": "get_job_instance", "display_name": "获取作业实例", "method": "GET", "path": "/openapi/getJobInstance",
+                 "description": "根据 Job Instance ID 获取作业实例详情",
+                 "params": [{"name": "id", "param_type": "query", "data_type": "integer", "required": True, "description": "Job Instance ID"}]},
+                {"name": "get_job_instance_by_task_id", "display_name": "按任务查实例", "method": "GET", "path": "/openapi/getJobInstanceByTaskId",
+                 "description": "根据任务 ID 获取作业实例详情",
+                 "params": [{"name": "id", "param_type": "query", "data_type": "integer", "required": True, "description": "Dinky 任务 ID"}]},
+                {"name": "get_job_instance_list", "display_name": "作业实例列表", "method": "POST", "path": "/openapi/getJobInstanceList",
+                 "description": "分页查询作业实例列表（ProTable 格式）",
+                 "params": [
+                     {"name": "pageSize", "param_type": "body", "data_type": "integer", "required": False, "description": "每页大小"},
+                     {"name": "current", "param_type": "body", "data_type": "integer", "required": False, "description": "当前页码"},
+                 ]},
+                # ── 血缘 ──
+                {"name": "get_task_lineage", "display_name": "获取任务血缘", "method": "GET", "path": "/openapi/getTaskLineage",
+                 "description": "获取指定任务的数据血缘关系",
+                 "params": [{"name": "id", "param_type": "query", "data_type": "integer", "required": True, "description": "任务 ID"}]},
+            ],
+        },
+        {
+            "name": "DolphinScheduler",
+            "category": "scheduler",
+            "description": "Apache DolphinScheduler 分布式工作流调度平台。支持可视化 DAG 编排、30+ 任务类型、定时调度、运维监控。",
+            "base_url": "http://your-ds-host:12345/dolphinscheduler",
+            "auth_type": "bearer",
+            "credential_template": {"fields": [
+                {"key": "token", "label": "Token", "type": "password", "required": True,
+                 "help_text": "在 DolphinScheduler 安全中心 → 令牌管理 中创建 API Token",
+                 "help_url": "https://dolphinscheduler.apache.org/zh-cn/docs/latest/user_guide/token"},
+            ]},
+            "apis": [
+                # ── 项目 ──
+                {"name": "queryAllProjectList", "display_name": "获取项目列表", "method": "GET", "path": "/v2/projects/list",
+                 "description": "获取所有项目列表"},
+                {"name": "createProject", "display_name": "创建项目", "method": "POST", "path": "/v2/projects",
+                 "description": "创建新项目",
+                 "params": [
+                     {"name": "projectName", "param_type": "body", "data_type": "string", "required": True, "description": "项目名称"},
+                     {"name": "description", "param_type": "body", "data_type": "string", "required": False, "description": "项目描述"},
+                 ]},
+                {"name": "queryProjectByCode", "display_name": "获取项目详情", "method": "GET", "path": "/v2/projects/{code}",
+                 "description": "根据项目 Code 获取项目详情",
+                 "params": [{"name": "code", "param_type": "path", "data_type": "integer", "required": True, "description": "项目 Code"}]},
+                {"name": "updateProject", "display_name": "更新项目", "method": "PUT", "path": "/v2/projects/{code}",
+                 "description": "更新项目信息",
+                 "params": [
+                     {"name": "code", "param_type": "path", "data_type": "integer", "required": True, "description": "项目 Code"},
+                     {"name": "projectName", "param_type": "body", "data_type": "string", "required": True, "description": "项目名称"},
+                     {"name": "description", "param_type": "body", "data_type": "string", "required": False, "description": "项目描述"},
+                 ]},
+                {"name": "deleteProject", "display_name": "删除项目", "method": "DELETE", "path": "/v2/projects/{code}",
+                 "description": "删除指定项目",
+                 "params": [{"name": "code", "param_type": "path", "data_type": "integer", "required": True, "description": "项目 Code"}]},
+                # ── 工作流 ──
+                {"name": "filterWorkflows", "display_name": "搜索工作流", "method": "POST", "path": "/v2/workflows/query",
+                 "description": "按条件搜索/过滤工作流定义",
+                 "params": [
+                     {"name": "pageSize", "param_type": "body", "data_type": "integer", "required": True, "description": "每页大小"},
+                     {"name": "pageNo", "param_type": "body", "data_type": "integer", "required": True, "description": "页码"},
+                     {"name": "projectName", "param_type": "body", "data_type": "string", "required": False, "description": "项目名称"},
+                     {"name": "workflowName", "param_type": "body", "data_type": "string", "required": False, "description": "工作流名称"},
+                     {"name": "releaseState", "param_type": "body", "data_type": "string", "required": False, "description": "上线状态：ONLINE/OFFLINE"},
+                 ]},
+                {"name": "createWorkflow", "display_name": "创建工作流", "method": "POST", "path": "/v2/workflows",
+                 "description": "创建新的工作流定义",
+                 "params": [
+                     {"name": "name", "param_type": "body", "data_type": "string", "required": True, "description": "工作流名称"},
+                     {"name": "projectCode", "param_type": "body", "data_type": "integer", "required": True, "description": "项目 Code"},
+                     {"name": "description", "param_type": "body", "data_type": "string", "required": False, "description": "描述"},
+                     {"name": "releaseState", "param_type": "body", "data_type": "string", "required": False, "description": "上线状态：ONLINE/OFFLINE，默认 OFFLINE"},
+                     {"name": "executionType", "param_type": "body", "data_type": "string", "required": False, "description": "执行类型：PARALLEL/SERIAL_WAIT/SERIAL_DISCARD/SERIAL_PRIORITY"},
+                     {"name": "timeout", "param_type": "body", "data_type": "integer", "required": False, "description": "超时时间（秒）"},
+                 ]},
+                {"name": "getWorkflow", "display_name": "获取工作流详情", "method": "GET", "path": "/v2/workflows/{code}",
+                 "description": "获取工作流定义详情（含任务节点）",
+                 "params": [{"name": "code", "param_type": "path", "data_type": "integer", "required": True, "description": "工作流 Code"}]},
+                {"name": "updateWorkflow", "display_name": "更新工作流", "method": "PUT", "path": "/v2/workflows/{code}",
+                 "description": "更新工作流定义",
+                 "params": [
+                     {"name": "code", "param_type": "path", "data_type": "integer", "required": True, "description": "工作流 Code"},
+                     {"name": "name", "param_type": "body", "data_type": "string", "required": False, "description": "工作流名称"},
+                     {"name": "description", "param_type": "body", "data_type": "string", "required": False, "description": "描述"},
+                     {"name": "releaseState", "param_type": "body", "data_type": "string", "required": False, "description": "上线状态：ONLINE/OFFLINE"},
+                     {"name": "executionType", "param_type": "body", "data_type": "string", "required": False, "description": "执行类型：PARALLEL/SERIAL_WAIT/SERIAL_DISCARD/SERIAL_PRIORITY"},
+                     {"name": "timeout", "param_type": "body", "data_type": "integer", "required": False, "description": "超时时间（秒）"},
+                 ]},
+                {"name": "deleteWorkflow", "display_name": "删除工作流", "method": "DELETE", "path": "/v2/workflows/{code}",
+                 "description": "删除工作流定义",
+                 "params": [{"name": "code", "param_type": "path", "data_type": "integer", "required": True, "description": "工作流 Code"}]},
+                # ── 流程实例 ──
+                {"name": "queryWorkflowInstanceListPaging", "display_name": "查询流程实例", "method": "GET", "path": "/v2/workflow-instances",
+                 "description": "分页查询工作流执行实例列表",
+                 "params": [
+                     {"name": "searchVal", "param_type": "query", "data_type": "string", "required": False, "description": "搜索关键字"},
+                     {"name": "pageNo", "param_type": "query", "data_type": "integer", "required": False, "description": "页码，默认 1"},
+                     {"name": "pageSize", "param_type": "query", "data_type": "integer", "required": False, "description": "每页大小，默认 10"},
+                     {"name": "stateType", "param_type": "query", "data_type": "string", "required": False, "description": "状态类型：SUCCESS/FAILURE/STOP/KILL 等"},
+                     {"name": "startDate", "param_type": "query", "data_type": "string", "required": False, "description": "开始日期（yyyy-MM-dd HH:mm:ss）"},
+                     {"name": "endDate", "param_type": "query", "data_type": "string", "required": False, "description": "结束日期（yyyy-MM-dd HH:mm:ss）"},
+                 ]},
+                {"name": "queryWorkflowInstanceById", "display_name": "获取实例详情", "method": "GET", "path": "/v2/workflow-instances/{workflowInstanceId}",
+                 "description": "获取工作流实例的详细信息",
+                 "params": [{"name": "workflowInstanceId", "param_type": "path", "data_type": "integer", "required": True, "description": "流程实例 ID"}]},
+                {"name": "execute", "display_name": "执行操作", "method": "POST", "path": "/v2/workflow-instances/{workflowInstanceId}/execute/{executeType}",
+                 "description": "对流程实例执行操作",
+                 "params": [
+                     {"name": "workflowInstanceId", "param_type": "path", "data_type": "integer", "required": True, "description": "流程实例 ID"},
+                     {"name": "executeType", "param_type": "path", "data_type": "string", "required": True, "description": "执行类型：NONE/REPEAT_RUNNING/RECOVER_SUSPENDED_PROCESS/START_FAILURE_TASK_PROCESS/STOP/PAUSE/EXECUTE_TASK"},
+                 ]},
+                {"name": "deleteWorkflowInstance", "display_name": "删除实例", "method": "DELETE", "path": "/v2/workflow-instances/{workflowInstanceId}",
+                 "description": "删除工作流执行实例",
+                 "params": [{"name": "workflowInstanceId", "param_type": "path", "data_type": "integer", "required": True, "description": "流程实例 ID"}]},
+                # ── 任务定义 ──
+                {"name": "filterTaskDefinition", "display_name": "搜索任务定义", "method": "POST", "path": "/v2/tasks/query",
+                 "description": "按条件搜索/过滤任务定义",
+                 "params": [
+                     {"name": "pageSize", "param_type": "body", "data_type": "integer", "required": True, "description": "每页大小"},
+                     {"name": "pageNo", "param_type": "body", "data_type": "integer", "required": True, "description": "页码"},
+                     {"name": "projectName", "param_type": "body", "data_type": "string", "required": False, "description": "项目名称"},
+                     {"name": "name", "param_type": "body", "data_type": "string", "required": False, "description": "任务名称"},
+                     {"name": "taskType", "param_type": "body", "data_type": "string", "required": False, "description": "任务类型：SHELL/SQL/SPARK/FLINK 等"},
+                 ]},
+                {"name": "createTaskDefinition", "display_name": "创建任务", "method": "POST", "path": "/v2/tasks",
+                 "description": "创建新的任务定义",
+                 "params": [
+                     {"name": "workflowCode", "param_type": "body", "data_type": "integer", "required": True, "description": "所属工作流 Code"},
+                     {"name": "name", "param_type": "body", "data_type": "string", "required": True, "description": "任务名称"},
+                     {"name": "description", "param_type": "body", "data_type": "string", "required": True, "description": "任务描述"},
+                     {"name": "taskType", "param_type": "body", "data_type": "string", "required": True, "description": "任务类型：SHELL/SQL/SPARK/FLINK 等"},
+                     {"name": "taskParams", "param_type": "body", "data_type": "string", "required": True, "description": "任务参数（JSON 字符串）"},
+                     {"name": "flag", "param_type": "body", "data_type": "string", "required": False, "description": "是否启用：YES/NO，默认 YES"},
+                     {"name": "taskPriority", "param_type": "body", "data_type": "string", "required": False, "description": "优先级：HIGHEST/HIGH/MEDIUM/LOW/LOWEST"},
+                     {"name": "workerGroup", "param_type": "body", "data_type": "string", "required": False, "description": "Worker 组，默认 default"},
+                     {"name": "failRetryTimes", "param_type": "body", "data_type": "integer", "required": False, "description": "失败重试次数，默认 0"},
+                     {"name": "failRetryInterval", "param_type": "body", "data_type": "integer", "required": False, "description": "重试间隔（分钟）"},
+                     {"name": "timeout", "param_type": "body", "data_type": "integer", "required": False, "description": "超时时间（秒）"},
+                     {"name": "upstreamTasksCodes", "param_type": "body", "data_type": "string", "required": False, "description": "上游任务 Code（逗号分隔）"},
+                 ]},
+                {"name": "getTaskDefinition", "display_name": "获取任务详情", "method": "GET", "path": "/v2/tasks/{code}",
+                 "description": "获取任务定义详情",
+                 "params": [{"name": "code", "param_type": "path", "data_type": "integer", "required": True, "description": "任务 Code"}]},
+                {"name": "updateTaskDefinition", "display_name": "更新任务", "method": "PUT", "path": "/v2/tasks/{code}",
+                 "description": "更新任务定义",
+                 "params": [
+                     {"name": "code", "param_type": "path", "data_type": "integer", "required": True, "description": "任务 Code"},
+                     {"name": "workflowCode", "param_type": "body", "data_type": "integer", "required": True, "description": "所属工作流 Code"},
+                     {"name": "name", "param_type": "body", "data_type": "string", "required": False, "description": "任务名称"},
+                     {"name": "description", "param_type": "body", "data_type": "string", "required": False, "description": "任务描述"},
+                     {"name": "taskType", "param_type": "body", "data_type": "string", "required": False, "description": "任务类型"},
+                     {"name": "taskParams", "param_type": "body", "data_type": "string", "required": False, "description": "任务参数（JSON 字符串）"},
+                     {"name": "flag", "param_type": "body", "data_type": "string", "required": False, "description": "是否启用：YES/NO"},
+                     {"name": "taskPriority", "param_type": "body", "data_type": "string", "required": False, "description": "优先级"},
+                     {"name": "workerGroup", "param_type": "body", "data_type": "string", "required": False, "description": "Worker 组"},
+                     {"name": "failRetryTimes", "param_type": "body", "data_type": "integer", "required": False, "description": "失败重试次数"},
+                     {"name": "timeout", "param_type": "body", "data_type": "integer", "required": False, "description": "超时时间（秒）"},
+                     {"name": "upstreamTasksCodes", "param_type": "body", "data_type": "string", "required": False, "description": "上游任务 Code（逗号分隔）"},
+                 ]},
+                {"name": "deleteTaskDefinition", "display_name": "删除任务", "method": "DELETE", "path": "/v2/tasks/{code}",
+                 "description": "删除任务定义",
+                 "params": [{"name": "code", "param_type": "path", "data_type": "integer", "required": True, "description": "任务 Code"}]},
+                # ── 任务实例 ──
+                {"name": "queryTaskListPaging", "display_name": "查询任务实例", "method": "GET", "path": "/v2/projects/{projectCode}/task-instances",
+                 "description": "分页查询任务执行实例列表",
+                 "params": [
+                     {"name": "projectCode", "param_type": "path", "data_type": "integer", "required": True, "description": "项目 Code"},
+                     {"name": "searchVal", "param_type": "query", "data_type": "string", "required": False, "description": "搜索关键字"},
+                     {"name": "pageNo", "param_type": "query", "data_type": "integer", "required": False, "description": "页码，默认 1"},
+                     {"name": "pageSize", "param_type": "query", "data_type": "integer", "required": False, "description": "每页大小，默认 10"},
+                     {"name": "stateType", "param_type": "query", "data_type": "string", "required": False, "description": "状态类型：SUCCESS/FAILURE/STOP 等"},
+                     {"name": "taskName", "param_type": "query", "data_type": "string", "required": False, "description": "任务实例名"},
+                     {"name": "startDate", "param_type": "query", "data_type": "string", "required": False, "description": "开始日期"},
+                     {"name": "endDate", "param_type": "query", "data_type": "string", "required": False, "description": "结束日期"},
+                 ]},
+                {"name": "queryTaskInstanceByCode", "display_name": "获取任务实例详情", "method": "POST", "path": "/v2/projects/{projectCode}/task-instances/{taskInstanceId}",
+                 "description": "获取任务实例的详细信息",
+                 "params": [
+                     {"name": "projectCode", "param_type": "path", "data_type": "integer", "required": True, "description": "项目 Code"},
+                     {"name": "taskInstanceId", "param_type": "path", "data_type": "integer", "required": True, "description": "任务实例 ID"},
+                 ]},
+                {"name": "stopTask", "display_name": "停止任务实例", "method": "POST", "path": "/v2/projects/{projectCode}/task-instances/{id}/stop",
+                 "description": "停止正在运行的任务实例",
+                 "params": [
+                     {"name": "projectCode", "param_type": "path", "data_type": "integer", "required": True, "description": "项目 Code"},
+                     {"name": "id", "param_type": "path", "data_type": "integer", "required": True, "description": "任务实例 ID"},
+                 ]},
+                {"name": "taskSavePoint", "display_name": "任务 Savepoint", "method": "POST", "path": "/v2/projects/{projectCode}/task-instances/{id}/savepoint",
+                 "description": "为任务实例触发 Savepoint",
+                 "params": [
+                     {"name": "projectCode", "param_type": "path", "data_type": "integer", "required": True, "description": "项目 Code"},
+                     {"name": "id", "param_type": "path", "data_type": "integer", "required": True, "description": "任务实例 ID"},
+                 ]},
+                {"name": "forceTaskSuccess", "display_name": "强制成功", "method": "POST", "path": "/v2/projects/{projectCode}/task-instances/{id}/force-success",
+                 "description": "强制将任务实例标记为成功",
+                 "params": [
+                     {"name": "projectCode", "param_type": "path", "data_type": "integer", "required": True, "description": "项目 Code"},
+                     {"name": "id", "param_type": "path", "data_type": "integer", "required": True, "description": "任务实例 ID"},
+                 ]},
+                # ── 调度 ──
+                {"name": "filterSchedule", "display_name": "搜索定时调度", "method": "POST", "path": "/v2/schedules/filter",
+                 "description": "按条件搜索定时调度配置",
+                 "params": [
+                     {"name": "pageSize", "param_type": "body", "data_type": "integer", "required": True, "description": "每页大小"},
+                     {"name": "pageNo", "param_type": "body", "data_type": "integer", "required": True, "description": "页码"},
+                     {"name": "projectName", "param_type": "body", "data_type": "string", "required": False, "description": "项目名称"},
+                     {"name": "processDefinitionName", "param_type": "body", "data_type": "string", "required": False, "description": "工作流名称"},
+                     {"name": "releaseState", "param_type": "body", "data_type": "string", "required": False, "description": "上线状态：ONLINE/OFFLINE"},
+                 ]},
+                {"name": "createSchedule", "display_name": "创建调度", "method": "POST", "path": "/v2/schedules",
+                 "description": "为工作流创建定时调度",
+                 "params": [
+                     {"name": "processDefinitionCode", "param_type": "body", "data_type": "integer", "required": True, "description": "工作流 Code"},
+                     {"name": "crontab", "param_type": "body", "data_type": "string", "required": True, "description": "Cron 表达式（如 0 0 * * * ?）"},
+                     {"name": "startTime", "param_type": "body", "data_type": "string", "required": True, "description": "生效开始时间（yyyy-MM-dd HH:mm:ss）"},
+                     {"name": "endTime", "param_type": "body", "data_type": "string", "required": True, "description": "生效结束时间（yyyy-MM-dd HH:mm:ss）"},
+                     {"name": "timezoneId", "param_type": "body", "data_type": "string", "required": True, "description": "时区（如 Asia/Shanghai）"},
+                     {"name": "failureStrategy", "param_type": "body", "data_type": "string", "required": False, "description": "失败策略：CONTINUE/END，默认 CONTINUE"},
+                     {"name": "releaseState", "param_type": "body", "data_type": "string", "required": False, "description": "上线状态：ONLINE/OFFLINE，默认 OFFLINE"},
+                     {"name": "warningType", "param_type": "body", "data_type": "string", "required": False, "description": "告警类型：NONE/SUCCESS/FAILURE/ALL"},
+                     {"name": "processInstancePriority", "param_type": "body", "data_type": "string", "required": False, "description": "优先级：HIGHEST/HIGH/MEDIUM/LOW/LOWEST"},
+                     {"name": "workerGroup", "param_type": "body", "data_type": "string", "required": False, "description": "Worker 组"},
+                     {"name": "tenantCode", "param_type": "body", "data_type": "string", "required": False, "description": "租户编码"},
+                 ]},
+                {"name": "getSchedule", "display_name": "获取调度详情", "method": "GET", "path": "/v2/schedules/{id}",
+                 "description": "获取定时调度的详细配置",
+                 "params": [{"name": "id", "param_type": "path", "data_type": "integer", "required": True, "description": "调度 ID"}]},
+                {"name": "updateSchedule", "display_name": "更新调度", "method": "PUT", "path": "/v2/schedules/{id}",
+                 "description": "更新定时调度配置",
+                 "params": [
+                     {"name": "id", "param_type": "path", "data_type": "integer", "required": True, "description": "调度 ID"},
+                     {"name": "crontab", "param_type": "body", "data_type": "string", "required": True, "description": "Cron 表达式"},
+                     {"name": "startTime", "param_type": "body", "data_type": "string", "required": True, "description": "生效开始时间"},
+                     {"name": "endTime", "param_type": "body", "data_type": "string", "required": True, "description": "生效结束时间"},
+                     {"name": "timezoneId", "param_type": "body", "data_type": "string", "required": True, "description": "时区"},
+                     {"name": "failureStrategy", "param_type": "body", "data_type": "string", "required": False, "description": "失败策略：CONTINUE/END"},
+                     {"name": "releaseState", "param_type": "body", "data_type": "string", "required": False, "description": "上线状态：ONLINE/OFFLINE"},
+                     {"name": "warningType", "param_type": "body", "data_type": "string", "required": False, "description": "告警类型：NONE/SUCCESS/FAILURE/ALL"},
+                     {"name": "processInstancePriority", "param_type": "body", "data_type": "string", "required": False, "description": "优先级"},
+                     {"name": "workerGroup", "param_type": "body", "data_type": "string", "required": False, "description": "Worker 组"},
+                 ]},
+                {"name": "deleteSchedule", "display_name": "删除调度", "method": "DELETE", "path": "/v2/schedules/{id}",
+                 "description": "删除定时调度",
+                 "params": [{"name": "id", "param_type": "path", "data_type": "integer", "required": True, "description": "调度 ID"}]},
+                # ── 队列 ──
+                {"name": "queryList", "display_name": "获取队列列表", "method": "GET", "path": "/v2/queues/list",
+                 "description": "获取所有队列列表"},
+                # ── 任务关系 ──
+                {"name": "createTaskRelation", "display_name": "创建任务关系", "method": "POST", "path": "/v2/relations",
+                 "description": "创建工作流中的任务依赖关系",
+                 "params": [
+                     {"name": "workflowCode", "param_type": "body", "data_type": "integer", "required": True, "description": "工作流 Code"},
+                     {"name": "preTaskCode", "param_type": "body", "data_type": "integer", "required": True, "description": "上游任务 Code"},
+                     {"name": "postTaskCode", "param_type": "body", "data_type": "integer", "required": True, "description": "下游任务 Code"},
+                     {"name": "projectCode", "param_type": "body", "data_type": "integer", "required": False, "description": "项目 Code"},
+                 ]},
+                {"name": "updateUpstreamTaskDefinition", "display_name": "更新上游依赖", "method": "PUT", "path": "/v2/relations/{code}",
+                 "description": "更新任务的上游依赖关系",
+                 "params": [
+                     {"name": "code", "param_type": "path", "data_type": "integer", "required": True, "description": "下游任务 Code"},
+                     {"name": "pageSize", "param_type": "body", "data_type": "integer", "required": True, "description": "每页大小"},
+                     {"name": "pageNo", "param_type": "body", "data_type": "integer", "required": True, "description": "页码"},
+                     {"name": "workflowCode", "param_type": "body", "data_type": "integer", "required": False, "description": "工作流 Code"},
+                     {"name": "upstreams", "param_type": "body", "data_type": "string", "required": True, "description": "上游任务 Code 列表（逗号分隔）"},
+                 ]},
+                {"name": "deleteTaskRelation", "display_name": "删除任务关系", "method": "DELETE", "path": "/v2/relations/{code-pair}",
+                 "description": "删除任务间的依赖关系",
+                 "params": [{"name": "code-pair", "param_type": "path", "data_type": "string", "required": True, "description": "任务关系 Code 对"}]},
+                # ── 统计 ──
+                {"name": "queryWorkflowStatesCounts", "display_name": "工作流状态统计", "method": "GET", "path": "/v2/statistics/workflows/states/count",
+                 "description": "查询所有工作流的状态统计"},
+            ],
+        },
+        {
+            "name": "Apache Doris",
+            "category": "compute",
+            "description": "Apache Doris 实时分析数据库。支持高并发低延迟的即席查询，兼容 MySQL 协议。"
+                           "通过 FE HTTP API（端口 8030）提供集群管理、SQL 执行、查询分析；"
+                           "通过 BE HTTP API（端口 8040）提供 Tablet 管理、Compaction、运维诊断。"
+                           "BE 接口需将 base_url 指向 BE 节点地址。",
+            "base_url": "http://your-fe-host:8030",
+            "auth_type": "basic",
+            "credential_template": {"fields": [
+                {"key": "username", "label": "用户名", "type": "text", "required": True, "help_text": "Doris FE 用户名（需在 fe.conf 中启用 enable_all_http_auth=true）"},
+                {"key": "password", "label": "密码", "type": "password", "required": True, "help_text": "Doris FE 密码"},
+            ]},
+            "apis": [
+                # ── 集群概览 ──
+                {"name": "health", "display_name": "健康检查", "method": "GET", "path": "/api/health",
+                 "description": "检查 FE 健康状态，返回在线 BE 节点数"},
+                {"name": "cluster_overview", "display_name": "集群概览", "method": "GET", "path": "/rest/v2/api/cluster_overview",
+                 "description": "获取集群统计：数据库数、表数、BE 数、磁盘使用等"},
+                {"name": "cluster_conn_info", "display_name": "连接信息", "method": "GET", "path": "/rest/v2/manager/cluster/cluster_info/conn_info",
+                 "description": "获取集群 HTTP 和 MySQL 连接地址"},
+                {"name": "fe_version", "display_name": "FE 版本", "method": "GET", "path": "/api/fe_version_info",
+                 "description": "获取 FE 版本信息（构建版本、Git 哈希、构建时间）"},
+                # ── 节点管理 ──
+                {"name": "list_backends", "display_name": "BE 节点列表", "method": "GET", "path": "/api/backends",
+                 "description": "获取所有 Backend 节点列表（IP、端口、状态）",
+                 "params": [{"name": "is_alive", "param_type": "query", "data_type": "boolean", "required": False, "description": "true 仅返回存活节点，默认 false 返回全部"}]},
+                {"name": "list_frontends", "display_name": "FE 节点列表", "method": "GET", "path": "/rest/v2/manager/node/frontends",
+                 "description": "获取所有 Frontend 节点列表"},
+                {"name": "list_brokers", "display_name": "Broker 列表", "method": "GET", "path": "/rest/v2/manager/node/brokers",
+                 "description": "获取所有 Broker 节点列表"},
+                {"name": "node_list", "display_name": "节点总览", "method": "GET", "path": "/rest/v2/manager/node/node_list",
+                 "description": "获取集群所有节点列表"},
+                {"name": "operate_be", "display_name": "操作 BE 节点", "method": "POST", "path": "/rest/v2/manager/node/{action}/be",
+                 "description": "添加/删除/下线 BE 节点（action: ADD/DROP/DECOMMISSION）",
+                 "params": [{"name": "action", "param_type": "path", "data_type": "string", "required": True, "description": "操作类型：ADD/DROP/DECOMMISSION"}]},
+                {"name": "operate_fe", "display_name": "操作 FE 节点", "method": "POST", "path": "/rest/v2/manager/node/{action}/fe",
+                 "description": "添加/删除 FE 节点（action: ADD/DROP）",
+                 "params": [{"name": "action", "param_type": "path", "data_type": "string", "required": True, "description": "操作类型：ADD/DROP"}]},
+                # ── SQL 执行 ──
+                {"name": "execute_sql", "display_name": "执行 SQL", "method": "POST", "path": "/api/query/{ns_name}/{db_name}",
+                 "description": "执行 SQL 语句（SELECT/SHOW/INSERT 等），返回结果集或执行状态",
+                 "params": [
+                     {"name": "ns_name", "param_type": "path", "data_type": "string", "required": True, "description": "命名空间（通常为 default_cluster）"},
+                     {"name": "db_name", "param_type": "path", "data_type": "string", "required": True, "description": "默认数据库名"},
+                     {"name": "stmt", "param_type": "body", "data_type": "string", "required": True, "description": "要执行的 SQL 语句"},
+                 ]},
+                # ── 查询分析 ──
+                {"name": "current_queries", "display_name": "当前查询", "method": "GET", "path": "/rest/v2/manager/query/current_queries",
+                 "description": "获取当前正在运行的查询列表",
+                 "params": [{"name": "is_all_node", "param_type": "query", "data_type": "boolean", "required": False, "description": "是否查询所有 FE 节点，默认 true"}]},
+                {"name": "query_info", "display_name": "查询详情", "method": "GET", "path": "/rest/v2/manager/query/query_info",
+                 "description": "获取查询信息，支持按 query_id 或关键字搜索",
+                 "params": [
+                     {"name": "query_id", "param_type": "query", "data_type": "string", "required": False, "description": "指定查询 ID"},
+                     {"name": "search", "param_type": "query", "data_type": "string", "required": False, "description": "搜索关键字"},
+                     {"name": "is_all_node", "param_type": "query", "data_type": "boolean", "required": False, "description": "是否查询所有 FE，默认 true"},
+                 ]},
+                {"name": "query_sql", "display_name": "查询 SQL", "method": "GET", "path": "/rest/v2/manager/query/sql/{query_id}",
+                 "description": "获取指定查询执行的 SQL 语句",
+                 "params": [{"name": "query_id", "param_type": "path", "data_type": "string", "required": True, "description": "查询 ID"}]},
+                {"name": "query_profile_text", "display_name": "Profile 文本", "method": "GET", "path": "/rest/v2/manager/query/profile/text/{query_id}",
+                 "description": "获取查询 Profile 文本格式（用于性能分析）",
+                 "params": [{"name": "query_id", "param_type": "path", "data_type": "string", "required": True, "description": "查询 ID"}]},
+                {"name": "query_profile_graph", "display_name": "Profile 图", "method": "GET", "path": "/rest/v2/manager/query/profile/graph/{query_id}",
+                 "description": "获取查询 Profile 图形化执行树",
+                 "params": [{"name": "query_id", "param_type": "path", "data_type": "string", "required": True, "description": "查询 ID"}]},
+                {"name": "kill_query", "display_name": "取消查询", "method": "POST", "path": "/rest/v2/manager/query/kill/{query_id}",
+                 "description": "取消正在执行的查询",
+                 "params": [{"name": "query_id", "param_type": "path", "data_type": "string", "required": True, "description": "查询 ID"}]},
+                {"name": "query_stats", "display_name": "查询统计", "method": "GET", "path": "/api/query_stats/{catalog_name}",
+                 "description": "获取指定 Catalog 的查询统计信息",
+                 "params": [
+                     {"name": "catalog_name", "param_type": "path", "data_type": "string", "required": True, "description": "Catalog 名（Doris 内表用 default_cluster）"},
+                     {"name": "summary", "param_type": "query", "data_type": "boolean", "required": False, "description": "true 仅返回摘要，false 返回详细统计"},
+                 ]},
+                # ── 表与数据 ──
+                {"name": "table_schema", "display_name": "表结构", "method": "GET", "path": "/api/{db}/{table}/_schema",
+                 "description": "获取指定表的 Schema 信息（列名、类型等）",
+                 "params": [
+                     {"name": "db", "param_type": "path", "data_type": "string", "required": True, "description": "数据库名"},
+                     {"name": "table", "param_type": "path", "data_type": "string", "required": True, "description": "表名"},
+                 ]},
+                {"name": "get_ddl", "display_name": "获取 DDL", "method": "GET", "path": "/api/_get_ddl",
+                 "description": "获取表的建表语句（DDL）",
+                 "params": [
+                     {"name": "db", "param_type": "query", "data_type": "string", "required": True, "description": "数据库名"},
+                     {"name": "table", "param_type": "query", "data_type": "string", "required": True, "description": "表名"},
+                 ]},
+                {"name": "show_data", "display_name": "数据量", "method": "GET", "path": "/api/show_data",
+                 "description": "获取数据库的数据量（字节）",
+                 "params": [{"name": "db", "param_type": "query", "data_type": "string", "required": False, "description": "指定数据库名，不指定返回总量"}]},
+                {"name": "show_table_data", "display_name": "表数据量", "method": "GET", "path": "/api/show_table_data",
+                 "description": "获取各表的数据量（字节），支持按库/表筛选",
+                 "params": [
+                     {"name": "db", "param_type": "query", "data_type": "string", "required": False, "description": "指定数据库名"},
+                     {"name": "table", "param_type": "query", "data_type": "string", "required": False, "description": "指定表名"},
+                     {"name": "single_replica", "param_type": "query", "data_type": "boolean", "required": False, "description": "是否返回单副本数据量"},
+                 ]},
+                {"name": "query_plan", "display_name": "查询计划", "method": "POST", "path": "/api/{db}/{table}/_query_plan",
+                 "description": "获取 SQL 语句的查询执行计划",
+                 "params": [
+                     {"name": "db", "param_type": "path", "data_type": "string", "required": True, "description": "数据库名"},
+                     {"name": "table", "param_type": "path", "data_type": "string", "required": True, "description": "表名"},
+                     {"name": "sql", "param_type": "body", "data_type": "string", "required": True, "description": "要分析的 SQL 语句"},
+                 ]},
+                # ── 加载任务 ──
+                {"name": "load_info", "display_name": "加载任务详情", "method": "GET", "path": "/api/{db}/_load_info",
+                 "description": "获取指定 Label 的数据加载任务详情",
+                 "params": [
+                     {"name": "db", "param_type": "path", "data_type": "string", "required": True, "description": "数据库名"},
+                     {"name": "label", "param_type": "query", "data_type": "string", "required": True, "description": "加载任务 Label"},
+                 ]},
+                # ── 会话 ──
+                {"name": "session_info", "display_name": "当前会话", "method": "GET", "path": "/rest/v1/session",
+                 "description": "获取当前 FE 的会话信息"},
+                {"name": "all_sessions", "display_name": "所有会话", "method": "GET", "path": "/rest/v1/session/all",
+                 "description": "获取所有 FE 的会话信息"},
+                {"name": "connection_info", "display_name": "连接详情", "method": "GET", "path": "/api/connection",
+                 "description": "根据连接 ID 获取当前执行的查询 ID",
+                 "params": [{"name": "connection_id", "param_type": "query", "data_type": "string", "required": True, "description": "连接 ID（通过 MySQL show processlist 获取）"}]},
+                # ── 配置 ──
+                {"name": "get_fe_config", "display_name": "FE 配置", "method": "GET", "path": "/rest/v1/config/fe/",
+                 "description": "获取当前 FE 配置信息"},
+                {"name": "set_config", "display_name": "修改配置", "method": "GET", "path": "/api/_set_config",
+                 "description": "修改 FE 配置项（通过 query 参数传 key=value）",
+                 "params": [
+                     {"name": "persist", "param_type": "query", "data_type": "boolean", "required": False, "description": "是否持久化，默认 false"},
+                     {"name": "reset_persist", "param_type": "query", "data_type": "boolean", "required": False, "description": "是否清除原有持久化配置，默认 true"},
+                 ]},
+                {"name": "get_config_info", "display_name": "节点配置", "method": "POST", "path": "/rest/v2/manager/node/configuration_info",
+                 "description": "获取 FE/BE 节点的配置信息",
+                 "params": [
+                     {"name": "type", "param_type": "query", "data_type": "string", "required": True, "description": "节点类型：fe/be"},
+                     {"name": "conf_name", "param_type": "body", "data_type": "string", "required": False, "description": "指定配置项名称列表"},
+                     {"name": "node", "param_type": "body", "data_type": "string", "required": False, "description": "指定节点列表"},
+                 ]},
+                {"name": "set_fe_config_v2", "display_name": "修改 FE 配置", "method": "POST", "path": "/rest/v2/manager/node/set_config/fe",
+                 "description": "批量修改 FE 节点配置（支持指定节点、持久化）"},
+                {"name": "set_be_config", "display_name": "修改 BE 配置", "method": "POST", "path": "/rest/v2/manager/node/set_config/be",
+                 "description": "批量修改 BE 节点配置"},
+                # ── 运维 ──
+                {"name": "runtime_info", "display_name": "运行时信息", "method": "GET", "path": "/api/show_runtime_info",
+                 "description": "获取 FE JVM 运行时信息（内存、线程）"},
+                {"name": "colocate_info", "display_name": "Colocate 信息", "method": "GET", "path": "/api/colocate",
+                 "description": "获取 Colocate Group 信息（表亲和性分组）",
+                 "params": [
+                     {"name": "db_id", "param_type": "query", "data_type": "integer", "required": False, "description": "指定数据库 ID"},
+                     {"name": "group_id", "param_type": "query", "data_type": "integer", "required": False, "description": "指定 Group ID"},
+                 ]},
+                # ── BE 节点管理（需将 base_url 指向 BE:8040）──
+                {"name": "be_health", "display_name": "BE 健康检查", "method": "GET", "path": "/api/health",
+                 "description": "检查 BE 节点存活状态"},
+                {"name": "be_version", "display_name": "BE 版本", "method": "GET", "path": "/api/be_version_info",
+                 "description": "获取 BE 版本信息"},
+                {"name": "be_config", "display_name": "BE 配置", "method": "GET", "path": "/api/show_config",
+                 "description": "获取 BE 配置项列表"},
+                {"name": "be_set_config", "display_name": "修改 BE 配置", "method": "POST", "path": "/api/update_config",
+                 "description": "修改 BE 配置项（通过 query 参数传 key=value）",
+                 "params": [
+                     {"name": "persist", "param_type": "query", "data_type": "boolean", "required": False, "description": "是否持久化，默认 false"},
+                 ]},
+                {"name": "be_metrics", "display_name": "BE 指标", "method": "GET", "path": "/metrics",
+                 "description": "获取 BE 指标信息（兼容 Prometheus 格式）",
+                 "params": [
+                     {"name": "type", "param_type": "query", "data_type": "string", "required": False, "description": "输出格式：core（仅核心项）/json，默认 all"},
+                     {"name": "with_tablet", "param_type": "query", "data_type": "boolean", "required": False, "description": "是否输出 Tablet 相关指标，默认 false"},
+                 ]},
+                # ── BE Compaction ──
+                {"name": "compaction_status", "display_name": "Compaction 状态", "method": "GET", "path": "/api/compaction/run_status",
+                 "description": "查看 BE 节点整体 Compaction 状态",
+                 "params": [{"name": "tablet_id", "param_type": "query", "data_type": "integer", "required": False, "description": "指定 Tablet ID 查看单个 Tablet 状态"}]},
+                {"name": "compaction_show", "display_name": "Tablet Compaction", "method": "GET", "path": "/api/compaction/show",
+                 "description": "查看指定 Tablet 的 Compaction 状态",
+                 "params": [{"name": "tablet_id", "param_type": "query", "data_type": "integer", "required": True, "description": "Tablet ID"}]},
+                {"name": "compaction_run", "display_name": "触发 Compaction", "method": "POST", "path": "/api/compaction/run",
+                 "description": "手动触发 Tablet Compaction",
+                 "params": [
+                     {"name": "tablet_id", "param_type": "query", "data_type": "integer", "required": False, "description": "Tablet ID"},
+                     {"name": "table_id", "param_type": "query", "data_type": "integer", "required": False, "description": "Table ID（compact_type=full 时有效）"},
+                     {"name": "compact_type", "param_type": "query", "data_type": "string", "required": True, "description": "压缩类型：base/cumulative/full"},
+                 ]},
+                # ── BE Tablet 管理 ──
+                {"name": "tablet_info", "display_name": "Tablet 信息", "method": "GET", "path": "/tablets_json",
+                 "description": "获取 BE 上的 Tablet 列表",
+                 "params": [{"name": "limit", "param_type": "query", "data_type": "string", "required": False, "description": "输出数量限制，默认 1000，all 输出全部"}]},
+                {"name": "tablet_distribution", "display_name": "Tablet 分布", "method": "GET", "path": "/api/tablets_distribution",
+                 "description": "查看 Tablet 在各磁盘间的分布情况",
+                 "params": [
+                     {"name": "group_by", "param_type": "query", "data_type": "string", "required": True, "description": "分组方式（仅支持 partition）"},
+                     {"name": "partition_id", "param_type": "query", "data_type": "integer", "required": False, "description": "指定分区 ID，不指定返回全部"},
+                 ]},
+                {"name": "tablet_meta", "display_name": "Tablet 元数据", "method": "GET", "path": "/api/meta/header/{tablet_id}",
+                 "description": "获取指定 Tablet 的元数据头信息",
+                 "params": [{"name": "tablet_id", "param_type": "path", "data_type": "integer", "required": True, "description": "Tablet ID"}]},
+                {"name": "tablet_checksum", "display_name": "Tablet 校验", "method": "GET", "path": "/api/checksum",
+                 "description": "计算 Tablet 的校验和",
+                 "params": [
+                     {"name": "tablet_id", "param_type": "query", "data_type": "integer", "required": True, "description": "Tablet ID"},
+                     {"name": "version", "param_type": "query", "data_type": "integer", "required": True, "description": "版本号"},
+                     {"name": "schema_hash", "param_type": "query", "data_type": "integer", "required": True, "description": "Schema Hash"},
+                 ]},
+                {"name": "tablet_snapshot", "display_name": "创建快照", "method": "GET", "path": "/api/snapshot",
+                 "description": "为 Tablet 创建快照",
+                 "params": [
+                     {"name": "tablet_id", "param_type": "query", "data_type": "integer", "required": True, "description": "Tablet ID"},
+                     {"name": "schema_hash", "param_type": "query", "data_type": "integer", "required": True, "description": "Schema Hash"},
+                 ]},
+                {"name": "tablet_reload", "display_name": "重载 Tablet", "method": "GET", "path": "/api/reload_tablet",
+                 "description": "重新加载 Tablet 数据",
+                 "params": [
+                     {"name": "tablet_id", "param_type": "query", "data_type": "integer", "required": True, "description": "Tablet ID"},
+                     {"name": "schema_hash", "param_type": "query", "data_type": "integer", "required": True, "description": "Schema Hash"},
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "数据文件路径"},
+                 ]},
+                {"name": "tablet_restore", "display_name": "恢复 Tablet", "method": "POST", "path": "/api/restore_tablet",
+                 "description": "从回收站恢复 Tablet 数据",
+                 "params": [
+                     {"name": "tablet_id", "param_type": "query", "data_type": "integer", "required": True, "description": "Tablet ID"},
+                     {"name": "schema_hash", "param_type": "query", "data_type": "integer", "required": True, "description": "Schema Hash"},
+                 ]},
+                {"name": "tablet_migration", "display_name": "Tablet 迁移", "method": "GET", "path": "/api/tablet_migration",
+                 "description": "提交或查看 Tablet 迁移任务",
+                 "params": [
+                     {"name": "goal", "param_type": "query", "data_type": "string", "required": True, "description": "操作：run（提交迁移）/status（查看状态）"},
+                     {"name": "tablet_id", "param_type": "query", "data_type": "integer", "required": True, "description": "Tablet ID"},
+                     {"name": "schema_hash", "param_type": "query", "data_type": "integer", "required": True, "description": "Schema Hash"},
+                     {"name": "disk", "param_type": "query", "data_type": "string", "required": True, "description": "目标磁盘路径"},
+                 ]},
+                {"name": "check_segment_lost", "display_name": "Segment 检查", "method": "GET", "path": "/api/check_tablet_segment_lost",
+                 "description": "检查所有丢失 Segment 的 Tablet",
+                 "params": [{"name": "repair", "param_type": "query", "data_type": "boolean", "required": False, "description": "true 将异常 Tablet 设为 SHUTDOWN 以便 FE 自动修复，false 仅返回列表"}]},
+                {"name": "pad_rowset", "display_name": "补齐 Rowset", "method": "POST", "path": "/api/pad_rowset",
+                 "description": "为空缺版本补齐空 Rowset（修复副本异常）",
+                 "params": [
+                     {"name": "tablet_id", "param_type": "query", "data_type": "integer", "required": True, "description": "Tablet ID"},
+                     {"name": "start_version", "param_type": "query", "data_type": "integer", "required": True, "description": "起始版本"},
+                     {"name": "end_version", "param_type": "query", "data_type": "integer", "required": True, "description": "结束版本"},
+                 ]},
+                # ── BE RPC ──
+                {"name": "check_rpc", "display_name": "检查 RPC 通道", "method": "GET", "path": "/api/check_rpc_channel/{host}/{port}/{size}",
+                 "description": "检查与指定节点的 RPC 连接缓存是否可用",
+                 "params": [
+                     {"name": "host", "param_type": "path", "data_type": "string", "required": True, "description": "目标主机"},
+                     {"name": "port", "param_type": "path", "data_type": "integer", "required": True, "description": "BRPC 端口"},
+                     {"name": "size", "param_type": "path", "data_type": "integer", "required": True, "description": "负载大小（字节，1~1024000）"},
+                 ]},
+                {"name": "reset_rpc", "display_name": "重置 RPC 缓存", "method": "GET", "path": "/api/reset_rpc_channel/{endpoints}",
+                 "description": "重置 BRPC 连接缓存（all 或指定 endpoint 列表）",
+                 "params": [{"name": "endpoints", "param_type": "path", "data_type": "string", "required": True, "description": "all 或 host1:port1,host2:port2"}]},
+                # ── BE 日志 ──
+                {"name": "load_error_log", "display_name": "加载错误日志", "method": "GET", "path": "/api/_load_error_log",
+                 "description": "下载数据加载错误日志",
+                 "params": [
+                     {"name": "file", "param_type": "query", "data_type": "string", "required": True, "description": "日志文件路径"},
+                     {"name": "token", "param_type": "query", "data_type": "string", "required": True, "description": "认证令牌"},
+                 ]},
+                {"name": "adjust_vlog", "display_name": "调整 VLOG 级别", "method": "POST", "path": "/api/glog/adjust",
+                 "description": "动态调整 BE 模块的 VLOG 日志级别",
+                 "params": [
+                     {"name": "module", "param_type": "query", "data_type": "string", "required": True, "description": "模块名（对应 BE 无后缀文件名）"},
+                     {"name": "level", "param_type": "query", "data_type": "integer", "required": True, "description": "VLOG 级别（1~10，-1 关闭）"},
+                 ]},
             ],
         },
     ]
-
-    # 合并大数据生态预设
-    PRESETS.extend(ALL_BIGDATA_PRESETS)
 
     with create_db_session() as db:
         existing = {s.name for s in db.execute(select(ExternalSystemModel)).scalars().all()}
@@ -1877,12 +2410,40 @@ def seed_preset_external_systems() -> None:
         updated_count = 0
         for preset in PRESETS:
             if preset["name"] in existing:
-                # 更新已有系统的分类（如果还是默认值）
+                # 更新已有系统的分类和 API 参数
                 sys = db.scalar(select(ExternalSystemModel).where(ExternalSystemModel.name == preset["name"]))
+                if not sys:
+                    continue
                 preset_cat = preset.get("category", "other")
-                if sys and sys.category == "other" and preset_cat != "other":
+                if sys.category == "other" and preset_cat != "other":
                     sys.category = preset_cat
                     updated_count += 1
+                # 同步 API 参数：删除旧参数，从预设重建
+                preset_apis = {a["name"]: a for a in preset.get("apis", [])}
+                for api in db.execute(
+                    select(ExternalApiModel).where(ExternalApiModel.system_id == sys.id)
+                ).scalars().all():
+                    api_def = preset_apis.get(api.name)
+                    if api_def:
+                        # 更新路径和方法
+                        api.path = api_def["path"]
+                        api.method = api_def["method"]
+                        api.description = api_def.get("description", "")
+                        api.display_name = api_def["display_name"]
+                        # 删除旧参数，重建
+                        db.query(ExternalApiParamModel).filter(ExternalApiParamModel.api_id == api.id).delete()
+                        for p in api_def.get("params", []):
+                            db.add(ExternalApiParamModel(
+                                api_id=api.id,
+                                name=p["name"],
+                                param_type=p["param_type"],
+                                data_type=p.get("data_type", "string"),
+                                required=p.get("required", False),
+                                description=p.get("description", ""),
+                                default_value=p.get("default_value"),
+                                param_source=p.get("param_source", "static"),
+                                label=p.get("label"),
+                            ))
                 continue
             system = ExternalSystemModel(
                 name=preset["name"],
@@ -1919,6 +2480,20 @@ def seed_preset_external_systems() -> None:
                     timeout_seconds=30,
                 )
                 db.add(api)
+                db.flush()
+                # 创建 API 参数
+                for p in api_def.get("params", []):
+                    db.add(ExternalApiParamModel(
+                        api_id=api.id,
+                        name=p["name"],
+                        param_type=p["param_type"],
+                        data_type=p.get("data_type", "string"),
+                        required=p.get("required", False),
+                        description=p.get("description", ""),
+                        default_value=p.get("default_value"),
+                        param_source=p.get("param_source", "static"),
+                        label=p.get("label"),
+                    ))
             created_count += 1
         if created_count > 0 or updated_count > 0:
             db.commit()

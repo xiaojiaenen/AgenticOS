@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart3, BellRing, Bot, Brain, LogOut, MessageCircle, MessageSquare, Plug, Puzzle, Users } from 'lucide-react';
+import { BarChart3, BellRing, Bot, Brain, LogOut, MessageCircle, MessageSquare, Plug, Puzzle, Settings, Users } from 'lucide-react';
 import { LiquidGlass, glassPresets } from '@xiaojiaenen/liquid-glass';
 import { Logo } from '../Logo';
 import { MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
@@ -26,6 +26,7 @@ const navItems = [
  { id: 'integrations', icon: Plug, label: '集成管理', description: '管理第三方集成与 API 接口' },
  { id: 'announcements', icon: BellRing, label: '公告设计', description: '设计用户进入系统时看到的公告' },
  { id: 'memory', icon: Brain, label: '记忆管理', description: '查看和管理 AI 学到的用户记忆' },
+ { id: 'settings', icon: Settings, label: '系统设置', description: '管理 LDAP 认证等系统配置' },
 ] as const;
 
 export const AdminSidebar = React.memo(({ activeTab, setActiveTab, isMobile, isOpen, onClose }: AdminSidebarProps) => {

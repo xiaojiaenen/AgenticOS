@@ -1,71 +1,32 @@
 ---
 name: email-skill
-description: 帮助用户读取、搜索、发送公司邮件，支持抄送、附件等
-version: 1.0.0
+description: 帮助用户读取、搜索、发送公司邮件，支持抄送
+version: 1.1.0
 tags: [email, imap, smtp, communication]
-when_to_use: 用户需要读取、搜索、发送邮件，或管理邮箱凭据时使用
-allowed_tools: [setup_email, read_emails, search_emails, get_email, send_email, count_emails, clear_email_credentials]
-required_tools: [setup_email]
+when_to_use: 用户需要读取、搜索、发送公司邮件时使用
+allowed_tools: [read_emails, search_emails, get_email, send_email, count_emails]
 ---
 
 # 公司邮件助手
 
-## 服务器配置
+## 邮箱凭据
 
-```
-IMAP 服务器: mail.company.com
-IMAP 端口: 993 (SSL)
-SMTP 服务器: mail.company.com
-SMTP 端口: 465 (SSL)
-```
+登录系统时已自动配置公司邮箱，无需手动设置。
+若凭据失效，请在侧边栏「邮箱设置」中更新密码。
 
-## 使用流程
+## 邮箱地址格式
 
-### 首次使用
+用户对话中可写邮箱号（如 `731302`）或完整地址（如 `731302@gree.com.cn`）。
 
-1. 用户提供邮箱地址和应用专用密码
-2. 调用 `setup_email` 工具验证并保存凭据
-3. 凭据仅在当前会话有效，会话结束自动清除
+**你的处理规则：**
+- 调用任何邮件工具前，检查地址是否包含 `@`
+- 不含 `@` → 自动拼接 `@gree.com.cn`
+- 含 `@` → 原样使用
+- 多个地址（逗号分隔）→ 逐个检查处理
 
-### 应用专用密码获取方式
-
-**Gmail:**
-1. 访问 https://myaccount.google.com
-2. 安全 → 两步验证（需先开启）
-3. 搜索"应用专用密码" → 生成
-
-**Outlook:**
-1. 访问 https://account.microsoft.com/security
-2. 安全信息 → 应用密码 → 创建新密码
-
-**QQ 邮箱:**
-1. 登录 QQ 邮箱 → 设置 → 账户
-2. 开启 IMAP/SMTP 服务
-3. 生成授权码
-
-**163 邮箱:**
-1. 登录 163 邮箱 → 设置 → POP3/SMTP/IMAP
-2. 开启 IMAP/SMTP 服务
-3. 生成客户端授权码
+示例：用户说"给 731302 发邮件"，你调用时 `to` 参数应为 `731302@gree.com.cn`。
 
 ## 可用工具
-
-### setup_email
-设置邮箱凭据，首次使用必须调用。
-
-**参数：**
-- `email_address` (必填): 公司邮箱地址
-- `password` (必填): 应用专用密码（不是登录密码）
-
-**示例：**
-```
-setup_email(
-    email_address="zhangsan@company.com",
-    password="abcd1234efgh5678"
-)
-```
-
----
 
 ### read_emails
 读取邮件列表。
@@ -75,26 +36,32 @@ setup_email(
   - `inbox`: 收件箱（默认）
   - `sent`: 已发送
   - `draft`: 草稿箱
+  - `trash`: 已删除
+  - `junk`: 垃圾邮件
 - `limit` (可选): 返回数量，默认 10
+- `offset` (可选): 跳过前 N 封，默认 0
 - `unread_only` (可选): 是否只显示未读邮件，默认 false
+- `since` (可选): 起始日期，格式 YYYY-MM-DD
+- `before` (可选): 结束日期，格式 YYYY-MM-DD
 
 **示例：**
 ```
 read_emails(folder="inbox", limit=5, unread_only=true)
+read_emails(since="2026-06-01", limit=20)
 ```
 
 **返回格式：**
 ```
-📬 收件箱 共 5 封邮件
+📬 收件箱 共 5 封邮件（最新 5 封）
 
 ● 1. 明天会议议程确认
-   发件人: manager@company.com
-   时间: 2026-05-12 14:25
+   发件人: 731302@gree.com.cn
+   时间: Wed, 12 Jun 2026 14:25:00 +0800
    ID: 123
 
-○ 2. 5月份工资条
-   发件人: hr@company.com
-   时间: 2026-05-12 11:30
+○ 2. 6月工资条
+   发件人: hr@gree.com.cn
+   时间: Wed, 12 Jun 2026 11:30:00 +0800
    ID: 124
 ```
 
@@ -106,12 +73,13 @@ read_emails(folder="inbox", limit=5, unread_only=true)
 **参数：**
 - `query` (必填): 搜索关键词（搜索主题和正文）
 - `since` (可选): 起始日期，格式 YYYY-MM-DD
+- `before` (可选): 结束日期，格式 YYYY-MM-DD
 - `from_address` (可选): 发件人地址筛选
 
 **示例：**
 ```
-search_emails(query="会议", since="2026-05-01")
-search_emails(query="报告", from_address="manager@company.com")
+search_emails(query="会议", since="2026-06-01")
+search_emails(query="报告", from_address="731302@gree.com.cn")
 ```
 
 ---
@@ -132,15 +100,15 @@ get_email(message_id="123")
 📧 邮件详情
 
 主题: 明天会议议程确认
-发件人: manager@company.com
-收件人: zhangsan@company.com
-抄送: lisi@company.com
-时间: 2026-05-12 14:25
+发件人: 731302@gree.com.cn
+收件人: 731303@gree.com.cn
+抄送: 731300@gree.com.cn
+时间: Wed, 12 Jun 2026 14:25:00 +0800
 附件: 会议议程.pdf
 
 ==================================================
 
-张三你好，
+你好，
 
 请确认明天下午2点的会议议程：
 1. Q2业绩回顾
@@ -156,31 +124,32 @@ get_email(message_id="123")
 发送邮件（需要用户确认后才能发送）。
 
 **参数：**
-- `to` (必填): 收件人邮箱地址，多个用逗号分隔
+- `to` (必填): 收件人邮箱地址，多个用逗号分隔（支持邮箱号或完整地址）
 - `subject` (必填): 邮件主题
 - `body` (必填): 邮件正文
 - `cc` (可选): 抄送邮箱地址，多个用逗号分隔
 
 **示例：**
 ```
-# 单个收件人
+# 用户说：给 731302 发邮件，标题"会议确认"
+# 你调用时自动拼接后缀：
 send_email(
-    to="lisi@company.com",
+    to="731302@gree.com.cn",
     subject="会议确认",
     body="已确认参加明天的会议。"
 )
 
-# 多个收件人 + 抄送
+# 用户说：发给 731302 和 731303，抄送 731300
 send_email(
-    to="lisi@company.com,wangwu@company.com",
+    to="731302@gree.com.cn,731303@gree.com.cn",
     subject="项目进度更新",
     body="本周项目进度如下...",
-    cc="manager@company.com,leader@company.com"
+    cc="731300@gree.com.cn"
 )
 ```
 
 **发送前确认：**
-智能体在调用 send_email 前，必须向用户确认以下信息：
+调用 send_email 前，必须向用户确认以下信息：
 - 收件人
 - 抄送（如有）
 - 主题
@@ -190,15 +159,19 @@ send_email(
 
 ---
 
-### clear_email_credentials
-清除当前会话的邮箱凭据。
+### count_emails
+统计邮件数量。
 
 **参数：**
-- `session_id` (自动传入): 会话 ID
+- `folder` (可选): 邮箱文件夹，默认 inbox
+- `unread_only` (可选): 是否只统计未读邮件，默认 false
+- `since` (可选): 起始日期，格式 YYYY-MM-DD
+- `before` (可选): 结束日期，格式 YYYY-MM-DD
 
 **示例：**
 ```
-clear_email_credentials()
+count_emails(folder="inbox", unread_only=true)
+count_emails(since="2026-06-01")
 ```
 
 ---
@@ -225,8 +198,8 @@ clear_email_credentials()
 发送前必须确认：
 ```
 即将发送邮件：
-- 收件人: xxx@company.com
-- 抄送: yyy@company.com
+- 收件人: 731303@gree.com.cn
+- 抄送: 731300@gree.com.cn
 - 主题: 会议确认
 - 正文: 已确认参加明天的会议。
 
@@ -237,16 +210,12 @@ clear_email_credentials()
 
 - 不要在聊天中暴露密码
 - 敏感邮件内容提醒用户注意安全
-- 提示用户定期更换应用专用密码
-- 凭据仅在当前会话有效，退出后自动清除
+- 凭据通过 LDAP 登录自动管理，如需更新请在侧边栏操作
 
 ## 常见问题
 
-**Q: 为什么需要应用专用密码而不是登录密码？**
-A: Gmail、Outlook 等邮箱服务商已禁止"不安全应用"使用密码登录。应用专用密码更安全，可随时撤销。
-
-**Q: 凭据会保存多久？**
-A: 仅在当前会话有效，会话结束或调用 clear_email_credentials 后自动清除。
+**Q: 如何更新邮箱密码？**
+A: 在侧边栏点击「邮箱设置」更新密码即可。
 
 **Q: 可以发送带附件的邮件吗？**
 A: 当前版本暂不支持附件，后续版本会添加。

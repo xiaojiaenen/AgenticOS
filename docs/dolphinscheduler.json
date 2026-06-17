@@ -1,0 +1,5344 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Apache DolphinScheduler Api Docs",
+    "description": "Apache DolphinScheduler Api Docs",
+    "version": "3.2.1"
+  },
+  "servers": [
+    {
+      "url": "http://172.73.1.109:12345/dolphinscheduler",
+      "description": "Generated server url"
+    }
+  ],
+  "paths": {
+    "/v2/workflows/{code}": {
+      "get": {
+        "tags": [
+          "工作量血缘关系相关操作 (V2)"
+        ],
+        "summary": "get",
+        "description": "GET_WORKFLOWS_NOTES",
+        "operationId": "getWorkflow",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultProcessDefinition"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "工作量血缘关系相关操作 (V2)"
+        ],
+        "summary": "update",
+        "description": "UPDATE_WORKFLOWS_NOTES",
+        "operationId": "updateWorkflow",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultProcessDefinition"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "工作量血缘关系相关操作 (V2)"
+        ],
+        "summary": "delete",
+        "description": "DELETE_WORKFLOWS_NOTES",
+        "operationId": "deleteWorkflow",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "WORKFLOW_CODE",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Result"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/tasks/{code}": {
+      "get": {
+        "tags": [
+          "任务定义相关操作"
+        ],
+        "summary": "get",
+        "description": "GET_TASK_DEFINITION_NOTES",
+        "operationId": "getTaskDefinition",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "任务定义代码",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultTaskDefinition"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "任务定义相关操作"
+        ],
+        "summary": "update",
+        "description": "更新任务定义",
+        "operationId": "updateTaskDefinition",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "任务定义代码",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultTaskDefinition"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "任务定义相关操作"
+        ],
+        "summary": "delete",
+        "description": "删除任务定义版本",
+        "operationId": "deleteTaskDefinition",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "任务定义代码",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Result"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/schedules/{id}": {
+      "get": {
+        "tags": [
+          "SCHEDULER_TAG"
+        ],
+        "summary": "get",
+        "description": "GET_SCHEDULE_BY_ID_NOTES",
+        "operationId": "getSchedule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultSchedule"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "SCHEDULER_TAG"
+        ],
+        "summary": "update",
+        "description": "更新定时",
+        "operationId": "updateSchedule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultSchedule"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "SCHEDULER_TAG"
+        ],
+        "summary": "delete",
+        "description": "根据定时id删除定时数据",
+        "operationId": "deleteSchedule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "定时ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Result"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/relations/{code}": {
+      "put": {
+        "tags": [
+          "工作流关系相关操作"
+        ],
+        "summary": "update",
+        "description": "UPDATE_PROCESS_TASK_RELATION_NOTES",
+        "operationId": "updateUpstreamTaskDefinition",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "DOWNSTREAM_TASK_DEFINITION_CODE",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskRelationUpdateUpstreamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultListProcessTaskRelation"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/queues/{id}": {
+      "put": {
+        "tags": [
+          "队列相关操作"
+        ],
+        "summary": "updateQueue",
+        "description": "更新队列",
+        "operationId": "updateQueue",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "队列ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QUEUE-UPDATE"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultQueue"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/projects/{code}": {
+      "get": {
+        "tags": [
+          "项目相关操作"
+        ],
+        "summary": "queryProjectByCode",
+        "description": "通过项目ID查询项目信息",
+        "operationId": "queryProjectByCode",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "项目Code",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectQueryResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "项目相关操作"
+        ],
+        "summary": "update",
+        "description": "更新项目",
+        "operationId": "updateProject",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectUpdateResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "项目相关操作"
+        ],
+        "summary": "delete",
+        "description": "通过ID删除项目",
+        "operationId": "deleteProject",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "项目Code",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectDeleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/workflows": {
+      "post": {
+        "tags": [
+          "工作量血缘关系相关操作 (V2)"
+        ],
+        "summary": "create",
+        "description": "CREATE_WORKFLOWS_NOTES",
+        "operationId": "createWorkflow",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultProcessDefinition"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/workflows/query": {
+      "post": {
+        "tags": [
+          "工作量血缘关系相关操作 (V2)"
+        ],
+        "summary": "get",
+        "description": "FILTER_WORKFLOWS_NOTES",
+        "operationId": "filterWorkflows",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WORKFLOW-QUERY"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultPageInfoProcessDefinition"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/workflow-instances/{workflowInstanceId}/execute/{executeType}": {
+      "post": {
+        "tags": [
+          "WORKFLOW_INSTANCE_TAG_V2"
+        ],
+        "summary": "execute",
+        "description": "EXECUTE_ACTION_TO_WORKFLOW_INSTANCE_NOTES",
+        "operationId": "execute",
+        "parameters": [
+          {
+            "name": "workflowInstanceId",
+            "in": "path",
+            "description": "WORKFLOW_INSTANCE_ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "executeType",
+            "in": "path",
+            "description": "执行类型",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NONE",
+                "REPEAT_RUNNING",
+                "RECOVER_SUSPENDED_PROCESS",
+                "START_FAILURE_TASK_PROCESS",
+                "STOP",
+                "PAUSE",
+                "EXECUTE_TASK"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Result"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/tasks": {
+      "post": {
+        "tags": [
+          "任务定义相关操作"
+        ],
+        "summary": "create",
+        "description": "创建任务定义",
+        "operationId": "createTaskDefinition",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultTaskDefinition"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/tasks/query": {
+      "post": {
+        "tags": [
+          "任务定义相关操作"
+        ],
+        "summary": "get",
+        "description": "FILTER_TASK_DEFINITION_NOTES",
+        "operationId": "filterTaskDefinition",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TASK-QUERY"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultPageInfoTaskDefinition"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/schedules": {
+      "post": {
+        "tags": [
+          "SCHEDULER_TAG"
+        ],
+        "summary": "create",
+        "description": "创建定时",
+        "operationId": "createSchedule",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultSchedule"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/schedules/filter": {
+      "post": {
+        "tags": [
+          "SCHEDULER_TAG"
+        ],
+        "summary": "get",
+        "description": "分页查询定时",
+        "operationId": "filterSchedule",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SCHEDULE-QUERY"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultPageInfoSchedule"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/relations": {
+      "post": {
+        "tags": [
+          "工作流关系相关操作"
+        ],
+        "summary": "create",
+        "description": "创建工作流任务关系",
+        "operationId": "createTaskRelation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskRelationCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultProcessTaskRelation"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/queues": {
+      "get": {
+        "tags": [
+          "队列相关操作"
+        ],
+        "summary": "queryQueueListPaging",
+        "description": "分页查询队列列表",
+        "operationId": "queryQueueListPaging",
+        "parameters": [
+          {
+            "name": "queueQueryRequest",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/QUEUE-QUERY"
+            }
+          },
+          {
+            "name": "searchVal",
+            "description": "搜索值",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageNo",
+            "description": "页码号",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "description": "页大小",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultPageInfoQueue"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "队列相关操作"
+        ],
+        "summary": "createQueue",
+        "description": "创建队列",
+        "operationId": "createQueue",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QUEUE-CREATE"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultQueue"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/queues/verify": {
+      "post": {
+        "tags": [
+          "队列相关操作"
+        ],
+        "summary": "verifyQueue",
+        "description": "验证队列",
+        "operationId": "verifyQueue",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QUEUE-Verify"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultBoolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/projects": {
+      "get": {
+        "tags": [
+          "项目相关操作"
+        ],
+        "summary": "queryProjectListPaging",
+        "description": "分页查询项目列表",
+        "operationId": "queryProjectListPaging",
+        "parameters": [
+          {
+            "name": "projectQueryReq",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/PROJECT-QUERY"
+            }
+          },
+          {
+            "name": "searchVal",
+            "description": "搜索值",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "description": "页大小",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageNo",
+            "description": "页码号",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultPageInfoProject"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "项目相关操作"
+        ],
+        "summary": "create",
+        "description": "创建项目",
+        "operationId": "createProject",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectCreateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/projects/{projectCode}/task-instances/{taskInstanceId}": {
+      "post": {
+        "tags": [
+          "任务实例相关操作"
+        ],
+        "summary": "queryOneTaskInstance",
+        "description": "QUERY_ONE_TASK_INSTANCE",
+        "operationId": "queryTaskInstanceByCode",
+        "parameters": [
+          {
+            "name": "projectCode",
+            "in": "path",
+            "description": "项目Code",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "taskInstanceId",
+            "in": "path",
+            "description": "任务实例ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1234567890
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskInstance"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/projects/{projectCode}/task-instances/{id}/stop": {
+      "post": {
+        "tags": [
+          "任务实例相关操作"
+        ],
+        "summary": "stop",
+        "description": "停止任务实例",
+        "operationId": "stopTask",
+        "parameters": [
+          {
+            "name": "projectCode",
+            "in": "path",
+            "description": "项目Code",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务实例ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/projects/{projectCode}/task-instances/{id}/savepoint": {
+      "post": {
+        "tags": [
+          "任务实例相关操作"
+        ],
+        "summary": "savepoint",
+        "description": "任务SavePoint",
+        "operationId": "taskSavePoint",
+        "parameters": [
+          {
+            "name": "projectCode",
+            "in": "path",
+            "description": "项目Code",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务实例ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/projects/{projectCode}/task-instances/{id}/force-success": {
+      "post": {
+        "tags": [
+          "任务实例相关操作"
+        ],
+        "summary": "force-success",
+        "description": "强制TASK成功",
+        "operationId": "forceTaskSuccess",
+        "parameters": [
+          {
+            "name": "projectCode",
+            "in": "path",
+            "description": "项目Code",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务实例ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 12
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskInstanceSuccessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/access-tokens": {
+      "post": {
+        "tags": [
+          "访问token相关操作"
+        ],
+        "summary": "createTokenV2",
+        "description": "为指定用户创建安全令牌 (V2)",
+        "operationId": "createToken",
+        "parameters": [
+          {
+            "name": "createTokenRequest",
+            "description": "createTokenRequest",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CreateTokenRequest"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultAccessToken"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/workflow-instances": {
+      "get": {
+        "tags": [
+          "WORKFLOW_INSTANCE_TAG_V2"
+        ],
+        "summary": "queryWorkflowInstanceListPaging",
+        "description": "查询流程实例列表",
+        "operationId": "queryWorkflowInstanceListPaging",
+        "parameters": [
+          {
+            "name": "workflowInstanceQueryRequest",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowInstanceQueryRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Result"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/workflow-instances/{workflowInstanceId}": {
+      "get": {
+        "tags": [
+          "WORKFLOW_INSTANCE_TAG_V2"
+        ],
+        "summary": "queryWorkflowInstanceById",
+        "description": "QUERY_WORKFLOW_INSTANCE_BY_ID",
+        "operationId": "queryWorkflowInstanceById",
+        "parameters": [
+          {
+            "name": "workflowInstanceId",
+            "in": "path",
+            "description": "WORKFLOW_INSTANCE_ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Result"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "WORKFLOW_INSTANCE_TAG_V2"
+        ],
+        "summary": "delete",
+        "description": "DELETE_WORKFLOWS_INSTANCE_NOTES",
+        "operationId": "deleteWorkflowInstance",
+        "parameters": [
+          {
+            "name": "workflowInstanceId",
+            "in": "path",
+            "description": "WORKFLOW_INSTANCE_ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/statistics/{workflowCode}/states/count": {
+      "get": {
+        "tags": [
+          "STATISTICS_V2"
+        ],
+        "summary": "queryOneWorkflowStatesCount",
+        "description": "QUERY_One_WORKFLOW_STATES_COUNT",
+        "operationId": "queryOneWorkflowStates",
+        "parameters": [
+          {
+            "name": "workflowCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultTaskCountDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/statistics/workflows/users/{userId}/{releaseState}/count": {
+      "get": {
+        "tags": [
+          "STATISTICS_V2"
+        ],
+        "summary": "countDefinitionV2ByUser",
+        "description": "COUNT_PROCESS_DEFINITION_V2_BY_USER_NOTES",
+        "operationId": "countDefinitionByUserState",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "releaseState",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultDefineUserDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/statistics/workflows/users/{userId}/count": {
+      "get": {
+        "tags": [
+          "STATISTICS_V2"
+        ],
+        "summary": "countDefinitionV2ByUser",
+        "description": "COUNT_PROCESS_DEFINITION_V2_BY_USER_NOTES",
+        "operationId": "countDefinitionByUserId",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultDefineUserDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/statistics/workflows/users/count": {
+      "get": {
+        "tags": [
+          "STATISTICS_V2"
+        ],
+        "summary": "countDefinitionV2ByUserId",
+        "description": "COUNT_PROCESS_DEFINITION_V2_BY_USERID_NOTES",
+        "operationId": "countDefinitionByUser",
+        "parameters": [
+          {
+            "name": "statisticsStateRequest",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/StatisticsStateRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultDefineUserDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/statistics/workflows/states/count": {
+      "get": {
+        "tags": [
+          "STATISTICS_V2"
+        ],
+        "summary": "queryAllWorkflowStatesCount",
+        "description": "QUERY_ALL_WORKFLOW_STATES_COUNT",
+        "operationId": "queryWorkflowStatesCounts",
+        "parameters": [
+          {
+            "name": "statisticsStateRequest",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/StatisticsStateRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultTaskCountDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/statistics/tasks/{taskCode}/states/count": {
+      "get": {
+        "tags": [
+          "STATISTICS_V2"
+        ],
+        "summary": "queryOneTaskStatesCount",
+        "description": "QUERY_ONE_TASK_STATES_COUNT",
+        "operationId": "queryOneTaskStatesCounts",
+        "parameters": [
+          {
+            "name": "taskCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultTaskCountDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/statistics/tasks/states/count": {
+      "get": {
+        "tags": [
+          "STATISTICS_V2"
+        ],
+        "summary": "queryAllTaskStatesCount",
+        "description": "QUERY_ALL_TASK_STATES_COUNT",
+        "operationId": "queryTaskStatesCounts",
+        "parameters": [
+          {
+            "name": "statisticsStateRequest",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/StatisticsStateRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultTaskCountDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/queues/list": {
+      "get": {
+        "tags": [
+          "队列相关操作"
+        ],
+        "summary": "queryList",
+        "description": "查询队列列表",
+        "operationId": "queryList",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultListQueue"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/projects/{projectCode}/task-instances": {
+      "get": {
+        "tags": [
+          "任务实例相关操作"
+        ],
+        "summary": "queryTaskListPaging",
+        "description": "分页查询任务实例列表",
+        "operationId": "queryTaskListPaging",
+        "parameters": [
+          {
+            "name": "projectCode",
+            "in": "path",
+            "description": "项目Code",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "taskInstanceQueryReq",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TaskInstanceQueryRequest"
+            }
+          },
+          {
+            "name": "processInstanceId",
+            "description": "流程实例ID",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 100
+          },
+          {
+            "name": "processInstanceName",
+            "description": "流程实例名称",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "searchVal",
+            "description": "搜索值",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskName",
+            "description": "任务实例名",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskCode",
+            "description": "TASK_CODE",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "executorName",
+            "description": "流程名称",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stateType",
+            "description": "工作流和任务节点的运行状态",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TaskExecutionStatus{code=0, desc='submit success'}",
+                "TaskExecutionStatus{code=1, desc='running'}",
+                "TaskExecutionStatus{code=3, desc='pause'}",
+                "TaskExecutionStatus{code=5, desc='stop'}",
+                "TaskExecutionStatus{code=6, desc='failure'}",
+                "TaskExecutionStatus{code=7, desc='success'}",
+                "TaskExecutionStatus{code=8, desc='need fault tolerance'}",
+                "TaskExecutionStatus{code=9, desc='kill'}",
+                "TaskExecutionStatus{code=12, desc='delay execution'}",
+                "TaskExecutionStatus{code=13, desc='forced success'}",
+                "TaskExecutionStatus{code=17, desc='dispatch'}"
+              ]
+            }
+          },
+          {
+            "name": "host",
+            "description": "运行任务的主机IP地址",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "description": "开始时间",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "description": "结束时间",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskExecuteType",
+            "description": "任务执行类型",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": "STREAM"
+          },
+          {
+            "name": "pageNo",
+            "description": "页码号",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 1
+          },
+          {
+            "name": "pageSize",
+            "description": "页大小",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 20
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultPageInfoTaskInstance"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/projects/unauth-project": {
+      "get": {
+        "tags": [
+          "项目相关操作"
+        ],
+        "summary": "queryUnauthorizedProject",
+        "description": "查询未授权的项目",
+        "operationId": "queryUnauthorizedProject",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "description": "用户ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/projects/list": {
+      "get": {
+        "tags": [
+          "项目相关操作"
+        ],
+        "summary": "queryAllProjectList",
+        "description": "查询所有项目",
+        "operationId": "queryAllProjectList",
+        "parameters": [
+          {
+            "name": "loginUser",
+            "description": "LOGIN_USER",
+            "schema": {
+              "type": "object"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/projects/list-dependent": {
+      "get": {
+        "tags": [
+          "项目相关操作"
+        ],
+        "summary": "queryAllProjectListForDependent",
+        "description": "查询Dependent节点所有项目",
+        "operationId": "queryAllProjectListForDependent",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/projects/created-and-authed": {
+      "get": {
+        "tags": [
+          "项目相关操作"
+        ],
+        "summary": "queryProjectCreatedAndAuthorizedByUser",
+        "description": "查询授权和用户创建的项目",
+        "operationId": "queryProjectCreatedAndAuthorizedByUser",
+        "parameters": [
+          {
+            "name": "loginUser",
+            "description": "LOGIN_USER",
+            "schema": {
+              "type": "object"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/projects/authed-user": {
+      "get": {
+        "tags": [
+          "项目相关操作"
+        ],
+        "summary": "queryAuthorizedUser",
+        "description": "查询拥有项目授权的用户",
+        "operationId": "queryAuthorizedUser",
+        "parameters": [
+          {
+            "name": "projectCode",
+            "in": "query",
+            "description": "项目Code",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/projects/authed-project": {
+      "get": {
+        "tags": [
+          "项目相关操作"
+        ],
+        "summary": "queryAuthorizedProject",
+        "description": "查询授权项目",
+        "operationId": "queryAuthorizedProject",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "description": "用户ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/relations/{code-pair}": {
+      "delete": {
+        "tags": [
+          "工作流关系相关操作"
+        ],
+        "summary": "delete",
+        "description": "删除工作流任务关系",
+        "operationId": "deleteTaskRelation",
+        "parameters": [
+          {
+            "name": "code-pair",
+            "in": "path",
+            "description": "任务定义代码",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Result"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "WorkflowUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "workflow's name"
+          },
+          "description": {
+            "type": "string",
+            "example": "workflow's description"
+          },
+          "releaseState": {
+            "type": "string",
+            "example": "OFFLINE",
+            "enum": [
+              "ONLINE / OFFLINE"
+            ]
+          },
+          "globalParams": {
+            "type": "string",
+            "example": "[{\"prop\":\"key\",\"value\":\"value\",\"direct\":\"IN\",\"type\":\"VARCHAR\"}]"
+          },
+          "warningGroupId": {
+            "type": "integer",
+            "format": "int32",
+            "example": 2
+          },
+          "timeout": {
+            "type": "integer",
+            "format": "int32",
+            "example": 60
+          },
+          "executionType": {
+            "type": "string",
+            "description": "default PARALLEL if not provide.",
+            "example": "PARALLEL",
+            "enum": [
+              "PARALLEL / SERIAL_WAIT / SERIAL_DISCARD / SERIAL_PRIORITY"
+            ]
+          },
+          "location": {
+            "type": "string",
+            "example": "[{\\\"taskCode\\\":7009653961024,\\\"x\\\":312,\\\"y\\\":196}]"
+          }
+        }
+      },
+      "ProcessDefinition": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "releaseState": {
+            "type": "string",
+            "enum": [
+              "OFFLINE",
+              "ONLINE"
+            ]
+          },
+          "projectCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "description": {
+            "type": "string"
+          },
+          "globalParams": {
+            "type": "string"
+          },
+          "globalParamList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Property"
+            }
+          },
+          "globalParamMap": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "createTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updateTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "flag": {
+            "type": "string",
+            "enum": [
+              "NO",
+              "YES"
+            ]
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "projectName": {
+            "type": "string"
+          },
+          "locations": {
+            "type": "string"
+          },
+          "scheduleReleaseState": {
+            "type": "string",
+            "enum": [
+              "OFFLINE",
+              "ONLINE"
+            ]
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/Schedule"
+          },
+          "timeout": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "modifyBy": {
+            "type": "string"
+          },
+          "warningGroupId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "executionType": {
+            "type": "string",
+            "enum": [
+              "PARALLEL",
+              "SERIAL_WAIT",
+              "SERIAL_DISCARD",
+              "SERIAL_PRIORITY"
+            ]
+          }
+        }
+      },
+      "Property": {
+        "type": "object",
+        "properties": {
+          "prop": {
+            "type": "string"
+          },
+          "direct": {
+            "type": "string",
+            "enum": [
+              "IN",
+              "OUT"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "VARCHAR",
+              "INTEGER",
+              "LONG",
+              "FLOAT",
+              "DOUBLE",
+              "DATE",
+              "TIME",
+              "TIMESTAMP",
+              "BOOLEAN",
+              "LIST",
+              "FILE"
+            ]
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "ResultProcessDefinition": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ProcessDefinition"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Schedule": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "processDefinitionCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "processDefinitionName": {
+            "type": "string"
+          },
+          "projectName": {
+            "type": "string"
+          },
+          "definitionDescription": {
+            "type": "string"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timezoneId": {
+            "type": "string"
+          },
+          "crontab": {
+            "type": "string"
+          },
+          "failureStrategy": {
+            "type": "string",
+            "enum": [
+              "END",
+              "CONTINUE"
+            ]
+          },
+          "warningType": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "SUCCESS",
+              "FAILURE",
+              "ALL",
+              "GLOBAL"
+            ]
+          },
+          "createTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updateTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "releaseState": {
+            "type": "string",
+            "enum": [
+              "OFFLINE",
+              "ONLINE"
+            ]
+          },
+          "warningGroupId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "processInstancePriority": {
+            "type": "string",
+            "enum": [
+              "HIGHEST",
+              "HIGH",
+              "MEDIUM",
+              "LOW",
+              "LOWEST"
+            ]
+          },
+          "workerGroup": {
+            "type": "string"
+          },
+          "tenantCode": {
+            "type": "string"
+          },
+          "environmentCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "environmentName": {
+            "type": "string"
+          }
+        }
+      },
+      "TaskUpdateRequest": {
+        "required": [
+          "workflowCode"
+        ],
+        "type": "object",
+        "properties": {
+          "workflowCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string",
+            "example": "task-name"
+          },
+          "description": {
+            "type": "string",
+            "example": "describe what this task actual do"
+          },
+          "taskType": {
+            "type": "string",
+            "example": "SHELL"
+          },
+          "taskParams": {
+            "type": "string",
+            "description": "task definition params",
+            "example": "{\"localParams\":[],\"rawScript\":\"echo 1\",\"resourceList\":[]}"
+          },
+          "flag": {
+            "type": "string",
+            "description": "default YES is not provided",
+            "example": "YES",
+            "enum": [
+              "YES,NO"
+            ]
+          },
+          "taskPriority": {
+            "type": "string",
+            "description": "default MEDIUM is not provided",
+            "example": "MEDIUM",
+            "enum": [
+              "HIGHEST,HIGH,MEDIUM,LOW,LOWEST"
+            ]
+          },
+          "workerGroup": {
+            "type": "string",
+            "description": "default 'default' if not provided",
+            "example": "default"
+          },
+          "environmentCode": {
+            "type": "integer",
+            "format": "int64",
+            "example": 6563415109312
+          },
+          "failRetryTimes": {
+            "type": "integer",
+            "description": "default 0 not provided",
+            "format": "int32",
+            "example": 0
+          },
+          "failRetryInterval": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "timeout": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "timeoutFlag": {
+            "type": "string",
+            "description": "default CLOSE is not provided",
+            "example": "CLOSE",
+            "enum": [
+              "CLOSE,OPEN"
+            ]
+          },
+          "timeoutNotifyStrategy": {
+            "type": "string",
+            "description": "default MEDIUM is not provided",
+            "example": "MEDIUM",
+            "enum": [
+              "WARN,FAILED,WARNFAILED"
+            ]
+          },
+          "resourceIds": {
+            "type": "string",
+            "example": "1,2,3"
+          },
+          "taskGroupId": {
+            "type": "integer",
+            "format": "int32",
+            "example": 2
+          },
+          "taskGroupPriority": {
+            "type": "integer",
+            "description": "A priority number for execute task, the bigger the high priority, default null if not provided",
+            "format": "int32",
+            "example": 1
+          },
+          "cpuQuota": {
+            "type": "integer",
+            "description": "default unlimited if not provided",
+            "format": "int32"
+          },
+          "memoryMax": {
+            "type": "integer",
+            "description": "default unlimited if not provided",
+            "format": "int32"
+          },
+          "upstreamTasksCodes": {
+            "type": "string",
+            "description": "use , to split multiple upstream task codes",
+            "example": "upstream-task-codes1,upstream-task-codes2"
+          }
+        }
+      },
+      "ResultTaskDefinition": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TaskDefinition"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TaskDefinition": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "description": {
+            "type": "string"
+          },
+          "projectCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taskType": {
+            "type": "string"
+          },
+          "taskParams": {
+            "type": "string"
+          },
+          "taskParamList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Property"
+            }
+          },
+          "taskParamMap": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "flag": {
+            "type": "string",
+            "enum": [
+              "NO",
+              "YES"
+            ]
+          },
+          "isCache": {
+            "type": "string",
+            "enum": [
+              "NO",
+              "YES"
+            ]
+          },
+          "taskPriority": {
+            "type": "string",
+            "enum": [
+              "HIGHEST",
+              "HIGH",
+              "MEDIUM",
+              "LOW",
+              "LOWEST"
+            ]
+          },
+          "userName": {
+            "type": "string"
+          },
+          "projectName": {
+            "type": "string"
+          },
+          "workerGroup": {
+            "type": "string"
+          },
+          "environmentCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "failRetryTimes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failRetryInterval": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "timeoutFlag": {
+            "type": "string",
+            "enum": [
+              "CLOSE",
+              "OPEN"
+            ]
+          },
+          "timeoutNotifyStrategy": {
+            "type": "string",
+            "enum": [
+              "WARN",
+              "FAILED",
+              "WARNFAILED"
+            ]
+          },
+          "timeout": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delayTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "resourceIds": {
+            "type": "string",
+            "deprecated": true
+          },
+          "createTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updateTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "modifyBy": {
+            "type": "string"
+          },
+          "taskGroupId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taskGroupPriority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cpuQuota": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "memoryMax": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taskExecuteType": {
+            "type": "string",
+            "enum": [
+              "BATCH",
+              "STREAM"
+            ]
+          },
+          "dependence": {
+            "type": "string"
+          }
+        }
+      },
+      "ScheduleUpdateRequest": {
+        "required": [
+          "crontab",
+          "endTime",
+          "startTime",
+          "timezoneId"
+        ],
+        "type": "object",
+        "properties": {
+          "crontab": {
+            "type": "string",
+            "example": "schedule timezone"
+          },
+          "startTime": {
+            "type": "string",
+            "example": "2021-01-01 10:00:00"
+          },
+          "endTime": {
+            "type": "string",
+            "example": "2022-01-01 12:00:00"
+          },
+          "timezoneId": {
+            "type": "string",
+            "example": "Asia/Shanghai"
+          },
+          "failureStrategy": {
+            "type": "string",
+            "description": "default CONTINUE if value not provide.",
+            "example": "CONTINUE",
+            "enum": [
+              "CONTINUE / END"
+            ]
+          },
+          "releaseState": {
+            "type": "string",
+            "description": "default OFFLINE if value not provide.",
+            "example": "OFFLINE",
+            "enum": [
+              "ONLINE / OFFLINE"
+            ]
+          },
+          "warningType": {
+            "type": "string",
+            "description": "default NONE if value not provide.",
+            "example": "SUCCESS",
+            "enum": [
+              "NONE / SUCCESS / FAILURE / ALL"
+            ]
+          },
+          "warningGroupId": {
+            "type": "integer",
+            "description": "default 0 if value not provide.",
+            "format": "int32",
+            "example": 2
+          },
+          "processInstancePriority": {
+            "type": "string",
+            "description": "default MEDIUM if value not provide.",
+            "example": "MEDIUM",
+            "enum": [
+              "HIGHEST / HIGH / MEDIUM / LOW / LOWEST"
+            ]
+          },
+          "workerGroup": {
+            "type": "string",
+            "example": "worker-group-name"
+          },
+          "environmentCode": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ResultSchedule": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Schedule"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TaskRelationUpdateUpstreamRequest": {
+        "required": [
+          "pageNo",
+          "pageSize",
+          "upstreams"
+        ],
+        "type": "object",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "example": 10
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "workflowCode": {
+            "type": "integer",
+            "description": "workflow code ",
+            "format": "int64",
+            "example": 1234587654321
+          },
+          "upstreams": {
+            "type": "array",
+            "description": "upstream you want to update separated by comma",
+            "example": "12345678,87654321",
+            "items": {
+              "type": "integer",
+              "description": "upstream you want to update separated by comma",
+              "format": "int64"
+            }
+          }
+        }
+      },
+      "ProcessTaskRelation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "processDefinitionVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "projectCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "processDefinitionCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "preTaskCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "preTaskVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "postTaskCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "postTaskVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "conditionType": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "JUDGE",
+              "DELAY"
+            ]
+          },
+          "conditionParams": {
+            "type": "string"
+          },
+          "createTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updateTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ResultListProcessTaskRelation": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProcessTaskRelation"
+            }
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "QUEUE-UPDATE": {
+        "required": [
+          "queue",
+          "queueName"
+        ],
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string",
+            "example": "queue11"
+          },
+          "queueName": {
+            "type": "string",
+            "example": "test_queue11"
+          }
+        }
+      },
+      "Queue": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "queueName": {
+            "type": "string"
+          },
+          "queue": {
+            "type": "string"
+          },
+          "createTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updateTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ResultQueue": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Queue"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProjectUpdateRequest": {
+        "required": [
+          "projectName"
+        ],
+        "type": "object",
+        "properties": {
+          "projectName": {
+            "type": "string",
+            "example": "pro123"
+          },
+          "description": {
+            "type": "string",
+            "example": "this is a project"
+          }
+        }
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "code": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "createTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updateTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "perm": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "instRunningCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ProjectUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Project"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkflowCreateRequest": {
+        "required": [
+          "name",
+          "projectCode"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "workflow name"
+          },
+          "description": {
+            "type": "string",
+            "example": "workflow's description"
+          },
+          "projectCode": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12345
+          },
+          "releaseState": {
+            "type": "string",
+            "description": "default OFFLINE if not provide.",
+            "example": "OFFLINE",
+            "enum": [
+              "ONLINE / OFFLINE"
+            ]
+          },
+          "globalParams": {
+            "type": "string",
+            "example": "[{\"prop\":\"key\",\"value\":\"value\",\"direct\":\"IN\",\"type\":\"VARCHAR\"}]"
+          },
+          "warningGroupId": {
+            "type": "integer",
+            "format": "int32",
+            "example": 2
+          },
+          "timeout": {
+            "type": "integer",
+            "format": "int32",
+            "example": 60
+          },
+          "executionType": {
+            "type": "string",
+            "description": "default PARALLEL if not provide.",
+            "example": "PARALLEL",
+            "enum": [
+              "PARALLEL / SERIAL_WAIT / SERIAL_DISCARD / SERIAL_PRIORITY"
+            ]
+          }
+        }
+      },
+      "WORKFLOW-QUERY": {
+        "required": [
+          "pageNo",
+          "pageSize"
+        ],
+        "type": "object",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "example": 10
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "projectName": {
+            "type": "string",
+            "example": "project-name"
+          },
+          "workflowName": {
+            "type": "string",
+            "example": "workflow-name"
+          },
+          "releaseState": {
+            "type": "string",
+            "example": "ONLINE / OFFLINE"
+          },
+          "scheduleReleaseState": {
+            "type": "string",
+            "example": "ONLINE / OFFLINE"
+          }
+        }
+      },
+      "PageInfoProcessDefinition": {
+        "type": "object",
+        "properties": {
+          "totalList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProcessDefinition"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ResultPageInfoProcessDefinition": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PageInfoProcessDefinition"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Result": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TaskCreateRequest": {
+        "required": [
+          "description",
+          "name",
+          "taskParams",
+          "taskType",
+          "workflowCode"
+        ],
+        "type": "object",
+        "properties": {
+          "workflowCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string",
+            "example": "task-name"
+          },
+          "description": {
+            "type": "string",
+            "example": "describe what this task actual do"
+          },
+          "projectCode": {
+            "type": "integer",
+            "format": "int64",
+            "example": 6816095515584
+          },
+          "taskType": {
+            "type": "string",
+            "example": "SHELL"
+          },
+          "taskParams": {
+            "type": "string",
+            "description": "task definition params",
+            "example": "{\"localParams\":[],\"rawScript\":\"echo 1\",\"resourceList\":[]}"
+          },
+          "flag": {
+            "type": "string",
+            "description": "default YES is not provided",
+            "example": "YES",
+            "enum": [
+              "YES,NO"
+            ]
+          },
+          "taskPriority": {
+            "type": "string",
+            "description": "default MEDIUM is not provided",
+            "example": "MEDIUM",
+            "enum": [
+              "HIGHEST,HIGH,MEDIUM,LOW,LOWEST"
+            ]
+          },
+          "workerGroup": {
+            "type": "string",
+            "description": "default 'default' if not provided",
+            "example": "default"
+          },
+          "environmentCode": {
+            "type": "integer",
+            "format": "int64",
+            "example": 6563415109312
+          },
+          "failRetryTimes": {
+            "type": "integer",
+            "description": "default 0 not provided",
+            "format": "int32",
+            "example": 0
+          },
+          "failRetryInterval": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "timeout": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "timeoutFlag": {
+            "type": "string",
+            "description": "default CLOSE is not provided",
+            "example": "CLOSE",
+            "enum": [
+              "CLOSE,OPEN"
+            ]
+          },
+          "timeoutNotifyStrategy": {
+            "type": "string",
+            "description": "default MEDIUM is not provided",
+            "example": "MEDIUM",
+            "enum": [
+              "WARN,FAILED,WARNFAILED"
+            ]
+          },
+          "resourceIds": {
+            "type": "string",
+            "example": "1,2,3"
+          },
+          "taskGroupId": {
+            "type": "integer",
+            "format": "int32",
+            "example": 2
+          },
+          "taskGroupPriority": {
+            "type": "integer",
+            "description": "A priority number for execute task, the bigger the high priority, default null if not provided",
+            "format": "int32",
+            "example": 1
+          },
+          "cpuQuota": {
+            "type": "integer",
+            "description": "default unlimited if not provided",
+            "format": "int32",
+            "example": 1
+          },
+          "memoryMax": {
+            "type": "integer",
+            "description": "default unlimited if not provided",
+            "format": "int32"
+          },
+          "upstreamTasksCodes": {
+            "type": "string",
+            "description": "use , to split multiple upstream task codes",
+            "example": "upstream-task-codes1,upstream-task-codes2"
+          }
+        }
+      },
+      "TASK-QUERY": {
+        "required": [
+          "pageNo",
+          "pageSize"
+        ],
+        "type": "object",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "example": 10
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "projectName": {
+            "type": "string",
+            "example": "project-name"
+          },
+          "name": {
+            "type": "string",
+            "example": "task-name"
+          },
+          "taskType": {
+            "type": "string",
+            "example": "SHELL"
+          }
+        }
+      },
+      "PageInfoTaskDefinition": {
+        "type": "object",
+        "properties": {
+          "totalList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskDefinition"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ResultPageInfoTaskDefinition": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PageInfoTaskDefinition"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ScheduleCreateRequest": {
+        "required": [
+          "crontab",
+          "endTime",
+          "processDefinitionCode",
+          "startTime",
+          "timezoneId"
+        ],
+        "type": "object",
+        "properties": {
+          "processDefinitionCode": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1234567890123
+          },
+          "crontab": {
+            "type": "string",
+            "example": "schedule timezone"
+          },
+          "startTime": {
+            "type": "string",
+            "example": "2021-01-01 10:00:00"
+          },
+          "endTime": {
+            "type": "string",
+            "example": "2022-01-01 12:00:00"
+          },
+          "timezoneId": {
+            "type": "string",
+            "example": "Asia/Shanghai"
+          },
+          "failureStrategy": {
+            "type": "string",
+            "description": "default CONTINUE if value not provide.",
+            "example": "CONTINUE",
+            "enum": [
+              "CONTINUE / END"
+            ]
+          },
+          "releaseState": {
+            "type": "string",
+            "description": "default OFFLINE if value not provide.",
+            "example": "OFFLINE",
+            "enum": [
+              "ONLINE / OFFLINE"
+            ]
+          },
+          "warningType": {
+            "type": "string",
+            "description": "default NONE if value not provide.",
+            "example": "SUCCESS",
+            "enum": [
+              "NONE / SUCCESS / FAILURE / ALL"
+            ]
+          },
+          "warningGroupId": {
+            "type": "integer",
+            "description": "default 0 if value not provide.",
+            "format": "int32",
+            "example": 2
+          },
+          "processInstancePriority": {
+            "type": "string",
+            "description": "default MEDIUM if value not provide.",
+            "example": "MEDIUM",
+            "enum": [
+              "HIGHEST / HIGH / MEDIUM / LOW / LOWEST"
+            ]
+          },
+          "workerGroup": {
+            "type": "string",
+            "example": "worker-group-name"
+          },
+          "tenantCode": {
+            "type": "string",
+            "example": "tenant-code"
+          },
+          "environmentCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "scheduleParam": {
+            "type": "string"
+          }
+        }
+      },
+      "SCHEDULE-QUERY": {
+        "required": [
+          "pageNo",
+          "pageSize"
+        ],
+        "type": "object",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "example": 10
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "projectName": {
+            "type": "string",
+            "example": "project-name"
+          },
+          "processDefinitionName": {
+            "type": "string",
+            "example": "process-definition-name"
+          },
+          "releaseState": {
+            "type": "string",
+            "description": "default OFFLINE if value not provide.",
+            "example": "OFFLINE",
+            "enum": [
+              "ONLINE / OFFLINE"
+            ]
+          }
+        }
+      },
+      "PageInfoSchedule": {
+        "type": "object",
+        "properties": {
+          "totalList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Schedule"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ResultPageInfoSchedule": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PageInfoSchedule"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TaskRelationCreateRequest": {
+        "required": [
+          "postTaskCode",
+          "preTaskCode",
+          "workflowCode"
+        ],
+        "type": "object",
+        "properties": {
+          "projectCode": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12345678
+          },
+          "workflowCode": {
+            "type": "integer",
+            "format": "int64",
+            "example": 87654321
+          },
+          "preTaskCode": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12345
+          },
+          "postTaskCode": {
+            "type": "integer",
+            "format": "int64",
+            "example": 54321
+          }
+        }
+      },
+      "ResultProcessTaskRelation": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ProcessTaskRelation"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "QUEUE-CREATE": {
+        "required": [
+          "queue",
+          "queueName"
+        ],
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string",
+            "example": "queue11"
+          },
+          "queueName": {
+            "type": "string",
+            "example": "test_queue11"
+          }
+        }
+      },
+      "QUEUE-Verify": {
+        "required": [
+          "queue",
+          "queueName"
+        ],
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string",
+            "example": "queue11"
+          },
+          "queueName": {
+            "type": "string",
+            "example": "queue11"
+          }
+        }
+      },
+      "ResultBoolean": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "boolean"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProjectCreateRequest": {
+        "required": [
+          "projectName"
+        ],
+        "type": "object",
+        "properties": {
+          "projectName": {
+            "type": "string",
+            "example": "pro123"
+          },
+          "description": {
+            "type": "string",
+            "example": "this is a project"
+          }
+        }
+      },
+      "ProjectCreateResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Project"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AbstractResourceParameters": {
+        "required": [
+          "resourceType"
+        ],
+        "type": "object",
+        "properties": {
+          "resourceType": {
+            "type": "string"
+          }
+        },
+        "discriminator": {
+          "propertyName": "resourceType"
+        }
+      },
+      "DagData": {
+        "type": "object",
+        "properties": {
+          "processDefinition": {
+            "$ref": "#/components/schemas/ProcessDefinition"
+          },
+          "processTaskRelationList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProcessTaskRelation"
+            }
+          },
+          "taskDefinitionList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskDefinition"
+            }
+          }
+        }
+      },
+      "DataSourceParameters": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AbstractResourceParameters"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "MYSQL",
+                  "POSTGRESQL",
+                  "HIVE",
+                  "SPARK",
+                  "CLICKHOUSE",
+                  "ORACLE",
+                  "SQLSERVER",
+                  "DB2",
+                  "PRESTO",
+                  "H2",
+                  "REDSHIFT",
+                  "ATHENA",
+                  "TRINO",
+                  "STARROCKS",
+                  "AZURESQL",
+                  "DAMENG",
+                  "OCEANBASE",
+                  "SSH",
+                  "KYUUBI",
+                  "DATABEND",
+                  "SNOWFLAKE",
+                  "VERTICA",
+                  "HANA",
+                  "DORIS",
+                  "ZEPPELIN",
+                  "SAGEMAKER"
+                ]
+              },
+              "connectionParams": {
+                "type": "string"
+              },
+              "DATASOURCE": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "DependentItem": {
+        "type": "object",
+        "properties": {
+          "projectCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "definitionCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "depTaskCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "cycle": {
+            "type": "string"
+          },
+          "dateValue": {
+            "type": "string"
+          },
+          "dependResult": {
+            "type": "string",
+            "enum": [
+              "SUCCESS",
+              "WAITING",
+              "FAILED",
+              "NON_EXEC"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "TaskExecutionStatus{code=0, desc='submit success'}",
+              "TaskExecutionStatus{code=1, desc='running'}",
+              "TaskExecutionStatus{code=3, desc='pause'}",
+              "TaskExecutionStatus{code=5, desc='stop'}",
+              "TaskExecutionStatus{code=6, desc='failure'}",
+              "TaskExecutionStatus{code=7, desc='success'}",
+              "TaskExecutionStatus{code=8, desc='need fault tolerance'}",
+              "TaskExecutionStatus{code=9, desc='kill'}",
+              "TaskExecutionStatus{code=12, desc='delay execution'}",
+              "TaskExecutionStatus{code=13, desc='forced success'}",
+              "TaskExecutionStatus{code=17, desc='dispatch'}"
+            ]
+          },
+          "parameterPassing": {
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          }
+        }
+      },
+      "DependentParameters": {
+        "type": "object",
+        "properties": {
+          "localParams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Property"
+            }
+          },
+          "varPool": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Property"
+            }
+          },
+          "dependTaskList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DependentTaskModel"
+            }
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "AND",
+              "OR"
+            ]
+          },
+          "checkInterval": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failurePolicy": {
+            "type": "string",
+            "enum": [
+              "DEPENDENT_FAILURE_FAILURE",
+              "DEPENDENT_FAILURE_WAITING"
+            ]
+          },
+          "failureWaitingTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inputLocalParametersMap": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Property"
+            }
+          },
+          "varPoolMap": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Property"
+            }
+          },
+          "resourceFilesList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceInfo"
+            }
+          },
+          "localParametersMap": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Property"
+            }
+          },
+          "resources": {
+            "$ref": "#/components/schemas/ResourceParametersHelper"
+          }
+        }
+      },
+      "DependentTaskModel": {
+        "type": "object",
+        "properties": {
+          "dependItemList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DependentItem"
+            }
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "AND",
+              "OR"
+            ]
+          }
+        }
+      },
+      "ProcessInstance": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "processDefinitionCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "processDefinitionVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "projectCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "WorkflowExecutionStatus{code=0, desc='submit success'}",
+              "WorkflowExecutionStatus{code=1, desc='running'}",
+              "WorkflowExecutionStatus{code=2, desc='ready pause'}",
+              "WorkflowExecutionStatus{code=3, desc='pause'}",
+              "WorkflowExecutionStatus{code=4, desc='ready stop'}",
+              "WorkflowExecutionStatus{code=5, desc='stop'}",
+              "WorkflowExecutionStatus{code=6, desc='failure'}",
+              "WorkflowExecutionStatus{code=7, desc='success'}",
+              "WorkflowExecutionStatus{code=12, desc='delay execution'}",
+              "WorkflowExecutionStatus{code=14, desc='serial wait'}",
+              "WorkflowExecutionStatus{code=15, desc='ready block'}",
+              "WorkflowExecutionStatus{code=16, desc='block'}",
+              "WorkflowExecutionStatus{code=17, desc='wait to run'}"
+            ]
+          },
+          "stateHistory": {
+            "type": "string"
+          },
+          "stateDescList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StateDesc"
+            }
+          },
+          "recovery": {
+            "type": "string",
+            "enum": [
+              "NO",
+              "YES"
+            ]
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "runTimes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "processDefinition": {
+            "$ref": "#/components/schemas/ProcessDefinition"
+          },
+          "commandType": {
+            "type": "string",
+            "enum": [
+              "START_PROCESS",
+              "START_CURRENT_TASK_PROCESS",
+              "RECOVER_TOLERANCE_FAULT_PROCESS",
+              "RECOVER_SUSPENDED_PROCESS",
+              "START_FAILURE_TASK_PROCESS",
+              "COMPLEMENT_DATA",
+              "SCHEDULER",
+              "REPEAT_RUNNING",
+              "PAUSE",
+              "STOP",
+              "RECOVER_WAITING_THREAD",
+              "RECOVER_SERIAL_WAIT",
+              "EXECUTE_TASK",
+              "DYNAMIC_GENERATION"
+            ]
+          },
+          "commandParam": {
+            "type": "string"
+          },
+          "taskDependType": {
+            "type": "string",
+            "enum": [
+              "TASK_ONLY",
+              "TASK_PRE",
+              "TASK_POST"
+            ]
+          },
+          "maxTryTimes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failureStrategy": {
+            "type": "string",
+            "enum": [
+              "END",
+              "CONTINUE"
+            ]
+          },
+          "warningType": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "SUCCESS",
+              "FAILURE",
+              "ALL",
+              "GLOBAL"
+            ]
+          },
+          "warningGroupId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "scheduleTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "commandStartTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "globalParams": {
+            "type": "string"
+          },
+          "dagData": {
+            "$ref": "#/components/schemas/DagData"
+          },
+          "executorId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "executorName": {
+            "type": "string"
+          },
+          "tenantCode": {
+            "type": "string"
+          },
+          "queue": {
+            "type": "string"
+          },
+          "isSubProcess": {
+            "type": "string",
+            "enum": [
+              "NO",
+              "YES"
+            ]
+          },
+          "locations": {
+            "type": "string"
+          },
+          "historyCmd": {
+            "type": "string"
+          },
+          "dependenceScheduleTimes": {
+            "type": "string"
+          },
+          "duration": {
+            "type": "string"
+          },
+          "processInstancePriority": {
+            "type": "string",
+            "enum": [
+              "HIGHEST",
+              "HIGH",
+              "MEDIUM",
+              "LOW",
+              "LOWEST"
+            ]
+          },
+          "workerGroup": {
+            "type": "string"
+          },
+          "environmentCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "timeout": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "varPool": {
+            "type": "string"
+          },
+          "nextProcessInstanceId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dryRun": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "restartTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "testFlag": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cmdTypeIfComplement": {
+            "type": "string",
+            "enum": [
+              "START_PROCESS",
+              "START_CURRENT_TASK_PROCESS",
+              "RECOVER_TOLERANCE_FAULT_PROCESS",
+              "RECOVER_SUSPENDED_PROCESS",
+              "START_FAILURE_TASK_PROCESS",
+              "COMPLEMENT_DATA",
+              "SCHEDULER",
+              "REPEAT_RUNNING",
+              "PAUSE",
+              "STOP",
+              "RECOVER_WAITING_THREAD",
+              "RECOVER_SERIAL_WAIT",
+              "EXECUTE_TASK",
+              "DYNAMIC_GENERATION"
+            ]
+          },
+          "complementData": {
+            "type": "boolean"
+          },
+          "blocked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ResourceInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "deprecated": true
+          },
+          "resourceName": {
+            "type": "string"
+          },
+          "res": {
+            "type": "string",
+            "deprecated": true
+          }
+        }
+      },
+      "ResourceParametersHelper": {
+        "type": "object",
+        "properties": {
+          "resourceMap": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/DataSourceParameters"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UdfFuncParameters"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "StateDesc": {
+        "type": "object",
+        "properties": {
+          "time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "WorkflowExecutionStatus{code=0, desc='submit success'}",
+              "WorkflowExecutionStatus{code=1, desc='running'}",
+              "WorkflowExecutionStatus{code=2, desc='ready pause'}",
+              "WorkflowExecutionStatus{code=3, desc='pause'}",
+              "WorkflowExecutionStatus{code=4, desc='ready stop'}",
+              "WorkflowExecutionStatus{code=5, desc='stop'}",
+              "WorkflowExecutionStatus{code=6, desc='failure'}",
+              "WorkflowExecutionStatus{code=7, desc='success'}",
+              "WorkflowExecutionStatus{code=12, desc='delay execution'}",
+              "WorkflowExecutionStatus{code=14, desc='serial wait'}",
+              "WorkflowExecutionStatus{code=15, desc='ready block'}",
+              "WorkflowExecutionStatus{code=16, desc='block'}",
+              "WorkflowExecutionStatus{code=17, desc='wait to run'}"
+            ]
+          },
+          "desc": {
+            "type": "string"
+          }
+        }
+      },
+      "SwitchParameters": {
+        "type": "object",
+        "properties": {
+          "localParams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Property"
+            }
+          },
+          "varPool": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Property"
+            }
+          },
+          "dependRelation": {
+            "type": "string",
+            "enum": [
+              "AND",
+              "OR"
+            ]
+          },
+          "relation": {
+            "type": "string"
+          },
+          "nextNode": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "resultConditionLocation": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dependTaskList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SwitchResultVo"
+            }
+          },
+          "inputLocalParametersMap": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Property"
+            }
+          },
+          "varPoolMap": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Property"
+            }
+          },
+          "resourceFilesList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceInfo"
+            }
+          },
+          "localParametersMap": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Property"
+            }
+          },
+          "resources": {
+            "$ref": "#/components/schemas/ResourceParametersHelper"
+          }
+        }
+      },
+      "SwitchResultVo": {
+        "type": "object",
+        "properties": {
+          "condition": {
+            "type": "string"
+          },
+          "nextNode": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        }
+      },
+      "TaskInstance": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "taskType": {
+            "type": "string"
+          },
+          "processInstanceId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "processInstanceName": {
+            "type": "string"
+          },
+          "projectCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "taskCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "taskDefinitionVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "processDefinitionName": {
+            "type": "string"
+          },
+          "taskGroupPriority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "TaskExecutionStatus{code=0, desc='submit success'}",
+              "TaskExecutionStatus{code=1, desc='running'}",
+              "TaskExecutionStatus{code=3, desc='pause'}",
+              "TaskExecutionStatus{code=5, desc='stop'}",
+              "TaskExecutionStatus{code=6, desc='failure'}",
+              "TaskExecutionStatus{code=7, desc='success'}",
+              "TaskExecutionStatus{code=8, desc='need fault tolerance'}",
+              "TaskExecutionStatus{code=9, desc='kill'}",
+              "TaskExecutionStatus{code=12, desc='delay execution'}",
+              "TaskExecutionStatus{code=13, desc='forced success'}",
+              "TaskExecutionStatus{code=17, desc='dispatch'}"
+            ]
+          },
+          "firstSubmitTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "submitTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "host": {
+            "type": "string"
+          },
+          "executePath": {
+            "type": "string"
+          },
+          "logPath": {
+            "type": "string"
+          },
+          "retryTimes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "alertFlag": {
+            "type": "string",
+            "enum": [
+              "NO",
+              "YES"
+            ]
+          },
+          "processInstance": {
+            "$ref": "#/components/schemas/ProcessInstance"
+          },
+          "processDefine": {
+            "$ref": "#/components/schemas/ProcessDefinition"
+          },
+          "taskDefine": {
+            "$ref": "#/components/schemas/TaskDefinition"
+          },
+          "pid": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "appLink": {
+            "type": "string"
+          },
+          "flag": {
+            "type": "string",
+            "enum": [
+              "NO",
+              "YES"
+            ]
+          },
+          "isCache": {
+            "type": "string",
+            "enum": [
+              "NO",
+              "YES"
+            ]
+          },
+          "cacheKey": {
+            "type": "string"
+          },
+          "dependency": {
+            "$ref": "#/components/schemas/DependentParameters"
+          },
+          "switchDependency": {
+            "$ref": "#/components/schemas/SwitchParameters"
+          },
+          "duration": {
+            "type": "string"
+          },
+          "maxRetryTimes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "retryInterval": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taskInstancePriority": {
+            "type": "string",
+            "enum": [
+              "HIGHEST",
+              "HIGH",
+              "MEDIUM",
+              "LOW",
+              "LOWEST"
+            ]
+          },
+          "processInstancePriority": {
+            "type": "string",
+            "enum": [
+              "HIGHEST",
+              "HIGH",
+              "MEDIUM",
+              "LOW",
+              "LOWEST"
+            ]
+          },
+          "dependentResult": {
+            "type": "string"
+          },
+          "workerGroup": {
+            "type": "string"
+          },
+          "environmentCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "environmentConfig": {
+            "type": "string"
+          },
+          "executorId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "varPool": {
+            "type": "string"
+          },
+          "executorName": {
+            "type": "string"
+          },
+          "delayTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taskParams": {
+            "type": "string"
+          },
+          "dryRun": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taskGroupId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cpuQuota": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "memoryMax": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taskExecuteType": {
+            "type": "string",
+            "enum": [
+              "BATCH",
+              "STREAM"
+            ]
+          },
+          "testFlag": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "subProcess": {
+            "type": "boolean"
+          },
+          "taskComplete": {
+            "type": "boolean"
+          },
+          "dependTask": {
+            "type": "boolean"
+          },
+          "conditionsTask": {
+            "type": "boolean"
+          },
+          "switchTask": {
+            "type": "boolean"
+          },
+          "blockingTask": {
+            "type": "boolean"
+          },
+          "firstRun": {
+            "type": "boolean"
+          },
+          "dynamic": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UdfFuncParameters": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AbstractResourceParameters"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "userId": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "funcName": {
+                "type": "string"
+              },
+              "className": {
+                "type": "string"
+              },
+              "argTypes": {
+                "type": "string"
+              },
+              "database": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "resourceId": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "resourceName": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "HIVE",
+                  "SPARK"
+                ]
+              },
+              "createTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updateTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "UDF": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ResultObject": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TaskInstanceSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CreateTokenRequest": {
+        "required": [
+          "expireTime",
+          "userId"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "expireTime": {
+            "type": "string",
+            "example": "2022-12-31 00:00:00"
+          },
+          "token": {
+            "type": "string",
+            "example": "abc123xyz"
+          }
+        }
+      },
+      "AccessToken": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "token": {
+            "type": "string"
+          },
+          "expireTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updateTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "userName": {
+            "type": "string"
+          }
+        }
+      },
+      "ResultAccessToken": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AccessToken"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkflowInstanceQueryRequest": {
+        "required": [
+          "pageNo",
+          "pageSize"
+        ],
+        "type": "object",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "example": 10
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "projectName": {
+            "type": "string",
+            "example": "PROJECT-NAME"
+          },
+          "workflowName": {
+            "type": "string",
+            "example": "WORKFLOW-NAME"
+          },
+          "host": {
+            "type": "string",
+            "example": "HOST"
+          },
+          "startDate": {
+            "type": "string",
+            "example": "START-TIME"
+          },
+          "endDate": {
+            "type": "string",
+            "example": "END-DATE"
+          },
+          "state": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ResultTaskCountDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TaskCountDto"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TaskCountDto": {
+        "type": "object",
+        "properties": {
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taskCountDtos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskStateCount"
+            }
+          }
+        }
+      },
+      "TaskStateCount": {
+        "type": "object",
+        "properties": {
+          "taskStateType": {
+            "type": "string",
+            "enum": [
+              "TaskExecutionStatus{code=0, desc='submit success'}",
+              "TaskExecutionStatus{code=1, desc='running'}",
+              "TaskExecutionStatus{code=3, desc='pause'}",
+              "TaskExecutionStatus{code=5, desc='stop'}",
+              "TaskExecutionStatus{code=6, desc='failure'}",
+              "TaskExecutionStatus{code=7, desc='success'}",
+              "TaskExecutionStatus{code=8, desc='need fault tolerance'}",
+              "TaskExecutionStatus{code=9, desc='kill'}",
+              "TaskExecutionStatus{code=12, desc='delay execution'}",
+              "TaskExecutionStatus{code=13, desc='forced success'}",
+              "TaskExecutionStatus{code=17, desc='dispatch'}"
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DefineUserDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "userList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowDefinitionCountDto"
+            }
+          }
+        }
+      },
+      "ResultDefineUserDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DefineUserDto"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkflowDefinitionCountDto": {
+        "type": "object",
+        "properties": {
+          "userName": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "StatisticsStateRequest": {
+        "type": "object",
+        "properties": {
+          "projectName": {
+            "type": "string",
+            "example": "PROJECT-NAME"
+          },
+          "projectCode": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1234567890
+          },
+          "workflowName": {
+            "type": "string",
+            "example": "WORKFLOW-NAME"
+          },
+          "workflowCode": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1234567890
+          },
+          "taskName": {
+            "type": "string",
+            "example": "TASK-NAME"
+          },
+          "taskCode": {
+            "type": "integer",
+            "format": "int64",
+            "example": 1234567890
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "all": {
+            "type": "boolean"
+          }
+        }
+      },
+      "QUEUE-QUERY": {
+        "required": [
+          "pageNo",
+          "pageSize"
+        ],
+        "type": "object",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "example": 10
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "searchVal": {
+            "type": "string",
+            "example": "queue11"
+          }
+        }
+      },
+      "PageInfoQueue": {
+        "type": "object",
+        "properties": {
+          "totalList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Queue"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ResultPageInfoQueue": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PageInfoQueue"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ResultListQueue": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Queue"
+            }
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PROJECT-QUERY": {
+        "required": [
+          "pageNo",
+          "pageSize"
+        ],
+        "type": "object",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "example": 10
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "searchVal": {
+            "type": "string",
+            "example": "pro123"
+          }
+        }
+      },
+      "PageInfoProject": {
+        "type": "object",
+        "properties": {
+          "totalList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ResultPageInfoProject": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PageInfoProject"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TaskInstanceQueryRequest": {
+        "required": [
+          "pageNo",
+          "pageSize"
+        ],
+        "type": "object",
+        "properties": {
+          "pageSize": {
+            "type": "integer",
+            "format": "int32",
+            "example": 10
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32",
+            "example": 1
+          },
+          "processInstanceId": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          },
+          "processInstanceName": {
+            "type": "string",
+            "example": "PROCESS-INSTANCE-NAME"
+          },
+          "processDefinitionName": {
+            "type": "string",
+            "example": "PROCESS-DEFINITION-NAME"
+          },
+          "searchVal": {
+            "type": "string",
+            "example": "SEARCH-VAL"
+          },
+          "taskName": {
+            "type": "string",
+            "example": "TASK-NAME"
+          },
+          "taskCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "executorName": {
+            "type": "string",
+            "example": "EXECUTOR-NAME"
+          },
+          "stateType": {
+            "type": "string",
+            "example": "STATE-TYPE",
+            "enum": [
+              "TaskExecutionStatus{code=0, desc='submit success'}",
+              "TaskExecutionStatus{code=1, desc='running'}",
+              "TaskExecutionStatus{code=3, desc='pause'}",
+              "TaskExecutionStatus{code=5, desc='stop'}",
+              "TaskExecutionStatus{code=6, desc='failure'}",
+              "TaskExecutionStatus{code=7, desc='success'}",
+              "TaskExecutionStatus{code=8, desc='need fault tolerance'}",
+              "TaskExecutionStatus{code=9, desc='kill'}",
+              "TaskExecutionStatus{code=12, desc='delay execution'}",
+              "TaskExecutionStatus{code=13, desc='forced success'}",
+              "TaskExecutionStatus{code=17, desc='dispatch'}"
+            ]
+          },
+          "host": {
+            "type": "string",
+            "example": "HOST"
+          },
+          "startDate": {
+            "type": "string",
+            "example": "START-TIME"
+          },
+          "endDate": {
+            "type": "string",
+            "example": "END-DATE"
+          },
+          "taskExecuteType": {
+            "type": "string",
+            "example": "EXECUTE-TYPE",
+            "enum": [
+              "BATCH",
+              "STREAM"
+            ],
+            "default": "BATCH"
+          }
+        }
+      },
+      "PageInfoTaskInstance": {
+        "type": "object",
+        "properties": {
+          "totalList": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskInstance"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "currentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageNo": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ResultPageInfoTaskInstance": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PageInfoTaskInstance"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProjectQueryResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Project"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProjectListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            }
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "userPassword": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "userType": {
+            "type": "string",
+            "enum": [
+              "ADMIN_USER",
+              "GENERAL_USER"
+            ]
+          },
+          "tenantId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "state": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tenantCode": {
+            "type": "string"
+          },
+          "queueName": {
+            "type": "string"
+          },
+          "alertGroup": {
+            "type": "string"
+          },
+          "queue": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "createTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updateTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UserListResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ResultVoid": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProjectDeleteResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "boolean"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
