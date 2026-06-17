@@ -18,7 +18,7 @@ class ExternalApiParam(BaseModel):
     description: str = ""
     default_value: str | None = None
     # 参数来源：static(固定值) / user_input(用户输入) / user_credential(用户凭据)
-    param_source: str = Field(default="static", pattern="^(static|user_input|user_credential)$")
+    param_source: str = Field(default="static", pattern="^(static|user_input|user_credential|llm_extract)$")
     # 用户输入/凭据时的显示标签
     label: str | None = None
 
