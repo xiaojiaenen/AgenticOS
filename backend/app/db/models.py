@@ -44,6 +44,7 @@ class UserModel(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(32), default="user", index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    auth_source: Mapped[str] = mapped_column(String(32), default="local", server_default="local")
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
@@ -409,6 +410,7 @@ class ExternalApiModel(Base):
     response_example: Mapped[str | None] = mapped_column(Text, nullable=True)
     requires_approval: Mapped[bool] = mapped_column(Boolean, default=False)
     timeout_seconds: Mapped[int] = mapped_column(Integer, default=30)
+    body_wrapper_key: Mapped[str | None] = mapped_column(String(64), nullable=True)  # 如 "params"，body 包为 {"params":{...}}
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
@@ -440,4 +442,12 @@ class AgentProfileExternalSystemModel(Base):
     profile_id: Mapped[int] = mapped_column(ForeignKey("agent_profiles.id"), index=True)
     system_id: Mapped[int] = mapped_column(ForeignKey("external_systems.id"), index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class SystemSettingModel(Base):
+    __tablename__ = "system_settings"
+
+    key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    value: Mapped[str] = mapped_column(String(1024), default="")
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)

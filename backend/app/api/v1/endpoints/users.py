@@ -78,6 +78,7 @@ async def create_user(
         password_hash=hash_password(request.password),
         role=request.role,
         is_active=request.is_active,
+        auth_source=request.auth_source,
     )
     db.add(user)
     db.commit()
@@ -135,6 +136,8 @@ def update_user(
         if user.id == current_user.id and not request.is_active:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot disable yourself")
         user.is_active = request.is_active
+    if request.auth_source is not None:
+        user.auth_source = request.auth_source
 
     db.add(user)
     db.commit()

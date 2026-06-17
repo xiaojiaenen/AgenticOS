@@ -102,6 +102,79 @@ DECK_STYLES: dict[str, dict] = {
         "recommended_themes": ["klein-blue", "swiss-grid", "minimal", "mono", "bauhaus", "brutalist"],
         "best_for": ["商业报告", "AI/设计提案", "事实演讲", "工业分析"],
     },
+    "glass_layers": {
+        "label": "玻璃层次",
+        "description": "毛玻璃面板 + 多层透明叠加 + 精致阴影 + 现代 SaaS 质感",
+        "font_display": "Inter, Noto Sans SC, sans-serif",
+        "font_body": "Inter, Noto Sans SC, sans-serif",
+        "accent_usage": "subtle, 1 per slide on frosted panels",
+        "radius": "16-24px prominent",
+        "shadow": "layered, depth-creating",
+        "forbidden": ["solid opaque backgrounds", "flat design", "harsh borders", "dark mode"],
+        "recommended_themes": ["glassmorphism", "vercel", "apple", "linear-app", "notion", "raycast"],
+        "best_for": ["SaaS 产品发布", "UI/UX 评审", "技术博客", "现代企业介绍"],
+    },
+    "zen_garden": {
+        "label": "禅意留白",
+        "description": "极致留白 + 单一自然 accent + 有机曲线 + 无边框无阴影 + 呼吸感",
+        "font_display": "Noto Serif SC, serif",
+        "font_body": "Inter, Noto Sans SC, sans-serif",
+        "accent_usage": "one natural accent only, used once per slide max",
+        "radius": "none",
+        "shadow": "none",
+        "forbidden": ["borders", "shadows", "gradients", "more than 1 accent element", "dense layouts", "emoji", "grid lines"],
+        "recommended_themes": ["japanese-minimal", "paper", "kami", "warm-editorial", "atelier-zero", "refined"],
+        "best_for": ["哲学演讲", "品牌理念", "高端咨询", "文化艺术"],
+    },
+    "luxe_noir": {
+        "label": "奢华暗金",
+        "description": "深色背景 + 金色/玫瑰金 accent + 衬线标题 + 精致装饰线 + 奢侈感",
+        "font_display": "Playfair Display, Noto Serif SC, serif",
+        "font_body": "Inter, Noto Sans SC, sans-serif",
+        "accent_usage": "gold/rose-gold accent, 1-2 per slide, never bright yellow",
+        "radius": "2-4px subtle",
+        "shadow": "none",
+        "forbidden": ["bright primary colors", "casual fonts", "emoji", "neon", "glass effects"],
+        "recommended_themes": ["premium", "luxury", "mastercard", "bugatti", "ferrari", "lamborghini"],
+        "best_for": ["高端品牌发布", "奢侈品报告", "VIP 演讲", "年度盛典"],
+    },
+    "pastel_dream": {
+        "label": "柔和粉彩",
+        "description": "粉彩色板 + 大圆角 + 柔和阴影 + 友好亲和 + 轻盈愉悦",
+        "font_display": "Inter, Noto Sans SC, sans-serif",
+        "font_body": "Inter, Noto Sans SC, sans-serif",
+        "accent_usage": "soft pastel accent, 2-3 per slide, no harsh contrasts",
+        "radius": "16-24px bold rounded",
+        "shadow": "soft, gentle, colorful",
+        "forbidden": ["pure black text", "sharp corners", "dark backgrounds", "harsh red/green", "serif fonts"],
+        "recommended_themes": ["soft-pastel", "xiaohongshu", "pinterest", "duolingo", "friendly", "catppuccin-latte"],
+        "best_for": ["团队建设", "用户研究", "教育课件", "社交分享"],
+    },
+    "magazine_layout": {
+        "label": "杂志跨页",
+        "description": "大图出血 + 超大标题 + 引用块 + 非对称四栏 + 编辑感",
+        "font_display": "Playfair Display, Noto Serif SC, serif",
+        "font_body": "Inter, Noto Sans SC, sans-serif",
+        "accent_usage": "minimal accent, let typography and images dominate",
+        "radius": "0px",
+        "shadow": "none",
+        "forbidden": ["rounded corners", "gradients", "drop shadows", "emoji", "small title text"],
+        "recommended_themes": ["editorial", "publication", "magazine-bold", "theverge", "warm-editorial", "editorial-serif"],
+        "best_for": ["品牌故事", "年度回顾", "深度报道", "作品集"],
+    },
+    "neon_pulse": {
+        "label": "霓虹脉冲",
+        "description": "深黑背景 + 霓虹强调色 + 发光边框 + 终端字体 + 夜店/赛博精致感",
+        "font_display": "Inter, Noto Sans SC, sans-serif",
+        "font_body": "Inter, Noto Sans SC, sans-serif",
+        "font_mono": "JetBrains Mono, monospace",
+        "accent_usage": "1-2 neon accents with glow, no more per slide",
+        "radius": "4-8px",
+        "shadow": "glow only, no drop shadow",
+        "forbidden": ["warm colors", "serif fonts", "white backgrounds", "subtle palettes", "organic shapes"],
+        "recommended_themes": ["cyberpunk-neon", "dracula", "tokyo-night", "synthwave", "hud", "futuristic"],
+        "best_for": ["黑客松", "游戏发布", "Web3 路演", "电子音乐"],
+    },
 }
 
 
@@ -132,4 +205,12 @@ def build_deck_styles_text() -> str:
     lines.append("- **16 列隐式网格**：所有元素对齐到 1280/16=80px 的列网格上")
     lines.append("- **单一饱和 accent**：整份 deck 仅使用一个高饱和强调色，其余为黑白灰中性色")
     lines.append("- **不许编造数据**：数字必须来自用户输入，图表柱高/弧度为真实数据按比例")
+    lines.append("")
+    lines.append("### 玻璃层次风格特别约束（选择此风格时必须遵守）")
+    lines.append("")
+    lines.append("- **每层必有 backdrop-blur**：所有卡片/面板使用毛玻璃效果，底层隐约透出背景色块")
+    lines.append("- **多层深度**：至少 3 层视觉深度——背景装饰色块 → 半透明卡片 → 前景内容")
+    lines.append("- **精致阴影**：用双层阴影（近距离浅 + 远距离深）营造浮动感，禁止 flat")
+    lines.append("- **圆角 16-24px**：所有面板、卡片、图片使用大圆角，按钮 12px")
+    lines.append("- **禁止实色背景**：不使用纯白/纯黑不透明面板，所有面板至少 60% 透明度")
     return "\n".join(lines)

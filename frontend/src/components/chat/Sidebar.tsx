@@ -54,7 +54,7 @@ interface SidebarProps {
   currentSessionId: string | null;
   onNewChat: () => void;
   onSelectSession: (id: string) => void;
-  onDeleteSession: (id: string, e: React.MouseEvent) => void;
+  onDeleteSession: (id: string, e?: React.MouseEvent) => void;
   onClose: () => void;
   isMobile: boolean;
   onLoadMore?: () => void;
@@ -351,7 +351,7 @@ export const Sidebar = React.memo(({
         submitLabel="删除"
         onSubmit={() => {
           if (deleteConfirm) {
-            onDeleteSession(deleteConfirm.id, {} as React.MouseEvent);
+            onDeleteSession(deleteConfirm.id);
             setDeleteConfirm(null);
           }
         }}

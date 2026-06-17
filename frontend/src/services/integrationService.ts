@@ -68,6 +68,7 @@ export type IntegrationApi = {
   response_example: string | null;
   requires_approval: boolean;
   timeout_seconds: number;
+  body_wrapper_key: string | null;
   enabled: boolean;
   params: IntegrationApiParam[];
   created_at: string;
@@ -93,6 +94,7 @@ export type IntegrationApiPayload = {
   response_example?: string;
   requires_approval: boolean;
   timeout_seconds: number;
+  body_wrapper_key?: string | null;
   params: IntegrationApiParam[];
 };
 

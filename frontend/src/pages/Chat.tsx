@@ -19,6 +19,8 @@ import { getStoredUser } from '../services/authService';
 import { getMyAgents } from '../services/agentProfileService';
 import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
+import { UserInputPanel } from '../components/chat/UserInputPanel';
+import { submitUserInput, type UserInputRequest } from '../services/agentService';
 import { useIsGlassTheme, LightRays, Ferrofluid } from '../components/liquid-glass';
 
 export const Chat = () => {
@@ -67,6 +69,8 @@ export const Chat = () => {
   const isAdmin = getStoredUser()?.role === 'admin';
 
   // ── 流式 ──
+  const [userInputReq, setUserInputReq] = useState<UserInputRequest | null>(null);
+
   const {
     isLoading, error, setError, runStatus, pendingDecisions,
     handleSend, handleStopGeneration,
@@ -77,6 +81,7 @@ export const Chat = () => {
     selectedAgent: agentProfiles.find((a) => a.id === selectedAgentProfileId) || null,
     setSessions, setCurrentSessionId,
     applySessionState, setArtifact, setInputValue,
+    onUserInputRequired: setUserInputReq,
   });
 
   // ── 派生状态 ──
@@ -142,8 +147,8 @@ export const Chat = () => {
     if (isMobile) setIsSidebarOpen(false);
   }, [isMobile, storeCreateNewChat, setCurrentSessionId, setIsSidebarOpen]);
 
-  const deleteSession = useCallback((id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const deleteSession = useCallback((id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     setSessions((prev) => prev.filter((s) => s.id !== id));
     setCurrentSessionId((prev) => {
       if (prev !== id) return prev;
@@ -171,6 +176,18 @@ export const Chat = () => {
     await handleApprovalDecision(approvalId, 'rejected');
     setArtifact(null);
   }, [handleApprovalDecision, setArtifact]);
+
+  const handleUserInputSubmit = useCallback(async (values: Record<string, string>) => {
+    if (!userInputReq || !currentSessionId) return;
+    try {
+      await submitUserInput(currentSessionId, userInputReq.api_name, values);
+      setUserInputReq(null);
+      // agent 被阻塞等待，Future 解析后自动继续执行，无需发新消息
+    } catch (err) {
+      console.error('Submit user input error:', err);
+      setError(err instanceof Error ? err.message : '提交参数失败');
+    }
+  }, [userInputReq, currentSessionId, handleSend, setError]);
 
   const handleAgentProfileChange = useCallback((profile: any) => {
     setSelectedAgentProfileId(profile?.id ?? null);
@@ -481,6 +498,15 @@ export const Chat = () => {
             )}
           >
             <ChatMainArea />
+            {userInputReq && (
+              <div className="absolute inset-x-0 bottom-0 z-30 px-4 pb-4">
+                <UserInputPanel
+                  request={userInputReq}
+                  onSubmit={handleUserInputSubmit}
+                  onDismiss={() => setUserInputReq(null)}
+                />
+              </div>
+            )}
           </main>
           <AnimatePresence>
             {chatMode === 'ppt' && (

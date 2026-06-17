@@ -55,7 +55,7 @@ export const IntegrationManagement = () => {
  const handleSaveSystem = async () => { if(!systemDraft)return; setIsSaving(true); setError(null); try { const payload = { ...systemDraft, default_credential_data: (systemDraft as any)._defaultCreds || null }; delete (payload as any)._defaultCreds; if(systemDraft.id){await updateSystem(systemDraft.id,payload);}else{await createSystem(payload);} setIsSystemModalOpen(false); setMessage(systemDraft.id?"集成已更新":"集成已创建"); setTimeout(()=>setMessage(null),3000); await loadSystems(); } catch(e){setError(e instanceof Error?e.message:"保存失败");} finally{setIsSaving(false);} };
  const handleDeleteSystem = async (sys:IntegrationSystem) => { if(!confirm(`确定删除集成 "${sys.name}"？`))return; try{await deleteSystem(sys.id); if(selectedSystem?.id===sys.id){setSelectedSystem(null);setApis([]);} setMessage("集成已删除");setTimeout(()=>setMessage(null),3000);await loadSystems();}catch(e){setError(e instanceof Error?e.message:"删除失败");} };
  const openCreateApi = () => { setApiDraft(emptyApiDraft()); setIsApiModalOpen(true); };
- const openEditApi = (api:IntegrationApi) => { setApiDraft({id:api.id,name:api.name,display_name:api.display_name,description:api.description,method:api.method,path:api.path,request_body_schema:api.request_body_schema||undefined,response_example:api.response_example||undefined,requires_approval:api.requires_approval,timeout_seconds:api.timeout_seconds,params:api.params}); setIsApiModalOpen(true); };
+ const openEditApi = (api:IntegrationApi) => { setApiDraft({id:api.id,name:api.name,display_name:api.display_name,description:api.description,method:api.method,path:api.path,request_body_schema:api.request_body_schema||undefined,response_example:api.response_example||undefined,requires_approval:api.requires_approval,timeout_seconds:api.timeout_seconds,body_wrapper_key:api.body_wrapper_key||undefined,params:api.params}); setIsApiModalOpen(true); };
  const handleSaveApi = async () => { if(!apiDraft||!selectedSystem)return; setIsSaving(true); setError(null); try{if(apiDraft.id){await updateApi(selectedSystem.id,apiDraft.id,apiDraft);}else{await createApi(selectedSystem.id,apiDraft);} setIsApiModalOpen(false); setMessage(apiDraft.id?"接口已更新":"接口已创建");setTimeout(()=>setMessage(null),3000);await loadApis(selectedSystem.id);await loadSystems();}catch(e){setError(e instanceof Error?e.message:"保存失败");}finally{setIsSaving(false);} };
  const handleDeleteApi = async (api:IntegrationApi) => { if(!selectedSystem)return; if(!confirm(`确定删除接口 "${api.display_name}"？`))return; try{await deleteApi(selectedSystem.id,api.id);setMessage("接口已删除");setTimeout(()=>setMessage(null),3000);await loadApis(selectedSystem.id);await loadSystems();}catch(e){setError(e instanceof Error?e.message:"删除失败");} };
  const handleTestApi = async (api:IntegrationApi) => { if(!selectedSystem)return; const p:Record<string,string>={}; api.params.forEach(pp=>{p[pp.name]=pp.default_value||"";}); setTestState({apiId:api.id,params:p,result:null,loading:true}); try{const r=await testApi(selectedSystem.id,api.id,p);setTestState(prev=>prev?{...prev,result:r,loading:false}:null);}catch(e){setTestState(prev=>prev?{...prev,result:{success:false,status_code:0,body:String(e),elapsed_ms:0},loading:false}:null);} };
@@ -409,6 +409,7 @@ function ApiModal({draft,setDraft,onSave,onClose,isSaving}:{draft:ApiDraft;setDr
       <Field label="超时 (秒)"><input className="admin-input" type="number" value={draft.timeout_seconds} onChange={e=>setDraft({...draft,timeout_seconds:Number(e.target.value)})}/></Field>
       <div className="flex items-end pb-1"><label className="flex items-center gap-2.5 text-sm font-medium text-slate-700"><input type="checkbox" checked={draft.requires_approval} onChange={e=>setDraft({...draft,requires_approval:e.target.checked})} className="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400"/>需要审批</label></div>
      </div>
+     <Field label="Body 包装键（如 openspider 接口需设为 params）"><input className="admin-input" value={draft.body_wrapper_key||''} onChange={e=>setDraft({...draft,body_wrapper_key:e.target.value||null})} placeholder="留空则不包装，填 params 则包为 {&quot;params&quot;:{...}}"/></Field>
 
      <SectionTitle title="参数定义"/>
      <div>
@@ -427,9 +428,13 @@ function ApiModal({draft,setDraft,onSave,onClose,isSaving}:{draft:ApiDraft;setDr
           <option value="static">固定值</option>
           <option value="user_input">用户输入</option>
           <option value="user_credential">用户凭据（密码框）</option>
+          <option value="llm_extract">AI 提取</option>
          </select>
-         {(p.param_source==="user_input"||p.param_source==="user_credential") && (
-          <input className="admin-input text-xs" placeholder="显示标签（如：登录用户名）" value={p.label||""} onChange={e=>updateParam(i,"label",e.target.value)}/>
+         {p.param_source==="static" && (
+          <input className="admin-input text-xs" placeholder="固定值（如：GREE）" value={p.default_value||""} onChange={e=>updateParam(i,"default_value",e.target.value)}/>
+         )}
+         {(p.param_source==="user_input"||p.param_source==="user_credential"||p.param_source==="llm_extract") && (
+          <input className="admin-input text-xs" placeholder="显示标签（如：项目编码）" value={p.label||""} onChange={e=>updateParam(i,"label",e.target.value)}/>
          )}
         </div>
         <input className="admin-input mt-2 text-xs" placeholder="参数说明" value={p.description} onChange={e=>updateParam(i,"description",e.target.value)}/>

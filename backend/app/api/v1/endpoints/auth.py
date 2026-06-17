@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import bearer_scheme, get_current_user, get_db
@@ -18,6 +21,19 @@ from app.schemas.auth import (
     UserPublic,
 )
 from app.services.auth_service import AuthError, AuthRateLimitError, AuthService
+from app.services.ldap_auth_service import LdapAuthError, LdapAuthService
+
+
+def _is_ldap_enabled(db: Session, settings: Settings) -> bool:
+    """检查 LDAP 是否启用：优先从 DB 读取，无记录时回退到环境变量。"""
+    from sqlalchemy import select
+    from app.db.models import SystemSettingModel
+    row = db.scalar(
+        select(SystemSettingModel).where(SystemSettingModel.key == "ldap_enabled")
+    )
+    if row is not None:
+        return row.value == "true"
+    return settings.ldap_enabled
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -29,7 +45,25 @@ def _to_public(user: UserModel) -> UserPublic:
         name=user.name,
         role=user.role,
         is_active=user.is_active,
+        auth_source=user.auth_source,
     )
+
+
+def _extract_mail_no(raw: str, domain: str) -> str | None:
+    """从登录输入中提取 LDAP 工号。
+
+    - 纯数字 → 直接作工号
+    - 以 @domain 结尾 → 取前缀
+    - 其他 → None（非 LDAP 用户）
+    """
+    s = raw.strip().lower()
+    if re.fullmatch(r"\d+", s):
+        return s
+    if s.endswith(f"@{domain.lower()}") and "@" in s:
+        prefix = s[: s.index("@")]
+        if re.fullmatch(r"\d+", prefix):
+            return prefix
+    return None
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
@@ -39,6 +73,8 @@ async def register(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
+    if _is_ldap_enabled(db, settings):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="LDAP 认证已启用，注册已关闭")
     try:
         result = AuthService(db, settings).register(
             email=request.email,
@@ -59,12 +95,79 @@ async def register(
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(
+async def login(
     request: AuthLoginRequest,
     http_request: Request,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
+    # ── LDAP 路径 ──
+    if _is_ldap_enabled(db, settings):
+        mail_no = _extract_mail_no(request.email, settings.ldap_email_domain)
+        if mail_no is not None:
+            ldap = LdapAuthService(settings)
+            try:
+                ldap_user = await ldap.authenticate(mail_no, request.password)
+            except LdapAuthError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=str(exc),
+                ) from exc
+
+            # 查找或自动创建本地用户
+            email = ldap_user["email"]
+            user = db.scalar(select(UserModel).where(func.lower(UserModel.email) == email))
+
+            if user is None:
+                if settings.ldap_auto_create_users:
+                    # JIT 自动创建 LDAP 用户（随机密码，LDAP 用户不通过本地密码验证）
+                    import secrets
+                    user = UserModel(
+                        email=email,
+                        name=ldap_user["name"],
+                        password_hash=secrets.token_hex(32),
+                        role="admin" if db.scalar(select(func.count(UserModel.id))) == 0 else "user",
+                        is_active=True,
+                        auth_source="ldap",
+                    )
+                    db.add(user)
+                    db.commit()
+                    db.refresh(user)
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="LDAP 用户未授权，请联系管理员",
+                    )
+            elif user.auth_source != "ldap":
+                # 已存在但为本地用户 → 拒绝（不覆盖）
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="LDAP 用户未授权，请联系管理员",
+                )
+            elif not user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="用户已被禁用",
+                )
+            else:
+                # 已存在的 LDAP 用户，更新显示名
+                user.name = ldap_user["name"]
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+
+            # 自动配置邮箱凭据
+            ldap.auto_configure_email(db, user.id, mail_no, request.password)
+
+            return AuthService(db, settings)._auth_response(user)
+        else:
+            # 输入格式不匹配 LDAP（非数字且非公司邮箱）→ 直接拒绝
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="LDAP 认证已启用，请使用工号登录",
+            )
+
+    # ── 本地密码路径 ──
     try:
         return AuthService(db, settings).login(
             email=request.email,
@@ -98,8 +201,14 @@ def logout(
 
 
 @router.post("/send-code")
-async def send_code(request: SendCodeRequest) -> dict[str, object]:
+async def send_code(
+    request: SendCodeRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
     """发送验证码"""
+    if _is_ldap_enabled(db, settings):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="LDAP 认证已启用，无需验证码")
     from app.services.verification_service import send_verification_code
     result = await send_verification_code(request.email, request.purpose)
     if "error" in result:
@@ -114,6 +223,8 @@ def login_with_code(
     settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
     """验证码登录"""
+    if _is_ldap_enabled(db, settings):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="LDAP 认证已启用，验证码登录已关闭")
     try:
         return AuthService(db, settings).login_with_code(
             email=request.email,
@@ -130,6 +241,8 @@ async def register_with_code(
     settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
     """验证码注册"""
+    if _is_ldap_enabled(db, settings):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="LDAP 认证已启用，注册已关闭")
     try:
         result = AuthService(db, settings).register_with_code(
             email=request.email,

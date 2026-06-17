@@ -679,3 +679,14 @@ async def retheme_ppt(
         raise HTTPException(status_code=404, detail="PPT 制品不存在或无法切换主题")
 
     return result
+
+
+@router.post("/sessions/{session_id}/user-input", summary="提交用户输入（集成接口所需参数）")
+async def submit_user_input(
+    session_id: str,
+    request: dict[str, object],
+    current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
+) -> dict[str, object]:
+    """集成接口需要用户输入参数时，前端调用此接口提交用户填写的内容。"""
+    return await agent_service.submit_user_input(session_id, request, current_user)

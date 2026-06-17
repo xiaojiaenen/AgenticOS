@@ -9,6 +9,7 @@ import { ChatHistory } from '../components/admin/ChatHistory';
 import { DashboardCharts } from '../components/admin/DashboardCharts';
 import { DashboardStats } from '../components/admin/DashboardStats';
 import { SkillManagement } from '../components/admin/SkillManagement';
+import { SystemSettings } from '../components/admin/SystemSettings';
 import { IntegrationManagement } from '../components/admin/IntegrationManagement';
 import { UserManagement } from '../components/admin/UserManagement';
 import { MemoryPanel } from '../components/settings/MemoryPanel';
@@ -233,6 +234,8 @@ export const AdminDashboard = () => {
     return <SkillManagement />;
    case 'announcements':
     return <AnnouncementManagement />;
+   case 'settings':
+    return <SystemSettings />;
    case 'memory':
     return <MemoryPanel />;
    default:

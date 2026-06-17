@@ -305,7 +305,7 @@ from app.services.tool_config_service import ToolConfigService
 from app.schemas.agent import AgentStreamRequest
 from app.tools.email_tools import register_email_tools, set_current_session_id as set_email_session_id
 from app.core.data_path import set_current_session_id as set_data_session_id, set_current_user_id, restore_website_dir_for_session, DATA_DIR, PPT_SESSIONS_DIR, PPT_OUTPUT_DIR, WEBSITES_DIR, WEBSITE_TEMPLATES_DIR, DESIGN_THEMES_DIR, _parse_dir_name
-from app.services.external_system_service import set_ext_user_id
+from app.services.external_system_service import set_ext_user_id, _current_session_id as ext_session_id_ctx, UserInputBlocker
 # pptx_reverse_session_id removed — now uses data_path contextvars directly
 
 
@@ -740,6 +740,11 @@ class AgentService:
                         registry.register(tool)
         except Exception as e:
             _logger.debug("MCP tool registration skipped: %s", e)
+
+        # 移除 profile 中禁用的工具（覆盖 PPT/website/video 等模式无条件注册的工具）
+        for tool_name, enabled, _ in profile.signature:
+            if not enabled:
+                _unregister_if_exists(registry, tool_name)
 
         return registry, ext_instruction
 
@@ -1715,6 +1720,7 @@ class AgentService:
         await self.storage.assign_agent_profile(session.session_id, runtime_profile.profile_id)
         await self.storage.save_meta(session)
         approval_queue = self.approval_manager.subscribe(session.session_id)
+        user_input_queue = UserInputBlocker.subscribe(session.session_id)
         set_email_session_id(session.session_id)
         set_data_session_id(session.session_id)
         restore_website_dir_for_session(session.session_id)
@@ -1722,6 +1728,7 @@ class AgentService:
             set_current_user_id(user.id)
             set_ext_user_id(user.id)
         _current_session_id.set(session.session_id)
+        ext_session_id_ctx.set(session.session_id)
 
         yield {
             "event": "session",
@@ -1823,6 +1830,7 @@ class AgentService:
         producer = asyncio.create_task(produce_events())
         runtime_task = asyncio.create_task(runtime_queue.get())
         approval_task = asyncio.create_task(approval_queue.get())
+        user_input_task = asyncio.create_task(user_input_queue.get())
 
         # Keepalive: 每 15 秒发送一次注释防止连接超时
         KEEPALIVE_INTERVAL = 15
@@ -1833,7 +1841,7 @@ class AgentService:
             while True:
                 # 使用 timeout 避免无限等待，以便发送 keepalive
                 done, _ = await asyncio.wait(
-                    {runtime_task, approval_task},
+                    {runtime_task, approval_task, user_input_task},
                     timeout=KEEPALIVE_INTERVAL,
                     return_when=asyncio.FIRST_COMPLETED,
                 )
@@ -2141,6 +2149,14 @@ class AgentService:
                         "data": approval,
                     }
                     approval_task = asyncio.create_task(approval_queue.get())
+
+                if user_input_task in done:
+                    user_input_data = user_input_task.result()
+                    yield {
+                        "event": "user_input_required",
+                        "data": user_input_data,
+                    }
+                    user_input_task = asyncio.create_task(user_input_queue.get())
             # 对话结束时用 LLM 提取记忆（仅通用模式）
             _logger.info(f"Memory extraction conditions: user={user is not None}, collected_text_len={len(collected_text) if collected_text else 0}, ppt_mode={ppt_mode}, website_mode={website_mode}, video_mode={video_mode}, message={request.message[:50] if request.message else ''}")
             if user is not None and request.message and not ppt_mode and not website_mode and not video_mode:
@@ -2346,6 +2362,32 @@ class AgentService:
         if owner_id is not None and owner_id != current_user.id and current_user.role != "admin":
             raise PermissionError("当前用户无权删除该会话。")
         await self.storage.delete(session_id)
+
+    async def submit_user_input(self, session_id: str, params: dict[str, object], current_user: UserModel) -> dict[str, object]:
+        """接收用户为集成接口提交的参数，以系统消息注入上下文并触发重试。
+
+        前端提交的 params 格式：
+        {
+            "api_name": "search_issues",
+            "values": {"assignee": "张三", "jql": "status=open"},
+        }
+        """
+        session = await self.storage.load(session_id)
+        if session is None:
+            raise ValueError("会话不存在")
+        owner_id = await self.storage.get_owner_id(session_id)
+        if owner_id is not None and owner_id != current_user.id and current_user.role != "admin":
+            raise PermissionError("当前用户无权操作该会话")
+
+        api_name = params.get("api_name", "")
+        values = params.get("values", {})
+        if not isinstance(values, dict):
+            values = {}
+
+        # 解析 Future，让阻塞的 handler 继续执行
+        UserInputBlocker.resolve(session_id, values)
+
+        return {"status": "ok", "session_id": session_id, "api_name": api_name, "values": values}
 
 
 from app.core.singleton import ThreadSafeSingleton

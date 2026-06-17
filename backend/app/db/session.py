@@ -71,6 +71,27 @@ def init_db() -> None:
     from app.services.local_skill_import_service import LocalSkillImportService
     LocalSkillImportService().import_from_storage()
 
+    # 从环境变量种子化 ldap_enabled（仅首次启动时写入）
+    _seed_ldap_enabled()
+
+
+def _seed_ldap_enabled() -> None:
+    """若 DB 中无 ldap_enabled 记录，从环境变量同步初始值。"""
+    from sqlalchemy import select, text
+    from app.db.models import SystemSettingModel
+    inspector = inspect(engine)
+    if "system_settings" not in inspector.get_table_names():
+        return
+    with SessionLocal() as session:
+        row = session.scalar(
+            select(SystemSettingModel).where(SystemSettingModel.key == "ldap_enabled")
+        )
+        if row is None:
+            settings = get_settings()
+            value = "true" if settings.ldap_enabled else "false"
+            session.add(SystemSettingModel(key="ldap_enabled", value=value))
+            session.commit()
+
 
 def _ensure_compatible_schema() -> None:
     inspector = inspect(engine)
@@ -87,6 +108,11 @@ def _ensure_compatible_schema() -> None:
             for col_name, col_def in columns:
                 if col_name not in existing:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}"))
+
+    # ── users ──
+    _add_columns("users", [
+        ("auth_source", "VARCHAR(32) DEFAULT 'local'"),
+    ])
 
     # ── agent_sessions ──
     _add_columns("agent_sessions", [
@@ -221,6 +247,7 @@ def _ensure_compatible_schema() -> None:
         ("enabled", "BOOLEAN DEFAULT 1"),
         ("request_body_schema", "TEXT"),
         ("response_example", "TEXT"),
+        ("body_wrapper_key", "VARCHAR(64)"),
     ])
 
     # ── external_api_params ──

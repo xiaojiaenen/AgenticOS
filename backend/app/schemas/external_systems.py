@@ -38,6 +38,7 @@ class ExternalApiDetail(ExternalApiBrief):
     request_body_schema: str | None
     response_example: str | None
     timeout_seconds: int
+    body_wrapper_key: str | None = None
     params: list[ExternalApiParam] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
@@ -175,6 +176,7 @@ class ExternalApiCreateRequest(BaseModel):
     response_example: str | None = None
     requires_approval: bool = False
     timeout_seconds: int = Field(default=30, ge=1, le=300)
+    body_wrapper_key: str | None = None
     params: list[ExternalApiParam] = Field(default_factory=list)
 
     @field_validator("name")
@@ -198,6 +200,7 @@ class ExternalApiUpdateRequest(BaseModel):
     response_example: str | None = None
     requires_approval: bool | None = None
     timeout_seconds: int | None = Field(default=None, ge=1, le=300)
+    body_wrapper_key: str | None = None
     enabled: bool | None = None
     params: list[ExternalApiParam] | None = None
 

@@ -8,14 +8,7 @@ import { LiquidGlass, glassPresets } from '@xiaojiaenen/liquid-glass';
 import { cn } from '../../lib/utils';
 
 const EMAIL_PRESETS = [
-  { label: '腾讯企业邮箱', value: 'exmail_qq', imap_host: 'imap.exmail.qq.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.exmail.qq.com', smtp_port: 465, smtp_ssl: true },
-  { label: 'QQ 邮箱', value: 'qq', imap_host: 'imap.qq.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.qq.com', smtp_port: 465, smtp_ssl: true },
-  { label: '163 邮箱', value: '163', imap_host: 'imap.163.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.163.com', smtp_port: 465, smtp_ssl: true },
-  { label: '126 邮箱', value: '126', imap_host: 'imap.126.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.126.com', smtp_port: 465, smtp_ssl: true },
-  { label: 'Gmail', value: 'gmail', imap_host: 'imap.gmail.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.gmail.com', smtp_port: 587, smtp_ssl: false },
-  { label: 'Outlook / Hotmail', value: 'outlook', imap_host: 'outlook.office365.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.office365.com', smtp_port: 587, smtp_ssl: false },
-  { label: '阿里企业邮箱', value: 'aliyun', imap_host: 'imap.qiye.aliyun.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.qiye.aliyun.com', smtp_port: 465, smtp_ssl: true },
-  { label: '自定义', value: 'custom', imap_host: '', imap_port: 993, imap_ssl: true, smtp_host: '', smtp_port: 465, smtp_ssl: true },
+  { label: '内网邮箱', value: 'intranet', imap_host: '10.12.128.18', imap_port: 993, imap_ssl: true, smtp_host: '10.12.128.18', smtp_port: 465, smtp_ssl: true },
 ];
 
 interface EmailSettingsPanelProps {
@@ -32,15 +25,15 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
   const [success, setSuccess] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [preset, setPreset] = useState('exmail_qq');
+  const [preset, setPreset] = useState('intranet');
 
   const [form, setForm] = useState({
     email_address: '',
     password: '',
-    imap_host: 'imap.exmail.qq.com',
+    imap_host: '10.12.128.18',
     imap_port: 993,
     imap_ssl: true,
-    smtp_host: 'smtp.exmail.qq.com',
+    smtp_host: '10.12.128.18',
     smtp_port: 465,
     smtp_ssl: true,
   });
@@ -70,7 +63,7 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
       .then((s) => {
         setStatus(s);
         if (s.email_address) setForm((f) => ({ ...f, email_address: s.email_address || '' }));
-        if (s.imap_host) setForm((f) => ({ ...f, imap_host: s.imap_host || 'imap.exmail.qq.com' }));
+        if (s.imap_host) setForm((f) => ({ ...f, imap_host: s.imap_host || '10.12.128.18' }));
       })
       .catch((e) => setError(e.message))
       .finally(() => setIsLoading(false));

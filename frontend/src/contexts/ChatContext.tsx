@@ -64,7 +64,7 @@ export interface ChatContextValue {
   onSuggestionClick: (text: string) => void;
   onOpenArtifact: (artifact: Artifact) => void;
   onAgentProfileChange: (profile: AgentProfile | null) => void;
-  deleteSession: (id: string, e: React.MouseEvent) => void;
+  deleteSession: (id: string, e?: React.MouseEvent) => void;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
