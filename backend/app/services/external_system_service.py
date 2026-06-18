@@ -1945,11 +1945,12 @@ def seed_preset_external_systems() -> None:
             "category": "scheduler",
             "description": "Apache DolphinScheduler 分布式工作流调度平台。支持可视化 DAG 编排、30+ 任务类型、定时调度、运维监控。",
             "base_url": "http://your-ds-host:12345/dolphinscheduler",
-            "auth_type": "bearer",
+            "auth_type": "api_key",
             "credential_template": {"fields": [
-                {"key": "token", "label": "Token", "type": "password", "required": True,
+                {"key": "key", "label": "Token", "type": "password", "required": True,
                  "help_text": "在 DolphinScheduler 安全中心 → 令牌管理 中创建 API Token",
                  "help_url": "https://dolphinscheduler.apache.org/zh-cn/docs/latest/user_guide/token"},
+                {"key": "header_name", "label": "Header 名称", "type": "text", "required": False, "placeholder": "token"},
             ]},
             "apis": [
                 # ── 项目 ──
