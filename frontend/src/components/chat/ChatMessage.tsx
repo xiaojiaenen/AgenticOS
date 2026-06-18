@@ -98,11 +98,21 @@ interface ChatMessageProps {
   activeMatchId?: string | null;
 }
 
+// 将 __ECHART_JSON__ 标记转为 ```echarts 代码块，让 CodeBlock 渲染图表
+function preprocessChartMarkers(text: string): string {
+  const marker = '__ECHART_JSON__';
+  if (!text.includes(marker)) return text;
+  return text.replace(
+    new RegExp(`${marker}\\n([\\s\\S]*?)\\n${marker}`, 'g'),
+    '\n```echarts\n$1\n```\n',
+  );
+}
+
 export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, isAdmin = false, onOpenArtifact, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
   const isUser = message?.role === 'user';
   const isGlass = useIsGlassTheme();
   const rawText = message?.text || '';
-  const visibleText = rawText;
+  const visibleText = preprocessChartMarkers(rawText);
   const reasoningText = message?.reasoningText || '';
   const hasPptArtifact = !isUser && Boolean(message?.pptArtifact);
   const hasWebsiteArtifact = !isUser && Boolean(message?.websiteArtifact);
