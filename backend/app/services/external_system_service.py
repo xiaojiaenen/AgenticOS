@@ -397,7 +397,7 @@ class AuthInjector:
             if auth_type == "api_key":
                 key = config.get("key", "")
                 inject_in = config.get("inject_in", "header")
-                header_name = config.get("header_name", "X-API-Key")
+                header_name = config.get("header_name", "token")
                 param_name = config.get("param_name", "api_key")
                 if inject_in == "query":
                     request.url = request.url.copy_merge_params({param_name: key})
@@ -1950,7 +1950,6 @@ def seed_preset_external_systems() -> None:
                 {"key": "key", "label": "Token", "type": "password", "required": True,
                  "help_text": "在 DolphinScheduler 安全中心 → 令牌管理 中创建 API Token",
                  "help_url": "https://dolphinscheduler.apache.org/zh-cn/docs/latest/user_guide/token"},
-                {"key": "header_name", "label": "Header 名称", "type": "text", "required": False, "placeholder": "token"},
             ]},
             "apis": [
                 # ── 项目 ──
