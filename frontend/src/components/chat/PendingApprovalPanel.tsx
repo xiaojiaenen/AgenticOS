@@ -5,7 +5,7 @@ import { ToolCall } from '../../types';
 
 type PendingApprovalPanelProps = {
   approvals: ToolCall[];
-  onDecision: (approvalId: string, status: 'approved' | 'rejected', isApiApproval?: boolean) => void;
+  onDecision: (approvalId: string, status: 'approved' | 'rejected', isApiApproval?: boolean, allowAll?: boolean) => void;
 };
 
 export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ approvals, onDecision }) => {
@@ -36,6 +36,17 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
                   </div>
                 </div>
                 <div className="flex flex-shrink-0 items-center gap-2">
+                  {(approval as any).isApiApproval && (
+                    <button
+                      type="button"
+                      onClick={() => onDecision(approval.approvalId!, 'approved', true, true)}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-emerald-700 active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+                      aria-label="本次会话全部允许"
+                    >
+                      <Check size={13} />
+                      全部允许
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => onDecision(approval.approvalId!, 'approved', (approval as any).isApiApproval)}

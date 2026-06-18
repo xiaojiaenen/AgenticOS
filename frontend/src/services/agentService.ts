@@ -649,14 +649,14 @@ export async function submitUserInput(sessionId: string, apiName: string, values
   return response.json();
 }
 
-export async function submitApiApproval(sessionId: string, approved: boolean): Promise<{ status: string }> {
+export async function submitApiApproval(sessionId: string, approved: boolean, allowAll?: boolean): Promise<{ status: string }> {
   const response = await fetch(`${AGENT_ENDPOINT}/sessions/${sessionId}/api-approval`, {
     method: 'POST',
     headers: {
       ...authHeaders(),
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ approved }),
+    body: JSON.stringify({ approved, allow_all: allowAll }),
   });
   if (!response.ok) {
     const detail = await response.text();

@@ -193,6 +193,8 @@ class ApprovalBlocker:
     """API 级别审批：per-session 的 Future + Queue，让 handler 在需要审批时阻塞等待。"""
     _queues: dict[str, asyncio.Queue] = {}
     _futures: dict[str, asyncio.Future] = {}
+    # 会话级"全部允许"记录：{(session_id, system_name): True}
+    _session_allowed: dict[tuple[str, str], bool] = {}
 
     @classmethod
     def subscribe(cls, session_id: str) -> asyncio.Queue:
@@ -204,10 +206,29 @@ class ApprovalBlocker:
     def unsubscribe(cls, session_id: str) -> None:
         cls._queues.pop(session_id, None)
         cls._futures.pop(session_id, None)
+        # 清理该会话的全部允许记录
+        keys_to_remove = [k for k in cls._session_allowed if k[0] == session_id]
+        for k in keys_to_remove:
+            del cls._session_allowed[k]
+
+    @classmethod
+    def is_allowed(cls, session_id: str, system_name: str) -> bool:
+        """检查该会话是否已对该系统全部允许。"""
+        return cls._session_allowed.get((session_id, system_name), False)
+
+    @classmethod
+    def allow_all(cls, session_id: str, system_name: str) -> None:
+        """标记该会话对该系统全部允许。"""
+        cls._session_allowed[(session_id, system_name)] = True
 
     @classmethod
     async def request_approval(cls, session_id: str, payload: dict) -> bool:
         """阻塞等待用户审批。返回 True=批准, False=拒绝。"""
+        # 检查是否已全部允许
+        system_name = payload.get("system_name", "")
+        if cls.is_allowed(session_id, system_name):
+            return True
+
         loop = asyncio.get_running_loop()
         fut = loop.create_future()
         cls._futures[session_id] = fut
@@ -215,7 +236,11 @@ class ApprovalBlocker:
         if q is not None:
             q.put_nowait(payload)
         result = await fut
-        return bool(result.get("approved", False)) if isinstance(result, dict) else bool(result)
+        decision = result if isinstance(result, dict) else {"approved": bool(result)}
+        # 如果用户选择了"全部允许"
+        if decision.get("allow_all"):
+            cls.allow_all(session_id, system_name)
+        return bool(decision.get("approved", False))
 
     @classmethod
     def resolve(cls, session_id: str, decision: dict) -> None:
