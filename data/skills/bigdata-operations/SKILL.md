@@ -17,23 +17,22 @@ description: 大数据平台运维 SOP 手册。包含每日巡检流程、数�
 
 ```
 1. YARN 集群资源
-   → yarn cluster_metrics
+   → yarn(api_name="cluster_metrics")
    → 关注：内存使用率 > 85% 告警，VCores 使用率 > 90% 告警
-   → yarn list_nodes → 关注 LOST/UNHEALTHY 节点
+   → yarn(api_name="list_nodes") → 关注 LOST/UNHEALTHY 节点
 
 2. Flink 作业状态（Dinky）
-   → list_jobs → 关注 FAILED/RUNNING 异常作业
-   → 异常作业 → get_job_log → 定位错误
+   → dinky(api_name="get_job_instance_list") → 关注 FAILED/RUNNING 异常作业
+   → 异常作业 → dinky(api_name="get_job_instance", params={"id": jobId}) → 定位错误
 
 3. DolphinScheduler 调度
-   → list_workflow_instances（最近 24h）
+   → dolphinscheduler(api_name="queryWorkflowInstanceListPaging")（最近 24h）
    → 关注 FAILED/NEED_FAULT_TOLERANCE 状态
-   → 失败任务 → 查 task_instance 日志
+   → 失败任务 → dolphinscheduler(api_name="queryTaskInstanceByCode") 查日志
 
 4. 存储健康
-   → HDFS content_summary("/") → 总用量 > 80% 告警
-   → Doris list_backends → 关注 Dead 节点和磁盘使用率
-   → Kafka list_consumer_groups → 关注 Lag > 10000 的消费者组
+   → hdfs(api_name="content_summary", params={"path": "/"}) → 总用量 > 80% 告警
+   → doris_fe(api_name="list_backends") → 关注 Dead 节点和磁盘使用率
 
 5. 数据质量
    → 检查关键表的行数变化趋势（与昨天对比）
@@ -169,9 +168,9 @@ description: 大数据平台运维 SOP 手册。包含每日巡检流程、数�
 
 ```
 P0（立即执行）：停止故障源头
-  → 杀掉异常作业：yarn kill_app / Dinky cancel_task
-  → 停止异常同步任务：SeaTunnel cancel_job
-  → 暂停异常调度：DolphinScheduler offline_workflow
+  → 杀掉异常作业：yarn(api_name="kill_app") / dinky(api_name="cancel_job")
+  → 停止异常同步任务：seatunnel(api_name="cancel_job")
+  → 暂停异常调度：dolphinscheduler(api_name="offline_workflow")
 
 P1（5 分钟内）：恢复核心服务
   → 重启故障组件（NodeManager / DataNode / Broker）
