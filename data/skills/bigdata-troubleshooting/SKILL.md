@@ -16,7 +16,7 @@ description: 大数据平台故障排查手册。Flink/YARN/Doris/ClickHouse/Dol
 
 | 症状 | 可能原因 | 排查步骤 | 修复方案 |
 |------|---------|---------|---------|
-| `No space left on device` | 磁盘满 | 查 YARN 节点磁盘 → `yarn list_nodes` | 清理日志/临时文件，扩容磁盘 |
+| `No space left on device` | 磁盘满 | 查 YARN 节点磁盘 → `yarn(api_name="list_nodes")` | 清理日志/临时文件，扩容磁盘 |
 | `Could not build ClassLoader` | Jar 包冲突 | 查作业依赖树 | shade 打包排除冲突依赖 |
 | `Connection refused` | 外部服务不可达 | 检查目标数据源连通性 | 修复网络/服务 |
 | `Insufficient number of network buffers` | 内存不足 | 查 TaskManager 内存配置 | 调大 `taskmanager.memory.network.fraction` |
@@ -66,25 +66,25 @@ description: 大数据平台故障排查手册。Flink/YARN/Doris/ClickHouse/Dol
 
 | 症状 | 可能原因 | 排查步骤 | 修复方案 |
 |------|---------|---------|---------|
-| `ACCEPTED` 长时间不运行 | 队列资源不足 | `yarn scheduler_info` 查队列用量 | 调整队列容量 / 杀低优先级应用 |
-| `FAILED` + `Application killed` | 超出资源限制 | `yarn get_app_detail` 查诊断信息 | 增大 `yarn.scheduler.maximum-allocation-mb` |
+| `ACCEPTED` 长时间不运行 | 队列资源不足 | `yarn(api_name="scheduler_info")` 查队列用量 | 调整队列容量 / 杀低优先级应用 |
+| `FAILED` + `Application killed` | 超出资源限制 | `yarn(api_name="get_app")` 查诊断信息 | 增大 `yarn.scheduler.maximum-allocation-mb` |
 | `KILLED` by AM | 内存超限 | 查 Container 日志 | 增大 `mapreduce.map.memory.mb` 或 Flink TM 内存 |
 | NodeManager 状态 `LOST` | 节点宕机 | SSH 到节点 → 查系统日志 | 重启 NodeManager，检查硬件 |
 
 ### 2.2 资源不足快速处理
 
-```bash
+```
 # 查看集群资源概况
-yarn cluster_metrics
+yarn(api_name="cluster_metrics")
 
 # 查看各队列使用情况
-yarn scheduler_info
+yarn(api_name="scheduler_info")
 
 # 杀掉低优先级应用释放资源
-yarn kill_app <appId>
+yarn(api_name="kill_app", params={"appId": "<appId>"})
 
 # 查看节点资源
-yarn list_nodes
+yarn(api_name="list_nodes")
 ```
 
 ---
@@ -104,7 +104,7 @@ yarn list_nodes
 
 ```
 排查路径：
-1. list_backends → 查节点状态（Alive/Dead/TabletNum）
+1. doris_fe(api_name="list_backends") → 查节点状态（Alive/Dead/TabletNum）
 2. Dead 节点 → SSH → 查 be.out 日志
 3. 常见原因：
    - 磁盘满 → 清理 trash/临时文件
@@ -154,22 +154,22 @@ yarn list_nodes
 
 | 症状 | 可能原因 | 排查步骤 | 修复方案 |
 |------|---------|---------|---------|
-| `Safe mode is ON` | NameNode 安全模式 | 查 NN 日志 → 等待副本达标 | `hdfs dfsadmin -safemode leave` |
-| `No space left` | 磁盘满 | `hdfs content_summary` 查用量 | 清理过期数据 / 扩容 DataNode |
-| `Under-replicated blocks` | 副本不足 | `hdfs fsck /` 检查 | 修复 DataNode / 等待自动复制 |
+| `Safe mode is ON` | NameNode 安全模式 | 查 NN 日志 → 等待副本达标 | 需手动执行 `hdfs dfsadmin -safemode leave` |
+| `No space left` | 磁盘满 | `hdfs(api_name="content_summary", params={"path": "/"})` 查用量 | 清理过期数据 / 扩容 DataNode |
+| `Under-replicated blocks` | 副本不足 | 检查 DataNode 状态 | 修复 DataNode / 等待自动复制 |
 | `Cannot create file` | NameNode 压力大 | 查 NN RPC 队列 | 增大 `dfs.namenode.handler.count` |
 
 ### 5.2 快速诊断
 
-```bash
+```
 # 查看 HDFS 总体使用情况
-hdfs_content_summary(path="/")
+hdfs(api_name="content_summary", params={"path": "/"})
 
-# 检查文件系统健康
-hdfs fsck / -files -blocks -locations
+# 查看文件状态
+hdfs(api_name="file_status", params={"path": "/"})
 
 # 查看 DataNode 状态
-# 通过 NameNode Web UI: http://namenode:9870/dfshealth.html
+hdfs(api_name="list_backends")
 ```
 
 ---
