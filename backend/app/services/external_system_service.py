@@ -2292,12 +2292,12 @@ def seed_preset_external_systems() -> None:
                  "params": [{"name": "action", "param_type": "path", "data_type": "string", "required": True, "description": "操作类型：ADD/DROP", "param_source": "llm_extract"}]},
                 # ── SQL 执行 ──
                 {"name": "execute_sql", "display_name": "执行 SQL", "method": "POST", "path": "/api/query/{ns_name}/{db_name}",
-                 "description": "执行 SQL 语句（SELECT/SHOW/INSERT 等），返回结果集或执行状态。"
-                                "ns_name 通常为 default_cluster，db_name 为数据库名。"
-                                "如果用户没指定数据库，可以用 information_schema。",
+                 "description": "通过 HTTP API 执行 SQL 语句（SELECT/SHOW/INSERT 等）。"
+                                "注意：ns_name 固定填 default_cluster，db_name 填目标数据库名。"
+                                "示例路径：/api/query/default_cluster/mydb",
                  "params": [
-                     {"name": "ns_name", "param_type": "path", "data_type": "string", "required": False, "description": "命名空间，默认 default_cluster", "param_source": "llm_extract", "default_value": "default_cluster"},
-                     {"name": "db_name", "param_type": "path", "data_type": "string", "required": False, "description": "数据库名，默认 information_schema", "param_source": "llm_extract", "default_value": "information_schema"},
+                     {"name": "ns_name", "param_type": "path", "data_type": "string", "required": False, "description": "命名空间，固定填 default_cluster", "param_source": "static", "default_value": "default_cluster"},
+                     {"name": "db_name", "param_type": "path", "data_type": "string", "required": True, "description": "目标数据库名（如 ods、dwd、information_schema）", "param_source": "llm_extract"},
                      {"name": "stmt", "param_type": "body", "data_type": "string", "required": True, "description": "要执行的 SQL 语句", "param_source": "llm_extract"},
                  ]},
                 # ── 查询分析 ──
