@@ -2412,6 +2412,239 @@ def seed_preset_external_systems() -> None:
                  ]},
             ],
         },
+        {
+            "name": "HDFS",
+            "category": "storage",
+            "description": "Hadoop 分布式文件系统。通过 WebHDFS REST API 提供文件的浏览、读取、写入、删除等操作。"
+                           "默认端口 9870（NameNode Web UI）。",
+            "base_url": "http://your-namenode:9870",
+            "auth_type": "basic",
+            "credential_template": {"fields": [
+                {"key": "username", "label": "HDFS 用户", "type": "text", "required": True,
+                 "help_text": "HDFS 操作用户名（如 hdfs、hive 等）",
+                 "help_url": "https://hadoop.apache.org/docs/r3.4.2/hadoop-project-dist/hadoop-hdfs/WebHDFS.html"},
+            ]},
+            "apis": [
+                # ── 文件读写 ──
+                {"name": "open", "display_name": "读取文件", "method": "GET", "path": "/webhdfs/v1/{path}",
+                 "description": "读取文件内容（重定向到 DataNode）",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "文件路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：OPEN", "param_source": "static", "default_value": "OPEN"},
+                     {"name": "offset", "param_type": "query", "data_type": "integer", "required": False, "description": "起始字节位置", "param_source": "llm_extract"},
+                     {"name": "length", "param_type": "query", "data_type": "integer", "required": False, "description": "读取字节数", "param_source": "llm_extract"},
+                 ]},
+                {"name": "create", "display_name": "创建文件", "method": "PUT", "path": "/webhdfs/v1/{path}",
+                 "description": "创建并写入文件（两步式：先获取 DataNode 地址，再上传数据）",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "文件路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：CREATE", "param_source": "static", "default_value": "CREATE"},
+                     {"name": "overwrite", "param_type": "query", "data_type": "boolean", "required": False, "description": "是否覆盖已有文件", "param_source": "llm_extract"},
+                     {"name": "replication", "param_type": "query", "data_type": "integer", "required": False, "description": "副本数", "param_source": "llm_extract"},
+                     {"name": "blocksize", "param_type": "query", "data_type": "integer", "required": False, "description": "块大小（字节）", "param_source": "llm_extract"},
+                     {"name": "permission", "param_type": "query", "data_type": "string", "required": False, "description": "权限（如 644）", "param_source": "llm_extract"},
+                 ]},
+                {"name": "append", "display_name": "追加内容", "method": "POST", "path": "/webhdfs/v1/{path}",
+                 "description": "向文件追加数据（两步式）",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "文件路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：APPEND", "param_source": "static", "default_value": "APPEND"},
+                 ]},
+                {"name": "concat", "display_name": "合并文件", "method": "POST", "path": "/webhdfs/v1/{path}",
+                 "description": "将多个源文件合并到目标文件",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "目标文件路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：CONCAT", "param_source": "static", "default_value": "CONCAT"},
+                     {"name": "sources", "param_type": "query", "data_type": "string", "required": True, "description": "源文件路径（逗号分隔）", "param_source": "llm_extract"},
+                 ]},
+                {"name": "truncate", "display_name": "截断文件", "method": "POST", "path": "/webhdfs/v1/{path}",
+                 "description": "将文件截断到指定长度",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "文件路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：TRUNCATE", "param_source": "static", "default_value": "TRUNCATE"},
+                     {"name": "newlength", "param_type": "query", "data_type": "integer", "required": True, "description": "截断后的长度（字节）", "param_source": "llm_extract"},
+                 ]},
+                # ── 目录操作 ──
+                {"name": "mkdirs", "display_name": "创建目录", "method": "PUT", "path": "/webhdfs/v1/{path}",
+                 "description": "创建目录（支持递归创建）",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "目录路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：MKDIRS", "param_source": "static", "default_value": "MKDIRS"},
+                     {"name": "permission", "param_type": "query", "data_type": "string", "required": False, "description": "权限（默认 755）", "param_source": "llm_extract"},
+                 ]},
+                {"name": "rename", "display_name": "重命名", "method": "PUT", "path": "/webhdfs/v1/{path}",
+                 "description": "重命名文件或目录",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "原路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：RENAME", "param_source": "static", "default_value": "RENAME"},
+                     {"name": "destination", "param_type": "query", "data_type": "string", "required": True, "description": "新路径", "param_source": "llm_extract"},
+                 ]},
+                {"name": "delete", "display_name": "删除", "method": "DELETE", "path": "/webhdfs/v1/{path}",
+                 "description": "删除文件或目录",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：DELETE", "param_source": "static", "default_value": "DELETE"},
+                     {"name": "recursive", "param_type": "query", "data_type": "boolean", "required": False, "description": "是否递归删除", "param_source": "llm_extract"},
+                 ]},
+                # ── 文件/目录信息 ──
+                {"name": "list_status", "display_name": "列出目录", "method": "GET", "path": "/webhdfs/v1/{path}",
+                 "description": "列出目录下的文件和子目录",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "目录路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：LISTSTATUS", "param_source": "static", "default_value": "LISTSTATUS"},
+                 ]},
+                {"name": "file_status", "display_name": "文件状态", "method": "GET", "path": "/webhdfs/v1/{path}",
+                 "description": "获取文件/目录的元信息（类型、大小、副本数、权限等）",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：GETFILESTATUS", "param_source": "static", "default_value": "GETFILESTATUS"},
+                 ]},
+                {"name": "content_summary", "display_name": "目录汇总", "method": "GET", "path": "/webhdfs/v1/{path}",
+                 "description": "获取目录汇总信息（总大小、文件数、目录数）",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "目录路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：GETCONTENTSUMMARY", "param_source": "static", "default_value": "GETCONTENTSUMMARY"},
+                 ]},
+                {"name": "file_checksum", "display_name": "文件校验", "method": "GET", "path": "/webhdfs/v1/{path}",
+                 "description": "获取文件校验和",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "文件路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：GETFILECHECKSUM", "param_source": "static", "default_value": "GETFILECHECKSUM"},
+                 ]},
+                {"name": "fs_status", "display_name": "文件系统状态", "method": "GET", "path": "/webhdfs/v1/",
+                 "description": "获取文件系统状态（已用/剩余/总容量）",
+                 "params": [
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：GETSTATUS", "param_source": "static", "default_value": "GETSTATUS"},
+                 ]},
+                {"name": "home_directory", "display_name": "用户主目录", "method": "GET", "path": "/webhdfs/v1/",
+                 "description": "获取当前用户的主目录",
+                 "params": [
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：GETHOMEDIRECTORY", "param_source": "static", "default_value": "GETHOMEDIRECTORY"},
+                 ]},
+                # ── 权限管理 ──
+                {"name": "set_permission", "display_name": "设置权限", "method": "PUT", "path": "/webhdfs/v1/{path}",
+                 "description": "设置文件/目录权限",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：SETPERMISSION", "param_source": "static", "default_value": "SETPERMISSION"},
+                     {"name": "permission", "param_type": "query", "data_type": "string", "required": True, "description": "权限（如 755、777）", "param_source": "llm_extract"},
+                 ]},
+                {"name": "set_owner", "display_name": "设置所有者", "method": "PUT", "path": "/webhdfs/v1/{path}",
+                 "description": "设置文件/目录的所有者和组",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：SETOWNER", "param_source": "static", "default_value": "SETOWNER"},
+                     {"name": "owner", "param_type": "query", "data_type": "string", "required": False, "description": "新所有者", "param_source": "llm_extract"},
+                     {"name": "group", "param_type": "query", "data_type": "string", "required": False, "description": "新组", "param_source": "llm_extract"},
+                 ]},
+                {"name": "set_replication", "display_name": "设置副本数", "method": "PUT", "path": "/webhdfs/v1/{path}",
+                 "description": "设置文件的副本因子",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "文件路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：SETREPLICATION", "param_source": "static", "default_value": "SETREPLICATION"},
+                     {"name": "replication", "param_type": "query", "data_type": "integer", "required": True, "description": "副本数", "param_source": "llm_extract"},
+                 ]},
+                # ── 存储策略 ──
+                {"name": "all_storage_policies", "display_name": "所有存储策略", "method": "GET", "path": "/webhdfs/v1",
+                 "description": "获取所有存储策略（COLD/WARM/HOT/ONE_SSD/ALL_SSD 等）",
+                 "params": [
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：GETALLSTORAGEPOLICY", "param_source": "static", "default_value": "GETALLSTORAGEPOLICY"},
+                 ]},
+                {"name": "set_storage_policy", "display_name": "设置存储策略", "method": "PUT", "path": "/webhdfs/v1/{path}",
+                 "description": "设置文件/目录的存储策略",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：SETSTORAGEPOLICY", "param_source": "static", "default_value": "SETSTORAGEPOLICY"},
+                     {"name": "storagepolicy", "param_type": "query", "data_type": "string", "required": True, "description": "策略名（如 HOT、COLD）", "param_source": "llm_extract"},
+                 ]},
+                # ── 快照 ──
+                {"name": "create_snapshot", "display_name": "创建快照", "method": "PUT", "path": "/webhdfs/v1/{path}",
+                 "description": "为目录创建快照",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "目录路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：CREATESNAPSHOT", "param_source": "static", "default_value": "CREATESNAPSHOT"},
+                     {"name": "snapshotname", "param_type": "query", "data_type": "string", "required": False, "description": "快照名称", "param_source": "llm_extract"},
+                 ]},
+                {"name": "delete_snapshot", "display_name": "删除快照", "method": "DELETE", "path": "/webhdfs/v1/{path}",
+                 "description": "删除目录的指定快照",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "目录路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：DELETESNAPSHOT", "param_source": "static", "default_value": "DELETESNAPSHOT"},
+                     {"name": "snapshotname", "param_type": "query", "data_type": "string", "required": True, "description": "快照名称", "param_source": "llm_extract"},
+                 ]},
+                {"name": "snapshot_diff", "display_name": "快照差异", "method": "GET", "path": "/webhdfs/v1/{path}",
+                 "description": "获取两个快照之间的差异",
+                 "params": [
+                     {"name": "path", "param_type": "query", "data_type": "string", "required": True, "description": "目录路径", "param_source": "llm_extract"},
+                     {"name": "op", "param_type": "query", "data_type": "string", "required": True, "description": "固定值：GETSNAPSHOTDIFF", "param_source": "static", "default_value": "GETSNAPSHOTDIFF"},
+                     {"name": "oldsnapshotname", "param_type": "query", "data_type": "string", "required": True, "description": "源快照名", "param_source": "llm_extract"},
+                     {"name": "snapshotname", "param_type": "query", "data_type": "string", "required": True, "description": "目标快照名", "param_source": "llm_extract"},
+                 ]},
+            ],
+        },
+        {
+            "name": "YARN",
+            "category": "resource",
+            "description": "Hadoop YARN 资源管理器。通过 ResourceManager REST API 监控集群资源、管理应用程序、查看节点状态。"
+                           "默认端口 8088。",
+            "base_url": "http://your-rm-host:8088",
+            "auth_type": "basic",
+            "credential_template": {"fields": [
+                {"key": "username", "label": "用户名", "type": "text", "required": False, "help_text": "YARN 用户名（无认证可留空）"},
+                {"key": "password", "label": "密码", "type": "password", "required": False, "help_text": "YARN 密码（无认证可留空）"},
+            ]},
+            "apis": [
+                # ── 集群信息 ──
+                {"name": "cluster_info", "display_name": "集群信息", "method": "GET", "path": "/ws/v1/cluster/info",
+                 "description": "获取 YARN 集群基本信息：HA 状态、RM 版本、Hadoop 版本"},
+                {"name": "cluster_metrics", "display_name": "集群资源指标", "method": "GET", "path": "/ws/v1/cluster/metrics",
+                 "description": "获取集群资源使用概况：总/已用内存、VCores、节点数、应用数"},
+                {"name": "scheduler_info", "display_name": "调度器信息", "method": "GET", "path": "/ws/v1/cluster/scheduler",
+                 "description": "获取调度器配置和队列资源分配情况"},
+                # ── 节点管理 ──
+                {"name": "list_nodes", "display_name": "节点列表", "method": "GET", "path": "/ws/v1/cluster/nodes",
+                 "description": "获取所有 NodeManager 节点状态、资源、健康状况"},
+                {"name": "get_node", "display_name": "节点详情", "method": "GET", "path": "/ws/v1/cluster/nodes/{nodeId}",
+                 "description": "获取指定节点的详细资源和运行中容器信息",
+                 "params": [{"name": "nodeId", "param_type": "path", "data_type": "string", "required": True, "description": "节点 ID", "param_source": "llm_extract"}]},
+                # ── 应用管理 ──
+                {"name": "list_apps", "display_name": "应用列表", "method": "GET", "path": "/ws/v1/cluster/apps",
+                 "description": "获取应用列表，支持按状态、用户、队列筛选",
+                 "params": [
+                     {"name": "states", "param_type": "query", "data_type": "string", "required": False, "description": "应用状态（逗号分隔：RUNNING,FINISHED,FAILED,KILLED）", "param_source": "llm_extract"},
+                     {"name": "user", "param_type": "query", "data_type": "string", "required": False, "description": "用户名筛选", "param_source": "llm_extract"},
+                     {"name": "queue", "param_type": "query", "data_type": "string", "required": False, "description": "队列名筛选", "param_source": "llm_extract"},
+                     {"name": "limit", "param_type": "query", "data_type": "integer", "required": False, "description": "返回数量限制", "param_source": "llm_extract"},
+                 ]},
+                {"name": "get_app", "display_name": "应用详情", "method": "GET", "path": "/ws/v1/cluster/apps/{appId}",
+                 "description": "获取应用详细信息：状态、资源占用、运行时间、诊断信息",
+                 "params": [{"name": "appId", "param_type": "path", "data_type": "string", "required": True, "description": "应用 ID", "param_source": "llm_extract"}]},
+                {"name": "kill_app", "display_name": "终止应用", "method": "PUT", "path": "/ws/v1/cluster/apps/{appId}/state",
+                 "description": "终止指定应用（发送 KILL 命令）",
+                 "params": [
+                     {"name": "appId", "param_type": "path", "data_type": "string", "required": True, "description": "应用 ID", "param_source": "llm_extract"},
+                     {"name": "state", "param_type": "body", "data_type": "string", "required": True, "description": "目标状态：KILLED", "param_source": "llm_extract"},
+                 ]},
+                {"name": "get_app_attempts", "display_name": "应用尝试列表", "method": "GET", "path": "/ws/v1/cluster/apps/{appId}/appattempts",
+                 "description": "获取应用的所有尝试（重试记录）",
+                 "params": [{"name": "appId", "param_type": "path", "data_type": "string", "required": True, "description": "应用 ID", "param_source": "llm_extract"}]},
+                {"name": "move_app", "display_name": "移动应用队列", "method": "PUT", "path": "/ws/v1/cluster/apps/{appId}/queue",
+                 "description": "将应用移动到另一个队列",
+                 "params": [
+                     {"name": "appId", "param_type": "path", "data_type": "string", "required": True, "description": "应用 ID", "param_source": "llm_extract"},
+                     {"name": "queue", "param_type": "body", "data_type": "string", "required": True, "description": "目标队列名", "param_source": "llm_extract"},
+                 ]},
+                {"name": "update_priority", "display_name": "更新优先级", "method": "PUT", "path": "/ws/v1/cluster/apps/{appId}/priority",
+                 "description": "修改应用的优先级",
+                 "params": [
+                     {"name": "appId", "param_type": "path", "data_type": "string", "required": True, "description": "应用 ID", "param_source": "llm_extract"},
+                     {"name": "priority", "param_type": "body", "data_type": "integer", "required": True, "description": "新优先级值", "param_source": "llm_extract"},
+                 ]},
+                # ── 统计 ──
+                {"name": "app_statistics", "display_name": "应用统计", "method": "GET", "path": "/ws/v1/cluster/appstatistics",
+                 "description": "获取应用统计数据（按状态和类型分组）"},
+            ],
+        },
     ]
 
     with create_db_session() as db:
