@@ -227,6 +227,7 @@ class ApprovalBlocker:
         # 检查是否已全部允许
         system_name = payload.get("system_name", "")
         if cls.is_allowed(session_id, system_name):
+            logger.info("ApprovalBlocker: session=%s system=%s already allowed, skipping", session_id, system_name)
             return True
 
         loop = asyncio.get_running_loop()
@@ -235,8 +236,10 @@ class ApprovalBlocker:
         q = cls._queues.get(session_id)
         if q is not None:
             q.put_nowait(payload)
+        logger.info("ApprovalBlocker: waiting session=%s, futures_keys=%s", session_id, list(cls._futures.keys()))
         result = await fut
         decision = result if isinstance(result, dict) else {"approved": bool(result)}
+        logger.info("ApprovalBlocker: resolved session=%s decision=%s", session_id, decision)
         # 如果用户选择了"全部允许"
         if decision.get("allow_all"):
             cls.allow_all(session_id, system_name)
@@ -244,9 +247,13 @@ class ApprovalBlocker:
 
     @classmethod
     def resolve(cls, session_id: str, decision: dict) -> None:
+        logger.info("ApprovalBlocker.resolve: session=%s decision=%s, futures_keys=%s", session_id, decision, list(cls._futures.keys()))
         fut = cls._futures.pop(session_id, None)
         if fut and not fut.done():
             fut.set_result(decision)
+            logger.info("ApprovalBlocker.resolve: future resolved for session=%s", session_id)
+        else:
+            logger.warning("ApprovalBlocker.resolve: no future found for session=%s", session_id)
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
@@ -968,6 +975,7 @@ def _build_system_tool_handler(
         # API 级别审批：检查该 API 是否需要审批
         if api.requires_approval:
             session_id = _current_session_id.get()
+            logger.info("API approval check: session_id='%s', system=%s, api=%s", session_id, system.name, api_name)
             if session_id:
                 logger.warning("ApprovalRequired: session=%s api=%s", session_id, api_name)
                 payload = {
