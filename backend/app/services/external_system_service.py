@@ -1242,12 +1242,42 @@ class ExternalSystemService:
             counts[row[0]] = counts.get(row[0], 0) + 1
         return [_serialize_system(s, counts.get(s.id, 0)) for s in systems]
 
-    def list_published_systems(self) -> list[dict]:
+    def list_published_systems(self, user_id: int | None = None) -> list[dict]:
+        from app.db.models import UserInstalledAgentModel, AgentProfileExternalSystemModel
+
+        conditions = [
+            ExternalSystemModel.published.is_(True),
+            ExternalSystemModel.enabled.is_(True),
+        ]
+
+        if user_id is not None:
+            # 只显示用户安装的智能体关联的集成
+            installed_profile_ids = self.db.execute(
+                select(UserInstalledAgentModel.profile_id).where(
+                    UserInstalledAgentModel.user_id == user_id
+                )
+            ).scalars().all()
+
+            if installed_profile_ids:
+                # 获取这些智能体关联的系统 ID
+                linked_system_ids = self.db.execute(
+                    select(AgentProfileExternalSystemModel.system_id).where(
+                        AgentProfileExternalSystemModel.profile_id.in_(installed_profile_ids),
+                        AgentProfileExternalSystemModel.enabled.is_(True),
+                    )
+                ).scalars().all()
+
+                if linked_system_ids:
+                    conditions.append(ExternalSystemModel.id.in_(linked_system_ids))
+                else:
+                    # 用户安装的智能体没有关联任何系统
+                    return []
+            else:
+                # 用户没有安装任何智能体
+                return []
+
         systems = list(self.db.execute(
-            select(ExternalSystemModel).where(
-                ExternalSystemModel.published.is_(True),
-                ExternalSystemModel.enabled.is_(True),
-            )
+            select(ExternalSystemModel).where(*conditions)
         ).scalars().all())
         counts: dict[int, int] = {}
         for row in self.db.execute(select(ExternalApiModel.system_id, ExternalApiModel.id)).all():
