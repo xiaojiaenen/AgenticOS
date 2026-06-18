@@ -5,6 +5,7 @@ import {
   generateTitle,
   submitApprovalDecision,
   submitUserDecision,
+  submitApiApproval,
   AgentSessionState,
   AgentPptArtifact,
   AgentWebsiteArtifact,
