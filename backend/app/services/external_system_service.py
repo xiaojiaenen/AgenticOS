@@ -189,6 +189,41 @@ class UserInputBlocker:
             fut.set_result(values)
 
 
+class ApprovalBlocker:
+    """API 级别审批：per-session 的 Future + Queue，让 handler 在需要审批时阻塞等待。"""
+    _queues: dict[str, asyncio.Queue] = {}
+    _futures: dict[str, asyncio.Future] = {}
+
+    @classmethod
+    def subscribe(cls, session_id: str) -> asyncio.Queue:
+        q = asyncio.Queue()
+        cls._queues[session_id] = q
+        return q
+
+    @classmethod
+    def unsubscribe(cls, session_id: str) -> None:
+        cls._queues.pop(session_id, None)
+        cls._futures.pop(session_id, None)
+
+    @classmethod
+    async def request_approval(cls, session_id: str, payload: dict) -> bool:
+        """阻塞等待用户审批。返回 True=批准, False=拒绝。"""
+        loop = asyncio.get_running_loop()
+        fut = loop.create_future()
+        cls._futures[session_id] = fut
+        q = cls._queues.get(session_id)
+        if q is not None:
+            q.put_nowait(payload)
+        result = await fut
+        return bool(result.get("approved", False)) if isinstance(result, dict) else bool(result)
+
+    @classmethod
+    def resolve(cls, session_id: str, decision: dict) -> None:
+        fut = cls._futures.pop(session_id, None)
+        if fut and not fut.done():
+            fut.set_result(decision)
+
+
 # ── helpers ─────────────────────────────────────────────────────────────────
 
 
@@ -904,6 +939,26 @@ def _build_system_tool_handler(
                 api.body_wrapper_key = fresh.body_wrapper_key
         finally:
             _db.close()
+
+        # API 级别审批：检查该 API 是否需要审批
+        if api.requires_approval:
+            session_id = _current_session_id.get()
+            if session_id:
+                logger.warning("ApprovalRequired: session=%s api=%s", session_id, api_name)
+                payload = {
+                    "type": "api_approval_required",
+                    "api_name": api_name,
+                    "api_display_name": api.display_name,
+                    "system_name": system.name,
+                    "method": api.method,
+                    "path": api.path,
+                    "message": f"调用 {system.name} → {api.display_name}（{api.method} {api.path}）需要审批",
+                }
+                approved = await ApprovalBlocker.request_approval(session_id, payload)
+                if not approved:
+                    return json.dumps({
+                        "error": f"操作 {api.display_name} 已被用户拒绝",
+                    }, ensure_ascii=False)
 
         # 检查是否有需要用户输入的参数
         user_input_params = [

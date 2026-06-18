@@ -690,3 +690,16 @@ async def submit_user_input(
 ) -> dict[str, object]:
     """集成接口需要用户输入参数时，前端调用此接口提交用户填写的内容。"""
     return await agent_service.submit_user_input(session_id, request, current_user)
+
+
+@router.post("/sessions/{session_id}/api-approval", summary="提交集成接口审批决定")
+async def submit_api_approval(
+    session_id: str,
+    request: dict[str, object],
+    current_user: UserModel = Depends(get_current_user),
+) -> dict[str, object]:
+    """集成接口需要审批时，前端调用此接口提交审批决定。"""
+    from app.services.external_system_service import ApprovalBlocker
+    approved = bool(request.get("approved", False))
+    ApprovalBlocker.resolve(session_id, {"approved": approved})
+    return {"status": "ok", "session_id": session_id, "approved": approved}
