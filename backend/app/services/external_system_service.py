@@ -2921,11 +2921,12 @@ def seed_preset_external_systems() -> None:
                 ).scalars().all():
                     api_def = preset_apis.get(api.name)
                     if api_def:
-                        # 更新路径和方法
+                        # 更新路径、方法、审批
                         api.path = api_def["path"]
                         api.method = api_def["method"]
                         api.description = api_def.get("description", "")
                         api.display_name = api_def["display_name"]
+                        api.requires_approval = api_def["method"] in ("POST", "PUT", "DELETE", "PATCH")
                         # 删除旧参数，重建
                         db.query(ExternalApiParamModel).filter(ExternalApiParamModel.api_id == api.id).delete()
                         for p in api_def.get("params", []):
