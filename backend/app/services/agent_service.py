@@ -32,8 +32,8 @@ from wuwei.runtime.agent_runner import AgentRunner
 # 特殊工具名：用户拒绝时替换原工具调用，让 LLM 收到明确的拒绝消息
 _REJECTED_TOOL_NAME = "__tool_rejected__"
 
-# 工具结果截断：超过此字符数的结果在送入 LLM 上下文时会被截断
-_TOOL_RESULT_CONTEXT_LIMIT = 8000
+# 工具结果截断：超过此字符数的结果在送入 LLM 上下文时会被截断（约 7000 tokens）
+_TOOL_RESULT_CONTEXT_LIMIT = 30000
 _CHART_MARKER = "__ECHART_JSON__"
 
 
