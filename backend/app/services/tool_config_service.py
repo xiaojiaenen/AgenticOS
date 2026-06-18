@@ -101,6 +101,7 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
         "memory": {"enabled": False, "requires_approval": False},
         "decision": {"enabled": True, "requires_approval": False},
         "email": {"enabled": False, "requires_approval": True},
+        "render_chart": {"enabled": True, "requires_approval": False},
     }
     # 每个 mode 的手动覆盖（需要特殊 enabled/approval 配置的工具）
     _MODE_OVERRIDES: dict[str, dict[str, dict[str, bool]]] = {
