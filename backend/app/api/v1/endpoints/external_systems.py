@@ -208,7 +208,7 @@ def list_integrations(
     user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return ExternalSystemListResponse(items=ExternalSystemService(db).list_published_systems())
+    return ExternalSystemListResponse(items=ExternalSystemService(db).list_published_systems(user_id=user.id))
 
 
 @router.get("/{system_id}", response_model=ExternalSystemResponse)

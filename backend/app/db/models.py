@@ -369,6 +369,7 @@ class ExternalSystemModel(Base):
     login_inject_header_name: Mapped[str | None] = mapped_column(String(128), nullable=True)  # e.g. dinky-token, Cookie, X-Auth-Token
     headers_json: Mapped[str] = mapped_column(Text, default="{}")  # extra fixed headers
     published: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    user_visible: Mapped[bool] = mapped_column(Boolean, default=True, index=True, comment="用户是否在集成市场可见")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     default_credential_data_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True, comment="管理员默认凭据(加密JSON)")
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
