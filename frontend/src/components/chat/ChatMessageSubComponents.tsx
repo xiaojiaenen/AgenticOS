@@ -130,6 +130,15 @@ export const ToolResultPreview = ({ result, isError = false }: { result: string;
   const { text: previewText, truncated } = buildToolResultPreview(normalizedResult);
   const displayedText = expanded || !truncated ? normalizedResult : previewText;
 
+  // 检测 __ECHART_JSON__ 标记，直接渲染图表
+  const chartMarker = '__ECHART_JSON__';
+  if (!isError && normalizedResult.includes(chartMarker)) {
+    const match = normalizedResult.match(new RegExp(`${chartMarker}\\n([\\s\\S]*?)\\n${chartMarker}`));
+    if (match) {
+      return <EChartsBlock optionJson={match[1].trim()} />;
+    }
+  }
+
   return (
     <div className="space-y-2">
       <div className="relative">
