@@ -101,7 +101,7 @@ export function useChatStream({
   }, []);
 
   const handleApprovalDecision = useCallback(
-    async (approvalId: string, status: 'approved' | 'rejected') => {
+    async (approvalId: string, status: 'approved' | 'rejected', isApiApproval?: boolean) => {
       const optimisticStatus = status === 'approved' ? 'approved' : 'rejected';
       setSessions((prev) =>
         prev.map((session) => ({
@@ -125,17 +125,21 @@ export function useChatStream({
       );
 
       try {
-        await submitApprovalDecision(
-          approvalId,
-          status,
-          status === 'approved' ? 'approved from AgenticOS UI' : 'rejected from AgenticOS UI',
-        );
+        if (isApiApproval) {
+          await submitApiApproval(currentSessionId!, status === 'approved');
+        } else {
+          await submitApprovalDecision(
+            approvalId,
+            status,
+            status === 'approved' ? 'approved from AgenticOS UI' : 'rejected from AgenticOS UI',
+          );
+        }
       } catch (err) {
         console.error('Approval error:', err);
         setError('审批提交失败，请检查后端服务。');
       }
     },
-    [setSessions],
+    [setSessions, currentSessionId],
   );
 
   const handleSend = useCallback(

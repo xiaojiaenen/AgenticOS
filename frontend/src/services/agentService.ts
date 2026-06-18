@@ -411,7 +411,21 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
       }
 
       if (parsed.event === 'api_approval_required') {
-        options.onApiApprovalRequired?.(payload);
+        // 复用工具审批 UI：将 API 审批转为工具审批格式
+        const apiApproval = payload as ApiApprovalRequest;
+        const fakeApprovalId = `api_${Date.now()}`;
+        toolCalls = mergeToolCalls(toolCalls, [
+          {
+            id: fakeApprovalId,
+            name: `${apiApproval.system_name} → ${apiApproval.api_display_name}`,
+            status: 'approval_required',
+            approvalId: fakeApprovalId,
+            arguments: { method: apiApproval.method, path: apiApproval.path },
+            result: apiApproval.message,
+            isApiApproval: true,
+          },
+        ]);
+        options.onToolCalls?.(toolCalls);
       }
 
       if (parsed.event === 'user_decision') {
