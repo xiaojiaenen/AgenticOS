@@ -202,9 +202,38 @@ export const MermaidChart = React.memo(({ chart }: { chart: string }) => {
   );
 });
 
+// ECharts 主题色板
+const CHART_COLORS = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'];
+
 export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+
+  // table 类型渲染为 HTML 表格
+  try {
+    const parsed = JSON.parse(optionJson);
+    if (parsed.columns && parsed.data) {
+      return (
+        <div className="my-4 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left text-slate-700">
+              <thead className="text-xs text-slate-500 uppercase bg-slate-50/80">
+                <tr>{parsed.columns.map((col: string) => <th key={col} className="px-4 py-3 font-semibold whitespace-nowrap">{col}</th>)}</tr>
+              </thead>
+              <tbody>
+                {parsed.data.map((row: Record<string, unknown>, i: number) => (
+                  <tr key={i} className="border-t border-slate-100 hover:bg-sky-50/40 transition-colors">
+                    {parsed.columns.map((col: string) => <td key={col} className="px-4 py-2.5 whitespace-nowrap">{String(row[col] ?? '')}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400">{parsed.data.length} 行</div>
+        </div>
+      );
+    }
+  } catch { /* not JSON, ignore */ }
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -216,13 +245,29 @@ export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) 
       return;
     }
 
-    // 如果是 table 类型（自定义格式），渲染为 HTML 表格
-    if ((option as any).columns && (option as any).data) {
-      return;
-    }
+    // 注入主题样式
+    const styledOption: echarts.EChartsOption = {
+      ...option,
+      color: CHART_COLORS,
+      backgroundColor: 'transparent',
+      textStyle: { fontFamily: 'Inter, system-ui, -apple-system, sans-serif' },
+      title: {
+        ...option.title,
+        textStyle: { fontSize: 15, fontWeight: 600, color: '#1e293b', ...((option as any).title?.textStyle || {}) },
+      },
+      tooltip: {
+        ...option.tooltip,
+        backgroundColor: 'rgba(255,255,255,0.96)',
+        borderColor: '#e2e8f0',
+        borderWidth: 1,
+        textStyle: { color: '#334155', fontSize: 13 },
+        extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-radius: 8px;',
+      },
+      grid: { left: 48, right: 24, top: 48, bottom: 32, containLabel: true, ...((option as any).grid || {}) },
+    };
 
     chartInstanceRef.current = echarts.init(chartRef.current, undefined, { renderer: 'canvas' });
-    chartInstanceRef.current.setOption(option);
+    chartInstanceRef.current.setOption(styledOption);
 
     const handleResize = () => chartInstanceRef.current?.resize();
     window.addEventListener('resize', handleResize);
@@ -237,33 +282,10 @@ export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) 
     };
   }, [optionJson]);
 
-  // table 类型渲染为 HTML 表格
-  try {
-    const parsed = JSON.parse(optionJson);
-    if (parsed.columns && parsed.data) {
-      return (
-        <div className="my-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-slate-700">
-              <thead className="text-xs text-slate-500 uppercase bg-slate-50">
-                <tr>{parsed.columns.map((col: string) => <th key={col} className="px-4 py-3 font-semibold">{col}</th>)}</tr>
-              </thead>
-              <tbody>
-                {parsed.data.map((row: Record<string, unknown>, i: number) => (
-                  <tr key={i} className="border-t border-slate-100 hover:bg-slate-50/50">
-                    {parsed.columns.map((col: string) => <td key={col} className="px-4 py-2.5">{String(row[col] ?? '')}</td>)}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      );
-    }
-  } catch { /* not JSON, ignore */ }
-
   return (
-    <div ref={chartRef} className="my-4 w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" style={{ height: 380 }} />
+    <div className="my-4 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+      <div ref={chartRef} style={{ height: 400 }} />
+    </div>
   );
 });
 
