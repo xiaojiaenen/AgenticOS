@@ -256,6 +256,17 @@ def _ensure_compatible_schema() -> None:
         ("label", "VARCHAR(64)"),
     ])
 
+    # ── agent_messages: message_json 升级为 LONGTEXT（工具返回数据可能很大）──
+    if "agent_messages" in tables:
+        try:
+            cols = {c["name"]: c for c in inspector.get_columns("agent_messages")}
+            col = cols.get("message_json")
+            if col and "TEXT" in str(col.get("type", "")).upper() and "LONG" not in str(col.get("type", "")).upper():
+                with engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE agent_messages MODIFY COLUMN message_json LONGTEXT"))
+        except Exception:
+            pass  # SQLite 不支持 ALTER COLUMN，忽略
+
 
 def create_db_session() -> Session:
     return SessionLocal()
