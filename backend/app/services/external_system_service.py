@@ -1217,7 +1217,7 @@ def register_external_tools(registry, system_ids: list[int], db: Session) -> lis
             description=description,
             parameters=schema,
             requires_approval=has_any_approval,
-            timeout_seconds=30,
+            timeout_seconds=300,
         )(handler)
 
         registered_systems.append(system.name)
