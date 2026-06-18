@@ -1042,8 +1042,8 @@ def _build_system_tool_handler(
                 elif pdef.param_type == "body":
                     body_params[name] = casted
 
-            base = fresh_system.base_url.rstrip("/")
-            url = base + _resolve_path(api.path, path_params)
+            # 解析 base_url（支持逗号分隔的多地址 HA）
+            base_urls = [u.strip().rstrip("/") for u in fresh_system.base_url.split(",") if u.strip()]
 
             body: Any = None
             if body_params:
@@ -1054,23 +1054,49 @@ def _build_system_tool_handler(
                 else:
                     body = body_params
 
-            logger.warning("API call: %s %s, params=%s, body=%s", api.method, url,
-                         {k: v for k, v in params.items() if k != 'password'},
-                         {k: v for k, v in (body_params if isinstance(body_params, dict) else {}).items() if k != 'password'})
-
             headers = _serialize_headers(fresh_system.headers_json)
 
-            async with httpx.AsyncClient(timeout=api.timeout_seconds, follow_redirects=True) as client:
-                request = client.build_request(
-                    method=api.method,
-                    url=url,
-                    params=query_params or None,
-                    json=body,
-                    headers=headers,
-                )
-                await AuthInjector.inject(fresh_system, cred, request)
-                await SecurityProcessor.process_request(system, request)
-                response = await client.send(request)
+            # HA 故障转移：依次尝试每个地址
+            response = None
+            last_error = None
+            for base in base_urls:
+                url = base + _resolve_path(api.path, path_params)
+                logger.warning("API call: %s %s, params=%s, body=%s", api.method, url,
+                             {k: v for k, v in params.items() if k != 'password'},
+                             {k: v for k, v in (body_params if isinstance(body_params, dict) else {}).items() if k != 'password'})
+                try:
+                    async with httpx.AsyncClient(timeout=api.timeout_seconds, follow_redirects=True) as client:
+                        request = client.build_request(
+                            method=api.method,
+                            url=url,
+                            params=query_params or None,
+                            json=body,
+                            headers=headers,
+                        )
+                        await AuthInjector.inject(fresh_system, cred, request)
+                        await SecurityProcessor.process_request(system, request)
+                        response = await client.send(request)
+
+                    # 检查是否 Standby 节点（HDFS/YARN 常见）
+                    if response.status_code == 503 or (
+                        response.status_code == 403 and "standby" in response.text.lower()
+                    ):
+                        logger.info("HA failover: %s is standby, trying next", base)
+                        last_error = f"{base} 是 Standby 节点"
+                        response = None
+                        continue
+                    break  # 成功，跳出循环
+                except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout) as exc:
+                    logger.info("HA failover: %s unreachable (%s), trying next", base, exc)
+                    last_error = f"{base} 不可达: {exc}"
+                    response = None
+                    continue
+
+            if response is None:
+                return json.dumps({
+                    "error": f"所有地址均不可用: {last_error}",
+                    "tried": base_urls,
+                }, ensure_ascii=False)
 
             # Mark auth errors
             if response.status_code in (401, 403):
