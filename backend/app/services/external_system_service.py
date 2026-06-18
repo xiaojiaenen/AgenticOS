@@ -2138,12 +2138,9 @@ def seed_preset_external_systems() -> None:
             ],
         },
         {
-            "name": "Apache Doris",
+            "name": "Apache Doris FE",
             "category": "compute",
-            "description": "Apache Doris 实时分析数据库。支持高并发低延迟的即席查询，兼容 MySQL 协议。"
-                           "通过 FE HTTP API（端口 8030）提供集群管理、SQL 执行、查询分析；"
-                           "通过 BE HTTP API（端口 8040）提供 Tablet 管理、Compaction、运维诊断。"
-                           "BE 接口需将 base_url 指向 BE 节点地址。",
+            "description": "Apache Doris Frontend HTTP API。提供集群管理、SQL 执行、查询分析、节点运维等能力。默认端口 8030。",
             "base_url": "http://your-fe-host:8030",
             "auth_type": "basic",
             "credential_template": {"fields": [
@@ -2287,7 +2284,20 @@ def seed_preset_external_systems() -> None:
                      {"name": "db_id", "param_type": "query", "data_type": "integer", "required": False, "description": "指定数据库 ID", "param_source": "llm_extract"},
                      {"name": "group_id", "param_type": "query", "data_type": "integer", "required": False, "description": "指定 Group ID", "param_source": "llm_extract"},
                  ]},
-                # ── BE 节点管理（需将 base_url 指向 BE:8040）──
+            ],
+        },
+        {
+            "name": "Apache Doris BE",
+            "category": "compute",
+            "description": "Apache Doris Backend HTTP API。提供 Tablet 管理、Compaction、RPC 诊断、日志查看等运维能力。默认端口 8040。",
+            "base_url": "http://your-be-host:8040",
+            "auth_type": "basic",
+            "credential_template": {"fields": [
+                {"key": "username", "label": "用户名", "type": "text", "required": True, "help_text": "Doris BE 用户名（需在 be.conf 中启用 enable_all_http_auth=true）"},
+                {"key": "password", "label": "密码", "type": "password", "required": True, "help_text": "Doris BE 密码"},
+            ]},
+            "apis": [
+                # ── BE 节点管理 ──
                 {"name": "be_health", "display_name": "BE 健康检查", "method": "GET", "path": "/api/health",
                  "description": "检查 BE 节点存活状态"},
                 {"name": "be_version", "display_name": "BE 版本", "method": "GET", "path": "/api/be_version_info",
@@ -2305,7 +2315,7 @@ def seed_preset_external_systems() -> None:
                      {"name": "type", "param_type": "query", "data_type": "string", "required": False, "description": "输出格式：core（仅核心项）/json，默认 all", "param_source": "llm_extract"},
                      {"name": "with_tablet", "param_type": "query", "data_type": "boolean", "required": False, "description": "是否输出 Tablet 相关指标，默认 false", "param_source": "llm_extract"},
                  ]},
-                # ── BE Compaction ──
+                # ── Compaction ──
                 {"name": "compaction_status", "display_name": "Compaction 状态", "method": "GET", "path": "/api/compaction/run_status",
                  "description": "查看 BE 节点整体 Compaction 状态",
                  "params": [{"name": "tablet_id", "param_type": "query", "data_type": "integer", "required": False, "description": "指定 Tablet ID 查看单个 Tablet 状态", "param_source": "llm_extract"}]},
@@ -2319,7 +2329,7 @@ def seed_preset_external_systems() -> None:
                      {"name": "table_id", "param_type": "query", "data_type": "integer", "required": False, "description": "Table ID（compact_type=full 时有效）", "param_source": "llm_extract"},
                      {"name": "compact_type", "param_type": "query", "data_type": "string", "required": True, "description": "压缩类型：base/cumulative/full", "param_source": "llm_extract"},
                  ]},
-                # ── BE Tablet 管理 ──
+                # ── Tablet 管理 ──
                 {"name": "tablet_info", "display_name": "Tablet 信息", "method": "GET", "path": "/tablets_json",
                  "description": "获取 BE 上的 Tablet 列表",
                  "params": [{"name": "limit", "param_type": "query", "data_type": "string", "required": False, "description": "输出数量限制，默认 1000，all 输出全部", "param_source": "llm_extract"}]},
@@ -2376,7 +2386,7 @@ def seed_preset_external_systems() -> None:
                      {"name": "start_version", "param_type": "query", "data_type": "integer", "required": True, "description": "起始版本", "param_source": "llm_extract"},
                      {"name": "end_version", "param_type": "query", "data_type": "integer", "required": True, "description": "结束版本", "param_source": "llm_extract"},
                  ]},
-                # ── BE RPC ──
+                # ── RPC ──
                 {"name": "check_rpc", "display_name": "检查 RPC 通道", "method": "GET", "path": "/api/check_rpc_channel/{host}/{port}/{size}",
                  "description": "检查与指定节点的 RPC 连接缓存是否可用",
                  "params": [
@@ -2387,7 +2397,7 @@ def seed_preset_external_systems() -> None:
                 {"name": "reset_rpc", "display_name": "重置 RPC 缓存", "method": "GET", "path": "/api/reset_rpc_channel/{endpoints}",
                  "description": "重置 BRPC 连接缓存（all 或指定 endpoint 列表）",
                  "params": [{"name": "endpoints", "param_type": "path", "data_type": "string", "required": True, "description": "all 或 host1:port1,host2:port2", "param_source": "llm_extract"}]},
-                # ── BE 日志 ──
+                # ── 日志 ──
                 {"name": "load_error_log", "display_name": "加载错误日志", "method": "GET", "path": "/api/_load_error_log",
                  "description": "下载数据加载错误日志",
                  "params": [
