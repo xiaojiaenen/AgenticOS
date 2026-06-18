@@ -32,6 +32,27 @@ from wuwei.runtime.agent_runner import AgentRunner
 # 特殊工具名：用户拒绝时替换原工具调用，让 LLM 收到明确的拒绝消息
 _REJECTED_TOOL_NAME = "__tool_rejected__"
 
+# 工具结果截断：超过此字符数的结果在送入 LLM 上下文时会被截断
+_TOOL_RESULT_CONTEXT_LIMIT = 8000
+_CHART_MARKER = "__ECHART_JSON__"
+
+
+def _truncate_for_context(content: str) -> str:
+    """截断工具结果用于 LLM 上下文，保留图表标记，添加截断提示。"""
+    if not content:
+        return content
+
+    # 保留图表标记完整
+    if _CHART_MARKER in content:
+        return content
+
+    if len(content) <= _TOOL_RESULT_CONTEXT_LIMIT:
+        return content
+
+    # 截断并添加提示
+    truncated = content[:_TOOL_RESULT_CONTEXT_LIMIT]
+    return f"{truncated}\n\n[结果已截断，原始数据共 {len(content)} 字符，仅展示前 {_TOOL_RESULT_CONTEXT_LIMIT} 字符]"
+
 # ── 并发工具执行补丁 ──────────────────────────────────────────────────
 # wuwei 的 AgentRunner 默认逐个执行工具调用。
 # 本补丁将安全工具（is_concurrency_safe=True）分批并发执行，
@@ -189,7 +210,7 @@ async def _patched_stream_events(self, user_input: str, *, task=None):
                                 continue
                             tc, final_msg, start_evt, end_evt = result
                             yield start_evt
-                            self.session.context.add_tool_message(final_msg.content or "", final_msg.tool_call_id)
+                            self.session.context.add_tool_message(_truncate_for_context(final_msg.content or ""), final_msg.tool_call_id)
                             yield end_evt
                             err = self.tool_executor.extract_error_message(final_msg.content)
                             if err:
@@ -217,7 +238,7 @@ async def _patched_stream_events(self, user_input: str, *, task=None):
                             tmsg = TMsg(content=tool_message.content or "", tool_call_id=tool_message.tool_call_id or "", name=tool_message.name or "")
                             modified_msg = await self.middleware.execute_after_tool(ctx, tmsg)
                             tool_message = Message(role="tool", content=modified_msg.content or "", tool_call_id=modified_msg.tool_call_id, name=modified_msg.name)
-                            self.session.context.add_tool_message(tool_message.content or "", tool_message.tool_call_id)
+                            self.session.context.add_tool_message(_truncate_for_context(tool_message.content or ""), tool_message.tool_call_id)
                             yield self._build_event(
                                 "tool_end", step=step_count, run_id=run_id,
                                 data={"tool_name": modified.function.name, "tool_call_id": modified.id, "output": tool_message.content},
