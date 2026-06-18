@@ -425,6 +425,20 @@ TOOL_CATALOG = {
             "save_memory": {"label": "保存记忆", "description": "保存关于用户的重要信息"},
         },
     },
+    "render_chart": {
+        "label": "数据图表",
+        "description": "渲染数据可视化图表。支持柱状图、折线图、面积图、饼图、散点图、漏斗图、仪表盘、雷达图、表格。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "analyze_data": {
+        "label": "数据分析",
+        "description": "对数据进行统计分析：概览、统计、排序、分组、空值检查、相关性、趋势分析。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
     "search_images": {
         "label": "搜索图片",
         "description": "搜索免费商用图片，支持 Openverse、Wikimedia、Pexels、Pixabay 等多个来源。",
