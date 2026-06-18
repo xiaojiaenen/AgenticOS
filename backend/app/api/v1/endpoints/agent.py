@@ -698,8 +698,14 @@ async def submit_api_approval(
     request: dict[str, object],
     current_user: UserModel = Depends(get_current_user),
 ) -> dict[str, object]:
-    """集成接口需要审批时，前端调用此接口提交审批决定。"""
+    """集成接口需要审批时，前端调用此接口提交审批决定。
+
+    request.body:
+      - approved: bool — 是否批准
+      - allow_all: bool — 是否本次会话全部允许该系统
+    """
     from app.services.external_system_service import ApprovalBlocker
     approved = bool(request.get("approved", False))
-    ApprovalBlocker.resolve(session_id, {"approved": approved})
-    return {"status": "ok", "session_id": session_id, "approved": approved}
+    allow_all = bool(request.get("allow_all", False))
+    ApprovalBlocker.resolve(session_id, {"approved": approved, "allow_all": allow_all})
+    return {"status": "ok", "session_id": session_id, "approved": approved, "allow_all": allow_all}

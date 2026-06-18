@@ -102,7 +102,7 @@ export function useChatStream({
   }, []);
 
   const handleApprovalDecision = useCallback(
-    async (approvalId: string, status: 'approved' | 'rejected', isApiApproval?: boolean) => {
+    async (approvalId: string, status: 'approved' | 'rejected', isApiApproval?: boolean, allowAll?: boolean) => {
       const optimisticStatus = status === 'approved' ? 'approved' : 'rejected';
       setSessions((prev) =>
         prev.map((session) => ({
@@ -116,7 +116,9 @@ export function useChatStream({
                     status: optimisticStatus,
                     result:
                       status === 'approved'
-                        ? '审批已通过，等待工具执行。'
+                        ? allowAll
+                          ? '已全部允许，本次会话不再询问。'
+                          : '审批已通过，等待工具执行。'
                         : '审批已拒绝，工具不会执行。',
                   }
                 : tool,
@@ -127,7 +129,7 @@ export function useChatStream({
 
       try {
         if (isApiApproval) {
-          await submitApiApproval(currentSessionId!, status === 'approved');
+          await submitApiApproval(currentSessionId!, status === 'approved', allowAll);
         } else {
           await submitApprovalDecision(
             approvalId,
