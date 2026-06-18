@@ -1042,6 +1042,11 @@ def _build_system_tool_handler(
                 elif pdef.param_type == "body":
                     body_params[name] = casted
 
+            # 路径参数兜底：未提供时用 default_value 填充
+            for p in param_rows:
+                if p.param_type == "path" and p.name not in path_params and p.default_value:
+                    path_params[p.name] = p.default_value
+
             # 解析 base_url（支持逗号分隔的多地址 HA）
             base_urls = [u.strip().rstrip("/") for u in fresh_system.base_url.split(",") if u.strip()]
 
@@ -2287,10 +2292,12 @@ def seed_preset_external_systems() -> None:
                  "params": [{"name": "action", "param_type": "path", "data_type": "string", "required": True, "description": "操作类型：ADD/DROP", "param_source": "llm_extract"}]},
                 # ── SQL 执行 ──
                 {"name": "execute_sql", "display_name": "执行 SQL", "method": "POST", "path": "/api/query/{ns_name}/{db_name}",
-                 "description": "执行 SQL 语句（SELECT/SHOW/INSERT 等），返回结果集或执行状态",
+                 "description": "执行 SQL 语句（SELECT/SHOW/INSERT 等），返回结果集或执行状态。"
+                                "ns_name 通常为 default_cluster，db_name 为数据库名。"
+                                "如果用户没指定数据库，可以用 information_schema。",
                  "params": [
-                     {"name": "ns_name", "param_type": "path", "data_type": "string", "required": True, "description": "命名空间（通常为 default_cluster）", "param_source": "llm_extract"},
-                     {"name": "db_name", "param_type": "path", "data_type": "string", "required": True, "description": "默认数据库名", "param_source": "llm_extract"},
+                     {"name": "ns_name", "param_type": "path", "data_type": "string", "required": False, "description": "命名空间，默认 default_cluster", "param_source": "llm_extract", "default_value": "default_cluster"},
+                     {"name": "db_name", "param_type": "path", "data_type": "string", "required": False, "description": "数据库名，默认 information_schema", "param_source": "llm_extract", "default_value": "information_schema"},
                      {"name": "stmt", "param_type": "body", "data_type": "string", "required": True, "description": "要执行的 SQL 语句", "param_source": "llm_extract"},
                  ]},
                 # ── 查询分析 ──
