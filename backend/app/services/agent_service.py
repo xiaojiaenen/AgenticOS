@@ -2226,7 +2226,7 @@ class AgentService:
                 cleanup_session_decisions(session.session_id)
             except Exception:
                 pass
-            for task in (runtime_task, approval_task):
+            for task in (runtime_task, approval_task, user_input_task, api_approval_task):
                 if not task.done():
                     task.cancel()
                     with contextlib.suppress(asyncio.CancelledError):
