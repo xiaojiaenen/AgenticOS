@@ -10,6 +10,7 @@ import {
   AgentWebsiteArtifact,
   AgentRunStatus,
   UserInputRequest,
+  ApiApprovalRequest,
 } from '../services/agentService';
 import { AgentProfile } from '../services/agentProfileService';
 import { uploadFiles } from '../services/fileService';
@@ -54,6 +55,7 @@ interface UseChatStreamDeps {
   setArtifact: React.Dispatch<React.SetStateAction<Artifact | null>>;
   setInputValue: React.Dispatch<React.SetStateAction<string>>;
   onUserInputRequired?: (input: UserInputRequest) => void;
+  onApiApprovalRequired?: (approval: ApiApprovalRequest) => void;
 }
 
 export function useChatStream({
@@ -69,6 +71,7 @@ export function useChatStream({
   setArtifact,
   setInputValue,
   onUserInputRequired,
+  onApiApprovalRequired,
 }: UseChatStreamDeps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -470,6 +473,9 @@ export function useChatStream({
           },
           onUserInputRequired: (input) => {
             onUserInputRequired?.(input as unknown as UserInputRequest);
+          },
+          onApiApprovalRequired: (approval) => {
+            onApiApprovalRequired?.(approval as unknown as ApiApprovalRequest);
           },
         });
 

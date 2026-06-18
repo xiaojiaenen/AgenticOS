@@ -20,7 +20,7 @@ import { getMyAgents } from '../services/agentProfileService';
 import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
 import { UserInputPanel } from '../components/chat/UserInputPanel';
-import { submitUserInput, type UserInputRequest } from '../services/agentService';
+import { submitUserInput, submitApiApproval, type UserInputRequest, type ApiApprovalRequest } from '../services/agentService';
 import { useIsGlassTheme, LightRays, Ferrofluid } from '../components/liquid-glass';
 
 export const Chat = () => {
@@ -70,6 +70,7 @@ export const Chat = () => {
 
   // ── 流式 ──
   const [userInputReq, setUserInputReq] = useState<UserInputRequest | null>(null);
+  const [apiApprovalReq, setApiApprovalReq] = useState<ApiApprovalRequest | null>(null);
 
   const {
     isLoading, error, setError, runStatus, pendingDecisions,
@@ -82,6 +83,7 @@ export const Chat = () => {
     setSessions, setCurrentSessionId,
     applySessionState, setArtifact, setInputValue,
     onUserInputRequired: setUserInputReq,
+    onApiApprovalRequired: setApiApprovalReq,
   });
 
   // ── 派生状态 ──
@@ -188,6 +190,17 @@ export const Chat = () => {
       setError(err instanceof Error ? err.message : '提交参数失败');
     }
   }, [userInputReq, currentSessionId, handleSend, setError]);
+
+  const handleApiApproval = useCallback(async (approved: boolean) => {
+    if (!currentSessionId) return;
+    try {
+      await submitApiApproval(currentSessionId, approved);
+      setApiApprovalReq(null);
+    } catch (err) {
+      console.error('Submit API approval error:', err);
+      setError(err instanceof Error ? err.message : '提交审批失败');
+    }
+  }, [currentSessionId, setError]);
 
   const handleAgentProfileChange = useCallback((profile: any) => {
     setSelectedAgentProfileId(profile?.id ?? null);
@@ -505,6 +518,26 @@ export const Chat = () => {
                   onSubmit={handleUserInputSubmit}
                   onDismiss={() => setUserInputReq(null)}
                 />
+              </div>
+            )}
+            {apiApprovalReq && (
+              <div className="absolute inset-x-0 bottom-0 z-30 px-4 pb-4">
+                <div className="mx-auto max-w-lg rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-lg">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-amber-900">需要审批</p>
+                      <p className="text-xs text-amber-700">{apiApprovalReq.system_name} → {apiApprovalReq.api_display_name}</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-amber-800 mb-4">{apiApprovalReq.message}</p>
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => handleApiApproval(false)} className="px-4 py-1.5 text-sm font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">拒绝</button>
+                    <button onClick={() => handleApiApproval(true)} className="px-4 py-1.5 text-sm font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors">批准</button>
+                  </div>
+                </div>
               </div>
             )}
           </main>

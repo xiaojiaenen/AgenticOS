@@ -17,6 +17,7 @@ type AgentServiceOptions = {
   onVideoArtifact?: (artifact: AgentVideoArtifact) => void;
   onUserDecision?: (decision: unknown) => void;
   onUserInputRequired?: (input: UserInputRequest) => void;
+  onApiApprovalRequired?: (approval: ApiApprovalRequest) => void;
   signal?: AbortSignal;
 };
 
@@ -137,6 +138,16 @@ export type UserInputRequest = {
   api_display_name: string;
   system_name: string;
   fields: UserInputField[];
+  message: string;
+};
+
+export type ApiApprovalRequest = {
+  type: string;
+  api_name: string;
+  api_display_name: string;
+  system_name: string;
+  method: string;
+  path: string;
   message: string;
 };
 
@@ -399,6 +410,10 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         options.onToolCalls?.(toolCalls);
       }
 
+      if (parsed.event === 'api_approval_required') {
+        options.onApiApprovalRequired?.(payload);
+      }
+
       if (parsed.event === 'user_decision') {
         options.onUserDecision?.(payload);
       }
@@ -616,6 +631,22 @@ export async function submitUserInput(sessionId: string, apiName: string, values
   if (!response.ok) {
     const detail = await response.text();
     throw new Error(detail || '提交用户输入失败。');
+  }
+  return response.json();
+}
+
+export async function submitApiApproval(sessionId: string, approved: boolean): Promise<{ status: string }> {
+  const response = await fetch(`${AGENT_ENDPOINT}/sessions/${sessionId}/api-approval`, {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ approved }),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || '提交审批决定失败。');
   }
   return response.json();
 }
