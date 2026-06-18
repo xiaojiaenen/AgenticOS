@@ -100,10 +100,18 @@ def _build_echarts_option(
     if chart_type == "pie":
         data = [{"name": str(r.get(x_field, "")), "value": r.get(y_fields[0], 0)} for r in rows]
         return {
-            "title": {"text": title, "left": "center"},
+            "title": {"text": title, "left": "center", "top": 8},
             "tooltip": {"trigger": "item", "formatter": "{b}: {c} ({d}%)"},
-            "legend": {"orient": "vertical", "left": "left"},
-            "series": [{"type": "pie", "radius": ["40%", "65%"], "data": data, "emphasis": {"itemStyle": {"shadowBlur": 10, "shadowOffsetX": 0, "shadowColor": "rgba(0,0,0,0.5)"}}],
+            "legend": {"orient": "vertical", "left": "left", "top": "middle"},
+            "series": [{
+                "type": "pie",
+                "radius": ["42%", "68%"],
+                "center": ["55%", "55%"],
+                "data": data,
+                "label": {"formatter": "{b}\n{d}%", "fontSize": 12},
+                "emphasis": {"itemStyle": {"shadowBlur": 12, "shadowColor": "rgba(0,0,0,0.15)"}},
+                "itemStyle": {"borderRadius": 6, "borderWidth": 2, "borderColor": "#fff"},
+            }],
         }
 
     # ── 散点图 ──
@@ -115,75 +123,104 @@ def _build_echarts_option(
         return {
             "title": {"text": title},
             "tooltip": {"trigger": "item"},
-            "xAxis": {"type": "value", "name": y_fields[0] if len(y_fields) >= 2 else ""},
-            "yAxis": {"type": "value", "name": y_fields[-1]},
-            "series": [{"type": "scatter", "data": series_data, "symbolSize": 12}],
+            "xAxis": {"type": "value", "name": y_fields[0] if len(y_fields) >= 2 else "", "nameTextStyle": {"fontSize": 12}},
+            "yAxis": {"type": "value", "name": y_fields[-1], "nameTextStyle": {"fontSize": 12}},
+            "series": [{"type": "scatter", "data": series_data, "symbolSize": 14, "itemStyle": {"opacity": 0.8}}],
         }
 
     # ── 漏斗图 ──
     if chart_type == "funnel":
         data = [{"name": str(r.get(x_field, "")), "value": r.get(y_fields[0], 0)} for r in rows]
-        # 按值降序排列
         data.sort(key=lambda x: x["value"], reverse=True)
         return {
-            "title": {"text": title, "left": "center"},
+            "title": {"text": title, "left": "center", "top": 8},
             "tooltip": {"trigger": "item", "formatter": "{b}: {c}"},
-            "series": [{"type": "funnel", "left": "10%", "width": "80%", "sort": "descending", "gap": 2, "label": {"show": True, "position": "inside"}, "data": data}],
+            "series": [{
+                "type": "funnel",
+                "left": "10%", "width": "80%", "top": 48, "bottom": 16,
+                "sort": "descending", "gap": 3,
+                "label": {"show": True, "position": "inside", "fontSize": 13},
+                "itemStyle": {"borderWidth": 0, "opacity": 0.9},
+                "data": data,
+            }],
         }
 
     # ── 仪表盘 ──
     if chart_type == "gauge":
         val = rows[0].get(y_fields[0], 0)
         return {
-            "title": {"text": title, "left": "center"},
-            "series": [{"type": "gauge", "progress": {"show": True}, "detail": {"valueAnimation": True, "formatter": "{value}"}, "data": [{"value": val, "name": str(rows[0].get(x_field, ""))}]}],
+            "title": {"text": title, "left": "center", "top": 8},
+            "series": [{
+                "type": "gauge",
+                "center": ["50%", "60%"],
+                "radius": "75%",
+                "progress": {"show": True, "width": 14, "itemStyle": {"color": "#5470c6"}},
+                "axisLine": {"lineStyle": {"width": 14, "color": [[1, "#e8ecf1"]]}},
+                "axisTick": {"show": False},
+                "splitLine": {"length": 10, "lineStyle": {"width": 2, "color": "#ccc"}},
+                "axisLabel": {"distance": 16, "fontSize": 11},
+                "pointer": {"length": "60%", "width": 5},
+                "detail": {"valueAnimation": True, "fontSize": 28, "fontWeight": "bold", "offsetCenter": [0, "35%"], "formatter": "{value}"},
+                "data": [{"value": val, "name": str(rows[0].get(x_field, ""))}],
+            }],
         }
 
     # ── 雷达图 ──
     if chart_type == "radar":
-        indicators = [{"name": str(r.get(x_field, "")), "max": max(r.get(yf, 0) for yf in y_fields) * 1.2 or 100} for r in rows]
-        series_data = []
-        for yf in y_fields:
-            series_data.append({"value": [r.get(yf, 0) for r in rows], "name": yf})
-        option: dict[str, Any] = {
-            "title": {"text": title, "left": "center"},
+        max_val = max(max(r.get(yf, 0) for yf in y_fields) for r in rows) * 1.2 or 100
+        indicators = [{"name": str(r.get(x_field, "")), "max": max_val} for r in rows]
+        series_data = [{"value": [r.get(yf, 0) for r in rows], "name": yf, "areaStyle": {"opacity": 0.15}} for yf in y_fields]
+        return {
+            "title": {"text": title, "left": "center", "top": 8},
             "tooltip": {"trigger": "item"},
-            "radar": {"indicator": indicators},
+            "legend": {"data": y_fields, "bottom": 8} if len(y_fields) > 1 else {},
+            "radar": {
+                "indicator": indicators,
+                "center": ["50%", "55%"],
+                "radius": "65%",
+                "axisName": {"fontSize": 12},
+                "splitArea": {"areaStyle": {"color": ["#f8fafc", "#f1f5f9", "#e2e8f0", "#f1f5f9", "#f8fafc"]}},
+            },
             "series": [{"type": "radar", "data": series_data}],
         }
-        if len(y_fields) > 1:
-            option["legend"] = {"data": y_fields, "bottom": 0}
-        return option
 
-    # ── 面积图（line + areaStyle）──
+    # ── 面积图 ──
     if chart_type == "area":
         series = []
         for yf in y_fields:
-            series.append({"name": yf, "type": "line", "stack": "total", "areaStyle": {}, "data": [r.get(yf, 0) for r in rows]})
-        option = {
+            series.append({"name": yf, "type": "line", "stack": "total", "smooth": True, "areaStyle": {"opacity": 0.25}, "emphasis": {"focus": "series"}, "data": [r.get(yf, 0) for r in rows]})
+        return {
             "title": {"text": title},
             "tooltip": {"trigger": "axis"},
+            "legend": {"data": y_fields, "top": 32} if len(y_fields) > 1 else {},
             "xAxis": {"type": "category", "boundaryGap": False, "data": categories},
             "yAxis": {"type": "value"},
             "series": series,
         }
-        if len(y_fields) > 1:
-            option["legend"] = {"data": y_fields}
-        return option
 
-    # ── bar / line ──
+    # ── bar ──
+    if chart_type == "bar":
+        series = []
+        for yf in y_fields:
+            series.append({"name": yf, "type": "bar", "barMaxWidth": 40, "data": [r.get(yf, 0) for r in rows], "itemStyle": {"borderRadius": [4, 4, 0, 0]}})
+        return {
+            "title": {"text": title},
+            "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
+            "legend": {"data": y_fields, "top": 32} if len(y_fields) > 1 else {},
+            "xAxis": {"type": "category", "data": categories},
+            "yAxis": {"type": "value"},
+            "series": series,
+        }
+
+    # ── line（默认）──
     series = []
     for yf in y_fields:
-        series.append({"name": yf, "type": chart_type, "data": [r.get(yf, 0) for r in rows]})
-
-    option = {
+        series.append({"name": yf, "type": "line", "smooth": True, "symbolSize": 6, "data": [r.get(yf, 0) for r in rows]})
+    return {
         "title": {"text": title},
         "tooltip": {"trigger": "axis"},
+        "legend": {"data": y_fields, "top": 32} if len(y_fields) > 1 else {},
         "xAxis": {"type": "category", "data": categories},
         "yAxis": {"type": "value"},
         "series": series,
     }
-    if len(y_fields) > 1:
-        option["legend"] = {"data": y_fields}
-
-    return option
