@@ -728,6 +728,10 @@ class AgentService:
         from app.tools.chart_render_tools import register_chart_render_tools as _register_chart_render
         _register_chart_render(registry)
 
+        # 数据分析工具（所有模式可用）
+        from app.tools.data_analysis_tools import register_data_analysis_tools as _register_data_analysis
+        _register_data_analysis(registry)
+
         if profile.response_mode == "ppt":
             from app.tools.icon_tools import register_icon_tools as _register_icon_tools
             _register_icon_tools(registry)
