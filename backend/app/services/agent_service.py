@@ -305,7 +305,7 @@ from app.services.tool_config_service import ToolConfigService
 from app.schemas.agent import AgentStreamRequest
 from app.tools.email_tools import register_email_tools, set_current_session_id as set_email_session_id
 from app.core.data_path import set_current_session_id as set_data_session_id, set_current_user_id, restore_website_dir_for_session, DATA_DIR, PPT_SESSIONS_DIR, PPT_OUTPUT_DIR, WEBSITES_DIR, WEBSITE_TEMPLATES_DIR, DESIGN_THEMES_DIR, _parse_dir_name
-from app.services.external_system_service import set_ext_user_id, _current_session_id as ext_session_id_ctx, UserInputBlocker
+from app.services.external_system_service import set_ext_user_id, _current_session_id as ext_session_id_ctx, UserInputBlocker, ApprovalBlocker
 # pptx_reverse_session_id removed — now uses data_path contextvars directly
 
 
@@ -1721,6 +1721,7 @@ class AgentService:
         await self.storage.save_meta(session)
         approval_queue = self.approval_manager.subscribe(session.session_id)
         user_input_queue = UserInputBlocker.subscribe(session.session_id)
+        api_approval_queue = ApprovalBlocker.subscribe(session.session_id)
         set_email_session_id(session.session_id)
         set_data_session_id(session.session_id)
         restore_website_dir_for_session(session.session_id)
@@ -1831,6 +1832,7 @@ class AgentService:
         runtime_task = asyncio.create_task(runtime_queue.get())
         approval_task = asyncio.create_task(approval_queue.get())
         user_input_task = asyncio.create_task(user_input_queue.get())
+        api_approval_task = asyncio.create_task(api_approval_queue.get())
 
         # Keepalive: 每 15 秒发送一次注释防止连接超时
         KEEPALIVE_INTERVAL = 15
@@ -1841,7 +1843,7 @@ class AgentService:
             while True:
                 # 使用 timeout 避免无限等待，以便发送 keepalive
                 done, _ = await asyncio.wait(
-                    {runtime_task, approval_task, user_input_task},
+                    {runtime_task, approval_task, user_input_task, api_approval_task},
                     timeout=KEEPALIVE_INTERVAL,
                     return_when=asyncio.FIRST_COMPLETED,
                 )
@@ -2157,6 +2159,14 @@ class AgentService:
                         "data": user_input_data,
                     }
                     user_input_task = asyncio.create_task(user_input_queue.get())
+
+                if api_approval_task in done:
+                    api_approval_data = api_approval_task.result()
+                    yield {
+                        "event": "api_approval_required",
+                        "data": api_approval_data,
+                    }
+                    api_approval_task = asyncio.create_task(api_approval_queue.get())
             # 对话结束时用 LLM 提取记忆（仅通用模式）
             _logger.info(f"Memory extraction conditions: user={user is not None}, collected_text_len={len(collected_text) if collected_text else 0}, ppt_mode={ppt_mode}, website_mode={website_mode}, video_mode={video_mode}, message={request.message[:50] if request.message else ''}")
             if user is not None and request.message and not ppt_mode and not website_mode and not video_mode:
@@ -2184,6 +2194,7 @@ class AgentService:
                 len(collected_text),
             )
             self.approval_manager.unsubscribe(session.session_id, approval_queue)
+            ApprovalBlocker.unsubscribe(session.session_id)
             # 清理孤儿决策 Future，防止泄漏和阻塞下次请求
             try:
                 from app.tools.decision_tools import cleanup_session_decisions
