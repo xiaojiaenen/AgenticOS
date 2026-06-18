@@ -898,16 +898,23 @@ class AgentProfileService:
 
         # Add external API tool names that require approval
         if ext_system_ids:
-            from app.db.models import ExternalApiModel
-            ext_apis = db.scalars(
-                select(ExternalApiModel).where(
-                    ExternalApiModel.system_id.in_(ext_system_ids),
-                    ExternalApiModel.enabled.is_(True),
-                    ExternalApiModel.requires_approval.is_(True),
-                )
+            from app.db.models import ExternalApiModel, ExternalSystemModel
+            # 找出有需要审批的 API 的系统，将系统级工具名加入审批列表
+            ext_systems = db.scalars(
+                select(ExternalSystemModel).where(ExternalSystemModel.id.in_(ext_system_ids))
             ).all()
-            for api in ext_apis:
-                approval_tools.add(api.name)
+            for sys in ext_systems:
+                has_approval_api = db.scalar(
+                    select(ExternalApiModel.id).where(
+                        ExternalApiModel.system_id == sys.id,
+                        ExternalApiModel.enabled.is_(True),
+                        ExternalApiModel.requires_approval.is_(True),
+                    ).limit(1)
+                )
+                if has_approval_api:
+                    import re
+                    tool_name = re.sub(r"[^a-z0-9]+", "_", sys.name.lower()).strip("_")
+                    approval_tools.add(tool_name)
 
         return RuntimeAgentProfile(
             profile_id=profile.id,
