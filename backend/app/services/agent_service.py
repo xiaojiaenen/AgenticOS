@@ -703,6 +703,10 @@ class AgentService:
             from app.tools.file_to_md_tool import register_file_to_md_tool as _register_file_to_md
             _register_file_to_md(registry)
 
+        # 数据可视化工具（所有模式可用）
+        from app.tools.chart_render_tools import register_chart_render_tools as _register_chart_render
+        _register_chart_render(registry)
+
         if profile.response_mode == "ppt":
             from app.tools.icon_tools import register_icon_tools as _register_icon_tools
             _register_icon_tools(registry)

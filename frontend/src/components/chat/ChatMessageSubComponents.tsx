@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import mermaid from 'mermaid';
+import * as echarts from 'echarts';
 import { BrainCircuit, Globe, Presentation, Sparkles } from 'lucide-react';
 import { Artifact, Message, ToolCall } from '../../types';
 import { cn, copyToClipboard } from '../../lib/utils';
@@ -192,6 +193,71 @@ export const MermaidChart = React.memo(({ chart }: { chart: string }) => {
   );
 });
 
+export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) => {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    let option: echarts.EChartsOption;
+    try {
+      option = JSON.parse(optionJson);
+    } catch {
+      return;
+    }
+
+    // 如果是 table 类型（自定义格式），渲染为 HTML 表格
+    if ((option as any).columns && (option as any).data) {
+      return;
+    }
+
+    chartInstanceRef.current = echarts.init(chartRef.current, undefined, { renderer: 'canvas' });
+    chartInstanceRef.current.setOption(option);
+
+    const handleResize = () => chartInstanceRef.current?.resize();
+    window.addEventListener('resize', handleResize);
+    const observer = new ResizeObserver(handleResize);
+    observer.observe(chartRef.current);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      observer.disconnect();
+      chartInstanceRef.current?.dispose();
+      chartInstanceRef.current = null;
+    };
+  }, [optionJson]);
+
+  // table 类型渲染为 HTML 表格
+  try {
+    const parsed = JSON.parse(optionJson);
+    if (parsed.columns && parsed.data) {
+      return (
+        <div className="my-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left text-slate-700">
+              <thead className="text-xs text-slate-500 uppercase bg-slate-50">
+                <tr>{parsed.columns.map((col: string) => <th key={col} className="px-4 py-3 font-semibold">{col}</th>)}</tr>
+              </thead>
+              <tbody>
+                {parsed.data.map((row: Record<string, unknown>, i: number) => (
+                  <tr key={i} className="border-t border-slate-100 hover:bg-slate-50/50">
+                    {parsed.columns.map((col: string) => <td key={col} className="px-4 py-2.5">{String(row[col] ?? '')}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+  } catch { /* not JSON, ignore */ }
+
+  return (
+    <div ref={chartRef} className="my-4 w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" style={{ height: 380 }} />
+  );
+});
+
 export const PptArtifactCard = ({ message, onOpenArtifact }: { message: Message; onOpenArtifact?: (artifact: Artifact) => void }) => {
   const html = message.pptArtifact?.html;
   const status = html ? 'ready' : message.pptArtifact?.status;
@@ -274,6 +340,7 @@ export const CodeBlock = ({ inline, className, children, onOpenArtifact, ...prop
   const config = getAppConfig();
 
   if (!inline && match && match[1] === 'mermaid' && config.enableMermaid) return <MermaidChart chart={codeString} />;
+  if (!inline && match && match[1] === 'echarts') return <EChartsBlock optionJson={codeString} />;
 
   const handleBlockCopy = async () => { await copyToClipboard(codeString); setIsBlockCopied(true); setTimeout(() => setIsBlockCopied(false), 2000); };
 
