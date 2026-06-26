@@ -2948,7 +2948,7 @@ def seed_preset_external_systems() -> None:
             ],
         },
         {
-            "name": "YARN",
+            "name": "YARN ResourceManager",
             "category": "resource",
             "description": "Hadoop YARN 资源管理器。通过 ResourceManager REST API 监控集群资源、管理应用程序、查看节点状态。"
                            "默认端口 8088。",
