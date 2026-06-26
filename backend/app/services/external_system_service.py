@@ -3128,8 +3128,9 @@ def seed_preset_external_systems() -> None:
                 sys = db.scalar(select(ExternalSystemModel).where(ExternalSystemModel.name == preset["name"]))
                 if not sys:
                     continue
+                # 同步分类（始终更新，确保与预设一致）
                 preset_cat = preset.get("category", "other")
-                if sys.category == "other" and preset_cat != "other":
+                if sys.category != preset_cat:
                     sys.category = preset_cat
                     updated_count += 1
                 # 同步 API 参数：删除旧参数，从预设重建
