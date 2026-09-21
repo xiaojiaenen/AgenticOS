@@ -1,6 +1,4 @@
-import { authHeaders } from './authService'
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+import { apiFetch, API_BASE_URL } from './apiClient'
 
 export type DeployStatus = 'pending' | 'approved' | 'rejected' | 'deploying' | 'deployed' | 'failed'
 
@@ -26,65 +24,45 @@ export async function requestDeploy(
   stack: string,
   targetDomain?: string,
 ): Promise<DeployRecord> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/website/deploy`, {
+  return apiFetch<DeployRecord>(`${API_BASE_URL}/api/v1/website/deploy`, {
     method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       session_id: sessionId,
       project_slug: projectSlug,
       stack,
       target_domain: targetDomain || null,
     }),
-  })
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}))
-    throw new Error(err.detail || `Deploy request failed: ${response.status}`)
-  }
-  return await response.json()
+  }, 'Deploy request failed')
 }
 
 export async function getDeployStatus(deployId: number): Promise<DeployRecord> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/website/deploy/${deployId}`)
-  if (!response.ok) {
-    throw new Error(`Failed to get deploy status: ${response.status}`)
-  }
-  return await response.json()
+  return apiFetch<DeployRecord>(`${API_BASE_URL}/api/v1/website/deploy/${deployId}`)
 }
 
 export async function getDeployByProject(projectSlug: string): Promise<DeployRecord> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/website/deploy/project/${projectSlug}`)
-  if (!response.ok) {
-    throw new Error(`Failed to get deploy: ${response.status}`)
-  }
-  return await response.json()
+  return apiFetch<DeployRecord>(`${API_BASE_URL}/api/v1/website/deploy/project/${projectSlug}`)
 }
 
 export async function listPendingDeploys(): Promise<DeployRecord[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/admin/website/deploys`, {
-    headers: authHeaders(),
-  })
-  if (!response.ok) {
-    throw new Error(`Failed to list deploys: ${response.status}`)
-  }
-  return await response.json()
+  return apiFetch<DeployRecord[]>(`${API_BASE_URL}/api/v1/admin/website/deploys`)
+}
+
+export async function listAllDeploys(): Promise<DeployRecord[]> {
+  return apiFetch<DeployRecord[]>(`${API_BASE_URL}/api/v1/admin/website/deploys/all`)
 }
 
 export async function decideDeploy(
   deployId: number,
-  status: 'approved' | 'rejected',
-  reason?: string,
+  decision: { status: 'approved' | 'rejected'; reason?: string },
 ): Promise<DeployRecord> {
-  const response = await fetch(
+  return apiFetch<DeployRecord>(
     `${API_BASE_URL}/api/v1/admin/website/deploys/${deployId}/decision`,
     {
       method: 'POST',
-      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, reason: reason || null }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(decision),
     },
+    'Decision failed',
   )
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}))
-    throw new Error(err.detail || `Decision failed: ${response.status}`)
-  }
-  return await response.json()
 }

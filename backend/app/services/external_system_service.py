@@ -3118,8 +3118,13 @@ def seed_preset_external_systems() -> None:
         },
     ]
 
+    from app.db.models import UserModel
+
     with create_db_session() as db:
         existing = {s.name for s in db.execute(select(ExternalSystemModel)).scalars().all()}
+        # 查找一个有效 user 作为 created_by（优先 id=1，否则取第一个用户，否则 None）
+        admin_user = db.get(UserModel, 1) or db.execute(select(UserModel).limit(1)).scalar_one_or_none()
+        created_by = admin_user.id if admin_user else None
         created_count = 0
         updated_count = 0
         for preset in PRESETS:
@@ -3170,7 +3175,7 @@ def seed_preset_external_systems() -> None:
                 credential_template_json=json.dumps(preset.get("credential_template", {})),
                 published=True,
                 headers_json="{}",
-                created_by=1,
+                created_by=created_by,
                 jwt_login_url=preset.get("jwt_login_url"),
                 jwt_refresh_url=preset.get("jwt_refresh_url"),
                 jwt_request_body_template=preset.get("jwt_request_body_template"),

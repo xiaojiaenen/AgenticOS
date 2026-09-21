@@ -1,23 +1,28 @@
-"""用户记忆服务
+"""用户记忆服务（分层蒸馏版）
 
-数据库持久化存储，支持：
-- 跨会话记忆（用户所有会话共享）
-- 跨重启持久化（数据库存储）
-- LLM 工具调用（search_memory / save_memory）
-- 管理后台查看所有用户记忆
+架构：
+- L0 原始对话：完整留存，用于回溯与重新蒸馏
+- L1 Atom: 事实/偏好/技术栈/项目（每轮提取）
+- L2 Scenario: 场景块（每 memory_l2_aggregate_turns 轮聚合）
+- L3 Persona: 用户长期画像（每 memory_l3_persona_turns 轮更新）
 
-存储方式：
-- SQLAlchemy + SQLite/MySQL
-- 每用户独立（user_id 隔离）
+检索：BM25 + 向量 + RRF 融合
+装配：按 Agent 模式动态控制字符预算
+
+本模块只保留向后兼容入口，具体逻辑委派给：
+- memory_pipeline: 蒸馏流程
+- memory_retriever: 混合检索
+- memory_loadout: 按 mode 装配
 """
+
+from __future__ import annotations
 
 import asyncio
 import json
 import logging
 from typing import Any
 
-from sqlalchemy import func, select, delete
-from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app.db.models import MemoryModel
 from app.db.session import create_db_session
@@ -26,12 +31,7 @@ _logger = logging.getLogger("memory_service")
 
 
 class UserMemoryService:
-    """用户记忆服务（数据库持久化）"""
-
-    def __init__(self, session_factory=create_db_session) -> None:
-        self.session_factory = session_factory
-        self._conversation_counts: dict[int, int] = {}  # user_id -> 对话计数
-        self._conversation_buffers: dict[int, list[dict]] = {}  # user_id -> 多轮对话缓冲
+    """记忆服务入口（向后兼容旧 API）"""
 
     async def add_memory(
         self,
@@ -43,25 +43,21 @@ class UserMemoryService:
         tags: list[str] | None = None,
         source: str = "auto",
     ) -> int:
-        """为用户添加一条记忆，返回记忆 ID。"""
+        """添加 L1 atom（向后兼容）
 
-        def _run() -> int:
-            with self.session_factory() as db:
-                row = MemoryModel(
-                    user_id=user_id,
-                    content=content,
-                    memory_type=memory_type,
-                    importance=importance,
-                    tags_json=json.dumps(tags, ensure_ascii=False) if tags else None,
-                    source=source,
-                )
-                db.add(row)
-                db.commit()
-                return row.id
+        走 pipeline 内部保存逻辑，自动生成向量。
+        """
+        from app.services.memory_pipeline import get_pipeline
 
-        memory_id = await asyncio.to_thread(_run)
-        _logger.info(f"Added memory for user {user_id}: {content[:50]}...")
-        return memory_id
+        atom_id = await get_pipeline()._save_atom(
+            user_id,
+            {
+                "content": content,
+                "type": memory_type,
+                "importance": importance,
+            },
+        )
+        return atom_id or 0
 
     async def search_memory(
         self,
@@ -70,73 +66,101 @@ class UserMemoryService:
         *,
         limit: int = 5,
     ) -> list[dict[str, Any]]:
-        """搜索用户的记忆（关键词匹配）。"""
+        """搜索记忆（向后兼容，走混合检索）
 
-        def _run() -> list[dict[str, Any]]:
-            with self.session_factory() as db:
-                rows = db.scalars(
-                    select(MemoryModel)
-                    .where(MemoryModel.user_id == user_id)
-                    .where(MemoryModel.content.contains(query))
-                    .order_by(MemoryModel.importance.desc(), MemoryModel.created_at.desc())
-                    .limit(limit)
-                ).all()
-                return [self._row_to_dict(r) for r in rows]
+        返回旧格式以兼容前端。
+        """
+        from app.services.memory_retriever import get_retriever
 
-        return await asyncio.to_thread(_run)
+        hits = await get_retriever().retrieve(
+            user_id, query,
+            layers=("L1", "L2"),
+            limit=limit,
+        )
+
+        # 兼容旧返回格式（L3 画像不返回到列表）
+        return [
+            {
+                "id": h.get("id"),
+                "user_id": user_id,
+                "content": h.get("content", ""),
+                "memory_type": h.get("memory_type", "fact"),
+                "importance": h.get("importance", 0.5),
+                "tags": [],
+                "source": h.get("source", "auto"),
+                "layer": h.get("layer", "L1"),
+                "created_at": h.get("created_at"),
+            }
+            for h in hits
+            if h.get("layer") != "L3"
+        ]
+
+    async def get_memory_context(
+        self,
+        user_id: int,
+        query: str,
+        *,
+        limit: int = 3,
+    ) -> str:
+        """获取记忆上下文（旧 API，agent_service 调用）
+
+        委派给 loadout（默认 general 模式）。
+        """
+        from app.services.memory_loadout import assemble_memory_context
+
+        return await assemble_memory_context(user_id, query, "general")
 
     async def get_all_memories(self, user_id: int) -> list[dict[str, Any]]:
-        """获取用户的所有记忆。"""
+        """获取用户所有 L1 atom 记忆（管理后台用）"""
 
-        def _run() -> list[dict[str, Any]]:
-            with self.session_factory() as db:
-                rows = db.scalars(
+        def _run():
+            with create_db_session() as db:
+                return db.scalars(
                     select(MemoryModel)
                     .where(MemoryModel.user_id == user_id)
-                    .order_by(MemoryModel.importance.desc(), MemoryModel.created_at.desc())
+                    .where(MemoryModel.layer == "L1")
+                    .order_by(MemoryModel.created_at.desc())
                 ).all()
-                return [self._row_to_dict(r) for r in rows]
 
-        return await asyncio.to_thread(_run)
+        rows = await asyncio.to_thread(_run)
+        return [self._row_to_dict(r) for r in rows]
 
     async def get_all_memories_admin(self) -> list[dict[str, Any]]:
-        """管理员：获取所有用户的记忆。"""
+        """管理员：获取所有用户的 L1 记忆"""
 
-        def _run() -> list[dict[str, Any]]:
-            with self.session_factory() as db:
-                rows = db.scalars(
+        def _run():
+            with create_db_session() as db:
+                return db.scalars(
                     select(MemoryModel)
-                    .order_by(MemoryModel.user_id, MemoryModel.importance.desc())
+                    .where(MemoryModel.layer == "L1")
+                    .order_by(MemoryModel.user_id, MemoryModel.created_at.desc())
                 ).all()
-                return [self._row_to_dict(r) for r in rows]
 
-        return await asyncio.to_thread(_run)
+        rows = await asyncio.to_thread(_run)
+        return [self._row_to_dict(r) for r in rows]
 
     async def delete_memory(self, memory_id: int, user_id: int | None = None) -> bool:
-        """删除一条记忆。user_id 为 None 时管理员可删除任意记忆。"""
+        """删除一条 L1 atom（同步删除向量索引）"""
+        from app.services.memory_vector_store import get_vector_store
 
-        def _run() -> bool:
-            with self.session_factory() as db:
+        def _run() -> MemoryModel | None:
+            with create_db_session() as db:
                 row = db.get(MemoryModel, memory_id)
                 if row is None:
-                    return False
+                    return None
                 if user_id is not None and row.user_id != user_id:
-                    return False
+                    return None
                 db.delete(row)
                 db.commit()
-                return True
+                return row
 
-        return await asyncio.to_thread(_run)
+        row = await asyncio.to_thread(_run)
+        if row is None:
+            return False
 
-    async def get_memory_context(self, user_id: int, query: str, *, limit: int = 3) -> str:
-        """获取与查询相关的记忆上下文，用于注入到 LLM 提示词中。"""
-        records = await self.search_memory(user_id, query, limit=limit)
-        if not records:
-            return ""
-        lines = ["## 用户记忆（来自历史对话）"]
-        for r in records:
-            lines.append(f"- [{r['memory_type']}] {r['content']}")
-        return "\n".join(lines)
+        # 异步清理向量索引（不阻塞返回）
+        asyncio.create_task(get_vector_store().delete("atom", memory_id))
+        return True
 
     async def extract_and_save_memories(
         self,
@@ -145,82 +169,16 @@ class UserMemoryService:
         assistant_response: str,
         llm_gateway=None,
     ) -> None:
-        """用 LLM 从对话中提取关键信息并保存为记忆。
+        """旧 API 兼容：转走 pipeline.on_turn_complete"""
+        from app.services.memory_pipeline import get_pipeline
 
-        每 2 次对话提取一次，使用多轮对话历史进行提取。
-        """
-        # 收集多轮对话历史
-        if user_id not in self._conversation_buffers:
-            self._conversation_buffers[user_id] = []
-        self._conversation_buffers[user_id].append({
-            "user": user_message,
-            "assistant": assistant_response[:500],
-        })
-        # 只保留最近 6 轮对话
-        self._conversation_buffers[user_id] = self._conversation_buffers[user_id][-6:]
-
-        # 每 2 次对话提取一次
-        count = self._conversation_counts.get(user_id, 0) + 1
-        self._conversation_counts[user_id] = count
-        _logger.info(f"Memory extraction check: user={user_id}, count={count}, will_extract={count % 2 == 0}")
-        if count % 2 != 0:
-            return
-
-        try:
-            from wuwei.llm import LLMGateway
-
-            if llm_gateway is None:
-                llm_gateway = LLMGateway.from_env()
-
-            # 使用多轮对话历史
-            history = self._conversation_buffers.get(user_id, [])
-            conversation_lines = []
-            for turn in history:
-                conversation_lines.append(f"用户: {turn['user']}")
-                conversation_lines.append(f"AI: {turn['assistant']}")
-            conversation = "\n".join(conversation_lines)
-            prompt = MEMORY_EXTRACTION_PROMPT.format(conversation=conversation)
-
-            from wuwei.core.message import SystemMessage, HumanMessage
-            response = await llm_gateway.generate(
-                messages=[
-                    SystemMessage(content="你是记忆提取器，只输出 JSON。"),
-                    HumanMessage(content=prompt),
-                ],
-            )
-
-            import json as json_lib
-            content = response.message.content or "[]"
-            # 提取 JSON
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0]
-
-            memories = json_lib.loads(content.strip())
-            if not isinstance(memories, list):
-                return
-
-            for mem in memories:
-                if isinstance(mem, dict) and mem.get("content"):
-                    await self.add_memory(
-                        user_id,
-                        str(mem["content"]),
-                        memory_type=mem.get("type", "fact"),
-                        importance=float(mem.get("importance", 0.5)),
-                        tags=["auto-extracted"],
-                        source="auto",
-                    )
-
-            if memories:
-                _logger.info(f"Extracted {len(memories)} memories for user {user_id}")
-
-        except Exception as e:
-            _logger.debug(f"Memory extraction failed (non-critical): {e}")
+        await get_pipeline().on_turn_complete(
+            user_id, None, user_message, assistant_response, mode="general"
+        )
 
     @staticmethod
     def _row_to_dict(row: MemoryModel) -> dict[str, Any]:
-        tags = []
+        tags: list[str] = []
         if row.tags_json:
             try:
                 tags = json.loads(row.tags_json)
@@ -234,37 +192,71 @@ class UserMemoryService:
             "importance": row.importance,
             "tags": tags,
             "source": row.source,
+            "layer": row.layer,
+            "scenario_id": row.scenario_id,
+            "access_count": row.access_count,
+            "visibility": row.visibility,
             "created_at": row.created_at.isoformat() if row.created_at else None,
+            "last_accessed_at": row.last_accessed_at.isoformat() if row.last_accessed_at else None,
         }
 
+    async def get_persona(self, user_id: int) -> dict[str, Any] | None:
+        """获取用户 L3 画像"""
+        from app.db.models import MemoryPersonaModel
 
-MEMORY_EXTRACTION_PROMPT = """从以下对话中提取用户的关键信息，用于后续个性化服务。
+        def _run():
+            with create_db_session() as db:
+                return db.scalars(
+                    select(MemoryPersonaModel).where(
+                        MemoryPersonaModel.user_id == user_id
+                    )
+                ).first()
 
-只提取以下类型的信息：
-- 用户的身份信息（姓名、职业、所在地等）
-- 用户的偏好（喜欢什么、不喜欢什么）
-- 用户的技术栈（使用什么语言、框架、工具）
-- 用户的项目信息（在做什么项目、遇到什么问题）
+        row = await asyncio.to_thread(_run)
+        if not row:
+            return None
 
-对话内容：
-{conversation}
+        import json
+        return {
+            "identity": json.loads(row.identity_json or "{}"),
+            "preferences": json.loads(row.preferences_json or "{}"),
+            "tech_stack": json.loads(row.tech_stack_json or "[]"),
+            "goals": json.loads(row.goals_json or "[]"),
+            "projects": json.loads(row.projects_json or "[]"),
+            "version": row.version,
+            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        }
 
-输出 JSON 数组，每个元素包含：
-- content: 记忆内容（简短明确）
-- type: 记忆类型（fact/preference/tech/project）
-- importance: 重要性（0.1-1.0）
+    async def list_scenarios(self, user_id: int, limit: int = 10) -> list[dict[str, Any]]:
+        """列出用户 L2 场景块"""
+        from app.db.models import MemoryScenarioModel
 
-如果没有值得提取的信息，返回空数组 []。
+        def _run():
+            with create_db_session() as db:
+                return db.scalars(
+                    select(MemoryScenarioModel).where(
+                        MemoryScenarioModel.user_id == user_id
+                    ).order_by(MemoryScenarioModel.updated_at.desc()).limit(limit)
+                ).all()
 
-示例输出：
-[
-  {{"content": "用户叫张三", "type": "fact", "importance": 0.9}},
-  {{"content": "用户喜欢用 Vue 3", "type": "preference", "importance": 0.7}}
-]"""
+        rows = await asyncio.to_thread(_run)
+        import json
+        return [
+            {
+                "id": r.id,
+                "title": r.title,
+                "summary": r.summary,
+                "tags": json.loads(r.tags_json) if r.tags_json else [],
+                "atom_ids": json.loads(r.atom_ids_json) if r.atom_ids_json else [],
+                "access_count": r.access_count,
+                "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            }
+            for r in rows
+        ]
 
 
-# 全局单例（线程安全）
-from app.core.singleton import ThreadSafeSingleton
+# 单例（沿用 ThreadSafeSingleton）
+from app.core.singleton import ThreadSafeSingleton  # noqa: E402
 
 _memory_service_singleton = ThreadSafeSingleton(UserMemoryService)
 

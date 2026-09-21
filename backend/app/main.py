@@ -99,6 +99,25 @@ async def limit_request_size(request: Request, call_next):
 app.include_router(api_router, prefix=settings.api_v1_prefix)
 
 
+# 静态文件服务：网站预览
+# 挂载 data/websites 和 data/nginx-serve 目录，用于预览已构建的网站
+from fastapi.staticfiles import StaticFiles
+from app.core.data_path import DATA_DIR
+
+_websites_dir = DATA_DIR / "websites"
+_nginx_serve_dir = DATA_DIR / "nginx-serve"
+
+# 确保目录存在
+_websites_dir.mkdir(parents=True, exist_ok=True)
+_nginx_serve_dir.mkdir(parents=True, exist_ok=True)
+
+# 挂载网站预览服务
+# 访问 /sites/{project_slug}/dist/index.html 预览网站
+app.mount("/sites", StaticFiles(directory=str(_nginx_serve_dir)), name="sites")
+# 访问 /preview/{project_slug}/dist/index.html 预览构建中的网站
+app.mount("/preview", StaticFiles(directory=str(_websites_dir)), name="preview")
+
+
 @app.get("/", tags=["元信息"])
 def read_root() -> dict[str, str]:
     return {
@@ -106,3 +125,4 @@ def read_root() -> dict[str, str]:
         "docs_url": "/docs",
         "environment": settings.environment,
     }
+# Force reload

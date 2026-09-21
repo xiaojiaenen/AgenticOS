@@ -21,6 +21,8 @@ dependencies = [
     "playwright>=1.49.0",
     "pyyaml>=6.0.0",
     "pandas>=2.0.0",
+    "numpy>=2.0.0",
+    "arq>=0.28.0",
 ]
 
 [dependency-groups]

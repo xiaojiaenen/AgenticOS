@@ -35,7 +35,7 @@ interface MessagesListProps {
   messagesEndRef: React.RefObject<HTMLDivElement>;
 }
 
-export const MessagesList: React.FC<MessagesListProps> = ({
+export const MessagesList = React.memo<MessagesListProps>(({
   currentSession,
   isLoading,
   wideLayout = false,
@@ -83,4 +83,4 @@ export const MessagesList: React.FC<MessagesListProps> = ({
       <div ref={messagesEndRef} />
     </div>
   );
-};
+});

@@ -20,7 +20,21 @@ from app.main import app  # noqa: E402
 
 
 def main() -> None:
-    uvicorn.run("app.main:app", host="127.0.0.1", port=8001, reload=True, timeout_keep_alive=300)
+    # 支持通过环境变量配置 worker 数量（高并发场景）
+    # 注意：多 worker 需要 Redis 支持（审批 pub/sub 等）
+    workers = int(os.environ.get("UVICORN_WORKERS", "1"))
+    reload = workers == 1  # 多 worker 时禁用 reload
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "8001"))
+    
+    uvicorn.run(
+        "app.main:app",
+        host=host,
+        port=port,
+        reload=reload,
+        workers=workers if workers > 1 else None,
+        timeout_keep_alive=300,
+    )
 
 
 if __name__ == "__main__":

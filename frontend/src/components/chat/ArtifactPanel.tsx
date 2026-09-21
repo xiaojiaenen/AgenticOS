@@ -163,7 +163,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
             />
           ) : artifact.language === 'svg' ? (
             <div className="flex h-[calc(100%-2rem)] w-full items-center justify-center bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3MChWEHIIZJkOsBOfBDPIeZHmGZ4iP8hzCHmRzhmoPkRvqc9QDQTICD9LxVfAAAAAElFTkSuQmCC')] bg-center p-12">
-              {svgUrl ? <img src={svgUrl} alt="SVG Preview" className="max-h-full max-w-full drop-shadow-2xl" /> : null}
+              {svgUrl ? <img src={svgUrl} alt="SVG Preview" loading="lazy" className="max-h-full max-w-full drop-shadow-2xl" /> : null}
             </div>
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-4 text-slate-400">

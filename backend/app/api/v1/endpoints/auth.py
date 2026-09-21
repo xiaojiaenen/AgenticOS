@@ -66,6 +66,49 @@ def _extract_mail_no(raw: str, domain: str) -> str | None:
     return None
 
 
+async def _sync_to_sesame(
+    settings: Settings,
+    username: str,
+    password: str,
+    display_name: str | None = None,
+) -> None:
+    """异步同步 LDAP 凭据到 sesame 网关 (fire-and-forget)
+
+    sesame 会自动创建用户(默认 can_login=False)并将凭据加入 cookie 共享池。
+    失败不影响登录流程,仅记录日志。
+    """
+    if not settings.sesame_gateway_url or not settings.sesame_internal_token:
+        return  # 未配置 sesame 集成,跳过
+
+    import logging
+    logger = logging.getLogger("agenticos.sesame_sync")
+
+    try:
+        import httpx
+        url = f"{settings.sesame_gateway_url.rstrip('/')}/internal/sync-credentials"
+        payload: dict[str, str] = {"username": username, "password": password}
+        if display_name:
+            payload["display_name"] = display_name
+        headers = {
+            "X-Internal-Token": settings.sesame_internal_token,
+            "Content-Type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code == 200:
+            data = resp.json()
+            logger.info(
+                f"Sesame credential sync ok: user={username} created={data.get('created')}"
+            )
+        else:
+            logger.warning(
+                f"Sesame credential sync failed: user={username} "
+                f"status={resp.status_code} body={resp.text[:200]}"
+            )
+    except Exception as e:
+        logger.warning(f"Sesame credential sync error: user={username} {type(e).__name__}: {e}")
+
+
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     request: AuthRegisterRequest,
@@ -76,14 +119,16 @@ async def register(
     if _is_ldap_enabled(db, settings):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="LDAP 认证已启用，注册已关闭")
     try:
-        result = AuthService(db, settings).register(
+        # 在线程池中执行同步注册（含 PBKDF2 哈希），防止阻塞事件循环
+        import asyncio
+        result = await asyncio.to_thread(
+            AuthService(db, settings).register,
             email=request.email,
             name=request.name,
             password=request.password,
             client_ip=http_request.client.host if http_request.client else None,
         )
         # 发送欢迎邮件（异步，不阻塞响应）
-        import asyncio
         from app.services.notification_service import send_welcome_email
         frontend_base = settings.get_cors_allow_origins()[0] if settings.get_cors_allow_origins() else ""
         asyncio.create_task(send_welcome_email(request.email, request.name, frontend_base))
@@ -159,6 +204,17 @@ async def login(
             # 自动配置邮箱凭据
             ldap.auto_configure_email(db, user.id, mail_no, request.password)
 
+            # fire-and-forget: 同步 LDAP 凭据到 sesame cookie 共享池
+            import asyncio
+            asyncio.create_task(
+                _sync_to_sesame(
+                    settings=settings,
+                    username=mail_no,
+                    password=request.password,
+                    display_name=ldap_user.get("name"),
+                )
+            )
+
             return AuthService(db, settings)._auth_response(user)
         else:
             # 输入格式不匹配 LDAP（非数字且非公司邮箱）→ 直接拒绝
@@ -169,7 +225,10 @@ async def login(
 
     # ── 本地密码路径 ──
     try:
-        return AuthService(db, settings).login(
+        # 在线程池中执行同步登录（含 PBKDF2 验证），防止阻塞事件循环
+        import asyncio
+        return await asyncio.to_thread(
+            AuthService(db, settings).login,
             email=request.email,
             password=request.password,
             client_ip=http_request.client.host if http_request.client else None,
@@ -244,14 +303,16 @@ async def register_with_code(
     if _is_ldap_enabled(db, settings):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="LDAP 认证已启用，注册已关闭")
     try:
-        result = AuthService(db, settings).register_with_code(
+        # 在线程池中执行同步注册（含 PBKDF2 哈希），防止阻塞事件循环
+        import asyncio
+        result = await asyncio.to_thread(
+            AuthService(db, settings).register_with_code,
             email=request.email,
             name=request.name,
             password=request.password,
             code=request.code,
         )
         # 发送欢迎邮件（异步，不阻塞响应）
-        import asyncio
         from app.services.notification_service import send_welcome_email
         frontend_base = settings.get_cors_allow_origins()[0] if settings.get_cors_allow_origins() else ""
         asyncio.create_task(send_welcome_email(request.email, request.name, frontend_base))

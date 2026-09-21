@@ -1,6 +1,6 @@
 """Website deploy API endpoints."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_admin
@@ -40,20 +40,29 @@ def list_my_deploys(
 
 
 @router.get("/deploy/{deploy_id}")
-def get_deploy(deploy_id: int):
+def get_deploy(
+    deploy_id: int,
+    user: UserModel = Depends(get_current_user),
+):
     """Get a deploy request by ID."""
     deploy = _service.get(deploy_id)
     if deploy is None:
-        return {"error": "not found"}, 404
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deploy request not found")
+    # 检查权限：只能查看自己的部署请求（管理员除外）
+    if deploy.get("requested_by") != user.id and user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     return deploy
 
 
 @router.get("/deploy/project/{project_slug}")
-def get_deploy_by_project(project_slug: str):
+def get_deploy_by_project(
+    project_slug: str,
+    user: UserModel = Depends(get_current_user),
+):
     """Get the latest deploy for a project."""
     deploy = _service.get_by_project(project_slug)
     if deploy is None:
-        return {"error": "not found"}, 404
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deploy request not found")
     return deploy
 
 

@@ -11,6 +11,7 @@ import { APP_TIME_ZONE } from '../../lib/datetime';
 import { cn, copyToClipboard } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
 import { UserAvatarIcon, MascotCool, CopyIcon, CheckIcon, WrenchIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
+import { ErrorBoundary, InlineErrorFallback } from '../ui/ErrorBoundary';
 import { useIsGlassTheme } from '../liquid-glass';
 import {
   CodeBlock,
@@ -46,6 +47,30 @@ const isNumericHeader = (value: string): boolean =>
   /(数量|金额|价格|总计|占比|比例|得分|评分|次数|耗时|时长|rate|count|amount|price|total|score|percent|percentage|cost|time)$/i.test(value.trim());
 
 // ── 模块级组件：稳定引用，React.memo 生效 ──
+const TableHeaderCell = React.memo(({ children }: { children: React.ReactNode }) => {
+  const plainText = extractPlainText(children);
+  const rightAligned = isNumericHeader(plainText);
+  return <th className={cn('px-4 py-3.5 text-xs font-semibold uppercase tracking-[0.14em]', 'text-slate-200/95', rightAligned ? 'text-right' : 'text-left')}>
+    <div className={cn('flex min-w-0 items-center gap-2', rightAligned ? 'justify-end' : 'justify-start')}><span className="truncate">{plainText || '字段'}</span></div>
+  </th>;
+});
+
+const TableHeaderCellGlass = React.memo(({ children }: { children: React.ReactNode }) => {
+  const plainText = extractPlainText(children);
+  const rightAligned = isNumericHeader(plainText);
+  return <th className={cn('px-4 py-3.5 text-xs font-semibold uppercase tracking-[0.14em]', 'text-gray-200', rightAligned ? 'text-right' : 'text-left')}>
+    <div className={cn('flex min-w-0 items-center gap-2', rightAligned ? 'justify-end' : 'justify-start')}><span className="truncate">{plainText || '字段'}</span></div>
+  </th>;
+});
+
+const TableCell = React.memo(({ children, isGlass, counter, searchQuery, activeMatchId, messageId }: { children: React.ReactNode; isGlass: boolean; counter: { current: number }; searchQuery: string; activeMatchId?: string | null; messageId?: string }) => {
+  const plainText = extractPlainText(children);
+  const rightAligned = isNumericLike(plainText);
+  return <td className={cn('px-4 py-3.5 align-top leading-relaxed', isGlass ? 'text-gray-300' : 'text-slate-700', rightAligned && 'font-mono tabular-nums')}>
+    {renderTableCellContent(children, counter, searchQuery, activeMatchId, messageId, { placeholder: '未填写', align: rightAligned ? 'right' : 'left', truncate: false })}
+  </td>;
+});
+
 const HighlightedText = React.memo(({ text, counter, searchQuery, activeMatchId, messageId }: { text: string; counter: { current: number }; searchQuery: string; activeMatchId?: string | null; messageId?: string }) => {
   if (!searchQuery?.trim()) return <>{text}</>;
   const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -124,26 +149,24 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   const [isCopied, setIsCopied] = useState(false);
   const config = getAppConfig();
   const sessionCounter = useRef({ current: 0 });
+  const copyTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current !== null) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleCopy = useCallback(async () => {
-    if (visibleText) { await copyToClipboard(visibleText); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); }
+    if (visibleText) {
+      if (copyTimeoutRef.current !== null) clearTimeout(copyTimeoutRef.current);
+      await copyToClipboard(visibleText);
+      setIsCopied(true);
+      copyTimeoutRef.current = window.setTimeout(() => setIsCopied(false), 2000);
+    }
   }, [visibleText]);
-
-  const TableHeaderCell = React.memo(({ children }: { children: React.ReactNode }) => {
-    const plainText = extractPlainText(children);
-    const rightAligned = isNumericHeader(plainText);
-    return <th className={cn('px-4 py-3.5 text-xs font-semibold uppercase tracking-[0.14em]', isGlass ? 'text-gray-200' : 'text-slate-200/95', rightAligned ? 'text-right' : 'text-left')}>
-      <div className={cn('flex min-w-0 items-center gap-2', rightAligned ? 'justify-end' : 'justify-start')}><span className="truncate">{plainText || '字段'}</span></div>
-    </th>;
-  });
-
-  const TableCell = React.memo(({ children }: { children: React.ReactNode }) => {
-    const plainText = extractPlainText(children);
-    const rightAligned = isNumericLike(plainText);
-    return <td className={cn('px-4 py-3.5 align-top leading-relaxed', isGlass ? 'text-gray-300' : 'text-slate-700', rightAligned && 'font-mono tabular-nums')}>
-      {renderTableCellContent(children, sessionCounter.current, searchQuery, activeMatchId, message?.id, { placeholder: '未填写', align: rightAligned ? 'right' : 'left', truncate: false })}
-    </td>;
-  });
 
   return (
     <motion.div
@@ -251,7 +274,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                   <div className="flex flex-wrap gap-3 mb-1">
                     {message.attachments.map((att, i) => (
                       <motion.div whileHover={{ scale: 1.05 }} key={i} className="max-w-[240px] rounded-2xl overflow-hidden border border-white/20 shadow-lg ring-4 ring-white/5">
-                        {att.type.startsWith('image/') ? <img src={att.url} alt={att.name} className="w-full h-auto object-cover max-h-52" /> : <div className="bg-white/10 p-3 flex items-center gap-3"><WrenchIcon size={16} /><span className="text-xs font-bold truncate text-white">{att.name}</span></div>}
+                        {att.type.startsWith('image/') ? <img src={att.url} alt={att.name} loading="lazy" className="w-full h-auto object-cover max-h-52" /> : <div className="bg-white/10 p-3 flex items-center gap-3"><WrenchIcon size={16} /><span className="text-xs font-bold truncate text-white">{att.name}</span></div>}
                       </motion.div>
                     ))}
                   </div>
@@ -270,6 +293,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                   </details>
                 )}
                 {visibleText ? (
+                  <ErrorBoundary fallback={<InlineErrorFallback error="Markdown 渲染失败" />}>
                   <ReactMarkdown remarkPlugins={[remarkGfm, ...(config.enableLaTeX ? [remarkMath] : [])]} rehypePlugins={[...(config.enableLaTeX ? [rehypeKatex] : [])]}
                     components={{
                       code: (props) => <CodeBlock {...props} onOpenArtifact={onOpenArtifact} />,
@@ -278,8 +302,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                       table: ({ children }) => <MarkdownTable isGlass>{children}</MarkdownTable>,
                       thead: ({ children }) => <MarkdownTableHead isGlass>{children}</MarkdownTableHead>,
                       tr: ({ children }) => <MarkdownTableRow isGlass>{children}</MarkdownTableRow>,
-                      th: ({ children }) => <TableHeaderCell>{children}</TableHeaderCell>,
-                      td: ({ children }) => <TableCell>{children}</TableCell>,
+                      th: ({ children }) => <TableHeaderCellGlass>{children}</TableHeaderCellGlass>,
+                      td: ({ children }) => <TableCell isGlass counter={sessionCounter.current} searchQuery={searchQuery} activeMatchId={activeMatchId} messageId={message?.id}>{children}</TableCell>,
                       li: ({ children }) => <li className="text-white">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</li>,
                       h1: ({ children }) => <h1 className="text-white">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h1>,
                       h2: ({ children }) => <h2 className="text-white">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h2>,
@@ -288,6 +312,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                       h5: ({ children }) => <h5 className="text-white">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h5>,
                       h6: ({ children }) => <h6 className="text-white">{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h6>,
                     }}>{visibleText}</ReactMarkdown>
+                  </ErrorBoundary>
                 ) : <span className="text-sm font-medium text-white/70"> </span>}
                 {!isUser && isStreaming && visibleText && <motion.span className="inline-block w-[2px] h-[1.2em] bg-sky-400 rounded-full align-text-bottom ml-px" animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />}
               </div>
@@ -315,7 +340,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                   <div className="flex flex-wrap gap-3 mb-1">
                     {message.attachments.map((att, i) => (
                       <motion.div whileHover={{ scale: 1.05 }} key={i} className="max-w-[240px] rounded-2xl overflow-hidden border border-white/20 shadow-lg ring-4 ring-white/5">
-                        {att.type.startsWith('image/') ? <img src={att.url} alt={att.name} className="w-full h-auto object-cover max-h-52" /> : <div className="bg-white/10 p-3 flex items-center gap-3"><WrenchIcon size={16} /><span className="text-xs font-bold truncate text-white">{att.name}</span></div>}
+                        {att.type.startsWith('image/') ? <img src={att.url} alt={att.name} loading="lazy" className="w-full h-auto object-cover max-h-52" /> : <div className="bg-white/10 p-3 flex items-center gap-3"><WrenchIcon size={16} /><span className="text-xs font-bold truncate text-white">{att.name}</span></div>}
                       </motion.div>
                     ))}
                   </div>
@@ -334,6 +359,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                   </details>
                 )}
                 {visibleText ? (
+                  <ErrorBoundary fallback={<InlineErrorFallback error="Markdown 渲染失败" />}>
                   <ReactMarkdown remarkPlugins={[remarkGfm, ...(config.enableLaTeX ? [remarkMath] : [])]} rehypePlugins={[...(config.enableLaTeX ? [rehypeKatex] : [])]}
                     components={{
                       code: (props) => <CodeBlock {...props} onOpenArtifact={onOpenArtifact} />,
@@ -343,7 +369,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                       thead: ({ children }) => <MarkdownTableHead>{children}</MarkdownTableHead>,
                       tr: ({ children }) => <MarkdownTableRow>{children}</MarkdownTableRow>,
                       th: ({ children }) => <TableHeaderCell>{children}</TableHeaderCell>,
-                      td: ({ children }) => <TableCell>{children}</TableCell>,
+                      td: ({ children }) => <TableCell isGlass={false} counter={sessionCounter.current} searchQuery={searchQuery} activeMatchId={activeMatchId} messageId={message?.id}>{children}</TableCell>,
                       li: ({ children }) => <li>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</li>,
                       h1: ({ children }) => <h1>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h1>,
                       h2: ({ children }) => <h2>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h2>,
@@ -352,6 +378,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                       h5: ({ children }) => <h5>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h5>,
                       h6: ({ children }) => <h6>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</h6>,
                     }}>{visibleText}</ReactMarkdown>
+                  </ErrorBoundary>
                 ) : <span className="text-sm font-medium text-slate-400"> </span>}
                 {!isUser && isStreaming && visibleText && <motion.span className="inline-block w-[2px] h-[1.2em] bg-brand-500 rounded-full align-text-bottom ml-px" animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />}
               </div>
@@ -367,7 +394,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             <span>{(() => { const ts = parseInt(message.id); return isNaN(ts) ? '' : new Date(ts).toLocaleTimeString('zh-CN', { timeZone: APP_TIME_ZONE, hour: '2-digit', minute: '2-digit' }); })()}</span>
             {!isUser && visibleText && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="opacity-0 group-hover:opacity-100 transition-opacity">· {visibleText.length} 字</motion.span>}
             {canCopyMessage && (
-              <button onClick={handleCopy} title="复制" className={cn("transition-colors duration-200",
+              <button onClick={handleCopy} title="复制" aria-label="复制消息" className={cn("transition-colors duration-200",
                 isGlass ? "text-gray-500 hover:text-white" : "text-slate-400 hover:text-sky-600"
               )}>
                 {isCopied ? <CheckIcon size={12} className="text-green-400" /> : <CopyIcon size={12} />}

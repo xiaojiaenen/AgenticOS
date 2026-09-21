@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Session } from '../types';
 
 export const useChatSearch = (currentSession: Session | undefined) => {
@@ -6,6 +6,7 @@ export const useChatSearch = (currentSession: Session | undefined) => {
   const [showSearch, setShowSearch] = useState(false);
   const [searchCurrentIndex, setSearchCurrentIndex] = useState(0);
   const [searchMatches, setSearchMatches] = useState<string[]>([]);
+  const highlightTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!searchQuery.trim() || !currentSession) {
@@ -31,6 +32,14 @@ export const useChatSearch = (currentSession: Session | undefined) => {
     setSearchCurrentIndex(matches.length > 0 ? 1 : 0);
   }, [searchQuery, currentSession?.id]);
 
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current !== null) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const scrollToMatch = (index: number) => {
     const matchId = searchMatches[index - 1];
     if (matchId) {
@@ -38,7 +47,8 @@ export const useChatSearch = (currentSession: Session | undefined) => {
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.classList.add('ring-4', 'ring-yellow-400/30', 'transition-all');
-        setTimeout(() => el.classList.remove('ring-4', 'ring-yellow-400/30'), 2000);
+        if (highlightTimeoutRef.current !== null) clearTimeout(highlightTimeoutRef.current);
+        highlightTimeoutRef.current = window.setTimeout(() => el.classList.remove('ring-4', 'ring-yellow-400/30'), 2000);
       }
     }
   };

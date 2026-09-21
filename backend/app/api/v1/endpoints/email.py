@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import imaplib
 import smtplib
+import socket
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -67,26 +68,30 @@ def save_email_credentials(
     # Test IMAP connection
     try:
         if body.imap_ssl:
-            imap = imaplib.IMAP4_SSL(body.imap_host, body.imap_port)
+            imap = imaplib.IMAP4_SSL(body.imap_host, body.imap_port, timeout=15)
         else:
-            imap = imaplib.IMAP4(body.imap_host, body.imap_port)
+            imap = imaplib.IMAP4(body.imap_host, body.imap_port, timeout=15)
         imap.login(body.email_address, body.password)
         imap.logout()
     except imaplib.IMAP4.error:
         return {"error": "IMAP 登录失败，请检查邮箱地址和密码"}
+    except socket.timeout:
+        return {"error": "IMAP 连接超时（15秒），请检查服务器地址和端口"}
     except Exception as e:
         return {"error": f"IMAP 连接失败: {e}"}
 
     # Test SMTP connection
     try:
         if body.smtp_ssl:
-            smtp = smtplib.SMTP_SSL(body.smtp_host, body.smtp_port)
+            smtp = smtplib.SMTP_SSL(body.smtp_host, body.smtp_port, timeout=15)
         else:
-            smtp = smtplib.SMTP(body.smtp_host, body.smtp_port)
+            smtp = smtplib.SMTP(body.smtp_host, body.smtp_port, timeout=15)
         smtp.login(body.email_address, body.password)
         smtp.quit()
     except smtplib.SMTPAuthenticationError:
         return {"error": "SMTP 登录失败，请检查邮箱地址和密码"}
+    except socket.timeout:
+        return {"error": "SMTP 连接超时（15秒），请检查服务器地址和端口"}
     except Exception as e:
         return {"error": f"SMTP 连接失败: {e}"}
 

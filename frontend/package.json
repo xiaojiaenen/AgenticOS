@@ -14,6 +14,7 @@
   "dependencies": {
     "@halobiron/dom-to-pptx": "^1.2.4",
     "@tailwindcss/vite": "^4.1.14",
+    "@vitejs/plugin-legacy": "^7.2.1",
     "@vitejs/plugin-react": "^5.0.4",
     "@xiaojiaenen/liquid-glass": "^0.1.4",
     "clsx": "^2.1.1",
@@ -31,10 +32,12 @@
     "react-syntax-highlighter": "^16.1.1",
     "react-virtuoso": "^4.18.7",
     "recharts": "^3.8.1",
+    "regenerator-runtime": "^0.14.1",
     "rehype-katex": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "tailwind-merge": "^3.5.0",
+    "terser": "^5.49.1",
     "vite": "^6.2.0",
     "zustand": "^5.0.14"
   },
@@ -47,5 +50,20 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
+  },
+  "browserslist": {
+    "production": [
+      "Chrome >= 87",
+      "Edge >= 88",
+      "Firefox >= 78",
+      "Safari >= 14",
+      "> 0.5%",
+      "not dead"
+    ],
+    "development": [
+      "last 2 chrome version",
+      "last 2 firefox version",
+      "last 2 edge version"
+    ]
   }
 }

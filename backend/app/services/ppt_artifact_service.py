@@ -203,7 +203,6 @@ class PptArtifactService:
     ) -> dict[str, Any] | None:
         """Read slide SVG files from a directory, validate, and create a PPT artifact."""
         import logging
-        from app.services.ppt.theme_token_resolver import load_theme_tokens, resolve_token_values
 
         _logger = logging.getLogger("ppt_artifact.slides_dir")
 
@@ -220,116 +219,18 @@ class PptArtifactService:
             self._last_quality_warnings = []
             return None
 
-        svgs = []
-        for f in svg_files:
-            svg = f.read_text(encoding="utf-8").strip()
-            if svg.startswith("<svg"):
-                svgs.append(svg)
-            else:
-                _logger.warning(f"Slide file doesn't start with <svg>: {f}")
+        # 在线程池中执行同步的 SVG 处理，防止阻塞事件循环
+        import asyncio
+        process_result = await asyncio.to_thread(
+            self._process_slides_sync, svg_files, _logger
+        )
+        if process_result is None:
+            return None
 
-        # Run SVG quality check with blocking for critical errors
-        _CRITICAL_KEYWORDS = [
-            "forbidden element", "viewBox mismatch", "Invalid XML",
-            "rgba()", "Missing viewBox",
-        ]
-        try:
-            from app.services.ppt.svg_quality_checker import (
-                SVGQualityChecker,
-                check_spec_lock_consistency,
-                check_layout_discipline,
-            )
-            checker = SVGQualityChecker()
-            critical_errors: list[str] = []
-            all_warnings: list[str] = []
-            for f in svg_files:
-                result = checker.check_file(str(f), "ppt169")
-                for err in result.get("errors", []):
-                    if any(kw.lower() in err.lower() for kw in _CRITICAL_KEYWORDS):
-                        critical_errors.append(f"{f.name}: {err}")
-                    else:
-                        all_warnings.append(f"{f.name}: {err}")
-                for w in result.get("warnings", []):
-                    all_warnings.append(f"{f.name}: {w}")
+        svgs, resolved_svgs, raw_svgs, theme_name, preview_html, quality_errors, quality_warnings = process_result
+        self._last_quality_errors = quality_errors
+        self._last_quality_warnings = quality_warnings
 
-            # New checks: spec_lock consistency + layout discipline
-            for i, svg_content in enumerate(svgs):
-                slide_name = f"slide_{i+1}.svg"
-                spec_warnings = check_spec_lock_consistency(svg_content)
-                layout_warnings = check_layout_discipline(svg_content)
-                for w in spec_warnings + layout_warnings:
-                    all_warnings.append(f"{slide_name}: {w}")
-
-            # Anti-AI-Slop check — findings are warnings, never block preview
-            try:
-                from app.services.ppt.anti_slop_checker import check_anti_slop
-                for i, svg_content in enumerate(svgs):
-                    slide_name = f"slide_{i+1}.svg"
-                    slop_findings = check_anti_slop(svg_content)
-                    for f in slop_findings:
-                        msg = f"{slide_name}: [{f.severity}] {f.code} — {f.message}"
-                        # anti-slop 是设计风格检查，不阻断预览
-                        all_warnings.append(msg)
-            except Exception as exc:
-                _logger.debug("Anti-slop check skipped: %s", exc)
-
-            # 记录质量检查结果（不阻断，带循环保护）
-            if critical_errors:
-                _logger.warning(
-                    "SVG quality check found %d critical errors (proceeding anyway): %s",
-                    len(critical_errors), critical_errors,
-                )
-                self._last_quality_errors = critical_errors
-                self._last_quality_warnings = all_warnings[:10]
-                # 不再阻断，继续正常完成
-            else:
-                self._last_quality_errors = []
-                self._last_quality_warnings = all_warnings[:10]
-
-            # Log non-critical warnings (do not block)
-            for w in all_warnings:
-                _logger.info("Quality check: %s", w)
-        except Exception as exc:
-            _logger.warning("Quality check skipped (error initializing): %s", exc)
-
-        if not validate_svg_slides(svgs):
-            _logger.warning(f"validate_svg_slides failed: count={len(svgs)} (proceeding anyway)")
-            # 诊断具体原因
-            reasons = []
-            if len(svgs) < 3:
-                reasons.append(f"SVG 页数不足: {len(svgs)} < 3")
-            for i, svg in enumerate(svgs):
-                if not _VIEWBOX_RE.search(svg):
-                    reasons.append(f"slide_{i+1}.svg 缺少 viewBox 属性")
-            if not reasons:
-                reasons.append("所有幻灯片的 viewBox 不一致")
-            self._last_quality_errors = reasons
-            self._last_quality_warnings = []
-            # 不再阻断，继续正常完成（至少有1页就继续）
-
-        theme_name = _detect_theme_name_from_svg(svgs)
-        tokens = load_theme_tokens(theme_name)
-
-        # 保留原始 SVG（带 var(--token) 引用），用于主题切换
-        raw_svgs = svgs.copy()
-
-        resolved_svgs = [resolve_token_values(svg, tokens) for svg in svgs]
-
-        # Post-processing: rect-to-path conversion for PPTX compatibility
-        try:
-            from app.services.ppt.svg_finalize.svg_rect_to_path import process_svg as rect_to_path
-            processed = []
-            for svg in resolved_svgs:
-                svg, _count = rect_to_path(svg)
-                processed.append(svg)
-            resolved_svgs = processed
-        except Exception as exc:
-            _logger.debug("rect-to-path post-processing skipped: %s", exc)
-
-        resolved_svgs = [sanitize_svg_xml(svg) for svg in resolved_svgs]
-        raw_svgs = [sanitize_svg_xml(svg) for svg in raw_svgs]
-
-        preview_html = prepare_svg_preview(raw_svgs, theme_name)
         artifact_id = uuid.uuid4().hex
         slide_count = len(resolved_svgs)
 
@@ -349,7 +250,7 @@ class PptArtifactService:
                         deck_json=dump_json({
                             "theme": theme_name,
                             "svgs": resolved_svgs,
-                            "raw_svgs": raw_svgs,  # 保留原始 SVG 用于主题切换
+                            "raw_svgs": raw_svgs,
                         }),
                         preview_html=preview_html,
                         metadata_json=dump_json({
@@ -372,6 +273,116 @@ class PptArtifactService:
             "html": preview_html,
             "theme": theme_name,
         }
+
+    @staticmethod
+    def _process_slides_sync(svg_files: list[Path], _logger) -> tuple | None:
+        """同步处理 SVG 文件（在线程池中运行）"""
+        from app.services.ppt.theme_token_resolver import load_theme_tokens, resolve_token_values
+
+        svgs = []
+        for f in svg_files:
+            svg = f.read_text(encoding="utf-8").strip()
+            if svg.startswith("<svg"):
+                svgs.append(svg)
+            else:
+                _logger.warning(f"Slide file doesn't start with <svg>: {f}")
+
+        # Run SVG quality check
+        _CRITICAL_KEYWORDS = [
+            "forbidden element", "viewBox mismatch", "Invalid XML",
+            "rgba()", "Missing viewBox",
+        ]
+        quality_errors: list[str] = []
+        quality_warnings: list[str] = []
+
+        try:
+            from app.services.ppt.svg_quality_checker import (
+                SVGQualityChecker,
+                check_spec_lock_consistency,
+                check_layout_discipline,
+            )
+            checker = SVGQualityChecker()
+            critical_errors: list[str] = []
+            all_warnings: list[str] = []
+            for f in svg_files:
+                result = checker.check_file(str(f), "ppt169")
+                for err in result.get("errors", []):
+                    if any(kw.lower() in err.lower() for kw in _CRITICAL_KEYWORDS):
+                        critical_errors.append(f"{f.name}: {err}")
+                    else:
+                        all_warnings.append(f"{f.name}: {err}")
+                for w in result.get("warnings", []):
+                    all_warnings.append(f"{f.name}: {w}")
+
+            for i, svg_content in enumerate(svgs):
+                slide_name = f"slide_{i+1}.svg"
+                spec_warnings = check_spec_lock_consistency(svg_content)
+                layout_warnings = check_layout_discipline(svg_content)
+                for w in spec_warnings + layout_warnings:
+                    all_warnings.append(f"{slide_name}: {w}")
+
+            try:
+                from app.services.ppt.anti_slop_checker import check_anti_slop
+                for i, svg_content in enumerate(svgs):
+                    slide_name = f"slide_{i+1}.svg"
+                    slop_findings = check_anti_slop(svg_content)
+                    for f in slop_findings:
+                        msg = f"{slide_name}: [{f.severity}] {f.code} — {f.message}"
+                        all_warnings.append(msg)
+            except Exception as exc:
+                _logger.debug("Anti-slop check skipped: %s", exc)
+
+            if critical_errors:
+                _logger.warning(
+                    "SVG quality check found %d critical errors (proceeding anyway): %s",
+                    len(critical_errors), critical_errors,
+                )
+                quality_errors = critical_errors
+                quality_warnings = all_warnings[:10]
+            else:
+                quality_errors = []
+                quality_warnings = all_warnings[:10]
+
+            for w in all_warnings:
+                _logger.info("Quality check: %s", w)
+        except Exception as exc:
+            _logger.warning("Quality check skipped (error initializing): %s", exc)
+
+        if not validate_svg_slides(svgs):
+            _logger.warning(f"validate_svg_slides failed: count={len(svgs)} (proceeding anyway)")
+            reasons = []
+            if len(svgs) < 3:
+                reasons.append(f"SVG 页数不足: {len(svgs)} < 3")
+            for i, svg in enumerate(svgs):
+                if not _VIEWBOX_RE.search(svg):
+                    reasons.append(f"slide_{i+1}.svg 缺少 viewBox 属性")
+            if not reasons:
+                reasons.append("所有幻灯片的 viewBox 不一致")
+            quality_errors = reasons
+            quality_warnings = []
+
+        theme_name = _detect_theme_name_from_svg(svgs)
+        tokens = load_theme_tokens(theme_name)
+
+        raw_svgs = svgs.copy()
+        resolved_svgs = [resolve_token_values(svg, tokens) for svg in svgs]
+
+        try:
+            from app.services.ppt.svg_finalize.svg_rect_to_path import process_svg as rect_to_path
+            processed = []
+            for svg in resolved_svgs:
+                svg, _count = rect_to_path(svg)
+                processed.append(svg)
+            resolved_svgs = processed
+        except Exception as exc:
+            _logger.debug("rect-to-path post-processing skipped: %s", exc)
+
+        resolved_svgs = [sanitize_svg_xml(svg) for svg in resolved_svgs]
+        raw_svgs = [sanitize_svg_xml(svg) for svg in raw_svgs]
+
+        preview_html = prepare_svg_preview(raw_svgs, theme_name)
+
+        return svgs, resolved_svgs, raw_svgs, theme_name, preview_html, quality_errors, quality_warnings
 
     async def get_latest_for_session(self, session_id: str) -> dict[str, Any] | None:
         def _run():

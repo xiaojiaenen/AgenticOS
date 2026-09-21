@@ -33,6 +33,7 @@ class MemoryRedis:
         self._sorted_sets: dict[str, list[tuple[str, float]]] = {}
         self._hashes: dict[str, dict[str, str]] = {}
         self._lists: dict[str, list[str]] = {}
+        self._subscribers: dict[str, list[asyncio.Queue]] = {}  # pub/sub
 
     def _is_expired(self, key: str) -> bool:
         if key in self._expires and time.time() > self._expires[key]:
@@ -44,6 +45,30 @@ class MemoryRedis:
             self._lists.pop(key, None)
             return True
         return False
+
+    # --- Pub/Sub 操作 ---
+    async def publish(self, channel: str, message: str) -> int:
+        """发布消息到频道，返回订阅者数量"""
+        queues = self._subscribers.get(channel, [])
+        for queue in queues:
+            await queue.put(message)
+        return len(queues)
+
+    def subscribe(self, channel: str) -> asyncio.Queue:
+        """订阅频道，返回消息队列"""
+        queue: asyncio.Queue = asyncio.Queue()
+        if channel not in self._subscribers:
+            self._subscribers[channel] = []
+        self._subscribers[channel].append(queue)
+        return queue
+
+    def unsubscribe(self, channel: str, queue: asyncio.Queue) -> None:
+        """取消订阅"""
+        queues = self._subscribers.get(channel, [])
+        if queue in queues:
+            queues.remove(queue)
+        if not queues:
+            self._subscribers.pop(channel, None)
 
     async def get(self, key: str) -> str | None:
         if self._is_expired(key):

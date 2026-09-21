@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import traceback
@@ -157,6 +158,42 @@ async def list_sessions(
     return await agent_service.list_user_sessions(current_user.id)
 
 
+@router.get("/sessions/{session_id}/artifacts", summary="获取会话关联的最新制品（PPT/网站/视频）")
+async def get_session_artifacts(
+    session_id: str,
+    current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
+) -> dict[str, Any]:
+    """用于会话重新打开时恢复 PPT/website 预览面板。"""
+    try:
+        await agent_service.ensure_session_access(
+            AgentStreamRequest(message="load_artifacts", session_id=session_id), current_user
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    result: dict[str, Any] = {"ppt_artifact": None, "website_artifact": None}
+
+    # PPT：取该会话最新的 artifact，裁剪字段（不带 deck_json，避免传输 150KB+ 大字段）
+    try:
+        ppt = await agent_service.ppt_artifacts.get_latest_for_session(session_id)
+    except Exception:
+        _logger.exception("get_latest_for_session failed: session=%s", session_id)
+        ppt = None
+    if ppt:
+        metadata = ppt.get("metadata") or {}
+        result["ppt_artifact"] = {
+            "artifact_id": ppt.get("artifact_id"),
+            "session_id": ppt.get("session_id"),
+            "title": ppt.get("title"),
+            "slide_count": ppt.get("slide_count"),
+            "html": ppt.get("html"),
+            "theme": ppt.get("theme") or metadata.get("theme"),
+        }
+
+    return result
+
+
 @router.delete("/sessions/{session_id}", summary="删除指定会话")
 async def delete_session(
     session_id: str,
@@ -222,10 +259,13 @@ async def preview_pptx(
         raise HTTPException(status_code=400, detail="Artifact contains no SVG slides")
 
     slides_html = "".join(svgs)
-    html = f"""<!DOCTYPE html>
+    # 对 title 进行 HTML 转义防止 XSS
+    import html
+    safe_title = html.escape(artifact.get("title", "PPT Preview"))
+    html_content = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>{artifact.get("title", "PPT Preview")}</title>
+<title>{safe_title}</title>
 <style>
 * {{ margin:0; padding:0; box-sizing:border-box; }}
 body {{ background:#0f0f0f; color:#e0e0e0; font-family:Inter,Noto Sans SC,sans-serif; overflow:hidden; }}
@@ -270,7 +310,7 @@ body {{ background:#0f0f0f; color:#e0e0e0; font-family:Inter,Noto Sans SC,sans-s
 }})();
 </script>
 </body></html>"""
-    return Response(content=html, media_type="text/html; charset=utf-8")
+    return Response(content=html_content, media_type="text/html; charset=utf-8")
 
 
 @router.get("/ppt/editor/{artifact_id}", summary="PPT SVG 实时编辑器")
@@ -614,14 +654,14 @@ async def get_ppt_slides(session_id: str, current_user: UserModel = Depends(get_
         if not match:
             continue
         num = int(match.group(1))
-        svg_content = svg_file.read_text(encoding="utf-8")
+        svg_content = await asyncio.to_thread(svg_file.read_text, encoding="utf-8")
         # Inject default CSS variables for preview rendering
         css_vars = '<style>:root{--bg:#fff;--bg-soft:#f8fafc;--surface:#f1f5f9;--surface-2:#e2e8f0;--border:#e2e8f0;--border-strong:#cbd5e1;--text-1:#0f172a;--text-2:#475569;--text-3:#94a3b8;--accent:#2563eb;--accent-2:#7c3aed;--accent-3:#0891b2;--good:#16a34a;--warn:#d97706;--bad:#dc2626;}</style>'
         if '<defs>' in svg_content:
             svg_content = svg_content.replace('<defs>', f'<defs>{css_vars}', 1)
         else:
             svg_content = svg_content.replace('<svg', f'<svg>{css_vars}<defs/>', 1)
-        mtime = svg_file.stat().st_mtime
+        mtime = await asyncio.to_thread(lambda f=svg_file: f.stat().st_mtime)
         slides.append({"num": num, "svg": svg_content, "updated_at": int(mtime * 1000)})
 
     return {"slides": sorted(slides, key=lambda s: s["num"])}

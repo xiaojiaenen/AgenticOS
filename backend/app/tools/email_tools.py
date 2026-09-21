@@ -71,17 +71,19 @@ def _get_credentials() -> dict[str, object] | None:
 
 
 def _imap_connect(host: str, port: int, ssl: bool) -> imaplib.IMAP4:
+    """连接 IMAP 服务器，带 15 秒超时防止事件循环阻塞"""
     if ssl:
-        return imaplib.IMAP4_SSL(host, port)
+        return imaplib.IMAP4_SSL(host, port, timeout=15)
     else:
-        return imaplib.IMAP4(host, port)
+        return imaplib.IMAP4(host, port, timeout=15)
 
 
 def _smtp_connect(host: str, port: int, ssl: bool) -> smtplib.SMTP:
+    """连接 SMTP 服务器，带 15 秒超时防止事件循环阻塞"""
     if ssl:
-        return smtplib.SMTP_SSL(host, port)
+        return smtplib.SMTP_SSL(host, port, timeout=15)
     else:
-        return smtplib.SMTP(host, port)
+        return smtplib.SMTP(host, port, timeout=15)
 
 
 async def send_notification_email(

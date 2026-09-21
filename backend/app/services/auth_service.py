@@ -105,7 +105,7 @@ class AuthService:
             if modified:
                 self.db.add(row)
                 self.db.commit()
-            raise AuthRateLimitError(f"Too many attempts, please retry in {remaining_minutes} minute(s)")
+            raise AuthRateLimitError(f"尝试次数过多，请在 {remaining_minutes} 分钟后重试")
 
         if modified:
             self.db.add(row)
@@ -145,12 +145,14 @@ class AuthService:
             self._record_failed_attempt("register", email=normalized_email, client_ip=client_ip)
             raise AuthError("Email already registered")
 
-        user_count = self.db.scalar(select(func.count(UserModel.id))) or 0
+        # Insert as "user" first to avoid the race condition where two
+        # simultaneous registrations both see user_count==0 and both
+        # become admin.
         user = UserModel(
             email=email,
             name=name,
             password_hash=hash_password(password),
-            role="admin" if user_count == 0 else "user",
+            role="user",
         )
         self.db.add(user)
         try:
@@ -160,6 +162,27 @@ class AuthService:
             self._record_failed_attempt("register", email=normalized_email, client_ip=client_ip)
             raise AuthError("Email already registered")
         self.db.refresh(user)
+
+        # Now that the row is committed, atomically promote to admin only if
+        # no admin currently exists.  The correlated subquery is evaluated
+        # inside the same statement so there is no gap between the check and
+        # the write.
+        from sqlalchemy import update as sa_update
+
+        result = self.db.execute(
+            sa_update(UserModel)
+            .where(
+                UserModel.id == user.id,
+                ~UserModel.id.in_(
+                    select(UserModel.id).where(UserModel.role == "admin")
+                ),
+            )
+            .values(role="admin")
+        )
+        if result.rowcount > 0:
+            self.db.commit()
+            self.db.refresh(user)
+
         self._clear_rate_limit("register", email=normalized_email, client_ip=client_ip)
         return self._auth_response(user)
 
@@ -210,13 +233,13 @@ class AuthService:
         if existing is not None:
             raise AuthError("Email already registered")
 
-        # 创建用户
-        user_count = self.db.scalar(select(func.count(UserModel.id))) or 0
+        # 创建用户 — insert as "user" first to avoid the race condition
+        # where two simultaneous registrations both become admin.
         user = UserModel(
             email=email,
             name=name,
             password_hash=hash_password(password),
-            role="admin" if user_count == 0 else "user",
+            role="user",
         )
         self.db.add(user)
         try:
@@ -225,6 +248,24 @@ class AuthService:
             self.db.rollback()
             raise AuthError("Email already registered")
         self.db.refresh(user)
+
+        # Atomically promote to admin if no admin exists yet.
+        from sqlalchemy import update as sa_update
+
+        result = self.db.execute(
+            sa_update(UserModel)
+            .where(
+                UserModel.id == user.id,
+                ~UserModel.id.in_(
+                    select(UserModel.id).where(UserModel.role == "admin")
+                ),
+            )
+            .values(role="admin")
+        )
+        if result.rowcount > 0:
+            self.db.commit()
+            self.db.refresh(user)
+
         return self._auth_response(user)
 
     def get_user(self, user_id: int) -> UserModel | None:

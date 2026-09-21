@@ -9,6 +9,8 @@ import { ChatHistory } from '../components/admin/ChatHistory';
 import { DashboardCharts } from '../components/admin/DashboardCharts';
 import { DashboardStats } from '../components/admin/DashboardStats';
 import { SkillManagement } from '../components/admin/SkillManagement';
+import { KnowledgeManagement } from '../components/admin/KnowledgeManagement';
+import { WebsiteDeployManagement } from '../components/admin/WebsiteDeployManagement';
 import { SystemSettings } from '../components/admin/SystemSettings';
 import { IntegrationManagement } from '../components/admin/IntegrationManagement';
 import { UserManagement } from '../components/admin/UserManagement';
@@ -232,6 +234,10 @@ export const AdminDashboard = () => {
     return <IntegrationManagement />;
    case 'skills':
     return <SkillManagement />;
+   case 'knowledge':
+    return <KnowledgeManagement />;
+   case 'website_deploys':
+    return <WebsiteDeployManagement />;
    case 'announcements':
     return <AnnouncementManagement />;
    case 'settings':

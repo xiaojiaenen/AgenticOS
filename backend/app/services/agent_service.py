@@ -709,6 +709,10 @@ class AgentService:
             from app.tools.memory_tools import register_memory_tools
             register_memory_tools(registry)
 
+        # 知识库工具：所有模式可用
+        from app.tools.knowledge_tools import register_knowledge_tools
+        register_knowledge_tools(registry)
+
         # 注册拒绝工具：用户拒绝工具执行时，替换原工具调用，让 LLM 收到明确的拒绝消息
         @registry.tool(
             name=_REJECTED_TOOL_NAME,
@@ -754,10 +758,6 @@ class AgentService:
             from app.tools.website_file_tools import register_website_file_tools as _register_website_file_tools
             _register_website_file_tools(registry)
 
-        if profile.response_mode == "video":
-            from app.tools.video_tools import register_video_tools as _register_video_tools
-            _register_video_tools(registry)
-
         # MCP 工具集成：如果 MCP 服务已连接，将 MCP 工具添加到注册表
         try:
             from app.services.mcp_service import get_mcp_service
@@ -770,10 +770,22 @@ class AgentService:
         except Exception as e:
             _logger.debug("MCP tool registration skipped: %s", e)
 
-        # 移除 profile 中禁用的工具（覆盖 PPT/website/video 等模式无条件注册的工具）
+        # 移除 profile 中禁用的工具（覆盖 PPT/website 等模式无条件注册的工具）
         for tool_name, enabled, _ in profile.signature:
             if not enabled:
                 _unregister_if_exists(registry, tool_name)
+
+        # 统一工具执行层：对同步 handler 包装成异步版本，防止 wuwei Tool.invoke
+        # 直接在事件循环上跑同步代码导致阻塞。这是解决"一个接口阻塞全站"的关键修复。
+        import asyncio
+        import inspect
+        for tool_name, tool in list(registry._tools.items()):
+            if not inspect.iscoroutinefunction(tool.handler):
+                # 同步 handler → 用 to_thread 包装
+                original_handler = tool.handler
+                async def _async_wrapper(*args, _orig=original_handler, **kwargs):
+                    return await asyncio.to_thread(_orig, *args, **kwargs)
+                tool.handler = _async_wrapper
 
         return registry, ext_instruction
 
@@ -1041,87 +1053,6 @@ class AgentService:
         ]
         return message + "\n".join(lines)
 
-    @staticmethod
-    def _inject_video_template_catalog(message: str) -> str:
-        """Inject video template catalog and workflow guide for video mode."""
-        try:
-            from app.services.video import get_video_orchestrator
-            orchestrator = get_video_orchestrator()
-            templates = orchestrator.templates.list_all()
-        except Exception:
-            templates = []
-
-        # 按类别分组模板
-        categories: dict[str, list[str]] = {}
-        for t in templates:
-            cat = t.category or "other"
-            if cat not in categories:
-                categories[cat] = []
-            categories[cat].append(f"{t.id} — {t.name}")
-
-        template_lines = []
-        for cat, ids in categories.items():
-            template_lines.append(f"**{cat}**:")
-            for tid in ids[:3]:  # 每个类别最多显示 3 个
-                template_lines.append(f"  - {tid}")
-            if len(ids) > 3:
-                template_lines.append(f"  - ...等 {len(ids)} 个模板")
-
-        lines = [
-            "",
-            "---",
-            "## Video 模式资源速查",
-            "",
-            "### 可用模板（共 {} 个）".format(len(templates)),
-            "",
-            *template_lines,
-            "",
-            "### 工作流程",
-            "",
-            "**单帧视频（快速路径）**：",
-            "1. `video_search_templates(intent)` 搜索合适模板",
-            "2. `video_create_project(name, intent)` 创建项目",
-            "3. `video_set_template(project_id, template_id)` 设置模板",
-            "4. `video_set_variables(project_id, {...})` 设置变量",
-            "5. `video_write_preview_html(project_id, html)` 写入动画 HTML",
-            "6. `video_export_mp4(project_id)` 渲染导出",
-            "",
-            "**多帧视频（storyboard 路径）**：",
-            "1. `video_search_templates(intent)` 搜索合适模板",
-            "2. `video_create_project(name, intent)` 创建项目",
-            "3. `video_set_template(project_id, template_id)` 设置模板",
-            "4. `video_write_content_graph(project_id, graph)` 写入 storyboard",
-            "5. 为每帧调用 `video_write_frame_html(project_id, node_id, html)`",
-            "6. `video_export_mp4(project_id)` 渲染导出",
-            "",
-            "### content-graph 格式",
-            "",
-            "```json",
-            '{',
-            '  "schemaVersion": 1,',
-            '  "intent": "explainer",',
-            '  "synopsis": "视频简介",',
-            '  "nodes": [',
-            '    {"id": "intro", "kind": "text", "text": "标题", "durationSec": 3},',
-            '    {"id": "data", "kind": "data", "data": {...}, "durationSec": 5}',
-            '  ],',
-            '  "edges": [',
-            '    {"from": "intro", "to": "data", "kind": "sequence"}',
-            '  ]',
-            '}',
-            "```",
-            "",
-            "### HTML 生成规则",
-            "",
-            "- 使用 CSS keyframes 或 GSAP 做动画",
-            "- 自包含：所有样式和脚本内联",
-            "- 可引用 Google Fonts 和 GSAP CDN",
-            "- 匹配模板的 CSS 变量和布局约定",
-            "",
-            "---",
-        ]
-        return message + "\n".join(lines)
-
     async def _create_ppt_artifact(self, session_id: str) -> dict[str, Any] | None:
         """Create a PPT artifact from saved slides in the session work directory."""
         from app.core.data_path import _parse_dir_name, next_version_dir
@@ -1153,56 +1084,6 @@ class AgentService:
             _logger.exception("ppt artifact creation failed: session=%s", session_id)
             self.ppt_artifacts._last_quality_errors = [f"artifact 创建异常: {type(exc).__name__}: {exc}"]
             self.ppt_artifacts._last_quality_warnings = []
-            return None
-
-    async def _create_video_artifact(self, session_id: str) -> dict[str, Any] | None:
-        """Create a video artifact from the latest rendered project."""
-        try:
-            from app.services.video import get_video_orchestrator
-            orchestrator = get_video_orchestrator()
-
-            # 查找最新的已渲染项目
-            projects = await orchestrator.list_all()
-            video_project = None
-            for p in projects:
-                if p.status.value == "rendered" and p.last_output_mp4_path:
-                    video_project = p
-                    break
-
-            if video_project is None:
-                _logger.info("video artifact skipped: session=%s (no rendered project found)", session_id)
-                return None
-
-            output_path = video_project.last_output_mp4_path
-            if not os.path.exists(output_path):
-                _logger.warning("video artifact failed: output file not found: %s", output_path)
-                return None
-
-            # 获取视频元数据
-            file_size = os.path.getsize(output_path)
-
-            # 计算时长（从导出历史获取）
-            duration_sec = 0
-            if video_project.exports:
-                duration_sec = video_project.exports[-1].get("duration_sec", 0)
-
-            artifact = {
-                "type": "video",
-                "artifact_id": f"video_{video_project.id}",
-                "session_id": session_id,
-                "project_id": video_project.id,
-                "title": video_project.name,
-                "video_url": f"/api/v1/videos/{video_project.id}/file",
-                "thumbnail_url": f"/api/v1/videos/{video_project.id}/thumbnail",
-                "duration_sec": duration_sec,
-                "file_size_bytes": file_size,
-                "template_id": video_project.template_id,
-            }
-
-            _logger.info("video artifact created: session=%s project=%s", session_id, video_project.id)
-            return artifact
-        except Exception as exc:
-            _logger.exception("video artifact creation failed: session=%s", session_id)
             return None
 
     @staticmethod
@@ -1667,13 +1548,12 @@ class AgentService:
                     if isinstance(stored_id, int) and stored_id > 0:
                         request.agent_profile_id = stored_id
                 stored_mode = meta.get("response_mode")
-                if isinstance(stored_mode, str) and stored_mode in ("general", "ppt", "website", "video", "email"):
+                if isinstance(stored_mode, str) and stored_mode in ("general", "ppt", "website", "email"):
                     request.response_mode = stored_mode
 
         runtime_profile = await self._resolve_runtime_profile(request, user)
         response_mode = runtime_profile.response_mode
         ppt_mode = response_mode == "ppt"
-        video_mode = response_mode == "video"
         email_mode = response_mode == "email"
 
         # 提前设置 user context，确保 register_external_tools 能获取 user_id
@@ -1715,9 +1595,6 @@ class AgentService:
         website_mode = response_mode == "website"
         if website_mode:
             message = self._inject_website_catalog(message)
-
-        if video_mode:
-            message = self._inject_video_template_catalog(message)
 
         session = agent.create_or_get_session(
             session_id=request.session_id,
@@ -1779,18 +1656,18 @@ class AgentService:
         tool_names: list[str] = []
         usage_recorded = False
 
-        # 注入用户记忆上下文（异步调用）
-        if user is not None and not ppt_mode and not website_mode and not video_mode and not email_mode:
+        # 注入用户记忆上下文（按 mode 装配）
+        if user is not None and not ppt_mode and not website_mode and not email_mode:
             try:
-                from app.services.memory_service import get_memory_service
-                memory_context = await get_memory_service().get_memory_context(user.id, request.message)
+                from app.services.memory_loadout import assemble_memory_context
+                memory_context = await assemble_memory_context(user.id, request.message, response_mode)
                 if memory_context:
-                    _logger.info(f"Injecting memory context for user {user.id}: {memory_context[:100]}...")
+                    _logger.info(f"Injecting memory loadout for user {user.id} mode={response_mode}")
                     message = memory_context + "\n\n---\n\n" + message
                 else:
                     _logger.info(f"No memory context found for user {user.id}")
             except Exception as e:
-                _logger.warning(f"Memory context injection failed: {e}")
+                _logger.warning(f"Memory loadout assembly failed: {e}")
 
         task_start_time = time.time()
 
@@ -1908,18 +1785,7 @@ class AgentService:
                                 }
                             # PPT 模式不转发 text_delta（LLM 思考文本），但继续处理其他事件
                             # 不 continue — 让 tool_start、tool_results、reasoning 等事件正常处理
-                        if video_mode:
-                            if first_text_delta:
-                                yield {
-                                    "event": "run_status",
-                                    "data": {
-                                        "session_id": session.session_id,
-                                        "phase": "generating_video",
-                                        "label": "正在规划视频内容",
-                                    },
-                                }
-                            # Video 模式不转发 text_delta，但继续处理其他事件
-                        if not ppt_mode and not video_mode and first_text_delta:
+                        if not ppt_mode and first_text_delta:
                             yield {
                                 "event": "run_status",
                                 "data": {
@@ -1998,44 +1864,7 @@ class AgentService:
                         runtime_task = asyncio.create_task(runtime_queue.get())
                         continue
 
-                    if video_mode and event.type == "done":
-                        visible_text = ""
-
-                        _logger.info("video done: session=%s, creating artifact...", session.session_id)
-
-                        artifact = await self._create_video_artifact(session.session_id)
-                        _logger.info("video artifact result: session=%s, artifact=%s", session.session_id, "OK" if artifact else "None")
-                        if artifact is not None:
-                            yield {
-                                "event": "run_status",
-                                "data": {
-                                    "session_id": session.session_id,
-                                    "phase": "rendering_video",
-                                    "label": "正在渲染视频",
-                                },
-                            }
-                            yield {
-                                "event": "artifact_ready",
-                                "data": artifact,
-                            }
-                        else:
-                            visible_text = "视频生成完成，但未能创建预览。请检查项目状态。"
-                        if visible_text:
-                            yield {
-                                "event": "delta",
-                                "data": {
-                                    "session_id": session.session_id,
-                                    "content": visible_text,
-                                },
-                            }
-                        yield {
-                            "event": "run_status",
-                            "data": {
-                                "session_id": session.session_id,
-                                "phase": "done",
-                                "label": "本轮回复已完成",
-                            },
-                        }
+                    if event.type == "done":
                         mapped = self._map_agent_event(event, session)
                         if not usage_recorded:
                             await self._record_usage_event(
@@ -2196,23 +2025,24 @@ class AgentService:
                         "data": api_approval_data,
                     }
                     api_approval_task = asyncio.create_task(api_approval_queue.get())
-            # 对话结束时用 LLM 提取记忆（仅通用模式）
-            _logger.info(f"Memory extraction conditions: user={user is not None}, collected_text_len={len(collected_text) if collected_text else 0}, ppt_mode={ppt_mode}, website_mode={website_mode}, video_mode={video_mode}, message={request.message[:50] if request.message else ''}")
-            if user is not None and request.message and not ppt_mode and not website_mode and not video_mode:
+            # 对话结束后触发分层蒸馏 pipeline（L0→L1→L2→L3）
+            _logger.info(f"Memory pipeline conditions: user={user is not None}, collected_text_len={len(collected_text) if collected_text else 0}, ppt_mode={ppt_mode}, website_mode={website_mode}, message={request.message[:50] if request.message else ''}")
+            if user is not None and request.message and not ppt_mode and not website_mode:
                 try:
-                    from app.services.memory_service import get_memory_service
-                    # 使用用户消息和 AI 回复进行记忆提取（异步非阻塞）
-                    ai_response = collected_text[:500] if collected_text else ""
+                    from app.services.memory_pipeline import get_pipeline
+                    ai_response = collected_text[:2000] if collected_text else ""
                     asyncio.create_task(
-                        get_memory_service().extract_and_save_memories(
-                            user.id,
-                            request.message,
-                            ai_response,
+                        get_pipeline().on_turn_complete(
+                            user_id=user.id,
+                            session_id=request.session_id,
+                            user_message=request.message,
+                            assistant_message=ai_response,
+                            mode=response_mode,
                         )
                     )
-                    _logger.info(f"Memory extraction task created for user {user.id}")
+                    _logger.info(f"Memory pipeline triggered for user {user.id}")
                 except Exception as e:
-                    _logger.warning(f"Memory extraction task creation failed: {e}")
+                    _logger.warning(f"Memory pipeline trigger failed: {e}")
 
         finally:
             _logger.info(
@@ -2288,18 +2118,6 @@ class AgentService:
         Converts the SVG pages stored in the artifact into DrawingML shapes
         and assembles a complete PowerPoint file.
         """
-        import logging
-        import tempfile
-        from pathlib import Path
-        from app.services.ppt.svg_to_pptx import create_pptx_with_native_svg
-        from app.services.ppt.svg_finalize.embed_icons import process_svg_file as _embed_icons
-        from app.services.ppt.svg_finalize.align_embed_images import align_and_embed_images_in_svg as _align_images
-        from app.services.ppt.svg_finalize.flatten_tspan import flatten_text_with_tspans as _flatten_tspan_text
-        from app.services.ppt.svg_finalize.svg_rect_to_path import process_svg as _fix_rounded
-        from xml.etree import ElementTree as ET
-
-        _logger = logging.getLogger("ppt_export")
-
         if current_user is not None:
             await self._ensure_record_owner(artifact_id, PptArtifactModel, current_user)
 
@@ -2311,6 +2129,45 @@ class AgentService:
         if not svgs:
             raise ValueError("Artifact contains no SVG slides to export")
 
+        # 在线程池中执行同步的 PPTX 生成，防止阻塞事件循环
+        import asyncio
+        return await asyncio.to_thread(
+            self._export_pptx_sync,
+            artifact_id,
+            svgs,
+            canvas_format,
+            use_native_shapes,
+            use_compat_mode,
+            transition,
+            animation,
+            enable_notes,
+        )
+
+    @staticmethod
+    def _export_pptx_sync(
+        artifact_id: str,
+        svgs: list[str],
+        canvas_format: str | None,
+        use_native_shapes: bool,
+        use_compat_mode: bool,
+        transition: str | None,
+        animation: str | None,
+        enable_notes: bool,
+    ) -> bytes:
+        """同步执行 PPTX 导出（在线程池中运行）"""
+        import logging
+        import tempfile
+        from pathlib import Path
+        from app.services.ppt.svg_to_pptx import create_pptx_with_native_svg
+        from app.services.ppt.svg_finalize.embed_icons import process_svg_file as _embed_icons
+        from app.services.ppt.svg_finalize.align_embed_images import align_and_embed_images_in_svg as _align_images
+        from app.services.ppt.svg_finalize.flatten_tspan import flatten_text_with_tspans as _flatten_tspan_text
+        from app.services.ppt.svg_finalize.svg_rect_to_path import process_svg as _fix_rounded
+        from app.services.ppt_artifact_service import sanitize_svg_xml
+        from xml.etree import ElementTree as ET
+
+        _logger = logging.getLogger("ppt_export")
+
         _logger.info(f"Exporting artifact {artifact_id}: {len(svgs)} slides, "
                      f"native_shapes={use_native_shapes}, compat={use_compat_mode}")
 
@@ -2319,23 +2176,18 @@ class AgentService:
             svg_paths: list[Path] = []
             for i, svg_content in enumerate(svgs):
                 svg_path = tmpdir_path / f"slide{i + 1}.svg"
-                # Sanitize: escape raw < and & in text content
-                from app.services.ppt_artifact_service import sanitize_svg_xml
                 svg_content = sanitize_svg_xml(svg_content)
                 svg_path.write_text(svg_content, encoding="utf-8")
                 svg_paths.append(svg_path)
 
-            # SVG post-processing (icon embedding + image alignment + text flatten + rounded rect fix)
+            # SVG post-processing
             _icons_dir = DATA_DIR / "icons"
             _processed = 0
             for svg_path in svg_paths:
                 _processed += _embed_icons(svg_path, _icons_dir, dry_run=False, verbose=False)
                 _processed += _align_images(svg_path, dry_run=False, verbose=False)[0]
                 try:
-                    # 读取并修复 SVG 内容
                     svg_content = svg_path.read_text(encoding="utf-8")
-
-                    # 修复常见的 HTML 实体
                     svg_content = svg_content.replace('&nbsp;', '&#160;')
                     svg_content = svg_content.replace('&copy;', '&#169;')
                     svg_content = svg_content.replace('&reg;', '&#174;')
@@ -2348,19 +2200,11 @@ class AgentService:
                     svg_content = svg_content.replace('&rsquo;', '&#8217;')
                     svg_content = svg_content.replace('&hellip;', '&#8230;')
                     svg_content = svg_content.replace('&bull;', '&#8226;')
-
-                    # 修复 & 字符（但不修复已经是 &amp; 或 &#xxx; 的）
                     import re
-                    # 匹配 & 后面不是字母、#、或 & 的情况
                     svg_content = re.sub(r'&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9a-fA-F]+;)', '&amp;', svg_content)
-
-                    # 修复未闭合的标签
                     svg_content = svg_content.replace('<br>', '<br/>')
                     svg_content = svg_content.replace('<hr>', '<hr/>')
-
-                    # 将修复后的内容写回文件
                     svg_path.write_text(svg_content, encoding="utf-8")
-
                     import io
                     tree = ET.parse(io.StringIO(svg_content))
                     if _flatten_tspan_text(tree):

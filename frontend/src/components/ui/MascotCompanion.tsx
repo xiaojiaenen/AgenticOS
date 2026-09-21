@@ -197,10 +197,10 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
   const leftPupil = (!isError && !isDone) && (
     <motion.circle
       r="1.5" fill="white"
-      cx={isThinking ? '39' : '39.5'}
-      cy={isThinking ? '45' : '45.5'}
+      cx={isThinking ? 39 : 39.5}
+      cy={isThinking ? 45 : 45.5}
       animate={cfg.pupilWander
-        ? { cx: ['39', '40', '38', '39.5', '39'], cy: ['45', '44', '46', '44.5', '45'] }
+        ? { cx: [39, 40, 38, 39.5, 39], cy: [45, 44, 46, 44.5, 45] }
         : {}}
       transition={cfg.pupilWander
         ? { duration: 4, repeat: Infinity, ease: 'easeInOut' }
@@ -211,10 +211,10 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
   const rightPupil = (!isError && !isDone) && (
     <motion.circle
       r="1.5" fill="white"
-      cx={isThinking ? '63' : '63.5'}
-      cy={isThinking ? '45' : '45.5'}
+      cx={isThinking ? 63 : 63.5}
+      cy={isThinking ? 45 : 45.5}
       animate={cfg.pupilWander
-        ? { cx: ['63', '64', '62', '63.5', '63'], cy: ['45', '44', '46', '44.5', '45'] }
+        ? { cx: [63, 64, 62, 63.5, 63], cy: [45, 44, 46, 44.5, 45] }
         : {}}
       transition={cfg.pupilWander
         ? { duration: 4, repeat: Infinity, ease: 'easeInOut' }

@@ -4,7 +4,6 @@ import { Artifact } from '../../types';
 import { ArtifactPanel } from './ArtifactPanel';
 import { PptArtifactPanel } from '../ppt/PptArtifactPanel';
 import { WebsiteArtifactPanel } from '../website/WebsiteArtifactPanel';
-import VideoArtifactPanel from '../video/VideoArtifactPanel';
 import { EmailArtifactPanel } from '../email/EmailArtifactPanel';
 
 interface ChatArtifactAreaProps {
@@ -40,11 +39,6 @@ export const ChatArtifactArea = React.memo(({
         artifact={artifact}
         onClose={onClose}
         borderColor={borderColor}
-      />
-    ) : artifact?.language === 'video' ? (
-      <VideoArtifactPanel
-        key="video"
-        artifact={artifact}
       />
     ) : artifact?.language === 'email' ? (
       <EmailArtifactPanel
