@@ -53,14 +53,6 @@ export type Message = {
     stack?: string;
     html?: string;
   };
-  videoArtifact?: {
-    status: 'generating' | 'ready';
-    artifactId?: string;
-    title?: string;
-    videoUrl?: string;
-    thumbnailUrl?: string;
-    duration?: number;
-  };
 };
 
 export type Session = {
@@ -69,7 +61,7 @@ export type Session = {
   messages: Message[];
   createdAt?: number;
   updatedAt: number;
-  mode?: 'general' | 'ppt' | 'website' | 'video' | 'email' | 'bigdata';
+  mode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata';
   agentProfileId?: number | null;
   agentName?: string;
   summary?: string | null;
@@ -132,7 +124,5 @@ export type Artifact =
   | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number; theme?: string}
   | {language: 'website'; artifactId: string; html: string; title: string;
       projectSlug: string; stack?: string; fileCount?: number}
-  | {language: 'video'; artifactId: string; videoUrl: string; thumbnailUrl?: string;
-      title: string; duration?: number; resolution?: string; fileSize?: number}
   | {language: 'email'; approvalId: string; to: string; subject: string; body: string;
       cc?: string; isHtml?: boolean};

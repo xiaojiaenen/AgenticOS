@@ -7,8 +7,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import mermaid from 'mermaid';
-import * as echarts from 'echarts';
 import { BrainCircuit, Globe, Presentation, Sparkles } from 'lucide-react';
 import { Artifact, Message, ToolCall } from '../../types';
 import { cn, copyToClipboard } from '../../lib/utils';
@@ -176,21 +174,25 @@ export const MermaidChart = React.memo(({ chart }: { chart: string }) => {
   const [height, setHeight] = useState<number | 'auto'>('auto');
 
   useEffect(() => {
-    mermaid.initialize({ startOnLoad: true, theme: 'neutral', fontFamily: 'Plus Jakarta Sans', securityLevel: 'strict' });
     let cancelled = false;
-    const renderChart = async () => {
-      if (!containerRef.current) return;
-      setIsRendering(true);
-      try {
-        if (containerRef.current.offsetHeight > 50) setHeight(containerRef.current.offsetHeight);
-        const { svg } = await mermaid.render(`mermaid-${Math.random().toString(36).slice(2, 11)}`, chart);
-        if (cancelled) return;
-        const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-        setSvgUrl(current => { if (current) URL.revokeObjectURL(current); return url; });
-      } catch (e) { console.error('Mermaid render error:', e); }
-      finally { if (!cancelled) { setIsRendering(false); setTimeout(() => setHeight('auto'), 100); } }
-    };
-    renderChart();
+    import('mermaid').then((mod) => {
+      if (cancelled) return;
+      const mermaid = mod.default;
+      mermaid.initialize({ startOnLoad: true, theme: 'neutral', fontFamily: 'Plus Jakarta Sans', securityLevel: 'strict' });
+      const renderChart = async () => {
+        if (!containerRef.current) return;
+        setIsRendering(true);
+        try {
+          if (containerRef.current.offsetHeight > 50) setHeight(containerRef.current.offsetHeight);
+          const { svg } = await mermaid.render(`mermaid-${Math.random().toString(36).slice(2, 11)}`, chart);
+          if (cancelled) return;
+          const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+          setSvgUrl(current => { if (current) URL.revokeObjectURL(current); return url; });
+        } catch (e) { console.error('Mermaid render error:', e); }
+        finally { if (!cancelled) { setIsRendering(false); setTimeout(() => setHeight('auto'), 100); } }
+      };
+      renderChart();
+    });
     return () => { cancelled = true; setSvgUrl(current => { if (current) URL.revokeObjectURL(current); return ''; }); };
   }, [chart]);
 
@@ -207,7 +209,7 @@ const CHART_COLORS = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3
 
 export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) => {
   const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+  const chartInstanceRef = useRef<any>(null);
 
   // table 类型渲染为 HTML 表格
   try {
@@ -238,47 +240,62 @@ export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) 
   useEffect(() => {
     if (!chartRef.current) return;
 
-    let option: echarts.EChartsOption;
+    let option: any;
     try {
       option = JSON.parse(optionJson);
     } catch {
       return;
     }
 
-    // 注入主题样式
-    const styledOption: echarts.EChartsOption = {
-      ...option,
-      color: CHART_COLORS,
-      backgroundColor: 'transparent',
-      textStyle: { fontFamily: 'Inter, system-ui, -apple-system, sans-serif' },
-      title: {
-        ...option.title,
-        textStyle: { fontSize: 15, fontWeight: 600, color: '#1e293b', ...((option as any).title?.textStyle || {}) },
-      },
-      tooltip: {
-        ...option.tooltip,
-        backgroundColor: 'rgba(255,255,255,0.96)',
-        borderColor: '#e2e8f0',
-        borderWidth: 1,
-        textStyle: { color: '#334155', fontSize: 13 },
-        extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-radius: 8px;',
-      },
-      grid: { left: 48, right: 24, top: 48, bottom: 32, containLabel: true, ...((option as any).grid || {}) },
-    };
+    let disposed = false;
+    import('echarts').then((echartsMod) => {
+      if (disposed || !chartRef.current) return;
+      const echarts = echartsMod;
 
-    chartInstanceRef.current = echarts.init(chartRef.current, undefined, { renderer: 'canvas' });
-    chartInstanceRef.current.setOption(styledOption);
+      // 注入主题样式
+      const styledOption: any = {
+        ...option,
+        color: CHART_COLORS,
+        backgroundColor: 'transparent',
+        textStyle: { fontFamily: 'Inter, system-ui, -apple-system, sans-serif' },
+        title: {
+          ...option.title,
+          textStyle: { fontSize: 15, fontWeight: 600, color: '#1e293b', ...(option.title?.textStyle || {}) },
+        },
+        tooltip: {
+          ...option.tooltip,
+          backgroundColor: 'rgba(255,255,255,0.96)',
+          borderColor: '#e2e8f0',
+          borderWidth: 1,
+          textStyle: { color: '#334155', fontSize: 13 },
+          extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-radius: 8px;',
+        },
+        grid: { left: 48, right: 24, top: 48, bottom: 32, containLabel: true, ...(option.grid || {}) },
+      };
 
-    const handleResize = () => chartInstanceRef.current?.resize();
-    window.addEventListener('resize', handleResize);
-    const observer = new ResizeObserver(handleResize);
-    observer.observe(chartRef.current);
+      chartInstanceRef.current = echarts.init(chartRef.current, undefined, { renderer: 'canvas' });
+      chartInstanceRef.current.setOption(styledOption);
+
+      const handleResize = () => chartInstanceRef.current?.resize();
+      window.addEventListener('resize', handleResize);
+      const observer = new ResizeObserver(handleResize);
+      observer.observe(chartRef.current);
+
+      // Store cleanup for the effect
+      (chartInstanceRef as any)._cleanup = () => {
+        window.removeEventListener('resize', handleResize);
+        observer.disconnect();
+        chartInstanceRef.current?.dispose();
+        chartInstanceRef.current = null;
+      };
+    });
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      observer.disconnect();
-      chartInstanceRef.current?.dispose();
-      chartInstanceRef.current = null;
+      disposed = true;
+      if ((chartInstanceRef as any)._cleanup) {
+        (chartInstanceRef as any)._cleanup();
+        (chartInstanceRef as any)._cleanup = null;
+      }
     };
   }, [optionJson]);
 
@@ -366,14 +383,28 @@ function extractTextFromChildren(children: any): string {
 
 export const CodeBlock = ({ inline, className, children, onOpenArtifact, ...props }: any) => {
   const [isBlockCopied, setIsBlockCopied] = useState(false);
+  const copyTimeoutRef = useRef<number | null>(null);
   const match = /language-(\w+)/.exec(className || '');
   const codeString = extractTextFromChildren(children).replace(/\n$/, '');
   const config = getAppConfig();
 
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current !== null) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
+
   if (!inline && match && match[1] === 'mermaid' && config.enableMermaid) return <MermaidChart chart={codeString} />;
   if (!inline && match && match[1] === 'echarts') return <EChartsBlock optionJson={codeString} />;
 
-  const handleBlockCopy = async () => { await copyToClipboard(codeString); setIsBlockCopied(true); setTimeout(() => setIsBlockCopied(false), 2000); };
+  const handleBlockCopy = async () => {
+    if (copyTimeoutRef.current !== null) clearTimeout(copyTimeoutRef.current);
+    await copyToClipboard(codeString);
+    setIsBlockCopied(true);
+    copyTimeoutRef.current = window.setTimeout(() => setIsBlockCopied(false), 2000);
+  };
 
   if (!inline && match) {
     if (match[1] === 'widget') {

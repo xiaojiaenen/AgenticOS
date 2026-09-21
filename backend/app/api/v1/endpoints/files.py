@@ -1,3 +1,4 @@
+import asyncio
 import mimetypes
 import uuid
 from pathlib import Path
@@ -37,7 +38,7 @@ async def upload_file(
     safe_name = file.filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
     stored_name = f"{file_id}_{safe_name}"
     stored_path = upload_dir / stored_name
-    stored_path.write_bytes(content)
+    await asyncio.to_thread(stored_path.write_bytes, content)
 
     return {
         "filename": file.filename,

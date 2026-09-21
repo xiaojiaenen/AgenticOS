@@ -58,3 +58,23 @@ export async function deleteMemory(memoryId: number): Promise<void> {
     await parseResponse(response);
   }
 }
+
+export async function createMemory(
+  content: string,
+  memoryType: string = 'fact',
+  importance: number = 0.5,
+): Promise<{ id: number; success: boolean }> {
+  const response = await fetch(MEMORY_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      content,
+      memory_type: memoryType,
+      importance: String(importance),
+    }),
+  });
+  return parseResponse<{ id: number; success: boolean }>(response);
+}

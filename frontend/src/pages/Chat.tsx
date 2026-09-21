@@ -213,29 +213,38 @@ export const Chat = () => {
     }
   }, [currentSessionId, currentSession?.messages.length]);
 
-  // 恢复 artifact 面板（从最后一条有 artifact 的 model 消息）
+  // 恢复 artifact 面板（从最后一条有 artifact 的消息，而非最后一条 model 消息）
   useEffect(() => {
     if (!currentSessionId) {
       setArtifact(null);
       return;
     }
-    const lastModelMsg = [...(currentSession?.messages || [])].reverse().find(m => m.role === 'model');
-    if (lastModelMsg?.pptArtifact?.status === 'ready' && lastModelMsg.pptArtifact.html) {
+    // 从后往前找第一条带 pptArtifact 或 websiteArtifact 的消息
+    const messages = currentSession?.messages || [];
+    const lastPptMsg = [...messages].reverse().find(
+      m => m.role === 'model' && m.pptArtifact?.status === 'ready' && m.pptArtifact.html
+    );
+    const lastWebsiteMsg = [...messages].reverse().find(
+      m => m.role === 'model' && m.websiteArtifact?.status === 'ready' && m.websiteArtifact.html
+    );
+    
+    // 优先恢复 PPT，其次网站
+    if (lastPptMsg?.pptArtifact) {
       setArtifact({
         language: 'ppt',
-        artifactId: lastModelMsg.pptArtifact.artifactId,
-        html: lastModelMsg.pptArtifact.html,
-        title: lastModelMsg.pptArtifact.title || '',
-        slideCount: lastModelMsg.pptArtifact.slideCount || 0,
-        theme: lastModelMsg.pptArtifact.theme,
+        artifactId: lastPptMsg.pptArtifact.artifactId,
+        html: lastPptMsg.pptArtifact.html,
+        title: lastPptMsg.pptArtifact.title || '',
+        slideCount: lastPptMsg.pptArtifact.slideCount || 0,
+        theme: lastPptMsg.pptArtifact.theme,
       });
-    } else if (lastModelMsg?.websiteArtifact?.status === 'ready' && lastModelMsg.websiteArtifact.html) {
+    } else if (lastWebsiteMsg?.websiteArtifact) {
       setArtifact({
         language: 'website',
-        artifactId: lastModelMsg.websiteArtifact.artifactId || '',
-        html: lastModelMsg.websiteArtifact.html,
-        title: lastModelMsg.websiteArtifact.title || '',
-        projectSlug: lastModelMsg.websiteArtifact.projectSlug || '',
+        artifactId: lastWebsiteMsg.websiteArtifact.artifactId || '',
+        html: lastWebsiteMsg.websiteArtifact.html,
+        title: lastWebsiteMsg.websiteArtifact.title || '',
+        projectSlug: lastWebsiteMsg.websiteArtifact.projectSlug || '',
       });
     } else {
       setArtifact(null);

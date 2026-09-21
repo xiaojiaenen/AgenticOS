@@ -72,10 +72,14 @@ async def create_user(
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
 
+    # 在线程池中执行 PBKDF2 哈希，防止阻塞事件循环
+    import asyncio
+    password_hash = await asyncio.to_thread(hash_password, request.password)
+
     user = UserModel(
         email=request.email,
         name=request.name.strip(),
-        password_hash=hash_password(request.password),
+        password_hash=password_hash,
         role=request.role,
         is_active=request.is_active,
         auth_source=request.auth_source,
@@ -85,7 +89,6 @@ async def create_user(
     db.refresh(user)
 
     # 发送欢迎邮件（异步，不阻塞响应）
-    import asyncio
     from app.core.config import get_settings
     from app.services.notification_service import send_welcome_email
     settings = get_settings()

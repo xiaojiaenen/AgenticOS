@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Session, Message } from '../types';
-import { listSessions, deleteSession as deleteSessionApi, generateTitle, getSessionMessages } from '../services/agentService';
+import { listSessions, deleteSession as deleteSessionApi, generateTitle, getSessionMessages, getSessionArtifacts } from '../services/agentService';
 import { getStoredUser } from '../services/authService';
 
 const MAX_PERSISTED_MESSAGES_PER_SESSION = 120;
@@ -332,11 +332,49 @@ export function useChatSessions() {
   const loadSessionMessages = useCallback(async (sessionId: string): Promise<boolean> => {
     // 检查当前会话是否已有消息
     const session = sessions.find(s => s.id === sessionId);
-    if (session && session.messages.length > 0) return false; // 已有消息，无需加载
+    const hasCachedMessages = session && session.messages.length > 0;
+    
+    // 即使有缓存消息，也要尝试拉取 artifacts 来恢复预览面板
+    // 只有当既有缓存消息又没有 artifact 时才跳过
+    if (hasCachedMessages) {
+      const hasArtifact = session.messages.some(
+        m => m.role === 'model' && (m.pptArtifact || m.websiteArtifact)
+      );
+      if (hasArtifact) return false; // 已有消息且已有 artifact，无需加载
+    }
 
     try {
-      const messages = await getSessionMessages(sessionId);
-      if (messages.length === 0) return false;
+      // 并行加载消息 + 会话最新制品（PPT/website），用于恢复预览面板
+      const [messages, artifactsResp] = await Promise.all([
+        hasCachedMessages ? Promise.resolve(session.messages) : getSessionMessages(sessionId),
+        getSessionArtifacts(sessionId).catch(err => {
+          console.warn('Failed to load session artifacts:', err);
+          return null;
+        }),
+      ]);
+      if (!hasCachedMessages && messages.length === 0) return false;
+
+      // 把最新 artifact 挂到最后一条 model 消息上（与 useChatStream 的挂载逻辑一致）
+      const pptArt = artifactsResp?.ppt_artifact;
+      if (pptArt) {
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role === 'model') {
+            messages[i] = {
+              ...messages[i],
+              pptArtifact: {
+                status: 'ready',
+                artifactId: pptArt.artifact_id,
+                title: pptArt.title,
+                slideCount: pptArt.slide_count,
+                html: pptArt.html,
+                theme: pptArt.theme,
+                mode: 'ppt',
+              },
+            };
+            break;
+          }
+        }
+      }
 
       setSessions(prev => prev.map(s =>
         s.id === sessionId

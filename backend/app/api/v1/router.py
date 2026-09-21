@@ -11,13 +11,14 @@ from app.api.v1.endpoints.external_systems import admin_router as external_syste
 from app.api.v1.endpoints.external_systems import router as integrations_router
 from app.api.v1.endpoints.files import router as files_router
 from app.api.v1.endpoints.health import router as health_router
+from app.api.v1.endpoints.knowledge import router as knowledge_router
 from app.api.v1.endpoints.memory import router as memory_router
 from app.api.v1.endpoints.settings import router as settings_router
 from app.api.v1.endpoints.skills import router as skills_router
 from app.api.v1.endpoints.suggest import router as suggest_router
 from app.api.v1.endpoints.tool_config import router as tool_config_router
+from app.api.v1.endpoints.tasks import router as tasks_router
 from app.api.v1.endpoints.users import router as users_router
-from app.api.v1.endpoints.video import router as video_router
 from app.api.v1.endpoints.website import router as website_router
 from app.api.v1.endpoints.website import admin_router as website_admin_router
 
@@ -33,12 +34,13 @@ router.include_router(external_systems_admin_router)
 router.include_router(integrations_router)
 router.include_router(files_router)
 router.include_router(health_router)
+router.include_router(knowledge_router)
 router.include_router(memory_router)
 router.include_router(settings_router)
 router.include_router(skills_router)
 router.include_router(suggest_router)
 router.include_router(tool_config_router)
+router.include_router(tasks_router)
 router.include_router(users_router)
-router.include_router(video_router)
 router.include_router(website_router)
 router.include_router(website_admin_router)

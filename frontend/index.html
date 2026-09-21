@@ -34,7 +34,24 @@
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳转到主要内容</a>
-    <div id="root"></div>
+    <div id="root">
+      <!-- JS 加载失败时的降级提示 -->
+      <div id="fallback-msg" style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif;color:#475569;text-align:center;padding:2rem;">
+        <div>
+          <h1 style="font-size:1.25rem;font-weight:600;margin-bottom:0.5rem;">AgenticOS</h1>
+          <p style="font-size:0.875rem;">页面加载中…如果长时间无响应，请尝试使用最新版 Chrome / Edge 浏览器。</p>
+        </div>
+      </div>
+    </div>
+    <noscript>
+      <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif;color:#475569;text-align:center;padding:2rem;">
+        <div>
+          <h1 style="font-size:1.25rem;font-weight:600;margin-bottom:0.5rem;">AgenticOS</h1>
+          <p style="font-size:0.875rem;">本应用需要启用 JavaScript。请在浏览器设置中开启 JavaScript 后刷新页面。</p>
+          <p style="font-size:0.75rem;margin-top:1rem;color:#94a3b8;">推荐使用 Chrome 109+ 或 Edge 109+ 浏览器以获得最佳体验。</p>
+        </div>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

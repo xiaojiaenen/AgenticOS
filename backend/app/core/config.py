@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     # 凭据代理 API 内部令牌（供爬虫平台等内部系统调用）
     credential_proxy_token: str = Field(default="", validation_alias="CREDENTIAL_PROXY_TOKEN")
 
+    # Sesame 网关集成（LDAP 登录成功后自动同步账号密码到 sesame cookie 共享池）
+    sesame_gateway_url: str = Field(default="", validation_alias="SESAME_GATEWAY_URL")
+    sesame_internal_token: str = Field(default="", validation_alias="SESAME_INTERNAL_TOKEN")
+    sesame_channel_id: int = Field(default=0, validation_alias="SESAME_CHANNEL_ID")
+
     # LDAP 认证配置（留空 = 不启用）
     ldap_enabled: bool = Field(default=False, validation_alias="LDAP_ENABLED")
     ldap_auto_create_users: bool = Field(default=False, validation_alias="LDAP_AUTO_CREATE_USERS")
@@ -68,6 +73,17 @@ class Settings(BaseSettings):
     notify_smtp_port: int = Field(default=465, validation_alias="NOTIFY_SMTP_PORT")
     notify_smtp_ssl: bool = Field(default=True, validation_alias="NOTIFY_SMTP_SSL")
     notify_task_min_seconds: int = Field(default=120, validation_alias="NOTIFY_TASK_MIN_SECONDS")
+
+    # 记忆系统（分层蒸馏 + 混合检索）
+    memory_embedding_model: str = Field(default="text-embedding-3-small", validation_alias="MEMORY_EMBEDDING_MODEL")
+    memory_embedding_dimensions: int = Field(default=1536, validation_alias="MEMORY_EMBEDDING_DIMENSIONS")
+    memory_retrieval_char_budget: int = Field(default=2000, validation_alias="MEMORY_RETRIEVAL_CHAR_BUDGET")
+    memory_retrieval_timeout_ms: int = Field(default=500, validation_alias="MEMORY_RETRIEVAL_TIMEOUT_MS")
+    memory_l2_aggregate_turns: int = Field(default=6, validation_alias="MEMORY_L2_AGGREGATE_TURNS")
+    memory_l3_persona_turns: int = Field(default=20, validation_alias="MEMORY_L3_PERSONA_TURNS")
+    memory_vector_top_k: int = Field(default=10, validation_alias="MEMORY_VECTOR_TOP_K")
+    memory_bm25_top_k: int = Field(default=10, validation_alias="MEMORY_BM25_TOP_K")
+    memory_rrf_k: int = Field(default=60, validation_alias="MEMORY_RRF_K")
 
     model_config = SettingsConfigDict(
         env_file=str(PROJECT_ROOT / "backend" / ".env"),

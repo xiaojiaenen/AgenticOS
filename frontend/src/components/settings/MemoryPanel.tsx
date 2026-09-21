@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Loader2, Search, Trash2, User, Users } from 'lucide-react';
-import { getMemories, deleteMemory, MemoryItem } from '../../services/memoryService';
+import { Brain, Loader2, Search, Trash2, User, Users, Plus } from 'lucide-react';
+import { getMemories, deleteMemory, createMemory, MemoryItem } from '../../services/memoryService';
 import { formatApiDate } from '../../lib/datetime';
 import { getStoredUser } from '../../services/authService';
 import { cn } from '../../lib/utils';
@@ -13,6 +13,13 @@ export const MemoryPanel: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const user = getStoredUser();
   const isAdmin = user?.role === 'admin';
+
+  // Create form
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newContent, setNewContent] = useState('');
+  const [newType, setNewType] = useState('fact');
+  const [newImportance, setNewImportance] = useState(0.7);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadMemories();
@@ -39,8 +46,26 @@ export const MemoryPanel: React.FC = () => {
       setMessage('记忆已删除');
     } catch (err) {
       console.error('Failed to delete memory:', err);
+      setMessage('删除失败');
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!newContent.trim()) return;
+    setSaving(true);
+    try {
+      await createMemory(newContent, newType, newImportance);
+      setMessage('记忆已保存');
+      setNewContent('');
+      setShowCreateForm(false);
+      loadMemories();
+    } catch (err) {
+      console.error('Failed to create memory:', err);
+      setMessage('保存失败');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -97,9 +122,21 @@ export const MemoryPanel: React.FC = () => {
 
           <div className="flex flex-wrap items-center gap-2">
             {message && (
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+              <div className={cn(
+                "rounded-2xl border px-3 py-1.5 text-xs font-bold",
+                message.includes('失败') ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-100 bg-emerald-50 text-emerald-700"
+              )}>
                 {message}
               </div>
+            )}
+            {!isAdmin && (
+              <button
+                onClick={() => setShowCreateForm(!showCreateForm)}
+                className="flex items-center gap-1.5 rounded-lg bg-[#2b87c2] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#2370a0]"
+              >
+                <Plus size={14} />
+                添加记忆
+              </button>
             )}
             <div className="admin-kpi-pill">
               共 <span className="font-black text-slate-900">{memories.length}</span> 条
@@ -118,6 +155,54 @@ export const MemoryPanel: React.FC = () => {
           className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition-colors focus:border-purple-300 focus:ring-2 focus:ring-purple-100"
         />
       </div>
+
+      {/* Create Form */}
+      {showCreateForm && !isAdmin && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+          <textarea
+            value={newContent}
+            onChange={(e) => setNewContent(e.target.value)}
+            placeholder="输入要记忆的内容..."
+            rows={2}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#2b87c2] focus:ring-2 focus:ring-[#2b87c2]/20"
+          />
+          <div className="flex gap-3">
+            <select
+              value={newType}
+              onChange={(e) => setNewType(e.target.value)}
+              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+            >
+              <option value="fact">事实</option>
+              <option value="preference">偏好</option>
+              <option value="tech">技术栈</option>
+              <option value="project">项目</option>
+            </select>
+            <input
+              type="number"
+              value={newImportance}
+              onChange={(e) => setNewImportance(parseFloat(e.target.value))}
+              min="0.1"
+              max="1"
+              step="0.1"
+              className="w-20 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+              title="重要程度"
+            />
+            <button
+              onClick={handleCreate}
+              disabled={saving || !newContent.trim()}
+              className="flex items-center gap-1.5 rounded-lg bg-[#2b87c2] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#2370a0] disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : '保存'}
+            </button>
+            <button
+              onClick={() => setShowCreateForm(false)}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-100"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-12">

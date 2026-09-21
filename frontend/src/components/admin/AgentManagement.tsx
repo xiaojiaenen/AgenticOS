@@ -120,7 +120,6 @@ function makeDraft(profile: AgentProfile | null, catalog: ToolCatalogItem[]): Dr
 function modeLabel(mode: AgentMode) {
  if (mode === 'ppt') return 'PPT';
  if (mode === 'website') return '网站';
- if (mode === 'video') return '视频';
  if (mode === 'email') return '邮箱';
  if (mode === 'bigdata') return '大数据';
  return '通用';
@@ -593,7 +592,6 @@ export const AgentManagement = () => {
             <option value="general">general</option>
             <option value="ppt">ppt</option>
             <option value="website">website</option>
-            <option value="video">video</option>
             <option value="email">email</option>
             <option value="bigdata">bigdata</option>
            </select>

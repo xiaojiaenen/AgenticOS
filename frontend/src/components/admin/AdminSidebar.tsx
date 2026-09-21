@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart3, BellRing, Bot, Brain, LogOut, MessageCircle, MessageSquare, Plug, Puzzle, Settings, Users } from 'lucide-react';
+import { BarChart3, BellRing, BookOpen, Bot, Brain, Globe, LogOut, MessageCircle, MessageSquare, Plug, Puzzle, Settings, Users } from 'lucide-react';
 import { LiquidGlass, glassPresets } from '@xiaojiaenen/liquid-glass';
 import { Logo } from '../Logo';
 import { MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
@@ -23,6 +23,8 @@ const navItems = [
  { id: 'users', icon: Users, label: '用户管理', description: '管理账号、角色和启用状态' },
  { id: 'agents', icon: Bot, label: '智能体配置', description: '维护智能体、工具审批与绑定' },
  { id: 'skills', icon: Puzzle, label: 'Skill 管理', description: '管理本地 Skill 与脚本目录' },
+ { id: 'knowledge', icon: BookOpen, label: '知识库', description: '管理知识库文档与 Wiki 编译' },
+ { id: 'website_deploys', icon: Globe, label: '网站部署', description: '审批和管理网站部署请求' },
  { id: 'integrations', icon: Plug, label: '集成管理', description: '管理第三方集成与 API 接口' },
  { id: 'announcements', icon: BellRing, label: '公告设计', description: '设计用户进入系统时看到的公告' },
  { id: 'memory', icon: Brain, label: '记忆管理', description: '查看和管理 AI 学到的用户记忆' },

@@ -1,10 +1,10 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Download, LayoutDashboard, Palette, Pencil, Play, RefreshCcw, X } from 'lucide-react';
+import { Download, LayoutDashboard, Palette, Pencil, Play, RefreshCcw, X, Loader2 } from 'lucide-react';
 import { MotionValue } from 'motion/react';
 import { Artifact } from '../../types';
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
-import { exportPptx, listPptThemes, rethemePpt, type PptTheme } from '../../services/agentService';
+import { exportPptx, listPptThemes, rethemePpt, getPptPreviewHtml, type PptTheme } from '../../services/agentService';
 import { PptPresenterMode } from './PptPresenterMode';
 
 type PptArtifactPanelProps = {
@@ -22,7 +22,25 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
   const [currentTheme, setCurrentTheme] = React.useState(artifact.theme || 'apple');
   const [isChangingTheme, setIsChangingTheme] = React.useState(false);
   const iframeRef = React.useRef<HTMLIFrameElement | null>(null);
-  const previewSrcDoc = React.useMemo(() => buildSandboxedHtmlDocument(artifact.html), [artifact.html]);
+  
+  // 懒加载：当 html 缺失时按 artifactId 从后端加载
+  const [html, setHtml] = React.useState(artifact.html || '');
+  const [isLoading, setIsLoading] = React.useState(!artifact.html && !!artifact.artifactId);
+  
+  React.useEffect(() => {
+    if (!html && artifact.artifactId) {
+      setIsLoading(true);
+      getPptPreviewHtml(artifact.artifactId)
+        .then(setHtml)
+        .catch(err => {
+          console.error('[PPT Preview] Failed to load:', err);
+          setHtml('<div style="padding:40px;text-align:center;color:#888;">加载预览失败</div>');
+        })
+        .finally(() => setIsLoading(false));
+    }
+  }, [html, artifact.artifactId]);
+  
+  const previewSrcDoc = React.useMemo(() => buildSandboxedHtmlDocument(html), [html]);
 
   // 加载主题列表
   React.useEffect(() => {
@@ -227,16 +245,25 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="min-h-full overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-xl"
           >
-            <iframe
-              ref={iframeRef}
-              srcDoc={previewSrcDoc}
-              title={artifact.title}
-              className="min-h-[calc(100vh-10rem)] w-full border-0"
-              sandbox="allow-scripts allow-same-origin"
-              allow="fullscreen"
-              referrerPolicy="no-referrer"
-              style={{ backgroundColor: '#fff' }}
-            />
+            {isLoading ? (
+              <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
+                <div className="flex flex-col items-center gap-3 text-slate-400">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <span className="text-sm">加载预览中…</span>
+                </div>
+              </div>
+            ) : (
+              <iframe
+                ref={iframeRef}
+                srcDoc={previewSrcDoc}
+                title={artifact.title}
+                className="min-h-[calc(100vh-10rem)] w-full border-0"
+                sandbox="allow-scripts allow-same-origin"
+                allow="fullscreen"
+                referrerPolicy="no-referrer"
+                style={{ backgroundColor: '#fff' }}
+              />
+            )}
           </motion.div>
         </div>
       </motion.aside>
@@ -244,7 +271,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
       <AnimatePresence>
         {isPresenting && (
           <PptPresenterMode
-            html={artifact.html}
+            html={html}
             slideCount={artifact.slideCount}
             title={artifact.title}
             onClose={() => setIsPresenting(false)}

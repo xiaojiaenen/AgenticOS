@@ -17,8 +17,8 @@ interface ChatInputProps {
   isLoading: boolean;
   className?: string;
   placeholder?: string;
-  chatMode: 'general' | 'ppt' | 'website' | 'video' | 'email' | 'bigdata';
-  setChatMode: (mode: 'general' | 'ppt' | 'website' | 'video' | 'email' | 'bigdata') => void;
+  chatMode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata';
+  setChatMode: (mode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata') => void;
   agentProfiles?: AgentProfile[];
   selectedAgentProfileId?: number | null;
   onAgentProfileChange?: (profile: AgentProfile | null) => void;
@@ -155,7 +155,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
                 isGlass ? "bg-white/10" : "border-slate-200 bg-white border shadow-sm"
               )}>
                 {previews[idx] ? (
-                  <img src={previews[idx]} alt="preview" className="h-full w-full object-cover" />
+                  <img src={previews[idx]} alt="preview" loading="lazy" className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full w-full flex-col items-center justify-center bg-slate-50 p-1 text-center text-[8px]">
                     <PaperclipIcon size={12} className="mb-1 text-slate-400" />
@@ -203,7 +203,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             selectedId={selectedAgentProfileId ?? null}
             onSelect={(agent) => {
               onAgentProfileChange?.(agent);
-              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website' | 'video' | 'email' | 'bigdata');
+              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website' | 'email' | 'bigdata');
             }}
             variant="compact"
             disabled={isModeLocked}
@@ -285,7 +285,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             selectedId={selectedAgentProfileId ?? null}
             onSelect={(agent) => {
               onAgentProfileChange?.(agent);
-              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website' | 'video' | 'email' | 'bigdata');
+              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website' | 'email' | 'bigdata');
             }}
             variant="compact"
             disabled={isModeLocked}

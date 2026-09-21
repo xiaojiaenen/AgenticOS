@@ -1,49 +1,33 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Any
 
 from sqlalchemy import select
 from wuwei.runtime import ApprovalDecision, ApprovalRequest
 
+from app.core.redis import get_redis
 from app.core.timezone import app_now, isoformat_app_timezone
 from app.db.models import ApprovalModel
 from app.db.session import create_db_session
 from app.services.session_storage import dump_json, load_json
 
 
+# Redis 频道前缀
+_APPROVAL_CHANNEL_PREFIX = "approval:"
+
+
 class ApprovalManager:
+    """审批管理器，使用 Redis pub/sub 实现跨 worker 通信。"""
+
     def __init__(self, *, timeout_seconds: int = 300, session_factory=create_db_session) -> None:
         self.timeout_seconds = timeout_seconds
         self.session_factory = session_factory
-        self._futures: dict[str, asyncio.Future[ApprovalDecision]] = {}
-        self._subscribers: dict[str, set[asyncio.Queue[dict[str, Any]]]] = {}
-
-    def subscribe(self, session_id: str) -> asyncio.Queue[dict[str, Any]]:
-        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
-        self._subscribers.setdefault(session_id, set()).add(queue)
-        return queue
-
-    def unsubscribe(self, session_id: str, queue: asyncio.Queue[dict[str, Any]]) -> None:
-        subscribers = self._subscribers.get(session_id)
-        if not subscribers:
-            return
-        subscribers.discard(queue)
-        if not subscribers:
-            self._subscribers.pop(session_id, None)
-
-    def _purge_stale_entries(self) -> None:
-        done_futures = [req_id for req_id, fut in self._futures.items() if fut.done()]
-        for req_id in done_futures:
-            self._futures.pop(req_id, None)
-
-        empty_sessions = [sid for sid, queues in self._subscribers.items() if not queues]
-        for sid in empty_sessions:
-            self._subscribers.pop(sid, None)
+        # 不再使用内存态的 futures 和 subscribers，改用 Redis pub/sub
 
     async def request_approval_bool(self, tool_call) -> bool:
         """兼容 wuwei HitlMiddleware 的 approval_provider 接口：接收 ToolCall 返回 bool。"""
-        import json
         import uuid
         from app.services.agent_service import _current_session_id
         session_id = _current_session_id.get() or "default"
@@ -70,25 +54,36 @@ class ApprovalManager:
         return decision.status == "approved"
 
     async def request_approval(self, request: ApprovalRequest) -> ApprovalDecision:
-        self._purge_stale_entries()
+        """请求审批，通过 Redis pub/sub 等待决策（支持多 worker）。"""
         await self._save_pending(request)
         event = self._event_from_request(request)
-        for queue in list(self._subscribers.get(request.session_id, set())):
-            await queue.put(event)
 
-        loop = asyncio.get_running_loop()
-        future = loop.create_future()
-        self._futures[request.id] = future
+        # 通知所有订阅者（前端 SSE）
+        redis = get_redis()
+        channel = f"{_APPROVAL_CHANNEL_PREFIX}{request.session_id}"
+        await redis.publish(channel, json.dumps(event))
+
+        # 订阅决策频道，等待审批结果
+        decision_channel = f"{_APPROVAL_CHANNEL_PREFIX}decision:{request.id}"
+        queue = redis.subscribe(decision_channel)
+
         try:
-            return await asyncio.wait_for(future, timeout=self.timeout_seconds)
+            # 等待决策或超时
+            message = await asyncio.wait_for(queue.get(), timeout=self.timeout_seconds)
+            decision_data = json.loads(message)
+            return ApprovalDecision(
+                status=decision_data["status"],
+                reason=decision_data.get("reason"),
+            )
         except asyncio.TimeoutError:
             decision = ApprovalDecision(status="rejected", reason="approval timed out")
             await self.decide(request.id, status="rejected", reason=decision.reason)
             return decision
         finally:
-            self._futures.pop(request.id, None)
+            redis.unsubscribe(decision_channel, queue)
 
     async def decide(self, approval_id: str, *, status: str, reason: str | None = None) -> dict[str, Any]:
+        """做出审批决策，通过 Redis pub/sub 通知等待方（支持多 worker）。"""
         if status not in {"approved", "rejected"}:
             raise ValueError("status must be approved or rejected")
 
@@ -102,13 +97,15 @@ class ApprovalManager:
                 row.decided_at = app_now()
                 db.commit()
                 db.refresh(row)
-                return self._serialize_row(row)
+                return self._serialize_row(row), row.session_id
 
-        record = await asyncio.to_thread(_run)
+        record, session_id = await asyncio.to_thread(_run)
 
-        future = self._futures.get(approval_id)
-        if future is not None and not future.done():
-            future.set_result(ApprovalDecision(status=status, reason=reason))
+        # 通过 Redis pub/sub 通知等待方
+        redis = get_redis()
+        decision_channel = f"{_APPROVAL_CHANNEL_PREFIX}decision:{approval_id}"
+        decision_data = {"status": status, "reason": reason}
+        await redis.publish(decision_channel, json.dumps(decision_data))
 
         return record
 
@@ -122,6 +119,20 @@ class ApprovalManager:
                 ).all()
                 return [self._serialize_row(row) for row in rows]
         return await asyncio.to_thread(_run)
+
+    def subscribe(self, session_id: str) -> asyncio.Queue:
+        """订阅审批事件队列（兼容 UserInputBlocker/ApprovalBlocker 接口）。"""
+        q: asyncio.Queue = asyncio.Queue()
+        # 可以在这里保存 queue 引用以便后续推送事件
+        if not hasattr(self, '_queues'):
+            self._queues: dict[str, asyncio.Queue] = {}
+        self._queues[session_id] = q
+        return q
+
+    def unsubscribe(self, session_id: str, queue: asyncio.Queue | None = None) -> None:
+        """取消订阅审批事件队列。"""
+        if hasattr(self, '_queues'):
+            self._queues.pop(session_id, None)
 
     async def _save_pending(self, request: ApprovalRequest) -> None:
         payload = request.payload or {}

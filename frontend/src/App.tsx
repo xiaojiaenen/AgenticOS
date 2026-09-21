@@ -5,6 +5,7 @@ import { GlassProvider } from '@xiaojiaenen/liquid-glass';
 import { GlobalAnnouncementLayer } from './components/announcement/GlobalAnnouncementLayer';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ToastContainer } from './components/ui/Toast';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { useTheme } from './hooks/useTheme';
 
 const Home = lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
@@ -63,7 +64,9 @@ function AppContent() {
   return (
     <>
       <GlobalAnnouncementLayer />
-      <AnimatedRoutes />
+      <ErrorBoundary>
+        <AnimatedRoutes />
+      </ErrorBoundary>
       <ToastContainer />
     </>
   );

@@ -59,7 +59,15 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expi
 
 def init_db() -> None:
     get_settings().get_skill_storage_dir().mkdir(parents=True, exist_ok=True)
-    Base.metadata.create_all(bind=engine)
+    # checkfirst=True（默认）在 Index 已存在时仍可能报错（MySQL 方言 bug），
+    # 用 try/ignore 兜底，让已有索引不阻塞启动。
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as exc:  # noqa: BLE001
+        if "Duplicate key name" in str(exc) or "already exists" in str(exc):
+            logger.warning("create_all skipped existing index/table: %s", exc)
+        else:
+            raise
     _ensure_compatible_schema()
     from app.services.tool_config_service import seed_tool_configs
     from app.services.agent_profile_service import seed_agent_profiles
@@ -187,10 +195,27 @@ def _ensure_compatible_schema() -> None:
         ("metadata_json", "TEXT DEFAULT '{}'"),
     ])
 
-    # ── memories ──
+    # ── memories（L1 扩展：分层蒸馏字段）──
     _add_columns("memories", [
         ("tags_json", "TEXT"),
         ("source", "VARCHAR(32) DEFAULT 'auto'"),
+        ("layer", "VARCHAR(8) DEFAULT 'L1'"),
+        ("scenario_id", "INTEGER"),
+        ("embedding_model", "VARCHAR(64)"),
+        ("embedding_updated_at", "DATETIME"),
+        ("last_accessed_at", "DATETIME"),
+        ("access_count", "INTEGER DEFAULT 0"),
+        ("visibility", "VARCHAR(16) DEFAULT 'private'"),
+    ])
+
+    # ── skills（资产化扩展）──
+    _add_columns("skills", [
+        ("version", "INTEGER DEFAULT 1"),
+        ("trigger_patterns_json", "TEXT"),
+        ("validation_rules_json", "TEXT"),
+        ("usage_count", "INTEGER DEFAULT 0"),
+        ("last_used_at", "DATETIME"),
+        ("visibility", "VARCHAR(16) DEFAULT 'private'"),
     ])
 
     # ── video_artifacts ──
@@ -266,6 +291,18 @@ def _ensure_compatible_schema() -> None:
                     conn.execute(text("ALTER TABLE agent_messages MODIFY COLUMN message_json LONGTEXT"))
         except Exception:
             pass  # SQLite 不支持 ALTER COLUMN，忽略
+
+    # ── ppt_artifacts: deck_json / preview_html 升级为 LONGTEXT（SVG deck 可能远超 TEXT 64KB 上限）──
+    if "ppt_artifacts" in tables:
+        for col_name in ("deck_json", "preview_html"):
+            try:
+                cols = {c["name"]: c for c in inspector.get_columns("ppt_artifacts")}
+                col = cols.get(col_name)
+                if col and "TEXT" in str(col.get("type", "")).upper() and "LONG" not in str(col.get("type", "")).upper():
+                    with engine.begin() as conn:
+                        conn.execute(text(f"ALTER TABLE ppt_artifacts MODIFY COLUMN {col_name} LONGTEXT"))
+            except Exception:
+                pass  # SQLite 不支持 ALTER COLUMN，忽略
 
 
 def create_db_session() -> Session:
