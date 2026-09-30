@@ -11,15 +11,15 @@
 
 import json
 import logging
-import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Optional
 
-from sqlalchemy import select, and_
+from sqlalchemy import bindparam, select, and_, text
 from sqlalchemy.orm import Session
 
 from app.db.models import KBWikiPageModel, KnowledgeBaseModel
+from app.services.knowledge.tokenizer import tokenize
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +75,9 @@ class KnowledgeRetrieval:
         "L1": 1.0,
         "L0": 0.8,
     }
+
+    # MySQL FULLTEXT 路径单次检索返回的候选上限（进入 RRF 融合前截断）
+    BM25_TOP_K = 50
 
     def __init__(self, db: Session):
         self.db = db
@@ -153,13 +156,82 @@ class KnowledgeRetrieval:
         knowledge_base_ids: list[int],
         page_type: Optional[str],
     ) -> list[tuple[int, float]]:
-        """BM25 全文检索"""
-        results = []
+        """BM25 全文检索。
 
+        - MySQL（生产）：FULLTEXT ngram 索引 MATCH AGAINST，仅取 top N，
+          不再全量加载文档；查询异常时降级到 Python 路径。
+        - SQLite（开发/测试）：Python BM25（jieba 分词 + 真实 DF 统计）。
+        """
         if not knowledge_base_ids:
             return []
 
-        # 构建查询条件
+        if self._is_mysql():
+            try:
+                return self._bm25_search_mysql(query, knowledge_base_ids, page_type)
+            except Exception as e:  # noqa: BLE001 —— 任何 MySQL 异常都降级，不阻断检索
+                logger.warning(
+                    "MySQL FULLTEXT 检索失败，降级到 Python BM25: %s", e,
+                )
+        return self._bm25_search_python(query, knowledge_base_ids, page_type)
+
+    def _is_mysql(self) -> bool:
+        """当前 session 是否运行在 MySQL 方言上。"""
+        try:
+            return self.db.get_bind().dialect.name == "mysql"
+        except Exception:  # noqa: BLE001 —— 探测失败按非 MySQL 处理
+            return False
+
+    def _bm25_search_mysql(
+        self,
+        query: str,
+        knowledge_base_ids: list[int],
+        page_type: Optional[str],
+    ) -> list[tuple[int, float]]:
+        """MySQL FULLTEXT ngram 检索（索引由 0003 迁移建立）。
+
+        NATURAL LANGUAGE MODE 下 ngram parser 自动对查询做二元切分，
+        relevance 即 BM25 权重。只 SELECT 需要的列，避免全量加载。
+        """
+        conditions = [
+            "knowledge_base_id IN :kb_ids",
+            "is_active = :is_active",
+        ]
+        if page_type:
+            conditions.append("page_type = :page_type")
+        where_clause = " AND ".join(conditions)
+        match_expr = "MATCH(content) AGAINST(:query IN NATURAL LANGUAGE MODE)"
+
+        stmt = text(f"""
+            SELECT id, title, LEFT(content, 300) AS snippet, {match_expr} AS score
+            FROM kb_wiki_pages
+            WHERE {where_clause} AND {match_expr} > 0
+            ORDER BY score DESC
+            LIMIT :top_k
+        """).bindparams(bindparam("kb_ids", expanding=True))
+
+        params: dict = {
+            "kb_ids": list(knowledge_base_ids),
+            "is_active": 1,
+            "query": query,
+            "top_k": self.BM25_TOP_K,
+        }
+        if page_type:
+            params["page_type"] = page_type
+
+        rows = self.db.execute(stmt, params).fetchall()
+        return [(int(row.id), float(row.score)) for row in rows]
+
+    def _bm25_search_python(
+        self,
+        query: str,
+        knowledge_base_ids: list[int],
+        page_type: Optional[str],
+    ) -> list[tuple[int, float]]:
+        """Python 内存 BM25（SQLite fallback 路径）。
+
+        每篇文档只分词一次（此前 content 会被重复分词两次）；
+        DF 用真实文档频率统计（此前 df=1 近似导致常见词 IDF 虚高）。
+        """
         conditions = [
             KBWikiPageModel.knowledge_base_id.in_(knowledge_base_ids),
             KBWikiPageModel.is_active.is_(True),
@@ -168,19 +240,31 @@ class KnowledgeRetrieval:
             conditions.append(KBWikiPageModel.page_type == page_type)
 
         stmt = select(KBWikiPageModel).where(and_(*conditions))
-        result = self.db.execute(stmt)
-        pages = result.scalars().all()
+        pages = self.db.execute(stmt).scalars().all()
 
-        # 简单的 BM25 实现
-        query_terms = self._tokenize(query)
         doc_count = len(pages)
         if doc_count == 0:
             return []
 
-        avg_dl = sum(len(self._tokenize(p.content)) for p in pages) / doc_count
-
+        # 单遍预分词：文档词表（供评分与平均长度）、真实 DF 统计
+        doc_terms_map: dict[int, list[str]] = {}
+        df: dict[str, int] = defaultdict(int)
+        total_len = 0
         for page in pages:
-            score = self._calculate_bm25_score(page, query_terms, doc_count, avg_dl)
+            terms = tokenize(page.content + " " + page.title)
+            doc_terms_map[page.id] = terms
+            total_len += len(terms)
+            for term in set(terms):
+                df[term] += 1
+        avg_dl = total_len / doc_count
+
+        query_terms = tokenize(query)
+        results = []
+        for page in pages:
+            score = self._calculate_bm25_score(
+                query_terms, doc_terms_map[page.id], df, doc_count, avg_dl,
+                title_terms=tokenize(page.title),
+            )
             if score > 0:
                 results.append((page.id, score))
 
@@ -268,57 +352,52 @@ class KnowledgeRetrieval:
         return results
 
     def _tokenize(self, text: str) -> list[str]:
-        """简单的分词"""
-        text = text.lower()
-        text = re.sub(r"[^\w\s一-鿿]", " ", text)
-        tokens = []
-        for part in text.split():
-            if self._is_chinese(part):
-                for i in range(len(part) - 1):
-                    tokens.append(part[i:i+2])
-                if len(part) == 1:
-                    tokens.append(part)
-            else:
-                tokens.append(part)
-        return tokens
+        """分词入口：委托 tokenizer 模块（jieba 词级分词）。
 
-    def _is_chinese(self, text: str) -> bool:
-        """判断是否包含中文"""
-        return bool(re.search(r"[一-鿿]", text))
+        旧的 bigram 逻辑保留在 ``tokenizer.bigram_tokenize``，
+        供 SQLite FTS5 兼容场景与新旧召回对比使用。
+        """
+        return tokenize(text)
 
     def _calculate_bm25_score(
         self,
-        page: KBWikiPageModel,
         query_terms: list[str],
+        doc_terms: list[str],
+        df: dict[str, int],
         doc_count: int,
         avg_dl: float,
+        title_terms: Optional[list[str]] = None,
         k1: float = 1.5,
         b: float = 0.75,
     ) -> float:
-        """计算 BM25 分数"""
-        doc_terms = self._tokenize(page.content + " " + page.title)
-        dl = len(doc_terms)
-        doc_term_freq = defaultdict(int)
+        """计算单文档 BM25 分数。
+
+        IDF 使用真实文档频率：``(N - df + 0.5) / (df + 0.5)``，
+        常见词权重自然衰减，稀有词权重升高（修复迁移前 df=1 的近似）。
+        标题命中沿用迁移前的固定加权（+10/词）。
+        """
+        doc_term_freq: dict[str, int] = defaultdict(int)
         for term in doc_terms:
             doc_term_freq[term] += 1
 
+        dl = len(doc_terms)
         score = 0.0
-        for term in query_terms:
+        for term in set(query_terms):
             tf = doc_term_freq.get(term, 0)
             if tf == 0:
                 continue
 
-            df = 1
-            idf = max(0, (doc_count - df + 0.5) / (df + 0.5))
+            term_df = df.get(term) or 1
+            idf = max(0.0, (doc_count - term_df + 0.5) / (term_df + 0.5))
 
             tf_norm = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * dl / max(avg_dl, 1)))
             score += idf * tf_norm
 
         # 标题命中加权
-        title_terms = self._tokenize(page.title)
-        for term in query_terms:
-            if term in title_terms:
-                score += 10
+        if title_terms:
+            for term in set(query_terms):
+                if term in title_terms:
+                    score += 10
 
         return score
 
