@@ -66,7 +66,7 @@ AUTH_SECRET_KEY=生成一个随机长字符串
 可选但推荐：
 
 ```env
-# Redis（验证码、输入补全等缓存功能，留空则内存 fallback）
+# Redis（生产必填！验证码缓存、输入补全、审批广播、登录限流均依赖；留空则内存 fallback——多 worker/多副本下登录限流计数不共享、限流阈值会按进程数放大，且 arq worker 无法工作，仅限单机开发环境
 REDIS_URL=redis://your-redis-host:6379/0
 
 # 系统通知邮箱（验证码发送、任务完成通知、欢迎邮件）
@@ -130,7 +130,7 @@ curl -I http://localhost:10008/
 
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
-| REDIS_URL | 空（内存 fallback） | Redis 连接地址，如 `redis://your-redis-host:6379/0` |
+| REDIS_URL | 空（内存 fallback） | Redis 连接地址，如 `redis://your-redis-host:6379/0`。**生产必填**：登录限流（原子计数）、审批跨实例广播、任务队列均依赖 Redis，内存 fallback 仅限单进程开发 |
 | REDIS_CLUSTER | false | 是否使用 Redis 集群模式 |
 
 ### 系统通知邮箱（可选）

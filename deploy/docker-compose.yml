@@ -1,15 +1,55 @@
 name: agenticos
 
+# backend 与 worker 共用同一镜像与同一套环境变量，避免配置漂移
+x-backend-build: &backend-build
+  context: ..
+  dockerfile: deploy/Dockerfile.backend
+  network: host
+  args:
+    BASE_REGISTRY: ${BASE_REGISTRY:-172.73.0.156:85}
+    PYPI_MIRROR: ${PYPI_MIRROR:-https://pypi.org/simple}
+
+x-backend-env: &backend-env
+  # 数据库
+  DATABASE_URL: ${DATABASE_URL:-mysql+pymysql://user:password@host:3306/agenticos}
+  # OpenAI
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+  OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4}
+  # 认证
+  AUTH_SECRET_KEY: ${AUTH_SECRET_KEY}
+  AUTH_TOKEN_EXPIRE_MINUTES: ${AUTH_TOKEN_EXPIRE_MINUTES:-10080}
+  # 环境
+  ENVIRONMENT: ${ENVIRONMENT:-production}
+  CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3001}
+  # Redis（compose 内指向 redis 服务；开发可覆盖）
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  REDIS_CLUSTER: ${REDIS_CLUSTER:-false}
+  # LDAP 认证
+  LDAP_ENABLED: ${LDAP_ENABLED:-false}
+  LDAP_AUTO_CREATE_USERS: ${LDAP_AUTO_CREATE_USERS:-false}
+  LDAP_GATEWAY_URL: ${LDAP_GATEWAY_URL:-}
+  LDAP_EMAIL_DOMAIN: ${LDAP_EMAIL_DOMAIN:-gree.com.cn}
+  LDAP_EMAIL_IMAP_HOST: ${LDAP_EMAIL_IMAP_HOST:-}
+  LDAP_EMAIL_IMAP_PORT: ${LDAP_EMAIL_IMAP_PORT:-993}
+  LDAP_EMAIL_SMTP_HOST: ${LDAP_EMAIL_SMTP_HOST:-}
+  LDAP_EMAIL_SMTP_PORT: ${LDAP_EMAIL_SMTP_PORT:-465}
+  # 系统通知邮箱
+  NOTIFY_EMAIL_ADDRESS: ${NOTIFY_EMAIL_ADDRESS:-}
+  NOTIFY_EMAIL_PASSWORD: ${NOTIFY_EMAIL_PASSWORD:-}
+  NOTIFY_SMTP_HOST: ${NOTIFY_SMTP_HOST:-}
+  NOTIFY_SMTP_PORT: ${NOTIFY_SMTP_PORT:-465}
+  NOTIFY_SMTP_SSL: ${NOTIFY_SMTP_SSL:-true}
+  NOTIFY_TASK_MIN_SECONDS: ${NOTIFY_TASK_MIN_SECONDS:-120}
+  # OpenBLAS
+  OPENBLAS_NUM_THREADS: 1
+  # Skill
+  SKILL_STORAGE_DIR: ${SKILL_STORAGE_DIR:-./data/skills}
+
 services:
   backend:
     image: ${IMAGE_REGISTRY:-172.73.0.156:85}/agenticos-backend:latest
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.backend
-      network: host
-      args:
-        BASE_REGISTRY: ${BASE_REGISTRY:-172.73.0.156:85}
-        PYPI_MIRROR: ${PYPI_MIRROR:-https://pypi.org/simple}
+    build: *backend-build
     restart: always
     deploy:
       resources:
@@ -29,54 +69,57 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    environment:
-      # 数据库
-      DATABASE_URL: ${DATABASE_URL:-mysql+pymysql://user:password@host:3306/agenticos}
-
-      # OpenAI
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4}
-
-      # 认证
-      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY}
-      AUTH_TOKEN_EXPIRE_MINUTES: ${AUTH_TOKEN_EXPIRE_MINUTES:-10080}
-
-      # 环境
-      ENVIRONMENT: ${ENVIRONMENT:-production}
-      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3001}
-
-      # Redis（留空则使用内存 fallback）
-      REDIS_URL: ${REDIS_URL:-}
-      REDIS_CLUSTER: ${REDIS_CLUSTER:-false}
-
-      # LDAP 认证
-      LDAP_ENABLED: ${LDAP_ENABLED:-false}
-      LDAP_AUTO_CREATE_USERS: ${LDAP_AUTO_CREATE_USERS:-false}
-      LDAP_GATEWAY_URL: ${LDAP_GATEWAY_URL:-}
-      LDAP_EMAIL_DOMAIN: ${LDAP_EMAIL_DOMAIN:-gree.com.cn}
-      LDAP_EMAIL_IMAP_HOST: ${LDAP_EMAIL_IMAP_HOST:-}
-      LDAP_EMAIL_IMAP_PORT: ${LDAP_EMAIL_IMAP_PORT:-993}
-      LDAP_EMAIL_SMTP_HOST: ${LDAP_EMAIL_SMTP_HOST:-}
-      LDAP_EMAIL_SMTP_PORT: ${LDAP_EMAIL_SMTP_PORT:-465}
-
-      # 系统通知邮箱
-      NOTIFY_EMAIL_ADDRESS: ${NOTIFY_EMAIL_ADDRESS:-}
-      NOTIFY_EMAIL_PASSWORD: ${NOTIFY_EMAIL_PASSWORD:-}
-      NOTIFY_SMTP_HOST: ${NOTIFY_SMTP_HOST:-}
-      NOTIFY_SMTP_PORT: ${NOTIFY_SMTP_PORT:-465}
-      NOTIFY_SMTP_SSL: ${NOTIFY_SMTP_SSL:-true}
-      NOTIFY_TASK_MIN_SECONDS: ${NOTIFY_TASK_MIN_SECONDS:-120}
-
-      # OpenBLAS
-      OPENBLAS_NUM_THREADS: 1
-
-      # Skill
-      SKILL_STORAGE_DIR: ${SKILL_STORAGE_DIR:-./data/skills}
+    environment: *backend-env
     volumes:
       - ../data:/app/data
     ports:
       - "${BACKEND_PORT:-10007}:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    # Redis 未设密码，默认不向宿主机暴露端口（backend/worker 走内部网络访问）。
+    # 如需从宿主机调试，取消注释并自行加 requirepass：
+    # ports:
+    #   - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  worker:
+    image: ${IMAGE_REGISTRY:-172.73.0.156:85}/agenticos-backend:latest
+    build: *backend-build
+    restart: always
+    command: ["arq", "app.services.task_queue.WorkerSettings"]
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "arq", "--check", "app.services.task_queue.WorkerSettings"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+    environment: *backend-env
+    volumes:
+      - ../data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
 
   frontend:
     image: ${IMAGE_REGISTRY:-172.73.0.156:85}/agenticos-frontend:latest
@@ -99,3 +142,6 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+volumes:
+  redis-data:
