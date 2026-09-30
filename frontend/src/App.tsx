@@ -1,12 +1,22 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { GlassProvider } from '@xiaojiaenen/liquid-glass';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GlobalAnnouncementLayer } from './components/announcement/GlobalAnnouncementLayer';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ToastContainer } from './components/ui/Toast';
+import { Toaster } from '@/components/shadcn/sonner';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
-import { useTheme } from './hooks/useTheme';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
 
 const Home = lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
 const Chat = lazy(() => import('./pages/Chat').then((module) => ({ default: module.Chat })));
@@ -49,9 +59,9 @@ const AnimatedRoutes = () => {
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
               className="flex h-screen flex-col items-center justify-center gap-4 bg-zinc-50 text-slate-600"
             >
-              <p className="text-6xl font-black text-slate-400">404</p>
-              <p className="text-lg font-bold">页面未找到</p>
-              <Link to="/" className="text-sm font-medium text-sky-600 hover:text-sky-700">返回首页</Link>
+              <p className="text-6xl font-semibold text-slate-400">404</p>
+              <p className="text-lg font-semibold">页面未找到</p>
+              <Link to="/" className="text-sm font-medium text-sky-600 hover:text-sky-700 underline underline-offset-4">返回首页</Link>
             </motion.div>
           } />
         </Routes>
@@ -68,27 +78,19 @@ function AppContent() {
         <AnimatedRoutes />
       </ErrorBoundary>
       <ToastContainer />
+      {/* sonner Toaster（shadcn）— M1 起逐步替代 ToastContainer */}
+      <Toaster />
     </>
   );
 }
 
 function App() {
-  const { theme } = useTheme();
-
-  if (theme === 'liquid-glass') {
-    return (
-      <GlassProvider tint="dark" accent="blue">
-        <Router>
-          <AppContent />
-        </Router>
-      </GlassProvider>
-    );
-  }
-
   return (
-    <Router>
-      <AppContent />
-    </Router>
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <AppContent />
+      </Router>
+    </QueryClientProvider>
   );
 }
 

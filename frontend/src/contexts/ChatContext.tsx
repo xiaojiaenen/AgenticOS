@@ -28,7 +28,12 @@ export interface ChatContextValue {
   pendingDecisions: UserDecision[];
   handleSend: (text: string, files?: File[]) => void;
   handleStopGeneration: () => void;
-  handleApprovalDecision: (approvalId: string, status: 'approved' | 'rejected') => void;
+  handleApprovalDecision: (
+    approvalId: string,
+    status: 'approved' | 'rejected',
+    isApiApproval?: boolean,
+    allowAll?: boolean,
+  ) => Promise<void>;
   handleDecisionMade: (decisionId: string, answer: string) => void;
 
   // ── 滚动 ──

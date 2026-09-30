@@ -46,9 +46,9 @@ export const useChatSearch = (currentSession: Session | undefined) => {
       const el = document.getElementById(matchId);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('ring-4', 'ring-yellow-400/30', 'transition-all');
+        el.classList.add('ring-4', 'ring-yellow-200', 'transition-all');
         if (highlightTimeoutRef.current !== null) clearTimeout(highlightTimeoutRef.current);
-        highlightTimeoutRef.current = window.setTimeout(() => el.classList.remove('ring-4', 'ring-yellow-400/30'), 2000);
+        highlightTimeoutRef.current = window.setTimeout(() => el.classList.remove('ring-4', 'ring-yellow-200'), 2000);
       }
     }
   };

@@ -1,7 +1,7 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, MotionValue } from 'motion/react';
 import { Download, LayoutDashboard, Palette, Pencil, Play, RefreshCcw, X, Loader2 } from 'lucide-react';
-import { MotionValue } from 'motion/react';
+
 import { Artifact } from '../../types';
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
 import { exportPptx, listPptThemes, rethemePpt, getPptPreviewHtml, type PptTheme } from '../../services/agentService';

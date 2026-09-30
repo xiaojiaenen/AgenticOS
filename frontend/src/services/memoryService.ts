@@ -11,6 +11,10 @@ export type MemoryItem = {
   importance: number;
   tags: string[];
   source?: string;
+  layer?: string;
+  scenario_id?: number | null;
+  access_count?: number;
+  visibility?: string;
   created_at: string | null;
 };
 
@@ -59,22 +63,27 @@ export async function deleteMemory(memoryId: number): Promise<void> {
   }
 }
 
+/**
+ * 创建记忆。
+ * 后端 memory.py POST /memory 的参数为简单标量（无 Body 注解），
+ * FastAPI 将其解析为 query string；发送 form body 会触发 422。
+ * 因此改为 query 参数。
+ */
 export async function createMemory(
   content: string,
   memoryType: string = 'fact',
   importance: number = 0.5,
 ): Promise<{ id: number; success: boolean }> {
-  const response = await fetch(MEMORY_ENDPOINT, {
+  const params = new URLSearchParams({
+    content,
+    memory_type: memoryType,
+    importance: String(importance),
+  });
+  const response = await fetch(`${MEMORY_ENDPOINT}?${params.toString()}`, {
     method: 'POST',
     headers: {
       ...authHeaders(),
-      'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({
-      content,
-      memory_type: memoryType,
-      importance: String(importance),
-    }),
   });
   return parseResponse<{ id: number; success: boolean }>(response);
 }

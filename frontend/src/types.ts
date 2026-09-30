@@ -13,6 +13,7 @@ export type ToolCall = {
   retryable?: boolean;
   attempts?: number;
   instruction?: string;
+  isApiApproval?: boolean;
 };
 
 export type Attachment = {
@@ -123,6 +124,6 @@ export type Artifact =
   | {language: 'html' | 'svg'; code: string}
   | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number; theme?: string}
   | {language: 'website'; artifactId: string; html: string; title: string;
-      projectSlug: string; stack?: string; fileCount?: number}
+      projectSlug: string; stack?: string; fileCount?: number; sessionId?: string}
   | {language: 'email'; approvalId: string; to: string; subject: string; body: string;
       cc?: string; isHtml?: boolean};

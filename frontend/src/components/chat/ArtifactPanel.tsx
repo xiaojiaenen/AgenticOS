@@ -1,9 +1,10 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { MotionValue } from 'motion/react';
+import { motion, MotionValue } from 'motion/react';
+
 import { Artifact } from '../../types';
 import { buildSandboxedHtmlDocument, createObjectUrl } from '../../lib/safePreview';
 import { copyToClipboard } from '../../lib/utils';
+import { toast } from '../ui/Toast';
 import { AlertCircleIcon, CodeIcon, DownloadIcon, RefreshIcon } from '../ui/AnimatedIcons';
 
 interface ArtifactPanelProps {
@@ -87,7 +88,11 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
           <button
             type="button"
             onClick={() => {
-              copyToClipboard(artifact.code);
+              void copyToClipboard(artifact.code).then((ok) => {
+                toast(ok ? '已复制到剪贴板' : '复制失败', {
+                  variant: ok ? 'success' : 'error',
+                });
+              });
             }}
             className="rounded-xl p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-zinc-600"
             title="复制代码"

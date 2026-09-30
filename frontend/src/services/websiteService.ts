@@ -18,12 +18,22 @@ export type DeployRecord = {
   updated_at: string | null
 }
 
+/**
+ * 请求部署网站。
+ * @param sessionId 会话 ID（首参必须是 sessionId，不是 artifactId）
+ * @param projectSlug 项目 slug
+ * @param stack 技术栈
+ * @param targetDomain 可选目标域名
+ */
 export async function requestDeploy(
   sessionId: string,
   projectSlug: string,
   stack: string,
   targetDomain?: string,
 ): Promise<DeployRecord> {
+  if (!sessionId) {
+    throw new Error('requestDeploy requires sessionId (not artifactId)')
+  }
   return apiFetch<DeployRecord>(`${API_BASE_URL}/api/v1/website/deploy`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
