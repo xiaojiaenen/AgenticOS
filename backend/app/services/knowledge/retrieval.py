@@ -6,6 +6,7 @@
 - 向量语义检索（可选）
 - RRF 融合
 - 权威性加权
+- visibility/scope 权限过滤（private=owner/admin）
 """
 
 import json
@@ -18,9 +19,36 @@ from typing import Optional
 from sqlalchemy import select, and_
 from sqlalchemy.orm import Session
 
-from app.db.models import KBWikiPageModel, KBWikiLinkModel, KnowledgeBaseModel
+from app.db.models import KBWikiPageModel, KnowledgeBaseModel
 
 logger = logging.getLogger(__name__)
+
+
+def can_view_knowledge_base(
+    kb: KnowledgeBaseModel,
+    user_id: Optional[int] = None,
+    is_admin: bool = False,
+) -> bool:
+    """知识库可见性判定。
+
+    - admin：全部可见
+    - visibility=private：仅 owner/admin
+    - scope=personal：仅 owner/admin
+    - scope=team：owner 恒可见；非 owner 仅 public（团队 ACL 未落地前的保守策略）
+    - scope=org / 非 private：可见
+    """
+    if is_admin:
+        return True
+    if kb.visibility == "private":
+        return user_id is not None and kb.owner_id == user_id
+    if kb.scope == "personal":
+        return user_id is not None and kb.owner_id == user_id
+    if kb.scope == "team":
+        if user_id is not None and kb.owner_id == user_id:
+            return True
+        return kb.visibility == "public"
+    # org 或其他
+    return True
 
 
 @dataclass
@@ -58,6 +86,7 @@ class KnowledgeRetrieval:
         user_id: Optional[int] = None,
         page_type: Optional[str] = None,
         max_results: int = 10,
+        is_admin: bool = False,
     ) -> list[SearchResult]:
         """
         执行知识库检索
@@ -68,6 +97,7 @@ class KnowledgeRetrieval:
             user_id: 用户 ID（用于权限过滤）
             page_type: 过滤页面类型
             max_results: 最大结果数
+            is_admin: 是否管理员（private=owner/admin）
 
         Returns:
             list[SearchResult]: 检索结果列表
@@ -75,7 +105,9 @@ class KnowledgeRetrieval:
         logger.info(f"Searching knowledge base: query='{query[:50]}...'")
 
         # 获取可见的知识库
-        visible_kb_ids = self._get_visible_knowledge_bases(knowledge_base_ids, user_id)
+        visible_kb_ids = self._get_visible_knowledge_bases(
+            knowledge_base_ids, user_id, is_admin=is_admin,
+        )
         if not visible_kb_ids:
             return []
 
@@ -100,17 +132,20 @@ class KnowledgeRetrieval:
         self,
         knowledge_base_ids: Optional[list[int]],
         user_id: Optional[int],
+        is_admin: bool = False,
     ) -> list[int]:
-        """获取用户可见的知识库 ID 列表"""
-        if knowledge_base_ids:
-            return knowledge_base_ids
-
-        # 查询所有活跃的知识库（第一阶段简化：不做权限过滤）
-        stmt = select(KnowledgeBaseModel.id).where(
-            KnowledgeBaseModel.is_active == True
+        """获取用户可见的知识库 ID 列表（visibility/scope 过滤）。"""
+        stmt = select(KnowledgeBaseModel).where(
+            KnowledgeBaseModel.is_active.is_(True)
         )
-        result = self.db.execute(stmt)
-        return [row[0] for row in result.fetchall()]
+        if knowledge_base_ids:
+            stmt = stmt.where(KnowledgeBaseModel.id.in_(knowledge_base_ids))
+
+        rows = self.db.execute(stmt).scalars().all()
+        return [
+            kb.id for kb in rows
+            if can_view_knowledge_base(kb, user_id=user_id, is_admin=is_admin)
+        ]
 
     def _bm25_search(
         self,
@@ -121,10 +156,13 @@ class KnowledgeRetrieval:
         """BM25 全文检索"""
         results = []
 
+        if not knowledge_base_ids:
+            return []
+
         # 构建查询条件
         conditions = [
             KBWikiPageModel.knowledge_base_id.in_(knowledge_base_ids),
-            KBWikiPageModel.is_active == True,
+            KBWikiPageModel.is_active.is_(True),
         ]
         if page_type:
             conditions.append(KBWikiPageModel.page_type == page_type)
@@ -232,7 +270,7 @@ class KnowledgeRetrieval:
     def _tokenize(self, text: str) -> list[str]:
         """简单的分词"""
         text = text.lower()
-        text = re.sub(r"[^\w\s\u4e00-\u9fff]", " ", text)
+        text = re.sub(r"[^\w\s一-鿿]", " ", text)
         tokens = []
         for part in text.split():
             if self._is_chinese(part):
@@ -246,7 +284,7 @@ class KnowledgeRetrieval:
 
     def _is_chinese(self, text: str) -> bool:
         """判断是否包含中文"""
-        return bool(re.search(r"[\u4e00-\u9fff]", text))
+        return bool(re.search(r"[一-鿿]", text))
 
     def _calculate_bm25_score(
         self,
@@ -291,6 +329,7 @@ def search_knowledge_base(
     knowledge_base_ids: Optional[list[int]] = None,
     user_id: Optional[int] = None,
     max_results: int = 5,
+    is_admin: bool = False,
 ) -> list[SearchResult]:
     """
     知识库检索便捷函数
@@ -301,4 +340,5 @@ def search_knowledge_base(
         knowledge_base_ids=knowledge_base_ids,
         user_id=user_id,
         max_results=max_results,
+        is_admin=is_admin,
     )

@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-import traceback
+import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,6 +20,26 @@ _logger = logging.getLogger("agent.stream")
 
 def _format_sse(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+# SVG 安全净化：按标签/属性白名单移除危险内容，避免拼接进 HTML 后产生存储型 XSS。
+_RE_SCRIPT_BLOCK = re.compile(r"<script\b[^>]*>.*?</script\s*>", re.IGNORECASE | re.DOTALL)
+_RE_SELF_CLOSING_SCRIPT = re.compile(r"<script\b[^>]*/\s*>", re.IGNORECASE)
+_RE_EVENT_ATTR = re.compile(r'\s+on[a-zA-Z]+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)', re.IGNORECASE)
+_RE_JS_URL = re.compile(r"(?:javascript|vbscript)\s*:|data\s*:\s*text/html", re.IGNORECASE)
+_RE_FOREIGN_OBJECT = re.compile(r"<foreignObject\b[^>]*>.*?</foreignObject\s*>", re.IGNORECASE | re.DOTALL)
+_RE_SELF_CLOSING_FOREIGN_OBJECT = re.compile(r"<foreignObject\b[^>]*/\s*>", re.IGNORECASE)
+
+
+def _sanitize_svg(svg: str) -> str:
+    """移除 SVG 中的脚本向量：<script>、on* 事件属性、javascript:/data:text/html: URL、<foreignObject>。"""
+    svg = _RE_SCRIPT_BLOCK.sub("", svg)
+    svg = _RE_SELF_CLOSING_SCRIPT.sub("", svg)
+    svg = _RE_FOREIGN_OBJECT.sub("", svg)
+    svg = _RE_SELF_CLOSING_FOREIGN_OBJECT.sub("", svg)
+    svg = _RE_EVENT_ATTR.sub("", svg)
+    svg = _RE_JS_URL.sub("", svg)
+    return svg
 
 
 @router.post("/stream", summary="以流式方式返回 Wuwei 智能体响应")
@@ -258,10 +278,10 @@ async def preview_pptx(
     if not svgs:
         raise HTTPException(status_code=400, detail="Artifact contains no SVG slides")
 
-    slides_html = "".join(svgs)
+    slides_html = "".join(_sanitize_svg(svg) for svg in svgs)
     # 对 title 进行 HTML 转义防止 XSS
     import html
-    safe_title = html.escape(artifact.get("title", "PPT Preview"))
+    safe_title = html.escape(artifact.get("title", "PPT Preview"), quote=True)
     html_content = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -329,8 +349,21 @@ async def ppt_editor(
         raise HTTPException(status_code=400, detail="Artifact contains no SVG slides")
 
     import json
-    svgs_json = json.dumps(svgs, ensure_ascii=False)
-    title = artifact.get("title", "PPT Editor")
+    from html import escape as _html_escape
+
+    # XSS 防护：
+    # 1) title 走 HTML 转义后插入 <title>/<h2>；
+    # 2) svgs_json / artifact_id 用 JSON 编码并把 < > & 转为 \uXXXX，
+    #    防止内容里的 </script> 提前闭合脚本标签；
+    # 3) 插入预览 DOM 时经 DOMParser 清洗（见前端 sanitizeSvg）。
+    svgs_json = (
+        json.dumps(svgs, ensure_ascii=False)
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+    )
+    artifact_id_js = json.dumps(str(artifact_id)).replace("<", "\\u003c")
+    title = _html_escape(str(artifact.get("title", "PPT Editor")))
 
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -416,10 +449,49 @@ body {{ font-family:Inter,Noto Sans SC,system-ui,sans-serif; background:#f8fafc;
   </div>
 </div>
 <script>
-const artifactId = "{artifact_id}";
+const artifactId = {artifact_id_js};
 let svgs = {svgs_json};
 let currentSlide = 0;
 let modified = {{}};
+
+// ── XSS 安全插入：DOMParser 解析 + 清洗 script/on* 危险内容 ──
+function sanitizeSvgRoot(markup) {{
+  try {{
+    const doc = new DOMParser().parseFromString(String(markup || ''), 'image/svg+xml');
+    if (!doc || doc.querySelector('parsererror')) return null;
+    const root = doc.documentElement;
+    if (!root || (root.nodeName || '').toLowerCase() !== 'svg') return null;
+    // 移除可执行/嵌套文档元素
+    doc.querySelectorAll('script, foreignObject, iframe, object, embed').forEach(function (node) {{
+      node.parentNode && node.parentNode.removeChild(node);
+    }});
+    // 移除事件处理器属性与危险 URL 协议
+    doc.querySelectorAll('*').forEach(function (el) {{
+      Array.prototype.slice.call(el.attributes || []).forEach(function (attr) {{
+        const name = (attr.name || '').toLowerCase();
+        const value = String(attr.value || '');
+        if (name.indexOf('on') === 0) {{
+          el.removeAttribute(attr.name);
+          return;
+        }}
+        if ((name === 'href' || name === 'xlink:href' || name === 'src') &&
+            /^\\s*(javascript|vbscript|data:text\\/html)/i.test(value.trim())) {{
+          el.removeAttribute(attr.name);
+        }}
+      }});
+    }});
+    return root;
+  }} catch (e) {{
+    return null;
+  }}
+}}
+
+function setSafeSvg(container, markup) {{
+  if (!container) return;
+  container.textContent = '';
+  const root = sanitizeSvgRoot(markup);
+  if (root) container.appendChild(document.importNode(root, true));
+}}
 
 function init() {{
   renderSlideList();
@@ -429,18 +501,24 @@ function init() {{
 
 function renderSlideList() {{
   const list = document.getElementById('slideList');
-  list.innerHTML = svgs.map((svg, i) => `
-    <div class="slide-thumb ${{i === currentSlide ? 'active' : ''}}" onclick="showSlide(${{i}})">
-      <div class="slide-num">第 ${{i + 1}} 页</div>
-      ${{svg}}
-    </div>
-  `).join('');
+  list.textContent = '';
+  svgs.forEach(function (svg, i) {{
+    const thumb = document.createElement('div');
+    thumb.className = 'slide-thumb' + (i === currentSlide ? ' active' : '');
+    thumb.addEventListener('click', function () {{ showSlide(i); }});
+    const num = document.createElement('div');
+    num.className = 'slide-num';
+    num.textContent = '第 ' + (i + 1) + ' 页';
+    thumb.appendChild(num);
+    setSafeSvg(thumb, svg);
+    list.appendChild(thumb);
+  }});
 }}
 
 function showSlide(index) {{
   if (index < 0 || index >= svgs.length) return;
   currentSlide = index;
-  document.getElementById('preview').innerHTML = svgs[index];
+  setSafeSvg(document.getElementById('preview'), svgs[index]);
   document.getElementById('codeEditor').value = svgs[index];
   document.getElementById('pageInfo').textContent = `第 ${{index + 1}} 页 / 共 ${{svgs.length}} 页`;
   renderSlideList();
@@ -468,7 +546,7 @@ function applyChanges() {{
 
   svgs[currentSlide] = code;
   modified[currentSlide] = true;
-  document.getElementById('preview').innerHTML = code;
+  setSafeSvg(document.getElementById('preview'), code);
   renderSlideList();
   document.getElementById('saveStatus').className = 'modified';
   document.getElementById('saveStatus').textContent = '● 已修改（未保存）';
@@ -522,8 +600,8 @@ async function saveAll() {{
 function formatCode() {{
   const textarea = document.getElementById('codeEditor');
   let code = textarea.value;
-  // 简单的格式化：在 > 后换行
-  code = code.replace(/>\s*</g, '>\n<');
+  // 简单的格式化：在 > 后换行（正则空白与换行转义在 Python 源里双写）
+  code = code.replace(/>\\s*</g, '>\\n<');
   textarea.value = code;
 }}
 
@@ -546,7 +624,7 @@ document.getElementById('codeEditor').addEventListener('input', function() {{
   previewTimer = setTimeout(() => {{
     const code = this.value;
     if (code.includes('<svg')) {{
-      document.getElementById('preview').innerHTML = code;
+      setSafeSvg(document.getElementById('preview'), code);
     }}
   }}, 500);
 }});
@@ -623,27 +701,41 @@ async def export_pptx(
     return Response(
         content=pptx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        headers={"Content-Disposition": f"attachment; filename=export.pptx"},
+        headers={"Content-Disposition": "attachment; filename=export.pptx"},
     )
 
 
 @router.get("/ppt/slides/{session_id}")
-async def get_ppt_slides(session_id: str, current_user: UserModel = Depends(get_current_user)):
+async def get_ppt_slides(
+    session_id: str,
+    current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
+):
     """Return SVG content of all slides for a session. Used for real-time preview."""
     import re
-    from pathlib import Path
     from app.core.data_path import PPT_SESSIONS_DIR
 
+    # 会话归属校验：非本人（且非管理员）不得读取该会话的幻灯片
+    try:
+        await agent_service.ensure_session_access(
+            AgentStreamRequest(message="ppt_slides", session_id=session_id), current_user
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
     # Find the slides directory for this session
-    slides_dir = None
-    if PPT_SESSIONS_DIR.exists():
+    def _find_slides_dir():
+        if not PPT_SESSIONS_DIR.exists():
+            return None
         for child in sorted(PPT_SESSIONS_DIR.iterdir()):
             if not child.is_dir():
                 continue
             parts = child.name.split("_v", 1)
             if len(parts) == 2 and parts[0] == f"u{current_user.id}_s{session_id}":
-                slides_dir = child
-                break
+                return child
+        return None
+
+    slides_dir = await asyncio.to_thread(_find_slides_dir)
 
     if slides_dir is None or not slides_dir.exists():
         return {"slides": []}
@@ -693,13 +785,21 @@ async def retheme_ppt(
     artifact_id: str,
     request: dict[str, str],
     current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
 ) -> dict[str, Any]:
     """切换指定 PPT 制品的主题，返回更新后的预览 HTML。
 
     请求体: {"theme": "主题名称"}
     """
+    from app.db.models import PptArtifactModel
     from app.services.ppt_artifact_service import PptArtifactService
     from app.services.ppt.theme_token_resolver import list_available_themes
+
+    # 归属校验：仅资源所有者（或管理员）可切换主题
+    try:
+        await agent_service._ensure_record_owner(artifact_id, PptArtifactModel, current_user)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     new_theme = request.get("theme", "")
     if not new_theme:
@@ -737,6 +837,7 @@ async def submit_api_approval(
     session_id: str,
     request: dict[str, object],
     current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
 ) -> dict[str, object]:
     """集成接口需要审批时，前端调用此接口提交审批决定。
 
@@ -745,6 +846,15 @@ async def submit_api_approval(
       - allow_all: bool — 是否本次会话全部允许该系统
     """
     from app.services.external_system_service import ApprovalBlocker
+
+    # 会话归属校验：非本人（且非管理员）不得替他人会话做审批决定
+    try:
+        await agent_service.ensure_session_access(
+            AgentStreamRequest(message="api_approval", session_id=session_id), current_user
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
     approved = bool(request.get("approved", False))
     allow_all = bool(request.get("allow_all", False))
     ApprovalBlocker.resolve(session_id, {"approved": approved, "allow_all": allow_all})

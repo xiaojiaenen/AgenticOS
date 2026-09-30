@@ -55,7 +55,7 @@ def register_image_tools(registry: ToolRegistry) -> None:
         )
 
         if not results:
-            return f"未找到符合条件的图片。建议：\n- 尝试更简单的关键词（英文效果更好）\n- 放宽许可证限制（使用 cc-by）\n- 或使用用户提供的图片 URL"
+            return "未找到符合条件的图片。建议：\n- 尝试更简单的关键词（英文效果更好）\n- 放宽许可证限制（使用 cc-by）\n- 或使用用户提供的图片 URL"
 
         output_lines = [f"找到 {len(results)} 张图片：\n"]
 
@@ -115,7 +115,7 @@ def register_image_tools(registry: ToolRegistry) -> None:
                 )
 
                 info_lines = [
-                    f"图片信息：",
+                    "图片信息：",
                     f"- 格式: {content_type}",
                     f"- 大小: {int(content_length) / 1024:.1f} KB" if content_length else "- 大小: 未知",
                     f"- URL: {url}",

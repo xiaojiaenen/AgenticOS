@@ -132,7 +132,7 @@ class ResumeService:
             f"已生成：{', '.join(f'第{n}页' for n in sorted(completed))}",
             f"剩余：{', '.join(f'第{n["slide_num"]}页({n.get("layout", "unknown")})' for n in remaining)}",
             "",
-            f"spec_lock 已恢复，可继续生成剩余页面。",
+            "spec_lock 已恢复，可继续生成剩余页面。",
         ]
 
         return "\n".join(lines)

@@ -194,7 +194,7 @@ def build_gradient_fill(
         if fr > 0.01 and stops_xml:
             stops_xml[0] = stops_xml[0].replace(
                 f'pos="{int(fr * 100000)}"',
-                f'pos="0"',
+                'pos="0"',
             )
             # Actually, stably modify: use the existing pos and interpolate
             pass

@@ -4,6 +4,8 @@
 - sqlite: FTS5 虚拟表 + bm25() 函数
 - mysql: FULLTEXT 索引 + MATCH AGAINST
 - 其他: 降级到 SQLite FTS5
+
+创建/删除 memory 时应调用 index_document / remove_document 同步维护索引。
 """
 
 from __future__ import annotations
@@ -43,6 +45,12 @@ class MemoryBM25Backend:
     async def rebuild_index(self) -> None:
         """重建索引（首次启动或数据迁移时调用）"""
         raise NotImplementedError
+
+    async def index_document(self, memory_id: int, content: str) -> None:
+        """创建/更新 memory 时同步维护 FTS（默认 no-op）。"""
+
+    async def remove_document(self, memory_id: int, content: str | None = None) -> None:
+        """删除 memory 时同步清理 FTS（默认 no-op）。"""
 
 
 class SQLiteFTSBackend(MemoryBM25Backend):
@@ -129,6 +137,73 @@ class SQLiteFTSBackend(MemoryBM25Backend):
             _logger.warning(f"SQLite FTS5 查询失败: {e}")
             return []
 
+    async def index_document(self, memory_id: int, content: str) -> None:
+        """创建/更新时写入 FTS。"""
+        await self._ensure_index()
+        if not content:
+            return
+
+        def _run():
+            with engine.begin() as conn:
+                # 先删后插，保证重复调用幂等
+                try:
+                    conn.execute(
+                        text(
+                            "INSERT INTO memories_fts(memories_fts, rowid, content) "
+                            "VALUES('delete', :id, :old)"
+                        ),
+                        {"id": memory_id, "old": content},
+                    )
+                except Exception:
+                    pass
+                conn.execute(
+                    text("INSERT INTO memories_fts(rowid, content) VALUES (:id, :content)"),
+                    {"id": memory_id, "content": content},
+                )
+
+        try:
+            await asyncio.to_thread(_run)
+        except Exception as e:
+            _logger.warning(f"FTS5 index_document 失败 id={memory_id}: {e}")
+
+    async def remove_document(self, memory_id: int, content: str | None = None) -> None:
+        """删除时清理 FTS 行。"""
+        await self._ensure_index()
+
+        def _run():
+            with engine.begin() as conn:
+                if content is None:
+                    # 尽力：外部内容表可能已无该行，尝试从 memories 读取
+                    row = conn.execute(
+                        text("SELECT content FROM memories WHERE id = :id"),
+                        {"id": memory_id},
+                    ).fetchone()
+                    content_val = row[0] if row else None
+                else:
+                    content_val = content
+                if content_val:
+                    conn.execute(
+                        text(
+                            "INSERT INTO memories_fts(memories_fts, rowid, content) "
+                            "VALUES('delete', :id, :content)"
+                        ),
+                        {"id": memory_id, "content": content_val},
+                    )
+                else:
+                    # 无 content 时直接按 rowid 删（部分 SQLite 版本支持）
+                    try:
+                        conn.execute(
+                            text("DELETE FROM memories_fts WHERE rowid = :id"),
+                            {"id": memory_id},
+                        )
+                    except Exception:
+                        pass
+
+        try:
+            await asyncio.to_thread(_run)
+        except Exception as e:
+            _logger.warning(f"FTS5 remove_document 失败 id={memory_id}: {e}")
+
     async def rebuild_index(self) -> None:
         def _run():
             with engine.begin() as conn:
@@ -202,12 +277,10 @@ class MySQLMatchBackend(MemoryBM25Backend):
 
         if has_chinese:
             # 中文查询：将查询拆分为单个词，使用 OR 连接
-            # 这样 "用户偏好 技术栈" 会匹配包含 "用户偏好" 或 "技术栈" 的内容
             words = [w.strip() for w in query.split() if w.strip()]
             if not words:
                 return []
 
-            # 为每个词创建 LIKE 条件
             like_conditions = []
             like_params = {}
             for i, word in enumerate(words):
@@ -267,6 +340,13 @@ class MySQLMatchBackend(MemoryBM25Backend):
 
     async def rebuild_index(self) -> None:
         # MySQL FULLTEXT 自动维护，无需重建
+        pass
+
+    # MySQL FULLTEXT 随行自动维护
+    async def index_document(self, memory_id: int, content: str) -> None:
+        await self._ensure_index()
+
+    async def remove_document(self, memory_id: int, content: str | None = None) -> None:
         pass
 
 

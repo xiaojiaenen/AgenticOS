@@ -5,9 +5,8 @@
 """
 
 import logging
-from typing import Any
 
-from wuwei.mcp import MCPConfig, MCPSessionManager, MCPToolAdapter
+from wuwei.mcp import MCPConfig, MCPSessionManager
 
 _logger = logging.getLogger("mcp_service")
 

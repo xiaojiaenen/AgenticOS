@@ -11,11 +11,10 @@
 3. Reviewer 检查 SVG 质量，必要时要求 Designer 重新生成
 """
 
-import asyncio
 import logging
 from typing import Any, AsyncIterator
 
-from wuwei import Agent, LLMGateway, SkillManager, FileSystemSkillProvider
+from wuwei import LLMGateway
 from wuwei.tools import ToolRegistry
 
 from app.core.config import Settings, get_settings
@@ -102,7 +101,6 @@ class MultiAgentPptService:
 
     def _build_ppt_registry(self) -> ToolRegistry:
         """构建 PPT 模式工具注册表"""
-        from app.services.agent_service import AgentService
         from app.services.agent_profile_service import RuntimeAgentProfile
 
         profile = RuntimeAgentProfile(
@@ -254,7 +252,6 @@ class MultiAgentPptService:
 
     async def _save_slide(self, session_id: str | None, slide_num: int, svg: str) -> bool:
         """保存 slide SVG 文件"""
-        from pathlib import Path
         from app.core.data_path import PPT_SESSIONS_DIR, next_version_dir, _parse_dir_name, get_current_user_id
 
         if not session_id:
@@ -281,7 +278,6 @@ class MultiAgentPptService:
 
     async def _run_reviewer(self, llm: LLMGateway, session_id: str | None) -> dict[str, Any] | None:
         """Reviewer Agent：检查 SVG 质量，返回有问题的页面列表"""
-        from pathlib import Path
         from app.core.data_path import PPT_SESSIONS_DIR, _parse_dir_name
 
         if not session_id:

@@ -5,6 +5,7 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
+from app.core.config import get_settings
 from app.core.security import hash_password
 from app.db.models import (
     AgentMessageModel,
@@ -13,12 +14,12 @@ from app.db.models import (
     AgentUsageEventModel,
     ApprovalModel,
     AuthSessionModel,
-    AuthRateLimitModel,
     PptArtifactModel,
     UserInstalledAgentModel,
     UserModel,
 )
 from app.schemas.users import UserCreateRequest, UserListItem, UserListResponse, UserStatusUpdateRequest, UserUpdateRequest
+from app.services import rate_limiter
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -194,11 +195,8 @@ def delete_user(
     db.execute(delete(UserInstalledAgentModel).where(UserInstalledAgentModel.user_id == user_id))
     db.execute(delete(AgentProfileAudienceModel).where(AgentProfileAudienceModel.user_id == user_id))
     db.execute(delete(AuthSessionModel).where(AuthSessionModel.user_id == user_id))
-    db.execute(
-        delete(AuthRateLimitModel).where(
-            AuthRateLimitModel.key.startswith(f"login:{user.email}:")
-        )
-    )
+    # 登录限流已迁至 Redis（rate_limiter），按 email 清除全部 IP 维度的限流状态
+    rate_limiter.clear_rate_limit_by_email(get_settings(), "login", email=user.email)
     db.execute(delete(AgentUsageEventModel).where(AgentUsageEventModel.user_id == user_id))
 
     db.delete(user)

@@ -12,8 +12,7 @@ Usage:
 """
 
 from pathlib import Path
-from typing import Dict, List, Optional, Any
-import json
+from typing import Dict, Optional
 import os
 
 

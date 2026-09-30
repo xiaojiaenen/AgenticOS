@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from app.db.models import WebsiteDeployModel
 from app.db.session import create_db_session
@@ -96,6 +95,8 @@ class WebsiteDeployService:
             if status == "approved":
                 try:
                     self._execute_deploy(deploy)
+                    # _execute_deploy mutates status/deploy_url in memory; persist it
+                    db.commit()
                     db.refresh(deploy)
                 except Exception:
                     _logger.exception("Deploy execution failed: id=%s", deploy_id)

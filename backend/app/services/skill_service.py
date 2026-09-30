@@ -362,7 +362,7 @@ class SkillService:
         if not path.is_file():
             return {}, ""
 
-        content = path.read_text(encoding="utf-8")
+        content = path.read_text(encoding="utf-8", errors="replace")
         stripped = content.strip()
         if not stripped.startswith("---"):
             return {}, stripped

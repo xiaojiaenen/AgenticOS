@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any
 
 from pptx import Presentation
-from pptx.util import Emu
 
 logger = logging.getLogger("svg_to_pptx.builder")
 
@@ -377,7 +376,7 @@ def create_pptx_with_native_svg(
     if canvas_format is None and custom_pixels is None:
         canvas_format = 'ppt169'
         if verbose:
-            print(f"  Using default format: PPT 16:9")
+            print("  Using default format: PPT 16:9")
 
     width_emu, height_emu = get_slide_dimensions(canvas_format or 'ppt169', custom_pixels)
     pixel_width, pixel_height = get_pixel_dimensions(canvas_format or 'ppt169', custom_pixels)
@@ -386,21 +385,21 @@ def create_pptx_with_native_svg(
         print(f"  Slide dimensions: {pixel_width} x {pixel_height} px")
         print(f"  SVG file count: {len(svg_files)}")
         if use_native_shapes:
-            print(f"  Mode: Native DrawingML shapes (directly editable)")
+            print("  Mode: Native DrawingML shapes (directly editable)")
         elif use_compat_mode:
-            print(f"  Compatibility mode: Enabled (PNG + SVG dual format)")
+            print("  Compatibility mode: Enabled (PNG + SVG dual format)")
             print(f"  PNG renderer: {renderer_name} {renderer_status}")
         else:
-            print(f"  Compatibility mode: Disabled (pure SVG)")
+            print("  Compatibility mode: Disabled (pure SVG)")
         if transition:
             trans_name = TRANSITIONS.get(transition, {}).get('name', transition) if TRANSITIONS else transition
             print(f"  Transition effect: {trans_name}")
         if enable_notes and notes:
             print(f"  Speaker notes: {len(notes)} page(s)")
         elif enable_notes:
-            print(f"  Speaker notes: Enabled (no notes files found)")
+            print("  Speaker notes: Enabled (no notes files found)")
         else:
-            print(f"  Speaker notes: Disabled")
+            print("  Speaker notes: Disabled")
         print()
 
     animation_cli_overrides = animation_cli_overrides or {}
@@ -817,7 +816,7 @@ def create_pptx_with_native_svg(
             print(f"[Done] Saved: {output_path}")
             print(f"  Succeeded: {success_count}, Failed: {len(svg_files) - success_count}")
             if use_compat_mode and has_any_image:
-                print(f"  Mode: Office compatibility mode (supports all Office versions)")
+                print("  Mode: Office compatibility mode (supports all Office versions)")
                 if PNG_RENDERER == 'svglib' and renderer_hint:
                     print(f"  [Tip] {renderer_hint}")
 

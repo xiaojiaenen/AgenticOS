@@ -19,7 +19,7 @@ from .drawingml_utils import (
     ctx_x, ctx_y, ctx_w, ctx_h,
     rect_to_dml_xfrm,
     parse_hex_color, resolve_url_id, get_effective_filter_id,
-    parse_font_family, is_cjk_char, estimate_text_width,
+    parse_font_family, estimate_text_width,
     detect_cjk_language,
     _xml_escape,
 )
@@ -1537,7 +1537,7 @@ def _clip_circle_to_geom(
     ext_cy = max(1, ext_cy)
 
     return (
-        f'<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>'
+        '<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>'
     )
 
 

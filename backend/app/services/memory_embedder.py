@@ -16,7 +16,7 @@ from typing import Sequence
 import httpx
 
 from app.core.config import get_settings
-from app.core.redis import get_redis, is_redis_memory
+from app.core.redis import get_redis
 
 _logger = logging.getLogger("memory_embedder")
 _settings = get_settings()

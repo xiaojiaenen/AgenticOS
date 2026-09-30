@@ -1,14 +1,14 @@
 """邮件工具 - 提供邮件读取、搜索、发送功能"""
 
 import contextvars
+import datetime
 import imaplib
 import logging
 import smtplib
 import email
 from email.mime.text import MIMEText
 from email.header import decode_header
-from email.utils import parseaddr, parsedate_to_datetime
-from typing import Any
+from email.utils import parseaddr
 
 from sqlalchemy import select
 
@@ -246,7 +246,6 @@ def _folder_display_name(folder: str) -> str:
 
 def _detect_server_utc_offset(imap: imaplib.IMAP4, host: str, port: int) -> float:
     """探测 IMAP 服务器的时区偏移（小时），结果会被缓存。"""
-    import datetime
     import re
     cache_key = f"{host}:{port}"
     if cache_key in _server_tz_cache:
@@ -299,7 +298,6 @@ def _user_date_to_server_date(date_str: str, server_offset: float) -> str:
 
 def _email_date_utc(date_header: str | None) -> "datetime.datetime | None":
     """解析邮件 Date 头并转为 UTC datetime"""
-    import datetime
     if not date_header:
         return None
     try:
@@ -730,7 +728,7 @@ def register_email_tools(registry: ToolRegistry):
 
             imap.logout()
 
-            result = f"📧 邮件详情\n\n"
+            result = "📧 邮件详情\n\n"
             result += f"主题: {subject}\n"
             result += f"发件人: {from_addr}\n"
             result += f"收件人: {to_addr}\n"

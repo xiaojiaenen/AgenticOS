@@ -595,14 +595,6 @@ def get_analytics(
 
     # 2. Hourly distribution: messages per hour (0-23)
     hourly_dist: dict[int, int] = {h: 0 for h in range(24)}
-    for row in db.execute(
-        select(AgentMessageModel.message_json)
-        .where(AgentMessageModel.id.in_(
-            select(AgentMessageModel.id)
-            .where(AgentMessageModel.created_at >= start_boundary)
-        ))
-    ).all():
-        pass  # Messages don't have created_at in current schema
 
     # Fallback: use usage events for hourly distribution
     for row in db.execute(
@@ -625,18 +617,29 @@ def get_analytics(
 
     # 4. Mode distribution
     mode_dist: dict[str, int] = {}
-    for row in db.execute(
-        select(AgentSessionModel.agent_profile_id, func.count(AgentSessionModel.session_id))
-        .where(AgentSessionModel.created_at >= start_boundary)
-        .group_by(AgentSessionModel.agent_profile_id)
-    ).all():
+    mode_rows = [
+        row
+        for row in db.execute(
+            select(AgentSessionModel.agent_profile_id, func.count(AgentSessionModel.session_id))
+            .where(AgentSessionModel.created_at >= start_boundary)
+            .group_by(AgentSessionModel.agent_profile_id)
+        ).all()
+        if row[0]
+    ]
+    # 一次性批量取涉及的 profile，避免循环内逐条 db.get（N+1）
+    profile_ids = [row[0] for row in mode_rows]
+    profile_names: dict[Any, str] = {}
+    if profile_ids:
+        profile_names = {
+            profile.id: profile.name
+            for profile in db.scalars(
+                select(AgentProfileModel).where(AgentProfileModel.id.in_(profile_ids))
+            ).all()
+        }
+    for row in mode_rows:
         profile_id = row[0]
         count = int(row[1])
-        if profile_id:
-            profile = db.get(AgentProfileModel, profile_id)
-            mode = profile.name if profile else "unknown"
-        else:
-            mode = "default"
+        mode = profile_names.get(profile_id, "unknown")
         mode_dist[mode] = mode_dist.get(mode, 0) + count
 
     return {

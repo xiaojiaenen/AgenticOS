@@ -3,7 +3,6 @@ SVG 质量检查工具 — 检查 SVG 文件是否符合 PPT 技术规范。
 从 ppt-master 改编，移除了 AgenticOS 不使用的 spec_lock / image_sources 检查。
 """
 
-import sys
 import re
 import json
 import html
@@ -13,6 +12,10 @@ from collections import defaultdict
 from xml.etree import ElementTree as ET
 
 from app.services.ppt.svg_to_pptx.config import CANVAS_FORMATS
+
+# spec_lock.md 解析器是预留的可选钩子：从未实现，为 None 时 _get_spec_lock 直接跳过，
+# 与历史运行时行为一致（spec_lock 一致性检查静默禁用）。
+_parse_spec_lock = None
 
 try:
     from app.services.ppt.svg_to_pptx.animation_config import (
@@ -818,7 +821,7 @@ class SVGQualityChecker:
                 svg_files = sorted(svg_output.glob('*.svg'))
 
         if not svg_files:
-            print(f"[WARN] No SVG files found")
+            print("[WARN] No SVG files found")
             return []
 
         print(f"\n[SCAN] Checking {len(svg_files)} SVG file(s)...\n")
@@ -1124,7 +1127,7 @@ class SVGQualityChecker:
             f"  [ERROR] With errors: {self.summary['errors']} ({self._percentage(self.summary['errors'])}%)")
 
         if self.issue_types:
-            print(f"\nIssue categories:")
+            print("\nIssue categories:")
             for issue_type, count in sorted(self.issue_types.items(), key=lambda x: x[1], reverse=True):
                 print(f"  {issue_type}: {count}")
 
@@ -1139,11 +1142,11 @@ class SVGQualityChecker:
 
         # Fix suggestions
         if self.summary['errors'] > 0 or self.summary['warnings'] > 0:
-            print(f"\n[TIP] Common fixes:")
-            print(f"  1. XML well-formedness: write typography as raw Unicode (—, ©, →, NBSP); escape XML reserved chars as &amp; &lt; &gt; &quot; &apos; — never use HTML named entities like &nbsp; &mdash; &copy;")
-            print(f"  2. viewBox issues: Ensure consistency with canvas format (see references/canvas-formats.md)")
-            print(f"  3. foreignObject: Use <text> + <tspan> for manual line breaks")
-            print(f"  4. Font issues: end every font-family stack with a PPT-safe family (e.g. Microsoft YaHei / Arial / Consolas)")
+            print("\n[TIP] Common fixes:")
+            print("  1. XML well-formedness: write typography as raw Unicode (—, ©, →, NBSP); escape XML reserved chars as &amp; &lt; &gt; &quot; &apos; — never use HTML named entities like &nbsp; &mdash; &copy;")
+            print("  2. viewBox issues: Ensure consistency with canvas format (see references/canvas-formats.md)")
+            print("  3. foreignObject: Use <text> + <tspan> for manual line breaks")
+            print("  4. Font issues: end every font-family stack with a PPT-safe family (e.g. Microsoft YaHei / Arial / Consolas)")
 
     def _print_animation_summary(self):
         """Print animations.json validation issues if present."""
@@ -1252,12 +1255,12 @@ class SVGQualityChecker:
                     f.write(f"Info: {result['info']}\n")
 
                 if result['errors']:
-                    f.write(f"\nErrors:\n")
+                    f.write("\nErrors:\n")
                     for error in result['errors']:
                         f.write(f"  - {error}\n")
 
                 if result['warnings']:
-                    f.write(f"\nWarnings:\n")
+                    f.write("\nWarnings:\n")
                     for warning in result['warnings']:
                         f.write(f"  - {warning}\n")
 

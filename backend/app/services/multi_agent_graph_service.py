@@ -18,10 +18,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from wuwei import Agent
-from wuwei.agent.multi_agent import MultiAgentGraph, TeamMember
+from wuwei.agent.multi_agent import MultiAgentGraph
 from wuwei.llm import LLMGateway
 
 from app.core.config import Settings
@@ -186,6 +185,6 @@ from app.core.singleton import ThreadSafeSingleton
 _service_singleton = ThreadSafeSingleton(lambda: MultiAgentGraphService(None))
 
 
-def get_multi_agent_graph_service(settings: Settings | None = None) -> MultiAgentGraphService:
+def get_multi_agent_graph_service() -> MultiAgentGraphService:
     """获取多 Agent 协作服务的全局实例。"""
     return _service_singleton.get()

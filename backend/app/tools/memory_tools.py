@@ -5,6 +5,9 @@ LLM 可主动搜索和保存用户记忆（多层记忆系统 L0-L3）：
 - save_memory: 保存新的用户记忆（L1 atom）
 - get_user_persona: 获取用户长期画像（L3）
 - list_memory_scenarios: 列出用户场景块（L2）
+
+归属：始终使用当前会话 owner（_current_session_id + get_owner_id），
+禁止用全局最近消息推断 user_id。
 """
 
 from __future__ import annotations
@@ -13,14 +16,17 @@ from typing import Any
 
 from wuwei.tools import ToolRegistry
 
-# 模块加载时记录
-import os
-_debug_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "memory_debug.log")
-try:
-    with open(_debug_path, "w") as f:
-        f.write(f"MEMORY_TOOLS_MODULE_LOADED: {__file__}\n")
-except Exception as e:
-    pass
+
+async def _current_session_owner_id() -> int | None:
+    """解析当前会话的 owner user_id（与 knowledge_tools 相同模式）。"""
+    from app.services.agent_service import _current_session_id
+    from app.services.session_storage import DatabaseAgentStorage
+
+    session_id = _current_session_id.get()
+    if not session_id:
+        return None
+    storage = DatabaseAgentStorage()
+    return await storage.get_owner_id(session_id)
 
 
 def register_memory_tools(registry: ToolRegistry) -> None:
@@ -34,31 +40,15 @@ def register_memory_tools(registry: ToolRegistry) -> None:
     async def search_memory(query: str, limit: int = 5) -> dict[str, Any]:
         """搜索用户记忆（BM25 + 向量混合检索）。"""
         from app.services.memory_service import get_memory_service
-        from app.db.session import SessionLocal
-        from app.db.models import AgentSessionModel, AgentMessageModel
-        from sqlalchemy import select, func, desc
 
-        # 获取最近有消息的 session 的 user_id
-        def _get_recent_user_id():
-            with SessionLocal() as db:
-                # 查找最近的消息对应的 session
-                recent_msg = db.query(AgentMessageModel).order_by(desc(AgentMessageModel.created_at)).first()
-                if recent_msg:
-                    session = db.get(AgentSessionModel, recent_msg.session_id)
-                    if session:
-                        return session.user_id
-            return None
-
-        user_id = _get_recent_user_id()
-
+        user_id = await _current_session_owner_id()
         if not user_id:
-            return {"error": "无法获取用户信息", "memories": [], "debug": "no_user_id"}
+            return {"error": "无法获取当前会话用户", "memories": []}
 
         memories = await get_memory_service().search_memory(user_id, query, limit=limit)
         return {
             "memories": memories,
             "count": len(memories),
-            "debug_user_id": user_id,
         }
 
     @registry.tool(
@@ -73,22 +63,10 @@ def register_memory_tools(registry: ToolRegistry) -> None:
     ) -> dict[str, Any]:
         """保存用户记忆（L1 atom，自动生成向量索引）。"""
         from app.services.memory_service import get_memory_service
-        from app.db.session import SessionLocal
-        from app.db.models import AgentSessionModel, AgentMessageModel
-        from sqlalchemy import select, func, desc
 
-        def _get_recent_user_id():
-            with SessionLocal() as db:
-                recent_msg = db.query(AgentMessageModel).order_by(desc(AgentMessageModel.created_at)).first()
-                if recent_msg:
-                    session = db.get(AgentSessionModel, recent_msg.session_id)
-                    if session:
-                        return session.user_id
-            return None
-
-        user_id = _get_recent_user_id()
+        user_id = await _current_session_owner_id()
         if not user_id:
-            return {"error": "无法获取用户信息"}
+            return {"error": "无法获取当前会话用户"}
 
         memory_id = await get_memory_service().add_memory(
             user_id,
@@ -112,22 +90,10 @@ def register_memory_tools(registry: ToolRegistry) -> None:
     async def get_user_persona() -> dict[str, Any]:
         """获取用户长期画像（L3 Persona）。"""
         from app.services.memory_service import get_memory_service
-        from app.db.session import SessionLocal
-        from app.db.models import AgentSessionModel, AgentMessageModel
-        from sqlalchemy import select, func, desc
 
-        def _get_recent_user_id():
-            with SessionLocal() as db:
-                recent_msg = db.query(AgentMessageModel).order_by(desc(AgentMessageModel.created_at)).first()
-                if recent_msg:
-                    session = db.get(AgentSessionModel, recent_msg.session_id)
-                    if session:
-                        return session.user_id
-            return None
-
-        user_id = _get_recent_user_id()
+        user_id = await _current_session_owner_id()
         if not user_id:
-            return {"error": "无法获取用户信息", "exists": False}
+            return {"error": "无法获取当前会话用户", "exists": False}
 
         persona = await get_memory_service().get_persona(user_id)
         return {
@@ -143,22 +109,10 @@ def register_memory_tools(registry: ToolRegistry) -> None:
     async def list_memory_scenarios(limit: int = 10) -> dict[str, Any]:
         """列出用户场景块（L2 Scenario）。"""
         from app.services.memory_service import get_memory_service
-        from app.db.session import SessionLocal
-        from app.db.models import AgentSessionModel, AgentMessageModel
-        from sqlalchemy import select, func, desc
 
-        def _get_recent_user_id():
-            with SessionLocal() as db:
-                recent_msg = db.query(AgentMessageModel).order_by(desc(AgentMessageModel.created_at)).first()
-                if recent_msg:
-                    session = db.get(AgentSessionModel, recent_msg.session_id)
-                    if session:
-                        return session.user_id
-            return None
-
-        user_id = _get_recent_user_id()
+        user_id = await _current_session_owner_id()
         if not user_id:
-            return {"error": "无法获取用户信息"}
+            return {"error": "无法获取当前会话用户"}
 
         scenarios = await get_memory_service().list_scenarios(user_id, limit=limit)
         return {

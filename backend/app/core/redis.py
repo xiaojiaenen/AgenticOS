@@ -15,8 +15,8 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
+import threading
 import time
 from typing import Any
 
@@ -27,6 +27,7 @@ class MemoryRedis:
     """内存 Redis fallback，开发环境使用。"""
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()  # 保证 incr 等计数操作原子（多线程同进程场景）
         self._data: dict[str, Any] = {}
         self._expires: dict[str, float] = {}
         self._sets: dict[str, set[str]] = {}
@@ -95,8 +96,10 @@ class MemoryRedis:
         return count
 
     async def incr(self, key: str) -> int:
-        val = int(self._data.get(key, "0")) + 1
-        self._data[key] = str(val)
+        self._is_expired(key)
+        with self._lock:
+            val = int(self._data.get(key, "0")) + 1
+            self._data[key] = str(val)
         return val
 
     async def expire(self, key: str, seconds: int) -> bool:
@@ -276,8 +279,37 @@ class RedisManager:
     def __init__(self) -> None:
         self._client = None
         self._is_memory = True
+        self._url = ""
+        self._cluster = False
+
+    def parse_cluster_nodes(self) -> tuple[list[tuple[str, int]], str | None, str | None]:
+        """解析逗号分隔的多节点 URL: redis://user:pass@host1:6379,...
+
+        Returns:
+            (nodes, username, password)
+        """
+        from urllib.parse import unquote, urlparse
+
+        nodes: list[tuple[str, int]] = []
+        password = None
+        username = None
+        for url in self._url.split(","):
+            url = url.strip()
+            if not url:
+                continue
+            parsed = urlparse(url)
+            host = parsed.hostname or "localhost"
+            port = parsed.port or 6379
+            if parsed.password and not password:
+                password = unquote(parsed.password)
+            if parsed.username and not username:
+                username = unquote(parsed.username)
+            nodes.append((host, port))
+        return nodes, username, password
 
     async def init(self, redis_url: str = "", cluster: bool = False) -> None:
+        self._url = redis_url
+        self._cluster = cluster
         if not redis_url:
             _logger.info("REDIS_URL 未配置，使用内存 fallback")
             self._client = MemoryRedis()
@@ -288,25 +320,10 @@ class RedisManager:
             import redis.asyncio as aioredis
 
             if cluster:
-                from urllib.parse import unquote, urlparse
                 from redis.asyncio.cluster import ClusterNode, RedisCluster
-                # 解析逗号分隔的多节点 URL: redis://user:pass@host1:6379,...
-                nodes = []
-                password = None
-                username = None
-                for url in redis_url.split(","):
-                    url = url.strip()
-                    if not url:
-                        continue
-                    parsed = urlparse(url)
-                    host = parsed.hostname or "localhost"
-                    port = parsed.port or 6379
-                    if parsed.password and not password:
-                        password = unquote(parsed.password)
-                    if parsed.username and not username:
-                        username = unquote(parsed.username)
-                    nodes.append(ClusterNode(host, port))
-                kwargs = {"startup_nodes": nodes, "password": password, "decode_responses": True}
+
+                nodes, username, password = self._parse_cluster_nodes()
+                kwargs = {"startup_nodes": [ClusterNode(host, port) for host, port in nodes], "password": password, "decode_responses": True}
                 if username:
                     kwargs["username"] = username
                 self._client = RedisCluster(**kwargs)
@@ -333,6 +350,14 @@ class RedisManager:
     def is_memory(self) -> bool:
         return self._is_memory
 
+    @property
+    def url(self) -> str:
+        return self._url
+
+    @property
+    def cluster(self) -> bool:
+        return self._cluster
+
     async def close(self) -> None:
         if self._client and not self._is_memory:
             await self._client.close()
@@ -350,6 +375,58 @@ async def init_redis(redis_url: str = "", cluster: bool = False) -> None:
 def get_redis():
     """获取 Redis 客户端（开发环境返回内存 fallback）"""
     return _manager.client
+
+
+# 同步客户端懒加载缓存（限流等同步上下文使用）
+_sync_client = None
+_sync_client_checked = False
+
+
+def get_redis_sync():
+    """获取同步 Redis 客户端，供同步上下文（如线程池中的登录限流）使用。
+
+    - 未配置 REDIS_URL 或异步管理器处于内存 fallback 时返回 None，
+      调用方应使用进程内 fallback（见 app/services/rate_limiter.py）；
+    - 已配置 Redis 时懒创建并缓存同步客户端（单机/集群同 URL 配置），
+      连接失败返回 None 并告警。
+    """
+    global _sync_client, _sync_client_checked
+    if _manager.is_memory or not _manager.url:
+        return None
+    if _sync_client_checked:
+        return _sync_client
+    _sync_client_checked = True
+    try:
+        import redis
+
+        if _manager.cluster:
+            from redis.cluster import RedisCluster
+
+            nodes, username, password = _manager.parse_cluster_nodes()
+            kwargs: dict[str, Any] = {
+                "startup_nodes": [redis.cluster.ClusterNode(host, port) for host, port in nodes],
+                "password": password,
+                "decode_responses": True,
+            }
+            if username:
+                kwargs["username"] = username
+            _sync_client = RedisCluster(**kwargs)
+        else:
+            _sync_client = redis.Redis.from_url(_manager.url, decode_responses=True)
+        assert _sync_client is not None
+        _sync_client.ping()
+        _logger.info("Redis 同步客户端连接成功")
+    except Exception as e:
+        _logger.warning(f"Redis 同步客户端连接失败: {e}，限流将使用进程内 fallback")
+        _sync_client = None
+    return _sync_client
+
+
+def mark_sync_client_unusable() -> None:
+    """标记同步客户端失效（连接中断等），下次 get_redis_sync() 重建。"""
+    global _sync_client, _sync_client_checked
+    _sync_client = None
+    _sync_client_checked = False
 
 
 def is_redis_memory() -> bool:

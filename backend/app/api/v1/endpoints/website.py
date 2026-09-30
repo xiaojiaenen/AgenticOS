@@ -63,6 +63,9 @@ def get_deploy_by_project(
     deploy = _service.get_by_project(project_slug)
     if deploy is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deploy request not found")
+    # 检查权限：只能查看自己项目的部署请求（管理员除外），与 get_deploy 保持一致
+    if deploy.get("requested_by") != user.id and user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     return deploy
 
 

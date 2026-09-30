@@ -40,7 +40,14 @@ class FakeAgentService:
             },
         }
 
-    async def decide_approval(self, approval_id: str, *, status: str, reason: str | None = None):
+    async def decide_approval(
+        self,
+        approval_id: str,
+        *,
+        status: str,
+        reason: str | None = None,
+        current_user=None,
+    ):
         return {
             "approval_id": approval_id,
             "status": status,
@@ -112,11 +119,13 @@ def test_agent_stream_endpoint() -> None:
 
 def test_agent_approval_decision_endpoint() -> None:
     app.dependency_overrides[get_agent_service] = lambda: FakeAgentService()
-
+    email = "approval-decision-test@example.com"
     try:
         with TestClient(app) as client:
+            token = create_user_token(email)
             response = client.post(
                 "/api/v1/agent/approvals/approval-1/decision",
+                headers={"Authorization": f"Bearer {token}"},
                 json={"status": "approved", "reason": "ok"},
             )
 
@@ -127,4 +136,5 @@ def test_agent_approval_decision_endpoint() -> None:
             "reason": "ok",
         }
     finally:
+        cleanup_test_users(email)
         app.dependency_overrides.clear()

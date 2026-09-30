@@ -17,19 +17,19 @@ def register_template_tools(registry: ToolRegistry) -> None:
         pptx_path = _Path(file_path)
         if not pptx_path.exists():
             return f"文件不存在：{file_path}"
-        if not pptx_path.suffix.lower() in (".pptx",):
+        if pptx_path.suffix.lower() not in (".pptx",):
             return f"不是 PPTX 文件：{file_path}"
 
         try:
             analysis = _analyze(str(pptx_path))
 
             lines = [
-                f"### 模板分析结果",
-                f"",
+                "### 模板分析结果",
+                "",
                 f"**幻灯片数**: {analysis.slide_count}",
                 f"**画布尺寸**: {analysis.canvas_width} × {analysis.canvas_height}",
-                f"",
-                f"**颜色方案**:",
+                "",
+                "**颜色方案**:",
             ]
 
             if analysis.colors:
@@ -78,7 +78,7 @@ def register_template_tools(registry: ToolRegistry) -> None:
         pptx_path = _Path(file_path)
         if not pptx_path.exists():
             return f"文件不存在：{file_path}"
-        if not pptx_path.suffix.lower() in (".pptx",):
+        if pptx_path.suffix.lower() not in (".pptx",):
             return f"不是 PPTX 文件：{file_path}"
 
         import tempfile
@@ -106,16 +106,16 @@ def register_template_tools(registry: ToolRegistry) -> None:
             masters = manifest.get("masters", [])
 
             lines = [
-                f"### 模板导入完成",
-                f"",
+                "### 模板导入完成",
+                "",
                 f"**源文件**：{pptx_path.name}",
                 f"**画布尺寸**：{slide_size['width_px']} × {slide_size['height_px']} px",
                 f"**幻灯片数**：{len(slides)}",
                 f"**布局数**：{len(layouts)}",
                 f"**母版数**：{len(masters)}",
                 f"**可复用资源**：{len(assets['commonAssets'])} 个",
-                f"",
-                f"**主题颜色**：",
+                "",
+                "**主题颜色**：",
             ]
             colors = theme.get("colors", {})
             if colors:

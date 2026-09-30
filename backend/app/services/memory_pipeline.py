@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections import OrderedDict
 from typing import Any
 
 from sqlalchemy import select, update
@@ -33,13 +34,28 @@ from app.services.memory_vector_store import get_vector_store
 _logger = logging.getLogger("memory_pipeline")
 _settings = get_settings()
 
+# LLM 蒸馏/提取任务的并发上限（fire-and-forget 任务也受此约束，防止打满上游）
+_LLM_CONCURRENCY = 3
+_llm_semaphore = asyncio.Semaphore(_LLM_CONCURRENCY)
+
+# _turn_counts 最多保留的 user 数，超过后按 LRU 淘汰
+_TURN_COUNTS_MAX_USERS = 10000
+
 
 class MemoryPipeline:
     """异步蒸馏 Pipeline"""
 
     def __init__(self) -> None:
         # user_id -> 累计轮次（内存计数，重启后从 0 开始；可接受）
-        self._turn_counts: dict[int, int] = {}
+        # OrderedDict 实现 LRU：超过上限淘汰最久未活跃的 user
+        self._turn_counts: OrderedDict[int, int] = OrderedDict()
+
+    def _bump_turn_count(self, user_id: int) -> int:
+        self._turn_counts[user_id] = self._turn_counts.get(user_id, 0) + 1
+        self._turn_counts.move_to_end(user_id)
+        while len(self._turn_counts) > _TURN_COUNTS_MAX_USERS:
+            self._turn_counts.popitem(last=False)
+        return self._turn_counts[user_id]
 
     async def on_turn_complete(
         self,
@@ -58,8 +74,7 @@ class MemoryPipeline:
         )
 
         # 累计轮次
-        self._turn_counts[user_id] = self._turn_counts.get(user_id, 0) + 1
-        turn = self._turn_counts[user_id]
+        turn = self._bump_turn_count(user_id)
 
         # 2. L1 提取（每轮都执行，复用旧 prompt）
         atoms = await self._extract_atoms(user_message, assistant_message)
@@ -113,10 +128,11 @@ class MemoryPipeline:
                 user_msg=user_msg,
                 assistant_msg=assistant_msg[:1500],
             )
-            resp = await gateway.generate(messages=[
-                SystemMessage(content="你是记忆提取器，只输出 JSON 数组。"),
-                HumanMessage(content=prompt),
-            ])
+            async with _llm_semaphore:
+                resp = await gateway.generate(messages=[
+                    SystemMessage(content="你是记忆提取器，只输出 JSON 数组。"),
+                    HumanMessage(content=prompt),
+                ])
             content = (resp.message.content or "[]").strip()
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]
@@ -128,8 +144,15 @@ class MemoryPipeline:
             _logger.debug(f"L1 提取失败: {e}")
             return []
 
-    async def _save_atom(self, user_id: int, atom: dict) -> int | None:
-        """保存 L1 atom，同时异步生成向量写入 vector store"""
+    async def _save_atom(
+        self,
+        user_id: int,
+        atom: dict,
+        *,
+        tags: list[str] | None = None,
+        source: str | None = None,
+    ) -> int | None:
+        """保存 L1 atom，同时异步生成向量写入 vector store，并维护 FTS。"""
         if not isinstance(atom, dict) or not atom.get("content"):
             return None
 
@@ -165,8 +188,11 @@ class MemoryPipeline:
                     content=content,
                     memory_type=str(atom.get("type", "fact")),
                     importance=float(atom.get("importance", 0.5)),
-                    tags_json=json.dumps(["auto-extracted"], ensure_ascii=False),
-                    source="auto",
+                    tags_json=json.dumps(
+                        tags if tags else ["auto-extracted"],
+                        ensure_ascii=False,
+                    ),
+                    source=source or "auto",
                     layer="L1",
                 )
                 db.add(row)
@@ -179,6 +205,13 @@ class MemoryPipeline:
         except Exception as e:
             _logger.warning(f"L1 atom 保存失败: {e}")
             return None
+
+        # 同步维护 BM25/FTS 索引
+        try:
+            from app.services.memory_bm25 import get_bm25_backend
+            await get_bm25_backend().index_document(atom_id, content)
+        except Exception as e:
+            _logger.debug(f"FTS index 失败 id={atom_id}: {e}")
 
         # 异步生成向量（不阻塞主流程）
         asyncio.create_task(self._embed_and_upsert(atom_id, "atom", user_id, "L1", content))
@@ -252,10 +285,11 @@ class MemoryPipeline:
             prompt = SCENARIO_AGGREGATION_PROMPT.format(
                 atoms_json=json.dumps(atoms_payload, ensure_ascii=False)
             )
-            resp = await gateway.generate(messages=[
-                SystemMessage(content="你是场景聚合器，只输出 JSON 数组。"),
-                HumanMessage(content=prompt),
-            ])
+            async with _llm_semaphore:
+                resp = await gateway.generate(messages=[
+                    SystemMessage(content="你是场景聚合器，只输出 JSON 数组。"),
+                    HumanMessage(content=prompt),
+                ])
             content = (resp.message.content or "[]").strip()
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]
@@ -372,10 +406,11 @@ class MemoryPipeline:
                     ensure_ascii=False,
                 ),
             )
-            resp = await gateway.generate(messages=[
-                SystemMessage(content="你是用户画像建模器，只输出 JSON 对象。"),
-                HumanMessage(content=prompt),
-            ])
+            async with _llm_semaphore:
+                resp = await gateway.generate(messages=[
+                    SystemMessage(content="你是用户画像建模器，只输出 JSON 对象。"),
+                    HumanMessage(content=prompt),
+                ])
             content = (resp.message.content or "{}").strip()
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]

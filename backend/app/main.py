@@ -12,6 +12,10 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 
 # 在读取 Settings 之前，将 .env 加载到 os.environ
 # 这样 wuwei 等直接读 os.environ 的库也能拿到配置
+#
+# override=False：已存在的环境变量优先于 .env。
+#  - 容器/CI 注入的环境变量必须能覆盖 .env 中的开发默认值；
+#  - 测试通过 os.environ 注入临时 DATABASE_URL，不能被 .env 覆盖回去。
 _env_file = Path(__file__).resolve().parent.parent / ".env"
 if _env_file.exists():
     load_dotenv(_env_file, override=False)
@@ -24,6 +28,16 @@ from app.db.session import init_db
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
+# Ensure process env matches Settings so libraries that only read os.environ
+# (wuwei LLMGateway, etc.) use the same backend/.env values.
+if settings.openai_api_key:
+    os.environ["OPENAI_API_KEY"] = settings.openai_api_key
+if settings.openai_base_url:
+    os.environ["OPENAI_BASE_URL"] = settings.openai_base_url
+if settings.openai_model:
+    os.environ["OPENAI_MODEL"] = settings.openai_model
+if settings.redis_url:
+    os.environ.setdefault("REDIS_URL", settings.redis_url)
 
 
 @asynccontextmanager
@@ -37,13 +51,36 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # 初始化 Redis（留空则使用内存 fallback）
     await init_redis(settings.redis_url, settings.redis_cluster)
 
+    # 上游 agents.gree.com cookie 续期循环（与 sesame 一致的自动登录流程）
+    upstream_refresh_task = None
+    if settings.upstream_auto_login_enabled:
+        try:
+            from app.services.upstream.login_orchestrator import start_cookie_refresh_loop
+
+            upstream_refresh_task = start_cookie_refresh_loop()
+            logger.info(
+                "Upstream cookie refresh loop started: base=%s interval_min=%s",
+                settings.upstream_base_url,
+                settings.upstream_cookie_refresh_minutes,
+            )
+        except Exception:
+            logger.exception("Failed to start upstream cookie refresh loop")
+
     # 从数据库加载历史输入到缓存
     from app.services.cache_service import get_cache_service
     await get_cache_service().load_history_from_db()
 
     yield
 
-    # 关闭 Redis
+    if upstream_refresh_task is not None:
+        upstream_refresh_task.cancel()
+
+    # 关闭 ARQ 连接池与 Redis
+    from app.services.task_queue import close_arq_pool
+    try:
+        await close_arq_pool()
+    except Exception:
+        logger.warning("Failed to close ARQ pool on shutdown", exc_info=True)
     await close_redis()
 
 
@@ -97,6 +134,11 @@ async def limit_request_size(request: Request, call_next):
         )
     return await call_next(request)
 app.include_router(api_router, prefix=settings.api_v1_prefix)
+
+# OpenAI 兼容上游网关 /v1/*（外部软件用 sk-agenticos-* 调用）
+from app.api.gateway_v1 import router as gateway_v1_router
+
+app.include_router(gateway_v1_router)
 
 
 # 静态文件服务：网站预览

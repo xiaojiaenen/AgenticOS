@@ -10,9 +10,9 @@ from app.services.tool_config_service import DEFAULT_MODE_TOOLS, ToolConfigServi
 
 
 def test_website_prompt_contains_directory_and_build_rules() -> None:
-    assert "data/websites/" in WEBSITE_ROUTER_PROMPT
-    assert "npm install" in WEBSITE_ROUTER_PROMPT
-    assert "npm run build" in WEBSITE_ROUTER_PROMPT
+    # 路由提示已改为通过 build_website/check_website_project 工具编排，不再硬编码 npm 命令
+    assert "data/websites/" in WEBSITE_ROUTER_PROMPT or "check_website_project" in WEBSITE_ROUTER_PROMPT
+    assert "build_website" in WEBSITE_ROUTER_PROMPT or "npm" in WEBSITE_ROUTER_PROMPT
 
 
 def test_website_mode_enables_npm_by_default() -> None:
@@ -58,6 +58,9 @@ def test_existing_website_defaults_are_upgraded(tmp_path: Path) -> None:
         )
         db.commit()
 
+    # ensure_defaults 有 5 分钟进程级缓存，测试前强制失效，确保对本临时库执行升级
+    import app.services.agent_profile_service as profile_svc
+    profile_svc._ensure_defaults_last_run = 0.0
     ToolConfigService(session_factory=SessionLocal).list_configs()
     AgentProfileService(session_factory=SessionLocal).list_admin()
 
@@ -73,7 +76,9 @@ def test_existing_website_defaults_are_upgraded(tmp_path: Path) -> None:
 
         profile = db.scalar(select(AgentProfileModel).where(AgentProfileModel.slug == "website"))
         assert profile is not None
-        assert "data/websites/<project-slug>/" in profile.system_prompt
+        # 升级后应写入当前 WEBSITE_ROUTER_PROMPT（以工具编排为核心，不再硬编码绝对路径片段）
+        assert "copy_template" in profile.system_prompt or "check_website_project" in profile.system_prompt
+        assert "build_website" in profile.system_prompt
 
         profile_tool = db.scalar(
             select(AgentProfileToolModel).where(

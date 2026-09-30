@@ -1,6 +1,5 @@
 """图标搜索工具 — 基于文件系统的零依赖图标查找"""
 
-from pathlib import Path
 from wuwei.tools import ToolRegistry
 
 from app.core.data_path import DATA_DIR

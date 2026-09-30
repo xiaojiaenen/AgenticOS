@@ -3,7 +3,7 @@
 import json
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, patch
 
 from app.services.ppt_artifact_service import PptArtifactService
 from app.tools.ppt_tools import pop_pending_slide_plan, reset_slides_dir_cache
@@ -85,7 +85,7 @@ class TestCreatePptArtifactErrors:
     async def test_not_enough_slides(self, tmp_path):
         svc = PptArtifactService()
         # 只创建 1 个 slide
-        (tmp_path / "slide_1.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"></svg>')
+        (tmp_path / "slide_1.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"></svg>', encoding="utf-8")
         result = await svc.create_from_slides_dir("test-session", tmp_path)
         assert result is None
         assert len(svc._last_quality_errors) > 0
@@ -96,7 +96,10 @@ class TestCreatePptArtifactErrors:
         svc = PptArtifactService()
         # 创建 3 个 slide，但缺少 viewBox
         for i in range(1, 4):
-            (tmp_path / f"slide_{i}.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"></svg>')
+            (tmp_path / f"slide_{i}.svg").write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+                encoding="utf-8",
+            )
         result = await svc.create_from_slides_dir("test-session", tmp_path)
         assert result is None
         assert len(svc._last_quality_errors) > 0
@@ -104,9 +107,18 @@ class TestCreatePptArtifactErrors:
     @pytest.mark.anyio
     async def test_inconsistent_viewbox(self, tmp_path):
         svc = PptArtifactService()
-        (tmp_path / "slide_1.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"></svg>')
-        (tmp_path / "slide_2.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"></svg>')
-        (tmp_path / "slide_3.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080"></svg>')
+        (tmp_path / "slide_1.svg").write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"></svg>',
+            encoding="utf-8",
+        )
+        (tmp_path / "slide_2.svg").write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"></svg>',
+            encoding="utf-8",
+        )
+        (tmp_path / "slide_3.svg").write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080"></svg>',
+            encoding="utf-8",
+        )
         result = await svc.create_from_slides_dir("test-session", tmp_path)
         assert result is None
         assert len(svc._last_quality_errors) > 0
@@ -122,7 +134,7 @@ class TestCreatePptArtifactErrors:
             </g>
         </svg>'''
         for i in range(1, 4):
-            (tmp_path / f"slide_{i}.svg").write_text(svg)
+            (tmp_path / f"slide_{i}.svg").write_text(svg, encoding="utf-8")
 
         # 需要 mock DB 写入
         with patch.object(svc, 'session_factory') as mock_factory:

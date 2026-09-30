@@ -9,7 +9,6 @@ import re
 import logging
 import json
 from dataclasses import dataclass
-from typing import Optional
 
 _logger = logging.getLogger("ppt.chart_calibration")
 

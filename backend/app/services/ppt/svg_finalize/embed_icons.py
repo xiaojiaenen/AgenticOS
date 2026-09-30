@@ -40,12 +40,10 @@ Options:
     --verbose             Show detailed information
 """
 
-import os
 import re
 import sys
 import argparse
 from pathlib import Path
-from xml.etree import ElementTree as ET
 
 
 # Default icon directory

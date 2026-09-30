@@ -39,13 +39,22 @@ def create_admin_token(email: str) -> str:
 
 
 def cleanup(skill_slug: str, admin_email: str) -> None:
+    from sqlalchemy import update
+
+    from app.db.models import AgentProfileSkillModel
+    from tests.conftest import safe_delete_users
+
     with create_db_session() as db:
         skill = db.scalar(select(SkillModel).where(SkillModel.slug == skill_slug))
         if skill is not None:
+            db.execute(delete(AgentProfileSkillModel).where(AgentProfileSkillModel.skill_id == skill.id))
             shutil.rmtree(get_settings().get_skill_storage_dir() / skill.slug, ignore_errors=True)
             db.delete(skill)
-        db.execute(delete(UserModel).where(UserModel.email == admin_email))
+        user = db.scalar(select(UserModel).where(UserModel.email == admin_email))
+        if user is not None:
+            db.execute(update(SkillModel).where(SkillModel.created_by == user.id).values(created_by=None))
         db.commit()
+    safe_delete_users(admin_email)
 
 
 def test_admin_can_create_update_and_delete_skill() -> None:
