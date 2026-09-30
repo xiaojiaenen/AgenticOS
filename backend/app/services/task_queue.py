@@ -21,6 +21,7 @@ from typing import Any, Optional
 
 from arq import create_pool
 from arq.connections import RedisSettings
+from arq.jobs import Job, JobStatus
 
 from app.core.config import get_settings
 
@@ -36,9 +37,32 @@ logger = logging.getLogger(__name__)
 class TaskResult:
     """任务结果"""
     task_id: str
-    status: str  # pending, running, completed, failed
+    status: str  # pending, running, completed, failed, unknown
     result: Any = None
     error: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# LLM 网关（知识摄入用；本文件内创建，不依赖 agent_service）
+# ---------------------------------------------------------------------------
+
+
+def build_llm_gateway():
+    """为知识摄入构建 LLMGateway；无 key / 失败时返回 None 并 warning 降级。"""
+    settings = get_settings()
+    if not settings.openai_api_key:
+        logger.warning("OPENAI_API_KEY 未配置，知识摄入将降级为规则编译（不调用 LLM）")
+        return None
+    try:
+        from wuwei.llm import LLMGateway
+
+        return LLMGateway.from_env(
+            max_tokens=settings.agent_max_tokens,
+            timeout=settings.llm_timeout,
+        )
+    except Exception as e:
+        logger.warning(f"构建 LLMGateway 失败，知识摄入降级为规则编译: {e}")
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -59,9 +83,9 @@ async def export_pptx_task(
 ) -> dict:
     """PPTX 导出任务（在 worker 进程中执行）"""
     from app.services.agent_service import get_agent_service
-    
+
     logger.info(f"[Worker] Exporting PPTX: {artifact_id}")
-    
+
     try:
         agent_service = get_agent_service()
         pptx_bytes = await agent_service.export_pptx(
@@ -74,16 +98,16 @@ async def export_pptx_task(
             animation=animation,
             enable_notes=enable_notes,
         )
-        
+
         # 保存到文件
         from app.core.data_path import DATA_DIR
         output_path = DATA_DIR / "ppt-output" / f"{artifact_id}.pptx"
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(pptx_bytes)
-        
+
         logger.info(f"[Worker] PPTX exported: {output_path}")
         return {"status": "completed", "path": str(output_path)}
-        
+
     except Exception as e:
         logger.error(f"[Worker] PPTX export failed: {e}")
         return {"status": "failed", "error": str(e)}
@@ -96,11 +120,17 @@ async def compile_document_task(
 ) -> dict:
     """知识库文档编译任务（在 worker 进程中执行）"""
     from app.services.knowledge.ingest_pipeline import process_document_ingest
-    
+
     logger.info(f"[Worker] Compiling document: {document_id}")
-    
+
     try:
-        result = process_document_ingest(document_id, knowledge_base_id)
+        llm_gateway = build_llm_gateway()
+        result = await asyncio.to_thread(
+            process_document_ingest,
+            document_id,
+            knowledge_base_id,
+            llm_gateway,
+        )
         logger.info(f"[Worker] Document compiled: {document_id}")
         return result
     except Exception as e:
@@ -113,40 +143,46 @@ async def build_website_task(
     project_path: str,
 ) -> dict:
     """网站构建任务（npm install + npm run build）"""
-    import subprocess
+    import asyncio
+    import shutil
     from pathlib import Path
-    
+
     logger.info(f"[Worker] Building website: {project_path}")
-    
+
     try:
         project_dir = Path(project_path)
-        
-        # npm install
-        result = subprocess.run(
-            ["npm", "install", "--ignore-scripts"],
-            cwd=project_dir,
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-        if result.returncode != 0:
-            return {"status": "failed", "error": f"npm install failed: {result.stderr}"}
-        
-        # npm run build
-        result = subprocess.run(
-            ["npm", "run", "build"],
-            cwd=project_dir,
-            capture_output=True,
-            text=True,
-            timeout=180,
-        )
-        if result.returncode != 0:
-            return {"status": "failed", "error": f"npm run build failed: {result.stderr}"}
-        
+
+        async def _run_npm(step: str, args: list[str], timeout: int) -> None:
+            # Windows 下 npm 实际是 npm.cmd，用 shutil.which 解析出可执行文件
+            npm = shutil.which("npm") or "npm"
+            proc = await asyncio.create_subprocess_exec(
+                npm,
+                *args,
+                cwd=project_dir,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            try:
+                _, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                raise
+            if proc.returncode != 0:
+                raise RuntimeError(
+                    f"{step} failed: {stderr.decode(errors='replace').strip()}"
+                )
+
+        try:
+            await _run_npm("npm install", ["install", "--ignore-scripts"], timeout=300)
+            await _run_npm("npm run build", ["run", "build"], timeout=180)
+        except RuntimeError as e:
+            return {"status": "failed", "error": str(e)}
+
         logger.info(f"[Worker] Website built: {project_path}")
         return {"status": "completed", "path": str(project_dir / "dist")}
-        
-    except subprocess.TimeoutExpired:
+
+    except asyncio.TimeoutError:
         return {"status": "failed", "error": "Build timed out"}
     except Exception as e:
         logger.error(f"[Worker] Website build failed: {e}")
@@ -158,36 +194,36 @@ async def build_website_task(
 # ---------------------------------------------------------------------------
 
 
+def _redis_settings_from_url() -> RedisSettings:
+    settings = get_settings()
+    # Prefer explicit REDIS_URL; default to IPv4 loopback — Windows `localhost`
+    # often resolves to ::1 first and arq/asyncio then times out.
+    redis_url = settings.redis_url or "redis://127.0.0.1:6379"
+    return RedisSettings.from_dsn(redis_url)
+
+
 class WorkerSettings:
-    """ARQ Worker 配置"""
-    
+    """ARQ Worker 配置
+
+    redis_settings 必须是类属性上的 RedisSettings 实例（arq 的 get_kwargs
+    从 settings_cls.__dict__ 读取，classmethod 会导致 worker 启动失败）。
+    """
+
     functions = [
         export_pptx_task,
         compile_document_task,
         build_website_task,
     ]
-    
-    # Redis 连接
-    @classmethod
-    def redis_settings(cls) -> RedisSettings:
-        settings = get_settings()
-        redis_url = settings.redis_url or "redis://localhost:6379"
-        
-        from urllib.parse import urlparse
-        parsed = urlparse(redis_url)
-        return RedisSettings(
-            host=parsed.hostname or "localhost",
-            port=parsed.port or 6379,
-            password=parsed.password,
-            database=int(parsed.path.lstrip("/") or 0),
-        )
-    
+
+    # Redis 连接（类属性实例，非 classmethod）
+    redis_settings: RedisSettings = _redis_settings_from_url()
+
     # 并发任务数
     max_jobs = 10
-    
+
     # 任务超时（秒）
     job_timeout = 600
-    
+
     # 健康检查
     health_check_interval = 30
 
@@ -197,21 +233,43 @@ class WorkerSettings:
 # ---------------------------------------------------------------------------
 
 
+_pool = None
+_pool_lock: Optional[asyncio.Lock] = None
+
+
+def _get_pool_lock() -> asyncio.Lock:
+    """懒创建锁：arq worker / app 在不同事件循环中导入本模块，锁须绑定当前 loop。"""
+    global _pool_lock
+    if _pool_lock is None:
+        _pool_lock = asyncio.Lock()
+    return _pool_lock
+
+
 async def get_arq_pool():
-    """获取 ARQ 连接池"""
-    settings = get_settings()
-    redis_url = settings.redis_url or "redis://localhost:6379"
-    
-    from urllib.parse import urlparse
-    parsed = urlparse(redis_url)
-    redis_settings = RedisSettings(
-        host=parsed.hostname or "localhost",
-        port=parsed.port or 6379,
-        password=parsed.password,
-        database=int(parsed.path.lstrip("/") or 0),
-    )
-    
-    return await create_pool(redis_settings)
+    """获取 ARQ 连接池（模块级缓存复用）；Redis 不可用时抛出连接错误，由调用方映射 503。"""
+    global _pool
+    if _pool is None:
+        async with _get_pool_lock():
+            if _pool is None:
+                _pool = await create_pool(_redis_settings_from_url())
+    return _pool
+
+
+async def close_arq_pool() -> None:
+    """关闭并清空缓存的 ARQ 连接池（供优雅关闭时调用）。"""
+    global _pool
+    if _pool is None:
+        return
+    async with _get_pool_lock():
+        if _pool is not None:
+            try:
+                await _pool.aclose()
+            except AttributeError:
+                await _pool.close()
+            except Exception as e:  # noqa: BLE001
+                logger.warning("close_arq_pool failed: %s", e)
+            finally:
+                _pool = None
 
 
 async def submit_ppt_export(
@@ -237,6 +295,8 @@ async def submit_ppt_export(
         animation=animation,
         enable_notes=enable_notes,
     )
+    if job is None:
+        raise RuntimeError("enqueue_job returned None (job may already exist)")
     return job.job_id
 
 
@@ -251,6 +311,8 @@ async def submit_document_compilation(
         document_id,
         knowledge_base_id,
     )
+    if job is None:
+        raise RuntimeError("enqueue_job returned None (job may already exist)")
     return job.job_id
 
 
@@ -263,51 +325,33 @@ async def submit_website_build(
         "build_website_task",
         project_path,
     )
+    if job is None:
+        raise RuntimeError("enqueue_job returned None (job may already exist)")
     return job.job_id
 
 
 async def get_task_status(task_id: str) -> TaskResult:
-    """查询任务状态"""
+    """查询任务状态（使用 arq Job API：status / result_info）"""
     pool = await get_arq_pool()
-    job = await pool.queued_jobs()
-    
-    # 查找任务
-    for j in job:
-        if j.job_id == task_id:
-            return TaskResult(
-                task_id=task_id,
-                status="pending",
-            )
-    
-    # 检查正在运行的任务
-    running = await pool.incomplete_jobs()
-    for j in running:
-        if j.job_id == task_id:
-            return TaskResult(
-                task_id=task_id,
-                status="running",
-            )
-    
-    # 检查已完成的任务
-    try:
-        result = await pool.job_result(task_id)
-        if result is not None:
-            if result.success:
-                return TaskResult(
-                    task_id=task_id,
-                    status="completed",
-                    result=result.result,
-                )
-            else:
-                return TaskResult(
-                    task_id=task_id,
-                    status="failed",
-                    error=str(result.result),
-                )
-    except Exception:
-        pass
-    
-    return TaskResult(
-        task_id=task_id,
-        status="unknown",
-    )
+    job = Job(task_id, redis=pool)
+    status = await job.status()
+
+    if status in (JobStatus.deferred, JobStatus.queued):
+        return TaskResult(task_id=task_id, status="pending")
+
+    if status == JobStatus.in_progress:
+        return TaskResult(task_id=task_id, status="running")
+
+    if status == JobStatus.complete:
+        info = await job.result_info()
+        if info is None:
+            return TaskResult(task_id=task_id, status="completed")
+        if info.success:
+            result = info.result
+            if result is not None and not isinstance(result, dict):
+                result = {"value": result}
+            return TaskResult(task_id=task_id, status="completed", result=result)
+        return TaskResult(task_id=task_id, status="failed", error=str(info.result))
+
+    # JobStatus.not_found
+    return TaskResult(task_id=task_id, status="unknown")

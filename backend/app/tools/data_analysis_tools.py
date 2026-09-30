@@ -53,7 +53,6 @@ def register_data_analysis_tools(registry: ToolRegistry) -> None:
 
 def _run_analysis(df, analysis_type: str, column: str) -> dict[str, Any]:
     """执行分析并返回结构化结果。"""
-    import pandas as pd
 
     try:
         if analysis_type == "summary":

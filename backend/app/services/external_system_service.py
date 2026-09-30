@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import contextvars
-import hashlib
 import hmac
 import json
 import logging
@@ -18,7 +17,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.encryption import decrypt, decrypt_safe, encrypt
+from app.core.encryption import decrypt_safe, encrypt
 from app.core.redis import get_redis
 from app.db.models import (
     AgentProfileExternalSystemModel,

@@ -1,7 +1,6 @@
 ﻿"""Website 生成工具 — copy_template / build / deploy"""
 
 import shutil
-from pathlib import Path
 
 from wuwei.tools import ToolRegistry
 

@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
 """
-PPT Master - SVG Editor Server
+PPT Master - SVG Editor Server (FastAPI)
 
-Flask backend for the SVG annotation editor.
+FastAPI backend for the SVG annotation editor.
 Serves the web UI and provides API endpoints for reading/writing SVG annotations.
 
 Usage:
-    python3 scripts/svg_editor/server.py <project_dir>
+    uv run python -m app.services.ppt.svg_editor.server <project_dir>
 
 Examples:
-    python3 scripts/svg_editor/server.py projects/my-project
-    python3 scripts/svg_editor/server.py projects/my-project --port 8080
-    python3 scripts/svg_editor/server.py projects/my-project --live
+    uv run python -m app.services.ppt.svg_editor.server projects/my-project
+    uv run python -m app.services.ppt.svg_editor.server projects/my-project --port 8080
+    uv run python -m app.services.ppt.svg_editor.server projects/my-project --live
 
 Dependencies:
-    flask>=3.0.0
+    fastapi, uvicorn
 """
 
+from __future__ import annotations
+
 import argparse
+import logging
 import os
 import re
 import sys
@@ -28,31 +31,28 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
 
-from flask import Flask, jsonify, request, send_from_directory
+import uvicorn
+from fastapi import APIRouter, Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
-# Local — sys.path injection for sibling module (code-style.md §3)
-_SCRIPTS_DIR = Path(__file__).resolve().parent
-if str(_SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS_DIR))
-
-_FINALIZE_DIR = _SCRIPTS_DIR.parent / 'svg_finalize'
-if str(_FINALIZE_DIR) not in sys.path:
-    sys.path.insert(0, str(_FINALIZE_DIR))
-
-from annotations import (  # noqa: E402
+from app.services.ppt.svg_editor.annotations import (
     assign_temp_ids,
     parse_annotations,
     set_annotation,
-    remove_annotation,
 )
-from embed_icons import (  # noqa: E402
-    parse_use_element,
-    resolve_icon_path,
+from app.services.ppt.svg_finalize.embed_icons import (
     extract_paths_from_icon,
     generate_icon_group,
+    parse_use_element,
+    resolve_icon_path,
 )
 
-_ICONS_DIR = _SCRIPTS_DIR.parent.parent / 'templates' / 'icons'
+_logger = logging.getLogger(__name__)
+
+# 包内导入（FastAPI 工程结构），不再需要 sys.path 注入
+_STATIC_DIR = Path(__file__).resolve().parent
+_ICONS_DIR = _STATIC_DIR.parents[1] / 'templates' / 'icons'
 _USE_ICON_PATTERN = re.compile(r'<use\s+[^>]*data-icon="[^"]*"[^>]*/>')
 
 
@@ -90,47 +90,43 @@ def _inline_icons(content: str) -> str:
     return new_content
 
 
-def create_app(project_dir: str, idle_timeout: int = 900, live: bool = False) -> Flask:
-    """Create and configure the Flask app for a given project directory."""
-    project_path = Path(project_dir).resolve()
-    svg_dir = project_path / 'svg_output'
-    images_dir = project_path / 'images'
-    assets_dir = project_path / 'assets'
+class _EditorState:
+    """Per-project editor state (replaces Flask app.config)."""
 
-    app = Flask(__name__, static_folder='static', static_url_path='/static')
-    app.config['PROJECT_PATH'] = project_path
-    app.config['SVG_DIR'] = svg_dir
-    app.config['LIVE_MODE'] = live
+    def __init__(self, project_dir: str, live: bool = False) -> None:
+        self.project_path = Path(project_dir).resolve()
+        self.svg_dir = self.project_path / 'svg_output'
+        self.images_dir = self.project_path / 'images'
+        self.assets_dir = self.project_path / 'assets'
+        self.live = live
 
-    # In-memory annotation store: {filename: {element_id: annotation_text}}
-    app.config['ANNOTATIONS'] = {}
+        # In-memory annotation store: {filename: {element_id: annotation_text}}
+        self.annotations: dict[str, dict[str, str]] = {}
 
-    # Idle timeout: auto-shutdown if no one connects within idle_timeout seconds
-    app.config['LAST_REQUEST_TIME'] = time.time()
+        # Idle timeout: auto-shutdown if no one connects within idle_timeout seconds
+        self.last_request_time = time.time()
 
-    @app.before_request
-    def _update_activity():
-        app.config['LAST_REQUEST_TIME'] = time.time()
 
-    def _idle_watchdog():
-        if idle_timeout <= 0:
-            return
-        while True:
-            time.sleep(10)
-            elapsed = time.time() - app.config['LAST_REQUEST_TIME']
-            if elapsed > idle_timeout:
-                print(f"SVG Editor idle for {idle_timeout}s, shutting down.")
-                # os._exit: Flask dev server has no clean shutdown mechanism;
-                # data is safe because idle timeout only fires when no requests are in flight.
-                os._exit(0)
+def create_router(project_dir: str, live: bool = False, state: Optional[_EditorState] = None) -> APIRouter:
+    """Create the SVG editor APIRouter for a given project directory.
 
-    watchdog = threading.Thread(target=_idle_watchdog, daemon=True)
-    watchdog.start()
+    URL paths and JSON response shapes are identical to the legacy Flask app.
+    """
+    state = state or _EditorState(project_dir, live=live)
+    svg_dir = state.svg_dir
 
-    @app.route('/api/shutdown', methods=['POST'])
-    def shutdown():
-        data = request.get_json(silent=True) or {}
-        reason = data.get('reason') or 'shutdown'
+    async def _touch() -> None:
+        state.last_request_time = time.time()
+
+    router = APIRouter(dependencies=[Depends(_touch)])
+
+    @router.post('/api/shutdown')
+    async def shutdown(request: Request):
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+        reason = (data or {}).get('reason') or 'shutdown'
 
         def _stop():
             time.sleep(0.5)  # Let HTTP response flush before killing the process
@@ -138,78 +134,78 @@ def create_app(project_dir: str, idle_timeout: int = 900, live: bool = False) ->
             # os._exit: save-all already wrote to disk; 0.5s delay ensures response is sent.
             os._exit(0)
         threading.Thread(target=_stop, daemon=True).start()
-        return jsonify({'status': 'ok'})
+        return {'status': 'ok'}
 
-    @app.route('/')
-    def index():
-        return send_from_directory(app.static_folder, 'index.html')
+    @router.get('/')
+    async def index():
+        index_path = _STATIC_DIR / 'static' / 'index.html'
+        if not index_path.is_file():
+            return JSONResponse({'error': 'index.html not found'}, status_code=404)
+        return FileResponse(str(index_path))
 
-    @app.route('/api/config')
-    def get_config():
-        return jsonify({
-            'live': app.config['LIVE_MODE'],
-        })
+    @router.get('/api/config')
+    async def get_config():
+        return {'live': state.live}
 
-    @app.route('/images/<path:filename>')
-    def serve_image(filename: str):
+    @router.get('/images/{filename:path}')
+    async def serve_image(filename: str):
         """Serve images referenced by SVGs as `../images/*.png`.
 
         Resolution against an absolute images_dir + relative_to() check is the
         authoritative path-traversal guard.
         """
+        images_dir = state.images_dir
         if not images_dir.exists():
-            return jsonify({'error': 'images directory not found'}), 404
+            return JSONResponse({'error': 'images directory not found'}, status_code=404)
         target = (images_dir / filename).resolve()
         try:
             target.relative_to(images_dir.resolve())
         except ValueError:
-            return jsonify({'error': 'invalid path'}), 400
+            return JSONResponse({'error': 'invalid path'}, status_code=400)
         if not target.exists() or not target.is_file():
-            return jsonify({'error': 'not found'}), 404
-        return send_from_directory(str(images_dir), filename)
+            return JSONResponse({'error': 'not found'}, status_code=404)
+        return FileResponse(str(target))
 
-    @app.route('/assets/<path:filename>')
-    def serve_asset(filename: str):
+    @router.get('/assets/{filename:path}')
+    async def serve_asset(filename: str):
         """Serve media extracted by pptx_to_svg.py as `../assets/*`."""
+        assets_dir = state.assets_dir
         if not assets_dir.exists():
-            return jsonify({'error': 'assets directory not found'}), 404
+            return JSONResponse({'error': 'assets directory not found'}, status_code=404)
         target = (assets_dir / filename).resolve()
         try:
             target.relative_to(assets_dir.resolve())
         except ValueError:
-            return jsonify({'error': 'invalid path'}), 400
+            return JSONResponse({'error': 'invalid path'}, status_code=400)
         if not target.exists() or not target.is_file():
-            return jsonify({'error': 'not found'}), 404
-        return send_from_directory(str(assets_dir), filename)
+            return JSONResponse({'error': 'not found'}, status_code=404)
+        return FileResponse(str(target))
 
-    @app.route('/api/slides')
-    def get_slides():
-        svg_dir = app.config['SVG_DIR']
-        if not svg_dir.exists():
-            return jsonify({'slides': []})
-
-        annotations = app.config['ANNOTATIONS']
+    @router.get('/api/slides')
+    async def get_slides():
+        annotations = state.annotations
         slides = []
-        for svg_file in sorted(svg_dir.glob('*.svg')):
-            disk_annotations = []
-            try:
-                tree = ET.parse(str(svg_file))
-                disk_annotations = parse_annotations(tree.getroot())
-            except ET.ParseError:
-                pass
+        if svg_dir.exists():
+            for svg_file in sorted(svg_dir.glob('*.svg')):
+                disk_annotations = []
+                try:
+                    tree = ET.parse(str(svg_file))
+                    disk_annotations = parse_annotations(tree.getroot())
+                except ET.ParseError:
+                    pass
 
-            mem_count = len(annotations.get(svg_file.name, {}))
-            annotation_count = max(len(disk_annotations), mem_count)
+                mem_count = len(annotations.get(svg_file.name, {}))
+                annotation_count = max(len(disk_annotations), mem_count)
 
-            slides.append({
-                'name': svg_file.name,
-                'annotated': annotation_count > 0,
-                'annotation_count': annotation_count,
-            })
+                slides.append({
+                    'name': svg_file.name,
+                    'annotated': annotation_count > 0,
+                    'annotation_count': annotation_count,
+                })
 
-        return jsonify({'slides': slides})
+        return {'slides': slides}
 
-    def _safe_svg_path(name: str):
+    def _safe_svg_path(name: str) -> Optional[Path]:
         """Validate slide name and return safe path. Returns None if invalid.
 
         The early string checks reject obvious bad inputs; the resolve()+startswith()
@@ -222,25 +218,25 @@ def create_app(project_dir: str, idle_timeout: int = 900, live: bool = False) ->
             return None
         return svg_file
 
-    @app.route('/api/slide/<name>')
-    def get_slide(name: str):
+    @router.get('/api/slide/{name}')
+    async def get_slide(name: str):
         svg_file = _safe_svg_path(name)
         if svg_file is None:
-            return jsonify({'error': 'Invalid slide name'}), 400
+            return JSONResponse({'error': 'Invalid slide name'}, status_code=400)
         if not svg_file.exists():
-            return jsonify({'error': 'Slide not found'}), 404
+            return JSONResponse({'error': 'Slide not found'}, status_code=404)
 
         try:
             tree = ET.parse(str(svg_file))
             root = tree.getroot()
         except ET.ParseError as e:
-            return jsonify({'error': f'Failed to parse SVG: {e}'}), 500
+            return JSONResponse({'error': f'Failed to parse SVG: {e}'}, status_code=500)
 
         assign_temp_ids(root)
 
         disk_annotations = parse_annotations(root)
 
-        mem_annotations = app.config['ANNOTATIONS'].get(name, {})
+        mem_annotations = state.annotations.get(name, {})
         merged = {}
         for ann in disk_annotations:
             merged[ann['element_id']] = ann['annotation']
@@ -263,59 +259,56 @@ def create_app(project_dir: str, idle_timeout: int = 900, live: bool = False) ->
         # Inline <use data-icon> placeholders so the browser can render icons.
         content = _inline_icons(content)
 
-        return jsonify({
+        return {
             'name': name,
             'content': content,
             'annotations': annotations_list,
-        })
+        }
 
-    @app.route('/api/slide/<name>/annotate', methods=['POST'])
-    def post_annotate(name: str):
-        data = request.get_json()
+    @router.post('/api/slide/{name}/annotate')
+    async def post_annotate(name: str, request: Request):
+        try:
+            data = await request.json()
+        except Exception:
+            data = None
         if not data or 'element_id' not in data or 'annotation' not in data:
-            return jsonify({'error': 'Missing element_id or annotation'}), 400
+            return JSONResponse({'error': 'Missing element_id or annotation'}, status_code=400)
 
         element_id = data['element_id']
         annotation = data['annotation']
 
         if not isinstance(element_id, str) or not isinstance(annotation, str):
-            return jsonify({'error': 'element_id and annotation must be strings'}), 400
+            return JSONResponse({'error': 'element_id and annotation must be strings'}, status_code=400)
 
         if len(element_id) > 200:
-            return jsonify({'error': 'element_id too long (max 200 chars)'}), 400
+            return JSONResponse({'error': 'element_id too long (max 200 chars)'}, status_code=400)
 
         if len(annotation) > 10000:
-            return jsonify({'error': 'Annotation too long (max 10000 chars)'}), 400
+            return JSONResponse({'error': 'Annotation too long (max 10000 chars)'}, status_code=400)
 
-        if name not in app.config['ANNOTATIONS']:
-            app.config['ANNOTATIONS'][name] = {}
+        state.annotations.setdefault(name, {})[element_id] = annotation
 
-        app.config['ANNOTATIONS'][name][element_id] = annotation
-
-        return jsonify({
+        return {
             'status': 'ok',
-            'annotations_count': len(app.config['ANNOTATIONS'][name]),
-        })
+            'annotations_count': len(state.annotations[name]),
+        }
 
-    @app.route('/api/slide/<name>/annotate/<element_id>', methods=['DELETE'])
-    def delete_annotate(name: str, element_id: str):
-        annotations = app.config['ANNOTATIONS']
+    @router.delete('/api/slide/{name}/annotate/{element_id}')
+    async def delete_annotate(name: str, element_id: str):
+        annotations = state.annotations
         # Ensure the file key exists so save-all knows to rewrite this file
         # even if no new annotations were added (pure delete path).
-        if name not in annotations:
-            annotations[name] = {}
-        if element_id in annotations[name]:
-            del annotations[name][element_id]
+        annotations.setdefault(name, {})
+        annotations[name].pop(element_id, None)
 
-        return jsonify({
+        return {
             'status': 'ok',
             'annotations_count': len(annotations.get(name, {})),
-        })
+        }
 
-    @app.route('/api/save-all', methods=['POST'])
-    def save_all():
-        annotations = app.config['ANNOTATIONS']
-        svg_dir = app.config['SVG_DIR']
+    @router.post('/api/save-all')
+    async def save_all():
+        annotations = state.annotations
         modified = []
 
         for filename, anns in annotations.items():
@@ -354,9 +347,37 @@ def create_app(project_dir: str, idle_timeout: int = 900, live: bool = False) ->
             tree.write(str(svg_file), encoding='UTF-8', xml_declaration=True)
             modified.append(filename)
 
-        app.config['ANNOTATIONS'] = {}
+        annotations.clear()
 
-        return jsonify({'status': 'ok', 'files_modified': modified})
+        return {'status': 'ok', 'files_modified': modified}
+
+    return router
+
+
+def create_app(project_dir: str, idle_timeout: int = 900, live: bool = False) -> FastAPI:
+    """Create and configure the FastAPI app for a given project directory."""
+    state = _EditorState(project_dir, live=live)
+
+    app = FastAPI(title='SVG Editor', docs_url=None, redoc_url=None)
+    app.include_router(create_router(str(state.project_path), live=live, state=state))
+
+    if (_STATIC_DIR / 'static').is_dir():
+        app.mount('/static', StaticFiles(directory=str(_STATIC_DIR / 'static')), name='static')
+
+    def _idle_watchdog():
+        if idle_timeout <= 0:
+            return
+        while True:
+            time.sleep(10)
+            elapsed = time.time() - state.last_request_time
+            if elapsed > idle_timeout:
+                print(f"SVG Editor idle for {idle_timeout}s, shutting down.")
+                # os._exit: uvicorn has no cross-thread clean shutdown;
+                # data is safe because idle timeout only fires when no requests are in flight.
+                os._exit(0)
+
+    watchdog = threading.Thread(target=_idle_watchdog, daemon=True)
+    watchdog.start()
 
     return app
 
@@ -412,43 +433,36 @@ def main(argv: Optional[list[str]] = None) -> int:
     mode = "live preview (auto-startup)" if args.live else "live preview"
     print(f"SVG Editor running at {url} ({mode})")
     print(f"Project: {project_path}")
-    app.run(host='127.0.0.1', port=args.port, debug=False)
+    uvicorn.run(app, host='127.0.0.1', port=args.port, log_level='info')
     return 0
-
-
-if __name__ == '__main__':
-    raise SystemExit(main())
 
 
 # ============================================================================
 # AgenticOS Integration - WebSocket-based real-time preview
 # ============================================================================
 
-from fastapi import FastAPI as _FastAPI, WebSocket as _WebSocket, WebSocketDisconnect as _WebSocketDisconnect
-from fastapi.responses import HTMLResponse as _HTMLResponse
-
 
 class AgenticOSEditorServer:
     """AgenticOS SVG 实时编辑器服务"""
 
     def __init__(self):
-        self.connections: dict[str, _WebSocket] = {}
+        self.connections: dict[str, WebSocket] = {}
         self.svg_cache: dict[str, list[str]] = {}
-        self.app = _FastAPI()
+        self.app = FastAPI()
         self._setup_routes()
 
     def _setup_routes(self):
         """设置路由"""
 
         @self.app.websocket("/ws/{artifact_id}")
-        async def websocket_endpoint(websocket: _WebSocket, artifact_id: str):
+        async def websocket_endpoint(websocket: WebSocket, artifact_id: str):
             await self._handle_websocket(websocket, artifact_id)
 
         @self.app.get("/editor/{artifact_id}")
         async def editor_page(artifact_id: str):
-            return _HTMLResponse(self._get_editor_html(artifact_id))
+            return HTMLResponse(self._get_editor_html(artifact_id))
 
-    async def _handle_websocket(self, websocket: _WebSocket, artifact_id: str):
+    async def _handle_websocket(self, websocket: WebSocket, artifact_id: str):
         """处理 WebSocket 连接"""
         await websocket.accept()
         self.connections[artifact_id] = websocket
@@ -495,7 +509,7 @@ class AgenticOSEditorServer:
                         "slide_num": data.get("slide_num"),
                     })
 
-        except _WebSocketDisconnect:
+        except WebSocketDisconnect:
             _logger.info("WebSocket disconnected: %s", artifact_id)
         except Exception as e:
             _logger.error("WebSocket error: %s", e)
@@ -670,3 +684,7 @@ def get_editor_url(artifact_id: str, port: int = 8080) -> str:
         编辑器 URL
     """
     return f"http://localhost:{port}/editor/{artifact_id}"
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

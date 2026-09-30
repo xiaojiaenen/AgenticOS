@@ -104,7 +104,7 @@ def _build_next_slide_hint(current_slide_num: int) -> str:
     if not next_slide:
         return ""
 
-    parts = [f"\n\n⚠️ 下一页生成约束（必须严格遵守）："]
+    parts = ["\n\n⚠️ 下一页生成约束（必须严格遵守）："]
     parts.append(f"  第{next_slide['slide_num']}页 layout: {next_slide['layout']}")
     if next_slide.get("title"):
         parts.append(f"  第{next_slide['slide_num']}页 title: {next_slide['title']}")
@@ -189,7 +189,7 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
         if notes:
             notes_file = slides_dir / f"slide_{slide_num}.notes.md"
             notes_file.write_text(notes.strip(), encoding="utf-8")
-            result += f"\n📝 演讲者备注已保存"
+            result += "\n📝 演讲者备注已保存"
         else:
             # 尝试从 SVG 注释中提取备注
             notes_match = re.search(r'<!--\s*notes:\s*(.*?)\s*-->', svg, re.DOTALL)
@@ -198,7 +198,7 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
                 if extracted_notes:
                     notes_file = slides_dir / f"slide_{slide_num}.notes.md"
                     notes_file.write_text(extracted_notes, encoding="utf-8")
-                    result += f"\n📝 演讲者备注已从 SVG 注释中提取"
+                    result += "\n📝 演讲者备注已从 SVG 注释中提取"
 
         # 自动保存检查点（用于分段执行）
         try:
@@ -222,7 +222,7 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
                     slide_plan=_pending_slide_plan,
                     completed_slides=sorted(completed),
                 )
-        except Exception as e:
+        except Exception:
             # 检查点保存失败不影响主流程
             pass
 
@@ -268,7 +268,7 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
             notes = slide.get("notes", "")
 
             if not slide_num:
-                results.append(f"❌ 缺少 slide_num")
+                results.append("❌ 缺少 slide_num")
                 continue
 
             if not svg.strip().startswith("<svg"):
@@ -429,7 +429,7 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
                     if notes_to: write_notes(fr, notes_to)
                     results.append(f"✅ swap: 第{fr}页 ↔ 第{to}页")
                 else:
-                    results.append(f"❌ swap: 页面不存在")
+                    results.append("❌ swap: 页面不存在")
 
             elif action == "reorder":
                 new_order = op.get("new_order", [])
@@ -690,12 +690,12 @@ spec_lock 已恢复：{checkpoint.spec_lock}
         ]
 
         lines = [
-            f"**PPT 生成进度**",
-            f"",
+            "**PPT 生成进度**",
+            "",
             f"总页数: {total}",
             f"已完成: {len(completed)} 页",
             f"剩余: {len(remaining)} 页",
-            f"",
+            "",
             f"**已完成页面**: {', '.join(f'第{n}页' for n in sorted(completed))}",
         ]
 

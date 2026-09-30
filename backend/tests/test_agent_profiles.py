@@ -34,6 +34,10 @@ def create_token(email: str, role: str) -> str:
 
 
 def cleanup(slug: str, *emails: str) -> None:
+    from sqlalchemy import update
+
+    from tests.conftest import safe_delete_users
+
     with create_db_session() as db:
         profile = db.scalar(select(AgentProfileModel).where(AgentProfileModel.slug == slug))
         if profile is not None:
@@ -41,8 +45,13 @@ def cleanup(slug: str, *emails: str) -> None:
             db.execute(delete(AgentProfileAudienceModel).where(AgentProfileAudienceModel.profile_id == profile.id))
             db.execute(delete(AgentProfileToolModel).where(AgentProfileToolModel.profile_id == profile.id))
             db.delete(profile)
-        db.execute(delete(UserModel).where(UserModel.email.in_(emails)))
+        # Detach skill/profile created_by FKs that still point at these test users
+        user_ids = list(db.scalars(select(UserModel.id).where(UserModel.email.in_(emails))).all()) if emails else []
+        if user_ids:
+            db.execute(update(AgentProfileModel).where(AgentProfileModel.created_by.in_(user_ids)).values(created_by=None))
+            db.execute(update(SkillModel).where(SkillModel.created_by.in_(user_ids)).values(created_by=None))
         db.commit()
+    safe_delete_users(*emails)
 
 
 def test_admin_can_publish_agent_and_user_can_install_it() -> None:
@@ -104,11 +113,13 @@ def test_binding_skill_keeps_project_from_forcing_duplicate_skill_approval() -> 
     try:
         admin_token = create_token(admin_email, "admin")
         with create_db_session() as db:
+            skill_root = get_settings().get_skill_storage_dir() / f"reference-skill-{suffix}"
+            skill_root.mkdir(parents=True, exist_ok=True)
             skill = SkillModel(
                 name="Reference Skill",
                 slug=f"reference-skill-{suffix}",
                 description="Has references",
-                root_dir=str(get_settings().get_skill_storage_dir()),
+                root_dir=str(skill_root),
                 enabled=True,
                 created_by=None,
             )
@@ -142,7 +153,12 @@ def test_binding_skill_keeps_project_from_forcing_duplicate_skill_approval() -> 
         assert skill_tool["requires_approval"] is False
     finally:
         with create_db_session() as db:
-            db.execute(delete(SkillModel).where(SkillModel.slug == f"reference-skill-{suffix}"))
+            from app.db.models import AgentProfileSkillModel
+
+            skill = db.scalar(select(SkillModel).where(SkillModel.slug == f"reference-skill-{suffix}"))
+            if skill is not None:
+                db.execute(delete(AgentProfileSkillModel).where(AgentProfileSkillModel.skill_id == skill.id))
+                db.delete(skill)
             db.commit()
         cleanup(slug, admin_email)
 

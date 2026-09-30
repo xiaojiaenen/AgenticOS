@@ -17,8 +17,9 @@ from pathlib import Path
 _BACKEND_DIR = str(Path(__file__).resolve().parent.parent.parent)
 sys.path.insert(0, _BACKEND_DIR)
 
-DB_PATH = Path("/Users/xiaojia/code/AgenticOS/data/agenticos.db")
-ICONS_DIR = Path("/Users/xiaojia/code/AgenticOS/data/icons")
+_REPO_ROOT = Path(_BACKEND_DIR).parent
+DB_PATH = _REPO_ROOT / "data" / "agenticos.db"
+ICONS_DIR = _REPO_ROOT / "data" / "icons"
 
 PASS = 0
 FAIL = 0
@@ -58,7 +59,7 @@ if __name__ == "__main__":
     if skill:
         skill_id, name, slug, root_dir = skill
         check(f"Skill root_dir exists: {root_dir}", Path(root_dir).is_dir())
-        check(f"SKILL.md exists", (Path(root_dir) / "SKILL.md").is_file())
+        check("SKILL.md exists", (Path(root_dir) / "SKILL.md").is_file())
         skill_md = (Path(root_dir) / "SKILL.md").read_text()
         check("SKILL.md contains animation chapter",
               "元素分组与 PPTX 动画" in skill_md or "分组与动画" in skill_md)
@@ -74,7 +75,7 @@ if __name__ == "__main__":
     if skill:
         skill_id, name, slug, root_dir = skill
         check(f"Skill root_dir exists: {root_dir}", Path(root_dir).is_dir())
-        check(f"SKILL.md exists", (Path(root_dir) / "SKILL.md").is_file())
+        check("SKILL.md exists", (Path(root_dir) / "SKILL.md").is_file())
         check("SKILL.md contains chrome group rules",
               "bg-layer" in skill_md and "跳过动画" in skill_md)
     
@@ -127,7 +128,7 @@ if __name__ == "__main__":
     
     # 2b. Verify icon files exist
     rocket_path = ICONS_DIR / "chunk-filled" / "rocket.svg"
-    check(f"Icon file exists: chunk-filled/rocket.svg", rocket_path.is_file())
+    check("Icon file exists: chunk-filled/rocket.svg", rocket_path.is_file())
     
     # 2c. Icon expansion - create test SVG with <use data-icon>
     test_svg_icon = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
@@ -228,7 +229,6 @@ if __name__ == "__main__":
     
         # Build sequence targets from anim_targets (as pptx_builder does)
         from app.services.ppt.svg_to_pptx.pptx_builder import _build_sequence_targets
-        from app.services.ppt.svg_to_pptx.pptx_animations import pick_animation_effect
     
         slide_cfg = {}
         seq_targets, _ = _build_sequence_targets(

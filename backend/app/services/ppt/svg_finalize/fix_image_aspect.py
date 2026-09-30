@@ -25,10 +25,8 @@ Examples:
 
 import os
 import re
-import sys
 import base64
 import argparse
-from pathlib import Path
 from xml.etree import ElementTree as ET
 
 # Try to import PIL for getting image dimensions

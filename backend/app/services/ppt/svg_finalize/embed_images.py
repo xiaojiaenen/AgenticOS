@@ -15,7 +15,6 @@ Examples:
 import os
 import base64
 import re
-import sys
 import argparse
 
 

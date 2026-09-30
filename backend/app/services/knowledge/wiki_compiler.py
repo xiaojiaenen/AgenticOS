@@ -5,11 +5,16 @@ Wiki 编译器
 1. 分析阶段：LLM 阅读文档，输出结构化分析（实体、概念、事实、流程等）
 2. 生成阶段：根据分析结果生成 Wiki 页面
 3. 冲突检测：与已有页面比对，发现矛盾
+
+同步路径（analyze_sync / detect_conflicts_sync）提供规则启发式实现，
+可选在独立线程中调用 LLM（避免嵌套事件循环问题）。
 """
 
+import asyncio
 import json
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -91,6 +96,10 @@ class WikiPageDraft:
     action: str = "create"  # create, merge, skip
 
 
+# 在独立线程中跑 async LLM 调用（同步路径专用）
+_llm_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="wiki-llm")
+
+
 class WikiCompiler:
     """LLM 驱动的 Wiki 页面生成器"""
 
@@ -106,29 +115,110 @@ class WikiCompiler:
     async def analyze(self, document: ParsedDocument) -> AnalysisResult:
         """
         分析阶段：LLM 阅读文档，输出结构化分析
-
-        Args:
-            document: 解析后的文档
-
-        Returns:
-            AnalysisResult: 结构化分析结果
         """
         logger.info(f"Analyzing document: {document.metadata.get('file_name', 'unknown')}")
 
-        # 构建分析提示
         prompt = self._build_analysis_prompt(document)
-
-        # 调用 LLM
         response = await self._call_llm(prompt)
-
-        # 解析响应
-        return self._parse_analysis_response(response)
+        result = self._parse_analysis_response(response)
+        if not (result.summary or result.entities or result.concepts or result.procedures):
+            # LLM 返回不可用时回退启发式
+            return self._analyze_heuristic(document)
+        return result
 
     def analyze_sync(self, document: ParsedDocument) -> AnalysisResult:
-        """同步版本的分析方法（不调用 LLM，返回空结果）"""
+        """同步分析：规则启发式为主，可选在独立线程调用 LLM。"""
         logger.info(f"Analyzing document (sync): {document.metadata.get('file_name', 'unknown')}")
-        # 同步模式下暂不执行 LLM 分析，返回空结果
-        return AnalysisResult()
+
+        heuristic = self._analyze_heuristic(document)
+
+        if self.llm is None:
+            return heuristic
+
+        # 可选 LLM：在独立线程 asyncio.run，避免与当前事件循环冲突
+        try:
+            prompt = self._build_analysis_prompt(document)
+
+            def _run_llm() -> str:
+                return asyncio.run(self._call_llm(prompt))
+
+            future = _llm_executor.submit(_run_llm)
+            response = future.result(timeout=90)
+            llm_result = self._parse_analysis_response(response)
+            if llm_result.summary or llm_result.entities or llm_result.concepts or llm_result.procedures:
+                return llm_result
+            logger.warning("LLM analysis returned empty, falling back to heuristics")
+        except Exception as e:
+            logger.warning(f"Sync LLM analysis failed, using heuristics: {e}")
+
+        return heuristic
+
+    def _analyze_heuristic(self, document: ParsedDocument) -> AnalysisResult:
+        """规则启发式分析（无 LLM 时可用）。"""
+        text = document.text or ""
+        result = AnalysisResult()
+
+        # 摘要：取前几行非空文本
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+        result.summary = " ".join(lines[:3])[:200] if lines else ""
+
+        # 标签：从标题/首行提取
+        title = document.metadata.get("title") or (lines[0][:40] if lines else "")
+        if title:
+            result.tags.append(re.sub(r"[^\w一-鿿\-]+", "", title)[:20])
+
+        # 概念/实体：Markdown 标题
+        for m in re.finditer(r"^#{1,3}\s+(.+)$", text, re.MULTILINE):
+            name = m.group(1).strip()
+            if not name or name.lower() in {"摘要", "summary", "标签", "tags", "统计", "statistics"}:
+                continue
+            # 截取该标题下的段落作为描述
+            start = m.end()
+            nxt = re.search(r"^#{1,3}\s+", text[start:], re.MULTILINE)
+            body = text[start: start + nxt.start()] if nxt else text[start: start + 400]
+            body = body.strip()[:400]
+            # 步骤列表 → Procedure
+            steps = re.findall(r"^\s*(?:\d+\.|[-*])\s+(.+)$", body, re.MULTILINE)
+            if len(steps) >= 2:
+                result.procedures.append(Procedure(
+                    name=name,
+                    steps=[s.strip() for s in steps[:20]],
+                    description=body[:200],
+                ))
+            else:
+                result.concepts.append(Concept(
+                    name=name,
+                    description=body or name,
+                    key_points=[ln.strip("-* ").strip() for ln in body.splitlines() if ln.strip()][:5],
+                ))
+
+        # FAQ：Q:/A: 模式
+        for qm in re.finditer(
+            r"(?:^|\n)(?:Q|问题)\s*[:：]\s*(.+)\n(?:A|答|回答)\s*[:：]\s*(.+)",
+            text,
+            re.IGNORECASE,
+        ):
+            result.faqs.append(FAQ(question=qm.group(1).strip(), answer=qm.group(2).strip()[:500]))
+
+        # 事实：包含“必须/应当/默认/支持”等断言句
+        for sent in re.split(r"[。.!?\n]", text):
+            sent = sent.strip()
+            if 10 < len(sent) < 200 and re.search(r"(必须|应当|默认|支持|不支持|禁止|使用)", sent):
+                result.facts.append(Fact(claim=sent, evidence=document.metadata.get("file_name", ""), confidence=0.7))
+            if len(result.facts) >= 15:
+                break
+
+        # 实体：像产品/系统名的大写英文或「XX系统/平台」
+        for m in re.finditer(r"([A-Z][A-Za-z0-9_\-]{2,}|[\w一-鿿]{2,12}(?:系统|平台|服务|模块))", text):
+            name = m.group(1)
+            if len(name) < 3 or name.lower() in {"http", "https", "json", "html", "markdown"}:
+                continue
+            if not any(e.name == name for e in result.entities):
+                result.entities.append(Entity(name=name, type="system", description=f"文档中出现：{name}"))
+            if len(result.entities) >= 20:
+                break
+
+        return result
 
     async def generate_pages(
         self,
@@ -136,46 +226,10 @@ class WikiCompiler:
         document: ParsedDocument,
         document_id: int,
     ) -> list[WikiPageDraft]:
-        """
-        生成阶段：根据分析结果生成 Wiki 页面
-
-        Args:
-            analysis: 分析结果
-            document: 原始文档
-            document_id: 文档 ID
-
-        Returns:
-            list[WikiPageDraft]: Wiki 页面草稿列表
-        """
+        """生成阶段：根据分析结果生成 Wiki 页面"""
         logger.info("Generating wiki pages from analysis")
-
-        pages = []
-        source_ref = f"kb_document:{document_id}"
-
-        # 生成实体页面
-        for entity in analysis.entities:
-            page = self._generate_entity_page(entity, source_ref, document)
-            pages.append(page)
-
-        # 生成概念页面
-        for concept in analysis.concepts:
-            page = self._generate_concept_page(concept, source_ref, document)
-            pages.append(page)
-
-        # 生成流程页面
-        for procedure in analysis.procedures:
-            page = self._generate_procedure_page(procedure, source_ref, document)
-            pages.append(page)
-
-        # 生成 FAQ 页面
-        if analysis.faqs:
-            page = self._generate_faq_page(analysis.faqs, source_ref, document)
-            pages.append(page)
-
-        # 生成来源摘要页面
-        page = self._generate_source_summary_page(analysis, document, source_ref)
-        pages.append(page)
-
+        pages = self._build_pages_from_analysis(analysis, document, document_id)
+        self._fill_wikilinks(pages)
         return pages
 
     def generate_pages_sync(
@@ -186,58 +240,58 @@ class WikiCompiler:
     ) -> list[WikiPageDraft]:
         """同步版本的页面生成方法"""
         logger.info("Generating wiki pages from analysis (sync)")
-        pages = []
+        pages = self._build_pages_from_analysis(analysis, document, document_id)
+        self._fill_wikilinks(pages)
+        return pages
+
+    def _build_pages_from_analysis(
+        self,
+        analysis: AnalysisResult,
+        document: ParsedDocument,
+        document_id: int,
+    ) -> list[WikiPageDraft]:
+        pages: list[WikiPageDraft] = []
         source_ref = f"kb_document:{document_id}"
 
         for entity in analysis.entities:
-            page = self._generate_entity_page(entity, source_ref, document)
-            pages.append(page)
-
+            pages.append(self._generate_entity_page(entity, source_ref, document))
         for concept in analysis.concepts:
-            page = self._generate_concept_page(concept, source_ref, document)
-            pages.append(page)
-
+            pages.append(self._generate_concept_page(concept, source_ref, document))
         for procedure in analysis.procedures:
-            page = self._generate_procedure_page(procedure, source_ref, document)
-            pages.append(page)
-
+            pages.append(self._generate_procedure_page(procedure, source_ref, document))
         if analysis.faqs:
-            page = self._generate_faq_page(analysis.faqs, source_ref, document)
-            pages.append(page)
-
-        page = self._generate_source_summary_page(analysis, document, source_ref)
-        pages.append(page)
-
+            pages.append(self._generate_faq_page(analysis.faqs, source_ref, document))
+        pages.append(self._generate_source_summary_page(analysis, document, source_ref))
         return pages
+
+    def _fill_wikilinks(self, pages: list[WikiPageDraft]) -> None:
+        """根据页面标题互出现在内容中，填充 wikilinks（供 ingest 写入 KBWikiLinkModel）。"""
+        titles = [p.title for p in pages if p.title]
+        for page in pages:
+            links: list[str] = []
+            for t in titles:
+                if t == page.title:
+                    continue
+                # 标题以纯文本出现在正文（长度 >= 2 避免误链）
+                if len(t) >= 2 and t in page.content:
+                    links.append(t)
+            page.wikilinks = links
 
     async def detect_conflicts(
         self,
         new_pages: list[WikiPageDraft],
         existing_pages: list[dict],
     ) -> list[Contradiction]:
-        """
-        冲突检测：新页面与已有页面比对
-
-        Args:
-            new_pages: 新生成的页面
-            existing_pages: 已有页面列表 [{"id": 1, "title": "...", "content": "..."}]
-
-        Returns:
-            list[Contradiction]: 检测到的矛盾
-        """
+        """冲突检测：新页面与已有页面比对"""
         if not existing_pages:
             return []
 
         logger.info(f"Detecting conflicts against {len(existing_pages)} existing pages")
-
-        contradictions = []
+        contradictions: list[Contradiction] = []
 
         for new_page in new_pages:
-            # 找到标题相似的已有页面
             similar_pages = self._find_similar_pages(new_page, existing_pages)
-
             for existing in similar_pages:
-                # 使用 LLM 判断是否矛盾
                 conflict = await self._check_conflict(new_page, existing)
                 if conflict:
                     contradictions.append(conflict)
@@ -249,12 +303,104 @@ class WikiCompiler:
         new_pages: list[WikiPageDraft],
         existing_pages: list[dict],
     ) -> list[Contradiction]:
-        """同步版本的冲突检测方法（不调用 LLM，返回空列表）"""
+        """同步冲突检测：规则启发式 + 可选 LLM（独立线程）。"""
         if not existing_pages:
             return []
         logger.info(f"Detecting conflicts (sync) against {len(existing_pages)} existing pages")
-        # 同步模式下暂不执行 LLM 冲突检测
-        return []
+
+        contradictions: list[Contradiction] = []
+        for new_page in new_pages:
+            similar_pages = self._find_similar_pages(new_page, existing_pages)
+            for existing in similar_pages:
+                conflict = self._check_conflict_rule(new_page, existing)
+                if conflict is None and self.llm is not None:
+                    conflict = self._check_conflict_llm_sync(new_page, existing)
+                if conflict:
+                    contradictions.append(conflict)
+
+        return contradictions
+
+    def _check_conflict_rule(self, new_page: WikiPageDraft, existing_page: dict) -> Optional[Contradiction]:
+        """规则启发式冲突检测（可返回非空）。"""
+        new_content = new_page.content or ""
+        old_content = existing_page.get("content") or ""
+
+        # 1) 否定词对立：一方含“禁止/不可/不支持/不要”，另一方含“必须/应当/支持/需要”
+        negative = re.search(r"(禁止|不可|不支持|不要|不应|无需)", new_content)
+        positive = re.search(r"(必须|应当|需要|支持|应当)", old_content)
+        if negative and positive:
+            # 粗略：在相近句中出现对立倾向
+            return Contradiction(
+                claim=new_content[:200],
+                existing_page_id=existing_page.get("id"),
+                existing_page_title=existing_page.get("title", ""),
+                nature=f"新内容强调限制/否定，已有页面强调肯定要求（标题: {existing_page.get('title', '')}）",
+            )
+
+        # 2) 同关键短语下数值冲突（如端口、超时、版本号）
+        new_nums = set(re.findall(r"(?<![\w.])(\d+(?:\.\d+)+|\d+)(?![\w])", new_content))
+        old_nums = set(re.findall(r"(?<![\w.])(\d+(?:\.\d+)+|\d+)(?![\w])", old_content))
+        shared_keys = set(self._extract_key_phrases(new_content)) & set(self._extract_key_phrases(old_content))
+        if shared_keys:
+            only_new = new_nums - old_nums
+            only_old = old_nums - new_nums
+            # 同主题但数值集合显著不同且至少各有数字 → 潜在冲突
+            if only_new and only_old and len(only_new & only_old) < min(3, len(only_new | only_old)):
+                return Contradiction(
+                    claim=new_content[:200],
+                    existing_page_id=existing_page.get("id"),
+                    existing_page_title=existing_page.get("title", ""),
+                    nature=(
+                        f"同一主题（{', '.join(list(shared_keys)[:3])}）下数值不一致："
+                        f"新={sorted(list(only_new))[:5]} vs 旧={sorted(list(only_old))[:5]}"
+                    ),
+                )
+
+        # 3) 版本号对立
+        new_ver = set(re.findall(r"v?(\d+\.\d+(?:\.\d+)?)", new_content))
+        old_ver = set(re.findall(r"v?(\d+\.\d+(?:\.\d+)?)", old_content))
+        if new_ver and old_ver and not (new_ver & old_ver):
+            # 仅当标题相似时才报（已由 _find_similar_pages 过滤）
+            if new_ver and old_ver:
+                return Contradiction(
+                    claim=new_content[:200],
+                    existing_page_id=existing_page.get("id"),
+                    existing_page_title=existing_page.get("title", ""),
+                    nature=f"版本号不一致：新={sorted(new_ver)[:3]} vs 旧={sorted(old_ver)[:3]}",
+                )
+
+        return None
+
+    def _check_conflict_llm_sync(self, new_page: WikiPageDraft, existing_page: dict) -> Optional[Contradiction]:
+        """在独立线程中调用 LLM 判断矛盾。"""
+        if self.llm is None:
+            return None
+
+        def _run() -> Optional[Contradiction]:
+            async def _inner() -> Optional[Contradiction]:
+                return await self._check_conflict(new_page, existing_page)
+
+            return asyncio.run(_inner())
+
+        try:
+            future = _llm_executor.submit(_run)
+            return future.result(timeout=60)
+        except Exception as e:
+            logger.debug(f"Sync LLM conflict check skipped: {e}")
+            return None
+
+    def _extract_key_phrases(self, text: str) -> list[str]:
+        """提取用于冲突比对的关键短语（中文 bigram + 英文单词）。"""
+        text = text.lower()
+        text = re.sub(r"[^\w\s一-鿿]", " ", text)
+        phrases: list[str] = []
+        for part in text.split():
+            if re.search(r"[一-鿿]", part):
+                for i in range(len(part) - 1):
+                    phrases.append(part[i:i + 2])
+            elif len(part) >= 3:
+                phrases.append(part)
+        return phrases
 
     def _build_analysis_prompt(self, document: ParsedDocument) -> str:
         """构建分析提示"""
@@ -394,7 +540,6 @@ class WikiCompiler:
         document: ParsedDocument,
     ) -> WikiPageDraft:
         """生成实体页面"""
-        slug = self._slugify(entity.name)
         content = f"""# {entity.name}
 
 **类型**: {entity.type}
@@ -428,7 +573,6 @@ class WikiCompiler:
         document: ParsedDocument,
     ) -> WikiPageDraft:
         """生成概念页面"""
-        slug = self._slugify(concept.name)
         key_points_md = "\n".join(f"- {point}" for point in concept.key_points)
 
         content = f"""# {concept.name}
@@ -465,7 +609,6 @@ class WikiCompiler:
         document: ParsedDocument,
     ) -> WikiPageDraft:
         """生成流程页面"""
-        slug = self._slugify(procedure.name)
         steps_md = "\n".join(f"{i+1}. {step}" for i, step in enumerate(procedure.steps))
 
         content = f"""# {procedure.name}
@@ -648,7 +791,7 @@ class WikiCompiler:
     def _slugify(self, text: str) -> str:
         """生成 URL 友好的 slug"""
         # 移除特殊字符，保留中文、英文、数字
-        text = re.sub(r"[^\w\s\u4e00-\u9fff-]", "", text)
+        text = re.sub(r"[^\w\s一-鿿-]", "", text)
         # 替换空白为连字符
         text = re.sub(r"\s+", "-", text.strip())
         return text.lower()[:100]

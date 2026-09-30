@@ -12,10 +12,25 @@ client = TestClient(app)
 
 
 def cleanup_test_users(*emails: str) -> None:
+    from sqlalchemy import bindparam, text
+
+
     with create_db_session() as db:
         user_ids = db.scalars(select(UserModel.id).where(UserModel.email.in_(emails))).all()
         if user_ids:
             db.execute(delete(AuthSessionModel).where(AuthSessionModel.user_id.in_(user_ids)))
+            db.execute(
+                text("DELETE FROM user_installed_agents WHERE user_id IN :uids").bindparams(bindparam("uids", expanding=True)),
+                {"uids": user_ids},
+            )
+            db.execute(
+                text("DELETE FROM upstream_credentials WHERE user_id IN :uids").bindparams(bindparam("uids", expanding=True)),
+                {"uids": user_ids},
+            )
+            db.execute(
+                text("DELETE FROM upstream_api_keys WHERE user_id IN :uids").bindparams(bindparam("uids", expanding=True)),
+                {"uids": user_ids},
+            )
         db.execute(delete(UserModel).where(UserModel.email.in_(emails)))
         db.execute(delete(AuthRateLimitModel))
         db.commit()

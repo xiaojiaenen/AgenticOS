@@ -3,7 +3,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
 
 # Simple SVG slides for testing
 SIMPLE_SVGS = [
@@ -171,7 +170,12 @@ class TestSvgValidation:
         assert not validate_svg_slides(svgs)
 
     def test_detect_theme_name_from_svg(self):
+        from app.core.data_path import DESIGN_THEMES_DIR
         from app.services.ppt_artifact_service import _detect_theme_name_from_svg
+
+        # 检测函数要求主题 CSS 存在于磁盘，测试环境自备
+        DESIGN_THEMES_DIR.mkdir(parents=True, exist_ok=True)
+        (DESIGN_THEMES_DIR / "tokyo-night.css").write_text(":root { --c: red; }", encoding="utf-8")
 
         svgs = ['<svg xmlns="http://www.w3.org/2000/svg" data-theme="tokyo-night" viewBox="0 0 1280 720">...</svg>']
         assert _detect_theme_name_from_svg(svgs) == "tokyo-night"

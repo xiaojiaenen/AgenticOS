@@ -16,6 +16,12 @@ class AgentStreamRequest(BaseModel):
         pattern="^(general|ppt|website|email|bigdata)$",
         description="Expected response mode, used as a backward-compatible fallback.",
     )
+    # Accept common alias `mode` from clients/scripts so `"mode": "ppt"` works.
+    mode: str | None = Field(
+        default=None,
+        pattern="^(general|ppt|website|email|bigdata)$",
+        description="Alias of response_mode.",
+    )
     max_steps: int | None = Field(default=None, ge=1, le=50, description="Max runtime steps for one turn.")
     parallel_tool_calls: bool | None = Field(default=None, description="Whether parallel tool calls are allowed.")
     files: list[FileAttachment] | None = Field(default=None, description="Attached files with extracted text.")
@@ -24,6 +30,10 @@ class AgentStreamRequest(BaseModel):
         pattern="^(planning|confirming|generating|done)$",
         description="PPT generation phase: 'planning' (output spec_lock), 'confirming' (wait for user), 'generating' (generate SVGs), 'done'. None for single-phase mode.",
     )
+
+    def model_post_init(self, __context) -> None:
+        if self.mode and (self.response_mode == "general" or not self.response_mode):
+            self.response_mode = self.mode
 
 
 class PptExportRequest(BaseModel):

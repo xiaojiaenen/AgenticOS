@@ -1,5 +1,4 @@
 """Tests for the theme token resolver — CSS parsing, token resolution, color tables."""
-import pytest
 
 
 SAMPLE_CSS = """
@@ -131,11 +130,17 @@ class TestLoadThemeTokens:
         assert tokens == {}
 
     def test_list_available_themes(self):
+        from app.core.data_path import DESIGN_THEMES_DIR
         from app.services.ppt.theme_token_resolver import list_available_themes
+
+        # 主题目录是运行时数据（data/design-themes），测试环境自行准备，
+        # 不依赖开发机上是否存在真实主题文件
+        DESIGN_THEMES_DIR.mkdir(parents=True, exist_ok=True)
+        for name in ("apple", "agentic"):
+            (DESIGN_THEMES_DIR / f"{name}.css").write_text(":root { --c: red; }", encoding="utf-8")
 
         themes = list_available_themes()
         assert isinstance(themes, list)
-        assert len(themes) >= 1
         assert "apple" in themes
         assert "agentic" in themes
 

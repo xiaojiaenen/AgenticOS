@@ -18,7 +18,7 @@ from typing import Any
 import numpy as np
 
 from app.core.config import get_settings
-from app.core.redis import get_redis, is_redis_memory
+from app.core.redis import is_redis_memory
 
 _logger = logging.getLogger("memory_vector_store")
 _settings = get_settings()

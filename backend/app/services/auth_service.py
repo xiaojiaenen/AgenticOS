@@ -4,14 +4,15 @@ from datetime import timedelta
 from math import ceil
 from uuid import uuid4
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.core.timezone import app_now
-from app.db.models import AuthRateLimitModel, AuthSessionModel, UserModel
+from app.db.models import AuthSessionModel, UserModel
+from app.services import rate_limiter
 
 
 class AuthError(ValueError):
@@ -66,76 +67,26 @@ class AuthService:
             "user": self._public_user(user),
         }
 
-    def _rate_limit_window(self) -> timedelta:
-        return timedelta(seconds=self.settings.auth_rate_limit_window_seconds)
-
-    def _rate_limit_block(self) -> timedelta:
-        return timedelta(seconds=self.settings.auth_rate_limit_block_seconds)
-
-    def _normalize_rate_limit_row(self, row: AuthRateLimitModel, *, now) -> tuple[AuthRateLimitModel, bool]:
-        modified = False
-        if row.blocked_until is not None and row.blocked_until <= now:
-            row.blocked_until = None
-            modified = True
-        if now - row.window_started_at >= self._rate_limit_window():
-            row.attempts = 0
-            row.window_started_at = now
-            row.blocked_until = None
-            modified = True
-        return row, modified
-
-    def _rate_limit_key(self, scope: str, *, email: str | None = None, client_ip: str | None = None) -> str:
-        normalized_ip = (client_ip or "unknown").strip().lower() or "unknown"
-        if scope == "login":
-            normalized_email = (email or "").strip().lower()
-            return f"{scope}:{normalized_email}:{normalized_ip}"
-        return f"{scope}:{normalized_ip}"
+    # ------------------------------------------------------------------
+    # 登录/注册限流：已从 AuthRateLimitModel（MySQL 行级状态机）迁移到
+    # app.services.rate_limiter 的 Redis 原子固定窗口实现（INCR+EXPIRE），
+    # Redis 不可用时自动降级进程内计数。外部行为（失败计数、达到上限
+    # 返回封禁剩余时间、封禁期内直接拒绝、成功后清除）与旧实现等价。
+    # ------------------------------------------------------------------
 
     def _assert_rate_limit_allowed(self, scope: str, *, email: str | None = None, client_ip: str | None = None) -> None:
-        key = self._rate_limit_key(scope, email=email, client_ip=client_ip)
-        row = self.db.get(AuthRateLimitModel, key)
-        if row is None:
-            return
-
-        now = app_now()
-        row, modified = self._normalize_rate_limit_row(row, now=now)
-        if row.blocked_until is not None and row.blocked_until > now:
-            remaining_seconds = max(1, int((row.blocked_until - now).total_seconds()))
+        remaining_seconds = rate_limiter.check_rate_limit(
+            self.settings, scope, email=email, client_ip=client_ip
+        )
+        if remaining_seconds > 0:
             remaining_minutes = ceil(remaining_seconds / 60)
-            if modified:
-                self.db.add(row)
-                self.db.commit()
             raise AuthRateLimitError(f"尝试次数过多，请在 {remaining_minutes} 分钟后重试")
 
-        if modified:
-            self.db.add(row)
-            self.db.commit()
-
     def _record_failed_attempt(self, scope: str, *, email: str | None = None, client_ip: str | None = None) -> None:
-        key = self._rate_limit_key(scope, email=email, client_ip=client_ip)
-        now = app_now()
-        row = self.db.get(AuthRateLimitModel, key)
-        if row is None:
-            row = AuthRateLimitModel(
-                key=key,
-                scope=scope,
-                attempts=0,
-                window_started_at=now,
-            )
-        else:
-            row, _ = self._normalize_rate_limit_row(row, now=now)
-
-        row.attempts += 1
-        row.updated_at = now
-        if row.attempts >= self.settings.auth_rate_limit_max_attempts:
-            row.blocked_until = now + self._rate_limit_block()
-        self.db.add(row)
-        self.db.commit()
+        rate_limiter.record_failed_attempt(self.settings, scope, email=email, client_ip=client_ip)
 
     def _clear_rate_limit(self, scope: str, *, email: str | None = None, client_ip: str | None = None) -> None:
-        key = self._rate_limit_key(scope, email=email, client_ip=client_ip)
-        self.db.execute(delete(AuthRateLimitModel).where(AuthRateLimitModel.key == key))
-        self.db.commit()
+        rate_limiter.clear_rate_limit(self.settings, scope, email=email, client_ip=client_ip)
 
     def register(self, *, email: str, name: str, password: str, client_ip: str | None = None) -> dict[str, object]:
         normalized_email = email.strip().lower()
@@ -163,28 +114,43 @@ class AuthService:
             raise AuthError("Email already registered")
         self.db.refresh(user)
 
-        # Now that the row is committed, atomically promote to admin only if
-        # no admin currently exists.  The correlated subquery is evaluated
-        # inside the same statement so there is no gap between the check and
-        # the write.
-        from sqlalchemy import update as sa_update
+        # 仅当系统中尚不存在任何 admin 时，才将本用户提升为 admin。
+        # 必须判断“是否存在其他 admin”，而不是“本用户是否已是 admin”
+        # （后者对新建用户恒为真，会把每个注册用户都升成管理员）。
+        self._maybe_promote_first_admin(user)
 
+        self._clear_rate_limit("register", email=normalized_email, client_ip=client_ip)
+        return self._auth_response(user)
+
+    def _maybe_promote_first_admin(self, user: UserModel) -> None:
+        """Promote *user* to admin only when no other admin exists yet.
+
+        The check must ask "does any OTHER admin exist?", not "is this user
+        already an admin?" — the latter is always true for a freshly inserted
+        role=user row and would promote every registration.
+        """
+        from sqlalchemy import text as sa_text
+
+        # Derived-table wrapper: MySQL rejects UPDATE targets inside subqueries
+        # (error 1093); wrapping keeps this portable across MySQL and SQLite.
         result = self.db.execute(
-            sa_update(UserModel)
-            .where(
-                UserModel.id == user.id,
-                ~UserModel.id.in_(
-                    select(UserModel.id).where(UserModel.role == "admin")
-                ),
-            )
-            .values(role="admin")
+            sa_text(
+                """
+                UPDATE users
+                SET role = 'admin'
+                WHERE id = :uid
+                  AND NOT EXISTS (
+                    SELECT 1 FROM (
+                      SELECT id FROM users WHERE role = 'admin' AND id != :uid
+                    ) AS other_admins
+                  )
+                """
+            ),
+            {"uid": user.id},
         )
         if result.rowcount > 0:
             self.db.commit()
             self.db.refresh(user)
-
-        self._clear_rate_limit("register", email=normalized_email, client_ip=client_ip)
-        return self._auth_response(user)
 
     def login(self, *, email: str, password: str, client_ip: str | None = None) -> dict[str, object]:
         normalized_email = email.strip().lower()
@@ -201,12 +167,14 @@ class AuthService:
 
     def login_with_code(self, *, email: str, code: str) -> dict[str, object]:
         """验证码登录"""
-        from app.services.verification_service import verify_code
+        # 注意：verify_code 是协程，必须走同步封装 verify_code_sync，
+        # 否则协程对象恒为真会放行任意错误验证码。
+        from app.services.verification_service import verify_code_sync
 
         normalized_email = email.strip().lower()
 
         # 验证验证码
-        if not verify_code(normalized_email, code, "login"):
+        if not verify_code_sync(normalized_email, code, "login"):
             raise AuthError("验证码错误或已过期")
 
         # 查找用户
@@ -220,12 +188,14 @@ class AuthService:
 
     def register_with_code(self, *, email: str, name: str, password: str, code: str) -> dict[str, object]:
         """验证码注册"""
-        from app.services.verification_service import verify_code
+        # 注意：verify_code 是协程，必须走同步封装 verify_code_sync，
+        # 否则协程对象恒为真会放行任意错误验证码。
+        from app.services.verification_service import verify_code_sync
 
         normalized_email = email.strip().lower()
 
         # 验证验证码
-        if not verify_code(normalized_email, code, "register"):
+        if not verify_code_sync(normalized_email, code, "register"):
             raise AuthError("验证码错误或已过期")
 
         # 检查邮箱是否已注册
@@ -249,23 +219,8 @@ class AuthService:
             raise AuthError("Email already registered")
         self.db.refresh(user)
 
-        # Atomically promote to admin if no admin exists yet.
-        from sqlalchemy import update as sa_update
-
-        result = self.db.execute(
-            sa_update(UserModel)
-            .where(
-                UserModel.id == user.id,
-                ~UserModel.id.in_(
-                    select(UserModel.id).where(UserModel.role == "admin")
-                ),
-            )
-            .values(role="admin")
-        )
-        if result.rowcount > 0:
-            self.db.commit()
-            self.db.refresh(user)
-
+        # 仅当系统中尚不存在任何 admin 时提升首个管理员（见 _maybe_promote_first_admin）
+        self._maybe_promote_first_admin(user)
         return self._auth_response(user)
 
     def get_user(self, user_id: int) -> UserModel | None:

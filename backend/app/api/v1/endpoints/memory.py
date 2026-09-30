@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.api.deps import get_current_user, require_admin
+from app.api.deps import get_current_user
 from app.db.models import (
     MemoryConversationModel,
     MemoryModel,
@@ -28,42 +30,84 @@ from app.services.memory_service import get_memory_service
 router = APIRouter(prefix="/memory", tags=["Memory"])
 
 
+class CreateMemoryRequest(BaseModel):
+    """POST /memory JSON body（修复无 Body 注解导致的 422）。"""
+
+    content: str = Field(..., min_length=1)
+    memory_type: str = Field(default="fact")
+    importance: float = Field(default=0.5, ge=0.0, le=1.0)
+    tags: Optional[Union[list[str], str]] = None
+
+
+def _parse_tags(tags: Optional[Union[list[str], str]]) -> list[str]:
+    if tags is None:
+        return []
+    if isinstance(tags, list):
+        return [str(t) for t in tags if str(t).strip()]
+    text = tags.strip()
+    if not text:
+        return []
+    if text.startswith("["):
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                return [str(t) for t in parsed]
+        except json.JSONDecodeError:
+            pass
+        return [text]
+    return [t.strip() for t in text.split(",") if t.strip()]
+
+
 @router.get("")
 async def list_memories(
     user_id: int | None = Query(default=None, description="管理员可指定用户 ID"),
+    limit: int = Query(default=200, ge=1, le=1000, description="分页大小上限"),
+    offset: int = Query(default=0, ge=0, description="分页偏移"),
     current_user: UserModel = Depends(get_current_user),
 ) -> dict:
     """获取当前用户的记忆，管理员可查看所有用户的记忆。"""
     if user_id is not None and current_user.role == "admin":
-        memories = await get_memory_service().get_all_memories(user_id)
+        memories = await get_memory_service().get_all_memories(user_id, limit=limit, offset=offset)
     elif current_user.role == "admin":
-        memories = await get_memory_service().get_all_memories_admin()
+        memories = await get_memory_service().get_all_memories_admin(limit=limit, offset=offset)
     else:
-        memories = await get_memory_service().get_all_memories(current_user.id)
+        memories = await get_memory_service().get_all_memories(current_user.id, limit=limit, offset=offset)
     return {"items": memories, "count": len(memories)}
 
 
 @router.post("")
 async def create_memory(
-    content: str,
-    memory_type: str = "fact",
-    importance: float = 0.5,
-    tags: str | None = None,
+    payload: Optional[CreateMemoryRequest] = None,
+    content: Optional[str] = Query(default=None),
+    memory_type: str = Query(default="fact"),
+    importance: float = Query(default=0.5),
+    tags: Optional[str] = Query(default=None),
     current_user: UserModel = Depends(get_current_user),
 ) -> dict:
-    """创建新记忆。"""
-    tag_list = []
-    if tags:
-        try:
-            tag_list = json.loads(tags) if tags.startswith("[") else [t.strip() for t in tags.split(",")]
-        except json.JSONDecodeError:
-            tag_list = [tags]
+    """创建新记忆。
+
+    优先接受 JSON body（CreateMemoryRequest），同时兼容 query 参数，
+    避免仅传标量导致的 422。
+    """
+    if payload is not None:
+        final_content = payload.content
+        final_type = payload.memory_type
+        final_importance = payload.importance
+        tag_list = _parse_tags(payload.tags)
+    else:
+        final_content = content
+        final_type = memory_type
+        final_importance = importance
+        tag_list = _parse_tags(tags)
+
+    if not final_content or not str(final_content).strip():
+        raise HTTPException(status_code=422, detail="content is required")
 
     memory_id = await get_memory_service().add_memory(
         current_user.id,
-        content,
-        memory_type=memory_type,
-        importance=max(0.1, min(1.0, importance)),
+        str(final_content).strip(),
+        memory_type=final_type,
+        importance=max(0.1, min(1.0, float(final_importance))),
         tags=tag_list or None,
         source="manual",
     )

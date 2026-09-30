@@ -1,4 +1,4 @@
-﻿"""Centralized data directory paths and versioned naming utilities.
+"""Centralized data directory paths and versioned naming utilities.
 
 All user-generated data (websites, PPT sessions, etc.) lives under
 <PROJECT_ROOT>/data/.  Folder names follow the pattern:
@@ -11,22 +11,43 @@ so every artifact is traceable by user + session + version number.
 from __future__ import annotations
 
 import contextvars
+import os
 import re
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Project root — 4 levels up from backend/app/core/data_path.py
 # ---------------------------------------------------------------------------
-# os.chdir(PROJECT_ROOT) is called in main.py at startup, so cwd is reliable.
-# Use cwd first (works for both installed-package and source-tree execution).
+# main.py chdirs to the repo root at startup, but tests/CLI may run from
+# backend/ where a nested backend/data/ also exists. Prefer a root that
+# actually contains data/design-themes so theme assets resolve correctly.
 _CWD = Path.cwd()
 _FILE_BASED = Path(__file__).resolve().parents[3]
-PROJECT_ROOT: Path = _CWD if (_CWD / "data").is_dir() else _FILE_BASED
+
+
+def _resolve_project_root() -> Path:
+    candidates = (_CWD, _FILE_BASED, _FILE_BASED.parent)
+    for cand in candidates:
+        if (cand / "data" / "design-themes").is_dir():
+            return cand
+    if (_FILE_BASED / "data").is_dir():
+        return _FILE_BASED
+    if (_CWD / "data").is_dir():
+        return _CWD
+    return _FILE_BASED
+
+
+PROJECT_ROOT: Path = _resolve_project_root()
 
 # ---------------------------------------------------------------------------
 # Well-known data sub-directories
 # ---------------------------------------------------------------------------
-DATA_DIR: Path = PROJECT_ROOT / "data"
+# AGENT_DATA_DIR 允许把「可写运行数据」重定向到别处，供测试隔离与自定义部署使用。
+# 注意：仅重定向可写目录（网站/PPT 会话/产物/临时服务目录），
+# 只读资产（design-themes 等）始终从 PROJECT_ROOT 读取，否则主题资源会找不到。
+_data_dir_override = os.environ.get("AGENT_DATA_DIR", "").strip()
+DATA_DIR: Path = Path(_data_dir_override).resolve() if _data_dir_override else PROJECT_ROOT / "data"
+
 WEBSITES_DIR: Path = DATA_DIR / "websites"
 WEBSITE_TEMPLATES_DIR: Path = DATA_DIR / "website-templates"
 PPT_SESSIONS_DIR: Path = DATA_DIR / "ppt-sessions"

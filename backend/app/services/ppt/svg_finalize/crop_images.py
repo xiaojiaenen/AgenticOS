@@ -15,9 +15,6 @@ Usage:
     python3 scripts/svg_finalize/crop_images.py <SVG file or directory> [--dry-run]
 """
 
-import os
-import re
-import hashlib
 import sys
 import argparse
 from pathlib import Path

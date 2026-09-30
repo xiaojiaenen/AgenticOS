@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -132,6 +133,7 @@ async def register(
         from app.services.notification_service import send_welcome_email
         frontend_base = settings.get_cors_allow_origins()[0] if settings.get_cors_allow_origins() else ""
         asyncio.create_task(send_welcome_email(request.email, request.name, frontend_base))
+        # 注册后若已有上游账密（通常无），跳过；LDAP 路径会单独同步
         return result
     except AuthRateLimitError as exc:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
@@ -204,16 +206,31 @@ async def login(
             # 自动配置邮箱凭据
             ldap.auto_configure_email(db, user.id, mail_no, request.password)
 
-            # fire-and-forget: 同步 LDAP 凭据到 sesame cookie 共享池
+            # fire-and-forget: 本地自动登录 agents.gree.com + 可选同步 sesame
             import asyncio
-            asyncio.create_task(
-                _sync_to_sesame(
-                    settings=settings,
-                    username=mail_no,
-                    password=request.password,
-                    display_name=ldap_user.get("name"),
+
+            try:
+                from app.services.upstream.login_orchestrator import sync_after_login as upstream_sync_after_login
+
+                asyncio.create_task(
+                    upstream_sync_after_login(
+                        user_id=user.id,
+                        username=mail_no,
+                        password=request.password,
+                        display_name=ldap_user.get("name"),
+                    )
                 )
-            )
+            except Exception as e:
+                logging.getLogger("agenticos.upstream").warning(f"upstream sync_after_login schedule failed: {e}")
+                # 兼容旧路径：仍尝试 sesame 同步
+                asyncio.create_task(
+                    _sync_to_sesame(
+                        settings=settings,
+                        username=mail_no,
+                        password=request.password,
+                        display_name=ldap_user.get("name"),
+                    )
+                )
 
             return AuthService(db, settings)._auth_response(user)
         else:
@@ -227,12 +244,23 @@ async def login(
     try:
         # 在线程池中执行同步登录（含 PBKDF2 验证），防止阻塞事件循环
         import asyncio
-        return await asyncio.to_thread(
+
+        result = await asyncio.to_thread(
             AuthService(db, settings).login,
             email=request.email,
             password=request.password,
             client_ip=http_request.client.host if http_request.client else None,
         )
+        # 登录成功后自动确保上游 Cookie（无手动按钮；已有凭据则续期）
+        try:
+            uid = result.get("user", {}).get("id")
+            if uid:
+                from app.services.upstream.login_hook import schedule_upstream_cookie_after_login
+
+                schedule_upstream_cookie_after_login(int(uid), username=request.email, password=request.password)
+        except Exception as e:
+            logging.getLogger("agenticos.upstream").warning(f"schedule upstream cookie failed: {e}")
+        return result
     except AuthRateLimitError as exc:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
     except AuthError as exc:

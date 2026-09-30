@@ -16,14 +16,13 @@ from app.db.models import (
     KBDocumentModel,
     KBWikiPageModel,
     KBWikiLinkModel,
-    KBIngestTaskModel,
     KBReviewItemModel,
     KnowledgeBaseModel,
 )
 from app.db.session import SessionLocal
 
-from .document_parser import DocumentParser, ParsedDocument
-from .wiki_compiler import WikiCompiler, WikiPageDraft, AnalysisResult
+from .document_parser import DocumentParser
+from .wiki_compiler import WikiCompiler, WikiPageDraft
 
 logger = logging.getLogger(__name__)
 
@@ -89,58 +88,48 @@ class IngestPipeline:
                 result["success"] = True
                 return result
 
-            # 5. Wiki 编译
-            if self.llm_gateway:
-                compiler = WikiCompiler(self.llm_gateway, knowledge_base.purpose)
+            # 5. Wiki 编译（始终走编译器；analyze_sync 在无 LLM 时降级为启发式）
+            compiler = WikiCompiler(self.llm_gateway, knowledge_base.purpose)
 
-                # 5.1 分析
-                logger.info("Analyzing document...")
-                analysis = compiler.analyze_sync(parsed)
+            # 5.1 分析
+            logger.info("Analyzing document...")
+            analysis = compiler.analyze_sync(parsed)
 
-                # 5.2 生成页面
-                logger.info("Generating wiki pages...")
-                page_drafts = compiler.generate_pages_sync(analysis, parsed, document_id)
+            # 5.2 生成页面
+            logger.info("Generating wiki pages...")
+            page_drafts = compiler.generate_pages_sync(analysis, parsed, document_id)
 
-                # 5.3 冲突检测
-                logger.info("Detecting conflicts...")
-                existing_pages = self._load_existing_pages(db, knowledge_base_id)
-                conflicts = compiler.detect_conflicts_sync(page_drafts, existing_pages)
-                result["conflicts_found"] = len(conflicts)
+            # 5.3 冲突检测
+            logger.info("Detecting conflicts...")
+            existing_pages = self._load_existing_pages(db, knowledge_base_id)
+            conflicts = compiler.detect_conflicts_sync(page_drafts, existing_pages)
+            result["conflicts_found"] = len(conflicts)
 
-                # 5.4 创建审核任务（如果有冲突）
-                for conflict in conflicts:
-                    self._create_review_item(
-                        db,
-                        knowledge_base_id,
-                        conflict,
-                        document_id,
-                    )
-
-                # 5.5 保存页面
-                logger.info("Saving wiki pages...")
-                for draft in page_drafts:
-                    if draft.action == "skip":
-                        continue
-                    self._save_wiki_page(db, knowledge_base_id, draft, document_id)
-                    result["pages_created"] += 1
-            else:
-                # 无 LLM 网关时，直接将文档内容保存为 Wiki 页面
-                logger.info("No LLM gateway, saving document content as wiki page...")
-                from app.services.knowledge.wiki_compiler import WikiPageDraft
-                draft = WikiPageDraft(
-                    title=document.title or f"Document {document_id}",
-                    content=parsed.text if hasattr(parsed, 'text') else str(parsed),
-                    page_type="source_summary",
-                    action="create",
-                    sources=[f"kb_document:{document_id}"],
-                    frontmatter={
-                        "title": document.title,
-                        "type": "source_summary",
-                        "sources": [f"kb_document:{document_id}"],
-                    },
+            # 5.4 创建审核任务（如果有冲突）
+            for conflict in conflicts:
+                self._create_review_item(
+                    db,
+                    knowledge_base_id,
+                    conflict,
+                    document_id,
                 )
-                self._save_wiki_page(db, knowledge_base_id, draft, document_id)
-                result["pages_created"] = 1
+
+            # 5.5 保存页面
+            logger.info("Saving wiki pages...")
+            saved_by_title: dict[str, KBWikiPageModel] = {}
+            for draft in page_drafts:
+                if draft.action == "skip":
+                    continue
+                page = self._save_wiki_page(db, knowledge_base_id, draft, document_id)
+                if page is not None:
+                    saved_by_title[page.title] = page
+                    if draft.action == "merge":
+                        result["pages_updated"] += 1
+                    else:
+                        result["pages_created"] += 1
+
+            # 5.6 写入 wikilinks（KBWikiLinkModel）
+            self._persist_wikilinks(db, saved_by_title, page_drafts, knowledge_base_id)
 
             # 6. 更新文档状态
             document.content_hash = parsed.content_hash
@@ -181,7 +170,7 @@ class IngestPipeline:
         """加载已有页面"""
         stmt = select(KBWikiPageModel).where(
             KBWikiPageModel.knowledge_base_id == kb_id,
-            KBWikiPageModel.is_active == True,
+            KBWikiPageModel.is_active.is_(True),
         )
         result = db.execute(stmt)
         pages = result.scalars().all()
@@ -200,7 +189,7 @@ class IngestPipeline:
         kb_id: int,
         draft: WikiPageDraft,
         document_id: int,
-    ) -> KBWikiPageModel:
+    ) -> Optional[KBWikiPageModel]:
         """保存 Wiki 页面"""
         slug = self._slugify(draft.title)
 
@@ -228,7 +217,21 @@ class IngestPipeline:
             db.flush()
             return existing
         else:
-            # 创建新页面
+            # 创建新页面（slug 冲突时合并到已有）
+            if existing:
+                existing.content = draft.content
+                existing.frontmatter_json = json.dumps(draft.frontmatter, ensure_ascii=False)
+                try:
+                    sources = json.loads(existing.sources_json) if existing.sources_json else []
+                except json.JSONDecodeError:
+                    sources = []
+                source_ref = f"kb_document:{document_id}"
+                if source_ref not in sources:
+                    sources.append(source_ref)
+                existing.sources_json = json.dumps(sources)
+                db.flush()
+                return existing
+
             page = KBWikiPageModel(
                 knowledge_base_id=kb_id,
                 title=draft.title,
@@ -242,6 +245,68 @@ class IngestPipeline:
             db.add(page)
             db.flush()
             return page
+
+    def _persist_wikilinks(
+        self,
+        db: Session,
+        saved_by_title: dict[str, KBWikiPageModel],
+        page_drafts: list[WikiPageDraft],
+        kb_id: int,
+    ) -> None:
+        """将草稿 wikilinks 写入 KBWikiLinkModel（含同 KB 内已有页面）。"""
+        # 标题 → 页面（本批 + 同 KB 已有活跃页）
+        title_to_page: dict[str, KBWikiPageModel] = dict(saved_by_title)
+        existing = db.execute(
+            select(KBWikiPageModel).where(
+                KBWikiPageModel.knowledge_base_id == kb_id,
+                KBWikiPageModel.is_active.is_(True),
+            )
+        ).scalars().all()
+        for p in existing:
+            title_to_page.setdefault(p.title, p)
+
+        created_pairs: set[tuple[int, int]] = set()
+
+        for draft in page_drafts:
+            if draft.action == "skip":
+                continue
+            source = title_to_page.get(draft.title)
+            if source is None:
+                continue
+
+            targets = list(draft.wikilinks)
+            # 也从正文中提取 [[Title]] 形式
+            targets.extend(re_wikilinks(draft.content))
+
+            for link_title in targets:
+                if not link_title or link_title == draft.title:
+                    continue
+                target = title_to_page.get(link_title)
+                if target is None:
+                    continue
+                pair = (source.id, target.id)
+                if source.id == target.id or pair in created_pairs:
+                    continue
+                created_pairs.add(pair)
+                # 避免重复边
+                exists = db.execute(
+                    select(KBWikiLinkModel).where(
+                        KBWikiLinkModel.source_page_id == source.id,
+                        KBWikiLinkModel.target_page_id == target.id,
+                    )
+                ).scalar_one_or_none()
+                if exists:
+                    continue
+                db.add(KBWikiLinkModel(
+                    source_page_id=source.id,
+                    target_page_id=target.id,
+                    link_type="reference",
+                    context=draft.title,
+                ))
+
+        if created_pairs:
+            db.flush()
+            logger.info(f"Persisted {len(created_pairs)} wikilinks for kb={kb_id}")
 
     def _create_review_item(
         self,
@@ -271,9 +336,15 @@ class IngestPipeline:
     def _slugify(self, text: str) -> str:
         """生成 URL 友好的 slug"""
         import re
-        text = re.sub(r"[^\w\s\u4e00-\u9fff-]", "", text)
+        text = re.sub(r"[^\w\s一-鿿-]", "", text)
         text = re.sub(r"\s+", "-", text.strip())
         return text.lower()[:100]
+
+
+def re_wikilinks(content: str) -> list[str]:
+    """从 Markdown 中提取 [[Title]] 链接标题。"""
+    import re
+    return re.findall(r"\[\[([^\]]+)\]\]", content or "")
 
 
 def process_document_ingest(

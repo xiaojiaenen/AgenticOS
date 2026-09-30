@@ -6,12 +6,10 @@
 每个步骤有明确的输入输出，比 Agent 自由发挥更可控。
 """
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Any
 
-from wuwei.graph import StateGraph, State
+from wuwei.graph import StateGraph
 
 _logger = logging.getLogger("ppt_pipeline")
 
@@ -76,8 +74,6 @@ class PptPipeline:
 
         try:
             from wuwei import LLMGateway, Planner
-            from wuwei.parsers import PydanticOutputParser
-            from pydantic import BaseModel
 
             llm = LLMGateway.from_env()
             planner = Planner(llm)
@@ -121,7 +117,6 @@ class PptPipeline:
 
         from wuwei import LLMGateway
         from wuwei.core.message import SystemMessage, HumanMessage
-        from pathlib import Path
         from app.core.data_path import PPT_SESSIONS_DIR, next_version_dir, _parse_dir_name, get_current_user_id
 
         llm = LLMGateway.from_env()
@@ -185,7 +180,7 @@ class PptPipeline:
             state.validated_svgs = valid_svgs
             state.step = 3
         else:
-            state.error = f"验证失败：viewBox 不一致或页数不足"
+            state.error = "验证失败：viewBox 不一致或页数不足"
 
         return state
 

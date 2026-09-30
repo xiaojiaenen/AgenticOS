@@ -21,7 +21,7 @@ def _convert_pptx_sync(file_path: str) -> str:
     pptx_path = _Path(file_path)
     if not pptx_path.exists():
         return f"文件不存在：{file_path}"
-    if not pptx_path.suffix.lower() in (".pptx",):
+    if pptx_path.suffix.lower() not in (".pptx",):
         return f"不是 PPTX 文件：{file_path}"
 
     import tempfile
@@ -60,8 +60,8 @@ def _convert_pptx_sync(file_path: str) -> str:
                 imported_count += 1
 
         lines = [
-            f"### PPTX 转换完成",
-            f"",
+            "### PPTX 转换完成",
+            "",
             f"- **幻灯片数**：{slide_count}",
             f"- **画布尺寸**：{canvas[0]:.0f} × {canvas[1]:.0f} px",
             f"- **输出目录**：{output_dir}",

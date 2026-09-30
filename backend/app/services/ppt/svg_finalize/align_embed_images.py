@@ -106,7 +106,6 @@ def _resolve_image_path(href: str, svg_dir: Path) -> Path | None:
     decoded = unquote(href)
     if decoded.startswith(('http://', 'https://')):
         # Download external image to temp file
-        import tempfile
         import urllib.request
         try:
             # Determine file extension from URL or content type

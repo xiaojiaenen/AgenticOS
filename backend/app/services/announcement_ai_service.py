@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 
 from wuwei.llm import LLMGateway, Message
 

@@ -2,9 +2,18 @@ import pytest
 
 from app.core.config import Settings
 from app.schemas.agent import AgentStreamRequest
-from app.services.agent_service import AgentService, MAX_STEPS_LIMIT_MESSAGE, ThinkingHistoryCompatibilityHook
+from app.services.agent_service import (
+    AgentService,
+    MAX_STEPS_LIMIT_MESSAGE,
+    ThinkingHistoryCompatibilityMiddleware,
+)
 from wuwei import AgentEvent
 from wuwei.llm import Message
+
+
+class FakeContext:
+    def __init__(self) -> None:
+        self._messages: list = []
 
 
 class FakeSession:
@@ -13,6 +22,9 @@ class FakeSession:
         self.max_steps = max_steps
         self.system_prompt = system_prompt
         self.parallel_tool_calls = parallel_tool_calls
+        self.context = FakeContext()
+        self.metadata: dict = {}
+        self.summary = None
 
 
 class FakeAgent:
@@ -288,13 +300,18 @@ async def test_ppt_mode_lifts_legacy_one_step_session_limit() -> None:
     )
     events = [event async for event in service.stream_chat(request)]
 
+    # _normalize_session_limits lifts a legacy 1-step session up to settings.agent_max_steps
     assert session.max_steps == 10
     assert events[-1]["event"] == "done"
+    assert events[-1]["data"]["session_id"] == "ppt-session"
 
 
 @pytest.mark.anyio
-async def test_thinking_history_hook_removes_synthetic_step_limit_reply() -> None:
-    hook = ThinkingHistoryCompatibilityHook()
+async def test_thinking_history_middleware_removes_synthetic_step_limit_reply() -> None:
+    from types import SimpleNamespace
+
+
+    middleware = ThinkingHistoryCompatibilityMiddleware()
     messages = [
         Message(role="system", content="system"),
         Message(role="user", content="generate PPT"),
@@ -302,8 +319,10 @@ async def test_thinking_history_hook_removes_synthetic_step_limit_reply() -> Non
         Message(role="assistant", content=MAX_STEPS_LIMIT_MESSAGE),
         Message(role="user", content="continue"),
     ]
+    ctx = SimpleNamespace(state=SimpleNamespace(messages=messages))
 
-    filtered_messages, _ = await hook.before_llm(None, messages, [], step=0)
+    result = await middleware.before_llm(ctx)
+    filtered_messages = result.state.messages
 
     assert [message.content for message in filtered_messages] == [
         "system",

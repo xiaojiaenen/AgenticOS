@@ -14,7 +14,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func, and_, delete
+from sqlalchemy import select, func, and_, delete, or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin, get_db
@@ -122,10 +122,16 @@ def list_knowledge_bases(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """列出所有知识库"""
-    all_kbs = db.execute(
-        select(KnowledgeBaseModel).where(KnowledgeBaseModel.is_active == True)
-    ).scalars().all()
+    """列出当前用户可见的知识库（visibility/scope 过滤）。"""
+    from app.services.knowledge.retrieval import can_view_knowledge_base
+
+    is_admin = current_user.role == "admin"
+    all_kbs = [
+        kb for kb in db.execute(
+            select(KnowledgeBaseModel).where(KnowledgeBaseModel.is_active.is_(True))
+        ).scalars().all()
+        if can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin)
+    ]
 
     if all_kbs:
         kb_ids = [kb.id for kb in all_kbs]
@@ -138,7 +144,7 @@ def list_knowledge_bases(
         # Batch count pages
         page_counts = dict(db.execute(
             select(KBWikiPageModel.knowledge_base_id, func.count(KBWikiPageModel.id))
-            .where(KBWikiPageModel.knowledge_base_id.in_(kb_ids), KBWikiPageModel.is_active == True)
+            .where(KBWikiPageModel.knowledge_base_id.in_(kb_ids), KBWikiPageModel.is_active.is_(True))
             .group_by(KBWikiPageModel.knowledge_base_id)
         ).all())
     else:
@@ -223,10 +229,16 @@ def get_knowledge_base(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """获取知识库详情"""
+    """获取知识库详情（private=owner/admin）。"""
+    from app.services.knowledge.retrieval import can_view_knowledge_base
+
     kb = db.get(KnowledgeBaseModel, kb_id)
     if not kb:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+
+    is_admin = current_user.role == "admin"
+    if not can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     doc_count = db.execute(
         select(func.count()).select_from(KBDocumentModel).where(
@@ -236,7 +248,7 @@ def get_knowledge_base(
     page_count = db.execute(
         select(func.count()).select_from(KBWikiPageModel).where(
             KBWikiPageModel.knowledge_base_id == kb.id,
-            KBWikiPageModel.is_active == True,
+            KBWikiPageModel.is_active.is_(True),
         )
     )
 
@@ -291,7 +303,7 @@ def update_knowledge_base(
     page_count = db.execute(
         select(func.count()).select_from(KBWikiPageModel).where(
             KBWikiPageModel.knowledge_base_id == kb.id,
-            KBWikiPageModel.is_active == True,
+            KBWikiPageModel.is_active.is_(True),
         )
     )
 
@@ -428,11 +440,15 @@ async def upload_document(
         task_id = await submit_document_compilation(doc.id, kb_id)
         # 可以在这里返回 task_id，让前端轮询任务状态
     except Exception as e:
-        # 如果 ARQ 不可用，回退到同步处理
+        # 如果 ARQ 不可用，回退到同步处理（to_thread 避免阻塞事件循环）
+        import asyncio
         import logging
         logging.getLogger(__name__).warning(f"ARQ submission failed, falling back to sync: {e}")
         from app.services.knowledge.ingest_pipeline import process_document_ingest
-        process_document_ingest(doc.id, kb_id)
+        from app.services.task_queue import build_llm_gateway
+
+        llm_gateway = build_llm_gateway()
+        await asyncio.to_thread(process_document_ingest, doc.id, kb_id, llm_gateway)
 
     return DocumentResponse(
         id=doc.id,
@@ -454,13 +470,51 @@ def delete_document(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """删除文档"""
+    """删除文档：清理文件、Wiki 页面 sources 引用与图谱链接。"""
     doc = db.get(KBDocumentModel, doc_id)
     if not doc or doc.knowledge_base_id != kb_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-    # 删除文件
-    if os.path.exists(doc.file_path):
+    source_ref = f"kb_document:{doc_id}"
+
+    # 1) 找出引用该文档的 Wiki 页面
+    pages = db.execute(
+        select(KBWikiPageModel).where(
+            KBWikiPageModel.knowledge_base_id == kb_id,
+            KBWikiPageModel.is_active.is_(True),
+        )
+    ).scalars().all()
+
+    removed_page_ids: list[int] = []
+    for page in pages:
+        try:
+            sources = json.loads(page.sources_json) if page.sources_json else []
+        except json.JSONDecodeError:
+            sources = []
+        if source_ref not in sources:
+            continue
+        sources = [s for s in sources if s != source_ref]
+        if sources:
+            page.sources_json = json.dumps(sources, ensure_ascii=False)
+        else:
+            # 仅由该文档生成 → 删除页面
+            removed_page_ids.append(page.id)
+
+    # 2) 删除失效页面及其图谱边
+    if removed_page_ids:
+        db.execute(delete(KBWikiLinkModel).where(
+            or_(
+                KBWikiLinkModel.source_page_id.in_(removed_page_ids),
+                KBWikiLinkModel.target_page_id.in_(removed_page_ids),
+            )
+        ))
+        for pid in removed_page_ids:
+            page = db.get(KBWikiPageModel, pid)
+            if page:
+                db.delete(page)
+
+    # 3) 删除物理文件
+    if doc.file_path and os.path.exists(doc.file_path):
         os.remove(doc.file_path)
 
     db.delete(doc)
@@ -481,10 +535,19 @@ def list_wiki_pages(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """列出 Wiki 页面"""
+    """列出 Wiki 页面（先校验知识库 visibility/scope）。"""
+    from app.services.knowledge.retrieval import can_view_knowledge_base
+
+    kb = db.get(KnowledgeBaseModel, kb_id)
+    if not kb:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+    is_admin = current_user.role == "admin"
+    if not can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
     conditions = [
         KBWikiPageModel.knowledge_base_id == kb_id,
-        KBWikiPageModel.is_active == True,
+        KBWikiPageModel.is_active.is_(True),
     ]
     if page_type:
         conditions.append(KBWikiPageModel.page_type == page_type)
@@ -517,7 +580,16 @@ def get_wiki_page(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """获取 Wiki 页面详情"""
+    """获取 Wiki 页面详情（private=owner/admin）。"""
+    from app.services.knowledge.retrieval import can_view_knowledge_base
+
+    kb = db.get(KnowledgeBaseModel, kb_id)
+    if not kb:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+    is_admin = current_user.role == "admin"
+    if not can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
     page = db.get(KBWikiPageModel, page_id)
     if not page or page.knowledge_base_id != kb_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page not found")
@@ -548,7 +620,7 @@ def search_knowledge_base(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """搜索知识库"""
+    """搜索知识库（按当前用户权限过滤 private/scope）。"""
     from app.services.knowledge.retrieval import KnowledgeRetrieval
 
     retrieval = KnowledgeRetrieval(db)
@@ -558,6 +630,7 @@ def search_knowledge_base(
         user_id=current_user.id,
         page_type=request.page_type,
         max_results=request.max_results,
+        is_admin=current_user.role == "admin",
     )
 
     return [
@@ -664,7 +737,7 @@ def get_knowledge_graph(
     # 获取所有页面作为节点
     pages_stmt = select(KBWikiPageModel).where(
         KBWikiPageModel.knowledge_base_id == kb_id,
-        KBWikiPageModel.is_active == True,
+        KBWikiPageModel.is_active.is_(True),
     )
     pages = db.execute(pages_stmt).scalars().all()
 

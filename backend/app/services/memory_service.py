@@ -56,6 +56,8 @@ class UserMemoryService:
                 "type": memory_type,
                 "importance": importance,
             },
+            tags=tags,
+            source=source,
         )
         return atom_id or 0
 
@@ -110,8 +112,14 @@ class UserMemoryService:
 
         return await assemble_memory_context(user_id, query, "general")
 
-    async def get_all_memories(self, user_id: int) -> list[dict[str, Any]]:
-        """获取用户所有 L1 atom 记忆（管理后台用）"""
+    async def get_all_memories(
+        self,
+        user_id: int,
+        *,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """获取用户所有 L1 atom 记忆（管理后台用，分页返回）"""
 
         def _run():
             with create_db_session() as db:
@@ -120,13 +128,20 @@ class UserMemoryService:
                     .where(MemoryModel.user_id == user_id)
                     .where(MemoryModel.layer == "L1")
                     .order_by(MemoryModel.created_at.desc())
+                    .offset(offset)
+                    .limit(limit)
                 ).all()
 
         rows = await asyncio.to_thread(_run)
         return [self._row_to_dict(r) for r in rows]
 
-    async def get_all_memories_admin(self) -> list[dict[str, Any]]:
-        """管理员：获取所有用户的 L1 记忆"""
+    async def get_all_memories_admin(
+        self,
+        *,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """管理员：获取所有用户的 L1 记忆（分页返回）"""
 
         def _run():
             with create_db_session() as db:
@@ -134,14 +149,17 @@ class UserMemoryService:
                     select(MemoryModel)
                     .where(MemoryModel.layer == "L1")
                     .order_by(MemoryModel.user_id, MemoryModel.created_at.desc())
+                    .offset(offset)
+                    .limit(limit)
                 ).all()
 
         rows = await asyncio.to_thread(_run)
         return [self._row_to_dict(r) for r in rows]
 
     async def delete_memory(self, memory_id: int, user_id: int | None = None) -> bool:
-        """删除一条 L1 atom（同步删除向量索引）"""
+        """删除一条 L1 atom（同步删除向量 + FTS 索引）"""
         from app.services.memory_vector_store import get_vector_store
+        from app.services.memory_bm25 import get_bm25_backend
 
         def _run() -> MemoryModel | None:
             with create_db_session() as db:
@@ -150,15 +168,26 @@ class UserMemoryService:
                     return None
                 if user_id is not None and row.user_id != user_id:
                     return None
+                # 先取出 content 供 FTS 删除（external content 需要原文）
+                content = row.content
                 db.delete(row)
                 db.commit()
-                return row
+                return MemoryModel(
+                    id=memory_id,
+                    user_id=row.user_id if hasattr(row, "user_id") else 0,
+                    content=content,
+                )
 
         row = await asyncio.to_thread(_run)
         if row is None:
             return False
 
-        # 异步清理向量索引（不阻塞返回）
+        # 异步清理向量 + FTS 索引（不阻塞返回）
+        try:
+            await get_bm25_backend().remove_document(memory_id, row.content)
+        except Exception as e:
+            _logger.debug(f"FTS 删除失败 id={memory_id}: {e}")
+
         asyncio.create_task(get_vector_store().delete("atom", memory_id))
         return True
 

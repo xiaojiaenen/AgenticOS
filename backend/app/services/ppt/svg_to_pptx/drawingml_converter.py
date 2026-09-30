@@ -437,7 +437,6 @@ def _strip_remaining_use_elements(root: ET.Element) -> int:
 def _clone_with_use_position(ref_elem: ET.Element, use_elem: ET.Element) -> ET.Element:
     """Clone a defs element, wrapping it in a ``<g>`` with the ``<use>`` element's
     x/y translate transform applied."""
-    import copy
     cloned = copy.deepcopy(ref_elem)
 
     x = _parse_use_coord(use_elem, 'x')

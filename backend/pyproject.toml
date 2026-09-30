@@ -29,6 +29,7 @@ dependencies = [
 dev = [
     "httpx>=0.28.0,<1.0.0",
     "pytest>=8.4.0,<9.0.0",
+    "ruff>=0.16.9",
 ]
 
 [build-system]
@@ -44,3 +45,18 @@ pythonpath = ["."]
 [[tool.uv.index]]
 url = "https://pypi.org/simple"
 default = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+extend-exclude = ["examples", "scripts"]
+
+[tool.ruff.lint]
+# 起步规则集：错误级 + pyflakes；后续可逐步加 E501/isort/B 等
+select = ["E7", "E9", "F"]
+ignore = [
+  # conftest/agent_service 等存在"先注入环境变量再 import"的刻意模式，属代码库约定
+  "E402",
+  # 存量风格问题，待专项清理后再纳入门禁
+  "E701", "E702", "E741", "F841",
+]
