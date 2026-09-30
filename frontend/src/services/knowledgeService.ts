@@ -216,3 +216,55 @@ export async function getReviewItems(kbId: number, status?: string): Promise<Rev
   });
   return parseResponse<ReviewItem[]>(res);
 }
+
+/**
+ * 更新审核任务。
+ * 后端 knowledge.py 的 PATCH /bases/{kb_id}/reviews/{review_id}
+ * 使用 Query 参数（status: Query(...), resolution_note: str = ""），
+ * 因此这里通过 query string 发送，避免 422。
+ */
+export async function updateReview(
+  kbId: number,
+  reviewId: number,
+  status: 'approved' | 'rejected' | 'resolved',
+  resolutionNote = '',
+): Promise<{ id: number; status: string }> {
+  const params = new URLSearchParams({
+    status,
+    resolution_note: resolutionNote,
+  });
+  const res = await fetch(`${KB_ENDPOINT}/bases/${kbId}/reviews/${reviewId}?${params.toString()}`, {
+    method: 'PATCH',
+    headers: { ...authHeaders() },
+  });
+  return parseResponse<{ id: number; status: string }>(res);
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge Graph
+// ---------------------------------------------------------------------------
+
+export interface GraphNode {
+  id: number;
+  label: string;
+  type: string;
+  authority: string;
+}
+
+export interface GraphEdge {
+  source: number;
+  target: number;
+  type: string;
+}
+
+export interface KnowledgeGraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export async function getKnowledgeGraph(kbId: number): Promise<KnowledgeGraphData> {
+  const res = await fetch(`${KB_ENDPOINT}/bases/${kbId}/graph`, {
+    headers: { ...authHeaders() },
+  });
+  return parseResponse<KnowledgeGraphData>(res);
+}

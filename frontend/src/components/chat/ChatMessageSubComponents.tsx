@@ -117,7 +117,7 @@ export const LiveToolCall = ({ tool }: { tool: ToolCall }) => {
       ) : (
         <WrenchIcon size={13} />
       )}
-      <span className="font-mono font-bold uppercase tracking-[0.12em] text-[10px]">{getActiveToolLabel(tool)}</span>
+      <span className="font-mono font-semibold uppercase tracking-[0.12em] text-[10px]">{getActiveToolLabel(tool)}</span>
     </motion.div>
   );
 };
@@ -156,7 +156,7 @@ export const ToolResultPreview = ({ result, isError = false }: { result: string;
       </div>
       {truncated && (
         <button type="button" onClick={() => setExpanded(v => !v)} className={cn(
-          "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors",
+          "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors",
           isError ? "border-rose-200 bg-white text-rose-600 hover:bg-rose-50" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
         )}>
           <span>{expanded ? '收起结果' : '展开结果'}</span>
@@ -322,10 +322,10 @@ export const PptArtifactCard = ({ message, onOpenArtifact }: { message: Message;
         {isReady ? <Presentation size={19} /> : <Sparkles size={18} className="animate-pulse" />}
       </div>
       <div className="min-w-0">
-        <div className="truncate text-sm font-black text-slate-900">{isReady ? title : '正在生成 PPT'}</div>
+        <div className="truncate text-sm font-semibold text-slate-900">{isReady ? title : '正在生成 PPT'}</div>
         <div className="mt-0.5 text-[11px] font-medium text-slate-500">{isReady ? `${slideCount} 页 · 可预览和导出 PPTX` : '正在规划内容、图表和版式，请稍候'}</div>
       </div>
-      {isReady && <button type="button" onClick={handleOpen} className="ml-2 flex-shrink-0 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-zinc-800 active:scale-95">打开 PPT</button>}
+      {isReady && <button type="button" onClick={handleOpen} className="ml-2 flex-shrink-0 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 active:scale-95">打开 PPT</button>}
     </motion.div>
   );
 };
@@ -347,10 +347,10 @@ export const WebsiteArtifactCard = ({ message, onOpenArtifact }: { message: Mess
         {isReady ? <Globe size={19} /> : <Sparkles size={18} className="animate-pulse" />}
       </div>
       <div className="min-w-0">
-        <div className="truncate text-sm font-black text-slate-900">{isReady ? title : '正在生成网站'}</div>
+        <div className="truncate text-sm font-semibold text-slate-900">{isReady ? title : '正在生成网站'}</div>
         <div className="mt-0.5 text-[11px] font-medium text-slate-500">{isReady ? `${stack} · ${slug}` : '正在规划页面结构和内容，请稍候'}</div>
       </div>
-      {isReady && <button type="button" onClick={handleOpen} className="ml-2 flex-shrink-0 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-zinc-800 active:scale-95">预览</button>}
+      {isReady && <button type="button" onClick={handleOpen} className="ml-2 flex-shrink-0 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 active:scale-95">预览</button>}
     </motion.div>
   );
 };
@@ -365,7 +365,7 @@ export const ToolTimelineStep = ({ title, state, body }: { title: string; state:
       <div className={cn("mt-2 h-full min-h-5 w-px", state === 'done' ? "bg-emerald-300/80" : "bg-slate-200")} />
     </div>
     <div className="pb-3">
-      <div className={cn("text-[11px] font-bold uppercase tracking-[0.14em]",
+      <div className={cn("text-[11px] font-semibold uppercase tracking-[0.14em]",
         state === 'done' && "text-emerald-600", state === 'active' && "text-sky-600", state === 'idle' && "text-slate-400")}>{title}</div>
       <div className="mt-1 text-xs leading-relaxed text-slate-600">{body}</div>
     </div>
@@ -414,10 +414,10 @@ export const CodeBlock = ({ inline, className, children, onOpenArtifact, ...prop
           return (
             <div className="bg-gradient-to-br from-blue-400 to-cyan-300 rounded-3xl p-6 text-white my-4 w-72 transform hover:scale-[1.02] transition-transform">
               <div className="flex justify-between items-start mb-4">
-                <div><div className="text-sm font-bold opacity-80 uppercase tracking-widest">{widgetData.data.city}</div><div className="text-5xl font-display font-bold mt-1 tracking-tighter">{widgetData.data.temp}</div></div>
+                <div><div className="text-sm font-semibold opacity-80 uppercase tracking-widest">{widgetData.data.city}</div><div className="text-5xl font-display font-semibold mt-1 tracking-tighter">{widgetData.data.temp}</div></div>
                 <div className="text-5xl drop-shadow-lg">{widgetData.data.icon}</div>
               </div>
-              <div className="mt-2 text-base font-bold bg-white/20 backdrop-blur-md px-3 py-1 rounded-full w-fit">{widgetData.data.condition}</div>
+              <div className="mt-2 text-base font-semibold bg-white/20 backdrop-blur-md px-3 py-1 rounded-full w-fit">{widgetData.data.condition}</div>
             </div>
           );
         }
@@ -430,10 +430,10 @@ export const CodeBlock = ({ inline, className, children, onOpenArtifact, ...prop
       <div className="relative group my-5 overflow-hidden rounded-3xl border border-slate-800/80 bg-zinc-950 shadow-xl ring-1 ring-white/5">
         <div className="flex items-center border-b border-white/8 bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.88))] px-4 py-3 backdrop-blur-sm">
           <div className="flex gap-1.5"><div className="w-3 h-3 rounded-full bg-[#ff5f56]" /><div className="w-3 h-3 rounded-full bg-[#ffbd2e]" /><div className="w-3 h-3 rounded-full bg-[#27c93f]" /></div>
-          <div className="ml-4 text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400/90 select-none">{match[1]}</div>
+          <div className="ml-4 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400/90 select-none">{match[1]}</div>
           <div className="ml-auto flex items-center gap-4">
             {isArtifactable && onOpenArtifact && (
-              <button onClick={() => onOpenArtifact({ code: codeString, language: match[1] as 'html' | 'svg' })} className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300 transition-colors hover:text-cyan-200">
+              <button onClick={() => onOpenArtifact({ code: codeString, language: match[1] as 'html' | 'svg' })} className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-300 transition-colors hover:text-cyan-200">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><span>可视化预览</span>
               </button>
             )}
@@ -458,38 +458,21 @@ export const CodeBlock = ({ inline, className, children, onOpenArtifact, ...prop
 
 // ── Table components (extracted from render) ──────────────────────────────
 
-export const MarkdownTable = ({ children, isGlass }: { children: React.ReactNode; isGlass?: boolean }) => (
-  isGlass ? (
-    <div className="my-5 overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-lg">
-      <div className="h-2 bg-[linear-gradient(90deg,rgba(100,180,255,0.3),rgba(150,120,255,0.3),rgba(100,200,255,0.2))]" />
-      <div className="visible-scrollbar overflow-x-auto px-1 pb-2">
-        <table className="w-max min-w-full border-collapse text-left text-sm text-gray-200">{children}</table>
-      </div>
+export const MarkdownTable = ({ children }: { children: React.ReactNode }) => (
+  <div className="my-5 overflow-hidden rounded-3xl border border-slate-200/90 bg-white/88 shadow-lg ring-1 ring-white/65">
+    <div className="h-2 bg-[linear-gradient(90deg,rgba(15,23,42,0.9),rgba(30,41,59,0.85),rgba(34,211,238,0.75))]" />
+    <div className="visible-scrollbar overflow-x-auto px-1 pb-2">
+      <table className="w-max min-w-full border-collapse text-left text-sm text-slate-700">{children}</table>
     </div>
-  ) : (
-    <div className="my-5 overflow-hidden rounded-3xl border border-slate-200/90 bg-white/88 shadow-lg ring-1 ring-white/65">
-      <div className="h-2 bg-[linear-gradient(90deg,rgba(15,23,42,0.9),rgba(30,41,59,0.85),rgba(34,211,238,0.75))]" />
-      <div className="visible-scrollbar overflow-x-auto px-1 pb-2">
-        <table className="w-max min-w-full border-collapse text-left text-sm text-slate-700">{children}</table>
-      </div>
-    </div>
-  )
+  </div>
 );
 
-export const MarkdownTableHead = ({ children, isGlass }: { children: React.ReactNode; isGlass?: boolean }) => (
-  isGlass ? (
-    <thead className="bg-[linear-gradient(135deg,rgba(255,255,255,0.12),rgba(255,255,255,0.06))] text-gray-200">{children}</thead>
-  ) : (
-    <thead className="bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.92))] text-slate-100">{children}</thead>
-  )
+export const MarkdownTableHead = ({ children }: { children: React.ReactNode }) => (
+  <thead className="bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.92))] text-slate-100">{children}</thead>
 );
 
-export const MarkdownTableRow = ({ children, isGlass }: { children: React.ReactNode; isGlass?: boolean }) => (
-  isGlass ? (
-    <tr className="border-b border-white/10 transition-colors even:bg-white/5 hover:bg-white/10 last:border-b-0">{children}</tr>
-  ) : (
-    <tr className="border-b border-slate-200/80 transition-colors even:bg-slate-50/70 hover:bg-sky-50/50 last:border-b-0">{children}</tr>
-  )
+export const MarkdownTableRow = ({ children }: { children: React.ReactNode }) => (
+  <tr className="border-b border-slate-200/80 transition-colors even:bg-slate-50/70 hover:bg-sky-50/50 last:border-b-0">{children}</tr>
 );
 
 // ── Slide Preview Strip ──────────────────────────────────────────────────
@@ -522,7 +505,7 @@ export const SlidePreviewStrip = ({ message }: { message: Message }) => {
   } as React.CSSProperties;
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-3 w-full max-w-[42rem]">
-      <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+      <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
         <Presentation size={12} className="text-slate-400" />
         <span>幻灯片预览 ({previews.length} 页)</span>
       </div>
@@ -532,7 +515,7 @@ export const SlidePreviewStrip = ({ message }: { message: Message }) => {
             <div className="relative w-40 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow" style={themeVars}>
               <div className="aspect-[16/9] overflow-hidden" dangerouslySetInnerHTML={{ __html: svg.replace(/<svg/, '<svg style="width:100%;height:100%"') }} />
               <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/40 to-transparent px-2 py-1.5">
-                <span className="text-[10px] font-bold text-white">第 {slideNum} 页</span>
+                <span className="text-[10px] font-semibold text-white">第 {slideNum} 页</span>
               </div>
             </div>
           </div>

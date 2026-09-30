@@ -25,7 +25,7 @@ export const DragOverlay: React.FC<DragOverlayProps> = ({ isDragging }) => {
               <DownloadIcon size={48} className="text-sky-500" />
             </div>
             <div className="text-center">
-              <h3 className="text-3xl font-black text-sky-900 tracking-tighter">投放到这里上传</h3>
+              <h3 className="text-3xl font-semibold text-sky-900 tracking-tighter">投放到这里上传</h3>
               <p className="text-sky-700 font-medium mt-2">支持图片、PDF、文档和代码文件</p>
             </div>
           </motion.div>

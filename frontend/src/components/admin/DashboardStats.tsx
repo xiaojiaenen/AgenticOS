@@ -1,11 +1,7 @@
 import { motion } from 'motion/react';
 import { Activity, Clock3, Sparkles, Users, Zap } from 'lucide-react';
-import { LiquidGlass, glassPresets } from '@xiaojiaenen/liquid-glass';
 import { formatNumber, formatTokenNumber, formatLatency, formatPercent, ratio } from '../../lib/utils';
-import { DashboardSummary } from '../../services/dashboardService';
-import { useIsGlassTheme } from '../liquid-glass';
-
-interface DashboardStatsProps {
+import { DashboardSummary } from '../../services/dashboardService';interface DashboardStatsProps {
  summary: DashboardSummary;
 }
 
@@ -56,10 +52,7 @@ const KPI_ITEMS = [
 ];
 
 export const DashboardStats = ({ summary }: DashboardStatsProps) => {
- const s = summary ?? ({} as DashboardSummary);
- const isGlass = useIsGlassTheme();
-
- return (
+ const s = summary ?? ({} as DashboardSummary); return (
   <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
    {KPI_ITEMS.map((item, idx) => (
     <motion.div
@@ -68,39 +61,18 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
      animate={{ opacity: 1, y: 0 }}
      transition={{ duration: 0.35, delay: 0.05 + idx * 0.05, ease: [0.16, 1, 0.3, 1] }}
     >
-     {isGlass ? (
-      <LiquidGlass
-       {...glassPresets.control}
-       tint="rgba(255,255,255,0.04)"
-       radius={12}
-       className="group"
-       style={{ padding: '16px' }}
-      >
+      <div className="group rounded-lg border border-zinc-200/80 bg-white px-4 py-4 shadow-sm">
        <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold tracking-[0.08em] text-gray-400">{item.label}</span>
+        <span className="text-[11px] font-semibold tracking-[0.08em] text-zinc-400">{item.label}</span>
         <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.bg} ${item.accent} transition-transform duration-300 group-hover:scale-110`}>
          <item.icon size={15} />
         </div>
        </div>
-       <p className="mt-2.5 text-xl font-semibold tracking-tight text-white lg:text-2xl">{item.getValue(s)}</p>
+       <p className="mt-2.5 text-xl font-semibold tracking-tight text-zinc-950 lg:text-2xl">{item.getValue(s)}</p>
        {item.getSub && (
-        <p className="mt-1 text-[11px] font-semibold text-gray-400">{item.getSub(s)}</p>
-       )}
-      </LiquidGlass>
-     ) : (
-      <div className="admin-stat-card group rounded-lg border border-[var(--admin-card-border)] bg-[var(--admin-card-bg)] px-4 py-4 shadow-sm">
-       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold tracking-[0.08em] text-slate-400">{item.label}</span>
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.bg} ${item.accent} transition-transform duration-300 group-hover:scale-110`}>
-         <item.icon size={15} />
-        </div>
-       </div>
-       <p className="mt-2.5 text-xl font-semibold tracking-tight text-slate-950 lg:text-2xl">{item.getValue(s)}</p>
-       {item.getSub && (
-        <p className="mt-1 text-[11px] font-semibold text-slate-400">{item.getSub(s)}</p>
+        <p className="mt-1 text-[11px] font-semibold text-zinc-400">{item.getSub(s)}</p>
        )}
       </div>
-     )}
     </motion.div>
    ))}
   </section>

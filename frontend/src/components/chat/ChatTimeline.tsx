@@ -66,20 +66,20 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
             style={{ top: tooltipTop }}
             className="absolute right-[calc(100%+16px)] -translate-y-1/2 w-64 bg-white/95 backdrop-blur-xl border border-slate-200/60 shadow-md rounded-2xl p-4 pointer-events-none z-50 flex flex-col gap-2"
           >
-            <div className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest flex items-center gap-1.5 mb-1">
+            <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest flex items-center gap-1.5 mb-1">
               <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full shadow-glow animate-pulse" />
               第 {hoveredRound.index} 轮对话
             </div>
             
             {hoveredRound.userMessage && (
                <div className="text-xs text-slate-600 line-clamp-2 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                 <span className="font-bold text-slate-400 mr-1.5">Q:</span>
+                 <span className="font-semibold text-slate-400 mr-1.5">Q:</span>
                  {hoveredRound.userMessage.text}
                </div>
             )}
             {hoveredRound.aiMessage && (
                <div className="text-xs text-slate-600 line-clamp-2 leading-relaxed bg-slate-100/80 p-2.5 rounded-xl border border-slate-200/50">
-                 <span className="font-bold text-zinc-700 mr-1.5">A:</span>
+                 <span className="font-semibold text-zinc-700 mr-1.5">A:</span>
                  {hoveredRound.aiMessage.text}
                </div>
             )}
@@ -99,7 +99,7 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
         {visibleRounds.map((round, idx) => (
           <React.Fragment key={round.id}>
             {hiddenRoundsCount > 0 && idx === 1 && (
-              <div className="flex h-7 w-7 items-center justify-center rounded-full text-[9px] font-black text-slate-300">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full text-[9px] font-semibold text-slate-300">
                 +{hiddenRoundsCount}
               </div>
             )}
@@ -115,7 +115,7 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
             }}
             className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer relative group/item hover:bg-zinc-800 hover:shadow-md transition-all flex-shrink-0"
           >
-            <span className="text-[10px] font-bold text-slate-400 group-hover/item:text-white transition-colors">
+            <span className="text-[10px] font-semibold text-slate-400 group-hover/item:text-white transition-colors">
               {round.index}
             </span>
           </div>

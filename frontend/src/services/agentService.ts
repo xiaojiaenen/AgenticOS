@@ -168,10 +168,16 @@ function parseSseEvent(block: string): { event: string; data: unknown } | null {
     return null;
   }
 
-  return {
-    event,
-    data: JSON.parse(dataLines.join('\n')),
-  };
+  let data: unknown;
+  try {
+    data = JSON.parse(dataLines.join('\n'));
+  } catch (err) {
+    // 单个坏块不应杀死整条流：调用方跳过 null 事件即可
+    console.warn('Failed to parse SSE event payload:', err, dataLines.join('\n').slice(0, 200));
+    return null;
+  }
+
+  return { event, data };
 }
 
 function stripHtml(text: string): string {
@@ -300,131 +306,159 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
   let text = '';
   let reasoningText = '';
   let toolCalls: ToolCall[] = [];
-  let finishReason = 'completed';
+  // 未收到 done 事件时不默认 completed；中断/异常分别标记
+  let finishReason: string | null = null;
   let sessionState: AgentSessionState | undefined;
   let pptArtifact: AgentPptArtifact | undefined;
   let websiteArtifact: AgentWebsiteArtifact | undefined;
+  // 心跳超时：超过该时间未收到任何字节则判定连接异常，主动取消并报错
+  const STREAM_IDLE_TIMEOUT_MS = 60_000;
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
-  while (true) {
-    const { value, done } = await reader.read();
-
-    if (done) {
-      break;
-    }
-
-    buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
-    const events = buffer.split('\n\n');
-    buffer = events.pop() || '';
-
-    for (const rawEvent of events) {
-      const parsed = parseSseEvent(rawEvent);
-      if (!parsed) {
-        continue;
+  try {
+    while (true) {
+      const readResult = await Promise.race([
+        reader.read(),
+        new Promise<'idle-timeout'>((resolve) => {
+          idleTimer = setTimeout(() => resolve('idle-timeout'), STREAM_IDLE_TIMEOUT_MS);
+        }),
+      ]);
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
       }
 
-      const payload = parsed.data as Record<string, any>;
-
-      if (parsed.event === 'session' && typeof payload.session_id === 'string') {
-        sessionId = payload.session_id;
-        sessionState = payload as AgentSessionState;
-        options.onSessionState?.(sessionState);
+      if (readResult === 'idle-timeout') {
+        reader.cancel().catch(() => {});
+        throw new Error('流式响应超时：超过 60 秒未收到服务器数据，请检查网络后重试。');
       }
 
-      if (parsed.event === 'delta') {
-        const delta = typeof payload.content === 'string' ? payload.content : '';
-        text += delta;
-        options.onDelta?.(delta, text);
+      const { value, done } = readResult;
+      if (done) {
+        break;
       }
 
-      if (parsed.event === 'reasoning_delta') {
-        const delta = typeof payload.content === 'string' ? payload.content : '';
-        reasoningText += delta;
-        options.onReasoningDelta?.(delta, reasoningText);
-      }
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
+      const events = buffer.split('\n\n');
+      buffer = events.pop() || '';
 
-      if (parsed.event === 'run_status') {
-        options.onRunStatus?.(payload as AgentRunStatus);
-      }
+      for (const rawEvent of events) {
+        const parsed = parseSseEvent(rawEvent);
+        if (!parsed) {
+          continue;
+        }
 
-      if (parsed.event === 'artifact_ready') {
-        const artifactPayload = payload as Record<string, unknown>;
-        if (artifactPayload.type === 'website') {
-          websiteArtifact = artifactPayload as unknown as AgentWebsiteArtifact;
-          options.onWebsiteArtifact?.(websiteArtifact);
-        } else {
-          pptArtifact = payload as AgentPptArtifact;
-          options.onPptArtifact?.(pptArtifact);
+        const payload = parsed.data as Record<string, any>;
+
+        if (parsed.event === 'session' && typeof payload.session_id === 'string') {
+          sessionId = payload.session_id;
+          sessionState = payload as AgentSessionState;
+          options.onSessionState?.(sessionState);
+        }
+
+        if (parsed.event === 'delta') {
+          const delta = typeof payload.content === 'string' ? payload.content : '';
+          text += delta;
+          options.onDelta?.(delta, text);
+        }
+
+        if (parsed.event === 'reasoning_delta') {
+          const delta = typeof payload.content === 'string' ? payload.content : '';
+          reasoningText += delta;
+          options.onReasoningDelta?.(delta, reasoningText);
+        }
+
+        if (parsed.event === 'run_status') {
+          options.onRunStatus?.(payload as AgentRunStatus);
+        }
+
+        if (parsed.event === 'artifact_ready') {
+          const artifactPayload = payload as Record<string, unknown>;
+          if (artifactPayload.type === 'website') {
+            websiteArtifact = artifactPayload as unknown as AgentWebsiteArtifact;
+            options.onWebsiteArtifact?.(websiteArtifact);
+          } else {
+            pptArtifact = payload as AgentPptArtifact;
+            options.onPptArtifact?.(pptArtifact);
+          }
+        }
+
+        if (parsed.event === 'tool_calls' && Array.isArray(payload.tool_calls)) {
+          toolCalls = mergeToolCalls(toolCalls, mapToolCalls(payload.tool_calls));
+          options.onToolCalls?.(toolCalls);
+        }
+
+        if (parsed.event === 'tool_results' && Array.isArray(payload.tool_calls)) {
+          toolCalls = mergeToolCalls(toolCalls, mapToolResults(payload.tool_calls as AgentToolResult[]));
+          options.onToolCalls?.(toolCalls);
+        }
+
+        if (parsed.event === 'tool_error') {
+          toolCalls = mergeToolCalls(toolCalls, [mapToolError(payload as AgentToolError)]);
+          options.onToolCalls?.(toolCalls);
+        }
+
+        if (parsed.event === 'user_input_required') {
+          options.onUserInputRequired?.(payload as unknown as UserInputRequest);
+        }
+
+        if (parsed.event === 'approval_required') {
+          const approval = payload as AgentApproval;
+          toolCalls = mergeToolCalls(toolCalls, [
+            {
+              id: approval.tool_call_id,
+              name: approval.tool_name || '工具调用',
+              status: 'approval_required',
+              approvalId: approval.approval_id,
+              arguments: approval.arguments,
+              result: approval.arguments ? JSON.stringify(approval.arguments, null, 2) : undefined,
+            },
+          ]);
+          options.onToolCalls?.(toolCalls);
+        }
+
+        if (parsed.event === 'api_approval_required') {
+          // 复用工具审批 UI：将 API 审批转为工具审批格式
+          const apiApproval = payload as ApiApprovalRequest;
+          const fakeApprovalId = `api_${Date.now()}`;
+          toolCalls = mergeToolCalls(toolCalls, [
+            {
+              id: fakeApprovalId,
+              name: `${apiApproval.system_name} → ${apiApproval.api_display_name}`,
+              status: 'approval_required',
+              approvalId: fakeApprovalId,
+              arguments: { method: apiApproval.method, path: apiApproval.path },
+              result: apiApproval.message,
+              isApiApproval: true as const,
+            } as ToolCall,
+          ]);
+          options.onToolCalls?.(toolCalls);
+        }
+
+        if (parsed.event === 'user_decision') {
+          options.onUserDecision?.(payload);
+        }
+
+        if (parsed.event === 'error') {
+          // 先关闭底层流再抛出，避免连接泄漏
+          reader.cancel().catch(() => {});
+          throw new Error(normalizeAgentError(
+            typeof payload.message === 'string' ? payload.message : undefined,
+            typeof payload.error_type === 'string' ? payload.error_type : undefined,
+          ));
+        }
+
+        if (parsed.event === 'done') {
+          finishReason = typeof payload.finish_reason === 'string' ? payload.finish_reason : 'stop';
+          sessionState = payload as AgentSessionState;
+          options.onSessionState?.(sessionState);
         }
       }
-
-      if (parsed.event === 'tool_calls' && Array.isArray(payload.tool_calls)) {
-        toolCalls = mergeToolCalls(toolCalls, mapToolCalls(payload.tool_calls));
-        options.onToolCalls?.(toolCalls);
-      }
-
-      if (parsed.event === 'tool_results' && Array.isArray(payload.tool_calls)) {
-        toolCalls = mergeToolCalls(toolCalls, mapToolResults(payload.tool_calls as AgentToolResult[]));
-        options.onToolCalls?.(toolCalls);
-      }
-
-      if (parsed.event === 'tool_error') {
-        toolCalls = mergeToolCalls(toolCalls, [mapToolError(payload as AgentToolError)]);
-        options.onToolCalls?.(toolCalls);
-      }
-
-      if (parsed.event === 'user_input_required') {
-        options.onUserInputRequired?.(payload as unknown as UserInputRequest);
-      }
-
-      if (parsed.event === 'approval_required') {
-        const approval = payload as AgentApproval;
-        toolCalls = mergeToolCalls(toolCalls, [
-          {
-            id: approval.tool_call_id,
-            name: approval.tool_name || '工具调用',
-            status: 'approval_required',
-            approvalId: approval.approval_id,
-            arguments: approval.arguments,
-            result: approval.arguments ? JSON.stringify(approval.arguments, null, 2) : undefined,
-          },
-        ]);
-        options.onToolCalls?.(toolCalls);
-      }
-
-      if (parsed.event === 'api_approval_required') {
-        // 复用工具审批 UI：将 API 审批转为工具审批格式
-        const apiApproval = payload as ApiApprovalRequest;
-        const fakeApprovalId = `api_${Date.now()}`;
-        toolCalls = mergeToolCalls(toolCalls, [
-          {
-            id: fakeApprovalId,
-            name: `${apiApproval.system_name} → ${apiApproval.api_display_name}`,
-            status: 'approval_required',
-            approvalId: fakeApprovalId,
-            arguments: { method: apiApproval.method, path: apiApproval.path },
-            result: apiApproval.message,
-            isApiApproval: true,
-          },
-        ]);
-        options.onToolCalls?.(toolCalls);
-      }
-
-      if (parsed.event === 'user_decision') {
-        options.onUserDecision?.(payload);
-      }
-
-      if (parsed.event === 'error') {
-        throw new Error(normalizeAgentError(
-          typeof payload.message === 'string' ? payload.message : undefined,
-          typeof payload.error_type === 'string' ? payload.error_type : undefined,
-        ));
-      }
-
-      if (parsed.event === 'done') {
-        finishReason = typeof payload.finish_reason === 'string' ? payload.finish_reason : 'stop';
-        sessionState = payload as AgentSessionState;
-        options.onSessionState?.(sessionState);
-      }
+    }
+  } finally {
+    if (idleTimer) {
+      clearTimeout(idleTimer);
+      idleTimer = null;
     }
   }
 
@@ -435,11 +469,13 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
       if (parsed.event === 'delta') {
         const delta = typeof payload.content === 'string' ? payload.content : '';
         text += delta;
+        options.onDelta?.(delta, text);
       } else if (parsed.event === 'reasoning_delta') {
         const delta = typeof payload.content === 'string' ? payload.content : '';
         reasoningText += delta;
+        options.onReasoningDelta?.(delta, reasoningText);
       } else if (parsed.event === 'done') {
-        finishReason = typeof payload.finish_reason === 'string' ? payload.finish_reason : finishReason;
+        finishReason = typeof payload.finish_reason === 'string' ? payload.finish_reason : finishReason ?? 'stop';
         sessionState = payload as AgentSessionState;
       } else if (parsed.event === 'tool_results' && Array.isArray(payload.tool_calls)) {
         toolCalls = mergeToolCalls(toolCalls, mapToolResults(payload.tool_calls as AgentToolResult[]));
@@ -447,6 +483,12 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         toolCalls = mergeToolCalls(toolCalls, mapToolCalls(payload.tool_calls));
       }
     }
+  }
+
+  // 无 done：客户端主动中断 → interrupted；否则视为异常结束
+  // （finishReason 在收到 done 时已赋值；未收到则此处兜底）
+  if (!finishReason) {
+    finishReason = options.signal?.aborted ? 'interrupted' : (text ? 'interrupted' : 'error');
   }
 
   return {

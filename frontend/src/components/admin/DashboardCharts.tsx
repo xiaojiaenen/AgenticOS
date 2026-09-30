@@ -17,26 +17,20 @@ import {
  YAxis,
 } from 'recharts';
 import { Activity, Cpu, Gauge, Hammer, Trophy, Waves } from 'lucide-react';
-import { LiquidGlass, glassPresets } from '@xiaojiaenen/liquid-glass';
 import { cn, formatNumber, formatTokenNumber, formatLatency, formatDay, shortName, initials, CHART_COLORS } from '../../lib/utils';
 import {
  DashboardDistributionItem,
  DashboardStats as DashboardStatsData,
  DashboardUserUsage,
-} from '../../services/dashboardService';
-import { useIsGlassTheme } from '../liquid-glass';
-
-interface DashboardChartsProps {
+} from '../../services/dashboardService';interface DashboardChartsProps {
  data: DashboardStatsData;
 }
 
 
-function EmptyPanel({ label }: { label: string }) {
- const isGlass = useIsGlassTheme();
- return (
+function EmptyPanel({ label }: { label: string }) { return (
   <div className={cn(
    "flex h-full min-h-[200px] items-center justify-center rounded-lg border border-dashed text-sm font-medium",
-   isGlass ? "border-white/10 bg-white/5 text-white/70" : "border-slate-200/80 bg-white/30 text-slate-500"
+   "border-slate-200/80 bg-white/30 text-slate-500"
   )}>
    {label}
   </div>
@@ -53,20 +47,18 @@ function PanelHeader({
  kicker: string;
  title: string;
  extra?: React.ReactNode;
-}) {
- const isGlass = useIsGlassTheme();
- return (
+}) { return (
   <div className="mb-5 flex items-start justify-between gap-4">
    <div className="flex items-center gap-3">
     <div className={cn(
      "flex h-11 w-11 items-center justify-center rounded-lg shadow-sm",
-     isGlass ? "bg-white/10 text-white" : "border border-slate-200 bg-white text-slate-900"
+     "border border-slate-200 bg-white text-slate-900"
     )}>
      <Icon size={20} />
     </div>
     <div>
-     <p className={cn("admin-section-kicker", isGlass && "text-white/70")}>{kicker}</p>
-     <h3 className={cn("mt-1 text-[22px] font-semibold tracking-tight", isGlass ? "text-white" : "text-slate-950")}>{title}</h3>
+     <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">{kicker}</p>
+     <h3 className={cn("mt-1 text-[22px] font-semibold tracking-tight", "text-slate-950")}>{title}</h3>
     </div>
    </div>
    {extra}
@@ -85,35 +77,13 @@ function PanelShell({
  tone?: string;
  delay?: number;
 }) {
- const isGlass = useIsGlassTheme();
-
- if (isGlass) {
-  return (
-   <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] }}
-   >
-    <LiquidGlass
-     {...glassPresets.card}
-     tint="rgba(255,255,255,0.06)"
-     radius={12}
-     className={className}
-     style={{ height: '100%' }}
-    >
-     <div className="relative h-full px-5 py-5">{children}</div>
-    </LiquidGlass>
-   </motion.div>
-  );
- }
-
  return (
   <motion.section
    initial={{ opacity: 0, y: 20 }}
    animate={{ opacity: 1, y: 0 }}
    transition={{ duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] }}
    className={cn(
-    'admin-chart-panel',
+    'rounded-lg border border-zinc-200/80 shadow-sm',
     tone ?? 'bg-white/80',
     className,
    )}
@@ -123,20 +93,18 @@ function PanelShell({
  );
 }
 
-function DistributionLegend({ items }: { items: DashboardDistributionItem[] }) {
- const isGlass = useIsGlassTheme();
- return (
+function DistributionLegend({ items }: { items: DashboardDistributionItem[] }) { return (
   <div className="mt-4 space-y-2.5">
    {items.slice(0, 5).map((item, index) => (
     <div key={item.name} className="flex items-center justify-between gap-3 text-sm font-medium">
-     <span className={cn("flex min-w-0 items-center gap-2.5", isGlass ? "text-white/80" : "text-slate-700")}>
+     <span className={cn("flex min-w-0 items-center gap-2.5", "text-slate-700")}>
       <span
        className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
        style={{ background: CHART_COLORS[index % CHART_COLORS.length] }}
       />
       <span className="truncate">{item.name}</span>
      </span>
-     <span className={isGlass ? "text-white" : "text-slate-950"}>{formatNumber(item.value)}</span>
+     <span className={"text-slate-950"}>{formatNumber(item.value)}</span>
     </div>
    ))}
   </div>
@@ -151,9 +119,7 @@ function UserUsageRow({
  user: DashboardUserUsage;
  index: number;
  maxTokens: number;
-}) {
- const isGlass = useIsGlassTheme();
- const percentage = maxTokens > 0 ? Math.max(8, Math.round((user.total_tokens / maxTokens) * 100)) : 0;
+}) { const percentage = maxTokens > 0 ? Math.max(8, Math.round((user.total_tokens / maxTokens) * 100)) : 0;
 
  return (
   <motion.div
@@ -161,29 +127,29 @@ function UserUsageRow({
    animate={{ opacity: 1, y: 0 }}
    transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.16) }}
    whileHover={{ x: 2 }}
-   className={cn("admin-table-row grid grid-cols-1 gap-4 border-b px-5 py-4 text-center last:border-b-0 lg:grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:items-center lg:gap-0",
-     isGlass ? "border-white/10" : "border-slate-200/60"
+   className={cn("grid grid-cols-1 gap-4 border-b border-zinc-200/60 px-5 py-4 text-center last:border-b-0 hover:bg-zinc-50/60 transition-colors lg:grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:items-center lg:gap-0",
+     "border-slate-200/60"
    )}
   >
    <div className="flex min-w-0 items-center justify-center gap-4">
     <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-sm font-semibold shadow-sm",
-      isGlass ? "bg-white/10 text-white" : "border border-slate-200 bg-white/80 text-slate-800"
+      "border border-slate-200 bg-white/80 text-slate-800"
     )}>
      {initials(user.name)}
     </div>
     <div className="min-w-0">
      <div className="flex items-center justify-center gap-2">
-      <span className={cn("text-xs font-semibold", isGlass ? "text-white/70" : "text-slate-400")}>#{index + 1}</span>
-      <p className={cn("truncate text-sm font-semibold", isGlass ? "text-white" : "text-slate-900")}>{user.name}</p>
+      <span className={cn("text-xs font-semibold", "text-slate-400")}>#{index + 1}</span>
+      <p className={cn("truncate text-sm font-semibold", "text-slate-900")}>{user.name}</p>
      </div>
-     <p className={cn("mt-1 truncate text-xs font-medium", isGlass ? "text-white/70" : "text-slate-500")}>{user.email}</p>
+     <p className={cn("mt-1 truncate text-xs font-medium", "text-slate-500")}>{user.email}</p>
     </div>
    </div>
-   <div className={cn("text-sm font-semibold", isGlass ? "text-white" : "text-slate-900")}>{formatTokenNumber(user.total_tokens)}</div>
-   <div className={cn("text-sm font-medium", isGlass ? "text-white/80" : "text-slate-600")}>{formatNumber(user.llm_calls)}</div>
-   <div className={cn("text-sm font-medium", isGlass ? "text-white/80" : "text-slate-600")}>{formatNumber(user.tool_calls)}</div>
-   <div className={cn("text-sm font-medium", isGlass ? "text-white/80" : "text-slate-600")}>{formatLatency(user.avg_latency_ms)}</div>
-   <div className={cn("h-2 rounded-full", isGlass ? "bg-white/20" : "bg-white")}>
+   <div className={cn("text-sm font-semibold", "text-slate-900")}>{formatTokenNumber(user.total_tokens)}</div>
+   <div className={cn("text-sm font-medium", "text-slate-600")}>{formatNumber(user.llm_calls)}</div>
+   <div className={cn("text-sm font-medium", "text-slate-600")}>{formatNumber(user.tool_calls)}</div>
+   <div className={cn("text-sm font-medium", "text-slate-600")}>{formatLatency(user.avg_latency_ms)}</div>
+   <div className={cn("h-2 rounded-full", "bg-white")}>
     <div
      className={cn(
       'h-2 rounded-full',
@@ -200,9 +166,7 @@ function UserUsageRow({
  );
 }
 
-export const DashboardCharts = ({ data }: DashboardChartsProps) => {
- const isGlass = useIsGlassTheme();
- const trendData = data.trend.map((item) => ({
+export const DashboardCharts = ({ data }: DashboardChartsProps) => { const trendData = data.trend.map((item) => ({
   ...item,
   avgTokens: item.runs > 0 ? Math.round(item.tokens / item.runs) : 0,
   toolPerRun: item.runs > 0 ? Number((item.tool_calls / item.runs).toFixed(2)) : 0,
@@ -258,16 +222,10 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
 
      <div className="mb-4 grid gap-3 sm:grid-cols-4">
       {trendSignals.map((item) => (
-       <LiquidGlass
-        key={item.label}
-        {...glassPresets.control}
-        tint="rgba(255,255,255,0.04)"
-        radius={12}
-        style={{ padding: '10px 12px' }}
-       >
-        <p className={cn("text-[10px] font-semibold tracking-[0.08em]", isGlass ? "text-white/70" : "text-slate-400")}>{item.label}</p>
-        <p className={cn("mt-1 text-base font-semibold tracking-tight", isGlass ? "text-white" : "text-slate-950")}>{item.value}</p>
-       </LiquidGlass>
+       <div style={{ padding: '10px 12px' }}>
+        <p className={cn("text-[10px] font-semibold tracking-[0.08em]", "text-slate-400")}>{item.label}</p>
+        <p className={cn("mt-1 text-base font-semibold tracking-tight", "text-slate-950")}>{item.value}</p>
+       </div>
       ))}
      </div>
 
@@ -308,9 +266,9 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           width={36}
          />
          <Tooltip
-          formatter={(value: number, name: string) => [
-           name === 'tokens' ? formatTokenNumber(value) : formatNumber(value),
-           name === 'tokens' ? 'Token' : name === 'runs' ? '运行次数' : name,
+          formatter={(value, name) => [
+           name === 'tokens' ? formatTokenNumber(Number(value)) : formatNumber(Number(value)),
+           name === 'tokens' ? 'Token' : name === 'runs' ? '运行次数' : String(name ?? ''),
           ]}
           labelFormatter={(label) => `日期 ${label}`}
           contentStyle={{
@@ -348,16 +306,10 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
 
      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {trendSignals.map((item) => (
-       <LiquidGlass
-        key={item.label}
-        {...glassPresets.control}
-        tint="rgba(255,255,255,0.04)"
-        radius={12}
-        style={{ padding: '14px 16px' }}
-       >
-        <p className={cn("text-xs font-semibold tracking-[0.08em]", isGlass ? "text-white/70" : "text-slate-400")}>{item.label}</p>
-        <p className={cn("mt-2 text-2xl font-semibold tracking-tight", isGlass ? "text-white" : "text-slate-950")}>{item.value}</p>
-       </LiquidGlass>
+       <div style={{ padding: '14px 16px' }}>
+        <p className={cn("text-xs font-semibold tracking-[0.08em]", "text-slate-400")}>{item.label}</p>
+        <p className={cn("mt-2 text-2xl font-semibold tracking-tight", "text-slate-950")}>{item.value}</p>
+       </div>
       ))}
      </div>
     </PanelShell>
@@ -379,7 +331,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           />
           <YAxis hide />
           <Tooltip
-           formatter={(value: number, name: string) => [formatNumber(value), name === 'runs' ? '运行次数' : '工具调用']}
+           formatter={(value, name) => [formatNumber(Number(value)), name === 'runs' ? '运行次数' : '工具调用']}
            labelFormatter={(label) => `日期 ${label}`}
            contentStyle={{
             borderRadius: 18,
@@ -415,7 +367,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           />
           <YAxis hide />
           <Tooltip
-           formatter={(value: number) => [formatTokenNumber(value), '平均 Token / 次']}
+           formatter={(value) => [formatTokenNumber(Number(value)), '平均 Token / 次']}
            labelFormatter={(label) => `日期 ${label}`}
            contentStyle={{
             borderRadius: 18,
@@ -466,7 +418,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           ))}
          </Pie>
          <Tooltip
-          formatter={(value: number) => [formatNumber(value), '调用次数']}
+          formatter={(value) => [formatNumber(Number(value)), '调用次数']}
           contentStyle={{
            borderRadius: 18,
            border: '1px solid rgba(226,232,240,0.9)',
@@ -481,15 +433,10 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
        <EmptyPanel label="暂时还没有模型调用数据" />
       )}
      </div>
-     <LiquidGlass
-      {...glassPresets.control}
-      tint="rgba(255,255,255,0.04)"
-      radius={12}
-      style={{ padding: '16px', textAlign: 'center' }}
-     >
-      <p className={cn("text-xs font-semibold tracking-[0.08em]", isGlass ? "text-white/70" : "text-slate-400")}>累计模型调用</p>
-      <p className={cn("mt-2 text-2xl font-semibold tracking-tight", isGlass ? "text-white" : "text-slate-950")}>{formatNumber(totalModelCalls)}</p>
-     </LiquidGlass>
+     <div style={{ padding: '16px', textAlign: 'center' }}>
+      <p className={cn("text-xs font-semibold tracking-[0.08em]", "text-slate-400")}>累计模型调用</p>
+      <p className={cn("mt-2 text-2xl font-semibold tracking-tight", "text-slate-950")}>{formatNumber(totalModelCalls)}</p>
+     </div>
      <DistributionLegend items={data.model_distribution} />
     </PanelShell>
 
@@ -515,7 +462,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           ))}
          </Pie>
          <Tooltip
-          formatter={(value: number) => [formatNumber(value), '调用次数']}
+          formatter={(value) => [formatNumber(Number(value)), '调用次数']}
           contentStyle={{
            borderRadius: 18,
            border: '1px solid rgba(226,232,240,0.9)',
@@ -532,20 +479,14 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
      </div>
      <div className="space-y-3">
       {callMix.map((item, index) => (
-       <LiquidGlass
-        key={item.name}
-        {...glassPresets.control}
-        tint="rgba(255,255,255,0.04)"
-        radius={12}
-        style={{ padding: '12px 16px' }}
-       >
+       <div style={{ padding: '12px 16px' }}>
         <div className="flex items-center justify-between gap-3">
-         <span className={cn("text-sm font-medium", isGlass ? "text-white/80" : "text-slate-700")}>{item.name}</span>
-         <span className={cn("text-base font-semibold", isGlass ? "text-white" : "text-slate-950")}>{formatNumber(item.value)}</span>
+         <span className={cn("text-sm font-medium", "text-slate-700")}>{item.name}</span>
+         <span className={cn("text-base font-semibold", "text-slate-950")}>{formatNumber(item.value)}</span>
         </div>
-        <div className="admin-progress-bar mt-3">
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100">
          <div
-          className={cn('admin-progress-fill', index === 0 ? 'bg-slate-900' : 'bg-teal-500')}
+          className={cn('h-2 rounded-full', index === 0 ? 'bg-zinc-900' : 'bg-teal-500')}
           style={{
            width: `${Math.max(
             8,
@@ -554,7 +495,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           }}
          />
         </div>
-       </LiquidGlass>
+       </div>
       ))}
      </div>
     </PanelShell>
@@ -582,7 +523,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           width={92}
          />
          <Tooltip
-          formatter={(value: number) => [formatNumber(value), '调用次数']}
+          formatter={(value) => [formatNumber(Number(value)), '调用次数']}
           contentStyle={{
            borderRadius: 18,
            border: '1px solid rgba(226,232,240,0.9)',
@@ -602,15 +543,10 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
        <EmptyPanel label="暂时还没有工具调用数据" />
       )}
      </div>
-     <LiquidGlass
-      {...glassPresets.control}
-      tint="rgba(255,255,255,0.04)"
-      radius={12}
-      style={{ padding: '16px', textAlign: 'center' }}
-     >
-      <p className={cn("text-xs font-semibold tracking-[0.08em]", isGlass ? "text-white/70" : "text-slate-400")}>累计工具调用</p>
-      <p className={cn("mt-2 text-2xl font-semibold tracking-tight", isGlass ? "text-white" : "text-slate-950")}>{formatNumber(totalToolCalls)}</p>
-     </LiquidGlass>
+     <div style={{ padding: '16px', textAlign: 'center' }}>
+      <p className={cn("text-xs font-semibold tracking-[0.08em]", "text-slate-400")}>累计工具调用</p>
+      <p className={cn("mt-2 text-2xl font-semibold tracking-tight", "text-slate-950")}>{formatNumber(totalToolCalls)}</p>
+     </div>
     </PanelShell>
    </section>
 
@@ -638,7 +574,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           width={84}
          />
          <Tooltip
-          formatter={(value: number) => [formatTokenNumber(value), 'Token']}
+          formatter={(value) => [formatTokenNumber(Number(value)), 'Token']}
           contentStyle={{
            borderRadius: 18,
            border: '1px solid rgba(226,232,240,0.9)',
@@ -660,45 +596,12 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
      </div>
     </PanelShell>
 
-    {isGlass ? (
-     <LiquidGlass
-      {...glassPresets.card}
-      tint="rgba(255,255,255,0.06)"
-      radius={12}
-      style={{ width: '100%', display: 'flex', flexDirection: 'column' }}
-     >
-      <div className={cn("border-b px-5 py-4", isGlass ? "border-white/10" : "border-slate-200/60")}>
-       <PanelHeader icon={Trophy} kicker="用户排行" title="资源消耗前列用户" />
-      </div>
-
-      <div className={cn("admin-table-head grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:grid xl:grid",
-        isGlass && "text-white/80"
-      )}>
-       <span>用户</span>
-       <span>Token</span>
-       <span>模型调用</span>
-       <span>工具调用</span>
-       <span>平均耗时</span>
-       <span>占比</span>
-      </div>
-
-      {topUsers.length > 0 ? (
-       topUsers.map((user, index) => (
-        <UserUsageRow key={user.user_id} user={user} index={index} maxTokens={maxUserTokens} />
-       ))
-      ) : (
-       <div className="p-4">
-        <EmptyPanel label="暂时还没有用户使用数据" />
-       </div>
-      )}
-     </LiquidGlass>
-    ) : (
-     <section className="admin-data-panel">
+         <section className="overflow-hidden rounded-lg border border-zinc-200/80 bg-white shadow-sm">
       <div className="border-b border-slate-200/60 px-5 py-4">
        <PanelHeader icon={Trophy} kicker="用户排行" title="资源消耗前列用户" />
       </div>
 
-      <div className="admin-table-head grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:grid xl:grid">
+      <div className="hidden grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] gap-4 border-b border-zinc-200/80 bg-zinc-50 px-5 py-3 text-xs font-semibold tracking-wide text-zinc-500 lg:grid xl:grid">
        <span>用户</span>
        <span>Token</span>
        <span>模型调用</span>
@@ -717,7 +620,6 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
        </div>
       )}
      </section>
-    )}
    </section>
   </div>
  );

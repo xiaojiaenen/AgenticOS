@@ -89,7 +89,7 @@ const DecoElements: React.FC<{ theme: AnnouncementTheme }> = ({ theme }) => {
 };
 
 /* ──────────────────────────────────────
-   No-image: glass-card decorative blocks
+   No-image: card decorative blocks
    ────────────────────────────────────── */
 const NoImageDeco: React.FC<{ theme: AnnouncementTheme }> = ({ theme }) => {
   const meta = THEME_DEFS[theme];
@@ -114,7 +114,7 @@ const NoImageDeco: React.FC<{ theme: AnnouncementTheme }> = ({ theme }) => {
             <Sparkles size={16} />
           </div>
           <div>
-            <p className="text-sm font-black text-slate-800">AgenticOS</p>
+            <p className="text-sm font-semibold text-slate-800">AgenticOS</p>
             <p className="text-[11px] font-semibold text-slate-400">Platform Notice</p>
           </div>
         </div>
@@ -129,7 +129,7 @@ const NoImageDeco: React.FC<{ theme: AnnouncementTheme }> = ({ theme }) => {
       >
         <div className="flex items-center gap-2.5">
           <div className={cn('h-2.5 w-2.5 rounded-full shadow-[0_0_7px_currentColor]', meta.accentClass)} />
-          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Notice</div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Notice</div>
         </div>
         <div className="mt-2 flex gap-1.5">
           <div className="h-1 w-8 rounded-full bg-slate-300/70" />
@@ -272,7 +272,7 @@ export const GlobalAnnouncementLayer: React.FC = () => {
               {/* ── Left column: text content ── */}
               <div className="p-7 sm:p-9">
                 <div className={cn(
-                  'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em]',
+                  'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em]',
                   meta.accentLightClass, meta.accentTextClass,
                 )}
                 style={{ borderColor: 'currentColor', borderWidth: 1, background: 'rgba(255,255,255,0.6)' }}
@@ -281,7 +281,7 @@ export const GlobalAnnouncementLayer: React.FC = () => {
                   {item.eyebrow || '系统公告'}
                 </div>
 
-                <h2 className="mt-6 max-w-lg font-display text-3xl font-black leading-tight tracking-[-0.04em] text-slate-900 sm:text-4xl">
+                <h2 className="mt-6 max-w-lg font-display text-3xl font-semibold leading-tight tracking-[-0.04em] text-slate-900 sm:text-4xl">
                   {item.title}
                 </h2>
 
@@ -311,7 +311,7 @@ export const GlobalAnnouncementLayer: React.FC = () => {
                     type="button"
                     onClick={handleAction}
                     className={cn(
-                      'inline-flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black text-white shadow-lg shadow-black/10 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/15',
+                      'inline-flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-black/10 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/15',
                       meta.ctaBg,
                     )}
                   >
@@ -322,7 +322,7 @@ export const GlobalAnnouncementLayer: React.FC = () => {
                     type="button"
                     onClick={handleClose}
                     className={cn(
-                      'inline-flex items-center gap-2 rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-sm font-bold text-slate-500 transition-all hover:bg-white hover:text-slate-700',
+                      'inline-flex items-center gap-2 rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-sm font-semibold text-slate-500 transition-all hover:bg-white hover:text-slate-700',
                     )}
                   >
                     稍后再看

@@ -13,6 +13,7 @@ interface ChatArtifactAreaProps {
   onPptThemeChange?: (newHtml: string, theme: string) => void;
   onEmailConfirm?: (approvalId: string) => void;
   onEmailCancel?: (approvalId: string) => void;
+  sessionId?: string | null;
 }
 
 export const ChatArtifactArea = React.memo(({
@@ -22,6 +23,7 @@ export const ChatArtifactArea = React.memo(({
   onPptThemeChange,
   onEmailConfirm,
   onEmailCancel,
+  sessionId,
 }: ChatArtifactAreaProps) => (
   <AnimatePresence mode="wait">
     {artifact?.language === 'ppt' ? (
@@ -39,6 +41,7 @@ export const ChatArtifactArea = React.memo(({
         artifact={artifact}
         onClose={onClose}
         borderColor={borderColor}
+        sessionId={sessionId ?? undefined}
       />
     ) : artifact?.language === 'email' ? (
       <EmailArtifactPanel

@@ -6,11 +6,7 @@ import { RandomMascot } from '../components/ui/RandomMascot';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { PasswordInput } from '../components/ui/PasswordInput';
-import { login as loginUser, loginWithCode, sendVerificationCode } from '../services/authService';
-import { useIsGlassTheme } from '../components/liquid-glass';
-import { Ferrofluid, LightRays } from '../components/liquid-glass';
-import { LiquidGlass, glassPresets } from '@xiaojiaenen/liquid-glass';
-import { cn } from '../lib/utils';
+import { login as loginUser, loginWithCode, sendVerificationCode } from '../services/authService';import { cn } from '../lib/utils';
 
 const EMAIL_SUFFIXES = [
   '@qq.com', '@163.com', '@126.com', '@gmail.com',
@@ -20,9 +16,7 @@ const EMAIL_SUFFIXES = [
 
 export const Login = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const isGlass = useIsGlassTheme();
-  const [email, setEmail] = useState('');
+  const location = useLocation();  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +70,10 @@ export const Login = () => {
       setError('请输入邮箱地址');
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('请输入有效的邮箱地址');
+      return;
+    }
     setError(null);
     try {
       await sendVerificationCode(email, 'login');
@@ -89,6 +87,25 @@ export const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError('请输入邮箱地址');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('请输入有效的邮箱地址');
+      return;
+    }
+    if (loginMode === 'password') {
+      if (!password) {
+        setError('请输入密码');
+        return;
+      }
+      if (password.length < 6) {
+        setError('密码至少 6 位');
+        return;
+      }
+    }
     setError(null);
     setIsSubmitting(true);
     try {
@@ -146,47 +163,23 @@ export const Login = () => {
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         "min-h-screen relative flex items-center justify-center p-4 overflow-hidden",
-        isGlass ? "text-white selection:bg-sky-200/60 selection:text-sky-900" : "selection:bg-zinc-200 selection:text-zinc-900"
+        "selection:bg-zinc-200 selection:text-zinc-900"
       )}
       style={{
-        background: isGlass ? '#000000' : 'linear-gradient(180deg, #def0f6 0%, #e7f4f9 28%, #e1f2f7 55%, #e3f2f7 100%)',
+        background: 'linear-gradient(180deg, #def0f6 0%, #e7f4f9 28%, #e1f2f7 55%, #e3f2f7 100%)',
       }}
     >
-      {isGlass ? (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <Ferrofluid
-            colors={['#1a1a2e', '#16213e', '#0f3460']}
-            speed={0.3} scale={1.2} turbulence={0.8} fluidity={0.15}
-            rimWidth={0.15} sharpness={2} shimmer={1} glow={1.5}
-            flowDirection="down" opacity={0.6}
-            mouseInteraction={true} mouseStrength={0.8}
-            mouseRadius={0.3} mouseDampening={0.2}
-          />
-          <LightRays
-            raysOrigin="top-center"
-            raysColor="#4a9eff"
-            raysSpeed={0.6}
-            lightSpread={1.5}
-            rayLength={3}
-            fadeDistance={1.5}
-            saturation={0.6}
-            followMouse={true}
-            mouseInfluence={0.12}
-          />
-        </div>
-      ) : (
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+<div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute -top-24 -left-16 w-[55vw] h-[55vw] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.22),transparent_70%)] blur-[70px] animate-[bg-blob-1_12s_ease-in-out_infinite]" />
         <div className="absolute -bottom-20 -right-12 w-[50vw] h-[50vw] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.19),transparent_70%)] blur-[70px] animate-[bg-blob-2_14s_ease-in-out_infinite]" />
         <div className="absolute top-1/3 left-1/4 w-[40vw] h-[40vw] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.16),transparent_70%)] blur-[80px] animate-[bg-blob-3_13s_ease-in-out_infinite]" />
         <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.03]" />
       </div>
-      )}
       <motion.button
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         onClick={() => navigate('/')}
-        className={cn("fixed top-6 left-6 z-20 flex items-center gap-2 px-4 py-2 rounded-2xl shadow-sm font-medium transition-all group", isGlass ? "bg-white/10 border border-white/15 text-white/70 hover:text-white hover:bg-white/15" : "glass-medium border border-white/60 text-slate-600 hover:text-zinc-900 hover:shadow-md")}
+        className={cn("fixed top-6 left-6 z-20 flex items-center gap-2 px-4 py-2 rounded-2xl shadow-sm font-medium transition-all group", "bg-white/60 border border-white/60 text-slate-600 hover:text-zinc-900 hover:shadow-md")}
         aria-label="返回首页"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-hover:-translate-x-1 transition-transform"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
@@ -201,20 +194,20 @@ export const Login = () => {
                 <div className="mb-6">
                   <Logo iconSize={48} showText={false} />
                 </div>
-                <h1 className={cn("text-3xl font-black tracking-tight", isGlass ? "text-white" : "text-slate-900")}>登录 AgenticOS</h1>
-                <p className={cn("mt-2.5 text-sm font-medium", isGlass ? "text-white/50" : "text-slate-500")}>欢迎回来，登录以继续使用</p>
+                <h1 className={cn("text-3xl font-semibold tracking-tight", "text-slate-900")}>登录 AgenticOS</h1>
+                <p className={cn("mt-2.5 text-sm font-medium", "text-slate-500")}>欢迎回来，登录以继续使用</p>
               </div>
 
             {/* 登录模式切换 */}
-            <div className={cn("flex rounded-xl p-1 mb-6", isGlass ? "bg-white/8" : "bg-slate-100/80")}>
+            <div className={cn("flex rounded-xl p-1 mb-6", "bg-slate-100/80")}>
               <button
                 type="button"
                 onClick={() => { setLoginMode('password'); setError(null); }}
                 className={cn(
                   "flex-1 py-2 text-sm font-semibold rounded-lg transition-all",
                   loginMode === 'password'
-                    ? isGlass ? 'bg-white/15 text-white shadow-sm' : 'bg-white text-slate-900 shadow-sm'
-                    : isGlass ? 'text-white/50 hover:text-white' : 'text-slate-500 hover:text-slate-700'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
                 )}
               >
                 密码登录
@@ -225,8 +218,8 @@ export const Login = () => {
                 className={cn(
                   "flex-1 py-2 text-sm font-semibold rounded-lg transition-all",
                   loginMode === 'code'
-                    ? isGlass ? 'bg-white/15 text-white shadow-sm' : 'bg-white text-slate-900 shadow-sm'
-                    : isGlass ? 'text-white/50 hover:text-white' : 'text-slate-500 hover:text-slate-700'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
                 )}
               >
                 验证码登录
@@ -260,7 +253,7 @@ export const Login = () => {
                       exit={{ opacity: 0, y: -4 }}
                       className={cn(
                         "absolute left-0 right-0 top-full mt-1 rounded-xl border shadow-lg overflow-hidden z-50 backdrop-blur-xl",
-                        isGlass ? "bg-white/10 border-white/20" : "bg-white border-slate-200"
+                        "bg-white border-slate-200"
                       )}
                     >
                       {suggestions.map((s, i) => (
@@ -271,10 +264,10 @@ export const Login = () => {
                           className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
                             i === selectedSuggestionIdx
                               ? 'bg-sky-50 text-sky-700'
-                              : isGlass ? 'text-white/70 hover:bg-white/10' : 'text-slate-600 hover:bg-slate-50'
+                              : 'text-slate-600 hover:bg-slate-50'
                           }`}
                         >
-                          <span className={isGlass ? "text-white/40" : "text-slate-400"}>{email}</span>
+                          <span className={"text-slate-400"}>{email}</span>
                           <span className="font-medium">{s.slice(email.length)}</span>
                         </button>
                       ))}
@@ -294,8 +287,8 @@ export const Login = () => {
                     transition={{ duration: 0.2 }}
                   >
                     <div className="flex justify-between items-center mb-2 ml-1">
-                      <label htmlFor="login-password" className={cn("text-xs font-bold uppercase tracking-[0.15em]", isGlass ? "text-white/50" : "text-slate-500")}>密码</label>
-                      <span className={cn("text-xs font-bold", isGlass ? "text-white/40" : "text-slate-400")}>忘记密码请联系管理员</span>
+                      <label htmlFor="login-password" className={cn("text-xs font-semibold uppercase tracking-[0.15em]", "text-slate-500")}>密码</label>
+                      <span className={cn("text-xs font-semibold", "text-slate-400")}>忘记密码请联系管理员</span>
                     </div>
                     <PasswordInput id="login-password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
                   </motion.div>
@@ -312,7 +305,7 @@ export const Login = () => {
                     className="space-y-3"
                   >
                     <div>
-                      <label className={cn("text-xs font-bold uppercase tracking-[0.15em] mb-2 block ml-1", isGlass ? "text-white/50" : "text-slate-500")}>验证码</label>
+                      <label className={cn("text-xs font-semibold uppercase tracking-[0.15em] mb-2 block ml-1", "text-slate-500")}>验证码</label>
                       <div className="flex gap-2">
                         <Input
                           type="text"
@@ -352,8 +345,8 @@ export const Login = () => {
               </Button>
             </form>
 
-            <div className={cn("mt-10 text-center text-sm font-medium", isGlass ? "text-white/50" : "text-slate-500")}>
-              还没有账号？ <a href="#" onClick={(e) => { e.preventDefault(); navigate('/signup'); }} className="text-brand-600 hover:text-brand-700 font-bold underline decoration-brand-200 underline-offset-4">立即注册</a>
+            <div className={cn("mt-10 text-center text-sm font-medium", "text-slate-500")}>
+              还没有账号？ <a href="#" onClick={(e) => { e.preventDefault(); navigate('/signup'); }} className="text-brand-600 hover:text-brand-700 font-semibold underline decoration-brand-200 underline-offset-4">立即注册</a>
             </div>
             </>          // close formPanel Fragment
           );
@@ -362,20 +355,9 @@ export const Login = () => {
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className={cn("w-full", isGlass ? "" : "backdrop-blur-2xl rounded-[2rem] shadow-xl p-10 bg-[var(--surface-2)] border border-white/60 shadow-brand-500/10")}
+              className={cn("w-full", "backdrop-blur-2xl rounded-[2rem] shadow-xl p-10 bg-[var(--surface-2)] border border-white/60 shadow-brand-500/10")}
             >
-              {isGlass ? (
-                <LiquidGlass
-                  {...glassPresets.card}
-                  tint="rgba(255,255,255,0.08)"
-                  radius={32}
-                  style={{ width: '100%', padding: '40px' }}
-                >
-                  {formPanel}
-                </LiquidGlass>
-              ) : (
-                <div className="w-full">{formPanel}</div>
-              )}
+              <div className="w-full">{formPanel}</div>
             </motion.div>
           );
         })()}

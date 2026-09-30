@@ -13,24 +13,26 @@ const USER_KEY = 'auth_user';
 const ROLE_KEY = 'role';
 
 function readStorageValue(key: string): string | null {
-  const sessionValue = sessionStorage.getItem(key);
-  if (sessionValue) return sessionValue;
+  // token/user 持久化到 localStorage，支持新标签页共享登录态
+  const localValue = localStorage.getItem(key);
+  if (localValue) return localValue;
 
-  const legacyValue = localStorage.getItem(key);
+  // 迁移旧的 sessionStorage 数据
+  const legacyValue = sessionStorage.getItem(key);
   if (!legacyValue) return null;
-  sessionStorage.setItem(key, legacyValue);
-  localStorage.removeItem(key);
+  localStorage.setItem(key, legacyValue);
+  sessionStorage.removeItem(key);
   return legacyValue;
 }
 
 function writeStorageValue(key: string, value: string): void {
-  sessionStorage.setItem(key, value);
-  localStorage.removeItem(key);
+  localStorage.setItem(key, value);
+  sessionStorage.removeItem(key);
 }
 
 function removeStorageValue(key: string): void {
-  sessionStorage.removeItem(key);
   localStorage.removeItem(key);
+  sessionStorage.removeItem(key);
 }
 
 function readJson<T>(value: string | null): T | null {
@@ -45,7 +47,7 @@ function readJson<T>(value: string | null): T | null {
 async function parseResponse<T>(response: Response): Promise<T> {
   const raw = await response.text();
   if (response.ok) {
-    return JSON.parse(raw) as AuthResponse;
+    return JSON.parse(raw) as T;
   }
   let message = 'Request failed';
   try {

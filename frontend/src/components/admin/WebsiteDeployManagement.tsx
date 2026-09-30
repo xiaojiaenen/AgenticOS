@@ -1,232 +1,309 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { Badge } from '../ui/Badge';
-import { Check, X, ExternalLink, Clock, Globe, Loader2, AlertCircle } from 'lucide-react';
-import { listPendingDeploys, listAllDeploys, decideDeploy, type DeployRecord } from '../../services/websiteService';
+/**
+ * 网站部署审批：TanStack Query 数据层 + TanStack Table + shadcn 组件。
+ * 后端 API 不变（services/websiteService.ts）。
+ */
+import * as React from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ColumnDef } from '@tanstack/react-table';
+import { toast } from 'sonner';
+import {
+  AlertCircle,
+  Check,
+  Clock,
+  ExternalLink,
+  Globe,
+  Loader2,
+  RefreshCw,
+  X,
+} from 'lucide-react';
+import { DataTable } from './data-table';
+import { AdminPageHeader, ErrorBanner, KpiPill } from './shared';
+import { Button } from '@/components/shadcn/button';
+import { StatusPill } from './shared';
+import {
+  DeployRecord,
+  decideDeploy,
+  listAllDeploys,
+  listPendingDeploys,
+} from '@/services/websiteService';
+
+function statusTone(status: string): 'active' | 'inactive' | 'warning' | 'info' {
+  switch (status) {
+    case 'deployed':
+      return 'active';
+    case 'pending':
+      return 'warning';
+    case 'approved':
+    case 'deploying':
+      return 'info';
+    default:
+      return 'inactive';
+  }
+}
+
+function statusLabel(status: string): string {
+  const config: Record<string, string> = {
+    pending: '待审批',
+    approved: '已批准',
+    rejected: '已拒绝',
+    deployed: '已部署',
+    deploying: '部署中',
+    failed: '失败',
+  };
+  return config[status] || status;
+}
 
 export function WebsiteDeployManagement() {
-  const [pendingDeploys, setPendingDeploys] = useState<DeployRecord[]>([]);
-  const [allDeploys, setAllDeploys] = useState<DeployRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const pendingQuery = useQuery({
+    queryKey: ['admin', 'deploys', 'pending'],
+    queryFn: listPendingDeploys,
+  });
+  const allQuery = useQuery({
+    queryKey: ['admin', 'deploys', 'all'],
+    queryFn: listAllDeploys,
+  });
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [pending, all] = await Promise.all([
-        listPendingDeploys(),
-        listAllDeploys(),
-      ]);
-      setPendingDeploys(pending);
-      setAllDeploys(all);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : '加载失败');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = pendingQuery.isLoading || allQuery.isLoading;
+  const error =
+    (pendingQuery.error as Error | null)?.message ??
+    (allQuery.error as Error | null)?.message ??
+    null;
 
-  const handleDecide = async (deployId: number, decision: 'approved' | 'rejected') => {
-    setActionLoading(`${deployId}-${decision}`);
-    try {
-      await decideDeploy(deployId, {
+  const decideMutation = useMutation({
+    mutationFn: ({ deployId, decision }: { deployId: number; decision: 'approved' | 'rejected' }) =>
+      decideDeploy(deployId, {
         status: decision,
         reason: decision === 'approved' ? '管理员已批准' : '管理员已拒绝',
-      });
-      setMessage(decision === 'approved' ? '已批准部署' : '已拒绝部署');
-      await loadData();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : '操作失败');
-    } finally {
-      setActionLoading(null);
-    }
-  };
+      }),
+    onSuccess: (_data, variables) => {
+      toast.success(variables.decision === 'approved' ? '已批准部署' : '已拒绝部署');
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'deploys'] });
+    },
+    onError: (err: Error) => toast.error(err.message || '操作失败'),
+  });
 
-  const getStatusBadge = (status: string) => {
-    const config: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-      pending: { label: '待审批', variant: 'outline' },
-      approved: { label: '已批准', variant: 'default' },
-      rejected: { label: '已拒绝', variant: 'destructive' },
-      deployed: { label: '已部署', variant: 'secondary' },
-    };
-    const { label, variant } = config[status] || { label: status, variant: 'outline' as const };
-    return <Badge variant={variant}>{label}</Badge>;
-  };
+  const pendingDeploys = pendingQuery.data ?? [];
+  const allDeploys = allQuery.data ?? [];
 
-  // 自动清除消息
-  useEffect(() => {
-    if (message || error) {
-      const t = setTimeout(() => { setMessage(null); setError(null); }, 3000);
-      return () => clearTimeout(t);
-    }
-  }, [message, error]);
+  const columns = React.useMemo<ColumnDef<DeployRecord, unknown>[]>(
+    () => [
+      {
+        id: 'project',
+        header: '项目',
+        cell: ({ row }) => {
+          const deploy = row.original;
+          return (
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 shrink-0 text-zinc-400" />
+                <span className="truncate text-sm font-semibold text-zinc-900">
+                  {deploy.project_slug}
+                </span>
+                <span className="rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500">
+                  {deploy.stack}
+                </span>
+              </div>
+              <p className="mt-0.5 truncate text-xs font-medium text-zinc-500">
+                用户 {deploy.requested_by}
+                {deploy.target_domain ? ` · ${deploy.target_domain}` : ''}
+              </p>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'status',
+        header: '状态',
+        cell: ({ getValue }) => {
+          const status = String(getValue());
+          return <StatusPill tone={statusTone(status)}>{statusLabel(status)}</StatusPill>;
+        },
+      },
+      {
+        accessorKey: 'created_at',
+        header: '创建时间',
+        cell: ({ getValue }) => (
+          <span className="text-xs font-medium text-zinc-500">
+            {new Date(String(getValue())).toLocaleString('zh-CN')}
+          </span>
+        ),
+      },
+      {
+        id: 'link',
+        header: '站点',
+        enableSorting: false,
+        cell: ({ row }) => {
+          const deploy = row.original;
+          const url = deploy.deploy_url || (deploy.status === 'deployed' ? deploy.target_domain : null);
+          if (!url) return <span className="text-xs text-zinc-400">—</span>;
+          return (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:underline"
+            >
+              <ExternalLink className="h-3 w-3" />
+              访问
+            </a>
+          );
+        },
+      },
+    ],
+    [],
+  );
 
   return (
-    <div className="admin-page-stage space-y-4">
-      {/* Header */}
-      <section className="admin-page-header">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="admin-section-kicker">网站管理</p>
-            <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-950">部署审批</h2>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {message && (
-              <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-                {message}
-              </div>
-            )}
-            {error && (
-              <div className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700">
-                <AlertCircle size={14} />
-                {error}
-              </div>
-            )}
-            <div className="admin-kpi-pill">
-              待审批 <span className="font-semibold text-slate-900">{pendingDeploys.length}</span>
-            </div>
-            <div className="admin-kpi-pill">
-              总计 <span className="font-semibold text-slate-900">{allDeploys.length}</span>
-            </div>
-            <Button variant="secondary" onClick={loadData} disabled={loading} size="sm" className="gap-1.5">
-              {loading ? <Loader2 size={14} className="animate-spin" /> : '刷新'}
+    <div className="space-y-4">
+      <AdminPageHeader
+        kicker="网站管理"
+        title="部署审批"
+        actions={
+          <>
+            <KpiPill label="待审批" value={pendingDeploys.length} />
+            <KpiPill label="总计" value={allDeploys.length} />
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                void pendingQuery.refetch();
+                void allQuery.refetch();
+              }}
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <RefreshCw size={14} />
+              )}
+              刷新
             </Button>
-          </div>
+          </>
+        }
+      />
+
+      {error ? <ErrorBanner message={error} /> : null}
+
+      {/* 待审批请求 */}
+      <section className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
+          <Clock className="h-4 w-4 text-indigo-600" />
+          <h3 className="text-base font-semibold text-zinc-900">待审批请求</h3>
         </div>
-      </section>
 
-      {/* Pending Approvals */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            待审批请求
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center py-12 text-slate-500">
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              加载中…
-            </div>
-          ) : pendingDeploys.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-500">暂无待审批的部署请求</p>
-          ) : (
-            <div className="space-y-3">
-              {pendingDeploys.map((deploy) => (
-                <div
-                  key={deploy.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200/80 bg-slate-50/50 p-4"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-slate-500" />
-                      <span className="font-medium text-slate-900">{deploy.project_slug}</span>
-                      <Badge variant="outline">{deploy.stack}</Badge>
-                    </div>
-                    <div className="mt-1 text-sm text-slate-500">
-                      用户 {deploy.requested_by}
-                      {deploy.target_domain && ` • ${deploy.target_domain}`}
-                    </div>
-                    {deploy.preview_url && (
-                      <a
-                        href={deploy.preview_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-1 inline-flex items-center gap-1 text-sm text-[#2b87c2] hover:underline"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        预览
-                      </a>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDecide(deploy.id, 'rejected')}
-                      disabled={actionLoading !== null}
-                    >
-                      {actionLoading === `${deploy.id}-rejected` ? (
-                        <span className="animate-pulse">...</span>
-                      ) : (
-                        <>
-                          <X className="mr-1 h-4 w-4" />
-                          拒绝
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handleDecide(deploy.id, 'approved')}
-                      disabled={actionLoading !== null}
-                    >
-                      {actionLoading === `${deploy.id}-approved` ? (
-                        <span className="animate-pulse">...</span>
-                      ) : (
-                        <>
-                          <Check className="mr-1 h-4 w-4" />
-                          批准
-                        </>
-                      )}
-                    </Button>
-                  </div>
+        {pendingQuery.isLoading ? (
+          <div className="space-y-3" aria-busy="true" aria-label="加载中">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="animate-pulse rounded-lg border border-zinc-200/60 bg-zinc-50 p-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-4 w-4 rounded bg-zinc-200" />
+                  <div className="h-4 w-40 rounded bg-zinc-200" />
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* All Deploy Requests */}
-      <Card>
-        <CardHeader>
-          <CardTitle>全部部署记录</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {allDeploys.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-500">暂无部署记录</p>
-          ) : (
-            <div className="space-y-2">
-              {allDeploys.map((deploy) => (
-                <div
-                  key={deploy.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200/60 p-3"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-slate-900">{deploy.project_slug}</span>
-                      <Badge variant="outline">{deploy.stack}</Badge>
-                      {getStatusBadge(deploy.status)}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      用户 {deploy.requested_by} • {new Date(deploy.created_at).toLocaleString('zh-CN')}
-                    </div>
+                <div className="mt-2 h-3 w-64 rounded bg-zinc-200/80" />
+              </div>
+            ))}
+          </div>
+        ) : pendingDeploys.length === 0 ? (
+          <p className="py-8 text-center text-sm font-medium text-zinc-500">
+            暂无待审批的部署请求
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {pendingDeploys.map((deploy) => (
+              <div
+                key={deploy.id}
+                className="flex flex-col gap-3 rounded-lg border border-zinc-200/80 bg-zinc-50/50 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-zinc-500" />
+                    <span className="font-semibold text-zinc-900">{deploy.project_slug}</span>
+                    <span className="rounded-full border border-indigo-200/80 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
+                      {deploy.stack}
+                    </span>
                   </div>
-                  {deploy.status === 'deployed' && deploy.deploy_url && (
+                  <div className="mt-1 text-sm font-medium text-zinc-500">
+                    用户 {deploy.requested_by}
+                    {deploy.target_domain ? ` · ${deploy.target_domain}` : ''}
+                  </div>
+                  {(deploy.deploy_url || deploy.target_domain) && (
                     <a
-                      href={deploy.deploy_url}
+                      href={deploy.deploy_url || deploy.target_domain || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-[#2b87c2] hover:underline"
+                      className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:underline"
                     >
                       <ExternalLink className="h-3 w-3" />
-                      访问
+                      预览
                     </a>
                   )}
                 </div>
-              ))}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="gap-1.5"
+                    onClick={() =>
+                      decideMutation.mutate({ deployId: deploy.id, decision: 'rejected' })
+                    }
+                    disabled={decideMutation.isPending}
+                  >
+                    {decideMutation.isPending &&
+                    decideMutation.variables?.deployId === deploy.id &&
+                    decideMutation.variables?.decision === 'rejected' ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <X size={14} />
+                    )}
+                    拒绝
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() =>
+                      decideMutation.mutate({ deployId: deploy.id, decision: 'approved' })
+                    }
+                    disabled={decideMutation.isPending}
+                  >
+                    {decideMutation.isPending &&
+                    decideMutation.variables?.deployId === deploy.id &&
+                    decideMutation.variables?.decision === 'approved' ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Check size={14} />
+                    )}
+                    批准
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* 全部部署记录 */}
+      <section className="overflow-hidden rounded-lg border border-zinc-200/80 bg-white shadow-sm">
+        <div className="border-b border-zinc-200/80 px-5 py-4">
+          <h3 className="text-base font-semibold text-zinc-900">全部部署记录</h3>
+        </div>
+        <DataTable
+          columns={columns}
+          data={allDeploys}
+          isLoading={allQuery.isLoading}
+          emptyState={
+            <div className="flex flex-col items-center justify-center py-8">
+              <AlertCircle className="mb-3 h-10 w-10 text-zinc-300" />
+              <p className="text-sm font-semibold text-zinc-600">暂无部署记录</p>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          }
+        />
+      </section>
     </div>
   );
 }

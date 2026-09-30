@@ -1,8 +1,5 @@
 import React from 'react';
-import { cn } from '../../lib/utils';
-import { useIsGlassTheme } from '../liquid-glass';
-
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+import { cn } from '../../lib/utils';interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg' | 'icon';
   isLoading?: boolean;
@@ -21,19 +18,6 @@ const variants = {
     'border border-error-200 bg-error-50 text-error-600 hover:bg-error-100 active:scale-[0.98]',
 };
 
-const glassVariants = {
-  primary:
-    'bg-brand-500/80 text-white shadow-button hover:bg-brand-600/90 active:bg-brand-700 active:scale-[0.98] backdrop-blur-sm',
-  secondary:
-    'border border-white/20 bg-white/10 text-slate-700 shadow-xs hover:bg-white/15 hover:border-white/25 active:bg-white/20 active:scale-[0.98] backdrop-blur-sm',
-  outline:
-    'border border-white/20 bg-transparent text-slate-700 hover:border-white/30 hover:text-slate-800 active:bg-white/10 active:scale-[0.98]',
-  ghost:
-    'bg-transparent text-slate-600 hover:bg-white/10 hover:text-slate-700 active:bg-white/15',
-  danger:
-    'border border-error-300/50 bg-error-50/50 text-error-600 hover:bg-error-100/60 active:scale-[0.98] backdrop-blur-sm',
-};
-
 const sizes = {
   sm: 'h-8 rounded-md px-3 text-xs font-medium',
   md: 'h-9 rounded-md px-4 text-sm font-medium',
@@ -43,8 +27,7 @@ const sizes = {
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', isLoading, disabled, children, type = 'button', ...props }, ref) => {
-    const isGlass = useIsGlassTheme();
-    const activeVariants = isGlass ? glassVariants : variants;
+    const activeVariants = variants;
 
     return (
       <button

@@ -21,7 +21,7 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
         >
           <div className="mb-2 flex items-center gap-2 text-amber-900">
             <ShieldAlert size={17} />
-            <span className="text-xs font-black uppercase tracking-[0.16em]">需要审批的工具调用</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.16em]">需要审批的工具调用</span>
           </div>
           <div className="flex flex-col gap-2">
             {approvals.map((approval) => (
@@ -30,17 +30,17 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
                 className="flex flex-col gap-3 rounded-2xl border border-white/70 bg-white/76 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
-                  <div className="truncate font-mono text-xs font-bold text-zinc-900">{approval.name}</div>
+                  <div className="truncate font-mono text-xs font-medium text-zinc-900">{approval.name}</div>
                   <div className="mt-1 max-w-xl truncate text-[11px] text-slate-500">
                     {approval.result || '等待你确认后继续执行。'}
                   </div>
                 </div>
                 <div className="flex flex-shrink-0 items-center gap-2">
-                  {(approval as any).isApiApproval && (
+                  {approval.isApiApproval && (
                     <button
                       type="button"
                       onClick={() => onDecision(approval.approvalId!, 'approved', true, true)}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-emerald-700 active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700 active:scale-95 focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:outline-none"
                       aria-label="本次会话全部允许"
                     >
                       <Check size={13} />
@@ -49,8 +49,8 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
                   )}
                   <button
                     type="button"
-                    onClick={() => onDecision(approval.approvalId!, 'approved', (approval as any).isApiApproval)}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-zinc-800 active:scale-95 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:outline-none"
+                    onClick={() => onDecision(approval.approvalId!, 'approved', approval.isApiApproval)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 active:scale-95 focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:outline-none"
                     aria-label="批准工具调用"
                   >
                     <Check size={13} />
@@ -58,8 +58,8 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
                   </button>
                   <button
                     type="button"
-                    onClick={() => onDecision(approval.approvalId!, 'rejected', (approval as any).isApiApproval)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-white px-3 py-1.5 text-[11px] font-bold text-rose-600 transition-colors hover:bg-rose-50 active:scale-95 focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:outline-none"
+                    onClick={() => onDecision(approval.approvalId!, 'rejected', approval.isApiApproval)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-rose-600 transition-colors hover:bg-rose-50 active:scale-95 focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:outline-none"
                     aria-label="拒绝工具调用"
                   >
                     <X size={13} />

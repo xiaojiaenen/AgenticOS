@@ -1,3 +1,5 @@
+import DOMPurify from 'dompurify';
+
 const HTML_PREVIEW_CSP =
   "default-src 'none'; img-src data: blob: https: http:; media-src data: blob: https: http:; style-src 'unsafe-inline' https: http:; script-src 'unsafe-inline' 'unsafe-eval' https: http:; font-src data: https: http: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
 
@@ -61,19 +63,33 @@ export function createObjectUrl(source: string, mimeType: string): string {
 }
 
 /**
- * Simple HTML sanitizer — strips dangerous tags and event handlers.
+ * HTML sanitizer based on DOMPurify.
  * For announcements rendered via dangerouslySetInnerHTML.
+ *
+ * Kept deliberately strict (mirrors the previous regex-based behavior):
+ * scripts, iframes, embeds, forms and interactive form controls are removed,
+ * along with javascript:/data:text/html URLs and event handler attributes.
  */
+const SANITIZE_FORBID_TAGS = [
+  'script',
+  'iframe',
+  'object',
+  'embed',
+  'form',
+  'input',
+  'button',
+  'select',
+  'textarea',
+];
+
 export function sanitizeHtml(html: string): string {
   if (!html) return '';
-  // Remove script tags and their content
-  let sanitized = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  // Remove event handlers (onclick, onerror, onload, etc.)
-  sanitized = sanitized.replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '');
-  // Remove dangerous tags
-  sanitized = sanitized.replace(/<(iframe|object|embed|form|input|button|select|textarea)\b[^>]*>/gi, '');
-  sanitized = sanitized.replace(/<\/(iframe|object|embed|form|input|button|select|textarea)>/gi, '');
-  // Remove javascript: and data: URLs in href/src
-  sanitized = sanitized.replace(/(?:href|src)\s*=\s*["']\s*(?:javascript:|data:text\/html)/gi, '');
-  return sanitized;
+  return DOMPurify.sanitize(html, {
+    FORBID_TAGS: SANITIZE_FORBID_TAGS,
+    FORBID_CONTENTS: ['script', 'style'],
+    // Keep for backward compatibility with the legacy regex sanitizer, which
+    // did not allow javascript: / data:text/html payloads in href/src.
+    ALLOWED_URI_REGEXP:
+      /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data:image):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+  });
 }

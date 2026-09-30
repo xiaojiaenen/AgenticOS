@@ -2,10 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, CheckCircle, AlertCircle, Loader2, X, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { getEmailStatus, saveEmailCredentials, deleteEmailCredentials, EmailStatus } from '../../services/emailService';
-import { useIsGlassTheme } from '../liquid-glass';
-import { LiquidGlass, glassPresets } from '@xiaojiaenen/liquid-glass';
 import { cn } from '../../lib/utils';
+import { getEmailStatus, saveEmailCredentials, deleteEmailCredentials, EmailStatus } from '../../services/emailService';
 
 const EMAIL_PRESETS = [
   { label: '内网邮箱', value: 'intranet', imap_host: '10.12.128.18', imap_port: 993, imap_ssl: true, smtp_host: '10.12.128.18', smtp_port: 465, smtp_ssl: true },
@@ -16,9 +14,7 @@ interface EmailSettingsPanelProps {
   onClose: () => void;
 }
 
-export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, onClose }) => {
-  const isGlass = useIsGlassTheme();
-  const [status, setStatus] = useState<EmailStatus | null>(null);
+export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, onClose }) => {  const [status, setStatus] = useState<EmailStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,39 +113,39 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
       {/* Header */}
       <div className="flex items-center justify-between px-6 pt-5 pb-0">
         <div className="flex items-center gap-3">
-          <div className={cn("flex h-10 w-10 items-center justify-center rounded-2xl", isGlass ? "bg-white/10 text-sky-400" : "bg-sky-50 text-sky-600")}>
+          <div className={cn("flex h-10 w-10 items-center justify-center rounded-2xl", "bg-sky-50 text-sky-600")}>
             <Mail size={20} />
           </div>
           <div>
-            <p className={cn("admin-section-kicker", isGlass && "text-gray-400")}>邮件配置</p>
-            <h3 className={cn("mt-1 text-lg font-black", isGlass ? "text-white" : "text-slate-900")}>邮箱设置</h3>
+            <p className={cn("admin-section-kicker")}>邮件配置</p>
+            <h3 className={cn("mt-1 text-lg font-semibold", "text-slate-900")}>邮箱设置</h3>
           </div>
         </div>
-        <button type="button" onClick={onClose} className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition-colors", isGlass ? "text-white/60 hover:bg-white/10 hover:text-white" : "text-slate-400 hover:bg-slate-100 hover:text-slate-600")}>
+        <button type="button" onClick={onClose} className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition-colors", "text-slate-400 hover:bg-slate-100 hover:text-slate-600")}>
           <X size={16} />
         </button>
       </div>
 
       {/* Status bar */}
       {status?.configured && (
-        <div className="mx-6 mt-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
+        <div className="mx-6 mt-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
           <CheckCircle size={14} />
           <span>已连接 {status.email_address}</span>
         </div>
       )}
 
       {/* Content */}
-      <div className={cn("px-6 pt-4 pb-6 space-y-4", isGlass && "text-white")}>
+      <div className={cn("px-6 pt-4 pb-6 space-y-4")}>
         {isLoading ? (
-          <div className={cn("flex h-32 items-center justify-center gap-2 text-sm", isGlass ? "text-white/50" : "text-slate-500")}>
+          <div className={cn("flex h-32 items-center justify-center gap-2 text-sm", "text-slate-500")}>
             <Loader2 size={16} className="animate-spin" /> 加载中
           </div>
         ) : (
           <>
             <div>
-              <label className={cn("mb-1.5 block text-xs font-bold uppercase tracking-[0.12em]", isGlass ? "text-white/50" : "text-slate-500")}>邮箱服务商</label>
+              <label className={cn("mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em]", "text-slate-500")}>邮箱服务商</label>
               <select
-                className={cn("admin-input", isGlass && "!bg-white/10 !border-white/20 !text-white")}
+                className={cn("admin-input")}
                 value={preset}
                 onChange={(e) => handlePresetChange(e.target.value)}
               >
@@ -160,10 +156,10 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
             </div>
 
             <div>
-              <label className={cn("mb-1.5 block text-xs font-bold uppercase tracking-[0.12em]", isGlass ? "text-white/50" : "text-slate-500")}>邮箱地址</label>
+              <label className={cn("mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em]", "text-slate-500")}>邮箱地址</label>
               <input
                 type="email"
-                className={cn("admin-input", isGlass && "!bg-white/10 !border-white/20 !text-white !placeholder:text-white/40")}
+                className={cn("admin-input")}
                 value={form.email_address}
                 onChange={(e) => setForm({ ...form, email_address: e.target.value })}
                 placeholder="your@email.com"
@@ -171,26 +167,26 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
             </div>
 
             <div>
-              <label className={cn("mb-1.5 block text-xs font-bold uppercase tracking-[0.12em]", isGlass ? "text-white/50" : "text-slate-500")}>
+              <label className={cn("mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em]", "text-slate-500")}>
                 应用专用密码
-                <span className={cn("ml-2 normal-case tracking-normal font-medium", isGlass ? "text-white/40" : "text-slate-400")}>（非登录密码，在邮箱设置中生成）</span>
+                <span className={cn("ml-2 normal-case tracking-normal font-medium", "text-slate-400")}>（非登录密码，在邮箱设置中生成）</span>
               </label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  className={cn("admin-input pr-10", isGlass && "!bg-white/10 !border-white/20 !text-white !placeholder:text-white/40")}
+                  className={cn("admin-input pr-10")}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="输入应用专用密码"
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className={cn("absolute right-3 top-1/2 -translate-y-1/2", isGlass ? "text-white/40 hover:text-white" : "text-slate-400 hover:text-slate-600")}>
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className={cn("absolute right-3 top-1/2 -translate-y-1/2", "text-slate-400 hover:text-slate-600")}>
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
             {/* Advanced settings */}
-            <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className={cn("text-xs font-bold transition-colors", isGlass ? "text-white/40 hover:text-white" : "text-slate-400 hover:text-slate-600")}>
+            <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className={cn("text-xs font-semibold transition-colors", "text-slate-400 hover:text-slate-600")}>
               {showAdvanced ? '▾ 收起高级设置' : '▸ 高级设置（服务器地址）'}
             </button>
 
@@ -199,22 +195,22 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className={cn("mb-1 block text-[11px] font-bold", isGlass ? "text-white/50" : "text-slate-500")}>IMAP 服务器</label>
-                      <input className={cn("admin-input font-mono text-xs", isGlass && "!bg-white/10 !border-white/20 !text-white")} value={form.imap_host} onChange={(e) => setForm({ ...form, imap_host: e.target.value })} />
+                      <label className={cn("mb-1 block text-[11px] font-semibold", "text-slate-500")}>IMAP 服务器</label>
+                      <input className={cn("admin-input font-mono text-xs")} value={form.imap_host} onChange={(e) => setForm({ ...form, imap_host: e.target.value })} />
                     </div>
                     <div>
-                      <label className={cn("mb-1 block text-[11px] font-bold", isGlass ? "text-white/50" : "text-slate-500")}>IMAP 端口</label>
-                      <input className={cn("admin-input font-mono text-xs", isGlass && "!bg-white/10 !border-white/20 !text-white")} type="number" value={form.imap_port} onChange={(e) => setForm({ ...form, imap_port: Number(e.target.value) })} />
+                      <label className={cn("mb-1 block text-[11px] font-semibold", "text-slate-500")}>IMAP 端口</label>
+                      <input className={cn("admin-input font-mono text-xs")} type="number" value={form.imap_port} onChange={(e) => setForm({ ...form, imap_port: Number(e.target.value) })} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className={cn("mb-1 block text-[11px] font-bold", isGlass ? "text-white/50" : "text-slate-500")}>SMTP 服务器</label>
-                      <input className={cn("admin-input font-mono text-xs", isGlass && "!bg-white/10 !border-white/20 !text-white")} value={form.smtp_host} onChange={(e) => setForm({ ...form, smtp_host: e.target.value })} />
+                      <label className={cn("mb-1 block text-[11px] font-semibold", "text-slate-500")}>SMTP 服务器</label>
+                      <input className={cn("admin-input font-mono text-xs")} value={form.smtp_host} onChange={(e) => setForm({ ...form, smtp_host: e.target.value })} />
                     </div>
                     <div>
-                      <label className={cn("mb-1 block text-[11px] font-bold", isGlass ? "text-white/50" : "text-slate-500")}>SMTP 端口</label>
-                      <input className={cn("admin-input font-mono text-xs", isGlass && "!bg-white/10 !border-white/20 !text-white")} type="number" value={form.smtp_port} onChange={(e) => setForm({ ...form, smtp_port: Number(e.target.value) })} />
+                      <label className={cn("mb-1 block text-[11px] font-semibold", "text-slate-500")}>SMTP 端口</label>
+                      <input className={cn("admin-input font-mono text-xs")} type="number" value={form.smtp_port} onChange={(e) => setForm({ ...form, smtp_port: Number(e.target.value) })} />
                     </div>
                   </div>
                 </motion.div>
@@ -223,12 +219,12 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
 
             {/* Messages */}
             {error && (
-              <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
+              <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
                 <AlertCircle size={14} /> {error}
               </div>
             )}
             {success && (
-              <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
+              <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
                 <CheckCircle size={14} /> {success}
               </div>
             )}
@@ -252,29 +248,18 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
   );
 
   return (
-    <div className={cn("admin-modal-shell", isGlass && "!bg-black/60")} onMouseDown={onClose}>
+    <div className={cn("admin-modal-shell")} onMouseDown={onClose}>
       <motion.div
         initial={{ opacity: 0, y: 24, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 24, scale: 0.96 }}
         transition={{ duration: 0.22 }}
         onMouseDown={(e) => e.stopPropagation()}
-        className={cn("w-full max-w-md overflow-hidden", isGlass ? "" : "admin-solid-panel admin-modal-panel")}
+        className={cn("w-full max-w-md overflow-hidden", "admin-solid-panel admin-modal-panel")}
       >
-        {isGlass ? (
-          <LiquidGlass
-            {...glassPresets.control}
-            tint="rgba(255,255,255,0.08)"
-            radius={16}
-            style={{ width: '100%' }}
-          >
-            {panelContent}
-          </LiquidGlass>
-        ) : (
-          <div className="w-full">
-            {panelContent}
-          </div>
-        )}
+        <div className="w-full">
+          {panelContent}
+        </div>
       </motion.div>
     </div>
   );

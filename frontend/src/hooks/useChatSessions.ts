@@ -3,9 +3,15 @@ import { Session, Message } from '../types';
 import { listSessions, deleteSession as deleteSessionApi, generateTitle, getSessionMessages, getSessionArtifacts } from '../services/agentService';
 import { getStoredUser } from '../services/authService';
 
+const MAX_SESSIONS = 24;
 const MAX_PERSISTED_MESSAGES_PER_SESSION = 120;
 const MAX_PERSISTED_TEXT_LENGTH = 30_000;
 const MAX_PERSISTED_TOOL_RESULT_LENGTH = 10_000;
+
+/** 保留最近 24 个会话（新会话在数组头部） */
+function capSessions(sessions: Session[]): Session[] {
+  return sessions.length > MAX_SESSIONS ? sessions.slice(0, MAX_SESSIONS) : sessions;
+}
 
 // 按用户 ID 隔离缓存 key
 function getCacheKey(): string {
@@ -23,19 +29,25 @@ function compactMessageForStorage(message: Message): Message {
     ...message,
     text: clampText(message.text, MAX_PERSISTED_TEXT_LENGTH) || '',
     reasoningText: clampText(message.reasoningText, MAX_PERSISTED_TEXT_LENGTH),
-    attachments: undefined,
+    // blob URL 无法跨刷新恢复；保留元数据供 UI 提示「附件需重新上传」
+    attachments: message.attachments?.map((att) => ({
+      name: att.name,
+      type: att.type,
+      url: '',
+    })),
     toolCalls: message.toolCalls?.map((tool) => ({
       ...tool,
       result: clampText(tool.result, MAX_PERSISTED_TOOL_RESULT_LENGTH),
     })),
-    // 持久化 artifact 信息，包括 html（用于刷新后恢复预览）
+    // 缓存瘦身：剥离 artifact HTML（单份最大可达 500KB），只保留元数据。
+    // 预览恢复走回源：loadSessionMessages → getSessionArtifacts（Chat.tsx 会话切换时触发）。
     pptArtifact: message.pptArtifact
       ? {
           status: message.pptArtifact.status,
           artifactId: message.pptArtifact.artifactId,
           title: message.pptArtifact.title,
           slideCount: message.pptArtifact.slideCount,
-          html: clampText(message.pptArtifact.html, 500_000), // 限制 500KB
+          html: undefined,
           theme: message.pptArtifact.theme,
         }
       : undefined,
@@ -45,7 +57,7 @@ function compactMessageForStorage(message: Message): Message {
           artifactId: message.websiteArtifact.artifactId,
           title: message.websiteArtifact.title,
           projectSlug: message.websiteArtifact.projectSlug,
-          html: clampText(message.websiteArtifact.html, 500_000),
+          html: undefined,
         }
       : undefined,
   };
@@ -65,8 +77,8 @@ function loadCachedSessions(): Session[] {
 
 function saveSessionsToCache(sessions: Session[]) {
   const key = getCacheKey();
-  // 过滤掉空会话（没有消息的会话，除了当前正在创建的）
-  const nonEmptySessions = sessions.filter(s => s.messages.length > 0);
+  // 过滤掉空会话（没有消息的会话，除了当前正在创建的），并限制总数为 24
+  const nonEmptySessions = sessions.filter(s => s.messages.length > 0).slice(0, MAX_SESSIONS);
   const compacted = nonEmptySessions.map((session) => ({
     ...session,
     messages: session.messages
@@ -170,8 +182,8 @@ export function useChatSessions() {
               result.unshift(s);
             }
           }
-          saveSessionsToCache(result);
-          return result;
+          // 持久化交给下方 [sessions] 防抖 effect 统一处理（不在 setState updater 内做副作用）
+          return result.slice(0, MAX_SESSIONS);
         });
       } catch (error) {
         console.error('Failed to load sessions from backend:', error);
@@ -209,16 +221,26 @@ export function useChatSessions() {
     setCurrentSessionId(null);
   }, []);
 
-  const deleteSession = useCallback(async (id: string) => {
-    try {
-      await deleteSessionApi(id);
-    } catch (error) {
-      console.error('Failed to delete session from backend:', error);
-    }
-    // Always remove from local state
+  /**
+   * 可靠删除：先乐观移除本地，调用后端 DELETE；失败时回滚本地状态。
+   * 返回 true=成功，false=失败（已回滚）。
+   */
+  const deleteSession = useCallback(async (id: string): Promise<boolean> => {
+    // 快照用于失败回滚（在 updater 外读取，避免 StrictMode 下 updater 双调用污染快照）
+    const snapshot = sessions;
     setSessions(prev => prev.filter(s => s.id !== id));
     setCurrentSessionId(prev => (prev === id ? null : prev));
-  }, []);
+
+    try {
+      await deleteSessionApi(id);
+      return true;
+    } catch (error) {
+      console.error('Failed to delete session from backend:', error);
+      // 后端失败 → 回滚本地删除
+      setSessions(snapshot);
+      return false;
+    }
+  }, [sessions]);
 
   const applySessionState = useCallback((targetId: string, state: {
     session_id: string;
@@ -265,7 +287,7 @@ export function useChatSessions() {
   }, []);
 
   const createSession = useCallback((session: Session) => {
-    setSessions(prev => [session, ...prev]);
+    setSessions(prev => [session, ...prev].slice(0, MAX_SESSIONS));
   }, []);
 
   const refreshSessions = useCallback(async () => {
@@ -320,8 +342,8 @@ export function useChatSessions() {
             result.unshift(s);
           }
         }
-        saveSessionsToCache(result);
-        return result;
+        // 持久化交给 [sessions] 防抖 effect 统一处理（不在 setState updater 内做副作用）
+        return result.slice(0, MAX_SESSIONS);
       });
     } catch (error) {
       console.error('Failed to refresh sessions:', error);
@@ -335,12 +357,13 @@ export function useChatSessions() {
     const hasCachedMessages = session && session.messages.length > 0;
     
     // 即使有缓存消息，也要尝试拉取 artifacts 来恢复预览面板
-    // 只有当既有缓存消息又没有 artifact 时才跳过
+    // 只有当既有缓存消息又已有带 HTML 的 artifact 时才跳过
+    // （缓存中的 artifact 已剥离 HTML，需回源补全）
     if (hasCachedMessages) {
       const hasArtifact = session.messages.some(
-        m => m.role === 'model' && (m.pptArtifact || m.websiteArtifact)
+        m => m.role === 'model' && ((m.pptArtifact && m.pptArtifact.html) || (m.websiteArtifact && m.websiteArtifact.html)),
       );
-      if (hasArtifact) return false; // 已有消息且已有 artifact，无需加载
+      if (hasArtifact) return false; // 已有消息且 artifact HTML 完整，无需加载
     }
 
     try {
@@ -369,6 +392,27 @@ export function useChatSessions() {
                 html: pptArt.html,
                 theme: pptArt.theme,
                 mode: 'ppt',
+              },
+            };
+            break;
+          }
+        }
+      }
+
+      // website 制品同样回源补全（缓存剥离 HTML 后依赖此路径恢复预览）
+      const wsArt = artifactsResp?.website_artifact;
+      if (wsArt) {
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role === 'model') {
+            messages[i] = {
+              ...messages[i],
+              websiteArtifact: {
+                status: 'ready',
+                artifactId: wsArt.artifact_id,
+                title: wsArt.title,
+                projectSlug: wsArt.project_slug,
+                stack: wsArt.stack,
+                html: wsArt.preview_html,
               },
             };
             break;

@@ -1,12 +1,8 @@
 import React, { useEffect, useId, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
-import { LiquidGlass, glassPresets, radii } from '@xiaojiaenen/liquid-glass';
 import { cn } from '../../lib/utils';
-import { Button } from './Button';
-import { useIsGlassTheme } from '../liquid-glass';
-
-interface ModalProps {
+import { Button } from './Button';interface ModalProps {
   open: boolean;
   onClose: () => void;
   children: React.ReactNode;
@@ -27,10 +23,7 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
   const id = useId();
   const titleId = `${id}-title`;
-  const panelRef = useRef<HTMLDivElement>(null);
-  const isGlass = useIsGlassTheme();
-
-  // Focus trap
+  const panelRef = useRef<HTMLDivElement>(null);  // Focus trap
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') { onClose(); return; }
     if (e.key !== 'Tab' || !panelRef.current) return;
@@ -84,7 +77,7 @@ export const Modal: React.FC<ModalProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className={cn("admin-modal-shell", isGlass && "!bg-black/50")}
+          className={cn("admin-modal-shell")}
           role="dialog"
           aria-modal="true"
           aria-labelledby={title ? titleId : undefined}
@@ -98,20 +91,9 @@ export const Modal: React.FC<ModalProps> = ({
             transition={{ duration: 0.22 }}
             className={cn('w-full', maxWidth)}
           >
-            {isGlass ? (
-              <LiquidGlass
-                {...glassPresets.card}
-                tint="rgba(255,255,255,0.08)"
-                radius={radii.card}
-                style={{ width: '100%' }}
-              >
-                {panelContent}
-              </LiquidGlass>
-            ) : (
-              <div className="admin-solid-panel admin-modal-panel">
-                {panelContent}
-              </div>
-            )}
+            <div className="admin-solid-panel admin-modal-panel">
+              {panelContent}
+            </div>
           </motion.div>
         </motion.div>
       )}
@@ -123,20 +105,18 @@ export const ModalHeader: React.FC<{
   title: string;
   subtitle?: string;
   onClose: () => void;
-}> = ({ title, subtitle, onClose }) => {
-  const isGlass = useIsGlassTheme();
-  return (
+}> = ({ title, subtitle, onClose }) => {  return (
     <div className="mb-6 flex items-center justify-between">
       <div>
-        <p className={cn("admin-section-kicker", isGlass && "!text-slate-500")}>{subtitle || ''}</p>
-        <h3 className={cn("mt-2 text-2xl font-bold tracking-tight", isGlass ? "text-slate-900" : "text-slate-900")}>{title}</h3>
+        <p className={cn("admin-section-kicker")}>{subtitle || ''}</p>
+        <h3 className={cn("mt-2 text-2xl font-bold tracking-tight", "text-slate-900")}>{title}</h3>
       </div>
       <button
         type="button"
         onClick={onClose}
         className={cn(
           "flex h-10 w-10 items-center justify-center rounded-2xl transition-colors",
-          isGlass ? "text-slate-400 hover:bg-white/[0.08] hover:text-sky-300" : "text-slate-400 hover:bg-sky-50 hover:text-sky-600"
+          "text-slate-400 hover:bg-sky-50 hover:text-sky-600"
         )}
         aria-label="关闭"
       >

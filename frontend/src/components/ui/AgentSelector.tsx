@@ -131,7 +131,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                   role="option"
                   aria-selected={selectedId === agent.id}
                   className={cn(
-                    'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
+                    'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
                     selectedId === agent.id ? `${getModeStyle(agent.response_mode).selectedBg} ring-1 ${getModeStyle(agent.response_mode).ring}` : '',
                   )}
                 >
@@ -199,7 +199,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
                 role="option"
                 aria-selected={selectedId === agent.id}
                 className={cn(
-                  'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60',
+                  'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0 hover:bg-sky-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400',
                   selectedId === agent.id ? `${getModeStyle(agent.response_mode).selectedBg} ring-1 ${getModeStyle(agent.response_mode).ring}` : '',
                 )}
               >

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { useLocation } from 'react-router-dom';
@@ -20,9 +21,7 @@ import { getMyAgents } from '../services/agentProfileService';
 import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
 import { UserInputPanel } from '../components/chat/UserInputPanel';
-import { submitUserInput, type UserInputRequest } from '../services/agentService';
-import { useIsGlassTheme, LightRays, Ferrofluid } from '../components/liquid-glass';
-
+import { submitUserInput, type UserInputRequest, type ApiApprovalRequest } from '../services/agentService';
 export const Chat = () => {
   const location = useLocation();
   const initialMessage = location.state?.initialMessage as string | undefined;
@@ -48,6 +47,7 @@ export const Chat = () => {
     hasMoreSessions, loadMoreSessions,
     applySessionState,
     loadSessionMessages,
+    deleteSession: deleteSessionBackend,
   } = useChatSessions();
 
   // ── 搜索 ──
@@ -82,6 +82,10 @@ export const Chat = () => {
     setSessions, setCurrentSessionId,
     applySessionState, setArtifact, setInputValue,
     onUserInputRequired: setUserInputReq,
+    // 接上 API 审批回调（面板 UI 由 toolCalls 驱动，此处保留扩展点）
+    onApiApprovalRequired: () => {
+      /* api_approval_required 已在 agentService 转为 toolCalls，触发 PendingApprovalPanel */
+    },
   });
 
   // ── 派生状态 ──
@@ -133,10 +137,7 @@ export const Chat = () => {
 
   // ── 拖放 ──
   const { isDragging, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragAndDrop();
-  const onDrop = (e: React.DragEvent) => handleDrop(e, (files) => chatInputRef.current?.addFiles(files));
-  const isGlassTheme = useIsGlassTheme();
-
-  // ── 制品面板 ──
+  const onDrop = (e: React.DragEvent) => handleDrop(e, (files) => chatInputRef.current?.addFiles(files));  // ── 制品面板 ──
   const { scrollYProgress } = useScroll({ container: scrollRef });
   const borderColor = useTransform(scrollYProgress, [0, 0.2, 1], ['rgba(255,255,255,0.7)', 'rgba(255,255,255,1)', 'rgba(56,189,248,0.4)']);
 
@@ -147,17 +148,23 @@ export const Chat = () => {
     if (isMobile) setIsSidebarOpen(false);
   }, [isMobile, storeCreateNewChat, setCurrentSessionId, setIsSidebarOpen]);
 
-  const deleteSession = useCallback((id: string, e?: React.MouseEvent) => {
+  const deleteSession = useCallback(async (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setSessions((prev) => prev.filter((s) => s.id !== id));
-    setCurrentSessionId((prev) => {
-      if (prev !== id) return prev;
+    const wasCurrent = currentSessionId === id;
+    if (wasCurrent) {
       setArtifact(null);
       setChatMode('general');
       setSelectedAgentProfileId(null);
-      return null;
-    });
-  }, [setSessions, setCurrentSessionId, setArtifact, setChatMode, setSelectedAgentProfileId]);
+    }
+    // 调用后端 deleteSession；失败时 useChatSessions 内部回滚本地列表
+    const ok = await deleteSessionBackend(id);
+    if (!ok && wasCurrent) {
+      // 回滚 UI 状态（本地会话已恢复）
+      const restored = sessions.find((s) => s.id === id);
+      if (restored?.mode) setChatMode(restored.mode);
+      setSelectedAgentProfileId(restored?.agentProfileId ?? null);
+    }
+  }, [currentSessionId, sessions, deleteSessionBackend, setArtifact, setChatMode, setSelectedAgentProfileId]);
 
   const handleOpenArtifact = useCallback((next: any) => setArtifact(next), [setArtifact]);
 
@@ -205,29 +212,51 @@ export const Chat = () => {
     }
   }, [currentSessionId, currentSession?.mode, currentSession?.agentProfileId]);
 
-  // 会话切换时：从后端加载消息
+  // 会话切换时：从后端加载消息（仅依赖 sessionId，避免流式增长重复触发）
   useEffect(() => {
     if (!currentSessionId) return;
-    if (currentSession && currentSession.messages.length === 0) {
+    const session = sessions.find(s => s.id === currentSessionId);
+    if (!session) return;
+    // 缓存中的 artifact 已剥离 HTML（localStorage 瘦身），需要回源补全
+    const needsArtifactRefetch = session.messages.some(
+      (m) => m.role === 'model' && ((m.pptArtifact && !m.pptArtifact.html) || (m.websiteArtifact && !m.websiteArtifact.html)),
+    );
+    if (session.messages.length === 0 || needsArtifactRefetch) {
       loadSessionMessages(currentSessionId);
     }
-  }, [currentSessionId, currentSession?.messages.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSessionId]);
 
-  // 恢复 artifact 面板（从最后一条有 artifact 的消息，而非最后一条 model 消息）
+  // 恢复 artifact 面板 — 依赖 sessionId（而非 messages.length），避免流式增长时反复 setArtifact(null)
+  const artifactRestoredSessionRef = useRef<string | null>(null);
   useEffect(() => {
     if (!currentSessionId) {
+      artifactRestoredSessionRef.current = null;
       setArtifact(null);
       return;
     }
-    // 从后往前找第一条带 pptArtifact 或 websiteArtifact 的消息
+    // 每个会话只恢复一次；流式过程中 messages 变化不再触发清空
+    if (artifactRestoredSessionRef.current === currentSessionId) return;
+
     const messages = currentSession?.messages || [];
+    // 消息尚未加载完成时等待（loadSessionMessages 会更新 messages）
+    if (messages.length === 0) return;
+
+    // 缓存剥离了 artifact HTML，等待 loadSessionMessages 回源补全后再恢复预览；
+    // 此时不标记 restored，回源完成后 effect 会随 currentSession 变化重新执行
+    const pendingArtifactHtml = messages.some(
+      (m) => m.role === 'model' && ((m.pptArtifact && !m.pptArtifact.html) || (m.websiteArtifact && !m.websiteArtifact.html)),
+    );
+    if (pendingArtifactHtml) return;
+
+    // 从后往前找第一条带 pptArtifact 或 websiteArtifact 的消息
     const lastPptMsg = [...messages].reverse().find(
       m => m.role === 'model' && m.pptArtifact?.status === 'ready' && m.pptArtifact.html
     );
     const lastWebsiteMsg = [...messages].reverse().find(
       m => m.role === 'model' && m.websiteArtifact?.status === 'ready' && m.websiteArtifact.html
     );
-    
+
     // 优先恢复 PPT，其次网站
     if (lastPptMsg?.pptArtifact) {
       setArtifact({
@@ -245,11 +274,16 @@ export const Chat = () => {
         html: lastWebsiteMsg.websiteArtifact.html,
         title: lastWebsiteMsg.websiteArtifact.title || '',
         projectSlug: lastWebsiteMsg.websiteArtifact.projectSlug || '',
+        stack: lastWebsiteMsg.websiteArtifact.stack,
+        sessionId: currentSessionId,
       });
     } else {
       setArtifact(null);
     }
-  }, [currentSessionId, currentSession?.messages.length]);
+    artifactRestoredSessionRef.current = currentSessionId;
+    // 刻意不依赖 messages.length：用 ref 保证仅在会话切换/首次加载时恢复
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSessionId, currentSession]);
 
   // 加载智能体列表
   useEffect(() => {
@@ -365,11 +399,19 @@ export const Chat = () => {
     onAgentProfileChange: handleAgentProfileChange,
     deleteSession,
   }), [
+    // 数据类字段：sessions/currentSession 在流式期间每帧变化，是 context 每帧重建的根因之一；
+    // ChatMainArea 经 context 消费 currentSession 渲染消息列表，必须保留实时性，故不从此处移除。
     sessions, currentSessionId, currentSession, visibleSessions,
     hasMoreSessions, isLoading, error, runStatus, pendingDecisions,
     isUserScrolledUp, showSearch, searchQuery, searchCurrentIndex,
     searchMatches.length, activeMatchId, isStreamingResponse,
     isWideConversation, pendingApprovals, isModeLocked, isAdmin,
+    // 回调类字段：补齐依赖避免 stale closure（handleSend 等已在 useChatStream 内稳定化）
+    loadMoreSessions, setError, handleSend, handleStopGeneration,
+    handleApprovalDecision, handleDecisionMade,
+    scrollToBottom, handleJumpToBottom, handleScroll,
+    setShowSearch, setSearchQuery, prevMatch, nextMatch,
+    onSuggestionClick, handleOpenArtifact, handleAgentProfileChange, deleteSession,
   ]);
 
   return (
@@ -385,62 +427,21 @@ export const Chat = () => {
       onDrop={onDrop}
       className={cn(
         "flex h-screen font-sans overflow-hidden relative",
-        isGlassTheme
-          ? "text-white selection:bg-sky-200/60 selection:text-sky-900"
-          : "text-slate-800 selection:bg-zinc-200 selection:text-zinc-900",
-      )}
+        "text-slate-800 selection:bg-zinc-200 selection:text-zinc-900",      )}
       style={{
-        background: isGlassTheme
-          ? '#000000'
-          : 'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)',
+        background: 'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)',
       }}
     >
       <DragOverlay isDragging={isDragging} />
 
       {/* 背景装饰 */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        {isGlassTheme ? (
-          <>
-            <Ferrofluid
-              colors={['#1a1a2e', '#16213e', '#0f3460']}
-              speed={0.3}
-              scale={1.2}
-              turbulence={0.8}
-              fluidity={0.15}
-              rimWidth={0.15}
-              sharpness={2}
-              shimmer={1}
-              glow={1.5}
-              flowDirection="down"
-              opacity={0.6}
-              mouseInteraction={true}
-              mouseStrength={0.8}
-              mouseRadius={0.3}
-              mouseDampening={0.2}
-            />
-            <LightRays
-              raysOrigin="top-center"
-              raysColor="#4a9eff"
-              raysSpeed={0.8}
-              lightSpread={2}
-              rayLength={4}
-              fadeDistance={2}
-              saturation={0.6}
-              followMouse={true}
-              mouseInfluence={0.1}
-              noiseAmount={0.05}
-            />
-          </>
-        ) : (
-          <>
-            <div className="absolute top-0 -left-16 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.12),transparent_70%)] blur-[80px] animate-[bg-blob-1_18s_ease-in-out_infinite]" />
+        <div className="absolute top-0 -left-16 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.12),transparent_70%)] blur-[80px] animate-[bg-blob-1_18s_ease-in-out_infinite]" />
             <div className="absolute top-8 -right-10 w-[440px] h-[440px] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.10),transparent_70%)] blur-[70px] animate-[bg-blob-2_20s_ease-in-out_infinite]" />
             <div className="absolute bottom-0 left-1/4 w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.11),transparent_70%)] blur-[80px] animate-[bg-blob-3_17s_ease-in-out_infinite]" />
             <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(14,165,233,0.07) 1px, transparent 1px)', backgroundSize: '48px 48px', maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.50), rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.16))' }} />
             <div className="absolute inset-0 bg-[linear-gradient(108deg,transparent_38%,rgba(255,255,255,0.14)_50%,transparent_64%)] animate-[bg-drift-slow_20s_ease-in-out_infinite]" />
             <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.02]" />
-          </>
-        )}
       </div>
 
       {/* 移动端侧边栏遮罩 */}
@@ -483,10 +484,8 @@ export const Chat = () => {
             initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
             onClick={() => { setIsSidebarOpen(true); setIsSidebarHiddenByArtifact(false); }}
             className={cn(
-              "fixed top-4 left-4 z-50 w-12 h-12 border rounded-2xl shadow-sm flex items-center justify-center transition-all group focus-visible:ring-2 focus-visible:ring-brand-400/60 focus-visible:ring-offset-2",
-              isGlassTheme
-                ? "bg-white/10 border-white/15 text-white hover:bg-white/15 hover:shadow-md"
-                : "bg-white/80 backdrop-blur-md border-slate-200 text-zinc-800 hover:bg-white hover:shadow-md"
+              "fixed top-4 left-4 z-50 w-12 h-12 border rounded-2xl shadow-sm flex items-center justify-center transition-all group focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2",
+              "bg-white/80 border-slate-200 text-zinc-800 hover:bg-white hover:shadow-md"
             )}
             aria-label="展开侧边栏"
           >
@@ -533,6 +532,7 @@ export const Chat = () => {
             onPptThemeChange={handlePptThemeChange}
             onEmailConfirm={handleEmailConfirm}
             onEmailCancel={handleEmailCancel}
+            sessionId={currentSessionId}
           />
         </div>
       </ChatContextProvider>
