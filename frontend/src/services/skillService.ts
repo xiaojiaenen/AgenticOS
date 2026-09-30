@@ -1,4 +1,4 @@
-import { authHeaders } from './authService';
+import { apiFetch } from './apiClient';
 
 export type Skill = {
   id: number;
@@ -31,58 +31,36 @@ export type SkillPayload = {
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const SKILLS_ENDPOINT = `${API_BASE_URL}/api/v1/skills`;
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  const raw = await response.text();
-  if (response.ok) return JSON.parse(raw) as T;
-  let message = 'Request failed';
-  try {
-    const payload = JSON.parse(raw);
-    if (typeof payload.detail === 'string') message = payload.detail;
-  } catch {
-    if (raw) message = raw;
-  }
-  throw new Error(message);
-}
-
 export async function getSkills(): Promise<SkillListResponse> {
-  const response = await fetch(SKILLS_ENDPOINT, {
-    headers: authHeaders(),
-  });
-  return parseResponse<SkillListResponse>(response);
+  return apiFetch<SkillListResponse>(SKILLS_ENDPOINT, {}, '技能列表加载失败');
 }
 
 export async function createSkill(payload: SkillPayload): Promise<Skill> {
-  const response = await fetch(SKILLS_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      ...authHeaders(),
-      'Content-Type': 'application/json',
+  return apiFetch<Skill>(
+    SKILLS_ENDPOINT,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  return parseResponse<Skill>(response);
+    '创建技能失败',
+  );
 }
 
 export async function updateSkill(skillId: number, payload: Partial<SkillPayload>): Promise<Skill> {
-  const response = await fetch(`${SKILLS_ENDPOINT}/${skillId}`, {
-    method: 'PATCH',
-    headers: {
-      ...authHeaders(),
-      'Content-Type': 'application/json',
+  return apiFetch<Skill>(
+    `${SKILLS_ENDPOINT}/${skillId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  return parseResponse<Skill>(response);
+    '更新技能失败',
+  );
 }
 
 export async function deleteSkill(skillId: number): Promise<void> {
-  const response = await fetch(`${SKILLS_ENDPOINT}/${skillId}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  });
-  if (!response.ok) {
-    await parseResponse(response);
-  }
+  await apiFetch<void>(`${SKILLS_ENDPOINT}/${skillId}`, { method: 'DELETE' }, '删除技能失败');
 }
 
 export type SkillUploadResponse = Skill | { items: Skill[]; count: number };
@@ -93,10 +71,12 @@ export async function uploadSkill(file: File, slug?: string, enabled = true): Pr
   if (slug) formData.append('slug', slug);
   formData.append('enabled', String(enabled));
 
-  const response = await fetch(`${SKILLS_ENDPOINT}/upload`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: formData,
-  });
-  return parseResponse<SkillUploadResponse>(response);
+  return apiFetch<SkillUploadResponse>(
+    `${SKILLS_ENDPOINT}/upload`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+    '上传技能失败',
+  );
 }

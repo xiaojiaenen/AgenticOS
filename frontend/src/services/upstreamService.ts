@@ -1,4 +1,4 @@
-import { authHeaders } from './authService';
+import { apiFetch } from './apiClient';
 
 const API = '/api/v1';
 
@@ -65,29 +65,17 @@ export type UpstreamApiKey = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
-    ...init,
-    headers: {
-      ...authHeaders(),
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(init?.headers || {}),
+  return apiFetch<T>(
+    `${API}${path}`,
+    {
+      ...init,
+      headers: {
+        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(init?.headers || {}),
+      },
     },
-  });
-  const text = await res.text();
-  let data: unknown = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
-  if (!res.ok) {
-    const detail =
-      typeof data === 'object' && data && 'detail' in data
-        ? String((data as { detail: unknown }).detail)
-        : `请求失败 (${res.status})`;
-    throw new Error(detail);
-  }
-  return data as T;
+    '请求失败',
+  );
 }
 
 export function getUpstreamStatus(): Promise<UpstreamStatusResponse> {

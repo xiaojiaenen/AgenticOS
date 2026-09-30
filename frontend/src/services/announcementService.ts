@@ -1,4 +1,4 @@
-import { authHeaders } from './authService';
+import { apiFetch } from './apiClient';
 
 export type AnnouncementTheme = 'aurora' | 'sunset' | 'midnight';
 
@@ -72,75 +72,50 @@ export type AnnouncementGeneratedDraft = {
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const ANNOUNCEMENTS_ENDPOINT = `${API_BASE_URL}/api/v1/announcements`;
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  const raw = await response.text();
-  if (response.ok) return JSON.parse(raw) as T;
-  let message = 'Request failed';
-  try {
-    const payload = JSON.parse(raw);
-    if (typeof payload.detail === 'string') message = payload.detail;
-  } catch {
-    if (raw) message = raw;
-  }
-  throw new Error(message);
-}
-
 export async function getAnnouncements(): Promise<AnnouncementListResponse> {
-  const response = await fetch(ANNOUNCEMENTS_ENDPOINT, {
-    headers: authHeaders(),
-  });
-  return parseResponse<AnnouncementListResponse>(response);
+  return apiFetch<AnnouncementListResponse>(ANNOUNCEMENTS_ENDPOINT, {}, '公告列表加载失败');
 }
 
 export async function getActiveAnnouncement(): Promise<ActiveAnnouncementResponse> {
-  const response = await fetch(`${ANNOUNCEMENTS_ENDPOINT}/active`, {
-    headers: authHeaders(),
-  });
-  return parseResponse<ActiveAnnouncementResponse>(response);
+  return apiFetch<ActiveAnnouncementResponse>(`${ANNOUNCEMENTS_ENDPOINT}/active`, {}, '当前公告加载失败');
 }
 
 export async function createAnnouncement(payload: AnnouncementPayload): Promise<Announcement> {
-  const response = await fetch(ANNOUNCEMENTS_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      ...authHeaders(),
-      'Content-Type': 'application/json',
+  return apiFetch<Announcement>(
+    ANNOUNCEMENTS_ENDPOINT,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  return parseResponse<Announcement>(response);
+    '创建公告失败',
+  );
 }
 
 export async function updateAnnouncement(announcementId: number, payload: Partial<AnnouncementPayload>): Promise<Announcement> {
-  const response = await fetch(`${ANNOUNCEMENTS_ENDPOINT}/${announcementId}`, {
-    method: 'PATCH',
-    headers: {
-      ...authHeaders(),
-      'Content-Type': 'application/json',
+  return apiFetch<Announcement>(
+    `${ANNOUNCEMENTS_ENDPOINT}/${announcementId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  return parseResponse<Announcement>(response);
+    '更新公告失败',
+  );
 }
 
 export async function deleteAnnouncement(announcementId: number): Promise<void> {
-  const response = await fetch(`${ANNOUNCEMENTS_ENDPOINT}/${announcementId}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  });
-  if (!response.ok) {
-    await parseResponse(response);
-  }
+  await apiFetch<void>(`${ANNOUNCEMENTS_ENDPOINT}/${announcementId}`, { method: 'DELETE' }, '删除公告失败');
 }
 
 export async function generateAnnouncement(request: AnnouncementGenerateRequest): Promise<AnnouncementGeneratedDraft> {
-  const response = await fetch(`${ANNOUNCEMENTS_ENDPOINT}/generate`, {
-    method: 'POST',
-    headers: {
-      ...authHeaders(),
-      'Content-Type': 'application/json',
+  return apiFetch<AnnouncementGeneratedDraft>(
+    `${ANNOUNCEMENTS_ENDPOINT}/generate`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
     },
-    body: JSON.stringify(request),
-  });
-  return parseResponse<AnnouncementGeneratedDraft>(response);
+    '生成公告失败',
+  );
 }

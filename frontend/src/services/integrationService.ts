@@ -1,4 +1,4 @@
-import { authHeaders } from "./authService";
+import { apiFetch } from "./apiClient";
 
 export type CredentialField = {
   key: string;
@@ -138,91 +138,85 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, ""
 const ADMIN_ENDPOINT = `${API_BASE_URL}/api/v1/external-systems`;
 const USER_ENDPOINT = `${API_BASE_URL}/api/v1/integrations`;
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  // 先读 text，避免 json() 消费 body 后 text() 报 "body stream already read"
-  const raw = await response.text();
-  if (response.ok) {
-    return JSON.parse(raw) as T;
-  }
-  let message = "Request failed";
-  try {
-    const payload = JSON.parse(raw);
-    if (typeof payload.detail === "string") message = payload.detail;
-  } catch {
-    if (raw) message = raw;
-  }
-  throw new Error(message);
-}
-
 export async function listSystems(): Promise<{ items: IntegrationSystem[] }> {
-  const response = await fetch(ADMIN_ENDPOINT, { headers: authHeaders() });
-  return parseResponse(response);
-}
+  return apiFetch(
+          ADMIN_ENDPOINT,
+          { }
+        );}
 
 export async function getSystem(systemId: number): Promise<IntegrationSystem> {
-  const response = await fetch(`${ADMIN_ENDPOINT}/${systemId}`, { headers: authHeaders() });
-  return parseResponse(response);
-}
+  return apiFetch(
+          `${ADMIN_ENDPOINT}/${systemId}`,
+          { }
+        );}
 
 export async function createSystem(payload: IntegrationSystemPayload): Promise<IntegrationSystem> {
-  const response = await fetch(ADMIN_ENDPOINT, {
+  return apiFetch(
+          ADMIN_ENDPOINT,
+          {
     method: "POST",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  });
-  return parseResponse(response);
-}
+  }
+        );}
 
 export async function updateSystem(systemId: number, payload: Partial<IntegrationSystemPayload>): Promise<IntegrationSystem> {
-  const response = await fetch(`${ADMIN_ENDPOINT}/${systemId}`, {
+  return apiFetch(
+          `${ADMIN_ENDPOINT}/${systemId}`,
+          {
     method: "PATCH",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  });
-  return parseResponse(response);
-}
+  }
+        );}
 
 export async function deleteSystem(systemId: number): Promise<void> {
-  const response = await fetch(`${ADMIN_ENDPOINT}/${systemId}`, { method: "DELETE", headers: authHeaders() });
-  if (!response.ok) await parseResponse(response);
-}
+  await apiFetch<unknown>(
+          `${ADMIN_ENDPOINT}/${systemId}`,
+          { method: "DELETE" }
+        );}
 
 export async function listApis(systemId: number): Promise<{ items: IntegrationApi[] }> {
-  const response = await fetch(`${ADMIN_ENDPOINT}/${systemId}/apis`, { headers: authHeaders() });
-  return parseResponse(response);
-}
+  return apiFetch(
+          `${ADMIN_ENDPOINT}/${systemId}/apis`,
+          { }
+        );}
 
 export async function createApi(systemId: number, payload: IntegrationApiPayload): Promise<IntegrationApi> {
-  const response = await fetch(`${ADMIN_ENDPOINT}/${systemId}/apis`, {
+  return apiFetch(
+          `${ADMIN_ENDPOINT}/${systemId}/apis`,
+          {
     method: "POST",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  });
-  return parseResponse(response);
-}
+  }
+        );}
 
 export async function updateApi(systemId: number, apiId: number, payload: Partial<IntegrationApiPayload>): Promise<IntegrationApi> {
-  const response = await fetch(`${ADMIN_ENDPOINT}/${systemId}/apis/${apiId}`, {
+  return apiFetch(
+          `${ADMIN_ENDPOINT}/${systemId}/apis/${apiId}`,
+          {
     method: "PATCH",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
-  });
-  return parseResponse(response);
-}
+  }
+        );}
 
 export async function deleteApi(systemId: number, apiId: number): Promise<void> {
-  const response = await fetch(`${ADMIN_ENDPOINT}/${systemId}/apis/${apiId}`, { method: "DELETE", headers: authHeaders() });
-  if (!response.ok) await parseResponse(response);
-}
+  await apiFetch<unknown>(
+          `${ADMIN_ENDPOINT}/${systemId}/apis/${apiId}`,
+          { method: "DELETE" }
+        );}
 
 export async function testApi(systemId: number, apiId: number, params: Record<string, unknown>, credentialData?: Record<string, string>): Promise<IntegrationTestResult> {
-  const response = await fetch(`${ADMIN_ENDPOINT}/${systemId}/apis/${apiId}/test`, {
+  return apiFetch(
+          `${ADMIN_ENDPOINT}/${systemId}/apis/${apiId}/test`,
+          {
     method: "POST",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ params, credential_data: credentialData }),
-  });
-  return parseResponse(response);
-}
+  }
+        );}
 
 export type IntegrationCategory = {
   key: string;
@@ -231,38 +225,44 @@ export type IntegrationCategory = {
 };
 
 export async function listCategories(): Promise<{ items: IntegrationCategory[] }> {
-  const response = await fetch(`${USER_ENDPOINT}/categories`, { headers: authHeaders() });
-  return parseResponse(response);
-}
+  return apiFetch(
+          `${USER_ENDPOINT}/categories`,
+          { }
+        );}
 
 export async function listIntegrations(): Promise<{ items: IntegrationSystem[] }> {
-  const response = await fetch(USER_ENDPOINT, { headers: authHeaders() });
-  return parseResponse(response);
-}
+  return apiFetch(
+          USER_ENDPOINT,
+          { }
+        );}
 
 export async function connectIntegration(systemId: number, credentialData: Record<string, string>): Promise<UserConnection> {
-  const response = await fetch(`${USER_ENDPOINT}/${systemId}/connect`, {
+  return apiFetch(
+          `${USER_ENDPOINT}/${systemId}/connect`,
+          {
     method: "POST",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ credential_data: credentialData }),
-  });
-  return parseResponse(response);
-}
+  }
+        );}
 
 export async function disconnectIntegration(systemId: number): Promise<void> {
-  const response = await fetch(`${USER_ENDPOINT}/${systemId}/disconnect`, { method: "DELETE", headers: authHeaders() });
-  if (!response.ok) await parseResponse(response);
-}
+  await apiFetch<unknown>(
+          `${USER_ENDPOINT}/${systemId}/disconnect`,
+          { method: "DELETE" }
+        );}
 
 export async function getConnectionStatus(systemId: number): Promise<UserConnection> {
-  const response = await fetch(`${USER_ENDPOINT}/${systemId}/status`, { headers: authHeaders() });
-  return parseResponse(response);
-}
+  return apiFetch(
+          `${USER_ENDPOINT}/${systemId}/status`,
+          { }
+        );}
 
 export async function listMyConnections(): Promise<{ items: UserConnection[] }> {
-  const response = await fetch(`${USER_ENDPOINT}/my/connections`, { headers: authHeaders() });
-  return parseResponse(response);
-}
+  return apiFetch(
+          `${USER_ENDPOINT}/my/connections`,
+          { }
+        );}
 
 // ── OpenAPI Import ─────────────────────────────────────────────────────────
 
@@ -284,19 +284,21 @@ export type OpenApiPreview = {
 };
 
 export async function previewOpenApiImport(openapiJson?: string, openapiUrl?: string): Promise<OpenApiPreview> {
-  const response = await fetch(`${ADMIN_ENDPOINT}/import-openapi/preview`, {
+  return apiFetch(
+          `${ADMIN_ENDPOINT}/import-openapi/preview`,
+          {
     method: "POST",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ openapi_json: openapiJson, openapi_url: openapiUrl }),
-  });
-  return parseResponse(response);
-}
+  }
+        );}
 
 export async function confirmOpenApiImport(preview: OpenApiPreview): Promise<IntegrationSystem> {
-  const response = await fetch(`${ADMIN_ENDPOINT}/import-openapi/confirm`, {
+  return apiFetch(
+          `${ADMIN_ENDPOINT}/import-openapi/confirm`,
+          {
     method: "POST",
-    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(preview),
-  });
-  return parseResponse(response);
-}
+  }
+        );}

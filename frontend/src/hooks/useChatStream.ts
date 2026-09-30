@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Message, Session, Attachment, Artifact } from '../types';
 import {
@@ -18,7 +17,7 @@ import { AgentProfile } from '../services/agentProfileService';
 import { uploadFiles } from '../services/fileService';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
 import { UserDecision, normalizeDecision } from '../components/chat/DecisionPanel';
-import { toast } from '../components/ui/Toast';
+import { toast } from 'sonner';
 
 // ---------------------------------------------------------------------------
 // extracted helpers
@@ -54,8 +53,8 @@ interface UseChatStreamDeps {
   setSessions: React.Dispatch<React.SetStateAction<Session[]>>;
   setCurrentSessionId: React.Dispatch<React.SetStateAction<string | null>>;
   applySessionState: (sessionId: string, state: AgentSessionState) => void;
-  setArtifact: React.Dispatch<React.SetStateAction<Artifact | null>>;
-  setInputValue: React.Dispatch<React.SetStateAction<string>>;
+  setArtifact: (artifact: Artifact | null) => void;
+  setInputValue: (value: string) => void;
   onUserInputRequired?: (input: UserInputRequest) => void;
   onApiApprovalRequired?: (approval: ApiApprovalRequest) => void;
 }
@@ -285,7 +284,7 @@ export function useChatStream({
             }
             return prev.map((s) =>
               s.id === currentSessionId
-                ? { ...s, messages: [...s.messages, userMessage, assistantMessage], updatedAt: Date.now() }
+                ? { ...s, messages: [...s.messages, userMessage!, assistantMessage], updatedAt: Date.now() }
                 : s,
             );
           });
@@ -529,8 +528,7 @@ export function useChatStream({
 
         // 截断提示
         if (response.finishReason === 'length') {
-          toast('回复被截断：输出达到 token 上限，内容可能不完整。可以发送「继续」接续，或精简需求后重试。', {
-            variant: 'warning',
+          toast.warning('回复被截断：输出达到 token 上限，内容可能不完整。可以发送「继续」接续，或精简需求后重试。', {
             duration: 8000,
           });
         }

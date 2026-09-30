@@ -1,4 +1,4 @@
-import { authHeaders } from './authService';
+import { apiFetch } from './apiClient';
 
 export type DashboardSummary = {
   total_users: number;
@@ -52,25 +52,9 @@ export type DashboardStats = {
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const DASHBOARD_ENDPOINT = `${API_BASE_URL}/api/v1/dashboard`;
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  const raw = await response.text();
-  if (response.ok) return JSON.parse(raw) as T;
-  let message = 'Request failed';
-  try {
-    const payload = JSON.parse(raw);
-    if (typeof payload.detail === 'string') message = payload.detail;
-  } catch {
-    if (raw) message = raw;
-  }
-  throw new Error(message);
-}
-
 export async function getDashboardStats(days?: number): Promise<DashboardStats> {
   const qs = days ? `?days=${days}` : "";
-  const response = await fetch(`${DASHBOARD_ENDPOINT}/stats${qs}`, {
-    headers: authHeaders(),
-  });
-  return parseResponse<DashboardStats>(response);
+  return apiFetch<DashboardStats>(`${DASHBOARD_ENDPOINT}/stats${qs}`, {}, '仪表盘数据加载失败');
 }
 
 export type AnalyticsTimelinePoint = { date: string; count: number };
@@ -86,8 +70,5 @@ export type AnalyticsData = {
 
 export async function getAnalytics(days?: number): Promise<AnalyticsData> {
   const qs = days ? `?days=${days}` : '';
-  const response = await fetch(`${DASHBOARD_ENDPOINT}/analytics${qs}`, {
-    headers: authHeaders(),
-  });
-  return parseResponse<AnalyticsData>(response);
+  return apiFetch<AnalyticsData>(`${DASHBOARD_ENDPOINT}/analytics${qs}`, {}, '分析数据加载失败');
 }

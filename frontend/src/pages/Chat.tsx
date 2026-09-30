@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { useLocation } from 'react-router-dom';
@@ -21,14 +20,14 @@ import { getMyAgents } from '../services/agentProfileService';
 import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
 import { UserInputPanel } from '../components/chat/UserInputPanel';
-import { submitUserInput, type UserInputRequest, type ApiApprovalRequest } from '../services/agentService';
+import { submitUserInput, type UserInputRequest } from '../services/agentService';
 export const Chat = () => {
   const location = useLocation();
   const initialMessage = location.state?.initialMessage as string | undefined;
 
   // ── Zustand store（UI 状态）──
   const {
-    inputValue, setInputValue,
+    setInputValue,
     chatMode, setChatMode,
     agentProfiles, setAgentProfiles,
     selectedAgentProfileId, setSelectedAgentProfileId,
@@ -76,7 +75,7 @@ export const Chat = () => {
     handleSend, handleStopGeneration,
     handleApprovalDecision, handleDecisionMade,
   } = useChatStream({
-    sessions, currentSessionId, currentSession,
+    sessions, currentSessionId, currentSession: currentSession ?? null,
     chatMode, selectedAgentProfileId,
     selectedAgent: agentProfiles.find((a) => a.id === selectedAgentProfileId) || null,
     setSessions, setCurrentSessionId,
@@ -99,7 +98,6 @@ export const Chat = () => {
     [currentSessionMessages],
   );
   const isModeLocked = !!currentSession && currentSession.messages.length > 0;
-  const selectedAgent = agentProfiles.find((a) => a.id === selectedAgentProfileId) || null;
 
   // ── 检测 send_email 审批请求，自动打开邮件预览面板 ──
   useEffect(() => {
@@ -262,7 +260,7 @@ export const Chat = () => {
       setArtifact({
         language: 'ppt',
         artifactId: lastPptMsg.pptArtifact.artifactId,
-        html: lastPptMsg.pptArtifact.html,
+        html: lastPptMsg.pptArtifact.html || '',
         title: lastPptMsg.pptArtifact.title || '',
         slideCount: lastPptMsg.pptArtifact.slideCount || 0,
         theme: lastPptMsg.pptArtifact.theme,
@@ -271,7 +269,7 @@ export const Chat = () => {
       setArtifact({
         language: 'website',
         artifactId: lastWebsiteMsg.websiteArtifact.artifactId || '',
-        html: lastWebsiteMsg.websiteArtifact.html,
+        html: lastWebsiteMsg.websiteArtifact.html || '',
         title: lastWebsiteMsg.websiteArtifact.title || '',
         projectSlug: lastWebsiteMsg.websiteArtifact.projectSlug || '',
         stack: lastWebsiteMsg.websiteArtifact.stack,
@@ -382,7 +380,7 @@ export const Chat = () => {
 
   // ── Context Value ──
   const ctxValue: ChatContextValue = useMemo(() => ({
-    sessions, currentSessionId, currentSession, visibleSessions,
+    sessions, currentSessionId, currentSession: currentSession ?? null, visibleSessions,
     hasMoreSessions, loadMoreSessions,
     isLoading, error, setError, runStatus, pendingDecisions,
     handleSend, handleStopGeneration,
@@ -427,21 +425,17 @@ export const Chat = () => {
       onDrop={onDrop}
       className={cn(
         "flex h-screen font-sans overflow-hidden relative",
-        "text-slate-800 selection:bg-zinc-200 selection:text-zinc-900",      )}
-      style={{
-        background: 'linear-gradient(180deg, #d9edf4 0%, #e3f2f8 28%, #dceff5 55%, #dff0f5 100%)',
-      }}
-    >
+        "text-slate-800 bg-[var(--surface-0)]",
+      )
+    }>
       <DragOverlay isDragging={isDragging} />
 
       {/* 背景装饰 */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 -left-16 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.12),transparent_70%)] blur-[80px] animate-[bg-blob-1_18s_ease-in-out_infinite]" />
-            <div className="absolute top-8 -right-10 w-[440px] h-[440px] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.10),transparent_70%)] blur-[70px] animate-[bg-blob-2_20s_ease-in-out_infinite]" />
-            <div className="absolute bottom-0 left-1/4 w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.11),transparent_70%)] blur-[80px] animate-[bg-blob-3_17s_ease-in-out_infinite]" />
-            <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(14,165,233,0.07) 1px, transparent 1px)', backgroundSize: '48px 48px', maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.50), rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.16))' }} />
-            <div className="absolute inset-0 bg-[linear-gradient(108deg,transparent_38%,rgba(255,255,255,0.14)_50%,transparent_64%)] animate-[bg-drift-slow_20s_ease-in-out_infinite]" />
-            <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.02]" />
+        <div className="absolute top-0 -left-16 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.06),transparent_70%)] blur-[80px]" />
+        <div className="absolute bottom-0 left-1/4 w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(129,140,248,0.05),transparent_70%)] blur-[80px]" />
+            <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(99,102,241,0.05) 1px, transparent 1px)', backgroundSize: '48px 48px', maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.50), rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.16))' }} />
+            <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-zinc-900 opacity-[0.02]" />
       </div>
 
       {/* 移动端侧边栏遮罩 */}

@@ -232,25 +232,6 @@ body::-webkit-scrollbar {
   box-sizing: border-box;
 }
 
-/* ===== Skip Link (a11y only, invisible unless focused) ===== */
-.skip-link {
-  position: fixed;
-  top: 16px;
-  left: 50%;
-  z-index: 9999;
-  transform: translateX(-50%) translateY(-120%);
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-  transition: none;
-}
-.skip-link:focus {
-  clip: auto;
-  clip-path: none;
-  transform: translateX(-50%) translateY(0);
-  @apply rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-md border border-slate-200;
-}
-
 /* ===== Admin Shared Classes ===== */
 .admin-section-kicker {
   @apply text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400;
@@ -303,147 +284,6 @@ body.admin-modal-open .admin-dashboard-shell > button {
   @apply relative z-10;
 }
 
-.admin-kpi-pill {
-  @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors duration-150;
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-1);
-}
-
-.admin-kpi-pill:hover {
-  background: var(--surface-0);
-}
-
-.admin-data-panel {
-  @apply relative overflow-hidden rounded-lg border;
-  border-color: var(--border-subtle);
-  background: var(--surface-1);
-  box-shadow: var(--shadow-xs);
-}
-
-.admin-data-panel > * {
-  @apply relative z-10;
-}
-
-.admin-panel-toolbar {
-  @apply flex flex-col gap-3 border-b px-5 py-3.5 lg:flex-row lg:items-end lg:justify-between;
-  border-color: var(--border-subtle);
-  background: var(--surface-0);
-}
-
-.admin-table-head {
-  @apply hidden border-b px-4 py-2.5 text-center text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400 lg:grid xl:grid;
-  border-color: var(--border-subtle);
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  background: var(--surface-0);
-}
-
-/* ===== Admin Table Row Alternating ===== */
-.admin-table-row:nth-child(even) {
-  background: rgba(248, 250, 252, 0.5);
-}
-
-.admin-table-row:nth-child(even):hover {
-  background: rgba(248, 250, 252, 0.8);
-}
-
-/* ===== Admin Modals ===== */
-.admin-modal-shell {
-  @apply fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6;
-  background: rgba(9, 9, 11, 0.4);
-  backdrop-filter: blur(8px);
-}
-
-.admin-modal-shell > * {
-  position: relative;
-  z-index: 1;
-}
-
-.admin-modal-panel {
-  border: 1px solid var(--border-medium);
-  background: var(--surface-1);
-  border-radius: 16px;
-  box-shadow: var(--shadow-xl);
-}
-
-.admin-modal-panel > * {
-  position: relative;
-  z-index: 1;
-}
-
-.admin-soft-divider {
-  border-color: var(--border-subtle);
-}
-
-.admin-table-row {
-  @apply relative transition-colors duration-150;
-  background: transparent;
-}
-
-.admin-table-row:hover {
-  background: rgba(79, 70, 229, 0.04);
-}
-
-.admin-table-row > * {
-  @apply min-w-0 px-1.5;
-}
-
-/* ===== Admin Stat Cards ===== */
-.admin-stat-card {
-  @apply relative overflow-hidden rounded-2xl border transition-all duration-300;
-  border-color: var(--border-subtle);
-  background: var(--surface-1);
-  box-shadow: 0 2px 12px rgba(9, 9, 11, 0.04);
-}
-
-.admin-stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(9, 9, 11, 0.08);
-  border-color: rgba(199, 210, 254, 0.7);
-}
-
-/* ===== Admin Empty State ===== */
-.admin-empty-state {
-  @apply flex flex-col items-center justify-center text-center py-12;
-}
-
-.admin-empty-state-icon {
-  @apply mb-4 flex h-16 w-16 items-center justify-center rounded-3xl border shadow-sm;
-  border-color: var(--border-subtle);
-  background: var(--surface-0);
-}
-
-.admin-empty-state-icon svg {
-  @apply text-slate-400;
-}
-
-/* ===== Admin Metric Progress Bar ===== */
-.admin-progress-bar {
-  @apply relative h-2 overflow-hidden rounded-full;
-  background: rgba(9, 9, 11, 0.06);
-  box-shadow: inset 0 1px 2px rgba(9, 9, 11, 0.06);
-}
-
-.admin-progress-fill {
-  @apply h-full rounded-full;
-  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 0 8px currentColor;
-}
-
-/* ===== Admin Chart Panel ===== */
-.admin-chart-panel {
-  @apply relative overflow-hidden rounded-2xl border transition-all duration-300;
-  border-color: var(--border-subtle);
-  background: var(--surface-1);
-  box-shadow: 0 4px 20px rgba(9, 9, 11, 0.05);
-}
-
-.admin-chart-panel:hover {
-  box-shadow: 0 12px 40px rgba(9, 9, 11, 0.09);
-  transform: translateY(-2px);
-}
-
 /* ===== Admin Sidebar Enhancement ===== */
 .admin-nav-item {
   @apply relative flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-all duration-200;
@@ -467,26 +307,6 @@ body.admin-modal-open .admin-dashboard-shell > button {
   transform: scale(1.05);
 }
 
-/* ===== Admin Search Input ===== */
-.admin-search-wrapper {
-  @apply relative w-full lg:max-w-[380px] lg:w-full;
-}
-
-.admin-search-input {
-  @apply w-full rounded-2xl border bg-white py-3 pl-11 pr-4 text-sm font-semibold text-slate-700 outline-none transition-all duration-200 placeholder:text-slate-400;
-  border-color: var(--border-subtle);
-  box-shadow: 0 2px 8px rgba(9, 9, 11, 0.03);
-}
-
-.admin-search-input:hover {
-  box-shadow: 0 4px 14px rgba(9, 9, 11, 0.05);
-}
-
-.admin-search-input:focus {
-  @apply border-indigo-200 ring-4 ring-indigo-100;
-  box-shadow: 0 4px 20px rgba(79, 70, 229, 0.08);
-}
-
 /* ===== Admin Form Input ===== */
 .admin-input {
   @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800 outline-none transition-all duration-200;
@@ -507,30 +327,6 @@ body.admin-modal-open .admin-dashboard-shell > button {
   @apply text-slate-400;
 }
 
-/* ===== Admin Status Pill ===== */
-.admin-status-pill {
-  @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold transition-all duration-200;
-}
-
-.admin-status-pill.active {
-  @apply bg-success-50 text-success-700 ring-1 ring-success-200/50;
-  box-shadow: 0 0 6px rgba(16, 185, 129, 0.08);
-}
-
-.admin-status-pill.inactive {
-  @apply bg-slate-100 text-slate-500 ring-1 ring-slate-200/50;
-}
-
-.admin-status-pill.warning {
-  @apply bg-warning-50 text-warning-700 ring-1 ring-warning-200/50;
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.06);
-}
-
-.admin-status-pill.info {
-  @apply bg-info-50 text-info-700 ring-1 ring-info-200/50;
-  box-shadow: 0 0 6px rgba(14, 165, 233, 0.06);
-}
-
 /* ===== Admin Staggered Animations ===== */
 .admin-page-stage > * {
   animation: admin-stage-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -541,10 +337,6 @@ body.admin-modal-open .admin-dashboard-shell > button {
 .admin-page-stage > *:nth-child(3) { animation-delay: 0.12s; }
 .admin-page-stage > *:nth-child(4) { animation-delay: 0.17s; }
 .admin-page-stage > *:nth-child(5) { animation-delay: 0.22s; }
-
-.admin-page-stage .admin-table-row {
-  animation: admin-row-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
 
 /* ===== Prose / Markdown ===== */
 .prose {
@@ -651,71 +443,6 @@ body.admin-modal-open .admin-dashboard-shell > button {
   @apply text-slate-800;
 }
 
-/* ===== Markdown Body (non-prose fallback) ===== */
-.markdown-body {
-  @apply leading-relaxed text-slate-700;
-}
-
-.markdown-body p {
-  @apply mb-4 tracking-normal last:mb-0;
-}
-
-.markdown-body strong {
-  @apply font-semibold text-slate-900;
-}
-
-.markdown-body ul {
-  @apply mb-3 list-disc pl-5;
-}
-
-.markdown-body ol {
-  @apply mb-3 list-decimal pl-5;
-}
-
-.markdown-body li {
-  @apply mb-1;
-}
-
-.markdown-body a {
-  @apply text-brand-600 underline decoration-brand-300 underline-offset-2 hover:text-brand-700 focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 rounded;
-}
-
-.markdown-body code {
-  @apply rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-brand-700;
-}
-
-.markdown-body pre {
-  @apply mt-2 mb-3 overflow-x-auto rounded-xl bg-slate-800 p-4 text-slate-50;
-}
-
-.markdown-body pre code {
-  @apply bg-transparent p-0 text-sm text-inherit rounded-none;
-}
-
-.markdown-body h1 { @apply mt-6 mb-3 font-bold tracking-tight text-slate-900 text-2xl; }
-.markdown-body h2 { @apply mt-5 mb-2 font-bold tracking-tight text-slate-900 text-xl; }
-.markdown-body h3 { @apply mt-4 mb-2 font-semibold tracking-tight text-slate-900 text-lg; }
-
-.markdown-body blockquote {
-  @apply my-3 border-l-4 border-brand-300 bg-slate-50/50 py-2 pl-4 italic text-slate-600;
-}
-
-.markdown-body img {
-  @apply my-3 max-w-full rounded-xl;
-}
-
-.markdown-body hr {
-  @apply my-6 border-slate-200;
-}
-
-/* ===== Animations ===== */
-@keyframes blob {
-  0% { transform: translate(0px, 0px) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
-  100% { transform: translate(0px, 0px) scale(1); }
-}
-
 /* Ambient background blobs — each with unique movement character */
 @keyframes bg-blob-1 {
   0%, 100% { transform: translate(0, 0) scale(1) rotate(0deg); }
@@ -738,141 +465,10 @@ body.admin-modal-open .admin-dashboard-shell > button {
   75%  { transform: translate(20px, -15px) scale(0.96) rotate(1deg); }
 }
 
-@keyframes bg-blob-4 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50%  { transform: translate(-40px, -45px) scale(1.14); }
-}
-
-@keyframes bg-drift-slow {
-  0%, 100% { transform: translate(0, 0); }
-  25%  { transform: translate(30px, -20px); }
-  50%  { transform: translate(-15px, 25px); }
-  75%  { transform: translate(-25px, -15px); }
-}
-
-@keyframes bg-pulse-subtle {
-  0%, 100% { opacity: 0.6; }
-  50%  { opacity: 0.85; }
-}
-
-/* Static shimmer strip (装饰性高光，非玻璃拟态) */
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
 @keyframes admin-stage-in {
   0% { opacity: 0; transform: translateY(14px) scale(0.99); filter: blur(4px); }
   100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
-
-/* ===== Page Transitions ===== */
-@keyframes page-enter {
-  0% { opacity: 0; transform: translateY(12px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes page-exit {
-  0% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-8px); }
-}
-
-@keyframes slide-in-right {
-  0% { opacity: 0; transform: translateX(20px); }
-  100% { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes slide-in-up {
-  0% { opacity: 0; transform: translateY(16px) scale(0.98); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes fade-in-scale {
-  0% { opacity: 0; transform: scale(0.95); }
-  100% { opacity: 1; transform: scale(1); }
-}
-
-@keyframes stagger-in {
-  0% { opacity: 0; transform: translateY(8px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-
-/* ===== Smooth Transitions ===== */
-.transition-smooth {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.transition-fast {
-  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.transition-spring {
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* ===== Stagger Animation Classes ===== */
-.stagger-1 { animation-delay: 0.05s; }
-.stagger-2 { animation-delay: 0.10s; }
-.stagger-3 { animation-delay: 0.15s; }
-.stagger-4 { animation-delay: 0.20s; }
-.stagger-5 { animation-delay: 0.25s; }
-.stagger-6 { animation-delay: 0.30s; }
-
-/* ===== Component Enter Animations ===== */
-.animate-enter {
-  animation: slide-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.animate-enter-fast {
-  animation: slide-in-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.animate-fade-in {
-  animation: fade-in-scale 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.animate-slide-right {
-  animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* ===== Hover Lift Effect ===== */
-.hover-lift {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.hover-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(9, 9, 11, 0.08);
-}
-
-/* ===== Active Press Effect ===== */
-.active-press:active {
-  transform: scale(0.97);
-  transition: transform 0.1s ease;
-}
-
-@keyframes admin-row-in {
-  0% { opacity: 0; transform: translateY(8px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fade-in {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
-}
-
-@keyframes slide-up {
-  0% { opacity: 0; transform: translateY(16px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes scale-in {
-  0% { opacity: 0; transform: scale(0.94); }
-  100% { opacity: 1; transform: scale(1); }
-}
-
-.animation-delay-2000 { animation-delay: 2s; }
-.animation-delay-4000 { animation-delay: 4s; }
 
 /* ===== Reduced Motion ===== */
 @media (prefers-reduced-motion: reduce) {

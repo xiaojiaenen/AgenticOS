@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../../lib/utils';
 
 interface ChatSearchProps {
   showSearch: boolean;

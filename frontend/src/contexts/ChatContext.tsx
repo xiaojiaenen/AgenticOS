@@ -9,7 +9,6 @@ import type { Session, Artifact } from '../types';
 import type { AgentProfile } from '../services/agentProfileService';
 import type { ChatInputHandle } from '../components/chat/ChatInput';
 import type { UserDecision } from '../components/chat/DecisionPanel';
-import type { ChatMode } from '../stores/chatStore';
 
 export interface ChatContextValue {
   // ── 会话 ──

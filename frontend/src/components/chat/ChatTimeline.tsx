@@ -33,7 +33,7 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
     : rounds;
   const hiddenRoundsCount = Math.max(0, rounds.length - visibleRounds.length);
 
-  const [highlightedRound, setHighlightedRound] = useState<string | null>(null);
+  const [, setHighlightedRound] = useState<string | null>(null);
 
   const scrollToRound = (round: any) => {
     const rowEl = document.getElementById(`msg-${round.id}`);

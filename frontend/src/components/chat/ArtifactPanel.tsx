@@ -4,7 +4,7 @@ import { motion, MotionValue } from 'motion/react';
 import { Artifact } from '../../types';
 import { buildSandboxedHtmlDocument, createObjectUrl } from '../../lib/safePreview';
 import { copyToClipboard } from '../../lib/utils';
-import { toast } from '../ui/Toast';
+import { toast } from 'sonner';
 import { AlertCircleIcon, CodeIcon, DownloadIcon, RefreshIcon } from '../ui/AnimatedIcons';
 
 interface ArtifactPanelProps {
@@ -89,9 +89,8 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
             type="button"
             onClick={() => {
               void copyToClipboard(artifact.code).then((ok) => {
-                toast(ok ? '已复制到剪贴板' : '复制失败', {
-                  variant: ok ? 'success' : 'error',
-                });
+                if (ok) toast.success('已复制到剪贴板');
+                else toast.error('复制失败');
               });
             }}
             className="rounded-xl p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-zinc-600"

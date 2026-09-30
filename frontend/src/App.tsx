@@ -1,10 +1,9 @@
-import React, { Suspense, lazy } from 'react';
+import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GlobalAnnouncementLayer } from './components/announcement/GlobalAnnouncementLayer';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { ToastContainer } from './components/ui/Toast';
 import { Toaster } from '@/components/shadcn/sonner';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
@@ -77,8 +76,6 @@ function AppContent() {
       <ErrorBoundary>
         <AnimatedRoutes />
       </ErrorBoundary>
-      <ToastContainer />
-      {/* sonner Toaster（shadcn）— M1 起逐步替代 ToastContainer */}
       <Toaster />
     </>
   );

@@ -1,17 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Session, Message } from '../types';
-import { listSessions, deleteSession as deleteSessionApi, generateTitle, getSessionMessages, getSessionArtifacts } from '../services/agentService';
+import { listSessions, deleteSession as deleteSessionApi, getSessionMessages, getSessionArtifacts } from '../services/agentService';
 import { getStoredUser } from '../services/authService';
 
 const MAX_SESSIONS = 24;
 const MAX_PERSISTED_MESSAGES_PER_SESSION = 120;
 const MAX_PERSISTED_TEXT_LENGTH = 30_000;
 const MAX_PERSISTED_TOOL_RESULT_LENGTH = 10_000;
-
-/** 保留最近 24 个会话（新会话在数组头部） */
-function capSessions(sessions: Session[]): Session[] {
-  return sessions.length > MAX_SESSIONS ? sessions.slice(0, MAX_SESSIONS) : sessions;
-}
 
 // 按用户 ID 隔离缓存 key
 function getCacheKey(): string {
@@ -304,22 +299,6 @@ export function useChatSessions() {
         mode: (s.metadata?.response_mode as Session['mode']) || undefined,
         agentProfileId: (s.metadata?.agent_profile_id as number) ?? undefined,
       }));
-
-      // Preserve messages from current sessions
-      const currentMap = new Map(sessions.map(s => [s.id, s]));
-      const merged = converted.map((s) => {
-        const current = currentMap.get(s.id);
-        if (current && current.messages.length > 0) {
-          return {
-            ...s,
-            messages: current.messages,
-            title: current.title || s.title,
-            mode: current.mode || s.mode,
-            agentProfileId: current.agentProfileId ?? s.agentProfileId,
-          };
-        }
-        return s;
-      });
 
       setSessions((prev) => {
         const prevMap = new Map(prev.map((s) => [s.id, s]));
