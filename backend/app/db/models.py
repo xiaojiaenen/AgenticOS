@@ -80,6 +80,8 @@ class AuthSessionModel(Base):
 
 
 class AuthRateLimitModel(Base):
+    """已由 Redis 限流取代（app/services/rate_limiter.py），保留一版后废弃。"""
+
     __tablename__ = "auth_rate_limits"
 
     key: Mapped[str] = mapped_column(String(255), primary_key=True)
@@ -307,6 +309,50 @@ class AnnouncementModel(Base):
     starts_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True, index=True)
     ends_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True, index=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class UpstreamCredentialModel(Base):
+    """唯一上游 (agents.gree.com) 的用户登录凭据与 Cookie。
+
+    自动登录流程与 sesame 保持一致；密码/Cookie 使用 Fernet 加密存储。
+    """
+
+    __tablename__ = "upstream_credentials"
+    __table_args__ = (
+        UniqueConstraint("user_id", "upstream_key", name="uq_upstream_user_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    upstream_key: Mapped[str] = mapped_column(String(64), default="agents.gree.com", index=True)
+    username: Mapped[str] = mapped_column(String(128))
+    display_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    password_encrypted: Mapped[str] = mapped_column(Text)
+    cookie_encrypted: Mapped[str] = mapped_column(Text, default="")
+    login_url: Mapped[str] = mapped_column(String(512), default="")
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    auto_refresh: Mapped[bool] = mapped_column(Boolean, default=True)
+    expire_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class UpstreamApiKeyModel(Base):
+    """供外部软件 / AgenticOS 调用上游网关的 API Key（sk-agenticos-*）。"""
+
+    __tablename__ = "upstream_api_keys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(128), default="default")
+    prefix: Mapped[str] = mapped_column(String(32), index=True)
+    key_hash: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
@@ -616,7 +662,8 @@ class KBIngestTaskModel(Base):
     """文档编译任务"""
     __tablename__ = "kb_ingest_tasks"
     __table_args__ = (
-        Index("ix_kb_ingest_tasks_status", "knowledge_base_id", "status"),
+        # 注意：不能叫 ix_kb_ingest_tasks_status，会与 status 列 index=True 的自动索引重名
+        Index("ix_kb_ingest_tasks_kb_status", "knowledge_base_id", "status"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
