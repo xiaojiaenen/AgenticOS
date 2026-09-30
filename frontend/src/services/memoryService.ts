@@ -1,4 +1,4 @@
-import { authHeaders } from './authService';
+import { apiFetch } from './apiClient';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const MEMORY_ENDPOINT = `${API_BASE_URL}/api/v1/memory`;
@@ -23,44 +23,19 @@ export type MemoryResponse = {
   count: number;
 };
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  const raw = await response.text();
-  if (response.ok) return JSON.parse(raw) as T;
-  let message = 'Request failed';
-  try {
-    const payload = JSON.parse(raw);
-    if (typeof payload.detail === 'string') message = payload.detail;
-  } catch {
-    if (raw) message = raw;
-  }
-  throw new Error(message);
-}
-
 export async function getMemories(userId?: number): Promise<MemoryResponse> {
   const params = userId ? `?user_id=${userId}` : '';
-  const response = await fetch(`${MEMORY_ENDPOINT}${params}`, {
-    headers: authHeaders(),
-  });
-  return parseResponse<MemoryResponse>(response);
+  return apiFetch<MemoryResponse>(`${MEMORY_ENDPOINT}${params}`, {}, '记忆列表加载失败');
 }
 
 export async function searchMemories(query: string, limit = 5, userId?: number): Promise<MemoryResponse> {
   let url = `${MEMORY_ENDPOINT}/search?q=${encodeURIComponent(query)}&limit=${limit}`;
   if (userId) url += `&user_id=${userId}`;
-  const response = await fetch(url, {
-    headers: authHeaders(),
-  });
-  return parseResponse<MemoryResponse>(response);
+  return apiFetch<MemoryResponse>(url, {}, '记忆搜索失败');
 }
 
 export async function deleteMemory(memoryId: number): Promise<void> {
-  const response = await fetch(`${MEMORY_ENDPOINT}/${memoryId}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  });
-  if (!response.ok) {
-    await parseResponse(response);
-  }
+  await apiFetch<void>(`${MEMORY_ENDPOINT}/${memoryId}`, { method: 'DELETE' }, '删除记忆失败');
 }
 
 /**
@@ -79,11 +54,9 @@ export async function createMemory(
     memory_type: memoryType,
     importance: String(importance),
   });
-  const response = await fetch(`${MEMORY_ENDPOINT}?${params.toString()}`, {
-    method: 'POST',
-    headers: {
-      ...authHeaders(),
-    },
-  });
-  return parseResponse<{ id: number; success: boolean }>(response);
+  return apiFetch<{ id: number; success: boolean }>(
+    `${MEMORY_ENDPOINT}?${params.toString()}`,
+    { method: 'POST' },
+    '创建记忆失败',
+  );
 }

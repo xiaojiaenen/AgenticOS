@@ -1,4 +1,5 @@
 import { AuthUser } from '../types';
+import { apiFetch } from './apiClient';
 
 type AuthResponse = {
   access_token: string;
@@ -8,127 +9,58 @@ type AuthResponse = {
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const AUTH_ENDPOINT = `${API_BASE_URL}/api/v1/auth`;
-const TOKEN_KEY = 'auth_token';
-const USER_KEY = 'auth_user';
-const ROLE_KEY = 'role';
 
-function readStorageValue(key: string): string | null {
-  // token/user 持久化到 localStorage，支持新标签页共享登录态
-  const localValue = localStorage.getItem(key);
-  if (localValue) return localValue;
+// 会话存储实现位于 authTokenStore（避免与 apiClient 循环依赖），此处统一再导出
+export {
+  getAuthToken,
+  getStoredUser,
+  isAuthenticated,
+  isAdmin,
+  authHeaders,
+  setAuthSession,
+  clearAuthSession,
+} from './authTokenStore';
 
-  // 迁移旧的 sessionStorage 数据
-  const legacyValue = sessionStorage.getItem(key);
-  if (!legacyValue) return null;
-  localStorage.setItem(key, legacyValue);
-  sessionStorage.removeItem(key);
-  return legacyValue;
-}
-
-function writeStorageValue(key: string, value: string): void {
-  localStorage.setItem(key, value);
-  sessionStorage.removeItem(key);
-}
-
-function removeStorageValue(key: string): void {
-  localStorage.removeItem(key);
-  sessionStorage.removeItem(key);
-}
-
-function readJson<T>(value: string | null): T | null {
-  if (!value) return null;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return null;
-  }
-}
-
-async function parseResponse<T>(response: Response): Promise<T> {
-  const raw = await response.text();
-  if (response.ok) {
-    return JSON.parse(raw) as T;
-  }
-  let message = 'Request failed';
-  try {
-    const payload = JSON.parse(raw);
-    if (typeof payload.detail === 'string') message = payload.detail;
-  } catch {
-    if (raw) message = raw;
-  }
-  throw new Error(message);
-}
-
-export function getAuthToken(): string | null {
-  return readStorageValue(TOKEN_KEY);
-}
-
-export function getStoredUser(): AuthUser | null {
-  return readJson<AuthUser>(readStorageValue(USER_KEY));
-}
-
-export function isAuthenticated(): boolean {
-  return Boolean(getAuthToken() && getStoredUser());
-}
-
-export function isAdmin(): boolean {
-  return getStoredUser()?.role === 'admin';
-}
-
-export function authHeaders(): Record<string, string> {
-  const token = getAuthToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
-export function setAuthSession(response: AuthResponse): void {
-  writeStorageValue(TOKEN_KEY, response.access_token);
-  writeStorageValue(USER_KEY, JSON.stringify(response.user));
-  writeStorageValue(ROLE_KEY, response.user.role);
-}
-
-export function clearAuthSession(): void {
-  // 清理当前用户的会话缓存
-  const user = getStoredUser();
-  if (user) {
-    localStorage.removeItem(`chat_sessions_${user.id}`);
-  }
-  localStorage.removeItem('chat_sessions_guest');
-  localStorage.removeItem('chat_sessions'); // 清理旧的通用 key
-
-  removeStorageValue(TOKEN_KEY);
-  removeStorageValue(USER_KEY);
-  removeStorageValue(ROLE_KEY);
-}
+import {
+  getAuthToken,
+  setAuthSession,
+  clearAuthSession,
+  updateStoredUser,
+} from './authTokenStore';
 
 export async function login(email: string, password: string): Promise<AuthUser> {
-  const response = await fetch(`${AUTH_ENDPOINT}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const payload = await parseResponse<AuthResponse>(response);
+  const payload = await apiFetch<AuthResponse>(
+    `${AUTH_ENDPOINT}/login`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+      skip401: true,
+    },
+    '登录失败',
+  );
   setAuthSession(payload);
   return payload.user;
 }
 
 export async function register(name: string, email: string, password: string): Promise<AuthUser> {
-  const response = await fetch(`${AUTH_ENDPOINT}/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, password }),
-  });
-  const payload = await parseResponse<AuthResponse>(response);
+  const payload = await apiFetch<AuthResponse>(
+    `${AUTH_ENDPOINT}/register`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+      skip401: true,
+    },
+    '注册失败',
+  );
   setAuthSession(payload);
   return payload.user;
 }
 
 export async function fetchCurrentUser(): Promise<AuthUser> {
-  const response = await fetch(`${AUTH_ENDPOINT}/me`, {
-    headers: authHeaders(),
-  });
-  const user = await parseResponse<AuthUser>(response);
-  writeStorageValue(USER_KEY, JSON.stringify(user));
-  writeStorageValue(ROLE_KEY, user.role);
+  const user = await apiFetch<AuthUser>(`${AUTH_ENDPOINT}/me`, {}, '获取当前用户失败');
+  updateStoredUser(user);
   return user;
 }
 
@@ -137,10 +69,10 @@ export async function logout(): Promise<void> {
   clearAuthSession();
   if (!token) return;
   try {
-    await fetch(`${AUTH_ENDPOINT}/logout`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    await apiFetch<void>(
+      `${AUTH_ENDPOINT}/logout`,
+      { method: 'POST' },
+    );
   } catch {
     // Local logout is authoritative for the current stateless token flow.
   }
@@ -149,35 +81,44 @@ export async function logout(): Promise<void> {
 // ---- 验证码相关 ----
 
 export async function sendVerificationCode(email: string, purpose: 'login' | 'register'): Promise<void> {
-  const response = await fetch(`${AUTH_ENDPOINT}/send-code`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, purpose }),
-  });
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    throw new Error(typeof payload.detail === 'string' ? payload.detail : '发送验证码失败');
-  }
+  await apiFetch<void>(
+    `${AUTH_ENDPOINT}/send-code`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, purpose }),
+      skip401: true,
+    },
+    '发送验证码失败',
+  );
 }
 
 export async function loginWithCode(email: string, code: string): Promise<AuthUser> {
-  const response = await fetch(`${AUTH_ENDPOINT}/login-code`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, code }),
-  });
-  const payload = await parseResponse<AuthResponse>(response);
+  const payload = await apiFetch<AuthResponse>(
+    `${AUTH_ENDPOINT}/login-code`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code }),
+      skip401: true,
+    },
+    '登录失败',
+  );
   setAuthSession(payload);
   return payload.user;
 }
 
 export async function registerWithCode(name: string, email: string, password: string, code: string): Promise<AuthUser> {
-  const response = await fetch(`${AUTH_ENDPOINT}/register-code`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, password, code }),
-  });
-  const payload = await parseResponse<AuthResponse>(response);
+  const payload = await apiFetch<AuthResponse>(
+    `${AUTH_ENDPOINT}/register-code`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password, code }),
+      skip401: true,
+    },
+    '注册失败',
+  );
   setAuthSession(payload);
   return payload.user;
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChatTimeline } from './ChatTimeline';
@@ -18,7 +17,7 @@ import { cn } from '../../lib/utils';
 export const ChatMainArea = React.memo(() => {
   // 从 Context 获取 hook 返回值和派生状态
   const {
-    currentSession, isLoading, isStreamingResponse, isWideConversation,
+    currentSession, isLoading, isWideConversation,
     isUserScrolledUp, error, runStatus,
     showSearch, searchQuery, searchMatchesCount, searchCurrentIndex, activeMatchId,
     pendingApprovals, pendingDecisions,
@@ -163,7 +162,7 @@ export const ChatMainArea = React.memo(() => {
           </AnimatePresence>
 
           <MessagesList
-            currentSession={currentSession}
+            currentSession={currentSession ?? undefined}
             isLoading={isLoading}
             wideLayout={isWideConversation}
             searchQuery={searchQuery}

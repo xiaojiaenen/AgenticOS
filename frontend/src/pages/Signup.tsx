@@ -1,12 +1,20 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { toast } from 'sonner';
 import { Logo } from '../components/Logo';
 import { RandomMascot } from '../components/ui/RandomMascot';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { PasswordInput } from '../components/ui/PasswordInput';
-import { registerWithCode, sendVerificationCode } from '../services/authService';import { cn } from '../lib/utils';
+import { AuroraBackground } from '../components/backgrounds/AuroraBackground';
+import { PasswordField } from '../components/auth/PasswordField';
+import { Button } from '../components/shadcn/button';
+import { Input } from '../components/shadcn/input';
+import { Label } from '../components/shadcn/label';
+import { Card, CardContent } from '../components/shadcn/card';
+import { registerWithCode, sendVerificationCode } from '../services/authService';
+import { cn } from '../lib/utils';
 
 const EMAIL_SUFFIXES = [
   '@qq.com', '@163.com', '@126.com', '@gmail.com',
@@ -14,19 +22,44 @@ const EMAIL_SUFFIXES = [
   '@yeah.net', '@sina.com', '@aliyun.com',
 ];
 
+// 校验规则与旧手写逻辑等价：昵称必填 / 邮箱格式 / 密码 ≥6 / 验证码 6 位
+const signupSchema = z.object({
+  name: z.string().trim().min(1, '请输入昵称'),
+  email: z
+    .string()
+    .trim()
+    .min(1, '请输入邮箱地址')
+    .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, '请输入有效的邮箱地址'),
+  password: z.string().min(6, '密码至少 6 位'),
+  code: z.string().length(6, '请输入 6 位验证码'),
+});
+
+type SignupFormValues = z.infer<typeof signupSchema>;
+
 export const Signup = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [codeCountdown, setCodeCountdown] = useState(0);
+  const [isSendingCode, setIsSendingCode] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);  const emailRef = useRef<HTMLDivElement>(null);
+  const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
+
+  const emailRef = useRef<HTMLDivElement>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<SignupFormValues>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: { name: '', email: '', password: '', code: '' },
+  });
+
+  const email = watch('email');
 
   // 邮箱后缀补全
   const getEmailSuggestions = useCallback(() => {
@@ -65,68 +98,44 @@ export const Signup = () => {
 
   const handleSendCode = async () => {
     if (!email.trim()) {
-      setError('请输入邮箱地址');
+      setError('email', { message: '请输入邮箱地址' });
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError('请输入有效的邮箱地址');
+      setError('email', { message: '请输入有效的邮箱地址' });
       return;
     }
-    setError(null);
+    setIsSendingCode(true);
     try {
-      await sendVerificationCode(email, 'register');
+      await sendVerificationCode(email.trim(), 'register');
       setCodeSent(true);
       setCodeCountdown(60);
+      toast.success('验证码已发送，请查收邮箱');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '发送验证码失败');
+      const message = err instanceof Error ? err.message : '发送验证码失败';
+      toast.error(message);
+    } finally {
+      setIsSendingCode(false);
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSubmitting) return;
-    if (!name.trim()) {
-      setError('请输入昵称');
-      return;
-    }
-    if (!email.trim()) {
-      setError('请输入邮箱地址');
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError('请输入有效的邮箱地址');
-      return;
-    }
-    if (!password) {
-      setError('请输入密码');
-      return;
-    }
-    if (password.length < 6) {
-      setError('密码至少 6 位');
-      return;
-    }
+  const onSignup = handleSubmit(async (values) => {
     if (!codeSent) {
-      setError('请先发送验证码');
+      setError('root', { message: '请先发送验证码' });
       return;
     }
-    if (code.length !== 6) {
-      setError('请输入 6 位验证码');
-      return;
-    }
-    setError(null);
-    setIsSubmitting(true);
     try {
-      const user = await registerWithCode(name, email, password, code);
+      const user = await registerWithCode(values.name, values.email, values.password, values.code);
       navigate(user.role === 'admin' ? '/admin' : '/chat', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : '注册失败');
-    } finally {
-      setIsSubmitting(false);
+      const message = err instanceof Error ? err.message : '注册失败';
+      setError('root', { message });
+      toast.error(message);
     }
-  };
+  });
 
   const selectSuggestion = (value: string) => {
-    setEmail(value);
+    setValue('email', value, { shouldValidate: false });
     setShowSuggestions(false);
     setSelectedSuggestionIdx(-1);
   };
@@ -153,109 +162,173 @@ export const Signup = () => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className={cn(
-        'min-h-screen relative flex items-center justify-center p-4 overflow-hidden',
-        'selection:bg-zinc-200 selection:text-zinc-900'
-      )}
-      style={{ background: 'linear-gradient(180deg, #def0f6 0%, #e7f4f9 28%, #e1f2f7 55%, #e3f2f7 100%)' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: { duration: 0.2 } }}
+      transition={{ duration: 0.3 }}
+      className="relative min-h-screen overflow-hidden bg-zinc-50 flex items-center justify-center p-4"
     >
-<div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute -top-20 -left-12 w-[50vw] h-[50vw] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.20),transparent_70%)] blur-[70px] animate-[bg-blob-2_15s_ease-in-out_infinite]" />
-        <div className="absolute -bottom-16 -right-10 w-[48vw] h-[48vw] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.18),transparent_70%)] blur-[70px] animate-[bg-blob-4_17s_ease-in-out_infinite]" />
-        <div className="absolute top-1/2 left-1/5 w-[38vw] h-[38vw] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.15),transparent_70%)] blur-[80px] animate-[bg-blob-1_14s_ease-in-out_infinite]" />
-        <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-slate-900 opacity-[0.03]" />
+      <AuroraBackground className="fixed" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-zinc-900 opacity-[0.03]" />
       </div>
-      <motion.button
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
+
+      <button
         onClick={() => navigate('/login')}
-        className={cn("fixed top-6 left-6 z-20 flex items-center gap-2 px-4 py-2 rounded-2xl shadow-sm font-medium transition-all group", "bg-white/60 border border-white/60 text-slate-600 hover:text-zinc-900 hover:shadow-md")}
+        className="fixed top-6 left-6 z-20 flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white/80 text-sm font-medium text-zinc-600 shadow-sm transition-all hover:border-zinc-300 hover:text-zinc-900 hover:shadow-md group"
         aria-label="返回登录"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-hover:-translate-x-1 transition-transform"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:-translate-x-1"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
         返回登录
-      </motion.button>
+      </button>
 
       <main id="main-content" className="w-full max-w-md relative z-10">
-        {(() => {
-          const formPanel = (
-            <>
-              <div className="flex flex-col items-center mb-10">
-              <div className="mb-6">
-                <Logo iconSize={48} showText={false} />
-              </div>
-              <h1 className={cn("text-3xl font-semibold tracking-tight", "text-slate-900")}>注册 AgenticOS</h1>
-              <p className={cn("mt-2.5 text-sm font-medium", "text-slate-500")}>创建账号，开始你的智能协作</p>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div className="flex flex-col items-center mb-8">
+            <div className="mb-5">
+              <Logo iconSize={48} showText={false} />
             </div>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">注册 AgenticOS</h1>
+            <p className="mt-2 text-sm text-zinc-500">创建账号，开始你的智能协作</p>
+          </div>
 
-            <form className="space-y-5" onSubmit={handleSignup}>
-              <Input label="昵称" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="请输入您的昵称" required autoComplete="name" />
-
-              {/* 邮箱输入 + 补全 */}
-              <div ref={emailRef} className="relative">
-                <Input label="邮箱地址" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setShowSuggestions(true); setSelectedSuggestionIdx(-1); }} onFocus={() => setShowSuggestions(true)} onKeyDown={handleEmailKeyDown} placeholder="you@example.com" required autoComplete="email" />
-                <AnimatePresence>
-                  {showSuggestions && suggestions.length > 0 && (
-                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                      className={cn("absolute left-0 right-0 top-full mt-1 rounded-xl border shadow-lg overflow-hidden z-50 backdrop-blur-xl", "bg-white border-slate-200")}
-                    >
-                      {suggestions.map((s, i) => (
-                        <button key={s} type="button" onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
-                          className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${i === selectedSuggestionIdx ? 'bg-sky-50 text-sky-700' : 'text-slate-600 hover:bg-slate-50'}`}
-                        >
-                          <span className={"text-slate-400"}>{email}</span>
-                          <span className="font-medium">{s.slice(email.length)}</span>
-                        </button>
-                      ))}
-                    </motion.div>
+          <Card className="py-8 shadow-md">
+            <CardContent className="px-8">
+              <form className="space-y-5" onSubmit={onSignup} noValidate>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name">昵称</Label>
+                  <Input
+                    id="signup-name"
+                    type="text"
+                    autoComplete="name"
+                    placeholder="请输入您的昵称"
+                    aria-invalid={!!errors.name}
+                    {...register('name')}
+                  />
+                  {errors.name && (
+                    <p className="text-xs font-medium text-red-600" role="alert">{errors.name.message}</p>
                   )}
-                </AnimatePresence>
-              </div>
-
-              <div>
-                <label htmlFor="signup-password" className={cn("mb-2 ml-1 block text-xs font-semibold uppercase tracking-[0.15em]", "text-slate-500")}>密码</label>
-                <PasswordInput id="signup-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="至少 6 位" minLength={6} autoComplete="new-password" />
-              </div>
-
-              {/* 邮箱验证码 */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className={cn("text-xs font-semibold uppercase tracking-[0.15em] ml-1", "text-slate-500")}>邮箱验证码</label>
-                  <Button type="button" variant="secondary" size="sm" onClick={handleSendCode} disabled={codeCountdown > 0} className="shrink-0 px-3 py-1 text-xs">
-                    {codeCountdown > 0 ? `${codeCountdown}s` : '发送验证码'}
-                  </Button>
                 </div>
-                <Input type="text" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="输入 6 位验证码" maxLength={6} required />
-                {codeSent && <p className="text-xs text-emerald-600 font-medium">验证码已发送到您的邮箱，请查收</p>}
+
+                {/* 邮箱输入 + 补全 */}
+                <div ref={emailRef} className="relative space-y-2">
+                  <Label htmlFor="signup-email">邮箱地址</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    aria-invalid={!!errors.email}
+                    {...register('email', {
+                      onChange: () => {
+                        setShowSuggestions(true);
+                        setSelectedSuggestionIdx(-1);
+                      },
+                    })}
+                    onFocus={() => setShowSuggestions(true)}
+                    onKeyDown={handleEmailKeyDown}
+                  />
+                  {errors.email && (
+                    <p className="text-xs font-medium text-red-600" role="alert">{errors.email.message}</p>
+                  )}
+                  <AnimatePresence>
+                    {showSuggestions && suggestions.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        className="absolute left-0 right-0 top-full mt-1 rounded-lg border border-zinc-200 bg-popover shadow-lg overflow-hidden z-50"
+                      >
+                        {suggestions.map((s, i) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
+                            className={cn(
+                              'w-full px-4 py-2 text-left text-sm transition-colors',
+                              i === selectedSuggestionIdx
+                                ? 'bg-accent text-accent-foreground'
+                                : 'text-zinc-600 hover:bg-zinc-50'
+                            )}
+                          >
+                            <span className="text-zinc-400">{email}</span>
+                            <span className="font-medium">{s.slice(email.length)}</span>
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password">密码</Label>
+                  <PasswordField
+                    id="signup-password"
+                    placeholder="至少 6 位"
+                    autoComplete="new-password"
+                    aria-invalid={!!errors.password}
+                    {...register('password')}
+                  />
+                  {errors.password && (
+                    <p className="text-xs font-medium text-red-600" role="alert">{errors.password.message}</p>
+                  )}
+                </div>
+
+                {/* 邮箱验证码 */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="signup-code">邮箱验证码</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSendCode}
+                      disabled={codeCountdown > 0 || isSendingCode}
+                      className="shrink-0"
+                    >
+                      {codeCountdown > 0 ? `${codeCountdown}s` : '发送验证码'}
+                    </Button>
+                  </div>
+                  <Input
+                    id="signup-code"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="输入 6 位验证码"
+                    maxLength={6}
+                    aria-invalid={!!errors.code}
+                    {...register('code', {
+                      setValueAs: (v: string) => v.replace(/\D/g, '').slice(0, 6),
+                    })}
+                  />
+                  {errors.code && (
+                    <p className="text-xs font-medium text-red-600" role="alert">{errors.code.message}</p>
+                  )}
+                  {codeSent && !errors.code && (
+                    <p className="text-xs font-medium text-emerald-600">验证码已发送到您的邮箱，请查收</p>
+                  )}
+                </div>
+
+                {errors.root && (
+                  <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                    {errors.root.message}
+                  </div>
+                )}
+
+                <Button type="submit" disabled={isSubmitting} className="w-full h-11 text-sm">
+                  {isSubmitting ? '正在注册...' : '注册账号'}
+                </Button>
+              </form>
+
+              <div className="mt-8 text-center text-sm text-zinc-500">
+                已有账号？ <a href="#" onClick={(e) => { e.preventDefault(); navigate('/login'); }} className="text-primary hover:text-primary/80 font-medium underline underline-offset-4">立即登录</a>
               </div>
-
-              {error && <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>}
-
-              <Button variant="primary" type="submit" disabled={isSubmitting} className="w-full h-14 text-lg rounded-2xl mt-4">
-                {isSubmitting ? '正在注册...' : '注册账号'}
-              </Button>
-            </form>
-
-            <div className={cn("mt-10 text-center text-sm font-medium", "text-slate-500")}>
-              已有账号？ <a href="#" onClick={(e) => { e.preventDefault(); navigate('/login'); }} className="text-brand-600 hover:text-brand-700 font-semibold underline decoration-brand-200 underline-offset-4">立即登录</a>
-            </div>
-            </>
-          );
-          return (
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className={cn("w-full", "backdrop-blur-2xl rounded-[2rem] shadow-xl p-10 bg-[var(--surface-2)] border border-white/60 shadow-brand-500/10")}
-            >
-              <div className="w-full">{formPanel}</div>
-            </motion.div>
-          );
-        })()}
+            </CardContent>
+          </Card>
+        </motion.div>
       </main>
     </motion.div>
   );

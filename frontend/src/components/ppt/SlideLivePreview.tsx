@@ -38,7 +38,7 @@ async function fetchSlides(sessionId: string): Promise<SlideData[]> {
 
 export const SlideLivePreview: React.FC<SlideLivePreviewProps> = ({ sessionId, isStreaming, hasArtifact }) => {
   const [slides, setSlides] = useState<SlideData[]>([]);
-  const [lastUpdate, setLastUpdate] = useState(0);
+  const [, setLastUpdate] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const poll = useCallback(async () => {

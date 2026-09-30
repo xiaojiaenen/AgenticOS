@@ -5,8 +5,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Mail, Send, X, User, Users, FileText, Check, XCircle } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { Mail, Send, X, User, Users, FileText, XCircle } from 'lucide-react';
 
 interface EmailArtifact {
   language: 'email';

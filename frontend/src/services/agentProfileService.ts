@@ -1,4 +1,4 @@
-import { authHeaders } from './authService';
+import { apiFetch } from './apiClient';
 import { AgentMode, ToolCatalogItem } from './toolConfigService';
 
 export type AgentProfileTool = {
@@ -76,76 +76,50 @@ const AGENT_PROFILES_ENDPOINT = `${API_BASE_URL}/api/v1/agent-profiles`;
 const AGENT_STORE_ENDPOINT = `${API_BASE_URL}/api/v1/agent-store`;
 const MY_AGENTS_ENDPOINT = `${API_BASE_URL}/api/v1/my/agents`;
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  const raw = await response.text();
-  if (response.ok) return JSON.parse(raw) as T;
-  let message = 'Request failed';
-  try {
-    const payload = JSON.parse(raw);
-    if (typeof payload.detail === 'string') message = payload.detail;
-  } catch {
-    if (raw) message = raw;
-  }
-  throw new Error(message);
-}
-
 export async function getAgentProfiles(): Promise<AgentProfileListResponse> {
-  const response = await fetch(AGENT_PROFILES_ENDPOINT, { headers: authHeaders() });
-  return parseResponse<AgentProfileListResponse>(response);
+  return apiFetch<AgentProfileListResponse>(AGENT_PROFILES_ENDPOINT, {}, '智能体配置加载失败');
 }
 
 export async function createAgentProfile(payload: AgentProfilePayload): Promise<AgentProfile> {
-  const response = await fetch(AGENT_PROFILES_ENDPOINT, {
-    method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  return parseResponse<AgentProfile>(response);
+  return apiFetch<AgentProfile>(
+    AGENT_PROFILES_ENDPOINT,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    '创建智能体失败',
+  );
 }
 
 export async function updateAgentProfile(profileId: number, payload: Partial<AgentProfilePayload>): Promise<AgentProfile> {
-  const response = await fetch(`${AGENT_PROFILES_ENDPOINT}/${profileId}`, {
-    method: 'PATCH',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  return parseResponse<AgentProfile>(response);
+  return apiFetch<AgentProfile>(
+    `${AGENT_PROFILES_ENDPOINT}/${profileId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    '更新智能体失败',
+  );
 }
 
 export async function deleteAgentProfile(profileId: number): Promise<void> {
-  const response = await fetch(`${AGENT_PROFILES_ENDPOINT}/${profileId}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  });
-  if (!response.ok) {
-    await parseResponse(response);
-  }
+  await apiFetch<void>(`${AGENT_PROFILES_ENDPOINT}/${profileId}`, { method: 'DELETE' }, '删除智能体失败');
 }
 
 export async function getAgentStore(): Promise<AgentProfileListResponse> {
-  const response = await fetch(AGENT_STORE_ENDPOINT, { headers: authHeaders() });
-  return parseResponse<AgentProfileListResponse>(response);
+  return apiFetch<AgentProfileListResponse>(AGENT_STORE_ENDPOINT, {}, '智能体商店加载失败');
 }
 
 export async function installAgent(profileId: number): Promise<AgentProfile> {
-  const response = await fetch(`${AGENT_STORE_ENDPOINT}/${profileId}/install`, {
-    method: 'POST',
-    headers: authHeaders(),
-  });
-  return parseResponse<AgentProfile>(response);
+  return apiFetch<AgentProfile>(`${AGENT_STORE_ENDPOINT}/${profileId}/install`, { method: 'POST' }, '安装智能体失败');
 }
 
 export async function uninstallAgent(profileId: number): Promise<void> {
-  const response = await fetch(`${AGENT_STORE_ENDPOINT}/${profileId}/install`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  });
-  if (!response.ok) {
-    await parseResponse(response);
-  }
+  await apiFetch<void>(`${AGENT_STORE_ENDPOINT}/${profileId}/install`, { method: 'DELETE' }, '卸载智能体失败');
 }
 
 export async function getMyAgents(): Promise<AgentProfileListResponse> {
-  const response = await fetch(MY_AGENTS_ENDPOINT, { headers: authHeaders() });
-  return parseResponse<AgentProfileListResponse>(response);
+  return apiFetch<AgentProfileListResponse>(MY_AGENTS_ENDPOINT, {}, '我的智能体加载失败');
 }

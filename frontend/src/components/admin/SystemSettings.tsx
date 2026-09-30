@@ -3,7 +3,6 @@
  * TanStack Query 数据层 + shadcn 组件。
  * 后端 API 不变（services/settingsService.ts）。
  */
-import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Loader2, Server } from 'lucide-react';

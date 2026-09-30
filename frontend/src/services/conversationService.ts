@@ -1,4 +1,4 @@
-import { authHeaders } from './authService';
+import { apiFetch } from './apiClient';
 
 export type AdminConversation = {
   session_id: string;
@@ -70,29 +70,17 @@ export type AdminConversationDetail = {
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const DASHBOARD_ENDPOINT = `${API_BASE_URL}/api/v1/dashboard`;
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  const raw = await response.text();
-  if (response.ok) return JSON.parse(raw) as T;
-  let message = 'Request failed';
-  try {
-    const payload = JSON.parse(raw);
-    if (typeof payload.detail === 'string') message = payload.detail;
-  } catch {
-    if (raw) message = raw;
-  }
-  throw new Error(message);
-}
-
 export async function listConversations(params: { search?: string; offset?: number; limit?: number }): Promise<ConversationListResponse> {
   const query = new URLSearchParams();
   if (params.search) query.set('search', params.search);
   query.set('offset', String(params.offset ?? 0));
   query.set('limit', String(params.limit ?? 20));
 
-  const response = await fetch(`${DASHBOARD_ENDPOINT}/conversations?${query.toString()}`, {
-    headers: authHeaders(),
-  });
-  return parseResponse<ConversationListResponse>(response);
+  return apiFetch<ConversationListResponse>(
+    `${DASHBOARD_ENDPOINT}/conversations?${query.toString()}`,
+    {},
+    '会话列表加载失败',
+  );
 }
 
 export async function getConversationDetail(
@@ -103,17 +91,17 @@ export async function getConversationDetail(
   query.set('messages_offset', String(params.messagesOffset ?? 0));
   query.set('messages_limit', String(params.messagesLimit ?? 20));
 
-  const response = await fetch(`${DASHBOARD_ENDPOINT}/conversations/${encodeURIComponent(sessionId)}?${query.toString()}`, {
-    headers: authHeaders(),
-  });
-  return parseResponse<AdminConversationDetail>(response);
+  return apiFetch<AdminConversationDetail>(
+    `${DASHBOARD_ENDPOINT}/conversations/${encodeURIComponent(sessionId)}?${query.toString()}`,
+    {},
+    '会话详情加载失败',
+  );
 }
 
 export async function deleteConversation(sessionId: string): Promise<void> {
-  const response = await fetch(`${DASHBOARD_ENDPOINT}/conversations/${encodeURIComponent(sessionId)}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  });
-  if (response.ok) return;
-  await parseResponse<unknown>(response);
+  await apiFetch<void>(
+    `${DASHBOARD_ENDPOINT}/conversations/${encodeURIComponent(sessionId)}`,
+    { method: 'DELETE' },
+    '删除会话失败',
+  );
 }

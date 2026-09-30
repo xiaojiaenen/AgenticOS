@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
-// 圆角值，与浅色模式 rounded-xl 一致
-const glassRadius = 12;
 import { Session } from '../../types';
 import { cn } from '../../lib/utils';
 import { Logo } from '../Logo';
@@ -11,7 +9,8 @@ import { PlusIcon, ChatBubbleIcon, TrashIcon, MenuIcon, UserAvatarIcon } from '.
 import { getStoredUser, logout } from '../../services/authService';
 import { IntegrationMarket } from './IntegrationMarket';
 import { EmailSettingsPanel } from './EmailSettingsPanel';
-import { Modal, ModalHeader, ModalFooter } from '../ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../shadcn/dialog';
+import { Button } from '../shadcn/button';
 import { ThemeToggle } from '../ui/ThemeToggle';
 interface SidebarProps {
   sessions: Session[];
@@ -235,23 +234,31 @@ export const Sidebar = React.memo(({
     </motion.aside>
     <IntegrationMarket open={showMarket} onClose={() => setShowMarket(false)} />
     <EmailSettingsPanel open={showEmailSettings} onClose={() => setShowEmailSettings(false)} />
-    {/* Delete Confirmation Modal */}
-    <Modal open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} maxWidth="max-w-sm">
-      <ModalHeader title="删除对话" subtitle="确认删除" onClose={() => setDeleteConfirm(null)} />
-      <p className="text-sm text-slate-600 mb-4">
-        确定要删除对话「{deleteConfirm?.title || '新对话'}」吗？此操作不可撤销。
-      </p>
-      <ModalFooter
-        onCancel={() => setDeleteConfirm(null)}
-        submitLabel="删除"
-        onSubmit={() => {
-          if (deleteConfirm) {
-            onDeleteSession(deleteConfirm.id);
-            setDeleteConfirm(null);
-          }
-        }}
-      />
-    </Modal>
+    {/* Delete Confirmation Dialog */}
+    <Dialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
+      <DialogContent className="max-w-sm" showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>删除对话</DialogTitle>
+          <DialogDescription>
+            确定要删除对话「{deleteConfirm?.title || '新对话'}」吗？此操作不可撤销。
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => setDeleteConfirm(null)}>取消</Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              if (deleteConfirm) {
+                onDeleteSession(deleteConfirm.id);
+                setDeleteConfirm(null);
+              }
+            }}
+          >
+            删除
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 });

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react'
 import { motion, MotionValue } from 'motion/react'
 import { CheckCircle2, Globe, RefreshCcw, Rocket, X, XCircle } from 'lucide-react'
@@ -62,7 +61,7 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
       const result = await requestDeploy(
         deploySessionId,
         artifact.projectSlug,
-        artifact.stack,
+        artifact.stack ?? '',
       )
       setDeployStatus(result.status)
       if (result.deploy_url) {

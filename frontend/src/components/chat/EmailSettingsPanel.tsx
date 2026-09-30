@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, CheckCircle, AlertCircle, Loader2, X, Eye, EyeOff, Trash2 } from 'lucide-react';
-import { Button } from '../ui/Button';
+import { Button } from '../shadcn/button';
 import { cn } from '../../lib/utils';
 import { getEmailStatus, saveEmailCredentials, deleteEmailCredentials, EmailStatus } from '../../services/emailService';
 
@@ -231,12 +231,12 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
 
             {/* Actions */}
             <div className="flex items-center gap-2 pt-2">
-              <Button variant="primary" onClick={handleSave} disabled={isSaving} className="flex-1 gap-2">
+              <Button onClick={handleSave} disabled={isSaving} className="flex-1 gap-2">
                 {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
                 {status?.configured ? '更新配置' : '保存并测试连接'}
               </Button>
               {status?.configured && (
-                <Button variant="secondary" onClick={handleDelete} disabled={isSaving} className="gap-1.5">
+                <Button variant="outline" onClick={handleDelete} disabled={isSaving} className="gap-1.5">
                   <Trash2 size={14} className="text-rose-500" />
                 </Button>
               )}

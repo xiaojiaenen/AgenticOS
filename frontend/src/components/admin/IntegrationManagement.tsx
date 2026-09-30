@@ -12,7 +12,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import {
-  AlertCircle,
   ChevronLeft,
   ExternalLink,
   Globe,

@@ -1,4 +1,4 @@
-import { authHeaders } from './authService';
+import { apiFetch } from './apiClient';
 
 export type AdminUser = {
   id: number;
@@ -25,79 +25,55 @@ export type UserFormPayload = {
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const USERS_ENDPOINT = `${API_BASE_URL}/api/v1/users`;
 
-async function parseResponse<T>(response: Response): Promise<T> {
-  const raw = await response.text();
-  if (response.ok) return JSON.parse(raw) as T;
-  let message = 'Request failed';
-  try {
-    const payload = JSON.parse(raw);
-    if (typeof payload.detail === 'string') message = payload.detail;
-  } catch {
-    if (raw) message = raw;
-  }
-  throw new Error(message);
-}
-
 export async function listUsers(params: { search?: string; offset?: number; limit?: number }): Promise<UserListResponse> {
   const query = new URLSearchParams();
   if (params.search) query.set('search', params.search);
   query.set('offset', String(params.offset ?? 0));
   query.set('limit', String(params.limit ?? 20));
 
-  const response = await fetch(`${USERS_ENDPOINT}?${query.toString()}`, {
-    headers: authHeaders(),
-  });
-  return parseResponse<UserListResponse>(response);
+  return apiFetch<UserListResponse>(`${USERS_ENDPOINT}?${query.toString()}`, {}, '用户列表加载失败');
 }
 
 export async function getUser(userId: number): Promise<AdminUser> {
-  const response = await fetch(`${USERS_ENDPOINT}/${userId}`, {
-    headers: authHeaders(),
-  });
-  return parseResponse<AdminUser>(response);
+  return apiFetch<AdminUser>(`${USERS_ENDPOINT}/${userId}`, {}, '用户信息加载失败');
 }
 
 export async function createUser(payload: UserFormPayload): Promise<AdminUser> {
-  const response = await fetch(USERS_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      ...authHeaders(),
-      'Content-Type': 'application/json',
+  return apiFetch<AdminUser>(
+    USERS_ENDPOINT,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  return parseResponse<AdminUser>(response);
+    '创建用户失败',
+  );
 }
 
 export async function updateUser(userId: number, payload: Partial<UserFormPayload>): Promise<AdminUser> {
-  const response = await fetch(`${USERS_ENDPOINT}/${userId}`, {
-    method: 'PATCH',
-    headers: {
-      ...authHeaders(),
-      'Content-Type': 'application/json',
+  return apiFetch<AdminUser>(
+    `${USERS_ENDPOINT}/${userId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  return parseResponse<AdminUser>(response);
+    '更新用户失败',
+  );
 }
 
 export async function updateUserStatus(userId: number, isActive: boolean): Promise<AdminUser> {
-  const response = await fetch(`${USERS_ENDPOINT}/${userId}/status`, {
-    method: 'PATCH',
-    headers: {
-      ...authHeaders(),
-      'Content-Type': 'application/json',
+  return apiFetch<AdminUser>(
+    `${USERS_ENDPOINT}/${userId}/status`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: isActive }),
     },
-    body: JSON.stringify({ is_active: isActive }),
-  });
-  return parseResponse<AdminUser>(response);
+    '更新用户状态失败',
+  );
 }
 
 export async function deleteUser(userId: number): Promise<void> {
-  const response = await fetch(`${USERS_ENDPOINT}/${userId}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  });
-  if (response.ok) return;
-  await parseResponse<unknown>(response);
+  await apiFetch<void>(`${USERS_ENDPOINT}/${userId}`, { method: 'DELETE' }, '删除用户失败');
 }

@@ -3,10 +3,10 @@ import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, Bot, Check, Loader2, Plus, RefreshCw, Sparkles, X } from 'lucide-react';
 import { Logo } from '../components/Logo';
-import { Button } from '../components/ui/Button';
+import { Button } from '../components/shadcn/button';
 import { Badge } from '../components/ui/Badge';
 import { RandomMascot } from '../components/ui/RandomMascot';
-import { MascotHappy, MascotGeneral, MascotPPT, MascotWebsite, MascotBigData } from '../components/ui/MascotIcons';
+import { MascotGeneral, MascotPPT, MascotWebsite, MascotBigData } from '../components/ui/MascotIcons';
 import { AgentProfile, getAgentStore, installAgent, uninstallAgent } from '../services/agentProfileService';
 import { cn } from '../lib/utils';
 
@@ -96,10 +96,10 @@ export const AgentStore = () => {
       <nav className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 py-4">
         <Logo />
         <div className="flex items-center gap-3">
-          <Button variant="secondary" onClick={loadStore} disabled={isLoading} size="icon" title="刷新">
+          <Button variant="outline" onClick={loadStore} disabled={isLoading} size="icon" title="刷新">
             {isLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
           </Button>
-          <Button variant="secondary" onClick={() => navigate('/')} className="gap-2">
+          <Button variant="outline" onClick={() => navigate('/')} className="gap-2">
             <ArrowLeft size={16} />
             返回
           </Button>
@@ -180,7 +180,7 @@ export const AgentStore = () => {
                     )}
                     {agent.installed && agent.slug !== 'general' && (
                       <Button
-                        variant="secondary"
+                        variant="outline"
                         size="icon"
                         onClick={() => toggleInstall(agent)}
                         disabled={busyId === agent.id}

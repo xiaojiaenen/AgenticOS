@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AlertCircle, CheckCircle, ExternalLink, Globe, Key, Loader2, Plug, Shield, Unplug, X } from "lucide-react";
-import { Button } from "../ui/Button";
+import { Button } from "../shadcn/button";
 import { listIntegrations, connectIntegration, disconnectIntegration, listMyConnections, listCategories, IntegrationSystem, UserConnection, IntegrationCategory, CredentialField } from "../../services/integrationService";
 import { cn } from "../../lib/utils";
 
@@ -130,7 +130,7 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
                             ) : sys.has_default_credential ? (
                               <span className="flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"><CheckCircle size={12} /> 已就绪</span>
                             ) : (
-                              <Button variant="primary" size="sm" onClick={() => openConnect(sys)} className="gap-1 text-xs"><Plug size={14} /> 连接</Button>
+                              <Button size="sm" onClick={() => openConnect(sys)} className="gap-1 text-xs"><Plug size={14} /> 连接</Button>
                             )}
                           </div>
                         </>
@@ -169,7 +169,7 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
                     </div>
                   ))}
                 </div>
-                <div className="mt-6 flex justify-end gap-3"><Button variant="secondary" onClick={() => setConnectingSystem(null)}>取消</Button><Button variant="primary" onClick={handleConnect} disabled={isConnecting} className="gap-2">{isConnecting ? <Loader2 size={16} className="animate-spin" /> : <Plug size={16} />}连接</Button></div>
+                <div className="mt-6 flex justify-end gap-3"><Button variant="outline" onClick={() => setConnectingSystem(null)}>取消</Button><Button onClick={handleConnect} disabled={isConnecting} className="gap-2">{isConnecting ? <Loader2 size={16} className="animate-spin" /> : <Plug size={16} />}连接</Button></div>
           </motion.div>
         </motion.div>
       )}

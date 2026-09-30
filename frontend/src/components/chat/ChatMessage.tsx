@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { BrainCircuit } from 'lucide-react';
-import { Artifact, Message, ToolCall } from '../../types';
+import { Artifact, Message } from '../../types';
 import { APP_TIME_ZONE } from '../../lib/datetime';
 import { cn, copyToClipboard } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
@@ -13,10 +13,8 @@ import { UserAvatarIcon, MascotCool, CopyIcon, CheckIcon, WrenchIcon, ChevronDow
 import { ErrorBoundary, InlineErrorFallback } from '../ui/ErrorBoundary';
 import {
   CodeBlock,
-  MermaidChart,
   PptArtifactCard,
   WebsiteArtifactCard,
-  AnimatedDots,
   AssistantWaitingIndicator,
   LiveToolCall,
   ToolResultPreview,
@@ -25,7 +23,6 @@ import {
   MarkdownTableHead,
   MarkdownTableRow,
   buildToolMetaItems,
-  isToolActive,
 } from './ChatMessageSubComponents';
 
 // ── 模块级纯函数：不依赖组件闭包，避免每次渲染重建 ──
@@ -53,13 +50,6 @@ const TableHeaderCell = React.memo(({ children }: { children: React.ReactNode })
   </th>;
 });
 
-const TableHeaderCellGlass = React.memo(({ children }: { children: React.ReactNode }) => {
-  const plainText = extractPlainText(children);
-  const rightAligned = isNumericHeader(plainText);
-  return <th className={cn('px-4 py-3.5 text-xs font-semibold uppercase tracking-[0.14em]', 'text-gray-200', rightAligned ? 'text-right' : 'text-left')}>
-    <div className={cn('flex min-w-0 items-center gap-2', rightAligned ? 'justify-end' : 'justify-start')}><span className="truncate">{plainText || '字段'}</span></div>
-  </th>;
-});
 
 const TableCell = React.memo(({ children, counter, searchQuery, activeMatchId, messageId }: { children: React.ReactNode; counter: { current: number }; searchQuery: string; activeMatchId?: string | null; messageId?: string }) => {
   const plainText = extractPlainText(children);
