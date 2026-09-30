@@ -73,3 +73,8 @@ CLAUDE.md
 # Reasonix
 .reasonix/
 .todo
+
+# 运行时数据与密钥，严禁入库
+data/
+!data/.gitkeep
+backend/nul
