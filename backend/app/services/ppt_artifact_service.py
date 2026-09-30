@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from pathlib import Path
 import uuid
 from typing import Any
 
@@ -197,6 +198,17 @@ class PptArtifactService:
         self.model = PptArtifactModel
         self._last_quality_errors: list[str] = []
         self._last_quality_warnings: list[str] = []
+        # 按 session 隔离的质量门结果（TECH-DEBT-2026-09：
+        # 替代跨会话共享的 _last_quality_* 可变状态；旧属性保留供既有调用方/测试兼容）
+        self._quality_feedback: dict[str, tuple[list[str], list[str]]] = {}
+
+    def set_quality_feedback(self, session_id: str, errors: list[str], warnings: list[str]) -> None:
+        """记录指定 session 最近一次质量门结果。"""
+        self._quality_feedback[session_id] = (list(errors), list(warnings))
+
+    def get_quality_feedback(self, session_id: str) -> tuple[list[str], list[str]]:
+        """读取指定 session 最近一次质量门结果（无记录时返回空列表）。"""
+        return self._quality_feedback.get(session_id, ([], []))
 
     async def create_from_slides_dir(
         self, session_id: str, slides_dir: Path,
@@ -210,6 +222,7 @@ class PptArtifactService:
             _logger.debug(f"slides_dir does not exist: {slides_dir}")
             self._last_quality_errors = [f"幻灯片目录不存在: {slides_dir}"]
             self._last_quality_warnings = []
+            self.set_quality_feedback(session_id, self._last_quality_errors, self._last_quality_warnings)
             return None
 
         svg_files = sorted(slides_dir.glob("slide_*.svg"), key=_slide_num_key)
@@ -217,6 +230,7 @@ class PptArtifactService:
             _logger.debug(f"Not enough slides: {len(svg_files)} < 3")
             self._last_quality_errors = [f"幻灯片不足 3 页（当前 {len(svg_files)} 页）"]
             self._last_quality_warnings = []
+            self.set_quality_feedback(session_id, self._last_quality_errors, self._last_quality_warnings)
             return None
 
         # 在线程池中执行同步的 SVG 处理，防止阻塞事件循环
@@ -230,6 +244,12 @@ class PptArtifactService:
         svgs, resolved_svgs, raw_svgs, theme_name, preview_html, quality_errors, quality_warnings = process_result
         self._last_quality_errors = quality_errors
         self._last_quality_warnings = quality_warnings
+        self.set_quality_feedback(session_id, quality_errors, quality_warnings)
+        # Structural quality failures (missing/mismatched viewBox, critical SVG errors)
+        # hard-block artifact creation so broken decks are not persisted.
+        if quality_errors:
+            _logger.warning("PPT quality gate rejected slides: %s", quality_errors)
+            return None
 
         artifact_id = uuid.uuid4().hex
         slide_count = len(resolved_svgs)
@@ -281,7 +301,7 @@ class PptArtifactService:
 
         svgs = []
         for f in svg_files:
-            svg = f.read_text(encoding="utf-8").strip()
+            svg = f.read_text(encoding="utf-8", errors="replace").strip()
             if svg.startswith("<svg"):
                 svgs.append(svg)
             else:
@@ -334,7 +354,7 @@ class PptArtifactService:
 
             if critical_errors:
                 _logger.warning(
-                    "SVG quality check found %d critical errors (proceeding anyway): %s",
+                    "SVG quality check found %d critical errors (blocking artifact): %s",
                     len(critical_errors), critical_errors,
                 )
                 quality_errors = critical_errors
@@ -349,7 +369,7 @@ class PptArtifactService:
             _logger.warning("Quality check skipped (error initializing): %s", exc)
 
         if not validate_svg_slides(svgs):
-            _logger.warning(f"validate_svg_slides failed: count={len(svgs)} (proceeding anyway)")
+            _logger.warning(f"validate_svg_slides failed: count={len(svgs)} (blocking artifact)")
             reasons = []
             if len(svgs) < 3:
                 reasons.append(f"SVG 页数不足: {len(svgs)} < 3")

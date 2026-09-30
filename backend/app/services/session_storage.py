@@ -10,7 +10,6 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session
 
 from app.core.timezone import isoformat_app_timezone
 from app.db.models import AgentMessageModel, AgentSessionModel
@@ -64,27 +63,6 @@ class DatabaseAgentStorage:
                 row.last_latency_ms = getattr(session, "last_latency_ms", 0) or 0
                 row.last_llm_calls = getattr(session, "last_llm_calls", 0) or 0
                 db.commit()
-        await asyncio.to_thread(_run)
-
-    async def append_message(self, session_id: str, message) -> None:
-        def _run():
-            import time
-            for attempt in range(3):
-                try:
-                    with self.session_factory() as db:
-                        db.add(
-                            AgentMessageModel(
-                                session_id=session_id,
-                                message_json=message.model_dump_json(exclude_none=True),
-                            )
-                        )
-                        db.commit()
-                    return
-                except Exception as e:
-                    if "database is locked" in str(e) and attempt < 2:
-                        time.sleep(0.5 * (attempt + 1))
-                        continue
-                    raise
         await asyncio.to_thread(_run)
 
     async def load(self, session_id: str):
@@ -277,6 +255,50 @@ class DatabaseAgentStorage:
                     metadata["agent_profile_id"] = agent_profile_id
                     row.metadata_json = _dumps(metadata)
                     db.commit()
+        await asyncio.to_thread(_run)
+
+    async def save_session_meta(
+        self,
+        session,
+        *,
+        user_id: int | None,
+        agent_profile_id: int | None,
+    ) -> None:
+        """单事务完成 owner 绑定 + agent profile 绑定 + 元数据持久化。
+
+        等价于原先三段独立事务的组合（TECH-DEBT-2026-09 顺手修复）：
+            assign_owner(session_id, user_id)
+            → assign_agent_profile(session_id, agent_profile_id)
+            → save_meta(session)
+        终态语义保持一致：owner/profile 仅在行上未绑定时写入兜底值，
+        随后 session metadata 中的值照常覆盖（与 save_meta 原逻辑相同）。
+        """
+        def _run():
+            with self.session_factory() as db:
+                row = db.get(AgentSessionModel, session.session_id)
+                if row is None:
+                    row = AgentSessionModel(session_id=session.session_id, system_prompt=session.system_prompt)
+                    db.add(row)
+
+                metadata = getattr(session, "metadata", {}) or {}
+                # 1) assign_owner 语义：仅当未绑定 owner 时写入
+                if row.user_id is None and user_id is not None:
+                    row.user_id = user_id
+                # 2) assign_agent_profile 语义：仅当未绑定时写入
+                if agent_profile_id is not None and row.agent_profile_id is None:
+                    row.agent_profile_id = agent_profile_id
+                # 3) save_meta 语义：session metadata 覆盖（或回退到行上已绑定值）
+                row.system_prompt = session.system_prompt
+                row.user_id = metadata.get("user_id") or row.user_id
+                row.agent_profile_id = metadata.get("agent_profile_id") or row.agent_profile_id
+                row.max_steps = session.max_steps
+                row.parallel_tool_calls = session.parallel_tool_calls
+                row.summary = getattr(session, "summary", None)
+                row.metadata_json = _dumps(metadata)
+                row.last_usage_json = _dumps(getattr(session, "last_usage", {}) or {})
+                row.last_latency_ms = getattr(session, "last_latency_ms", 0) or 0
+                row.last_llm_calls = getattr(session, "last_llm_calls", 0) or 0
+                db.commit()
         await asyncio.to_thread(_run)
 
 
