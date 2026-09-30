@@ -15,26 +15,9 @@ AgenticOS 内置了 4 个专业智能体，覆盖常见场景：
 |--------|------|------|
 | **通用助手** | `general` | 日常问答、资料整理、轻量工具调用 |
 | **PPT 设计师** | `ppt` | 使用 SVG 原生图形生成演示文稿，支持导出 .pptx |
-| **视频创作** | `video` | 智能视频生成，23 种专业模板，Chromium 录制 + ffmpeg 编码 |
 | **邮箱助手** | `email` | 邮件管理，支持读取、搜索、发送和统计 |
 | **网站工程师** | `website` | 页面方案、前端代码、交互原型，支持 Vue/React |
 
-### 视频创作模式
-
-视频创作模式基于 [html-video](https://github.com/nexu-io/html-video) 项目，支持：
-
-- **23 种专业模板**：数据可视化、标题动画、产品展示、解说视频等
-- **多帧 Storyboard**：支持多场景视频，自动拼接
-- **专业级动画**：GSAP Timeline 编排，5 层叠放设计
-- **高清导出**：MP4 格式，支持自定义分辨率和帧率
-
-**系统依赖**：
-
-```bash
-# macOS
-brew install ffmpeg  # 或 sudo port install ffmpeg
-uv run playwright install chromium
-```
 
 ## 项目结构
 
@@ -59,7 +42,6 @@ AgenticOS/
 │  └─ vite.config.ts
 └─ data/                     # Docker 部署时推荐挂载的数据目录
    ├─ skills/                # Skill 文件
-   ├─ video-projects/        # 视频项目文件
    ├─ ppt-sessions/          # PPT 会话文件
    └─ websites/              # 网站项目文件
 ```
@@ -84,39 +66,7 @@ AgenticOS/
 
 **可用工具**：save_slide、save_slides_batch、read_slide、batch_edit_slides、submit_spec_lock、submit_slide_plan、search_icons、search_images 等
 
-### 3. 视频创作（video）
-
-智能视频生成，将想法转化为动画 MP4 视频。
-
-**特性**：
-- **23 种专业模板**：数据可视化、标题动画、产品展示、解说视频等
-- **多帧 Storyboard**：支持多场景视频，自动拼接
-- **专业级动画**：GSAP Timeline 编排，5 层叠放设计
-- **高清导出**：MP4 格式，支持自定义分辨率和帧率
-- **自动设计规范**：设置模板时自动注入 SKILL.md 设计指南
-
-**系统依赖**：
-```bash
-# macOS
-brew install ffmpeg  # 或 sudo port install ffmpeg
-uv run playwright install chromium
-```
-
-**可用工具**：video_search_templates、video_create_project、video_set_template、video_write_content_graph、video_write_frame_html、video_write_preview_html、video_export_mp4 等
-
-**模板类别**：
-| 类别 | 模板 | 适用场景 |
-|------|------|---------|
-| data-viz | frame-data-chart-nyt, frame-nyt-graph | 数据可视化 |
-| social-shorts | frame-glitch-title, frame-kinetic-type | 社交短视频 |
-| product-demo | frame-product-promo | 产品展示 |
-| marketing | frame-bold-poster, frame-liquid-bg-hero | 营销宣传 |
-| presentation | frame-swiss-grid, frame-build-minimal | 演示文稿 |
-| explainer | frame-decision-tree | 解说视频 |
-| intro-outro | frame-logo-outro | 片头片尾 |
-| ambient | frame-takram-organic, frame-warm-grain | 氛围背景 |
-
-### 4. 邮箱助手（email）
+### 3. 邮箱助手（email）
 
 帮助用户高效管理公司邮件。
 
@@ -136,7 +86,7 @@ uv run playwright install chromium
 - 163/126 邮箱
 - 企业邮箱（IMAP/SMTP）
 
-### 5. 网站工程师（website）
+### 4. 网站工程师（website）
 
 用于页面方案、前端代码、交互原型和网站结构设计。
 
@@ -215,9 +165,6 @@ AgenticOS 的 Skill 系统允许智能体按需加载专业知识。每个 Skill
 
 | Skill | 说明 | 适用智能体 |
 |-------|------|-----------|
-| `video-workflow` | 视频创作工作流 | video |
-| `video-design-guide` | HTML 动画设计规范 | video |
-| `video-templates` | 23 个模板速查 | video |
 | `ppt-workflow` | PPT 创作工作流 | ppt |
 | `ppt-design-guide` | SVG 设计规范 | ppt |
 | `ppt-template-library` | 布局和图表模板 | ppt |
@@ -227,17 +174,7 @@ AgenticOS 的 Skill 系统允许智能体按需加载专业知识。每个 Skill
 
 智能体在对话中可以通过 `load_skill("skill-name")` 加载 Skill：
 
-```
-用户：帮我做一个数据可视化视频
-智能体：load_skill("video-workflow")  ← 加载工作流
-智能体：video_search_templates("data visualization")
-智能体：load_skill("video-templates")  ← 查看模板库
-智能体：video_create_project(...)
-智能体：video_set_template(...)
-智能体：load_skill("video-design-guide")  ← 加载设计规范
-智能体：video_write_preview_html(...)
-智能体：video_export_mp4(...)
-```
+
 
 ### Skill 存储位置
 
