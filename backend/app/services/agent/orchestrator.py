@@ -771,6 +771,25 @@ class StreamOrchestrator:
                                             "label": "正在渲染网站预览",
                                         },
                                     }
+                                    # 版本快照：项目目录是原地迭代的，这里把本轮产物
+                                    # 存成快照，用户才能回看之前的每一版
+                                    try:
+                                        from app.services.artifact_version_service import (
+                                            snapshot_website_version,
+                                        )
+
+                                        version = await snapshot_website_version(
+                                            session.session_id,
+                                            artifact.get("preview_html") or "",
+                                            artifact.get("title") or "",
+                                        )
+                                        if version:
+                                            artifact["version"] = version
+                                    except Exception:
+                                        _logger.exception(
+                                            "website version snapshot failed: session=%s",
+                                            session.session_id,
+                                        )
                                     yield {
                                         "event": "artifact_ready",
                                         "data": artifact,

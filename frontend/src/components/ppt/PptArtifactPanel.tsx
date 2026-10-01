@@ -6,15 +6,18 @@ import { Artifact } from '../../types';
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
 import { exportPptx, listPptThemes, rethemePpt, getPptPreviewHtml, type PptTheme } from '../../services/agentService';
 import { PptPresenterMode } from './PptPresenterMode';
+import { ArtifactVersionBar } from '../chat/ArtifactVersionBar';
 
 type PptArtifactPanelProps = {
   artifact: Extract<Artifact, { language: 'ppt' }>;
   onClose: () => void;
   borderColor: MotionValue<string>;
   onThemeChange?: (newHtml: string, theme: string) => void;
+  /** 切换到历史版本（由版本条调用） */
+  onSwitchVersion?: (artifact: Extract<Artifact, { language: 'ppt' }>) => void;
 };
 
-export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, onClose, borderColor, onThemeChange }) => {
+export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, onClose, borderColor, onThemeChange, onSwitchVersion }) => {
   const [isExporting, setIsExporting] = React.useState(false);
   const [isPresenting, setIsPresenting] = React.useState(false);
   const [showThemePanel, setShowThemePanel] = React.useState(false);
@@ -115,6 +118,21 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <ArtifactVersionBar
+              sessionId={artifact.sessionId}
+              currentReference={artifact.artifactId}
+              kind="ppt"
+              onSelect={({ artifact: loaded }) => {
+                onSwitchVersion?.({
+                  language: 'ppt',
+                  artifactId: String(loaded.artifact_id ?? ''),
+                  html: String(loaded.html ?? ''),
+                  title: String(loaded.title ?? ''),
+                  slideCount: Number(loaded.slide_count ?? 0),
+                  theme: loaded.theme as string | undefined,
+                });
+              }}
+            />
             <button
               type="button"
               onClick={() => setShowThemePanel(!showThemePanel)}

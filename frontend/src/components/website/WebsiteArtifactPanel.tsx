@@ -3,6 +3,7 @@ import { motion, MotionValue } from 'motion/react'
 import { CheckCircle2, Globe, RefreshCcw, Rocket, X, XCircle } from 'lucide-react'
 import { Artifact } from '../../types'
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview'
+import { ArtifactVersionBar } from '../chat/ArtifactVersionBar'
 import { requestDeploy, DeployStatus } from '../../services/websiteService'
 
 type WebsiteArtifactPanelProps = {
@@ -11,6 +12,8 @@ type WebsiteArtifactPanelProps = {
   borderColor: MotionValue<string>
   /** 当前会话 ID — requestDeploy 首参必须是 sessionId，不是 artifactId */
   sessionId?: string
+  /** 切换到历史版本（由版本条调用） */
+  onSwitchVersion?: (artifact: Extract<Artifact, { language: 'website' }>) => void
 }
 
 export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
@@ -18,6 +21,7 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
   onClose,
   borderColor,
   sessionId,
+  onSwitchVersion,
 }) => {
   const [isDeploying, setIsDeploying] = React.useState(false)
   const [deployStatus, setDeployStatus] = React.useState<DeployStatus | null>(null)
@@ -99,6 +103,22 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <ArtifactVersionBar
+            sessionId={sessionId || artifact.sessionId}
+            currentReference={artifact.version ? `v${artifact.version}` : undefined}
+            kind="website"
+            onSelect={({ artifact: loaded }) => {
+              onSwitchVersion?.({
+                language: 'website',
+                artifactId: String(loaded.artifact_id ?? ''),
+                html: String(loaded.preview_html ?? ''),
+                title: String(loaded.title ?? ''),
+                projectSlug: String(loaded.project_slug ?? ''),
+                stack: loaded.stack as string | undefined,
+                fileCount: 0,
+              });
+            }}
+          />
           <button
             type="button"
             onClick={handleRefresh}

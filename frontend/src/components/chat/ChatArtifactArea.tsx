@@ -11,6 +11,8 @@ interface ChatArtifactAreaProps {
   onClose: () => void;
   borderColor: MotionValue<string>;
   onPptThemeChange?: (newHtml: string, theme: string) => void;
+  /** 切换历史版本时替换当前产物 */
+  onSwitchArtifact?: (artifact: Artifact) => void;
   onEmailConfirm?: (approvalId: string) => void;
   onEmailCancel?: (approvalId: string) => void;
   sessionId?: string | null;
@@ -24,6 +26,7 @@ export const ChatArtifactArea = React.memo(({
   onEmailConfirm,
   onEmailCancel,
   sessionId,
+  onSwitchArtifact,
 }: ChatArtifactAreaProps) => (
   <AnimatePresence mode="wait">
     {artifact?.language === 'ppt' ? (
@@ -34,6 +37,7 @@ export const ChatArtifactArea = React.memo(({
         onClose={onClose}
         borderColor={borderColor}
         onThemeChange={onPptThemeChange}
+        onSwitchVersion={onSwitchArtifact}
       />
     ) : artifact?.language === 'website' ? (
       <WebsiteArtifactPanel
@@ -42,6 +46,7 @@ export const ChatArtifactArea = React.memo(({
         onClose={onClose}
         borderColor={borderColor}
         sessionId={sessionId ?? undefined}
+        onSwitchVersion={onSwitchArtifact}
       />
     ) : artifact?.language === 'email' ? (
       <EmailArtifactPanel

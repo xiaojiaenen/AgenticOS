@@ -231,6 +231,85 @@ async def get_session_artifacts(
     return result
 
 
+@router.get("/sessions/{session_id}/versions", summary="列出会话的全部产物版本")
+async def list_session_versions(
+    session_id: str,
+    current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
+) -> dict[str, Any]:
+    """列出该会话的 PPT / 网站历史版本（最新在前）。
+
+    PPT 版本来自 ppt_artifacts 表（每轮生成一条记录）；网站版本来自每轮产物快照。
+    """
+    try:
+        await agent_service.ensure_session_access(
+            AgentStreamRequest(message="list_versions", session_id=session_id), current_user
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    from app.services.artifact_version_service import list_session_versions as _list
+
+    versions = await _list(session_id, agent_service.ppt_artifacts)
+    return {"versions": versions}
+
+
+@router.get(
+    "/sessions/{session_id}/versions/{kind}/{reference}",
+    summary="加载指定版本的产物（website 版本号 / ppt 的 artifact_id）",
+)
+async def get_session_version(
+    session_id: str,
+    kind: str,
+    reference: str,
+    current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
+) -> dict[str, Any]:
+    """按版本引用加载产物，供"查看历史版本"使用。"""
+    try:
+        await agent_service.ensure_session_access(
+            AgentStreamRequest(message="get_version", session_id=session_id), current_user
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    if kind == "website":
+        from app.services.artifact_version_service import build_website_version_artifact
+
+        try:
+            version_no = int(reference.lstrip("vV"))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="非法的网站版本号") from exc
+        artifact = await asyncio.to_thread(
+            build_website_version_artifact, session_id, version_no
+        )
+        if artifact is None:
+            raise HTTPException(status_code=404, detail="该版本的网站产物不存在")
+        return {"website_artifact": artifact}
+
+    if kind == "ppt":
+        try:
+            artifact = await agent_service.ppt_artifacts.get(reference)
+        except Exception:
+            _logger.exception("get ppt version failed: artifact_id=%s", reference)
+            artifact = None
+        if artifact is None or artifact.get("session_id") != session_id:
+            raise HTTPException(status_code=404, detail="该版本的 PPT 产物不存在")
+        metadata = artifact.get("metadata") or {}
+        return {
+            "ppt_artifact": {
+                "artifact_id": artifact.get("artifact_id"),
+                "session_id": artifact.get("session_id"),
+                "title": artifact.get("title"),
+                "slide_count": artifact.get("slide_count"),
+                "html": artifact.get("html"),
+                "theme": artifact.get("theme") or metadata.get("theme"),
+            }
+        }
+
+    raise HTTPException(status_code=400, detail=f"不支持的产物类型: {kind}")
+
+
 @router.delete("/sessions/{session_id}", summary="删除指定会话")
 async def delete_session(
     session_id: str,

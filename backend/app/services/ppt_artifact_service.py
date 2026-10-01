@@ -6,6 +6,8 @@ from pathlib import Path
 import uuid
 from typing import Any
 
+from app.core.timezone import isoformat_app_timezone
+
 
 def sanitize_svg_xml(svg: str) -> str:
     """Fix unescaped XML special characters (&, <) in SVG text/tspan content,
@@ -437,6 +439,32 @@ class PptArtifactService:
                 if row is None:
                     return None
                 return self._row_to_dict(row)
+        return await asyncio.to_thread(_run)
+
+    async def list_for_session(self, session_id: str) -> list[dict[str, Any]]:
+        """列出该会话的全部 PPT 版本（按时间倒序，最新在前）。
+
+        每轮生成/迭代都会写入一条新 artifact，因此这张表天然就是版本历史。
+        只返回轻量字段（不含 deck_json / preview_html，避免大字段传输）。
+        """
+        def _run():
+            with self.session_factory() as db:
+                from sqlalchemy import select, desc
+                rows = db.scalars(
+                    select(PptArtifactModel)
+                    .where(PptArtifactModel.session_id == session_id)
+                    .order_by(desc(PptArtifactModel.created_at))
+                ).all()
+                return [
+                    {
+                        "artifact_id": row.artifact_id,
+                        "session_id": row.session_id,
+                        "title": row.title,
+                        "slide_count": row.slide_count,
+                        "created_at": isoformat_app_timezone(row.created_at),
+                    }
+                    for row in rows
+                ]
         return await asyncio.to_thread(_run)
 
     async def update_svgs(self, artifact_id: str, svgs: list[str], theme_name: str = "apple") -> bool:

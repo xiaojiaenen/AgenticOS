@@ -542,6 +542,7 @@ export const Chat = () => {
             onPptThemeChange={handlePptThemeChange}
             onEmailConfirm={handleEmailConfirm}
             onEmailCancel={handleEmailCancel}
+            onSwitchArtifact={(next) => setArtifact(next)}
             sessionId={currentSessionId}
           />
         </div>

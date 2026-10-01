@@ -11,6 +11,8 @@ import { cn, copyToClipboard } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
 import { UserAvatarIcon, MascotCool, CopyIcon, CheckIcon, WrenchIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
 import { ErrorBoundary, InlineErrorFallback } from '../ui/ErrorBoundary';
+import { OrderedAssistantContent, shouldUseOrderedRender, collectBlockText } from './OrderedAssistantContent';
+import { TableCell, TableHeaderCell, HighlightedText, processChildren } from './markdownRenderParts';
 import {
   CodeBlock,
   PptArtifactCard,
@@ -26,78 +28,6 @@ import {
 } from './ChatMessageSubComponents';
 
 // ── 模块级纯函数：不依赖组件闭包，避免每次渲染重建 ──
-const extractPlainText = (children: React.ReactNode): string =>
-  React.Children.toArray(children).map((child) => {
-    if (typeof child === 'string' || typeof child === 'number') return String(child).replace(/<br\s*\/?>/gi, '\n');
-    if (React.isValidElement(child)) return extractPlainText((child.props as any).children);
-    return '';
-  }).join('').trim();
-
-const isNumericLike = (value: string): boolean => {
-  const normalized = value.replace(/\s+/g, '').replace(/,/g, '');
-  return /^[+-]?(?:[$¥€])?\d+(?:\.\d+)?(?:%|x|ms|s|m|h)?$/i.test(normalized);
-};
-
-const isNumericHeader = (value: string): boolean =>
-  /(数量|金额|价格|总计|占比|比例|得分|评分|次数|耗时|时长|rate|count|amount|price|total|score|percent|percentage|cost|time)$/i.test(value.trim());
-
-// ── 模块级组件：稳定引用，React.memo 生效 ──
-const TableHeaderCell = React.memo(({ children }: { children: React.ReactNode }) => {
-  const plainText = extractPlainText(children);
-  const rightAligned = isNumericHeader(plainText);
-  return <th className={cn('px-4 py-3.5 text-xs font-semibold uppercase tracking-[0.14em]', 'text-slate-200/95', rightAligned ? 'text-right' : 'text-left')}>
-    <div className={cn('flex min-w-0 items-center gap-2', rightAligned ? 'justify-end' : 'justify-start')}><span className="truncate">{plainText || '字段'}</span></div>
-  </th>;
-});
-
-
-const TableCell = React.memo(({ children, counter, searchQuery, activeMatchId, messageId }: { children: React.ReactNode; counter: { current: number }; searchQuery: string; activeMatchId?: string | null; messageId?: string }) => {
-  const plainText = extractPlainText(children);
-  const rightAligned = isNumericLike(plainText);
-  return <td className={cn('px-4 py-3.5 align-top leading-relaxed', 'text-slate-700', rightAligned && 'font-mono tabular-nums')}>
-    {renderTableCellContent(children, counter, searchQuery, activeMatchId, messageId, { placeholder: '未填写', align: rightAligned ? 'right' : 'left', truncate: false })}
-  </td>;
-});
-
-const HighlightedText = React.memo(({ text, counter, searchQuery, activeMatchId, messageId }: { text: string; counter: { current: number }; searchQuery: string; activeMatchId?: string | null; messageId?: string }) => {
-  if (!searchQuery?.trim()) return <>{text}</>;
-  const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const parts = text.split(new RegExp(`(${escapedQuery})`, 'gi'));
-  return <>{parts.map((part, i) => {
-    if (part.toLowerCase() === searchQuery.toLowerCase()) {
-      const currentIdx = counter.current++;
-      const elementId = `mark-${messageId}-${currentIdx}`;
-      const isActive = elementId === activeMatchId;
-      return <mark key={i} id={elementId} className={cn("rounded-[2px] px-0.5 font-semibold shadow-sm transition-all duration-300", isActive ? "bg-orange-500 text-white ring-2 ring-orange-600 z-10 scale-110 inline-block" : "bg-yellow-300 text-[var(--foreground)] ring-1 ring-yellow-400")}>{part}</mark>;
-    }
-    return part;
-  })}</>;
-});
-
-const processChildren = (children: any, counter: { current: number }, searchQuery: string, activeMatchId?: string | null, messageId?: string): any =>
-  React.Children.map(children, child => {
-    if (typeof child === 'string') {
-      return child.split(/(<br\s*\/?>)/gi).map((segment, index) => {
-        if (/^<br\s*\/?>$/i.test(segment)) return <br key={`br-${index}`} />;
-        if (!segment) return null;
-        return <HighlightedText key={`text-${index}`} text={segment} counter={counter} searchQuery={searchQuery} activeMatchId={activeMatchId} messageId={messageId} />;
-      });
-    }
-    if (React.isValidElement(child) && (child.props as any).children) {
-      return React.cloneElement(child, { ...(child.props as any), children: processChildren((child.props as any).children, counter, searchQuery, activeMatchId, messageId) });
-    }
-    return child;
-  });
-
-const renderTableCellContent = (children: React.ReactNode, counter: { current: number }, searchQuery: string, activeMatchId?: string | null, messageId?: string, options: { placeholder?: string; align?: 'left' | 'right'; truncate?: boolean } = {}) => {
-  const plainText = extractPlainText(children);
-  if (plainText.length === 0) return <span className="inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium tracking-wide text-gray-500">{options.placeholder ?? '未填写'}</span>;
-  const processed = processChildren(children, counter, searchQuery, activeMatchId, messageId);
-  const shouldTruncate = options.truncate === true && plainText.length > 64;
-  const alignmentClass = options.align === 'right' ? 'items-end text-right' : 'items-start text-left';
-  if (!shouldTruncate) return <div className={cn('flex min-w-0 flex-col whitespace-pre-wrap break-words', alignmentClass)}>{processed}</div>;
-  return <div className={cn('flex min-w-0 flex-col', alignmentClass)} title={plainText}><span className="max-w-[18rem] overflow-hidden text-ellipsis whitespace-nowrap">{processed}</span></div>;
-};
 
 interface ChatMessageProps {
   message?: Message;
@@ -122,9 +52,12 @@ function preprocessChartMarkers(text: string): string {
 }
 
 export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, isAdmin = false, onOpenArtifact, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
-  const isUser = message?.role === 'user';  const rawText = message?.text || '';
+  const isUser = message?.role === 'user';
+  // 按序渲染（新消息）：正文/工具/思考交错展示；历史消息回退旧式三桶
+  const useOrderedRender = !isUser && !isTyping && Boolean(message?.blocks?.length) && shouldUseOrderedRender(message!);
+  const rawText = useOrderedRender && message ? collectBlockText(message) : message?.text || '';
   const visibleText = preprocessChartMarkers(rawText);
-  const reasoningText = message?.reasoningText || '';
+  const reasoningText = useOrderedRender ? '' : message?.reasoningText || '';
   const hasPptArtifact = !isUser && Boolean(message?.pptArtifact);
   const hasWebsiteArtifact = !isUser && Boolean(message?.websiteArtifact);
   const hasAnyReasoning = reasoningText.trim().length > 0;
@@ -170,8 +103,8 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
       </motion.div>
 
       <div className={cn("flex flex-col gap-1", wideLayout ? "max-w-[78%]" : "max-w-[80%]", isUser ? "items-end" : "items-start")}>
-        {/* Tool Calls */}
-        {!isUser && message?.toolCalls && message.toolCalls.length > 0 && config.enableSearch && (
+        {/* Tool Calls（按序渲染时工具已就地展示，不再重复渲染总览） */}
+        {!useOrderedRender && !isUser && message?.toolCalls && message.toolCalls.length > 0 && config.enableSearch && (
           <div className="mb-1 w-full text-left">
             <details className="group [&_summary::-webkit-details-marker]:hidden">
               <summary className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-[var(--muted-foreground)] bg-[var(--surface-1)] hover:bg-[var(--surface-1)] border border-[var(--border-subtle)] px-3 py-1.5 rounded-full shadow-sm w-fit cursor-pointer transition-all select-none">
@@ -235,7 +168,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                 hasStructuredContent ? "w-full" : "w-fit", !isUser && isStreaming && "min-h-[3.5rem] min-w-[10rem]",
                 isUser ? "bg-[var(--bubble-user)] text-[var(--bubble-user-text)] rounded-tr-none shadow-lg hover:shadow-xl" : "bg-[var(--bubble-ai)] backdrop-blur-xl text-[var(--foreground)] rounded-tl-none border border-[var(--border-subtle)] hover:bg-[var(--surface-1)] shadow-xs")}>
 
-            {!isUser && !isTyping && message?.toolCalls && message.toolCalls.length > 0 && isStreaming && (
+            {!useOrderedRender && !isUser && !isTyping && message?.toolCalls && message.toolCalls.length > 0 && isStreaming && (
               <div className="flex flex-col gap-1.5 mb-3"><AnimatePresence>{message.toolCalls.map((tool, i) => <LiveToolCall key={`${tool.id || i}-${tool.status}`} tool={tool} />)}</AnimatePresence></div>
             )}
 
@@ -258,6 +191,16 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                 )}
                 <p className="whitespace-pre-wrap break-words leading-relaxed tracking-tight font-medium"><HighlightedText text={message?.text || ''} counter={sessionCounter.current} searchQuery={searchQuery} activeMatchId={activeMatchId} messageId={message?.id} /></p>
               </div>
+            ) : useOrderedRender && message ? (
+              <OrderedAssistantContent
+                message={message}
+                counter={sessionCounter.current}
+                searchQuery={searchQuery}
+                activeMatchId={activeMatchId ?? null}
+                isAdmin={isAdmin}
+                isStreaming={Boolean(isStreaming)}
+                onOpenArtifact={onOpenArtifact as never}
+              />
             ) : (
               <div className="prose prose-slate prose-sm max-w-none break-words [overflow-wrap:anywhere] prose-p:my-0 prose-pre:my-2 prose-pre:bg-transparent prose-pre:p-0 prose-pre:shadow-none prose-pre:border-none">
                 {reasoningText && (
