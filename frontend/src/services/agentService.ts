@@ -595,6 +595,47 @@ export async function polishPrompt(
   );
 }
 
+export type ArtifactVersion = {
+  kind: 'ppt' | 'website';
+  version: number;
+  /** ppt 为 artifact_id，website 为 "v{n}" */
+  reference: string;
+  title?: string;
+  created_at?: string | null;
+  slide_count?: number;
+};
+
+/** 列出会话的全部产物版本（PPT 每轮一条记录 + 网站每轮快照） */
+export async function listSessionVersions(sessionId: string): Promise<{ versions: ArtifactVersion[] }> {
+  return apiFetch<{ versions: ArtifactVersion[] }>(
+    `${AGENT_ENDPOINT}/sessions/${sessionId}/versions`,
+    {},
+    '加载历史版本失败',
+  );
+}
+
+/** 加载指定版本的产物，用于"回看历史版本" */
+export async function loadArtifactVersion(
+  sessionId: string,
+  kind: 'ppt' | 'website',
+  reference: string,
+): Promise<{
+  ppt_artifact?: { artifact_id: string; title: string; slide_count: number; html: string; theme?: string };
+  website_artifact?: {
+    artifact_id: string;
+    title: string;
+    project_slug: string;
+    stack?: string;
+    preview_html: string;
+  };
+}> {
+  return apiFetch(
+    `${AGENT_ENDPOINT}/sessions/${sessionId}/versions/${kind}/${encodeURIComponent(reference)}`,
+    {},
+    '加载该版本失败',
+  );
+}
+
 /** 从后端加载会话的完整消息历史 */
 export async function getSessionMessages(sessionId: string): Promise<Message[]> {
   const raw = await apiFetch<BackendMessage[]>(

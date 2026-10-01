@@ -18,6 +18,7 @@ import { uploadFiles } from '../services/fileService';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
 import { UserDecision, normalizeDecision } from '../components/chat/DecisionPanel';
 import { toast } from 'sonner';
+import { syncTextBlocks, syncReasoningBlocks, syncToolBlocks } from '../lib/messageBlocks';
 
 // ---------------------------------------------------------------------------
 // extracted helpers
@@ -57,6 +58,25 @@ interface UseChatStreamDeps {
   setInputValue: (value: string) => void;
   onUserInputRequired?: (input: UserInputRequest) => void;
   onApiApprovalRequired?: (approval: ApiApprovalRequest) => void;
+}
+
+/**
+ * 按事件到达顺序维护消息的有序内容块。
+ * 正文与思考各自续写自己的块；若中间夹了工具调用，则自动开新块。
+ * 每个块存该块的累计全文，因此块内文本始终自洽。
+ */
+function mergeOrderedBlocks(
+  message: Message,
+  delta: { fullText: string } | null,
+  reasoning: string | null,
+): { blocks?: Message['blocks'] } {
+  if (!delta && reasoning == null) return {};
+  let blocks = message.blocks || [];
+  if (delta) blocks = syncTextBlocks(blocks, delta.fullText, message.text || '');
+  if (reasoning != null) {
+    blocks = syncReasoningBlocks(blocks, reasoning, message.reasoningText || '');
+  }
+  return { blocks };
 }
 
 export function useChatStream({
@@ -463,6 +483,7 @@ export function useChatStream({
                               ? {
                                   ...message,
                                   ...(delta ? { text: delta.fullText } : {}),
+                                  ...(mergeOrderedBlocks(message, delta, reasoning)),
                                   ...(delta?.isPpt ? {
                                     pptArtifact:
                                       message.pptArtifact?.status === 'ready' || receivedPptArtifact
@@ -503,6 +524,7 @@ export function useChatStream({
                               ? {
                                   ...message,
                                   ...(delta ? { text: delta.fullText } : {}),
+                                  ...(mergeOrderedBlocks(message, delta, reasoning)),
                                   ...(delta?.isPpt ? {
                                     pptArtifact:
                                       message.pptArtifact?.status === 'ready' || receivedPptArtifact
@@ -531,7 +553,15 @@ export function useChatStream({
                       ...session,
                       messages: session.messages.map((message) =>
                         message.id === assistantMessageId
-                          ? { ...message, toolCalls }
+                          ? {
+                              ...message,
+                              toolCalls,
+                              blocks: syncToolBlocks(
+                                message.blocks || [],
+                                toolCalls,
+                                message.toolCalls || [],
+                              ),
+                            }
                           : message,
                       ),
                     }
