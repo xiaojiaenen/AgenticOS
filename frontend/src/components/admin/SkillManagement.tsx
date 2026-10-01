@@ -204,7 +204,7 @@ function SkillFormDialog({
               id="skill-instruction"
               rows={12}
               {...form.register('instruction')}
-              className="w-full resize-y rounded-md border border-zinc-200 bg-white px-3.5 py-2.5 text-sm font-medium leading-6 text-zinc-800 outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
+              className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-2.5 text-sm font-medium leading-6 text-[var(--foreground)] outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
             />
             {form.formState.errors.instruction ? (
               <p className="text-xs font-medium text-rose-600">
@@ -296,11 +296,11 @@ export const SkillManagement = () => {
           const skill = row.original;
           return (
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-zinc-900">{skill.name}</p>
-              <p className="mt-0.5 truncate text-xs font-semibold tracking-wide text-zinc-400">
+              <p className="truncate text-sm font-semibold text-[var(--foreground)]">{skill.name}</p>
+              <p className="mt-0.5 truncate text-xs font-semibold tracking-wide text-[var(--muted-foreground)]">
                 {skill.slug}
               </p>
-              <p className="mt-1 line-clamp-2 max-w-[420px] text-sm font-medium leading-6 text-zinc-500">
+              <p className="mt-1 line-clamp-2 max-w-[420px] text-sm font-medium leading-6 text-[var(--muted-foreground)]">
                 {skill.description || '暂无描述'}
               </p>
             </div>
@@ -312,7 +312,7 @@ export const SkillManagement = () => {
         header: '脚本数',
         enableSorting: false,
         cell: ({ row }) => (
-          <span className="text-sm font-semibold text-zinc-900">
+          <span className="text-sm font-semibold text-[var(--foreground)]">
             {row.original.script_paths.length}
           </span>
         ),
@@ -349,7 +349,7 @@ export const SkillManagement = () => {
                   'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
                   skill.enabled
                     ? 'border-emerald-200/80 bg-emerald-50 text-emerald-700'
-                    : 'border-zinc-200 bg-zinc-100 text-zinc-500',
+                    : 'border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--muted-foreground)]',
                 )}
               >
                 {skill.enabled ? '启用' : '停用'}
@@ -450,16 +450,16 @@ export const SkillManagement = () => {
       ) : null}
 
       {/* 上传入口 */}
-      <section className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
+      <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
         <div className="grid grid-cols-1 items-end gap-4 xl:grid-cols-[minmax(0,1fr)_200px_auto]">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-indigo-600">
               上传入口
             </p>
-            <h3 className="mt-1 text-base font-semibold tracking-tight text-zinc-900">
+            <h3 className="mt-1 text-base font-semibold tracking-tight text-[var(--foreground)]">
               上传 Zip Skill 包
             </h3>
-            <p className="mt-1 text-xs font-medium text-zinc-500">
+            <p className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">
               上传成功后自动写入本地目录并出现在列表中
             </p>
           </div>
@@ -475,7 +475,7 @@ export const SkillManagement = () => {
           </div>
 
           <div className="flex flex-col gap-2.5 sm:flex-row">
-            <label className="flex w-full cursor-pointer items-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-sm font-medium text-zinc-500 transition hover:border-indigo-300 hover:text-indigo-600 sm:max-w-[260px]">
+            <label className="flex w-full cursor-pointer items-center rounded-md border border-dashed border-zinc-300 bg-[var(--surface-2)] px-3.5 py-2.5 text-sm font-medium text-[var(--muted-foreground)] transition hover:border-indigo-300 hover:text-indigo-600 sm:max-w-[260px]">
               <span className="block truncate">
                 {uploadFile ? uploadFile.name : '选择 Zip...'}
               </span>
@@ -503,7 +503,7 @@ export const SkillManagement = () => {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-lg border border-zinc-200/80 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
         {skillsQuery.isLoading ? (
           <div className="space-y-3 p-5">
             {Array.from({ length: 4 }).map((_, index) => (
@@ -516,11 +516,11 @@ export const SkillManagement = () => {
             data={skills}
             emptyState={
               <div className="flex flex-col items-center justify-center py-8">
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-400 shadow-sm">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] shadow-sm">
                   <FileCode2 size={20} />
                 </div>
                 <p className="text-sm font-semibold text-zinc-600">还没有 Skill</p>
-                <p className="mt-1 text-xs font-medium text-zinc-400">
+                <p className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">
                   你可以先创建一个本地 Skill，或者直接上传 Zip Skill 包。
                 </p>
               </div>

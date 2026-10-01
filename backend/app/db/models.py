@@ -127,6 +127,11 @@ class AgentUsageEventModel(Base):
     tool_names_json: Mapped[str] = mapped_column(Text, default="[]")
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, index=True)
+    # dashboard 核心查询按 用户/会话 + 时间范围 过滤，单列索引不够
+    __table_args__ = (
+        Index("ix_usage_user_created", "user_id", "created_at"),
+        Index("ix_usage_session_created", "session_id", "created_at"),
+    )
 
 
 class AgentToolConfigModel(Base):
@@ -187,13 +192,13 @@ class SkillModel(Base):
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
-    # 资产化扩展（compat layer 自动 ALTER）
+    # 资产化扩展（schema 演进由 alembic 负责，见 backend/alembic/）
     version: Mapped[int] = mapped_column(default=1)
     trigger_patterns_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     validation_rules_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     usage_count: Mapped[int] = mapped_column(default=0)
     last_used_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
-    visibility: Mapped[str] = mapped_column(String(16), default="private")  # private / team / restricted
+    visibility: Mapped[str] = mapped_column(String(16), default="private", index=True)  # private / team / restricted
 
 
 class AgentProfileSkillModel(Base):
@@ -272,7 +277,7 @@ class VideoArtifactModel(Base):
 
     artifact_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     session_id: Mapped[str] = mapped_column(String(128), index=True)
-    user_id: Mapped[int] = mapped_column(Integer, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     project_id: Mapped[str] = mapped_column(String(64), index=True)
     title: Mapped[str] = mapped_column(String(256))
     video_path: Mapped[str] = mapped_column(Text)
@@ -362,7 +367,7 @@ class WebsiteDeployModel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     session_id: Mapped[str] = mapped_column(String(128), index=True)
-    project_slug: Mapped[str] = mapped_column(String(128))
+    project_slug: Mapped[str] = mapped_column(String(128), index=True)
     stack: Mapped[str] = mapped_column(String(16))
     dist_path: Mapped[str] = mapped_column(String(512))
     target_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -389,19 +394,19 @@ class MemoryModel(Base):
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
-    # 分层蒸馏扩展字段（compat layer 自动 ALTER）
+    # 分层蒸馏扩展字段（schema 演进由 alembic 负责，见 backend/alembic/）
     layer: Mapped[str] = mapped_column(String(8), default="L1", index=True)
     scenario_id: Mapped[int | None] = mapped_column(ForeignKey("memory_scenarios.id"), nullable=True, index=True)
     embedding_model: Mapped[str | None] = mapped_column(String(64), nullable=True)
     embedding_updated_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
     last_accessed_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True, index=True)
     access_count: Mapped[int] = mapped_column(default=0)
-    visibility: Mapped[str] = mapped_column(String(16), default="private")  # private / team / restricted
+    visibility: Mapped[str] = mapped_column(String(16), default="private", index=True)  # private / team / restricted
 
     # 知识库扩展字段
     scope: Mapped[str] = mapped_column(String(10), default="user", index=True)  # user / org
     knowledge_base_id: Mapped[int | None] = mapped_column(ForeignKey("knowledge_bases.id"), nullable=True, index=True)
-    authority_level: Mapped[str] = mapped_column(String(10), default="L1")  # L3 / L2 / L1 / L0
+    authority_level: Mapped[str] = mapped_column(String(10), default="L1", index=True)  # L3 / L2 / L1 / L0
 
 
 class MemoryConversationModel(Base):
@@ -714,5 +719,5 @@ class KBAccessControlModel(Base):
     principal_type: Mapped[str] = mapped_column(String(10))  # user / team
     principal_id: Mapped[int] = mapped_column(Integer, index=True)  # user_id 或 team_id
     role: Mapped[str] = mapped_column(String(20), default="viewer")  # admin / editor / viewer
-    granted_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    granted_by: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)

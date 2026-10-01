@@ -161,51 +161,77 @@ class ArtifactFactory:
             if not slug:
                 _logger.info("website artifact skipped: could not infer project slug")
                 return None
-
-            project_dir = _websites_dir / slug
-            dist_dir = project_dir / "dist"
-            index_html = dist_dir / "index.html"
-            if not index_html.exists():
-                _logger.info("website artifact skipped: dist/index.html not found in %s", dist_dir)
-                return None
-
-            raw_html = await asyncio.to_thread(index_html.read_text, encoding="utf-8")
-            preview_html = self._inline_dist_assets(dist_dir, raw_html)
-
-            # Count files in dist and detect stack（同步 rglob 扫描放线程池）
-            def _scan_project():
-                file_count = len([f for f in dist_dir.rglob("*") if f.is_file()])
-                has_vue = any(f.suffix == ".vue" for f in project_dir.rglob("*"))
-                has_jsx = any(f.suffix == ".jsx" for f in project_dir.rglob("*"))
-                return file_count, has_vue, has_jsx
-
-            file_count, has_vue, has_jsx = await asyncio.to_thread(_scan_project)
-            if has_vue:
-                stack = "vue"
-            elif has_jsx:
-                stack = "react"
-            else:
-                stack = "vanilla"
-
-            artifact = {
-                "type": "website",
-                "artifact_id": session_id,  # use session_id as artifact_id for now
-                "session_id": session_id,
-                "title": slug.replace("-", " ").title(),
-                "project_slug": slug,
-                "stack": stack,
-                "file_count": file_count,
-                "preview_html": preview_html,
-            }
-
-            _logger.info(
-                "website artifact created: session=%s slug=%s stack=%s files=%d",
-                session_id, slug, stack, file_count,
-            )
-            return artifact
+            return await self.build_website_artifact(session_id, slug)
         except Exception:
             _logger.exception("website artifact creation failed: session=%s", session_id)
             return None
+
+    async def get_latest_website_artifact(self, session_id: str) -> dict[str, Any] | None:
+        """回源重建会话最新的网站制品（刷新页面后恢复预览面板用）。
+
+        data/websites 下目录形如 ``u{user}_s{session}_v{version}``，取版本号最大的一个。
+        """
+        def _find_latest_slug() -> str | None:
+            if not WEBSITES_DIR.exists():
+                return None
+            best_ver = -1
+            best_name: str | None = None
+            for child in WEBSITES_DIR.iterdir():
+                if not child.is_dir():
+                    continue
+                parsed = _parse_dir_name(child.name)
+                if parsed and str(parsed[1]) == session_id and parsed[2] > best_ver:
+                    best_ver = parsed[2]
+                    best_name = child.name
+            return best_name
+
+        try:
+            slug = await asyncio.to_thread(_find_latest_slug)
+            if not slug:
+                return None
+            return await self.build_website_artifact(session_id, slug)
+        except Exception:
+            _logger.exception("latest website artifact lookup failed: session=%s", session_id)
+            return None
+
+    async def build_website_artifact(self, session_id: str, slug: str) -> dict[str, Any] | None:
+        """从 data/websites/{slug}/dist 构建 website 制品（预览 HTML 内联资源）。"""
+        _websites_dir = WEBSITES_DIR
+        project_dir = _websites_dir / slug
+        dist_dir = project_dir / "dist"
+        index_html = dist_dir / "index.html"
+        if not index_html.exists():
+            _logger.info("website artifact skipped: dist/index.html not found in %s", dist_dir)
+            return None
+
+        raw_html = await asyncio.to_thread(index_html.read_text, encoding="utf-8")
+        preview_html = self._inline_dist_assets(dist_dir, raw_html)
+
+        # Count files in dist and detect stack（同步 rglob 扫描放线程池）
+        def _scan_project():
+            file_count = len([f for f in dist_dir.rglob("*") if f.is_file()])
+            has_vue = any(f.suffix == ".vue" for f in project_dir.rglob("*"))
+            has_jsx = any(f.suffix == ".jsx" for f in project_dir.rglob("*"))
+            return file_count, has_vue, has_jsx
+
+        file_count, has_vue, has_jsx = await asyncio.to_thread(_scan_project)
+        if has_vue:
+            stack = "vue"
+        elif has_jsx:
+            stack = "react"
+        else:
+            stack = "vanilla"
+
+        return {
+            "type": "website",
+            "artifact_id": session_id,  # use session_id as artifact_id for now
+            "session_id": session_id,
+            "title": slug.replace("-", " ").title(),
+            "project_slug": slug,
+            "stack": stack,
+            "file_count": file_count,
+            "preview_html": preview_html,
+        }
 
     async def _get_edit_hint(self, session_id: str) -> str | None:
         """If the session has existing PPT artifacts, add an edit hint for save_slide."""

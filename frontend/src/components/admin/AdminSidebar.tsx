@@ -189,8 +189,8 @@ export const AdminSidebar = React.memo(
           className={cn(
             'admin-nav-item focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2',
             active
-              ? 'admin-nav-item-active text-zinc-900'
-              : 'text-slate-600 hover:text-slate-900',
+              ? 'admin-nav-item-active text-[var(--foreground)]'
+              : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]',
           )}
         >
           {active && (
@@ -198,7 +198,7 @@ export const AdminSidebar = React.memo(
               layoutId="admin-active-nav"
               className={cn(
                 'absolute inset-0 rounded-lg border-l-3',
-                'border-l-indigo-600 bg-white shadow-md',
+                'border-l-indigo-600 bg-[var(--surface-1)] shadow-md',
               )}
               transition={{ type: 'spring', damping: 28, stiffness: 380 }}
             />
@@ -208,7 +208,7 @@ export const AdminSidebar = React.memo(
               'admin-nav-icon',
               active
                 ? 'border-zinc-900 bg-zinc-900 text-white shadow-button'
-                : 'border-slate-200/80 bg-white/80 text-slate-500 group-hover:text-slate-700',
+                : 'border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] group-hover:text-slate-700',
             )}
           >
             <item.icon size={18} />
@@ -218,7 +218,7 @@ export const AdminSidebar = React.memo(
             <p
               className={cn(
                 'mt-1 line-clamp-2 text-xs font-medium leading-5',
-                'text-slate-400',
+                'text-[var(--muted-foreground)]',
               )}
             >
               {item.description}
@@ -240,7 +240,7 @@ export const AdminSidebar = React.memo(
         <div
           className={cn(
             'relative z-10 flex items-center justify-between border-b px-4 py-4',
-            'border-slate-200/80',
+            'border-[var(--border-subtle)]',
           )}
         >
           <Logo iconSize={22} className="text-lg" />
@@ -249,7 +249,7 @@ export const AdminSidebar = React.memo(
             onClick={onClose}
             className={cn(
               'rounded-xl p-2 transition-all active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2',
-              'text-slate-400 hover:bg-white hover:text-slate-700 hover:shadow-sm',
+              'text-[var(--muted-foreground)] hover:bg-[var(--surface-1)] hover:text-slate-700 hover:shadow-sm',
             )}
             aria-label="关闭导航"
           >
@@ -285,16 +285,16 @@ export const AdminSidebar = React.memo(
                     className={cn(
                       'admin-nav-item focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2',
                       open || hasActive
-                        ? 'text-slate-800'
-                        : 'text-slate-600 hover:text-slate-900',
+                        ? 'text-[var(--foreground)]'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]',
                     )}
                   >
                     <div
                       className={cn(
                         'admin-nav-icon',
                         open || hasActive
-                          ? 'border-zinc-800/20 bg-zinc-900/10 text-zinc-800'
-                          : 'border-slate-200/80 bg-white/80 text-slate-500',
+                          ? 'border-zinc-800/20 bg-zinc-900/10 text-[var(--foreground)]'
+                          : 'border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)]',
                       )}
                     >
                       <group.icon size={18} />
@@ -304,7 +304,7 @@ export const AdminSidebar = React.memo(
                       <p
                         className={cn(
                           'mt-1 line-clamp-2 text-xs font-medium leading-5',
-                          'text-slate-400',
+                          'text-[var(--muted-foreground)]',
                         )}
                       >
                         {group.description}
@@ -313,7 +313,7 @@ export const AdminSidebar = React.memo(
                     <motion.span
                       animate={{ rotate: open ? 180 : 0 }}
                       transition={{ duration: 0.2 }}
-                      className={cn('relative shrink-0', 'text-slate-400')}
+                      className={cn('relative shrink-0', 'text-[var(--muted-foreground)]')}
                     >
                       <ChevronDown size={18} />
                     </motion.span>
@@ -339,7 +339,7 @@ export const AdminSidebar = React.memo(
           </div>
         </div>
 
-        <div className={cn('relative z-10 space-y-3 border-t p-4', 'border-slate-200/80')}>
+        <div className={cn('relative z-10 space-y-3 border-t p-4', 'border-[var(--border-subtle)]')}>
           <button
             type="button"
             onClick={() => navigate('/chat')}
@@ -355,22 +355,22 @@ export const AdminSidebar = React.memo(
           <div
             className={cn(
               'flex items-center gap-3 rounded-lg p-2.5 shadow-sm transition-all hover:shadow-md',
-              'border border-zinc-200/80 bg-white',
+              'border border-[var(--border-subtle)] bg-[var(--surface-1)]',
             )}
           >
             <div
               className={cn(
                 'flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm',
-                'border border-zinc-200 bg-[linear-gradient(135deg,rgba(15,23,42,0.06),rgba(255,255,255,0.9))] text-zinc-600',
+                'border border-[var(--border-subtle)] bg-[linear-gradient(135deg,rgba(15,23,42,0.06),rgba(255,255,255,0.9))] text-zinc-600',
               )}
             >
               <UserAvatarIcon size={20} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className={cn('truncate text-xs font-medium', 'text-slate-800')}>
+              <p className={cn('truncate text-xs font-medium', 'text-[var(--foreground)]')}>
                 {user?.name || 'AgenticOS User'}
               </p>
-              <p className={cn('truncate text-[10px] font-medium', 'text-slate-400')}>
+              <p className={cn('truncate text-[10px] font-medium', 'text-[var(--muted-foreground)]')}>
                 {user?.email || 'signed in'}
               </p>
             </div>
@@ -379,7 +379,7 @@ export const AdminSidebar = React.memo(
               onClick={handleLogout}
               className={cn(
                 'rounded-xl p-2 transition-all hover:scale-110 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2',
-                'text-slate-400 hover:bg-rose-50 hover:text-rose-500',
+                'text-[var(--muted-foreground)] hover:bg-rose-50 hover:text-rose-500',
               )}
               title="退出登录"
               aria-label="退出登录"
@@ -399,7 +399,7 @@ export const AdminSidebar = React.memo(
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
         className={cn(
           'z-20 flex flex-shrink-0 flex-col overflow-hidden',
-          'border-r border-zinc-200/80 bg-white/80 shadow-[10px_0_36px_rgba(15,23,42,0.06)] backdrop-blur-2xl',
+          'border-r border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-[10px_0_36px_rgba(15,23,42,0.06)] backdrop-blur-2xl',
           isMobile ? 'fixed inset-y-0 left-0 w-[296px] shadow-lg' : 'w-[296px]',
           !isOpen && !isMobile && 'hidden',
         )}

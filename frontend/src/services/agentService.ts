@@ -1,6 +1,6 @@
 import { Message, ToolCall } from '../types';
 import { authHeaders } from './authService';
-import { apiFetch } from './apiClient';
+import { apiFetch, ApiError } from './apiClient';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 
 type AgentServiceOptions = {
@@ -358,10 +358,15 @@ function applyAgentEvent(
   }
 
   if (event === 'error') {
-    throw new Error(normalizeAgentError(
-      typeof payload.message === 'string' ? payload.message : undefined,
-      typeof payload.error_type === 'string' ? payload.error_type : undefined,
-    ));
+    // 对齐 apiClient 的错误类型：message 为归一化后的用户可读信息，detail 保留原始负载
+    throw new ApiError(
+      0,
+      payload.message ?? payload,
+      normalizeAgentError(
+        typeof payload.message === 'string' ? payload.message : undefined,
+        typeof payload.error_type === 'string' ? payload.error_type : undefined,
+      ),
+    );
   }
 
   if (event === 'done') {
@@ -425,7 +430,8 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         const response = await fetch(url, init);
         if (!response.ok) {
           const detail = await response.text().catch(() => '');
-          throw new Error(normalizeAgentError(detail, String(response.status)));
+          // 非 2xx：保留 HTTP status，归一化 message（与 apiFetch 的 ApiError 语义一致）
+          throw new ApiError(response.status, detail, normalizeAgentError(detail, String(response.status)));
         }
         return response;
       },
@@ -561,6 +567,34 @@ export async function getPptPreviewHtml(artifactId: string): Promise<string> {
   );
 }
 
+export type PolishPromptResult = {
+  polished: string;
+  original: string;
+  changed: boolean;
+};
+
+/**
+ * 提示词润色：分析用户意图后改写为更可执行的长提示词。
+ * 传入 signal 可在用户点「取消润色」时中断请求。
+ */
+export async function polishPrompt(
+  text: string,
+  signal?: AbortSignal,
+): Promise<PolishPromptResult> {
+  return apiFetch<PolishPromptResult>(
+    `${AGENT_ENDPOINT}/polish-prompt`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+      // 润色要过一次 LLM，放宽默认超时
+      timeoutMs: 90_000,
+      ...(signal ? { signal } : {}),
+    },
+    '提示词润色失败',
+  );
+}
+
 /** 从后端加载会话的完整消息历史 */
 export async function getSessionMessages(sessionId: string): Promise<Message[]> {
   const raw = await apiFetch<BackendMessage[]>(
@@ -621,6 +655,8 @@ export async function generateTitle(history: Message[]): Promise<string> {
 export type AgentSessionListItem = {
   session_id: string;
   summary?: string | null;
+  /** 会话展示标题（首条用户消息摘录）；summary 是上下文压缩摘要，不能当标题用 */
+  title?: string | null;
   metadata?: Record<string, unknown>;
   message_count: number;
   created_at?: string;

@@ -21,6 +21,7 @@ import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
 import { UserInputPanel } from '../components/chat/UserInputPanel';
 import { submitUserInput, type UserInputRequest } from '../services/agentService';
+import type { VirtuosoHandle } from 'react-virtuoso';
 export const Chat = () => {
   const location = useLocation();
   const initialMessage = location.state?.initialMessage as string | undefined;
@@ -50,11 +51,17 @@ export const Chat = () => {
   } = useChatSessions();
 
   // ── 搜索 ──
+  // 长会话虚拟化时消息可能未渲染进 DOM，搜索跳转需经 Virtuoso scrollToIndex 回退
+  const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+  const virtualScrollToMessage = useCallback((messageId: string) => {
+    const idx = (currentSession?.messages ?? []).findIndex((m) => m.id === messageId);
+    if (idx >= 0) virtuosoRef.current?.scrollToIndex({ index: idx, align: 'center' });
+  }, [currentSession?.messages]);
   const {
     searchQuery, setSearchQuery,
     showSearch, setShowSearch,
     searchCurrentIndex, searchMatches, nextMatch, prevMatch, activeMatchId,
-  } = useChatSearch(currentSession);
+  } = useChatSearch(currentSession, virtualScrollToMessage);
 
   // ── 滚动 ──
   const {
@@ -284,11 +291,13 @@ export const Chat = () => {
   }, [currentSessionId, currentSession]);
 
   // 加载智能体列表
+  const [agentProfilesLoaded, setAgentProfilesLoaded] = useState(false);
   useEffect(() => {
     getMyAgents()
       .then((response) => {
         setAgentProfiles(response.items);
-        const initialProfileId = (location.state as any)?.agentProfileId;
+        const initialState = location.state as { agentProfileId?: number; mode?: string } | null;
+        const initialProfileId = initialState?.agentProfileId;
         if (initialProfileId) {
           const initialProfile = response.items.find((item) => item.id === initialProfileId);
           if (initialProfile) {
@@ -296,11 +305,15 @@ export const Chat = () => {
             setSelectedAgentProfileId(initialProfile.id);
             return;
           }
+          console.warn(
+            `[chat] 首页指定的智能体 ${initialProfileId} 不在已安装列表中，回退到模式默认智能体`,
+          );
         }
         const defaultAgent = response.items.find((a) => a.response_mode === chatMode);
         if (defaultAgent) setSelectedAgentProfileId(defaultAgent.id);
       })
-      .catch((err) => console.error('Load agents error:', err));
+      .catch((err) => console.error('Load agents error:', err))
+      .finally(() => setAgentProfilesLoaded(true));
   }, []);
 
   // Auto-select default agent
@@ -358,14 +371,16 @@ export const Chat = () => {
   }, [error]);
 
   // 处理首页带过来的首条消息
+  // 必须等智能体列表加载完成后再发：否则 selectedAgentProfileId 还是 null，
+  // 首页选中的智能体（如 PPT 设计师）会丢失，请求退回通用助手模式。
   const initialMessageSent = useRef(false);
   useEffect(() => {
-    if (initialMessage && !initialMessageSent.current) {
+    if (initialMessage && !initialMessageSent.current && agentProfilesLoaded) {
       initialMessageSent.current = true;
       handleSend(initialMessage);
       window.history.replaceState({}, document.title);
     }
-  }, [initialMessage]);
+  }, [initialMessage, agentProfilesLoaded]);
 
   // 制品面板打开时自动收起侧边栏
   useEffect(() => {
@@ -387,6 +402,7 @@ export const Chat = () => {
     handleApprovalDecision, handleDecisionMade,
     scrollRef, messagesEndRef, isUserScrolledUp,
     scrollToBottom, handleJumpToBottom, handleScroll,
+    virtuosoRef,
     showSearch, setShowSearch, searchQuery, setSearchQuery,
     searchCurrentIndex, searchMatchesCount: searchMatches.length,
     activeMatchId, prevMatch, nextMatch,
@@ -494,7 +510,7 @@ export const Chat = () => {
           <main
             id="main-content"
             className={cn(
-              "flex flex-col h-full transition-all duration-700 ease-[0.16,1,0.3,1] min-w-0 relative",
+              "flex flex-col h-full transition-all duration-500 ease-[0.16,1,0.3,1] min-w-0 relative",
               artifact ? "w-[40%] border-r border-slate-200/60" : "w-full",
               isWideConversation && "px-4 lg:px-8 xl:px-10",
             )}

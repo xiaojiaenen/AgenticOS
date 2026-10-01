@@ -244,6 +244,33 @@ body::-webkit-scrollbar {
   box-shadow: var(--shadow-xs);
 }
 
+/* 卡面：仪表盘统计卡 / 列表卡等通用表面。
+   用 token 而非 bg-white —— 后者在深色模式下保持白底，造成"有黑有白"。 */
+.admin-card {
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-xs);
+}
+
+/* 内嵌表面：表头、次级分区、输入容器 */
+.admin-inset {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+}
+
+.admin-heading {
+  color: var(--foreground);
+}
+
+.admin-muted {
+  color: var(--muted-foreground);
+}
+
+.admin-row-hover:hover {
+  background: var(--admin-accent-soft);
+}
+
 .admin-dashboard-shell {
   background: var(--admin-bg);
   isolation: isolate;

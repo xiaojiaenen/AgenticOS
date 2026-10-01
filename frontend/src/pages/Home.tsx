@@ -60,7 +60,7 @@ export const Home = () => {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
       transition={{ duration: 0.3 }}
-      className="min-h-screen relative overflow-hidden font-sans flex flex-col bg-zinc-50"
+      className="min-h-screen relative overflow-hidden font-sans flex flex-col bg-[var(--surface-2)]"
     >
       {/* 极光雾背景（低饱和 indigo，WebGL 不可用时自动降级为静态渐变） */}
       <AuroraBackground className="absolute" />
@@ -79,7 +79,7 @@ export const Home = () => {
         }} />
 
         {/* Giant Mascot Background */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-[0.035] text-zinc-900 pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center opacity-[0.035] text-[var(--foreground)] pointer-events-none">
           <RandomMascot size={1000} />
         </div>
       </div>
@@ -108,12 +108,12 @@ export const Home = () => {
 
       {/* Hero Section */}
       <main id="main-content" className="flex-1 flex flex-col items-center justify-center px-4 relative z-10 w-full max-w-[1400px] mx-auto">
-        <h1 className="text-4xl md:text-5xl font-semibold mb-6 flex items-center gap-4 tracking-tight text-zinc-900">
+        <h1 className="text-4xl md:text-5xl font-semibold mb-6 flex items-center gap-4 tracking-tight text-[var(--foreground)]">
           一句话
-          <MascotSurprised size={48} className="-rotate-6 text-zinc-900" />
+          <MascotSurprised size={48} className="-rotate-6 text-[var(--foreground)]" />
           呈所想
         </h1>
-        <p className="mb-10 text-base md:text-lg text-zinc-500">
+        <p className="mb-10 text-base md:text-lg text-[var(--muted-foreground)]">
           与 AI 对话轻松创建应用和网站
         </p>
 
@@ -124,10 +124,10 @@ export const Home = () => {
           transition={{ delay: 0.1, duration: 0.4 }}
           className="w-full max-w-3xl"
         >
-          <div className="rounded-2xl border border-zinc-200 bg-card shadow-md p-3 transition-all focus-within:border-zinc-300 focus-within:shadow-lg">
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-card shadow-md p-3 transition-all focus-within:border-zinc-300 focus-within:shadow-lg">
             <textarea
               aria-label="输入消息"
-              className="w-full h-32 bg-transparent resize-none outline-none text-lg p-4 leading-relaxed text-zinc-800 placeholder:text-zinc-400"
+              className="w-full h-32 bg-transparent resize-none outline-none text-lg p-4 leading-relaxed text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
               placeholder="输入你想聊的内容，例如：帮我写一段 Python 代码..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -172,7 +172,7 @@ export const Home = () => {
             <React.Fragment key={s.text}>
               <button
                 onClick={() => setInputValue(s.text)}
-                className="px-4 py-2 rounded-full text-sm font-medium border border-zinc-200 bg-card text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 hover:shadow-sm transition-all active:scale-[0.98]"
+                className="px-4 py-2 rounded-full text-sm font-medium border border-[var(--border-subtle)] bg-card text-zinc-600 hover:border-zinc-300 hover:text-[var(--foreground)] hover:shadow-sm transition-all active:scale-[0.98]"
               >
                 {s.text}
               </button>

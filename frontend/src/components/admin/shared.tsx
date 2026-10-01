@@ -22,7 +22,7 @@ export function AdminPageHeader({
   return (
     <section
       className={cn(
-        'flex flex-col gap-3 rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between',
+        'flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between',
         className,
       )}
     >
@@ -30,9 +30,9 @@ export function AdminPageHeader({
         <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-indigo-600">
           {kicker}
         </p>
-        <h2 className="mt-1 text-xl font-semibold tracking-tight text-zinc-950">{title}</h2>
+        <h2 className="mt-1 text-xl font-semibold tracking-tight text-[var(--foreground)]">{title}</h2>
         {description ? (
-          <p className="mt-1 text-sm font-medium text-zinc-500">{description}</p>
+          <p className="mt-1 text-sm font-medium text-[var(--muted-foreground)]">{description}</p>
         ) : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
@@ -42,9 +42,9 @@ export function AdminPageHeader({
 
 export function KpiPill({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-500 shadow-sm">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] shadow-sm">
       {label}
-      <span className="font-semibold text-zinc-900">{value}</span>
+      <span className="font-semibold text-[var(--foreground)]">{value}</span>
     </span>
   );
 }
@@ -53,7 +53,7 @@ export type StatusTone = 'active' | 'inactive' | 'warning' | 'info';
 
 const STATUS_TONE_CLASS: Record<StatusTone, string> = {
   active: 'border-emerald-200/80 bg-emerald-50 text-emerald-700',
-  inactive: 'border-zinc-200 bg-zinc-100 text-zinc-500',
+  inactive: 'border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--muted-foreground)]',
   warning: 'border-amber-200/80 bg-amber-50 text-amber-700',
   info: 'border-indigo-200/80 bg-indigo-50 text-indigo-700',
 };
@@ -100,7 +100,7 @@ export function AdminPanel({
   return (
     <section
       className={cn(
-        'overflow-hidden rounded-lg border border-zinc-200/80 bg-white shadow-sm',
+        'overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm',
         className,
       )}
     >

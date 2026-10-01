@@ -187,4 +187,20 @@ def get_settings() -> Settings:
                 "（重启后会变化，已有会话/加密数据将失效）。"
                 "生产环境必须在 .env 中设置 AUTH_SECRET_KEY。"
             )
+
+    # 密钥用途分离：AUTH_SECRET_KEY 是 JWT 签名密钥，不应同时充当外部系统
+    # 凭据的加密根密钥（泄露即全部凭据泄露）。生产环境强制显式分离。
+    env = (settings.environment or "").strip().lower()
+    if env in {"production", "prod"} and not (
+        settings.external_system_encryption_key or ""
+    ).strip():
+        raise RuntimeError(
+            "生产环境必须显式配置 EXTERNAL_SYSTEM_ENCRYPTION_KEY（与 AUTH_SECRET_KEY 分离），"
+            "用于外部系统凭据的 Fernet 加密。请在 .env 中设置后重启。"
+        )
+    if not (settings.external_system_encryption_key or "").strip():
+        logging.getLogger("config").warning(
+            "EXTERNAL_SYSTEM_ENCRYPTION_KEY 未设置，外部系统凭据加密密钥将由 "
+            "AUTH_SECRET_KEY 派生（仅限开发环境）。生产环境必须显式分离。"
+        )
     return settings

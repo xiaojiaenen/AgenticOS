@@ -30,7 +30,7 @@ import {
 function EmptyPanel({ label }: { label: string }) { return (
   <div className={cn(
    "flex h-full min-h-[200px] items-center justify-center rounded-lg border border-dashed text-sm font-medium",
-   "border-slate-200/80 bg-white/30 text-slate-500"
+   "border-[var(--border-subtle)] bg-white/30 text-[var(--muted-foreground)]"
   )}>
    {label}
   </div>
@@ -52,13 +52,13 @@ function PanelHeader({
    <div className="flex items-center gap-3">
     <div className={cn(
      "flex h-11 w-11 items-center justify-center rounded-lg shadow-sm",
-     "border border-slate-200 bg-white text-slate-900"
+     "border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--foreground)]"
     )}>
      <Icon size={20} />
     </div>
     <div>
      <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">{kicker}</p>
-     <h3 className={cn("mt-1 text-[22px] font-semibold tracking-tight", "text-slate-950")}>{title}</h3>
+     <h3 className={cn("mt-1 text-[22px] font-semibold tracking-tight", "text-[var(--foreground)]")}>{title}</h3>
     </div>
    </div>
    {extra}
@@ -82,13 +82,13 @@ function PanelShell({
    initial={{ opacity: 0, y: 20 }}
    animate={{ opacity: 1, y: 0 }}
    transition={{ duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] }}
-   className={cn(
-    'rounded-lg border border-zinc-200/80 shadow-sm',
-    tone ?? 'bg-white/80',
-    className,
-   )}
-  >
-   <div className="relative h-full px-5 py-5">{children}</div>
+className={cn(
+   'admin-card flex h-full flex-col',
+   tone ?? '',
+   className,
+  )}
+ >
+  <div className="relative flex-1 px-5 py-5">{children}</div>
   </motion.section>
  );
 }
@@ -104,7 +104,7 @@ function DistributionLegend({ items }: { items: DashboardDistributionItem[] }) {
       />
       <span className="truncate">{item.name}</span>
      </span>
-     <span className={"text-slate-950"}>{formatNumber(item.value)}</span>
+     <span className={"text-[var(--foreground)]"}>{formatNumber(item.value)}</span>
     </div>
    ))}
   </div>
@@ -127,29 +127,29 @@ function UserUsageRow({
    animate={{ opacity: 1, y: 0 }}
    transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.16) }}
    whileHover={{ x: 2 }}
-   className={cn("grid grid-cols-1 gap-4 border-b border-zinc-200/60 px-5 py-4 text-center last:border-b-0 hover:bg-zinc-50/60 transition-colors lg:grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:items-center lg:gap-0",
+   className={cn("grid grid-cols-1 gap-4 border-b border-zinc-200/60 px-5 py-4 text-center last:border-b-0 hover:bg-[var(--surface-2)] transition-colors lg:grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] lg:items-center lg:gap-0",
      "border-slate-200/60"
    )}
   >
    <div className="flex min-w-0 items-center justify-center gap-4">
     <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-sm font-semibold shadow-sm",
-      "border border-slate-200 bg-white/80 text-slate-800"
+      "border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--foreground)]"
     )}>
      {initials(user.name)}
     </div>
     <div className="min-w-0">
      <div className="flex items-center justify-center gap-2">
-      <span className={cn("text-xs font-semibold", "text-slate-400")}>#{index + 1}</span>
-      <p className={cn("truncate text-sm font-semibold", "text-slate-900")}>{user.name}</p>
+      <span className={cn("text-xs font-semibold", "text-[var(--muted-foreground)]")}>#{index + 1}</span>
+      <p className={cn("truncate text-sm font-semibold", "text-[var(--foreground)]")}>{user.name}</p>
      </div>
-     <p className={cn("mt-1 truncate text-xs font-medium", "text-slate-500")}>{user.email}</p>
+     <p className={cn("mt-1 truncate text-xs font-medium", "text-[var(--muted-foreground)]")}>{user.email}</p>
     </div>
    </div>
-   <div className={cn("text-sm font-semibold", "text-slate-900")}>{formatTokenNumber(user.total_tokens)}</div>
-   <div className={cn("text-sm font-medium", "text-slate-600")}>{formatNumber(user.llm_calls)}</div>
-   <div className={cn("text-sm font-medium", "text-slate-600")}>{formatNumber(user.tool_calls)}</div>
-   <div className={cn("text-sm font-medium", "text-slate-600")}>{formatLatency(user.avg_latency_ms)}</div>
-   <div className={cn("h-2 rounded-full", "bg-white")}>
+   <div className={cn("text-sm font-semibold", "text-[var(--foreground)]")}>{formatTokenNumber(user.total_tokens)}</div>
+   <div className={cn("text-sm font-medium", "text-[var(--muted-foreground)]")}>{formatNumber(user.llm_calls)}</div>
+   <div className={cn("text-sm font-medium", "text-[var(--muted-foreground)]")}>{formatNumber(user.tool_calls)}</div>
+   <div className={cn("text-sm font-medium", "text-[var(--muted-foreground)]")}>{formatLatency(user.avg_latency_ms)}</div>
+   <div className={cn("h-2 rounded-full", "bg-[var(--surface-1)]")}>
     <div
      className={cn(
       'h-2 rounded-full',
@@ -214,7 +214,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => { const trend
       kicker="趋势主视图"
       title="Token、运行与工具节奏"
       extra={
-       <div className="rounded-full border border-slate-200 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-500">
+       <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)]">
         最近 {trendData.length || 14} 个统计点
        </div>
       }
@@ -223,8 +223,8 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => { const trend
      <div className="mb-4 grid gap-3 sm:grid-cols-4">
       {trendSignals.map((item) => (
        <div style={{ padding: '10px 12px' }}>
-        <p className={cn("text-[10px] font-semibold tracking-[0.08em]", "text-slate-400")}>{item.label}</p>
-        <p className={cn("mt-1 text-base font-semibold tracking-tight", "text-slate-950")}>{item.value}</p>
+        <p className={cn("text-[10px] font-semibold tracking-[0.08em]", "text-[var(--muted-foreground)]")}>{item.label}</p>
+        <p className={cn("mt-1 text-base font-semibold tracking-tight", "text-[var(--foreground)]")}>{item.value}</p>
        </div>
       ))}
      </div>
@@ -307,8 +307,8 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => { const trend
      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {trendSignals.map((item) => (
        <div style={{ padding: '14px 16px' }}>
-        <p className={cn("text-xs font-semibold tracking-[0.08em]", "text-slate-400")}>{item.label}</p>
-        <p className={cn("mt-2 text-2xl font-semibold tracking-tight", "text-slate-950")}>{item.value}</p>
+        <p className={cn("text-xs font-semibold tracking-[0.08em]", "text-[var(--muted-foreground)]")}>{item.label}</p>
+        <p className={cn("mt-2 text-2xl font-semibold tracking-tight", "text-[var(--foreground)]")}>{item.value}</p>
        </div>
       ))}
      </div>
@@ -434,8 +434,8 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => { const trend
       )}
      </div>
      <div style={{ padding: '16px', textAlign: 'center' }}>
-      <p className={cn("text-xs font-semibold tracking-[0.08em]", "text-slate-400")}>累计模型调用</p>
-      <p className={cn("mt-2 text-2xl font-semibold tracking-tight", "text-slate-950")}>{formatNumber(totalModelCalls)}</p>
+      <p className={cn("text-xs font-semibold tracking-[0.08em]", "text-[var(--muted-foreground)]")}>累计模型调用</p>
+      <p className={cn("mt-2 text-2xl font-semibold tracking-tight", "text-[var(--foreground)]")}>{formatNumber(totalModelCalls)}</p>
      </div>
      <DistributionLegend items={data.model_distribution} />
     </PanelShell>
@@ -482,9 +482,9 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => { const trend
        <div style={{ padding: '12px 16px' }}>
         <div className="flex items-center justify-between gap-3">
          <span className={cn("text-sm font-medium", "text-slate-700")}>{item.name}</span>
-         <span className={cn("text-base font-semibold", "text-slate-950")}>{formatNumber(item.value)}</span>
+         <span className={cn("text-base font-semibold", "text-[var(--foreground)]")}>{formatNumber(item.value)}</span>
         </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100">
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--surface-2)]">
          <div
           className={cn('h-2 rounded-full', index === 0 ? 'bg-zinc-900' : 'bg-teal-500')}
           style={{
@@ -544,8 +544,8 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => { const trend
       )}
      </div>
      <div style={{ padding: '16px', textAlign: 'center' }}>
-      <p className={cn("text-xs font-semibold tracking-[0.08em]", "text-slate-400")}>累计工具调用</p>
-      <p className={cn("mt-2 text-2xl font-semibold tracking-tight", "text-slate-950")}>{formatNumber(totalToolCalls)}</p>
+      <p className={cn("text-xs font-semibold tracking-[0.08em]", "text-[var(--muted-foreground)]")}>累计工具调用</p>
+      <p className={cn("mt-2 text-2xl font-semibold tracking-tight", "text-[var(--foreground)]")}>{formatNumber(totalToolCalls)}</p>
      </div>
     </PanelShell>
    </section>
@@ -596,12 +596,12 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => { const trend
      </div>
     </PanelShell>
 
-         <section className="overflow-hidden rounded-lg border border-zinc-200/80 bg-white shadow-sm">
+         <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
       <div className="border-b border-slate-200/60 px-5 py-4">
        <PanelHeader icon={Trophy} kicker="用户排行" title="资源消耗前列用户" />
       </div>
 
-      <div className="hidden grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] gap-4 border-b border-zinc-200/80 bg-zinc-50 px-5 py-3 text-xs font-semibold tracking-wide text-zinc-500 lg:grid xl:grid">
+      <div className="hidden grid-cols-[minmax(210px,1.2fr)_110px_110px_110px_110px_120px] gap-4 border-b border-[var(--border-subtle)] bg-[var(--surface-2)] px-5 py-3 text-xs font-semibold tracking-wide text-[var(--muted-foreground)] lg:grid xl:grid">
        <span>用户</span>
        <span>Token</span>
        <span>模型调用</span>

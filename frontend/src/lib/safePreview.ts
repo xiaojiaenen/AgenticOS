@@ -90,6 +90,6 @@ export function sanitizeHtml(html: string): string {
     // Keep for backward compatibility with the legacy regex sanitizer, which
     // did not allow javascript: / data:text/html payloads in href/src.
     ALLOWED_URI_REGEXP:
-      /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data:image):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+      /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data:image):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
   });
 }

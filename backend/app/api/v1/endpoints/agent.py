@@ -211,6 +211,23 @@ async def get_session_artifacts(
             "theme": ppt.get("theme") or metadata.get("theme"),
         }
 
+    # website：从 data/websites/{u*_s{session}_v*} 的 dist 重建
+    # （刷新页面后恢复网站预览面板；此前该字段恒为 null，导致刷新即丢失）
+    try:
+        website = await agent_service.get_latest_website_artifact(session_id)
+    except Exception:
+        _logger.exception("get_latest_website_artifact failed: session=%s", session_id)
+        website = None
+    if website:
+        result["website_artifact"] = {
+            "artifact_id": website.get("artifact_id"),
+            "session_id": website.get("session_id"),
+            "title": website.get("title"),
+            "project_slug": website.get("project_slug"),
+            "stack": website.get("stack"),
+            "preview_html": website.get("preview_html"),
+        }
+
     return result
 
 

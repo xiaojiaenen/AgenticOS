@@ -323,14 +323,14 @@ export const UserManagement = () => {
           return (
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-semibold text-zinc-900">{user.name}</p>
+                <p className="truncate text-sm font-semibold text-[var(--foreground)]">{user.name}</p>
                 {isSelf ? (
                   <span className="rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
                     当前账号
                   </span>
                 ) : null}
               </div>
-              <p className="mt-0.5 truncate text-xs font-medium text-zinc-500">{user.email}</p>
+              <p className="mt-0.5 truncate text-xs font-medium text-[var(--muted-foreground)]">{user.email}</p>
             </div>
           );
         },
@@ -353,7 +353,7 @@ export const UserManagement = () => {
                 'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
                 active
                   ? 'border-emerald-200/80 bg-emerald-50 text-emerald-700'
-                  : 'border-zinc-200 bg-zinc-100 text-zinc-500',
+                  : 'border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--muted-foreground)]',
               )}
             >
               {active ? '正常' : '已禁用'}
@@ -450,19 +450,19 @@ export const UserManagement = () => {
         <ErrorBanner message={(usersQuery.error as Error).message || '用户加载失败'} />
       ) : null}
 
-      <section className="overflow-hidden rounded-lg border border-zinc-200/80 bg-white shadow-sm">
-        <div className="flex flex-col gap-2.5 border-b border-zinc-200/80 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+      <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+        <div className="flex flex-col gap-2.5 border-b border-[var(--border-subtle)] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-indigo-600">
               用户目录
             </p>
-            <h3 className="mt-1 text-base font-semibold tracking-tight text-zinc-900">
+            <h3 className="mt-1 text-base font-semibold tracking-tight text-[var(--foreground)]">
               按名称和邮箱检索
             </h3>
           </div>
           <div className="relative lg:w-[340px]">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
               size={16}
             />
             <Input
@@ -481,11 +481,11 @@ export const UserManagement = () => {
           skeletonRows={6}
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-400 shadow-sm">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] shadow-sm">
                 <UserIcon size={20} />
               </div>
               <p className="text-sm font-semibold text-zinc-600">没有找到匹配的用户</p>
-              <p className="mt-1 text-xs font-medium text-zinc-400">
+              <p className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">
                 换个关键词，或者直接创建新账号
               </p>
             </div>
@@ -518,7 +518,7 @@ export const UserManagement = () => {
             <AlertDialogTitle>删除用户</AlertDialogTitle>
             <AlertDialogDescription>
               确认删除{' '}
-              <span className="font-semibold text-zinc-800">{deletingUser?.name}</span>
+              <span className="font-semibold text-[var(--foreground)]">{deletingUser?.name}</span>
               ？删除后该账号将无法继续登录，所有关联数据将被清理。
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -7,7 +7,7 @@ import { AnnouncementManagement } from '../components/admin/AnnouncementManageme
 import { AgentManagement } from '../components/admin/AgentManagement';
 import { ChatHistory } from '../components/admin/ChatHistory';
 import { DashboardCharts } from '../components/admin/DashboardCharts';
-import { DashboardStats } from '../components/admin/DashboardStats';
+import { DashboardStats, STATIC_CARD } from '../components/admin/DashboardStats';
 import { SkillManagement } from '../components/admin/SkillManagement';
 import { KnowledgeManagement } from '../components/admin/KnowledgeManagement';
 import { WebsiteDeployManagement } from '../components/admin/WebsiteDeployManagement';
@@ -106,18 +106,18 @@ export const AdminDashboard = () => {
         return (
           <div className="admin-page-stage space-y-5">
             {/* Overview header */}
-            <section className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
+            <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-indigo-600">
                     系统总览
                   </p>
-                  <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-zinc-950 lg:text-3xl">
+                  <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-[var(--foreground)] lg:text-3xl">
                     后台数据看板
                   </h1>
                 </div>
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-500 shadow-sm">
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-1 text-xs font-semibold text-[var(--muted-foreground)] shadow-sm">
                     {isDashboardLoading ? '正在同步数据' : '数据已同步'}
                   </div>
                   <Button
@@ -140,7 +140,7 @@ export const AdminDashboard = () => {
                         key={d}
                         onClick={() => setTimeRange(d)}
                         className={`rounded-lg px-2.5 py-1 font-medium transition-colors ${
-                          timeRange === d ? 'bg-indigo-600 text-white' : 'text-zinc-500 hover:text-zinc-800'
+                          timeRange === d ? 'bg-indigo-600 text-white' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
                         }`}
                       >
                         {d}天
@@ -149,12 +149,12 @@ export const AdminDashboard = () => {
                   </div>
                 </div>
               </div>
-              {/* Quick insights */}
-              <div className="mt-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+              {/* Quick insights —— 与下方 KPI 卡片共用 STATIC_CARD，保持两排视觉一致 */}
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {headerInsights.map((item) => (
-                  <div key={item.label} className="rounded-lg border border-zinc-100 bg-zinc-50/60 px-4 py-3">
-                    <p className="text-[11px] font-semibold tracking-[0.08em] text-zinc-400">{item.label}</p>
-                    <p className="mt-1.5 text-lg font-semibold tracking-tight text-zinc-950">{item.value}</p>
+                  <div key={item.label} className={STATIC_CARD}>
+                    <span className="admin-muted text-[11px] font-semibold tracking-[0.08em]">{item.label}</span>
+                    <p className="admin-heading mt-2.5 text-xl font-semibold tracking-tight lg:text-2xl">{item.value}</p>
                   </div>
                 ))}
               </div>
@@ -169,7 +169,7 @@ export const AdminDashboard = () => {
 
             {isDashboardLoading && !dashboardData ? (
               <div className="space-y-5">
-                <section className="rounded-lg border border-zinc-200/80 bg-white p-6 shadow-sm">
+                <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-6 shadow-sm">
                   <div className="mb-4 h-3 w-20 animate-pulse rounded bg-zinc-200" />
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {[0, 1, 2, 3].map((i) => (
@@ -183,10 +183,10 @@ export const AdminDashboard = () => {
                   ))}
                 </section>
                 <section className="grid gap-5 lg:grid-cols-2">
-                  <div className="rounded-lg border border-zinc-200/80 bg-white p-6 shadow-sm">
+                  <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-6 shadow-sm">
                     <ChartSkeleton variant="area" height={220} />
                   </div>
-                  <div className="rounded-lg border border-zinc-200/80 bg-white p-6 shadow-sm">
+                  <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-6 shadow-sm">
                     <ChartSkeleton variant="pie" height={220} />
                   </div>
                 </section>
@@ -233,7 +233,7 @@ export const AdminDashboard = () => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      className={cn('admin-dashboard-shell relative flex h-screen overflow-hidden font-sans', 'text-zinc-800')}
+      className={cn('admin-dashboard-shell relative flex h-screen overflow-hidden font-sans', 'text-[var(--foreground)]')}
     >
       <AnimatePresence>
         {isMobile && isSidebarOpen && (
@@ -269,7 +269,7 @@ export const AdminDashboard = () => {
             className="fixed left-4 top-4 z-40"
             aria-label="展开侧栏"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-800 shadow-sm transition-all hover:bg-white hover:shadow-md">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--foreground)] shadow-sm transition-all hover:bg-[var(--surface-1)] hover:shadow-md">
               <MascotCool size={24} className="transition-transform hover:scale-110" />
             </div>
           </motion.button>
@@ -282,7 +282,7 @@ export const AdminDashboard = () => {
           onClick={() => setIsSidebarOpen(true)}
           aria-label="展开侧栏"
         >
-          <div className="fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-200/80 bg-white text-zinc-800 shadow-sm">
+          <div className="fixed left-4 top-4 z-40 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--foreground)] shadow-sm">
             <MascotCool size={24} />
           </div>
         </button>

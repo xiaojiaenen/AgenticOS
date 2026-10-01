@@ -85,8 +85,8 @@ export const AnimatedDots = () => (
 );
 
 export const AssistantWaitingIndicator = ({ statusText = '正在思考' }: { statusText?: string }) => (
-  <div className="flex min-w-[12rem] items-center gap-3 py-1 text-sm font-semibold text-slate-500">
-    <span className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl border border-slate-200/80 bg-slate-50/90 text-slate-400 shadow-inner">
+  <div className="flex min-w-[12rem] items-center gap-3 py-1 text-sm font-semibold text-[var(--muted-foreground)]">
+    <span className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-slate-50/90 text-[var(--muted-foreground)] shadow-inner">
       <BrainCircuit size={15} />
       <motion.span
         className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-sky-400 shadow-[0_0_0_4px_rgba(56,189,248,0.16)]"
@@ -143,7 +143,7 @@ export const ToolResultPreview = ({ result, isError = false }: { result: string;
         <div className={cn(
           "rounded-xl px-3 py-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-all max-w-full overflow-hidden",
           expanded && "max-h-[32rem] overflow-y-auto",
-          isError ? "border border-rose-200/90 bg-rose-50/90 text-rose-700" : "border border-slate-200/80 bg-slate-50/90 text-slate-500",
+          isError ? "border border-rose-200/90 bg-rose-50/90 text-rose-700" : "border border-[var(--border-subtle)] bg-slate-50/90 text-[var(--muted-foreground)]",
         )}>
           {displayedText}
         </div>
@@ -157,7 +157,7 @@ export const ToolResultPreview = ({ result, isError = false }: { result: string;
       {truncated && (
         <button type="button" onClick={() => setExpanded(v => !v)} className={cn(
           "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors",
-          isError ? "border-rose-200 bg-white text-rose-600 hover:bg-rose-50" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+          isError ? "border-rose-200 bg-[var(--surface-1)] text-rose-600 hover:bg-rose-50" : "border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]",
         )}>
           <span>{expanded ? '收起结果' : '展开结果'}</span>
           <ChevronDownIcon size={12} className={cn("transition-transform duration-300", expanded && "rotate-180")} />
@@ -211,33 +211,18 @@ export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) 
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<any>(null);
 
-  // table 类型渲染为 HTML 表格
+  // table 类型渲染为 HTML 表格（提前解析成数据，保证 hooks 无条件调用，
+  // 满足 rules-of-hooks：不能在条件 return 之后调用 useEffect）
+  let tableData: { columns: string[]; data: Record<string, unknown>[] } | null = null;
   try {
     const parsed = JSON.parse(optionJson);
     if (parsed.columns && parsed.data) {
-      return (
-        <div className="my-4 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-slate-700">
-              <thead className="text-xs text-slate-500 uppercase bg-slate-50/80">
-                <tr>{parsed.columns.map((col: string) => <th key={col} className="px-4 py-3 font-semibold whitespace-nowrap">{col}</th>)}</tr>
-              </thead>
-              <tbody>
-                {parsed.data.map((row: Record<string, unknown>, i: number) => (
-                  <tr key={i} className="border-t border-slate-100 hover:bg-sky-50/40 transition-colors">
-                    {parsed.columns.map((col: string) => <td key={col} className="px-4 py-2.5 whitespace-nowrap">{String(row[col] ?? '')}</td>)}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400">{parsed.data.length} 行</div>
-        </div>
-      );
+      tableData = parsed;
     }
   } catch { /* not JSON, ignore */ }
 
   useEffect(() => {
+    if (tableData) return;
     if (!chartRef.current) return;
 
     let option: any;
@@ -297,10 +282,32 @@ export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) 
         (chartInstanceRef as any)._cleanup = null;
       }
     };
-  }, [optionJson]);
+  }, [optionJson, tableData]);
+
+  if (tableData) {
+    return (
+      <div className="my-4 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left text-slate-700">
+            <thead className="text-xs text-[var(--muted-foreground)] uppercase bg-[var(--surface-2)]">
+              <tr>{tableData.columns.map((col) => <th key={col} className="px-4 py-3 font-semibold whitespace-nowrap">{col}</th>)}</tr>
+            </thead>
+            <tbody>
+              {tableData.data.map((row, i) => (
+                <tr key={i} className="border-t border-[var(--border-subtle)] hover:bg-sky-50/40 transition-colors">
+                  {tableData!.columns.map((col) => <td key={col} className="px-4 py-2.5 whitespace-nowrap">{String(row[col] ?? '')}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="border-t border-[var(--border-subtle)] px-4 py-2 text-xs text-[var(--muted-foreground)]">{tableData.data.length} 行</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="my-4 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+    <div className="my-4 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
       <div ref={chartRef} style={{ height: 400 }} />
     </div>
   );
@@ -322,8 +329,8 @@ export const PptArtifactCard = ({ message, onOpenArtifact }: { message: Message;
         {isReady ? <Presentation size={19} /> : <Sparkles size={18} className="animate-pulse" />}
       </div>
       <div className="min-w-0">
-        <div className="truncate text-sm font-semibold text-slate-900">{isReady ? title : '正在生成 PPT'}</div>
-        <div className="mt-0.5 text-[11px] font-medium text-slate-500">{isReady ? `${slideCount} 页 · 可预览和导出 PPTX` : '正在规划内容、图表和版式，请稍候'}</div>
+        <div className="truncate text-sm font-semibold text-[var(--foreground)]">{isReady ? title : '正在生成 PPT'}</div>
+        <div className="mt-0.5 text-[11px] font-medium text-[var(--muted-foreground)]">{isReady ? `${slideCount} 页 · 可预览和导出 PPTX` : '正在规划内容、图表和版式，请稍候'}</div>
       </div>
       {isReady && <button type="button" onClick={handleOpen} className="ml-2 flex-shrink-0 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 active:scale-95">打开 PPT</button>}
     </motion.div>
@@ -347,8 +354,8 @@ export const WebsiteArtifactCard = ({ message, onOpenArtifact }: { message: Mess
         {isReady ? <Globe size={19} /> : <Sparkles size={18} className="animate-pulse" />}
       </div>
       <div className="min-w-0">
-        <div className="truncate text-sm font-semibold text-slate-900">{isReady ? title : '正在生成网站'}</div>
-        <div className="mt-0.5 text-[11px] font-medium text-slate-500">{isReady ? `${stack} · ${slug}` : '正在规划页面结构和内容，请稍候'}</div>
+        <div className="truncate text-sm font-semibold text-[var(--foreground)]">{isReady ? title : '正在生成网站'}</div>
+        <div className="mt-0.5 text-[11px] font-medium text-[var(--muted-foreground)]">{isReady ? `${stack} · ${slug}` : '正在规划页面结构和内容，请稍候'}</div>
       </div>
       {isReady && <button type="button" onClick={handleOpen} className="ml-2 flex-shrink-0 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 active:scale-95">预览</button>}
     </motion.div>
@@ -360,14 +367,14 @@ export const ToolTimelineStep = ({ title, state, body }: { title: string; state:
     <div className="flex flex-col items-center">
       <div className={cn("mt-1 h-3 w-3 rounded-full border-2 transition-colors",
         state === 'done' && "border-emerald-500 bg-emerald-500",
-        state === 'active' && "border-sky-500 bg-white shadow-[0_0_0_4px_rgba(56,189,248,0.15)]",
-        state === 'idle' && "border-slate-300 bg-white")} />
+        state === 'active' && "border-sky-500 bg-[var(--surface-1)] shadow-[0_0_0_4px_rgba(56,189,248,0.15)]",
+        state === 'idle' && "border-slate-300 bg-[var(--surface-1)]")} />
       <div className={cn("mt-2 h-full min-h-5 w-px", state === 'done' ? "bg-emerald-300/80" : "bg-slate-200")} />
     </div>
     <div className="pb-3">
       <div className={cn("text-[11px] font-semibold uppercase tracking-[0.14em]",
-        state === 'done' && "text-emerald-600", state === 'active' && "text-sky-600", state === 'idle' && "text-slate-400")}>{title}</div>
-      <div className="mt-1 text-xs leading-relaxed text-slate-600">{body}</div>
+        state === 'done' && "text-emerald-600", state === 'active' && "text-sky-600", state === 'idle' && "text-[var(--muted-foreground)]")}>{title}</div>
+      <div className="mt-1 text-xs leading-relaxed text-[var(--muted-foreground)]">{body}</div>
     </div>
   </div>
 );
@@ -437,7 +444,7 @@ export const CodeBlock = ({ inline, className, children, onOpenArtifact, ...prop
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><span>可视化预览</span>
               </button>
             )}
-            <button onClick={handleBlockCopy} className="flex items-center justify-center rounded-lg p-1.5 text-slate-400 transition-all hover:bg-white/10 hover:text-white active:scale-90" title={isBlockCopied ? '已复制' : '复制代码'}>
+            <button onClick={handleBlockCopy} className="flex items-center justify-center rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-white/10 hover:text-white active:scale-90" title={isBlockCopied ? '已复制' : '复制代码'}>
               <AnimatePresence mode="wait" initial={false}>
                 {isBlockCopied ? <motion.div key="ok" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}><CheckIcon size={14} className="text-green-400" /></motion.div>
                   : <motion.div key="copy" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }}><CopyIcon size={14} /></motion.div>}
@@ -472,7 +479,7 @@ export const MarkdownTableHead = ({ children }: { children: React.ReactNode }) =
 );
 
 export const MarkdownTableRow = ({ children }: { children: React.ReactNode }) => (
-  <tr className="border-b border-slate-200/80 transition-colors even:bg-slate-50/70 hover:bg-sky-50/50 last:border-b-0">{children}</tr>
+  <tr className="border-b border-[var(--border-subtle)] transition-colors even:bg-slate-50/70 hover:bg-sky-50/50 last:border-b-0">{children}</tr>
 );
 
 // ── Slide Preview Strip ──────────────────────────────────────────────────
@@ -505,14 +512,14 @@ export const SlidePreviewStrip = ({ message }: { message: Message }) => {
   } as React.CSSProperties;
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-3 w-full max-w-[42rem]">
-      <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-        <Presentation size={12} className="text-slate-400" />
+      <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]">
+        <Presentation size={12} className="text-[var(--muted-foreground)]" />
         <span>幻灯片预览 ({previews.length} 页)</span>
       </div>
       <div className="flex gap-2 overflow-x-auto pb-2">
         {previews.map(({ slideNum, svg }) => (
           <div key={slideNum} className="flex-shrink-0">
-            <div className="relative w-40 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow" style={themeVars}>
+            <div className="relative w-40 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm overflow-hidden hover:shadow-md transition-shadow" style={themeVars}>
               <div className="aspect-[16/9] overflow-hidden" dangerouslySetInnerHTML={{ __html: svg.replace(/<svg/, '<svg style="width:100%;height:100%"') }} />
               <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/40 to-transparent px-2 py-1.5">
                 <span className="text-[10px] font-semibold text-white">第 {slideNum} 页</span>

@@ -15,7 +15,7 @@ from pathlib import Path
 from sqlalchemy import create_engine, text
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
-HEAD_REVISION = "0003_kb_fulltext_ngram"
+HEAD_REVISION = "0004_indexes_and_cleanup"
 
 
 def _run_alembic(args: list[str], database_url: str) -> subprocess.CompletedProcess[str]:
