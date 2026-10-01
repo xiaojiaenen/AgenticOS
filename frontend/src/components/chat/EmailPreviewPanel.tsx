@@ -75,12 +75,12 @@ const EmailCard: React.FC<{
     )}>
       {/* 收件人 */}
       <div className="mb-3 flex items-start gap-2">
-        <User size={14} className={cn("mt-0.5 flex-shrink-0", "text-slate-400")} />
+        <User size={14} className={cn("mt-0.5 flex-shrink-0", "text-[var(--muted-foreground)]")} />
         <div>
-          <div className={cn("text-[10px] font-semibold uppercase tracking-wider", "text-slate-400")}>
+          <div className={cn("text-[10px] font-semibold uppercase tracking-wider", "text-[var(--muted-foreground)]")}>
             收件人
           </div>
-          <div className={cn("text-sm font-medium", "text-slate-800")}>
+          <div className={cn("text-sm font-medium", "text-[var(--foreground)]")}>
             {email.to}
           </div>
         </div>
@@ -89,12 +89,12 @@ const EmailCard: React.FC<{
       {/* 抄送 */}
       {email.cc && (
         <div className="mb-3 flex items-start gap-2">
-          <Users size={14} className={cn("mt-0.5 flex-shrink-0", "text-slate-400")} />
+          <Users size={14} className={cn("mt-0.5 flex-shrink-0", "text-[var(--muted-foreground)]")} />
           <div>
-            <div className={cn("text-[10px] font-semibold uppercase tracking-wider", "text-slate-400")}>
+            <div className={cn("text-[10px] font-semibold uppercase tracking-wider", "text-[var(--muted-foreground)]")}>
               抄送
             </div>
-            <div className={cn("text-sm font-medium", "text-slate-800")}>
+            <div className={cn("text-sm font-medium", "text-[var(--foreground)]")}>
               {email.cc}
             </div>
           </div>
@@ -103,20 +103,20 @@ const EmailCard: React.FC<{
 
       {/* 主题 */}
       <div className="mb-3 flex items-start gap-2">
-        <FileText size={14} className={cn("mt-0.5 flex-shrink-0", "text-slate-400")} />
+        <FileText size={14} className={cn("mt-0.5 flex-shrink-0", "text-[var(--muted-foreground)]")} />
         <div>
-          <div className={cn("text-[10px] font-semibold uppercase tracking-wider", "text-slate-400")}>
+          <div className={cn("text-[10px] font-semibold uppercase tracking-wider", "text-[var(--muted-foreground)]")}>
             主题
           </div>
-          <div className={cn("text-sm font-semibold", "text-slate-900")}>
+          <div className={cn("text-sm font-semibold", "text-[var(--foreground)]")}>
             {email.subject}
           </div>
         </div>
       </div>
 
       {/* 邮件内容 */}
-      <div className={cn("mb-4 rounded-lg p-3", "bg-slate-50/80 border border-slate-200/60")}>
-        <div className={cn("text-[10px] font-semibold uppercase tracking-wider mb-2", "text-slate-400")}>
+      <div className={cn("mb-4 rounded-lg p-3", "bg-[var(--surface-2)] border border-slate-200/60")}>
+        <div className={cn("text-[10px] font-semibold uppercase tracking-wider mb-2", "text-[var(--muted-foreground)]")}>
           邮件内容
         </div>
         <div className={cn(
@@ -138,7 +138,7 @@ const EmailCard: React.FC<{
           onClick={() => onDecision(email.approval_id, 'rejected')}
           className={cn(
             "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-colors active:scale-95",
-            "border border-rose-200 bg-white text-rose-600 hover:bg-rose-50"
+            "border border-rose-200 bg-[var(--surface-1)] text-rose-600 hover:bg-rose-50"
           )}
         >
           <X size={13} />

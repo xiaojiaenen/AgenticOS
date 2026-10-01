@@ -44,20 +44,20 @@ export const SystemSettings = () => {
         </div>
       ) : null}
 
-      <section className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
+      <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600">
               <Server size={20} />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-zinc-900">LDAP 认证</h3>
-              <p className="mt-1 max-w-2xl text-sm font-medium leading-relaxed text-zinc-500">
+              <h3 className="text-base font-semibold text-[var(--foreground)]">LDAP 认证</h3>
+              <p className="mt-1 max-w-2xl text-sm font-medium leading-relaxed text-[var(--muted-foreground)]">
                 启用后用户可通过工号 + LDAP 密码登录，自动禁用本地密码登录和注册功能。
                 开启 <span className="font-semibold text-amber-600">LDAP_AUTO_CREATE_USERS=true</span>{' '}
                 时首次登录将自动创建用户。
               </p>
-              <div className="mt-2 flex items-center gap-2 text-xs font-medium text-zinc-400">
+              <div className="mt-2 flex items-center gap-2 text-xs font-medium text-[var(--muted-foreground)]">
                 <span
                   className={`inline-block h-1.5 w-1.5 rounded-full ${
                     ldapEnabled ? 'bg-emerald-500' : 'bg-zinc-400'
@@ -79,13 +79,13 @@ export const SystemSettings = () => {
             />
           )}
           {updateMutation.isPending ? (
-            <Loader2 size={16} className="animate-spin text-zinc-400" />
+            <Loader2 size={16} className="animate-spin text-[var(--muted-foreground)]" />
           ) : null}
         </div>
       </section>
 
-      <section className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
-        <div className="rounded-lg border border-zinc-200 p-4 text-sm font-medium leading-relaxed text-zinc-500">
+      <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
+        <div className="rounded-lg border border-[var(--border-subtle)] p-4 text-sm font-medium leading-relaxed text-[var(--muted-foreground)]">
           <p className="font-semibold text-zinc-700">注意：</p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>切换 LDAP 状态后无需重启后端服务</li>

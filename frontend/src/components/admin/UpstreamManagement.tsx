@@ -181,7 +181,7 @@ export const UpstreamManagement = () => {
         accessorKey: 'name',
         header: '名称',
         cell: ({ getValue }) => (
-          <span className="text-sm font-semibold text-zinc-800">{String(getValue())}</span>
+          <span className="text-sm font-semibold text-[var(--foreground)]">{String(getValue())}</span>
         ),
       },
       {
@@ -204,7 +204,7 @@ export const UpstreamManagement = () => {
               className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
                 enabled
                   ? 'border-emerald-200/80 bg-emerald-50 text-emerald-600'
-                  : 'border-zinc-200 bg-zinc-100 text-zinc-500'
+                  : 'border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--muted-foreground)]'
               }`}
             >
               {enabled ? '启用' : '停用'}
@@ -277,7 +277,7 @@ export const UpstreamManagement = () => {
         accessorKey: 'username',
         header: '账号',
         cell: ({ getValue }) => (
-          <span className="text-sm font-medium text-zinc-800">{String(getValue())}</span>
+          <span className="text-sm font-medium text-[var(--foreground)]">{String(getValue())}</span>
         ),
       },
       {
@@ -342,9 +342,9 @@ export const UpstreamManagement = () => {
   if (upstreamQuery.isPending) {
     return (
       <div className="space-y-5">
-        <div className="flex h-40 items-center justify-center gap-3 rounded-lg border border-zinc-200/80 bg-white shadow-sm">
-          <Loader2 size={20} className="animate-spin text-zinc-400" />
-          <span className="text-sm font-medium text-zinc-400">正在加载企业上游状态...</span>
+        <div className="flex h-40 items-center justify-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+          <Loader2 size={20} className="animate-spin text-[var(--muted-foreground)]" />
+          <span className="text-sm font-medium text-[var(--muted-foreground)]">正在加载企业上游状态...</span>
         </div>
       </div>
     );
@@ -368,14 +368,14 @@ export const UpstreamManagement = () => {
         }
       />
 
-      <section className="grid gap-2.5 rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((item) => (
-          <div key={item.label} className="rounded-lg border border-zinc-100 bg-zinc-50/60 px-4 py-3">
+          <div key={item.label} className="rounded-lg border border-zinc-100 bg-[var(--surface-2)] px-4 py-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-[11px] font-semibold tracking-wide text-zinc-400">{item.label}</p>
-              <item.icon size={14} className="text-zinc-400" />
+              <p className="text-[11px] font-semibold tracking-wide text-[var(--muted-foreground)]">{item.label}</p>
+              <item.icon size={14} className="text-[var(--muted-foreground)]" />
             </div>
-            <p className="mt-1.5 truncate text-lg font-semibold tracking-tight text-zinc-950" title={String(item.value)}>
+            <p className="mt-1.5 truncate text-lg font-semibold tracking-tight text-[var(--foreground)]" title={String(item.value)}>
               {item.value}
             </p>
           </div>
@@ -389,13 +389,13 @@ export const UpstreamManagement = () => {
       ) : null}
 
       {/* API Keys */}
-      <section className="overflow-hidden rounded-lg border border-zinc-200/80 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-zinc-200/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-[var(--border-subtle)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <KeyRound size={18} className="text-indigo-600" />
             <div>
-              <h2 className="text-base font-semibold text-zinc-900">API Key</h2>
-              <p className="mt-0.5 text-xs font-medium text-zinc-400">
+              <h2 className="text-base font-semibold text-[var(--foreground)]">API Key</h2>
+              <p className="mt-0.5 text-xs font-medium text-[var(--muted-foreground)]">
                 仅供外部软件：<code>Authorization: Bearer sk-agenticos-…</code> 调用{' '}
                 <code>/v1/chat/completions</code>。本机 AgenticOS 不需要 Key。
               </p>
@@ -413,7 +413,7 @@ export const UpstreamManagement = () => {
               新建 Key（请立即复制保存，关闭后无法再次查看明文）
             </p>
             <div className="mt-2 flex items-center gap-2">
-              <code className="flex-1 truncate rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-800">
+              <code className="flex-1 truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-xs font-medium text-[var(--foreground)]">
                 {createdKey}
               </code>
               <Button
@@ -445,7 +445,7 @@ export const UpstreamManagement = () => {
           isLoading={keysQuery.isLoading}
           skeletonRows={4}
           emptyState={
-            <p className="py-6 text-center text-sm font-medium text-zinc-400">
+            <p className="py-6 text-center text-sm font-medium text-[var(--muted-foreground)]">
               尚无 API Key，点击「创建 Key」生成
             </p>
           }
@@ -453,10 +453,10 @@ export const UpstreamManagement = () => {
       </section>
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <section className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
+        <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
           <div className="flex items-center gap-2">
             <Activity size={18} className="text-indigo-600" />
-            <h2 className="text-base font-semibold text-zinc-900">连接与配置</h2>
+            <h2 className="text-base font-semibold text-[var(--foreground)]">连接与配置</h2>
           </div>
           <dl className="mt-4 space-y-3 text-sm">
             {[
@@ -468,8 +468,8 @@ export const UpstreamManagement = () => {
               ['网关地址', '/v1/chat/completions'],
             ].map(([k, v]) => (
               <div key={k} className="flex items-start justify-between gap-4">
-                <dt className="shrink-0 font-medium text-zinc-500">{k}</dt>
-                <dd className="truncate text-right font-medium text-zinc-800" title={String(v)}>
+                <dt className="shrink-0 font-medium text-[var(--muted-foreground)]">{k}</dt>
+                <dd className="truncate text-right font-medium text-[var(--foreground)]" title={String(v)}>
                   {v}
                 </dd>
               </div>
@@ -477,15 +477,15 @@ export const UpstreamManagement = () => {
           </dl>
         </section>
 
-        <section className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
+        <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
           <div className="flex items-center gap-2">
             <ShieldCheck size={18} className="text-indigo-600" />
-            <h2 className="text-base font-semibold text-zinc-900">我的 Cookie</h2>
+            <h2 className="text-base font-semibold text-[var(--foreground)]">我的 Cookie</h2>
           </div>
           {mine ? (
             <div className="mt-4 space-y-3 text-sm">
               <div className="flex items-center justify-between">
-                <span className="font-medium text-zinc-500">状态</span>
+                <span className="font-medium text-[var(--muted-foreground)]">状态</span>
                 <span
                   className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${
                     mine.healthy
@@ -500,16 +500,16 @@ export const UpstreamManagement = () => {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-medium text-zinc-500">账号</span>
-                <span className="font-medium text-zinc-800">{mine.username}</span>
+                <span className="font-medium text-[var(--muted-foreground)]">账号</span>
+                <span className="font-medium text-[var(--foreground)]">{mine.username}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-medium text-zinc-500">过期时间</span>
-                <span className="font-medium tabular-nums text-zinc-800">{formatTime(mine.expire_at)}</span>
+                <span className="font-medium text-[var(--muted-foreground)]">过期时间</span>
+                <span className="font-medium tabular-nums text-[var(--foreground)]">{formatTime(mine.expire_at)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-medium text-zinc-500">上次登录</span>
-                <span className="font-medium tabular-nums text-zinc-800">
+                <span className="font-medium text-[var(--muted-foreground)]">上次登录</span>
+                <span className="font-medium tabular-nums text-[var(--foreground)]">
                   {formatTime(mine.last_login_at)}
                 </span>
               </div>
@@ -520,7 +520,7 @@ export const UpstreamManagement = () => {
               )}
             </div>
           ) : (
-            <div className="mt-4 rounded-lg bg-zinc-50 px-4 py-6 text-center text-sm font-medium text-zinc-500">
+            <div className="mt-4 rounded-lg bg-[var(--surface-2)] px-4 py-6 text-center text-sm font-medium text-[var(--muted-foreground)]">
               尚未配置上游凭据。
               <br />
               使用 LDAP 工号登录后会自动获取 Cookie。
@@ -530,13 +530,13 @@ export const UpstreamManagement = () => {
       </div>
 
       {isAdmin && (
-        <section className="overflow-hidden rounded-lg border border-zinc-200/80 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-zinc-200/80 px-5 py-4">
+        <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
             <div className="flex items-center gap-2">
               <ShieldCheck size={18} className="text-indigo-600" />
-              <h2 className="text-base font-semibold text-zinc-900">用户登录态总览</h2>
+              <h2 className="text-base font-semibold text-[var(--foreground)]">用户登录态总览</h2>
             </div>
-            <span className="text-xs font-medium text-zinc-400">
+            <span className="text-xs font-medium text-[var(--muted-foreground)]">
               共 {adminItems.length} 条 · 自动续期中
             </span>
           </div>
@@ -553,7 +553,7 @@ export const UpstreamManagement = () => {
               isLoading={adminQuery.isLoading}
               skeletonRows={4}
               emptyState={
-                <p className="py-6 text-center text-sm font-medium text-zinc-400">
+                <p className="py-6 text-center text-sm font-medium text-[var(--muted-foreground)]">
                   暂无用户配置上游登录态
                 </p>
               }
@@ -562,11 +562,11 @@ export const UpstreamManagement = () => {
         </section>
       )}
 
-      <section className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
-        <p className="text-[11px] font-semibold tracking-wide text-zinc-400">
+      <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
+        <p className="text-[11px] font-semibold tracking-wide text-[var(--muted-foreground)]">
           自动流程（无需手动登录）
         </p>
-        <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm font-medium text-zinc-500">
+        <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm font-medium text-[var(--muted-foreground)]">
           <li>用户登录 AgenticOS（LDAP / 本地）</li>
           <li>自动写入上游凭据并 Playwright 登录 agents.gree.com</li>
           <li>Cookie 快过期（默认提前 2 小时）由后台任务自动续期</li>

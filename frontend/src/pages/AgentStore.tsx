@@ -82,7 +82,7 @@ export const AgentStore = () => {
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         'relative min-h-screen overflow-hidden font-sans',
-        'text-slate-800 bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#bae6fd] selection:bg-zinc-200 selection:text-zinc-900'
+        'text-[var(--foreground)] bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#bae6fd] selection:bg-zinc-200 selection:text-[var(--foreground)]'
       )}
     >
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
@@ -90,7 +90,7 @@ export const AgentStore = () => {
         <div className="absolute -top-20 -left-10 w-[45vw] h-[45vw] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.15),transparent_70%)] blur-[70px] animate-[bg-blob-1_16s_ease-in-out_infinite]" />
         <div className="absolute -bottom-16 -right-8 w-[42vw] h-[42vw] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.14),transparent_70%)] blur-[70px] animate-[bg-blob-3_18s_ease-in-out_infinite]" />
         <div className="absolute top-1/3 right-1/4 w-[36vw] h-[36vw] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.12),transparent_70%)] blur-[80px] animate-[bg-blob-2_15s_ease-in-out_infinite]" />
-        <RandomMascot size={720} className="absolute -bottom-44 -right-32 text-slate-900 opacity-[0.025]" />
+        <RandomMascot size={720} className="absolute -bottom-44 -right-32 text-[var(--foreground)] opacity-[0.025]" />
       </div>
 
       <nav className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 py-4">
@@ -108,11 +108,11 @@ export const AgentStore = () => {
 
       <main id="main-content" className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 pt-5 md:px-8">
         <div className="mb-7 flex flex-col gap-2">
-          <p className={cn("flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em]", "text-slate-500")}>
+          <p className={cn("flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em]", "text-[var(--muted-foreground)]")}>
             <Sparkles size={16} />
             Agent Store
           </p>
-          <h1 className={cn("text-4xl font-bold tracking-tight", "text-slate-900")}>智能体商店</h1>
+          <h1 className={cn("text-4xl font-bold tracking-tight", "text-[var(--foreground)]")}>智能体商店</h1>
         </div>
 
         {error && (
@@ -124,7 +124,7 @@ export const AgentStore = () => {
 
         {isLoading ? (
           <div className={cn(
-            'flex h-72 items-center justify-center gap-3 rounded-2xl border text-sm font-bold text-slate-500 backdrop-blur-2xl',
+            'flex h-72 items-center justify-center gap-3 rounded-2xl border text-sm font-bold text-[var(--muted-foreground)] backdrop-blur-2xl',
             'border-white/60 bg-white/45'
           )}>
             <Loader2 size={18} className="animate-spin" />
@@ -133,12 +133,12 @@ export const AgentStore = () => {
         ) : agents.length === 0 ? (
           <div className={cn(
             'flex h-72 flex-col items-center justify-center gap-4 rounded-2xl border text-sm font-bold backdrop-blur-2xl',
-            'border-white/60 bg-white/45 text-slate-500'
+            'border-white/60 bg-white/45 text-[var(--muted-foreground)]'
           )}>
             <Bot size={48} className={"text-slate-300"} />
             <div className="text-center">
-              <p className={cn("text-base font-bold", "text-slate-600")}>暂无可用智能体</p>
-              <p className={cn("mt-1 text-xs font-medium", "text-slate-400")}>请检查智能体配置或联系管理员</p>
+              <p className={cn("text-base font-bold", "text-[var(--muted-foreground)]")}>暂无可用智能体</p>
+              <p className={cn("mt-1 text-xs font-medium", "text-[var(--muted-foreground)]")}>请检查智能体配置或联系管理员</p>
             </div>
           </div>
         ) : (
@@ -160,8 +160,8 @@ export const AgentStore = () => {
                   </div>
 
                   <div className="mt-4 min-h-[86px]">
-                    <h2 className={cn("line-clamp-1 text-lg font-bold tracking-tight", "text-slate-900")}>{agent.name}</h2>
-                    <p className={cn("mt-2 line-clamp-3 text-sm font-medium leading-6", "text-slate-500")}>
+                    <h2 className={cn("line-clamp-1 text-lg font-bold tracking-tight", "text-[var(--foreground)]")}>{agent.name}</h2>
+                    <p className={cn("mt-2 line-clamp-3 text-sm font-medium leading-6", "text-[var(--muted-foreground)]")}>
                       {agent.description || '适合处理特定任务的智能体。'}
                     </p>
                   </div>

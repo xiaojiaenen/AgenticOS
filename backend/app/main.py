@@ -154,10 +154,11 @@ _websites_dir.mkdir(parents=True, exist_ok=True)
 _nginx_serve_dir.mkdir(parents=True, exist_ok=True)
 
 # 挂载网站预览服务
-# 访问 /sites/{project_slug}/dist/index.html 预览网站
-app.mount("/sites", StaticFiles(directory=str(_nginx_serve_dir)), name="sites")
+# 访问 /sites/{project_slug}/ 直接预览已部署站点（html=True 支持目录级 index.html，
+# 与生产 nginx 的 try_files $uri $uri/ 行为对齐；否则本地 dev 打开目录 URL 会 404）
+app.mount("/sites", StaticFiles(directory=str(_nginx_serve_dir), html=True), name="sites")
 # 访问 /preview/{project_slug}/dist/index.html 预览构建中的网站
-app.mount("/preview", StaticFiles(directory=str(_websites_dir)), name="preview")
+app.mount("/preview", StaticFiles(directory=str(_websites_dir), html=True), name="preview")
 
 
 @app.get("/", tags=["元信息"])

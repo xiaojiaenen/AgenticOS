@@ -2,8 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Session, Message } from '../types';
 import { listSessions, deleteSession as deleteSessionApi, getSessionMessages, getSessionArtifacts } from '../services/agentService';
 import { getStoredUser } from '../services/authService';
+import {
+  MAX_SESSIONS,
+  convertBackendSession,
+  mergeLocalIntoConverted,
+  reconcileBackendWithLocal,
+} from '../lib/sessionMerge';
 
-const MAX_SESSIONS = 24;
 const MAX_PERSISTED_MESSAGES_PER_SESSION = 120;
 const MAX_PERSISTED_TEXT_LENGTH = 30_000;
 const MAX_PERSISTED_TOOL_RESULT_LENGTH = 10_000;
@@ -12,6 +17,17 @@ const MAX_PERSISTED_TOOL_RESULT_LENGTH = 10_000;
 function getCacheKey(): string {
   const user = getStoredUser();
   return user ? `chat_sessions_${user.id}` : 'chat_sessions_guest';
+}
+
+/** 上次打开的会话 id：刷新后恢复到原会话（含 PPT/网站预览面板） */
+const CURRENT_SESSION_KEY = 'chat_current_session_id';
+
+function loadCachedCurrentSessionId(): string | null {
+  try {
+    return localStorage.getItem(CURRENT_SESSION_KEY);
+  } catch {
+    return null;
+  }
 }
 
 function clampText(value: string | undefined, limit: number): string | undefined {
@@ -103,7 +119,7 @@ function saveSessionsToCache(sessions: Session[]) {
 
 export function useChatSessions() {
   const [sessions, setSessions] = useState<Session[]>(() => loadCachedSessions());
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(loadCachedCurrentSessionId);
   const [visibleSessionsCount, setVisibleSessionsCount] = useState(10);
   const [isLoading, setIsLoading] = useState(true);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,6 +127,20 @@ export function useChatSessions() {
 
   const visibleSessions = sessions.slice(0, visibleSessionsCount);
   const hasMoreSessions = sessions.length > visibleSessionsCount;
+
+  // 持久化当前会话 id，刷新后回到同一会话（否则刷新即回到空态，
+  // 用户会以为 PPT/网站产物丢了）
+  useEffect(() => {
+    try {
+      if (currentSessionId) {
+        localStorage.setItem(CURRENT_SESSION_KEY, currentSessionId);
+      } else {
+        localStorage.removeItem(CURRENT_SESSION_KEY);
+      }
+    } catch {
+      /* 隐私模式/配额限制：忽略 */
+    }
+  }, [currentSessionId]);
 
   // Load sessions from backend on mount
   useEffect(() => {
@@ -122,64 +152,23 @@ export function useChatSessions() {
         if (cancelled) return;
 
         // Convert backend sessions to frontend Session format
-        const converted: Session[] = backendSessions.map((s) => ({
-          id: s.session_id,
-          title: s.summary || (typeof s.metadata?.agent_profile_name === 'string' ? s.metadata.agent_profile_name : '') || '新对话',
-          messages: [], // Messages will be loaded when session is selected
-          createdAt: s.created_at ? new Date(s.created_at).getTime() : Date.now(),
-          updatedAt: s.updated_at ? new Date(s.updated_at).getTime() : Date.now(),
-          summary: s.summary,
-          messageCount: s.message_count,
-          mode: (s.metadata?.response_mode as Session['mode']) || undefined,
-          agentProfileId: (s.metadata?.agent_profile_id as number) ?? undefined,
-        }));
+        const converted: Session[] = backendSessions.map(convertBackendSession);
 
         // Merge with cached sessions (preserve messages from cache)
         const cachedSessions = loadCachedSessions();
-        const cachedMap = new Map(cachedSessions.map(s => [s.id, s]));
-
-        const merged = converted.map((s) => {
-          const cached = cachedMap.get(s.id);
-          if (cached && cached.messages.length > 0) {
-            return {
-              ...s,
-              messages: cached.messages,
-              title: cached.title || s.title,
-              mode: cached.mode || s.mode,
-              agentProfileId: cached.agentProfileId ?? s.agentProfileId,
-            };
-          }
-          return s;
-        });
+        const merged = mergeLocalIntoConverted(converted, cachedSessions, { keepMessagesOnly: true });
 
         // Use functional update to preserve sessions created in-flight
         // (e.g. from home page navigation) that haven't reached the backend yet
         setSessions((prev) => {
-          const prevMap = new Map(prev.map((s) => [s.id, s]));
-          const backendIds = new Set(merged.map((s) => s.id));
-          // Start with backend sessions, merging in cached messages
-          const result = merged.map((s) => {
-            const existing = prevMap.get(s.id);
-            if (existing) {
-              return {
-                ...s,
-                messages: existing.messages.length > 0 ? existing.messages : s.messages,
-                title: existing.title || s.title,
-                mode: existing.mode || s.mode,
-                agentProfileId: existing.agentProfileId ?? s.agentProfileId,
-              };
-            }
-            return s;
-          });
-          // Preserve prev sessions not yet on backend (newly created)
-          for (const s of prev) {
-            if (!backendIds.has(s.id)) {
-              result.unshift(s);
-            }
-          }
           // 持久化交给下方 [sessions] 防抖 effect 统一处理（不在 setState updater 内做副作用）
-          return result.slice(0, MAX_SESSIONS);
+          return reconcileBackendWithLocal(mergeLocalIntoConverted(merged, prev), prev);
         });
+
+        // 缓存的当前会话可能已被删除（另一标签页/后端清理），此时退回空态
+        setCurrentSessionId((prevId) =>
+          prevId && merged.some((s) => s.id === prevId) ? prevId : null,
+        );
       } catch (error) {
         console.error('Failed to load sessions from backend:', error);
         // Keep cached sessions on error
@@ -288,41 +277,14 @@ export function useChatSessions() {
   const refreshSessions = useCallback(async () => {
     try {
       const backendSessions = await listSessions();
-      const converted: Session[] = backendSessions.map((s) => ({
-        id: s.session_id,
-        title: s.summary || (typeof s.metadata?.agent_profile_name === 'string' ? s.metadata.agent_profile_name : '') || '新对话',
-        messages: [],
-        createdAt: s.created_at ? new Date(s.created_at).getTime() : Date.now(),
-        updatedAt: s.updated_at ? new Date(s.updated_at).getTime() : Date.now(),
-        summary: s.summary,
-        messageCount: s.message_count,
-        mode: (s.metadata?.response_mode as Session['mode']) || undefined,
-        agentProfileId: (s.metadata?.agent_profile_id as number) ?? undefined,
-      }));
+      const converted: Session[] = backendSessions.map(convertBackendSession);
 
       setSessions((prev) => {
-        const prevMap = new Map(prev.map((s) => [s.id, s]));
-        const backendIds = new Set(converted.map((s) => s.id));
-        const result = converted.map((s) => {
-          const existing = prevMap.get(s.id);
-          if (existing && existing.messages.length > 0) {
-            return {
-              ...s,
-              messages: existing.messages,
-              title: existing.title || s.title,
-              mode: existing.mode || s.mode,
-              agentProfileId: existing.agentProfileId ?? s.agentProfileId,
-            };
-          }
-          return s;
-        });
-        for (const s of prev) {
-          if (!backendIds.has(s.id)) {
-            result.unshift(s);
-          }
-        }
         // 持久化交给 [sessions] 防抖 effect 统一处理（不在 setState updater 内做副作用）
-        return result.slice(0, MAX_SESSIONS);
+        return reconcileBackendWithLocal(
+          mergeLocalIntoConverted(converted, prev, { keepMessagesOnly: true }),
+          prev,
+        );
       });
     } catch (error) {
       console.error('Failed to refresh sessions:', error);

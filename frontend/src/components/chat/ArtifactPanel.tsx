@@ -56,16 +56,16 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(24,24,27,0.03),transparent)]" />
 
-      <div className="z-10 flex h-14 flex-shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/80 px-6 backdrop-blur-md">
+      <div className="z-10 flex h-14 flex-shrink-0 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-1)] px-6 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-zinc-900 text-white shadow-lg shadow-zinc-900/20">
             <CodeIcon size={18} />
           </div>
           <div>
-            <h2 className="text-sm font-bold leading-none text-slate-800">预览画布</h2>
+            <h2 className="text-sm font-bold leading-none text-[var(--foreground)]">预览画布</h2>
             <div className="mt-1 flex items-center gap-1.5">
               <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted-foreground)]">
                 {artifact.language === 'html' ? 'Live Web Preview' : 'Vector Graphic'}
               </p>
             </div>
@@ -79,7 +79,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
                 iframeRef.current.srcdoc = previewSrcDoc;
               }
             }}
-            className="rounded-xl p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-zinc-600"
+            className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-slate-100 hover:text-zinc-600"
             title="刷新预览"
             aria-label="刷新预览"
           >
@@ -93,7 +93,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
                 else toast.error('复制失败');
               });
             }}
-            className="rounded-xl p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-zinc-600"
+            className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-slate-100 hover:text-zinc-600"
             title="复制代码"
             aria-label="复制代码"
           >
@@ -112,7 +112,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
               anchor.click();
               URL.revokeObjectURL(url);
             }}
-            className="rounded-xl p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-zinc-600"
+            className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-slate-100 hover:text-zinc-600"
             title="下载文件"
             aria-label="下载文件"
           >
@@ -122,7 +122,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
           <button
             type="button"
             onClick={onClose}
-            className="group rounded-xl p-2 text-slate-400 transition-all hover:bg-rose-50 hover:text-rose-500"
+            className="group rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-rose-50 hover:text-rose-500"
             aria-label="关闭预览"
           >
             <svg
@@ -147,9 +147,9 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
           initial={{ opacity: 0, scale: 0.98, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.4 }}
-          className="relative h-full w-full overflow-hidden rounded-[2rem] border border-slate-200/60 bg-white shadow-xl"
+          className="relative h-full w-full overflow-hidden rounded-[2rem] border border-slate-200/60 bg-[var(--surface-1)] shadow-xl"
         >
-          <div className="flex h-8 items-center gap-1.5 border-b border-slate-100 bg-slate-50/80 px-4">
+          <div className="flex h-8 items-center gap-1.5 border-b border-[var(--border-subtle)] bg-[var(--surface-2)] px-4">
             <div className="h-2.5 w-2.5 rounded-full bg-slate-200" />
             <div className="h-2.5 w-2.5 rounded-full bg-slate-200" />
             <div className="h-2.5 w-2.5 rounded-full bg-slate-200" />
@@ -170,8 +170,8 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
               {svgUrl ? <img src={svgUrl} alt="SVG Preview" loading="lazy" className="max-h-full max-w-full drop-shadow-2xl" /> : null}
             </div>
           ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-4 text-slate-400">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-50">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-4 text-[var(--muted-foreground)]">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--surface-2)]">
                 <AlertCircleIcon size={32} />
               </div>
               <p className="text-sm font-medium">暂不支持预览 {artifact.language} 格式</p>

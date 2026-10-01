@@ -54,7 +54,7 @@ function MemoryCard({
   onDelete: (id: number) => void;
 }) {
   return (
-    <div className="group flex items-start gap-3 rounded-xl border border-zinc-100 bg-white px-4 py-3 transition-colors hover:border-zinc-200">
+    <div className="group flex items-start gap-3 rounded-xl border border-zinc-100 bg-[var(--surface-1)] px-4 py-3 transition-colors hover:border-[var(--border-subtle)]">
       <div className="min-w-0 flex-1">
         <p className="text-sm leading-relaxed text-zinc-700">{memory.content}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -62,17 +62,17 @@ function MemoryCard({
             {TYPE_LABELS[memory.memory_type] || memory.memory_type}
           </span>
           {memory.source && (
-            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500">
+            <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted-foreground)]">
               {SOURCE_LABELS[memory.source] || memory.source}
             </span>
           )}
           {memory.tags?.map((tag) => (
-            <span key={tag} className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500">
+            <span key={tag} className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted-foreground)]">
               {tag}
             </span>
           ))}
           {memory.created_at && (
-            <span className="text-[10px] text-zinc-400">{formatApiDate(memory.created_at)}</span>
+            <span className="text-[10px] text-[var(--muted-foreground)]">{formatApiDate(memory.created_at)}</span>
           )}
         </div>
       </div>
@@ -80,7 +80,7 @@ function MemoryCard({
         type="button"
         onClick={() => onDelete(memory.id)}
         disabled={deleting === memory.id}
-        className="shrink-0 rounded-lg p-1.5 text-zinc-400 transition-all hover:bg-rose-50 hover:text-rose-500"
+        className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-rose-50 hover:text-rose-500"
         aria-label="删除记忆"
       >
         {deleting === memory.id ? (
@@ -167,16 +167,16 @@ export const MemoryPanel: React.FC = () => {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-indigo-600">记忆管理</p>
-            <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-zinc-950">
+            <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-[var(--foreground)]">
               {isAdmin ? '所有用户记忆' : '用户记忆'}
             </h2>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
               {isAdmin
                 ? '管理员可查看和管理所有用户的记忆数据'
                 : 'AI 会记住你的偏好和历史对话中的关键信息，用于个性化服务'}
             </p>
             {user && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+              <div className="mt-2 flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
                 {isAdmin ? <Users size={14} /> : <User size={14} />}
                 <span>
                   当前用户：{user.name} ({user.email})
@@ -193,15 +193,15 @@ export const MemoryPanel: React.FC = () => {
                 添加记忆
               </Button>
             )}
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-500 shadow-sm">
-              共 <span className="font-semibold text-zinc-900">{memories.length}</span> 条
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] shadow-sm">
+              共 <span className="font-semibold text-[var(--foreground)]">{memories.length}</span> 条
             </span>
           </div>
         </div>
       </section>
 
       <div className="relative">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
         <Input
           placeholder="搜索记忆..."
           value={searchQuery}
@@ -212,13 +212,13 @@ export const MemoryPanel: React.FC = () => {
 
       {/* Create Form */}
       {showCreateForm && !isAdmin && (
-        <div className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+        <div className="space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] p-4">
           <textarea
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
             placeholder="输入要记忆的内容..."
             rows={2}
-            className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
+            className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
           />
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1 space-y-1.5">
@@ -266,7 +266,7 @@ export const MemoryPanel: React.FC = () => {
 
       {memoriesQuery.isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 size={24} className="animate-spin text-zinc-400" />
+          <Loader2 size={24} className="animate-spin text-[var(--muted-foreground)]" />
         </div>
       ) : memoriesQuery.isError ? (
         <div
@@ -278,9 +278,9 @@ export const MemoryPanel: React.FC = () => {
           记忆加载失败，请刷新重试
         </div>
       ) : filteredMemories.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-12 text-center">
+        <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-2)] px-4 py-12 text-center">
           <Brain size={40} className="mx-auto mb-3 text-zinc-300" />
-          <p className="text-sm font-semibold text-zinc-500">
+          <p className="text-sm font-semibold text-[var(--muted-foreground)]">
             {searchQuery ? '没有找到匹配的记忆' : '还没有记忆，AI 会在对话中自动学习'}
           </p>
         </div>
@@ -290,8 +290,8 @@ export const MemoryPanel: React.FC = () => {
           {Object.entries(groupedByUser).map(([uid, items]) => (
             <div key={uid}>
               <div className="mb-2 flex items-center gap-2">
-                <User size={14} className="text-zinc-400" />
-                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                <User size={14} className="text-[var(--muted-foreground)]" />
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
                   用户 #{uid} · {items.length} 条记忆
                 </span>
               </div>

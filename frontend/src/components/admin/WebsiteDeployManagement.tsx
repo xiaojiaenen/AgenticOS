@@ -97,15 +97,15 @@ export function WebsiteDeployManagement() {
           return (
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 shrink-0 text-zinc-400" />
-                <span className="truncate text-sm font-semibold text-zinc-900">
+                <Globe className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
+                <span className="truncate text-sm font-semibold text-[var(--foreground)]">
                   {deploy.project_slug}
                 </span>
-                <span className="rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500">
+                <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold text-[var(--muted-foreground)]">
                   {deploy.stack}
                 </span>
               </div>
-              <p className="mt-0.5 truncate text-xs font-medium text-zinc-500">
+              <p className="mt-0.5 truncate text-xs font-medium text-[var(--muted-foreground)]">
                 用户 {deploy.requested_by}
                 {deploy.target_domain ? ` · ${deploy.target_domain}` : ''}
               </p>
@@ -125,7 +125,7 @@ export function WebsiteDeployManagement() {
         accessorKey: 'created_at',
         header: '创建时间',
         cell: ({ getValue }) => (
-          <span className="text-xs font-medium text-zinc-500">
+          <span className="text-xs font-medium text-[var(--muted-foreground)]">
             {new Date(String(getValue())).toLocaleString('zh-CN')}
           </span>
         ),
@@ -137,7 +137,7 @@ export function WebsiteDeployManagement() {
         cell: ({ row }) => {
           const deploy = row.original;
           const url = deploy.deploy_url || (deploy.status === 'deployed' ? deploy.target_domain : null);
-          if (!url) return <span className="text-xs text-zinc-400">—</span>;
+          if (!url) return <span className="text-xs text-[var(--muted-foreground)]">—</span>;
           return (
             <a
               href={url}
@@ -188,10 +188,10 @@ export function WebsiteDeployManagement() {
       {error ? <ErrorBanner message={error} /> : null}
 
       {/* 待审批请求 */}
-      <section className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
+      <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-2">
           <Clock className="h-4 w-4 text-indigo-600" />
-          <h3 className="text-base font-semibold text-zinc-900">待审批请求</h3>
+          <h3 className="text-base font-semibold text-[var(--foreground)]">待审批请求</h3>
         </div>
 
         {pendingQuery.isLoading ? (
@@ -199,7 +199,7 @@ export function WebsiteDeployManagement() {
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="animate-pulse rounded-lg border border-zinc-200/60 bg-zinc-50 p-4"
+                className="animate-pulse rounded-lg border border-zinc-200/60 bg-[var(--surface-2)] p-4"
               >
                 <div className="flex items-center gap-3">
                   <div className="h-4 w-4 rounded bg-zinc-200" />
@@ -210,7 +210,7 @@ export function WebsiteDeployManagement() {
             ))}
           </div>
         ) : pendingDeploys.length === 0 ? (
-          <p className="py-8 text-center text-sm font-medium text-zinc-500">
+          <p className="py-8 text-center text-sm font-medium text-[var(--muted-foreground)]">
             暂无待审批的部署请求
           </p>
         ) : (
@@ -218,17 +218,17 @@ export function WebsiteDeployManagement() {
             {pendingDeploys.map((deploy) => (
               <div
                 key={deploy.id}
-                className="flex flex-col gap-3 rounded-lg border border-zinc-200/80 bg-zinc-50/50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-zinc-50/50 p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-zinc-500" />
-                    <span className="font-semibold text-zinc-900">{deploy.project_slug}</span>
+                    <Globe className="h-4 w-4 text-[var(--muted-foreground)]" />
+                    <span className="font-semibold text-[var(--foreground)]">{deploy.project_slug}</span>
                     <span className="rounded-full border border-indigo-200/80 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
                       {deploy.stack}
                     </span>
                   </div>
-                  <div className="mt-1 text-sm font-medium text-zinc-500">
+                  <div className="mt-1 text-sm font-medium text-[var(--muted-foreground)]">
                     用户 {deploy.requested_by}
                     {deploy.target_domain ? ` · ${deploy.target_domain}` : ''}
                   </div>
@@ -288,9 +288,9 @@ export function WebsiteDeployManagement() {
       </section>
 
       {/* 全部部署记录 */}
-      <section className="overflow-hidden rounded-lg border border-zinc-200/80 bg-white shadow-sm">
-        <div className="border-b border-zinc-200/80 px-5 py-4">
-          <h3 className="text-base font-semibold text-zinc-900">全部部署记录</h3>
+      <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+        <div className="border-b border-[var(--border-subtle)] px-5 py-4">
+          <h3 className="text-base font-semibold text-[var(--foreground)]">全部部署记录</h3>
         </div>
         <DataTable
           columns={columns}

@@ -56,5 +56,5 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: CSS compatibility gate (Chrome 85: no unguarded oklch/color-mix)
+      - name: "CSS compatibility gate (Chrome 85: no unguarded oklch/color-mix)"
         run: npm run verify:css

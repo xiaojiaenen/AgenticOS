@@ -11,7 +11,7 @@ import { MascotHappy } from './ui/AnimatedIcons';export const Logo = ({ classNam
           transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
           className={cn("absolute inset-0 blur-xl rounded-full", "bg-sky-400")}
         />
-        <div className="relative z-10 transition-transform group-hover:scale-110 group-active:scale-95 duration-500">
+        <div className="relative z-10 transition-transform duration-200 group-hover:scale-110 group-active:scale-95">
           <MascotHappy size={iconSize} className={"text-zinc-900"} />
         </div>
       </div>

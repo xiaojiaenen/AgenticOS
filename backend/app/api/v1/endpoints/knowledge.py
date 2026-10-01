@@ -119,10 +119,12 @@ class SearchResultItem(BaseModel):
 
 @router.get("/bases", response_model=list[KnowledgeBaseResponse])
 def list_knowledge_bases(
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """列出当前用户可见的知识库（visibility/scope 过滤）。"""
+    """列出当前用户可见的知识库（visibility/scope 过滤，过滤后内存分页）。"""
     from app.services.knowledge.retrieval import can_view_knowledge_base
 
     is_admin = current_user.role == "admin"
@@ -131,7 +133,7 @@ def list_knowledge_bases(
             select(KnowledgeBaseModel).where(KnowledgeBaseModel.is_active.is_(True))
         ).scalars().all()
         if can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin)
-    ]
+    ][offset:offset + limit]
 
     if all_kbs:
         kb_ids = [kb.id for kb in all_kbs]
@@ -357,12 +359,21 @@ def delete_knowledge_base(
 @router.get("/bases/{kb_id}/documents", response_model=list[DocumentResponse])
 def list_documents(
     kb_id: int,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
     """列出知识库中的文档"""
+    from app.services.knowledge.retrieval import can_view_knowledge_base
+
+    kb = db.get(KnowledgeBaseModel, kb_id)
+    if not kb:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+    is_admin = current_user.role == "admin"
+    if not can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
     stmt = select(KBDocumentModel).where(
         KBDocumentModel.knowledge_base_id == kb_id
     ).order_by(KBDocumentModel.created_at.desc()).offset(offset).limit(limit)
@@ -530,8 +541,8 @@ def delete_document(
 def list_wiki_pages(
     kb_id: int,
     page_type: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
@@ -656,12 +667,21 @@ def search_knowledge_base(
 def list_review_items(
     kb_id: int,
     status_filter: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
     """列出审核任务"""
+    from app.services.knowledge.retrieval import can_view_knowledge_base
+
+    kb = db.get(KnowledgeBaseModel, kb_id)
+    if not kb:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+    is_admin = current_user.role == "admin"
+    if not can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
     conditions = [KBReviewItemModel.knowledge_base_id == kb_id]
     if status_filter:
         conditions.append(KBReviewItemModel.status == status_filter)

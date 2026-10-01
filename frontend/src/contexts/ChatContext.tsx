@@ -4,11 +4,12 @@
  * 子组件通过 useChat() 获取任意值，无需层层传递 props。
  * 仅在值变化时触发子组件重渲染（配合 selector 使用）。
  */
-import React, { createContext, useContext, type RefObject } from 'react';
+import React, { createContext, useContext, type MutableRefObject, type RefObject } from 'react';
 import type { Session, Artifact } from '../types';
 import type { AgentProfile } from '../services/agentProfileService';
 import type { ChatInputHandle } from '../components/chat/ChatInput';
 import type { UserDecision } from '../components/chat/DecisionPanel';
+import type { VirtuosoHandle } from 'react-virtuoso';
 
 export interface ChatContextValue {
   // ── 会话 ──
@@ -56,6 +57,8 @@ export interface ChatContextValue {
 
   // ── Refs ──
   chatInputRef: RefObject<ChatInputHandle | null>;
+  /** 长会话虚拟化（react-virtuoso）句柄，供搜索跳转 scrollToIndex 回退 */
+  virtuosoRef: MutableRefObject<VirtuosoHandle | null>;
 
   // ── 派生 ──
   isStreamingResponse: boolean;

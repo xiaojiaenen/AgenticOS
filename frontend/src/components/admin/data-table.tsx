@@ -60,15 +60,15 @@ export function DataTable<TData>({
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="bg-zinc-50 hover:bg-zinc-50">
+            <TableRow key={headerGroup.id} className="bg-[var(--surface-2)] hover:bg-[var(--surface-2)]">
               {headerGroup.headers.map((header) => {
                 const canSort = header.column.getCanSort();
                 return (
                   <TableHead
                     key={header.id}
                     className={cn(
-                      'text-xs font-semibold tracking-wide text-zinc-500',
-                      canSort && 'cursor-pointer select-none hover:text-zinc-900',
+                      'text-xs font-semibold tracking-wide text-[var(--muted-foreground)]',
+                      canSort && 'cursor-pointer select-none hover:text-[var(--foreground)]',
                     )}
                     onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
                   >
@@ -110,7 +110,7 @@ export function DataTable<TData>({
           ) : (
             <TableRow>
               <TableCell colSpan={columnCount} className="h-40 text-center">
-                {emptyState ?? <p className="text-sm text-zinc-500">暂无数据</p>}
+                {emptyState ?? <p className="text-sm text-[var(--muted-foreground)]">暂无数据</p>}
               </TableCell>
             </TableRow>
           )}

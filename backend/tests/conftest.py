@@ -39,6 +39,8 @@ os.environ["APP_ENV"] = "test"
 os.environ["ENVIRONMENT"] = "test"
 # 固定测试密钥：避免读写 data/.auth_secret，也不依赖开发机上的 .env
 os.environ["AUTH_SECRET_KEY"] = "test-only-secret-key-not-valid-in-production"
+# wuwei LLMGateway 在构建 Agent 时校验该变量；测试不发真实请求，注入 dummy 即可
+os.environ.setdefault("OPENAI_API_KEY", "test-dummy-key-not-used-for-real-requests")
 # 外部集成在测试中不应发起真实网络请求
 os.environ.setdefault("UPSTREAM_AUTO_LOGIN_ENABLED", "false")
 

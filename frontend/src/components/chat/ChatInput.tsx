@@ -1,11 +1,13 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Square } from 'lucide-react';
+import { Square, Wand2, Undo2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { AgentProfile } from '../../services/agentProfileService';
 import { cn } from '../../lib/utils';
 import { AgentSelector } from '../ui/AgentSelector';
 import { PaperclipIcon, SendIcon } from '../ui/AnimatedIcons';
 import { useInputSuggest } from '../../hooks/useInputSuggest';
+import { polishPrompt } from '../../services/agentService';
 
 interface ChatInputProps {
   value: string;
@@ -68,6 +70,64 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     onSend(value, files);
     setFiles([]);
   }, [files, isLoading, onSend, value]);
+
+  // ── 提示词润色 ──
+  // idle：显示「润色」；loading：转圈（点击=取消）；polished：显示「取消润色」还原原文
+  const [polishState, setPolishState] = useState<'idle' | 'loading' | 'polished'>('idle');
+  const polishOriginalRef = useRef<string>('');
+  const polishedRef = useRef<string>('');
+  const polishAbortRef = useRef<AbortController | null>(null);
+
+  // 文本被手动改动后不再处于「已润色」状态，避免取消按钮还原到过期原文
+  useEffect(() => {
+    if (polishState === 'polished' && value !== polishedRef.current) {
+      setPolishState('idle');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  useEffect(() => () => polishAbortRef.current?.abort(), []);
+
+  const handlePolish = React.useCallback(async () => {
+    const raw = value.trim();
+    if (!raw || isLoading) return;
+
+    // 二次点击 = 取消润色
+    if (polishState === 'loading') {
+      polishAbortRef.current?.abort();
+      return;
+    }
+    if (polishState === 'polished') {
+      onChange(polishOriginalRef.current);
+      setPolishState('idle');
+      return;
+    }
+
+    polishOriginalRef.current = raw;
+    const controller = new AbortController();
+    polishAbortRef.current = controller;
+    setPolishState('loading');
+    try {
+      const result = await polishPrompt(raw, controller.signal);
+      if (controller.signal.aborted) return;
+      if (!result.polished || !result.changed) {
+        toast('提示词已经足够清晰，无需润色');
+        setPolishState('idle');
+        return;
+      }
+      polishedRef.current = result.polished;
+      onChange(result.polished);
+      setPolishState('polished');
+      toast('已润色，可点「取消润色」还原');
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      console.error('polish prompt failed:', error);
+      toast.error('润色失败，已保留原文');
+      setPolishState('idle');
+    } finally {
+      if (polishAbortRef.current === controller) polishAbortRef.current = null;
+    }
+  }, [isLoading, onChange, polishState, value]);
 
   const handleChange = React.useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -136,7 +196,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 
   return (
     <div
-      className={cn('relative flex flex-col gap-2 p-2', isDragging && 'rounded-3xl bg-slate-50 ring-2 ring-slate-300 ring-dashed', className)}
+      className={cn('relative flex flex-col gap-2 p-2', isDragging && 'rounded-3xl bg-[var(--surface-2)] ring-2 ring-slate-300 ring-dashed', className)}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -147,13 +207,13 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             {files.map((file, idx) => (
               <motion.div layout key={`${file.name}-${idx}`} className={cn(
                 "group relative h-16 w-16 overflow-hidden rounded-xl border shadow-sm",
-                "border-slate-200 bg-white border shadow-sm"
+                "border-[var(--border-subtle)] bg-[var(--surface-1)] border shadow-sm"
               )}>
                 {previews[idx] ? (
                   <img src={previews[idx]} alt="preview" loading="lazy" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full w-full flex-col items-center justify-center bg-slate-50 p-1 text-center text-[8px]">
-                    <PaperclipIcon size={12} className="mb-1 text-slate-400" />
+                  <div className="flex h-full w-full flex-col items-center justify-center bg-[var(--surface-2)] p-1 text-center text-[8px]">
+                    <PaperclipIcon size={12} className="mb-1 text-[var(--muted-foreground)]" />
                     <span className="w-full truncate">{file.name.split('.').pop()?.toUpperCase()}</span>
                   </div>
                 )}
@@ -172,11 +232,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 
       <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.md,.py,.js,.ts,.tsx,.jsx,.json,.yaml,.yml,.xml,.html,.css,.svg,.java,.c,.cpp,.h,.rs,.go,.rb,.php,.sql,.sh,.bat,.ps1,.zip,.epub,.rtf,.odt,.ods,.odp,image/*" />
 
-            <div className="relative flex items-end rounded-[2rem] border border-[var(--border-medium)] bg-[var(--surface-2)] p-2 px-3 shadow-lg shadow-brand-500/10 backdrop-blur-2xl transition-all duration-300 focus-within:border-brand-200 focus-within:bg-white/90 focus-within:shadow-glow">
+            <div className="@container relative flex items-end rounded-[2rem] border border-[var(--border-medium)] bg-[var(--surface-2)] p-2 px-3 shadow-lg shadow-brand-500/10 backdrop-blur-2xl transition-all duration-300 focus-within:border-brand-200 focus-within:bg-white/90 focus-within:shadow-glow">
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
-          className="mb-0.5 flex-shrink-0 rounded-full p-3 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 active:scale-90"
+          className="mb-0.5 flex-shrink-0 rounded-full p-3 text-[var(--muted-foreground)] transition-colors hover:bg-slate-100 hover:text-slate-700 active:scale-90"
           title="上传文件"
           aria-label="上传文件"
         >
@@ -196,7 +256,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           />
         </div>
 
-        <div className="relative max-h-[200px] w-full">
+        <div className="relative min-w-0 flex-1 max-h-[200px]">
           {suggestion && value && (
             <div
               className="pointer-events-none absolute inset-0 p-3 leading-relaxed tracking-tight whitespace-pre-wrap overflow-hidden"
@@ -213,10 +273,39 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder={isDragging ? '把文件拖到这里...' : placeholder}
-            className="max-h-[200px] w-full resize-none bg-transparent p-3 leading-relaxed tracking-tight text-slate-800 outline-none placeholder:text-slate-400"
+            className="max-h-[200px] w-full resize-none bg-transparent p-3 leading-relaxed tracking-tight text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
             rows={1}
           />
         </div>
+        {/* 润色按钮：发送按钮左侧；润色中点击=取消，已润色时点击=还原原文 */}
+        {!isLoading && (
+          <button
+            type="button"
+            onClick={handlePolish}
+            disabled={!value.trim()}
+            className={cn(
+              'group mb-1 ml-1 flex h-10 flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 @[24rem]:px-3 text-[11px] font-semibold transition-all duration-300 active:scale-95',
+              polishState === 'polished'
+                ? 'bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-200'
+                : value.trim()
+                  ? 'bg-[var(--surface-2)] text-[var(--muted-foreground)] hover:bg-brand-50 hover:text-[var(--foreground)]'
+                  : 'cursor-not-allowed bg-[var(--surface-2)] text-[var(--muted-foreground)] opacity-40',
+            )}
+            title={polishState === 'polished' ? '取消润色并还原原文' : polishState === 'loading' ? '正在润色，点击可取消' : '润色提示词（分析意图并优化表达）'}
+            aria-label={polishState === 'polished' ? '取消润色' : polishState === 'loading' ? '取消润色' : '润色提示词'}
+          >
+            {polishState === 'loading' ? (
+              <svg width="15" height="15" viewBox="0 0 24 24" className="animate-spin" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+            ) : polishState === 'polished' ? (
+              <Undo2 size={15} />
+            ) : (
+              <Wand2 size={15} className="transition-transform group-hover:rotate-12" />
+            )}
+            <span className="hidden @[24rem]:inline">
+              {polishState === 'loading' ? '润色中' : polishState === 'polished' ? '取消润色' : '润色'}
+            </span>
+          </button>
+        )}
         {isLoading ? (
           <button
             type="button"

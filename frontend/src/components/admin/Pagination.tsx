@@ -40,12 +40,12 @@ export const Pagination = ({
     <nav
       aria-label="分页导航"
       className={cn(
-        'flex flex-col gap-3 border-t border-zinc-200/80 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between',
+        'flex flex-col gap-3 border-t border-[var(--border-subtle)] px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between',
         className,
       )}
     >
-      <span className="text-xs font-medium text-zinc-500">
-        第 <span className="font-semibold text-zinc-900">{currentPage}</span> / {totalPages} 页
+      <span className="text-xs font-medium text-[var(--muted-foreground)]">
+        第 <span className="font-semibold text-[var(--foreground)]">{currentPage}</span> / {totalPages} 页
         {totalLabel ? <span className="ml-2">{totalLabel}</span> : null}
       </span>
 
@@ -74,7 +74,7 @@ export const Pagination = ({
               aria-current={currentPage === page ? 'page' : undefined}
               className={cn(
                 'text-xs',
-                page !== currentPage && 'text-zinc-600 hover:text-zinc-900',
+                page !== currentPage && 'text-zinc-600 hover:text-[var(--foreground)]',
               )}
             >
               {page}

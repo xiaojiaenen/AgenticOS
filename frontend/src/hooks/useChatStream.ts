@@ -144,6 +144,36 @@ export function useChatStream({
     if (currentSessionId) {
       activeStreamSessionIdsRef.current.delete(currentSessionId);
     }
+    // 停在本轮待审批状态时，把悬挂的审批请求标记为已拒绝：
+    // 否则运行已终止，审批面板却一直挂在消息上（点了也没有响应）。
+    const stopSessionId = currentSessionId ?? loadingSessionId;
+    if (stopSessionId) {
+      setSessions((prev) =>
+        prev.map((session) =>
+          session.id === stopSessionId
+            ? {
+                ...session,
+                messages: session.messages.map((message) =>
+                  message.toolCalls?.some((t) => t.status === 'approval_required')
+                    ? {
+                        ...message,
+                        toolCalls: message.toolCalls.map((t) =>
+                          t.status === 'approval_required'
+                            ? {
+                                ...t,
+                                status: 'rejected' as const,
+                                result: t.result ?? '生成已被用户停止，审批请求自动取消。',
+                              }
+                            : t
+                        ),
+                      }
+                    : message
+                ),
+              }
+            : session
+        )
+      );
+    }
     setLoadingSessionId(null);
     setRunStatus({ phase: 'done', label: '正在停止请求' });
   }, [loadingSessionId, currentSessionId]);

@@ -32,11 +32,11 @@ export const ChatAnalytics: React.FC<ChatAnalyticsProps> = ({ timeRange }) => {
   if (analyticsQuery.isPending) {
     return (
       <div className="grid gap-5 lg:grid-cols-2">
-        <div className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
           <div className="mb-3 h-4 w-32 animate-pulse rounded bg-zinc-200" />
           <ChartSkeleton variant="area" height={200} />
         </div>
-        <div className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
           <div className="mb-3 h-4 w-32 animate-pulse rounded bg-zinc-200" />
           <ChartSkeleton variant="bar" height={200} />
         </div>
@@ -72,9 +72,9 @@ export const ChatAnalytics: React.FC<ChatAnalyticsProps> = ({ timeRange }) => {
     <div className="space-y-5">
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Session Timeline */}
-        <div className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
-            <BarChart3 size={16} className="text-zinc-400" />
+            <BarChart3 size={16} className="text-[var(--muted-foreground)]" />
             <h3 className="text-sm font-semibold text-zinc-700">会话趋势</h3>
           </div>
           <ResponsiveContainer width="100%" height={200}>
@@ -97,9 +97,9 @@ export const ChatAnalytics: React.FC<ChatAnalyticsProps> = ({ timeRange }) => {
         </div>
 
         {/* Hourly Distribution */}
-        <div className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
-            <Clock size={16} className="text-zinc-400" />
+            <Clock size={16} className="text-[var(--muted-foreground)]" />
             <h3 className="text-sm font-semibold text-zinc-700">时段分布</h3>
           </div>
           <ResponsiveContainer width="100%" height={200}>
@@ -125,7 +125,7 @@ export const ChatAnalytics: React.FC<ChatAnalyticsProps> = ({ timeRange }) => {
 
       {/* Mode Distribution */}
       {modeData.length > 0 && (
-        <div className="rounded-lg border border-zinc-200/80 bg-white p-5 shadow-sm">
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
           <h3 className="mb-4 text-sm font-semibold text-zinc-700">模式使用分布</h3>
           <div className="flex flex-wrap gap-3">
             {modeData.map((item) => {
@@ -134,10 +134,10 @@ export const ChatAnalytics: React.FC<ChatAnalyticsProps> = ({ timeRange }) => {
               return (
                 <div
                   key={item.mode}
-                  className="flex items-center gap-2 rounded-lg border border-zinc-200/80 bg-white px-3 py-2 shadow-sm"
+                  className="flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 shadow-sm"
                 >
-                  <div className="text-sm font-semibold text-zinc-800">{item.mode}</div>
-                  <div className="text-xs font-medium text-zinc-500">
+                  <div className="text-sm font-semibold text-[var(--foreground)]">{item.mode}</div>
+                  <div className="text-xs font-medium text-[var(--muted-foreground)]">
                     {formatNumber(item.count)} ({pct}%)
                   </div>
                 </div>

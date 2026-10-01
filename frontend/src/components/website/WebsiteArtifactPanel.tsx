@@ -2,7 +2,7 @@ import React from 'react'
 import { motion, MotionValue } from 'motion/react'
 import { CheckCircle2, Globe, RefreshCcw, Rocket, X, XCircle } from 'lucide-react'
 import { Artifact } from '../../types'
-import { buildSandboxedHtmlDocument, createObjectUrl } from '../../lib/safePreview'
+import { buildSandboxedHtmlDocument } from '../../lib/safePreview'
 import { requestDeploy, DeployStatus } from '../../services/websiteService'
 
 type WebsiteArtifactPanelProps = {
@@ -23,28 +23,17 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
   const [deployStatus, setDeployStatus] = React.useState<DeployStatus | null>(null)
   const [deployUrl, setDeployUrl] = React.useState<string | null>(null)
   const [deployError, setDeployError] = React.useState<string | null>(null)
-  const iframeRef = React.useRef<HTMLIFrameElement | null>(null)
-  const blobUrlRef = React.useRef<string>('')
+  const [refreshNonce, setRefreshNonce] = React.useState(0)
 
-  const previewUrl = React.useMemo(() => {
-    if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
-    const html = buildSandboxedHtmlDocument(artifact.html)
-    const url = createObjectUrl(html, 'text/html')
-    blobUrlRef.current = url
-    return url
-  }, [artifact.html])
+  // 用 srcDoc 而非 blob URL：blob 在 StrictMode 双调用下会被提前 revoke，
+  // 导致 iframe 拿到失效地址而空白。刷新通过 key 强制重挂载实现。
+  const previewDoc = React.useMemo(
+    () => buildSandboxedHtmlDocument(artifact.html),
+    [artifact.html],
+  )
 
-  React.useEffect(() => {
-    return () => {
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
-    }
-  }, [])
-
-  const handleRefresh = () => {
-    if (iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.location.reload()
-    }
-  }
+  // 刷新只重挂载 iframe，不访问 iframe 内部
+  const handleRefresh = () => setRefreshNonce((n) => n + 1)
 
   const handleDeploy = async () => {
     // 首参必须是 sessionId（不是 artifactId）
@@ -190,8 +179,8 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
           className="min-h-full overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-xl"
         >
           <iframe
-            ref={iframeRef}
-            src={previewUrl}
+            key={`website-preview-${refreshNonce}`}
+            srcDoc={previewDoc}
             title={artifact.title}
             className="min-h-[calc(100vh-10rem)] w-full border-0"
             sandbox="allow-scripts allow-same-origin"

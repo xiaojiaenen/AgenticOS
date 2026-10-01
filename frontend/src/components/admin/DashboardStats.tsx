@@ -1,7 +1,18 @@
 import { motion } from 'motion/react';
 import { Activity, Clock3, Sparkles, Users, Zap } from 'lucide-react';
 import { formatNumber, formatTokenNumber, formatLatency, formatPercent, ratio } from '../../lib/utils';
-import { DashboardSummary } from '../../services/dashboardService';interface DashboardStatsProps {
+import { DashboardSummary } from '../../services/dashboardService';
+
+/**
+ * 仪表盘统计卡片的统一视觉规范：AdminDashboard 顶部的快捷指标行与
+ * 下方 KPI 行共用同一套类名，避免两排卡片风格割裂。
+ * 颜色走 CSS 变量（--surface-1 / --border-subtle / --foreground），
+ * 深色模式下自动翻转，不写死 bg-[var(--surface-1)]。
+ */
+export const STATIC_CARD =
+  'admin-card group flex h-full flex-col px-4 py-4';
+
+interface DashboardStatsProps {
  summary: DashboardSummary;
 }
 
@@ -60,19 +71,19 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
      initial={{ opacity: 0, y: 10 }}
      animate={{ opacity: 1, y: 0 }}
      transition={{ duration: 0.35, delay: 0.05 + idx * 0.05, ease: [0.16, 1, 0.3, 1] }}
+     className="h-full"
     >
-      <div className="group rounded-lg border border-zinc-200/80 bg-white px-4 py-4 shadow-sm">
-       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold tracking-[0.08em] text-zinc-400">{item.label}</span>
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.bg} ${item.accent} transition-transform duration-300 group-hover:scale-110`}>
-         <item.icon size={15} />
-        </div>
+     <div className={STATIC_CARD}>
+      <div className="flex items-center justify-between gap-2">
+       <span className="admin-muted text-[11px] font-semibold tracking-[0.08em]">{item.label}</span>
+       <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${item.bg} ${item.accent} transition-transform duration-300 group-hover:scale-110`}>
+        <item.icon size={15} />
        </div>
-       <p className="mt-2.5 text-xl font-semibold tracking-tight text-zinc-950 lg:text-2xl">{item.getValue(s)}</p>
-       {item.getSub && (
-        <p className="mt-1 text-[11px] font-semibold text-zinc-400">{item.getSub(s)}</p>
-       )}
       </div>
+      <p className="mt-2.5 admin-heading text-xl font-semibold tracking-tight lg:text-2xl">{item.getValue(s)}</p>
+      {/* 副信息行占位固定高度：有无副信息的卡片保持等高 */}
+      <p className="admin-muted mt-1 min-h-[14px] text-[11px] font-semibold">{item.getSub?.(s) ?? ''}</p>
+     </div>
     </motion.div>
    ))}
   </section>

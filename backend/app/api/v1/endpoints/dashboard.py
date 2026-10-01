@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import delete, exists, func, or_, select, text
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
@@ -145,12 +146,36 @@ def get_dashboard_stats(
             ).all()
         ]
     else:
-        tool_counter: Counter[str] = Counter()
-        for raw_tool_names in db.scalars(select(AgentUsageEventModel.tool_names_json)).all():
-            for tool_name in load_json(raw_tool_names, []):
-                if isinstance(tool_name, str) and tool_name:
-                    tool_counter[tool_name] += 1
-        tool_distribution_rows = tool_counter.most_common(8)
+        # MySQL 8.0+: JSON_TABLE 在库内聚合，避免把全表 JSON 拉到 Python 逐行解析。
+        # 5.7 及更早版本不支持 JSON_TABLE（语法错误），自动回退 Python 路径。
+        try:
+            tool_distribution_rows = [
+                (str(row.name), int(row.value))
+                for row in db.execute(
+                    text(
+                        """
+                        SELECT jt.tool_name AS name, COUNT(*) AS value
+                        FROM agent_usage_events ue
+                        JOIN JSON_TABLE(
+                            ue.tool_names_json,
+                            '$[*]' COLUMNS (tool_name VARCHAR(255) PATH '$')
+                        ) jt
+                        WHERE jt.tool_name IS NOT NULL AND TRIM(jt.tool_name) <> ''
+                        GROUP BY jt.tool_name
+                        ORDER BY COUNT(*) DESC, jt.tool_name ASC
+                        LIMIT 8
+                        """
+                    )
+                ).all()
+            ]
+        except (OperationalError, ProgrammingError):
+            db.rollback()
+            tool_counter: Counter[str] = Counter()
+            for raw_tool_names in db.scalars(select(AgentUsageEventModel.tool_names_json)).all():
+                for tool_name in load_json(raw_tool_names, []):
+                    if isinstance(tool_name, str) and tool_name:
+                        tool_counter[tool_name] += 1
+            tool_distribution_rows = tool_counter.most_common(8)
 
     summary = DashboardSummary(
         total_users=len(users),

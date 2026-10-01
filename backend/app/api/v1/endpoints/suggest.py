@@ -2,13 +2,24 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from app.api.deps import get_current_user
 from app.db.models import UserModel
 from app.services.cache_service import get_cache_service
 
 router = APIRouter(prefix="/agent", tags=["Agent"])
+
+
+class PolishPromptRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=4000, description="待润色的原始提示词")
+
+
+class PolishPromptResponse(BaseModel):
+    polished: str = Field(..., description="润色后的提示词")
+    original: str = Field(..., description="原文（便于前端取消时还原）")
+    changed: bool = Field(..., description="是否与原文不同")
 
 
 @router.get("/suggest", summary="输入补全建议")
@@ -41,3 +52,31 @@ async def get_suggestions(
             suggestions.append(s)
 
     return {"suggestions": suggestions[:limit]}
+
+
+@router.post("/polish-prompt", response_model=PolishPromptResponse, summary="提示词润色")
+async def polish_prompt(
+    request: PolishPromptRequest,
+    current_user: UserModel = Depends(get_current_user),
+) -> PolishPromptResponse:
+    """分析用户意图并把原始提示词改写为更可执行的长提示词。
+
+    失败（如上游超时/报错）时返回 502，前端提示"润色失败"并保留原文。
+    """
+    from app.services.prompt_polish_service import polish_prompt as _polish
+
+    try:
+        result = await _polish(request.text, user_id=current_user.id)
+    except Exception as exc:  # noqa: BLE001 —— 统一转 502，原始提示词不丢
+        import logging
+
+        logging.getLogger("agent.suggest").warning(
+            "polish prompt failed: user=%s error=%s", current_user.id, exc
+        )
+        raise HTTPException(status_code=502, detail="提示词润色失败，请稍后重试") from exc
+
+    return PolishPromptResponse(
+        polished=result["polished"],
+        original=result["original"],
+        changed=result["changed"],
+    )

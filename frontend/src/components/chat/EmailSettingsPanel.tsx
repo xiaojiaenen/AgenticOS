@@ -118,10 +118,10 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
           </div>
           <div>
             <p className={cn("admin-section-kicker")}>邮件配置</p>
-            <h3 className={cn("mt-1 text-lg font-semibold", "text-slate-900")}>邮箱设置</h3>
+            <h3 className={cn("mt-1 text-lg font-semibold", "text-[var(--foreground)]")}>邮箱设置</h3>
           </div>
         </div>
-        <button type="button" onClick={onClose} className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition-colors", "text-slate-400 hover:bg-slate-100 hover:text-slate-600")}>
+        <button type="button" onClick={onClose} className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition-colors", "text-[var(--muted-foreground)] hover:bg-slate-100 hover:text-[var(--muted-foreground)]")}>
           <X size={16} />
         </button>
       </div>
@@ -137,13 +137,13 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
       {/* Content */}
       <div className={cn("px-6 pt-4 pb-6 space-y-4")}>
         {isLoading ? (
-          <div className={cn("flex h-32 items-center justify-center gap-2 text-sm", "text-slate-500")}>
+          <div className={cn("flex h-32 items-center justify-center gap-2 text-sm", "text-[var(--muted-foreground)]")}>
             <Loader2 size={16} className="animate-spin" /> 加载中
           </div>
         ) : (
           <>
             <div>
-              <label className={cn("mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em]", "text-slate-500")}>邮箱服务商</label>
+              <label className={cn("mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em]", "text-[var(--muted-foreground)]")}>邮箱服务商</label>
               <select
                 className={cn("admin-input")}
                 value={preset}
@@ -156,7 +156,7 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
             </div>
 
             <div>
-              <label className={cn("mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em]", "text-slate-500")}>邮箱地址</label>
+              <label className={cn("mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em]", "text-[var(--muted-foreground)]")}>邮箱地址</label>
               <input
                 type="email"
                 className={cn("admin-input")}
@@ -167,9 +167,9 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
             </div>
 
             <div>
-              <label className={cn("mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em]", "text-slate-500")}>
+              <label className={cn("mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em]", "text-[var(--muted-foreground)]")}>
                 应用专用密码
-                <span className={cn("ml-2 normal-case tracking-normal font-medium", "text-slate-400")}>（非登录密码，在邮箱设置中生成）</span>
+                <span className={cn("ml-2 normal-case tracking-normal font-medium", "text-[var(--muted-foreground)]")}>（非登录密码，在邮箱设置中生成）</span>
               </label>
               <div className="relative">
                 <input
@@ -179,14 +179,14 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="输入应用专用密码"
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className={cn("absolute right-3 top-1/2 -translate-y-1/2", "text-slate-400 hover:text-slate-600")}>
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className={cn("absolute right-3 top-1/2 -translate-y-1/2", "text-[var(--muted-foreground)] hover:text-[var(--muted-foreground)]")}>
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
             {/* Advanced settings */}
-            <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className={cn("text-xs font-semibold transition-colors", "text-slate-400 hover:text-slate-600")}>
+            <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className={cn("text-xs font-semibold transition-colors", "text-[var(--muted-foreground)] hover:text-[var(--muted-foreground)]")}>
               {showAdvanced ? '▾ 收起高级设置' : '▸ 高级设置（服务器地址）'}
             </button>
 
@@ -195,21 +195,21 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className={cn("mb-1 block text-[11px] font-semibold", "text-slate-500")}>IMAP 服务器</label>
+                      <label className={cn("mb-1 block text-[11px] font-semibold", "text-[var(--muted-foreground)]")}>IMAP 服务器</label>
                       <input className={cn("admin-input font-mono text-xs")} value={form.imap_host} onChange={(e) => setForm({ ...form, imap_host: e.target.value })} />
                     </div>
                     <div>
-                      <label className={cn("mb-1 block text-[11px] font-semibold", "text-slate-500")}>IMAP 端口</label>
+                      <label className={cn("mb-1 block text-[11px] font-semibold", "text-[var(--muted-foreground)]")}>IMAP 端口</label>
                       <input className={cn("admin-input font-mono text-xs")} type="number" value={form.imap_port} onChange={(e) => setForm({ ...form, imap_port: Number(e.target.value) })} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className={cn("mb-1 block text-[11px] font-semibold", "text-slate-500")}>SMTP 服务器</label>
+                      <label className={cn("mb-1 block text-[11px] font-semibold", "text-[var(--muted-foreground)]")}>SMTP 服务器</label>
                       <input className={cn("admin-input font-mono text-xs")} value={form.smtp_host} onChange={(e) => setForm({ ...form, smtp_host: e.target.value })} />
                     </div>
                     <div>
-                      <label className={cn("mb-1 block text-[11px] font-semibold", "text-slate-500")}>SMTP 端口</label>
+                      <label className={cn("mb-1 block text-[11px] font-semibold", "text-[var(--muted-foreground)]")}>SMTP 端口</label>
                       <input className={cn("admin-input font-mono text-xs")} type="number" value={form.smtp_port} onChange={(e) => setForm({ ...form, smtp_port: Number(e.target.value) })} />
                     </div>
                   </div>

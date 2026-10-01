@@ -472,6 +472,9 @@ class StreamOrchestrator:
                 "agent_profile_id": runtime_profile.profile_id,
                 "agent_profile_name": runtime_profile.name,
                 "agent_profile_slug": runtime_profile.slug,
+                # 会话展示标题：取用户本轮输入（website/email 模式会在其后追加
+                # 系统注入的工作流消息，用"首条 user 消息"推导标题会取到内部提示）
+                "title": (request.message or "").strip()[:40] or None,
             }
         )
         session.metadata = metadata
@@ -689,12 +692,24 @@ class StreamOrchestrator:
                             else:
                                 # 质量门失败，返回错误信息给用户（按 session 读取，避免跨会话串扰）
                                 quality_errors, quality_warnings = self.ppt_artifacts.get_quality_feedback(session.session_id)
-                                error_detail = "; ".join(quality_errors[:3]) if quality_errors else "未知原因"
-                                _logger.warning(
-                                    "ppt artifact creation failed: session=%s, errors=%s",
-                                    session.session_id, quality_errors,
+                                # 模型整轮没有调用保存工具 → 本轮就是普通文字回答，
+                                # 不属于"生成失败"，静默收尾即可（否则会给用户报"幻灯片目录不存在"）
+                                no_slides = not quality_errors or all(
+                                    "幻灯片目录不存在" in err for err in quality_errors
                                 )
-                                visible_text = f"PPT 预览生成失败：{error_detail}"
+                                if no_slides:
+                                    _logger.info(
+                                        "ppt run produced no slides (text-only answer), session=%s",
+                                        session.session_id,
+                                    )
+                                    visible_text = ""
+                                else:
+                                    error_detail = "; ".join(quality_errors[:3])
+                                    _logger.warning(
+                                        "ppt artifact creation failed: session=%s, errors=%s",
+                                        session.session_id, quality_errors,
+                                    )
+                                    visible_text = f"PPT 预览生成失败：{error_detail}"
                             if visible_text:
                                 yield {
                                     "event": "delta",

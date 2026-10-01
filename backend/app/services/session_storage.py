@@ -33,6 +33,24 @@ def _iso(value: datetime | None) -> str | None:
     return isoformat_app_timezone(value)
 
 
+def _first_user_text(message_json: str | None) -> str | None:
+    """从 message_json 中取用户消息正文（用于生成会话标题）。"""
+    payload = _loads(message_json, None)
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("role") != "user":
+        return None
+    text = payload.get("text") or payload.get("content") or ""
+    if isinstance(text, list):  # 多模态消息：拼接其中的文本片段
+        text = " ".join(
+            part.get("text", "") for part in text if isinstance(part, dict)
+        )
+    if not isinstance(text, str):
+        return None
+    text = text.strip()
+    return text or None
+
+
 class DatabaseAgentStorage:
     """Wuwei storage implementation backed by SQLAlchemy.
 
@@ -183,11 +201,47 @@ class DatabaseAgentStorage:
                     ).all()
                 )
 
+                # 会话展示标题：优先 metadata.title（建会话时的用户输入），
+                # 其次 summary（wuwei 上下文压缩摘要，正常为空），
+                # 最后兜底首条用户消息摘录。summary 不能直接当标题用，
+                # 否则前端只能回退成智能体名（如"通用助手"）。
+                titles: dict[str, str] = {}
+                pending: list[str] = []
+                for row in rows:
+                    metadata = _loads(row.metadata_json, {}) or {}
+                    meta_title = metadata.get("title") if isinstance(metadata, dict) else None
+                    if isinstance(meta_title, str) and meta_title.strip():
+                        titles[row.session_id] = meta_title.strip()[:40]
+                    elif row.summary:
+                        titles[row.session_id] = row.summary
+                    else:
+                        pending.append(row.session_id)
+                if pending:
+                    first_messages = db.execute(
+                        select(
+                            AgentMessageModel.session_id,
+                            AgentMessageModel.message_json,
+                        )
+                        .where(AgentMessageModel.session_id.in_(pending))
+                        .order_by(
+                            AgentMessageModel.created_at.asc(),
+                            AgentMessageModel.id.asc(),
+                        )
+                        .limit(2000)
+                    ).all()
+                    for sid, payload in first_messages:
+                        if sid in titles:
+                            continue
+                        text = _first_user_text(payload)
+                        if text:
+                            titles[sid] = text[:40]
+
                 sessions = []
                 for row in rows:
                     sessions.append({
                         "session_id": row.session_id,
                         "summary": row.summary,
+                        "title": titles.get(row.session_id),
                         "metadata": _loads(row.metadata_json, {}),
                         "message_count": message_counts.get(row.session_id, 0),
                         "created_at": _iso(row.created_at),
