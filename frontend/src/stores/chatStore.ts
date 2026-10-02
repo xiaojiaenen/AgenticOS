@@ -21,6 +21,9 @@ interface ChatUIState {
   /** 会话级审批模式：ask 逐次确认 / auto 只读自动放行 / full 全放行 */
   approvalMode: 'ask' | 'auto' | 'full';
   setApprovalMode: (mode: 'ask' | 'auto' | 'full') => void;
+  /** 计划模式：只读调研→出计划→批准后执行 */
+  planMode: boolean;
+  setPlanMode: (on: boolean) => void;
 
   // ── 智能体 ──
   agentProfiles: AgentProfile[];
@@ -54,6 +57,8 @@ export const useChatStore = create<ChatUIState>((set) => ({
   setChatMode: (mode) => set({ chatMode: mode }),
   approvalMode: 'ask',
   setApprovalMode: (mode) => set({ approvalMode: mode }),
+  planMode: false,
+  setPlanMode: (on) => set({ planMode: on }),
 
   agentProfiles: [],
   setAgentProfiles: (profiles) => set({ agentProfiles: profiles }),

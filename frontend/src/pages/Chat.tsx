@@ -29,7 +29,7 @@ export const Chat = () => {
   // ── Zustand store（UI 状态）──
   const {
     setInputValue,
-    chatMode, setChatMode, approvalMode,
+    chatMode, setChatMode, approvalMode, planMode,
     agentProfiles, setAgentProfiles,
     selectedAgentProfileId, setSelectedAgentProfileId,
     isSidebarOpen, setIsSidebarOpen,
@@ -83,7 +83,7 @@ export const Chat = () => {
     handleApprovalDecision, handleDecisionMade,
   } = useChatStream({
     sessions, currentSessionId, currentSession: currentSession ?? null,
-    chatMode, approvalMode, selectedAgentProfileId,
+    chatMode, approvalMode, planMode, selectedAgentProfileId,
     selectedAgent: agentProfiles.find((a) => a.id === selectedAgentProfileId) || null,
     setSessions, setCurrentSessionId,
     applySessionState, setArtifact, setInputValue,

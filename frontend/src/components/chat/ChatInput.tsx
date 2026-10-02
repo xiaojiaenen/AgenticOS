@@ -8,6 +8,7 @@ import { AgentSelector } from '../ui/AgentSelector';
 import { PaperclipIcon, SendIcon } from '../ui/AnimatedIcons';
 import { useInputSuggest } from '../../hooks/useInputSuggest';
 import { ApprovalModeSelector } from './ApprovalModeSelector';
+import { PlanModeToggle } from './PlanModeToggle';
 import { polishPrompt } from '../../services/agentService';
 
 interface ChatInputProps {
@@ -27,6 +28,8 @@ interface ChatInputProps {
   /** 会话级审批模式 */
   approvalMode?: 'ask' | 'auto' | 'full';
   onApprovalModeChange?: (mode: 'ask' | 'auto' | 'full') => void;
+  planMode?: boolean;
+  onPlanModeChange?: (on: boolean) => void;
   isAdmin?: boolean;
 }
 
@@ -50,6 +53,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   isModeLocked = false,
   approvalMode = 'ask',
   onApprovalModeChange,
+  planMode = false,
+  onPlanModeChange,
   isAdmin = false,
 }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -264,14 +269,19 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           />
         </div>
 
-        {/* 审批模式：只在有回调时渲染 */}
+        {/* 计划模式 + 审批档（计划模式下审批档无意义，置灰） */}
+        {onPlanModeChange && (
+          <div className="mb-0.5 ml-1">
+            <PlanModeToggle enabled={planMode} onChange={onPlanModeChange} disabled={isLoading} />
+          </div>
+        )}
         {onApprovalModeChange && (
           <div className="mb-0.5 ml-1">
             <ApprovalModeSelector
               mode={approvalMode}
               onChange={onApprovalModeChange}
               isAdmin={isAdmin}
-              disabled={isLoading}
+              disabled={isLoading || planMode}
             />
           </div>
         )}

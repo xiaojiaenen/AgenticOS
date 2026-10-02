@@ -41,6 +41,7 @@ export const ChatMainArea = React.memo(() => {
     isMobile,
     artifact, setArtifact,
     approvalMode, setApprovalMode,
+    planMode, setPlanMode,
   } = useChatStore();
   // 虚拟化模式（长会话）需要把真实滚动容器传给 Virtuoso 的 customScrollParent
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
@@ -330,6 +331,8 @@ export const ChatMainArea = React.memo(() => {
             isModeLocked={isModeLocked}
             approvalMode={approvalMode}
             onApprovalModeChange={setApprovalMode}
+            planMode={planMode}
+            onPlanModeChange={setPlanMode}
             isAdmin={getStoredUser()?.role === 'admin'}
           />
           <div className={cn("mt-3 flex min-h-9 items-center justify-center gap-2 text-xs font-medium", "text-[var(--muted-foreground)]")}>

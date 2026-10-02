@@ -461,9 +461,16 @@ class StreamOrchestrator:
         if website_mode:
             message = await self._inject_website_catalog(message)
 
+        # 计划模式：提示词追加"只调研出计划"的约束
+        system_prompt = runtime_profile.system_prompt
+        if getattr(runtime_profile, "plan_mode", False):
+            from app.services.approval_policy import PLAN_MODE_PROMPT_SUFFIX
+
+            system_prompt = system_prompt + PLAN_MODE_PROMPT_SUFFIX
+
         session = agent.create_or_get_session(
             session_id=request.session_id,
-            system_prompt=runtime_profile.system_prompt,
+            system_prompt=system_prompt,
             max_steps=request.max_steps,
             parallel_tool_calls=request.parallel_tool_calls,
         )

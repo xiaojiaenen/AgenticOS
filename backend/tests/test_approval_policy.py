@@ -8,8 +8,10 @@ import pytest
 
 from app.services.approval_policy import (
     DEFAULT_APPROVAL_MODE,
+    PLAN_MODE_PROMPT_SUFFIX,
     is_read_only_tool,
     normalize_approval_mode,
+    plan_mode_blocked_tools,
 )
 
 
@@ -61,3 +63,20 @@ class TestIsReadOnly:
     def test_json_string_arguments_supported(self):
         args = json.loads(json.dumps({"action": "read_text_file"}))
         assert is_read_only_tool("file", args) is True
+
+
+class TestPlanMode:
+    def test_blocks_write_tools_keeps_read_only(self):
+        blocked = plan_mode_blocked_tools(["calc", "time", "file", "python", "knowledge"])
+        assert sorted(blocked) == ["file", "python"]
+
+    def test_read_only_only_profile_blocks_nothing(self):
+        assert plan_mode_blocked_tools(["time", "calc", "knowledge", "memory"]) == []
+
+    def test_empty_profile_is_safe(self):
+        assert plan_mode_blocked_tools([]) == []
+
+    def test_prompt_suffix_forbids_side_effects(self):
+        assert "只读" in PLAN_MODE_PROMPT_SUFFIX or "查询" in PLAN_MODE_PROMPT_SUFFIX
+        assert "禁止" in PLAN_MODE_PROMPT_SUFFIX
+        assert "批准" in PLAN_MODE_PROMPT_SUFFIX
