@@ -10,7 +10,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   ArrowLeft, BookOpen, Bot, Check, Database, Globe, Library, Loader2, Mail,
-  Plug, Presentation, Save, ShieldAlert, Sparkles, Trash2, Wrench,
+  Plug, Presentation, Save, ShieldAlert, Sparkles, Trash2, Wand2, Wrench,
 } from 'lucide-react';
 import { Button } from '../components/shadcn/button';
 import { Input } from '../components/shadcn/input';
@@ -65,12 +65,21 @@ const MODE_OPTIONS: { value: AgentProfile['response_mode']; label: string; hint:
   { value: 'bigdata', label: '大数据运维', hint: '巡检、排查、容量与应急止血' },
 ];
 
-/** 四类能力的一句话说明（借鉴 Cherry Studio 的能力四分法，降低概念门槛） */
-const CAPABILITY_HINTS = [
-  { key: 'tool' as const, label: '工具', hint: '能做什么：读写文件、算数据、查知识库…', icon: Wrench, tone: 'text-brand-600' },
-  { key: 'skill' as const, label: '技能', hint: '按什么流程做事：周报格式、巡检清单…', icon: BookOpen, tone: 'text-emerald-600' },
-  { key: 'knowledge' as const, label: '知识库', hint: '能查哪些私有资料：规范、合同、历史工单…', icon: Library, tone: 'text-sky-600' },
-  { key: 'mcp' as const, label: 'MCP', hint: '能连哪些外部系统：数据库、浏览器、第三方…', icon: Plug, tone: 'text-violet-600' },
+type EditorSection = 'basic' | 'prompt' | 'tool' | 'skill' | 'knowledge' | 'mcp';
+
+/** 左侧分区导航：每项带当前值摘要，避免打开页面要通读全文 */
+const SECTION_META: {
+  key: EditorSection;
+  label: string;
+  hint: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+}[] = [
+  { key: 'basic', label: '基本信息', hint: '名称、模式与可见范围', icon: Bot },
+  { key: 'prompt', label: '提示词', hint: '定义它的行为方式', icon: Wand2 },
+  { key: 'tool', label: '工具', hint: '能做什么', icon: Wrench },
+  { key: 'skill', label: '技能', hint: '按什么流程做事', icon: BookOpen },
+  { key: 'knowledge', label: '知识库', hint: '能查哪些资料', icon: Library },
+  { key: 'mcp', label: 'MCP', hint: '能连哪些外部系统', icon: Plug },
 ];
 
 /** 图标选项：lucide 图标本身即选择器（此前用文字缩写，不可辨识） */
@@ -99,7 +108,36 @@ export const AgentEditor: React.FC = () => {
   const [avatar, setAvatar] = useState('sparkles');
   const [visibility, setVisibility] = useState<'private' | 'public'>('private');
   const [maxSteps, setMaxSteps] = useState<string>('');
-  const [tab, setTab] = useState<'tool' | 'skill' | 'knowledge' | 'mcp'>('tool');
+  const [tab, setTab] = useState<EditorSection>('basic');
+
+  /** 左侧导航的当前值摘要：不展开也能知道配了什么 */
+  const sectionSummary = (key: EditorSection): string => {
+    switch (key) {
+      case 'basic':
+        return name.trim() || '未命名';
+      case 'prompt':
+        return systemPrompt.trim() ? `${systemPrompt.trim().length} 字` : '未填写';
+      case 'tool':
+        return enabledCount > 0 ? `${enabledCount} 个已启用` : '未选择';
+      case 'skill':
+        return selectedSkills.length > 0 ? `${selectedSkills.length} 个技能` : '未绑定';
+      case 'knowledge':
+        return enabledTools.knowledge ? '检索已开启' : '未开启检索';
+      case 'mcp':
+        return '管理入口';
+    }
+  };
+
+  const sectionCount = (key: EditorSection): string => {
+    switch (key) {
+      case 'tool':
+        return `${enabledCount}/${catalog.length}`;
+      case 'skill':
+        return selectedSkills.length > 0 ? String(selectedSkills.length) : '';
+      default:
+        return '';
+    }
+  };
   const [skills, setSkills] = useState<AgentProfileSkill[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<number[]>([]);
   const [enabledTools, setEnabledTools] = useState<Record<string, boolean>>({});
@@ -304,8 +342,41 @@ export const AgentEditor: React.FC = () => {
           </div>
         )}
 
-        <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
-          {/* 基础信息 */}
+        {/* 左侧分区导航 + 右侧单区内容（Linear/Notion 设置页范式） */}
+        <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+          <nav className="flex gap-1 overflow-x-auto lg:sticky lg:top-24 lg:h-fit lg:flex-col lg:gap-0.5" aria-label="编辑分区">
+            {SECTION_META.map(({ key, label, hint, icon: Icon }) => {
+              const active = tab === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setTab(key)}
+                  className={cn(
+                    'flex shrink-0 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-all lg:w-full',
+                    active
+                      ? 'bg-[var(--surface-2)] text-[var(--foreground)]'
+                      : 'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]/60',
+                  )}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  <Icon size={15} className="shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold whitespace-nowrap">{label}</span>
+                    <span className="hidden text-[11px] lg:block lg:mt-0.5 lg:text-left lg:text-[10px] lg:leading-tight">
+                      {sectionSummary(key)}
+                    </span>
+                  </span>
+                  <span className="hidden text-[10px] tabular-nums text-[var(--muted-foreground)] lg:block">
+                    {sectionCount(key)}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="min-w-0">
+        {tab === 'basic' && (
           <section className="admin-card p-5">
             <h2 className="mb-4 text-sm font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
               基本信息
@@ -392,89 +463,32 @@ export const AgentEditor: React.FC = () => {
             </label>
           </section>
 
-          {/* 可见性 + 提示词 */}
-          <section className="admin-card flex flex-col p-5">
+
+        )}
+
+        {/* 提示词分区：原本塞在"行为设定"卡片里，拆成独立分区 */}
+        {tab === 'prompt' && (
+          <section className="admin-card p-5">
             <h2 className="mb-4 text-sm font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-              行为设定
+              提示词
             </h2>
-            <label className="mb-4 block">
+            <label className="block">
               <span className="mb-1.5 block text-sm font-medium">系统提示词 *</span>
               <textarea
                 value={systemPrompt}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSystemPrompt(e.target.value)}
+                rows={20}
                 placeholder={'你是公司数据平台的值守助手。\n\n职责：\n1. 接到巡检任务先给出检查清单\n2. 只引用知识库中的口径，不臆造数字\n\n约束：\n- 涉及生产变更的操作必须先说明风险并请求确认'}
-                rows={12}
-                className="w-full resize-y rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 font-mono text-xs leading-relaxed outline-none transition-colors focus:border-brand-400"
+                className="w-full resize-y rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 font-mono text-sm leading-relaxed outline-none transition-colors focus:border-brand-400"
               />
-              <span className="mt-1 block text-[11px] text-[var(--muted-foreground)]">
+              <span className="mt-1.5 block text-[11px] text-[var(--muted-foreground)]">
                 这段文字会作为系统指令发送给模型，建议写清职责、边界与输出风格
               </span>
             </label>
-
-            <div className="mt-auto">
-              <span className="mb-1.5 block text-sm font-medium">可见范围</span>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: 'private' as const, label: '仅自己', hint: '不出现在商店给其他人' },
-                  { value: 'public' as const, label: '公开', hint: '同事可在商店安装' },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setVisibility(option.value)}
-                    className={cn(
-                      'rounded-lg border px-3 py-2 text-left transition-all',
-                      visibility === option.value
-                        ? 'border-brand-500 bg-brand-500/10'
-                        : 'border-[var(--border-subtle)] hover:bg-[var(--surface-2)]',
-                    )}
-                  >
-                    <span className="block text-sm font-semibold">{option.label}</span>
-                    <span className="mt-0.5 block text-[11px] text-[var(--muted-foreground)]">
-                      {option.hint}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
           </section>
-        </div>
-
-        {/* 四类能力说明 + 分区切换 */}
-        <section className="admin-card mt-5 p-5">
-          <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-            能力配置
-          </h2>
-          <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-            四类能力各自解决一件事：工具让它能做事，技能规定按什么流程做，
-            知识库提供可查的资料，MCP 打通外部系统。
-          </p>
-
-          <div className="mt-4 grid gap-2 sm:grid-cols-4">
-            {CAPABILITY_HINTS.map(({ key, label, hint, icon: Icon, tone }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTab(key)}
-                className={cn(
-                  'rounded-xl border px-3 py-2.5 text-left transition-all',
-                  tab === key
-                    ? 'border-brand-500 bg-brand-500/5'
-                    : 'border-[var(--border-subtle)] hover:bg-[var(--surface-2)]',
-                )}
-              >
-                <span className={cn('flex items-center gap-1.5 text-xs font-semibold', tone)}>
-                  <Icon size={14} />
-                  {label}
-                </span>
-                <span className="mt-1 block text-[11px] leading-relaxed text-[var(--muted-foreground)]">
-                  {hint}
-                </span>
-              </button>
-            ))}
+        )}
           </div>
-        </section>
-
+        </div>
         {/* 技能绑定（tab=skill） */}
         {tab === 'skill' && (
           <section className="admin-card mt-5 p-5">
