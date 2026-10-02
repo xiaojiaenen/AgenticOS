@@ -248,14 +248,14 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
-          className="mb-0.5 flex-shrink-0 rounded-full p-3 text-[var(--muted-foreground)] transition-colors hover:bg-slate-100 hover:text-slate-700 active:scale-90"
+          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-[var(--muted-foreground)] transition-colors hover:bg-slate-100 hover:text-slate-700 active:scale-90"
           title="上传文件"
           aria-label="上传文件"
         >
           <PaperclipIcon size={20} />
         </button>
 
-        <div className="relative mb-0.5 ml-1">
+        <div className="relative ml-1 flex h-11 items-center">
           <AgentSelector
             agents={selectableAgents}
             selectedId={selectedAgentProfileId ?? null}
@@ -270,7 +270,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 
         {/* 计划模式 + 审批档合并为一个入口，避免输入框控件过多 */}
         {(onApprovalModeChange || onPlanModeChange) && (
-          <div className="mb-0.5 ml-1">
+          <div className="ml-1 flex h-11 items-center">
             <ExecutionPolicyMenu
               approvalMode={approvalMode}
               onApprovalModeChange={
@@ -287,7 +287,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
         <div className="relative min-w-0 flex-auto max-h-[200px]">
           {suggestion && value && (
             <div
-              className="pointer-events-none absolute inset-0 p-3 leading-relaxed tracking-tight whitespace-pre-wrap overflow-hidden"
+              className="pointer-events-none absolute inset-0 py-2.5 pl-1 pr-3 leading-relaxed tracking-tight whitespace-pre-wrap overflow-hidden"
               aria-hidden="true"
             >
               <span className="text-transparent">{value}</span>
@@ -301,7 +301,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder={isDragging ? '把文件拖到这里...' : placeholder}
-            className="max-h-[200px] w-full resize-none bg-transparent p-3 leading-relaxed tracking-tight text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
+            className="block max-h-[200px] w-full resize-none bg-transparent py-2.5 pl-1 pr-3 leading-relaxed tracking-tight text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
             rows={1}
           />
         </div>
@@ -338,7 +338,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           <button
             type="button"
             onClick={onStop}
-            className="group mb-1 ml-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white shadow-md transition-all duration-300 hover:scale-105 hover:bg-zinc-700 active:scale-95"
+            className="group ml-1 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white shadow-md transition-all duration-300 hover:scale-105 hover:bg-zinc-700 active:scale-95"
             title="停止当前回复"
             aria-label="停止当前回复"
           >
@@ -350,7 +350,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             onClick={handleInternalSend}
             disabled={!value.trim() && files.length === 0}
             className={cn(
-              'group mb-1 ml-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-all duration-300',
+              'group ml-1 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full transition-all duration-300',
               value.trim() || files.length > 0
                 ? 'bg-[var(--accent-send)] text-white shadow-md hover:scale-105 hover:bg-[var(--accent-send-hover)] active:scale-95'
                 : 'bg-slate-100/50 text-slate-300',
