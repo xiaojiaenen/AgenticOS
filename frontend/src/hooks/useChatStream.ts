@@ -49,6 +49,8 @@ interface UseChatStreamDeps {
   currentSessionId: string | null;
   currentSession: Session | null;
   chatMode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata';
+  /** 会话级审批模式 */
+  approvalMode: 'ask' | 'auto' | 'full';
   selectedAgentProfileId: number | null;
   selectedAgent: AgentProfile | null;
   setSessions: React.Dispatch<React.SetStateAction<Session[]>>;
@@ -84,6 +86,7 @@ export function useChatStream({
   currentSessionId,
   currentSession,
   chatMode,
+  approvalMode,
   selectedAgentProfileId,
   selectedAgent,
   setSessions,
@@ -357,6 +360,7 @@ export function useChatStream({
             currentSession || selectedAgentProfileId ? undefined : MODE_SYSTEM_PROMPTS[chatMode],
           responseMode: chatMode,
           agentProfileId: selectedAgentProfileId,
+          approvalMode,
           files: uploadedFiles.length > 0 ? uploadedFiles : undefined,
           signal: abortController.signal,
           onSessionState: (state) => {
@@ -770,6 +774,7 @@ export function useChatStream({
       currentSessionId,
       currentSession,
       chatMode,
+      approvalMode,
       selectedAgentProfileId,
       selectedAgent,
       isLoading,

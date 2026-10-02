@@ -8,6 +8,8 @@ type AgentServiceOptions = {
   systemPrompt?: string;
   responseMode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata';
   agentProfileId?: number | null;
+  /** 会话级审批模式：ask 逐次确认 / auto 只读自动放行 / full 全放行（仅管理员） */
+  approvalMode?: 'ask' | 'auto' | 'full';
   files?: { filename: string; file_path: string }[];
   onDelta?: (delta: string, fullText: string) => void;
   onReasoningDelta?: (delta: string, fullText: string) => void;
@@ -419,6 +421,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         system_prompt: options.systemPrompt,
         agent_profile_id: options.agentProfileId || undefined,
         response_mode: options.responseMode || 'general',
+        approval_mode: options.approvalMode || 'ask',
         files: options.files?.length ? options.files : undefined,
       }),
       signal: controller.signal,

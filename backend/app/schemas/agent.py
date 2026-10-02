@@ -11,6 +11,14 @@ class AgentStreamRequest(BaseModel):
     session_id: str | None = Field(default=None, description="Session ID reused across turns.")
     system_prompt: str | None = Field(default=None, description="System prompt used when creating a session.")
     agent_profile_id: int | None = Field(default=None, ge=1, description="Pluggable agent profile ID.")
+    approval_mode: str = Field(
+        default="ask",
+        pattern="^(ask|auto|full)$",
+        description=(
+            "会话级审批模式：ask=逐次确认；auto=只读工具自动放行；"
+            "full=全部放行（仅管理员生效）"
+        ),
+    )
     response_mode: str = Field(
         default="general",
         pattern="^(general|ppt|website|email|bigdata)$",

@@ -88,9 +88,21 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
         if request.agent_profile_id is not None:
             if user is None:
                 raise PermissionError("Agent profile requires an authenticated user")
-            return await asyncio.to_thread(self.agent_profiles.resolve_runtime, request.agent_profile_id, user)
+            return await asyncio.to_thread(
+                self.agent_profiles.resolve_runtime,
+                request.agent_profile_id,
+                user,
+                approval_mode=request.approval_mode,
+            )
         if user is not None:
-            return await asyncio.to_thread(self.agent_profiles.resolve_runtime_by_mode, request.response_mode, user)
+            from app.services.approval_policy import normalize_approval_mode
+
+            return await asyncio.to_thread(
+                self.agent_profiles.resolve_runtime_by_mode,
+                request.response_mode,
+                user,
+                approval_mode=normalize_approval_mode(request.approval_mode),
+            )
         return self._runtime_from_mode(request.response_mode, request.system_prompt)
 
     async def ensure_session_access(self, request: AgentStreamRequest, user: UserModel) -> None:

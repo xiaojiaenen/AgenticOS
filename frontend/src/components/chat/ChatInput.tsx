@@ -7,6 +7,7 @@ import { cn } from '../../lib/utils';
 import { AgentSelector } from '../ui/AgentSelector';
 import { PaperclipIcon, SendIcon } from '../ui/AnimatedIcons';
 import { useInputSuggest } from '../../hooks/useInputSuggest';
+import { ApprovalModeSelector } from './ApprovalModeSelector';
 import { polishPrompt } from '../../services/agentService';
 
 interface ChatInputProps {
@@ -23,6 +24,10 @@ interface ChatInputProps {
   selectedAgentProfileId?: number | null;
   onAgentProfileChange?: (profile: AgentProfile | null) => void;
   isModeLocked?: boolean;
+  /** 会话级审批模式 */
+  approvalMode?: 'ask' | 'auto' | 'full';
+  onApprovalModeChange?: (mode: 'ask' | 'auto' | 'full') => void;
+  isAdmin?: boolean;
 }
 
 export interface ChatInputHandle {
@@ -43,6 +48,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   selectedAgentProfileId,
   onAgentProfileChange,
   isModeLocked = false,
+  approvalMode = 'ask',
+  onApprovalModeChange,
+  isAdmin = false,
 }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -255,6 +263,18 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             disabled={isModeLocked}
           />
         </div>
+
+        {/* 审批模式：只在有回调时渲染 */}
+        {onApprovalModeChange && (
+          <div className="mb-0.5 ml-1">
+            <ApprovalModeSelector
+              mode={approvalMode}
+              onChange={onApprovalModeChange}
+              isAdmin={isAdmin}
+              disabled={isLoading}
+            />
+          </div>
+        )}
 
         <div className="relative min-w-0 flex-auto max-h-[200px]">
           {suggestion && value && (

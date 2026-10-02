@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../sha
 import { useChat } from '../../contexts/ChatContext';
 import { useChatStore } from '../../stores/chatStore';
 import { cn } from '../../lib/utils';
+import { getStoredUser } from '../../services/authService';
 
 export const ChatMainArea = React.memo(() => {
   // 从 Context 获取 hook 返回值和派生状态
@@ -39,6 +40,7 @@ export const ChatMainArea = React.memo(() => {
     agentProfiles, selectedAgentProfileId,
     isMobile,
     artifact, setArtifact,
+    approvalMode, setApprovalMode,
   } = useChatStore();
   // 虚拟化模式（长会话）需要把真实滚动容器传给 Virtuoso 的 customScrollParent
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
@@ -296,6 +298,9 @@ export const ChatMainArea = React.memo(() => {
             selectedAgentProfileId={selectedAgentProfileId}
             onAgentProfileChange={onAgentProfileChange}
             isModeLocked={isModeLocked}
+            approvalMode={approvalMode}
+            onApprovalModeChange={setApprovalMode}
+            isAdmin={getStoredUser()?.role === 'admin'}
           />
           <div className={cn("mt-3 flex min-h-9 items-center justify-center gap-2 text-xs font-medium", "text-[var(--muted-foreground)]")}>
             {isLoading ? (
