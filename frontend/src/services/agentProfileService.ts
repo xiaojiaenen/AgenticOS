@@ -38,6 +38,11 @@ export type AgentProfile = {
   listed: boolean;
   is_builtin: boolean;
   installed: boolean;
+  /** 所有者：null = 平台内置；否则为创建者 user id */
+  owner_id?: number | null;
+  /** 当前请求用户是否为所有者（决定是否显示编辑/删除） */
+  is_owner?: boolean;
+  visibility?: 'private' | 'public';
   audience_mode: 'all' | 'selected';
   audience_users: AgentProfileAudienceUser[];
   tools: AgentProfileTool[];
@@ -69,6 +74,7 @@ export type AgentProfilePayload = {
   skill_ids: number[];
   external_systems?: { system_id: number; enabled: boolean }[];
   max_steps?: number | null;
+  visibility?: 'private' | 'public';
 };
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');

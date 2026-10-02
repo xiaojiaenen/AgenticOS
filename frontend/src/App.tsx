@@ -20,6 +20,7 @@ const queryClient = new QueryClient({
 const Home = lazy(() => import('./pages/Home').then((module) => ({ default: module.Home })));
 const Chat = lazy(() => import('./pages/Chat').then((module) => ({ default: module.Chat })));
 const AgentStore = lazy(() => import('./pages/AgentStore').then((module) => ({ default: module.AgentStore })));
+const AgentEditor = lazy(() => import('./pages/AgentEditor').then((module) => ({ default: module.AgentEditor })));
 const Login = lazy(() => import('./pages/Login').then((module) => ({ default: module.Login })));
 const Signup = lazy(() => import('./pages/Signup').then((module) => ({ default: module.Signup })));
 const AdminDashboard = lazy(() =>
@@ -47,6 +48,8 @@ const AnimatedRoutes = () => {
           <Route path="/" element={<Home />} />
           <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
           <Route path="/agents" element={<ProtectedRoute><AgentStore /></ProtectedRoute>} />
+          <Route path="/agents/new" element={<ProtectedRoute><AgentEditor /></ProtectedRoute>} />
+          <Route path="/agents/:profileId/edit" element={<ProtectedRoute><AgentEditor /></ProtectedRoute>} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />

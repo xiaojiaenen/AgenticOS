@@ -68,6 +68,8 @@ class AgentProfileCreateRequest(AgentProfileBase):
     tools: list[AgentProfileTool] = Field(default_factory=list)
     skill_ids: list[int] = Field(default_factory=list)
     external_systems: list[AgentProfileExternalSystemRef] = Field(default_factory=list)
+    # private=仅自己可用（用户自建默认）；public=可出现在商店供他人安装（管理员发布用）
+    visibility: str = Field(default="private", pattern="^(private|public)$")
 
 
 class AgentProfileUpdateRequest(BaseModel):
@@ -85,6 +87,7 @@ class AgentProfileUpdateRequest(BaseModel):
     tools: list[AgentProfileTool] | None = None
     skill_ids: list[int] | None = None
     external_systems: list[AgentProfileExternalSystemRef] | None = None
+    visibility: str | None = Field(default=None, pattern="^(private|public)$")
 
     @field_validator("name", "description", "system_prompt", "avatar")
     @classmethod
@@ -117,6 +120,10 @@ class AgentProfileResponse(AppBaseModel):
     listed: bool
     is_builtin: bool
     installed: bool = False
+    owner_id: int | None = None
+    """是否由当前请求用户拥有（前端据此显示编辑/删除入口）"""
+    is_owner: bool = False
+    visibility: str = "private"
     max_steps: int | None = None
     audience_mode: str
     audience_users: list[AgentProfileAudienceUser] = Field(default_factory=list)
