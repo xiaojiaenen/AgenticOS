@@ -98,6 +98,10 @@ class RuntimeAgentProfile:
     skills: tuple[RuntimeSkill, ...]
     external_system_ids: tuple[int, ...] = ()
     max_steps: int | None = None
+    # 会话级审批模式：ask（逐次确认）/ auto（只读自动放行）/ full（全放行，仅管理员）
+    approval_mode: str = "ask"
+    # 触发本轮的用户是否为管理员（决定 full 档是否生效）
+    is_admin_actor: bool = False
 
 
 class AgentProfileService:
@@ -859,7 +863,13 @@ class AgentProfileService:
             )
             db.commit()
 
-    def resolve_runtime(self, profile_id: int, user: UserModel) -> RuntimeAgentProfile:
+    def resolve_runtime(
+        self,
+        profile_id: int,
+        user: UserModel,
+        *,
+        approval_mode: str = "ask",
+    ) -> RuntimeAgentProfile:
         with self.session_factory() as db:
             self.ensure_defaults(db)
             profile = db.get(AgentProfileModel, profile_id)
@@ -875,9 +885,17 @@ class AgentProfileService:
                 if not installed:
                     raise PermissionError("Please install this agent before using it")
 
-            return self._runtime_from_profile(db, profile)
+            return self._runtime_from_profile(
+                db, profile, approval_mode=approval_mode, is_admin_actor=user.role == "admin"
+            )
 
-    def resolve_runtime_by_mode(self, response_mode: str, user: UserModel) -> RuntimeAgentProfile:
+    def resolve_runtime_by_mode(
+        self,
+        response_mode: str,
+        user: UserModel,
+        *,
+        approval_mode: str = "ask",
+    ) -> RuntimeAgentProfile:
         with self.session_factory() as db:
             self.ensure_defaults(db)
             profile = db.scalar(
@@ -890,7 +908,14 @@ class AgentProfileService:
                 raise PermissionError("Agent profile is not available")
             return self._runtime_from_profile(db, profile)
 
-    def _runtime_from_profile(self, db: Session, profile: AgentProfileModel) -> RuntimeAgentProfile:
+    def _runtime_from_profile(
+        self,
+        db: Session,
+        profile: AgentProfileModel,
+        *,
+        approval_mode: str = "ask",
+        is_admin_actor: bool = False,
+    ) -> RuntimeAgentProfile:
         self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
         rows = db.scalars(
             select(AgentProfileToolModel)
@@ -955,6 +980,8 @@ class AgentProfileService:
             skills=skills,
             external_system_ids=ext_system_ids,
             max_steps=profile.max_steps,
+            approval_mode=approval_mode,
+            is_admin_actor=is_admin_actor,
         )
 
     def _load_profile_skill_rows(
