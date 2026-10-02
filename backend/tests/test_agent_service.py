@@ -155,39 +155,32 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
     assert events[0]["data"]["storage"] == "sqlalchemy"
     assert events[1]["event"] == "run_status"
     assert events[1]["data"]["phase"] == "thinking"
-    assert events[2] == {
-        "event": "reasoning_delta",
-        "data": {
-            "session_id": "demo-session",
-            "content": "plan first",
-        },
-    }
+    assert events[2]["event"] == "reasoning_delta"
+    assert events[2]["data"]["session_id"] == "demo-session"
+    assert events[2]["data"]["content"] == "plan first"
+    # 运行预算随流透出（step / max_steps），前端据此显示"第 N/M 步"
+    assert events[2]["data"].get("step") is not None
+    assert events[2]["data"].get("max_steps") is not None
     assert events[3]["event"] == "run_status"
     assert events[3]["data"]["phase"] == "streaming"
-    assert events[4] == {
-        "event": "delta",
-        "data": {
-            "session_id": "demo-session",
-            "content": "hello",
+    assert events[4]["event"] == "delta"
+    assert events[4]["data"]["session_id"] == "demo-session"
+    assert events[4]["data"]["content"] == "hello"
+    assert events[4]["data"].get("step") is not None
+    assert events[5]["event"] == "tool_calls"
+    assert events[5]["data"]["session_id"] == "demo-session"
+    assert events[5]["data"]["tool_calls"] == [
+        {
+            "id": "call_1",
+            "function": {
+                "name": "get_time",
+                "arguments": {"timezone": "Asia/Shanghai"},
+            },
+            "side_effect": False,
+            "requires_approval": False,
         },
-    }
-    assert events[5] == {
-        "event": "tool_calls",
-        "data": {
-            "session_id": "demo-session",
-            "tool_calls": [
-                {
-                    "id": "call_1",
-                    "function": {
-                        "name": "get_time",
-                        "arguments": {"timezone": "Asia/Shanghai"},
-                    },
-                    "side_effect": False,
-                    "requires_approval": False,
-                }
-            ],
-        },
-    }
+    ]
+    assert events[5]["data"].get("step") is not None
     assert events[6] == {
         "event": "tool_results",
         "data": {
@@ -206,23 +199,19 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
             ],
         },
     }
-    assert events[7] == {
-        "event": "tool_calls",
-        "data": {
-            "session_id": "demo-session",
-            "tool_calls": [
-                {
-                    "id": "call_2",
-                    "function": {
-                        "name": "write_file",
-                        "arguments": {"path": "notes.txt"},
-                    },
-                    "side_effect": True,
-                    "requires_approval": True,
-                }
-            ],
+    assert events[7]["event"] == "tool_calls"
+    assert events[7]["data"]["session_id"] == "demo-session"
+    assert events[7]["data"]["tool_calls"] == [
+        {
+            "id": "call_2",
+            "function": {
+                "name": "write_file",
+                "arguments": {"path": "notes.txt"},
+            },
+            "side_effect": True,
+            "requires_approval": True,
         },
-    }
+    ]
     assert events[8] == {
         "event": "tool_results",
         "data": {
