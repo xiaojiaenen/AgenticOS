@@ -256,7 +256,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           />
         </div>
 
-        <div className="relative min-w-0 flex-1 max-h-[200px]">
+        <div className="relative min-w-0 flex-auto max-h-[200px]">
           {suggestion && value && (
             <div
               className="pointer-events-none absolute inset-0 p-3 leading-relaxed tracking-tight whitespace-pre-wrap overflow-hidden"

@@ -8,7 +8,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowLeft, Check, Loader2, Save, ShieldAlert, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft, Bot, Check, Database, Globe, Loader2, Mail, Presentation,
+  Save, ShieldAlert, Sparkles, Trash2,
+} from 'lucide-react';
 import { Button } from '../components/shadcn/button';
 import { Input } from '../components/shadcn/input';
 import { Badge } from '../components/ui/Badge';
@@ -61,7 +64,15 @@ const MODE_OPTIONS: { value: AgentProfile['response_mode']; label: string; hint:
   { value: 'bigdata', label: '大数据运维', hint: '巡检、排查、容量与应急止血' },
 ];
 
-const AVATAR_CHOICES = ['sparkles', 'presentation', 'globe', 'mail', 'bot', 'database'];
+/** 图标选项：lucide 图标本身即选择器（此前用文字缩写，不可辨识） */
+const AVATAR_CHOICES = [
+  { key: 'sparkles', label: '星芒', Icon: Sparkles },
+  { key: 'presentation', label: '演示', Icon: Presentation },
+  { key: 'globe', label: '网站', Icon: Globe },
+  { key: 'mail', label: '邮件', Icon: Mail },
+  { key: 'bot', label: '机器人', Icon: Bot },
+  { key: 'database', label: '数据', Icon: Database },
+] as const;
 
 export const AgentEditor: React.FC = () => {
   const navigate = useNavigate();
@@ -333,20 +344,21 @@ export const AgentEditor: React.FC = () => {
             <div className="mb-4">
               <span className="mb-1.5 block text-sm font-medium">图标</span>
               <div className="flex flex-wrap gap-2">
-                {AVATAR_CHOICES.map((choice) => (
+                {AVATAR_CHOICES.map(({ key, label, Icon }) => (
                   <button
-                    key={choice}
+                    key={key}
                     type="button"
-                    onClick={() => setAvatar(choice)}
-                    aria-label={`图标 ${choice}`}
+                    onClick={() => setAvatar(key)}
+                    title={label}
+                    aria-label={`图标：${label}`}
                     className={cn(
-                      'flex h-9 w-9 items-center justify-center rounded-lg border text-xs font-semibold transition-all',
-                      avatar === choice
+                      'flex h-9 w-9 items-center justify-center rounded-lg border transition-all',
+                      avatar === key
                         ? 'border-brand-500 bg-brand-500/10 text-brand-600'
                         : 'border-[var(--border-subtle)] text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]',
                     )}
                   >
-                    {choice.slice(0, 2)}
+                    <Icon size={16} />
                   </button>
                 ))}
               </div>
