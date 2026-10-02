@@ -40,25 +40,25 @@ class AnnouncementAIService:
                 response_format={"type": "json_object"},
             )
         except Exception as exc:
-            raise ValueError(f"AI generation failed: {exc}") from exc
+            raise ValueError(f"AI 生成失败，请稍后重试") from exc
 
         content = response.message.content
         if not content:
-            raise ValueError("AI generation returned an empty response")
+            raise ValueError("AI 生成结果为空，请重试")
 
         from wuwei.parsers import JsonOutputParser
         parser = JsonOutputParser()
         try:
             generated = parser.parse(content)
         except Exception as exc:
-            raise ValueError(f"AI generation returned invalid JSON: {exc}") from exc
+            raise ValueError(f"AI 返回内容格式异常，请重试") from exc
 
         body = str(generated.get("body") or "").strip()
         if request.content_format == "html":
             lowered = body.lower()
             forbidden = ("<script", "<iframe", "<html", "<head", "<body")
             if any(token in lowered for token in forbidden):
-                raise ValueError("AI generation returned unsafe HTML")
+                raise ValueError("AI 返回内容包含不安全脚本，已拦截")
 
         return {
             "eyebrow": str(generated.get("eyebrow") or "系统公告").strip() or "系统公告",

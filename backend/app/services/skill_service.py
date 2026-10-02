@@ -199,7 +199,7 @@ class SkillService:
                     errors.append(f"{skill_name}: {exc}")
 
             if errors and not results:
-                raise ValueError("All skills failed:\n" + "\n".join(errors))
+                raise ValueError("以下技能执行失败：\n" + "\n".join(errors))
 
             return results
 

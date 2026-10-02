@@ -29,16 +29,16 @@ def get_current_user(
     settings: Settings = Depends(get_settings),
 ) -> UserModel:
     if credentials is None or credentials.scheme.lower() != "bearer":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing auth token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="缺少登录凭证")
 
     payload = decode_access_token(credentials.credentials, secret=settings.auth_secret_key)
     if payload is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid auth token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录凭证无效，请重新登录")
 
     try:
         user_id = int(payload.get("sub"))
     except (TypeError, ValueError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid auth token") from None
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录凭证无效，请重新登录") from None
 
     auth_service = AuthService(db, settings)
     session_id = payload.get("sid")
@@ -47,7 +47,7 @@ def get_current_user(
 
     user = auth_service.get_user(user_id)
     if user is None or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User is not active")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号未激活")
     return user
 
 

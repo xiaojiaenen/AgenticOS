@@ -101,7 +101,7 @@ async def create_memory(
         tag_list = _parse_tags(tags)
 
     if not final_content or not str(final_content).strip():
-        raise HTTPException(status_code=422, detail="content is required")
+        raise HTTPException(status_code=422, detail="内容不能为空")
 
     memory_id = await get_memory_service().add_memory(
         current_user.id,
@@ -139,7 +139,7 @@ async def delete_memory(
     user_id = None if current_user.role == "admin" else current_user.id
     success = await get_memory_service().delete_memory(memory_id, user_id)
     if not success:
-        raise HTTPException(status_code=404, detail="Memory not found")
+        raise HTTPException(status_code=404, detail="记忆记录不存在")
     return {"success": True}
 
 

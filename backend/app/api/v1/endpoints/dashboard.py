@@ -516,7 +516,7 @@ def get_conversation_detail(
 ) -> ConversationDetailResponse:
     session = db.get(AgentSessionModel, session_id)
     if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
 
     user = db.get(UserModel, session.user_id) if session.user_id is not None else None
     agent_profile = db.get(AgentProfileModel, session.agent_profile_id) if session.agent_profile_id is not None else None
@@ -681,7 +681,7 @@ def delete_conversation(
 ) -> None:
     session = db.get(AgentSessionModel, session_id)
     if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
 
     db.execute(delete(AgentMessageModel).where(AgentMessageModel.session_id == session_id))
     db.execute(delete(AgentUsageEventModel).where(AgentUsageEventModel.session_id == session_id))

@@ -127,7 +127,7 @@ async def run_local_completion(
 ):
     prompt = _extract_user_content(payload.messages)
     if not prompt:
-        raise HTTPException(status_code=400, detail="messages 中缺少可用的 user 内容")
+        raise HTTPException(status_code=400, detail="messages 中缺少有效的用户消息")
 
     response_mode = _resolve_model_name(payload.model)
     completion_id = f"chatcmpl-{uuid.uuid4().hex[:24]}"

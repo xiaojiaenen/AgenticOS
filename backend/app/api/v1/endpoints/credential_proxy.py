@@ -104,7 +104,7 @@ async def get_credential(
         logger.warning(f"Credential proxy access denied: {_get_client_info(request)}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid or missing internal token"
+            detail="内部令牌无效或缺失"
         )
 
     # 获取凭据
@@ -135,7 +135,7 @@ async def get_credential(
         if not system:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="System not found"
+                detail="系统不存在"
             )
 
         # 解密凭据
@@ -182,7 +182,7 @@ async def get_credentials_batch(
         logger.warning(f"Credential proxy batch access denied: {_get_client_info(request)}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid or missing internal token"
+            detail="内部令牌无效或缺失"
         )
 
     svc = ExternalSystemService(db)
@@ -252,7 +252,7 @@ async def validate_credential(
     if not _verify_internal_token(request):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid or missing internal token"
+            detail="内部令牌无效或缺失"
         )
 
     # 查询凭据

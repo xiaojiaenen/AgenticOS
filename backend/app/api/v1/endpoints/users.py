@@ -71,7 +71,7 @@ async def create_user(
 ) -> UserListItem:
     existing = _find_user_by_email(db, request.email)
     if existing is not None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="该邮箱已注册，请直接登录")
 
     # 在线程池中执行 PBKDF2 哈希，防止阻塞事件循环
     import asyncio
@@ -107,7 +107,7 @@ def get_user(
 ) -> UserListItem:
     user = db.get(UserModel, user_id)
     if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
     return _to_item(user)
 
 
@@ -120,12 +120,12 @@ def update_user(
 ) -> UserListItem:
     user = db.get(UserModel, user_id)
     if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
 
     if request.email is not None:
         existing = _find_user_by_email(db, request.email)
         if existing is not None and existing.id != user.id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="该邮箱已注册，请直接登录")
         user.email = request.email
 
     if request.name is not None:
@@ -134,11 +134,11 @@ def update_user(
         user.password_hash = hash_password(request.password)
     if request.role is not None:
         if user.id == current_user.id and request.role != "admin":
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot remove your own admin role")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不能移除自己的管理员角色")
         user.role = request.role
     if request.is_active is not None:
         if user.id == current_user.id and not request.is_active:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot disable yourself")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不能禁用自己��账号")
         user.is_active = request.is_active
     if request.auth_source is not None:
         user.auth_source = request.auth_source
@@ -158,9 +158,9 @@ def update_user_status(
 ) -> UserListItem:
     user = db.get(UserModel, user_id)
     if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
     if user.id == current_user.id and not request.is_active:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot disable yourself")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不能禁用自己��账号")
 
     user.is_active = request.is_active
     db.add(user)
@@ -177,9 +177,9 @@ def delete_user(
 ) -> None:
     user = db.get(UserModel, user_id)
     if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
     if user.id == current_user.id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete yourself")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不能删除自己的账号")
 
     session_ids = [row[0] for row in db.execute(
         select(AgentSessionModel.session_id).where(AgentSessionModel.user_id == user_id)

@@ -1,4 +1,5 @@
 import { authHeaders, clearAuthSession } from './authTokenStore';
+import { localizeError } from '../lib/errors';
 
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
@@ -101,7 +102,11 @@ export async function apiFetch<T>(
       const raw = await response.text().catch(() => '');
       const detail = parseErrorPayload(raw);
       if (!skip401) handleUnauthorized();
-      throw new ApiError(401, detail ?? (raw || null), detail || errorMessage || '登录已过期，请重新登录');
+      throw new ApiError(
+        401,
+        detail ?? (raw || null),
+        localizeError(detail, errorMessage || '登录已过期，请重新登录'),
+      );
     }
 
     if (!response.ok) {
@@ -110,7 +115,7 @@ export async function apiFetch<T>(
       throw new ApiError(
         response.status,
         detail ?? (raw || null),
-        detail || errorMessage || `请求失败 (${response.status})`,
+        localizeError(detail, errorMessage || '操作失败，请稍后重试'),
       );
     }
 

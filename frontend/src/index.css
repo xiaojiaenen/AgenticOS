@@ -1,8 +1,59 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
 @import "katex/dist/katex.min.css";
 @import "tailwindcss";
 /* Tailwind v3 hex palette overrides — MUST come after tailwindcss (Chrome 85 compat, no oklch) */
 @import "./theme-palette.css";
+
+/*
+ * 字体策略
+ * --------
+ * 中文：HarmonyOS Sans SC（鸿蒙）。华为官方发行，商用需自行获取授权；
+ *      把字体文件放到 public/fonts/ 即可生效（见 docs/字体说明.md）。
+ * 西文：等宽（JetBrains Mono / 系统 mono）。
+ * 两级都不可用时逐级回退到系统中英文字体，保证任何环境都不出现方框字。
+ *
+ * 刻意不引外网字体 CDN：内网部署时 Google Fonts 不可达会拖慢首屏。
+ */
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  src: local('HarmonyOS Sans SC'), local('HarmonyOS_Sans_SC-Regular'),
+    url('/fonts/HarmonyOS_Sans_SC_Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  src: local('HarmonyOS Sans SC Medium'), local('HarmonyOS_Sans_SC-Medium'),
+    url('/fonts/HarmonyOS_Sans_SC_Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'HarmonyOS Sans SC';
+  src: local('HarmonyOS Sans SC Bold'), local('HarmonyOS_Sans_SC-Bold'),
+    url('/fonts/HarmonyOS_Sans_SC_Bold.woff2') format('woff2');
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: local('JetBrains Mono'), local('JetBrainsMono-Regular'),
+    url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: local('JetBrains Mono Medium'), local('JetBrainsMono-Medium'),
+    url('/fonts/JetBrainsMono-Medium.woff2') format('woff2');
+  font-weight: 500 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 
 /* Class-based dark mode (matches useTheme's documentElement.classList) */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -99,9 +150,13 @@
 
 /* ===== 3. 旧页面语义 token 临时别名 — TODO(M1): 全量换 shadcn 组件后删除 ===== */
 @theme {
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-display: "Space Grotesk", sans-serif;
+  /* 中文 → 鸿蒙；西文 → 等宽；最后逐级回退系统字体 */
+  --font-sans:
+    "JetBrains Mono", ui-monospace, "SFMono-Regular", "Menlo", "Consolas",
+    "HarmonyOS Sans SC", "HarmonyOS Sans", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-display: var(--font-sans);
 
   /* Legacy brand scale → indigo-based palette. TODO(M1): remove */
   /* brand-* 已中性化：类名保留以免大面积改动，色值改用 zinc 灰阶。

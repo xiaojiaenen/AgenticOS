@@ -825,7 +825,7 @@ class AgentProfileService:
             if user is not None:
                 self._assert_can_manage(profile, user)
             if profile.is_builtin:
-                raise ValueError("Built-in agent profiles cannot be deleted")
+                raise ValueError("内置智能体不可删除")
 
             db.execute(delete(UserInstalledAgentModel).where(UserInstalledAgentModel.profile_id == profile_id))
             db.execute(delete(AgentProfileAudienceModel).where(AgentProfileAudienceModel.profile_id == profile_id))

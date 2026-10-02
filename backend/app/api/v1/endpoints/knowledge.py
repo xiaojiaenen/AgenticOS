@@ -192,7 +192,7 @@ def create_knowledge_base(
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Slug already exists: {slug}",
+            detail=f"标识已存在：{slug}",
         )
 
     kb = KnowledgeBaseModel(
@@ -236,11 +236,11 @@ def get_knowledge_base(
 
     kb = db.get(KnowledgeBaseModel, kb_id)
     if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="知识库不存在")
 
     is_admin = current_user.role == "admin"
     if not can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="没有权限执行该操作")
 
     doc_count = db.execute(
         select(func.count()).select_from(KBDocumentModel).where(
@@ -281,7 +281,7 @@ def update_knowledge_base(
     """更新知识库"""
     kb = db.get(KnowledgeBaseModel, kb_id)
     if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="知识库不存在")
 
     if request.name is not None:
         kb.name = request.name
@@ -335,7 +335,7 @@ def delete_knowledge_base(
     """删除知识库"""
     kb = db.get(KnowledgeBaseModel, kb_id)
     if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="知识库不存在")
 
     # 删除相关数据
     db.execute(delete(KBWikiLinkModel).where(
@@ -369,10 +369,10 @@ def list_documents(
 
     kb = db.get(KnowledgeBaseModel, kb_id)
     if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="知识库不存在")
     is_admin = current_user.role == "admin"
     if not can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="没有权限执行该操作")
 
     stmt = select(KBDocumentModel).where(
         KBDocumentModel.knowledge_base_id == kb_id
@@ -408,7 +408,7 @@ async def upload_document(
     # 检查知识库
     kb = db.get(KnowledgeBaseModel, kb_id)
     if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="知识库不存在")
 
     # 检查文件类型
     allowed_types = {"pdf", "docx", "md", "markdown", "html", "htm", "txt"}
@@ -416,7 +416,7 @@ async def upload_document(
     if file_ext not in allowed_types:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file type: {file_ext}",
+            detail=f"不支持的文件类型：{file_ext}",
         )
 
     # 保存文件
@@ -484,7 +484,7 @@ def delete_document(
     """删除文档：清理文件、Wiki 页面 sources 引用与图谱链接。"""
     doc = db.get(KBDocumentModel, doc_id)
     if not doc or doc.knowledge_base_id != kb_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文档不存在")
 
     source_ref = f"kb_document:{doc_id}"
 
@@ -551,10 +551,10 @@ def list_wiki_pages(
 
     kb = db.get(KnowledgeBaseModel, kb_id)
     if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="知识库不存在")
     is_admin = current_user.role == "admin"
     if not can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="没有权限执行该操作")
 
     conditions = [
         KBWikiPageModel.knowledge_base_id == kb_id,
@@ -596,14 +596,14 @@ def get_wiki_page(
 
     kb = db.get(KnowledgeBaseModel, kb_id)
     if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="知识库不存在")
     is_admin = current_user.role == "admin"
     if not can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="没有权限执行该操作")
 
     page = db.get(KBWikiPageModel, page_id)
     if not page or page.knowledge_base_id != kb_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="页面不存在")
 
     return WikiPageResponse(
         id=page.id,
@@ -656,7 +656,7 @@ async def recall_test(
 
     kb = db.get(KnowledgeBaseModel, kb_id)
     if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="知识库不存在")
 
     report = await run_recall_test(
         kb_id,
@@ -724,10 +724,10 @@ def list_review_items(
 
     kb = db.get(KnowledgeBaseModel, kb_id)
     if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="知识库不存在")
     is_admin = current_user.role == "admin"
     if not can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="没有权限执行该操作")
 
     conditions = [KBReviewItemModel.knowledge_base_id == kb_id]
     if status_filter:
@@ -772,7 +772,7 @@ def update_review_item(
     """处理审核任务"""
     review = db.get(KBReviewItemModel, review_id)
     if not review or review.knowledge_base_id != kb_id:
-        raise HTTPException(status_code=404, detail="Review item not found")
+        raise HTTPException(status_code=404, detail="审核项不存在")
 
     review.status = status
     review.resolution_note = resolution_note
