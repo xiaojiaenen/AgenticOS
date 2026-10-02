@@ -151,7 +151,7 @@ export function KnowledgeManagement() {
               onClick={() => openDetail(kb)}
               className="flex min-w-0 items-center gap-3 text-left"
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700">
                 <BookOpen className="h-4 w-4" />
               </div>
               <div className="min-w-0">

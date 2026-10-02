@@ -325,7 +325,7 @@ export const UserManagement = () => {
               <div className="flex items-center gap-2">
                 <p className="truncate text-sm font-semibold text-[var(--foreground)]">{user.name}</p>
                 {isSelf ? (
-                  <span className="rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
+                  <span className="rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-800">
                     当前账号
                   </span>
                 ) : null}
@@ -454,7 +454,7 @@ export const UserManagement = () => {
       <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
         <div className="flex flex-col gap-2.5 border-b border-[var(--border-subtle)] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-indigo-600">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700">
               用户目录
             </p>
             <h3 className="mt-1 text-base font-semibold tracking-tight text-[var(--foreground)]">

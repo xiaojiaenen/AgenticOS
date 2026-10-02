@@ -204,7 +204,7 @@ function SkillFormDialog({
               id="skill-instruction"
               rows={12}
               {...form.register('instruction')}
-              className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-2.5 text-sm font-medium leading-6 text-[var(--foreground)] outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
+              className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-2.5 text-sm font-medium leading-6 text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
             />
             {form.formState.errors.instruction ? (
               <p className="text-xs font-medium text-rose-600">
@@ -360,7 +360,7 @@ export const SkillManagement = () => {
                 </span>
               ) : null}
               {skill.has_references ? (
-                <span className="inline-flex items-center rounded-full border border-indigo-200/80 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
+                <span className="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-800">
                   refs
                 </span>
               ) : null}
@@ -453,7 +453,7 @@ export const SkillManagement = () => {
       <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
         <div className="grid grid-cols-1 items-end gap-4 xl:grid-cols-[minmax(0,1fr)_200px_auto]">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-indigo-600">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700">
               上传入口
             </p>
             <h3 className="mt-1 text-base font-semibold tracking-tight text-[var(--foreground)]">
@@ -475,7 +475,7 @@ export const SkillManagement = () => {
           </div>
 
           <div className="flex flex-col gap-2.5 sm:flex-row">
-            <label className="flex w-full cursor-pointer items-center rounded-md border border-dashed border-zinc-300 bg-[var(--surface-2)] px-3.5 py-2.5 text-sm font-medium text-[var(--muted-foreground)] transition hover:border-indigo-300 hover:text-indigo-600 sm:max-w-[260px]">
+            <label className="flex w-full cursor-pointer items-center rounded-md border border-dashed border-zinc-300 bg-[var(--surface-2)] px-3.5 py-2.5 text-sm font-medium text-[var(--muted-foreground)] transition hover:border-zinc-900 hover:text-zinc-700 sm:max-w-[260px]">
               <span className="block truncate">
                 {uploadFile ? uploadFile.name : '选择 Zip...'}
               </span>

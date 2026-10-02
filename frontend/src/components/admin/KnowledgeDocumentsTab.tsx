@@ -22,7 +22,7 @@ export function KnowledgeDocumentsTab({
 }) {
   return (
     <div className="space-y-3">
-      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-300 bg-[var(--surface-1)] py-6 text-sm font-medium text-[var(--muted-foreground)] transition hover:border-indigo-300 hover:text-indigo-600">
+      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-300 bg-[var(--surface-1)] py-6 text-sm font-medium text-[var(--muted-foreground)] transition hover:border-zinc-900 hover:text-zinc-700">
         <Upload className="h-4 w-4" />
         点击上传文档（PDF / Word / Markdown）
         <input

@@ -219,7 +219,7 @@ export function SystemModal({
         <div className="flex items-center gap-1 px-1">
           {['基本信息', '鉴权配置', '高级设置'].map((label, i) => (
             <React.Fragment key={label}>
-              {i > 0 && <div className={cn('mx-1 h-px flex-1', i <= step ? 'bg-indigo-300' : 'bg-zinc-200')} />}
+              {i > 0 && <div className={cn('mx-1 h-px flex-1', i <= step ? 'bg-zinc-900' : 'bg-zinc-200')} />}
               <button
                 type="button"
                 onClick={() => {
@@ -228,9 +228,9 @@ export function SystemModal({
                 className={cn(
                   'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all',
                   i === step
-                    ? 'bg-indigo-100 text-indigo-700'
+                    ? 'bg-zinc-200 text-zinc-800'
                     : i < step
-                      ? 'text-indigo-500 hover:bg-indigo-50'
+                      ? 'text-zinc-600 hover:bg-zinc-100'
                       : 'text-[var(--muted-foreground)]',
                 )}
               >
@@ -238,9 +238,9 @@ export function SystemModal({
                   className={cn(
                     'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold',
                     i === step
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-zinc-900 text-white'
                       : i < step
-                        ? 'bg-indigo-200 text-indigo-700'
+                        ? 'bg-zinc-900 text-white'
                         : 'bg-zinc-200 text-[var(--muted-foreground)]',
                   )}
                 >
@@ -285,7 +285,7 @@ export function SystemModal({
                     rows={2}
                     placeholder="简要描述该系统的用途"
                     {...form.register('description')}
-                    className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
+                    className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
                   />
                 </div>
                 <label className="flex items-center gap-2.5 text-sm font-medium text-zinc-700">
@@ -313,11 +313,11 @@ export function SystemModal({
                           className={cn(
                             'flex flex-col items-center gap-1.5 rounded-lg border-2 px-3 py-3 text-center transition-all',
                             authType === t.value
-                              ? 'border-indigo-400 bg-indigo-50 text-indigo-700 shadow-sm'
+                              ? 'border-zinc-900 bg-zinc-100 text-zinc-800 shadow-sm'
                               : 'border-[var(--border-subtle)] bg-[var(--surface-1)] text-zinc-600 hover:border-zinc-300',
                           )}
                         >
-                          <Icon size={18} className={authType === t.value ? 'text-indigo-500' : 'text-[var(--muted-foreground)]'} />
+                          <Icon size={18} className={authType === t.value ? 'text-zinc-600' : 'text-[var(--muted-foreground)]'} />
                           <span className="text-xs font-semibold">{t.label}</span>
                         </button>
                       );
@@ -326,8 +326,8 @@ export function SystemModal({
                 </div>
 
                 {authType === 'oauth2' && (
-                  <div className="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-500">OAuth 2.0 配置</p>
+                  <div className="space-y-3 rounded-lg border border-zinc-200 bg-zinc-100/50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-600">OAuth 2.0 配置</p>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label>Client ID</Label>
@@ -397,7 +397,7 @@ export function SystemModal({
                             type="button"
                             variant="ghost"
                             size="xs"
-                            className="gap-1 text-indigo-600"
+                            className="gap-1 text-zinc-700"
                             onClick={() => writeJwtPairs([...jwtPairs, { key: '', value: '' }])}
                           >
                             <Plus size={13} />
@@ -581,7 +581,7 @@ export function SystemModal({
                 </div>
 
                 {/* 默认凭据 */}
-                <div className="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/30 p-4">
+                <div className="space-y-3 rounded-lg border border-zinc-200 bg-zinc-100/30 p-4">
                   <p className="text-sm font-semibold text-zinc-700">默认凭据（可选）</p>
                   <p className="text-xs font-medium text-[var(--muted-foreground)]">
                     管理员设置默认凭据后，普通用户无需配置即可直接使用该集成。用户只能看到「已就绪」状态，无法查看具体凭据值。

@@ -39,7 +39,7 @@ export function KnowledgeWikiTab({
             <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-xs font-medium text-[var(--muted-foreground)]">
               {selectedPage.page_type}
             </span>
-            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600">
+            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
               {selectedPage.authority_level}
             </span>
           </div>
@@ -80,7 +80,7 @@ export function KnowledgeWikiTab({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600">
+            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
               {page.authority_level}
             </span>
             <Eye className="h-4 w-4 text-[var(--muted-foreground)]" />

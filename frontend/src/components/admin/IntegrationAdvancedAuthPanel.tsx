@@ -66,7 +66,7 @@ export function AdvancedAuthPanel({
                   <Label>{sign.algorithm?.startsWith('rsa') ? 'RSA 私钥 (PEM)' : '签名密钥'}</Label>
                   <textarea
                     rows={2}
-                    className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 font-mono text-xs text-[var(--foreground)] outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
+                    className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 font-mono text-xs text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
                     value={sign.secret || ''}
                     onChange={(e) => set('sign', 'secret', e.target.value)}
                     placeholder={sign.algorithm?.startsWith('rsa') ? '-----BEGIN PRIVATE KEY-----\n...' : '输入密钥'}
@@ -111,8 +111,8 @@ export function AdvancedAuthPanel({
             )}
           </div>
 
-          <div className="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3.5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">请求加密</p>
+          <div className="space-y-3 rounded-lg border border-zinc-200 bg-zinc-100/40 p-3.5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-700">请求加密</p>
             <div className="space-y-1.5">
               <Label>加密算法</Label>
               <Select value={enc.algorithm || 'none'} onValueChange={(v) => set('request_encrypt', 'algorithm', v)}>

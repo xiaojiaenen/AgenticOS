@@ -198,7 +198,7 @@ export const AdminSidebar = React.memo(
               layoutId="admin-active-nav"
               className={cn(
                 'absolute inset-0 rounded-lg border-l-3',
-                'border-l-indigo-600 bg-[var(--surface-1)] shadow-md',
+                'border-l-zinc-900 bg-[var(--surface-1)] shadow-md',
               )}
               transition={{ type: 'spring', damping: 28, stiffness: 380 }}
             />
@@ -404,7 +404,7 @@ export const AdminSidebar = React.memo(
           !isOpen && !isMobile && 'hidden',
         )}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-br from-indigo-100/50 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-br from-zinc-100/50 to-transparent" />
         {sidebarContent}
       </motion.aside>
     );

@@ -94,7 +94,7 @@ export function KnowledgeGraph({ kbId }: { kbId: number }) {
         ))}
       </svg>
       <div className="mt-4 flex gap-4 text-xs font-medium text-[var(--muted-foreground)]">
-        <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-indigo-600" /> L3 锁定</span>
+        <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-zinc-900" /> L3 锁定</span>
         <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-violet-500" /> L2 已审核</span>
         <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-zinc-400" /> L1 自动</span>
       </div>

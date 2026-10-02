@@ -27,8 +27,8 @@
   --card-foreground: #18181b;
   --popover: #ffffff;
   --popover-foreground: #18181b;
-  --primary: #4f46e5;           /* indigo-600 */
-  --primary-foreground: #eef2ff; /* indigo-50 */
+  --primary: #18181b;           /* zinc-900 —— 主 CTA 用纯黑，不用靛蓝 */
+  --primary-foreground: #fafafa; /* zinc-50 */
   --secondary: #f4f4f5;         /* zinc-100 */
   --secondary-foreground: #3f3f46; /* zinc-700 */
   --muted: #f4f4f5;             /* zinc-100 */
@@ -50,8 +50,8 @@
   --card-foreground: #fafafa;
   --popover: #18181b;
   --popover-foreground: #fafafa;
-  --primary: #6366f1;           /* indigo-500 */
-  --primary-foreground: #eef2ff;
+  --primary: #fafafa;           /* zinc-50 —— 深色下主 CTA 反白 */
+  --primary-foreground: #18181b; /* zinc-900 */
   --secondary: #27272a;         /* zinc-800 */
   --secondary-foreground: #d4d4d8;
   --muted: #27272a;
@@ -88,10 +88,13 @@
   --color-ring: var(--ring);
 
   /* shadcn radius scale */
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* 圆角刻度：控件 8 → 卡片 12 → 弹层 16 → 气泡 24，等比 1.5x。
+     胶囊/头像用 rounded-full，不在刻度内。 */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
 }
 
 /* ===== 3. 旧页面语义 token 临时别名 — TODO(M1): 全量换 shadcn 组件后删除 ===== */
@@ -101,14 +104,16 @@
   --font-display: "Space Grotesk", sans-serif;
 
   /* Legacy brand scale → indigo-based palette. TODO(M1): remove */
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #4f46e5;   /* indigo-600 */
-  --color-brand-600: #4338ca;   /* indigo-700 */
-  --color-brand-700: #3730a3;   /* indigo-800 */
+  /* brand-* 已中性化：类名保留以免大面积改动，色值改用 zinc 灰阶。
+     强调色只保留在 --ring（焦点环），实体按钮一律黑白。 */
+  --color-brand-50: #fafafa;
+  --color-brand-100: #f4f4f5;
+  --color-brand-200: #e4e4e7;
+  --color-brand-300: #d4d4d8;
+  --color-brand-400: #a1a1aa;
+  --color-brand-500: #27272a;   /* zinc-800 */
+  --color-brand-600: #18181b;   /* zinc-900 */
+  --color-brand-700: #09090b;   /* zinc-950 */
   --color-brand-800: #312e81;   /* indigo-900 */
   --color-brand-900: #1e1b4b;   /* indigo-950 */
 
@@ -142,9 +147,6 @@
 
 /* Legacy radius / shadow scale — 值按新体系微调。TODO(M1): remove */
 @theme {
-  --radius-2xs: 4px;
-  --radius-xs: 6px;
-
   --shadow-xs: 0 1px 2px rgba(9, 9, 11, 0.05);
   --shadow-sm: 0 1px 3px rgba(9, 9, 11, 0.05), 0 1px 2px rgba(9, 9, 11, 0.06);
   --shadow-md: 0 4px 6px -1px rgba(9, 9, 11, 0.06), 0 2px 4px -2px rgba(9, 9, 11, 0.06);
@@ -170,8 +172,8 @@
   --bubble-user-text: #ffffff;
   --bubble-ai: rgba(255, 255, 255, 0.92);
   --bubble-ai-border: rgba(228, 228, 231, 0.6);
-  --accent-send: #4f46e5;
-  --accent-send-hover: #4338ca;
+  --accent-send: #18181b;       /* zinc-900 —— 与主 CTA 同一黑 */
+  --accent-send-hover: #3f3f46; /* zinc-700 */
 
   /* Admin dashboard — unified with chat */
   --admin-bg: #f4f4f5;
@@ -200,6 +202,18 @@
   --admin-card-border: rgba(250, 250, 250, 0.08);
   --admin-accent: #818cf8;
   --admin-accent-soft: rgba(129, 140, 248, 0.08);
+
+  /* 深色下 brand 色阶反相：浅色是"深灰"，深色就是"浅灰" */
+  --color-brand-50: #18181b;
+  --color-brand-100: #27272a;
+  --color-brand-200: #3f3f46;
+  --color-brand-300: #a1a1aa;
+  --color-brand-400: #d4d4d8;
+  --color-brand-500: #e4e4e7;
+  --color-brand-600: #fafafa;
+  --color-brand-700: #ffffff;
+  --accent-send: #fafafa;
+  --accent-send-hover: #e4e4e7;
 }
 
 /* ===== Base ===== */

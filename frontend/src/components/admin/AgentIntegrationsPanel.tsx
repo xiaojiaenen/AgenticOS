@@ -32,7 +32,7 @@ export function AgentIntegrationsPanel({
     <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">
             集成系统
           </p>
           <h4 className="mt-1 text-base font-semibold text-[var(--foreground)]">绑定外部系统</h4>

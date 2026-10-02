@@ -104,7 +104,7 @@ export function AiGenerateDialog({
               rows={4}
               placeholder="例如：通知用户 PPT 模式新增了 10 套全新设计主题，包括苹果、谷歌、特斯拉等品牌风格，现在可以在导出 PPT 时自由切换。"
               {...form.register('brief')}
-              className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
+              className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
             />
             {form.formState.errors.brief ? (
               <p className="text-xs font-medium text-rose-600">{form.formState.errors.brief.message}</p>
@@ -153,7 +153,7 @@ export function AiGenerateDialog({
                       onClick={() => form.setValue('theme', theme)}
                       className={cn(
                         'rounded-lg border p-2 text-center transition-all',
-                        active ? 'border-indigo-300 bg-indigo-50/80 shadow-sm' : 'border-[var(--border-subtle)] bg-[var(--surface-1)] hover:shadow-sm',
+                        active ? 'border-zinc-900 bg-zinc-100/80 shadow-sm' : 'border-[var(--border-subtle)] bg-[var(--surface-1)] hover:shadow-sm',
                       )}
                     >
                       <div className="h-8 rounded-lg" style={{ background: meta.chipGradient }} />

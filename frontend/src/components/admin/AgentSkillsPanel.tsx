@@ -40,7 +40,7 @@ export function AgentSkillsPanel({
     <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">
             可用 Skill
           </p>
           <h4 className="mt-1 text-base font-semibold text-[var(--foreground)]">按智能体选择 Skill</h4>
@@ -68,7 +68,7 @@ export function AgentSkillsPanel({
                 className={cn(
                   'w-full rounded-lg border p-3.5 text-left transition-all',
                   selected
-                    ? 'border-indigo-300 bg-indigo-50/70 shadow-sm'
+                    ? 'border-zinc-900 bg-zinc-100/70 shadow-sm'
                     : 'border-[var(--border-subtle)] bg-[var(--surface-1)] hover:border-zinc-300',
                 )}
               >
@@ -82,7 +82,7 @@ export function AgentSkillsPanel({
                   <span
                     className={cn(
                       'rounded-full px-2 py-1 text-[10px] font-semibold',
-                      selected ? 'bg-indigo-100 text-indigo-700' : 'bg-[var(--surface-2)] text-[var(--muted-foreground)]',
+                      selected ? 'bg-zinc-200 text-zinc-800' : 'bg-[var(--surface-2)] text-[var(--muted-foreground)]',
                     )}
                   >
                     {selected ? '已选择' : '可选择'}
@@ -100,7 +100,7 @@ export function AgentSkillsPanel({
                 )}
                 {skill.has_references && (
                   <div className="mt-2">
-                    <span className="rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold text-indigo-700">
+                    <span className="rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-[10px] font-semibold text-zinc-800">
                       {skill.reference_paths.length} refs
                     </span>
                   </div>

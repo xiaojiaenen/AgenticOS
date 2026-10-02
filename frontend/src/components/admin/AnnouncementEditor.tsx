@@ -39,7 +39,7 @@ export function AnnouncementEditor({
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">编辑器</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">编辑器</p>
           <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--foreground)]">
             {selectedId === null ? '创建新公告' : '编辑公告'}
           </h2>
@@ -118,7 +118,7 @@ export function AnnouncementEditor({
                 : '<h3>更新内容</h3>\n<ul>\n <li>新增功能 A</li>\n <li>优化体验 B</li>\n</ul>'
             }
             {...form.register('body')}
-            className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-3 font-mono text-sm text-[var(--foreground)] outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
+            className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-3 font-mono text-sm text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
           />
           <div className="mt-2 flex items-center gap-2 text-xs font-medium text-[var(--muted-foreground)]">
             <FormatIcon size={12} />
@@ -149,7 +149,7 @@ export function AnnouncementEditor({
                 onClick={() => form.setValue('theme', theme)}
                 className={cn(
                   'rounded-lg border p-3 text-left transition-all',
-                  active ? 'border-indigo-300 bg-indigo-50/80 shadow-md' : 'border-[var(--border-subtle)] bg-[var(--surface-1)] hover:shadow-sm',
+                  active ? 'border-zinc-900 bg-zinc-100/80 shadow-md' : 'border-[var(--border-subtle)] bg-[var(--surface-1)] hover:shadow-sm',
                 )}
               >
                 <div className="h-16 rounded-lg" style={{ background: meta.chipGradient }} />

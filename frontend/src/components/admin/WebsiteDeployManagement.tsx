@@ -143,7 +143,7 @@ export function WebsiteDeployManagement() {
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:underline"
+              className="inline-flex items-center gap-1 text-sm font-medium text-zinc-700 hover:underline"
             >
               <ExternalLink className="h-3 w-3" />
               访问
@@ -190,7 +190,7 @@ export function WebsiteDeployManagement() {
       {/* 待审批请求 */}
       <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-2">
-          <Clock className="h-4 w-4 text-indigo-600" />
+          <Clock className="h-4 w-4 text-zinc-700" />
           <h3 className="text-base font-semibold text-[var(--foreground)]">待审批请求</h3>
         </div>
 
@@ -224,7 +224,7 @@ export function WebsiteDeployManagement() {
                   <div className="flex items-center gap-2">
                     <Globe className="h-4 w-4 text-[var(--muted-foreground)]" />
                     <span className="font-semibold text-[var(--foreground)]">{deploy.project_slug}</span>
-                    <span className="rounded-full border border-indigo-200/80 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
+                    <span className="rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-800">
                       {deploy.stack}
                     </span>
                   </div>
@@ -237,7 +237,7 @@ export function WebsiteDeployManagement() {
                       href={deploy.deploy_url || deploy.target_domain || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:underline"
+                      className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-zinc-700 hover:underline"
                     >
                       <ExternalLink className="h-3 w-3" />
                       预览
