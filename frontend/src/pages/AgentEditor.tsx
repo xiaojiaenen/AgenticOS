@@ -9,8 +9,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
-  ArrowLeft, Bot, Check, Database, Globe, Loader2, Mail, Presentation,
-  Save, ShieldAlert, Sparkles, Trash2,
+  ArrowLeft, BookOpen, Bot, Check, Database, Globe, Library, Loader2, Mail,
+  Plug, Presentation, Save, ShieldAlert, Sparkles, Trash2, Wrench,
 } from 'lucide-react';
 import { Button } from '../components/shadcn/button';
 import { Input } from '../components/shadcn/input';
@@ -23,6 +23,7 @@ import {
   getMyAgents,
   updateAgentProfile,
   type AgentProfile,
+  type AgentProfileSkill,
   type AgentProfileTool,
 } from '../services/agentProfileService';
 import type { ToolCatalogItem } from '../services/toolConfigService';
@@ -64,6 +65,14 @@ const MODE_OPTIONS: { value: AgentProfile['response_mode']; label: string; hint:
   { value: 'bigdata', label: '大数据运维', hint: '巡检、排查、容量与应急止血' },
 ];
 
+/** 四类能力的一句话说明（借鉴 Cherry Studio 的能力四分法，降低概念门槛） */
+const CAPABILITY_HINTS = [
+  { key: 'tool' as const, label: '工具', hint: '能做什么：读写文件、算数据、查知识库…', icon: Wrench, tone: 'text-brand-600' },
+  { key: 'skill' as const, label: '技能', hint: '按什么流程做事：周报格式、巡检清单…', icon: BookOpen, tone: 'text-emerald-600' },
+  { key: 'knowledge' as const, label: '知识库', hint: '能查哪些私有资料：规范、合同、历史工单…', icon: Library, tone: 'text-sky-600' },
+  { key: 'mcp' as const, label: 'MCP', hint: '能连哪些外部系统：数据库、浏览器、第三方…', icon: Plug, tone: 'text-violet-600' },
+];
+
 /** 图标选项：lucide 图标本身即选择器（此前用文字缩写，不可辨识） */
 const AVATAR_CHOICES = [
   { key: 'sparkles', label: '星芒', Icon: Sparkles },
@@ -90,6 +99,9 @@ export const AgentEditor: React.FC = () => {
   const [avatar, setAvatar] = useState('sparkles');
   const [visibility, setVisibility] = useState<'private' | 'public'>('private');
   const [maxSteps, setMaxSteps] = useState<string>('');
+  const [tab, setTab] = useState<'tool' | 'skill' | 'knowledge' | 'mcp'>('tool');
+  const [skills, setSkills] = useState<AgentProfileSkill[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState<number[]>([]);
   const [enabledTools, setEnabledTools] = useState<Record<string, boolean>>({});
   const [approvalTools, setApprovalTools] = useState<Record<string, boolean>>({});
   const [catalog, setCatalog] = useState<ToolCatalogItem[]>([]);
@@ -106,6 +118,7 @@ export const AgentEditor: React.FC = () => {
         const store = await getAgentStore();
         if (cancelled) return;
         setCatalog(store.catalog ?? []);
+        setSkills(store.available_skills ?? []);
         if (!isEditing) return;
         const mine = await getMyAgents();
         const profile = mine.items.find((item) => item.id === editingId);
@@ -138,6 +151,7 @@ export const AgentEditor: React.FC = () => {
     }
     setEnabledTools(tools);
     setApprovalTools(approvals);
+    setSelectedSkills((profile.skills ?? []).filter((s) => s.enabled).map((s) => s.id));
   };
 
   // 切换模式不做隐式工具推荐：工具配置始终由用户显式勾选，避免"看不见的默认值"
@@ -202,7 +216,7 @@ export const AgentEditor: React.FC = () => {
         audience_user_ids: [],
         max_steps: maxSteps ? Number(maxSteps) : null,
         tools: buildToolsPayload(),
-        skill_ids: [],
+        skill_ids: selectedSkills,
       };
       const saved = isEditing
         ? await updateAgentProfile(editingId, payload)
@@ -426,7 +440,112 @@ export const AgentEditor: React.FC = () => {
           </section>
         </div>
 
+        {/* 四类能力说明 + 分区切换 */}
+        <section className="admin-card mt-5 p-5">
+          <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+            能力配置
+          </h2>
+          <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+            四类能力各自解决一件事：工具让它能做事，技能规定按什么流程做，
+            知识库提供可查的资料，MCP 打通外部系统。
+          </p>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-4">
+            {CAPABILITY_HINTS.map(({ key, label, hint, icon: Icon, tone }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                className={cn(
+                  'rounded-xl border px-3 py-2.5 text-left transition-all',
+                  tab === key
+                    ? 'border-brand-500 bg-brand-500/5'
+                    : 'border-[var(--border-subtle)] hover:bg-[var(--surface-2)]',
+                )}
+              >
+                <span className={cn('flex items-center gap-1.5 text-xs font-semibold', tone)}>
+                  <Icon size={14} />
+                  {label}
+                </span>
+                <span className="mt-1 block text-[11px] leading-relaxed text-[var(--muted-foreground)]">
+                  {hint}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* 技能绑定（tab=skill） */}
+        {tab === 'skill' && (
+          <section className="admin-card mt-5 p-5">
+            <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+              技能
+            </h2>
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+              技能是"按什么流程做事"的说明书（如周报格式、巡检清单），与工具互补。
+            </p>
+            {skills.length === 0 ? (
+              <p className="mt-4 rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-6 text-center text-sm text-[var(--muted-foreground)]">
+                暂无可用技能
+              </p>
+            ) : (
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {skills.map((skill) => {
+                  const on = selectedSkills.includes(skill.id);
+                  return (
+                    <button
+                      key={skill.id}
+                      type="button"
+                      onClick={() =>
+                        setSelectedSkills((prev) =>
+                          on ? prev.filter((id) => id !== skill.id) : [...prev, skill.id],
+                        )
+                      }
+                      className={cn(
+                        'flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all',
+                        on
+                          ? 'border-brand-500 bg-brand-500/5'
+                          : 'border-[var(--border-subtle)] hover:bg-[var(--surface-2)]',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border',
+                          on ? 'border-brand-500 bg-brand-500 text-white' : 'border-[var(--border-medium)]',
+                        )}
+                      >
+                        {on && <Check size={11} />}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium">{skill.name}</span>
+                        <span className="block truncate text-[11px] text-[var(--muted-foreground)]">
+                          {skill.description || skill.slug}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* 知识库 / MCP：说明当前可用范围，避免误解 */}
+        {(tab === 'knowledge' || tab === 'mcp') && (
+          <section className="admin-card mt-5 p-5">
+            <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+              {tab === 'knowledge' ? '知识库' : 'MCP'}
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--muted-foreground)]">
+              {tab === 'knowledge'
+                ? '启用「知识库检索」工具后，智能体即可在回答时检索已建知识库中的文档。知识库本身在「管理后台 → 知识库」中维护，此处只需确保工具已勾选。'
+                : 'MCP 服务在「管理后台 → 集成管理」中配置；配置完成后，相关工具会出现在上方「工具」列表里，勾选即可使用。'}
+            </p>
+          </section>
+        )}
+
         {/* 工具配置 */}
+        {tab === 'tool' && (
         <section className="admin-card mt-5 p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -531,6 +650,7 @@ export const AgentEditor: React.FC = () => {
             ))}
           </div>
         </section>
+        )}
 
         {/* 底部操作条 */}
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--border-subtle)] bg-[var(--surface-1)]/90 backdrop-blur-xl">
