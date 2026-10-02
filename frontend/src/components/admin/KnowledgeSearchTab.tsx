@@ -3,17 +3,20 @@
  * 从 KnowledgeManagement.tsx 拆出，纯结构拆分，逻辑不变。
  */
 import { Loader2, Search } from 'lucide-react';
+import { RecallTestPanel } from './RecallTestPanel';
 import { Button } from '@/components/shadcn/button';
 import { Input } from '@/components/shadcn/input';
 import type { SearchResult } from '@/services/knowledgeService';
 
 export function KnowledgeSearchTab({
+  kbId,
   query,
   results,
   isPending,
   onQueryChange,
   onSearch,
 }: {
+  kbId: number;
   query: string;
   results: SearchResult[];
   isPending: boolean;
@@ -64,6 +67,8 @@ export function KnowledgeSearchTab({
       {results.length === 0 && query && !isPending && (
         <p className="py-8 text-center text-sm font-medium text-[var(--muted-foreground)]">无匹配结果</p>
       )}
+    
+      <RecallTestPanel kbId={kbId} />
     </div>
   );
 }

@@ -624,6 +624,53 @@ def get_wiki_page(
 # ---------------------------------------------------------------------------
 
 
+class RecallTestRequest(BaseModel):
+    """召回测试请求：跑一批问题，报告命中情况。"""
+
+    questions: list[str] = Field(
+        default_factory=list,
+        max_length=50,
+        description="测试问题集；留空则用知识库页面标题自动生成探针",
+    )
+    top_k: int = Field(default=5, ge=1, le=50, description="每个问题取前 K 条")
+    score_threshold: float | None = Field(
+        default=None, ge=0.0, le=10.0,
+        description="相似度阈值；低于视为未命中（留空=不过滤）",
+    )
+    page_type: Optional[str] = Field(default=None, description="限定页面类型")
+
+
+@router.post("/bases/{kb_id}/recall-test", summary="知识库召回测试")
+async def recall_test(
+    kb_id: int,
+    request: RecallTestRequest,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """对知识库跑召回测试，报告命中率、平均命中排名与每题命中详情。
+
+    用于调切片/TopK/阈值前后的效果回归对比。
+    """
+    from app.services.knowledge.recall_test import run_recall_test
+    from app.services.knowledge.retrieval import KnowledgeRetrieval
+
+    kb = db.get(KnowledgeBaseModel, kb_id)
+    if not kb:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+
+    report = await run_recall_test(
+        kb_id,
+        KnowledgeRetrieval(db).search,
+        questions=request.questions,
+        top_k=request.top_k,
+        score_threshold=request.score_threshold,
+        page_type=request.page_type,
+        user_id=current_user.id,
+        is_admin=current_user.role == "admin",
+    )
+    return report.to_dict()
+
+
 @router.post("/bases/{kb_id}/search", response_model=list[SearchResultItem])
 def search_knowledge_base(
     kb_id: int,

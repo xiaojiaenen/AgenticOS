@@ -335,6 +335,7 @@ export function KnowledgeManagement() {
           {/* Search Tab */}
           {detailTab === 'search' && (
             <KnowledgeSearchTab
+              kbId={selectedKB.id}
               query={searchQuery}
               results={searchResults}
               isPending={searchMutation.isPending}
