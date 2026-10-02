@@ -3,6 +3,13 @@
 /* Tailwind v3 hex palette overrides — MUST come after tailwindcss (Chrome 85 compat, no oklch) */
 @import "./theme-palette.css";
 
+/* 鸿蒙分片字体（164 个 unicode-range 子集，浏览器按需加载） */
+@import "../public/fonts/harmonyos-sans-sc.css";
+
+@import "tailwindcss";
+/* Tailwind v3 hex palette overrides — MUST come after tailwindcss (Chrome 85 compat, no oklch) */
+@import "./theme-palette.css";
+
 /*
  * 字体策略
  * --------
@@ -40,7 +47,7 @@
 @font-face {
   font-family: 'JetBrains Mono';
   src: local('JetBrains Mono'), local('JetBrainsMono-Regular'),
-    url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+    url('/fonts/JetBrainsMono-400.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -48,7 +55,7 @@
 @font-face {
   font-family: 'JetBrains Mono';
   src: local('JetBrains Mono Medium'), local('JetBrainsMono-Medium'),
-    url('/fonts/JetBrainsMono-Medium.woff2') format('woff2');
+    url('/fonts/JetBrainsMono-500.woff2') format('woff2');
   font-weight: 500 600;
   font-style: normal;
   font-display: swap;
