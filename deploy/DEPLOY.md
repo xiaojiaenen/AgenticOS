@@ -300,3 +300,66 @@ ls frontend/dist/index.html
 4. **密钥管理**：`AUTH_SECRET_KEY`、`OPENAI_API_KEY`、`NOTIFY_EMAIL_PASSWORD` 通过 secrets 管理
 5. **日志轮转**：配置 Docker 日志 driver 限制日志大小
 6. **监控**：配置后端健康检查告警
+
+---
+
+## OpenAI 兼容接口（把 AgenticOS 接入现有系统）
+
+系统对外暴露标准的 OpenAI Chat Completions 协议，企业的网关、Dify、内部平台
+或任意脚本都能直接接入，无需了解 AgenticOS 私有协议。
+
+### 端点
+
+| 路径 | 说明 |
+|---|---|
+| `GET /v1/models` | 列出当前可用的智能体（作为 `model` 名） |
+| `POST /v1/chat/completions` | 对话补全，支持 `stream: true` |
+
+### 鉴权
+
+使用「企业上游」模块里的 API Key（`sk-agenticos-*`），与站内登录是两套密钥：
+
+```bash
+# 1) 在管理后台 → 企业上游 创建 API Key，复制明文（仅创建时可见一次）
+
+# 2) 调用
+curl http://<host>/v1/chat/completions \
+  -H "Authorization: Bearer sk-agenticos-xxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "general",
+        "messages": [{"role": "user", "content": "总结上周的工单"}]
+      }'
+```
+
+用 OpenAI SDK 时只需改 `base_url`：
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://<host>/v1", api_key="sk-agenticos-xxxx")
+resp = client.chat.completions.create(
+    model="general",                       # 也可以用 gpt-4o 这类别名
+    messages=[{"role": "user", "content": "总结上周的工单"}],
+)
+print(resp.choices[0].message.content)
+```
+
+### 路由规则
+
+`model` 字段决定走哪条链路：
+
+- 命中**本地智能体**（已安装的 slug / 名称）或 **AgenticOS 模式名**
+  （`general` / `ppt` / `website` / `email` / `bigdata`）或通用别名
+  （`gpt-4o` 等）→ 由 AgenticOS 本地 Agent 执行（可用知识库、工具、审批等全部能力）
+- 其他 `model` 名 → 透传给企业上游（agents.gree.com），保持既有行为
+
+### AgenticOS 扩展参数
+
+请求体里可额外传（标准 OpenAI 客户端会忽略未知字段）：
+
+| 字段 | 取值 | 说明 |
+|---|---|---|
+| `session_id` | string | 复用会话上下文，实现多轮对话 |
+| `approval_mode` | `ask` / `auto` / `full` | 工具审批档位，默认 `ask` |
+| `plan_mode` | bool | 计划模式：只读调研并输出计划，批准后再执行 |

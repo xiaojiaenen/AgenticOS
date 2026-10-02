@@ -42,23 +42,39 @@ async def _resolve_cookie(user_id: int) -> str:
 
 @router.get("/v1/models")
 async def list_models(request: Request):
+    """模型列表：本地智能体优先（本次新增），随后并入上游模型。"""
     api_key = _extract_api_key(request)
     user = authenticate_api_key(api_key)
     if user is None:
         return JSONResponse(status_code=401, content={"error": {"message": "Invalid API key", "type": "invalid_request_error"}})
 
-    cookie = await _resolve_cookie(user.id)
-    base = get_upstream_base_url()
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(
-            f"{base}/v1/models",
-            headers={"Cookie": cookie, "Authorization": f"Bearer {api_key}"},
-        )
+    from app.api.v1.endpoints.openai_compat import local_models_payload
+
+    local = await local_models_payload(user)
+    local_ids = {item["id"] for item in local.get("data", [])}
+
+    upstream: list[dict] = []
     try:
-        data = resp.json()
-    except Exception:
-        data = {"error": {"message": resp.text[:300], "code": resp.status_code}}
-    return JSONResponse(status_code=resp.status_code, content=data)
+        cookie = await _resolve_cookie(user.id)
+        base = get_upstream_base_url()
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                f"{base}/v1/models",
+                headers={"Cookie": cookie, "Authorization": f"Bearer {api_key}"},
+            )
+        if resp.status_code < 400:
+            payload = resp.json()
+            upstream = [
+                item for item in payload.get("data", [])
+                if item.get("id") not in local_ids
+            ]
+    except Exception as exc:  # noqa: BLE001 —— 上游不可用时仍返回本地智能体
+        logger.warning("upstream models unavailable: %s", exc)
+
+    return JSONResponse(
+        status_code=200,
+        content={"object": "list", "data": local.get("data", []) + upstream},
+    )
 
 
 @router.post("/v1/chat/completions")
@@ -72,6 +88,26 @@ async def chat_completions(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse(status_code=400, content={"error": {"message": "Invalid JSON body"}})
+
+    # model 命中本地智能体 → 走 AgenticOS Agent 执行；否则透传上游
+    from app.api.v1.endpoints.openai_compat import (
+        ChatCompletionRequest,
+        is_local_agent,
+        run_local_completion,
+    )
+
+    model = str(body.get("model") or "")
+    if is_local_agent(model, user):
+        try:
+            payload = ChatCompletionRequest(**body)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse(
+                status_code=400,
+                content={"error": {"message": f"invalid request: {exc}"}},
+            )
+        from app.services.agent_service import get_agent_service
+
+        return await run_local_completion(payload, user, get_agent_service())
 
     cookie = await _resolve_cookie(user.id)
     base = get_upstream_base_url()
