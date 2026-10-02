@@ -475,6 +475,8 @@ class AgentFactory:
             skills_hash,
             profile.external_system_ids,
             self.settings.context_compression_enabled,
+            # 计划模式会改变工具集合，必须参与缓存键，否则会复用普通模式的 agent
+            bool(getattr(profile, "plan_mode", False)),
         )
         cached = self._agents.get(cache_key)
         if cached is not None:
@@ -666,6 +668,16 @@ class AgentFactory:
             http as http_mod,
             text as text_mod,
         )
+        # 计划模式：只保留只读工具，从源头杜绝误操作（而非事后拦截）
+        if getattr(profile, "plan_mode", False):
+            from app.services.approval_policy import plan_mode_blocked_tools
+
+            blocked = set(plan_mode_blocked_tools(list(profile.builtin_tools)))
+            if blocked:
+                _logger.info("plan mode: blocking %d tools: %s", len(blocked), sorted(blocked))
+            builtin_tools = [name for name in builtin_tools if name not in blocked]
+            _exclude |= blocked
+
         _PLUGIN_MAP = {
             "calc": calc_mod,
             "time": time_mod,

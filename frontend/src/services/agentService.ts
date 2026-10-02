@@ -10,6 +10,8 @@ type AgentServiceOptions = {
   agentProfileId?: number | null;
   /** 会话级审批模式：ask 逐次确认 / auto 只读自动放行 / full 全放行（仅管理员） */
   approvalMode?: 'ask' | 'auto' | 'full';
+  /** 计划模式：只允许只读工具，先产出计划再执行 */
+  planMode?: boolean;
   files?: { filename: string; file_path: string }[];
   /** 运行预算（后端随流事件透出，用于"第 N/M 步"提示） */
   onBudget?: (budget: { step?: number; maxSteps?: number }) => void;
@@ -431,6 +433,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         agent_profile_id: options.agentProfileId || undefined,
         response_mode: options.responseMode || 'general',
         approval_mode: options.approvalMode || 'ask',
+        plan_mode: options.planMode || false,
         files: options.files?.length ? options.files : undefined,
       }),
       signal: controller.signal,

@@ -65,3 +65,31 @@ def is_read_only_tool(tool_name: str, arguments: dict | None = None) -> bool:
             return True
 
     return False
+
+
+def plan_mode_blocked_tools(
+    enabled_tools: list[str] | tuple[str, ...],
+) -> list[str]:
+    """计划模式下应当被剥离的工具（非只读能力）。
+
+    计划模式只允许"读和调研"，产出一份计划；写/执行能力在用户批准前
+    一律不下发给模型，从源头避免误操作，而不是靠事后拦截。
+    """
+    return [name for name in enabled_tools if not is_read_only_tool(name)]
+
+
+PLAN_MODE_PROMPT_SUFFIX = """
+
+---
+## 当前处于「计划模式」
+
+你只能调用查询与检索类工具（读取文件、查知识库、算数据等）来了解现状，
+**禁止**修改文件、执行脚本、发送邮件、部署或任何产生副作用的操作。
+
+请先调研清楚，再输出一份**可执行的计划**，包含：
+1. 现状与约束（调研到的关键事实）
+2. 步骤拆解（每步做什么、用什么手段）
+3. 风险与需要用户确认的点
+
+用户批准计划后，才会切回正常模式执行。计划要具体到可执行，不要泛泛而谈。
+"""

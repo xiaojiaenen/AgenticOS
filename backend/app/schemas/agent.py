@@ -11,6 +11,10 @@ class AgentStreamRequest(BaseModel):
     session_id: str | None = Field(default=None, description="Session ID reused across turns.")
     system_prompt: str | None = Field(default=None, description="System prompt used when creating a session.")
     agent_profile_id: int | None = Field(default=None, ge=1, description="Pluggable agent profile ID.")
+    plan_mode: bool = Field(
+        default=False,
+        description="计划模式：只允许只读工具，产出可执行计划后再执行",
+    )
     approval_mode: str = Field(
         default="ask",
         pattern="^(ask|auto|full)$",

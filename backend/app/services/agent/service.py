@@ -93,6 +93,7 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
                 request.agent_profile_id,
                 user,
                 approval_mode=request.approval_mode,
+                plan_mode=request.plan_mode,
             )
         if user is not None:
             from app.services.approval_policy import normalize_approval_mode
@@ -102,6 +103,7 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
                 request.response_mode,
                 user,
                 approval_mode=normalize_approval_mode(request.approval_mode),
+                plan_mode=request.plan_mode,
             )
         return self._runtime_from_mode(request.response_mode, request.system_prompt)
 
