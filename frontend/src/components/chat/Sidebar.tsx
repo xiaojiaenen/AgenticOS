@@ -242,7 +242,7 @@ export const Sidebar = React.memo(({
     <>
     <TooltipProvider delayDuration={250} skipDelayDuration={400}>
     <motion.aside
-      initial={isMobile ? { x: -300 } : { width: 280 }}
+      initial={isMobile ? { x: -300 } : { x: 0, width: 280 }}
       animate={{ x: 0, width: 280 }}
       exit={isMobile ? { x: -300 } : { width: 0 }}
       transition={{ type: 'spring', damping: 30, stiffness: 300 }}

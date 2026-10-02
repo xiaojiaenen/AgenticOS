@@ -127,7 +127,7 @@ export const Home = () => {
           <div className="rounded-2xl border border-[var(--border-subtle)] bg-card shadow-md p-3 transition-all focus-within:border-zinc-300 focus-within:shadow-lg">
             <textarea
               aria-label="输入消息"
-              className="w-full h-32 bg-transparent resize-none outline-none text-lg p-4 leading-relaxed text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
+              className="w-full h-20 bg-transparent resize-none outline-none text-lg p-3 leading-relaxed text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
               placeholder="输入你想聊的内容，例如：帮我写一段 Python 代码..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
