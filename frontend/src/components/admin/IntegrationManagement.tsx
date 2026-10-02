@@ -17,6 +17,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { DataTable } from './data-table';
+import { McpManagementPanel } from './McpManagementPanel';
 import { AdminPageHeader, ErrorBanner } from './shared';
 import { Button } from '@/components/shadcn/button';
 import { Skeleton } from '@/components/shadcn/skeleton';
@@ -57,6 +58,7 @@ export const IntegrationManagement = () => {
   const [editingSystem, setEditingSystem] = React.useState<IntegrationSystem | null>(null);
   const [apiModalOpen, setApiModalOpen] = React.useState(false);
   const [editingApi, setEditingApi] = React.useState<IntegrationApi | null>(null);
+  const [showMcp, setShowMcp] = React.useState(false);
   const [deletingSystem, setDeletingSystem] = React.useState<IntegrationSystem | null>(null);
   const [deletingApi, setDeletingApi] = React.useState<IntegrationApi | null>(null);
   const [testState, setTestState] = React.useState<TestState | null>(null);
@@ -215,6 +217,15 @@ export const IntegrationManagement = () => {
                 导入 OpenAPI
               </Button>
               <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setShowMcp(true)}
+              >
+                <Plug size={14} />
+                MCP 服务器
+              </Button>
+              <Button
                 size="sm"
                 className="gap-1.5"
                 onClick={() => {
@@ -363,6 +374,20 @@ export const IntegrationManagement = () => {
           </>
         }
       />
+
+      {showMcp ? (
+        <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+              MCP 服务器
+            </h3>
+            <Button variant="ghost" size="sm" onClick={() => setShowMcp(false)}>
+              关闭
+            </Button>
+          </div>
+          <McpManagementPanel />
+        </section>
+      ) : null}
 
       {apisQuery.isError ? (
         <ErrorBanner message={(apisQuery.error as Error).message || '加载接口失败'} />

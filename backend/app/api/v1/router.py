@@ -12,6 +12,7 @@ from app.api.v1.endpoints.external_systems import router as integrations_router
 from app.api.v1.endpoints.files import router as files_router
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.knowledge import router as knowledge_router
+from app.api.v1.endpoints.mcp_admin import router as mcp_admin_router
 from app.api.v1.endpoints.memory import router as memory_router
 from app.api.v1.endpoints.settings import router as settings_router
 from app.api.v1.endpoints.skills import router as skills_router
@@ -31,6 +32,7 @@ router.include_router(auth_router)
 router.include_router(credential_proxy_router)
 router.include_router(dashboard_router)
 router.include_router(email_router)
+router.include_router(mcp_admin_router)
 router.include_router(external_systems_admin_router)
 router.include_router(integrations_router)
 router.include_router(files_router)
