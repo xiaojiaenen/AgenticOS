@@ -15,7 +15,7 @@ from pathlib import Path
 from sqlalchemy import create_engine, text
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
-HEAD_REVISION = "0005_user_owned_agents"
+HEAD_REVISION = "0006_mcp_servers"
 
 
 def _run_alembic(args: list[str], database_url: str) -> subprocess.CompletedProcess[str]:

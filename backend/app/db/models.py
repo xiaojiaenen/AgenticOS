@@ -276,6 +276,29 @@ class PptArtifactModel(Base):
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
 
 
+class MCPServerModel(Base):
+    """MCP 服务器配置（管理员维护，供 Agent 发现并调用外部工具）"""
+
+    __tablename__ = "mcp_servers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    # stdio | http | sse
+    transport: Mapped[str] = mapped_column(String(16), default="http", index=True)
+    url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    command: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    args_json: Mapped[str] = mapped_column(Text, default="[]")
+    env_json: Mapped[str] = mapped_column(Text, default="{}")
+    headers_json: Mapped[str] = mapped_column(Text, default="{}")
+    timeout: Mapped[float] = mapped_column(default=60.0)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_connected_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
 class VideoArtifactModel(Base):
     __tablename__ = "video_artifacts"
 
