@@ -38,7 +38,7 @@ class UserCreateRequest(BaseModel):
     def normalize_email(cls, value: str) -> str:
         email = value.strip().lower()
         if not EMAIL_PATTERN.match(email):
-            raise ValueError("Invalid email address")
+            raise ValueError("邮箱格式不正确")
         return email
 
     @field_validator("name")
@@ -62,7 +62,7 @@ class UserUpdateRequest(BaseModel):
             return value
         email = value.strip().lower()
         if not EMAIL_PATTERN.match(email):
-            raise ValueError("Invalid email address")
+            raise ValueError("邮箱格式不正确")
         return email
 
     @field_validator("name")

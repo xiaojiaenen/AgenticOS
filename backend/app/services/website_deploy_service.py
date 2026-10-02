@@ -83,7 +83,7 @@ class WebsiteDeployService:
             if deploy is None:
                 raise LookupError(f"Deploy {deploy_id} not found")
             if deploy.status != "pending":
-                raise ValueError(f"Deploy {deploy_id} is not pending (current: {deploy.status})")
+                raise ValueError(f"部署申请 {deploy_id} 当前状态为 {deploy.status}，无法重复处理")
 
             deploy.status = status
             deploy.approved_by = approved_by

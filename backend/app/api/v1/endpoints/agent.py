@@ -368,11 +368,11 @@ async def preview_pptx(
     """Return an HTML page that displays all SVG slides with keyboard navigation."""
     artifact = await agent_service.get_ppt_artifact(artifact_id, current_user)
     if artifact is None:
-        raise HTTPException(status_code=404, detail=f"PPT artifact '{artifact_id}' not found")
+        raise HTTPException(status_code=404, detail=f"PPT 产物 {artifact_id} 不存在")
 
     svgs = agent_service.ppt_artifacts.extract_svgs_from_artifact(artifact)
     if not svgs:
-        raise HTTPException(status_code=400, detail="Artifact contains no SVG slides")
+        raise HTTPException(status_code=400, detail="产物中没有可用的幻灯片")
 
     slides_html = "".join(_sanitize_svg(svg) for svg in svgs)
     # 对 title 进行 HTML 转义防止 XSS
@@ -438,11 +438,11 @@ async def ppt_editor(
     """Return an HTML page for editing SVG slides with live preview."""
     artifact = await agent_service.get_ppt_artifact(artifact_id, current_user)
     if artifact is None:
-        raise HTTPException(status_code=404, detail=f"PPT artifact '{artifact_id}' not found")
+        raise HTTPException(status_code=404, detail=f"PPT 产物 {artifact_id} 不存在")
 
     svgs = agent_service.ppt_artifacts.extract_svgs_from_artifact(artifact)
     if not svgs:
-        raise HTTPException(status_code=400, detail="Artifact contains no SVG slides")
+        raise HTTPException(status_code=400, detail="产物中没有可用的幻灯片")
 
     import json
     from html import escape as _html_escape
@@ -749,7 +749,7 @@ async def update_ppt_slides(
 
     svgs = request.get("svgs", [])
     if not svgs:
-        raise HTTPException(status_code=400, detail="No SVGs provided")
+        raise HTTPException(status_code=400, detail="未提供任何幻灯片内容")
 
     try:
         from app.services.ppt_artifact_service import sanitize_svg_xml

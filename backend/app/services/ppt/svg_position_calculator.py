@@ -1341,7 +1341,7 @@ def calculate_positions(
 
     elif chart_type == "grid":
         if rows is None or cols is None:
-            raise ValueError("Grid layout requires --rows and --cols")
+            raise ValueError("网格布局必须同时提供 --rows 与 --cols")
         coord = CoordinateSystem(format, chart_area)
         calc = GridLayoutCalculator(coord)
         cells = calc.calculate(rows, cols, padding, gap)
