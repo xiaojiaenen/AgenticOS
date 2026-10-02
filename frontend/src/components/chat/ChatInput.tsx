@@ -7,8 +7,7 @@ import { cn } from '../../lib/utils';
 import { AgentSelector } from '../ui/AgentSelector';
 import { PaperclipIcon, SendIcon } from '../ui/AnimatedIcons';
 import { useInputSuggest } from '../../hooks/useInputSuggest';
-import { ApprovalModeSelector } from './ApprovalModeSelector';
-import { PlanModeToggle } from './PlanModeToggle';
+import { ExecutionPolicyMenu } from './ExecutionPolicyMenu';
 import { polishPrompt } from '../../services/agentService';
 
 interface ChatInputProps {
@@ -269,19 +268,18 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           />
         </div>
 
-        {/* 计划模式 + 审批档（计划模式下审批档无意义，置灰） */}
-        {onPlanModeChange && (
+        {/* 计划模式 + 审批档合并为一个入口，避免输入框控件过多 */}
+        {(onApprovalModeChange || onPlanModeChange) && (
           <div className="mb-0.5 ml-1">
-            <PlanModeToggle enabled={planMode} onChange={onPlanModeChange} disabled={isLoading} />
-          </div>
-        )}
-        {onApprovalModeChange && (
-          <div className="mb-0.5 ml-1">
-            <ApprovalModeSelector
-              mode={approvalMode}
-              onChange={onApprovalModeChange}
+            <ExecutionPolicyMenu
+              approvalMode={approvalMode}
+              onApprovalModeChange={
+                onApprovalModeChange ?? (() => undefined)
+              }
+              planMode={planMode}
+              onPlanModeChange={onPlanModeChange ?? (() => undefined)}
               isAdmin={isAdmin}
-              disabled={isLoading || planMode}
+              disabled={isLoading}
             />
           </div>
         )}
