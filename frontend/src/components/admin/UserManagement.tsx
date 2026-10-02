@@ -392,7 +392,8 @@ export const UserManagement = () => {
                 编辑
               </Button>
               <Button
-                variant={user.is_active ? 'destructive' : 'outline'}
+                // 启停是常规操作，用次级样式；红色只留给"删除"这个不可逆动作
+                variant={user.is_active ? 'outline' : 'default'}
                 size="sm"
                 onClick={() =>
                   toggleStatusMutation.mutate({ user, nextActive: !user.is_active })
