@@ -204,7 +204,12 @@ class KnowledgeRetrieval:
         if page_type:
             conditions.append("page_type = :page_type")
         where_clause = " AND ".join(conditions)
-        match_expr = "MATCH(content) AGAINST(:query IN NATURAL LANGUAGE MODE)"
+        # 标题与摘要一并参与匹配：长文档的要点常出现在摘要里
+        match_expr = (
+            "(MATCH(content) AGAINST(:query IN NATURAL LANGUAGE MODE) "
+            "+ MATCH(COALESCE(summary, '')) AGAINST(:query IN NATURAL LANGUAGE MODE) * 0.8 "
+            "+ MATCH(title) AGAINST(:query IN NATURAL LANGUAGE MODE) * 1.5)"
+        )
 
         stmt = text(f"""
             SELECT id, title, LEFT(content, 300) AS snippet, {match_expr} AS score
@@ -256,7 +261,11 @@ class KnowledgeRetrieval:
         df: dict[str, int] = defaultdict(int)
         total_len = 0
         for page in pages:
-            terms = tokenize(page.content + " " + page.title)
+            # 摘要重复计入一次：等价于给摘要更高权重，命中摘要也能召回本页
+            summary_text = (getattr(page, "summary", None) or "")
+            terms = tokenize(
+                page.content + " " + page.title + (" " + summary_text * 2 if summary_text else "")
+            )
             doc_terms_map[page.id] = terms
             total_len += len(terms)
             for term in set(terms):

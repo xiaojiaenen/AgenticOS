@@ -238,6 +238,8 @@ class IngestPipeline:
                 slug=slug,
                 page_type=draft.page_type,
                 content=draft.content,
+                # 摘要取 frontmatter.summary（编译器已产出），参与检索命中
+                summary=(draft.frontmatter.get("summary") or None),
                 frontmatter_json=json.dumps(draft.frontmatter, ensure_ascii=False),
                 sources_json=json.dumps(draft.sources),
                 authority_level="L1",  # 默认自动编译
