@@ -74,9 +74,11 @@ function mergeOrderedBlocks(
 ): { blocks?: Message['blocks'] } {
   if (!delta && reasoning == null) return {};
   let blocks = message.blocks || [];
-  if (delta) blocks = syncTextBlocks(blocks, delta.fullText, message.text || '');
+  // message.text / reasoningText 是上一轮的累计全文，其长度即"已消费字符数"，
+  // 传进去让块只保存本次新增的增量，避免 ReAct 多轮重复渲染全量文本
+  if (delta) blocks = syncTextBlocks(blocks, delta.fullText, (message.text || '').length);
   if (reasoning != null) {
-    blocks = syncReasoningBlocks(blocks, reasoning, message.reasoningText || '');
+    blocks = syncReasoningBlocks(blocks, reasoning, (message.reasoningText || '').length);
   }
   return { blocks };
 }
@@ -104,6 +106,9 @@ export function useChatStream({
   const [runStatus, setRunStatus] = useState<{
     phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'done' | 'error';
     label: string;
+    /** 运行预算：当前步 / 上限步（后端透出，用于"第 N/M 步"提示） */
+    step?: number;
+    maxSteps?: number;
   }>({ phase: 'idle', label: '已就绪' });
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -458,6 +463,13 @@ export function useChatStream({
                     }
                   : session,
               ),
+            );
+          },
+          onBudget: (budget) => {
+            setRunStatus((prev) =>
+              prev.step === budget.step && prev.maxSteps === budget.maxSteps
+                ? prev
+                : { ...prev, step: budget.step, maxSteps: budget.maxSteps },
             );
           },
           onDelta: (_, fullText) => {

@@ -24,7 +24,13 @@ export interface ChatContextValue {
   isLoading: boolean;
   error: string | null;
   setError: (error: string | null) => void;
-  runStatus: { phase: string; label: string };
+  runStatus: {
+    phase: string;
+    label: string;
+    /** 运行预算：当前步 / 上限步 */
+    step?: number;
+    maxSteps?: number;
+  };
   pendingDecisions: UserDecision[];
   handleSend: (text: string, files?: File[]) => void;
   handleStopGeneration: () => void;

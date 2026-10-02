@@ -16,58 +16,57 @@ import type { MessageBlock, ToolCall } from '../types';
 
 type AnyBlock = MessageBlock;
 
-function lastBlockOfKind(blocks: AnyBlock[], kind: 'text' | 'reasoning'): AnyBlock | undefined {
-  for (let i = blocks.length - 1; i >= 0; i -= 1) {
-    if (blocks[i].kind === kind) return blocks[i];
-  }
-  return undefined;
-}
-
 /**
  * 合并一次正文更新。
+ *
+ * 后端 delta 事件给的是**累计全文**，而 ReAct 多轮里每轮都会重发一遍到目前为止
+ * 的全部内容。因此这里统一转成**增量片段**存储：块里只放本次新增的部分
+ * （``fullText.slice(prevConsumedLen)``），否则同一个块会被反复写入全量文本，
+ * 渲染出逐段重复的内容。
+ *
  * @param blocks 当前块序列
  * @param fullText 本次事件的累计全文
- * @param prevFullText 上一次的累计全文（用于判断是否续写同一块）
+ * @param prevConsumedLen 上一次已消费的累计长度（即上次 fullText 的长度）
  */
 export function syncTextBlocks(
   blocks: AnyBlock[],
   fullText: string,
-  prevFullText: string,
+  prevConsumedLen: number,
 ): AnyBlock[] {
   if (!fullText) return blocks;
-  // 续写同一块：新文本以旧文本结尾
-  if (prevFullText && fullText.startsWith(prevFullText) && fullText.length > prevFullText.length) {
-    const target = lastBlockOfKind(blocks, 'text');
-    if (target && target.kind === 'text' && target === blocks[blocks.length - 1]) {
-      const next = blocks.slice(0, -1);
-      next.push({ kind: 'text', text: fullText });
-      return next;
-    }
+  const consumed = Math.max(0, Math.min(prevConsumedLen, fullText.length));
+  const delta = fullText.slice(consumed);
+  if (!delta) return blocks;
+
+  // 续写同一块：最后一个块就是 text
+  const last = blocks[blocks.length - 1];
+  if (last && last.kind === 'text') {
+    const next = blocks.slice(0, -1);
+    next.push({ kind: 'text', text: last.text + delta });
+    return next;
   }
-  // 开新块：追加到末尾
-  return [...blocks, { kind: 'text', text: fullText }];
+  // 中间夹了工具/思考块 → 开新块
+  return [...blocks, { kind: 'text', text: delta }];
 }
 
-/** 合并一次思考内容更新（规则同正文）。 */
+/** 合并一次思考内容更新（规则同正文：转增量、按位置续写或开块）。 */
 export function syncReasoningBlocks(
   blocks: AnyBlock[],
   fullReasoning: string,
-  prevReasoning: string,
+  prevConsumedLen: number,
 ): AnyBlock[] {
   if (!fullReasoning) return blocks;
-  if (
-    prevReasoning &&
-    fullReasoning.startsWith(prevReasoning) &&
-    fullReasoning.length > prevReasoning.length
-  ) {
-    const target = lastBlockOfKind(blocks, 'reasoning');
-    if (target && target.kind === 'reasoning' && target === blocks[blocks.length - 1]) {
-      const next = blocks.slice(0, -1);
-      next.push({ kind: 'reasoning', text: fullReasoning });
-      return next;
-    }
+  const consumed = Math.max(0, Math.min(prevConsumedLen, fullReasoning.length));
+  const delta = fullReasoning.slice(consumed);
+  if (!delta) return blocks;
+
+  const last = blocks[blocks.length - 1];
+  if (last && last.kind === 'reasoning') {
+    const next = blocks.slice(0, -1);
+    next.push({ kind: 'reasoning', text: last.text + delta });
+    return next;
   }
-  return [...blocks, { kind: 'reasoning', text: fullReasoning }];
+  return [...blocks, { kind: 'reasoning', text: delta }];
 }
 
 /**
