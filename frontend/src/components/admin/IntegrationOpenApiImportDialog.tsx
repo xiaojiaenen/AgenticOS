@@ -47,7 +47,7 @@ export function OpenApiImportDialog({
 
         <div className="space-y-4">
           <textarea
-            className="min-h-[120px] w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 font-mono text-xs text-[var(--foreground)] outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
+            className="min-h-[120px] w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 font-mono text-xs text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             placeholder="粘贴 OpenAPI JSON 内容或输入 URL..."
@@ -66,7 +66,7 @@ export function OpenApiImportDialog({
           </Button>
 
           {preview && (
-            <div className="space-y-2 rounded-lg border border-indigo-100 bg-indigo-50/50 p-4">
+            <div className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-100/50 p-4">
               <p className="font-semibold text-[var(--foreground)]">{preview.system_name}</p>
               <p className="text-sm font-medium text-[var(--muted-foreground)]">{preview.system_description}</p>
               <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-zinc-600">

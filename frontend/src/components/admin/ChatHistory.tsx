@@ -74,7 +74,7 @@ function roleLabel(role?: string | null): string {
 }
 
 function roleTone(role?: string | null): string {
-  if (role === 'user') return 'border-indigo-100 bg-indigo-50 text-indigo-700';
+  if (role === 'user') return 'border-zinc-200 bg-zinc-100 text-zinc-800';
   if (role === 'model' || role === 'assistant') return 'border-emerald-100 bg-emerald-50 text-emerald-700';
   if (role === 'tool') return 'border-violet-100 bg-violet-50 text-violet-700';
   if (role === 'system') return 'border-amber-100 bg-amber-50 text-amber-700';
@@ -138,16 +138,16 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
         <details
           key={`${message.id}-call-${tool.id || tool.name}`}
           open
-          className="group rounded-lg border border-indigo-100 bg-indigo-50/55 px-4 py-3 [&_summary::-webkit-details-marker]:hidden"
+          className="group rounded-lg border border-zinc-200 bg-zinc-100/55 px-4 py-3 [&_summary::-webkit-details-marker]:hidden"
         >
           <summary className="flex cursor-pointer select-none items-center justify-between gap-3">
             <span className="flex min-w-0 items-center gap-2">
-              <Wrench size={14} className="text-indigo-700" />
-              <span className="truncate font-mono text-xs font-semibold uppercase tracking-wide text-indigo-800">
+              <Wrench size={14} className="text-zinc-800" />
+              <span className="truncate font-mono text-xs font-semibold uppercase tracking-wide text-zinc-700">
                 {tool.name}
               </span>
             </span>
-            <span className="rounded-full bg-[var(--surface-1)] px-2 py-1 text-[10px] font-semibold text-indigo-600">调用参数</span>
+            <span className="rounded-full bg-[var(--surface-1)] px-2 py-1 text-[10px] font-semibold text-zinc-700">调用参数</span>
           </summary>
           <pre className="visible-scrollbar mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3 text-xs font-medium leading-5 text-zinc-600">
             {formatJson(tool.arguments)}
@@ -242,7 +242,7 @@ function ConversationDetailDialog({
             ) : detail ? (
               <div className="space-y-4">
                 <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">摘要</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">摘要</p>
                   <p className="mt-2 text-sm font-medium leading-6 text-zinc-600">
                     {detail.summary || '暂无摘要'}
                   </p>
@@ -263,14 +263,14 @@ function ConversationDetailDialog({
                 </div>
 
                 <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">会话信息</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">会话信息</p>
                   <div className="mt-2.5 space-y-2 text-sm font-medium text-zinc-600">
                     <p>用户：{detail.user_name || '-'}</p>
                     <p>邮箱：{detail.user_email || '-'}</p>
                     {detail.agent_profile_name && (
                       <p>
                         智能体：
-                        <span className="inline-block rounded-full border border-indigo-200/70 bg-indigo-50/80 px-2.5 py-0.5 text-xs font-medium text-indigo-600">
+                        <span className="inline-block rounded-full border border-zinc-200/70 bg-zinc-100/80 px-2.5 py-0.5 text-xs font-medium text-zinc-700">
                           {detail.agent_profile_name}
                         </span>
                       </p>
@@ -288,7 +288,7 @@ function ConversationDetailDialog({
           <div className="overflow-y-auto p-4">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">消息时间线</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">消息时间线</p>
                 <h4 className="mt-1 text-base font-semibold text-[var(--foreground)]">完整会话内容</h4>
               </div>
               <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-1 text-xs font-semibold text-[var(--muted-foreground)]">
@@ -433,7 +433,7 @@ export const ChatHistory = () => {
                 {item.user_email || item.session_id}
               </p>
               {item.agent_profile_name && (
-                <span className="mt-1 inline-block max-w-full truncate rounded-full border border-indigo-200/70 bg-indigo-50/80 px-2.5 py-0.5 text-[11px] font-medium text-indigo-600">
+                <span className="mt-1 inline-block max-w-full truncate rounded-full border border-zinc-200/70 bg-zinc-100/80 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700">
                   {item.agent_profile_name}
                 </span>
               )}
@@ -580,7 +580,7 @@ export const ChatHistory = () => {
       <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
         <div className="flex flex-col gap-2.5 border-b border-[var(--border-subtle)] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-indigo-600">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700">
               会话目录
             </p>
             <h3 className="mt-1 text-base font-semibold tracking-tight text-[var(--foreground)]">

@@ -305,7 +305,7 @@ export function AgentFormDialog({
                       className={cn(
                         'rounded-lg border px-3.5 py-2.5 text-left transition-all',
                         audienceMode === 'all'
-                          ? 'border-indigo-300 bg-indigo-50/80 shadow-sm'
+                          ? 'border-zinc-900 bg-zinc-100/80 shadow-sm'
                           : 'border-[var(--border-subtle)] bg-[var(--surface-1)] hover:border-zinc-300',
                       )}
                     >
@@ -320,7 +320,7 @@ export function AgentFormDialog({
                       className={cn(
                         'rounded-lg border px-3.5 py-2.5 text-left transition-all',
                         audienceMode === 'selected'
-                          ? 'border-indigo-300 bg-indigo-50/80 shadow-sm'
+                          ? 'border-zinc-900 bg-zinc-100/80 shadow-sm'
                           : 'border-[var(--border-subtle)] bg-[var(--surface-1)] hover:border-zinc-300',
                       )}
                     >
@@ -345,7 +345,7 @@ export function AgentFormDialog({
                                 className={cn(
                                   'flex min-w-0 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-all',
                                   selected
-                                    ? 'border-indigo-300 bg-indigo-50 text-indigo-900'
+                                    ? 'border-zinc-900 bg-zinc-100 text-zinc-900'
                                     : 'border-[var(--border-subtle)] bg-[var(--surface-1)] text-zinc-600 hover:border-zinc-300',
                                 )}
                               >
@@ -361,7 +361,7 @@ export function AgentFormDialog({
                                   className={cn(
                                     'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
                                     selected
-                                      ? 'border-indigo-400 bg-indigo-600 text-white'
+                                      ? 'border-zinc-900 bg-zinc-900 text-white'
                                       : 'border-[var(--border-subtle)] bg-[var(--surface-1)] text-transparent',
                                   )}
                                 >
@@ -391,7 +391,7 @@ export function AgentFormDialog({
                     id="agent-system-prompt"
                     rows={10}
                     {...form.register('system_prompt')}
-                    className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-2.5 text-sm font-medium leading-6 text-[var(--foreground)] outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
+                    className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-2.5 text-sm font-medium leading-6 text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
                   />
                   {form.formState.errors.system_prompt ? (
                     <p className="text-xs font-medium text-rose-600">

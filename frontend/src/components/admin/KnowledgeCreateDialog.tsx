@@ -96,7 +96,7 @@ export function CreateKBDialog({
               rows={3}
               placeholder="例如：本知识库包含公司后端服务的部署运维规范，关注 Docker 部署、监控告警、故障排查"
               {...form.register('purpose')}
-              className="w-full resize-none rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
+              className="w-full resize-none rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
             />
           </div>
 

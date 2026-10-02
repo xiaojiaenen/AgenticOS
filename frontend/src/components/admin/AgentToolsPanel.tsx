@@ -86,7 +86,7 @@ export function AgentToolsPanel({
     <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">
             工具与审批
           </p>
           <h4 className="mt-1 text-base font-semibold text-[var(--foreground)]">启用状态与审批开关</h4>
@@ -141,7 +141,7 @@ export function AgentToolsPanel({
                     type="button"
                     variant="outline"
                     onClick={() => onToggleToolExpand(tool.tool_name)}
-                    className={cn('gap-2', isExpanded && 'border-indigo-300 text-indigo-700')}
+                    className={cn('gap-2', isExpanded && 'border-zinc-900 text-zinc-800')}
                   >
                     子工具审批
                     <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold">
@@ -185,7 +185,7 @@ export function AgentToolsPanel({
                       type="button"
                       variant="ghost"
                       size="xs"
-                      className="text-indigo-600"
+                      className="text-zinc-700"
                       onClick={() => {
                         const allNeedApproval =
                           tool.requires_approval && approvedSubTools.length === 0;

@@ -47,7 +47,7 @@ export const SystemSettings = () => {
       <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-indigo-600">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-100 text-zinc-700">
               <Server size={20} />
             </div>
             <div>
@@ -91,14 +91,14 @@ export const SystemSettings = () => {
             <li>切换 LDAP 状态后无需重启后端服务</li>
             <li>
               LDAP 网关地址、域名等高级配置仍需在{' '}
-              <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-xs text-indigo-300">.env</code>{' '}
+              <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-xs text-zinc-300">.env</code>{' '}
               文件中设置
             </li>
             <li>
               首次启用时，系统会从{' '}
-              <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-xs text-indigo-300">.env</code>{' '}
+              <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-xs text-zinc-300">.env</code>{' '}
               中的{' '}
-              <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-xs text-indigo-300">
+              <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-xs text-zinc-300">
                 LDAP_ENABLED
               </code>{' '}
               值同步初始状态

@@ -98,7 +98,7 @@ export const AgentManagement = () => {
               <div className="flex items-center gap-2">
                 <p className="truncate text-sm font-semibold text-[var(--foreground)]">{profile.name}</p>
                 {profile.is_builtin && (
-                  <span className="rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
+                  <span className="rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-800">
                     内置
                   </span>
                 )}
@@ -191,7 +191,7 @@ export const AgentManagement = () => {
               >
                 {profile.listed ? '上架' : '未上架'}
               </span>
-              <span className="inline-flex items-center rounded-full border border-indigo-200/80 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
+              <span className="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-0.5 text-[11px] font-semibold text-zinc-800">
                 {profile.audience_mode === 'selected'
                   ? `指定用户 ${profile.audience_users.length}`
                   : '全体用户'}

@@ -57,7 +57,7 @@ function PanelHeader({
      <Icon size={20} />
     </div>
     <div>
-     <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">{kicker}</p>
+     <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">{kicker}</p>
      <h3 className={cn("mt-1 text-[22px] font-semibold tracking-tight", "text-[var(--foreground)]")}>{title}</h3>
     </div>
    </div>

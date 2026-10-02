@@ -392,7 +392,7 @@ export const UpstreamManagement = () => {
       <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
         <div className="flex flex-col gap-3 border-b border-[var(--border-subtle)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <KeyRound size={18} className="text-indigo-600" />
+            <KeyRound size={18} className="text-zinc-700" />
             <div>
               <h2 className="text-base font-semibold text-[var(--foreground)]">API Key</h2>
               <p className="mt-0.5 text-xs font-medium text-[var(--muted-foreground)]">
@@ -455,7 +455,7 @@ export const UpstreamManagement = () => {
       <div className="grid gap-5 xl:grid-cols-2">
         <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
           <div className="flex items-center gap-2">
-            <Activity size={18} className="text-indigo-600" />
+            <Activity size={18} className="text-zinc-700" />
             <h2 className="text-base font-semibold text-[var(--foreground)]">连接与配置</h2>
           </div>
           <dl className="mt-4 space-y-3 text-sm">
@@ -479,7 +479,7 @@ export const UpstreamManagement = () => {
 
         <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
           <div className="flex items-center gap-2">
-            <ShieldCheck size={18} className="text-indigo-600" />
+            <ShieldCheck size={18} className="text-zinc-700" />
             <h2 className="text-base font-semibold text-[var(--foreground)]">我的 Cookie</h2>
           </div>
           {mine ? (
@@ -533,7 +533,7 @@ export const UpstreamManagement = () => {
         <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
           <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
             <div className="flex items-center gap-2">
-              <ShieldCheck size={18} className="text-indigo-600" />
+              <ShieldCheck size={18} className="text-zinc-700" />
               <h2 className="text-base font-semibold text-[var(--foreground)]">用户登录态总览</h2>
             </div>
             <span className="text-xs font-medium text-[var(--muted-foreground)]">

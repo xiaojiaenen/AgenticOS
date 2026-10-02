@@ -27,7 +27,7 @@ export function AdminPageHeader({
       )}
     >
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-indigo-600">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700">
           {kicker}
         </p>
         <h2 className="mt-1 text-xl font-semibold tracking-tight text-[var(--foreground)]">{title}</h2>
@@ -55,7 +55,7 @@ const STATUS_TONE_CLASS: Record<StatusTone, string> = {
   active: 'border-emerald-200/80 bg-emerald-50 text-emerald-700',
   inactive: 'border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--muted-foreground)]',
   warning: 'border-amber-200/80 bg-amber-50 text-amber-700',
-  info: 'border-indigo-200/80 bg-indigo-50 text-indigo-700',
+  info: 'border-zinc-200 bg-zinc-100 text-zinc-800',
 };
 
 export function StatusPill({

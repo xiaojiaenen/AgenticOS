@@ -109,7 +109,7 @@ export const AdminDashboard = () => {
             <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-indigo-600">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700">
                     系统总览
                   </p>
                   <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-[var(--foreground)] lg:text-3xl">
@@ -140,7 +140,7 @@ export const AdminDashboard = () => {
                         key={d}
                         onClick={() => setTimeRange(d)}
                         className={`rounded-lg px-2.5 py-1 font-medium transition-colors ${
-                          timeRange === d ? 'bg-indigo-600 text-white' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                          timeRange === d ? 'bg-zinc-900 text-white' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
                         }`}
                       >
                         {d}天

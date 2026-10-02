@@ -157,7 +157,7 @@ export function ApiModal({
                 rows={2}
                 placeholder="接口功能描述"
                 {...form.register('description')}
-                className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
+                className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
               />
             </div>
 
@@ -214,7 +214,7 @@ export function ApiModal({
                   type="button"
                   variant="ghost"
                   size="xs"
-                  className="gap-1 text-indigo-600"
+                  className="gap-1 text-zinc-700"
                   onClick={() =>
                     paramArray.append({
                       name: '',

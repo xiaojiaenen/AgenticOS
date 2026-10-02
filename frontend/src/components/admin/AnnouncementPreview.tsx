@@ -18,7 +18,7 @@ export function AnnouncementPreview({ values }: { values: AnnouncementFormValues
     <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
       <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Live Preview</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">Live Preview</p>
           <h2 className="mt-1 text-xl font-semibold tracking-tight text-[var(--foreground)]">用户看到的效果</h2>
         </div>
         <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--foreground)] shadow-sm">
@@ -79,7 +79,7 @@ export function AnnouncementPreview({ values }: { values: AnnouncementFormValues
                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(values.body) }}
                   />
                 ) : (
-                  <div className="mt-6 text-sm font-medium leading-7 text-[var(--muted-foreground)] [&_strong]:text-[var(--foreground)] [&_h1]:text-[var(--foreground)] [&_h2]:text-[var(--foreground)] [&_h3]:text-[var(--foreground)] [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-[var(--border-subtle)] [&_pre]:bg-[var(--surface-2)] [&_pre]:p-4 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:text-[13px] [&_code]:rounded-md [&_code]:bg-[var(--surface-2)] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.9em] [&_blockquote]:border-l-[3px] [&_blockquote]:border-indigo-300 [&_blockquote]:pl-3.5 [&_blockquote]:my-2.5 [&_blockquote]:italic [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2.5 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2.5 [&_ol]:space-y-1 [&_a]:text-indigo-600 [&_a]:underline [&_hr]:my-4">
+                  <div className="mt-6 text-sm font-medium leading-7 text-[var(--muted-foreground)] [&_strong]:text-[var(--foreground)] [&_h1]:text-[var(--foreground)] [&_h2]:text-[var(--foreground)] [&_h3]:text-[var(--foreground)] [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-[var(--border-subtle)] [&_pre]:bg-[var(--surface-2)] [&_pre]:p-4 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:text-[13px] [&_code]:rounded-md [&_code]:bg-[var(--surface-2)] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.9em] [&_blockquote]:border-l-[3px] [&_blockquote]:border-zinc-900 [&_blockquote]:pl-3.5 [&_blockquote]:my-2.5 [&_blockquote]:italic [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2.5 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2.5 [&_ol]:space-y-1 [&_a]:text-zinc-700 [&_a]:underline [&_hr]:my-4">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {values.body}
                     </ReactMarkdown>

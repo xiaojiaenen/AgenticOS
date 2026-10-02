@@ -22,7 +22,7 @@ export function AnnouncementList({
     <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">已保存公告</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">已保存公告</p>
           <h2 className="mt-1 text-xl font-semibold tracking-tight text-[var(--foreground)]">公告列表</h2>
         </div>
         <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--foreground)] shadow-sm">
@@ -53,7 +53,7 @@ export function AnnouncementList({
               className={cn(
                 'w-full rounded-lg border px-4 py-4 text-left transition-all',
                 selectedId === item.id
-                  ? 'border-indigo-300 bg-indigo-50/80 shadow-md'
+                  ? 'border-zinc-900 bg-zinc-100/80 shadow-md'
                   : 'border-[var(--border-subtle)] bg-[var(--surface-1)] hover:border-zinc-300 hover:shadow-sm',
               )}
             >
@@ -80,7 +80,7 @@ export function AnnouncementList({
                   <span
                     className={cn(
                       'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]',
-                      item.content_format === 'html' ? 'bg-amber-50 text-amber-600' : 'bg-indigo-50 text-indigo-600',
+                      item.content_format === 'html' ? 'bg-amber-50 text-amber-600' : 'bg-zinc-100 text-zinc-700',
                     )}
                   >
                     {item.content_format === 'html' ? 'HTML' : 'MD'}

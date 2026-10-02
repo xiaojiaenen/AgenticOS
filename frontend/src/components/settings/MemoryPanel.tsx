@@ -58,7 +58,7 @@ function MemoryCard({
       <div className="min-w-0 flex-1">
         <p className="text-sm leading-relaxed text-zinc-700">{memory.content}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600">
+          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-700">
             {TYPE_LABELS[memory.memory_type] || memory.memory_type}
           </span>
           {memory.source && (
@@ -166,7 +166,7 @@ export const MemoryPanel: React.FC = () => {
       <section className="admin-page-header">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-indigo-600">记忆管理</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700">记忆管理</p>
             <h2 className="mt-1.5 text-xl font-semibold tracking-tight text-[var(--foreground)]">
               {isAdmin ? '所有用户记忆' : '用户记忆'}
             </h2>
@@ -218,7 +218,7 @@ export const MemoryPanel: React.FC = () => {
             onChange={(e) => setNewContent(e.target.value)}
             placeholder="输入要记忆的内容..."
             rows={2}
-            className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-indigo-300 focus:ring-[3px] focus:ring-indigo-100"
+            className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
           />
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1 space-y-1.5">
