@@ -90,6 +90,7 @@ class KnowledgeRetrieval:
         page_type: Optional[str] = None,
         max_results: int = 10,
         is_admin: bool = False,
+        score_threshold: float | None = None,
     ) -> list[SearchResult]:
         """
         执行知识库检索
@@ -128,6 +129,10 @@ class KnowledgeRetrieval:
 
         # 冲突标注
         results = self._annotate_conflicts(results)
+
+        # 相似度阈值：低于阈值的结果视为未命中（召回测试用它看参数影响）
+        if score_threshold is not None and score_threshold > 0:
+            results = [r for r in results if r.score >= score_threshold]
 
         return results[:max_results]
 
