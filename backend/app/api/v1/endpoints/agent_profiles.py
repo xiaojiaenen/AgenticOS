@@ -24,8 +24,9 @@ def list_agent_profiles(_: UserModel = Depends(require_admin)) -> dict[str, obje
 @router.post("/agent-profiles", response_model=AgentProfileResponse, status_code=status.HTTP_201_CREATED)
 def create_agent_profile(
     request: AgentProfileCreateRequest,
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(get_current_user),
 ) -> dict[str, object]:
+    """创建智能体。普通用户创建的自建智能体归本人所有；管理员可发布到商店。"""
     try:
         result = AgentProfileService().create(request, current_user)
     except KeyError as exc:
@@ -40,12 +41,14 @@ def create_agent_profile(
 def update_agent_profile(
     profile_id: int,
     request: AgentProfileUpdateRequest,
-    _: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(get_current_user),
 ) -> dict[str, object]:
     try:
-        result = AgentProfileService().update(profile_id, request)
+        result = AgentProfileService().update(profile_id, request, current_user)
     except KeyError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     get_agent_service().clear_agent_cache()
@@ -55,12 +58,14 @@ def update_agent_profile(
 @router.delete("/agent-profiles/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_agent_profile(
     profile_id: int,
-    _: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(get_current_user),
 ) -> None:
     try:
-        AgentProfileService().delete(profile_id)
+        AgentProfileService().delete(profile_id, current_user)
     except KeyError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     get_agent_service().clear_agent_cache()

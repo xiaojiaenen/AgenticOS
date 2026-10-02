@@ -162,6 +162,10 @@ class AgentProfileModel(Base):
     is_builtin: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     max_steps: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    # 所有者：NULL = 平台内置（任何角色都不可删改）；有值 = 该用户自建，仅本人与管理员可管理
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    # private = 仅自己可见可用；public = 可出现在商店供他人安装
+    visibility: Mapped[str] = mapped_column(String(16), default="private", index=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 

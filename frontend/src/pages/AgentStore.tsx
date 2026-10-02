@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, Bot, Check, Loader2, Plus, RefreshCw, Sparkles, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Bot, Check, Loader2, Plus, RefreshCw, Settings, Sparkles, X } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/shadcn/button';
 import { Badge } from '../components/ui/Badge';
@@ -99,6 +99,10 @@ export const AgentStore = () => {
           <Button variant="outline" onClick={loadStore} disabled={isLoading} size="icon" title="刷新">
             {isLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
           </Button>
+          <Button onClick={() => navigate('/agents/new')} className="gap-2">
+            <Plus size={16} />
+            创建智能体
+          </Button>
           <Button variant="outline" onClick={() => navigate('/')} className="gap-2">
             <ArrowLeft size={16} />
             返回
@@ -113,6 +117,9 @@ export const AgentStore = () => {
             Agent Store
           </p>
           <h1 className={cn("text-4xl font-bold tracking-tight", "text-[var(--foreground)]")}>智能体商店</h1>
+          <p className={cn("mt-2 text-sm font-medium", "text-[var(--muted-foreground)]")}>
+            安装同事分享的助手，或创建只属于你的智能体并为它挑选工具
+          </p>
         </div>
 
         {error && (
@@ -151,12 +158,17 @@ export const AgentStore = () => {
                     <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg transition-transform duration-300 group-hover:scale-110', getCardStyle(agent.response_mode).gradient, getCardStyle(agent.response_mode).shadow)}>
                       {(() => { const M = getCardStyle(agent.response_mode).Mascot; return <M size={28} className="text-white" />; })()}
                     </div>
-                    {canUse && (
+                    {agent.is_owner ? (
+                      <Badge variant="info" size="md">
+                        <Sparkles size={12} />
+                        我创建的
+                      </Badge>
+                    ) : canUse ? (
                       <Badge variant="success" size="md">
                         <Check size={12} />
                         可用
                       </Badge>
-                    )}
+                    ) : null}
                   </div>
 
                   <div className="mt-4 min-h-[86px]">
@@ -178,7 +190,17 @@ export const AgentStore = () => {
                         安装
                       </Button>
                     )}
-                    {agent.installed && agent.slug !== 'general' && (
+                    {agent.is_owner ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/agents/${agent.id}/edit`)}
+                        className="gap-1.5"
+                      >
+                        <Settings size={14} />
+                        编辑
+                      </Button>
+                    ) : agent.installed && agent.slug !== 'general' ? (
                       <Button
                         variant="outline"
                         size="icon"
@@ -189,7 +211,7 @@ export const AgentStore = () => {
                       >
                         {busyId === agent.id ? <Loader2 size={15} className="animate-spin" /> : <X size={15} />}
                       </Button>
-                    )}
+                    ) : null}
                   </div>
                 </>
               );

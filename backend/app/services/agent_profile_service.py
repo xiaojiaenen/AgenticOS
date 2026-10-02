@@ -370,8 +370,10 @@ class AgentProfileService:
 
     def _serialize(self, db: Session, profile: AgentProfileModel, *, user_id: int | None = None) -> dict[str, object]:
         self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
-        installed = False
-        if user_id is not None:
+        # 自己创建的智能体天然可用，无需再"安装"
+        is_owner = bool(user_id is not None and profile.owner_id == user_id)
+        installed = is_owner
+        if user_id is not None and not installed:
             installed = db.scalar(
                 select(UserInstalledAgentModel.id).where(
                     UserInstalledAgentModel.user_id == user_id,
@@ -399,6 +401,9 @@ class AgentProfileService:
             "listed": profile.listed,
             "is_builtin": profile.is_builtin,
             "installed": installed,
+            "owner_id": profile.owner_id,
+            "is_owner": bool(user_id is not None and profile.owner_id == user_id),
+            "visibility": profile.visibility or "private",
             "audience_mode": self._audience_mode_for_users(audience_users),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
             "tools": self._merge_tools_with_catalog(tools),
@@ -452,6 +457,7 @@ class AgentProfileService:
         audience_users: list[UserModel],
         installed: bool,
         external_systems: list[dict[str, object]] | None = None,
+        user_id: int | None = None,
     ) -> dict[str, object]:
         return {
             "id": profile.id,
@@ -465,6 +471,9 @@ class AgentProfileService:
             "listed": profile.listed,
             "is_builtin": profile.is_builtin,
             "installed": installed,
+            "owner_id": profile.owner_id,
+            "is_owner": bool(user_id is not None and profile.owner_id == user_id),
+            "visibility": profile.visibility or "private",
             "audience_mode": self._audience_mode_for_users(audience_users),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
             "tools": self._merge_tools_with_catalog(tools),
@@ -529,6 +538,12 @@ class AgentProfileService:
                     )
                 ).all()
             }
+            # 自己创建的智能体天然可用，无需"安装"
+            installed_ids.update(
+                int(p.id)
+                for p in profiles
+                if p.owner_id == user_id and int(p.id) not in installed_ids
+            )
 
         # Prefetch external systems for all profiles
         ext_systems_by_profile: dict[int, list[dict[str, object]]] = defaultdict(list)
@@ -553,9 +568,23 @@ class AgentProfileService:
                 audience_users=audience_by_profile.get(profile.id, []),
                 installed=profile.id in installed_ids if user_id is not None else False,
                 external_systems=ext_systems_by_profile.get(profile.id, []),
+                user_id=user_id,
             )
             for profile in profiles
         ]
+
+    @staticmethod
+    def _can_manage(profile: AgentProfileModel, user: UserModel) -> bool:
+        """平台内置（owner_id 为空）只有管理员能改；其余仅所有者或管理员。"""
+        if user.role == "admin":
+            return True
+        return profile.owner_id is not None and profile.owner_id == user.id
+
+    def _assert_can_manage(self, profile: AgentProfileModel, user: UserModel) -> None:
+        if profile.is_builtin:
+            raise PermissionError("内置智能体不可修改或删除")
+        if not self._can_manage(profile, user):
+            raise PermissionError("只能管理自己创建的智能体")
 
     def list_admin(self) -> dict[str, object]:
         with self.session_factory() as db:
@@ -574,7 +603,15 @@ class AgentProfileService:
                 profile
                 for profile in db.scalars(
                     select(AgentProfileModel)
-                    .where(AgentProfileModel.enabled.is_(True), AgentProfileModel.listed.is_(True))
+                    .where(
+                        AgentProfileModel.enabled.is_(True),
+                        # 商店可见条件：管理员上架 listed ∪ 自己创建的 ∪ 用户公开发布的
+                        (
+                            AgentProfileModel.listed.is_(True)
+                            | (AgentProfileModel.owner_id == user.id)
+                            | (AgentProfileModel.visibility == "public")
+                        ),
+                    )
                     .order_by(AgentProfileModel.is_builtin.desc(), AgentProfileModel.created_at.desc())
                 ).all()
                 if self._is_profile_available_to_user(db, profile, user)
@@ -600,7 +637,11 @@ class AgentProfileService:
                     select(AgentProfileModel)
                     .where(
                         AgentProfileModel.enabled.is_(True),
-                        AgentProfileModel.id.in_(installed_ids or {-1}),
+                        # 已安装的 ∪ 自己创建的（自建天然可用）
+                        (
+                            AgentProfileModel.id.in_(installed_ids or {-1})
+                            | (AgentProfileModel.owner_id == user.id)
+                        ),
                     )
                     .order_by(AgentProfileModel.is_builtin.desc(), AgentProfileModel.created_at.asc())
                 ).all()
@@ -677,6 +718,8 @@ class AgentProfileService:
                 max_steps=request.max_steps,
                 is_builtin=False,
                 created_by=creator.id,
+                owner_id=creator.id,
+                visibility=request.visibility,
             )
             db.add(profile)
             db.flush()
@@ -696,14 +739,21 @@ class AgentProfileService:
             )
             db.commit()
             db.refresh(profile)
-            return self._serialize(db, profile)
+            return self._serialize(db, profile, user_id=creator.id)
 
-    def update(self, profile_id: int, request: AgentProfileUpdateRequest) -> dict[str, object]:
+    def update(
+        self,
+        profile_id: int,
+        request: AgentProfileUpdateRequest,
+        user: UserModel | None = None,
+    ) -> dict[str, object]:
         with self.session_factory() as db:
             self.ensure_defaults(db)
             profile = db.get(AgentProfileModel, profile_id)
             if profile is None:
                 raise KeyError("Agent profile not found")
+            if user is not None:
+                self._assert_can_manage(profile, user)
 
             if request.name is not None:
                 profile.name = request.name
@@ -732,6 +782,8 @@ class AgentProfileService:
                 profile.listed = request.listed
             if request.max_steps is not None:
                 profile.max_steps = request.max_steps
+            if request.visibility is not None:
+                profile.visibility = request.visibility
             if request.tools is not None:
                 self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
                 db.flush()
@@ -757,13 +809,15 @@ class AgentProfileService:
             db.add(profile)
             db.commit()
             db.refresh(profile)
-            return self._serialize(db, profile)
+            return self._serialize(db, profile, user_id=user.id if user else None)
 
-    def delete(self, profile_id: int) -> None:
+    def delete(self, profile_id: int, user: UserModel | None = None) -> None:
         with self.session_factory() as db:
             profile = db.get(AgentProfileModel, profile_id)
             if profile is None:
                 raise KeyError("Agent profile not found")
+            if user is not None:
+                self._assert_can_manage(profile, user)
             if profile.is_builtin:
                 raise ValueError("Built-in agent profiles cannot be deleted")
 
