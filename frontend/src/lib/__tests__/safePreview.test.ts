@@ -59,11 +59,15 @@ describe('buildSandboxedHtmlDocument', () => {
     );
     expect(out).not.toContain('./local.js');
     expect(out).toContain('https://cdn.example/a.js');
+    expect(out).toContain("script-src 'self'");
     expect(out).toContain('inline()');
   });
 
-  it('检测到 Chart 用法时注入 Chart.js CDN', () => {
+  it('检测到 Chart 用法时注入本地 Chart.js（内网要求零外网请求）', () => {
     const out = buildSandboxedHtmlDocument('<canvas id="c"></canvas><script>new Chart(ctx, {})</script>');
-    expect(out).toContain('chart.js@4.4.3');
+    expect(out).toContain('/vendor/chart.umd.min.js');
+    // 回归：不允许再出现任何 CDN 域名
+    expect(out).not.toContain('cdn.jsdelivr.net');
+    expect(out).not.toContain('googleapis');
   });
 });

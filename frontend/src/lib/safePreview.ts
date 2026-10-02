@@ -1,9 +1,13 @@
 import DOMPurify from 'dompurify';
 
 const HTML_PREVIEW_CSP =
-  "default-src 'none'; img-src data: blob: https: http:; media-src data: blob: https: http:; style-src 'unsafe-inline' https: http:; script-src 'unsafe-inline' 'unsafe-eval' https: http:; font-src data: https: http: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+  "default-src 'none'; img-src data: blob: https: http:; media-src data: blob: https: http:; style-src 'unsafe-inline' https: http:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:; font-src data: https: http: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
 
-const CHART_JS_CDN = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js';
+/**
+ * Chart.js 以本地文件注入预览 iframe（内网部署要求零外网请求）。
+ * 源码在 frontend/public/vendor/chart.umd.min.js，随前端产物一起部署。
+ */
+const CHART_JS_SRC = `${window.location.origin}/vendor/chart.umd.min.js`;
 
 function hasHtmlShell(source: string): boolean {
   return /<html[\s>]|<!doctype/i.test(source);
@@ -16,7 +20,7 @@ function needsChartJs(source: string): boolean {
 function injectChartJsIfNeeded(source: string): string {
   if (!needsChartJs(source)) return source;
 
-  const script = `<script src="${CHART_JS_CDN}"></script>`;
+  const script = `<script src="${CHART_JS_SRC}"></script>`;
   if (/<\/head>/i.test(source)) {
     return source.replace(/<\/head>/i, `${script}</head>`);
   }
