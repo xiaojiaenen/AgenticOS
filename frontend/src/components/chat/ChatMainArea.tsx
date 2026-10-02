@@ -226,6 +226,36 @@ export const ChatMainArea = React.memo(() => {
 
       {/* 输入区域 */}
       <div className="p-4 md:p-6 bg-transparent flex-shrink-0 relative">
+        {/* 运行预算：第 N/M 步（让用户知道边界，避免误以为卡死） */}
+        <AnimatePresence>
+          {isLoading && runStatus.maxSteps ? (
+            <motion.div
+              key="run-budget"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              className="absolute -top-2 left-1/2 z-30 -translate-x-1/2"
+            >
+              <div className="flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)]/90 px-3 py-1 text-[11px] shadow-sm backdrop-blur">
+                <span className="text-[var(--muted-foreground)]">{runStatus.label}</span>
+                <span className="tabular-nums text-[var(--foreground)]">
+                  第 {(runStatus.step ?? 0) + 1} / {runStatus.maxSteps} 步
+                </span>
+                <div className="h-1 w-16 overflow-hidden rounded-full bg-[var(--surface-2)]">
+                  <div
+                    className="h-full rounded-full bg-brand-500 transition-[width] duration-300"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (((runStatus.step ?? 0) + 1) / Math.max(1, runStatus.maxSteps)) * 100,
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
         <AnimatePresence>
           {isUserScrolledUp && (
             <motion.div

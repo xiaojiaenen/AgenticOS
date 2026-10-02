@@ -224,12 +224,21 @@ class StreamOrchestrator:
         }
 
     def _map_agent_event(self, event: AgentEvent, session) -> dict[str, Any] | None:
+        # 运行预算（"第 N/M 步"）：wuwei 事件对象顶层已带 step，这里透出给前端
+        step = getattr(event, "step", None)
+        max_steps = getattr(session, "max_steps", None)
+        budget = {
+            **({"step": int(step)} if isinstance(step, int) else {}),
+            **({"max_steps": int(max_steps)} if isinstance(max_steps, int) else {}),
+        }
+
         if event.type == "text_delta":
             return {
                 "event": "delta",
                 "data": {
                     "session_id": session.session_id,
                     "content": event.data.get("content", ""),
+                    **budget,
                 },
             }
 
@@ -239,6 +248,7 @@ class StreamOrchestrator:
                 "data": {
                     "session_id": session.session_id,
                     "content": event.data.get("content", ""),
+                    **budget,
                 },
             }
 
@@ -248,6 +258,7 @@ class StreamOrchestrator:
                 "data": {
                     "session_id": session.session_id,
                     "tool_calls": [self._build_tool_call_payload(event)],
+                    **budget,
                 },
             }
 

@@ -47,16 +47,26 @@ const TOOL_STATUS_META: Record<ToolCall['status'], { label: string; className: s
   error: { label: '失败', className: 'bg-rose-100 text-rose-600' },
 };
 
-/** 就地渲染的思考块（可折叠，默认折叠，保持气泡紧凑） */
-const ReasoningBlock: React.FC<{ text: string }> = ({ text }) => (
-  <details className="group my-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-2)]/60 px-3 py-2 text-[var(--muted-foreground)] [&_summary::-webkit-details-marker]:hidden">
+/**
+ * 思考组：ReAct 多轮会产生多段思考，这里合并为一个可折叠容器，
+ * 内部按发生顺序分段展示——既保留时序，又避免一堆碎折叠条。
+ */
+const ReasoningGroup: React.FC<{ segments: string[] }> = ({ segments }) => (
+  <details className="group my-1.5 rounded-xl px-3 py-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)]/60 [&_summary::-webkit-details-marker]:hidden">
     <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
       <BrainCircuit size={13} />
-      <span>思考过程</span>
+      <span>思考过程{segments.length > 1 ? ` (${segments.length})` : ''}</span>
       <ChevronDownIcon size={12} className="ml-auto transition-transform duration-300 group-open:-rotate-180" />
     </summary>
-    <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-t border-[var(--border-subtle)] pt-2 text-xs leading-relaxed italic">
-      {text}
+    <div className="mt-2 max-h-40 space-y-2 overflow-y-auto border-t border-[var(--border-subtle)] pt-2">
+      {segments.map((text, index) => (
+        <p
+          key={index}
+          className="whitespace-pre-wrap break-words text-xs leading-relaxed italic"
+        >
+          {text}
+        </p>
+      ))}
     </div>
   </details>
 );
@@ -167,30 +177,41 @@ export const OrderedAssistantContent: React.FC<OrderedAssistantContentProps> = (
     </div>
   );
 
-  return (
-    <>
-      {blocks.map((block, index) => {
-        if (block.kind === 'reasoning') {
-          return <ReasoningBlock key={`reasoning-${index}`} text={block.text} />;
-        }
-        if (block.kind === 'tool') {
-          const toolIndex = toolCalls.findIndex(
-            (call, i) => toolCallIdOf(call, i) === block.toolCallId,
-          );
-          const tool = toolIndex >= 0 ? toolCalls[toolIndex] : undefined;
-          if (!tool) return null;
-          return <ToolBlock key={`tool-${block.toolCallId}`} tool={tool} isAdmin={isAdmin} />;
-        }
-        // text 块：若是最后一个块且正在流式，渲染光标
-        const isLast = index === blocks.length - 1;
-        return (
-          <div key={`text-${index}`}>
-            {renderText(block.text, isLast)}
-          </div>
-        );
-      })}
-    </>
-  );
+  // 渲染：连续 reasoning 合并为一个思考组，其余按序渲染
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+  while (cursor < blocks.length) {
+    const block = blocks[cursor];
+
+    if (block.kind === 'reasoning') {
+      const segments: string[] = [];
+      let next = cursor;
+      while (next < blocks.length && blocks[next].kind === 'reasoning') {
+        const segment = blocks[next];
+        if (segment.kind === 'reasoning') segments.push(segment.text);
+        next += 1;
+      }
+      nodes.push(<ReasoningGroup key={`rg-${cursor}`} segments={segments} />);
+      cursor = next;
+      continue;
+    }
+
+    if (block.kind === 'tool') {
+      const toolIndex = toolCalls.findIndex(
+        (call, i) => toolCallIdOf(call, i) === block.toolCallId,
+      );
+      const tool = toolIndex >= 0 ? toolCalls[toolIndex] : undefined;
+      if (tool) nodes.push(<ToolBlock key={`tool-${block.toolCallId}`} tool={tool} isAdmin={isAdmin} />);
+      cursor += 1;
+      continue;
+    }
+
+    const isLast = cursor === blocks.length - 1;
+    nodes.push(<div key={`text-${cursor}`}>{renderText(block.text, isLast)}</div>);
+    cursor += 1;
+  }
+
+  return <>{nodes}</>;
 };
 
 /** 消息是否适合走按序渲染（有 blocks 且不止一个纯文本块） */

@@ -11,6 +11,8 @@ type AgentServiceOptions = {
   /** 会话级审批模式：ask 逐次确认 / auto 只读自动放行 / full 全放行（仅管理员） */
   approvalMode?: 'ask' | 'auto' | 'full';
   files?: { filename: string; file_path: string }[];
+  /** 运行预算（后端随流事件透出，用于"第 N/M 步"提示） */
+  onBudget?: (budget: { step?: number; maxSteps?: number }) => void;
   onDelta?: (delta: string, fullText: string) => void;
   onReasoningDelta?: (delta: string, fullText: string) => void;
   onToolCalls?: (toolCalls: ToolCall[]) => void;
@@ -268,6 +270,13 @@ function applyAgentEvent(
   if (event === 'delta') {
     const delta = typeof payload.content === 'string' ? payload.content : '';
     state.text += delta;
+    // 运行预算随流透出
+    if (typeof payload.step === 'number' || typeof payload.max_steps === 'number') {
+      options.onBudget?.({
+        step: typeof payload.step === 'number' ? payload.step : undefined,
+        maxSteps: typeof payload.max_steps === 'number' ? payload.max_steps : undefined,
+      });
+    }
     options.onDelta?.(delta, state.text);
     return;
   }
