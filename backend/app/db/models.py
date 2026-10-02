@@ -665,6 +665,9 @@ class KBWikiPageModel(Base):
     slug: Mapped[str] = mapped_column(String(500), index=True)
     page_type: Mapped[str] = mapped_column(String(30), index=True)  # entity / concept / source_summary / synthesis / comparison / faq / procedure
     content: Mapped[str] = mapped_column(Text().with_variant(LONGTEXT, "mysql"))
+    # 自动生成的一句话摘要：参与检索命中（标题不符但摘要命中也能召回本页），
+    # 参考 Dify 的 Summary Auto-Gen；为空时检索只匹配正文
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     frontmatter_json: Mapped[str] = mapped_column(Text, default="{}")  # YAML frontmatter 结构化存储
     sources_json: Mapped[str] = mapped_column(Text, default="[]")  # 溯源：["kb_document:3", "kb_document:7"]
     embedding: Mapped[str | None] = mapped_column(Text, nullable=True)  # 向量 embedding
