@@ -166,7 +166,8 @@ function UserUsageRow({
  );
 }
 
-export const DashboardCharts = ({ data }: DashboardChartsProps) => { const trendData = data.trend.map((item) => ({
+export const DashboardCharts = ({ data }: DashboardChartsProps) => {
+  const trendData = data.trend.map((item) => ({
   ...item,
   avgTokens: item.runs > 0 ? Math.round(item.tokens / item.runs) : 0,
   toolPerRun: item.runs > 0 ? Number((item.tool_calls / item.runs).toFixed(2)) : 0,
@@ -479,7 +480,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => { const trend
      </div>
      <div className="space-y-3">
       {callMix.map((item, index) => (
-       <div style={{ padding: '12px 16px' }}>
+       <div key={item.name} style={{ padding: '12px 16px' }}>
         <div className="flex items-center justify-between gap-3">
          <span className={cn("text-sm font-medium", "text-slate-700")}>{item.name}</span>
          <span className={cn("text-base font-semibold", "text-[var(--foreground)]")}>{formatNumber(item.value)}</span>

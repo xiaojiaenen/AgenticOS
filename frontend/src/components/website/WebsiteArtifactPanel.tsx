@@ -1,10 +1,10 @@
 import React from 'react'
 import { motion, MotionValue } from 'motion/react'
-import { CheckCircle2, Globe, RefreshCcw, Rocket, X, XCircle } from 'lucide-react'
+import { CheckCircle2, ExternalLink, Globe, RefreshCcw, Rocket, X, XCircle } from 'lucide-react'
 import { Artifact } from '../../types'
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview'
 import { ArtifactVersionBar } from '../chat/ArtifactVersionBar'
-import { requestDeploy, DeployStatus } from '../../services/websiteService'
+import { requestDeploy, getDeployByProject, DeployStatus } from '../../services/websiteService'
 
 type WebsiteArtifactPanelProps = {
   artifact: Extract<Artifact, { language: 'website' }>
@@ -28,6 +28,29 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
   const [deployUrl, setDeployUrl] = React.useState<string | null>(null)
   const [deployError, setDeployError] = React.useState<string | null>(null)
   const [refreshNonce, setRefreshNonce] = React.useState(0)
+  const projectSlug = artifact.projectSlug
+
+  // 部署是「用户申请 → 管理员审批 → 后端发布」的异步流程：申请接口当场返回的
+  // deploy_url 必然为 null（那时还是 pending）。不轮询的话用户会永远停在
+  // 「等待管理员审批」，审批通过了也拿不到正式地址。
+  React.useEffect(() => {
+    if (deployStatus !== 'pending') return
+    let cancelled = false
+    const timer = setInterval(async () => {
+      try {
+        const record = await getDeployByProject(projectSlug)
+        if (cancelled || !record) return
+        setDeployStatus(record.status)
+        if (record.deploy_url) setDeployUrl(record.deploy_url)
+      } catch {
+        // 单次轮询失败不打断，下一拍继续
+      }
+    }, 5000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [deployStatus, projectSlug])
 
   // 用 srcDoc 而非 blob URL：blob 在 StrictMode 双调用下会被提前 revoke，
   // 导致 iframe 拿到失效地址而空白。刷新通过 key 强制重挂载实现。
@@ -178,11 +201,33 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
             ) : deployStatus === 'rejected' || deployStatus === 'failed' ? (
               <XCircle size={13} />
             ) : null}
-            <span>
+            <span className="min-w-0 truncate">
               {deployStatus === 'pending' && '部署请求已提交，等待管理员审批'}
               {deployStatus === 'approved' && '审批已通过，正在部署到 Nginx'}
               {deployStatus === 'deploying' && '正在部署中...'}
-              {deployStatus === 'deployed' && `已部署${deployUrl ? `：${deployUrl}` : ''}`}
+              {deployStatus === 'deployed' && (
+                <>
+                  已部署，正式地址：
+                  {deployUrl ? (
+                    <a
+                      href={deployUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => {
+                        // iframe 预览用的 srcDoc 会劫持同窗口导航，链接必须强制顶层打开
+                        e.preventDefault()
+                        window.open(deployUrl, '_blank', 'noopener')
+                      }}
+                      className="font-semibold underline underline-offset-2 hover:no-underline"
+                    >
+                      {deployUrl}
+                      <ExternalLink size={12} className="ml-1 inline align-[-1px]" />
+                    </a>
+                  ) : (
+                    '（地址生成中）'
+                  )}
+                </>
+              )}
               {deployStatus === 'rejected' && '部署请求已被拒绝'}
               {deployStatus === 'failed' && `部署失败：${deployError || '未知错误'}`}
             </span>
