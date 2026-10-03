@@ -43,10 +43,11 @@ class WebsiteDeployService:
                 session_id=session_id,
                 project_slug=project_slug,
                 stack=stack,
-                dist_path=str(dist_path),
                 target_domain=target_domain,
                 status="pending",
                 requested_by=requested_by,
+                # 落库相对路径：机器或容器换目录后，审批阶段仍能找到 dist/
+                dist_path=str(Path(project_slug) / "dist"),
             )
             db.add(deploy)
             db.commit()
@@ -127,9 +128,23 @@ class WebsiteDeployService:
                 return None
             return self._serialize(deploy)
 
+    def _resolve_dist_path(self, deploy: WebsiteDeployModel) -> Path:
+        """把库里存的 dist 路径还原成本机的绝对路径。
+
+        新数据以 data/websites/ 相对路径落库：仓库换目录、容器重建或
+        AGENT_DATA_DIR 变化后，绝对路径会在审批的拷贝阶段才炸。
+        历史数据仍是绝对路径 —— 原样能用就用，不能用就按 <slug>/dist 重新定位。
+        """
+        raw = Path(deploy.dist_path)
+        if not raw.is_absolute():
+            return _WEBSITES_DIR / raw
+        if raw.exists():
+            return raw
+        return _WEBSITES_DIR / deploy.project_slug / "dist"
+
     def _execute_deploy(self, deploy: WebsiteDeployModel) -> None:
         """Copy dist/ to nginx serve directory."""
-        dist_path = Path(deploy.dist_path)
+        dist_path = self._resolve_dist_path(deploy)
         if not dist_path.exists():
             raise FileNotFoundError(f"dist/ not found: {dist_path}")
 
