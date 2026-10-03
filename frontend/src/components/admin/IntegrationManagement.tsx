@@ -291,6 +291,20 @@ export const IntegrationManagement = () => {
           )}
         </section>
 
+        {showMcp ? (
+          <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+                MCP 服务器
+              </h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowMcp(false)}>
+                关闭
+              </Button>
+            </div>
+            <McpManagementPanel />
+          </section>
+        ) : null}
+
         <OpenApiImportDialog
           open={openApiModal}
           input={openApiInput}
@@ -374,20 +388,6 @@ export const IntegrationManagement = () => {
           </>
         }
       />
-
-      {showMcp ? (
-        <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-              MCP 服务器
-            </h3>
-            <Button variant="ghost" size="sm" onClick={() => setShowMcp(false)}>
-              关闭
-            </Button>
-          </div>
-          <McpManagementPanel />
-        </section>
-      ) : null}
 
       {apisQuery.isError ? (
         <ErrorBanner message={(apisQuery.error as Error).message || '加载接口失败'} />

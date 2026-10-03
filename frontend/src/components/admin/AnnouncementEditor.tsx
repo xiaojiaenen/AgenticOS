@@ -118,7 +118,7 @@ export function AnnouncementEditor({
                 : '<h3>更新内容</h3>\n<ul>\n <li>新增功能 A</li>\n <li>优化体验 B</li>\n</ul>'
             }
             {...form.register('body')}
-            className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-3 font-mono text-sm text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
+            className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-3 font-mono text-sm text-[var(--foreground)] outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
           />
           <div className="mt-2 flex items-center gap-2 text-xs font-medium text-[var(--muted-foreground)]">
             <FormatIcon size={12} />

@@ -258,18 +258,35 @@ export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) 
         grid: { left: 48, right: 24, top: 48, bottom: 32, containLabel: true, ...(option.grid || {}) },
       };
 
-      chartInstanceRef.current = echarts.init(chartRef.current, undefined, { renderer: 'canvas' });
-      chartInstanceRef.current.setOption(styledOption);
+      // 容器尚未完成布局时 init 会拿到 0 尺寸并告警，延后到首帧有实际尺寸再建图
+      const mount = () => {
+        if (disposed || !chartRef.current) return false;
+        const el = chartRef.current;
+        if (el.clientWidth === 0 || el.clientHeight === 0) return false;
+        chartInstanceRef.current = echarts.init(el, undefined, { renderer: 'canvas' });
+        chartInstanceRef.current.setOption(styledOption);
+        return true;
+      };
+
+      if (!mount()) {
+        const pending = new ResizeObserver(() => {
+          if (mount()) pending.disconnect();
+        });
+        pending.observe(chartRef.current);
+        (chartInstanceRef as any)._pending = pending;
+      }
 
       const handleResize = () => chartInstanceRef.current?.resize();
       window.addEventListener('resize', handleResize);
       const observer = new ResizeObserver(handleResize);
-      observer.observe(chartRef.current);
+      if (chartRef.current) observer.observe(chartRef.current);
 
       // Store cleanup for the effect
       (chartInstanceRef as any)._cleanup = () => {
         window.removeEventListener('resize', handleResize);
         observer.disconnect();
+        (chartInstanceRef as any)._pending?.disconnect();
+        (chartInstanceRef as any)._pending = null;
         chartInstanceRef.current?.dispose();
         chartInstanceRef.current = null;
       };

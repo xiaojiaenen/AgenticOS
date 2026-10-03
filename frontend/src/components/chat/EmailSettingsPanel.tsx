@@ -2,6 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, CheckCircle, AlertCircle, Loader2, X, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { Button } from '../shadcn/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../shadcn/select';
 import { cn } from '../../lib/utils';
 import { getEmailStatus, saveEmailCredentials, deleteEmailCredentials, EmailStatus } from '../../services/emailService';
 
@@ -144,15 +151,16 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
           <>
             <div>
               <label className={cn("mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em]", "text-[var(--muted-foreground)]")}>邮箱服务商</label>
-              <select
-                className={cn("admin-input")}
-                value={preset}
-                onChange={(e) => handlePresetChange(e.target.value)}
-              >
-                {EMAIL_PRESETS.map((p) => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
-                ))}
-              </select>
+              <Select value={preset} onValueChange={handlePresetChange}>
+                <SelectTrigger className="h-9 w-full" aria-label="邮箱服务商">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EMAIL_PRESETS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>

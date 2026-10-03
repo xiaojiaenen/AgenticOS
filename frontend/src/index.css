@@ -6,44 +6,17 @@
 /* 鸿蒙分片字体（164 个 unicode-range 子集，浏览器按需加载） */
 @import "../public/fonts/harmonyos-sans-sc.css";
 
-@import "tailwindcss";
-/* Tailwind v3 hex palette overrides — MUST come after tailwindcss (Chrome 85 compat, no oklch) */
-@import "./theme-palette.css";
-
 /*
  * 字体策略
  * --------
- * 中文：HarmonyOS Sans SC（鸿蒙）。华为官方发行，商用需自行获取授权；
- *      把字体文件放到 public/fonts/ 即可生效（见 docs/字体说明.md）。
+ * 中文：HarmonyOS Sans SC（鸿蒙），由上面的分片 @font-face 提供。
+ *      华为官方发行，商用需自行获取授权；字体文件缺失时自动回退系统中文字体
+ *      （见 docs/字体说明.md）。
  * 西文：等宽（JetBrains Mono / 系统 mono）。
  * 两级都不可用时逐级回退到系统中英文字体，保证任何环境都不出现方框字。
  *
  * 刻意不引外网字体 CDN：内网部署时 Google Fonts 不可达会拖慢首屏。
  */
-@font-face {
-  font-family: 'HarmonyOS Sans SC';
-  src: local('HarmonyOS Sans SC'), local('HarmonyOS_Sans_SC-Regular'),
-    url('/fonts/HarmonyOS_Sans_SC_Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'HarmonyOS Sans SC';
-  src: local('HarmonyOS Sans SC Medium'), local('HarmonyOS_Sans_SC-Medium'),
-    url('/fonts/HarmonyOS_Sans_SC_Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'HarmonyOS Sans SC';
-  src: local('HarmonyOS Sans SC Bold'), local('HarmonyOS_Sans_SC-Bold'),
-    url('/fonts/HarmonyOS_Sans_SC_Bold.woff2') format('woff2');
-  font-weight: 600 700;
-  font-style: normal;
-  font-display: swap;
-}
 @font-face {
   font-family: 'JetBrains Mono';
   src: local('JetBrains Mono'), local('JetBrainsMono-Regular'),
@@ -98,6 +71,7 @@
   --border: #e4e4e7;            /* zinc-200 */
   --input: #e4e4e7;             /* zinc-200 */
   --ring: #6366f1;              /* indigo-500 */
+  --ring-halo: rgba(99, 102, 241, 0.22); /* 焦点环外晕（避免 color-mix，兼容 Chrome 85） */
   --radius: 0.5rem;
 }
 
@@ -121,6 +95,7 @@
   --border: #27272a;            /* zinc-800 */
   --input: #27272a;
   --ring: #818cf8;              /* indigo-400 */
+  --ring-halo: rgba(129, 140, 248, 0.28);
 }
 
 /* ===== 2. Tailwind 4 语义桥接（shadcn 标准用法） ===== */
@@ -411,23 +386,34 @@ body.admin-modal-open .admin-dashboard-shell > button {
 }
 
 /* ===== Admin Form Input ===== */
+/* 遗留类名（EmailSettingsPanel / UserInputPanel），外观对齐 shadcn Input：
+   灰阶边框 + token 焦点环，跟随暗色模式；不再使用硬编码 slate/indigo。 */
 .admin-input {
-  @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800 outline-none transition-all duration-200;
-  box-shadow: 0 1px 4px rgba(9, 9, 11, 0.04);
+  width: 100%;
+  min-width: 0;
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  outline: none;
+  transition: color 150ms, box-shadow 150ms, border-color 150ms;
 }
 
 .admin-input:hover {
-  @apply border-slate-300;
-  box-shadow: 0 2px 8px rgba(9, 9, 11, 0.06);
+  border-color: var(--border-strong);
 }
 
-.admin-input:focus {
-  @apply border-indigo-400 ring-4 ring-indigo-100;
-  box-shadow: 0 2px 12px rgba(79, 70, 229, 0.1);
+.admin-input:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px var(--ring-halo);
 }
 
 .admin-input::placeholder {
-  @apply text-slate-400;
+  color: var(--muted-foreground);
 }
 
 /* ===== Admin Staggered Animations ===== */

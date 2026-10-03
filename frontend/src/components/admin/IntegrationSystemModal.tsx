@@ -285,7 +285,7 @@ export function SystemModal({
                     rows={2}
                     placeholder="简要描述该系统的用途"
                     {...form.register('description')}
-                    className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
+                    className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
                   />
                 </div>
                 <label className="flex items-center gap-2.5 text-sm font-medium text-zinc-700">
