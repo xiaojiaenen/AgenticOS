@@ -316,7 +316,20 @@ export function useChatSessions() {
           return null;
         }),
       ]);
-      if (!hasCachedMessages && messages.length === 0) return false;
+      // 产物可能存在但消息里没有可挂载的 model 消息（如生成被中断、
+      // 或助手消息未落库）。此时构造一条占位消息承载产物，否则产物会被
+      // 静默丢弃，用户表现为"生成过的网站打不开预览"。
+      const hasArtifact = Boolean(
+        artifactsResp?.ppt_artifact || artifactsResp?.website_artifact,
+      );
+      if (!hasCachedMessages && messages.length === 0) {
+        if (!hasArtifact) return false;
+        messages.push({
+          id: `${sessionId}-artifact`,
+          role: 'model',
+          text: '',
+        });
+      }
 
       // 把最新 artifact 挂到最后一条 model 消息上（与 useChatStream 的挂载逻辑一致）
       const pptArt = artifactsResp?.ppt_artifact;

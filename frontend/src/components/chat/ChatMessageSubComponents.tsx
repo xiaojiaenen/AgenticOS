@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { BrainCircuit, Globe, Presentation, Sparkles } from 'lucide-react';
+import { BrainCircuit, Globe, Presentation } from 'lucide-react';
 import { Artifact, Message, ToolCall } from '../../types';
 import { cn, copyToClipboard } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
@@ -178,7 +178,7 @@ export const MermaidChart = React.memo(({ chart }: { chart: string }) => {
     import('mermaid').then((mod) => {
       if (cancelled) return;
       const mermaid = mod.default;
-      mermaid.initialize({ startOnLoad: true, theme: 'neutral', fontFamily: 'Plus Jakarta Sans', securityLevel: 'strict' });
+      mermaid.initialize({ startOnLoad: true, theme: 'neutral', fontFamily: "'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif", securityLevel: 'strict' });
       const renderChart = async () => {
         if (!containerRef.current) return;
         setIsRendering(true);
@@ -242,7 +242,7 @@ export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) 
         ...option,
         color: CHART_COLORS,
         backgroundColor: 'transparent',
-        textStyle: { fontFamily: 'Inter, system-ui, -apple-system, sans-serif' },
+        textStyle: { fontFamily: "'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif" },
         title: {
           ...option.title,
           textStyle: { fontSize: 15, fontWeight: 600, color: '#1e293b', ...(option.title?.textStyle || {}) },
@@ -315,22 +315,22 @@ export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) 
 
 export const PptArtifactCard = ({ message, onOpenArtifact }: { message: Message; onOpenArtifact?: (artifact: Artifact) => void }) => {
   const html = message.pptArtifact?.html;
-  const status = html ? 'ready' : message.pptArtifact?.status;
-  if (!status) return null;
-  const isReady = status === 'ready' && Boolean(html);
+  // 只在产物就绪时显示卡片；生成中不再展示（过程由思考/工具链按序呈现）
+  if (!html) return null;
+  const isReady = true;
   const title = message.pptArtifact?.title || 'PPT 演示文稿';
   const slideCount = message.pptArtifact?.slideCount || 0;
   const handleOpen = () => { if (html) onOpenArtifact?.({ language: 'ppt', artifactId: message.pptArtifact?.artifactId, html, title, slideCount }); };
 
   return (
     <motion.div initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-      className={cn("mb-3 flex w-fit max-w-[34rem] items-center gap-3 rounded-3xl border px-4 py-3 shadow-lg backdrop-blur-xl", isReady ? "border-white/70 bg-white/84" : "border-sky-200/70 bg-sky-50/80")}>
-      <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl text-white", isReady ? "bg-zinc-900" : "bg-sky-500")}>
-        {isReady ? <Presentation size={19} /> : <Sparkles size={18} className="animate-pulse" />}
+      className="mb-3 flex w-fit max-w-[34rem] items-center gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3 shadow-lg backdrop-blur-xl">
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-zinc-900 text-white">
+        <Presentation size={19} />
       </div>
       <div className="min-w-0">
-        <div className="truncate text-sm font-semibold text-[var(--foreground)]">{isReady ? title : '正在生成 PPT'}</div>
-        <div className="mt-0.5 text-[11px] font-medium text-[var(--muted-foreground)]">{isReady ? `${slideCount} 页 · 可预览和导出 PPTX` : '正在规划内容、图表和版式，请稍候'}</div>
+        <div className="truncate text-sm font-semibold text-[var(--foreground)]">{title}</div>
+        <div className="mt-0.5 text-[11px] font-medium text-[var(--muted-foreground)]">{`${slideCount} 页 · 可预览和导出 PPTX`}</div>
       </div>
       {isReady && <button type="button" onClick={handleOpen} className="ml-2 flex-shrink-0 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 active:scale-95">打开 PPT</button>}
     </motion.div>
@@ -339,9 +339,9 @@ export const PptArtifactCard = ({ message, onOpenArtifact }: { message: Message;
 
 export const WebsiteArtifactCard = ({ message, onOpenArtifact }: { message: Message; onOpenArtifact?: (artifact: Artifact) => void }) => {
   const html = message.websiteArtifact?.html;
-  const status = html ? 'ready' : message.websiteArtifact?.status;
-  if (!status) return null;
-  const isReady = status === 'ready' && Boolean(html);
+  // 同上：只在就绪时显示卡片
+  if (!html) return null;
+  const isReady = true;
   const title = message.websiteArtifact?.title || 'Website';
   const slug = message.websiteArtifact?.projectSlug || '';
   const stack = message.websiteArtifact?.stack || '';
@@ -349,13 +349,13 @@ export const WebsiteArtifactCard = ({ message, onOpenArtifact }: { message: Mess
 
   return (
     <motion.div initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-      className={cn("mb-3 flex w-fit max-w-[34rem] items-center gap-3 rounded-3xl border px-4 py-3 shadow-lg backdrop-blur-xl", isReady ? "border-white/70 bg-white/84" : "border-emerald-200/70 bg-emerald-50/80")}>
-      <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl text-white", isReady ? "bg-zinc-900" : "bg-emerald-500")}>
-        {isReady ? <Globe size={19} /> : <Sparkles size={18} className="animate-pulse" />}
+      className="mb-3 flex w-fit max-w-[34rem] items-center gap-3 rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3 shadow-lg backdrop-blur-xl">
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-zinc-900 text-white">
+        <Globe size={19} />
       </div>
       <div className="min-w-0">
-        <div className="truncate text-sm font-semibold text-[var(--foreground)]">{isReady ? title : '正在生成网站'}</div>
-        <div className="mt-0.5 text-[11px] font-medium text-[var(--muted-foreground)]">{isReady ? `${stack} · ${slug}` : '正在规划页面结构和内容，请稍候'}</div>
+        <div className="truncate text-sm font-semibold text-[var(--foreground)]">{title}</div>
+        <div className="mt-0.5 text-[11px] font-medium text-[var(--muted-foreground)]">{`${stack} · ${slug}`}</div>
       </div>
       {isReady && <button type="button" onClick={handleOpen} className="ml-2 flex-shrink-0 rounded-full bg-zinc-900 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 active:scale-95">预览</button>}
     </motion.div>
