@@ -40,7 +40,7 @@ class AnnouncementAIService:
                 response_format={"type": "json_object"},
             )
         except Exception as exc:
-            raise ValueError(f"AI 生成失败，请稍后重试") from exc
+            raise ValueError("AI 生成失败，请稍后重试") from exc
 
         content = response.message.content
         if not content:
@@ -51,7 +51,7 @@ class AnnouncementAIService:
         try:
             generated = parser.parse(content)
         except Exception as exc:
-            raise ValueError(f"AI 返回内容格式异常，请重试") from exc
+            raise ValueError("AI 返回内容格式异常，请重试") from exc
 
         body = str(generated.get("body") or "").strip()
         if request.content_format == "html":

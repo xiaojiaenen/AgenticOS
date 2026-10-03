@@ -66,7 +66,7 @@ export function AdvancedAuthPanel({
                   <Label>{sign.algorithm?.startsWith('rsa') ? 'RSA 私钥 (PEM)' : '签名密钥'}</Label>
                   <textarea
                     rows={2}
-                    className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 font-mono text-xs text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
+                    className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 font-mono text-xs text-[var(--foreground)] outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
                     value={sign.secret || ''}
                     onChange={(e) => set('sign', 'secret', e.target.value)}
                     placeholder={sign.algorithm?.startsWith('rsa') ? '-----BEGIN PRIVATE KEY-----\n...' : '输入密钥'}

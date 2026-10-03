@@ -11,6 +11,13 @@ import { AlertCircle, Loader2, Plug, Plus, Power, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/shadcn/button';
 import { Input } from '@/components/shadcn/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/shadcn/select';
 import { Badge } from '@/components/ui/Badge';
 import {
   deleteMcpServer,
@@ -131,18 +138,21 @@ export function McpManagementPanel() {
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="服务器名称，如：company-search"
           />
-          <select
+          <Select
             value={form.transport}
-            onChange={(e) =>
-              setForm({ ...form, transport: e.target.value as MCPServer['transport'] })
+            onValueChange={(v) =>
+              setForm({ ...form, transport: v as MCPServer['transport'] })
             }
-            className="h-9 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-2 text-sm"
-            aria-label="传输方式"
           >
-            <option value="http">http</option>
-            <option value="sse">sse</option>
-            <option value="stdio">stdio（本地进程）</option>
-          </select>
+            <SelectTrigger className="w-full md:w-[11rem]" aria-label="传输方式">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="http">http</SelectItem>
+              <SelectItem value="sse">sse</SelectItem>
+              <SelectItem value="stdio">stdio（本地进程）</SelectItem>
+            </SelectContent>
+          </Select>
           <Button onClick={submit} disabled={saveMutation.isPending} size="sm">
             <Plus className="h-4 w-4" />
             添加

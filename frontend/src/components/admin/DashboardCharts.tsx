@@ -222,7 +222,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => { const trend
 
      <div className="mb-4 grid gap-3 sm:grid-cols-4">
       {trendSignals.map((item) => (
-       <div style={{ padding: '10px 12px' }}>
+       <div key={item.label} style={{ padding: '10px 12px' }}>
         <p className={cn("text-[10px] font-semibold tracking-[0.08em]", "text-[var(--muted-foreground)]")}>{item.label}</p>
         <p className={cn("mt-1 text-base font-semibold tracking-tight", "text-[var(--foreground)]")}>{item.value}</p>
        </div>
@@ -306,7 +306,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => { const trend
 
      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {trendSignals.map((item) => (
-       <div style={{ padding: '14px 16px' }}>
+       <div key={item.label} style={{ padding: '14px 16px' }}>
         <p className={cn("text-xs font-semibold tracking-[0.08em]", "text-[var(--muted-foreground)]")}>{item.label}</p>
         <p className={cn("mt-2 text-2xl font-semibold tracking-tight", "text-[var(--foreground)]")}>{item.value}</p>
        </div>

@@ -41,7 +41,9 @@ export const Sidebar = React.memo(({
   const user = getStoredUser();
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const [showMarket, setShowMarket] = useState(false);
-  const [showEmailSettings, setShowEmailSettings] = useState(false);  const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
+  const [showEmailSettings, setShowEmailSettings] = useState(false);
+
+  const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
     if (scrollHeight - scrollTop - clientHeight < 50 && hasMore && onLoadMore) {
       onLoadMore();

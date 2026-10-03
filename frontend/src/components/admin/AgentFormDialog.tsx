@@ -391,7 +391,7 @@ export function AgentFormDialog({
                     id="agent-system-prompt"
                     rows={10}
                     {...form.register('system_prompt')}
-                    className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-2.5 text-sm font-medium leading-6 text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
+                    className="w-full resize-y rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-2.5 text-sm font-medium leading-6 text-[var(--foreground)] outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
                   />
                   {form.formState.errors.system_prompt ? (
                     <p className="text-xs font-medium text-rose-600">

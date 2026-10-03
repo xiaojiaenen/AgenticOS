@@ -218,7 +218,7 @@ export const MemoryPanel: React.FC = () => {
             onChange={(e) => setNewContent(e.target.value)}
             placeholder="输入要记忆的内容..."
             rows={2}
-            className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-zinc-900 focus:ring-[3px] focus:ring-indigo-100"
+            className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
           />
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex-1 space-y-1.5">
