@@ -222,13 +222,10 @@ export const Chat = () => {
     if (!currentSessionId) return;
     const session = sessions.find(s => s.id === currentSessionId);
     if (!session) return;
-    // 缓存中的 artifact 已剥离 HTML（localStorage 瘦身），需要回源补全
-    const needsArtifactRefetch = session.messages.some(
-      (m) => m.role === 'model' && ((m.pptArtifact && !m.pptArtifact.html) || (m.websiteArtifact && !m.websiteArtifact.html)),
-    );
-    if (session.messages.length === 0 || needsArtifactRefetch) {
-      loadSessionMessages(currentSessionId);
-    }
+    // 切换会话时总是回源一次：loadSessionMessages 内部会并行请求消息与产物，
+    // 缓存已有消息时走短路，不会重复拉消息，但产物必须查——
+    // 否则"生成过但缓存里没有 artifact 痕迹"的会话永远打不开预览。
+    loadSessionMessages(currentSessionId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSessionId]);
 
@@ -243,9 +240,14 @@ export const Chat = () => {
     // 每个会话只恢复一次；流式过程中 messages 变化不再触发清空
     if (artifactRestoredSessionRef.current === currentSessionId) return;
 
+    // 切换会话时先关闭上一个会话的产物面板：等新会话消息加载期间，
+    // 旧面板若继续挂着，用户会以为"新网站预览还是上一个的内容"。
+    // 仅在消息确实已加载完（且本会话无产物）时才由后续逻辑收尾。
     const messages = currentSession?.messages || [];
-    // 消息尚未加载完成时等待（loadSessionMessages 会更新 messages）
-    if (messages.length === 0) return;
+    if (messages.length === 0) {
+      setArtifact(null);
+      return;
+    }
 
     // 缓存剥离了 artifact HTML，等待 loadSessionMessages 回源补全后再恢复预览；
     // 此时不标记 restored，回源完成后 effect 会随 currentSession 变化重新执行

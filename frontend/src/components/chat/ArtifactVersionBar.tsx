@@ -9,7 +9,7 @@
 import React from 'react';
 import { History, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../shadcn/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../shadcn/tooltip';
 import {
   listSessionVersions,
   loadArtifactVersion,
@@ -99,6 +99,7 @@ export const ArtifactVersionBar: React.FC<ArtifactVersionBarProps> = ({
   };
 
   return (
+    <TooltipProvider delayDuration={250} skipDelayDuration={400}>
     <div className={cn('relative', className)}>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -189,5 +190,6 @@ export const ArtifactVersionBar: React.FC<ArtifactVersionBarProps> = ({
         </>
       )}
     </div>
-  );
+    </TooltipProvider>
+  );;
 };
