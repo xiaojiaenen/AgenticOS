@@ -100,3 +100,31 @@ def test_factory_registers_sheet_tools_for_sheet_mode():
     factory = Path("app/services/agent/factory.py").read_text(encoding="utf-8")
     assert 'profile.response_mode == "sheet"' in factory
     assert "register_sheet_tools" in factory
+
+
+def test_sheet_artifact_keys_match_orchestrator_reader():
+    """产物字典的键必须和 orchestrator 读取时用的键一致。
+
+    踩过的坑：产物字段从 artifactId 改成 artifact_id（与 website 对齐）后，
+    orchestrator 仍在取旧键 → reference 变成 None → 版本索引从不落盘 →
+    版本条静默不显示。字段名对不上时没有任何报错，只能靠这个断言兜住。
+    """
+    import inspect
+    from pathlib import Path
+
+    import app.services.agent.artifacts as artifacts_mod
+
+    source = inspect.getsource(artifacts_mod.ArtifactFactory.build_sheet_artifact)
+    produced = set(re.findall(r'"([a-z_]+)":', source))
+    assert {"artifact_id", "title", "snapshot"} <= produced, (
+        f"表格产物字段缺失，实际产出：{sorted(produced)}"
+    )
+
+    orchestrator = Path("app/services/agent/orchestrator.py").read_text(encoding="utf-8")
+    branch = orchestrator.split("if sheet_mode:")[-1]
+    assert 'artifact.get("artifact_id")' in branch, (
+        "orchestrator 的表格分支没有用 artifact_id 读产物，版本快照会静默失效"
+    )
+    assert 'artifact.get("artifactId")' not in branch, (
+        "orchestrator 还在用旧的驼峰键读表格产物"
+    )

@@ -6,6 +6,7 @@ import type { Artifact } from '../../types';
 import { saveSheetSnapshot } from '../../services/agentService';
 import { getUnsupportedReason, MIN_BROWSER_HINT } from '../../lib/univerSupport';
 import { useIsDark } from '../../hooks/useIsDark';
+import { ArtifactVersionBar } from '../chat/ArtifactVersionBar';
 import { SheetEditor, type SheetEditorHandle } from './SheetEditor';
 import { SheetSnapshotTable } from './SheetSnapshotTable';
 
@@ -16,6 +17,8 @@ type SpreadsheetArtifactPanelProps = {
   onClose: () => void;
   borderColor: MotionValue<string>;
   sessionId?: string;
+  /** 切换到历史版本（由版本条调用） */
+  onSwitchVersion?: (artifact: SpreadsheetArtifact) => void;
 };
 
 /**
@@ -30,6 +33,7 @@ export const SpreadsheetArtifactPanel: React.FC<SpreadsheetArtifactPanelProps> =
   onClose,
   borderColor,
   sessionId,
+  onSwitchVersion,
 }) => {
   const [saving, setSaving] = React.useState(false);
   const editorRef = React.useRef<SheetEditorHandle>(null);
@@ -97,6 +101,32 @@ export const SpreadsheetArtifactPanel: React.FC<SpreadsheetArtifactPanelProps> =
           <X size={16} />
         </button>
       </header>
+
+      {sessionId && (
+        <ArtifactVersionBar
+          sessionId={sessionId}
+          currentReference={artifact.version ? `v${artifact.version}` : undefined}
+          kind="sheet"
+          onSelect={({ artifact: loaded }) => {
+            const next = loaded as unknown as {
+              artifact_id: string;
+              title: string;
+              snapshot: Record<string, unknown>;
+              sheet_names?: string[];
+              sheet_count?: number;
+            };
+            onSwitchVersion?.({
+              language: 'spreadsheet',
+              artifactId: next.artifact_id,
+              title: next.title,
+              snapshot: next.snapshot,
+              sheetNames: next.sheet_names ?? [],
+              sheetCount: next.sheet_count ?? 0,
+              sessionId,
+            });
+          }}
+        />
+      )}
 
       <div className="min-h-0 flex-1">
         {unsupported ? (
