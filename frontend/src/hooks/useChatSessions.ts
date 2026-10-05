@@ -320,7 +320,9 @@ export function useChatSessions() {
       // 或助手消息未落库）。此时构造一条占位消息承载产物，否则产物会被
       // 静默丢弃，用户表现为"生成过的网站打不开预览"。
       const hasArtifact = Boolean(
-        artifactsResp?.ppt_artifact || artifactsResp?.website_artifact,
+        artifactsResp?.ppt_artifact ||
+          artifactsResp?.website_artifact ||
+          artifactsResp?.sheet_artifact,
       );
       if (!hasCachedMessages && messages.length === 0) {
         if (!hasArtifact) return false;
@@ -329,6 +331,26 @@ export function useChatSessions() {
           role: 'model',
           text: '',
         });
+      }
+
+      // 表格产物：快照不入缓存，这里只记引用，刷新后由 Chat.tsx 重新拉快照
+      const sheetArt = artifactsResp?.sheet_artifact;
+      if (sheetArt) {
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role === 'model') {
+            messages[i] = {
+              ...messages[i],
+              sheetArtifact: {
+                status: 'ready',
+                artifactId: sheetArt.artifact_id,
+                title: sheetArt.title,
+                sheetNames: sheetArt.sheet_names,
+                sheetCount: sheetArt.sheet_count,
+              },
+            };
+            break;
+          }
+        }
       }
 
       // 把最新 artifact 挂到最后一条 model 消息上（与 useChatStream 的挂载逻辑一致）

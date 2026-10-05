@@ -120,10 +120,10 @@ def load_website_version(session_id: str, version: int) -> str | None:
 async def list_session_versions(
     session_id: str, ppt_artifacts: Any | None = None
 ) -> list[dict[str, Any]]:
-    """合并 PPT（来自 DB）与网站（来自快照文件）的版本列表，按时间倒序。
+    """合并 PPT（来自 DB）、网站与表格（来自快照文件）的版本列表，按时间倒序。
 
-    统一字段：``kind``(ppt|website)、``reference``(ppt 为 artifact_id / website 为 v{n})、
-    ``title``、``created_at``、``slide_count``(仅 PPT)。
+    统一字段：``kind``(ppt|website|sheet)、``reference``(ppt 为 artifact_id /
+    website 与 sheet 为 v{n})、``title``、``created_at``、``slide_count``(仅 PPT)。
     """
     versions: list[dict[str, Any]] = []
 
@@ -146,6 +146,11 @@ async def list_session_versions(
         versions.extend(await asyncio.to_thread(list_website_versions, session_id))
     except Exception:
         logger.exception("list website versions failed: session=%s", session_id)
+
+    try:
+        versions.extend(await asyncio.to_thread(list_sheet_versions, session_id))
+    except Exception:
+        logger.exception("list sheet versions failed: session=%s", session_id)
 
     # 混合排序：优先按时间倒序；缺时间的排在后面
     versions.sort(
@@ -170,3 +175,112 @@ def build_website_version_artifact(session_id: str, version: int, title: str = "
         "file_count": 0,
         "preview_html": html,
     }
+
+# ---------------------------------------------------------------------------
+# 表格版本
+#
+# 表格快照本身已经是 ``data/sheets/u{user}_s{session}_v{n}/workbook.json``
+# ——build_sheet 每次写一个新版本目录，天然带版本号。所以这里不再复制一份
+# 内容，只记一个轻量索引（版本号 → 目录名 + 标题），供版本条列举。
+# ---------------------------------------------------------------------------
+
+SHEET_VERSION_INDEX_DIR = DATA_DIR / "sheet-versions"
+_SHEET_INDEX_RE = re.compile(r"^u(?P<session>.+)_v(?P<version>\d+)\.json$")
+
+
+def _ensure_sheet_index_dir() -> Path:
+    SHEET_VERSION_INDEX_DIR.mkdir(parents=True, exist_ok=True)
+    return SHEET_VERSION_INDEX_DIR
+
+
+def _sheet_index_files(session_id: str) -> list[tuple[int, Path]]:
+    if not SHEET_VERSION_INDEX_DIR.exists():
+        return []
+    found: list[tuple[int, Path]] = []
+    for child in SHEET_VERSION_INDEX_DIR.iterdir():
+        m = _SHEET_INDEX_RE.match(child.name)
+        if m and m.group("session") == session_id:
+            found.append((int(m.group("version")), child))
+    return sorted(found, key=lambda item: item[0], reverse=True)
+
+
+async def snapshot_sheet_version(
+    session_id: str, title: str = "", reference: str = ""
+) -> int | None:
+    """登记一轮表格产物，返回版本号。
+
+    内容已经由 build_sheet 落到 data/sheets 下了，这里只写索引。
+    失败不影响主流程（只影响"回看历史版本"），因此内部吞掉异常只记日志。
+    """
+    if not session_id or not reference:
+        return None
+
+    def _write() -> int | None:
+        try:
+            existing = _sheet_index_files(session_id)
+            version = (existing[0][0] + 1) if existing else 1
+            path = _ensure_sheet_index_dir() / f"u{session_id}_v{version}.json"
+            path.write_text(
+                json.dumps(
+                    {"title": title or "表格", "directory": reference},
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            return version
+        except OSError as exc:
+            logger.warning("sheet version snapshot failed: session=%s error=%s", session_id, exc)
+            return None
+
+    return await asyncio.to_thread(_write)
+
+
+def list_sheet_versions(session_id: str) -> list[dict[str, Any]]:
+    """列出该会话的表格版本（版本号倒序 = 最新在前）。"""
+    result: list[dict[str, Any]] = []
+    for version, path in _sheet_index_files(session_id):
+        try:
+            meta = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            meta = {}
+        result.append({
+            "kind": "sheet",
+            "version": version,
+            "reference": meta.get("directory", ""),
+            "title": meta.get("title") or f"表格 v{version}",
+            "created_at": isoformat_app_timezone(datetime.fromtimestamp(path.stat().st_mtime)),
+        })
+    return result
+
+
+def load_sheet_version(session_id: str, version: int) -> dict[str, Any] | None:
+    """按版本号读回表格快照，包装成前端可直接使用的 spreadsheet artifact。"""
+    for candidate_version, path in _sheet_index_files(session_id):
+        if candidate_version != version:
+            continue
+        try:
+            meta = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        directory = meta.get("directory")
+        if not directory:
+            return None
+        from app.core.data_path import SHEETS_DIR
+        from app.services.sheet.service import read_snapshot
+
+        snapshot = read_snapshot(SHEETS_DIR / directory)
+        if not snapshot:
+            return None
+        sheets = snapshot.get("sheets", {}) or {}
+        order = snapshot.get("sheetOrder", []) or []
+        return {
+            "type": "spreadsheet",
+            "artifact_id": directory,
+            "session_id": session_id,
+            "title": snapshot.get("name") or meta.get("title") or "表格",
+            "snapshot": snapshot,
+            "sheet_names": [sheets[s].get("name", s) for s in order if s in sheets],
+            "sheet_count": len(order),
+            "version": version,
+        }
+    return None

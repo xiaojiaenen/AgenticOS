@@ -20,7 +20,7 @@ import { getMyAgents } from '../services/agentProfileService';
 import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
 import { UserInputPanel } from '../components/chat/UserInputPanel';
-import { submitUserInput, type UserInputRequest } from '../services/agentService';
+import { getSessionArtifacts, submitUserInput, type UserInputRequest } from '../services/agentService';
 import type { VirtuosoHandle } from 'react-virtuoso';
 export const Chat = () => {
   const location = useLocation();
@@ -285,7 +285,36 @@ export const Chat = () => {
         sessionId: currentSessionId,
       });
     } else {
-      setArtifact(null);
+      // 表格快照体量大，不随消息缓存下发（localStorage 存不下也没必要），
+      // 所以这里统一回源探测一次：会话里确实有表格才恢复，否则清空面板。
+      let cancelled = false;
+      void getSessionArtifacts(currentSessionId)
+        .then((response) => {
+          if (cancelled) return;
+          const latest = response.sheet_artifact;
+          if (!latest) {
+            setArtifact(null);
+            return;
+          }
+          setArtifact({
+            language: 'spreadsheet',
+            artifactId: latest.artifact_id,
+            title: latest.title,
+            snapshot: latest.snapshot,
+            sheetNames: latest.sheet_names ?? [],
+            sheetCount: latest.sheet_count ?? 0,
+            sessionId: currentSessionId,
+          });
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            console.warn('恢复表格产物失败:', err);
+            setArtifact(null);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
     }
     artifactRestoredSessionRef.current = currentSessionId;
     // 刻意不依赖 messages.length：用 ref 保证仅在会话切换/首次加载时恢复

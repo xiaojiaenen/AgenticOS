@@ -63,6 +63,7 @@ const MODE_OPTIONS: { value: AgentProfile['response_mode']; label: string; hint:
   { value: 'website', label: '网站生成', hint: '构建前端项目并预览/部署' },
   { value: 'email', label: '邮件助手', hint: '收发、搜索、统计邮件' },
   { value: 'bigdata', label: '大数据运维', hint: '巡检、排查、容量与应急止血' },
+  { value: 'sheet', label: '表格生成', hint: '生成可编辑的电子表格，支持公式与多工作表' },
 ];
 
 type EditorSection = 'basic' | 'prompt' | 'tool' | 'skill' | 'knowledge' | 'mcp';

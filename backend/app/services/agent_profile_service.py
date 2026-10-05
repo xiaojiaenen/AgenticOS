@@ -20,7 +20,8 @@ from app.db.models import (
     UserModel,
 )
 from app.db.session import create_db_session
-from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT, BIGDATA_SYSTEM_PROMPT, EMAIL_SYSTEM_PROMPT
+from app.prompts import (BIGDATA_SYSTEM_PROMPT, EMAIL_SYSTEM_PROMPT, GENERAL_SYSTEM_PROMPT,
+                          PPT_SYSTEM_PROMPT, SHEET_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT)
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
 from app.services.session_storage import parse_approval_sub_tools, slugify
 from app.services.skill_service import RuntimeSkill, SkillService
@@ -40,6 +41,7 @@ MODE_DEFAULT_PROMPTS: dict[str, str] = {
     "website": WEBSITE_ROUTER_PROMPT,
     "email": EMAIL_SYSTEM_PROMPT,
     "bigdata": BIGDATA_SYSTEM_PROMPT,
+    "sheet": SHEET_SYSTEM_PROMPT,
 }
 
 GENERIC_PROMPTS = {
@@ -72,6 +74,14 @@ BUILTIN_AGENT_PROFILES = {
         "system_prompt": WEBSITE_ROUTER_PROMPT,
         "response_mode": "website",
         "avatar": "globe",
+        "listed": True,
+    },
+    "sheet": {
+        "name": "表格助手",
+        "description": "生成可编辑的电子表格，支持公式计算与多工作表，产出可在对话中直接编辑。",
+        "system_prompt": SHEET_SYSTEM_PROMPT,
+        "response_mode": "sheet",
+        "avatar": "table",
         "listed": True,
     },
     "email": {
@@ -116,6 +126,7 @@ class AgentProfileService:
             return
         changed = False
         existing = {row.slug: row for row in db.scalars(select(AgentProfileModel)).all()}
+        newly_created: list[int] = []
         for slug, defaults in BUILTIN_AGENT_PROFILES.items():
             profile = existing.get(slug)
             if profile is None:
@@ -133,6 +144,10 @@ class AgentProfileService:
                 )
                 db.add(profile)
                 db.flush()
+                # 新内置智能体必须让所有老用户立刻可用：商店/安装列表只认
+                # user_installed_agents，不自动装的话新加的内置 agent 对存量
+                # 用户等于不存在（邮箱助手当初就踩了这个坑）。
+                newly_created.append(profile.id)
                 changed = True
             else:
                 profile.is_builtin = True
@@ -169,18 +184,36 @@ class AgentProfileService:
 
         general = db.scalar(select(AgentProfileModel).where(AgentProfileModel.slug == "general"))
         if general is not None:
-            all_user_ids = set(db.scalars(select(UserModel.id)).all())
-            installed_user_ids = {
-                row.user_id
-                for row in db.scalars(
-                    select(UserInstalledAgentModel).where(
-                        UserInstalledAgentModel.profile_id == general.id
-                    )
-                ).all()
-            }
-            for user_id in all_user_ids - installed_user_ids:
-                db.add(UserInstalledAgentModel(user_id=user_id, profile_id=general.id))
-                changed = True
+            newly_created.append(general.id)
+
+        # 一次性回填：内置、启用、已上架，却**从未被任何人安装过**的 profile，
+        # 说明它在存量库里是「上线时没给老用户装」的遗漏，而不是谁主动卸载的。
+        # 这类补装不违反「尊重用户卸载」的约定。
+        builtin_ids = set(
+            db.scalars(
+                select(AgentProfileModel.id).where(
+                    AgentProfileModel.is_builtin.is_(True),
+                    AgentProfileModel.enabled.is_(True),
+                    AgentProfileModel.listed.is_(True),
+                )
+            ).all()
+        )
+        installed_pairs = {
+            (row.user_id, row.profile_id)
+            for row in db.scalars(select(UserInstalledAgentModel)).all()
+        }
+        all_user_ids = set(db.scalars(select(UserModel.id)).all())
+
+        # 只补「本次新建的」+「从没人装过的」这两类；已存在且有人装过的内置
+        # profile 一律不碰，用户主动卸载过的不会被塞回来。
+        backfill_ids = set(dict.fromkeys(newly_created)) | (builtin_ids - {
+            profile_id for _user_id, profile_id in installed_pairs
+        })
+        for user_id in all_user_ids:
+            for profile_id in sorted(backfill_ids):
+                if (user_id, profile_id) not in installed_pairs:
+                    db.add(UserInstalledAgentModel(user_id=user_id, profile_id=profile_id))
+                    changed = True
 
         if changed:
             db.commit()

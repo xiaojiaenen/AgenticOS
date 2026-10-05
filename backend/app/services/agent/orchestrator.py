@@ -461,6 +461,8 @@ class StreamOrchestrator:
         if website_mode:
             message = await self._inject_website_catalog(message)
 
+        sheet_mode = response_mode == "sheet"
+
         # 计划模式：提示词追加"只调研出计划"的约束
         system_prompt = runtime_profile.system_prompt
         if getattr(runtime_profile, "plan_mode", False):
@@ -806,6 +808,33 @@ class StreamOrchestrator:
                                     except Exception:
                                         _logger.exception(
                                             "website version snapshot failed: session=%s",
+                                            session.session_id,
+                                        )
+                                    yield {
+                                        "event": "artifact_ready",
+                                        "data": artifact,
+                                    }
+
+                            if sheet_mode:
+                                artifact = await self._create_sheet_artifact(
+                                    session.session_id
+                                )
+                                if artifact is not None:
+                                    try:
+                                        from app.services.artifact_version_service import (
+                                            snapshot_sheet_version,
+                                        )
+
+                                        version = await snapshot_sheet_version(
+                                            session.session_id,
+                                            artifact.get("title") or "",
+                                            artifact.get("artifactId") or "",
+                                        )
+                                        if version:
+                                            artifact["version"] = version
+                                    except Exception:
+                                        _logger.exception(
+                                            "sheet version snapshot failed: session=%s",
                                             session.session_id,
                                         )
                                     yield {

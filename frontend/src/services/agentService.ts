@@ -6,7 +6,7 @@ import { fetchEventSource } from '@microsoft/fetch-event-source';
 type AgentServiceOptions = {
   sessionId: string;
   systemPrompt?: string;
-  responseMode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata';
+  responseMode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'sheet';
   agentProfileId?: number | null;
   /** 会话级审批模式：ask 逐次确认 / auto 只读自动放行 / full 全放行（仅管理员） */
   approvalMode?: 'ask' | 'auto' | 'full';
@@ -22,6 +22,7 @@ type AgentServiceOptions = {
   onRunStatus?: (status: AgentRunStatus) => void;
   onPptArtifact?: (artifact: AgentPptArtifact) => void;
   onWebsiteArtifact?: (artifact: AgentWebsiteArtifact) => void;
+  onSheetArtifact?: (artifact: AgentSheetArtifact) => void;
   onUserDecision?: (decision: unknown) => void;
   onUserInputRequired?: (input: UserInputRequest) => void;
   onApiApprovalRequired?: (approval: ApiApprovalRequest) => void;
@@ -37,6 +38,7 @@ type StreamResult = {
   sessionState?: AgentSessionState;
   pptArtifact?: AgentPptArtifact;
   websiteArtifact?: AgentWebsiteArtifact;
+  sheetArtifact?: AgentSheetArtifact;
 };
 
 type AgentToolCall = {
@@ -103,6 +105,18 @@ export type AgentPptArtifact = {
   slide_count: number;
   html: string;
   theme?: string;
+};
+
+export type AgentSheetArtifact = {
+  type: 'spreadsheet';
+  artifact_id: string;
+  session_id: string;
+  title: string;
+  /** Univer 的 IWorkbookData 原始 JSON */
+  snapshot: Record<string, unknown>;
+  sheet_names: string[];
+  sheet_count: number;
+  version?: number;
 };
 
 export type AgentWebsiteArtifact = {
@@ -248,6 +262,7 @@ type StreamState = {
   sessionState?: AgentSessionState;
   pptArtifact?: AgentPptArtifact;
   websiteArtifact?: AgentWebsiteArtifact;
+  sheetArtifact?: AgentSheetArtifact;
 };
 
 /**
@@ -300,6 +315,9 @@ function applyAgentEvent(
     if (artifactPayload.type === 'website') {
       state.websiteArtifact = artifactPayload as unknown as AgentWebsiteArtifact;
       options.onWebsiteArtifact?.(state.websiteArtifact);
+    } else if (artifactPayload.type === 'spreadsheet') {
+      state.sheetArtifact = artifactPayload as unknown as AgentSheetArtifact;
+      options.onSheetArtifact?.(state.sheetArtifact);
     } else {
       state.pptArtifact = payload as unknown as AgentPptArtifact;
       options.onPptArtifact?.(state.pptArtifact);
@@ -500,6 +518,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
     sessionState: state.sessionState,
     pptArtifact: state.pptArtifact,
     websiteArtifact: state.websiteArtifact,
+    sheetArtifact: state.sheetArtifact,
   };
 }
 
@@ -562,6 +581,7 @@ export type SessionArtifacts = {
     theme?: string;
   } | null;
   website_artifact: AgentWebsiteArtifact | null;
+  sheet_artifact: AgentSheetArtifact | null;
 };
 
 /** 从后端加载会话关联的最新制品（PPT/网站） */
@@ -748,6 +768,23 @@ export async function submitApiApproval(sessionId: string, approved: boolean, al
       body: JSON.stringify({ approved, allow_all: allowAll }),
     },
     '提交审批决定失败',
+  );
+}
+
+/** 保存用户对表格产物的修改（编辑器里点「保存」时调用）。 */
+export async function saveSheetSnapshot(
+  sessionId: string,
+  directory: string,
+  snapshot: Record<string, unknown>,
+): Promise<void> {
+  await apiFetch<{ ok: boolean }>(
+    `${AGENT_ENDPOINT}/sessions/${encodeURIComponent(sessionId)}/sheets/${encodeURIComponent(directory)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot }),
+    },
+    '保存表格失败',
   );
 }
 

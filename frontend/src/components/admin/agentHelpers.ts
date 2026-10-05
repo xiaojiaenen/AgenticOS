@@ -19,7 +19,7 @@ export const agentFormSchema = z
       .regex(/^[a-z0-9-]*$/, 'slug 仅允许小写字母、数字和连字符'),
     description: z.string(),
     system_prompt: z.string().min(1, '系统提示词不能为空'),
-    response_mode: z.enum(['general', 'ppt', 'website', 'email', 'bigdata']),
+    response_mode: z.enum(['general', 'ppt', 'website', 'email', 'bigdata', 'sheet']),
     max_steps: z.union([z.number().int().min(1).max(2147483647), z.null()]),
     enabled: z.boolean(),
     listed: z.boolean(),
@@ -43,13 +43,14 @@ export const agentFormSchema = z
 
 export type AgentFormValues = z.infer<typeof agentFormSchema>;
 
-export const AGENT_MODES: AgentMode[] = ['general', 'ppt', 'website', 'email', 'bigdata'];
+export const AGENT_MODES: AgentMode[] = ['general', 'ppt', 'website', 'email', 'bigdata', 'sheet'];
 
 export function modeLabel(mode: AgentMode): string {
   if (mode === 'ppt') return 'PPT';
   if (mode === 'website') return '网站';
   if (mode === 'email') return '邮箱';
   if (mode === 'bigdata') return '大数据';
+  if (mode === 'sheet') return '表格';
   return '通用';
 }
 

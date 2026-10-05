@@ -15,6 +15,10 @@ from app.services.design_system import get_design_system_registry
 
 router = APIRouter(prefix="/agent", tags=["智能体"])
 
+# 表格版本目录名：u{user}_s{session}_v{n}。save 接口拿它拼路径，必须严格校验，
+# 否则 ../ 可以写到 data/sheets 之外。
+_SHEET_DIR_RE = re.compile(r"^u\d+_s[\w-]+_v\d+$")
+
 _logger = logging.getLogger("agent.stream")
 
 
@@ -178,13 +182,13 @@ async def list_sessions(
     return await agent_service.list_user_sessions(current_user.id)
 
 
-@router.get("/sessions/{session_id}/artifacts", summary="获取会话关联的最新制品（PPT/网站/视频）")
+@router.get("/sessions/{session_id}/artifacts", summary="获取会话关联的最新制品（PPT/网站/表格）")
 async def get_session_artifacts(
     session_id: str,
     current_user: UserModel = Depends(get_current_user),
     agent_service: AgentService = Depends(get_agent_service),
 ) -> dict[str, Any]:
-    """用于会话重新打开时恢复 PPT/website 预览面板。"""
+    """用于会话重新打开时恢复 PPT/website/表格 预览面板。"""
     try:
         await agent_service.ensure_session_access(
             AgentStreamRequest(message="load_artifacts", session_id=session_id), current_user
@@ -192,7 +196,11 @@ async def get_session_artifacts(
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
-    result: dict[str, Any] = {"ppt_artifact": None, "website_artifact": None}
+    result: dict[str, Any] = {
+        "ppt_artifact": None,
+        "website_artifact": None,
+        "sheet_artifact": None,
+    }
 
     # PPT：取该会话最新的 artifact，裁剪字段（不带 deck_json，避免传输 150KB+ 大字段）
     try:
@@ -228,7 +236,55 @@ async def get_session_artifacts(
             "preview_html": website.get("preview_html"),
         }
 
+    # 表格：从 data/sheets/{u*_s{session}_v*}/workbook.json 重建
+    try:
+        sheet = await agent_service.get_latest_sheet_artifact(session_id)
+    except Exception:
+        _logger.exception("get_latest_sheet_artifact failed: session=%s", session_id)
+        sheet = None
+    if sheet:
+        result["sheet_artifact"] = sheet
+
     return result
+
+
+@router.put("/sessions/{session_id}/sheets/{directory}", summary="保存用户对表格产物的修改")
+async def save_sheet_artifact(
+    session_id: str,
+    directory: str,
+    payload: dict[str, Any],
+    current_user: UserModel = Depends(get_current_user),
+) -> dict[str, Any]:
+    """把编辑器里的最新快照写回 data/sheets/{directory}/workbook.json。
+
+    校验两点：目录名必须匹配版本目录的正则（防路径穿越），快照必须带
+    sheetOrder/sheets（否则打开就是空表）。
+    """
+    try:
+        await get_agent_service().ensure_session_access(
+            AgentStreamRequest(message="save_sheet", session_id=session_id), current_user
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    from app.core.data_path import SHEETS_DIR
+    from app.services.sheet.service import read_snapshot, write_snapshot
+
+    if not _SHEET_DIR_RE.match(directory):
+        raise HTTPException(status_code=400, detail="非法的表格版本目录名")
+
+    snapshot = payload.get("snapshot")
+    if not isinstance(snapshot, dict) or not snapshot.get("sheetOrder"):
+        raise HTTPException(status_code=400, detail="表格快照格式不合法：缺少 sheetOrder")
+
+    target = SHEETS_DIR / directory
+    if not target.is_dir():
+        raise HTTPException(status_code=404, detail="该表格产物不存在")
+    if read_snapshot(target) is None:
+        raise HTTPException(status_code=500, detail="该表格产物已损坏，无法保存")
+
+    write_snapshot(target, snapshot)
+    return {"ok": True, "directory": directory}
 
 
 @router.get("/sessions/{session_id}/versions", summary="列出会话的全部产物版本")
@@ -256,7 +312,7 @@ async def list_session_versions(
 
 @router.get(
     "/sessions/{session_id}/versions/{kind}/{reference}",
-    summary="加载指定版本的产物（website 版本号 / ppt 的 artifact_id）",
+    summary="加载指定版本的产物（website/sheet 版本号 / ppt 的 artifact_id）",
 )
 async def get_session_version(
     session_id: str,
@@ -286,6 +342,18 @@ async def get_session_version(
         if artifact is None:
             raise HTTPException(status_code=404, detail="该版本的网站产物不存在")
         return {"website_artifact": artifact}
+
+    if kind == "sheet":
+        from app.services.artifact_version_service import load_sheet_version
+
+        try:
+            version_no = int(reference.lstrip("vV"))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="非法的表格版本号") from exc
+        artifact = await asyncio.to_thread(load_sheet_version, session_id, version_no)
+        if artifact is None:
+            raise HTTPException(status_code=404, detail="该版本的表格产物不存在")
+        return {"sheet_artifact": artifact}
 
     if kind == "ppt":
         try:

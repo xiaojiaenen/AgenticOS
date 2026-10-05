@@ -6,6 +6,14 @@ import { PptArtifactPanel } from '../ppt/PptArtifactPanel';
 import { WebsiteArtifactPanel } from '../website/WebsiteArtifactPanel';
 import { EmailArtifactPanel } from '../email/EmailArtifactPanel';
 
+// Univer SDK gzip 后约 1.7MB。面板必须 lazy —— 其余三个面板是静态 import 的，
+// 照抄那个写法会把整包拖进 Chat chunk，所有用户的首屏都变慢。
+const SpreadsheetArtifactPanel = React.lazy(() =>
+  import('../sheet/SpreadsheetArtifactPanel').then((module) => ({
+    default: module.SpreadsheetArtifactPanel,
+  })),
+);
+
 interface ChatArtifactAreaProps {
   artifact: Artifact | null;
   onClose: () => void;
@@ -48,6 +56,22 @@ export const ChatArtifactArea = React.memo(({
         sessionId={sessionId ?? undefined}
         onSwitchVersion={onSwitchArtifact}
       />
+    ) : artifact?.language === 'spreadsheet' ? (
+      <React.Suspense
+        key="spreadsheet"
+        fallback={
+          <div className="flex h-full items-center justify-center text-sm text-[var(--muted-foreground)]">
+            正在加载表格…
+          </div>
+        }
+      >
+        <SpreadsheetArtifactPanel
+          artifact={artifact}
+          onClose={onClose}
+          borderColor={borderColor}
+          sessionId={sessionId ?? undefined}
+        />
+      </React.Suspense>
     ) : artifact?.language === 'email' ? (
       <EmailArtifactPanel
         key="email"

@@ -18,8 +18,8 @@ interface ChatInputProps {
   isLoading: boolean;
   className?: string;
   placeholder?: string;
-  chatMode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata';
-  setChatMode: (mode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata') => void;
+  chatMode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'sheet';
+  setChatMode: (mode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'sheet') => void;
   agentProfiles?: AgentProfile[];
   selectedAgentProfileId?: number | null;
   onAgentProfileChange?: (profile: AgentProfile | null) => void;
@@ -261,7 +261,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             selectedId={selectedAgentProfileId ?? null}
             onSelect={(agent) => {
               onAgentProfileChange?.(agent);
-              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website' | 'email' | 'bigdata');
+              setChatMode(agent.response_mode as 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'sheet');
             }}
             variant="compact"
             disabled={isModeLocked}
