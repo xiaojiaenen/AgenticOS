@@ -70,6 +70,7 @@ export const ChatArtifactArea = React.memo(({
           onClose={onClose}
           borderColor={borderColor}
           sessionId={sessionId ?? undefined}
+          onSwitchVersion={onSwitchArtifact}
         />
       </React.Suspense>
     ) : artifact?.language === 'email' ? (

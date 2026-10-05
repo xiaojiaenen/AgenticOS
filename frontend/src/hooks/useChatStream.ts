@@ -442,6 +442,9 @@ export function useChatStream({
               snapshot: wsArtifact.snapshot,
               sheetNames: wsArtifact.sheet_names ?? [],
               sheetCount: wsArtifact.sheet_count ?? 0,
+              // 必须带上 version：版本条依赖 currentReference 变化来重新拉列表，
+              // 缺了它同一会话里出新版本也不会刷新
+              version: wsArtifact.version,
             });
           },
           onWebsiteArtifact: (wsArtifact) => {
@@ -688,6 +691,7 @@ export function useChatStream({
             snapshot: sheetArtifact.snapshot,
             sheetNames: sheetArtifact.sheet_names ?? [],
             sheetCount: sheetArtifact.sheet_count ?? 0,
+            version: sheetArtifact.version,
           });
         else if (pptArtifact)
           setArtifact({

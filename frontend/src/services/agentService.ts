@@ -630,10 +630,12 @@ export async function polishPrompt(
   );
 }
 
+export type ArtifactKind = 'ppt' | 'website' | 'sheet';
+
 export type ArtifactVersion = {
-  kind: 'ppt' | 'website';
+  kind: ArtifactKind;
   version: number;
-  /** ppt 为 artifact_id，website 为 "v{n}" */
+  /** ppt 为 artifact_id；website / sheet 为版本号 "v{n}" */
   reference: string;
   title?: string;
   created_at?: string | null;
@@ -652,7 +654,7 @@ export async function listSessionVersions(sessionId: string): Promise<{ versions
 /** 加载指定版本的产物，用于"回看历史版本" */
 export async function loadArtifactVersion(
   sessionId: string,
-  kind: 'ppt' | 'website',
+  kind: ArtifactKind,
   reference: string,
 ): Promise<{
   ppt_artifact?: { artifact_id: string; title: string; slide_count: number; html: string; theme?: string };
@@ -663,6 +665,7 @@ export async function loadArtifactVersion(
     stack?: string;
     preview_html: string;
   };
+  sheet_artifact?: AgentSheetArtifact;
 }> {
   return apiFetch(
     `${AGENT_ENDPOINT}/sessions/${sessionId}/versions/${kind}/${encodeURIComponent(reference)}`,

@@ -828,7 +828,9 @@ class StreamOrchestrator:
                                         version = await snapshot_sheet_version(
                                             session.session_id,
                                             artifact.get("title") or "",
-                                            artifact.get("artifactId") or "",
+                                            # 产物字段是 snake_case 的 artifact_id
+                                            # （与 website 产物保持一致）
+                                            artifact.get("artifact_id") or "",
                                         )
                                         if version:
                                             artifact["version"] = version

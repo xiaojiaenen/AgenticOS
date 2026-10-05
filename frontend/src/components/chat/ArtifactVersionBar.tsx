@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../sha
 import {
   listSessionVersions,
   loadArtifactVersion,
+  type ArtifactKind,
   type ArtifactVersion,
 } from '../../services/agentService';
 
@@ -21,8 +22,8 @@ interface ArtifactVersionBarProps {
   /** 当前打开的产物引用：PPT 为 artifactId，网站为 v{n} */
   currentReference?: string;
   /** 当前产物类型；undefined 表示当前没有产物 */
-  kind?: 'ppt' | 'website';
-  onSelect: (payload: { kind: 'ppt' | 'website'; artifact: Record<string, unknown> }) => void;
+  kind?: ArtifactKind;
+  onSelect: (payload: { kind: ArtifactKind; artifact: Record<string, unknown> }) => void;
   className?: string;
 }
 
@@ -36,6 +37,15 @@ function formatTime(value?: string | null): string {
     ? `今天 ${date.toTimeString().slice(0, 5)}`
     : `${date.getMonth() + 1}/${date.getDate()} ${date.toTimeString().slice(0, 5)}`;
 }
+
+const KIND_BADGE: Record<
+  ArtifactKind,
+  { label: string; className: string }
+> = {
+  ppt: { label: 'PPT', className: 'bg-amber-500/15 text-amber-600 dark:text-amber-300' },
+  website: { label: '网站', className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300' },
+  sheet: { label: '表格', className: 'bg-sky-500/15 text-sky-600 dark:text-sky-300' },
+};
 
 export const ArtifactVersionBar: React.FC<ArtifactVersionBarProps> = ({
   sessionId,
@@ -62,7 +72,10 @@ export const ArtifactVersionBar: React.FC<ArtifactVersionBarProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+    // currentReference 也要进依赖：同一会话里再生成一版时 sessionId 不变，
+    // 但版本列表多了一项。只依赖 sessionId 会让版本条停留在首次挂载时的快照，
+    // 新版本永远不出现（表格面板常驻不卸载，所以必然踩到）。
+  }, [sessionId, currentReference]);
 
   // 切换会话时收起面板，避免显示上一个会话的版本
   React.useEffect(() => {
@@ -89,6 +102,8 @@ export const ArtifactVersionBar: React.FC<ArtifactVersionBarProps> = ({
         onSelect({ kind: 'ppt', artifact: payload.ppt_artifact as Record<string, unknown> });
       } else if (version.kind === 'website' && payload.website_artifact) {
         onSelect({ kind: 'website', artifact: payload.website_artifact as Record<string, unknown> });
+      } else if (version.kind === 'sheet' && payload.sheet_artifact) {
+        onSelect({ kind: 'sheet', artifact: payload.sheet_artifact as Record<string, unknown> });
       }
       setIsOpen(false);
     } catch {
@@ -158,12 +173,10 @@ export const ArtifactVersionBar: React.FC<ArtifactVersionBarProps> = ({
                     <span
                       className={cn(
                         'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase',
-                        version.kind === 'ppt'
-                          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
-                          : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
+                        KIND_BADGE[version.kind].className,
                       )}
                     >
-                      {version.kind === 'ppt' ? 'PPT' : '网站'}
+                      {KIND_BADGE[version.kind].label}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-xs font-medium text-[var(--foreground)]">
