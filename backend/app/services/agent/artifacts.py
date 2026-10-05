@@ -1,7 +1,7 @@
-"""ArtifactFactory：PPT / website 工件创建与 PPTX 导出。
+"""ArtifactFactory：PPT / website / spreadsheet 工件创建与 PPTX 导出。
 
 从原 ``app/services/agent_service.py`` 整段搬移（TECH-DEBT-2026-09 拆分）：
-- _create_ppt_artifact / _create_website_artifact
+- _create_ppt_artifact / _create_website_artifact / _create_sheet_artifact
 - _inline_dist_assets / _get_edit_hint / _infer_project_slug_from_tools
 - _export_pptx_sync
 
@@ -14,7 +14,13 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from app.core.data_path import DATA_DIR, PPT_SESSIONS_DIR, WEBSITES_DIR, _parse_dir_name
+from app.core.data_path import (
+    DATA_DIR,
+    PPT_SESSIONS_DIR,
+    SHEETS_DIR,
+    WEBSITES_DIR,
+    _parse_dir_name,
+)
 
 _logger = logging.getLogger("agent")
 
@@ -165,6 +171,74 @@ class ArtifactFactory:
         except Exception:
             _logger.exception("website artifact creation failed: session=%s", session_id)
             return None
+
+    # ── spreadsheet 工件 ───────────────────────────────────────────────
+
+    async def _create_sheet_artifact(self, session_id: str) -> dict[str, Any] | None:
+        """Create a spreadsheet artifact from the newest workbook snapshot on disk.
+
+        与 website 同构：产物不是从模型输出里解析的，而是从 data/sheets 下
+        build_sheet 写出的快照读回来的，所以刷新页面能重建、也不会出现
+        "模型编了一个不存在的表格"。
+        """
+        try:
+
+            def _find_latest() -> Path | None:
+                if not SHEETS_DIR.exists():
+                    return None
+                best_ver = -1
+                best: Path | None = None
+                for child in SHEETS_DIR.iterdir():
+                    if not child.is_dir() or not (child / "workbook.json").is_file():
+                        continue
+                    parsed = _parse_dir_name(child.name)
+                    if parsed and str(parsed[1]) == session_id and parsed[2] > best_ver:
+                        best_ver = parsed[2]
+                        best = child
+                return best
+
+            directory = await asyncio.to_thread(_find_latest)
+            if directory is None:
+                return None
+            return await self.build_sheet_artifact(session_id, directory)
+        except Exception:
+            _logger.exception("sheet artifact creation failed: session=%s", session_id)
+            return None
+
+    async def build_sheet_artifact(
+        self, session_id: str, directory: Path
+    ) -> dict[str, Any] | None:
+        """从 data/sheets/{version_dir}/workbook.json 构建 spreadsheet 制品。"""
+        from app.services.sheet.service import read_snapshot
+
+        snapshot = await asyncio.to_thread(read_snapshot, directory)
+        if not snapshot:
+            _logger.info("sheet artifact skipped: unreadable snapshot at %s", directory)
+            return None
+
+        sheets = snapshot.get("sheets", {}) or {}
+        order = snapshot.get("sheetOrder", []) or []
+        sheet_names = [
+            sheets[sid].get("name", sid) for sid in order if sid in sheets
+        ]
+        # 字段命名与 website 产物保持一致（type + snake_case），由前端翻译成
+        # 前端的 Artifact 联合类型。
+        return {
+            "type": "spreadsheet",
+            "artifact_id": directory.name,
+            "session_id": session_id,
+            "title": snapshot.get("name") or "未命名表格",
+            "snapshot": snapshot,
+            "sheet_names": sheet_names,
+            "sheet_count": len(order),
+        }
+
+    async def get_latest_sheet_artifact(self, session_id: str) -> dict[str, Any] | None:
+        """回源重建会话最新的表格制品（刷新页面后恢复预览面板用）。
+
+        data/sheets 下目录形如 ``u{user}_s{session}_v{version}``，取版本号最大的一个。
+        """
+        return await self._create_sheet_artifact(session_id)
 
     async def get_latest_website_artifact(self, session_id: str) -> dict[str, Any] | None:
         """回源重建会话最新的网站制品（刷新页面后恢复预览面板用）。

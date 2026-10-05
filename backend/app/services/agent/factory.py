@@ -789,6 +789,10 @@ class AgentFactory:
             from app.tools.website_file_tools import register_website_file_tools as _register_website_file_tools
             _register_website_file_tools(registry)
 
+        if profile.response_mode == "sheet":
+            from app.tools.sheet_tools import register_sheet_tools as _register_sheet_tools
+            _register_sheet_tools(registry)
+
         # MCP 工具集成：如果 MCP 服务已连接，将 MCP 工具添加到注册表
         try:
             from app.services.mcp_service import get_mcp_service

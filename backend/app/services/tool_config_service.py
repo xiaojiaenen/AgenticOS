@@ -26,6 +26,11 @@ AGENT_MODES = {
         "label": "邮箱模式",
         "description": "邮件管理助手，支持读取、搜索、发送邮件，统计邮件数量。",
     },
+    "sheet": {
+        "label": "表格模式",
+        "description": "用表格引擎生成可编辑的电子表格，支持公式计算与多工作表，"
+                       "产出可在对话中直接编辑的表格产物。",
+    },
     "bigdata": {
         "label": "大数据模式",
         "description": "大数据平台运维与开发助手。支持 Dinky/Flink/Spark/Doris/ClickHouse 计算引擎、"
@@ -55,6 +60,9 @@ _MODE_TOOL_REGISTRARS: dict[str, list[tuple[str, str]]] = {
     "website": [
         ("app.tools.website_tools", "register_website_tools"),
         ("app.tools.website_file_tools", "register_website_file_tools"),
+    ],
+    "sheet": [
+        ("app.tools.sheet_tools", "register_sheet_tools"),
     ],
 }
 

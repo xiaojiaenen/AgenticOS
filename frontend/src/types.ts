@@ -72,6 +72,14 @@ export type Message = {
     stack?: string;
     html?: string;
   };
+  /** snapshot 体量可能上百 KB，不进 localStorage 缓存，刷新后靠 getSessionArtifacts 回源 */
+  sheetArtifact?: {
+    status: 'generating' | 'ready';
+    artifactId?: string;
+    title?: string;
+    sheetNames?: string[];
+    sheetCount?: number;
+  };
 };
 
 export type Session = {
@@ -80,7 +88,7 @@ export type Session = {
   messages: Message[];
   createdAt?: number;
   updatedAt: number;
-  mode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata';
+  mode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'sheet';
   agentProfileId?: number | null;
   agentName?: string;
   summary?: string | null;
@@ -144,4 +152,8 @@ export type Artifact =
   | {language: 'website'; artifactId: string; html: string; title: string;
       projectSlug: string; stack?: string; fileCount?: number; sessionId?: string; version?: number}
   | {language: 'email'; approvalId: string; to: string; subject: string; body: string;
-      cc?: string; isHtml?: boolean};
+      cc?: string; isHtml?: boolean}
+  /** spreadsheet 的 snapshot 是 Univer 的 IWorkbookData 原样 JSON */
+  | {language: 'spreadsheet'; artifactId: string; title: string;
+      snapshot: Record<string, unknown>; sheetNames: string[]; sheetCount: number;
+      sessionId?: string; version?: number};

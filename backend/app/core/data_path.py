@@ -55,6 +55,7 @@ PPT_OUTPUT_DIR: Path = DATA_DIR / "ppt-output"
 VIDEO_PROJECTS_DIR: Path = DATA_DIR / "video-projects"
 DESIGN_THEMES_DIR: Path = DATA_DIR / "design-themes"
 NGINX_SERVE_DIR: Path = DATA_DIR / "nginx-serve"
+SHEETS_DIR: Path = DATA_DIR / "sheets"
 
 # ---------------------------------------------------------------------------
 # Context vars — set by agent_service before tool execution

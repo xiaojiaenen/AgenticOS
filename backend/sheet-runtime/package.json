@@ -1,0 +1,15 @@
+{
+  "name": "agenticos-sheet-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Univer 无头表格运行时 — 由 FastAPI 通过 stdio 驱动，供 sheet 模式的 agent 工具使用",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@univerjs/preset-sheets-node-core": "1.0.3",
+    "@univerjs/presets": "1.0.3",
+    "rxjs": "7.8.1"
+  }
+}

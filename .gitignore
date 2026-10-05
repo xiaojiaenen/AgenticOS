@@ -79,3 +79,6 @@ data/
 !data/.gitkeep
 backend/nul
 deploy/export/
+
+# 表格运行时（Univer）依赖
+backend/sheet-runtime/node_modules/

@@ -25,13 +25,13 @@ class AgentStreamRequest(BaseModel):
     )
     response_mode: str = Field(
         default="general",
-        pattern="^(general|ppt|website|email|bigdata)$",
+        pattern="^(general|ppt|website|email|bigdata|sheet)$",
         description="Expected response mode, used as a backward-compatible fallback.",
     )
     # Accept common alias `mode` from clients/scripts so `"mode": "ppt"` works.
     mode: str | None = Field(
         default=None,
-        pattern="^(general|ppt|website|email|bigdata)$",
+        pattern="^(general|ppt|website|email|bigdata|sheet)$",
         description="Alias of response_mode.",
     )
     max_steps: int | None = Field(default=None, ge=1, le=50, description="Max runtime steps for one turn.")
