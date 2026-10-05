@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import type { Artifact } from '../../types';
 import { saveSheetSnapshot } from '../../services/agentService';
 import { getUnsupportedReason, MIN_BROWSER_HINT } from '../../lib/univerSupport';
-import { useTheme } from '../../hooks/useTheme';
+import { useIsDark } from '../../hooks/useIsDark';
 import { SheetEditor, type SheetEditorHandle } from './SheetEditor';
 import { SheetSnapshotTable } from './SheetSnapshotTable';
 
@@ -34,12 +34,8 @@ export const SpreadsheetArtifactPanel: React.FC<SpreadsheetArtifactPanelProps> =
   const [saving, setSaving] = React.useState(false);
   const editorRef = React.useRef<SheetEditorHandle>(null);
   const unsupported = React.useMemo(() => getUnsupportedReason(), []);
-  const { theme } = useTheme();
-  // Univer 自成一套 UI 命名空间，必须显式告知明暗；system 模式下以 html.dark 为准
-  const isDark =
-    theme === 'system'
-      ? document.documentElement.classList.contains('dark')
-      : theme === 'dark';
+  // Univer 自成一套 UI 命名空间，必须显式告知明暗，且要跟随应用主题实时切换
+  const isDark = useIsDark();
 
   const handleSave = async () => {
     if (!sessionId) {

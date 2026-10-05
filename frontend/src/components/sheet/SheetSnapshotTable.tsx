@@ -10,7 +10,12 @@ import { cn } from '../../lib/utils';
 
 type Snapshot = Record<string, unknown>;
 
-type Sheet = { id: string; name: string; rows: Record<string, Record<string, Cell>> };
+/**
+ * Univer 的 IWorkbookData 里，单元格是三层索引：
+ * sheets[sheetId].cellData[行号字符串][列号字符串] = { v, t, f }
+ * 曾经误写成 sheet.rows，导致降级视图永远渲染出一张空表。
+ */
+type Sheet = { id: string; name: string; cellData: Record<string, Record<string, Cell>> };
 
 type Cell = { v?: unknown; f?: string };
 
@@ -98,7 +103,8 @@ export const SheetSnapshotTable: React.FC<{
               </tr>
             </thead>
             <tbody>
-              {Object.entries(sheet.rows ?? {})
+              {Object.entries(sheet.cellData ?? {})
+                .sort((a, b) => Number(a[0]) - Number(b[0]))
                 .slice(0, 200)
                 .map(([rowIndex, cells]) => (
                   <tr key={rowIndex}>
