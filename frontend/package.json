@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit && eslint src",
     "test": "vitest run",
     "build:ppt-css": "npx @tailwindcss/cli -i ppt_tailwind_input.css -o ../backend/app/ppt_tailwind_compiled.css --minify",
-    "verify:css": "node scripts/verify-css.mjs"
+    "verify:css": "node scripts/verify-css.mjs",
+    "test:e2e": "e2e run"
   },
   "dependencies": {
     "@halobiron/dom-to-pptx": "^1.2.4",
@@ -49,6 +50,8 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.62",
+    "@e2e-dev/web": "^0.12.0",
     "@eslint/js": "^9.37.0",
     "@tailwindcss/cli": "^4.3.0",
     "@tailwindcss/vite": "^4.1.14",
@@ -57,6 +60,8 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "@vitejs/plugin-legacy": "^7.2.1",
     "@vitejs/plugin-react": "^5.0.4",
+    "ai": "^7.0.0",
+    "e2e": "^0.17.0",
     "eslint": "^9.37.0",
     "eslint-plugin-react-hooks": "^6.1.0",
     "jsdom": "^26.1.0",
