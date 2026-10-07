@@ -21,8 +21,10 @@ from app.services.agent_profile_service import (
 )
 from app.services.tool_config_service import AGENT_MODES
 
-#: 后端必须认识的全部模式
-EXPECTED_MODES = {"general", "ppt", "website", "email", "bigdata", "sheet"}
+#: 后端必须认识的全部模式。
+#: office 是统一的办公智能体（Excel + Word）；sheet 已并入其中，
+#: 专业 PPT 由独立的 ppt 模式负责（SVG→PPTX 自研管线，非 Univer）。
+EXPECTED_MODES = {"general", "ppt", "website", "email", "bigdata", "office"}
 
 PATTERN_FILES = [
     "app/schemas/agent.py",
@@ -73,33 +75,50 @@ def test_builtin_profiles_use_known_modes():
         )
 
 
-def test_sheet_mode_registers_its_tools():
-    """表格模式必须真的挂上表格工具，否则模型会对着空气回答。"""
+def test_office_mode_registers_both_toolsets():
+    """办公模式必须同时挂上表格与文档工具，否则其中一个能力是空气。"""
     from app.services.tool_config_service import (
         _MODE_TOOL_REGISTRARS,
         DEFAULT_MODE_TOOLS,
     )
 
-    assert "sheet" in _MODE_TOOL_REGISTRARS
-    assert _MODE_TOOL_REGISTRARS["sheet"] == [
-        ("app.tools.sheet_tools", "register_sheet_tools")
+    assert _MODE_TOOL_REGISTRARS["office"] == [
+        ("app.tools.sheet_tools", "register_sheet_tools"),
+        ("app.tools.doc_tools", "register_doc_tools"),
     ]
     enabled = {
         name
-        for name, config in DEFAULT_MODE_TOOLS["sheet"].items()
+        for name, config in DEFAULT_MODE_TOOLS["office"].items()
         if isinstance(config, dict) and config.get("enabled")
     }
-    for required in ("create_workbook", "set_range", "set_formula", "build_sheet"):
-        assert required in enabled, f"表格模式缺少必需工具 {required}"
+    for required in (
+        "create_workbook", "set_range", "set_formula", "build_sheet",
+        "create_document", "build_document",
+    ):
+        assert required in enabled, f"办公模式缺少必需工具 {required}"
 
 
-def test_factory_registers_sheet_tools_for_sheet_mode():
-    """factory 的注册分支和 _MODE_TOOL_REGISTRARS 都要有 sheet。"""
+def test_office_prompt_rejects_ppt_requests():
+    """办公智能体不得越界做 PPT —— 那是独立 PPT 智能体的职责。
+
+    开源版 Univer 没有 Slides preset（npm 404），也没有导出能力；
+    把 PPT 混进办公智能体只会产出拿不走的东西。提示词必须把 PPT 请求
+    引导去专业 PPT 智能体。
+    """
+    from app.services.agent_profile_service import MODE_DEFAULT_PROMPTS
+
+    prompt = MODE_DEFAULT_PROMPTS["office"]
+    assert "PPT" in prompt and "PPT 设计师" in prompt
+
+
+def test_factory_registers_office_toolsets():
+    """factory 的注册分支必须同时挂表格与文档 registrar。"""
     from pathlib import Path
 
     factory = Path("app/services/agent/factory.py").read_text(encoding="utf-8")
-    assert 'profile.response_mode == "sheet"' in factory
+    assert 'profile.response_mode == "office"' in factory
     assert "register_sheet_tools" in factory
+    assert "register_doc_tools" in factory
 
 
 def test_sheet_artifact_keys_match_orchestrator_reader():

@@ -16,6 +16,7 @@ from typing import Any
 
 from app.core.data_path import (
     DATA_DIR,
+    DOCUMENTS_DIR,
     PPT_SESSIONS_DIR,
     SHEETS_DIR,
     WEBSITES_DIR,
@@ -209,7 +210,7 @@ class ArtifactFactory:
         self, session_id: str, directory: Path
     ) -> dict[str, Any] | None:
         """从 data/sheets/{version_dir}/workbook.json 构建 spreadsheet 制品。"""
-        from app.services.sheet.service import read_snapshot
+        from app.services.office.service import read_snapshot
 
         snapshot = await asyncio.to_thread(read_snapshot, directory)
         if not snapshot:
@@ -239,6 +240,65 @@ class ArtifactFactory:
         data/sheets 下目录形如 ``u{user}_s{session}_v{version}``，取版本号最大的一个。
         """
         return await self._create_sheet_artifact(session_id)
+
+    # ── document 工件 ─────────────────────────────────────────────────
+
+    async def _create_document_artifact(self, session_id: str) -> dict[str, Any] | None:
+        """Create a document artifact from the newest IDocumentData snapshot.
+
+        与 spreadsheet 同构：产物从 data/documents 下 build_document 写出的
+        快照读回，刷新可重建，不依赖模型输出。
+        """
+        try:
+
+            def _find_latest() -> Path | None:
+                if not DOCUMENTS_DIR.exists():
+                    return None
+                best_ver = -1
+                best: Path | None = None
+                for child in DOCUMENTS_DIR.iterdir():
+                    if not child.is_dir() or not (child / "document.json").is_file():
+                        continue
+                    parsed = _parse_dir_name(child.name)
+                    if parsed and str(parsed[1]) == session_id and parsed[2] > best_ver:
+                        best_ver = parsed[2]
+                        best = child
+                return best
+
+            directory = await asyncio.to_thread(_find_latest)
+            if directory is None:
+                return None
+            return await self.build_document_artifact(session_id, directory)
+        except Exception:
+            _logger.exception("document artifact creation failed: session=%s", session_id)
+            return None
+
+    async def build_document_artifact(
+        self, session_id: str, directory: Path
+    ) -> dict[str, Any] | None:
+        """从 data/documents/{version_dir}/document.json 构建 document 制品。"""
+        from app.services.office.document_service import read_snapshot
+
+        snapshot = await asyncio.to_thread(read_snapshot, directory)
+        if not snapshot:
+            _logger.info("document artifact skipped: unreadable snapshot at %s", directory)
+            return None
+        body = snapshot.get("body") or {}
+        # 段落符 \r 与收尾的 \n 都不是正文字数
+        char_count = len((body.get("dataStream") or "").replace("\r", "").replace("\n", ""))
+        return {
+            # 字段命名与 website / spreadsheet 产物一致（type + snake_case）
+            "type": "document",
+            "artifact_id": directory.name,
+            "session_id": session_id,
+            "title": snapshot.get("title") or "未命名文档",
+            "snapshot": snapshot,
+            "char_count": char_count,
+        }
+
+    async def get_latest_document_artifact(self, session_id: str) -> dict[str, Any] | None:
+        """回源重建会话最新的文档制品（刷新页面后恢复预览面板用）。"""
+        return await self._create_document_artifact(session_id)
 
     async def get_latest_website_artifact(self, session_id: str) -> dict[str, Any] | None:
         """回源重建会话最新的网站制品（刷新页面后恢复预览面板用）。

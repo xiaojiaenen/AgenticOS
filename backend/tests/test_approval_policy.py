@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 
 import pytest
@@ -63,6 +64,76 @@ class TestIsReadOnly:
     def test_json_string_arguments_supported(self):
         args = json.loads(json.dumps({"action": "read_text_file"}))
         assert is_read_only_tool("file", args) is True
+
+    @pytest.mark.parametrize(
+        "tool",
+        [
+            # 这些是**独立注册**的工具名（`@registry.tool(name=...)`），
+            # 不是 `file` + action 的形态。此前只按 action 判定，导致它们
+            # 全部落到「需审批」分支——一个中等任务要点 45 次批准。
+            "read_text_file",
+            "list_files",
+            "list_knowledge_bases",
+            "search_knowledge_base",
+            "read_wiki_page",
+            "search_memory",
+            "list_memory_scenarios",
+            "get_user_persona",
+        ],
+    )
+    def test_independently_registered_read_tools(self, tool):
+        assert is_read_only_tool(tool) is True
+
+    @pytest.mark.parametrize(
+        "tool",
+        [
+            "write_text_file",
+            "append_text_file",
+            "delete_file",
+            "replace_text_in_file",
+            "save_memory",
+        ],
+    )
+    def test_independently_registered_write_tools_still_need_approval(self, tool):
+        """补白名单不能顺手把写操作也放行——安全边界只读侧才放松。"""
+        assert is_read_only_tool(tool) is False
+
+    def test_read_only_set_contains_no_write_tools(self):
+        """白名单自身不得混入写/删/发类操作。"""
+        from app.services.approval_policy import READ_ONLY_TOOLS
+
+        for name in READ_ONLY_TOOLS:
+            assert not any(
+                token in name
+                for token in ("write", "delete", "replace", "append", "send", "commit")
+            ), f"{name} 是写操作，不该在只读白名单里"
+
+
+class TestDefaultApprovalModeIsAuto:
+    """默认档位必须是 auto。
+
+    此前整条链路（schema / profile 服务 / factory / 前端请求体）全部硬编码
+    ``ask``，导致上面那套 auto 机制形同虚设——只读工具照样逐次确认。
+    任何一端漏改都会让「点 45 次」的问题复发，所以在这里钉死。
+    """
+
+    def test_chat_request_defaults_to_auto(self):
+        from app.schemas.agent import AgentStreamRequest
+
+        assert AgentStreamRequest(message="hi").approval_mode == "auto"
+
+    def test_profile_service_defaults_to_auto(self):
+        from app.services.agent_profile_service import AgentProfileService
+
+        sig = inspect.signature(AgentProfileService.resolve_runtime_by_mode)
+        assert sig.parameters["approval_mode"].default == "auto"
+        assert sig.parameters["plan_mode"].default is False
+
+    def test_hitl_middleware_defaults_to_auto(self):
+        from app.services.agent.factory import LenientHitlMiddleware
+
+        sig = inspect.signature(LenientHitlMiddleware.__init__)
+        assert sig.parameters["approval_mode"].default == "auto"
 
 
 class TestPlanMode:

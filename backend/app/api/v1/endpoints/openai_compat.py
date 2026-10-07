@@ -138,7 +138,7 @@ async def run_local_completion(
         response_mode=response_mode if response_mode in {
             "general", "ppt", "website", "email", "bigdata",
         } else "general",
-        approval_mode=payload.approval_mode or "ask",
+        approval_mode=payload.approval_mode or "auto",
         plan_mode=payload.plan_mode,
     )
 

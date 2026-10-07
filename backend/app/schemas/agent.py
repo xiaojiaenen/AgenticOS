@@ -16,22 +16,24 @@ class AgentStreamRequest(BaseModel):
         description="计划模式：只允许只读工具，产出可执行计划后再执行",
     )
     approval_mode: str = Field(
-        default="ask",
+        default="auto",
         pattern="^(ask|auto|full)$",
         description=(
             "会话级审批模式：ask=逐次确认；auto=只读工具自动放行；"
-            "full=全部放行（仅管理员生效）"
+            "full=全部放行（仅管理员生效）。"
+            "默认 auto：只读操作（list_files/read_text_file 等）没有副作用，"
+            "逐次确认只会让长任务点到手酸；写文件、发邮件等仍会照常询问。"
         ),
     )
     response_mode: str = Field(
         default="general",
-        pattern="^(general|ppt|website|email|bigdata|sheet)$",
+        pattern="^(general|ppt|website|email|bigdata|office)$",
         description="Expected response mode, used as a backward-compatible fallback.",
     )
     # Accept common alias `mode` from clients/scripts so `"mode": "ppt"` works.
     mode: str | None = Field(
         default=None,
-        pattern="^(general|ppt|website|email|bigdata|sheet)$",
+        pattern="^(general|ppt|website|email|bigdata|office)$",
         description="Alias of response_mode.",
     )
     max_steps: int | None = Field(default=None, ge=1, le=50, description="Max runtime steps for one turn.")

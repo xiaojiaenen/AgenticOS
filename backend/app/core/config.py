@@ -17,7 +17,11 @@ class Settings(BaseSettings):
     openai_base_url: str | None = Field(default=None, validation_alias="OPENAI_BASE_URL")
     openai_model: str = Field(default="gpt-5.4", validation_alias="OPENAI_MODEL")
     agent_system_prompt: str = "你是 AgenticOS 的 AI 助手。"
-    agent_max_steps: int = 10
+    # 单轮对话允许的最大 LLM 调用步数（即 ReAct 循环上限）。
+    # 一轮里模型每输出一次 tool_calls 算一步。10 太紧：实测 82 个会话里有
+    # 3 轮正好卡在 10 步被截断，复杂任务（查资料 → 写文件 → 建表 → 校验）
+    # 经常需要 15~20 步。给到 30，让模型自己判断何时收尾。
+    agent_max_steps: int = Field(default=30, validation_alias="AGENT_MAX_STEPS")
     agent_max_tokens: int = 65536
     agent_parallel_tool_calls: bool = False
     llm_timeout: int = Field(default=300, validation_alias="LLM_TIMEOUT")

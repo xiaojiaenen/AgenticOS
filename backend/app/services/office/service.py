@@ -1,4 +1,4 @@
-"""表格工作簿的服务层：生命周期管理 + 快照落盘。
+"""表格工作簿的服务层（办公模式 Excel 部分）：生命周期管理 + 快照落盘。
 
 职责边界：
   runtime.py  — 进程与 IPC（只认 op/args，不认业务）
@@ -18,9 +18,9 @@ from pathlib import Path
 from typing import Any
 
 from app.core.data_path import SHEETS_DIR, next_version_dir
-from app.services.sheet.runtime import SheetRuntimeError, get_sheet_runtime
+from app.services.office.runtime import OfficeRuntimeError, get_office_runtime
 
-logger = logging.getLogger("agent.sheet")
+logger = logging.getLogger("agent.office.sheet")
 
 #: 运行时里同时保留的工作簿上限。超出按最后访问时间淘汰，防止长跑进程
 #: 因为 agent 反复建表而无限吃内存。
@@ -71,8 +71,8 @@ def _require_session(session_id: str) -> dict[str, Any]:
 
 async def _call(op: str, **args: Any) -> dict[str, Any]:
     try:
-        return await get_sheet_runtime().call(op, **args)
-    except SheetRuntimeError as exc:
+        return await get_office_runtime().call(op, **args)
+    except OfficeRuntimeError as exc:
         raise SheetServiceError(str(exc)) from exc
 
 

@@ -1,0 +1,60 @@
+"""办公能力（基于 Univer 无头运行时）：表格 + 文档。"""
+
+from app.services.office.runtime import (
+    OfficeRuntimeError,
+    get_office_runtime,
+    shutdown_office_runtime,
+)
+from app.services.office.service import (
+    SheetServiceError,
+    add_sheet,
+    build,
+    create_workbook,
+    describe,
+    forget_session,
+    latest_sheet_dir,
+    list_sheet_dirs,
+    read_range,
+    read_snapshot,
+    rename_sheet,
+    set_formula,
+    set_layout,
+    set_range,
+)
+from app.services.office.document_service import (
+    DocumentServiceError,
+    build_document,
+    create_document,
+    forget_session as forget_document_session,
+    list_document_dirs,
+    read_snapshot as read_document_snapshot,
+    write_snapshot as write_document_snapshot,
+)
+
+__all__ = [
+    "OfficeRuntimeError",
+    "get_office_runtime",
+    "shutdown_office_runtime",
+    "SheetServiceError",
+    "create_workbook",
+    "set_range",
+    "set_formula",
+    "add_sheet",
+    "rename_sheet",
+    "read_range",
+    "set_layout",
+    "describe",
+    "build",
+    "forget_session",
+    "list_sheet_dirs",
+    "latest_sheet_dir",
+    "read_snapshot",
+    "DocumentServiceError",
+    "create_document",
+    "read_document",
+    "build_document",
+    "forget_document_session",
+    "list_document_dirs",
+    "read_document_snapshot",
+    "write_document_snapshot",
+]

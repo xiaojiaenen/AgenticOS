@@ -314,7 +314,7 @@ class LenientHitlMiddleware(HitlMiddleware):
     - ``full``：``auto_approve_tools`` 含 ``*`` 哨兵时全部放行（仅管理员可用）
     """
 
-    def __init__(self, *args, approval_mode: str = "ask", **kwargs) -> None:
+    def __init__(self, *args, approval_mode: str = "auto", **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.approval_mode = normalize_approval_mode(approval_mode)
 
@@ -789,9 +789,11 @@ class AgentFactory:
             from app.tools.website_file_tools import register_website_file_tools as _register_website_file_tools
             _register_website_file_tools(registry)
 
-        if profile.response_mode == "sheet":
+        if profile.response_mode == "office":
             from app.tools.sheet_tools import register_sheet_tools as _register_sheet_tools
             _register_sheet_tools(registry)
+            from app.tools.doc_tools import register_doc_tools as _register_doc_tools
+            _register_doc_tools(registry)
 
         # MCP 工具集成：如果 MCP 服务已连接，将 MCP 工具添加到注册表
         try:

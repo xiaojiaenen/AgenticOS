@@ -152,6 +152,11 @@ async def list_session_versions(
     except Exception:
         logger.exception("list sheet versions failed: session=%s", session_id)
 
+    try:
+        versions.extend(await asyncio.to_thread(list_document_versions, session_id))
+    except Exception:
+        logger.exception("list document versions failed: session=%s", session_id)
+
     # 混合排序：优先按时间倒序；缺时间的排在后面
     versions.sort(
         key=lambda v: (v.get("created_at") is not None, v.get("created_at") or ""),
@@ -266,9 +271,9 @@ def load_sheet_version(session_id: str, version: int) -> dict[str, Any] | None:
         if not directory:
             return None
         from app.core.data_path import SHEETS_DIR
-        from app.services.sheet.service import read_snapshot
+        from app.services.office.service import read_snapshot as read_sheet_snapshot
 
-        snapshot = read_snapshot(SHEETS_DIR / directory)
+        snapshot = read_sheet_snapshot(SHEETS_DIR / directory)
         if not snapshot:
             return None
         sheets = snapshot.get("sheets", {}) or {}
@@ -281,6 +286,110 @@ def load_sheet_version(session_id: str, version: int) -> dict[str, Any] | None:
             "snapshot": snapshot,
             "sheet_names": [sheets[s].get("name", s) for s in order if s in sheets],
             "sheet_count": len(order),
+            "version": version,
+        }
+    return None
+
+
+# ---------------------------------------------------------------------------
+# 文档版本
+#
+# 与表格同构：快照本体已在 data/documents/{版本目录}/document.json，
+# 这里只记轻量索引（版本号 → 目录名 + 标题）。
+# ---------------------------------------------------------------------------
+
+DOCUMENT_VERSION_INDEX_DIR = DATA_DIR / "document-versions"
+_DOCUMENT_INDEX_RE = re.compile(r"^u(?P<session>.+)_v(?P<version>\d+)\.json$")
+
+
+def _ensure_document_index_dir() -> Path:
+    DOCUMENT_VERSION_INDEX_DIR.mkdir(parents=True, exist_ok=True)
+    return DOCUMENT_VERSION_INDEX_DIR
+
+
+def _document_index_files(session_id: str) -> list[tuple[int, Path]]:
+    if not DOCUMENT_VERSION_INDEX_DIR.exists():
+        return []
+    found: list[tuple[int, Path]] = []
+    for child in DOCUMENT_VERSION_INDEX_DIR.iterdir():
+        m = _DOCUMENT_INDEX_RE.match(child.name)
+        if m and m.group("session") == session_id:
+            found.append((int(m.group("version")), child))
+    return sorted(found, key=lambda item: item[0], reverse=True)
+
+
+async def snapshot_document_version(
+    session_id: str, title: str = "", reference: str = ""
+) -> int | None:
+    if not session_id or not reference:
+        return None
+
+    def _write() -> int | None:
+        try:
+            existing = _document_index_files(session_id)
+            version = (existing[0][0] + 1) if existing else 1
+            path = _ensure_document_index_dir() / f"u{session_id}_v{version}.json"
+            path.write_text(
+                json.dumps(
+                    {"title": title or "文档", "directory": reference},
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            return version
+        except OSError as exc:
+            logger.warning("document version snapshot failed: session=%s error=%s", session_id, exc)
+            return None
+
+    return await asyncio.to_thread(_write)
+
+
+def list_document_versions(session_id: str) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for version, path in _document_index_files(session_id):
+        try:
+            meta = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            meta = {}
+        result.append({
+            "kind": "document",
+            "version": version,
+            "reference": meta.get("directory", ""),
+            "title": meta.get("title") or f"文档 v{version}",
+            "created_at": isoformat_app_timezone(datetime.fromtimestamp(path.stat().st_mtime)),
+        })
+    return result
+
+
+def load_document_version(session_id: str, version: int) -> dict[str, Any] | None:
+    """按版本号读回文档快照，包装成前端可直接使用的 document artifact。"""
+    for candidate_version, path in _document_index_files(session_id):
+        if candidate_version != version:
+            continue
+        try:
+            meta = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        directory = meta.get("directory")
+        if not directory:
+            return None
+        from app.core.data_path import DOCUMENTS_DIR
+        from app.services.office.document_service import read_snapshot
+
+        snapshot = read_snapshot(DOCUMENTS_DIR / directory)
+        if not snapshot:
+            return None
+        body = snapshot.get("body") or {}
+        return {
+            "type": "document",
+            "artifact_id": directory,
+            "session_id": session_id,
+            "title": snapshot.get("title") or meta.get("title") or "文档",
+            "snapshot": snapshot,
+            # 段落符 \r 与收尾的 \n 都不是正文字数
+            "char_count": len(
+                (body.get("dataStream") or "").replace("\r", "").replace("\n", "")
+            ),
             "version": version,
         }
     return None

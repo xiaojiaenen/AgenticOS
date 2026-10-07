@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Any
 
 from sqlalchemy import text
@@ -19,6 +20,29 @@ from sqlalchemy import text
 from app.db.session import create_db_session, engine
 
 _logger = logging.getLogger("memory_bm25")
+
+# FTS5 查询里必须用双引号包住每个词，否则裸词中的标点会被当成语法符号。
+# 用户输入里出现路径（docs/a.md）、URL、引号都很常见，一个 `/` 就能让整条查询
+# 报 "fts5: syntax error" —— 表现为这条用户消息的检索静默失败。
+_FTS_UNSAFE = re.compile(r'[^\w\u4e00-\u9fff]+', re.UNICODE)
+
+
+def build_fts5_query(query: str) -> str:
+    """把用户输入转成 FTS5 安全的 OR 查询串。
+
+    每个词用双引号包裹并去掉标点；全是标点的输入返回空串（调用方应直接跳过
+    检索，而不是把非法查询丢给 SQLite）。
+    """
+    terms: list[str] = []
+    for raw in (query or "").split():
+        cleaned = _FTS_UNSAFE.sub(" ", raw).strip()
+        # 一个词被清干净后可能碎成多段（如 "docs/a.md" -> "docs a md"）
+        for part in cleaned.split():
+            if part:
+                terms.append(f'"{part}"')
+        if len(terms) >= 32:
+            break
+    return " OR ".join(terms)
 
 
 def _detect_backend() -> str:
@@ -101,7 +125,9 @@ class SQLiteFTSBackend(MemoryBM25Backend):
             return []
 
         # FTS5 查询：使用 OR 提高召回
-        fts_query = " OR ".join(query.split())
+        fts_query = build_fts5_query(query)
+        if not fts_query:
+            return []
         layer_params = {f"layer_{i}": layer for i, layer in enumerate(layers)}
         in_clause = ", ".join(f":layer_{i}" for i in range(len(layers)))
 
