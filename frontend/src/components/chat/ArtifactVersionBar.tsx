@@ -45,6 +45,7 @@ const KIND_BADGE: Record<
   ppt: { label: 'PPT', className: 'bg-amber-500/15 text-amber-600 dark:text-amber-300' },
   website: { label: '网站', className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300' },
   sheet: { label: '表格', className: 'bg-sky-500/15 text-sky-600 dark:text-sky-300' },
+  document: { label: '文档', className: 'bg-violet-500/15 text-violet-600 dark:text-violet-300' },
 };
 
 export const ArtifactVersionBar: React.FC<ArtifactVersionBarProps> = ({
@@ -104,6 +105,8 @@ export const ArtifactVersionBar: React.FC<ArtifactVersionBarProps> = ({
         onSelect({ kind: 'website', artifact: payload.website_artifact as Record<string, unknown> });
       } else if (version.kind === 'sheet' && payload.sheet_artifact) {
         onSelect({ kind: 'sheet', artifact: payload.sheet_artifact as Record<string, unknown> });
+      } else if (version.kind === 'document' && payload.document_artifact) {
+        onSelect({ kind: 'document', artifact: payload.document_artifact as Record<string, unknown> });
       }
       setIsOpen(false);
     } catch {

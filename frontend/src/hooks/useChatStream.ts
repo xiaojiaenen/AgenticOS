@@ -10,6 +10,7 @@ import {
   AgentPptArtifact,
   AgentWebsiteArtifact,
   AgentSheetArtifact,
+  AgentDocumentArtifact,
   AgentRunStatus,
   UserInputRequest,
   ApiApprovalRequest,
@@ -49,7 +50,7 @@ interface UseChatStreamDeps {
   sessions: Session[];
   currentSessionId: string | null;
   currentSession: Session | null;
-  chatMode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'sheet';
+  chatMode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
   /** 会话级审批模式 */
   approvalMode: 'ask' | 'auto' | 'full';
   /** 计划模式 */
@@ -293,6 +294,7 @@ export function useChatStream({
       let receivedPptArtifact: AgentPptArtifact | undefined;
       let receivedWebsiteArtifact: AgentWebsiteArtifact | undefined;
       let receivedSheetArtifact: AgentSheetArtifact | undefined;
+      let receivedDocumentArtifact: AgentDocumentArtifact | undefined;
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
@@ -431,6 +433,19 @@ export function useChatStream({
                   : session,
               ),
             );
+          },
+          onDocumentArtifact: (docArtifact) => {
+            console.log('[probe] onDocumentArtifact', docArtifact.type, docArtifact.title);
+            if (docArtifact.session_id && docArtifact.session_id !== targetId) return;
+            receivedDocumentArtifact = docArtifact;
+            setArtifact({
+              language: 'document',
+              artifactId: docArtifact.artifact_id,
+              title: docArtifact.title,
+              snapshot: docArtifact.snapshot,
+              charCount: docArtifact.char_count ?? 0,
+              version: docArtifact.version,
+            });
           },
           onSheetArtifact: (wsArtifact) => {
             if (wsArtifact.session_id && wsArtifact.session_id !== targetId) return;
@@ -633,6 +648,7 @@ export function useChatStream({
         const pptArtifact = response.pptArtifact || receivedPptArtifact;
         const websiteArtifact = response.websiteArtifact || receivedWebsiteArtifact;
         const sheetArtifact = response.sheetArtifact || receivedSheetArtifact;
+        const documentArtifact = response.documentArtifact || receivedDocumentArtifact;
 
         setSessions((prev) =>
           prev.map((session) =>
@@ -683,7 +699,16 @@ export function useChatStream({
 
         const htmlMatch = /```html\n([\s\S]*?)\n```/.exec(response.text);
         const svgMatch = /```svg\n([\s\S]*?)\n```/.exec(response.text);
-        if (sheetArtifact)
+        if (documentArtifact)
+          setArtifact({
+            language: 'document',
+            artifactId: documentArtifact.artifact_id,
+            title: documentArtifact.title,
+            snapshot: documentArtifact.snapshot,
+            charCount: documentArtifact.char_count ?? 0,
+            version: documentArtifact.version,
+          });
+        else if (sheetArtifact)
           setArtifact({
             language: 'spreadsheet',
             artifactId: sheetArtifact.artifact_id,

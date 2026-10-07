@@ -291,26 +291,44 @@ export const Chat = () => {
       void getSessionArtifacts(currentSessionId)
         .then((response) => {
           if (cancelled) return;
-          const latest = response.sheet_artifact;
-          if (!latest) {
-            setArtifact(null);
-            return;
+          const sheetLatest = response.sheet_artifact;
+          const docLatest = response.document_artifact;
+          if (sheetLatest) {
+            setArtifact({
+              language: 'spreadsheet',
+              artifactId: sheetLatest.artifact_id,
+              title: sheetLatest.title,
+              snapshot: sheetLatest.snapshot,
+              sheetNames: sheetLatest.sheet_names ?? [],
+              sheetCount: sheetLatest.sheet_count ?? 0,
+              sessionId: currentSessionId,
+            });
+          } else if (docLatest) {
+            const body = (docLatest.snapshot?.body ?? {}) as { dataStream?: string };
+            setArtifact({
+              language: 'document',
+              artifactId: docLatest.artifact_id,
+              title: docLatest.title,
+              snapshot: docLatest.snapshot,
+              charCount:
+                docLatest.char_count ??
+                (body.dataStream ?? '').replace(/\r/g, '').length,
+              sessionId: currentSessionId,
+            });
+          } else {
+            // 会话里确实没有任何产物。清理要克制：只清「确认属于其他会话」的
+            // 面板。流式刚设置的产物不带 sessionId（也没必要带），无条件清空
+            // 会把它立刻打掉 —— 文档面板当初就是这么消失的。
+            const stale =
+              artifact &&
+              'sessionId' in artifact &&
+              typeof artifact.sessionId === 'string' &&
+              artifact.sessionId !== currentSessionId;
+            if (stale || !artifact) setArtifact(null);
           }
-          setArtifact({
-            language: 'spreadsheet',
-            artifactId: latest.artifact_id,
-            title: latest.title,
-            snapshot: latest.snapshot,
-            sheetNames: latest.sheet_names ?? [],
-            sheetCount: latest.sheet_count ?? 0,
-            sessionId: currentSessionId,
-          });
         })
         .catch((err) => {
-          if (!cancelled) {
-            console.warn('恢复表格产物失败:', err);
-            setArtifact(null);
-          }
+          if (!cancelled) console.warn('恢复表格/文档产物失败:', err);
         });
       return () => {
         cancelled = true;

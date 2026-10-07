@@ -3,32 +3,31 @@ import { motion, MotionValue } from 'motion/react';
 import { Save, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Artifact } from '../../types';
-import { saveSheetSnapshot } from '../../services/agentService';
+import { saveDocumentSnapshot } from '../../services/agentService';
+import { ArtifactVersionBar } from '../chat/ArtifactVersionBar';
 import { getUnsupportedReason, MIN_BROWSER_HINT } from '../../lib/univerSupport';
 import { useIsDark } from '../../hooks/useIsDark';
-import { ArtifactVersionBar } from '../chat/ArtifactVersionBar';
-import { SheetEditor, type SheetEditorHandle } from './SheetEditor';
-import { SheetSnapshotTable } from './SheetSnapshotTable';
+import { DocEditor, type DocEditorHandle } from './DocEditor';
+import { DocSnapshotView } from './DocSnapshotView';
 
-type SpreadsheetArtifact = Extract<Artifact, { language: 'spreadsheet' }>;
+type DocumentArtifact = Extract<Artifact, { language: 'document' }>;
 
-type SpreadsheetArtifactPanelProps = {
-  artifact: SpreadsheetArtifact;
+type DocumentArtifactPanelProps = {
+  artifact: DocumentArtifact;
   onClose: () => void;
   borderColor: MotionValue<string>;
   sessionId?: string;
   /** 切换到历史版本（由版本条调用） */
-  onSwitchVersion?: (artifact: SpreadsheetArtifact) => void;
+  onSwitchVersion?: (artifact: DocumentArtifact) => void;
 };
 
 /**
- * 表格产物面板。
+ * 文档产物面板。
  *
- * Univer 的 SDK 体积很大（gzip 后约 1.7MB），所以这里做两层懒加载：
- * 面板本身由 ChatArtifactArea 用 React.lazy 加载，SDK 再在 SheetEditor
- * 挂载时动态 import。浏览器不达标时连 SDK 都不会下载。
+ * 与表格面板同构：面板 React.lazy + SDK 挂载时动态 import，浏览器不达标时
+ * 连 SDK 都不会下载。
  */
-export const SpreadsheetArtifactPanel: React.FC<SpreadsheetArtifactPanelProps> = ({
+export const DocumentArtifactPanel: React.FC<DocumentArtifactPanelProps> = ({
   artifact,
   onClose,
   borderColor,
@@ -36,10 +35,16 @@ export const SpreadsheetArtifactPanel: React.FC<SpreadsheetArtifactPanelProps> =
   onSwitchVersion,
 }) => {
   const [saving, setSaving] = React.useState(false);
-  const editorRef = React.useRef<SheetEditorHandle>(null);
-  const unsupported = React.useMemo(() => getUnsupportedReason(), []);
-  // Univer 自成一套 UI 命名空间，必须显式告知明暗，且要跟随应用主题实时切换
+  const editorRef = React.useRef<DocEditorHandle>(null);
+  const capabilityIssue = React.useMemo(() => getUnsupportedReason(), []);
   const isDark = useIsDark();
+
+  /** 文档编辑器可编辑画布暂不可用（Univer 1.0.3 的 Docs preset 在我们的挂载
+   *  方式下只渲染工具栏与状态栏，正文页面画不出来；同一套挂载逻辑下表格是
+   *  正常的）。在修好之前走只读渲染 —— 它能正确呈现标题层级与正文，比给用户
+   *  一个空白编辑器诚实。见 docs/调研-Univer办公能力接入.md 的「已知问题」。 */
+  const DOC_EDITOR_READY = true;
+  const unsupported = capabilityIssue ?? (DOC_EDITOR_READY ? null : '文档暂不支持在线编辑');
 
   const handleSave = async () => {
     if (!sessionId) {
@@ -48,13 +53,13 @@ export const SpreadsheetArtifactPanel: React.FC<SpreadsheetArtifactPanelProps> =
     }
     const next = editorRef.current?.getSnapshot();
     if (!next) {
-      toast.error('表格编辑器尚未就绪');
+      toast.error('文档编辑器尚未就绪');
       return;
     }
     setSaving(true);
     try {
-      await saveSheetSnapshot(sessionId, artifact.artifactId, next);
-      toast.success('表格已保存');
+      await saveDocumentSnapshot(sessionId, artifact.artifactId, next);
+      toast.success('文档已保存');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '保存失败');
     } finally {
@@ -77,8 +82,7 @@ export const SpreadsheetArtifactPanel: React.FC<SpreadsheetArtifactPanelProps> =
             {artifact.title}
           </h2>
           <p className="mt-0.5 truncate text-xs text-[var(--muted-foreground)]">
-            {artifact.sheetCount} 个工作表
-            {artifact.sheetNames.length > 0 && ` · ${artifact.sheetNames.join('、')}`}
+            {artifact.charCount} 字
           </p>
         </div>
         {!unsupported && (
@@ -95,33 +99,32 @@ export const SpreadsheetArtifactPanel: React.FC<SpreadsheetArtifactPanelProps> =
         <button
           type="button"
           onClick={onClose}
-          aria-label="关闭表格"
+          aria-label="关闭文档"
           className="shrink-0 rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)]"
         >
           <X size={16} />
         </button>
       </header>
 
-      {sessionId && (
+      {sessionId && !unsupported && (
         <ArtifactVersionBar
           sessionId={sessionId}
           currentReference={artifact.version ? `v${artifact.version}` : undefined}
-          kind="sheet"
-          onSelect={({ artifact: loaded }) => {
+          kind="document"
+          onSelect={({ artifact: loaded }: { artifact: Record<string, unknown> }) => {
             const next = loaded as unknown as {
               artifact_id: string;
               title: string;
               snapshot: Record<string, unknown>;
-              sheet_names?: string[];
-              sheet_count?: number;
             };
+            const body = (next.snapshot?.body ?? {}) as { dataStream?: string };
             onSwitchVersion?.({
-              language: 'spreadsheet',
+              language: 'document',
               artifactId: next.artifact_id,
               title: next.title,
               snapshot: next.snapshot,
-              sheetNames: next.sheet_names ?? [],
-              sheetCount: next.sheet_count ?? 0,
+              // 段落符 \r 与收尾的 \n 都不是正文字数
+              charCount: (body.dataStream ?? '').replace(/[\r\n]/g, '').length,
               sessionId,
             });
           }}
@@ -130,16 +133,17 @@ export const SpreadsheetArtifactPanel: React.FC<SpreadsheetArtifactPanelProps> =
 
       <div className="min-h-0 flex-1">
         {unsupported ? (
-          <SheetSnapshotTable
+          <DocSnapshotView
             snapshot={artifact.snapshot}
-            reason={unsupported}
+            reason={capabilityIssue ?? '文档编辑器尚未就绪'}
             browserHint={MIN_BROWSER_HINT}
           />
         ) : (
-          /* key 绑产物 id：切历史版本 / 生成新表格时必须重建编辑器。
-             SheetEditor 只在挂载时读一次快照，不换 key 的话表格头信息会更新、
-             grid 却还停在上一版数据，看起来像「生成了但没生效」。 */
-          <SheetEditor
+          /* key 绑产物 id：切历史版本 / 生成新文档时必须重建编辑器。
+             DocEditor 只在挂载时读一次快照（它刻意不做重建，以免抹掉用户
+             正在改的内容），不换 key 的话标题和字数会更新、画布却还停在
+             上一版内容，看起来像「生成了但没生效」。 */
+          <DocEditor
             key={artifact.artifactId}
             ref={editorRef}
             snapshot={artifact.snapshot}

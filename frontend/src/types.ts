@@ -88,7 +88,7 @@ export type Session = {
   messages: Message[];
   createdAt?: number;
   updatedAt: number;
-  mode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'sheet';
+  mode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
   agentProfileId?: number | null;
   agentName?: string;
   summary?: string | null;
@@ -156,4 +156,8 @@ export type Artifact =
   /** spreadsheet 的 snapshot 是 Univer 的 IWorkbookData 原样 JSON */
   | {language: 'spreadsheet'; artifactId: string; title: string;
       snapshot: Record<string, unknown>; sheetNames: string[]; sheetCount: number;
+      sessionId?: string; version?: number}
+  /** document 的 snapshot 是 Univer 的 IDocumentData 原样 JSON */
+  | {language: 'document'; artifactId: string; title: string;
+      snapshot: Record<string, unknown>; charCount: number;
       sessionId?: string; version?: number};

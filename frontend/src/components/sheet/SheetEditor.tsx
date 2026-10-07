@@ -75,6 +75,16 @@ export const SheetEditor = React.forwardRef<SheetEditorHandle, SheetEditorProps>
       let disposed = false;
       let instance: UniverInstance | null = null;
 
+      /**
+       * Univer 会往 container 里 append 自己的 canvas。若直接挂到 React 渲染
+       * 出来的 host 上，卸载时清空 host 会和 React 的节点簿记打架——重建编辑器
+       * （切换产物/版本）时表现为整页报 removeChild 失败而白屏。
+       * 所以自建一个 React 不追踪的宿主挂进去，卸载时整块 remove。
+       */
+      const mount = document.createElement('div');
+      mount.className = 'h-full w-full';
+      host.appendChild(mount);
+
       const bootstrap = async () => {
         try {
           // 语言包必须逐包合并：preset 包里的 zh-CN 只覆盖表格模型层，工具栏、
@@ -104,7 +114,7 @@ export const SheetEditor = React.forwardRef<SheetEditorHandle, SheetEditorProps>
           const created = (createUniver as unknown as CreateUniver)({
             locale: LocaleType.ZH_CN,
             locales: { [LocaleType.ZH_CN]: mergeLocales(...localePacks) },
-            presets: [UniverSheetsCorePreset({ container: host })],
+            presets: [UniverSheetsCorePreset({ container: mount })],
           });
           instance = created.univer;
           apiRef.current = created.univerAPI;
@@ -134,7 +144,8 @@ export const SheetEditor = React.forwardRef<SheetEditorHandle, SheetEditorProps>
         } catch {
           // 卸载期异常不影响后续渲染
         }
-        host.replaceChildren();
+        // 只移除自己建的宿主，不碰 React 渲染的节点
+        mount.remove();
       };
       // 刻意只挂载一次：重建会丢失用户已做的编辑。
       // eslint-disable-next-line react-hooks/exhaustive-deps

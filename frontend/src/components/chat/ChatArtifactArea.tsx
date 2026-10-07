@@ -14,6 +14,13 @@ const SpreadsheetArtifactPanel = React.lazy(() =>
   })),
 );
 
+// Univer Docs 同样是 1.7MB 级别的依赖，同样必须懒加载
+const DocumentArtifactPanel = React.lazy(() =>
+  import('../office/DocumentArtifactPanel').then((module) => ({
+    default: module.DocumentArtifactPanel,
+  })),
+);
+
 interface ChatArtifactAreaProps {
   artifact: Artifact | null;
   onClose: () => void;
@@ -66,6 +73,23 @@ export const ChatArtifactArea = React.memo(({
         }
       >
         <SpreadsheetArtifactPanel
+          artifact={artifact}
+          onClose={onClose}
+          borderColor={borderColor}
+          sessionId={sessionId ?? undefined}
+          onSwitchVersion={onSwitchArtifact}
+        />
+      </React.Suspense>
+    ) : artifact?.language === 'document' ? (
+      <React.Suspense
+        key="document"
+        fallback={
+          <div className="flex h-full items-center justify-center text-sm text-[var(--muted-foreground)]">
+            正在加载文档…
+          </div>
+        }
+      >
+        <DocumentArtifactPanel
           artifact={artifact}
           onClose={onClose}
           borderColor={borderColor}
