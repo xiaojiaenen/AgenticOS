@@ -14,7 +14,7 @@ from typing import Any
 from wuwei.tools import ToolRegistry
 
 from app.core.data_path import get_current_session_id, get_current_user_id
-from app.services.sheet import service as sheet
+from app.services.office import service as sheet
 
 logger = logging.getLogger("agent.sheet.tools")
 

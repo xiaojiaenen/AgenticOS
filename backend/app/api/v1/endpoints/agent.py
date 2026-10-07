@@ -19,6 +19,10 @@ router = APIRouter(prefix="/agent", tags=["智能体"])
 # 否则 ../ 可以写到 data/sheets 之外。
 _SHEET_DIR_RE = re.compile(r"^u\d+_s[\w-]+_v\d+$")
 
+# 表格 / 文档共用的版本目录名校验（u{user}_s{session}_v{n}）。save 接口拿它拼
+# 路径，必须严格校验，否则 ../ 可以写到 data 之外。
+_VERSION_DIR_RE = _SHEET_DIR_RE
+
 _logger = logging.getLogger("agent.stream")
 
 
@@ -200,6 +204,7 @@ async def get_session_artifacts(
         "ppt_artifact": None,
         "website_artifact": None,
         "sheet_artifact": None,
+        "document_artifact": None,
     }
 
     # PPT：取该会话最新的 artifact，裁剪字段（不带 deck_json，避免传输 150KB+ 大字段）
@@ -245,7 +250,50 @@ async def get_session_artifacts(
     if sheet:
         result["sheet_artifact"] = sheet
 
+    try:
+        document = await agent_service.get_latest_document_artifact(session_id)
+    except Exception:
+        _logger.exception("get_latest_document_artifact failed: session=%s", session_id)
+        document = None
+    if document:
+        result["document_artifact"] = document
+
     return result
+
+
+@router.put("/sessions/{session_id}/documents/{directory}", summary="保存用户对文档产物的修改")
+async def save_document_artifact(
+    session_id: str,
+    directory: str,
+    payload: dict[str, Any],
+    current_user: UserModel = Depends(get_current_user),
+) -> dict[str, Any]:
+    """把编辑器里的最新快照写回 data/documents/{directory}/document.json。"""
+    try:
+        await get_agent_service().ensure_session_access(
+            AgentStreamRequest(message="save_document", session_id=session_id), current_user
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    from app.core.data_path import DOCUMENTS_DIR
+    from app.services.office.document_service import read_snapshot, write_snapshot
+
+    if not _VERSION_DIR_RE.match(directory):
+        raise HTTPException(status_code=400, detail="非法的文档版本目录名")
+
+    snapshot = payload.get("snapshot")
+    if not isinstance(snapshot, dict) or not (snapshot.get("body") or {}).get("dataStream"):
+        raise HTTPException(status_code=400, detail="文档快照格式不合法：缺少 body.dataStream")
+
+    target = DOCUMENTS_DIR / directory
+    if not target.is_dir():
+        raise HTTPException(status_code=404, detail="该文档产物不存在")
+    if read_snapshot(target) is None:
+        raise HTTPException(status_code=500, detail="该文档产物已损坏，无法保存")
+
+    write_snapshot(target, snapshot)
+    return {"ok": True, "directory": directory}
 
 
 @router.put("/sessions/{session_id}/sheets/{directory}", summary="保存用户对表格产物的修改")
@@ -268,7 +316,7 @@ async def save_sheet_artifact(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     from app.core.data_path import SHEETS_DIR
-    from app.services.sheet.service import read_snapshot, write_snapshot
+    from app.services.office.service import read_snapshot, write_snapshot
 
     if not _SHEET_DIR_RE.match(directory):
         raise HTTPException(status_code=400, detail="非法的表格版本目录名")
@@ -342,6 +390,18 @@ async def get_session_version(
         if artifact is None:
             raise HTTPException(status_code=404, detail="该版本的网站产物不存在")
         return {"website_artifact": artifact}
+
+    if kind == "document":
+        from app.services.artifact_version_service import load_document_version
+
+        try:
+            version_no = int(reference.lstrip("vV"))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="非法的文档版本号") from exc
+        artifact = await asyncio.to_thread(load_document_version, session_id, version_no)
+        if artifact is None:
+            raise HTTPException(status_code=404, detail="该版本的文档产物不存在")
+        return {"document_artifact": artifact}
 
     if kind == "sheet":
         from app.services.artifact_version_service import load_sheet_version

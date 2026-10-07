@@ -16,7 +16,10 @@
 
 import { createUniver, LocaleType, mergeLocales } from '@univerjs/presets'
 import { UniverSheetsNodeCorePreset } from '@univerjs/preset-sheets-node-core'
+import { UniverDocsNodeCorePreset } from '@univerjs/preset-docs-node-core'
 import zhCN from '@univerjs/preset-sheets-node-core/locales/zh-CN'
+import docsZhCN from '@univerjs/preset-docs-node-core/locales/zh-CN'
+import { UniverInstanceType } from '@univerjs/core'
 
 // ── stdout 保护 ──────────────────────────────────────────────────────────
 // Univer 内部偶有 console 输出。这里把所有 console 方法改道 stderr，
@@ -34,14 +37,21 @@ process.on('uncaughtException', (err) => {
 
 // ── 运行时 ───────────────────────────────────────────────────────────────
 
-/** @type {Map<string, {univer: any, univerAPI: any, workbook: any, title: string}>} */
-const workbooks = new Map()
-
 const { univer, univerAPI } = createUniver({
   locale: LocaleType.ZH_CN,
-  locales: { [LocaleType.ZH_CN]: mergeLocales(zhCN) },
-  presets: [UniverSheetsNodeCorePreset()],
+  locales: { [LocaleType.ZH_CN]: mergeLocales(zhCN, docsZhCN) },
+  presets: [UniverSheetsNodeCorePreset(), UniverDocsNodeCorePreset()],
 })
+
+/** @type {Map<string, {univer: any, univerAPI: any, workbook: any, title: string}>} */
+const workbooks = new Map()
+/** @type {Map<string, {model: any, title: string}>} 文档单元，独立于表格 key 空间 */
+const documents = new Map()
+
+// ── 表格：单元寻址与区域解析 ──────────────────────────────────────────
+// 这一组是表格所有写操作的前置依赖（requireWorkbook → resolveSheet →
+// parseRange）。办公化改造时曾整块丢失，node --check 查不出来（未定义标识符
+// 只在运行时炸），表现为建表成功、一写数据就 "requireWorkbook is not defined"。
 
 /** 公式计算是异步的：写完必须显式驱动一次，否则读回的是未计算的缓存/null。 */
 async function recalculate() {
@@ -86,11 +96,142 @@ function parseRange(a1) {
   }
 }
 
+// ── 文档：结构化块 → Univer 的 IDocumentData ──────────────────────────
+//
+// 关键教训：**不要手搓 IDocumentData。**
+// Univer 的文档模型需要 body.textRuns / blockRanges / customBlocks 等一整套
+// 派生结构，以及每个段落的 paragraphId、每个分节的 sectionId。自己拼出来
+// 只有 dataStream + paragraphs 时，模型能加载（状态栏字数正确）、工具栏也
+// 正常，但正文页画布只画个背景，一个字都不显示——极难排查。
+//
+// 正确做法：先让 Univer 建一份空文档拿到规范化模板，再把内容覆盖上去。
+
+/**
+ * 块类型 → Univer `NamedStyleType`。
+ *
+ * **不是 1/2/3/4。** 这是个很容易踩的坑：0.5 时代文档标题写
+ * `paragraphStyle.headingLevel = 1`，1.0.3 里这个字段已经没有任何消费方
+ * （全仓只有 docs-ui 的 HTML 导出和工具栏读它），渲染层完全不看，写了等于
+ * 没写。真正的字段是 `paragraphStyle.namedStyleType`，取值来自
+ * `NamedStyleType` 枚举，而枚举里 1~3 是 NORMAL_TEXT/TITLE/SUBTITLE，
+ * HEADING_1 起步就是 4。
+ */
+const NAMED_STYLE_TYPE = {
+  h1: 4, // HEADING_1
+  h2: 5, // HEADING_2
+  h3: 6, // HEADING_3
+  h4: 7, // HEADING_4
+}
+
+/**
+ * 标题的字号与字重。
+ *
+ * `namedStyleType` 本身**只管段间距**（见 core 里的 NAMED_STYLE_SPACE_MAP，
+ * 它只有 spaceAbove/spaceBelow），字号一个都不给。所以光设 namedStyleType
+ * 的话，标题只是「上方空了一段」，字号粗细跟正文一模一样 —— 视觉上等于没生效。
+ *
+ * 字号必须走 `body.textRuns`：那是字素级样式（st/ed 区间 + ts 里的 fs/bl），
+ * 渲染器只认它。段落级的 `paragraphStyle.textStyle` 实测同样无效，别用。
+ */
+const HEADING_TEXT_STYLE = {
+  h1: { fs: 32, bl: 1 },
+  h2: { fs: 24, bl: 1 },
+  h3: { fs: 18, bl: 1 },
+  h4: { fs: 16, bl: 1 },
+}
+
+/** 由块数组拼出 dataStream、段落元数据与字素样式（其余字段沿用模板）。 */
+function composeBlocks(blocks) {
+  const chunks = []
+  const paragraphs = []
+  const textRuns = []
+  let offset = 0
+  for (const block of blocks) {
+    const text = String(block.text ?? '')
+    const para = { startIndex: offset }
+    const namedStyleType = NAMED_STYLE_TYPE[block.type]
+    if (namedStyleType) para.paragraphStyle = { namedStyleType }
+    paragraphs.push(para)
+    const textStyle = HEADING_TEXT_STYLE[block.type]
+    // 空标题不必占一个空区间：normalizeTextRuns 会把 st === ed 的直接丢掉
+    if (textStyle && text.length > 0) {
+      textRuns.push({ st: offset, ed: offset + text.length, ts: { ...textStyle } })
+    }
+    chunks.push(text, '\r')
+    offset += text.length + 1
+  }
+  // Univer 的 dataStream 约定：`\r` 结束一个段落，末尾还必须跟一个 `\n` 收尾。
+  // 只写到 `\r` 时模型照样装载、状态栏字数也对，但渲染器判定这份文档是空的
+  // ——正文页只剩「请输入文字」占位提示，一个字都不画。这个 `\n` 省不得。
+  return { dataStream: `${chunks.join('')}\n`, paragraphs, textRuns, endIndex: offset }
+}
+
+let docIdCounter = 0
+
+/** 借空文档拿到一份完整、规范化过的快照作为模板。 */
+function normalizedDocumentTemplate() {
+  const probeId = `__template_${++docIdCounter}`
+  const probe = univer.createUnit(UniverInstanceType.UNIVER_DOC, { id: probeId })
+  const template = JSON.parse(JSON.stringify(probe.getSnapshot()))
+  // disposeUnit 在 univerAPI 上，不在 univer 上
+  univerAPI.disposeUnit(probeId)
+  return template
+}
+
+function blocksToDocumentData({ id, title, blocks }) {
+  const { dataStream, paragraphs, textRuns, endIndex } = composeBlocks(blocks)
+  const data = normalizedDocumentTemplate()
+
+  data.id = id
+  data.title = title
+  data.body.dataStream = dataStream
+  data.body.paragraphs = paragraphs.map((para, index) => ({
+    ...para,
+    // 段落/分节都要有稳定 id，缺了渲染器会跳过该段
+    paragraphId: `${id}_para_${index}`,
+  }))
+  // 字素级样式：标题的字号/粗细只能靠它，段落级样式渲染器不读
+  data.body.textRuns = textRuns
+  data.body.sectionBreaks = (data.body.sectionBreaks ?? [{}]).map((section, index) => ({
+    ...section,
+    sectionId: `${id}_section_${index}`,
+    // endIndex 是不含收尾 `\n` 的长度，正好是那个 `\n` 在新 dataStream 里的下标，
+    // 与空文档模板的取值语义一致
+    startIndex: Math.max(endIndex, 0),
+  }))
+  return data
+}
+
+/** 读回纯文本 + 块结构，供模型核对内容。 */
+/**
+ * Univer 的 `namedStyleType` → 我们的块类型（h1~h4）。
+ * 与 NAMED_STYLE_TYPE 反向对应；不在表里的（TITLE/SUBTITLE 等）当正文处理。
+ */
+const NAMED_STYLE_TO_BLOCK = { 4: 'h1', 5: 'h2', 6: 'h3', 7: 'h4' }
+
+function documentDataToBlocks(snapshot) {
+  const stream = snapshot.body?.dataStream ?? ''
+  const paragraphs = snapshot.body?.paragraphs ?? []
+  return paragraphs
+    .map((para) => {
+      const start = para.startIndex ?? 0
+      const end = stream.indexOf('\r', start)
+      const text = stream.slice(start, end === -1 ? undefined : end)
+      // 读回时 paragraphStyle 可能被模型规范化成 null，别直接解构
+      const style = para.paragraphStyle ?? {}
+      const named = style.namedStyleType
+      // 兼容两种来源：新版写 namedStyleType，历史快照仍是 headingLevel
+      const type = NAMED_STYLE_TO_BLOCK[named] ?? (style.headingLevel ? `h${style.headingLevel}` : 'paragraph')
+      return { type, text }
+    })
+    .filter((block) => block.text.length > 0)
+}
+
 // ── 操作实现 ─────────────────────────────────────────────────────────────
 
 const ops = {
   ping() {
-    return { pong: true, workbooks: workbooks.size }
+    return { pong: true, workbooks: workbooks.size, documents: documents.size }
   },
 
   create_workbook({ key, id, name, sheetName, rows = 200, columns = 26 }) {
@@ -216,6 +357,33 @@ const ops = {
     }
   },
 
+  // ── 文档操作 ──────────────────────────────────────────────────────────
+
+  create_document({ key, id, title, blocks }) {
+    const existing = documents.get(key)
+    if (existing) {
+      univerAPI.disposeUnit(existing.model.getUnitId?.() ?? id)
+    }
+    const data = blocksToDocumentData({ id, title, blocks: blocks ?? [] })
+    const model = univer.createUnit(UniverInstanceType.UNIVER_DOC, data)
+    documents.set(key, { model, title })
+    return { title, blockCount: (blocks ?? []).length, unitId: data.id }
+  },
+
+  read_document({ key }) {
+    const entry = documents.get(key)
+    if (!entry) throw new Error(`文档不存在：${key}，请先调用 create_document`)
+    const snapshot = entry.model.getSnapshot()
+    return { title: snapshot.title, blocks: documentDataToBlocks(snapshot) }
+  },
+
+  build_document({ key }) {
+    const entry = documents.get(key)
+    if (!entry) throw new Error(`文档不存在：${key}，请先调用 create_document`)
+    const snapshot = entry.model.getSnapshot()
+    return { snapshot, title: snapshot.title }
+  },
+
   /** 产出可持久化的快照。返回的是 IWorkbookData 原始 JSON。 */
   build({ key }) {
     const { workbook } = requireWorkbook(key)
@@ -228,7 +396,12 @@ const ops = {
       univerAPI.disposeUnit(entry.workbook.getId())
       workbooks.delete(key)
     }
-    return { discarded: key, remaining: workbooks.size }
+    const doc = documents.get(key)
+    if (doc) {
+      univerAPI.disposeUnit(doc.model.getUnitId?.() ?? doc.model.getId?.())
+      documents.delete(key)
+    }
+    return { discarded: key, remaining: workbooks.size + documents.size }
   },
 }
 

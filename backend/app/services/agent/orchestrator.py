@@ -37,11 +37,48 @@ from app.services.external_system_service import (
     set_ext_user_id,
     _current_session_id as ext_session_id_ctx,
 )
-from app.services.session_storage import dump_json
+from app.services.session_storage import dump_json, message_signature
 from app.tools.email_tools import set_current_session_id as set_email_session_id
 from app.services.agent.factory import _REJECTED_TOOL_NAME
 
 _logger = logging.getLogger("agent")
+
+
+def _messages_after(messages: list, existing: list[str]) -> list:
+    """返回内存消息里尚未落库的那一段（按内容指纹对齐，而非按条数）。
+
+    算法：在内存消息序列里**搜索**已落库指纹序列，取最后一次完整命中的
+    结束位置，其后的消息视为新增。
+
+    为什么不是「库里有 N 条就取 messages[N:]」：审批中断重试会让内存里的
+    消息列表与库里的失去前缀对应关系（工具调用回填会重写 assistant 消息、
+    thinking 消息会被重写），按条数切会错位。错位的后果是重复落库或漏落库，
+    而重复的 tool 消息会让上游 LLM 永久拒绝该会话的后续请求。
+
+    为什么用「搜索」而不是逐位置比对：错位后位置全乱，逐位置比对会在第一处
+    不匹配就永久失配。搜索能跳过被重写的头部，从中间重新对上。
+    """
+    if not existing:
+        return list(messages)
+
+    signatures = [message_signature(m) for m in messages]
+    end = -1  # 已落库消息在内存中的结束下标（含）
+    search_from = 0
+    for sig in existing:
+        found = -1
+        for index in range(search_from, len(signatures)):
+            if signatures[index] == sig:
+                found = index
+                break
+        if found < 0:
+            # 这条在内存里找不到：跳过它继续找后面的。上下文里的 assistant
+            # 消息可能被重写（正文从空变成有内容），但紧随其后的 tool 结果
+            # 带着不变的 tool_call_id，仍能对齐 —— 一步失配就整体放弃会把
+            # 已落库的工具结果重复写出去，那正是我们要避免的。
+            continue
+        end = found
+        search_from = found + 1
+    return list(messages[end + 1:])
 
 
 class StreamOrchestrator:
@@ -165,11 +202,26 @@ class StreamOrchestrator:
             messages = getattr(context, "_messages", [])
             if not messages:
                 return
-            existing_count = await self.storage.get_message_count(session.session_id)
-            if existing_count >= len(messages):
+
+            # 不能用「条数差」来定位新增消息的起点。审批中断后重试时，
+            # wuwei 会把上下文里的 assistant 消息重新拼装（工具调用回填、
+            # thinking 消息重写），内存消息列表与库里的不再是一一对应的前缀
+            # 关系。此时按条数切片会把已有消息当成新的重复写进去，或者漏掉
+            # 前半段只写后半段。
+            #
+            # 重复写入的代价很实在：库里一旦出现两条 tool_call_id 相同的
+            # tool 消息，后续每次请求上游 LLM 都会以
+            # 「Messages with role 'tool' must be a response to a preceding
+            # message with 'tool_calls'」被拒（DeepSeek / OpenAI 兼容层都如此），
+            # 表现为会话里所有后续回复全空。
+            #
+            # 所以改为按消息指纹从头部对齐：逐条比对内存与库里的指纹，
+            # 找到最后一个匹配位置，其后的才视为新增。
+            existing = await self.storage.load_message_signatures(session.session_id)
+            pending = _messages_after(messages, existing)
+            if not pending:
                 return
-            new_messages = messages[existing_count:]
-            count = await self.storage.append_messages_batch(session.session_id, new_messages)
+            count = await self.storage.append_messages_batch(session.session_id, pending)
             _logger.info(f"Persisted {count} messages for session {session.session_id}")
         except Exception as e:
             _logger.warning(f"Failed to persist messages for session {session.session_id}: {e}", exc_info=True)
@@ -461,7 +513,8 @@ class StreamOrchestrator:
         if website_mode:
             message = await self._inject_website_catalog(message)
 
-        sheet_mode = response_mode == "sheet"
+        sheet_mode = response_mode == "office"
+        document_mode = response_mode == "office"
 
         # 计划模式：提示词追加"只调研出计划"的约束
         system_prompt = runtime_profile.system_prompt
@@ -808,6 +861,33 @@ class StreamOrchestrator:
                                     except Exception:
                                         _logger.exception(
                                             "website version snapshot failed: session=%s",
+                                            session.session_id,
+                                        )
+                                    yield {
+                                        "event": "artifact_ready",
+                                        "data": artifact,
+                                    }
+
+                            if document_mode:
+                                artifact = await self._create_document_artifact(
+                                    session.session_id
+                                )
+                                if artifact is not None:
+                                    try:
+                                        from app.services.artifact_version_service import (
+                                            snapshot_document_version,
+                                        )
+
+                                        version = await snapshot_document_version(
+                                            session.session_id,
+                                            artifact.get("title") or "",
+                                            artifact.get("artifact_id") or "",
+                                        )
+                                        if version:
+                                            artifact["version"] = version
+                                    except Exception:
+                                        _logger.exception(
+                                            "document version snapshot failed: session=%s",
                                             session.session_id,
                                         )
                                     yield {

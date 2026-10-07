@@ -1,4 +1,4 @@
-"""Univer 无头表格运行时的 Python 侧驱动。
+"""Univer 无头办公运行时（表格 + 文档）的 Python 侧驱动。
 
 `backend/sheet-runtime/server.mjs` 是一个常驻 Node 进程，本模块负责拉起它、
 按行 JSON 收发请求、并管理它出问题时重启。
@@ -21,10 +21,10 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("agent.sheet.runtime")
+logger = logging.getLogger("agent.office.runtime")
 
 # backend/app/services/sheet/runtime.py → backend/sheet-runtime
-RUNTIME_DIR = Path(__file__).resolve().parents[3] / "sheet-runtime"
+RUNTIME_DIR = Path(__file__).resolve().parents[3] / "office-runtime"
 SERVER_SCRIPT = RUNTIME_DIR / "server.mjs"
 NODE_MODULES = RUNTIME_DIR / "node_modules"
 
@@ -32,12 +32,12 @@ NODE_MODULES = RUNTIME_DIR / "node_modules"
 REQUEST_TIMEOUT = float(os.environ.get("SHEET_RUNTIME_TIMEOUT", "60"))
 
 
-class SheetRuntimeError(RuntimeError):
-    """表格运行时不可用或调用失败。"""
+class OfficeRuntimeError(RuntimeError):
+    """办公运行时不可用或调用失败。"""
 
 
-class SheetRuntime:
-    """一个常驻的 Node 表格运行时进程。"""
+class OfficeRuntime:
+    """一个常驻的 Node 办公运行时进程。"""
 
     def __init__(self) -> None:
         self._process: asyncio.subprocess.Process | None = None
@@ -64,10 +64,10 @@ class SheetRuntime:
             )
         if not NODE_MODULES.is_dir():
             return (
-                f"表格运行时依赖未安装：{NODE_MODULES} 不存在。"
+                f"办公运行时依赖未安装：{NODE_MODULES} 不存在。"
                 f"请在 {RUNTIME_DIR} 下执行 `npm install`。"
             )
-        return "表格运行时不可用"
+        return "办公运行时不可用"
 
     def _stale(self) -> bool:
         """进程是否已经不可用（退出，或绑在另一个事件循环上）。
@@ -101,9 +101,9 @@ class SheetRuntime:
         if self._process is not None and self._process.returncode is None:
             return self._process
         if not self.available:
-            raise SheetRuntimeError(self._unavailable_reason())
+            raise OfficeRuntimeError(self._unavailable_reason())
         if not SERVER_SCRIPT.is_file():
-            raise SheetRuntimeError(f"表格运行时脚本缺失：{SERVER_SCRIPT}")
+            raise OfficeRuntimeError(f"办公运行时脚本缺失：{SERVER_SCRIPT}")
 
         self._loop = asyncio.get_running_loop()
         self._lock = asyncio.Lock()
@@ -120,7 +120,7 @@ class SheetRuntime:
         )
         self._read_task = asyncio.create_task(self._pump_stdout())
         asyncio.create_task(self._pump_stderr())
-        logger.info("表格运行时已启动 (pid=%s)", self._process.pid)
+        logger.info("办公运行时已启动 (pid=%s)", self._process.pid)
         return self._process
 
     async def _pump_stdout(self) -> None:
@@ -140,9 +140,9 @@ class SheetRuntime:
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # pragma: no cover - 进程异常退出
-            logger.error("读取表格运行时输出失败: %s", exc)
+            logger.error("读取办公运行时输出失败: %s", exc)
         finally:
-            self._fail_all(f"表格运行时已退出（code={process.returncode}）")
+            self._fail_all(f"办公运行时已退出（code={process.returncode}）")
 
     async def _pump_stderr(self) -> None:
         """stderr 只做日志——第三方库的 console 输出都在这里，不会污染协议。"""
@@ -160,7 +160,7 @@ class SheetRuntime:
         try:
             message = json.loads(line)
         except json.JSONDecodeError:
-            logger.warning("表格运行时输出了非 JSON 行：%s", line[:200])
+            logger.warning("办公运行时输出了非 JSON 行：%s", line[:200])
             return
         future = self._pending.pop(str(message.get("id")), None)
         if future is not None and not future.done():
@@ -169,7 +169,7 @@ class SheetRuntime:
     def _fail_all(self, reason: str) -> None:
         for future in self._pending.values():
             if not future.done():
-                future.set_exception(SheetRuntimeError(reason))
+                future.set_exception(OfficeRuntimeError(reason))
         self._pending.clear()
 
     async def shutdown(self) -> None:
@@ -197,7 +197,7 @@ class SheetRuntime:
             await self._ensure_started()
         lock = self._lock
         if lock is None:  # pragma: no cover - _ensure_started 保证非空
-            raise SheetRuntimeError("表格运行时未初始化")
+            raise OfficeRuntimeError("办公运行时未初始化")
         async with lock:
             # 拿锁期间可能跨了 loop（极少见），再确认一次句柄是活的
             process = await self._ensure_started()
@@ -217,33 +217,33 @@ class SheetRuntime:
             except (BrokenPipeError, ConnectionResetError) as exc:
                 self._pending.pop(request_id, None)
                 self._process = None
-                raise SheetRuntimeError(f"表格运行时已断开：{exc}") from exc
+                raise OfficeRuntimeError(f"办公运行时已断开：{exc}") from exc
 
             try:
                 message = await asyncio.wait_for(future, timeout=REQUEST_TIMEOUT)
             except asyncio.TimeoutError as exc:
                 self._pending.pop(request_id, None)
-                raise SheetRuntimeError(
-                    f"表格运行时操作 {op} 超时（>{int(REQUEST_TIMEOUT)}s）"
+                raise OfficeRuntimeError(
+                    f"办公运行时操作 {op} 超时（>{int(REQUEST_TIMEOUT)}s）"
                 ) from exc
 
         if message.get("ok"):
             return message.get("result") or {}
-        raise SheetRuntimeError(str(message.get("error") or "未知错误"))
+        raise OfficeRuntimeError(str(message.get("error") or "未知错误"))
 
 
-_runtime: SheetRuntime | None = None
+_runtime: OfficeRuntime | None = None
 
 
-def get_sheet_runtime() -> SheetRuntime:
-    """获取全局表格运行时单例。进程在首次调用时才拉起。"""
+def get_office_runtime() -> OfficeRuntime:
+    """获取全局办公运行时单例。进程在首次调用时才拉起。"""
     global _runtime
     if _runtime is None:
-        _runtime = SheetRuntime()
+        _runtime = OfficeRuntime()
     return _runtime
 
 
-async def shutdown_sheet_runtime() -> None:
+async def shutdown_office_runtime() -> None:
     global _runtime
     if _runtime is not None:
         await _runtime.shutdown()

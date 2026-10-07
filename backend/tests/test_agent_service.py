@@ -289,8 +289,11 @@ async def test_ppt_mode_lifts_legacy_one_step_session_limit() -> None:
     )
     events = [event async for event in service.stream_chat(request)]
 
-    # _normalize_session_limits lifts a legacy 1-step session up to settings.agent_max_steps
-    assert session.max_steps == 10
+    # _normalize_session_limits lifts a legacy 1-step session up to
+    # settings.agent_max_steps —— 断言跟随配置，不要写死具体数值
+    # （默认值已从 10 提到 30，写死会让这个用例在调参时误报失败）。
+    assert session.max_steps == service.settings.agent_max_steps
+    assert session.max_steps > 1
     assert events[-1]["event"] == "done"
     assert events[-1]["data"]["session_id"] == "ppt-session"
 

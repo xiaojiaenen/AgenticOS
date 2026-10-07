@@ -21,9 +21,15 @@ DEFAULT_APPROVAL_MODE = "ask"
 # 只读工具：只读取/查询，不改变系统状态
 READ_ONLY_TOOLS: frozenset[str] = frozenset({
     # 基础计算与时间
-    "time", "calc",
+    "time", "calc", "get_now", "count",
     # 检索类
     "knowledge", "memory", "file_to_md",
+    # 知识库/记忆的只读子工具（这些是**独立注册**的工具名，
+    # 不是 knowledge/memory + action 的形态，所以必须列在这里）
+    "list_knowledge_bases", "search_knowledge_base", "read_wiki_page",
+    "search_memory", "list_memory_scenarios", "get_user_persona",
+    # 文件只读操作（同样是独立注册的工具名）
+    "read_text_file", "list_files",
     # 幻灯片只读操作
     "read_slide", "read_notes", "check_ppt_progress", "check_svg_quality",
     "calc_chart_positions", "analyze_template",

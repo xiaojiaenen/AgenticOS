@@ -21,7 +21,7 @@ from app.db.models import (
 )
 from app.db.session import create_db_session
 from app.prompts import (BIGDATA_SYSTEM_PROMPT, EMAIL_SYSTEM_PROMPT, GENERAL_SYSTEM_PROMPT,
-                          PPT_SYSTEM_PROMPT, SHEET_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT)
+                          OFFICE_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT)
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
 from app.services.session_storage import parse_approval_sub_tools, slugify
 from app.services.skill_service import RuntimeSkill, SkillService
@@ -41,7 +41,7 @@ MODE_DEFAULT_PROMPTS: dict[str, str] = {
     "website": WEBSITE_ROUTER_PROMPT,
     "email": EMAIL_SYSTEM_PROMPT,
     "bigdata": BIGDATA_SYSTEM_PROMPT,
-    "sheet": SHEET_SYSTEM_PROMPT,
+    "office": OFFICE_SYSTEM_PROMPT,
 }
 
 GENERIC_PROMPTS = {
@@ -76,11 +76,11 @@ BUILTIN_AGENT_PROFILES = {
         "avatar": "globe",
         "listed": True,
     },
-    "sheet": {
-        "name": "表格助手",
-        "description": "生成可编辑的电子表格，支持公式计算与多工作表，产出可在对话中直接编辑。",
-        "system_prompt": SHEET_SYSTEM_PROMPT,
-        "response_mode": "sheet",
+    "office": {
+        "name": "办公助手",
+        "description": "统一处理表格与文档：生成可编辑的电子表格（公式/多工作表）和文档（标题层级/正文）。",
+        "system_prompt": OFFICE_SYSTEM_PROMPT,
+        "response_mode": "office",
         "avatar": "table",
         "listed": True,
     },
@@ -109,7 +109,7 @@ class RuntimeAgentProfile:
     external_system_ids: tuple[int, ...] = ()
     max_steps: int | None = None
     # 会话级审批模式：ask（逐次确认）/ auto（只读自动放行）/ full（全放行，仅管理员）
-    approval_mode: str = "ask"
+    approval_mode: str = "auto"
     # 计划模式：只下发只读工具，产出计划待用户批准后再执行
     plan_mode: bool = False
     # 触发本轮的用户是否为管理员（决定 full 档是否生效）
@@ -126,6 +126,23 @@ class AgentProfileService:
             return
         changed = False
         existing = {row.slug: row for row in db.scalars(select(AgentProfileModel)).all()}
+        # 一次性迁移：sheet 模式已并入 office（办公助手）。
+        # - 库里只有 sheet：原地改名，保留它的历史
+        # - 两者并存：sheet 是指向已删除模式的孤儿，直接删掉。office 已由
+        #   内置补装逻辑覆盖所有用户，删掉它不会让任何人丢失这个智能体。
+        legacy_sheet = existing.pop("sheet", None)
+        if legacy_sheet is not None and legacy_sheet.is_builtin:
+            if "office" in existing:
+                db.execute(
+                    delete(UserInstalledAgentModel).where(
+                        UserInstalledAgentModel.profile_id == legacy_sheet.id
+                    )
+                )
+                db.delete(legacy_sheet)
+            else:
+                legacy_sheet.slug = "office"
+                legacy_sheet.response_mode = "office"
+            changed = True
         newly_created: list[int] = []
         for slug, defaults in BUILTIN_AGENT_PROFILES.items():
             profile = existing.get(slug)
@@ -903,7 +920,7 @@ class AgentProfileService:
         profile_id: int,
         user: UserModel,
         *,
-        approval_mode: str = "ask",
+        approval_mode: str = "auto",
         plan_mode: bool = False,
     ) -> RuntimeAgentProfile:
         with self.session_factory() as db:
@@ -931,7 +948,7 @@ class AgentProfileService:
         response_mode: str,
         user: UserModel,
         *,
-        approval_mode: str = "ask",
+        approval_mode: str = "auto",
         plan_mode: bool = False,
     ) -> RuntimeAgentProfile:
         with self.session_factory() as db:
@@ -957,7 +974,7 @@ class AgentProfileService:
         db: Session,
         profile: AgentProfileModel,
         *,
-        approval_mode: str = "ask",
+        approval_mode: str = "auto",
         is_admin_actor: bool = False,
         plan_mode: bool = False,
     ) -> RuntimeAgentProfile:
