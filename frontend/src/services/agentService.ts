@@ -6,7 +6,7 @@ import { fetchEventSource } from '@microsoft/fetch-event-source';
 type AgentServiceOptions = {
   sessionId: string;
   systemPrompt?: string;
-  responseMode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'sheet';
+  responseMode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
   agentProfileId?: number | null;
   /** 会话级审批模式：ask 逐次确认 / auto 只读自动放行 / full 全放行（仅管理员） */
   approvalMode?: 'ask' | 'auto' | 'full';
@@ -23,6 +23,7 @@ type AgentServiceOptions = {
   onPptArtifact?: (artifact: AgentPptArtifact) => void;
   onWebsiteArtifact?: (artifact: AgentWebsiteArtifact) => void;
   onSheetArtifact?: (artifact: AgentSheetArtifact) => void;
+  onDocumentArtifact?: (artifact: AgentDocumentArtifact) => void;
   onUserDecision?: (decision: unknown) => void;
   onUserInputRequired?: (input: UserInputRequest) => void;
   onApiApprovalRequired?: (approval: ApiApprovalRequest) => void;
@@ -39,6 +40,7 @@ type StreamResult = {
   pptArtifact?: AgentPptArtifact;
   websiteArtifact?: AgentWebsiteArtifact;
   sheetArtifact?: AgentSheetArtifact;
+  documentArtifact?: AgentDocumentArtifact;
 };
 
 type AgentToolCall = {
@@ -105,6 +107,17 @@ export type AgentPptArtifact = {
   slide_count: number;
   html: string;
   theme?: string;
+};
+
+export type AgentDocumentArtifact = {
+  type: 'document';
+  artifact_id: string;
+  session_id: string;
+  title: string;
+  /** Univer 的 IDocumentData 原始 JSON */
+  snapshot: Record<string, unknown>;
+  char_count: number;
+  version?: number;
 };
 
 export type AgentSheetArtifact = {
@@ -263,6 +276,7 @@ type StreamState = {
   pptArtifact?: AgentPptArtifact;
   websiteArtifact?: AgentWebsiteArtifact;
   sheetArtifact?: AgentSheetArtifact;
+  documentArtifact?: AgentDocumentArtifact;
 };
 
 /**
@@ -311,6 +325,7 @@ function applyAgentEvent(
   }
 
   if (event === 'artifact_ready') {
+    console.log('[probe] artifact_ready type=', (payload as Record<string, unknown>).type);
     const artifactPayload = payload as Record<string, unknown>;
     if (artifactPayload.type === 'website') {
       state.websiteArtifact = artifactPayload as unknown as AgentWebsiteArtifact;
@@ -318,6 +333,9 @@ function applyAgentEvent(
     } else if (artifactPayload.type === 'spreadsheet') {
       state.sheetArtifact = artifactPayload as unknown as AgentSheetArtifact;
       options.onSheetArtifact?.(state.sheetArtifact);
+    } else if (artifactPayload.type === 'document') {
+      state.documentArtifact = artifactPayload as unknown as AgentDocumentArtifact;
+      options.onDocumentArtifact?.(state.documentArtifact);
     } else {
       state.pptArtifact = payload as unknown as AgentPptArtifact;
       options.onPptArtifact?.(state.pptArtifact);
@@ -450,7 +468,8 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         system_prompt: options.systemPrompt,
         agent_profile_id: options.agentProfileId || undefined,
         response_mode: options.responseMode || 'general',
-        approval_mode: options.approvalMode || 'ask',
+        // 不传时后端按 auto 处理：只读工具自动放行，写操作仍逐次确认
+        approval_mode: options.approvalMode || 'auto',
         plan_mode: options.planMode || false,
         files: options.files?.length ? options.files : undefined,
       }),
@@ -478,10 +497,14 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
           console.warn('Failed to parse SSE event payload:', err, String(msg.data).slice(0, 200));
           return;
         }
+        if (msg.event !== 'reasoning_delta' && msg.event !== 'delta') {
+          console.log('[probe] SSE event:', msg.event);
+        }
         if (msg.event === 'error') {
           // 先关闭底层连接再抛出，避免连接泄漏
           controller.abort();
         }
+        if (msg.event === 'artifact_ready') console.log('[probe] SSE 收到 artifact_ready, event=', msg.event, 'data.type=', (payload as Record<string, unknown>).type);
         applyAgentEvent(msg.event, payload, options, state);
       },
       // 不重试：错误直接抛出，保持旧实现 fail-fast 语义
@@ -519,6 +542,7 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
     pptArtifact: state.pptArtifact,
     websiteArtifact: state.websiteArtifact,
     sheetArtifact: state.sheetArtifact,
+    documentArtifact: state.documentArtifact,
   };
 }
 
@@ -582,6 +606,7 @@ export type SessionArtifacts = {
   } | null;
   website_artifact: AgentWebsiteArtifact | null;
   sheet_artifact: AgentSheetArtifact | null;
+  document_artifact: AgentDocumentArtifact | null;
 };
 
 /** 从后端加载会话关联的最新制品（PPT/网站） */
@@ -630,7 +655,7 @@ export async function polishPrompt(
   );
 }
 
-export type ArtifactKind = 'ppt' | 'website' | 'sheet';
+export type ArtifactKind = 'ppt' | 'website' | 'sheet' | 'document';
 
 export type ArtifactVersion = {
   kind: ArtifactKind;
@@ -666,6 +691,7 @@ export async function loadArtifactVersion(
     preview_html: string;
   };
   sheet_artifact?: AgentSheetArtifact;
+  document_artifact?: AgentDocumentArtifact;
 }> {
   return apiFetch(
     `${AGENT_ENDPOINT}/sessions/${sessionId}/versions/${kind}/${encodeURIComponent(reference)}`,
@@ -771,6 +797,23 @@ export async function submitApiApproval(sessionId: string, approved: boolean, al
       body: JSON.stringify({ approved, allow_all: allowAll }),
     },
     '提交审批决定失败',
+  );
+}
+
+/** 保存用户对文档产物的修改。 */
+export async function saveDocumentSnapshot(
+  sessionId: string,
+  directory: string,
+  snapshot: Record<string, unknown>,
+): Promise<void> {
+  await apiFetch<{ ok: boolean }>(
+    `${AGENT_ENDPOINT}/sessions/${encodeURIComponent(sessionId)}/documents/${encodeURIComponent(directory)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot }),
+    },
+    '保存文档失败',
   );
 }
 

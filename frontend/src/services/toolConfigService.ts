@@ -1,6 +1,6 @@
 import { apiFetch } from './apiClient';
 
-export type AgentMode = 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'sheet';
+export type AgentMode = 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
 
 export type SubToolInfo = {
   name: string;

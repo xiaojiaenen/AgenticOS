@@ -136,7 +136,15 @@ export const SpreadsheetArtifactPanel: React.FC<SpreadsheetArtifactPanelProps> =
             browserHint={MIN_BROWSER_HINT}
           />
         ) : (
-          <SheetEditor ref={editorRef} snapshot={artifact.snapshot} dark={isDark} />
+          /* key 绑产物 id：切历史版本 / 生成新表格时必须重建编辑器。
+             SheetEditor 只在挂载时读一次快照，不换 key 的话表格头信息会更新、
+             grid 却还停在上一版数据，看起来像「生成了但没生效」。 */
+          <SheetEditor
+            key={artifact.artifactId}
+            ref={editorRef}
+            snapshot={artifact.snapshot}
+            dark={isDark}
+          />
         )}
       </div>
     </motion.aside>
