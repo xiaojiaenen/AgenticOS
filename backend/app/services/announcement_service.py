@@ -108,12 +108,12 @@ class AnnouncementService:
         starts_at = payload.get("starts_at")
         ends_at = payload.get("ends_at")
         if starts_at is not None and ends_at is not None and starts_at > ends_at:
-            raise ValueError("Announcement end time must be later than start time")
+            raise ValueError("公告结束时间必须晚于开始时间")
 
         cta_label = payload.get("cta_label")
         cta_link = payload.get("cta_link")
         if bool(cta_label) ^ bool(cta_link):
-            raise ValueError("CTA label and CTA link must be configured together")
+            raise ValueError("行动按钮的文案与链接必须同时填写")
 
     def _get_active_row(self, db: Session) -> AnnouncementModel | None:
         rows = db.scalars(

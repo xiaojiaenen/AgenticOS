@@ -1,7 +1,7 @@
-"""ArtifactFactory：PPT / website 工件创建与 PPTX 导出。
+"""ArtifactFactory：PPT / website / spreadsheet 工件创建与 PPTX 导出。
 
 从原 ``app/services/agent_service.py`` 整段搬移（TECH-DEBT-2026-09 拆分）：
-- _create_ppt_artifact / _create_website_artifact
+- _create_ppt_artifact / _create_website_artifact / _create_sheet_artifact
 - _inline_dist_assets / _get_edit_hint / _infer_project_slug_from_tools
 - _export_pptx_sync
 
@@ -14,7 +14,14 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from app.core.data_path import DATA_DIR, PPT_SESSIONS_DIR, WEBSITES_DIR, _parse_dir_name
+from app.core.data_path import (
+    DATA_DIR,
+    DOCUMENTS_DIR,
+    PPT_SESSIONS_DIR,
+    SHEETS_DIR,
+    WEBSITES_DIR,
+    _parse_dir_name,
+)
 
 _logger = logging.getLogger("agent")
 
@@ -161,51 +168,204 @@ class ArtifactFactory:
             if not slug:
                 _logger.info("website artifact skipped: could not infer project slug")
                 return None
-
-            project_dir = _websites_dir / slug
-            dist_dir = project_dir / "dist"
-            index_html = dist_dir / "index.html"
-            if not index_html.exists():
-                _logger.info("website artifact skipped: dist/index.html not found in %s", dist_dir)
-                return None
-
-            raw_html = await asyncio.to_thread(index_html.read_text, encoding="utf-8")
-            preview_html = self._inline_dist_assets(dist_dir, raw_html)
-
-            # Count files in dist and detect stack（同步 rglob 扫描放线程池）
-            def _scan_project():
-                file_count = len([f for f in dist_dir.rglob("*") if f.is_file()])
-                has_vue = any(f.suffix == ".vue" for f in project_dir.rglob("*"))
-                has_jsx = any(f.suffix == ".jsx" for f in project_dir.rglob("*"))
-                return file_count, has_vue, has_jsx
-
-            file_count, has_vue, has_jsx = await asyncio.to_thread(_scan_project)
-            if has_vue:
-                stack = "vue"
-            elif has_jsx:
-                stack = "react"
-            else:
-                stack = "vanilla"
-
-            artifact = {
-                "type": "website",
-                "artifact_id": session_id,  # use session_id as artifact_id for now
-                "session_id": session_id,
-                "title": slug.replace("-", " ").title(),
-                "project_slug": slug,
-                "stack": stack,
-                "file_count": file_count,
-                "preview_html": preview_html,
-            }
-
-            _logger.info(
-                "website artifact created: session=%s slug=%s stack=%s files=%d",
-                session_id, slug, stack, file_count,
-            )
-            return artifact
+            return await self.build_website_artifact(session_id, slug)
         except Exception:
             _logger.exception("website artifact creation failed: session=%s", session_id)
             return None
+
+    # ── spreadsheet 工件 ───────────────────────────────────────────────
+
+    async def _create_sheet_artifact(self, session_id: str) -> dict[str, Any] | None:
+        """Create a spreadsheet artifact from the newest workbook snapshot on disk.
+
+        与 website 同构：产物不是从模型输出里解析的，而是从 data/sheets 下
+        build_sheet 写出的快照读回来的，所以刷新页面能重建、也不会出现
+        "模型编了一个不存在的表格"。
+        """
+        try:
+
+            def _find_latest() -> Path | None:
+                if not SHEETS_DIR.exists():
+                    return None
+                best_ver = -1
+                best: Path | None = None
+                for child in SHEETS_DIR.iterdir():
+                    if not child.is_dir() or not (child / "workbook.json").is_file():
+                        continue
+                    parsed = _parse_dir_name(child.name)
+                    if parsed and str(parsed[1]) == session_id and parsed[2] > best_ver:
+                        best_ver = parsed[2]
+                        best = child
+                return best
+
+            directory = await asyncio.to_thread(_find_latest)
+            if directory is None:
+                return None
+            return await self.build_sheet_artifact(session_id, directory)
+        except Exception:
+            _logger.exception("sheet artifact creation failed: session=%s", session_id)
+            return None
+
+    async def build_sheet_artifact(
+        self, session_id: str, directory: Path
+    ) -> dict[str, Any] | None:
+        """从 data/sheets/{version_dir}/workbook.json 构建 spreadsheet 制品。"""
+        from app.services.office.service import read_snapshot
+
+        snapshot = await asyncio.to_thread(read_snapshot, directory)
+        if not snapshot:
+            _logger.info("sheet artifact skipped: unreadable snapshot at %s", directory)
+            return None
+
+        sheets = snapshot.get("sheets", {}) or {}
+        order = snapshot.get("sheetOrder", []) or []
+        sheet_names = [
+            sheets[sid].get("name", sid) for sid in order if sid in sheets
+        ]
+        # 字段命名与 website 产物保持一致（type + snake_case），由前端翻译成
+        # 前端的 Artifact 联合类型。
+        return {
+            "type": "spreadsheet",
+            "artifact_id": directory.name,
+            "session_id": session_id,
+            "title": snapshot.get("name") or "未命名表格",
+            "snapshot": snapshot,
+            "sheet_names": sheet_names,
+            "sheet_count": len(order),
+        }
+
+    async def get_latest_sheet_artifact(self, session_id: str) -> dict[str, Any] | None:
+        """回源重建会话最新的表格制品（刷新页面后恢复预览面板用）。
+
+        data/sheets 下目录形如 ``u{user}_s{session}_v{version}``，取版本号最大的一个。
+        """
+        return await self._create_sheet_artifact(session_id)
+
+    # ── document 工件 ─────────────────────────────────────────────────
+
+    async def _create_document_artifact(self, session_id: str) -> dict[str, Any] | None:
+        """Create a document artifact from the newest IDocumentData snapshot.
+
+        与 spreadsheet 同构：产物从 data/documents 下 build_document 写出的
+        快照读回，刷新可重建，不依赖模型输出。
+        """
+        try:
+
+            def _find_latest() -> Path | None:
+                if not DOCUMENTS_DIR.exists():
+                    return None
+                best_ver = -1
+                best: Path | None = None
+                for child in DOCUMENTS_DIR.iterdir():
+                    if not child.is_dir() or not (child / "document.json").is_file():
+                        continue
+                    parsed = _parse_dir_name(child.name)
+                    if parsed and str(parsed[1]) == session_id and parsed[2] > best_ver:
+                        best_ver = parsed[2]
+                        best = child
+                return best
+
+            directory = await asyncio.to_thread(_find_latest)
+            if directory is None:
+                return None
+            return await self.build_document_artifact(session_id, directory)
+        except Exception:
+            _logger.exception("document artifact creation failed: session=%s", session_id)
+            return None
+
+    async def build_document_artifact(
+        self, session_id: str, directory: Path
+    ) -> dict[str, Any] | None:
+        """从 data/documents/{version_dir}/document.json 构建 document 制品。"""
+        from app.services.office.document_service import read_snapshot
+
+        snapshot = await asyncio.to_thread(read_snapshot, directory)
+        if not snapshot:
+            _logger.info("document artifact skipped: unreadable snapshot at %s", directory)
+            return None
+        body = snapshot.get("body") or {}
+        # 段落符 \r 与收尾的 \n 都不是正文字数
+        char_count = len((body.get("dataStream") or "").replace("\r", "").replace("\n", ""))
+        return {
+            # 字段命名与 website / spreadsheet 产物一致（type + snake_case）
+            "type": "document",
+            "artifact_id": directory.name,
+            "session_id": session_id,
+            "title": snapshot.get("title") or "未命名文档",
+            "snapshot": snapshot,
+            "char_count": char_count,
+        }
+
+    async def get_latest_document_artifact(self, session_id: str) -> dict[str, Any] | None:
+        """回源重建会话最新的文档制品（刷新页面后恢复预览面板用）。"""
+        return await self._create_document_artifact(session_id)
+
+    async def get_latest_website_artifact(self, session_id: str) -> dict[str, Any] | None:
+        """回源重建会话最新的网站制品（刷新页面后恢复预览面板用）。
+
+        data/websites 下目录形如 ``u{user}_s{session}_v{version}``，取版本号最大的一个。
+        """
+        def _find_latest_slug() -> str | None:
+            if not WEBSITES_DIR.exists():
+                return None
+            best_ver = -1
+            best_name: str | None = None
+            for child in WEBSITES_DIR.iterdir():
+                if not child.is_dir():
+                    continue
+                parsed = _parse_dir_name(child.name)
+                if parsed and str(parsed[1]) == session_id and parsed[2] > best_ver:
+                    best_ver = parsed[2]
+                    best_name = child.name
+            return best_name
+
+        try:
+            slug = await asyncio.to_thread(_find_latest_slug)
+            if not slug:
+                return None
+            return await self.build_website_artifact(session_id, slug)
+        except Exception:
+            _logger.exception("latest website artifact lookup failed: session=%s", session_id)
+            return None
+
+    async def build_website_artifact(self, session_id: str, slug: str) -> dict[str, Any] | None:
+        """从 data/websites/{slug}/dist 构建 website 制品（预览 HTML 内联资源）。"""
+        _websites_dir = WEBSITES_DIR
+        project_dir = _websites_dir / slug
+        dist_dir = project_dir / "dist"
+        index_html = dist_dir / "index.html"
+        if not index_html.exists():
+            _logger.info("website artifact skipped: dist/index.html not found in %s", dist_dir)
+            return None
+
+        raw_html = await asyncio.to_thread(index_html.read_text, encoding="utf-8")
+        preview_html = self._inline_dist_assets(dist_dir, raw_html)
+
+        # Count files in dist and detect stack（同步 rglob 扫描放线程池）
+        def _scan_project():
+            file_count = len([f for f in dist_dir.rglob("*") if f.is_file()])
+            has_vue = any(f.suffix == ".vue" for f in project_dir.rglob("*"))
+            has_jsx = any(f.suffix == ".jsx" for f in project_dir.rglob("*"))
+            return file_count, has_vue, has_jsx
+
+        file_count, has_vue, has_jsx = await asyncio.to_thread(_scan_project)
+        if has_vue:
+            stack = "vue"
+        elif has_jsx:
+            stack = "react"
+        else:
+            stack = "vanilla"
+
+        return {
+            "type": "website",
+            "artifact_id": session_id,  # use session_id as artifact_id for now
+            "session_id": session_id,
+            "title": slug.replace("-", " ").title(),
+            "project_slug": slug,
+            "stack": stack,
+            "file_count": file_count,
+            "preview_html": preview_html,
+        }
 
     async def _get_edit_hint(self, session_id: str) -> str | None:
         """If the session has existing PPT artifacts, add an edit hint for save_slide."""

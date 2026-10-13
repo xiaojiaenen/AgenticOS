@@ -30,8 +30,8 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
                 className="flex flex-col gap-3 rounded-2xl border border-white/70 bg-white/76 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
-                  <div className="truncate font-mono text-xs font-medium text-zinc-900">{approval.name}</div>
-                  <div className="mt-1 max-w-xl truncate text-[11px] text-slate-500">
+                  <div className="truncate font-mono text-xs font-medium text-[var(--foreground)]">{approval.name}</div>
+                  <div className="mt-1 max-w-xl truncate text-[11px] text-[var(--muted-foreground)]">
                     {approval.result || '等待你确认后继续执行。'}
                   </div>
                 </div>
@@ -59,7 +59,7 @@ export const PendingApprovalPanel: React.FC<PendingApprovalPanelProps> = ({ appr
                   <button
                     type="button"
                     onClick={() => onDecision(approval.approvalId!, 'rejected', approval.isApiApproval)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-rose-600 transition-colors hover:bg-rose-50 active:scale-95 focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:outline-none"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-[var(--surface-1)] px-3 py-1.5 text-[11px] font-semibold text-rose-600 transition-colors hover:bg-rose-50 active:scale-95 focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:outline-none"
                     aria-label="拒绝工具调用"
                   >
                     <X size={13} />

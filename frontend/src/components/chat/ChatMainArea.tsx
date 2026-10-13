@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChatTimeline } from './ChatTimeline';
 import { ChatSearch } from './ChatSearch';
@@ -10,9 +10,12 @@ import { ChatInput } from './ChatInput';
 import { MascotState } from '../ui/MascotState';
 import { MascotCompanion } from '../ui/MascotCompanion';
 import { AlertCircleIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
+import { Globe, Presentation, Sparkles } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../shadcn/tooltip';
 import { useChat } from '../../contexts/ChatContext';
 import { useChatStore } from '../../stores/chatStore';
 import { cn } from '../../lib/utils';
+import { getStoredUser } from '../../services/authService';
 
 export const ChatMainArea = React.memo(() => {
   // 从 Context 获取 hook 返回值和派生状态
@@ -21,7 +24,8 @@ export const ChatMainArea = React.memo(() => {
     isUserScrolledUp, error, runStatus,
     showSearch, searchQuery, searchMatchesCount, searchCurrentIndex, activeMatchId,
     pendingApprovals, pendingDecisions,
-    scrollRef, messagesEndRef, chatInputRef,
+    scrollRef, messagesEndRef, chatInputRef, virtuosoRef,
+    currentSessionId,
     handleScroll, handleJumpToBottom, handleSend, handleStopGeneration,
     handleApprovalDecision, handleDecisionMade,
     setError, setSearchQuery, setShowSearch,
@@ -35,7 +39,17 @@ export const ChatMainArea = React.memo(() => {
     chatMode, setChatMode,
     agentProfiles, selectedAgentProfileId,
     isMobile,
-  } = useChatStore();  // 分离邮件审批和其他审批
+    artifact, setArtifact,
+    approvalMode, setApprovalMode,
+    planMode, setPlanMode,
+  } = useChatStore();
+  // 虚拟化模式（长会话）需要把真实滚动容器传给 Virtuoso 的 customScrollParent
+  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
+  const attachScrollRef = useCallback((el: HTMLDivElement | null) => {
+    (scrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    setScrollParent(el);
+  }, [scrollRef]);
+  // 分离邮件审批和其他审批
   const { emailApprovals, otherApprovals } = useMemo(() => {
     const emailIds = new Set<string>();
     const emailPreviews: EmailPreview[] = [];
@@ -65,8 +79,42 @@ export const ChatMainArea = React.memo(() => {
     };
   }, [pendingApprovals]);
 
+  // 产物面板关闭后的「重新打开」入口：
+  // 产物卡片在消息里，消息一长就找不到，这里在输入区上方常驻一个入口
+  const reopenableArtifact = React.useMemo(() => {
+    if (artifact) return null;
+    const messages = [...(currentSession?.messages ?? [])].reverse();
+    const msg = messages.find(
+      (m) =>
+        m.role === 'model' &&
+        ((m.pptArtifact?.status === 'ready' && m.pptArtifact.html) ||
+          (m.websiteArtifact?.status === 'ready' && m.websiteArtifact?.html)),
+    );
+    if (!msg) return null;
+    if (msg.pptArtifact?.html) {
+      return {
+        language: 'ppt' as const,
+        artifactId: msg.pptArtifact.artifactId ?? '',
+        html: msg.pptArtifact.html,
+        title: msg.pptArtifact.title || 'PPT 演示文稿',
+        slideCount: msg.pptArtifact.slideCount || 0,
+        theme: msg.pptArtifact.theme,
+      };
+    }
+    return {
+      language: 'website' as const,
+      artifactId: msg.websiteArtifact?.artifactId || '',
+      html: msg.websiteArtifact?.html || '',
+      title: msg.websiteArtifact?.title || '网站预览',
+      projectSlug: msg.websiteArtifact?.projectSlug || '',
+      stack: msg.websiteArtifact?.stack,
+      sessionId: currentSessionId ?? undefined,
+    };
+  }, [artifact, currentSession?.messages, currentSessionId]);
+
   return (
     <>
+      <TooltipProvider delayDuration={250} skipDelayDuration={400}>
       {/* 时间线导航 */}
       <AnimatePresence>
         {!isMobile && currentSession?.messages && (
@@ -99,7 +147,7 @@ export const ChatMainArea = React.memo(() => {
 
         {/* 可滚动消息列表 */}
         <div
-          ref={scrollRef as React.RefObject<HTMLDivElement>}
+          ref={attachScrollRef}
           onScroll={handleScroll}
           className={cn(
             "h-full overflow-y-auto custom-scrollbar pr-16",
@@ -126,11 +174,11 @@ export const ChatMainArea = React.memo(() => {
                 "w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg border hover:scale-105 active:scale-95",
                 showSearch
                   ? "bg-zinc-900 text-white border-zinc-800"
-                  : "bg-white/80 text-slate-600 border-white/60 hover:bg-white"
+                  : "bg-[var(--surface-1)] text-[var(--muted-foreground)] border-white/60 hover:bg-[var(--surface-1)]"
               )}
               aria-label="切换搜索"
             >
-              <div className={cn("transition-transform duration-500", showSearch && "rotate-90")}>
+              <div className={cn("transition-transform duration-200", showSearch && "rotate-90")}>
                 {showSearch ? (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
                 ) : (
@@ -170,13 +218,45 @@ export const ChatMainArea = React.memo(() => {
             onSend={handleSend}
             onSuggestionClick={onSuggestionClick}
             onOpenArtifact={onOpenArtifact}
-            messagesEndRef={messagesEndRef as React.RefObject<HTMLDivElement>}
+            messagesEndRef={messagesEndRef}
+            scrollParent={scrollParent}
+            virtuosoRef={virtuosoRef}
           />
         </div>
       </div>
 
       {/* 输入区域 */}
       <div className="p-4 md:p-6 bg-transparent flex-shrink-0 relative">
+        {/* 运行预算：第 N/M 步（让用户知道边界，避免误以为卡死） */}
+        <AnimatePresence>
+          {isLoading && runStatus.maxSteps ? (
+            <motion.div
+              key="run-budget"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              className="absolute -top-2 left-1/2 z-30 -translate-x-1/2"
+            >
+              <div className="flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)]/90 px-3 py-1 text-[11px] shadow-sm backdrop-blur">
+                <span className="text-[var(--muted-foreground)]">{runStatus.label}</span>
+                <span className="tabular-nums text-[var(--foreground)]">
+                  第 {(runStatus.step ?? 0) + 1} / {runStatus.maxSteps} 步
+                </span>
+                <div className="h-1 w-16 overflow-hidden rounded-full bg-[var(--surface-2)]">
+                  <div
+                    className="h-full rounded-full bg-brand-500 transition-[width] duration-300"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (((runStatus.step ?? 0) + 1) / Math.max(1, runStatus.maxSteps)) * 100,
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
         <AnimatePresence>
           {isUserScrolledUp && (
             <motion.div
@@ -190,6 +270,44 @@ export const ChatMainArea = React.memo(() => {
                 <span>回到底部</span>
                 <ChevronDownIcon size={12} className="group-hover:translate-y-0.5 transition-transform" />
               </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 产物面板关闭后：重新打开入口（通用，不区分产物类型） */}
+        <AnimatePresence>
+          {reopenableArtifact && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="absolute -top-3 right-0 z-30"
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setArtifact(reopenableArtifact)}
+                    className="flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)]/90 px-2.5 py-1.5 text-[var(--muted-foreground)] shadow-sm backdrop-blur transition-all duration-200 hover:text-[var(--foreground)] hover:shadow-md active:scale-95"
+                    aria-label="重新打开产物预览"
+                  >
+                    {reopenableArtifact.language === 'ppt' ? (
+                      <Presentation size={13} />
+                    ) : reopenableArtifact.language === 'website' ? (
+                      <Globe size={13} />
+                    ) : (
+                      <Sparkles size={13} />
+                    )}
+                    <span className="text-[10px] font-semibold">产物</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" sideOffset={8}>
+                  {reopenableArtifact.language === 'ppt'
+                    ? '重新打开 PPT 预览'
+                    : reopenableArtifact.language === 'website'
+                      ? '重新打开网站预览'
+                      : '重新打开产物预览'}
+                </TooltipContent>
+              </Tooltip>
             </motion.div>
           )}
         </AnimatePresence>
@@ -211,8 +329,13 @@ export const ChatMainArea = React.memo(() => {
             selectedAgentProfileId={selectedAgentProfileId}
             onAgentProfileChange={onAgentProfileChange}
             isModeLocked={isModeLocked}
+            approvalMode={approvalMode}
+            onApprovalModeChange={setApprovalMode}
+            planMode={planMode}
+            onPlanModeChange={setPlanMode}
+            isAdmin={getStoredUser()?.role === 'admin'}
           />
-          <div className={cn("mt-3 flex min-h-9 items-center justify-center gap-2 text-xs font-medium", "text-slate-400")}>
+          <div className={cn("mt-3 flex min-h-9 items-center justify-center gap-2 text-xs font-medium", "text-[var(--muted-foreground)]")}>
             {isLoading ? (
               <MascotState
                 phase={
@@ -233,6 +356,7 @@ export const ChatMainArea = React.memo(() => {
           </div>
         </div>
       </div>
+      </TooltipProvider>
     </>
   );
 });

@@ -20,7 +20,8 @@ from app.db.models import (
     UserModel,
 )
 from app.db.session import create_db_session
-from app.prompts import GENERAL_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT, BIGDATA_SYSTEM_PROMPT, EMAIL_SYSTEM_PROMPT
+from app.prompts import (BIGDATA_SYSTEM_PROMPT, EMAIL_SYSTEM_PROMPT, GENERAL_SYSTEM_PROMPT,
+                          OFFICE_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT)
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
 from app.services.session_storage import parse_approval_sub_tools, slugify
 from app.services.skill_service import RuntimeSkill, SkillService
@@ -40,6 +41,7 @@ MODE_DEFAULT_PROMPTS: dict[str, str] = {
     "website": WEBSITE_ROUTER_PROMPT,
     "email": EMAIL_SYSTEM_PROMPT,
     "bigdata": BIGDATA_SYSTEM_PROMPT,
+    "office": OFFICE_SYSTEM_PROMPT,
 }
 
 GENERIC_PROMPTS = {
@@ -74,6 +76,14 @@ BUILTIN_AGENT_PROFILES = {
         "avatar": "globe",
         "listed": True,
     },
+    "office": {
+        "name": "办公助手",
+        "description": "统一处理表格与文档：生成可编辑的电子表格（公式/多工作表）和文档（标题层级/正文）。",
+        "system_prompt": OFFICE_SYSTEM_PROMPT,
+        "response_mode": "office",
+        "avatar": "table",
+        "listed": True,
+    },
     "email": {
         "name": "邮箱助手",
         "description": "帮助用户高效管理公司邮件，支持读取、搜索、发送和统计。",
@@ -98,6 +108,12 @@ class RuntimeAgentProfile:
     skills: tuple[RuntimeSkill, ...]
     external_system_ids: tuple[int, ...] = ()
     max_steps: int | None = None
+    # 会话级审批模式：ask（逐次确认）/ auto（只读自动放行）/ full（全放行，仅管理员）
+    approval_mode: str = "auto"
+    # 计划模式：只下发只读工具，产出计划待用户批准后再执行
+    plan_mode: bool = False
+    # 触发本轮的用户是否为管理员（决定 full 档是否生效）
+    is_admin_actor: bool = False
 
 
 class AgentProfileService:
@@ -110,6 +126,24 @@ class AgentProfileService:
             return
         changed = False
         existing = {row.slug: row for row in db.scalars(select(AgentProfileModel)).all()}
+        # 一次性迁移：sheet 模式已并入 office（办公助手）。
+        # - 库里只有 sheet：原地改名，保留它的历史
+        # - 两者并存：sheet 是指向已删除模式的孤儿，直接删掉。office 已由
+        #   内置补装逻辑覆盖所有用户，删掉它不会让任何人丢失这个智能体。
+        legacy_sheet = existing.pop("sheet", None)
+        if legacy_sheet is not None and legacy_sheet.is_builtin:
+            if "office" in existing:
+                db.execute(
+                    delete(UserInstalledAgentModel).where(
+                        UserInstalledAgentModel.profile_id == legacy_sheet.id
+                    )
+                )
+                db.delete(legacy_sheet)
+            else:
+                legacy_sheet.slug = "office"
+                legacy_sheet.response_mode = "office"
+            changed = True
+        newly_created: list[int] = []
         for slug, defaults in BUILTIN_AGENT_PROFILES.items():
             profile = existing.get(slug)
             if profile is None:
@@ -127,6 +161,10 @@ class AgentProfileService:
                 )
                 db.add(profile)
                 db.flush()
+                # 新内置智能体必须让所有老用户立刻可用：商店/安装列表只认
+                # user_installed_agents，不自动装的话新加的内置 agent 对存量
+                # 用户等于不存在（邮箱助手当初就踩了这个坑）。
+                newly_created.append(profile.id)
                 changed = True
             else:
                 profile.is_builtin = True
@@ -163,18 +201,36 @@ class AgentProfileService:
 
         general = db.scalar(select(AgentProfileModel).where(AgentProfileModel.slug == "general"))
         if general is not None:
-            all_user_ids = set(db.scalars(select(UserModel.id)).all())
-            installed_user_ids = {
-                row.user_id
-                for row in db.scalars(
-                    select(UserInstalledAgentModel).where(
-                        UserInstalledAgentModel.profile_id == general.id
-                    )
-                ).all()
-            }
-            for user_id in all_user_ids - installed_user_ids:
-                db.add(UserInstalledAgentModel(user_id=user_id, profile_id=general.id))
-                changed = True
+            newly_created.append(general.id)
+
+        # 一次性回填：内置、启用、已上架，却**从未被任何人安装过**的 profile，
+        # 说明它在存量库里是「上线时没给老用户装」的遗漏，而不是谁主动卸载的。
+        # 这类补装不违反「尊重用户卸载」的约定。
+        builtin_ids = set(
+            db.scalars(
+                select(AgentProfileModel.id).where(
+                    AgentProfileModel.is_builtin.is_(True),
+                    AgentProfileModel.enabled.is_(True),
+                    AgentProfileModel.listed.is_(True),
+                )
+            ).all()
+        )
+        installed_pairs = {
+            (row.user_id, row.profile_id)
+            for row in db.scalars(select(UserInstalledAgentModel)).all()
+        }
+        all_user_ids = set(db.scalars(select(UserModel.id)).all())
+
+        # 只补「本次新建的」+「从没人装过的」这两类；已存在且有人装过的内置
+        # profile 一律不碰，用户主动卸载过的不会被塞回来。
+        backfill_ids = set(dict.fromkeys(newly_created)) | (builtin_ids - {
+            profile_id for _user_id, profile_id in installed_pairs
+        })
+        for user_id in all_user_ids:
+            for profile_id in sorted(backfill_ids):
+                if (user_id, profile_id) not in installed_pairs:
+                    db.add(UserInstalledAgentModel(user_id=user_id, profile_id=profile_id))
+                    changed = True
 
         if changed:
             db.commit()
@@ -370,8 +426,10 @@ class AgentProfileService:
 
     def _serialize(self, db: Session, profile: AgentProfileModel, *, user_id: int | None = None) -> dict[str, object]:
         self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
-        installed = False
-        if user_id is not None:
+        # 自己创建的智能体天然可用，无需再"安装"
+        is_owner = bool(user_id is not None and profile.owner_id == user_id)
+        installed = is_owner
+        if user_id is not None and not installed:
             installed = db.scalar(
                 select(UserInstalledAgentModel.id).where(
                     UserInstalledAgentModel.user_id == user_id,
@@ -399,6 +457,9 @@ class AgentProfileService:
             "listed": profile.listed,
             "is_builtin": profile.is_builtin,
             "installed": installed,
+            "owner_id": profile.owner_id,
+            "is_owner": bool(user_id is not None and profile.owner_id == user_id),
+            "visibility": profile.visibility or "private",
             "audience_mode": self._audience_mode_for_users(audience_users),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
             "tools": self._merge_tools_with_catalog(tools),
@@ -452,6 +513,7 @@ class AgentProfileService:
         audience_users: list[UserModel],
         installed: bool,
         external_systems: list[dict[str, object]] | None = None,
+        user_id: int | None = None,
     ) -> dict[str, object]:
         return {
             "id": profile.id,
@@ -465,6 +527,9 @@ class AgentProfileService:
             "listed": profile.listed,
             "is_builtin": profile.is_builtin,
             "installed": installed,
+            "owner_id": profile.owner_id,
+            "is_owner": bool(user_id is not None and profile.owner_id == user_id),
+            "visibility": profile.visibility or "private",
             "audience_mode": self._audience_mode_for_users(audience_users),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
             "tools": self._merge_tools_with_catalog(tools),
@@ -529,6 +594,12 @@ class AgentProfileService:
                     )
                 ).all()
             }
+            # 自己创建的智能体天然可用，无需"安装"
+            installed_ids.update(
+                int(p.id)
+                for p in profiles
+                if p.owner_id == user_id and int(p.id) not in installed_ids
+            )
 
         # Prefetch external systems for all profiles
         ext_systems_by_profile: dict[int, list[dict[str, object]]] = defaultdict(list)
@@ -553,9 +624,23 @@ class AgentProfileService:
                 audience_users=audience_by_profile.get(profile.id, []),
                 installed=profile.id in installed_ids if user_id is not None else False,
                 external_systems=ext_systems_by_profile.get(profile.id, []),
+                user_id=user_id,
             )
             for profile in profiles
         ]
+
+    @staticmethod
+    def _can_manage(profile: AgentProfileModel, user: UserModel) -> bool:
+        """平台内置（owner_id 为空）只有管理员能改；其余仅所有者或管理员。"""
+        if user.role == "admin":
+            return True
+        return profile.owner_id is not None and profile.owner_id == user.id
+
+    def _assert_can_manage(self, profile: AgentProfileModel, user: UserModel) -> None:
+        if profile.is_builtin:
+            raise PermissionError("内置智能体不可修改或删除")
+        if not self._can_manage(profile, user):
+            raise PermissionError("只能管理自己创建的智能体")
 
     def list_admin(self) -> dict[str, object]:
         with self.session_factory() as db:
@@ -574,7 +659,15 @@ class AgentProfileService:
                 profile
                 for profile in db.scalars(
                     select(AgentProfileModel)
-                    .where(AgentProfileModel.enabled.is_(True), AgentProfileModel.listed.is_(True))
+                    .where(
+                        AgentProfileModel.enabled.is_(True),
+                        # 商店可见条件：管理员上架 listed ∪ 自己创建的 ∪ 用户公开发布的
+                        (
+                            AgentProfileModel.listed.is_(True)
+                            | (AgentProfileModel.owner_id == user.id)
+                            | (AgentProfileModel.visibility == "public")
+                        ),
+                    )
                     .order_by(AgentProfileModel.is_builtin.desc(), AgentProfileModel.created_at.desc())
                 ).all()
                 if self._is_profile_available_to_user(db, profile, user)
@@ -600,7 +693,11 @@ class AgentProfileService:
                     select(AgentProfileModel)
                     .where(
                         AgentProfileModel.enabled.is_(True),
-                        AgentProfileModel.id.in_(installed_ids or {-1}),
+                        # 已安装的 ∪ 自己创建的（自建天然可用）
+                        (
+                            AgentProfileModel.id.in_(installed_ids or {-1})
+                            | (AgentProfileModel.owner_id == user.id)
+                        ),
                     )
                     .order_by(AgentProfileModel.is_builtin.desc(), AgentProfileModel.created_at.asc())
                 ).all()
@@ -677,6 +774,8 @@ class AgentProfileService:
                 max_steps=request.max_steps,
                 is_builtin=False,
                 created_by=creator.id,
+                owner_id=creator.id,
+                visibility=request.visibility,
             )
             db.add(profile)
             db.flush()
@@ -696,14 +795,21 @@ class AgentProfileService:
             )
             db.commit()
             db.refresh(profile)
-            return self._serialize(db, profile)
+            return self._serialize(db, profile, user_id=creator.id)
 
-    def update(self, profile_id: int, request: AgentProfileUpdateRequest) -> dict[str, object]:
+    def update(
+        self,
+        profile_id: int,
+        request: AgentProfileUpdateRequest,
+        user: UserModel | None = None,
+    ) -> dict[str, object]:
         with self.session_factory() as db:
             self.ensure_defaults(db)
             profile = db.get(AgentProfileModel, profile_id)
             if profile is None:
                 raise KeyError("Agent profile not found")
+            if user is not None:
+                self._assert_can_manage(profile, user)
 
             if request.name is not None:
                 profile.name = request.name
@@ -732,6 +838,8 @@ class AgentProfileService:
                 profile.listed = request.listed
             if request.max_steps is not None:
                 profile.max_steps = request.max_steps
+            if request.visibility is not None:
+                profile.visibility = request.visibility
             if request.tools is not None:
                 self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
                 db.flush()
@@ -757,15 +865,17 @@ class AgentProfileService:
             db.add(profile)
             db.commit()
             db.refresh(profile)
-            return self._serialize(db, profile)
+            return self._serialize(db, profile, user_id=user.id if user else None)
 
-    def delete(self, profile_id: int) -> None:
+    def delete(self, profile_id: int, user: UserModel | None = None) -> None:
         with self.session_factory() as db:
             profile = db.get(AgentProfileModel, profile_id)
             if profile is None:
                 raise KeyError("Agent profile not found")
+            if user is not None:
+                self._assert_can_manage(profile, user)
             if profile.is_builtin:
-                raise ValueError("Built-in agent profiles cannot be deleted")
+                raise ValueError("内置智能体不可删除")
 
             db.execute(delete(UserInstalledAgentModel).where(UserInstalledAgentModel.profile_id == profile_id))
             db.execute(delete(AgentProfileAudienceModel).where(AgentProfileAudienceModel.profile_id == profile_id))
@@ -805,7 +915,14 @@ class AgentProfileService:
             )
             db.commit()
 
-    def resolve_runtime(self, profile_id: int, user: UserModel) -> RuntimeAgentProfile:
+    def resolve_runtime(
+        self,
+        profile_id: int,
+        user: UserModel,
+        *,
+        approval_mode: str = "auto",
+        plan_mode: bool = False,
+    ) -> RuntimeAgentProfile:
         with self.session_factory() as db:
             self.ensure_defaults(db)
             profile = db.get(AgentProfileModel, profile_id)
@@ -821,9 +938,19 @@ class AgentProfileService:
                 if not installed:
                     raise PermissionError("Please install this agent before using it")
 
-            return self._runtime_from_profile(db, profile)
+            return self._runtime_from_profile(
+                db, profile, approval_mode=approval_mode,
+                is_admin_actor=user.role == "admin", plan_mode=plan_mode,
+            )
 
-    def resolve_runtime_by_mode(self, response_mode: str, user: UserModel) -> RuntimeAgentProfile:
+    def resolve_runtime_by_mode(
+        self,
+        response_mode: str,
+        user: UserModel,
+        *,
+        approval_mode: str = "auto",
+        plan_mode: bool = False,
+    ) -> RuntimeAgentProfile:
         with self.session_factory() as db:
             self.ensure_defaults(db)
             profile = db.scalar(
@@ -834,9 +961,23 @@ class AgentProfileService:
             )
             if profile is None or not self._is_profile_available_to_user(db, profile, user):
                 raise PermissionError("Agent profile is not available")
-            return self._runtime_from_profile(db, profile)
+            return self._runtime_from_profile(
+                db,
+                profile,
+                approval_mode=approval_mode,
+                is_admin_actor=user.role == "admin",
+                plan_mode=plan_mode,
+            )
 
-    def _runtime_from_profile(self, db: Session, profile: AgentProfileModel) -> RuntimeAgentProfile:
+    def _runtime_from_profile(
+        self,
+        db: Session,
+        profile: AgentProfileModel,
+        *,
+        approval_mode: str = "auto",
+        is_admin_actor: bool = False,
+        plan_mode: bool = False,
+    ) -> RuntimeAgentProfile:
         self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
         rows = db.scalars(
             select(AgentProfileToolModel)
@@ -901,6 +1042,9 @@ class AgentProfileService:
             skills=skills,
             external_system_ids=ext_system_ids,
             max_steps=profile.max_steps,
+            approval_mode=approval_mode,
+            is_admin_actor=is_admin_actor,
+            plan_mode=plan_mode,
         )
 
     def _load_profile_skill_rows(

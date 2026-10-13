@@ -33,6 +33,18 @@ export default defineConfig(({ mode }) => {
           target: apiProxyTarget,
           changeOrigin: true,
         },
+        // 已部署站点与构建产物由后端 StaticFiles 挂载（app/main.py）。
+        // 生产环境走 nginx 的 location /sites/；开发环境不转发的话，
+        // /sites/xxx 会被 Vite 的 SPA fallback 吞掉、返回 AgenticOS 自己的
+        // index.html，管理员点「访问」看起来就像"部署没有任何变化"。
+        '/sites': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
+        '/preview': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
       },
       hmr: process.env.DISABLE_HMR !== 'true',
     },

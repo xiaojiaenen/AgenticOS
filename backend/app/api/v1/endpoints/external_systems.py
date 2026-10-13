@@ -57,7 +57,7 @@ def get_system(
     try:
         return ExternalSystemService(db).get_system(system_id)
     except KeyError:
-        raise HTTPException(status_code=404, detail="External system not found")
+        raise HTTPException(status_code=404, detail="外部系统不存在")
 
 
 @admin_router.patch("/{system_id}", response_model=ExternalSystemResponse)
@@ -70,7 +70,7 @@ async def update_system(
     try:
         return await ExternalSystemService(db).update_system(system_id, body)
     except KeyError:
-        raise HTTPException(status_code=404, detail="External system not found")
+        raise HTTPException(status_code=404, detail="外部系统不存在")
 
 
 @admin_router.delete("/{system_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -82,7 +82,7 @@ def delete_system(
     try:
         ExternalSystemService(db).delete_system(system_id)
     except KeyError:
-        raise HTTPException(status_code=404, detail="External system not found")
+        raise HTTPException(status_code=404, detail="外部系统不存在")
 
 
 # ── API CRUD (admin, nested under system) ───────────────────────────────────
@@ -107,7 +107,7 @@ def create_api(
     try:
         return ExternalSystemService(db).create_api(system_id, body)
     except KeyError:
-        raise HTTPException(status_code=404, detail="External system not found")
+        raise HTTPException(status_code=404, detail="外部系统不存在")
 
 
 @admin_router.get("/{system_id}/apis/{api_id}", response_model=ExternalApiDetail)
@@ -120,7 +120,7 @@ def get_api(
     try:
         return ExternalSystemService(db).get_api(api_id)
     except KeyError:
-        raise HTTPException(status_code=404, detail="External API not found")
+        raise HTTPException(status_code=404, detail="外部接口不存在")
 
 
 @admin_router.patch("/{system_id}/apis/{api_id}", response_model=ExternalApiDetail)
@@ -134,7 +134,7 @@ def update_api(
     try:
         return ExternalSystemService(db).update_api(api_id, body)
     except KeyError:
-        raise HTTPException(status_code=404, detail="External API not found")
+        raise HTTPException(status_code=404, detail="外部接口不存在")
 
 
 @admin_router.delete("/{system_id}/apis/{api_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -147,7 +147,7 @@ def delete_api(
     try:
         ExternalSystemService(db).delete_api(api_id)
     except KeyError:
-        raise HTTPException(status_code=404, detail="External API not found")
+        raise HTTPException(status_code=404, detail="外部接口不存在")
 
 
 @admin_router.post("/{system_id}/apis/{api_id}/test", response_model=ExternalApiTestResponse)
@@ -162,7 +162,7 @@ async def test_api(
     try:
         return await ExternalSystemService(db).test_api_call(api_id, body.params, body.credential_data)
     except KeyError:
-        raise HTTPException(status_code=404, detail="External API not found")
+        raise HTTPException(status_code=404, detail="外部接口不存在")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -221,10 +221,10 @@ def get_integration(
         svc = ExternalSystemService(db)
         sys = svc.get_system(system_id)
         if not sys.get("published"):
-            raise HTTPException(status_code=404, detail="Integration not found")
+            raise HTTPException(status_code=404, detail="集成不存在")
         return sys
     except KeyError:
-        raise HTTPException(status_code=404, detail="Integration not found")
+        raise HTTPException(status_code=404, detail="集成不存在")
 
 
 @router.post("/{system_id}/connect", response_model=UserConnectionResponse, status_code=status.HTTP_201_CREATED)
@@ -237,7 +237,7 @@ def connect_integration(
     try:
         return ExternalSystemService(db).connect_system(user.id, system_id, body.credential_data)
     except KeyError:
-        raise HTTPException(status_code=404, detail="Integration not found")
+        raise HTTPException(status_code=404, detail="集成不存在")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -259,7 +259,7 @@ def get_connection_status(
 ):
     result = ExternalSystemService(db).get_user_connection(user.id, system_id)
     if not result:
-        raise HTTPException(status_code=404, detail="Not connected")
+        raise HTTPException(status_code=404, detail="尚未连接")
     return result
 
 

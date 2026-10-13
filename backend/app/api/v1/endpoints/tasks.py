@@ -89,7 +89,7 @@ def _raise_submit_error(exc: Exception) -> None:
     if _is_redis_unavailable(exc):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Task queue unavailable (Redis not reachable). Start Redis or set REDIS_URL.",
+            detail="任务队列不可用（无法连接 Redis），请启动 Redis 或配置 REDIS_URL",
         ) from exc
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -108,14 +108,14 @@ def _require_document_access(
     if not doc or doc.knowledge_base_id != knowledge_base_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document not found",
+            detail="文档不存在",
         )
 
     kb = db.get(KnowledgeBaseModel, knowledge_base_id)
     if not kb:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Knowledge base not found",
+            detail="知识库不存在",
         )
 
     is_admin = current_user.role == "admin"
@@ -163,13 +163,13 @@ def _validate_website_project_path(project_path: str, current_user: UserModel) -
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="project_path must be under data/websites/",
+            detail="路径不合法，只能访问 data/websites/ 下的项目",
         )
 
     if candidate == websites_root or not candidate.is_dir():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Website project not found",
+            detail="网站项目不存在",
         )
 
     # 归属：目录名 u<uid>_s..._vN；非管理员只能构建自己的
@@ -204,7 +204,7 @@ async def get_task_status(
         if _is_redis_unavailable(e):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Task queue unavailable (Redis not reachable).",
+                detail="任务队列不可用（无法连接 Redis）",
             ) from e
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

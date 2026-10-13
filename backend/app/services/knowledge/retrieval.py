@@ -197,6 +197,7 @@ class KnowledgeRetrieval:
         page_type: Optional[str] = None,
         max_results: int = 10,
         is_admin: bool = False,
+        score_threshold: float | None = None,
     ) -> list[SearchResult]:
         """
         执行知识库检索
@@ -235,6 +236,10 @@ class KnowledgeRetrieval:
 
         # 冲突标注
         results = self._annotate_conflicts(results)
+
+        # 相似度阈值：低于阈值的结果视为未命中（召回测试用它看参数影响）
+        if score_threshold is not None and score_threshold > 0:
+            results = [r for r in results if r.score >= score_threshold]
 
         return results[:max_results]
 
@@ -306,7 +311,12 @@ class KnowledgeRetrieval:
         if page_type:
             conditions.append("page_type = :page_type")
         where_clause = " AND ".join(conditions)
-        match_expr = "MATCH(content) AGAINST(:query IN NATURAL LANGUAGE MODE)"
+        # 标题与摘要一并参与匹配：长文档的要点常出现在摘要里
+        match_expr = (
+            "(MATCH(content) AGAINST(:query IN NATURAL LANGUAGE MODE) "
+            "+ MATCH(COALESCE(summary, '')) AGAINST(:query IN NATURAL LANGUAGE MODE) * 0.8 "
+            "+ MATCH(title) AGAINST(:query IN NATURAL LANGUAGE MODE) * 1.5)"
+        )
 
         stmt = text(f"""
             SELECT id, title, LEFT(content, 300) AS snippet, {match_expr} AS score
@@ -357,7 +367,12 @@ class KnowledgeRetrieval:
         total_len = 0
         for page in pages:
             docs.append((page.id, page.title, page.content))
-            terms = tokenize(page.content + " " + page.title)
+            # 摘要重复计入一次：等价于给摘要更高权重，命中摘要也能召回本页
+            # （来自 c28da003 切片摘要索引，与 M6 语料缓存重构合并保留）
+            summary_text = (getattr(page, "summary", None) or "")
+            terms = tokenize(
+                page.content + " " + page.title + (" " + summary_text * 2 if summary_text else "")
+            )
             doc_terms[page.id] = terms
             title_terms[page.id] = tokenize(page.title)
             total_len += len(terms)

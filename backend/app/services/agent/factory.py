@@ -10,10 +10,15 @@
 """
 
 import asyncio
+import json
 import logging
 
 from wuwei import Agent, FileSystemSkillProvider, SkillManager
 from wuwei.llm import LLMGateway
+from app.services.approval_policy import (
+    is_read_only_tool,
+    normalize_approval_mode,
+)
 from wuwei.middleware import (
     Middleware,
     MiddlewareContext,
@@ -301,7 +306,27 @@ AgentRunner.stream_events = _patched_stream_events
 
 
 class LenientHitlMiddleware(HitlMiddleware):
-    """宽松的 HITL 中间件：用户拒绝时不抛异常，替换为拒绝消息让 LLM 继续。"""
+    """宽松的 HITL 中间件：用户拒绝时不抛异常，替换为拒绝消息让 LLM 继续。
+
+    在此基础上支持会话级三档审批模式（ask / auto / full）：
+
+    - ``auto``：只读工具（含 file 的读类子操作）自动放行，写/执行仍逐次确认
+    - ``full``：``auto_approve_tools`` 含 ``*`` 哨兵时全部放行（仅管理员可用）
+    """
+
+    def __init__(self, *args, approval_mode: str = "auto", **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.approval_mode = normalize_approval_mode(approval_mode)
+
+    @staticmethod
+    def _tool_arguments(tool_call: ToolCall) -> dict:
+        arguments = getattr(tool_call.function, "arguments", None)
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except (json.JSONDecodeError, TypeError):
+                arguments = None
+        return arguments if isinstance(arguments, dict) else {}
 
     async def before_tool(
         self,
@@ -311,8 +336,14 @@ class LenientHitlMiddleware(HitlMiddleware):
         """工具执行前进行审批，用户拒绝时替换为拒绝工具。"""
         tool_name = tool_call.function.name
 
-        # 自动批准
-        if tool_name in self.auto_approve_tools:
+        # 自动批准：显式名单 / 全放行哨兵
+        if "*" in self.auto_approve_tools or tool_name in self.auto_approve_tools:
+            return tool_call
+
+        # auto 档：只读工具（含细粒度工具的只读子操作）自动放行
+        if self.approval_mode == "auto" and is_read_only_tool(
+            tool_name, self._tool_arguments(tool_call)
+        ):
             return tool_call
 
         # 自动拒绝 - 替换为拒绝工具
@@ -444,6 +475,8 @@ class AgentFactory:
             skills_hash,
             profile.external_system_ids,
             self.settings.context_compression_enabled,
+            # 计划模式会改变工具集合，必须参与缓存键，否则会复用普通模式的 agent
+            bool(getattr(profile, "plan_mode", False)),
         )
         cached = self._agents.get(cache_key)
         if cached is not None:
@@ -500,11 +533,20 @@ class AgentFactory:
             if tool_registry is None:
                 tool_registry, _ = self._build_tool_registry(profile)
             all_tool_names = [t.name for t in tool_registry.list_tools()]
-            auto_approve = [name for name in all_tool_names if name not in approval_tools]
+            # 审批模式：full 档用 "*" 哨兵表示全放行（非管理员自动降级为原行为）
+            approval_mode = normalize_approval_mode(
+                getattr(profile, "approval_mode", None)
+            )
+            if approval_mode == "full" and getattr(profile, "is_admin_actor", False):
+                auto_approve = ["*"]
+            else:
+                approval_mode = "ask" if approval_mode == "full" else approval_mode
+                auto_approve = [name for name in all_tool_names if name not in approval_tools]
             stack.add(LenientHitlMiddleware(
                 approval_provider=self.approval_manager.request_approval_bool,
                 auto_approve_tools=auto_approve,
                 auto_reject_tools=[],
+                approval_mode=approval_mode,
             ))
 
         # 2. 异步子代理中间件（后台任务能力）
@@ -626,6 +668,16 @@ class AgentFactory:
             http as http_mod,
             text as text_mod,
         )
+        # 计划模式：只保留只读工具，从源头杜绝误操作（而非事后拦截）
+        if getattr(profile, "plan_mode", False):
+            from app.services.approval_policy import plan_mode_blocked_tools
+
+            blocked = set(plan_mode_blocked_tools(list(profile.builtin_tools)))
+            if blocked:
+                _logger.info("plan mode: blocking %d tools: %s", len(blocked), sorted(blocked))
+            builtin_tools = [name for name in builtin_tools if name not in blocked]
+            _exclude |= blocked
+
         _PLUGIN_MAP = {
             "calc": calc_mod,
             "time": time_mod,
@@ -736,6 +788,12 @@ class AgentFactory:
             _register_website_tools(registry)
             from app.tools.website_file_tools import register_website_file_tools as _register_website_file_tools
             _register_website_file_tools(registry)
+
+        if profile.response_mode == "office":
+            from app.tools.sheet_tools import register_sheet_tools as _register_sheet_tools
+            _register_sheet_tools(registry)
+            from app.tools.doc_tools import register_doc_tools as _register_doc_tools
+            _register_doc_tools(registry)
 
         # MCP 工具集成：如果 MCP 服务已连接，将 MCP 工具添加到注册表
         try:

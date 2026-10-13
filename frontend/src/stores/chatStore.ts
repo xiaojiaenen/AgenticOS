@@ -8,7 +8,7 @@ import { create } from 'zustand';
 import type { Artifact } from '../types';
 import type { AgentProfile } from '../services/agentProfileService';
 
-export type ChatMode = 'general' | 'ppt' | 'website' | 'email' | 'bigdata';
+export type ChatMode = 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
 
 interface ChatUIState {
   // ── 输入 ──
@@ -18,6 +18,12 @@ interface ChatUIState {
   // ── 模式 ──
   chatMode: ChatMode;
   setChatMode: (mode: ChatMode) => void;
+  /** 会话级审批模式：ask 逐次确认 / auto 只读自动放行 / full 全放行 */
+  approvalMode: 'ask' | 'auto' | 'full';
+  setApprovalMode: (mode: 'ask' | 'auto' | 'full') => void;
+  /** 计划模式：只读调研→出计划→批准后执行 */
+  planMode: boolean;
+  setPlanMode: (on: boolean) => void;
 
   // ── 智能体 ──
   agentProfiles: AgentProfile[];
@@ -49,6 +55,10 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   chatMode: 'general',
   setChatMode: (mode) => set({ chatMode: mode }),
+  approvalMode: 'ask',
+  setApprovalMode: (mode) => set({ approvalMode: mode }),
+  planMode: false,
+  setPlanMode: (on) => set({ planMode: on }),
 
   agentProfiles: [],
   setAgentProfiles: (profiles) => set({ agentProfiles: profiles }),

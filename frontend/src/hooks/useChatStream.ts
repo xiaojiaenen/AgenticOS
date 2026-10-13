@@ -9,6 +9,8 @@ import {
   AgentSessionState,
   AgentPptArtifact,
   AgentWebsiteArtifact,
+  AgentSheetArtifact,
+  AgentDocumentArtifact,
   AgentRunStatus,
   UserInputRequest,
   ApiApprovalRequest,
@@ -18,6 +20,7 @@ import { uploadFiles } from '../services/fileService';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
 import { UserDecision, normalizeDecision } from '../components/chat/DecisionPanel';
 import { toast } from 'sonner';
+import { syncTextBlocks, syncReasoningBlocks, syncToolBlocks } from '../lib/messageBlocks';
 
 // ---------------------------------------------------------------------------
 // extracted helpers
@@ -47,7 +50,11 @@ interface UseChatStreamDeps {
   sessions: Session[];
   currentSessionId: string | null;
   currentSession: Session | null;
-  chatMode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata';
+  chatMode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
+  /** 会话级审批模式 */
+  approvalMode: 'ask' | 'auto' | 'full';
+  /** 计划模式 */
+  planMode: boolean;
   selectedAgentProfileId: number | null;
   selectedAgent: AgentProfile | null;
   setSessions: React.Dispatch<React.SetStateAction<Session[]>>;
@@ -59,11 +66,34 @@ interface UseChatStreamDeps {
   onApiApprovalRequired?: (approval: ApiApprovalRequest) => void;
 }
 
+/**
+ * 按事件到达顺序维护消息的有序内容块。
+ * 正文与思考各自续写自己的块；若中间夹了工具调用，则自动开新块。
+ * 每个块存该块的累计全文，因此块内文本始终自洽。
+ */
+function mergeOrderedBlocks(
+  message: Message,
+  delta: { fullText: string } | null,
+  reasoning: string | null,
+): { blocks?: Message['blocks'] } {
+  if (!delta && reasoning == null) return {};
+  let blocks = message.blocks || [];
+  // message.text / reasoningText 是上一轮的累计全文，其长度即"已消费字符数"，
+  // 传进去让块只保存本次新增的增量，避免 ReAct 多轮重复渲染全量文本
+  if (delta) blocks = syncTextBlocks(blocks, delta.fullText, (message.text || '').length);
+  if (reasoning != null) {
+    blocks = syncReasoningBlocks(blocks, reasoning, (message.reasoningText || '').length);
+  }
+  return { blocks };
+}
+
 export function useChatStream({
   sessions,
   currentSessionId,
   currentSession,
   chatMode,
+  approvalMode,
+  planMode,
   selectedAgentProfileId,
   selectedAgent,
   setSessions,
@@ -81,6 +111,9 @@ export function useChatStream({
   const [runStatus, setRunStatus] = useState<{
     phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'done' | 'error';
     label: string;
+    /** 运行预算：当前步 / 上限步（后端透出，用于"第 N/M 步"提示） */
+    step?: number;
+    maxSteps?: number;
   }>({ phase: 'idle', label: '已就绪' });
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -143,6 +176,36 @@ export function useChatStream({
     }
     if (currentSessionId) {
       activeStreamSessionIdsRef.current.delete(currentSessionId);
+    }
+    // 停在本轮待审批状态时，把悬挂的审批请求标记为已拒绝：
+    // 否则运行已终止，审批面板却一直挂在消息上（点了也没有响应）。
+    const stopSessionId = currentSessionId ?? loadingSessionId;
+    if (stopSessionId) {
+      setSessions((prev) =>
+        prev.map((session) =>
+          session.id === stopSessionId
+            ? {
+                ...session,
+                messages: session.messages.map((message) =>
+                  message.toolCalls?.some((t) => t.status === 'approval_required')
+                    ? {
+                        ...message,
+                        toolCalls: message.toolCalls.map((t) =>
+                          t.status === 'approval_required'
+                            ? {
+                                ...t,
+                                status: 'rejected' as const,
+                                result: t.result ?? '生成已被用户停止，审批请求自动取消。',
+                              }
+                            : t
+                        ),
+                      }
+                    : message
+                ),
+              }
+            : session
+        )
+      );
     }
     setLoadingSessionId(null);
     setRunStatus({ phase: 'done', label: '正在停止请求' });
@@ -230,6 +293,8 @@ export function useChatStream({
       let hasAssistantActivity = false;
       let receivedPptArtifact: AgentPptArtifact | undefined;
       let receivedWebsiteArtifact: AgentWebsiteArtifact | undefined;
+      let receivedSheetArtifact: AgentSheetArtifact | undefined;
+      let receivedDocumentArtifact: AgentDocumentArtifact | undefined;
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
@@ -307,6 +372,8 @@ export function useChatStream({
             currentSession || selectedAgentProfileId ? undefined : MODE_SYSTEM_PROMPTS[chatMode],
           responseMode: chatMode,
           agentProfileId: selectedAgentProfileId,
+          approvalMode,
+          planMode,
           files: uploadedFiles.length > 0 ? uploadedFiles : undefined,
           signal: abortController.signal,
           onSessionState: (state) => {
@@ -367,6 +434,34 @@ export function useChatStream({
               ),
             );
           },
+          onDocumentArtifact: (docArtifact) => {
+            console.log('[probe] onDocumentArtifact', docArtifact.type, docArtifact.title);
+            if (docArtifact.session_id && docArtifact.session_id !== targetId) return;
+            receivedDocumentArtifact = docArtifact;
+            setArtifact({
+              language: 'document',
+              artifactId: docArtifact.artifact_id,
+              title: docArtifact.title,
+              snapshot: docArtifact.snapshot,
+              charCount: docArtifact.char_count ?? 0,
+              version: docArtifact.version,
+            });
+          },
+          onSheetArtifact: (wsArtifact) => {
+            if (wsArtifact.session_id && wsArtifact.session_id !== targetId) return;
+            receivedSheetArtifact = wsArtifact;
+            setArtifact({
+              language: 'spreadsheet',
+              artifactId: wsArtifact.artifact_id,
+              title: wsArtifact.title,
+              snapshot: wsArtifact.snapshot,
+              sheetNames: wsArtifact.sheet_names ?? [],
+              sheetCount: wsArtifact.sheet_count ?? 0,
+              // 必须带上 version：版本条依赖 currentReference 变化来重新拉列表，
+              // 缺了它同一会话里出新版本也不会刷新
+              version: wsArtifact.version,
+            });
+          },
           onWebsiteArtifact: (wsArtifact) => {
             if (wsArtifact.session_id && wsArtifact.session_id !== targetId) return;
             receivedWebsiteArtifact = wsArtifact;
@@ -406,6 +501,13 @@ export function useChatStream({
               ),
             );
           },
+          onBudget: (budget) => {
+            setRunStatus((prev) =>
+              prev.step === budget.step && prev.maxSteps === budget.maxSteps
+                ? prev
+                : { ...prev, step: budget.step, maxSteps: budget.maxSteps },
+            );
+          },
           onDelta: (_, fullText) => {
             hasStreamedContent = true;
             hasAssistantActivity = true;
@@ -433,6 +535,7 @@ export function useChatStream({
                               ? {
                                   ...message,
                                   ...(delta ? { text: delta.fullText } : {}),
+                                  ...(mergeOrderedBlocks(message, delta, reasoning)),
                                   ...(delta?.isPpt ? {
                                     pptArtifact:
                                       message.pptArtifact?.status === 'ready' || receivedPptArtifact
@@ -473,6 +576,7 @@ export function useChatStream({
                               ? {
                                   ...message,
                                   ...(delta ? { text: delta.fullText } : {}),
+                                  ...(mergeOrderedBlocks(message, delta, reasoning)),
                                   ...(delta?.isPpt ? {
                                     pptArtifact:
                                       message.pptArtifact?.status === 'ready' || receivedPptArtifact
@@ -501,7 +605,15 @@ export function useChatStream({
                       ...session,
                       messages: session.messages.map((message) =>
                         message.id === assistantMessageId
-                          ? { ...message, toolCalls }
+                          ? {
+                              ...message,
+                              toolCalls,
+                              blocks: syncToolBlocks(
+                                message.blocks || [],
+                                toolCalls,
+                                message.toolCalls || [],
+                              ),
+                            }
                           : message,
                       ),
                     }
@@ -535,6 +647,8 @@ export function useChatStream({
 
         const pptArtifact = response.pptArtifact || receivedPptArtifact;
         const websiteArtifact = response.websiteArtifact || receivedWebsiteArtifact;
+        const sheetArtifact = response.sheetArtifact || receivedSheetArtifact;
+        const documentArtifact = response.documentArtifact || receivedDocumentArtifact;
 
         setSessions((prev) =>
           prev.map((session) =>
@@ -585,7 +699,26 @@ export function useChatStream({
 
         const htmlMatch = /```html\n([\s\S]*?)\n```/.exec(response.text);
         const svgMatch = /```svg\n([\s\S]*?)\n```/.exec(response.text);
-        if (pptArtifact)
+        if (documentArtifact)
+          setArtifact({
+            language: 'document',
+            artifactId: documentArtifact.artifact_id,
+            title: documentArtifact.title,
+            snapshot: documentArtifact.snapshot,
+            charCount: documentArtifact.char_count ?? 0,
+            version: documentArtifact.version,
+          });
+        else if (sheetArtifact)
+          setArtifact({
+            language: 'spreadsheet',
+            artifactId: sheetArtifact.artifact_id,
+            title: sheetArtifact.title,
+            snapshot: sheetArtifact.snapshot,
+            sheetNames: sheetArtifact.sheet_names ?? [],
+            sheetCount: sheetArtifact.sheet_count ?? 0,
+            version: sheetArtifact.version,
+          });
+        else if (pptArtifact)
           setArtifact({
             language: 'ppt' as const,
             artifactId: pptArtifact.artifact_id,
@@ -710,6 +843,7 @@ export function useChatStream({
       currentSessionId,
       currentSession,
       chatMode,
+      approvalMode,
       selectedAgentProfileId,
       selectedAgent,
       isLoading,

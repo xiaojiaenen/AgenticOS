@@ -16,8 +16,6 @@ if str(BACKEND_DIR) not in sys.path:
 # data/websites/ paths correctly.
 os.chdir(str(PROJECT_ROOT))
 
-from app.main import app  # noqa: E402
-
 
 def main() -> None:
     # 支持通过环境变量配置 worker 数量（高并发场景）
