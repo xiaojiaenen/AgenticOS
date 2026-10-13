@@ -98,6 +98,32 @@ type SourceParagraph = {
 type SourceTextRun = { st: number; ed: number; ts?: Record<string, unknown> };
 
 /**
+ * 把段落 startIndex 规范化为 Univer 的约定：**指向该段结尾 `\r` 的下标**。
+ *
+ * 这不是风格问题，是功能开关。engine-render 的 lineAdjustment 靠
+ * `viewModel.getParagraph(段落树节点.endIndex)` 精确查找段落样式，而树节点
+ * 的 endIndex 就是 `\r` 的下标（parseDataStreamToTree 里
+ * `setIndexRange(contentStartIndex, i)`，i 为 `\r` 位置）；docs 包自己插入
+ * 段落时（generateParagraphs）同样写 `startIndex: i`。写成文本起点的话查找
+ * 永远落空，段落级样式——居中对齐、namedStyleType 段间距、段落边框——全部
+ * 静默失效，而工具栏点击、存取、回显全都正常，极难排查。
+ *
+ * 历史快照（后端旧版产物、用户早期保存的文档）在这里被救回：以流里的 `\r`
+ * 重新对齐。段落数与 `\r` 数对不上时原样返回——异常数据不猜。
+ */
+function conformParagraphStartIndexes(
+  paragraphs: SourceParagraph[],
+  dataStream: string,
+): SourceParagraph[] {
+  const carriageReturns: number[] = [];
+  for (let i = 0; i < dataStream.length; i++) {
+    if (dataStream[i] === '\r') carriageReturns.push(i);
+  }
+  if (carriageReturns.length !== paragraphs.length) return paragraphs;
+  return paragraphs.map((para, index) => ({ ...para, startIndex: carriageReturns[index] }));
+}
+
+/**
  * 补齐标题的视觉样式。
  *
  * 两个坑叠在一起，缺一个都会让标题「看起来完全没生效」：
@@ -110,6 +136,9 @@ type SourceTextRun = { st: number; ed: number; ts?: Record<string, unknown> };
  *    `body.textRuns`（字素级样式），渲染器只认这个。
  *
  * 结果就是标题上方空了一段、字号却和正文一样——比什么都不写更像坏了。
+ *
+ * 段落区间以流里的 `\r` 为准逐段数，不依赖 startIndex 的写法——规范值
+ * （指向本段 `\r`）和历史值（指向文本起点）都能算出正确区间。
  */
 function withHeadingStyles(
   paragraphs: SourceParagraph[],
@@ -133,18 +162,22 @@ function withHeadingStyles(
   if (existingTextRuns.length > 0) return { paragraphs: styled, textRuns: existingTextRuns };
 
   const textRuns: SourceTextRun[] = [];
+  // 第 i 段文本 = [上一个 \r 之后, 第 i 个 \r 之前]。以流为准按段位数，
+  // 不读 startIndex：规范值（指向本段 \r）和历史值（指向文本起点）都对得上。
+  const carriageReturns: number[] = [];
+  for (let i = 0; i < dataStream.length; i++) {
+    if (dataStream[i] === '\r') carriageReturns.push(i);
+  }
   styled.forEach((para, index) => {
+    const textStart = index === 0 ? 0 : carriageReturns[index - 1] + 1;
+    const textEnd = carriageReturns[index];
+    if (textEnd == null || textEnd <= textStart) return;
     const namedStyleType = para.paragraphStyle?.namedStyleType;
-    if (namedStyleType == null) return;
     // NamedStyleType: 4=HEADING_1 … 7=HEADING_4；其它值（TITLE/SUBTITLE）没配字号
-    const spec = HEADING_TEXT_STYLE[`h${namedStyleType - 3}`];
-    if (!spec) return;
-    const start = para.startIndex ?? 0;
-    // 段落区间：从 startIndex 到下一个段落的 startIndex（或流尾）
-    const end = styled[index + 1]?.startIndex ?? dataStream.length;
-    const textEnd = Math.min(end, dataStream.length);
-    if (textEnd <= start) return;
-    textRuns.push({ st: start, ed: textEnd, ts: { ...spec } });
+    const spec = namedStyleType == null ? undefined : HEADING_TEXT_STYLE[`h${namedStyleType - 3}`];
+    if (spec) {
+      textRuns.push({ st: textStart, ed: textEnd, ts: { ...spec } });
+    }
   });
 
   return { paragraphs: styled, textRuns };
@@ -164,7 +197,9 @@ function materializeDocument(
   const templateBody = (template.body ?? {}) as Record<string, unknown>
 
   const dataStream = withDocumentTerminator(sourceBody.dataStream ?? '')
-  const sourceParagraphs = sourceBody.paragraphs ?? []
+  // 先把段落 startIndex 规范成「指向该段 \r」，否则段落级样式（居中对齐、
+  // 段间距等）在渲染器里全部静默失效。历史快照靠这一步救回。
+  const sourceParagraphs = conformParagraphStartIndexes(sourceBody.paragraphs ?? [], dataStream)
   const { paragraphs: styledParagraphs, textRuns } = withHeadingStyles(
     sourceParagraphs,
     dataStream,

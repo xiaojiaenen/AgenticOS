@@ -39,10 +39,19 @@ export const DocumentArtifactPanel: React.FC<DocumentArtifactPanelProps> = ({
   const capabilityIssue = React.useMemo(() => getUnsupportedReason(), []);
   const isDark = useIsDark();
 
-  /** 文档编辑器可编辑画布暂不可用（Univer 1.0.3 的 Docs preset 在我们的挂载
-   *  方式下只渲染工具栏与状态栏，正文页面画不出来；同一套挂载逻辑下表格是
-   *  正常的）。在修好之前走只读渲染 —— 它能正确呈现标题层级与正文，比给用户
-   *  一个空白编辑器诚实。见 docs/调研-Univer办公能力接入.md 的「已知问题」。 */
+  /**
+   * 文档编辑器可用性开关。
+   *
+   * 曾经是 false：Univer 1.0.3 的 Docs preset 在旧的挂载方式下只渲染工具栏与
+   * 状态栏、正文画布一片空白，那时走 DocSnapshotView 只读降级（能正确呈现标题
+   * 层级与正文，比给用户一个空白编辑器诚实）。
+   *
+   * 现已为 true，可编辑画布、段落级样式渲染与持久化链路均已实测通过
+   * （浏览器点击「居中对齐」→ 画布该行右移 → 段落 horizontalAlign 置 2 →
+   * 保存 → 重开/读磁盘快照均保留；段落 startIndex 的规范约定见
+   * DocEditor.tsx 的 conformParagraphStartIndexes）。保留这个开关
+   * 是为了万一 Docs preset 再出回归时能一键切回只读，不必删代码。
+   */
   const DOC_EDITOR_READY = true;
   const unsupported = capabilityIssue ?? (DOC_EDITOR_READY ? null : '文档暂不支持在线编辑');
 

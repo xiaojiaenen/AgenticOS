@@ -140,15 +140,29 @@ const HEADING_TEXT_STYLE = {
   h4: { fs: 16, bl: 1 },
 }
 
-/** 由块数组拼出 dataStream、段落元数据与字素样式（其余字段沿用模板）。 */
+/**
+ * 由块数组拼出 dataStream、段落元数据与字素样式（其余字段沿用模板）。
+ *
+ * `paragraphs[i].startIndex` 指向**该段结尾 `\r` 的下标**，不是文本起点——
+ * 这是功能开关，不是风格问题：
+ * - docs 包的 `generateParagraphs`（Univer 自己插入段落时走这里）写的就是
+ *   `startIndex: i`，i 为 `\r` 在 dataStream 里的位置；
+ * - engine-render 的 `lineAdjustment` 靠 `viewModel.getParagraph(段落树节点
+ *   .endIndex)` **精确匹配**段落样式，而树节点 endIndex 同样是 `\r` 的下标
+ *   （`parseDataStreamToTree` 里 `setIndexRange(contentStartIndex, i)`）。
+ * 写成文本起点会让匹配永远落空，段落级样式——居中对齐、
+ * `namedStyleType` 段间距、段落边框——全部静默失效，而工具栏点击、数据
+ * 存取、回显全都正常，极难排查（2026-10 实测定位）。
+ */
 function composeBlocks(blocks) {
   const chunks = []
   const paragraphs = []
   const textRuns = []
   let offset = 0
   for (const block of blocks) {
-    const text = String(block.text ?? '')
-    const para = { startIndex: offset }
+    // 块文本里的 \r 会伪造段落边界，让段落数与 \r 数失配、整份文档结构错乱
+    const text = String(block.text ?? '').replace(/\r/g, '')
+    const para = { startIndex: offset + text.length }
     const namedStyleType = NAMED_STYLE_TYPE[block.type]
     if (namedStyleType) para.paragraphStyle = { namedStyleType }
     paragraphs.push(para)
@@ -212,11 +226,18 @@ const NAMED_STYLE_TO_BLOCK = { 4: 'h1', 5: 'h2', 6: 'h3', 7: 'h4' }
 function documentDataToBlocks(snapshot) {
   const stream = snapshot.body?.dataStream ?? ''
   const paragraphs = snapshot.body?.paragraphs ?? []
+  // 文本切分只认 \r，不依赖 paragraph.startIndex 的写法：第 i 段文本是
+  // 「上一个 \r 之后到第 i 个 \r 之前」。startIndex 指 \r（现行规范）还是
+  // 指文本起点（历史快照）都能正确读回。
+  let textStart = 0
   return paragraphs
     .map((para) => {
-      const start = para.startIndex ?? 0
-      const end = stream.indexOf('\r', start)
-      const text = stream.slice(start, end === -1 ? undefined : end)
+      const end = stream.indexOf('\r', textStart)
+      const text = end === -1
+        // 缺 \r 的末段：别把收尾 \n 读进正文
+        ? stream.slice(textStart).replace(/\n$/, '')
+        : stream.slice(textStart, end)
+      textStart = end === -1 ? stream.length : end + 1
       // 读回时 paragraphStyle 可能被模型规范化成 null，别直接解构
       const style = para.paragraphStyle ?? {}
       const named = style.namedStyleType

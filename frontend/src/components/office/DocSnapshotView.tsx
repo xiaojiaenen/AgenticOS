@@ -6,15 +6,15 @@ import { cn } from '../../lib/utils';
  *
  * 与表格的降级同构：内容照常展示（可滚动、可复制），并明确告知升级路径。
  * 注意快照字段名：IDocumentData 的正文在 body.dataStream，段落以 \r 分隔，
- * 标题层级在 body.paragraphs[].paragraphStyle.headingLevel —— 这里曾经
- * 因为字段名想当然渲染成空白页。
+ * 标题层级在 body.paragraphs[].paragraphStyle.namedStyleType（旧快照是
+ * headingLevel，都要兼容）—— 这里曾经因为字段名想当然渲染成空白页。
  */
 
 type Snapshot = Record<string, unknown>;
 
 type Paragraph = {
   startIndex: number;
-  paragraphStyle?: { headingLevel?: number };
+  paragraphStyle?: { headingLevel?: number; namedStyleType?: number };
 };
 
 function readDocument(snapshot: Snapshot): { title: string; lines: { level: number; text: string }[] } {
@@ -26,12 +26,19 @@ function readDocument(snapshot: Snapshot): { title: string; lines: { level: numb
   const stream = body.dataStream ?? '';
   const paragraphs = body.paragraphs ?? [];
 
-  // dataStream 是 \r 分隔的整段文本，每个段落块记录自己在流里的起点
+  // dataStream 是 \r 分隔的整段文本。切分只认 \r，不依赖 paragraph.startIndex：
+  // Univer 规范里它指向该段结尾的 \r，旧快照写的却是文本起点，两种都得能读。
+  let textStart = 0;
   const lines = paragraphs.map((para) => {
-    const start = para.startIndex ?? 0;
-    const end = stream.indexOf('\r', start);
-    const text = stream.slice(start, end === -1 ? undefined : end);
-    return { level: para.paragraphStyle?.headingLevel ?? 0, text };
+    const end = stream.indexOf('\r', textStart);
+    const text = end === -1
+      ? stream.slice(textStart).replace(/\n$/, '') // 缺 \r 的末段别把收尾 \n 读进正文
+      : stream.slice(textStart, end);
+    textStart = end === -1 ? stream.length : end + 1;
+    // 标题层级：新版 namedStyleType（HEADING_1 起步是 4），旧快照 headingLevel
+    const named = para.paragraphStyle?.namedStyleType;
+    const level = (named != null ? named - 3 : para.paragraphStyle?.headingLevel) ?? 0;
+    return { level, text };
   });
 
   if (lines.length === 0 && stream) {

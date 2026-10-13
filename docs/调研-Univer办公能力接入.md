@@ -313,3 +313,29 @@ Pro 的 `@univerjs-pro/exchange-node` 是原生绑定 + license 校验，不能�
 2. 有没有官方认可的代码分割配方（lazy-load 文档页 404）
 3. Pro 的报价与授权范围（内网多实例部署怎么算）
 4. `@mertdeveci55/univer-import-export` 对 1.0.x 的实际兼容性（需实测）
+
+---
+
+## 十一、实施期补充（2026-10-14）：文档段落 `startIndex` 的隐藏约定
+
+接入完成后实测发现并修复了一个极隐蔽的坑，单独记一节——**`body.paragraphs[i].startIndex` 指向该段结尾 `\r` 的下标，不是文本起点。**
+
+**现象**：文档编辑器里点「居中对齐」，数据一切正常（`paragraphStyle.horizontalAlign = 2` 能存、能取、能落盘、重开还在），但画布纹丝不动。曾按「Univer 1.0.3 OSS 不支持段落对齐」结案，实际是**我们手搓的快照数据不合规**。
+
+**根因链**（依据均在 `frontend/node_modules/@univerjs/` 的发布产物里）：
+
+1. `docs/lib/index.js` 的 `generateParagraphs`——Univer 自己插入段落时写 `startIndex: i`，`i` 是 `\r` 在 dataStream 里的位置；
+2. `engine-render/lib/index.js` 的 `parseDataStreamToTree`——段落树节点 `setIndexRange(contentStartIndex, i)`，`endIndex` 同样是 `\r` 的下标；
+3. 布局时 `line.paragraphIndex = 段落节点.endIndex`；`lineAdjustment` 用 `viewModel.getParagraph(段落节点.endIndex)` **精确匹配**（有序走二分、无序走 find，都不做区间包含）取段落样式；
+4. 命中后才按 `line.paragraphIndex === paragraph.startIndex` 找到该段所有行，套用 `horizontalAlign` 等段落级样式。
+
+第 1、2 条本是同一约定。我们写文本起点 → 精确匹配全部落空 → 回退到无样式段落——**段落级样式（对齐 / `namedStyleType` 段间距 / 段落边框）静默失效，而工具栏点击、数据存取、回显全都正常**。与既有同类坑并列：`headingLevel → namedStyleType`、字号必须走 `textRuns`、收尾 `\n` 必须有。
+
+**修复**（已浏览器实测 + 回归测试锁定）：
+
+- 后端 `backend/office-runtime/server.mjs`：`composeBlocks` 按规范写 `startIndex = offset + text.length`（即 `\r` 的位置），并顺手剥掉块文本里的 `\r`（会伪造段落边界）；`documentDataToBlocks` 读回改为只认 `\r` 切分，不再依赖 `startIndex` 的写法；
+- 前端 `frontend/src/components/office/DocEditor.tsx`：`materializeDocument` 载入时把历史快照规范化为「指向 `\r`」（`conformParagraphStartIndexes`，段落数与 `\r` 数对不上时不猜、原样放行）；`withHeadingStyles` 的字号区间改为以流里 `\r` 的位置逐段数，两种写法都能算对；
+- 只读降级视图 `DocSnapshotView.tsx`：同样改为只认 `\r` 切分，并补读 `namedStyleType`；
+- 回归测试 `backend/tests/test_office.py::test_document_paragraph_start_index_points_at_carriage_return`。
+
+**方法论沉淀——判断「是引擎不支持还是我们数据不合规」的分界线：先找引擎自己的写入方**（如 `generateParagraphs` 这种内部构造点），拿它的输出当基准对齐，而不是拿官方 demo 的观感反推。本次为断言「上游缺陷」空转了大量轮次，而上游从未损坏。
