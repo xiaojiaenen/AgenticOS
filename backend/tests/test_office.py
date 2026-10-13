@@ -186,6 +186,34 @@ async def test_document_headings_carry_visual_styles(doc_session_id):
 
 
 @pytest.mark.anyio
+async def test_document_paragraph_start_index_points_at_carriage_return(doc_session_id):
+    """paragraphs[i].startIndex 必须指向该段结尾 \\r 的下标（Univer 规范）。
+
+    渲染器 engine-render 的 lineAdjustment 用 getParagraph(段落树节点.endIndex)
+    精确匹配段落样式，树节点 endIndex 就是 \\r 的下标；docs 包的
+    generateParagraphs 插入段落时同样写 startIndex: i（\\r 位置）。写成文本
+    起点会让匹配永远落空：居中对齐等段落级样式静默失效，而工具栏点击、存取
+    回显全都正常。旧版 composeBlocks 就栽在这里。
+    """
+    await doc.create_document(
+        doc_session_id, 1, "startIndex 约定",
+        [
+            {"type": "h1", "text": "标题"},
+            {"type": "paragraph", "text": "正文一号"},
+            {"type": "paragraph", "text": "尾段"},
+        ],
+    )
+    body = json.loads((await doc.build_document(doc_session_id))["snapshot"])["body"]
+    stream = body["dataStream"]
+    carriage_returns = [i for i, ch in enumerate(stream) if ch == "\r"]
+    assert [p["startIndex"] for p in body["paragraphs"]] == carriage_returns
+
+    # 读回不能依赖 startIndex 的写法：文本仍按 \\r 切分，一段不多一段不少
+    read = await doc.read_document(doc_session_id)
+    assert [b["text"] for b in read["blocks"]] == ["标题", "正文一号", "尾段"]
+
+
+@pytest.mark.anyio
 async def test_document_skips_empty_heading_text_run(doc_session_id):
     """空标题不占 textRuns 区间：normalizeTextRuns 会把 st === ed 直接丢弃。"""
     await doc.create_document(
