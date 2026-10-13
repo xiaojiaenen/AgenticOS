@@ -4,10 +4,11 @@ import logging
 import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse, Response
+from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_db
 from app.db.models import UserModel
 from app.schemas.agent import AgentStreamRequest, ApprovalDecisionRequest, PptExportRequest
 from app.services.agent_service import AgentService, get_agent_service
@@ -81,24 +82,46 @@ async def stream_agent(
 
 @router.post("/approvals/{approval_id}/decision", summary="提交工具调用人工审批结果")
 async def decide_approval(
+    request: Request,
     approval_id: str,
-    request: ApprovalDecisionRequest,
+    payload: ApprovalDecisionRequest,
     current_user: UserModel = Depends(get_current_user),
     agent_service: AgentService = Depends(get_agent_service),
+    db: Session = Depends(get_db),
 ) -> dict[str, Any]:
+    # M6-C：审批决策是关键操作，四种结局（allow/deny/error）都落审计
+    from app.services.audit_service import record, request_context
+
+    ctx = request_context(request)
+    common = {
+        "actor": current_user,
+        "resource_type": "approval",
+        "resource_id": approval_id,
+        "ip": ctx["ip"],
+        "user_agent": ctx["user_agent"],
+    }
     try:
-        return await agent_service.decide_approval(
+        result = await agent_service.decide_approval(
             approval_id,
-            status=request.status,
-            reason=request.reason,
+            status=payload.status,
+            reason=payload.reason,
             current_user=current_user,
         )
     except PermissionError as exc:
+        record(db, action="approval.decide", result="deny", detail={"reason": str(exc)}, **common)
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except KeyError as exc:
+        record(db, action="approval.decide", result="error", detail={"reason": "not_found"}, **common)
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
+        record(db, action="approval.decide", result="error", detail={"reason": str(exc)}, **common)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    record(
+        db, action="approval.decide", result="allow",
+        detail={"status": payload.status, "reason": payload.reason}, **common,
+    )
+    return result
 
 
 @router.post("/decisions/{decision_id}/decision", summary="提交用户决策结果")

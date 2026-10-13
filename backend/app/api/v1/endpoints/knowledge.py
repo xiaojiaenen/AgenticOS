@@ -12,12 +12,12 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func, and_, delete, or_
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_admin, get_db
+from app.api.deps import filter_readable_kb_ids, get_current_user, get_db, require_admin, require_kb_access
 from app.db.models import (
     UserModel,
     KnowledgeBaseModel,
@@ -30,6 +30,54 @@ from app.db.models import (
 from app.core.data_path import DATA_DIR
 
 router = APIRouter(prefix="/knowledge", tags=["Knowledge"])
+
+
+def _audit(request, db, *, action: str, current_user: UserModel, result: str = "allow", **fields) -> None:
+    """知识库写操作的审计（端点内显式调用，不引中间件）。"""
+    from app.services.audit_service import record, request_context
+
+    ctx = request_context(request)
+    try:
+        record(
+            db, action=action, actor=current_user, result=result,
+            ip=ctx["ip"], user_agent=ctx["user_agent"], **fields,
+        )
+    except Exception:  # noqa: BLE001 -- 审计异常不得让知识库操作失败
+        import logging
+
+        logging.getLogger("agenticos.audit").warning("audit %s failed", action, exc_info=True)
+
+
+def _grant_kb_ownership(db, kb_id: int, owner: UserModel) -> None:
+    """知识库创建者拿到该库的读写删直接授权（幂等）。
+
+    owner 的直接授权是 ``p, user:<id>, *, kb:<id>, <act>`` —— 域写 ``*``，
+    这样调岗换部门后 owner 权限不随之丢失。
+    """
+    from app.services.permission_service import get_permission_service, subject_for_user
+
+    service = get_permission_service()
+    subject = subject_for_user(owner)
+    for act in ("read", "write", "delete"):
+        service.add_policy(subject, "*", f"kb:{kb_id}", act)
+
+
+def _kb_access(db, request, current_user: UserModel, kb_id: int, action: str):
+    """require_kb_access + 拒绝审计。
+
+    越权尝试本身就是审计里最值得看的一类事件，所以 403 也要落库
+    （result=deny），而不是像普通异常那样静默返回。
+    """
+
+    try:
+        return require_kb_access(db, current_user, kb_id, action)
+    except HTTPException as exc:
+        _audit(
+            request, db, action=f"knowledge.{action}", current_user=current_user, result="deny",
+            resource_type="knowledge_base", resource_id=kb_id,
+            detail={"status_code": exc.status_code},
+        )
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -122,16 +170,12 @@ def list_knowledge_bases(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """列出当前用户可见的知识库（visibility/scope 过滤）。"""
-    from app.services.knowledge.retrieval import can_view_knowledge_base
-
-    is_admin = current_user.role == "admin"
-    all_kbs = [
-        kb for kb in db.execute(
-            select(KnowledgeBaseModel).where(KnowledgeBaseModel.is_active.is_(True))
-        ).scalars().all()
-        if can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin)
-    ]
+    """列出当前用户可见的知识库（Casbin 行级过滤 + visibility/scope 过滤）。"""
+    candidates = db.execute(
+        select(KnowledgeBaseModel).where(KnowledgeBaseModel.is_active.is_(True))
+    ).scalars().all()
+    readable = filter_readable_kb_ids(db, current_user, [kb.id for kb in candidates])
+    all_kbs = [kb for kb in candidates if kb.id in readable]
 
     if all_kbs:
         kb_ids = [kb.id for kb in all_kbs]
@@ -175,10 +219,11 @@ def list_knowledge_bases(
 @router.post("/bases", response_model=KnowledgeBaseResponse, status_code=status.HTTP_201_CREATED)
 def create_knowledge_base(
     request: KnowledgeBaseCreate,
+    http_request: Request,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(require_admin),
 ):
-    """创建知识库"""
+    """创建知识库（仅 admin；创建者自动获得该库的读写删授权）"""
     # 生成 slug
     slug = request.slug or request.name.lower().replace(" ", "-")
     slug = "".join(c for c in slug if c.isalnum() or c == "-")[:200]
@@ -206,6 +251,13 @@ def create_knowledge_base(
     db.commit()
     db.refresh(kb)
 
+    _grant_kb_ownership(db, kb.id, current_user)
+    _audit(
+        http_request, db, action="knowledge.create", current_user=current_user,
+        resource_type="knowledge_base", resource_id=kb.id,
+        detail={"slug": kb.slug, "scope": kb.scope, "visibility": kb.visibility},
+    )
+
     return KnowledgeBaseResponse(
         id=kb.id,
         name=kb.name,
@@ -225,20 +277,13 @@ def create_knowledge_base(
 
 @router.get("/bases/{kb_id}", response_model=KnowledgeBaseResponse)
 def get_knowledge_base(
+    http_request: Request,
     kb_id: int,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """获取知识库详情（private=owner/admin）。"""
-    from app.services.knowledge.retrieval import can_view_knowledge_base
-
-    kb = db.get(KnowledgeBaseModel, kb_id)
-    if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
-
-    is_admin = current_user.role == "admin"
-    if not can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    """获取知识库详情（Casbin 行级过滤 + visibility/scope）。"""
+    kb = _kb_access(db, http_request, current_user, kb_id, "read")
 
     doc_count = db.execute(
         select(func.count()).select_from(KBDocumentModel).where(
@@ -273,13 +318,12 @@ def get_knowledge_base(
 def update_knowledge_base(
     kb_id: int,
     request: KnowledgeBaseUpdate,
+    http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(get_current_user),
 ):
-    """更新知识库"""
-    kb = db.get(KnowledgeBaseModel, kb_id)
-    if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+    """更新知识库（需 kb:write；admin 全权，dept_admin 限本部门）"""
+    kb = _kb_access(db, http_request, current_user, kb_id, "write")
 
     if request.name is not None:
         kb.name = request.name
@@ -294,6 +338,12 @@ def update_knowledge_base(
 
     db.commit()
     db.refresh(kb)
+
+    _audit(
+        http_request, db, action="knowledge.update", current_user=current_user,
+        resource_type="knowledge_base", resource_id=kb.id,
+        detail=request.model_dump(exclude_none=True),
+    )
 
     doc_count = db.execute(
         select(func.count()).select_from(KBDocumentModel).where(
@@ -327,14 +377,13 @@ def update_knowledge_base(
 @router.delete("/bases/{kb_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_knowledge_base(
     kb_id: int,
+    http_request: Request,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(get_current_user),
 ):
-    """删除知识库"""
-    kb = db.get(KnowledgeBaseModel, kb_id)
-    if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
-
+    """删除知识库（需 kb:delete）"""
+    kb = _kb_access(db, http_request, current_user, kb_id, "delete")
+    slug = kb.slug
     # 删除相关数据
     db.execute(delete(KBWikiLinkModel).where(
         KBWikiLinkModel.source_page_id.in_(
@@ -348,6 +397,11 @@ def delete_knowledge_base(
     db.delete(kb)
     db.commit()
 
+    _audit(
+        http_request, db, action="knowledge.delete", current_user=current_user,
+        resource_type="knowledge_base", resource_id=kb_id, detail={"slug": slug},
+    )
+
 
 # ---------------------------------------------------------------------------
 # Document Management
@@ -356,6 +410,7 @@ def delete_knowledge_base(
 
 @router.get("/bases/{kb_id}/documents", response_model=list[DocumentResponse])
 def list_documents(
+    http_request: Request,
     kb_id: int,
     limit: int = 50,
     offset: int = 0,
@@ -363,6 +418,8 @@ def list_documents(
     current_user: UserModel = Depends(get_current_user),
 ):
     """列出知识库中的文档"""
+    _kb_access(db, http_request, current_user, kb_id, "read")
+
     stmt = select(KBDocumentModel).where(
         KBDocumentModel.knowledge_base_id == kb_id
     ).order_by(KBDocumentModel.created_at.desc()).offset(offset).limit(limit)
@@ -388,16 +445,15 @@ def list_documents(
 
 @router.post("/bases/{kb_id}/documents", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 async def upload_document(
+    http_request: Request,
     kb_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """上传文档并提交编译任务到后台队列"""
+    """上传文档并提交编译任务到后台队列（需 kb:write）"""
     # 检查知识库
-    kb = db.get(KnowledgeBaseModel, kb_id)
-    if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+    kb = _kb_access(db, http_request, current_user, kb_id, "write")
 
     # 检查文件类型
     allowed_types = {"pdf", "docx", "md", "markdown", "html", "htm", "txt"}
@@ -450,6 +506,12 @@ async def upload_document(
         llm_gateway = build_llm_gateway()
         await asyncio.to_thread(process_document_ingest, doc.id, kb_id, llm_gateway)
 
+    _audit(
+        http_request, db, action="knowledge.document_upload", current_user=current_user,
+        resource_type="kb_document", resource_id=doc.id,
+        detail={"knowledge_base_id": kb_id, "file_type": file_ext, "file_size": len(content)},
+    )
+
     return DocumentResponse(
         id=doc.id,
         knowledge_base_id=doc.knowledge_base_id,
@@ -465,12 +527,14 @@ async def upload_document(
 
 @router.delete("/bases/{kb_id}/documents/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_document(
+    http_request: Request,
     kb_id: int,
     doc_id: int,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """删除文档：清理文件、Wiki 页面 sources 引用与图谱链接。"""
+    """删除文档：清理文件、Wiki 页面 sources 引用与图谱链接（需 kb:delete）。"""
+    _kb_access(db, http_request, current_user, kb_id, "delete")
     doc = db.get(KBDocumentModel, doc_id)
     if not doc or doc.knowledge_base_id != kb_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
@@ -520,6 +584,11 @@ def delete_document(
     db.delete(doc)
     db.commit()
 
+    _audit(
+        http_request, db, action="knowledge.document_delete", current_user=current_user,
+        resource_type="kb_document", resource_id=doc_id, detail={"knowledge_base_id": kb_id},
+    )
+
 
 # ---------------------------------------------------------------------------
 # Wiki Pages
@@ -528,6 +597,7 @@ def delete_document(
 
 @router.get("/bases/{kb_id}/wiki/pages", response_model=list[WikiPageResponse])
 def list_wiki_pages(
+    http_request: Request,
     kb_id: int,
     page_type: Optional[str] = None,
     limit: int = 50,
@@ -535,15 +605,8 @@ def list_wiki_pages(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """列出 Wiki 页面（先校验知识库 visibility/scope）。"""
-    from app.services.knowledge.retrieval import can_view_knowledge_base
-
-    kb = db.get(KnowledgeBaseModel, kb_id)
-    if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
-    is_admin = current_user.role == "admin"
-    if not can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    """列出 Wiki 页面（先做知识库行级鉴权）。"""
+    _kb_access(db, http_request, current_user, kb_id, "read")
 
     conditions = [
         KBWikiPageModel.knowledge_base_id == kb_id,
@@ -575,20 +638,14 @@ def list_wiki_pages(
 
 @router.get("/bases/{kb_id}/wiki/pages/{page_id}", response_model=WikiPageResponse)
 def get_wiki_page(
+    http_request: Request,
     kb_id: int,
     page_id: int,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """获取 Wiki 页面详情（private=owner/admin）。"""
-    from app.services.knowledge.retrieval import can_view_knowledge_base
-
-    kb = db.get(KnowledgeBaseModel, kb_id)
-    if not kb:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
-    is_admin = current_user.role == "admin"
-    if not can_view_knowledge_base(kb, user_id=current_user.id, is_admin=is_admin):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    """获取 Wiki 页面详情（先做知识库行级鉴权）。"""
+    _kb_access(db, http_request, current_user, kb_id, "read")
 
     page = db.get(KBWikiPageModel, page_id)
     if not page or page.knowledge_base_id != kb_id:
@@ -615,14 +672,16 @@ def get_wiki_page(
 
 @router.post("/bases/{kb_id}/search", response_model=list[SearchResultItem])
 def search_knowledge_base(
+    http_request: Request,
     kb_id: int,
     request: SearchRequest,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """搜索知识库（按当前用户权限过滤 private/scope）。"""
+    """搜索知识库（先做行级鉴权，再按用户权限过滤 private/scope）。"""
     from app.services.knowledge.retrieval import KnowledgeRetrieval
 
+    _kb_access(db, http_request, current_user, kb_id, "read")
     retrieval = KnowledgeRetrieval(db)
     results = retrieval.search(
         query=request.query,
@@ -654,6 +713,7 @@ def search_knowledge_base(
 
 @router.get("/bases/{kb_id}/reviews")
 def list_review_items(
+    http_request: Request,
     kb_id: int,
     status_filter: Optional[str] = None,
     limit: int = 50,
@@ -661,7 +721,8 @@ def list_review_items(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """列出审核任务"""
+    """列出审核任务（需 kb:read）"""
+    _kb_access(db, http_request, current_user, kb_id, "read")
     conditions = [KBReviewItemModel.knowledge_base_id == kb_id]
     if status_filter:
         conditions.append(KBReviewItemModel.status == status_filter)
@@ -695,6 +756,7 @@ def list_review_items(
 
 @router.patch("/bases/{kb_id}/reviews/{review_id}")
 def update_review_item(
+    http_request: Request,
     kb_id: int,
     review_id: int,
     status: str = Query(..., pattern="^(approved|rejected|resolved)$"),
@@ -702,7 +764,8 @@ def update_review_item(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """处理审核任务"""
+    """处理审核任务（需 kb:write）"""
+    _kb_access(db, http_request, current_user, kb_id, "write")
     review = db.get(KBReviewItemModel, review_id)
     if not review or review.knowledge_base_id != kb_id:
         raise HTTPException(status_code=404, detail="Review item not found")
@@ -729,11 +792,13 @@ def update_review_item(
 
 @router.get("/bases/{kb_id}/graph")
 def get_knowledge_graph(
+    http_request: Request,
     kb_id: int,
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """获取知识图谱数据（节点和边）"""
+    """获取知识图谱数据（节点和边，需 kb:read）"""
+    _kb_access(db, http_request, current_user, kb_id, "read")
     # 获取所有页面作为节点
     pages_stmt = select(KBWikiPageModel).where(
         KBWikiPageModel.knowledge_base_id == kb_id,

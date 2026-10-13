@@ -24,6 +24,8 @@ dependencies = [
     "numpy>=2.0.0",
     "arq>=0.28.0",
     "jieba>=0.42.1",
+    "casbin>=1.43.0",
+    "authlib>=1.6.12",
 ]
 
 [dependency-groups]

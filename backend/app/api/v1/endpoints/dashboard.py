@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+import hashlib
+import json
 from collections import Counter, defaultdict
 from datetime import datetime, time, timedelta
 from typing import Any
@@ -9,6 +11,7 @@ from sqlalchemy import delete, exists, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
+from app.core.config import get_settings
 from app.core.timezone import APP_TIMEZONE, app_today, to_app_timezone
 from app.db.models import AgentMessageModel, AgentProfileModel, AgentSessionModel, AgentUsageEventModel, ApprovalModel, PptArtifactModel, UserModel
 from app.schemas.admin_stats import (
@@ -26,6 +29,7 @@ from app.schemas.conversations import (
     ConversationListItem,
     ConversationListResponse,
 )
+from app.services.cache_service import get_cache_service
 from app.services.session_storage import dump_json, load_json
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
@@ -36,12 +40,53 @@ def _day_key(value: datetime) -> str:
     return converted.date().isoformat() if converted else ""
 
 
+def _cached_dashboard(
+    namespace: str,
+    user_id: int,
+    params: dict[str, Any],
+    producer,
+    *,
+    model: type | None = None,
+):
+    """M6-A4：dashboard 统计结果 30s 缓存。
+
+    key 里带 user_id（这两个端点都是 require_admin，但保留用户维度隔离，
+    未来放开到普通用户时不必改 key 结构）+ 参数哈希，避免不同 days 参数串数据。
+    Redis 不可用时 get_or_set_json_sync 自动旁路直查，不影响正确性。
+
+    ``model`` 给出时把缓存里的 dict 还原成响应模型（缓存经过 JSON 往返，
+    直接返回会让 FastAPI 少一层校验）；``/analytics`` 返回裸 dict，不传 model。
+    """
+    cache = get_cache_service()
+    param_hash = hashlib.sha1(
+        json.dumps(params, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()[:16]
+    key = cache.build_cache_key(f"dashboard:{namespace}", f"u{user_id}", param_hash)
+    ttl = get_settings().dashboard_cache_ttl
+    cached = cache.get_or_set_json_sync(key, producer, ttl=ttl)
+    if model is None or isinstance(cached, model):
+        return cached
+    if isinstance(cached, dict):
+        return model.model_validate(cached)
+    return cached
+
+
 @router.get("/stats", response_model=DashboardStatsResponse)
 def get_dashboard_stats(
     days: int = Query(14, ge=1, le=90),
     _: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> DashboardStatsResponse:
+    return _cached_dashboard(
+        "stats",
+        _.id,
+        {"days": days},
+        lambda: _compute_dashboard_stats(days=days, db=db),
+        model=DashboardStatsResponse,
+    )
+
+
+def _compute_dashboard_stats(*, days: int, db: Session) -> DashboardStatsResponse:
     users = db.scalars(select(UserModel).order_by(UserModel.created_at.asc())).all()
     session_count_by_user = {
         int(user_id): int(count)
@@ -577,7 +622,19 @@ def get_analytics(
     _: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
-    """Return analytics data for chat history visualizations."""
+    """Return analytics data for chat history visualizations.
+
+    M6-A4：与 /stats 共享 30s 缓存策略（key 命名空间隔离）。
+    """
+    return _cached_dashboard(
+        "analytics",
+        _.id,
+        {"days": days},
+        lambda: _compute_analytics(days=days, db=db),
+    )
+
+
+def _compute_analytics(*, days: int, db: Session) -> dict[str, Any]:
     start_day = app_today() - timedelta(days=days - 1)
     start_boundary = datetime.combine(start_day, time.min, tzinfo=APP_TIMEZONE)
 

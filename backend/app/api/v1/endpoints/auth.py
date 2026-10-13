@@ -4,6 +4,7 @@ import logging
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -37,6 +38,20 @@ def _is_ldap_enabled(db: Session, settings: Settings) -> bool:
     return settings.ldap_enabled
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+
+def _audit(request: Request, db: Session, *, action: str, result: str, **fields) -> None:
+    """登录/登出/SSO 的审计写入（端点内显式调用，不引中间件）。
+
+    失败不影响认证结果 —— audit_service.record 内部已吞掉 DB 异常。
+    """
+    from app.services.audit_service import record, request_context
+
+    ctx = request_context(request)
+    try:
+        record(db, action=action, result=result, ip=ctx["ip"], user_agent=ctx["user_agent"], **fields)
+    except Exception:  # noqa: BLE001 -- 审计异常绝不能把认证结果变成 500
+        logging.getLogger("agenticos.audit").warning("audit %s failed", action, exc_info=True)
 
 
 def _to_public(user: UserModel) -> UserPublic:
@@ -148,6 +163,44 @@ async def login(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, object]:
+    try:
+        payload = await _do_login(request, http_request, db, settings)
+    except AuthRateLimitError as exc:
+        _audit(
+            http_request, db, action="auth.login", result="deny",
+            detail={"reason": "rate_limited", "email": request.email},
+        )
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+    except AuthError as exc:
+        _audit(
+            http_request, db, action="auth.login", result="deny",
+            detail={"reason": str(exc), "email": request.email},
+        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    except HTTPException as exc:
+        _audit(
+            http_request, db, action="auth.login", result="deny",
+            detail={"reason": exc.detail, "email": request.email},
+        )
+        raise
+
+    user = payload.get("user") or {}
+    _audit(
+        http_request, db, action="auth.login", result="allow",
+        actor_id=user.get("id"), actor_email=user.get("email"),
+        resource_type="user", resource_id=user.get("id"),
+        detail={"source": "ldap" if _is_ldap_enabled(db, settings) else "local"},
+    )
+    return payload
+
+
+async def _do_login(
+    request: AuthLoginRequest,
+    http_request: Request,
+    db: Session,
+    settings: Settings,
+) -> dict[str, object]:
+    """LDAP / 本地密码两条登录路径（与原 login 端点实现一致，拆出便于统一审计）。"""
     # ── LDAP 路径 ──
     if _is_ldap_enabled(db, settings):
         mail_no = _extract_mail_no(request.email, settings.ldap_email_domain)
@@ -205,6 +258,16 @@ async def login(
 
             # 自动配置邮箱凭据
             ldap.auto_configure_email(db, user.id, mail_no, request.password)
+
+            # M6-C：登录时同步本人部门（未启用 LDAP_DEPARTMENT_SYNC_ENABLED 时整体跳过）
+            try:
+                from app.services.ldap_auth_service import LdapDirectoryService
+
+                await LdapDirectoryService(settings).sync_user_department(db, user, mail_no)
+            except Exception as e:  # noqa: BLE001 -- 部门同步失败不阻断登录
+                logging.getLogger("agenticos.ldap_directory").warning(
+                    "department sync failed for %s: %s", mail_no, e
+                )
 
             # fire-and-forget: 本地自动登录 agents.gree.com + 可选同步 sesame
             import asyncio
@@ -272,9 +335,134 @@ def me(user: UserModel = Depends(get_current_user)) -> UserPublic:
     return _to_public(user)
 
 
+@router.get("/oidc/status")
+def oidc_status(settings: Settings = Depends(get_settings)) -> dict[str, object]:
+    """前端据此决定是否展示「企业 SSO 登录」入口。"""
+    from app.services.oidc_service import is_oidc_configured
+
+    return {"enabled": is_oidc_configured(settings)}
+
+
+@router.get("/oidc/login")
+async def oidc_login(request: Request, settings: Settings = Depends(get_settings)):
+    """OIDC 授权码流程第一步：302 到 IdP。
+
+    redirect_uri 优先取配置；未配置时按当前请求推导（须与 IdP 侧登记值一致）。
+    """
+    from app.services.oidc_service import OidcError, build_oidc_client
+
+    try:
+        client = build_oidc_client(settings)
+    except OidcError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
+    redirect_uri = settings.oidc_redirect_uri or str(request.url_for("oidc_callback"))
+    return await client.authorize_redirect(request, "agenticos", redirect_uri)
+
+
+@router.get("/oidc/callback", name="oidc_callback")
+async def oidc_callback(
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> RedirectResponse:
+    """OIDC 回调：换 token → claims → upsert 本地用户 → 签发本系统 JWT。
+
+    前端从 ``?token=<jwt>`` 取本系统 token（与 LDAP/本地登录返回的 access_token 同一形状）。
+    """
+    from app.services.auth_service import AuthService
+    from app.services.oidc_service import (
+        OidcError,
+        build_oidc_client,
+        claims_to_profile,
+        upsert_oidc_user,
+    )
+    from app.services.permission_service import assign_default_role_for_user
+
+    try:
+        client = build_oidc_client(settings)
+    except OidcError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+
+    redirect_uri = settings.oidc_redirect_uri or str(request.url_for("oidc_callback"))
+    try:
+        token = await client.authorize_access_token(request, redirect_uri=redirect_uri)
+        claims = token.get("userinfo") or {}
+        if not claims:
+            # IdP 未返回 id_token 时退回 userinfo endpoint
+            claims = await client.userinfo(token=token)
+        profile = claims_to_profile(dict(claims), settings)
+    except OidcError as exc:
+        _audit(
+            request, db, action="auth.oidc_login", result="deny",
+            detail={"reason": str(exc)},
+        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 -- IdP 侧错误统一映射为 401
+        _audit(request, db, action="auth.oidc_login", result="error", detail={"reason": type(exc).__name__})
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OIDC callback failed") from exc
+
+    user, created = upsert_oidc_user(db, profile)
+    if not user.is_active:
+        _audit(request, db, action="auth.oidc_login", result="deny", actor_id=user.id, actor_email=user.email)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="用户已被禁用")
+
+    try:
+        assign_default_role_for_user(user)
+    except Exception:  # noqa: BLE001 -- 策略缺失不应阻断登录（enforce_for_user 对 admin 仍放行）
+        logging.getLogger("agenticos.permission").warning("assign default role failed for %s", user.email, exc_info=True)
+
+    result = AuthService(db, settings)._auth_response(user)
+    _audit(
+        request, db, action="auth.oidc_login", result="allow",
+        actor_id=user.id, actor_email=user.email, resource_type="user", resource_id=user.id,
+        detail={"created": created, "source": "oidc"},
+    )
+    return RedirectResponse(url=f"{request.url_for('oidc_complete')}?token={result['access_token']}")
+
+
+@router.get("/oidc/complete", name="oidc_complete", response_model=AuthResponse)
+def oidc_complete(
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    """OIDC 落地页：把 IdP 重定向带回来的本系统 token 换成标准 AuthResponse。
+
+    这样前端只需要读 query 上的 token，不必为 SSO 单独写一套解析。
+    """
+    from app.core.security import decode_access_token
+
+    token = request.query_params.get("token", "")
+    if not token:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing token")
+    payload = decode_access_token(token, secret=settings.auth_secret_key)
+    if payload is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    try:
+        user_id = int(payload.get("sub"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from None
+    user = db.get(UserModel, user_id)
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User is not active")
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "name": user.name,
+            "role": user.role,
+            "is_active": user.is_active,
+        },
+    }
+
+
 @router.post("/logout")
 def logout(
-    _: UserModel = Depends(get_current_user),
+    http_request: Request,
+    user: UserModel = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
@@ -284,6 +472,10 @@ def logout(
     session_id = payload.get("sid") if isinstance(payload, dict) else None
     if isinstance(session_id, str) and session_id:
         AuthService(db, settings).revoke_session(session_id)
+    _audit(
+        http_request, db, action="auth.logout", result="allow", actor=user,
+        resource_type="user", resource_id=user.id,
+    )
     return {"ok": True}
 
 

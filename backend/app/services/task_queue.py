@@ -21,6 +21,7 @@ from typing import Any, Optional
 
 from arq import create_pool
 from arq.connections import RedisSettings
+from arq.cron import cron
 from arq.jobs import Job, JobStatus
 
 from app.core.config import get_settings
@@ -138,6 +139,43 @@ async def compile_document_task(
         return {"status": "failed", "error": str(e)}
 
 
+async def write_audit_log_task(ctx: dict, payload: dict) -> dict:
+    """审计日志落库任务（M6-C）。
+
+    由 ``audit_service.record_async`` 入队；队列不可用时端点会回落到同步写，
+    所以这里只负责把 payload 写进 audit_logs 表。
+    """
+    from app.db.session import create_db_session
+    from app.services.audit_service import record
+
+    detail = payload.pop("detail", None) or {}
+    with create_db_session() as session:
+        record(
+            session,
+            action=payload.get("action", "unknown"),
+            actor_id=payload.get("actor_id"),
+            actor_email=payload.get("actor_email"),
+            resource_type=payload.get("resource_type"),
+            resource_id=payload.get("resource_id"),
+            result=payload.get("result", "allow"),
+            ip=payload.get("ip"),
+            user_agent=payload.get("user_agent"),
+            detail=detail,
+        )
+    return {"status": "completed"}
+
+
+async def purge_audit_logs_task(ctx: dict) -> dict:
+    """审计保留期清理（默认 180 天），由 arq cron 每日触发。"""
+    from app.db.session import create_db_session
+    from app.services.audit_service import RETENTION_DAYS, purge_older_than
+
+    with create_db_session() as session:
+        deleted = purge_older_than(session, RETENTION_DAYS)
+    logger.info("[Worker] Purged %d audit logs older than %d days", deleted, RETENTION_DAYS)
+    return {"status": "completed", "deleted": deleted}
+
+
 async def build_website_task(
     ctx: dict,
     project_path: str,
@@ -213,6 +251,13 @@ class WorkerSettings:
         export_pptx_task,
         compile_document_task,
         build_website_task,
+        write_audit_log_task,
+        purge_audit_logs_task,
+    ]
+
+    # 审计保留期清理：每天 03:17 跑一次（避开整点，减少与其他定时任务撞车）
+    cron_jobs = [
+        cron(purge_audit_logs_task, hour={3}, minute={17}),
     ]
 
     # Redis 连接（类属性实例，非 classmethod）
@@ -325,6 +370,18 @@ async def submit_website_build(
         "build_website_task",
         project_path,
     )
+    if job is None:
+        raise RuntimeError("enqueue_job returned None (job may already exist)")
+    return job.job_id
+
+
+async def submit_audit_log(payload: dict) -> str:
+    """提交审计日志写入任务，返回 task_id。
+
+    ``audit_service.record_async`` 调用；队列不可用时由调用方回落到同步写。
+    """
+    pool = await get_arq_pool()
+    job = await pool.enqueue_job("write_audit_log_task", payload)
     if job is None:
         raise RuntimeError("enqueue_job returned None (job may already exist)")
     return job.job_id

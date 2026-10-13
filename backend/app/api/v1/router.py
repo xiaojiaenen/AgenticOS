@@ -13,6 +13,7 @@ from app.api.v1.endpoints.files import router as files_router
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.knowledge import router as knowledge_router
 from app.api.v1.endpoints.memory import router as memory_router
+from app.api.v1.endpoints.permissions import router as permissions_router
 from app.api.v1.endpoints.settings import router as settings_router
 from app.api.v1.endpoints.skills import router as skills_router
 from app.api.v1.endpoints.suggest import router as suggest_router
@@ -37,6 +38,7 @@ router.include_router(files_router)
 router.include_router(health_router)
 router.include_router(knowledge_router)
 router.include_router(memory_router)
+router.include_router(permissions_router)
 router.include_router(settings_router)
 router.include_router(skills_router)
 router.include_router(suggest_router)

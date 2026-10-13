@@ -22,6 +22,19 @@ class Settings(BaseSettings):
     agent_parallel_tool_calls: bool = False
     llm_timeout: int = Field(default=300, validation_alias="LLM_TIMEOUT")
     database_url: str = Field(default=f"sqlite:///{PROJECT_ROOT / 'data' / 'agenticos.db'}", validation_alias="DATABASE_URL")
+    # MySQL 连接池分级（M6-A1）：常驻连接 / 溢出上限 / 回收秒数
+    db_pool_size: int = Field(default=10, validation_alias="DB_POOL_SIZE")
+    db_max_overflow: int = Field(default=20, validation_alias="DB_MAX_OVERFLOW")
+    db_pool_recycle: int = Field(default=1800, validation_alias="DB_POOL_RECYCLE")
+    # LLM 全局并发闸（M6-A5）：跨实例共享计数，Redis 不可用时退化为本地信号量
+    llm_gate_enabled: bool = Field(default=True, validation_alias="LLM_GATE_ENABLED")
+    llm_gate_max_concurrency: int = Field(default=60, validation_alias="LLM_GATE_MAX_CONCURRENCY")
+    llm_gate_lease_seconds: int = Field(default=300, validation_alias="LLM_GATE_LEASE_SECONDS")
+    llm_gate_wait_seconds: float = Field(default=120.0, validation_alias="LLM_GATE_WAIT_SECONDS")
+    # 压测/联调用 LLM mock：开启后 orchestrator 不调用真实 LLM（默认关闭）
+    llm_mock_enabled: bool = Field(default=False, validation_alias="LLM_MOCK_ENABLED")
+    # dashboard 统计缓存 TTL 秒（M6-A4）
+    dashboard_cache_ttl: int = Field(default=30, validation_alias="DASHBOARD_CACHE_TTL")
     skill_storage_dir: str = Field(
         default=str(PROJECT_ROOT / "data" / "skills"),
         validation_alias="SKILL_STORAGE_DIR",
@@ -98,6 +111,27 @@ class Settings(BaseSettings):
     memory_bm25_top_k: int = Field(default=10, validation_alias="MEMORY_BM25_TOP_K")
     memory_rrf_k: int = Field(default=60, validation_alias="MEMORY_RRF_K")
 
+    # ── M6-C OIDC 单点登录（留空/关闭 = 不启用）────────────────────────────
+    oidc_enabled: bool = Field(default=False, validation_alias="OIDC_ENABLED")
+    # 形如 https://sso.example.com/realms/main（结尾不带 /）
+    oidc_issuer: str = Field(default="", validation_alias="OIDC_ISSUER")
+    oidc_client_id: str = Field(default="", validation_alias="OIDC_CLIENT_ID")
+    oidc_client_secret: str = Field(default="", validation_alias="OIDC_CLIENT_SECRET")
+    # 留空时由请求的 origin 推导（须与 IdP 侧登记的 redirect_uri 完全一致）
+    oidc_redirect_uri: str = Field(default="", validation_alias="OIDC_REDIRECT_URI")
+    oidc_scopes: str = Field(default="openid profile email", validation_alias="OIDC_SCOPES")
+    # IdP 角色映射：只接受该白名单内的角色，防止 IdP 侧误配置直接下发 admin
+    oidc_admin_group: str = Field(default="", validation_alias="OIDC_ADMIN_GROUP")
+    # OIDC 用户名/邮箱的本地域后缀（claims 里只有裸工号时补全）
+    oidc_email_domain: str = Field(default="", validation_alias="OIDC_EMAIL_DOMAIN")
+
+    # ── M6-C LDAP 部门同步（属性名可配置，不在代码里假设 DN 语法）──────────
+    ldap_department_sync_enabled: bool = Field(default=False, validation_alias="LDAP_DEPARTMENT_SYNC_ENABLED")
+    ldap_directory_user_path: str = Field(default="", validation_alias="LDAP_DIRECTORY_USER_PATH")
+    ldap_directory_search_base: str = Field(default="", validation_alias="LDAP_DIRECTORY_SEARCH_BASE")
+    ldap_department_dn_attribute: str = Field(default="dn", validation_alias="LDAP_DEPARTMENT_DN_ATTRIBUTE")
+    ldap_department_name_attribute: str = Field(default="cn", validation_alias="LDAP_DEPARTMENT_NAME_ATTRIBUTE")
+
     model_config = SettingsConfigDict(
         env_file=str(PROJECT_ROOT / "backend" / ".env"),
         env_file_encoding="utf-8",
@@ -172,6 +206,9 @@ def get_settings() -> Settings:
     import logging
 
     settings = Settings()
+    # 先校验、后派生：派生逻辑只在非生产兜底，生产环境必须在派生发生前就失败，
+    # 否则会被派生出来的临时密钥掩盖「其实没配」的事实。
+    _assert_production_secrets(settings)
     if not settings.auth_secret_key:
         secret, from_file = _load_or_create_auth_secret()
         settings.auth_secret_key = secret
@@ -188,3 +225,47 @@ def get_settings() -> Settings:
                 "生产环境必须在 .env 中设置 AUTH_SECRET_KEY。"
             )
     return settings
+
+
+# ENVIRONMENT=production 时必须显式提供的密钥。
+# 元组含义：(settings 属性, .env 变量名, 为什么必须显式给出)
+_REQUIRED_PRODUCTION_SECRETS: tuple[tuple[str, str, str], ...] = (
+    (
+        "auth_secret_key",
+        "AUTH_SECRET_KEY",
+        "签发/校验本系统 JWT；留空时只会从 data/.auth_secret 派生，"
+        "容器重建即失效（所有会话被登出）",
+    ),
+    (
+        "external_system_encryption_key",
+        "EXTERNAL_SYSTEM_ENCRYPTION_KEY",
+        "加密外部系统凭据；留空时从 AUTH_SECRET_KEY 派生，"
+        "轮换 JWT 密钥会连带让已存凭据无法解密",
+    ),
+)
+
+
+def _assert_production_secrets(settings: Settings) -> None:
+    """生产环境启动即失败：关键密钥留空不允许静默派生。
+
+    派生行为只在非生产保留（开发机免配置、测试不依赖 .env）。
+    容器化部署建议改用 docker secrets / K8s Secret 注入同名环境变量。
+
+    Raises:
+        RuntimeError: ENVIRONMENT 为 production/prod 且有密钥缺失。
+    """
+    if settings.environment.strip().lower() not in {"production", "prod"}:
+        return
+
+    missing = [
+        f"{env_name}（{why}）"
+        for attr, env_name, why in _REQUIRED_PRODUCTION_SECRETS
+        if not (getattr(settings, attr, "") or "").strip()
+    ]
+    if missing:
+        raise RuntimeError(
+            "ENVIRONMENT=production 但以下密钥未显式配置，拒绝启动：\n  - "
+            + "\n  - ".join(missing)
+            + "\n请在 backend/.env（参见 backend/.env.example 的 SECURITY 段）或容器环境变量中显式设置；"
+            "生产部署建议改用 docker secrets / K8s Secret 注入。"
+        )

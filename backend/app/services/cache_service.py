@@ -15,7 +15,7 @@ import logging
 import time
 from typing import Any
 
-from app.core.redis import get_redis
+from app.core.redis import get_redis, get_redis_sync
 
 _logger = logging.getLogger("cache")
 
@@ -344,6 +344,64 @@ class CacheService:
             return json.loads(raw)
         except (json.JSONDecodeError, TypeError):
             return None
+
+    # ---- 通用 get-or-set（同步上下文用，M6-A4 dashboard 统计缓存） ----
+
+    @classmethod
+    def build_cache_key(cls, namespace: str, *parts: Any) -> str:
+        """拼装缓存 key。
+
+        参数顺序稳定（先命名空间再维度），调用方负责保证唯一性维度
+        （如 user_id + 查询参数），避免跨用户串数据。
+        """
+        suffix = ":".join(str(p) for p in parts)
+        return f"{cls.KEY_PREFIX}{namespace}:{suffix}"
+
+    def get_or_set_json_sync(
+        self,
+        key: str,
+        producer: Any,
+        *,
+        ttl: int = 30,
+    ) -> Any:
+        """读缓存 → 未命中则调用 ``producer()`` 计算并回写。
+
+        同步版本：dashboard 端点是 ``def``（跑在线程池里），无法 await 异步
+        Redis 客户端，因此走 ``get_redis_sync()``。
+
+        降级语义：Redis 未配置 / 连接失败 / 读写异常时**直接旁路**返回
+        ``producer()`` 的结果，不抛错、不写缓存 —— 缓存不可用不应让接口 500。
+        """
+        client = get_redis_sync()
+        if client is None:
+            return producer()
+
+        try:
+            raw = client.get(key)
+            if raw is not None:
+                return json.loads(raw)
+        except Exception as e:  # noqa: BLE001 —— 缓存故障一律旁路
+            _logger.warning("Cache read bypassed for %s: %s", key, e)
+
+        value = producer()
+
+        try:
+            client.set(key, json.dumps(value, ensure_ascii=False, default=str), ex=ttl)
+        except Exception as e:  # noqa: BLE001 —— 回写失败不影响本次响应
+            _logger.warning("Cache write bypassed for %s: %s", key, e)
+
+        return value
+
+    def invalidate_prefix_sync(self, prefix: str) -> None:
+        """按前缀批量失效（同步上下文）。Redis 不可用时静默跳过。"""
+        client = get_redis_sync()
+        if client is None:
+            return
+        try:
+            for key in client.scan_iter(match=f"{prefix}*", count=200):
+                client.delete(key)
+        except Exception as e:  # noqa: BLE001
+            _logger.warning("Cache invalidation failed for prefix %s: %s", prefix, e)
 
     # ---- 验证码 ----
 

@@ -79,3 +79,6 @@ data/
 !data/.gitkeep
 backend/nul
 deploy/export/
+
+# 压测专用虚拟环境（仅本地使用，体积数千文件）
+backend/.venv-loadtest/

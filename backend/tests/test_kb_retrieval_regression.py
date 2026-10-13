@@ -384,3 +384,133 @@ def test_jieba_lazy_load():
     assert tokenizer._jieba is None  # 未触发加载
     tokenizer.tokenize("触发加载")
     assert tokenizer._jieba is not None
+
+
+# ---------------------------------------------------------------------------
+# 5. M6-A6：语料进程内缓存
+# ---------------------------------------------------------------------------
+
+
+def test_corpus_cache_hit_avoids_rebuild(kb_fixture, monkeypatch):
+    """第二次检索应命中缓存，不再重新加载/分词整库。"""
+    from app.db.session import SessionLocal
+    from app.services.knowledge import retrieval as retrieval_mod
+
+    kb_id = kb_fixture
+    retrieval_mod.invalidate_knowledge_cache()
+
+    retrieval = KnowledgeRetrieval(SessionLocal())
+    try:
+        retrieval._bm25_search("缓存雪崩", [kb_id], page_type=None)
+
+        build_calls = {"n": 0}
+        original_build = retrieval._build_corpus
+
+        def counting_build(*args, **kwargs):
+            build_calls["n"] += 1
+            return original_build(*args, **kwargs)
+
+        monkeypatch.setattr(retrieval, "_build_corpus", counting_build)
+        retrieval._bm25_search("缓存集群", [kb_id], page_type=None)
+        assert build_calls["n"] == 0, "第二次检索不应重建语料"
+    finally:
+        retrieval.db.close()
+
+
+def test_corpus_cache_invalidate_forces_rebuild(kb_fixture, monkeypatch):
+    """写入失效钩子清空缓存后，下一次检索应重新加载语料。"""
+    from app.db.session import SessionLocal
+    from app.services.knowledge import retrieval as retrieval_mod
+
+    kb_id = kb_fixture
+    retrieval_mod.invalidate_knowledge_cache()
+
+    retrieval = KnowledgeRetrieval(SessionLocal())
+    try:
+        retrieval._bm25_search("缓存雪崩", [kb_id], page_type=None)
+
+        retrieval_mod.invalidate_knowledge_cache()
+
+        build_calls = {"n": 0}
+        original_build = retrieval._build_corpus
+
+        def counting_build(*args, **kwargs):
+            build_calls["n"] += 1
+            return original_build(*args, **kwargs)
+
+        monkeypatch.setattr(retrieval, "_build_corpus", counting_build)
+        retrieval._bm25_search("缓存集群", [kb_id], page_type=None)
+        assert build_calls["n"] == 1, "失效后应重建语料"
+    finally:
+        retrieval.db.close()
+
+
+def test_corpus_cache_ttl_expiry(kb_fixture):
+    """TTL 到期后条目应被丢弃并重建。"""
+    import time
+
+    from app.db.session import SessionLocal
+    from app.services.knowledge import retrieval as retrieval_mod
+
+    kb_id = kb_fixture
+    retrieval_mod.invalidate_knowledge_cache()
+
+    retrieval = KnowledgeRetrieval(SessionLocal())
+    try:
+        retrieval._bm25_search("缓存雪崩", [kb_id], page_type=None)
+
+        cache_key = retrieval_mod._CorpusCache.make_key([kb_id], None)
+        entry = retrieval_mod._CORPUS_CACHE.get(cache_key)
+        assert entry is not None, "首次检索后应有缓存条目"
+
+        # 把 built_at 往前拨，模拟 TTL 到期
+        entry.built_at = time.monotonic() - (retrieval_mod._CACHE_TTL_SECONDS + 1)
+        assert retrieval_mod._CORPUS_CACHE.get(cache_key) is None, "过期条目应被丢弃"
+
+        retrieval._bm25_search("缓存集群", [kb_id], page_type=None)
+        fresh = retrieval_mod._CORPUS_CACHE.get(cache_key)
+        assert fresh is not None and fresh is not entry, "应重建新条目"
+    finally:
+        retrieval.db.close()
+
+
+def test_corpus_cache_lru_eviction():
+    """超过条目上限时按 LRU 淘汰最旧的一条。"""
+    from app.services.knowledge.retrieval import _CACHE_MAX_ENTRIES, _CorpusCache, _CorpusEntry
+
+    cache = _CorpusCache()
+    entry = _CorpusEntry(0.0, [], {}, {}, {}, 0.0)
+    for i in range(_CACHE_MAX_ENTRIES + 2):
+        cache.put((i, None), entry)
+    assert len(cache._entries) <= _CACHE_MAX_ENTRIES
+    # 最旧的键已被淘汰
+    assert cache.get((0, None)) is None
+
+
+def test_corpus_cache_skips_oversized_corpus(kb_fixture, monkeypatch):
+    """文档数超过上限时不入缓存（宁可重算也不给半截缓存）。"""
+    from app.db.session import SessionLocal
+    from app.services.knowledge import retrieval as retrieval_mod
+
+    kb_id = kb_fixture
+    retrieval_mod.invalidate_knowledge_cache()
+    monkeypatch.setattr(retrieval_mod, "_CACHE_MAX_DOCS", 0)
+
+    retrieval = KnowledgeRetrieval(SessionLocal())
+    try:
+        retrieval._bm25_search("缓存雪崩", [kb_id], page_type=None)
+        cache_key = retrieval_mod._CorpusCache.make_key([kb_id], None)
+        assert retrieval_mod._CORPUS_CACHE.get(cache_key) is None, "超大语料不应入缓存"
+        # 检索结果仍应正确（降级为每次重算）
+        assert retrieval._bm25_search("缓存雪崩", [kb_id], page_type=None)
+    finally:
+        retrieval.db.close()
+        retrieval_mod.invalidate_knowledge_cache()
+
+
+def test_ingest_pipeline_imports_invalidate_hook():
+    """ingest_pipeline 必须绑定失效钩子（写库成功后的防脏读入口）。"""
+    from app.services.knowledge import ingest_pipeline as ip_mod
+    from app.services.knowledge.retrieval import invalidate_knowledge_cache
+
+    assert ip_mod.invalidate_knowledge_cache is invalidate_knowledge_cache

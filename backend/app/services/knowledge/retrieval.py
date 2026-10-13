@@ -11,7 +11,9 @@
 
 import json
 import logging
-from collections import defaultdict
+import threading
+import time
+from collections import OrderedDict, defaultdict
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -22,6 +24,111 @@ from app.db.models import KBWikiPageModel, KnowledgeBaseModel
 from app.services.knowledge.tokenizer import tokenize
 
 logger = logging.getLogger(__name__)
+
+# ----------------------------------------------------------------------
+# M6-A6：wiki 语料进程内缓存（仅 SQLite/dev 的 Python BM25 全量评分路径）
+# ----------------------------------------------------------------------
+#
+# 为什么只缓存这一条路径：MySQL 走 FULLTEXT ngram，评分在数据库内完成，
+# 进程内没有可复用的中间产物；只有 SQLite/dev 的 `_bm25_search_python`
+# 会把整库文档拉进内存分词 —— 那是 O(语料量) 的重活，也是检索 P95 的主项。
+#
+# 缓存内容：语料快照（内容/标题/元信息）+ 分词结果 + DF/平均长度统计。
+# 这些都是纯函数输入的产物，只随语料变化，查询词不参与缓存键。
+#
+# 失效：写入方（ingest_pipeline 等）在 commit 成功后调用 invalidate()。
+
+_CACHE_TTL_SECONDS = 300.0
+_CACHE_MAX_DOCS = 1000
+_CACHE_MAX_ENTRIES = 8  # 保留最近若干个 (kb_ids, page_type) 组合的语料快照
+
+
+class _CorpusEntry:
+    """一份语料快照：文档 + 分词 + DF 统计。"""
+
+    __slots__ = ("built_at", "docs", "doc_terms", "title_terms", "df", "avg_dl")
+
+    def __init__(
+        self,
+        built_at: float,
+        docs: list[tuple[int, str, str]],
+        doc_terms: dict[int, list[str]],
+        title_terms: dict[int, list[str]],
+        df: dict[str, int],
+        avg_dl: float,
+    ) -> None:
+        self.built_at = built_at
+        self.docs = docs
+        self.doc_terms = doc_terms
+        self.title_terms = title_terms
+        self.df = df
+        self.avg_dl = avg_dl
+
+    @property
+    def expired(self) -> bool:
+        return (time.monotonic() - self.built_at) > _CACHE_TTL_SECONDS
+
+
+class _CorpusCache:
+    """进程内 LRU + TTL 缓存，线程安全。
+
+    用 OrderedDict 实现 LRU（上限 ``_CACHE_MAX_ENTRIES`` 个语料快照），
+    每个快照内部文档数再受 ``_CACHE_MAX_DOCS`` 约束 —— 超限时不做部分缓存，
+    直接每次重算：语料已经大到缓存不划算，半截缓存只会给出错误的评分。
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._entries: OrderedDict[tuple, _CorpusEntry] = OrderedDict()
+
+    @staticmethod
+    def make_key(knowledge_base_ids: list[int], page_type: Optional[str]) -> tuple:
+        return (tuple(sorted(knowledge_base_ids)), page_type)
+
+    def get(self, key: tuple) -> _CorpusEntry | None:
+        with self._lock:
+            entry = self._entries.get(key)
+            if entry is None:
+                return None
+            if entry.expired:
+                del self._entries[key]
+                return None
+            self._entries.move_to_end(key)
+            return entry
+
+    def put(self, key: tuple, entry: _CorpusEntry) -> None:
+        with self._lock:
+            self._entries[key] = entry
+            self._entries.move_to_end(key)
+            while len(self._entries) > _CACHE_MAX_ENTRIES:
+                self._entries.popitem(last=False)
+
+    def invalidate_all(self) -> None:
+        with self._lock:
+            self._entries.clear()
+
+    def stats(self) -> dict:
+        with self._lock:
+            now = time.monotonic()
+            return {
+                "entries": len(self._entries),
+                "docs": sum(len(e.docs) for e in self._entries.values()),
+                "fresh": sum(1 for e in self._entries.values() if not (now - e.built_at > _CACHE_TTL_SECONDS)),
+            }
+
+
+_CORPUS_CACHE = _CorpusCache()
+
+
+def invalidate_knowledge_cache() -> None:
+    """清空 wiki 语料缓存。
+
+    任何写入 kb_wiki_pages 的路径在 **commit 成功之后** 调用，
+    否则失败回滚的写入会把旧语料误清（清空只是性能损失，但没必要），
+    更糟的是没清导致读脏数据。
+    """
+    _CORPUS_CACHE.invalidate_all()
+    logger.info("Knowledge corpus cache invalidated")
 
 
 def can_view_knowledge_base(
@@ -221,16 +328,15 @@ class KnowledgeRetrieval:
         rows = self.db.execute(stmt, params).fetchall()
         return [(int(row.id), float(row.score)) for row in rows]
 
-    def _bm25_search_python(
+    def _build_corpus(
         self,
-        query: str,
         knowledge_base_ids: list[int],
         page_type: Optional[str],
-    ) -> list[tuple[int, float]]:
-        """Python 内存 BM25（SQLite fallback 路径）。
+    ) -> _CorpusEntry | None:
+        """加载语料并一次性完成分词 + DF 统计。
 
-        每篇文档只分词一次（此前 content 会被重复分词两次）；
-        DF 用真实文档频率统计（此前 df=1 近似导致常见词 IDF 虚高）。
+        文档数超过 ``_CACHE_MAX_DOCS`` 时返回 None（不入缓存），由调用方
+        走一次性计算路径 —— 缓存不下来的语料，缓存它只会浪费内存。
         """
         conditions = [
             KBWikiPageModel.knowledge_base_id.in_(knowledge_base_ids),
@@ -241,32 +347,72 @@ class KnowledgeRetrieval:
 
         stmt = select(KBWikiPageModel).where(and_(*conditions))
         pages = self.db.execute(stmt).scalars().all()
+        if not pages:
+            return None
 
-        doc_count = len(pages)
-        if doc_count == 0:
-            return []
-
-        # 单遍预分词：文档词表（供评分与平均长度）、真实 DF 统计
-        doc_terms_map: dict[int, list[str]] = {}
+        docs: list[tuple[int, str, str]] = []
+        doc_terms: dict[int, list[str]] = {}
+        title_terms: dict[int, list[str]] = {}
         df: dict[str, int] = defaultdict(int)
         total_len = 0
         for page in pages:
+            docs.append((page.id, page.title, page.content))
             terms = tokenize(page.content + " " + page.title)
-            doc_terms_map[page.id] = terms
+            doc_terms[page.id] = terms
+            title_terms[page.id] = tokenize(page.title)
             total_len += len(terms)
             for term in set(terms):
                 df[term] += 1
-        avg_dl = total_len / doc_count
+        avg_dl = total_len / len(docs)
 
+        return _CorpusEntry(time.monotonic(), docs, doc_terms, title_terms, dict(df), avg_dl)
+
+    def _bm25_search_python(
+        self,
+        query: str,
+        knowledge_base_ids: list[int],
+        page_type: Optional[str],
+    ) -> list[tuple[int, float]]:
+        """Python 内存 BM25（SQLite fallback 路径）。
+
+        M6-A6：语料快照 + 分词结果 + DF 统计走进程内缓存（TTL 300s / LRU），
+        同一批知识库在 TTL 内的重复检索不再重复全库分词。
+        文档数超过缓存上限时自动降级为每次重算（不返回错误的半截缓存）。
+        """
+        if not knowledge_base_ids:
+            return []
+
+        cache_key = _CorpusCache.make_key(knowledge_base_ids, page_type)
+        entry = _CORPUS_CACHE.get(cache_key)
+
+        if entry is None:
+            entry = self._build_corpus(knowledge_base_ids, page_type)
+            if entry is None:
+                return []
+            if len(entry.docs) <= _CACHE_MAX_DOCS:
+                _CORPUS_CACHE.put(cache_key, entry)
+            else:
+                logger.info(
+                    "Knowledge corpus too large to cache (%d docs > %d), skipping cache",
+                    len(entry.docs),
+                    _CACHE_MAX_DOCS,
+                )
+
+        doc_count = len(entry.docs)
         query_terms = tokenize(query)
+
         results = []
-        for page in pages:
+        for page_id, _title, _content in entry.docs:
             score = self._calculate_bm25_score(
-                query_terms, doc_terms_map[page.id], df, doc_count, avg_dl,
-                title_terms=tokenize(page.title),
+                query_terms,
+                entry.doc_terms[page_id],
+                entry.df,
+                doc_count,
+                entry.avg_dl,
+                title_terms=entry.title_terms.get(page_id),
             )
             if score > 0:
-                results.append((page.id, score))
+                results.append((page_id, score))
 
         # 按分数排序
         results.sort(key=lambda x: x[1], reverse=True)
