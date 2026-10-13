@@ -94,7 +94,7 @@ class AuthService:
         existing = self.db.scalar(select(UserModel).where(func.lower(UserModel.email) == normalized_email))
         if existing is not None:
             self._record_failed_attempt("register", email=normalized_email, client_ip=client_ip)
-            raise AuthError("Email already registered")
+            raise AuthError("该邮箱已注册，请直接登录")
 
         # Insert as "user" first to avoid the race condition where two
         # simultaneous registrations both see user_count==0 and both
@@ -111,7 +111,7 @@ class AuthService:
         except IntegrityError:
             self.db.rollback()
             self._record_failed_attempt("register", email=normalized_email, client_ip=client_ip)
-            raise AuthError("Email already registered")
+            raise AuthError("该邮箱已注册，请直接登录")
         self.db.refresh(user)
 
         # 仅当系统中尚不存在任何 admin 时，才将本用户提升为 admin。
@@ -158,10 +158,10 @@ class AuthService:
         user = self.db.scalar(select(UserModel).where(func.lower(UserModel.email) == normalized_email))
         if user is None or not verify_password(password, user.password_hash):
             self._record_failed_attempt("login", email=normalized_email, client_ip=client_ip)
-            raise AuthError("Invalid email or password")
+            raise AuthError("邮箱或密码不正确")
         if not user.is_active:
             self._record_failed_attempt("login", email=normalized_email, client_ip=client_ip)
-            raise AuthError("User is disabled")
+            raise AuthError("账号已被禁用，请联系管理员")
         self._clear_rate_limit("login", email=normalized_email, client_ip=client_ip)
         return self._auth_response(user)
 
@@ -201,7 +201,7 @@ class AuthService:
         # 检查邮箱是否已注册
         existing = self.db.scalar(select(UserModel).where(func.lower(UserModel.email) == normalized_email))
         if existing is not None:
-            raise AuthError("Email already registered")
+            raise AuthError("该邮箱已注册，请直接登录")
 
         # 创建用户 — insert as "user" first to avoid the race condition
         # where two simultaneous registrations both become admin.
@@ -216,7 +216,7 @@ class AuthService:
             self.db.commit()
         except IntegrityError:
             self.db.rollback()
-            raise AuthError("Email already registered")
+            raise AuthError("该邮箱已注册，请直接登录")
         self.db.refresh(user)
 
         # 仅当系统中尚不存在任何 admin 时提升首个管理员（见 _maybe_promote_first_admin）

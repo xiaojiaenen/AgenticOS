@@ -74,6 +74,9 @@ CLAUDE.md
 .reasonix/
 .todo
 
+# Agent 工具的本地运行数据（记忆、工作日志），不属于项目源码
+.workbuddy/
+
 # 运行时数据与密钥，严禁入库
 data/
 !data/.gitkeep

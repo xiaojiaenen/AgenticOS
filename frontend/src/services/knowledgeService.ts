@@ -195,6 +195,53 @@ export async function searchKnowledgeBase(
   }
         );}
 
+export type RecallTestCase = {
+  question: string;
+  hits: { page_id: number | null; title: string; score: number; page_type: string }[];
+  matched: boolean;
+  rank_of_first_expected: number | null;
+  score_of_first_expected: number | null;
+};
+
+export type RecallReport = {
+  total: number;
+  matched: number;
+  hit_rate: number;
+  avg_rank: number | null;
+  cases: RecallTestCase[];
+  params: { top_k: number; score_threshold: number | null; page_type: string | null };
+};
+
+/**
+ * 召回测试：跑一批问题并返回命中率报告。
+ * questions 留空时后端用知识库页面标题自动生成探针问题。
+ */
+export async function runRecallTest(
+  kbId: number,
+  options: {
+    questions?: string[];
+    topK?: number;
+    scoreThreshold?: number;
+    pageType?: string;
+  } = {},
+): Promise<RecallReport> {
+  return apiFetch<RecallReport>(
+    `${KB_ENDPOINT}/bases/${kbId}/recall-test`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        questions: options.questions ?? [],
+        top_k: options.topK ?? 5,
+        score_threshold: options.scoreThreshold ?? null,
+        page_type: options.pageType ?? null,
+      }),
+      timeoutMs: 120_000,
+    },
+    '召回测试失败',
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Reviews
 // ---------------------------------------------------------------------------

@@ -34,7 +34,7 @@ window.addEventListener('error', (event) => {
   const rootEl = document.getElementById('root');
   if (rootEl && !rootEl.querySelector('[data-react-root]')) {
     rootEl.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui,sans-serif;color:#475569;text-align:center;padding:2rem;">
+      <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;color:#475569;text-align:center;padding:2rem;">
         <div>
           <h1 style="font-size:1.25rem;font-weight:600;margin-bottom:0.5rem;">AgenticOS</h1>
           <p style="font-size:0.875rem;">应用加载失败，请尝试刷新页面或使用最新版 Chrome / Edge 浏览器。</p>

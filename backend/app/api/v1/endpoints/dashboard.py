@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import delete, exists, func, or_, select, text
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
@@ -190,12 +191,36 @@ def _compute_dashboard_stats(*, days: int, db: Session) -> DashboardStatsRespons
             ).all()
         ]
     else:
-        tool_counter: Counter[str] = Counter()
-        for raw_tool_names in db.scalars(select(AgentUsageEventModel.tool_names_json)).all():
-            for tool_name in load_json(raw_tool_names, []):
-                if isinstance(tool_name, str) and tool_name:
-                    tool_counter[tool_name] += 1
-        tool_distribution_rows = tool_counter.most_common(8)
+        # MySQL 8.0+: JSON_TABLE 在库内聚合，避免把全表 JSON 拉到 Python 逐行解析。
+        # 5.7 及更早版本不支持 JSON_TABLE（语法错误），自动回退 Python 路径。
+        try:
+            tool_distribution_rows = [
+                (str(row.name), int(row.value))
+                for row in db.execute(
+                    text(
+                        """
+                        SELECT jt.tool_name AS name, COUNT(*) AS value
+                        FROM agent_usage_events ue
+                        JOIN JSON_TABLE(
+                            ue.tool_names_json,
+                            '$[*]' COLUMNS (tool_name VARCHAR(255) PATH '$')
+                        ) jt
+                        WHERE jt.tool_name IS NOT NULL AND TRIM(jt.tool_name) <> ''
+                        GROUP BY jt.tool_name
+                        ORDER BY COUNT(*) DESC, jt.tool_name ASC
+                        LIMIT 8
+                        """
+                    )
+                ).all()
+            ]
+        except (OperationalError, ProgrammingError):
+            db.rollback()
+            tool_counter: Counter[str] = Counter()
+            for raw_tool_names in db.scalars(select(AgentUsageEventModel.tool_names_json)).all():
+                for tool_name in load_json(raw_tool_names, []):
+                    if isinstance(tool_name, str) and tool_name:
+                        tool_counter[tool_name] += 1
+            tool_distribution_rows = tool_counter.most_common(8)
 
     summary = DashboardSummary(
         total_users=len(users),
@@ -536,7 +561,7 @@ def get_conversation_detail(
 ) -> ConversationDetailResponse:
     session = db.get(AgentSessionModel, session_id)
     if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
 
     user = db.get(UserModel, session.user_id) if session.user_id is not None else None
     agent_profile = db.get(AgentProfileModel, session.agent_profile_id) if session.agent_profile_id is not None else None
@@ -713,7 +738,7 @@ def delete_conversation(
 ) -> None:
     session = db.get(AgentSessionModel, session_id)
     if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
 
     db.execute(delete(AgentMessageModel).where(AgentMessageModel.session_id == session_id))
     db.execute(delete(AgentUsageEventModel).where(AgentUsageEventModel.session_id == session_id))

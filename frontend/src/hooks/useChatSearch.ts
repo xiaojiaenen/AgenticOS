@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Session } from '../types';
 
-export const useChatSearch = (currentSession: Session | undefined) => {
+export const useChatSearch = (
+  currentSession: Session | undefined,
+  scrollToMessageFallback?: (messageId: string) => void,
+) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [searchCurrentIndex, setSearchCurrentIndex] = useState(0);
@@ -43,12 +46,26 @@ export const useChatSearch = (currentSession: Session | undefined) => {
   const scrollToMatch = (index: number) => {
     const matchId = searchMatches[index - 1];
     if (matchId) {
-      const el = document.getElementById(matchId);
-      if (el) {
+      const highlight = (el: HTMLElement) => {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.classList.add('ring-4', 'ring-yellow-200', 'transition-all');
         if (highlightTimeoutRef.current !== null) clearTimeout(highlightTimeoutRef.current);
         highlightTimeoutRef.current = window.setTimeout(() => el.classList.remove('ring-4', 'ring-yellow-200'), 2000);
+      };
+      const el = document.getElementById(matchId);
+      if (el) {
+        highlight(el);
+      } else if (scrollToMessageFallback) {
+        // 虚拟化模式下目标消息可能尚未渲染进 DOM：matchId 形如 mark-{messageId}-{n}
+        const parts = matchId.split('-');
+        parts.pop();
+        parts.shift();
+        scrollToMessageFallback(parts.join('-'));
+        // 等虚拟列表渲染出该项后再高亮
+        window.setTimeout(() => {
+          const delayed = document.getElementById(matchId);
+          if (delayed) highlight(delayed);
+        }, 300);
       }
     }
   };

@@ -88,9 +88,23 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
         if request.agent_profile_id is not None:
             if user is None:
                 raise PermissionError("Agent profile requires an authenticated user")
-            return await asyncio.to_thread(self.agent_profiles.resolve_runtime, request.agent_profile_id, user)
+            return await asyncio.to_thread(
+                self.agent_profiles.resolve_runtime,
+                request.agent_profile_id,
+                user,
+                approval_mode=request.approval_mode,
+                plan_mode=request.plan_mode,
+            )
         if user is not None:
-            return await asyncio.to_thread(self.agent_profiles.resolve_runtime_by_mode, request.response_mode, user)
+            from app.services.approval_policy import normalize_approval_mode
+
+            return await asyncio.to_thread(
+                self.agent_profiles.resolve_runtime_by_mode,
+                request.response_mode,
+                user,
+                approval_mode=normalize_approval_mode(request.approval_mode),
+                plan_mode=request.plan_mode,
+            )
         return self._runtime_from_mode(request.response_mode, request.system_prompt)
 
     async def ensure_session_access(self, request: AgentStreamRequest, user: UserModel) -> None:
@@ -177,11 +191,11 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
 
         artifact = await self.ppt_artifacts.get(artifact_id)
         if artifact is None:
-            raise FileNotFoundError(f"PPT artifact '{artifact_id}' not found")
+            raise FileNotFoundError(f"PPT 产物 {artifact_id} 不存在")
 
         svgs = self.ppt_artifacts.extract_svgs_from_artifact(artifact)
         if not svgs:
-            raise ValueError("Artifact contains no SVG slides to export")
+            raise ValueError("产物中没有可导出的幻灯片")
 
         # 在线程池中执行同步的 PPTX 生成，防止阻塞事件循环
         import asyncio

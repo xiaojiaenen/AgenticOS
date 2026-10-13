@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
@@ -31,6 +32,55 @@ def _dumps(value: Any) -> str:
 
 def _iso(value: datetime | None) -> str | None:
     return isoformat_app_timezone(value)
+
+
+def message_signature(payload: Any) -> str:
+    """给一条消息算一个稳定指纹，用来判断「这条是不是已经存过了」。
+
+    分两类，因为两者的稳定性来源不同：
+
+    - **tool 结果**：只用 `tool_call_id`。这个 id 由上游 LLM 生成、一次调用
+      终身不变，是唯一可靠的锚点。带上正文反而危险 —— 审批重试时框架会把
+      工具结果重写（截断、重新格式化），正文一变指纹就失配。
+    - **其余消息**：用 role + 工具调用 id + 正文哈希。正文用哈希而不是长度，
+      因为等长正文（「你好」/「再见」）必须能区分开，否则两条不同的消息会
+      撞成同一指纹。
+
+    刻意不把整个 payload 序列化后哈希：正文里可能有时间戳、绝对路径这类
+    每次读取都不同的字段，全量比对会把同一条消息判成不同。
+    """
+    if not isinstance(payload, dict):
+        return "?"
+    role = payload.get("role")
+    # tool 结果只认 id：它是这一轮唯一不变的锚点
+    if role == "tool":
+        return f"tool|{payload.get('tool_call_id') or ''}"
+    content = payload.get("content")
+    text = content if isinstance(content, str) else ""
+    tool_calls = payload.get("tool_calls") or []
+    call_ids = ",".join(
+        str((tc or {}).get("id") or "") for tc in tool_calls if isinstance(tc, dict)
+    )
+    digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:16] if text else "-"
+    return f"{role}|{call_ids}|{digest}"
+
+
+def _first_user_text(message_json: str | None) -> str | None:
+    """从 message_json 中取用户消息正文（用于生成会话标题）。"""
+    payload = _loads(message_json, None)
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("role") != "user":
+        return None
+    text = payload.get("text") or payload.get("content") or ""
+    if isinstance(text, list):  # 多模态消息：拼接其中的文本片段
+        text = " ".join(
+            part.get("text", "") for part in text if isinstance(part, dict)
+        )
+    if not isinstance(text, str):
+        return None
+    text = text.strip()
+    return text or None
 
 
 class DatabaseAgentStorage:
@@ -183,11 +233,47 @@ class DatabaseAgentStorage:
                     ).all()
                 )
 
+                # 会话展示标题：优先 metadata.title（建会话时的用户输入），
+                # 其次 summary（wuwei 上下文压缩摘要，正常为空），
+                # 最后兜底首条用户消息摘录。summary 不能直接当标题用，
+                # 否则前端只能回退成智能体名（如"通用助手"）。
+                titles: dict[str, str] = {}
+                pending: list[str] = []
+                for row in rows:
+                    metadata = _loads(row.metadata_json, {}) or {}
+                    meta_title = metadata.get("title") if isinstance(metadata, dict) else None
+                    if isinstance(meta_title, str) and meta_title.strip():
+                        titles[row.session_id] = meta_title.strip()[:40]
+                    elif row.summary:
+                        titles[row.session_id] = row.summary
+                    else:
+                        pending.append(row.session_id)
+                if pending:
+                    first_messages = db.execute(
+                        select(
+                            AgentMessageModel.session_id,
+                            AgentMessageModel.message_json,
+                        )
+                        .where(AgentMessageModel.session_id.in_(pending))
+                        .order_by(
+                            AgentMessageModel.created_at.asc(),
+                            AgentMessageModel.id.asc(),
+                        )
+                        .limit(2000)
+                    ).all()
+                    for sid, payload in first_messages:
+                        if sid in titles:
+                            continue
+                        text = _first_user_text(payload)
+                        if text:
+                            titles[sid] = text[:40]
+
                 sessions = []
                 for row in rows:
                     sessions.append({
                         "session_id": row.session_id,
                         "summary": row.summary,
+                        "title": titles.get(row.session_id),
                         "metadata": _loads(row.metadata_json, {}),
                         "message_count": message_counts.get(row.session_id, 0),
                         "created_at": _iso(row.created_at),
@@ -228,6 +314,23 @@ class DatabaseAgentStorage:
                         AgentMessageModel.session_id == session_id
                     )
                 ) or 0
+        return await asyncio.to_thread(_run)
+
+    async def load_message_signatures(self, session_id: str) -> list[str]:
+        """按顺序返回已落库消息的指纹，供调用方对齐内存与 DB 的分界点。
+
+        指纹刻意只用「role + 工具调用 id + 正文长度」三样：既能区分
+        assistant/tool 的不同轮次，又不会因为 JSON 序列化字段顺序或
+        无关字段（如 reasoning）的增删而误判成不同消息。
+        """
+        def _run():
+            with self.session_factory() as db:
+                rows = db.execute(
+                    select(AgentMessageModel.message_json)
+                    .where(AgentMessageModel.session_id == session_id)
+                    .order_by(AgentMessageModel.created_at.asc(), AgentMessageModel.id.asc())
+                ).all()
+            return [message_signature(_loads(row[0], {})) for row in rows]
         return await asyncio.to_thread(_run)
 
     async def assign_owner(self, session_id: str, user_id: int) -> None:

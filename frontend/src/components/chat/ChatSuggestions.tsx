@@ -13,22 +13,22 @@ export const ChatSuggestions: React.FC<ChatSuggestionsProps> = ({ onSelect }) =>
   ];
 
   return (
-    <div className="h-full flex flex-col items-center justify-center animate-in fade-in zoom-in duration-700">
+    <div className="h-full flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">
       <div className="relative mb-8">
         <RandomMascot size={120} className={"opacity-80"} />
         <motion.div
           animate={{ y: [0, -4, 0] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           className={`absolute -top-6 -right-12 px-3 py-1 rounded-full shadow-sm text-xs font-bold flex items-center gap-1.5 ${
-            "bg-white border border-sky-100 text-sky-500"
+            "bg-[var(--surface-1)] border border-sky-100 text-sky-500"
           }`}
         >
           <span>Hello!</span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400 fill-yellow-400"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
         </motion.div>
       </div>
-      <h1 className={`text-2xl font-bold mb-2 ${"text-slate-800"}`}>今天想聊些什么？</h1>
-      <p className={`mb-8 max-w-sm text-center ${"text-slate-500"}`}>你可以尝试点击下方的建议，或者直接在下方输入框告诉我你的想法。</p>
+      <h1 className={`text-2xl font-bold mb-2 ${"text-[var(--foreground)]"}`}>今天想聊些什么？</h1>
+      <p className={`mb-8 max-w-sm text-center ${"text-[var(--muted-foreground)]"}`}>你可以尝试点击下方的建议，或者直接在下方输入框告诉我你的想法。</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl w-full px-4 text-left">
         {suggestions.map((prompt, i) => (
@@ -38,7 +38,7 @@ export const ChatSuggestions: React.FC<ChatSuggestionsProps> = ({ onSelect }) =>
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 + i * 0.1 }}
             onClick={() => onSelect(prompt.text)}
-            className="p-4 bg-white/60 hover:bg-white border border-sky-200/60 rounded-2xl text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:outline-none group"
+            className="p-4 bg-[var(--surface-1)] hover:bg-[var(--surface-1)] border border-sky-200/60 rounded-2xl text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:outline-none group"
           >
             <div className="flex items-center gap-3 mb-1">
               <div className="w-8 h-8 rounded-lg bg-sky-50/60 flex items-center justify-center group-hover:bg-sky-100 transition-colors">
@@ -46,7 +46,7 @@ export const ChatSuggestions: React.FC<ChatSuggestionsProps> = ({ onSelect }) =>
               </div>
               <span className="font-bold text-slate-700 group-hover:text-sky-600 transition-colors">{prompt.title}</span>
             </div>
-            <p className="text-xs text-slate-500 line-clamp-1">{prompt.desc}</p>
+            <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">{prompt.desc}</p>
           </motion.button>
         ))}
       </div>

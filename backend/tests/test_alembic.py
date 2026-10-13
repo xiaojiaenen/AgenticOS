@@ -24,9 +24,11 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 def _current_head_revision() -> str:
     """动态解析迁移链的 head revision。
 
-    不硬编码：M6 里 alembic 有并行推进的迁移线（性能线 0004 / 权限线 0005…），
+    不硬编码：M6 里 alembic 有并行推进的迁移线（性能线 / 权限线 / MCP 线），
     写死字符串会让每加一个迁移就要改测试。按 alembic 自己的版本目录解析，
     新迁移提交后本测试自动跟进，迁移链分叉（多头）时立即失败。
+
+    并行线合并后由 0008_merge_parallel_lines 收口为单一 head。
     """
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))

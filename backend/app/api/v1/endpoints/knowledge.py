@@ -167,6 +167,8 @@ class SearchResultItem(BaseModel):
 
 @router.get("/bases", response_model=list[KnowledgeBaseResponse])
 def list_knowledge_bases(
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
@@ -235,7 +237,7 @@ def create_knowledge_base(
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Slug already exists: {slug}",
+            detail=f"标识已存在：{slug}",
         )
 
     kb = KnowledgeBaseModel(
@@ -412,8 +414,8 @@ def delete_knowledge_base(
 def list_documents(
     http_request: Request,
     kb_id: int,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
@@ -461,7 +463,7 @@ async def upload_document(
     if file_ext not in allowed_types:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file type: {file_ext}",
+            detail=f"不支持的文件类型：{file_ext}",
         )
 
     # 保存文件
@@ -537,7 +539,7 @@ def delete_document(
     _kb_access(db, http_request, current_user, kb_id, "delete")
     doc = db.get(KBDocumentModel, doc_id)
     if not doc or doc.knowledge_base_id != kb_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文档不存在")
 
     source_ref = f"kb_document:{doc_id}"
 
@@ -600,8 +602,8 @@ def list_wiki_pages(
     http_request: Request,
     kb_id: int,
     page_type: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
@@ -649,7 +651,7 @@ def get_wiki_page(
 
     page = db.get(KBWikiPageModel, page_id)
     if not page or page.knowledge_base_id != kb_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="页面不存在")
 
     return WikiPageResponse(
         id=page.id,
@@ -668,6 +670,53 @@ def get_wiki_page(
 # ---------------------------------------------------------------------------
 # Search
 # ---------------------------------------------------------------------------
+
+
+class RecallTestRequest(BaseModel):
+    """召回测试请求：跑一批问题，报告命中情况。"""
+
+    questions: list[str] = Field(
+        default_factory=list,
+        max_length=50,
+        description="测试问题集；留空则用知识库页面标题自动生成探针",
+    )
+    top_k: int = Field(default=5, ge=1, le=50, description="每个问题取前 K 条")
+    score_threshold: float | None = Field(
+        default=None, ge=0.0, le=10.0,
+        description="相似度阈值；低于视为未命中（留空=不过滤）",
+    )
+    page_type: Optional[str] = Field(default=None, description="限定页面类型")
+
+
+@router.post("/bases/{kb_id}/recall-test", summary="知识库召回测试")
+async def recall_test(
+    kb_id: int,
+    request: RecallTestRequest,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """对知识库跑召回测试，报告命中率、平均命中排名与每题命中详情。
+
+    用于调切片/TopK/阈值前后的效果回归对比。
+    """
+    from app.services.knowledge.recall_test import run_recall_test
+    from app.services.knowledge.retrieval import KnowledgeRetrieval
+
+    kb = db.get(KnowledgeBaseModel, kb_id)
+    if not kb:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="知识库不存在")
+
+    report = await run_recall_test(
+        kb_id,
+        KnowledgeRetrieval(db).search,
+        questions=request.questions,
+        top_k=request.top_k,
+        score_threshold=request.score_threshold,
+        page_type=request.page_type,
+        user_id=current_user.id,
+        is_admin=current_user.role == "admin",
+    )
+    return report.to_dict()
 
 
 @router.post("/bases/{kb_id}/search", response_model=list[SearchResultItem])
@@ -716,8 +765,8 @@ def list_review_items(
     http_request: Request,
     kb_id: int,
     status_filter: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
@@ -768,7 +817,7 @@ def update_review_item(
     _kb_access(db, http_request, current_user, kb_id, "write")
     review = db.get(KBReviewItemModel, review_id)
     if not review or review.knowledge_base_id != kb_id:
-        raise HTTPException(status_code=404, detail="Review item not found")
+        raise HTTPException(status_code=404, detail="审核项不存在")
 
     review.status = status
     review.resolution_note = resolution_note

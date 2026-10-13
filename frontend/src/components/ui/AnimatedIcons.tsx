@@ -35,8 +35,8 @@ export const PlusIcon = ({ size = 24, className }: { size?: number; className?: 
   </svg>
 );
 
-export const ChatBubbleIcon = ({ size = 24, className, active }: { size?: number; className?: string; active?: boolean }) => (
-  <motion.svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} role="img" aria-label="Chat"
+export const ChatBubbleIcon = ({ size = 24, className, active, style }: { size?: number; className?: string; active?: boolean; style?: React.CSSProperties }) => (
+  <motion.svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style} role="img" aria-label="Chat"
     animate={active ? { y: [-1, 1, -1] } : {}}
     transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
   >

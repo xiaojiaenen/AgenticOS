@@ -139,6 +139,11 @@ class AgentUsageEventModel(Base):
     tool_names_json: Mapped[str] = mapped_column(Text, default="[]")
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, index=True)
+    # dashboard 核心查询按 用户/会话 + 时间范围 过滤，单列索引不够
+    __table_args__ = (
+        Index("ix_usage_user_created", "user_id", "created_at"),
+        Index("ix_usage_session_created", "session_id", "created_at"),
+    )
 
 
 class AgentToolConfigModel(Base):
@@ -169,6 +174,10 @@ class AgentProfileModel(Base):
     is_builtin: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     max_steps: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    # 所有者：NULL = 平台内置（任何角色都不可删改）；有值 = 该用户自建，仅本人与管理员可管理
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    # private = 仅自己可见可用；public = 可出现在商店供他人安装
+    visibility: Mapped[str] = mapped_column(String(16), default="private", index=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
@@ -199,13 +208,13 @@ class SkillModel(Base):
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
-    # 资产化扩展（compat layer 自动 ALTER）
+    # 资产化扩展（schema 演进由 alembic 负责，见 backend/alembic/）
     version: Mapped[int] = mapped_column(default=1)
     trigger_patterns_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     validation_rules_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     usage_count: Mapped[int] = mapped_column(default=0)
     last_used_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
-    visibility: Mapped[str] = mapped_column(String(16), default="private")  # private / team / restricted
+    visibility: Mapped[str] = mapped_column(String(16), default="private", index=True)  # private / team / restricted
 
 
 class AgentProfileSkillModel(Base):
@@ -283,12 +292,35 @@ class PptArtifactModel(Base):
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
 
 
+class MCPServerModel(Base):
+    """MCP 服务器配置（管理员维护，供 Agent 发现并调用外部工具）"""
+
+    __tablename__ = "mcp_servers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    # stdio | http | sse
+    transport: Mapped[str] = mapped_column(String(16), default="http", index=True)
+    url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    command: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    args_json: Mapped[str] = mapped_column(Text, default="[]")
+    env_json: Mapped[str] = mapped_column(Text, default="{}")
+    headers_json: Mapped[str] = mapped_column(Text, default="{}")
+    timeout: Mapped[float] = mapped_column(default=60.0)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_connected_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
 class VideoArtifactModel(Base):
     __tablename__ = "video_artifacts"
 
     artifact_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     session_id: Mapped[str] = mapped_column(String(128), index=True)
-    user_id: Mapped[int] = mapped_column(Integer, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     project_id: Mapped[str] = mapped_column(String(64), index=True)
     title: Mapped[str] = mapped_column(String(256))
     video_path: Mapped[str] = mapped_column(Text)
@@ -378,7 +410,7 @@ class WebsiteDeployModel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     session_id: Mapped[str] = mapped_column(String(128), index=True)
-    project_slug: Mapped[str] = mapped_column(String(128))
+    project_slug: Mapped[str] = mapped_column(String(128), index=True)
     stack: Mapped[str] = mapped_column(String(16))
     dist_path: Mapped[str] = mapped_column(String(512))
     target_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -405,19 +437,19 @@ class MemoryModel(Base):
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
-    # 分层蒸馏扩展字段（compat layer 自动 ALTER）
+    # 分层蒸馏扩展字段（schema 演进由 alembic 负责，见 backend/alembic/）
     layer: Mapped[str] = mapped_column(String(8), default="L1", index=True)
     scenario_id: Mapped[int | None] = mapped_column(ForeignKey("memory_scenarios.id"), nullable=True, index=True)
     embedding_model: Mapped[str | None] = mapped_column(String(64), nullable=True)
     embedding_updated_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
     last_accessed_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True, index=True)
     access_count: Mapped[int] = mapped_column(default=0)
-    visibility: Mapped[str] = mapped_column(String(16), default="private")  # private / team / restricted
+    visibility: Mapped[str] = mapped_column(String(16), default="private", index=True)  # private / team / restricted
 
     # 知识库扩展字段
     scope: Mapped[str] = mapped_column(String(10), default="user", index=True)  # user / org
     knowledge_base_id: Mapped[int | None] = mapped_column(ForeignKey("knowledge_bases.id"), nullable=True, index=True)
-    authority_level: Mapped[str] = mapped_column(String(10), default="L1")  # L3 / L2 / L1 / L0
+    authority_level: Mapped[str] = mapped_column(String(10), default="L1", index=True)  # L3 / L2 / L1 / L0
 
 
 class MemoryConversationModel(Base):
@@ -649,6 +681,9 @@ class KBWikiPageModel(Base):
     slug: Mapped[str] = mapped_column(String(500), index=True)
     page_type: Mapped[str] = mapped_column(String(30), index=True)  # entity / concept / source_summary / synthesis / comparison / faq / procedure
     content: Mapped[str] = mapped_column(Text().with_variant(LONGTEXT, "mysql"))
+    # 自动生成的一句话摘要：参与检索命中（标题不符但摘要命中也能召回本页），
+    # 参考 Dify 的 Summary Auto-Gen；为空时检索只匹配正文
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     frontmatter_json: Mapped[str] = mapped_column(Text, default="{}")  # YAML frontmatter 结构化存储
     sources_json: Mapped[str] = mapped_column(Text, default="[]")  # 溯源：["kb_document:3", "kb_document:7"]
     embedding: Mapped[str | None] = mapped_column(Text, nullable=True)  # 向量 embedding
@@ -730,7 +765,7 @@ class KBAccessControlModel(Base):
     principal_type: Mapped[str] = mapped_column(String(10))  # user / team
     principal_id: Mapped[int] = mapped_column(Integer, index=True)  # user_id 或 team_id
     role: Mapped[str] = mapped_column(String(20), default="viewer")  # admin / editor / viewer
-    granted_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    granted_by: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
 
 

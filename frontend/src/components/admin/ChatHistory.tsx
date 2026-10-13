@@ -74,11 +74,11 @@ function roleLabel(role?: string | null): string {
 }
 
 function roleTone(role?: string | null): string {
-  if (role === 'user') return 'border-indigo-100 bg-indigo-50 text-indigo-700';
+  if (role === 'user') return 'border-zinc-200 bg-zinc-100 text-zinc-800';
   if (role === 'model' || role === 'assistant') return 'border-emerald-100 bg-emerald-50 text-emerald-700';
   if (role === 'tool') return 'border-violet-100 bg-violet-50 text-violet-700';
   if (role === 'system') return 'border-amber-100 bg-amber-50 text-amber-700';
-  return 'border-zinc-200 bg-zinc-100 text-zinc-600';
+  return 'border-[var(--border-subtle)] bg-[var(--surface-2)] text-zinc-600';
 }
 
 function formatJson(value?: Record<string, unknown> | null): string {
@@ -103,7 +103,7 @@ function AdminMarkdown({ text }: { text: string }) {
             </pre>
           ),
           code: ({ children, className }) => (
-            <code className={className ? `${className} font-mono` : 'rounded-md bg-zinc-100 px-1 py-0.5 font-mono text-zinc-700'}>
+            <code className={className ? `${className} font-mono` : 'rounded-md bg-[var(--surface-2)] px-1 py-0.5 font-mono text-zinc-700'}>
               {children}
             </code>
           ),
@@ -123,12 +123,12 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
   return (
     <div className="mt-3 space-y-3">
       {message.reasoning_text && (
-        <details className="group rounded-lg border border-zinc-200/80 bg-zinc-50/80 px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
-          <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-semibold tracking-wide text-zinc-500">
+        <details className="group rounded-lg border border-[var(--border-subtle)] bg-zinc-50/80 px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
+          <summary className="flex cursor-pointer select-none items-center gap-2 text-xs font-semibold tracking-wide text-[var(--muted-foreground)]">
             <BrainCircuit size={14} />
             思考过程
           </summary>
-          <div className="mt-3 whitespace-pre-wrap break-words border-t border-zinc-200/70 pt-3 text-sm font-medium leading-6 text-zinc-500">
+          <div className="mt-3 whitespace-pre-wrap break-words border-t border-zinc-200/70 pt-3 text-sm font-medium leading-6 text-[var(--muted-foreground)]">
             {message.reasoning_text}
           </div>
         </details>
@@ -138,18 +138,18 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
         <details
           key={`${message.id}-call-${tool.id || tool.name}`}
           open
-          className="group rounded-lg border border-indigo-100 bg-indigo-50/55 px-4 py-3 [&_summary::-webkit-details-marker]:hidden"
+          className="group rounded-lg border border-zinc-200 bg-zinc-100/55 px-4 py-3 [&_summary::-webkit-details-marker]:hidden"
         >
           <summary className="flex cursor-pointer select-none items-center justify-between gap-3">
             <span className="flex min-w-0 items-center gap-2">
-              <Wrench size={14} className="text-indigo-700" />
-              <span className="truncate font-mono text-xs font-semibold uppercase tracking-wide text-indigo-800">
+              <Wrench size={14} className="text-zinc-800" />
+              <span className="truncate font-mono text-xs font-semibold uppercase tracking-wide text-zinc-700">
                 {tool.name}
               </span>
             </span>
-            <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-indigo-600">调用参数</span>
+            <span className="rounded-full bg-[var(--surface-1)] px-2 py-1 text-[10px] font-semibold text-zinc-700">调用参数</span>
           </summary>
-          <pre className="visible-scrollbar mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-zinc-200 bg-white p-3 text-xs font-medium leading-5 text-zinc-600">
+          <pre className="visible-scrollbar mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3 text-xs font-medium leading-5 text-zinc-600">
             {formatJson(tool.arguments)}
           </pre>
         </details>
@@ -173,11 +173,11 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
                   {result.name || result.tool_call_id || '工具返回结果'}
                 </span>
               </span>
-              <span className={cn('rounded-full bg-white px-2 py-1 text-[10px] font-semibold', isError ? 'text-rose-600' : 'text-violet-600')}>
+              <span className={cn('rounded-full bg-[var(--surface-1)] px-2 py-1 text-[10px] font-semibold', isError ? 'text-rose-600' : 'text-violet-600')}>
                 {isError ? '失败' : '结果'}
               </span>
             </summary>
-            <pre className="visible-scrollbar mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-zinc-200 bg-white p-3 text-xs font-medium leading-5 text-zinc-700">
+            <pre className="visible-scrollbar mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3 text-xs font-medium leading-5 text-zinc-700">
               {result.result || '工具没有返回可展示内容。'}
             </pre>
           </details>
@@ -231,7 +231,7 @@ function ConversationDetailDialog({
         <div className="grid flex-1 grid-cols-1 overflow-hidden xl:grid-cols-[340px_minmax(0,1fr)]">
           <div className="overflow-y-auto border-zinc-100 p-4 xl:border-r">
             {detailQuery.isLoading ? (
-              <div className="flex h-48 items-center justify-center gap-3 text-sm font-medium text-zinc-400">
+              <div className="flex h-48 items-center justify-center gap-3 text-sm font-medium text-[var(--muted-foreground)]">
                 <Loader2 size={18} className="animate-spin" />
                 正在加载详情
               </div>
@@ -241,8 +241,8 @@ function ConversationDetailDialog({
               </div>
             ) : detail ? (
               <div className="space-y-4">
-                <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">摘要</p>
+                <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">摘要</p>
                   <p className="mt-2 text-sm font-medium leading-6 text-zinc-600">
                     {detail.summary || '暂无摘要'}
                   </p>
@@ -255,22 +255,22 @@ function ConversationDetailDialog({
                     { label: '模型调用', value: formatNumber(detail.llm_calls) },
                     { label: '工具调用', value: formatNumber(detail.tool_calls) },
                   ].map((item) => (
-                    <div key={item.label} className="rounded-lg border border-zinc-200 bg-zinc-50/60 px-3.5 py-3">
-                      <p className="text-[11px] font-semibold tracking-wide text-zinc-400">{item.label}</p>
-                      <p className="mt-1.5 text-xl font-semibold text-zinc-900">{item.value}</p>
+                    <div key={item.label} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3.5 py-3">
+                      <p className="text-[11px] font-semibold tracking-wide text-[var(--muted-foreground)]">{item.label}</p>
+                      <p className="mt-1.5 text-xl font-semibold text-[var(--foreground)]">{item.value}</p>
                     </div>
                   ))}
                 </div>
 
-                <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">会话信息</p>
+                <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">会话信息</p>
                   <div className="mt-2.5 space-y-2 text-sm font-medium text-zinc-600">
                     <p>用户：{detail.user_name || '-'}</p>
                     <p>邮箱：{detail.user_email || '-'}</p>
                     {detail.agent_profile_name && (
                       <p>
                         智能体：
-                        <span className="inline-block rounded-full border border-indigo-200/70 bg-indigo-50/80 px-2.5 py-0.5 text-xs font-medium text-indigo-600">
+                        <span className="inline-block rounded-full border border-zinc-200/70 bg-zinc-100/80 px-2.5 py-0.5 text-xs font-medium text-zinc-700">
                           {detail.agent_profile_name}
                         </span>
                       </p>
@@ -288,16 +288,16 @@ function ConversationDetailDialog({
           <div className="overflow-y-auto p-4">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">消息时间线</p>
-                <h4 className="mt-1 text-base font-semibold text-zinc-900">完整会话内容</h4>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">消息时间线</p>
+                <h4 className="mt-1 text-base font-semibold text-[var(--foreground)]">完整会话内容</h4>
               </div>
-              <div className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-500">
+              <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-1 text-xs font-semibold text-[var(--muted-foreground)]">
                 已加载 {messages.length} / {detail?.message_count ?? 0} 条
               </div>
             </div>
 
             {detailQuery.isLoading ? (
-              <div className="flex h-64 items-center justify-center gap-3 text-sm font-medium text-zinc-400">
+              <div className="flex h-64 items-center justify-center gap-3 text-sm font-medium text-[var(--muted-foreground)]">
                 <Loader2 size={18} className="animate-spin" />
                 正在加载消息
               </div>
@@ -308,19 +308,19 @@ function ConversationDetailDialog({
             ) : messages.length > 0 ? (
               <div className="space-y-3">
                 {messages.map((message) => (
-                  <div key={message.id} className="rounded-lg border border-zinc-200 bg-white p-3.5 shadow-sm">
+                  <div key={message.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3.5 shadow-sm">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${roleTone(message.role)}`}>
                         {roleLabel(message.role)}
                       </span>
-                      <span className="text-xs font-medium text-zinc-400">
+                      <span className="text-xs font-medium text-[var(--muted-foreground)]">
                         {formatApiDateTime(message.created_at)}
                       </span>
                     </div>
                     {message.text ? (
                       <AdminMarkdown text={message.text} />
                     ) : message.tool_results && message.tool_results.length > 0 ? null : (
-                      <p className="mt-3 text-sm font-medium leading-6 text-zinc-400">
+                      <p className="mt-3 text-sm font-medium leading-6 text-[var(--muted-foreground)]">
                         该消息没有可展示的文本内容。
                       </p>
                     )}
@@ -345,7 +345,7 @@ function ConversationDetailDialog({
                 )}
               </div>
             ) : (
-              <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-white/80 text-sm font-medium text-zinc-400">
+              <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-[var(--border-subtle)] bg-[var(--surface-1)] text-sm font-medium text-[var(--muted-foreground)]">
                 这条会话还没有可展示的消息内容
               </div>
             )}
@@ -426,14 +426,14 @@ export const ChatHistory = () => {
           const item = row.original;
           return (
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-zinc-900">
+              <p className="truncate text-sm font-semibold text-[var(--foreground)]">
                 {item.user_name || '未知用户'}
               </p>
-              <p className="mt-0.5 truncate text-xs font-medium text-zinc-500">
+              <p className="mt-0.5 truncate text-xs font-medium text-[var(--muted-foreground)]">
                 {item.user_email || item.session_id}
               </p>
               {item.agent_profile_name && (
-                <span className="mt-1 inline-block max-w-full truncate rounded-full border border-indigo-200/70 bg-indigo-50/80 px-2.5 py-0.5 text-[11px] font-medium text-indigo-600">
+                <span className="mt-1 inline-block max-w-full truncate rounded-full border border-zinc-200/70 bg-zinc-100/80 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700">
                   {item.agent_profile_name}
                 </span>
               )}
@@ -449,10 +449,10 @@ export const ChatHistory = () => {
           const item = row.original;
           return (
             <div className="min-w-0">
-              <p className="max-w-[320px] truncate text-sm font-semibold text-zinc-900">
+              <p className="max-w-[320px] truncate text-sm font-semibold text-[var(--foreground)]">
                 {item.summary || item.first_message || '暂无摘要'}
               </p>
-              <p className="mt-0.5 max-w-[320px] truncate text-xs font-medium text-zinc-500">
+              <p className="mt-0.5 max-w-[320px] truncate text-xs font-medium text-[var(--muted-foreground)]">
                 {item.last_message || '暂无最新消息'}
               </p>
             </div>
@@ -463,14 +463,14 @@ export const ChatHistory = () => {
         accessorKey: 'message_count',
         header: '消息数',
         cell: ({ getValue }) => (
-          <span className="text-sm font-semibold text-zinc-900">{formatNumber(Number(getValue()))}</span>
+          <span className="text-sm font-semibold text-[var(--foreground)]">{formatNumber(Number(getValue()))}</span>
         ),
       },
       {
         accessorKey: 'total_tokens',
         header: 'Token',
         cell: ({ getValue }) => (
-          <span className="text-sm font-semibold text-zinc-900">{formatNumber(Number(getValue()))}</span>
+          <span className="text-sm font-semibold text-[var(--foreground)]">{formatNumber(Number(getValue()))}</span>
         ),
       },
       {
@@ -489,7 +489,7 @@ export const ChatHistory = () => {
         cell: ({ row }) => (
           <div>
             <p className="text-sm font-medium text-zinc-700">{formatApiDateTime(row.original.updated_at)}</p>
-            <p className="mt-0.5 text-xs font-medium text-zinc-400">{formatLatency(row.original.avg_latency_ms)}</p>
+            <p className="mt-0.5 text-xs font-medium text-[var(--muted-foreground)]">{formatLatency(row.original.avg_latency_ms)}</p>
           </div>
         ),
       },
@@ -577,19 +577,19 @@ export const ChatHistory = () => {
 
       {showAnalytics && <ChatAnalytics timeRange={14} />}
 
-      <section className="overflow-hidden rounded-lg border border-zinc-200/80 bg-white shadow-sm">
-        <div className="flex flex-col gap-2.5 border-b border-zinc-200/80 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+      <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+        <div className="flex flex-col gap-2.5 border-b border-[var(--border-subtle)] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-indigo-600">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700">
               会话目录
             </p>
-            <h3 className="mt-1 text-base font-semibold tracking-tight text-zinc-900">
+            <h3 className="mt-1 text-base font-semibold tracking-tight text-[var(--foreground)]">
               按用户、摘要或 Session 检索
             </h3>
           </div>
           <div className="relative lg:w-[380px]">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
               size={16}
             />
             <Input
@@ -608,11 +608,11 @@ export const ChatHistory = () => {
           skeletonRows={8}
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-400 shadow-sm">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] shadow-sm">
                 <MessageSquare size={20} />
               </div>
               <p className="text-sm font-semibold text-zinc-600">没有找到会话记录</p>
-              <p className="mt-1 text-xs font-medium text-zinc-400">新的会话会自动汇总到这里</p>
+              <p className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">新的会话会自动汇总到这里</p>
             </div>
           }
         />

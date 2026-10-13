@@ -20,7 +20,8 @@ import { getMyAgents } from '../services/agentProfileService';
 import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
 import { UserInputPanel } from '../components/chat/UserInputPanel';
-import { submitUserInput, type UserInputRequest } from '../services/agentService';
+import { getSessionArtifacts, submitUserInput, type UserInputRequest } from '../services/agentService';
+import type { VirtuosoHandle } from 'react-virtuoso';
 export const Chat = () => {
   const location = useLocation();
   const initialMessage = location.state?.initialMessage as string | undefined;
@@ -28,7 +29,7 @@ export const Chat = () => {
   // ── Zustand store（UI 状态）──
   const {
     setInputValue,
-    chatMode, setChatMode,
+    chatMode, setChatMode, approvalMode, planMode,
     agentProfiles, setAgentProfiles,
     selectedAgentProfileId, setSelectedAgentProfileId,
     isSidebarOpen, setIsSidebarOpen,
@@ -50,11 +51,17 @@ export const Chat = () => {
   } = useChatSessions();
 
   // ── 搜索 ──
+  // 长会话虚拟化时消息可能未渲染进 DOM，搜索跳转需经 Virtuoso scrollToIndex 回退
+  const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+  const virtualScrollToMessage = useCallback((messageId: string) => {
+    const idx = (currentSession?.messages ?? []).findIndex((m) => m.id === messageId);
+    if (idx >= 0) virtuosoRef.current?.scrollToIndex({ index: idx, align: 'center' });
+  }, [currentSession?.messages]);
   const {
     searchQuery, setSearchQuery,
     showSearch, setShowSearch,
     searchCurrentIndex, searchMatches, nextMatch, prevMatch, activeMatchId,
-  } = useChatSearch(currentSession);
+  } = useChatSearch(currentSession, virtualScrollToMessage);
 
   // ── 滚动 ──
   const {
@@ -76,7 +83,7 @@ export const Chat = () => {
     handleApprovalDecision, handleDecisionMade,
   } = useChatStream({
     sessions, currentSessionId, currentSession: currentSession ?? null,
-    chatMode, selectedAgentProfileId,
+    chatMode, approvalMode, planMode, selectedAgentProfileId,
     selectedAgent: agentProfiles.find((a) => a.id === selectedAgentProfileId) || null,
     setSessions, setCurrentSessionId,
     applySessionState, setArtifact, setInputValue,
@@ -215,13 +222,10 @@ export const Chat = () => {
     if (!currentSessionId) return;
     const session = sessions.find(s => s.id === currentSessionId);
     if (!session) return;
-    // 缓存中的 artifact 已剥离 HTML（localStorage 瘦身），需要回源补全
-    const needsArtifactRefetch = session.messages.some(
-      (m) => m.role === 'model' && ((m.pptArtifact && !m.pptArtifact.html) || (m.websiteArtifact && !m.websiteArtifact.html)),
-    );
-    if (session.messages.length === 0 || needsArtifactRefetch) {
-      loadSessionMessages(currentSessionId);
-    }
+    // 切换会话时总是回源一次：loadSessionMessages 内部会并行请求消息与产物，
+    // 缓存已有消息时走短路，不会重复拉消息，但产物必须查——
+    // 否则"生成过但缓存里没有 artifact 痕迹"的会话永远打不开预览。
+    loadSessionMessages(currentSessionId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSessionId]);
 
@@ -236,9 +240,14 @@ export const Chat = () => {
     // 每个会话只恢复一次；流式过程中 messages 变化不再触发清空
     if (artifactRestoredSessionRef.current === currentSessionId) return;
 
+    // 切换会话时先关闭上一个会话的产物面板：等新会话消息加载期间，
+    // 旧面板若继续挂着，用户会以为"新网站预览还是上一个的内容"。
+    // 仅在消息确实已加载完（且本会话无产物）时才由后续逻辑收尾。
     const messages = currentSession?.messages || [];
-    // 消息尚未加载完成时等待（loadSessionMessages 会更新 messages）
-    if (messages.length === 0) return;
+    if (messages.length === 0) {
+      setArtifact(null);
+      return;
+    }
 
     // 缓存剥离了 artifact HTML，等待 loadSessionMessages 回源补全后再恢复预览；
     // 此时不标记 restored，回源完成后 effect 会随 currentSession 变化重新执行
@@ -276,7 +285,54 @@ export const Chat = () => {
         sessionId: currentSessionId,
       });
     } else {
-      setArtifact(null);
+      // 表格快照体量大，不随消息缓存下发（localStorage 存不下也没必要），
+      // 所以这里统一回源探测一次：会话里确实有表格才恢复，否则清空面板。
+      let cancelled = false;
+      void getSessionArtifacts(currentSessionId)
+        .then((response) => {
+          if (cancelled) return;
+          const sheetLatest = response.sheet_artifact;
+          const docLatest = response.document_artifact;
+          if (sheetLatest) {
+            setArtifact({
+              language: 'spreadsheet',
+              artifactId: sheetLatest.artifact_id,
+              title: sheetLatest.title,
+              snapshot: sheetLatest.snapshot,
+              sheetNames: sheetLatest.sheet_names ?? [],
+              sheetCount: sheetLatest.sheet_count ?? 0,
+              sessionId: currentSessionId,
+            });
+          } else if (docLatest) {
+            const body = (docLatest.snapshot?.body ?? {}) as { dataStream?: string };
+            setArtifact({
+              language: 'document',
+              artifactId: docLatest.artifact_id,
+              title: docLatest.title,
+              snapshot: docLatest.snapshot,
+              charCount:
+                docLatest.char_count ??
+                (body.dataStream ?? '').replace(/\r/g, '').length,
+              sessionId: currentSessionId,
+            });
+          } else {
+            // 会话里确实没有任何产物。清理要克制：只清「确认属于其他会话」的
+            // 面板。流式刚设置的产物不带 sessionId（也没必要带），无条件清空
+            // 会把它立刻打掉 —— 文档面板当初就是这么消失的。
+            const stale =
+              artifact &&
+              'sessionId' in artifact &&
+              typeof artifact.sessionId === 'string' &&
+              artifact.sessionId !== currentSessionId;
+            if (stale || !artifact) setArtifact(null);
+          }
+        })
+        .catch((err) => {
+          if (!cancelled) console.warn('恢复表格/文档产物失败:', err);
+        });
+      return () => {
+        cancelled = true;
+      };
     }
     artifactRestoredSessionRef.current = currentSessionId;
     // 刻意不依赖 messages.length：用 ref 保证仅在会话切换/首次加载时恢复
@@ -284,11 +340,13 @@ export const Chat = () => {
   }, [currentSessionId, currentSession]);
 
   // 加载智能体列表
+  const [agentProfilesLoaded, setAgentProfilesLoaded] = useState(false);
   useEffect(() => {
     getMyAgents()
       .then((response) => {
         setAgentProfiles(response.items);
-        const initialProfileId = (location.state as any)?.agentProfileId;
+        const initialState = location.state as { agentProfileId?: number; mode?: string } | null;
+        const initialProfileId = initialState?.agentProfileId;
         if (initialProfileId) {
           const initialProfile = response.items.find((item) => item.id === initialProfileId);
           if (initialProfile) {
@@ -296,11 +354,15 @@ export const Chat = () => {
             setSelectedAgentProfileId(initialProfile.id);
             return;
           }
+          console.warn(
+            `[chat] 首页指定的智能体 ${initialProfileId} 不在已安装列表中，回退到模式默认智能体`,
+          );
         }
         const defaultAgent = response.items.find((a) => a.response_mode === chatMode);
         if (defaultAgent) setSelectedAgentProfileId(defaultAgent.id);
       })
-      .catch((err) => console.error('Load agents error:', err));
+      .catch((err) => console.error('Load agents error:', err))
+      .finally(() => setAgentProfilesLoaded(true));
   }, []);
 
   // Auto-select default agent
@@ -358,14 +420,16 @@ export const Chat = () => {
   }, [error]);
 
   // 处理首页带过来的首条消息
+  // 必须等智能体列表加载完成后再发：否则 selectedAgentProfileId 还是 null，
+  // 首页选中的智能体（如 PPT 设计师）会丢失，请求退回通用助手模式。
   const initialMessageSent = useRef(false);
   useEffect(() => {
-    if (initialMessage && !initialMessageSent.current) {
+    if (initialMessage && !initialMessageSent.current && agentProfilesLoaded) {
       initialMessageSent.current = true;
       handleSend(initialMessage);
       window.history.replaceState({}, document.title);
     }
-  }, [initialMessage]);
+  }, [initialMessage, agentProfilesLoaded]);
 
   // 制品面板打开时自动收起侧边栏
   useEffect(() => {
@@ -387,6 +451,7 @@ export const Chat = () => {
     handleApprovalDecision, handleDecisionMade,
     scrollRef, messagesEndRef, isUserScrolledUp,
     scrollToBottom, handleJumpToBottom, handleScroll,
+    virtuosoRef,
     showSearch, setShowSearch, searchQuery, setSearchQuery,
     searchCurrentIndex, searchMatchesCount: searchMatches.length,
     activeMatchId, prevMatch, nextMatch,
@@ -494,7 +559,7 @@ export const Chat = () => {
           <main
             id="main-content"
             className={cn(
-              "flex flex-col h-full transition-all duration-700 ease-[0.16,1,0.3,1] min-w-0 relative",
+              "flex flex-col h-full transition-all duration-500 ease-[0.16,1,0.3,1] min-w-0 relative",
               artifact ? "w-[40%] border-r border-slate-200/60" : "w-full",
               isWideConversation && "px-4 lg:px-8 xl:px-10",
             )}
@@ -526,6 +591,7 @@ export const Chat = () => {
             onPptThemeChange={handlePptThemeChange}
             onEmailConfirm={handleEmailConfirm}
             onEmailCancel={handleEmailCancel}
+            onSwitchArtifact={(next) => setArtifact(next)}
             sessionId={currentSessionId}
           />
         </div>

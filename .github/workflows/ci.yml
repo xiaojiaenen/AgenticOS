@@ -32,7 +32,7 @@ jobs:
           UPSTREAM_AUTO_LOGIN_ENABLED: "false"
 
   frontend:
-    name: Frontend (tsc + build)
+    name: Frontend (tsc + eslint + vitest + build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -49,11 +49,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type check
+      - name: Type check + lint (tsc + eslint)
         run: npm run lint
+
+      - name: Unit test (vitest)
+        run: npm run test
 
       - name: Build
         run: npm run build
 
-      - name: CSS compatibility gate (Chrome 85: no unguarded oklch/color-mix)
+      - name: "CSS compatibility gate (Chrome 85: no unguarded oklch/color-mix)"
         run: npm run verify:css

@@ -155,39 +155,32 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
     assert events[0]["data"]["storage"] == "sqlalchemy"
     assert events[1]["event"] == "run_status"
     assert events[1]["data"]["phase"] == "thinking"
-    assert events[2] == {
-        "event": "reasoning_delta",
-        "data": {
-            "session_id": "demo-session",
-            "content": "plan first",
-        },
-    }
+    assert events[2]["event"] == "reasoning_delta"
+    assert events[2]["data"]["session_id"] == "demo-session"
+    assert events[2]["data"]["content"] == "plan first"
+    # 运行预算随流透出（step / max_steps），前端据此显示"第 N/M 步"
+    assert events[2]["data"].get("step") is not None
+    assert events[2]["data"].get("max_steps") is not None
     assert events[3]["event"] == "run_status"
     assert events[3]["data"]["phase"] == "streaming"
-    assert events[4] == {
-        "event": "delta",
-        "data": {
-            "session_id": "demo-session",
-            "content": "hello",
+    assert events[4]["event"] == "delta"
+    assert events[4]["data"]["session_id"] == "demo-session"
+    assert events[4]["data"]["content"] == "hello"
+    assert events[4]["data"].get("step") is not None
+    assert events[5]["event"] == "tool_calls"
+    assert events[5]["data"]["session_id"] == "demo-session"
+    assert events[5]["data"]["tool_calls"] == [
+        {
+            "id": "call_1",
+            "function": {
+                "name": "get_time",
+                "arguments": {"timezone": "Asia/Shanghai"},
+            },
+            "side_effect": False,
+            "requires_approval": False,
         },
-    }
-    assert events[5] == {
-        "event": "tool_calls",
-        "data": {
-            "session_id": "demo-session",
-            "tool_calls": [
-                {
-                    "id": "call_1",
-                    "function": {
-                        "name": "get_time",
-                        "arguments": {"timezone": "Asia/Shanghai"},
-                    },
-                    "side_effect": False,
-                    "requires_approval": False,
-                }
-            ],
-        },
-    }
+    ]
+    assert events[5]["data"].get("step") is not None
     assert events[6] == {
         "event": "tool_results",
         "data": {
@@ -206,23 +199,19 @@ async def test_agent_service_maps_wuwei_events_to_sse_payloads() -> None:
             ],
         },
     }
-    assert events[7] == {
-        "event": "tool_calls",
-        "data": {
-            "session_id": "demo-session",
-            "tool_calls": [
-                {
-                    "id": "call_2",
-                    "function": {
-                        "name": "write_file",
-                        "arguments": {"path": "notes.txt"},
-                    },
-                    "side_effect": True,
-                    "requires_approval": True,
-                }
-            ],
+    assert events[7]["event"] == "tool_calls"
+    assert events[7]["data"]["session_id"] == "demo-session"
+    assert events[7]["data"]["tool_calls"] == [
+        {
+            "id": "call_2",
+            "function": {
+                "name": "write_file",
+                "arguments": {"path": "notes.txt"},
+            },
+            "side_effect": True,
+            "requires_approval": True,
         },
-    }
+    ]
     assert events[8] == {
         "event": "tool_results",
         "data": {
@@ -300,8 +289,11 @@ async def test_ppt_mode_lifts_legacy_one_step_session_limit() -> None:
     )
     events = [event async for event in service.stream_chat(request)]
 
-    # _normalize_session_limits lifts a legacy 1-step session up to settings.agent_max_steps
-    assert session.max_steps == 10
+    # _normalize_session_limits lifts a legacy 1-step session up to
+    # settings.agent_max_steps —— 断言跟随配置，不要写死具体数值
+    # （默认值已从 10 提到 30，写死会让这个用例在调参时误报失败）。
+    assert session.max_steps == service.settings.agent_max_steps
+    assert session.max_steps > 1
     assert events[-1]["event"] == "done"
     assert events[-1]["data"]["session_id"] == "ppt-session"
 

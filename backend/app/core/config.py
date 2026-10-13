@@ -17,7 +17,11 @@ class Settings(BaseSettings):
     openai_base_url: str | None = Field(default=None, validation_alias="OPENAI_BASE_URL")
     openai_model: str = Field(default="gpt-5.4", validation_alias="OPENAI_MODEL")
     agent_system_prompt: str = "你是 AgenticOS 的 AI 助手。"
-    agent_max_steps: int = 10
+    # 单轮对话允许的最大 LLM 调用步数（即 ReAct 循环上限）。
+    # 一轮里模型每输出一次 tool_calls 算一步。10 太紧：实测 82 个会话里有
+    # 3 轮正好卡在 10 步被截断，复杂任务（查资料 → 写文件 → 建表 → 校验）
+    # 经常需要 15~20 步。给到 30，让模型自己判断何时收尾。
+    agent_max_steps: int = Field(default=30, validation_alias="AGENT_MAX_STEPS")
     agent_max_tokens: int = 65536
     agent_parallel_tool_calls: bool = False
     llm_timeout: int = Field(default=300, validation_alias="LLM_TIMEOUT")
@@ -224,6 +228,22 @@ def get_settings() -> Settings:
                 "（重启后会变化，已有会话/加密数据将失效）。"
                 "生产环境必须在 .env 中设置 AUTH_SECRET_KEY。"
             )
+
+    # 密钥用途分离：AUTH_SECRET_KEY 是 JWT 签名密钥，不应同时充当外部系统
+    # 凭据的加密根密钥（泄露即全部凭据泄露）。生产环境强制显式分离。
+    env = (settings.environment or "").strip().lower()
+    if env in {"production", "prod"} and not (
+        settings.external_system_encryption_key or ""
+    ).strip():
+        raise RuntimeError(
+            "生产环境必须显式配置 EXTERNAL_SYSTEM_ENCRYPTION_KEY（与 AUTH_SECRET_KEY 分离），"
+            "用于外部系统凭据的 Fernet 加密。请在 .env 中设置后重启。"
+        )
+    if not (settings.external_system_encryption_key or "").strip():
+        logging.getLogger("config").warning(
+            "EXTERNAL_SYSTEM_ENCRYPTION_KEY 未设置，外部系统凭据加密密钥将由 "
+            "AUTH_SECRET_KEY 派生（仅限开发环境）。生产环境必须显式分离。"
+        )
     return settings
 
 

@@ -77,10 +77,10 @@ export const DecisionPanel: React.FC<DecisionPanelProps> = ({ decisions, onDecis
             className={cn("flex flex-col gap-3 rounded-2xl px-3 py-3", "border border-white/70 bg-white/76")}
           >
             <div>
-              <p className={cn("text-sm font-semibold", "text-slate-800")}>{decision.question}</p>
+              <p className={cn("text-sm font-semibold", "text-[var(--foreground)]")}>{decision.question}</p>
               {decision.context && (
                 <div className={cn("mt-2 max-h-60 overflow-y-auto rounded-lg p-2.5", "border border-slate-200/60 bg-slate-50/50")}>
-                  <pre className={cn("whitespace-pre-wrap break-words text-xs leading-relaxed font-mono", "text-slate-600")}>{decision.context}</pre>
+                  <pre className={cn("whitespace-pre-wrap break-words text-xs leading-relaxed font-mono", "text-[var(--muted-foreground)]")}>{decision.context}</pre>
                 </div>
               )}
             </div>
@@ -109,7 +109,7 @@ export const DecisionPanel: React.FC<DecisionPanelProps> = ({ decisions, onDecis
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSubmitCustom(decision.decision_id);
                   }}
-                  className={cn("flex-1 rounded-xl border px-3 py-1.5 text-xs outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-200", "border-slate-200 bg-white")}
+                  className={cn("flex-1 rounded-xl border px-3 py-1.5 text-xs outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-200", "border-[var(--border-subtle)] bg-[var(--surface-1)]")}
                 />
                 <button
                   type="button"

@@ -72,26 +72,26 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
             </div>
             
             {hoveredRound.userMessage && (
-               <div className="text-xs text-slate-600 line-clamp-2 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                 <span className="font-semibold text-slate-400 mr-1.5">Q:</span>
+               <div className="text-xs text-[var(--muted-foreground)] line-clamp-2 leading-relaxed bg-[var(--surface-2)] p-2.5 rounded-xl border border-[var(--border-subtle)]">
+                 <span className="font-semibold text-[var(--muted-foreground)] mr-1.5">Q:</span>
                  {hoveredRound.userMessage.text}
                </div>
             )}
             {hoveredRound.aiMessage && (
-               <div className="text-xs text-slate-600 line-clamp-2 leading-relaxed bg-slate-100/80 p-2.5 rounded-xl border border-slate-200/50">
+               <div className="text-xs text-[var(--muted-foreground)] line-clamp-2 leading-relaxed bg-slate-100/80 p-2.5 rounded-xl border border-slate-200/50">
                  <span className="font-semibold text-zinc-700 mr-1.5">A:</span>
                  {hoveredRound.aiMessage.text}
                </div>
             )}
 
             {/* Arrow pointing to dot */}
-            <div className="absolute top-1/2 -right-[5px] -translate-y-1/2 w-2.5 h-2.5 bg-white border-t border-r border-slate-200/60 rotate-45" />
+            <div className="absolute top-1/2 -right-[5px] -translate-y-1/2 w-2.5 h-2.5 bg-[var(--surface-1)] border-t border-r border-slate-200/60 rotate-45" />
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Bounded round navigator */}
-      <div className="bg-white/80 backdrop-blur-xl border border-white/60 shadow-md rounded-full py-4 px-1.5 flex flex-col items-center gap-2 transition-all group hover:shadow-md hover:bg-white/95">
+      <div className="bg-[var(--surface-1)] backdrop-blur-xl border border-white/60 shadow-md rounded-full py-4 px-1.5 flex flex-col items-center gap-2 transition-all group hover:shadow-md hover:bg-white/95">
         <div className="mb-1 text-slate-300 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
         </div>
@@ -115,7 +115,7 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
             }}
             className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer relative group/item hover:bg-zinc-800 hover:shadow-md transition-all flex-shrink-0"
           >
-            <span className="text-[10px] font-semibold text-slate-400 group-hover/item:text-white transition-colors">
+            <span className="text-[10px] font-semibold text-[var(--muted-foreground)] group-hover/item:text-white transition-colors">
               {round.index}
             </span>
           </div>

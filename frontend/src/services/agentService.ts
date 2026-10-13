@@ -1,14 +1,20 @@
 import { Message, ToolCall } from '../types';
 import { authHeaders } from './authService';
-import { apiFetch } from './apiClient';
+import { apiFetch, ApiError } from './apiClient';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 
 type AgentServiceOptions = {
   sessionId: string;
   systemPrompt?: string;
-  responseMode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata';
+  responseMode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
   agentProfileId?: number | null;
+  /** 会话级审批模式：ask 逐次确认 / auto 只读自动放行 / full 全放行（仅管理员） */
+  approvalMode?: 'ask' | 'auto' | 'full';
+  /** 计划模式：只允许只读工具，先产出计划再执行 */
+  planMode?: boolean;
   files?: { filename: string; file_path: string }[];
+  /** 运行预算（后端随流事件透出，用于"第 N/M 步"提示） */
+  onBudget?: (budget: { step?: number; maxSteps?: number }) => void;
   onDelta?: (delta: string, fullText: string) => void;
   onReasoningDelta?: (delta: string, fullText: string) => void;
   onToolCalls?: (toolCalls: ToolCall[]) => void;
@@ -16,6 +22,8 @@ type AgentServiceOptions = {
   onRunStatus?: (status: AgentRunStatus) => void;
   onPptArtifact?: (artifact: AgentPptArtifact) => void;
   onWebsiteArtifact?: (artifact: AgentWebsiteArtifact) => void;
+  onSheetArtifact?: (artifact: AgentSheetArtifact) => void;
+  onDocumentArtifact?: (artifact: AgentDocumentArtifact) => void;
   onUserDecision?: (decision: unknown) => void;
   onUserInputRequired?: (input: UserInputRequest) => void;
   onApiApprovalRequired?: (approval: ApiApprovalRequest) => void;
@@ -31,6 +39,8 @@ type StreamResult = {
   sessionState?: AgentSessionState;
   pptArtifact?: AgentPptArtifact;
   websiteArtifact?: AgentWebsiteArtifact;
+  sheetArtifact?: AgentSheetArtifact;
+  documentArtifact?: AgentDocumentArtifact;
 };
 
 type AgentToolCall = {
@@ -97,6 +107,29 @@ export type AgentPptArtifact = {
   slide_count: number;
   html: string;
   theme?: string;
+};
+
+export type AgentDocumentArtifact = {
+  type: 'document';
+  artifact_id: string;
+  session_id: string;
+  title: string;
+  /** Univer 的 IDocumentData 原始 JSON */
+  snapshot: Record<string, unknown>;
+  char_count: number;
+  version?: number;
+};
+
+export type AgentSheetArtifact = {
+  type: 'spreadsheet';
+  artifact_id: string;
+  session_id: string;
+  title: string;
+  /** Univer 的 IWorkbookData 原始 JSON */
+  snapshot: Record<string, unknown>;
+  sheet_names: string[];
+  sheet_count: number;
+  version?: number;
 };
 
 export type AgentWebsiteArtifact = {
@@ -242,6 +275,8 @@ type StreamState = {
   sessionState?: AgentSessionState;
   pptArtifact?: AgentPptArtifact;
   websiteArtifact?: AgentWebsiteArtifact;
+  sheetArtifact?: AgentSheetArtifact;
+  documentArtifact?: AgentDocumentArtifact;
 };
 
 /**
@@ -266,6 +301,13 @@ function applyAgentEvent(
   if (event === 'delta') {
     const delta = typeof payload.content === 'string' ? payload.content : '';
     state.text += delta;
+    // 运行预算随流透出
+    if (typeof payload.step === 'number' || typeof payload.max_steps === 'number') {
+      options.onBudget?.({
+        step: typeof payload.step === 'number' ? payload.step : undefined,
+        maxSteps: typeof payload.max_steps === 'number' ? payload.max_steps : undefined,
+      });
+    }
     options.onDelta?.(delta, state.text);
     return;
   }
@@ -283,10 +325,17 @@ function applyAgentEvent(
   }
 
   if (event === 'artifact_ready') {
+    console.log('[probe] artifact_ready type=', (payload as Record<string, unknown>).type);
     const artifactPayload = payload as Record<string, unknown>;
     if (artifactPayload.type === 'website') {
       state.websiteArtifact = artifactPayload as unknown as AgentWebsiteArtifact;
       options.onWebsiteArtifact?.(state.websiteArtifact);
+    } else if (artifactPayload.type === 'spreadsheet') {
+      state.sheetArtifact = artifactPayload as unknown as AgentSheetArtifact;
+      options.onSheetArtifact?.(state.sheetArtifact);
+    } else if (artifactPayload.type === 'document') {
+      state.documentArtifact = artifactPayload as unknown as AgentDocumentArtifact;
+      options.onDocumentArtifact?.(state.documentArtifact);
     } else {
       state.pptArtifact = payload as unknown as AgentPptArtifact;
       options.onPptArtifact?.(state.pptArtifact);
@@ -358,10 +407,15 @@ function applyAgentEvent(
   }
 
   if (event === 'error') {
-    throw new Error(normalizeAgentError(
-      typeof payload.message === 'string' ? payload.message : undefined,
-      typeof payload.error_type === 'string' ? payload.error_type : undefined,
-    ));
+    // 对齐 apiClient 的错误类型：message 为归一化后的用户可读信息，detail 保留原始负载
+    throw new ApiError(
+      0,
+      payload.message ?? payload,
+      normalizeAgentError(
+        typeof payload.message === 'string' ? payload.message : undefined,
+        typeof payload.error_type === 'string' ? payload.error_type : undefined,
+      ),
+    );
   }
 
   if (event === 'done') {
@@ -414,6 +468,9 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         system_prompt: options.systemPrompt,
         agent_profile_id: options.agentProfileId || undefined,
         response_mode: options.responseMode || 'general',
+        // 不传时后端按 auto 处理：只读工具自动放行，写操作仍逐次确认
+        approval_mode: options.approvalMode || 'auto',
+        plan_mode: options.planMode || false,
         files: options.files?.length ? options.files : undefined,
       }),
       signal: controller.signal,
@@ -425,7 +482,8 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         const response = await fetch(url, init);
         if (!response.ok) {
           const detail = await response.text().catch(() => '');
-          throw new Error(normalizeAgentError(detail, String(response.status)));
+          // 非 2xx：保留 HTTP status，归一化 message（与 apiFetch 的 ApiError 语义一致）
+          throw new ApiError(response.status, detail, normalizeAgentError(detail, String(response.status)));
         }
         return response;
       },
@@ -439,10 +497,14 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
           console.warn('Failed to parse SSE event payload:', err, String(msg.data).slice(0, 200));
           return;
         }
+        if (msg.event !== 'reasoning_delta' && msg.event !== 'delta') {
+          console.log('[probe] SSE event:', msg.event);
+        }
         if (msg.event === 'error') {
           // 先关闭底层连接再抛出，避免连接泄漏
           controller.abort();
         }
+        if (msg.event === 'artifact_ready') console.log('[probe] SSE 收到 artifact_ready, event=', msg.event, 'data.type=', (payload as Record<string, unknown>).type);
         applyAgentEvent(msg.event, payload, options, state);
       },
       // 不重试：错误直接抛出，保持旧实现 fail-fast 语义
@@ -479,6 +541,8 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
     sessionState: state.sessionState,
     pptArtifact: state.pptArtifact,
     websiteArtifact: state.websiteArtifact,
+    sheetArtifact: state.sheetArtifact,
+    documentArtifact: state.documentArtifact,
   };
 }
 
@@ -541,6 +605,8 @@ export type SessionArtifacts = {
     theme?: string;
   } | null;
   website_artifact: AgentWebsiteArtifact | null;
+  sheet_artifact: AgentSheetArtifact | null;
+  document_artifact: AgentDocumentArtifact | null;
 };
 
 /** 从后端加载会话关联的最新制品（PPT/网站） */
@@ -558,6 +624,79 @@ export async function getPptPreviewHtml(artifactId: string): Promise<string> {
     `${AGENT_ENDPOINT}/ppt/preview/${artifactId}`,
     { responseType: 'text' },
     '加载 PPT 预览失败',
+  );
+}
+
+export type PolishPromptResult = {
+  polished: string;
+  original: string;
+  changed: boolean;
+};
+
+/**
+ * 提示词润色：分析用户意图后改写为更可执行的长提示词。
+ * 传入 signal 可在用户点「取消润色」时中断请求。
+ */
+export async function polishPrompt(
+  text: string,
+  signal?: AbortSignal,
+): Promise<PolishPromptResult> {
+  return apiFetch<PolishPromptResult>(
+    `${AGENT_ENDPOINT}/polish-prompt`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+      // 润色要过一次 LLM，放宽默认超时
+      timeoutMs: 90_000,
+      ...(signal ? { signal } : {}),
+    },
+    '提示词润色失败',
+  );
+}
+
+export type ArtifactKind = 'ppt' | 'website' | 'sheet' | 'document';
+
+export type ArtifactVersion = {
+  kind: ArtifactKind;
+  version: number;
+  /** ppt 为 artifact_id；website / sheet 为版本号 "v{n}" */
+  reference: string;
+  title?: string;
+  created_at?: string | null;
+  slide_count?: number;
+};
+
+/** 列出会话的全部产物版本（PPT 每轮一条记录 + 网站每轮快照） */
+export async function listSessionVersions(sessionId: string): Promise<{ versions: ArtifactVersion[] }> {
+  return apiFetch<{ versions: ArtifactVersion[] }>(
+    `${AGENT_ENDPOINT}/sessions/${sessionId}/versions`,
+    {},
+    '加载历史版本失败',
+  );
+}
+
+/** 加载指定版本的产物，用于"回看历史版本" */
+export async function loadArtifactVersion(
+  sessionId: string,
+  kind: ArtifactKind,
+  reference: string,
+): Promise<{
+  ppt_artifact?: { artifact_id: string; title: string; slide_count: number; html: string; theme?: string };
+  website_artifact?: {
+    artifact_id: string;
+    title: string;
+    project_slug: string;
+    stack?: string;
+    preview_html: string;
+  };
+  sheet_artifact?: AgentSheetArtifact;
+  document_artifact?: AgentDocumentArtifact;
+}> {
+  return apiFetch(
+    `${AGENT_ENDPOINT}/sessions/${sessionId}/versions/${kind}/${encodeURIComponent(reference)}`,
+    {},
+    '加载该版本失败',
   );
 }
 
@@ -621,6 +760,8 @@ export async function generateTitle(history: Message[]): Promise<string> {
 export type AgentSessionListItem = {
   session_id: string;
   summary?: string | null;
+  /** 会话展示标题（首条用户消息摘录）；summary 是上下文压缩摘要，不能当标题用 */
+  title?: string | null;
   metadata?: Record<string, unknown>;
   message_count: number;
   created_at?: string;
@@ -656,6 +797,40 @@ export async function submitApiApproval(sessionId: string, approved: boolean, al
       body: JSON.stringify({ approved, allow_all: allowAll }),
     },
     '提交审批决定失败',
+  );
+}
+
+/** 保存用户对文档产物的修改。 */
+export async function saveDocumentSnapshot(
+  sessionId: string,
+  directory: string,
+  snapshot: Record<string, unknown>,
+): Promise<void> {
+  await apiFetch<{ ok: boolean }>(
+    `${AGENT_ENDPOINT}/sessions/${encodeURIComponent(sessionId)}/documents/${encodeURIComponent(directory)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot }),
+    },
+    '保存文档失败',
+  );
+}
+
+/** 保存用户对表格产物的修改（编辑器里点「保存」时调用）。 */
+export async function saveSheetSnapshot(
+  sessionId: string,
+  directory: string,
+  snapshot: Record<string, unknown>,
+): Promise<void> {
+  await apiFetch<{ ok: boolean }>(
+    `${AGENT_ENDPOINT}/sessions/${encodeURIComponent(sessionId)}/sheets/${encodeURIComponent(directory)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot }),
+    },
+    '保存表格失败',
   );
 }
 

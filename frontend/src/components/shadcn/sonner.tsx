@@ -5,15 +5,20 @@ import {
   OctagonXIcon,
   TriangleAlertIcon,
 } from "lucide-react"
-import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
-const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+// 主题由自研 useTheme（src/hooks/useTheme.ts）管理：它直接把 light/dark class
+// 挂在 documentElement 上，因此当前实际主题可直接从 DOM class 读取，
+// 无需引入 next-themes。
+function currentTheme(): "dark" | "light" {
+  if (typeof document === "undefined") return "light"
+  return document.documentElement.classList.contains("dark") ? "dark" : "light"
+}
 
+const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={currentTheme()}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,
