@@ -73,28 +73,10 @@ class Settings(BaseSettings):
     sesame_internal_token: str = Field(default="", validation_alias="SESAME_INTERNAL_TOKEN")
     sesame_channel_id: int = Field(default=0, validation_alias="SESAME_CHANNEL_ID")
 
-    # 唯一上游 agents.gree.com — 本地自动登录 + Cookie 请求（流程与 sesame 一致）
-    upstream_base_url: str = Field(default="https://agents.gree.com", validation_alias="UPSTREAM_BASE_URL")
-    upstream_login_url: str = Field(default="", validation_alias="UPSTREAM_LOGIN_URL")
-    upstream_auto_login_enabled: bool = Field(default=True, validation_alias="UPSTREAM_AUTO_LOGIN_ENABLED")
-    upstream_cookie_refresh_minutes: int = Field(default=30, validation_alias="UPSTREAM_COOKIE_REFRESH_MINUTES")
-    upstream_cookie_refresh_buffer_hours: int = Field(default=2, validation_alias="UPSTREAM_COOKIE_REFRESH_BUFFER_HOURS")
-    # 本机 Agent 对话默认用登录用户 Cookie 直连 agents.gree.com（不需要 API Key）
-    upstream_use_cookie_llm: bool = Field(
-        default=True,
-        validation_alias="UPSTREAM_USE_COOKIE_LLM",
-        description="本机对话默认用当前用户 Cookie 调上游；关闭则仅用 OPENAI_BASE_URL",
-    )
-
-    # LDAP 认证配置（留空 = 不启用）
+    # LDAP 认证引导开关（完整配置在管理后台「系统设置 → LDAP」中维护）
+    # 说明：仅保留此环境变量作为首次部署的引导开关；服务器地址、绑定账号、
+    # 属性映射等均在后台配置（system_settings 表 ldap.* 键），支持连接测试。
     ldap_enabled: bool = Field(default=False, validation_alias="LDAP_ENABLED")
-    ldap_auto_create_users: bool = Field(default=False, validation_alias="LDAP_AUTO_CREATE_USERS")
-    ldap_gateway_url: str = Field(default="", validation_alias="LDAP_GATEWAY_URL")
-    ldap_email_domain: str = Field(default="gree.com.cn", validation_alias="LDAP_EMAIL_DOMAIN")
-    ldap_email_imap_host: str = Field(default="10.12.128.18", validation_alias="LDAP_EMAIL_IMAP_HOST")
-    ldap_email_imap_port: int = Field(default=993, validation_alias="LDAP_EMAIL_IMAP_PORT")
-    ldap_email_smtp_host: str = Field(default="10.12.128.18", validation_alias="LDAP_EMAIL_SMTP_HOST")
-    ldap_email_smtp_port: int = Field(default=465, validation_alias="LDAP_EMAIL_SMTP_PORT")
 
     # 系统通知邮箱配置（用于任务完成通知等系统邮件）
     notify_email_address: str = Field(default="", validation_alias="NOTIFY_EMAIL_ADDRESS")
@@ -128,13 +110,6 @@ class Settings(BaseSettings):
     oidc_admin_group: str = Field(default="", validation_alias="OIDC_ADMIN_GROUP")
     # OIDC 用户名/邮箱的本地域后缀（claims 里只有裸工号时补全）
     oidc_email_domain: str = Field(default="", validation_alias="OIDC_EMAIL_DOMAIN")
-
-    # ── M6-C LDAP 部门同步（属性名可配置，不在代码里假设 DN 语法）──────────
-    ldap_department_sync_enabled: bool = Field(default=False, validation_alias="LDAP_DEPARTMENT_SYNC_ENABLED")
-    ldap_directory_user_path: str = Field(default="", validation_alias="LDAP_DIRECTORY_USER_PATH")
-    ldap_directory_search_base: str = Field(default="", validation_alias="LDAP_DIRECTORY_SEARCH_BASE")
-    ldap_department_dn_attribute: str = Field(default="dn", validation_alias="LDAP_DEPARTMENT_DN_ATTRIBUTE")
-    ldap_department_name_attribute: str = Field(default="cn", validation_alias="LDAP_DEPARTMENT_NAME_ATTRIBUTE")
 
     model_config = SettingsConfigDict(
         env_file=str(PROJECT_ROOT / "backend" / ".env"),

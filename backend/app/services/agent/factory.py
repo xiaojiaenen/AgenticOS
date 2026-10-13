@@ -482,9 +482,9 @@ class AgentFactory:
         if cached is not None:
             return cached
 
-        # 本机 AgenticOS：默认用当前用户 Cookie 直连 agents.gree.com，无需 API Key。
+        # 本机 AgenticOS：使用服务端配置的 OpenAI 兼容端点构建 LLM。
         from app.core.data_path import get_current_user_id
-        from app.services.upstream.llm_factory import build_llm_for_user
+        from app.services.llm_factory import build_llm_for_user
 
         uid = get_current_user_id() or None
         llm = build_llm_for_user(

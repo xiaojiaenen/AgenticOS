@@ -575,11 +575,13 @@ def test_new_user_gets_default_role_assignment() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_oidc_claims_variants_normalize_identically() -> None:
+def test_oidc_claims_variants_normalize_identically(monkeypatch) -> None:
     from app.services.oidc_service import OidcError, claims_to_profile
 
     settings = get_settings()
-    domain = settings.oidc_email_domain or settings.ldap_email_domain
+    domain = "example.com"
+    # 裸工号补域依赖显式配置；测试里固定下来，不依赖环境变量
+    monkeypatch.setattr(settings, "oidc_email_domain", domain)
     expected = {"name": "Zhang San", "role": "user"}
     cases = (
         ({"email": "12345@example.com", "name": "Zhang San"}, "12345@example.com"),

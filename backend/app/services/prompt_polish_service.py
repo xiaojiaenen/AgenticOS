@@ -70,7 +70,7 @@ def _clean_polished(text: str) -> str:
 async def polish_prompt(raw_text: str, *, user_id: int | None = None, timeout: int = 60) -> dict[str, Any]:
     """润色提示词，返回 {polished, changed, original}。"""
     from app.core.config import get_settings
-    from app.services.upstream.llm_factory import build_llm_for_user
+    from app.services.llm_factory import build_llm_for_user
 
     original = (raw_text or "").strip()
     if not original:

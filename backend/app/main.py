@@ -64,21 +64,6 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
             settings.llm_gate_wait_seconds,
         )
 
-    # 上游 agents.gree.com cookie 续期循环（与 sesame 一致的自动登录流程）
-    upstream_refresh_task = None
-    if settings.upstream_auto_login_enabled:
-        try:
-            from app.services.upstream.login_orchestrator import start_cookie_refresh_loop
-
-            upstream_refresh_task = start_cookie_refresh_loop()
-            logger.info(
-                "Upstream cookie refresh loop started: base=%s interval_min=%s",
-                settings.upstream_base_url,
-                settings.upstream_cookie_refresh_minutes,
-            )
-        except Exception:
-            logger.exception("Failed to start upstream cookie refresh loop")
-
     # 从数据库加载历史输入到缓存
     from app.services.cache_service import get_cache_service
     await get_cache_service().load_history_from_db()
@@ -92,9 +77,6 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         logger.exception("Failed to seed default permission policies")
 
     yield
-
-    if upstream_refresh_task is not None:
-        upstream_refresh_task.cancel()
 
     # 关闭 ARQ 连接池与 Redis
     from app.services.task_queue import close_arq_pool

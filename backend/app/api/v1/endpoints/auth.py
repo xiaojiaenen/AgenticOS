@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
@@ -23,19 +22,12 @@ from app.schemas.auth import (
     UserPublic,
 )
 from app.services.auth_service import AuthError, AuthRateLimitError, AuthService
-from app.services.ldap_auth_service import LdapAuthError, LdapAuthService
+from app.services.ldap_auth_service import LdapAuthError, LdapAuthService, load_config
 
 
 def _is_ldap_enabled(db: Session, settings: Settings) -> bool:
-    """检查 LDAP 是否启用：优先从 DB 读取，无记录时回退到环境变量。"""
-    from sqlalchemy import select
-    from app.db.models import SystemSettingModel
-    row = db.scalar(
-        select(SystemSettingModel).where(SystemSettingModel.key == "ldap_enabled")
-    )
-    if row is not None:
-        return row.value == "true"
-    return settings.ldap_enabled
+    """检查 LDAP 是否启用（配置来自管理后台，数据库为准）。"""
+    return load_config(db, settings).enabled
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -65,21 +57,21 @@ def _to_public(user: UserModel) -> UserPublic:
     )
 
 
-def _extract_mail_no(raw: str, domain: str) -> str | None:
-    """从登录输入中提取 LDAP 工号。
+def _extract_ldap_username(raw: str, email_domain: str) -> str:
+    """从登录输入提取 LDAP 用户名（通用，不限定工号格式）。
 
-    - 纯数字 → 直接作工号
-    - 以 @domain 结尾 → 取前缀
-    - 其他 → None（非 LDAP 用户）
+    - 输入 ``user@公司域名`` 且域名与配置的 email_domain 一致 → 取 @ 前部分
+    - 其他输入（工号 / 域账号 / 邮箱前缀）→ 原样使用，交给 LDAP 过滤器匹配
     """
-    s = raw.strip().lower()
-    if re.fullmatch(r"\d+", s):
-        return s
-    if s.endswith(f"@{domain.lower()}") and "@" in s:
-        prefix = s[: s.index("@")]
-        if re.fullmatch(r"\d+", prefix):
+    s = raw.strip()
+    if not s:
+        return ""
+    domain = (email_domain or "").strip().lstrip("@").lower()
+    if domain and "@" in s:
+        prefix, _, suffix = s.rpartition("@")
+        if suffix.lower() == domain and prefix:
             return prefix
-    return None
+    return s
 
 
 async def _sync_to_sesame(
@@ -202,12 +194,13 @@ async def _do_login(
 ) -> dict[str, object]:
     """LDAP / 本地密码两条登录路径（与原 login 端点实现一致，拆出便于统一审计）。"""
     # ── LDAP 路径 ──
-    if _is_ldap_enabled(db, settings):
-        mail_no = _extract_mail_no(request.email, settings.ldap_email_domain)
-        if mail_no is not None:
-            ldap = LdapAuthService(settings)
+    ldap_service = LdapAuthService(settings, db)
+    if ldap_service.enabled:
+        config = ldap_service.config
+        username = _extract_ldap_username(request.email, config.email_domain)
+        if username:
             try:
-                ldap_user = await ldap.authenticate(mail_no, request.password)
+                ldap_user = await ldap_service.authenticate(username, request.password)
             except LdapAuthError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -219,14 +212,17 @@ async def _do_login(
             user = db.scalar(select(UserModel).where(func.lower(UserModel.email) == email))
 
             if user is None:
-                if settings.ldap_auto_create_users:
-                    # JIT 自动创建 LDAP 用户（随机密码，LDAP 用户不通过本地密码验证）
+                if config.auto_create_users:
+                    # JIT 自动创建 LDAP 用户（随机密码，LDAP 用户不通过本地密码验证）；
+                    # 首个用户给 admin 保证系统可管理，其余用配置的默认角色
                     import secrets
+
+                    is_first_user = db.scalar(select(func.count(UserModel.id))) == 0
                     user = UserModel(
                         email=email,
                         name=ldap_user["name"],
                         password_hash=secrets.token_hex(32),
-                        role="admin" if db.scalar(select(func.count(UserModel.id))) == 0 else "user",
+                        role="admin" if is_first_user else config.default_role,
                         is_active=True,
                         auth_source="ldap",
                     )
@@ -256,51 +252,28 @@ async def _do_login(
                 db.commit()
                 db.refresh(user)
 
-            # 自动配置邮箱凭据
-            ldap.auto_configure_email(db, user.id, mail_no, request.password)
+            # 登录时同步本人部门 + 自动配置邮箱凭据（均失败不阻断登录）
+            ldap_service.sync_department(user, ldap_user)
+            ldap_service.configure_email(user.id, ldap_user, request.password)
 
-            # M6-C：登录时同步本人部门（未启用 LDAP_DEPARTMENT_SYNC_ENABLED 时整体跳过）
-            try:
-                from app.services.ldap_auth_service import LdapDirectoryService
-
-                await LdapDirectoryService(settings).sync_user_department(db, user, mail_no)
-            except Exception as e:  # noqa: BLE001 -- 部门同步失败不阻断登录
-                logging.getLogger("agenticos.ldap_directory").warning(
-                    "department sync failed for %s: %s", mail_no, e
-                )
-
-            # fire-and-forget: 本地自动登录 agents.gree.com + 可选同步 sesame
+            # fire-and-forget: 同步凭据到 sesame 网关（独立集成，未配置则跳过）
             import asyncio
 
-            try:
-                from app.services.upstream.login_orchestrator import sync_after_login as upstream_sync_after_login
-
-                asyncio.create_task(
-                    upstream_sync_after_login(
-                        user_id=user.id,
-                        username=mail_no,
-                        password=request.password,
-                        display_name=ldap_user.get("name"),
-                    )
+            asyncio.create_task(
+                _sync_to_sesame(
+                    settings=settings,
+                    username=username,
+                    password=request.password,
+                    display_name=ldap_user.get("name"),
                 )
-            except Exception as e:
-                logging.getLogger("agenticos.upstream").warning(f"upstream sync_after_login schedule failed: {e}")
-                # 兼容旧路径：仍尝试 sesame 同步
-                asyncio.create_task(
-                    _sync_to_sesame(
-                        settings=settings,
-                        username=mail_no,
-                        password=request.password,
-                        display_name=ldap_user.get("name"),
-                    )
-                )
+            )
 
             return AuthService(db, settings)._auth_response(user)
         else:
-            # 输入格式不匹配 LDAP（非数字且非公司邮箱）→ 直接拒绝
+            # 输入为空 → 直接拒绝
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="LDAP 认证已启用，请使用工号登录",
+                detail="LDAP 认证已启用，请输入 LDAP 用户名",
             )
 
     # ── 本地密码路径 ──
@@ -314,15 +287,6 @@ async def _do_login(
             password=request.password,
             client_ip=http_request.client.host if http_request.client else None,
         )
-        # 登录成功后自动确保上游 Cookie（无手动按钮；已有凭据则续期）
-        try:
-            uid = result.get("user", {}).get("id")
-            if uid:
-                from app.services.upstream.login_hook import schedule_upstream_cookie_after_login
-
-                schedule_upstream_cookie_after_login(int(uid), username=request.email, password=request.password)
-        except Exception as e:
-            logging.getLogger("agenticos.upstream").warning(f"schedule upstream cookie failed: {e}")
         return result
     except AuthRateLimitError as exc:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc

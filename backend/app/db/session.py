@@ -96,21 +96,34 @@ def init_db() -> None:
 
 
 def _seed_ldap_enabled() -> None:
-    """若 DB 中无 ldap_enabled 记录，从环境变量同步初始值。"""
+    """LDAP 开关的引导种子化。
+
+    新配置以 ``ldap.enabled`` 键为准（管理后台维护完整配置）；
+    历史库里的旧键 ``ldap_enabled`` 会被迁移到新键，避免升级后开关丢失。
+    """
     from sqlalchemy import select
     from app.db.models import SystemSettingModel
     inspector = inspect(engine)
     if "system_settings" not in inspector.get_table_names():
         return
     with SessionLocal() as session:
-        row = session.scalar(
+        new_row = session.scalar(
+            select(SystemSettingModel).where(SystemSettingModel.key == "ldap.enabled")
+        )
+        if new_row is not None:
+            return
+        old_row = session.scalar(
             select(SystemSettingModel).where(SystemSettingModel.key == "ldap_enabled")
         )
-        if row is None:
-            settings = get_settings()
-            value = "true" if settings.ldap_enabled else "false"
-            session.add(SystemSettingModel(key="ldap_enabled", value=value))
+        if old_row is not None:
+            # 迁移旧键 → 新键（保留旧键无害，读取侧只认新键）
+            session.add(SystemSettingModel(key="ldap.enabled", value=old_row.value))
             session.commit()
+            return
+        settings = get_settings()
+        value = "true" if settings.ldap_enabled else "false"
+        session.add(SystemSettingModel(key="ldap.enabled", value=value))
+        session.commit()
 
 
 def create_db_session() -> Session:

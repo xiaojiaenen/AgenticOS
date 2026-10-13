@@ -59,7 +59,15 @@ backend/
           auth.py, agent.py, agent_profiles.py, skills.py,
           dashboard.py, health.py, tool_config.py, users.py,
           announcements.py, email.py, external_systems.py,
-          files.py, memory.py, suggest.py, website.py
+          files.py, memory.py, suggest.py, website.py,
+          api_keys.py, knowledge.py, permissions.py, settings.py,
+          tasks.py, credentials.py
+        # settings.py: GET/PUT /settings/ldap + POST /settings/ldap/test —
+        #   通用 LDAP 集成（协议级 ldap3），服务器/绑定账号/过滤器/属性映射
+        #   全部存 system_settings（ldap.* 键），管理员后台配置与连接测试
+        # api_keys.py: 用户级 API Key（表 api_keys，供 OpenAI 兼容网关鉴权）
+        # gateway_v1.py（挂载 /v1/models、/v1/chat/completions）：本地智能体
+        #   的 OpenAI 兼容出口，仅走本地 LLM 配置，无上游透传
     tools/
       email_tools.py               # IMAP/SMTP email tools
     services/
@@ -248,6 +256,9 @@ Also important:
 - `AGENT_MAX_STEPS` — max tool-calling steps per run (default: 10)
 - `AGENT_PARALLEL_TOOL_CALLS` — enable parallel tool execution (default: false)
 - `ASYNC_SUB_AGENTS_ENABLED` — enable async sub-agent middleware (default: true)
+- `LDAP_ENABLED` — bootstrap switch for the DB-configured LDAP integration
+  (full config managed by admins in System Settings → LDAP; stored in
+  `system_settings` under `ldap.*` keys, bind password encrypted)
 
 See `backend/.env.example` for the full list.
 
