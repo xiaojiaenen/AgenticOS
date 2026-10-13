@@ -22,6 +22,7 @@ from app.db.models import (
 from app.db.session import SessionLocal
 
 from .document_parser import DocumentParser
+from .retrieval import invalidate_knowledge_cache
 from .wiki_compiler import WikiCompiler, WikiPageDraft
 
 logger = logging.getLogger(__name__)
@@ -136,6 +137,10 @@ class IngestPipeline:
             document.status = "compiled"
             document.compiled_at = datetime.utcnow()
             db.commit()
+
+            # M6-A6：语料已变更，写库成功后失效检索侧的进程内缓存，
+            # 否则检索会命中旧语料快照（脏读）直到 TTL 到期。
+            invalidate_knowledge_cache()
 
             result["success"] = True
             logger.info(f"Document processed successfully: {document_id}")

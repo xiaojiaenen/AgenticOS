@@ -36,9 +36,12 @@ def _create_engine() -> Engine:
         "pool_pre_ping": True,
     }
     if not is_sqlite:
-        engine_kwargs["pool_recycle"] = 3600
-        engine_kwargs["pool_size"] = 5
-        engine_kwargs["max_overflow"] = 10
+        # M6-A1 连接池分级：常驻 10 + 溢出 20 = 单实例最多 30 条连接；
+        # pool_recycle 1800s 短于 MySQL wait_timeout 默认值，避免拿到已被
+        # 服务端断开的陈旧连接（仍由 pool_pre_ping 兜底双保险）。
+        engine_kwargs["pool_recycle"] = settings.db_pool_recycle
+        engine_kwargs["pool_size"] = settings.db_pool_size
+        engine_kwargs["max_overflow"] = settings.db_max_overflow
 
     engine = create_engine(database_url, connect_args=connect_args, **engine_kwargs)
 

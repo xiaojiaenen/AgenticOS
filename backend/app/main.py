@@ -24,6 +24,7 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.redis import init_redis, close_redis
 from app.db.session import init_db
+from app.services.llm_gate import get_llm_gate
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,18 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # 初始化 Redis（留空则使用内存 fallback）
     await init_redis(settings.redis_url, settings.redis_cluster)
 
+    # LLM 全局并发闸：本地信号量必须在事件循环内创建（asyncio.Semaphore
+    # 绑定 loop），因此在这里而不是模块导入时配置。关闭时 slot() 是 no-op。
+    llm_gate = get_llm_gate()
+    llm_gate.configure(settings)
+    if settings.llm_gate_enabled:
+        logger.info(
+            "LLM concurrency gate enabled: max=%d lease=%ss wait=%ss",
+            settings.llm_gate_max_concurrency,
+            settings.llm_gate_lease_seconds,
+            settings.llm_gate_wait_seconds,
+        )
+
     # 上游 agents.gree.com cookie 续期循环（与 sesame 一致的自动登录流程）
     upstream_refresh_task = None
     if settings.upstream_auto_login_enabled:
@@ -70,6 +83,14 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     from app.services.cache_service import get_cache_service
     await get_cache_service().load_history_from_db()
 
+    # M6-C：幂等写入 Casbin 内置策略与内置角色（失败不阻断启动）
+    try:
+        from app.services.permission_service import ensure_default_policies
+
+        ensure_default_policies()
+    except Exception:
+        logger.exception("Failed to seed default permission policies")
+
     yield
 
     if upstream_refresh_task is not None:
@@ -81,6 +102,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await close_arq_pool()
     except Exception:
         logger.warning("Failed to close ARQ pool on shutdown", exc_info=True)
+    # LLM 闸释放钩子：进程退出时归还仍持有的全局槽位。
+    # 正常情况下 slot() 的 finally 已经释放，这里是崩溃/取消路径的兜底。
+    try:
+        llm_gate.shutdown()
+    except Exception:
+        logger.warning("Failed to release LLM gate slots on shutdown", exc_info=True)
     await close_redis()
 
 

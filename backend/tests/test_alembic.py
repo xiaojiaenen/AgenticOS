@@ -10,12 +10,33 @@
 import os
 import subprocess
 import sys
+from functools import lru_cache
 from pathlib import Path
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
-HEAD_REVISION = "0003_kb_fulltext_ngram"
+
+
+@lru_cache(maxsize=1)
+def _current_head_revision() -> str:
+    """动态解析迁移链的 head revision。
+
+    不硬编码：M6 里 alembic 有并行推进的迁移线（性能线 0004 / 权限线 0005…），
+    写死字符串会让每加一个迁移就要改测试。按 alembic 自己的版本目录解析，
+    新迁移提交后本测试自动跟进，迁移链分叉（多头）时立即失败。
+    """
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    script = ScriptDirectory.from_config(cfg)
+    heads = script.get_heads()
+    assert len(heads) == 1, f"迁移链分叉，检出多个 head: {heads}"
+    return heads[0]
+
+
+HEAD_REVISION = _current_head_revision()
 
 
 def _run_alembic(args: list[str], database_url: str) -> subprocess.CompletedProcess[str]:

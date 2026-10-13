@@ -24,12 +24,11 @@ jobs:
         run: uv sync --frozen
 
       - name: Lint (ruff)
-        run: uv run ruff check app tests
+        run: uv run ruff check app tests alembic
 
       - name: Test (pytest)
         run: uv run pytest tests -q
         env:
-          # 测试自身在 conftest 中注入隔离环境；此处仅显式声明不访问外部服务
           UPSTREAM_AUTO_LOGIN_ENABLED: "false"
 
   frontend:

@@ -46,6 +46,10 @@ class UserModel(Base):
     role: Mapped[str] = mapped_column(String(32), default="user", index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     auth_source: Mapped[str] = mapped_column(String(32), default="local", server_default="local")
+    # M6-C：部门树归属。nullable —— 未挂部门的用户落在 casbin 的 global 域
+    department_id: Mapped[int | None] = mapped_column(
+        ForeignKey("departments.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
@@ -94,6 +98,9 @@ class AuthRateLimitModel(Base):
 
 class AgentSessionModel(Base):
     __tablename__ = "agent_sessions"
+    # M6-A3：会话列表按 user_id 过滤 + updated_at 倒序（list_user_sessions），
+    # 复合索引让过滤与排序共用一次索引扫描；user_id 单列索引保留不动
+    __table_args__ = (Index("ix_agent_sessions_user_updated", "user_id", "updated_at"),)
 
     session_id: Mapped[str] = mapped_column(String(128), primary_key=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
@@ -112,6 +119,11 @@ class AgentSessionModel(Base):
 
 class AgentUsageEventModel(Base):
     __tablename__ = "agent_usage_events"
+    # M6-A3：dashboard 核心查询（按用户/会话聚合 + 按时间窗口扫描）复合索引
+    __table_args__ = (
+        Index("ix_agent_usage_events_user_created", "user_id", "created_at"),
+        Index("ix_agent_usage_events_session_created", "session_id", "created_at"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
@@ -230,7 +242,11 @@ class AgentProfileAudienceModel(Base):
 
 class AgentMessageModel(Base):
     __tablename__ = "agent_messages"
-    __table_args__ = (Index("ix_agent_messages_session_created", "session_id", "created_at"),)
+    __table_args__ = (
+        Index("ix_agent_messages_session_created", "session_id", "created_at"),
+        # M6-A3：会话历史按 id 升序分页（offset/limit），(session_id, id) 可直接走索引
+        Index("ix_agent_messages_session_ord", "session_id", "id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     session_id: Mapped[str] = mapped_column(String(128), index=True)
@@ -716,3 +732,97 @@ class KBAccessControlModel(Base):
     role: Mapped[str] = mapped_column(String(20), default="viewer")  # admin / editor / viewer
     granted_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
+# ---------------------------------------------------------------------------
+# 企业权限体系（M6-C / docs/m6-design.md 第四节）
+# ---------------------------------------------------------------------------
+
+
+class DepartmentModel(Base):
+    """部门树节点。
+
+    ``path`` 为物化路径（``1`` / ``1/4`` / ``1/4/9``），祖先 id 用 ``/`` 连接。
+    子树查询走 ``path LIKE '<prefix>/%'``，避免递归 CTE —— 部门层级很浅，
+    物化路径的写入成本（创建/移动时刷新子树）远低于每次查询的递归开销。
+    """
+
+    __tablename__ = "departments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120), index=True)
+    # 同父下重名（兄弟节点唯一），不跨父约束
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"), nullable=True, index=True)
+    path: Mapped[str] = mapped_column(String(512), default="", index=True)
+    ldap_dn: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class RoleModel(Base):
+    """自定义角色（Casbin ``p``/``g`` 的 sub 命名空间，兼具可读元数据）。"""
+
+    __tablename__ = "roles"
+    __table_args__ = (UniqueConstraint("slug", name="uq_roles_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120))
+    slug: Mapped[str] = mapped_column(String(64), index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    # 内置角色不允许删除，避免内置策略失去主体
+    is_builtin: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class CasbinRuleModel(Base):
+    """Casbin 策略存储（对应 casbin 官方 adapter 的 ``casbin_rule`` 表）。
+
+    列名 v0..v5 是 casbin 官方 adapter 的约定，adapter 实现见
+    ``app/services/permission_service.py::SQLAlchemyAdapter``。
+    """
+
+    __tablename__ = "casbin_rule"
+    __table_args__ = (
+        Index("ix_casbin_rule_ptype_v0_v1", "ptype", "v0", "v1"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ptype: Mapped[str] = mapped_column(String(16), index=True)
+    v0: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    v1: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    v2: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    v3: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    v4: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    v5: Mapped[str | None] = mapped_column(String(256), nullable=True)
+
+
+class AuditLogModel(Base):
+    """审计日志。
+
+    ``action`` 用 ``resource.action`` 形式（如 ``knowledge.create``），
+    ``result`` 取 allow / deny / error。两个复合索引分别服务
+    「某人的操作时间线」与「某资源的变更时间线」两类查询。
+    """
+
+    __tablename__ = "audit_logs"
+    __table_args__ = (
+        Index("ix_audit_logs_actor_created", "actor_id", "created_at"),
+        Index("ix_audit_logs_resource_created", "resource_type", "resource_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    actor_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    action: Mapped[str] = mapped_column(String(64), index=True)
+    resource_type: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    resource_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    result: Mapped[str] = mapped_column(String(16), default="allow", index=True)
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # 已脱敏的 JSON 文本（密码/token 不落库，长值截断）
+    detail_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, index=True)

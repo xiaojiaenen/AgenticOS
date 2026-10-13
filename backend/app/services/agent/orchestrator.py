@@ -37,11 +37,19 @@ from app.services.external_system_service import (
     set_ext_user_id,
     _current_session_id as ext_session_id_ctx,
 )
+from app.services.llm_gate import get_llm_gate
 from app.services.session_storage import dump_json
 from app.tools.email_tools import set_current_session_id as set_email_session_id
 from app.services.agent.factory import _REJECTED_TOOL_NAME
 
 _logger = logging.getLogger("agent")
+
+# M6-A8：LLM mock 模式的固定响应。usage 数字是写死的常量而非真实计费数据，
+# 压测只关心吞吐与延迟口径，不解读 token 数（README 有明确说明）。
+_LLM_MOCK_RESPONSE = "mock response"
+_LLM_MOCK_INPUT_TOKENS = 10
+_LLM_MOCK_OUTPUT_TOKENS = 5
+_LLM_MOCK_LATENCY_MS = 5
 
 
 class StreamOrchestrator:
@@ -543,10 +551,49 @@ class StreamOrchestrator:
                 user_message = message
                 _ctx_msgs = getattr(getattr(session, "context", None), "_messages", [])
                 _logger.info(f"produce_events: starting, user_msg_len={len(user_message)}, context_msgs={len(_ctx_msgs)}")
+                # M6-A8：LLM mock 模式（压测专用，LLM_MOCK_ENABLED，默认关闭）。
+                # 发一个 delta 后立刻 done，不调用真实 LLM —— 走完 SSE 全链路
+                # （建会话/鉴权/持久化/前端协议）但零上游成本、零模型延迟。
+                # 事件序列与真实模式一致，前端协议不变。
+                if getattr(self.settings, "llm_mock_enabled", False):
+                    _logger.info("produce_events: LLM mock mode, skipping real LLM call")
+                    mock_text = _LLM_MOCK_RESPONSE
+                    await runtime_queue.put(
+                        AgentEvent(
+                            type="text_delta",
+                            data={"content": mock_text},
+                            session_id=session.session_id,
+                            step=0,
+                        )
+                    )
+                    await runtime_queue.put(
+                        AgentEvent(
+                            type="done",
+                            session_id=session.session_id,
+                            step=1,
+                            data={
+                                "reason": "stop",
+                                "usage": {
+                                    "input_tokens": _LLM_MOCK_INPUT_TOKENS,
+                                    "output_tokens": _LLM_MOCK_OUTPUT_TOKENS,
+                                    "total_tokens": _LLM_MOCK_INPUT_TOKENS + _LLM_MOCK_OUTPUT_TOKENS,
+                                },
+                                "latency_ms": _LLM_MOCK_LATENCY_MS,
+                                "llm_calls": 1,
+                                "model": self.settings.openai_model,
+                            },
+                        )
+                    )
+                    return
+
                 event_count = 0
-                async for event in agent.stream_events(user_message, session=session):
-                    event_count += 1
-                    await runtime_queue.put(event)
+                # M6-A5：整个 run 包一个 LLM 并发槽位（一个 run = 一次 LLM 会话时段）。
+                # 闸门故障会自行降级为本地信号量 / 直接放行，不会中断 SSE。
+                # 注意只包住 LLM 流，DB 持久化在下面的 finally 里，不占闸门槽位。
+                async with get_llm_gate().slot():
+                    async for event in agent.stream_events(user_message, session=session):
+                        event_count += 1
+                        await runtime_queue.put(event)
                 _ctx_msgs = getattr(getattr(session, "context", None), "_messages", [])
                 _logger.info(f"produce_events: done, events={event_count}, context_msgs={len(_ctx_msgs)}")
             except Exception as e:
