@@ -110,8 +110,7 @@ _USER_SCOPED_TABLES = (
     "auth_sessions",
     "agent_sessions",
     "user_email_credentials",
-    "upstream_credentials",
-    "upstream_api_keys",
+    "api_keys",
 )
 
 

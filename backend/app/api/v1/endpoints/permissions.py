@@ -365,29 +365,46 @@ async def ldap_sync_endpoint(
     """管理员触发的 LDAP 部门全量同步。
 
     只处理 ``auth_source='ldap'`` 的本地用户（本地账号没有工号，无从查目录）。
-    ``LDAP_DEPARTMENT_SYNC_ENABLED`` 未开启时直接 409，不产生任何网络调用。
+    使用服务账号仅搜索目录读取部门属性（不需要用户密码）。
+    LDAP 未启用或未开启部门同步时直接 409，不产生任何网络调用。
     """
-    from app.services.ldap_auth_service import LdapDirectoryService
+    import asyncio
 
-    directory = LdapDirectoryService(settings)
-    if not directory.enabled:
+    from app.services.ldap_auth_service import (
+        LdapAuthError,
+        apply_department,
+        load_config,
+        lookup_user,
+    )
+
+    config = load_config(db, settings)
+    if not config.enabled or not config.department_sync:
         _audit(
             db, request, action="department.ldap_sync", actor=current_user,
-            result="deny", detail={"reason": "LDAP_DEPARTMENT_SYNC_ENABLED=false"},
+            result="deny", detail={"reason": "ldap disabled or department_sync=false"},
         )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="LDAP 部门同步未启用（设置 LDAP_DEPARTMENT_SYNC_ENABLED=true）",
+            detail="LDAP 部门同步未启用，请先在系统设置中启用 LDAP 并开启部门同步",
         )
 
     users = db.scalars(select(UserModel).where(UserModel.auth_source == "ldap")).all()
-    synced, skipped = 0, 0
+    synced, skipped, missing = 0, 0, 0
     for user in users:
-        mail_no = user.email.split("@", 1)[0]
+        username = user.email.split("@", 1)[0]
         try:
-            changed = await directory.sync_user_department(db, user, mail_no)
-        except Exception as e:  # noqa: BLE001 -- 单个用户失败不中断全量同步
+            ldap_user = await asyncio.to_thread(lookup_user, config, username)
+        except LdapAuthError as e:  # noqa: BLE001 -- 单个用户失败不中断全量同步
             logger.warning("LDAP department sync failed for %s: %s", user.email, e)
+            skipped += 1
+            continue
+        if ldap_user is None:
+            missing += 1
+            continue
+        try:
+            changed = apply_department(db, user, ldap_user.get("department_dn"), ldap_user.get("department_name"))
+        except Exception:  # noqa: BLE001 -- 单个用户失败不中断全量同步
+            logger.warning("department apply failed for %s", user.email, exc_info=True)
             skipped += 1
             continue
         synced += int(changed)
@@ -395,9 +412,10 @@ async def ldap_sync_endpoint(
 
     _audit(
         db, request, action="department.ldap_sync", actor=current_user,
-        resource_type="department", detail={"synced": synced, "unchanged": skipped, "scanned": len(users)},
+        resource_type="department",
+        detail={"synced": synced, "unchanged": skipped, "missing_in_ldap": missing, "scanned": len(users)},
     )
-    return {"scanned": len(users), "synced": synced, "unchanged": skipped}
+    return {"scanned": len(users), "synced": synced, "unchanged": skipped, "missing_in_ldap": missing}
 
 
 # ---------------------------------------------------------------------------

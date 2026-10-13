@@ -24,11 +24,7 @@ def cleanup_test_users(*emails: str) -> None:
                 {"uids": user_ids},
             )
             db.execute(
-                text("DELETE FROM upstream_credentials WHERE user_id IN :uids").bindparams(bindparam("uids", expanding=True)),
-                {"uids": user_ids},
-            )
-            db.execute(
-                text("DELETE FROM upstream_api_keys WHERE user_id IN :uids").bindparams(bindparam("uids", expanding=True)),
+                text("DELETE FROM api_keys WHERE user_id IN :uids").bindparams(bindparam("uids", expanding=True)),
                 {"uids": user_ids},
             )
         db.execute(delete(UserModel).where(UserModel.email.in_(emails)))

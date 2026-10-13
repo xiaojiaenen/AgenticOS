@@ -101,7 +101,7 @@ class TestPolishPrompt:
     async def test_returns_polished_text(self, monkeypatch):
         llm = _FakeLLM("润色后的提示词：\n请分析上周数据\n\n要求：\n- 按渠道拆分")
         monkeypatch.setattr(
-            "app.services.upstream.llm_factory.build_llm_for_user",
+            "app.services.llm_factory.build_llm_for_user",
             lambda *a, **k: llm,
         )
         result = await polish_prompt("分析下上周数据 按渠道", user_id=1)
@@ -116,7 +116,7 @@ class TestPolishPrompt:
         def _boom(*a, **k):
             raise AssertionError("不应调用 LLM")
 
-        monkeypatch.setattr("app.services.upstream.llm_factory.build_llm_for_user", _boom)
+        monkeypatch.setattr("app.services.llm_factory.build_llm_for_user", _boom)
         result = await polish_prompt("   ", user_id=1)
         assert result == {"polished": "", "changed": False, "original": ""}
 
@@ -124,7 +124,7 @@ class TestPolishPrompt:
     async def test_input_truncated_to_limit(self, monkeypatch):
         llm = _FakeLLM("ok")
         monkeypatch.setattr(
-            "app.services.upstream.llm_factory.build_llm_for_user",
+            "app.services.llm_factory.build_llm_for_user",
             lambda *a, **k: llm,
         )
         result = await polish_prompt("字" * 5000, user_id=1)
@@ -135,7 +135,7 @@ class TestPolishPrompt:
         def _raise(*a, **k):
             raise RuntimeError("upstream down")
 
-        monkeypatch.setattr("app.services.upstream.llm_factory.build_llm_for_user", _raise)
+        monkeypatch.setattr("app.services.llm_factory.build_llm_for_user", _raise)
         with pytest.raises(RuntimeError):
             await polish_prompt("你好", user_id=1)
 

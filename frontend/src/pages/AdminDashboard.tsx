@@ -11,7 +11,6 @@ import { DashboardStats, STATIC_CARD } from '../components/admin/DashboardStats'
 import { SkillManagement } from '../components/admin/SkillManagement';
 import { KnowledgeManagement } from '../components/admin/KnowledgeManagement';
 import { WebsiteDeployManagement } from '../components/admin/WebsiteDeployManagement';
-import { UpstreamManagement } from '../components/admin/UpstreamManagement';
 import { SystemSettings } from '../components/admin/SystemSettings';
 import { IntegrationManagement } from '../components/admin/IntegrationManagement';
 import { UserManagement } from '../components/admin/UserManagement';
@@ -213,8 +212,6 @@ export const AdminDashboard = () => {
         return <KnowledgeManagement />;
       case 'website_deploys':
         return <WebsiteDeployManagement />;
-      case 'upstream':
-        return <UpstreamManagement />;
       case 'announcements':
         return <AnnouncementManagement />;
       case 'settings':

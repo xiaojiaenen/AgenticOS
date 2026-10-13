@@ -61,9 +61,10 @@ def claims_to_profile(claims: dict[str, Any], settings: Settings) -> dict[str, A
     if not email:
         raise OidcError("OIDC claims do not contain an email identifier")
     if "@" not in email:
-        # preferred_username 常常是裸工号；补上邮件域（OIDC_EMAIL_DOMAIN 优先，
-        # 未配置时复用 LDAP 的邮件域，与 LDAP 登录路径保持一致）
-        domain = settings.oidc_email_domain or settings.ldap_email_domain
+        # preferred_username 常常是裸工号；补上邮件域（须配置 OIDC_EMAIL_DOMAIN）
+        domain = settings.oidc_email_domain
+        if not domain:
+            raise OidcError("OIDC claims 只有裸用户名，请配置 OIDC_EMAIL_DOMAIN 以补全邮箱")
         email = f"{email}@{domain}"
 
     name = ""

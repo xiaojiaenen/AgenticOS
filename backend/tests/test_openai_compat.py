@@ -38,7 +38,7 @@ def api_key():
             db.refresh(user)
         user_id, role, email = int(user.id), user.role, user.email
 
-    from app.services.upstream.api_key_service import create_api_key
+    from app.services.api_key_service import create_api_key
 
     created = create_api_key(user_id, name="openai-compat-test")
     return created["key"], user_id

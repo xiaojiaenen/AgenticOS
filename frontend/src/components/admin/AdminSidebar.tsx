@@ -8,7 +8,6 @@ import {
   Bot,
   Brain,
   ChevronDown,
-  CloudCog,
   Globe,
   LogOut,
   MessageCircle,
@@ -56,21 +55,6 @@ const navGroups: NavGroup[] = [
     icon: BarChart3,
     description: '查看用户、会话和资源统计',
     items: [{ id: 'dashboard', icon: BarChart3, label: '系统总览', description: '查看用户、会话和资源统计' }],
-  },
-  {
-    // 完整独立功能：企业上游（不在集成管理里）
-    id: 'upstream',
-    label: '企业上游',
-    icon: CloudCog,
-    description: 'agents.gree.com 登录态与自动登录',
-    items: [
-      {
-        id: 'upstream',
-        icon: CloudCog,
-        label: '企业上游',
-        description: 'agents.gree.com Cookie 与自动登录',
-      },
-    ],
   },
   {
     id: 'content',
