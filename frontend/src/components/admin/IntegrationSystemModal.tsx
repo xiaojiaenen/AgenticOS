@@ -491,6 +491,12 @@ export function SystemModal({
                 )}
 
                 {/* 用户凭据 */}
+                {authType === 'none' ? (
+                  <p className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 text-xs font-medium text-emerald-700">
+                    已选择「无需授权」：该系统的接口不需要任何凭据即可调用。用户在集成市场中无需连接，智能体可直接使用。
+                  </p>
+                ) : (
+                <>
                 <div>
                   <div className="mb-3 flex items-center justify-between">
                     <div>
@@ -608,6 +614,8 @@ export function SystemModal({
                     ))
                   )}
                 </div>
+                </>
+                )}
               </>
             )}
 
