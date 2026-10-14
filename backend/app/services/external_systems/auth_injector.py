@@ -50,6 +50,9 @@ class AuthInjector:
                 request.headers[header_name] = token
             else:
                 request.headers["Authorization"] = f"Bearer {token}"
+        elif auth_type == "none":
+            # 免授权系统：不注入任何认证信息，仅保留系统级固定 headers
+            pass
         else:
             config_raw = decrypt_safe(cred.credential_data_encrypted, "{}")
             try:
