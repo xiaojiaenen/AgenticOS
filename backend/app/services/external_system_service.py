@@ -238,6 +238,8 @@ def _serialize_api(api: ExternalApiModel, params: list[ExternalApiParamModel]) -
                 "required": p.required,
                 "description": p.description,
                 "default_value": p.default_value,
+                "param_source": p.param_source,
+                "label": p.label,
             }
             for p in params
         ],
@@ -310,6 +312,9 @@ class AuthInjector:
                 request.headers[header_name] = token
             else:
                 request.headers["Authorization"] = f"Bearer {token}"
+        elif auth_type == "none":
+            # 免授权系统：不注入任何认证信息，仅保留下方系统级固定 headers
+            pass
         else:
             config_raw = decrypt_safe(cred.credential_data_encrypted, "{}")
             try:
@@ -895,10 +900,22 @@ def _build_system_tool_handler(
                 # 回退到管理员设置的默认凭据
                 if fresh_system.default_credential_data_encrypted:
                     cred = _build_default_credential(fresh_system)
+                elif fresh_system.auth_type == "none":
+                    # 免授权系统：无需用户连接，构造空凭据直接放行
+                    cred = _build_default_credential(fresh_system)
                 else:
                     return json.dumps({
                         "error": f"请先在集成市场连接 {fresh_system.name}",
                     }, ensure_ascii=False)
+
+            # 固定值参数：LLM 未提供时，自动注入管理员配置的默认值
+            for p in param_rows:
+                if (
+                    p.param_source == "static"
+                    and p.default_value is not None
+                    and p.name not in params
+                ):
+                    params[p.name] = p.default_value
 
             # Separate params by type
             path_params: dict[str, Any] = {}
@@ -1030,7 +1047,10 @@ def register_external_tools(registry, system_ids: list[int], db: Session) -> lis
                     user_input_descs.append(p.label or p.name)
                     param_descs.append(f"{p.name}{req}({p.data_type},需用户输入)")
                 else:
-                    param_descs.append(f"{p.name}{req}({p.data_type})")
+                    if p.default_value is not None:
+                        param_descs.append(f"{p.name}{req}({p.data_type},固定值:{p.default_value})")
+                    else:
+                        param_descs.append(f"{p.name}{req}({p.data_type})")
             param_str = ", ".join(param_descs) if param_descs else "无参数"
             desc_line = f"- {api.name}({param_str}) — {api.display_name}: {api.description}"
             if user_input_descs:

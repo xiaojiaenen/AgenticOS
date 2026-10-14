@@ -17,7 +17,7 @@ function authTypeIcon(t: string) {
 }
 
 function authTypeLabel(t: string) {
-  const map: Record<string, string> = { api_key: "API Key", bearer: "Bearer Token", basic: "Basic Auth", oauth2: "OAuth 2.0", custom: "自定义", jwt_login: "JWT 登录" };
+  const map: Record<string, string> = { api_key: "API Key", bearer: "Bearer Token", basic: "Basic Auth", oauth2: "OAuth 2.0", custom: "自定义", jwt_login: "JWT 登录", none: "无需授权" };
   return map[t] || t;
 }
 
@@ -131,6 +131,8 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
                               <div className="flex items-center gap-1"><span className="flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700"><CheckCircle size={12} /> 已连接</span><Button variant="ghost" size="sm" onClick={() => handleDisconnect(sys.id)} className="text-xs text-slate-400 hover:text-rose-500"><Unplug size={14} /></Button></div>
                             ) : isError ? (
                               <Button variant="outline" size="sm" onClick={() => openConnect(sys)} className="gap-1 text-xs text-amber-600 border-amber-300"><AlertCircle size={14} /> 重新连接</Button>
+                            ) : sys.auth_type === "none" ? (
+                              <span className="flex items-center gap-1 rounded-lg bg-sky-50 px-2 py-1 text-xs font-bold text-sky-700"><CheckCircle size={12} /> 无需连接</span>
                             ) : sys.has_default_credential ? (
                               <span className="flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700"><CheckCircle size={12} /> 已就绪</span>
                             ) : (

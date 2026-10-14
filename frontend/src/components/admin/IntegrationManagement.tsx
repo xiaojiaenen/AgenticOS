@@ -12,7 +12,7 @@ type SystemDraft = IntegrationSystemPayload & { id?: number };
 type ApiDraft = IntegrationApiPayload & { id?: number };
 type TestState = { apiId: number; params: Record<string, string>; result: IntegrationTestResult | null; loading: boolean } | null;
 
-const AUTH_TYPES = [{value:"api_key",label:"API Key"},{value:"bearer",label:"Bearer Token"},{value:"basic",label:"Basic Auth"},{value:"oauth2",label:"OAuth 2.0"},{value:"custom",label:"自定义"},{value:"jwt_login",label:"JWT 登录"}];
+const AUTH_TYPES = [{value:"api_key",label:"API Key"},{value:"bearer",label:"Bearer Token"},{value:"basic",label:"Basic Auth"},{value:"oauth2",label:"OAuth 2.0"},{value:"custom",label:"自定义"},{value:"jwt_login",label:"JWT 登录"},{value:"none",label:"无需授权"}];
 const METHODS = ["GET","POST","PUT","DELETE","PATCH"];
 function emptySystemDraft(): SystemDraft { return {name:"",description:"",base_url:"",auth_type:"api_key",credential_template:{},published:true,headers:{}}; }
 function emptyApiDraft(): ApiDraft { return {name:"",display_name:"",description:"",method:"GET",path:"/",requires_approval:false,timeout_seconds:30,params:[]}; }
@@ -316,6 +316,10 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
      </>)}
 
      <SectionTitle title="用户凭据"/>
+     {draft.auth_type==="none" ? (
+      <p className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 text-xs text-emerald-700">已选择「无需授权」：该系统的接口不需要任何凭据即可调用。用户在集成市场中无需连接，智能体可直接使用。</p>
+     ) : (
+     <>
      <div>
       <div className="mb-3 flex items-center justify-between">
        <div><label className="text-sm font-medium text-slate-700">凭据字段</label><p className="mt-0.5 text-xs text-slate-400">定义用户连接此系统时需要填写的凭据信息</p></div>
@@ -359,6 +363,7 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
       ))}
      </div>
      </>)}
+     </>)}
 
      {step === 2 && (<>
       <SectionTitle title="高级安全设置"/>
@@ -382,7 +387,7 @@ function SystemModal({draft,setDraft,onSave,onClose,isSaving}:{draft:SystemDraft
 }
 
 function ApiModal({draft,setDraft,onSave,onClose,isSaving}:{draft:ApiDraft;setDraft:(d:ApiDraft)=>void;onSave:()=>void;onClose:()=>void;isSaving:boolean}){
- const updateParam=(i:number,f:keyof IntegrationApiParam,v:string|boolean)=>{const p=[...draft.params];p[i]={...p[i],[f]:v};setDraft({...draft,params:p});};
+ const updateParam=(i:number,f:keyof IntegrationApiParam,v:string|boolean|null)=>{const p=[...draft.params];p[i]={...p[i],[f]:v};setDraft({...draft,params:p});};
  const addParam=()=>setDraft({...draft,params:[...draft.params,{name:"",param_type:"query",data_type:"string",required:false,description:"",default_value:null,param_source:"static",label:null}]});
  const removeParam=(i:number)=>setDraft({...draft,params:draft.params.filter((_,x)=>x!==i)});
  return createPortal(
@@ -428,6 +433,9 @@ function ApiModal({draft,setDraft,onSave,onClose,isSaving}:{draft:ApiDraft;setDr
           <option value="user_input">用户输入</option>
           <option value="user_credential">用户凭据（密码框）</option>
          </select>
+         {p.param_source==="static" && (
+          <input className="admin-input text-xs" placeholder="固定值（调用时自动注入，可留空）" value={p.default_value||""} onChange={e=>updateParam(i,"default_value",e.target.value||null)}/>
+         )}
          {(p.param_source==="user_input"||p.param_source==="user_credential") && (
           <input className="admin-input text-xs" placeholder="显示标签（如：登录用户名）" value={p.label||""} onChange={e=>updateParam(i,"label",e.target.value)}/>
          )}

@@ -50,7 +50,7 @@ class ExternalSystemCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
     description: str = ""
     base_url: str = Field(..., min_length=1, max_length=512)
-    auth_type: str = Field(..., pattern="^(api_key|bearer|basic|oauth2|custom|jwt_login)$")
+    auth_type: str = Field(..., pattern="^(api_key|bearer|basic|oauth2|custom|jwt_login|none)$")
     credential_template: dict = Field(default_factory=dict)
     oauth_client_id: str | None = None
     oauth_client_secret: str | None = None
@@ -89,7 +89,7 @@ class ExternalSystemUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     description: str | None = None
     base_url: str | None = Field(default=None, min_length=1, max_length=512)
-    auth_type: str | None = Field(default=None, pattern="^(api_key|bearer|basic|oauth2|custom|jwt_login)$")
+    auth_type: str | None = Field(default=None, pattern="^(api_key|bearer|basic|oauth2|custom|jwt_login|none)$")
     credential_template: dict | None = None
     oauth_client_id: str | None = None
     oauth_client_secret: str | None = None
