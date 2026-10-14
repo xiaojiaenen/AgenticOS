@@ -174,6 +174,9 @@ def _build_system_tool_handler(
                 # 回退到管理员设置的默认凭据
                 if fresh_system.default_credential_data_encrypted:
                     cred = _build_default_credential(fresh_system)
+                elif fresh_system.auth_type == "none":
+                    # 免授权系统：无需用户连接，构造空凭据直接放行
+                    cred = _build_default_credential(fresh_system)
                 else:
                     return json.dumps({
                         "error": f"请先在集成市场连接 {fresh_system.name}",
@@ -197,10 +200,16 @@ def _build_system_tool_handler(
                 elif pdef.param_type == "body":
                     body_params[name] = casted
 
-            # 路径参数兜底：未提供时用 default_value 填充
+            # 参数兜底：LLM 未提供时用管理员配置的 default_value 填充（path/query/body）
             for p in param_rows:
-                if p.param_type == "path" and p.name not in path_params and p.default_value:
+                if not p.default_value or p.name in params:
+                    continue
+                if p.param_type == "path" and p.name not in path_params:
                     path_params[p.name] = p.default_value
+                elif p.param_type == "query":
+                    query_params[p.name] = p.default_value
+                elif p.param_type == "body":
+                    body_params[p.name] = p.default_value
 
             # 解析 base_url（支持逗号分隔的多地址 HA）
             base_urls = [u.strip().rstrip("/") for u in fresh_system.base_url.split(",") if u.strip()]

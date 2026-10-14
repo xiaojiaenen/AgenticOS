@@ -13,6 +13,7 @@ export const AUTH_TYPES = [
   { value: 'oauth2', label: 'OAuth 2.0' },
   { value: 'custom', label: '自定义' },
   { value: 'jwt_login', label: 'JWT 登录' },
+  { value: 'none', label: '无需授权' },
 ];
 export const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] as const;
 

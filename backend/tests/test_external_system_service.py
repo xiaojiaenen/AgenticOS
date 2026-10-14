@@ -727,3 +727,136 @@ class TestCacheSerialization:
         cached = _CachedSystem({"id": "3"})
         assert cached.id == 3
         assert cached.name is None  # 空字符串恢复为 None
+
+
+# ── 免授权系统（auth_type=none）与固定值参数兜底 ──────────────────────────────
+#
+# 回归背景：这两个问题在 3.1.0 与 main 上同时存在，且极难自查——
+# - schema 的 auth_type pattern 不含 none，管理端根本建不出免授权系统；
+# - 即便建了，工具 handler 在用户未连接时直接返回「请先在集成市场连接」；
+# - static 参数的 default_value 只对 path 生效，query/body 的固定值静默丢失。
+
+
+class TestNoAuthSystemSchema:
+    def test_create_request_accepts_none(self):
+        from app.schemas.external_systems import ExternalSystemCreateRequest
+
+        req = ExternalSystemCreateRequest(
+            name="公开API", base_url="https://api.example.com", auth_type="none"
+        )
+        assert req.auth_type == "none"
+
+    def test_update_request_accepts_none(self):
+        from app.schemas.external_systems import ExternalSystemUpdateRequest
+
+        req = ExternalSystemUpdateRequest(auth_type="none")
+        assert req.auth_type == "none"
+
+    def test_create_request_rejects_unknown_auth_type(self):
+        """放开 none 不等于放任：未知类型仍必须在 schema 层被拒。"""
+        from pydantic import ValidationError
+
+        from app.schemas.external_systems import ExternalSystemCreateRequest
+
+        with pytest.raises(ValidationError):
+            ExternalSystemCreateRequest(
+                name="X", base_url="https://x", auth_type="bogus"
+            )
+
+
+class TestNoAuthSystemInject:
+    @pytest.mark.anyio
+    async def test_inject_none_adds_no_auth_headers(self):
+        """none 不注入任何认证头（显式分支，防止未来误入解密空凭据的路径）。"""
+        system = make_system(auth_type="none")
+        request = httpx.Request("GET", "https://api.example.com/x")
+        await AuthInjector.inject(system, make_cred(), request)
+        assert "Authorization" not in request.headers
+        assert "X-API-Key" not in request.headers
+
+    @pytest.mark.anyio
+    async def test_inject_none_keeps_system_fixed_headers(self):
+        """none 只保留系统级固定 headers。"""
+        system = make_system(auth_type="none", headers_json=json.dumps({"X-Tenant": "acme"}))
+        request = httpx.Request("GET", "https://api.example.com/x")
+        await AuthInjector.inject(system, make_cred(), request)
+        assert request.headers["X-Tenant"] == "acme"
+
+
+class TestNoAuthSystemToolHandler:
+    """handler 级回归：免授权系统免连接放行 + static 参数兜底扩展到 query/body。"""
+
+    @pytest.mark.anyio
+    async def test_none_system_bypasses_connection_gate_and_injects_static_params(self, monkeypatch):
+        from app.services.external_systems import tool_builder as tb
+
+        system = make_system(
+            id=1, name="公开API", auth_type="none",
+            base_url="https://api.example.com", default_credential_data_encrypted="",
+        )
+        api = SimpleNamespace(
+            id=10, name="list_items", display_name="列表", method="GET",
+            path="/items", description="", requires_approval=False,
+            timeout_seconds=30, body_wrapper_key=None,
+        )
+        # 一个 query 型 static 参数：修复前它的 default_value 会被静默丢弃
+        param_rows = [
+            SimpleNamespace(
+                name="proj", param_type="query", data_type="string", required=False,
+                description="", default_value="GREE", param_source="static", label=None,
+            ),
+        ]
+        api_map = {"list_items": (api, param_rows)}
+
+        class _FakeSession:
+            def execute(self, _stmt):
+                return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: param_rows))
+
+            def get(self, _model, _id):
+                return None  # 无更新的 api 行，保留闭包对象
+
+            def query(self, _model):
+                return SimpleNamespace(filter_by=lambda **_kw: SimpleNamespace(first=lambda: None))
+
+            def close(self):
+                pass
+
+        async def _fake_cache_get(_system_id):
+            return None  # 缓存未命中 → 用注册时的 system 对象
+
+        captured: dict = {}
+
+        class _FakeResponse:
+            status_code = 200
+            text = '{"ok":true}'
+
+        class _FakeClient:
+            def __init__(self, **_kw):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return False
+
+            def build_request(self, **kw):
+                captured.update(kw)
+                return httpx.Request("GET", kw["url"])
+
+            async def send(self, _request):
+                return _FakeResponse()
+
+        monkeypatch.setattr("app.db.session.create_db_session", lambda: _FakeSession())
+        monkeypatch.setattr(tb, "_cache_get", _fake_cache_get)
+        monkeypatch.setattr(tb.httpx, "AsyncClient", _FakeClient)
+
+        handler = tb._build_system_tool_handler(system, api_map, user_id=1)
+        result = await handler("list_items", {})
+
+        # 免授权：用户未连接也放行（修复前这里直接返回「请先在集成市场连接」）
+        assert "请先在集成市场连接" not in result
+        payload = json.loads(result)
+        assert payload["status_code"] == 200
+        # 固定值参数：LLM 未提供时注入管理员配置的 default_value
+        assert captured["params"] == {"proj": "GREE"}
