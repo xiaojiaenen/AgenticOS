@@ -141,16 +141,30 @@ class MemoryVectorStore:
             layer_filter = "|".join(layers)
             type_filter = "|".join(entity_types)
 
-            result = await client.execute_command(
-                "FT.SEARCH", _INDEX_NAME,
+            # KNN 查询必须是 dialect 2 的向量语法：
+            #   过滤条件 =>[KNN <k> @embedding $embedding AS <别名>]
+            # 直接写过滤条件 + SORTBY __embedding_score 是不成立的 ——
+            # ``__embedding_score`` 只有在存在 KNN 子句时才被引擎生成，
+            # 否则 SORTBY 会报「未知属性」，整条检索被 except 吞成空结果
+            # （历史上就是这样静默退化为纯 BM25 的）。
+            knn_query = (
                 f"@user_id:[{user_id} {user_id}] "
                 f"@layer:{{{layer_filter}}} "
-                f"@entity_type:{{{type_filter}}}",
-                "WITHSCORES",
+                f"@entity_type:{{{type_filter}}}"
+                f"=>[KNN {limit} @embedding $embedding AS vector_score]"
+            )
+
+            result = await client.execute_command(
+                "FT.SEARCH", _INDEX_NAME,
+                knn_query,
+                # 用 RETURN 显式取回 KNN 距离（别名 vector_score），
+                # 不用 WITHSCORES：后者在有 SORTBY 时返回的是排序字段值，
+                # 语义随参数组合漂移，容易再次踩坑。
+                "RETURN", 4, "entity_id", "entity_type", "layer", "vector_score",
                 "LIMIT", 0, limit,
-                "SORTBY", "__embedding_score",
                 "PARAMS", 2, "embedding", query_vector,
                 "DIALECT", 2,
+                "SORTBY", "vector_score",
             )
             return self._parse_search_result(result)
         except Exception as e:
@@ -171,44 +185,55 @@ class MemoryVectorStore:
     def _parse_search_result(result: Any) -> list[dict[str, Any]]:
         """解析 FT.SEARCH 返回。
 
-        FT.SEARCH 返回格式（DIALECT 2 + WITHSCORES）：
-        [total_count, key1, score1, fields1, key2, score2, fields2, ...]
+        本次查询固定带 ``RETURN 3 entity_id entity_type vector_score``，
+        RESP2 下的形状是::
+
+            [total, key1, [f1, v1, f2, v2, f3, v3], key2, [...], ...]
+
+        即「key + 字段数组」两段一组。历史上这里按 ``WITHSCORES`` 的
+        「key + score + 字段数组」三段来解析，参数一改就会错位把分数当成
+        字段数组 —— 所以这里同时容忍两段/三段两种形状，按实际类型判断。
         """
         if not result or result[0] == 0:
             return []
 
+        def _decode(value: Any) -> Any:
+            return value.decode() if isinstance(value, bytes) else value
+
         items: list[dict[str, Any]] = []
-        # result[0] 是总数，之后是 [key, score, fields] 三元组
         i = 1
-        while i + 2 < len(result):
-            doc_id = result[i]
-            score = result[i + 1]
-            fields_raw = result[i + 2]
+        total = len(result)
+        while i < total:
+            doc_id = _decode(result[i])
+            i += 1
+            score: float | None = None
 
-            # fields_raw 是 [field1, value1, field2, value2, ...]
+            # 三段形状：中间多一个分数槽
+            if i < total and not isinstance(result[i], (list, tuple)):
+                score = float(result[i])
+                i += 1
+
+            fields_raw = result[i] if i < total else []
+            i += 1
+            if not isinstance(fields_raw, (list, tuple)):
+                continue
+
             field_map: dict[str, Any] = {}
-            if isinstance(fields_raw, list):
-                for j in range(0, len(fields_raw), 2):
-                    if j + 1 < len(fields_raw):
-                        k = fields_raw[j]
-                        v = fields_raw[j + 1]
-                        if isinstance(k, bytes):
-                            k = k.decode()
-                        field_map[k] = v
+            for j in range(0, len(fields_raw) - 1, 2):
+                field_map[_decode(fields_raw[j])] = _decode(fields_raw[j + 1])
 
-            def _decode(v):
-                if isinstance(v, bytes):
-                    return v.decode()
-                return v
+            if score is None and "vector_score" in field_map:
+                score = float(field_map["vector_score"])
 
             items.append({
-                "doc_id": doc_id.decode() if isinstance(doc_id, bytes) else doc_id,
-                "score": float(score),
-                "entity_id": int(_decode(field_map.get("entity_id", "0"))),
-                "entity_type": _decode(field_map.get("entity_type", "")),
-                "layer": _decode(field_map.get("layer", "")),
+                "doc_id": doc_id,
+                # 引擎给的是余弦**距离**（0 最相近），换成相似度（1 最相近），
+                # 让调用方看到的方向和 BM25 一致，不用记两套语义。
+                "score": round(1.0 - (float(score) if score is not None else 1.0), 6),
+                "entity_id": int(field_map.get("entity_id", 0) or 0),
+                "entity_type": field_map.get("entity_type", ""),
+                "layer": field_map.get("layer", ""),
             })
-            i += 3
 
         return items
 

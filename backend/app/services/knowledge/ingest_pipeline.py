@@ -58,6 +58,8 @@ class IngestPipeline:
             "success": False,
             "pages_created": 0,
             "pages_updated": 0,
+            "pages_embedded": 0,
+            "chunks_created": 0,
             "conflicts_found": 0,
             "errors": [],
         }
@@ -141,6 +143,13 @@ class IngestPipeline:
             # M6-A6：语料已变更，写库成功后失效检索侧的进程内缓存，
             # 否则检索会命中旧语料快照（脏读）直到 TTL 到期。
             invalidate_knowledge_cache()
+
+            # 7. 向量化 + 段级切片（必须放在主事务提交之后）
+            #    embedding 是一次网络调用，塞进主事务会把行锁持有时间从毫秒级
+            #    拉到秒级；而且向量化失败不该让已经编译成功的文档回滚。
+            index_stats = self._embed_pages(db, list(saved_by_title.values()))
+            result["pages_embedded"] = index_stats["pages"]
+            result["chunks_created"] = index_stats["chunks"]
 
             result["success"] = True
             logger.info(f"Document processed successfully: {document_id}")
@@ -347,6 +356,59 @@ class IngestPipeline:
         text = re.sub(r"\s+", "-", text.strip())
         return text.lower()[:100]
 
+    def _embed_pages(self, db: Session, pages: list[KBWikiPageModel]) -> dict[str, int]:
+        """为刚编译的页面写页级向量，并重建段级切片。
+
+        失败（未配置 API Key / 上游超时）不抛异常，不影响编译结果：
+        - 页级向量缺失 → 检索退化为纯 BM25，之后可用「重建索引」补；
+        - 段级切片缺失 → 向量通道退回页级向量，片段退回词面启发式。
+
+        切片即使没有向量也照样落库：命中片段选择、未来的段级字面召回都需要
+        段文本本身，所以这一步不依赖 embedding 是否可用。
+        """
+        from app.services.knowledge.chunk_index import rebuild_page_chunks
+        from app.services.knowledge.embedder import (
+            get_knowledge_embedder,
+            page_embedding_text,
+            pack_vector,
+        )
+
+        pages = [p for p in pages if p is not None]
+        stats = {"pages": 0, "chunks": 0, "chunks_embedded": 0}
+        if not pages:
+            return stats
+
+        embedder = get_knowledge_embedder()
+        if embedder.is_enabled():
+            try:
+                texts = [
+                    page_embedding_text(p.title, getattr(p, "summary", None), p.content)
+                    for p in pages
+                ]
+                vectors = embedder.embed_batch(texts)
+                for page, vector in zip(pages, vectors):
+                    if vector is None:
+                        continue
+                    page.embedding = pack_vector(vector)
+                    stats["pages"] += 1
+                if stats["pages"]:
+                    db.commit()
+            except Exception as exc:  # noqa: BLE001 —— 向量化失败不得让编译失败
+                logger.warning("页面向量化失败（检索将退化为 BM25）: %s", exc)
+                db.rollback()
+
+        try:
+            for page in pages:
+                chunk_stats = rebuild_page_chunks(db, page, embed=embedder.is_enabled())
+                stats["chunks"] += chunk_stats["chunks"]
+                stats["chunks_embedded"] += chunk_stats["embedded"]
+            db.commit()
+        except Exception as exc:  # noqa: BLE001 —— 切片失败不得让编译失败
+            logger.warning("段级切片写入失败（向量通道退回页级）: %s", exc)
+            db.rollback()
+
+        return stats
+
 
 def re_wikilinks(content: str) -> list[str]:
     """从 Markdown 中提取 [[Title]] 链接标题。"""
@@ -364,3 +426,101 @@ def process_document_ingest(
     """
     pipeline = IngestPipeline(llm_gateway)
     return pipeline.process_document(document_id, knowledge_base_id)
+
+
+def reindex_knowledge_base(
+    knowledge_base_id: int,
+    *,
+    force: bool = False,
+    limit: int | None = None,
+) -> dict:
+    """为知识库内页面重建向量索引与段级切片。
+
+    ``force=False`` 时只处理「还没就绪」的页面：
+    - 没有页级向量的（M6 之前的存量库、编译时向量化失败的页面）；
+    - 没有任何切片的（切片表是后加的，存量页全都没有）。
+    ``force=True`` 时全部重算（换过 embedding 模型后必须这样）。
+
+    分批提交：单批页面数由 ``KNOWLEDGE_REINDEX_BATCH_SIZE`` 控制，
+    避免一个知识库几千页时长时间持有事务。
+    """
+    from sqlalchemy import exists, or_
+
+    from app.core.config import get_settings
+    from app.db.models import KBChunkModel
+    from app.services.knowledge.chunk_index import rebuild_page_chunks
+    from app.services.knowledge.embedder import (
+        get_knowledge_embedder,
+        page_embedding_text,
+        pack_vector,
+    )
+
+    settings = get_settings()
+    stats = {
+        "checked": 0,
+        "embedded": 0,
+        "skipped": 0,
+        "failed": 0,
+        "chunks": 0,
+        "chunks_embedded": 0,
+        "enabled": False,
+        "message": "",
+    }
+
+    embedder = get_knowledge_embedder()
+    if not embedder.is_enabled():
+        stats["message"] = "向量检索未启用（未配置 OPENAI_API_KEY 或 KNOWLEDGE_VECTOR_ENABLED=false）"
+        return stats
+    stats["enabled"] = True
+
+    batch_size = max(1, settings.knowledge_reindex_batch_size)
+    db = SessionLocal()
+    try:
+        stmt = select(KBWikiPageModel).where(
+            KBWikiPageModel.knowledge_base_id == knowledge_base_id,
+            KBWikiPageModel.is_active.is_(True),
+        )
+        if not force:
+            # 「缺页向量」或「缺切片」都算待处理 —— 否则升级到段级检索后，
+            # 存量页永远补不出切片（它们的页向量是完整的）
+            has_chunks = exists().where(KBChunkModel.page_id == KBWikiPageModel.id)
+            stmt = stmt.where(or_(KBWikiPageModel.embedding.is_(None), ~has_chunks))
+        if limit:
+            stmt = stmt.limit(limit)
+
+        pages = list(db.execute(stmt).scalars().all())
+        stats["checked"] = len(pages)
+        if not pages:
+            stats["message"] = "没有需要向量化的页面"
+            return stats
+
+        for start in range(0, len(pages), batch_size):
+            batch = pages[start:start + batch_size]
+            texts = [
+                page_embedding_text(p.title, getattr(p, "summary", None), p.content)
+                for p in batch
+            ]
+            vectors = embedder.embed_batch(texts)
+            embedded_in_batch = 0
+            for page, vector in zip(batch, vectors):
+                if vector is None:
+                    stats["failed"] += 1
+                    continue
+                page.embedding = pack_vector(vector)
+                embedded_in_batch += 1
+            try:
+                db.flush()
+                for page in batch:
+                    chunk_stats = rebuild_page_chunks(db, page, embed=True)
+                    stats["chunks"] += chunk_stats["chunks"]
+                    stats["chunks_embedded"] += chunk_stats["embedded"]
+                db.commit()
+                stats["embedded"] += embedded_in_batch
+            except Exception as exc:  # noqa: BLE001 —— 单批失败不放弃整库
+                logger.warning("reindex 提交失败 kb=%s: %s", knowledge_base_id, exc)
+                db.rollback()
+                stats["failed"] += len(batch)
+        stats["skipped"] = stats["checked"] - stats["embedded"] - stats["failed"]
+        return stats
+    finally:
+        db.close()

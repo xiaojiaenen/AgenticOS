@@ -12,6 +12,7 @@ retrieval / list / read 均做 visibility/scope 过滤（private=owner/admin）�
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from wuwei.tools import ToolRegistry
@@ -74,32 +75,44 @@ def register_knowledge_tools(registry: ToolRegistry) -> None:
         if not owner_id:
             return {"error": "无法获取当前会话", "results": []}
 
-        is_admin, _role = _load_owner_role(owner_id)
+        # 角色查询是同步 DB IO，放线程里做
+        is_admin, _role = await asyncio.to_thread(_load_owner_role, owner_id)
         knowledge_base_ids = [knowledge_base_id] if knowledge_base_id else None
 
-        db = SessionLocal()
-        try:
-            retrieval = KnowledgeRetrieval(db)
-            results = retrieval.search(
-                query=query,
-                knowledge_base_ids=knowledge_base_ids,
-                user_id=owner_id,
-                max_results=max_results,
-                is_admin=is_admin,
-            )
-        finally:
-            db.close()
+        def _run_search():
+            """同步检索（BM25 + 可能的向量查询），整体放进线程避免阻塞事件循环。
+
+            向量召回会发起一次 embedding HTTP 请求（百毫秒级），直接在
+            async def 里跑会把整个 agent 事件循环卡住。
+            """
+            db = SessionLocal()
+            try:
+                return KnowledgeRetrieval(db).search(
+                    query=query,
+                    knowledge_base_ids=knowledge_base_ids,
+                    user_id=owner_id,
+                    max_results=max_results,
+                    is_admin=is_admin,
+                )
+            finally:
+                db.close()
+
+        results = await asyncio.to_thread(_run_search)
 
         return {
             "results": [
                 {
                     "page_id": r.page_id,
                     "title": r.title,
-                    "content": r.content[:1000] + "..." if len(r.content) > 1000 else r.content,
+                    # 命中片段优先：长文档返回开头往往不是提问的那一段
+                    "content": (r.snippet or r.content)[:1000] + "..."
+                    if len(r.snippet or r.content) > 1000
+                    else (r.snippet or r.content),
                     "page_type": r.page_type,
                     "score": round(r.score, 3),
                     "sources": r.sources,
                     "authority_level": r.authority_level,
+                    "matched_by": r.matched_by,
                 }
                 for r in results
             ],

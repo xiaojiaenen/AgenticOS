@@ -24,6 +24,8 @@ from app.db.models import (
     KBDocumentModel,
     KBWikiPageModel,
     KBWikiLinkModel,
+    KBChunkModel,
+    KBAccessControlModel,
     KBIngestTaskModel,
     KBReviewItemModel,
 )
@@ -158,6 +160,22 @@ class SearchResultItem(BaseModel):
     score: float
     sources: list[str]
     authority_level: str
+    # 命中片段：页内与查询最相关的一段（段落级向量命中的那一段）
+    snippet: str = ""
+    # 命中通道：["bm25", "vector"]，用于解释排序
+    matched_by: list[str] = []
+
+
+class KBACLEntry(BaseModel):
+    principal_type: str = Field("user", pattern="^(user)$")
+    # 二选一：已知用 ID，界面按邮箱加人时用 email（后端解析成 ID）
+    principal_id: Optional[int] = None
+    principal_email: Optional[str] = None
+    role: str = Field("viewer", pattern="^(viewer|editor|admin)$")
+
+
+class KBACLReplace(BaseModel):
+    entries: list[KBACLEntry] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -386,7 +404,11 @@ def delete_knowledge_base(
     """删除知识库（需 kb:delete）"""
     kb = _kb_access(db, http_request, current_user, kb_id, "delete")
     slug = kb.slug
-    # 删除相关数据
+    # 删除相关数据（顺序：叶子 → 主干，切片/授权先清，避免悬空引用）
+    db.execute(delete(KBChunkModel).where(KBChunkModel.knowledge_base_id == kb_id))
+    db.execute(delete(KBAccessControlModel).where(
+        KBAccessControlModel.knowledge_base_id == kb_id
+    ))
     db.execute(delete(KBWikiLinkModel).where(
         KBWikiLinkModel.source_page_id.in_(
             select(KBWikiPageModel.id).where(KBWikiPageModel.knowledge_base_id == kb_id)
@@ -403,6 +425,99 @@ def delete_knowledge_base(
         http_request, db, action="knowledge.delete", current_user=current_user,
         resource_type="knowledge_base", resource_id=kb_id, detail={"slug": slug},
     )
+
+
+# ---------------------------------------------------------------------------
+# 共享成员（知识库行级 ACL）
+# ---------------------------------------------------------------------------
+
+
+@router.get("/bases/{kb_id}/acl", summary="列出知识库共享成员")
+def list_kb_acl(
+    http_request: Request,
+    kb_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """列出显式共享给谁（owner 与 admin 不在列表中，他们天生可见）。"""
+    from app.services.knowledge.acl import list_grants
+
+    _kb_access(db, http_request, current_user, kb_id, "read")
+    return {"knowledge_base_id": kb_id, "items": list_grants(db, kb_id)}
+
+
+@router.put("/bases/{kb_id}/acl", summary="整体替换知识库共享成员")
+def replace_kb_acl(
+    http_request: Request,
+    kb_id: int,
+    payload: KBACLReplace,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """整体替换共享成员（幂等）。
+
+    只允许库 owner 或系统管理员操作 —— 普通 editor 不该能把库转给别人看，
+    也不能给自己提权。
+
+    条目可以给 ``principal_id``（已知用户 ID），也可以只给 ``principal_email``
+    （管理界面按邮箱加人），后者在这里解析成 ID。
+    """
+    from app.services.knowledge.acl import list_grants, replace_grants
+
+    kb = _kb_access(db, http_request, current_user, kb_id, "read")
+    if current_user.role != "admin" and kb.owner_id != current_user.id:
+        _audit(
+            http_request, db, action="knowledge.acl_update", current_user=current_user,
+            result="deny", resource_type="knowledge_base", resource_id=kb_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="只有知识库创建者或管理员可以修改共享成员",
+        )
+
+    # 解析 email → id，并校验被授权用户真实存在（避免写入悬空授权）
+    resolved: list[dict] = []
+    unresolved: list[str] = []
+    for entry in payload.entries:
+        principal_id = entry.principal_id
+        if principal_id is None:
+            email = (entry.principal_email or "").strip().lower()
+            if not email:
+                unresolved.append("<空>")
+                continue
+            principal_id = db.scalar(
+                select(UserModel.id).where(func.lower(UserModel.email) == email)
+            )
+            if principal_id is None:
+                unresolved.append(email)
+                continue
+        resolved.append({"principal_type": "user", "principal_id": principal_id, "role": entry.role})
+
+    # 直接传 ID 的条目也要校验存在性，否则会写出一批指向空用户的授权
+    given_ids = {item["principal_id"] for item in resolved}
+    if given_ids:
+        existing_ids = {
+            row[0]
+            for row in db.execute(
+                select(UserModel.id).where(UserModel.id.in_(given_ids))
+            ).all()
+        }
+        unresolved.extend(str(missing) for missing in sorted(given_ids - existing_ids))
+
+    if unresolved:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"用户不存在: {sorted(set(unresolved))}",
+        )
+
+    written = replace_grants(db, kb_id, resolved, granted_by=current_user.id)
+    db.commit()
+    _audit(
+        http_request, db, action="knowledge.acl_update", current_user=current_user,
+        resource_type="knowledge_base", resource_id=kb_id,
+        detail={"entries": written},
+    )
+    return {"knowledge_base_id": kb_id, "items": list_grants(db, kb_id)}
 
 
 # ---------------------------------------------------------------------------
@@ -682,14 +797,15 @@ class RecallTestRequest(BaseModel):
     )
     top_k: int = Field(default=5, ge=1, le=50, description="每个问题取前 K 条")
     score_threshold: float | None = Field(
-        default=None, ge=0.0, le=10.0,
-        description="相似度阈值；低于视为未命中（留空=不过滤）",
+        default=None, ge=0.0, le=1.0,
+        description="相对相关度阈值（0~1）；低于视为未命中（留空=不过滤）",
     )
     page_type: Optional[str] = Field(default=None, description="限定页面类型")
 
 
 @router.post("/bases/{kb_id}/recall-test", summary="知识库召回测试")
 async def recall_test(
+    http_request: Request,
     kb_id: int,
     request: RecallTestRequest,
     db: Session = Depends(get_db),
@@ -705,6 +821,10 @@ async def recall_test(
     kb = db.get(KnowledgeBaseModel, kb_id)
     if not kb:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="知识库不存在")
+
+    # 与其他知识库端点一致做行级鉴权：召回测试会返回正文片段，
+    # 不校验权限等于把 private / 他人知识库的内容读出来
+    _kb_access(db, http_request, current_user, kb_id, "read")
 
     report = await run_recall_test(
         kb_id,
@@ -750,9 +870,82 @@ def search_knowledge_base(
             score=r.score,
             sources=r.sources,
             authority_level=r.authority_level,
+            snippet=r.snippet or (
+                r.content[:500] + "..." if len(r.content) > 500 else r.content
+            ),
+            matched_by=r.matched_by,
         )
         for r in results
     ]
+
+
+@router.post("/bases/{kb_id}/reindex", summary="重建知识库向量索引")
+def reindex_knowledge_base_endpoint(
+    http_request: Request,
+    kb_id: int,
+    force: bool = Query(default=False, description="true=全部重算（换过 embedding 模型时用）"),
+    limit: Optional[int] = Query(default=None, ge=1, le=5000, description="最多处理多少页"),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """为知识库页面补算 embedding 与段级切片。
+
+    - 默认只补「还没就绪」的页面：没有页向量、或还没有任何切片（段级检索上线
+      前的存量页都属于这一类）；
+    - ``force=true`` 全部重算，换 embedding 模型后必须这样做；
+    - 未配置 API Key 时返回 ``enabled=false``，不报错（检索此时走纯 BM25）。
+    """
+    from app.services.knowledge.chunk_index import chunk_stats
+    from app.services.knowledge.ingest_pipeline import reindex_knowledge_base
+
+    _kb_access(db, http_request, current_user, kb_id, "write")
+
+    # 本端点是同步定义，FastAPI 会放到线程池执行，不会阻塞事件循环
+    stats = reindex_knowledge_base(kb_id, force=force, limit=limit)
+    stats.update(chunk_stats(db, kb_id))
+    _audit(
+        http_request, db, action="knowledge.reindex", current_user=current_user,
+        resource_type="knowledge_base", resource_id=kb_id, detail=stats,
+    )
+    return {"knowledge_base_id": kb_id, **stats}
+
+
+@router.post("/bases/{kb_id}/conflicts/scan", summary="知识库冲突巡检（跨页面配对扫描）")
+def scan_conflicts_endpoint(
+    http_request: Request,
+    kb_id: int,
+    use_llm: bool = Query(
+        default=False,
+        description="规则未命中时是否再让 LLM 判一次（会消耗 token，按需开启）",
+    ),
+    max_pages: int = Query(default=800, ge=2, le=5000, description="本轮参与扫描的页面上限"),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """全库跨页配对扫描，找出「编辑期永远不会相遇」的两个页面之间的矛盾。
+
+    编译期的冲突检测只比对「新页面 vs 已有页面」，因此历史导入、分次上传、
+    批量重建索引产生的页面之间如果有矛盾，永远不会被发现。本端点补这个盲区：
+
+    - 只**新增**待裁决的 ``conflict_resolution`` 审核项，**不修改任何正文**；
+    - 幂等：同一对页面已有待裁决项时跳过，可以反复触发；
+    - 默认纯规则判定（不烧 token），``use_llm=true`` 才追加 LLM 复核。
+
+    定时版本由 arq cron 每周一 04:23 全库执行（``scan_knowledge_conflicts_task``）。
+    """
+    from app.services.knowledge.conflict_scanner import scan_knowledge_base
+
+    _kb_access(db, http_request, current_user, kb_id, "write")
+
+    # 同步定义 → FastAPI 放线程池执行，全库扫描不阻塞事件循环
+    stats = scan_knowledge_base(db, kb_id, max_pages=max_pages, use_llm=use_llm)
+    db.commit()
+
+    _audit(
+        http_request, db, action="knowledge.conflict_scan", current_user=current_user,
+        resource_type="knowledge_base", resource_id=kb_id, detail=stats,
+    )
+    return {"knowledge_base_id": kb_id, **stats}
 
 
 # ---------------------------------------------------------------------------

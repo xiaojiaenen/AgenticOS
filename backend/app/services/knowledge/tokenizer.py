@@ -69,6 +69,34 @@ def tokenize(text: str) -> list[str]:
     return tokens
 
 
+def char_bigrams(text: str) -> set[str]:
+    """字符级 bigram **集合**（用于短文本相似度，不是检索分词）。
+
+    与 ``bigram_tokenize`` 的关键差别：跨标点与空白**连续**切分，且返回 set
+    而不是 list —— 目的是给 Jaccard 相似度做集合运算。
+
+    为什么需要它：中文标题没有空格，``set(title.split())`` 会退化成
+    「整个标题是一个元素」，两段不同的中文标题相似度恒为 0，
+    Jaccard 再高也没意义（这是 ``WikiCompiler._jaccard_similarity`` 的历史缺陷）。
+    """
+    cleaned = "".join(
+        ch
+        for ch in (text or "").lower()
+        if ch.isalnum() or "\u4e00" <= ch <= "\u9fff"
+    )
+    if len(cleaned) < 2:
+        return {cleaned} if cleaned else set()
+    return {cleaned[i : i + 2] for i in range(len(cleaned) - 1)}
+
+
+def jaccard_bigrams(text_a: str, text_b: str) -> float:
+    """两段文本的字符 bigram Jaccard 相似度（0~1）。"""
+    a, b = char_bigrams(text_a), char_bigrams(text_b)
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
 def bigram_tokenize(text: str) -> list[str]:
     """旧版 bigram 分词（兼容路径，保留迁移前行为）。
 

@@ -28,6 +28,7 @@ from app.db.models import (
     MemoryScenarioModel,
 )
 from app.db.session import create_db_session
+from app.services.llm_factory import build_llm
 from app.services.memory_embedder import get_embedder
 from app.services.memory_vector_store import get_vector_store
 
@@ -120,10 +121,10 @@ class MemoryPipeline:
     async def _extract_atoms(self, user_msg: str, assistant_msg: str) -> list[dict]:
         """LLM 提取事实/偏好/技术栈/项目"""
         try:
-            from wuwei.llm import LLMGateway
             from wuwei.core.message import SystemMessage, HumanMessage
 
-            gateway = LLMGateway.from_env()
+            # 抽取是典型的轻任务，走快模型；没绑定 fast 时自动退回 chat 模型
+            gateway = build_llm(role="fast", max_tokens=1024, timeout=60)
             prompt = ATOM_EXTRACTION_PROMPT.format(
                 user_msg=user_msg,
                 assistant_msg=assistant_msg[:1500],
@@ -278,10 +279,9 @@ class MemoryPipeline:
                 for a in atoms
             ]
 
-            from wuwei.llm import LLMGateway
             from wuwei.core.message import SystemMessage, HumanMessage
 
-            gateway = LLMGateway.from_env()
+            gateway = build_llm(role="fast", max_tokens=2048, timeout=90)
             prompt = SCENARIO_AGGREGATION_PROMPT.format(
                 atoms_json=json.dumps(atoms_payload, ensure_ascii=False)
             )
@@ -380,10 +380,9 @@ class MemoryPipeline:
             if not atoms and not scenarios:
                 return
 
-            from wuwei.llm import LLMGateway
             from wuwei.core.message import SystemMessage, HumanMessage
 
-            gateway = LLMGateway.from_env()
+            gateway = build_llm(role="fast", max_tokens=2048, timeout=90)
 
             existing_profile: dict[str, Any] = {}
             if existing:

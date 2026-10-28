@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from .document_parser import ParsedDocument
+from .tokenizer import jaccard_bigrams
 
 logger = logging.getLogger(__name__)
 
@@ -779,14 +780,15 @@ class WikiCompiler:
         return None
 
     def _jaccard_similarity(self, s1: str, s2: str) -> float:
-        """计算 Jaccard 相似度"""
-        set1 = set(s1.split())
-        set2 = set(s2.split())
-        if not set1 or not set2:
-            return 0.0
-        intersection = set1 & set2
-        union = set1 | set2
-        return len(intersection) / len(union)
+        """标题相似度（字符 bigram Jaccard）。
+
+        历史实现是 ``set(s.split())`` —— 中文标题没有空格，整个标题会被当成
+        一个元素，于是两段不同的中文标题相似度恒为 0，``> 0.5`` 的判定只有
+        「完全包含」时才成立，编译期的同主题页面发现能力形同虚设。
+        改用字符 bigram 后，「Redis 缓存雪崩」与「Redis 缓存穿透」才会被判为
+        同主题，进而进入冲突检测。
+        """
+        return jaccard_bigrams(s1, s2)
 
     def _slugify(self, text: str) -> str:
         """生成 URL 友好的 slug"""

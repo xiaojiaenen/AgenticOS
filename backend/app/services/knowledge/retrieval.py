@@ -1,29 +1,55 @@
 """
 知识库检索服务
 
-提供多路检索和结果融合：
-- BM25 全文检索
-- 向量语义检索（可选）
-- RRF 融合
-- 权威性加权
-- visibility/scope 权限过滤（private=owner/admin）
+提供两路检索与融合：
+- BM25 全文检索（MySQL FULLTEXT ngram / SQLite 走进程内 Python BM25）
+- 向量语义检索（**段级** embedding 余弦，未配置 API Key 时自动关闭）
+- RRF 选候选 + 相关度加权 + 本地启发式重排
+- 权威性加权（排序 tie-break）
+- 显式授权（kb_access_control / Casbin）与 visibility/scope 双重可见性过滤
+
+**score 的语义**：对外暴露的 ``SearchResult.score`` 是 **0~1 的相对相关度**，
+不是 BM25 原始分、也不是 RRF 排名分。计算分两步：
+
+    1) 融合（决定候选集与粗分）
+       bm25_norm = bm25_raw / 本次查询最高 BM25 分          （通道内归一到 0~1）
+       vec_norm  = max(0, cosine(查询, 最佳段))               （绝对相似度）
+       base      = 0.6 * bm25_norm + 0.4 * vec_norm           （向量不可用时退化为 bm25_norm）
+
+    2) 重排（决定最终排序，见 ``rerank.py``）
+       score = 0.55*base + 0.25*覆盖率 + 0.12*邻近度 + 0.08*通道一致性
+
+这样 ``score_threshold`` 才是可解释的阈值：0.5 表示"至少命中一半相关度"，
+而不是旧实现里 1/(60+rank) 那种最高只有 0.033、填任何正常阈值都会把结果
+全部过滤掉的假阈值。
 """
 
 import json
 import logging
+import re
 import threading
 import time
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass, field
 from typing import Optional
 
+import numpy as np
 from sqlalchemy import bindparam, select, and_, text
 from sqlalchemy.orm import Session
 
-from app.db.models import KBWikiPageModel, KnowledgeBaseModel
+from app.core.config import get_settings
+from app.db.models import KBChunkModel, KBWikiPageModel, KnowledgeBaseModel, UserModel
+from app.services.knowledge import rerank as rerank_mod
+from app.services.knowledge.acl import explicit_role, load_grants, role_allows
+from app.services.knowledge.embedder import (
+    cosine_similarity,
+    get_knowledge_embedder,
+    unpack_vector,
+)
 from app.services.knowledge.tokenizer import tokenize
 
 logger = logging.getLogger(__name__)
+_settings = get_settings()
 
 # ----------------------------------------------------------------------
 # M6-A6：wiki 语料进程内缓存（仅 SQLite/dev 的 Python BM25 全量评分路径）
@@ -170,12 +196,17 @@ class SearchResult:
     authority_level: str = "L1"
     conflicts: list[dict] = field(default_factory=list)
     related_pages: list[int] = field(default_factory=list)
+    # 命中片段：取页内与查询最相关的一段（长文档的要点往往不在开头）
+    snippet: str = ""
+    # 该页被哪些通道命中：["bm25", "vector"]
+    matched_by: list[str] = field(default_factory=list)
 
 
 class KnowledgeRetrieval:
     """知识库检索服务"""
 
-    # 权威性权重
+    # 权威性权重：只用于同等相关度时的排序 tie-break，不参与 score 计算。
+    # 混进 score 会让「权威」污染「相关」，阈值就再也说不清是什么意思了。
     AUTHORITY_WEIGHTS = {
         "L3": 2.0,
         "L2": 1.5,
@@ -183,8 +214,15 @@ class KnowledgeRetrieval:
         "L0": 0.8,
     }
 
-    # MySQL FULLTEXT 路径单次检索返回的候选上限（进入 RRF 融合前截断）
+    # MySQL FULLTEXT 路径单次检索返回的候选上限（进入融合前截断）
     BM25_TOP_K = 50
+
+    # 双路融合时两通道的权重（相关度加权，非 RRF）
+    WEIGHT_BM25 = 0.6
+    WEIGHT_VECTOR = 0.4
+
+    # 命中片段的长度上限
+    SNIPPET_MAX_CHARS = 400
 
     def __init__(self, db: Session):
         self.db = db
@@ -199,8 +237,7 @@ class KnowledgeRetrieval:
         is_admin: bool = False,
         score_threshold: float | None = None,
     ) -> list[SearchResult]:
-        """
-        执行知识库检索
+        """执行知识库检索
 
         Args:
             query: 查询文本
@@ -209,11 +246,16 @@ class KnowledgeRetrieval:
             page_type: 过滤页面类型
             max_results: 最大结果数
             is_admin: 是否管理员（private=owner/admin）
+            score_threshold: 相对相关度阈值（0~1），低于视为未命中
 
         Returns:
-            list[SearchResult]: 检索结果列表
+            list[SearchResult]: 检索结果列表，score 为 0~1 的相对相关度
         """
-        logger.info(f"Searching knowledge base: query='{query[:50]}...'")
+        query = (query or "").strip()
+        if not query:
+            return []
+
+        logger.info("Searching knowledge base: query='%s...'", query[:50])
 
         # 获取可见的知识库
         visible_kb_ids = self._get_visible_knowledge_bases(
@@ -222,20 +264,45 @@ class KnowledgeRetrieval:
         if not visible_kb_ids:
             return []
 
-        # 多路检索
-        bm25_results = self._bm25_search(query, visible_kb_ids, page_type)
+        # 两路检索：BM25（字面）+ 向量（语义，段级）
+        bm25_hits = self._bm25_search(query, visible_kb_ids, page_type)
+        vector_hits, chunk_snippets = self._vector_search(query, visible_kb_ids, page_type)
 
-        # RRF 融合（目前只有 BM25）
-        fused = self._reciprocal_rank_fusion(bm25_results)
+        if not bm25_hits and not vector_hits:
+            return []
 
-        # 权威性加权
-        ranked = self._apply_authority_weights(fused)
+        # 候选集：RRF 排序，两路都命中的页面天然靠前，用它决定「取哪些页」
+        fused = self._reciprocal_rank_fusion(bm25_hits, vector_hits)
+        candidate_ids = list(fused.keys())[: max_results * 3]
 
-        # 加载完整页面信息
-        results = self._load_page_details(ranked[:max_results * 2])
+        # 粗排依据：归一化相关度（RRF 只负责选候选，不参与对外 score）
+        relevance = self._blend_relevance(bm25_hits, vector_hits)
+        matched_by = self._matched_channels(bm25_hits, vector_hits)
 
-        # 冲突标注
-        results = self._annotate_conflicts(results)
+        query_terms = tokenize(query)
+        results = self._load_page_details(
+            candidate_ids,
+            relevance,
+            matched_by,
+            query_terms=query_terms,
+            chunk_snippets=chunk_snippets,
+        )
+
+        # 重排：把「通道内相对强弱」换成「查询与命中片段的贴合度」
+        for item in results:
+            item.score = rerank_mod.score_result(
+                base_score=item.score,
+                query_terms=query_terms,
+                # 标题参与词面信号：标题命中是最强的相关性证据之一
+                text=f"{item.title}\n{item.snippet or item.content[: self.SNIPPET_MAX_CHARS]}",
+                channels=item.matched_by,
+            )
+
+        # 相关度优先，同分时权威性高的靠前
+        results.sort(
+            key=lambda r: (r.score, self.AUTHORITY_WEIGHTS.get(r.authority_level, 1.0)),
+            reverse=True,
+        )
 
         # 相似度阈值：低于阈值的结果视为未命中（召回测试用它看参数影响）
         if score_threshold is not None and score_threshold > 0:
@@ -249,7 +316,16 @@ class KnowledgeRetrieval:
         user_id: Optional[int],
         is_admin: bool = False,
     ) -> list[int]:
-        """获取用户可见的知识库 ID 列表（visibility/scope 过滤）。"""
+        """获取用户可见的知识库 ID 列表。
+
+        两个来源取并集：
+        1. **显式授权**（``kb_access_control`` 成员表 / Casbin 直接策略）——
+           被分享过的人，即使库是 private 也能读到；
+        2. **可见性兜底**（``can_view_knowledge_base``）—— public/org 对所有人可见。
+
+        只查其中一个都会出问题：只查 1 会让存量公开库全部搜不到；
+        只查 2 会让「我已经被加进成员列表」的人搜不到自己的库。
+        """
         stmt = select(KnowledgeBaseModel).where(
             KnowledgeBaseModel.is_active.is_(True)
         )
@@ -257,10 +333,22 @@ class KnowledgeRetrieval:
             stmt = stmt.where(KnowledgeBaseModel.id.in_(knowledge_base_ids))
 
         rows = self.db.execute(stmt).scalars().all()
-        return [
-            kb.id for kb in rows
-            if can_view_knowledge_base(kb, user_id=user_id, is_admin=is_admin)
-        ]
+        if not rows:
+            return []
+
+        user = self.db.get(UserModel, user_id) if user_id else None
+        grants = load_grants(self.db, [kb.id for kb in rows]) if user else {}
+
+        visible: list[int] = []
+        for kb in rows:
+            if user is not None:
+                role = explicit_role(user, kb, grants.get(kb.id, []))
+                if role_allows(role, "read"):
+                    visible.append(kb.id)
+                    continue
+            if can_view_knowledge_base(kb, user_id=user_id, is_admin=is_admin):
+                visible.append(kb.id)
+        return visible
 
     def _bm25_search(
         self,
@@ -453,36 +541,250 @@ class KnowledgeRetrieval:
         sorted_items = sorted(scores.items(), key=lambda x: x[1], reverse=True)
         return dict(sorted_items)
 
-    def _apply_authority_weights(self, scores: dict[int, float]) -> list[tuple[int, float]]:
-        """应用权威性权重"""
-        return list(scores.items())
+    def _vector_search(
+        self,
+        query: str,
+        knowledge_base_ids: list[int],
+        page_type: Optional[str],
+    ) -> tuple[list[tuple[int, float]], dict[int, str]]:
+        """向量语义检索（**段级** embedding 余弦，页级作兜底）。
+
+        返回 ``(hits, best_chunk_text)``：
+        - ``hits``：``[(page_id, 该页最佳段的余弦相似度)]``，已按相似度降序截断；
+        - ``best_chunk_text``：``{page_id: 最佳段正文}``，直接当作命中片段用，
+          不再靠启发式猜「页内哪段相关」。
+
+        为什么按段而不是按页：页级向量把整页压成一个点，长页（编译出的
+        source_summary / synthesis 常几千字）的主题被平均，问其中某一节往往
+        召不回本页。段级取 ``max`` 聚合，长页里真正相关的那一段不会被稀释。
+
+        兜底：库里一条切片都没有（存量库尚未重建索引）时，自动退回页级
+        ``kb_wiki_pages.embedding``，语义通道不会因此整条消失。
+        """
+        embedder = get_knowledge_embedder()
+        if not embedder.is_enabled():
+            return [], {}
+
+        query_vector = embedder.embed_query(query)
+        if not query_vector:
+            return [], {}
+        query_np = np.asarray(query_vector, dtype=np.float32)
+
+        min_similarity = _settings.knowledge_vector_min_similarity
+        dimensions = embedder.dimensions
+
+        chunk_stmt = (
+            select(KBChunkModel.page_id, KBChunkModel.content, KBChunkModel.embedding)
+            .join(KBWikiPageModel, KBWikiPageModel.id == KBChunkModel.page_id)
+            .where(
+                and_(
+                    KBChunkModel.knowledge_base_id.in_(knowledge_base_ids),
+                    KBChunkModel.embedding.isnot(None),
+                    KBWikiPageModel.is_active.is_(True),
+                )
+            )
+        )
+        if page_type:
+            chunk_stmt = chunk_stmt.where(KBWikiPageModel.page_type == page_type)
+
+        scanned = 0
+        best_by_page: dict[int, tuple[float, str]] = {}
+        for page_id, content, payload in self.db.execute(chunk_stmt).all():
+            page_vector = unpack_vector(payload, dimensions)
+            if page_vector is None:
+                # 维度不符（换过模型）或格式损坏：跳过而不是算出错的值
+                continue
+            scanned += 1
+            similarity = cosine_similarity(query_np, page_vector)
+            if similarity < min_similarity:
+                continue
+            key = int(page_id)
+            current = best_by_page.get(key)
+            if current is None or similarity > current[0]:
+                best_by_page[key] = (similarity, content)
+
+        if scanned == 0:
+            # 没有任何可用切片 → 页级兜底（存量库/切片失败）
+            return self._page_level_vector_search(query_np, knowledge_base_ids, page_type, dimensions)
+
+        hits = sorted(best_by_page.items(), key=lambda item: item[1][0], reverse=True)
+        top_k = _settings.knowledge_vector_top_k
+        hits = hits[:top_k]
+        return (
+            [(page_id, score) for page_id, (score, _text) in hits],
+            {page_id: text for page_id, (_score, text) in hits},
+        )
+
+    def _page_level_vector_search(
+        self,
+        query_np: np.ndarray,
+        knowledge_base_ids: list[int],
+        page_type: Optional[str],
+        dimensions: int,
+    ) -> tuple[list[tuple[int, float]], dict[int, str]]:
+        """页级向量兜底路径（无切片时）。"""
+        conditions = [
+            KBWikiPageModel.knowledge_base_id.in_(knowledge_base_ids),
+            KBWikiPageModel.is_active.is_(True),
+            KBWikiPageModel.embedding.isnot(None),
+        ]
+        if page_type:
+            conditions.append(KBWikiPageModel.page_type == page_type)
+
+        stmt = select(KBWikiPageModel.id, KBWikiPageModel.embedding).where(and_(*conditions))
+        rows = self.db.execute(stmt).all()
+
+        min_similarity = _settings.knowledge_vector_min_similarity
+        hits: list[tuple[int, float]] = []
+        for page_id, payload in rows:
+            page_vector = unpack_vector(payload, dimensions)
+            if page_vector is None:
+                continue
+            similarity = cosine_similarity(query_np, page_vector)
+            if similarity < min_similarity:
+                continue
+            hits.append((int(page_id), similarity))
+
+        hits.sort(key=lambda item: item[1], reverse=True)
+        return hits[: _settings.knowledge_vector_top_k], {}
+
+    def _blend_relevance(
+        self,
+        bm25_hits: list[tuple[int, float]],
+        vector_hits: list[tuple[int, float]],
+    ) -> dict[int, float]:
+        """把两路分数折算成 0~1 的相对相关度。
+
+        - BM25 是相对分（无上界），按本次查询的最高分归一到 0~1；
+        - 余弦本身就在 [-1, 1]，负相关截断为 0；
+        - 向量通道整体不可用（无 Key / 未建索引）时，权重全部给 BM25，
+          避免把所有存量页面按 0.6 上限压低。
+        """
+        relevance: dict[int, float] = {}
+        has_vector = bool(vector_hits)
+
+        if bm25_hits:
+            top = max(score for _, score in bm25_hits) or 1.0
+            weight = self.WEIGHT_BM25 if has_vector else 1.0
+            for page_id, score in bm25_hits:
+                relevance[page_id] = weight * max(0.0, score / top)
+
+        if vector_hits:
+            weight = self.WEIGHT_VECTOR if bm25_hits else 1.0
+            for page_id, similarity in vector_hits:
+                relevance[page_id] = relevance.get(page_id, 0.0) + weight * max(0.0, similarity)
+
+        # 浮点累加后可能略微超过 1，截断保证 score_threshold 的语义稳定
+        return {page_id: min(1.0, value) for page_id, value in relevance.items()}
+
+    @staticmethod
+    def _matched_channels(
+        bm25_hits: list[tuple[int, float]],
+        vector_hits: list[tuple[int, float]],
+    ) -> dict[int, list[str]]:
+        """记录每个页面被哪些通道命中（排查「为什么这条排前面」用）。"""
+        channels: dict[int, list[str]] = {}
+        if bm25_hits:
+            for page_id, _ in bm25_hits:
+                channels.setdefault(page_id, []).append("bm25")
+        if vector_hits:
+            for page_id, _ in vector_hits:
+                channels.setdefault(page_id, []).append("vector")
+        return channels
+
+    def _best_snippet(self, content: str, query_terms: list[str]) -> str:
+        """挑页内与查询最相关的一段作为命中片段。
+
+        长文档的要点常在中段，直接 ``content[:500]`` 会给出与问题无关的开头。
+        这里按空行/标题切段，用查询词命中数选段；全部不命中时退回开头。
+        """
+        text = (content or "").strip()
+        if not text:
+            return ""
+        if not query_terms:
+            return text[: self.SNIPPET_MAX_CHARS]
+
+        terms = set(query_terms)
+        segments = [seg.strip() for seg in re.split(r"\n\s*\n|\n(?=#{1,6}\s)", text) if seg.strip()]
+        if not segments:
+            segments = [text]
+
+        best_segment = segments[0]
+        best_score = -1
+        for segment in segments:
+            score = len(terms & set(tokenize(segment)))
+            if score > best_score:
+                best_score = score
+                best_segment = segment
+
+        if len(best_segment) <= self.SNIPPET_MAX_CHARS:
+            return best_segment
+        return best_segment[: self.SNIPPET_MAX_CHARS] + "..."
+
+    def _best_chunk_snippets(
+        self,
+        page_ids: list[int],
+        query_terms: list[str],
+    ) -> dict[int, str]:
+        """无向量时按词面命中挑每页最佳的段（供命中片段使用）。
+
+        向量通道会直接给出「语义最像」的那一段；纯 BM25 场景（未配 embedding）
+        没有这个信息，但段级切片依然在库里 —— 从里面按查询词命中数挑一段，
+        比按空白行临时切分再猜准得多，尤其是页内有多个小标题时。
+        """
+        if not page_ids or not query_terms:
+            return {}
+
+        rows = self.db.execute(
+            select(KBChunkModel.page_id, KBChunkModel.content).where(
+                KBChunkModel.page_id.in_(page_ids)
+            )
+        ).all()
+
+        terms = {t for t in query_terms if t}
+        best: dict[int, tuple[int, str]] = {}
+        for page_id, content in rows:
+            hits = len(terms & set(tokenize(content)))
+            if hits == 0:
+                continue
+            key = int(page_id)
+            current = best.get(key)
+            if current is None or hits > current[0]:
+                best[key] = (hits, content)
+        return {page_id: text for page_id, (_hits, text) in best.items()}
 
     def _load_page_details(
         self,
-        ranked_items: list[tuple[int, float]],
+        page_ids: list[int],
+        relevance: dict[int, float],
+        matched_channels: dict[int, list[str]] | None = None,
+        query_terms: list[str] | None = None,
+        chunk_snippets: dict[int, str] | None = None,
     ) -> list[SearchResult]:
-        """加载页面详细信息"""
-        if not ranked_items:
+        """加载页面详细信息，并写入相关度、命中通道与命中片段。
+
+        片段优先取「向量通道选中的最佳段」（真实命中的那一段），
+        没有切片时退回 ``_best_snippet`` 的词面启发式。
+        """
+        if not page_ids:
             return []
 
-        page_ids = [item[0] for item in ranked_items]
-        score_map = dict(ranked_items)
-
         stmt = select(KBWikiPageModel).where(KBWikiPageModel.id.in_(page_ids))
-        result = self.db.execute(stmt)
-        pages = {p.id: p for p in result.scalars().all()}
+        pages = {p.id: p for p in self.db.execute(stmt).scalars().all()}
+        snippet_map = dict(chunk_snippets or {})
+
+        # 向量通道没覆盖到的页（纯 BM25 场景），用切片里的词面最佳段补上
+        missing = [pid for pid in page_ids if pid not in snippet_map]
+        if missing and query_terms:
+            snippet_map.update(self._best_chunk_snippets(missing, query_terms))
+        chunk_snippets = snippet_map
 
         results = []
-        for page_id, base_score in ranked_items:
+        for page_id in page_ids:
             page = pages.get(page_id)
             if not page:
                 continue
 
-            # 应用权威性权重
-            authority_weight = self.AUTHORITY_WEIGHTS.get(page.authority_level, 1.0)
-            final_score = base_score * authority_weight
-
-            # 解析来源和冲突
             try:
                 sources = json.loads(page.sources_json) if page.sources_json else []
             except json.JSONDecodeError:
@@ -493,23 +795,25 @@ class KnowledgeRetrieval:
             except json.JSONDecodeError:
                 conflicts = []
 
+            snippet = chunk_snippets.get(page_id) or self._best_snippet(
+                page.content, query_terms or []
+            )
+            if len(snippet) > self.SNIPPET_MAX_CHARS:
+                snippet = snippet[: self.SNIPPET_MAX_CHARS] + "..."
+
             results.append(SearchResult(
                 page_id=page.id,
                 title=page.title,
                 content=page.content,
                 page_type=page.page_type,
-                score=final_score,
+                score=relevance.get(page_id, 0.0),
                 sources=sources,
                 authority_level=page.authority_level,
                 conflicts=conflicts,
+                snippet=snippet,
+                matched_by=list((matched_channels or {}).get(page_id, [])),
             ))
 
-        # 按最终分数排序
-        results.sort(key=lambda x: x.score, reverse=True)
-        return results
-
-    def _annotate_conflicts(self, results: list[SearchResult]) -> list[SearchResult]:
-        """标注冲突信息"""
         return results
 
     def _tokenize(self, text: str) -> list[str]:
