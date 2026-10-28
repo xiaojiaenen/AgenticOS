@@ -76,6 +76,20 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     except Exception:
         logger.exception("Failed to seed default permission policies")
 
+    # 外部厂商预设插件（PROVIDER_PRESETS_DIR）。
+    #
+    # 公开仓库只内置通用厂商，企业内网网关（SSO、自签证书、私有注册表）
+    # 通过该目录注入。必须在 worker 进程也执行一次 —— 导出任务在 worker 里
+    # 跑，那里没有 backend 的 lifespan。
+    try:
+        from app.services.llm_providers.presets import load_external_presets
+
+        loaded = load_external_presets()
+        if loaded:
+            logger.info("外部厂商预设已加载：%s", ", ".join(loaded))
+    except Exception:
+        logger.exception("Failed to load external provider presets")
+
     yield
 
     # 关闭 ARQ 连接池与 Redis

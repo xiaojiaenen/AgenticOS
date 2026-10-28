@@ -406,6 +406,28 @@ class WorkerSettings:
     # 健康检查
     health_check_interval = 30
 
+    @staticmethod
+    async def on_startup(ctx: dict) -> None:
+        """worker 进程启动钩子。
+
+        worker 不走 backend 的 FastAPI lifespan，需要在这里单独初始化
+        那些「每个进程都要有一份」的全局状态：
+
+        - **外部厂商预设**：PPT 导出等任务在 worker 里跑，如果预设没加载，
+          worker 解析 provider 时会拿不到 base_url / 模型名。
+        """
+        import logging
+
+        _log = logging.getLogger("agenticos.worker")
+        try:
+            from app.services.llm_providers.presets import load_external_presets
+
+            loaded = load_external_presets()
+            if loaded:
+                _log.info("外部厂商预设已加载：%s", ", ".join(loaded))
+        except Exception:
+            _log.exception("Failed to load external provider presets")
+
 
 # ---------------------------------------------------------------------------
 # 任务提交辅助函数
