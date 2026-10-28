@@ -103,6 +103,50 @@ export async function getUserRoles(userId: number): Promise<UserRoleInfo> {
 }
 
 // ---------------------------------------------------------------------------
+// 授权目录：把策略里的内部标识翻成人话
+// ---------------------------------------------------------------------------
+
+export interface CatalogOption {
+  value: string;
+  label: string;
+}
+
+export interface CatalogSubject {
+  sub: string;
+  label: string;
+  kind: 'role' | 'user' | string;
+  description: string;
+}
+
+export interface CatalogResource {
+  obj: string;
+  label: string;
+  /** feature = 功能级（推荐）；resource = 实例级（逐条控制） */
+  kind: 'feature' | 'resource' | string;
+  resource_type: string;
+  resource_id: string;
+  description: string;
+}
+
+export interface PermissionCatalog {
+  resource_types: CatalogOption[];
+  actions: CatalogOption[];
+  subjects: CatalogSubject[];
+  resources: CatalogResource[];
+  domain: string;
+}
+
+/**
+ * 策略编辑器可选项。
+ *
+ * 后端把 Casbin 的内部标识（`kb:12`、`user:3`、角色 slug）连同人类可读的
+ * 名字一起返回，前端只做选择 —— 手写这些字符串等于要求管理员记住主键。
+ */
+export async function getPermissionCatalog(): Promise<PermissionCatalog> {
+  return apiFetch<PermissionCatalog>(`${BASE}/permissions/catalog`, {}, '加载授权目录失败');
+}
+
+// ---------------------------------------------------------------------------
 // Audit logs
 // ---------------------------------------------------------------------------
 

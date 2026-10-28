@@ -253,6 +253,163 @@ def delete_policy(
     return {"ok": True}
 
 
+# ---------------------------------------------------------------------------
+# 授权目录：把「资源 / 动作 / 主体」变成可选项
+# ---------------------------------------------------------------------------
+
+
+class GrantableResource(BaseModel):
+    """一条可授权的对象。
+
+    ``obj`` 就是策略里该填的值。``kind`` 区分两类：
+
+    - ``feature``：功能级（``feature:build_website``）—— 授权说的是「能用这个
+      功能」，而不是「能操作某个资源实例」。这是推荐的授权粒度；
+    - ``resource``：实例级（``kb:12``）—— 仅用于需要逐条控制的场景（某个知识库
+      只给某个角色看）。
+    """
+
+    obj: str
+    label: str
+    kind: str
+    resource_type: str
+    resource_id: str
+    description: str = ""
+
+
+class SubjectOption(BaseModel):
+    """可被授权的主体。``sub`` 就是策略里该填的值。"""
+
+    sub: str
+    label: str
+    kind: str  # role | user
+    description: str = ""
+
+
+class PermissionCatalog(BaseModel):
+    """策略编辑器需要的全部选项。
+
+    为什么要这个接口：策略里的 ``sub`` / ``obj`` 是 Casbin 的内部标识
+    （``feature:build_website``、``user:3``、角色 slug），让管理员手写这些
+    字符串等于要求他记住数据库主键。这里把它们翻成「功能名 / 用户邮箱」，
+    前端只做选择。
+    """
+
+    resource_types: list[dict[str, str]]
+    actions: list[dict[str, str]]
+    subjects: list[SubjectOption]
+    resources: list[GrantableResource]
+    domain: str
+
+
+# 功能级授权项：以「能做什么」为单位，而不是「哪个对象」。
+#
+# 这是本系统推荐的授权粒度 —— 管理员想表达的是「这个角色能构建网站」，
+# 而不是「这个角色能操作 skill:1」。后者既难理解，也会在新增一个技能时
+# 需要重新授权一次。
+FEATURE_GRANTS: tuple[tuple[str, str, str], ...] = (
+    ("build_website", "构建网站（npm install + build）", "网站智能体的构建能力"),
+    ("deploy_website", "部署网站（需审批）", "把构建产物发布到 nginx"),
+    ("manage_skills", "管理技能", "新建 / 编辑 / 删除技能"),
+    ("run_skill", "运行技能脚本", "执行 Skill 里的 Python 脚本"),
+    ("manage_knowledge", "管理知识库", "创建 / 编辑知识库与文档"),
+    ("read_knowledge", "读取知识库", "检索与阅读知识库内容"),
+    ("manage_agents", "管理智能体", "创建 / 编辑智能体配置"),
+    ("use_agents", "使用智能体", "在对话里选用智能体"),
+    ("manage_users", "管理用户", "创建 / 停用 / 删除用户"),
+    ("manage_providers", "管理 AI 提供商", "配置大模型后端与 Key"),
+    ("manage_integrations", "管理第三方集成", "配置外部系统与 API"),
+    ("manage_mcp", "管理 MCP 服务器", "注册 / 连接 MCP 服务"),
+    ("view_audit", "查看审计日志", "查询权限与操作审计"),
+)
+
+
+@router.get("/permissions/catalog", response_model=PermissionCatalog)
+def get_permission_catalog(
+    db: Session = Depends(get_db),
+    _: UserModel = Depends(require_admin),
+):
+    """列出策略编辑器可选的授权项、动作、主体与实例资源。"""
+    from app.db.models import KnowledgeBaseModel
+    from app.services.permission_service import GLOBAL_DOMAIN
+
+    roles = db.scalars(select(RoleModel).order_by(RoleModel.is_builtin.desc(), RoleModel.slug)).all()
+    users = db.scalars(select(UserModel).order_by(UserModel.id).limit(500)).all()
+
+    subjects: list[SubjectOption] = [
+        SubjectOption(
+            sub=role.slug,
+            label=f"{role.name}（角色）",
+            kind="role",
+            description=role.description or "",
+        )
+        for role in roles
+    ]
+    subjects.extend(
+        SubjectOption(
+            sub=f"user:{user.id}",
+            label=f"{user.email}（用户）",
+            kind="user",
+            description=f"#{user.id} · {user.role}",
+        )
+        for user in users
+    )
+
+    resources: list[GrantableResource] = [
+        GrantableResource(
+            obj="*",
+            label="全部功能（通配）",
+            kind="feature",
+            resource_type="*",
+            resource_id="*",
+            description="仅建议给 admin 类角色",
+        )
+    ]
+    for key, label, description in FEATURE_GRANTS:
+        resources.append(
+            GrantableResource(
+                obj=f"feature:{key}",
+                label=label,
+                kind="feature",
+                resource_type="feature",
+                resource_id=key,
+                description=description,
+            )
+        )
+    # 实例级：只在需要逐条控制时用（例如某个知识库只开放给一个角色）
+    for kb in db.scalars(select(KnowledgeBaseModel).order_by(KnowledgeBaseModel.id)).all():
+        resources.append(
+            GrantableResource(
+                obj=f"kb:{kb.id}",
+                label=f"知识库：{kb.name}",
+                kind="resource",
+                resource_type="kb",
+                resource_id=str(kb.id),
+                description=kb.description or "实例级授权（逐条控制）",
+            )
+        )
+
+    return PermissionCatalog(
+        resource_types=[
+            {"value": "feature", "label": "功能（推荐）"},
+            {"value": "kb", "label": "知识库实例"},
+            {"value": "skill", "label": "技能实例"},
+            {"value": "agent_profile", "label": "智能体实例"},
+            {"value": "*", "label": "全部"},
+        ],
+        actions=[
+            {"value": "read", "label": "读取 / 使用"},
+            {"value": "write", "label": "创建 / 修改"},
+            {"value": "delete", "label": "删除"},
+            {"value": "admin", "label": "管理（含授权）"},
+            {"value": "*", "label": "全部动作"},
+        ],
+        subjects=subjects,
+        resources=resources,
+        domain=GLOBAL_DOMAIN,
+    )
+
+
 @router.get("/permissions/roles/{user_id}")
 def get_user_roles(
     user_id: int,

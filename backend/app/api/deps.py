@@ -63,6 +63,38 @@ def require_admin(user: UserModel = Depends(get_current_user)) -> UserModel:
 # ---------------------------------------------------------------------------
 
 
+def require_feature(action: str, feature: str):
+    """功能级鉴权依赖工厂。
+
+    这是本系统推荐的授权粒度：策略里写 ``p, <角色>, *, feature:build_website, write``
+    表示「这个角色能用构建网站这个功能」，而不是「能操作某个 skill 实例」。
+
+    与 ``require_permission`` 的区别：功能级没有资源实例，``obj`` 恒为
+    ``feature:<name>``，因此不需要 resolver，也不会因为新增一个实例而失效。
+
+    管理员仍然直接放行（``enforce_for_user`` 里的 admin 短路），这与
+    ``require_admin`` 的既有语义一致。
+
+    Args:
+        action: read / write / delete / admin（read 表示「使用」）
+        feature: 功能标识，与 ``FEATURE_GRANTS`` 里的键一致
+    """
+    from app.services.permission_service import get_permission_service
+
+    def _dependency(
+        user: UserModel = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> UserModel:
+        if not get_permission_service().enforce_for_user(user, action, "feature", feature):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied: feature:{feature} ({action})",
+            )
+        return user
+
+    return _dependency
+
+
 def require_permission(
     action: str,
     resource_type: str,

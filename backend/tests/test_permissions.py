@@ -23,6 +23,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from fastapi import Depends
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
@@ -481,3 +482,122 @@ def test_oidc_upsert_creates_then_updates_without_touching_password() -> None:
         assert user2.id == user_id
         assert user2.name == "Second"
         assert user2.password_hash == first_hash
+
+
+# ---------------------------------------------------------------------------
+# 授权目录：策略编辑器的可选项来源
+# ---------------------------------------------------------------------------
+
+
+def test_permission_catalog_lists_subjects_and_resources() -> None:
+    """目录接口把 Casbin 内部标识翻成人类可读的选项。
+
+    这是「新建策略要手写 kb:12 / user:3」这个可用性问题的后端一半：
+    没有它，前端只能让管理员去数据库里查主键。
+    """
+    admin_id, admin_email = _create_user(f"perm-cat-admin-{uuid4().hex}@example.com", role="admin")
+    plain_id, plain_email = _create_user(f"perm-cat-user-{uuid4().hex}@example.com")
+    admin_headers = _auth(admin_id, admin_email, "admin")
+
+    kb_name = f"目录测试库-{uuid4().hex[:6]}"
+    with create_db_session() as db:
+        kb = KnowledgeBaseModel(
+            name=kb_name,
+            slug=f"catalog-{uuid4().hex[:8]}",
+            description="用于目录接口",
+            owner_id=admin_id,
+            scope="org",
+            visibility="public",
+            settings_json="{}",
+            is_active=True,
+        )
+        db.add(kb)
+        db.commit()
+        kb_id = kb.id
+
+    # 非管理员拿不到目录（内部标识本身也是信息泄露）
+    assert client.get(
+        "/api/v1/permissions/catalog", headers=_auth(plain_id, plain_email)
+    ).status_code == 403
+
+    resp = client.get("/api/v1/permissions/catalog", headers=admin_headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+
+    # 主体里同时有角色与用户，且都带人类可读 label
+    subject_subs = {item["sub"] for item in body["subjects"]}
+    assert "admin" in subject_subs
+    assert f"user:{plain_id}" in subject_subs
+    assert any(item["kind"] == "role" for item in body["subjects"])
+    assert any(item["kind"] == "user" for item in body["subjects"])
+
+    # 资源里包含刚建的知识库，obj 就是策略里该填的值
+    resource_objs = {item["obj"] for item in body["resources"]}
+    assert "*" in resource_objs
+    assert f"kb:{kb_id}" in resource_objs
+    kb_entry = next(item for item in body["resources"] if item["obj"] == f"kb:{kb_id}")
+    # label 带「知识库：」前缀，用于在混合列表里区分实例级与功能级授权项
+    assert kb_name in kb_entry["label"]
+    assert kb_entry["resource_type"] == "kb"
+    assert kb_entry["kind"] == "resource"
+
+    # 功能级授权项（推荐的授权粒度）也要在目录里，且 kind 与实例级分开
+    feature_objs = {item["obj"] for item in body["resources"] if item["kind"] == "feature"}
+    assert "feature:build_website" in feature_objs
+    assert "feature:deploy_website" in feature_objs
+    assert "feature:manage_skills" in feature_objs
+
+    # 动作与域也随目录返回，前端不用自己硬编码
+    assert {"read", "write", "delete", "admin"} <= {item["value"] for item in body["actions"]}
+    assert body["domain"] == GLOBAL_DOMAIN
+
+
+# ---------------------------------------------------------------------------
+# 功能级授权（feature:<name>）
+# ---------------------------------------------------------------------------
+
+
+def test_require_feature_denies_until_granted() -> None:
+    """功能级授权要真的能拦人、也能放行 —— 不能只是目录里的一串选项。
+
+    这是「权限跟功能绑定」的核心：策略写 ``p, <角色>, *, feature:build_website, write``
+    表示「这个角色能用构建网站功能」。用依赖工厂跑一遍完整链路：
+    未授权 → 403；授权后 → 通过。
+    """
+    from app.api.deps import require_feature
+    from app.main import app
+
+    @app.get("/api/v1/_test/feature-build-website")
+    def _probe(user: UserModel = Depends(require_feature("write", "build_website"))):
+        return {"ok": True, "user": user.id}
+
+    plain_id, plain_email = _create_user(f"perm-feat-{uuid4().hex}@example.com")
+    admin_id, admin_email = _create_user(f"perm-feat-admin-{uuid4().hex}@example.com", role="admin")
+    headers = _auth(plain_id, plain_email)
+    admin_headers = _auth(admin_id, admin_email, "admin")
+
+    try:
+        # 未授权：普通用户被拒
+        assert client.get("/api/v1/_test/feature-build-website", headers=headers).status_code == 403
+        # 管理员不看策略表，直接放行
+        assert client.get("/api/v1/_test/feature-build-website", headers=admin_headers).status_code == 200
+
+        # 给普通用户建一个角色并授予功能，再挂到用户上
+        with create_db_session() as db:
+            role = RoleModel(name="建站员", slug=f"site_builder_{uuid4().hex[:6]}", is_active=True)
+            db.add(role)
+            db.commit()
+            role_slug = role.slug
+
+        service = get_permission_service()
+        assert service.add_named_policy("p", role_slug, "*", "feature:build_website", "write")
+        assert service.add_named_policy("g", f"user:{plain_id}", role_slug, GLOBAL_DOMAIN)
+        reset_permission_service()
+
+        assert client.get("/api/v1/_test/feature-build-website", headers=headers).status_code == 200
+    finally:
+        # 移除临时路由，避免污染其它用例
+        app.router.routes = [
+            r for r in app.router.routes
+            if getattr(r, "path", "") != "/api/v1/_test/feature-build-website"
+        ]

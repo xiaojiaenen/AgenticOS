@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, require_admin
+from app.api.deps import get_current_user, get_db, require_admin, require_feature
 from app.core.data_path import _parse_dir_name
 from app.db.models import UserModel
 from app.schemas.website import DeployDecisionRequest, DeployRequest
@@ -40,10 +40,14 @@ def _assert_can_deploy_project(project_slug: str, user: UserModel) -> None:
 def request_deploy(
     body: DeployRequest,
     http_request: Request,
-    user: UserModel = Depends(get_current_user),
+    user: UserModel = Depends(require_feature("write", "deploy_website")),
     db: Session = Depends(get_db),
 ):
-    """User requests website deployment."""
+    """User requests website deployment.
+
+    鉴权分两层：功能级（这个角色能不能用「部署网站」这个功能）+
+    行级（只能部署自己的项目）。前者由策略表决定，后者由目录名归属决定。
+    """
     _assert_can_deploy_project(body.project_slug, user)
     deploy = _service.request_deploy(
         session_id=body.session_id,
