@@ -67,6 +67,8 @@ data/*
 !data/design-themes/
 !data/design-systems/
 !data/skills/
+# 含企业邮箱域名规则，不入库
+data/skills/email-skill/
 !data/charts/
 !data/layouts/
 !data/website-templates/

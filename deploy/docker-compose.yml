@@ -6,7 +6,7 @@ x-backend-build: &backend-build
   dockerfile: deploy/Dockerfile.backend
   network: host
   args:
-    BASE_REGISTRY: ${BASE_REGISTRY:-172.73.0.156:85}
+    BASE_REGISTRY: ${BASE_REGISTRY:-docker.io}
     PYPI_MIRROR: ${PYPI_MIRROR:-https://pypi.org/simple}
 
 x-backend-env: &backend-env
@@ -48,7 +48,7 @@ x-backend-env: &backend-env
 
 services:
   backend:
-    image: ${IMAGE_REGISTRY:-172.73.0.156:85}/agenticos-backend:latest
+    image: ${IMAGE_REGISTRY:-docker.io}/agenticos-backend:latest
     build: *backend-build
     restart: always
     deploy:
@@ -96,7 +96,7 @@ services:
       start_period: 5s
 
   worker:
-    image: ${IMAGE_REGISTRY:-172.73.0.156:85}/agenticos-backend:latest
+    image: ${IMAGE_REGISTRY:-docker.io}/agenticos-backend:latest
     build: *backend-build
     restart: always
     command: ["arq", "app.services.task_queue.WorkerSettings"]
@@ -122,12 +122,12 @@ services:
         condition: service_healthy
 
   frontend:
-    image: ${IMAGE_REGISTRY:-172.73.0.156:85}/agenticos-frontend:latest
+    image: ${IMAGE_REGISTRY:-docker.io}/agenticos-frontend:latest
     build:
       context: ..
       dockerfile: deploy/Dockerfile.frontend
       args:
-        BASE_REGISTRY: ${BASE_REGISTRY:-172.73.0.156:85}
+        BASE_REGISTRY: ${BASE_REGISTRY:-docker.io}
     restart: always
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]

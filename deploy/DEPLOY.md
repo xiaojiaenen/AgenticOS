@@ -29,7 +29,7 @@
 
 - **Docker 20.10+** 和 **Docker Compose 2.0+**
 - **Node.js 22+**（仅本地打包前端时需要）
-- 能访问内网基础镜像仓库 `172.73.0.156:85`
+- 能拉取基础镜像（默认 Docker Hub；内网环境可通过 `BASE_REGISTRY` 指向私有仓库）
 
 ## 1. 初始化 MySQL 数据库
 
@@ -135,7 +135,7 @@ cd deploy
 docker compose up -d --build
 ```
 
-基础镜像自动从 `172.73.0.156:85` 拉取：
+基础镜像自动拉取（默认 Docker Hub，可用 `BASE_REGISTRY` 覆盖）：
 - `python:3.13-slim`
 - `nginx:1.27-alpine`
 
@@ -198,7 +198,7 @@ curl -I http://localhost:10008/
 |--------|--------|------|
 | CORS_ALLOW_ORIGINS | http://localhost:3001 | CORS 允许来源 |
 | SKILL_STORAGE_DIR | ./data/skills | Skill 存储目录 |
-| BASE_REGISTRY | 172.73.0.156:85 | 基础镜像仓库地址 |
+| BASE_REGISTRY | docker.io | 基础镜像仓库地址（内网可指向私有仓库） |
 | PYPI_MIRROR | https://pypi.org/simple | PyPI 镜像源 |
 | BACKEND_PORT | 10007 | 后端端口 |
 | FRONTEND_PORT | 10008 | 前端端口 |
@@ -305,7 +305,7 @@ print('配置完整' if s.notify_email_address and s.notify_smtp_host else '配�
 确认能访问内网仓库：
 
 ```bash
-curl http://172.73.0.156:85/v2/_catalog
+curl http://$BASE_REGISTRY/v2/_catalog
 ```
 
 ### 端口冲突

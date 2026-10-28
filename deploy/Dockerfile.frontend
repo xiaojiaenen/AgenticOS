@@ -1,4 +1,4 @@
-ARG BASE_REGISTRY=172.73.0.156:85
+ARG BASE_REGISTRY=docker.io
 FROM ${BASE_REGISTRY}/nginx:1.27-alpine
 
 # 本地已执行 npm run build，直接复制构建产物
