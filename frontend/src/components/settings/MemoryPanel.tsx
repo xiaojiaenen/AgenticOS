@@ -14,6 +14,8 @@ import { cn } from '../../lib/utils';
 import { Input } from '@/components/shadcn/input';
 import { Button } from '@/components/shadcn/button';
 import { Label } from '@/components/shadcn/label';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ListSkeleton } from '@/components/ui/Skeletons';
 import {
   Select,
   SelectContent,
@@ -21,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/shadcn/select';
+import { toastError } from '../../lib/errors';
 
 const MEMORY_TYPE_OPTIONS = [
   { value: 'fact', label: '事实' },
@@ -121,7 +124,7 @@ export const MemoryPanel: React.FC = () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'memories'] });
     },
     onError: (err: Error) => {
-      toast.error(err.message || '删除失败');
+      toast.error(toastError(err, '删除失败'));
       setDeleting(null);
     },
   });
@@ -134,7 +137,7 @@ export const MemoryPanel: React.FC = () => {
       setShowCreateForm(false);
       void queryClient.invalidateQueries({ queryKey: ['admin', 'memories'] });
     },
-    onError: (err: Error) => toast.error(err.message || '保存失败'),
+    onError: (err: Error) => toast.error(toastError(err, '保存失败')),
   });
 
   const handleDelete = (memoryId: number) => {
@@ -265,24 +268,42 @@ export const MemoryPanel: React.FC = () => {
       )}
 
       {memoriesQuery.isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 size={24} className="animate-spin text-[var(--muted-foreground)]" />
-        </div>
+        <ListSkeleton rows={4} columns={3} />
       ) : memoriesQuery.isError ? (
         <div
           className={cn(
-            'rounded-2xl border border-dashed border-rose-200 bg-rose-50 px-4 py-12 text-center',
-            'text-sm font-semibold text-rose-600',
+            'rounded-2xl border border-dashed border-rose-200 bg-rose-50 px-4 py-10 text-center dark:border-rose-500/40 dark:bg-rose-500/10',
+            'text-sm font-semibold text-rose-600 dark:text-rose-300',
           )}
         >
-          记忆加载失败，请刷新重试
+          <p>记忆加载失败</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() => void memoriesQuery.refetch()}
+          >
+            重新加载
+          </Button>
         </div>
       ) : filteredMemories.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-2)] px-4 py-12 text-center">
-          <Brain size={40} className="mx-auto mb-3 text-zinc-300" />
-          <p className="text-sm font-semibold text-[var(--muted-foreground)]">
-            {searchQuery ? '没有找到匹配的记忆' : '还没有记忆，AI 会在对话中自动学习'}
-          </p>
+        <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-2)]">
+          <EmptyState
+            icon={<Brain className="size-5" />}
+            title={searchQuery ? '没有找到匹配的记忆' : '还没有记忆'}
+            description={
+              searchQuery
+                ? '换个关键词试试，或清空搜索条件查看全部记忆。'
+                : 'AI 会在对话中自动学习你的偏好，也可以手动新建一条记忆。'
+            }
+            action={
+              searchQuery
+                ? { label: '清除搜索条件', onClick: () => setSearchQuery('') }
+                : isAdmin
+                  ? undefined
+                  : { label: '新建记忆', onClick: () => setShowCreateForm(true) }
+            }
+          />
         </div>
       ) : isAdmin && groupedByUser ? (
         // 管理员视图：按用户分组显示
