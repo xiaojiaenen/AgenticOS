@@ -81,4 +81,4 @@ export function ratio(value: number, total: number): number {
   return Math.max(0, Math.min(100, (value / total) * 100));
 }
 
-export const CHART_COLORS = ['#0f172a', '#0ea5e9', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e', '#14b8a6', '#6366f1'];
+export const CHART_COLORS = ['#6366f1', '#0ea5e9', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e', '#14b8a6', '#ec4899'];

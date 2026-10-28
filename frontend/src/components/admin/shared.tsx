@@ -3,7 +3,7 @@
  * 统一使用新设计 token（zinc 灰阶 + indigo 主色）。
  */
 import * as React from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function AdminPageHeader({
@@ -27,7 +27,7 @@ export function AdminPageHeader({
       )}
     >
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
           {kicker}
         </p>
         <h2 className="mt-1 text-xl font-semibold tracking-tight text-[var(--foreground)]">{title}</h2>
@@ -44,7 +44,8 @@ export function KpiPill({ label, value }: { label: string; value: React.ReactNod
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] shadow-sm">
       {label}
-      <span className="font-semibold text-[var(--foreground)]">{value}</span>
+      {/* tabular-nums：数值刷新时宽度固定，不会左右跳动 */}
+      <span className="font-semibold tabular-nums text-[var(--foreground)]">{value}</span>
     </span>
   );
 }
@@ -52,10 +53,10 @@ export function KpiPill({ label, value }: { label: string; value: React.ReactNod
 export type StatusTone = 'active' | 'inactive' | 'warning' | 'info';
 
 const STATUS_TONE_CLASS: Record<StatusTone, string> = {
-  active: 'border-emerald-200/80 bg-emerald-50 text-emerald-700',
+  active: 'border-emerald-200/80 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300',
   inactive: 'border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--muted-foreground)]',
-  warning: 'border-amber-200/80 bg-amber-50 text-amber-700',
-  info: 'border-zinc-200 bg-zinc-100 text-zinc-800',
+  warning: 'border-amber-200/80 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300',
+  info: 'border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--foreground)]',
 };
 
 export function StatusPill({
@@ -80,11 +81,44 @@ export function StatusPill({
   );
 }
 
-export function ErrorBanner({ message }: { message: string }) {
+/**
+ * 错误横幅。
+ *
+ * ``onRetry`` 是刻意加的：以前这个组件只渲染一句 message，页面上任何地方都
+ * 找不到恢复路径 —— 用户只能自己刷新整个页面。而列表页的请求本来就能重试，
+ * 一次网络抖动不该让人丢掉当前的操作上下文。
+ */
+export function ErrorBanner({
+  message,
+  onRetry,
+  retryLabel = '重试',
+  className,
+}: {
+  message: string;
+  onRetry?: () => void;
+  retryLabel?: string;
+  className?: string;
+}) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm font-medium text-rose-700">
+    <div
+      role="alert"
+      className={cn(
+        'flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm font-medium text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300',
+        className,
+      )}
+    >
       <AlertCircle size={16} className="shrink-0" />
       <span className="min-w-0 break-words">{message}</span>
+      {onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)] dark:text-red-200 dark:hover:bg-red-500/20"
+        >
+          <RefreshCw size={13} className="shrink-0" />
+          {retryLabel}
+        </button>
+      ) : null}
     </div>
   );
 }

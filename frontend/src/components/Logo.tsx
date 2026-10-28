@@ -12,7 +12,7 @@ import { MascotHappy } from './ui/AnimatedIcons';export const Logo = ({ classNam
           className={cn("absolute inset-0 blur-xl rounded-full", "bg-sky-400")}
         />
         <div className="relative z-10 transition-transform duration-200 group-hover:scale-110 group-active:scale-95">
-          <MascotHappy size={iconSize} className={"text-zinc-900"} />
+          <MascotHappy size={iconSize} className={"text-[var(--foreground)]"} />
         </div>
       </div>
       
@@ -28,7 +28,7 @@ import { MascotHappy } from './ui/AnimatedIcons';export const Logo = ({ classNam
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: i * 0.05, type: "spring", stiffness: 200 }}
-                  className={"text-zinc-900"}
+                  className={"text-[var(--foreground)]"}
                 >
                   {char}
                 </motion.span>

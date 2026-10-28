@@ -43,7 +43,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ variant = 'icon', clas
       type="button"
       onClick={toggleTheme}
       className={cn(
-        'flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition-all active:scale-95',
+        'flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all active:scale-95',
         'text-slate-500 hover:bg-white/60 hover:text-slate-700 hover:shadow-sm',
         className,
       )}

@@ -204,6 +204,13 @@
   --border-medium: rgba(9, 9, 11, 0.10);
   --border-strong: rgba(9, 9, 11, 0.15);
 
+  /* 吉祥物（mascot）主题色：脸部与五官
+     SVG 内部不能靠 currentColor 统一控制 —— 脸部是浅色、五官是深色，
+     两者都需要随明暗主题反转，所以单独给变量。 */
+  --mascot-face: #ffffff;
+  --mascot-ink: #0f172a;
+  --mascot-shine: #cbd5e1;
+
   /* Chat bubbles */
   --bubble-user: #18181b;
   --bubble-user-text: #ffffff;
@@ -229,6 +236,10 @@
   --border-subtle: rgba(250, 250, 250, 0.08);
   --border-medium: rgba(250, 250, 250, 0.12);
   --border-strong: rgba(250, 250, 250, 0.18);
+  --mascot-face: #27272a;
+  --mascot-ink: #e4e4e7;
+  --mascot-shine: #71717a;
+
   --bubble-user: #eef2ff;
   --bubble-user-text: #1e1b4b;
   --bubble-ai: rgba(24, 24, 27, 0.92);
@@ -256,8 +267,6 @@
 /* ===== Base ===== */
 html, body {
   @apply font-sans antialiased text-slate-800;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
 }
 
 .dark html, .dark body, html.dark body {
@@ -272,18 +281,19 @@ html.dark body {
   background: var(--surface-0);
 }
 
-::selection { background: rgba(99, 102, 241, 0.18); color: inherit; }
+/* 长页面保留可见滚动条：全局隐藏会让用户失去滚动进度感知。
+   仅 .custom-scrollbar / .visible-scrollbar 指定容器使用细滚动条样式。 */
 
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
-  display: none;
-}
+::selection { background: rgba(99, 102, 241, 0.18); color: inherit; }
 
 * {
   box-sizing: border-box;
 }
 
 /* ===== Admin Shared Classes ===== */
+/* 注：以下组件类统一放入 @layer components，避免裸规则压过 Tailwind
+   utilities（曾导致 DashboardCharts 的 bg-[linear-gradient(...)] 被静默覆盖）。 */
+@layer components {
 .admin-section-kicker {
   @apply text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400;
 }
@@ -362,6 +372,30 @@ body.admin-modal-open .admin-dashboard-shell > button {
   @apply relative z-10;
 }
 
+/* ===== 弹层骨架（供未迁移到 shadcn Dialog 的自绘弹层使用）=====
+   带 fixed 定位 / 遮罩 / 居中 / 滚动锁（配合 body.admin-modal-open）。
+   EmailSettingsPanel 等直接复用，避免"类名未定义 → 布局错乱"。 */
+.admin-modal-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(9, 9, 11, 0.45);
+  backdrop-filter: blur(4px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.admin-modal-panel {
+  max-height: calc(100dvh - 2rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* ===== Admin Sidebar Enhancement ===== */
 .admin-nav-item {
   @apply relative flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-all duration-200;
@@ -372,9 +406,19 @@ body.admin-modal-open .admin-dashboard-shell > button {
   box-shadow: 0 2px 8px rgba(9, 9, 11, 0.04);
 }
 
+.dark .admin-nav-item:hover {
+  background: rgba(250, 250, 250, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
 .admin-nav-item-active {
   background: #ffffff !important;
   box-shadow: 0 4px 16px rgba(9, 9, 11, 0.08) !important;
+}
+
+.dark .admin-nav-item-active {
+  background: #27272a !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
 }
 
 .admin-nav-icon {
@@ -452,6 +496,14 @@ body.admin-modal-open .admin-dashboard-shell > button {
   @apply font-semibold text-slate-800;
 }
 
+.prose a {
+  @apply text-sky-700 underline underline-offset-2;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-slate-200 pl-4 italic text-slate-600;
+}
+
 .prose table {
   @apply my-4 w-full border-collapse;
 }
@@ -471,6 +523,50 @@ body.admin-modal-open .admin-dashboard-shell > button {
 .prose tbody tr:last-child td {
   @apply border-b-0;
 }
+
+/* 暗色主题 Markdown：默认 prose 规则写死 slate 系浅色，暗色下正文对比度
+   低至 ~1.7:1（聊天 / 后台会话详情都中招）。这里按 token 反转。 */
+.dark .prose p {
+  color: #d4d4d8; /* zinc-300 */
+}
+
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4 {
+  color: #fafafa;
+}
+
+.dark .prose strong {
+  color: #fafafa;
+}
+
+.dark .prose a {
+  color: #a5b4fc; /* indigo-300 */
+}
+
+.dark .prose blockquote {
+  border-color: #3f3f46;
+  color: #a1a1aa;
+}
+
+.dark .prose th {
+  border-color: rgba(250, 250, 250, 0.14);
+  color: #a1a1aa;
+}
+
+.dark .prose td {
+  border-color: rgba(250, 250, 250, 0.08);
+}
+
+.dark .prose pre {
+  border-color: rgba(250, 250, 250, 0.12);
+}
+
+.dark .prose hr {
+  border-color: rgba(250, 250, 250, 0.12);
+}
+} /* @layer components */
 
 /* ===== Custom Scrollbar (thin, subtle) ===== */
 .custom-scrollbar {
@@ -514,13 +610,13 @@ body.admin-modal-open .admin-dashboard-shell > button {
 }
 
 .visible-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(90deg, rgba(113, 113, 122, 0.85), rgba(79, 70, 229, 0.75));
+  background: rgba(113, 113, 122, 0.55);
   border-radius: 9999px;
   border: 2px solid rgba(228, 228, 231, 0.75);
 }
 
 .visible-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(90deg, rgba(82, 82, 91, 0.95), rgba(67, 56, 202, 0.85));
+  background: rgba(82, 82, 91, 0.75);
 }
 
 /* ===== KaTeX ===== */
@@ -530,6 +626,24 @@ body.admin-modal-open .admin-dashboard-shell > button {
 
 .katex {
   @apply text-slate-800;
+}
+
+.dark .katex-display {
+  border-color: rgba(250, 250, 250, 0.1);
+  background: rgba(24, 24, 27, 0.6);
+}
+
+.dark .katex {
+  color: #e4e4e7;
+}
+
+.dark .katex .mord,
+.dark .katex .mbin,
+.dark .katex .mrel,
+.dark .katex .mopen,
+.dark .katex .mclose,
+.dark .katex .mpunct {
+  color: #e4e4e7;
 }
 
 /* Ambient background blobs — each with unique movement character */

@@ -28,14 +28,38 @@ const AdminDashboard = lazy(() =>
 );
 
 const LoadingPage = () => (
-  <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-zinc-50">
+  <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-[var(--surface-0)]">
     <motion.div
       animate={{ rotate: 360 }}
       transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-      className="h-8 w-8 rounded-full border-4 border-brand-500 border-t-transparent"
+      className="h-8 w-8 rounded-full border-4 border-[var(--border-strong)] border-t-[var(--foreground)]"
     />
-    <p className="text-sm font-medium text-slate-400">正在加载页面...</p>
+    <p className="text-sm font-medium text-[var(--muted-foreground)]">正在加载页面...</p>
   </div>
+);
+
+const NotFoundPage = () => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+    className="flex h-screen flex-col items-center justify-center gap-4 bg-[var(--surface-0)] px-6 text-center"
+  >
+    <p className="text-7xl font-semibold tracking-tight text-[var(--muted-foreground)]/50">404</p>
+    <div className="space-y-1">
+      <p className="text-lg font-semibold text-[var(--foreground)]">页面未找到</p>
+      <p className="max-w-sm text-sm text-[var(--muted-foreground)]">
+        这个地址可能已经失效，或者链接输入有误。
+      </p>
+    </div>
+    <Link
+      to="/"
+      className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
+    >
+      返回首页
+    </Link>
+  </motion.div>
 );
 
 const AnimatedRoutes = () => {
@@ -45,27 +69,17 @@ const AnimatedRoutes = () => {
     <Suspense fallback={<LoadingPage />}>
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<Home />} />
-          <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-          <Route path="/agents" element={<ProtectedRoute><AgentStore /></ProtectedRoute>} />
-          <Route path="/agents/new" element={<ProtectedRoute><AgentEditor /></ProtectedRoute>} />
-          <Route path="/agents/:profileId/edit" element={<ProtectedRoute><AgentEditor /></ProtectedRoute>} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
-          <Route path="*" element={
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="flex h-screen flex-col items-center justify-center gap-4 bg-zinc-50 text-slate-600"
-            >
-              <p className="text-6xl font-semibold text-slate-400">404</p>
-              <p className="text-lg font-semibold">页面未找到</p>
-              <Link to="/" className="text-sm font-medium text-sky-600 hover:text-sky-700 underline underline-offset-4">返回首页</Link>
-            </motion.div>
-          } />
+          {/* 每个路由单独包一层错误边界：单个页面崩了不该把整个应用（含导航）
+              一起替换成错误页，用户还能换个页面继续用。 */}
+          <Route path="/" element={<ErrorBoundary key={`home-${location.pathname}`} title="首页出错了"><Home /></ErrorBoundary>} />
+          <Route path="/chat" element={<ProtectedRoute><ErrorBoundary key={`chat-${location.pathname}`} title="对话页出错了"><Chat /></ErrorBoundary></ProtectedRoute>} />
+          <Route path="/agents" element={<ProtectedRoute><ErrorBoundary key={`agents-${location.pathname}`} title="智能体商店出错了"><AgentStore /></ErrorBoundary></ProtectedRoute>} />
+          <Route path="/agents/new" element={<ProtectedRoute><ErrorBoundary key={`agent-new-${location.pathname}`} title="智能体编辑器出错了"><AgentEditor /></ErrorBoundary></ProtectedRoute>} />
+          <Route path="/agents/:profileId/edit" element={<ProtectedRoute><ErrorBoundary key={`agent-edit-${location.pathname}`} title="智能体编辑器出错了"><AgentEditor /></ErrorBoundary></ProtectedRoute>} />
+          <Route path="/login" element={<ErrorBoundary key={`login-${location.pathname}`} title="登录页出错了"><Login /></ErrorBoundary>} />
+          <Route path="/signup" element={<ErrorBoundary key={`signup-${location.pathname}`} title="注册页出错了"><Signup /></ErrorBoundary>} />
+          <Route path="/admin" element={<ProtectedRoute requireAdmin><ErrorBoundary key={`admin-${location.pathname}`} title="管理后台出错了"><AdminDashboard /></ErrorBoundary></ProtectedRoute>} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </AnimatePresence>
     </Suspense>

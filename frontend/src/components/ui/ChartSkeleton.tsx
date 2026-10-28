@@ -7,7 +7,14 @@ interface ChartSkeletonProps {
   height?: number;
 }
 
-/** Skeleton placeholder for dashboard charts while data loads. */
+/**
+ * 图表骨架屏。
+ *
+ * 之前全部硬编码 `bg-slate-200` / `bg-slate-100`，暗色主题下是刺眼亮白块 ——
+ * 和深色背景割裂，看起来像「图渲染坏了」而不是「还在加载」。
+ * 现在统一走 shadcn 的 `bg-accent`（跟随主题令牌），与 `shadcn/skeleton.tsx`
+ * 使用同一套语义。
+ */
 export const ChartSkeleton: React.FC<ChartSkeletonProps> = ({
   className,
   variant = 'area',
@@ -16,9 +23,9 @@ export const ChartSkeleton: React.FC<ChartSkeletonProps> = ({
   if (variant === 'stat') {
     return (
       <div className={cn('animate-pulse space-y-3 p-4', className)}>
-        <div className="h-3 w-24 rounded bg-slate-200" />
-        <div className="h-7 w-16 rounded bg-slate-200" />
-        <div className="h-2 w-32 rounded bg-slate-100" />
+        <div className="h-3 w-24 rounded bg-accent" />
+        <div className="h-7 w-16 rounded bg-accent" />
+        <div className="h-2 w-32 rounded bg-accent/60" />
       </div>
     );
   }
@@ -26,12 +33,12 @@ export const ChartSkeleton: React.FC<ChartSkeletonProps> = ({
   if (variant === 'pie') {
     return (
       <div className={cn('flex items-center justify-center animate-pulse', className)} style={{ height }}>
-        <div className="h-32 w-32 rounded-full bg-slate-200" />
+        <div className="h-32 w-32 rounded-full bg-accent" />
         <div className="ml-6 space-y-2">
           {[1, 2, 3].map((i) => (
             <div key={i} className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded bg-slate-200" />
-              <div className="h-3 rounded bg-slate-200" style={{ width: 60 + i * 12 }} />
+              <div className="h-3 w-3 rounded bg-accent" />
+              <div className="h-3 rounded bg-accent" style={{ width: 60 + i * 12 }} />
             </div>
           ))}
         </div>
@@ -43,7 +50,7 @@ export const ChartSkeleton: React.FC<ChartSkeletonProps> = ({
     return (
       <div className={cn('flex items-end gap-2 animate-pulse px-4', className)} style={{ height }}>
         {[40, 65, 50, 80, 55, 70, 45].map((h, i) => (
-          <div key={i} className="flex-1 rounded-t bg-slate-200" style={{ height: `${h}%` }} />
+          <div key={i} className="flex-1 rounded-t bg-accent" style={{ height: `${h}%` }} />
         ))}
       </div>
     );
@@ -54,7 +61,7 @@ export const ChartSkeleton: React.FC<ChartSkeletonProps> = ({
     <div className={cn('animate-pulse', className)} style={{ height }}>
       <div className="flex items-end h-full gap-1 px-2">
         {[30, 45, 35, 60, 50, 70, 55, 65, 40, 50, 60, 45].map((h, i) => (
-          <div key={i} className="flex-1 rounded-t bg-gradient-to-t from-slate-200 to-slate-100" style={{ height: `${h}%` }} />
+          <div key={i} className="flex-1 rounded-t bg-accent/70" style={{ height: `${h}%` }} />
         ))}
       </div>
     </div>

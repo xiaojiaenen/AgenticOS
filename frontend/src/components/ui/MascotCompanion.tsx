@@ -425,7 +425,7 @@ export const MascotCompanion: React.FC<MascotCompanionProps> = ({ phase, label, 
           key={text}
           initial={{ opacity: 0, y: 3 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-sm font-bold tracking-wide"
+          className="text-sm font-semibold tracking-wide"
           style={{ color: c.body }}
         >
           {text}

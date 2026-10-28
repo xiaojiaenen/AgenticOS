@@ -77,7 +77,7 @@ export const MascotState: React.FC<MascotStateProps> = ({
           key={label}
           initial={{ opacity: 0, x: -4 }}
           animate={{ opacity: 1, x: 0 }}
-          className="text-xs font-bold text-slate-500 whitespace-nowrap"
+          className="text-xs font-semibold text-slate-500 whitespace-nowrap"
         >
           {label}
         </motion.span>
