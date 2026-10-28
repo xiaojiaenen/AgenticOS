@@ -199,25 +199,25 @@ class ResumeService:
             _logger.info("Checkpoint cleared: session=%s", session_id)
 
     def _find_session_dir(self, session_id: str) -> Optional[Path]:
-        """查找会话目录
+        """返回会话的幻灯片目录（会话工作区下的 slides/）。
 
-        参数:
-            session_id: 会话 ID
-
-        返回:
-            会话目录路径
+        统一到工作区后不再需要「扫目录猜匹配」，路径是确定性的。
+        旧路径 ``data/ppt-sessions/`` 作为兼容回退保留：历史会话的
+        checkpoint 可能还留在那里。
         """
+        from app.core.data_path import PPT_SESSIONS_DIR, get_current_user_id, slides_dir
+
+        new_dir = slides_dir(get_current_user_id() or 0, session_id)
+        if new_dir.exists():
+            return new_dir
+
         if not PPT_SESSIONS_DIR.exists():
             return None
-
-        # 查找匹配的目录
         for child in sorted(PPT_SESSIONS_DIR.iterdir()):
             if not child.is_dir():
                 continue
-            # 格式: u<user_id>_s<session_id>_v<N>
             if f"_s{session_id}_" in child.name or child.name.endswith(f"_s{session_id}"):
                 return child
-
         return None
 
 

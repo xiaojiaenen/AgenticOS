@@ -1,24 +1,11 @@
 from wuwei.tools import ToolRegistry
 
-from app.core.data_path import PPT_SESSIONS_DIR, get_current_session_id, get_current_user_id
+from app.core.data_path import current_slides_dir
 
 
 def _find_slides_dir():
-    """Resolve the current session's slides directory using versioned naming."""
-    from app.core.data_path import _parse_dir_name
-    session_id = get_current_session_id()
-    if not session_id:
-        return None
-    user_id = get_current_user_id()
-    if not PPT_SESSIONS_DIR.exists():
-        return None
-    for child in sorted(PPT_SESSIONS_DIR.iterdir()):
-        if not child.is_dir():
-            continue
-        parsed = _parse_dir_name(child.name)
-        if parsed and parsed[0] == user_id and parsed[1] == session_id:
-            return child
-    return None
+    """当前会话的幻灯片目录（会话工作区下的 slides/）。"""
+    return current_slides_dir()
 
 
 def register_quality_checker_tools(registry: ToolRegistry) -> None:

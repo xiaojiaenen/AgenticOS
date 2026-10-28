@@ -4,10 +4,9 @@ from pathlib import Path as _Path
 from wuwei.tools import ToolRegistry
 
 from app.core.data_path import (
-    PPT_SESSIONS_DIR,
     get_current_session_id,
     get_current_user_id,
-    next_version_dir,
+    slides_dir as _slides_dir_for,
 )
 
 
@@ -40,20 +39,9 @@ def _convert_pptx_sync(file_path: str) -> str:
         session_id = get_current_session_id()
         imported_count = 0
         if session_id:
-            # Find or create versioned slides dir (same logic as ppt_tools)
-            slides_dir = None
+            # 目录由会话工作区确定性算出
             user_id = get_current_user_id()
-            if PPT_SESSIONS_DIR.exists():
-                for child in sorted(PPT_SESSIONS_DIR.iterdir()):
-                    if not child.is_dir():
-                        continue
-                    parts = child.name.split("_v", 1)
-                    if len(parts) == 2 and parts[0] == f"u{user_id}_s{session_id}":
-                        slides_dir = child
-                        break
-            if slides_dir is None:
-                slides_dir = next_version_dir(PPT_SESSIONS_DIR, user_id, session_id)
-            slides_dir.mkdir(parents=True, exist_ok=True)
+            slides_dir = _slides_dir_for(user_id, session_id, create=True)
             for slide in result.slides:
                 slide_file = slides_dir / f"slide_{slide.index}.svg"
                 slide_file.write_text(slide.svg, encoding="utf-8")

@@ -27,8 +27,19 @@ _VERSION_DIR_RE = _SHEET_DIR_RE
 _logger = logging.getLogger("agent.stream")
 
 
+def _json_default(obj: Any) -> Any:
+    """SSE 负载兜底序列化：wuwei 3.2+ 的事件里可能携带 ActionLog 等 dataclass 对象。"""
+    import dataclasses
+
+    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+        return dataclasses.asdict(obj)
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump()
+    return str(obj)
+
+
 def _format_sse(event: str, data: dict[str, Any]) -> str:
-    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=_json_default)}\n\n"
 
 
 # SVG 安全净化：按标签/属性白名单移除危险内容，避免拼接进 HTML 后产生存储型 XSS。
@@ -960,7 +971,6 @@ async def get_ppt_slides(
 ):
     """Return SVG content of all slides for a session. Used for real-time preview."""
     import re
-    from app.core.data_path import PPT_SESSIONS_DIR
 
     # 会话归属校验：非本人（且非管理员）不得读取该会话的幻灯片
     try:
@@ -970,21 +980,12 @@ async def get_ppt_slides(
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
-    # Find the slides directory for this session
-    def _find_slides_dir():
-        if not PPT_SESSIONS_DIR.exists():
-            return None
-        for child in sorted(PPT_SESSIONS_DIR.iterdir()):
-            if not child.is_dir():
-                continue
-            parts = child.name.split("_v", 1)
-            if len(parts) == 2 and parts[0] == f"u{current_user.id}_s{session_id}":
-                return child
-        return None
+    # 幻灯片目录由会话工作区确定性算出：<workspaces>/u<uid>/s<sid>/slides
+    from app.core.data_path import slides_dir as _slides_dir_for
 
-    slides_dir = await asyncio.to_thread(_find_slides_dir)
+    slides_dir = _slides_dir_for(current_user.id, session_id)
 
-    if slides_dir is None or not slides_dir.exists():
+    if not slides_dir.exists():
         return {"slides": []}
 
     slides = []

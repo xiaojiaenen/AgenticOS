@@ -29,20 +29,24 @@ class TestMultiAgentPptService:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             from app.core import data_path
-            original_dir = data_path.PPT_SESSIONS_DIR
-            data_path.PPT_SESSIONS_DIR = Path(tmpdir)
+            # 幻灯片目录已并入会话工作区：<WORKSPACES_DIR>/u<uid>/s<sid>/slides。
+            # 隔离点从 PPT_SESSIONS_DIR 换成 WORKSPACES_DIR。
+            original_dir = data_path.WORKSPACES_DIR
+            data_path.WORKSPACES_DIR = Path(tmpdir)
 
             try:
                 svc = MultiAgentPptService()
                 result = await svc._save_slide("test-session", 1, "<svg>test</svg>")
 
                 assert result is True
-                # Implementation writes into a versioned dir u{uid}_s{session}_v{n}
                 matches = list(Path(tmpdir).rglob("slide_1.svg"))
                 assert matches, f"slide_1.svg not found under {tmpdir}: {list(Path(tmpdir).rglob('*'))}"
                 assert matches[0].read_text(encoding="utf-8") == "<svg>test</svg>"
+                # 路径应落在 <uid>/s<sid>/slides 下
+                assert matches[0].parent.name == "slides"
+                assert matches[0].parent.parent.name.startswith("s")
             finally:
-                data_path.PPT_SESSIONS_DIR = original_dir
+                data_path.WORKSPACES_DIR = original_dir
 
 
 class TestPptPipeline:

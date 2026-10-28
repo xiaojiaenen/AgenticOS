@@ -124,7 +124,7 @@ class PptPipeline:
         _logger.info(f"Generating {len(state.pages)} slides...")
 
         from wuwei.core.message import SystemMessage, HumanMessage
-        from app.core.data_path import PPT_SESSIONS_DIR, next_version_dir, _parse_dir_name, get_current_user_id
+        from app.core.data_path import current_slides_dir
 
         llm = build_llm_optional(role="chat", purpose="PPT 幻灯片生成")
         if llm is None:
@@ -132,20 +132,11 @@ class PptPipeline:
             return state
         svgs = []
 
-        # 查找或创建正确格式的目录
-        slides_dir = None
-        if PPT_SESSIONS_DIR.exists():
-            for child in PPT_SESSIONS_DIR.iterdir():
-                if not child.is_dir():
-                    continue
-                parsed = _parse_dir_name(child.name)
-                if parsed and str(parsed[1]) == state.session_id:
-                    slides_dir = child
-                    break
+        # 目录由会话工作区确定性算出（不再扫目录/递增版本号）
+        slides_dir = current_slides_dir(create=True)
         if slides_dir is None:
-            user_id = get_current_user_id() or 0
-            slides_dir = next_version_dir(PPT_SESSIONS_DIR, user_id, state.session_id)
-        slides_dir.mkdir(parents=True, exist_ok=True)
+            state.error = "无法解析会话工作区，无法写入幻灯片"
+            return state
 
         for i, page in enumerate(state.pages):
             try:

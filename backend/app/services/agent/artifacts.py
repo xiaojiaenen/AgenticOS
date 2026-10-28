@@ -17,7 +17,6 @@ from typing import Any
 from app.core.data_path import (
     DATA_DIR,
     DOCUMENTS_DIR,
-    PPT_SESSIONS_DIR,
     SHEETS_DIR,
     WEBSITES_DIR,
     _parse_dir_name,
@@ -36,30 +35,13 @@ class ArtifactFactory:
 
     async def _create_ppt_artifact(self, session_id: str) -> dict[str, Any] | None:
         """Create a PPT artifact from saved slides in the session work directory."""
-        from app.core.data_path import next_version_dir
+        from app.core.data_path import get_current_user_id, slides_dir
 
-        # Find the latest versioned directory for this session.
-        # Directory naming: u{user_id}_s{session_id}_v{version}
-        def _find_slides_dir():
-            _slides_dir = None
-            max_ver = 0
-            if PPT_SESSIONS_DIR.exists():
-                for child in PPT_SESSIONS_DIR.iterdir():
-                    if not child.is_dir():
-                        continue
-                    parsed = _parse_dir_name(child.name)
-                    if parsed and str(parsed[1]) == session_id:
-                        if parsed[2] > max_ver:
-                            max_ver = parsed[2]
-                            _slides_dir = child
-            return _slides_dir
-
-        _slides_dir = await asyncio.to_thread(_find_slides_dir)
-        if _slides_dir is None:
-            # 使用正确的命名格式，而不是直接使用 session_id
-            from app.core.data_path import get_current_user_id
-            user_id = get_current_user_id() or 0
-            _slides_dir = next_version_dir(PPT_SESSIONS_DIR, user_id, session_id)
+        # 目录由会话工作区确定性算出：<workspaces>/u<uid>/s<sid>/slides
+        user_id = get_current_user_id() or 0
+        _slides_dir = await asyncio.to_thread(
+            slides_dir, user_id, session_id, create=True
+        )
         try:
             artifact = await self.ppt_artifacts.create_from_slides_dir(session_id, _slides_dir)
             if artifact is not None:
@@ -370,24 +352,10 @@ class ArtifactFactory:
                 return None
             title = artifact.get("title", "未命名")
             slide_count = artifact.get("slide_count", 0)
-            # 查找正确的目录（u{user_id}_s{session_id}_v{version} 格式）
-            from app.core.data_path import _parse_dir_name
+            # 目录由会话工作区确定性算出
+            from app.core.data_path import get_current_user_id, slides_dir as _slides_dir_for
 
-            def _find_slides_dir():
-                slides_dir = None
-                if PPT_SESSIONS_DIR.exists():
-                    for child in PPT_SESSIONS_DIR.iterdir():
-                        if not child.is_dir():
-                            continue
-                        parsed = _parse_dir_name(child.name)
-                        if parsed and str(parsed[1]) == session_id:
-                            slides_dir = child
-                            break
-                return slides_dir
-
-            slides_dir = await asyncio.to_thread(_find_slides_dir)
-            if slides_dir is None:
-                slides_dir = PPT_SESSIONS_DIR / session_id  # fallback
+            slides_dir = _slides_dir_for(get_current_user_id() or 0, session_id)
             svg_files = sorted(slides_dir.glob("slide_*.svg"),
                                 key=lambda p: int(p.stem.replace("slide_", ""))) if slides_dir.exists() else []
             file_list = "\n".join(

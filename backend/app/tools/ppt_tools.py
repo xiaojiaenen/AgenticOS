@@ -7,28 +7,31 @@ from pathlib import Path
 from wuwei.tools import ToolRegistry
 
 from app.core.data_path import (
-    PPT_SESSIONS_DIR,
+    current_slides_dir,
     get_current_session_id,
     get_current_user_id,
-    next_version_dir,
 )
 
 # ---------------------------------------------------------------------------
 # slides directory — uses versioned naming: u<user_id>_s<session_id>_v<N>
 # ---------------------------------------------------------------------------
-_slides_dir_cache: Path | None = None
+# session_id -> slides dir。按会话分键，避免跨用户串台。
+_slides_dir_cache: dict[str, Path] = {}
 _pending_slide_plan: list[dict] | None = None
 _spec_lock_summary: str = ""
 
 
-def reset_slides_dir_cache() -> None:
-    """Reset the cached slides dir (called at the start of each stream).
+def reset_slides_dir_cache(session_id: str | None = None) -> None:
+    """清掉幻灯片目录缓存。
 
-    注意：不再重置 _pending_slide_plan 和 _spec_lock_summary，
-    它们需要跨 stream 保持，防止上下文压缩后丢失计划和设计参数。
+    传 ``session_id`` 只清该会话（推荐）；不传则全清（测试用）。
+    注意：不重置 _pending_slide_plan 和 _spec_lock_summary，它们需要跨
+    stream 保持，防止上下文压缩后丢失计划和设计参数。
     """
-    global _slides_dir_cache
-    _slides_dir_cache = None
+    if session_id is None:
+        _slides_dir_cache.clear()
+    else:
+        _slides_dir_cache.pop(session_id, None)
 
 
 def pop_pending_slide_plan() -> list[dict] | None:
@@ -40,30 +43,27 @@ def pop_pending_slide_plan() -> list[dict] | None:
 
 
 def _get_slides_dir() -> Path:
-    global _slides_dir_cache
-    if _slides_dir_cache is not None and _slides_dir_cache.exists():
-        return _slides_dir_cache
+    """返回当前会话的幻灯片目录（``<workspace>/slides``）。
 
+    缓存按 **session_id** 分键，而不是单个全局变量 —— 后者会让同一进程内
+    不同会话互相污染：用户 A 建完 PPT 后，用户 B 的 save_slide 会写进
+    A 的目录（这是修复前的真实缺陷，不是理论风险）。
+
+    目录本身由 ``data_path.slides_dir()`` 确定性算出，不再需要「扫目录 +
+    版本号递增」那套逻辑（那套的 _v1 后缀从来没被真正用到）。
+    """
     session_id = get_current_session_id()
     if not session_id:
         raise RuntimeError("save_slide: session_id 未设置，无法确定写入目录")
 
-    user_id = get_current_user_id()
-    # Check if there's already a directory for this user+session
-    if PPT_SESSIONS_DIR.exists():
-        for child in sorted(PPT_SESSIONS_DIR.iterdir()):
-            if not child.is_dir():
-                continue
-            parts = child.name.split("_v", 1)
-            if len(parts) == 2 and parts[0] == f"u{user_id}_s{session_id}":
-                _slides_dir_cache = child
-                child.mkdir(parents=True, exist_ok=True)
-                return child
+    cached = _slides_dir_cache.get(session_id)
+    if cached is not None and cached.exists():
+        return cached
 
-    # No existing dir — create next version
-    slides_dir = next_version_dir(PPT_SESSIONS_DIR, user_id, session_id)
-    slides_dir.mkdir(parents=True, exist_ok=True)
-    _slides_dir_cache = slides_dir
+    slides_dir = current_slides_dir(create=True)
+    if slides_dir is None:
+        raise RuntimeError("save_slide: 无法解析会话工作区")
+    _slides_dir_cache[session_id] = slides_dir
     return slides_dir
 
 
