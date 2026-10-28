@@ -29,6 +29,7 @@ import json
 import logging
 from typing import Any, AsyncIterator
 
+from wuwei.core.errors import LLMError
 from wuwei.core.message import FunctionCall, ToolCall
 from wuwei.llm import LLMGateway
 from wuwei.llm.adapters import OpenAIAdapter
@@ -67,10 +68,9 @@ class HardenedOpenAIAdapter(OpenAIAdapter):
         data = super().parse_stream_chunk(chunk)
 
         if data is None:
-            # usage-only 帧：没有 choices，但有 usage。给一个空内容帧把循环带
-            # 过去，网关末尾那句 ``if chunk.usage`` 才读得到。
-            if getattr(chunk, "usage", None):
-                return {"content": "", "reasoning_content": "", "finish_reason": None}
+            # 没有 choices 也没有 usage 的帧：上游返回 None，交给网关跳过。
+            # （wuwei 3.2.2 的 ``parse_stream_chunk`` 对 usage-only 帧已经会
+            # 返回 ``{"usage": ...}``，不再需要把它伪装成空内容帧。）
             return None
 
         saw_delta = bool(data.get("tool_calls_delta"))
@@ -82,6 +82,20 @@ class HardenedOpenAIAdapter(OpenAIAdapter):
             # 收尾只给 stop 但这一轮确实有工具调用：纠正成 tool_calls，
             # 否则网关不会组装 tool_calls_complete，工具调用被静默丢弃。
             data = {**data, "finish_reason": "tool_calls"}
+        elif finish == "length" and self._stream_saw_tool_calls:
+            # R-1：上游 ``adapters/openai.py:97`` 只在 finish_reason ∈
+            # (stop, tool_calls) 时解析 tool_calls → finish_reason="length"
+            # 时工具调用被**静默丢弃**，不报错、不记日志。
+            #
+            # 这里**不**把 length 改成 tool_calls：上游 runner 里有一句明确的
+            # 设计决定——``if finish not in ("stop", "tool_calls"): pending = []``
+            # （注释：No partial tools execute on length/abort/unknown）。
+            # 截断的工具调用参数可能不完整，强行执行反而危险。
+            # 这里只把「被丢弃」变成「可见」：记一条告警。
+            logger.warning(
+                "模型在 finish_reason=length 时发起了工具调用但输出被截断，"
+                "该工具调用不会被执行（上游按设计不执行截断的工具调用）"
+            )
         if finish:
             # 一轮结束即复位。异常中断没走到这里时，残留的标记最多让下一轮
             # 得到一个空的 tool_calls_complete（falsy），不会触发工具执行。
@@ -139,6 +153,23 @@ class HardenedOpenAIAdapter(OpenAIAdapter):
         if finish_reason not in _FINISH_REASONS:
             finish_reason = "stop"
 
+        if finish_reason == "length" and tool_calls:
+            # R-1：上游按 finish_reason 决定要不要解析 tool_calls，
+            # finish_reason="length" 时工具调用被静默丢弃。这里始终解析
+            # （工具调用是否存在不该由 finish_reason 决定），
+            # 同时把「被截断」记成可见的告警而不是无声消失。
+            logger.warning(
+                "模型在 finish_reason=length 时发起了 %d 个工具调用但输出被截断，"
+                "上游 runner 不会执行截断的工具调用",
+                len(tool_calls),
+            )
+
+        # 用上游 3.2.2 的 parse_openai_usage：它优先采用上游上报的
+        # total_tokens，并保留 cached_tokens / reasoning_tokens 明细。
+        usage_dict = self._parse_usage(usage)
+        # 非流式路径不需要「还原上游总数」的辅助键（上游 total 本身就是权威值）。
+        usage_dict.pop("upstream_total_tokens", None)
+
         return LLMResponse(
             message=Message(
                 role="assistant",
@@ -147,14 +178,35 @@ class HardenedOpenAIAdapter(OpenAIAdapter):
                 tool_calls=tool_calls,
             ),
             finish_reason=finish_reason,
-            usage={
-                "prompt_tokens": int(getattr(usage, "prompt_tokens", 0) or 0),
-                "completion_tokens": int(getattr(usage, "completion_tokens", 0) or 0),
-                "total_tokens": int(getattr(usage, "total_tokens", 0) or 0),
-            },
+            usage=usage_dict,
             model=getattr(raw_response, "model", None) or (self.model or ""),
             latency_ms=0,
         )
+
+    # ── R-3：usage.total_tokens 被网关强制改写 ─────────────────────
+    @staticmethod
+    def _parse_usage(usage: Any) -> dict[str, int]:
+        """解析 usage，并在需要时保留上游上报的 total_tokens。
+
+        上游 ``llm/gateway.py`` 在流式聚合时无条件执行::
+
+            usage["total_tokens"] = usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
+
+        这会把「上游自己上报的 total_tokens」抹掉。若上游的 total 含有
+        cached tokens / reasoning tokens（DeepSeek 与部分自建网关会这样），
+        我们记的总数会偏小 → 按 token 计费/配额不准，且流式与非流式
+        两条路径口径不一致。
+
+        这里把上游的 total 另存一份，等 ``RetryingGateway`` 在流式出口处
+        再还原回去（网关的改写发生在它自己内部，我们改不了那一行）。
+        """
+        result = dict(OpenAIAdapter._parse_usage(usage))
+        total = result.get("total_tokens") or 0
+        prompt = result.get("prompt_tokens") or 0
+        completion = result.get("completion_tokens") or 0
+        if total and total != prompt + completion:
+            result["upstream_total_tokens"] = total
+        return result
 
     def _get_extra_field(self, obj: Any, field_name: str) -> Any:
         """宽容读取思考内容字段。
@@ -182,23 +234,16 @@ def _is_retryable(exc: Exception) -> bool:
 
     wuwei 用 ``"500" in str(exc)`` 分类状态码 —— 一个端口是 5000 的 401 会被
     当成 5xx 重试三次（实测：3 次尝试、白等 3 秒）。这里读 ``status_code``。
-    """
-    try:
-        import openai
-    except Exception:  # pragma: no cover —— openai 是我们的硬依赖，兜底而已
-        return False
 
-    if isinstance(exc, (openai.APIConnectionError, openai.APITimeoutError)):
-        return True
-    status = getattr(exc, "status_code", None)
-    if isinstance(status, int):
-        return status == 429 or status >= 500
-    if isinstance(exc, openai.APIStatusError):
-        # 有 status_code 却没取到，说明是 SDK 之外的形态，保守不重试
-        return False
-    # 未归类的异常（例如 httpx 直接抛的 ReadError）只按连接层判断
-    text = str(exc).lower()
-    return "connection" in text or "timeout" in text
+    R-4：分类统一走 ``RetryingGateway._classify_error``，它在上游「异常类名
+    白名单」之外补了按异常层级的兜底（httpx / openai 的连接与超时异常）。
+    """
+    return RetryingGateway._classify_error(exc) in {
+        "rate_limit",
+        "server_error",
+        "connection_error",
+        "timeout",
+    }
 
 
 class RetryingGateway(LLMGateway):
@@ -206,11 +251,93 @@ class RetryingGateway(LLMGateway):
 
     只在「还没产出任何内容」时重试：已经吐出的文本再重来一遍，用户会看到重复
     内容，更糟的是工具可能被执行两次。
+
+    另外补三处上游缺陷：
+
+    - **R-4**：上游 ``_classify_error`` 靠「异常类名白名单」判定，
+      兜底返回 ``unknown`` → **不可重试也不走 fallback，且不报错**。
+      openai SDK 换版本或换供应商改个异常类名就会退化。这里按异常**层级**
+      兜底判定。
+    - **R-2**：上游定义了 ``LLMError`` 却全程不用，原始异常直接抛给调用方，
+      调用方只能匹配字符串。这里统一包装成 ``LLMError``（保留 ``__cause__``
+      与 ``details``）。
+    - **R-3**：上游在流式聚合时把 ``total_tokens`` 强制改写成
+      ``prompt + completion``，把上游上报的总数抹掉。这里在出口处还原。
     """
 
     def __init__(self, config: dict[str, Any], *, stream_attempts: int = 2) -> None:
         super().__init__(config)
         self._stream_attempts = max(1, int(stream_attempts or 1))
+
+    # ── R-4：错误分类兜底 ─────────────────────────────────────────
+    @staticmethod
+    def _classify_error(exc: Exception) -> str:
+        """在上游分类的基础上，按异常**层级**兜底。
+
+        上游只按异常**类名**白名单判定（``APIConnectionError`` /
+        ``ConnectError`` / ``ReadError`` …），兜底返回 ``unknown``，
+        而 ``_retryable`` 只认四类 → 未知异常既不重试也不走 fallback，
+        而且**不会报错**，只是静默地不重试。
+        """
+        kind = LLMGateway._classify_error(exc)
+        if kind != "unknown":
+            return kind
+
+        if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
+            return "timeout"
+
+        try:
+            import httpx
+        except Exception:  # pragma: no cover —— httpx 是 openai 的依赖
+            httpx = None  # type: ignore[assignment]
+
+        if httpx is not None:
+            if isinstance(exc, httpx.TimeoutException):
+                return "timeout"
+            if isinstance(exc, httpx.TransportError):
+                return "connection_error"
+
+        try:
+            import openai
+        except Exception:  # pragma: no cover —— openai 是我们的硬依赖
+            openai = None  # type: ignore[assignment]
+
+        if openai is not None:
+            if isinstance(exc, openai.APITimeoutError):
+                return "timeout"
+            if isinstance(exc, openai.APIConnectionError):
+                return "connection_error"
+
+        # 最后按异常文本兜底（httpx / aiohttp 直接抛出的形态）
+        text = str(exc).lower()
+        if "timeout" in text or "timed out" in text:
+            return "timeout"
+        if "connection" in text or "connect" in text:
+            return "connection_error"
+        return kind
+
+    # ── R-2：统一异常类型 ─────────────────────────────────────────
+    @staticmethod
+    def _as_llm_error(exc: Exception, *, attempts: int = 1) -> LLMError:
+        """把原始异常包装成 ``LLMError``，保留诊断信息。
+
+        上游 ``core/errors.py`` 定义了 ``LLMError``（还带一个为「携带诊断信息」
+        设计的 ``details`` 字段），但网关全程没用过——调用方只能靠匹配字符串
+        判断错误类型。这里把 status_code、异常类型、重试次数都放进 details。
+        """
+        status = getattr(exc, "status_code", None)
+        if status is None:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+        return LLMError(
+            str(exc) or type(exc).__name__,
+            details={
+                "error_type": type(exc).__name__,
+                "status_code": status,
+                "attempts": attempts,
+                "retryable": RetryingGateway._classify_error(exc)
+                in {"rate_limit", "server_error", "connection_error", "timeout"},
+            },
+        )
 
     async def generate(
         self,
@@ -221,7 +348,11 @@ class RetryingGateway(LLMGateway):
     ) -> Any:
         if not stream:
             # 非流式原样交给上游：它本来就有分类重试 + fallback
-            return await super().generate(messages, tools=tools, **kwargs)
+            try:
+                return await super().generate(messages, tools=tools, **kwargs)
+            except Exception as exc:  # noqa: BLE001 —— 统一包装成 LLMError
+                logger.warning("LLM 非流式请求失败：%s: %s", type(exc).__name__, exc)
+                raise self._as_llm_error(exc) from exc
         return self._stream_with_retry(messages, tools, **kwargs)
 
     async def _stream_with_retry(
@@ -240,12 +371,20 @@ class RetryingGateway(LLMGateway):
                 async for chunk in stream:
                     if chunk.content or chunk.reasoning_content or chunk.tool_calls_complete:
                         emitted = True
+                    self._restore_upstream_total(chunk)
                     yield chunk
                 return
             except Exception as exc:  # noqa: BLE001 —— 分类由 _is_retryable 决定
                 last_error = exc
                 if emitted or attempt >= self._stream_attempts - 1 or not _is_retryable(exc):
-                    raise
+                    logger.warning(
+                        "LLM 流式请求失败（第 %d/%d 次尝试）：%s: %s",
+                        attempt + 1,
+                        self._stream_attempts,
+                        type(exc).__name__,
+                        exc,
+                    )
+                    raise self._as_llm_error(exc, attempts=attempt + 1) from exc
                 logger.warning(
                     "流式请求失败（第 %d/%d 次尝试），准备重试：%s",
                     attempt + 1,
@@ -254,4 +393,27 @@ class RetryingGateway(LLMGateway):
                 )
                 await asyncio.sleep(2**attempt)
         if last_error is not None:  # pragma: no cover —— 循环内必 return 或 raise
-            raise last_error
+            raise self._as_llm_error(last_error) from last_error
+
+    # ── R-3：还原上游上报的 total_tokens ──────────────────────────
+    @staticmethod
+    def _restore_upstream_total(chunk: Any) -> None:
+        """把网关改写掉的 ``total_tokens`` 还原成上游上报的值。
+
+        网关在流式聚合时无条件执行 ``total = prompt + completion``，
+        我们在适配器里另存了上游的原值（``upstream_total_tokens``），
+        这里在 chunk 离开网关之前还原，并把辅助键摘掉（不能让它进入
+        run 的 usage 统计）。
+        """
+        usage = getattr(chunk, "usage", None)
+        if not isinstance(usage, dict):
+            return
+        upstream_total = usage.pop("upstream_total_tokens", None)
+        if upstream_total is None:
+            return
+        try:
+            upstream_total = int(upstream_total)
+        except (TypeError, ValueError):
+            return
+        if upstream_total > (usage.get("total_tokens") or 0):
+            usage["total_tokens"] = upstream_total

@@ -19,6 +19,7 @@ from datetime import timedelta
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
+from wuwei.core.errors import LLMError
 
 from app.core.security import create_access_token
 from app.core.timezone import app_now
@@ -1469,8 +1470,10 @@ def test_stream_does_not_retry_after_emitting(monkeypatch):
             seen.append(chunk.content)
         return seen
 
-    with pytest.raises(openai.APIConnectionError):
+    with pytest.raises(LLMError) as excinfo:
         asyncio.run(consume())
+    # R-2：网关统一抛 LLMError（保留原始异常作为 __cause__）
+    assert isinstance(excinfo.value.__cause__, openai.APIConnectionError)
     assert state["attempt"] == 1
 
 
@@ -1497,8 +1500,10 @@ def test_stream_does_not_retry_client_errors(monkeypatch):
         async for _ in stream:
             pass
 
-    with pytest.raises(openai.AuthenticationError):
+    with pytest.raises(LLMError) as excinfo:
         asyncio.run(consume())
+    # R-2：网关统一抛 LLMError（保留原始异常作为 __cause__）
+    assert isinstance(excinfo.value.__cause__, openai.AuthenticationError)
     assert state["attempt"] == 1
 
 

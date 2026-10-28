@@ -644,6 +644,8 @@ class StreamOrchestrator:
 
         async def produce_events() -> None:
             nonlocal message
+            # 事件流里出现过 error 事件 → 本次任务算失败（用于完成通知）。
+            run_had_error = False
             try:
                 # message 变量已经包含记忆注入或设计目录注入
                 # 如果有文件附件，追加文件描述
@@ -694,16 +696,25 @@ class StreamOrchestrator:
                 # 闸门故障会自行降级为本地信号量 / 直接放行，不会中断 SSE。
                 # 注意只包住 LLM 流，DB 持久化在下面的 finally 里，不占闸门槽位。
                 async with get_llm_gate().slot():
-                    async for event in agent.stream_events(user_message, session=session):
-                        event_count += 1
-                        await runtime_queue.put(event)
+                    # R-9：必须显式关闭事件流生成器。``async for`` 中途退出
+                    # 不会触发上游生成器的 ``aclose()``，而上游是在
+                    # ``async with self.session.lock`` 内部 yield 的 ——
+                    # 不关闭就会把会话锁永久占住，该会话后续所有 run 全部阻塞。
+                    async with contextlib.aclosing(
+                        agent.stream_events(user_message, session=session)
+                    ) as event_stream:
+                        async for event in event_stream:
+                            event_count += 1
+                            if getattr(event, "type", None) == "error":
+                                run_had_error = True
+                            await runtime_queue.put(event)
                 _ctx_msgs = getattr(getattr(session, "context", None), "_messages", [])
                 _logger.info(f"produce_events: done, events={event_count}, context_msgs={len(_ctx_msgs)}")
             except Exception as e:
                 _logger.error(f"produce_events: exception: {e}", exc_info=True)
                 raise
             finally:
-                task_had_error = False
+                task_had_error = run_had_error
                 try:
                     if hasattr(session, "system_prompt"):
                         # Shield to ensure DB write completes even when the

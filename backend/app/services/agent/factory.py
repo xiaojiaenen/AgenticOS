@@ -49,6 +49,7 @@ from wuwei.agent.async_sub_agent import AsyncSubAgent, AsyncSubAgentMiddleware
 
 from app.services.agent_profile_service import RuntimeAgentProfile
 from app.services.tool_config_service import TOOL_CATALOG
+from app.services.agent.wuwei_patches import BatchSafeMiddlewareProxy, PatchedAgent
 
 _logger = logging.getLogger("agent")
 
@@ -96,9 +97,13 @@ class LenientHitlMiddleware(HitlMiddleware):
     - ``full``：``auto_approve_tools`` 含 ``*`` 哨兵时全部放行（仅管理员可用）
     """
 
-    def __init__(self, *args, approval_mode: str = "auto", **kwargs) -> None:
+    def __init__(self, *args, approval_mode: str = "auto", approval_timeout: float = 300.0, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.approval_mode = normalize_approval_mode(approval_mode)
+        # R-15：审批等待必须有上限。上游 ``HitlMiddleware.before_tool`` 直接
+        # ``await self.approval_provider(tool_call)``，没有超时也没有取消通道；
+        # 审批期间还持有 session.lock，用户关掉审批页面就会把整个会话卡住。
+        self.approval_timeout = float(approval_timeout)
 
     @staticmethod
     def _tool_arguments(tool_call: ToolCall) -> dict:
@@ -135,7 +140,18 @@ class LenientHitlMiddleware(HitlMiddleware):
             return tool_call
 
         # 请求用户审批
-        approved = await self.approval_provider(tool_call)
+        try:
+            approved = await asyncio.wait_for(
+                self.approval_provider(tool_call), timeout=self.approval_timeout
+            )
+        except asyncio.TimeoutError:
+            # 审批超时按「拒绝」处理：宁可让模型换方案，也不要把会话永久卡住。
+            _logger.warning(
+                "审批等待超过 %.0f 秒，按拒绝处理：tool=%s",
+                self.approval_timeout,
+                tool_name,
+            )
+            approved = False
         if not approved:
             # 用户拒绝，替换为拒绝工具（LLM 会收到明确的拒绝消息）
             tool_call.function.name = _REJECTED_TOOL_NAME
@@ -309,13 +325,18 @@ class AgentFactory:
         if ext_instruction:
             system_prompt = f"{system_prompt}{ext_instruction}"
 
-        agent = Agent(
+        agent = PatchedAgent(
             llm=llm,
             tools=tools,
             default_system_prompt=system_prompt,
             default_max_steps=self.settings.agent_max_steps,
             default_parallel_tool_calls=self.settings.agent_parallel_tool_calls,
-            middleware=middleware_stack,
+            # BatchSafeMiddlewareProxy：上游的并发判定要求中间件栈里没有任何
+            # before_tool / after_tool 钩子，本项目默认就装了审批中间件，
+            # 于是「打开并行开关 → 并发被静默关闭，用户毫无感知」。
+            # 代理只对上游的判定隐藏钩子，实际执行由 BoundedToolExecutor
+            # 在批处理路径上补齐（审批语义不丢）。
+            middleware=BatchSafeMiddlewareProxy(middleware_stack),
             load_builtins=False,
         )
         self._agents[cache_key] = agent
