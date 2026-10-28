@@ -42,13 +42,53 @@ frontend/.vite/
 
 # Local app data
 backend/data/
-data/*.db
-data/*.db-shm
-data/*.db-wal
+backend/nul
+
+# ── data/ 目录：混装「只读资产」与「运行时产物」，必须分开对待 ──
+#
+# 只读资产（代码运行时依赖，必须入库）：
+#   icons / design-themes / design-systems / skills /
+#   charts / layouts / website-templates
+#
+# 运行时产物（用户生成，严禁入库）：
+#   ppt-output / ppt-sessions / video-projects / knowledge /
+#   websites / documents / sheets / uploads / nginx-serve /
+#   document-versions / sheet-versions / website-versions
+#
+# 注意：历史上有过 `data/` 一刀切忽略的写法。已跟踪文件不受 ignore 影响，
+# 于是那些资产靠「早期提交残留」留在仓库里，而后续往同一目录新增文件
+# 会被静默忽略 —— 规则与现实脱节。现改为：先忽略整个 data/，再逐个放行
+# 资产目录、逐个点名运行时目录。
+data/*
+!data/.gitkeep
+
+# 只读资产：放行（注意要放行目录本身，否则其内容仍被 data/* 覆盖）
+!data/icons/
+!data/design-themes/
+!data/design-systems/
+!data/skills/
+!data/charts/
+!data/layouts/
+!data/website-templates/
+
+# 运行时产物：点名忽略（显式写出，避免遗漏新增的产物目录）
+data/agenticos.db
+data/agenticos.db-shm
+data/agenticos.db-wal
+data/agenticos.db.bak*
+data/.auth_secret
 data/websites/
 data/ppt-output/
 data/ppt-sessions/
+data/video-projects/
+data/knowledge/
+data/documents/
+data/document-versions/
+data/sheets/
+data/sheet-versions/
+data/website-versions/
 data/uploads/
+data/nginx-serve/
 
 # Claude Connect
 .cc-connect/
@@ -78,9 +118,6 @@ CLAUDE.md
 .workbuddy/
 
 # 运行时数据与密钥，严禁入库
-data/
-!data/.gitkeep
-backend/nul
 deploy/export/
 
 # 压测专用虚拟环境（仅本地使用，体积数千文件）
