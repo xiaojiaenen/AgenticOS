@@ -28,7 +28,6 @@ from typing import Any
 # 登录表单的通用探测顺序。企业 SSO 五花八门，但「用户名/密码/提交」三件套
 # 的选择器基本落在这些形态里；预设只在这一层之上加厂商特有的补充。
 DEFAULT_USERNAME_SELECTORS: tuple[str, ...] = (
-    "#UserIDShort",
     'input[name="username"]',
     'input[name="account"]',
     'input[name="user"]',
@@ -43,7 +42,6 @@ DEFAULT_USERNAME_SELECTORS: tuple[str, ...] = (
 DEFAULT_PASSWORD_SELECTORS: tuple[str, ...] = ('input[type="password"]',)
 
 DEFAULT_SUBMIT_SELECTORS: tuple[str, ...] = (
-    "#modalButton",
     'button[type="submit"]',
     'input[type="submit"]',
     'button:has-text("登录")',

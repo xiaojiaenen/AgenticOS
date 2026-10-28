@@ -58,7 +58,7 @@ def test_describe_route_reads_snapshot_from_gateway_and_agent() -> None:
     attach_route(
         gateway,
         provider_id=7,
-        provider_slug="gree",
+        provider_slug="acme",
         provider_name="企业网关",
         model="Qwen3.6-35B-A3B",
         credential_id=3,
@@ -69,7 +69,7 @@ def test_describe_route_reads_snapshot_from_gateway_and_agent() -> None:
         snapshot = describe_route(target)
         assert snapshot == RouteSnapshot(
             provider_id=7,
-            provider_slug="gree",
+            provider_slug="acme",
             provider_name="企业网关",
             model="Qwen3.6-35B-A3B",
             credential_id=3,
@@ -100,7 +100,7 @@ def test_resolve_model_name_prefers_snapshot_then_adapter_then_fallback() -> Non
     attach_route(
         gateway,
         provider_id=1,
-        provider_slug="gree",
+        provider_slug="acme",
         provider_name="企业网关",
         model="Qwen3.6-35B-A3B",
     )
@@ -178,7 +178,7 @@ def test_usage_event_attributes_to_requesting_user_not_account() -> None:
     attach_route(
         gateway,
         provider_id=1,
-        provider_slug="gree",
+        provider_slug="acme",
         provider_name="企业网关",
         model="Qwen3.6-35B-A3B",
         credential_id=42,  # 两人共用同一个账号
@@ -217,7 +217,7 @@ def test_usage_event_attributes_to_requesting_user_not_account() -> None:
             # 审计列同时记录「走的是同一个共享账号」
             assert {row.credential_id for row in rows} == {42}
             assert {row.account_label for row in rows} == {"共享主号"}
-            assert {row.provider_slug for row in rows} == {"gree"}
+            assert {row.provider_slug for row in rows} == {"acme"}
             assert {row.provider_id for row in rows} == {1}
             assert all(row.total_tokens == 50 for row in rows)
             assert all(row.tokens_estimated is False for row in rows)
@@ -340,13 +340,13 @@ def test_my_usage_only_counts_caller() -> None:
         _insert_usage(
             user_id=user_a.id, session_id=session_a, model_name="m-a",
             input_tokens=60, output_tokens=40, total_tokens=100, llm_calls=1,
-            provider_slug="gree", credential_id=9, account_label="共享",
+            provider_slug="acme", credential_id=9, account_label="共享",
             tokens_estimated=False,
         )
         _insert_usage(
             user_id=user_b.id, session_id=session_b, model_name="m-b",
             input_tokens=600, output_tokens=400, total_tokens=1000, llm_calls=1,
-            provider_slug="gree", credential_id=9, account_label="共享",
+            provider_slug="acme", credential_id=9, account_label="共享",
             tokens_estimated=False,
         )
 
@@ -389,7 +389,7 @@ def test_usage_routes_aggregates_by_route_and_marks_unattributed() -> None:
     session_id = f"routes-{uuid4().hex[:6]}"
     # 这个端点是**全站**聚合（管理员排障用），必须和库里其他测试造的数据区分开：
     # 用唯一的 slug / credential_id 定位自己那几行，断言增量而不是绝对总数。
-    slug = f"gree-{uuid4().hex[:6]}"
+    slug = f"acme-{uuid4().hex[:6]}"
     credential_id = 900000 + (uuid4().int % 99999)
 
     def _baseline() -> dict[str, int]:
@@ -456,9 +456,9 @@ def test_usage_routes_aggregates_by_route_and_marks_unattributed() -> None:
         assert payload["totals"]["legacy_runs"] - base["legacy"] == 1
         assert payload["totals"]["estimated_runs"] - base["estimated"] == 1
 
-        gree = next(item for item in payload["providers"] if item["provider_slug"] == slug)
-        assert gree["runs"] == 2
-        assert gree["total_tokens"] == 200
+        acme = next(item for item in payload["providers"] if item["provider_slug"] == slug)
+        assert acme["runs"] == 2
+        assert acme["total_tokens"] == 200
 
         account = next(
             item for item in payload["accounts"] if item["credential_id"] == credential_id

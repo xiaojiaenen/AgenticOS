@@ -803,7 +803,7 @@ class TestNoAuthSystemToolHandler:
         param_rows = [
             SimpleNamespace(
                 name="proj", param_type="query", data_type="string", required=False,
-                description="", default_value="GREE", param_source="static", label=None,
+                description="", default_value="ACME", param_source="static", label=None,
             ),
         ]
         api_map = {"list_items": (api, param_rows)}
@@ -859,4 +859,4 @@ class TestNoAuthSystemToolHandler:
         payload = json.loads(result)
         assert payload["status_code"] == 200
         # 固定值参数：LLM 未提供时注入管理员配置的 default_value
-        assert captured["params"] == {"proj": "GREE"}
+        assert captured["params"] == {"proj": "ACME"}

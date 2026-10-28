@@ -300,7 +300,7 @@ export function ApiModal({
                     {p.param_source === 'static' ? (
                       <Input
                         className="text-xs"
-                        placeholder="固定值（如：GREE）"
+                        placeholder="固定值（如：CORP）"
                         {...form.register(`params.${i}.default_value` as const)}
                       />
                     ) : (
