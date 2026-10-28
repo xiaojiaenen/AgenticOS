@@ -85,3 +85,9 @@ deploy/export/
 
 # 压测专用虚拟环境（仅本地使用，体积数千文件）
 backend/.venv-loadtest/
+
+# 上游接口勘探材料：probe 脚本里写着上游账号密码的默认值，cookies.json 是
+# 真实的 SESSION 会话凭证，还夹着几 MB 的生成样张。属于「本机备忘」而非源码，
+# 严禁入库。
+baitong/
+baitong.zip
