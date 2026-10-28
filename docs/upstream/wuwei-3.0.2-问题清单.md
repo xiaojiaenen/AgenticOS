@@ -613,7 +613,7 @@ def __init__(self, *args, max_retries: int | None = None, **kwargs):
   证明这是 finish_reason 分类导致的定向丢弃，不是解析失败。
 - **影响**：模型「打算调工具但被截断」时，agent 会认为模型没要求调工具，
   直接把空回复交给用户。**无任何错误痕迹**，排障时极难定位。
-  自建网关 / 长上下文场景（百通类聚合网关）命中概率不低。
+  自建网关 / 长上下文场景（聚合网关类）命中概率不低。
 - **建议**：tool_calls 的解析不应以 finish_reason 为前置条件——
   有 tool_calls 就解析，finish_reason 只决定后续路由。
 
