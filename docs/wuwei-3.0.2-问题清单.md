@@ -930,3 +930,83 @@ def __init__(self, *args, max_retries: int | None = None, **kwargs):
   而非依赖外部调用方记得 `aclose()`。
 - **D-7（R-12）**：`serialize_output` 加默认长度上限（可配），
   并在 runner 里接线 `SimpleContextWindow`——它已经写好了，只是没被调用。
+
+## 六、修复落地状态（2026-10-28）
+
+本节记录 R-1 ~ R-17 的实际落地情况。**补丁层不碰 `site-packages`**，
+全部走上游公开注入点（子类化 / 构造参数 / 消费端收尾），
+上游修好后对应回归测试会失败，提示可以删。
+
+### 6.1 落地位置
+
+| 层 | 文件 | 内容 |
+| --- | --- | --- |
+| Agent 执行层 | `backend/app/services/agent/wuwei_patches.py` | `PatchedAgent` / `PatchedAgentRunner` / `BoundedToolExecutor` / `BatchSafeMiddlewareProxy` |
+| 网关与适配器层 | `backend/app/services/llm_providers/adapter.py` | `HardenedOpenAIAdapter`（R-1 / R-3）、`RetryingGateway`（R-2 / R-3 / R-4） |
+| 装配点 | `backend/app/services/agent/factory.py` | 改用 `PatchedAgent` + `BatchSafeMiddlewareProxy`；审批加超时（R-15） |
+| 消费端 | `backend/app/services/agent/orchestrator.py` | 事件流加 `contextlib.aclosing`（R-9）；错误事件纳入完成通知 |
+| 回归测试 | `backend/tests/test_wuwei_patches.py` | 25 条用例，逐条对应 R-1 ~ R-16 |
+
+### 6.2 逐条状态
+
+| 编号 | 状态 | 落地方式 |
+| --- | --- | --- |
+| R-1 | ✅ 已修 | 非流式：`HardenedOpenAIAdapter.parse_response` 与 finish_reason 解耦，始终解析 tool_calls；流式：`finish_reason=length` 时补告警日志。**刻意不把 length 改成 tool_calls**——上游 runner 明确写了「No partial tools execute on length/abort/unknown」，强行执行截断的工具调用反而危险。 |
+| R-2 | ✅ 已修 | `RetryingGateway` 统一抛 `LLMError`（保留 `__cause__` 与 `details`：error_type / status_code / attempts / retryable）。原始异常仍在 `__cause__` 里。 |
+| R-3 | ✅ 已修 | 适配器 `_parse_usage` 保留上游 `total_tokens`（与 prompt+completion 不同时另存），`RetryingGateway` 在 chunk 离开网关前还原，并摘掉辅助键（不污染 run 的 usage 统计）。 |
+| R-4 | ✅ 已修 | `RetryingGateway._classify_error` 在上游「异常类名白名单」之外，按**异常层级**兜底（httpx / openai 的超时与连接异常）。完全未知的异常仍保持 unknown，不盲目重试。 |
+| R-5 | ⏸ 不改 | 要改 `site-packages` 的错误类型定义；项目内没有 `except TimeoutError` 的用法（已 grep 确认），无实际风险。 |
+| R-6 | ✅ 已修 | `PatchedAgentRunner._commit_tool` 采用「**委托上游 + 事后纠正**」：先 `await super()._commit_tool(...)` 保留上游的全部副作用，再按结构化事实纠正 `unknown` 判定。判定依据从裸子串改成「解析 JSON + 比对框架错误载荷的三个特征（`ok=false` / `status=unknown` / `execution_may_continue=true`）」。 |
+| R-7 | ✅ 已修 | 新增 `BatchSafeMiddlewareProxy`：对上游的 `can_batch` 判定隐藏工具钩子，但**批处理路径由 `BoundedToolExecutor` 逐个补跑 `execute_before_tool`**——上游关闭并发的原因正是它的批处理分支不调 before_tool（等于绕过审批）。代理之外的一切行为完全委托真实中间件栈。 |
+| R-8 | ✅ 已修 | `BoundedToolExecutor._execute_batched` 的异常判定放宽到 `BaseException`；`CancelledError` 单独向上传播（不伪装成工具失败），其余转成结构化错误消息。 |
+| R-9 | ✅ 已修 | 消费端 `orchestrator` 用 `contextlib.aclosing` 包住事件流；runner 侧 `_iter_events` 用 `aclosing` 包住上游生成器，并**确定性地**关闭内层 `_execute_events`（不再依赖 GC 的异步 finalization）。 |
+| R-10 | ⏸ 备用 | 项目当前 `Agent(...)` 未装配 checkpointer，暂无实际影响；已备好 `deep_copy_metadata()`（JSON roundtrip 语义），一旦启用检查点即生效。 |
+| R-11 | ✅ 已修 | `PatchedAgentRunner._iter_events` 捕获异常后补发 `error`（若上游没发）+ `done` + `run_end`，`agent.run()` 因此返回 `status="error"` 而不是抛异常。 |
+| R-12 | ✅ 已修（部分） | `BoundedToolExecutor.serialize_output` 加 20k 字符上限。**上下文裁剪刻意不做**：我们的 orchestrator 从 `session.context` 持久化消息到数据库，裁剪历史会丢用户可见的记录；模型侧已由 `ContextCompressionMiddleware` + 工具输出上限双重兜底。 |
+| R-13 | ✅ 已修 | `BoundedToolExecutor` 用 `Semaphore` 限制并发（默认 8）；名字里带写/删/发等动词的工具（上游 `plugin/builtin/file.py` 的写类工具只声明了 `side_effect=True`、没声明 `is_concurrency_safe=False`）一律降级为串行。 |
+| R-14 | ✅ 已修 | `BoundedToolExecutor.execute_one` 在出口把「超时 + 可能有副作用」的结果状态从 `failed` 纠正为 `unknown`（上游只看 `execution.side_effect` 声明）。 |
+| R-15 | ✅ 已修（部分） | `LenientHitlMiddleware.before_tool` 用 `asyncio.wait_for` 包住审批等待（默认 300s），超时按拒绝处理。**会话锁的持有期间无法释放**是上游设计（审批发生在 run 内），未改动。 |
+| R-16 | ✅ 已修（部分） | `BoundedToolExecutor` 增加「同一工具 + 同一参数」连续重复调用检测（默认 3 次），超限直接拦截、不执行工具。**token/成本上限未加**：上游 `BudgetMiddleware` 需要价格表与产品口径，属业务决策。 |
+| R-17 | ⏸ 不改 | `task_start` / `task_end` 在上游从不发出（只有类型声明）。改为在文档里记录「实际发出的事件类型」，不伪造事件。 |
+
+### 6.3 验证方式
+
+- **回归测试**：`backend/tests/test_wuwei_patches.py`（25 条）逐条对应上表；
+  `tests/test_llm_providers.py` 的两条流式重试用例按 R-2 的新契约更新
+  （断言 `LLMError` 且 `__cause__` 是原始 openai 异常）。
+- **缺陷复现对照**：R-6 用未打补丁的上游 `Agent` 实测复现——
+  第一次 run `status=unknown`、内容被替换成「工具结果不确定…」、
+  `session.metadata["_blocked_run"]` 被写入、第二次 run 抛
+  `ValueError: Session has an unknown tool outcome`；
+  打补丁后同样的脚本返回 `status=completed` 且内容完整。
+- **全量门禁**：后端 `pytest` 601 passed / 1 skipped；`ruff check app/ tests/` 全过。
+
+### 6.4 补丁失效是安全的
+
+所有补丁都退化到上游原生行为，不会把请求打死：
+
+- `_commit_tool` 是「先委托上游、再纠正」——上游改判定逻辑时我们只纠正一次，不影响主流程；
+- `aclosing` 包一层不会改变事件内容与顺序；
+- `BatchSafeMiddlewareProxy` 只影响上游的**并发判定**，钩子本身照常执行；
+- `_classify_error` / `LLMError` 只改变异常的**表现形式**，不改变重试决策。
+
+### 6.5 R-17：实际发出的事件类型（客户端按这个写分支）
+
+上游 `llm/types.py` 的 `AgentEventType` 声明了 14 种，但 runner 实际只发 12 种——
+`task_start` / `task_end` **只有声明、没有发出点**（`runtime/` 与 `serve/` 全包 grep 零命中），
+上游 `serve/ag_ui.py:223` 甚至把它们的映射注释掉了。
+
+**实际会发出的类型**：
+
+| 类型 | 触发时机 |
+| --- | --- |
+| `run_start` | 一次 run 开始（`data.resumed` 表示是否恢复自挂起点） |
+| `llm_start` / `llm_end` | 每轮模型调用的起止；`llm_end` 里带 `usage` |
+| `text_delta` | 正文增量 |
+| `reasoning_delta` | 思考过程增量 |
+| `tool_start` / `tool_end` / `tool_error` | 工具调用的起止与失败 |
+| `approval_required` | 需要人工审批（附 `InterruptPayload`） |
+| `error` | 异常（**补丁后异常路径会补发 `done` / `run_end`**） |
+| `done` / `run_end` | 终止事件，`data` 里带 `content` / `usage` / `status` / `termination_reason` |
+
+另外：`usage` **不是**一种事件类型，只能从 `llm_end` / `done` 的 `data.usage` 里取。
