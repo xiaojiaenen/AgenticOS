@@ -434,6 +434,26 @@ export function useChatStream({
               ),
             );
           },
+          // A2UI 声明式界面：累积消息序列写进这条助手消息。
+          // 每条 a2ui 事件都可能只带一部分消息（先 createSurface 再补组件），
+          // 所以按序追加，交给渲染器的 MessageProcessor 顺序消费。
+          onA2uiMessages: (messages) => {
+            setSessions((prev) =>
+              prev.map((session) =>
+                session.id === targetId
+                  ? {
+                      ...session,
+                      updatedAt: Date.now(),
+                      messages: session.messages.map((message) =>
+                        message.id === assistantMessageId
+                          ? { ...message, a2uiMessages: messages }
+                          : message,
+                      ),
+                    }
+                  : session,
+              ),
+            );
+          },
           onDocumentArtifact: (docArtifact) => {
             if (docArtifact.session_id && docArtifact.session_id !== targetId) return;
             receivedDocumentArtifact = docArtifact;

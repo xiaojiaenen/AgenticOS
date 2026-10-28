@@ -13,6 +13,7 @@ import { UserAvatarIcon, MascotCool, CopyIcon, CheckIcon, WrenchIcon, ChevronDow
 import { ErrorBoundary, InlineErrorFallback } from '../ui/ErrorBoundary';
 import { OrderedAssistantContent, shouldUseOrderedRender, collectBlockText } from './OrderedAssistantContent';
 import { TableCell, TableHeaderCell, HighlightedText, processChildren } from './markdownRenderParts';
+import { A2uiRenderer } from '../a2ui/A2uiRenderer';
 import {
   CodeBlock,
   PptArtifactCard,
@@ -162,6 +163,14 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
         )}
 
         {!isUser && message && <><PptArtifactCard message={message} onOpenArtifact={onOpenArtifact} /><WebsiteArtifactCard message={message} onOpenArtifact={onOpenArtifact} /></>}
+
+        {/* A2UI 声明式界面：智能体生成的结构化交互区域。
+            放在产物卡片之后、正文气泡之前 —— 界面是主角，文字是补充。 */}
+        {!isUser && message?.a2uiMessages?.length ? (
+          <div className="w-full">
+            <A2uiRenderer messages={message.a2uiMessages} />
+          </div>
+        ) : null}
 
         {shouldRenderBubble && (
             <div id={message?.id ? `bubble-${message.id}` : undefined}

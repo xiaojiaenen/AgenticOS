@@ -287,6 +287,31 @@ class StreamOrchestrator:
             "last_llm_calls": getattr(session, "last_llm_calls", None),
         }
 
+    def _drain_a2ui_events(self, session) -> list[dict[str, Any]]:
+        """取走本次 run 累积的 A2UI 界面消息，转成 SSE 事件列表。
+
+        界面生成工具（render_ui / render_form）把消息塞进 contextvar 采集器，
+        这里统一转成 ``a2ui`` 事件。空列表是常态 —— 大多数轮次不生成界面。
+        """
+        try:
+            from app.services.a2ui import drain_pending
+
+            messages = drain_pending()
+        except Exception:  # noqa: BLE001 -- 采集器异常不该影响主流程
+            _logger.warning("a2ui drain failed", exc_info=True)
+            return []
+        if not messages:
+            return []
+        return [
+            {
+                "event": "a2ui",
+                "data": {
+                    "session_id": session.session_id,
+                    "messages": messages,
+                },
+            }
+        ]
+
     def _map_agent_event(self, event: AgentEvent, session) -> dict[str, Any] | None:
         # 运行预算（"第 N/M 步"）：wuwei 事件对象顶层已带 step，这里透出给前端
         step = getattr(event, "step", None)
@@ -603,6 +628,13 @@ class StreamOrchestrator:
         set_email_session_id(session.session_id)
         set_data_session_id(session.session_id)
         restore_website_dir_for_session(session.session_id)
+        # A2UI 采集器：每轮 run 从空开始，避免上一轮的界面消息串到这一轮
+        try:
+            from app.services.a2ui import reset_pending
+
+            reset_pending()
+        except Exception:  # noqa: BLE001
+            _logger.warning("a2ui reset failed", exc_info=True)
         if user is not None:
             set_current_user_id(user.id)
             set_ext_user_id(user.id)
@@ -1061,6 +1093,12 @@ class StreamOrchestrator:
                             mapped = self._map_agent_event(event, session)
                             if mapped is not None:
                                 yield mapped
+                            # A2UI：界面生成工具（render_ui / render_form）的
+                            # 消息在这里推给前端。时机选在 tool_end 之后而不是
+                            # 整轮 done —— 界面是「即时可用的成品」，等整轮结束
+                            # 会让用户先读一大段文字再看到界面。
+                            for ui_event in self._drain_a2ui_events(session):
+                                yield ui_event
                             runtime_task = asyncio.create_task(runtime_queue.get())
                             continue
 

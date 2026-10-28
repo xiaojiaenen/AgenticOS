@@ -80,7 +80,17 @@ export type Message = {
     sheetNames?: string[];
     sheetCount?: number;
   };
+  /**
+   * A2UI 声明式界面（智能体通过 render_ui / render_form 生成）。
+   *
+   * 存的是协议消息序列而不是组件树：前端用 MessageProcessor 消费，
+   * 这样增量更新（updateComponents / updateDataModel）能按序生效。
+   */
+  a2uiMessages?: A2uiMessagePayload[];
 };
+
+/** 一条 A2UI v0.9 消息（createSurface / updateComponents / updateDataModel） */
+export type A2uiMessagePayload = Record<string, unknown>;
 
 export type Session = {
   id: string;

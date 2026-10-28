@@ -24,6 +24,8 @@ type AgentServiceOptions = {
   onWebsiteArtifact?: (artifact: AgentWebsiteArtifact) => void;
   onSheetArtifact?: (artifact: AgentSheetArtifact) => void;
   onDocumentArtifact?: (artifact: AgentDocumentArtifact) => void;
+  /** A2UI 声明式界面消息（render_ui / render_form 生成） */
+  onA2uiMessages?: (messages: Record<string, unknown>[]) => void;
   onUserDecision?: (decision: unknown) => void;
   onUserInputRequired?: (input: UserInputRequest) => void;
   onApiApprovalRequired?: (approval: ApiApprovalRequest) => void;
@@ -277,6 +279,8 @@ type StreamState = {
   websiteArtifact?: AgentWebsiteArtifact;
   sheetArtifact?: AgentSheetArtifact;
   documentArtifact?: AgentDocumentArtifact;
+  /** A2UI 消息序列（累积，按协议顺序应用） */
+  a2uiMessages?: Record<string, unknown>[];
 };
 
 /**
@@ -321,6 +325,18 @@ function applyAgentEvent(
 
   if (event === 'run_status') {
     options.onRunStatus?.(payload as unknown as AgentRunStatus);
+    return;
+  }
+
+  if (event === 'a2ui') {
+    // 界面消息是**累积**的：智能体可能先发 createSurface，再分批补组件。
+    // 前端保留整条序列交给 MessageProcessor 顺序消费，不做增量合并 ——
+    // 协议本身就是按序应用的，交给它处理比我们猜状态可靠。
+    const incoming = Array.isArray(payload.messages) ? payload.messages : [];
+    if (incoming.length > 0) {
+      state.a2uiMessages = [...(state.a2uiMessages ?? []), ...incoming];
+      options.onA2uiMessages?.(state.a2uiMessages);
+    }
     return;
   }
 

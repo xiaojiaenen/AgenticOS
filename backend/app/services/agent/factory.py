@@ -596,6 +596,14 @@ class AgentFactory:
         from app.tools.data_analysis_tools import register_data_analysis_tools as _register_data_analysis
         _register_data_analysis(registry)
 
+        # A2UI 界面生成工具（所有模式可用）。
+        #
+        # 让智能体能发「声明式界面描述」而不只是文本：用户要筛选表单、
+        # 对比表这类结构化交互时，比 Markdown 更合适。组件白名单在
+        # services/a2ui/builder.py 里强制，模型无法引入自定义组件。
+        from app.services.a2ui import register_a2ui_tools as _register_a2ui
+        _register_a2ui(registry)
+
         if profile.response_mode == "ppt":
             from app.tools.icon_tools import register_icon_tools as _register_icon_tools
             _register_icon_tools(registry)
