@@ -1,6 +1,7 @@
 """Website 生成工具 — copy_template / build / deploy"""
 
 import shutil
+from pathlib import Path
 
 from wuwei.tools import ToolRegistry
 
@@ -14,6 +15,66 @@ from app.core.data_path import (
 )
 
 ALLOWED_STACKS = {"vanilla", "vue", "react"}
+
+# npm 共享缓存目录（沙箱把 HOME 指向工作区，不显式指定的话每个项目
+# 都会有一份独立缓存 → 每次构建重新下载全部依赖）
+NPM_CACHE_DIR = WEBSITES_DIR / ".npm-cache"
+
+
+def _detect_broken_node_modules(project_dir: Path) -> str | None:
+    """探测 node_modules 里是否有被截断的原生二进制。
+
+    上游缺陷（实测）：沙箱超时是 SIGKILL，npm 被打断时已下载的原生
+    二进制留在磁盘上但**只写了一半**。npm 之后认为该包已装好而跳过重装，
+    于是每次构建都在 dlopen 阶段失败：
+
+        Error: dlopen(.../rollup-darwin-arm64.node):
+          segment '__TEXT' content (fileOffset: 0x0 -> 0x1B4000)
+          extends beyond end of file (length: 0x137B98)
+
+    判断依据：``.node`` 文件是 ELF/Mach-O 可执行文件，正常至少有几十 KB；
+    截断的文件会明显偏小。返回损坏文件的描述，没坏则返回 None。
+    """
+    node_modules = project_dir / "node_modules"
+    if not node_modules.is_dir():
+        return None
+
+    # 只看顶层依赖目录里的原生模块（rollup / esbuild / swc 等），
+    # 深度过深会拖慢每次构建前的检查。
+    for pkg_dir in node_modules.iterdir():
+        if not pkg_dir.is_dir() or pkg_dir.name.startswith("."):
+            continue
+        candidates = [pkg_dir]
+        # @scope/pkg 形态
+        if pkg_dir.name.startswith("@"):
+            candidates = [p for p in pkg_dir.iterdir() if p.is_dir()]
+        for pkg in candidates:
+            try:
+                for native in pkg.rglob("*.node"):
+                    size = native.stat().st_size
+                    if size < 1024:
+                        rel = native.relative_to(project_dir)
+                        return f"{rel}（仅 {size} 字节，明显被截断）"
+            except OSError:
+                continue
+    return None
+
+
+def _clean_node_modules(project_dir: Path) -> bool:
+    """删除 node_modules 与 lock 文件，让下次构建从干净状态重装。"""
+    removed = False
+    for name in ("node_modules", "package-lock.json"):
+        target = project_dir / name
+        if target.is_dir():
+            shutil.rmtree(target, ignore_errors=True)
+            removed = True
+        elif target.exists():
+            try:
+                target.unlink()
+                removed = True
+            except OSError:
+                pass
+    return removed
 
 
 def register_website_tools(registry: ToolRegistry) -> None:
@@ -140,20 +201,77 @@ def register_website_tools(registry: ToolRegistry) -> None:
         if not pkg_json.exists():
             return f"项目缺少 package.json：{pkg_json}"
 
-        sandbox = Sandbox(workspace=target_dir, timeout=120, max_output=12000)
+        # 共享 npm 缓存：沙箱把 HOME 指向工作区，若不显式指定缓存目录，
+        # 每个项目都会有一份独立缓存 → 每次构建都重新下载全部依赖。
+        npm_cache = NPM_CACHE_DIR
+        npm_cache.mkdir(parents=True, exist_ok=True)
+        env = {
+            "npm_config_cache": str(npm_cache),
+            "npm_config_fund": "false",
+            "npm_config_audit": "false",
+        }
+
+        # 超时上限：干净环境下 npm install 实测 53.6s（冷缓存），
+        # 120s 在弱网下会踩线 —— 而超时留下的半截 node_modules 会让
+        # 后续构建永久失败（见下方 _clean_node_modules）。
+        install_timeout = 300
+        build_timeout = 180
+
+        sandbox = Sandbox(
+            workspace=target_dir,
+            timeout=install_timeout,
+            max_output=12000,
+            extra_env=env,
+        )
+
+        # 上一轮如果是被超时杀死的，node_modules 里可能留着半截的原生
+        # 二进制（rollup 的 .node 文件实测被截断）。先探测，坏了就清掉重来。
+        stale = _detect_broken_node_modules(target_dir)
+        if stale:
+            _clean_node_modules(target_dir)
+            return (
+                f"检测到上次构建残留的损坏依赖（{stale}），已清理 node_modules。\n"
+                f"请重新调用 build_website('{project_slug}') —— 本次会重新安装依赖，"
+                f"首次安装约需 1-5 分钟（取决于网络）。"
+            )
 
         # npm install（使用 --ignore-scripts 防止恶意包脚本）
-        install_result = await sandbox.execute("npm install --ignore-scripts", timeout=120)
+        install_result = await sandbox.execute(
+            "npm install --ignore-scripts", timeout=install_timeout
+        )
         if not install_result.success:
+            # 失败/超时都清残留：npm 在被打断后可能认为包已装好而跳过重装，
+            # 下一次构建就会命中半截文件。
+            _clean_node_modules(target_dir)
+            hint = (
+                "（已清理 node_modules，重试即可重新安装；"
+                "首次安装约需 1-5 分钟）"
+                if install_result.timed_out
+                else "（已清理 node_modules，重试即可重新安装）"
+            )
+            if install_result.timed_out:
+                return (
+                    f"npm install 超时（超过 {install_timeout} 秒）{hint}。\n"
+                    f"若反复超时，说明网络到 npm 源不通——请改用内网 npm 镜像，"
+                    f"或联系管理员配置 registry。"
+                )
             return (
-                f"npm install 失败（退出码 {install_result.exit_code}）：\n"
+                f"npm install 失败（退出码 {install_result.exit_code}）{hint}：\n"
                 f"{install_result.stderr[-3000:]}"
             )
 
         # npm run build
-        build_result = await sandbox.execute("npm run build", timeout=120)
+        build_result = await sandbox.execute("npm run build", timeout=build_timeout)
 
         if not build_result.success:
+            # 构建失败也清一次：构建期报错常见于原生模块损坏，留着会一直复现。
+            if _detect_broken_node_modules(target_dir):
+                _clean_node_modules(target_dir)
+                return (
+                    f"构建失败：依赖中的原生模块损坏，已清理 node_modules。\n"
+                    f"请重新调用 build_website('{project_slug}')。\n"
+                    f"原始错误：\n{build_result.stderr[-2000:]}"
+                )
             return (
                 f"npm run build 失败（退出码 {build_result.exit_code}）：\n"
                 f"{build_result.stderr[-3000:]}"
@@ -216,9 +334,12 @@ def register_website_tools(registry: ToolRegistry) -> None:
         user_id = get_current_user_id()
         session_id = get_current_session_id()
 
-        # 从目录名解析 stack
-        parsed = _parse_dir_name(project_slug)
-        stack = "vanilla"  # default
+        # 技术栈：从项目自身的 package.json / 源码后缀判定。
+        # 早前这里硬编码 "vanilla"（上面那行 _parse_dir_name 的解析结果被丢弃），
+        # 导致后台部署管理里 react / vue 站点全显示成 Vanilla。
+        from app.services.website_stack import detect_stack
+
+        stack = detect_stack(target_dir)
 
         # 创建部署请求
         deploy_service = WebsiteDeployService()

@@ -16,6 +16,7 @@ import asyncio
 import logging
 import os
 import re
+import signal
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -75,11 +76,15 @@ class Sandbox:
         timeout: int = 120,
         max_output: int = 12000,
         block_commands: bool = True,
+        extra_env: dict[str, str] | None = None,
     ):
         self.workspace = Path(workspace).resolve()
         self.timeout = timeout
         self.max_output = max_output
         self.block_commands = block_commands
+        # 额外环境变量。npm 等工具需要共享缓存目录，否则每个项目目录
+        # 都是一份独立缓存 → 每次构建都要重新下载全部依赖。
+        self.extra_env = dict(extra_env or {})
 
     def _validate_path(self, path: str) -> str:
         """Ensure resolved path stays within workspace."""
@@ -105,7 +110,32 @@ class Sandbox:
         # Add basic safety
         env["HOME"] = str(self.workspace)
         env["TMPDIR"] = str(self.workspace / ".tmp")
+        # 调用方显式传入的环境变量（共享 npm 缓存等）
+        env.update(self.extra_env)
         return env
+
+    @staticmethod
+    async def _kill_process_group(proc: asyncio.subprocess.Process) -> None:
+        """杀掉整个进程组（不只是 shell），避免子进程继续写文件。
+
+        ``npm install`` 派生的子进程在 shell 被杀后仍会继续往 node_modules
+        里写 —— 等它自己结束时，磁盘上留下的是**半截**的原生二进制
+        （实测 rollup 的 ``.node`` 文件被截断，dlopen 报
+        ``segment '__TEXT' extends beyond end of file``）。
+        npm 之后会认为包已装好而跳过重装，于是项目永久构建失败。
+        """
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError, OSError):
+            # 进程组已消失或不允许操作 —— 退回杀单个进程
+            try:
+                proc.kill()
+            except (ProcessLookupError, OSError):
+                pass
+        try:
+            await proc.wait()
+        except Exception:  # pragma: no cover —— wait 极少抛错
+            pass
 
     async def execute(
         self,
@@ -141,12 +171,16 @@ class Sandbox:
         env = self._sanitize_env()
 
         try:
+            # start_new_session=True 让子进程自成进程组 —— 超时时才能连
+            # npm 一起杀掉。原先只 kill shell 的话，npm 子进程会继续在后台
+            # 往 node_modules 里写文件，等它被 kill 时已经留下半截的二进制。
             proc = await asyncio.create_subprocess_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=str(self.workspace),
                 env=env,
+                start_new_session=True,
             )
 
             try:
@@ -155,8 +189,7 @@ class Sandbox:
                 )
                 timed_out = False
             except asyncio.TimeoutError:
-                proc.kill()
-                await proc.wait()
+                await self._kill_process_group(proc)
                 timed_out = True
                 stdout = b""
                 stderr = f"Command timed out after {timeout} seconds".encode()

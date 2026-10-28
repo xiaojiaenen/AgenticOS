@@ -941,6 +941,8 @@ class StreamOrchestrator:
                                             session.session_id,
                                             artifact.get("preview_html") or "",
                                             artifact.get("title") or "",
+                                            artifact.get("project_slug") or "",
+                                            artifact.get("stack") or "",
                                         )
                                         if version:
                                             artifact["version"] = version

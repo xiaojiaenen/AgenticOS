@@ -55,7 +55,13 @@ def next_website_version(session_id: str) -> int:
     return (versions[0][0] + 1) if versions else 1
 
 
-async def snapshot_website_version(session_id: str, preview_html: str, title: str = "") -> int | None:
+async def snapshot_website_version(
+    session_id: str,
+    preview_html: str,
+    title: str = "",
+    project_slug: str = "",
+    stack: str = "",
+) -> int | None:
     """把一轮的网站预览 HTML 快照为新版本，返回版本号。
 
     快照失败不影响主流程（只影响"回看历史版本"），因此内部吞掉异常只记日志。
@@ -68,9 +74,25 @@ async def snapshot_website_version(session_id: str, preview_html: str, title: st
             version = next_website_version(session_id)
             path = _ensure_dir() / f"u{session_id}_v{version}.html"
             path.write_text(preview_html, encoding="utf-8")
-            # 轻量元数据：标题 + 大小，供前端列表直接展示
+            # 轻量元数据：标题 + 大小 + 项目 slug / 技术栈，供前端列表直接展示，
+            # 也供 build_website_version_artifact 还原出可部署的项目标识。
+            #
+            # **project_slug 必须在这里存真实值**：版本快照的编号（v1/v2/v3…）
+            # 与项目目录的编号（u{uid}_s{sid}_v{n}）是两套独立空间 ——
+            # 一个会话通常只 copy_template 一次（项目目录恒为 v1），
+            # 却会构建出多个预览快照。凭版本号反推 slug 会得到
+            # "u{sid}_v{n}" 这种不符合 ^u(\d+)_s(.+)_v(\d+)$ 的非法标识，
+            # 导致用户从版本条切回历史版本后点「部署」必然 400。
             path.with_suffix(".json").write_text(
-                json.dumps({"title": title, "bytes": len(preview_html)}, ensure_ascii=False),
+                json.dumps(
+                    {
+                        "title": title,
+                        "bytes": len(preview_html),
+                        "project_slug": project_slug,
+                        "stack": stack,
+                    },
+                    ensure_ascii=False,
+                ),
                 encoding="utf-8",
             )
             return version
@@ -170,16 +192,61 @@ def build_website_version_artifact(session_id: str, version: int, title: str = "
     html = load_website_version(session_id, version)
     if not html:
         return None
+
+    meta = _read_version_meta(session_id, version)
+    # 优先用快照时记下的真实项目 slug；老快照（升级前写入的）没有这个字段，
+    # 回退到「按会话找最新的项目目录」。
+    project_slug = str(meta.get("project_slug") or "") or _latest_project_slug(session_id)
+    stack = str(meta.get("stack") or "") or "vanilla"
+
     return {
         "type": "website",
         "artifact_id": f"{session_id}_v{version}",
         "session_id": session_id,
-        "title": title or f"网站 v{version}",
-        "project_slug": f"u{session_id}_v{version}",
-        "stack": "vanilla",
+        "title": title or meta.get("title") or f"网站 v{version}",
+        "project_slug": project_slug,
+        "stack": stack,
         "file_count": 0,
         "preview_html": html,
     }
+
+
+def _read_version_meta(session_id: str, version: int) -> dict[str, Any]:
+    """读取版本快照的元数据 JSON；读不到返回空 dict。"""
+    path = _ensure_dir() / f"u{session_id}_v{version}.json"
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _latest_project_slug(session_id: str) -> str:
+    """按会话找出 data/websites 下最新的项目目录名。
+
+    目录名形如 ``u{user_id}_s{session_id}_v{version}``，取版本号最大的一个。
+    找不到返回空串 —— 前端拿到空 slug 时不会渲染部署按钮。
+    """
+    try:
+        from app.core.data_path import WEBSITES_DIR, _parse_dir_name
+
+        if not WEBSITES_DIR.exists():
+            return ""
+        best_ver = -1
+        best_name = ""
+        for child in WEBSITES_DIR.iterdir():
+            if not child.is_dir():
+                continue
+            parsed = _parse_dir_name(child.name)
+            if parsed and str(parsed[1]) == session_id and parsed[2] > best_ver:
+                best_ver = parsed[2]
+                best_name = child.name
+        return best_name
+    except Exception:
+        logger.exception("latest project slug lookup failed: session=%s", session_id)
+        return ""
 
 # ---------------------------------------------------------------------------
 # 表格版本

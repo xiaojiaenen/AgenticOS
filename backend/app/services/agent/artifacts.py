@@ -22,6 +22,7 @@ from app.core.data_path import (
     WEBSITES_DIR,
     _parse_dir_name,
 )
+from app.services.website_stack import detect_stack
 
 _logger = logging.getLogger("agent")
 
@@ -342,19 +343,13 @@ class ArtifactFactory:
         preview_html = self._inline_dist_assets(dist_dir, raw_html)
 
         # Count files in dist and detect stack（同步 rglob 扫描放线程池）
+        # 技术栈判定统一走 website_stack.detect_stack —— 以 package.json 的
+        # dependencies 为准，只看后缀会把 .tsx 写的 React 判成 vanilla。
         def _scan_project():
             file_count = len([f for f in dist_dir.rglob("*") if f.is_file()])
-            has_vue = any(f.suffix == ".vue" for f in project_dir.rglob("*"))
-            has_jsx = any(f.suffix == ".jsx" for f in project_dir.rglob("*"))
-            return file_count, has_vue, has_jsx
+            return file_count, detect_stack(project_dir)
 
-        file_count, has_vue, has_jsx = await asyncio.to_thread(_scan_project)
-        if has_vue:
-            stack = "vue"
-        elif has_jsx:
-            stack = "react"
-        else:
-            stack = "vanilla"
+        file_count, stack = await asyncio.to_thread(_scan_project)
 
         return {
             "type": "website",
