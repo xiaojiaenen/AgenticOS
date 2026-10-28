@@ -82,14 +82,45 @@ class TestCreatePptArtifactErrors:
         assert "不存在" in svc._last_quality_errors[0]
 
     @pytest.mark.anyio
-    async def test_not_enough_slides(self, tmp_path):
+    async def test_not_enough_slides(self, tmp_path, monkeypatch):
+        """页数门槛由 PPT_MIN_SLIDES 控制，不再是硬编码的 3。"""
+        from app.core.config import get_settings
+
+        # 显式要求至少 3 页时，1 页应当被判不足
+        monkeypatch.setattr(get_settings(), "ppt_min_slides", 3)
+
         svc = PptArtifactService()
-        # 只创建 1 个 slide
-        (tmp_path / "slide_1.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"></svg>', encoding="utf-8")
+        (tmp_path / "slide_1.svg").write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"></svg>',
+            encoding="utf-8",
+        )
         result = await svc.create_from_slides_dir("test-session", tmp_path)
         assert result is None
         assert len(svc._last_quality_errors) > 0
         assert "不足" in svc._last_quality_errors[0]
+        assert "3" in svc._last_quality_errors[0]
+
+    @pytest.mark.anyio
+    async def test_single_slide_allowed_by_default(self, tmp_path, monkeypatch):
+        """默认门槛是 1 页：单页封面属于合理请求，不该被判失败。
+
+        修复前 4 处硬编码 `< 3`，导致「只做一页封面」必然报
+        「幻灯片不足 3 页」，而用户无从调整。
+        """
+        from app.core.config import get_settings
+
+        monkeypatch.setattr(get_settings(), "ppt_min_slides", 1)
+
+        svc = PptArtifactService()
+        (tmp_path / "slide_1.svg").write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">'
+            '<text x="10" y="40">封面</text></svg>',
+            encoding="utf-8",
+        )
+        result = await svc.create_from_slides_dir("test-session", tmp_path)
+        # 单页现在能走到产物创建（不再被页数门槛拦掉）
+        assert result is not None, svc._last_quality_errors
+        assert result.get("slide_count") == 1
 
     @pytest.mark.anyio
     async def test_missing_viewbox(self, tmp_path):

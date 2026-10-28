@@ -155,9 +155,21 @@ class TestSvgValidation:
         assert validate_svg_slides(SIMPLE_SVGS)
 
     def test_validate_svg_slides_too_few(self):
+        """页数门槛由 PPT_MIN_SLIDES 控制；空列表永远不合法。"""
+        from app.core.config import get_settings
         from app.services.ppt_artifact_service import validate_svg_slides
-        assert not validate_svg_slides(SIMPLE_SVGS[:2])
+
+        # 空列表无论门槛多少都非法
         assert not validate_svg_slides([])
+
+        # 门槛为 3 时，2 页非法
+        original = get_settings().ppt_min_slides
+        try:
+            get_settings().ppt_min_slides = 3
+            assert not validate_svg_slides(SIMPLE_SVGS[:2])
+            assert validate_svg_slides(SIMPLE_SVGS[:3])
+        finally:
+            get_settings().ppt_min_slides = original
 
     def test_validate_svg_slides_inconsistent_viewbox(self):
         from app.services.ppt_artifact_service import validate_svg_slides

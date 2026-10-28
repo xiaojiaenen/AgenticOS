@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     agent_max_tokens: int = 65536
     agent_parallel_tool_calls: bool = False
     llm_timeout: int = Field(default=300, validation_alias="LLM_TIMEOUT")
+    # PPT 最少页数门槛。
+    #
+    # 原实现把「< 3 页」硬编码在 4 处（validate_svg_slides、create_from_slides_dir、
+    # 质量门、unified_checker），导致「做一页封面」这种合理请求也会被判失败。
+    # 现在统一走这个配置：默认 1（允许单页），需要正式 deck 时由管理员调高。
+    ppt_min_slides: int = Field(default=1, ge=1, le=50, validation_alias="PPT_MIN_SLIDES")
     database_url: str = Field(default=f"sqlite:///{PROJECT_ROOT / 'data' / 'agenticos.db'}", validation_alias="DATABASE_URL")
     # MySQL 连接池分级（M6-A1）：常驻连接 / 溢出上限 / 回收秒数
     db_pool_size: int = Field(default=10, validation_alias="DB_POOL_SIZE")

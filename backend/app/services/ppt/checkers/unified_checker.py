@@ -143,8 +143,11 @@ class PPTChecker:
         """检查整个 deck 的一致性"""
         errors = []
 
-        if len(svgs) < 3:
-            errors.append(f"幻灯片不足 3 页（当前 {len(svgs)} 页）")
+        from app.services.ppt_artifact_service import min_slides
+
+        need = min_slides()
+        if len(svgs) < need:
+            errors.append(f"幻灯片不足 {need} 页（当前 {len(svgs)} 页）")
 
         # 检查 viewBox 一致性
         viewboxes = set()

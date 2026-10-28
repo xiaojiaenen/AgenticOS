@@ -90,9 +90,20 @@ _VIEWBOX_RE = re.compile(r'viewBox\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
 _DATA_THEME_RE = re.compile(r'data-theme\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
 
 
+def min_slides() -> int:
+    """最少幻灯片页数（来自配置 ``PPT_MIN_SLIDES``，默认 1）。
+
+    以前这个阈值硬编码成 3 并散落在 4 处，导致「只做一页封面」这种合理请求
+    也会被判失败，而且调整时容易漏改某处。
+    """
+    from app.core.config import get_settings
+
+    return max(int(getattr(get_settings(), "ppt_min_slides", 1) or 1), 1)
+
+
 def validate_svg_slides(svgs: list[str]) -> bool:
-    """Check that we have at least 3 SVG slides with consistent viewBox dimensions."""
-    if len(svgs) < 3:
+    """校验 SVG 页数与 viewBox 一致性。"""
+    if len(svgs) < min_slides():
         return False
     view_boxes = set()
     for svg in svgs:
@@ -228,9 +239,10 @@ class PptArtifactService:
             return None
 
         svg_files = sorted(slides_dir.glob("slide_*.svg"), key=_slide_num_key)
-        if len(svg_files) < 3:
-            _logger.debug(f"Not enough slides: {len(svg_files)} < 3")
-            self._last_quality_errors = [f"幻灯片不足 3 页（当前 {len(svg_files)} 页）"]
+        need = min_slides()
+        if len(svg_files) < need:
+            _logger.debug(f"Not enough slides: {len(svg_files)} < {need}")
+            self._last_quality_errors = [f"幻灯片不足 {need} 页（当前 {len(svg_files)} 页）"]
             self._last_quality_warnings = []
             self.set_quality_feedback(session_id, self._last_quality_errors, self._last_quality_warnings)
             return None
@@ -373,8 +385,9 @@ class PptArtifactService:
         if not validate_svg_slides(svgs):
             _logger.warning(f"validate_svg_slides failed: count={len(svgs)} (blocking artifact)")
             reasons = []
-            if len(svgs) < 3:
-                reasons.append(f"SVG 页数不足: {len(svgs)} < 3")
+            need = min_slides()
+            if len(svgs) < need:
+                reasons.append(f"SVG 页数不足: {len(svgs)} < {need}")
             for i, svg in enumerate(svgs):
                 if not _VIEWBOX_RE.search(svg):
                     reasons.append(f"slide_{i+1}.svg 缺少 viewBox 属性")
