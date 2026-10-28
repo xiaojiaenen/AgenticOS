@@ -92,13 +92,34 @@ class TestAgentFactoryMiddlewareStack:
         assert "__tool_rejected__" in tool_names
         assert ext_instruction == ""
 
-    def test_concurrency_patch_applied_at_import(self):
-        """monkey-patch 在模块导入时应用（时机不变）。"""
+    def test_concurrent_tool_execution_relies_on_upstream(self):
+        """并发工具执行由上游原生实现，不再有 monkey-patch。
+
+        这里曾经有一份 230 行的 ``AgentRunner.stream_events`` 整体重写
+        （TECH-DEBT），目的是让安全工具并发执行。wuwei 3.2.1 的
+        ``ToolExecutor.execute(concurrent=True)`` 已原生实现同样的分批并发，
+        补丁已删除 —— 它整段复制了上游执行循环，上游一改就静默落后。
+
+        守护点：**不要重新引入这个补丁**。断言我们的 factory 里已经没有那个
+        覆盖实现，且 ``AgentRunner.stream_events`` 仍指向上游自己的函数。
+        """
         from wuwei.runtime.agent_runner import AgentRunner
+        from wuwei.tools.executor import ToolExecutor
+
         from app.services.agent import factory as agent_factory
 
-        assert AgentRunner.stream_events is agent_factory._patched_stream_events
-        assert "TECH-DEBT" in (agent_factory._patched_stream_events.__doc__ or "")
+        # 补丁符号必须已消失
+        assert not hasattr(agent_factory, "_patched_stream_events")
+        assert not hasattr(agent_factory, "_original_stream_events")
+
+        # stream_events 必须还是上游自己的实现（没有被我们换掉）
+        assert AgentRunner.stream_events.__module__ == "wuwei.runtime.agent_runner"
+
+        # 上游自己提供并发入口
+        import inspect
+
+        signature = inspect.signature(ToolExecutor.execute)
+        assert "concurrent" in signature.parameters
 
 
 class TestArtifactSlugInference:

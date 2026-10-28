@@ -1,5 +1,35 @@
 # wuwei 3.0.2 问题清单（供上游反馈）
 
+> **状态更新（2026-10-28）：本清单针对 3.0.2，其中多数问题已在 3.2.1 修复。**
+>
+> 升级到 3.2.1 后的实测结论（同一组真实 SDK 响应对象做对照）：
+>
+> | 3.0.2 的问题 | 3.2.1 现状 |
+> | --- | --- |
+> | usage 收尾帧被吞（流式 token 恒为 0） | **已修** —— `parse_stream_chunk` 对 `choices: []` 的帧返回 `{"usage": ...}`，网关循环直接累加 usage |
+> | 非流式缺 usage 直接 `AttributeError` | **已修** —— `_parse_usage` 逐字段 `getattr`，缺字段返回 0 |
+> | 非常规 `finish_reason` 触发 pydantic `ValidationError` | **已修** —— `finish_reason` 从 `Literal` 放宽为 `str`，另有 `normalize_finish_reason` 归一化 + `raw_finish_reason` 保留原值 |
+> | 错误分类用 `"500" in str(exc)` 字符串匹配 | **已修** —— 改为读 `status_code` 属性，端口 5000 的 401 不会再被当成 5xx 重试 |
+> | 除 openai 外四个适配器流式不可用 | **结构性变更** —— zhipu / dashscope / ollama 适配器**已从包内移除**，只保留 openai / anthropic / responses |
+> | 工具调用在非标 `finish_reason` 下丢失 | **已修** —— 网关用 `pending` 增量组装，缺失 id/name 直接报错而不是静默丢弃 |
+> | 并发工具执行需自行 monkey-patch | **已修** —— `ToolExecutor.execute(concurrent=True)` 原生按 `is_concurrency_safe` 分批并发 |
+>
+> 仍然存在的差异（升级时必须适配）：
+>
+> - **`ApprovalRequest` / `ApprovalDecision` 已删除** —— 审批重构为「抛 `InterruptSignal` + checkpointer 持久化 + `Agent.resume()` 恢复」。
+>   AgenticOS 的审批是跨进程 + 前端交互的（Redis pub/sub + SSE + DB），
+>   走的是 `approval_provider` 回调模式（该模式 3.2.1 保持不变），
+>   但那两个数据结构类已不复存在，改由 `app/services/approval_types.py` 自持。
+> - **`openai` SDK 跨大版本到 3.x** —— 唯一破坏性变更是「HTTPX2 成为默认客户端」。
+>   显式传 `httpx.AsyncClient` 仍可用（实测流式与非流式均正常），
+>   但 `httpx` 不再被 openai 自动安装，必须显式声明依赖。
+> - **`OpenAIAdapter.__init__` 新增 `client` / `client_factory` / `owns_client` 注入点** ——
+>   之前需要手写 `self.client = ...` 绕过父类的做法已不必要，且那种写法会漏掉
+>   父类设置的字段（`supports_reasoning_content` 等），3.2.1 下直接 `AttributeError`。
+>
+> 下面的原始清单保留作为**问题演进的记录**，但不要再照着它去改代码 ——
+> 多数缺陷上游已修，照着改会引入不必要的补丁。
+
 审查对象：`wuwei==3.0.2`（`site-packages/wuwei`，Homepage: github.com/xiaojiaenen/wuwei）
 审查范围：`llm/gateway.py`、`llm/adapters/*`、`llm/types.py`、`core/types.py`、`core/message.py`、`runtime/agent_runner.py`
 方法：通读源码 + 构造真实 SDK 响应对象做动态验证（不依赖网络），另用本地假网关验证重试/fallback 行为。

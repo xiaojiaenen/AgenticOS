@@ -209,7 +209,15 @@ ALLOWED_EXTRA_KEYS = {
     "presence_penalty",
     "frequency_penalty",
     "seed",
+    # 输出 token 上限的参数名。o1 / o3 / gpt-5 这类推理模型只认
+    # ``max_completion_tokens``，给 ``max_tokens`` 会直接 400。
+    # wuwei 3.2.1 的 OpenAIAdapter 会 pop 掉这个键并据此改写请求体，
+    # 所以它不会漏进上游请求。
+    "output_token_parameter",
 }
+
+# ``output_token_parameter`` 的合法取值 —— 只这两个，上游明确拒绝其他值
+_OUTPUT_TOKEN_PARAMETERS = {"max_tokens", "max_completion_tokens"}
 
 _SAMPLING_RANGE = {
     "temperature": (0.0, 2.0),
@@ -267,6 +275,14 @@ def validate_extra(extra: dict[str, Any] | None) -> None:
             raise ProviderConfigError(f"extra.{key} 必须是数字") from exc
         if not (low <= value <= high):
             raise ProviderConfigError(f"extra.{key} 必须在 {low}~{high} 之间")
+
+    token_parameter = extra.get("output_token_parameter")
+    if token_parameter is not None and token_parameter not in _OUTPUT_TOKEN_PARAMETERS:
+        raise ProviderConfigError(
+            "extra.output_token_parameter 只支持 "
+            + "、".join(sorted(_OUTPUT_TOKEN_PARAMETERS))
+            + f"，收到: {token_parameter}"
+        )
 
 
 def resolve_model_for_role(spec: ProviderSpec, role: str | None = None) -> str:

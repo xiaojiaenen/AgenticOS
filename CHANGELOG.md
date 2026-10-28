@@ -10,6 +10,44 @@
 
 ## [Unreleased]
 
+### Changed — 升级 wuwei 3.0.2 → 3.2.1（2026-10-28）
+
+上游 3.2.1 把 3.0.2 时代的一批流式缺陷修掉了（详见
+`docs/wuwei-3.0.2-问题清单.md` 顶部的对照表）。本节记录本次升级的适配动作。
+
+**依赖**
+- `wuwei>=3.2.1`；连带 `openai` 2.32.0 → 3.40.0（wuwei 3.2.1 要求 `openai>=3.23.0`）。
+- `httpx` 与 `openai` 改为**显式生产依赖**。openai 3.x 起不再自动安装 httpx
+  （改用 httpx2），而 app/ 下 14 个文件直接 `import httpx`、2 个直接 `import openai`，
+  只靠传递依赖是定时炸弹。
+
+**Fixed**
+- Cookie 适配器改走父类 `__init__`（用 3.2.1 新增的 `client=` 注入点）。
+  之前手写 `self.client = ...` 跳过了父类初始化，漏掉 `supports_reasoning_content`
+  等字段 —— 3.0.2 不读这些字段所以一直没暴露，3.2.1 下第一行就 `AttributeError`，
+  **所有 Cookie 认证的企业网关不可用**。顺带修掉隐藏 bug：手写 init 时
+  `max_tokens` 没进请求体，上游按自身默认上限截断，长回答会被切。
+- OpenAI 兼容端点的 usage 透传：流式与非流式的 `usage` 之前都**硬编码成 0**，
+  而 agent 侧的 `done` 事件明明带着真实 token 数。对外是 OpenAI 兼容端点，
+  客户端据此计费，报 0 等于所有接入方的账单全错。现在收尾帧带真实
+  `prompt_tokens` / `completion_tokens` / `total_tokens`。
+
+**Removed**
+- 删除 230 行的 `AgentRunner.stream_events` monkey-patch（并发工具执行）。
+  wuwei 3.2.1 的 `ToolExecutor.execute(concurrent=True)` 已原生实现同样的
+  按 `is_concurrency_safe` 分批并发（实测补丁版 0.504s vs 原生 0.505s，事件序列
+  完全一致）。那个补丁整段复制了上游执行循环，上游一改就静默落后 ——
+  本次升级上游新增的 `side_effect` / `requires_approval` 事件字段它就拿不到。
+
+**Added**
+- `app/services/approval_types.py`：自持 `ApprovalRequest` / `ApprovalDecision`。
+  wuwei 3.2.1 删除了这两个类（审批重构为 `InterruptSignal` + checkpointer +
+  `Agent.resume()`）。它们本来就没有行为，只是传参容器；而我们的审批流程
+  （Redis pub/sub + DB + SSE）完全是自研的，走 `approval_provider` 回调模式，
+  该模式 3.2.1 未变。
+- `ProviderSpec.extra` 支持 `output_token_parameter`：o1 / o3 / gpt-5 这类推理模型
+  只认 `max_completion_tokens`，给 `max_tokens` 会被上游直接 400。
+
 ### Added — 用量记账的审计维度（2026-10-27）
 
 在此之前，`agent_usage_events` 只能回答「谁用了多少」，回答不了「走的哪条路由」：

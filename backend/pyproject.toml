@@ -11,7 +11,14 @@ dependencies = [
     "pydantic-settings>=2.10.0,<3.0.0",
     "sqlalchemy>=2.0.44,<3.0.0",
     "uvicorn[standard]>=0.35.0,<1.0.0",
-    "wuwei>=3.0.2",
+    "wuwei>=3.2.1",
+    # 下面两个是**直接依赖**，必须显式声明，不能靠传递依赖侥幸拿到：
+    # - httpx：app/ 下 14 个文件直接 import（外部系统、图像工具、鉴权代理等）。
+    #   openai 3.x 起不再自动安装 httpx（改用 httpx2），只靠别人传递是定时炸弹。
+    # - openai：llm_providers 的适配器与错误分类直接 import。
+    #   版本下限与 wuwei 3.2.1 的要求保持一致（>=3.23.0）。
+    "httpx>=0.28.0,<1.0.0",
+    "openai>=3.23.0,<4.0.0",
     "python-pptx>=1.0.2",
     "pillow>=12.2.0",
     "markitdown[all]>=0.1.6",
@@ -32,7 +39,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.0,<1.0.0",
     "pytest>=8.4.0,<9.0.0",
     "ruff>=0.16.9",
 ]

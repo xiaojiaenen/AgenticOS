@@ -103,26 +103,41 @@ def _build_cookie_adapter(
 
     继承 ``HardenedOpenAIAdapter`` 而不是裸 ``OpenAIAdapter``：Cookie 类网关
     往往是「响应标准、周边不标准」的形态，三处容错对它同样必要。
+
+    **必须走父类的 ``__init__``**（用 ``client=`` 注入点传入自建客户端），
+    不要手写字段赋值。曾经图省事直接写 ``self.client = ...``，
+    结果父类 ``__init__`` 里设置的字段（``supports_reasoning_content`` /
+    ``output_token_parameter`` / ``owns_client`` 等）全部缺失 ——
+    wuwei 3.0.2 的 ``build_request`` 不读这些字段所以一直没暴露，
+    升到 3.2.1 后第一行就 ``AttributeError``。
+
+    父类的字段清单会随上游版本变，手写一份必然会漏。走 ``client=`` 注入点，
+    上游新增什么字段都不用我们管。
     """
     from openai import AsyncOpenAI
 
     from app.services.llm_providers.adapter import HardenedOpenAIAdapter
 
-    class CookieAuthAdapter(HardenedOpenAIAdapter):
-        def __init__(self) -> None:
-            self.client = AsyncOpenAI(
-                api_key=COOKIE_PLACEHOLDER_API_KEY,
-                base_url=base_url,
-                default_headers=_request_headers(transport, cookie=cookie),
-                http_client=build_http_client(transport, timeout=timeout),
-                max_retries=transport.max_retries,
-                timeout=timeout,
-            )
-            self.model = model
-            self.default_params = default_params
-            self._stream_saw_tool_calls = False
+    client = AsyncOpenAI(
+        api_key=COOKIE_PLACEHOLDER_API_KEY,
+        base_url=base_url,
+        default_headers=_request_headers(transport, cookie=cookie),
+        http_client=build_http_client(transport, timeout=timeout),
+        max_retries=transport.max_retries,
+        timeout=timeout,
+    )
 
-    return CookieAuthAdapter()
+    class CookieAuthAdapter(HardenedOpenAIAdapter):
+        """Cookie 类网关：只换认证方式，其余行为完全继承标准适配器。"""
+
+    return CookieAuthAdapter(
+        api_key=COOKIE_PLACEHOLDER_API_KEY,
+        model=model,
+        base_url=base_url,
+        client=client,
+        owns_client=True,
+        **default_params,
+    )
 
 
 def _new_gateway(config: dict[str, Any]) -> Any:
@@ -162,6 +177,11 @@ def _build_gateway(config: dict[str, Any], *, max_retries: int = 0) -> Any:
             for key in ("top_p", "presence_penalty", "frequency_penalty", "seed")
             if key in config
         },
+        **(
+            {"output_token_parameter": config["output_token_parameter"]}
+            if config.get("output_token_parameter")
+            else {}
+        ),
     )
     return gateway
 
@@ -227,6 +247,10 @@ def build_gateway(
     for key in ("temperature", "top_p", "presence_penalty", "frequency_penalty", "seed"):
         if key in spec.extra:
             config[key] = spec.extra[key]
+    # o1 / o3 / gpt-5 这类推理模型只认 max_completion_tokens，给 max_tokens 会 400。
+    # wuwei 3.2.1 的适配器会 pop 掉它并据此改写请求体。
+    if "output_token_parameter" in spec.extra:
+        config["output_token_parameter"] = spec.extra["output_token_parameter"]
 
     if spec.provider_type == PROVIDER_TYPE_ENTERPRISE_COOKIE:
         lease = credentials.acquire(spec.provider_id or 0)
@@ -253,6 +277,11 @@ def build_gateway(
                 for key, value in config.items()
                 if key in ("top_p", "presence_penalty", "frequency_penalty", "seed")
             },
+            **(
+                {"output_token_parameter": config["output_token_parameter"]}
+                if "output_token_parameter" in config
+                else {}
+            ),
         )
         # 路由快照：提供商 / 实际模型 / 选中账号。上层记账时读它落审计列，
         # 但**不**用它来归属用量（归属永远是发起请求的用户）。

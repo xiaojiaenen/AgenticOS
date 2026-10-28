@@ -111,6 +111,25 @@ def _extract_user_content(messages: list[ChatMessage]) -> str:
     return messages[-1].content.strip()
 
 
+def _normalize_usage(raw: dict[str, Any]) -> dict[str, int]:
+    """把 agent 侧 usage 归一成 OpenAI 规范的三个字段。
+
+    agent 内部用的是 ``input_tokens`` / ``output_tokens``，OpenAI 兼容层对外
+    要的是 ``prompt_tokens`` / ``completion_tokens`` / ``total_tokens``。
+    两套名字都认一下 —— 上游网关（百通等）有时直接给 OpenAI 那套名字。
+    """
+    prompt = int(raw.get("input_tokens") or raw.get("prompt_tokens") or 0)
+    completion = int(raw.get("output_tokens") or raw.get("completion_tokens") or 0)
+    total = int(raw.get("total_tokens") or 0)
+    if not total:
+        total = prompt + completion
+    return {
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": total,
+    }
+
+
 def _resolve_model_name(raw: str) -> str:
     """把 model 名解析为 response_mode（接受 slug、名称或通用模式名）。"""
     value = (raw or "general").strip().lower()
@@ -179,6 +198,12 @@ async def run_local_completion(
         """返回 (正文, 推理摘要)。"""
         text_parts: list[str] = []
         reasoning_parts: list[str] = []
+        # 真实 token 数 —— 客户端据此计费，硬编码 0 会让所有接入方的账单全错
+        usage: dict[str, int] = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        }
         try:
             agent_service.ensure_ready()
             await agent_service.ensure_session_access(request, current_user)
@@ -189,17 +214,21 @@ async def run_local_completion(
                     text_parts.append(data.get("content") or "")
                 elif kind == "reasoning_delta":
                     reasoning_parts.append(data.get("content") or "")
+                elif kind == "done":
+                    raw = data.get("usage")
+                    if isinstance(raw, dict):
+                        usage = _normalize_usage(raw)
                 elif kind == "error":
                     raise RuntimeError(data.get("message") or "agent error")
         except RuntimeError:
             raise
         except PermissionError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
-        return "".join(text_parts), "".join(reasoning_parts)
+        return "".join(text_parts), "".join(reasoning_parts), usage
 
     if not payload.stream:
         try:
-            text, reasoning = await run()
+            text, reasoning, usage = await run()
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         message: dict[str, Any] = {"role": "assistant", "content": text}
@@ -213,7 +242,7 @@ async def run_local_completion(
             "choices": [
                 {"index": 0, "message": message, "finish_reason": "stop"},
             ],
-            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "usage": usage,
         }
 
     async def event_stream() -> AsyncIterator[bytes]:
@@ -232,6 +261,14 @@ async def run_local_completion(
         yield _sse(first)
 
         text_parts: list[str] = []
+        # 收尾帧要带真实 token 数（OpenAI 规范：最后一块给 usage），
+        # 客户端据此计费。agent 侧的 "done" 事件带着真实 usage，
+        # 这里必须收上来 —— 硬编码 0 会让所有接入方的计费全错。
+        final_usage: dict[str, int] = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        }
         try:
             agent_service.ensure_ready()
             await agent_service.ensure_session_access(request, current_user)
@@ -252,6 +289,10 @@ async def run_local_completion(
                             {"index": 0, "delta": {"content": chunk}, "finish_reason": None},
                         ],
                     })
+                elif kind == "done":
+                    usage = data.get("usage")
+                    if isinstance(usage, dict):
+                        final_usage = _normalize_usage(usage)
                 elif kind == "error":
                     message = data.get("message") or "agent error"
                     yield _sse({
@@ -279,11 +320,7 @@ async def run_local_completion(
             "created": created,
             "model": payload.model,
             "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
-            "usage": {
-                "prompt_tokens": 0,
-                "completion_tokens": 0,
-                "total_tokens": 0,
-            },
+            "usage": final_usage,
         })
         yield b"data: [DONE]\n\n"
 

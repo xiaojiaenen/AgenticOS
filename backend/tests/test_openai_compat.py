@@ -90,6 +90,59 @@ class TestHelpers:
         assert _resolve_model_name("website") == "website"
 
 
+class TestUsageNormalization:
+    """usage 必须从 agent 事件透传到 OpenAI 兼容响应。
+
+    之前流式与非流式的 usage 都硬编码成 0 —— agent 侧的 "done" 事件明明带着
+    真实 token 数，转发层却丢掉了。对外是 OpenAI 兼容端点，客户端据此计费，
+    报 0 等于所有接入方的账单全错。
+    """
+
+    def test_accepts_agent_internal_field_names(self):
+        from app.api.v1.endpoints.openai_compat import _normalize_usage
+
+        assert _normalize_usage(
+            {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
+        ) == {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+
+    def test_accepts_openai_field_names(self):
+        """上游网关（百通等）有时直接给 OpenAI 那套字段名，也要认。"""
+        from app.api.v1.endpoints.openai_compat import _normalize_usage
+
+        assert _normalize_usage(
+            {"prompt_tokens": 3, "completion_tokens": 7, "total_tokens": 10}
+        ) == {"prompt_tokens": 3, "completion_tokens": 7, "total_tokens": 10}
+
+    def test_derives_total_when_missing(self):
+        from app.api.v1.endpoints.openai_compat import _normalize_usage
+
+        assert _normalize_usage({"input_tokens": 4, "output_tokens": 6}) == {
+            "prompt_tokens": 4,
+            "completion_tokens": 6,
+            "total_tokens": 10,
+        }
+
+    def test_empty_usage_is_all_zero(self):
+        from app.api.v1.endpoints.openai_compat import _normalize_usage
+
+        assert _normalize_usage({}) == {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        }
+
+    def test_source_has_no_hardcoded_zero_usage(self):
+        """静态守护：响应体里不能出现硬编码的 usage 0。
+
+        这是本 bug 的根因 —— 修一次很容易，改回去也只需要复制一行。
+        """
+        from pathlib import Path
+
+        source = Path(__file__).resolve().parents[1] / "app" / "api" / "v1" / "endpoints" / "openai_compat.py"
+        text = source.read_text(encoding="utf-8")
+        assert '"usage": {"prompt_tokens": 0' not in text
+
+
 class TestLocalAgentRouting:
     def test_generic_model_is_local(self, api_key):
         _key, uid = api_key

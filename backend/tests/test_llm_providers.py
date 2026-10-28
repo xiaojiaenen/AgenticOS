@@ -341,6 +341,45 @@ def test_build_gateway_injects_cookie_header():
     assert headers.get("Cookie") == "session=abc; token=xyz"
 
 
+def test_cookie_adapter_goes_through_parent_init():
+    """Cookie 适配器必须走父类 ``__init__``，不能手写字段赋值。
+
+    曾经的写法是手写 ``self.client = ...``，把父类 ``__init__`` 里设置的字段
+    全部跳过了（``supports_reasoning_content`` / ``output_token_parameter`` /
+    ``owns_client`` / ``max_tokens`` …）。wuwei 3.0.2 的 ``build_request`` 不读
+    这些字段所以一直没暴露；升到 3.2.1 后第一行就
+    ``AttributeError: 'CookieAuthAdapter' object has no attribute
+    'supports_reasoning_content'`` —— Cookie 认证的企业网关全部不可用。
+
+    顺带修掉一个隐藏 bug：手写 init 时 ``max_tokens`` 没进请求体，
+    上游按自身默认上限截断，长回答会被切。
+
+    这里断言两件事：父类字段都在，且请求体里带着 max_tokens。
+    """
+    from app.services.llm_providers.presets import TransportOptions
+    from app.services.llm_providers.runtime import _build_cookie_adapter
+
+    adapter = _build_cookie_adapter(
+        cookie="session=abc",
+        model="gw-model",
+        base_url="https://gw.example.com/agents/baitong",
+        transport=TransportOptions(insecure_tls=True, max_retries=1),
+        timeout=15.0,
+        temperature=0.2,
+    )
+
+    # 父类 __init__ 设置的字段必须齐备
+    for attr in ("supports_reasoning_content", "owns_client", "default_params", "model"):
+        assert hasattr(adapter, attr), f"缺少父类字段：{attr}"
+
+    # 请求体必须带 max_tokens（手写 init 时会丢）
+    from wuwei.llm import Message
+
+    request = adapter.build_request([Message(role="user", content="hi")], None, stream=True)
+    assert request.get("max_tokens") == 4096
+    assert request.get("stream_options") == {"include_usage": True}
+
+
 def test_build_gateway_refuses_enterprise_without_cookie():
     """Cookie 缺失时必须抛错，不能拿空 Key 去打上游后静默失败。"""
     from app.services.llm_providers.runtime import ProviderUnavailable, build_gateway
@@ -1093,16 +1132,33 @@ def test_streaming_usage_reaches_the_caller(monkeypatch):
 
 
 def test_usage_passthrough_keeps_stream_shape():
-    """补 usage 不能顺手把空帧变成「有内容帧」，否则界面会冒出空 delta。"""
+    """usage 帧必须透传，且不能凭空造出内容帧。
+
+    契约有两层，缺一不可：
+    1. usage 数值要能传到调用方 —— 丢了它 ``agent_usage_events`` 里存的
+       token 数就是 0，所有流式对话的用量统计全部作废；
+    2. 但**不能**顺手把收尾帧变成「有内容帧」—— 界面会因此冒出空 delta，
+       用户看到一段莫名的空白输出。
+
+    wuwei 3.2.1 起上游已原生返回 ``{"usage": ...}``（不再返回 None），
+    所以这里只断言契约，不钉死具体由谁实现：上游实现或我们的兜底补丁
+    产出同样的结果都算通过。这样上游再改实现时测试不会误报。
+    """
     from app.services.llm_providers.adapter import HardenedOpenAIAdapter
 
     adapter = HardenedOpenAIAdapter(api_key="k", model="m")
 
-    assert adapter.parse_stream_chunk(_usage_only_chunk()) == {
-        "content": "",
-        "reasoning_content": "",
-        "finish_reason": None,
+    data = adapter.parse_stream_chunk(_usage_only_chunk())
+    assert data is not None
+    # usage 数值必须完整透传
+    assert data.get("usage") == {
+        "prompt_tokens": 1,
+        "completion_tokens": 2,
+        "total_tokens": 3,
     }
+    # 不得凭空造出内容帧
+    assert not data.get("content")
+    assert not data.get("tool_calls_delta")
     # 正常帧原样透传
     assert adapter.parse_stream_chunk(_delta_chunk("hi", "think"))["content"] == "hi"
 
@@ -1461,3 +1517,44 @@ def test_adapter_does_not_leak_sdk_options_into_request_body():
     request = adapter.build_request([Message(role="user", content="x")])
     assert "max_retries" not in request
     assert adapter.client.max_retries == 0
+
+
+def test_output_token_parameter_switches_request_field_name():
+    """o1 / o3 / gpt-5 这类推理模型只认 ``max_completion_tokens``。
+
+    给 ``max_tokens`` 会被上游直接 400。wuwei 3.2.1 的适配器支持通过
+    ``output_token_parameter`` 改写请求体里的参数名 —— 这里验证我们的配置
+    真的能传达到适配器（中间隔着 config 构建与适配器构造两层）。
+    """
+    from wuwei.llm import Message
+
+    from app.services.llm_providers import runtime as runtime_module
+    from app.services.llm_providers.spec import ProviderSpec
+
+    def _build(extra: dict) -> dict:
+        spec = ProviderSpec(
+            name="A", slug="a", provider_type="openai_compatible",
+            base_url="https://a.example.com/v1", model="m", api_key="k", extra=extra,
+        )
+        gateway = runtime_module.build_gateway(spec, max_tokens=256, timeout=5)
+        return gateway.adapter.build_request([Message(role="user", content="hi")])
+
+    default_request = _build({"preset": "x"})
+    assert default_request.get("max_tokens") == 256
+    assert "max_completion_tokens" not in default_request
+
+    reasoning_request = _build({"preset": "x", "output_token_parameter": "max_completion_tokens"})
+    assert reasoning_request.get("max_completion_tokens") == 256
+    assert "max_tokens" not in reasoning_request
+
+
+def test_output_token_parameter_rejects_unknown_value():
+    """上游只认两个值，拼错要在保存时就拒绝，别等运行时 400。"""
+    from app.services.llm_providers.spec import ProviderConfigError, validate_extra
+
+    with pytest.raises(ProviderConfigError):
+        validate_extra({"output_token_parameter": "max_output_tokens"})
+
+    # 合法值不报错
+    validate_extra({"output_token_parameter": "max_completion_tokens"})
+    validate_extra({"output_token_parameter": "max_tokens"})

@@ -6,12 +6,12 @@ import logging
 from typing import Any
 
 from sqlalchemy import select
-from wuwei.runtime import ApprovalDecision, ApprovalRequest
 
 from app.core.redis import get_redis, is_redis_memory
 from app.core.timezone import app_now, isoformat_app_timezone
 from app.db.models import ApprovalModel
 from app.db.session import create_db_session
+from app.services.approval_types import ApprovalDecision, ApprovalRequest
 from app.services.session_storage import dump_json, load_json
 
 

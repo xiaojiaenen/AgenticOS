@@ -1,12 +1,26 @@
 """AgentFactory：Agent 实例 / 中间件栈 / 工具注册表的构建。
 
 从原 ``app/services/agent_service.py`` 整段搬移（TECH-DEBT-2026-09 拆分）：
-- AgentRunner.stream_events 并发工具执行 monkey-patch（模块导入时应用，时机不变）
 - LenientHitlMiddleware / SkillInstructionMiddleware / ThinkingHistoryCompatibilityMiddleware
 - _build_tool_registry / _build_middleware_stack / _get_agent / _build_async_sub_agents
 
 本类为 Mixin：由 ``service.AgentService`` 组合继承，依赖宿主提供的属性
 （self.settings / self.approval_manager / self._agents Agent 缓存）。
+
+**并发工具执行不再需要 monkey-patch。**
+这里曾有一份 230 行的 ``AgentRunner.stream_events`` 整体重写（TECH-DEBT），
+目的是让安全工具（``is_concurrency_safe=True``）并发执行、非安全工具串行。
+wuwei 3.2.1 的 ``ToolExecutor.execute(tool_calls, concurrent=True)`` 已原生
+实现同样的分批并发逻辑（``_execute_batched``，注释里明说是借鉴 AgentScope 的
+``_batch_tool_calls`` 设计），上游 runner 默认就是 ``concurrent=True``。
+
+实测（两个各耗时 0.5s 的安全工具）：补丁版 0.504s，上游原生 0.505s，
+事件序列与数据字段完全一致 —— 所以补丁已删除。
+
+**不要再写这个补丁。** 原因：它整段复制了上游的执行循环（LLM 调用、中间件
+生命周期、事件产出格式），上游一改签名或加特性，这份拷贝就会静默落后 ——
+本轮升级时上游新增的 ``side_effect`` / ``requires_approval`` 事件字段、
+审批决策绑定、interrupt 挂起能力，补丁版本统统拿不到。
 """
 
 import asyncio
@@ -32,7 +46,6 @@ from wuwei.plugin import PluginContext
 from wuwei.plugin.builtin.skill import setup as setup_skill_plugin
 from wuwei.core.message import ToolCall
 from wuwei.agent.async_sub_agent import AsyncSubAgent, AsyncSubAgentMiddleware
-from wuwei.runtime.agent_runner import AgentRunner
 
 from app.services.agent_profile_service import RuntimeAgentProfile
 from app.services.tool_config_service import TOOL_CATALOG
@@ -72,237 +85,6 @@ def _truncate_for_context(content: str) -> str:
     # 截断并添加提示
     truncated = content[:_TOOL_RESULT_CONTEXT_LIMIT]
     return f"{truncated}\n\n[结果已截断，原始数据共 {len(content)} 字符，仅展示前 {_TOOL_RESULT_CONTEXT_LIMIT} 字符]"
-
-# ── 并发工具执行补丁 ──────────────────────────────────────────────────
-# wuwei 的 AgentRunner 默认逐个执行工具调用。
-# 本补丁将安全工具（is_concurrency_safe=True）分批并发执行，
-# 非安全工具仍保持顺序串行。对前端 SSE 事件流完全透明。
-
-_original_stream_events = AgentRunner.stream_events
-
-
-async def _patched_stream_events(self, user_input: str, *, task=None):
-    """并发版 stream_events：安全工具用 asyncio.gather 并行，其余与原版相同。
-
-    与原始实现的唯一区别：工具执行阶段按 is_concurrency_safe 分批并发。
-    LLM 调用、中间件生命周期、事件格式完全不变。
-
-    TECH-DEBT: 等待 wuwei 上游支持并发工具批处理后移除。
-    """
-    import time
-    from collections.abc import AsyncIterator
-    from uuid import uuid4
-    from wuwei.core.message import AIMessage as AIMsg, ToolMessage as TMsg
-    from wuwei.llm import LLMResponseChunk, Message
-    from wuwei.middleware.base import MiddlewareContext
-
-    step_count = 0
-    llm_calls = 0
-    total_latency_ms = 0
-    total_usage = self._empty_usage()
-    run_id = uuid4().hex
-    context = self.session.context
-    context.add_user_message(user_input)
-    yield self._build_event("run_start", step=0, run_id=run_id, data={"input": user_input})
-
-    ctx = None  # Pre-initialize for exception handler
-    try:
-        while step_count < self.session.max_steps:
-            content_parts: list[str] = []
-            reasoning_parts: list[str] = []
-            full_tool_calls = None
-            messages = self._copy_messages()
-            tools = list(self.tools)
-
-            # --- before_llm 中间件 ---
-            ctx = MiddlewareContext(state=None, config={}, step=step_count)
-            ctx.state = type('State', (), {'messages': messages, 'metadata': {}})()
-            ctx = await self.middleware.execute_before_llm(ctx)
-            messages = ctx.state.messages
-
-            llm_start = time.monotonic()
-            yield self._build_event(
-                "llm_start", step=step_count, run_id=run_id,
-                data={"tools": [tool.name for tool in tools]},
-            )
-
-            stream: AsyncIterator[LLMResponseChunk] = await self.llm.generate(
-                messages, tools=tools, stream=True,
-            )
-            llm_calls += 1
-
-            async for chunk in stream:
-                if chunk.reasoning_content:
-                    reasoning_parts.append(chunk.reasoning_content)
-                    yield self._build_event(
-                        "reasoning_delta", step=step_count, run_id=run_id,
-                        data={"content": chunk.reasoning_content},
-                    )
-                if chunk.content:
-                    content_parts.append(chunk.content)
-                    yield self._build_event(
-                        "text_delta", step=step_count, run_id=run_id,
-                        data={"content": chunk.content},
-                    )
-                self._merge_usage(total_usage, chunk.usage)
-                if chunk.tool_calls_complete:
-                    full_tool_calls = chunk.tool_calls_complete
-
-            total_latency_ms += int((time.monotonic() - llm_start) * 1000)
-            yield self._build_event(
-                "llm_end", step=step_count, run_id=run_id,
-                data={"latency_ms": total_latency_ms, "usage": dict(total_usage), "has_tool_calls": bool(full_tool_calls)},
-            )
-
-            # 构建 AIMessage 并调用 after_llm 中间件
-            ai_msg = AIMsg(
-                content="".join(content_parts),
-                tool_calls=full_tool_calls or [],
-                reasoning_content="".join(reasoning_parts) or None,
-            )
-            ctx = await self.middleware.execute_after_llm(ctx, ai_msg)
-            context.add_ai_message(
-                "".join(content_parts),
-                tool_calls=full_tool_calls,
-                reasoning_content="".join(reasoning_parts) or None,
-            )
-
-            if full_tool_calls:
-                # ── 并发工具执行 ──
-                # 按 is_concurrency_safe 分组：连续安全工具并发，非安全工具串行
-                batches: list[list] = []
-                current_batch: list = []
-                current_safe = True
-
-                for tc in full_tool_calls:
-                    tool_obj = self.tool_executor.registry.get(tc.function.name)
-                    is_safe = tool_obj.is_concurrency_safe if tool_obj else True
-
-                    if not current_batch:
-                        current_batch = [tc]
-                        current_safe = is_safe
-                    elif is_safe == current_safe:
-                        current_batch.append(tc)
-                    else:
-                        batches.append(current_batch)
-                        current_batch = [tc]
-                        current_safe = is_safe
-                if current_batch:
-                    batches.append(current_batch)
-
-                for batch in batches:
-                    tool_obj = self.tool_executor.registry.get(batch[0].function.name)
-                    is_safe = tool_obj.is_concurrency_safe if tool_obj else True
-
-                    if is_safe and len(batch) > 1:
-                        # ── 并发执行安全工具 ──
-                        async def _exec_safe(tc):
-                            modified = await self.middleware.execute_before_tool(ctx, tc)
-                            if modified is None:
-                                return None
-                            t = self.tool_executor.registry.get(modified.function.name)
-                            start_evt = self._build_event(
-                                "tool_start", step=step_count, run_id=run_id,
-                                data={
-                                    "tool_name": modified.function.name,
-                                    "display_name": t.display_name if t else None,
-                                    "args": modified.function.arguments,
-                                    "tool_call_id": modified.id,
-                                },
-                            )
-                            msg = await self._execute_one_tool_call(modified, step=step_count, task=task, run_id=run_id)
-                            tmsg = TMsg(content=msg.content or "", tool_call_id=msg.tool_call_id or "", name=msg.name or "")
-                            modified_msg = await self.middleware.execute_after_tool(ctx, tmsg)
-                            final_msg = Message(role="tool", content=modified_msg.content or "", tool_call_id=modified_msg.tool_call_id, name=modified_msg.name)
-                            end_evt = self._build_event(
-                                "tool_end", step=step_count, run_id=run_id,
-                                data={"tool_name": modified.function.name, "tool_call_id": modified.id, "output": final_msg.content},
-                            )
-                            return (modified, final_msg, start_evt, end_evt)
-
-                        results = await asyncio.gather(
-                            *(_exec_safe(tc) for tc in batch),
-                            return_exceptions=True,
-                        )
-                        for result in results:
-                            if isinstance(result, Exception):
-                                _logger.error(f"Concurrent tool error: {result}")
-                                continue
-                            if result is None:
-                                continue
-                            tc, final_msg, start_evt, end_evt = result
-                            yield start_evt
-                            self.session.context.add_tool_message(_truncate_for_context(final_msg.content or ""), final_msg.tool_call_id)
-                            yield end_evt
-                            err = self.tool_executor.extract_error_message(final_msg.content)
-                            if err:
-                                yield self._build_event(
-                                    "error", step=step_count, run_id=run_id,
-                                    data={"message": err, "tool_name": tc.function.name, "tool_call_id": tc.id},
-                                )
-                    else:
-                        # ── 串行执行非安全工具或单个工具 ──
-                        for tc in batch:
-                            modified = await self.middleware.execute_before_tool(ctx, tc)
-                            if modified is None:
-                                continue
-                            t = self.tool_executor.registry.get(modified.function.name)
-                            yield self._build_event(
-                                "tool_start", step=step_count, run_id=run_id,
-                                data={
-                                    "tool_name": modified.function.name,
-                                    "display_name": t.display_name if t else None,
-                                    "args": modified.function.arguments,
-                                    "tool_call_id": modified.id,
-                                },
-                            )
-                            tool_message = await self._execute_one_tool_call(modified, step=step_count, task=task, run_id=run_id)
-                            tmsg = TMsg(content=tool_message.content or "", tool_call_id=tool_message.tool_call_id or "", name=tool_message.name or "")
-                            modified_msg = await self.middleware.execute_after_tool(ctx, tmsg)
-                            tool_message = Message(role="tool", content=modified_msg.content or "", tool_call_id=modified_msg.tool_call_id, name=modified_msg.name)
-                            self.session.context.add_tool_message(_truncate_for_context(tool_message.content or ""), tool_message.tool_call_id)
-                            yield self._build_event(
-                                "tool_end", step=step_count, run_id=run_id,
-                                data={"tool_name": modified.function.name, "tool_call_id": modified.id, "output": tool_message.content},
-                            )
-                            err = self.tool_executor.extract_error_message(tool_message.content)
-                            if err:
-                                yield self._build_event(
-                                    "error", step=step_count, run_id=run_id,
-                                    data={"message": err, "tool_name": modified.function.name, "tool_call_id": modified.id},
-                                )
-
-                step_count += 1
-                continue
-
-            # 无工具调用 → 结束
-            done_event = self._build_event(
-                "done", step=step_count, run_id=run_id,
-                data={"usage": dict(total_usage), "latency_ms": total_latency_ms, "llm_calls": llm_calls},
-            )
-            yield done_event
-            yield self._build_event("run_end", step=step_count, run_id=run_id, data=dict(done_event.data))
-            self._set_session_run_stats(usage=total_usage, latency_ms=total_latency_ms, llm_calls=llm_calls)
-            return
-
-        # 达到最大步数
-        context.add_ai_message("任务未完成，已达到最大步骤限制。")
-        yield self._build_event(
-            "done", step=step_count, run_id=run_id,
-            data={"reason": "max_steps", "usage": dict(total_usage), "latency_ms": total_latency_ms, "llm_calls": llm_calls},
-        )
-        self._set_session_run_stats(usage=total_usage, latency_ms=total_latency_ms, llm_calls=llm_calls)
-
-    except Exception as exc:
-        await self.middleware.execute_on_error(ctx if ctx is not None else MiddlewareContext(state=None, config={}, step=step_count), exc)
-        yield self._build_event(
-            "error", step=step_count, run_id=run_id,
-            data={"message": str(exc), "error_type": type(exc).__name__, "latency_ms": total_latency_ms},
-        )
-
-
-# 应用补丁（启用并发工具执行）。与拆分前一致：仍在模块导入时应用，时机不变。
-AgentRunner.stream_events = _patched_stream_events
 
 
 class LenientHitlMiddleware(HitlMiddleware):
@@ -840,7 +622,6 @@ class AgentFactory:
 
         # 统一工具执行层：对同步 handler 包装成异步版本，防止 wuwei Tool.invoke
         # 直接在事件循环上跑同步代码导致阻塞。这是解决"一个接口阻塞全站"的关键修复。
-        import asyncio
         import inspect
         for tool_name, tool in list(registry._tools.items()):
             if not inspect.iscoroutinefunction(tool.handler):
