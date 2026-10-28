@@ -65,6 +65,11 @@ _MODE_TOOL_REGISTRARS: dict[str, list[tuple[str, str]]] = {
         ("app.tools.sheet_tools", "register_sheet_tools"),
         ("app.tools.doc_tools", "register_doc_tools"),
     ],
+    # 内网爬虫工具：不绑定任何 response_mode —— 它是**跨模式可勾选**的
+    # 工具组，由管理员在工具配置里按需启用（默认关闭）。
+    "intranet": [
+        ("app.tools.intranet_tools", "register_intranet_tools"),
+    ],
 }
 
 
@@ -383,6 +388,27 @@ TOOL_CATALOG = {
         "approval_scope": ["deploy_website"],
         "sub_tools": {
             "deploy_website": {"label": "部署网站", "description": "提交部署请求，等待管理员审批"},
+        },
+    },
+    "intranet": {
+        "label": "内网爬虫工具",
+        "description": "操作内网「没有 API」的网站：探测、抓取、无头浏览器导航、"
+                       "结构化抽取、表单提交。需要单独部署内网爬虫服务"
+                       "（见 deploy/intranet/），未部署时调用会返回「服务未启用」。",
+        "builtin_name": None,
+        "approval_scope": [
+            "intranet_probe",
+            "intranet_fetch",
+            "intranet_browse",
+            "intranet_extract",
+            "intranet_submit",
+        ],
+        "sub_tools": {
+            "intranet_probe": {"label": "探测内网站点", "description": "判断页面类型与是否需要登录"},
+            "intranet_fetch": {"label": "抓取内网页面", "description": "抓取静态 HTML 或 JSON API"},
+            "intranet_browse": {"label": "无头浏览器操作", "description": "驱动浏览器完成交互并提取内容"},
+            "intranet_extract": {"label": "抽取内网数据", "description": "把 HTML 表格抽成结构化行"},
+            "intranet_submit": {"label": "提交内网表单", "description": "提交表单（写操作，需审批）"},
         },
     },
     "email": {

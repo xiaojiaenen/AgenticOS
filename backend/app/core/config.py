@@ -68,6 +68,24 @@ class Settings(BaseSettings):
     playwright_chromium_path: str = Field(
         default="", validation_alias="PLAYWRIGHT_CHROMIUM_PATH"
     )
+    # ── 内网爬虫 / 无头浏览器 ──────────────────────────────────────────
+    # 内网爬虫是**独立进程**（独立镜像，见 deploy/intranet/），主项目只
+    # 通过 HTTP 调用它。没配下面这些变量时，内网工具一律返回
+    # 「服务未启用」—— 这样外网部署的行为与之前完全一致。
+    intranet_service_url: str = Field(default="", validation_alias="INTRANET_SERVICE_URL")
+    intranet_service_token: str = Field(default="", validation_alias="INTRANET_SERVICE_TOKEN")
+    # 允许访问的网段（CIDR 逗号分隔）。留空 = **禁止所有出网**。
+    # 这是 SSRF 防护的核心：内网爬虫的本质就是让服务器访问任意地址。
+    intranet_allowed_cidrs: str = Field(default="", validation_alias="INTRANET_ALLOWED_CIDRS")
+    # 出网白名单（域名或 CIDR）。默认空 = 内网爬虫不能访问外网，
+    # 防止内网部署的实例被当成外网跳板。
+    intranet_egress_allowlist: str = Field(default="", validation_alias="INTRANET_EGRESS_ALLOWLIST")
+    intranet_request_timeout: int = Field(
+        default=30, ge=1, le=300, validation_alias="INTRANET_REQUEST_TIMEOUT"
+    )
+    intranet_max_chars: int = Field(
+        default=20000, ge=100, le=500000, validation_alias="INTRANET_MAX_CHARS"
+    )
     # dashboard 统计缓存 TTL 秒（M6-A4）
     dashboard_cache_ttl: int = Field(default=30, validation_alias="DASHBOARD_CACHE_TTL")
     skill_storage_dir: str = Field(

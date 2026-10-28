@@ -1,0 +1,48 @@
+# 内网爬虫服务编排（独立于主项目 compose）
+#
+# 启动：
+#   cd deploy/intranet
+#   docker compose -f docker-compose.intranet.yml up -d --build
+#
+# 然后在**主项目**的 .env 里加：
+#   INTRANET_SERVICE_URL=http://intranet-crawler:8100
+#   INTRANET_SERVICE_TOKEN=<与下面一致的 token>
+#   INTRANET_ALLOWED_CIDRS=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+#
+# 主项目 compose 不需要改 —— 它只是按环境变量去连这个服务。
+
+name: agenticos-intranet
+
+services:
+  intranet-crawler:
+    build:
+      context: .
+      dockerfile: Dockerfile.intranet
+    container_name: agenticos-intranet-crawler
+    restart: unless-stopped
+    # 内网爬虫要访问内网站点 → 用 host 网络（避免 docker 网桥的 NAT
+    # 让内网路由不可达）。host 网络也意味着它能访问宿主机的所有端口，
+    # 所以网段白名单是必须的。
+    network_mode: host
+    environment:
+      # 服务间 token —— 主项目调用时必须带上
+      INTRANET_SERVICE_TOKEN: ${INTRANET_SERVICE_TOKEN:?必须设置}
+      # 允许访问的网段。留空 = 禁止一切（默认拒绝）。
+      INTRANET_ALLOWED_CIDRS: ${INTRANET_ALLOWED_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      # 出网白名单：默认空 = 不能访问外网（防止内网实例变成外网跳板）
+      INTRANET_EGRESS_ALLOWLIST: ${INTRANET_EGRESS_ALLOWLIST:-}
+      INTRANET_REQUEST_TIMEOUT: ${INTRANET_REQUEST_TIMEOUT:-30}
+      INTRANET_MAX_CHARS: ${INTRANET_MAX_CHARS:-20000}
+      # 内网自签证书：默认不校验（内网常见），需要严格时置 true
+      INTRANET_VERIFY_TLS: ${INTRANET_VERIFY_TLS:-false}
+    # 资源限制：Chromium 吃内存，别让它把宿主机吃满
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

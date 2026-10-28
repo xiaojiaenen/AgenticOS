@@ -1,0 +1,7 @@
+# 内网爬虫服务依赖（**与主项目完全独立**）
+#
+# 主项目的 pyproject.toml 不包含这里任何一项 —— 外网构建不受影响。
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+httpx>=0.28.0,<1.0.0
+playwright>=1.49.0

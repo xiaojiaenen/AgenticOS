@@ -1,0 +1,31 @@
+# 内网爬虫服务镜像
+#
+# **独立镜像**，不进主项目构建流程 —— 外网部署 `docker compose up` 时
+# 完全不会碰到这个文件，内网依赖不会污染主项目。
+#
+# 构建：
+#   cd deploy/intranet && docker compose -f docker-compose.intranet.yml up -d --build
+
+FROM python:3.13-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+WORKDIR /app
+
+# 依赖单独一层：改代码不会重装依赖
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Playwright 的 Chromium + 系统依赖（内网服务器通常缺这些库）
+RUN playwright install --with-deps chromium
+
+COPY intranet_crawler ./intranet_crawler
+
+EXPOSE 8100
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8100/health').read()"
+
+CMD ["uvicorn", "intranet_crawler.crawler:app", "--host", "0.0.0.0", "--port", "8100"]
