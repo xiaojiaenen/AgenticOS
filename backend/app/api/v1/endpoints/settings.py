@@ -68,7 +68,15 @@ class LdapConfigResponse(BaseModel):
 
 
 class LdapTestRequest(LdapConfigPayload):
-    """连接测试：可提交未保存的配置进行验证。"""
+    """连接测试：可提交未保存的配置进行验证。
+
+    额外两个字段是可选的「真实账号验证」：只测连接能证明服务账号与过滤器
+    可用，但证明不了属性映射（用户名/邮箱字段）对不对 —— 那要拿一个真账号
+    走完 bind 才知道。
+    """
+
+    probe_username: str = Field(default="", max_length=255)
+    probe_password: str = Field(default="", max_length=512)
 
 
 # ---------------------------------------------------------------------------
@@ -124,10 +132,14 @@ async def test_ldap_connection(
     """连接测试：验证服务器可达、服务账号可绑定、用户过滤器可执行。
 
     优先使用提交的配置（便于保存前验证）；密码留空时沿用已保存的密码。
+    传了 ``probe_username`` / ``probe_password`` 时再追加一步真实账号登录，
+    这是唯一能验证属性映射（用户名/邮箱字段）是否正确的检查。
     """
     import asyncio
 
     data = payload.model_dump()
+    probe_username = (data.pop("probe_username", "") or "").strip()
+    probe_password = data.pop("probe_password", "") or ""
     if not data.get("bind_password"):
         stored = ldap.load_config(db, settings)
         data["bind_password"] = stored.bind_password
@@ -135,7 +147,12 @@ async def test_ldap_connection(
     config = ldap.LdapConfig(**{k: v for k, v in data.items() if k in ldap.DEFAULTS})
     # ldap3 为同步 API，放线程池避免阻塞事件循环
     try:
-        result = await asyncio.to_thread(ldap.test_connection, config)
+        result = await asyncio.to_thread(
+            ldap.test_connection,
+            config,
+            probe_username=probe_username,
+            probe_password=probe_password,
+        )
     except Exception as exc:
         audit_service.record_request(
             db, http_request, action="settings.ldap_test", actor=current_user,
@@ -148,6 +165,19 @@ async def test_ldap_connection(
         db, http_request, action="settings.ldap_test", actor=current_user,
         resource_type="settings", resource_id="ldap",
         result=audit_service.RESULT_ALLOW,
-        detail={"server_url": config.server_url, "ok": bool(result.get("ok")) if isinstance(result, dict) else None},
+        detail={
+            "server_url": config.server_url,
+            "ok": bool(result.get("ok")) if isinstance(result, dict) else None,
+            # 只记「测了哪个账号」，绝不记密码
+            "probe_username": probe_username or None,
+            "failed_stage": next(
+                (
+                    stage.get("stage")
+                    for stage in (result.get("stages") or [])
+                    if not stage.get("ok")
+                ),
+                None,
+            ),
+        },
     )
     return result

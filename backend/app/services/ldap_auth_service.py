@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -270,22 +271,88 @@ def _first(entry: Any, attr: str) -> str | None:
     return text or None
 
 
-def test_connection(config: LdapConfig) -> dict[str, Any]:
-    """连接测试：bind 服务账号 + 探测用户过滤器可用性。
+def _stage(stage_name: str, ok: bool, started: float, **detail: Any) -> dict[str, Any]:
+    """构造一个阶段结果。
 
-    返回 {ok, message, ...}；不抛异常（错误信息面向管理员展示）。
+    第一个形参刻意叫 ``stage_name`` 而不是 ``name``：阶段细节里本身就有
+    ``name`` 这个键（用户的显示名），用 ``name`` 会和它撞参数名。
+    """
+    return {
+        "stage": stage_name,
+        "ok": ok,
+        "elapsed_ms": int((time.monotonic() - started) * 1000),
+        **{k: v for k, v in detail.items() if v is not None},
+    }
+
+
+def test_connection(
+    config: LdapConfig,
+    *,
+    probe_username: str = "",
+    probe_password: str = "",
+) -> dict[str, Any]:
+    """连接测试：服务可达 → 服务账号可绑定 → 用户过滤器可执行 →（可选）某个用户能登录。
+
+    返回 {ok, message, stages, ...}；不抛异常（错误信息面向管理员展示）。
+
+    分阶段而不是「一次性给个结论」是刻意的：LDAP 配错通常错在四处之一
+    （地址/端口、服务账号、搜索基线 DN、过滤器语法），合成一句话会让人
+    把四处全改一遍。传了 ``probe_username`` / ``probe_password`` 时再追加
+    一步「这个账号能不能真的登录」—— 那是唯一能验证属性映射对不对的检查。
     """
     from ldap3 import SUBTREE
+
+    stages: list[dict[str, Any]] = []
 
     try:
         config.validate()
     except LdapConfigError as exc:
-        return {"ok": False, "message": str(exc)}
+        return {
+            "ok": False,
+            "message": str(exc),
+            "hint": "先补全服务器地址、绑定账号 DN/密码、用户搜索基线 DN",
+            "stages": stages,
+        }
 
     conn = None
+    started = time.monotonic()
     try:
-        conn = _connect(config)
-        # 用通配符探测用户过滤器是否可执行（不暴露任何真实用户）
+        conn = _connect(config, bind=False)
+    except LdapAuthError as exc:
+        return {
+            "ok": False,
+            "message": str(exc),
+            "hint": "检查地址与端口（ldaps:// 636 / ldap:// 389）、网络可达性、证书是否受信",
+            "stages": [_stage("server", False, started, message=str(exc))],
+        }
+    except Exception as exc:  # noqa: BLE001 -- 网络/协议错误统一转为可读信息
+        logger.warning("LDAP test_connection open failed: %s", exc)
+        return {
+            "ok": False,
+            "message": f"无法连接 LDAP 服务器：{exc}",
+            "hint": "检查地址与端口、DNS、以及是否处于可访问该服务器的网络",
+            "stages": [_stage("server", False, started, message=str(exc)[:300])],
+        }
+
+    tls = config.server_url.lower().startswith("ldaps://") or config.start_tls
+    stages.append(_stage("server", True, started, url=config.server_url, tls=tls))
+
+    try:
+        # 1) 服务账号绑定
+        started = time.monotonic()
+        if not conn.bind():
+            message = f"服务账号绑定失败：{conn.result.get('message') or conn.result}"
+            return {
+                "ok": False,
+                "message": message,
+                "hint": "DN 要写完整路径（cn=svc,ou=Service,dc=corp,dc=com），不是登录名；密码需与该账号一致",
+                "tls": tls,
+                "stages": stages + [_stage("bind", False, started, message=message)],
+            }
+        stages.append(_stage("bind", True, started, dn=config.bind_dn))
+
+        # 2) 用户过滤器（用通配符探测，不暴露任何真实用户）
+        started = time.monotonic()
         probe_filter = config.user_filter.replace("{username}", "*")
         if not conn.search(
             search_base=config.base_dn,
@@ -294,12 +361,17 @@ def test_connection(config: LdapConfig) -> dict[str, Any]:
             attributes=config.search_attributes,
             size_limit=1,
         ):
+            message = f"搜索失败：{conn.result.get('message')}"
             return {
                 "ok": False,
-                "message": f"搜索失败：{conn.result.get('message')}",
-                "hint": "请检查用户搜索基线 DN 与用户过滤器语法",
+                "message": message,
+                "hint": "检查用户搜索基线 DN 与用户过滤器语法（必须含 {username}）",
+                "tls": tls,
+                "stages": stages + [_stage("filter", False, started, message=message)],
             }
         entries = len(conn.entries)
+        stages.append(_stage("filter", True, started, sample_entries=entries))
+
         # 服务端信息（厂商/版本，便于识别 AD / OpenLDAP）
         info: dict[str, Any] = {}
         try:
@@ -310,18 +382,61 @@ def test_connection(config: LdapConfig) -> dict[str, Any]:
                     info["version"] = str(vendor.version)
         except Exception:  # noqa: BLE001 -- 服务端信息缺失不影响测试结论
             pass
+
+        # 3) 可选：真实用户登录（验证属性映射）
+        if probe_username.strip() and probe_password:
+            started = time.monotonic()
+            try:
+                profile = authenticate(config, probe_username.strip(), probe_password)
+                stages.append(
+                    _stage(
+                        "user", True, started,
+                        username=profile.get("username"),
+                        email=profile.get("email"),
+                        name=profile.get("name"),
+                    )
+                )
+                return {
+                    "ok": True,
+                    "message": (
+                        f"全部通过：服务账号可绑定、过滤器命中 {entries} 条、"
+                        f"账号 {profile.get('username')} 可登录"
+                    ),
+                    "tls": tls,
+                    "server_info": info,
+                    "sample_entries": entries,
+                    "profile": profile,
+                    "stages": stages,
+                }
+            except Exception as exc:  # noqa: BLE001
+                message = f"用户登录验证失败：{exc}"
+                return {
+                    "ok": False,
+                    "message": message,
+                    "hint": (
+                        "前两步已通过，说明连接与服务账号没问题；"
+                        "这里失败通常是用户名格式（要登录名不是邮箱）、密码错，"
+                        "或属性映射（用户名/邮箱字段）写错"
+                    ),
+                    "tls": tls,
+                    "server_info": info,
+                    "sample_entries": entries,
+                    "stages": stages + [_stage("user", False, started, message=str(exc)[:300])],
+                }
+
         return {
             "ok": True,
             "message": f"连接成功，用户过滤器可执行（探测到 {entries} 条样例）",
-            "tls": config.server_url.lower().startswith("ldaps://") or config.start_tls,
+            "tls": tls,
             "server_info": info,
             "sample_entries": entries,
+            "stages": stages,
         }
     except LdapAuthError as exc:
-        return {"ok": False, "message": str(exc)}
+        return {"ok": False, "message": str(exc), "tls": tls, "stages": stages}
     except Exception as exc:  # noqa: BLE001 -- 网络/协议错误统一转为可读信息
         logger.warning("LDAP test_connection failed: %s", exc)
-        return {"ok": False, "message": f"连接测试失败：{exc}"}
+        return {"ok": False, "message": f"连接测试失败：{exc}", "tls": tls, "stages": stages}
     finally:
         if conn is not None:
             _close(conn)

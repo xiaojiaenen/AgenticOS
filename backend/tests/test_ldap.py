@@ -58,13 +58,21 @@ class FakeEntry:
 
 
 class FakeServiceConn:
-    """模拟服务账号连接：预置搜索结果。"""
+    """模拟服务账号连接：预置搜索结果。
+
+    ``bind()`` 是给 ``test_connection`` 用的 —— 那条路径把「打开连接」和
+    「服务账号绑定」拆成两个阶段，需要单独控制 bind 的成败。
+    """
 
     def __init__(self, entries: list[FakeEntry], search_ok: bool = True):
         self.entries = entries
         self._search_ok = search_ok
         self.server = SimpleNamespace(host="fake")
         self.result: dict = {"message": "ok"}
+        self.bind_ok = True
+
+    def bind(self):
+        return self.bind_ok
 
     def search(self, **kwargs):
         self.last_kwargs = kwargs
@@ -276,3 +284,90 @@ def test_authenticate_search_failure(monkeypatch):
     _patch_ldap(monkeypatch, [], search_ok=False)
     with pytest.raises(LdapAuthError, match="搜索失败"):
         authenticate(_make_config(), "10001", "pw")
+
+
+# ---------------------------------------------------------------------------
+# test_connection：分阶段诊断
+# ---------------------------------------------------------------------------
+
+
+def test_connection_reports_stages_on_success(monkeypatch):
+    """成功路径要能回答「哪几步过了」，而不是一句「连接成功」。"""
+    _patch_ldap(monkeypatch, [_ENTRY])
+    result = svc.test_connection(_make_config())
+
+    assert result["ok"] is True
+    assert [stage["stage"] for stage in result["stages"]] == ["server", "bind", "filter"]
+    assert all(stage["ok"] for stage in result["stages"])
+    assert result["sample_entries"] == 1
+
+
+def test_connection_stops_at_bind_and_explains_dn(monkeypatch):
+    """服务账号绑不上时，必须指到「DN 写法」而不是笼统的连接失败。"""
+    service_conn = _patch_ldap(monkeypatch, [_ENTRY])
+    service_conn.bind_ok = False
+    service_conn.result = {"message": "invalid credentials"}
+
+    result = svc.test_connection(_make_config())
+
+    assert result["ok"] is False
+    assert "服务账号绑定失败" in result["message"]
+    assert "DN" in result["hint"]
+    assert [stage["stage"] for stage in result["stages"]] == ["server", "bind"]
+
+
+def test_connection_stops_at_filter_and_explains_search_base(monkeypatch):
+    """过滤器/基线写错时，失败点必须是 filter 而不是 bind。"""
+    _patch_ldap(monkeypatch, [], search_ok=False)
+    result = svc.test_connection(_make_config())
+
+    assert result["ok"] is False
+    assert "搜索失败" in result["message"]
+    assert "基线 DN" in result["hint"]
+    assert [stage["stage"] for stage in result["stages"]] == ["server", "bind", "filter"]
+
+
+def test_connection_validates_config_before_connecting(monkeypatch):
+    """配置不全时直接给字段清单，不去打网络。"""
+    called: list[bool] = []
+    monkeypatch.setattr(svc, "_connect", lambda config, bind=True: called.append(True))
+
+    result = svc.test_connection(LdapConfig(enabled=True, server_url="ldap://x", bind_dn="", bind_password=""))
+
+    assert result["ok"] is False
+    assert "配置不完整" in result["message"]
+    assert called == []
+
+
+def test_connection_probe_user_verifies_attribute_mapping(monkeypatch):
+    """传探测账号时追加 user 阶段，并回带属性映射结果。
+
+    这是唯一能验证「用户名字段/邮箱字段配对了吗」的检查：前两步只证明
+    服务账号和过滤器可用，证明不了映射。
+    """
+    _patch_ldap(monkeypatch, [_ENTRY])
+    result = svc.test_connection(
+        _make_config(), probe_username="10001", probe_password="pw"
+    )
+
+    assert result["ok"] is True
+    assert result["profile"]["username"] == "10001"
+    assert result["profile"]["email"] == "10001@corp.com"
+    assert [stage["stage"] for stage in result["stages"]] == [
+        "server", "bind", "filter", "user",
+    ]
+
+
+def test_connection_probe_user_failure_keeps_earlier_stages(monkeypatch):
+    """探测账号密码错时，前面三步的通过记录要保留 —— 用户才知道只差这一层。"""
+    _patch_ldap(monkeypatch, [_ENTRY], bind_ok=False)
+    result = svc.test_connection(
+        _make_config(), probe_username="10001", probe_password="wrong"
+    )
+
+    assert result["ok"] is False
+    assert "用户登录验证失败" in result["message"]
+    assert [stage["stage"] for stage in result["stages"]][:3] == ["server", "bind", "filter"]
+    assert result["stages"][:3] and all(stage["ok"] for stage in result["stages"][:3])
+    assert result["stages"][-1]["stage"] == "user"
+    assert result["stages"][-1]["ok"] is False
