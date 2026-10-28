@@ -19,6 +19,7 @@ from wuwei.tools import ToolRegistry
 
 from app.core.config import Settings, get_settings
 from app.services.agent_service import AgentService
+from app.services.llm_factory import build_llm
 from app.services.ppt.theme_token_resolver import list_available_themes
 
 _logger = logging.getLogger("multi_agent_ppt")
@@ -40,7 +41,7 @@ class MultiAgentPptService:
 
         Yields SSE 事件格式的字典。
         """
-        llm = LLMGateway.from_env(max_tokens=self.settings.agent_max_tokens)
+        llm = build_llm(role="chat")
 
         # 创建工具注册表
         registry = self._build_ppt_registry()

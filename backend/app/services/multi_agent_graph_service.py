@@ -21,9 +21,9 @@ import logging
 
 from wuwei import Agent
 from wuwei.agent.multi_agent import MultiAgentGraph
-from wuwei.llm import LLMGateway
 
 from app.core.config import Settings
+from app.services.llm_factory import build_llm
 
 _logger = logging.getLogger("multi_agent_graph")
 
@@ -44,7 +44,7 @@ class MultiAgentGraphService:
 
     def _create_leader_agent(self) -> Agent:
         """创建 Leader Agent：负责任务分解与结果综合。"""
-        llm = LLMGateway.from_env(max_tokens=self.settings.agent_max_tokens)
+        llm = build_llm(role="chat")
         return Agent(
             llm=llm,
             tools=None,
@@ -73,7 +73,7 @@ class MultiAgentGraphService:
 
     def _create_research_agent(self) -> Agent:
         """调研 Agent：擅长信息收集、分析、总结。"""
-        llm = LLMGateway.from_env(max_tokens=self.settings.agent_max_tokens)
+        llm = build_llm(role="chat")
         return Agent(
             llm=llm,
             tools=None,
@@ -91,7 +91,7 @@ class MultiAgentGraphService:
 
     def _create_writer_agent(self) -> Agent:
         """写作 Agent：擅长文档撰写、内容组织。"""
-        llm = LLMGateway.from_env(max_tokens=self.settings.agent_max_tokens)
+        llm = build_llm(role="chat")
         return Agent(
             llm=llm,
             tools=None,
@@ -109,7 +109,7 @@ class MultiAgentGraphService:
 
     def _create_reviewer_agent(self) -> Agent:
         """审查 Agent：擅长质量检查、代码审查。"""
-        llm = LLMGateway.from_env(max_tokens=self.settings.agent_max_tokens)
+        llm = build_llm(role="chat")
         return Agent(
             llm=llm,
             tools=None,

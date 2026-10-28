@@ -58,9 +58,31 @@ def test_schema_patterns_cover_every_mode(path: str):
     assert not missing, f"{path} 的 response_mode 正则漏了模式：{sorted(missing)}"
 
 
+def test_response_modes_constant_stays_in_sync():
+    """RESPONSE_MODES 常量与 schema 正则必须同步。
+
+    常量供运行时白名单（会话恢复、/v1 网关）使用，正则是请求校验入口；
+    两者脱钩就会出现「请求能进来、却被白名单静默降级成 general」——
+    office 与 bigdata 都踩过这个坑。
+    """
+    from pathlib import Path
+
+    from app.schemas.agent import RESPONSE_MODES
+
+    assert set(RESPONSE_MODES) == EXPECTED_MODES
+    for path in PATTERN_FILES:
+        source = Path(path).read_text(encoding="utf-8")
+        # 同一文件里还有 approval_mode / ppt_phase 等其它 pattern，
+        # 所以只校验「覆盖」关系，不要求两边集合相等
+        found = _extract_pattern_modes(source)
+        missing = set(RESPONSE_MODES) - found
+        assert not missing, (
+            f"{path} 的 response_mode 正则漏了模式：{sorted(missing)}"
+        )
+
+
 def test_every_mode_has_a_default_prompt():
     assert set(MODE_DEFAULT_PROMPTS) == EXPECTED_MODES
-
 
 def test_every_mode_has_default_tools():
     from app.services.tool_config_service import DEFAULT_MODE_TOOLS

@@ -83,8 +83,10 @@ async def polish_prompt(raw_text: str, *, user_id: int | None = None, timeout: i
         user_id,
         max_tokens=min(settings.agent_max_tokens, 2000),
         timeout=timeout,
-        model=settings.openai_model,
-        prefer_cookie=True,
+        # 润色是轻任务：按「快速」用途取模型，没绑定时退回提供商主模型。
+        # 用主模型也行，但企业网关里把小任务指到小模型能省下可观的额度。
+        model=None,
+        role="fast",
     )
     response = await llm.generate(build_polish_messages(original))
     polished = _clean_polished(getattr(getattr(response, "message", None), "content", "") or "")

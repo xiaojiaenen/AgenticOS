@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 
-from wuwei.llm import LLMGateway, Message
+from wuwei.llm import Message
 
 from app.core.config import Settings, get_settings
 from app.schemas.announcements import AnnouncementGenerateRequest
+from app.services.llm_factory import build_llm
 
 
 class AnnouncementAIService:
@@ -12,7 +13,7 @@ class AnnouncementAIService:
         self.settings = settings or get_settings()
 
     async def generate_draft(self, request: AnnouncementGenerateRequest) -> dict[str, object]:
-        gateway = LLMGateway.from_env(max_tokens=self.settings.agent_max_tokens)
+        gateway = build_llm(role="chat")
         prompt = self._build_prompt(request)
 
         messages = [

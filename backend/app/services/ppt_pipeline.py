@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 
 from wuwei.graph import StateGraph
 
+from app.services.llm_factory import build_llm_optional
+
 _logger = logging.getLogger("ppt_pipeline")
 
 
@@ -73,9 +75,15 @@ class PptPipeline:
         _logger.info(f"Planning PPT: {state.user_message[:50]}...")
 
         try:
-            from wuwei import LLMGateway, Planner
+            from wuwei import Planner
 
-            llm = LLMGateway.from_env()
+            # 规划只需要结构，不需要长输出；走快模型能省一半时间
+            llm = build_llm_optional(
+                role="fast", max_tokens=2048, timeout=90, purpose="PPT 规划"
+            )
+            if llm is None:
+                raise RuntimeError("未取得可用的 LLM 网关")
+
             planner = Planner(llm)
 
             # 使用 wuwei Planner 规划任务
@@ -115,11 +123,13 @@ class PptPipeline:
         """生成节点：逐页生成 SVG 并写入磁盘"""
         _logger.info(f"Generating {len(state.pages)} slides...")
 
-        from wuwei import LLMGateway
         from wuwei.core.message import SystemMessage, HumanMessage
         from app.core.data_path import PPT_SESSIONS_DIR, next_version_dir, _parse_dir_name, get_current_user_id
 
-        llm = LLMGateway.from_env()
+        llm = build_llm_optional(role="chat", purpose="PPT 幻灯片生成")
+        if llm is None:
+            state.error = "未取得可用的 LLM 网关，无法生成幻灯片"
+            return state
         svgs = []
 
         # 查找或创建正确格式的目录

@@ -41,8 +41,12 @@ os.environ["ENVIRONMENT"] = "test"
 os.environ["AUTH_SECRET_KEY"] = "test-only-secret-key-not-valid-in-production"
 # wuwei LLMGateway 在构建 Agent 时校验该变量；测试不发真实请求，注入 dummy 即可
 os.environ.setdefault("OPENAI_API_KEY", "test-dummy-key-not-used-for-real-requests")
-# 外部集成在测试中不应发起真实网络请求
-os.environ.setdefault("UPSTREAM_AUTO_LOGIN_ENABLED", "false")
+# 企业网关提供商不可用时是否回落环境变量。测试里关掉，避免「Cookie 缺失」
+# 被兜底掩盖成「居然能构建成功」，那样相关断言就失去意义。
+os.environ["LLM_PROVIDER_FALLBACK_TO_ENV"] = "false"
+# 知识库向量召回默认关闭：否则每个检索/召回测试都会拿着 dummy key 去请求
+# 真实 embedding 端点，既慢又必然失败。需要测向量路径的用例自行 monkeypatch。
+os.environ["KNOWLEDGE_VECTOR_ENABLED"] = "false"
 
 import pytest  # noqa: E402  —— 必须晚于上面的 os.environ 注入
 
@@ -179,6 +183,16 @@ def _reset_global_singletons():
         from app.core.config import get_settings
 
         get_settings.cache_clear()
+    except Exception:  # noqa: BLE001,S110
+
+        pass
+
+    try:
+        # 提供商解析有 5 秒进程内缓存：不清掉会让「上一个用例建了默认提供商」
+        # 渗透到下一个用例，表现为随机的 provider_id 断言失败。
+        from app.services.llm_providers.spec import invalidate_cache
+
+        invalidate_cache()
     except Exception:  # noqa: BLE001,S110
 
         pass

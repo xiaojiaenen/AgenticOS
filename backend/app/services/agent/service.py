@@ -65,7 +65,7 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
         return self._cached_display_name_map
 
     def ensure_ready(self) -> None:
-        self._ensure_openai_key()
+        self._ensure_llm_configured()
 
     def clear_agent_cache(self) -> None:
         self._agents.clear()

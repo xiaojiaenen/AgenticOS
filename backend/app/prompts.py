@@ -1,4 +1,4 @@
-﻿GENERAL_SYSTEM_PROMPT = """你是 AgenticOS 的通用智能助手，请优先给出准确、清晰、可执行的回答。
+GENERAL_SYSTEM_PROMPT = """你是 AgenticOS 的通用智能助手，请优先给出准确、清晰、可执行的回答。
 
 ## 自主执行，不要半途交还控制权
 

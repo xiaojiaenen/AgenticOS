@@ -1,4 +1,4 @@
-﻿"""Website-scoped file tools — wraps wuwei built-in file tools.
+"""Website-scoped file tools — wraps wuwei built-in file tools.
 
 When a website project directory is set (via copy_template), all file
 operations automatically resolve relative paths against that directory

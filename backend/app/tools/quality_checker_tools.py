@@ -1,4 +1,4 @@
-﻿from wuwei.tools import ToolRegistry
+from wuwei.tools import ToolRegistry
 
 from app.core.data_path import PPT_SESSIONS_DIR, get_current_session_id, get_current_user_id
 

@@ -1,4 +1,4 @@
-﻿"""Website 生成工具 — copy_template / build / deploy"""
+"""Website 生成工具 — copy_template / build / deploy"""
 
 import shutil
 

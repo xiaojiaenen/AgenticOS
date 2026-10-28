@@ -54,12 +54,13 @@ async def chat_completions(request: Request):
 
     from app.api.v1.endpoints.openai_compat import (
         ChatCompletionRequest,
-        is_local_agent,
+        find_local_agent,
         run_local_completion,
     )
 
     model = str(body.get("model") or "")
-    if not is_local_agent(model, user):
+    profile = find_local_agent(model, user)
+    if profile is None:
         return JSONResponse(
             status_code=400,
             content={
@@ -83,4 +84,4 @@ async def chat_completions(request: Request):
 
     from app.services.agent_service import get_agent_service
 
-    return await run_local_completion(payload, user, get_agent_service())
+    return await run_local_completion(payload, user, get_agent_service(), profile)

@@ -30,7 +30,7 @@ from app.core.data_path import (
     set_current_user_id,
 )
 from app.db.models import AgentUsageEventModel, UserModel
-from app.schemas.agent import AgentStreamRequest
+from app.schemas.agent import RESPONSE_MODES, AgentStreamRequest
 from app.services.external_system_service import (
     ApprovalBlocker,
     UserInputBlocker,
@@ -421,15 +421,38 @@ class StreamOrchestrator:
         response_mode: str,
         agent_profile_id: int | None,
         collected_text: str = "",
+        agent: Any | None = None,
     ) -> None:
+        """写一行用量事件。
+
+        **归属口径**：``user_id`` 是唯一归属 —— 谁发起的这次对话就算谁的。
+        提供商 / 凭据 / 账号标签只作为审计列随行记录，不参与统计聚合。
+
+        为什么不能按凭据归属：企业网关的账号是系统级共享池（见
+        ``llm_providers/credentials.py``），一个号会被多人共用，按号聚合出来的
+        token 数对任何单个用户都不成立。
+
+        ``agent`` 用来读「这次实际走了哪条路由」：模型名必须取网关上的实际值，
+        不能用 ``settings.openai_model`` 兜底 —— 那会把「切换提供商后用量库里
+        记的还是旧模型名」这个错误固化下去。
+        """
+        from app.services.llm_providers.route import describe_route, resolve_model_name
+
         usage = event_data.get("usage") or getattr(session, "last_usage", None)
         input_tokens, output_tokens, total_tokens = self._extract_usage_numbers(usage)
-        if total_tokens <= 0:
+        # 上游没回流 usage 时按字符数估，且必须打标：估算值和实际计费混在
+        # 一张图里，统计就没人敢用了。
+        estimated = total_tokens <= 0
+        if estimated:
             estimated_output = self._estimate_tokens_from_text(collected_text)
             total_tokens = estimated_output
             output_tokens = estimated_output
         latency_ms = int(event_data.get("latency_ms") or getattr(session, "last_latency_ms", 0) or 0)
         llm_calls = int(event_data.get("llm_calls") or getattr(session, "last_llm_calls", 0) or 0)
+
+        route = describe_route(agent)
+        model_name = resolve_model_name(agent, fallback=event_data.get("model")) or self.settings.openai_model
+        audit_fields = route.audit_fields()
 
         def _run():
             import time
@@ -441,7 +464,7 @@ class StreamOrchestrator:
                                 user_id=user.id if user is not None else None,
                                 agent_profile_id=agent_profile_id,
                                 session_id=session.session_id,
-                                model_name=str(event_data.get("model") or self.settings.openai_model),
+                                model_name=str(model_name),
                                 response_mode=response_mode,
                                 input_tokens=input_tokens,
                                 output_tokens=output_tokens,
@@ -450,6 +473,8 @@ class StreamOrchestrator:
                                 tool_calls=len(tool_names),
                                 tool_names_json=dump_json(tool_names),
                                 latency_ms=latency_ms,
+                                tokens_estimated=estimated,
+                                **audit_fields,
                             )
                         )
                         db.commit()
@@ -473,7 +498,9 @@ class StreamOrchestrator:
                     if isinstance(stored_id, int) and stored_id > 0:
                         request.agent_profile_id = stored_id
                 stored_mode = meta.get("response_mode")
-                if isinstance(stored_mode, str) and stored_mode in ("general", "ppt", "website", "email"):
+                # 白名单必须覆盖全部响应模式：此前写死 4 种，导致 office / bigdata
+                # 会话刷新后静默降级成 general，工具集随之丢失。
+                if isinstance(stored_mode, str) and stored_mode in RESPONSE_MODES:
                     request.response_mode = stored_mode
 
         runtime_profile = await self._resolve_runtime_profile(request, user)
@@ -861,6 +888,7 @@ class StreamOrchestrator:
                                     response_mode=response_mode,
                                     agent_profile_id=runtime_profile.profile_id,
                                     collected_text=collected_text,
+                                    agent=agent,
                                 )
                                 usage_recorded = True
                             if mapped is not None:
@@ -1009,6 +1037,7 @@ class StreamOrchestrator:
                                     response_mode=response_mode,
                                     agent_profile_id=runtime_profile.profile_id,
                                     collected_text=collected_text,
+                                    agent=agent,
                                 )
                                 usage_recorded = True
 
@@ -1034,6 +1063,7 @@ class StreamOrchestrator:
                                 response_mode=response_mode,
                                 agent_profile_id=runtime_profile.profile_id,
                                 collected_text=collected_text,
+                                agent=agent,
                             )
                             usage_recorded = True
 

@@ -1,5 +1,11 @@
 from pydantic import BaseModel, Field
 
+# 合法响应模式的单一来源，供运行时白名单（会话恢复、/v1 网关）引用。
+# 曾有多处各自硬编码白名单、漏掉 office/bigdata，导致会话恢复或 API 调用
+# 被静默降级成 general。下方 Pydantic 的 pattern 正则仍需同步修改，
+# 两者一致性由 tests/test_agent_modes.py 守护。
+RESPONSE_MODES: tuple[str, ...] = ("general", "ppt", "website", "email", "bigdata", "office")
+
 
 class FileAttachment(BaseModel):
     filename: str = Field(..., description="Original filename.")

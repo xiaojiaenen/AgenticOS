@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any, Optional
 
 from arq import create_pool
@@ -27,6 +28,11 @@ from arq.jobs import Job, JobStatus
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# worker 进程拿不到请求上下文，任务归属只能随任务一起投递；
+# 查询状态时靠这个 key 做归属校验，避免凭 task_id 读到他人工件路径。
+TASK_OWNER_KEY = "agenticos:task:owner:{task_id}"
+TASK_OWNER_TTL_SECONDS = 24 * 60 * 60
 
 
 # ---------------------------------------------------------------------------
@@ -49,21 +55,15 @@ class TaskResult:
 
 
 def build_llm_gateway():
-    """为知识摄入构建 LLMGateway；无 key / 失败时返回 None 并 warning 降级。"""
-    settings = get_settings()
-    if not settings.openai_api_key:
-        logger.warning("OPENAI_API_KEY 未配置，知识摄入将降级为规则编译（不调用 LLM）")
-        return None
-    try:
-        from wuwei.llm import LLMGateway
+    """为知识摄入构建 LLMGateway；不可用时返回 None 并 warning 降级。
 
-        return LLMGateway.from_env(
-            max_tokens=settings.agent_max_tokens,
-            timeout=settings.llm_timeout,
-        )
-    except Exception as e:
-        logger.warning(f"构建 LLMGateway 失败，知识摄入降级为规则编译: {e}")
-        return None
+    走统一的 ``build_llm_optional``，不再自己判断 ``OPENAI_API_KEY`` ——
+    那个判断本身就把「管理员配了企业网关」的部署挡在门外了：没有
+    ``OPENAI_API_KEY`` 但有可用提供商时，旧实现会直接降级成规则编译。
+    """
+    from app.services.llm_factory import build_llm_optional
+
+    return build_llm_optional(role="fast", purpose="知识摄入")
 
 
 # ---------------------------------------------------------------------------
@@ -81,6 +81,7 @@ async def export_pptx_task(
     transition: Optional[str] = None,
     animation: Optional[str] = None,
     enable_notes: bool = True,
+    user_id: Optional[int] = None,
 ) -> dict:
     """PPTX 导出任务（在 worker 进程中执行）"""
     from app.services.agent_service import get_agent_service
@@ -88,6 +89,24 @@ async def export_pptx_task(
     logger.info(f"[Worker] Exporting PPTX: {artifact_id}")
 
     try:
+        # 归属校验：worker 没有请求上下文，用投递时带过来的 user_id 还原最小身份
+        current_user = None
+        if user_id is not None:
+            from app.db.models import UserModel
+            from app.db.session import create_db_session
+
+            def _load_owner():
+                with create_db_session() as db:
+                    row = db.get(UserModel, user_id)
+                    if row is None or not row.is_active:
+                        return None
+                    # 只带出校验所需字段，避免 ORM 对象在 session 关闭后失效
+                    return SimpleNamespace(id=row.id, role=row.role)
+
+            current_user = _load_owner()
+            if current_user is None:
+                return {"status": "failed", "error": "任务发起用户不存在或已停用"}
+
         agent_service = get_agent_service()
         pptx_bytes = await agent_service.export_pptx(
             artifact_id,
@@ -98,6 +117,7 @@ async def export_pptx_task(
             transition=transition,
             animation=animation,
             enable_notes=enable_notes,
+            current_user=current_user,
         )
 
         # 保存到文件
@@ -109,6 +129,10 @@ async def export_pptx_task(
         logger.info(f"[Worker] PPTX exported: {output_path}")
         return {"status": "completed", "path": str(output_path)}
 
+    except PermissionError as e:
+        # 归属校验失败：不把内部细节回传给调用方
+        logger.warning(f"[Worker] PPTX export denied: {e}")
+        return {"status": "failed", "error": "无权导出该 PPT 产物"}
     except Exception as e:
         logger.error(f"[Worker] PPTX export failed: {e}")
         return {"status": "failed", "error": str(e)}
@@ -174,6 +198,95 @@ async def purge_audit_logs_task(ctx: dict) -> dict:
         deleted = purge_older_than(session, RETENTION_DAYS)
     logger.info("[Worker] Purged %d audit logs older than %d days", deleted, RETENTION_DAYS)
     return {"status": "completed", "deleted": deleted}
+
+
+async def scan_knowledge_conflicts_task(ctx: dict, knowledge_base_id: int | None = None) -> dict:
+    """知识库冲突巡检（cron 每周全库跑一次，也可按库手动触发）。
+
+    编译期的冲突检测只比对「新页 vs 旧页」，两批历史导入或分次上传的页面
+    之间的矛盾会永久漏掉。本任务对整个库做跨页配对扫描，把新发现写进
+    复核队列（``kb_review_items``），**不改动任何正文**。
+    """
+    from app.db.session import create_db_session
+    from app.services.knowledge.conflict_scanner import (
+        scan_all_knowledge_bases,
+        scan_knowledge_base,
+    )
+
+    with create_db_session() as session:
+        if knowledge_base_id is None:
+            stats = scan_all_knowledge_bases(session)
+        else:
+            stats = scan_knowledge_base(session, knowledge_base_id)
+        session.commit()
+
+    logger.info(
+        "[Worker] Knowledge conflict scan done: %s", {k: v for k, v in stats.items() if k != "per_kb"}
+    )
+    return {"status": "completed", **stats}
+
+
+async def refresh_llm_provider_cookies_task(ctx: dict) -> dict:
+    """企业网关提供商的 Cookie 续期。
+
+    只在「即将过期」时才重新登录，不无脑刷新：每次登录都要起一次无头
+    浏览器，无脑刷既浪费资源，也会在上游留下大量登录记录。
+
+    实现上有两个必须遵守的点：
+
+    - **先取目标列表，再逐个 await**。不能在持有 session 的情况下 await
+      登录（一次几十秒），那会把连接占死；
+    - 登录失败只记录，不抛异常。定时任务因为单个提供商崩掉，会让其他
+      提供商也失去续期机会。
+    """
+    from sqlalchemy import select
+
+    from app.db.models import LlmProviderModel
+    from app.db.session import create_db_session
+    from app.services.llm_providers import auto_login, credentials
+
+    # 按「账号」而不是「提供商」遍历：一个池里通常只有一个号过期，
+    # 整池重登会把其它号当前有效的登录态白白作废。
+    candidates = credentials.list_refresh_candidates()
+    with create_db_session() as session:
+        name_map = {
+            row.id: row.name
+            for row in session.scalars(
+                select(LlmProviderModel).where(LlmProviderModel.enabled.is_(True))
+            ).all()
+        }
+
+    refreshed: list[str] = []
+    skipped: list[str] = []
+    failed: list[dict] = []
+
+    for provider_id, credential_id in candidates:
+        name = name_map.get(provider_id)
+        if not name:
+            # 提供商已停用：账号还留着，但不该继续消耗登录动作
+            skipped.append(f"provider#{provider_id}-account#{credential_id}")
+            continue
+        label = f"{name}#{credential_id}"
+        try:
+            result = await auto_login.login_and_store(provider_id, credential_id)
+            if result.success:
+                refreshed.append(label)
+            else:
+                failed.append({"provider": label, "error": result.message[:200]})
+        except Exception as exc:  # noqa: BLE001 —— 单个账号失败不影响其余
+            logger.warning("[Worker] LLM provider cookie refresh failed %s: %s", label, exc)
+            failed.append({"provider": label, "error": str(exc)[:200]})
+
+    logger.info(
+        "[Worker] LLM provider cookie refresh: refreshed=%d skipped=%d failed=%d",
+        len(refreshed), len(skipped), len(failed),
+    )
+    return {
+        "status": "completed",
+        "refreshed": refreshed,
+        "skipped": skipped,
+        "failed": failed,
+    }
 
 
 async def build_website_task(
@@ -253,11 +366,20 @@ class WorkerSettings:
         build_website_task,
         write_audit_log_task,
         purge_audit_logs_task,
+        scan_knowledge_conflicts_task,
+        refresh_llm_provider_cookies_task,
     ]
 
-    # 审计保留期清理：每天 03:17 跑一次（避开整点，减少与其他定时任务撞车）
+    # 定时任务
+    # - 审计保留期清理：每天 03:17
+    # - 知识库冲突巡检：每周一 04:23（全库扫描比单次编译贵，日频过密；
+    #   选周一凌晨是因为周末通常没人上传文档，扫的是最稳定的语料）
+    # - 企业网关 Cookie 续期：每小时 07/27/47 分。比过期缓冲（默认 2h）
+    #   密得多，保证「快过期」能被及时发现，而不是卡在缓冲窗口边缘
     cron_jobs = [
         cron(purge_audit_logs_task, hour={3}, minute={17}),
+        cron(scan_knowledge_conflicts_task, weekday={0}, hour={4}, minute={23}),
+        cron(refresh_llm_provider_cookies_task, minute={7, 27, 47}),
     ]
 
     # Redis 连接（类属性实例，非 classmethod）
@@ -326,6 +448,7 @@ async def submit_ppt_export(
     transition: Optional[str] = None,
     animation: Optional[str] = None,
     enable_notes: bool = True,
+    user_id: Optional[int] = None,
 ) -> str:
     """提交 PPTX 导出任务，返回 task_id"""
     pool = await get_arq_pool()
@@ -339,9 +462,17 @@ async def submit_ppt_export(
         transition=transition,
         animation=animation,
         enable_notes=enable_notes,
+        user_id=user_id,
     )
     if job is None:
         raise RuntimeError("enqueue_job returned None (job may already exist)")
+    # 记录归属：worker 侧据此校验产物归属，状态查询侧据此拒绝跨用户读取
+    if user_id is not None:
+        await pool.set(
+            TASK_OWNER_KEY.format(task_id=job.job_id),
+            str(user_id),
+            ex=TASK_OWNER_TTL_SECONDS,
+        )
     return job.job_id
 
 
@@ -387,9 +518,26 @@ async def submit_audit_log(payload: dict) -> str:
     return job.job_id
 
 
-async def get_task_status(task_id: str) -> TaskResult:
-    """查询任务状态（使用 arq Job API：status / result_info）"""
+async def get_task_status(
+    task_id: str,
+    *,
+    user_id: Optional[int] = None,
+    is_admin: bool = False,
+) -> TaskResult:
+    """查询任务状态（使用 arq Job API：status / result_info）
+
+    传入 user_id 时校验任务归属：完成态结果里带服务器文件路径，
+    不能让任意登录用户凭 task_id 读到他人工件位置。
+    """
     pool = await get_arq_pool()
+
+    if user_id is not None and not is_admin:
+        owner = await pool.get(TASK_OWNER_KEY.format(task_id=task_id))
+        # owner 为空说明是未记录归属的旧任务或非用户任务，保持可查；
+        # 一旦有归属记录就严格比对，避免跨用户读取
+        if owner is not None and int(owner) != user_id:
+            raise PermissionError("无权查看该任务")
+
     job = Job(task_id, redis=pool)
     status = await job.status()
 

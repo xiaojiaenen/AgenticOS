@@ -34,6 +34,14 @@ class WebsiteDeployService:
         target_domain: str | None = None,
     ) -> dict[str, Any]:
         """Create a deploy request. Returns the deploy record dict."""
+        # 纵深防御：slug 必须是单一目录名，挡掉 ../ 之类的路径穿越
+        if (
+            not project_slug
+            or Path(project_slug).name != project_slug
+            or project_slug in {".", ".."}
+        ):
+            raise ValueError(f"非法的项目标识: {project_slug}")
+
         dist_path = _WEBSITES_DIR / project_slug / "dist"
         if not dist_path.exists():
             raise FileNotFoundError(f"dist/ not found for project '{project_slug}'. Build the project first.")

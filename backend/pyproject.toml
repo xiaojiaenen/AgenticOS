@@ -1,6 +1,7 @@
 [project]
 name = "agenticos"
-version = "0.1.0"
+# 版本号以仓库根目录 VERSION 为唯一来源，本处与 frontend/package.json 保持同步
+version = "3.2.0"
 description = "FastAPI scaffold for AgenticOS"
 requires-python = ">=3.13,<3.14"
 dependencies = [
@@ -45,6 +46,9 @@ packages = ["app"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+# 与 CI 一致：默认只跑正式测试。examples/ 是实验性用例，需要显式
+# `pytest examples` 才会执行（且依赖 node / office-runtime 等本地环境）。
+testpaths = ["tests"]
 
 [[tool.uv.index]]
 url = "https://pypi.org/simple"
