@@ -78,6 +78,77 @@ AUTH_SECRET_KEY=生成一个随机长字符串
 > **自签证书要显式放行**（预设已置 `transport.insecure_tls=true`，等价于关掉该提供商的
 > TLS 校验，只应对内网地址使用）。
 >
+### 企业网关预设（外置）
+
+公开仓库只内置通用厂商预设（OpenAI、DeepSeek 等）。企业内网网关
+（自签证书、SSO 登录、私有模型注册表）通过**外部预设插件**接入，
+不需要修改仓库代码：
+
+```bash
+# 1. 写一个插件文件，导出 PRESETS 列表
+mkdir -p /opt/agenticos-internal/presets
+cat > /opt/agenticos-internal/presets/enterprise_gateway.py <<'PY'
+from app.services.llm_providers.presets import (
+    LoginFlow, ProbeSpec, ProviderPreset, TransportOptions,
+)
+
+ENTERPRISE_GATEWAY = ProviderPreset(
+    slug="enterprise_gateway",
+    label="企业网关",
+    provider_type="enterprise_cookie",
+    base_url="https://<内网网关>/agents/baitong",
+    model="<模型名>",
+    login_url="https://<内网网关>/login/oauth2/code/ar",
+    login=LoginFlow(
+        submit_text="授权并登录",
+        wait_until="domcontentloaded",
+        settle_ms=4_000,
+        success_url="**/chat/home",
+        required_cookies=("SESSION",),
+        cookie_domain="<内网域名>",
+        cookie_poll_attempts=30,
+        cookie_poll_interval_ms=2_000,
+        ignore_https_errors=True,
+    ),
+    transport=TransportOptions(
+        insecure_tls=True,
+        browser_user_agent=True,
+        extra_body={"enable_thinking": False},
+    ),
+    probe=ProbeSpec(kind="registry", path="/json/model-configs.json",
+                    scope="origin", parser="registry_models"),
+    roles={"chat": "<模型名>", "fast": "<模型名>"},
+)
+
+PRESETS = [ENTERPRISE_GATEWAY]
+PY
+
+# 2. 让 backend 与 worker 都能看到这个目录
+export PROVIDER_PRESETS_DIR=/opt/agenticos-internal/presets
+```
+
+Docker 部署时把该目录挂进容器并设置环境变量：
+
+```yaml
+services:
+  backend:
+    environment:
+      PROVIDER_PRESETS_DIR: /app/internal-presets
+    volumes:
+      - /opt/agenticos-internal/presets:/app/internal-presets:ro
+  worker:
+    environment:
+      PROVIDER_PRESETS_DIR: /app/internal-presets
+    volumes:
+      - /opt/agenticos-internal/presets:/app/internal-presets:ro
+```
+
+启动日志里会打印 `已加载外部预设：<slug>（<label>）`。
+插件加载失败只记 warning，不影响服务启动。
+
+> 完整示例见仓库里的 `internal/presets/enterprise_gateway.py`
+> （该目录已进 `.gitignore`，不会随开源发布）。
+
 > **多账号**：一个 `enterprise_cookie` 提供商下可以挂多个账号分摊配额，流量按
 > 「priority 升序、同级内最久未用优先」轮换；连续失败达 3 次的账号自动退出轮换，
 > 重新启用即可复位。上游按账号限流的场景强烈建议配 2 个以上。
