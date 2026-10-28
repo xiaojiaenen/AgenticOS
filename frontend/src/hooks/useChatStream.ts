@@ -279,8 +279,8 @@ export function useChatStream({
   );
 
   const handleSend = useCallback(
-    async (text: string, files?: File[]) => {
-      if ((!text.trim() && (!files || files.length === 0)) || isLoading) return;
+    async (text: string, files?: File[]): Promise<boolean> => {
+      if ((!text.trim() && (!files || files.length === 0)) || isLoading) return false;
 
       // 清除待处理的决策（用户开始新输入时）
       setPendingDecisions([]);
@@ -435,7 +435,6 @@ export function useChatStream({
             );
           },
           onDocumentArtifact: (docArtifact) => {
-            console.log('[probe] onDocumentArtifact', docArtifact.type, docArtifact.title);
             if (docArtifact.session_id && docArtifact.session_id !== targetId) return;
             receivedDocumentArtifact = docArtifact;
             setArtifact({
@@ -752,12 +751,18 @@ export function useChatStream({
               text: response.text,
               toolCalls: response.toolCalls,
             },
-          ]).then((title) => {
-            setSessions((prev) =>
-              prev.map((s) => (s.id === targetId ? { ...s, title } : s)),
-            );
-          });
+          ])
+            .then((title) => {
+              setSessions((prev) =>
+                prev.map((s) => (s.id === targetId ? { ...s, title } : s)),
+              );
+            })
+            .catch((err) => {
+              // 标题生成失败不影响主流程，仅记录
+              console.warn('Generate title failed:', err);
+            });
         }
+        return true;
       } catch (err) {
         if (
           abortController.signal.aborted ||
@@ -808,7 +813,7 @@ export function useChatStream({
             }
           }
           setRunStatus({ phase: 'done', label: '已停止请求' });
-          return;
+          return true; // 用户主动停止：消息已入列，附件可清理
         }
         console.error('Send error:', err);
         if (targetId && assistantMessageId) {
@@ -828,6 +833,7 @@ export function useChatStream({
         }
         setError(err instanceof Error ? err.message : '发送消息失败，请检查后端服务或网络连接。');
         setRunStatus({ phase: 'error', label: '本轮回复失败' });
+        return false; // 失败：让调用方保留用户输入（如未上传成功的附件）
       } finally {
         if (abortControllerRef.current === abortController) {
           abortControllerRef.current = null;
@@ -859,14 +865,23 @@ export function useChatStream({
 
   const handleDecisionMade = useCallback(
     async (decisionId: string, answer: string) => {
-      // 移除已回答的决策
-      setPendingDecisions((prev) => prev.filter((d) => d.decision_id !== decisionId));
+      // 乐观移除已回答的决策；先捕获原对象，失败时回滚放回面板供重试
+      let removedDecision: UserDecision | undefined;
+      setPendingDecisions((prev) => {
+        removedDecision = prev.find((d) => d.decision_id === decisionId);
+        return prev.filter((d) => d.decision_id !== decisionId);
+      });
       // 调用 API 解析决策（后端工具正在阻塞等待）
       try {
         await submitUserDecision(decisionId, answer);
       } catch (err) {
         console.error('Decision submit error:', err);
-        setError('决策提交失败，请检查后端服务。');
+        if (removedDecision) {
+          setPendingDecisions((prev) =>
+            prev.some((d) => d.decision_id === decisionId) ? prev : [...prev, removedDecision as UserDecision],
+          );
+        }
+        setError('决策提交失败，请重试或检查后端服务。');
       }
     },
     [setError],

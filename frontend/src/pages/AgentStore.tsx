@@ -1,14 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, Bot, Check, Loader2, Plus, RefreshCw, Settings, Sparkles, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Bot, Check, Loader2, Plus, RefreshCw, Search, SearchX, Settings, Sparkles, X } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/shadcn/button';
 import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
+import { CardSkeleton } from '../components/ui/Skeletons';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { MascotGeneral, MascotPPT, MascotWebsite, MascotBigData } from '../components/ui/MascotIcons';
 import { AgentProfile, getAgentStore, installAgent, uninstallAgent } from '../services/agentProfileService';
 import { cn } from '../lib/utils';
+import { toast } from 'sonner';
+import { toastError } from '../lib/errors';
 
 // 模式 → 小精灵 + 颜色
 const MODE_CARD_STYLES: Record<string, { Mascot: React.FC<{ size?: number; className?: string }>; gradient: string; shadow: string }> = {
@@ -27,6 +31,17 @@ export const AgentStore = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredAgents = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return agents;
+    return agents.filter((a) =>
+      a.name.toLowerCase().includes(q) ||
+      (a.description || '').toLowerCase().includes(q) ||
+      a.slug.toLowerCase().includes(q),
+    );
+  }, [agents, searchQuery]);
 
   const loadStore = async () => {
     setIsLoading(true);
@@ -35,7 +50,7 @@ export const AgentStore = () => {
       const response = await getAgentStore();
       setAgents(response.items);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '智能体商店加载失败');
+      setError(toastError(err, '智能体商店加载失败'));
     } finally {
       setIsLoading(false);
     }
@@ -46,19 +61,26 @@ export const AgentStore = () => {
   }, []);
 
   const toggleInstall = async (agent: AgentProfile) => {
-    if (agent.slug === 'general') return;
+    // 通用助手是内置默认智能体，不可卸载；直接 return 会让按钮点击毫无反馈，
+    // 这里给出明确提示
+    if (agent.slug === 'general') {
+      toast.info('通用助手是内置智能体，无需安装');
+      return;
+    }
     setBusyId(agent.id);
     setError(null);
     try {
       if (agent.installed) {
         await uninstallAgent(agent.id);
         setAgents((prev) => prev.map((item) => item.id === agent.id ? { ...item, installed: false } : item));
+        toast.success(`已卸载「${agent.name}」`);
       } else {
         const updated = await installAgent(agent.id);
         setAgents((prev) => prev.map((item) => item.id === agent.id ? updated : item));
+        toast.success(`已安装「${agent.name}」`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '安装状态更新失败');
+      setError(toastError(err, '安装状态更新失败'));
     } finally {
       setBusyId(null);
     }
@@ -82,7 +104,7 @@ export const AgentStore = () => {
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         'relative min-h-screen overflow-hidden font-sans',
-        'text-[var(--foreground)] bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#bae6fd] selection:bg-zinc-200 selection:text-[var(--foreground)]'
+        'text-[var(--foreground)] bg-[var(--surface-0)] selection:bg-[var(--border-medium)] selection:text-[var(--foreground)]'
       )}
     >
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
@@ -112,7 +134,7 @@ export const AgentStore = () => {
 
       <main id="main-content" className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 pt-5 md:px-8">
         <div className="mb-7 flex flex-col gap-2">
-          <p className={cn("flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em]", "text-[var(--muted-foreground)]")}>
+          <p className={cn("flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em]", "text-[var(--muted-foreground)]")}>
             <Sparkles size={16} />
             Agent Store
           </p>
@@ -122,35 +144,68 @@ export const AgentStore = () => {
           </p>
         </div>
 
+        {/* 搜索：智能体数量增长后避免整页长滚动查找 */}
+        <div className="mb-5 flex items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" aria-hidden="true" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="搜索智能体名称或介绍..."
+              aria-label="搜索智能体"
+              className="admin-input h-11 pl-10"
+            />
+          </div>
+          {searchQuery && (
+            <span className="text-xs font-medium text-[var(--muted-foreground)]">
+              {filteredAgents.length} 个结果
+            </span>
+          )}
+        </div>
+
         {error && (
-          <div className="mb-5 flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
-            <AlertCircle size={18} />
-            {error}
+          <div className="mb-5 flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
+            <AlertCircle size={18} className="shrink-0" />
+            <span className="min-w-0 flex-1 break-words">{error}</span>
+            <button
+              type="button"
+              onClick={loadStore}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)] dark:text-red-200 dark:hover:bg-red-500/20"
+            >
+              <RefreshCw size={13} />
+              重试
+            </button>
           </div>
         )}
 
         {isLoading ? (
-          <div className={cn(
-            'flex h-72 items-center justify-center gap-3 rounded-2xl border text-sm font-bold text-[var(--muted-foreground)] backdrop-blur-2xl',
-            'border-white/60 bg-white/45'
-          )}>
-            <Loader2 size={18} className="animate-spin" />
-            正在加载智能体
-          </div>
+          <CardSkeleton count={8} />
         ) : agents.length === 0 ? (
           <div className={cn(
-            'flex h-72 flex-col items-center justify-center gap-4 rounded-2xl border text-sm font-bold backdrop-blur-2xl',
-            'border-white/60 bg-white/45 text-[var(--muted-foreground)]'
+            'rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] backdrop-blur-2xl'
           )}>
-            <Bot size={48} className={"text-slate-300"} />
-            <div className="text-center">
-              <p className={cn("text-base font-bold", "text-[var(--muted-foreground)]")}>暂无可用智能体</p>
-              <p className={cn("mt-1 text-xs font-medium", "text-[var(--muted-foreground)]")}>请检查智能体配置或联系管理员</p>
-            </div>
+            <EmptyState
+              icon={<Bot className="size-5" />}
+              title="还没有可用的智能体"
+              description="智能体商店里还没有任何助手。你可以自己创建一个，或请管理员在后台配置后发布。"
+              action={{ label: '创建智能体', onClick: () => navigate('/agents/new') }}
+            />
+          </div>
+        ) : filteredAgents.length === 0 ? (
+          <div className={cn(
+            'rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] backdrop-blur-2xl'
+          )}>
+            <EmptyState
+              icon={<SearchX className="size-5" />}
+              title={`没有匹配「${searchQuery}」的智能体`}
+              description="换个关键词试试，或者清空搜索条件查看全部智能体。"
+              action={{ label: '清除搜索条件', onClick: () => setSearchQuery('') }}
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {agents.map((agent, index) => {
+            {filteredAgents.map((agent, index) => {
               const canUse = agent.installed;
               const cardContent = (
                 <>
@@ -223,7 +278,7 @@ export const AgentStore = () => {
                   transition={{ duration: 0.2 }}
                   className={cn(
                     'group flex min-h-[190px] flex-col rounded-2xl',
-                    'border border-white/65 bg-white/62 shadow-md backdrop-blur-2xl p-4'
+                    'border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-md p-4'
                   )}
                 >
                   <div className="flex flex-col flex-1">

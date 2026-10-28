@@ -309,13 +309,17 @@ export function useChatSessions() {
 
     try {
       // 并行加载消息 + 会话最新制品（PPT/website），用于恢复预览面板
-      const [messages, artifactsResp] = await Promise.all([
+      const [rawMessages, artifactsResp] = await Promise.all([
         hasCachedMessages ? Promise.resolve(session.messages) : getSessionMessages(sessionId),
         getSessionArtifacts(sessionId).catch(err => {
           console.warn('Failed to load session artifacts:', err);
           return null;
         }),
       ]);
+      // hasCachedMessages 时 rawMessages 就是 state 内数组的引用。
+      // 下面的 push / 下标赋值必须走副本，否则原地改写 React state，
+      // 破坏不可变约定（memo 失效、消毒缓存与渲染不同步等问题溯源极难）。
+      const messages: Message[] = [...rawMessages];
       // 产物可能存在但消息里没有可挂载的 model 消息（如生成被中断、
       // 或助手消息未落库）。此时构造一条占位消息承载产物，否则产物会被
       // 静默丢弃，用户表现为"生成过的网站打不开预览"。

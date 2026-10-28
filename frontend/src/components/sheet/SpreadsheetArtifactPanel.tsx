@@ -9,6 +9,7 @@ import { useIsDark } from '../../hooks/useIsDark';
 import { ArtifactVersionBar } from '../chat/ArtifactVersionBar';
 import { SheetEditor, type SheetEditorHandle } from './SheetEditor';
 import { SheetSnapshotTable } from './SheetSnapshotTable';
+import { toastError } from '../../lib/errors';
 
 type SpreadsheetArtifact = Extract<Artifact, { language: 'spreadsheet' }>;
 
@@ -56,7 +57,7 @@ export const SpreadsheetArtifactPanel: React.FC<SpreadsheetArtifactPanelProps> =
       await saveSheetSnapshot(sessionId, artifact.artifactId, next);
       toast.success('表格已保存');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '保存失败');
+      toast.error(toastError(err, '保存失败'));
     } finally {
       setSaving(false);
     }

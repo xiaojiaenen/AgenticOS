@@ -9,7 +9,13 @@ function getSystemTheme(): 'light' | 'dark' {
 }
 
 function getStoredTheme(): Theme {
-  const stored = localStorage.getItem(STORAGE_KEY);
+  // Safari 隐私模式 / 存储禁用时 localStorage.getItem 会抛 SecurityError
+  let stored: string | null = null;
+  try {
+    stored = localStorage.getItem(STORAGE_KEY);
+  } catch {
+    stored = null;
+  }
   if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
   return 'system';
 }
@@ -21,10 +27,10 @@ function applyTheme(theme: Theme) {
   root.classList.remove('light', 'dark');
   root.classList.add(resolved);
 
-  // Update meta theme-color for mobile browser chrome
+  // Update meta theme-color for mobile browser chrome（与 zinc 底盘一致）
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
-    meta.setAttribute('content', resolved === 'dark' ? '#0f172a' : '#e1f1f7');
+    meta.setAttribute('content', resolved === 'dark' ? '#09090b' : '#fafafa');
   }
 }
 
@@ -32,7 +38,11 @@ export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(getStoredTheme);
 
   const setTheme = useCallback((newTheme: Theme) => {
-    localStorage.setItem(STORAGE_KEY, newTheme);
+    try {
+      localStorage.setItem(STORAGE_KEY, newTheme);
+    } catch {
+      /* 存储不可写时仅应用内存态 */
+    }
     setThemeState(newTheme);
     applyTheme(newTheme);
   }, []);

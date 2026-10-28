@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AlertCircle, CheckCircle, ExternalLink, Globe, Key, Loader2, Plug, Shield, Unplug, X } from "lucide-react";
 import { Button } from "../shadcn/button";
@@ -46,6 +46,26 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
   const [isConnecting, setIsConnecting] = useState(false);
   const [categories, setCategories] = useState<IntegrationCategory[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("all");
+  const closeRef = useRef<() => void>(onClose);
+  closeRef.current = onClose;
+
+  // Esc 关闭 + 打开时背景滚动锁（与 shadcn Dialog 行为对齐）
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closeRef.current();
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
 
   const loadData = async () => {
     setIsLoading(true); setError(null);
@@ -94,13 +114,13 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
                 <Button variant="ghost" size="icon" onClick={onClose}><X size={18} /></Button>
               </div>
 
-              {error && <div className={cn("mx-6 mt-4 flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold", "border-rose-200 bg-rose-50 text-rose-700")}><AlertCircle size={16} /> {error}</div>}
+              {error && <div className={cn("mx-6 mt-4 flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold", "border-red-200 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300")}><AlertCircle size={16} /> {error}</div>}
 
               {!isLoading && systems.length > 0 && (
                 <div className="mx-6 mt-4 flex flex-wrap gap-2">
-                  <button onClick={() => setActiveCategory("all")} className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-all", activeCategory === "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-[var(--muted-foreground)] hover:bg-slate-200")}>全部</button>
+                  <button onClick={() => setActiveCategory("all")} className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-all", activeCategory === "all" ? "bg-[var(--primary)] text-[var(--primary-foreground)]" : "bg-[var(--surface-2)] text-[var(--muted-foreground)] hover:bg-[var(--surface-1)]")}>全部</button>
                   {categories.filter(c => systems.some(s => s.category === c.key)).map(c => (
-                    <button key={c.key} onClick={() => setActiveCategory(c.key)} className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-all", activeCategory === c.key ? "bg-slate-900 text-white" : "bg-slate-100 text-[var(--muted-foreground)] hover:bg-slate-200")}>{c.icon} {c.label}</button>
+                    <button key={c.key} onClick={() => setActiveCategory(c.key)} className={cn("rounded-full px-3 py-1.5 text-xs font-semibold transition-all", activeCategory === c.key ? "bg-[var(--primary)] text-[var(--primary-foreground)]" : "bg-[var(--surface-2)] text-[var(--muted-foreground)] hover:bg-[var(--surface-1)]")}>{c.icon} {c.label}</button>
                   ))}
                 </div>
               )}
@@ -109,7 +129,7 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
                 {isLoading ? <div className={cn("flex h-40 items-center justify-center gap-3 text-sm font-semibold", "text-[var(--muted-foreground)]")}><Loader2 size={18} className="animate-spin" /> 加载中</div>
                 /* 空态原因说明：市场只展示「已安装智能体所关联」的集成，
                    空列表通常是没装带集成的智能体，而非管理员没发布 */
-: filteredSystems.length === 0 ? <div className={cn("flex h-40 flex-col items-center justify-center gap-2 text-sm", "text-[var(--muted-foreground)]")}><Plug size={32} className={"text-slate-300"} /><p className="font-semibold">暂无可用集成</p><p className="text-xs">你安装的智能体暂未关联第三方集成</p><p className="text-xs">可在「管理后台 → 智能体配置 / 集成管理」中为智能体关联集成</p></div>
+: filteredSystems.length === 0 ? <div className={cn("flex h-40 flex-col items-center justify-center gap-2 text-sm", "text-[var(--muted-foreground)]")}><Plug size={32} className={"text-[var(--muted-foreground)] opacity-50"} /><p className="font-semibold">暂无可用集成</p><p className="text-xs">你安装的智能体暂未关联第三方集成</p><p className="text-xs">可在「管理后台 → 智能体配置 / 集成管理」中为智能体关联集成</p></div>
                 : (
                   <div className="grid gap-4 sm:grid-cols-2">
                     {filteredSystems.map((sys) => {
@@ -124,11 +144,11 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
                             <div className="flex-1 min-w-0"><p className={cn("font-semibold", "text-[var(--foreground)]")}>{sys.name}</p><p className={cn("mt-0.5 text-xs line-clamp-2", "text-[var(--muted-foreground)]")}>{sys.description || sys.base_url}</p></div>
                           </div>
                           <div className="mt-3 flex items-center justify-between">
-                            <div className="flex items-center gap-2"><span className={cn("rounded-lg px-2 py-0.5 text-[10px] font-semibold", "bg-slate-100 text-[var(--muted-foreground)]")}>{authTypeLabel(sys.auth_type)}</span><span className={cn("text-[10px]", "text-[var(--muted-foreground)]")}>{sys.api_count} 个接口</span></div>
+                            <div className="flex items-center gap-2"><span className={cn("rounded-lg px-2 py-0.5 text-[10px] font-semibold", "bg-[var(--surface-2)] text-[var(--muted-foreground)]")}>{authTypeLabel(sys.auth_type)}</span><span className={cn("text-[10px]", "text-[var(--muted-foreground)]")}>{sys.api_count} 个接口</span></div>
                             {isConnected ? (
                               <div className="flex items-center gap-1"><span className="flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"><CheckCircle size={12} /> 已连接</span><Button variant="ghost" size="sm" onClick={() => handleDisconnect(sys.id)} className="text-xs text-[var(--muted-foreground)] hover:text-rose-500"><Unplug size={14} /></Button></div>
                             ) : isError ? (
-                              <Button variant="outline" size="sm" onClick={() => openConnect(sys)} className="gap-1 text-xs text-amber-600 border-amber-300"><AlertCircle size={14} /> 重新连接</Button>
+                              <Button variant="outline" size="sm" onClick={() => openConnect(sys)} className="gap-1 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/50"><AlertCircle size={14} /> 重新连接</Button>
                             ) : sys.auth_type === "none" ? (
                               <span className="flex items-center gap-1 rounded-lg bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700"><CheckCircle size={12} /> 无需连接</span>
                             ) : sys.has_default_credential ? (
@@ -151,7 +171,7 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
             </>
           );
           return (
-            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} onClick={(e) => e.stopPropagation()} className={cn("relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl", "border border-white/60 bg-[var(--surface-1)] shadow-2xl")}>
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} onClick={(e) => e.stopPropagation()} className={cn("relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl", "border border-[var(--border-medium)] bg-[var(--surface-1)] shadow-2xl")}>
               {marketContent}
             </motion.div>
           );
@@ -160,14 +180,14 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
 
       {connectingSystem && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={cn("fixed inset-0 z-[60] flex items-center justify-center p-4", "bg-black/40")} onClick={() => setConnectingSystem(null)}>
-          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={(e) => e.stopPropagation()} className={cn("w-full max-w-md", "rounded-3xl border border-white/60 bg-[var(--surface-1)] p-6 shadow-2xl")}>
+          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={(e) => e.stopPropagation()} className={cn("w-full max-w-md", "rounded-3xl border border-[var(--border-medium)] bg-[var(--surface-1)] p-6 shadow-2xl")}>
             <h3 className="text-lg font-semibold text-[var(--foreground)]">连接 {connectingSystem.name}</h3>
                 <p className="mt-1 text-sm text-[var(--muted-foreground)]">{connectingSystem.description}</p>
                 <div className="mt-5 space-y-3">
                   {getCredentialFields(connectingSystem).map((field) => (
                     <div key={field.key}>
-                      <label className="mb-1 block text-sm font-semibold text-slate-700">{field.label} {field.required && <span className="text-rose-500">*</span>}</label>
-                      <input className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2.5 text-sm shadow-sm transition-all focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200" type={field.type === "password" ? "password" : "text"} value={credentialValues[field.key] || ""} onChange={(e) => setCredentialValues((prev) => ({ ...prev, [field.key]: e.target.value }))} placeholder={field.placeholder || ""} />
+                      <label className="mb-1 block text-sm font-semibold text-[var(--foreground)]">{field.label} {field.required && <span className="text-rose-500">*</span>}</label>
+                      <input className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2.5 text-sm shadow-sm transition-all focus-visible:border-[var(--ring)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)]" type={field.type === "password" ? "password" : "text"} value={credentialValues[field.key] || ""} onChange={(e) => setCredentialValues((prev) => ({ ...prev, [field.key]: e.target.value }))} placeholder={field.placeholder || ""} />
                       {field.help_text && <p className="mt-1 text-xs text-[var(--muted-foreground)]">{field.help_text}</p>}
                       {field.help_url && <a href={field.help_url} target="_blank" rel="noopener" className="mt-1 inline-flex items-center gap-1 text-xs text-sky-600 hover:underline"><ExternalLink size={10} /> 获取帮助</a>}
                     </div>

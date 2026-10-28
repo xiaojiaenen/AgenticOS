@@ -33,15 +33,20 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
     : rounds;
   const hiddenRoundsCount = Math.max(0, rounds.length - visibleRounds.length);
 
-  const [, setHighlightedRound] = useState<string | null>(null);
-
   const scrollToRound = (round: any) => {
     const rowEl = document.getElementById(`msg-${round.id}`);
     if (rowEl) {
       rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-    setHighlightedRound(round.id);
-    setTimeout(() => setHighlightedRound(null), 1500);
+  };
+
+  const showTooltipFor = (round: any, el: HTMLElement) => {
+    const wrapperRect = wrapperRef.current?.getBoundingClientRect();
+    const dotRect = el.getBoundingClientRect();
+    if (wrapperRect) {
+      setTooltipTop(dotRect.top - wrapperRect.top + dotRect.height / 2);
+      setHoveredRound(round);
+    }
   };
 
   // Only show if there are multiple rounds
@@ -64,10 +69,10 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
             exit={{ opacity: 0, x: 5, scale: 0.95 }}
             transition={{ duration: 0.15 }}
             style={{ top: tooltipTop }}
-            className="absolute right-[calc(100%+16px)] -translate-y-1/2 w-64 bg-white/95 backdrop-blur-xl border border-slate-200/60 shadow-md rounded-2xl p-4 pointer-events-none z-50 flex flex-col gap-2"
+            className="absolute right-[calc(100%+16px)] -translate-y-1/2 w-64 bg-[var(--surface-1)]/95 backdrop-blur-xl border border-[var(--border-subtle)] shadow-md rounded-2xl p-4 pointer-events-none z-50 flex flex-col gap-2"
           >
-            <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest flex items-center gap-1.5 mb-1">
-              <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full shadow-glow animate-pulse" />
+            <div className="text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-widest flex items-center gap-1.5 mb-1">
+              <div className="w-1.5 h-1.5 bg-[var(--muted-foreground)] rounded-full animate-pulse" />
               第 {hoveredRound.index} 轮对话
             </div>
             
@@ -78,51 +83,48 @@ export const ChatTimeline = ({ messages }: { messages: Message[] }) => {
                </div>
             )}
             {hoveredRound.aiMessage && (
-               <div className="text-xs text-[var(--muted-foreground)] line-clamp-2 leading-relaxed bg-slate-100/80 p-2.5 rounded-xl border border-slate-200/50">
-                 <span className="font-semibold text-zinc-700 mr-1.5">A:</span>
+               <div className="text-xs text-[var(--muted-foreground)] line-clamp-2 leading-relaxed bg-[var(--surface-2)] p-2.5 rounded-xl border border-[var(--border-subtle)]">
+                 <span className="font-semibold text-[var(--muted-foreground)] mr-1.5">A:</span>
                  {hoveredRound.aiMessage.text}
                </div>
             )}
 
             {/* Arrow pointing to dot */}
-            <div className="absolute top-1/2 -right-[5px] -translate-y-1/2 w-2.5 h-2.5 bg-[var(--surface-1)] border-t border-r border-slate-200/60 rotate-45" />
+            <div className="absolute top-1/2 -right-[5px] -translate-y-1/2 w-2.5 h-2.5 bg-[var(--surface-1)] border-t border-r border-[var(--border-subtle)] rotate-45" />
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Bounded round navigator */}
-      <div className="bg-[var(--surface-1)] backdrop-blur-xl border border-white/60 shadow-md rounded-full py-4 px-1.5 flex flex-col items-center gap-2 transition-all group hover:shadow-md hover:bg-white/95">
-        <div className="mb-1 text-slate-300 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0">
+      <div className="bg-[var(--surface-1)] backdrop-blur-xl border border-[var(--border-subtle)] shadow-md rounded-full py-4 px-1.5 flex flex-col items-center gap-2 transition-all group hover:shadow-md hover:bg-[var(--surface-2)]">
+        <div className="mb-1 text-[var(--muted-foreground)] opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0" aria-hidden="true">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
         </div>
         
         {visibleRounds.map((round, idx) => (
           <React.Fragment key={round.id}>
             {hiddenRoundsCount > 0 && idx === 1 && (
-              <div className="flex h-7 w-7 items-center justify-center rounded-full text-[9px] font-semibold text-slate-300">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full text-[9px] font-semibold text-[var(--muted-foreground)]" aria-hidden="true">
                 +{hiddenRoundsCount}
               </div>
             )}
-          <div 
+          <button
+            type="button"
             onClick={() => scrollToRound(round)}
-            onMouseEnter={(e) => {
-              const wrapperRect = wrapperRef.current?.getBoundingClientRect();
-              const dotRect = e.currentTarget.getBoundingClientRect();
-              if (wrapperRect) {
-                setTooltipTop(dotRect.top - wrapperRect.top + dotRect.height / 2);
-                setHoveredRound(round);
-              }
-            }}
-            className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer relative group/item hover:bg-zinc-800 hover:shadow-md transition-all flex-shrink-0"
+            onMouseEnter={(e) => showTooltipFor(round, e.currentTarget)}
+            onFocus={(e) => showTooltipFor(round, e.currentTarget)}
+            onBlur={() => setHoveredRound(null)}
+            aria-label={`跳到第 ${round.index} 轮对话`}
+            className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer relative group/item hover:bg-[var(--primary)] hover:shadow-md transition-all flex-shrink-0 focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none"
           >
-            <span className="text-[10px] font-semibold text-[var(--muted-foreground)] group-hover/item:text-white transition-colors">
+            <span className="text-[10px] font-semibold text-[var(--muted-foreground)] group-hover/item:text-[var(--primary-foreground)] transition-colors">
               {round.index}
             </span>
-          </div>
+          </button>
           </React.Fragment>
         ))}
         
-        <div className="mt-1 text-slate-300 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0">
+        <div className="mt-1 text-[var(--muted-foreground)] opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0" aria-hidden="true">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         </div>
       </div>

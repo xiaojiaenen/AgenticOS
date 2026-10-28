@@ -12,11 +12,14 @@ import {
   ChevronLeft,
   ExternalLink,
   Loader2,
+  Pencil,
   Plug,
   Plus,
+  Trash2,
   Upload,
 } from 'lucide-react';
 import { DataTable } from './data-table';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { McpManagementPanel } from './McpManagementPanel';
 import { AdminPageHeader, ErrorBanner } from './shared';
 import { Button } from '@/components/shadcn/button';
@@ -49,11 +52,12 @@ import { ApiModal } from './IntegrationApiModal';
 import { TestDrawer, type TestState } from './IntegrationTestDrawer';
 import { OpenApiImportDialog } from './IntegrationOpenApiImportDialog';
 import { buildApiColumns, buildSystemColumns } from './IntegrationColumns';
+import { toastError } from '../../lib/errors';
 
 export const IntegrationManagement = () => {
   const queryClient = useQueryClient();
 
-  const [selectedSystem, setSelectedSystem] = React.useState<IntegrationSystem | null>(null);
+  const [selectedSystemId, setSelectedSystemId] = React.useState<number | null>(null);
   const [systemModalOpen, setSystemModalOpen] = React.useState(false);
   const [editingSystem, setEditingSystem] = React.useState<IntegrationSystem | null>(null);
   const [apiModalOpen, setApiModalOpen] = React.useState(false);
@@ -80,6 +84,12 @@ export const IntegrationManagement = () => {
   });
   const categories = categoriesQuery.data?.items ?? [];
 
+  // 详情页对象从最新列表派生：编辑/启用等变更 refetch 后自动同步，避免 state 快照过期
+  const selectedSystem = React.useMemo(
+    () => systems.find((s) => s.id === selectedSystemId) ?? null,
+    [systems, selectedSystemId],
+  );
+
   const apisQuery = useQuery({
     queryKey: ['admin', 'integrations', selectedSystem?.id, 'apis'],
     queryFn: () => listApis(selectedSystem!.id),
@@ -87,17 +97,15 @@ export const IntegrationManagement = () => {
   });
   const apis = apisQuery.data?.items ?? [];
 
-  const saveSystemMutation = useMutation({
+  const deleteSystemMutation = useMutation({
     mutationFn: (payload: { system: IntegrationSystem }) => deleteSystem(payload.system.id),
     onSuccess: () => {
       toast.success('集成已删除');
       setDeletingSystem(null);
-      if (selectedSystem) {
-        setSelectedSystem(null);
-      }
+      setSelectedSystemId(null);
       void queryClient.invalidateQueries({ queryKey: ['admin', 'integrations'] });
     },
-    onError: (err: Error) => toast.error(err.message || '删除失败'),
+    onError: (err: Error) => toast.error(toastError(err, '删除失败')),
   });
 
   const deleteApiMutation = useMutation({
@@ -110,7 +118,7 @@ export const IntegrationManagement = () => {
       setDeletingApi(null);
       void queryClient.invalidateQueries({ queryKey: ['admin', 'integrations'] });
     },
-    onError: (err: Error) => toast.error(err.message || '删除失败'),
+    onError: (err: Error) => toast.error(toastError(err, '删除失败')),
   });
 
   const testMutation = useMutation({
@@ -141,11 +149,11 @@ export const IntegrationManagement = () => {
 
   const previewMutation = useMutation({
     mutationFn: (input: string) => {
-      const isUrl = input.trim().startsWith('http');
+      const isUrl = /^https?:\/\/\S+$/i.test(input.trim());
       return previewOpenApiImport(isUrl ? undefined : input.trim(), isUrl ? input.trim() : undefined);
     },
     onSuccess: (preview) => setOpenApiPreview(preview),
-    onError: (err: Error) => toast.error(err.message || '解析失败'),
+    onError: (err: Error) => toast.error(toastError(err, '解析失败')),
   });
 
   const confirmImportMutation = useMutation({
@@ -156,7 +164,7 @@ export const IntegrationManagement = () => {
       setOpenApiPreview(null);
       void queryClient.invalidateQueries({ queryKey: ['admin', 'integrations'] });
     },
-    onError: (err: Error) => toast.error(err.message || '导入失败'),
+    onError: (err: Error) => toast.error(toastError(err, '导入失败')),
   });
 
   const enabledCount = systems.filter((s) => s.enabled).length;
@@ -170,7 +178,7 @@ export const IntegrationManagement = () => {
     () =>
       buildSystemColumns({
         categories,
-        onViewSystem: setSelectedSystem,
+        onViewSystem: (sys) => setSelectedSystemId(sys.id),
         onEditSystem: (sys) => {
           setEditingSystem(sys);
           setSystemModalOpen(true);
@@ -241,14 +249,19 @@ export const IntegrationManagement = () => {
         />
 
         {systemsQuery.isError ? (
-          <ErrorBanner message={(systemsQuery.error as Error).message || '加载失败'} />
+          <ErrorBanner message={toastError(systemsQuery.error, '加载失败')} onRetry={() => void systemsQuery.refetch()} />
         ) : null}
 
         {/* 分类 Tab */}
-        <div className="flex flex-wrap gap-2">
+        <div
+          role="group"
+          aria-label="按分类筛选集成"
+          className="flex flex-wrap gap-2"
+        >
           <Button
             variant={activeCategory === 'all' ? 'default' : 'secondary'}
             size="xs"
+            aria-pressed={activeCategory === 'all'}
             onClick={() => setActiveCategory('all')}
           >
             全部 ({systems.length})
@@ -260,6 +273,7 @@ export const IntegrationManagement = () => {
                 key={c.key}
                 variant={activeCategory === c.key ? 'default' : 'secondary'}
                 size="xs"
+                aria-pressed={activeCategory === c.key}
                 onClick={() => setActiveCategory(c.key)}
               >
                 {c.icon} {c.label} ({systems.filter((s) => s.category === c.key).length})
@@ -279,13 +293,12 @@ export const IntegrationManagement = () => {
               columns={systemColumns}
               data={filteredSystems}
               emptyState={
-                <div className="flex flex-col items-center justify-center py-8">
-                  <Plug size={32} className="mb-3 text-zinc-300" />
-                  <p className="text-sm font-semibold text-zinc-600">暂无集成</p>
-                  <p className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">
-                    点击「新增集成」创建第一个第三方系统连接
-                  </p>
-                </div>
+                <EmptyState
+                  size="compact"
+                  icon={<Plug className="size-4" />}
+                  title="暂无集成"
+                  description="新增一个集成，把第三方系统接进智能体的工具列表。"
+                />
               }
             />
           )}
@@ -337,20 +350,20 @@ export const IntegrationManagement = () => {
                 确定删除集成「{deletingSystem?.name}」？该操作不可撤销。
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={saveSystemMutation.isPending}>取消</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-rose-600 text-white hover:bg-rose-600/90"
-                disabled={saveSystemMutation.isPending}
-                onClick={(event) => {
-                  event.preventDefault();
-                  if (deletingSystem) saveSystemMutation.mutate({ system: deletingSystem });
-                }}
-              >
-                {saveSystemMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
-                确认删除
-              </AlertDialogAction>
-            </AlertDialogFooter>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteSystemMutation.isPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 text-white hover:bg-rose-600/90"
+              disabled={deleteSystemMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                if (deletingSystem) deleteSystemMutation.mutate({ system: deletingSystem });
+              }}
+            >
+              {deleteSystemMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       </div>
@@ -369,10 +382,31 @@ export const IntegrationManagement = () => {
               variant="outline"
               size="sm"
               className="gap-1.5"
-              onClick={() => setSelectedSystem(null)}
+              onClick={() => setSelectedSystemId(null)}
             >
               <ChevronLeft size={14} />
               返回列表
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                setEditingSystem(selectedSystem);
+                setSystemModalOpen(true);
+              }}
+            >
+              <Pencil size={14} />
+              编辑集成
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+              onClick={() => setDeletingSystem(selectedSystem)}
+            >
+              <Trash2 size={14} />
+              删除
             </Button>
             <Button
               size="sm"
@@ -390,7 +424,7 @@ export const IntegrationManagement = () => {
       />
 
       {apisQuery.isError ? (
-        <ErrorBanner message={(apisQuery.error as Error).message || '加载接口失败'} />
+        <ErrorBanner message={toastError(apisQuery.error, '加载接口失败')} onRetry={() => void apisQuery.refetch()} />
       ) : null}
 
       <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
@@ -407,7 +441,7 @@ export const IntegrationManagement = () => {
             emptyState={
               <div className="flex flex-col items-center justify-center py-8">
                 <ExternalLink size={32} className="mb-3 text-zinc-300" />
-                <p className="text-sm font-semibold text-zinc-600">暂无接口</p>
+                <p className="text-sm font-semibold text-[var(--muted-foreground)]">暂无接口</p>
                 <p className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">
                   为 {selectedSystem.name} 定义可用的 API 接口
                 </p>
@@ -441,6 +475,43 @@ export const IntegrationManagement = () => {
           setEditingApi(null);
         }}
       />
+
+      <SystemModal
+        open={systemModalOpen}
+        editingSystem={editingSystem}
+        onClose={() => {
+          setSystemModalOpen(false);
+          setEditingSystem(null);
+        }}
+      />
+
+      <AlertDialog
+        open={deletingSystem !== null}
+        onOpenChange={(next) => !next && setDeletingSystem(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除集成</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定删除集成「{deletingSystem?.name}」？该操作不可撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteSystemMutation.isPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 text-white hover:bg-rose-600/90"
+              disabled={deleteSystemMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                if (deletingSystem) deleteSystemMutation.mutate({ system: deletingSystem });
+              }}
+            >
+              {deleteSystemMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={deletingApi !== null} onOpenChange={(next) => !next && setDeletingApi(null)}>
         <AlertDialogContent>

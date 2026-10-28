@@ -20,17 +20,34 @@ export function RecallTestPanel({ kbId }: { kbId: number }) {
   const [error, setError] = useState<string | null>(null);
 
   const handleRun = async () => {
-    setIsPending(true);
     setError(null);
+    const questions = questionsText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    // 校验必须在 setPending 之前返回，否则提前 return 会让按钮永久转圈
+    if (questions.length === 0) {
+      setError('请至少输入一个测试问题');
+      return;
+    }
+    if (threshold.trim() !== '') {
+      const parsed = Number(threshold);
+      if (!Number.isFinite(parsed)) {
+        setError('阈值必须是数字（0-1 之间的小数）');
+        return;
+      }
+      // 相关度已归一化到 0~1，超出范围的需求没有意义，早报错好过跑出空结果
+      if (parsed < 0 || parsed > 1) {
+        setError('阈值范围是 0~1（例如 0.3 表示只保留相关度 30% 以上的结果）');
+        return;
+      }
+    }
+    setIsPending(true);
     try {
-      const questions = questionsText
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean);
       const data = await runRecallTest(kbId, {
         questions,
         topK,
-        scoreThreshold: threshold ? Number(threshold) : undefined,
+        scoreThreshold: threshold.trim() !== '' ? Number(threshold) : undefined,
       });
       setReport(data);
     } catch (err) {
@@ -50,7 +67,7 @@ export function RecallTestPanel({ kbId }: { kbId: number }) {
             召回测试
           </h3>
           <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-            一行一个问题，跑完给出命中率与平均命中排名。留空则用本页标题自动生成探针。
+            一行一个问题（至少填一个），跑完给出命中率与平均命中排名。
           </p>
         </div>
         <div className="flex items-center gap-2">

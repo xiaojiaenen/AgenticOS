@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
-import { HelpCircle, Send, ChevronRight } from 'lucide-react';
+import { ChevronRight, HelpCircle, Loader2, Send } from 'lucide-react';
 
 export type UserDecision = {
   decision_id: string;
@@ -31,7 +31,9 @@ export function normalizeDecision(raw: unknown): UserDecision | null {
       options = d.options.split(',').map((s: string) => s.trim()).filter(Boolean);
     }
   }
-  if (options.length < 2) return null;
+  // 注意：不再因 options < 2 丢弃决策。后端工具会阻塞等待该 decision，
+  // 静默丢弃等于 Agent 永久挂起且用户看不到任何面板；选项不足时由 UI
+  // 降级为"仅自定义回答"。
   return {
     decision_id: d.decision_id,
     question: d.question,
@@ -46,7 +48,29 @@ type DecisionPanelProps = {
   onDecision: (decisionId: string, answer: string) => void;
 };
 
-export const DecisionPanel: React.FC<DecisionPanelProps> = ({ decisions, onDecision }) => {  const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
+export const DecisionPanel: React.FC<DecisionPanelProps> = ({ decisions, onDecision }) => {
+  const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
+  // 提交中的决策：点击后立刻禁用，避免连点把同一个 decision 提交多遍
+  const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const alive = new Set(decisions.map((d) => d.decision_id));
+    setSubmitting((prev) => {
+      const next: Record<string, boolean> = {};
+      let changed = false;
+      for (const [id, value] of Object.entries(prev)) {
+        if (alive.has(id)) next[id] = value;
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [decisions]);
+
+  const answer = (decisionId: string, value: string) => {
+    if (submitting[decisionId]) return;
+    setSubmitting((prev) => ({ ...prev, [decisionId]: true }));
+    onDecision(decisionId, value);
+  };
 
   const handleCustomInput = (decisionId: string, value: string) => {
     setCustomInputs((prev) => ({ ...prev, [decisionId]: value }));
@@ -55,7 +79,7 @@ export const DecisionPanel: React.FC<DecisionPanelProps> = ({ decisions, onDecis
   const handleSubmitCustom = (decisionId: string) => {
     const value = customInputs[decisionId]?.trim();
     if (value) {
-      onDecision(decisionId, value);
+      answer(decisionId, value);
       setCustomInputs((prev) => {
         const next = { ...prev };
         delete next[decisionId];
@@ -66,7 +90,7 @@ export const DecisionPanel: React.FC<DecisionPanelProps> = ({ decisions, onDecis
 
   const decisionsContent = decisions.length > 0 ? (
     <>
-      <div className={cn("mb-2 flex items-center gap-2", "text-slate-700")}>
+      <div className={cn("mb-2 flex items-center gap-2", "text-[var(--muted-foreground)]")}>
         <HelpCircle size={17} />
         <span className="text-xs font-semibold uppercase tracking-[0.16em]">需要你的决策</span>
       </div>
@@ -74,51 +98,70 @@ export const DecisionPanel: React.FC<DecisionPanelProps> = ({ decisions, onDecis
         {decisions.map((decision) => (
           <div
             key={decision.decision_id}
-            className={cn("flex flex-col gap-3 rounded-2xl px-3 py-3", "border border-white/70 bg-white/76")}
+            className={cn("flex flex-col gap-3 rounded-2xl px-3 py-3", "border border-[var(--border-subtle)] bg-[var(--surface-1)]")}
           >
             <div>
               <p className={cn("text-sm font-semibold", "text-[var(--foreground)]")}>{decision.question}</p>
               {decision.context && (
-                <div className={cn("mt-2 max-h-60 overflow-y-auto rounded-lg p-2.5", "border border-slate-200/60 bg-slate-50/50")}>
+                <div className={cn("mt-2 max-h-60 overflow-y-auto rounded-lg p-2.5", "border border-[var(--border-subtle)] bg-[var(--surface-2)]")}>
                   <pre className={cn("whitespace-pre-wrap break-words text-xs leading-relaxed font-mono", "text-[var(--muted-foreground)]")}>{decision.context}</pre>
                 </div>
               )}
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {decision.options.map((option, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => onDecision(decision.decision_id, option)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-send)] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[var(--accent-send-hover)] active:scale-95"
-                >
-                  <ChevronRight size={12} />
-                  {option}
-                </button>
-              ))}
-            </div>
+            {decision.options.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {decision.options.map((option, idx) => {
+                  const pending = Boolean(submitting[decision.decision_id]);
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      disabled={pending}
+                      onClick={() => answer(decision.decision_id, option)}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-full bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60',
+                        'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]',
+                      )}
+                    >
+                      {pending ? <Loader2 size={12} className="animate-spin" /> : <ChevronRight size={12} />}
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-[var(--muted-foreground)]">
+                该决策未提供预设选项，请在下方输入你的回答。
+              </p>
+            )}
 
             {decision.allow_custom !== false && (
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   placeholder="或输入自定义答案..."
+                  aria-label={`自定义回答：${decision.question}`}
+                  disabled={Boolean(submitting[decision.decision_id])}
                   value={customInputs[decision.decision_id] || ''}
                   onChange={(e) => handleCustomInput(decision.decision_id, e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSubmitCustom(decision.decision_id);
                   }}
-                  className={cn("flex-1 rounded-xl border px-3 py-1.5 text-xs outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-200", "border-[var(--border-subtle)] bg-[var(--surface-1)]")}
+                  className={cn("flex-1 rounded-xl border px-3 py-1.5 text-xs outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] disabled:opacity-60", "border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]")}
                 />
                 <button
                   type="button"
                   onClick={() => handleSubmitCustom(decision.decision_id)}
-                  disabled={!customInputs[decision.decision_id]?.trim()}
-                  className={cn("rounded-lg p-1.5 transition-colors disabled:opacity-40", "text-blue-600 hover:bg-blue-100")}
+                  disabled={!customInputs[decision.decision_id]?.trim() || submitting[decision.decision_id]}
+                  className={cn("rounded-lg p-1.5 transition-colors disabled:opacity-40", "text-[var(--foreground)] hover:bg-[var(--surface-2)]")}
                   aria-label="发送自定义答案"
                 >
-                  <Send size={14} />
+                  {submitting[decision.decision_id] ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Send size={14} />
+                  )}
                 </button>
               </div>
             )}

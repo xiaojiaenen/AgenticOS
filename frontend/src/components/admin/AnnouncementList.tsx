@@ -7,6 +7,11 @@ import { cn } from '@/lib/utils';
 import { Announcement } from '@/services/announcementService';
 import { THEME_DEFS } from '@/components/announcement/announcementTheme';
 
+function formatSafeDate(value: string): string {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '--' : d.toLocaleDateString('zh-CN');
+}
+
 export function AnnouncementList({
   items,
   selectedId,
@@ -53,17 +58,17 @@ export function AnnouncementList({
               className={cn(
                 'w-full rounded-lg border px-4 py-4 text-left transition-all',
                 selectedId === item.id
-                  ? 'border-zinc-900 bg-zinc-100/80 shadow-md'
+                  ? 'border-[var(--foreground)] bg-[var(--surface-2)] shadow-md'
                   : 'border-[var(--border-subtle)] bg-[var(--surface-1)] hover:border-zinc-300 hover:shadow-sm',
               )}
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="h-11 w-11 rounded-lg" style={{ background: THEME_DEFS[item.theme].chipGradient }} />
+                <div className="h-11 w-11 rounded-lg" style={{ background: THEME_DEFS[item.theme]?.chipGradient ?? 'var(--surface-2)' }} />
                 <div className="flex flex-wrap justify-end gap-2">
                   <span
                     className={cn(
                       'rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide',
-                      item.active_now ? 'bg-emerald-100 text-emerald-700' : 'bg-[var(--surface-2)] text-[var(--muted-foreground)]',
+                      item.active_now ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-[var(--surface-2)] text-[var(--muted-foreground)]',
                     )}
                   >
                     {item.active_now ? 'live' : item.is_published ? 'scheduled' : 'draft'}
@@ -86,7 +91,7 @@ export function AnnouncementList({
                     {item.content_format === 'html' ? 'HTML' : 'MD'}
                   </span>
                 </div>
-                <span>{new Date(item.updated_at).toLocaleDateString('zh-CN')}</span>
+                <span>{formatSafeDate(item.updated_at)}</span>
               </div>
             </button>
           ))}

@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/shadcn/button';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { AgentSelector } from '../components/ui/AgentSelector';
+import { InlineSpinner } from '../components/ui/Skeletons';
 import { MascotSurprised, SendIcon } from '../components/ui/AnimatedIcons';
 import { AuroraBackground } from '../components/backgrounds/AuroraBackground';
 import { getStoredUser } from '../services/authService';
@@ -13,23 +14,28 @@ import { AgentProfile, getMyAgents } from '../services/agentProfileService';
 export const Home = () => {
   const [inputValue, setInputValue] = useState('');
   const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([]);
+  const [agentsState, setAgentsState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>(null);
   const navigate = useNavigate();
   const user = getStoredUser();
   const selectedAgent = agentProfiles.find((a) => a.id === selectedAgentProfileId) || null;
 
+  const loadAgents = useCallback(() => {
+    if (!user) return;
+    setAgentsState('loading');
+    getMyAgents()
+      .then((res) => {
+        setAgentProfiles(res.items);
+        const general = res.items.find((a) => a.slug === 'general');
+        if (general) setSelectedAgentProfileId(general.id);
+        setAgentsState('idle');
+      })
+      .catch(() => setAgentsState('error'));
+  }, [user]);
+
   useEffect(() => {
-    if (user) {
-      getMyAgents()
-        .then((res) => {
-          setAgentProfiles(res.items);
-          const general = res.items.find((a) => a.slug === 'general');
-          if (general) setSelectedAgentProfileId(general.id);
-        })
-        .catch(() => { /* non-critical, silent */ });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    loadAgents();
+  }, [loadAgents]);
 
   const handleSend = () => {
     if (!inputValue.trim()) return;
@@ -43,6 +49,9 @@ export const Home = () => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // 中文 IME 组词中（nativeEvent.isComposing）不触发发送，否则选词即发送
+    const nativeEvent = e.nativeEvent as KeyboardEvent;
+    if (nativeEvent.isComposing || e.key === 'Process') return;
     if (e.key === 'Enter' && e.shiftKey) {
       // Allow shift+enter for new line
       return;
@@ -124,7 +133,7 @@ export const Home = () => {
           transition={{ delay: 0.1, duration: 0.4 }}
           className="w-full max-w-3xl"
         >
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-card shadow-md p-3 transition-all focus-within:border-zinc-300 focus-within:shadow-lg">
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-card shadow-md p-3 transition-all focus-within:border-[var(--ring)] focus-within:shadow-lg focus-within:ring-[3px] focus-within:ring-[var(--ring-halo)]">
             <textarea
               aria-label="输入消息"
               className="w-full h-20 bg-transparent resize-none outline-none text-lg p-3 leading-relaxed text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
@@ -134,22 +143,39 @@ export const Home = () => {
               onKeyDown={handleKeyDown}
               maxLength={4000}
             />
-            <div className="flex justify-between items-center px-4 pb-3">
-              {user && agentProfiles.length > 0 ? (
-                <AgentSelector
-                  agents={agentProfiles}
-                  selectedId={selectedAgentProfileId}
-                  onSelect={(agent) => setSelectedAgentProfileId(agent.id)}
-                  variant="full"
-                />
+            <div className="flex justify-between items-center gap-3 px-4 pb-3">
+              {user ? (
+                agentsState === 'error' ? (
+                  <span className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                    智能体加载失败
+                    <button
+                      type="button"
+                      onClick={loadAgents}
+                      className="font-semibold text-[var(--foreground)] underline underline-offset-2 hover:opacity-80"
+                    >
+                      重试
+                    </button>
+                  </span>
+                ) : agentProfiles.length > 0 ? (
+                  <AgentSelector
+                    agents={agentProfiles}
+                    selectedId={selectedAgentProfileId}
+                    onSelect={(agent) => setSelectedAgentProfileId(agent.id)}
+                    variant="full"
+                  />
+                ) : (
+                  <InlineSpinner label="加载智能体列表中…" />
+                )
               ) : (
-                <div />
+                <span className="text-xs text-[var(--muted-foreground)]">
+                  登录后可选择专属智能体
+                </span>
               )}
 
               <button
                 onClick={handleSend}
                 disabled={!inputValue.trim()}
-                className="size-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 group bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:pointer-events-none shadow-sm"
+                className="size-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 group bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)] disabled:opacity-40 disabled:cursor-not-allowed"
                 aria-label="发送消息"
               >
                 <SendIcon size={20} className="group-hover:-translate-y-0.5" />
@@ -171,8 +197,23 @@ export const Home = () => {
           ].map((s) => (
             <React.Fragment key={s.text}>
               <button
-                onClick={() => setInputValue(s.text)}
-                className="px-4 py-2 rounded-full text-sm font-medium border border-[var(--border-subtle)] bg-card text-zinc-600 hover:border-zinc-300 hover:text-[var(--foreground)] hover:shadow-sm transition-all active:scale-[0.98]"
+                onClick={() => {
+                  // 点击即发起，而不是只把文字填进输入框再让用户点一次发送 ——
+                  // 快捷入口的意义就是「一点即用」。
+                  setInputValue(s.text);
+                  if (!user) {
+                    navigate('/login', { state: { from: s.text } });
+                    return;
+                  }
+                  navigate('/chat', {
+                    state: {
+                      initialMessage: s.text,
+                      mode: s.mode,
+                      agentProfileId: selectedAgentProfileId,
+                    },
+                  });
+                }}
+                className="px-4 py-2 rounded-full text-sm font-medium border border-[var(--border-subtle)] bg-card text-[var(--muted-foreground)] hover:border-[var(--border-strong)] hover:text-[var(--foreground)] hover:shadow-sm transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
               >
                 {s.text}
               </button>

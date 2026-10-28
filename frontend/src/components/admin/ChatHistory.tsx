@@ -52,6 +52,7 @@ import {
   listConversations,
 } from '@/services/conversationService';
 import { ChatAnalytics } from './ChatAnalytics';
+import { toastError } from '../../lib/errors';
 
 const ITEMS_PER_PAGE = 12;
 const DETAIL_MESSAGES_PAGE_SIZE = 20;
@@ -78,7 +79,7 @@ function roleTone(role?: string | null): string {
   if (role === 'model' || role === 'assistant') return 'border-emerald-100 bg-emerald-50 text-emerald-700';
   if (role === 'tool') return 'border-violet-100 bg-violet-50 text-violet-700';
   if (role === 'system') return 'border-amber-100 bg-amber-50 text-amber-700';
-  return 'border-[var(--border-subtle)] bg-[var(--surface-2)] text-zinc-600';
+  return 'border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--muted-foreground)]';
 }
 
 function formatJson(value?: Record<string, unknown> | null): string {
@@ -98,12 +99,12 @@ function AdminMarkdown({ text }: { text: string }) {
             </a>
           ),
           pre: ({ children }) => (
-            <pre className="visible-scrollbar overflow-x-auto rounded-lg border border-zinc-200/70 bg-zinc-950/95 p-4 text-zinc-100 shadow-none">
+            <pre className="visible-scrollbar overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] p-4 text-[var(--foreground)] shadow-none">
               {children}
             </pre>
           ),
           code: ({ children, className }) => (
-            <code className={className ? `${className} font-mono` : 'rounded-md bg-[var(--surface-2)] px-1 py-0.5 font-mono text-zinc-700'}>
+            <code className={className ? `${className} font-mono` : 'rounded-md bg-[var(--surface-2)] px-1 py-0.5 font-mono text-[var(--muted-foreground)]'}>
               {children}
             </code>
           ),
@@ -149,7 +150,7 @@ function ToolCallBlock({ message }: { message: AdminConversationDetailMessage })
             </span>
             <span className="rounded-full bg-[var(--surface-1)] px-2 py-1 text-[10px] font-semibold text-zinc-700">调用参数</span>
           </summary>
-          <pre className="visible-scrollbar mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3 text-xs font-medium leading-5 text-zinc-600">
+          <pre className="visible-scrollbar mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3 text-xs font-medium leading-5 text-[var(--muted-foreground)]">
             {formatJson(tool.arguments)}
           </pre>
         </details>
@@ -243,7 +244,7 @@ function ConversationDetailDialog({
               <div className="space-y-4">
                 <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">摘要</p>
-                  <p className="mt-2 text-sm font-medium leading-6 text-zinc-600">
+                  <p className="mt-2 text-sm font-medium leading-6 text-[var(--muted-foreground)]">
                     {detail.summary || '暂无摘要'}
                   </p>
                 </div>
@@ -264,7 +265,7 @@ function ConversationDetailDialog({
 
                 <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">会话信息</p>
-                  <div className="mt-2.5 space-y-2 text-sm font-medium text-zinc-600">
+                  <div className="mt-2.5 space-y-2 text-sm font-medium text-[var(--muted-foreground)]">
                     <p>用户：{detail.user_name || '-'}</p>
                     <p>邮箱：{detail.user_email || '-'}</p>
                     {detail.agent_profile_name && (
@@ -367,6 +368,8 @@ export const ChatHistory = () => {
   const [searchInput, setSearchInput] = React.useState('');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [showAnalytics, setShowAnalytics] = React.useState(false);
+  // 分析面板时间范围（原硬编码 14，与仪表盘选择脱节）
+  const [timeRange, setTimeRange] = React.useState(14);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const [detailSessionId, setDetailSessionId] = React.useState<string | null>(null);
 
@@ -395,10 +398,10 @@ export const ChatHistory = () => {
 
   const deleteMutation = useMutation({
     mutationFn: (sessionId: string) => deleteConversation(sessionId),
-    onSuccess: () => {
+    onSuccess: (_data, sessionId) => {
       toast.success('会话已删除');
       setDeletingId(null);
-      if (detailSessionId !== null) setDetailSessionId(null);
+      if (detailSessionId !== null && detailSessionId === sessionId) setDetailSessionId(null);
       if (items.length === 1 && currentPage > 1) {
         setCurrentPage((page) => page - 1);
       } else {
@@ -406,11 +409,13 @@ export const ChatHistory = () => {
       }
     },
     onError: (err: Error) => {
-      toast.error(err.message || '删除对话失败');
+      toast.error(toastError(err, '删除对话失败'));
       setDeletingId(null);
     },
   });
 
+  // 注意：这些合计只统计当前页数据，标签必须带「本页」字样，
+  // 否则用户会误以为是全局统计
   const pageTotals = {
     tokens: items.reduce((sum, item) => sum + item.total_tokens, 0),
     calls: items.reduce((sum, item) => sum + item.llm_calls, 0),
@@ -462,6 +467,7 @@ export const ChatHistory = () => {
       {
         accessorKey: 'message_count',
         header: '消息数',
+        meta: { align: 'right', numeric: true },
         cell: ({ getValue }) => (
           <span className="text-sm font-semibold text-[var(--foreground)]">{formatNumber(Number(getValue()))}</span>
         ),
@@ -469,6 +475,7 @@ export const ChatHistory = () => {
       {
         accessorKey: 'total_tokens',
         header: 'Token',
+        meta: { align: 'right', numeric: true },
         cell: ({ getValue }) => (
           <span className="text-sm font-semibold text-[var(--foreground)]">{formatNumber(Number(getValue()))}</span>
         ),
@@ -477,8 +484,9 @@ export const ChatHistory = () => {
         id: 'calls',
         header: '模型/工具',
         enableSorting: false,
+        meta: { align: 'right', numeric: true },
         cell: ({ row }) => (
-          <span className="text-sm font-medium text-zinc-600">
+          <span className="text-sm font-medium text-[var(--muted-foreground)]">
             {formatNumber(row.original.llm_calls)} / {formatNumber(row.original.tool_calls)}
           </span>
         ),
@@ -534,10 +542,36 @@ export const ChatHistory = () => {
         title="会话列表"
         actions={
           <>
+            <Button
+              variant={showAnalytics ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowAnalytics((prev) => !prev)}
+            >
+              {showAnalytics ? '隐藏分析' : '数据分析'}
+            </Button>
+            {showAnalytics && (
+              <div role="group" aria-label="分析时间范围" className="flex items-center gap-1 rounded-lg border border-[var(--border-subtle)] p-0.5">
+                {[7, 14, 30].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setTimeRange(d)}
+                    aria-pressed={timeRange === d}
+                    className={`rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
+                      timeRange === d
+                        ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
+                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                    }`}
+                  >
+                    {d}天
+                  </button>
+                ))}
+              </div>
+            )}
             <KpiPill label="共" value={total} />
-            <KpiPill label="Token" value={formatNumber(pageTotals.tokens)} />
+            <KpiPill label="本页 Token" value={formatNumber(pageTotals.tokens)} />
             <KpiPill
-              label="模型/工具"
+              label="本页模型/工具"
               value={`${formatNumber(pageTotals.calls)}/${formatNumber(pageTotals.tools)}`}
             />
             <Button
@@ -564,18 +598,11 @@ export const ChatHistory = () => {
         />
       ) : null}
 
-      {/* Analytics toggle */}
-      <div className="flex items-center gap-2">
-        <Button
-          variant={showAnalytics ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setShowAnalytics((prev) => !prev)}
-        >
-          {showAnalytics ? '隐藏分析' : '数据分析'}
-        </Button>
-      </div>
-
-      {showAnalytics && <ChatAnalytics timeRange={14} />}
+      {showAnalytics && (
+        <div className="flex items-center gap-3">
+          <ChatAnalytics timeRange={timeRange} />
+        </div>
+      )}
 
       <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
         <div className="flex flex-col gap-2.5 border-b border-[var(--border-subtle)] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
@@ -611,7 +638,7 @@ export const ChatHistory = () => {
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] shadow-sm">
                 <MessageSquare size={20} />
               </div>
-              <p className="text-sm font-semibold text-zinc-600">没有找到会话记录</p>
+              <p className="text-sm font-semibold text-[var(--muted-foreground)]">没有找到会话记录</p>
               <p className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">新的会话会自动汇总到这里</p>
             </div>
           }

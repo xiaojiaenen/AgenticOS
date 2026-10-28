@@ -2,7 +2,7 @@
  * MCP 服务器管理面板（集成管理页内）。
  *
  * MCP（Model Context Protocol）让 Agent 接入外部工具的事实标准协议：
- * 管理员在这里维护服务器地址与鉴权头，连接后发现���工具会以
+ * 管理员在这里维护服务器地址与鉴权头，连接后发现的工具会以
  * `mcp__<server>__<tool>` 进入工具目录，供智能体勾选。
  */
 import { useState } from 'react';
@@ -18,6 +18,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/shadcn/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/shadcn/alert-dialog';
 import { Badge } from '@/components/ui/Badge';
 import {
   deleteMcpServer,
@@ -28,6 +38,7 @@ import {
   type MCPServer,
 } from '@/services/mcpService';
 import { cn } from '@/lib/utils';
+import { toastError } from '../../lib/errors';
 
 const EMPTY_FORM = {
   name: '',
@@ -41,14 +52,15 @@ const EMPTY_FORM = {
 export function McpManagementPanel() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(EMPTY_FORM);
+  const [deletingServer, setDeletingServer] = useState<MCPServer | null>(null);
 
   const serversQuery = useQuery({
-    queryKey: ['mcp-servers'],
+    queryKey: ['admin', 'mcp-servers'],
     queryFn: getMcpServers,
     retry: 1,
   });
   const toolsQuery = useQuery({
-    queryKey: ['mcp-tools'],
+    queryKey: ['admin', 'mcp-tools'],
     queryFn: getMcpTools,
     retry: 1,
   });
@@ -58,17 +70,17 @@ export function McpManagementPanel() {
     onSuccess: () => {
       toast.success('MCP 服务器已保存');
       setForm(EMPTY_FORM);
-      queryClient.invalidateQueries({ queryKey: ['mcp-servers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'mcp-servers'] });
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toast.error(toastError(err)),
   });
   const deleteMutation = useMutation({
     mutationFn: deleteMcpServer,
     onSuccess: () => {
       toast.success('已删除');
-      queryClient.invalidateQueries({ queryKey: ['mcp-servers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'mcp-servers'] });
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toast.error(toastError(err)),
   });
   const connectMutation = useMutation({
     mutationFn: connectMcpServers,
@@ -78,10 +90,10 @@ export function McpManagementPanel() {
       } else {
         toast.error(`连接失败：${res.error ?? '未知原因'}`);
       }
-      queryClient.invalidateQueries({ queryKey: ['mcp-tools'] });
-      queryClient.invalidateQueries({ queryKey: ['mcp-servers'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'mcp-tools'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'mcp-servers'] });
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toast.error(toastError(err)),
   });
 
   const servers = serversQuery.data?.items ?? [];
@@ -90,6 +102,14 @@ export function McpManagementPanel() {
   const submit = () => {
     if (!form.name.trim()) {
       toast.error('请填写服务器名称');
+      return;
+    }
+    if (form.transport !== 'stdio' && !form.url.trim()) {
+      toast.error('请填写服务器 URL');
+      return;
+    }
+    if (form.transport === 'stdio' && !form.command.trim()) {
+      toast.error('请填写启动命令');
       return;
     }
     saveMutation.mutate({
@@ -215,8 +235,8 @@ export function McpManagementPanel() {
                 )}
               </div>
               <button
-                onClick={() => deleteMutation.mutate(s.name)}
-                className="shrink-0 rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-rose-50 hover:text-rose-600"
+                onClick={() => setDeletingServer(s)}
+                className="shrink-0 rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/15"
                 aria-label={`删除 ${s.name}`}
               >
                 <Trash2 className="h-4 w-4" />
@@ -250,6 +270,30 @@ export function McpManagementPanel() {
           </p>
         </div>
       )}
+
+      {/* 删除确认 */}
+      <AlertDialog open={deletingServer !== null} onOpenChange={(open) => { if (!open) setDeletingServer(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除 MCP 服务器</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除「{deletingServer?.name}」吗？删除后其发现的工具将不再可用，需要重新连接才能恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deletingServer) deleteMutation.mutate(deletingServer.name);
+                setDeletingServer(null);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

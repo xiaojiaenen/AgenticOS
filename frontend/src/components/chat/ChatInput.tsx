@@ -13,7 +13,8 @@ import { polishPrompt } from '../../services/agentService';
 interface ChatInputProps {
   value: string;
   onChange: (val: string) => void;
-  onSend: (text: string, files?: File[]) => void;
+  /** 返回 false 表示发送失败，调用方应保留待发送内容（如附件） */
+  onSend: (text: string, files?: File[]) => void | Promise<void | boolean>;
   onStop?: () => void;
   isLoading: boolean;
   className?: string;
@@ -77,10 +78,16 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     return () => nextPreviews.forEach((url) => { if (url) URL.revokeObjectURL(url); });
   }, [files]);
 
-  const handleInternalSend = React.useCallback(() => {
+  const handleInternalSend = React.useCallback(async () => {
     if ((!value.trim() && files.length === 0) || isLoading) return;
-    onSend(value, files);
-    setFiles([]);
+    try {
+      // onSend 返回 false 表示发送失败（如附件上传出错）：保留附件便于重试，
+      // 不再无条件清空 —— 此前失败后用户必须重新逐个选择文件
+      const result = await onSend(value, files);
+      if (result !== false) setFiles([]);
+    } catch {
+      // 防御：onSend 同步抛错时同样保留附件
+    }
   }, [files, isLoading, onSend, value]);
 
   // ── 提示词润色 ──
@@ -107,6 +114,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     // 二次点击 = 取消润色
     if (polishState === 'loading') {
       polishAbortRef.current?.abort();
+      // 必须重置状态：否则按钮永远显示"润色中"转圈，润色功能对该输入框永久失效
+      setPolishState('idle');
+      toast('已取消润色');
       return;
     }
     if (polishState === 'polished') {
@@ -121,7 +131,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     setPolishState('loading');
     try {
       const result = await polishPrompt(raw, controller.signal);
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        setPolishState('idle');
+        return;
+      }
       if (!result.polished || !result.changed) {
         toast('提示词已经足够清晰，无需润色');
         setPolishState('idle');
@@ -132,7 +145,10 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
       setPolishState('polished');
       toast('已润色，可点「取消润色」还原');
     } catch (error) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        setPolishState('idle');
+        return;
+      }
       console.error('polish prompt failed:', error);
       toast.error('润色失败，已保留原文');
       setPolishState('idle');
@@ -151,8 +167,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     const nativeEvent = e.nativeEvent as KeyboardEvent;
     if (nativeEvent.isComposing || e.key === 'Process') return;
 
-    // Tab 接受补全建议
-    if (e.key === 'Tab') {
+    // Tab 接受补全建议（编辑器通用交互，同 Copilot）；Shift+Tab 始终放行，
+    // 保证键盘用户能随时把焦点移出输入框，避免焦点陷阱
+    if (e.key === 'Tab' && !e.shiftKey) {
       const currentSuggestion = suggestion;
       if (currentSuggestion) {
         e.preventDefault();
@@ -172,7 +189,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleInternalSend();
+      void handleInternalSend();
     }
   }, [handleInternalSend, suggestion, accept, dismiss, onChange]);
 
@@ -208,7 +225,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 
   return (
     <div
-      className={cn('relative flex flex-col gap-2 p-2', isDragging && 'rounded-3xl bg-[var(--surface-2)] ring-2 ring-slate-300 ring-dashed', className)}
+      className={cn('relative flex flex-col gap-2 p-2', isDragging && 'rounded-3xl bg-[var(--surface-2)] ring-2 ring-[var(--ring)] ring-dashed', className)}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -231,7 +248,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
                 )}
                 <button
                   onClick={() => removeFile(idx)}
-                  className="absolute -right-1 -top-1 scale-75 rounded-full bg-rose-500 p-1 text-white opacity-0 shadow-sm transition-opacity hover:bg-rose-600 group-hover:opacity-100"
+                  className="absolute -right-1 -top-1 scale-75 rounded-full bg-rose-500 p-1 text-white shadow-sm transition-opacity hover:bg-rose-600 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
                   aria-label="移除文件"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12" /></svg>
@@ -244,11 +261,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 
       <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.md,.py,.js,.ts,.tsx,.jsx,.json,.yaml,.yml,.xml,.html,.css,.svg,.java,.c,.cpp,.h,.rs,.go,.rb,.php,.sql,.sh,.bat,.ps1,.zip,.epub,.rtf,.odt,.ods,.odp,image/*" />
 
-            <div className="@container relative flex items-end rounded-[2rem] border border-[var(--border-medium)] bg-[var(--surface-2)] p-2 px-3 shadow-lg shadow-brand-500/10 backdrop-blur-2xl transition-all duration-300 focus-within:border-brand-200 focus-within:bg-white/90 focus-within:shadow-glow">
+            <div className="@container relative flex items-end rounded-[2rem] border border-[var(--border-medium)] bg-[var(--surface-2)] p-2 px-3 shadow-lg shadow-brand-500/10 backdrop-blur-2xl transition-all duration-300 focus-within:border-[var(--ring)] focus-within:shadow-glow">
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
-          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-[var(--muted-foreground)] transition-colors hover:bg-slate-100 hover:text-slate-700 active:scale-90"
+          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-1)] hover:text-[var(--foreground)] active:scale-90 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
           title="上传文件"
           aria-label="上传文件"
         >
@@ -291,7 +308,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
               aria-hidden="true"
             >
               <span className="text-transparent">{value}</span>
-              <span className="text-slate-300">{suggestion.slice(value.length)}</span>
+              <span className="text-[var(--muted-foreground)] opacity-50">{suggestion.slice(value.length)}</span>
             </div>
           )}
           <textarea
@@ -338,7 +355,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
           <button
             type="button"
             onClick={onStop}
-            className="group ml-1 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white shadow-md transition-all duration-300 hover:scale-105 hover:bg-zinc-700 active:scale-95"
+            className="group ml-1 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-md transition-all duration-300 hover:scale-105 hover:opacity-90 active:scale-95 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
             title="停止当前回复"
             aria-label="停止当前回复"
           >
@@ -347,13 +364,13 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
         ) : (
           <button
             type="button"
-            onClick={handleInternalSend}
+            onClick={() => void handleInternalSend()}
             disabled={!value.trim() && files.length === 0}
             className={cn(
-              'group ml-1 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full transition-all duration-300',
+              'group ml-1 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]',
               value.trim() || files.length > 0
-                ? 'bg-[var(--accent-send)] text-white shadow-md hover:scale-105 hover:bg-[var(--accent-send-hover)] active:scale-95'
-                : 'bg-slate-100/50 text-slate-300',
+                ? 'bg-[var(--primary)] text-[var(--primary-foreground)] shadow-md hover:scale-105 hover:opacity-90 active:scale-95'
+                : 'bg-[var(--muted)] text-[var(--muted-foreground)] opacity-60',
             )}
             title="发送"
             aria-label="发送"

@@ -5,6 +5,7 @@ import { Artifact } from '../../types';
 import { buildSandboxedHtmlDocument, createObjectUrl } from '../../lib/safePreview';
 import { copyToClipboard } from '../../lib/utils';
 import { toast } from 'sonner';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { AlertCircleIcon, CodeIcon, DownloadIcon, RefreshIcon } from '../ui/AnimatedIcons';
 
 interface ArtifactPanelProps {
@@ -16,6 +17,8 @@ interface ArtifactPanelProps {
 export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose, borderColor }) => {
   const iframeRef = React.useRef<HTMLIFrameElement | null>(null);
   const [svgUrl, setSvgUrl] = React.useState<string | null>(null);
+  // 移动端并排 60% 只剩不到 150px 预览区，基本不可用 —— 移动端改成全屏覆盖
+  const isMobile = useIsMobile();
 
   React.useEffect(() => {
     if (!artifact || artifact.language !== 'svg') {
@@ -48,24 +51,24 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
   return (
     <motion.aside
       initial={{ width: 0, opacity: 0 }}
-      animate={{ width: '60%', opacity: 1 }}
+      animate={{ width: isMobile ? '100%' : '60%', opacity: 1 }}
       exit={{ width: 0, opacity: 0 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="relative z-20 flex h-full flex-col border-l bg-white/40 ring-1 ring-white/70 backdrop-blur-3xl"
+      className="relative z-20 flex h-full flex-col border-l bg-[var(--surface-1)]/70 ring-1 ring-[var(--border-subtle)] backdrop-blur-3xl"
       style={{ borderColor }}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(24,24,27,0.03),transparent)]" />
 
       <div className="z-10 flex h-14 flex-shrink-0 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-1)] px-6 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-zinc-900 text-white shadow-lg shadow-zinc-900/20">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm">
             <CodeIcon size={18} />
           </div>
           <div>
-            <h2 className="text-sm font-bold leading-none text-[var(--foreground)]">预览画布</h2>
+            <h2 className="text-sm font-semibold leading-none text-[var(--foreground)]">预览画布</h2>
             <div className="mt-1 flex items-center gap-1.5">
               <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted-foreground)]">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]">
                 {artifact.language === 'html' ? 'Live Web Preview' : 'Vector Graphic'}
               </p>
             </div>
@@ -79,7 +82,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
                 iframeRef.current.srcdoc = previewSrcDoc;
               }
             }}
-            className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-slate-100 hover:text-zinc-600"
+            className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-slate-100 hover:text-[var(--muted-foreground)]"
             title="刷新预览"
             aria-label="刷新预览"
           >
@@ -93,7 +96,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
                 else toast.error('复制失败');
               });
             }}
-            className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-slate-100 hover:text-zinc-600"
+            className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-slate-100 hover:text-[var(--muted-foreground)]"
             title="复制代码"
             aria-label="复制代码"
           >
@@ -112,7 +115,7 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
               anchor.click();
               URL.revokeObjectURL(url);
             }}
-            className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-slate-100 hover:text-zinc-600"
+            className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-slate-100 hover:text-[var(--muted-foreground)]"
             title="下载文件"
             aria-label="下载文件"
           >

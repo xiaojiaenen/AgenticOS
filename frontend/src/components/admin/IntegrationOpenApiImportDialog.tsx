@@ -69,7 +69,7 @@ export function OpenApiImportDialog({
             <div className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-100/50 p-4">
               <p className="font-semibold text-[var(--foreground)]">{preview.system_name}</p>
               <p className="text-sm font-medium text-[var(--muted-foreground)]">{preview.system_description}</p>
-              <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-zinc-600">
+              <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-[var(--muted-foreground)]">
                 <span>
                   Base URL: <span className="font-mono">{preview.base_url}</span>
                 </span>
@@ -84,7 +84,7 @@ export function OpenApiImportDialog({
                     <span className={cn('rounded-lg px-1.5 py-0.5 font-semibold', methodBadgeColor(a.method))}>
                       {a.method}
                     </span>
-                    <span className="font-mono text-zinc-600">{a.path}</span>
+                    <span className="font-mono text-[var(--muted-foreground)]">{a.path}</span>
                     <span className="text-[var(--muted-foreground)]">{a.display_name}</span>
                   </div>
                 ))}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Sidebar } from '../components/chat/Sidebar';
 import { ChatMainArea } from '../components/chat/ChatMainArea';
 import { ChatArtifactArea } from '../components/chat/ChatArtifactArea';
@@ -29,7 +30,7 @@ export const Chat = () => {
   // ── Zustand store（UI 状态）──
   const {
     setInputValue,
-    chatMode, setChatMode, approvalMode, planMode,
+    chatMode, setChatMode, approvalMode, setApprovalMode, planMode,
     agentProfiles, setAgentProfiles,
     selectedAgentProfileId, setSelectedAgentProfileId,
     isSidebarOpen, setIsSidebarOpen,
@@ -74,6 +75,12 @@ export const Chat = () => {
   const chatInputRef = useRef<ChatInputHandle>(null);
   const isAdmin = getStoredUser()?.role === 'admin';
 
+  // 「全部放行」仅管理员可用：非管理员若残留 full（如同会话内角色变更），
+  // 菜单会回落显示「逐次确认」但发送仍按 full —— 这里统一纠正，保证显示与实际一致
+  React.useEffect(() => {
+    if (!isAdmin && approvalMode === 'full') setApprovalMode('auto');
+  }, [isAdmin, approvalMode, setApprovalMode]);
+
   // ── 流式 ──
   const [userInputReq, setUserInputReq] = useState<UserInputRequest | null>(null);
 
@@ -114,6 +121,10 @@ export const Chat = () => {
     );
     if (!emailApproval || !emailApproval.arguments) return;
 
+    // 不劫持用户正在查看的制品面板（PPT/网站/表格）：流式期间一旦出现
+    // send_email 审批就 setArtifact，会把用户正在看的预览直接顶掉
+    if (artifact && artifact.language !== 'email') return;
+
     // 确保 arguments 是对象（可能是 JSON 字符串）
     let args: Record<string, unknown> = {};
     if (typeof emailApproval.arguments === 'string') {
@@ -138,7 +149,7 @@ export const Chat = () => {
         isHtml: Boolean(args.is_html),
       });
     }
-  }, [pendingApprovals, setArtifact]);
+  }, [pendingApprovals, setArtifact, artifact]);
 
   // ── 拖放 ──
   const { isDragging, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragAndDrop();
@@ -150,6 +161,9 @@ export const Chat = () => {
   const createNewChat = useCallback(() => {
     storeCreateNewChat();
     setCurrentSessionId(null);
+    // 同时清除挂起的用户输入面板：否则陈旧面板会留在新对话上，
+    // 且提交时因 currentSessionId 为 null 而静默无响应
+    setUserInputReq(null);
     if (isMobile) setIsSidebarOpen(false);
   }, [isMobile, storeCreateNewChat, setCurrentSessionId, setIsSidebarOpen]);
 
@@ -163,11 +177,16 @@ export const Chat = () => {
     }
     // 调用后端 deleteSession；失败时 useChatSessions 内部回滚本地列表
     const ok = await deleteSessionBackend(id);
-    if (!ok && wasCurrent) {
-      // 回滚 UI 状态（本地会话已恢复）
-      const restored = sessions.find((s) => s.id === id);
-      if (restored?.mode) setChatMode(restored.mode);
-      setSelectedAgentProfileId(restored?.agentProfileId ?? null);
+    if (!ok) {
+      // 失败必须给用户明确反馈：否则表现为"点删除→对话框关闭→会话又出现"，
+      // 用户毫无解释地重复点击
+      toast.error('删除对话失败，请稍后重试');
+      if (wasCurrent) {
+        // 回滚 UI 状态（本地会话已恢复）
+        const restored = sessions.find((s) => s.id === id);
+        if (restored?.mode) setChatMode(restored.mode);
+        setSelectedAgentProfileId(restored?.agentProfileId ?? null);
+      }
     }
   }, [currentSessionId, sessions, deleteSessionBackend, setArtifact, setChatMode, setSelectedAgentProfileId]);
 
@@ -341,7 +360,9 @@ export const Chat = () => {
 
   // 加载智能体列表
   const [agentProfilesLoaded, setAgentProfilesLoaded] = useState(false);
-  useEffect(() => {
+  const [agentsError, setAgentsError] = useState<string | null>(null);
+  const loadAgentProfiles = useCallback(() => {
+    setAgentsError(null);
     getMyAgents()
       .then((response) => {
         setAgentProfiles(response.items);
@@ -361,9 +382,18 @@ export const Chat = () => {
         const defaultAgent = response.items.find((a) => a.response_mode === chatMode);
         if (defaultAgent) setSelectedAgentProfileId(defaultAgent.id);
       })
-      .catch((err) => console.error('Load agents error:', err))
+      .catch((err) => {
+        // 不能只 console.error：智能体列表加载失败时选择器为空，用户需要看到原因并可重试
+        console.error('Load agents error:', err);
+        setAgentsError(err instanceof Error ? err.message : '智能体列表加载失败');
+      })
       .finally(() => setAgentProfilesLoaded(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    loadAgentProfiles();
+  }, [loadAgentProfiles]);
 
   // Auto-select default agent
   useEffect(() => {
@@ -490,17 +520,37 @@ export const Chat = () => {
       onDrop={onDrop}
       className={cn(
         "flex h-screen font-sans overflow-hidden relative",
-        "text-slate-800 bg-[var(--surface-0)]",
+        "text-[var(--foreground)] bg-[var(--surface-0)]",
       )
-    }>
+      }>
       <DragOverlay isDragging={isDragging} />
+
+      {/* 智能体列表加载失败：顶部常驻提示 + 重试 */}
+      {agentsError && (
+        <div
+          role="alert"
+          className="absolute inset-x-0 top-0 z-40 flex items-center justify-center px-4 pt-3"
+        >
+          <div className="flex items-center gap-3 rounded-full border border-rose-200 bg-rose-50/95 px-4 py-2 text-sm font-medium text-rose-700 shadow-md backdrop-blur-xl dark:border-rose-500/40 dark:bg-rose-500/15 dark:text-rose-200">
+            <span>智能体列表加载失败：{agentsError}</span>
+            <button
+              type="button"
+              onClick={loadAgentProfiles}
+              className="rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+            >
+              重试
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 背景装饰 */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         <div className="absolute top-0 -left-16 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.06),transparent_70%)] blur-[80px]" />
         <div className="absolute bottom-0 left-1/4 w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(129,140,248,0.05),transparent_70%)] blur-[80px]" />
             <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(99,102,241,0.05) 1px, transparent 1px)', backgroundSize: '48px 48px', maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.50), rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.16))' }} />
-            <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-zinc-900 opacity-[0.02]" />
+            {/* 背景装饰：透明度压到几乎看不见，只留一点轮廓暗示品牌 */}
+            <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-[var(--foreground)] opacity-[0.012] dark:opacity-[0.035]" />
       </div>
 
       {/* 移动端侧边栏遮罩 */}
@@ -515,7 +565,7 @@ export const Chat = () => {
       </AnimatePresence>
 
       <AnimatePresence mode="wait">
-        {(isSidebarOpen || (isMobile && isSidebarOpen)) && (!artifact || isMobile || isSidebarOpen) && (
+        {isSidebarOpen && (
           <motion.div
             initial={{ x: -250, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -250, opacity: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
@@ -560,7 +610,10 @@ export const Chat = () => {
             id="main-content"
             className={cn(
               "flex flex-col h-full transition-all duration-500 ease-[0.16,1,0.3,1] min-w-0 relative",
-              artifact ? "w-[40%] border-r border-slate-200/60" : "w-full",
+              // 制品面板占 60% 时聊天区兜底 40%；中屏给最小宽度，避免被压到不可读
+              artifact
+                ? "w-full md:w-[40%] md:min-w-[380px] border-r border-[var(--border-subtle)] lg:min-w-[440px]"
+                : "w-full",
               isWideConversation && "px-4 lg:px-8 xl:px-10",
             )}
           >

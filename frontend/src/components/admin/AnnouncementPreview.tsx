@@ -68,7 +68,7 @@ export function AnnouncementPreview({ values }: { values: AnnouncementFormValues
               <h3 className="mt-6 font-display text-3xl font-semibold leading-tight tracking-tight text-[var(--foreground)]">
                 {values.title || '这里会显示你的公告主标题'}
               </h3>
-              <p className="mt-4 text-sm font-semibold leading-7 text-zinc-600">
+              <p className="mt-4 text-sm font-semibold leading-7 text-[var(--muted-foreground)]">
                 {values.subtitle || '副标题适合承接标题，让用户一眼知道这条公告为什么值得点开。'}
               </p>
 

@@ -4,7 +4,28 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#fafafa" />
     <title>AgenticOS 前端</title>
+    <script>
+      // 主题预装载：在首屏 CSS/JS 执行前应用暗色类，消灭 FOUC（白屏闪烁）。
+      // 与 src/hooks/useTheme.ts 的 STORAGE_KEY 保持一致。
+      (function () {
+        try {
+          var stored = localStorage.getItem('agenticos-theme');
+          var resolved = stored;
+          if (stored === 'system' || !stored) {
+            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          if (resolved === 'dark') {
+            document.documentElement.classList.add('dark');
+            var meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', '#09090b');
+          }
+        } catch (e) {
+          /* 隐私模式等场景下静默跳过，使用默认浅色 */
+        }
+      })();
+    </script>
     <style>
       .skip-link {
         position: fixed;

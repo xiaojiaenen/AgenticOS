@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, CheckCircle, AlertCircle, Loader2, X, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Mail, CheckCircle, AlertCircle, Loader2, X, Eye, EyeOff, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '../shadcn/button';
 import {
   Select,
@@ -15,6 +15,8 @@ import { getEmailStatus, saveEmailCredentials, deleteEmailCredentials, EmailStat
 const EMAIL_PRESETS = [
   { label: '内网邮箱', value: 'intranet', imap_host: '10.12.128.18', imap_port: 993, imap_ssl: true, smtp_host: '10.12.128.18', smtp_port: 465, smtp_ssl: true },
 ];
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface EmailSettingsPanelProps {
   open: boolean;
@@ -58,6 +60,29 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
     setShowAdvanced(value === 'custom');
   };
 
+  // Esc 关闭 + 打开时聚焦面板 + 关闭后归还焦点 + 背景滚动锁
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+    document.body.classList.add('admin-modal-open');
+    const panel = panelRef.current;
+    panel?.focus();
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.classList.remove('admin-modal-open');
+      previouslyFocusedRef.current?.focus?.();
+    };
+  }, [open, onClose]);
+
   useEffect(() => {
     if (!open) return;
     setIsLoading(true);
@@ -68,13 +93,21 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
         if (s.email_address) setForm((f) => ({ ...f, email_address: s.email_address || '' }));
         if (s.imap_host) setForm((f) => ({ ...f, imap_host: s.imap_host || '10.12.128.18' }));
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(e instanceof Error ? e.message : '邮箱状态加载失败'))
       .finally(() => setIsLoading(false));
   }, [open]);
 
   const handleSave = async () => {
     if (!form.email_address.trim() || !form.password.trim()) {
       setError('请填写邮箱地址和密码');
+      return;
+    }
+    if (!EMAIL_PATTERN.test(form.email_address.trim())) {
+      setError('请输入有效的邮箱地址');
+      return;
+    }
+    if (!Number.isFinite(form.imap_port) || form.imap_port <= 0 || !Number.isFinite(form.smtp_port) || form.smtp_port <= 0) {
+      setError('端口必须是大于 0 的数字');
       return;
     }
     setIsSaving(true);
@@ -120,7 +153,7 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
       {/* Header */}
       <div className="flex items-center justify-between px-6 pt-5 pb-0">
         <div className="flex items-center gap-3">
-          <div className={cn("flex h-10 w-10 items-center justify-center rounded-2xl", "bg-sky-50 text-sky-600")}>
+          <div className={cn("flex h-10 w-10 items-center justify-center rounded-2xl", "bg-[var(--surface-2)] text-[var(--foreground)]")}>
             <Mail size={20} />
           </div>
           <div>
@@ -128,14 +161,14 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
             <h3 className={cn("mt-1 text-lg font-semibold", "text-[var(--foreground)]")}>邮箱设置</h3>
           </div>
         </div>
-        <button type="button" onClick={onClose} className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition-colors", "text-[var(--muted-foreground)] hover:bg-slate-100 hover:text-[var(--muted-foreground)]")}>
+        <button type="button" onClick={onClose} className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]", "text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]")} aria-label="关闭邮箱设置">
           <X size={16} />
         </button>
       </div>
 
       {/* Status bar */}
       {status?.configured && (
-        <div className="mx-6 mt-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+        <div className="mx-6 mt-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300">
           <CheckCircle size={14} />
           <span>已连接 {status.email_address}</span>
         </div>
@@ -187,15 +220,16 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="输入应用专用密码"
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className={cn("absolute right-3 top-1/2 -translate-y-1/2", "text-[var(--muted-foreground)] hover:text-[var(--muted-foreground)]")}>
+                <button type="button" onClick={() => setShowPassword(!showPassword)} aria-pressed={showPassword} aria-label={showPassword ? '隐藏密码' : '显示密码'} className={cn("absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]", "text-[var(--muted-foreground)] hover:text-[var(--foreground)]")}>
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
             {/* Advanced settings */}
-            <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className={cn("text-xs font-semibold transition-colors", "text-[var(--muted-foreground)] hover:text-[var(--muted-foreground)]")}>
-              {showAdvanced ? '▾ 收起高级设置' : '▸ 高级设置（服务器地址）'}
+            <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} aria-expanded={showAdvanced} className={cn("flex items-center gap-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] rounded", "text-[var(--muted-foreground)] hover:text-[var(--foreground)]")}>
+              {showAdvanced ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+              {showAdvanced ? '收起高级设置' : '高级设置（服务器地址）'}
             </button>
 
             <AnimatePresence>
@@ -227,12 +261,12 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
 
             {/* Messages */}
             {error && (
-              <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+              <div role="alert" className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
                 <AlertCircle size={14} /> {error}
               </div>
             )}
             {success && (
-              <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+              <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300">
                 <CheckCircle size={14} /> {success}
               </div>
             )}
@@ -244,7 +278,7 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
                 {status?.configured ? '更新配置' : '保存并测试连接'}
               </Button>
               {status?.configured && (
-                <Button variant="outline" onClick={handleDelete} disabled={isSaving} className="gap-1.5">
+                <Button variant="outline" onClick={handleDelete} disabled={isSaving} className="gap-1.5" aria-label="删除邮箱配置" title="删除邮箱配置">
                   <Trash2 size={14} className="text-rose-500" />
                 </Button>
               )}
@@ -258,12 +292,17 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
   return (
     <div className={cn("admin-modal-shell")} onMouseDown={onClose}>
       <motion.div
+        ref={panelRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="邮箱设置"
         initial={{ opacity: 0, y: 24, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 24, scale: 0.96 }}
         transition={{ duration: 0.22 }}
         onMouseDown={(e) => e.stopPropagation()}
-        className={cn("w-full max-w-md overflow-hidden", "admin-solid-panel admin-modal-panel")}
+        className={cn("w-full max-w-md overflow-hidden outline-none", "admin-solid-panel admin-modal-panel")}
       >
         <div className="w-full">
           {panelContent}

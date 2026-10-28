@@ -2,33 +2,44 @@
  * 知识库管理：文档上传与管理 Tab。
  * 从 KnowledgeManagement.tsx 拆出，纯结构拆分，逻辑不变。
  */
-import { FileText, Trash2, Upload } from 'lucide-react';
+import { FileText, Loader2, Trash2, Upload } from 'lucide-react';
 import { StatusPill } from './shared';
 import { Button } from '@/components/shadcn/button';
 import { Skeleton } from '@/components/shadcn/skeleton';
+import { cn } from '@/lib/utils';
 import type { KBDocument } from '@/services/knowledgeService';
 import { docStatusLabel, docStatusTone, formatSize } from './knowledgeHelpers';
 
 export function KnowledgeDocumentsTab({
   documents,
   isLoading,
+  isUploading = false,
   onUpload,
   onDeleteDoc,
 }: {
   documents: KBDocument[];
   isLoading: boolean;
+  isUploading?: boolean;
   onUpload: (file: File) => void;
   onDeleteDoc: (doc: { docId: number; title: string }) => void;
 }) {
   return (
     <div className="space-y-3">
-      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-300 bg-[var(--surface-1)] py-6 text-sm font-medium text-[var(--muted-foreground)] transition hover:border-zinc-900 hover:text-zinc-700">
-        <Upload className="h-4 w-4" />
-        点击上传文档（PDF / Word / Markdown）
+      <label
+        className={cn(
+          'flex items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-300 bg-[var(--surface-1)] py-6 text-sm font-medium transition',
+          isUploading
+            ? 'cursor-not-allowed opacity-60'
+            : 'cursor-pointer hover:border-zinc-900 hover:text-zinc-700',
+        )}
+      >
+        {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+        {isUploading ? '上传中…' : '点击上传文档（PDF / Word / Markdown）'}
         <input
           type="file"
           className="hidden"
           accept=".pdf,.docx,.md,.html,.txt"
+          disabled={isUploading}
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) onUpload(file);

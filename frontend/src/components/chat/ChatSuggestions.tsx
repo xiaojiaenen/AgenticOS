@@ -19,8 +19,8 @@ export const ChatSuggestions: React.FC<ChatSuggestionsProps> = ({ onSelect }) =>
         <motion.div
           animate={{ y: [0, -4, 0] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          className={`absolute -top-6 -right-12 px-3 py-1 rounded-full shadow-sm text-xs font-bold flex items-center gap-1.5 ${
-            "bg-[var(--surface-1)] border border-sky-100 text-sky-500"
+          className={`absolute -top-6 -right-12 px-3 py-1 rounded-full shadow-sm text-xs font-semibold flex items-center gap-1.5 ${
+            "bg-[var(--surface-1)] border border-[var(--border-subtle)] text-[var(--muted-foreground)]"
           }`}
         >
           <span>Hello!</span>
@@ -38,13 +38,13 @@ export const ChatSuggestions: React.FC<ChatSuggestionsProps> = ({ onSelect }) =>
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 + i * 0.1 }}
             onClick={() => onSelect(prompt.text)}
-            className="p-4 bg-[var(--surface-1)] hover:bg-[var(--surface-1)] border border-sky-200/60 rounded-2xl text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:outline-none group"
+            className="p-4 bg-[var(--surface-1)] hover:bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl text-left transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)] focus-visible:outline-none group"
           >
             <div className="flex items-center gap-3 mb-1">
-              <div className="w-8 h-8 rounded-lg bg-sky-50/60 flex items-center justify-center group-hover:bg-sky-100 transition-colors">
+              <div className="w-8 h-8 rounded-lg bg-[var(--surface-2)] flex items-center justify-center group-hover:bg-[var(--surface-3)] transition-colors">
                 {prompt.icon}
               </div>
-              <span className="font-bold text-slate-700 group-hover:text-sky-600 transition-colors">{prompt.title}</span>
+              <span className="font-semibold text-[var(--foreground)] transition-colors">{prompt.title}</span>
             </div>
             <p className="text-xs text-[var(--muted-foreground)] line-clamp-1">{prompt.desc}</p>
           </motion.button>

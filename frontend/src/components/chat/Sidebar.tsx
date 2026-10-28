@@ -5,6 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { Session } from '../../types';
 import { cn } from '../../lib/utils';
 import { Logo } from '../Logo';
+import { EmptyState } from '../ui/EmptyState';
+import { UsagePanel } from '../settings/UsagePanel';
+import { MessageSquare } from 'lucide-react';
 import { PlusIcon, ChatBubbleIcon, TrashIcon, MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
 import { getStoredUser, logout } from '../../services/authService';
 import { IntegrationMarket } from './IntegrationMarket';
@@ -42,6 +45,7 @@ export const Sidebar = React.memo(({
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const [showMarket, setShowMarket] = useState(false);
   const [showEmailSettings, setShowEmailSettings] = useState(false);
+  const [showUsage, setShowUsage] = useState(false);
 
   const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -64,7 +68,7 @@ export const Sidebar = React.memo(({
         
           <button
             onClick={onNewChat}
-            className="w-full flex items-center gap-2 px-4 py-3 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-colors shadow-sm font-medium group"
+            className="w-full flex items-center gap-2 px-4 py-3 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-xl hover:opacity-90 transition-colors shadow-sm font-medium group focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
           >
             <PlusIcon size={18} className="group-hover:rotate-90" /> 新的对话
           </button>
@@ -136,7 +140,7 @@ export const Sidebar = React.memo(({
             <button
               type="button"
               onClick={onLoadMore}
-              className="w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2 text-xs font-bold text-[var(--muted-foreground)] shadow-sm transition-all hover:bg-[var(--surface-1)] hover:text-[var(--foreground)]"
+              className="w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] shadow-sm transition-all hover:bg-[var(--surface-1)] hover:text-[var(--foreground)]"
               aria-label="加载更多对话"
             >
               加载更多对话
@@ -144,8 +148,13 @@ export const Sidebar = React.memo(({
           </div>
         )}
         {sessions.length === 0 && (
-          <div className="text-center text-[var(--muted-foreground)] text-sm mt-10">
-            暂无历史对话
+          <div className="mt-8">
+            <EmptyState
+              size="compact"
+              icon={<MessageSquare className="size-4" />}
+              title="还没有历史对话"
+              description="发起第一段对话后，它会出现在这里。"
+            />
           </div>
         )}
       </div>
@@ -173,6 +182,12 @@ export const Sidebar = React.memo(({
               onClick: () => setShowEmailSettings(true),
               icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>,
             },
+            {
+              key: 'usage',
+              label: '我的用量',
+              onClick: () => setShowUsage(true),
+              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>,
+            },
           ].map(({ key, label, onClick, icon }) => (
             <Tooltip key={key}>
               <TooltipTrigger asChild>
@@ -194,7 +209,7 @@ export const Sidebar = React.memo(({
         {user?.role === 'admin' && (
           <button
             onClick={() => navigate('/admin')}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 transition-colors shadow-sm font-bold text-sm"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-colors shadow-sm font-medium text-sm"
             aria-label="管理后台"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
@@ -204,12 +219,12 @@ export const Sidebar = React.memo(({
         <div className={cn("flex items-center gap-3 p-2 rounded-xl transition-colors", "hover:bg-[var(--surface-2)]")}>
           <div className={cn(
             "w-9 h-9 rounded-xl flex items-center justify-center shadow-sm overflow-hidden flex-shrink-0",
-            "bg-[var(--surface-2)] text-zinc-600 border border-[var(--border-subtle)]"
+            "bg-[var(--surface-2)] text-[var(--muted-foreground)] border border-[var(--border-subtle)]"
           )}>
             <UserAvatarIcon size={20} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className={cn("text-xs font-bold truncate", "text-[var(--foreground)]")}>
+            <p className={cn("text-xs font-semibold truncate", "text-[var(--foreground)]")}>
               {user?.name || 'AgenticOS User'}
             </p>
             <p className={cn("text-[10px] font-medium truncate", "text-[var(--muted-foreground)]")}>
@@ -258,6 +273,17 @@ export const Sidebar = React.memo(({
     </motion.aside>
     <IntegrationMarket open={showMarket} onClose={() => setShowMarket(false)} />
     <EmailSettingsPanel open={showEmailSettings} onClose={() => setShowEmailSettings(false)} />
+    <Dialog open={showUsage} onOpenChange={setShowUsage}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>我的用量</DialogTitle>
+          <DialogDescription>
+            按你的账号统计的 token 消耗与调用次数。
+          </DialogDescription>
+        </DialogHeader>
+        <UsagePanel />
+      </DialogContent>
+    </Dialog>
     {/* Delete Confirmation Dialog */}
     <Dialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
       <DialogContent className="max-w-sm" showCloseButton={false}>

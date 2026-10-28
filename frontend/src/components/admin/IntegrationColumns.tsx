@@ -30,7 +30,7 @@ export function buildSystemColumns({
         const Icon = authTypeIcon(sys.auth_type);
         return (
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-zinc-600 shadow-sm">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] shadow-sm">
               <Icon size={18} />
             </div>
             <div className="min-w-0">
@@ -46,7 +46,7 @@ export function buildSystemColumns({
       header: '描述',
       enableSorting: false,
       cell: ({ row }) => (
-        <span className="block max-w-[220px] truncate text-sm font-medium text-zinc-600">
+        <span className="block max-w-[220px] truncate text-sm font-medium text-[var(--muted-foreground)]">
           {row.original.description || '-'}
         </span>
       ),
@@ -58,7 +58,7 @@ export function buildSystemColumns({
       cell: ({ row }) => {
         const cat = categories.find((c) => c.key === row.original.category);
         return (
-          <span className="rounded-lg bg-[var(--surface-2)] px-2 py-1 text-xs font-medium text-zinc-600">
+          <span className="rounded-lg bg-[var(--surface-2)] px-2 py-1 text-xs font-medium text-[var(--muted-foreground)]">
             {cat ? `${cat.icon} ${cat.label}` : row.original.category}
           </span>
         );
@@ -69,7 +69,7 @@ export function buildSystemColumns({
       header: '鉴权',
       enableSorting: false,
       cell: ({ row }) => (
-        <span className="rounded-lg bg-[var(--surface-2)] px-2 py-1 text-xs font-medium text-zinc-600">
+        <span className="rounded-lg bg-[var(--surface-2)] px-2 py-1 text-xs font-medium text-[var(--muted-foreground)]">
           {authTypeLabel(row.original.auth_type)}
         </span>
       ),
@@ -180,7 +180,7 @@ export function buildApiColumns({
       accessorKey: 'path',
       header: '路径',
       cell: ({ getValue }) => (
-        <span className="block max-w-[240px] truncate font-mono text-xs text-zinc-600">
+        <span className="block max-w-[240px] truncate font-mono text-xs text-[var(--muted-foreground)]">
           {String(getValue())}
         </span>
       ),

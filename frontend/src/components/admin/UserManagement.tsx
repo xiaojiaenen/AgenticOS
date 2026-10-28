@@ -64,6 +64,7 @@ import {
   updateUserStatus,
 } from '@/services/userService';
 import { getStoredUser } from '@/services/authService';
+import { toastError } from '../../lib/errors';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -148,7 +149,7 @@ function UserFormDialog({
       onClose();
     },
     onError: (err: Error) => {
-      toast.error(err.message || '保存用户失败');
+      toast.error(toastError(err, '保存用户失败'));
     },
   });
 
@@ -292,7 +293,7 @@ export const UserManagement = () => {
       toast.success('用户状态已更新');
       void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     },
-    onError: (err: Error) => toast.error(err.message || '用户状态更新失败'),
+    onError: (err: Error) => toast.error(toastError(err, '用户状态更新失败')),
   });
 
   const deleteMutation = useMutation({
@@ -306,7 +307,7 @@ export const UserManagement = () => {
         void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
       }
     },
-    onError: (err: Error) => toast.error(err.message || '删除用户失败'),
+    onError: (err: Error) => toast.error(toastError(err, '删除用户失败')),
   });
 
   const activeUsers = users.filter((user) => user.is_active).length;
@@ -365,7 +366,7 @@ export const UserManagement = () => {
         accessorKey: 'created_at',
         header: '创建时间',
         cell: ({ getValue }) => (
-          <span className="text-sm font-medium text-zinc-600">
+          <span className="text-sm font-medium text-[var(--muted-foreground)]">
             {formatApiDate(String(getValue()))}
           </span>
         ),
@@ -399,6 +400,7 @@ export const UserManagement = () => {
                   toggleStatusMutation.mutate({ user, nextActive: !user.is_active })
                 }
                 disabled={toggleStatusMutation.isPending || (isSelf && user.is_active)}
+                title={isSelf && user.is_active ? '不能禁用当前登录账号' : undefined}
                 className="gap-1.5"
               >
                 {user.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
@@ -410,7 +412,7 @@ export const UserManagement = () => {
                 onClick={() => setDeletingUser(user)}
                 disabled={isSelf}
                 className="text-rose-500 hover:bg-rose-50 hover:text-rose-600"
-                title="删除用户"
+                title={isSelf ? '不能删除当前登录账号' : `删除用户 ${user.name}`}
               >
                 <Trash2 size={15} />
               </Button>
@@ -430,8 +432,8 @@ export const UserManagement = () => {
         actions={
           <>
             <KpiPill label="共" value={total} />
-            <KpiPill label="启用" value={activeUsers} />
-            <KpiPill label="管理员" value={adminUsers} />
+            <KpiPill label="本页启用" value={activeUsers} />
+            <KpiPill label="本页管理员" value={adminUsers} />
             <Button
               size="sm"
               className="gap-1.5"
@@ -448,7 +450,7 @@ export const UserManagement = () => {
       />
 
       {usersQuery.isError ? (
-        <ErrorBanner message={(usersQuery.error as Error).message || '用户加载失败'} />
+        <ErrorBanner message={toastError(usersQuery.error, '用户加载失败')} onRetry={() => void usersQuery.refetch()} />
       ) : null}
 
       <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
@@ -485,7 +487,7 @@ export const UserManagement = () => {
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] shadow-sm">
                 <UserIcon size={20} />
               </div>
-              <p className="text-sm font-semibold text-zinc-600">没有找到匹配的用户</p>
+              <p className="text-sm font-semibold text-[var(--muted-foreground)]">没有找到匹配的用户</p>
               <p className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">
                 换个关键词，或者直接创建新账号
               </p>

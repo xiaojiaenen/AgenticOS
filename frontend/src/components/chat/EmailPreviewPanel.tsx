@@ -6,6 +6,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
+import { sanitizeHtml } from '../../lib/safePreview';
 import { Mail, Send, X, User, Users, FileText } from 'lucide-react';
 
 export type EmailPreview = {
@@ -33,7 +34,7 @@ export const EmailPreviewPanel: React.FC<EmailPreviewPanelProps> = ({ emails, on
         transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
         className="mb-3"
       >
-        <div className="rounded-2xl border border-blue-200/80 bg-blue-50/85 px-4 py-3 shadow-[0_18px_42px_rgba(59,130,246,0.14)]">
+        <div className="rounded-2xl border border-[var(--border-medium)] bg-[var(--surface-3)] px-4 py-3 shadow-[0_18px_42px_rgba(9,9,11,0.18)]">
           <EmailPreviewContent emails={emails} onDecision={onDecision} />
         </div>
       </motion.div>
@@ -47,7 +48,7 @@ const EmailPreviewContent: React.FC<{
 }> = ({ emails, onDecision }) => {
   return (
     <>
-      <div className={cn("mb-3 flex items-center gap-2", "text-blue-700")}>
+      <div className={cn("mb-3 flex items-center gap-2", "text-[var(--foreground)]")}>
         <Mail size={17} />
         <span className="text-xs font-semibold uppercase tracking-[0.16em]">邮件发送确认</span>
       </div>
@@ -71,7 +72,7 @@ const EmailCard: React.FC<{
   return (
     <div className={cn(
       "rounded-xl p-4",
-      "border border-white/70 bg-white/76"
+      "border border-[var(--border-subtle)] bg-[var(--surface-1)]"
     )}>
       {/* 收件人 */}
       <div className="mb-3 flex items-start gap-2">
@@ -115,16 +116,17 @@ const EmailCard: React.FC<{
       </div>
 
       {/* 邮件内容 */}
-      <div className={cn("mb-4 rounded-lg p-3", "bg-[var(--surface-2)] border border-slate-200/60")}>
+      <div className={cn("mb-4 rounded-lg p-3", "bg-[var(--surface-2)] border border-[var(--border-subtle)]")}>
         <div className={cn("text-[10px] font-semibold uppercase tracking-wider mb-2", "text-[var(--muted-foreground)]")}>
           邮件内容
         </div>
         <div className={cn(
           "max-h-48 overflow-y-auto text-sm leading-relaxed",
-          "text-slate-700"
+          "text-[var(--foreground)]"
         )}>
           {email.is_html ? (
-            <div dangerouslySetInnerHTML={{ __html: email.body }} />
+            // 邮件 body 来自工具调用参数，必须消毒后再插入 DOM，防 XSS
+            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(email.body) }} />
           ) : (
             <pre className="whitespace-pre-wrap font-sans">{email.body}</pre>
           )}
@@ -138,7 +140,7 @@ const EmailCard: React.FC<{
           onClick={() => onDecision(email.approval_id, 'rejected')}
           className={cn(
             "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-colors active:scale-95",
-            "border border-rose-200 bg-[var(--surface-1)] text-rose-600 hover:bg-rose-50"
+            "border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-[var(--border-strong)]"
           )}
         >
           <X size={13} />
@@ -147,7 +149,7 @@ const EmailCard: React.FC<{
         <button
           type="button"
           onClick={() => onDecision(email.approval_id, 'approved')}
-          className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700 active:scale-95"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--primary)] px-4 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 active:scale-95 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
         >
           <Send size={13} />
           确认发送

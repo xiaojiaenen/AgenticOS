@@ -18,7 +18,7 @@ export const kbFormSchema = z.object({
 
 export type KBFormValues = z.infer<typeof kbFormSchema>;
 
-export type DetailTab = 'documents' | 'wiki' | 'search' | 'reviews' | 'graph';
+export type DetailTab = 'documents' | 'wiki' | 'search' | 'reviews' | 'graph' | 'acl';
 
 export function scopeLabel(scope: string): string {
   const map: Record<string, string> = { org: '组织级', team: '团队级', personal: '个人级' };

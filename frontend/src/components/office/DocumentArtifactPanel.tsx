@@ -9,6 +9,7 @@ import { getUnsupportedReason, MIN_BROWSER_HINT } from '../../lib/univerSupport'
 import { useIsDark } from '../../hooks/useIsDark';
 import { DocEditor, type DocEditorHandle } from './DocEditor';
 import { DocSnapshotView } from './DocSnapshotView';
+import { toastError } from '../../lib/errors';
 
 type DocumentArtifact = Extract<Artifact, { language: 'document' }>;
 
@@ -70,7 +71,7 @@ export const DocumentArtifactPanel: React.FC<DocumentArtifactPanelProps> = ({
       await saveDocumentSnapshot(sessionId, artifact.artifactId, next);
       toast.success('文档已保存');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '保存失败');
+      toast.error(toastError(err, '保存失败'));
     } finally {
       setSaving(false);
     }

@@ -58,7 +58,18 @@ export const ChatMainArea = React.memo(() => {
     for (const approval of pendingApprovals) {
       // 检查是否是 send_email 工具
       if (approval.name === 'send_email' && approval.arguments) {
-        const args = approval.arguments as Record<string, unknown>;
+        // arguments 可能是 JSON 字符串（后端偶发下发字符串形态），
+        // 直接强转为对象会让 to/subject 为 undefined → 渲染出空白确认卡
+        let args: Record<string, unknown> = {};
+        if (typeof approval.arguments === 'string') {
+          try {
+            args = JSON.parse(approval.arguments) as Record<string, unknown>;
+          } catch {
+            continue; // 解析失败的邮件审批不进面板，交给 other 分支走通用审批 UI
+          }
+        } else {
+          args = approval.arguments as Record<string, unknown>;
+        }
         emailPreviews.push({
           approval_id: approval.approvalId || '',
           to: String(args.to || ''),
@@ -150,7 +161,8 @@ export const ChatMainArea = React.memo(() => {
           ref={attachScrollRef}
           onScroll={handleScroll}
           className={cn(
-            "h-full overflow-y-auto custom-scrollbar pr-16",
+            "h-full overflow-y-auto custom-scrollbar",
+            isMobile ? "pr-4" : "pr-16",
             isWideConversation ? "px-6 py-8 md:px-10 lg:px-14 xl:px-16" : "p-4 md:p-8"
           )}
         >
@@ -173,8 +185,8 @@ export const ChatMainArea = React.memo(() => {
               className={cn(
                 "w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg border hover:scale-105 active:scale-95",
                 showSearch
-                  ? "bg-zinc-900 text-white border-zinc-800"
-                  : "bg-[var(--surface-1)] text-[var(--muted-foreground)] border-white/60 hover:bg-[var(--surface-1)]"
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]"
+                  : "bg-[var(--surface-1)] text-[var(--muted-foreground)] border-[var(--border-subtle)] hover:bg-[var(--surface-2)]"
               )}
               aria-label="切换搜索"
             >

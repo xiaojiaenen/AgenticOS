@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { AnimatePresence } from 'motion/react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { toast } from 'sonner';
@@ -128,6 +128,15 @@ export const Login = () => {
     }
   };
 
+  // 邮箱变更后作废已发送的验证码：避免用 A 邮箱的码提交 B 邮箱，服务端只报
+  // "验证码错误"而用户无从归因
+  const handleEmailChangedForCode = useCallback(() => {
+    if (codeSent) {
+      setCodeSent(false);
+      setCodeCountdown(0);
+    }
+  }, [codeSent]);
+
   const zodSchema = useMemo(
     () =>
       z
@@ -158,6 +167,7 @@ export const Login = () => {
     const parsed = zodSchema.safeParse(values);
     if (!parsed.success) {
       const flat = parsed.error.flatten().fieldErrors;
+      if (flat.email?.[0]) setError('email', { message: flat.email[0] });
       if (flat.password?.[0]) setError('password', { message: flat.password[0] });
       if (flat.code?.[0]) setError('code', { message: flat.code[0] });
       return;
@@ -168,6 +178,7 @@ export const Login = () => {
           ? await loginUser(parsed.data.email, parsed.data.password)
           : await loginWithCode(parsed.data.email, parsed.data.code);
       const from = (location.state as { from?: string } | null)?.from;
+      toast.success('登录成功，正在进入工作台');
       navigate(from || (user.role === 'admin' ? '/admin' : '/chat'), { replace: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : '登录失败';
@@ -208,16 +219,16 @@ export const Login = () => {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
       transition={{ duration: 0.3 }}
-      className="relative min-h-screen overflow-hidden bg-zinc-50 flex items-center justify-center p-4"
+      className="relative min-h-screen overflow-hidden bg-[var(--surface-0)] flex items-center justify-center p-4"
     >
       <AuroraBackground className="fixed" />
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-zinc-900 opacity-[0.03]" />
+        <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-[var(--foreground)] opacity-[0.03]" />
       </div>
 
       <button
         onClick={() => navigate('/')}
-        className="fixed top-6 left-6 z-20 flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white/80 text-sm font-medium text-zinc-600 shadow-sm transition-all hover:border-zinc-300 hover:text-zinc-900 hover:shadow-md group"
+        className="fixed top-4 left-4 sm:top-6 sm:left-6 z-20 flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)]/80 text-sm font-medium text-[var(--muted-foreground)] shadow-sm transition-all hover:border-[var(--border-strong)] hover:text-[var(--foreground)] hover:shadow-md group focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
         aria-label="返回首页"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:-translate-x-1"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
@@ -234,34 +245,38 @@ export const Login = () => {
             <div className="mb-5">
               <Logo iconSize={48} showText={false} />
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">登录 AgenticOS</h1>
-            <p className="mt-2 text-sm text-zinc-500">欢迎回来，登录以继续使用</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">登录 AgenticOS</h1>
+            <p className="mt-2 text-sm text-[var(--muted-foreground)]">欢迎回来，登录以继续使用</p>
           </div>
 
           <Card className="py-8 shadow-md">
             <CardContent className="px-8">
               {/* 登录模式切换 */}
-              <div className="flex rounded-lg p-1 mb-6 bg-zinc-100">
+              <div role="tablist" aria-label="登录方式" className="flex rounded-lg p-1 mb-6 bg-[var(--surface-2)]">
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={loginMode === 'password'}
                   onClick={() => setLoginMode('password')}
                   className={cn(
-                    'flex-1 py-1.5 text-sm font-medium rounded-md transition-all',
+                    'flex-1 py-1.5 text-sm font-medium rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]',
                     loginMode === 'password'
-                      ? 'bg-white text-zinc-900 shadow-sm'
-                      : 'text-zinc-500 hover:text-zinc-700'
+                      ? 'bg-[var(--surface-1)] text-[var(--foreground)] shadow-sm'
+                      : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
                   )}
                 >
                   密码登录
                 </button>
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={loginMode === 'code'}
                   onClick={() => setLoginMode('code')}
                   className={cn(
-                    'flex-1 py-1.5 text-sm font-medium rounded-md transition-all',
+                    'flex-1 py-1.5 text-sm font-medium rounded-md transition-all focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]',
                     loginMode === 'code'
-                      ? 'bg-white text-zinc-900 shadow-sm'
-                      : 'text-zinc-500 hover:text-zinc-700'
+                      ? 'bg-[var(--surface-1)] text-[var(--foreground)] shadow-sm'
+                      : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
                   )}
                 >
                   验证码登录
@@ -276,19 +291,38 @@ export const Login = () => {
                     id="login-email"
                     type="email"
                     autoComplete="email"
+                    autoFocus
                     placeholder="you@example.com"
                     aria-invalid={!!errors.email}
+                    role="combobox"
+                    aria-expanded={showSuggestions && suggestions.length > 0}
+                    aria-controls="login-email-suggestions"
+                    aria-autocomplete="list"
+                    aria-activedescendant={
+                      showSuggestions && selectedSuggestionIdx >= 0
+                        ? `login-email-suggestion-${selectedSuggestionIdx}`
+                        : undefined
+                    }
                     {...register('email', {
                       onChange: () => {
                         setShowSuggestions(true);
                         setSelectedSuggestionIdx(-1);
+                        handleEmailChangedForCode();
+                      },
+                      // 注册校验规则：否则 trigger('email') 永远返回 true，
+                      // 非法邮箱（如 "abc"）会绕过客户端校验直接请求验证码接口
+                      validate: (v) => {
+                        const trimmed = (v ?? '').trim();
+                        if (!trimmed) return '请输入邮箱地址';
+                        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return '请输入有效的邮箱地址';
+                        return true;
                       },
                     })}
                     onFocus={() => setShowSuggestions(true)}
                     onKeyDown={handleEmailKeyDown}
                   />
                   {errors.email && (
-                    <p className="text-xs font-medium text-red-600" role="alert">{errors.email.message}</p>
+                    <p className="text-xs font-medium text-red-600 dark:text-red-400" role="alert">{errors.email.message}</p>
                   )}
                   {/* 邮箱后缀建议 */}
                   <AnimatePresence>
@@ -297,21 +331,27 @@ export const Login = () => {
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
-                        className="absolute left-0 right-0 top-full mt-1 rounded-lg border border-zinc-200 bg-popover shadow-lg overflow-hidden z-50"
+                        id="login-email-suggestions"
+                        role="listbox"
+                        aria-label="邮箱补全建议"
+                        className="absolute left-0 right-0 top-full mt-1 rounded-lg border border-[var(--border-subtle)] bg-popover shadow-lg overflow-hidden z-50"
                       >
                         {suggestions.map((s, i) => (
                           <button
                             key={s}
                             type="button"
+                            role="option"
+                            aria-selected={i === selectedSuggestionIdx}
+                            id={`login-email-suggestion-${i}`}
                             onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
                             className={cn(
                               'w-full px-4 py-2 text-left text-sm transition-colors',
                               i === selectedSuggestionIdx
                                 ? 'bg-accent text-accent-foreground'
-                                : 'text-zinc-600 hover:bg-zinc-50'
+                                : 'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]'
                             )}
                           >
-                            <span className="text-zinc-400">{email}</span>
+                            <span className="text-[var(--muted-foreground)] opacity-60">{email}</span>
                             <span className="font-medium">{s.slice(email.length)}</span>
                           </button>
                         ))}
@@ -325,7 +365,7 @@ export const Login = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <Label htmlFor="login-password">密码</Label>
-                      <span className="text-xs text-zinc-400">忘记密码请联系管理员</span>
+                      <span className="text-xs text-[var(--muted-foreground)]">忘记密码请联系管理员</span>
                     </div>
                     <PasswordField
                       id="login-password"
@@ -335,7 +375,7 @@ export const Login = () => {
                       {...register('password')}
                     />
                     {errors.password && (
-                      <p className="text-xs font-medium text-red-600" role="alert">{errors.password.message}</p>
+                      <p className="text-xs font-medium text-red-600 dark:text-red-400" role="alert">{errors.password.message}</p>
                     )}
                   </div>
                 )}
@@ -368,16 +408,16 @@ export const Login = () => {
                       </Button>
                     </div>
                     {errors.code && (
-                      <p className="text-xs font-medium text-red-600" role="alert">{errors.code.message}</p>
+                      <p className="text-xs font-medium text-red-600 dark:text-red-400" role="alert">{errors.code.message}</p>
                     )}
                     {codeSent && !errors.code && (
-                      <p className="text-xs font-medium text-emerald-600">验证码已发送到您的邮箱，请查收</p>
+                      <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">验证码已发送到您的邮箱，请查收</p>
                     )}
                   </div>
                 )}
 
                 {errors.root && (
-                  <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
                     {errors.root.message}
                   </div>
                 )}
@@ -387,8 +427,9 @@ export const Login = () => {
                 </Button>
               </form>
 
-              <div className="mt-8 text-center text-sm text-zinc-500">
-                还没有账号？ <a href="#" onClick={(e) => { e.preventDefault(); navigate('/signup'); }} className="text-primary hover:text-primary/80 font-medium underline underline-offset-4">立即注册</a>
+              <div className="mt-8 text-center text-sm text-[var(--muted-foreground)]">
+                还没有账号？{' '}
+                <Link to="/signup" className="text-primary hover:text-primary/80 font-medium underline underline-offset-4">立即注册</Link>
               </div>
             </CardContent>
           </Card>

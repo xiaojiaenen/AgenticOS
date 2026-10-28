@@ -42,6 +42,7 @@ import {
   type AdvancedAuth,
   type SystemFormValues,
 } from './integrationHelpers';
+import { toastError } from '../../lib/errors';
 
 export function SystemModal({
   open,
@@ -166,6 +167,8 @@ export function SystemModal({
         base_url: values.base_url.trim(),
         auth_type: values.auth_type,
         credential_template,
+        oauth_client_id: values.oauth_client_id || undefined,
+        oauth_client_secret: values.oauth_client_secret || undefined,
         oauth_auth_url: values.oauth_auth_url || undefined,
         oauth_token_url: values.oauth_token_url || undefined,
         oauth_scope: values.oauth_scope || undefined,
@@ -195,7 +198,7 @@ export function SystemModal({
       void queryClient.invalidateQueries({ queryKey: ['admin', 'integrations'] });
       onClose();
     },
-    onError: (err: Error) => toast.error(err.message || '保存失败'),
+    onError: (err: Error) => toast.error(toastError(err, '保存失败')),
   });
 
   const canProceed =
@@ -230,7 +233,7 @@ export function SystemModal({
                   i === step
                     ? 'bg-zinc-200 text-zinc-800'
                     : i < step
-                      ? 'text-zinc-600 hover:bg-zinc-100'
+                      ? 'text-[var(--muted-foreground)] hover:bg-zinc-100'
                       : 'text-[var(--muted-foreground)]',
                 )}
               >
@@ -314,10 +317,10 @@ export function SystemModal({
                             'flex flex-col items-center gap-1.5 rounded-lg border-2 px-3 py-3 text-center transition-all',
                             authType === t.value
                               ? 'border-zinc-900 bg-zinc-100 text-zinc-800 shadow-sm'
-                              : 'border-[var(--border-subtle)] bg-[var(--surface-1)] text-zinc-600 hover:border-zinc-300',
+                              : 'border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] hover:border-zinc-300',
                           )}
                         >
-                          <Icon size={18} className={authType === t.value ? 'text-zinc-600' : 'text-[var(--muted-foreground)]'} />
+                          <Icon size={18} className={authType === t.value ? 'text-[var(--muted-foreground)]' : 'text-[var(--muted-foreground)]'} />
                           <span className="text-xs font-semibold">{t.label}</span>
                         </button>
                       );
@@ -327,7 +330,7 @@ export function SystemModal({
 
                 {authType === 'oauth2' && (
                   <div className="space-y-3 rounded-lg border border-zinc-200 bg-zinc-100/50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-600">OAuth 2.0 配置</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">OAuth 2.0 配置</p>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label>Client ID</Label>
@@ -530,7 +533,7 @@ export function SystemModal({
                     </p>
                   )}
                   {credFields.map((f, i) => (
-                    <div key={f.key || i} className="mb-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3">
+                    <div key={`cred-field-${i}`} className="mb-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3">
                       <div className="grid grid-cols-6 gap-2">
                         <Input
                           className="col-span-2 text-sm"
@@ -557,7 +560,7 @@ export function SystemModal({
                           </SelectContent>
                         </Select>
                         <div className="flex items-center gap-2">
-                          <label className="flex items-center gap-1 text-xs font-medium text-zinc-600">
+                          <label className="flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
                             <Checkbox
                               checked={f.required}
                               onCheckedChange={(checked) =>
@@ -595,8 +598,8 @@ export function SystemModal({
                   {credFields.length === 0 ? (
                     <p className="text-xs font-medium text-[var(--muted-foreground)]">请先在上方定义凭据字段</p>
                   ) : (
-                    credFields.map((f) => (
-                      <div key={f.key || f.label} className="space-y-1.5">
+                    credFields.map((f, i) => (
+                      <div key={`cred-field-${i}`} className="space-y-1.5">
                         <Label>{f.label || f.key || '字段'}</Label>
                         <Input
                           type={f.type === 'password' ? 'password' : 'text'}

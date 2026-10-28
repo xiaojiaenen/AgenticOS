@@ -27,6 +27,7 @@ import {
 } from '@/components/shadcn/select';
 import { createKnowledgeBase } from '@/services/knowledgeService';
 import { kbFormSchema, type KBFormValues } from './knowledgeHelpers';
+import { toastError } from '../../lib/errors';
 
 export function CreateKBDialog({
   open,
@@ -56,7 +57,7 @@ export function CreateKBDialog({
       form.reset();
       onClose();
     },
-    onError: (err: Error) => toast.error(err.message || '创建失败'),
+    onError: (err: Error) => toast.error(toastError(err, '创建失败')),
   });
 
   return (

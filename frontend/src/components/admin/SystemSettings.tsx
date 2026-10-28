@@ -3,7 +3,7 @@
  * 服务器连接、服务账号、用户过滤器、属性映射、用户策略均在后台维护，
  * 支持保存前连接测试。TanStack Query 数据层 + shadcn 组件。
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -25,6 +25,7 @@ import { Input } from '@/components/shadcn/input';
 import { Label } from '@/components/shadcn/label';
 import { Skeleton } from '@/components/shadcn/skeleton';
 import { Switch } from '@/components/shadcn/switch';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/shadcn/tabs';
 import {
   getLdapConfig,
   testLdapConnection,
@@ -33,6 +34,7 @@ import {
   type LdapConfigInput,
   type LdapTestResult,
 } from '@/services/settingsService';
+import { toastError } from '../../lib/errors';
 
 /** 表单初始值（后端加载完成后覆盖） */
 const EMPTY_FORM: LdapConfigInput = {
@@ -46,10 +48,8 @@ const EMPTY_FORM: LdapConfigInput = {
   attr_username: 'sAMAccountName',
   attr_email: 'mail',
   attr_name: 'displayName',
-  attr_department: 'department',
-  auto_create_users: false,
+  auto_create_users: true,
   default_role: 'user',
-  department_sync: false,
   email_domain: '',
   email_auto_configure: false,
   imap_host: '',
@@ -153,18 +153,27 @@ export const SystemSettings = () => {
     queryFn: getLdapConfig,
   });
 
-  // 后端数据到达后同步表单（仅在查询成功时）
+  // 后端数据到达后同步表单。
+  // 守卫 userEditedRef：保存成功后 invalidate 会再次触发本 effect，
+  // 此前无脑 reset 会把用户新一轮未保存编辑覆盖掉。
+  const userEditedRef = useRef(false);
   useEffect(() => {
-    if (ldapQuery.data) {
+    if (ldapQuery.data && !userEditedRef.current) {
       setForm(toForm(ldapQuery.data));
       setTestResult(null);
     }
   }, [ldapQuery.data]);
 
   const patch = (values: Partial<LdapConfigInput>) => {
+    userEditedRef.current = true;
     setForm((prev) => ({ ...prev, ...values }));
     setTestResult(null);
   };
+
+  // 端口合法性：1-65535 整数（空串 / NaN / 0 均视为非法）
+  const portsValid =
+    Number.isInteger(form.imap_port) && form.imap_port > 0 && form.imap_port <= 65535 &&
+    Number.isInteger(form.smtp_port) && form.smtp_port > 0 && form.smtp_port <= 65535;
 
   const dirty = useMemo(() => {
     if (!ldapQuery.data) return false;
@@ -178,9 +187,11 @@ export const SystemSettings = () => {
       toast.success(
         result.enabled ? '配置已保存，LDAP 认证已开启' : '配置已保存，LDAP 认证未启用',
       );
+      // 允许后续 refetch 的最新值重新同步表单
+      userEditedRef.current = false;
       void queryClient.invalidateQueries({ queryKey: ['admin', 'settings', 'ldap'] });
     },
-    onError: (err: Error) => toast.error(err.message || '保存配置失败'),
+    onError: (err: Error) => toast.error(toastError(err, '保存配置失败')),
   });
 
   const testMutation = useMutation({
@@ -190,7 +201,7 @@ export const SystemSettings = () => {
       if (result.ok) toast.success('连接测试成功');
       else toast.error(result.message || '连接测试失败');
     },
-    onError: (err: Error) => toast.error(err.message || '连接测试请求失败'),
+    onError: (err: Error) => toast.error(toastError(err, '连接测试请求失败')),
   });
 
   const loading = ldapQuery.isLoading;
@@ -246,7 +257,8 @@ export const SystemSettings = () => {
                 />
                 <Button
                   onClick={() => saveMutation.mutate(form)}
-                  disabled={!dirty || saveMutation.isPending}
+                  disabled={!dirty || saveMutation.isPending || !portsValid}
+                  title={!dirty ? '暂无修改' : !portsValid ? '端口必须是 1-65535 的整数' : undefined}
                 >
                   {saveMutation.isPending ? (
                     <Loader2 size={16} className="animate-spin" />
@@ -259,6 +271,14 @@ export const SystemSettings = () => {
             </div>
           </section>
 
+          <Tabs defaultValue="connection" className="w-full">
+           <TabsList>
+            <TabsTrigger value="connection">连接</TabsTrigger>
+            <TabsTrigger value="directory">目录与策略</TabsTrigger>
+            <TabsTrigger value="email">邮箱</TabsTrigger>
+           </TabsList>
+
+           <TabsContent value="connection" className="space-y-5 pt-5">
           {/* ── 服务器连接 ────────────────────────────────────────────── */}
           <SectionCard
             icon={<Plug size={18} />}
@@ -321,6 +341,9 @@ export const SystemSettings = () => {
             </Field>
           </SectionCard>
 
+           </TabsContent>
+
+           <TabsContent value="directory" className="space-y-5 pt-5">
           {/* ── 用户目录 ──────────────────────────────────────────────── */}
           <SectionCard
             icon={<Users size={18} />}
@@ -368,37 +391,20 @@ export const SystemSettings = () => {
                 onChange={(e) => patch({ attr_name: e.target.value })}
               />
             </Field>
-            <Field
-              label="部门字段"
-              htmlFor="ldap-attr-department"
-              hint="普通属性填 department；DN 型属性填 dn（取 distinguishedName）"
-            >
-              <Input
-                id="ldap-attr-department"
-                value={form.attr_department}
-                onChange={(e) => patch({ attr_department: e.target.value })}
-              />
-            </Field>
           </SectionCard>
 
           {/* ── 用户策略 ──────────────────────────────────────────────── */}
           <SectionCard
             icon={<Users size={18} />}
             title="用户策略"
-            description="首次登录的自动建号行为与部门同步。"
+            description="首次登录的自动建号行为。"
           >
             <div className="sm:col-span-2 divide-y divide-[var(--border-subtle)]">
               <ToggleRow
                 label="首次登录自动创建用户"
-                hint="关闭时仅管理员预先创建的用户可登录"
+                hint="域账号密码验证通过即自动建号登录，无需管理员预先授权；关闭后仅已存在的 LDAP 用户可登录"
                 checked={form.auto_create_users}
                 onCheckedChange={(next) => patch({ auto_create_users: next })}
-              />
-              <ToggleRow
-                label="登录时同步本人部门"
-                hint="按「部门字段」匹配本地部门，不存在则自动创建"
-                checked={form.department_sync}
-                onCheckedChange={(next) => patch({ department_sync: next })}
               />
             </div>
             <Field
@@ -424,6 +430,9 @@ export const SystemSettings = () => {
             </Field>
           </SectionCard>
 
+           </TabsContent>
+
+           <TabsContent value="email" className="space-y-5 pt-5">
           {/* ── 邮箱自动配置 ──────────────────────────────────────────── */}
           <SectionCard
             icon={<Mail size={18} />}
@@ -460,7 +469,7 @@ export const SystemSettings = () => {
                 id="ldap-imap-port"
                 type="number"
                 value={form.imap_port}
-                onChange={(e) => patch({ imap_port: Number(e.target.value) || 0 })}
+                onChange={(e) => patch({ imap_port: e.target.value === '' ? ('' as unknown as number) : Number(e.target.value) })}
               />
             </Field>
             <Field label="SMTP 主机" htmlFor="ldap-smtp-host">
@@ -476,10 +485,12 @@ export const SystemSettings = () => {
                 id="ldap-smtp-port"
                 type="number"
                 value={form.smtp_port}
-                onChange={(e) => patch({ smtp_port: Number(e.target.value) || 0 })}
+                onChange={(e) => patch({ smtp_port: e.target.value === '' ? ('' as unknown as number) : Number(e.target.value) })}
               />
             </Field>
           </SectionCard>
+           </TabsContent>
+          </Tabs>
 
           {/* ── 连接测试 ──────────────────────────────────────────────── */}
           <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">

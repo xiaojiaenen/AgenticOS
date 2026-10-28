@@ -18,6 +18,7 @@ import {
   Save,
   Trash2,
   Upload,
+  X,
 } from 'lucide-react';
 import { DataTable } from './data-table';
 import { AdminPageHeader, ErrorBanner, KpiPill } from './shared';
@@ -55,6 +56,7 @@ import {
   updateSkill,
   uploadSkill,
 } from '@/services/skillService';
+import { toastError } from '../../lib/errors';
 
 const emptyInstruction =
   '请说明这个 Skill 适合在什么场景下使用、如何使用，以及什么情况下允许调用 scripts。';
@@ -147,7 +149,7 @@ function SkillFormDialog({
       void queryClient.invalidateQueries({ queryKey: ['admin', 'skills'] });
       onClose();
     },
-    onError: (err: Error) => toast.error(err.message || 'Skill 保存失败'),
+    onError: (err: Error) => toast.error(toastError(err, 'Skill 保存失败')),
   });
 
   return (
@@ -247,6 +249,7 @@ export const SkillManagement = () => {
   const [editingSkill, setEditingSkill] = React.useState<Skill | null>(null);
   const [deletingSkill, setDeletingSkill] = React.useState<Skill | null>(null);
   const [uploadFile, setUploadFile] = React.useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const skillsQuery = useQuery({
     queryKey: ['admin', 'skills'],
@@ -266,12 +269,21 @@ export const SkillManagement = () => {
     },
     onSuccess: (saved) => {
       toast.success('items' in saved ? `成功上传 ${saved.count} 个 Skill` : 'Skill 包上传成功');
-      setUploadFile(null);
+      clearUploadFile();
       uploadForm.reset({ slug: '' });
       void queryClient.invalidateQueries({ queryKey: ['admin', 'skills'] });
     },
-    onError: (err: Error) => toast.error(err.message || 'Skill 包上传失败'),
+    onError: (err: Error) => toast.error(toastError(err, 'Skill 包上传失败')),
   });
+
+  // 上传中锁定整个上传区，避免并发上传 / 重复触发
+  const uploading = uploadMutation.isPending;
+
+  // 必须清空 DOM value，否则再次选择同一个文件不会触发 change 事件
+  const clearUploadFile = React.useCallback(() => {
+    setUploadFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
 
   const deleteMutation = useMutation({
     mutationFn: (skillId: number) => deleteSkill(skillId),
@@ -280,7 +292,7 @@ export const SkillManagement = () => {
       setDeletingSkill(null);
       void queryClient.invalidateQueries({ queryKey: ['admin', 'skills'] });
     },
-    onError: (err: Error) => toast.error(err.message || 'Skill 删除失败'),
+    onError: (err: Error) => toast.error(toastError(err, 'Skill 删除失败')),
   });
 
   const enabledCount = skills.filter((skill) => skill.enabled).length;
@@ -311,6 +323,7 @@ export const SkillManagement = () => {
         id: 'scripts',
         header: '脚本数',
         enableSorting: false,
+        meta: { align: 'right', numeric: true },
         cell: ({ row }) => (
           <span className="text-sm font-semibold text-[var(--foreground)]">
             {row.original.script_paths.length}
@@ -322,7 +335,7 @@ export const SkillManagement = () => {
         header: '目录',
         enableSorting: false,
         cell: ({ row }) => (
-          <span className="font-mono text-xs font-medium text-zinc-600">
+          <span className="font-mono text-xs font-medium text-[var(--muted-foreground)]">
             {shortRootDir(row.original.root_dir)}
           </span>
         ),
@@ -331,7 +344,7 @@ export const SkillManagement = () => {
         accessorKey: 'updated_at',
         header: '更新时间',
         cell: ({ getValue }) => (
-          <span className="text-sm font-medium text-zinc-600">
+          <span className="text-sm font-medium text-[var(--muted-foreground)]">
             {formatApiDate(String(getValue()))}
           </span>
         ),
@@ -446,7 +459,7 @@ export const SkillManagement = () => {
       />
 
       {skillsQuery.isError ? (
-        <ErrorBanner message={(skillsQuery.error as Error).message || 'Skill 列表加载失败'} />
+        <ErrorBanner message={toastError(skillsQuery.error, 'Skill 列表加载失败')} onRetry={() => void skillsQuery.refetch()} />
       ) : null}
 
       {/* 上传入口 */}
@@ -466,7 +479,12 @@ export const SkillManagement = () => {
 
           <div className="space-y-1.5">
             <Label htmlFor="skill-upload-slug">Slug 覆盖（可选）</Label>
-            <Input id="skill-upload-slug" placeholder="可选 slug" {...uploadForm.register('slug')} />
+            <Input
+              id="skill-upload-slug"
+              placeholder="可选 slug"
+              disabled={uploading}
+              {...uploadForm.register('slug')}
+            />
             {uploadForm.formState.errors.slug ? (
               <p className="text-xs font-medium text-rose-600">
                 {uploadForm.formState.errors.slug.message}
@@ -475,24 +493,47 @@ export const SkillManagement = () => {
           </div>
 
           <div className="flex flex-col gap-2.5 sm:flex-row">
-            <label className="flex w-full cursor-pointer items-center rounded-md border border-dashed border-zinc-300 bg-[var(--surface-2)] px-3.5 py-2.5 text-sm font-medium text-[var(--muted-foreground)] transition hover:border-zinc-900 hover:text-zinc-700 sm:max-w-[260px]">
+            <label
+              className={cn(
+                'flex w-full items-center rounded-md border border-dashed border-zinc-300 bg-[var(--surface-2)] px-3.5 py-2.5 text-sm font-medium transition sm:max-w-[260px]',
+                uploading
+                  ? 'cursor-not-allowed opacity-60'
+                  : 'cursor-pointer hover:border-zinc-900',
+                uploadFile ? 'text-[var(--foreground)]' : 'text-[var(--muted-foreground)]',
+              )}
+            >
               <span className="block truncate">
                 {uploadFile ? uploadFile.name : '选择 Zip...'}
               </span>
               <input
+                ref={fileInputRef}
                 type="file"
                 accept=".zip"
                 className="hidden"
+                disabled={uploading}
                 onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
               />
             </label>
+            {uploadFile && !uploading && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearUploadFile}
+                aria-label="清除已选择的文件"
+                className="gap-1.5 text-[var(--muted-foreground)]"
+              >
+                <X size={14} />
+                清除
+              </Button>
+            )}
             <Button
               size="sm"
               className="gap-1.5"
-              disabled={!uploadFile || uploadMutation.isPending}
+              disabled={!uploadFile || uploading}
               onClick={() => void uploadForm.handleSubmit((v) => uploadMutation.mutate(v))()}
             >
-              {uploadMutation.isPending ? (
+              {uploading ? (
                 <Loader2 size={14} className="animate-spin" />
               ) : (
                 <Upload size={14} />
@@ -519,7 +560,7 @@ export const SkillManagement = () => {
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] shadow-sm">
                   <FileCode2 size={20} />
                 </div>
-                <p className="text-sm font-semibold text-zinc-600">还没有 Skill</p>
+                <p className="text-sm font-semibold text-[var(--muted-foreground)]">还没有 Skill</p>
                 <p className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">
                   你可以先创建一个本地 Skill，或者直接上传 Zip Skill 包。
                 </p>

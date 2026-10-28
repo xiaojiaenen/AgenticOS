@@ -11,6 +11,7 @@ import { BrainCircuit, Globe, Presentation } from 'lucide-react';
 import { Artifact, Message, ToolCall } from '../../types';
 import { cn, copyToClipboard } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
+import { useIsDark } from '../../hooks/useIsDark';
 import { CopyIcon, CheckIcon, WrenchIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -76,7 +77,7 @@ export const AnimatedDots = () => (
     {[0, 1, 2].map((dot) => (
       <motion.span
         key={dot}
-        className="h-1.5 w-1.5 rounded-full bg-slate-300"
+        className="h-1.5 w-1.5 rounded-full bg-[var(--border-strong)]"
         animate={{ y: [0, -3, 0], opacity: [0.35, 1, 0.35] }}
         transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut", delay: dot * 0.16 }}
       />
@@ -86,7 +87,7 @@ export const AnimatedDots = () => (
 
 export const AssistantWaitingIndicator = ({ statusText = '正在思考' }: { statusText?: string }) => (
   <div className="flex min-w-[12rem] items-center gap-3 py-1 text-sm font-semibold text-[var(--muted-foreground)]">
-    <span className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-slate-50/90 text-[var(--muted-foreground)] shadow-inner">
+    <span className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--muted-foreground)] shadow-inner">
       <BrainCircuit size={15} />
       <motion.span
         className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-sky-400 shadow-[0_0_0_4px_rgba(56,189,248,0.16)]"
@@ -143,7 +144,7 @@ export const ToolResultPreview = ({ result, isError = false }: { result: string;
         <div className={cn(
           "rounded-xl px-3 py-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-all max-w-full overflow-hidden",
           expanded && "max-h-[32rem] overflow-y-auto",
-          isError ? "border border-rose-200/90 bg-rose-50/90 text-rose-700" : "border border-[var(--border-subtle)] bg-slate-50/90 text-[var(--muted-foreground)]",
+          isError ? "border border-rose-200/90 bg-rose-50/90 text-rose-700" : "border border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--muted-foreground)]",
         )}>
           {displayedText}
         </div>
@@ -198,7 +199,7 @@ export const MermaidChart = React.memo(({ chart }: { chart: string }) => {
 
   return (
     <div ref={containerRef} style={{ minHeight: height !== 'auto' ? `${height}px` : undefined }}
-      className={cn("bg-slate-50/30 p-6 rounded-2xl border border-slate-200/50 my-2 flex justify-center overflow-x-auto transition-opacity duration-300", isRendering ? "opacity-50" : "opacity-100")}>
+      className={cn("bg-[var(--surface-2)]/40 p-6 rounded-2xl border border-[var(--border-subtle)] my-2 flex justify-center overflow-x-auto transition-opacity duration-300", isRendering ? "opacity-50" : "opacity-100")}>
       {svgUrl ? <img src={svgUrl} alt="Mermaid chart" className="max-w-full" /> : null}
     </div>
   );
@@ -207,9 +208,39 @@ export const MermaidChart = React.memo(({ chart }: { chart: string }) => {
 // ECharts 主题色板
 const CHART_COLORS = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'];
 
+// 暗色下的图表配色：原色板在深色背景上对比度不足，需要整体提亮一档
+const CHART_COLORS_DARK = ['#7b9ef5', '#a8dc8b', '#f5d477', '#f58f8f', '#8fd4ec', '#5cc79c', '#ffa877', '#bb8ede', '#f29fd0'];
+
+/**
+ * 图表的标题 / 提示框配色。
+ *
+ * 之前整套 ECharts 配色是硬编码的浅色值（`#1e293b` 标题、`rgba(255,255,255,0.96)`
+ * 提示框底），暗色主题下标题变成「深色字画在深色图上」直接看不清，提示框是一块
+ * 刺眼的白。ECharts 的 canvas 不吃 CSS 变量，只能在这里按主题显式给值。
+ */
+const CHART_TEXT_STYLE = {
+  light: {
+    title: '#1e293b',
+    tooltipBg: 'rgba(255,255,255,0.96)',
+    tooltipBorder: '#e2e8f0',
+    tooltipText: '#334155',
+    axis: '#94a3b8',
+    splitLine: 'rgba(15,23,42,0.08)',
+  },
+  dark: {
+    title: '#e4e4e7',
+    tooltipBg: 'rgba(24,24,27,0.96)',
+    tooltipBorder: '#3f3f46',
+    tooltipText: '#d4d4d8',
+    axis: '#71717a',
+    splitLine: 'rgba(250,250,250,0.10)',
+  },
+} as const;
+
 export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<any>(null);
+  const isDark = useIsDark();
 
   // table 类型渲染为 HTML 表格（提前解析成数据，保证 hooks 无条件调用，
   // 满足 rules-of-hooks：不能在条件 return 之后调用 useEffect）
@@ -232,6 +263,8 @@ export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) 
       return;
     }
 
+    const theme = isDark ? CHART_TEXT_STYLE.dark : CHART_TEXT_STYLE.light;
+
     let disposed = false;
     import('echarts').then((echartsMod) => {
       if (disposed || !chartRef.current) return;
@@ -240,20 +273,20 @@ export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) 
       // 注入主题样式
       const styledOption: any = {
         ...option,
-        color: CHART_COLORS,
+        color: isDark ? CHART_COLORS_DARK : CHART_COLORS,
         backgroundColor: 'transparent',
         textStyle: { fontFamily: "'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif" },
         title: {
           ...option.title,
-          textStyle: { fontSize: 15, fontWeight: 600, color: '#1e293b', ...(option.title?.textStyle || {}) },
+          textStyle: { fontSize: 15, fontWeight: 600, color: theme.title, ...(option.title?.textStyle || {}) },
         },
         tooltip: {
           ...option.tooltip,
-          backgroundColor: 'rgba(255,255,255,0.96)',
-          borderColor: '#e2e8f0',
+          backgroundColor: theme.tooltipBg,
+          borderColor: theme.tooltipBorder,
           borderWidth: 1,
-          textStyle: { color: '#334155', fontSize: 13 },
-          extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-radius: 8px;',
+          textStyle: { color: theme.tooltipText, fontSize: 13 },
+          extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.18); border-radius: 8px;',
         },
         grid: { left: 48, right: 24, top: 48, bottom: 32, containLabel: true, ...(option.grid || {}) },
       };
@@ -305,7 +338,7 @@ export const EChartsBlock = React.memo(({ optionJson }: { optionJson: string }) 
     return (
       <div className="my-4 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left text-slate-700">
+          <table className="w-full text-sm text-left text-[var(--foreground)]">
             <thead className="text-xs text-[var(--muted-foreground)] uppercase bg-[var(--surface-2)]">
               <tr>{tableData.columns.map((col) => <th key={col} className="px-4 py-3 font-semibold whitespace-nowrap">{col}</th>)}</tr>
             </thead>
@@ -386,7 +419,7 @@ export const ToolTimelineStep = ({ title, state, body }: { title: string; state:
         state === 'done' && "border-emerald-500 bg-emerald-500",
         state === 'active' && "border-sky-500 bg-[var(--surface-1)] shadow-[0_0_0_4px_rgba(56,189,248,0.15)]",
         state === 'idle' && "border-slate-300 bg-[var(--surface-1)]")} />
-      <div className={cn("mt-2 h-full min-h-5 w-px", state === 'done' ? "bg-emerald-300/80" : "bg-slate-200")} />
+      <div className={cn("mt-2 h-full min-h-5 w-px", state === 'done' ? "bg-emerald-300/80" : "bg-[var(--border-medium)]")} />
     </div>
     <div className="pb-3">
       <div className={cn("text-[11px] font-semibold uppercase tracking-[0.14em]",
@@ -454,7 +487,7 @@ export const CodeBlock = ({ inline, className, children, onOpenArtifact, ...prop
       <div className="relative group my-5 overflow-hidden rounded-3xl border border-slate-800/80 bg-zinc-950 shadow-xl ring-1 ring-white/5">
         <div className="flex items-center border-b border-white/8 bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.88))] px-4 py-3 backdrop-blur-sm">
           <div className="flex gap-1.5"><div className="w-3 h-3 rounded-full bg-[#ff5f56]" /><div className="w-3 h-3 rounded-full bg-[#ffbd2e]" /><div className="w-3 h-3 rounded-full bg-[#27c93f]" /></div>
-          <div className="ml-4 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400/90 select-none">{match[1]}</div>
+          <div className="ml-4 text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--muted-foreground)] select-none">{match[1]}</div>
           <div className="ml-auto flex items-center gap-4">
             {isArtifactable && onOpenArtifact && (
               <button onClick={() => onOpenArtifact({ code: codeString, language: match[1] as 'html' | 'svg' })} className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-300 transition-colors hover:text-cyan-200">
@@ -477,16 +510,16 @@ export const CodeBlock = ({ inline, className, children, onOpenArtifact, ...prop
       </div>
     );
   }
-  return <code className={cn("bg-slate-100 text-teal-800 px-1.5 py-0.5 rounded-md text-sm font-mono font-medium", className)} {...props}>{children}</code>;
+  return <code className={cn("bg-[var(--surface-2)] text-teal-700 dark:text-teal-300 px-1.5 py-0.5 rounded-md text-sm font-mono font-medium", className)} {...props}>{children}</code>;
 };
 
 // ── Table components (extracted from render) ──────────────────────────────
 
 export const MarkdownTable = ({ children }: { children: React.ReactNode }) => (
-  <div className="my-5 overflow-hidden rounded-3xl border border-slate-200/90 bg-white/88 shadow-lg ring-1 ring-white/65">
+  <div className="my-5 overflow-hidden rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-lg ring-1 ring-[var(--border-subtle)]">
     <div className="h-2 bg-[linear-gradient(90deg,rgba(15,23,42,0.9),rgba(30,41,59,0.85),rgba(34,211,238,0.75))]" />
     <div className="visible-scrollbar overflow-x-auto px-1 pb-2">
-      <table className="w-max min-w-full border-collapse text-left text-sm text-slate-700">{children}</table>
+      <table className="w-max min-w-full border-collapse text-left text-sm text-[var(--foreground)]">{children}</table>
     </div>
   </div>
 );
@@ -496,7 +529,7 @@ export const MarkdownTableHead = ({ children }: { children: React.ReactNode }) =
 );
 
 export const MarkdownTableRow = ({ children }: { children: React.ReactNode }) => (
-  <tr className="border-b border-[var(--border-subtle)] transition-colors even:bg-slate-50/70 hover:bg-sky-50/50 last:border-b-0">{children}</tr>
+  <tr className="border-b border-[var(--border-subtle)] transition-colors even:bg-[var(--surface-2)]/70 hover:bg-[var(--surface-2)] last:border-b-0">{children}</tr>
 );
 
 // ── Slide Preview Strip ──────────────────────────────────────────────────

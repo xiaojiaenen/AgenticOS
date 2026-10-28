@@ -33,6 +33,7 @@ import {
   updateApi,
 } from '@/services/integrationService';
 import { METHODS, apiFormSchema, type ApiFormValues } from './integrationHelpers';
+import { toastError } from '../../lib/errors';
 
 export function ApiModal({
   open,
@@ -118,7 +119,7 @@ export function ApiModal({
       void queryClient.invalidateQueries({ queryKey: ['admin', 'integrations'] });
       onClose();
     },
-    onError: (err: Error) => toast.error(err.message || '保存失败'),
+    onError: (err: Error) => toast.error(toastError(err, '保存失败')),
   });
 
   return (
@@ -265,7 +266,7 @@ export function ApiModal({
                       </SelectContent>
                     </Select>
                     <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-1 text-xs font-medium text-zinc-600">
+                      <label className="flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
                         <Checkbox
                           checked={p.required}
                           onCheckedChange={(checked) => form.setValue(`params.${i}.required`, checked === true)}
@@ -322,7 +323,7 @@ export function ApiModal({
             </Button>
             <Button type="submit" disabled={saveMutation.isPending} className="gap-2">
               {saveMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-              更新
+              {editingApi ? '更新' : '创建'}
             </Button>
           </DialogFooter>
         </form>

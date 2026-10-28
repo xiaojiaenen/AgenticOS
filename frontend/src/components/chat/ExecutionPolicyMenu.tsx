@@ -91,14 +91,14 @@ export const ExecutionPolicyMenu: React.FC<{
                 onClick={() => onApprovalModeChange(option.value)}
                 className={cn(
                   'flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left transition-colors',
-                  active ? 'bg-brand-500/10' : 'hover:bg-[var(--surface-2)]',
+                  active ? 'bg-[var(--accent)] text-[var(--accent-foreground)]' : 'hover:bg-[var(--surface-2)]',
                 )}
               >
                 <OptionIcon size={14} className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--foreground)]">
                     {option.label}
-                    {active && <Check size={11} className="text-brand-600" />}
+                    {active && <Check size={11} className="text-[var(--accent-foreground)]" />}
                   </span>
                   <span className="mt-0.5 block text-[11px] leading-relaxed text-[var(--muted-foreground)]">
                     {option.hint}

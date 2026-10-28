@@ -3,6 +3,7 @@
  * 后端 API 不变（services/websiteService.ts）。
  */
 import * as React from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
@@ -17,6 +18,16 @@ import {
   X,
 } from 'lucide-react';
 import { DataTable } from './data-table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/shadcn/alert-dialog';
 import { AdminPageHeader, ErrorBanner, KpiPill } from './shared';
 import { Button } from '@/components/shadcn/button';
 import { StatusPill } from './shared';
@@ -26,6 +37,19 @@ import {
   listAllDeploys,
   listPendingDeploys,
 } from '@/services/websiteService';
+import { toastError } from '../../lib/errors';
+
+/** 外部链接 URL 补齐协议：target_domain 可能是不带协议的裸域名 */
+function toExternalUrl(raw: string | null | undefined): string {
+  if (!raw) return '#';
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
+
+/** 安全时间格式化：无效时间戳返回 '--' 而非 "Invalid Date" */
+function formatSafeDateTime(value: unknown): string {
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? '--' : d.toLocaleString('zh-CN');
+}
 
 function statusTone(status: string): 'active' | 'inactive' | 'warning' | 'info' {
   switch (status) {
@@ -55,6 +79,11 @@ function statusLabel(status: string): string {
 
 export function WebsiteDeployManagement() {
   const queryClient = useQueryClient();
+  // 待确认的审批操作（批准/拒绝均需二次确认，防误点）
+  const [pendingDecision, setPendingDecision] = useState<{
+    deploy: DeployRecord;
+    decision: 'approved' | 'rejected';
+  } | null>(null);
 
   const pendingQuery = useQuery({
     queryKey: ['admin', 'deploys', 'pending'],
@@ -81,7 +110,7 @@ export function WebsiteDeployManagement() {
       toast.success(variables.decision === 'approved' ? '已批准部署' : '已拒绝部署');
       void queryClient.invalidateQueries({ queryKey: ['admin', 'deploys'] });
     },
-    onError: (err: Error) => toast.error(err.message || '操作失败'),
+    onError: (err: Error) => toast.error(toastError(err, '操作失败')),
   });
 
   const pendingDeploys = pendingQuery.data ?? [];
@@ -126,7 +155,7 @@ export function WebsiteDeployManagement() {
         header: '创建时间',
         cell: ({ getValue }) => (
           <span className="text-xs font-medium text-[var(--muted-foreground)]">
-            {new Date(String(getValue())).toLocaleString('zh-CN')}
+            {formatSafeDateTime(getValue())}
           </span>
         ),
       },
@@ -136,7 +165,10 @@ export function WebsiteDeployManagement() {
         enableSorting: false,
         cell: ({ row }) => {
           const deploy = row.original;
-          const url = deploy.deploy_url || (deploy.status === 'deployed' ? deploy.target_domain : null);
+          const rawUrl = deploy.deploy_url || (deploy.status === 'deployed' ? deploy.target_domain : null);
+          // target_domain 可能不含协议（如 example.com），直接用作 href 会被
+          // 解析成相对路径；统一补齐协议
+          const url = rawUrl && /^https?:\/\//i.test(rawUrl) ? rawUrl : rawUrl ? `https://${rawUrl}` : null;
           if (!url) return <span className="text-xs text-[var(--muted-foreground)]">—</span>;
           return (
             <a
@@ -234,7 +266,7 @@ export function WebsiteDeployManagement() {
                   </div>
                   {(deploy.deploy_url || deploy.target_domain) && (
                     <a
-                      href={deploy.deploy_url || deploy.target_domain || '#'}
+                      href={toExternalUrl(deploy.deploy_url || deploy.target_domain)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-zinc-700 hover:underline"
@@ -247,11 +279,9 @@ export function WebsiteDeployManagement() {
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    variant="destructive"
+                    variant="outline"
                     className="gap-1.5"
-                    onClick={() =>
-                      decideMutation.mutate({ deployId: deploy.id, decision: 'rejected' })
-                    }
+                    onClick={() => setPendingDecision({ deploy, decision: 'rejected' })}
                     disabled={decideMutation.isPending}
                   >
                     {decideMutation.isPending &&
@@ -266,9 +296,7 @@ export function WebsiteDeployManagement() {
                   <Button
                     size="sm"
                     className="gap-1.5"
-                    onClick={() =>
-                      decideMutation.mutate({ deployId: deploy.id, decision: 'approved' })
-                    }
+                    onClick={() => setPendingDecision({ deploy, decision: 'approved' })}
                     disabled={decideMutation.isPending}
                   >
                     {decideMutation.isPending &&
@@ -299,11 +327,53 @@ export function WebsiteDeployManagement() {
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
               <AlertCircle className="mb-3 h-10 w-10 text-zinc-300" />
-              <p className="text-sm font-semibold text-zinc-600">暂无部署记录</p>
+              <p className="text-sm font-semibold text-[var(--muted-foreground)]">暂无部署记录</p>
             </div>
           }
         />
       </section>
+
+      {/* 审批二次确认 */}
+      <AlertDialog
+        open={pendingDecision !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDecision(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingDecision?.decision === 'approved' ? '批准部署' : '拒绝部署'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDecision?.decision === 'approved'
+                ? `确定批准「${pendingDecision?.deploy.project_slug ?? ''}」的部署申请吗？批准后站点将对外发布。`
+                : `确定拒绝「${pendingDecision?.deploy.project_slug ?? ''}」的部署申请吗？申请人将看到拒绝原因。`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDecision) {
+                  decideMutation.mutate({
+                    deployId: pendingDecision.deploy.id,
+                    decision: pendingDecision.decision,
+                  });
+                }
+                setPendingDecision(null);
+              }}
+              className={
+                pendingDecision?.decision === 'rejected'
+                  ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                  : undefined
+              }
+            >
+              {pendingDecision?.decision === 'approved' ? '批准' : '拒绝'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -34,7 +34,12 @@ export const Pagination = ({
 }: PaginationProps) => {
   if (totalPages <= 1) return null;
 
-  const pages = getVisiblePages(currentPage, totalPages);
+  // 外部 total 缩小（如并发删除后 refetch）时 currentPage 可能越界。
+  // 此前会渲染"第 5 / 2 页"且"上一页"还能跳到越界页 4，需多点一次才自愈。
+  // 这里在组件内 clamp，渲染即自愈。
+  const safeTotal = Math.max(1, Math.floor(totalPages));
+  const safePage = Math.min(Math.max(1, Math.floor(currentPage)), safeTotal);
+  const pages = getVisiblePages(safePage, safeTotal);
 
   return (
     <nav
@@ -45,7 +50,7 @@ export const Pagination = ({
       )}
     >
       <span className="text-xs font-medium text-[var(--muted-foreground)]">
-        第 <span className="font-semibold text-[var(--foreground)]">{currentPage}</span> / {totalPages} 页
+        第 <span className="font-semibold text-[var(--foreground)]">{safePage}</span> / {safeTotal} 页
         {totalLabel ? <span className="ml-2">{totalLabel}</span> : null}
       </span>
 
@@ -54,8 +59,8 @@ export const Pagination = ({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
+          onClick={() => onPageChange(Math.max(1, safePage - 1))}
+          disabled={safePage === 1}
           aria-label="上一页"
           className="gap-1"
         >
@@ -68,13 +73,13 @@ export const Pagination = ({
             <Button
               key={page}
               type="button"
-              variant={page === currentPage ? 'default' : 'ghost'}
+              variant={page === safePage ? 'default' : 'ghost'}
               size="icon-sm"
               onClick={() => onPageChange(page)}
-              aria-current={currentPage === page ? 'page' : undefined}
+              aria-current={safePage === page ? 'page' : undefined}
               className={cn(
                 'text-xs',
-                page !== currentPage && 'text-zinc-600 hover:text-[var(--foreground)]',
+                page !== safePage && 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]',
               )}
             >
               {page}
@@ -86,8 +91,8 @@ export const Pagination = ({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage === totalPages}
+          onClick={() => onPageChange(Math.min(safeTotal, safePage + 1))}
+          disabled={safePage === safeTotal}
           aria-label="下一页"
           className="gap-1"
         >

@@ -28,6 +28,7 @@ import {
 } from '@/services/announcementService';
 import { THEME_DEFS } from '@/components/announcement/announcementTheme';
 import { FORMAT_META, aiGenerateSchema, type AiGenerateValues } from './announcementHelpers';
+import { toastError } from '../../lib/errors';
 
 export function AiGenerateDialog({
   open,
@@ -80,7 +81,7 @@ export function AiGenerateDialog({
       toast.success('AI 草稿已生成，请根据需要调整');
       onClose();
     },
-    onError: (err: Error) => toast.error(err.message || 'AI 生成失败'),
+    onError: (err: Error) => toast.error(toastError(err, 'AI 生成失败')),
   });
 
   return (

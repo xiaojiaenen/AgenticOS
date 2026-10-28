@@ -16,8 +16,21 @@ import {
  XAxis,
  YAxis,
 } from 'recharts';
-import { Activity, Cpu, Gauge, Hammer, Trophy, Waves } from 'lucide-react';
+import { Activity, BarChart3, Cpu, Gauge, Hammer, Trophy, Waves } from 'lucide-react';
 import { cn, formatNumber, formatTokenNumber, formatLatency, formatDay, shortName, initials, CHART_COLORS } from '../../lib/utils';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/shadcn/tabs';
+import { EmptyState } from '@/components/ui/EmptyState';
+
+/** Recharts 坐标轴 / Tooltip 的暗色安全样式：CSS 变量在 style 属性与 currentColor 下均生效 */
+const AXIS_TICK = { fill: 'currentColor', fontSize: 12, fontWeight: 600 } as const;
+const TOOLTIP_STYLE = {
+  background: 'var(--surface-1)',
+  border: '1px solid var(--border-subtle)',
+  borderRadius: 12,
+  color: 'var(--foreground)',
+  fontSize: 12,
+  boxShadow: '0 8px 24px rgba(9,9,11,0.12)',
+} as const;
 import {
  DashboardDistributionItem,
  DashboardStats as DashboardStatsData,
@@ -27,12 +40,24 @@ import {
 }
 
 
-function EmptyPanel({ label }: { label: string }) { return (
+/**
+ * 图表空态。
+ *
+ * 原来只有一行灰字，图表区高度 200px+，一大块空白里飘着一句话，像「图表坏了」。
+ * 现在统一走 EmptyState（图标 + 标题 + 说明），并且把「为什么没有数据」讲清楚 ——
+ * 「最近 14 个统计点」「数据已刷新」这类提示能让人一眼判断是空数据还是故障。
+ */
+function EmptyPanel({ label, hint }: { label: string; hint?: string }) { return (
   <div className={cn(
-   "flex h-full min-h-[200px] items-center justify-center rounded-lg border border-dashed text-sm font-medium",
-   "border-[var(--border-subtle)] bg-white/30 text-[var(--muted-foreground)]"
+   "flex h-full min-h-[200px] items-center justify-center rounded-lg border border-dashed",
+   "border-[var(--border-subtle)] bg-[var(--surface-2)]"
   )}>
-   {label}
+   <EmptyState
+    size="compact"
+    icon={<BarChart3 className="size-4" />}
+    title={label}
+    description={hint ?? '数据刷新后会自动显示在这里。'}
+   />
   </div>
  );
 }
@@ -57,7 +82,7 @@ function PanelHeader({
      <Icon size={20} />
     </div>
     <div>
-     <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">{kicker}</p>
+     <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">{kicker}</p>
      <h3 className={cn("mt-1 text-[22px] font-semibold tracking-tight", "text-[var(--foreground)]")}>{title}</h3>
     </div>
    </div>
@@ -69,12 +94,10 @@ function PanelHeader({
 function PanelShell({
  className,
  children,
- tone,
  delay = 0,
 }: {
  className?: string;
  children: React.ReactNode;
- tone?: string;
  delay?: number;
 }) {
  return (
@@ -84,7 +107,6 @@ function PanelShell({
    transition={{ duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] }}
 className={cn(
    'admin-card flex h-full flex-col',
-   tone ?? '',
    className,
   )}
  >
@@ -97,7 +119,7 @@ function DistributionLegend({ items }: { items: DashboardDistributionItem[] }) {
   <div className="mt-4 space-y-2.5">
    {items.slice(0, 5).map((item, index) => (
     <div key={item.name} className="flex items-center justify-between gap-3 text-sm font-medium">
-     <span className={cn("flex min-w-0 items-center gap-2.5", "text-slate-700")}>
+     <span className={cn("flex min-w-0 items-center gap-2.5", "text-[var(--muted-foreground)]")}>
       <span
        className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
        style={{ background: CHART_COLORS[index % CHART_COLORS.length] }}
@@ -149,7 +171,7 @@ function UserUsageRow({
    <div className={cn("text-sm font-medium", "text-[var(--muted-foreground)]")}>{formatNumber(user.llm_calls)}</div>
    <div className={cn("text-sm font-medium", "text-[var(--muted-foreground)]")}>{formatNumber(user.tool_calls)}</div>
    <div className={cn("text-sm font-medium", "text-[var(--muted-foreground)]")}>{formatLatency(user.avg_latency_ms)}</div>
-   <div className={cn("h-2 rounded-full", "bg-[var(--surface-1)]")}>
+   <div className={cn("h-2 rounded-full", "bg-[var(--surface-2)]")}>
     <div
      className={cn(
       'h-2 rounded-full',
@@ -172,7 +194,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
   avgTokens: item.runs > 0 ? Math.round(item.tokens / item.runs) : 0,
   toolPerRun: item.runs > 0 ? Number((item.tool_calls / item.runs).toFixed(2)) : 0,
  }));
- const pulseData = trendData.slice(-8);
+ const pulseData = trendData;
  const latestPoint = trendData[trendData.length - 1];
  const hasTrend = trendData.some((item) => item.runs || item.tokens || item.tool_calls);
  const topUsers = data.user_usage.slice(0, 6);
@@ -207,9 +229,16 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
  ];
 
  return (
-  <div className="admin-page-stage space-y-5">
+  <Tabs defaultValue="trend" className="admin-page-stage w-full">
+   <TabsList>
+    <TabsTrigger value="trend">趋势与效率</TabsTrigger>
+    <TabsTrigger value="distribution">模型与工具分布</TabsTrigger>
+    <TabsTrigger value="users">用户负载</TabsTrigger>
+   </TabsList>
+
+   <TabsContent value="trend" className="mt-5">
    <section className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_340px]">
-    <PanelShell delay={0.05} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.62),rgba(255,255,255,0.38),rgba(186,230,253,0.34))]">
+    <PanelShell delay={0.05}>
      <PanelHeader
       icon={Waves}
       kicker="趋势主视图"
@@ -221,16 +250,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
       }
      />
 
-     <div className="mb-4 grid gap-3 sm:grid-cols-4">
-      {trendSignals.map((item) => (
-       <div key={item.label} style={{ padding: '10px 12px' }}>
-        <p className={cn("text-[10px] font-semibold tracking-[0.08em]", "text-[var(--muted-foreground)]")}>{item.label}</p>
-        <p className={cn("mt-1 text-base font-semibold tracking-tight", "text-[var(--foreground)]")}>{item.value}</p>
-       </div>
-      ))}
-     </div>
-
-     <div className="h-[320px]">
+     <div className="h-[320px] text-[var(--muted-foreground)]">
       {hasTrend ? (
        <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={trendData} margin={{ top: 10, right: 18, bottom: 2, left: 0 }}>
@@ -246,14 +266,14 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           tickFormatter={formatDay}
           axisLine={false}
           tickLine={false}
-          tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
+          tick={AXIS_TICK}
           dy={10}
          />
          <YAxis
           yAxisId="left"
           axisLine={false}
           tickLine={false}
-          tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
+          tick={AXIS_TICK}
           tickFormatter={formatTokenNumber}
           width={56}
          />
@@ -262,7 +282,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           orientation="right"
           axisLine={false}
           tickLine={false}
-          tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
+          tick={AXIS_TICK}
           tickFormatter={formatNumber}
           width={36}
          />
@@ -272,13 +292,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
            name === 'tokens' ? 'Token' : name === 'runs' ? '运行次数' : String(name ?? ''),
           ]}
           labelFormatter={(label) => `日期 ${label}`}
-          contentStyle={{
-           borderRadius: 18,
-           border: '1px solid rgba(226,232,240,0.9)',
-           background: 'rgba(255,255,255,0.96)',
-           boxShadow: '0 18px 40px rgba(15,23,42,0.12)',
-           fontWeight: 700,
-          }}
+          contentStyle={TOOLTIP_STYLE}
          />
          <Area
           yAxisId="left"
@@ -301,13 +315,13 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
         </ComposedChart>
        </ResponsiveContainer>
       ) : (
-       <EmptyPanel label="暂时还没有可展示的趋势数据" />
+       <EmptyPanel label="暂时还没有可展示的趋势数据" hint="最近 14 个统计点内没有足够的运行记录。" />
       )}
      </div>
 
      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {trendSignals.map((item) => (
-       <div key={item.label} style={{ padding: '14px 16px' }}>
+       <div key={item.label} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-4 py-3.5">
         <p className={cn("text-xs font-semibold tracking-[0.08em]", "text-[var(--muted-foreground)]")}>{item.label}</p>
         <p className={cn("mt-2 text-2xl font-semibold tracking-tight", "text-[var(--foreground)]")}>{item.value}</p>
        </div>
@@ -316,9 +330,9 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
     </PanelShell>
 
     <div className="grid gap-5">
-     <PanelShell delay={0.12} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(224,242,254,0.48),rgba(255,255,255,0.36))]">
+     <PanelShell delay={0.12}>
       <PanelHeader icon={Activity} kicker="运行脉冲" title="最近几天调用强度" />
-      <div className="h-[240px]">
+      <div className="h-[240px] text-[var(--muted-foreground)]">
        {pulseData.length > 0 ? (
         <ResponsiveContainer width="100%" height="100%">
          <BarChart data={pulseData} margin={{ top: 4, right: 4, bottom: 0, left: -12 }}>
@@ -328,33 +342,27 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
            tickFormatter={formatDay}
            axisLine={false}
            tickLine={false}
-           tick={{ fill: '#475569', fontSize: 11, fontWeight: 700 }}
+           tick={{ ...AXIS_TICK, fontSize: 11 }}
           />
           <YAxis hide />
           <Tooltip
            formatter={(value, name) => [formatNumber(Number(value)), name === 'runs' ? '运行次数' : '工具调用']}
            labelFormatter={(label) => `日期 ${label}`}
-           contentStyle={{
-            borderRadius: 18,
-            border: '1px solid rgba(226,232,240,0.9)',
-            background: 'rgba(255,255,255,0.96)',
-            boxShadow: '0 18px 40px rgba(15,23,42,0.12)',
-            fontWeight: 700,
-           }}
+           contentStyle={TOOLTIP_STYLE}
           />
           <Bar dataKey="runs" radius={[10, 10, 0, 0]} fill="#0ea5e9" barSize={12} />
           <Bar dataKey="tool_calls" radius={[10, 10, 0, 0]} fill="#8b5cf6" barSize={12} />
          </BarChart>
         </ResponsiveContainer>
        ) : (
-        <EmptyPanel label="暂无运行脉冲数据" />
+        <EmptyPanel label="暂无运行脉冲数据" hint="近期没有运行事件，脉冲图暂时画不出来。" />
        )}
       </div>
      </PanelShell>
 
-     <PanelShell delay={0.18} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(233,213,255,0.34),rgba(255,255,255,0.36))]">
+     <PanelShell delay={0.18}>
       <PanelHeader icon={Gauge} kicker="效率水位" title="单次运行负载走势" />
-      <div className="h-[240px]">
+      <div className="h-[240px] text-[var(--muted-foreground)]">
        {hasTrend ? (
         <ResponsiveContainer width="100%" height="100%">
          <LineChart data={trendData} margin={{ top: 8, right: 8, bottom: 0, left: -10 }}>
@@ -364,19 +372,13 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
            tickFormatter={formatDay}
            axisLine={false}
            tickLine={false}
-           tick={{ fill: '#475569', fontSize: 11, fontWeight: 700 }}
+           tick={{ ...AXIS_TICK, fontSize: 11 }}
           />
           <YAxis hide />
           <Tooltip
            formatter={(value) => [formatTokenNumber(Number(value)), '平均 Token / 次']}
            labelFormatter={(label) => `日期 ${label}`}
-           contentStyle={{
-            borderRadius: 18,
-            border: '1px solid rgba(226,232,240,0.9)',
-            background: 'rgba(255,255,255,0.96)',
-            boxShadow: '0 18px 40px rgba(15,23,42,0.12)',
-            fontWeight: 700,
-           }}
+           contentStyle={TOOLTIP_STYLE}
           />
           <Line
            type="monotone"
@@ -389,7 +391,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
          </LineChart>
         </ResponsiveContainer>
        ) : (
-        <EmptyPanel label="暂无负载走势数据" />
+        <EmptyPanel label="暂无负载走势数据" hint="近期没有可统计的调用记录。" />
        )}
       </div>
      </PanelShell>
@@ -397,9 +399,9 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
    </section>
 
    <section className="grid gap-5 xl:grid-cols-[minmax(0,0.78fr)_minmax(0,0.62fr)_minmax(0,1fr)]">
-    <PanelShell delay={0.24} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(186,230,253,0.22),rgba(255,255,255,0.34))]">
+    <PanelShell delay={0.24}>
      <PanelHeader icon={Cpu} kicker="模型分布" title="模型调用构成" />
-     <div className="h-[260px]">
+     <div className="h-[260px] text-[var(--muted-foreground)]">
       {data.model_distribution.length > 0 ? (
        <ResponsiveContainer width="100%" height="100%">
         <PieChart>
@@ -411,7 +413,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           outerRadius={92}
           paddingAngle={4}
           dataKey="value"
-          stroke="rgba(255,255,255,0.88)"
+          stroke="var(--surface-1)"
           strokeWidth={3}
          >
           {data.model_distribution.map((entry, index) => (
@@ -420,13 +422,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
          </Pie>
          <Tooltip
           formatter={(value) => [formatNumber(Number(value)), '调用次数']}
-          contentStyle={{
-           borderRadius: 18,
-           border: '1px solid rgba(226,232,240,0.9)',
-           background: 'rgba(255,255,255,0.96)',
-           boxShadow: '0 18px 40px rgba(15,23,42,0.12)',
-           fontWeight: 700,
-          }}
+          contentStyle={TOOLTIP_STYLE}
          />
         </PieChart>
        </ResponsiveContainer>
@@ -441,9 +437,9 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
      <DistributionLegend items={data.model_distribution} />
     </PanelShell>
 
-    <PanelShell delay={0.30} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(254,240,138,0.22),rgba(255,255,255,0.34))]">
+    <PanelShell delay={0.30}>
      <PanelHeader icon={Activity} kicker="调用混合" title="模型与工具占比" />
-     <div className="h-[260px]">
+     <div className="h-[260px] text-[var(--muted-foreground)]">
       {callMix.length > 0 ? (
        <ResponsiveContainer width="100%" height="100%">
         <PieChart>
@@ -455,22 +451,16 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           outerRadius={96}
           paddingAngle={5}
           dataKey="value"
-          stroke="rgba(255,255,255,0.88)"
+          stroke="var(--surface-1)"
           strokeWidth={3}
          >
           {callMix.map((entry, index) => (
-           <Cell key={entry.name} fill={index === 0 ? '#0f172a' : '#14b8a6'} />
+           <Cell key={entry.name} fill={index === 0 ? CHART_COLORS[0] : CHART_COLORS[3]} />
           ))}
          </Pie>
          <Tooltip
           formatter={(value) => [formatNumber(Number(value)), '调用次数']}
-          contentStyle={{
-           borderRadius: 18,
-           border: '1px solid rgba(226,232,240,0.9)',
-           background: 'rgba(255,255,255,0.96)',
-           boxShadow: '0 18px 40px rgba(15,23,42,0.12)',
-           fontWeight: 700,
-          }}
+          contentStyle={TOOLTIP_STYLE}
          />
         </PieChart>
        </ResponsiveContainer>
@@ -501,9 +491,9 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
      </div>
     </PanelShell>
 
-    <PanelShell delay={0.36} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(196,181,253,0.22),rgba(255,255,255,0.34))]">
+    <PanelShell delay={0.36}>
      <PanelHeader icon={Hammer} kicker="工具分布" title="工具调用排行" />
-     <div className="h-[332px]">
+     <div className="h-[332px] text-[var(--muted-foreground)]">
       {data.tool_distribution.length > 0 ? (
        <ResponsiveContainer width="100%" height="100%">
         <BarChart layout="vertical" data={data.tool_distribution} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
@@ -512,7 +502,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           type="number"
           axisLine={false}
           tickLine={false}
-          tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
+          tick={AXIS_TICK}
           tickFormatter={formatTokenNumber}
          />
          <YAxis
@@ -520,18 +510,12 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           dataKey="name"
           axisLine={false}
           tickLine={false}
-          tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
+          tick={AXIS_TICK}
           width={92}
          />
          <Tooltip
           formatter={(value) => [formatNumber(Number(value)), '调用次数']}
-          contentStyle={{
-           borderRadius: 18,
-           border: '1px solid rgba(226,232,240,0.9)',
-           background: 'rgba(255,255,255,0.96)',
-           boxShadow: '0 18px 40px rgba(15,23,42,0.12)',
-           fontWeight: 700,
-          }}
+          contentStyle={TOOLTIP_STYLE}
          />
          <Bar dataKey="value" radius={[0, 12, 12, 0]} barSize={16}>
           {data.tool_distribution.map((entry, index) => (
@@ -550,11 +534,13 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
      </div>
     </PanelShell>
    </section>
+   </TabsContent>
 
+   <TabsContent value="users" className="mt-5">
    <section className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-    <PanelShell delay={0.42} tone="bg-[linear-gradient(135deg,rgba(255,255,255,0.58),rgba(125,211,252,0.22),rgba(255,255,255,0.36))]">
+    <PanelShell delay={0.42}>
      <PanelHeader icon={Trophy} kicker="用户热区" title="高负载用户分布" />
-     <div className="h-[340px]">
+     <div className="h-[340px] text-[var(--muted-foreground)]">
       {topUsersChartData.length > 0 ? (
        <ResponsiveContainer width="100%" height="100%">
         <BarChart layout="vertical" data={topUsersChartData} margin={{ top: 4, right: 12, bottom: 4, left: 8 }}>
@@ -563,7 +549,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           type="number"
           axisLine={false}
           tickLine={false}
-          tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
+          tick={AXIS_TICK}
           tickFormatter={formatNumber}
          />
          <YAxis
@@ -571,18 +557,12 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
           dataKey="name"
           axisLine={false}
           tickLine={false}
-          tick={{ fill: '#475569', fontSize: 12, fontWeight: 700 }}
+          tick={AXIS_TICK}
           width={84}
          />
          <Tooltip
           formatter={(value) => [formatTokenNumber(Number(value)), 'Token']}
-          contentStyle={{
-           borderRadius: 18,
-           border: '1px solid rgba(226,232,240,0.9)',
-           background: 'rgba(255,255,255,0.96)',
-           boxShadow: '0 18px 40px rgba(15,23,42,0.12)',
-           fontWeight: 700,
-          }}
+          contentStyle={TOOLTIP_STYLE}
          />
          <Bar dataKey="tokens" radius={[0, 12, 12, 0]} barSize={18}>
           {topUsersChartData.map((entry, index) => (
@@ -622,6 +602,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
       )}
      </section>
    </section>
-  </div>
+   </TabsContent>
+  </Tabs>
  );
 };

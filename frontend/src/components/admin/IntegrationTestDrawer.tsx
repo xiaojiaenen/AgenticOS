@@ -2,11 +2,13 @@
  * 集成管理：接口测试抽屉。
  * 从 IntegrationManagement.tsx 拆出，纯结构拆分，逻辑不变。
  */
+import * as React from 'react';
 import { Loader2, TestTube, X } from 'lucide-react';
 import { Button } from '@/components/shadcn/button';
 import { Input } from '@/components/shadcn/input';
 import { Label } from '@/components/shadcn/label';
 import { cn } from '@/lib/utils';
+import { useOverlayA11y } from '@/hooks/useOverlayA11y';
 import { IntegrationApi, IntegrationTestResult } from '@/services/integrationService';
 
 export type TestState = {
@@ -29,11 +31,19 @@ export function TestDrawer({
   onParamChange: (name: string, value: string) => void;
   onRun: () => void;
 }) {
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  useOverlayA11y(true, onClose, panelRef);
+
   if (!api) return null;
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/20" onMouseDown={onClose}>
       <div
-        className="h-full w-full max-w-md overflow-y-auto border-l border-[var(--border-subtle)] bg-[var(--surface-1)] p-6 shadow-lg"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`测试接口 ${api.display_name}`}
+        tabIndex={-1}
+        className="h-full w-full max-w-md overflow-y-auto border-l border-[var(--border-subtle)] bg-[var(--surface-1)] p-6 shadow-lg outline-none"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">

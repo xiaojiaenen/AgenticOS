@@ -77,10 +77,10 @@ export function AgentIntegrationsPanel({
                   {sys.description || '暂无描述'}
                 </p>
                 <div className="mt-2 flex gap-2">
-                  <span className="rounded-full border border-zinc-100 bg-[var(--surface-2)] px-2.5 py-1 text-[10px] font-semibold text-zinc-600">
+                  <span className="rounded-full border border-zinc-100 bg-[var(--surface-2)] px-2.5 py-1 text-[10px] font-semibold text-[var(--muted-foreground)]">
                     {sys.auth_type}
                   </span>
-                  <span className="rounded-full border border-zinc-100 bg-[var(--surface-2)] px-2.5 py-1 text-[10px] font-semibold text-zinc-600">
+                  <span className="rounded-full border border-zinc-100 bg-[var(--surface-2)] px-2.5 py-1 text-[10px] font-semibold text-[var(--muted-foreground)]">
                     {sys.api_count} API
                   </span>
                 </div>

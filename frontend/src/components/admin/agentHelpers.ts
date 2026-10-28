@@ -20,7 +20,16 @@ export const agentFormSchema = z
     description: z.string(),
     system_prompt: z.string().min(1, '系统提示词不能为空'),
     response_mode: z.enum(['general', 'ppt', 'website', 'email', 'bigdata', 'office']),
-    max_steps: z.union([z.number().int().min(1).max(2147483647), z.null()]),
+    max_steps: z
+      .union([
+        z
+          .number()
+          .int('最大步数必须是整数')
+          .min(1, '最大步数至少为 1')
+          .max(2147483647, '最大步数不能超过 2147483647'),
+        z.null(),
+      ])
+      .refine((v) => v === null || Number.isFinite(v), { message: '最大步数必须是有效数字' }),
     enabled: z.boolean(),
     listed: z.boolean(),
     audience_mode: z.enum(['all', 'selected']),

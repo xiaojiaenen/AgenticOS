@@ -22,9 +22,10 @@ export function PasswordField({
       <button
         type="button"
         onClick={() => setShow((v) => !v)}
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[var(--muted-foreground)] transition-colors hover:text-zinc-600"
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
         aria-label={show ? '隐藏密码' : '显示密码'}
-        tabIndex={-1}
+        aria-pressed={show}
+        tabIndex={0}
       >
         {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
       </button>

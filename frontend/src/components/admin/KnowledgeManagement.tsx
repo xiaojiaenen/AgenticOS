@@ -20,8 +20,10 @@ import {
   Plus,
   Search,
   Trash2,
+  Users,
 } from 'lucide-react';
 import { DataTable } from './data-table';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { AdminPageHeader, ErrorBanner, StatusPill } from './shared';
 import { Button } from '@/components/shadcn/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/shadcn/tabs';
@@ -53,7 +55,10 @@ import { KnowledgeGraph } from './KnowledgeGraph';
 import { KnowledgeDocumentsTab } from './KnowledgeDocumentsTab';
 import { KnowledgeWikiTab } from './KnowledgeWikiTab';
 import { KnowledgeSearchTab } from './KnowledgeSearchTab';
+import { KnowledgeACLTab } from './KnowledgeACLTab';
+import { getStoredUser } from '@/services/authTokenStore';
 import { scopeLabel, type DetailTab } from './knowledgeHelpers';
+import { toastError } from '../../lib/errors';
 
 export function KnowledgeManagement() {
   const queryClient = useQueryClient();
@@ -74,6 +79,13 @@ export function KnowledgeManagement() {
   });
   const knowledgeBases = kbsQuery.data ?? [];
 
+  // 共享成员只有库创建者与系统管理员能改（与后端 knowledge.py 的判定一致）
+  const currentUser = getStoredUser();
+  const canManageSelectedKB = Boolean(
+    selectedKB &&
+      (currentUser?.role === 'admin' || currentUser?.id === selectedKB.owner_id),
+  );
+
   const docsQuery = useQuery({
     queryKey: ['admin', 'kb-docs', selectedKB?.id],
     queryFn: () => getDocuments(selectedKB!.id),
@@ -92,7 +104,7 @@ export function KnowledgeManagement() {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'kb-docs'] });
       void queryClient.invalidateQueries({ queryKey: ['admin', 'kbs'] });
     },
-    onError: (err: Error) => toast.error(err.message || '上传失败'),
+    onError: (err: Error) => toast.error(toastError(err, '上传失败')),
   });
 
   const deleteDocMutation = useMutation({
@@ -103,7 +115,7 @@ export function KnowledgeManagement() {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'kb-docs'] });
       void queryClient.invalidateQueries({ queryKey: ['admin', 'kbs'] });
     },
-    onError: (err: Error) => toast.error(err.message || '删除失败'),
+    onError: (err: Error) => toast.error(toastError(err, '删除失败')),
   });
 
   const deleteKBMutation = useMutation({
@@ -117,13 +129,17 @@ export function KnowledgeManagement() {
       }
       void queryClient.invalidateQueries({ queryKey: ['admin', 'kbs'] });
     },
-    onError: (err: Error) => toast.error(err.message || '删除失败'),
+    onError: (err: Error) => toast.error(toastError(err, '删除失败')),
   });
 
   const searchMutation = useMutation({
     mutationFn: (query: string) => searchKnowledgeBase(selectedKB!.id, query),
     onSuccess: (results) => setSearchResults(results),
-    onError: (err: Error) => toast.error(err.message || '搜索失败'),
+    onError: (err: Error) => {
+      // 失败时清空旧结果，避免把上一次的成功结果误当成当前查询的命中
+      setSearchResults([]);
+      toast.error(toastError(err, '搜索失败'));
+    },
   });
 
   const openDetail = (kb: KnowledgeBase) => {
@@ -278,7 +294,7 @@ export function KnowledgeManagement() {
       />
 
       {kbsQuery.isError && view === 'list' ? (
-        <ErrorBanner message={(kbsQuery.error as Error).message || '加载失败'} />
+        <ErrorBanner message={toastError(kbsQuery.error, '加载失败')} onRetry={() => void kbsQuery.refetch()} />
       ) : null}
 
       {/* List View */}
@@ -289,11 +305,12 @@ export function KnowledgeManagement() {
             data={knowledgeBases}
             isLoading={kbsQuery.isLoading}
             emptyState={
-              <div className="flex flex-col items-center justify-center py-8">
-                <Database className="mb-3 h-10 w-10 text-zinc-300" />
-                <p className="text-sm font-semibold text-zinc-600">暂无知识库</p>
-                <p className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">点击「新建知识库」开始</p>
-              </div>
+              <EmptyState
+                size="compact"
+                icon={<Database className="size-4" />}
+                title="还没有知识库"
+                description="新建一个知识库并导入文档，智能体就能在回答时检索其中的内容。"
+              />
             }
           />
         </section>
@@ -302,6 +319,16 @@ export function KnowledgeManagement() {
       {/* Detail View */}
       {view === 'detail' && selectedKB && (
         <div className="space-y-4">
+          {docsQuery.isError || wikiQuery.isError ? (
+            <ErrorBanner
+              message={
+                (docsQuery.error as Error | null)?.message ||
+                (wikiQuery.error as Error | null)?.message ||
+                '详情数据加载失败'
+              }
+            />
+          ) : null}
+
           <Tabs value={detailTab} onValueChange={(v) => { setDetailTab(v as DetailTab); setSelectedPage(null); }}>
             <TabsList className="flex-wrap">
               <TabsTrigger value="documents" className="gap-1.5"><FileText className="h-3.5 w-3.5" />文档</TabsTrigger>
@@ -309,6 +336,7 @@ export function KnowledgeManagement() {
               <TabsTrigger value="search" className="gap-1.5"><Search className="h-3.5 w-3.5" />搜索测试</TabsTrigger>
               <TabsTrigger value="reviews" className="gap-1.5"><AlertCircle className="h-3.5 w-3.5" />审核队列</TabsTrigger>
               <TabsTrigger value="graph" className="gap-1.5"><Database className="h-3.5 w-3.5" />知识图谱</TabsTrigger>
+              <TabsTrigger value="acl" className="gap-1.5"><Users className="h-3.5 w-3.5" />共享成员</TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -317,6 +345,7 @@ export function KnowledgeManagement() {
             <KnowledgeDocumentsTab
               documents={documents}
               isLoading={docsQuery.isLoading}
+              isUploading={uploadMutation.isPending}
               onUpload={(file) => uploadMutation.mutate(file)}
               onDeleteDoc={setDeletingDoc}
             />
@@ -349,6 +378,14 @@ export function KnowledgeManagement() {
 
           {/* Graph Tab */}
           {detailTab === 'graph' && <KnowledgeGraph kbId={selectedKB.id} />}
+
+          {/* ACL Tab */}
+          {detailTab === 'acl' && (
+            <KnowledgeACLTab
+              kbId={selectedKB.id}
+              canManage={canManageSelectedKB}
+            />
+          )}
         </div>
       )}
 

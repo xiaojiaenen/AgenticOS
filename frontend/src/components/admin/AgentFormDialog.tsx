@@ -50,6 +50,7 @@ import {
   modeDefaultPrompt,
   type AgentFormValues,
 } from './agentHelpers';
+import { toastError } from '../../lib/errors';
 
 export function AgentFormDialog({
   open,
@@ -92,31 +93,40 @@ export function AgentFormDialog({
     },
   });
 
+  // 仅在「打开弹窗」或「切换编辑对象」时重置表单。
+  // catalog 通过 ref 读取，不作为依赖——否则工具目录 refetch（新引用）会覆盖用户正在编辑的内容。
+  const initKeyRef = React.useRef<string | null>(null);
+  const catalogRef = React.useRef(catalog);
+  catalogRef.current = catalog;
+
   React.useEffect(() => {
-    if (open) {
-      setRightTab('tools');
-      setExpandedTools(new Set());
-      form.reset(
-        editingProfile
-          ? draftFromProfile(editingProfile, catalog)
-          : {
-              name: '新的智能体',
-              slug: '',
-              description: '',
-              system_prompt: MODE_SYSTEM_PROMPTS.general,
-              response_mode: 'general',
-              max_steps: null,
-              enabled: true,
-              listed: false,
-              audience_mode: 'all',
-              audience_user_ids: [],
-              tools: defaultTools(catalog),
-              skill_ids: [],
-              external_systems: [],
-            },
-      );
-    }
-  }, [open, editingProfile, catalog, form]);
+    const key = open ? (editingProfile ? `edit:${editingProfile.id}` : 'new') : 'closed';
+    if (initKeyRef.current === key) return;
+    initKeyRef.current = key;
+    if (!open) return;
+    setRightTab('tools');
+    setExpandedTools(new Set());
+    const currentCatalog = catalogRef.current;
+    form.reset(
+      editingProfile
+        ? draftFromProfile(editingProfile, currentCatalog)
+        : {
+            name: '新的智能体',
+            slug: '',
+            description: '',
+            system_prompt: MODE_SYSTEM_PROMPTS.general,
+            response_mode: 'general',
+            max_steps: null,
+            enabled: true,
+            listed: false,
+            audience_mode: 'all',
+            audience_user_ids: [],
+            tools: defaultTools(currentCatalog),
+            skill_ids: [],
+            external_systems: [],
+          },
+    );
+  }, [open, editingProfile, form]);
 
   const saveMutation = useMutation({
     mutationFn: async (values: AgentFormValues) => {
@@ -144,7 +154,7 @@ export function AgentFormDialog({
       void queryClient.invalidateQueries({ queryKey: ['admin', 'agents'] });
       onClose();
     },
-    onError: (err: Error) => toast.error(err.message || '保存失败'),
+    onError: (err: Error) => toast.error(toastError(err, '保存失败')),
   });
 
   const audienceMode = form.watch('audience_mode');
@@ -262,10 +272,20 @@ export function AgentFormDialog({
                     placeholder="留空使用全局默认（10）"
                     value={maxSteps ?? ''}
                     onChange={(event) => {
-                      const v = event.target.value;
+                      const v = event.target.value.trim();
+                      if (v === '') {
+                        form.setValue('max_steps', null, { shouldDirty: true });
+                        return;
+                      }
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) {
+                        // 非数字输入（如 "abc"、"1e"）：回退为空，避免 NaN 进入表单状态
+                        form.setValue('max_steps', null, { shouldDirty: true });
+                        return;
+                      }
                       form.setValue(
                         'max_steps',
-                        v === '' ? null : Math.min(2147483647, Math.max(1, Number(v))),
+                        Math.min(2147483647, Math.max(1, Math.round(n))),
                         { shouldDirty: true },
                       );
                     }}
@@ -345,8 +365,8 @@ export function AgentFormDialog({
                                 className={cn(
                                   'flex min-w-0 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-all',
                                   selected
-                                    ? 'border-zinc-900 bg-zinc-100 text-zinc-900'
-                                    : 'border-[var(--border-subtle)] bg-[var(--surface-1)] text-zinc-600 hover:border-zinc-300',
+                                    ? 'border-zinc-900 bg-zinc-100 text-[var(--foreground)]'
+                                    : 'border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] hover:border-zinc-300',
                                 )}
                               >
                                 <span className="min-w-0">

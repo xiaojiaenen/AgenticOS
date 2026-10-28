@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Bot, Loader2, Plus, RefreshCw, Trash2, Wrench } from 'lucide-react';
 import { DataTable } from './data-table';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { AdminPageHeader, ErrorBanner, KpiPill } from './shared';
 import { Button } from '@/components/shadcn/button';
 import { Skeleton } from '@/components/shadcn/skeleton';
@@ -35,6 +36,7 @@ import { AgentMode } from '@/services/toolConfigService';
 import { listSystems } from '@/services/integrationService';
 import { AgentFormDialog } from './AgentFormDialog';
 import { modeLabel } from './agentHelpers';
+import { toastError } from '../../lib/errors';
 
 // ---------------------------------------------------------------------------
 // 主页面
@@ -79,7 +81,7 @@ export const AgentManagement = () => {
       setDeletingProfile(null);
       void queryClient.invalidateQueries({ queryKey: ['admin', 'agents'] });
     },
-    onError: (err: Error) => toast.error(err.message || '删除失败'),
+    onError: (err: Error) => toast.error(toastError(err, '删除失败')),
   });
 
   const enabledAgents = profiles.filter((profile) => profile.enabled).length;
@@ -129,7 +131,7 @@ export const AgentManagement = () => {
         cell: ({ row }) => {
           const profile = row.original;
           return (
-            <span className="text-sm font-medium text-zinc-600">
+            <span className="text-sm font-medium text-[var(--muted-foreground)]">
               {profile.tools.filter((tool) => tool.enabled).length} / {profile.tools.length}
             </span>
           );
@@ -149,7 +151,7 @@ export const AgentManagement = () => {
               {profile.skills.slice(0, 2).map((skill) => (
                 <span
                   key={skill.id}
-                  className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-2.5 py-0.5 text-[11px] font-medium text-zinc-600"
+                  className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--muted-foreground)]"
                 >
                   {skill.name}
                 </span>
@@ -204,7 +206,7 @@ export const AgentManagement = () => {
         accessorKey: 'updated_at',
         header: '更新时间',
         cell: ({ getValue }) => (
-          <span className="text-sm font-medium text-zinc-600">{formatApiDate(String(getValue()))}</span>
+          <span className="text-sm font-medium text-[var(--muted-foreground)]">{formatApiDate(String(getValue()))}</span>
         ),
       },
       {
@@ -252,7 +254,11 @@ export const AgentManagement = () => {
         <AdminPageHeader kicker="智能体配置" title="智能体目录" />
         <div className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
           {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton key={index} className="h-14 w-full" />
+            <div key={index} className="space-y-2 rounded-lg border border-[var(--border-subtle)] p-4">
+              <Skeleton className="h-4 w-1/4" />
+              <Skeleton className="h-3 w-1/3" />
+              <Skeleton className="h-3 w-2/3" />
+            </div>
           ))}
         </div>
       </div>
@@ -300,7 +306,16 @@ export const AgentManagement = () => {
       />
 
       {profilesQuery.isError ? (
-        <ErrorBanner message={(profilesQuery.error as Error).message || '智能体配置加载失败'} />
+        <ErrorBanner message={toastError(profilesQuery.error, '智能体配置加载失败')} onRetry={() => void profilesQuery.refetch()} />
+      ) : null}
+
+      {/* 辅助数据失败不阻塞主表格，但需要明确提示，避免把"加载失败"误读成"没有数据" */}
+      {usersQuery.isError || systemsQuery.isError ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+          {usersQuery.isError ? '用户列表加载失败，编辑弹窗中的「指定用户」范围暂不可用。' : ''}
+          {usersQuery.isError && systemsQuery.isError ? ' ' : ''}
+          {systemsQuery.isError ? '集成列表加载失败，编辑弹窗中的「集成」面板暂不可用。' : ''}
+        </div>
       ) : null}
 
       <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
@@ -308,13 +323,12 @@ export const AgentManagement = () => {
           columns={columns}
           data={profiles}
           emptyState={
-            <div className="flex flex-col items-center justify-center py-8">
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] shadow-sm">
-                <Bot size={20} />
-              </div>
-              <p className="text-sm font-semibold text-zinc-600">还没有智能体配置</p>
-              <p className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">先创建一个智能体，再绑定工具和 Skill</p>
-            </div>
+            <EmptyState
+              size="compact"
+              icon={<Bot className="size-4" />}
+              title="还没有智能体配置"
+              description="先创建一个智能体，再为它绑定工具和 Skill。"
+            />
           }
         />
       </section>

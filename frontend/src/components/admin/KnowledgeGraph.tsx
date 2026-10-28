@@ -7,6 +7,7 @@ import { Database, Loader2 } from 'lucide-react';
 import { ErrorBanner } from './shared';
 import { Button } from '@/components/shadcn/button';
 import { getKnowledgeGraph, type KnowledgeGraphData } from '@/services/knowledgeService';
+import { toastError } from '../../lib/errors';
 
 export function KnowledgeGraph({ kbId }: { kbId: number }) {
   const graphQuery = useQuery({
@@ -27,7 +28,7 @@ export function KnowledgeGraph({ kbId }: { kbId: number }) {
   if (graphQuery.isError) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-        <ErrorBanner message={(graphQuery.error as Error).message || '知识图谱加载失败'} />
+        <ErrorBanner message={toastError(graphQuery.error, '知识图谱加载失败')} onRetry={() => void graphQuery.refetch()} />
         <Button variant="outline" size="sm" onClick={() => void graphQuery.refetch()}>
           重试
         </Button>

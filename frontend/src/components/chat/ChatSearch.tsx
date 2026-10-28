@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ChatSearchProps {
@@ -21,7 +21,26 @@ export const ChatSearch: React.FC<ChatSearchProps> = ({
   onPrev,
   onNext,
   onClose
-}) => {  return (
+}) => {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  // Esc 关闭搜索浮层；匹配数通过 aria-live 播报给读屏用户
+  useEffect(() => {
+    if (!showSearch) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closeRef.current();
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [showSearch]);
+
+  const hasMatches = searchMatchesCount > 0;
+
+  return (
     <AnimatePresence>
       {showSearch && (
         <motion.div
@@ -43,8 +62,8 @@ export const ChatSearch: React.FC<ChatSearchProps> = ({
             className="w-full max-w-lg"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="bg-[var(--surface-1)] backdrop-blur-3xl border border-[var(--border-subtle)] shadow-2xl shadow-black/10 rounded-[2rem] px-6 py-2 flex items-center gap-3 w-full focus-within:ring-2 ring-sky-200 transition-all">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-sky-400">
+            <div className="bg-[var(--surface-1)] backdrop-blur-3xl border border-[var(--border-subtle)] shadow-2xl shadow-black/10 rounded-[2rem] px-6 py-2 flex items-center gap-3 w-full focus-within:ring-[3px] focus-within:ring-[var(--ring-halo)] transition-all">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--muted-foreground)]" aria-hidden="true">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
               </svg>
               <input
@@ -54,29 +73,35 @@ export const ChatSearch: React.FC<ChatSearchProps> = ({
                 className="bg-transparent border-none outline-none w-full text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] font-medium py-2"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="搜索当前会话消息"
               />
 
               {searchQuery && (
                 <div className="flex items-center gap-2 pr-2 border-r border-[var(--border-subtle)] mr-2">
-                  <span className="text-[10px] font-bold bg-slate-100 text-[var(--muted-foreground)] px-2.5 py-1 rounded-lg tabular-nums whitespace-nowrap">
-                    {searchCurrentIndex} / {searchMatchesCount}
+                  <span
+                    className="text-[10px] font-semibold bg-[var(--surface-2)] text-[var(--muted-foreground)] px-2.5 py-1 rounded-lg tabular-nums whitespace-nowrap"
+                    aria-live="polite"
+                  >
+                    {searchMatchesCount > 0 ? `${searchCurrentIndex} / ${searchMatchesCount}` : '无匹配'}
                   </span>
                   <div className="flex items-center">
                     <button
                       onClick={onPrev}
-                      className="p-1.5 hover:bg-sky-50 rounded-lg text-[var(--muted-foreground)] hover:text-sky-600 transition-colors"
+                      disabled={!hasMatches}
+                      className="p-1.5 hover:bg-[var(--surface-2)] rounded-lg text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       title="上一个"
                       aria-label="上一个匹配"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="rotate-180"><path d="m6 9 6 6 6-6"/></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="rotate-180" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                     </button>
                     <button
                       onClick={onNext}
-                      className="p-1.5 hover:bg-sky-50 rounded-lg text-[var(--muted-foreground)] hover:text-sky-600 transition-colors"
+                      disabled={!hasMatches}
+                      className="p-1.5 hover:bg-[var(--surface-2)] rounded-lg text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       title="下一个"
                       aria-label="下一个匹配"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="m6 9 6 6 6-6"/></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                     </button>
                   </div>
                 </div>
@@ -85,15 +110,15 @@ export const ChatSearch: React.FC<ChatSearchProps> = ({
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="p-1 hover:bg-sky-50 rounded-full text-[var(--muted-foreground)]"
+                  className="p-1 hover:bg-[var(--surface-2)] rounded-full text-[var(--muted-foreground)]"
                   aria-label="清除搜索"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
                 </button>
               )}
               <button
                 onClick={onClose}
-                className="text-xs font-bold text-[var(--muted-foreground)] hover:text-sky-600 px-3 py-1 bg-[var(--surface-2)] hover:bg-sky-50 rounded-full transition-colors whitespace-nowrap"
+                className="text-xs font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] px-3 py-1 bg-[var(--surface-2)] hover:bg-[var(--surface-1)] rounded-full transition-colors whitespace-nowrap"
                 aria-label="关闭搜索"
               >
                 取消

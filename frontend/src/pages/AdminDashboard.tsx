@@ -1,13 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
 import { AnnouncementManagement } from '../components/admin/AnnouncementManagement';
 import { AgentManagement } from '../components/admin/AgentManagement';
+import { LlmProviderManagement } from '../components/admin/LlmProviderManagement';
+import { ApiKeyManagement } from '../components/admin/ApiKeyManagement';
 import { ChatHistory } from '../components/admin/ChatHistory';
 import { DashboardCharts } from '../components/admin/DashboardCharts';
-import { DashboardStats, STATIC_CARD } from '../components/admin/DashboardStats';
+import { UsageRoutePanel } from '../components/admin/UsageRoutePanel';
+import { DashboardStats } from '../components/admin/DashboardStats';
 import { SkillManagement } from '../components/admin/SkillManagement';
 import { KnowledgeManagement } from '../components/admin/KnowledgeManagement';
 import { WebsiteDeployManagement } from '../components/admin/WebsiteDeployManagement';
@@ -15,25 +18,59 @@ import { SystemSettings } from '../components/admin/SystemSettings';
 import { IntegrationManagement } from '../components/admin/IntegrationManagement';
 import { UserManagement } from '../components/admin/UserManagement';
 import { MemoryPanel } from '../components/settings/MemoryPanel';
+import { PermissionManagement } from '../components/admin/PermissionManagement';
 import { ChartSkeleton } from '../components/ui/ChartSkeleton';
 import { Button } from '@/components/shadcn/button';
 import { MascotCool } from '../components/ui/AnimatedIcons';
-import { cn, formatNumber, formatTokenNumber } from '../lib/utils';
-import { getDashboardStats } from '../services/dashboardService';
+import { cn } from '../lib/utils';
+import { getDashboardStats, getUsageRoutes } from '../services/dashboardService';
 
 export const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const VALID_TABS = ['dashboard', 'history', 'users', 'permissions', 'agents', 'llm_providers', 'integrations', 'api_keys', 'skills', 'knowledge', 'website_deploys', 'announcements', 'settings', 'memory'];
+  // tab 与 URL hash 双向同步：刷新 / 分享链接不丢失当前管理页
+  const [activeTab, setActiveTab] = useState(() => {
+    const hash = window.location.hash.replace('#', '');
+    return VALID_TABS.includes(hash) ? hash : 'dashboard';
+  });
+
+  React.useEffect(() => {
+    const onHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (VALID_TABS.includes(hash)) setActiveTab(hash);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const changeTab = useCallback((tab: string) => {
+    setActiveTab(tab);
+    if (window.location.hash.replace('#', '') !== tab) {
+      window.history.replaceState(null, '', `#${tab}`);
+    }
+  }, []);
 
   // Admin uses the dark theme while mounted
   React.useEffect(() => {
     const root = document.documentElement;
     root.classList.add('dark');
     return () => {
-      // If user had dark mode, keep it; otherwise remove dark
-      const stored = localStorage.getItem('agenticos-theme');
-      if (stored !== 'dark' && stored !== 'system') {
-        root.classList.remove('dark');
+      // 离开后台时恢复用户真实主题偏好。注意 'system' 也必须解析：
+      // 此前直接不移除 dark 类，系统偏好浅色的用户会被永久卡在暗色模式。
+      let stored: string | null = null;
+      try {
+        stored = localStorage.getItem('agenticos-theme');
+      } catch {
+        stored = null;
       }
+      const resolved =
+        stored === 'dark' || stored === 'light'
+          ? stored
+          : window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light';
+      root.classList.remove('light', 'dark');
+      root.classList.add(resolved);
     };
   }, []);
 
@@ -53,6 +90,14 @@ export const AdminDashboard = () => {
     ? (dashboardQuery.error as Error).message || '仪表盘数据加载失败'
     : null;
 
+  // 用量路由审计：与主看板共用时间范围，但单独请求 —— 它是排障视图，
+  // 取数失败不该让整个看板变成错误页。
+  const usageRouteQuery = useQuery({
+    queryKey: ['admin', 'usage-routes', timeRange],
+    queryFn: () => getUsageRoutes(timeRange),
+    enabled: activeTab === 'dashboard',
+  });
+
   React.useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 1024;
@@ -66,38 +111,15 @@ export const AdminDashboard = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const headerInsights = useMemo(() => {
-    const summary = dashboardData?.summary;
-    if (!summary) {
-      return [
-        { label: '模型调用', value: '--' },
-        { label: '总运行', value: '--' },
-        { label: '总用户', value: '--' },
-        { label: '单会话 Token', value: '--' },
-      ];
-    }
-
-    return [
-      {
-        label: '模型调用',
-        value: formatNumber(summary.llm_calls),
-      },
-      {
-        label: '总运行',
-        value: formatNumber(summary.total_runs),
-      },
-      {
-        label: '总用户',
-        value: formatNumber(summary.total_users),
-      },
-      {
-        label: '单会话 Token',
-        value: formatTokenNumber(
-          summary.total_sessions > 0 ? Math.round(summary.total_tokens / summary.total_sessions) : 0,
-        ),
-      },
-    ];
-  }, [dashboardData]);
+  // 移动端侧栏打开时锁定背景滚动
+  React.useEffect(() => {
+    if (!isMobile || !isSidebarOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isMobile, isSidebarOpen]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -108,7 +130,7 @@ export const AdminDashboard = () => {
             <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
                     系统总览
                   </p>
                   <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-[var(--foreground)] lg:text-3xl">
@@ -116,7 +138,11 @@ export const AdminDashboard = () => {
                   </h1>
                 </div>
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-1 text-xs font-semibold text-[var(--muted-foreground)] shadow-sm">
+                  <div
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-1 text-xs font-semibold text-[var(--muted-foreground)] shadow-sm"
+                    role="status"
+                    aria-live="polite"
+                  >
                     {isDashboardLoading ? '正在同步数据' : '数据已同步'}
                   </div>
                   <Button
@@ -133,13 +159,18 @@ export const AdminDashboard = () => {
                     )}
                     刷新
                   </Button>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px' }}>
+                  <div
+                    role="group"
+                    aria-label="统计时间范围"
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px' }}
+                  >
                     {[7, 14, 30].map((d) => (
                       <button
                         key={d}
                         onClick={() => setTimeRange(d)}
-                        className={`rounded-lg px-2.5 py-1 font-medium transition-colors ${
-                          timeRange === d ? 'bg-zinc-900 text-white' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                        aria-pressed={timeRange === d}
+                        className={`rounded-lg px-2.5 py-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)] ${
+                          timeRange === d ? 'bg-[var(--primary)] text-[var(--primary-foreground)]' : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
                         }`}
                       >
                         {d}天
@@ -148,15 +179,7 @@ export const AdminDashboard = () => {
                   </div>
                 </div>
               </div>
-              {/* Quick insights —— 与下方 KPI 卡片共用 STATIC_CARD，保持两排视觉一致 */}
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {headerInsights.map((item) => (
-                  <div key={item.label} className={STATIC_CARD}>
-                    <span className="admin-muted text-[11px] font-semibold tracking-[0.08em]">{item.label}</span>
-                    <p className="admin-heading mt-2.5 text-xl font-semibold tracking-tight lg:text-2xl">{item.value}</p>
-                  </div>
-                ))}
-              </div>
+              {/* KPI 指标统一由下方 DashboardStats 呈现，此处不再重复一排快捷卡片 */}
             </section>
 
             {dashboardError && (
@@ -194,6 +217,7 @@ export const AdminDashboard = () => {
               <>
                 <DashboardStats summary={dashboardData.summary} />
                 <DashboardCharts data={dashboardData} />
+                {usageRouteQuery.data && <UsageRoutePanel data={usageRouteQuery.data} />}
               </>
             ) : null}
           </div>
@@ -202,10 +226,16 @@ export const AdminDashboard = () => {
         return <ChatHistory />;
       case 'users':
         return <UserManagement />;
+      case 'permissions':
+        return <PermissionManagement />;
       case 'agents':
         return <AgentManagement />;
+      case 'llm_providers':
+        return <LlmProviderManagement />;
       case 'integrations':
         return <IntegrationManagement />;
+      case 'api_keys':
+        return <ApiKeyManagement />;
       case 'skills':
         return <SkillManagement />;
       case 'knowledge':
@@ -248,7 +278,7 @@ export const AdminDashboard = () => {
         {isSidebarOpen && (
           <AdminSidebar
             activeTab={activeTab}
-            setActiveTab={setActiveTab}
+            setActiveTab={changeTab}
             isMobile={isMobile}
             isOpen={isSidebarOpen}
             onClose={() => setIsSidebarOpen(false)}

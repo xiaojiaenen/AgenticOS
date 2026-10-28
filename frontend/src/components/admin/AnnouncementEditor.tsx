@@ -89,7 +89,11 @@ export function AnnouncementEditor({
         <div className="md:col-span-2">
           <div className="mb-3 flex items-center justify-between">
             <Label>正文</Label>
-            <div className="flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-0.5">
+            <div
+              role="group"
+              aria-label="正文格式"
+              className="flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-0.5"
+            >
               {(Object.keys(FORMAT_META) as AnnouncementContentFormat[]).map((fmt) => {
                 const meta = FORMAT_META[fmt];
                 const active = formValues.content_format === fmt;
@@ -100,6 +104,7 @@ export function AnnouncementEditor({
                     variant={active ? 'secondary' : 'ghost'}
                     size="xs"
                     className="gap-1.5"
+                    aria-pressed={active}
                     onClick={() => form.setValue('content_format', fmt)}
                   >
                     <meta.icon size={14} />
@@ -180,7 +185,7 @@ export function AnnouncementEditor({
       </div>
 
       <div className="mt-6 grid gap-3 md:grid-cols-3">
-        <label className="flex items-start gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-4 text-sm font-medium text-zinc-600">
+        <label className="flex items-start gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-4 text-sm font-medium text-[var(--muted-foreground)]">
           <Checkbox
             className="mt-1"
             checked={formValues.is_published}
@@ -191,7 +196,7 @@ export function AnnouncementEditor({
             保存后直接进入发布状态，配合时间窗决定是否生效。
           </span>
         </label>
-        <label className="flex items-start gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-4 text-sm font-medium text-zinc-600">
+        <label className="flex items-start gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-4 text-sm font-medium text-[var(--muted-foreground)]">
           <Checkbox
             className="mt-1"
             checked={formValues.dismissible}
@@ -202,7 +207,7 @@ export function AnnouncementEditor({
             用户可以点右上角关闭，或点遮罩直接退出。
           </span>
         </label>
-        <label className="flex items-start gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-4 text-sm font-medium text-zinc-600">
+        <label className="flex items-start gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-4 text-sm font-medium text-[var(--muted-foreground)]">
           <Checkbox
             className="mt-1"
             checked={formValues.show_once}

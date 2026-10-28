@@ -40,6 +40,7 @@ import {
   fromLocalInputValue,
   type AnnouncementFormValues,
 } from './announcementHelpers';
+import { toastError } from '../../lib/errors';
 
 export const AnnouncementManagement = () => {
   const queryClient = useQueryClient();
@@ -58,8 +59,11 @@ export const AnnouncementManagement = () => {
     defaultValues: EMPTY_FORM,
   });
 
+  // 仅在公告数据首次加载成功时同步表单；refetch 不得覆盖用户正在编辑的内容
+  const syncedRef = React.useRef(false);
   React.useEffect(() => {
-    if (announcementsQuery.isSuccess) {
+    if (announcementsQuery.isSuccess && !syncedRef.current) {
+      syncedRef.current = true;
       if (items.length > 0) {
         setSelectedId(items[0].id);
         form.reset(formFromAnnouncement(items[0]));
@@ -68,20 +72,33 @@ export const AnnouncementManagement = () => {
         form.reset(EMPTY_FORM);
       }
     }
-    // 仅在数据首次加载时同步表单
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [announcementsQuery.isSuccess]);
 
+  // 切换公告 / 新建前若有未保存修改，先确认，避免静默丢失
+  const [pendingSwitch, setPendingSwitch] = React.useState<(() => void) | null>(null);
+  const guardSwitch = (action: () => void) => {
+    if (form.formState.isDirty) {
+      setPendingSwitch(() => action);
+      return;
+    }
+    action();
+  };
+
   const handleSelect = (item: Announcement) => {
-    setSelectedId(item.id);
-    form.reset(formFromAnnouncement(item));
-    setAiDialogOpen(false);
+    guardSwitch(() => {
+      setSelectedId(item.id);
+      form.reset(formFromAnnouncement(item));
+      setAiDialogOpen(false);
+    });
   };
 
   const handleCreateNew = () => {
-    setSelectedId(null);
-    form.reset(EMPTY_FORM);
-    setAiDialogOpen(false);
+    guardSwitch(() => {
+      setSelectedId(null);
+      form.reset(EMPTY_FORM);
+      setAiDialogOpen(false);
+    });
   };
 
   const saveMutation = useMutation({
@@ -112,7 +129,7 @@ export const AnnouncementManagement = () => {
       setSelectedId(saved.id);
       form.reset(formFromAnnouncement(saved));
     },
-    onError: (err: Error) => toast.error(err.message || '公告保存失败'),
+    onError: (err: Error) => toast.error(toastError(err, '公告保存失败')),
   });
 
   const deleteMutation = useMutation({
@@ -123,7 +140,7 @@ export const AnnouncementManagement = () => {
       form.reset(EMPTY_FORM);
       void queryClient.invalidateQueries({ queryKey: ['admin', 'announcements'] });
     },
-    onError: (err: Error) => toast.error(err.message || '公告删除失败'),
+    onError: (err: Error) => toast.error(toastError(err, '公告删除失败')),
   });
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
@@ -227,6 +244,34 @@ export const AnnouncementManagement = () => {
           <AnnouncementPreview values={formValues} />
         </div>
       </section>
+
+      {/* 未保存更改确认 */}
+      <AlertDialog
+        open={pendingSwitch !== null}
+        onOpenChange={(next) => !next && setPendingSwitch(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>放弃未保存的更改？</AlertDialogTitle>
+            <AlertDialogDescription>
+              当前编辑的公告有尚未保存的修改，切换后将丢失这些内容。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>继续编辑</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 text-white hover:bg-rose-600/90"
+              onClick={() => {
+                const action = pendingSwitch;
+                setPendingSwitch(null);
+                action?.();
+              }}
+            >
+              放弃更改
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* 删除确认 */}
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>

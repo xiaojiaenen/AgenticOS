@@ -5,7 +5,7 @@
  * 可用模式（general/ppt/website/email/bigdata）、以及**可勾选的工具**——
  * 工具按模式分组，每个工具可单独开关，高风险工具可标记"需人工审批"。
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
@@ -15,6 +15,18 @@ import {
 import { Button } from '../components/shadcn/button';
 import { Input } from '../components/shadcn/input';
 import { Badge } from '../components/ui/Badge';
+import { FormSkeleton } from '../components/ui/Skeletons';
+import { EmptyState } from '../components/ui/EmptyState';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/shadcn/alert-dialog';
 import { cn } from '../lib/utils';
 import {
   createAgentProfile,
@@ -148,6 +160,50 @@ export const AgentEditor: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const redirectTimerRef = useRef<number | null>(null);
+
+  // 离开保护：与初始快照比较，未保存修改时先确认
+  const initialSnapshotRef = useRef<string>('');
+  const currentSnapshot = () =>
+    JSON.stringify({
+      name,
+      description,
+      systemPrompt,
+      responseMode,
+      avatar,
+      visibility,
+      maxSteps,
+      enabledTools,
+      approvalTools,
+      selectedSkills,
+    });
+  const dirty = currentSnapshot() !== initialSnapshotRef.current;
+
+  // 卸载时清理未执行的跳转定时器，避免组件已卸载后调用 navigate
+  useEffect(
+    () => () => {
+      if (redirectTimerRef.current !== null) window.clearTimeout(redirectTimerRef.current);
+    },
+    [],
+  );
+
+  // 加载完成（或新建页首次就绪）后记录基线快照；此前不算"已修改"
+  useEffect(() => {
+    if (!loading) {
+      initialSnapshotRef.current = currentSnapshot();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  const goBack = () => {
+    if (dirty) {
+      setLeaveOpen(true);
+      return;
+    }
+    navigate('/agents');
+  };
 
   // 加载工具目录（编辑时还要回填已有配置）
   useEffect(() => {
@@ -238,6 +294,11 @@ export const AgentEditor: React.FC = () => {
       setError('请填写系统提示词，它决定智能体的行为方式');
       return;
     }
+    const parsedMaxSteps = maxSteps ? Number(maxSteps) : null;
+    if (parsedMaxSteps !== null && (!Number.isFinite(parsedMaxSteps) || parsedMaxSteps < 1 || parsedMaxSteps > 2147483647)) {
+      setError('最大步骤数需在 1 – 2147483647 之间');
+      return;
+    }
     setSaving(true);
     setError(null);
     setNotice(null);
@@ -253,7 +314,7 @@ export const AgentEditor: React.FC = () => {
         visibility,
         audience_mode: 'all' as const,
         audience_user_ids: [],
-        max_steps: maxSteps ? Number(maxSteps) : null,
+        max_steps: parsedMaxSteps,
         tools: buildToolsPayload(),
         skill_ids: selectedSkills,
       };
@@ -261,7 +322,9 @@ export const AgentEditor: React.FC = () => {
         ? await updateAgentProfile(editingId, payload)
         : await createAgentProfile(payload);
       setNotice(isEditing ? '已保存修改' : `「${saved.name}」创建成功`);
-      setTimeout(() => navigate('/agents'), 700);
+      // 保存后刷新基线快照，避免跳转前误弹离开确认
+      initialSnapshotRef.current = currentSnapshot();
+      redirectTimerRef.current = window.setTimeout(() => navigate('/agents'), 700);
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存失败');
     } finally {
@@ -271,20 +334,22 @@ export const AgentEditor: React.FC = () => {
 
   const handleDelete = async () => {
     if (!isEditing) return;
-    if (!window.confirm('确定删除这个智能体吗？此操作不可撤销。')) return;
     try {
       await deleteAgentProfile(editingId);
+      setDeleteOpen(false);
       navigate('/agents');
     } catch (err) {
+      setDeleteOpen(false);
       setError(err instanceof Error ? err.message : '删除失败');
     }
   };
 
   if (loading) {
+    // 骨架屏而不是整页 spinner：800 行的编辑表单用 spinner 等待时，
+    // 用户看到的是一片空白，既不知道在等什么，也不知道等多久。
     return (
-      <div className="flex min-h-screen items-center justify-center gap-3 text-sm text-[var(--muted-foreground)]">
-        <Loader2 className="animate-spin" size={18} />
-        正在加载
+      <div className="mx-auto w-full max-w-4xl px-5 py-10">
+        <FormSkeleton />
       </div>
     );
   }
@@ -297,13 +362,17 @@ export const AgentEditor: React.FC = () => {
     >
       <header className="sticky top-0 z-20 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-5">
-          <Button variant="ghost" onClick={() => navigate('/agents')} className="gap-2">
+          <Button variant="ghost" onClick={goBack} className="gap-2">
             <ArrowLeft size={16} />
             返回商店
           </Button>
           <div className="flex items-center gap-2">
             {isEditing && (
-              <Button variant="outline" onClick={handleDelete} className="gap-2 text-rose-600 hover:bg-rose-50">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteOpen(true)}
+                className="gap-2 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/15"
+              >
                 <Trash2 size={15} />
                 删除
               </Button>
@@ -318,7 +387,7 @@ export const AgentEditor: React.FC = () => {
 
       <main className="mx-auto w-full max-w-5xl px-5 py-8 pb-24">
         <div className="mb-8">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
             {isEditing ? 'Edit Agent' : 'New Agent'}
           </p>
           <h1 className="mt-1 text-3xl font-bold tracking-tight">
@@ -379,7 +448,7 @@ export const AgentEditor: React.FC = () => {
           <div className="min-w-0">
         {tab === 'basic' && (
           <section className="admin-card p-5">
-            <h2 className="mb-4 text-sm font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
               基本信息
             </h2>
             <label className="mb-4 block">
@@ -470,7 +539,7 @@ export const AgentEditor: React.FC = () => {
         {/* 提示词分区：原本塞在"行为设定"卡片里，拆成独立分区 */}
         {tab === 'prompt' && (
           <section className="admin-card p-5">
-            <h2 className="mb-4 text-sm font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
               提示词
             </h2>
             <label className="block">
@@ -488,21 +557,25 @@ export const AgentEditor: React.FC = () => {
             </label>
           </section>
         )}
-          </div>
-        </div>
+
         {/* 技能绑定（tab=skill） */}
         {tab === 'skill' && (
-          <section className="admin-card mt-5 p-5">
-            <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+          <section className="admin-card p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
               技能
             </h2>
             <p className="mt-1 text-xs text-[var(--muted-foreground)]">
               技能是"按什么流程做事"的说明书（如周报格式、巡检清单），与工具互补。
             </p>
             {skills.length === 0 ? (
-              <p className="mt-4 rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-6 text-center text-sm text-[var(--muted-foreground)]">
-                暂无可用技能
-              </p>
+              <div className="mt-4 rounded-xl border border-dashed border-[var(--border-subtle)]">
+                <EmptyState
+                  size="compact"
+                  icon={<BookOpen className="size-4" />}
+                  title="暂无可用技能"
+                  description="技能是「按什么流程做事」的说明书（如周报格式、巡检清单），由管理员在管理后台统一维护。技能创建后会自动出现在这里。"
+                />
+              </div>
             ) : (
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {skills.map((skill) => {
@@ -547,8 +620,8 @@ export const AgentEditor: React.FC = () => {
 
         {/* 知识库 / MCP：说明当前可用范围，避免误解 */}
         {(tab === 'knowledge' || tab === 'mcp') && (
-          <section className="admin-card mt-5 p-5">
-            <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+          <section className="admin-card p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
               {tab === 'knowledge' ? '知识库' : 'MCP'}
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-[var(--muted-foreground)]">
@@ -561,10 +634,10 @@ export const AgentEditor: React.FC = () => {
 
         {/* 工具配置 */}
         {tab === 'tool' && (
-        <section className="admin-card mt-5 p-5">
+        <section className="admin-card p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
                 可用工具
               </h2>
               <p className="mt-1 text-xs text-[var(--muted-foreground)]">
@@ -596,7 +669,7 @@ export const AgentEditor: React.FC = () => {
           <div className="grid gap-4 md:grid-cols-2">
             {grouped.map(([category, items]) => (
               <div key={category} className="admin-inset rounded-xl p-3">
-                <p className="mb-2 text-xs font-bold uppercase tracking-[0.1em] text-[var(--muted-foreground)]">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted-foreground)]">
                   {category}
                 </p>
                 <div className="flex flex-col gap-1">
@@ -666,6 +739,8 @@ export const AgentEditor: React.FC = () => {
           </div>
         </section>
         )}
+        </div>
+        </div>
 
         {/* 底部操作条 */}
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--border-subtle)] bg-[var(--surface-1)]/90 backdrop-blur-xl">
@@ -678,7 +753,7 @@ export const AgentEditor: React.FC = () => {
               )}
             </p>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => navigate('/agents')}>
+              <Button variant="outline" onClick={goBack}>
                 取消
               </Button>
               <Button onClick={handleSave} disabled={saving} className="gap-2">
@@ -688,6 +763,54 @@ export const AgentEditor: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* 删除确认 */}
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>删除智能体</AlertDialogTitle>
+              <AlertDialogDescription>
+                确定删除「{name.trim() || '未命名'}」吗？删除后无法恢复，用户将无法继续使用该智能体。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-rose-600 text-white hover:bg-rose-600/90"
+                onClick={(event) => {
+                  event.preventDefault();
+                  void handleDelete();
+                }}
+              >
+                确认删除
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* 离开确认 */}
+        <AlertDialog open={leaveOpen} onOpenChange={setLeaveOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>放弃未保存的更改？</AlertDialogTitle>
+              <AlertDialogDescription>
+                当前智能体配置有尚未保存的修改，离开将丢失这些内容。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>继续编辑</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-rose-600 text-white hover:bg-rose-600/90"
+                onClick={() => {
+                  setLeaveOpen(false);
+                  navigate('/agents');
+                }}
+              >
+                放弃更改
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </motion.div>
   );
