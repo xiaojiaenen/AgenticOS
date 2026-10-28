@@ -275,7 +275,7 @@ class McpService:
         子任务里的 ``CancelledError`` 不会污染父任务的 ``cancelling()``，
         于是既能把它识别成「这个服务器连不上」，又不会误吞外层的真取消。
         """
-        from wuwei.mcp import HTTPMCPClient, MCPToolAdapter, StdioMCPClient
+        from wuwei.mcp import HTTPMCPClient, StdioMCPClient
 
         # 服务器配置行（用于自签证书 / 网段 / 凭据来源）
         rows_by_name: dict[str, MCPServerModel] = {}

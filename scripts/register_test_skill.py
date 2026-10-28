@@ -3,13 +3,17 @@ import os
 import sys
 
 # Add backend to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "backend"))
 
 from app.db.session import create_db_session
 from app.db.models import SkillModel
 from sqlalchemy import select
 
-ROOT_DIR = os.path.join(os.path.dirname(__file__), "..", "backend", "data", "skills", "agenticos-test")
+# 技能目录在仓库根的 data/skills/（与 settings.skill_storage_dir 一致），
+# 不在 backend/data/skills/ —— 后者这个目录并不存在，原来的写法必然指向
+# 一个空路径，技能注册后也是坏的。
+ROOT_DIR = os.path.join(PROJECT_ROOT, "data", "skills", "agenticos-test")
 ROOT_DIR = os.path.abspath(ROOT_DIR)
 
 

@@ -115,6 +115,11 @@ CLAUDE.md
 # 手写的领域分析笔记已迁到 docs/research/业务领域分析笔记.md。
 business-docs/
 
+# MCP 客户端工具的个人配置（每人自己的 MCP 服务器偏好不同，不该进仓库）。
+# 注意：项目自身的 MCP 服务器配置走管理后台 + 数据库，不落在这里。
+config/mcporter.json
+.mcporter.json
+
 # Reasonix
 .reasonix/
 .todo

@@ -27,7 +27,6 @@ from fastapi.testclient import TestClient
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password
 from app.db.models import (
-    AgentProfileMCPServerModel,
     AgentProfileModel,
     ExternalSystemModel,
     ExternalUserCredentialModel,

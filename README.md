@@ -59,7 +59,7 @@ AgenticOS/
 │  ├─ docker-compose.yml / nginx/
 │  └─ intranet/              # 内网专用（爬虫、无头浏览器）
 ├─ business-docs/            # 「文章生成」工具的产物（不入库）
-├─ config/ scripts/ tests/   # 仓库级配置与脚本
+├─ scripts/ tests/           # 仓库级脚本与测试素材
 └─ AGENTS.md PRODUCT.md DESIGN.md CHANGELOG.md README.md
 ```
 
@@ -155,7 +155,7 @@ uv run python main.py
 
 补充说明：
 
-- 本地模式下，Skill 文件默认保存在 `backend/data/skills/`
+- 本地模式下，Skill 文件默认保存在 `data/skills/`（仓库根，可用 `SKILL_STORAGE_DIR` 覆盖）
 - 第一个注册的账号会自动成为管理员
 - Skill 工具默认开启审批，管理员可在后台继续调整
 
@@ -207,7 +207,7 @@ AgenticOS 的 Skill 系统允许智能体按需加载专业知识。每个 Skill
 
 ### Skill 存储位置
 
-- 本地模式：`backend/data/skills/`
+- 本地模式：`data/skills/`（仓库根，可用 `SKILL_STORAGE_DIR` 覆盖）
 - Docker 模式：`/app/data/skills/`
 
 ## 当前后端接口

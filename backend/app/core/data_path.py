@@ -19,8 +19,9 @@ from pathlib import Path
 # Project root — 4 levels up from backend/app/core/data_path.py
 # ---------------------------------------------------------------------------
 # main.py chdirs to the repo root at startup, but tests/CLI may run from
-# backend/ where a nested backend/data/ also exists. Prefer a root that
-# actually contains data/design-themes so theme assets resolve correctly.
+# backend/ — then both CWD and the file-based root point at backend/,
+# which has no data/design-themes. Prefer a root that actually contains
+# data/design-themes so theme assets resolve correctly.
 _CWD = Path.cwd()
 _FILE_BASED = Path(__file__).resolve().parents[3]
 
