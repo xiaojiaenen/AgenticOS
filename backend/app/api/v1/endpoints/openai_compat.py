@@ -246,8 +246,18 @@ async def run_local_completion(
         }
 
     async def event_stream() -> AsyncIterator[bytes]:
+        def _json_default(obj: Any) -> Any:
+            """兜底序列化：wuwei 3.2+ 的事件里可能携带 ActionLog 等 dataclass 对象。"""
+            import dataclasses
+
+            if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+                return dataclasses.asdict(obj)
+            if hasattr(obj, "model_dump"):
+                return obj.model_dump()
+            return str(obj)
+
         def _sse(obj: dict[str, Any]) -> bytes:
-            return f"data: {json.dumps(obj, ensure_ascii=False)}\n\n".encode()
+            return f"data: {json.dumps(obj, ensure_ascii=False, default=_json_default)}\n\n".encode()
 
         first = {
             "id": completion_id,

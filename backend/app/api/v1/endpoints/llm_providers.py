@@ -127,6 +127,24 @@ class RoleBindingPayload(BaseModel):
     roles: dict[str, str] = Field(default_factory=dict)
 
 
+class ProviderTestPayload(BaseModel):
+    """保存前试连：可提交尚未落库的表单配置。
+
+    ``provider_id`` 只在编辑场景有意义 —— Key 与账号池都留在库里，
+    表单里重新输入的 Key 优先；留空则沿用已保存的 Key。
+    """
+
+    provider_type: str = Field(default=provider_spec.PROVIDER_TYPE_OPENAI)
+    base_url: str = Field(default="", max_length=512)
+    model: str = Field(default="", max_length=128)
+    api_key: str | None = Field(default=None, max_length=2048)
+    timeout_seconds: int = Field(default=300, ge=1, le=3600)
+    max_tokens: int | None = Field(default=None, ge=1)
+    extra: dict = Field(default_factory=dict)
+    provider_id: int | None = None
+    deep: bool = False
+
+
 # ---------------------------------------------------------------------------
 # 内部工具
 # ---------------------------------------------------------------------------
@@ -402,6 +420,69 @@ async def test_llm_provider(
             "stage": result.get("stage"),
             "status_code": result.get("status_code"),
             "message": (result.get("message") or "")[:200],
+            "elapsed_ms": result.get("elapsed_ms"),
+        },
+    )
+    return result
+
+
+@router.post("/test")
+async def test_provider_draft(
+    payload: ProviderTestPayload,
+    http_request: Request,
+    current_user: UserModel = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    """保存前试连：直接测表单里尚未落库的配置。
+
+    没有这一步时，管理员只能「先保存一个可能错的配置 → 再点测试 →
+    再改」，错误的地址或 Key 会先被写进库、甚至被设为默认参与灰度。
+    """
+    base_url = (payload.base_url or "").strip().rstrip("/")
+    if not base_url:
+        return {
+            "ok": False,
+            "stage": "client",
+            "message": "接口地址不能为空",
+            "stages": [],
+            "elapsed_ms": 0,
+        }
+
+    api_key = (payload.api_key or "").strip() or None
+    key_source = "request" if api_key else "none"
+    # 编辑场景：表单不回传 Key，沿用库里已保存的那份
+    if api_key is None and payload.provider_id is not None:
+        row = provider_spec.get_provider(db, payload.provider_id)
+        if row is not None:
+            api_key = provider_spec.spec_from_row(row).api_key
+            key_source = "stored" if api_key else "none"
+
+    spec = provider_spec.ProviderSpec(
+        name="draft",
+        slug="draft",
+        provider_type=payload.provider_type,
+        base_url=base_url,
+        model=(payload.model or "").strip(),
+        api_key=api_key,
+        timeout_seconds=payload.timeout_seconds,
+        max_tokens=payload.max_tokens,
+        extra=dict(payload.extra or {}),
+        provider_id=payload.provider_id,
+        source="draft",
+    )
+    result = await runtime.test_provider(spec, deep=payload.deep)
+    _audit(
+        http_request, db, action="llm_provider.test_draft", current_user=current_user,
+        provider_id=payload.provider_id,
+        result="allow" if result.get("ok") else "error",
+        detail={
+            "provider_type": payload.provider_type,
+            "base_url": base_url[:200],
+            "model": spec.model,
+            # 只记 Key 的来源（表单新填 / 沿用已存），不记内容
+            "api_key_source": key_source,
+            "deep": payload.deep,
+            "stage": result.get("stage"),
             "elapsed_ms": result.get("elapsed_ms"),
         },
     )

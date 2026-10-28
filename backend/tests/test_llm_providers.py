@@ -1563,3 +1563,212 @@ def test_output_token_parameter_rejects_unknown_value():
     # 合法值不报错
     validate_extra({"output_token_parameter": "max_completion_tokens"})
     validate_extra({"output_token_parameter": "max_tokens"})
+
+
+# ---------------------------------------------------------------------------
+# 认证诊断：401/403 要说清「谁的错、下一步改什么」
+# ---------------------------------------------------------------------------
+
+
+def _bearer_spec(api_key: str, model: str = "auto/GLM-5.3-Flash"):
+    from app.services.llm_providers.spec import ProviderSpec
+
+    return ProviderSpec(
+        name="draft",
+        slug="draft",
+        provider_type="openai_compatible",
+        base_url="http://127.0.0.1:9/v1",
+        model=model,
+        api_key=api_key,
+    )
+
+
+def test_key_shape_hint_flags_short_key():
+    """把网关名字当 Key 填进去时，必须直接说「太短」，而不是让用户去猜 401。
+
+    实测踩过：provider 里存的是 ``magpie``（6 字符），界面上只显示
+    「认证被拒绝：Cookie 可能已失效」，完全指不到真正的原因。
+    """
+    from app.services.llm_providers import runtime as runtime_module
+
+    hint = runtime_module._key_shape_hint(_bearer_spec("magpie"), cookie=None)
+    assert hint is not None
+    assert "6 个字符" in hint
+
+
+def test_key_shape_hint_flags_whitespace_and_bearer_prefix():
+    from app.services.llm_providers import runtime as runtime_module
+
+    padded = runtime_module._key_shape_hint(_bearer_spec(" sk-" + "a" * 60 + " "), cookie=None)
+    assert padded is not None and "空白" in padded
+
+    prefixed = runtime_module._key_shape_hint(
+        _bearer_spec("Bearer sk-" + "a" * 60), cookie=None
+    )
+    assert prefixed is not None and "Bearer" in prefixed
+
+
+def test_key_shape_hint_silent_for_wellformed_key():
+    from app.services.llm_providers import runtime as runtime_module
+
+    assert runtime_module._key_shape_hint(_bearer_spec("sk-" + "a" * 60), cookie=None) is None
+    # Cookie 认证没有 Key 可查，不应误报
+    assert runtime_module._key_shape_hint(_bearer_spec("magpie"), cookie="SESSION=x") is None
+
+
+def test_auth_rejection_distinguishes_401_from_403(monkeypatch):
+    """401 与 403 语义不同：前者凭据不被接受，后者只是接口权限。
+
+    旧实现对两者共用一句「Cookie 可能已失效」，把「/models 只给管理员」这种
+    正常情况说成了认证失败。
+    """
+    from app.services.llm_providers import runtime as runtime_module
+
+    spec = _bearer_spec("sk-" + "a" * 60)
+    unauthorized = runtime_module._auth_rejection(
+        spec, url="http://x/v1/models", started=0.0, status_code=401,
+        body='{"error":"invalid api key"}', cookie=None,
+    )
+    assert unauthorized["ok"] is False
+    assert "401" in unauthorized["message"]
+    assert "API Key" in unauthorized["message"]
+    # 上游原文放 detail，不再拼进 message —— 拼进去会让同一段 JSON 在
+    # 摘要、认证、对话复核里重复三遍，把真正有用的提示挤到看不见。
+    assert "invalid api key" not in unauthorized["message"]
+    assert "invalid api key" in (unauthorized.get("detail") or "")
+
+    forbidden = runtime_module._auth_rejection(
+        spec, url="http://x/v1/models", started=0.0, status_code=403,
+        body="forbidden", cookie=None,
+    )
+    assert forbidden["ok"] is False
+    assert "403" in forbidden["message"]
+    # 403 要明确「Key 已被接受」，避免用户去改一个正确的 Key
+    assert "已被接受" in forbidden["message"]
+
+
+def test_auth_rejection_for_cookie_mentions_login_state():
+    from app.services.llm_providers import runtime as runtime_module
+    from app.services.llm_providers.spec import ProviderSpec
+
+    spec = ProviderSpec(
+        name="ent", slug="ent", provider_type="enterprise_cookie",
+        base_url="http://x/v1", model="m", api_key=None,
+    )
+    result = runtime_module._auth_rejection(
+        spec, url="http://x/models", started=0.0, status_code=401,
+        body="", cookie="SESSION=stale",
+    )
+    assert "Cookie" in result["message"]
+    assert result.get("auth_kind") == "cookie"
+
+
+def test_test_provider_falls_back_to_chat_when_models_is_restricted(monkeypatch):
+    """``/models`` 被 403 拒、但对话接口通 → 认证应判为有效。
+
+    很多 OpenAI 兼容网关只对管理员开放模型清单。只凭 /models 判「认证失败」
+    会让人反复去改一份本来正确的 Key。
+    """
+    from app.services.llm_providers import runtime as runtime_module
+
+    async def ok_network(spec, transport):
+        return {"stage": "network", "ok": True, "elapsed_ms": 1}
+
+    async def forbidden_registry(spec, transport, headers):
+        return (
+            {"stage": "auth", "ok": False, "elapsed_ms": 1, "status_code": 403,
+             "message": "接口拒绝访问（HTTP 403）"},
+            [],
+        )
+
+    async def ok_chat(spec, transport, headers, *, model, with_tools):
+        return {
+            "stage": "tools" if with_tools else "chat",
+            "ok": True, "elapsed_ms": 1, "status_code": 200, "content": "ok",
+        }
+
+    monkeypatch.setattr(runtime_module, "_probe_network", ok_network)
+    monkeypatch.setattr(runtime_module, "_probe_registry", forbidden_registry)
+    monkeypatch.setattr(runtime_module, "_probe_chat", ok_chat)
+
+    import asyncio
+
+    result = asyncio.run(runtime_module.test_provider(_bearer_spec("sk-" + "a" * 60)))
+
+    assert result["ok"] is True
+    # 全部通过时摘要固定是「全部检查通过」，受限差异放在 note 里
+    assert "对话接口已验证可用" in (result.get("note") or "")
+    # 认证阶段被原地改写成通过，不能留一条「第一个失败阶段」把结论带偏
+    auth_stage = next(item for item in result["stages"] if item["stage"] == "auth")
+    assert auth_stage["ok"] is True
+
+
+def test_test_provider_keeps_failure_when_chat_also_rejects(monkeypatch):
+    """``/models`` 和对话都被拒 → 仍然是认证失败，且摘要指向认证阶段。"""
+    from app.services.llm_providers import runtime as runtime_module
+
+    async def ok_network(spec, transport):
+        return {"stage": "network", "ok": True, "elapsed_ms": 1}
+
+    async def forbidden_registry(spec, transport, headers):
+        return (
+            {"stage": "auth", "ok": False, "elapsed_ms": 1, "status_code": 401,
+             "message": "认证被拒绝（HTTP 401）：上游不认这个 API Key"},
+            [],
+        )
+
+    async def rejected_chat(spec, transport, headers, *, model, with_tools):
+        return {
+            "stage": "chat", "ok": False, "elapsed_ms": 1, "status_code": 401,
+            "message": "unauthorized",
+        }
+
+    monkeypatch.setattr(runtime_module, "_probe_network", ok_network)
+    monkeypatch.setattr(runtime_module, "_probe_registry", forbidden_registry)
+    monkeypatch.setattr(runtime_module, "_probe_chat", rejected_chat)
+
+    import asyncio
+
+    result = asyncio.run(runtime_module.test_provider(_bearer_spec("sk-" + "a" * 60)))
+
+    assert result["ok"] is False
+    assert result["stage"] == "auth"
+
+
+def test_deep_probe_does_not_spend_tokens_twice(monkeypatch):
+    """深度检测：认证复核阶段已经发过一条对话，就不再重复发第二次。"""
+    from app.services.llm_providers import runtime as runtime_module
+
+    calls = {"chat": 0, "stream": 0, "tools": 0}
+
+    async def ok_network(spec, transport):
+        return {"stage": "network", "ok": True, "elapsed_ms": 1}
+
+    async def forbidden_registry(spec, transport, headers):
+        return (
+            {"stage": "auth", "ok": False, "elapsed_ms": 1, "status_code": 403,
+             "message": "forbidden"},
+            [],
+        )
+
+    async def chat(spec, transport, headers, *, model, with_tools):
+        calls["tools" if with_tools else "chat"] += 1
+        return {"stage": "tools" if with_tools else "chat", "ok": True, "elapsed_ms": 1}
+
+    async def stream(spec, transport, headers, *, model):
+        calls["stream"] += 1
+        return {"stage": "stream", "ok": True, "elapsed_ms": 1, "frames": 3}
+
+    monkeypatch.setattr(runtime_module, "_probe_network", ok_network)
+    monkeypatch.setattr(runtime_module, "_probe_registry", forbidden_registry)
+    monkeypatch.setattr(runtime_module, "_probe_chat", chat)
+    monkeypatch.setattr(runtime_module, "_probe_stream", stream)
+
+    import asyncio
+
+    result = asyncio.run(runtime_module.test_provider(_bearer_spec("sk-" + "a" * 60), deep=True))
+
+    assert result["ok"] is True
+    assert calls["chat"] == 1, "认证复核已发过对话，深度阶段不该再发一次"
+    assert calls["stream"] == 1
+    assert calls["tools"] == 1

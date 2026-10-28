@@ -16,18 +16,18 @@ import { toast } from 'sonner';
 import {
   Activity,
   AlertTriangle,
-  CheckCircle2,
   Download,
   Loader2,
   Plus,
   RefreshCw,
+  Search,
   ShieldCheck,
   Star,
   Trash2,
-  XCircle,
   Zap,
 } from 'lucide-react';
 import { Button } from '@/components/shadcn/button';
+import { Input } from '@/components/shadcn/input';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,7 +38,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/shadcn/alert-dialog';
-import { AdminPageHeader, ErrorBanner, StatusPill } from './shared';
+import {
+  AdminPageHeader,
+  AdminPanel,
+  AdminToolbar,
+  ErrorBanner,
+  SectionHeading,
+  StatusPill,
+} from './shared';
+import { Pagination } from './Pagination';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ListSkeleton } from '@/components/ui/Skeletons';
 import { LlmProviderDialog } from './LlmProviderDialog';
@@ -55,6 +63,8 @@ import {
 } from '@/services/llmProviderService';
 import { toastError } from '../../lib/errors';
 
+const PAGE_SIZE = 10;
+
 function relativeTime(value: string | null): string {
   if (!value) return '—';
   const date = new Date(value);
@@ -62,78 +72,48 @@ function relativeTime(value: string | null): string {
   return date.toLocaleString('zh-CN', { hour12: false });
 }
 
-/** 测试结果按 stage 给出可执行的话，而不是回显 HTTP 状态码 */
-function describeTest(result: ProviderTestResult): string {
-  if (result.ok) {
-    const models = result.model_count ? `，可用模型 ${result.model_count} 个` : '';
-    const mismatch =
-      result.configured_model_available === false
-        ? '（注意：配置的模型不在返回列表里，调用可能失败）'
-        : '';
-    return `连接正常${models}${mismatch}`;
-  }
-  if (result.stage === 'network') return result.message || '网络不可达';
-  if (result.stage === 'auth') return result.message || '认证被拒绝';
-  return result.message || `HTTP ${result.status_code ?? '?'}`;
-}
-
-const STAGE_LABELS: Record<string, string> = {
-  network: '网络',
-  auth: '认证',
-  chat: '对话',
-  stream: '流式',
-  tools: '工具调用',
-  client: '客户端',
-};
-
 /**
- * 分阶段结果。
+ * 测试结论 → toast。
  *
- * 只显示「失败在第几步、这一步说明什么」—— 排障时最有价值的不是 HTTP 码，
- * 而是「TLS 没过」和「认证过了但模型名不对」这种可直接行动的区分。
+ * 测试结果是一次性反馈，**不该占列表位置**：之前把它渲染成常驻结果条，
+ * 一条失败就能把后面几个提供商挤下去（实测截图里整屏被一块错误占满）。
+ * toast 承载「一句话结论 + 一句建议」；上游原文（几百字符 JSON）放不进 toast，
+ * 也不该放 —— 需要原文的场景是排障，那里有 `console` 与各阶段的 detail。
  */
-function TestStages({ stages }: { stages: ProviderTestResult['stages'] }) {
-  if (!stages || stages.length === 0) return null;
-  return (
-    <ul className="mt-1 space-y-0.5">
-      {stages.map((stage) => (
-        <li key={stage.stage} className="flex flex-wrap items-baseline gap-1.5">
-          <span
-            className={
-              stage.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'
-            }
-          >
-            {stage.ok ? '✓' : '✕'}
-          </span>
-          <span className="font-semibold">{STAGE_LABELS[stage.stage] ?? stage.stage}</span>
-          <span className="opacity-80">
-            {stage.ok
-              ? stage.stage === 'tools'
-                ? stage.message || '接受 tools 字段'
-                : stage.stage === 'stream'
-                  ? `收到 ${stage.frames ?? 0} 帧${stage.content ? ` · 首字 ${stage.content}` : ''}`
-                  : stage.stage === 'chat'
-                    ? `回复 ${stage.content || '（空）'}${stage.total_tokens ? ` · ${stage.total_tokens} tokens` : ''}`
-                    : stage.stage === 'network'
-                      ? `HTTP ${stage.status_code ?? '—'}`
-                      : `通过${stage.model_count ? ` · ${stage.model_count} 个模型` : ''}`
-              : stage.message || '失败'}
-          </span>
-          {stage.hint ? <span className="opacity-70">（{stage.hint}）</span> : null}
-          <span className="opacity-50">{stage.elapsed_ms}ms</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
+function toastTestResult(result: ProviderTestResult, deep: boolean) {
+  const label = deep ? '深度检测' : '连通性测试';
+  const seconds = result.elapsed_ms ? `（${result.elapsed_ms}ms）` : '';
 
+  if (result.ok) {
+    const parts = [`可用模型 ${result.model_count ?? 0} 个`];
+    if (deep) {
+      const stream = result.stages.find((stage) => stage.stage === 'stream');
+      const tools = result.stages.find((stage) => stage.stage === 'tools');
+      if (stream?.frames) parts.push(`流式 ${stream.frames} 帧`);
+      if (tools?.ok) parts.push('工具调用可用');
+    }
+    if (result.configured_model_available === false) {
+      parts.push('注意：配置的模型不在返回列表里');
+    }
+    toast.success(`${label}通过${seconds}`, { description: parts.join(' · ') });
+    if (result.note) {
+      toast.info('补充说明', { description: result.note });
+    }
+    return;
+  }
+
+  // 失败：标题只放结论，描述放建议 —— 长原文不进 toast
+  const description = [result.hint, result.note].filter(Boolean).join(' · ') || undefined;
+  toast.error(`${label}失败：${result.message || '未知原因'}`, { description });
+}
 export function LlmProviderManagement() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<LlmProvider | null>(null);
   const [expanded, setExpanded] = useState<{ id: number; tab: 'accounts' | 'models' } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<LlmProvider | null>(null);
-  const [testResults, setTestResults] = useState<Record<number, ProviderTestResult>>({});
+  const [filter, setFilter] = useState('');
+  const [page, setPage] = useState(1);
 
   const providersQuery = useQuery({
     queryKey: ['admin', 'llm-providers'],
@@ -161,13 +141,13 @@ export function LlmProviderManagement() {
   const testMutation = useMutation({
     mutationFn: ({ id, deep }: { id: number; deep: boolean }) => testLlmProvider(id, deep),
     onSuccess: (result, vars) => {
-      setTestResults((prev) => ({ ...prev, [vars.id]: result }));
+      toastTestResult(result, vars.deep);
     },
     onError: (err: Error, vars) => {
-      setTestResults((prev) => ({
-        ...prev,
-        [vars.id]: { ok: false, stage: 'client', message: err.message, stages: [] },
-      }));
+      toastTestResult(
+        { ok: false, stage: 'client', message: err.message, stages: [] },
+        vars.deep,
+      );
     },
   });
 
@@ -200,74 +180,61 @@ export function LlmProviderManagement() {
     setDialogOpen(true);
   };
 
+  // 本地过滤 + 客户端分页：提供商一般是个位数到几十条，
+  // 直接一次拉全量比做服务端分页简单，也不会出现「翻页时筛选项丢失」。
+  const visible = providers.filter((provider) => {
+    const needle = filter.trim().toLowerCase();
+    if (!needle) return true;
+    return [provider.name, provider.slug, provider.base_url, provider.model, provider.provider_type_label]
+      .join(' ')
+      .toLowerCase()
+      .includes(needle);
+  });
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageItems = visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   if (providersQuery.isError) {
     // 不整页替换：整页 return 会把页头、刷新、导入、新建按钮一起带走，
     // 用户看到一条红色横幅却连「重试」都点不到 —— 只能刷新整个浏览器。
     // 这里保留完整页面骨架，把错误降级成页头下方的一条可恢复横幅。
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <AdminPageHeader
           kicker="AI Providers"
           title="AI 提供商"
           description="全站共用的大模型后端。切换默认提供商后，所有智能体与提示词优化都改用它。"
-          actions={
-            <>
-              <Button variant="outline" size="sm" onClick={invalidate}>
-                <RefreshCw className="mr-1.5 h-4 w-4" />
-                刷新
-              </Button>
-              <Button size="sm" onClick={openCreate}>
-                <Plus className="mr-1.5 h-4 w-4" />
-                新建提供商
-              </Button>
-            </>
-          }
         />
         <ErrorBanner
           message={toastError(providersQuery.error, '提供商列表加载失败')}
           onRetry={() => void providersQuery.refetch()}
         />
+        <AdminToolbar>
+          <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={invalidate}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            刷新
+          </Button>
+          <Button size="sm" className="h-8 gap-1.5" onClick={openCreate}>
+            <Plus className="h-3.5 w-3.5" />
+            新建提供商
+          </Button>
+        </AdminToolbar>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <AdminPageHeader
         kicker="AI Providers"
         title="AI 提供商"
         description="全站共用的大模型后端。切换默认提供商后，所有智能体与提示词优化都改用它。"
-        actions={
-          <>
-            <Button variant="outline" size="sm" onClick={invalidate}>
-              <RefreshCw className="mr-1.5 h-4 w-4" />
-              刷新
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => importMutation.mutate()}
-              disabled={importMutation.isPending}
-            >
-              {importMutation.isPending ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-1.5 h-4 w-4" />
-              )}
-              从环境变量导入
-            </Button>
-            <Button size="sm" onClick={openCreate}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              新建提供商
-            </Button>
-          </>
-        }
       />
 
-      {/* 当前生效来源 */}
+      {/* 当前生效来源：一条紧凑的状态带，不占整张卡片 */}
       {active ? (
         active.source === 'env' ? (
-          <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/40 dark:bg-amber-500/10">
+          <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 dark:border-amber-500/40 dark:bg-amber-500/10">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
             <div className="min-w-0 text-sm">
               <p className="font-semibold text-amber-800 dark:text-amber-200">
@@ -284,7 +251,7 @@ export function LlmProviderManagement() {
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-500/40 dark:bg-emerald-500/10">
+          <div className="flex items-center gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 dark:border-emerald-500/40 dark:bg-emerald-500/10">
             <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300" />
             <p className="min-w-0 text-sm font-medium text-emerald-800 dark:text-emerald-200">
               生效中：<span className="font-semibold">{active.name}</span>
@@ -294,6 +261,62 @@ export function LlmProviderManagement() {
           </div>
         )
       ) : null}
+
+      {/* 工具条：搜索 + 统计 + 刷新，替代原来单独一张筛选卡片 */}
+      <AdminToolbar>
+        <div className="relative">
+          <Search
+            size={13}
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+          />
+          <Input
+            value={filter}
+            onChange={(event) => {
+              setFilter(event.target.value);
+              setPage(1);
+            }}
+            placeholder="搜索名称 / 地址 / 模型"
+            aria-label="搜索提供商"
+            className="h-8 w-60 pl-7 text-xs"
+          />
+        </div>
+        <span className="text-[11px] font-medium text-[var(--muted-foreground)]">
+          共 {providers.length} 个
+          {visible.length !== providers.length ? ` · 命中 ${visible.length}` : ''}
+        </span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={invalidate}
+            disabled={providersQuery.isFetching}
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${providersQuery.isFetching ? 'animate-spin' : ''}`}
+            />
+            刷新
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={() => importMutation.mutate()}
+            disabled={importMutation.isPending}
+          >
+            {importMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            从环境变量导入
+          </Button>
+          <Button size="sm" className="h-8 gap-1.5" onClick={openCreate}>
+            <Plus className="h-3.5 w-3.5" />
+            新建提供商
+          </Button>
+        </div>
+      </AdminToolbar>
 
       {/* 列表 */}
       {providersQuery.isLoading ? (
@@ -308,21 +331,30 @@ export function LlmProviderManagement() {
             secondaryAction={{ label: '从环境变量导入', onClick: () => importMutation.mutate() }}
           />
         </div>
+      ) : visible.length === 0 ? (
+        <AdminPanel className="px-4 py-12 text-center">
+          <p className="text-sm font-medium text-[var(--foreground)]">没有匹配的提供商</p>
+          <p className="mt-1 text-xs text-[var(--muted-foreground)]">换个关键词，或清空搜索框</p>
+          <Button size="sm" variant="outline" className="mt-3" onClick={() => setFilter('')}>
+            清空搜索
+          </Button>
+        </AdminPanel>
       ) : (
-        <div className="space-y-3">
-          {providers.map((provider) => {
-            const test = testResults[provider.id];
+        <AdminPanel>
+          <SectionHeading
+            title={`提供商 · ${visible.length}`}
+            description="测试 = 轻量（网络/凭据/模型清单）；深度检测 = 再真发对话、流式与工具调用"
+          />
+          <ul className="divide-y divide-[var(--border-subtle)]">
+          {pageItems.map((provider) => {
             const activeTab = expanded?.id === provider.id ? expanded.tab : null;
             const testing = testMutation.isPending && testMutation.variables?.id === provider.id;
             return (
-              <section
-                key={provider.id}
-                className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm"
-              >
-                <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-semibold text-[var(--foreground)]">
+              <li key={provider.id} className="transition-colors hover:bg-[var(--surface-2)]/60">
+                <div className="flex flex-col gap-2.5 px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <h3 className="text-sm font-semibold text-[var(--foreground)]">
                         {provider.name}
                       </h3>
                       {provider.is_active ? (
@@ -350,46 +382,48 @@ export function LlmProviderManagement() {
                         <StatusPill tone="warning">缺 Key</StatusPill>
                       )}
                     </div>
-                    <p className="break-all font-mono text-xs font-medium text-[var(--muted-foreground)]">
+                    {/* 一行放完地址与元信息：卡片式布局里这些各占一行，长列表要一直往下滚 */}
+                    <p className="mt-1 truncate font-mono text-[11px] font-medium text-[var(--muted-foreground)]">
                       {provider.base_url}
                       {provider.model ? ` · ${provider.model}` : ''}
-                      <span className="ml-2 opacity-70">slug: {provider.slug}</span>
+                      <span className="ml-2 opacity-70">{provider.slug}</span>
+                      <span className="ml-2 opacity-70">更新 {relativeTime(provider.updated_at)}</span>
                     </p>
                     {provider.description ? (
-                      <p className="text-xs font-medium text-[var(--muted-foreground)]">
+                      <p className="mt-0.5 truncate text-[11px] font-medium text-[var(--muted-foreground)] opacity-80">
                         {provider.description}
                       </p>
                     ) : null}
-                    <p className="text-[11px] font-medium text-[var(--muted-foreground)] opacity-70">
-                      更新于 {relativeTime(provider.updated_at)}
-                    </p>
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                     <Button
                       size="sm"
                       variant="outline"
+                      className="h-8 gap-1.5 px-2.5"
                       onClick={() => testMutation.mutate({ id: provider.id, deep: false })}
                       disabled={testMutation.isPending}
+                      title="轻量检测：只验证网络可达 + 凭据被接受 + 模型清单，不消耗上游额度"
                     >
                       {testing ? (
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        <Zap className="mr-1.5 h-3.5 w-3.5" />
+                        <Zap className="h-3.5 w-3.5" />
                       )}
                       测试
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
+                      className="h-8 gap-1.5 px-2.5"
                       onClick={() => testMutation.mutate({ id: provider.id, deep: true })}
                       disabled={testMutation.isPending}
-                      title="真实发一条对话并验证 function calling（会消耗上游额度）"
+                      title="深度检测：轻量检测通过后，再真实发一条对话、一条流式请求、一次带 tools 的请求。能验证「模型名对不对、流式能不能用、工具调用透不透传」，但会消耗上游额度。"
                     >
                       {testing ? (
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        <Activity className="mr-1.5 h-3.5 w-3.5" />
+                        <Activity className="h-3.5 w-3.5" />
                       )}
                       深度检测
                     </Button>
@@ -397,76 +431,59 @@ export function LlmProviderManagement() {
                       <Button
                         size="sm"
                         variant="outline"
+                        className="h-8 gap-1.5 px-2.5"
                         onClick={() => defaultMutation.mutate(provider.id)}
                         disabled={defaultMutation.isPending || !provider.enabled}
+                        title="设为默认提供商"
                       >
-                        <Star className="mr-1.5 h-3.5 w-3.5" />
+                        <Star className="h-3.5 w-3.5" />
                         设为默认
                       </Button>
                     ) : null}
                     <Button
                       size="sm"
                       variant={activeTab === 'models' ? 'secondary' : 'outline'}
+                      className="h-8 px-2.5"
                       onClick={() =>
                         setExpanded(activeTab === 'models' ? null : { id: provider.id, tab: 'models' })
                       }
                     >
-                      {activeTab === 'models' ? '收起模型' : '模型'}
+                      模型
                     </Button>
                     {provider.needs_cookie ? (
                       <Button
                         size="sm"
                         variant={activeTab === 'accounts' ? 'secondary' : 'outline'}
+                        className="h-8 px-2.5"
                         onClick={() =>
                           setExpanded(
                             activeTab === 'accounts' ? null : { id: provider.id, tab: 'accounts' },
                           )
                         }
                       >
-                        {activeTab === 'accounts'
-                          ? '收起账号'
-                          : `账号池${provider.account_count ? ` (${provider.account_count})` : ''}`}
+                        账号{provider.account_count ? ` ${provider.account_count}` : ''}
                       </Button>
                     ) : null}
-                    <Button size="sm" variant="outline" onClick={() => openEdit(provider)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2.5"
+                      onClick={() => openEdit(provider)}
+                    >
                       编辑
                     </Button>
                     <Button
-                      size="sm"
+                      size="icon-sm"
                       variant="ghost"
-                      className="text-red-600 hover:text-red-700 dark:text-red-400"
+                      className="h-8 w-8 text-red-600 hover:text-red-700 dark:text-red-400"
                       onClick={() => setPendingDelete(provider)}
+                      aria-label={`删除 ${provider.name}`}
+                      title="删除"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
-
-                {test ? (
-                  <div
-                    className={
-                      test.ok
-                        ? 'border-t border-[var(--border-subtle)] bg-emerald-50/60 px-4 py-2.5 text-xs font-medium text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200'
-                        : 'border-t border-[var(--border-subtle)] bg-amber-50/60 px-4 py-2.5 text-xs font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-200'
-                    }
-                  >
-                    <div className="flex items-start gap-2">
-                      {test.ok ? (
-                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      ) : (
-                        <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      )}
-                      <span className="min-w-0 break-words">
-                        {describeTest(test)}
-                        {typeof test.elapsed_ms === 'number' ? ` · ${test.elapsed_ms}ms` : ''}
-                        {test.hint ? <span className="ml-2 opacity-80">{test.hint}</span> : null}
-                      </span>
-                    </div>
-                    <div className="pl-[22px]">
-                      <TestStages stages={test.stages} />
-                    </div>
-                  </div>
-                ) : null}
 
                 {activeTab ? (
                   <div className="border-t border-[var(--border-subtle)] bg-[var(--surface-2)] p-4">
@@ -477,10 +494,17 @@ export function LlmProviderManagement() {
                     )}
                   </div>
                 ) : null}
-              </section>
+              </li>
             );
           })}
-        </div>
+          </ul>
+          <Pagination
+            currentPage={safePage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            totalLabel={`共 ${visible.length} 个提供商`}
+          />
+        </AdminPanel>
       )}
 
       <LlmProviderDialog

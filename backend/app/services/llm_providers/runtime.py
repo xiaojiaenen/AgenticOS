@@ -387,14 +387,85 @@ async def _probe_network(spec: ProviderSpec, transport: TransportOptions) -> dic
         )
 
 
+def _key_shape_hint(spec: ProviderSpec, *, cookie: str | None) -> str | None:
+    """Key 形态自检：把「认证被拒」最常见的三种低级错误直接说出来。
+
+    这一条是实测踩出来的 —— 有人把网关名字（``magpie``，6 个字符）当成 Key
+    填了进去，界面上只显示「认证被拒绝：Cookie 可能已失效」，完全指不到问题。
+    """
+    if cookie:
+        return None
+    key = spec.api_key or ""
+    if not key:
+        return None
+    if key != key.strip() or "\n" in key or "\r" in key:
+        return "Key 首尾带空白或换行：复制时多选了字符，重新粘贴一次"
+    if len(key) < 16:
+        return f"Key 只有 {len(key)} 个字符，明显短于常见网关 Key（sk- 开头通常 40+ 字符）：很可能填成了网关名称或占位符"
+    if key.lower().startswith("bearer "):
+        return "Key 里带上了 'Bearer ' 前缀：只填密钥本身，系统会自己加 Authorization 头"
+    return None
+
+
+def _auth_rejection(
+    spec: ProviderSpec,
+    *,
+    url: str,
+    started: float,
+    status_code: int,
+    body: str,
+    cookie: str | None,
+) -> dict[str, Any]:
+    """把 401/403 翻译成「谁的错、下一步改什么」。
+
+    401 与 403 的语义完全不同，不能共用一句话：
+    - 401 = 这份凭据不被接受（Key 错 / 过期 / Cookie 失效）；
+    - 403 = 凭据被接受了，但这条接口不给它用（企业网关的 ``/models``
+      常常只对管理员开放），这时判「认证失败」是误杀。
+    """
+    body_snippet = (body or "").strip()[:600]
+    if status_code == 401:
+        if cookie:
+            message = "认证被拒绝（HTTP 401）：登录态 Cookie 已失效或不被接受"
+            hint = "点「立即登录」刷新 Cookie；若刚登录过仍 401，检查 Cookie 是否取自同一站点域"
+        else:
+            message = "认证被拒绝（HTTP 401）：上游不认这个 API Key"
+            hint = _key_shape_hint(spec, cookie=cookie) or (
+                "核对 Key 是否属于这个网关（不是别家的）、是否已过期或被禁用；"
+                "base_url 要包含接口前缀（多数网关是 /v1）"
+            )
+    else:
+        if cookie:
+            message = "接口拒绝访问（HTTP 403）：Cookie 有效但该账号没有这个接口的权限"
+            hint = "403 通常只是权限问题，不代表登录态失效；改用对话接口验证更准"
+        else:
+            message = "接口拒绝访问（HTTP 403）：Key 已被接受，但无权访问探测端点"
+            hint = "很多 OpenAI 兼容网关只对管理员开放 /models，这不影响对话；将自动改测 /chat/completions"
+    return _stage(
+        "auth", False, started, url=url, status_code=status_code,
+        # 结论与原文分开：``message`` 是给人看的一句话，``detail`` 是上游原文。
+        # 混在一起写进正文会让同一段 JSON 在摘要、阶段、对话复核里重复三遍，
+        # 把真正有用的提示（例如「Key 只有 6 个字符」）挤到看不见。
+        message=message,
+        hint=hint,
+        detail=body_snippet or None,
+        auth_kind="cookie" if cookie else "bearer",
+    )
+
+
 async def _probe_registry(
     spec: ProviderSpec,
     transport: TransportOptions,
     headers: dict[str, str],
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """验证认证是否通过，并顺手把模型清单拉回来。"""
+    """验证认证是否通过，并顺手把模型清单拉回来。
+
+    「用的是 Cookie 还是 Bearer」由 ``spec.provider_type`` 判定，不从调用方
+    额外传参：探测函数保持三参数签名，既有调用方与测试不必跟着改。
+    """
     from app.services.llm_providers.discovery import parse_models_payload
 
+    cookie = "cookie" if spec.provider_type == PROVIDER_TYPE_ENTERPRISE_COOKIE else None
     probe = resolve_probe(spec.extra)
     url = _probe_url(spec)
     started = time.monotonic()
@@ -406,9 +477,11 @@ async def _probe_registry(
 
     if response.status_code in (401, 403):
         return (
-            _stage(
-                "auth", False, started, url=url, status_code=response.status_code,
-                message="认证被拒绝：Cookie 可能已失效，或该接口需要更高权限",
+            _auth_rejection(
+                spec, url=url, started=started,
+                status_code=response.status_code,
+                body=response.text[:400],
+                cookie=cookie,
             ),
             [],
         )
@@ -416,7 +489,8 @@ async def _probe_registry(
         return (
             _stage(
                 "auth", False, started, url=url, status_code=response.status_code,
-                message=f"探测端点返回 HTTP {response.status_code}：{response.text[:200]}",
+                message=f"探测端点返回 HTTP {response.status_code}",
+                detail=response.text[:600] or None,
             ),
             [],
         )
@@ -478,15 +552,24 @@ async def _probe_chat(
         return _stage(label, False, started, url=url, message=str(exc)[:300])
 
     if response.status_code >= 400:
-        text = response.text[:300]
-        hint = None
-        if "Model Not Exist" in text or "model_not_found" in text:
+        text = response.text[:600]
+        # 结论一句话 + 原文进 detail：对话阶段的失败原因（模型名、鉴权、字段被拒）
+        # 各不相同，正文只给结论，排查时再展开原文。
+        if "Model Not Exist" in text or "model_not_found" in text or "knows no model" in text:
+            message = "模型名不被上游接受"
             hint = "模型名不对：请填上游注册表里的 name（不是 model ID）"
         elif response.status_code in (401, 403):
-            hint = "认证在这一步被拒绝，检查 Cookie 或账号权限"
+            message = "对话接口也拒绝了这份凭据"
+            hint = (
+                "认证在这一步被拒绝：对话接口也拒了这份凭据，"
+                "说明 Key 或 Cookie 本身无效，不是 /models 的权限问题"
+            )
+        else:
+            message = f"对话请求被拒绝（HTTP {response.status_code}）"
+            hint = None
         return _stage(
             label, False, started, url=url, status_code=response.status_code,
-            message=text, hint=hint,
+            message=message, hint=hint, detail=text or None,
         )
 
     try:
@@ -557,13 +640,17 @@ async def _probe_stream(
             ) as response:
                 content_type = response.headers.get("content-type", "")
                 if response.status_code >= 400:
-                    body = (await response.aread()).decode("utf-8", "replace")[:300]
-                    hint = None
+                    body = (await response.aread()).decode("utf-8", "replace")[:600]
                     if "Model Not Exist" in body or "model_not_found" in body:
+                        message = "流式请求：模型名不被上游接受"
                         hint = "模型名不对：请填上游注册表里的 name（不是 model ID）"
+                    else:
+                        message = f"流式请求被拒绝（HTTP {response.status_code}）"
+                        hint = None
                     return _stage(
                         "stream", False, started, url=url,
-                        status_code=response.status_code, message=body, hint=hint,
+                        status_code=response.status_code,
+                        message=message, hint=hint, detail=body or None,
                     )
                 async for line in response.aiter_lines():
                     if not line.startswith("data:"):
@@ -599,11 +686,15 @@ def _summarize(spec: ProviderSpec, stages: list[dict[str, Any]], models: list[di
     failed = next((item for item in stages if not item["ok"]), None)
     names = [item["model_name"] for item in models if item.get("model_name")]
     configured = spec.model or ""
+    # 阶段里带的补充说明（例如「/models 受限但对话通过」）要在总结果里露出来，
+    # 否则全部通过时只剩一句「全部检查通过」，管理员看不到那个差异。
+    note = next((item.get("note") for item in stages if item.get("note")), None)
     return {
         "ok": failed is None,
         "stage": (failed or stages[-1])["stage"],
         "message": (failed or {}).get("message") or "全部检查通过",
         "hint": (failed or {}).get("hint"),
+        "note": note,
         "stages": stages,
         "url": (failed or stages[-1]).get("url"),
         "status_code": (failed or stages[-1]).get("status_code"),
@@ -619,12 +710,17 @@ async def test_provider(spec: ProviderSpec, *, deep: bool = False) -> dict[str, 
     """分阶段连通性测试。
 
     ``deep=False`` 只做 网络 → 认证 → 模型清单；``deep=True`` 再发一条真实
-    对话和一次带 ``tools`` 的请求。分成两档是因为后者会真实消耗上游额度，
-    不该在每次点开设置页时自动跑。
+    对话、一次流式、一次带 ``tools`` 的请求。分成两档是因为后者会真实消耗
+    上游额度，不该在每次点开设置页时自动跑。
 
     关键约束：**只有认证阶段失败才标记账号失效**。旧实现拿 ``/models`` 的
     403 当认证失败，而 403 在企业网关上常常只是「这个接口要 admin 权限」，
     结果是点一次测试按钮就把一份完全有效的 Cookie 判死。
+
+    对 API Key 类提供商还多一层补救：``/models`` 被 401/403 拒掉时，直接用
+    配置的模型打一次对话。很多 OpenAI 兼容网关（含本地代理）只把模型清单
+    留给管理员，对话接口却是通的 —— 只凭 ``/models`` 判「认证失败」会让人
+    去改一个本来正确的 Key。
     """
     transport = resolve_transport(spec.extra)
     stages: list[dict[str, Any]] = []
@@ -654,15 +750,48 @@ async def test_provider(spec: ProviderSpec, *, deep: bool = False) -> dict[str, 
     network = await _probe_network(spec, transport)
     stages.append(network)
 
+    auth_ok = False
     if network["ok"]:
         auth_stage, models = await _probe_registry(spec, transport, headers)
+        auth_ok = auth_stage["ok"]
+
+        # /models 被拒但 Key 可能是好的：用真实对话接口复核一次。
+        # 先占住认证阶段的位置，复核通过后再原地改写成「认证有效」——
+        # 摘要取「第一个失败阶段」，不能让一条被推翻的结论留在列表最前面。
+        auth_index = len(stages)
         stages.append(auth_stage)
-        if not auth_stage["ok"] and auth_stage.get("status_code") in (401, 403) and lease is not None:
+        if (
+            not auth_ok
+            and cookie is None
+            and spec.model
+            and auth_stage.get("status_code") in (401, 403)
+        ):
+            chat_check = await _probe_chat(
+                spec, transport, headers, model=spec.model, with_tools=False
+            )
+            stages.append(chat_check)
+            if chat_check["ok"]:
+                stages[auth_index] = {
+                    **auth_stage,
+                    "ok": True,
+                    "message": (
+                        f"探测端点返回 HTTP {auth_stage.get('status_code')}，"
+                        "但对话接口通过 —— 认证本身有效，仅模型清单接口受限"
+                    ),
+                    "note": (
+                        f"模型清单接口返回 HTTP {auth_stage.get('status_code')}（通常是权限限制），"
+                        "对话接口已验证可用，无需修改 Key"
+                    ),
+                    "hint": "无需改 Key；主对话模型已能调用，模型清单可留空",
+                }
+                auth_ok = True
+
+        if not auth_ok and auth_stage.get("status_code") in (401, 403) and lease is not None:
             credentials.mark_cookie_invalid(
                 lease.credential_id, f"连通性测试认证失败 HTTP {auth_stage['status_code']}"
             )
 
-    if deep and all(item["ok"] for item in stages):
+    if deep and auth_ok:
         model_name = spec.model or next(
             (item["model_name"] for item in models if item.get("task_type") == "text-generation"),
             "",
@@ -678,10 +807,16 @@ async def test_provider(spec: ProviderSpec, *, deep: bool = False) -> dict[str, 
                 }
             )
         else:
-            chat_stage = await _probe_chat(
-                spec, transport, headers, model=model_name, with_tools=False
-            )
-            stages.append(chat_stage)
+            # 上面对话复核已经跑过 chat 了，这里不重复消耗额度
+            already_chatted = any(item["stage"] == "chat" and item["ok"] for item in stages)
+            chat_stage = next(
+                (item for item in stages if item["stage"] == "chat" and item["ok"]), None
+            ) if already_chatted else None
+            if chat_stage is None:
+                chat_stage = await _probe_chat(
+                    spec, transport, headers, model=model_name, with_tools=False
+                )
+                stages.append(chat_stage)
             if chat_stage["ok"]:
                 # 顺序放在 tools 之前：界面实际走流式，先把流式确认掉
                 stream_stage = await _probe_stream(

@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2, XCircle, Zap } from 'lucide-react';
 import { Button } from '@/components/shadcn/button';
 import { Input } from '@/components/shadcn/input';
 import { Label } from '@/components/shadcn/label';
@@ -32,9 +32,11 @@ import {
 import { Switch } from '@/components/shadcn/switch';
 import {
   createLlmProvider,
+  testLlmProviderDraft,
   updateLlmProvider,
   type LlmProvider,
   type ProviderPreset,
+  type ProviderTestResult,
   type ProviderType,
   type ProviderTypeOption,
 } from '@/services/llmProviderService';
@@ -100,18 +102,24 @@ export function LlmProviderDialog({
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(EMPTY);
   const [clearKey, setClearKey] = useState(false);
+  const [testResult, setTestResult] = useState<ProviderTestResult | null>(null);
 
   useEffect(() => {
     if (open) {
       setForm(toForm(provider));
       setClearKey(false);
+      setTestResult(null);
     }
   }, [open, provider]);
 
   const isEdit = provider !== null;
   const isEnterprise = form.provider_type === 'enterprise_cookie';
 
-  const patch = (next: Partial<FormState>) => setForm((prev) => ({ ...prev, ...next }));
+  const patch = (next: Partial<FormState>) => {
+    // 配置一改，上一次的测试结论就失效了：继续显示「连接正常」会误导保存
+    setTestResult(null);
+    setForm((prev) => ({ ...prev, ...next }));
+  };
 
   const selectedPreset = presets.find((item) => item.slug === form.preset) ?? null;
 
@@ -177,6 +185,33 @@ export function LlmProviderDialog({
       onClose();
     },
     onError: (err: Error) => toast.error(toastError(err, '保存失败')),
+  });
+
+  /**
+   * 保存前试连：用当前表单值直接探测上游。
+   *
+   * 失败也把结论留在弹窗里（而不是只 toast）——「网络不通 / Key 无效 /
+   * 模型名不存在」需要并排对照表单字段才改得对。
+   */
+  const testMutation = useMutation({
+    mutationFn: () =>
+      testLlmProviderDraft({
+        provider_type: form.provider_type,
+        base_url: form.base_url.trim(),
+        model: form.model.trim(),
+        api_key: form.api_key.trim() || undefined,
+        timeout_seconds: Number(form.timeout_seconds) || 300,
+        provider_id: provider?.id ?? null,
+        deep: false,
+      }),
+    onSuccess: (result) => setTestResult(result),
+    onError: (err: Error) =>
+      setTestResult({
+        ok: false,
+        stage: 'client',
+        message: err.message,
+        stages: [],
+      }),
   });
 
   const disabled =
@@ -367,14 +402,88 @@ export function LlmProviderDialog({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saveMutation.isPending}>
-            取消
+        {/* 试连结果：贴着操作区显示，失败原因与表单字段同屏，改起来不用来回滚。
+            正文只放结论 + 一句建议；上游原文折叠，避免一堵 JSON 墙。 */}
+        {testResult ? (
+          <div
+            role="status"
+            className={
+              testResult.ok
+                ? 'rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs font-medium text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200'
+                : 'rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-medium text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200'
+            }
+          >
+            <div className="flex items-start gap-2">
+              {testResult.ok ? (
+                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              ) : (
+                <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              )}
+              <div className="min-w-0">
+                <p className="font-semibold">
+                  {testResult.ok ? '连接正常' : '连接失败'}
+                  {testResult.elapsed_ms ? ` · ${testResult.elapsed_ms}ms` : ''}
+                  {testResult.ok && typeof testResult.model_count === 'number'
+                    ? ` · 可用模型 ${testResult.model_count} 个`
+                    : ''}
+                </p>
+                {testResult.message ? (
+                  <p className="mt-0.5 break-words opacity-90">{testResult.message}</p>
+                ) : null}
+                {testResult.hint ? (
+                  <p className="mt-0.5 break-words opacity-75">→ {testResult.hint}</p>
+                ) : null}
+                {testResult.stages?.some((stage) => stage.detail) ? (
+                  <details className="mt-1">
+                    <summary className="cursor-pointer text-[11px] opacity-60 hover:opacity-90">
+                      查看上游原文
+                    </summary>
+                    <div className="mt-1 space-y-1.5">
+                      {testResult.stages
+                        .filter((stage) => stage.detail)
+                        .map((stage, index) => (
+                          <div key={`${stage.stage}-${index}`}>
+                            <p className="text-[10px] font-semibold uppercase tracking-wide opacity-60">
+                              {stage.stage}
+                            </p>
+                            <pre className="mt-0.5 max-h-32 overflow-auto whitespace-pre-wrap break-all rounded border border-[var(--border-subtle)] bg-[var(--surface-1)] p-2 font-mono text-[10px] leading-4">
+                              {stage.detail}
+                            </pre>
+                          </div>
+                        ))}
+                    </div>
+                  </details>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <DialogFooter className="gap-2 sm:justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => testMutation.mutate()}
+            disabled={testMutation.isPending || !form.base_url.trim()}
+            title={!form.base_url.trim() ? '先填写接口地址' : '用当前表单值探测上游，不影响已保存配置'}
+          >
+            {testMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Zap className="h-4 w-4" />
+            )}
+            测试连接
           </Button>
-          <Button onClick={() => saveMutation.mutate()} disabled={disabled}>
-            {saveMutation.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-            {isEdit ? '保存' : '创建'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={onClose} disabled={saveMutation.isPending}>
+              取消
+            </Button>
+            <Button onClick={() => saveMutation.mutate()} disabled={disabled}>
+              {saveMutation.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              {isEdit ? '保存' : '创建'}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

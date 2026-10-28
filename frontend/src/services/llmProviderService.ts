@@ -126,6 +126,10 @@ export interface ProbeStage {
   status_code?: number;
   message?: string;
   hint?: string;
+  /** 上游返回的原始响应体。可能很长（网关错误 JSON 常有几百字符），
+   *  界面上折叠展示，绝不进 toast。 */
+  detail?: string | null;
+  auth_kind?: string;
   model_count?: number;
   content?: string;
   total_tokens?: number;
@@ -144,6 +148,8 @@ export interface ProviderTestResult {
   status_code?: number;
   message?: string;
   hint?: string;
+  /** 全部通过时仍然值得显示的补充说明（例如「模型清单受限但对话可用」） */
+  note?: string;
   /** 分阶段结果：network → auth → chat → stream → tools（deep 模式才跑后三步） */
   stages: ProbeStage[];
   models?: string[] | null;
@@ -260,6 +266,41 @@ export async function testLlmProvider(id: number, deep = false): Promise<Provide
   return apiFetch<ProviderTestResult>(
     `${ENDPOINT}/${id}/test${deep ? '?deep=true' : ''}`,
     { method: 'POST', timeoutMs: deep ? 120_000 : 30_000 },
+    '测试连通性失败',
+  );
+}
+
+/** 保存前的试连入参：可直接提交未落库的表单值。 */
+export interface ProviderDraftTestInput {
+  provider_type: ProviderType;
+  base_url: string;
+  model: string;
+  /** 编辑场景可留空，后端沿用已保存的 Key */
+  api_key?: string;
+  timeout_seconds?: number;
+  max_tokens?: number | null;
+  extra?: Record<string, unknown>;
+  /** 编辑时的提供商 id：用于复用库里的 Key 与账号池 Cookie */
+  provider_id?: number | null;
+  deep?: boolean;
+}
+
+/**
+ * 保存前试连：验证表单里尚未保存的配置。
+ *
+ * 与 `testLlmProvider` 的区别是它**不需要先落库** —— 地址填错、Key 失效
+ * 时不会先污染配置表。
+ */
+export async function testLlmProviderDraft(
+  input: ProviderDraftTestInput,
+): Promise<ProviderTestResult> {
+  return apiFetch<ProviderTestResult>(
+    `${ENDPOINT}/test`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+      timeoutMs: input.deep ? 120_000 : 30_000,
+    },
     '测试连通性失败',
   );
 }
