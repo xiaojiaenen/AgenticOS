@@ -12,9 +12,9 @@
    完全看不出是证书问题；
 2. **请求体**：``enable_thinking`` 这类字段只能走 ``extra_body``。openai SDK
    2.x 的 ``create()`` 没有 ``**kwargs``，平铺成关键字参数会抛 ``TypeError``；
-3. **路径前缀**：百通把 OpenAI 接口挂在 ``/agents/baitong`` 下而不是 ``/v1``，
+3. **路径前缀**：企业网关把 OpenAI 接口挂在 ``/agents/gateway`` 下而不是 ``/v1``，
    由 ``base_url`` 吸收即可 —— SDK 会自己拼出 ``{base_url}/chat/completions``，
-   实测打到的就是 ``/agents/baitong/chat/completions``，响应体是标准 OpenAI
+   实测打到的就是 ``/agents/gateway/chat/completions``，响应体是标准 OpenAI
    形态（``reasoning_content`` / ``tool_calls`` 都按标准解析），因此解析层
    不需要任何适配。
 """
@@ -48,7 +48,7 @@ logger = logging.getLogger("agenticos.llm.runtime")
 # 便于在上游日志里一眼认出「这是本系统发的请求」。
 COOKIE_PLACEHOLDER_API_KEY = "agenticos-cookie-auth"
 
-# 企业网关普遍有 UA 层面的防护（百通甚至有反调试脚本），用浏览器 UA 比
+# 企业网关普遍有 UA 层面的防护（有些网关甚至有反调试脚本），用浏览器 UA 比
 # "AgenticOS/1.0" 这种自报家门的串通过率高得多。
 BROWSER_USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "

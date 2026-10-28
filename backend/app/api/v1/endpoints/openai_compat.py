@@ -116,7 +116,7 @@ def _normalize_usage(raw: dict[str, Any]) -> dict[str, int]:
 
     agent 内部用的是 ``input_tokens`` / ``output_tokens``，OpenAI 兼容层对外
     要的是 ``prompt_tokens`` / ``completion_tokens`` / ``total_tokens``。
-    两套名字都认一下 —— 上游网关（百通等）有时直接给 OpenAI 那套名字。
+    两套名字都认一下 —— 上游网关（等）有时直接给 OpenAI 那套名字。
     """
     prompt = int(raw.get("input_tokens") or raw.get("prompt_tokens") or 0)
     completion = int(raw.get("output_tokens") or raw.get("completion_tokens") or 0)

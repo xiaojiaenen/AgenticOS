@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import pathlib
 from datetime import timedelta
 
 import pytest
@@ -24,6 +25,12 @@ from app.db.models import (
 )
 from app.db.session import create_db_session
 from app.services.llm_providers import catalog, credentials, discovery, presets
+
+# 企业网关预设已从公开仓库剥离，改为外部插件加载。测试用虚构的 acme 预设
+# 走完全相同的加载路径，保证机制本身始终被覆盖。
+_ACME = presets.load_external_presets(
+    pathlib.Path(__file__).resolve().parent / "fixtures" / "presets"
+)
 from app.services.llm_providers.spec import (
     ProviderConfigError,
     create_provider,
@@ -59,32 +66,32 @@ def test_preset_fills_empty_fields_but_keeps_explicit_ones():
     """预设只补空缺。显式传入的地址不能被预设覆盖 —— 内网可能有多个入口。"""
     with create_db_session() as db:
         filled = create_provider(
-            db, name="百通", slug="bt", provider_type="", base_url="", preset_slug="gree_baitong"
+            db, name="Acme", slug="bt", provider_type="", base_url="", preset_slug="acme_gateway"
         )
         db.commit()
         assert filled.provider_type == "enterprise_cookie"
-        assert filled.base_url.endswith("/agents/baitong")
-        assert filled.model == "Qwen3.6-35B-A3B"
+        assert filled.base_url.endswith("/agents/gateway")
+        assert filled.model == "acme-chat-v1"
 
         custom = create_provider(
             db,
-            name="百通自建",
+            name="Acme 自建",
             slug="bt2",
             provider_type="",
-            base_url="https://10.1.127.22/agents/baitong",
-            model="Qwen3.8-27B",
-            preset_slug="gree_baitong",
+            base_url="https://ai.acme.test/agents/gateway-custom",
+            model="acme-chat-v2",
+            preset_slug="acme_gateway",
         )
         db.commit()
-        assert custom.base_url == "https://10.1.127.22/agents/baitong"
-        assert custom.model == "Qwen3.8-27B"
+        assert custom.base_url == "https://ai.acme.test/agents/gateway-custom"
+        assert custom.model == "acme-chat-v2"
 
 
 def test_preset_carries_login_flow_into_extra():
     """登录动作必须随预设一起入库，否则自动登录会退回通用选择器并失败。"""
     with create_db_session() as db:
         row = create_provider(
-            db, name="百通", slug="bt", provider_type="", base_url="", preset_slug="gree_baitong"
+            db, name="Acme", slug="bt", provider_type="", base_url="", preset_slug="acme_gateway"
         )
         db.commit()
         spec = spec_from_row(row)
@@ -106,7 +113,7 @@ def test_preset_transport_puts_nonstandard_fields_into_extra_body():
     """
     with create_db_session() as db:
         row = create_provider(
-            db, name="百通", slug="bt", provider_type="", base_url="", preset_slug="gree_baitong"
+            db, name="Acme", slug="bt", provider_type="", base_url="", preset_slug="acme_gateway"
         )
         db.commit()
         spec = spec_from_row(row)
@@ -169,7 +176,7 @@ def test_login_flow_override_keeps_unspecified_fields():
     抄漏的字段会退回默认值 —— 这个坑很隐蔽：改了 submit_text 之后
     required_cookies 变空，登录「成功」了但拿到的是没有会话的废 Cookie。
     """
-    extra = presets.merge_preset_into_extra(presets.GREE_BAITONG)
+    extra = presets.merge_preset_into_extra(presets.PRESETS['acme_gateway'])
     extra["login"] = {"submit_text": "立即登录"}
 
     flow = presets.resolve_login_flow(extra)
@@ -297,7 +304,7 @@ def test_refresh_candidates_are_per_account(gateway_provider):
 # 3. 模型目录
 # ---------------------------------------------------------------------------
 
-GREE_PAYLOAD = {
+REGISTRY_PAYLOAD = {
     "default": {"textGenerationModels": {"base": "qwen3.6-35b"}},
     "models": {
         "qwen3.6-35b": {
@@ -318,9 +325,9 @@ GREE_PAYLOAD = {
 }
 
 
-def test_parse_gree_registry_keeps_key_and_name_apart():
-    """百通的 ``model``（ID）和 ``name``（请求体要填的）必须分别保留。"""
-    models = discovery.parse_gree_registry(GREE_PAYLOAD)
+def test_parse_registry_keeps_key_and_name_apart():
+    """上游的 ``model``（ID）和 ``name``（请求体要填的）必须分别保留。"""
+    models = discovery.parse_registry_models(REGISTRY_PAYLOAD)
     assert len(models) == 2
     by_key = {item.model_key: item for item in models}
     assert by_key["qwen3.6-35b"].model_name == "Qwen3.6-35B-A3B"
@@ -338,7 +345,7 @@ def test_parse_openai_models_shape():
 
 
 def test_parse_models_payload_accepts_parser_name():
-    assert discovery.parse_models_payload(GREE_PAYLOAD, parser="gree_registry")
+    assert discovery.parse_models_payload(REGISTRY_PAYLOAD, parser="registry_models")
     assert discovery.parse_models_payload({"data": [{"id": "x"}]}, parser="openai_models")
     # 解析器名字拼错时退回 OpenAI 形态，不抛异常
     assert discovery.parse_models_payload({"data": [{"id": "x"}]}, parser="nope")
@@ -346,7 +353,7 @@ def test_parse_models_payload_accepts_parser_name():
 
 def test_catalog_upsert_is_idempotent(gateway_provider):
     """反复点「同步」不能把已有的行刷成重复行。"""
-    items = [item.as_dict() for item in discovery.parse_gree_registry(GREE_PAYLOAD)]
+    items = [item.as_dict() for item in discovery.parse_registry_models(REGISTRY_PAYLOAD)]
     with create_db_session() as db:
         added, _ = catalog.upsert_models(db, gateway_provider, items)
         db.commit()

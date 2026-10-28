@@ -6,7 +6,7 @@
    并加选号所需的 ``priority`` / ``last_used_at`` / ``failure_count`` /
    ``disabled``。旧的 ``uq_llm_provider_credential`` 必须去掉，否则第二个
    账号插不进去。
-2. 新增 ``llm_provider_chat_models``：把上游模型注册表（百通的
+2. 新增 ``llm_provider_chat_models``：把上游模型注册表（企业网关的
    ``/json/model-configs.json``、标准 OpenAI 的 ``/models``）落到本地，
    解决「模型 ID ≠ 请求体里的模型名」这类只能靠试错发现的问题。
 

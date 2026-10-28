@@ -136,7 +136,9 @@ class Settings(BaseSettings):
     # 系统通知邮箱配置（用于任务完成通知等系统邮件）
     notify_email_address: str = Field(default="", validation_alias="NOTIFY_EMAIL_ADDRESS")
     notify_email_password: str = Field(default="", validation_alias="NOTIFY_EMAIL_PASSWORD")
-    notify_smtp_host: str = Field(default="10.12.128.18", validation_alias="NOTIFY_SMTP_HOST")
+    # 通知邮件 SMTP 主机。留空表示未配置 —— 不设内网默认值，
+    # 否则公开部署会把邮件发往一个不存在的地址。
+    notify_smtp_host: str = Field(default="", validation_alias="NOTIFY_SMTP_HOST")
     notify_smtp_port: int = Field(default=465, validation_alias="NOTIFY_SMTP_PORT")
     notify_smtp_ssl: bool = Field(default=True, validation_alias="NOTIFY_SMTP_SSL")
     notify_task_min_seconds: int = Field(default=120, validation_alias="NOTIFY_TASK_MIN_SECONDS")

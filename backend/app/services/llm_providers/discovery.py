@@ -4,7 +4,7 @@
 
 - **标准 OpenAI 兼容** ``GET /models`` → ``{"data": [{"id": "gpt-4o"}]}``。
   ``id`` 就是请求体里要填的模型名。
-- **静态注册表**（百通 ``/json/model-configs.json``）→ 每个模型有 ``model``
+- **静态注册表**（企业网关 ``/json/model-configs.json``）→ 每个模型有 ``model``
   （ID）和 ``name``（请求体里要填的名字）两套标识，还带 ``taskType``、
   ``maxTokens``、推荐采样参数。
 
@@ -82,8 +82,8 @@ def _sampling_from_body(body: Any) -> dict[str, Any]:
     return {key: body[key] for key in _SAMPLING_KEYS if key in body}
 
 
-def parse_gree_registry(payload: Any) -> list[DiscoveredModel]:
-    """百通注册表。
+def parse_registry_models(payload: Any) -> list[DiscoveredModel]:
+    """静态模型注册表。
 
     结构：``{"default": {...}, "models": {"<模型ID>": {...}}}``。
     同一份 ``name`` 可能被多个 ID 复用（base 与 thinking 变体），因此按
@@ -139,7 +139,11 @@ def parse_openai_models(payload: Any) -> list[DiscoveredModel]:
 
 
 _PARSERS = {
-    "gree_registry": parse_gree_registry,
+    # 静态注册表：``{"default": {...}, "models": {"<id>": {...}}}``。
+    # 企业网关常见这种形态（``/models`` 是 admin 门控，注册表才公开）。
+    "registry_models": parse_registry_models,
+    # 兼容旧配置里写死的 parser 名，避免历史 extra_json 失效。
+    "gree_registry": parse_registry_models,
     "openai_models": parse_openai_models,
 }
 

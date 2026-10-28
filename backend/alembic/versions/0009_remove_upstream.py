@@ -1,6 +1,6 @@
 """移除企业上游功能：删除上游凭据表，upstream_api_keys 更名为 api_keys
 
-企业上游（agents.gree.com Cookie 自动登录/透传）已整体移除。
+企业上游（gw.example.com Cookie 自动登录/透传）已整体移除。
 API Key 网关（/v1/*，sk-agenticos-*）保留，仅去掉 upstream 命名：
 ``upstream_api_keys`` → ``api_keys``，模型由 ``UpstreamApiKeyModel``
 改名为 ``ApiKeyModel``。

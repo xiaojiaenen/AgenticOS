@@ -69,12 +69,12 @@ AUTH_SECRET_KEY=生成一个随机长字符串
 > 全局切换，无需重启。`openai_compatible` 类型填地址 + Key + 模型即可；`enterprise_cookie`
 > 类型用于只有浏览器登录态的内网网关，支持自动登录与手贴 Cookie。
 >
-> 新建时可以先选**厂商预设**（如「格力百通 AI 助手」），它会一次性填好接口地址、认证方式、
+> 新建时可以先选**厂商预设**（如「企业网关（示例）」），它会一次性填好接口地址、认证方式、
 > 登录动作（按钮文案、成功跳转、会话 Cookie 名、是否跳过 TLS 校验）与模型名。预设只是初始值，
 > 之后所有字段都能改 —— 上游改版时改配置即可，不必等发版。
 >
-> 内网网关有两个坑要在配置里体现：**接口地址要带路径前缀**（百通是
-> `https://agents.gree.com/agents/baitong`，少一段会落到前端 SPA 上并返回 HTML 200）；
+> 内网网关有两个坑要在配置里体现：**接口地址要带路径前缀**（企业网关是
+> `https://gw.example.com/agents/gateway`，少一段会落到前端 SPA 上并返回 HTML 200）；
 > **自签证书要显式放行**（预设已置 `transport.insecure_tls=true`，等价于关掉该提供商的
 > TLS 校验，只应对内网地址使用）。
 >
@@ -387,7 +387,7 @@ print(resp.choices[0].message.content)
 - 命中**本地智能体**（已安装的 slug / 名称）或 **AgenticOS 模式名**
   （`general` / `ppt` / `website` / `email` / `bigdata`）或通用别名
   （`gpt-4o` 等）→ 由 AgenticOS 本地 Agent 执行（可用知识库、工具、审批等全部能力）
-- 其他 `model` 名 → 透传给企业上游（agents.gree.com），保持既有行为
+- 其他 `model` 名 → 透传给企业上游（gw.example.com），保持既有行为
 
 ### AgenticOS 扩展参数
 

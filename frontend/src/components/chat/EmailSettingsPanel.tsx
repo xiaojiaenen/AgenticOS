@@ -12,8 +12,29 @@ import {
 import { cn } from '../../lib/utils';
 import { getEmailStatus, saveEmailCredentials, deleteEmailCredentials, EmailStatus } from '../../services/emailService';
 
-const EMAIL_PRESETS = [
-  { label: '内网邮箱', value: 'intranet', imap_host: '10.12.128.18', imap_port: 993, imap_ssl: true, smtp_host: '10.12.128.18', smtp_port: 465, smtp_ssl: true },
+interface EmailPreset {
+  label: string;
+  value: string;
+  imap_host: string;
+  imap_port: number;
+  imap_ssl: boolean;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_ssl: boolean;
+}
+
+/**
+ * 常见邮件服务商的连接参数预设。
+ *
+ * 刻意不放任何企业内部地址：内网邮箱由管理员在「系统设置」里配置默认值，
+ * 或用户自己填。公开仓库里的预设只描述公开服务商。
+ */
+const EMAIL_PRESETS: EmailPreset[] = [
+  { label: 'QQ 邮箱', value: 'qq', imap_host: 'imap.qq.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.qq.com', smtp_port: 465, smtp_ssl: true },
+  { label: '163 邮箱', value: '163', imap_host: 'imap.163.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.163.com', smtp_port: 465, smtp_ssl: true },
+  { label: 'Gmail', value: 'gmail', imap_host: 'imap.gmail.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.gmail.com', smtp_port: 465, smtp_ssl: true },
+  { label: 'Outlook', value: 'outlook', imap_host: 'outlook.office365.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.office365.com', smtp_port: 587, smtp_ssl: false },
+  { label: '自定义', value: 'custom', imap_host: '', imap_port: 993, imap_ssl: true, smtp_host: '', smtp_port: 465, smtp_ssl: true },
 ];
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -35,10 +56,10 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
   const [form, setForm] = useState({
     email_address: '',
     password: '',
-    imap_host: '10.12.128.18',
+    imap_host: '',
     imap_port: 993,
     imap_ssl: true,
-    smtp_host: '10.12.128.18',
+    smtp_host: '',
     smtp_port: 465,
     smtp_ssl: true,
   });
@@ -91,7 +112,7 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
       .then((s) => {
         setStatus(s);
         if (s.email_address) setForm((f) => ({ ...f, email_address: s.email_address || '' }));
-        if (s.imap_host) setForm((f) => ({ ...f, imap_host: s.imap_host || '10.12.128.18' }));
+        if (s.imap_host) setForm((f) => ({ ...f, imap_host: s.imap_host ?? '' }));
       })
       .catch((e) => setError(e instanceof Error ? e.message : '邮箱状态加载失败'))
       .finally(() => setIsLoading(false));

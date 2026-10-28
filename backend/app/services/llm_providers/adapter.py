@@ -211,7 +211,7 @@ class HardenedOpenAIAdapter(OpenAIAdapter):
     def _get_extra_field(self, obj: Any, field_name: str) -> Any:
         """宽容读取思考内容字段。
 
-        标准形态是 ``reasoning_content``（百通与 OpenAI 一致，能直接命中）。
+        标准形态是 ``reasoning_content``（该网关与 OpenAI 一致，能直接命中）。
         这里多认几个别名，是为了兼容自建网关把字段改成 ``reasoning`` 的情况 ——
         否则推理过程会被整段丢弃，表现为「模型在思考但界面空白」。
         """

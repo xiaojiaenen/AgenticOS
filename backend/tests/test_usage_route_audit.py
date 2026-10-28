@@ -59,7 +59,7 @@ def test_describe_route_reads_snapshot_from_gateway_and_agent() -> None:
         gateway,
         provider_id=7,
         provider_slug="gree",
-        provider_name="格力百通",
+        provider_name="企业网关",
         model="Qwen3.6-35B-A3B",
         credential_id=3,
         account_label="主号",
@@ -70,7 +70,7 @@ def test_describe_route_reads_snapshot_from_gateway_and_agent() -> None:
         assert snapshot == RouteSnapshot(
             provider_id=7,
             provider_slug="gree",
-            provider_name="格力百通",
+            provider_name="企业网关",
             model="Qwen3.6-35B-A3B",
             credential_id=3,
             account_label="主号",
@@ -101,7 +101,7 @@ def test_resolve_model_name_prefers_snapshot_then_adapter_then_fallback() -> Non
         gateway,
         provider_id=1,
         provider_slug="gree",
-        provider_name="格力百通",
+        provider_name="企业网关",
         model="Qwen3.6-35B-A3B",
     )
     # 快照优先于适配器（切换提供商后适配器可能还是旧的）
@@ -179,7 +179,7 @@ def test_usage_event_attributes_to_requesting_user_not_account() -> None:
         gateway,
         provider_id=1,
         provider_slug="gree",
-        provider_name="格力百通",
+        provider_name="企业网关",
         model="Qwen3.6-35B-A3B",
         credential_id=42,  # 两人共用同一个账号
         account_label="共享主号",
@@ -430,7 +430,7 @@ def test_usage_routes_aggregates_by_route_and_marks_unattributed() -> None:
             _insert_usage(
                 user_id=admin.id, session_id=session_id, model_name="Qwen3.6-35B-A3B",
                 total_tokens=tokens, llm_calls=calls, provider_id=99001, provider_slug=slug,
-                provider_name="格力百通", credential_id=credential_id, account_label="主号",
+                provider_name="企业网关", credential_id=credential_id, account_label="主号",
                 tokens_estimated=False,
             )
         _insert_usage(

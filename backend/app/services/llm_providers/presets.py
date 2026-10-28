@@ -20,7 +20,9 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Any
 
 # 登录表单的通用探测顺序。企业 SSO 五花八门，但「用户名/密码/提交」三件套
@@ -107,7 +109,7 @@ class ProbeSpec:
     """连通性探测方式。
 
     ``kind=models`` 打 ``{base_url}/models``（标准 OpenAI 兼容）；
-    ``kind=registry`` 打站点根下的静态注册表（百通这类），因为它的
+    ``kind=registry`` 打站点根下的静态注册表（这类），因为它的
     ``/models`` 是管理端接口，普通账号恒 403 —— 拿 403 当「认证失败」会把
     一份完全有效的 Cookie 判死。
     """
@@ -136,7 +138,7 @@ class ProviderPreset:
 
 
 # 用途枚举。前四项对应「一个系统里其实有四种 LLM 负载」，
-# 而不是四个厂商 —— 这也正是百通注册表里 base/reasoner/agent/vl 的划分方式。
+# 而不是四个厂商 —— 这也正是企业网关的静态注册表里 base/reasoner/agent/vl 的划分方式。
 MODEL_ROLES: dict[str, str] = {
     "chat": "主对话（Agent 编排）",
     "reasoner": "深度思考（复杂推理、长链路规划）",
@@ -152,53 +154,66 @@ ROLE_VISION = "vision"
 ROLE_IMAGE = "image"
 
 
-GREE_BAITONG = ProviderPreset(
-    slug="gree_baitong",
-    label="格力百通 AI 助手",
-    provider_type="enterprise_cookie",
-    # 注意 base_url 必须带 /agents/baitong 前缀：openai SDK 会在其后拼
-    # /chat/completions，少一段就会落到 Vue 的 SPA catch-all 上（返回 HTML 200）。
-    base_url="https://agents.gree.com/agents/baitong",
-    model="Qwen3.6-35B-A3B",
-    login_url="https://agents.gree.com/login/oauth2/code/ar",
-    login=LoginFlow(
-        submit_text="授权并登录",
-        # 登录页是 Vue SPA，goto 用 networkidle 会因为页面常驻轮询永远不静默
-        wait_until="domcontentloaded",
-        settle_ms=4_000,
-        success_url="**/chat/home",
-        success_timeout_ms=60_000,
-        required_cookies=("SESSION",),
-        cookie_domain="agents.gree.com",
-        # SESSION 由登录后的前端脚本异步写入，实测需要轮询
-        cookie_poll_attempts=30,
-        cookie_poll_interval_ms=2_000,
-        ignore_https_errors=True,
-    ),
-    transport=TransportOptions(
-        insecure_tls=True,
-        browser_user_agent=True,
-        # 百通要求模型名用注册表里的 name（Qwen3.6-35B-A3B），不是 model ID
-        extra_body={"enable_thinking": False},
-    ),
-    probe=ProbeSpec(
-        kind="registry",
-        # 这个注册表是公开的，不需要登录 —— 探测因此能独立验证「认证有没有过」
-        path="/json/model-configs.json",
-        scope="origin",
-        parser="gree_registry",
-    ),
-    roles={
-        "chat": "Qwen3.6-35B-A3B",
-        "fast": "Qwen3.6-35B-A3B",
-    },
-    notes=(
-        "企业内网 SSO 网关。只有 /agents/baitong/chat/completions 与 "
-        "/agents/baitong/images/generations 对普通账号开放，/v1/* 是 admin 门控。"
-    ),
-)
+# 内置预设：只放通用厂商（见 GENERIC_PRESETS）。
+#
+# 公司专属的企业网关预设（内网 SSO、自签证书、私有注册表等）**不进这个
+# 字典**，而是通过 ``PROVIDER_PRESETS_DIR`` 环境变量指向的目录在启动时加载
+# （见 :func:`load_external_presets`）。这样公开仓库里不含任何内网信息，
+# 内部部署也无需维护一份 fork。
+PRESETS: dict[str, ProviderPreset] = {}
 
-PRESETS: dict[str, ProviderPreset] = {GREE_BAITONG.slug: GREE_BAITONG}
+
+def load_external_presets(directory: str | os.PathLike[str] | None = None) -> list[str]:
+    """从外部目录加载预设插件。
+
+    目录下每个 ``*.py`` 需导出一个 ``PRESETS`` 列表（或单个
+    ``ProviderPreset``）。加载失败只记日志、不抛错 —— 一个坏插件不该让整个
+    服务起不来。
+
+    Returns:
+        成功加载的 slug 列表。
+    """
+    import importlib.util
+    import logging
+
+    logger = logging.getLogger("agenticos.llm.presets")
+
+    raw_dir = directory or os.environ.get("PROVIDER_PRESETS_DIR", "")
+    if not raw_dir:
+        return []
+    root = Path(str(raw_dir)).expanduser()
+    if not root.is_dir():
+        logger.warning("PROVIDER_PRESETS_DIR 不存在，跳过：%s", root)
+        return []
+
+    loaded: list[str] = []
+    for file in sorted(root.glob("*.py")):
+        if file.name.startswith("_"):
+            continue
+        try:
+            spec = importlib.util.spec_from_file_location(
+                f"agenticos_external_preset_{file.stem}", file
+            )
+            if spec is None or spec.loader is None:
+                continue
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        except Exception:  # noqa: BLE001 —— 插件坏了不影响主流程
+            logger.warning("外部预设加载失败：%s", file, exc_info=True)
+            continue
+
+        candidates = getattr(module, "PRESETS", None)
+        if isinstance(candidates, ProviderPreset):
+            candidates = [candidates]
+        if not isinstance(candidates, (list, tuple)):
+            continue
+        for preset in candidates:
+            if not isinstance(preset, ProviderPreset):
+                continue
+            PRESETS[preset.slug] = preset
+            loaded.append(preset.slug)
+            logger.info("已加载外部预设：%s（%s）", preset.slug, preset.label)
+    return loaded
 
 # 通用 OpenAI 兼容不是「预设」，但界面需要一份能一键填的模板
 GENERIC_PRESETS: tuple[ProviderPreset, ...] = (

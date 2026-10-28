@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pathlib
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
@@ -363,7 +365,7 @@ def test_cookie_adapter_goes_through_parent_init():
     adapter = _build_cookie_adapter(
         cookie="session=abc",
         model="gw-model",
-        base_url="https://gw.example.com/agents/baitong",
+        base_url="https://gw.example.com/v1",
         transport=TransportOptions(insecure_tls=True, max_retries=1),
         timeout=15.0,
         temperature=0.2,
@@ -777,33 +779,43 @@ def _create_cookie_provider(preset: str | None = None, slug: str = "gw") -> int:
         "base_url": "https://gw.example.com",
     }
     if preset:
-        body = {"name": "百通", "slug": "bt", "provider_type": "", "base_url": "", "preset": preset}
+        body = {"name": "Acme", "slug": "bt", "provider_type": "", "base_url": "", "preset": preset}
     resp = client.post("/api/v1/settings/llm-providers", json=body, headers=_auth_headers())
     assert resp.status_code == 201, resp.text
     return resp.json()["id"]
 
 
 def test_create_provider_from_preset_endpoint():
-    """只选一个预设，地址/类型/登录动作就都齐了 —— 不用照文档抄路径。"""
+    """只选一个预设，地址/类型/登录动作就都齐了 —— 不用照文档抄路径。
+
+    企业网关预设已从公开仓库剥离（改为外部插件加载），这里用测试夹具
+    acme 预设走同一条代码路径。
+    """
+    from app.services.llm_providers import presets as _presets
+
+    _presets.load_external_presets(
+        pathlib.Path(__file__).resolve().parent / "fixtures" / "presets"
+    )
+
     resp = client.post(
         "/api/v1/settings/llm-providers",
-        json={"name": "百通", "slug": "bt", "preset": "gree_baitong"},
+        json={"name": "Acme 预设", "slug": "bt", "preset": "acme_gateway"},
         headers=_auth_headers(),
     )
     assert resp.status_code == 201, resp.text
     body = resp.json()
     assert body["provider_type"] == "enterprise_cookie"
-    assert body["base_url"].endswith("/agents/baitong")
+    assert body["base_url"].endswith("/agents/gateway")
     assert body["needs_cookie"] is True
-    assert body["preset"] == "gree_baitong"
+    assert body["preset"] == "acme_gateway"
     assert body["extra"]["login"]["submit_text"] == "授权并登录"
-    assert body["roles"]["chat"] == "Qwen3.6-35B-A3B"
+    assert body["roles"]["chat"] == "acme-chat-v1"
 
 
 def test_preset_list_is_exposed_in_listing():
     body = client.get("/api/v1/settings/llm-providers", headers=_auth_headers()).json()
     slugs = {item["slug"] for item in body["presets"]}
-    assert "gree_baitong" in slugs
+    assert "acme_gateway" in slugs
     assert {item["value"] for item in body["model_roles"]} >= {"chat", "fast", "vision"}
 
 
@@ -1068,7 +1080,7 @@ def test_probe_reports_unusable_when_pool_is_empty(monkeypatch):
 
 # ---------------------------------------------------------------------------
 # 7. 标准 OpenAI 响应的消费方式
-#    百通的响应体与 OpenAI 一致（reasoning_content / tool_calls / usage），
+#    该网关的响应体与 OpenAI 一致（reasoning_content / tool_calls / usage），
 #    所以这一组测的不是「适配」而是「我们有没有把它读全」。
 # ---------------------------------------------------------------------------
 
@@ -1175,7 +1187,7 @@ def _stream_spec():
 
     return ProviderSpec(
         name="网关", slug="gw", provider_type="enterprise_cookie",
-        base_url="https://gw.example.com/agents/baitong", model="Qwen3.6-35B-A3B",
+        base_url="https://gw.example.com/v1", model="gpt-4o",
     )
 
 

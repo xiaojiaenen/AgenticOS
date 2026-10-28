@@ -182,9 +182,9 @@ export type ProviderUpdateInput = Partial<Omit<ProviderCreateInput, 'slug'>>;
 export interface DiscoveredModel {
   id: number;
   provider_id: number;
-  /** 上游的模型 ID（百通：qwen3.6-35b） */
+  /** 上游的模型 ID（上游注册表 ID：qwen3.6-35b） */
   model_key: string;
-  /** 请求体里真正要填的名字（百通：Qwen3.6-35B-A3B） */
+  /** 请求体里真正要填的名字（请求体模型名：Qwen3.6-35B-A3B） */
   model_name: string;
   task_type: string;
   max_tokens: number | null;

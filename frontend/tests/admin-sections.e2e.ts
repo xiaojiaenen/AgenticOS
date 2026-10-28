@@ -26,7 +26,7 @@ type Section = {
 
 const SECTIONS: Section[] = [
   { nav: '系统总览', heading: '后台数据看板', group: null },
-  { nav: '企业上游', heading: 'agents.gree.com', group: null },
+  { nav: '企业上游', heading: 'gw.example.com', group: null },
   { nav: '聊天记录', heading: '会话列表', group: '对话与内容' },
   { nav: '公告设计', heading: '用户公告设计台', group: '对话与内容' },
   { nav: '记忆管理', heading: '所有用户记忆', group: '对话与内容' },

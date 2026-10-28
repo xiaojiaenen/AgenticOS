@@ -962,7 +962,7 @@ class LlmModelCatalogModel(Base):
     """某个提供商下可用模型的目录（从上游注册表或 ``/models`` 发现）。
 
     存在的理由：上游的「模型 ID」和「请求体里要填的模型名」经常不是同一个
-    东西（百通就是 ``qwen3.6-35b`` vs ``Qwen3.6-35B-A3B``），而表单是一个自由
+    东西（上游常见 ``qwen3.6-35b`` vs ``Qwen3.6-35B-A3B``），而表单是一个自由
     文本框，填错只能等到调用时吃一个 404 ``Model Not Exist``。把目录落库后，
     界面能给出候选、能校验、也能按用途挑模型。
 
@@ -977,9 +977,9 @@ class LlmModelCatalogModel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     provider_id: Mapped[int] = mapped_column(ForeignKey("llm_providers.id"), index=True)
-    # 上游注册表里的 ID（百通：qwen3.6-35b）
+    # 上游注册表里的 ID（上游注册表 ID：qwen3.6-35b）
     model_key: Mapped[str] = mapped_column(String(128))
-    # 请求体里真正要填的名字（百通：Qwen3.6-35B-A3B）
+    # 请求体里真正要填的名字（请求体模型名：Qwen3.6-35B-A3B）
     model_name: Mapped[str] = mapped_column(String(128))
     # text-generation / image-text-to-text / text-to-image / any-to-any
     task_type: Mapped[str] = mapped_column(String(48), default="", index=True)

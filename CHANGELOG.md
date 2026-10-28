@@ -106,12 +106,12 @@ SDK 参数不泄漏进请求体）。
 
 ### Added — 企业网关实战适配（2026-10-27）
 
-对接真实企业网关（格力百通 `agents.gree.com`）时暴露的五类硬伤与对应抽象。这一批改动
+对接真实企业网关（企业网关 `gw.example.com`）时暴露的五类硬伤与对应抽象。这一批改动
 不是「多支持一家厂商」，而是**把「标准 OpenAI 兼容」这个隐含假设拆掉**，让提供商层
 在真实内网网关上也成立。
 
 - 新增 `services/llm_providers/presets.py`：`ProviderPreset` / `LoginFlow` /
-  `TransportOptions` / `ProbeSpec`，内置 `gree_baitong` 预设。厂商差异从代码里的
+  `TransportOptions` / `ProbeSpec`，内置 企业网关预设。厂商差异从代码里的
   if 分支收敛为一份数据，接第二家网关只加数据不改逻辑。
 - **自动登录参数化**（`auto_login.py`）。此前硬编码的动作在内网 SPA 上必然失败：
   `wait_until="networkidle"` 在常驻轮询页永远不静默；提交按钮文案是「授权并登录」
@@ -132,14 +132,14 @@ SDK 参数不泄漏进请求体）。
   `last_used_at` 的话，备用号永远不会被用到，也就谈不上分摊配额。连续失败 3 次自动
   退出轮换，重新启用即复位。续期粒度也从「提供商」下沉到「账号」。
 - **模型目录**（新表 `llm_provider_chat_models` + `discovery.py`）：上游的「模型 ID」与
-  「请求体里要填的模型名」经常不是同一个东西（百通 `qwen3.6-35b` vs
+  「请求体里要填的模型名」经常不是同一个东西（企业网关 `qwen3.6-35b` vs
   `Qwen3.6-35B-A3B`），手填只能等到 404 `Model Not Exist`。现在能从上游同步清单
-  （百通公开注册表 / 标准 `/models`）、可选、可校验。
+  （企业网关的公开注册表 / 标准 `/models`）、可选、可校验。
 - **按用途绑定模型**：`extra.roles` 把 chat / reasoner / fast / vision / image 映射到
   具体模型，`llm_factory` 与 `agent/factory` 支持 `role`。缓存键改用「解析后的模型名」
   而不是 `provider.model`，否则改完绑定会一直复用旧 agent。
-- **路径前缀由 `base_url` 吸收**：百通把接口挂在 `/agents/baitong` 而不是 `/v1`，
-  SDK 会自己拼出 `/agents/baitong/chat/completions`（已用真实 SDK 验证）；响应体是
+- **路径前缀由 `base_url` 吸收**：企业网关把接口挂在 `/agents/gateway` 而不是 `/v1`，
+  SDK 会自己拼出 `/agents/gateway/chat/completions`（已用真实 SDK 验证）；响应体是
   标准 OpenAI 形态（`reasoning_content` / `tool_calls` / `usage`），解析层无需适配。
 - 传输层补齐：浏览器 UA（站点有 UA 级防护）、显式 `timeout` 与 `max_retries`
   （SDK 默认 2 次重试对 Cookie 认证是纯浪费）、Cookie 路径补上 `temperature` 等采样

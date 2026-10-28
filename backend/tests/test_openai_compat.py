@@ -106,7 +106,7 @@ class TestUsageNormalization:
         ) == {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
 
     def test_accepts_openai_field_names(self):
-        """上游网关（百通等）有时直接给 OpenAI 那套字段名，也要认。"""
+        """上游网关（等）有时直接给 OpenAI 那套字段名，也要认。"""
         from app.api.v1.endpoints.openai_compat import _normalize_usage
 
         assert _normalize_usage(

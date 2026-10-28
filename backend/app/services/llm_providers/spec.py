@@ -374,7 +374,7 @@ def create_provider(
         if not (provider_type or "").strip() or (
             provider_type == PROVIDER_TYPE_OPENAI and preset.provider_type != PROVIDER_TYPE_OPENAI
         ):
-            # 端点的默认值不能盖住预设：百通这类网关必须走 Cookie 认证
+            # 端点的默认值不能盖住预设：这类企业网关必须走 Cookie 认证
             provider_type = preset.provider_type
         base_url = (base_url or "").strip() or preset.base_url
         model = (model or "").strip() or preset.model
