@@ -10,6 +10,15 @@ RESPONSE_MODES: tuple[str, ...] = ("general", "ppt", "website", "email", "bigdat
 class FileAttachment(BaseModel):
     filename: str = Field(..., description="Original filename.")
     file_path: str = Field(..., description="Server-side absolute path of the saved file.")
+    rel_path: str | None = Field(
+        default=None,
+        description=(
+            "Path relative to the session workspace (e.g. ``uploads/报告.docx``). "
+            "Preferred when telling the agent where the file is: file tools resolve "
+            "relative paths against the workspace, and absolute container paths "
+            "would expose the deployment layout."
+        ),
+    )
 
 
 class AgentStreamRequest(BaseModel):

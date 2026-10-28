@@ -21,6 +21,30 @@ ALLOWED_STACKS = {"vanilla", "vue", "react"}
 NPM_CACHE_DIR = WEBSITES_DIR / ".npm-cache"
 
 
+def _npm_unavailable_reason() -> str | None:
+    """探测 npm 是否可用；不可用时返回一段面向用户的说明，可用时返回 None。
+
+    为什么单独抽一个前置检查：容器里没有 npm 时，`npm install` 会以
+    退出码 127 失败，而 stderr 只有一行 `sh: npm: not found`。那行字混在
+    「构建失败」的通用报错里，看起来像项目本身有问题，用户会反复改代码。
+    这里把它变成一句明确的「环境缺 npm + 怎么补」。
+    """
+    import shutil
+
+    npm = shutil.which("npm")
+    if npm:
+        return None
+    return (
+        "构建环境缺少 npm：当前运行环境（通常是后端容器镜像）里没有安装 Node.js/npm，"
+        "因此无法执行 npm install / npm run build。\n"
+        "处理办法：\n"
+        "  1. 若用 Docker 部署，重建运行时镜像（deploy/Dockerfile.runtime 已加入 nodejs + npm），"
+        "然后重启 backend 与 worker；\n"
+        "  2. 若在宿主机直接运行，安装 Node.js 22+（含 npm）后重启后端。\n"
+        "这不是项目代码的问题，无需修改 package.json 或源码。"
+    )
+
+
 def _detect_broken_node_modules(project_dir: Path) -> str | None:
     """探测 node_modules 里是否有被截断的原生二进制。
 
@@ -192,6 +216,13 @@ def register_website_tools(registry: ToolRegistry) -> None:
           构建结果
         """
         from app.services.sandbox import Sandbox
+
+        # 前置检查：容器/宿主机上没有 npm 时，报错必须是「环境缺 npm」，
+        # 而不是让 npm install 以退出码 127 失败、把一行 `sh: npm: not found`
+        # 当成「构建失败」甩给用户。部署镜像里没有 npm 曾导致这条链路完全不可用。
+        npm_missing = _npm_unavailable_reason()
+        if npm_missing:
+            return npm_missing
 
         target_dir = WEBSITES_DIR / project_slug
         if not target_dir.exists():

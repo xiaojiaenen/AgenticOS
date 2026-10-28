@@ -257,11 +257,15 @@ class StreamOrchestrator:
         file_descriptions: list[str] = []
         for f in request.files:
             ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+            # 优先给相对路径：文件工具以会话工作区为根，相对路径才解析得到。
+            # 绝对路径（容器内 /app/...）既会暴露部署结构，也让 AI 误以为
+            # 自己可以访问整个文件系统。
+            path_for_ai = getattr(f, "rel_path", None) or f.file_path
             if ext in ("pptx", "ppt"):
-                hint = f"PPTX 文件，用 convert_pptx_to_svg(file_path=\"{f.file_path}\") 转换为 SVG 后编辑"
+                hint = f"PPTX 文件，用 convert_pptx_to_svg(file_path=\"{path_for_ai}\") 转换为 SVG 后编辑"
             else:
-                hint = f"文档文件，用 file_to_md(path=\"{f.file_path}\") 读取内容"
-            file_descriptions.append(f"- **{f.filename}** → 路径 `{f.file_path}` → {hint}")
+                hint = f"文档文件，用 file_to_md(path=\"{path_for_ai}\") 读取内容"
+            file_descriptions.append(f"- **{f.filename}** → 路径 `{path_for_ai}` → {hint}")
 
         return (
             "## 📎 用户上传了以下文件\n\n"

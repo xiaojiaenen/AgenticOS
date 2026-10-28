@@ -474,10 +474,10 @@ class AgentFactory:
 
     @staticmethod
     def _build_tool_registry(profile: RuntimeAgentProfile) -> tuple[ToolRegistry, str]:
-        # Exclude "skill", "email", and "file" (file is handled per-mode below)
-        _exclude = {"skill", "email"}
-        if profile.response_mode == "website":
-            _exclude.add("file")
+        # "file" 一律排除内置插件：所有模式统一改用「作用域文件工具」
+        # （见下方 register_website_file_tools）。内置插件的 workspace 默认是
+        # "."，会被解析成进程 cwd（容器里 /app），导致 AI 看到源码与别人的数据。
+        _exclude = {"skill", "email", "file"}
         builtin_tools = [name for name in profile.builtin_tools if name not in _exclude]
 
         registry = ToolRegistry()
@@ -581,11 +581,12 @@ class AgentFactory:
         async def _tool_rejected(original_tool: str = "", reason: str = "用户拒绝了此工具的执行") -> dict:
             return {"rejected": True, "original_tool": original_tool, "message": reason}
 
-        # 独立 file_to_md 工具：当 file 工具组未启用时单独注册
-        if "file" not in profile.builtin_tools:
-            _unregister_if_exists(registry, "file_to_md")
-            from app.tools.file_to_md_tool import register_file_to_md_tool as _register_file_to_md
-            _register_file_to_md(registry)
+        # 独立 file_to_md 工具已删除：
+        #
+        # 它接受任意绝对路径（`path` 直接丢给 markitdown），等于给 AI 一个
+        # 「读服务器任意文件」的入口；而作用域版 file_to_md 已经覆盖了
+        # 「把上传文件转成 markdown」这个真实用途，并把路径限制在工作区内。
+        # 保留两个同名工具还会触发 wuwei ToolRegistry 的重名注册错误。
 
         # 数据可视化工具（所有模式可用）
         from app.tools.chart_render_tools import register_chart_render_tools as _register_chart_render
@@ -614,8 +615,19 @@ class AgentFactory:
         if profile.response_mode == "website":
             from app.tools.website_tools import register_website_tools as _register_website_tools
             _register_website_tools(registry)
-            from app.tools.website_file_tools import register_website_file_tools as _register_website_file_tools
-            _register_website_file_tools(registry)
+
+        # 作用域文件工具：所有模式共用。
+        #
+        # 以前只有 website 模式注册这一套，general/ppt/email 用的是 wuwei 内置
+        # file 插件 —— 它的 workspace 默认值是 "."，被解析成进程 cwd（容器里
+        # 是 /app，含后端源码与全部用户数据）。结果是 general 模式的 AI
+        # 一 list_files(".") 就看到了源码树和别人的网站目录。
+        #
+        # 现在统一：内置 file 插件在所有模式下都卸载，改由这里注册的工具接管，
+        # 它会把相对路径解析到「会话工作区」或「当前网站项目目录」。
+        _unregister_if_exists(registry, "file")
+        from app.tools.website_file_tools import register_website_file_tools as _register_scoped_file_tools
+        _register_scoped_file_tools(registry)
 
         if profile.response_mode == "office":
             from app.tools.sheet_tools import register_sheet_tools as _register_sheet_tools

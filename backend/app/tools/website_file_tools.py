@@ -8,6 +8,7 @@ writing files into the AgenticOS source tree.
 
 from __future__ import annotations
 
+import pathlib
 from pathlib import Path
 
 from wuwei.plugin.builtin.file import (
@@ -18,20 +19,98 @@ from wuwei.plugin.builtin.file import (
 )
 from wuwei.tools.registry import ToolRegistry
 
-from app.core.data_path import get_current_website_dir
+from app.core.data_path import current_workspace_dir, get_current_website_dir
+
+
+# 本模块注册的全部工具名。注册前按此清单清场，避免与内置插件/独立注册冲突。
+_SCOPED_FILE_TOOL_NAMES = (
+    "read_text_file",
+    "write_text_file",
+    "append_text_file",
+    "replace_in_file",
+    "delete_file",
+    "list_files",
+    "file_to_md",
+)
+
+
+def _unregister_if_exists(registry: ToolRegistry, name: str) -> None:
+    """移除已注册的同名工具（wuwei 的 register() 拒绝重名）。"""
+    existing = registry.get(name)
+    if existing is not None:
+        registry.unregister(existing)
 
 
 def _effective_workspace() -> str:
-    """Return the current website dir if set, else ``'.'``."""
+    """解析本次工具调用应该以哪个目录为根。
+
+    优先级：
+      1. website 模式已绑定项目目录 → 用它（建站工具链依赖这个语义）
+      2. 否则 → 当前会话工作区 ``data/workspaces/u<uid>/s<sid>/``
+
+    **绝不回退到 ``"."``**：那等于把进程 cwd（容器里是 ``/app``，含后端源码与
+    全部用户数据）当成用户的 workspace。会话上下文缺失时抛错，让上层看到
+    真实原因，而不是悄悄把 AI 放进 /app。
+    """
     wd = get_current_website_dir()
-    return wd if wd else "."
+    if wd:
+        return wd
+    workspace = current_workspace_dir(create=True)
+    if workspace is None:
+        raise RuntimeError(
+            "文件工具缺少会话上下文（user_id / session_id 未设置），"
+            "无法确定工作区。这是服务端调用顺序问题，不是用户操作问题。"
+        )
+    _ensure_workspace_layout(str(workspace))
+    return str(workspace)
+
+
+# 已确认布局就绪的工作区路径。工具调用是热路径（一轮对话可能几十次），
+# 每次都两次 mkdir 实测约 0.2ms/次，且随调用次数线性累积；缓存后只在
+# 首次进入该工作区时落盘一次。
+#
+# 用 set 而非单个标记：同一进程会服务多个会话。集合本身无上限风险 ——
+# 每个元素只是一个路径字符串，且工作区数量远小于会话数量级。
+_layout_ready: set[str] = set()
+
+
+def _ensure_workspace_layout(workspace: str) -> None:
+    """首次进入时补齐 uploads/ outputs/ 两个子目录（幂等，带进程内缓存）。
+
+    不补的话 AI 第一次 ``list_files(".")`` 会看到一个空目录，无法知道该把
+    产出放哪；``uploads/`` 不存在时上传工具也无处落地。
+    """
+    from app.core.data_path import WORKSPACE_OUTPUTS, WORKSPACE_UPLOADS
+
+    if workspace in _layout_ready:
+        return
+    root = pathlib.Path(workspace)
+    for name in (WORKSPACE_UPLOADS, WORKSPACE_OUTPUTS):
+        (root / name).mkdir(parents=True, exist_ok=True)
+    _layout_ready.add(workspace)
 
 
 def register_website_file_tools(registry: ToolRegistry) -> None:
-    """Register file tools that scope to the current website project dir.
+    """注册「作用域文件工具」。
 
-    Call **after** the built-in ``file`` tools have been unregistered.
+    调用时机：必须**在卸载 wuwei 内置 file 插件之后**，否则同名工具会冲突。
+
+    作用域规则见 :func:`_effective_workspace`：website 模式用项目目录，
+    其它模式用会话工作区。所有模式共用这一套工具，避免出现「general 模式
+    用的是内置插件（workspace='.'）→ 看到 /app」这种不一致。
     """
+    try:
+        _ensure_workspace_layout(_effective_workspace())
+    except RuntimeError:
+        # 注册阶段可能还没有会话上下文（例如应用启动时枚举工具），
+        # 这时不阻断注册；真正调用工具时会再次解析并给出明确错误。
+        pass
+
+    # 先清掉同名旧工具。wuwei 的 ToolRegistry.register() 拒绝重名，
+    # 而 `file_to_md` 在本模块之外还有一处独立注册（factory 的
+    # `if "file" not in builtin_tools` 分支），内置 file 插件也会注册它。
+    for tool_name in _SCOPED_FILE_TOOL_NAMES:
+        _unregister_if_exists(registry, tool_name)
 
     @registry.tool(
         name="read_text_file",
