@@ -451,16 +451,38 @@ class AgentFactory:
     - ``self._agents``: Agent 实例 TTLCache
     """
 
-    def _ensure_openai_key(self) -> None:
-        if not self.settings.openai_api_key:
-            raise RuntimeError("缺少 OPENAI_API_KEY，请先在环境变量或 .env 中配置后再调用 /agent/stream。")
+    def _ensure_llm_configured(self) -> None:
+        """校验「至少有某条路能拿到凭据」。
+
+        不能再看 ``OPENAI_API_KEY``：提供商可以自带 API Key，企业网关类
+        提供商则用 Cookie 登录态，两者都与环境变量无关。
+        """
+        from app.services.llm_providers.spec import resolve_active_provider
+
+        spec = resolve_active_provider()
+        if spec.api_key or spec.needs_cookie:
+            return
+        raise RuntimeError(
+            "未配置任何可用的 AI 提供商，也没有 OPENAI_API_KEY。"
+            "请先到「管理后台 → 系统设置 → AI 提供商」配置后再调用 /agent/stream。"
+        )
 
     def _get_agent(self, profile: RuntimeAgentProfile) -> Agent:
         injected = getattr(self, "_agent", None)
         if injected is not None:
             return injected
-        self._ensure_openai_key()
+        self._ensure_llm_configured()
         import hashlib
+        from app.services.llm_providers.spec import (
+            resolve_active_provider,
+            resolve_model_for_role,
+        )
+
+        provider = resolve_active_provider()
+        # 用途绑定会改变实际模型，而 provider.model 不反映这个映射 ——
+        # 不把它算进缓存键的话，管理员改完「对话用哪个模型」后会一直复用
+        # 旧 agent（界面上显示已改，实际没生效）。
+        effective_model = resolve_model_for_role(provider, "chat")
         # 用 hash 替代完整文本，减少缓存键内存占用
         prompt_hash = hashlib.md5((profile.system_prompt or "").encode()).hexdigest()[:8]
         skills_hash = hashlib.md5(str(profile.skills).encode()).hexdigest()[:8]
@@ -477,22 +499,25 @@ class AgentFactory:
             self.settings.context_compression_enabled,
             # 计划模式会改变工具集合，必须参与缓存键，否则会复用普通模式的 agent
             bool(getattr(profile, "plan_mode", False)),
+            # 提供商决定 LLM 实例本身。不参与缓存键的话，管理员切换提供商后
+            # 旧 agent（连同旧网关）会被一直复用，界面显示已切换但实际没生效。
+            provider.slug,
+            effective_model,
         )
         cached = self._agents.get(cache_key)
         if cached is not None:
             return cached
 
-        # 本机 AgenticOS：使用服务端配置的 OpenAI 兼容端点构建 LLM。
-        from app.core.data_path import get_current_user_id
         from app.services.llm_factory import build_llm_for_user
 
-        uid = get_current_user_id() or None
+        # role="chat"：主对话用「对话」用途绑定的模型，没有绑定时退回
+        # 提供商配置的模型。model 传 None 以避免用全局默认覆盖提供商配置。
         llm = build_llm_for_user(
-            uid,
+            None,
             max_tokens=self.settings.agent_max_tokens,
             timeout=self.settings.llm_timeout,
-            model=self.settings.openai_model,
-            prefer_cookie=True,
+            model=None,
+            role="chat",
         )
         tools, ext_instruction = self._build_tool_registry(profile)
         middleware_stack = self._build_middleware_stack(profile, llm, tool_registry=tools)

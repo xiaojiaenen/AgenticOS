@@ -13,6 +13,7 @@ from app.api.v1.endpoints.external_systems import router as integrations_router
 from app.api.v1.endpoints.files import router as files_router
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.knowledge import router as knowledge_router
+from app.api.v1.endpoints.llm_providers import router as llm_providers_router
 from app.api.v1.endpoints.mcp_admin import router as mcp_admin_router
 from app.api.v1.endpoints.memory import router as memory_router
 from app.api.v1.endpoints.permissions import router as permissions_router
@@ -40,6 +41,7 @@ router.include_router(integrations_router)
 router.include_router(files_router)
 router.include_router(health_router)
 router.include_router(knowledge_router)
+router.include_router(llm_providers_router)
 router.include_router(memory_router)
 router.include_router(permissions_router)
 router.include_router(settings_router)
