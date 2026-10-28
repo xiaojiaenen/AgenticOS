@@ -11,14 +11,14 @@ dependencies = [
     "pydantic-settings>=2.10.0,<3.0.0",
     "sqlalchemy>=2.0.44,<3.0.0",
     "uvicorn[standard]>=0.35.0,<1.0.0",
-    "wuwei>=3.2.2",
+    "wuwei>=3.3.0",
     # 下面两个是**直接依赖**，必须显式声明，不能靠传递依赖侥幸拿到：
     # - httpx：app/ 下 14 个文件直接 import（外部系统、图像工具、鉴权代理等）。
     #   openai 3.x 起不再自动安装 httpx（改用 httpx2），只靠别人传递是定时炸弹。
     # - openai：llm_providers 的适配器与错误分类直接 import。
-    #   版本下限与 wuwei 3.2.2 的要求保持一致（>=3.23.0）。
+    #   版本下限与 wuwei 3.3.0 的要求保持一致（>=3.40.0）。
     "httpx>=0.28.0,<1.0.0",
-    "openai>=3.23.0,<4.0.0",
+    "openai>=3.40.0,<4.0.0",
     # - mcp：MCP 官方 SDK。wuwei 把 MCP 放在 optional extra 里（`wuwei[mcp]`），
     #   本项目**在管理后台直接暴露「MCP 服务器」接入能力**（mcp_service.py
     #   直接 import wuwei.mcp 的 HTTPMCPClient / StdioMCPClient），

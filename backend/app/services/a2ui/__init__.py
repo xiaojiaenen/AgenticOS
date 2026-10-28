@@ -18,10 +18,14 @@ from wuwei.tools import ToolRegistry
 
 from app.services.a2ui.builder import (
     A2uiBuildError,
+    create_surface,
     form_page,
     new_surface_id,
     simple_page,
+    update_components,
+    update_data_model,
 )
+from app.services.a2ui.catalog import catalog_prompt, extract_initial_data
 
 logger = logging.getLogger("agenticos.a2ui")
 
@@ -145,6 +149,89 @@ def register_a2ui_tools(registry: ToolRegistry) -> None:
         return (
             f"已生成表单「{title}」（{len(fields)} 个字段）。"
             "用户填完点击「{submit_label}」后，字段值会作为动作回传。"
+        )
+
+    @registry.tool(display_name="自由组合界面")
+    async def render_components(components_json: str, surface_id: str = "") -> str:
+        """用 A2UI 基础组件自由组合一个界面（比 render_ui / render_form 更灵活）。
+
+        什么时候用：render_ui 只能标题+正文、render_form 只能表单。需要
+        更复杂结构时用这个 —— 卡片、标签页、列表、图表位、多列布局、
+        按钮组、混合输入等任意组合。
+
+        组件目录（只能用这些，共 18 个）：
+
+          Text          必填 text        可选 variant(h1/h2/h3/body/caption/label)
+          Column        必填 children    纵向布局，children 是 id 数组
+          Row           必填 children    横向布局
+          Card          必填 child       卡片容器，单个子组件 id
+          List          必填 children    列表
+          Divider       无必填           分隔线
+          Button        必填 child       按钮，child 通常是 Text 的 id；可选 action
+          TextField     必填 label       可选 value/required
+          CheckBox      必填 label       可选 checked
+          ChoicePicker  必填 options     可选 value；options 是 [{label,value}]
+          Slider        必填 min,max     可选 value
+          DateTimeInput 必填 label       可选 value
+          Tabs          必填 tabs        tabs 是 [{label,child}]
+          Modal         必填 child       可选 title
+          Image         必填 src         可选 alt
+          Icon          必填 name
+          Video         必填 src
+          AudioPlayer   必填 src
+
+        结构规则（必须遵守，否则校验失败）：
+          1. 扁平数组，每个组件有唯一 id；父子靠 id 引用，不能嵌套
+          2. 必须有 id='root' 的容器组件（通常 Column）
+          3. 输入类组件用 {"path":"/字段名"} 绑定值，初值会自动补
+          4. 不能用未列出的组件名
+
+        参数:
+          components_json: 组件数组的 JSON 字符串，例如::
+
+              [{"id":"root","component":"Column","children":["t","row1"]},
+               {"id":"t","component":"Text","text":"汇总","variant":"h2"},
+               {"id":"row1","component":"Row","children":["c1","c2"]},
+               {"id":"c1","component":"Card","child":"t1"},
+               {"id":"t1","component":"Text","text":"完成率 92%"}]
+
+          surface_id: 可选，复用已有界面时传同一个 id；留空则新建
+
+        返回:
+          生成结果说明，或具体的校验错误（据此修正后重试）
+        """
+        import json
+
+        try:
+            components = json.loads(components_json)
+        except json.JSONDecodeError as exc:
+            return f"components_json 不是合法 JSON：{exc}"
+
+        sid = surface_id.strip() or new_surface_id("ui")
+
+        try:
+            msg_components = update_components(sid, components)
+        except A2uiBuildError as exc:
+            # 校验失败的信息会原样返回给模型 —— 它据此自己改，不用人介入
+            return f"组件校验失败：{exc}"
+
+        messages: list[dict[str, Any]] = [create_surface(sid), msg_components]
+
+        # 自动补数据模型初值：模型常忘记单独发 updateDataModel，
+        # 少了这一步输入类组件会绑定到 undefined。
+        initial = extract_initial_data(components)
+        if initial:
+            messages.append(update_data_model(sid, initial))
+
+        _emit(messages)
+        logger.info(
+            "a2ui render_components: surface=%s components=%d data_keys=%d",
+            sid, len(components), len(initial),
+        )
+        return (
+            f"已生成界面（surface={sid}，{len(components)} 个组件"
+            + (f"，{len(initial)} 个绑定字段" if initial else "")
+            + "）。用户会直接看到，无需在回复里重复组件内容。"
         )
 
 

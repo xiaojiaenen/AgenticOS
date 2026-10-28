@@ -65,12 +65,18 @@ def test_form_page_separates_data_from_structure() -> None:
 
 def test_component_whitelist_blocks_unknown() -> None:
     """模型不能引入自定义组件 —— 这是 A2UI「安全」承诺的落点。"""
-    with pytest.raises(builder.A2uiBuildError, match="不支持的组件"):
+    with pytest.raises(builder.A2uiBuildError, match="不支持的 component"):
         builder.update_components("s1", [{"id": "x", "component": "EvilIframe"}])
 
-    # 合法组件正常通过
-    out = builder.update_components("s1", [{"id": "t", "component": "Text", "text": "hi"}])
-    assert out["updateComponents"]["components"][0]["component"] == "Text"
+    # 合法组件正常通过（但需要满足必填字段 + 有 root）
+    out = builder.update_components(
+        "s1",
+        [
+            {"id": "root", "component": "Column", "children": ["t"]},
+            {"id": "t", "component": "Text", "text": "hi"},
+        ],
+    )
+    assert out["updateComponents"]["components"][1]["component"] == "Text"
 
 
 def test_component_requires_id() -> None:

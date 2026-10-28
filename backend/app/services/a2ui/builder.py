@@ -24,12 +24,14 @@ from typing import Any
 CATALOG_ID = "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"
 PROTOCOL_VERSION = "v0.9"
 
-# 允许智能体使用的组件（basic catalog 全集）
-ALLOWED_COMPONENTS: frozenset[str] = frozenset({
-    "Text", "Image", "Icon", "Video", "AudioPlayer",
-    "Row", "Column", "List", "Card", "Tabs", "Modal", "Divider",
-    "Button", "TextField", "CheckBox", "ChoicePicker", "Slider", "DateTimeInput",
-})
+# 组件白名单的单一来源在 catalog.py —— 那里同时给 prompt 用的紧凑目录
+# 和结构校验。builder 只引用，不重复定义（避免两处白名单漂移）。
+from app.services.a2ui.catalog import (
+    ALLOWED_COMPONENTS,
+    A2uiValidationError,
+    extract_initial_data,
+    validate_components,
+)
 
 
 class A2uiBuildError(ValueError):
@@ -54,14 +56,12 @@ def create_surface(surface_id: str, *, send_data_model: bool = True) -> dict[str
 
 def update_components(surface_id: str, components: list[dict[str, Any]]) -> dict[str, Any]:
     """下发/更新组件。``components`` 是邻接表列表（含 id 与 component 字段）。"""
-    for comp in components:
-        name = comp.get("component")
-        if name not in ALLOWED_COMPONENTS:
-            raise A2uiBuildError(
-                f"不支持的组件「{name}」。允许的组件：{', '.join(sorted(ALLOWED_COMPONENTS))}"
-            )
-        if not comp.get("id"):
-            raise A2uiBuildError(f"组件缺少 id：{comp}")
+    # 完整校验：组件名 / id 唯一 / 必填字段 / 悬空引用 / 环。
+    # 校验失败转成 A2uiBuildError，让调用方只需捕获一种异常。
+    try:
+        validate_components(components)
+    except A2uiValidationError as exc:
+        raise A2uiBuildError(str(exc)) from exc
     return {
         "version": PROTOCOL_VERSION,
         "updateComponents": {"surfaceId": surface_id, "components": components},
