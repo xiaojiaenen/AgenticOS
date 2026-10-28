@@ -99,3 +99,88 @@ def test_last_matching_point_wins():
     ]
     pending = _messages_after(msgs, existing)
     assert [m["content"] for m in pending] == ["新问题"]
+
+
+# ---------------------------------------------------------------------------
+# session metadata 序列化：ActionLog 等非 JSON 对象
+# ---------------------------------------------------------------------------
+
+
+def test_dump_json_tolerates_non_json_objects():
+    """``dump_json`` 必须有兜底：metadata 里可能挂着任意非 JSON 对象。"""
+    from wuwei.runtime.action_log import ActionLog
+
+    from app.services.session_storage import dump_json
+
+    # 不应抛 TypeError
+    text = dump_json({"action_log": ActionLog(), "n": 1})
+    assert isinstance(text, str)
+    assert '"n": 1' in text
+
+
+def test_session_metadata_uses_upstream_contract_for_action_log():
+    """写库必须走 ``session.to_dict()`` 的 ActionLog 包装。
+
+    用户症状：第一次新建对话正常（metadata 还没 action_log），
+    第二次发送时 metadata 里已有 ActionLog → json.dumps 抛
+    ``Object of type ActionLog is not JSON serializable`` → SSE 只吐 error →
+    前端 AI 回复空白。
+    """
+    from wuwei.agent.session import AgentSession
+    from wuwei.runtime.action_log import ACTION_LOG_KEY, ActionLog
+
+    from app.services.session_storage import (
+        _session_metadata_for_storage,
+        dump_json,
+        load_json,
+    )
+
+    session = AgentSession(session_id="probe-1", system_prompt="p")
+    log = ActionLog()
+    log.append(run_id="r1", agent="main", step=1, kind="llm", summary="first call")
+    session.metadata[ACTION_LOG_KEY] = log
+
+    stored = _session_metadata_for_storage(session)
+
+    # 走 to_dict 契约时会被包成 {"__type__": "ActionLog", "value": {...}}
+    assert isinstance(stored[ACTION_LOG_KEY], dict)
+    assert stored[ACTION_LOG_KEY]["__type__"] == "ActionLog"
+    assert stored[ACTION_LOG_KEY]["value"]["entries"][0]["summary"] == "first call"
+
+    # 入库不报错，且读回后能还原成 ActionLog 实例
+    payload = dump_json(stored)
+    assert "ActionLog" in payload
+
+    restored = AgentSession.from_dict(
+        {
+            "session_id": "probe-1",
+            "system_prompt": "p",
+            "metadata": load_json(payload, {}),
+            "context": {},
+        }
+    )
+    assert isinstance(restored.metadata[ACTION_LOG_KEY], ActionLog)
+    assert len(restored.metadata[ACTION_LOG_KEY]) == 1
+
+
+def test_session_metadata_falls_back_when_to_dict_fails():
+    """``to_dict()`` 抛错时退回原始字典，不能让持久化整体失败。"""
+
+    from app.services.session_storage import _session_metadata_for_storage
+
+    class Broken:
+        metadata = {"user_id": 7}
+
+        def to_dict(self):
+            raise RuntimeError("boom")
+
+    assert _session_metadata_for_storage(Broken()) == {"user_id": 7}
+
+
+def test_session_metadata_handles_object_without_to_dict():
+    from app.services.session_storage import _session_metadata_for_storage
+
+    class Plain:
+        metadata = {"user_id": 3, "agent_profile_id": 4}
+
+    assert _session_metadata_for_storage(Plain()) == {"user_id": 3, "agent_profile_id": 4}

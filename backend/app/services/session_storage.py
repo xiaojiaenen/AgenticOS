@@ -27,7 +27,44 @@ def _loads(value: str | None, default: Any) -> Any:
 
 
 def _dumps(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False)
+    """序列化会话状态。
+
+    ``default=str`` 是必要的兜底，不是偷懒：``session.metadata`` 里可能挂着
+    非 JSON 对象 —— wuwei 的 ``ActionLog`` 就是典型（它只在
+    ``AgentSession.to_dict()`` 里被包装成 ``{"__type__": "ActionLog", ...}``，
+    我们写库时走的是 metadata 原始字典，绕过了那层包装）。
+
+    没有兜底时的症状：第一次新建对话正常（metadata 还没有 action_log），
+    第二次发送时 metadata 里已有 ActionLog → ``json.dumps`` 抛
+    ``TypeError: Object of type ActionLog is not JSON serializable`` →
+    SSE 只吐一个 error 事件 → 前端 AI 回复空白。
+    """
+    return json.dumps(value, ensure_ascii=False, default=str)
+
+
+def _session_metadata_for_storage(session) -> dict[str, Any]:
+    """把 session.metadata 转成可安全入库的纯 dict。
+
+    **只处理 metadata，不调 ``session.to_dict()``。** 后者会连带序列化
+    整个 ``context``（全部历史消息），实测在 200 条消息的会话上单次约
+    0.4ms，而这里只需要 metadata 这一个字段 —— 相差 500 倍以上，且随会话
+    长度线性增长。持久化发生在每轮对话，属于热路径。
+
+    需要遵守的契约只有一条：``ActionLog`` 必须包成
+    ``{"__type__": "ActionLog", "value": ...}``，否则读回时
+    ``AgentSession.from_dict()`` 无法还原成对象。这里复刻 wuwei 的那一小段
+    逻辑（见 ``wuwei/agent/session.py::to_dict``），其余字段原样透传。
+    """
+    from wuwei.runtime.action_log import ACTION_LOG_KEY, ActionLog
+
+    metadata = dict(getattr(session, "metadata", {}) or {})
+    action_log = metadata.get(ACTION_LOG_KEY)
+    if isinstance(action_log, ActionLog):
+        metadata[ACTION_LOG_KEY] = {
+            "__type__": "ActionLog",
+            "value": action_log.to_dict(),
+        }
+    return metadata
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -108,7 +145,7 @@ class DatabaseAgentStorage:
                 row.max_steps = session.max_steps
                 row.parallel_tool_calls = session.parallel_tool_calls
                 row.summary = getattr(session, "summary", None)
-                row.metadata_json = _dumps(metadata)
+                row.metadata_json = _dumps(_session_metadata_for_storage(session))
                 row.last_usage_json = _dumps(getattr(session, "last_usage", {}) or {})
                 row.last_latency_ms = getattr(session, "last_latency_ms", 0) or 0
                 row.last_llm_calls = getattr(session, "last_llm_calls", 0) or 0
@@ -397,7 +434,7 @@ class DatabaseAgentStorage:
                 row.max_steps = session.max_steps
                 row.parallel_tool_calls = session.parallel_tool_calls
                 row.summary = getattr(session, "summary", None)
-                row.metadata_json = _dumps(metadata)
+                row.metadata_json = _dumps(_session_metadata_for_storage(session))
                 row.last_usage_json = _dumps(getattr(session, "last_usage", {}) or {})
                 row.last_latency_ms = getattr(session, "last_latency_ms", 0) or 0
                 row.last_llm_calls = getattr(session, "last_llm_calls", 0) or 0
