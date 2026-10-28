@@ -30,21 +30,50 @@ AgenticOS/
 │  │  ├─ db/                 # 数据库模型与初始化
 │  │  ├─ schemas/            # 请求/响应模型
 │  │  └─ services/           # Agent / Skill / Dashboard 等服务
-│  ├─ data/                  # 本地数据库与技能文件
+│  ├─ alembic/               # 数据库迁移
+│  ├─ scripts/               # 运维与迁移脚本
+│  ├─ tests/                 # 后端测试
+│  ├─ templates/             # 模板资源
 │  ├─ .env.example
 │  ├─ main.py
 │  ├─ pyproject.toml
 │  └─ uv.lock
 ├─ frontend/                 # React + Vite 前端
 │  ├─ src/
+│  ├─ tests/
 │  ├─ .env.example
 │  ├─ package.json
 │  └─ vite.config.ts
-└─ data/                     # Docker 部署时推荐挂载的数据目录
-   ├─ skills/                # Skill 文件
-   ├─ ppt-sessions/          # PPT 会话文件
-   └─ websites/              # 网站项目文件
+├─ data/                     # 运行数据目录（见下方说明）
+│  ├─ icons/                 # 只读资产：图标库
+│  ├─ design-themes/         # 只读资产：设计主题
+│  ├─ design-systems/        # 只读资产：设计系统
+│  ├─ skills/                # 只读资产：Skill 文件
+│  ├─ charts/ layouts/       # 只读资产：图表与版式
+│  ├─ website-templates/     # 只读资产：网站模板
+│  └─ ppt-sessions/ websites/ documents/ sheets/ ...   # 运行时产物（不入库）
+├─ docs/                     # 文档，按用途分目录，详见 docs/README.md
+│  ├─ design/ research/ plans/ reports/ upstream/ deploy/
+├─ deploy/                   # 部署物料
+│  ├─ Dockerfile.backend / Dockerfile.frontend
+│  ├─ docker-compose.yml / nginx/
+│  └─ intranet/              # 内网专用（爬虫、无头浏览器）
+├─ business-docs/            # 「文章生成」工具的产物（不入库）
+├─ config/ scripts/ tests/   # 仓库级配置与脚本
+└─ AGENTS.md PRODUCT.md DESIGN.md CHANGELOG.md README.md
 ```
+
+### data/ 目录的性质
+
+`data/` 混装了两类东西，靠 `.gitignore` 分开：
+
+- **只读资产**（`icons/` `design-themes/` `design-systems/` `skills/` `charts/`
+  `layouts/` `website-templates/`）—— 代码运行时依赖，**入库**。
+- **运行时产物**（`ppt-sessions/` `websites/` `documents/` `sheets/` `uploads/`
+  `video-projects/` `knowledge/` 及 `*.db`）—— 用户生成，**不入库**。
+
+新增文件前请对照 `docs/README.md` 的约定：往资产目录加文件会被正常跟踪，
+往产物目录加文件会被自动忽略 —— 这是有意为之。
 
 ## 内置智能体详细说明
 

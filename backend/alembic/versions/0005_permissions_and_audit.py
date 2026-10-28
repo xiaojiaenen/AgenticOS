@@ -5,7 +5,7 @@ Revises: 0004_composite_indexes
 Create Date: 2026-09-30
 
 Introduces the enterprise permission surface described in
-``docs/m6-design.md`` section 4:
+``docs/design/m6-design.md`` section 4:
 
 - ``departments``  department tree with a materialized ``path``
 - ``roles``        custom (non-builtin) Casbin role metadata

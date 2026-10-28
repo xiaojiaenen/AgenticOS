@@ -1,6 +1,6 @@
 """Casbin 权限服务（M6-C）。
 
-设计要点见 ``app/resources/casbin_model.conf`` 与 ``docs/m6-design.md`` 第四节：
+设计要点见 ``app/resources/casbin_model.conf`` 与 ``docs/design/m6-design.md`` 第四节：
 
 - **主体**统一为 ``user:<users.id>``，避免邮箱改名导致策略失联；
 - **域**由 ``g`` 关系的域承载（``g, user:7, dept_admin, dept:2`` 只在本部门生效），

@@ -243,4 +243,4 @@ MCP 协议会把工具异常包装成通用文案（`Error executing tool <name>
 | 表结构与迁移 | `backend/app/db/models.py`、`backend/alembic/versions/0015_mcp_intranet_access.py` |
 | 前端 | `frontend/src/services/mcpService.ts`、`frontend/src/components/admin/McpManagementPanel.tsx`、`frontend/src/pages/AgentEditor.tsx` |
 | 测试 | `backend/tests/test_mcp_plugin.py`（19）、`test_mcp_crawler_e2e.py`（5，真实起服务）、`test_mcp_cross_task.py`（1） |
-| 更大的方案文档 | `docs/内网爬虫与无头浏览器方案.md` |
+| 更大的方案文档 | `docs/design/内网爬虫与无头浏览器方案.md` |

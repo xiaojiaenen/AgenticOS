@@ -1,6 +1,6 @@
 # AgenticOS 开发计划 v2
 
-> 2026-09-30 定稿 · 取代 `docs/enterprise-upgrade-plan.md` 中与之冲突的部分（该文档保留作为背景调查与证据附录）
+> 2026-09-30 定稿 · 取代 `docs/plans/enterprise-upgrade-plan.md` 中与之冲突的部分（该文档保留作为背景调查与证据附录）
 > 已确认决策：① 前端组件全量替换为 shadcn/ui，**不保留**现有样式与色板，删除玻璃拟态；② Chrome 85 优雅降级（新浏览器完整样式，85 不残缺）；③ 生产数据库为 MySQL（不引入 PG）；④ 第 3.1 节自研轮子替换全部落地；⑤ agent_service 拆分 / alembic / tsconfig strict 纳入本计划。
 
 ---
