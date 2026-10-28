@@ -1,333 +1,174 @@
 # AgenticOS
 
-AgenticOS 是一个前后端分离的智能体应用，当前仓库已经接入了聊天、智能体配置、Skill 本地存储、管理后台、审批流和数据看板。
+[![CI](https://github.com/xiaojiaenen/AgenticOS/actions/workflows/ci.yml/badge.svg)](https://github.com/xiaojiaenen/AgenticOS/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
+[![React 19](https://img.shields.io/badge/react-19-61dafb.svg)](https://react.dev/)
 
-默认开发端口：
+> 可自托管的 AI 智能体平台 —— 用对话生成 PPT、网站和文档，工具调用全程可审批。
 
-- 前端：`http://127.0.0.1:3001`
-- 后端：`http://127.0.0.1:8001`
+AgenticOS 是一个前后端分离的智能体平台。它把「大模型 + 工具 + 技能 + 审批策略」
+组装成可复用的智能体，让普通用户通过对话完成原本需要写代码或反复操作软件的任务。
 
-## 内置智能体
+**核心卖点**：用户用现有的 Skill、工具和审批策略**拼装**自己的智能体，
+内置智能体只是示例。平台不锁定模型厂商，支持任意 OpenAI 兼容接口。
 
-AgenticOS 内置了 4 个专业智能体，覆盖常见场景：
+---
 
-| 智能体 | 模式 | 说明 |
-|--------|------|------|
+## 它能做什么
+
+| 智能体 | 模式 | 产出 |
+|---|---|---|
 | **通用助手** | `general` | 日常问答、资料整理、轻量工具调用 |
-| **PPT 设计师** | `ppt` | 使用 SVG 原生图形生成演示文稿，支持导出 .pptx |
-| **邮箱助手** | `email` | 邮件管理，支持读取、搜索、发送和统计 |
-| **网站工程师** | `website` | 页面方案、前端代码、交互原型，支持 Vue/React |
+| **PPT 设计师** | `ppt` | SVG 原生图形生成演示文稿，导出可编辑 `.pptx` |
+| **网站工程师** | `website` | 页面方案、前端代码、交互原型，支持 Vue / React |
+| **办公助手** | `office` | 可编辑的电子表格与文档（公式、样式保留） |
+| **邮箱助手** | `email` | 邮件读取、搜索、发送、统计（IMAP / SMTP） |
 
+### 关键能力
+
+- **多智能体编排** —— Leader-Worker 并行分解复杂任务
+- **HITL 人工审批** —— 工具调用按粒度授权，危险操作必须人工确认后才执行
+- **会话级工作区** —— 每个会话独立文件沙箱，AI 只能读写自己的 `uploads/` 与 `outputs/`
+- **知识库 + 知识图谱** —— 混合检索（字面 + 语义 + 重排），Wiki 化沉淀
+- **Skill 系统** —— 本地技能包，可热插拔
+- **MCP 支持** —— 接入外部 MCP 服务作为工具来源
+- **企业级后台** —— 用户/角色/策略、审计日志、用量统计、AI 提供商管理
+- **私有化部署** —— Docker Compose 一键起，数据不出内网
+
+---
+
+## 快速开始
+
+### 前置要求
+
+- Python 3.13
+- Node.js 22+（仅构建前端时需要）
+- [uv](https://docs.astral.sh/uv/)（Python 包管理）
+
+### 本地开发
+
+```bash
+# 1. 后端
+cd backend
+cp .env.example .env          # 填入 OPENAI_API_KEY 与 AUTH_SECRET_KEY
+uv sync
+uv run python main.py         # http://127.0.0.1:8001
+
+# 2. 前端（另开终端）
+cd frontend
+npm install
+npm run dev                   # http://127.0.0.1:3001
+```
+
+首次访问时**第一个注册的用户自动成为管理员**。
+
+### Docker 部署
+
+```bash
+cd deploy
+cp .env.example .env          # 必填：AUTH_SECRET_KEY、DATABASE_URL、OPENAI_API_KEY
+docker compose up -d --build
+```
+
+- 前端：`http://<host>:10008`
+- 后端：`http://<host>:10007`
+
+详见 [deploy/DEPLOY.md](deploy/DEPLOY.md)。
+
+---
+
+## 配置
+
+最小可用配置（`backend/.env`）：
+
+```bash
+# 必填
+AUTH_SECRET_KEY=<随机 32+ 字符>
+OPENAI_API_KEY=<你的 key>
+
+# 模型端点（支持任意 OpenAI 兼容接口）
+OPENAI_BASE_URL=https://api.deepseek.com
+OPENAI_MODEL=deepseek-chat
+```
+
+完整环境变量见 `backend/.env.example`。
+
+### 企业网关 / 自建模型
+
+平台内置通用厂商预设（OpenAI、DeepSeek 等）。企业内网网关（自签证书、
+SSO 登录、私有模型注册表）通过**外部预设插件**接入，无需改代码：
+
+```bash
+# 1. 写一个插件文件，例如 /opt/presets/my_gateway.py
+#    导出 PRESETS = [ProviderPreset(...)]
+# 2. 指向该目录
+PROVIDER_PRESETS_DIR=/opt/presets
+```
+
+参考 `backend/tests/fixtures/presets/acme_gateway.py` 的完整示例。
+
+---
 
 ## 项目结构
 
 ```text
 AgenticOS/
-├─ backend/                  # FastAPI 后端
-│  ├─ app/
-│  │  ├─ api/v1/endpoints/   # 真实接口定义
-│  │  ├─ core/               # 配置、安全、基础能力
-│  │  ├─ db/                 # 数据库模型与初始化
-│  │  ├─ schemas/            # 请求/响应模型
-│  │  └─ services/           # Agent / Skill / Dashboard 等服务
-│  ├─ alembic/               # 数据库迁移
-│  ├─ scripts/               # 运维与迁移脚本
-│  ├─ tests/                 # 后端测试
-│  ├─ templates/             # 模板资源
-│  ├─ .env.example
-│  ├─ main.py
-│  ├─ pyproject.toml
-│  └─ uv.lock
-├─ frontend/                 # React + Vite 前端
-│  ├─ src/
-│  ├─ tests/
-│  ├─ .env.example
-│  ├─ package.json
-│  └─ vite.config.ts
-├─ data/                     # 运行数据目录（见下方说明）
-│  ├─ icons/                 # 只读资产：图标库
-│  ├─ design-themes/         # 只读资产：设计主题
-│  ├─ design-systems/        # 只读资产：设计系统
-│  ├─ skills/                # 只读资产：Skill 文件
-│  ├─ charts/ layouts/       # 只读资产：图表与版式
-│  ├─ website-templates/     # 只读资产：网站模板
-│  └─ ppt-sessions/ websites/ documents/ sheets/ ...   # 运行时产物（不入库）
-├─ docs/                     # 文档，按用途分目录，详见 docs/README.md
-│  ├─ design/ research/ plans/ reports/ upstream/ deploy/
-├─ deploy/                   # 部署物料
-│  ├─ Dockerfile.backend / Dockerfile.frontend
-│  ├─ docker-compose.yml / nginx/
-│  └─ intranet/              # 内网专用（爬虫、无头浏览器）
-├─ business-docs/            # 「文章生成」工具的产物（不入库）
-├─ scripts/ tests/           # 仓库级脚本与测试素材
-└─ AGENTS.md PRODUCT.md DESIGN.md CHANGELOG.md README.md
+├── backend/                  # FastAPI 后端
+│   ├── app/
+│   │   ├── api/v1/endpoints/ # 接口定义
+│   │   ├── core/             # 配置、安全、路径
+│   │   ├── db/               # ORM 模型
+│   │   ├── services/         # Agent / Skill / 知识库 / PPT 等
+│   │   └── tools/            # 工具实现
+│   ├── alembic/              # 数据库迁移
+│   └── tests/                # 679 个测试
+├── frontend/                 # React 19 + Vite + Tailwind 4
+│   └── src/
+│       ├── pages/            # 路由页面
+│       ├── components/       # chat / admin / ppt / ui
+│       └── services/         # API 客户端
+├── data/                     # 运行数据
+│   ├── icons/ design-themes/ # 只读资产
+│   └── workspaces/ websites/ # 运行时产物（不入库）
+├── docs/                     # 设计文档、调研、部署说明
+└── deploy/                   # Docker 与 nginx 配置
 ```
 
-### data/ 目录的性质
+---
 
-`data/` 混装了两类东西，靠 `.gitignore` 分开：
-
-- **只读资产**（`icons/` `design-themes/` `design-systems/` `skills/` `charts/`
-  `layouts/` `website-templates/`）—— 代码运行时依赖，**入库**。
-- **运行时产物**（`ppt-sessions/` `websites/` `documents/` `sheets/` `uploads/`
-  `video-projects/` `knowledge/` 及 `*.db`）—— 用户生成，**不入库**。
-
-新增文件前请对照 `docs/README.md` 的约定：往资产目录加文件会被正常跟踪，
-往产物目录加文件会被自动忽略 —— 这是有意为之。
-
-## 内置智能体详细说明
-
-### 1. 通用助手（general）
-
-适合日常问答、资料整理、轻量工具调用和多轮协作。
-
-**可用工具**：计算、时间、文件操作、记忆
-
-### 2. PPT 设计师（ppt）
-
-使用 SVG 原生图形生成演示文稿，支持导出原生 .pptx 文件，形状可编辑。
-
-**特性**：
-- 15 种核心布局 + 71 种图表模板
-- 主题系统：apple、github、stripe 等 20+ 主题
-- 反千篇一律：自动避免 AI 生成感
-- 批量生成：每 3 页一批，减少调用次数
-
-**可用工具**：save_slide、save_slides_batch、read_slide、batch_edit_slides、submit_spec_lock、submit_slide_plan、search_icons、search_images 等
-
-### 3. 邮箱助手（email）
-
-帮助用户高效管理公司邮件。
-
-**特性**：
-- **邮件概览**：快速查看收件箱、未读邮件、重要邮件
-- **邮件统计**：快速获取邮件总数、未读数量等统计信息
-- **邮件搜索**：按发件人、主题、日期、关键词搜索
-- **邮件阅读**：读取邮件内容、查看附件信息
-- **邮件回复**：帮助用户撰写和发送邮件（需用户确认）
-
-**可用工具**：count_emails、read_emails、search_emails、get_email、send_email、setup_email
-
-**支持的邮箱**：
-- Gmail
-- Outlook/Office 365
-- QQ 邮箱
-- 163/126 邮箱
-- 企业邮箱（IMAP/SMTP）
-
-### 4. 网站工程师（website）
-
-用于页面方案、前端代码、交互原型和网站结构设计。
-
-**特性**：
-- 三种技术栈：vanilla（HTML+CSS+JS）、vue（Vue3+Vite）、react（React18+Vite）
-- 设计系统：内置 CSS 变量主题系统
-- 一键构建：自动 npm install + npm run build
-
-**可用工具**：copy_template、check_website_project、build_website、deploy_website、write_text_file、replace_text_in_file 等
-
-## 本地运行
-
-### 1. 启动后端
+## 开发
 
 ```bash
-cd backend
-uv sync
-cp .env.example .env
-uv run python main.py
+# 后端测试
+cd backend && uv run pytest
+
+# 前端类型检查
+cd frontend && npm run lint
+
+# 前端构建
+cd frontend && npm run build
 ```
 
-后端启动后可访问：
+### 设计约定
 
-- 首页：`http://127.0.0.1:8001/`
-- Swagger：`http://127.0.0.1:8001/docs`
-- 健康检查：`http://127.0.0.1:8001/api/v1/health/`
+- 品牌色 `#2b87c2`，只用于主 CTA 与焦点态
+- 字号权重只用 `font-medium`(500) / `font-semibold`(600)
+- 圆角：控件 8px / 卡片 12px / 弹层 16px
+- 阴影：双层叠加，`shadow-sm` 到 `shadow-xl`
 
-后端关键环境变量：
+详见 [DESIGN.md](DESIGN.md)。
 
-- `OPENAI_API_KEY`：必填，模型服务密钥
-- `OPENAI_BASE_URL`：可选，兼容网关地址
-- `OPENAI_MODEL`：默认 `gpt-5.4`
-- `DATABASE_URL`：默认 `sqlite:///./data/agenticos.db`
-- `SKILL_STORAGE_DIR`：默认 `./data/skills`
-- `AUTH_SECRET_KEY`：建议在正式环境改成长随机串
-- `HITL_REQUIRE_APPROVAL_TOOLS`：示例文件里已包含 `run_skill_python_script`
+---
 
-补充说明：
+## 贡献
 
-- 本地模式下，Skill 文件默认保存在 `data/skills/`（仓库根，可用 `SKILL_STORAGE_DIR` 覆盖）
-- 第一个注册的账号会自动成为管理员
-- Skill 工具默认开启审批，管理员可在后台继续调整
+欢迎提 Issue 和 PR。请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-### 2. 启动前端
+发现安全漏洞请**不要**公开提 Issue，按 [SECURITY.md](SECURITY.md) 的渠道私下报告。
 
-```bash
-cd frontend
-npm install
-cp .env.example .env.local
-npm run dev
-```
+---
 
-前端默认地址：
+## 许可
 
-- `http://127.0.0.1:3001`
-
-前端环境变量：
-
-- `VITE_API_BASE_URL`：默认 `http://127.0.0.1:8001`
-- `VITE_API_PROXY_TARGET`：本地开发代理目标，默认 `http://127.0.0.1:8001`
-
-### 3. 本地联调顺序
-
-建议按下面顺序启动：
-
-1. 启动后端并确认 `http://127.0.0.1:8001/docs` 可打开
-2. 启动前端并访问 `http://127.0.0.1:3001`
-3. 注册首个账号，系统会自动赋予管理员权限
-4. 进入管理后台，配置用户、智能体、Skill 与审批规则
-
-## Skill 系统
-
-AgenticOS 的 Skill 系统允许智能体按需加载专业知识。每个 Skill 是一个 Markdown 文件，包含特定领域的指导和规范。
-
-### 内置 Skill
-
-| Skill | 说明 | 适用智能体 |
-|-------|------|-----------|
-| `ppt-workflow` | PPT 创作工作流 | ppt |
-| `ppt-design-guide` | SVG 设计规范 | ppt |
-| `ppt-template-library` | 布局和图表模板 | ppt |
-| `website-design-taste` | 网站设计品味 | website |
-
-### 使用方式
-
-智能体在对话中可以通过 `load_skill("skill-name")` 加载 Skill：
-
-
-
-### Skill 存储位置
-
-- 本地模式：`data/skills/`（仓库根，可用 `SKILL_STORAGE_DIR` 覆盖）
-- Docker 模式：`/app/data/skills/`
-
-## 当前后端接口
-
-以下都是当前项目里已经存在的真实接口：
-
-### 认证
-
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `GET /api/v1/auth/me`
-- `POST /api/v1/auth/logout`
-
-### 智能体
-
-- `POST /api/v1/agent/stream`
-- `POST /api/v1/agent/approvals/{approval_id}/decision`
-- `GET /api/v1/agent/sessions/{session_id}`
-- `GET /api/v1/agent/artifacts/{artifact_id}`
-
-### 智能体配置
-
-- `GET /api/v1/agent-profiles`
-- `POST /api/v1/agent-profiles`
-- `PATCH /api/v1/agent-profiles/{profile_id}`
-- `DELETE /api/v1/agent-profiles/{profile_id}`
-- `GET /api/v1/agent-store`
-- `POST /api/v1/agent-store/{profile_id}/install`
-- `DELETE /api/v1/agent-store/{profile_id}/install`
-- `GET /api/v1/my/agents`
-
-### Skill 管理
-
-- `GET /api/v1/skills`
-- `POST /api/v1/skills`
-- `POST /api/v1/skills/upload`
-- `PATCH /api/v1/skills/{skill_id}`
-- `DELETE /api/v1/skills/{skill_id}`
-
-### 管理后台
-
-- `GET /api/v1/dashboard/stats`
-- `GET /api/v1/dashboard/conversations`
-- `GET /api/v1/dashboard/conversations/{session_id}`
-- `DELETE /api/v1/dashboard/conversations/{session_id}`
-- `GET /api/v1/tool-config`
-- `PUT /api/v1/tool-config/modes/{mode}`
-- `GET /api/v1/users`
-- `POST /api/v1/users`
-- `GET /api/v1/users/{user_id}`
-- `PATCH /api/v1/users/{user_id}`
-- `PATCH /api/v1/users/{user_id}/status`
-- `DELETE /api/v1/users/{user_id}`
-
-## Docker 部署
-
-仓库已经补好了下面这些文件：
-
-- `backend/Dockerfile`
-- `frontend/Dockerfile`
-- `frontend/nginx.conf`
-- `docker-compose.yml`
-
-### 1. 准备环境变量
-
-先在 `backend/` 下创建 `.env`：
-
-```bash
-cd backend
-cp .env.example .env
-```
-
-至少补上：
-
-```env
-OPENAI_API_KEY=your_api_key
-OPENAI_MODEL=gpt-5.4
-AUTH_SECRET_KEY=replace-with-a-long-random-secret
-```
-
-### 2. 构建并启动
-
-在仓库根目录执行：
-
-```bash
-docker compose up -d --build
-```
-
-启动后默认访问地址：
-
-- 前端：`http://127.0.0.1:3001`
-- 后端：`http://127.0.0.1:8001`
-- Swagger：`http://127.0.0.1:8001/docs`
-
-### 3. Docker 部署说明
-
-- 前端容器使用 `nginx` 托管静态资源
-- 浏览器里的 `/api` 请求由 `nginx` 反向代理到 `backend:8001`
-- Compose 会把根目录 `./data` 挂载到后端容器 `/app/data`
-- Docker 模式下：
-  - 数据库文件位于 `/app/data/agenticos.db`
-  - Skill 文件位于 `/app/data/skills`
-
-## 常用命令
-
-### 后端
-
-```bash
-cd backend
-uv sync
-uv run python main.py
-uv run pytest
-```
-
-### 前端
-
-```bash
-cd frontend
-npm install
-npm run dev
-npm run build
-npm run lint
-```
+[MIT](LICENSE)
