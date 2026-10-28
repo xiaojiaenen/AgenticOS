@@ -110,6 +110,11 @@ startup_error.txt
 .claude/
 CLAUDE.md
 
+# 「文章生成」工具的产物目录：6 套同样的 vite 站点模板 + 编译产物。
+# 与 data/website-templates/ 里的 react 模板同源，属运行时生成物。
+# 手写的领域分析笔记已迁到 docs/业务领域分析笔记.md。
+business-docs/
+
 # Reasonix
 .reasonix/
 .todo
