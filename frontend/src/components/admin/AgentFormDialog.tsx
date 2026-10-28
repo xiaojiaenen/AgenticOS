@@ -71,7 +71,12 @@ export function AgentFormDialog({
 }) {
   const queryClient = useQueryClient();
   const isEdit = editingProfile !== null;
-  const [rightTab, setRightTab] = React.useState<'tools' | 'skills' | 'integrations'>('tools');
+  // 分区 Tab：基础信息 / 工具 / 技能 / 集成。
+  // 原来左右两栏各自滚动，窄屏下左栏会被挤成一条竖线（文字竖排）——
+  // 改成单一滚动区 + 顶部固定 Tab，任一宽度下都只有一个滚动条。
+  const [sectionTab, setSectionTab] = React.useState<
+    'basic' | 'tools' | 'skills' | 'integrations'
+  >('basic');
   const [expandedTools, setExpandedTools] = React.useState<Set<string>>(new Set());
 
   const form = useForm<AgentFormValues>({
@@ -104,7 +109,7 @@ export function AgentFormDialog({
     if (initKeyRef.current === key) return;
     initKeyRef.current = key;
     if (!open) return;
-    setRightTab('tools');
+    setSectionTab('basic');
     setExpandedTools(new Set());
     const currentCatalog = catalogRef.current;
     form.reset(
@@ -191,7 +196,7 @@ export function AgentFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="flex max-h-[min(92vh,980px)] w-[min(1180px,calc(100vw-32px))] max-w-none flex-col overflow-hidden">
+      <DialogContent className="flex h-[min(88vh,860px)] w-[min(1080px,calc(100vw-32px))] max-w-none flex-col gap-3 overflow-hidden">
         <DialogHeader>
           <DialogTitle>{isEdit ? '编辑智能体' : '新建智能体'}</DialogTitle>
           <DialogDescription>完成基础信息、工具审批和 Skill 绑定。</DialogDescription>
@@ -201,9 +206,22 @@ export function AgentFormDialog({
           onSubmit={form.handleSubmit((values) => void saveMutation.mutateAsync(values))}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden xl:grid-cols-[minmax(0,1.05fr)_420px]">
-            {/* 左栏：基础信息 */}
-            <div className="min-h-0 overflow-y-auto p-5">
+          <Tabs
+            value={sectionTab}
+            onValueChange={(v) => setSectionTab(v as typeof sectionTab)}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <div className="shrink-0 border-b border-[var(--border-subtle)] px-5 pt-1">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="basic">基础信息</TabsTrigger>
+                <TabsTrigger value="tools">工具与审批</TabsTrigger>
+                <TabsTrigger value="skills">技能</TabsTrigger>
+                <TabsTrigger value="integrations">集成</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+            {sectionTab === 'basic' ? (
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="agent-name">名称</Label>
@@ -420,36 +438,26 @@ export function AgentFormDialog({
                   ) : null}
                 </div>
               </div>
+            ) : null}
+
+            {sectionTab === 'tools' ? (
+              <AgentToolsPanel
+                form={form}
+                catalog={catalog}
+                expandedTools={expandedTools}
+                onToggleToolExpand={toggleToolExpand}
+              />
+            ) : null}
+
+            {sectionTab === 'skills' ? (
+              <AgentSkillsPanel form={form} availableSkills={availableSkills} />
+            ) : null}
+
+            {sectionTab === 'integrations' ? (
+              <AgentIntegrationsPanel form={form} externalSystems={externalSystems} />
+            ) : null}
             </div>
-
-            {/* 右栏：工具 / Skill / 集成 */}
-            <div className="min-h-0 overflow-y-auto border-t border-zinc-100 bg-[var(--surface-2)] p-5 xl:border-l xl:border-t-0">
-              <Tabs value={rightTab} onValueChange={(v) => setRightTab(v as typeof rightTab)}>
-                <TabsList className="mb-4 grid w-full grid-cols-3">
-                  <TabsTrigger value="tools">工具</TabsTrigger>
-                  <TabsTrigger value="skills">技能</TabsTrigger>
-                  <TabsTrigger value="integrations">集成</TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              {rightTab === 'tools' && (
-                <AgentToolsPanel
-                  form={form}
-                  catalog={catalog}
-                  expandedTools={expandedTools}
-                  onToggleToolExpand={toggleToolExpand}
-                />
-              )}
-
-              {rightTab === 'skills' && (
-                <AgentSkillsPanel form={form} availableSkills={availableSkills} />
-              )}
-
-              {rightTab === 'integrations' && (
-                <AgentIntegrationsPanel form={form} externalSystems={externalSystems} />
-              )}
-            </div>
-          </div>
+          </Tabs>
 
           <DialogFooter className="border-t border-zinc-100 pt-4">
             <Button type="button" variant="outline" onClick={onClose} disabled={saveMutation.isPending}>

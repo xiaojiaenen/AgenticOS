@@ -241,7 +241,7 @@ function ConversationDetailDialog({
                 {(detailQuery.error as Error).message || '会话详情加载失败'}
               </div>
             ) : detail ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">摘要</p>
                   <p className="mt-2 text-sm font-medium leading-6 text-[var(--muted-foreground)]">
@@ -536,7 +536,7 @@ export const ChatHistory = () => {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <AdminPageHeader
         kicker="聊天记录"
         title="会话列表"

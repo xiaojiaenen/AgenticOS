@@ -14,6 +14,7 @@ import {
   Loader2,
   Pencil,
   Plug,
+  Server,
   Plus,
   Trash2,
   Upload,
@@ -23,6 +24,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { McpManagementPanel } from './McpManagementPanel';
 import { AdminPageHeader, ErrorBanner } from './shared';
 import { Button } from '@/components/shadcn/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/shadcn/tabs';
 import { Skeleton } from '@/components/shadcn/skeleton';
 import {
   AlertDialog,
@@ -204,7 +206,7 @@ export const IntegrationManagement = () => {
 
   if (!selectedSystem) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-3">
         <AdminPageHeader
           kicker="集成管理"
           title="第三方集成"
@@ -281,7 +283,24 @@ export const IntegrationManagement = () => {
             ))}
         </div>
 
-        <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+        <Tabs
+          value={showMcp ? 'mcp' : 'systems'}
+          onValueChange={(v) => setShowMcp(v === 'mcp')}
+          className="w-full"
+        >
+          <TabsList>
+            <TabsTrigger value="systems" className="gap-1.5">
+              <Plug size={13} />
+              集成列表
+            </TabsTrigger>
+            <TabsTrigger value="mcp" className="gap-1.5">
+              <Server size={13} />
+              MCP 服务器
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="systems" className="m-0 pt-3">
+        <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)]">
           {systemsQuery.isLoading ? (
             <div className="space-y-3 p-5">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -292,6 +311,7 @@ export const IntegrationManagement = () => {
             <DataTable
               columns={systemColumns}
               data={filteredSystems}
+              pageSize={10}
               emptyState={
                 <EmptyState
                   size="compact"
@@ -303,20 +323,14 @@ export const IntegrationManagement = () => {
             />
           )}
         </section>
+          </TabsContent>
 
-        {showMcp ? (
-          <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-                MCP 服务器
-              </h3>
-              <Button variant="ghost" size="sm" onClick={() => setShowMcp(false)}>
-                关闭
-              </Button>
-            </div>
-            <McpManagementPanel />
-          </section>
-        ) : null}
+          <TabsContent value="mcp" className="m-0 pt-3">
+            <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4">
+              <McpManagementPanel />
+            </section>
+          </TabsContent>
+        </Tabs>
 
         <OpenApiImportDialog
           open={openApiModal}
@@ -371,7 +385,7 @@ export const IntegrationManagement = () => {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <AdminPageHeader
         kicker="集成详情"
         title={selectedSystem.name}
@@ -438,6 +452,7 @@ export const IntegrationManagement = () => {
           <DataTable
             columns={apiColumns}
             data={apis}
+            pageSize={10}
             emptyState={
               <div className="flex flex-col items-center justify-center py-8">
                 <ExternalLink size={32} className="mb-3 text-zinc-300" />

@@ -17,7 +17,9 @@ import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
+  PaginationState,
   RowData,
   SortingState,
   useReactTable,
@@ -33,6 +35,7 @@ import {
 } from '@/components/shadcn/table';
 import { Skeleton } from '@/components/shadcn/skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Pagination } from './Pagination';
 import { cn } from '@/lib/utils';
 
 /**
@@ -59,6 +62,10 @@ export interface DataTableProps<TData> {
   emptyDescription?: string;
   className?: string;
   skeletonRows?: number;
+  /**
+   * 客户端分页每页条数。传 0 / 不传 = 不分页（服务端分页的页面自己渲染分页器）。
+   */
+  pageSize?: number;
 }
 
 export function DataTable<TData>({
@@ -70,23 +77,43 @@ export function DataTable<TData>({
   emptyDescription,
   className,
   skeletonRows = 8,
+  pageSize = 0,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
+  const paginated = pageSize > 0;
+
+  // 不分页时给一个足够大的 pageSize：这样只有一套状态，不用两套调用路径
+  const [pagination, setPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: paginated ? pageSize : 100_000,
+  });
+
+  React.useEffect(() => {
+    if (!paginated) return;
+    setPagination((prev) =>
+      prev.pageSize === pageSize ? prev : { pageIndex: 0, pageSize },
+    );
+  }, [pageSize, paginated]);
 
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    state: { sorting },
+    getPaginationRowModel: getPaginationRowModel(),
+    // 数据变化（删除/筛选）后自动回到合法页，避免停在一个空页上
+    autoResetPageIndex: true,
+    state: { sorting, pagination },
     onSortingChange: setSorting,
+    onPaginationChange: setPagination,
   });
 
   const columnCount = columns.length;
 
   return (
-    <div className={cn('w-full overflow-x-auto', className)}>
-      <Table>
+    <div className={cn('w-full', className)}>
+      <div className="w-full overflow-x-auto">
+        <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id} className="bg-[var(--surface-2)] hover:bg-[var(--surface-2)]">
@@ -200,6 +227,19 @@ export function DataTable<TData>({
           )}
         </TableBody>
       </Table>
+      </div>
+
+      {paginated && !isLoading && table.getRowModel().rows.length > 0 ? (
+        <Pagination
+          currentPage={table.getState().pagination.pageIndex + 1}
+          totalPages={table.getPageCount()}
+          onPageChange={(page) => table.setPageIndex(page - 1)}
+          totalLabel={`共 ${data.length} 条`}
+          pageSize={pageSize}
+          onPageSizeChange={(size) => table.setPageSize(size)}
+          dense
+        />
+      ) : null}
     </div>
   );
 }

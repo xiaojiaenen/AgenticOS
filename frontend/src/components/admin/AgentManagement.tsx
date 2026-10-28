@@ -250,7 +250,7 @@ export const AgentManagement = () => {
 
   if (profilesQuery.isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <AdminPageHeader kicker="智能体配置" title="智能体目录" />
         <div className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
           {Array.from({ length: 5 }).map((_, index) => (
@@ -266,7 +266,7 @@ export const AgentManagement = () => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <AdminPageHeader
         kicker="智能体配置"
         title="智能体目录"
@@ -322,6 +322,7 @@ export const AgentManagement = () => {
         <DataTable
           columns={columns}
           data={profiles}
+          pageSize={10}
           emptyState={
             <EmptyState
               size="compact"

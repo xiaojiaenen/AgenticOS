@@ -51,11 +51,23 @@ export function KnowledgeGraph({ kbId }: { kbId: number }) {
 
   const width = 600;
   const height = 400;
-  const positionedNodes = nodes.map((node, i) => ({
-    ...node,
-    x: width / 2 + Math.cos((i / nodes.length) * Math.PI * 2) * 150,
-    y: height / 2 + Math.sin((i / nodes.length) * Math.PI * 2) * 150,
-  }));
+  const positionedNodes = nodes.map((node, i) => {
+    // 坐标必须显式算出并放在展开之后：node 来自后端，若它自带 x/y
+    // （哪怕是 null），`...node` 会把计算值覆盖掉 → SVG 收到
+    // cx="undefined"，React 报 `attribute cx: Expected length, "undefined"`。
+    //
+    // 用 Record 读出可能存在的后端字段（类型定义里没有 x/y，但服务端
+    // 未来可能带上），非有限数一律回退到环形布局。
+    const raw = node as unknown as Record<string, unknown>;
+    const providedX = typeof raw.x === 'number' && Number.isFinite(raw.x) ? raw.x : null;
+    const providedY = typeof raw.y === 'number' && Number.isFinite(raw.y) ? raw.y : null;
+    const angle = (i / Math.max(nodes.length, 1)) * Math.PI * 2;
+    return {
+      ...node,
+      x: providedX ?? width / 2 + Math.cos(angle) * 150,
+      y: providedY ?? height / 2 + Math.sin(angle) * 150,
+    };
+  });
   const nodeMap = new Map(positionedNodes.map((n) => [n.id, n]));
 
   return (
@@ -89,7 +101,9 @@ export function KnowledgeGraph({ kbId }: { kbId: number }) {
               opacity={0.85}
             />
             <text x={node.x} y={node.y + 30} textAnchor="middle" fill="#52525b" fontSize={10}>
-              {node.label.length > 10 ? node.label.slice(0, 10) + '...' : node.label}
+              {String(node.label ?? '').length > 10
+                ? String(node.label ?? '').slice(0, 10) + '...'
+                : String(node.label ?? '')}
             </text>
           </g>
         ))}

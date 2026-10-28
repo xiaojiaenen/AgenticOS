@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Logo } from '../Logo';
 import { MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
+import { ThemeToggle } from '../ui/ThemeToggle';
 import { getStoredUser, logout } from '../../services/authService';
 import { toast } from 'sonner';
 import { cn } from '../../lib/utils';
@@ -371,6 +372,14 @@ export const AdminSidebar = React.memo(
                 {user?.email || 'signed in'}
               </p>
             </div>
+            {/* 主题切换：与前台聊天侧栏同一位置 —— 用户信息卡内、退出按钮左侧。
+                后台原先强制 dark 且没有入口，用户找不到切换。 */}
+            <ThemeToggle
+              variant="icon"
+              className={cn(
+                'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--muted-foreground)]',
+              )}
+            />
             <button
               type="button"
               onClick={handleLogout}

@@ -30,6 +30,7 @@ import {
 } from '@/components/shadcn/alert-dialog';
 import { AdminPageHeader, ErrorBanner, KpiPill } from './shared';
 import { Button } from '@/components/shadcn/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/shadcn/tabs';
 import { StatusPill } from './shared';
 import {
   DeployRecord,
@@ -80,6 +81,9 @@ function statusLabel(status: string): string {
 export function WebsiteDeployManagement() {
   const queryClient = useQueryClient();
   // 待确认的审批操作（批准/拒绝均需二次确认，防误点）
+  // 单内容区 Tab：待审批 / 全部记录。两段内容不再纵向堆叠。
+  const [tab, setTab] = useState<'pending' | 'all'>('pending');
+
   const [pendingDecision, setPendingDecision] = useState<{
     deploy: DeployRecord;
     decision: 'approved' | 'rejected';
@@ -188,7 +192,7 @@ export function WebsiteDeployManagement() {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <AdminPageHeader
         kicker="网站管理"
         title="部署审批"
@@ -219,12 +223,28 @@ export function WebsiteDeployManagement() {
 
       {error ? <ErrorBanner message={error} /> : null}
 
-      {/* 待审批请求 */}
-      <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
-        <div className="mb-4 flex items-center gap-2">
-          <Clock className="h-4 w-4 text-zinc-700" />
-          <h3 className="text-base font-semibold text-[var(--foreground)]">待审批请求</h3>
-        </div>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="w-full">
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="pending" className="gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
+            待审批
+            {pendingDeploys.length > 0 ? (
+              <span className="rounded-full bg-[var(--surface-2)] px-1.5 text-[10px] font-semibold tabular-nums">
+                {pendingDeploys.length}
+              </span>
+            ) : null}
+          </TabsTrigger>
+          <TabsTrigger value="all" className="gap-1.5">
+            <Globe className="h-3.5 w-3.5" />
+            全部记录
+            <span className="rounded-full bg-[var(--surface-2)] px-1.5 text-[10px] font-semibold tabular-nums">
+              {allDeploys.length}
+            </span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pending" className="m-0 pt-3">
+          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4">
 
         {pendingQuery.isLoading ? (
           <div className="space-y-3" aria-busy="true" aria-label="加载中">
@@ -313,16 +333,15 @@ export function WebsiteDeployManagement() {
             ))}
           </div>
         )}
-      </section>
+          </div>
+        </TabsContent>
 
-      {/* 全部部署记录 */}
-      <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
-        <div className="border-b border-[var(--border-subtle)] px-5 py-4">
-          <h3 className="text-base font-semibold text-[var(--foreground)]">全部部署记录</h3>
-        </div>
+        <TabsContent value="all" className="m-0 pt-3">
+          <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)]">
         <DataTable
           columns={columns}
           data={allDeploys}
+          pageSize={10}
           isLoading={allQuery.isLoading}
           emptyState={
             <div className="flex flex-col items-center justify-center py-8">
@@ -331,7 +350,9 @@ export function WebsiteDeployManagement() {
             </div>
           }
         />
-      </section>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* 审批二次确认 */}
       <AlertDialog

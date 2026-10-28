@@ -18,10 +18,11 @@ import {
   Save,
   Trash2,
   Upload,
+  ChevronDown,
   X,
 } from 'lucide-react';
 import { DataTable } from './data-table';
-import { AdminPageHeader, ErrorBanner, KpiPill } from './shared';
+import { AdminPageHeader, AdminPanel, ErrorBanner, KpiPill } from './shared';
 import { Button } from '@/components/shadcn/button';
 import { Input } from '@/components/shadcn/input';
 import { Label } from '@/components/shadcn/label';
@@ -164,7 +165,7 @@ function SkillFormDialog({
 
         <form
           onSubmit={form.handleSubmit((values) => void saveMutation.mutateAsync(values))}
-          className="space-y-4"
+          className="space-y-3"
         >
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="space-y-1.5">
@@ -248,6 +249,8 @@ export const SkillManagement = () => {
   const [formOpen, setFormOpen] = React.useState(false);
   const [editingSkill, setEditingSkill] = React.useState<Skill | null>(null);
   const [deletingSkill, setDeletingSkill] = React.useState<Skill | null>(null);
+  // 上传面板默认收起：它是一次性操作，常驻会占掉首屏一半高度。
+  const [uploadOpen, setUploadOpen] = React.useState(false);
   const [uploadFile, setUploadFile] = React.useState<File | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -419,7 +422,7 @@ export const SkillManagement = () => {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <AdminPageHeader
         kicker="Skill 管理"
         title="本地 Skill 目录"
@@ -462,21 +465,32 @@ export const SkillManagement = () => {
         <ErrorBanner message={toastError(skillsQuery.error, 'Skill 列表加载失败')} onRetry={() => void skillsQuery.refetch()} />
       ) : null}
 
-      {/* 上传入口 */}
-      <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm">
-        <div className="grid grid-cols-1 items-end gap-4 xl:grid-cols-[minmax(0,1fr)_200px_auto]">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700">
-              上传入口
-            </p>
-            <h3 className="mt-1 text-base font-semibold tracking-tight text-[var(--foreground)]">
-              上传 Zip Skill 包
-            </h3>
-            <p className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">
-              上传成功后自动写入本地目录并出现在列表中
-            </p>
-          </div>
+      {/* 上传入口：收进可折叠工具条 —— 它是一次性操作，不该常驻占掉首屏一半高度 */}
+      <AdminPanel>
+        <button
+          type="button"
+          onClick={() => setUploadOpen((prev) => !prev)}
+          aria-expanded={uploadOpen}
+          className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ring)]"
+        >
+          <span className="flex min-w-0 items-center gap-2 text-xs font-semibold text-[var(--foreground)]">
+            <Upload size={13} className="shrink-0 text-[var(--muted-foreground)]" />
+            上传 Zip Skill 包
+            <span className="font-medium text-[var(--muted-foreground)]">
+              （自动写入本地目录并出现在列表）
+            </span>
+          </span>
+          <ChevronDown
+            size={15}
+            className={cn(
+              "shrink-0 text-[var(--muted-foreground)] transition-transform",
+              uploadOpen && "rotate-180",
+            )}
+          />
+        </button>
 
+        {uploadOpen ? (
+        <div className="grid grid-cols-1 items-end gap-3 border-t border-[var(--border-subtle)] px-4 py-3 xl:grid-cols-[minmax(0,1fr)_200px_auto]">
           <div className="space-y-1.5">
             <Label htmlFor="skill-upload-slug">Slug 覆盖（可选）</Label>
             <Input
@@ -542,9 +556,10 @@ export const SkillManagement = () => {
             </Button>
           </div>
         </div>
-      </section>
+        ) : null}
+      </AdminPanel>
 
-      <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+      <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)]">
         {skillsQuery.isLoading ? (
           <div className="space-y-3 p-5">
             {Array.from({ length: 4 }).map((_, index) => (
@@ -555,6 +570,7 @@ export const SkillManagement = () => {
           <DataTable
             columns={columns}
             data={skills}
+            pageSize={10}
             emptyState={
               <div className="flex flex-col items-center justify-center py-8">
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] shadow-sm">

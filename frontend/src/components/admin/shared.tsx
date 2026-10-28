@@ -1,6 +1,12 @@
 /**
- * 管理后台共享 UI 原语：页头、KPI 胶囊、状态胶囊、错误横幅。
- * 统一使用新设计 token（zinc 灰阶 + indigo 主色）。
+ * 管理后台共享 UI 原语：页头、KPI 胶囊、状态胶囊、错误横幅、工具条。
+ *
+ * 2026-10 版式调整（依据后台实测反馈「卡片一个接一个，一直往下滚」）：
+ * - 页头从「大卡片」降级为一条**不占背景**的标题栏：标题 + 说明 + 操作按钮
+ *   同一行，滚动时先看到数据而不是先看到一整块装饰；
+ * - 新增 `AdminToolbar`：筛选、搜索、批量操作、分页放在同一条水平带里，
+ *   取代「筛选卡片 + 列表卡片 + 分页卡片」的三段式堆叠；
+ * - 所有区块统一 1px 描边 + 极浅阴影，靠留白而不是阴影区分层级。
  */
 import * as React from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
@@ -20,29 +26,63 @@ export function AdminPageHeader({
   className?: string;
 }) {
   return (
-    <section
+    <header
       className={cn(
-        'flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between',
+        'flex flex-col gap-3 pb-1 lg:flex-row lg:items-end lg:justify-between lg:gap-6',
         className,
       )}
     >
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--muted-foreground)]">
           {kicker}
         </p>
-        <h2 className="mt-1 text-xl font-semibold tracking-tight text-[var(--foreground)]">{title}</h2>
+        <h2 className="mt-0.5 text-lg font-semibold tracking-tight text-[var(--foreground)]">
+          {title}
+        </h2>
         {description ? (
-          <p className="mt-1 text-sm font-medium text-[var(--muted-foreground)]">{description}</p>
+          <p className="mt-1 max-w-3xl text-xs leading-5 font-medium text-[var(--muted-foreground)]">
+            {description}
+          </p>
         ) : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
-    </section>
+      {actions ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+      ) : null}
+    </header>
+  );
+}
+
+/**
+ * 水平工具条：一条带子容纳筛选 / 搜索 / 批量操作 / 统计。
+ *
+ * 之所以单独抽出来：以前每页都是「筛选卡片 → 列表卡片 → 分页」三张卡纵向
+ * 排列，一屏只放得下两个列表项。收进一条带子后，列表能多显示 40% 的行。
+ */
+export function AdminToolbar({
+  children,
+  className,
+  align = 'start',
+}: {
+  children: React.ReactNode;
+  className?: string;
+  align?: 'start' | 'center';
+}) {
+  return (
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2',
+        align === 'center' && 'items-center',
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
 }
 
 export function KpiPill({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)] shadow-sm">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)]">
       {label}
       {/* tabular-nums：数值刷新时宽度固定，不会左右跳动 */}
       <span className="font-semibold tabular-nums text-[var(--foreground)]">{value}</span>
@@ -134,11 +174,46 @@ export function AdminPanel({
   return (
     <section
       className={cn(
-        'overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm',
+        'overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)]',
         className,
       )}
     >
       {children}
     </section>
+  );
+}
+
+/**
+ * 区块小标题：卡片内部的「标题 + 右侧操作」行。
+ * 用它替代「每块内容都套一张新卡片」——同一页面内不再嵌套卡片。
+ */
+export function SectionHeading({
+  title,
+  description,
+  actions,
+  className,
+}: {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-subtle)] px-4 py-2.5',
+        className,
+      )}
+    >
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
+          {title}
+        </p>
+        {description ? (
+          <p className="mt-0.5 text-xs font-medium text-[var(--muted-foreground)]">{description}</p>
+        ) : null}
+      </div>
+      {actions ? <div className="flex shrink-0 items-center gap-1.5">{actions}</div> : null}
+    </div>
   );
 }

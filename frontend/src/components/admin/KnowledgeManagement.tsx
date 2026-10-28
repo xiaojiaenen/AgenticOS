@@ -247,7 +247,7 @@ export function KnowledgeManagement() {
   );
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <AdminPageHeader
         kicker="知识库"
         title={view === 'list' ? '知识库管理' : selectedKB?.name || ''}
@@ -303,6 +303,7 @@ export function KnowledgeManagement() {
           <DataTable
             columns={kbColumns}
             data={knowledgeBases}
+            pageSize={10}
             isLoading={kbsQuery.isLoading}
             emptyState={
               <EmptyState
@@ -318,7 +319,7 @@ export function KnowledgeManagement() {
 
       {/* Detail View */}
       {view === 'detail' && selectedKB && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {docsQuery.isError || wikiQuery.isError ? (
             <ErrorBanner
               message={

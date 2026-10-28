@@ -425,7 +425,7 @@ export const UserManagement = () => {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <AdminPageHeader
         kicker="用户管理"
         title="账号与权限"

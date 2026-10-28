@@ -130,7 +130,7 @@ export function McpManagementPanel() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)]/50 p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>

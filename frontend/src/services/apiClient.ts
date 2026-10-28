@@ -94,6 +94,9 @@ export async function apiFetch<T>(
       signal: controller.signal,
       headers: {
         ...authHeaders(),
+        // JSON 字符串 body 自动补 Content-Type；否则浏览器默认 text/plain，
+        // FastAPI 会因无法解析 body 返回 422（llm-providers 新建失败即此因）
+        ...(typeof init.body === 'string' ? { 'Content-Type': 'application/json' } : {}),
         ...(init.headers || {}),
       },
     });

@@ -155,7 +155,7 @@ export const AnnouncementManagement = () => {
   const formValues = form.watch();
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <AdminPageHeader
         kicker="Announcement Studio"
         title="用户公告设计台"

@@ -282,7 +282,30 @@ html.dark body {
 }
 
 /* 长页面保留可见滚动条：全局隐藏会让用户失去滚动进度感知。
-   仅 .custom-scrollbar / .visible-scrollbar 指定容器使用细滚动条样式。 */
+   全局统一细滚动条（原来仅 .custom-scrollbar / .visible-scrollbar 指定容器生效，
+   未指定的容器会露出浏览器默认粗滚动条，观感差；2026-10 按反馈改为全局细样式）。 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(161, 161, 170, 0.45) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(161, 161, 170, 0.45);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(161, 161, 170, 0.65);
+}
 
 ::selection { background: rgba(99, 102, 241, 0.18); color: inherit; }
 

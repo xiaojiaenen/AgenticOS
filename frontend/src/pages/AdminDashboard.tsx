@@ -50,27 +50,44 @@ export const AdminDashboard = () => {
     }
   }, []);
 
-  // Admin uses the dark theme while mounted
+  // 后台主题：跟随用户偏好，首次进入默认暗色。
+  //
+  // 原实现无条件 `classList.add('dark')` —— 用户即使在侧栏点了「浅色」，
+  // 下次进后台又被强制拉回暗色，等于没有主题切换。现在：
+  //   - 已存偏好（light/dark）→ 用它；
+  //   - 存的是 system → 跟随系统；
+  //   - 从未选过 → 后台保持设计上的暗色。
+  // 只挂载时应用一次：之后由 ThemeToggle 直接改 DOM，effect 不再覆盖它。
   React.useEffect(() => {
     const root = document.documentElement;
-    root.classList.add('dark');
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem('agenticos-theme');
+    } catch {
+      stored = null;
+    }
+    const resolved =
+      stored === 'light' || stored === 'dark'
+        ? stored
+        : stored === 'system'
+          ? window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light'
+          : 'dark';
+    root.classList.remove('light', 'dark');
+    root.classList.add(resolved);
+
     return () => {
-      // 离开后台时恢复用户真实主题偏好。注意 'system' 也必须解析：
-      // 此前直接不移除 dark 类，系统偏好浅色的用户会被永久卡在暗色模式。
-      let stored: string | null = null;
-      try {
-        stored = localStorage.getItem('agenticos-theme');
-      } catch {
-        stored = null;
-      }
-      const resolved =
-        stored === 'dark' || stored === 'light'
+      // 离开后台时恢复用户真实主题偏好（'system' 也要解析，否则系统浅色的
+      // 用户会被永久卡在暗色）。
+      const next =
+        stored === 'light' || stored === 'dark'
           ? stored
           : window.matchMedia('(prefers-color-scheme: dark)').matches
             ? 'dark'
             : 'light';
       root.classList.remove('light', 'dark');
-      root.classList.add(resolved);
+      root.classList.add(next);
     };
   }, []);
 
