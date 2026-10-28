@@ -300,6 +300,18 @@ async def build_website_task(
 
     logger.info(f"[Worker] Building website: {project_path}")
 
+    # 前置检查：worker 镜像里没有 npm 时，返回可读原因而不是一句
+    # `npm install failed: sh: npm: not found`（退出码 127）。
+    if shutil.which("npm") is None:
+        return {
+            "status": "failed",
+            "error": (
+                "构建环境缺少 npm：worker 容器内未安装 Node.js/npm。"
+                "请重建运行时镜像（deploy/Dockerfile.runtime 已加入 nodejs + npm）"
+                "并重启 worker；这不是项目代码的问题。"
+            ),
+        }
+
     try:
         project_dir = Path(project_path)
 

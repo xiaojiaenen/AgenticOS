@@ -1,0 +1,38 @@
+# AgenticOS 运行时镜像：pip 依赖 + chromium + node/npm
+# 代码通过 volume 挂载 /app/backend，更新代码无需重建镜像
+FROM docker.io/python:3.13-slim
+WORKDIR /app
+
+ARG PYPI_MIRROR=https://mirror.sjtu.edu.cn/pypi/web/simple
+# chromium 二进制走国内镜像
+ENV PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright/
+
+# 从 pyproject 提取依赖清单（tomllib 是 3.13 标准库），只装依赖不装项目包
+COPY backend/pyproject.toml /tmp/deps/pyproject.toml
+RUN python -c 'import tomllib; deps = tomllib.load(open("/tmp/deps/pyproject.toml", "rb"))["project"]["dependencies"]; open("/tmp/deps/req.txt", "w").write("\n".join(deps))' \
+    && pip install --no-cache-dir --progress-bar off -i ${PYPI_MIRROR} -r /tmp/deps/req.txt \
+    && rm -rf /tmp/deps
+
+# apt 源切交大镜像（deb.debian.org 在目标网络过慢）
+RUN sed -i 's|deb.debian.org|mirror.sjtu.edu.cn|g' /etc/apt/sources.list.d/*.sources
+
+# node + npm：网站智能体的 build_website 工具要跑 npm install / npm run build，
+# 缺了它这条链路在容器里直接退出码 127（npm: not found）。
+# 只装 nodejs+npm 两个包，不额外拉整个 node 工具链。
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nodejs npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# npm 全局缓存与日志固定在 /app/data 下：
+# 容器是 read_only 根文件系统，默认的 /root/.npm 不可写，
+# 不指定会让每次安装都报 EROFS/EACCES。
+ENV npm_config_cache=/app/data/websites/.npm-cache \
+    npm_config_fund=false \
+    npm_config_audit=false \
+    npm_config_update_notifier=false
+
+# 无头浏览器（企业网关自动登录用；--with-deps 会 apt 安装系统库）
+RUN playwright install --with-deps chromium
+
+EXPOSE 8000
+CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

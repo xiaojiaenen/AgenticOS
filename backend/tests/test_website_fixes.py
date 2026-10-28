@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -175,6 +176,11 @@ class TestSandboxProcessGroup:
     """超时时必须杀掉整个进程组，否则 npm 子进程继续写文件。"""
 
     @pytest.mark.anyio
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="用例依赖 POSIX shell 的 `&` 与 `sleep`；Windows 下 create_subprocess_shell "
+        "走 cmd.exe，既没有 sleep 也没有进程组语义。生产部署是 Linux 容器。",
+    )
     async def test_timeout_kills_child_processes(self):
         """超时后子进程必须已死亡。
 
