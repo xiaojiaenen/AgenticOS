@@ -584,3 +584,349 @@ def __init__(self, *args, max_retries: int | None = None, **kwargs):
 6. 传给适配器的 `max_retries` → 断言不出现在请求体里（用 `httpx.MockTransport` 抓 body）；
 7. 每个 provider 的 `build_request(stream=True)` → 断言 `request["stream"] is True`；
 8. 每个 provider 的 `parse_response` 用真实 SDK 的 typed response 构造 → 断言返回 `LLMResponse`。
+
+---
+
+# 附：wuwei 3.2.1 残留缺陷清单（2026-10-28 实测复核）
+
+> 上面是 3.0.2 的历史清单，多数已修。本节是**针对当前 3.2.1 的新审计**，
+> 每条都经过源码定位 + 动态验证（构造真实对象 / 端到端跑 agent），
+> 不是凭阅读推测。审计范围：`llm/gateway.py`、`llm/adapters/*`、`llm/types.py`、
+> `core/types.py`、`core/errors.py`、`runtime/agent_runner.py`、`tools/executor.py`、
+> `middleware/*`、`graph/checkpoint.py`、`agent/session.py`、`agent/agent.py`。
+
+## 一、网关与适配器层
+
+### R-1【高】`finish_reason="length"` 时 tool_calls 被静默丢弃
+
+- **位置**：`llm/adapters/openai.py:97-100`
+- **现象**：`parse_response` 只在 `normalize_finish_reason(finish_reason) in ("stop", "tool_calls")`
+  时才解析 `message.tool_calls`。若上游因上下文过长返回 `finish_reason="length"`
+  但同时给出了 tool_calls，这批工具调用被**无声丢弃**——不报错、不记日志，
+  `LLMResponse.message.tool_calls` 直接是空列表。
+- **实测**：
+  ```
+  finish_reason=length
+  tool_calls 数量 = 0   <-- 期望 1，实际 0
+  ```
+  对照组 `finish_reason="stop"` 时 tool_calls 数量 = 1（正常保留），
+  证明这是 finish_reason 分类导致的定向丢弃，不是解析失败。
+- **影响**：模型「打算调工具但被截断」时，agent 会认为模型没要求调工具，
+  直接把空回复交给用户。**无任何错误痕迹**，排障时极难定位。
+  自建网关 / 长上下文场景（百通类聚合网关）命中概率不低。
+- **建议**：tool_calls 的解析不应以 finish_reason 为前置条件——
+  有 tool_calls 就解析，finish_reason 只决定后续路由。
+
+### R-2【中】网关层从不使用自己的错误类型，原始异常直接抛给调用方
+
+- **位置**：`core/errors.py` 定义了 `LLMError` / `ToolError` / `TimeoutError` /
+  `ConnectionError` / `ValidationError` / `ConfigError`，但 `llm/gateway.py` 全程
+  没有 `raise` 过其中任何一个（grep 确认：仅 `runtime/agent_runner.py:429` 用了 `LLMError`）。
+- **现象**：网关的重试/退避完全依赖 `_classify_error(exc)` 对**异常类型名**的字符串匹配
+  （`gateway.py:292-310`）：`APIConnectionError` / `APITimeoutError` / `ConnectError` …
+- **影响**：我们自己定义了一个错误类型却不用，导致：
+  1. 调用方无法用类型捕获，只能匹配字符串；
+  2. `_classify_error` 的白名单是硬编码的**类名**，openai SDK 换版本或换供应商
+     改个异常类名，这个类就退化成 `"unknown"` → **不可重试也不走 fallback**，
+     且不会报错，只是静默地不重试；
+  3. `WuweiError.details` 这个为「携带诊断信息」设计的字段全程没用上。
+- **建议**：网关统一抛 `LLMError`（保留 `__cause__` 与 details），
+  分类走异常层级而非类名字符串。
+
+### R-3【中】`usage.total_tokens` 被强制改写为 `prompt + completion`
+
+- **位置**：`llm/gateway.py:474-479`
+- **现象**：
+  ```python
+  for key, value in data["usage"].items():
+      usage[key] = max(usage.get(key, 0), value)
+  usage["total_tokens"] = usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
+  ```
+  先用 `max` 聚合各字段（这个对流式是对的），但**紧接着无条件覆盖** `total_tokens`。
+- **影响**：上游若上报的 `total_tokens` 包含 reasoning tokens / cached tokens
+  （DeepSeek、部分自建网关会这样），我们记的总数会**偏小**，导致按 token 计费/配额不准。
+  流式与非流式两条路径的口径还不一致（非流式直接用上游值）。
+- **建议**：`total_tokens` 若上游给了就用上游的（`max` 聚合即可），只在缺失时才用求和补。
+
+### R-4【中】`_classify_error` 把「未知异常」判为不可重试，且失败信息全部丢失
+
+- **位置**：`llm/gateway.py:276-310`、`gateway.py:392-397`
+- **现象**：`_classify_error` 兜底返回 `"unknown"`，而 `_retryable` 只认
+  `rate_limit / server_error / connection_error / timeout` 四类 → 未知异常**不重试**。
+  同时重试耗尽后 `raise` 的是原始异常，上下文（重试了几次、每次的 status）
+  没有被聚合进异常。
+- **影响**：openai SDK 3.x 若新增异常类（比如新的 `APITimeoutError` 变体），
+  自动降级为不重试且无日志。而我们在 `openai_compat.py` 对外暴露错误时
+  拿不到「试过几次」这类关键信息。
+
+### R-5【低】`core/errors.py` 的 `TimeoutError` 遮蔽内置同名异常
+
+- **位置**：`core/errors.py:23-25`
+- **现象**：自定义的 `TimeoutError(WuweiError)` 与内置 `TimeoutError` 同名。
+  `gateway.py:336,445` 里 `raise TimeoutError(...)` 指的是**内置**那个
+  （因为 gateway 没 import 自定义版），而 `tools/executor.py:142` 的
+  `isinstance(exc, (ValueError, TypeError, TimeoutError))` 判的也是内置。
+  任何 `except wuwei.TimeoutError` 的代码会漏接内置超时。
+- **建议**：重命名为 `LLMTimeoutError` / `ToolTimeoutError`，避免与内置类型撞名。
+
+## 二、Agent 执行层
+
+### R-6【高】`"status": "unknown"` 子串匹配 → 正常工具输出被误判为「结果不确定」并永久封死会话
+
+- **位置**：`runtime/agent_runner.py:704-706`
+  ```python
+  unknown = (
+      final.metadata.get("status") == "unknown" or '"status": "unknown"' in final.content
+  )
+  ```
+- **现象**：第二项是**裸子串匹配工具输出文本**。任何工具正常返回
+  `{"status": "unknown"}` 这类内容（JSON 化的结构化返回、日志片段、
+  模型自己写的字符串）都会被判定为「工具结果不确定」。
+- **实测**（端到端）：
+  ```
+  --- 第一次 run ---
+    status=unknown content='工具结果不确定，请核对实际结果后再继续，未自动重试。'
+  --- 第二次 run（同一会话）---
+    异常: ValueError: Session has an unknown tool outcome; reconcile externally before resetting the session
+  --- session.reset() 之后 ---
+    status=unknown content='工具结果不确定，请核对实际结果后再继续，未自动重试。'
+  ```
+  即：**第一次 run 的工具结果被整个丢弃并替换成提示文案，第二次 run 直接抛异常，
+  会话从此报废**。`session.reset()` 也救不回来——只要工具还返回这串文本，
+  reset 后再跑还是同样的误判。
+- **隐蔽性**：`json.dumps` 默认带空格 → `'{"status": "unknown"}'` 命中；
+  紧凑格式 → `'{"status":"unknown"}'` 不命中。**同一份语义数据，
+  仅序列化空格不同就一个误判一个不误判**。
+- **对本项目的命中路径**（已核对工具实现）：
+  - `wuwei/plugin/builtin/http.py` 的 `http_get` / `http_post` 把上游响应
+    **原样拼进返回文本**（`f"状态码: {...}\n内容: {resp.text[:5000]}"`）——
+    上游返回 `{"status": "unknown"}` 即命中。
+  - MCP 工具返回第三方 server 的原始内容，同样可能带 `status` 字段。
+  - 我们项目自身的工具代码里暂未发现固定的 `"status": "unknown"` 字面量，
+    所以命中概率主要来自**透传上游内容**，而非项目自有逻辑。
+- **建议**：只信任 `metadata["status"]`（上游已正确提供结构化字段），
+  删掉内容子串匹配；或至少改为解析 JSON 后比对真实字段。
+
+### R-7【高】任何 `before_tool` 中间件都会静默关闭并发工具执行
+
+- **位置**：`runtime/agent_runner.py:570-578`
+  ```python
+  can_batch = (
+      not self._metadata.get("batch_results")
+      and self.session.parallel_tool_calls
+      and not self.middleware._before_tool_mws
+      and not self.middleware._after_tool_mws
+      and len(tool_calls) > 1
+  )
+  ```
+- **现象**：只要中间件栈里有任何一个 `before_tool` / `after_tool` 钩子，
+  并发批处理分支整个关闭，工具退回逐个串行。**没有任何日志或警告提示这一退化。**
+- **对本项目的实际命中面**（已核对配置，勿高估）：
+  - 实测 `LenientHitlMiddleware` → `_before_tool_mws = 1` → `can_batch = False`；
+    `AsyncSubAgentMiddleware` → `_before_tool_mws = 1` → `can_batch = False`。
+  - 但我们项目 `agent_parallel_tool_calls` **默认是 `False`**
+    （`app/core/config.py:26`，DB 模型 `app/db/models.py:106` 默认也是 `False`），
+    所以**当前生产配置下并发本来就没开**，R-7 不是「正在发生的性能退化」。
+  - 真实风险在**开关打开时失效**：用户通过 `POST` 传入
+    `parallel_tool_calls=true`（`app/schemas/agent.py:46`）想开启并发时，
+    会因为审批中间件的存在而**静默无效**——界面上开关是开的，行为却是串行，
+    且没有任何提示。这是一个「用户可见的配置不生效」型缺陷，而非性能问题。
+  - 也意味着：上一轮删除 monkey-patch 后并未「拿回并发能力」——
+    真正让并发生效的是这个 `can_batch` 条件，两者是同一条路径。
+- **建议**：把「需要审批」表达为工具自身的 `is_concurrency_safe=False`，
+  而不是用中间件钩子一刀切关掉整批并发；至少在 `can_batch` 被降级时打一条 warning。
+
+### R-8【高】并发批次中工具抛 `BaseException` 会炸穿整个批次
+
+- **位置**：`tools/executor.py:94-106`（判定）、`runtime/agent_runner.py:587`（引爆）
+- **现象**：`asyncio.gather(..., return_exceptions=True)` 收集结果后，
+  `executor.py:99` 用 `isinstance(result, Exception)` 判断是否异常。
+  但 Python 3.8+ 起 `asyncio.CancelledError` 继承 `BaseException` 而非 `Exception`，
+  该判定为 **False** → 原始异常对象被塞进 `results` 列表，
+  后续 `msg.model_dump(mode="json")` 对它调用 → `AttributeError`。
+- **实测**：
+  ```
+  execute 返回 2 条结果
+    c1: SUCCESS
+  异常逃逸: AttributeError: 'CancelledError' object has no attribute 'tool_call_id'
+  ```
+  **同批次中那个成功的工具结果也被整个丢弃**，`tool_end` 从不发出。
+- **影响**：`CancelledError`（任务取消）、`KeyboardInterrupt`、`SystemExit`
+  以及自定义 `BaseException` 都会触发。多用户环境下单个用户的异常工具
+  即可打断整条会话链路，前端因缺 `tool_end` 而悬挂等待。
+- **建议**：判定改为 `isinstance(result, BaseException)`，
+  并把 `CancelledError` 单独处理（应当向上传播取消语义，而非当工具错误吞掉）。
+
+### R-9【高】客户端断连后 generator 未关闭 → 会话锁永久占用
+
+- **位置**：`runtime/agent_runner.py:127-140`（持锁 yield）、`504-512`（清理逻辑）
+- **现象**：`_iter_events` 在 `async with self.session.lock:` 内部 `yield`，
+  生成器在 yield 点挂起时**仍持有锁**。清理代码在
+  `except (asyncio.CancelledError, GeneratorExit)` 里，**只有 generator 被真正
+  `aclose()` 才会触发**；而 `async for` 中途 `break` **不会**自动关闭生成器。
+- **实测**：`break` 后 `session.lock.locked()` 恒为 `True`，工具状态卡在 `preparing`。
+  显式 `await g.aclose()` 后锁才释放。
+- **对本项目的命中**：我们唯一的消费方是
+  `app/services/agent/orchestrator.py:697`
+  ```python
+  async for event in agent.stream_events(user_message, session=session):
+  ```
+  **没有 `aclose()` 保护**。上游 `serve/_http.py` 有这层兜底，我们自建路径没有。
+  一次 HTTP 断连 / SSE 取消就让该 `AgentSession` 的锁永久占用，
+  此会话后续所有 run 全部阻塞在 `async with self.session.lock` 上
+  （`asyncio.Lock` 无超时参数），且无人能解锁。
+- **建议**：消费方用 `try/finally` 里 `await gen.aclose()`，
+  或给锁获取加超时。
+
+### R-10【高】`MemoryCheckpointer` 的 metadata 是浅拷贝，不是快照
+
+- **位置**：`graph/checkpoint.py:57-67`
+- **现象**：`state` 走了 JSON roundtrip（真深拷贝，第 61 行），
+  但 `metadata` 只做 `dict(metadata)` **浅拷贝**（第 64 行），
+  嵌套的 `tool_states` 仍是同一个 dict 对象的引用。
+- **实测**：
+  ```
+  保存后 checkpoints[cid]['metadata']['tool_states'] = {'c1': 'running'}
+  事后读 checkpoints[cid]['metadata']['tool_states'] = {'c1': 'success'}
+  ```
+  快照被事后改写。`SQLiteCheckpointer` 用 `json.dumps` 是真快照，不受影响。
+- **影响**：`tool_running` 快照是 `_commit_tool` 判定「工具结果不确定、
+  禁止重放」的依据。Memory 后端下所有检查点最终都显示 `success`，
+  恢复流程会认为工具已成功而**重放有副作用的工具调用**
+  （重复扣款、重复下单、重复写文件）。
+  开发/测试用 Memory、生产用 SQLite → 两环境行为不一致。
+- **建议**：Memory 后端的 metadata 也走 JSON roundtrip，与 state 保持同语义
+  （代码注释里已经写明 state 是为了「与 SQLite 语义一致」，metadata 漏了）。
+
+### R-11【中】异常路径不发终止事件，`agent.run()` 直接抛异常而非返回 `status="error"`
+
+- **位置**：`runtime/agent_runner.py:513-531`
+- **现象**：`except Exception` 分支只 `yield` 一个 `error` 事件然后 `raise`，
+  **不发 `done` / `run_end`**。正常路径 `_finish()` 会同时发这两个。
+  而 `AgentRunResult.status` 明确定义了 `"error"` / `"cancelled"` / `"interrupted"`
+  枚举，异常路径根本走不到。
+- **影响**：客户端若按「收到 `done` 才算结束」实现，遇到异常会一直等流结束；
+  基于 `async for` 的消费者还会因异常向上抛而返回 500，
+  已生成的部分内容无法返回给用户。
+
+### R-12【中】工具返回值无大小限制，且 runner 路径不做任何上下文裁剪
+
+- **位置**：`tools/executor.py:197-207`（`serialize_output` 无上限）、
+  `runtime/agent_runner.py:703`（无条件入历史）
+- **现象**：`serialize_output` 对任意大小的输出直接 `json.dumps`，无上限。
+  `agent_runner.py:703` 无条件 `session.context.get_messages().append(final)`。
+  `memory/context_window.py` 里的 `SimpleContextWindow`（含 `max_tool_chars=8000`）
+  **实现了但 runner 从不调用**（grep 全包确认 `runtime/` 下零引用）；
+  `memory/context.py:58` 的 `keep_last_turns` 同理。
+- **影响**：单次工具返回 10MB 数据就永久占住该会话的上下文预算，且每轮重发。
+  我们虽然启用了 `ContextCompressionMiddleware`，但它靠 `trigger_tokens` 阈值触发，
+  且改写的是 `ctx.state.messages` 而**不写回 `session.context`**——
+  历史仍在后台无限增长，只是发送时被临时改写。
+
+### R-13【中】并发批次无上限，且经装饰器注册的工具一律默认并发安全
+
+- **位置**：`tools/executor.py:94-97`（无 `Semaphore`）、
+  `tools/tool.py:43`（`is_concurrency_safe` 默认 `True`）、
+  `tools/registry.py`（装饰器参数表不接受 `is_concurrency_safe`）
+- **现象**：整批直接 `asyncio.gather`，`tools/` 包内 grep 无任何 `Semaphore`。
+  装饰器注册的工具无法声明 `is_concurrency_safe`，一律默认并发安全。
+  对照：`wuwei/fs/tools.py:172` 正确写了 `is_concurrency_safe=not side_effect`，
+  但 `plugin/builtin/file.py` 的 `write_text_file` / `append_text_file` /
+  `replace_text_in_file` / `delete_file` **只声明了 `side_effect=True`，
+  没声明 `is_concurrency_safe=False`**——这些正是会互相覆盖的文件写工具。
+- **影响**：模型一次吐 50 个工具调用会瞬间打满下游连接池/文件句柄。
+  目前因 R-7 与默认关闭的 `parallel_tool_calls`，并发实际未开启，
+  **一旦修复 R-7 或用户显式开启并行，本条会立刻暴露**——属于「修 R-7 时必须同批处理」的项。
+
+### R-14【中】超时不中断同步工具线程，且未声明 `side_effect` 的工具超时后被标为「确定失败」
+
+- **位置**：`tools/tool.py:78`（`asyncio.to_thread`）、
+  `tools/executor.py:167-171`（`wait_for`）、`executor.py:150-161`（状态标记）
+- **现象**：同步 handler 在 `to_thread` 里跑，`asyncio.wait_for` **只取消 await，
+  线程继续跑到底**。但 `executor.py:161` 只在 `side_effect=True` 时才标 `status="unknown"`：
+  ```python
+  "status": "unknown" if isinstance(last_exception, TimeoutError) and tool.execution.side_effect else "failed"
+  ```
+- **影响**：未声明 `side_effect` 的 IO 类工具（读大文件、慢网络）超时后被标为
+  「确定失败」，下游会安全重试——但底层线程可能仍在写/在提交 = 重复副作用。
+  我们项目大量工具是同步函数，全部落在这条路径上。
+
+### R-15【中】审批等待无超时、无取消，且会连带锁住整个会话
+
+- **位置**：`middleware/hitl.py:157`
+  ```python
+  approved = await self.approval_provider(tool_call)
+  ```
+  没有 `asyncio.wait_for` 包装，也没有取消通道。
+- **影响**：审批期间持有 `session.lock`（`agent_runner.py:128`），
+  整个会话被阻塞。用户关掉审批页面/前端断连都不会取消这次等待。
+  我们项目 `factory.py:138` 的 `await self.approval_provider(tool_call)`
+  是自研版本，同样无超时——把上游的缺口原样继承了。
+
+### R-16【中】缺少重复工具调用检测，且默认无 token/成本上限
+
+- **位置**：`runtime/agent_runner.py:308`（循环上限）、`agent/agent.py:65-79`
+- **现象**：循环封顶只有 `while meta["step_index"] < self.session.max_steps`，
+  **没有任何「同一工具 + 同一参数重复调用」的检测**。
+  token/成本上限只在显式装配 `BudgetMiddleware` 时生效，
+  `Agent.__init__` **不提供任何默认预算参数**（我们项目也没装 `BudgetMiddleware`）。
+- **影响**：模型陷入「调 A → 失败 → 再调 A」的循环会白白消耗整轮 LLM 调用与工具副作用。
+
+### R-17【低】事件类型声明与实际发出的不一致
+
+- **位置**：`llm/types.py:59-74`（`AgentEventType`）
+- **现象**：`task_start` / `task_end` **在 `AgentRunner` 中从不发出**
+  （grep `runtime/` + `serve/` 全包确认零发出点），只有 `llm/types.py` 的声明处。
+- **影响**：客户端按类型穷举处理时这两个分支永远不会触发（上游 `serve/ag_ui.py:223`
+  甚至把它们的映射注释掉了）。另：`usage` 不在事件类型里，
+  只能从 `llm_end`/`done` 的 `data` 嵌套取。
+
+## 三、已验证「不是问题」的排除项（避免重复排查）
+
+| 疑点 | 实测结论 |
+| --- | --- |
+| 并发批次中单个工具抛普通 `Exception` 会不会吞掉整批？ | **不会**。`executor.py:94-106` 正确隔离为该 tool 的结构化 error Message，批次正常完成。仅 `BaseException` 家族有问题（R-8）。 |
+| `asyncio.gather(return_exceptions=True)` 会不会漏掉 `CancelledError`？ | gather 本身**没问题**，确实捕获并作为结果值返回。缺陷在 `executor.py:99` 的 `isinstance` 判定过窄（R-8）。 |
+| `zip(tool_calls, results)` 会不会错位？ | **不会**。`executor.py:98` 保持原始顺序与 id 对应；第 114 行的过滤理论上会在有 `None` 时错位，但 `execute_one` 永不返回 `None`，不可达。 |
+| `AgentSession.lock` 是 `asyncio.Lock`，跨 event loop 复用会不会炸？ | **正常**。Python 3.13 的 `asyncio.Lock` 不再绑定 loop，跨 `asyncio.run` 复用无异常。 |
+| `SQLiteCheckpointer` 的 `tool_running` 快照语义对不对？ | **正确**。`checkpoint.py:123` 用 `json.dumps` 是真快照，`claim()` 用 `BEGIN IMMEDIATE` + `INSERT OR IGNORE` 实现原子一次性消费。Memory 后端才有问题（R-10）。 |
+| `BudgetMiddleware` 是不是死代码？ | **不是**。`agent_runner.py:311` / `:403` 都会触发它。 |
+| `normalize_finish_reason` 归一化是否覆盖常用非标值？ | **覆盖良好**（`eos`/`end_turn`/`stop_sequence`/`tool_use`/`max_tokens`/`aborted`/`failed`/`incomplete` 等），且保留 `raw_finish_reason` 原值。 |
+| 审批决策是否会张冠李戴？ | **不会**。`hitl.py:141-142` 用 `tool_call.id` 精确匹配，并校验工具名与参数一致。 |
+| 是否有模块级/类级共享可变状态？ | **未发现**。全包 grep 模块级容器赋值与类级可变默认值均零命中。 |
+| `AsyncSubAgentMiddleware._tasks` 会不会无限增长？ | **会**（`async_sub_agent.py:378` 写入，全包无 pop），但每次查询按 `owner_session` 过滤，**不跨用户泄漏**，仅内存增长。 |
+
+## 四、给我们自己的处置建议（按优先级）
+
+| 优先级 | 动作 | 对应 |
+| --- | --- | --- |
+| P0 | 消费方给事件流加 `finally: await gen.aclose()`；会话锁加获取超时 | R-9 |
+| P0 | 移除工具输出里的 `"status": "unknown"` 子串匹配（在我们自己的适配层兜住） | R-6 |
+| P1 | 把审批从 `before_tool` 挪出或显式串行化审批工具，让 `parallel_tool_calls=true` 真正生效；降级时补 warning | R-7 |
+| P1 | `isinstance(result, BaseException)` 修正 + `CancelledError` 单独处理 | R-8 |
+| P1 | 工具结果长度上限 + 显式上下文裁剪接线 | R-12 |
+| P1 | 生产统一用 `SQLiteCheckpointer`；或给 Memory 后端补 metadata 深拷贝 | R-10 |
+| P1 | `finish_reason="length"` 时也要解析 tool_calls | R-1 |
+| P2 | 网关统一抛 `LLMError` 并携带诊断 details；`_classify_error` 改走异常层级 | R-2 / R-4 |
+| P2 | `usage.total_tokens` 优先用上游值 | R-3 |
+| P2 | 审批等待加超时 | R-15 |
+| P2 | 补重复工具调用检测 + 默认 token/成本上限 | R-16 |
+| P3 | `TimeoutError` 重命名避免遮蔽内置异常 | R-5 |
+
+## 五、值得反向贡献给上游的补丁（续 C-1 ~ C-9）
+
+- **D-1（R-1）**：`parse_response` 里把 tool_calls 解析与 finish_reason 解耦——
+  有 tool_calls 就解析，finish_reason 只用于路由。
+- **D-2（R-6）**：删掉 `'"status": "unknown"' in final.content` 子串匹配，
+  只信任结构化的 `metadata["status"]`。若确需内容兜底，
+  应先尝试 `json.loads` 再比对真实字段。
+- **D-3（R-7）**：把「需要审批」表达为工具自身的 `is_concurrency_safe=False`，
+  而不是用中间件钩子一刀切关掉整批并发；至少在降级时 `logger.warning`。
+- **D-4（R-8）**：`executor.py:99` 的 `isinstance(result, Exception)` 改为
+  `BaseException`，并对 `CancelledError` 单独处理。
+- **D-5（R-10）**：`MemoryCheckpointer.save` 的 metadata 也走 JSON roundtrip，
+  与 state 保持同语义（注释里已经写明 state 是为了对齐 SQLite，metadata 漏了）。
+- **D-6（R-9）**：在 `_iter_events` 内部保证 generator 被关闭时释放锁，
+  而非依赖外部调用方记得 `aclose()`。
+- **D-7（R-12）**：`serialize_output` 加默认长度上限（可配），
+  并在 runner 里接线 `SimpleContextWindow`——它已经写好了，只是没被调用。
