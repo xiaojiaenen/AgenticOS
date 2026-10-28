@@ -38,6 +38,12 @@ import {
   type AgentProfileSkill,
   type AgentProfileTool,
 } from '../services/agentProfileService';
+import {
+  getMcpServers,
+  getProfileMcpServers,
+  setProfileMcpServers,
+  type MCPServer,
+} from '../services/mcpService';
 import type { ToolCatalogItem } from '../services/toolConfigService';
 
 /**
@@ -137,7 +143,9 @@ export const AgentEditor: React.FC = () => {
       case 'knowledge':
         return enabledTools.knowledge ? '检索已开启' : '未开启检索';
       case 'mcp':
-        return '管理入口';
+        return grantedMcpServers.length > 0
+          ? `${grantedMcpServers.length} 个服务`
+          : '未授权';
     }
   };
 
@@ -156,6 +164,9 @@ export const AgentEditor: React.FC = () => {
   const [enabledTools, setEnabledTools] = useState<Record<string, boolean>>({});
   const [approvalTools, setApprovalTools] = useState<Record<string, boolean>>({});
   const [catalog, setCatalog] = useState<ToolCatalogItem[]>([]);
+  /** MCP 服务器列表 + 该智能体显式授权的服务器名集合 */
+  const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
+  const [grantedMcpServers, setGrantedMcpServers] = useState<string[]>([]);
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -177,6 +188,7 @@ export const AgentEditor: React.FC = () => {
       maxSteps,
       enabledTools,
       approvalTools,
+      grantedMcpServers,
       selectedSkills,
     });
   const dirty = currentSnapshot() !== initialSnapshotRef.current;
@@ -229,6 +241,40 @@ export const AgentEditor: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId]);
+
+  // 加载 MCP 服务器列表 + 本智能体的授权
+  //
+  // MCP 授权走**独立端点**（/admin/mcp/profiles/{id}/servers），不复用
+  // profile 的 external_systems 字段 —— 那套是「集成」，MCP 是「插件服务」，
+  // 两者授权粒度不同（前者按 system_id，后者按 server_name）。
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await getMcpServers();
+        if (cancelled) return;
+        setMcpServers(resp.items ?? []);
+        if (!isEditing || !editingId) return;
+        const granted = await getProfileMcpServers(editingId);
+        if (cancelled) return;
+        setGrantedMcpServers(
+          (granted.items ?? []).filter((i) => i.enabled).map((i) => i.server_name),
+        );
+      } catch {
+        // 非管理员无权读取 MCP 列表时静默降级：不显示这个区块，不影响保存
+        if (!cancelled) setMcpServers([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editingId, isEditing]);
+
+  const toggleMcpServer = (name: string) => {
+    setGrantedMcpServers((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+    );
+  };
 
   const applyProfile = (profile: AgentProfile) => {
     setName(profile.name);
@@ -321,6 +367,13 @@ export const AgentEditor: React.FC = () => {
       const saved = isEditing
         ? await updateAgentProfile(editingId, payload)
         : await createAgentProfile(payload);
+      // MCP 授权走独立端点：新建的智能体此刻才有 id
+      if (saved.id) {
+        await setProfileMcpServers(
+          saved.id,
+          grantedMcpServers.map((server_name) => ({ server_name, enabled: true })),
+        );
+      }
       setNotice(isEditing ? '已保存修改' : `「${saved.name}」创建成功`);
       // 保存后刷新基线快照，避免跳转前误弹离开确认
       initialSnapshotRef.current = currentSnapshot();
@@ -629,6 +682,70 @@ export const AgentEditor: React.FC = () => {
                 ? '启用「知识库检索」工具后，智能体即可在回答时检索已建知识库中的文档。知识库本身在「管理后台 → 知识库」中维护，此处只需确保工具已勾选。'
                 : 'MCP 服务在「管理后台 → 集成管理」中配置；配置完成后，相关工具会出现在上方「工具」列表里，勾选即可使用。'}
             </p>
+          </section>
+        )}
+
+        {/* MCP 服务器授权：按需挂载 —— 每个智能体只挂自己需要的 MCP 服务 */}
+        {tab === 'mcp' && mcpServers.length > 0 && (
+          <section className="admin-card p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+              可连接的 MCP 服务
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--muted-foreground)]">
+              勾选后该智能体才能调用对应 MCP 服务的工具。标记「需授权」的服务默认对所有智能体关闭，
+              必须在下方显式勾选才能使用 —— 内网爬虫类服务即属此类。
+            </p>
+            <div className="mt-3 flex flex-col gap-1.5">
+              {mcpServers.map((s) => {
+                const on = grantedMcpServers.includes(s.name);
+                return (
+                  <button
+                    key={s.name}
+                    type="button"
+                    onClick={() => toggleMcpServer(s.name)}
+                    role="switch"
+                    aria-checked={on}
+                    aria-label={`授权 ${s.name}`}
+                    className={cn(
+                      'flex items-start gap-3 rounded-lg px-2.5 py-2 text-left transition-colors',
+                      on ? 'bg-[var(--surface-1)]' : 'hover:bg-[var(--surface-1)]/60',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                        on
+                          ? 'border-brand-500 bg-brand-500 text-white'
+                          : 'border-[var(--border-medium)]',
+                      )}
+                    >
+                      {on && <Check size={11} />}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2 text-sm font-medium">
+                        {s.name}
+                        <Badge variant="neutral" size="sm">
+                          {s.transport}
+                        </Badge>
+                        {!s.user_accessible && (
+                          <Badge variant="info" size="sm">
+                            需授权
+                          </Badge>
+                        )}
+                        {!s.verify_tls && (
+                          <Badge variant="warning" size="sm">
+                            自签证书
+                          </Badge>
+                        )}
+                      </span>
+                      <span className="block truncate text-[11px] text-[var(--muted-foreground)]">
+                        {s.description || s.url || s.command || ''}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </section>
         )}
 

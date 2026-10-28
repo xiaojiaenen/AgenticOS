@@ -47,6 +47,9 @@ const EMPTY_FORM = {
   url: '',
   command: '',
   timeout: 60,
+  verify_tls: true,
+  allowed_cidrs: '',
+  user_accessible: true,
 };
 
 export function McpManagementPanel() {
@@ -120,6 +123,9 @@ export function McpManagementPanel() {
       command: form.transport === 'stdio' ? form.command.trim() : null,
       timeout: Number(form.timeout) || 60,
       enabled: true,
+      verify_tls: form.verify_tls,
+      allowed_cidrs: form.allowed_cidrs.trim(),
+      user_accessible: form.user_accessible,
     });
   };
 
@@ -198,6 +204,45 @@ export function McpManagementPanel() {
             placeholder="用途说明（可选）"
           />
         </div>
+
+        {/* 内网接入选项：内网爬虫类服务用 */}
+        <div className="mt-3 space-y-2 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)]/60 p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+            内网接入选项
+          </p>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-[var(--muted-foreground)]">
+              <input
+                type="checkbox"
+                checked={!form.verify_tls}
+                onChange={(e) => setForm({ ...form, verify_tls: !e.target.checked })}
+                className="h-3.5 w-3.5 rounded border-[var(--border-medium)]"
+              />
+              放行自签证书
+              <span className="text-[11px] text-[var(--muted-foreground)]/70">
+                （内网自签 CA 需勾选；公网服务请保持校验）
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-[var(--muted-foreground)]">
+              <input
+                type="checkbox"
+                checked={form.user_accessible}
+                onChange={(e) => setForm({ ...form, user_accessible: e.target.checked })}
+                className="h-3.5 w-3.5 rounded border-[var(--border-medium)]"
+              />
+              允许所有智能体使用
+              <span className="text-[11px] text-[var(--muted-foreground)]/70">
+                （取消后需在智能体上显式授权）
+              </span>
+            </label>
+          </div>
+          <Input
+            value={form.allowed_cidrs}
+            onChange={(e) => setForm({ ...form, allowed_cidrs: e.target.value })}
+            placeholder="允许连接的网段（CIDR，逗号分隔），如 10.0.0.0/8；留空 = 不限制"
+            className="text-xs"
+          />
+        </div>
       </div>
 
       {/* 服务器列表 */}
@@ -223,10 +268,25 @@ export function McpManagementPanel() {
                       已停用
                     </Badge>
                   )}
+                  {!s.verify_tls && (
+                    <Badge variant="warning" size="sm">
+                      自签证书
+                    </Badge>
+                  )}
+                  {!s.user_accessible && (
+                    <Badge variant="info" size="sm">
+                      需授权
+                    </Badge>
+                  )}
                 </div>
                 <p className="mt-0.5 truncate text-[11px] text-[var(--muted-foreground)]">
                   {s.url || s.command}
                 </p>
+                {s.allowed_cidrs && (
+                  <p className="mt-0.5 truncate text-[11px] text-[var(--muted-foreground)]/80">
+                    允许网段：{s.allowed_cidrs}
+                  </p>
+                )}
                 {s.last_error && (
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-rose-600">
                     <AlertCircle className="h-3 w-3" />

@@ -17,8 +17,10 @@ from app.api.deps import get_db, require_admin
 from app.db.models import UserModel
 from app.services import audit_service
 from app.services.mcp_service import (
+    apply_profile_servers,
     delete_server,
     get_mcp_service,
+    list_profile_servers,
     list_servers,
     upsert_server,
 )
@@ -39,6 +41,32 @@ class MCPServerPayload(BaseModel):
     headers: dict[str, str] = Field(default_factory=dict)
     timeout: float = Field(default=60.0, gt=0, le=600)
     enabled: bool = True
+    # ── 内网接入选项 ──
+    verify_tls: bool | None = Field(
+        default=None,
+        description="是否校验 TLS 证书。内网自签证书需置 false；不传 = 保持原值。",
+    )
+    allowed_cidrs: str | None = Field(
+        default=None,
+        description="平台连接本服务时允许的网段（逗号分隔 CIDR）。留空 = 不限制。",
+    )
+    user_accessible: bool | None = Field(
+        default=None,
+        description="是否允许被普通智能体使用。false 时须在 profile 上显式授权。",
+    )
+    external_system_id: int | None = Field(
+        default=None,
+        description="凭据来源集成 id。$CREDENTIAL.<字段> 从该集成的用户凭据中注入。",
+    )
+
+
+class ProfileMCPRef(BaseModel):
+    server_name: str = Field(..., min_length=1, max_length=120)
+    enabled: bool = True
+
+
+class ProfileMCPAuthPayload(BaseModel):
+    servers: list[ProfileMCPRef] = Field(default_factory=list)
 
 
 @router.get("/servers", summary="列出 MCP 服务器")
@@ -112,3 +140,34 @@ async def list_mcp_tools(_: UserModel = Depends(require_admin)):
         "error": service.last_error,
         "tools": service.tool_catalogue(),
     }
+
+
+# ── profile 级授权（按需挂载）──────────────────────────────────────────
+
+
+@router.get("/profiles/{profile_id}/servers", summary="查看智能体授权的 MCP 服务器")
+def get_profile_mcp_servers(
+    profile_id: int,
+    _: UserModel = Depends(require_admin),
+):
+    return {"items": list_profile_servers(profile_id)}
+
+
+@router.put("/profiles/{profile_id}/servers", summary="设置智能体授权的 MCP 服务器")
+def set_profile_mcp_servers(
+    profile_id: int,
+    payload: ProfileMCPAuthPayload,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_admin),
+):
+    apply_profile_servers(profile_id, [r.model_dump() for r in payload.servers])
+    audit_service.record_request(
+        db, http_request, action="mcp.profile_auth", actor=current_user,
+        resource_type="agent_profile", resource_id=str(profile_id),
+        detail={
+            "servers": [r.server_name for r in payload.servers],
+            "count": len(payload.servers),
+        },
+    )
+    return {"items": list_profile_servers(profile_id)}

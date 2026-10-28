@@ -19,6 +19,12 @@ dependencies = [
     #   版本下限与 wuwei 3.2.2 的要求保持一致（>=3.23.0）。
     "httpx>=0.28.0,<1.0.0",
     "openai>=3.23.0,<4.0.0",
+    # - mcp：MCP 官方 SDK。wuwei 把 MCP 放在 optional extra 里（`wuwei[mcp]`），
+    #   本项目**在管理后台直接暴露「MCP 服务器」接入能力**（mcp_service.py
+    #   直接 import wuwei.mcp 的 HTTPMCPClient / StdioMCPClient），
+    #   所以它是生产依赖而不是可选 extra —— 不声明会导致管理面板能配服务器、
+    #   但实际连接时 ModuleNotFoundError，通道形同虚设。
+    "mcp>=2.2,<3",
     "python-pptx>=1.0.2",
     "pillow>=12.2.0",
     "markitdown[all]>=0.1.6",

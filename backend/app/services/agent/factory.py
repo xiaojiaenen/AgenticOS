@@ -624,10 +624,14 @@ class AgentFactory:
             _register_doc_tools(registry)
 
         # MCP 工具集成：如果 MCP 服务已连接，将 MCP 工具添加到注册表
+        #
+        # 按 profile 过滤（dsh 的「按需挂载」）：MCP 工具此前是**全局注册**
+        # 到每个 Agent 的，任何智能体都能调用任意 MCP 服务器的工具。
+        # 内网爬虫类服务能访问内网站点，这种全局可见不可接受。
         try:
             from app.services.mcp_service import get_mcp_service
             mcp_svc = get_mcp_service()
-            mcp_tools = mcp_svc.get_tools()
+            mcp_tools = mcp_svc.get_tools_for_profile(profile.profile_id)
             if mcp_tools:
                 for tool in mcp_tools:
                     if registry.get(tool.name) is None:

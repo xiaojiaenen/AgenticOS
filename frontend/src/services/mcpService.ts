@@ -15,6 +15,14 @@ export type MCPServer = {
   headers: Record<string, string>;
   timeout: number;
   enabled: boolean;
+  /** 是否校验 TLS 证书。内网自签证书需置 false。 */
+  verify_tls: boolean;
+  /** 平台连接本服务时允许的网段（CIDR 逗号分隔）。留空 = 不限制。 */
+  allowed_cidrs: string;
+  /** 是否允许被普通智能体使用。false 时须在智能体上显式授权。 */
+  user_accessible: boolean;
+  /** 凭据来源集成 id。$CREDENTIAL.<字段> 从该集成的用户凭据注入。 */
+  external_system_id?: number | null;
   last_error?: string | null;
   last_connected_at?: string | null;
   created_at?: string | null;
@@ -39,6 +47,16 @@ export type MCPServerPayload = {
   headers?: Record<string, string>;
   timeout?: number;
   enabled?: boolean;
+  /** 不传 = 保持原值（避免保存其他字段时把自签证书设置重置回校验）。 */
+  verify_tls?: boolean;
+  allowed_cidrs?: string;
+  user_accessible?: boolean;
+  external_system_id?: number | null;
+};
+
+export type ProfileMCPRef = {
+  server_name: string;
+  enabled: boolean;
 };
 
 export async function getMcpServers(): Promise<{ items: MCPServer[] }> {
@@ -84,4 +102,27 @@ export async function getMcpTools(): Promise<{
   tools: MCPTool[];
 }> {
   return apiFetch('/api/v1/admin/mcp/tools', {}, '加载 MCP 工具失败');
+}
+
+export async function getProfileMcpServers(profileId: number): Promise<{ items: ProfileMCPRef[] }> {
+  return apiFetch<{ items: ProfileMCPRef[] }>(
+    `/api/v1/admin/mcp/profiles/${profileId}/servers`,
+    {},
+    '加载智能体的 MCP 授权失败',
+  );
+}
+
+export async function setProfileMcpServers(
+  profileId: number,
+  servers: ProfileMCPRef[],
+): Promise<{ items: ProfileMCPRef[] }> {
+  return apiFetch<{ items: ProfileMCPRef[] }>(
+    `/api/v1/admin/mcp/profiles/${profileId}/servers`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ servers }),
+    },
+    '保存智能体的 MCP 授权失败',
+  );
 }

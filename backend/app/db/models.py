@@ -330,9 +330,44 @@ class MCPServerModel(Base):
     headers_json: Mapped[str] = mapped_column(Text, default="{}")
     timeout: Mapped[float] = mapped_column(default=60.0)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    # ── 内网接入选项（爬虫类 MCP 服务常用）────────────────────────────
+    # 内网服务多为自签证书；官方 SDK 的 create_mcp_http_client 不暴露
+    # verify 参数，只能在平台侧自建 httpx 客户端时传入。
+    verify_tls: Mapped[bool] = mapped_column(Boolean, default=True)
+    # 出网网段白名单（逗号分隔 CIDR）。MCP 服务本身可能要去访问内网站点，
+    # 这时 SSRF 风险在 MCP 服务侧，平台无法代管；本字段用于**平台连 MCP
+    # 服务**这一跳的地址校验（空 = 不限制，仅对管理员配置的地址生效）。
+    allowed_cidrs: Mapped[str] = mapped_column(Text, default="")
+    # 该 MCP 服务是否允许被普通（非管理员）智能体使用。
+    # 内网爬虫类服务默认 false —— 必须在 profile 上显式授权。
+    user_accessible: Mapped[bool] = mapped_column(Boolean, default=True)
+    # 凭据来源：指向一个已配置的「集成」，用户在该集成下配置的凭据
+    # 会在调用本 MCP 工具时按 $CREDENTIAL.<字段> 注入（值不进模型上下文）。
+    # 为空表示本服务不接收凭据注入。
+    external_system_id: Mapped[int | None] = mapped_column(
+        ForeignKey("external_systems.id"), nullable=True, index=True
+    )
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_connected_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class AgentProfileMCPServerModel(Base):
+    """智能体 profile ↔ MCP 服务器授权。
+
+    MCP 工具此前是**全局注册**到所有 Agent 的（factory.py 里无条件
+    register），没有 profile 级授权 —— 这跟外部系统（agent_profile_external_systems）
+    的模型不一致。内网爬虫这类 MCP 服务必须限定在指定智能体上。
+    """
+
+    __tablename__ = "agent_profile_mcp_servers"
+    __table_args__ = (UniqueConstraint("profile_id", "server_name", name="uq_profile_mcp_server"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("agent_profiles.id"), index=True)
+    server_name: Mapped[str] = mapped_column(String(120), index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
 
