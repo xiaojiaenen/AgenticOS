@@ -24,7 +24,7 @@ from sqlalchemy import delete, select
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password
 from app.core.timezone import app_now
-from app.db.models import AuditLogModel, CasbinRuleModel, DepartmentModel, KnowledgeBaseModel, UserModel
+from app.db.models import AuditLogModel, CasbinRuleModel, UserModel
 from app.db.session import create_db_session
 from app.main import app
 from app.services import audit_service
@@ -259,14 +259,9 @@ def test_denied_knowledge_write_is_audited_as_deny() -> None:
     assert _logs(action="knowledge.update", resource_id=str(kb_id)) == []
 
 
-def test_department_and_policy_changes_are_audited() -> None:
+def test_policy_changes_are_audited() -> None:
     admin_id, admin_email = _create_user(f"audit-perm-{uuid4().hex}@example.com", role="admin")
     headers = _auth(admin_id, admin_email, "admin")
-
-    created = client.post("/api/v1/departments", headers=headers, json={"name": "审计部"})
-    assert created.status_code == 201, created.text
-    dept_id = created.json()["id"]
-    assert _logs(action="department.create", resource_id=str(dept_id))
 
     granted = client.post(
         "/api/v1/permissions/policies",
@@ -363,14 +358,64 @@ def test_record_survives_unserialisable_detail() -> None:
         assert isinstance(stored["obj"], str)
 
 
-def test_ldap_sync_without_config_is_denied_and_audited() -> None:
-    """未开启 LDAP 部门同步时，端点直接 409 并留下 deny 审计（不产生网络调用）。"""
-    admin_id, admin_email = _create_user(f"audit-ldap-{uuid4().hex}@example.com", role="admin")
-    response = client.post("/api/v1/departments/ldap-sync", headers=_auth(admin_id, admin_email, "admin"))
-    assert response.status_code == 409
-    rows = _logs(action="department.ldap_sync", result="deny")
+# ---------------------------------------------------------------------------
+# 覆盖完整性：新纳入审计的 8 个模块
+# ---------------------------------------------------------------------------
+
+# 这些文件此前一个审计点都没有（设计稿 4.3 点名要求覆盖 Skill 与外部系统 CRUD）
+_AUDITED_MODULES = (
+    "skills.py",
+    "mcp_admin.py",
+    "announcements.py",
+    "external_systems.py",
+    "website.py",
+    "settings.py",
+    "tool_config.py",
+    "agent_profiles.py",
+    # AI 提供商：改配置等于改「全站用哪个模型、凭据是什么」，必须可追溯
+    "llm_providers.py",
+)
+
+
+def test_all_admin_modules_emit_audit_records() -> None:
+    """静态守护：每个模块的写操作都必须走 audit_service。
+
+    这类"忘了写审计"的缺口不会导致任何功能异常，只能靠结构性断言拦住。
+    """
+    from pathlib import Path
+
+    endpoints_dir = Path(__file__).resolve().parents[1] / "app" / "api" / "v1" / "endpoints"
+    missing = [
+        name
+        for name in _AUDITED_MODULES
+        if "audit_service.record" not in (endpoints_dir / name).read_text(encoding="utf-8")
+    ]
+    assert not missing, f"以下模块缺少审计调用：{missing}"
+
+
+def test_announcement_and_external_system_writes_are_audited() -> None:
+    admin_id, admin_email = _create_user(f"audit-ext-{uuid4().hex}@example.com", role="admin")
+    headers = _auth(admin_id, admin_email, "admin")
+
+    ann = client.post(
+        "/api/v1/announcements",
+        headers=headers,
+        json={"title": "审计公告", "body": "内容"},
+    )
+    assert ann.status_code == 201, ann.text
+    ann_id = ann.json()["id"]
+    assert _logs(action="announcement.create", resource_id=str(ann_id))
+    assert client.delete(f"/api/v1/announcements/{ann_id}", headers=headers).status_code == 204
+    assert _logs(action="announcement.delete", resource_id=str(ann_id))
+
+    sys_created = client.post(
+        "/api/v1/external-systems",
+        headers=headers,
+        json={"name": "审计系统", "base_url": "https://example.com", "auth_type": "none"},
+    )
+    assert sys_created.status_code == 201, sys_created.text
+    sys_id = sys_created.json()["id"]
+    rows = _logs(action="external_system.create", resource_id=str(sys_id))
     assert rows
-    # 端到端确认：没有 Department / KB 残留副作用
-    with create_db_session() as db:
-        assert db.scalar(select(DepartmentModel).where(DepartmentModel.name == "x")) is None
-        assert db.scalar(select(KnowledgeBaseModel).limit(1)) is None or True
+    # 凭据类字段不得入库
+    assert "credential" not in rows[0].detail_json.lower()

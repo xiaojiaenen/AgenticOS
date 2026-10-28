@@ -63,10 +63,19 @@ def list_api_keys(user_id: int, *, is_admin: bool = False) -> list[dict[str, Any
         if not is_admin:
             stmt = stmt.where(ApiKeyModel.user_id == user_id)
         rows = db.scalars(stmt.order_by(ApiKeyModel.created_at.desc())).all()
+        # 管理员会看到全部用户的 Key，一次性批查归属人，避免逐行 N+1
+        owners: dict[int, UserModel] = {}
+        owner_ids = {r.user_id for r in rows}
+        if owner_ids:
+            for owner in db.scalars(select(UserModel).where(UserModel.id.in_(owner_ids))).all():
+                owners[owner.id] = owner
         items = []
         for r in rows:
             item = _serialize(r)
             item["key_masked"] = f"{r.prefix}…"
+            owner = owners.get(r.user_id)
+            item["owner_name"] = owner.name if owner else f"用户 {r.user_id}"
+            item["owner_email"] = owner.email if owner else None
             items.append(item)
         return items
 

@@ -199,7 +199,16 @@ async def get_task_status(
     from app.services.task_queue import get_task_status as _get_status
 
     try:
-        result = await _get_status(task_id)
+        result = await _get_status(
+            task_id,
+            user_id=current_user.id,
+            is_admin=current_user.role == "admin",
+        )
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        ) from e
     except Exception as e:
         if _is_redis_unavailable(e):
             raise HTTPException(
@@ -237,6 +246,7 @@ async def submit_ppt_export(
             transition=request.transition,
             animation=request.animation,
             enable_notes=request.enable_notes,
+            user_id=current_user.id,
         )
         return TaskSubmitResponse(task_id=task_id)
     except HTTPException:

@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
-from app.api.deps import require_admin
+from app.api.deps import get_db, require_admin
 from app.db.models import UserModel
+from app.services import audit_service
 from app.services.mcp_service import (
     delete_server,
     get_mcp_service,
@@ -45,25 +47,56 @@ def get_mcp_servers(_: UserModel = Depends(require_admin)):
 
 
 @router.post("/servers", summary="新增/更新 MCP 服务器")
-def create_mcp_server(payload: MCPServerPayload, _: UserModel = Depends(require_admin)):
+def create_mcp_server(
+    payload: MCPServerPayload,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_admin),
+):
     try:
-        return upsert_server(payload.model_dump())
+        result = upsert_server(payload.model_dump())
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    # env / headers 可能含凭据，只记非敏感字段
+    audit_service.record_request(
+        db, http_request, action="mcp.upsert", actor=current_user,
+        resource_type="mcp_server", resource_id=payload.name,
+        detail={"name": payload.name, "transport": payload.transport, "enabled": payload.enabled},
+    )
+    return result
 
 
 @router.delete("/servers/{name}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_mcp_server(name: str, _: UserModel = Depends(require_admin)) -> None:
+def remove_mcp_server(
+    name: str,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_admin),
+) -> None:
     try:
         delete_server(name)
     except KeyError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="MCP 服务器不存在") from exc
+    audit_service.record_request(
+        db, http_request, action="mcp.delete", actor=current_user,
+        resource_type="mcp_server", resource_id=name,
+    )
 
 
 @router.post("/connect", summary="连接 MCP 服务器并刷新工具列表")
-async def connect_mcp(_: UserModel = Depends(require_admin)):
+async def connect_mcp(
+    http_request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_admin),
+):
     service = get_mcp_service()
     ok = await service.connect()
+    audit_service.record_request(
+        db, http_request, action="mcp.connect", actor=current_user,
+        resource_type="mcp_server",
+        result=audit_service.RESULT_ALLOW if ok else audit_service.RESULT_ERROR,
+        detail={"connected": ok, "error": service.last_error, "tool_count": len(service.tool_catalogue())},
+    )
     return {
         "connected": ok,
         "error": service.last_error,

@@ -32,7 +32,10 @@ router = APIRouter(prefix="/credential-proxy", tags=["Credential Proxy"])
 class CredentialRequest(BaseModel):
     """凭据请求"""
     system_id: int = Field(..., description="集成系统 ID")
-    user_id: Optional[int] = Field(None, description="用户 ID（不传则返回系统级凭据）")
+    user_id: int = Field(
+        ...,
+        description="用户 ID（必填：凭据按用户维度存储，不存在系统级凭据）",
+    )
 
 
 class CredentialResponse(BaseModel):
@@ -111,15 +114,16 @@ async def get_credential(
     svc = ExternalSystemService(db)
 
     try:
-        # 查询用户凭据
-        query = db.query(ExternalUserCredentialModel).filter(
-            ExternalUserCredentialModel.system_id == body.system_id
+        # 必须精确命中 (system_id, user_id)：不做 user_id 过滤时 .first()
+        # 会返回该系统的任意一条他人凭据（表里没有 user_id 为 NULL 的系统级行）
+        credential = (
+            db.query(ExternalUserCredentialModel)
+            .filter(
+                ExternalUserCredentialModel.system_id == body.system_id,
+                ExternalUserCredentialModel.user_id == body.user_id,
+            )
+            .first()
         )
-
-        if body.user_id:
-            query = query.filter(ExternalUserCredentialModel.user_id == body.user_id)
-
-        credential = query.first()
 
         if not credential:
             raise HTTPException(
@@ -191,15 +195,15 @@ async def get_credentials_batch(
 
     for i, req in enumerate(body.requests):
         try:
-            # 查询用户凭据
-            query = db.query(ExternalUserCredentialModel).filter(
-                ExternalUserCredentialModel.system_id == req.system_id
+            # 必须精确命中 (system_id, user_id)，避免取到他人凭据
+            credential = (
+                db.query(ExternalUserCredentialModel)
+                .filter(
+                    ExternalUserCredentialModel.system_id == req.system_id,
+                    ExternalUserCredentialModel.user_id == req.user_id,
+                )
+                .first()
             )
-
-            if req.user_id:
-                query = query.filter(ExternalUserCredentialModel.user_id == req.user_id)
-
-            credential = query.first()
 
             if not credential:
                 errors.append({"index": i, "error": "Credential not found"})
@@ -255,15 +259,15 @@ async def validate_credential(
             detail="内部令牌无效或缺失"
         )
 
-    # 查询凭据
-    query = db.query(ExternalUserCredentialModel).filter(
-        ExternalUserCredentialModel.system_id == body.system_id
+    # 查询凭据：必须精确命中 (system_id, user_id)，避免取到他人凭据
+    credential = (
+        db.query(ExternalUserCredentialModel)
+        .filter(
+            ExternalUserCredentialModel.system_id == body.system_id,
+            ExternalUserCredentialModel.user_id == body.user_id,
+        )
+        .first()
     )
-
-    if body.user_id:
-        query = query.filter(ExternalUserCredentialModel.user_id == body.user_id)
-
-    credential = query.first()
 
     if not credential:
         return {"valid": False, "reason": "Credential not found"}

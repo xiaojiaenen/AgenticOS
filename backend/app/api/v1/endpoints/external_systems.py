@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_admin
@@ -24,6 +24,7 @@ from app.schemas.external_systems import (
     UserConnectionListResponse,
     UserConnectionResponse,
 )
+from app.services import audit_service
 from app.services.external_system_service import ExternalSystemService, set_ext_user_id
 
 # ── Admin router ────────────────────────────────────────────────────────────
@@ -42,10 +43,17 @@ def list_systems(
 @admin_router.post("", response_model=ExternalSystemResponse, status_code=status.HTTP_201_CREATED)
 def create_system(
     body: ExternalSystemCreateRequest,
+    http_request: Request,
     admin: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    return ExternalSystemService(db).create_system(body, user_id=admin.id)
+    created = ExternalSystemService(db).create_system(body, user_id=admin.id)
+    audit_service.record_request(
+        db, http_request, action="external_system.create", actor=admin,
+        resource_type="external_system", resource_id=created.get("id"),
+        detail={"name": body.name, "base_url": body.base_url},
+    )
+    return created
 
 
 @admin_router.get("/{system_id}", response_model=ExternalSystemResponse)
@@ -64,18 +72,27 @@ def get_system(
 async def update_system(
     system_id: int,
     body: ExternalSystemUpdateRequest,
+    http_request: Request,
     admin: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     try:
-        return await ExternalSystemService(db).update_system(system_id, body)
+        updated = await ExternalSystemService(db).update_system(system_id, body)
     except KeyError:
         raise HTTPException(status_code=404, detail="外部系统不存在")
+    # 只记改动的字段名，值里可能含凭据
+    audit_service.record_request(
+        db, http_request, action="external_system.update", actor=admin,
+        resource_type="external_system", resource_id=system_id,
+        detail={"fields": sorted(body.model_dump(exclude_none=True).keys())},
+    )
+    return updated
 
 
 @admin_router.delete("/{system_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_system(
     system_id: int,
+    http_request: Request,
     admin: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -83,6 +100,10 @@ def delete_system(
         ExternalSystemService(db).delete_system(system_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="外部系统不存在")
+    audit_service.record_request(
+        db, http_request, action="external_system.delete", actor=admin,
+        resource_type="external_system", resource_id=system_id,
+    )
 
 
 # ── API CRUD (admin, nested under system) ───────────────────────────────────
@@ -101,13 +122,22 @@ def list_apis(
 def create_api(
     system_id: int,
     body: ExternalApiCreateRequest,
+    http_request: Request,
     admin: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     try:
-        return ExternalSystemService(db).create_api(system_id, body)
+        created = ExternalSystemService(db).create_api(system_id, body)
     except KeyError:
         raise HTTPException(status_code=404, detail="外部系统不存在")
+    audit_service.record_request(
+        db, http_request, action="external_api.create", actor=admin,
+        resource_type="external_api",
+        resource_id=created.get("id") if isinstance(created, dict) else None,
+        detail={"system_id": system_id, "name": getattr(body, "name", None),
+                "method": getattr(body, "method", None), "path": getattr(body, "path", None)},
+    )
+    return created
 
 
 @admin_router.get("/{system_id}/apis/{api_id}", response_model=ExternalApiDetail)
@@ -128,19 +158,27 @@ def update_api(
     system_id: int,
     api_id: int,
     body: ExternalApiUpdateRequest,
+    http_request: Request,
     admin: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     try:
-        return ExternalSystemService(db).update_api(api_id, body)
+        updated = ExternalSystemService(db).update_api(api_id, body)
     except KeyError:
         raise HTTPException(status_code=404, detail="外部接口不存在")
+    audit_service.record_request(
+        db, http_request, action="external_api.update", actor=admin,
+        resource_type="external_api", resource_id=api_id,
+        detail={"system_id": system_id, "fields": sorted(body.model_dump(exclude_none=True).keys())},
+    )
+    return updated
 
 
 @admin_router.delete("/{system_id}/apis/{api_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_api(
     system_id: int,
     api_id: int,
+    http_request: Request,
     admin: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
@@ -148,6 +186,10 @@ def delete_api(
         ExternalSystemService(db).delete_api(api_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="外部接口不存在")
+    audit_service.record_request(
+        db, http_request, action="external_api.delete", actor=admin,
+        resource_type="external_api", resource_id=api_id, detail={"system_id": system_id},
+    )
 
 
 @admin_router.post("/{system_id}/apis/{api_id}/test", response_model=ExternalApiTestResponse)
@@ -183,11 +225,17 @@ def list_profile_systems(
 def apply_profile_systems(
     profile_id: int,
     body: list[ProfileExternalSystemRef],
+    http_request: Request,
     admin: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     refs = [{"system_id": r.system_id, "enabled": r.enabled} for r in body]
     ExternalSystemService(db).apply_profile_systems(profile_id, refs)
+    audit_service.record_request(
+        db, http_request, action="agent_profile.bind_systems", actor=admin,
+        resource_type="agent_profile", resource_id=profile_id,
+        detail={"systems": refs},
+    )
     return {"ok": True}
 
 
@@ -231,24 +279,36 @@ def get_integration(
 def connect_integration(
     system_id: int,
     body: UserConnectionCreateRequest,
+    http_request: Request,
     user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
-        return ExternalSystemService(db).connect_system(user.id, system_id, body.credential_data)
+        result = ExternalSystemService(db).connect_system(user.id, system_id, body.credential_data)
     except KeyError:
         raise HTTPException(status_code=404, detail="集成不存在")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    # 个人接入第三方凭据是高敏感动作，记审计但不记凭据内容
+    audit_service.record_request(
+        db, http_request, action="integration.connect", actor=user,
+        resource_type="external_system", resource_id=system_id,
+    )
+    return result
 
 
 @router.delete("/{system_id}/disconnect", status_code=status.HTTP_204_NO_CONTENT)
 def disconnect_integration(
     system_id: int,
+    http_request: Request,
     user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     ExternalSystemService(db).disconnect_system(user.id, system_id)
+    audit_service.record_request(
+        db, http_request, action="integration.disconnect", actor=user,
+        resource_type="external_system", resource_id=system_id,
+    )
 
 
 @router.get("/{system_id}/status", response_model=UserConnectionResponse)
@@ -290,11 +350,19 @@ async def preview_openapi_import(
 @admin_router.post("/import-openapi/confirm", status_code=status.HTTP_201_CREATED)
 def confirm_openapi_import(
     body: dict,
+    http_request: Request,
     admin: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     try:
         svc = ExternalSystemService(db)
-        return svc.import_from_openapi_preview(body, admin.id)
+        result = svc.import_from_openapi_preview(body, admin.id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    audit_service.record_request(
+        db, http_request, action="external_system.import_openapi", actor=admin,
+        resource_type="external_system",
+        resource_id=result.get("id") if isinstance(result, dict) else None,
+        detail={"source": "openapi"},
+    )
+    return result

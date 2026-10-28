@@ -41,10 +41,12 @@ DEFAULTS: dict[str, Any] = {
     "attr_username": "sAMAccountName",
     "attr_email": "mail",
     "attr_name": "displayName",
-    "attr_department": "department",
-    "auto_create_users": False,   # LDAP 用户首次登录自动建号
+    # LDAP 用户首次登录自动建号（JIT）。
+    # 默认开启：LDAP bind 成功 = 身份已验证，再要求管理员预先建号只是多一道人工
+    # 门槛，既拦不住真实的越权（认证已经过了），又会让新同事进不来。
+    # 关掉后行为退回「白名单模式」：未建号的 LDAP 用户会被拒绝。
+    "auto_create_users": True,
     "default_role": "user",       # 自动建号时的默认角色
-    "department_sync": False,     # 登录时同步本人部门
     "email_domain": "",           # 条目无 mail 属性时补全邮箱用
     "email_auto_configure": False,  # 登录时自动写入邮箱 IMAP/SMTP 凭据
     "imap_host": "",
@@ -55,14 +57,11 @@ DEFAULTS: dict[str, Any] = {
 
 # 布尔型键（DB 字符串 ↔ bool）
 _BOOL_KEYS = {
-    "enabled", "start_tls", "auto_create_users",
-    "department_sync", "email_auto_configure",
+    "enabled", "start_tls", "auto_create_users", "email_auto_configure",
 }
 _INT_KEYS = {"imap_port", "smtp_port"}
 # 不回显前端的敏感键
 _SECRET_KEYS = {"bind_password"}
-# 取值为 DN 而非名称的部门属性（AD 常见）
-_DN_VALUED_ATTRS = {"dn", "distinguishedname", "distinguishedname;"}
 
 
 class LdapConfigError(Exception):
@@ -87,10 +86,8 @@ class LdapConfig:
     attr_username: str = "sAMAccountName"
     attr_email: str = "mail"
     attr_name: str = "displayName"
-    attr_department: str = "department"
-    auto_create_users: bool = False
+    auto_create_users: bool = True
     default_role: str = "user"
-    department_sync: bool = False
     email_domain: str = ""
     email_auto_configure: bool = False
     imap_host: str = ""
@@ -117,7 +114,7 @@ class LdapConfig:
 
     @property
     def search_attributes(self) -> list[str]:
-        attrs = [self.attr_username, self.attr_email, self.attr_name, self.attr_department]
+        attrs = [self.attr_username, self.attr_email, self.attr_name]
         return [a for a in attrs if a]
 
 
@@ -210,10 +207,8 @@ def config_to_response(config: LdapConfig) -> dict[str, Any]:
         "attr_username": config.attr_username,
         "attr_email": config.attr_email,
         "attr_name": config.attr_name,
-        "attr_department": config.attr_department,
         "auto_create_users": config.auto_create_users,
         "default_role": config.default_role,
-        "department_sync": config.department_sync,
         "email_domain": config.email_domain,
         "email_auto_configure": config.email_auto_configure,
         "imap_host": config.imap_host,
@@ -336,7 +331,7 @@ def authenticate(config: LdapConfig, username: str, password: str) -> dict[str, 
     """LDAP 认证：服务账号搜索用户 → 用户 DN + 密码二次 bind。
 
     Returns:
-        {"username", "email", "name", "department_dn", "department_name"}
+        {"username", "email", "name"}
 
     Raises:
         LdapAuthError: 用户不存在 / 密码错误 / 服务器不可达。
@@ -394,73 +389,10 @@ def authenticate(config: LdapConfig, username: str, password: str) -> dict[str, 
         email = f"{username}@{config.email_domain.lstrip('@')}"
     name = _first(entry, config.attr_name) or username
 
-    # 部门属性：普通属性取值为部门名；DN 型属性（dn / distinguishedName）同时作为 ldap_dn
-    dept_raw = _first(entry, config.attr_department) or ""
-    dept_dn = ""
-    dept_name = dept_raw
-    if config.attr_department.strip().lower() in _DN_VALUED_ATTRS and dept_raw:
-        dept_dn = dept_raw
-        dept_name = dept_raw.split(",")[0].split("=")[-1] if "=" in dept_raw else dept_raw
-
     return {
         "username": username,
         "email": email or username,
         "name": name,
-        "department_dn": dept_dn,
-        "department_name": dept_name,
-    }
-
-
-def lookup_user(config: LdapConfig, username: str) -> dict[str, str] | None:
-    """服务账号仅搜索（不验证密码）：返回与 authenticate 相同结构的用户信息。
-
-    供管理员触发的全量部门同步使用——该场景拿不到用户明文密码，
-    无法走"用户 DN 二次 bind"的认证路径。用户不存在时返回 None。
-    """
-    from ldap3 import SUBTREE
-    from ldap3.utils.conv import escape_filter_chars
-
-    config.validate()
-
-    try:
-        conn = _connect(config)
-    except Exception as exc:  # noqa: BLE001
-        raise LdapAuthError(f"LDAP 服务器连接失败：{exc}") from exc
-
-    try:
-        search_filter = config.user_filter.replace("{username}", escape_filter_chars(username))
-        if not conn.search(
-            search_base=config.base_dn,
-            search_filter=search_filter,
-            search_scope=SUBTREE,
-            attributes=config.search_attributes,
-            size_limit=1,
-        ):
-            raise LdapAuthError(f"LDAP 搜索失败：{conn.result.get('message')}")
-        if not conn.entries:
-            return None
-        entry = conn.entries[0]
-    finally:
-        _close(conn)
-
-    email = _first(entry, config.attr_email)
-    if not email and config.email_domain:
-        email = f"{username}@{config.email_domain.lstrip('@')}"
-    name = _first(entry, config.attr_name) or username
-
-    dept_raw = _first(entry, config.attr_department) or ""
-    dept_dn = ""
-    dept_name = dept_raw
-    if config.attr_department.strip().lower() in _DN_VALUED_ATTRS and dept_raw:
-        dept_dn = dept_raw
-        dept_name = dept_raw.split(",")[0].split("=")[-1] if "=" in dept_raw else dept_raw
-
-    return {
-        "username": username,
-        "email": email or username,
-        "name": name,
-        "department_dn": dept_dn,
-        "department_name": dept_name,
     }
 
 
@@ -509,56 +441,6 @@ def _write_email_credentials(
     logger.info("Auto-configured email credentials for user %d (%s)", user_id, email_address)
 
 
-def apply_department(
-    db: Session,
-    user: Any,
-    department_dn: str | None,
-    department_name: str | None,
-) -> bool:
-    """把 LDAP 部门信息应用到用户（按 ldap_dn 匹配已有部门，否则按名创建）。
-
-    同步路径（不依赖网络），供登录同步与后续全量同步共用。
-    """
-    from app.db.models import DepartmentModel
-    from app.services.department_service import (
-        DepartmentError,
-        assign_user_department,
-        create_department,
-        get_department_by_name,
-    )
-
-    dn = (department_dn or "").strip() or None
-    name = (department_name or "").strip() or None
-    if not dn and not name:
-        return False
-
-    dept: DepartmentModel | None = None
-    if dn:
-        dept = db.scalar(select(DepartmentModel).where(DepartmentModel.ldap_dn == dn))
-    if dept is None and name:
-        dept = get_department_by_name(db, name)
-        if dept is not None and not dept.ldap_dn:
-            dept.ldap_dn = dn
-            db.add(dept)
-
-    if dept is None:
-        if not name:
-            logger.info("LDAP department DN %s has no local counterpart and no name; skipped", dn)
-            return False
-        try:
-            dept = create_department(db, name=name, ldap_dn=dn)
-            logger.info("Auto-created department %s from LDAP (dn=%s)", dept.name, dn)
-        except DepartmentError:
-            return False
-
-    if user.department_id == dept.id:
-        return False
-
-    assign_user_department(db, user, dept.id)
-    logger.info("Synced user %s into department %s", user.id, dept.name)
-    return True
-
-
 # ---------------------------------------------------------------------------
 # 兼容层：auth.py 登录路径使用的薄封装
 # ---------------------------------------------------------------------------
@@ -580,20 +462,6 @@ class LdapAuthService:
         import asyncio
 
         return await asyncio.to_thread(authenticate, self.config, username, password)
-
-    def sync_department(self, user: Any, ldap_user: dict[str, str]) -> bool:
-        """登录时同步本人部门（未开启时跳过）。失败不阻断登录。"""
-        if not self.config.department_sync:
-            return False
-        try:
-            return apply_department(
-                self.db, user,
-                ldap_user.get("department_dn"),
-                ldap_user.get("department_name"),
-            )
-        except Exception:  # noqa: BLE001 -- 部门同步失败不阻断登录
-            logger.warning("department sync failed for user %s", user.id, exc_info=True)
-            return False
 
     def configure_email(self, user_id: int, ldap_user: dict[str, str], password: str) -> None:
         """登录时自动配置邮箱凭据（未开启时跳过）。失败不阻断登录。"""

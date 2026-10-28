@@ -146,6 +146,26 @@ def record(
     return entry
 
 
+def record_request(
+    db: Session,
+    request: Any,
+    *,
+    action: str,
+    actor: UserModel | None = None,
+    **fields: Any,
+) -> None:
+    """带请求上下文（ip / UA）的审计写入，永不抛异常。
+
+    端点里几乎每个写操作都要写审计，重复三行 request_context 容易漏；
+    这个小封装统一「审计失败不拖垮业务」的语义。
+    """
+    ctx = request_context(request)
+    try:
+        record(db, action=action, actor=actor, ip=ctx["ip"], user_agent=ctx["user_agent"], **fields)
+    except Exception:  # noqa: BLE001 -- 审计异常不得让管理操作失败
+        logger.warning("audit %s failed", action, exc_info=True)
+
+
 async def record_async(
     db: Session,
     *,

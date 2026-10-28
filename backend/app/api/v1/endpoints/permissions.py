@@ -1,14 +1,17 @@
-"""企业权限体系管理端点（M6-C）。
+"""企业权限体系管理端点。
 
-挂载四条管理面：
+挂载三条管理面：
 
-- ``/departments``  部门树 CRUD、成员查询、LDAP 全量同步
 - ``/roles``        自定义角色 CRUD
 - ``/permissions``  Casbin 策略（p）与角色绑定（g）的读写
 - ``/audit-logs``   审计日志查询
 
-鉴权：写操作统一 ``require_admin``（等价于「策略表里的 admin 角色」），
-读操作 ``require_permission("read", ...)`，让部门管理员也能看到自己部门的授权情况。
+鉴权：管理面统一 ``require_admin``。
+
+> 部门（departments）已整体下线：权限只按「用户 → 角色 → 策略」组织，
+> 不再有部门树、部门域与 dept_admin 角色。知识库的授权同样落在全局域，
+> 由库 owner 与 ``p, user:<id>, *, kb:<id>, <act>`` 直接授权表达。
+
 审计：所有写操作在端点内显式调用 ``audit_service.record``（不引中间件）。
 """
 
@@ -25,24 +28,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
-from app.core.config import Settings, get_settings
-from app.db.models import DepartmentModel, RoleModel, UserModel
+from app.db.models import RoleModel, UserModel
 from app.schemas.base import AppBaseModel
 from app.services import audit_service
-from app.services.department_service import (
-    DepartmentError,
-    assign_user_department,
-    build_tree,
-    count_members,
-    create_department,
-    delete_department,
-    department_statistics,
-    list_departments,
-    members_of_department,
-    move_department,
-    set_dept_admin,
-    update_department,
-)
+from app.services.permission_service import GLOBAL_DOMAIN
 
 logger = logging.getLogger(__name__)
 
@@ -60,36 +49,6 @@ def _audit(db: Session, request: Request | None, *, action: str, actor: UserMode
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
-
-
-class DepartmentCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=120)
-    parent_id: Optional[int] = None
-    description: str = ""
-    ldap_dn: Optional[str] = Field(default=None, max_length=512)
-
-
-class DepartmentUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, max_length=120)
-    description: Optional[str] = None
-    ldap_dn: Optional[str] = Field(default=None, max_length=512)
-    is_active: Optional[bool] = None
-
-
-class DepartmentMove(BaseModel):
-    parent_id: Optional[int] = None
-
-
-class DepartmentResponse(AppBaseModel):
-    id: int
-    name: str
-    parent_id: Optional[int]
-    path: str
-    ldap_dn: Optional[str]
-    description: str
-    is_active: bool
-    member_count: int = 0
-    children: list["DepartmentResponse"] = Field(default_factory=list)
 
 
 class RoleCreate(BaseModel):
@@ -144,278 +103,6 @@ class AuditLogPage(BaseModel):
     items: list[AuditLogResponse]
     total: int
 
-
-DepartmentResponse.model_rebuild()
-
-
-# ---------------------------------------------------------------------------
-# Departments
-# ---------------------------------------------------------------------------
-
-
-def _department_response(db: Session, dept: DepartmentModel) -> DepartmentResponse:
-    """扁平节点（不带 children）——树形请用 ``/departments/tree``。"""
-    return DepartmentResponse(
-        id=dept.id,
-        name=dept.name,
-        parent_id=dept.parent_id,
-        path=dept.path,
-        ldap_dn=dept.ldap_dn,
-        description=dept.description,
-        is_active=dept.is_active,
-        member_count=count_members(db, dept.id, include_subdepartments=False),
-    )
-
-
-@router.get("/departments", response_model=list[DepartmentResponse])
-def list_department_nodes(
-    include_inactive: bool = Query(default=False),
-    db: Session = Depends(get_db),
-    _: UserModel = Depends(require_admin),
-):
-    depts = list_departments(db, include_inactive=include_inactive)
-    return [_department_response(db, dept) for dept in depts]
-
-
-@router.get("/departments/tree")
-def get_department_tree(
-    include_inactive: bool = Query(default=False),
-    db: Session = Depends(get_db),
-    _: UserModel = Depends(require_admin),
-):
-    depts = list_departments(db, include_inactive=include_inactive)
-    counts = {row["department_id"]: row["direct_members"] for row in department_statistics(db)}
-    tree = build_tree(depts)
-    _annotate_counts(tree, counts)
-    return {"items": tree}
-
-
-def _annotate_counts(nodes: list[dict[str, Any]], counts: dict[int, int]) -> None:
-    for node in nodes:
-        node["direct_members"] = counts.get(node["id"], 0)
-        _annotate_counts(node["children"], counts)
-
-
-@router.post("/departments", response_model=DepartmentResponse, status_code=status.HTTP_201_CREATED)
-def create_department_endpoint(
-    payload: DepartmentCreate,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
-):
-    try:
-        dept = create_department(
-            db,
-            name=payload.name,
-            parent_id=payload.parent_id,
-            description=payload.description,
-            ldap_dn=payload.ldap_dn,
-        )
-    except DepartmentError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    _audit(
-        db, request, action="department.create", actor=current_user,
-        resource_type="department", resource_id=dept.id, detail={"name": dept.name, "path": dept.path},
-    )
-    return _department_response(db, dept)
-
-
-@router.patch("/departments/{department_id}", response_model=DepartmentResponse)
-def update_department_endpoint(
-    department_id: int,
-    payload: DepartmentUpdate,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
-):
-    dept = db.get(DepartmentModel, department_id)
-    if dept is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
-    try:
-        dept = update_department(
-            db,
-            dept,
-            name=payload.name,
-            description=payload.description,
-            ldap_dn=payload.ldap_dn,
-            is_active=payload.is_active,
-        )
-    except DepartmentError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    _audit(
-        db, request, action="department.update", actor=current_user,
-        resource_type="department", resource_id=dept.id, detail=payload.model_dump(exclude_none=True),
-    )
-    return _department_response(db, dept)
-
-
-@router.post("/departments/{department_id}/move", response_model=DepartmentResponse)
-def move_department_endpoint(
-    department_id: int,
-    payload: DepartmentMove,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
-):
-    dept = db.get(DepartmentModel, department_id)
-    if dept is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
-    try:
-        dept = move_department(db, dept, payload.parent_id)
-    except DepartmentError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    _audit(
-        db, request, action="department.move", actor=current_user,
-        resource_type="department", resource_id=dept.id,
-        detail={"new_parent_id": payload.parent_id, "path": dept.path},
-    )
-    return _department_response(db, dept)
-
-
-@router.delete("/departments/{department_id}")
-def delete_department_endpoint(
-    department_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
-):
-    dept = db.get(DepartmentModel, department_id)
-    if dept is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
-    stats = delete_department(db, dept)
-    _audit(
-        db, request, action="department.delete", actor=current_user,
-        resource_type="department", resource_id=department_id, detail=stats,
-    )
-    return {"ok": True, **stats}
-
-
-@router.get("/departments/{department_id}/members")
-def list_department_members(
-    department_id: int,
-    include_subdepartments: bool = Query(default=True),
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
-    db: Session = Depends(get_db),
-    _: UserModel = Depends(require_admin),
-):
-    if db.get(DepartmentModel, department_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
-    members = members_of_department(
-        db, department_id, include_subdepartments=include_subdepartments, limit=limit, offset=offset
-    )
-    return {
-        "items": [
-            {
-                "id": u.id,
-                "email": u.email,
-                "name": u.name,
-                "role": u.role,
-                "department_id": u.department_id,
-                "is_active": u.is_active,
-            }
-            for u in members
-        ],
-        "total": count_members(db, department_id, include_subdepartments=include_subdepartments),
-    }
-
-
-class MemberAssign(BaseModel):
-    user_id: int
-    department_id: Optional[int] = None
-    dept_admin: Optional[bool] = None
-
-
-@router.post("/departments/{department_id}/members")
-def assign_member(
-    department_id: int,
-    payload: MemberAssign,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
-):
-    user = db.get(UserModel, payload.user_id)
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    if payload.department_id is not None and db.get(DepartmentModel, payload.department_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Department not found")
-
-    user = assign_user_department(db, user, payload.department_id)
-    if payload.dept_admin is not None:
-        try:
-            set_dept_admin(db, user, payload.dept_admin)
-        except DepartmentError as exc:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-
-    _audit(
-        db, request, action="department.assign_member", actor=current_user,
-        resource_type="user", resource_id=user.id,
-        detail={"department_id": payload.department_id, "dept_admin": payload.dept_admin},
-    )
-    return {"ok": True, "user_id": user.id, "department_id": user.department_id}
-
-
-@router.post("/departments/ldap-sync")
-async def ldap_sync_endpoint(
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: UserModel = Depends(require_admin),
-    settings: Settings = Depends(get_settings),
-):
-    """管理员触发的 LDAP 部门全量同步。
-
-    只处理 ``auth_source='ldap'`` 的本地用户（本地账号没有工号，无从查目录）。
-    使用服务账号仅搜索目录读取部门属性（不需要用户密码）。
-    LDAP 未启用或未开启部门同步时直接 409，不产生任何网络调用。
-    """
-    import asyncio
-
-    from app.services.ldap_auth_service import (
-        LdapAuthError,
-        apply_department,
-        load_config,
-        lookup_user,
-    )
-
-    config = load_config(db, settings)
-    if not config.enabled or not config.department_sync:
-        _audit(
-            db, request, action="department.ldap_sync", actor=current_user,
-            result="deny", detail={"reason": "ldap disabled or department_sync=false"},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="LDAP 部门同步未启用，请先在系统设置中启用 LDAP 并开启部门同步",
-        )
-
-    users = db.scalars(select(UserModel).where(UserModel.auth_source == "ldap")).all()
-    synced, skipped, missing = 0, 0, 0
-    for user in users:
-        username = user.email.split("@", 1)[0]
-        try:
-            ldap_user = await asyncio.to_thread(lookup_user, config, username)
-        except LdapAuthError as e:  # noqa: BLE001 -- 单个用户失败不中断全量同步
-            logger.warning("LDAP department sync failed for %s: %s", user.email, e)
-            skipped += 1
-            continue
-        if ldap_user is None:
-            missing += 1
-            continue
-        try:
-            changed = apply_department(db, user, ldap_user.get("department_dn"), ldap_user.get("department_name"))
-        except Exception:  # noqa: BLE001 -- 单个用户失败不中断全量同步
-            logger.warning("department apply failed for %s", user.email, exc_info=True)
-            skipped += 1
-            continue
-        synced += int(changed)
-        skipped += int(not changed)
-
-    _audit(
-        db, request, action="department.ldap_sync", actor=current_user,
-        resource_type="department",
-        detail={"synced": synced, "unchanged": skipped, "missing_in_ldap": missing, "scanned": len(users)},
-    )
-    return {"scanned": len(users), "synced": synced, "unchanged": skipped, "missing_in_ldap": missing}
 
 
 # ---------------------------------------------------------------------------
@@ -501,8 +188,16 @@ def list_policies(
 
     service = get_permission_service()
     if ptype == "g":
+        # 与写接口保持同一套字段语义：sub=用户标识，obj=角色，dom=域。
+        # 旧实现把角色写进了"-"，前端拿到后无法回传删除（DELETE 走 obj=角色）。
         return [
-            PolicyResponse(ptype="g", sub=rule[0], dom=rule[2] if len(rule) > 2 else "*", obj="-", act="-")
+            PolicyResponse(
+                ptype="g",
+                sub=rule[0],
+                dom=rule[2] if len(rule) > 2 else "*",
+                obj=rule[1],
+                act="-",
+            )
             for rule in service.get_grouping_policy()
         ]
     return [PolicyResponse(ptype="p", sub=r[0], dom=r[1], obj=r[2], act=r[3]) for r in service.get_policy()]
@@ -565,8 +260,6 @@ def get_user_roles(
     _: UserModel = Depends(require_admin),
 ):
     from app.services.permission_service import (
-        GLOBAL_DOMAIN,
-        domain_for_user,
         get_permission_service,
         subject_for_user,
     )
@@ -576,7 +269,7 @@ def get_user_roles(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     service = get_permission_service()
     subject = subject_for_user(user)
-    domain = domain_for_user(user)
+    domain = GLOBAL_DOMAIN
     return {
         "user_id": user.id,
         "subject": subject,

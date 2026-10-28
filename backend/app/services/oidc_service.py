@@ -36,7 +36,6 @@ EMAIL_CLAIMS: tuple[str, ...] = ("email", "mail", "preferred_username", "upn")
 NAME_CLAIMS: tuple[str, ...] = ("name", "display_name", "cn", "preferred_username", "given_name")
 
 # claims 里可能承载部门的字段
-DEPARTMENT_CLAIMS: tuple[str, ...] = ("department", "dept", "ou", "organization")
 
 # 只有这些角色允许由 IdP 下发；其余一律按 user 处理（防 IdP 提权）
 ALLOWED_OIDC_ROLES: frozenset[str] = frozenset({"admin", "dept_admin", "user"})
@@ -91,21 +90,10 @@ def claims_to_profile(claims: dict[str, Any], settings: Settings) -> dict[str, A
         if role != "user":
             break
 
-    department_claim = ""
-    for key in DEPARTMENT_CLAIMS:
-        value = claims.get(key)
-        if isinstance(value, str) and value.strip():
-            department_claim = value.strip()
-            break
-        if isinstance(value, (list, tuple)) and value:
-            department_claim = str(value[0]).strip()
-            break
-
     return {
         "email": email,
         "name": name,
         "role": role,
-        "department_claim": department_claim,
         "is_active": True,
     }
 
@@ -113,7 +101,7 @@ def claims_to_profile(claims: dict[str, Any], settings: Settings) -> dict[str, A
 def upsert_oidc_user(db: Session, profile: dict[str, Any]) -> tuple[UserModel, bool]:
     """按邮箱 upsert 本地用户，返回 (user, created)。
 
-    策略与 LDAP 登录路径一致：已存在则更新显示名/部门，绝不覆盖 ``password_hash``；
+    策略与 LDAP 登录路径一致：已存在则只更新显示名，绝不覆盖 ``password_hash``；
     ``auth_source`` 标记为 ``oidc`` 以便运营区分来源。
     """
     email = profile["email"]
@@ -138,32 +126,10 @@ def upsert_oidc_user(db: Session, profile: dict[str, Any]) -> tuple[UserModel, b
             # 本地账号被 IdP 认领：保留本地密码但切换来源，避免锁掉已有用户
             user.auth_source = "oidc"
 
-    _attach_department(db, user, profile.get("department_claim", ""))
     db.add(user)
     db.commit()
     db.refresh(user)
     return user, created
-
-
-def _attach_department(db: Session, user: UserModel, department_claim: str) -> None:
-    """按 IdP 的部门 claim 挂接**已存在**的同名部门。
-
-    不会凭外部 claim 自动创建部门 —— 组织架构的权威来源是管理员在
-    ``/departments`` 里的维护动作，IdP 只做对齐。
-    """
-    if not department_claim or user.department_id is not None:
-        return
-    from app.services.department_service import assign_user_department, get_department_by_name
-
-    dept = get_department_by_name(db, department_claim)
-    if dept is None:
-        logger.info(
-            "OIDC department %r for %s has no local counterpart; user left without a department",
-            department_claim,
-            user.email,
-        )
-        return
-    assign_user_department(db, user, dept.id)
 
 
 # ---------------------------------------------------------------------------

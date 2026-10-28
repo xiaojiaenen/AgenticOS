@@ -1,4 +1,4 @@
-"""OpenAI 兼容网关测试（本地智能体分支 + 上游透传分支的路由选择）。"""
+"""OpenAI 兼容网关测试（本地智能体路由；上游透传已下线）。"""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from app.api.v1.endpoints.openai_compat import (
     ChatCompletionRequest,
     _extract_user_content,
     _resolve_model_name,
+    find_local_agent,
     is_local_agent,
     local_agent_slugs,
 )
@@ -98,9 +99,31 @@ class TestLocalAgentRouting:
         _key, uid = api_key
         assert is_local_agent("general", _user_by_id(uid)) is True
 
-    def test_unknown_model_is_upstream(self, api_key):
+    def test_unknown_model_is_rejected(self, api_key):
         _key, uid = api_key
         assert is_local_agent("some-third-party-model", _user_by_id(uid)) is False
+
+    def test_office_mode_is_local(self, api_key):
+        """office 也是合法响应模式，漏在白名单外会被静默降级成 general。"""
+        _key, uid = api_key
+        profile = find_local_agent("office", _user_by_id(uid))
+        assert profile is not None
+        assert profile["response_mode"] == "office"
+
+    def test_agent_name_resolves_to_own_response_mode(self, api_key):
+        """填智能体名称时也要拿回它自己的 response_mode，而非一律 general。"""
+        from app.services.agent_profile_service import AgentProfileService
+
+        _key, uid = api_key
+        user = _user_by_id(uid)
+        items = AgentProfileService().list_user_agents(user).get("items", [])
+        target = next((item for item in items if item.get("response_mode") != "general"), None)
+        if target is None:
+            pytest.skip("没有非 general 模式的内置智能体")
+        for field in ("name", "slug"):
+            resolved = find_local_agent(str(target[field]), user)
+            assert resolved is not None
+            assert resolved["response_mode"] == target["response_mode"]
 
     def test_mode_names_always_local(self, api_key):
         _key, uid = api_key
@@ -140,7 +163,7 @@ class TestGatewayRoutes:
         assert resp.json()["error"]["type"] == "invalid_request_error"
 
     def test_models_returns_openai_shape_without_upstream(self, client, api_key):
-        """上游不可达（无 Cookie）时，接口仍应返回合法的 OpenAI list 结构。"""
+        """接口只暴露本地智能体，但仍须返回合法的 OpenAI list 结构。"""
         key, _uid = api_key
         resp = client.get(
             "/v1/models", headers={"Authorization": f"Bearer {key}"},

@@ -36,35 +36,29 @@ logger = logging.getLogger(__name__)
 
 MODEL_PATH = Path(__file__).resolve().parents[1] / "resources" / "casbin_model.conf"
 
-# 未挂部门的用户落在 global 域
+# 唯一授权域。部门下线后不再按组织隔离：所有策略与角色绑定都落在 global 域，
+# 保留这个概念是因为 casbin model 的域参数还在（p/g 的第一/第三段）。
 GLOBAL_DOMAIN = "global"
 # 策略缓存的重新加载间隔（秒）—— 多实例部署下其他实例改策略的可见延迟上界
 POLICY_RELOAD_INTERVAL_SECONDS = 5.0
 
 ROLE_ADMIN = "admin"
-ROLE_DEPT_ADMIN = "dept_admin"
 ROLE_USER = "user"
 
 BUILTIN_ROLES: tuple[tuple[str, str, str], ...] = (
     (ROLE_ADMIN, "系统管理员", "全权访问所有资源"),
-    (ROLE_DEPT_ADMIN, "部门管理员", "管理本部门（g 关系所在域）内的资源"),
     (ROLE_USER, "普通用户", "只能访问本人资源"),
 )
 
 # 内置策略。幂等写入（add_policy 内部按存在性去重）。
 # 说明：
-# - admin 的 obj/act 全是 ``*``（全权），域隔离对它没有意义；
-# - dept_admin 的 obj 限定在 ``kb:*`` —— 设计稿只给了「本部门知识库/成员管理」，
-#   放开成 ``*`` 会顺带让部门管理员读取任意 user 资源，得不偿失；
+# - admin 的 obj/act 全是 ``*``（全权）；
 # - 普通用户的「自身资源」由 PermissionService.enforce_for_user 里的 self-access
 #   快捷判定承担（resource_type=user 且 resource_id 为本人时放行），不用一条
 #   `p, user, *, user:*, read` 表达 —— 那会让 A 读到 B 的 user 资源。
 # 元组含义为 (sub, dom, obj, act)，ptype 固定为 "p"。
 DEFAULT_POLICIES: tuple[tuple[str, str, str, str], ...] = (
     (ROLE_ADMIN, "*", "*", "*"),
-    (ROLE_DEPT_ADMIN, "*", "kb:*", "read"),
-    (ROLE_DEPT_ADMIN, "*", "kb:*", "write"),
-    (ROLE_DEPT_ADMIN, "*", "kb:*", "delete"),
 )
 
 ACTION_DELETE = "delete"
@@ -79,26 +73,13 @@ def subject_for_user(user: UserModel | None) -> str:
 
 
 def domain_for_user(user: UserModel | None) -> str:
-    if user is None or not user.department_id:
-        return GLOBAL_DOMAIN
-    return department_domain_for_user(user.department_id)
-
-
-def department_domain_for_user(department_id: int) -> str:
-    """Casbin 的部门域标识（``g`` 关系的第三段）。"""
-    return f"dept:{department_id}"
+    """用户授权域：部门下线后恒为 global。"""
+    return GLOBAL_DOMAIN
 
 
 def domains_for_user(user: UserModel | None) -> list[str]:
-    """用户判定的候选域：先本部门域，再 global 域（去重）。
-
-    两次判定取「或」：部门域上的部门角色策略，与 global 域上的个人直接授权
-    （如知识库 owner 的 ``p, user:7, *, kb:3, write``）都能生效。
-    """
-    primary = domain_for_user(user)
-    if primary == GLOBAL_DOMAIN:
-        return [GLOBAL_DOMAIN]
-    return [primary, GLOBAL_DOMAIN]
+    """用户判定的候选域（保留列表形态，兼容既有调用方）。"""
+    return [GLOBAL_DOMAIN]
 
 
 def build_object(resource_type: str, resource_id: Any = None) -> str:
@@ -109,22 +90,12 @@ def build_object(resource_type: str, resource_id: Any = None) -> str:
 
 
 def knowledge_base_domains(kb) -> list[str]:
-    """知识库的授权域 —— 由**资源**决定，而不是由请求者决定。
+    """知识库的授权域。
 
-    知识库通过 ``team_id`` 归属某个部门（``scope=team`` 语义下该字段一直存在
-    但没人用）。判��必须落在资源自己的域上，否则「本部门域」的 dept_admin 策略
-    会把**别的部门**的知识库也一并放行 —— 因为请求者的域永远是他自己的部门，
-    跨部门隔离就失效了。
-
-    - ``team_id`` 有值 → 唯一候选域是该部门域；
-    - ``team_id`` 为空 → 落在 global 域，任何部门管理员都拿不到（只有 admin、
-      库 owner 或被直接授权的人可以）。
-
-    直接授权写的是 ``p, sub, *, kb:<id>, <act>``（域为 ``*``），在哪个候选域都能命中。
+    部门下线后恒为 global：知识库的可读可写由「admin / 库 owner /
+    ``p, user:<id>, *, kb:<id>, <act>`` 直接授权」三者决定，不再按组织归属隔离。
+    ``kb.team_id`` 字段保留但不再参与鉴权（历史数据不动）。
     """
-    team_id = getattr(kb, "team_id", None)
-    if team_id:
-        return [department_domain_for_user(team_id)]
     return [GLOBAL_DOMAIN]
 
 

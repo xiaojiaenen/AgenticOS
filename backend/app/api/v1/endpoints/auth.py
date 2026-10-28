@@ -229,16 +229,29 @@ async def _do_login(
                     db.add(user)
                     db.commit()
                     db.refresh(user)
+                    # JIT 建号同样要绑默认 Casbin 角色，否则新同事登录后
+                    # 「能进系统但什么资源都看不到」，看起来像权限系统出故障
+                    try:
+                        from app.services.permission_service import (
+                            assign_default_role_for_user,
+                        )
+
+                        assign_default_role_for_user(user)
+                    except Exception:  # noqa: BLE001 -- 策略表异常不得阻断登录
+                        logging.getLogger("agenticos.permission").warning(
+                            "assign default role failed for LDAP user %s", email, exc_info=True
+                        )
                 else:
+                    # auto_create_users 被管理员显式关闭 → 白名单模式
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="LDAP 用户未授权，请联系管理员",
+                        detail="该 LDAP 账号尚未开通，请联系管理员（可在「系统设置 → LDAP」开启首次登录自动建号）",
                     )
             elif user.auth_source != "ldap":
-                # 已存在但为本地用户 → 拒绝（不覆盖）
+                # 同邮箱已存在本地账号 → 不静默改认证来源，避免账号被接管
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="LDAP 用户未授权，请联系管理员",
+                    detail="该邮箱已被本地账号占用，需管理员将其认证方式改为 LDAP 后才能用域账号登录",
                 )
             elif not user.is_active:
                 raise HTTPException(
@@ -252,8 +265,7 @@ async def _do_login(
                 db.commit()
                 db.refresh(user)
 
-            # 登录时同步本人部门 + 自动配置邮箱凭据（均失败不阻断登录）
-            ldap_service.sync_department(user, ldap_user)
+            # 登录时自动配置邮箱凭据（失败不阻断登录）
             ldap_service.configure_email(user.id, ldap_user, request.password)
 
             # fire-and-forget: 同步凭据到 sesame 网关（独立集成，未配置则跳过）

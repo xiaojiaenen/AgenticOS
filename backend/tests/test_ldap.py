@@ -6,10 +6,10 @@
   未知键被忽略；``config_to_response`` 不回显明文密码；
 - ``validate``：缺失字段与过滤器缺 ``{username}`` 占位符时报错；
 - ``authenticate``（mock ldap3 连接）：认证成功归一化字段、
-  密码错误拒绝、过滤器命中多条记录拒绝、用户不存在拒绝；
-- ``lookup_user``：条目不存在返回 None；部门 DN 型属性解析；
-- ``apply_department``：按 ldap_dn 匹配、按名匹配并回填 dn、
-  自动建部门、无变化返回 False。
+  密码错误拒绝、过滤器命中多条记录拒绝、用户不存在拒绝。
+
+> 部门同步（``lookup_user`` / ``apply_department`` / ``department_sync``）随
+> 部门功能一并下线，相关用例已删除。
 
 ldap3 是同步 API，服务层已用 ``asyncio.to_thread`` 包裹 —— 这里直接测
 同步函数，事件循环行为由 auth 路径的集成测试覆盖。
@@ -20,20 +20,18 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
-from app.db.models import DepartmentModel, SystemSettingModel, UserModel
+from app.db.models import SystemSettingModel
 from app.db.session import create_db_session
 from app.services import ldap_auth_service as svc
 from app.services.ldap_auth_service import (
     LdapAuthError,
     LdapConfig,
     LdapConfigError,
-    apply_department,
     authenticate,
     config_to_response,
     load_config,
-    lookup_user,
     save_config,
 )
 
@@ -106,7 +104,6 @@ def _make_config(**overrides) -> LdapConfig:
         base_dn="dc=corp,dc=com",
         user_filter="(sAMAccountName={username})",
         email_domain="corp.com",
-        attr_department="department",
     )
     base.update(overrides)
     return LdapConfig(**base)
@@ -127,23 +124,6 @@ def _clean_ldap_settings():
     try:
         for row in db.scalars(select(SystemSettingModel).where(SystemSettingModel.key.like("ldap.%"))).all():
             db.delete(row)
-        db.commit()
-    finally:
-        db.close()
-
-
-@pytest.fixture
-def _clean_ldap_entities():
-    """清理 apply_department 测试创建的用户与部门，避免污染其他测试文件。"""
-    yield
-    db = create_db_session()
-    try:
-        db.execute(
-            delete(UserModel).where(UserModel.email.like("dept-sync-%@corp.com"))
-        )
-        db.execute(
-            delete(DepartmentModel).where(DepartmentModel.name.in_(("研发部", "市场部", "财务部")))
-        )
         db.commit()
     finally:
         db.close()
@@ -237,7 +217,7 @@ def _patch_ldap(monkeypatch, entries, *, bind_ok=True, search_ok=True):
 
 _ENTRY = FakeEntry(
     "cn=10001,ou=people,dc=corp,dc=com",
-    {"sAMAccountName": "10001", "mail": "10001@corp.com", "displayName": "张三", "department": "研发部"},
+    {"sAMAccountName": "10001", "mail": "10001@corp.com", "displayName": "张三"},
 )
 
 
@@ -248,7 +228,6 @@ def test_authenticate_success_normalizes_fields(monkeypatch):
     assert result["username"] == "10001"
     assert result["email"] == "10001@corp.com"
     assert result["name"] == "张三"
-    assert result["department_name"] == "研发部"
     # 用户 DN 被用于二次 bind
     assert FakeUserConn.last_user_dn == "cn=10001,ou=people,dc=corp,dc=com"
 
@@ -297,103 +276,3 @@ def test_authenticate_search_failure(monkeypatch):
     _patch_ldap(monkeypatch, [], search_ok=False)
     with pytest.raises(LdapAuthError, match="搜索失败"):
         authenticate(_make_config(), "10001", "pw")
-
-
-# ---------------------------------------------------------------------------
-# lookup_user（全量同步用：仅搜索，不验证密码）
-# ---------------------------------------------------------------------------
-
-
-def test_lookup_user_returns_none_for_missing_entry(monkeypatch):
-    _patch_ldap(monkeypatch, [])
-    assert lookup_user(_make_config(), "ghost") is None
-
-
-def test_lookup_user_parses_dn_valued_department(monkeypatch):
-    dn_dept = FakeEntry(
-        "cn=10003,ou=people,dc=corp,dc=com",
-        {"sAMAccountName": "10003", "dn": "ou=研发中心,ou=组织,dc=corp,dc=com"},
-    )
-    _patch_ldap(monkeypatch, [dn_dept])
-    config = _make_config(attr_department="dn")
-    result = lookup_user(config, "10003")
-    assert result["department_dn"] == "ou=研发中心,ou=组织,dc=corp,dc=com"
-    assert result["department_name"] == "研发中心"
-
-
-# ---------------------------------------------------------------------------
-# apply_department（纯 DB 路径）
-# ---------------------------------------------------------------------------
-
-
-def _make_user(db, email: str) -> UserModel:
-    user = UserModel(email=email, name=email.split("@")[0], password_hash="x", role="user", is_active=True)
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
-
-
-@pytest.mark.usefixtures("_clean_ldap_entities")
-def test_apply_department_creates_department_by_name():
-    db = create_db_session()
-    try:
-        user = _make_user(db, "dept-sync-1@corp.com")
-        changed = apply_department(db, user, None, "研发部")
-        assert changed is True
-
-        db.refresh(user)
-        dept = db.get(DepartmentModel, user.department_id)
-        assert dept is not None
-        assert dept.name == "研发部"
-
-        # 再同步一次同样的部门 → 无变化
-        assert apply_department(db, user, None, "研发部") is False
-    finally:
-        db.close()
-
-
-@pytest.mark.usefixtures("_clean_ldap_entities")
-def test_apply_department_matches_existing_by_ldap_dn():
-    db = create_db_session()
-    try:
-        existing = DepartmentModel(name="市场部", ldap_dn="ou=市场部,dc=corp,dc=com")
-        db.add(existing)
-        db.commit()
-        db.refresh(existing)
-
-        user = _make_user(db, "dept-sync-2@corp.com")
-        changed = apply_department(db, user, "ou=市场部,dc=corp,dc=com", "随便什么名")
-        assert changed is True
-        db.refresh(user)
-        assert user.department_id == existing.id
-    finally:
-        db.close()
-
-
-@pytest.mark.usefixtures("_clean_ldap_entities")
-def test_apply_department_backfills_dn_on_name_match():
-    db = create_db_session()
-    try:
-        dept = DepartmentModel(name="财务部")  # 有名字、没有 dn
-        db.add(dept)
-        db.commit()
-
-        user = _make_user(db, "dept-sync-3@corp.com")
-        apply_department(db, user, "ou=财务部,dc=corp,dc=com", "财务部")
-
-        db.refresh(dept)
-        assert dept.ldap_dn == "ou=财务部,dc=corp,dc=com"
-    finally:
-        db.close()
-
-
-@pytest.mark.usefixtures("_clean_ldap_entities")
-def test_apply_department_noop_without_info():
-    db = create_db_session()
-    try:
-        user = _make_user(db, "dept-sync-4@corp.com")
-        assert apply_department(db, user, "", "") is False
-        assert user.department_id is None
-    finally:
-        db.close()

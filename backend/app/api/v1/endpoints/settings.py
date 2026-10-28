@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_settings, require_admin
 from app.core.config import Settings
 from app.db.models import UserModel
+from app.services import audit_service
 from app.services import ldap_auth_service as ldap
 
 logger = logging.getLogger("agenticos.settings")
@@ -35,10 +36,8 @@ class LdapConfigPayload(BaseModel):
     attr_username: str = Field(default="sAMAccountName", max_length=128)
     attr_email: str = Field(default="mail", max_length=128)
     attr_name: str = Field(default="displayName", max_length=128)
-    attr_department: str = Field(default="department", max_length=128)
     auto_create_users: bool = False
     default_role: str = Field(default="user", pattern="^(user|admin)$")
-    department_sync: bool = False
     email_domain: str = Field(default="", max_length=255)
     email_auto_configure: bool = False
     imap_host: str = Field(default="", max_length=255)
@@ -58,10 +57,8 @@ class LdapConfigResponse(BaseModel):
     attr_username: str
     attr_email: str
     attr_name: str
-    attr_department: str
     auto_create_users: bool
     default_role: str
-    department_sync: bool
     email_domain: str
     email_auto_configure: bool
     imap_host: str
@@ -91,7 +88,8 @@ def get_ldap_setting(
 @router.put("/ldap", response_model=LdapConfigResponse)
 def update_ldap_setting(
     payload: LdapConfigPayload,
-    _: UserModel = Depends(require_admin),
+    http_request: Request,
+    current_user: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> LdapConfigResponse:
@@ -100,13 +98,26 @@ def update_ldap_setting(
         "LDAP config updated: enabled=%s server=%s auto_create=%s",
         config.enabled, config.server_url, config.auto_create_users,
     )
+    # 认证源配置属于安全关键项：记「改了哪些字段 + 关键开关」，绝不记密码
+    changed = sorted(
+        key for key, value in payload.model_dump(exclude_none=True).items()
+        if key != "bind_password"
+    )
+    audit_service.record_request(
+        db, http_request, action="settings.ldap_update", actor=current_user,
+        resource_type="settings", resource_id="ldap",
+        detail={"changed_fields": changed, "enabled": config.enabled,
+                "server_url": config.server_url, "auto_create_users": config.auto_create_users,
+                "password_rotated": bool((payload.model_dump().get("bind_password") or "").strip())},
+    )
     return LdapConfigResponse(**ldap.config_to_response(config))
 
 
 @router.post("/ldap/test")
 async def test_ldap_connection(
     payload: LdapTestRequest,
-    _: UserModel = Depends(require_admin),
+    http_request: Request,
+    current_user: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict:
@@ -123,4 +134,20 @@ async def test_ldap_connection(
 
     config = ldap.LdapConfig(**{k: v for k, v in data.items() if k in ldap.DEFAULTS})
     # ldap3 为同步 API，放线程池避免阻塞事件循环
-    return await asyncio.to_thread(ldap.test_connection, config)
+    try:
+        result = await asyncio.to_thread(ldap.test_connection, config)
+    except Exception as exc:
+        audit_service.record_request(
+            db, http_request, action="settings.ldap_test", actor=current_user,
+            resource_type="settings", resource_id="ldap",
+            result=audit_service.RESULT_ERROR,
+            detail={"server_url": config.server_url, "error": str(exc)[:200]},
+        )
+        raise
+    audit_service.record_request(
+        db, http_request, action="settings.ldap_test", actor=current_user,
+        resource_type="settings", resource_id="ldap",
+        result=audit_service.RESULT_ALLOW,
+        detail={"server_url": config.server_url, "ok": bool(result.get("ok")) if isinstance(result, dict) else None},
+    )
+    return result

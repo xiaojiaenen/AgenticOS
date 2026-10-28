@@ -72,7 +72,7 @@ def require_permission(
 
     Args:
         action: read / write / delete / admin
-        resource_type: 资源类型（``kb`` / ``skill`` / ``department`` ...），与策略里的 obj 前缀一致
+        resource_type: 资源类型（``kb`` / ``skill`` / ``agent_profile`` ...），与策略里的 obj 前缀一致
         resolver: 可选，从 ``Request`` 解析 resource_id（路径参数或查询参数）。
             典型用法::
 
@@ -133,7 +133,7 @@ def require_kb_access(
     行级过滤的唯一入口 —— 端点禁止各自手写判定。
 
     判定顺序：
-      1. Casbin 策略命中（admin 全权 / dept_admin 限本部门 / 资源的直接授权）；
+      1. 显式授权（``kb_access_control`` 成员表 / Casbin 直接策略 ``kb:<id>``）；
       2. **owner 兜底**：``kb.owner_id`` 是本人时读写删都放行。M6 之前建的库
          没有 owner 直接授权，若只靠策略表，拥有者会被自己的库挡在门外；
       3. **只读** 时回落到既有的 ``can_view_knowledge_base`` 可见性语义
@@ -145,19 +145,16 @@ def require_kb_access(
         KnowledgeBaseModel: 命中的知识库对象（省掉端点再查一次）。
     """
     from app.db.models import KnowledgeBaseModel
+    from app.services.knowledge.acl import explicit_role, load_grants, role_allows
     from app.services.knowledge.retrieval import can_view_knowledge_base
-    from app.services.permission_service import get_permission_service, knowledge_base_domains
 
     kb = db.get(KnowledgeBaseModel, kb_id)
     if kb is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
 
-    if get_permission_service().enforce_for_user(
-        user, action, "kb", kb.id, domains=knowledge_base_domains(kb)
-    ):
-        return kb
-
-    if kb.owner_id is not None and kb.owner_id == user.id:
+    # 显式授权（kb_access_control 成员表 / Casbin 直接策略 / owner / 系统 admin）
+    grants = load_grants(db, [kb.id]).get(kb.id, [])
+    if role_allows(explicit_role(user, kb, grants), action):
         return kb
 
     if action == "read" and can_view_knowledge_base(
@@ -175,21 +172,24 @@ def filter_readable_kb_ids(db: Session, user: UserModel, kb_ids: list[int]) -> s
     """批量行级过滤：返回 ``kb_ids`` 中当前用户可读的知识库 id 集合。
 
     列表查询统一走这里，避免 N+1 地逐个 require_kb_access。
+    授权来源与 ``require_kb_access`` 完全一致（成员表 + 策略表 + 可见性兜底），
+    否则会出现「详情页能打开、列表里却不显示」。
     """
     from app.db.models import KnowledgeBaseModel
+    from app.services.knowledge.acl import explicit_role, load_grants, role_allows
     from app.services.knowledge.retrieval import can_view_knowledge_base
-    from app.services.permission_service import get_permission_service, knowledge_base_domains
 
     if not kb_ids:
         return set()
     if user.role == "admin":
         return set(kb_ids)
 
-    service = get_permission_service()
+    kbs = db.query(KnowledgeBaseModel).filter(KnowledgeBaseModel.id.in_(kb_ids)).all()
+    grants = load_grants(db, [kb.id for kb in kbs])
     allowed: set[int] = set()
-    for kb in db.query(KnowledgeBaseModel).filter(KnowledgeBaseModel.id.in_(kb_ids)).all():
-        if service.enforce_for_user(
-            user, "read", "kb", kb.id, domains=knowledge_base_domains(kb)
-        ) or can_view_knowledge_base(kb, user_id=user.id, is_admin=False):
+    for kb in kbs:
+        if role_allows(explicit_role(user, kb, grants.get(kb.id, [])), "read"):
+            allowed.add(kb.id)
+        elif can_view_knowledge_base(kb, user_id=user.id, is_admin=False):
             allowed.add(kb.id)
     return allowed

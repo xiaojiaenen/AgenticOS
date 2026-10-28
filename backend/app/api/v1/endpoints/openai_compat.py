@@ -1,10 +1,8 @@
 """OpenAI 兼容执行器（把 AgenticOS 的智能体暴露成 OpenAI 形状的响应）。
 
 路径由 ``app/api/gateway_v1.py`` 统一挂载：``/v1/models`` 与
-``/v1/chat/completions`` 已有"透传企业上游"的实现，本模块提供
-**本地智能体**分支——当 model 命中本站智能体时直接执行，命中不了
-才回落到上游透传。这样对外仍是标准的 OpenAI 端点，企业无需感知
-背后走的是本地 Agent 还是上游。
+``/v1/chat/completions``。本模块**只服务本地智能体**——企业上游透传已随
+「移除企业上游」下线，model 未命中本地智能体时网关直接返回 400。
 """
 
 from __future__ import annotations
@@ -20,7 +18,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.db.models import UserModel
-from app.schemas.agent import AgentStreamRequest
+from app.schemas.agent import RESPONSE_MODES, AgentStreamRequest
 from app.services.agent.service import AgentService
 
 logger = logging.getLogger("openai_compat")
@@ -30,16 +28,23 @@ GENERIC_MODEL_ALIASES = frozenset({
     "gpt-4o", "gpt-4", "gpt-4-turbo", "gpt-3.5-turbo", "assistant", "agent", "default",
 })
 
-# AgenticOS 的响应模式名：无论用户是否安装对应智能体，都优先在本地解析
-# （否则 model="general" 会被当成上游模型名转发出去，语义混乱）
-LOCAL_MODE_NAMES = frozenset({"general", "ppt", "website", "email", "bigdata"})
+# AgenticOS 的响应模式名：直接复用 schema 里的单一来源，避免各自维护白名单
+# （漏一个就会让该模式的智能体被静默降级成 general）
+LOCAL_MODE_NAMES = frozenset(RESPONSE_MODES)
+
+# 通用别名（gpt-4o 等）回退到哪个模式
+GENERIC_ALIAS_TARGET = "general"
+
+
+def _agent_items(user: UserModel) -> list[dict[str, Any]]:
+    from app.services.agent_profile_service import AgentProfileService
+
+    return AgentProfileService().list_user_agents(user).get("items", [])
 
 
 def local_agent_slugs(user: UserModel) -> set[str]:
     """当前用户可用的本地智能体标识（slug + 名称小写）。"""
-    from app.services.agent_profile_service import AgentProfileService
-
-    items = AgentProfileService().list_user_agents(user).get("items", [])
+    items = _agent_items(user)
     slugs: set[str] = set(GENERIC_MODEL_ALIASES) | set(LOCAL_MODE_NAMES)
     for item in items:
         slug = str(item.get("slug") or "").strip().lower()
@@ -48,15 +53,36 @@ def local_agent_slugs(user: UserModel) -> set[str]:
             slugs.add(slug)
         if name:
             slugs.add(name)
-        mode = str(item.get("response_mode") or "").strip().lower()
-        if mode:
-            slugs.add(mode)
     return slugs
 
 
+def find_local_agent(model: str, user: UserModel) -> dict[str, Any] | None:
+    """把 model 解析为用户可用的本地智能体档案；无法解析返回 None。
+
+    匹配优先级：slug → 名称 → 响应模式名 → 通用别名。
+    返回档案而非布尔值，是为了让调用方拿回该智能体**自己的** response_mode，
+    否则调用「PPT 智能体」会被按 general 执行、能力被静默削掉。
+    响应模式是系统内建能力，即使列表里没有对应智能体也返回合成档案，
+    否则 model="general" 这类标准写法会被误判为未知模型。
+    """
+    key = (model or "").strip().lower()
+    items = _agent_items(user)
+    if not key:
+        key = GENERIC_ALIAS_TARGET
+    for field in ("slug", "name", "response_mode"):
+        for item in items:
+            if str(item.get(field) or "").strip().lower() == key:
+                return item
+    if key in LOCAL_MODE_NAMES:
+        return {"response_mode": key}
+    if key in GENERIC_MODEL_ALIASES:
+        return {"response_mode": GENERIC_ALIAS_TARGET}
+    return None
+
+
 def is_local_agent(model: str, user: UserModel) -> bool:
-    """model 是否命中本地智能体（决定走本地执行还是上游透传）。"""
-    return (model or "").strip().lower() in local_agent_slugs(user)
+    """model 是否命中用户可用的本地智能体（网关据此拒绝未知 model）。"""
+    return find_local_agent(model, user) is not None
 
 
 class ChatMessage(BaseModel):
@@ -124,20 +150,27 @@ async def run_local_completion(
     payload: ChatCompletionRequest,
     current_user: UserModel,
     agent_service: AgentService,
+    profile: dict[str, Any] | None = None,
 ):
     prompt = _extract_user_content(payload.messages)
     if not prompt:
         raise HTTPException(status_code=400, detail="messages 中缺少有效的用户消息")
 
-    response_mode = _resolve_model_name(payload.model)
+    # 优先采用命中智能体的 response_mode：外部软件填智能体名称时，
+    # 也应保留它原本的能力（PPT / 网站 / 办公…），而不是一律当通用智能体跑
+    resolved = profile if profile is not None else find_local_agent(payload.model, current_user)
+    response_mode = str((resolved or {}).get("response_mode") or "").strip().lower()
+    if response_mode not in LOCAL_MODE_NAMES:
+        response_mode = _resolve_model_name(payload.model)
+    if response_mode not in LOCAL_MODE_NAMES:
+        response_mode = "general"
+
     completion_id = f"chatcmpl-{uuid.uuid4().hex[:24]}"
     created = int(time.time())
     request = AgentStreamRequest(
         message=prompt,
         session_id=payload.session_id,
-        response_mode=response_mode if response_mode in {
-            "general", "ppt", "website", "email", "bigdata",
-        } else "general",
+        response_mode=response_mode,
         approval_mode=payload.approval_mode or "auto",
         plan_mode=payload.plan_mode,
     )
