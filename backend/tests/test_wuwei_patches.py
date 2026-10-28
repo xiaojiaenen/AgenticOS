@@ -517,6 +517,57 @@ class TestParallelPatches:
         )
         assert elapsed < 4.0, "两个工具没有并发执行"
 
+    def test_approval_is_not_bypassed_in_parallel_batch(self):
+        """R-7 最关键的守护：并发路径下**审批被拒的工具绝不能执行**。
+
+        上游关闭并发的理由正是它的批处理分支不调 ``execute_before_tool``——
+        等于绕过审批。我们用代理打开并发，就必须由执行器把审批补回来。
+        """
+        from app.services.agent.factory import LenientHitlMiddleware
+
+        executed: list[str] = []
+
+        def safe_handler(**kwargs):
+            executed.append("safe_tool")
+            return "safe"
+
+        def danger_handler(**kwargs):
+            executed.append("danger_tool")
+            return "danger"
+
+        async def deny(tool_call):
+            return False
+
+        middleware = LenientHitlMiddleware(
+            approval_provider=deny,
+            auto_approve_tools=["safe_tool"],
+            auto_reject_tools=[],
+            approval_mode="ask",
+        )
+        tools = [
+            make_tool("safe_tool", safe_handler),
+            make_tool("danger_tool", danger_handler),
+            make_tool("__tool_rejected__", lambda **k: "rejected"),
+        ]
+        llm = ScriptedLLM(
+            [
+                make_response(
+                    tool_calls=[
+                        make_tool_call("safe_tool", call_id="c1"),
+                        make_tool_call("danger_tool", call_id="c2"),
+                    ]
+                ),
+                make_response(content="done"),
+            ]
+        )
+        agent = build_agent(llm, tools, [middleware])
+        session = agent.create_session(parallel_tool_calls=True)
+
+        result = asyncio.run(agent.run("go", session=session))
+        assert result.status == "completed"
+        assert "danger_tool" not in executed, "被拒绝审批的工具仍然被执行了（审批被绕过）"
+        assert "safe_tool" in executed, "已批准的工具没有被执行"
+
     def test_upstream_would_disable_batching_with_tool_hooks(self):
         """R-7 守护点：说明上游为什么会静默关闭并发（我们的补丁绕开了这个限制）。"""
         stack = MiddlewareStack()
