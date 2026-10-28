@@ -7,21 +7,26 @@ import {
   BookOpen,
   Bot,
   Brain,
+  Building2,
   ChevronDown,
   Globe,
+  KeyRound,
   LogOut,
   MessageCircle,
   MessageSquare,
   Plug,
   Puzzle,
   Settings,
+  Sparkles,
   Users,
   type LucideIcon,
 } from 'lucide-react';
 import { Logo } from '../Logo';
 import { MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
 import { getStoredUser, logout } from '../../services/authService';
+import { toast } from 'sonner';
 import { cn } from '../../lib/utils';
+import { toastError } from '../../lib/errors';
 
 interface AdminSidebarProps {
   activeTab: string;
@@ -74,6 +79,7 @@ const navGroups: NavGroup[] = [
     description: '智能体、Skill、知识库与站点',
     items: [
       { id: 'agents', icon: Bot, label: '智能体配置', description: '维护智能体、工具审批与绑定' },
+      { id: 'llm_providers', icon: Sparkles, label: 'AI 提供商', description: '配置全站使用的大模型后端' },
       { id: 'skills', icon: Puzzle, label: 'Skill 管理', description: '管理本地 Skill 与脚本目录' },
       { id: 'knowledge', icon: BookOpen, label: '知识库', description: '管理知识库文档与 Wiki 编译' },
       { id: 'website_deploys', icon: Globe, label: '网站部署', description: '审批和管理网站部署请求' },
@@ -86,7 +92,9 @@ const navGroups: NavGroup[] = [
     description: '账号、集成与系统配置',
     items: [
       { id: 'users', icon: Users, label: '用户管理', description: '管理账号、角色和启用状态' },
+      { id: 'permissions', icon: Building2, label: '权限管理', description: '角色、策略与审计日志' },
       { id: 'integrations', icon: Plug, label: '集成管理', description: '管理第三方集成与 API 接口' },
+      { id: 'api_keys', icon: KeyRound, label: 'API Key', description: '外部软件调用本地智能体的凭证' },
       { id: 'settings', icon: Settings, label: '系统设置', description: '管理 LDAP 认证等系统配置' },
     ],
   },
@@ -157,7 +165,12 @@ export const AdminSidebar = React.memo(
     );
 
     const handleLogout = async () => {
-      await logout();
+      try {
+        await logout();
+      } catch (err) {
+        // 失败时给明确反馈，而非静默无响应
+        toast.error(toastError(err, '退出登录失败'));
+      }
       navigate('/login');
     };
 
@@ -181,8 +194,8 @@ export const AdminSidebar = React.memo(
             <motion.span
               layoutId="admin-active-nav"
               className={cn(
-                'absolute inset-0 rounded-lg border-l-3',
-                'border-l-zinc-900 bg-[var(--surface-1)] shadow-md',
+                'absolute inset-0 rounded-lg border-l-2',
+                'border-l-[var(--primary)] bg-[var(--surface-1)] shadow-md',
               )}
               transition={{ type: 'spring', damping: 28, stiffness: 380 }}
             />
@@ -191,7 +204,7 @@ export const AdminSidebar = React.memo(
             className={cn(
               'admin-nav-icon',
               active
-                ? 'border-zinc-900 bg-zinc-900 text-white shadow-button'
+                ? 'border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)] shadow-button'
                 : 'border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] group-hover:text-slate-700',
             )}
           >
@@ -345,7 +358,7 @@ export const AdminSidebar = React.memo(
             <div
               className={cn(
                 'flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm',
-                'border border-[var(--border-subtle)] bg-[linear-gradient(135deg,rgba(15,23,42,0.06),rgba(255,255,255,0.9))] text-zinc-600',
+                'border border-[var(--border-subtle)] bg-[linear-gradient(135deg,rgba(15,23,42,0.04),rgba(255,255,255,0.6))] text-[var(--muted-foreground)] dark:bg-[linear-gradient(135deg,rgba(250,250,250,0.04),rgba(24,24,27,0.6))]',
               )}
             >
               <UserAvatarIcon size={20} />
@@ -388,7 +401,7 @@ export const AdminSidebar = React.memo(
           !isOpen && !isMobile && 'hidden',
         )}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-br from-zinc-100/50 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-br from-[var(--surface-2)] to-transparent" />
         {sidebarContent}
       </motion.aside>
     );

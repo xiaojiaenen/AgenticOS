@@ -3,33 +3,61 @@ import { AuthUser } from '../types';
 /**
  * Token / 用户会话的底层存储（localStorage 优先，兼容迁移旧 sessionStorage 数据）。
  * 独立成模块以避免 authService ↔ apiClient 循环依赖。
+ *
+ * 所有存储访问都包 try/catch：Safari 隐私模式 / 沙箱 iframe / 存储被禁用时
+ * getItem 会抛 SecurityError，不容错会导致 ProtectedRoute、useTheme 等
+ * 渲染期直接崩溃白屏。
  */
 
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'auth_user';
 const ROLE_KEY = 'role';
 
+function safeGetItem(store: Storage, key: string): string | null {
+  try {
+    return store.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetItem(store: Storage, key: string, value: string): void {
+  try {
+    store.setItem(key, value);
+  } catch {
+    /* 存储不可写时静默降级：会话仅保留在内存中 */
+  }
+}
+
+function safeRemoveItem(store: Storage, key: string): void {
+  try {
+    store.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
 function readStorageValue(key: string): string | null {
   // token/user 持久化到 localStorage，支持新标签页共享登录态
-  const localValue = localStorage.getItem(key);
+  const localValue = safeGetItem(localStorage, key);
   if (localValue) return localValue;
 
   // 迁移旧的 sessionStorage 数据
-  const legacyValue = sessionStorage.getItem(key);
+  const legacyValue = safeGetItem(sessionStorage, key);
   if (!legacyValue) return null;
-  localStorage.setItem(key, legacyValue);
-  sessionStorage.removeItem(key);
+  safeSetItem(localStorage, key, legacyValue);
+  safeRemoveItem(sessionStorage, key);
   return legacyValue;
 }
 
 function writeStorageValue(key: string, value: string): void {
-  localStorage.setItem(key, value);
-  sessionStorage.removeItem(key);
+  safeSetItem(localStorage, key, value);
+  safeRemoveItem(sessionStorage, key);
 }
 
 function removeStorageValue(key: string): void {
-  localStorage.removeItem(key);
-  sessionStorage.removeItem(key);
+  safeRemoveItem(localStorage, key);
+  safeRemoveItem(sessionStorage, key);
 }
 
 function readJson<T>(value: string | null): T | null {
@@ -78,10 +106,10 @@ export function clearAuthSession(): void {
   // 清理当前用户的会话缓存
   const user = getStoredUser();
   if (user) {
-    localStorage.removeItem(`chat_sessions_${user.id}`);
+    safeRemoveItem(localStorage, `chat_sessions_${user.id}`);
   }
-  localStorage.removeItem('chat_sessions_guest');
-  localStorage.removeItem('chat_sessions'); // 清理旧的通用 key
+  safeRemoveItem(localStorage, 'chat_sessions_guest');
+  safeRemoveItem(localStorage, 'chat_sessions'); // 清理旧的通用 key
 
   removeStorageValue(TOKEN_KEY);
   removeStorageValue(USER_KEY);

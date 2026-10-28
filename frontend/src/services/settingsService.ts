@@ -11,10 +11,8 @@ export type LdapConfig = {
   attr_username: string;
   attr_email: string;
   attr_name: string;
-  attr_department: string;
   auto_create_users: boolean;
   default_role: 'user' | 'admin';
-  department_sync: boolean;
   email_domain: string;
   email_auto_configure: boolean;
   imap_host: string;

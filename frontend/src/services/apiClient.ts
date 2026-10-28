@@ -121,6 +121,9 @@ export async function apiFetch<T>(
 
     if (responseType === 'text') return (await response.text()) as unknown as T;
     if (responseType === 'blob') return (await response.blob()) as unknown as T;
+    // 204/205 无响应体（后端 20 个 DELETE 端点均为 204）：直接返回 undefined，
+    // 否则 response.json() 抛 SyntaxError，被包装成 ApiError，导致「删除成功却提示失败」
+    if (response.status === 204 || response.status === 205) return undefined as unknown as T;
     return (await response.json()) as T;
   } catch (err) {
     if (err instanceof ApiError) throw err;
