@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.dialects.mysql import LONGTEXT
@@ -46,10 +46,6 @@ class UserModel(Base):
     role: Mapped[str] = mapped_column(String(32), default="user", index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     auth_source: Mapped[str] = mapped_column(String(32), default="local", server_default="local")
-    # M6-C：部门树归属。nullable —— 未挂部门的用户落在 casbin 的 global 域
-    department_id: Mapped[int | None] = mapped_column(
-        ForeignKey("departments.id"), nullable=True, index=True
-    )
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
@@ -119,7 +115,12 @@ class AgentSessionModel(Base):
 
 class AgentUsageEventModel(Base):
     __tablename__ = "agent_usage_events"
-    # M6-A3：dashboard 核心查询（按用户/会话聚合 + 按时间窗口扫描）复合索引
+    # dashboard 核心查询（按用户/会话聚合 + 按时间窗口扫描）复合索引。
+    #
+    # 注意：这里曾经写了两组 ``__table_args__``（``ix_agent_usage_events_*`` 与
+    # ``ix_usage_*``，字段完全相同）。Python 类里后定义的属性直接覆盖前面的，
+    # 结果是第一组在 ORM 侧完全失效 —— 改它不会产生任何效果，也不报错。
+    # 现在合并成一组；DB 里那对重复索引由迁移 0014 清掉。
     __table_args__ = (
         Index("ix_agent_usage_events_user_created", "user_id", "created_at"),
         Index("ix_agent_usage_events_session_created", "session_id", "created_at"),
@@ -138,12 +139,32 @@ class AgentUsageEventModel(Base):
     tool_calls: Mapped[int] = mapped_column(Integer, default=0)
     tool_names_json: Mapped[str] = mapped_column(Text, default="[]")
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, index=True)
-    # dashboard 核心查询按 用户/会话 + 时间范围 过滤，单列索引不够
-    __table_args__ = (
-        Index("ix_usage_user_created", "user_id", "created_at"),
-        Index("ix_usage_session_created", "session_id", "created_at"),
+
+    # ── 审计维度：这次请求实际走了哪条路由 ──
+    # 这些列**只用于审计**，不参与用量归属。归属永远是 ``user_id``（发起人）：
+    # 凭据是系统级共享池，一个号被多人共用，按账号统计出来的 token 数对谁
+    # 都不成立。放在同一行只是为了让「谁用的 / 走的哪条凭据 / 哪个模型」
+    # 能在一次查询里对上，不用再去 join 日志。
+    #
+    # ``credential_id`` 刻意不加外键：凭据会被删除（换账号、Key 泄露后轮换），
+    # 而用量是历史事实，不能因为删了个账号就让历史统计悬挂或级联消失。
+    provider_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    provider_slug: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    provider_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    credential_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    account_label: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # True 表示这行 token 数是按字符数估的（上游没回流 usage），统计口径要能
+    # 区分开，否则「实际计费」和「估算值」混在一张图里谁也不信。
+    #
+    # server_default 用 ``text("0")`` 而不是字符串 "0"：后者会渲染成
+    # ``DEFAULT '0'``，SQLite 存文本，ORM 的 Boolean 做 ``bool('0')`` 得到 True
+    # —— 存量行会被全部误判成「已估算」。
+    tokens_estimated: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("0")
     )
+
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, index=True)
+
 
 
 class AgentToolConfigModel(Base):
@@ -681,6 +702,39 @@ class KBWikiLinkModel(Base):
     context: Mapped[str | None] = mapped_column(String(500), nullable=True)  # 链接上下文
 
 
+class KBChunkModel(Base):
+    """Wiki 页面的段级切片。
+
+    为什么需要独立一张表：页级 embedding 把整页压成一个向量，长页（编译出的
+    source_summary / synthesis 动辄数千字）的主题会被「平均」掉，问其中某一节
+    往往召不回本页。段级切片的收益有两块——
+
+    1. 向量召回按段算，长尾内容不再被平均；
+    2. 命中片段直接取「真正命中的那一段」，不再靠启发式猜哪段相关。
+
+    页级 ``kb_wiki_pages.embedding`` 保留：段表为空（存量库、切块失败）时
+    检索自动退化为页级向量，不会因为新表没数据就丢掉整个语义通道。
+    """
+
+    __tablename__ = "kb_chunks"
+    __table_args__ = (
+        Index("ix_kb_chunks_page_chunk", "page_id", "chunk_index"),
+        Index("ix_kb_chunks_kb", "knowledge_base_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    page_id: Mapped[int] = mapped_column(ForeignKey("kb_wiki_pages.id"), index=True)
+    knowledge_base_id: Mapped[int] = mapped_column(ForeignKey("knowledge_bases.id"), index=True)
+    chunk_index: Mapped[int] = mapped_column(Integer, default=0)
+    # 该段所属的最近一级 Markdown 标题，向量化时前置（Contextual Retrieval 的简化版）
+    heading: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    content: Mapped[str] = mapped_column(Text)
+    char_start: Mapped[int] = mapped_column(Integer, default=0)
+    char_end: Mapped[int] = mapped_column(Integer, default=0)
+    embedding: Mapped[str | None] = mapped_column(Text, nullable=True)  # base64(float32)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
 class KBIngestTaskModel(Base):
     """文档编译任务"""
     __tablename__ = "kb_ingest_tasks"
@@ -746,28 +800,6 @@ class KBAccessControlModel(Base):
 # ---------------------------------------------------------------------------
 
 
-class DepartmentModel(Base):
-    """部门树节点。
-
-    ``path`` 为物化路径（``1`` / ``1/4`` / ``1/4/9``），祖先 id 用 ``/`` 连接。
-    子树查询走 ``path LIKE '<prefix>/%'``，避免递归 CTE —— 部门层级很浅，
-    物化路径的写入成本（创建/移动时刷新子树）远低于每次查询的递归开销。
-    """
-
-    __tablename__ = "departments"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(120), index=True)
-    # 同父下重名（兄弟节点唯一），不跨父约束
-    parent_id: Mapped[int | None] = mapped_column(ForeignKey("departments.id"), nullable=True, index=True)
-    path: Mapped[str] = mapped_column(String(512), default="", index=True)
-    ldap_dn: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)
-    description: Mapped[str] = mapped_column(Text, default="")
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
-    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
-
-
 class RoleModel(Base):
     """自定义角色（Casbin ``p``/``g`` 的 sub 命名空间，兼具可读元数据）。"""
 
@@ -805,6 +837,123 @@ class CasbinRuleModel(Base):
     v3: Mapped[str | None] = mapped_column(String(256), nullable=True)
     v4: Mapped[str | None] = mapped_column(String(256), nullable=True)
     v5: Mapped[str | None] = mapped_column(String(256), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# AI 提供商（LLM 后端）
+# ---------------------------------------------------------------------------
+
+
+class LlmProviderModel(Base):
+    """AI 提供商：一套「怎么连大模型」的完整描述。
+
+    ``provider_type`` 决定的是**认证方式**，不是厂商：
+
+    - ``openai_compatible``：标准 OpenAI 兼容端点，Bearer API Key 认证。
+      OpenAI / DeepSeek / 通义 / Ollama / vLLM 都归这一类，换厂商只改配置。
+    - ``enterprise_cookie``：企业内网 AI 网关，登录态靠浏览器 Cookie，
+      没有可用的 API Key。凭据与登录态见 ``LlmProviderCredentialModel``。
+
+    ``is_default`` 全局唯一由服务层保证 —— SQLite 与 MySQL 都没有可移植的
+    部分唯一索引（partial index），放在 DB 层会写出只在一种方言下成立的约束。
+    """
+
+    __tablename__ = "llm_providers"
+    __table_args__ = (UniqueConstraint("slug", name="uq_llm_provider_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120))
+    slug: Mapped[str] = mapped_column(String(64), index=True)
+    provider_type: Mapped[str] = mapped_column(String(32), default="openai_compatible", index=True)
+    base_url: Mapped[str] = mapped_column(String(512), default="")
+    model: Mapped[str] = mapped_column(String(128), default="")
+    api_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    timeout_seconds: Mapped[int] = mapped_column(Integer, default=300)
+    max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    extra_json: Mapped[str] = mapped_column(Text, default="{}")
+    description: Mapped[str] = mapped_column(Text, default="")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class LlmProviderCredentialModel(Base):
+    """企业类型提供商的登录态，**一个提供商下可以有多条账号**。
+
+    单账号是旧实现的默认形态，但真实企业网关普遍按账号限配额：全部流量压在
+    一个号上，一旦该号被限流或被安全策略锁定，整站对话同时不可用。因此这里
+    改成账号池 —— 每个 provider 下挂多条凭据，构建网关时按
+    ``priority`` + ``last_used_at`` 选号（见 ``credentials.acquire``）。
+
+    **仍然不按终端用户存**：账号池是系统级资源，上游看到的身份只由池里选中
+    的那条决定，与会话发起人无关。
+
+    刻意**不加** ``(provider_id, username)`` 唯一约束：账号未填用户名时是空串，
+    唯一约束会让「先建凭据、后补用户名」的正常流程互相冲突。去重由服务层做。
+    """
+
+    __tablename__ = "llm_provider_credentials"
+    __table_args__ = (Index("ix_llm_provider_cred_provider_status", "provider_id", "status"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider_id: Mapped[int] = mapped_column(ForeignKey("llm_providers.id"), index=True)
+    # 展示名，例如「运营号-01」。留空时界面回退显示 username
+    label: Mapped[str] = mapped_column(String(64), default="")
+    username: Mapped[str] = mapped_column(String(255), default="")
+    password_encrypted: Mapped[str] = mapped_column(Text, default="")
+    cookie_encrypted: Mapped[str] = mapped_column(Text, default="")
+    login_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # pending（从未登录）/ active / expired / failed
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    # 过期前自动重新登录；关闭后只能人工更新 Cookie
+    auto_refresh: Mapped[bool] = mapped_column(Boolean, default=True)
+    expire_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 轮换权重：小的优先。留出空档是为了「主力号 priority=10、备用号=90」
+    priority: Mapped[int] = mapped_column(Integer, default=100, index=True)
+    # 选号依据：最少使用优先，让配额在池内均匀摊开
+    last_used_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    # 连续失败计数：达到阈值后自动退出候选池，避免坏号被反复选中
+    failure_count: Mapped[int] = mapped_column(Integer, default=0)
+    # 人工停用（临时摘掉一个号但保留其凭据，便于恢复）
+    disabled: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class LlmModelCatalogModel(Base):
+    """某个提供商下可用模型的目录（从上游注册表或 ``/models`` 发现）。
+
+    存在的理由：上游的「模型 ID」和「请求体里要填的模型名」经常不是同一个
+    东西（百通就是 ``qwen3.6-35b`` vs ``Qwen3.6-35B-A3B``），而表单是一个自由
+    文本框，填错只能等到调用时吃一个 404 ``Model Not Exist``。把目录落库后，
+    界面能给出候选、能校验、也能按用途挑模型。
+
+    ``provider.extra_json.roles`` 负责把用途（chat / reasoner / vision / image
+    / title）映射到这里的 ``model_name``。
+    """
+
+    __tablename__ = "llm_provider_chat_models"
+    __table_args__ = (
+        UniqueConstraint("provider_id", "model_key", name="uq_llm_provider_model_key"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider_id: Mapped[int] = mapped_column(ForeignKey("llm_providers.id"), index=True)
+    # 上游注册表里的 ID（百通：qwen3.6-35b）
+    model_key: Mapped[str] = mapped_column(String(128))
+    # 请求体里真正要填的名字（百通：Qwen3.6-35B-A3B）
+    model_name: Mapped[str] = mapped_column(String(128))
+    # text-generation / image-text-to-text / text-to-image / any-to-any
+    task_type: Mapped[str] = mapped_column(String(48), default="", index=True)
+    max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # 采样参数等上游建议值，构建网关时并入 extra_body 之外的默认值
+    extra_json: Mapped[str] = mapped_column(Text, default="{}")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
 
 class AuditLogModel(Base):

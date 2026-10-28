@@ -37,6 +37,37 @@ class Settings(BaseSettings):
     llm_gate_wait_seconds: float = Field(default=120.0, validation_alias="LLM_GATE_WAIT_SECONDS")
     # 压测/联调用 LLM mock：开启后 orchestrator 不调用真实 LLM（默认关闭）
     llm_mock_enabled: bool = Field(default=False, validation_alias="LLM_MOCK_ENABLED")
+    # ------------------------------------------------------------------
+    # AI 提供商（企业网关类，Cookie 认证）
+    # ------------------------------------------------------------------
+    # 生效提供商是 Cookie 类但登录态不可用时，是否回落环境变量配置。
+    # 开着能保证「Cookie 过期」不会让全站对话直接不可用；关掉则宁可报错，
+    # 适合要求「必须走企业网关、不允许流量外溢」的部署。
+    llm_provider_fallback_to_env: bool = Field(
+        default=True, validation_alias="LLM_PROVIDER_FALLBACK_TO_ENV"
+    )
+    # Cookie 过期前多久开始重新登录（定时任务据此提前换新，而不是等失效）
+    llm_provider_cookie_refresh_buffer_hours: int = Field(
+        default=2, validation_alias="LLM_PROVIDER_COOKIE_REFRESH_BUFFER_HOURS"
+    )
+    # 上游没给出可信过期时间时，按这个时长保守估计
+    llm_provider_cookie_default_ttl_hours: int = Field(
+        default=24, validation_alias="LLM_PROVIDER_COOKIE_DEFAULT_TTL_HOURS"
+    )
+    # 自动登录（Playwright）单次总超时
+    llm_provider_auto_login_timeout_seconds: float = Field(
+        default=90.0, validation_alias="LLM_PROVIDER_AUTO_LOGIN_TIMEOUT_SECONDS"
+    )
+    # 流式请求的尝试次数。wuwei 只对非流式做了重试，流式失败会直接抛给用户，
+    # 而界面走的就是流式。1 表示不重试；只在「还没吐出任何内容」时才重试，
+    # 避免用户看到半句话被重来一遍、工具被重复执行。
+    llm_stream_retry_attempts: int = Field(
+        default=2, ge=1, le=5, validation_alias="LLM_STREAM_RETRY_ATTEMPTS"
+    )
+    # 浏览器可执行文件路径；不设则用 playwright 自带 Chromium
+    playwright_chromium_path: str = Field(
+        default="", validation_alias="PLAYWRIGHT_CHROMIUM_PATH"
+    )
     # dashboard 统计缓存 TTL 秒（M6-A4）
     dashboard_cache_ttl: int = Field(default=30, validation_alias="DASHBOARD_CACHE_TTL")
     skill_storage_dir: str = Field(
@@ -85,6 +116,48 @@ class Settings(BaseSettings):
     notify_smtp_port: int = Field(default=465, validation_alias="NOTIFY_SMTP_PORT")
     notify_smtp_ssl: bool = Field(default=True, validation_alias="NOTIFY_SMTP_SSL")
     notify_task_min_seconds: int = Field(default=120, validation_alias="NOTIFY_TASK_MIN_SECONDS")
+
+    # 知识库向量召回（BM25 + 向量 双路 RRF）
+    # 关掉开关或没配 OPENAI_API_KEY 时自动降级为纯 BM25，检索不报错
+    knowledge_vector_enabled: bool = Field(default=True, validation_alias="KNOWLEDGE_VECTOR_ENABLED")
+    knowledge_embedding_model: str = Field(
+        default="text-embedding-3-small", validation_alias="KNOWLEDGE_EMBEDDING_MODEL"
+    )
+    knowledge_embedding_dimensions: int = Field(
+        default=1536, validation_alias="KNOWLEDGE_EMBEDDING_DIMENSIONS"
+    )
+    knowledge_embedding_timeout_seconds: float = Field(
+        default=20.0, validation_alias="KNOWLEDGE_EMBEDDING_TIMEOUT_SECONDS"
+    )
+    # embedding 独立端点：聊天模型和 embedding 常常不是同一家
+    # （例如聊天走 DeepSeek，而 DeepSeek 没有 /embeddings 接口）。
+    # 留空表示沿用 OPENAI_BASE_URL / OPENAI_API_KEY。
+    knowledge_embedding_base_url: str = Field(
+        default="", validation_alias="KNOWLEDGE_EMBEDDING_BASE_URL"
+    )
+    knowledge_embedding_api_key: str = Field(
+        default="", validation_alias="KNOWLEDGE_EMBEDDING_API_KEY"
+    )
+    # 上游连续失败后的冷却时间：避免每次检索都白等一次网络超时/404
+    knowledge_embedding_cooldown_seconds: float = Field(
+        default=60.0, validation_alias="KNOWLEDGE_EMBEDDING_COOLDOWN_SECONDS"
+    )
+    # 向量召回的候选数（融合前截断）与最低相似度（低于视为未命中）
+    knowledge_vector_top_k: int = Field(default=30, validation_alias="KNOWLEDGE_VECTOR_TOP_K")
+    knowledge_vector_min_similarity: float = Field(
+        default=0.2, validation_alias="KNOWLEDGE_VECTOR_MIN_SIMILARITY"
+    )
+    # 重建索引时每批提交的页面数（避免长事务）
+    knowledge_reindex_batch_size: int = Field(default=20, validation_alias="KNOWLEDGE_REINDEX_BATCH_SIZE")
+    # 段级切片：一页切成若干段，段级向量召回后聚合回页。
+    # 页级向量会把长页的主题平均掉（几千字的 synthesis 页最明显），
+    # 400 字上下是中文技术文档一段的典型长度，overlap 取 80 字避免
+    # 句子被硬切断后两头都不命中。
+    knowledge_chunk_size_chars: int = Field(default=400, validation_alias="KNOWLEDGE_CHUNK_SIZE_CHARS")
+    knowledge_chunk_overlap_chars: int = Field(default=80, validation_alias="KNOWLEDGE_CHUNK_OVERLAP_CHARS")
+    knowledge_chunk_min_chars: int = Field(default=40, validation_alias="KNOWLEDGE_CHUNK_MIN_CHARS")
+    # 单页切片段数上限：防止极端长页（整本书）把向量化成本打爆
+    knowledge_max_chunks_per_page: int = Field(default=60, validation_alias="KNOWLEDGE_MAX_CHUNKS_PER_PAGE")
 
     # 记忆系统（分层蒸馏 + 混合检索）
     memory_embedding_model: str = Field(default="text-embedding-3-small", validation_alias="MEMORY_EMBEDDING_MODEL")

@@ -144,6 +144,12 @@ def upgrade() -> None:
             continue
         if _index_exists(bind, table, index_name):
             continue
+        # 列可能已在后续迁移里被删掉（如 users.department_id 随部门下线移除）。
+        # create_all 出来的新库直接就没有这些列，这里必须先探测再建索引，
+        # 否则 "CREATE INDEX ... (department_id)" 会因列不存在而整体失败。
+        existing_columns = {col["name"] for col in sa.inspect(bind).get_columns(table)}
+        if any(column not in existing_columns for column in columns):
+            continue
         op.create_index(index_name, table, list(columns), unique=False)
 
     # users.department_id — SQLite cannot add a column with a REFERENCES
