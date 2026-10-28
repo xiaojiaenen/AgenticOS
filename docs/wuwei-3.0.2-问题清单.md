@@ -945,7 +945,7 @@ def __init__(self, *args, max_retries: int | None = None, **kwargs):
 | 网关与适配器层 | `backend/app/services/llm_providers/adapter.py` | `HardenedOpenAIAdapter`（R-1 / R-3）、`RetryingGateway`（R-2 / R-3 / R-4） |
 | 装配点 | `backend/app/services/agent/factory.py` | 改用 `PatchedAgent` + `BatchSafeMiddlewareProxy`；审批加超时（R-15） |
 | 消费端 | `backend/app/services/agent/orchestrator.py` | 事件流加 `contextlib.aclosing`（R-9）；错误事件纳入完成通知 |
-| 回归测试 | `backend/tests/test_wuwei_patches.py` | 25 条用例，逐条对应 R-1 ~ R-16 |
+| 回归测试 | `backend/tests/test_wuwei_patches.py` | 26 条用例，逐条对应 R-1 ~ R-16 |
 
 ### 6.2 逐条状态
 
@@ -971,7 +971,7 @@ def __init__(self, *args, max_retries: int | None = None, **kwargs):
 
 ### 6.3 验证方式
 
-- **回归测试**：`backend/tests/test_wuwei_patches.py`（25 条）逐条对应上表；
+- **回归测试**：`backend/tests/test_wuwei_patches.py`（26 条）逐条对应上表；
   `tests/test_llm_providers.py` 的两条流式重试用例按 R-2 的新契约更新
   （断言 `LLMError` 且 `__cause__` 是原始 openai 异常）。
 - **缺陷复现对照**：R-6 用未打补丁的上游 `Agent` 实测复现——
@@ -979,7 +979,7 @@ def __init__(self, *args, max_retries: int | None = None, **kwargs):
   `session.metadata["_blocked_run"]` 被写入、第二次 run 抛
   `ValueError: Session has an unknown tool outcome`；
   打补丁后同样的脚本返回 `status=completed` 且内容完整。
-- **全量门禁**：后端 `pytest` 601 passed / 1 skipped；`ruff check app/ tests/` 全过。
+- **全量门禁**：后端 `pytest` 604 passed / 1 skipped；`ruff check app/ tests/` 全过。
 
 ### 6.4 补丁失效是安全的
 
