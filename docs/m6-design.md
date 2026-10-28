@@ -69,18 +69,24 @@ Redis（会话/审批/队列/缓存）  MySQL（主）  arq worker 池 ×3（web
 
 ## 四、企业权限体系（实施线 C）
 
+> **现状更新（2026-10-27）**：产品侧确认不需要「部门」这一层，4.2 的部门树、
+> `dept_admin` 角色与 `dept:<id>` 授权域已整体下线（迁移 `0010_drop_departments`
+> 删除了 `departments` 表与 `users.department_id`）。当前授权模型为
+> **用户 → 角色 → Casbin 策略**，所有策略落在 `global` 域，只保留 `admin` /
+> `user` 两个内置角色 + 自定义角色。下文 4.2 仅作历史设计留档。
+
 ### 4.1 权限模型（Casbin）
 
-- **角色**：`admin`（全权）、`dept_admin`（本部门知识库/成员管理）、`user`（本人会话 + 被授权资源）；角色可自定义（`roles` 表）
+- **角色**：`admin`（全权）、`user`（本人会话 + 被授权资源）；角色可自定义（`roles` 表）
 - **资源**：知识库（kb）、Agent Profile 发布、Skill、Memory（按用户）、外部系统凭据（仅 admin）、公告、成员管理
 - **策略存储**：MySQL `casbin_rule` 表（policy, ptype），模型定义 `backend/app/resources/casbin_model.conf`（RBAC + 域/部门 key）
 - **关键策略示例**：
-  - `p, dept_admin, kb:read, dept:finance` / `p, dept_admin, kb:write, dept:finance`
-  - `g, alice, dept_admin, dept:finance`
+  - `p, auditor, *, kb:12, read`（角色 auditor 可读知识库 12）
+  - `p, user:7, *, kb:3, write`（用户 7 直接授权写知识库 3）
   - 知识库行级过滤：`require_kb_access(kb_id, "read")` → service 层统一注入过滤（禁止端点各自手写）
 - **接入点**：`api/deps.py` 新增 `require_permission(action, resource_resolver)`；保留 `require_admin` 兼容
 
-### 4.2 部门树
+### 4.2 部门树（已下线，历史设计留档）
 
 - `departments` 表（id, name, parent_id, path, ldap_dn）；用户表加 `department_id` 外键
 - LDAP 同步任务（扩 `ldap_auth_service.py`）：登录时按需同步本人部门 + 管理员手动触发全量同步
@@ -89,7 +95,7 @@ Redis（会话/审批/队列/缓存）  MySQL（主）  arq worker 池 ×3（web
 ### 4.3 审计日志
 
 - `audit_logs` 表：actor、action（`resource.action` 字符串枚举）、resource_type、resource_id、result（allow/deny/error）、ip、user_agent、detail(JSON)、created_at；索引 (actor_id, created_at)、(resource_type, resource_id, created_at)
-- 覆盖范围：登录/登出、审批决策、管理员 CRUD（用户/角色/部门/知识库/Agent/Skill/外部系统）、权限变更、知识库读写（create/update/delete，不含普通检索）
+- 覆盖范围：登录/登出、审批决策、管理员 CRUD（用户/角色/知识库/Agent/Skill/外部系统）、权限变更、知识库读写（create/update/delete，不含普通检索）
 - 写入：service 层 `audit_service.record(...)`（同步异步双写：入队 + 关键操作同步落库）；复用 arq 队列
 - 保留策略：180 天，清理任务进 worker
 

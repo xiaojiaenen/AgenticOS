@@ -10,11 +10,189 @@
 
 ## [Unreleased]
 
+### Added — 用量记账的审计维度（2026-10-27）
+
+在此之前，`agent_usage_events` 只能回答「谁用了多少」，回答不了「走的哪条路由」：
+模型名兜底成 `.env` 的 `openai_model`，企业网关凭据只在网关上挂了个
+`_agenticos_credential_id`，全仓没有一个消费者。结果是切换提供商后用量图里的模型名
+一直是旧值，某个共享账号撞 401 也定位不到影响面。
+
+**口径（不要改反）**：token 归属仍然是 `user_id`（发起请求的人）。企业网关的账号是
+系统级共享池，一个号被多人共用，按账号聚合出来的数字对任何个体都不成立。新增列全部
+是**审计标签**，不参与统计。
+
+- 迁移 `0014_usage_route_audit`：`agent_usage_events` 增加 `provider_id` /
+  `provider_slug` / `provider_name` / `credential_id` / `account_label` /
+  `tokens_estimated`。`credential_id` **不加外键** —— 凭据会因换号或泄露轮换被删除，
+  而用量是历史事实，不能因为删了个账号就让历史统计悬挂或级联消失。
+- `services/llm_providers/route.py`：`RouteSnapshot` + `attach_route()` /
+  `describe_route()` / `resolve_model_name()`。路由信息在**构建网关时**挂到对象上，
+  记账时读对象而不是重新解析配置 —— 管理员切换提供商的瞬间，重新解析拿到的是新配置，
+  而那次请求发出时用的是旧配置，会张冠李戴。
+- `model_name` 改为取网关实际发出的模型，不再兜底 `settings.openai_model`。开发库里
+  93 条历史行全部记成 `deepseek-flash` 就是旧实现留下的痕迹。
+- 上游没回流 usage 时按字符数估算的行打 `tokens_estimated=True`，让「实际计费」和
+  「估算值」在统计口径上可区分（此前混在一起，谁也不敢用这个数）。
+- `GET /dashboard/my-usage`：用户看自己的用量，只按 `user_id` 聚合，不暴露提供商/凭据。
+- `GET /dashboard/usage-routes`（管理员）：按提供商 / 账号 / 模型聚合的排障视图，
+  单独给出 `legacy_runs`（迁移前的历史行，无路由信息）与 `env_fallback_runs`
+  （走了 `.env` 兜底，说明配置没生效）—— 这两项是「配置没生效」的显式信号，不是噪音。
+- 管理端看板新增「用量路由审计」面板，与主看板共用时间范围但独立请求：它是排障视图，
+  取数失败不该让整个看板变成错误页。
+- 顺带修掉 `AgentUsageEventModel` 里写了两份 `__table_args__` 的问题（后一份直接覆盖
+  前一份，改第一份索引永远不生效），并清掉一对字段完全重复的复合索引。
+
+### Fixed — wuwei 网关补强（2026-10-27）
+
+通读 `wuwei` 的 `llm/gateway.py` 与 `adapters/` 后发现：**非流式路径做得比较完整
+（分类重试 / 超时 / fallback），流式路径基本只有「能跑」**，而界面走的恰恰是流式。
+新增 `services/llm_providers/adapter.py` 在公开方法上补强，不改 site-packages：
+
+- **流式重试**：`RetryingGateway` 覆盖 `generate`。wuwei 的 `_generate_stream` 不读
+  `retry_policy`、不读 `_fallback_adapter`（实测配了 3 次重试 + fallback，实际只调
+  1 次、fallback 0 次）。补丁的约束是**只在尚未输出任何内容时重试** —— 已经吐字再
+  重来会出现重复文本，工具还可能执行两次。开关 `LLM_STREAM_RETRY_ATTEMPTS`（默认 2）。
+- **工具调用不再静默丢失**：网关只在 `finish_reason == "tool_calls"` 时组装完整调用，
+  有些网关收尾只给 `stop`，模型「说要调工具」就会被当成普通回答结束。适配器记住
+  本轮出现过工具增量并纠正语义。
+- **非流式不再因缺 `usage` 崩**：上游直接取 `raw_response.usage.prompt_tokens`，
+  兼容网关省略 usage 时抛 `AttributeError`，把一次正常请求变成 500。同时把 Literal
+  之外的 `finish_reason`（如 vLLM 的 `insufficient_system_resource`）归一化为 `stop`。
+- **SDK 重试显式关闭**：`AsyncOpenAI(max_retries)` 默认 2，与网关自身的重试叠加会让
+  实际次数不可预期；现在统一由网关控制。注意 `max_retries` 不能经 `**kwargs` 传给
+  `OpenAIAdapter` —— 它会进 `default_params` 并展开成上游请求字段，实测直接
+  `TypeError`，已用测试钉住。
+
+新增 9 个后端用例（工具调用纠正、缺 usage 解析、未知 finish_reason、三种重试语义、
+SDK 参数不泄漏进请求体）。
+
+### Added — 企业网关实战适配（2026-10-27）
+
+对接真实企业网关（格力百通 `agents.gree.com`）时暴露的五类硬伤与对应抽象。这一批改动
+不是「多支持一家厂商」，而是**把「标准 OpenAI 兼容」这个隐含假设拆掉**，让提供商层
+在真实内网网关上也成立。
+
+- 新增 `services/llm_providers/presets.py`：`ProviderPreset` / `LoginFlow` /
+  `TransportOptions` / `ProbeSpec`，内置 `gree_baitong` 预设。厂商差异从代码里的
+  if 分支收敛为一份数据，接第二家网关只加数据不改逻辑。
+- **自动登录参数化**（`auto_login.py`）。此前硬编码的动作在内网 SPA 上必然失败：
+  `wait_until="networkidle"` 在常驻轮询页永远不静默；提交按钮文案是「授权并登录」
+  且不是 `<button>`；会话 `SESSION` 由登录后的前端脚本异步写入，只 `sleep(1)` 取一次
+  拿不到；未设置 `ignore_https_errors` 导致自签证书直接握手失败；未按域过滤会把
+  多域 SSO 的无关 Cookie 一并发给上游。现在这些全部由 `LoginFlow` 描述，且
+  **基线取自预设而非默认值** —— 只改一行按钮文案时不会把 `required_cookies` 一起丢掉。
+- **分阶段连通性诊断**：`network → auth → chat → tools`，`?deep=true` 才真实发对话
+  与 function calling 请求。关键修正是**只有认证阶段 401/403 才标记账号失效** ——
+  旧实现拿 `/models` 的 403 当认证失败，而企业网关的 403 常常只是「该接口要 admin」，
+  等于点一次「测试」就把一份有效 Cookie 判死。
+- **`extra` 白名单 + `extra_body` 通道**：openai SDK 2.x 的 `create()` 没有 `**kwargs`，
+  把 `enable_thinking` 平铺进请求会抛 `TypeError`（已实测）。现在顶层只接受已知键，
+  非标字段必须放进 `transport.extra_body`，在保存时就拒绝而不是对话时崩。
+- **多账号池**（迁移 `0013`）：`llm_provider_credentials` 去掉 `provider_id` 唯一约束，
+  新增 `label` / `priority` / `last_used_at` / `failure_count` / `disabled`。选号策略是
+  「最久未用优先，priority 只在都没用过时决定首次挑谁」—— 让 priority 一路压过
+  `last_used_at` 的话，备用号永远不会被用到，也就谈不上分摊配额。连续失败 3 次自动
+  退出轮换，重新启用即复位。续期粒度也从「提供商」下沉到「账号」。
+- **模型目录**（新表 `llm_provider_chat_models` + `discovery.py`）：上游的「模型 ID」与
+  「请求体里要填的模型名」经常不是同一个东西（百通 `qwen3.6-35b` vs
+  `Qwen3.6-35B-A3B`），手填只能等到 404 `Model Not Exist`。现在能从上游同步清单
+  （百通公开注册表 / 标准 `/models`）、可选、可校验。
+- **按用途绑定模型**：`extra.roles` 把 chat / reasoner / fast / vision / image 映射到
+  具体模型，`llm_factory` 与 `agent/factory` 支持 `role`。缓存键改用「解析后的模型名」
+  而不是 `provider.model`，否则改完绑定会一直复用旧 agent。
+- **路径前缀由 `base_url` 吸收**：百通把接口挂在 `/agents/baitong` 而不是 `/v1`，
+  SDK 会自己拼出 `/agents/baitong/chat/completions`（已用真实 SDK 验证）；响应体是
+  标准 OpenAI 形态（`reasoning_content` / `tool_calls` / `usage`），解析层无需适配。
+- 传输层补齐：浏览器 UA（站点有 UA 级防护）、显式 `timeout` 与 `max_retries`
+  （SDK 默认 2 次重试对 Cookie 认证是纯浪费）、Cookie 路径补上 `temperature` 等采样
+  参数（此前自建适配器漏传，同样的配置换个认证方式生成风格就变了）。
+- 深度探测新增 `stream` 阶段（`network → auth → chat → stream → tools`）：界面走的是
+  流式，只测非流式会漏掉「SSE 被 SPA 兜底成 HTML」和「上游不认 `stream_options`」。
+- **修复流式 usage 恒为 0**（影响所有提供商，不只企业网关）：适配器自己加了
+  `stream_options.include_usage`，上游按规范回一帧 `choices: []` + `usage`，但 wuwei
+  的流式循环先 `parse_stream_chunk`、拿到 `None` 就 `continue`，那一帧的 usage 读不到。
+  结果是 `agent_usage_events` 里的 token 统计一直是 0。修法是把该帧伪装成「空内容帧」
+  让循环走完，而不是抄一遍上游循环（升级即失效）。
+- 新增 36 个后端用例（`tests/test_llm_provider_presets.py` 及 `test_llm_providers.py`
+  的端点与流式部分），覆盖预设补全、extra 拒绝、选号轮换、坏号退出、目录幂等、
+  「500 不误杀凭据 / 401 才标记」、流式 usage 透传、SSE 探测等易回归点。
+
+### Added — AI 提供商层（2026-10-27）
+
+把「用哪个大模型后端」从环境变量变成可运营的配置，并恢复曾于 `0009` 移除的
+企业网关（Cookie 认证）接入。
+
+- 新增 `llm_providers` / `llm_provider_credentials` 两张表（迁移 `0012`）。
+  `provider_type` 描述的是**认证方式**而非厂商：`openai_compatible`（API Key）
+  与 `enterprise_cookie`（浏览器登录态）。换厂商只改配置，不改代码。
+- 新增 `backend/app/services/llm_providers/`：
+  - `spec.py` 解析优先级：**DB 默认 → DB 首个启用 → 环境变量兜底**。第 3 级是
+    升级通道，存量部署不建提供商也不会开不了机。
+  - `runtime.py` 构建网关。Cookie 方式通过**继承** `OpenAIAdapter` 实现（旧实现
+    是构造后替换 `adapter.client` 私有属性，wuwei 一改名就静默退化成空 Key 请求）。
+  - `auto_login.py` 用 Playwright 填表取 Cookie；`_infer_expire_at` 只认认证类
+    Cookie 的最早过期时间并排除 `_ga` 这类长有效期追踪 Cookie。
+  - `credentials.py` 密码与 Cookie **只以密文落库**；过期判定不看 `status`，
+    必须同时校验 `expire_at`（旧实现只查 status，Cookie 过期后仍当可用，
+    每次请求撞 401 再重登）。
+- 新增管理端点 `POST/GET/PATCH/DELETE /settings/llm-providers` 及
+  `/{id}/default`、`/{id}/test`、`/{id}/login`、`/{id}/credential`、
+  `/{id}/credential/cookie`、`/import-env`。全部写审计（已加入
+  `test_audit._AUDITED_MODULES`），`detail` 只记字段名与开关状态。
+- 新增 arq cron `refresh_llm_provider_cookies_task`（每 20 分钟检查一次，
+  仅在「即将过期」时登录，避免无脑起浏览器）。
+- 前端管理端新增「AI 提供商」页：生效来源条（含「正在用环境变量兜底」显式提示）、
+  列表与默认切换、连通性测试、企业网关登录态面板（账号密码 / 自动登录 /
+  手贴 Cookie / 过期时间 / 自动续期）。
+
+### Changed — LLM 构建改为按提供商
+
+- `llm_factory.build_llm_for_user` 改为薄壳转发到提供商解析；`model` 传 `None`
+  表示用提供商自身模型（旧实现用全局 `OPENAI_MODEL` 覆盖，导致「换了网关但
+  模型没换」）。
+- `agent/factory.py`：`_ensure_openai_key` 换成 `_ensure_llm_configured`
+  （API Key 或 Cookie 登录态任一可用即通过）；agent 缓存键加入
+  `provider.slug` + `provider.model`，否则切换提供商后旧 agent 会被一直复用。
+- 清理 `prefer_cookie=True` 死参数与 `agent/service.py` 的旧校验调用。
+- 移除 `backend/app/services/upstream/` 残留（源文件早删，只剩 `__pycache__`，
+  Python 会把它当命名空间包继续 `import` 成功）；`.env` 与 `conftest.py` 里的
+  `UPSTREAM_AUTO_LOGIN_ENABLED` 一并清理。
+
+### Added — 知识库冲突定期巡检（2026-10-27）
+
+- 新增 `backend/app/services/knowledge/conflict_scanner.py`：全库**跨页面配对扫描**，
+  补齐编译期冲突检测「只比新页 vs 旧页」的盲区（历史导入、分次上传的两页之间的矛盾
+  永远不会被发现）。流程：标题 bigram 倒排筛候选 → 正文 bigram Jaccard 确认同主题 →
+  规则**双向**判定 → 幂等写入 `kb_review_items`。**只写复核队列，不改任何正文。**
+- 新增 `POST /knowledge/bases/{id}/conflicts/scan`（手动触发；`use_llm=true` 才追加 LLM 复核）。
+- 新增 arq cron `scan_knowledge_conflicts_task`，**每周一 04:23** 全库执行。
+- 前端「待复核」Tab 增加「运行冲突巡检」按钮，并把「只写队列不改正文」写在提示语里。
+
+### Fixed
+
+- `WikiCompiler._jaccard_similarity` 用 `str.split()` 分词，中文标题没有空格，
+  相似度恒为 0 或 1 → 编译期「同主题页面」发现形同虚设。改为
+  `tokenizer.jaccard_bigrams`（字符 bigram），「Redis 缓存雪崩」与「Redis 缓存穿透」
+  这才真能判为同主题。
+- 统一版本号：新增根目录 `VERSION`（`3.2.0`）作为唯一来源，
+  `backend/pyproject.toml`、`backend/uv.lock`、`frontend/package.json` 三处同步
+  （`uv.lock` 不同步会让 CI 的 `uv sync --frozen` 直接失败）。
+- CI 前端 job 补 `npm run verify:css`（Chrome 85 兼容门禁），
+  兑现 `development-plan-v2` 的 M0 验收标准。
+
 ### 待办
 
-- 统一版本号来源：`refs/tags` 为 `v3.1.0`，`backend/pyproject.toml` 为 `0.1.0`，`frontend/package.json` 为 `0.0.0`，三处不一致。
-- 补根目录 `LICENSE`；评估是否需要单一 `VERSION` 文件。
 - 部署文档确认两处必选依赖：**Redis**（限流迁移后不可回落 in-memory）与 **MySQL ≥ 5.7.6 + `ngram_token_size`**（知识库检索）。
+- 压测：`backend/loadtest/locustfile.py` 已就绪，尚无 500 并发 P95 实测记录（需在部署环境跑，本机 CPU 会先成为瓶颈）。
+- 知识库向量召回**当前显式关闭**（`.env` 里 `KNOWLEDGE_VECTOR_ENABLED=false`）。
+  接入 embedding 服务后改回 `true` 并跑一次 `force=true` 重建索引即可。
+- 企业网关（Cookie）提供商需要 Playwright 浏览器：部署镜像里要执行
+  `playwright install chromium`（或设 `PLAYWRIGHT_CHROMIUM_PATH` 指向已有的 Chromium），
+  否则「立即登录」会返回「未安装 Playwright，无法自动登录」。手贴 Cookie 不受影响。
+
+### Other
+
+- 补根目录 `LICENSE`（MIT，2026-10-27）。
 
 ### 计划中（见 `docs/development-plan-v2.md`）
 

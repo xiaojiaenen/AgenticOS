@@ -58,5 +58,8 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Chrome 85 兼容门禁：断言构建产物里没有 oklch/oklab/lab/未包裹的 color-mix。
+      # 必须放在 build 之后（读 dist/assets）。这一步同时是
+      # development-plan-v2 「M0 验收标准」的 CI 落地。
       - name: "CSS compatibility gate (Chrome 85: no unguarded oklch/color-mix)"
         run: npm run verify:css

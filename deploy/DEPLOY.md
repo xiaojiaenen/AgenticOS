@@ -55,13 +55,48 @@ cp .env.example .env
 # 数据库
 DATABASE_URL=mysql+pymysql://agenticos:你的密码@mysql-host:3306/agenticos
 
-# AI 服务
+# AI 服务（兜底配置）
+# 注意：这里是**兜底**。只要在「管理后台 → AI 提供商」建了启用中的提供商，
+# 就优先使用提供商配置，本段不再参与。两者都没有时对话才会报错。
 OPENAI_API_KEY=sk-your-api-key-here
 OPENAI_BASE_URL=https://your-ai-backend.com
 
 # 认证密钥（务必替换为随机值）
 AUTH_SECRET_KEY=生成一个随机长字符串
 ```
+
+> **AI 提供商（可选）**：登录管理后台 →「智能体与能力 → AI 提供商」可以建多条配置并
+> 全局切换，无需重启。`openai_compatible` 类型填地址 + Key + 模型即可；`enterprise_cookie`
+> 类型用于只有浏览器登录态的内网网关，支持自动登录与手贴 Cookie。
+>
+> 新建时可以先选**厂商预设**（如「格力百通 AI 助手」），它会一次性填好接口地址、认证方式、
+> 登录动作（按钮文案、成功跳转、会话 Cookie 名、是否跳过 TLS 校验）与模型名。预设只是初始值，
+> 之后所有字段都能改 —— 上游改版时改配置即可，不必等发版。
+>
+> 内网网关有两个坑要在配置里体现：**接口地址要带路径前缀**（百通是
+> `https://agents.gree.com/agents/baitong`，少一段会落到前端 SPA 上并返回 HTML 200）；
+> **自签证书要显式放行**（预设已置 `transport.insecure_tls=true`，等价于关掉该提供商的
+> TLS 校验，只应对内网地址使用）。
+>
+> **多账号**：一个 `enterprise_cookie` 提供商下可以挂多个账号分摊配额，流量按
+> 「priority 升序、同级内最久未用优先」轮换；连续失败达 3 次的账号自动退出轮换，
+> 重新启用即可复位。上游按账号限流的场景强烈建议配 2 个以上。
+>
+> **模型目录**：点「模型 → 从上游同步」会按提供商配置的探测方式拉清单
+> （企业网关常是站点下的静态注册表，而不是 `/models`；后者的 403 通常是「要 admin 权限」，
+> 不是认证失败）。同步后可以在「按用途绑定模型」里把对话 / 轻任务 / 深度思考 / 图像理解
+> 分别指到不同模型，未绑定的用途自动跟随主模型。
+>
+> 只有使用 `enterprise_cookie` 类型时才需要浏览器：镜像内需执行
+> `playwright install --with-deps chromium`，或设 `PLAYWRIGHT_CHROMIUM_PATH`
+> 指向已存在的 Chromium。手贴 Cookie 不需要浏览器。
+>
+> 相关开关：`LLM_PROVIDER_FALLBACK_TO_ENV`（默认 `true`，提供商不可用时回落本文件配置；
+> 要求「绝不允许流量外溢」的部署请设为 `false`）、
+> `LLM_PROVIDER_COOKIE_REFRESH_BUFFER_HOURS`（默认 `2`）、
+> `LLM_PROVIDER_COOKIE_DEFAULT_TTL_HOURS`（默认 `24`）、
+> `LLM_STREAM_RETRY_ATTEMPTS`（默认 `2`，流式请求的尝试次数；只在尚未输出任何
+> 内容时才重试，避免出现「半句话重来一遍」或工具被执行两次。设为 `1` 可关闭）。
 
 可选但推荐：
 
