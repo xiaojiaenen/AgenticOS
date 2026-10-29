@@ -642,6 +642,55 @@ async def upload_document(
     )
 
 
+@router.post("/bases/{kb_id}/documents/batch", summary="批量导入文档")
+async def upload_documents_batch(
+    http_request: Request,
+    kb_id: int,
+    files: list[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """批量导入文档（最多 50 个），逐个走与单文件上传完全相同的
+    校验/落盘/编译流程，返回逐文件结果。
+
+    企业场景一次导入几十份文档是常态 —— 逐个调用单文件接口既慢，
+    前端也要自己拼并发与错误汇总。
+    """
+    if len(files) > 50:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="单批最多 50 个文件，请分批导入",
+        )
+
+    results: list[dict] = []
+    uploaded = 0
+    for file in files:
+        fname = file.filename or "未命名"
+        try:
+            doc = await upload_document(
+                http_request, kb_id, file, db=db, current_user=current_user
+            )
+            results.append({
+                "filename": fname, "ok": True, "doc_id": doc.id, "status": doc.status,
+            })
+            uploaded += 1
+        except HTTPException as exc:
+            results.append({
+                "filename": fname, "ok": False, "error": str(exc.detail)[:200],
+            })
+        except Exception as exc:  # noqa: BLE001 —— 单个文件失败不阻断整批
+            results.append({
+                "filename": fname, "ok": False,
+                "error": f"{type(exc).__name__}: {exc}"[:200],
+            })
+
+    failed = len(files) - uploaded
+    return {
+        "total": len(files), "uploaded": uploaded, "failed": failed,
+        "results": results,
+    }
+
+
 @router.delete("/bases/{kb_id}/documents/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_document(
     http_request: Request,

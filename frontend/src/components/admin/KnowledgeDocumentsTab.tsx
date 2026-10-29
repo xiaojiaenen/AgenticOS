@@ -20,7 +20,7 @@ export function KnowledgeDocumentsTab({
   documents: KBDocument[];
   isLoading: boolean;
   isUploading?: boolean;
-  onUpload: (file: File) => void;
+  onUpload: (files: File[]) => void;
   onDeleteDoc: (doc: { docId: number; title: string }) => void;
 }) {
   return (
@@ -34,15 +34,16 @@ export function KnowledgeDocumentsTab({
         )}
       >
         {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-        {isUploading ? '上传中…' : '点击上传文档（PDF / Word / Markdown）'}
+        {isUploading ? '上传中…' : '点击上传文档（可多选）'}
         <input
           type="file"
           className="hidden"
           accept=".pdf,.docx,.md,.html,.txt"
+          multiple
           disabled={isUploading}
           onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onUpload(file);
+            const files = Array.from(e.target.files ?? []);
+            if (files.length > 0) onUpload(files);
             e.target.value = '';
           }}
         />

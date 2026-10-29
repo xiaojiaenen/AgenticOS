@@ -98,9 +98,38 @@ export function KnowledgeManagement() {
   });
 
   const uploadMutation = useMutation({
-    mutationFn: (file: File) => uploadDocument(selectedKB!.id, file),
-    onSuccess: () => {
-      toast.success('文档上传成功');
+    mutationFn: async (files: File[]) => {
+      // 批量导入：逐个调用单文件接口，收集成功/失败，最后汇总提示。
+      // 顺序而非并发 —— 并发会同时触发多个编译任务挤占 worker。
+      const results: Array<{ name: string; ok: boolean; error?: string }> = [];
+      for (const file of files) {
+        try {
+          await uploadDocument(selectedKB!.id, file);
+          results.push({ name: file.name, ok: true });
+        } catch (err) {
+          results.push({
+            name: file.name, ok: false,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      return results;
+    },
+    onSuccess: (results) => {
+      const ok = results.filter((r) => r.ok).length;
+      const failed = results.length - ok;
+      if (failed === 0) {
+        toast.success(`已导入 ${ok} 个文档`);
+      } else {
+        const names = results
+          .filter((r) => !r.ok)
+          .map((r) => r.name)
+          .slice(0, 3)
+          .join('、');
+        toast.warning(
+          `已导入 ${ok} 个，失败 ${failed} 个（${names}${failed > 3 ? '…' : ''}）`,
+        );
+      }
       void queryClient.invalidateQueries({ queryKey: ['admin', 'kb-docs'] });
       void queryClient.invalidateQueries({ queryKey: ['admin', 'kbs'] });
     },
@@ -347,7 +376,7 @@ export function KnowledgeManagement() {
               documents={documents}
               isLoading={docsQuery.isLoading}
               isUploading={uploadMutation.isPending}
-              onUpload={(file) => uploadMutation.mutate(file)}
+              onUpload={(files) => uploadMutation.mutate(files)}
               onDeleteDoc={setDeletingDoc}
             />
           )}
