@@ -186,18 +186,18 @@ async def complete(
 
     try:
         # 入口是 generate（不是 create）：
-        #   generate(messages, tools=None, stream=False, **kwargs)
-        # tools 显式传 None —— 直通通道不带任何工具。
-        result = gateway.generate(
+        #   async def generate(messages, tools=None, stream=False, **kwargs)
+        #
+        # 注意它是 **async 函数**：即使 stream=True 也要先 await，
+        # 拿到的才是 AsyncIterator。直接把它当迭代器用会得到
+        # ``'async for' requires an object with __aiter__ method``。
+        result = await gateway.generate(
             wuwei_messages,
             tools=None,
             stream=stream,
             **gen_kwargs,
         )
-        if stream:
-            return gateway, model_name, result
-        response = await result
-        return gateway, model_name, response
+        return gateway, model_name, result
     except Exception as exc:  # noqa: BLE001
         logger.warning("direct llm call failed: %s", exc, exc_info=True)
         raise DirectLLMError(f"上游调用失败：{type(exc).__name__}: {exc}") from exc

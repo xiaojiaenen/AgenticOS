@@ -108,6 +108,20 @@ def _error(message: str, status: int = 400, protocol: str = "openai") -> JSONRes
 # ---------------------------------------------------------------------------
 
 
+def _strip_llm_prefix(model: str) -> str:
+    """剥掉 ``llm:`` 前缀。
+
+    这个前缀是给 /v1/chat/completions 做「强制直通」用的；/v1/messages
+    与 /v1/responses 本来就只有直通通道，不需要前缀。但客户端可能
+    统一带上（比如同一份配置复用到多个端点），所以要在这里剥掉 ——
+    否则 ``llm:xxx`` 会被当成模型名发给上游，直接 404。
+    """
+    raw = (model or "").strip()
+    if raw.lower().startswith(LLM_PREFIX):
+        return raw[len(LLM_PREFIX):].strip()
+    return raw
+
+
 def classify_model(model: str, user) -> tuple[str, str]:
     """判断 model 该走哪条通道。
 
@@ -371,7 +385,15 @@ def _openai_to_anthropic_response(
     """
     content_blocks: list[dict[str, Any]] = []
     if reasoning:
-        content_blocks.append({"type": "thinking", "thinking": reasoning})
+        # ThinkingBlock 的 signature 是**必填**字段（anthropic SDK 2.3.0
+        # 的 Pydantic 模型要求）。它是 Anthropic 用来校验思考块未被篡改的
+        # 签名；我们这里是转发上游的推理内容，没有真实签名，只能给空串 ——
+        # 客户端能解析，但会知道这不是官方签名的思考块。
+        content_blocks.append({
+            "type": "thinking",
+            "thinking": reasoning,
+            "signature": "",
+        })
     content_blocks.append({"type": "text", "text": text})
 
     stop_reason = "end_turn"
@@ -412,7 +434,7 @@ async def anthropic_messages(request: Request):
     if not messages:
         return _error("messages 不能为空", 400, "anthropic")
 
-    model = str(body.get("model") or "").strip()
+    model = _strip_llm_prefix(str(body.get("model") or ""))
     stream = bool(body.get("stream"))
     max_tokens = body.get("max_tokens")
     temperature = body.get("temperature")
@@ -455,19 +477,26 @@ async def anthropic_messages(request: Request):
         msg_id = f"msg_{uuid.uuid4().hex[:24]}"
         yield f"event: message_start\ndata: {json.dumps({'type': 'message_start', 'message': {'id': msg_id, 'type': 'message', 'role': 'assistant', 'model': model_name, 'content': [], 'stop_reason': None, 'usage': {'input_tokens': 0, 'output_tokens': 0}}}, ensure_ascii=False)}\n\n".encode()
 
+        # content_block 必须是完整 block：TextBlock 的 text 是必填，
+        # 少给字段客户端会解析失败。
         yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': 0, 'content_block': {'type': 'text', 'text': ''}}, ensure_ascii=False)}\n\n".encode()
 
+        output_chars = 0
         try:
             async for chunk in result:
                 delta = _chunk_delta_text(chunk)
                 if delta:
+                    output_chars += len(delta)
                     yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': delta}}, ensure_ascii=False)}\n\n".encode()
         except Exception as exc:  # noqa: BLE001
             logger.warning("anthropic stream failed", exc_info=True)
             yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': {'type': 'api_error', 'message': str(exc)}}, ensure_ascii=False)}\n\n".encode()
 
         yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0}, ensure_ascii=False)}\n\n".encode()
-        yield f"event: message_delta\ndata: {json.dumps({'type': 'message_delta', 'delta': {'stop_reason': 'end_turn'}, 'usage': {'output_tokens': 0}}, ensure_ascii=False)}\n\n".encode()
+        # MessageDeltaUsage 的 output_tokens 是**必填**（anthropic SDK 要求）。
+        # 原来传空对象 {} 会让客户端解析失败。这里用累计字符数近似，
+        # 精确 token 数需要上游返回 —— 直通通道没拿到就不该编造。
+        yield f"event: message_delta\ndata: {json.dumps({'type': 'message_delta', 'delta': {'stop_reason': 'end_turn', 'stop_sequence': None}, 'usage': {'output_tokens': output_chars}}, ensure_ascii=False)}\n\n".encode()
         yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'}, ensure_ascii=False)}\n\n".encode()
 
     return StreamingResponse(
@@ -533,14 +562,20 @@ def _to_responses_output(
 ) -> dict[str, Any]:
     """OpenAI 结果 → Responses API 响应形状。
 
-    Responses 的 ``output`` 是 item 数组（reasoning / message），
-    不是 chat completions 的 choices。
+    字段按 openai 3.40.0 的 ``Response`` 模型核对过 —— 必填项一个都不能少，
+    否则客户端 Pydantic 解析直接失败：
+      id / created_at / model / object / output / parallel_tool_calls /
+      tool_choice / tools
+    以及 usage 的两个 details 子结构。
     """
     output: list[dict[str, Any]] = []
     if reasoning:
         output.append({
             "type": "reasoning",
             "id": f"rs_{uuid.uuid4().hex[:24]}",
+            # ResponseReasoningItem 的 summary 是必填 List；content 可选。
+            # 我们转发的是原始推理文本，不是官方 summary 摘要，
+            # 所以 summary 留空、正文放 content。
             "summary": [],
             "content": [{"type": "reasoning_text", "text": reasoning}],
         })
@@ -549,21 +584,34 @@ def _to_responses_output(
         "id": f"msg_{uuid.uuid4().hex[:24]}",
         "status": "completed",
         "role": "assistant",
+        # ResponseOutputText 必填 annotations；type 是 output_text
         "content": [{"type": "output_text", "text": text, "annotations": []}],
     })
+
+    prompt = usage.get("prompt_tokens", 0)
+    completion = usage.get("completion_tokens", 0)
+    total = usage.get("total_tokens", 0) or (prompt + completion)
 
     return {
         "id": f"resp_{uuid.uuid4().hex[:24]}",
         "object": "response",
-        "created_at": int(time.time()),
+        # Response.created_at 是 float（不是 int）
+        "created_at": time.time(),
         "status": "completed" if finish_reason != "length" else "incomplete",
         "model": model,
         "output": output,
+        # 以下是 Response 的必填字段，缺任何一个客户端都会解析失败
+        "parallel_tool_calls": False,
+        "tool_choice": "none",
+        "tools": [],
         "output_text": text,
         "usage": {
-            "input_tokens": usage.get("prompt_tokens", 0),
-            "output_tokens": usage.get("completion_tokens", 0),
-            "total_tokens": usage.get("total_tokens", 0),
+            "input_tokens": prompt,
+            "output_tokens": completion,
+            "total_tokens": total,
+            # 两个 details 子结构都是必填
+            "input_tokens_details": {"cache_write_tokens": 0, "cached_tokens": 0},
+            "output_tokens_details": {"reasoning_tokens": 0},
         },
         "incomplete_details": (
             {"reason": "max_output_tokens"} if finish_reason == "length" else None
@@ -588,7 +636,7 @@ async def openai_responses(request: Request):
     if not messages:
         return _error("input 不能为空")
 
-    model = str(body.get("model") or "").strip()
+    model = _strip_llm_prefix(str(body.get("model") or ""))
     stream = bool(body.get("stream"))
     max_output = body.get("max_output_tokens") or body.get("max_tokens")
     temperature = body.get("temperature")
@@ -625,28 +673,124 @@ async def openai_responses(request: Request):
         )
 
     async def event_stream() -> AsyncIterator[bytes]:
-        """Responses SSE：response.created → response.output_text.delta* → response.completed。"""
+        """Responses SSE。
+
+        事件结构按 openai SDK 核对：每个事件都要 ``sequence_number``
+        （单调递增），text delta 还要 item_id / output_index /
+        content_index / logprobs。缺这些字段客户端会解析失败。
+        """
         resp_id = f"resp_{uuid.uuid4().hex[:24]}"
-        yield f"event: response.created\ndata: {json.dumps({'type': 'response.created', 'response': {'id': resp_id, 'object': 'response', 'status': 'in_progress', 'model': model_name}}, ensure_ascii=False)}\n\n".encode()
+        msg_id = f"msg_{uuid.uuid4().hex[:24]}"
+        seq = 0
+
+        def _ev(name: str, payload: dict[str, Any]) -> bytes:
+            nonlocal seq
+            payload["sequence_number"] = seq
+            seq += 1
+            return f"event: {name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode()
+
+        # 1) response.created —— response 必须是完整 Response 对象
+        created_resp = _to_responses_output(
+            text="", reasoning="",
+            usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            model=model_name, finish_reason="stop",
+        )
+        created_resp["id"] = resp_id
+        created_resp["status"] = "in_progress"
+        # output 必须是空数组：SDK 在 created 阶段就会把 response.output
+        # 里的 item 记入 _output_items，之后再发 output_item.added 会撞
+        # 索引并抛 ``Duplicate response output index``。
+        created_resp["output"] = []
+        created_resp["output_text"] = ""
+        yield _ev("response.created", {"type": "response.created", "response": created_resp})
+
+        # 2) output_item.added —— 声明一个 message item
+        yield _ev("response.output_item.added", {
+            "type": "response.output_item.added",
+            "output_index": 0,
+            "item": {
+                "type": "message", "id": msg_id, "status": "in_progress",
+                "role": "assistant", "content": [],
+            },
+        })
+
+        # 3) content_part.added
+        yield _ev("response.content_part.added", {
+            "type": "response.content_part.added",
+            "item_id": msg_id, "output_index": 0, "content_index": 0,
+            "part": {"type": "output_text", "text": "", "annotations": []},
+        })
 
         text_parts: list[str] = []
         try:
             async for chunk in result:
                 delta = _chunk_delta_text(chunk)
-                if delta:
-                    text_parts.append(delta)
-                    yield f"event: response.output_text.delta\ndata: {json.dumps({'type': 'response.output_text.delta', 'delta': delta}, ensure_ascii=False)}\n\n".encode()
+                if not delta:
+                    continue
+                text_parts.append(delta)
+                yield _ev("response.output_text.delta", {
+                    "type": "response.output_text.delta",
+                    "item_id": msg_id,
+                    "output_index": 0,
+                    "content_index": 0,
+                    "delta": delta,
+                    "logprobs": [],
+                })
         except Exception as exc:  # noqa: BLE001
             logger.warning("responses stream failed", exc_info=True)
-            yield f"event: response.failed\ndata: {json.dumps({'type': 'response.failed', 'response': {'id': resp_id, 'status': 'failed', 'error': {'message': str(exc)}}}, ensure_ascii=False)}\n\n".encode()
+            failed = _to_responses_output(
+                text="".join(text_parts), reasoning="",
+                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                model=model_name, finish_reason="stop",
+            )
+            failed["id"] = resp_id
+            failed["status"] = "failed"
+            failed["error"] = {"code": "stream_error", "message": str(exc)}
+            yield _ev("response.failed", {"type": "response.failed", "response": failed})
             return
 
+        final_text = "".join(text_parts)
+
+        # 4) output_text.done
+        yield _ev("response.output_text.done", {
+            "type": "response.output_text.done",
+            "item_id": msg_id, "output_index": 0, "content_index": 0,
+            "text": final_text, "logprobs": [],
+        })
+
+        # 5) content_part.done
+        yield _ev("response.content_part.done", {
+            "type": "response.content_part.done",
+            "item_id": msg_id, "output_index": 0, "content_index": 0,
+            "part": {"type": "output_text", "text": final_text, "annotations": []},
+        })
+
+        # 6) output_item.done
+        yield _ev("response.output_item.done", {
+            "type": "response.output_item.done",
+            "output_index": 0,
+            "item": {
+                "type": "message", "id": msg_id, "status": "completed",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": final_text, "annotations": []}],
+            },
+        })
+
+        # 7) response.completed —— 完整 Response
+        #
+        # 关键：final 里的 output item id 必须与流中 added/done 用过的
+        # msg_id 一致。SDK 会按 identity 累积 output item，id 不一致直接抛
+        # ``Response snapshot has conflicting output identities``。
         final = _to_responses_output(
-            text="".join(text_parts), reasoning="", usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            text=final_text, reasoning="",
+            usage={"prompt_tokens": 0, "completion_tokens": len(final_text), "total_tokens": len(final_text)},
             model=model_name, finish_reason="stop",
         )
         final["id"] = resp_id
-        yield f"event: response.completed\ndata: {json.dumps({'type': 'response.completed', 'response': final}, ensure_ascii=False)}\n\n".encode()
+        for item in final.get("output") or []:
+            if item.get("type") == "message":
+                item["id"] = msg_id
+        yield _ev("response.completed", {"type": "response.completed", "response": final})
 
     return StreamingResponse(
         event_stream(),

@@ -145,7 +145,11 @@ def test_anthropic_reasoning_becomes_thinking_block() -> None:
         text="答", reasoning="想了一下", usage={"prompt_tokens": 1, "completion_tokens": 1},
         model="m", finish_reason="stop",
     )
-    assert out["content"][0] == {"type": "thinking", "thinking": "想了一下"}
+    # ThinkingBlock 的 signature 是必填字段（anthropic SDK 要求），
+    # 所以这里要连它一起断言，否则客户端解析会崩。
+    assert out["content"][0]["type"] == "thinking"
+    assert out["content"][0]["thinking"] == "想了一下"
+    assert "signature" in out["content"][0]
     assert out["content"][1]["type"] == "text"
 
 
