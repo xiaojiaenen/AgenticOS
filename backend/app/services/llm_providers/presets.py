@@ -160,13 +160,60 @@ ROLE_IMAGE = "image"
 ROLE_EMBEDDING = "embedding"
 
 
-# 内置预设：只放通用厂商（见 GENERIC_PRESETS）。
+GREE_BAITONG = ProviderPreset(
+    slug="gree_baitong",
+    label="格力百通 AI 助手",
+    provider_type="enterprise_cookie",
+    # 注意 base_url 必须带 /agents/baitong 前缀：openai SDK 会在其后拼
+    # /chat/completions，少一段就会落到前端 SPA 的 catch-all 上（返回 HTML 200）。
+    base_url="https://agents.gree.com/agents/baitong",
+    model="Qwen3.6-35B-A3B",
+    login_url="https://agents.gree.com/login/oauth2/code/ar",
+    login=LoginFlow(
+        submit_text="授权并登录",
+        # 登录页是 Vue SPA：goto 用 networkidle 会因页面常驻轮询永远不静默
+        wait_until="domcontentloaded",
+        settle_ms=4_000,
+        success_url="**/chat/home",
+        success_timeout_ms=60_000,
+        required_cookies=("SESSION",),
+        cookie_domain="agents.gree.com",
+        # SESSION 由登录后的前端脚本异步写入，实测需要轮询
+        cookie_poll_attempts=30,
+        cookie_poll_interval_ms=2_000,
+        # 该站点登录页用自定义 DOM id，不在通用默认选择器里
+        username_selectors=("#UserIDShort", 'input[name="username"]'),
+        submit_selectors=("#modalButton", 'button[type="submit"]'),
+        ignore_https_errors=True,
+    ),
+    transport=TransportOptions(
+        insecure_tls=True,
+        browser_user_agent=True,
+        # 网关要求模型名用注册表里的 name（Qwen3.6-35B-A3B），不是 model ID
+        extra_body={"enable_thinking": False},
+    ),
+    probe=ProbeSpec(
+        kind="registry",
+        # 这个注册表是公开的，不需要登录 —— 探测因此能独立验证「认证有没有过」
+        path="/json/model-configs.json",
+        scope="origin",
+        parser="gree_registry",
+    ),
+    roles={
+        "chat": "Qwen3.6-35B-A3B",
+        "fast": "Qwen3.6-35B-A3B",
+    },
+    notes=(
+        "企业内网 SSO 网关。只有 /agents/baitong/chat/completions 与 "
+        "/agents/baitong/images/generations 对普通账号开放，/v1/* 是 admin 门控。"
+    ),
+)
+
+# 内置预设：通用厂商（GENERIC_PRESETS）+ 企业网关（GREE_BAITONG）。
 #
-# 公司专属的企业网关预设（内网 SSO、自签证书、私有注册表等）**不进这个
-# 字典**，而是通过 ``PROVIDER_PRESETS_DIR`` 环境变量指向的目录在启动时加载
-# （见 :func:`load_external_presets`）。这样公开仓库里不含任何内网信息，
-# 内部部署也无需维护一份 fork。
-PRESETS: dict[str, ProviderPreset] = {}
+# 企业专属预设直接内置 —— 本仓库为内部私有部署，无公开分发诉求；
+# ``PROVIDER_PRESETS_DIR`` 外部加载机制保留，作为不改代码接入新网关的扩展点。
+PRESETS: dict[str, ProviderPreset] = {GREE_BAITONG.slug: GREE_BAITONG}
 
 
 def load_external_presets(directory: str | os.PathLike[str] | None = None) -> list[str]:

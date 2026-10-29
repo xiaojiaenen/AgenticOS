@@ -68,7 +68,6 @@ data/*
 !data/design-systems/
 !data/skills/
 # 含企业邮箱域名规则，不入库
-data/skills/email-skill/
 !data/charts/
 !data/layouts/
 !data/website-templates/
@@ -138,6 +137,7 @@ backend/.venv-loadtest/
 # 上游接口勘探材料：probe 脚本里写着上游账号密码的默认值，cookies.json 是
 # 真实的 SESSION 会话凭证，还夹着几 MB 的生成样张。属于「本机备忘」而非源码，
 # 严禁入库。
-# 本机备忘材料（含明文凭据），不入库
-internal/
-internal.zip
+
+
+# 会话临时脚本（多次误入提交，彻底忽略）
+.tmp_*

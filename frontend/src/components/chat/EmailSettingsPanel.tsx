@@ -30,6 +30,7 @@ interface EmailPreset {
  * 或用户自己填。公开仓库里的预设只描述公开服务商。
  */
 const EMAIL_PRESETS: EmailPreset[] = [
+  { label: '内网邮箱', value: 'intranet', imap_host: '10.12.128.18', imap_port: 993, imap_ssl: true, smtp_host: '10.12.128.18', smtp_port: 465, smtp_ssl: true },
   { label: 'QQ 邮箱', value: 'qq', imap_host: 'imap.qq.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.qq.com', smtp_port: 465, smtp_ssl: true },
   { label: '163 邮箱', value: '163', imap_host: 'imap.163.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.163.com', smtp_port: 465, smtp_ssl: true },
   { label: 'Gmail', value: 'gmail', imap_host: 'imap.gmail.com', imap_port: 993, imap_ssl: true, smtp_host: 'smtp.gmail.com', smtp_port: 465, smtp_ssl: true },
@@ -56,7 +57,7 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
   const [form, setForm] = useState({
     email_address: '',
     password: '',
-    imap_host: '',
+    imap_host: '10.12.128.18',
     imap_port: 993,
     imap_ssl: true,
     smtp_host: '',
@@ -112,7 +113,7 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ open, on
       .then((s) => {
         setStatus(s);
         if (s.email_address) setForm((f) => ({ ...f, email_address: s.email_address || '' }));
-        if (s.imap_host) setForm((f) => ({ ...f, imap_host: s.imap_host ?? '' }));
+        if (s.imap_host) setForm((f) => ({ ...f, imap_host: s.imap_host || '10.12.128.18' }));
       })
       .catch((e) => setError(e instanceof Error ? e.message : '邮箱状态加载失败'))
       .finally(() => setIsLoading(false));

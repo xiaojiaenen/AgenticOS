@@ -146,8 +146,8 @@ services:
 启动日志里会打印 `已加载外部预设：<slug>（<label>）`。
 插件加载失败只记 warning，不影响服务启动。
 
-> 完整示例见仓库里的 `internal/presets/enterprise_gateway.py`
-> （该目录已进 `.gitignore`，不会随开源发布）。
+> 内置的格力百通预设（`presets.py` 里的 `GREE_BAITONG`）就是一个完整参照；
+> 该机制同样适用于接入其他不改代码就想快速试的内网网关。
 
 > **多账号**：一个 `enterprise_cookie` 提供商下可以挂多个账号分摊配额，流量按
 > 「priority 升序、同级内最久未用优先」轮换；连续失败达 3 次的账号自动退出轮换，
