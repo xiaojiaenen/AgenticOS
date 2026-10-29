@@ -194,10 +194,11 @@ async def run_local_completion(
         plan_mode=payload.plan_mode,
     )
 
-    async def run() -> tuple[str, str]:
-        """返回 (正文, 推理摘要)。"""
+    async def run() -> tuple[str, str, str]:
+        """返回 (正文, 推理摘要, session_id)。"""
         text_parts: list[str] = []
         reasoning_parts: list[str] = []
+        resolved_session_id = request.session_id or ""
         # 真实 token 数 —— 客户端据此计费，硬编码 0 会让所有接入方的账单全错
         usage: dict[str, int] = {
             "prompt_tokens": 0,
@@ -214,21 +215,26 @@ async def run_local_completion(
                     text_parts.append(data.get("content") or "")
                 elif kind == "reasoning_delta":
                     reasoning_parts.append(data.get("content") or "")
-                elif kind == "done":
-                    raw = data.get("usage")
-                    if isinstance(raw, dict):
-                        usage = _normalize_usage(raw)
+                elif kind in ("session", "run_status", "done"):
+                    # 会话事件里带 session_id —— 客户端据此续接对话。
+                    sid = data.get("session_id")
+                    if isinstance(sid, str) and sid:
+                        resolved_session_id = sid
+                    if kind == "done":
+                        raw = data.get("usage")
+                        if isinstance(raw, dict):
+                            usage = _normalize_usage(raw)
                 elif kind == "error":
                     raise RuntimeError(data.get("message") or "agent error")
         except RuntimeError:
             raise
         except PermissionError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
-        return "".join(text_parts), "".join(reasoning_parts), usage
+        return "".join(text_parts), "".join(reasoning_parts), usage, resolved_session_id
 
     if not payload.stream:
         try:
-            text, reasoning, usage = await run()
+            text, reasoning, usage, session_id_out = await run()
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         message: dict[str, Any] = {"role": "assistant", "content": text}
@@ -243,9 +249,20 @@ async def run_local_completion(
                 {"index": 0, "message": message, "finish_reason": "stop"},
             ],
             "usage": usage,
+            # 会话 id：客户端把它存下来，下次带上就能续接上下文。
+            # 不返回的话客户端无从得知服务端给它分配了哪个会话，
+            # 只能每次新建（上下文丢失）。
+            "session_id": session_id_out,
         }
 
     async def event_stream() -> AsyncIterator[bytes]:
+        # 流开始前就确定 session_id：首帧要带上它，客户端才能续接。
+        # 否则首帧是空串，只读首帧的客户端永远拿不到会话 id。
+        if not request.session_id:
+            import uuid as _uuid
+
+            request.session_id = _uuid.uuid4().hex
+
         def _json_default(obj: Any) -> Any:
             """兜底序列化：wuwei 3.2+ 的事件里可能携带 ActionLog 等 dataclass 对象。"""
             import dataclasses
@@ -259,6 +276,8 @@ async def run_local_completion(
         def _sse(obj: dict[str, Any]) -> bytes:
             return f"data: {json.dumps(obj, ensure_ascii=False, default=_json_default)}\n\n".encode()
 
+        # 首个 chunk 带上 session_id：客户端需要在流开始时就知道会话 id
+        # 才能存下来续接。放在这里而不是最后，是因为很多客户端只读首帧。
         first = {
             "id": completion_id,
             "object": "chat.completion.chunk",
@@ -267,10 +286,12 @@ async def run_local_completion(
             "choices": [
                 {"index": 0, "delta": {"role": "assistant"}, "finish_reason": None},
             ],
+            "session_id": request.session_id,
         }
         yield _sse(first)
 
         text_parts: list[str] = []
+        resolved_sid: list[str] = [request.session_id or ""]
         # 收尾帧要带真实 token 数（OpenAI 规范：最后一块给 usage），
         # 客户端据此计费。agent 侧的 "done" 事件带着真实 usage，
         # 这里必须收上来 —— 硬编码 0 会让所有接入方的计费全错。
@@ -299,10 +320,14 @@ async def run_local_completion(
                             {"index": 0, "delta": {"content": chunk}, "finish_reason": None},
                         ],
                     })
-                elif kind == "done":
-                    usage = data.get("usage")
-                    if isinstance(usage, dict):
-                        final_usage = _normalize_usage(usage)
+                elif kind in ("session", "run_status", "done"):
+                    sid = data.get("session_id")
+                    if isinstance(sid, str) and sid:
+                        resolved_sid[0] = sid
+                    if kind == "done":
+                        usage = data.get("usage")
+                        if isinstance(usage, dict):
+                            final_usage = _normalize_usage(usage)
                 elif kind == "error":
                     message = data.get("message") or "agent error"
                     yield _sse({
@@ -331,6 +356,7 @@ async def run_local_completion(
             "model": payload.model,
             "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
             "usage": final_usage,
+            "session_id": resolved_sid[0],
         })
         yield b"data: [DONE]\n\n"
 
