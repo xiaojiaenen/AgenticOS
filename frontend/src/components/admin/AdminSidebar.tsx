@@ -18,6 +18,7 @@ import {
   Puzzle,
   Settings,
   Sparkles,
+  Network,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -95,7 +96,8 @@ const navGroups: NavGroup[] = [
       { id: 'users', icon: Users, label: '用户管理', description: '管理账号、角色和启用状态' },
       { id: 'permissions', icon: Building2, label: '权限管理', description: '角色、策略与审计日志' },
       { id: 'integrations', icon: Plug, label: '集成管理', description: '管理第三方集成与 API 接口' },
-      { id: 'api_keys', icon: KeyRound, label: 'API Key', description: '外部软件调用本地智能体的凭证' },
+      { id: 'api_keys', icon: KeyRound, label: 'API Key', description: '外部软件调用的凭证' },
+      { id: 'gateway', icon: Network, label: '对外接口', description: '协议端点、接入配置与可用模型' },
       { id: 'settings', icon: Settings, label: '系统设置', description: '管理 LDAP 认证等系统配置' },
     ],
   },

@@ -166,6 +166,11 @@ async def _run_direct_chat(body: dict, model_name: str):
     top_p = body.get("top_p")
     max_tokens = body.get("max_tokens") or body.get("max_completion_tokens")
     stop = body.get("stop")
+    # 客户端声明的工具与思考开关 —— 模型自身能力，必须透传。
+    # 我们不执行这些工具（那是客户端的事），但要让模型看得见。
+    tools = body.get("tools")
+    tool_choice = body.get("tool_choice")
+    thinking = body.get("thinking") or body.get("reasoning")
 
     from app.db.session import create_db_session
 
@@ -180,6 +185,9 @@ async def _run_direct_chat(body: dict, model_name: str):
                 max_tokens=int(max_tokens) if max_tokens else None,
                 stop=stop if isinstance(stop, list) else None,
                 stream=stream,
+                tools=tools,
+                tool_choice=tool_choice,
+                thinking=thinking,
             )
     except DirectLLMError as exc:
         return JSONResponse(
@@ -209,8 +217,19 @@ async def _run_direct_chat(body: dict, model_name: str):
                                 if direct.extract_reasoning(result)
                                 else {}
                             ),
+                            # 模型产出的工具调用：原样交给客户端执行。
+                            # 这是 function calling 协议的核心 ——
+                            # 我们只让模型「说」要调什么，执行在客户端。
+                            **(
+                                {"tool_calls": _calls}
+                                if (_calls := direct.extract_tool_calls(result))
+                                else {}
+                            ),
                         },
-                        "finish_reason": direct.extract_finish_reason(result),
+                        "finish_reason": (
+                            "tool_calls" if direct.extract_tool_calls(result)
+                            else direct.extract_finish_reason(result)
+                        ),
                     }
                 ],
                 "usage": direct.extract_usage(result),

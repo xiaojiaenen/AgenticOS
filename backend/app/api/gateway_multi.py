@@ -376,6 +376,74 @@ def _anthropic_to_openai_messages(body: dict[str, Any]) -> list[dict[str, Any]]:
     return messages
 
 
+def _anthropic_tools_to_openai(tools: Any) -> list[dict[str, Any]]:
+    """Anthropic tools → OpenAI tools。
+
+    Anthropic 形状::
+
+        {"name": "...", "description": "...",
+         "input_schema": {"type":"object","properties":{...}}}
+
+    OpenAI 形状把这三项包进 ``function``，参数键叫 ``parameters``。
+    不转换会让模型看不到工具定义。
+    """
+    if not isinstance(tools, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in tools:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()
+        if not name:
+            continue
+        schema = item.get("input_schema")
+        if not isinstance(schema, dict):
+            schema = {"type": "object", "properties": {}, "required": []}
+        out.append({
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": str(item.get("description") or ""),
+                "parameters": schema,
+            },
+        })
+    return out
+
+
+def _openai_tool_calls_to_anthropic(calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """OpenAI tool_calls → Anthropic tool_use block。
+
+    Anthropic 的 tool_use 结构是 ``{"type":"tool_use","id":...,"name":...,
+    "input":{...}}``，其中 ``input`` 是**对象**（不是 JSON 字符串）。
+    OpenAI 的 ``arguments`` 是字符串，要解析回对象。
+    """
+    import json as _json
+
+    out: list[dict[str, Any]] = []
+    for call in calls:
+        fn = call.get("function") or {}
+        name = str(fn.get("name") or "").strip()
+        if not name:
+            continue
+        raw_args = fn.get("arguments")
+        if isinstance(raw_args, str):
+            try:
+                parsed = _json.loads(raw_args)
+            except Exception:  # noqa: BLE001
+                parsed = {}
+        elif isinstance(raw_args, dict):
+            parsed = raw_args
+        else:
+            parsed = {}
+        out.append({
+            "type": "tool_use",
+            "id": str(call.get("id") or ""),
+            "name": name,
+            "input": parsed if isinstance(parsed, dict) else {},
+        })
+    return out
+
+
 def _openai_to_anthropic_response(
     *, text: str, reasoning: str, usage: dict[str, int], model: str, finish_reason: str
 ) -> dict[str, Any]:
@@ -440,6 +508,11 @@ async def anthropic_messages(request: Request):
     temperature = body.get("temperature")
     top_p = body.get("top_p")
     stop = body.get("stop_sequences")
+    # Anthropic 的 tools 用 input_schema；thinking 是独立对象。
+    # 两者都是模型自身能力，必须透传。
+    tools = _anthropic_tools_to_openai(body.get("tools"))
+    tool_choice = body.get("tool_choice")
+    thinking = body.get("thinking")
 
     from app.db.session import create_db_session
     from app.services.llm_providers import direct
@@ -456,6 +529,9 @@ async def anthropic_messages(request: Request):
                 max_tokens=int(max_tokens) if max_tokens else None,
                 stop=[str(s) for s in stop] if isinstance(stop, list) else None,
                 stream=stream,
+                tools=tools or None,
+                tool_choice=tool_choice,
+                thinking=thinking,
             )
     except DirectLLMError as exc:
         return _error(str(exc), 502, "anthropic")
@@ -464,13 +540,16 @@ async def anthropic_messages(request: Request):
         text = direct.extract_text(result)
         reasoning = direct.extract_reasoning(result)
         usage = direct.extract_usage(result)
-        finish = direct.extract_finish_reason(result)
-        return JSONResponse(
-            status_code=200,
-            content=_openai_to_anthropic_response(
-                text=text, reasoning=reasoning, usage=usage, model=model_name, finish_reason=finish
-            ),
+        calls = direct.extract_tool_calls(result)
+        # 有工具调用时 stop_reason 是 tool_use（Anthropic 规范）
+        finish = "tool_calls" if calls else direct.extract_finish_reason(result)
+        payload = _openai_to_anthropic_response(
+            text=text, reasoning=reasoning, usage=usage, model=model_name, finish_reason=finish
         )
+        if calls:
+            # tool_use block 插在 text 之后 —— Anthropic 客户端按 block 顺序处理
+            payload["content"].extend(_openai_tool_calls_to_anthropic(calls))
+        return JSONResponse(status_code=200, content=payload)
 
     async def event_stream() -> AsyncIterator[bytes]:
         """Anthropic SSE：message_start → content_block_delta* → message_stop。"""
@@ -641,6 +720,11 @@ async def openai_responses(request: Request):
     max_output = body.get("max_output_tokens") or body.get("max_tokens")
     temperature = body.get("temperature")
     top_p = body.get("top_p")
+    # Responses API 的 tools 形状与 Chat 相同（type=function + function{...}），
+    # 所以直接透传。reasoning 是 Responses 的思考开关。
+    tools = body.get("tools")
+    tool_choice = body.get("tool_choice")
+    thinking = body.get("reasoning")
 
     from app.db.session import create_db_session
     from app.services.llm_providers import direct
@@ -656,6 +740,9 @@ async def openai_responses(request: Request):
                 top_p=top_p,
                 max_tokens=int(max_output) if max_output else None,
                 stream=stream,
+                tools=tools,
+                tool_choice=tool_choice,
+                thinking=thinking,
             )
     except DirectLLMError as exc:
         return _error(str(exc), 502)

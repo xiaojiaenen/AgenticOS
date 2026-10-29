@@ -41,6 +41,88 @@ class DirectLLMError(RuntimeError):
     """直通调用失败（上游错误、配置缺失等）。"""
 
 
+def _normalize_assistant_tool_calls(raw_calls: list[Any]) -> list[Any]:
+    """把 OpenAI 形状的 tool_calls 转成 wuwei ToolCall 对象。
+
+    wuwei 的结构（与 OpenAI 同名但类型不同）::
+
+        ToolCall{id: str, type: "function",
+                 function: FunctionCall{name: str, arguments: dict}}
+
+    注意 ``arguments`` 是 **dict**，不是 JSON 字符串 —— 与 OpenAI 相反。
+    pydantic 会拒绝字符串形态。
+    """
+    import json as _json
+
+    try:
+        from wuwei.core.message import FunctionCall, ToolCall
+    except Exception:  # noqa: BLE001
+        return list(raw_calls)
+
+    def _to_dict(raw: Any) -> dict[str, Any]:
+        if isinstance(raw, dict):
+            return raw
+        if isinstance(raw, str):
+            if not raw.strip():
+                return {}
+            try:
+                parsed = _json.loads(raw)
+            except Exception:  # noqa: BLE001
+                return {}
+            return parsed if isinstance(parsed, dict) else {"value": parsed}
+        if raw is None:
+            return {}
+        return {"value": raw}
+
+    out: list[Any] = []
+    for index, call in enumerate(raw_calls):
+        if not isinstance(call, dict):
+            out.append(call)
+            continue
+
+        fn = call.get("function") if isinstance(call.get("function"), dict) else {}
+        name = str(fn.get("name") or call.get("name") or "").strip()
+        if not name:
+            continue
+
+        raw_args = fn.get("arguments") if "arguments" in fn else call.get("arguments")
+        call_id = str(call.get("id") or call.get("tool_call_id") or f"call_{index}")
+
+        try:
+            out.append(
+                ToolCall(
+                    id=call_id,
+                    type="function",
+                    function=FunctionCall(name=name, arguments=_to_dict(raw_args)),
+                )
+            )
+        except Exception:  # noqa: BLE001
+            # 构造失败时保留原 dict —— 让上游适配器自己处理
+            out.append(call)
+    return out
+
+
+def _infer_tool_name(messages: list[dict[str, Any]], call_id: str) -> str:
+    """从 assistant 消息的 tool_calls 里反查工具名。
+
+    OpenAI 的 tool 消息只带 tool_call_id，不带工具名；而 wuwei 的
+    ToolMessage 两个都必填。这里按 call_id 回溯上一条 assistant 消息。
+    """
+    for item in reversed(messages):
+        if not isinstance(item, dict):
+            continue
+        for call in item.get("tool_calls") or []:
+            if not isinstance(call, dict):
+                continue
+            if str(call.get("id") or "") != call_id:
+                continue
+            fn = call.get("function") if isinstance(call.get("function"), dict) else {}
+            name = str(fn.get("name") or call.get("name") or "").strip()
+            if name:
+                return name
+    return ""
+
+
 def _to_wuwei_messages(messages: list[dict[str, Any]]) -> list[Any]:
     """把 OpenAI 形状的 messages 转成 wuwei 的 BaseMessage。
 
@@ -64,6 +146,10 @@ def _to_wuwei_messages(messages: list[dict[str, Any]]) -> list[Any]:
         "user": HumanMessage,
         "assistant": AIMessage,
     }
+
+    # tool 消息：客户端执行完工具后的回灌。wuwei 有 ToolMessage，
+    # 需要 tool_call_id 关联到具体的调用。
+    from wuwei.core.message import ToolMessage as _ToolMessage
 
     out: list[Any] = []
     for item in messages:
@@ -94,7 +180,39 @@ def _to_wuwei_messages(messages: list[dict[str, Any]]) -> list[Any]:
         else:
             payload = str(content or "")
 
+        if role == "tool":
+            # tool 结果回灌：ToolMessage 的 tool_call_id 与 name 都是**必填**。
+            #
+            # 缺 name 会 ValidationError（实测：pydantic 直接报 missing）。
+            # OpenAI 的 tool 消息只有 tool_call_id，工具名在上一条 assistant
+            # 消息的 tool_calls 里 —— 这里从消息自身或调用链推断。
+            call_id = str(item.get("tool_call_id") or item.get("id") or "")
+            tool_name = str(item.get("name") or "").strip()
+            if not tool_name:
+                tool_name = _infer_tool_name(messages, call_id) or "tool"
+            text = payload if isinstance(payload, str) else str(payload or "")
+            out.append(
+                _ToolMessage(content=text, tool_call_id=call_id, name=tool_name)
+            )
+            continue
+
         cls = role_map.get(role, HumanMessage)
+
+        # assistant 消息上的 tool_calls 必须带进 AIMessage。
+        #
+        # 少了它，模型在第二轮看不到「我上一轮调过 get_weather」，
+        # 会重复发起同一个调用，而 tool 结果就成了无主数据 ——
+        # 表现为「回灌后回答为空」。这是 function calling 多轮的关键。
+        raw_calls = item.get("tool_calls")
+        if role == "assistant" and isinstance(raw_calls, list) and raw_calls:
+            normalized = _normalize_assistant_tool_calls(raw_calls)
+            try:
+                out.append(cls(content=payload, tool_calls=normalized))
+            except TypeError:
+                # 该版本 AIMessage 不接受 tool_calls，退化成纯文本
+                out.append(cls(content=payload))
+            continue
+
         try:
             out.append(cls(content=payload))
         except TypeError:
@@ -148,6 +266,9 @@ async def complete(
     stop: list[str] | None = None,
     stream: bool = False,
     extra_body: dict[str, Any] | None = None,
+    tools: Any = None,
+    tool_choice: Any = None,
+    thinking: Any = None,
 ):
     """一次直通 completion。返回 (gateway, model_name, 响应)。
 
@@ -171,6 +292,22 @@ async def complete(
     if not wuwei_messages:
         raise DirectLLMError("messages 转换后为空")
 
+    # 客户端透传的 tools：**只声明不执行**。
+    #
+    # 「直通」指的是不经过 AgenticOS 的智能体编排与内置工具，但模型自身
+    # 的 function calling 能力必须保留 —— 那是模型能力，不是我们的工具。
+    # 工具的真实执行由客户端完成（这正是 OpenAI function calling 协议
+    # 的设计：模型给参数，客户端执行后回灌）。
+    from app.services.llm_providers.direct_tools import (
+        ToolSpecError,
+        openai_tools_to_wuwei,
+    )
+
+    try:
+        wuwei_tools = openai_tools_to_wuwei(tools)
+    except ToolSpecError as exc:
+        raise DirectLLMError(str(exc)) from exc
+
     # 采样参数通过 kwargs 透传给上游（网关内部会筛掉不认识的键）
     gen_kwargs: dict[str, Any] = {}
     if temperature is not None:
@@ -183,6 +320,13 @@ async def complete(
         gen_kwargs["stop"] = stop
     if extra_body:
         gen_kwargs.update(extra_body)
+    # tool_choice 与 thinking 都是模型能力参数，直接透传。
+    # thinking：Anthropic 的 {"type":"enabled","budget_tokens":N}，
+    # OpenAI 兼容端点常见 {"type":"enabled"} 或直接 true。
+    if tool_choice is not None:
+        gen_kwargs["tool_choice"] = tool_choice
+    if thinking is not None:
+        gen_kwargs["thinking"] = thinking
 
     try:
         # 入口是 generate（不是 create）：
@@ -193,7 +337,9 @@ async def complete(
         # ``'async for' requires an object with __aiter__ method``。
         result = await gateway.generate(
             wuwei_messages,
-            tools=None,
+            # 传客户端声明的 tools（可能为空）。它们由客户端执行，
+            # 我们只负责让模型看见并产出 tool_calls。
+            tools=wuwei_tools or None,
             stream=stream,
             **gen_kwargs,
         )
@@ -327,6 +473,18 @@ def extract_finish_reason(response: Any) -> str:
         if isinstance(value, str) and value:
             return value
     return "stop"
+
+
+def extract_tool_calls(response: Any) -> list[dict[str, Any]]:
+    """取模型产出的 tool_calls，转成 OpenAI 形状。
+
+    wuwei 的 LLMResponse 有 ``tool_calls`` 字段；这里统一转成客户端认识的
+    结构（arguments 必须是 JSON 字符串）。
+    """
+    from app.services.llm_providers.direct_tools import wuwei_tool_calls_to_openai
+
+    raw = _attr(response, "tool_calls")
+    return wuwei_tool_calls_to_openai(raw)
 
 
 def chunk_text(chunk: Any) -> str:

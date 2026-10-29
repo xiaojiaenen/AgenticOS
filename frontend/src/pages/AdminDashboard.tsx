@@ -7,6 +7,7 @@ import { AnnouncementManagement } from '../components/admin/AnnouncementManageme
 import { AgentManagement } from '../components/admin/AgentManagement';
 import { LlmProviderManagement } from '../components/admin/LlmProviderManagement';
 import { ApiKeyManagement } from '../components/admin/ApiKeyManagement';
+import { GatewayEndpointsPanel } from '../components/admin/GatewayEndpointsPanel';
 import { ChatHistory } from '../components/admin/ChatHistory';
 import { DashboardCharts } from '../components/admin/DashboardCharts';
 import { UsageRoutePanel } from '../components/admin/UsageRoutePanel';
@@ -26,7 +27,7 @@ import { cn } from '../lib/utils';
 import { getDashboardStats, getUsageRoutes } from '../services/dashboardService';
 
 export const AdminDashboard = () => {
-  const VALID_TABS = ['dashboard', 'history', 'users', 'permissions', 'agents', 'llm_providers', 'integrations', 'api_keys', 'skills', 'knowledge', 'website_deploys', 'announcements', 'settings', 'memory'];
+  const VALID_TABS = ['dashboard', 'history', 'users', 'permissions', 'agents', 'llm_providers', 'integrations', 'api_keys', 'gateway', 'skills', 'knowledge', 'website_deploys', 'announcements', 'settings', 'memory'];
   // tab 与 URL hash 双向同步：刷新 / 分享链接不丢失当前管理页
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.replace('#', '');
@@ -253,6 +254,8 @@ export const AdminDashboard = () => {
         return <IntegrationManagement />;
       case 'api_keys':
         return <ApiKeyManagement />;
+      case 'gateway':
+        return <GatewayEndpointsPanel />;
       case 'skills':
         return <SkillManagement />;
       case 'knowledge':
