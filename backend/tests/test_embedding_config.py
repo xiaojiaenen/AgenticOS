@@ -7,6 +7,8 @@
 """
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from app.services.llm_providers import resolve_models
@@ -127,3 +129,31 @@ def test_endpoint_describe_hides_key() -> None:
     assert "sk-super-secret" not in str(desc)
     assert desc["has_api_key"] is True
     assert desc["source"] == "provider:foo"
+
+
+def test_local_dim_used_when_local_backend() -> None:
+    """本地模式 _dim 必须取 local_dimensions（曾停在 1536 导致 512 模型全被拦）。"""
+    from app.core.config import get_settings
+
+    os.environ["KNOWLEDGE_EMBEDDING_LOCAL_MODEL"] = "BAAI/bge-small-zh-v1.5"
+    os.environ["KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS"] = "512"
+    get_settings.cache_clear()
+    try:
+        from app.services.knowledge.embedder import (
+            get_knowledge_embedder,
+            reset_knowledge_embedder,
+        )
+
+        reset_knowledge_embedder()
+        e = get_knowledge_embedder()
+        assert e.backend == "local"
+        assert e.dimensions == 512, (
+            f"本地模式维度应取 local_dimensions(512)，实际 {e.dimensions}"
+        )
+    finally:
+        os.environ.pop("KNOWLEDGE_EMBEDDING_LOCAL_MODEL", None)
+        os.environ.pop("KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS", None)
+        get_settings.cache_clear()
+        from app.services.knowledge.embedder import reset_knowledge_embedder
+
+        reset_knowledge_embedder()

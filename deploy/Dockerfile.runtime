@@ -14,7 +14,9 @@ RUN python -c 'import tomllib; deps = tomllib.load(open("/tmp/deps/pyproject.tom
     && rm -rf /tmp/deps
 
 # apt 源切交大镜像（deb.debian.org 在目标网络过慢）
-RUN sed -i 's|deb.debian.org|mirror.sjtu.edu.cn|g' /etc/apt/sources.list.d/*.sources
+# sjtu 的 debian-security 目录曾出现长时间不同步（Packages 大小不匹配），
+# 换阿里云：主仓库与 security 都稳定。
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/*.sources
 
 # node + npm：网站智能体的 build_website 工具要跑 npm install / npm run build，
 # 缺了它这条链路在容器里直接退出码 127（npm: not found）。
@@ -30,6 +32,11 @@ ENV npm_config_cache=/app/data/websites/.npm-cache \
     npm_config_fund=false \
     npm_config_audit=false \
     npm_config_update_notifier=false
+
+# 本地（离线）嵌入模型：知识库语义检索 / 记忆向量召回用。
+# torch CPU 轮子较大（约 800MB），独立成层 —— 上游依赖不变时该层走缓存。
+# 运行期模型文件从 HF 镜像下载，缓存目录指向 /app/data（可写卷）。
+RUN pip install --no-cache-dir --progress-bar off -i ${PYPI_MIRROR} sentence-transformers
 
 # 无头浏览器（企业网关自动登录用；--with-deps 会 apt 安装系统库）
 RUN playwright install --with-deps chromium

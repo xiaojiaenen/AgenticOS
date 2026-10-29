@@ -43,6 +43,12 @@ x-backend-env: &backend-env
   NOTIFY_TASK_MIN_SECONDS: ${NOTIFY_TASK_MIN_SECONDS:-120}
   # OpenBLAS
   OPENBLAS_NUM_THREADS: 1
+  # 本地（离线）嵌入模型：留空 = 走远程 /embeddings
+  KNOWLEDGE_EMBEDDING_LOCAL_MODEL: ${KNOWLEDGE_EMBEDDING_LOCAL_MODEL:-}
+  KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS: ${KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS:-0}
+  # 模型下载走国内镜像；缓存必须落在可写卷（容器根文件系统只读）
+  HF_ENDPOINT: ${HF_ENDPOINT:-https://hf-mirror.com}
+  HF_HOME: /app/data/hf-cache
   # Skill
   SKILL_STORAGE_DIR: ${SKILL_STORAGE_DIR:-./data/skills}
 

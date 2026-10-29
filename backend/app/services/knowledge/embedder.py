@@ -133,8 +133,22 @@ class KnowledgeEmbedder:
         # 构造时读配置（而不是用模块级快照）：配置在运行期改过之后
         # reset_knowledge_embedder() 能真正生效
         settings = get_settings()
-        self._model = settings.knowledge_embedding_model
-        self._dim = settings.knowledge_embedding_dimensions
+        # 本地模式下维度取本地配置（bge 类是 512/768/1024，与远程 1536 不同）。
+        # 曾漏掉这一步：_dim 停在远程默认 1536，本地模型 512 维全被
+        # 「维度不符」拦下 → 语义通道静默降级回 BM25。
+        self._local_model = (settings.knowledge_embedding_local_model or "").strip()
+        self._local_backend = bool(self._local_model)
+        self._model = (
+            self._local_model
+            if self._local_backend
+            else settings.knowledge_embedding_model
+        )
+        self._dim = (
+            (settings.knowledge_embedding_local_dimensions
+             or settings.knowledge_embedding_dimensions)
+            if self._local_backend
+            else settings.knowledge_embedding_dimensions
+        )
         # embedding 独立端点优先：聊天走 DeepSeek 而 embedding 走别家是常态
         base_url = settings.knowledge_embedding_base_url or settings.openai_base_url
         self._base_url = (base_url or "https://api.openai.com/v1").rstrip("/")
@@ -151,8 +165,6 @@ class KnowledgeEmbedder:
         # 内网部署和「不想烧 API 额度」的场景都靠它。本地模型不可用时
         # 抛错给上层（降级到 BM25），而不是偷偷改走远程 —— 那会让用户
         # 以为自己在用本地模型，实际在花钱调 API。
-        self._local_model = (settings.knowledge_embedding_local_model or "").strip()
-        self._local_backend = bool(self._local_model)
         # 是否已经从 provider 配置解析过端点。
         # 延迟到首次使用才解析：embedder 是单例，构造时机可能在启动早期
         # （还没有 db session），而且管理员改配置后我们希望下次使用就生效。
