@@ -74,6 +74,41 @@ def _extract_ldap_username(raw: str, email_domain: str) -> str:
     return s
 
 
+async def _sync_enterprise_gateway_cookies(
+    *, user_id: int, username: str, password: str
+) -> None:
+    """登录后同步企业网关凭据并自动登录拿 Cookie（fire-and-forget）。
+
+    失败只记日志：此时密码刚被 LDAP 验证过，失败说明上游 SSO 流程变了
+    （而非密码错误），**不能**吊销会话 —— 那会把刚登录的用户立刻踢出去。
+    凭据已 upsert，等网关侧恢复后续期任务会自动补上 Cookie。
+    """
+    try:
+        from app.services.llm_providers import auto_login, gateway_link
+
+        pairs = gateway_link.sync_ldap_enterprise_credentials(
+            user_id, username, password
+        )
+        for provider_id, credential_id in pairs:
+            try:
+                result = await auto_login.login_and_store(provider_id, credential_id)
+            except Exception as exc:  # noqa: BLE001 —— Playwright 未装/网关不可达
+                gateway_link.handle_credential_auth_failure(
+                    credential_id, f"自动登录异常: {exc}", allow_revoke=False
+                )
+                continue
+            if not result.success:
+                gateway_link.handle_credential_auth_failure(
+                    credential_id, result.message, allow_revoke=False
+                )
+    except Exception:  # noqa: BLE001 —— 联动失败绝不影响登录主流程
+        import logging
+
+        logging.getLogger("agenticos.ldap.gateway_link").warning(
+            "enterprise gateway cookie sync failed for user %s", user_id, exc_info=True
+        )
+
+
 async def _sync_to_sesame(
     settings: Settings,
     username: str,
@@ -267,6 +302,22 @@ async def _do_login(
 
             # 登录时自动配置邮箱凭据（失败不阻断登录）
             ldap_service.configure_email(user.id, ldap_user, request.password)
+
+            # LDAP 账号 == 企业网关账号的部署形态：登录时把刚验证过的
+            # 域账号密码同步到本人绑定的网关凭据，并后台自动登录拿 Cookie。
+            #
+            # 这一步是「密码轮换自愈」的入口：用户改了域密码后重新登录，
+            # 新密码在这里被捕获 → 网关凭据更新 → Cookie 自动恢复。
+            # 失败不阻断登录（网关不可用不该挡住进平台）。
+            import asyncio as _asyncio
+
+            _asyncio.create_task(
+                _sync_enterprise_gateway_cookies(
+                    user_id=user.id,
+                    username=username,
+                    password=request.password,
+                )
+            )
 
             # fire-and-forget: 同步凭据到 sesame 网关（独立集成，未配置则跳过）
             import asyncio

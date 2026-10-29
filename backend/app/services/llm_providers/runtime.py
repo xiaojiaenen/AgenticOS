@@ -255,8 +255,12 @@ def build_gateway(
     if spec.provider_type == PROVIDER_TYPE_ENTERPRISE_COOKIE:
         lease = credentials.acquire(spec.provider_id or 0)
         if lease is None:
+            # 措辞要能直接指导动作：最常见的两种原因是「绑定凭据失效
+            # （域密码改了）」和「Cookie 正在后台续期」。直白说，别只说池空。
             raise ProviderUnavailable(
-                f"提供商「{spec.name}」的登录态不可用（账号池里没有可用账号）"
+                f"提供商「{spec.name}」的企业网关登录态不可用。"
+                "若是刚改过域密码，请退出平台重新登录一次（登录时会自动同步"
+                "新密码并续期 Cookie）；若显示「正在登录企业网关」请稍候重试。"
             )
         gateway = _new_gateway({**config, "api_key": COOKIE_PLACEHOLDER_API_KEY})
         # 适配器整体替换，而不是改它的内部属性

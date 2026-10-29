@@ -322,38 +322,101 @@ def _usable():
     )
 
 
+def _current_bound_user() -> int | None:
+    """读当前请求的用户（contextvar），没有则 None。
+
+    stream_chat / 网关 agent 路径在建 agent 前就 set_current_user_id，
+    所以这里能拿到「这次对话是谁发起的」。
+    """
+    try:
+        from app.core.data_path import get_current_user_id
+
+        return get_current_user_id()
+    except Exception:  # noqa: BLE001 —— LookupError（未设置）等一律视为匿名
+        return None
+
+
 def acquire(provider_id: int) -> AccountLease | None:
     """借出一个可用账号，并推进它的 ``last_used_at``。
 
     独立开 session：调用点在「构建 LLM」的热路径上，手上没有 db session。
     并发下两个请求可能选到同一个号 —— 这里不做锁，因为选号的目的是摊配额
     而不是严格互斥，多写一次 ``last_used_at`` 的代价远小于加锁。
+
+    选号偏好（LDAP 账号 == 企业网关账号的部署形态）：
+
+    1. 当前用户**自己绑定**的凭据（user_id 匹配）—— 审计上上游看到的
+       身份就是本人；
+    2. 共享池（user_id 为空）—— 传统系统级账号。
+
+    关键的「不做」：本人绑定行存在但不可用（failed/过期）时**不会**回落
+    到别人的账号 —— 那等于用同事的身份发请求，审计不可接受。此时返回
+    None，由上层给出「请重新登录以同步企业账号密码」的指引。
     """
     if not provider_id:
         return None
     now = app_now()
+    bound_user = _current_bound_user()
     try:
         with create_db_session() as db:
-            row = db.scalar(
-                select(LlmProviderCredentialModel)
-                .where(
-                    LlmProviderCredentialModel.provider_id == provider_id,
-                    *_usable(),
-                    (LlmProviderCredentialModel.expire_at.is_(None))
-                    | (LlmProviderCredentialModel.expire_at > now),
+            base_filters = [
+                LlmProviderCredentialModel.provider_id == provider_id,
+                *_usable(),
+                (LlmProviderCredentialModel.expire_at.is_(None))
+                | (LlmProviderCredentialModel.expire_at > now),
+            ]
+            ordering = [
+                # 跨方言的 NULLS FIRST：MySQL 不支持该语法，用 CASE 表达。
+                # 排序意图是「最久未用优先」，priority 只在「都没用过」时
+                # 决定首次挑谁 —— 企业网关多开账号的目的是摊配额，如果让
+                # priority 一路压过 last_used_at，备用号就永远不会被用到。
+                case((LlmProviderCredentialModel.last_used_at.is_(None), 0), else_=1),
+                LlmProviderCredentialModel.last_used_at,
+                LlmProviderCredentialModel.priority,
+                LlmProviderCredentialModel.id,
+            ]
+
+            row = None
+            has_bound_row = False
+            if bound_user:
+                # 1) 本人绑定行优先（不管可不可用 —— 先看有没有）
+                bound_any = db.scalar(
+                    select(LlmProviderCredentialModel.id).where(
+                        LlmProviderCredentialModel.provider_id == provider_id,
+                        LlmProviderCredentialModel.user_id == bound_user,
+                    )
                 )
-                .order_by(
-                    # 跨方言的 NULLS FIRST：MySQL 不支持该语法，用 CASE 表达。
-                    # 排序意图是「最久未用优先」，priority 只在「都没用过」时
-                    # 决定首次挑谁 —— 企业网关多开账号的目的是摊配额，如果让
-                    # priority 一路压过 last_used_at，备用号就永远不会被用到。
-                    case((LlmProviderCredentialModel.last_used_at.is_(None), 0), else_=1),
-                    LlmProviderCredentialModel.last_used_at,
-                    LlmProviderCredentialModel.priority,
-                    LlmProviderCredentialModel.id,
+                has_bound_row = bound_any is not None
+                if has_bound_row:
+                    row = db.scalar(
+                        select(LlmProviderCredentialModel)
+                        .where(
+                            LlmProviderCredentialModel.user_id == bound_user,
+                            *base_filters,
+                        )
+                        .order_by(*ordering)
+                        .limit(1)
+                    )
+                    if row is None:
+                        # 本人绑定行存在但失效（密码改了/被限流）——
+                        # **绝不**借同事的账号：上游审计身份会变成别人。
+                        # 返回 None，上层给出「重新登录以同步企业账号密码」。
+                        logging.getLogger("agenticos.llm.credentials").warning(
+                            "用户 %s 的企业网关凭据不可用且不回落共享池（审计隔离）",
+                            bound_user,
+                        )
+                        return None
+            if row is None:
+                # 2) 共享池：仅匿名上下文，或该用户还没有绑定行（功能灰度期）
+                row = db.scalar(
+                    select(LlmProviderCredentialModel)
+                    .where(
+                        LlmProviderCredentialModel.user_id.is_(None),
+                        *base_filters,
+                    )
+                    .order_by(*ordering)
+                    .limit(1)
                 )
-                .limit(1)
-            )
             if row is None:
                 return None
             cookie = decrypt_safe(row.cookie_encrypted or "", default="")

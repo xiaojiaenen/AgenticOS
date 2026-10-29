@@ -273,9 +273,22 @@ async def refresh_llm_provider_cookies_task(ctx: dict) -> dict:
                 refreshed.append(label)
             else:
                 failed.append({"provider": label, "error": result.message[:200]})
+                # 绑定到用户的凭据续期失败：若是认证类失败（域密码已改），
+                # 吊销其平台会话强制重新登录 —— 新密码在 LDAP 登录时被捕获，
+                # 凭据自动更新，Cookie 随之恢复。这正是「密码轮换自愈」闭环。
+                from app.services.llm_providers import gateway_link
+
+                gateway_link.handle_credential_auth_failure(
+                    credential_id, result.message, allow_revoke=True
+                )
         except Exception as exc:  # noqa: BLE001 —— 单个账号失败不影响其余
             logger.warning("[Worker] LLM provider cookie refresh failed %s: %s", label, exc)
             failed.append({"provider": label, "error": str(exc)[:200]})
+            from app.services.llm_providers import gateway_link
+
+            gateway_link.handle_credential_auth_failure(
+                credential_id, f"续期异常: {exc}", allow_revoke=True
+            )
 
     logger.info(
         "[Worker] LLM provider cookie refresh: refreshed=%d skipped=%d failed=%d",

@@ -922,8 +922,9 @@ class LlmProviderCredentialModel(Base):
     改成账号池 —— 每个 provider 下挂多条凭据，构建网关时按
     ``priority`` + ``last_used_at`` 选号（见 ``credentials.acquire``）。
 
-    **仍然不按终端用户存**：账号池是系统级资源，上游看到的身份只由池里选中
-    的那条决定，与会话发起人无关。
+    **两种共存形态**：``user_id`` 为空的是系统级共享账号（与会话发起人
+    无关）；非空的是「LDAP 账号 == 企业网关账号」部署下绑定到具体用户的
+    凭据 —— 取号时优先用本人绑定行，保证上游看到的身份就是本人。
 
     刻意**不加** ``(provider_id, username)`` 唯一约束：账号未填用户名时是空串，
     唯一约束会让「先建凭据、后补用户名」的正常流程互相冲突。去重由服务层做。
@@ -934,6 +935,16 @@ class LlmProviderCredentialModel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     provider_id: Mapped[int] = mapped_column(ForeignKey("llm_providers.id"), index=True)
+    # 绑定的平台用户（LDAP 账号 == 企业网关账号的部署形态）。
+    #
+    # 为空 = 传统共享池账号，acquire 行为不变。
+    # 非空 = 该凭据归这个用户所有：LDAP 登录时用其域账号密码自动登录
+    # 百通拿 Cookie；取号优先用本人凭据（审计上上游看到的是本人身份）；
+    # 自动重登失败（域密码已改）→ 吊销其平台会话强制重新登录。
+    #
+    # 不加 FK 约束：compat 层的 ALTER TABLE 加列在 SQLite 上带不了外键，
+    # 引用完整性由服务层保证（写入前必查 users）。
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     # 展示名，例如「运营号-01」。留空时界面回退显示 username
     label: Mapped[str] = mapped_column(String(64), default="")
     username: Mapped[str] = mapped_column(String(255), default="")
