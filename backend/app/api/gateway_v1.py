@@ -127,6 +127,21 @@ async def chat_completions(request: Request):
     # 避免「智能体恰好叫 gpt-4o」的歧义。
     kind, name = classify_model(model, user)
 
+    # 网关双通道都在入口做配额检查（直通也消耗上游 token）。
+    from app.services.quota_service import DailyQuotaExceeded, check_daily_quota
+
+    try:
+        check_daily_quota(user.id, role=user.role)
+    except DailyQuotaExceeded as exc:
+        # 429 + rate_limit_error：客户端据此退避，而不是当故障重试
+        return JSONResponse(
+            status_code=429,
+            content={"error": {
+                "message": str(exc), "type": "rate_limit_error",
+                "code": "daily_quota_exceeded",
+            }},
+        )
+
     if kind == "llm":
         return await _run_direct_chat(body, name)
 

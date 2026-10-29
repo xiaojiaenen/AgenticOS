@@ -596,6 +596,12 @@ class StreamOrchestrator:
         if user is not None:
             set_current_user_id(user.id)
             set_ext_user_id(user.id)
+            # 每日配额检查：必须在任何 LLM 调用之前 —— 超限请求零上游成本。
+            # PermissionError 由端点层统一转 403。
+            if user is not None:
+                from app.services.quota_service import check_daily_quota
+
+                check_daily_quota(user.id, role=user.role)
 
         agent = self._get_agent(runtime_profile)
 

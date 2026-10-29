@@ -517,6 +517,12 @@ async def anthropic_messages(request: Request):
     from app.db.session import create_db_session
     from app.services.llm_providers import direct
     from app.services.llm_providers.direct import DirectLLMError
+    from app.services.quota_service import DailyQuotaExceeded, check_daily_quota
+
+    try:
+        check_daily_quota(user.id, role=user.role)
+    except DailyQuotaExceeded as exc:
+        return _error(str(exc), 429, "anthropic")
 
     try:
         with create_db_session() as db:
@@ -729,6 +735,12 @@ async def openai_responses(request: Request):
     from app.db.session import create_db_session
     from app.services.llm_providers import direct
     from app.services.llm_providers.direct import DirectLLMError
+    from app.services.quota_service import DailyQuotaExceeded, check_daily_quota
+
+    try:
+        check_daily_quota(user.id, role=user.role)
+    except DailyQuotaExceeded as exc:
+        return _error(str(exc), 429)
 
     try:
         with create_db_session() as db:

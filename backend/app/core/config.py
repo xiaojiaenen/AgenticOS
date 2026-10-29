@@ -118,6 +118,12 @@ class Settings(BaseSettings):
     context_tokens_per_turn: int = Field(
         default=200, validation_alias="CONTEXT_TOKENS_PER_TURN"
     )
+    # 按用户每日 Token 配额（input+output 合计）。0 = 不限制。
+    # 管理员不受限；超限在请求入口拒绝（零上游成本），错误信息带已用/上限。
+    # 上游配额被单用户烧光的事故（Trae CN 429）是这条配置的直接动因。
+    user_daily_token_quota: int = Field(
+        default=0, validation_alias="USER_DAILY_TOKEN_QUOTA"
+    )
     hitl_enabled: bool = True
     hitl_require_approval_tools: str = "file_to_md,run_skill_python_script"
     hitl_timeout_seconds: int = 300
