@@ -51,13 +51,12 @@ export const AdminDashboard = () => {
     }
   }, []);
 
-  // 后台主题：跟随用户偏好，首次进入默认暗色。
+  // 后台主题：与前台 useTheme 完全一致的解析顺序。
   //
-  // 原实现无条件 `classList.add('dark')` —— 用户即使在侧栏点了「浅色」，
-  // 下次进后台又被强制拉回暗色，等于没有主题切换。现在：
+  // 原实现从未选过主题时无条件 'dark' —— 走查实测「聊天亮色 → 进后台
+  // 突然全暗」的主题跳变。现在三档与前台一致：
   //   - 已存偏好（light/dark）→ 用它；
-  //   - 存的是 system → 跟随系统；
-  //   - 从未选过 → 后台保持设计上的暗色。
+  //   - 存的是 system / 从未选过 → 跟随系统偏好。
   // 只挂载时应用一次：之后由 ThemeToggle 直接改 DOM，effect 不再覆盖它。
   React.useEffect(() => {
     const root = document.documentElement;
@@ -70,11 +69,9 @@ export const AdminDashboard = () => {
     const resolved =
       stored === 'light' || stored === 'dark'
         ? stored
-        : stored === 'system'
-          ? window.matchMedia('(prefers-color-scheme: dark)').matches
-            ? 'dark'
-            : 'light'
-          : 'dark';
+        : window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light';
     root.classList.remove('light', 'dark');
     root.classList.add(resolved);
 

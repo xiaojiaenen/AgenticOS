@@ -141,3 +141,6 @@ backend/.venv-loadtest/
 
 # 会话临时脚本（多次误入提交，彻底忽略）
 .tmp_*
+
+# UI 走查截图（本地评审用）
+.ui-shots/
