@@ -387,11 +387,32 @@ class AgentFactory:
                 ))
 
         # 5. 上下文压缩中间件
+        #
+        # 阈值换算：``after_turns × tokens_per_turn``。
+        #
+        # 原实现硬编码 500/轮，实测短对话每轮只有约 22 tokens ——
+        # 配「16 轮后压缩」实际要 174 轮才触发，压缩形同虚设。
+        # 现在用可配的 tokens_per_turn（默认 200，中文对话经验值），
+        # 并显式传 max_tokens，让中间件在「占窗口 75%」时也能强制触发 ——
+        # 这样即使每轮 token 数估偏，撞窗口前仍会压缩。
         if self.settings.context_compression_enabled:
-            stack.add(ContextCompressionMiddleware(
+            window = max(1, self.settings.context_window_tokens)
+            per_turn = max(1, self.settings.context_tokens_per_turn)
+            trigger = min(
+                self.settings.context_compress_after_turns * per_turn,
+                # 不超过窗口的一半：留足余量给本轮回复
+                max(1, window // 2),
+            )
+            # ObservableCompressionMiddleware：行为与上游完全一致，只是把
+            # 「摘要失败」从静默吞掉变成带原因的 WARNING —— 上游的 except +
+            # 600s 冷却会让限流导致的压缩失效完全无痕迹（排查代价极高）。
+            from app.services.agent.compression import ObservableCompressionMiddleware
+
+            stack.add(ObservableCompressionMiddleware(
                 llm=llm,
-                trigger_tokens=self.settings.context_compress_after_turns * 500,
+                trigger_tokens=trigger,
                 keep_recent_turns=self.settings.context_keep_recent_turns,
+                max_tokens=window,
             ))
 
         # 3. 日志中间件（开发环境启用，生产环境可关闭）

@@ -199,6 +199,58 @@ class StreamOrchestrator:
         if loaded is not None:
             sessions[request.session_id] = loaded
 
+    def _context_usage_payload(self, session) -> dict[str, Any]:
+        """算出当前上下文占用与窗口上限。
+
+        估算方式与压缩中间件一致（中文按字符数、非中文按 4 字符/token），
+        这样「客户端看到的占用」和「触发压缩的占用」是同一个数 ——
+        否则会出现「客户端显示还有 50% 余量，实际已经压缩过」的错位。
+        """
+        try:
+            from app.core.config import get_settings
+
+            settings = get_settings()
+            window = max(1, settings.context_window_tokens)
+
+            messages = []
+            context = getattr(session, "context", None)
+            if context is not None:
+                messages = getattr(context, "_messages", []) or []
+
+            # 必须与 wuwei ContextCompressionMiddleware._estimate_tokens
+            # 完全同算法，否则会出现「客户端显示还有 50% 余量，实际已压缩过」
+            # 的错位。
+            #
+            # wuwei 的算法：中文 1.5 tokens/字，其他 0.3 tokens/字符，
+            # 且 tool_calls 的字符串长度也计入非中文字符数。
+            cjk = 0
+            other = 0
+            for msg in messages:
+                content = getattr(msg, "content", "") or ""
+                if not isinstance(content, str):
+                    content = str(content)
+                for ch in content:
+                    if "\u4e00" <= ch <= "\u9fff":
+                        cjk += 1
+                    else:
+                        other += 1
+                tool_calls = getattr(msg, "tool_calls", None)
+                if tool_calls:
+                    for tc in tool_calls:
+                        other += len(str(tc))
+            used = int(cjk * 1.5 + other * 0.3)
+
+            return {
+                "context_tokens": used,
+                "context_window": window,
+                "context_used_ratio": round(min(1.0, used / window), 4),
+                "context_message_count": len(messages),
+                "context_compressed": bool(getattr(session, "summary", None)),
+            }
+        except Exception:  # noqa: BLE001 —— 诊断信息算不出来不该影响主流程
+            _logger.debug("context usage calc failed", exc_info=True)
+            return {}
+
     async def _persist_session_messages(self, session) -> None:
         """Persist session.context messages to DB.
         wuwei AgentSession only stores messages in memory."""
@@ -281,6 +333,9 @@ class StreamOrchestrator:
             "summary": getattr(session, "summary", None),
             "metadata": metadata,
             "context_compressed": bool(getattr(session, "summary", None)),
+            # 上下文用量：客户端据此判断「还能聊多久」。
+            # 没有这三个数，客户端只能盲猜何时该开新会话。
+            **self._context_usage_payload(session),
             "storage": "sqlalchemy",
             "last_usage": getattr(session, "last_usage", None),
             "last_latency_ms": getattr(session, "last_latency_ms", None),

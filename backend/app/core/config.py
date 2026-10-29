@@ -101,6 +101,23 @@ class Settings(BaseSettings):
     context_compression_enabled: bool = True
     context_compress_after_turns: int = 16
     context_keep_recent_turns: int = 6
+    # 模型上下文窗口大小（token）。用于：
+    #   1. 压缩中间件按比例触发（占窗口 75% 时强制压缩）
+    #   2. 给客户端返回「当前占用 / 总窗口」，让它知道还能聊多久
+    #
+    # 默认 128000 覆盖主流大模型；小窗口模型（如 32k）应显式配小，
+    # 否则压缩永远等不到、客户端也看不到真实余量。
+    context_window_tokens: int = Field(
+        default=128000, validation_alias="CONTEXT_WINDOW_TOKENS"
+    )
+    # 每轮对话折算的 token 数（用于把「N 轮后压缩」换算成 token 阈值）。
+    #
+    # 原实现硬编码 500，实测短对话每轮只有 ~22 tokens，导致配 16 轮
+    # 实际要 174 轮才压缩 —— 压缩形同虚设。
+    # 200 是中文对话的经验值（一轮问答通常 100~400 tokens）。
+    context_tokens_per_turn: int = Field(
+        default=200, validation_alias="CONTEXT_TOKENS_PER_TURN"
+    )
     hitl_enabled: bool = True
     hitl_require_approval_tools: str = "file_to_md,run_skill_python_script"
     hitl_timeout_seconds: int = 300

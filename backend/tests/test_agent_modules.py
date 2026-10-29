@@ -56,7 +56,14 @@ class TestAgentFactoryMiddlewareStack:
         factory.settings.environment = "development"
         stack = factory._build_middleware_stack(_make_profile(), LLMGateway.from_env())
         mw_names = [type(m).__name__ for m in stack.middlewares]
-        assert "ContextCompressionMiddleware" in mw_names
+        # 按继承关系判断而不是类名字符串 —— 装配可能换成带可观测性的子类
+        # （ObservableCompressionMiddleware），写死类名会在合理替换时误报。
+        from wuwei.middleware import ContextCompressionMiddleware
+
+        assert any(
+            isinstance(m, ContextCompressionMiddleware) or "ContextCompressionMiddleware" in type(m).__name__
+            for m in stack.middlewares
+        ), f"缺少压缩中间件（含其子类）: {mw_names}"
         assert "ThinkingHistoryCompatibilityMiddleware" in mw_names
         assert "LoggingMiddleware" in mw_names
         assert "HitlMiddleware" not in mw_names  # approval_tools 为空

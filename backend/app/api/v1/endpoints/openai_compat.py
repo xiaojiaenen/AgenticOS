@@ -14,7 +14,7 @@ import uuid
 from typing import Any, AsyncIterator
 
 from fastapi import HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.db.models import UserModel
@@ -83,6 +83,33 @@ def find_local_agent(model: str, user: UserModel) -> dict[str, Any] | None:
 def is_local_agent(model: str, user: UserModel) -> bool:
     """model 是否命中用户可用的本地智能体（网关据此拒绝未知 model）。"""
     return find_local_agent(model, user) is not None
+
+
+def _openai_error_payload(exc: Exception) -> tuple[dict[str, Any], int]:
+    """把执行期异常转成 (OpenAI 风格 error body, HTTP 状态码)。
+
+    上游异常里带 ``Error code: 429`` 之类的信息 —— 必须把这些语义
+    映射到 status_code 与 type，客户端才能做退避重试；统一压成 500
+    会让 Cursor / Codex / SDK 全部只报「Connection error」。
+    """
+    text = str(exc) or exc.__class__.__name__
+    lowered = text.lower()
+
+    if "429" in text or "rate limit" in lowered or "quota" in lowered or "too many request" in lowered:
+        etype, code, status = "rate_limit_error", "rate_limit_exceeded", 429
+    elif "401" in text or "invalid api key" in lowered or "incorrect api key" in lowered:
+        etype, code, status = "authentication_error", "invalid_api_key", 401
+    elif "403" in text or "permission" in lowered:
+        etype, code, status = "permission_denied_error", "permission_denied", 403
+    elif "timeout" in lowered or "timed out" in lowered:
+        etype, code, status = "api_error", "request_timeout", 504
+    else:
+        etype, code, status = "api_error", None, 502
+
+    body: dict[str, Any] = {"error": {"message": text[:500], "type": etype}}
+    if code:
+        body["error"]["code"] = code
+    return body, status
 
 
 class ChatMessage(BaseModel):
@@ -199,6 +226,7 @@ async def run_local_completion(
         text_parts: list[str] = []
         reasoning_parts: list[str] = []
         resolved_session_id = request.session_id or ""
+        context_info: dict[str, Any] = {}
         # 真实 token 数 —— 客户端据此计费，硬编码 0 会让所有接入方的账单全错
         usage: dict[str, int] = {
             "prompt_tokens": 0,
@@ -224,19 +252,40 @@ async def run_local_completion(
                         raw = data.get("usage")
                         if isinstance(raw, dict):
                             usage = _normalize_usage(raw)
+                        # done 事件里带 context_tokens / context_window 等
+                        for key in (
+                            "context_tokens", "context_window", "context_used_ratio",
+                            "context_message_count", "context_compressed",
+                        ):
+                            if key in data:
+                                context_info[key] = data[key]
                 elif kind == "error":
                     raise RuntimeError(data.get("message") or "agent error")
         except RuntimeError:
             raise
         except PermissionError as exc:
-            raise HTTPException(status_code=403, detail=str(exc)) from exc
-        return "".join(text_parts), "".join(reasoning_parts), usage, resolved_session_id
+            raise HTTPException(
+                status_code=403,
+                detail={"error": {
+                    "message": str(exc), "type": "permission_denied_error",
+                    "code": "session_forbidden",
+                }},
+            ) from exc
+        return (
+            "".join(text_parts), "".join(reasoning_parts),
+            usage, resolved_session_id, context_info,
+        )
 
     if not payload.stream:
         try:
-            text, reasoning, usage, session_id_out = await run()
-        except RuntimeError as exc:
-            raise HTTPException(status_code=500, detail=str(exc)) from exc
+            text, reasoning, usage, session_id_out, context_info = await run()
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001 —— 协议端点必须回 OpenAI error 形状
+            # 不能抛给 FastAPI 的通用 handler：它产出 {"detail": ...}+500，
+            # OpenAI SDK 解析不出结构化错误（见 _openai_error_payload）。
+            body, status = _openai_error_payload(exc)
+            return JSONResponse(status_code=status, content=body)
         message: dict[str, Any] = {"role": "assistant", "content": text}
         if reasoning:
             message["reasoning_content"] = reasoning
@@ -253,6 +302,8 @@ async def run_local_completion(
             # 不返回的话客户端无从得知服务端给它分配了哪个会话，
             # 只能每次新建（上下文丢失）。
             "session_id": session_id_out,
+            # 上下文用量：客户端据此判断「还能聊多久」、何时该开新会话。
+            **context_info,
         }
 
     async def event_stream() -> AsyncIterator[bytes]:
