@@ -143,6 +143,13 @@ MODEL_ROLES: dict[str, str] = {
     "fast": "轻量任务（会话标题、摘要、润色）",
     "vision": "图像理解",
     "image": "文生图",
+    # 向量化：知识库检索与记忆召回都依赖它。
+    #
+    # 单独列一个角色的原因：embedding 端点和聊天端点常常不是同一个服务
+    # （聊天走 DeepSeek/网关，向量化走 OpenAI/BGE/本地模型），而且模型名
+    # 体系完全不同（text-embedding-3-small vs bge-m3）。混在 chat 里会
+    # 导致「配了聊天模型但知识库检索全失败」这种难排查的状态。
+    "embedding": "文本向量化（知识库检索、记忆召回）",
 }
 
 ROLE_CHAT = "chat"
@@ -150,6 +157,7 @@ ROLE_REASONER = "reasoner"
 ROLE_FAST = "fast"
 ROLE_VISION = "vision"
 ROLE_IMAGE = "image"
+ROLE_EMBEDDING = "embedding"
 
 
 # 内置预设：只放通用厂商（见 GENERIC_PRESETS）。

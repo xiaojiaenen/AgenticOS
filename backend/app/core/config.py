@@ -185,6 +185,25 @@ class Settings(BaseSettings):
     # 单页切片段数上限：防止极端长页（整本书）把向量化成本打爆
     knowledge_max_chunks_per_page: int = Field(default=60, validation_alias="KNOWLEDGE_MAX_CHUNKS_PER_PAGE")
 
+    # ── 本地（离线）嵌入模型 ─────────────────────────────────────────
+    #
+    # 留空 = 走远程 HTTP /embeddings（需要 KNOWLEDGE_EMBEDDING_API_KEY）。
+    # 填了模型名 = 走本地 sentence-transformers，**完全不走网络**。
+    #
+    # 可以填 HuggingFace 模型名（BAAI/bge-m3），也可以填本地目录绝对路径
+    # （离线环境先把模型下载下来）。后者不触发任何下载。
+    #
+    # 一旦启用本地模式，即使配了远程 Key 也不会用 —— 避免「以为在用
+    # 本地模型，实际在花钱调 API」。
+    knowledge_embedding_local_model: str = Field(
+        default="", validation_alias="KNOWLEDGE_EMBEDDING_LOCAL_MODEL"
+    )
+    # 本地模型的向量维度。必须与模型真实输出一致，不一致会直接报错
+    # （维度错了向量库里已有数据全部失效，静默截断比报错更难查）。
+    knowledge_embedding_local_dimensions: int = Field(
+        default=0, validation_alias="KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS"
+    )
+
     # 记忆系统（分层蒸馏 + 混合检索）
     memory_embedding_model: str = Field(default="text-embedding-3-small", validation_alias="MEMORY_EMBEDDING_MODEL")
     memory_embedding_dimensions: int = Field(default=1536, validation_alias="MEMORY_EMBEDDING_DIMENSIONS")

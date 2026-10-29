@@ -53,6 +53,9 @@ _MODE_TOOL_REGISTRARS: dict[str, list[tuple[str, str]]] = {
         ("app.tools.pptx_reverse_tools", "register_pptx_reverse_tools"),
         ("app.tools.template_tools", "register_template_tools"),
         ("app.tools.image_tools", "register_image_tools"),
+        # 文生图：PPT 封面/内页配图常需要原创图，图库搜不到时用它。
+        # 端点由 provider 的 image 角色解析，未配置时工具返回可执行提示。
+        ("app.tools.image_gen_tools", "register_image_gen_tools"),
     ],
     "email": [
         ("app.tools.email_tools", "register_email_tools"),
@@ -60,6 +63,8 @@ _MODE_TOOL_REGISTRARS: dict[str, list[tuple[str, str]]] = {
     "website": [
         ("app.tools.website_tools", "register_website_tools"),
         ("app.tools.website_file_tools", "register_website_file_tools"),
+        # 网站 hero 图/banner 常需原创图
+        ("app.tools.image_gen_tools", "register_image_gen_tools"),
     ],
     "office": [
         ("app.tools.sheet_tools", "register_sheet_tools"),

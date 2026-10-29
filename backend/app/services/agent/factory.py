@@ -604,6 +604,14 @@ class AgentFactory:
         from app.services.a2ui import register_a2ui_tools as _register_a2ui
         _register_a2ui(registry)
 
+        # 文生图工具（所有模式可用）。
+        #
+        # 端点从 provider 的 image 角色解析，管理员在「AI 提供商」页面绑定
+        # 生图模型即可用，换厂商不用改代码。未绑定时工具返回可执行的提示
+        # 而不是报错。
+        from app.tools.image_gen_tools import register_image_gen_tools as _register_image_gen
+        _register_image_gen(registry)
+
         if profile.response_mode == "ppt":
             from app.tools.icon_tools import register_icon_tools as _register_icon_tools
             _register_icon_tools(registry)

@@ -969,9 +969,20 @@ def update_provider_roles(
         )
 
     cleaned = {key: str(value).strip() for key, value in payload.roles.items() if str(value).strip()}
+
+    # 只对「走 /chat/completions 的角色」校验目录。
+    #
+    # embedding 与 image 是**不同的端点**，它们的模型名不会出现在聊天模型
+    # 目录里（/models 列的是聊天模型）。卡目录会让用户永远绑不上向量化与
+    # 生图模型，只能回去改环境变量。
+    CHAT_ROLES = {"chat", "reasoner", "fast", "vision"}
     available = catalog.model_names(db, provider_id)
     if available:
-        missing = [value for value in cleaned.values() if value not in available]
+        missing = [
+            value
+            for key, value in cleaned.items()
+            if key in CHAT_ROLES and value not in available
+        ]
         if missing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

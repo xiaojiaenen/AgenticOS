@@ -145,6 +145,20 @@ class KnowledgeEmbedder:
         self._cooldown = settings.knowledge_embedding_cooldown_seconds
         self._failed_until = 0.0
 
+        # 后端选择：local（本地模型） / remote（HTTP API）。
+        #
+        # 本地模式优先：一旦配了本地模型路径或模型名，就完全不走网络 ——
+        # 内网部署和「不想烧 API 额度」的场景都靠它。本地模型不可用时
+        # 抛错给上层（降级到 BM25），而不是偷偷改走远程 —— 那会让用户
+        # 以为自己在用本地模型，实际在花钱调 API。
+        self._local_model = (settings.knowledge_embedding_local_model or "").strip()
+        self._local_backend = bool(self._local_model)
+        # 是否已经从 provider 配置解析过端点。
+        # 延迟到首次使用才解析：embedder 是单例，构造时机可能在启动早期
+        # （还没有 db session），而且管理员改配置后我们希望下次使用就生效。
+        self._provider_resolved = False
+        self._resolve_source = "env"
+
     @property
     def dimensions(self) -> int:
         """当前配置的向量维度（存量的维度校验基准）。"""
@@ -154,9 +168,69 @@ class KnowledgeEmbedder:
     def model(self) -> str:
         return self._model
 
+    def _ensure_provider_endpoint(self) -> None:
+        """首次使用时从 provider 配置解析端点，覆盖 env 基线。
+
+        只在还没解析过、且不是本地模式时执行。解析失败静默保留 env 基线 ——
+        配了 provider 但解析出错时，老部署的 env 配置仍应生效。
+        """
+        if self._provider_resolved or self._local_backend:
+            return
+        self._provider_resolved = True
+        try:
+            from app.db.session import create_db_session
+            from app.services.llm_providers.resolve_models import resolve_embedding_endpoint
+
+            with create_db_session() as db:
+                endpoint = resolve_embedding_endpoint(db)
+        except Exception:  # noqa: BLE001 —— 解析失败不该让检索崩
+            logger.debug("解析 provider embedding 端点失败，沿用 env 配置", exc_info=True)
+            return
+
+        if endpoint is None:
+            return
+        self._resolve_source = endpoint.source
+        if endpoint.source == "local":
+            # 解析层认为该用本地模型（配置在运行期变了）
+            self._local_model = endpoint.model
+            self._local_backend = True
+            if endpoint.dimensions:
+                self._dim = endpoint.dimensions
+            return
+        if endpoint.api_key:
+            self._base_url = endpoint.base_url or self._base_url
+            self._api_key = endpoint.api_key
+            self._model = endpoint.model
+            if endpoint.dimensions:
+                self._dim = endpoint.dimensions
+            logger.info(
+                "knowledge embedding 端点来自 %s：model=%s base=%s",
+                endpoint.source, self._model, self._base_url,
+            )
+
     def is_enabled(self) -> bool:
-        """向量召回是否可用（配置开关 + API Key 同时满足）。"""
-        return bool(get_settings().knowledge_vector_enabled and self._api_key)
+        """向量召回是否可用。
+
+        本地模式只要配了模型名就算可用（不需要 API Key）；
+        远程模式要求开关打开 + 有 Key。
+        """
+        settings = get_settings()
+        if not settings.knowledge_vector_enabled:
+            return False
+        self._ensure_provider_endpoint()
+        if self._local_backend:
+            return True
+        return bool(self._api_key)
+
+    @property
+    def backend(self) -> str:
+        """当前后端：local / remote。"""
+        return "local" if self._local_backend else "remote"
+
+    @property
+    def source(self) -> str:
+        """配置来源：local / provider:<slug> / env。"""
+        return "local" if self._local_backend else self._resolve_source
 
     def _cooling_down(self) -> bool:
         """上游刚失败过，冷却期内不再发请求（省掉每次检索的等待）。"""
@@ -216,7 +290,9 @@ class KnowledgeEmbedder:
         return results[: len(texts)]
 
     def _call_api(self, inputs: list[str]) -> list[list[float] | None]:
-        """调用 OpenAI 兼容的 /embeddings；任何异常都降级为 None。"""
+        """向量化入口：按后端分流到本地模型或远程 API。"""
+        if self._local_backend:
+            return self._call_local(inputs)
         if not self._api_key:
             return [None] * len(inputs)
 
@@ -262,6 +338,43 @@ class KnowledgeEmbedder:
             vectors.append(embedding)
         return vectors
 
+    def _call_local(self, inputs: list[str]) -> list[list[float] | None]:
+        """用本地 sentence-transformers 模型向量化。
+
+        失败时不设冷却（本地失败通常是配置/依赖问题，重试没意义但也不该
+        让用户等 60 秒），直接把异常打成明确日志并返回 None 让上层降级。
+        """
+        from app.services.knowledge.local_embedder import (
+            LocalEmbedderUnavailable,
+            get_local_embedder,
+        )
+
+        prepared = [(t or "")[: self.MAX_CHARS] for t in inputs]
+        try:
+            embedder = get_local_embedder(
+                self._local_model, expected_dims=self._dim or None
+            )
+            vectors = embedder.encode(prepared)
+        except LocalEmbedderUnavailable as exc:
+            logger.error("本地嵌入不可用：%s", exc)
+            return [None] * len(inputs)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("本地嵌入推理失败：%s", exc, exc_info=True)
+            return [None] * len(inputs)
+
+        out: list[list[float] | None] = []
+        for vec in vectors:
+            if not isinstance(vec, list) or len(vec) != self._dim:
+                logger.warning(
+                    "本地嵌入维度不符：期望 %d 实际 %s",
+                    self._dim,
+                    len(vec) if isinstance(vec, list) else "n/a",
+                )
+                out.append(None)
+                continue
+            out.append(vec)
+        return out
+
 
 def page_embedding_text(title: str, summary: str | None, content: str) -> str:
     """页面 → 待向量化文本。
@@ -289,10 +402,20 @@ def get_knowledge_embedder() -> KnowledgeEmbedder:
 
 
 def reset_knowledge_embedder() -> None:
-    """测试用：丢弃单例（配置变化后重新读取）。"""
+    """测试用：丢弃单例（配置变化后重新读取）。
+
+    同时清空本地模型单例 —— 换了模型名却还复用旧模型，会让维度校验
+    报出与配置无关的错，很难排查。
+    """
     global _embedder_singleton
     with _embedder_lock:
         _embedder_singleton = None
+    try:
+        from app.services.knowledge.local_embedder import reset_local_embedders
+
+        reset_local_embedders()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def dumps_diagnostics() -> str:
@@ -304,6 +427,8 @@ def dumps_diagnostics() -> str:
             "enabled": embedder.is_enabled(),
             "model": embedder.model,
             "dimensions": embedder.dimensions,
+            "backend": embedder.backend,
+            "source": embedder.source,
             "has_api_key": bool(embedder._api_key),  # noqa: SLF001 —— 诊断用途
             "base_url": embedder._base_url,  # noqa: SLF001 —— 诊断用途
             "dedicated_endpoint": bool(settings.knowledge_embedding_base_url),
