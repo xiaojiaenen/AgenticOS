@@ -160,8 +160,12 @@ app.include_router(api_router, prefix=settings.api_v1_prefix)
 
 # OpenAI 兼容上游网关 /v1/*（外部软件用 sk-agenticos-* 调用）
 from app.api.gateway_v1 import router as gateway_v1_router
+from app.api.gateway_multi import router as gateway_multi_router
 
 app.include_router(gateway_v1_router)
+# 多协议网关：Anthropic Messages / OpenAI Responses / Embeddings / Images。
+# 与 gateway_v1 共用 /v1 前缀，路径不重叠。
+app.include_router(gateway_multi_router)
 
 
 # 静态文件服务：网站预览
