@@ -30,7 +30,8 @@ COMPONENT_SPECS: dict[str, tuple[tuple[str, ...], tuple[str, ...], str]] = {
     "Card": (("child",), (), "卡片容器，child 是单个子组件 id"),
     "List": (("children",), (), "列表"),
     "Divider": ((), (), "分隔线"),
-    "Button": (("child",), ("action",), "按钮。child 通常是 Text 组件 id；action 形如 {name:'submit'}"),
+    "Button": (("child", "action"), ("variant", "label"),
+     "按钮。child 是 Text 组件 id；action 是**必填对象**，结构为 {'event':{'name':'submit'}}，event 这一层不能省"),
     "TextField": (("label",), ("value", "placeholder", "variant"), "文本输入。label 是标签文案；value 用 {'path':'/字段名'} 绑定；variant 可选 shortText/longText/number/obscured"),
     "CheckBox": (("label",), ("value",), "勾选框。value 是布尔值，用 {'path':'/字段名'} 绑定"),
     "ChoicePicker": (("options",), ("value",), "单选。options 是 [{label,value}] 数组"),
@@ -66,7 +67,8 @@ def catalog_prompt() -> str:
         "1. 组件是扁平数组，每个有唯一 id；父子通过 id 引用（children/child/tabs），不能嵌套。\n"
         "2. 必须有一个 id='root' 的容器组件作为根。\n"
         "3. 输入类组件用 {path:'/字段名'} 绑定值，初值放 updateDataModel。\n"
-        "4. 不要用未列出的组件名。"
+        "4. 不要用未列出的组件名。\n"
+        "5. Button 必须带 action，写法 {'event':{'name':'动作名'}}；只写 {name:...} 或缺 action 都会渲染失败。"
     )
     return "\n".join(lines)
 
@@ -216,6 +218,23 @@ def normalize_components(components: list[dict[str, Any]]) -> list[dict[str, Any
                 continue
             if comp.get(official) in (None, ""):
                 comp[official] = comp[alias]
+
+        # --- Button 的 action 兜底 ---
+        # 官方 schema 要求 action 是 {event:{name}}。模型经常只写 {name:...}
+        # 或干脆漏掉，前端就报 "action: Expected object, received undefined"。
+        # 补一个通用的 submit 事件：A2UI 的 event 本来就会回传给智能体，
+        # 语义上是「用户点了这个按钮」，不会伪造业务含义。
+        if name == "Button":
+            action = comp.get("action")
+            if not isinstance(action, dict):
+                comp["action"] = {"event": {"name": "submit"}}
+            elif not isinstance(action.get("event"), dict):
+                # {name:'submit'} 这种缺 event 层的写法 → 包一层
+                evt_name = action.get("name")
+                if isinstance(evt_name, str) and evt_name:
+                    comp["action"] = {"event": {"name": evt_name}}
+                else:
+                    comp["action"] = {"event": {"name": "submit"}}
 
         # --- 白名单剔除：官方 schema 不认的键会让前端 zod 报错 ---
         allowed = OFFICIAL_FIELDS.get(name)

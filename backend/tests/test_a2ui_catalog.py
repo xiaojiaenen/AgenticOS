@@ -95,7 +95,8 @@ def test_validate_accepts_complex_tree() -> None:
         {"id": "tab2", "component": "Column", "children": ["kw", "submit"]},
         {"id": "kw", "component": "TextField", "label": "关键词",
          "value": {"path": "/kw"}},
-        {"id": "submit", "component": "Button", "child": "title"},
+        {"id": "submit", "component": "Button", "child": "title",
+         "action": {"event": {"name": "submit"}}},
         {"id": "form", "component": "Divider"},
     ])
 

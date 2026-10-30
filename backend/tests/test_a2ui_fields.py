@@ -160,3 +160,67 @@ def test_required_field_does_not_break_validation() -> None:
                    "value": {"path": "/t"}, "required": True})
     normalize_components(comps)
     validate_components(comps)  # 不抛即通过
+
+
+# ---------------------------------------------------------------------------
+# Button.action 兜底（第三个线上报错）
+#   action: Expected object, received undefined
+# ---------------------------------------------------------------------------
+
+
+def _btn_tree(action=None, with_text: bool = True) -> list[dict]:
+    tree = [
+        {"id": "root", "component": "Column", "children": ["btn_submit", "t1"]},
+        {"id": "btn_submit", "component": "Button", "child": "t1"},
+        {"id": "t1", "component": "Text", "text": "提交"},
+    ]
+    if action is not None:
+        tree[1]["action"] = action
+    return tree
+
+
+def test_button_missing_action_gets_fallback() -> None:
+    """线上报错场景：Button 完全没写 action。"""
+    comps = _btn_tree()
+    out = normalize_components(comps)
+    action = out[1]["action"]
+    assert isinstance(action, dict), "action 必须补成对象"
+    assert isinstance(action.get("event"), dict)
+    assert action["event"]["name"] == "submit"
+
+
+def test_button_flat_name_wrapped_into_event() -> None:
+    """目录旧示例 {name:'submit'} 缺 event 层 → 自动包一层。"""
+    comps = _btn_tree({"name": "export_csv"})
+    out = normalize_components(comps)
+    assert out[1]["action"] == {"event": {"name": "export_csv"}}
+
+
+def test_button_correct_action_untouched() -> None:
+    """符合官方结构的不该被改动。"""
+    good = {"event": {"name": "submit", "userMessage": "提交"}}
+    comps = _btn_tree(good)
+    out = normalize_components(comps)
+    assert out[1]["action"] == good
+
+
+def test_button_action_none_gets_fallback() -> None:
+    comps = _btn_tree(None)
+    comps[1]["action"] = None
+    out = normalize_components(comps)
+    assert out[1]["action"]["event"]["name"] == "submit"
+
+
+def test_update_components_accepts_button_without_action() -> None:
+    """端到端：缺 action 的按钮不再导致整块界面下发失败。"""
+    msg = update_components("s1", _btn_tree())
+    btn = msg["updateComponents"]["components"][1]
+    assert btn["action"]["event"]["name"] == "submit"
+
+
+def test_catalog_documents_event_structure() -> None:
+    """目录必须写明 action 的 event 结构 —— 模型最容易漏这一层。"""
+    prompt = catalog_prompt()
+    line = next(x for x in prompt.splitlines() if "Button:" in x)
+    assert "action" in line
+    assert "event" in line, f"Button 说明应包含 event 结构：{line}"
