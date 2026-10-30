@@ -756,11 +756,19 @@ export async function getSessionMessages(sessionId: string): Promise<Message[]> 
           result: resultMsg?.map(r => r.content).join('\n') || undefined,
         };
       });
+      // A2UI 界面消息随助手消息持久化在 metadata.a2ui 里（后端落库时挂上的）。
+      // 取回来才能重载会话后继续看到界面 —— 之前只在内存里，刷新即失。
+      const a2uiRaw = (msg as { metadata?: { a2ui?: unknown } }).metadata?.a2ui;
+      const a2uiMessages = Array.isArray(a2uiRaw)
+        ? (a2uiRaw as import('../types').A2uiMessagePayload[])
+        : undefined;
+
       messages.push({
         id: `backend-${messages.length}`,
         role: 'model',
         text: msg.content || '',
         toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined,
+        a2uiMessages,
       });
     }
   }

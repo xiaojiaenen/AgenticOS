@@ -196,6 +196,12 @@ async def get_session_messages(
             "role": msg.role,
             "content": msg.content or "",
         }
+        # metadata 必须透传：A2UI 界面消息挂在助手消息的
+        # metadata.a2ui 里（落库时由 orchestrator 挂上），
+        # 前端靠它把界面渲染回来。丢掉它 = 刷新后界面消失。
+        meta = getattr(msg, "metadata", None)
+        if meta:
+            entry["metadata"] = meta
         if msg.tool_calls:
             entry["tool_calls"] = [
                 {

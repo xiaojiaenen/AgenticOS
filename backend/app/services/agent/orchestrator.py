@@ -281,6 +281,24 @@ class StreamOrchestrator:
             pending = _messages_after(messages, existing)
             if not pending:
                 return
+
+            # 把本次 run 生成的 A2UI 界面挂到最后一条助手消息上。
+            # AIMessage 有 metadata 字段，会随 model_dump_json 一起入库，
+            # 前端重载会话时就能把界面渲染回来。
+            a2ui_msgs = getattr(session, "_a2ui_accumulated", None)
+            if a2ui_msgs:
+                for msg in reversed(pending):
+                    if getattr(msg, "role", None) == "assistant":
+                        meta = dict(getattr(msg, "metadata", None) or {})
+                        prev = meta.get("a2ui")
+                        meta["a2ui"] = (prev or []) + a2ui_msgs if isinstance(prev, list) else a2ui_msgs
+                        try:
+                            msg.metadata = meta
+                        except Exception:  # noqa: BLE001
+                            _logger.warning("attach a2ui metadata failed", exc_info=True)
+                        break
+                session._a2ui_accumulated = []  # noqa: SLF001
+                _logger.info("attached %d a2ui messages to assistant message", len(a2ui_msgs))
             count = await self.storage.append_messages_batch(session.session_id, pending)
             _logger.info(f"Persisted {count} messages for session {session.session_id}")
         except Exception as e:
@@ -357,6 +375,18 @@ class StreamOrchestrator:
             return []
         if not messages:
             return []
+
+        # 累积到 session 上：这批界面要跟着助手消息一起落库，
+        # 否则刷新页面就消失（前端只在内存里存着）。
+        try:
+            acc = getattr(session, "_a2ui_accumulated", None)
+            if acc is None:
+                acc = []
+                session._a2ui_accumulated = acc  # noqa: SLF001 -- 会话级临时挂载
+            acc.extend(messages)
+        except Exception:  # noqa: BLE001 -- 累积失败不该影响下发
+            _logger.warning("a2ui accumulate failed", exc_info=True)
+
         return [
             {
                 "event": "a2ui",

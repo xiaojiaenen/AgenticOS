@@ -85,8 +85,47 @@ export const MessagesList = React.memo<MessagesListProps>(({
       searchQuery={searchQuery}
       activeMatchId={activeMatchId}
       onOpenArtifact={onOpenArtifact}
+      onA2uiAction={handleA2uiAction}
     />
   );
+
+  /**
+   * A2UI 交互组件被点击时，把 action 转成一条用户消息交给智能体。
+   *
+   * 不新增后端接口：action 的本质是「用户点了什么」，用自然语言描述
+   * 交给模型最直接 —— 它手里有上下文，能自己决定下一步（查数据、
+   * 重新渲染、或只是确认）。之前这个回调根本没传，所以点按钮毫无反应。
+   */
+  const handleA2uiAction = (action: Record<string, unknown>) => {
+    // 实测结构（Playwright 抓的真实 payload）：
+    //   {name, surfaceId, sourceComponentId, timestamp, context}
+    // name 在顶层 —— 之前按 {event:{name}} 解析，所以永远取不到动作名。
+    const raw = action as {
+      name?: unknown;
+      surfaceId?: unknown;
+      sourceComponentId?: unknown;
+      context?: unknown;
+      dataModel?: unknown;
+    };
+    const name = typeof raw.name === 'string' ? raw.name : '';
+    const surface = typeof raw.surfaceId === 'string' ? raw.surfaceId : '';
+    const source = typeof raw.sourceComponentId === 'string' ? raw.sourceComponentId : '';
+    const data = (raw.context ?? raw.dataModel) as Record<string, unknown> | undefined;
+
+    const parts: string[] = [];
+    if (name) {
+      parts.push(`我点击了界面上的「${name}」按钮`);
+    } else {
+      parts.push('我点击了界面上的一个按钮');
+    }
+    if (surface) parts.push(`（界面 ${surface}${source ? ` / ${source}` : ''}）`);
+
+    // 附带当前表单/绑定值，让智能体知道用户此刻填了什么
+    if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+      parts.push(`当前数据：${JSON.stringify(data)}`);
+    }
+    onSend(parts.join(''));
+  };
 
   const footer = (
     <>
