@@ -9,11 +9,18 @@
  * 客户端用自己受控的组件库渲染。没有任意代码执行，组件集合由我们决定。
  *
  * 协议版本：v0.9（当前 stable）。v1.0 还是 candidate，等它稳定再迁。
+ *
+ * 样式说明（踩过的坑）：
+ * A2UI 不是 Shadow DOM，但**必须调用 injectStyles()** 注入它的结构样式
+ * 与组件样式，否则渲染出来是"裸 HTML"—— 没有卡片描边、没有间距、
+ * 按钮没有任何外观。之前漏了这一步，界面看起来跟项目风格完全脱节。
+ * 配色/圆角/字体由宿主用 CSS 变量覆盖，见 styles/a2ui-theme.css。
  */
 import { useEffect, useMemo, useState } from 'react';
 import { MessageProcessor } from '@a2ui/web_core/v0_9';
 import { basicCatalog } from '@a2ui/web_core/v0_9/basic_catalog';
 import { A2uiSurface } from '@a2ui/react/v0_9';
+import { injectStyles } from '@a2ui/react/styles';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 /** 一条 A2UI 消息。结构由协议定义，这里只约束外层判别字段。 */
@@ -120,6 +127,12 @@ export function sanitizeMessages(messages: A2uiMessage[]): A2uiMessage[] {
 export function A2uiRenderer({ messages, onAction, className }: A2uiRendererProps) {
   const [error, setError] = useState<string | null>(null);
   const [surfaces, setSurfaces] = useState<unknown[]>([]);
+
+  // 注入 A2UI 的结构与组件样式。injectStyles 是幂等的（内部判重），
+  // 多次挂载不会重复插入；不做这一步，组件会以裸 HTML 呈现。
+  useEffect(() => {
+    injectStyles();
+  }, []);
 
   // 用消息内容的 JSON 作为依赖：上层可能每次 render 都传新数组引用，
   // 直接依赖引用会导致无限重建。

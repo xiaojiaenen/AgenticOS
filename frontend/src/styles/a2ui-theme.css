@@ -1,0 +1,198 @@
+/**
+ * A2UI theme bridge.
+ *
+ * A2UI components are Lit custom elements. Their styles are injected via
+ * injectStyles() from @a2ui/react/styles, scoped under .a2ui-surface.
+ * The ONLY way to restyle them from the host is CSS custom properties
+ * (--a2ui-*), because their internal rules are already shipped.
+ *
+ * Mapping rules (must match src/index.css tokens):
+ *   - primary CTA uses zinc-900 (#18181b), NOT brand blue
+ *   - brand blue #2b87c2 reserved for focus rings / accents
+ *   - radius 8/12/16 == --radius-md/lg/xl
+ *   - borders use --border-subtle (6% black), not solid gray
+ *   - font stack inherited from the app
+ */
+
+:root {
+  /* ---- core palette ---- */
+  --a2ui-color-primary: var(--primary);
+  --a2ui-color-primary-hover: color-mix(in oklab, var(--primary) 88%, transparent);
+  --a2ui-color-on-primary: var(--primary-foreground);
+
+  --a2ui-color-secondary: var(--surface-0);
+  --a2ui-color-secondary-hover: var(--surface-1);
+  --a2ui-color-on-secondary: var(--foreground);
+
+  --a2ui-color-surface: var(--surface-1);
+  --a2ui-color-on-surface: var(--foreground);
+
+  --a2ui-color-input: var(--surface-1);
+  --a2ui-color-on-input: var(--foreground);
+
+  --a2ui-color-border: var(--border-subtle);
+  --a2ui-border: var(--border-subtle);
+  --a2ui-border-width: 1px;
+
+  --a2ui-color-error: #dc2626;
+
+  --a2ui-button-font-family: inherit;
+  --a2ui-font-weight-regular: 400;
+  --a2ui-font-weight-medium: 500;
+  --a2ui-font-weight-bold: 600;
+  --a2ui-color-primary-container: color-mix(in oklab, var(--primary) 8%, transparent);
+  --a2ui-color-surface-variant: var(--surface-0);
+
+  /* ---- typography ---- */
+  --a2ui-font-family-title: inherit;
+  --a2ui-font-size-xs: 0.6875rem;
+  --a2ui-font-size-s: 0.75rem;
+  --a2ui-font-size-m: 0.875rem;
+  --a2ui-font-size-l: 1rem;
+  --a2ui-font-size-xl: 1.25rem;
+  --a2ui-font-size-2xl: 1.5rem;
+  --a2ui-line-height-body: 1.6;
+  --a2ui-line-height-headings: 1.3;
+  --a2ui-label-font-size: 0.75rem;
+  --a2ui-label-font-weight: 500;
+
+  /* ---- radius & spacing ---- */
+  --a2ui-border-radius: var(--radius-md);
+  --a2ui-spacing-s: 8px;
+  --a2ui-spacing-m: 12px;
+  --a2ui-spacing-l: 16px;
+
+  /* ---- layout ---- */
+  --a2ui-column-gap: 12px;
+  --a2ui-row-gap: 12px;
+  --a2ui-list-gap: 8px;
+  --a2ui-list-padding: 0;
+  --a2ui-divider-spacing: 12px;
+
+  /* ---- card ---- */
+  --a2ui-card-background: var(--surface-1);
+  --a2ui-card-border-radius: var(--radius-lg);
+  --a2ui-card-padding: 16px;
+  --a2ui-card-margin: 0;
+  --a2ui-card-box-shadow: none;
+
+  /* ---- button ---- */
+  --a2ui-button-background: var(--primary);
+  --a2ui-button-border-radius: var(--radius-md);
+  --a2ui-button-font-weight: 500;
+  --a2ui-button-box-shadow: none;
+  --a2ui-button-margin: 0;
+  --a2ui-button-padding: 8px 16px;
+  --a2ui-button-font-size: 0.875rem;
+
+  /* ---- inputs ---- */
+  --a2ui-textfield-background: var(--surface-1);
+  --a2ui-textfield-border: 1px solid var(--border-subtle);
+  --a2ui-textfield-border-radius: var(--radius-md);
+  --a2ui-textfield-padding: 8px 12px;
+  --a2ui-textfield-color: var(--foreground);
+
+  --a2ui-checkbox-size: 16px;
+  --a2ui-checkbox-gap: 8px;
+  --a2ui-checkbox-border-radius: 4px;
+  --a2ui-checkbox-border: 1px solid var(--border-subtle);
+  --a2ui-checkbox-background: var(--surface-1);
+  --a2ui-checkbox-label-font-weight: 400;
+  --a2ui-checkbox-margin: 0;
+
+  --a2ui-choicepicker-gap: 8px;
+  --a2ui-choicepicker-padding: 0;
+  --a2ui-choicepicker-label-font-size: 0.75rem;
+  --a2ui-choicepicker-label-font-weight: 500;
+  --a2ui-choicepicker-label-color: var(--muted-foreground);
+  --a2ui-choicepicker-chip-background: var(--surface-0);
+  --a2ui-choicepicker-chip-border: 1px solid var(--border-subtle);
+  --a2ui-choicepicker-chip-border-radius: 999px;
+  --a2ui-choicepicker-chip-font-size: 0.8125rem;
+  --a2ui-choicepicker-chip-font-weight: 500;
+  --a2ui-choicepicker-checkbox-size: 16px;
+  --a2ui-choicepicker-filter-margin-bottom: 8px;
+
+  --a2ui-slider-thumb-color: var(--primary);
+  --a2ui-slider-track-color: var(--border-subtle);
+  --a2ui-slider-margin: 4px 0;
+  --a2ui-slider-label-font-weight: 500;
+
+  --a2ui-datetimeinput-background: var(--surface-1);
+  --a2ui-datetimeinput-border: 1px solid var(--border-subtle);
+  --a2ui-datetimeinput-border-radius: var(--radius-md);
+  --a2ui-datetimeinput-color: var(--foreground);
+  --a2ui-datetimeinput-padding: 8px 12px;
+  --a2ui-datetimeinput-label-font-weight: 500;
+  --a2ui-datetimeinput-width: 100%;
+
+  /* ---- media ---- */
+  --a2ui-image-border-radius: var(--radius-md);
+  --a2ui-image-avatar-size: 40px;
+  --a2ui-image-icon-size: 24px;
+  --a2ui-image-header-size: 100%;
+  --a2ui-image-large-feature-size: 100%;
+  --a2ui-image-small-feature-size: 80px;
+  --a2ui-icon-size: 18px;
+  --a2ui-icon-font-family: inherit;
+
+  /* ---- modal ---- */
+  --a2ui-modal-background: var(--surface-1);
+  --a2ui-modal-border-radius: var(--radius-xl);
+  --a2ui-modal-padding: 20px;
+  --a2ui-modal-box-shadow: var(--shadow-xl, 0 20px 40px rgba(0, 0, 0, 0.12));
+  --a2ui-modal-backdrop-bg: rgba(9, 9, 11, 0.4);
+
+  /* ---- audio player ---- */
+  --a2ui-audioplayer-background: var(--surface-0);
+  --a2ui-audioplayer-border-radius: var(--radius-md);
+  --a2ui-audioplayer-padding: 12px;
+}
+
+/* dark mode */
+:root.dark {
+  --a2ui-color-error: #f87171;
+  --a2ui-modal-backdrop-bg: rgba(0, 0, 0, 0.6);
+}
+
+/**
+ * Button text color fix.
+ *
+ * Inner <button class="a2ui-button"> reads background from
+ * --a2ui-button-background (our primary = near-black) but its color is
+ * inherited from --a2ui-color-on-surface (also near-black) => black on black.
+ * A2UI ships --a2ui-color-on-primary but Button does not consume it,
+ * so we override the inner button and its text nodes explicitly.
+ */
+.a2ui-surface .a2ui-button,
+.a2ui-container .a2ui-button {
+  color: var(--a2ui-color-on-primary, #fafafa) !important;
+}
+
+.a2ui-surface .a2ui-button .a2ui-text,
+.a2ui-container .a2ui-button .a2ui-text,
+.a2ui-surface .a2ui-button .a2ui-text *,
+.a2ui-container .a2ui-button .a2ui-text * {
+  color: inherit !important;
+}
+
+/* borderless variant: transparent background, foreground text */
+.a2ui-surface .a2ui-button.a2ui-button-borderless,
+.a2ui-container .a2ui-button.a2ui-button-borderless {
+  color: var(--foreground) !important;
+  background: transparent !important;
+}
+
+/**
+ * Container typography. A2UI root is a plain div (not shadow DOM)
+ * so normal CSS applies here.
+ */
+.a2ui-container {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--foreground);
+}
+
+.a2ui-container a2ui-basic-text {
+  font-weight: inherit;
+}

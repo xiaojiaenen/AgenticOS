@@ -6,6 +6,9 @@
 /* 鸿蒙分片字体（164 个 unicode-range 子集，浏览器按需加载） */
 @import "../public/fonts/harmonyos-sans-sc.css";
 
+/* A2UI 组件主题桥接（Web Components 只能靠 CSS 变量定制，见文件内说明） */
+@import "./styles/a2ui-theme.css";
+
 /*
  * 字体策略
  * --------
