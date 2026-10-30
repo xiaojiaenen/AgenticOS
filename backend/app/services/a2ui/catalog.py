@@ -31,17 +31,17 @@ COMPONENT_SPECS: dict[str, tuple[tuple[str, ...], tuple[str, ...], str]] = {
     "List": (("children",), (), "列表"),
     "Divider": ((), (), "分隔线"),
     "Button": (("child",), ("action",), "按钮。child 通常是 Text 组件 id；action 形如 {name:'submit'}"),
-    "TextField": (("label",), ("value", "required"), "文本输入。value 用 {path:'/字段名'} 绑定"),
-    "CheckBox": (("label",), ("checked",), "勾选框。checked 用 {path:'/字段名'}"),
+    "TextField": (("label",), ("value", "placeholder", "variant"), "文本输入。label 是标签文案；value 用 {'path':'/字段名'} 绑定；variant 可选 shortText/longText/number/obscured"),
+    "CheckBox": (("label",), ("value",), "勾选框。value 是布尔值，用 {'path':'/字段名'} 绑定"),
     "ChoicePicker": (("options",), ("value",), "单选。options 是 [{label,value}] 数组"),
     "Slider": (("min", "max"), ("value",), "滑块"),
     "DateTimeInput": (("label",), ("value",), "日期时间输入"),
     "Tabs": (("tabs",), (), "标签页。tabs 是 [{title, content}] 数组——title 是标签名（字符串），content 是子组件 id"),
-    "Modal": (("child",), ("title",), "弹窗容器"),
-    "Image": (("src",), ("alt",), "图片"),
+    "Modal": (("child",), ("label",), "弹窗容器。label 是标题文案，child 是内容组件 id"),
+    "Image": (("url",), ("description",), "图片。url 是图片地址，description 是替代文本"),
     "Icon": (("name",), (), "图标"),
-    "Video": (("src",), (), "视频"),
-    "AudioPlayer": (("src",), (), "音频播放器"),
+    "Video": (("url",), ("description", "posterUrl"), "视频。url 是视频地址，posterUrl 是封面图"),
+    "AudioPlayer": (("url",), ("description",), "音频播放器。url 是音频地址"),
 }
 
 ALLOWED_COMPONENTS: frozenset[str] = frozenset(COMPONENT_SPECS)
@@ -101,17 +101,63 @@ def _collect_child_refs(comp: dict[str, Any]) -> list[str]:
     return refs
 
 
+# 官方 schema 允许的字段白名单（来自 @a2ui/web_core v1 basic_components.d.ts）。
+# 模型多写的任何字段都会被前端 zod 判为 "Unrecognized key(s)"，整块界面报废，
+# 所以服务端必须主动剔除，而不是指望模型只写允许的字段。
+OFFICIAL_FIELDS: dict[str, frozenset[str]] = {
+    "Text": frozenset({"text", "variant", "weight", "child", "children",
+                       "align", "direction", "justify", "axis", "checks"}),
+    "Column": frozenset({"children", "align", "direction", "justify", "axis",
+                         "weight", "checks", "child", "trigger"}),
+    "Row": frozenset({"children", "align", "direction", "justify", "axis",
+                      "weight", "checks", "child", "trigger"}),
+    "Card": frozenset({"child", "children", "variant", "weight", "checks",
+                       "align", "direction", "justify", "axis", "trigger"}),
+    "List": frozenset({"children", "child", "align", "direction", "justify",
+                       "axis", "weight", "checks", "trigger"}),
+    "Divider": frozenset({"weight", "checks", "axis", "variant"}),
+    "Button": frozenset({"child", "action", "label", "variant", "weight",
+                         "checks", "trigger", "align", "direction", "justify"}),
+    "TextField": frozenset({"checks", "label", "value", "placeholder",
+                            "variant", "weight"}),
+    "CheckBox": frozenset({"checks", "displayStyle", "label", "options",
+                           "value", "variant", "weight"}),
+    "ChoicePicker": frozenset({"options", "value", "label", "variant",
+                               "weight", "checks", "displayStyle"}),
+    "Slider": frozenset({"min", "max", "value", "label", "step", "variant",
+                         "weight", "checks"}),
+    "DateTimeInput": frozenset({"label", "value", "variant", "weight",
+                                "checks", "placeholder"}),
+    "Tabs": frozenset({"tabs", "weight", "checks", "variant", "trigger"}),
+    "Modal": frozenset({"action", "axis", "checks", "child", "content", "label",
+                        "trigger", "variant", "weight"}),
+    "Image": frozenset({"description", "fit", "name", "posterUrl", "url",
+                        "variant", "weight", "checks"}),
+    "Icon": frozenset({"name", "variant", "weight", "checks", "description"}),
+    "Video": frozenset({"align", "child", "children", "description", "direction",
+                        "justify", "posterUrl", "url", "weight", "checks", "fit"}),
+    "AudioPlayer": frozenset({"align", "axis", "checks", "child", "children",
+                              "content", "description", "direction", "justify",
+                              "url", "weight", "trigger"}),
+}
+
+# 结构字段始终保留（id/component 由协议定义，不属于组件 schema）
+STRUCTURAL_FIELDS = frozenset({"id", "component"})
+
+
 def normalize_components(components: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """修补模型常见的字段名偏差，返回可渲染的组件树。
+    """修补模型常见的字段名偏差并剔除非法字段，返回可渲染的组件树。
 
-    A2UI 官方 schema 对 `Tabs` 的要求是每项 `{title, content}`，但模型
-    很容易按直觉写成 `{label, child}` 或 `{title, child}`。渲染端会因此
-    报 "tabs.0.title: Expected string, received undefined"，整块界面报废
-    —— 而这不影响对话本身，用户只会觉得"渲染坏了"。
+    线上踩过两个坑，本质相同 —— 后端目录与官方 schema 不一致：
+      1. Tabs 每项写成 {label, child}，官方要 {title, content}
+         → "tabs.0.title: Expected string, received undefined"
+      2. TextField 写了 required，官方 schema 没有这个字段
+         → "Unrecognized key(s) in object: 'required'"
 
-    与其指望 prompt 每次都写对，不如在服务端做一次确定性修补：
-      label / name  → title
-      child / body  → content
+    二者都会让整块界面渲染失败（对话本身不受影响，用户只看到"渲染坏了"）。
+    与其指望 prompt 每次都写对，不如在服务端做确定性修补：
+      - 别名改写：label/name → title、child/body → content、src → url 等
+      - 字段白名单：不在官方 schema 里的键直接丢弃
     """
     if not isinstance(components, list):
         return components
@@ -119,32 +165,64 @@ def normalize_components(components: list[dict[str, Any]]) -> list[dict[str, Any
     TAB_TITLE_ALIASES = ("title", "label", "name", "text")
     TAB_CONTENT_ALIASES = ("content", "child", "body", "component")
 
+    # 组件级别名：模型习惯写法 → 官方字段名
+    FIELD_ALIASES: dict[str, dict[str, str]] = {
+        "Image": {"src": "url", "alt": "description", "title": "description"},
+        "Video": {"src": "url", "alt": "description", "title": "description"},
+        "AudioPlayer": {"src": "url", "alt": "description", "title": "description"},
+        "Modal": {"title": "label", "text": "label"},
+        "Icon": {"src": "name", "title": "description"},
+        "TextField": {"placeholder": "placeholder"},
+    }
+    # 跨组件的通用别名：勾选框的 checked 就是 value
+    CHECKBOX_ALIASES = {"checked": "value"}
+
     for comp in components:
-        if not isinstance(comp, dict) or comp.get("component") != "Tabs":
+        if not isinstance(comp, dict):
             continue
-        tabs = comp.get("tabs")
-        if not isinstance(tabs, list):
-            continue
-        fixed: list[Any] = []
-        for tab in tabs:
-            if not isinstance(tab, dict):
-                fixed.append(tab)
+        name = comp.get("component")
+
+        # --- Tabs 每项修补 ---
+        if name == "Tabs":
+            tabs = comp.get("tabs")
+            if isinstance(tabs, list):
+                fixed_tabs: list[Any] = []
+                for tab in tabs:
+                    if not isinstance(tab, dict):
+                        fixed_tabs.append(tab)
+                        continue
+                    item = dict(tab)
+                    if not isinstance(item.get("title"), (str, dict)):
+                        for key in TAB_TITLE_ALIASES[1:]:
+                            val = item.get(key)
+                            if isinstance(val, (str, dict)) and val not in ("", None):
+                                item["title"] = val
+                                break
+                    if not isinstance(item.get("content"), (str, dict)):
+                        for key in TAB_CONTENT_ALIASES[1:]:
+                            val = item.get(key)
+                            if isinstance(val, (str, dict)) and val not in ("", None):
+                                item["content"] = val
+                                break
+                    fixed_tabs.append(item)
+                comp["tabs"] = fixed_tabs
+
+        # --- 组件级别名改写（先补字段，再由白名单剔除旧键）---
+        aliases = dict(FIELD_ALIASES.get(name, {}))
+        if name == "CheckBox":
+            aliases.update(CHECKBOX_ALIASES)
+        for alias, official in aliases.items():
+            if alias == official or alias not in comp:
                 continue
-            item = dict(tab)
-            if not isinstance(item.get("title"), (str, dict)):
-                for key in TAB_TITLE_ALIASES[1:]:
-                    val = item.get(key)
-                    if isinstance(val, (str, dict)) and val not in ("", None):
-                        item["title"] = val
-                        break
-            if not isinstance(item.get("content"), (str, dict)):
-                for key in TAB_CONTENT_ALIASES[1:]:
-                    val = item.get(key)
-                    if isinstance(val, (str, dict)) and val not in ("", None):
-                        item["content"] = val
-                        break
-            fixed.append(item)
-        comp["tabs"] = fixed
+            if comp.get(official) in (None, ""):
+                comp[official] = comp[alias]
+
+        # --- 白名单剔除：官方 schema 不认的键会让前端 zod 报错 ---
+        allowed = OFFICIAL_FIELDS.get(name)
+        if allowed:
+            for key in [k for k in comp if k not in STRUCTURAL_FIELDS | allowed]:
+                comp.pop(key, None)
+
     return components
 
 
