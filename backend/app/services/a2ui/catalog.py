@@ -45,6 +45,76 @@ COMPONENT_SPECS: dict[str, tuple[tuple[str, ...], tuple[str, ...], str]] = {
     "AudioPlayer": (("url",), ("description",), "音频播放器。url 是音频地址"),
 }
 
+# ---------------------------------------------------------------------------
+# 正确写法示例：校验失败时原样回给模型，它可以直接照抄改。
+# 只列容易写错的字段 —— 完整的字段表见 COMPONENT_SPECS。
+# ---------------------------------------------------------------------------
+COMPONENT_EXAMPLES: dict[str, dict[str, Any]] = {
+    "Button": {"id": "b1", "component": "Button", "child": "t1",
+               "action": {"event": {"name": "submit"}}},
+    "TextField": {"id": "f1", "component": "TextField", "label": "标题",
+                  "value": {"path": "/title"}, "variant": "shortText"},
+    "CheckBox": {"id": "c1", "component": "CheckBox", "label": "同意",
+                 "value": {"path": "/agree"}},
+    "ChoicePicker": {"id": "p1", "component": "ChoicePicker",
+                     "options": [{"label": "高", "value": "high"}],
+                     "value": {"path": "/level"}},
+    "Slider": {"id": "s1", "component": "Slider", "min": 0, "max": 100,
+               "value": {"path": "/pct"}},
+    "DateTimeInput": {"id": "d1", "component": "DateTimeInput",
+                      "label": "日期", "value": {"path": "/date"}},
+    "Tabs": {"id": "tb1", "component": "Tabs", "tabs": [
+        {"title": "概览", "content": "p1"},
+        {"title": "详情", "content": "p2"},
+    ]},
+    "Modal": {"id": "m1", "component": "Modal", "label": "确认",
+              "child": "t1"},
+    "Image": {"id": "i1", "component": "Image", "url": "https://example.com/a.png",
+              "description": "示意图"},
+    "Video": {"id": "v1", "component": "Video", "url": "https://example.com/a.mp4"},
+    "AudioPlayer": {"id": "a1", "component": "AudioPlayer",
+                    "url": "https://example.com/a.mp3"},
+    "Icon": {"id": "ic1", "component": "Icon", "name": "check"},
+    "Card": {"id": "cd1", "component": "Card", "child": "t1"},
+    "Column": {"id": "col1", "component": "Column", "children": ["t1", "t2"]},
+    "Row": {"id": "row1", "component": "Row", "children": ["t1", "t2"]},
+    "List": {"id": "ls1", "component": "List", "children": ["t1", "t2"]},
+    "Text": {"id": "t1", "component": "Text", "text": "内容",
+             "variant": "body"},
+    "Divider": {"id": "dv1", "component": "Divider"},
+}
+
+
+# 最小可运行骨架：模型看到它就知道整体结构长什么样。
+MINIMAL_SKELETON: list[dict[str, Any]] = [
+    {"id": "root", "component": "Column", "children": ["t1", "btn1"]},
+    {"id": "t1", "component": "Text", "text": "标题", "variant": "h2"},
+    {"id": "btn1", "component": "Button", "child": "t1",
+     "action": {"event": {"name": "submit"}}},
+]
+
+
+def error_with_example(message: str, component_name: str | None) -> str:
+    """把校验错误补成「问题 + 正确写法 + 骨架」，模型照着改就能过。
+
+    在线报错的痛点不是模型不知道错，而是知道错了还得猜怎么改。
+    给它可直接照抄的片段，重试成功率显著提升。
+    """
+    import json as _json
+
+    parts = [message]
+    example = COMPONENT_EXAMPLES.get(component_name or "")
+    if example:
+        parts.append(
+            f"该组件的正确写法：{_json.dumps(example, ensure_ascii=False)}"
+        )
+    parts.append(
+        "整体结构参考（组件是扁平数组，靠 id 互相引用，必须有 root）："
+        f"{_json.dumps(MINIMAL_SKELETON, ensure_ascii=False)}"
+    )
+    return "\n".join(parts)
+
+
 ALLOWED_COMPONENTS: frozenset[str] = frozenset(COMPONENT_SPECS)
 
 # 需要在 updateDataModel 里给初值的组件字段（用于自动补数据模型）
@@ -272,8 +342,11 @@ def validate_components(components: list[dict[str, Any]]) -> None:
         for field in required:
             if field not in comp:
                 raise A2uiValidationError(
-                    f"组件「{cid}」({name}) 缺少必填字段「{field}」。"
-                    f"{name} 需要：{', '.join(required)}"
+                    error_with_example(
+                        f"组件「{cid}」({name}) 缺少必填字段「{field}」。"
+                        f"{name} 需要：{', '.join(required)}",
+                        name,
+                    )
                 )
 
         # Tabs 的逐项校验：title 缺失是最高频的渲染失败原因
@@ -290,7 +363,10 @@ def validate_components(components: list[dict[str, Any]]) -> None:
                     )
                 if not isinstance(tab.get("title"), (str, dict)):
                     raise A2uiValidationError(
-                        f"组件「{cid}」的 tabs[{i}] 缺少 title（标签名，字符串）"
+                        error_with_example(
+                            f"组件「{cid}」的 tabs[{i}] 缺少 title（标签名，字符串）",
+                            "Tabs",
+                        )
                     )
                 if not isinstance(tab.get("content"), (str, dict)):
                     raise A2uiValidationError(

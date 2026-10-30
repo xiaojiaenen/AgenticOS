@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import contextvars
+
 import logging
 from typing import Any
 
@@ -29,6 +31,20 @@ from app.services.a2ui.catalog import catalog_prompt, extract_initial_data
 
 logger = logging.getLogger("agenticos.a2ui")
 
+
+# 本次 run 内各 surface 的校验失败次数（跨工具调用累计）。
+# 用来在多次失败后升级提示语，避免模型反复用同一种错写法硬撞。
+_failure_counts: contextvars.ContextVar[dict[str, int]] = contextvars.ContextVar(
+    "a2ui_failure_counts", default={}
+)
+
+
+def _bump_failure(surface_id: str) -> int:
+    counts = dict(_failure_counts.get())
+    counts[surface_id] = counts.get(surface_id, 0) + 1
+    _failure_counts.set(counts)
+    return counts[surface_id]
+
 # 进程内收集「本次 run 产生的 A2UI 消息」。
 #
 # 用 contextvar 而不是全局变量：一次 SSE 请求一个上下文，并发请求互不干扰。
@@ -37,7 +53,6 @@ logger = logging.getLogger("agenticos.a2ui")
 # 注意：ContextVar 没有 default_factory，默认值必须是同一个对象引用。
 # 所以这里用 None 作默认，首次访问时创建新列表 —— 避免多个请求共享同一个
 # 可变默认值（那是经典陷阱）。
-import contextvars
 
 _pending_a2ui: contextvars.ContextVar[list[dict[str, Any]] | None] = contextvars.ContextVar(
     "a2ui_pending", default=None,
@@ -96,7 +111,7 @@ def register_a2ui_tools(registry: ToolRegistry) -> None:
         try:
             messages = simple_page(title=title, body=body)
         except A2uiBuildError as exc:
-            return f"界面生成失败：{exc}"
+            return f"界面生成失败：{exc}\n请修正参数后重新调用 render_ui。"
         _emit(messages)
         logger.info("a2ui simple_page: title=%r components=2", title[:40])
         return f"已生成界面「{title}」（1 个区块）。用户会直接看到，无需再复述内容。"
@@ -142,7 +157,7 @@ def register_a2ui_tools(registry: ToolRegistry) -> None:
                 submit_label=submit_label,
             )
         except A2uiBuildError as exc:
-            return f"表单生成失败：{exc}"
+            return f"表单生成失败：{exc}\n请修正字段后重新调用 render_form。"
 
         _emit(messages)
         logger.info("a2ui form_page: title=%r fields=%d", title[:40], len(fields))
@@ -212,8 +227,23 @@ def register_a2ui_tools(registry: ToolRegistry) -> None:
         try:
             msg_components = update_components(sid, components)
         except A2uiBuildError as exc:
-            # 校验失败的信息会原样返回给模型 —— 它据此自己改，不用人介入
-            return f"组件校验失败：{exc}"
+            # 校验失败：把「错误 + 正确写法」一起回给模型，并明确要求它重试。
+            # 之前只回一句错误，模型常常直接放弃或改用纯文本 —— 用户看到的
+            # 就是「界面渲染失败」。这里把重试变成指令，而不是可选动作。
+            attempts = _bump_failure(sid)
+            text = (
+                f"组件校验失败（第 {attempts} 次）：{exc}\n"
+                "请按上面的提示修正 components_json 后**重新调用 render_components**，"
+                "不要改用纯文本回复 —— 用户期望看到界面。"
+            )
+            if attempts >= 2:
+                text += (
+                    "\n注意：已连续失败多次，请严格对照「可照抄的正确写法」"
+                    "逐字段检查，特别是每个组件的必填字段是否齐全。"
+                )
+            logger.warning("a2ui render_components validation failed (attempt %d): %s",
+                           attempts, str(exc)[:200])
+            return text
 
         messages: list[dict[str, Any]] = [create_surface(sid), msg_components]
 

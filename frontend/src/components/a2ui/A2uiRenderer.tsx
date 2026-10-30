@@ -28,6 +28,84 @@ export interface A2uiRendererProps {
 }
 
 /**
+ * 清洗组件树：剔除不合规组件，把它们的引用一并摘掉。
+ *
+ * 服务端已做字段修补和白名单剔除，但模型输出是最不可控的一环 ——
+ * 缺必填字段、id 引用断裂都会让整个 surface 校验失败。这里逐组件
+ * 丢弃问题块，保证「坏一个组件」不等于「整屏报废」。
+ */
+const DROP_LOG: string[] = [];
+
+function dropIfBroken(comp: Record<string, unknown>): boolean {
+  const name = comp.component;
+  if (typeof name !== 'string') return true;
+  // 必填字段（与服务端 catalog 的 required 保持一致）
+  const REQUIRED: Record<string, string[]> = {
+    Text: ['text'],
+    Column: ['children'],
+    Row: ['children'],
+    List: ['children'],
+    Card: ['child'],
+    Button: ['child', 'action'],
+    TextField: ['label'],
+    CheckBox: ['label'],
+    ChoicePicker: ['options'],
+    Slider: ['min', 'max'],
+    DateTimeInput: ['label'],
+    Tabs: ['tabs'],
+    Modal: ['child'],
+    Image: ['url'],
+    Icon: ['name'],
+    Video: ['url'],
+    AudioPlayer: ['url'],
+    Divider: [],
+  };
+  const need = REQUIRED[name];
+  if (!need) return true; // 未知组件
+  for (const field of need) {
+    const v = comp[field];
+    if (v === undefined || v === null || v === '') return true;
+  }
+  return false;
+}
+
+export function sanitizeMessages(messages: A2uiMessage[]): A2uiMessage[] {
+  DROP_LOG.length = 0;
+  return messages.map((msg) => {
+    const upd = (msg as Record<string, unknown>).updateComponents as
+      | { surfaceId?: string; components?: Record<string, unknown>[] }
+      | undefined;
+    if (!upd || !Array.isArray(upd.components)) return msg;
+
+    const kept = upd.components.filter((c) => {
+      if (typeof c !== 'object' || c === null) return false;
+      const broken = dropIfBroken(c);
+      if (broken) DROP_LOG.push(String((c as Record<string, unknown>).id ?? '?'));
+      return !broken;
+    });
+    const keptIds = new Set(kept.map((c) => c.id));
+    // 摘掉指向被丢弃组件的引用，否则悬空引用同样会让 surface 失败
+    const cleaned = kept.map((c) => {
+      const copy: Record<string, unknown> = { ...c };
+      if (Array.isArray(copy.children)) {
+        copy.children = (copy.children as string[]).filter((x) => keptIds.has(x));
+      }
+      if (typeof copy.child === 'string' && !keptIds.has(copy.child)) {
+        delete copy.child;
+      }
+      if (Array.isArray(copy.tabs)) {
+        copy.tabs = (copy.tabs as Record<string, unknown>[]).map((t) => ({
+          ...t,
+          content: keptIds.has(String(t?.content)) ? t?.content : undefined,
+        }));
+      }
+      return copy;
+    });
+    return { ...msg, updateComponents: { ...upd, components: cleaned } };
+  });
+}
+
+/**
  * A2UI 消息渲染器。
  *
  * 设计要点：
@@ -60,7 +138,10 @@ export function A2uiRenderer({ messages, onAction, className }: A2uiRendererProp
       const p = new MessageProcessor([basicCatalog], (action) => {
         onAction?.(action as Record<string, unknown>);
       });
-      p.processMessages(parsed as never);
+      // 逐组件容错：单个组件不合规时只丢这一块，而不是整屏报废。
+      // 服务端已经做了字段修补与白名单剔除，这里是最外层兜底 ——
+      // 任何漏网的非法字段都不该让用户看到「界面渲染失败」。
+      p.processMessages(sanitizeMessages(parsed) as never);
       return p;
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : String(exc));
