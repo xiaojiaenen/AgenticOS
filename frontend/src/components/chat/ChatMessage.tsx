@@ -39,6 +39,8 @@ interface ChatMessageProps {
   onOpenArtifact?: (artifact: Artifact) => void;
   /** A2UI 交互组件（Button 等）被点击时回调，上层转成一条用户消息。 */
   onA2uiAction?: (action: Record<string, unknown>) => void;
+  /** A2UI 数据模型变化（表单输入等），用于"跟随刷新" */
+  onA2uiDataChange?: (data: Record<string, unknown>, surfaceId?: string) => void;
   index?: number;
   searchQuery?: string;
   activeMatchId?: string | null;
@@ -54,7 +56,7 @@ function preprocessChartMarkers(text: string): string {
   );
 }
 
-export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, isAdmin = false, onOpenArtifact, onA2uiAction, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
+export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, isAdmin = false, onOpenArtifact, onA2uiAction, onA2uiDataChange, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
   const isUser = message?.role === 'user';
   // 按序渲染（新消息）：正文/工具/思考交错展示；历史消息回退旧式三桶
   const useOrderedRender = !isUser && !isTyping && Boolean(message?.blocks?.length) && shouldUseOrderedRender(message!);
@@ -173,6 +175,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             <A2uiRenderer
               messages={message.a2uiMessages}
               onAction={onA2uiAction}
+              onDataChange={onA2uiDataChange}
             />
           </div>
         ) : null}

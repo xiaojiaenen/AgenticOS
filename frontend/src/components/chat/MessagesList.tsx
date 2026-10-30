@@ -38,6 +38,8 @@ interface MessagesListProps {
   searchQuery: string;
   activeMatchId: string | null;
   onSend: (text: string) => void;
+  /** A2UI 数据变化（表单输入等），上抛给会话层做跟随刷新 */
+  onA2uiDataChange?: (data: Record<string, unknown>, surfaceId?: string) => void;
   onSuggestionClick: (text: string) => void;
   onOpenArtifact: (artifact: Artifact) => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
@@ -54,6 +56,7 @@ export const MessagesList = React.memo<MessagesListProps>(({
   searchQuery,
   activeMatchId,
   onSend,
+  onA2uiDataChange,
   onSuggestionClick,
   onOpenArtifact,
   messagesEndRef,
@@ -86,6 +89,7 @@ export const MessagesList = React.memo<MessagesListProps>(({
       activeMatchId={activeMatchId}
       onOpenArtifact={onOpenArtifact}
       onA2uiAction={handleA2uiAction}
+      onA2uiDataChange={onA2uiDataChange}
     />
   );
 

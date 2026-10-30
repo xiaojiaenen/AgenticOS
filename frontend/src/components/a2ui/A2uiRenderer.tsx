@@ -16,12 +16,18 @@
  * 按钮没有任何外观。之前漏了这一步，界面看起来跟项目风格完全脱节。
  * 配色/圆角/字体由宿主用 CSS 变量覆盖，见 styles/a2ui-theme.css。
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MessageProcessor } from '@a2ui/web_core/v0_9';
 import { basicCatalog } from '@a2ui/web_core/v0_9/basic_catalog';
 import { A2uiSurface } from '@a2ui/react/v0_9';
 import { injectStyles } from '@a2ui/react/styles';
 import { AlertCircle, Loader2 } from 'lucide-react';
+import {
+  applyDataModel,
+  snapshotDataModel,
+  watchDataModel,
+  type DataModelSnapshot,
+} from './a2uiDataBinding';
 
 /** 一条 A2UI 消息。结构由协议定义，这里只约束外层判别字段。 */
 export type A2uiMessage = Record<string, unknown>;
@@ -31,6 +37,8 @@ export interface A2uiRendererProps {
   messages: A2uiMessage[];
   /** 用户点击组件触发的动作，回传给智能体 */
   onAction?: (action: Record<string, unknown>) => void;
+  /** 数据模型变化（表单输入等），上层可据此做"跟随刷新"研判 */
+  onDataChange?: (data: DataModelSnapshot, surfaceId?: string) => void;
   className?: string;
 }
 
@@ -124,7 +132,7 @@ export function sanitizeMessages(messages: A2uiMessage[]): A2uiMessage[] {
  * - **渲染失败不炸整个对话**：A2UI 消息来自模型，格式可能不合规。捕获异常
  *   后降级成一条错误提示，而不是让整条消息流崩掉。
  */
-export function A2uiRenderer({ messages, onAction, className }: A2uiRendererProps) {
+export function A2uiRenderer({ messages, onAction, onDataChange, className }: A2uiRendererProps) {
   const [error, setError] = useState<string | null>(null);
   const [surfaces, setSurfaces] = useState<unknown[]>([]);
 
@@ -180,6 +188,55 @@ export function A2uiRenderer({ messages, onAction, className }: A2uiRendererProp
       deleted.unsubscribe();
     };
   }, [processor]);
+
+  // 订阅每个 surface 的数据模型：用户改表单值时上报给上层。
+  // A2UI 的 DataModel 提供 subscribe，组件输入会写进模型并冒泡到这里。
+  useEffect(() => {
+    if (!processor || !onDataChange) return;
+    const disposers: Array<() => void> = [];
+    for (const surface of surfaces as Array<{ id?: string }>) {
+      if (!surface?.id) continue;
+      try {
+        const surf = processor.getSurface(surface.id) as
+          | { dataModel?: unknown }
+          | undefined;
+        const dm = surf?.dataModel as Parameters<typeof watchDataModel>[0];
+        if (!dm) continue;
+        disposers.push(
+          watchDataModel(dm, (snap) => onDataChange(snap, surface.id)),
+        );
+      } catch {
+        /* 单个 surface 订阅失败不影响其余 */
+      }
+    }
+    return () => {
+      for (const dispose of disposers) dispose();
+    };
+  }, [processor, surfaces, onDataChange]);
+
+  // 智能体下发的新数据（updateDataModel）写回模型，触发组件局部刷新。
+  // 这是"筛选变了表格跟着变"的关键：不重渲染整块界面，只更新绑定值。
+  const lastDataRef = useRef<string>('');
+  useEffect(() => {
+    if (!processor) return;
+    for (const surface of surfaces as Array<{ id?: string }>) {
+      if (!surface?.id) continue;
+      try {
+        const surf = processor.getSurface(surface.id) as
+          | { dataModel?: unknown }
+          | undefined;
+        const dm = surf?.dataModel as Parameters<typeof applyDataModel>[0];
+        if (!dm) continue;
+        const snap = snapshotDataModel(dm);
+        const key = `${surface.id}:${JSON.stringify(snap)}`;
+        if (key === lastDataRef.current) continue;
+        lastDataRef.current = key;
+        applyDataModel(dm, snap);
+      } catch {
+        /* 回写失败只影响这次刷新 */
+      }
+    }
+  }, [processor, surfaces]);
 
   if (error) {
     return (

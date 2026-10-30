@@ -265,6 +265,56 @@ def register_a2ui_tools(registry: ToolRegistry) -> None:
         )
 
 
+
+    @registry.tool(display_name="更新界面数据")
+    async def update_interface(
+        surface_id: str,
+        data_json: str,
+        path: str = "",
+    ) -> str:
+        """更新已生成界面的数据，让绑定字段局部刷新。
+
+        什么时候用：用户改了界面上的筛选/输入，你需要据此更新显示的值。
+        界面结构不用重发 —— 只更新数据，组件会自己刷新（输入焦点、
+        滚动位置都不丢）。
+
+        什么时候不用：需要改界面结构（加/删组件）→ 用 render_components
+        并传同一个 surface_id。
+
+        参数:
+          surface_id: 要更新的界面 id（render_* 返回里会告诉你）
+          data_json: 新的数据对象 JSON 字符串，例如 {"team":"平台","count":12}
+                     —— 只需给要改的字段，未提及的保持原值
+          path: 可选。留空表示按键合并进根数据；给 "/filters" 这类路径
+                则只替换该子树
+
+        返回:
+          更新结果说明
+        """
+        import json
+
+        try:
+            value = json.loads(data_json)
+        except json.JSONDecodeError as exc:
+            return f"data_json 不是合法 JSON：{exc}"
+        if not isinstance(value, dict):
+            return "data_json 必须是一个 JSON 对象（键值对）"
+
+        sid = surface_id.strip()
+        if not sid:
+            return "surface_id 不能为空。请使用 render_* 返回的界面 id。"
+
+        _emit([update_data_model(sid, value, path.strip() or None)])
+        logger.info(
+            "a2ui update_interface: surface=%s keys=%s path=%r",
+            sid, list(value.keys())[:6], path or "/",
+        )
+        target = path.strip() or "根数据"
+        return (
+            f"已更新界面 {sid} 的{target}（{len(value)} 个字段）。"
+            "绑定这些字段的组件会自动刷新，无需重新生成界面。"
+        )
+
 __all__ = [
     "register_a2ui_tools",
     "reset_pending",

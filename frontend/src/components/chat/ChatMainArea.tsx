@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChatTimeline } from './ChatTimeline';
 import { ChatSearch } from './ChatSearch';
@@ -19,7 +19,22 @@ import { getStoredUser } from '../../services/authService';
 
 export const ChatMainArea = React.memo(() => {
   // 从 Context 获取 hook 返回值和派生状态
-  const {
+    /**
+   * A2UI 数据变化（表单输入）。
+   *
+   * 取舍：不在这里直接发消息 —— 用户每敲一个字都发一条会污染对话。
+   * 仅在「值确实变了」时记录最新数据，等用户点按钮/提交时随 action
+   * 一起带给智能体；智能体可据此调用 update_interface 局部刷新界面。
+   */
+  const a2uiDataRef = useRef<Record<string, unknown>>({});
+  const handleA2uiDataChange = (
+    data: Record<string, unknown>,
+    surfaceId?: string,
+  ) => {
+    a2uiDataRef.current = { ...data, __surface: surfaceId ?? '' };
+  };
+
+const {
     currentSession, isLoading, isWideConversation,
     isUserScrolledUp, error, runStatus,
     showSearch, searchQuery, searchMatchesCount, searchCurrentIndex, activeMatchId,
@@ -228,6 +243,7 @@ export const ChatMainArea = React.memo(() => {
             searchQuery={searchQuery}
             activeMatchId={activeMatchId}
             onSend={handleSend}
+            onA2uiDataChange={handleA2uiDataChange}
             onSuggestionClick={onSuggestionClick}
             onOpenArtifact={onOpenArtifact}
             messagesEndRef={messagesEndRef}
