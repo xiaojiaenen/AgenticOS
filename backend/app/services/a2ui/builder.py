@@ -30,6 +30,7 @@ from app.services.a2ui.catalog import (
     ALLOWED_COMPONENTS,
     A2uiValidationError,
     extract_initial_data,
+    normalize_components,
     validate_components,
 )
 
@@ -56,6 +57,9 @@ def create_surface(surface_id: str, *, send_data_model: bool = True) -> dict[str
 
 def update_components(surface_id: str, components: list[dict[str, Any]]) -> dict[str, Any]:
     """下发/更新组件。``components`` 是邻接表列表（含 id 与 component 字段）。"""
+    # 先做字段名修补：模型常把 Tabs 的 title/content 写成 label/child，
+    # 渲染端会整块报 Validation failed。修补是确定性的，优先于报错。
+    components = normalize_components(components)
     # 完整校验：组件名 / id 唯一 / 必填字段 / 悬空引用 / 环。
     # 校验失败转成 A2uiBuildError，让调用方只需捕获一种异常。
     try:

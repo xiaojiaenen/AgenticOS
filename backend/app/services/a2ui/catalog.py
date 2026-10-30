@@ -36,7 +36,7 @@ COMPONENT_SPECS: dict[str, tuple[tuple[str, ...], tuple[str, ...], str]] = {
     "ChoicePicker": (("options",), ("value",), "单选。options 是 [{label,value}] 数组"),
     "Slider": (("min", "max"), ("value",), "滑块"),
     "DateTimeInput": (("label",), ("value",), "日期时间输入"),
-    "Tabs": (("tabs",), (), "标签页。tabs 是 [{label, child}] 数组"),
+    "Tabs": (("tabs",), (), "标签页。tabs 是 [{title, content}] 数组——title 是标签名（字符串），content 是子组件 id"),
     "Modal": (("child",), ("title",), "弹窗容器"),
     "Image": (("src",), ("alt",), "图片"),
     "Icon": (("name",), (), "图标"),
@@ -92,9 +92,60 @@ def _collect_child_refs(comp: dict[str, Any]) -> list[str]:
     tabs = comp.get("tabs")
     if isinstance(tabs, list):
         for tab in tabs:
-            if isinstance(tab, dict) and isinstance(tab.get("child"), str):
-                refs.append(tab["child"])
+            # 官方 schema：每个 tab 是 {title, content}，content 才是子组件 id。
+            # 历史写法用 child，已废弃 —— 两个都收，兼容旧数据。
+            if isinstance(tab, dict):
+                for key in ("content", "child"):
+                    if isinstance(tab.get(key), str):
+                        refs.append(tab[key])
     return refs
+
+
+def normalize_components(components: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """修补模型常见的字段名偏差，返回可渲染的组件树。
+
+    A2UI 官方 schema 对 `Tabs` 的要求是每项 `{title, content}`，但模型
+    很容易按直觉写成 `{label, child}` 或 `{title, child}`。渲染端会因此
+    报 "tabs.0.title: Expected string, received undefined"，整块界面报废
+    —— 而这不影响对话本身，用户只会觉得"渲染坏了"。
+
+    与其指望 prompt 每次都写对，不如在服务端做一次确定性修补：
+      label / name  → title
+      child / body  → content
+    """
+    if not isinstance(components, list):
+        return components
+
+    TAB_TITLE_ALIASES = ("title", "label", "name", "text")
+    TAB_CONTENT_ALIASES = ("content", "child", "body", "component")
+
+    for comp in components:
+        if not isinstance(comp, dict) or comp.get("component") != "Tabs":
+            continue
+        tabs = comp.get("tabs")
+        if not isinstance(tabs, list):
+            continue
+        fixed: list[Any] = []
+        for tab in tabs:
+            if not isinstance(tab, dict):
+                fixed.append(tab)
+                continue
+            item = dict(tab)
+            if not isinstance(item.get("title"), (str, dict)):
+                for key in TAB_TITLE_ALIASES[1:]:
+                    val = item.get(key)
+                    if isinstance(val, (str, dict)) and val not in ("", None):
+                        item["title"] = val
+                        break
+            if not isinstance(item.get("content"), (str, dict)):
+                for key in TAB_CONTENT_ALIASES[1:]:
+                    val = item.get(key)
+                    if isinstance(val, (str, dict)) and val not in ("", None):
+                        item["content"] = val
+                        break
+            fixed.append(item)
+        comp["tabs"] = fixed
+    return components
 
 
 def validate_components(components: list[dict[str, Any]]) -> None:
@@ -127,6 +178,27 @@ def validate_components(components: list[dict[str, Any]]) -> None:
                     f"组件「{cid}」({name}) 缺少必填字段「{field}」。"
                     f"{name} 需要：{', '.join(required)}"
                 )
+
+        # Tabs 的逐项校验：title 缺失是最高频的渲染失败原因
+        if name == "Tabs":
+            tabs = comp.get("tabs")
+            if not isinstance(tabs, list) or not tabs:
+                raise A2uiValidationError(
+                    f"组件「{cid}」(Tabs) 的 tabs 必须是非空数组"
+                )
+            for i, tab in enumerate(tabs):
+                if not isinstance(tab, dict):
+                    raise A2uiValidationError(
+                        f"组件「{cid}」的 tabs[{i}] 不是对象"
+                    )
+                if not isinstance(tab.get("title"), (str, dict)):
+                    raise A2uiValidationError(
+                        f"组件「{cid}」的 tabs[{i}] 缺少 title（标签名，字符串）"
+                    )
+                if not isinstance(tab.get("content"), (str, dict)):
+                    raise A2uiValidationError(
+                        f"组件「{cid}」的 tabs[{i}] 缺少 content（子组件 id）"
+                    )
 
     # 根组件
     if "root" not in ids:

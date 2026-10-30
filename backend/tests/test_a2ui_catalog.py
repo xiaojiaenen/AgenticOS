@@ -74,13 +74,18 @@ def test_validate_rejects_cycle() -> None:
 
 
 def test_validate_accepts_complex_tree() -> None:
-    """真实可用的复杂结构：卡片 + 行 + 标签页 + 输入绑定。"""
+    """真实可用的复杂结构：卡片 + 行 + 标签页 + 输入绑定。
+
+    Tabs 每项必须是 {title, content} —— 这是官方 @a2ui schema 的字段名。
+    历史这里写的是 {label, child}：服务端能过，前端却报
+    "tabs.0.title: Expected string, received undefined"，整块界面渲染失败。
+    """
     catalog.validate_components([
         {"id": "root", "component": "Column", "children": ["title", "tabs", "form"]},
         {"id": "title", "component": "Text", "text": "仪表盘", "variant": "h1"},
         {"id": "tabs", "component": "Tabs", "tabs": [
-            {"label": "概览", "child": "tab1"},
-            {"label": "设置", "child": "tab2"},
+            {"title": "概览", "content": "tab1"},
+            {"title": "设置", "content": "tab2"},
         ]},
         {"id": "tab1", "component": "Row", "children": ["c1", "c2"]},
         {"id": "c1", "component": "Card", "child": "c1t"},
