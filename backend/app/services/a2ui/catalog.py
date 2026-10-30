@@ -24,25 +24,48 @@ from typing import Any
 
 # 每个组件：名称 → (必填字段, 常用可选字段, 一句话说明)
 COMPONENT_SPECS: dict[str, tuple[tuple[str, ...], tuple[str, ...], str]] = {
-    "Text": (("text",), ("variant",), "文本。variant 可选 h1/h2/h3/body/caption/label"),
-    "Column": (("children",), (), "纵向排列子组件。children 是 id 数组"),
-    "Row": (("children",), (), "横向排列子组件"),
-    "Card": (("child",), (), "卡片容器，child 是单个子组件 id"),
-    "List": (("children",), (), "列表"),
-    "Divider": ((), (), "分隔线"),
-    "Button": (("child", "action"), ("variant", "label"),
-     "按钮。child 是 Text 组件 id；action 是**必填对象**，结构为 {'event':{'name':'submit'}}，event 这一层不能省"),
-    "TextField": (("label",), ("value", "placeholder", "variant"), "文本输入。label 是标签文案；value 用 {'path':'/字段名'} 绑定；variant 可选 shortText/longText/number/obscured"),
-    "CheckBox": (("label",), ("value",), "勾选框。value 是布尔值，用 {'path':'/字段名'} 绑定"),
-    "ChoicePicker": (("options",), ("value",), "单选。options 是 [{label,value}] 数组"),
-    "Slider": (("min", "max"), ("value",), "滑块"),
-    "DateTimeInput": (("label",), ("value",), "日期时间输入"),
-    "Tabs": (("tabs",), (), "标签页。tabs 是 [{title, content}] 数组——title 是标签名（字符串），content 是子组件 id"),
-    "Modal": (("child",), ("label",), "弹窗容器。label 是标题文案，child 是内容组件 id"),
-    "Image": (("url",), ("description",), "图片。url 是图片地址，description 是替代文本"),
-    "Icon": (("name",), (), "图标"),
-    "Video": (("url",), ("description", "posterUrl"), "视频。url 是视频地址，posterUrl 是封面图"),
-    "AudioPlayer": (("url",), ("description",), "音频播放器。url 是音频地址"),
+    "Text": (("text",), ("variant",),
+             "文本。variant 只能取 h1/h2/h3/h4/h5/caption/body（没有 label！）"),
+    "Column": (("children",), ("justify", "align"),
+               "纵向排列。children 是 id 数组；"
+               "justify 取 start/center/end/spaceBetween/spaceAround/spaceEvenly/stretch；"
+               "align 取 start/center/end/stretch"),
+    "Row": (("children",), ("justify", "align"),
+            "横向排列。children 是 id 数组；justify/align 取值同 Column"),
+    "Card": (("child",), (), "卡片容器。child 是单个子组件 id"),
+    "List": (("children",), ("direction", "align"),
+             "列表。children 是 id 数组；direction 取 vertical/horizontal"),
+    "Divider": ((), ("axis",), "分隔线。axis 取 horizontal/vertical"),
+    "Button": (("child", "action"), ("variant",),
+               "按钮。child 是 Text 组件 id；action 是**必填对象**，"
+               "结构 {'event':{'name':'submit'}}（event 这层不能省）；"
+               "variant 取 default/primary/borderless"),
+    "TextField": (("label",), ("value", "variant", "validationRegexp"),
+                  "文本输入。value 用 {'path':'/字段名'} 绑定；"
+                  "variant 取 longText/number/shortText/obscured"),
+    "CheckBox": (("label", "value"), (),
+                 "勾选框。value 是**布尔**，用 {'path':'/字段名'} 绑定"),
+    "ChoicePicker": (("options", "value"), ("label", "variant", "displayStyle", "filterable"),
+                     "单选/多选。options 是 [{'label':..,'value':..}]；"
+                     "value 是**数组**（多选）或路径绑定，不能是裸字符串；"
+                     "variant 取 multipleSelection/mutuallyExclusive；"
+                     "displayStyle 取 checkbox/chips"),
+    "Slider": (("max", "value"), ("min", "label"),
+               "滑块。max 必填；value 是**数字**或路径绑定"),
+    "DateTimeInput": (("value",), ("label", "enableDate", "enableTime", "min", "max"),
+                      "日期时间输入。value 是字符串或路径绑定"),
+    "Tabs": (("tabs",), (),
+             "标签页。tabs 是 [{'title':..,'content':..}] 数组，"
+             "title 是标签名（字符串），content 是子组件 id"),
+    "Modal": (("trigger", "content"), (),
+              "弹窗。trigger 是触发组件 id，content 是内容组件 id（不是 child/label！）"),
+    "Image": (("url",), ("description", "fit", "variant"),
+              "图片。url 是地址；description 是替代文本；"
+              "fit 取 contain/cover/fill/none/scaleDown"),
+    "Icon": (("name",), (),
+             "图标。name 取内置图标名，如 check/close/search/settings/star 等"),
+    "Video": (("url",), (), "视频。url 是地址"),
+    "AudioPlayer": (("url",), ("description",), "音频播放器。url 是地址"),
 }
 
 # ---------------------------------------------------------------------------
@@ -57,18 +80,19 @@ COMPONENT_EXAMPLES: dict[str, dict[str, Any]] = {
     "CheckBox": {"id": "c1", "component": "CheckBox", "label": "同意",
                  "value": {"path": "/agree"}},
     "ChoicePicker": {"id": "p1", "component": "ChoicePicker",
-                     "options": [{"label": "高", "value": "high"}],
+                     "label": "级别",
+                     "options": [{"label": "高", "value": "high"},{"label": "低", "value": "low"}],
                      "value": {"path": "/level"}},
     "Slider": {"id": "s1", "component": "Slider", "min": 0, "max": 100,
-               "value": {"path": "/pct"}},
+               "value": {"path": "/pct"}},  # value 必须是数字或路径绑定
     "DateTimeInput": {"id": "d1", "component": "DateTimeInput",
                       "label": "日期", "value": {"path": "/date"}},
     "Tabs": {"id": "tb1", "component": "Tabs", "tabs": [
         {"title": "概览", "content": "p1"},
         {"title": "详情", "content": "p2"},
     ]},
-    "Modal": {"id": "m1", "component": "Modal", "label": "确认",
-              "child": "t1"},
+    "Modal": {"id": "m1", "component": "Modal",
+              "trigger": "btn1", "content": "t1"},
     "Image": {"id": "i1", "component": "Image", "url": "https://example.com/a.png",
               "description": "示意图"},
     "Video": {"id": "v1", "component": "Video", "url": "https://example.com/a.mp4"},
@@ -177,44 +201,98 @@ def _collect_child_refs(comp: dict[str, Any]) -> list[str]:
 # 模型多写的任何字段都会被前端 zod 判为 "Unrecognized key(s)"，整块界面报废，
 # 所以服务端必须主动剔除，而不是指望模型只写允许的字段。
 OFFICIAL_FIELDS: dict[str, frozenset[str]] = {
-    "Text": frozenset({"text", "variant", "weight", "child", "children",
-                       "align", "direction", "justify", "axis", "checks"}),
-    "Column": frozenset({"children", "align", "direction", "justify", "axis",
-                         "weight", "checks", "child", "trigger"}),
-    "Row": frozenset({"children", "align", "direction", "justify", "axis",
-                      "weight", "checks", "child", "trigger"}),
-    "Card": frozenset({"child", "children", "variant", "weight", "checks",
-                       "align", "direction", "justify", "axis", "trigger"}),
-    "List": frozenset({"children", "child", "align", "direction", "justify",
-                       "axis", "weight", "checks", "trigger"}),
-    "Divider": frozenset({"weight", "checks", "axis", "variant"}),
-    "Button": frozenset({"child", "action", "label", "variant", "weight",
-                         "checks", "trigger", "align", "direction", "justify"}),
-    "TextField": frozenset({"checks", "label", "value", "placeholder",
-                            "variant", "weight"}),
-    "CheckBox": frozenset({"checks", "displayStyle", "label", "options",
-                           "value", "variant", "weight"}),
-    "ChoicePicker": frozenset({"options", "value", "label", "variant",
-                               "weight", "checks", "displayStyle"}),
-    "Slider": frozenset({"min", "max", "value", "label", "step", "variant",
-                         "weight", "checks"}),
-    "DateTimeInput": frozenset({"label", "value", "variant", "weight",
-                                "checks", "placeholder"}),
-    "Tabs": frozenset({"tabs", "weight", "checks", "variant", "trigger"}),
-    "Modal": frozenset({"action", "axis", "checks", "child", "content", "label",
-                        "trigger", "variant", "weight"}),
-    "Image": frozenset({"description", "fit", "name", "posterUrl", "url",
-                        "variant", "weight", "checks"}),
-    "Icon": frozenset({"name", "variant", "weight", "checks", "description"}),
-    "Video": frozenset({"align", "child", "children", "description", "direction",
-                        "justify", "posterUrl", "url", "weight", "checks", "fit"}),
-    "AudioPlayer": frozenset({"align", "axis", "checks", "child", "children",
-                              "content", "description", "direction", "justify",
-                              "url", "weight", "trigger"}),
+    "Text": frozenset({"text", "variant"}),
+    "Image": frozenset({"url", "description", "fit", "variant"}),
+    "Icon": frozenset({"name"}),
+    "Video": frozenset({"url"}),
+    "AudioPlayer": frozenset({"url", "description"}),
+    "Row": frozenset({"children", "justify", "align"}),
+    "Column": frozenset({"children", "justify", "align"}),
+    "List": frozenset({"children", "direction", "align"}),
+    "Card": frozenset({"child"}),
+    "Tabs": frozenset({"tabs"}),
+    "Modal": frozenset({"trigger", "content"}),
+    "Divider": frozenset({"axis"}),
+    "Button": frozenset({"child", "variant", "action"}),
+    "TextField": frozenset({"label", "value", "variant", "validationRegexp"}),
+    "CheckBox": frozenset({"label", "value"}),
+    "ChoicePicker": frozenset({"label", "variant", "options", "value",
+                               "displayStyle", "filterable"}),
+    "Slider": frozenset({"label", "min", "max", "value"}),
+    "DateTimeInput": frozenset({"value", "enableDate", "enableTime",
+                                "min", "max", "label"}),
 }
 
 # 结构字段始终保留（id/component 由协议定义，不属于组件 schema）
 STRUCTURAL_FIELDS = frozenset({"id", "component"})
+
+
+VALID_ENUMS: dict[tuple[str, str], frozenset[str]] = {
+    ("Text", "variant"): frozenset({"h1", "h2", "h3", "h4", "h5", "caption", "body"}),
+    ("Image", "fit"): frozenset({"contain", "cover", "fill", "none", "scaleDown"}),
+    ("Image", "variant"): frozenset(
+        {"icon", "avatar", "smallFeature", "mediumFeature", "largeFeature", "header"}),
+    ("Row", "justify"): frozenset(
+        {"center", "end", "spaceAround", "spaceBetween", "spaceEvenly", "start", "stretch"}),
+    ("Row", "align"): frozenset({"start", "center", "end", "stretch"}),
+    ("Column", "justify"): frozenset(
+        {"start", "center", "end", "spaceBetween", "spaceAround", "spaceEvenly", "stretch"}),
+    ("Column", "align"): frozenset({"center", "end", "start", "stretch"}),
+    ("List", "direction"): frozenset({"vertical", "horizontal"}),
+    ("List", "align"): frozenset({"start", "center", "end", "stretch"}),
+    ("Divider", "axis"): frozenset({"horizontal", "vertical"}),
+    ("Button", "variant"): frozenset({"default", "primary", "borderless"}),
+    ("TextField", "variant"): frozenset({"longText", "number", "shortText", "obscured"}),
+    ("ChoicePicker", "variant"): frozenset({"multipleSelection", "mutuallyExclusive"}),
+    ("ChoicePicker", "displayStyle"): frozenset({"checkbox", "chips"}),
+}
+
+
+def _is_path_binding(v: Any) -> bool:
+    return isinstance(v, dict) and ("path" in v or "@path" in v)
+
+
+def _fix_types(comp: dict[str, Any], name: str) -> None:
+    """按官方 schema 修正字段类型与枚举，静默修好，不让前端报错。
+
+    线上两个报错都出在类型/枚举：
+      Text.variant   收到 'label'（合法值 h1~h5/caption/body）
+      ChoicePicker.value 收到 string（官方要数组或路径绑定）
+    """
+    # 枚举值非法 -> 丢弃该字段，让 schema 走默认值。
+    # 不猜一个"最接近"的值：variant:'label' 到底想要 caption 还是 body 无从判断。
+    for (comp_name, field), allowed in VALID_ENUMS.items():
+        if comp_name != name:
+            continue
+        val = comp.get(field)
+        if isinstance(val, str) and val not in allowed:
+            comp.pop(field, None)
+
+    if name == "ChoicePicker":
+        val = comp.get("value")
+        if isinstance(val, str):
+            comp["value"] = [val]          # 单值 -> 数组
+        elif isinstance(val, list):
+            comp["value"] = [str(x) for x in val
+                             if isinstance(x, (str, int, float))]
+
+    if name == "Slider":
+        val = comp.get("value")
+        if isinstance(val, str) and not _is_path_binding(comp.get("value")):
+            try:
+                comp["value"] = float(val) if "." in val else int(val)
+            except (TypeError, ValueError):
+                pass
+
+    if name == "CheckBox":
+        val = comp.get("value")
+        if isinstance(val, str) and val.lower() in ("true", "false"):
+            comp["value"] = val.lower() == "true"
+
+    if name == "Text":
+        val = comp.get("text")
+        if isinstance(val, list):
+            comp["text"] = " ".join(str(x) for x in val)
 
 
 def normalize_components(components: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -242,7 +320,10 @@ def normalize_components(components: list[dict[str, Any]]) -> list[dict[str, Any
         "Image": {"src": "url", "alt": "description", "title": "description"},
         "Video": {"src": "url", "alt": "description", "title": "description"},
         "AudioPlayer": {"src": "url", "alt": "description", "title": "description"},
-        "Modal": {"title": "label", "text": "label"},
+        # Modal 真实字段只有 trigger/content。child 是历史的子树写法，
+        # 映射到 content；title/label 属于「标题文案」，Modal 没有这个概念，
+        # 映射到 content 会覆盖真正的子树 id（踩过一次）。
+        "Modal": {"child": "content"},
         "Icon": {"src": "name", "title": "description"},
         "TextField": {"placeholder": "placeholder"},
     }
@@ -288,6 +369,15 @@ def normalize_components(components: list[dict[str, Any]]) -> list[dict[str, Any
                 continue
             if comp.get(official) in (None, ""):
                 comp[official] = comp[alias]
+
+        # --- 类型/枚举修正（必须在白名单剔除之前，否则会被误删）---
+        _fix_types(comp, str(name or ""))
+
+        # --- Modal 的 trigger 兜底 ---
+        # 官方要求 trigger（触发组件 id）必填。模型常只给内容不指定触发器，
+        # 补 root 作为占位 —— 渲染层会把它当作"无触发器、常显"处理。
+        if name == "Modal" and not isinstance(comp.get("trigger"), str):
+            comp["trigger"] = "root"
 
         # --- Button 的 action 兜底 ---
         # 官方 schema 要求 action 是 {event:{name}}。模型经常只写 {name:...}

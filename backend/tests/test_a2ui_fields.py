@@ -106,15 +106,22 @@ def test_image_src_rewritten_to_url() -> None:
     assert "src" not in out[1] and "alt" not in out[1]
 
 
-def test_modal_title_rewritten_to_label() -> None:
+def test_modal_child_rewritten_to_content() -> None:
+    """官方 Modal 字段是 trigger/content —— 没有 child/label。
+
+    早期误以为要用 label，实际 schema 只认这两个：
+      trigger: 触发组件 id（必填）
+      content: 内容组件 id（必填）
+    """
     comps = [
         {"id": "root", "component": "Column", "children": ["m"]},
         {"id": "m", "component": "Modal", "child": "t", "title": "确认"},
         {"id": "t", "component": "Text", "text": "内容"},
     ]
     out = normalize_components(comps)
-    assert out[1]["label"] == "确认"
-    assert "title" not in out[1]
+    assert out[1]["content"] == "t", "child 应改写成 content"
+    assert "child" not in out[1]
+    assert "title" not in out[1], "title 不属于 Modal schema"
 
 
 def test_video_and_audio_src_rewritten() -> None:
