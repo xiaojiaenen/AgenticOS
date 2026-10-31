@@ -134,6 +134,16 @@ export function useChatStream({
   const latestReasoningRef = useRef<string | null>(null);
   const deltaFlushRaf = useRef<number | null>(null);
 
+  // A2UI 提交排队：界面在流式过程中就能点，此时不能并发起新 run
+  // （同会话后端有锁，两条流还会互相覆盖同一条助手消息）。
+  // 这里先存下动作、停掉当前流，等 isLoading 落下后由下方 effect 真正发出。
+  const pendingA2uiRef = useRef<Array<{ text: string; files?: File[] }>>([]);
+  const handleSendRef = useRef<
+    ((text: string, files?: File[], source?: 'composer' | 'a2ui') => Promise<boolean>) | null
+  >(null);
+  /** 当前是否处于流式状态（供 handleSend 的守卫读取，避免闭包读到旧值）。 */
+  const isLoadingRef = useRef(false);
+
   // Cleanup rAF + 撤销本轮创建的附件 blob URL + abort 未完成请求 on unmount
   useEffect(() => () => {
     if (deltaFlushRaf.current != null) cancelAnimationFrame(deltaFlushRaf.current);
@@ -166,6 +176,21 @@ export function useChatStream({
     loadingSessionId !== null &&
     (currentSessionId === null || currentSessionId === loadingSessionId || activeStreamSessionIdsRef.current.has(currentSessionId));
 
+  // handleSend 会闭包捕获 isLoading，而排队 flush 用的可能是**上一帧**的
+  // handleSend（effect 执行顺序早于 ref 更新 effect）。上一帧 isLoading 还是
+  // true，排队的动作会被守卫再丢一次 —— 所以守卫读 ref，不读闭包。
+  isLoadingRef.current = isLoading;
+
+  // A2UI 排队动作的落地时机：等本轮流真正结束（isLoading 落下）再发。
+  // 直接并发会撞上后端同会话的锁，而且两条流的 setSessions 会互相覆盖。
+  useEffect(() => {
+    if (isLoading) return;
+    const queued = pendingA2uiRef.current.splice(0);
+    if (queued.length === 0) return;
+    // 只发最新一条：连点提交多次时，用户意图是「最后一次提交」。
+    const last = queued[queued.length - 1];
+    void handleSendRef.current?.(last.text, last.files, 'composer');
+  }, [isLoading]);
   const handleStopGeneration = useCallback(() => {
     // 停止按钮真正 abort 当前请求
     abortControllerRef.current?.abort();
@@ -279,8 +304,45 @@ export function useChatStream({
   );
 
   const handleSend = useCallback(
-    async (text: string, files?: File[]): Promise<boolean> => {
-      if ((!text.trim() && (!files || files.length === 0)) || isLoading) return false;
+    /**
+     * 发送一条用户消息。
+     *
+     * ``source`` 用于区分来源：
+     * - ``composer``（默认）：输入框发送。流式进行中时直接忽略（防重复提交）。
+     * - ``a2ui``：A2UI 界面上的按钮/表单提交。
+     *
+     * 为什么 A2UI 必须绕开 isLoading 守卫：界面是在**本轮流式过程中**
+     * 推给前端的（tool_end 之后立刻下发，让用户先看到界面）。
+     * 用户在这个窗口里填表、点提交时 isLoading 还是 true ——
+     * 之前统一走 composer 路径，被守卫静默 return false，
+     * 表现就是「点了提交按钮完全没反应」，连报错都没有。
+     */
+    async (
+      text: string,
+      files?: File[],
+      source: 'composer' | 'a2ui' = 'composer',
+    ): Promise<boolean> => {
+      if (!text.trim() && (!files || files.length === 0)) return false;
+      const streaming = isLoadingRef.current;
+      if (source === 'composer' && streaming) return false;
+      if (source === 'a2ui' && streaming) {
+        // A2UI 界面是在**本轮流式过程中**下发的（tool_end 后立刻推送，
+        // 让用户先看到界面）。用户在这个窗口里填完点提交时 isLoading 仍为 true。
+        //
+        // 不能像 composer 那样直接 return false（那是「点了完全没反应」的根因），
+        // 也不能立刻并发发起新 run：后端同一会话持有锁，新 run 会排队到超时，
+        // 而且两条流的 setSessions 会互相覆盖同一条助手消息。
+        //
+        // 做法：停掉当前这一轮（用户已经看到界面了，继续流没意义），
+        // 把这条动作排进 pending，等 isLoading 落下后由 flush effect 发出。
+        pendingA2uiRef.current.push({ text: text.trim(), files });
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = null;
+        if (loadingSessionId) {
+          activeStreamSessionIdsRef.current.delete(loadingSessionId);
+        }
+        return true;
+      }
 
       // 清除待处理的决策（用户开始新输入时）
       setPendingDecisions([]);
@@ -437,6 +499,23 @@ export function useChatStream({
           // A2UI 声明式界面：累积消息序列写进这条助手消息。
           // 每条 a2ui 事件都可能只带一部分消息（先 createSurface 再补组件），
           // 所以按序追加，交给渲染器的 MessageProcessor 顺序消费。
+          onChartMessages: (charts) => {
+            setSessions((prev) =>
+              prev.map((session) =>
+                session.id === targetId
+                  ? {
+                      ...session,
+                      updatedAt: Date.now(),
+                      messages: session.messages.map((message) =>
+                        message.id === assistantMessageId
+                          ? { ...message, chartMessages: charts }
+                          : message,
+                      ),
+                    }
+                  : session,
+              ),
+            );
+          },
           onA2uiMessages: (messages) => {
             setSessions((prev) =>
               prev.map((session) =>
@@ -880,8 +959,15 @@ export function useChatStream({
       setInputValue,
       onUserInputRequired,
       onApiApprovalRequired,
+      loadingSessionId,
     ],
   );
+
+  // 供排队 effect 调用（effect 不能直接依赖 handleSend：它是每轮重建的 callback，
+  // 依赖它会让 effect 在流式期间反复触发）
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  }, [handleSend]);
 
   const handleDecisionMade = useCallback(
     async (decisionId: string, answer: string) => {

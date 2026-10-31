@@ -68,6 +68,13 @@ def upgrade() -> None:
     if "users" in tables:
         columns = {col["name"] for col in inspector.get_columns("users")}
         if "department_id" in columns:
+            # MySQL 8：ix_users_department_id 被 FK 约束依赖，先删索引会报
+            # 1553 "Cannot drop index ... needed in a foreign key constraint"。
+            # 所以顺序必须是：先删引用 departments 的外键，再删索引，最后删列。
+            # （SQLite 走 batch 重建整表，没有这个约束，多余的 FK 删除不存在。）
+            for fk in inspector.get_foreign_keys("users"):
+                if fk.get("referred_table") == "departments" and fk.get("name"):
+                    op.drop_constraint(fk["name"], "users", type_="foreignkey")
             # SQLite 的 batch 模式会重建整张表并按反射结果重建索引：
             # 若先删列再建索引，就会生成 `CREATE INDEX ... (department_id)`
             # 这种引用已删列的语句而整体失败。索引必须在删列前显式清掉。
@@ -95,7 +102,7 @@ def downgrade() -> None:
             sa.Column("parent_id", sa.Integer(), nullable=True),
             sa.Column("path", sa.String(length=512), nullable=False, server_default=""),
             sa.Column("ldap_dn", sa.String(length=512), nullable=True),
-            sa.Column("description", sa.Text(), nullable=False, server_default=""),
+            sa.Column("description", sa.Text(), nullable=False),
             sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
             sa.Column("created_at", sa.DateTime(), nullable=True),
             sa.Column("updated_at", sa.DateTime(), nullable=True),

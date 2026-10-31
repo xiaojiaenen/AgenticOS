@@ -86,7 +86,12 @@ function dropIfBroken(comp: Record<string, unknown>): boolean {
 
 export function sanitizeMessages(messages: A2uiMessage[]): A2uiMessage[] {
   DROP_LOG.length = 0;
-  return messages.map((msg) => {
+  return messages
+    // 图表消息不是 A2UI 操作（它由 ChartMessage 单独渲染）。
+    // 混进 MessageProcessor 会抛 "must contain exactly one update
+    // action"，导致整块界面降级成错误提示 —— 必须先剔掉。
+    .filter((msg) => !(msg && typeof msg === 'object' && 'chart' in msg))
+    .map((msg) => {
     const upd = (msg as Record<string, unknown>).updateComponents as
       | { surfaceId?: string; components?: Record<string, unknown>[] }
       | undefined;

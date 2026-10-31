@@ -32,7 +32,7 @@ export interface ChatContextValue {
     maxSteps?: number;
   };
   pendingDecisions: UserDecision[];
-  handleSend: (text: string, files?: File[]) => void;
+  handleSend: (text: string, files?: File[], source?: 'composer' | 'a2ui') => void;
   handleStopGeneration: () => void;
   handleApprovalDecision: (
     approvalId: string,

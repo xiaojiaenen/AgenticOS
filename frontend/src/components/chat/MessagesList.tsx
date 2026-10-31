@@ -37,9 +37,17 @@ interface MessagesListProps {
   wideLayout?: boolean;
   searchQuery: string;
   activeMatchId: string | null;
-  onSend: (text: string) => void;
+  onSend: (text: string, files?: File[], source?: 'composer' | 'a2ui') => void;
   /** A2UI 数据变化（表单输入等），上抛给会话层做跟随刷新 */
   onA2uiDataChange?: (data: Record<string, unknown>, surfaceId?: string) => void;
+  /**
+   * 读取 A2UI 表单**当前**数据（点击提交时随动作回传）。
+   *
+   * 为什么要 getter 而不是 state：表单值在用户每次输入后变化，
+   * 但组件不该为每个按键重渲染整个消息列表。宿主用 ref 存最新值，
+   * 点击时再取一次即可。
+   */
+  getA2uiData?: () => Record<string, unknown>;
   onSuggestionClick: (text: string) => void;
   onOpenArtifact: (artifact: Artifact) => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
@@ -57,6 +65,7 @@ export const MessagesList = React.memo<MessagesListProps>(({
   activeMatchId,
   onSend,
   onA2uiDataChange,
+  getA2uiData,
   onSuggestionClick,
   onOpenArtifact,
   messagesEndRef,
@@ -99,6 +108,13 @@ export const MessagesList = React.memo<MessagesListProps>(({
    * 不新增后端接口：action 的本质是「用户点了什么」，用自然语言描述
    * 交给模型最直接 —— 它手里有上下文，能自己决定下一步（查数据、
    * 重新渲染、或只是确认）。之前这个回调根本没传，所以点按钮毫无反应。
+   *
+   * 关键补充：**必须带上表单当前值**。
+   * A2UI 的 `action.event.context` 只有在组件里显式写了 context 绑定才有值；
+   * render_form 生成的提交按钮没有写，所以 payload.context 恒为空对象 ——
+   * 用户填的姓名/级别根本没回传，智能体只能回「你点了提交」。
+   * 真实数据在 DataModel 里（ChatMainArea 已经订阅并存在 a2uiDataRef），
+   * 这里把它合进动作描述，智能体才拿得到用户输入。
    */
   const handleA2uiAction = (action: Record<string, unknown>) => {
     // 实测结构（Playwright 抓的真实 payload）：
@@ -114,7 +130,19 @@ export const MessagesList = React.memo<MessagesListProps>(({
     const name = typeof raw.name === 'string' ? raw.name : '';
     const surface = typeof raw.surfaceId === 'string' ? raw.surfaceId : '';
     const source = typeof raw.sourceComponentId === 'string' ? raw.sourceComponentId : '';
-    const data = (raw.context ?? raw.dataModel) as Record<string, unknown> | undefined;
+    // 优先用 A2UI 自己解出的 context（组件写了绑定时才有）；
+    // 否则退回宿主订阅到的整份表单数据（getA2uiData → ChatMainArea 的 ref）。
+    const fromAction = (raw.context ?? raw.dataModel) as Record<string, unknown> | undefined;
+    const fromForm = getA2uiData?.() ?? {};
+    const data: Record<string, unknown> = {};
+    for (const src of [fromForm, fromAction]) {
+      if (!src || typeof src !== 'object') continue;
+      for (const [k, v] of Object.entries(src)) {
+        if (k === '__surface') continue;
+        if (v === undefined || v === null || v === '') continue;
+        data[k] = v;
+      }
+    }
 
     const parts: string[] = [];
     if (name) {
@@ -125,10 +153,16 @@ export const MessagesList = React.memo<MessagesListProps>(({
     if (surface) parts.push(`（界面 ${surface}${source ? ` / ${source}` : ''}）`);
 
     // 附带当前表单/绑定值，让智能体知道用户此刻填了什么
-    if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+    if (Object.keys(data).length > 0) {
       parts.push(`当前数据：${JSON.stringify(data)}`);
+    } else if (name) {
+      // 明确告知"没有数据"，避免智能体误以为拿到了空表单
+      parts.push('（表单当前没有填写任何内容）');
     }
-    onSend(parts.join(''));
+    // source='a2ui'：绕开输入框的 isLoading 守卫。
+    // A2UI 界面是在本轮流式过程中下发的，用户填完点提交时那一轮还没结束，
+    // 按 composer 路径会被静默丢弃（表现就是「点提交没反应」）。
+    onSend(parts.join(''), undefined, 'a2ui');
   };
 
   const footer = (

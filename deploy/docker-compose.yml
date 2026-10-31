@@ -85,9 +85,21 @@ services:
         condition: service_healthy
 
   redis:
-    image: redis:7-alpine
+    # Redis Stack：自带 RediSearch（FT.CREATE/FT.SEARCH/VECTOR）。
+    # 记忆向量检索依赖 search 模块 —— 普通 redis:7 没有它，向量体系静默失效
+    # （实测线上 FT.CREATE 一直报 unknown command，检索退化 BM25-only）。
+    # 数据卷与普通 Redis 兼容（RDB 同格式），切换不丢数据。
+    image: redis/redis-stack-server:latest
     restart: always
-    command: ["redis-server", "--appendonly", "yes"]
+    # 覆盖默认 command 时必须显式 loadmodule —— 否则启动的是裸 redis-server，
+    # RediSearch 模块不会加载（FT.CREATE 报 unknown command）。
+    command:
+      [
+        "/opt/redis-stack/bin/redis-server",
+        "--loadmodule", "/opt/redis-stack/lib/redisearch.so",
+        "--protected-mode", "no",
+        "--appendonly", "yes",
+      ]
     # Redis 未设密码，默认不向宿主机暴露端口（backend/worker 走内部网络访问）。
     # 如需从宿主机调试，取消注释并自行加 requirepass：
     # ports:

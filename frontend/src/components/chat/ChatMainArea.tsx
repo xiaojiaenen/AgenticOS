@@ -33,6 +33,8 @@ export const ChatMainArea = React.memo(() => {
   ) => {
     a2uiDataRef.current = { ...data, __surface: surfaceId ?? '' };
   };
+  // 点击提交时读取表单当前值（随动作一起带给智能体）
+  const getA2uiData = React.useCallback(() => a2uiDataRef.current, []);
 
 const {
     currentSession, isLoading, isWideConversation,
@@ -244,6 +246,7 @@ const {
             activeMatchId={activeMatchId}
             onSend={handleSend}
             onA2uiDataChange={handleA2uiDataChange}
+            getA2uiData={getA2uiData}
             onSuggestionClick={onSuggestionClick}
             onOpenArtifact={onOpenArtifact}
             messagesEndRef={messagesEndRef}
@@ -348,7 +351,7 @@ const {
             ref={chatInputRef}
             value={inputValue}
             onChange={setInputValue}
-            onSend={(text, files) => handleSend(text, files)}
+            onSend={handleSend}
             onStop={handleStopGeneration}
             isLoading={isLoading}
             chatMode={chatMode}

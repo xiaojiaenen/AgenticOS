@@ -285,7 +285,20 @@ class StreamOrchestrator:
             # 把本次 run 生成的 A2UI 界面挂到最后一条助手消息上。
             # AIMessage 有 metadata 字段，会随 model_dump_json 一起入库，
             # 前端重载会话时就能把界面渲染回来。
-            a2ui_msgs = getattr(session, "_a2ui_accumulated", None)
+            a2ui_msgs = None
+            try:
+                from app.services.a2ui import accumulated as _a2ui_accumulated
+
+                a2ui_msgs = _a2ui_accumulated(session.session_id) or None
+            except Exception:  # noqa: BLE001
+                a2ui_msgs = None
+            chart_msgs = None
+            try:
+                from app.services.chart_events import accumulated
+
+                chart_msgs = accumulated(session.session_id) or None
+            except Exception:  # noqa: BLE001
+                chart_msgs = None
             if a2ui_msgs:
                 for msg in reversed(pending):
                     if getattr(msg, "role", None) == "assistant":
@@ -297,8 +310,33 @@ class StreamOrchestrator:
                         except Exception:  # noqa: BLE001
                             _logger.warning("attach a2ui metadata failed", exc_info=True)
                         break
-                session._a2ui_accumulated = []  # noqa: SLF001
+                try:
+                    from app.services.a2ui import clear_accumulated as _a2ui_clear
+
+                    _a2ui_clear(session.session_id)
+                except Exception:  # noqa: BLE001
+                    pass
                 _logger.info("attached %d a2ui messages to assistant message", len(a2ui_msgs))
+
+            # 图表同样挂到 metadata.chart（前端重载会话时恢复）
+            if chart_msgs:
+                for msg in reversed(pending):
+                    if getattr(msg, "role", None) == "assistant":
+                        meta = dict(getattr(msg, "metadata", None) or {})
+                        prev = meta.get("chart")
+                        meta["chart"] = (
+                            (prev or []) + chart_msgs
+                            if isinstance(prev, list) else chart_msgs
+                        )
+                        try:
+                            msg.metadata = meta
+                        except Exception:  # noqa: BLE001
+                            _logger.warning("attach chart metadata failed", exc_info=True)
+                        break
+                from app.services.chart_events import clear_accumulated
+
+                clear_accumulated(session.session_id)
+                _logger.info("attached %d chart messages to assistant message", len(chart_msgs))
             count = await self.storage.append_messages_batch(session.session_id, pending)
             _logger.info(f"Persisted {count} messages for session {session.session_id}")
         except Exception as e:
@@ -360,6 +398,23 @@ class StreamOrchestrator:
             "last_llm_calls": getattr(session, "last_llm_calls", None),
         }
 
+    def _drain_chart_events(self, session) -> list[dict[str, Any]]:
+        """取走本轮累积的图表消息，转成 SSE 事件。
+
+        与 A2UI 完全独立：图表是 ECharts option，不是组件树，
+        走自己的 event 名（chart），前端独立渲染。
+        """
+        try:
+            from app.services.chart_events import chart_events
+
+            # 累积在 chart_events 模块内（按 session_id 索引）。
+            # 不要挂 session 对象 —— AgentSession 是 Pydantic 模型，
+            # 未知属性会落进 metadata 变成 dict，再 .extend() 就崩。
+            return chart_events(session.session_id)
+        except Exception:  # noqa: BLE001 -- 采集异常不该影响主流程
+            _logger.warning("chart drain failed", exc_info=True)
+            return []
+
     def _drain_a2ui_events(self, session) -> list[dict[str, Any]]:
         """取走本次 run 累积的 A2UI 界面消息，转成 SSE 事件列表。
 
@@ -379,11 +434,11 @@ class StreamOrchestrator:
         # 累积到 session 上：这批界面要跟着助手消息一起落库，
         # 否则刷新页面就消失（前端只在内存里存着）。
         try:
-            acc = getattr(session, "_a2ui_accumulated", None)
-            if acc is None:
-                acc = []
-                session._a2ui_accumulated = acc  # noqa: SLF001 -- 会话级临时挂载
-            acc.extend(messages)
+            from app.services.a2ui import accumulate
+
+            # 模块级累积（不挂 session —— Pydantic 模型会把未知属性
+            # 塞进 metadata 变成 dict，再 extend 就崩）
+            accumulate(session.session_id, messages)
         except Exception:  # noqa: BLE001 -- 累积失败不该影响下发
             _logger.warning("a2ui accumulate failed", exc_info=True)
 
@@ -726,6 +781,17 @@ class StreamOrchestrator:
             reset_pending()
         except Exception:  # noqa: BLE001
             _logger.warning("a2ui reset failed", exc_info=True)
+        # 图表采集器：同样必须在**父上下文**里先建好。
+        # contextvar 的值会随 create_task 复制进子 task，但子 task 里的 set()
+        # 不会回写父上下文 —— 父上下文不预先种一个空 list，子 task 的 append
+        # 就写进它自己的副本，_drain_chart_events 永远读到空（图表工具跑完
+        # 但前端不显示图的根因）。
+        try:
+            from app.services.chart_events import reset_session as reset_chart_session
+
+            reset_chart_session(session.session_id)
+        except Exception:  # noqa: BLE001
+            _logger.warning("chart reset failed", exc_info=True)
         if user is not None:
             set_current_user_id(user.id)
             set_ext_user_id(user.id)
@@ -1190,6 +1256,9 @@ class StreamOrchestrator:
                             # 会让用户先读一大段文字再看到界面。
                             for ui_event in self._drain_a2ui_events(session):
                                 yield ui_event
+                            # 图表是独立通道，与 A2UI 并列下发
+                            for chart_event in self._drain_chart_events(session):
+                                yield chart_event
                             runtime_task = asyncio.create_task(runtime_queue.get())
                             continue
 

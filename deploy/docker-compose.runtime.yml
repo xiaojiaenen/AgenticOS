@@ -67,9 +67,19 @@ services:
         condition: service_healthy
 
   redis:
-    image: redis:7-alpine
+    # Redis Stack：自带 RediSearch（FT.CREATE/FT.SEARCH/VECTOR）。
+    # 记忆向量检索依赖 search 模块 —— 普通 redis:7 没有它，向量体系静默失效。
+    image: redis/redis-stack-server:latest
     restart: always
-    command: ["redis-server", "--appendonly", "yes"]
+    # 覆盖默认 command 时必须显式 loadmodule —— 否则启动的是裸 redis-server，
+    # RediSearch 模块不会加载（FT.CREATE 报 unknown command）。
+    command:
+      [
+        "/opt/redis-stack/bin/redis-server",
+        "--loadmodule", "/opt/redis-stack/lib/redisearch.so",
+        "--protected-mode", "no",
+        "--appendonly", "yes",
+      ]
     volumes:
       - redis-data:/data
     healthcheck:

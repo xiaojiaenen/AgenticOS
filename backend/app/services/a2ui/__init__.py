@@ -59,6 +59,29 @@ _pending_a2ui: contextvars.ContextVar[list[dict[str, Any]] | None] = contextvars
 )
 
 
+# 本轮累积的界面消息（供落库挂 metadata.a2ui）。
+# 不能挂 session 对象：AgentSession 是 Pydantic 模型，未知属性会进
+# metadata 变成 dict，随后 .extend() 报 "'dict' object has no attribute 'append'"。
+_accumulated: dict[str, list[dict[str, Any]]] = {}
+
+
+def accumulate(session_id: str, messages: list[dict[str, Any]]) -> None:
+    """把界面消息累积到该会话。"""
+    buf = _accumulated.get(session_id)
+    if buf is None:
+        buf = []
+        _accumulated[session_id] = buf
+    buf.extend(messages)
+
+
+def accumulated(session_id: str) -> list[dict[str, Any]]:
+    return list(_accumulated.get(session_id) or [])
+
+
+def clear_accumulated(session_id: str) -> None:
+    _accumulated.pop(session_id, None)
+
+
 def _collector() -> list[dict[str, Any]]:
     """取当前上下文的采集列表，没有就建一个并绑定到上下文。"""
     items = _pending_a2ui.get()

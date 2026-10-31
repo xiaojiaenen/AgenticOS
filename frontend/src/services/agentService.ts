@@ -1,6 +1,7 @@
 import { Message, ToolCall } from '../types';
 import { authHeaders } from './authService';
 import { apiFetch, ApiError } from './apiClient';
+import { mapBackendMessages, unwrapChartMessage as normalizeChartMessage } from './backendMessageMapper';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 
 type AgentServiceOptions = {
@@ -26,6 +27,10 @@ type AgentServiceOptions = {
   onDocumentArtifact?: (artifact: AgentDocumentArtifact) => void;
   /** A2UI 声明式界面消息（render_ui / render_form 生成） */
   onA2uiMessages?: (messages: Record<string, unknown>[]) => void;
+  /** 数据图表消息（render_chart 生成，ECharts option，与 A2UI 无关） */
+  onChartMessages?: (
+    charts: Array<{ title?: string; option: unknown }>,
+  ) => void;
   onUserDecision?: (decision: unknown) => void;
   onUserInputRequired?: (input: UserInputRequest) => void;
   onApiApprovalRequired?: (approval: ApiApprovalRequest) => void;
@@ -281,13 +286,17 @@ type StreamState = {
   documentArtifact?: AgentDocumentArtifact;
   /** A2UI 消息序列（累积，按协议顺序应用） */
   a2uiMessages?: Record<string, unknown>[];
+  chartMessages?: Array<{ title?: string; option: unknown }>;
 };
 
 /**
  * 单个 SSE 事件分发（协议与旧手写实现完全一致）。
  * error 事件直接抛出，由 fetchEventSource 的 onerror 透传给调用方。
+ *
+ * 导出：分发协议本身是纯函数（只改 state / 触发回调），SSE 通道的
+ * 回归测试直接喂事件即可，不必拉起 fetchEventSource。
  */
-function applyAgentEvent(
+export function applyAgentEvent(
   event: string,
   raw: unknown,
   options: AgentServiceOptions,
@@ -325,6 +334,24 @@ function applyAgentEvent(
 
   if (event === 'run_status') {
     options.onRunStatus?.(payload as unknown as AgentRunStatus);
+    return;
+  }
+
+  if (event === 'chart') {
+    // 数据图表是独立通道：ECharts option 不是 A2UI 组件树，
+    // 混进 MessageProcessor 会被 zod 拒绝（Invalid v0.9 message）。
+    //
+    // 后端下发的每条消息是 {version, chart:{title, option}} 包裹格式，
+    // 必须解包成 {title, option} 再存 —— 之前漏了解包，ChartMessage 拿到的
+    // title/option 全是 undefined，实时渲染出来就是一张空白卡片
+    // （而刷新恢复路径做过解包，症状成了"实时空白、刷新反而正常"）。
+    const incoming = (Array.isArray(payload.messages) ? payload.messages : [])
+      .map(normalizeChartMessage)
+      .filter((c): c is { title?: string; option: unknown } => c !== null);
+    if (incoming.length > 0) {
+      state.chartMessages = [...(state.chartMessages ?? []), ...incoming];
+      options.onChartMessages?.(state.chartMessages);
+    }
     return;
   }
 
@@ -601,14 +628,8 @@ export async function getAgentSessionState(sessionId: string): Promise<AgentSess
   );
 }
 
-/** 后端消息原始格式 */
-type BackendMessage = {
-  role: string;
-  content: string;
-  tool_calls?: Array<{ id?: string; name: string; arguments?: Record<string, unknown> }>;
-  tool_call_id?: string;
-  name?: string;
-};
+/** 后端消息原始格式（映射逻辑见 backendMessageMapper.ts） */
+type BackendMessage = import('./backendMessageMapper').BackendMessage;
 
 /** 会话最新制品信息（用于会话重新打开时恢复预览面板） */
 export type SessionArtifacts = {
@@ -723,56 +744,7 @@ export async function getSessionMessages(sessionId: string): Promise<Message[]> 
     {},
     '加载消息历史失败',
   );
-  const messages: Message[] = [];
-  // 按 tool_call_id 分组 tool 消息
-  const toolResultsMap = new Map<string, BackendMessage[]>();
-
-  for (const msg of raw) {
-    if (msg.role === 'tool' && msg.tool_call_id) {
-      const existing = toolResultsMap.get(msg.tool_call_id) || [];
-      existing.push(msg);
-      toolResultsMap.set(msg.tool_call_id, existing);
-    }
-  }
-
-  for (const msg of raw) {
-    if (msg.role === 'system') continue; // 跳过 system prompt
-    if (msg.role === 'tool') continue;   // tool 结果合并到 assistant 的 toolCalls 中
-
-    if (msg.role === 'user') {
-      messages.push({
-        id: `backend-${messages.length}`,
-        role: 'user',
-        text: msg.content || '',
-      });
-    } else if (msg.role === 'assistant') {
-      const toolCalls: import('../types').ToolCall[] | undefined = msg.tool_calls?.map((tc) => {
-        const resultMsg = toolResultsMap.get(tc.id || '');
-        return {
-          id: tc.id,
-          name: tc.name,
-          status: 'success' as const,
-          arguments: tc.arguments,
-          result: resultMsg?.map(r => r.content).join('\n') || undefined,
-        };
-      });
-      // A2UI 界面消息随助手消息持久化在 metadata.a2ui 里（后端落库时挂上的）。
-      // 取回来才能重载会话后继续看到界面 —— 之前只在内存里，刷新即失。
-      const a2uiRaw = (msg as { metadata?: { a2ui?: unknown } }).metadata?.a2ui;
-      const a2uiMessages = Array.isArray(a2uiRaw)
-        ? (a2uiRaw as import('../types').A2uiMessagePayload[])
-        : undefined;
-
-      messages.push({
-        id: `backend-${messages.length}`,
-        role: 'model',
-        text: msg.content || '',
-        toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined,
-        a2uiMessages,
-      });
-    }
-  }
-  return messages;
+  return mapBackendMessages(raw);
 }
 
 export async function generateTitle(history: Message[]): Promise<string> {

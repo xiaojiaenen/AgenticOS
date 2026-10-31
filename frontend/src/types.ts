@@ -87,6 +87,8 @@ export type Message = {
    * 这样增量更新（updateComponents / updateDataModel）能按序生效。
    */
   a2uiMessages?: A2uiMessagePayload[];
+  /** 数据图表消息（render_chart 生成，ECharts option） */
+  chartMessages?: Array<{ title?: string; option: unknown }>;
 };
 
 /** 一条 A2UI v0.9 消息（createSurface / updateComponents / updateDataModel） */

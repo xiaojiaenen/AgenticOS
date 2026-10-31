@@ -46,6 +46,11 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.4.0,<9.0.0",
+    # tests/ 下 30+ 个用例用 @pytest.mark.asyncio 驱动 async 测试；
+    # 不声明的话 uv sync 出的干净环境里它们全部以
+    # "async def functions are not natively supported" 失败（本地能跑只是因为
+    # 开发机全局装过，属于环境漂移）。
+    "pytest-asyncio>=1.2.0,<2.0.0",
     "ruff>=0.16.9",
 ]
 

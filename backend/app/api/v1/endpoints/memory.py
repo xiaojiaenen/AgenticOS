@@ -25,6 +25,7 @@ from app.db.models import (
     UserModel,
 )
 from app.db.session import create_db_session
+from app.services.memory_pipeline import get_pipeline
 from app.services.memory_service import get_memory_service
 
 router = APIRouter(prefix="/memory", tags=["Memory"])
@@ -63,16 +64,26 @@ async def list_memories(
     user_id: int | None = Query(default=None, description="管理员可指定用户 ID"),
     limit: int = Query(default=200, ge=1, le=1000, description="分页大小上限"),
     offset: int = Query(default=0, ge=0, description="分页偏移"),
+    q: str | None = Query(default=None, max_length=200, description="按内容模糊过滤"),
     current_user: UserModel = Depends(get_current_user),
 ) -> dict:
-    """获取当前用户的记忆，管理员可查看所有用户的记忆。"""
+    """获取当前用户的记忆，管理员可查看所有用户的记忆。
+
+    返回 ``total`` = 应用过滤后的全量条数（分页控件的页数依据）；
+    ``count`` 保留为当页条数（兼容旧前端）。
+    """
+    service = get_memory_service()
+    keyword = (q or "").strip() or None
     if user_id is not None and current_user.role == "admin":
-        memories = await get_memory_service().get_all_memories(user_id, limit=limit, offset=offset)
+        memories = await service.get_all_memories(user_id, limit=limit, offset=offset, q=keyword)
+        total = await service.count_memories(user_id, q=keyword)
     elif current_user.role == "admin":
-        memories = await get_memory_service().get_all_memories_admin(limit=limit, offset=offset)
+        memories = await service.get_all_memories_admin(limit=limit, offset=offset, q=keyword)
+        total = await service.count_memories_admin(q=keyword)
     else:
-        memories = await get_memory_service().get_all_memories(current_user.id, limit=limit, offset=offset)
-    return {"items": memories, "count": len(memories)}
+        memories = await service.get_all_memories(current_user.id, limit=limit, offset=offset, q=keyword)
+        total = await service.count_memories(current_user.id, q=keyword)
+    return {"items": memories, "count": len(memories), "total": total}
 
 
 @router.post("")
@@ -141,6 +152,33 @@ async def delete_memory(
     if not success:
         raise HTTPException(status_code=404, detail="记忆记录不存在")
     return {"success": True}
+
+
+class BatchDeleteRequest(BaseModel):
+    ids: list[int] = Field(..., min_length=1, max_length=500)
+
+
+@router.post("/batch-delete")
+async def batch_delete_memories(
+    payload: BatchDeleteRequest,
+    current_user: UserModel = Depends(get_current_user),
+) -> dict:
+    """批量删除记忆。
+
+    管理员视图配合复选框清理污染记忆（如同一句话被蒸馏成十几条）。
+    权限与单条一致：普通用户只能删自己的，越界 id 记为失败而不是 404
+    —— 批量场景下部分成功比整批失败更有用。
+    """
+    user_id = None if current_user.role == "admin" else current_user.id
+    service = get_memory_service()
+    deleted = 0
+    missing: list[int] = []
+    for memory_id in payload.ids:
+        if await service.delete_memory(memory_id, user_id):
+            deleted += 1
+        else:
+            missing.append(memory_id)
+    return {"success": True, "deleted": deleted, "missing": missing}
 
 
 # ─── 分层蒸馏扩展端点 ───
@@ -236,6 +274,24 @@ async def list_conversations(
         for r in rows
     ]
     return {"items": items, "count": len(items)}
+
+
+@router.post("/dedupe")
+async def dedupe_memories(
+    user_id: int | None = Query(default=None),
+    dry_run: bool = Query(default=False),
+    current_user: UserModel = Depends(get_current_user),
+) -> dict:
+    """对 L1 记忆做一次向量相似度聚类去重。
+
+    历史遗留问题：早期蒸馏管线没有去重闸，同一事实被反复入库
+    （实测同一句"项目代号是 ORION"存了 6 遍）。本端点把相似度 ≥ 0.92
+    的记忆聚成一组，每组保留 importance 最高、最新的一条。
+    普通用户只能清理自己的；管理员可传 user_id 清理指定用户。
+    """
+    target = user_id if (user_id is not None and current_user.role == "admin") else current_user.id
+    result = await get_pipeline().dedupe_user_memories(target, dry_run=dry_run)
+    return {"success": True, "user_id": target, **result}
 
 
 @router.get("/stats")

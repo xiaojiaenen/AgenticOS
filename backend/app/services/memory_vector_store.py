@@ -55,17 +55,40 @@ class MemoryVectorStore:
     """向量存储：Redis VECTOR 优先，不可用时降级为空"""
 
     def __init__(self) -> None:
-        self._dim = _settings.memory_embedding_dimensions
+        # 维度跟随 embedder 的实际输出（本地 bge 512 维 / 远程按配置），
+        # 不再直接读 settings —— 两者不一致会让索引与向量错位。
+        from app.services.memory_embedder import get_embedder
+
+        self._dim = get_embedder().dimensions
         self._initialized = False
 
     async def _ensure_index(self) -> bool:
-        """创建 RediSearch 索引（如不存在）"""
+        """创建 RediSearch 索引（如不存在）；维度不符时重建。
+
+        维度不符只发生在「embedding 后端切换」时（如远程 API → 本地 bge）。
+        旧索引下的历史向量全是旧后端的产物（线上实测是 embed 全失败留下的
+        零向量，无价值），因此直接 DROPINDEX + 清空旧 key 重建，而不是报错。
+        """
         if self._initialized:
             return True
 
         client = _get_binary_redis()
         if client is None:
             return False
+
+        try:
+            info = await client.execute_command("FT.INFO", _INDEX_NAME)
+            old_dim = self._index_dim(info)
+            if old_dim is not None and old_dim != self._dim:
+                _logger.warning(
+                    "Vector index dim mismatch (%s != %s): dropping old index and vectors",
+                    old_dim, self._dim,
+                )
+                await client.execute_command("FT.DROPINDEX", _INDEX_NAME, "DD")
+                await self._purge_old_vectors(client)
+        except Exception as e:
+            # FT.INFO 失败（索引不存在等）不算致命，走正常创建
+            _logger.debug(f"FT.INFO 检查跳过: {e}")
 
         try:
             await client.execute_command(
@@ -77,10 +100,15 @@ class MemoryVectorStore:
                 "layer", "TAG",
                 "entity_type", "TAG",
                 "entity_id", "NUMERIC", "SORTABLE",
-                "embedding", "VECTOR", "HNSW", "TYPE", "FLOAT32",
+                # RediSearch 语法：VECTOR <algorithm> <attr_count> [attrs...]
+                # HNSW 后面的 6 是「后面跟 6 个参数」—— 缺了它 FT.CREATE 直接报
+                # "Bad arguments for vector similarity"（这个 bug 让向量索引
+                # 从项目诞生起就没建成过）。
+                "embedding", "VECTOR", "HNSW", "6",
+                "TYPE", "FLOAT32",
                 "DIM", str(self._dim), "DISTANCE_METRIC", "COSINE",
             )
-            _logger.info(f"Vector index created: {_INDEX_NAME}")
+            _logger.info(f"Vector index created: {_INDEX_NAME} (dim={self._dim})")
         except Exception as e:
             if "Index already exists" not in str(e):
                 _logger.warning(f"创建向量索引失败: {e}")
@@ -88,6 +116,40 @@ class MemoryVectorStore:
 
         self._initialized = True
         return True
+
+    @staticmethod
+    def _index_dim(info: Any) -> int | None:
+        """从 FT.INFO 输出里解析向量维度（binary client：bytes 键值对列表）。"""
+        try:
+            flat = info[1] if isinstance(info, (list, tuple)) and len(info) == 2 else info
+            items = list(flat)
+            for i in range(0, len(items) - 1, 2):
+                key = items[i].decode() if isinstance(items[i], bytes) else str(items[i])
+                if key.lower() in ("embedding", "vector", "dim") or key.startswith("embedding"):
+                    attrs = items[i + 1]
+                    if isinstance(attrs, (list, tuple)):
+                        for j in range(0, len(attrs) - 1, 2):
+                            k = attrs[j].decode() if isinstance(attrs[j], bytes) else str(attrs[j])
+                            if k.upper() == "DIM":
+                                v = attrs[j + 1].decode() if isinstance(attrs[j + 1], bytes) else str(attrs[j + 1])
+                                return int(v)
+        except Exception:  # noqa: BLE001
+            return None
+        return None
+
+    @staticmethod
+    async def _purge_old_vectors(client) -> None:
+        """清掉旧维度的向量 key（后端切换后旧向量全部无效）。"""
+        cursor = 0
+        removed = 0
+        while True:
+            cursor, keys = await client.scan(cursor, match=f"{_KEY_PREFIX}*", count=500)
+            if keys:
+                await client.delete(*keys)
+                removed += len(keys)
+            if cursor == 0:
+                break
+        _logger.warning(f"Purged {removed} stale memory vectors after dim change")
 
     async def upsert(
         self,
@@ -150,21 +212,24 @@ class MemoryVectorStore:
             knn_query = (
                 f"@user_id:[{user_id} {user_id}] "
                 f"@layer:{{{layer_filter}}} "
-                f"@entity_type:{{{type_filter}}}"
+                f"@entity_type:{{{type_filter}}} "
                 f"=>[KNN {limit} @embedding $embedding AS vector_score]"
             )
 
             result = await client.execute_command(
                 "FT.SEARCH", _INDEX_NAME,
                 knn_query,
+                # DIALECT 必须紧跟查询串：KNN 的 `=>[...]` 语法需要 dialect >= 2，
+                # 放到末尾（SORTBY 之后）不生效就会按 dialect 1 解析，
+                # 报 "Syntax error at offset ... near >["。
+                "DIALECT", 2,
                 # 用 RETURN 显式取回 KNN 距离（别名 vector_score），
                 # 不用 WITHSCORES：后者在有 SORTBY 时返回的是排序字段值，
                 # 语义随参数组合漂移，容易再次踩坑。
                 "RETURN", 4, "entity_id", "entity_type", "layer", "vector_score",
                 "LIMIT", 0, limit,
-                "PARAMS", 2, "embedding", query_vector,
-                "DIALECT", 2,
                 "SORTBY", "vector_score",
+                "PARAMS", 2, "embedding", query_vector,
             )
             return self._parse_search_result(result)
         except Exception as e:

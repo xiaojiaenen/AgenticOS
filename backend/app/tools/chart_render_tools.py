@@ -10,6 +10,8 @@ from wuwei.tools import ToolRegistry
 # 特殊标记，前端检测到此标记就知道是图表数据，不需要依赖 LLM 输出格式
 _CHART_MARKER = "__ECHART_JSON__"
 
+from app.services.chart_events import CHART_PROTOCOL_VERSION  # noqa: E402
+
 
 def register_chart_render_tools(registry: ToolRegistry) -> None:
     @registry.tool(display_name="渲染数据图表")
@@ -36,7 +38,9 @@ def register_chart_render_tools(registry: ToolRegistry) -> None:
         参数：
         - chart_type: 图表类型（上面列表中的一个）
         - title: 图表标题
-        - data: JSON 数组字符串，如 '[{"部门":"销售","金额":100},{"部门":"技术","金额":200}]'
+        - data: JSON 数组字符串。**必须用用户给出的真实数据**；用户没给数据时不要编造项目名/部门名，先问用户要数据。
+          格式示例（仅示范结构，不要复用其中的名称）：
+          '[{"分类":"A","数值":100},{"分类":"B","数值":200}]'
         - x_field: X 轴/分类字段名（不填自动推断：第一个非数值字段）
         - y_field: Y 轴/数值字段名（不填自动推断：第一个数值字段；支持逗号分隔多字段如 "金额,数量"）
         """
@@ -77,9 +81,35 @@ def register_chart_render_tools(registry: ToolRegistry) -> None:
         # 生成 ECharts option
         echarts_option = _build_echarts_option(chart_type, title, rows, x_field, y_fields)
 
-        # 包裹特殊标记，前端直接检测渲染，不依赖 LLM 输出格式
+        # 主动推给前端（走独立的 chart 事件通道）。
+        # 只返回标记文本是不够的：那要求模型把整段 JSON 原样复述进回复，
+        # 实测它只写一句"图表已生成"，用户就看不到图了。
+        pushed = _push_chart(echarts_option, title)
+        if pushed:
+            return (
+                f"图表「{title}」已直接展示在对话中（{chart_type}，{len(rows)} 条数据）。"
+                "用户已经能看到，不需要在回复里重复数据或再贴一遍图表。"
+            )
+
+        # 推送通道不可用时的兜底：仍返回标记文本，兼容旧前端
         return f"{_CHART_MARKER}\n{json.dumps(echarts_option, ensure_ascii=False)}\n{_CHART_MARKER}"
 
+
+def _push_chart(echarts_option: dict[str, Any], title: str) -> bool:
+    """把图表塞进独立的图表通道，返回是否成功。
+
+    不借 A2UI 的采集器 —— 两套协议不同，混在一起会被 A2UI 的
+    MessageProcessor 拒绝（"Invalid v0.9 message"），整块界面报废。
+    """
+    try:
+        from app.services.chart_events import push_chart  # noqa: PLC0415
+
+        return push_chart(echarts_option, title)
+    except Exception:  # noqa: BLE001 -- 推送失败降级为标记文本
+        import logging
+
+        logging.getLogger(__name__).warning("push chart failed", exc_info=True)
+        return False
 
 def _build_echarts_option(
     chart_type: str,

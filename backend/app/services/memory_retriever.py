@@ -90,24 +90,72 @@ class MemoryRetriever:
             return []
 
     async def _safe_vector(self, user_id, query, layers, limit) -> list[dict]:
+        """进程内余弦向量检索。
+
+        为什么不走 Redis FT.SEARCH：线上实测（Redis Stack / RediSearch
+        2.10.20）KNN 查询恒返回 0 结果——最小 2 维索引隔离复现同样失败，
+        属于该 search build 的真实缺陷，且不可控。记忆的量级（每用户
+        百级）用「embed 全量缓存 + 进程内余弦」完全够用，与蒸馏管线的
+        去重闸同一套模式，少一个基础设施依赖。
+        """
         try:
             embedder = get_embedder()
-            vec_store = get_vector_store()
             query_vec = await embedder.embed(query)
-            if all(v == 0.0 for v in query_vec):
-                return []  # embedding 失败（如 API key 未配置）
-            hits = await vec_store.search(
-                query_vec, user_id, layers,
-                entity_types=("atom", "scenario"),
-                limit=limit,
-            )
-            # 标记来源
-            for h in hits:
-                h["source"] = "vector"
-            return hits
+            if not query_vec or all(abs(v) < 1e-9 for v in query_vec):
+                return []
+
+            def _fetch():
+                with create_db_session() as db:
+                    return db.scalars(
+                        select(MemoryModel)
+                        .where(MemoryModel.user_id == user_id)
+                        .where(MemoryModel.layer.in_(layers))
+                        .order_by(MemoryModel.created_at.desc())
+                        .limit(500)
+                    ).all()
+
+            rows = await asyncio.to_thread(_fetch)
+            if not rows:
+                return []
+
+            scored: list[dict] = []
+            for row in rows:
+                try:
+                    vec = await embedder.embed(row.content)  # Redis 缓存 24h
+                except Exception:  # noqa: BLE001 -- 无向量的条目跳过
+                    continue
+                score = self._cosine(query_vec, vec)
+                if score <= 0.0:
+                    continue
+                hit = {
+                    "id": row.id,
+                    "entity_id": row.id,
+                    "entity_type": "atom",
+                    "layer": row.layer,
+                    "content": row.content,
+                    "memory_type": row.memory_type,
+                    "scenario_id": row.scenario_id,
+                    "score": score,
+                    "source": "vector",
+                }
+                if row.layer == "L2":
+                    hit["entity_type"] = "scenario"
+                scored.append(hit)
+
+            scored.sort(key=lambda h: h["score"], reverse=True)
+            return scored[:limit]
         except Exception as e:
             _logger.warning(f"向量检索失败: {e}")
             return []
+
+    @staticmethod
+    def _cosine(a: list[float], b: list[float]) -> float:
+        if not a or not b:
+            return 0.0
+        dot = sum(x * y for x, y in zip(a, b))
+        na = sum(x * x for x in a) ** 0.5
+        nb = sum(y * y for y in b) ** 0.5
+        return dot / (na * nb) if na and nb else 0.0
 
     async def _enrich_scenario_content(self, hits: list[dict]) -> list[dict]:
         """对 L2 scenario 命中补全 title/summary 内容"""

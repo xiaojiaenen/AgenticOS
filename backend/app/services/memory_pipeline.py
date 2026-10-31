@@ -12,6 +12,8 @@
 from __future__ import annotations
 
 import asyncio
+import difflib
+import hashlib
 import json
 import logging
 from collections import OrderedDict
@@ -30,6 +32,7 @@ from app.db.models import (
 from app.db.session import create_db_session
 from app.services.llm_factory import build_llm
 from app.services.memory_embedder import get_embedder
+from app.services.memory_service import get_memory_service
 from app.services.memory_vector_store import get_vector_store
 
 _logger = logging.getLogger("memory_pipeline")
@@ -38,6 +41,21 @@ _settings = get_settings()
 # LLM 蒸馏/提取任务的并发上限（fire-and-forget 任务也受此约束，防止打满上游）
 _LLM_CONCURRENCY = 3
 _llm_semaphore = asyncio.Semaphore(_LLM_CONCURRENCY)
+
+# ── L1 提取整合参数 ──
+# 单轮最多入库的记忆条数（再干净的提取也不该一轮塞一堆）
+_MAX_ATOMS_PER_TURN = 3
+# 参与去重对照的既有记忆检索条数
+_CONSOLIDATION_RETRIEVE_K = 8
+# 既有记忆参与对照的最低相似度（低于此值与本轮对话无关，对照无意义）
+_CONSOLIDATION_MIN_RELEVANCE = 0.45
+# 硬闸阈值：
+# - difflib 只拦接近复制的（实测真实重复对散布在 0.58-0.93，字符相似度不可靠）
+# - 语义重复主要靠向量余弦（0.92：同义不同措辞几乎必然高于此）
+_SIMILAR_DUP_THRESHOLD = 0.85
+_SEMANTIC_DUP_THRESHOLD = 0.92
+# 存量去重：向量余弦相似度阈值（同义记忆聚类）
+_DEDUPE_SIMILARITY_THRESHOLD = 0.92
 
 # _turn_counts 最多保留的 user 数，超过后按 LRU 淘汰
 _TURN_COUNTS_MAX_USERS = 10000
@@ -77,8 +95,8 @@ class MemoryPipeline:
         # 累计轮次
         turn = self._bump_turn_count(user_id)
 
-        # 2. L1 提取（每轮都执行，复用旧 prompt）
-        atoms = await self._extract_atoms(user_message, assistant_message)
+        # 2. L1 提取（每轮执行；Mem0 式"检索既有 → 单次 LLM 加性提取 → 硬闸去重"）
+        atoms = await self._extract_and_consolidate(user_id, user_message, assistant_message)
         for atom in atoms:
             await self._save_atom(user_id, atom)
 
@@ -118,32 +136,204 @@ class MemoryPipeline:
             _logger.warning(f"L0 落库失败: {e}")
 
     # ── L1 ──
-    async def _extract_atoms(self, user_msg: str, assistant_msg: str) -> list[dict]:
-        """LLM 提取事实/偏好/技术栈/项目"""
-        try:
-            from wuwei.core.message import SystemMessage, HumanMessage
+    async def _extract_and_consolidate(
+        self, user_id: int, user_msg: str, assistant_msg: str
+    ) -> list[dict]:
+        """Mem0 式两阶段 L1 提取（单次 LLM 调用）。
 
-            # 抽取是典型的轻任务，走快模型；没绑定 fast 时自动退回 chat 模型
+        旧实现的两个毛病（用户实测 31 条"ORION 项目"重复记忆的根因）：
+        1. 每轮无条件提取，prompt 没有"什么不该记"的负面清单 ——
+           一次性的界面操作流水、进行时状态全被蒸馏入库；
+        2. 与既有记忆的去重只有「前 50 字符完全相同」——
+           措辞稍有不同的同一事实（"项目代号是 ORION"/"用户的项目代号为 ORION"）
+           每轮都能过闸，越积越多。
+
+        新流程：
+        - Phase 1 向量检索该用户与本轮对话最相关的既有 L1 记忆（top-K）；
+        - Phase 2 单次 LLM 调用：把既有记忆（带编号）和新对话一起交给模型，
+          只输出「净新增」的记忆（语义等价的直接跳过）—— 提取与去重同一次完成；
+        - 硬闸（代码，不信任 LLM）：MD5 精确去重 + 前 50 字符前缀去重 +
+          与既有记忆的字符相似度闸（difflib，换措辞的重复拦在入库前）。
+        """
+        from wuwei.core.message import SystemMessage, HumanMessage
+
+        conversation = f"用户: {user_msg}\nAI: {assistant_msg[:1500]}"
+
+        # Phase 1: 取既有记忆做对照。进程内余弦检索（embed 全量缓存）——
+        # Redis FT.SEARCH 在线上实测 KNN 恒返回 0 结果（RediSearch 2.10.20
+        # build 缺陷），检索侧已全面改为进程内余弦，不再依赖它。
+        existing: list[dict[str, Any]] = []
+        try:
+            embedder = get_embedder()
+            query_vector = await embedder.embed(conversation[:1000])
+
+            def _fetch_recent():
+                with create_db_session() as db:
+                    return db.scalars(
+                        select(MemoryModel)
+                        .where(MemoryModel.user_id == user_id)
+                        .where(MemoryModel.layer == "L1")
+                        .order_by(MemoryModel.created_at.desc())
+                        .limit(200)
+                    ).all()
+
+            rows = await asyncio.to_thread(_fetch_recent)
+            scored: list[tuple[float, str]] = []
+            for row in rows:
+                try:
+                    vec = await embedder.embed(row.content)
+                except Exception:  # noqa: BLE001 -- 无向量条目不参与对照
+                    continue
+                score = self._cosine(query_vector, vec)
+                if score >= _CONSOLIDATION_MIN_RELEVANCE:
+                    scored.append((score, row.content))
+            scored.sort(reverse=True)
+            existing = [{"memory_id": 0, "content": c} for _, c in scored[:_CONSOLIDATION_RETRIEVE_K]]
+        except Exception as e:
+            _logger.debug(f"L1 既有记忆检索失败，退化为无对照提取: {e}")
+            existing = []
+
+        # Phase 2: 单次 LLM 提取（prompt 里带既有记忆，让模型只输出净新增）
+        existing_block = (
+            "\n".join(f"{i + 1}. {item['content']}" for i, item in enumerate(existing))
+            if existing
+            else "（暂无相关记忆）"
+        )
+        try:
             gateway = build_llm(role="fast", max_tokens=1024, timeout=60)
             prompt = ATOM_EXTRACTION_PROMPT.format(
-                user_msg=user_msg,
-                assistant_msg=assistant_msg[:1500],
+                existing_memories=existing_block,
+                conversation=conversation,
             )
             async with _llm_semaphore:
                 resp = await gateway.generate(messages=[
-                    SystemMessage(content="你是记忆提取器，只输出 JSON 数组。"),
+                    SystemMessage(content="你是记忆提取器，只输出 JSON 对象。"),
                     HumanMessage(content=prompt),
                 ])
-            content = (resp.message.content or "[]").strip()
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0]
-            atoms = json.loads(content.strip())
-            return atoms if isinstance(atoms, list) else []
+            atoms = _parse_extraction_json(resp.message.content)
         except Exception as e:
             _logger.debug(f"L1 提取失败: {e}")
             return []
+
+        if not isinstance(atoms, list):
+            return []
+
+        # 每轮上限：再干净的提取也不该一轮塞进一堆记忆
+        atoms = atoms[:_MAX_ATOMS_PER_TURN]
+
+        # 硬闸（代码，不信任 LLM 的去重判断）：
+        #   MD5 精确 → 前 50 字符前缀 → difflib 字符相似 → 向量余弦。
+        # difflib 只能拦住接近复制的（实测真实重复对散布在 0.58-0.93，
+        # 字符相似度并不可靠），语义重复主要靠余弦；existing/新记忆的
+        # 向量都有 Redis 缓存，稳态下近乎零成本。
+        existing_vectors: list[list[float] | None] = []
+        for item in existing:
+            try:
+                existing_vectors.append(await get_embedder().embed(item["content"]))
+            except Exception:  # noqa: BLE001 -- 单条向量失败只降级该条的余弦闸
+                existing_vectors.append(None)
+
+        kept: list[dict] = []
+        kept_vectors: list[list[float]] = []
+        for atom in atoms:
+            if not isinstance(atom, dict) or not str(atom.get("content", "")).strip():
+                continue
+            content = str(atom["content"]).strip()
+            try:
+                new_vector = await get_embedder().embed(content)
+            except Exception:  # noqa: BLE001
+                new_vector = None
+            if await self._is_duplicate(
+                content, new_vector,
+                [item["content"] for item in existing], existing_vectors,
+            ):
+                _logger.info(f"L1 硬闸拦截重复记忆: {content[:60]}")
+                continue
+            if await self._is_duplicate(
+                content, new_vector,
+                [k["content"] for k in kept], kept_vectors,
+            ):
+                continue
+            kept.append(atom)
+            if new_vector is not None:
+                kept_vectors.append(new_vector)
+        return kept
+
+    async def _fetch_existing_contents(self, memory_ids: list[int]) -> list[dict[str, Any]]:
+        """按向量检索命中的 entity_id 取回既有记忆内容（保持检索排序）。"""
+        def _run():
+            with create_db_session() as db:
+                rows = db.scalars(
+                    select(MemoryModel).where(MemoryModel.id.in_(memory_ids))
+                ).all()
+                by_id = {r.id: r for r in rows}
+                return [
+                    {"memory_id": mid, "content": by_id[mid].content}
+                    for mid in memory_ids
+                    if mid in by_id
+                ]
+
+        return await asyncio.to_thread(_run)
+
+    async def _fetch_recent_memories(self, user_id: int, k: int) -> list[dict[str, Any]]:
+        """DB 回退：最近 k 条 L1 记忆（向量检索不可用时的对照来源）。"""
+        def _run():
+            with create_db_session() as db:
+                return [
+                    {"memory_id": r.id, "content": r.content}
+                    for r in db.scalars(
+                        select(MemoryModel)
+                        .where(MemoryModel.user_id == user_id)
+                        .where(MemoryModel.layer == "L1")
+                        .order_by(MemoryModel.created_at.desc())
+                        .limit(k)
+                    ).all()
+                ]
+
+        return await asyncio.to_thread(_run)
+
+    @staticmethod
+    def _cosine(a: list[float], b: list[float]) -> float:
+        if not a or not b or len(a) != len(b):
+            return 0.0
+        dot = sum(x * y for x, y in zip(a, b))
+        na = sum(x * x for x in a) ** 0.5
+        nb = sum(y * y for y in b) ** 0.5
+        return dot / (na * nb) if na and nb else 0.0
+
+    @staticmethod
+    async def _is_duplicate(
+        content: str,
+        content_vector: list[float] | None,
+        existing_contents: list[str],
+        existing_vectors: list[list[float] | None],
+    ) -> bool:
+        """代码级重复闸：MD5 / 前缀 / difflib / 向量余弦，任一命中即重复。
+
+        difflib 实测对真实重复对散布在 0.58-0.93（"用户在做 ORION 项目" vs
+        "用户正在进行 ORION 项目的界面开发" 只有 0.73），所以只保留高阈值
+        拦接近复制；语义重复交给向量余弦。
+        """
+        md5 = hashlib.md5(content.encode()).hexdigest()
+        for index, existing in enumerate(existing_contents):
+            if hashlib.md5(existing.encode()).hexdigest() == md5:
+                return True
+            if existing[:50] == content[:50]:
+                return True
+            if difflib.SequenceMatcher(None, content[:120], existing[:120]).ratio() >= _SIMILAR_DUP_THRESHOLD:
+                return True
+            if (
+                content_vector is not None
+                and index < len(existing_vectors)
+                and existing_vectors[index] is not None
+                and MemoryPipeline._cosine(content_vector, existing_vectors[index]) >= _SEMANTIC_DUP_THRESHOLD
+            ):
+                return True
+        return False
+
+    async def _extract_atoms(self, user_msg: str, assistant_msg: str) -> list[dict]:
+        """兼容保留：无 user_id 上下文的裸提取（仅测试/脚本使用）。"""
+        return await self._extract_and_consolidate(0, user_msg, assistant_msg)
 
     async def _save_atom(
         self,
@@ -254,7 +444,79 @@ class MemoryPipeline:
         except Exception as e:
             _logger.debug(f"Embed 失败 {entity_type}:{entity_id}: {e}")
 
-    # ── L2 ──
+    # ── 存量去重 ──
+    async def dedupe_user_memories(self, user_id: int, *, dry_run: bool = False) -> dict:
+        """对既有 L1 记忆做一次相似度聚类去重。
+
+        针对历史遗留的重复记忆（同一事实被蒸馏成 N 条）：向量相似度
+        ≥ threshold 的归为一组，组内保留 importance 最高、更新的那条，
+        其余删除（DB + FTS + 向量索引同步清理）。
+        """
+        def _fetch():
+            with create_db_session() as db:
+                return db.scalars(
+                    select(MemoryModel)
+                    .where(MemoryModel.user_id == user_id)
+                    .where(MemoryModel.layer == "L1")
+                    .order_by(MemoryModel.created_at.desc())
+                    .limit(500)
+                ).all()
+
+        rows = await asyncio.to_thread(_fetch)
+        if len(rows) < 2:
+            return {"groups": 0, "removed": 0, "kept": len(rows), "embed_failed": 0}
+
+        embedder = get_embedder()
+        vectors: list[list[float] | None] = []
+        embed_failed = 0
+        for row in rows:
+            try:
+                vectors.append(await embedder.embed(row.content))
+            except Exception:  # noqa: BLE001 -- 单条 embed 失败按 None 处理（余弦 0，不参与聚类）
+                vectors.append(None)
+                embed_failed += 1
+
+        def _cosine(a: list[float] | None, b: list[float] | None) -> float:
+            if not a or not b:
+                return 0.0
+            dot = sum(x * y for x, y in zip(a, b))
+            na = sum(x * x for x in a) ** 0.5
+            nb = sum(y * y for y in b) ** 0.5
+            return dot / (na * nb) if na and nb else 0.0
+
+        # 贪心聚类：按（importance, 新旧）从优到劣遍历，与已保留组的代表
+        # 相似度过高则归入该组待删
+        order = sorted(
+            range(len(rows)),
+            key=lambda i: (-float(rows[i].importance or 0), i),
+        )
+        keep_indices: list[int] = []
+        remove_ids: list[int] = []
+        for i in order:
+            if any(_cosine(vectors[i], vectors[j]) >= _DEDUPE_SIMILARITY_THRESHOLD for j in keep_indices):
+                remove_ids.append(rows[i].id)
+            else:
+                keep_indices.append(i)
+
+        removed = 0
+        if not dry_run:
+            for memory_id in remove_ids:
+                try:
+                    if await get_memory_service().delete_memory(memory_id, None):
+                        removed += 1
+                except Exception as e:  # noqa: BLE001 -- 单条失败不中断
+                    _logger.warning(f"dedupe 删除 {memory_id} 失败: {e}")
+        if embed_failed:
+            # 失效必须可见：embed 大面积失败时聚类结果不可信
+            _logger.warning(f"dedupe: {embed_failed}/{len(rows)} embed failed, result unreliable")
+        return {
+            "groups": len(keep_indices),
+            "removed": removed if not dry_run else len(remove_ids),
+            "kept": len(keep_indices),
+            "embed_failed": embed_failed,
+        }
+
+
     async def _aggregate_scenarios(self, user_id: int) -> None:
         """聚合 L1 atoms 为 L2 scenarios"""
         try:
@@ -469,6 +731,24 @@ class MemoryPipeline:
             _logger.warning(f"画像保存失败: {e}")
 
 
+def _parse_extraction_json(raw: str | None) -> list[dict]:
+    """解析 LLM 提取输出。新格式是 {"memories": [...]}，兼容旧的裸数组。"""
+    if not raw:
+        return []
+    content = raw.strip()
+    if "```json" in content:
+        content = content.split("```json")[1].split("```")[0]
+    elif "```" in content:
+        content = content.split("```")[1].split("```")[0]
+    try:
+        parsed = json.loads(content.strip())
+    except json.JSONDecodeError:
+        return []
+    if isinstance(parsed, dict):
+        parsed = parsed.get("memories", [])
+    return parsed if isinstance(parsed, list) else []
+
+
 _pipeline_singleton: MemoryPipeline | None = None
 
 
@@ -482,31 +762,43 @@ def get_pipeline() -> MemoryPipeline:
 
 # ── Prompts ──
 
-ATOM_EXTRACTION_PROMPT = """从以下对话中提取用户的关键信息作为记忆 atom。
+ATOM_EXTRACTION_PROMPT = """你是用户的长期记忆管理员。从下面这轮对话中提取**值得跨会话记住**的信息。
 
-只提取以下类型：
-- fact: 用户的身份信息（姓名、职业、所在地等）
-- preference: 用户的偏好（喜欢什么、不喜欢什么、审美倾向）
-- tech: 用户的技术栈（使用什么语言、框架、工具）
-- project: 用户的项目信息（在做什么项目、遇到什么问题）
+只提取这几类（每条必须是对未来对话有用的稳定事实）：
+- fact: 用户身份信息（姓名、职业、团队、所在产品/项目背景）
+- preference: 稳定的偏好（技术选型倾向、风格偏好、明确表达的喜好）
+- tech: 用户的技术栈（语言、框架、工具）
+- project: 用户项目的**背景事实**（项目叫什么、做什么、有哪些模块）
 
-用户消息: {user_msg}
-AI 回复: {assistant_msg}
+## 什么必须跳过（同样重要）
 
-输出 JSON 数组，每个元素：
-{{
-  "content": "简短明确的记忆内容",
-  "type": "fact|preference|tech|project",
-  "importance": 0.1-1.0
-}}
+以下内容**一条都不要提取**：
+- 进行时流水："正在做X面板"、"正在开发Y界面" —— 这类一次性任务状态下一个会话就过时了；只在引入**新的**项目/模块名称时提取项目背景本身
+- 本次会话就能完成的操作细节：点了什么按钮、选了什么选项、调了什么工具、页面长什么样
+- 对话里已经解决的一次性问题（报错修复、临时配置）
+- AI 回复中对用户原话的复述、客套话、总结
+- 与「已有记忆」语义相同的内容 —— 换了个说法也算重复
 
-如果没有值得提取的信息，返回 []。
+## 已有记忆（这些事实系统已经记住了，不要重复提取）
 
-示例：
-[
-  {{"content": "用户叫张三", "type": "fact", "importance": 0.9}},
-  {{"content": "用户偏好 Vue 3 + TypeScript", "type": "tech", "importance": 0.7}}
-]"""
+{existing_memories}
+
+规则：
+- 若本轮对话与某条已有记忆**语义相同**（只是措辞不同）→ 不要输出
+- 若本轮对话在已有记忆之上**有真正的新增细节**（新模块、新决定、新变化）→ 只提取新增的那部分
+- 每条记忆必须自包含（脱离本轮对话也能看懂），简短明确
+- 最多输出 3 条；没有值得记的就输出空数组
+
+## 本轮对话
+
+{conversation}
+
+输出 JSON 对象（不要输出其他文字）：
+{{"memories": [
+  {{"content": "简短明确的记忆内容", "type": "fact|preference|tech|project", "importance": 0.1-1.0}}
+]}}
+
+没有值得提取的信息时输出 {{"memories": []}}。"""
 
 SCENARIO_AGGREGATION_PROMPT = """基于以下 L1 atom 列表，识别可聚合的场景块（L2 scenario）。
 

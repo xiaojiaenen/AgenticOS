@@ -21,11 +21,29 @@ export type MemoryItem = {
 export type MemoryResponse = {
   items: MemoryItem[];
   count: number;
+  /** 应用过滤（q / user_id）后的全量条数，分页控件的总页数依据 */
+  total?: number;
 };
 
-export async function getMemories(userId?: number): Promise<MemoryResponse> {
-  const params = userId ? `?user_id=${userId}` : '';
-  return apiFetch<MemoryResponse>(`${MEMORY_ENDPOINT}${params}`, {}, '记忆列表加载失败');
+export type MemoryListParams = {
+  /** 管理员可指定用户；不传 = 自己（admin 则为全部用户） */
+  userId?: number;
+  limit?: number;
+  offset?: number;
+  /** 按内容模糊过滤（服务端执行，配合分页） */
+  q?: string;
+};
+
+export async function getMemories(params: MemoryListParams | number = {}): Promise<MemoryResponse> {
+  // 兼容旧签名 getMemories(userId?: number)
+  const opts: MemoryListParams = typeof params === 'number' ? { userId: params } : params;
+  const search = new URLSearchParams();
+  if (opts.userId) search.set('user_id', String(opts.userId));
+  if (opts.limit) search.set('limit', String(opts.limit));
+  if (opts.offset) search.set('offset', String(opts.offset));
+  if (opts.q?.trim()) search.set('q', opts.q.trim());
+  const qs = search.toString();
+  return apiFetch<MemoryResponse>(`${MEMORY_ENDPOINT}${qs ? `?${qs}` : ''}`, {}, '记忆列表加载失败');
 }
 
 export async function searchMemories(query: string, limit = 5, userId?: number): Promise<MemoryResponse> {
@@ -36,6 +54,34 @@ export async function searchMemories(query: string, limit = 5, userId?: number):
 
 export async function deleteMemory(memoryId: number): Promise<void> {
   await apiFetch<void>(`${MEMORY_ENDPOINT}/${memoryId}`, { method: 'DELETE' }, '删除记忆失败');
+}
+
+/** 批量删除：部分成功优于整批失败（越界/他人 id 记在 missing 里返回） */
+export async function batchDeleteMemories(
+  ids: number[],
+): Promise<{ success: boolean; deleted: number; missing: number[] }> {
+  return apiFetch<{ success: boolean; deleted: number; missing: number[] }>(
+    `${MEMORY_ENDPOINT}/batch-delete`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) },
+    '批量删除失败',
+  );
+}
+
+/**
+ * 对既有记忆做一次向量相似度聚类去重。
+ * 历史遗留：早期蒸馏管线没有去重闸，同一句"项目代号是 ORION"存了 6 遍。
+ */
+export async function dedupeMemories(
+  userId?: number,
+  dryRun = false,
+): Promise<{ success: boolean; user_id: number; groups: number; removed: number; kept: number }> {
+  const search = new URLSearchParams({ dry_run: String(dryRun) });
+  if (userId) search.set('user_id', String(userId));
+  return apiFetch(
+    `${MEMORY_ENDPOINT}/dedupe?${search.toString()}`,
+    { method: 'POST' },
+    '记忆去重失败',
+  );
 }
 
 /**

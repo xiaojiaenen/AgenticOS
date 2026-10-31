@@ -118,43 +118,78 @@ class UserMemoryService:
         *,
         limit: int = 200,
         offset: int = 0,
+        q: str | None = None,
     ) -> list[dict[str, Any]]:
         """获取用户所有 L1 atom 记忆（管理后台用，分页返回）"""
 
         def _run():
             with create_db_session() as db:
-                return db.scalars(
+                stmt = (
                     select(MemoryModel)
                     .where(MemoryModel.user_id == user_id)
                     .where(MemoryModel.layer == "L1")
-                    .order_by(MemoryModel.created_at.desc())
+                )
+                if q:
+                    stmt = stmt.where(MemoryModel.content.contains(q))
+                return db.scalars(
+                    stmt.order_by(MemoryModel.created_at.desc())
                     .offset(offset)
                     .limit(limit)
                 ).all()
 
         rows = await asyncio.to_thread(_run)
         return [self._row_to_dict(r) for r in rows]
+
+    async def count_memories(self, user_id: int, *, q: str | None = None) -> int:
+        """带过滤条件的记忆总数（分页控件需要 total 才能算总页数）"""
+
+        def _run():
+            with create_db_session() as db:
+                stmt = (
+                    select(MemoryModel.id)
+                    .where(MemoryModel.user_id == user_id)
+                    .where(MemoryModel.layer == "L1")
+                )
+                if q:
+                    stmt = stmt.where(MemoryModel.content.contains(q))
+                return len(db.scalars(stmt).all())
+
+        return await asyncio.to_thread(_run)
 
     async def get_all_memories_admin(
         self,
         *,
         limit: int = 200,
         offset: int = 0,
+        q: str | None = None,
     ) -> list[dict[str, Any]]:
         """管理员：获取所有用户的 L1 记忆（分页返回）"""
 
         def _run():
             with create_db_session() as db:
+                stmt = select(MemoryModel).where(MemoryModel.layer == "L1")
+                if q:
+                    stmt = stmt.where(MemoryModel.content.contains(q))
                 return db.scalars(
-                    select(MemoryModel)
-                    .where(MemoryModel.layer == "L1")
-                    .order_by(MemoryModel.user_id, MemoryModel.created_at.desc())
+                    stmt.order_by(MemoryModel.user_id, MemoryModel.created_at.desc())
                     .offset(offset)
                     .limit(limit)
                 ).all()
 
         rows = await asyncio.to_thread(_run)
         return [self._row_to_dict(r) for r in rows]
+
+    async def count_memories_admin(self, *, q: str | None = None) -> int:
+        """管理员：全量记忆总数（含过滤条件）"""
+
+        def _run():
+            with create_db_session() as db:
+                stmt = select(MemoryModel.id).where(MemoryModel.layer == "L1")
+                if q:
+                    stmt = stmt.where(MemoryModel.content.contains(q))
+                return len(db.scalars(stmt).all())
+
+        return await asyncio.to_thread(_run)
 
     async def delete_memory(self, memory_id: int, user_id: int | None = None) -> bool:
         """删除一条 L1 atom（同步删除向量 + FTS 索引）"""
