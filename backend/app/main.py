@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from collections.abc import AsyncIterator
@@ -51,6 +52,17 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
     # 初始化 Redis（留空则使用内存 fallback）
     await init_redis(settings.redis_url, settings.redis_cluster)
+
+    # 重启收尸：上次进程中断时还在 running 的后台任务已死，标记为 error，
+    # 否则评测/追踪页面永远显示「执行中」却没有终态。
+    try:
+        from app.services.startup_cleanup import mark_interrupted_runs
+
+        counts = await asyncio.to_thread(mark_interrupted_runs)
+        if counts.get("eval_runs") or counts.get("traces"):
+            logger.warning("startup cleanup: %s", counts)
+    except Exception:
+        logger.warning("startup cleanup failed", exc_info=True)
 
     # LLM 全局并发闸：本地信号量必须在事件循环内创建（asyncio.Semaphore
     # 绑定 loop），因此在这里而不是模块导入时配置。关闭时 slot() 是 no-op。

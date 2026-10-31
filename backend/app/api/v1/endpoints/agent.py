@@ -190,6 +190,35 @@ async def get_session_messages(
     if session is None:
         raise HTTPException(status_code=404, detail="会话不存在")
 
+    # ── 中断恢复：进程崩溃/发版重启时，run 还没走到「挂 metadata 落库」，
+    # 该轮的 A2UI 界面/图表还留在 Redis 持久化队列里。会话被重新打开的
+    # 时刻把它们补挂到最后一条助手消息（内存合并，不改历史落库），然后
+    # 清掉队列 —— 用户刷新页面就能看到中断前生成的界面，而不是干文本。
+    try:
+        from app.services import session_artifacts
+
+        for kind, meta_key in (("a2ui", "a2ui"), ("chart", "chart")):
+            pending = session_artifacts.read_all(kind, session_id)
+            if not pending:
+                continue
+            for msg in reversed(session.context._messages):
+                if getattr(msg, "role", None) == "assistant":
+                    meta = dict(getattr(msg, "metadata", None) or {})
+                    prev = meta.get(meta_key)
+                    meta[meta_key] = (prev or []) + pending if isinstance(prev, list) else pending
+                    try:
+                        msg.metadata = meta
+                    except Exception:  # noqa: BLE001
+                        _logger.warning("interrupt-recovery attach %s failed", kind, exc_info=True)
+                    break
+            session_artifacts.clear(kind, session_id)
+            _logger.info(
+                "interrupt-recovery: attached %d %s artifacts to session %s",
+                len(pending), kind, session_id[:12],
+            )
+    except Exception:  # noqa: BLE001 -- 恢复失败不影响正常加载
+        _logger.warning("interrupt recovery failed", exc_info=True)
+
     result = []
     for msg in session.context._messages:
         entry: dict[str, Any] = {

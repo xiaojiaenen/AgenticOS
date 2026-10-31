@@ -965,6 +965,31 @@ class StreamOrchestrator:
                     except asyncio.CancelledError:
                         pass
 
+                    # usage 兜底：正常路径在 done/error 事件里记账；客户端断开
+                    # （producer 被取消）走不到那里，该轮 token 会全漏统计。
+                    # 用会话内存里的 last_usage / 已收文本估算补记。
+                    if not usage_recorded and user is not None and session is not None:
+                        try:
+                            await asyncio.shield(self._record_usage_event(
+                                session=session,
+                                request=request,
+                                user=user,
+                                event_data={"interrupted": True},
+                                tool_names=tool_names,
+                                response_mode=response_mode,
+                                agent_profile_id=runtime_profile.profile_id,
+                                collected_text=collected_text,
+                                agent=agent,
+                            ))
+                            _logger.info(
+                                "recorded interrupted usage: session=%s chars=%d",
+                                session.session_id, len(collected_text),
+                            )
+                        except asyncio.CancelledError:
+                            pass
+                        except Exception as usage_err:
+                            _logger.warning(f"interrupted usage record failed: {usage_err}")
+
                     # 任务完成/失败通知（异步，不阻塞 SSE）
                     if user is not None:
                         task_duration = time.time() - task_start_time

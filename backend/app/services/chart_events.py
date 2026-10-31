@@ -1,4 +1,4 @@
-"""图表独立事件通道（累积状态放在模块内，不挂 session 对象）。
+"""图表独立事件通道（累积状态持久化在 Redis，进程重启不丢）。
 
 踩过的坑（两次，都记在这里，别第三次）：
 
@@ -16,9 +16,13 @@
    list 的引用，于是子 task 的 append 对父上下文可见。
    图表通道当初没做这一步，所以采集器在父上下文里始终是 None。
 
-现在的做法：**以 session_id 为键的进程内队列为准**（session_id 从
+现在的做法：**以 session_id 为键的持久化队列为准**（session_id 从
 `_current_session_id` contextvar 读 —— contextvar 的**值**能传播到子 task，
-只有**写**不传播）。contextvar 列表只保留给同上下文调用（单元测试用），
+只有**写**不传播）。队列本体在 Redis（AOF + 数据卷持久化，工具 push
+时立即写入）—— 之前是进程内 dict，发版/崩溃会整轮丢图，`_emitted`
+游标丢失还会导致重启后同一张图重复下发、重复落库。
+Redis 不可用时退回进程内 dict（本地开发/单测行为不变）。
+contextvar 列表只保留给同上下文调用（单元测试用），
 两条路径按 session_id 是否存在互斥，不会重复计数。
 """
 from __future__ import annotations
@@ -37,10 +41,12 @@ _pending_charts: contextvars.ContextVar[list[dict[str, Any]] | None] = (
     contextvars.ContextVar("chart_pending", default=None)
 )
 
-# 跨上下文队列：key = session_id。工具在子 task 里执行也能可靠落进来。
-_accumulated: dict[str, list[dict[str, Any]]] = {}
-# 已下发的条数（避免同一张图重复发事件；落库用全量 accumulated）
-_emitted: dict[str, int] = {}
+# 跨上下文队列已迁移到 session_artifacts（Redis 持久化，见模块 docstring）。
+# 这两个引用仅作为 Redis 不可用时的进程内 fallback（内存 dict）。
+from app.services import session_artifacts  # noqa: E402
+
+_accumulated = session_artifacts._mem_lists["chart"]
+_emitted = session_artifacts._mem_emitted["chart"]
 
 
 def _session_id() -> str:
@@ -108,8 +114,7 @@ def reset_session(session_id: str) -> None:
     """
     reset_pending()
     if session_id:
-        _accumulated.pop(session_id, None)
-        _emitted.pop(session_id, None)
+        session_artifacts.clear("chart", session_id)
 
 
 def chart_events(session_id: str) -> list[dict[str, Any]]:
@@ -120,11 +125,11 @@ def chart_events(session_id: str) -> list[dict[str, Any]]:
       - 按 session_id 的进程内队列（工具在子 task 里执行的情况）
     """
     items = drain_pending()
-    buffered = _accumulated.get(session_id) or []
-    start = _emitted.get(session_id, 0)
+    buffered = session_artifacts.read_all("chart", session_id)
+    start = session_artifacts.get_emitted("chart", session_id)
     if start < len(buffered):
         items.extend(buffered[start:])
-        _emitted[session_id] = len(buffered)
+        session_artifacts.set_emitted("chart", session_id, len(buffered))
     if not items:
         return []
     return [{
@@ -135,10 +140,9 @@ def chart_events(session_id: str) -> list[dict[str, Any]]:
 
 def accumulated(session_id: str) -> list[dict[str, Any]]:
     """读取该会话累积的全部图表（供落库挂 metadata）。"""
-    return list(_accumulated.get(session_id) or [])
+    return session_artifacts.read_all("chart", session_id)
 
 
 def clear_accumulated(session_id: str) -> None:
     """落库后清空，避免重复写入。"""
-    _accumulated.pop(session_id, None)
-    _emitted.pop(session_id, None)
+    session_artifacts.clear("chart", session_id)

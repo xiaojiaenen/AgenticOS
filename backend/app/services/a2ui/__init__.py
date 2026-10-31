@@ -62,24 +62,26 @@ _pending_a2ui: contextvars.ContextVar[list[dict[str, Any]] | None] = contextvars
 # 本轮累积的界面消息（供落库挂 metadata.a2ui）。
 # 不能挂 session 对象：AgentSession 是 Pydantic 模型，未知属性会进
 # metadata 变成 dict，随后 .extend() 报 "'dict' object has no attribute 'append'"。
-_accumulated: dict[str, list[dict[str, Any]]] = {}
+#
+# 持久化：走 session_artifacts（Redis，工具产出时立即写入）—— 之前是
+# 进程内 dict，发版/崩溃会把还没落库的界面整轮丢掉（用户刷新后界面消失）。
+# Redis 不可用时退回进程内 dict（本地开发/单测行为不变）。
+from app.services import session_artifacts  # noqa: E402
+
+_accumulated = session_artifacts._mem_lists["a2ui"]
 
 
 def accumulate(session_id: str, messages: list[dict[str, Any]]) -> None:
-    """把界面消息累积到该会话。"""
-    buf = _accumulated.get(session_id)
-    if buf is None:
-        buf = []
-        _accumulated[session_id] = buf
-    buf.extend(messages)
+    """把界面消息累积到该会话（即时持久化）。"""
+    session_artifacts.append("a2ui", session_id, messages)
 
 
 def accumulated(session_id: str) -> list[dict[str, Any]]:
-    return list(_accumulated.get(session_id) or [])
+    return session_artifacts.read_all("a2ui", session_id)
 
 
 def clear_accumulated(session_id: str) -> None:
-    _accumulated.pop(session_id, None)
+    session_artifacts.clear("a2ui", session_id)
 
 
 def _collector() -> list[dict[str, Any]]:
