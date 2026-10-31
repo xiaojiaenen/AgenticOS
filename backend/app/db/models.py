@@ -199,8 +199,112 @@ class AgentProfileModel(Base):
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     # private = 仅自己可见可用；public = 可出现在商店供他人安装
     visibility: Mapped[str] = mapped_column(String(16), default="private", index=True)
+    # ── 一键发布为独立应用（公开聊天页 / 嵌入 widget）──
+    published: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # 公开访问的短 ID（不可猜测），随发布生成；下线保留以便重新上线
+    publish_slug: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True)
+    # {"title": "", "welcome": "", "access_code": ""}（访问码为空 = 无需口令）
+    publish_config_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class AgentProfileVersionModel(Base):
+    """智能体配置版本历史：保存/发布时快照，支持回滚。"""
+
+    __tablename__ = "agent_profile_versions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("agent_profiles.id"), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    # 整份可回滚配置：system_prompt/response_mode/max_steps + 工具与技能清单
+    config_json: Mapped[str] = mapped_column(Text)
+    note: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
+class AgentRunTraceModel(Base):
+    """一次 agent run 的步骤瀑布（LLMOps 追踪）。每 run 一行。"""
+
+    __tablename__ = "agent_run_traces"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(128), index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    agent_profile_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mode: Mapped[str] = mapped_column(String(32), default="general")
+    status: Mapped[str] = mapped_column(String(16), default="running", index=True)  # running/done/error
+    # 时间序步骤：[{kind, name, ts_ms, duration_ms, detail}, ...]（detail 已截断）
+    steps_json: Mapped[str] = mapped_column(Text, default="[]")
+    text_chars: Mapped[int] = mapped_column(Integer, default=0)
+    reasoning_chars: Mapped[int] = mapped_column(Integer, default=0)
+    tool_calls: Mapped[int] = mapped_column(Integer, default=0)
+    llm_calls: Mapped[int] = mapped_column(Integer, default=0)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    finished_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+
+
+class AgentMessageFeedbackModel(Base):
+    """用户对单条 AI 回复的评价（点赞/点踩 + 备注），LLMOps 标注回流的入口。"""
+
+    __tablename__ = "agent_message_feedbacks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(128), index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    message_index: Mapped[int] = mapped_column(Integer, default=0)
+    # 回复内容指纹（前 200 字符 sha1），用于在会话历史里定位这条消息
+    message_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    rating: Mapped[str] = mapped_column(String(8))  # up / down
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
+class EvalDatasetModel(Base):
+    """智能体评测数据集：一组固定输入 + 期望，用于提示词回归。"""
+
+    __tablename__ = "agent_eval_datasets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(Text, default="")
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
+class EvalCaseModel(Base):
+    __tablename__ = "agent_eval_cases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dataset_id: Mapped[int] = mapped_column(ForeignKey("agent_eval_datasets.id", ondelete="CASCADE"), index=True)
+    input: Mapped[str] = mapped_column(Text)
+    # {"contains": ["关键词1"], "not_contains": []} —— MVP 评分规则
+    expected_json: Mapped[str] = mapped_column(Text, default="{}")
+    note: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
+class EvalRunModel(Base):
+    __tablename__ = "agent_eval_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dataset_id: Mapped[int] = mapped_column(ForeignKey("agent_eval_datasets.id"), index=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("agent_profiles.id"), index=True)
+    profile_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="running", index=True)  # running/done/error
+    total: Mapped[int] = mapped_column(Integer, default=0)
+    passed: Mapped[int] = mapped_column(Integer, default=0)
+    # [{case_id, input, output, passed, error, duration_ms, tool_calls}]
+    results_json: Mapped[str] = mapped_column(Text, default="[]")
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    finished_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
 
 
 class AgentProfileToolModel(Base):

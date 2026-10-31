@@ -14,12 +14,14 @@ from app.db.models import (
     AgentProfileAudienceModel,
     AgentProfileSkillModel,
     AgentProfileToolModel,
+    AgentProfileVersionModel,
     ExternalSystemModel,
     SkillModel,
     UserInstalledAgentModel,
     UserModel,
 )
 from app.db.session import create_db_session
+import json as _json
 from app.prompts import (BIGDATA_SYSTEM_PROMPT, EMAIL_SYSTEM_PROMPT, GENERAL_SYSTEM_PROMPT,
                           OFFICE_SYSTEM_PROMPT, PPT_SYSTEM_PROMPT, WEBSITE_ROUTER_PROMPT)
 from app.schemas.agent_profiles import AgentProfileCreateRequest, AgentProfileTool, AgentProfileUpdateRequest
@@ -942,6 +944,147 @@ class AgentProfileService:
                 db, profile, approval_mode=approval_mode,
                 is_admin_actor=user.role == "admin", plan_mode=plan_mode,
             )
+
+    def resolve_runtime_published(self, slug: str) -> RuntimeAgentProfile:
+        """??????????????? slug ???
+
+        ??? published=True ? profile??????? profile ??
+        ?is_admin_actor=False??????????????????
+        """
+        with self.session_factory() as db:
+            self.ensure_defaults(db)
+            profile = db.scalar(
+                select(AgentProfileModel).where(
+                    AgentProfileModel.publish_slug == slug,
+                    AgentProfileModel.published.is_(True),
+                    AgentProfileModel.enabled.is_(True),
+                )
+            )
+            if profile is None:
+                raise PermissionError("Published agent not found")
+            return self._runtime_from_profile(
+                db, profile, approval_mode="auto", is_admin_actor=False, plan_mode=False,
+            )
+
+    # -- Prompt ???? --
+
+    def _snapshot_config(self, db, profile) -> dict:
+        """???????????? + ??/?????"""
+        tools = db.scalars(
+            select(AgentProfileToolModel).where(AgentProfileToolModel.profile_id == profile.id)
+        ).all()
+        skills = db.scalars(
+            select(AgentProfileSkillModel).where(AgentProfileSkillModel.profile_id == profile.id)
+        ).all()
+        return {
+            "name": profile.name,
+            "description": profile.description,
+            "system_prompt": profile.system_prompt,
+            "response_mode": profile.response_mode,
+            "avatar": profile.avatar,
+            "max_steps": profile.max_steps,
+            "tools": [
+                {"tool_name": t.tool_name, "enabled": t.enabled, "requires_approval": t.requires_approval}
+                for t in tools
+            ],
+            "skills": [s.slug for s in skills],
+        }
+
+    def save_profile_version(self, profile_id: int, *, created_by: int | None, note: str | None = None) -> int | None:
+        """??????????????????profile ????? None?"""
+        with self.session_factory() as db:
+            profile = db.get(AgentProfileModel, profile_id)
+            if profile is None:
+                return None
+            latest = db.scalar(
+                select(func.max(AgentProfileVersionModel.version)).where(
+                    AgentProfileVersionModel.profile_id == profile_id
+                )
+            )
+            version = int(latest or 0) + 1
+            db.add(
+                AgentProfileVersionModel(
+                    profile_id=profile_id,
+                    version=version,
+                    config_json=_json.dumps(
+                        self._snapshot_config(db, profile), ensure_ascii=False
+                    ),
+                    note=note,
+                    created_by=created_by,
+                )
+            )
+            db.commit()
+            return version
+
+    def list_profile_versions(self, profile_id: int) -> list[dict]:
+        """??????????config_json ?????????????"""
+        with self.session_factory() as db:
+            rows = db.scalars(
+                select(AgentProfileVersionModel)
+                .where(AgentProfileVersionModel.profile_id == profile_id)
+                .order_by(AgentProfileVersionModel.version.desc())
+                .limit(50)
+            ).all()
+            return [
+                {
+                    "id": r.id,
+                    "version": r.version,
+                    "note": r.note,
+                    "created_by": r.created_by,
+                    "created_at": isoformat_app_timezone(r.created_at),
+                }
+                for r in rows
+            ]
+
+    def get_profile_version(self, profile_id: int, version: int) -> dict | None:
+        with self.session_factory() as db:
+            row = db.scalar(
+                select(AgentProfileVersionModel).where(
+                    AgentProfileVersionModel.profile_id == profile_id,
+                    AgentProfileVersionModel.version == version,
+                )
+            )
+            if row is None:
+                return None
+            return {
+                "id": row.id,
+                "version": row.version,
+                "note": row.note,
+                "created_at": isoformat_app_timezone(row.created_at),
+                "config": _json.loads(row.config_json),
+            }
+
+    def restore_profile_version(self, profile_id: int, version: int) -> bool:
+        """?????????????????????????????"""
+        snapshot = self.get_profile_version(profile_id, version)
+        if snapshot is None:
+            return False
+        config = snapshot["config"]
+        with self.session_factory() as db:
+            profile = db.get(AgentProfileModel, profile_id)
+            if profile is None:
+                return False
+            self.save_profile_version(profile_id, created_by=None, note=f"restore before v{version}")
+            profile.name = config.get("name") or profile.name
+            profile.description = config.get("description") or ""
+            profile.system_prompt = config.get("system_prompt") or profile.system_prompt
+            profile.response_mode = config.get("response_mode") or profile.response_mode
+            profile.avatar = config.get("avatar")
+            profile.max_steps = config.get("max_steps")
+            db.execute(
+                delete(AgentProfileToolModel).where(AgentProfileToolModel.profile_id == profile_id)
+            )
+            for tool in config.get("tools", []):
+                db.add(
+                    AgentProfileToolModel(
+                        profile_id=profile_id,
+                        tool_name=tool["tool_name"],
+                        enabled=bool(tool.get("enabled", False)),
+                        requires_approval=bool(tool.get("requires_approval", False)),
+                    )
+                )
+            db.commit()
+        return True
 
     def resolve_runtime_by_mode(
         self,

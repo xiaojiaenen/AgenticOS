@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Activity,
   BarChart3,
   BellRing,
   BookOpen,
@@ -9,6 +10,7 @@ import {
   Brain,
   Building2,
   ChevronDown,
+  FlaskConical,
   Globe,
   KeyRound,
   LogOut,
@@ -72,6 +74,7 @@ const navGroups: NavGroup[] = [
       { id: 'history', icon: MessageSquare, label: '聊天记录', description: '检索会话并查看完整详情' },
       { id: 'announcements', icon: BellRing, label: '公告设计', description: '设计用户进入系统时看到的公告' },
       { id: 'memory', icon: Brain, label: '记忆管理', description: '查看和管理 AI 学到的用户记忆' },
+      { id: 'traces', icon: Activity, label: '运行追踪', description: '每次运行的步骤瀑布、耗时与反馈标注' },
     ],
   },
   {
@@ -85,6 +88,7 @@ const navGroups: NavGroup[] = [
       { id: 'skills', icon: Puzzle, label: 'Skill 管理', description: '管理本地 Skill 与脚本目录' },
       { id: 'knowledge', icon: BookOpen, label: '知识库', description: '管理知识库文档与 Wiki 编译' },
       { id: 'website_deploys', icon: Globe, label: '网站部署', description: '审批和管理网站部署请求' },
+      { id: 'evals', icon: FlaskConical, label: '评测', description: '用固定用例集回归验证智能体质量' },
     ],
   },
   {

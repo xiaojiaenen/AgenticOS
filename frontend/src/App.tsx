@@ -26,6 +26,10 @@ const Signup = lazy(() => import('./pages/Signup').then((module) => ({ default: 
 const AdminDashboard = lazy(() =>
   import('./pages/AdminDashboard').then((module) => ({ default: module.AdminDashboard })),
 );
+// 公开发布的智能体聊天页（无需登录，嵌入 widget 指向这里）
+const PublicAgentChat = lazy(() =>
+  import('./pages/PublicAgentChat').then((module) => ({ default: module.PublicAgentChat })),
+);
 
 const LoadingPage = () => (
   <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-[var(--surface-0)]">
@@ -79,6 +83,7 @@ const AnimatedRoutes = () => {
           <Route path="/login" element={<ErrorBoundary key={`login-${location.pathname}`} title="登录页出错了"><Login /></ErrorBoundary>} />
           <Route path="/signup" element={<ErrorBoundary key={`signup-${location.pathname}`} title="注册页出错了"><Signup /></ErrorBoundary>} />
           <Route path="/admin" element={<ProtectedRoute requireAdmin><ErrorBoundary key={`admin-${location.pathname}`} title="管理后台出错了"><AdminDashboard /></ErrorBoundary></ProtectedRoute>} />
+          <Route path="/app/:slug" element={<ErrorBoundary key={`public-agent-${location.pathname}`} title="应用页出错了"><PublicAgentChat /></ErrorBoundary>} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </AnimatePresence>

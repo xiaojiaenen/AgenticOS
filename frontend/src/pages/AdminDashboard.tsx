@@ -19,6 +19,8 @@ import { SystemSettings } from '../components/admin/SystemSettings';
 import { IntegrationManagement } from '../components/admin/IntegrationManagement';
 import { UserManagement } from '../components/admin/UserManagement';
 import { MemoryPanel } from '../components/settings/MemoryPanel';
+import { TracePanel } from '../components/settings/TracePanel';
+import { EvalPanel } from '../components/settings/EvalPanel';
 import { PermissionManagement } from '../components/admin/PermissionManagement';
 import { ChartSkeleton } from '../components/ui/ChartSkeleton';
 import { Button } from '@/components/shadcn/button';
@@ -27,7 +29,7 @@ import { cn } from '../lib/utils';
 import { getDashboardStats, getUsageRoutes } from '../services/dashboardService';
 
 export const AdminDashboard = () => {
-  const VALID_TABS = ['dashboard', 'history', 'users', 'permissions', 'agents', 'llm_providers', 'integrations', 'api_keys', 'gateway', 'skills', 'knowledge', 'website_deploys', 'announcements', 'settings', 'memory'];
+  const VALID_TABS = ['dashboard', 'history', 'users', 'permissions', 'agents', 'llm_providers', 'integrations', 'api_keys', 'gateway', 'skills', 'knowledge', 'website_deploys', 'announcements', 'settings', 'memory', 'traces', 'evals'];
   // tab 与 URL hash 双向同步：刷新 / 分享链接不丢失当前管理页
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.replace('#', '');
@@ -265,6 +267,10 @@ export const AdminDashboard = () => {
         return <SystemSettings />;
       case 'memory':
         return <MemoryPanel />;
+      case 'traces':
+        return <TracePanel />;
+      case 'evals':
+        return <EvalPanel />;
       default:
         return null;
     }

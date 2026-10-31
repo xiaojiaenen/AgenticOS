@@ -32,7 +32,7 @@ function sanitizeForNonAdmin(message: Message): Message {
 }
 
 interface MessagesListProps {
-  currentSession: { messages: Message[] } | undefined;
+  currentSession: ({ messages: Message[]; id?: string }) | undefined;
   isLoading: boolean;
   wideLayout?: boolean;
   searchQuery: string;
@@ -96,6 +96,7 @@ export const MessagesList = React.memo<MessagesListProps>(({
       isAdmin={isAdmin}
       searchQuery={searchQuery}
       activeMatchId={activeMatchId}
+      sessionId={currentSession?.id}
       onOpenArtifact={onOpenArtifact}
       onA2uiAction={handleA2uiAction}
       onA2uiDataChange={onA2uiDataChange}

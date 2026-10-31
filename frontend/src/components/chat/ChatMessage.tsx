@@ -10,6 +10,8 @@ import { APP_TIME_ZONE } from '../../lib/datetime';
 import { cn, copyToClipboard } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
 import { UserAvatarIcon, MascotCool, CopyIcon, CheckIcon, WrenchIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
+import { ThumbsUp, ThumbsDown } from 'lucide-react';
+import { submitFeedback } from '../../services/llmopsService';
 import { ErrorBoundary, InlineErrorFallback } from '../ui/ErrorBoundary';
 import { OrderedAssistantContent, shouldUseOrderedRender, collectBlockText } from './OrderedAssistantContent';
 import { TableCell, TableHeaderCell, HighlightedText, processChildren } from './markdownRenderParts';
@@ -43,6 +45,8 @@ interface ChatMessageProps {
   /** A2UI 数据模型变化（表单输入等），用于"跟随刷新" */
   onA2uiDataChange?: (data: Record<string, unknown>, surfaceId?: string) => void;
   index?: number;
+  /** ???? ID????? ??/?? ?????*/
+  sessionId?: string;
   searchQuery?: string;
   activeMatchId?: string | null;
 }
@@ -57,7 +61,7 @@ function preprocessChartMarkers(text: string): string {
   );
 }
 
-export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, isAdmin = false, onOpenArtifact, onA2uiAction, onA2uiDataChange, index = 0, searchQuery = "", activeMatchId }: ChatMessageProps) => {
+export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, isAdmin = false, onOpenArtifact, onA2uiAction, onA2uiDataChange, index = 0, searchQuery = "", activeMatchId, sessionId }: ChatMessageProps) => {
   const isUser = message?.role === 'user';
   // 按序渲染（新消息）：正文/工具/思考交错展示；历史消息回退旧式三桶
   const useOrderedRender = !isUser && !isTyping && Boolean(message?.blocks?.length) && shouldUseOrderedRender(message!);
@@ -75,6 +79,18 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   const config = getAppConfig();
   const sessionCounter = useRef({ current: 0 });
   const copyTimeoutRef = useRef<number | null>(null);
+  // ?????LLMOps????/?? ??? agent_message_feedbacks
+  const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
+  const handleFeedback = (rating: 'up' | 'down') => {
+    const next = feedback === rating ? null : rating;
+    setFeedback(next);
+    if (!next) return;
+    void submitFeedback({
+      session_id: sessionId || '',
+      message_index: index,
+      rating,
+    }).catch(() => undefined);
+  };
 
   useEffect(() => {
     return () => {
@@ -279,6 +295,26 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
               )}>
                 {isCopied ? <CheckIcon size={12} className="text-emerald-500 dark:text-emerald-400" /> : <CopyIcon size={12} />}
               </button>
+            )}
+            {!isUser && visibleText && (
+              <span className="inline-flex items-center gap-1.5 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                <button
+                  onClick={() => handleFeedback('up')}
+                  title="有帮助"
+                  aria-label="有帮助"
+                  className={cn('transition-colors duration-200 hover:text-emerald-600', feedback === 'up' && 'text-emerald-600')}
+                >
+                  <ThumbsUp size={12} />
+                </button>
+                <button
+                  onClick={() => handleFeedback('down')}
+                  title="没帮助"
+                  aria-label="没帮助"
+                  className={cn('transition-colors duration-200 hover:text-rose-600', feedback === 'down' && 'text-rose-600')}
+                >
+                  <ThumbsDown size={12} />
+                </button>
+              </span>
             )}
           </div>
         )}

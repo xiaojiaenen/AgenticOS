@@ -26,6 +26,10 @@ class AgentStreamRequest(BaseModel):
     session_id: str | None = Field(default=None, description="Session ID reused across turns.")
     system_prompt: str | None = Field(default=None, description="System prompt used when creating a session.")
     agent_profile_id: int | None = Field(default=None, ge=1, description="Pluggable agent profile ID.")
+    # 公开发布的智能体（无需登录，凭 slug 访问）。优先级高于 agent_profile_id。
+    published_slug: str | None = Field(
+        default=None, max_length=64, description="Slug of a published agent profile (public access)."
+    )
     plan_mode: bool = Field(
         default=False,
         description="计划模式：只允许只读工具，产出可执行计划后再执行",

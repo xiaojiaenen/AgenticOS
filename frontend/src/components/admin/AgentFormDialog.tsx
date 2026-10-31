@@ -39,6 +39,8 @@ import type { AdminUser } from '@/services/userService';
 import { AgentMode, ToolCatalogItem } from '@/services/toolConfigService';
 import type { IntegrationSystem } from '@/services/integrationService';
 import { MODE_SYSTEM_PROMPTS } from '@/constants/modePrompts';
+import { AgentPublishVersionPanel } from './AgentPublishVersionPanel';
+import { saveProfileVersion } from '@/services/llmopsService';
 import { AgentToolsPanel } from './AgentToolsPanel';
 import { AgentSkillsPanel } from './AgentSkillsPanel';
 import { AgentIntegrationsPanel } from './AgentIntegrationsPanel';
@@ -75,7 +77,7 @@ export function AgentFormDialog({
   // 原来左右两栏各自滚动，窄屏下左栏会被挤成一条竖线（文字竖排）——
   // 改成单一滚动区 + 顶部固定 Tab，任一宽度下都只有一个滚动条。
   const [sectionTab, setSectionTab] = React.useState<
-    'basic' | 'tools' | 'skills' | 'integrations'
+    'basic' | 'tools' | 'skills' | 'integrations' | 'publish'
   >('basic');
   const [expandedTools, setExpandedTools] = React.useState<Set<string>>(new Set());
 
@@ -156,6 +158,10 @@ export function AgentFormDialog({
     },
     onSuccess: () => {
       toast.success(isEdit ? '智能体配置已更新' : '智能体已创建');
+      // 每次编辑保存自动存一个版本快照（版本历史/回滚的数据来源）
+      if (isEdit && editingProfile) {
+        void saveProfileVersion(editingProfile.id, '编辑保存').catch(() => undefined);
+      }
       void queryClient.invalidateQueries({ queryKey: ['admin', 'agents'] });
       onClose();
     },
@@ -212,11 +218,12 @@ export function AgentFormDialog({
             className="flex min-h-0 flex-1 flex-col"
           >
             <div className="shrink-0 border-b border-[var(--border-subtle)] px-5 pt-1">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="basic">基础信息</TabsTrigger>
                 <TabsTrigger value="tools">工具与审批</TabsTrigger>
                 <TabsTrigger value="skills">技能</TabsTrigger>
                 <TabsTrigger value="integrations">集成</TabsTrigger>
+                <TabsTrigger value="publish">发布与版本</TabsTrigger>
               </TabsList>
             </div>
 
@@ -455,6 +462,16 @@ export function AgentFormDialog({
 
             {sectionTab === 'integrations' ? (
               <AgentIntegrationsPanel form={form} externalSystems={externalSystems} />
+            ) : null}
+
+            {sectionTab === 'publish' ? (
+              isEdit && editingProfile ? (
+                <AgentPublishVersionPanel profileId={editingProfile.id} />
+              ) : (
+                <div className="rounded-lg border border-dashed border-[var(--border-subtle)] p-8 text-center text-sm text-[var(--muted-foreground)]">
+                  保存智能体后即可发布为独立应用，并使用版本历史
+                </div>
+              )
             ) : null}
             </div>
           </Tabs>

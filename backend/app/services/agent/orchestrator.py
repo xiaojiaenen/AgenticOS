@@ -672,7 +672,23 @@ class StreamOrchestrator:
                 if isinstance(stored_mode, str) and stored_mode in RESPONSE_MODES:
                     request.response_mode = stored_mode
 
-        runtime_profile = await self._resolve_runtime_profile(request, user)
+        # 公开发布的智能体（独立聊天页 / 嵌入 widget，无需登录）
+        published_profile = None
+        if request.published_slug:
+            from app.services.agent_profile_service import AgentProfileService
+
+            published_profile = await asyncio.to_thread(
+                AgentProfileService().resolve_runtime_published, request.published_slug
+            )
+            request.agent_profile_id = published_profile.profile_id
+            request.response_mode = published_profile.response_mode
+
+        # ???????? profile ???? ?? resolve_runtime ???????
+        # ?????user=None?????
+        if published_profile is not None:
+            runtime_profile = published_profile
+        else:
+            runtime_profile = await self._resolve_runtime_profile(request, user)
         response_mode = runtime_profile.response_mode
         ppt_mode = response_mode == "ppt"
         email_mode = response_mode == "email"
@@ -689,6 +705,17 @@ class StreamOrchestrator:
                 check_daily_quota(user.id, role=user.role)
 
         agent = self._get_agent(runtime_profile)
+
+        # LLMOps 运行追踪：本 run 的步骤瀑布收集器（纯内存，事件循环里追加，
+        # run 结束的 finally 里落库 —— 失败/断开也能拿到完整 trace）。
+        from app.services.trace_recorder import TraceRecorder
+
+        trace = TraceRecorder(
+            session_id=request.session_id or "(new)",
+            user_id=user.id if user is not None else None,
+            agent_profile_id=runtime_profile.profile_id,
+            mode=response_mode,
+        )
 
         _logger.info(
             "stream_chat start: session=%s mode=%s profile=%s msg_len=%d files=%d",
@@ -900,6 +927,7 @@ class StreamOrchestrator:
                             event_count += 1
                             if getattr(event, "type", None) == "error":
                                 run_had_error = True
+                            trace.on_event(event)
                             await runtime_queue.put(event)
                 _ctx_msgs = getattr(getattr(session, "context", None), "_messages", [])
                 _logger.info(f"produce_events: done, events={event_count}, context_msgs={len(_ctx_msgs)}")
@@ -927,6 +955,16 @@ class StreamOrchestrator:
                     _logger.warning(f"produce_events finally: error for session {session.session_id}: {e}", exc_info=True)
                     task_had_error = True
                 finally:
+                    # LLMOps：run 结束（含失败/取消）落一行 trace。
+                    # 放在 producer 的 finally —— 客户端断开取消 producer 时也能拿到。
+                    if run_had_error and trace.status == "running":
+                        trace.status = "error"
+                        trace.error = trace.error or "run failed"
+                    try:
+                        await asyncio.shield(trace.flush())
+                    except asyncio.CancelledError:
+                        pass
+
                     # 任务完成/失败通知（异步，不阻塞 SSE）
                     if user is not None:
                         task_duration = time.time() - task_start_time
