@@ -90,6 +90,59 @@ async def list_traces(
     return {"items": [_trace_summary(r) for r in rows], "total": total}
 
 
+@router.get("/agent/traces/trend", summary="运行趋势聚合（按天）")
+async def traces_trend(
+    days: int = Query(default=7, ge=1, le=90),
+    current_user: UserModel = Depends(get_current_user),
+) -> dict:
+    """按天聚合最近 N 天的 run 指标：次数、平均/P95 耗时、token、工具调用、失败数。
+
+    行数规模（每 run 一行、每天几十~几百行）用 Python 聚合足够，
+    不为跨方言的日期函数（MySQL DATE() vs SQLite date()）引入分叉。
+    """
+    import datetime as _dt
+    import statistics
+
+    from app.core.timezone import app_now
+
+    since = app_now() - _dt.timedelta(days=days)
+    with create_db_session() as db:
+        stmt = select(
+            AgentRunTraceModel.started_at,
+            AgentRunTraceModel.latency_ms,
+            AgentRunTraceModel.input_tokens,
+            AgentRunTraceModel.output_tokens,
+            AgentRunTraceModel.tool_calls,
+            AgentRunTraceModel.status,
+        ).where(AgentRunTraceModel.started_at >= since)
+        if current_user.role != "admin":
+            stmt = stmt.where(AgentRunTraceModel.user_id == current_user.id)
+        rows = db.execute(stmt).all()
+
+    buckets: dict[str, dict[str, Any]] = {}
+    for started_at, latency, inp, outp, tools, status in rows:
+        day = started_at.date().isoformat() if started_at else "unknown"
+        bucket = buckets.setdefault(day, {
+            "date": day, "runs": 0, "errors": 0,
+            "latencies": [], "tokens": 0, "tool_calls": 0,
+        })
+        bucket["runs"] += 1
+        if status == "error":
+            bucket["errors"] += 1
+        bucket["latencies"].append(latency or 0)
+        bucket["tokens"] += (inp or 0) + (outp or 0)
+        bucket["tool_calls"] += tools or 0
+
+    items = []
+    for day in sorted(buckets):
+        b = buckets[day]
+        lats = b.pop("latencies")
+        b["avg_latency_ms"] = int(statistics.mean(lats)) if lats else 0
+        b["p95_latency_ms"] = int(statistics.quantiles(lats, n=20)[18]) if len(lats) >= 20 else (max(lats) if lats else 0)
+        items.append(b)
+    return {"items": items, "days": days}
+
+
 @router.get("/agent/traces/{trace_id}", summary="运行追踪详情（步骤瀑布）")
 async def get_trace(trace_id: int, current_user: UserModel = Depends(get_current_user)) -> dict:
     with create_db_session() as db:
@@ -544,18 +597,47 @@ async def delete_eval_case(case_id: int, current_user: UserModel = Depends(get_c
     return {"success": True}
 
 
-def _score_case(output: str, expected: dict[str, Any]) -> tuple[bool, str | None]:
-    """MVP 评分规则：contains / not_contains。"""
-    if not expected:
-        return bool(output.strip()), None
-    lower = output.lower()
+def _keyword_violation(output: str, expected: dict[str, Any]) -> str | None:
+    """关键词硬约束：contains 缺失 / not_contains 命中。返回违反说明或 None。"""
+    lower = (output or "").lower()
     for keyword in expected.get("contains") or []:
         if str(keyword).lower() not in lower:
-            return False, f"输出缺少关键词: {keyword}"
+            return f"输出缺少关键词: {keyword}"
     for keyword in expected.get("not_contains") or []:
         if str(keyword).lower() in lower:
-            return False, f"输出包含禁止关键词: {keyword}"
+            return f"输出包含禁止关键词: {keyword}"
+    return None
+
+
+def _score_case(output: str, expected: dict[str, Any]) -> tuple[bool, str | None]:
+    """关键词规则评分（mode=keywords 的实现，也是 LLM 评分失败的兜底）。"""
+    if not expected:
+        return bool((output or "").strip()), None
+    violation = _keyword_violation(output, expected)
+    if violation:
+        return False, violation
     return True, None
+
+
+async def _judge_case(case_input: str, output: str, expected: dict[str, Any]) -> tuple[bool, str | None, float | None]:
+    """按 expected.mode 评分。llm 模式：语义判分 + 关键词硬约束一票否决。"""
+    mode = str(expected.get("mode") or "keywords")
+    passed, reason = _score_case(output, expected)
+    if mode != "llm":
+        return passed, reason, None
+
+    from app.services.eval_grader import grade_with_llm
+
+    try:
+        verdict = await grade_with_llm(case_input, output, expected)
+    except Exception:  # noqa: BLE001 -- 评分器任何故障退关键词结论
+        verdict = None
+    if verdict is None:
+        return passed, reason, None  # 评分器故障：退关键词结论
+    hard = _keyword_violation(output, expected) if expected else None
+    if hard:
+        return False, hard, verdict["score"]
+    return bool(verdict["passed"]), verdict["reason"] or reason, verdict["score"]
 
 
 async def _execute_eval(run_id: int, dataset_id: int, profile_id: int, admin: UserModel) -> None:
@@ -607,16 +689,18 @@ async def _execute_eval(run_id: int, dataset_id: int, profile_id: int, admin: Us
                 error = repr(exc)[:300]
             output = "".join(output_parts)
             duration_ms = int((asyncio.get_event_loop().time() - started) * 1000)
-            passed, reason = _score_case(output, expected)
+            passed, reason, score = await _judge_case(case.input, output, expected)
             if error:
                 passed = False
                 reason = f"运行出错: {error}"
+                score = None
             results.append({
                 "case_id": case.id,
                 "input": case.input[:400],
                 "output": output[:2000],
                 "passed": passed,
                 "reason": reason,
+                "score": score,
                 "error": error,
                 "duration_ms": duration_ms,
                 "tool_calls": tool_calls,

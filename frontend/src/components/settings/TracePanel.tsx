@@ -8,7 +8,8 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Bot, ChevronDown, ChevronRight, Clock, Gauge, Loader2, ShieldQuestion, Wrench } from 'lucide-react';
-import { getTrace, listTraces, type TraceStep, type TraceSummary } from '../../services/llmopsService';
+import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+import { getTrace, getTraceTrend, listTraces, type TraceStep, type TraceSummary, type TraceTrendPoint } from '../../services/llmopsService';
 import { toastError } from '../../lib/errors';
 
 const STEP_META: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
@@ -69,8 +70,52 @@ const WaterfallRow = ({ step, totalMs }: { step: TraceStep; totalMs: number }) =
   );
 };
 
+const TrendChart = ({ days }: { days: number }) => {
+  const trendQuery = useQuery({
+    queryKey: ['llmops', 'trend', days],
+    queryFn: () => getTraceTrend(days),
+    refetchInterval: 30000,
+  });
+  const data: TraceTrendPoint[] = trendQuery.data?.items ?? [];
+  if (trendQuery.isLoading) {
+    return <div className="flex h-40 items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  }
+  if (data.length === 0) {
+    return (
+      <div className="flex h-40 items-center justify-center text-sm text-[var(--muted-foreground)]">
+        ?? {days} ????????
+      </div>
+    );
+  }
+  return (
+    <div className="h-56 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+          <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickFormatter={(v: string) => v.slice(5)} />
+          <YAxis yAxisId="runs" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} allowDecimals={false} />
+          <YAxis yAxisId="ms" orientation="right" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+          <Tooltip
+            contentStyle={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: 12 }}
+            formatter={(value, name) => [
+              String(name).includes('??') ? `${(Number(value) / 1000).toFixed(1)}s` : String(value),
+              String(name),
+            ] as [string, string]}
+          />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Bar yAxisId="runs" dataKey="runs" name="????" fill="#2b87c2" radius={[3, 3, 0, 0]} barSize={18} />
+          <Bar yAxisId="runs" dataKey="errors" name="??" fill="#f43f5e" radius={[3, 3, 0, 0]} barSize={18} />
+          <Line yAxisId="ms" dataKey="avg_latency_ms" name="????" stroke="#10b981" strokeWidth={2} dot={false} />
+          <Line yAxisId="ms" dataKey="p95_latency_ms" name="P95 ??" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 3" dot={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
 export const TracePanel = () => {
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [trendDays, setTrendDays] = useState(7);
 
   const listQuery = useQuery({
     queryKey: ['llmops', 'traces'],
@@ -96,6 +141,27 @@ export const TracePanel = () => {
   const totalMs = detail?.latency_ms ?? 0;
 
   return (
+    <div className="space-y-4">
+    <div className="rounded-lg border border-slate-200/80 bg-[var(--surface-1)] p-4 shadow-sm">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-semibold">????</h3>
+        <div className="flex gap-1">
+          {[7, 14, 30].map((d) => (
+            <button
+              key={d}
+              type="button"
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                trendDays === d ? 'bg-[#2b87c2] text-white' : 'bg-[var(--surface-2)] text-[var(--muted-foreground)]'
+              }`}
+              onClick={() => setTrendDays(d)}
+            >
+              {d} ?
+            </button>
+          ))}
+        </div>
+      </div>
+      <TrendChart days={trendDays} />
+    </div>
     <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
       <div className="rounded-lg border border-slate-200/80 bg-[var(--surface-1)] shadow-sm">
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
@@ -176,6 +242,7 @@ export const TracePanel = () => {
           </>
         )}
       </div>
+    </div>
     </div>
   );
 };

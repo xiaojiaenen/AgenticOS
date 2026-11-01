@@ -293,32 +293,19 @@ export function useChatSessions() {
 
   /** 从后端加载指定会话的完整消息历史（用于刷新后恢复） */
   const loadSessionMessages = useCallback(async (sessionId: string): Promise<boolean> => {
-    // 检查当前会话是否已有消息
-    const session = sessions.find(s => s.id === sessionId);
-    const hasCachedMessages = session && session.messages.length > 0;
-    
-    // 即使有缓存消息，也要尝试拉取 artifacts 来恢复预览面板
-    // 只有当既有缓存消息又已有带 HTML 的 artifact 时才跳过
-    // （缓存中的 artifact 已剥离 HTML，需回源补全）
-    if (hasCachedMessages) {
-      const hasArtifact = session.messages.some(
-        m => m.role === 'model' && ((m.pptArtifact && m.pptArtifact.html) || (m.websiteArtifact && m.websiteArtifact.html)),
-      );
-      if (hasArtifact) return false; // 已有消息且 artifact HTML 完整，无需加载
-    }
-
+    // ⚠️ 缓存只做「秒开」渲染层，内容一律以服务端为准回源覆盖：
+    // 本地缓存有截断（30k 字符/120 条上限）、可能落后于其他设备的对话、
+    // 也拿不到中断恢复钩子刚补挂的产物。此前"有缓存且 artifact 完整就
+    // 跳过回源"的捷径正是缓存漂移的来源。
     try {
       // 并行加载消息 + 会话最新制品（PPT/website），用于恢复预览面板
       const [rawMessages, artifactsResp] = await Promise.all([
-        hasCachedMessages ? Promise.resolve(session.messages) : getSessionMessages(sessionId),
+        getSessionMessages(sessionId),
         getSessionArtifacts(sessionId).catch(err => {
           console.warn('Failed to load session artifacts:', err);
           return null;
         }),
       ]);
-      // hasCachedMessages 时 rawMessages 就是 state 内数组的引用。
-      // 下面的 push / 下标赋值必须走副本，否则原地改写 React state，
-      // 破坏不可变约定（memo 失效、消毒缓存与渲染不同步等问题溯源极难）。
       const messages: Message[] = [...rawMessages];
       // 产物可能存在但消息里没有可挂载的 model 消息（如生成被中断、
       // 或助手消息未落库）。此时构造一条占位消息承载产物，否则产物会被
@@ -328,7 +315,7 @@ export function useChatSessions() {
           artifactsResp?.website_artifact ||
           artifactsResp?.sheet_artifact,
       );
-      if (!hasCachedMessages && messages.length === 0) {
+      if (messages.length === 0) {
         if (!hasArtifact) return false;
         messages.push({
           id: `${sessionId}-artifact`,

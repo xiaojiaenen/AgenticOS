@@ -35,6 +35,9 @@ const ResultRow = ({ result }: { result: EvalCaseResult }) => (
           {result.output || result.error || '（无输出）'}
         </div>
         {result.reason && <div className="mt-1 text-xs text-amber-600">{result.reason}</div>}
+        {result.score !== null && result.score !== undefined && (
+          <div className="mt-1 text-xs text-[var(--muted-foreground)]">LLM ???{result.score}</div>
+        )}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
         {result.passed ? (
@@ -59,7 +62,7 @@ export const EvalPanel = () => {
   const [newName, setNewName] = useState('');
   const [selectedDataset, setSelectedDataset] = useState<number | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<number | null>(null);
-  const [newCase, setNewCase] = useState({ input: '', contains: '' });
+  const [newCase, setNewCase] = useState({ input: '', contains: '', mode: 'keywords' as 'keywords' | 'llm', criteria: '' });
   const [lastRunId, setLastRunId] = useState<number | null>(null);
 
   const datasetsQuery = useQuery({ queryKey: ['llmops', 'eval-datasets'], queryFn: listEvalDatasets });
@@ -104,7 +107,7 @@ export const EvalPanel = () => {
       }),
     onSuccess: () => {
       toast.success('用例已添加');
-      setNewCase({ input: '', contains: '' });
+      setNewCase({ input: '', contains: '', mode: 'keywords', criteria: '' });
       void queryClient.invalidateQueries({ queryKey: ['llmops', 'eval-dataset', selectedDataset] });
       void queryClient.invalidateQueries({ queryKey: ['llmops', 'eval-datasets'] });
     },

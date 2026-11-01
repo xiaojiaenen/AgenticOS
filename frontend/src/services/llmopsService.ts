@@ -48,6 +48,24 @@ export async function getTrace(id: number) {
   return apiFetch<TraceSummary>(`${API}/agent/traces/${id}`, {}, '获取追踪详情失败');
 }
 
+export interface TraceTrendPoint {
+  date: string;
+  runs: number;
+  errors: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  tokens: number;
+  tool_calls: number;
+}
+
+export async function getTraceTrend(days = 7) {
+  return apiFetch<{ items: TraceTrendPoint[]; days: number }>(
+    `${API}/agent/traces/trend?days=${days}`,
+    {},
+    '获取趋势失败',
+  );
+}
+
 export async function submitFeedback(payload: {
   session_id: string;
   message_index: number;
@@ -127,7 +145,7 @@ export interface EvalDataset {
 export interface EvalCase {
   id: number;
   input: string;
-  expected: { contains?: string[]; not_contains?: string[] };
+  expected: { mode?: 'keywords' | 'llm'; contains?: string[]; not_contains?: string[]; criteria?: string };
   note?: string | null;
 }
 
@@ -137,6 +155,7 @@ export interface EvalCaseResult {
   output: string;
   passed: boolean;
   reason: string | null;
+  score: number | null;
   error: string | null;
   duration_ms: number;
   tool_calls: number;
@@ -177,7 +196,11 @@ export const getEvalDataset = (id: number) =>
 
 export const addEvalCase = (
   datasetId: number,
-  payload: { input: string; expected?: EvalCase['expected']; note?: string },
+  payload: {
+    input: string;
+    expected?: { mode?: 'keywords' | 'llm'; contains?: string[]; not_contains?: string[]; criteria?: string };
+    note?: string;
+  },
 ) =>
   apiFetch<{ id: number }>(
     `${API}/agent/evals/datasets/${datasetId}/cases`,
