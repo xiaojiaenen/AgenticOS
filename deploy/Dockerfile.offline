@@ -1,0 +1,60 @@
+# AgenticOS 运行时镜像 —— 内网自建版（内网有 PyPI 镜像 + npm 源）
+#
+# 与 Dockerfile.runtime 的差别：
+#   - pip 走内网 PyPI 镜像（BUILD ARG 可指定）
+#   - apt 走内网 apt 源（可选；若内网无 apt 源，用 --with-deps 会失败，
+#     此时改用 PYPI 的 playwright wheel + 随包 Chromium，见 README 说明）
+#   - Chromium **不下载**，从随包的 agenticos-chromium.tar.gz 解压到
+#     /root/.cache/ms-playwright（内网无 playwright CDN 出口）
+#
+# 构建（在内网部署机，与 agenticos-code.tar.gz 解包后的目录同级）：
+#   tar -xzf agenticos-chromium.tar.gz -C /tmp        # 得到 /tmp/pw-export
+#   docker build -f deploy/Dockerfile.offline \
+#     --build-arg PYPI_MIRROR=http://<内网pypi>/simple \
+#     --build-arg APT_MIRROR=<内网apt主机> \
+#     -t agenticos-runtime:latest .
+FROM docker.io/python:3.13-slim
+WORKDIR /app
+
+ARG PYPI_MIRROR=http://pypi.local/simple
+ARG APT_MIRROR=""
+
+# ── pip 依赖（走内网源）──
+COPY backend/pyproject.toml /tmp/deps/pyproject.toml
+RUN python -c 'import tomllib; deps = tomllib.load(open("/tmp/deps/pyproject.toml", "rb"))["project"]["dependencies"]; open("/tmp/deps/req.txt", "w").write("\n".join(deps))' \
+    && pip install --no-cache-dir --progress-bar off -i ${PYPI_MIRROR} -r /tmp/deps/req.txt \
+    && rm -rf /tmp/deps
+
+# ── apt（内网有源才切；没有就保持默认，靠下方 chromium 随包解压）──
+RUN if [ -n "$APT_MIRROR" ]; then \
+        sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list.d/*.sources; \
+    fi
+
+# node + npm：网站智能体的 build_website 需要；npm registry 由内网 .npmrc 或
+# 构建时 npm config 指定（见 OFFLINE-DEPLOY.md）
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nodejs npm \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV npm_config_cache=/app/data/websites/.npm-cache \
+    npm_config_fund=false \
+    npm_config_audit=false \
+    npm_config_update_notifier=false
+
+# ── 本地嵌入模型运行时（sentence-transformers，走内网 PyPI）──
+RUN pip install --no-cache-dir --progress-bar off -i ${PYPI_MIRROR} sentence-transformers
+
+# ── Chromium：随包解压，不联网下载 ──
+# 构建上下文需包含 chromium 目录（见 OFFLINE-DEPLOY.md 打包说明）
+COPY chromium/ /root/.cache/ms-playwright/
+ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+# 系统依赖库：若内网 apt 可用则装；不可用则需宿主预装或在容器外跑登录
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+       libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+       libgbm1 libasound2 libpango-1.0-0 libcairo2 \
+    && rm -rf /var/lib/apt/lists/* || echo "WARN: chromium 系统库未安装，网关自动登录可能不可用"
+
+EXPOSE 8000
+CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

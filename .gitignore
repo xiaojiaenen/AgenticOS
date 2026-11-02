@@ -155,3 +155,6 @@ backend/.venv-loadtest/
 
 # UI èµ°æŸ¥æˆªå›¾ï¼ˆæœ¬åœ°è¯„å®¡ç”¨ï¼‰
 .ui-shots/
+
+# ÀëÏß²¿Êğ°ü²úÎï£¨Ìå»ı´ó£¬²»½ø²Ö¿â£©
+offline-packages/
