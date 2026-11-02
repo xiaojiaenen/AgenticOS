@@ -357,6 +357,27 @@ async def _do_login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
 
+@router.get("/login-mode")
+def login_mode(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    """前端据此渲染登录表单（公开端点，不含任何敏感配置）。
+
+    LDAP 形态下账号就是企业域账号（工号/用户名），不需要邮箱后缀 ——
+    前端不能再按邮箱格式校验，也要隐藏验证码/注册入口（后端这两条
+    路径在 LDAP 启用时本就拒绝）。
+    """
+    ldap_enabled = _is_ldap_enabled(db, settings)
+    config = load_config(db, settings)
+    return {
+        "mode": "ldap" if ldap_enabled else "local",
+        "email_domain": (config.email_domain or "").strip().lstrip("@") if ldap_enabled else "",
+        "allow_code": not ldap_enabled,
+        "allow_register": not ldap_enabled,
+    }
+
+
 @router.get("/me", response_model=UserPublic)
 def me(user: UserModel = Depends(get_current_user)) -> UserPublic:
     return _to_public(user)

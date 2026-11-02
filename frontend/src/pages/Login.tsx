@@ -5,6 +5,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { apiFetch } from '../services/apiClient';
 import { Logo } from '../components/Logo';
 import { RandomMascot } from '../components/ui/RandomMascot';
 import { AuroraBackground } from '../components/backgrounds/AuroraBackground';
@@ -50,6 +51,36 @@ export const Login = () => {
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
+  // 登录形态：LDAP 形态下账号是企业域账号（工号/用户名），不需要邮箱后缀。
+  // 由后端 /auth/login-mode 下发，取不到时按本地邮箱登录（保守默认）。
+  const [authMode, setAuthMode] = useState<{
+    mode: 'ldap' | 'local';
+    email_domain: string;
+    allow_code: boolean;
+    allow_register: boolean;
+  }>({ mode: 'local', email_domain: '', allow_code: true, allow_register: true });
+  const isLdap = authMode.mode === 'ldap';
+
+  useEffect(() => {
+    let alive = true;
+    apiFetch<{ mode: 'ldap' | 'local'; email_domain: string; allow_code: boolean; allow_register: boolean }>(
+      '/api/v1/auth/login-mode',
+      {},
+      '获取登录方式失败',
+    )
+      .then((info) => {
+        if (alive && info) setAuthMode(info);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // LDAP 形态默认走密码登录（后端验证码/注册路径本就拒绝）
+  useEffect(() => {
+    if (isLdap && loginMode !== 'password') setLoginMode('password');
+  }, [isLdap, loginMode]);
 
   const emailRef = useRef<HTMLDivElement>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -78,9 +109,11 @@ export const Login = () => {
 
   // 邮箱后缀补全
   const getEmailSuggestions = useCallback(() => {
+    // LDAP 形态：账号是工号，不补全公共邮箱域名
+    if (authMode.mode === 'ldap') return [];
     if (!email || email.includes('@')) return [];
     return EMAIL_SUFFIXES.map((suffix) => email + suffix);
-  }, [email]);
+  }, [email, authMode.mode]);
 
   // 点击外部关闭建议
   useEffect(() => {
@@ -141,7 +174,9 @@ export const Login = () => {
     () =>
       z
         .object({
-          email: EMAIL_FIELD,
+          email: authMode.mode === 'ldap'
+            ? z.string().trim().min(1, '请输入工号或域账号')
+            : EMAIL_FIELD,
           password: z.string(),
           code: z.string(),
         })
@@ -156,7 +191,7 @@ export const Login = () => {
             ctx.addIssue({ code: 'custom', path: ['code'], message: '请输入 6 位验证码' });
           }
         }),
-    [],
+    [authMode.mode],
   );
 
   const onLogin = handleSubmit(async (values) => {
@@ -175,7 +210,7 @@ export const Login = () => {
     try {
       const user =
         loginMode === 'password'
-          ? await loginUser(parsed.data.email, parsed.data.password)
+          ? await loginUser(parsed.data.email.trim(), parsed.data.password)
           : await loginWithCode(parsed.data.email, parsed.data.code);
       const from = (location.state as { from?: string } | null)?.from;
       toast.success('登录成功，正在进入工作台');
@@ -252,6 +287,7 @@ export const Login = () => {
           <Card className="py-8 shadow-md">
             <CardContent className="px-8">
               {/* 登录模式切换 */}
+              {!isLdap && (
               <div role="tablist" aria-label="登录方式" className="flex rounded-lg p-1 mb-6 bg-[var(--surface-2)]">
                 <button
                   type="button"
@@ -282,17 +318,18 @@ export const Login = () => {
                   验证码登录
                 </button>
               </div>
+              )}
 
               <form className="space-y-5" onSubmit={onLogin} noValidate>
                 {/* 邮箱输入 + 补全 */}
                 <div ref={emailRef} className="relative space-y-2">
-                  <Label htmlFor="login-email">邮箱地址</Label>
+                  <Label htmlFor="login-email">{isLdap ? '工号 / 域账号' : '邮箱地址'}</Label>
                   <Input
                     id="login-email"
-                    type="email"
-                    autoComplete="email"
+                    type={isLdap ? 'text' : 'email'}
+                    autoComplete={isLdap ? 'username' : 'email'}
                     autoFocus
-                    placeholder="you@example.com"
+                    placeholder={isLdap ? (authMode.email_domain ? '输入工号即可，无需邮箱后缀' : '输入 LDAP 用户名') : 'you@example.com'}
                     aria-invalid={!!errors.email}
                     role="combobox"
                     aria-expanded={showSuggestions && suggestions.length > 0}
@@ -313,6 +350,9 @@ export const Login = () => {
                       // 非法邮箱（如 "abc"）会绕过客户端校验直接请求验证码接口
                       validate: (v) => {
                         const trimmed = (v ?? '').trim();
+                        if (authMode.mode === 'ldap') {
+                          return trimmed ? true : '请输入工号或域账号';
+                        }
                         if (!trimmed) return '请输入邮箱地址';
                         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return '请输入有效的邮箱地址';
                         return true;
@@ -429,7 +469,7 @@ export const Login = () => {
 
               <div className="mt-8 text-center text-sm text-[var(--muted-foreground)]">
                 还没有账号？{' '}
-                <Link to="/signup" className="text-primary hover:text-primary/80 font-medium underline underline-offset-4">立即注册</Link>
+                {!isLdap && (<Link to="/signup" className="text-primary hover:text-primary/80 font-medium underline underline-offset-4">立即注册</Link>)}
               </div>
             </CardContent>
           </Card>

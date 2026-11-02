@@ -26,6 +26,7 @@ htmlcov/
 
 # Python virtual environments
 .venv/
+.venv-*/          # 一次性/压测用的临时虚拟环境（.venv-test、.venv-loadtest 等）
 venv/
 env/
 
@@ -36,9 +37,19 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Frontend build output
+# 运行时日志（uvicorn / arq worker 等本地启动产物）
+*.log
+!docs/**/*.log
+
+# 前端构建输出
 frontend/dist/
 frontend/.vite/
+business-docs/**/dist/
+
+# 临时调试脚本（.tmp_* 是本轮排障留下的，不进仓库）
+.tmp_*
+tmp_*.py
+tmp_*.txt
 
 # Local app data
 backend/data/
