@@ -379,6 +379,7 @@ export function useChatSessions() {
                 title: wsArt.title,
                 projectSlug: wsArt.project_slug,
                 stack: wsArt.stack,
+                previewUrl: wsArt.preview_url ?? undefined,
                 html: wsArt.preview_html,
               },
             };

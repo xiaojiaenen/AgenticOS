@@ -70,6 +70,8 @@ export type Message = {
     title?: string;
     projectSlug?: string;
     stack?: string;
+    /** 带签名的静态预览 URL（优先用；缺失时退回 html 内联） */
+    previewUrl?: string;
     html?: string;
   };
   /** snapshot 体量可能上百 KB，不进 localStorage 缓存，刷新后靠 getSessionArtifacts 回源 */
@@ -162,7 +164,9 @@ export type Artifact =
   | {language: 'html' | 'svg'; code: string}
   | {language: 'ppt'; artifactId?: string; html: string; title: string; slideCount: number; theme?: string; sessionId?: string}
   | {language: 'website'; artifactId: string; html: string; title: string;
-      projectSlug: string; stack?: string; fileCount?: number; sessionId?: string; version?: number}
+      projectSlug: string; stack?: string; fileCount?: number; sessionId?: string; version?: number;
+      /** 带签名的静态预览 URL（优先用；缺失时退回 html 内联） */
+      previewUrl?: string}
   | {language: 'email'; approvalId: string; to: string; subject: string; body: string;
       cc?: string; isHtml?: boolean}
   /** spreadsheet 的 snapshot 是 Univer 的 IWorkbookData 原样 JSON */

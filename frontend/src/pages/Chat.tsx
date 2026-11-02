@@ -301,6 +301,7 @@ export const Chat = () => {
         title: lastWebsiteMsg.websiteArtifact.title || '',
         projectSlug: lastWebsiteMsg.websiteArtifact.projectSlug || '',
         stack: lastWebsiteMsg.websiteArtifact.stack,
+        previewUrl: lastWebsiteMsg.websiteArtifact.previewUrl,
         sessionId: currentSessionId,
       });
     } else {

@@ -116,8 +116,17 @@ def strip_injected_catalog(text: str) -> str:
     for marker_head in _LEGACY_CATALOG_HEADS:
         idx = text.find(marker_head)
         if idx > 0:
-            return text[:idx].rstrip()
+            return _trim_trailing_sep(text[:idx])
     return text
+
+
+def _trim_trailing_sep(text: str) -> str:
+    """去掉剥离后残留的分隔线（注入原文是 ``message + "\\n---\\n\\n## …"``，
+    截断在标题前会把 ``\\n---`` 留在末尾，用户就看见一个孤零零的 ``---``）。"""
+    trimmed = text.rstrip()
+    while trimmed.endswith("---"):
+        trimmed = trimmed[:-3].rstrip()
+    return trimmed
 
 
 # 历史注入文档的固定开头（见 resources/prompt_catalogs/website_catalog.md）

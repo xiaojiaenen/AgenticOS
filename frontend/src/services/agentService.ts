@@ -147,6 +147,8 @@ export type AgentWebsiteArtifact = {
   project_slug: string;
   stack: string;
   file_count: number;
+  /** 带签名的静态预览 URL（后端签发；缺失时退回 preview_html 内联） */
+  preview_url?: string | null;
   preview_html: string;
 };
 

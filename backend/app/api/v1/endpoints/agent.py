@@ -340,12 +340,29 @@ async def get_session_artifacts(
         _logger.exception("get_latest_website_artifact failed: session=%s", session_id)
         website = None
     if website:
+        slug = website.get("project_slug") or ""
+        # 预览地址：优先给带签名的静态托管 URL（浏览器原生加载，可缓存、
+        # 支持相对路径、不用内联 100KB 字符串）。签名绑定当前用户 + 会话 +
+        # 项目，且**不落 nginx**，不构成「绕过审批发布」。
+        preview_url = None
+        if slug:
+            try:
+                from app.api.v1.endpoints.website_preview import issue_preview_token
+
+                token = issue_preview_token(
+                    user_id=current_user.id, session_id=session_id, slug=slug
+                )
+                preview_url = f"/api/v1/website/preview/{slug}/{token}/"
+            except Exception:  # noqa: BLE001 -- 签发失败退回内联 HTML
+                _logger.warning("preview token issue failed: session=%s", session_id, exc_info=True)
         result["website_artifact"] = {
             "artifact_id": website.get("artifact_id"),
             "session_id": website.get("session_id"),
             "title": website.get("title"),
-            "project_slug": website.get("project_slug"),
+            "project_slug": slug,
             "stack": website.get("stack"),
+            "preview_url": preview_url,
+            # 保留内联 HTML 作为降级路径（preview_url 不可用时的兜底）
             "preview_html": website.get("preview_html"),
         }
 

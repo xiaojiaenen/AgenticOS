@@ -5,6 +5,7 @@ import { Artifact } from '../../types'
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview'
 import { ArtifactVersionBar } from '../chat/ArtifactVersionBar'
 import { requestDeploy, getDeployByProject, DeployStatus } from '../../services/websiteService'
+import { apiFetch } from '../../services/apiClient'
 
 type WebsiteArtifactPanelProps = {
   artifact: Extract<Artifact, { language: 'website' }>
@@ -52,15 +53,60 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
     }
   }, [deployStatus, projectSlug])
 
+  // 面板自己持有预览 HTML：artifact.html 是打开面板那一刻的快照，
+  // 之后 agent 又改了代码、重建了 dist，父组件的 prop 不会变 —— 用户点
+  // 「刷新」看到还是旧页面，误以为预览坏了。这里在刷新时**真的回源**
+  // 拉一次最新 dist（按 project_slug 取会话最新 artifact）。
+  const [liveHtml, setLiveHtml] = React.useState<string>(artifact.html)
+  const [liveUrl, setLiveUrl] = React.useState<string | undefined>(artifact.previewUrl)
+  const [isRefreshing, setIsRefreshing] = React.useState(false)
+  const [refreshError, setRefreshError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    // 切换版本 / 换项目时同步基准
+    setLiveHtml(artifact.html)
+    setLiveUrl(artifact.previewUrl)
+  }, [artifact.html, artifact.projectSlug, artifact.previewUrl])
+
   // 用 srcDoc 而非 blob URL：blob 在 StrictMode 双调用下会被提前 revoke，
   // 导致 iframe 拿到失效地址而空白。刷新通过 key 强制重挂载实现。
   const previewDoc = React.useMemo(
-    () => buildSandboxedHtmlDocument(artifact.html),
-    [artifact.html],
+    () => buildSandboxedHtmlDocument(liveHtml),
+    [liveHtml],
   )
 
-  // 刷新只重挂载 iframe，不访问 iframe 内部
-  const handleRefresh = () => setRefreshNonce((n) => n + 1)
+  const handleRefresh = React.useCallback(async () => {
+    const sid = sessionId || artifact.sessionId
+    if (!sid) {
+      // 没有会话上下文时只能重挂载（本地预览无法回源）
+      setRefreshNonce((n) => n + 1)
+      return
+    }
+    setIsRefreshing(true)
+    setRefreshError(null)
+    try {
+      const data = await apiFetch<{
+        website_artifact: {
+          preview_html?: string;
+          preview_url?: string | null;
+          project_slug?: string;
+        } | null
+      }>(`/api/v1/agent/sessions/${sid}/artifacts`, {}, '刷新预览失败')
+      const latest = data.website_artifact
+      if (latest?.preview_url || latest?.preview_html) {
+        // 换 URL 让浏览器重新请求（新令牌也顺带续期）
+        setLiveUrl(latest.preview_url ?? undefined)
+        setLiveHtml(latest.preview_html ?? '')
+        setRefreshNonce((n) => n + 1)
+      } else {
+        setRefreshError('后端还没有可预览的构建产物（可能尚未构建完成）')
+      }
+    } catch (err) {
+      setRefreshError(err instanceof Error ? err.message : '刷新预览失败')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [sessionId, artifact.sessionId])
 
   const handleDeploy = async () => {
     // 首参必须是 sessionId（不是 artifactId）
@@ -144,13 +190,14 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
           />
           <button
             type="button"
-            onClick={handleRefresh}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-3)]"
-            title="Refresh preview"
-            aria-label="Refresh preview"
+            onClick={() => void handleRefresh()}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-3)] disabled:opacity-60"
+            title="重新拉取最新构建产物"
+            aria-label="刷新预览"
           >
-            <RefreshCcw size={13} />
-            刷新
+            <RefreshCcw size={13} className={isRefreshing ? 'animate-spin' : undefined} />
+            {isRefreshing ? '刷新中' : '刷新'}
           </button>
           <button
             type="button"
@@ -244,14 +291,23 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
           className="min-h-full overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-xl"
         >
           <iframe
-            key={`website-preview-${refreshNonce}`}
-            srcDoc={previewDoc}
+            key={`website-preview-${refreshNonce}-${liveUrl ? 'url' : 'inline'}`}
+            // 优先用带签名的静态托管 URL：浏览器原生加载 JS/CSS（可缓存、
+            // 支持相对路径、无「内联 module 不执行」的问题）。只有拿不到
+            // URL（签发失败 / 离线）时才退回 srcDoc 内联方案。
+            src={liveUrl || undefined}
+            srcDoc={liveUrl ? undefined : previewDoc}
             title={artifact.title}
             className="min-h-[calc(100vh-10rem)] w-full border-0"
-            sandbox="allow-scripts allow-same-origin"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             allow="fullscreen"
             referrerPolicy="no-referrer"
           />
+          {refreshError && (
+            <div className="mx-4 mb-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              {refreshError}
+            </div>
+          )}
         </motion.div>
       </div>
     </motion.aside>
