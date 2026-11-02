@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_admin, require_feature
-from app.core.data_path import _parse_dir_name
+from app.core.data_path import WEBSITES_DIR as _WEBSITES_DIR, _parse_dir_name
 from app.db.models import UserModel
 from app.schemas.website import DeployDecisionRequest, DeployRequest
 from app.services import audit_service
@@ -117,6 +117,42 @@ def list_pending_deploys(
 ):
     """Admin: list all pending deploy requests."""
     return _service.list_pending()
+
+
+@admin_router.get("/deploys/{deploy_id}/preview")
+def preview_deploy(
+    deploy_id: int,
+    admin: UserModel = Depends(require_admin),
+):
+    """Admin: 审批前看这个待部署项目长什么样。
+
+    审批不能只看项目名和文件数 —— 管理员需要判断「这是不是该上线的东西」。
+    这里返回内联资源后的自包含 HTML（与用户侧预览同一套处理：Vite 产物
+    的 /assets/ 引用在 iframe srcdoc 里解析不了，必须内联）。
+    """
+    deploy = _service.get(deploy_id)
+    if deploy is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="部署申请不存在")
+
+    slug = deploy.get("project_slug") or ""
+    dist_dir = _WEBSITES_DIR / slug / "dist"
+    index_html = dist_dir / "index.html"
+    if not index_html.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="该项目的 dist/index.html 不存在，可能尚未构建或已被清理",
+        )
+
+    from app.services.agent.artifacts import ArtifactFactory
+
+    raw = index_html.read_text(encoding="utf-8")
+    return {
+        "deploy_id": deploy_id,
+        "project_slug": slug,
+        "stack": deploy.get("stack"),
+        "preview_html": ArtifactFactory._inline_dist_assets(dist_dir, raw),
+        "file_count": len([f for f in dist_dir.rglob("*") if f.is_file()]),
+    }
 
 
 @admin_router.get("/deploys/all")

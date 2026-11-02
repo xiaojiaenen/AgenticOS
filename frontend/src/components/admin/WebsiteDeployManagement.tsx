@@ -16,7 +16,7 @@ import {
   Loader2,
   RefreshCw,
   X,
-} from 'lucide-react';
+  Eye } from 'lucide-react';
 import { DataTable } from './data-table';
 import {
   AlertDialog,
@@ -30,6 +30,9 @@ import {
 } from '@/components/shadcn/alert-dialog';
 import { AdminPageHeader, ErrorBanner, KpiPill } from './shared';
 import { Button } from '@/components/shadcn/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/shadcn/dialog';
+import { buildSandboxedHtmlDocument } from '@/lib/safePreview';
+import { apiFetch } from '@/services/apiClient';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/shadcn/tabs';
 import { StatusPill } from './shared';
 import {
@@ -118,6 +121,42 @@ export function WebsiteDeployManagement() {
   });
 
   const pendingDeploys = pendingQuery.data ?? [];
+
+  // 审批前预览：管理员要能看到「这个东西长什么样」才能判断该不该上线。
+  // 只看项目名 + 文件数就点批准，等于闭眼放行。
+  const [preview, setPreview] = React.useState<{
+    loading: boolean;
+    error: string | null;
+    deployId: number | null;
+    slug: string;
+    html: string;
+    fileCount: number;
+  }>({ loading: false, error: null, deployId: null, slug: '', html: '', fileCount: 0 });
+
+  const openPreview = React.useCallback(async (deployId: number, slug: string) => {
+    setPreview({ loading: true, error: null, deployId, slug, html: '', fileCount: 0 });
+    try {
+      const data = await apiFetch<{
+        preview_html: string;
+        file_count: number;
+        project_slug: string;
+      }>(`/api/v1/admin/website/deploys/${deployId}/preview`, {}, '获取预览失败');
+      setPreview({
+        loading: false,
+        error: null,
+        deployId,
+        slug: data.project_slug,
+        html: data.preview_html || '',
+        fileCount: data.file_count || 0,
+      });
+    } catch (err) {
+      setPreview((prev) => ({
+        ...prev,
+        loading: false,
+        error: err instanceof Error ? err.message : '获取预览失败',
+      }));
+    }
+  }, []);
   const allDeploys = allQuery.data ?? [];
 
   const columns = React.useMemo<ColumnDef<DeployRecord, unknown>[]>(
@@ -164,6 +203,25 @@ export function WebsiteDeployManagement() {
         ),
       },
       {
+        id: 'preview',
+        header: '预览',
+        enableSorting: false,
+        cell: ({ row }) => {
+          const deploy = row.original;
+          return (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 px-2 text-xs"
+              onClick={() => void openPreview(deploy.id, deploy.project_slug)}
+            >
+              <Eye className="h-3 w-3" />
+              预览
+            </Button>
+          );
+        },
+      },
+      {
         id: 'link',
         header: '站点',
         enableSorting: false,
@@ -188,7 +246,7 @@ export function WebsiteDeployManagement() {
         },
       },
     ],
-    [],
+    [openPreview],
   );
 
   return (
@@ -395,6 +453,46 @@ export function WebsiteDeployManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 审批前预览弹窗 */}
+      <Dialog
+        open={preview.deployId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPreview({ loading: false, error: null, deployId: null, slug: '', html: '', fileCount: 0 });
+          }
+        }}
+      >
+        <DialogContent className="max-w-6xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <Eye className="h-4 w-4" />
+              预览 {preview.slug}
+              {preview.fileCount > 0 && (
+                <span className="text-xs font-normal text-[var(--muted-foreground)]">
+                  {preview.fileCount} 个文件
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {preview.loading ? (
+            <div className="flex h-72 items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-[var(--muted-foreground)]" />
+            </div>
+          ) : preview.error ? (
+            <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {preview.error}
+            </div>
+          ) : (
+            <iframe
+              title={`preview-${preview.slug}`}
+              className="h-[70vh] w-full rounded-md border border-[var(--border-subtle)] bg-white"
+              sandbox="allow-scripts allow-forms allow-popups"
+              srcDoc={buildSandboxedHtmlDocument(preview.html)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

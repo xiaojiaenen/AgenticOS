@@ -14,6 +14,30 @@ router = APIRouter(prefix="/files", tags=["文件"])
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
+# 明文魔数 → 类型说明。用于判定客户端上传的内容是否被透明加密驱动替换成密文。
+_PLAIN_MAGIC: dict[bytes, str] = {
+    b"PK\x03\x04": "OOXML/zip 明文（xlsx/docx/pptx）",
+    b"\xd0\xcf\x11\xe0": "OLE2 明文（xls/doc/ppt）",
+    b"%PDF": "PDF 明文",
+    b"PK\x05\x06": "zip 空归档",
+}
+
+
+def _classify_bytes(content: bytes) -> tuple[str, str]:
+    """判定上传内容是否为明文。返回 (kind, detail)，kind ∈ {plain, cipher, empty}。
+
+    透明加密环境下，若上传链路正常，浏览器读到的是明文，服务端收到的也应是明文；
+    若收到未知魔数，说明客户端读到的是密文（浏览器不在白名单），或链路被二次加密。
+    """
+    if not content:
+        return "empty", "空文件"
+    head = content[:16]
+    for magic, desc in _PLAIN_MAGIC.items():
+        if head.startswith(magic):
+            return "plain", desc
+    return "cipher", "未知魔数：" + " ".join(f"{b:02X}" for b in head[:8])
+
+
 
 def _get_upload_dir(user_id: int, session_id: str | None) -> Path:
     """上传落点：会话工作区的 uploads/。
@@ -73,4 +97,37 @@ async def upload_file(
         "mime_type": file.content_type or mimetypes.guess_type(file.filename)[0] or "application/octet-stream",
         "file_path": str(stored_path),
         "rel_path": rel_path,
+    }
+
+
+@router.post("/probe", summary="诊断：判定上传内容是否已被客户端透明加密")
+async def probe_upload(
+    file: UploadFile = File(...),
+    current_user: UserModel = Depends(get_current_user),
+) -> dict[str, Any]:
+    """不落盘，只回显文件头判定结果。
+
+    用途：确认「浏览器读明文 → HTTP 传明文 → Linux 服务端收明文」这条链路是否成立。
+    在前端上传前调用一次即可，不需要每个文件都调。
+
+    返回：
+      kind   —— plain / cipher / empty
+      detail —— 类型说明或未知魔数
+      head   —— 前 16 字节的 hex，便于人工核对
+    """
+    content = await file.read()
+    kind, detail = _classify_bytes(content)
+    return {
+        "filename": file.filename,
+        "size": len(content),
+        "kind": kind,
+        "detail": detail,
+        "head": " ".join(f"{b:02X}" for b in content[:16]),
+        "advice": (
+            "链路正常，服务端已拿到明文原始字节，可直接用 openpyxl/python-docx 等处理。"
+            if kind == "plain"
+            else "收到密文：浏览器不在白名单，或上传链路被 DLP 二次加密。"
+            if kind == "cipher"
+            else "文件为空。"
+        ),
     }

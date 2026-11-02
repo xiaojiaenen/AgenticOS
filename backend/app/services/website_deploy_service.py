@@ -47,6 +47,26 @@ class WebsiteDeployService:
             raise FileNotFoundError(f"dist/ not found for project '{project_slug}'. Build the project first.")
 
         with self.session_factory() as db:
+            # 幂等：同一会话 + 同一项目已有 pending 请求时复用，不重复建单。
+            # 用户反复点「部署」或在对话里多次说"部署"时，之前每次都会插一条
+            # 新的 pending 记录 —— 管理后台审批队列里堆出一串重复项，管理员
+            # 点完一个又来一个，以为系统在反复提交。
+            existing = db.scalars(
+                select(WebsiteDeployModel)
+                .where(
+                    WebsiteDeployModel.session_id == session_id,
+                    WebsiteDeployModel.project_slug == project_slug,
+                    WebsiteDeployModel.status == "pending",
+                )
+                .order_by(WebsiteDeployModel.created_at.desc())
+            ).first()
+            if existing is not None:
+                _logger.info(
+                    "deploy request reused: id=%s slug=%s session=%s",
+                    existing.id, project_slug, session_id,
+                )
+                return self._serialize(existing)
+
             deploy = WebsiteDeployModel(
                 session_id=session_id,
                 project_slug=project_slug,

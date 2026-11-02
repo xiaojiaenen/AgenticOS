@@ -221,9 +221,48 @@ async def get_session_messages(
 
     result = []
     for msg in session.context._messages:
+        role = getattr(msg, "role", None)
+        content = msg.content or ""
+        if isinstance(content, list):
+            # 多模态内容块 → 拼成纯文本，前端只渲染文本
+            parts = []
+            for block in content:
+                if isinstance(block, dict):
+                    parts.append(str(block.get("text") or ""))
+                else:
+                    parts.append(str(getattr(block, "text", "") or ""))
+            content = "".join(parts)
+
+        # ── 过滤不该出现在对话历史里的消息 ──
+        # 1) system：会话的系统提示词（含模式注入的目录文档）。它属于
+        #    模型上下文，不是对话内容；透出去会让用户刷新后看到一大段
+        #    「你是 AgenticOS 的前端架构师…」，还以为是自己的发言。
+        if role == "system":
+            continue
+        # 2) 纯工具调用的空 assistant：wuwei 每轮工具调用都会留一条
+        #    content="" 的 assistant 承载 tool_calls。前端渲染成空白气泡，
+        #    一轮里能堆十几个。它的 tool_calls 信息由后续 tool 消息承载，
+        #    这里直接跳过（真正有文本的 assistant 才展示）。
+        if role == "assistant" and not content.strip():
+            continue
+        # 3) 空 tool 结果（内容为空且无意义的）
+        if role == "tool" and not content.strip():
+            continue
+
+        # 4) 剥掉注入的目录文档：user 消息里被拼上了「Website 模式资源速查」
+        #    等 prompt 目录（模型上下文，不是用户说的话）。不清掉的话
+        #    用户刷新会话会看到自己"发了一大段资源速查文档"。
+        if role == "user":
+            try:
+                from app.services.agent.prompts import strip_injected_catalog
+
+                content = strip_injected_catalog(content)
+            except Exception:  # noqa: BLE001 -- 剥离失败按原样返回
+                pass
+
         entry: dict[str, Any] = {
-            "role": msg.role,
-            "content": msg.content or "",
+            "role": role,
+            "content": content,
         }
         # metadata 必须透传：A2UI 界面消息挂在助手消息的
         # metadata.a2ui 里（落库时由 orchestrator 挂上），
