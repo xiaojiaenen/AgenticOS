@@ -8,6 +8,8 @@ import smtplib
 import email
 from email.mime.text import MIMEText
 from email.header import decode_header
+
+from app.tools import imap_utf7
 from email.utils import parseaddr
 
 from sqlalchemy import select
@@ -228,13 +230,78 @@ _FOLDER_IMAP_TARGETS: dict[str, list[str]] = {
 }
 
 
-def _resolve_imap_folder(imap: imaplib.IMAP4, folder: str) -> str:
-    """Resolve a user-facing folder name to an actual IMAP mailbox name."""
-    candidates = _FOLDER_IMAP_TARGETS.get(folder.lower(), [folder])
-    for candidate in candidates:
-        status, _ = imap.select(candidate)
+def _list_mailboxes(imap: imaplib.IMAP4) -> list[tuple[bytes, str]]:
+    """LIST 全部邮箱，返回 (原始名, 解码显示名)。
+
+    原始名是服务器期望的 modified UTF-7 形式（bytes，可直接传 select）；
+    解码显示名给人/模型看（「项目邮件」而不是 &XfJT0ZAB-）。
+    """
+    status, folder_list = imap.list()
+    if status != "OK" or not folder_list:
+        return []
+    import re
+
+    pattern = re.compile(rb'^(\([^)]*\))\s+(?:"([^"]*)"|NIL)\s+(?P<name>.+)$')
+    out: list[tuple[bytes, str]] = []
+    for item in folder_list or []:
+        if not isinstance(item, bytes):
+            continue
+        match = pattern.match(item)
+        raw_name = (match.group("name") if match else item).strip()
+        if raw_name.startswith(b'"') and raw_name.endswith(b'"') and len(raw_name) >= 2:
+            raw_name = raw_name[1:-1]
+        try:
+            display = imap_utf7.decode(raw_name.decode("ascii"))
+        except UnicodeDecodeError:
+            display = raw_name.decode("utf-8", errors="replace")
+        out.append((raw_name, display))
+    return out
+
+
+def _resolve_imap_folder(imap: imaplib.IMAP4, folder: str) -> bytes | str:
+    """把用户/模型给的名字解析成服务器认可的实际 mailbox。
+
+    匹配顺序（覆盖 Coremail 等中文自定义目录）：
+    1. 常见英文名映射表（inbox/sent/...）；
+    2. 与 LIST 解码后的中文名精确 / 忽略大小写匹配 —— 用户从文件夹
+       列表里复制的中文名就能直接用；
+    3. 传入名本身就是 modified UTF-7 形式（&XfJT0ZAB-）时与原始名匹配；
+    4. 兜底：对传入名做 modified UTF-7 编码后 select，仍失败原样返回。
+    """
+    mailboxes: list[tuple[bytes, str]] = []
+    try:
+        mailboxes = _list_mailboxes(imap)
+    except Exception:  # noqa: BLE001 -- LIST 失败退回旧行为
+        mailboxes = []
+
+    for candidate in _FOLDER_IMAP_TARGETS.get(folder.lower(), [folder]):
+        try:
+            status, _ = imap.select(candidate)
+            if status == "OK":
+                return candidate
+        except Exception:  # noqa: BLE001
+            continue
+
+    encoded = imap_utf7.encode(folder)
+    lowered = folder.lower()
+    for raw, display in mailboxes:
+        raw_ascii = raw.decode("ascii", "replace")
+        # 前缀匹配：传 "sent" 能命中 "Sent Messages" 这类带后缀的实际目录
+        if (
+            display == folder
+            or display.lower() == lowered
+            or display.lower().startswith(lowered)
+            or raw_ascii == folder
+            or raw_ascii == encoded
+        ):
+            return raw
+
+    try:
+        status, _ = imap.select(encoded)
         if status == "OK":
-            return candidate
+            return encoded
+    except Exception:  # noqa: BLE001
+        pass
     # Last resort: try the folder name as-is
     return folder
 
@@ -363,14 +430,9 @@ def register_email_tools(registry: ToolRegistry):
             if status != "OK":
                 return "❌ 获取文件夹列表失败"
 
-            folders = []
-            for item in folder_list:
-                # 解析 IMAP LIST 响应格式: (flags) "delimiter" "name"
-                parts = item.decode("utf-8", errors="replace").split('"')
-                if len(parts) >= 3:
-                    name = parts[-1].strip()
-                    if name:
-                        folders.append(name)
+            # modified UTF-7 解码：中文自定义目录正常显示（Coremail 等）
+            mailboxes = _list_mailboxes(imap)
+            folders = [display for _, display in mailboxes]
 
             if not folders:
                 return "📭 未找到任何文件夹"

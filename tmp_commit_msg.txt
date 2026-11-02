@@ -1,0 +1,25 @@
+fix(email): IMAP modified UTF-7 编解码 —— 中文自定义文件夹可列出可读取
+
+真实故障：Coremail 等邮箱的自定义中文文件夹在 IMAP LIST 里是
+modified UTF-7（RFC 3501 第 5.1.3 节，&XfJT0ZAB- 形式）：
+- list_email_folders 直接 decode utf-8，中文目录显示为乱码
+- read_emails 等把中文原名 utf-8 编码发 select，服务器拒绝，
+  表现为「邮箱智能体拉不到用户自定义文件夹」
+
+修复：
+- 新增 imap_utf7 编解码器（RFC 官方示例逐条验证；与标准 UTF-7 的
+  差异：移位字符 &、Base64 用 , 且无 padding，不能用标准 codec 代替）
+- _list_mailboxes：LIST 解析出 (原始名 bytes, 解码显示名)，列表工具
+  显示中文名
+- _resolve_imap_folder 重写：常见英文名映射，解码中文名精确/忽略
+  大小写/前缀匹配，原始 UTF-7 形式匹配，编码后 select 兜底；返回
+  原始 mailbox 供 select（不再把 utf-8 中文名发给服务器）
+- 附带增强：传 "sent" 可前缀命中 "Sent Messages"
+
+关于邮箱设置与 LDAP：确认 configure_email 已存在 —— 管理后台 LDAP
+配置开启 email_auto_configure 并填 imap/smtp_host 后，用户 LDAP 登录
+即自动写入邮箱凭据（每次登录同步最新域密码），手动设置仅在邮箱密码
+与域密码不同时才需要。
+
+测试：新增 test_imap_utf7 9 项（RFC 官方示例/往返/中文名解析/原始
+形式/大小写与前缀），后端 944 passed
