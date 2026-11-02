@@ -36,8 +36,12 @@ x-backend-env: &backend-env
   KNOWLEDGE_EMBEDDING_LOCAL_MODEL: ${KNOWLEDGE_EMBEDDING_LOCAL_MODEL:-}
   KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS: ${KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS:-0}
   # 模型下载走国内镜像；缓存必须落在可写卷（容器根文件系统只读）
-  HF_ENDPOINT: ${HF_ENDPOINT:-https://hf-mirror.com}
+  HF_ENDPOINT: ${HF_ENDPOINT:-}
   HF_HOME: /app/data/hf-cache
+  # 内网离线运行：模型已在缓存里，关掉 HF 的联网探测，
+  # 否则每次启动都会尝试连 hf-mirror 超时后才回退（拖慢启动 10~30 秒）
+  HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-1}
+  TRANSFORMERS_OFFLINE: ${TRANSFORMERS_OFFLINE:-1}
 
 
 services:

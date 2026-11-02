@@ -1,0 +1,100 @@
+name: agenticos
+
+# 内网离线部署编排：外部 MySQL + 外部 Redis（既有基础设施）
+# 与 docker-compose.runtime.yml 的差别：
+#   - 不包含 redis 服务（REDIS_URL 指向外部既有 Redis）
+#   - 不含数据库容器（DATABASE_URL 指向外部既有 MySQL）
+#   - 强制 HF 离线开关（内网无外网出口，模型已随包带）
+#
+# 用法：
+#   cp .env.offline.example .env
+#   docker compose -f docker-compose.offline.yml up -d
+
+x-backend-env: &backend-env
+  # 外部既有服务
+  DATABASE_URL: ${DATABASE_URL}
+  REDIS_URL: ${REDIS_URL}
+  REDIS_CLUSTER: ${REDIS_CLUSTER:-false}
+  # 认证与加密
+  AUTH_SECRET_KEY: ${AUTH_SECRET_KEY}
+  EXTERNAL_SYSTEM_ENCRYPTION_KEY: ${EXTERNAL_SYSTEM_ENCRYPTION_KEY:-}
+  AUTH_TOKEN_EXPIRE_MINUTES: ${AUTH_TOKEN_EXPIRE_MINUTES:-10080}
+  # LLM（配了「AI 提供商」后仅作兜底）
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-placeholder}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+  OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4}
+  # 运行环境
+  ENVIRONMENT: ${ENVIRONMENT:-production}
+  CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-}
+  PYTHONPATH: /app/backend
+  OPENBLAS_NUM_THREADS: 1
+  SKILL_STORAGE_DIR: ${SKILL_STORAGE_DIR:-./data/skills}
+  # LDAP（也可在管理后台配置，这里作引导）
+  LDAP_ENABLED: ${LDAP_ENABLED:-false}
+  LDAP_AUTO_CREATE_USERS: ${LDAP_AUTO_CREATE_USERS:-false}
+  LDAP_EMAIL_DOMAIN: ${LDAP_EMAIL_DOMAIN:-}
+  # 通知邮件
+  NOTIFY_EMAIL_ADDRESS: ${NOTIFY_EMAIL_ADDRESS:-}
+  NOTIFY_EMAIL_PASSWORD: ${NOTIFY_EMAIL_PASSWORD:-}
+  NOTIFY_SMTP_HOST: ${NOTIFY_SMTP_HOST:-}
+  NOTIFY_SMTP_PORT: ${NOTIFY_SMTP_PORT:-465}
+  NOTIFY_SMTP_SSL: ${NOTIFY_SMTP_SSL:-true}
+  # 本地嵌入模型（内网必配，留空会让记忆/知识库语义检索失效）
+  KNOWLEDGE_EMBEDDING_LOCAL_MODEL: ${KNOWLEDGE_EMBEDDING_LOCAL_MODEL:-BAAI/bge-m3}
+  KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS: ${KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS:-1024}
+  # 离线：模型随包带，关掉 HF 联网探测
+  HF_HOME: /app/data/hf-cache
+  HF_ENDPOINT: ""
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+
+services:
+  backend:
+    image: agenticos-runtime:latest
+    restart: always
+    working_dir: /app
+    shm_size: 512m
+    read_only: true
+    tmpfs:
+      - /tmp:size=512M
+      - /var/tmp:size=256M
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8000/api/v1/health/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # 首次启动要加载嵌入模型（bge-m3 约 20-40 秒）
+      start_period: 90s
+    environment: *backend-env
+    volumes:
+      - ../backend:/app/backend
+      - ../data:/app/data
+    ports:
+      - "${BACKEND_PORT:-10007}:8000"
+
+  worker:
+    image: agenticos-runtime:latest
+    restart: always
+    working_dir: /app
+    environment:
+      <<: *backend-env
+      PYTHONPATH: /app/backend
+    command: ["arq", "app.services.task_queue.WorkerSettings"]
+    shm_size: 512m
+    volumes:
+      - ../backend:/app/backend
+      - ../data:/app/data
+
+  frontend:
+    image: nginx:1.27-alpine
+    restart: always
+    command: ["nginx", "-g", "daemon off;"]
+    volumes:
+      - ../frontend/dist:/usr/share/nginx/html:ro
+      - ../data/nginx-serve:/usr/share/nginx/sites
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "${FRONTEND_PORT:-10008}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
