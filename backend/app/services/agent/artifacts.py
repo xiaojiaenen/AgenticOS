@@ -125,6 +125,29 @@ class ArtifactFactory:
             r'<script\b([^>]*)\bsrc\s*=\s*["\']([^"\']+)["\']([^>]*)>\s*</script>',
             _re.IGNORECASE,
         )
+
+        # 内联后必须剥掉的属性：
+        # - ``type="module"``：Vite 产物是 IIFE 形式，不需要 module 语义；
+        #   而 module script 在 srcdoc/blob iframe 里会走延迟执行与严格模式，
+        #   一旦产物里含 import 或依赖 currentScript 就会整段不执行 ——
+        #   实测表现就是「预览面板全白，但 dist 明明构建成功了」。
+        # - ``crossorigin``：内联脚本没有跨域来源，保留它只会触发额外的
+        #   安全检查（部分浏览器对内联 + crossorigin 组合直接拒绝执行）。
+        _STRIP_ATTRS = _re.compile(
+            r'\s+(?:type\s*=\s*["\']module["\']|crossorigin(?:=["\'](?:anonymous|use-credentials)["\'])?)',
+            _re.IGNORECASE,
+        )
+
+        def _clean_attrs(attrs: str) -> str:
+            """剥掉 type="module" / crossorigin，并压掉多余空白。"""
+            cleaned = attrs
+            for _ in range(4):  # 属性可能相邻出现，循环几轮直到稳定
+                nxt = _STRIP_ATTRS.sub("", cleaned)
+                if nxt == cleaned:
+                    break
+                cleaned = nxt
+            return _re.sub(r'\s{2,}', ' ', cleaned).strip()
+
         def _replace_script(match: _re.Match) -> str:
             src = match.group(2)
             if src.startswith(("http://", "https://", "data:")):
@@ -132,12 +155,16 @@ class ArtifactFactory:
             content = _read_asset(src)
             if content is None:
                 return match.group(0)
-            before = match.group(1)
-            after = match.group(3)
-            return f"<script{before}{after}>{content}</script>"
+            before = _clean_attrs(match.group(1))
+            after = _clean_attrs(match.group(3))
+            prefix = f"<script {before}" if before else "<script"
+            suffix = f" {after}>" if after else ">"
+            return f"{prefix}{suffix}{content}</script>"
 
         html = script_re.sub(_replace_script, html)
 
+        # 兜底：还留在文档里的 <script src=...>（内联失败的那些）改成
+        # 绝对可解析的 blob 友好形式没有意义，直接提示不要依赖外部资源。
         return html
 
     async def _create_website_artifact(
