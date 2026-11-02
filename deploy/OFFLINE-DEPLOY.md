@@ -93,7 +93,36 @@ tar -xzf agenticos-code.tar.gz -C /opt/agenticos
 cd /opt/agenticos/deploy && docker compose -f docker-compose.offline.yml restart backend worker
 ```
 
-只有 `pyproject.toml` 依赖变化时才需在有网机器重建镜像并重传。
+### 依赖变了怎么办（两种路径）
+
+**路径 A：内网 PyPI 可用 → 热装，不重建镜像（推荐）**
+
+容器根文件系统是只读的（`read_only: true`），装不进 `site-packages`；但 `/app/data`
+是可写卷。compose 里已把 `PYTHONPATH` 前置为 `/app/data/pylibs:/app/backend`，
+所以新增依赖装到该目录即可优先生效：
+
+```bash
+cd /opt/agenticos/deploy
+sh add-deps.sh 'requests==2.32.3' 'pandas>=2.0'
+```
+
+脚本做的事：`pip install --target=/app/data/pylibs -i <内网源>` → 重启 backend/worker。
+验证：`docker exec agenticos-backend-1 python -c 'import pandas; print(pandas.__file__)'`
+应显示 `/app/data/pylibs/...`。
+
+> 注意：backend 与 worker 共享同一个 `/app/data` 卷，装一次两边都生效。
+> 升级已有依赖（版本冲突）时，先 `rm -rf /opt/agenticos/data/pylibs` 再重装。
+
+**路径 B：内网无 PyPI 或依赖涉及编译/系统库 → 必须重建镜像**
+
+```bash
+# 有外网的机器
+docker build -f deploy/Dockerfile.runtime -t agenticos-runtime:latest .
+docker save agenticos-runtime:latest > rt.tar && gzip -1 rt.tar   # 约 4GB
+# 内网：gunzip -c rt.tar.gz | docker load
+```
+
+涉及 `torch`、`playwright`、需要 apt 系统库的包，只能走路径 B。
 
 ---
 

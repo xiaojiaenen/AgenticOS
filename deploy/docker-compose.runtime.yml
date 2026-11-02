@@ -1,4 +1,4 @@
-name: agenticos
+﻿name: agenticos
 
 # 运行时代码挂载版：镜像只含依赖+chromium，backend 代码 / dist 全部 volume 挂载
 # 更新代码 = rsync 代码目录 + docker compose -f docker-compose.runtime.yml restart backend worker
@@ -31,7 +31,7 @@ x-backend-env: &backend-env
   LDAP_EMAIL_SMTP_PORT: ${LDAP_EMAIL_SMTP_PORT:-465}
   OPENBLAS_NUM_THREADS: 1
   SKILL_STORAGE_DIR: ${SKILL_STORAGE_DIR:-./data/skills}
-  PYTHONPATH: /app/backend
+  PYTHONPATH: /app/data/pylibs:/app/backend
   # 本地（离线）嵌入模型：留空 = 走远程 /embeddings
   KNOWLEDGE_EMBEDDING_LOCAL_MODEL: ${KNOWLEDGE_EMBEDDING_LOCAL_MODEL:-}
   KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS: ${KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS:-0}
@@ -99,7 +99,7 @@ services:
     working_dir: /app
     environment:
       <<: *backend-env
-      PYTHONPATH: /app/backend
+      PYTHONPATH: /app/data/pylibs:/app/backend
     command: ["arq", "app.services.task_queue.WorkerSettings"]
     shm_size: 512m
     volumes:

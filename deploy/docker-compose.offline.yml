@@ -26,7 +26,9 @@ x-backend-env: &backend-env
   # 运行环境
   ENVIRONMENT: ${ENVIRONMENT:-production}
   CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-}
-  PYTHONPATH: /app/backend
+  # 依赖热更新：新增依赖装在 /app/data/pylibs（可写卷），
+  # PYTHONPATH 前置让它优先于 site-packages 加载（根文件系统只读装不进）
+  PYTHONPATH: /app/data/pylibs:/app/backend
   OPENBLAS_NUM_THREADS: 1
   SKILL_STORAGE_DIR: ${SKILL_STORAGE_DIR:-./data/skills}
   # LDAP（也可在管理后台配置，这里作引导）
@@ -78,7 +80,7 @@ services:
     working_dir: /app
     environment:
       <<: *backend-env
-      PYTHONPATH: /app/backend
+      PYTHONPATH: /app/data/pylibs:/app/backend
     command: ["arq", "app.services.task_queue.WorkerSettings"]
     shm_size: 512m
     volumes:
