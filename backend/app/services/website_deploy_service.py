@@ -32,8 +32,16 @@ class WebsiteDeployService:
         stack: str,
         requested_by: int,
         target_domain: str | None = None,
+        visibility: str = "private",
     ) -> dict[str, Any]:
-        """Create a deploy request. Returns the deploy record dict."""
+        """Create a deploy request. Returns the deploy record dict.
+
+        ``visibility``：public = 审批通过后发布到 /sites/ 对外可见；
+        private = 仅部署者（和管理员）在作品库可见，走带签名的私有端点。
+        保守默认 private —— 没明确说要公开的东西不该被公开。
+        """
+        if visibility not in ("public", "private"):
+            raise ValueError("visibility 必须是 public 或 private")
         # 纵深防御：slug 必须是单一目录名，挡掉 ../ 之类的路径穿越
         if (
             not project_slug
@@ -60,10 +68,16 @@ class WebsiteDeployService:
                 )
                 .order_by(WebsiteDeployModel.created_at.desc())
             ).first()
+            # 幂等升级：pending 记录存在但可见性变了 → 就地更新（用户改主意
+            # 从公开转私密或反之），而不是复用旧的可见性让用户困惑
             if existing is not None:
+                if existing.visibility != visibility:
+                    existing.visibility = visibility
+                    db.commit()
+                    db.refresh(existing)
                 _logger.info(
-                    "deploy request reused: id=%s slug=%s session=%s",
-                    existing.id, project_slug, session_id,
+                    "deploy request reused: id=%s slug=%s session=%s visibility=%s",
+                    existing.id, project_slug, session_id, visibility,
                 )
                 return self._serialize(existing)
 
@@ -73,6 +87,7 @@ class WebsiteDeployService:
                 stack=stack,
                 target_domain=target_domain,
                 status="pending",
+                visibility=visibility,
                 requested_by=requested_by,
                 # 落库相对路径：机器或容器换目录后，审批阶段仍能找到 dist/
                 dist_path=str(Path(project_slug) / "dist"),
@@ -171,12 +186,25 @@ class WebsiteDeployService:
         return _WEBSITES_DIR / deploy.project_slug / "dist"
 
     def _execute_deploy(self, deploy: WebsiteDeployModel) -> None:
-        """Copy dist/ to nginx serve directory."""
+        """发布：public → nginx /sites/（公开路径）；private → 私有目录。
+
+        私密站点**绝不**落到公开的 /sites/ —— 那会让「私密」形同虚设。
+        私密站点放在独立目录，访问走后端带签名的私有端点。
+        """
         dist_path = self._resolve_dist_path(deploy)
         if not dist_path.exists():
             raise FileNotFoundError(f"dist/ not found: {dist_path}")
 
-        target_dir = NGINX_SERVE_ROOT / deploy.project_slug
+        is_public = (deploy.visibility or "private") == "public"
+        if is_public:
+            target_dir = NGINX_SERVE_ROOT / deploy.project_slug
+            deploy.deploy_url = f"/sites/{deploy.project_slug}/"
+        else:
+            target_dir = NGINX_SERVE_ROOT / "_private" / deploy.project_slug
+            # nginx 配置必须显式 deny /sites/_private/（见 nginx.conf 注释）；
+            # 访问统一走后端 /website/site/ 端点（带 30 天签名）
+            deploy.deploy_url = f"/api/v1/website/site/{deploy.project_slug}/"
+
         target_dir.mkdir(parents=True, exist_ok=True)
 
         # Remove old files
@@ -195,12 +223,15 @@ class WebsiteDeployService:
                 shutil.copy2(item, dest)
 
         deploy.status = "deployed"
-        deploy.deploy_url = f"/sites/{deploy.project_slug}/"
         deploy.updated_at = datetime.now(timezone.utc)
 
+        # 私密站点：部署完成即签发 30 天访问令牌（作品库可随时重置）
+        if not is_public:
+            deploy.access_token = self._issue_access_token(deploy)
+
         _logger.info(
-            "deployed: project=%s → %s",
-            deploy.project_slug, target_dir,
+            "deployed: project=%s visibility=%s → %s",
+            deploy.project_slug, deploy.visibility, target_dir,
         )
 
         # Try nginx reload (non-fatal if it fails — nginx may not be running in dev)
@@ -217,6 +248,69 @@ class WebsiteDeployService:
             _logger.warning("nginx reload skipped (nginx may not be running)")
 
     @staticmethod
+    def _issue_access_token(deploy: WebsiteDeployModel, *, days: int = 30) -> str:
+        """为私密站点签发长期访问令牌（作品库里可随时重置）。"""
+        import time as _time
+
+        from app.core.config import get_settings
+        from app.core.security import create_access_token
+
+        settings = get_settings()
+        return create_access_token(
+            {"sub": str(deploy.requested_by or 0), "scope": "website_private",
+             "slug": deploy.project_slug, "deploy_id": deploy.id,
+             "iat": int(_time.time())},
+            secret=settings.auth_secret_key,
+            expires_in_seconds=days * 86400,
+        )
+
+    def reset_access_token(self, deploy_id: int, requested_by: int, is_admin: bool) -> dict[str, Any] | None:
+        """重置私密站点的访问令牌（旧链接立即失效）。仅部署者或管理员。"""
+        with self.session_factory() as db:
+            deploy = db.get(WebsiteDeployModel, deploy_id)
+            if deploy is None:
+                return None
+            if deploy.requested_by != requested_by and not is_admin:
+                raise PermissionError("只有部署者或管理员可以重置访问链接")
+            token = self._issue_access_token(deploy)
+            deploy.access_token = token
+            db.commit()
+            return {"id": deploy.id, "access_url": f"/api/v1/website/site/{deploy.project_slug}/?t={token}"}
+
+    def list_gallery(self, viewer_id: int, is_admin: bool = False) -> list[dict[str, Any]]:
+        """作品库：deployed 状态的网站。
+
+        - public：所有人可见（deploy_url 直接指向 /sites/ 公开路径）；
+        - private：仅部署者（和管理员）可见，附当前有效的访问链接。
+        """
+        with self.session_factory() as db:
+            rows = db.scalars(
+                select(WebsiteDeployModel)
+                .where(WebsiteDeployModel.status == "deployed")
+                .order_by(WebsiteDeployModel.updated_at.desc())
+                .limit(200)
+            ).all()
+
+        items: list[dict[str, Any]] = []
+        for row in rows:
+            visibility = row.visibility or "private"
+            is_owner = row.requested_by == viewer_id
+            if visibility == "private" and not (is_owner or is_admin):
+                continue
+            item = self._serialize(row)
+            if visibility == "private":
+                # 令牌过期/丢失时现场补签（30 天滚动）
+                token = row.access_token or self._issue_access_token(row)
+                if token != row.access_token:
+                    with self.session_factory() as db2:
+                        r2 = db2.get(WebsiteDeployModel, row.id)
+                        r2.access_token = token
+                        db2.commit()
+                item["access_url"] = f"/api/v1/website/site/{row.project_slug}/?t={token}"
+            items.append(item)
+        return items
+
+    @staticmethod
     def _serialize(deploy: WebsiteDeployModel) -> dict[str, Any]:
         return {
             "id": deploy.id,
@@ -226,6 +320,7 @@ class WebsiteDeployService:
             "dist_path": deploy.dist_path,
             "target_domain": deploy.target_domain,
             "deploy_url": deploy.deploy_url,
+            "visibility": deploy.visibility or "private",
             "status": deploy.status,
             "requested_by": deploy.requested_by,
             "approved_by": deploy.approved_by,

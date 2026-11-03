@@ -30,6 +30,7 @@ export async function requestDeploy(
   projectSlug: string,
   stack: string,
   targetDomain?: string,
+  visibility?: 'public' | 'private',
 ): Promise<DeployRecord> {
   if (!sessionId) {
     throw new Error('requestDeploy requires sessionId (not artifactId)')
@@ -42,6 +43,7 @@ export async function requestDeploy(
       project_slug: projectSlug,
       stack,
       target_domain: targetDomain || null,
+      visibility: visibility || 'private',
     }),
   }, 'Deploy request failed')
 }
@@ -75,4 +77,30 @@ export async function decideDeploy(
     },
     'Decision failed',
   )
+}
+
+
+// ─── 作品库（gallery） ───
+
+export type GalleryItem = {
+  id: number;
+  project_slug: string;
+  stack: string;
+  visibility: 'public' | 'private';
+  deploy_url: string | null;
+  access_url?: string;
+  status: string;
+  updated_at: string | null;
+};
+
+export async function listGallery(): Promise<GalleryItem[]> {
+  return apiFetch<GalleryItem[]>('/api/v1/website/gallery', {}, '获取作品库失败');
+}
+
+export async function resetSiteAccess(deployId: number): Promise<{ access_url: string }> {
+  return apiFetch<{ access_url: string }>(
+    `/api/v1/website/deploy/${deployId}/reset-access`,
+    { method: 'POST' },
+    '重置访问链接失败',
+  );
 }

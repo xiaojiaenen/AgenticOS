@@ -23,6 +23,7 @@ const AgentStore = lazy(() => import('./pages/AgentStore').then((module) => ({ d
 const AgentEditor = lazy(() => import('./pages/AgentEditor').then((module) => ({ default: module.AgentEditor })));
 const Login = lazy(() => import('./pages/Login').then((module) => ({ default: module.Login })));
 const Signup = lazy(() => import('./pages/Signup').then((module) => ({ default: module.Signup })));
+const Gallery = lazy(() => import('./pages/Gallery').then((module) => ({ default: module.GalleryPage })));
 const AdminDashboard = lazy(() =>
   import('./pages/AdminDashboard').then((module) => ({ default: module.AdminDashboard })),
 );
@@ -83,6 +84,7 @@ const AnimatedRoutes = () => {
           <Route path="/login" element={<ErrorBoundary key={`login-${location.pathname}`} title="登录页出错了"><Login /></ErrorBoundary>} />
           <Route path="/signup" element={<ErrorBoundary key={`signup-${location.pathname}`} title="注册页出错了"><Signup /></ErrorBoundary>} />
           <Route path="/admin" element={<ProtectedRoute requireAdmin><ErrorBoundary key={`admin-${location.pathname}`} title="管理后台出错了"><AdminDashboard /></ErrorBoundary></ProtectedRoute>} />
+          <Route path="/gallery" element={<ProtectedRoute><ErrorBoundary key={`gallery-${location.pathname}`} title="作品库出错了"><Gallery /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/app/:slug" element={<ErrorBoundary key={`public-agent-${location.pathname}`} title="应用页出错了"><PublicAgentChat /></ErrorBoundary>} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

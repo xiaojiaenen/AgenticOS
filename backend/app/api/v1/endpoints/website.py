@@ -1,10 +1,12 @@
 """Website deploy API endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_admin, require_feature
+from pathlib import Path
 from app.core.data_path import WEBSITES_DIR as _WEBSITES_DIR, _parse_dir_name
+from app.core.config import get_settings
 from app.db.models import UserModel
 from app.schemas.website import DeployDecisionRequest, DeployRequest
 from app.services import audit_service
@@ -55,6 +57,7 @@ def request_deploy(
         stack=body.stack,
         requested_by=user.id,
         target_domain=body.target_domain,
+        visibility=body.visibility,
     )
     audit_service.record_request(
         db, http_request, action="website.deploy_request", actor=user,
@@ -186,3 +189,81 @@ def decide_deploy(
         detail={"status": body.status, "reason": body.reason},
     )
     return deploy
+
+
+# ---------------------------------------------------------------------------
+# 作品库（gallery）与私密站点访问
+# ---------------------------------------------------------------------------
+
+
+@router.get("/gallery")
+def list_gallery(user: UserModel = Depends(get_current_user)):
+    """作品库：deployed 状态的网站。
+
+    - public：所有人可见，deploy_url 直接指向 /sites/ 公开路径；
+    - private：仅部署者（和管理员）可见，附 30 天签名访问链接。
+    """
+    return _service.list_gallery(viewer_id=user.id, is_admin=user.role == "admin")
+
+
+@router.post("/deploy/{deploy_id}/reset-access")
+def reset_private_access(
+    deploy_id: int,
+    user: UserModel = Depends(get_current_user),
+):
+    """重置私密站点的访问链接（旧链接立即失效，作品库拿到新链接）。"""
+    try:
+        result = _service.reset_access_token(deploy_id, requested_by=user.id, is_admin=user.role == "admin")
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="部署申请不存在")
+    return result
+
+
+@router.get("/site/{slug}/{rel_path:path}")
+def serve_private_site(
+    slug: str,
+    rel_path: str,
+    t: str = Query(..., description="私密站点访问令牌（30 天，部署完成时签发）"),
+):
+    """私密站点静态访问（带 30 天签名；作品库里可随时重置链接）。
+
+    公开站点直接走 nginx /sites/；私密站点必须经过这里做签名校验，
+    避免落到公开路径让「私密」形同虚设。注意 rel_path 里的相对引用
+    天然继承 /website/site/{slug}/ 前缀，与 query 里的 t 无冲突。
+    """
+    from app.core.security import decode_access_token
+    from fastapi.responses import FileResponse
+    import mimetypes
+
+    settings = get_settings()
+    payload = decode_access_token(t, secret=settings.auth_secret_key)
+    if payload is None or payload.get("scope") != "website_private":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="访问链接无效或已过期")
+    if str(payload.get("slug")) != slug:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="访问链接与项目不匹配")
+
+    dist_dir = (Path(_WEBSITES_DIR) / slug / "dist").resolve()
+    if not dist_dir.is_dir():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="站点产物不存在")
+
+    clean = (rel_path or "index.html").strip().lstrip("/")
+    if not clean or clean.endswith("/"):
+        clean = f"{clean}index.html"
+    candidate = (dist_dir / clean).resolve()
+    try:
+        candidate.relative_to(dist_dir)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="非法的资源路径") from None
+    if candidate.is_dir():
+        candidate = candidate / "index.html"
+    if not candidate.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="资源不存在")
+
+    media_type, _ = mimetypes.guess_type(str(candidate))
+    return FileResponse(
+        candidate,
+        media_type=media_type or "application/octet-stream",
+        headers={"Cache-Control": "private, max-age=300", "X-Content-Type-Options": "nosniff"},
+    )

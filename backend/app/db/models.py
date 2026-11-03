@@ -548,6 +548,11 @@ class WebsiteDeployModel(Base):
     target_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
     deploy_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    # 作品库可见性：public = 审批后发布到 /sites/ 对外可见；
+    # private = 仅部署者（和管理员）在作品库可见，访问走带签名的私有端点
+    visibility: Mapped[str] = mapped_column(String(16), default="private")
+    # 私密站点的访问令牌（部署完成时签发的 30 天 JWT，作品库可重置）
+    access_token: Mapped[str | None] = mapped_column(String(512), nullable=True)
     requested_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     approved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)

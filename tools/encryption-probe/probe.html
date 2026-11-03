@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>透明加密上传诊断</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --card: #fff; --line: #e2e8f0;
+    --text: #1e293b; --muted: #64748b; --brand: #2b87c2;
+    --ok: #16a34a; --bad: #dc2626; --warn: #d97706;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; background: var(--bg); color: var(--text);
+    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
+  .drop {
+    border: 2px dashed var(--line); border-radius: 8px; padding: 36px 20px;
+    text-align: center; color: var(--muted); cursor: pointer;
+    transition: all .15s;
+  }
+  .drop:hover, .drop.over { border-color: var(--brand); background: #f0f7fc; color: var(--brand); }
+  .drop b { color: var(--text); }
+  .verdict {
+    display: none; margin-top: 16px; padding: 14px 16px; border-radius: 8px;
+    border-left: 4px solid var(--muted);
+  }
+  .verdict.show { display: block; }
+  .verdict.ok { border-color: var(--ok); background: #f0fdf4; }
+  .verdict.bad { border-color: var(--bad); background: #fef2f2; }
+  .verdict.warn { border-color: var(--warn); background: #fffbeb; }
+  .verdict h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+  .verdict p { margin: 4px 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; width: 150px; }
+  code {
+    background: #f1f5f9; padding: 2px 6px; border-radius: 4px;
+    font-family: Consolas, "Courier New", monospace; font-size: 12.5px;
+  }
+  .hex {
+    font-family: Consolas, monospace; font-size: 13px; word-break: break-all;
+    background: #f1f5f9; padding: 8px 10px; border-radius: 6px; margin-top: 6px;
+  }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  input[type=text] {
+    flex: 1; min-width: 240px; padding: 8px 10px; border: 1px solid var(--line);
+    border-radius: 8px; font-size: 13px; font-family: inherit;
+  }
+  button {
+    padding: 8px 16px; border: 1px solid var(--brand); background: var(--brand);
+    color: #fff; border-radius: 8px; font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all .15s; font-family: inherit;
+  }
+  button:hover { background: #2470a3; }
+  button:active { transform: scale(.98); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.ghost { background: #fff; color: var(--brand); }
+  .hint { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+  .tag {
+    display: inline-block; padding: 1px 8px; border-radius: 4px;
+    font-size: 12px; font-weight: 500;
+  }
+  .tag.ok { background: #dcfce7; color: #15803d; }
+  .tag.bad { background: #fee2e2; color: #b91c1c; }
+  .tag.warn { background: #fef3c7; color: #b45309; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>透明加密上传诊断</h1>
+  <p class="sub">
+    在本机浏览器里直接读文件，判断 DLP 是否把浏览器加了白名单。全程本地运行，不上传任何内容。
+  </p>
+
+  <div class="card">
+    <h2>第一步：浏览器读到的到底是什么</h2>
+    <div class="drop" id="drop">
+      <div>把 <b>xlsx / docx / pptx / pdf</b> 拖到这里，或点击选择文件</div>
+      <div style="margin-top:6px;font-size:12.5px">建议用真实业务文件（排班表、报表、合同），不要用新建的空文件</div>
+    </div>
+    <input type="file" id="picker" hidden>
+
+    <div class="verdict" id="v1">
+      <h3 id="v1t"></h3>
+      <div id="v1b"></div>
+      <div class="hex" id="hex"></div>
+      <table id="meta"></table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>第二步：传到服务端后是什么（可选）</h2>
+    <p class="hint" style="margin-top:0">
+      填你的平台上传地址。若第一步是明文、这一步变密文，说明是<b>网络侧 DLP</b> 在动上传报文。
+      不填则跳过。
+    </p>
+    <div class="row">
+      <input type="text" id="endpoint" placeholder="http://your-host:8001/api/v1/files/probe">
+      <input type="text" id="token" placeholder="Bearer token（可留空）" style="max-width:220px">
+      <button id="send" disabled>发送验证</button>
+    </div>
+    <div class="verdict" id="v2">
+      <h3 id="v2t"></h3>
+      <div id="v2b"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>判定依据</h2>
+    <table>
+      <tr><th>文件头</th><td>含义</td></tr>
+      <tr><td><code>50 4B 03 04</code></td><td>OOXML 明文 — xlsx / docx / pptx</td></tr>
+      <tr><td><code>D0 CF 11 E0</code></td><td>OLE2 明文 — xls / doc / ppt</td></tr>
+      <tr><td><code>25 50 44 46</code></td><td>PDF 明文</td></tr>
+      <tr><td>其他 16 字节</td><td>密文 — 浏览器不在白名单，或文件本身被加密</td></tr>
+    </table>
+    <p class="hint">
+      注意：有的 DLP 不加密文件头，只加密正文，或把密文放进备用数据流（ADS）。
+      所以还要看「浏览器读到的大小」是否等于「资源管理器显示的大小」——被加密的文件常按
+      512/1024 字节对齐，大小会变。
+    </p>
+  </div>
+</div>
+
+<script>
+const PLAIN = [
+  { magic: [0x50,0x4B,0x03,0x04], name: 'OOXML 明文（xlsx / docx / pptx）' },
+  { magic: [0xD0,0xCF,0x11,0xE0], name: 'OLE2 明文（xls / doc / ppt）' },
+  { magic: [0x25,0x50,0x44,0x46], name: 'PDF 明文' },
+  { magic: [0x50,0x4B,0x05,0x06], name: 'zip 空归档' },
+];
+
+const $ = (id) => document.getElementById(id);
+let currentFile = null;
+
+function hexOf(bytes, n = 16) {
+  return Array.from(bytes.slice(0, n))
+    .map((b) => b.toString(16).toUpperCase().padStart(2, '0'))
+    .join(' ');
+}
+
+function classify(head) {
+  for (const p of PLAIN) {
+    if (p.magic.every((v, i) => head[i] === v)) {
+      return { kind: 'plain', name: p.name };
+    }
+  }
+  return { kind: 'cipher', name: '未知魔数' };
+}
+
+function showVerdict(el, tone, title, bodyHtml) {
+  el.className = 'verdict show ' + tone;
+  el.querySelector('h3').textContent = title;
+  el.querySelector('div').innerHTML = bodyHtml;
+}
+
+async function handleFile(file) {
+  currentFile = file;
+  $('v2').className = 'verdict';
+  $('send').disabled = false;
+
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  const head = Array.from(bytes.slice(0, 16));
+  const { kind, name } = classify(head);
+
+  $('hex').textContent = '文件头 16 字节：' + hexOf(bytes);
+
+  const sizeMb = (file.size / 1024 / 1024).toFixed(2);
+  const aligned = file.size % 512 === 0 || file.size % 1024 === 0;
+  $('meta').innerHTML = `
+    <tr><th>文件名</th><td>${file.name}</td></tr>
+    <tr><th>浏览器读到大小</th><td>${file.size.toLocaleString()} 字节（${sizeMb} MB）</td></tr>
+    <tr><th>是否 512/1024 对齐</th><td>${aligned ? '<span class="tag warn">是（加密文件常见特征）</span>' : '否'}</td></tr>
+    <tr><th>MIME</th><td>${file.type || '（浏览器未识别）'}</td></tr>
+    <tr><th>最后修改</th><td>${new Date(file.lastModified).toLocaleString()}</td></tr>
+  `;
+
+  if (kind === 'plain') {
+    showVerdict($('v1'), 'ok',
+      '✅ 浏览器读到明文 — 链路已通',
+      `<p>文件头是 <code>${hexOf(bytes, 4)}</code>，判定为 <b>${name}</b>。</p>
+       <p><b>结论：浏览器在白名单内。</b>你的 Linux 平台只要走普通上传就能拿到明文原始字节，
+       排版完整保留，<b>不需要任何 Windows 中间件</b>。</p>
+       <p>下一步：跑第二步验证服务端收到的也是明文（排除网络侧 DLP 干扰）。</p>`);
+  } else {
+    const allZero = head.every((b) => b === 0);
+    const allFF = head.every((b) => b === 0xFF);
+    let extra = '';
+    if (allZero) extra = '<p>⚠️ 前 16 字节全为 0，可能是占位/稀疏文件，也可能是某种加密头。</p>';
+    if (allFF) extra = '<p>⚠️ 前 16 字节全为 FF，典型加密或损坏特征。</p>';
+    showVerdict($('v1'), 'bad',
+      '❌ 浏览器读到的是密文',
+      `<p>文件头 <code>${hexOf(bytes, 8)}</code> 不是任何已知明文魔数。</p>
+       <p><b>结论：浏览器不在白名单</b>，或该文件被额外加密了一层。</p>
+       <p>这种情况下普通 Web 上传拿不到明文，需要客户端侧辅助（见成本核算）。</p>
+       ${extra}
+       <p class="hint">对照：用资源管理器把同一个文件复制到一个「不加密目录」（如 D:\\Public），
+       再选这个副本重试。如果副本是明文，说明原目录加密、浏览器确实不在白名单。</p>`);
+  }
+}
+
+$('drop').addEventListener('click', () => $('picker').click());
+$('picker').addEventListener('change', (e) => {
+  if (e.target.files?.[0]) handleFile(e.target.files[0]);
+});
+['dragenter', 'dragover'].forEach((ev) =>
+  $('drop').addEventListener(ev, (e) => {
+    e.preventDefault();
+    $('drop').classList.add('over');
+  })
+);
+['dragleave', 'drop'].forEach((ev) =>
+  $('drop').addEventListener(ev, (e) => {
+    e.preventDefault();
+    $('drop').classList.remove('over');
+  })
+);
+$('drop').addEventListener('drop', (e) => {
+  if (e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+$('send').addEventListener('click', async () => {
+  const url = $('endpoint').value.trim();
+  if (!url || !currentFile) return;
+
+  $('send').disabled = true;
+  showVerdict($('v2'), 'warn', '发送中…', '<p>正在上传，请稍候。</p>');
+
+  try {
+    const fd = new FormData();
+    fd.append('file', currentFile, currentFile.name);
+    const headers = {};
+    const tk = $('token').value.trim();
+    if (tk) headers['Authorization'] = tk.startsWith('Bearer ') ? tk : 'Bearer ' + tk;
+
+    const res = await fetch(url, { method: 'POST', body: fd, headers });
+    const text = await res.text();
+
+    let payload;
+    try { payload = JSON.parse(text); } catch { payload = null; }
+
+    if (!res.ok) {
+      showVerdict($('v2'), 'bad', `服务端返回 ${res.status}`,
+        `<p>${text.slice(0, 400)}</p>`);
+      return;
+    }
+
+    if (payload && payload.kind) {
+      const ok = payload.kind === 'plain';
+      showVerdict($('v2'), ok ? 'ok' : 'bad',
+        ok ? '✅ 服务端收到的也是明文 — 全链路通畅' : '❌ 服务端收到密文',
+        `<p><b>判定：</b><span class="tag ${ok ? 'ok' : 'bad'}">${payload.kind}</span> ${payload.detail || ''}</p>
+         <p><b>服务端看到的大小：</b>${payload.size?.toLocaleString?.() ?? payload.size} 字节</p>
+         <p><b>服务端看到的头：</b><code>${payload.head || ''}</code></p>
+         <p>${payload.advice || ''}</p>
+         ${ok ? '<p class="hint">至此确认：不需要任何 Windows 中间件，直接用上传到的字节做业务处理。</p>'
+              : '<p class="hint">浏览器是明文但服务端是密文 → 网络侧 DLP 在加密上传报文。需走客户端辅助或申请白名单站点。</p>'}`);
+    } else {
+      showVerdict($('v2'), 'warn', '服务端未返回判定字段',
+        `<p>原始响应：</p><div class="hex">${text.slice(0, 500)}</div>
+         <p class="hint">确认地址指向 <code>/api/v1/files/probe</code> 这个诊断端点。</p>`);
+    }
+  } catch (err) {
+    showVerdict($('v2'), 'bad', '请求失败',
+      `<p>${err.message}</p>
+       <p class="hint">若是跨域（CORS）问题，可在浏览器控制台看到 preflight 报错；
+       也可以先把文件存到本机，用 curl 手工验证。</p>`);
+  } finally {
+    $('send').disabled = false;
+  }
+});
+</script>
+</body>
+</html>

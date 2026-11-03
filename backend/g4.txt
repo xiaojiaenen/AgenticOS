@@ -1,0 +1,14 @@
+﻿.FFFFF                                                                   [100%]
+================================== FAILURES ===================================
+D:\code\AgenticOS\backend\tests\test_website_gallery.py:126: assert 403 == 422
+D:\code\AgenticOS\backend\tests\test_website_gallery.py:102: AssertionError: {"detail":"Permission denied: feature:deploy_website (write)"}
+D:\code\AgenticOS\backend\tests\test_website_gallery.py:102: AssertionError: {"detail":"Permission denied: feature:deploy_website (write)"}
+D:\code\AgenticOS\backend\tests\test_website_gallery.py:102: AssertionError: {"detail":"Permission denied: feature:deploy_website (write)"}
+D:\code\AgenticOS\backend\tests\test_website_gallery.py:102: AssertionError: {"detail":"Permission denied: feature:deploy_website (write)"}
+=========================== short test summary info ===========================
+FAILED tests/test_website_gallery.py::TestVisibility::test_rejects_bad_visibility
+FAILED tests/test_website_gallery.py::TestVisibility::test_reuse_updates_visibility
+FAILED tests/test_website_gallery.py::TestGalleryPermissions::test_private_hidden_from_others
+FAILED tests/test_website_gallery.py::TestPrivateSiteAccess::test_private_serves_with_token_and_rejects_without
+FAILED tests/test_website_gallery.py::TestPrivateSiteAccess::test_public_deploy_uses_sites_path
+5 failed, 1 passed in 6.22s

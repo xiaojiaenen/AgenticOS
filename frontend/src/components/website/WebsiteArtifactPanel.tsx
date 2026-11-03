@@ -25,6 +25,9 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
   onSwitchVersion,
 }) => {
   const [isDeploying, setIsDeploying] = React.useState(false)
+  // 部署可见性：点「部署」先弹选择（公开 / 私密），明确确认再提交。
+  // 私密 = 仅自己在作品库可见（带签名链接）；公开 = 审批后上 /sites/。
+  const [visibilityPickerOpen, setVisibilityPickerOpen] = React.useState(false)
   const [deployStatus, setDeployStatus] = React.useState<DeployStatus | null>(null)
   const [deployUrl, setDeployUrl] = React.useState<string | null>(null)
   const [deployError, setDeployError] = React.useState<string | null>(null)
@@ -108,7 +111,7 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
     }
   }, [sessionId, artifact.sessionId])
 
-  const handleDeploy = async () => {
+  const handleDeploy = async (visibility: 'public' | 'private') => {
     // 首参必须是 sessionId（不是 artifactId）
     const deploySessionId = sessionId || artifact.sessionId
     if (!deploySessionId) {
@@ -124,6 +127,8 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
         deploySessionId,
         artifact.projectSlug,
         artifact.stack ?? '',
+        undefined,
+        visibility,
       )
       setDeployStatus(result.status)
       if (result.deploy_url) {
@@ -143,6 +148,11 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
       : artifact.stack === 'vue'
         ? 'Vue'
         : 'Vanilla'
+
+  const submitVisibility = (visibility: 'public' | 'private') => {
+    setVisibilityPickerOpen(false)
+    void handleDeploy(visibility)
+  }
 
   return (
     <motion.aside
@@ -201,8 +211,8 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
           </button>
           <button
             type="button"
-            onClick={handleDeploy}
-            disabled={isDeploying}
+            onClick={() => setVisibilityPickerOpen(true)}
+            disabled={isDeploying || deployStatus === 'pending'}
             className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:opacity-60"
             title="Deploy website"
             aria-label="Deploy website"
@@ -310,6 +320,54 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
           )}
         </motion.div>
       </div>
-    </motion.aside>
+      {/* 部署可见性选择：公开（审批后上 /sites/）或私密（仅自己作品库可见） */}
+      {visibilityPickerOpen && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-[min(92%,380px)] rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-2xl">
+            <h3 className="mb-1 text-sm font-semibold text-[var(--foreground)]">选择作品可见性</h3>
+            <p className="mb-4 text-xs leading-relaxed text-[var(--muted-foreground)]">
+              公开作品需要管理员审批后发布到站点目录；私密作品仅自己可见，可随时重置访问链接。
+            </p>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => submitVisibility('private')}
+                disabled={isDeploying}
+                className="flex w-full items-start gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] px-4 py-3 text-left transition-colors hover:border-[var(--primary)] hover:bg-[var(--surface-3)] disabled:opacity-60"
+              >
+                <span className="mt-0.5 text-lg">🔒</span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-[var(--foreground)]">私密作品</span>
+                  <span className="block text-xs text-[var(--muted-foreground)]">
+                    仅自己在作品库可见，访问链接带签名、可随时重置
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => submitVisibility('public')}
+                disabled={isDeploying}
+                className="flex w-full items-start gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] px-4 py-3 text-left transition-colors hover:border-[var(--primary)] hover:bg-[var(--surface-3)] disabled:opacity-60"
+              >
+                <span className="mt-0.5 text-lg">🌐</span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-[var(--foreground)]">公开作品</span>
+                  <span className="block text-xs text-[var(--muted-foreground)]">
+                    管理员审批后发布到站点目录，所有人可访问
+                  </span>
+                </span>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setVisibilityPickerOpen(false)}
+              className="mt-3 w-full rounded-lg py-1.5 text-xs font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+</motion.aside>
   )
 }
