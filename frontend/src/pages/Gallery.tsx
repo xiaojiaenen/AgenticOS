@@ -114,6 +114,7 @@ const GalleryCard = ({
               variant="outline"
               className="h-8 gap-1 px-2 text-xs"
               title="复制访问链接"
+              aria-label="复制访问链接"
               onClick={() => {
                 void navigator.clipboard
                   .writeText(`${window.location.origin}${openUrl}`)
@@ -130,6 +131,7 @@ const GalleryCard = ({
               variant="outline"
               className="h-8 gap-1 px-2 text-xs"
               title="重置私密访问链接（旧链接立即失效）"
+              aria-label="重置私密访问链接"
               disabled={resetting}
               onClick={() => onReset(item.id)}
             >
