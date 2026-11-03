@@ -17,16 +17,23 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _has_table(table: str) -> bool:
+    return sa.inspect(op.get_bind()).has_table(table)
+
+
 def _has_column(table: str, column: str) -> bool:
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    if not inspector.has_table(table):
-        return False
-    return any(col["name"] == column for col in inspector.get_columns(table))
+    # 表不存在时返回 True（而不是 False）：空 SQLite 基线上
+    # website_deploys 可能还没建（由 ORM create_all 负责），此时
+    # 跳过整个迁移比炸掉强 —— 0017 同款守卫。
+    if not _has_table(table):
+        return True
+    return any(col["name"] == column for col in sa.inspect(op.get_bind()).get_columns(table))
 
 
 def upgrade() -> None:
     table = "website_deploys"
+    if not _has_table(table):
+        return
     if not _has_column(table, "visibility"):
         # 私有默认：已存在的历史部署不加声明就当私密处理，避免「升级后
         # 原本没打算公开的网站突然出现在公开作品库里」。
@@ -40,15 +47,11 @@ def upgrade() -> None:
             table,
             sa.Column("access_token", sa.String(length=512), nullable=True),
         )
-    op.create_index(
-        "ix_website_deploys_visibility",
-        table,
-        ["visibility"],
-        unique=False,
-    ) if not any(
+    if _has_table(table) and not any(
         ix["name"] == "ix_website_deploys_visibility"
         for ix in sa.inspect(op.get_bind()).get_indexes(table)
-    ) else None
+    ):
+        op.create_index("ix_website_deploys_visibility", table, ["visibility"])
 
 
 def downgrade() -> None:
@@ -58,7 +61,8 @@ def downgrade() -> None:
         indexes = [ix["name"] for ix in inspector.get_indexes(table)]
         if "ix_website_deploys_visibility" in indexes:
             op.drop_index("ix_website_deploys_visibility", table_name=table)
-        if _has_column(table, "access_token"):
+        columns = [c["name"] for c in inspector.get_columns(table)]
+        if "access_token" in columns:
             op.drop_column(table, "access_token")
-        if _has_column(table, "visibility"):
+        if "visibility" in columns:
             op.drop_column(table, "visibility")
