@@ -158,3 +158,6 @@ backend/.venv-loadtest/
 
 # 离线部署包产物（体积大，不进仓库）
 offline-packages/
+
+# 本地探针/桥接工具（未纳入仓库范围）
+tools/
