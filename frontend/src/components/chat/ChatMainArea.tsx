@@ -17,6 +17,8 @@ import { useChatStore } from '../../stores/chatStore';
 import { cn } from '../../lib/utils';
 import { getStoredUser } from '../../services/authService';
 import { issueWebsitePreviewUrl } from '../../services/websiteService';
+import { getSessionArtifacts } from '../../services/agentService';
+import { toast } from 'sonner';
 
 export const ChatMainArea = React.memo(() => {
   // 从 Context 获取 hook 返回值和派生状态
@@ -109,7 +111,13 @@ const {
   }, [pendingApprovals]);
 
   // 产物面板关闭后的「重新打开」入口：
-  // 产物卡片在消息里，消息一长就找不到，这里在输入区上方常驻一个入口
+  // 产物卡片在消息里，消息一长就找不到，这里在输入区上方常驻一个入口。
+  //
+  // **必须覆盖全部产物类型。** 早先只认 ppt / website，于是表格、文档、
+  // 邮件面板一旦收起，这个按钮永远不出现 —— 用户看到的就是「右侧边栏
+  // 收起来后再也打不开」。sheet / document 的 snapshot 体量大、不进
+  // localStorage 缓存，所以这里只记引用，真正打开时从后端回源
+  // （见 handleReopenArtifact）。
   const reopenableArtifact = React.useMemo(() => {
     if (artifact) return null;
     const messages = [...(currentSession?.messages ?? [])].reverse();
@@ -117,7 +125,9 @@ const {
       (m) =>
         m.role === 'model' &&
         ((m.pptArtifact?.status === 'ready' && m.pptArtifact.html) ||
-          (m.websiteArtifact?.status === 'ready' && m.websiteArtifact?.html)),
+          (m.websiteArtifact?.status === 'ready' && m.websiteArtifact?.html) ||
+          (m.sheetArtifact?.status === 'ready' && m.sheetArtifact.artifactId) ||
+          m.documentArtifact?.status === 'ready'),
     );
     if (!msg) return null;
     if (msg.pptArtifact?.html) {
@@ -130,24 +140,53 @@ const {
         theme: msg.pptArtifact.theme,
       };
     }
-    return {
-      language: 'website' as const,
-      artifactId: msg.websiteArtifact?.artifactId || '',
-      html: msg.websiteArtifact?.html || '',
-      title: msg.websiteArtifact?.title || '网站预览',
-      projectSlug: msg.websiteArtifact?.projectSlug || '',
-      stack: msg.websiteArtifact?.stack,
-      sessionId: currentSessionId ?? undefined,
-    };
+    if (msg.websiteArtifact?.html) {
+      return {
+        language: 'website' as const,
+        artifactId: msg.websiteArtifact?.artifactId || '',
+        html: msg.websiteArtifact?.html || '',
+        title: msg.websiteArtifact?.title || '网站预览',
+        projectSlug: msg.websiteArtifact?.projectSlug || '',
+        stack: msg.websiteArtifact?.stack,
+        sessionId: currentSessionId ?? undefined,
+      };
+    }
+    if (msg.sheetArtifact?.artifactId) {
+      // snapshot 不在缓存里，占位即可；handleReopenArtifact 会回源补齐
+      return {
+        language: 'spreadsheet' as const,
+        artifactId: msg.sheetArtifact.artifactId,
+        title: msg.sheetArtifact.title || '电子表格',
+        snapshot: {} as Record<string, unknown>,
+        sheetNames: msg.sheetArtifact.sheetNames ?? [],
+        sheetCount: msg.sheetArtifact.sheetCount ?? 0,
+        sessionId: currentSessionId ?? undefined,
+      };
+    }
+    if (msg.documentArtifact?.artifactId) {
+      return {
+        language: 'document' as const,
+        artifactId: msg.documentArtifact.artifactId,
+        title: msg.documentArtifact.title || '文档',
+        snapshot: {} as Record<string, unknown>,
+        charCount: 0,
+        sessionId: currentSessionId ?? undefined,
+      };
+    }
+    return null;
   }, [artifact, currentSession?.messages, currentSessionId]);
 
-  // 重新打开产物面板。website 产物从内存复用时，预览令牌可能已过 15 分钟
-  // TTL（页面开着很久后点「重新打开」），直接复用旧 URL 会让 iframe 渲染
-  // 403 错误页 —— 所以打开前先现签一个新 URL；签发失败退回 preview_html
-  // 内联 srcDoc（自包含、永不过期）。
+  // 重新打开产物面板。
+  //
+  // - website：预览令牌可能已过 15 分钟 TTL（页面开着很久后点「重新打开」），
+  //   直接复用旧 URL 会让 iframe 渲染 403 错误页 —— 所以先现签一个新 URL，
+  //   签发失败退回 preview_html 内联 srcDoc（自包含、永不过期）。
+  // - spreadsheet / document：snapshot 体量大、不在缓存里，必须回源拿最新快照，
+  //   否则打开的是一个空编辑器（比打不开更糟：用户会以为内容丢了）。
   const handleReopenArtifact = useCallback(async () => {
     const next = reopenableArtifact;
     if (!next) return;
+
     if (next.language === 'website' && next.sessionId && next.projectSlug) {
       try {
         const { url } = await issueWebsitePreviewUrl(next.sessionId, next.projectSlug);
@@ -157,6 +196,47 @@ const {
         // 签发失败（离线 / 后端异常）→ 走内联兜底
       }
     }
+
+    if (
+      (next.language === 'spreadsheet' || next.language === 'document') &&
+      next.sessionId
+    ) {
+      try {
+        const artifacts = await getSessionArtifacts(next.sessionId);
+        if (next.language === 'spreadsheet' && artifacts.sheet_artifact) {
+          const sheet = artifacts.sheet_artifact;
+          setArtifact({
+            language: 'spreadsheet',
+            artifactId: sheet.artifact_id,
+            title: sheet.title,
+            snapshot: sheet.snapshot,
+            sheetNames: sheet.sheet_names ?? [],
+            sheetCount: sheet.sheet_count ?? 0,
+            sessionId: next.sessionId,
+            version: sheet.version,
+          });
+          return;
+        }
+        if (next.language === 'document' && artifacts.document_artifact) {
+          const doc = artifacts.document_artifact;
+          setArtifact({
+            language: 'document',
+            artifactId: doc.artifact_id,
+            title: doc.title,
+            snapshot: doc.snapshot,
+            charCount: doc.char_count ?? 0,
+            sessionId: next.sessionId,
+            version: doc.version,
+          });
+          return;
+        }
+      } catch {
+        // 回源失败：提示比静默打开空编辑器好
+        toast.error('产物内容加载失败，请刷新页面后重试');
+        return;
+      }
+    }
+
     setArtifact(next);
   }, [reopenableArtifact, setArtifact]);
 

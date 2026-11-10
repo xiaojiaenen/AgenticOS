@@ -1,4 +1,5 @@
 import React from 'react';
+import { beginUniverTeardown } from '../../lib/univerTeardown';
 
 /**
  * Univer 编辑器宿主。
@@ -139,6 +140,10 @@ export const SheetEditor = React.forwardRef<SheetEditorHandle, SheetEditorProps>
         readyRef.current = false;
         setReady(false);
         apiRef.current = null;
+        // dispose 会让 Univer 内部的 rxjs first() 在已 complete 的流上踩空，
+        // 异步抛 EmptyError（「no elements in sequence」）。先开兜底窗口，
+        // 让那个已知噪音不污染控制台 —— 详见 lib/univerTeardown.ts。
+        beginUniverTeardown();
         try {
           instance?.dispose();
         } catch {

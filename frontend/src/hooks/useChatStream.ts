@@ -849,6 +849,28 @@ export function useChatStream({
                                 html: websiteArtifact.preview_html,
                               }
                             : undefined,
+                          // 表格 / 文档也必须回写到消息上：面板收起后
+                          // ChatMainArea 靠这个字段判断「有没有可重新打开的
+                          // 产物」。只 setArtifact 不写消息的话，一收起就
+                          // 再也找不到入口了（用户报的正是这个）。
+                          // snapshot 体量大，这里只记引用，重开时回源。
+                          sheetArtifact: sheetArtifact
+                            ? {
+                                status: 'ready',
+                                artifactId: sheetArtifact.artifact_id,
+                                title: sheetArtifact.title,
+                                sheetNames: sheetArtifact.sheet_names ?? [],
+                                sheetCount: sheetArtifact.sheet_count ?? 0,
+                              }
+                            : undefined,
+                          documentArtifact: documentArtifact
+                            ? {
+                                status: 'ready',
+                                artifactId: documentArtifact.artifact_id,
+                                title: documentArtifact.title,
+                                charCount: documentArtifact.char_count ?? 0,
+                              }
+                            : undefined,
                         }
                       : message,
                   ),

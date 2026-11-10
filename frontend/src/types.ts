@@ -82,6 +82,13 @@ export type Message = {
     sheetNames?: string[];
     sheetCount?: number;
   };
+  /** 同 sheetArtifact：snapshot 不进缓存，收起面板后靠 artifactId 回源恢复 */
+  documentArtifact?: {
+    status: 'generating' | 'ready';
+    artifactId?: string;
+    title?: string;
+    charCount?: number;
+  };
   /**
    * A2UI 声明式界面（智能体通过 render_ui / render_form 生成）。
    *

@@ -1,4 +1,5 @@
 import React from 'react';
+import { beginUniverTeardown } from '../../lib/univerTeardown';
 
 /**
  * Univer 文档编辑器宿主。
@@ -374,6 +375,9 @@ export const DocEditor = React.forwardRef<DocEditorHandle, DocEditorProps>(
         setReady(false);
         apiRef.current = null;
         docRef.current = null;
+        // 同 SheetEditor：dispose 会让 Univer 内部的 rxjs first() 在已
+        // complete 的流上踩空，异步抛 EmptyError。先开兜底窗口。
+        beginUniverTeardown();
         try {
           univerRef.current?.dispose();
         } catch {
