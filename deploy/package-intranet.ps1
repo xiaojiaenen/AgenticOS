@@ -77,8 +77,12 @@ foreach ($sub in @("charts", "design-systems", "design-themes", "layouts", "skil
     if (Test-Path $src) { Copy-Item $src "$pkgDir\data\" -Recurse -Force }
 }
 
-# 部署编排 + 文档
-Copy-Item "deploy\docker-compose.runtime.yml","deploy\Dockerfile.runtime","deploy\.env.example","deploy\DEPLOY.md" "$pkgDir\deploy\" -Force
+# 部署编排 + 文档（离线流程所需的文件必须齐全：
+# install.sh / OFFLINE-DEPLOY.md / docker-compose.offline.yml /
+# .env.offline.example / add-deps.sh 缺一个，内网按手册操作就会卡住）
+Copy-Item "deploy\docker-compose.runtime.yml","deploy\docker-compose.offline.yml" "$pkgDir\deploy\" -Force
+Copy-Item "deploy\Dockerfile.runtime","deploy\Dockerfile.offline","deploy\.env.example","deploy\.env.offline.example" "$pkgDir\deploy\" -Force
+Copy-Item "deploy\DEPLOY.md","deploy\OFFLINE-DEPLOY.md","deploy\add-deps.sh","deploy\install.sh" "$pkgDir\deploy\" -Force
 Copy-Item "deploy\nginx" "$pkgDir\deploy\nginx" -Recurse -Force
 Copy-Item "docs\deploy\内网部署依赖清单.md" "$pkgDir\" -Force -ErrorAction SilentlyContinue
 

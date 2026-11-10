@@ -2,19 +2,23 @@ name: agenticos
 
 # 内网离线部署编排：外部 MySQL + 外部 Redis（既有基础设施）
 # 与 docker-compose.runtime.yml 的差别：
-#   - 不包含 redis 服务（REDIS_URL 指向外部既有 Redis）
-#   - 不含数据库容器（DATABASE_URL 指向外部既有 MySQL）
-#   - 强制 HF 离线开关（内网无外网出口，模型已随包带）
+#   - 强制 HF 离线开关（内网无外网出口，嵌入模型已随包带）
+#   - 不带 BASE_REGISTRY/IMAGE_REGISTRY 构建（镜像直接用导入的 agenticos-runtime）
+# 两者都使用外部 MySQL / Redis，compose 内无数据库与缓存容器
 #
 # 用法：
 #   cp .env.offline.example .env
 #   docker compose -f docker-compose.offline.yml up -d
 
 x-backend-env: &backend-env
-  # 外部既有服务
+  # Redis 配置（留空则使用内存 fallback）
   DATABASE_URL: ${DATABASE_URL}
   REDIS_URL: ${REDIS_URL}
   REDIS_CLUSTER: ${REDIS_CLUSTER:-false}
+  # 任务队列(arq)专用 Redis：arq 不支持 Redis Cluster，业务缓存用 cluster
+  # 时必须单独给一个 standalone 端点（详见 deploy/OFFLINE-DEPS.md）。
+  # 单机部署（REDIS_CLUSTER=false）留空即可，自动复用 REDIS_URL。
+  ARQ_REDIS_URL: ${ARQ_REDIS_URL:-}
   # 认证与加密
   AUTH_SECRET_KEY: ${AUTH_SECRET_KEY}
   EXTERNAL_SYSTEM_ENCRYPTION_KEY: ${EXTERNAL_SYSTEM_ENCRYPTION_KEY:-}
@@ -27,8 +31,12 @@ x-backend-env: &backend-env
   ENVIRONMENT: ${ENVIRONMENT:-production}
   CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-}
   # 依赖热更新：新增依赖装在 /app/data/pylibs（可写卷），
-  # PYTHONPATH 前置让它优先于 site-packages 加载（根文件系统只读装不进）
+  # PYTHONPATH 前置让它优先于 site-packages 加载（根文件系统只读装不进）。
+  # PATH 里也加上 pylibs/bin：pip --target 会把命令行脚本（taskiq / wuwei-debug
+  # 等）放到这个目录，但它不在默认 PATH 里 —— 不加就会
+  # `exec: "taskiq": executable file not found in $PATH`。
   PYTHONPATH: /app/data/pylibs:/app/backend
+  PATH: /app/data/pylibs/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
   OPENBLAS_NUM_THREADS: 1
   SKILL_STORAGE_DIR: ${SKILL_STORAGE_DIR:-./data/skills}
   # LDAP（也可在管理后台配置，这里作引导）
@@ -53,6 +61,7 @@ x-backend-env: &backend-env
 services:
   backend:
     image: agenticos-runtime:latest
+    pull_policy: never
     restart: always
     working_dir: /app
     shm_size: 512m
@@ -60,8 +69,17 @@ services:
     tmpfs:
       - /tmp:size=512M
       - /var/tmp:size=256M
+    # 关掉 seccomp 过滤：Docker 默认 profile 在某些内核/版本组合下会拦截
+    # pthread_create 内部的 clone()，报 `can't start new thread`（EAGAIN），
+    # 表现是 Python 侧一路打「线程池不可用」然后重启。这是宿主环境问题，
+    # 不是应用 bug —— 内网实测加这一行即恢复正常。
+    security_opt:
+      - seccomp:unconfined
     healthcheck:
-      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8000/api/v1/health/')"]
+      # 不用 `python -c ...`：那要 fork 一个新进程，容器线程/进程上限打满时
+      # 探针本身就会失败，容器永远 unhealthy（前端跟着卡在 created）。
+      # 这里用 bash 的 /dev/tcp 做纯 socket 连通性探测，不创建新进程。
+      test: ["CMD-SHELL", "timeout 3 bash -c '</dev/tcp/127.0.0.1/8000' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -76,19 +94,47 @@ services:
 
   worker:
     image: agenticos-runtime:latest
+    pull_policy: never
     restart: always
     working_dir: /app
     environment:
       <<: *backend-env
       PYTHONPATH: /app/data/pylibs:/app/backend
-    command: ["arq", "app.services.task_queue.WorkerSettings"]
+    command: ["python", "-m", "taskiq", "worker", "app.services.task_queue:taskiq_broker", "--workers", "2"]
     shm_size: 512m
+    # 同 backend：seccomp 默认 profile 可能拦 clone()，导致线程创建失败
+    security_opt:
+      - seccomp:unconfined
+    volumes:
+      - ../backend:/app/backend
+      - ../data:/app/data
+
+  # 定时任务调度器：arq 把 cron 写在 WorkerSettings 里由 worker 自己跑；
+  # taskiq 需要独立进程（taskiq scheduler）来读 schedule source 并投递。
+  # cron 定义由 `python -m app.services.task_queue_seed` 写入（部署脚本调用一次）。
+  scheduler:
+    image: agenticos-runtime:latest
+    pull_policy: never
+    restart: always
+    working_dir: /app
+    environment:
+      <<: *backend-env
+      PYTHONPATH: /app/data/pylibs:/app/backend
+    command: ["python", "-m", "taskiq", "scheduler", "app.services.task_queue:taskiq_scheduler"]
+    shm_size: 256m
+    security_opt:
+      - seccomp:unconfined
     volumes:
       - ../backend:/app/backend
       - ../data:/app/data
 
   frontend:
     image: nginx:1.27-alpine
+    # 内网既没有外网出口也没有镜像仓库。不加 never 时 Docker 仍会尝试访问
+    # registry-1.docker.io 校验 tag，DNS 解析失败就整条 up -d 失败：
+    #   dial tcp: lookup registry-1.docker.io ... server misbehaving
+    # 即使本地已 docker load 过镜像也照样起不来。
+    pull_policy: never
     restart: always
     command: ["nginx", "-g", "daemon off;"]
     volumes:
@@ -99,4 +145,8 @@ services:
       - "${FRONTEND_PORT:-10008}:80"
     depends_on:
       backend:
-        condition: service_healthy
+        # 前端只是静态 nginx，不关心后端是否 healthy。用 service_healthy 时，
+        # 后端一旦探针不通过（比如线程上限打满），前端就永远停在 created，
+        # 用户连登录页都看不到。改成 started 即可 —— 后端晚几秒可用时，
+        # nginx 代理会先返回 502，恢复后自动正常。
+        condition: service_started

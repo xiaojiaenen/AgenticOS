@@ -3,37 +3,55 @@
 ## 架构概览
 
 ```
-                    ┌──────────────────────────┐
-                    │     Nginx (:10008)        │
-                    │  /api/*  → Backend        │
-                    │  /*      → Vite SPA       │
-                    └──────────┬───────────────┘
-                               │
-                    ┌──────────▼──────────┐
-                    │  Backend :10007     │
-                    │  Python/FastAPI     │
-                    └──────────┬──────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-     ┌────────▼────────┐  ┌───▼──────────┐  ┌──▼────────┐
-     │  外部 MySQL     │  │  外部 Redis  │  │ 外部 AI   │
-     │  （可选）       │  │  （可选）    │  │ 服务      │
-     └─────────────────┘  └──────────────┘  └───────────┘
+                     ┌────────────────────────────┐
+                     │       Nginx (:10008)       │
+                     │  /api/*      → Backend     │
+                     │  /sites/*    → 已上线网站  │
+                     │  /*          → Vite SPA    │
+                     └─────────────┬──────────────┘
+                                   │
+                     ┌─────────────▼─────────────┐
+                     │  Backend  (:10007 → :8000)│
+                     │  Python/FastAPI           │
+                     └─────────────┬─────────────┘
+                                   │  同镜像另一个容器
+                     ┌─────────────▼─────────────┐
+                     │  Worker (arq 任务队列)    │
+                     └───────────────────────────┘
+
+        Backend / Worker ──► 外部 MySQL（必须）
+                         ──► 外部 Redis（生产必须）
+                         ──► 外部 AI 服务 / 企业网关
 ```
 
-- MySQL 和 Redis 都是外部服务，不由 docker-compose 管理
-- Redis 留空则自动 fallback 到内存模式（开发环境可用）
+- **MySQL 和 Redis 都是外部服务，不由 docker-compose 管理**（compose 里没有数据库/缓存容器）。
+- **Redis 生产必填**：验证码缓存、审批跨实例广播、登录限流、arq 任务队列都依赖它。
+  留空会退化为进程内记忆 fallback——限流计数不共享、worker 无法工作，仅限单机演示。
+  普通 Redis 即可：记忆向量检索是进程内余弦计算，不依赖 RediSearch / Redis Stack。
+- Backend 与 Worker 共用同一镜像、同一套环境变量，只差启动命令。
+
+## 两种部署方式
+
+| 方式 | compose 文件 | 镜像 | 适用 |
+|------|--------------|------|------|
+| **A. 运行时镜像（推荐）** | `docker-compose.runtime.yml` | `agenticos-runtime:latest`（pip 依赖 + Chromium + node/npm 预装，代码 volume 挂载） | 生产 / 内网。更新代码只需 restart，不重建镜像 |
+| B. 薄镜像构建 | `docker-compose.yml`（默认） | `Dockerfile.backend` 构建时装依赖 | 快速试用 / CI 可联网构建 |
+
+下文命令默认对方式 A 生效；用方式 B 时去掉 `-f docker-compose.runtime.yml`
+（或 `export COMPOSE_FILE=docker-compose.runtime.yml` 后命令完全一致）。
 
 ## 前置条件
 
 - **Docker 20.10+** 和 **Docker Compose 2.0+**
 - **Node.js 22+**（仅本地打包前端时需要）
-- 能拉取基础镜像（默认 Docker Hub；内网环境可通过 `BASE_REGISTRY` 指向私有仓库）
+- 外部 MySQL 8 与 Redis 已就绪、网络可达
+- 方式 A 需要先构建或导入 `agenticos-runtime` 镜像（见第 4 节；内网离线见
+  [OFFLINE-DEPLOY.md](OFFLINE-DEPLOY.md)）
 
 ## 1. 初始化 MySQL 数据库
 
-首次部署需要创建数据库和用户，后端启动时会自动建表：
+首次部署需要创建数据库和用户，后端启动时会自动建表与执行 alembic 迁移
+（`utf8mb4` 必须，否则中文写不进去）：
 
 ```sql
 CREATE DATABASE IF NOT EXISTS agenticos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -52,8 +70,11 @@ cp .env.example .env
 编辑 `.env`，必填项：
 
 ```env
-# 数据库
+# 数据库（外部 MySQL）
 DATABASE_URL=mysql+pymysql://agenticos:你的密码@mysql-host:3306/agenticos
+
+# Redis（外部 Redis，生产必填）
+REDIS_URL=redis://redis-host:6379/0
 
 # AI 服务（兜底配置）
 # 注意：这里是**兜底**。只要在「管理后台 → AI 提供商」建了启用中的提供商，
@@ -158,9 +179,9 @@ services:
 > 不是认证失败）。同步后可以在「按用途绑定模型」里把对话 / 轻任务 / 深度思考 / 图像理解
 > 分别指到不同模型，未绑定的用途自动跟随主模型。
 >
-> 只有使用 `enterprise_cookie` 类型时才需要浏览器：镜像内需执行
-> `playwright install --with-deps chromium`，或设 `PLAYWRIGHT_CHROMIUM_PATH`
-> 指向已存在的 Chromium。手贴 Cookie 不需要浏览器。
+> 只有使用 `enterprise_cookie` 类型时才需要浏览器：`agenticos-runtime` 镜像已内置
+> Chromium；薄镜像需自行执行 `playwright install --with-deps chromium`，或设
+> `PLAYWRIGHT_CHROMIUM_PATH` 指向已存在的 Chromium。手贴 Cookie 不需要浏览器。
 >
 > 相关开关：`LLM_PROVIDER_FALLBACK_TO_ENV`（默认 `true`，提供商不可用时回落本文件配置；
 > 要求「绝不允许流量外溢」的部署请设为 `false`）、
@@ -172,15 +193,17 @@ services:
 可选但推荐：
 
 ```env
-# Redis（生产必填！验证码缓存、输入补全、审批广播、登录限流均依赖；留空则内存 fallback——多 worker/多副本下登录限流计数不共享、限流阈值会按进程数放大，且 arq worker 无法工作，仅限单机开发环境
-REDIS_URL=redis://your-redis-host:6379/0
-
 # 系统通知邮箱（验证码发送、任务完成通知、欢迎邮件）
 NOTIFY_EMAIL_ADDRESS=noreply@yourdomain.com
 NOTIFY_EMAIL_PASSWORD=your-app-password
 NOTIFY_SMTP_HOST=smtp.exmail.qq.com
 NOTIFY_SMTP_PORT=465
 NOTIFY_SMTP_SSL=true
+
+# 本地嵌入模型（内网 / 不想走远程 /embeddings 时必配；
+# 记忆向量召回 + 知识库语义检索都走它，本地推理零 API 成本）
+KNOWLEDGE_EMBEDDING_LOCAL_MODEL=BAAI/bge-m3
+KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS=1024
 ```
 
 ## 3. 打包前端（本地执行）
@@ -197,9 +220,32 @@ npm install
 npm run build
 ```
 
-构建产物输出到 `frontend/dist/`，Docker 构建时直接复制进 nginx 镜像。
+构建产物输出到 `frontend/dist/`，nginx 容器直接挂载该目录
+（方式 A）或构建时复制进镜像（方式 B）。
 
-## 4. 构建镜像并启动
+## 4. 启动
+
+### 方式 A：运行时镜像（推荐）
+
+`agenticos-runtime` 镜像只在**有外网的机器**构建一次（pip、apt、Chromium CDN 都需要外网）：
+
+```bash
+# 仓库根目录执行
+docker build -f deploy/Dockerfile.runtime -t agenticos-runtime:latest .
+# 导出给部署机（可选）：docker save agenticos-runtime:latest | gzip > agenticos-runtime.tar.gz
+```
+
+部署机上启动（代码目录挂载进容器，更新代码无需重建镜像）：
+
+```bash
+cd deploy
+docker compose -f docker-compose.runtime.yml up -d
+```
+
+内网无外网出口时，直接使用离线包导入现成镜像：
+见 [OFFLINE-DEPLOY.md](OFFLINE-DEPLOY.md)。
+
+### 方式 B：薄镜像构建
 
 ```bash
 cd deploy
@@ -218,9 +264,38 @@ curl http://localhost:10007/api/v1/health/
 
 # 前端页面
 curl -I http://localhost:10008/
+
+# worker 正常在跑
+docker compose -f docker-compose.runtime.yml logs worker | tail -5
 ```
 
-浏览器访问 `http://服务器IP:10008` 进入系统。
+浏览器访问 `http://服务器IP:10008` 进入系统，首次注册即管理员。
+
+## 日常更新
+
+### 方式 A（运行时镜像）：只换代码，不重建镜像
+
+```bash
+# 同步新的 backend/ 与 frontend/dist 到部署机后：
+cd deploy
+docker compose -f docker-compose.runtime.yml restart backend worker
+```
+
+依赖变了优先走热装（容器根文件系统只读，新依赖装到可写卷 `/app/data/pylibs`，
+`PYTHONPATH` 已前置该目录）：
+
+```bash
+sh add-deps.sh 'requests==2.32.3' 'pandas>=2.0'
+```
+
+### 前端更新
+
+```bash
+cd frontend && npm run build
+# 方式 A：dist 是挂载的，直接生效（浏览器强刷即可）
+# 方式 B：重新构建镜像
+cd ../deploy && docker compose up -d --build frontend
+```
 
 ## 环境变量说明
 
@@ -228,101 +303,59 @@ curl -I http://localhost:10008/
 
 | 变量名 | 说明 |
 |--------|------|
-| DATABASE_URL | MySQL 连接字符串 |
-| OPENAI_API_KEY | AI 服务 API Key |
-| AUTH_SECRET_KEY | JWT 签名密钥 |
+| DATABASE_URL | 外部 MySQL 连接字符串（`mysql+pymysql://user:pass@host:3306/agenticos`） |
+| REDIS_URL | 外部 Redis 连接地址，如 `redis://redis-host:6379/0`。生产必填（验证码缓存、审批广播、登录限流、任务队列）；留空仅剩内存 fallback，只可单机演示 |
+| OPENAI_API_KEY | AI 服务 API Key（管理后台配了「AI 提供商」后仅作兜底） |
+| AUTH_SECRET_KEY | JWT 签名密钥（`python -c "import secrets; print(secrets.token_urlsafe(48))"`） |
 
-### Redis（可选）
-
-| 变量名 | 默认值 | 说明 |
-|--------|--------|------|
-| REDIS_URL | 空（内存 fallback） | Redis 连接地址，如 `redis://your-redis-host:6379/0`。**生产必填**：登录限流（原子计数）、审批跨实例广播、任务队列均依赖 Redis，内存 fallback 仅限单进程开发 |
-| REDIS_CLUSTER | false | 是否使用 Redis 集群模式 |
-
-### 系统通知邮箱（可选）
+### 常用可选项
 
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
-| NOTIFY_EMAIL_ADDRESS | 空 | 发件邮箱地址 |
-| NOTIFY_EMAIL_PASSWORD | 空 | 邮箱密码/应用专用密码 |
-| NOTIFY_SMTP_HOST | 空 | SMTP 服务器地址 |
-| NOTIFY_SMTP_PORT | 465 | SMTP 端口 |
-| NOTIFY_SMTP_SSL | true | 是否使用 SSL |
-| NOTIFY_TASK_MIN_SECONDS | 120 | 任务完成通知阈值（秒） |
-
-### AI 服务
-
-| 变量名 | 默认值 | 说明 |
-|--------|--------|------|
-| OPENAI_BASE_URL | https://api.openai.com/v1 | AI 服务地址 |
-| OPENAI_MODEL | gpt-5.4 | 模型名称 |
-
-### 认证
-
-| 变量名 | 默认值 | 说明 |
-|--------|--------|------|
+| REDIS_CLUSTER | false | Redis 是否集群模式 |
+| OPENAI_BASE_URL | 空 | AI 服务地址 |
+| OPENAI_MODEL | gpt-5.4 | 兜底模型名 |
 | AUTH_TOKEN_EXPIRE_MINUTES | 10080 | Token 有效期（分钟） |
-
-### 其他
-
-| 变量名 | 默认值 | 说明 |
-|--------|--------|------|
-| CORS_ALLOW_ORIGINS | http://localhost:3001 | CORS 允许来源 |
+| CORS_ALLOW_ORIGINS | http://localhost:3001 | 跨域白名单；同域走 nginx（10008）时设为 `http://<IP>:10008` |
+| KNOWLEDGE_EMBEDDING_LOCAL_MODEL | 空 | 本地嵌入模型（如 `BAAI/bge-m3`）；留空走远程 /embeddings |
+| KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS | 0 | 嵌入维度（bge-m3 为 1024） |
+| NOTIFY_EMAIL_ADDRESS / NOTIFY_EMAIL_PASSWORD / NOTIFY_SMTP_HOST / NOTIFY_SMTP_PORT / NOTIFY_SMTP_SSL | 空 | 系统通知邮箱（验证码、任务完成通知） |
+| NOTIFY_TASK_MIN_SECONDS | 120 | 任务完成通知阈值（秒） |
+| IMAGE_REGISTRY | docker.io | 应用镜像仓库地址（compose image 前缀） |
+| BASE_REGISTRY | docker.io | 基础镜像仓库地址（构建时拉 python/nginx，内网可指向私有仓库） |
+| PYPI_MIRROR | https://pypi.org/simple | PyPI 镜像源（方式 B 构建时使用） |
 | SKILL_STORAGE_DIR | ./data/skills | Skill 存储目录 |
-| BASE_REGISTRY | docker.io | 基础镜像仓库地址（内网可指向私有仓库） |
-| PYPI_MIRROR | https://pypi.org/simple | PyPI 镜像源 |
-| BACKEND_PORT | 10007 | 后端端口 |
-| FRONTEND_PORT | 10008 | 前端端口 |
+| BACKEND_PORT / FRONTEND_PORT | 10007 / 10008 | 宿主机端口 |
 
 ## 数据持久化
 
-宿主机 `data/` 目录挂载到容器 `/app/data/`：
+宿主机 `data/` 目录整体挂载到容器 `/app/data/`：
 
-- `charts/` — SVG 图表模板（PPT 图表生成）
-- `design-systems/` — 设计系统定义（PPT/网站主题）
-- `design-themes/` — 设计主题
-- `layouts/` — 布局模板
-- `skills/` — Agent 技能
-- `website-templates/` — 网站模板
-- 运行时产物（ppt-output/、ppt-sessions/、websites/）由应用自动创建
-
-## 前端更新
-
-前端代码变更后，需重新本地打包：
-
-```bash
-cd frontend
-npm run build
-cd ../deploy
-docker compose up -d --build frontend
-```
+- 只读资产：`icons/`、`charts/`、`design-systems/`、`design-themes/`、`layouts/`、
+  `skills/`、`website-templates/`
+- 运行时产物（应用自动创建）：`uploads/`、`websites/`、`nginx-serve/`（已上线站点，
+  nginx 挂载）、`ppt-sessions/`、`documents/`、`knowledge/`、`hf-cache/`（嵌入模型缓存）、
+  `pylibs/`（依赖热装目录）、`*_versions/`、`*.db`
 
 ## 常用命令
 
 ```bash
+# 下文以方式 A 为例；方式 B 去掉 -f 参数即可
+cd deploy
+
 # 启动
-docker compose up -d
+docker compose -f docker-compose.runtime.yml up -d
 
-# 停止
-docker compose down
-
-# 重启
-docker compose restart
-
-# 重新构建
-docker compose up -d --build
-
-# 仅重建前端
-docker compose up -d --build frontend
+# 停止 / 重启
+docker compose -f docker-compose.runtime.yml down
+docker compose -f docker-compose.runtime.yml restart backend worker
 
 # 查看日志
-docker compose logs -f
-
-# 只看后端
-docker compose logs -f backend
+docker compose -f docker-compose.runtime.yml logs -f
+docker compose -f docker-compose.runtime.yml logs -f backend   # 只看后端
 
 # 进入容器
-docker compose exec backend bash
+docker compose -f docker-compose.runtime.yml exec backend bash
 ```
 
 ## 故障排查
@@ -330,16 +363,14 @@ docker compose exec backend bash
 ### 启动失败
 
 ```bash
-docker compose logs backend
-docker compose logs frontend
+docker compose -f docker-compose.runtime.yml logs backend
+docker compose -f docker-compose.runtime.yml logs frontend
 ```
 
 ### 数据库连接问题
 
-验证 MySQL 连通性：
-
 ```bash
-docker compose exec backend python -c "
+docker compose -f docker-compose.runtime.yml exec backend python -c "
 from app.db.session import engine
 with engine.connect() as conn:
     print('数据库连接成功')
@@ -348,11 +379,13 @@ with engine.connect() as conn:
 
 ### Redis 连接问题
 
-验证 Redis 连通性：
-
 ```bash
-docker compose exec backend python -c "
-from app.core.redis import get_redis, is_redis_memory
+# 先确认外部 Redis 可达
+redis-cli -h <Redis主机> -p 6379 ping
+
+# 再看后端自检（应输出「Redis 已连接」；「内存模式」说明 REDIS_URL 没配对）
+docker compose -f docker-compose.runtime.yml exec backend python -c "
+from app.core.redis import is_redis_memory
 print('内存模式' if is_redis_memory() else 'Redis 已连接')
 "
 ```
@@ -362,21 +395,13 @@ print('内存模式' if is_redis_memory() else 'Redis 已连接')
 检查系统邮箱配置：
 
 ```bash
-docker compose exec backend python -c "
+docker compose -f docker-compose.runtime.yml exec backend python -c "
 from app.core.config import get_settings
 s = get_settings()
 print(f'邮箱: {s.notify_email_address}')
 print(f'SMTP: {s.notify_smtp_host}:{s.notify_smtp_port}')
 print('配置完整' if s.notify_email_address and s.notify_smtp_host else '配置缺失')
 "
-```
-
-### 基础镜像拉取失败
-
-确认能访问内网仓库：
-
-```bash
-curl http://$BASE_REGISTRY/v2/_catalog
 ```
 
 ### 端口冲突
@@ -402,10 +427,10 @@ ls frontend/dist/index.html
 
 1. **HTTPS**：在 Nginx 前加反向代理处理 SSL 终止
 2. **MySQL**：启用 SSL 连接，定期备份数据库
-3. **Redis**：生产环境建议使用外部 Redis 服务，配置密码认证
+3. **Redis**：外部 Redis 配置密码认证，限制来源 IP
 4. **密钥管理**：`AUTH_SECRET_KEY`、`OPENAI_API_KEY`、`NOTIFY_EMAIL_PASSWORD` 通过 secrets 管理
 5. **日志轮转**：配置 Docker 日志 driver 限制日志大小
-6. **监控**：配置后端健康检查告警
+6. **监控**：后端健康检查 `GET /api/v1/health/`，接告警
 
 ---
 
@@ -456,7 +481,7 @@ print(resp.choices[0].message.content)
 `model` 字段决定走哪条链路：
 
 - 命中**本地智能体**（已安装的 slug / 名称）或 **AgenticOS 模式名**
-  （`general` / `ppt` / `website` / `email` / `bigdata`）或通用别名
+  （`general` / `ppt` / `website` / `email` / `bigdata` / `office`）或通用别名
   （`gpt-4o` 等）→ 由 AgenticOS 本地 Agent 执行（可用知识库、工具、审批等全部能力）
 - 其他 `model` 名 → 透传给企业上游（gw.example.com），保持既有行为
 

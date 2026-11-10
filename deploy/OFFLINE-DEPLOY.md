@@ -7,41 +7,50 @@
 
 ---
 
-## 一、四个离线包（构建机 `/home/offline/`，共 6.9GB）
+## 一、离线包内容（`pwsh deploy/package-intranet.ps1` 产出）
 
-| 包 | 大小 | 必需 | 内容 |
+| 内容 | 大小（约） | 必需 | 说明 |
 |---|---|---|---|
-| `agenticos-runtime.tar.gz` | 3.9GB | ✅ | 运行时镜像：pip 依赖 + Chromium + node/npm 全部预装 |
-| `agenticos-models.tar` | 2.3GB | ✅ | bge-m3 嵌入模型（内网无 HF 出口） |
-| `agenticos-code.tar.gz` | 80MB | ✅ | 后端代码 + 前端 dist + 静态资源 + 部署编排 + 本手册 |
+| `images/agenticos-runtime.tar` | 8GB | ✅ | 运行时镜像：pip 依赖 + Chromium + node/npm 全部预装 |
+| `images/nginx.tar` | 50MB | ✅ | 前端 nginx 镜像（内网无镜像仓库时随包带） |
+| `backend/` `frontend/dist` `data/` `deploy/` | 数百 MB | ✅ | 代码 + 前端产物 + 静态资源 + 部署编排 + 本手册 |
+| `data/hf-cache/` | 随模型 | ✅ | 本地嵌入模型（bge-m3 或 bge-small-zh-v1.5），内网无 HF 出口 |
+| `MANIFEST.sha256` | — | ✅ | 全包 SHA256 校验清单 |
 | `agenticos-chromium.tar` | 679MB | ⬜ | Chromium 备份（镜像已内含，仅在重建镜像时需要） |
 
-校验：`sha256sum -c SHA256SUMS`（清单在同一目录）。
+校验：`sha256sum -c MANIFEST.sha256`（`install.sh` 会自动做）。
 
 ---
 
-## 二、内网部署机执行（约 15 分钟）
+## 二、内网部署机执行
+
+### 一键安装（推荐）
 
 ```bash
-# 1. 导入镜像（3.9GB，解压约 8GB，需要约 10GB 空闲磁盘）
-gunzip -c agenticos-runtime.tar.gz | docker load
-docker images | grep agenticos-runtime        # 应显示 8.05GB
+sudo sh install.sh /opt/agenticos
+# 脚本自动完成：校验 MANIFEST → 导入 images/*.tar →
+# 拷贝 backend/frontend/data/deploy → 生成 .env（从 .env.offline.example）
+```
 
-# 2. 解包代码与模型
-mkdir -p /opt/agenticos && tar -xzf agenticos-code.tar.gz -C /opt/agenticos
-cd /opt/agenticos
-mkdir -p data && tar -xf /path/to/agenticos-models.tar -C data/
+### 手动步骤（等价，约 15 分钟）
 
-# 3. nginx（内网仓库有就 pull；没有则需随包带，见下方说明）
-docker pull nginx:1.27-alpine
+```bash
+# 1. 导入镜像（runtime 约 8GB，需要约 10GB 空闲磁盘；nginx 也在包内）
+docker load -i images/agenticos-runtime.tar
+docker load -i images/nginx.tar
+docker images | grep agenticos-runtime
 
-# 4. 配置并启动
-cd deploy && cp .env.offline.example .env && vi .env
+# 2. 安装代码与模型
+mkdir -p /opt/agenticos
+cp -a backend frontend data deploy /opt/agenticos/
+
+# 3. 配置并启动
+cd /opt/agenticos/deploy && cp .env.offline.example .env && vi .env
 docker compose -f docker-compose.offline.yml up -d
 ```
 
-> **nginx 镜像**：`nginx:1.27-alpine` 仅 48MB，若内网无镜像仓库，
-> 在有网机器 `docker save nginx:1.27-alpine | gzip > nginx.tar.gz` 一起带过去。
+> **nginx 镜像**：包内 `images/nginx.tar` 已随包；若内网有自己的镜像仓库，
+> 也可以直接 `docker pull nginx:1.27-alpine`。
 
 ---
 
@@ -89,7 +98,7 @@ docker exec agenticos-backend-1 python -m alembic current   # 最新 head
 ## 五、日常更新（只换代码，不重建镜像）
 
 ```bash
-tar -xzf agenticos-code.tar.gz -C /opt/agenticos
+# 把新包里的 backend/ 与 frontend/dist 覆盖到部署目录后：
 cd /opt/agenticos/deploy && docker compose -f docker-compose.offline.yml restart backend worker
 ```
 
@@ -131,8 +140,8 @@ docker save agenticos-runtime:latest > rt.tar && gzip -1 rt.tar   # 约 4GB
 | 项 | 处理 |
 |---|---|
 | PPT 配图（`search_images`） | 走 Pexels/Pixabay 公网 → 工具配置里关掉该工具，PPT 其余功能正常 |
-| 网站智能体 `npm install` | 需内网 npm 源；设 `npm_config_userconfig=/app/data/.npmrc` 并在其中写 registry |
-| 网关自动登录（百通） | Chromium 与系统库已内置镜像，可直接用 |
+| 网站智能体 `npm install` | 在 `.env` 设 `NPM_CONFIG_REGISTRY=https://nexus.gree.com/repository/npm-proxy/`、`NPM_CONFIG_STRICT_SSL=false`、`NEXUS_HOST=10.2.47.210`（compose 已为 backend/worker/scheduler 注入 env 与 `extra_hosts`）；默认走公网镜像，内外网同一份代码 |
+| 网关自动登录（百通） | Chromium 与系统库已内置镜像，可直接用；**首次配置后需在「AI 提供商」里把百通的 `enable_thinking` 设为 `true`**（预设默认 `false`，不改则界面看不到「思考过程」区块，`reasoning_delta` 不会下发） |
 | 嵌入模型 | 必须随包，内网无 HF 出口 |
 | 通知邮件 | 需 SMTP 可达（内网邮件服务器） |
 | 镜像更新 | 只能整包重传（内网无法 build）；建议改动攒批 |

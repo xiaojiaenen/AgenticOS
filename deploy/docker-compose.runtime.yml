@@ -1,4 +1,4 @@
-﻿name: agenticos
+name: agenticos
 
 # 运行时代码挂载版：镜像只含依赖+chromium，backend 代码 / dist 全部 volume 挂载
 # 更新代码 = rsync 代码目录 + docker compose -f docker-compose.runtime.yml restart backend worker
@@ -12,8 +12,12 @@ x-backend-env: &backend-env
   AUTH_TOKEN_EXPIRE_MINUTES: ${AUTH_TOKEN_EXPIRE_MINUTES:-10080}
   ENVIRONMENT: ${ENVIRONMENT:-production}
   CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-}
-  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  # Redis（外部既有服务；生产必填。留空则内存 fallback，仅限本地演示）
+  REDIS_URL: ${REDIS_URL:-}
   REDIS_CLUSTER: ${REDIS_CLUSTER:-false}
+  # 任务队列(arq)专用 Redis：arq 不支持 Redis Cluster，业务缓存用 cluster
+  # 时必须单独给一个 standalone 端点（详见 deploy/OFFLINE-DEPS.md）。
+  ARQ_REDIS_URL: ${ARQ_REDIS_URL:-}
   LDAP_ENABLED: ${LDAP_ENABLED:-false}
   LDAP_AUTO_CREATE_USERS: ${LDAP_AUTO_CREATE_USERS:-false}
   LDAP_GATEWAY_URL: ${LDAP_GATEWAY_URL:-}
@@ -32,6 +36,7 @@ x-backend-env: &backend-env
   OPENBLAS_NUM_THREADS: 1
   SKILL_STORAGE_DIR: ${SKILL_STORAGE_DIR:-./data/skills}
   PYTHONPATH: /app/data/pylibs:/app/backend
+  PATH: /app/data/pylibs/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
   # 本地（离线）嵌入模型：留空 = 走远程 /embeddings
   KNOWLEDGE_EMBEDDING_LOCAL_MODEL: ${KNOWLEDGE_EMBEDDING_LOCAL_MODEL:-}
   KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS: ${KNOWLEDGE_EMBEDDING_LOCAL_DIMENSIONS:-0}
@@ -40,6 +45,10 @@ x-backend-env: &backend-env
   HF_HOME: /app/data/hf-cache
   # 内网离线运行：模型已在缓存里，关掉 HF 的联网探测，
   # 否则每次启动都会尝试连 hf-mirror 超时后才回退（拖慢启动 10~30 秒）
+  # 网站智能体 build_website 的 npm 源：默认走公网镜像；内网部署时在 .env
+  # 里覆盖为 Nexus npm-proxy，并把 strict-ssl 设为 false（自签证书）。
+  NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmmirror.com/}
+  NPM_CONFIG_STRICT_SSL: ${NPM_CONFIG_STRICT_SSL:-true}
   HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-1}
   TRANSFORMERS_OFFLINE: ${TRANSFORMERS_OFFLINE:-1}
 
@@ -47,6 +56,9 @@ x-backend-env: &backend-env
 services:
   backend:
     image: agenticos-runtime:latest
+    # 运行时镜像来自本地 docker load（或内网仓库）。加 never 避免每次 up
+    # 都去 registry-1.docker.io 校验 tag —— 内网 DNS 不通时那会直接失败。
+    pull_policy: never
     restart: always
     working_dir: /app
     shm_size: 512m
@@ -54,63 +66,71 @@ services:
     tmpfs:
       - /tmp:size=512M
       - /var/tmp:size=256M
+    # 关掉 seccomp 过滤：Docker 默认 profile 在某些内核/版本组合下会拦截
+    # pthread_create 的 clone()，报 can't start new thread（EAGAIN），
+    # 表现是 Python 打「线程池不可用」然后反复重启。内网实测加这行即恢复。
+    security_opt:
+      - seccomp:unconfined
     healthcheck:
-      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8000/api/v1/health/')"]
+      # 不用 `python -c ...`：fork 新进程在线程/进程上限打满时会失败，
+      # 探针永远不通过，容器一直 unhealthy。改用纯 socket 探测。
+      test: ["CMD-SHELL", "timeout 3 bash -c '</dev/tcp/127.0.0.1/8000' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     environment: *backend-env
+    # 内网无外网 DNS 时靠 hosts 解析 Nexus npm-proxy（映射地址可在 .env 覆盖）
+    extra_hosts:
+      - "nexus.gree.com:${NEXUS_HOST:-10.2.47.210}"
     volumes:
       - ../backend:/app/backend
       - ../data:/app/data
     ports:
       - "${BACKEND_PORT:-10007}:8000"
-    depends_on:
-      redis:
-        condition: service_healthy
-
-  redis:
-    # Redis Stack：自带 RediSearch（FT.CREATE/FT.SEARCH/VECTOR）。
-    # 记忆向量检索依赖 search 模块 —— 普通 redis:7 没有它，向量体系静默失效。
-    image: redis/redis-stack-server:latest
-    restart: always
-    # 覆盖默认 command 时必须显式 loadmodule —— 否则启动的是裸 redis-server，
-    # RediSearch 模块不会加载（FT.CREATE 报 unknown command）。
-    command:
-      [
-        "/opt/redis-stack/bin/redis-server",
-        "--loadmodule", "/opt/redis-stack/lib/redisearch.so",
-        "--protected-mode", "no",
-        "--appendonly", "yes",
-      ]
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
 
   worker:
+    image: agenticos-runtime:latest
+    pull_policy: never
+    restart: always
+    working_dir: /app
+    environment:
+      <<: *backend-env
+      PYTHONPATH: /app/data/pylibs:/app/backend
+      PATH: /app/data/pylibs/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+    command: ["python", "-m", "taskiq", "worker", "app.services.task_queue:taskiq_broker", "--workers", "2"]
+    shm_size: 512m
+    security_opt:
+      - seccomp:unconfined
+    extra_hosts:
+      - "nexus.gree.com:${NEXUS_HOST:-10.2.47.210}"
+    volumes:
+      - ../backend:/app/backend
+      - ../data:/app/data
+
+  # 定时任务调度器（taskiq 需要独立进程跑 cron）
+  scheduler:
     image: agenticos-runtime:latest
     restart: always
     working_dir: /app
     environment:
       <<: *backend-env
       PYTHONPATH: /app/data/pylibs:/app/backend
-    command: ["arq", "app.services.task_queue.WorkerSettings"]
-    shm_size: 512m
+      PATH: /app/data/pylibs/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+    command: ["python", "-m", "taskiq", "scheduler", "app.services.task_queue:taskiq_scheduler"]
+    shm_size: 256m
+    security_opt:
+      - seccomp:unconfined
+    extra_hosts:
+      - "nexus.gree.com:${NEXUS_HOST:-10.2.47.210}"
     volumes:
       - ../backend:/app/backend
       - ../data:/app/data
-    depends_on:
-      redis:
-        condition: service_healthy
 
   frontend:
     image: nginx:1.27-alpine
+    # 同 backend：内网无外网出口，必须用本地已导入的镜像
+    pull_policy: never
     restart: always
     command: ["nginx", "-g", "daemon off;"]
     volumes:
@@ -121,7 +141,6 @@ services:
       - "${FRONTEND_PORT:-10008}:80"
     depends_on:
       backend:
-        condition: service_healthy
-
-volumes:
-  redis-data:
+        # 前端只是静态 nginx。用 service_healthy 时后端探针一旦不通过，
+        # 前端就永远卡在 created，用户连登录页都打不开。
+        condition: service_started

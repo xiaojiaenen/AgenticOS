@@ -22,8 +22,8 @@ x-backend-env: &backend-env
   # 环境
   ENVIRONMENT: ${ENVIRONMENT:-production}
   CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:3001}
-  # Redis（compose 内指向 redis 服务；开发可覆盖）
-  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  # Redis（外部既有服务；生产必填。留空则内存 fallback，仅限本地演示）
+  REDIS_URL: ${REDIS_URL:-}
   REDIS_CLUSTER: ${REDIS_CLUSTER:-false}
   # LDAP 认证
   LDAP_ENABLED: ${LDAP_ENABLED:-false}
@@ -80,38 +80,6 @@ services:
       - ../data:/app/data
     ports:
       - "${BACKEND_PORT:-10007}:8000"
-    depends_on:
-      redis:
-        condition: service_healthy
-
-  redis:
-    # Redis Stack：自带 RediSearch（FT.CREATE/FT.SEARCH/VECTOR）。
-    # 记忆向量检索依赖 search 模块 —— 普通 redis:7 没有它，向量体系静默失效
-    # （实测线上 FT.CREATE 一直报 unknown command，检索退化 BM25-only）。
-    # 数据卷与普通 Redis 兼容（RDB 同格式），切换不丢数据。
-    image: redis/redis-stack-server:latest
-    restart: always
-    # 覆盖默认 command 时必须显式 loadmodule —— 否则启动的是裸 redis-server，
-    # RediSearch 模块不会加载（FT.CREATE 报 unknown command）。
-    command:
-      [
-        "/opt/redis-stack/bin/redis-server",
-        "--loadmodule", "/opt/redis-stack/lib/redisearch.so",
-        "--protected-mode", "no",
-        "--appendonly", "yes",
-      ]
-    # Redis 未设密码，默认不向宿主机暴露端口（backend/worker 走内部网络访问）。
-    # 如需从宿主机调试，取消注释并自行加 requirepass：
-    # ports:
-    #   - "127.0.0.1:${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
 
   worker:
     image: ${IMAGE_REGISTRY:-docker.io}/agenticos-backend:latest
@@ -135,9 +103,6 @@ services:
     environment: *backend-env
     volumes:
       - ../data:/app/data
-    depends_on:
-      redis:
-        condition: service_healthy
 
   frontend:
     image: ${IMAGE_REGISTRY:-docker.io}/agenticos-frontend:latest
@@ -160,6 +125,3 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-
-volumes:
-  redis-data:
