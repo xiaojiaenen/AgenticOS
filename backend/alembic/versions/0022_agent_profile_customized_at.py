@@ -22,6 +22,10 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(table: str) -> bool:
+    return sa.inspect(op.get_bind()).has_table(table)
+
+
 def _has_column(table: str, column: str) -> bool:
     inspector = sa.inspect(op.get_bind())
     try:
@@ -31,6 +35,11 @@ def _has_column(table: str, column: str) -> bool:
 
 
 def upgrade() -> None:
+    # 空库升级时表还没由 create_all 建出来（baseline 刻意留空），整段跳过 ——
+    # 否则 `ALTER TABLE agent_profiles` 直接抛 "no such table"，
+    # `alembic upgrade head` 在全新 SQLite 上必失败。
+    if not _table_exists("agent_profiles"):
+        return
     # 幂等：内网出现过「stamp 到新 revision 但列没加上」的漂移，
     # 单独 ensure 一次比只依赖 alembic 版本号稳。
     if _has_column("agent_profiles", "customized_at"):
@@ -40,6 +49,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if not _table_exists("agent_profiles"):
+        return
     if not _has_column("agent_profiles", "customized_at"):
         return
     with op.batch_alter_table("agent_profiles") as batch:

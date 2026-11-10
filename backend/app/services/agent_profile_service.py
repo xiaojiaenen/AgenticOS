@@ -533,9 +533,9 @@ class AgentProfileService:
 
     def _serialize(self, db: Session, profile: AgentProfileModel, *, user_id: int | None = None) -> dict[str, object]:
         self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
-        # 自己创建的智能体天然可用，无需再"安装"
+        # 自己创建 / 平台内置的智能体天然可用，无需再"安装"
         is_owner = bool(user_id is not None and profile.owner_id == user_id)
-        installed = is_owner
+        installed = is_owner or profile.is_builtin
         if user_id is not None and not installed:
             installed = db.scalar(
                 select(UserInstalledAgentModel.id).where(
@@ -720,11 +720,11 @@ class AgentProfileService:
                     )
                 ).all()
             }
-            # 自己创建的智能体天然可用，无需"安装"
+            # 自己创建 / 平台内置的智能体天然可用，无需"安装"
             installed_ids.update(
                 int(p.id)
                 for p in profiles
-                if p.owner_id == user_id and int(p.id) not in installed_ids
+                if (p.owner_id == user_id or p.is_builtin) and int(p.id) not in installed_ids
             )
 
         # Prefetch external systems for all profiles
@@ -826,9 +826,15 @@ class AgentProfileService:
                     select(AgentProfileModel)
                     .where(
                         AgentProfileModel.enabled.is_(True),
-                        # 已安装的 ∪ 自己创建的（自建天然可用）
+                        # 内置 ∪ 已安装 ∪ 自己创建的（自建天然可用）
+                        #
+                        # 内置智能体**不需要安装**：它们是平台自带能力，装上
+                        # 才出现的话，用户卸载过一次就再也找不到入口（对话
+                        # 页选择器为空）。可见性由 enabled + 可见范围
+                        # （_is_profile_available_to_user）决定，与安装记录无关。
                         (
-                            AgentProfileModel.id.in_(installed_ids or {-1})
+                            AgentProfileModel.is_builtin.is_(True)
+                            | AgentProfileModel.id.in_(installed_ids or {-1})
                             | (AgentProfileModel.owner_id == user.id)
                         ),
                     )
@@ -1136,7 +1142,10 @@ class AgentProfileService:
             profile = db.get(AgentProfileModel, profile_id)
             if profile is None or not self._is_profile_available_to_user(db, profile, user):
                 raise PermissionError("Agent profile is not available")
-            if user.role != "admin":
+            # 与 list_user_agents 保持同一口径：内置（平台自带）与自建
+            # （自己就是所有者）都不需要安装记录，只有「别人发布、我要用」
+            # 的商店智能体才要求先安装。
+            if user.role != "admin" and not profile.is_builtin and profile.owner_id != user.id:
                 installed = db.scalar(
                     select(func.count(UserInstalledAgentModel.id)).where(
                         UserInstalledAgentModel.user_id == user.id,
@@ -1144,7 +1153,7 @@ class AgentProfileService:
                     )
                 )
                 if not installed:
-                    raise PermissionError("Please install this agent before using it")
+                    raise PermissionError("请先安装该智能体再使用")
 
             return self._runtime_from_profile(
                 db, profile, approval_mode=approval_mode,

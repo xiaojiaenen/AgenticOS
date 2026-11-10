@@ -60,10 +60,10 @@ export const AgentStore = () => {
   }, []);
 
   const toggleInstall = async (agent: AgentProfile) => {
-    // 通用助手是内置默认智能体，不可卸载；直接 return 会让按钮点击毫无反馈，
-    // 这里给出明确提示
-    if (agent.slug === 'general') {
-      toast.info('通用助手是内置智能体，无需安装');
+    // 内置智能体是平台自带能力，不需要安装/卸载；直接 return 会让按钮点击
+    // 毫无反馈，这里给出明确提示。
+    if (agent.is_builtin) {
+      toast.info(`「${agent.name}」是内置智能体，无需安装`);
       return;
     }
     setBusyId(agent.id);
@@ -255,7 +255,7 @@ export const AgentStore = () => {
                         <Settings size={14} />
                         编辑
                       </Button>
-                    ) : agent.installed && agent.slug !== 'general' ? (
+                    ) : agent.installed && !agent.is_builtin ? (
                       <Button
                         variant="outline"
                         size="icon"

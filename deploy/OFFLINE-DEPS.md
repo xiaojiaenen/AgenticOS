@@ -88,7 +88,7 @@ backend / worker / scheduler。
 **升级流程因此变成**：同步代码（含新 `pyproject.toml`）→ `sh sync-deps.sh` → 完事。
 不需要记住这次又加了哪个包。
 
-在 node1 实测：检出 `wuwei>=3.3.1` 未满足 → 自动装好 → 再次 dry-run 显示
+在 node1 实测：检出 `wuwei>=3.3.2` 未满足 → 自动装好 → 再次 dry-run 显示
 「✔ 全部依赖已满足」。
 
 > 注意：比对用的是**容器内 `/app/backend/pyproject.toml`**（挂载卷，即你刚同步
@@ -101,8 +101,16 @@ backend / worker / scheduler。
 （fastapi / pydantic / sqlalchemy / wuwei / cachetools 等）和 Python 标准库，
 没有引入任何新的第三方包。前端依赖已经 build 进 `frontend/dist/`。
 
-`pyproject.toml` 相对上一个包只有一处变化：`wuwei>=3.3.0` → `wuwei>=3.3.1`
-（上一轮升级时的改动）。**只要镜像里的 wuwei ≥ 3.3.1，直接同步代码 + 重启即可。**
+`pyproject.toml` 当前要求 **`wuwei>=3.3.2`**。这个下限是硬要求，不是建议：
+`app/services/session_storage.py` 用到 3.3.2 引入的 `ACTION_LOG_TYPE` /
+`coerce_action_log` 来还原会话的 ActionLog。**内网实测踩过这个坑** ——
+pylibs 里停在 3.3.1，每轮对话保存会话元数据时抛
+`ImportError: cannot import name 'ACTION_LOG_TYPE'`，表现为 SSE 只回一个
+error 事件、AI 回复全空。
+
+> 该 import 现已按可用符号降级（见 `session_storage._action_log_contract`），
+> 3.3.1 下不再崩；但 3.3.2 还修了「checkpoint 还原后 action_log 变 dict 导致
+> 工具执行后无最终回复」的上游缺陷，**仍应升级到 3.3.2**，降级只是兜底。
 
 先查一下版本，别急着装：
 
@@ -112,8 +120,8 @@ docker exec <backend容器名> python -c 'import wuwei; print(wuwei.__version__,
 sh add-deps.sh --check wuwei
 ```
 
-- 版本 ≥ 3.3.1 → **什么都不用做**
-- 版本 3.3.0（或更低）→ 按下面升级 wuwei
+- 版本 ≥ 3.3.2 → **什么都不用做**
+- 版本 3.3.1 或更低 → 按下面升级 wuwei（3.3.1 能跑但缺上游修复）
 - 报 ModuleNotFoundError → 按下面装
 
 ---
@@ -150,10 +158,10 @@ cd /opt/agenticos/deploy
 docker ps --format '{{.Names}}'          # 确认容器实际名，通常带项目前缀
 
 # 默认容器名 agenticos-backend-1；不同就用 CONTAINER=xxx 指定
-sh add-deps.sh 'wuwei==3.3.1'
+sh add-deps.sh 'wuwei==3.3.2'
 # 或
 CONTAINER=agenticos-backend-1 PYPI_MIRROR=http://<内网pypi>/simple \
-    sh add-deps.sh 'wuwei==3.3.1'
+    sh add-deps.sh 'wuwei==3.3.2'
 ```
 
 脚本做三件事：`pip install --target=/app/data/pylibs --no-deps --upgrade` →
@@ -172,7 +180,7 @@ PYTHONPATH 前置加载，反而可能引发版本冲突。若新依赖确实引
 ```bash
 pip download --only-binary=:all: --python-version 3.13 \
     --platform manylinux2014_x86_64 --implementation cp \
-    -d ./wheels 'wuwei==3.3.1'
+    -d ./wheels 'wuwei==3.3.2'
 # 若 wuwei 不是纯 py3 wheel 或有平台相关依赖，直接在同版本 python:3.13-slim
 # 容器里 pip download 最稳妥
 ```
@@ -188,7 +196,7 @@ cp ./wheels/*.whl /opt/agenticos/data/wheels/
 
 ```bash
 cd /opt/agenticos/deploy
-sh add-deps.sh --offline 'wuwei==3.3.1'
+sh add-deps.sh --offline 'wuwei==3.3.2'
 # 或装 wheels/ 下全部：
 sh add-deps.sh --offline
 ```
@@ -197,7 +205,7 @@ sh add-deps.sh --offline
 
 ```bash
 pip install --no-index --find-links=/app/data/wheels \
-    --target=/app/data/pylibs --upgrade --no-deps 'wuwei==3.3.1'
+    --target=/app/data/pylibs --upgrade --no-deps 'wuwei==3.3.2'
 ```
 
 全程**不联网、不写 rootfs**。
@@ -238,6 +246,7 @@ docker save agenticos-runtime:latest -o agenticos-runtime.tar
 | 装完不 restart | Python 进程已加载旧模块，必须重启 backend + worker |
 | worker 没重启 | worker 是独立容器，共享卷但要各自重启 |
 | 用 `up -d --force-recreate` 代替 restart | 也行，但会重建容器、更慢；`restart` 足够 |
+| wuwei 停在 3.3.1 | 3.3.2 才有的 `ACTION_LOG_TYPE` 曾让每轮对话 ImportError（已降级兜底），且缺「工具执行后无最终回复」的上游修复；应升到 3.3.2 |
 | wuwei 降到 3.3.0 | `wuwei_patches.py` 与适配器已按 3.3.1 签名对齐，混用会崩 |
 
 ---
@@ -252,9 +261,9 @@ rsync -a --delete --exclude='__pycache__' "$PKG/backend/" /opt/agenticos/backend
 rsync -a --delete "$PKG/frontend/dist/"  /opt/agenticos/frontend/dist/
 rsync -a --delete "$PKG/data/skills/email-design/" /opt/agenticos/data/skills/email-design/
 
-# 2. 只有 wuwei < 3.3.1 时才需要（见方案 A / B）
+# 2. 只有 wuwei < 3.3.2 时才需要（见方案 A / B）
 #    sh add-deps.sh --check wuwei
-#    sh add-deps.sh --offline 'wuwei==3.3.1'
+#    sh add-deps.sh --offline 'wuwei==3.3.2'
 
 # 3. 重启
 docker compose -f docker-compose.offline.yml up -d --force-recreate backend worker

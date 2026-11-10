@@ -24,13 +24,14 @@ Copy-Item "backend\alembic.ini","backend\main.py","backend\pyproject.toml","back
 Get-ChildItem -Path "$pkgDir\backend" -Recurse -Directory -Filter "__pycache__" |
     ForEach-Object { Remove-Item $_.FullName -Recurse -Force }
 
-# office runtime: Word/Excel generation needs node_modules which cannot be installed offline
-if (Test-Path "backend\office-runtime\node_modules") {
-    Write-Host "  copying office-runtime (with node_modules)"
-    Copy-Item "backend\office-runtime" "$pkgDir\backend\" -Recurse -Force
-} else {
-    Write-Host "  WARN office-runtime/node_modules missing; office agent cannot build Word/Excel" -ForegroundColor Yellow
-}
+# office runtime: copy sources only (server.mjs etc.), NOT node_modules --
+# the intranet already installed its deps in the first migration; re-bundling
+# ~119MB of node_modules into every pack is pure waste. Dependency updates
+# go through add-deps.sh / sync-deps.sh instead.
+Copy-Item "backend\office-runtime" "$pkgDir\backend\" -Recurse -Force
+$officeNm = Join-Path $pkgDir "backend\office-runtime\node_modules"
+if (Test-Path $officeNm) { Remove-Item $officeNm -Recurse -Force }
+Write-Host "  office-runtime sources only (node_modules excluded; intranet keeps its own)"
 
 Write-Host "[4/6] copy frontend dist and static assets" -ForegroundColor Cyan
 Copy-Item "frontend\dist\*" "$pkgDir\frontend\dist\" -Recurse -Force

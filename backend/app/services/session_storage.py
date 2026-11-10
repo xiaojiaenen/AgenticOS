@@ -42,6 +42,70 @@ def _dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, default=str)
 
 
+def _action_log_contract():
+    """按 wuwei 版本取 action_log 契约（常量 + 收敛函数）。
+
+    ``ACTION_LOG_TYPE`` / ``coerce_action_log`` 是 wuwei **3.3.2** 才引入的。
+    内网用 ``/app/data/pylibs`` 热装依赖，实测仍是 3.3.1 —— 直接
+    ``from ... import ACTION_LOG_TYPE`` 会在**每次保存会话元数据**时抛
+    ImportError（这是每轮对话的热路径），表现为 SSE 只回一个 error、
+    AI 回复全空。
+
+    因此这里按可用符号降级：类型标记恒为 ``"ActionLog"``（3.2 起的既有约定，
+    两版一致），收敛逻辑在旧版上自解析实现 —— 不调用上游 ``from_dict``，
+    因为它内部同样引用 ``ACTION_LOG_TYPE``，符号缺失时会一起炸。
+    """
+    import wuwei.runtime.action_log as _action_log
+
+    log_type = getattr(_action_log, "ACTION_LOG_TYPE", "ActionLog")
+    coerce = getattr(_action_log, "coerce_action_log", None)
+    if coerce is not None:
+        return log_type, coerce
+
+    def _fallback_coerce(value: Any) -> Any:
+        log_cls = _action_log.ActionLog
+        if isinstance(value, log_cls):
+            return value
+        if value is None:
+            return log_cls()
+        if not isinstance(value, dict):
+            raise TypeError(
+                f"session.metadata['action_log'] 期望 ActionLog / dict / None，"
+                f"实际是 {type(value).__name__}"
+            )
+        # 历史两种落盘形态都要认：带 __type__ 标记的 {"__type__", "value"}
+        # 与裸 {"entries": [...]}。缺 entries 时按空日志处理（旧版本没有
+        # 3.3.2 那套「宁可报错也不静默清空」的严格校验，这里保持宽松，
+        # 避免历史 checkpoint 直接把会话打挂）。
+        payload = value
+        if value.get("__type__") == log_type:
+            nested = value.get("value")
+            payload = nested if isinstance(nested, dict) else {}
+        raw_entries = payload.get("entries")
+        if not isinstance(raw_entries, list):
+            return log_cls()
+        entry_cls = getattr(_action_log, "ActionEntry", None)
+        if entry_cls is None:
+            return log_cls()
+        entries = [
+            entry_cls(
+                run_id=str(item.get("run_id", "")),
+                agent=str(item.get("agent", "")),
+                step=int(item.get("step", 0) or 0),
+                kind=str(item.get("kind", "")),
+                summary=str(item.get("summary", "")),
+                digest=str(item.get("digest", "")),
+                timestamp=str(item.get("timestamp", "")),
+                data=item.get("data") or {},
+            )
+            for item in raw_entries
+            if isinstance(item, dict)
+        ]
+        return log_cls(entries)
+
+    return log_type, _fallback_coerce
+
+
 def _session_metadata_for_storage(session) -> dict[str, Any]:
     """把 session.metadata 转成可安全入库的纯 dict。
 
@@ -54,19 +118,18 @@ def _session_metadata_for_storage(session) -> dict[str, Any]:
     ``{"__type__": "ActionLog", "value": ...}``，否则读回时
     ``AgentSession.from_dict()`` 无法还原成对象。这里复刻 wuwei 的那一小段
     逻辑（见 ``wuwei/agent/session.py::to_dict``），其余字段原样透传。
-    wuwei 3.3.2 起用 ``coerce_action_log`` + ``ACTION_LOG_TYPE`` 统一了该契约。
+    wuwei 3.3.2 起用 ``coerce_action_log`` + ``ACTION_LOG_TYPE`` 统一了该契约，
+    更早的版本按 ``_action_log_contract`` 降级（内网 pylibs 可能停在 3.3.1）。
     """
-    from wuwei.runtime.action_log import (
-        ACTION_LOG_KEY,
-        ACTION_LOG_TYPE,
-        coerce_action_log,
-    )
+    from wuwei.runtime.action_log import ACTION_LOG_KEY
+
+    log_type, coerce = _action_log_contract()
 
     metadata = dict(getattr(session, "metadata", {}) or {})
     if ACTION_LOG_KEY in metadata:
         metadata[ACTION_LOG_KEY] = {
-            "__type__": ACTION_LOG_TYPE,
-            "value": coerce_action_log(metadata[ACTION_LOG_KEY]).to_dict(),
+            "__type__": log_type,
+            "value": coerce(metadata[ACTION_LOG_KEY]).to_dict(),
         }
     return metadata
 
@@ -135,12 +198,12 @@ def _restore_session_metadata(raw: dict[str, Any] | None) -> dict[str, Any]:
     wuwei 3.3.2 已在 ``get_or_create_log`` / ``from_dict`` 里用
     ``coerce_action_log`` 统一收敛，本函数直接委托同一个入口，避免自写一套
     反序列化逻辑与上游漂移（它同时认带标记与裸 dict 两种历史 checkpoint）。
+    3.3.2 之前的版本没有该符号，走 ``_action_log_contract`` 的等价降级实现。
     """
     metadata = dict(raw or {})
     if "action_log" in metadata:
-        from wuwei.runtime.action_log import coerce_action_log
-
-        metadata["action_log"] = coerce_action_log(metadata["action_log"])
+        _log_type, coerce = _action_log_contract()
+        metadata["action_log"] = coerce(metadata["action_log"])
     return metadata
 
 

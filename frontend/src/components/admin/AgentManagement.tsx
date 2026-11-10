@@ -235,7 +235,12 @@ export const AgentManagement = () => {
                 {
                   label: '编辑',
                   icon: <Pencil size={15} />,
-                  onClick: () => setEditingProfile(profile),
+                  // 必须同时打开弹窗：只设 editingProfile 而 formOpen 仍为 false，
+                  // Dialog 的 open 恒为假 —— 点「编辑」看起来毫无反应。
+                  onClick: () => {
+                    setEditingProfile(profile);
+                    setFormOpen(true);
+                  },
                 },
                 // 内置智能体只能被管理员改写，且永不提供「删除」——删掉会
                 // 连累所有已安装的用户。改坏了用「还原默认」回到出厂定义。

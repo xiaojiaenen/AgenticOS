@@ -229,3 +229,47 @@ def test_restore_session_metadata_handles_untagged_action_log():
     assert len(restored["action_log"].entries) == 0
     assert restored["user_id"] == 7
     assert restored["title"] == "会话标题"
+
+
+def test_action_log_contract_degrades_on_wuwei_before_3_3_2(monkeypatch):
+    """wuwei < 3.3.2 没有 ``ACTION_LOG_TYPE`` / ``coerce_action_log``。
+
+    内网用 ``/app/data/pylibs`` 热装依赖，实测停在 3.3.1。原来的实现是
+    模块级 ``from wuwei.runtime.action_log import ACTION_LOG_TYPE``，
+    在**每次保存会话元数据**时抛 ImportError —— 这是每轮对话的热路径，
+    表现为 SSE 只回一个 error 事件、AI 回复全空。
+
+    这里把 3.3.2 才有的符号摘掉，验证写库/读库仍能走等价降级路径。
+    """
+    import wuwei.runtime.action_log as action_log_module
+
+    from app.services.session_storage import (
+        _action_log_contract,
+        _restore_session_metadata,
+        _session_metadata_for_storage,
+    )
+
+    monkeypatch.delattr(action_log_module, "ACTION_LOG_TYPE", raising=False)
+    monkeypatch.delattr(action_log_module, "coerce_action_log", raising=False)
+
+    log_type, coerce = _action_log_contract()
+    # 类型标记是 3.2 起的既有约定，两个版本一致
+    assert log_type == "ActionLog"
+
+    log = action_log_module.ActionLog()
+    log.append(run_id="r1", agent="main", step=1, kind="tool", summary="hello")
+
+    class Session:
+        metadata = {"action_log": log}
+
+    stored = _session_metadata_for_storage(Session())
+    assert stored["action_log"]["__type__"] == "ActionLog"
+    assert len(stored["action_log"]["value"]["entries"]) == 1
+
+    # 带标记与裸 dict 两种历史形态都要能还原
+    for payload in (
+        stored,
+        {"action_log": {"entries": [{"summary": "s"}]}},
+    ):
+        restored = _restore_session_metadata(payload)
+        assert isinstance(restored["action_log"], action_log_module.ActionLog)
