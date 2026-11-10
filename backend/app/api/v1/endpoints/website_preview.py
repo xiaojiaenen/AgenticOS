@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse
 
 from app.api.deps import get_current_user
 from app.core.config import get_settings
-from app.core.data_path import WEBSITES_DIR
+from app.core.data_path import WEBSITES_DIR, _parse_dir_name
 from app.core.security import create_access_token, decode_access_token
 from app.db.models import UserModel
 
@@ -104,6 +104,29 @@ def serve_preview(
     return FileResponse(file_path, media_type=media_type or "application/octet-stream", headers=headers)
 
 
+def _assert_can_preview_project(slug: str, user: UserModel) -> None:
+    """现签预览令牌前校验项目归属（与 website.py 的部署校验同一套规则）。
+
+    项目目录名 ``u<uid>_s<session>_v<version>`` 自带归属：非管理员只能给
+    **自己名下**的项目签预览令牌。没有这道校验的话，任何登录用户拿到别人的
+    slug（项目目录就在 data/websites 下，目录名可枚举）就能签出有效令牌、
+    打开别人的网站内容 —— 而 serve_preview 只验签名与 slug 匹配，分不清
+    令牌是谁替谁签的。解析不出归属的目录名一律拒绝（正规项目目录都由
+    ``next_version_dir`` 按此格式生成）。
+    """
+    parsed = _parse_dir_name(slug)
+    if parsed is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="项目标识不合法，应为 u<用户ID>_s<会话>_v<版本>",
+        )
+    if user.role != "admin" and parsed[0] != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="没有权限预览他人的网站项目",
+        )
+
+
 @router.post("/preview-token")
 def create_preview_token(
     slug: str = Query(..., min_length=1, max_length=120),
@@ -111,6 +134,9 @@ def create_preview_token(
     current_user: UserModel = Depends(get_current_user),
 ) -> dict:
     """为当前用户 + 会话签发预览令牌，并返回可直接给 iframe 用的 URL。"""
+    # 归属校验放在 dist 存在性检查**之前**：非法 slug 统一 400、他人项目统一
+    # 403，不给"按响应码差异探测 dist 是否存在"留口子。
+    _assert_can_preview_project(slug, current_user)
     if not (WEBSITES_DIR / slug / "dist").is_dir():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="该项目尚未构建（缺少 dist/）")
 

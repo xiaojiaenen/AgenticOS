@@ -42,11 +42,10 @@ _pending_charts: contextvars.ContextVar[list[dict[str, Any]] | None] = (
 )
 
 # 跨上下文队列已迁移到 session_artifacts（Redis 持久化，见模块 docstring）。
-# 这两个引用仅作为 Redis 不可用时的进程内 fallback（内存 dict）。
+# 注意：push/读侧都必须走 session_artifacts 的公开 API —— 此前 push_chart
+# 直接写 `_mem_lists` 别名（进程内 dict），Redis 在线时读侧走 Redis，
+# 写侧留在内存，推送给读侧静默吞掉（图表跑完但前端不显示的又一真凶）。
 from app.services import session_artifacts  # noqa: E402
-
-_accumulated = session_artifacts._mem_lists["chart"]
-_emitted = session_artifacts._mem_emitted["chart"]
 
 
 def _session_id() -> str:
@@ -77,8 +76,9 @@ def push_chart(option: dict[str, Any], title: str = "") -> bool:
     try:
         session_id = _session_id()
         if session_id:
-            # 主路径：进程内按会话累积。子 task 里 push 也能被父上下文读到。
-            _accumulated.setdefault(session_id, []).append(message)
+            # 主路径：session_artifacts（Redis 在线走 Redis，离线退内存）。
+            # 子 task 里 push 也能被父上下文读到。
+            session_artifacts.append("chart", session_id, [message])
         else:
             # 无会话上下文（脚本/测试）：退回同上下文列表
             _collector().append(message)

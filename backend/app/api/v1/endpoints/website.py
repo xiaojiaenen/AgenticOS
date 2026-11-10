@@ -1,6 +1,6 @@
 """Website deploy API endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_admin, require_feature
@@ -225,20 +225,57 @@ def reset_private_access(
 def serve_private_site(
     slug: str,
     rel_path: str,
-    t: str = Query(..., description="私密站点访问令牌（30 天，部署完成时签发）"),
+    response: Response,
+    t: str | None = Query(None, description="私密站点访问令牌（30 天，部署完成时签发）"),
+    request: Request = None,  # type: ignore[assignment]
 ):
     """私密站点静态访问（带 30 天签名；作品库里可随时重置链接）。
 
     公开站点直接走 nginx /sites/；私密站点必须经过这里做签名校验，
-    避免落到公开路径让「私密」形同虚设。注意 rel_path 里的相对引用
-    天然继承 /website/site/{slug}/ 前缀，与 query 里的 t 无冲突。
+    避免落到公开路径让「私密」形同虚设。
+
+    **为什么还要 cookie**：页面里的样式和脚本是相对路径
+    （``./assets/index-xxx.css``），浏览器解析相对 URL 时会**丢掉原 URL 的
+    查询串** —— 于是 ``?t=<token>`` 只对 index.html 生效，CSS/JS 全部因为
+    缺 token 被 403/422 拒掉，用户看到的是没有样式的裸 HTML（这条链路曾经
+    就是这么坏的）。所以首次带 ``t`` 访问时，把令牌种成该路径下的 cookie，
+    后续子资源请求浏览器会自动带上，签名校验照旧生效。
     """
     from app.core.security import decode_access_token
     from fastapi.responses import FileResponse
     import mimetypes
 
     settings = get_settings()
-    payload = decode_access_token(t, secret=settings.auth_secret_key)
+
+    clean = (rel_path or "index.html").strip().lstrip("/")
+    if not clean or clean.endswith("/"):
+        clean = f"{clean}index.html"
+
+    # 入口 HTML 必须带 t：cookie 只作为「页面内子资源」的回退。
+    # 若入口也认 cookie，把链接发给别人后对方浏览器一旦种过 cookie，
+    # 此后不带 token 直接敲地址也能打开，私密等于失效（测试就是这么抓到的）。
+    is_entry = clean in ("index.html", "./index.html")
+
+    token = t
+    set_cookie = False
+    if not token:
+        if is_entry:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="缺少访问令牌：请通过作品库里的完整链接打开",
+            )
+        # 子资源请求：浏览器只会回传 path 匹配的 cookie
+        if request is not None:
+            token = request.cookies.get(f"site_token_{slug}")
+        if not token:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="缺少访问令牌：请通过作品库里的完整链接打开",
+            )
+    else:
+        set_cookie = True
+
+    payload = decode_access_token(token, secret=settings.auth_secret_key)
     if payload is None or payload.get("scope") != "website_private":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="访问链接无效或已过期")
     if str(payload.get("slug")) != slug:
@@ -248,9 +285,6 @@ def serve_private_site(
     if not dist_dir.is_dir():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="站点产物不存在")
 
-    clean = (rel_path or "index.html").strip().lstrip("/")
-    if not clean or clean.endswith("/"):
-        clean = f"{clean}index.html"
     candidate = (dist_dir / clean).resolve()
     try:
         candidate.relative_to(dist_dir)
@@ -262,8 +296,19 @@ def serve_private_site(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="资源不存在")
 
     media_type, _ = mimetypes.guess_type(str(candidate))
-    return FileResponse(
+    result = FileResponse(
         candidate,
         media_type=media_type or "application/octet-stream",
         headers={"Cache-Control": "private, max-age=300", "X-Content-Type-Options": "nosniff"},
     )
+    if set_cookie:
+        # httponly：前端 JS 不需要读它；samesite=lax 让同站导航也带得上
+        result.set_cookie(
+            key=f"site_token_{slug}",
+            value=token,
+            path=f"/api/v1/website/site/{slug}/",
+            max_age=30 * 24 * 3600,
+            httponly=True,
+            samesite="lax",
+        )
+    return result

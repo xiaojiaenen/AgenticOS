@@ -83,7 +83,7 @@ def register_image_gen_tools(registry: ToolRegistry) -> None:
                 "在此之前可以先用 search_images 找现成图库图片。"
             )
 
-        if not endpoint.api_key:
+        if not endpoint.api_key and not getattr(endpoint, "cookie", ""):
             return (
                 f"提供商「{endpoint.source}」绑定了生图模型「{endpoint.model}」，"
                 "但缺少 API Key。请到 AI 提供商页面补上密钥。"
@@ -125,10 +125,11 @@ def register_image_gen_tools(registry: ToolRegistry) -> None:
             async with httpx.AsyncClient(timeout=180.0) as client:
                 resp = await client.post(
                     f"{endpoint.base_url}/images/generations",
-                    headers={
-                        "Authorization": f"Bearer {endpoint.api_key}",
-                        "Content-Type": "application/json",
-                    },
+                    headers=(
+                        {"Cookie": endpoint.cookie}
+                        if getattr(endpoint, "cookie", "")
+                        else {"Authorization": f"Bearer {endpoint.api_key}"}
+                    ) | {"Content-Type": "application/json"},
                     json=payload,
                 )
                 if resp.status_code == 404:
@@ -150,6 +151,37 @@ def register_image_gen_tools(registry: ToolRegistry) -> None:
         except Exception as exc:  # noqa: BLE001
             logger.warning("生图调用失败", exc_info=True)
             return f"生图失败：{type(exc).__name__}: {exc}"
+
+        # 百通企业网关返回 {code, data:{imageList:[{fileName,fileUrl,fileSize,fileType}]}}，
+        # 不是 OpenAI 的 {data:[{b64_json,url}]}。先识别百通分支（下载 fileUrl 到工作区），
+        # OpenAI 兼容端点再走下面的 b64_json / url 分支。
+        inner = data.get("data")
+        if isinstance(inner, dict) and isinstance(inner.get("imageList"), list) and inner["imageList"]:
+            item = inner["imageList"][0] or {}
+            file_url = (item.get("fileUrl") or "").strip()
+            file_type = (item.get("fileType") or "JPG").upper()
+            if file_type in ("PNG",):
+                ext = "png"
+            elif file_type in ("JPG", "JPEG"):
+                ext = "jpg"
+            else:
+                ext = (file_type.lower() or "jpg")
+            target = out_dir / f"{stem}.{ext}"
+            try:
+                async with httpx.AsyncClient(verify=False, timeout=120) as dl:
+                    r = await dl.get(file_url, headers={"User-Agent": "Mozilla/5.0"})
+                if r.status_code != 200:
+                    return f"图片下载失败（HTTP {r.status_code}）。URL：{file_url}"
+                target.write_bytes(r.content)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("图片下载失败", exc_info=True)
+                return f"图片下载失败：{type(exc).__name__}: {exc}"
+            rel = f"outputs/{target.name}"
+            return (
+                f"图片已生成并保存到工作区：{rel}\n"
+                f"尺寸 {size_value}，模型 {endpoint.model}，{len(r.content) // 1024} KB。\n"
+                "可以直接在 PPT / SVG 里引用这个相对路径。"
+            )
 
         items = data.get("data") or []
         if not items:

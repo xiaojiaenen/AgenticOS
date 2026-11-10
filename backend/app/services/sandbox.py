@@ -201,7 +201,11 @@ class Sandbox:
                 success=(proc.returncode == 0),
                 stdout=stdout_str,
                 stderr=stderr_str,
-                exit_code=proc.returncode or -1,
+                # 不能用 `proc.returncode or -1`：`0` 是合法的退出码（成功），
+                # `or` 会把 0 当成假值改写成 -1，于是「npm install 成功」被报成
+                # 「失败（退出码 -1）」，调用方据此清 node_modules 反复重来。
+                # returncode 为 None 只出现在进程没有正常退出时，那才是 -1。
+                exit_code=proc.returncode if proc.returncode is not None else -1,
                 timed_out=timed_out,
             )
 

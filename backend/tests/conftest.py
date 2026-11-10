@@ -50,6 +50,32 @@ os.environ["KNOWLEDGE_VECTOR_ENABLED"] = "false"
 
 import pytest  # noqa: E402  —— 必须晚于上面的 os.environ 注入
 
+# ---------------------------------------------------------------------------
+# 1.5 钉死 openai SDK 的 httpx2 客户端 finalizer（仅测试进程，不影响生产）
+#
+# 机制：openai SDK（本环境基于 httpx2）给 AsyncHttpxClientWrapper 定义了
+# best-effort 的 ``__del__`` —— 客户端未被显式关闭就被 GC 时，它执行
+# ``asyncio.get_running_loop().create_task(self.aclose())``，把清理任务
+# 调度到「此刻恰好活着的任意事件循环」上。测试套件里大量网关对象在
+# 用例结束后才被 GC（引用环拖到分代回收），于是：
+#   1) aclose 任务跑在**别的用例**的循环上；
+#   2) 传输绑定的是创建者的**死循环** → transport.close() 里 call_soon
+#      直接 RuntimeError("Event loop is closed")；
+#   3) 该任务异常由 anyio runner 的 _raise_async_exceptions 抛出 →
+#      一个**毫无关系**的异步用例随机背锅（真实踩过：全量跑红在
+#      test_intranet_tools，而泄漏点在别处；新增任何测试文件都会移动
+#      分代回收触发点，让背锅人换人）。
+# 测试进程里把这个 finalizer 钉成 no-op：泄漏的客户端随进程退出被
+# 回收，不再把失败甩给无关用例。生产进程生命周期长、循环常驻，
+# finalizer 正常工作，不受影响。
+# ---------------------------------------------------------------------------
+try:
+    from openai._base_client import AsyncHttpxClientWrapper as _AsyncHttpxWrapper
+
+    _AsyncHttpxWrapper.__del__ = lambda self: None  # type: ignore[method-assign]
+except Exception:  # noqa: BLE001 —— openai 版本变动时静默跳过，不挡测试
+    pass
+
 
 # ---------------------------------------------------------------------------
 # 2. 通用夹具
@@ -169,7 +195,25 @@ def _reset_global_singletons():
     ``get_settings`` 与 ``AgentService``（内含 Agent + ToolRegistry 的 TTLCache）
     都是进程级单例；不清理会导致用例间的配置与 Agent 缓存互相渗透。
     """
+    # contextvar 也在每个用例前归零：pytest 的用例跑在同一个主线程上下文里，
+    # 任何用例里的 set() 泄漏（用例中途断言失败、没走到自己的 reset）都会
+    # 让后续所有用例"带着别人的 session_id"跑 —— chart/a2ui/approval 全部
+    # 走错通道（真实踩过：test_chart_push 在 test_chart_cross_context 之后全红）。
+    try:
+        from app.services.agent_service import _current_session_id
+
+        _current_session_id.set(None)
+    except Exception:  # noqa: BLE001,S110 —— 清理属尽力而为，不应让用例失败
+        pass
+
     yield
+
+    try:
+        from app.services.agent_service import _current_session_id
+
+        _current_session_id.set(None)
+    except Exception:  # noqa: BLE001,S110 —— 清理属尽力而为，不应让用例失败
+        pass
 
     try:
         from app.services.agent_service import clear_agent_service_cache

@@ -46,6 +46,7 @@ class FakeAgentService:
         *,
         status: str,
         reason: str | None = None,
+        modified_arguments: dict | None = None,
         current_user=None,
     ):
         return {

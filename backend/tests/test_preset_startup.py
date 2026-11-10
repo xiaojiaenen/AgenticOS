@@ -1,4 +1,4 @@
-"""外部预设插件在启动路径上真的被加载（防止再次漏接）。
+﻿"""外部预设插件在启动路径上真的被加载（防止再次漏接）。
 
 这个测试覆盖一个曾经真实发生的缺陷：`load_external_presets()` 实现了，
 但只在测试里被调用，生产启动路径（FastAPI lifespan / ARQ worker on_startup）
@@ -42,13 +42,13 @@ def test_worker_startup_loads_external_presets(tmp_path, monkeypatch) -> None:
     import asyncio
 
     from app.services.llm_providers import presets
-    from app.services.task_queue import WorkerSettings
+    from app.services.task_queue_taskiq import AgenticosWorkerMiddleware
 
     _write_plugin(tmp_path)
     monkeypatch.setenv("PROVIDER_PRESETS_DIR", str(tmp_path))
     presets.PRESETS.pop("startup_probe", None)
 
-    asyncio.run(WorkerSettings.on_startup({}))
+    asyncio.run(AgenticosWorkerMiddleware().startup())
 
     assert "startup_probe" in presets.PRESETS
     assert presets.PRESETS["startup_probe"].base_url == "https://probe.test/v1"
@@ -78,10 +78,10 @@ def test_startup_survives_broken_plugin(tmp_path, monkeypatch) -> None:
     import asyncio
 
     from app.services.llm_providers import presets
-    from app.services.task_queue import WorkerSettings
+    from app.services.task_queue_taskiq import AgenticosWorkerMiddleware
 
     (tmp_path / "broken.py").write_text("raise RuntimeError('boom')\n", encoding="utf-8")
     monkeypatch.setenv("PROVIDER_PRESETS_DIR", str(tmp_path))
 
     # 不应抛异常
-    asyncio.run(WorkerSettings.on_startup({}))
+    asyncio.run(AgenticosWorkerMiddleware().startup())

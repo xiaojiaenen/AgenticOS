@@ -26,6 +26,7 @@ wuwei 3.2.1 的 ``ToolExecutor.execute(tool_calls, concurrent=True)`` 已原生
 import asyncio
 import json
 import logging
+from typing import TYPE_CHECKING, Any
 
 from wuwei import Agent, FileSystemSkillProvider, SkillManager
 from wuwei.llm import LLMGateway
@@ -37,19 +38,21 @@ from wuwei.middleware import (
     Middleware,
     MiddlewareContext,
     MiddlewareStack,
-    ContextCompressionMiddleware,
     HitlMiddleware,
     LoggingMiddleware,
 )
 from wuwei.tools import ToolRegistry
 from wuwei.plugin import PluginContext
 from wuwei.plugin.builtin.skill import setup as setup_skill_plugin
-from wuwei.core.message import ToolCall
+from wuwei.core.message import ToolCall, ToolMessage
 from wuwei.agent.async_sub_agent import AsyncSubAgent, AsyncSubAgentMiddleware
 
 from app.services.agent_profile_service import RuntimeAgentProfile
 from app.services.tool_config_service import TOOL_CATALOG
 from app.services.agent.wuwei_patches import BatchSafeMiddlewareProxy, PatchedAgent
+
+if TYPE_CHECKING:
+    from wuwei.middleware.budget import Budget
 
 _logger = logging.getLogger("agent")
 
@@ -139,9 +142,9 @@ class LenientHitlMiddleware(HitlMiddleware):
             tool_call.function.arguments = {"original_tool": tool_name, "reason": "自动拒绝"}
             return tool_call
 
-        # 请求用户审批
+        # 请求用户审批（完整决策对象：批准时可能带用户改过的参数）
         try:
-            approved = await asyncio.wait_for(
+            decision = await asyncio.wait_for(
                 self.approval_provider(tool_call), timeout=self.approval_timeout
             )
         except asyncio.TimeoutError:
@@ -151,14 +154,129 @@ class LenientHitlMiddleware(HitlMiddleware):
                 self.approval_timeout,
                 tool_name,
             )
-            approved = False
+            decision = None
+        approved = bool(decision and getattr(decision, "status", "") == "approved")
         if not approved:
             # 用户拒绝，替换为拒绝工具（LLM 会收到明确的拒绝消息）
             tool_call.function.name = _REJECTED_TOOL_NAME
             tool_call.function.arguments = {"original_tool": tool_name, "reason": "用户拒绝了此工具的执行"}
             return tool_call
 
+        # 用户批准 —— 若在预览里改过参数（如邮件正文/模板），用改后的执行。
+        # 只允许 dict 形态且非空；异常形态一律按原参数执行，不让一次坏的
+        # 编辑把整个工具调用打挂。
+        modified = getattr(decision, "modified_arguments", None)
+        if isinstance(modified, dict) and modified:
+            tool_call.function.arguments = modified
         return tool_call
+
+
+class ToolPairRepairMiddleware(Middleware):
+    """补齐 / 清理 tool_calls 与 tool 消息的配对，避免上游 400。
+
+    DeepSeek 等 OpenAI 兼容端点对历史有硬约束：一条 assistant 消息里的每个
+    ``tool_calls[i].id`` 都**必须**紧跟着一条 ``role=tool`` 且 ``tool_call_id``
+    相同的消息，条数不足就直接拒绝整轮：
+
+        400 An assistant message with 'tool_calls' must be followed by tool
+        messages responding to each 'tool_call_id'
+
+    本地这几种情况都会造出残缺历史，而它们都不是用户能控制的：
+
+    - 并发批处理工具时，某一批在中途被取消 / 超时，只写回了部分结果；
+    - 审批被拒绝或超时，框架没有为那个 tool_call 落 tool 消息；
+    - 达到最大步数上限，最后一批工具没有执行就结束；
+    - 用户点停止，流被中断。
+
+    一旦落到库里，这个会话此后**每一次**请求都会 400，用户看到的是
+    「说到一半就断了」，重试也没用。这里在每次调 LLM 前做一次兜底修复：
+    缺失的结果补一条明确的失败结果（模型能据此改主意），孤立的 tool 结果删掉。
+    """
+
+    _MISSING_RESULT = (
+        "该工具调用没有返回结果（可能被取消、超时、等待审批未通过，"
+        "或达到步数上限）。请根据已有信息判断下一步，不要假设它成功。"
+    )
+
+    async def before_llm(self, ctx: MiddlewareContext) -> MiddlewareContext:
+        messages = list(ctx.state.messages or [])
+        if not messages:
+            return ctx
+
+        # 收集所有已存在的 tool 结果 id
+        answered: set[str] = set()
+        for message in messages:
+            if getattr(message, "role", None) == "tool":
+                call_id = getattr(message, "tool_call_id", None)
+                if call_id:
+                    answered.add(str(call_id))
+
+        # 找出所有 assistant 声明的 tool_call id
+        declared: list[str] = []
+        missing_names: dict[str, str] = {}
+        for message in messages:
+            if getattr(message, "role", None) != "assistant":
+                continue
+            for call in getattr(message, "tool_calls", None) or []:
+                call_id = getattr(call, "id", None)
+                if call_id is None and isinstance(call, dict):
+                    call_id = call.get("id")
+                if not call_id:
+                    continue
+                declared.append(str(call_id))
+                # ToolMessage 的 name 字段是必填的，补结果时必须带上工具名，
+                # 否则 pydantic 直接拒绝构造。
+                fn = getattr(call, "function", None)
+                fn_name = getattr(fn, "name", None) if fn is not None else None
+                if fn_name is None and isinstance(call, dict):
+                    fn_name = (call.get("function") or {}).get("name")
+                missing_names[str(call_id)] = str(fn_name or "unknown")
+
+        declared_set = set(declared)
+        missing = [cid for cid in declared if cid not in answered]
+
+        # 没有任何残缺就原样返回，保持热路径零改动
+        orphans = [cid for cid in answered if cid not in declared_set]
+        if not missing and not orphans:
+            return ctx
+
+        _logger.warning(
+            "修复历史配对：补 %d 条缺失工具结果，删 %d 条孤立结果",
+            len(missing),
+            len(orphans),
+        )
+
+        repaired: list[Any] = []
+        for message in messages:
+            # 删掉孤立的 tool 结果（上游同样会因为「没有对应 tool_call」报错）
+            if getattr(message, "role", None) == "tool":
+                call_id = getattr(message, "tool_call_id", None)
+                if call_id and str(call_id) in orphans:
+                    continue
+            repaired.append(message)
+
+            # 每遇到一条带 tool_calls 的 assistant，就地补齐缺的结果
+            if getattr(message, "role", None) != "assistant":
+                continue
+            calls = getattr(message, "tool_calls", None) or []
+            pending_ids: list[str] = []
+            for call in calls:
+                call_id = getattr(call, "id", None)
+                if call_id is None and isinstance(call, dict):
+                    call_id = call.get("id")
+                if call_id and str(call_id) in missing:
+                    pending_ids.append(str(call_id))
+            for call_id in pending_ids:
+                repaired.append(
+                    ToolMessage(
+                        content=self._MISSING_RESULT,
+                        tool_call_id=call_id,
+                        name=missing_names.get(call_id, "unknown"),
+                    )
+                )
+
+        ctx.state.messages = repaired
+        return ctx
 
 
 class ThinkingHistoryCompatibilityMiddleware(Middleware):
@@ -281,6 +399,9 @@ class AgentFactory:
         # 不把它算进缓存键的话，管理员改完「对话用哪个模型」后会一直复用
         # 旧 agent（界面上显示已改，实际没生效）。
         effective_model = resolve_model_for_role(provider, "chat")
+        # 工作流签名：启停/编辑工作流会改变工具集，必须进缓存键，
+        # 否则管理员启用一个工作流后智能体手里永远没有对应工具。
+        workflows_sig = self._workflows_signature()
         # 用 hash 替代完整文本，减少缓存键内存占用
         prompt_hash = hashlib.md5((profile.system_prompt or "").encode()).hexdigest()[:8]
         skills_hash = hashlib.md5(str(profile.skills).encode()).hexdigest()[:8]
@@ -301,6 +422,7 @@ class AgentFactory:
             # 旧 agent（连同旧网关）会被一直复用，界面显示已切换但实际没生效。
             provider.slug,
             effective_model,
+            workflows_sig,
         )
         cached = self._agents.get(cache_key)
         if cached is not None:
@@ -318,7 +440,9 @@ class AgentFactory:
             role="chat",
         )
         tools, ext_instruction = self._build_tool_registry(profile)
-        middleware_stack = self._build_middleware_stack(profile, llm, tool_registry=tools)
+        middleware_stack = self._build_middleware_stack(
+            profile, llm, tool_registry=tools, model_name=effective_model
+        )
 
         # 追加外部系统指引到 system prompt
         system_prompt = profile.system_prompt
@@ -342,17 +466,70 @@ class AgentFactory:
         self._agents[cache_key] = agent
         return agent
 
+    def _workflows_signature(self) -> str:
+        """已启用工作流签名（缓存键组成部分）；查询失败按无工作流处理。"""
+        try:
+            from app.db.session import create_db_session
+            from app.tools.workflow_tools import workflows_signature
+
+            db = create_db_session()
+            try:
+                return workflows_signature(db)
+            finally:
+                db.close()
+        except Exception as e:  # noqa: BLE001 —— 降级为无签名，别挡 Agent 构建
+            _logger.warning("workflows signature query failed: %s", e)
+            return ""
+
+    def _build_run_budget(self) -> "Budget | None":
+        """按配置组装 run 级 Budget；未启用 / 配置非法时返回 None。
+
+        配置非法（负数、非法 on_exhausted）不该炸掉所有对话 —— 构造失败时
+        降级为无预算并告警，与 session_artifacts / llm_gate 的降级哲学一致。
+        刻意**不设 max_steps**：session.max_steps 的步数超限由 runner 循环
+        优雅收尾（done 事件 + finish_reason），放进 Budget 会让超限从
+        「优雅收尾」变成 BudgetExhausted 错误，语义不对。
+        """
+        max_tokens = self.settings.agent_budget_max_tokens
+        max_cost = self.settings.agent_budget_max_cost_usd
+        if max_tokens is None and max_cost is None:
+            return None
+        try:
+            from wuwei.middleware.budget import Budget
+
+            return Budget(
+                max_tokens=max_tokens,
+                max_cost_usd=max_cost,
+                on_exhausted=self.settings.agent_budget_on_exhausted,
+            )
+        except Exception as exc:  # noqa: BLE001 —— 配置降级，见 docstring
+            _logger.warning("AGENT_BUDGET_* 配置非法，run 级预算断路未启用: %s", exc)
+            return None
+
     def _build_middleware_stack(
         self,
         profile: RuntimeAgentProfile,
         llm: LLMGateway,
         tool_registry: ToolRegistry | None = None,
+        model_name: str = "",
     ) -> MiddlewareStack:
         """构建中间件栈，替代旧版 Hook 注册。
 
         tool_registry：调用方已构建的注册表（避免重复构建，含同步 DB 会话）。
+        model_name：当前生效模型名（成本预算的价格表匹配用；传空则按默认价估算）。
         """
         stack = MiddlewareStack()
+
+        # 0. run 级预算断路器（AGENT_BUDGET_MAX_TOKENS / AGENT_BUDGET_MAX_COST_USD
+        #    设置了任意一个才启用）。放在最前：预算检查跑在 before_llm / after_llm，
+        #    超限时能省掉接下来的这次 LLM 调用，不被前面的中间件白耗一轮。
+        #    硬阈值抛 BudgetExhausted 后由上游 runner 转成 SSE error 事件
+        #    （error_type=BudgetExhausted），已生成内容照常落库。
+        budget = self._build_run_budget()
+        if budget is not None:
+            from wuwei.middleware.budget import BudgetMiddleware
+
+            stack.add(BudgetMiddleware(budget, model=model_name))
 
         # 1. HITL 审批中间件
         # approval_tools 是需要审批的工具列表，不在列表中的工具自动批准
@@ -371,7 +548,7 @@ class AgentFactory:
                 approval_mode = "ask" if approval_mode == "full" else approval_mode
                 auto_approve = [name for name in all_tool_names if name not in approval_tools]
             stack.add(LenientHitlMiddleware(
-                approval_provider=self.approval_manager.request_approval_bool,
+                approval_provider=self.approval_manager.request_approval_for_tool,
                 auto_approve_tools=auto_approve,
                 auto_reject_tools=[],
                 approval_mode=approval_mode,
@@ -434,6 +611,11 @@ class AgentFactory:
         # 4. 思考历史兼容中间件
         stack.add(ThinkingHistoryCompatibilityMiddleware())
 
+        # 5. tool_calls 配对修复（必须最后加，保证它看到的是最终要发出去的历史）
+        # 放在最后：前面的中间件可能删改消息（例如过滤合成回复），
+        # 修复必须在所有删改完成之后做，否则补了又被删、删了又留残。
+        stack.add(ToolPairRepairMiddleware())
+
         return stack
 
     def _build_async_sub_agents(self) -> list[AsyncSubAgent]:
@@ -465,7 +647,7 @@ class AgentFactory:
                 "返回时用简洁的格式说明执行结果。"
             ),
             tools=list(code_registry.list_tools()),
-            max_steps=5,
+            max_steps=10,
             inherit_context=False,
         ))
 
@@ -687,6 +869,15 @@ class AgentFactory:
                         registry.register(tool)
         except Exception as e:
             _logger.debug("MCP tool registration skipped: %s", e)
+
+        # 工作流工具：把已启用的工作流打包成 run_workflow_<名>_<id> 工具
+        # （P0-3 第二片，与 MCP 同为动态注册，不进 TOOL_CATALOG）。
+        # 注册失败不该挡住 Agent 构建 —— 工作流枚举要查 DB，降级为无工具。
+        try:
+            from app.tools.workflow_tools import register_workflow_tools as _register_wf_tools
+            _register_wf_tools(registry)
+        except Exception as e:  # noqa: BLE001
+            _logger.warning("workflow tool registration skipped: %s", e)
 
         # 移除 profile 中禁用的工具（覆盖 PPT/website 等模式无条件注册的工具）
         # 组名工具（knowledge/memory/decision 等）需按 sub_tools 一并注销

@@ -551,7 +551,8 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
         try:
             from app.tools.decision_tools import (
                 _decision_queues,
-                _decision_futures,
+                register_decision,
+                _forget_decision,
                 DECISION_TIMEOUT_SECONDS,
             )
             import asyncio
@@ -586,7 +587,7 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
             # 创建 Future 并阻塞等待用户响应
             loop = asyncio.get_running_loop()
             future: asyncio.Future[str] = loop.create_future()
-            _decision_futures[decision_id] = future
+            register_decision(decision_id, session_id, future)
 
             try:
                 answer = await asyncio.wait_for(future, timeout=DECISION_TIMEOUT_SECONDS)
@@ -605,7 +606,7 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
                         f"请根据用户反馈调整方案。"
                     )
             except asyncio.TimeoutError:
-                _decision_futures.pop(decision_id, None)
+                _forget_decision(decision_id)
                 _logger.warning("PPT decision timeout: %s", decision_id)
                 return (
                     f"已提交 {len(plan)} 页计划，但用户未在规定时间内确认。\n"

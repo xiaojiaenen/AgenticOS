@@ -260,11 +260,18 @@ class TestEndToEndFallback:
         assert "mcp_service" in src, "MCP 工具集成未添加"
 
     def test_approval_manager_request_approval_bool_uses_contextvars(self):
-        """验证 request_approval_bool 使用 contextvars 获取 session_id"""
+        """验证审批链路使用 contextvars 获取 session_id。
+
+        request_approval_bool 现在委托给 request_approval_for_tool，
+        contextvars 读取在后者里 —— 两个都查，哪个在都算过。
+        """
         import inspect
         from app.services.approval_manager import ApprovalManager
-        src = inspect.getsource(ApprovalManager.request_approval_bool)
-        assert "_current_session_id" in src, "未使用 contextvars 获取 session_id"
+        bool_src = inspect.getsource(ApprovalManager.request_approval_bool)
+        tool_src = inspect.getsource(ApprovalManager.request_approval_for_tool)
+        assert (
+            "_current_session_id" in bool_src or "_current_session_id" in tool_src
+        ), "未使用 contextvars 获取 session_id"
 
     @pytest.mark.anyio
     async def test_approval_event_flow(self):

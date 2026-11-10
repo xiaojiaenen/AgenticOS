@@ -130,40 +130,65 @@ class TestAgentFactoryMiddlewareStack:
 
 
 class TestArtifactSlugInference:
-    """artifacts.py：slug 推断（注入临时 WEBSITES_DIR）。"""
+    """artifacts.py：slug 推断必须按会话过滤（注入临时 WEBSITES_DIR）。
+
+    回归背景：旧实现扫全库取「最近修改的 dist」，data/websites 是所有用户
+    共用的 —— 别的会话/用户刚构建完，artifact_ready 就把那个项目推给当前
+    用户，表现为"预览里显示的不是我刚生成的网站，点刷新才对"。
+    """
+
+    def test_returns_none_without_session_id(self, tmp_path: Path, monkeypatch):
+        from app.services.agent import artifacts as agent_artifacts
+
+        dist = tmp_path / "u1_s123_v1" / "dist"
+        dist.mkdir(parents=True)
+        (dist / "index.html").write_text("<html></html>", encoding="utf-8")
+        monkeypatch.setattr(agent_artifacts, "WEBSITES_DIR", tmp_path)
+        # 不给 session_id 绝不能全局兜底，否则就是跨会话串号
+        assert agent_artifacts.ArtifactFactory._infer_project_slug_from_tools() is None
 
     def test_returns_none_when_dir_missing(self, tmp_path: Path, monkeypatch):
         from app.services.agent import artifacts as agent_artifacts
 
         monkeypatch.setattr(agent_artifacts, "WEBSITES_DIR", tmp_path / "nonexistent")
-        assert agent_artifacts.ArtifactFactory._infer_project_slug_from_tools([]) is None
+        assert agent_artifacts.ArtifactFactory._infer_project_slug_from_tools("s1") is None
 
     def test_returns_none_when_no_dist(self, tmp_path: Path, monkeypatch):
         from app.services.agent import artifacts as agent_artifacts
 
-        (tmp_path / "proj-a").mkdir()
+        (tmp_path / "u1_s123_v1").mkdir()
         monkeypatch.setattr(agent_artifacts, "WEBSITES_DIR", tmp_path)
-        assert agent_artifacts.ArtifactFactory._infer_project_slug_from_tools([]) is None
+        assert agent_artifacts.ArtifactFactory._infer_project_slug_from_tools("123") is None
 
-    def test_returns_most_recent_dist(self, tmp_path: Path, monkeypatch):
+    def test_returns_highest_version_for_session(self, tmp_path: Path, monkeypatch):
+        """同会话多轮迭代：取版本号最大的（比 mtime 可靠）。"""
         from app.services.agent import artifacts as agent_artifacts
         import os
 
-        for name, mtime in (("proj-old", 1_000_000_000), ("proj-new", 2_000_000_000)):
-            dist = tmp_path / name / "dist"
+        for ver, mtime in ((1, 2_000_000_000), (2, 1_000_000_000)):
+            dist = tmp_path / f"u1_s123_v{ver}" / "dist"
             dist.mkdir(parents=True)
             index = dist / "index.html"
             index.write_text("<html></html>", encoding="utf-8")
             os.utime(index, (mtime, mtime))
 
-        # 隐藏目录应被跳过
-        dot = tmp_path / ".hidden" / "dist"
-        dot.mkdir(parents=True)
-        (dot / "index.html").write_text("<html></html>", encoding="utf-8")
+        monkeypatch.setattr(agent_artifacts, "WEBSITES_DIR", tmp_path)
+        slug = agent_artifacts.ArtifactFactory._infer_project_slug_from_tools("123")
+        assert slug == "u1_s123_v2"
+
+    def test_ignores_other_sessions_and_hidden_dirs(self, tmp_path: Path, monkeypatch):
+        """跨会话 + 跨用户隔离 + 隐藏目录跳过（回归：全库扫描会串号）。"""
+        from app.services.agent import artifacts as agent_artifacts
+
+        for name in ("u1_s123_v1", "u1_s999_v9", "u7_s123_v9", ".hidden"):
+            dist = tmp_path / name / "dist"
+            dist.mkdir(parents=True)
+            (dist / "index.html").write_text("<html></html>", encoding="utf-8")
 
         monkeypatch.setattr(agent_artifacts, "WEBSITES_DIR", tmp_path)
-        slug = agent_artifacts.ArtifactFactory._infer_project_slug_from_tools([])
-        assert slug == "proj-new"
+        # 同会话不同用户的目录（u7_s123_v9）必须被排除
+        slug = agent_artifacts.ArtifactFactory._infer_project_slug_from_tools("123", user_id=1)
+        assert slug == "u1_s123_v1"
 
     def test_inline_dist_assets_inlines_css_and_js(self, tmp_path: Path):
         from app.services.agent import artifacts as agent_artifacts
@@ -183,6 +208,141 @@ class TestArtifactSlugInference:
         assert ">console.log(1)</script>" in result
         assert "/assets/app.js" not in result
         assert 'src="https://cdn.example.com/x.js"' in result  # 外链保留
+
+
+class TestPreviewTokenOwnership:
+    """website_preview._assert_can_preview_project：现签预览令牌前必须验归属。
+
+    没有这道校验时，任何登录用户拿到别人的 slug（data/websites 目录名可枚举）
+    就能签出有效令牌看别人的网站；serve_preview 只验签名与 slug，分不清令牌
+    是谁替谁签的。
+    """
+
+    @staticmethod
+    def _user(uid: int, role: str = "user"):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(id=uid, role=role)
+
+    def _guard(self, slug: str, user):
+        from fastapi import HTTPException
+
+        from app.api.v1.endpoints.website_preview import _assert_can_preview_project
+
+        return _assert_can_preview_project(slug, user)
+
+    def test_owner_can_preview_own_project(self):
+        self._guard("u493_s123_v1", self._user(493))
+
+    def test_admin_can_preview_any_project(self):
+        self._guard("u7_s999_v9", self._user(493, role="admin"))
+
+    def test_other_users_project_rejected(self):
+        import pytest
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc:
+            self._guard("u7_s999_v9", self._user(493))
+        assert exc.value.status_code == 403
+
+    def test_malformed_slug_rejected(self):
+        import pytest
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc:
+            self._guard("proj-a", self._user(493))
+        assert exc.value.status_code == 400
+
+
+class TestDecisionOwnership:
+    """decision_tools：决策归属登记 / 按 session 清理。
+
+    回归背景：/decisions/{id}/decision 端点原本不校验调用者身份，decision_id
+    又只有 8 位 hex —— 任何登录用户知道 id 就能替别人回答决策。端点现在通过
+    get_decision_session → ensure_session_access 校验归属，依赖本组测试保护的
+    登记数据。另外 cleanup_session_decisions 曾全表遍历取消 Future，一个会话
+    的流结束会误取消其它会话正在等待的决策 —— 一并回归。
+    """
+
+    def test_register_and_peek_session(self):
+        import asyncio
+
+        from app.tools.decision_tools import (
+            get_decision_session,
+            register_decision,
+            _forget_decision,
+        )
+
+        loop = asyncio.new_event_loop()
+        try:
+            future: asyncio.Future[str] = loop.create_future()
+            register_decision("d1", "s1", future)
+            assert get_decision_session("d1") == "s1"
+            _forget_decision("d1")
+            assert get_decision_session("d1") is None
+        finally:
+            loop.close()
+
+    def test_resolve_pops_future_and_ownership(self):
+        import asyncio
+
+        from app.tools.decision_tools import (
+            get_decision_session,
+            register_decision,
+            resolve_decision,
+        )
+
+        loop = asyncio.new_event_loop()
+        try:
+            future: asyncio.Future[str] = loop.create_future()
+            register_decision("d2", "s1", future)
+
+            async def _run():
+                assert await resolve_decision("d2", "选项A") is True
+
+            assert loop.run_until_complete(_run()) is None
+            assert get_decision_session("d2") is None
+            assert loop.run_until_complete(resolve_decision("d2", "again")) is False  # 已弹出
+        finally:
+            loop.close()
+
+    def test_cleanup_scoped_to_session(self):
+        """清理 s1 不得误伤 s2 正在等待的决策（历史上是全表遍历）。"""
+        import asyncio
+
+        from app.tools.decision_tools import (
+            cleanup_session_decisions,
+            get_decision_session,
+            register_decision,
+            resolve_decision,
+        )
+
+        # 用独立 loop：asyncio.run 会清掉主线程 current event loop，
+        # 让后续测试的 get_event_loop 直接 RuntimeError
+        loop = asyncio.new_event_loop()
+        try:
+            f1: asyncio.Future[str] = loop.create_future()
+            f2: asyncio.Future[str] = loop.create_future()
+            register_decision("d-s1", "s1", f1)
+            register_decision("d-s2", "s2", f2)
+
+            cleanup_session_decisions("s1")
+            assert get_decision_session("d-s1") is None
+            assert f1.cancelled()
+            # s2 的决策完好：仍可正常 resolve
+            assert get_decision_session("d-s2") == "s2"
+
+            async def _run():
+                assert await resolve_decision("d-s2", "保留") is True
+
+            assert loop.run_until_complete(_run()) is None
+        finally:
+            loop.close()
+
+    def test_unknown_decision_has_no_session(self):
+        from app.tools.decision_tools import get_decision_session
+
+        assert get_decision_session("nope") is None
 
 
 class TestPromptCatalogInjection:

@@ -184,3 +184,48 @@ def test_session_metadata_handles_object_without_to_dict():
         metadata = {"user_id": 3, "agent_profile_id": 4}
 
     assert _session_metadata_for_storage(Plain()) == {"user_id": 3, "agent_profile_id": 4}
+
+
+def test_restore_session_metadata_rebuilds_action_log():
+    """load() 手动构造 AgentSession，绕过了 wuwei 的 from_dict。
+
+    若不显式还原，metadata["action_log"] 会是入库时的 dict，上游
+    get_or_create_log() 只处理 None → agent_runner.py 调 .append() 抛
+    AttributeError，表现为「工具执行后 agent 崩溃、没有最终回复」。
+    """
+    from wuwei.runtime.action_log import ActionLog, get_or_create_log
+
+    from app.services.session_storage import _restore_session_metadata
+
+    log = ActionLog()
+    log.append(run_id="r1", agent="main", step=1, kind="tool", summary="生图")
+    stored = {"action_log": {"__type__": "ActionLog", "value": log.to_dict()}}
+
+    class Session:
+        metadata = _restore_session_metadata(stored)
+
+    session = Session()
+    assert isinstance(session.metadata["action_log"], ActionLog)
+    assert len(session.metadata["action_log"].entries) == 1
+    # 后续 append 不再崩溃
+    get_or_create_log(session).append(
+        run_id="r1", agent="main", step=2, kind="llm", summary="最终回复"
+    )
+    assert len(session.metadata["action_log"].entries) == 2
+
+
+def test_restore_session_metadata_handles_untagged_action_log():
+    """3.2 前的无标记裸 dict 也要还原（wuwei 3.3.2 coerce_action_log 语义）。
+
+    其它 metadata 字段保持原样，不误改。
+    """
+    from wuwei.runtime.action_log import ActionLog
+
+    from app.services.session_storage import _restore_session_metadata
+
+    raw = {"user_id": 7, "title": "会话标题", "action_log": {"entries": []}}
+    restored = _restore_session_metadata(raw)
+    assert isinstance(restored["action_log"], ActionLog)
+    assert len(restored["action_log"].entries) == 0
+    assert restored["user_id"] == 7
+    assert restored["title"] == "会话标题"

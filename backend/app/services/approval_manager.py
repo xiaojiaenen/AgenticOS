@@ -34,7 +34,19 @@ class ApprovalManager:
         self._decision_waiters: dict[str, asyncio.Queue] = {}
 
     async def request_approval_bool(self, tool_call) -> bool:
-        """兼容 wuwei HitlMiddleware 的 approval_provider 接口：接收 ToolCall 返回 bool。"""
+        """兼容 wuwei HitlMiddleware 的 approval_provider 接口：接收 ToolCall 返回 bool。
+
+        若要拿到「用户可能修改过的参数」，改用 :meth:`request_approval_for_tool`。
+        """
+        decision = await self.request_approval_for_tool(tool_call)
+        return decision.status == "approved"
+
+    async def request_approval_for_tool(self, tool_call) -> ApprovalDecision:
+        """完整版：审批一个工具调用，返回含 modified_arguments 的完整决策。
+
+        用户在预览面板里改过邮件内容/模板再批准时，修改后的参数会从
+        ``decision.modified_arguments`` 带回来，调用方用它替换原始参数执行。
+        """
         import uuid
         from app.services.agent_service import _current_session_id
         session_id = _current_session_id.get() or "default"
@@ -57,8 +69,7 @@ class ApprovalManager:
                 "arguments": arguments,
             },
         )
-        decision = await self.request_approval(request)
-        return decision.status == "approved"
+        return await self.request_approval(request)
 
     async def request_approval(self, request: ApprovalRequest) -> ApprovalDecision:
         """请求审批，通过 Redis pub/sub 等待决策（支持多 worker）。"""
@@ -108,6 +119,7 @@ class ApprovalManager:
             return ApprovalDecision(
                 status=decision_data["status"],
                 reason=decision_data.get("reason"),
+                modified_arguments=decision_data.get("modified_arguments"),
             )
         except asyncio.TimeoutError:
             decision = ApprovalDecision(status="rejected", reason="approval timed out")
@@ -156,8 +168,20 @@ class ApprovalManager:
                             pass
                         break
 
-    async def decide(self, approval_id: str, *, status: str, reason: str | None = None) -> dict[str, Any]:
-        """做出审批决策，通过 Redis pub/sub 通知等待方（支持多 worker）。"""
+    async def decide(
+        self,
+        approval_id: str,
+        *,
+        status: str,
+        reason: str | None = None,
+        modified_arguments: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """做出审批决策，通过 Redis pub/sub 通知等待方（支持多 worker）。
+
+        ``modified_arguments``：用户在审批前编辑过的工具参数（例如改了邮件
+        正文、换了模板）。批准时用它**替换**原始参数执行；同时持久化到
+        arguments_json，审计记录里能看到「最终以什么参数执行的」。
+        """
         if status not in {"approved", "rejected"}:
             raise ValueError("status must be approved or rejected")
 
@@ -168,6 +192,8 @@ class ApprovalManager:
                     raise KeyError(f"approval not found: {approval_id}")
                 row.status = status
                 row.reason = reason
+                if modified_arguments is not None:
+                    row.arguments_json = dump_json(modified_arguments)
                 row.decided_at = app_now()
                 db.commit()
                 db.refresh(row)
@@ -178,7 +204,9 @@ class ApprovalManager:
         # 通过 Redis pub/sub 通知等待方
         redis = get_redis()
         decision_channel = f"{_APPROVAL_CHANNEL_PREFIX}decision:{approval_id}"
-        decision_data = {"status": status, "reason": reason}
+        decision_data: dict[str, Any] = {"status": status, "reason": reason}
+        if modified_arguments is not None:
+            decision_data["modified_arguments"] = modified_arguments
         payload = json.dumps(decision_data)
         await redis.publish(decision_channel, payload)
 

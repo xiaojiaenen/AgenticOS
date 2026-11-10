@@ -150,11 +150,15 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
         *,
         status: str,
         reason: str | None = None,
+        modified_arguments: dict[str, Any] | None = None,
         current_user: UserModel | None = None,
     ) -> dict[str, Any]:
         if current_user is not None:
             await self._ensure_record_owner(approval_id, ApprovalModel, current_user)
-        return await self.approval_manager.decide(approval_id, status=status, reason=reason)
+        return await self.approval_manager.decide(
+            approval_id, status=status, reason=reason,
+            modified_arguments=modified_arguments,
+        )
 
     async def get_session_state(self, session_id: str) -> dict[str, Any]:
         stored = await self.storage.describe(session_id)

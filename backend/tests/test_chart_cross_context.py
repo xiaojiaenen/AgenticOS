@@ -18,13 +18,23 @@ from app.services import chart_events as ce
 
 @pytest.fixture(autouse=True)
 def _clean():
+    """清空同上下文采集器 + 本文件用到的会话级队列（Redis/内存都要清）。
+
+    push 侧与读侧统一走 session_artifacts 后，"会话级队列"在 Redis 在线时
+    落在 Redis 里（TTL 7 天）—— 只清进程内 dict 挡不住上一次失败运行留下的
+    脏数据，必须按会话 id 显式 clear。contextvar 归零交给 conftest 的
+    autouse 夹具（before/after 各一次），这里不再重复。
+    """
+    from app.services import session_artifacts as sa
+
+    sids = ("s1", "sess-child", "sess-dup", "sess-hist")
     ce.reset_pending()
-    ce._accumulated.clear()
-    ce._emitted.clear()
+    for sid in sids:
+        sa.clear("chart", sid)
     yield
     ce.reset_pending()
-    ce._accumulated.clear()
-    ce._emitted.clear()
+    for sid in sids:
+        sa.clear("chart", sid)
 
 
 def test_same_context_push_and_drain() -> None:

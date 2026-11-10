@@ -54,15 +54,19 @@ def _session_metadata_for_storage(session) -> dict[str, Any]:
     ``{"__type__": "ActionLog", "value": ...}``，否则读回时
     ``AgentSession.from_dict()`` 无法还原成对象。这里复刻 wuwei 的那一小段
     逻辑（见 ``wuwei/agent/session.py::to_dict``），其余字段原样透传。
+    wuwei 3.3.2 起用 ``coerce_action_log`` + ``ACTION_LOG_TYPE`` 统一了该契约。
     """
-    from wuwei.runtime.action_log import ACTION_LOG_KEY, ActionLog
+    from wuwei.runtime.action_log import (
+        ACTION_LOG_KEY,
+        ACTION_LOG_TYPE,
+        coerce_action_log,
+    )
 
     metadata = dict(getattr(session, "metadata", {}) or {})
-    action_log = metadata.get(ACTION_LOG_KEY)
-    if isinstance(action_log, ActionLog):
+    if ACTION_LOG_KEY in metadata:
         metadata[ACTION_LOG_KEY] = {
-            "__type__": "ActionLog",
-            "value": action_log.to_dict(),
+            "__type__": ACTION_LOG_TYPE,
+            "value": coerce_action_log(metadata[ACTION_LOG_KEY]).to_dict(),
         }
     return metadata
 
@@ -120,6 +124,26 @@ def _first_user_text(message_json: str | None) -> str | None:
     return text or None
 
 
+def _restore_session_metadata(raw: dict[str, Any] | None) -> dict[str, Any]:
+    """把入库的 metadata 还原成运行时形态。
+
+    写库时 ``ActionLog`` 被包成 ``{"__type__": "ActionLog", "value": ...}``
+    （见 ``_session_metadata_for_storage``）。本项目的 ``load()`` 是手动构造
+    ``AgentSession(metadata=...)``、绕过了 wuwei 的 ``from_dict``，所以这里显式
+    还原一次，让会话一加载就拿到对象而不是 dict。
+
+    wuwei 3.3.2 已在 ``get_or_create_log`` / ``from_dict`` 里用
+    ``coerce_action_log`` 统一收敛，本函数直接委托同一个入口，避免自写一套
+    反序列化逻辑与上游漂移（它同时认带标记与裸 dict 两种历史 checkpoint）。
+    """
+    metadata = dict(raw or {})
+    if "action_log" in metadata:
+        from wuwei.runtime.action_log import coerce_action_log
+
+        metadata["action_log"] = coerce_action_log(metadata["action_log"])
+    return metadata
+
+
 class DatabaseAgentStorage:
     """Wuwei storage implementation backed by SQLAlchemy.
 
@@ -162,13 +186,15 @@ class DatabaseAgentStorage:
                 if row is None:
                     return None
 
+                metadata = _restore_session_metadata(_loads(row.metadata_json, {}))
+
                 session = AgentSession(
                     session_id=row.session_id,
                     system_prompt=row.system_prompt,
                     max_steps=row.max_steps,
                     parallel_tool_calls=row.parallel_tool_calls,
                     summary=row.summary,
-                    metadata=_loads(row.metadata_json, {}),
+                    metadata=metadata,
                 )
                 if row.user_id is not None:
                     session.metadata["user_id"] = row.user_id

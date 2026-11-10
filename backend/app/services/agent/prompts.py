@@ -136,3 +136,21 @@ _LEGACY_CATALOG_HEADS: tuple[str, ...] = (
     "\n---\n\n### 设计主题（",
     "### 设计主题（",
 )
+
+
+_MEMORY_START = "## 用户记忆（来自历史对话，自动蒸馏）"
+_MEMORY_END = "（以上记忆自动注入，回答时自然参考即可，不必显式引用）"
+
+def strip_memory_context(text: str) -> str:
+    """剥掉注入的用户记忆块，只留用户原始输入（回显用）。"""
+    if not text or not text.startswith(_MEMORY_START):
+        return text
+    end = text.find(_MEMORY_END)
+    if end < 0:
+        return text
+    end += len(_MEMORY_END)
+    rest = text[end:]
+    rest = rest.lstrip("\n")
+    if rest.startswith("---"):
+        rest = rest[3:]
+    return rest.lstrip("\n")

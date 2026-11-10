@@ -58,7 +58,14 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     try:
         from app.services.startup_cleanup import mark_interrupted_runs
 
-        counts = await asyncio.to_thread(mark_interrupted_runs)
+        try:
+            counts = await asyncio.to_thread(mark_interrupted_runs)
+        except RuntimeError:
+            # 容器线程/进程上限打满时 `to_thread` 抛
+            # `RuntimeError: can't start new thread`（pthread_create EAGAIN）。
+            # 收尸是启动期的一次性维护动作，同步跑一遍就够，不该因此起不来。
+            logger.warning("线程池不可用，启动收尸改为同步执行")
+            counts = mark_interrupted_runs()
         if counts.get("eval_runs") or counts.get("traces"):
             logger.warning("startup cleanup: %s", counts)
     except Exception:

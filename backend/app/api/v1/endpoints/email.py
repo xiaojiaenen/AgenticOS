@@ -5,8 +5,9 @@ from __future__ import annotations
 import imaplib
 import smtplib
 import socket
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -150,3 +151,68 @@ def delete_email_credentials(current_user: UserModel = Depends(get_current_user)
         return {"success": True, "message": "邮箱配置已删除"}
     finally:
         db.close()
+
+
+# ── 邮件模板预览（不发送，纯函数渲染） ──────────────────────────────
+
+class TemplatePreviewRequest(BaseModel):
+    """前端预览面板切换模板时提交的内容。
+
+    ``body`` 是用户可编辑的纯文本（空行分段）。前端不需要把 AI 叫回来重写：
+    换模板只是把同一份内容重新套一层视觉，后端毫秒级返回。
+    """
+    template: str = Field(default="plain", max_length=32)
+    subject: str = Field(default="", max_length=512)
+    body: str = Field(default="", max_length=20000)
+    button_label: str = Field(default="", max_length=64)
+    button_url: str = Field(default="", max_length=2048)
+    signer: str = Field(default="", max_length=128)
+
+
+class TemplateChoice(BaseModel):
+    id: str
+    label: str
+
+
+@router.get("/templates", response_model=list[TemplateChoice])
+def list_email_templates(current_user: UserModel = Depends(get_current_user)):
+    """列出预览面板可切换的模板。前端据此渲染下拉。"""
+    from app.services import email_templates
+
+    return [
+        TemplateChoice(id=tid, label=label)
+        for tid, label in email_templates.USER_TEMPLATE_CHOICES
+    ]
+
+
+@router.post("/templates/preview")
+def preview_email_template(
+    payload: TemplatePreviewRequest,
+    current_user: UserModel = Depends(get_current_user),
+) -> dict[str, Any]:
+    """把内容按模板渲染成 HTML，不发送、不经过 LLM。
+
+    切换模板 / 用户改完正文后，前端调它即时刷新预览。返回：
+    ``{html, is_html, template}``。``custom`` 模板不在这里渲染（交给 AI
+    按 email-design skill 手写），回退为纯文本并标注 ``needs_ai=True``。
+    """
+    from app.services import email_templates
+
+    try:
+        html, is_html = email_templates.render_user_email(
+            payload.template,
+            payload.subject,
+            payload.body,
+            button_label=payload.button_label,
+            button_url=payload.button_url,
+            signer=payload.signer,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "html": html,
+        "is_html": is_html,
+        "template": payload.template,
+        "needs_ai": payload.template == "custom",
+    }

@@ -154,19 +154,67 @@ const HEADING_TEXT_STYLE = {
  * `namedStyleType` 段间距、段落边框——全部静默失效，而工具栏点击、数据
  * 存取、回显全都正常，极难排查（2026-10 实测定位）。
  */
+/**
+ * 一个块 → 若干"行"（每行最终是一个段落）。
+ *
+ * 早先这里只读 `block.text`，于是 `bullets`（内容在 items[]）和
+ * `table`（内容在 header[]/rows[]）被拼成空字符串——**静默丢内容**：
+ * create_document 返回 success、字数也对，用户看到的却是一份缺列表缺表格的文档。
+ * 现在把这两种结构化块展开成行，任何未知类型也不再无声吞掉。
+ */
+function blockToLines(block) {
+  const type = String(block.type ?? '')
+  const clean = (v) => String(v ?? '').replace(/\r/g, '')
+
+  if (type === 'bullets' || type === 'list' || type === 'ul') {
+    const items = Array.isArray(block.items) ? block.items : []
+    return items.map((item) => ({
+      text: `• ${Array.isArray(item) ? item.join(' ') : clean(item)}`,
+      type: 'bullet',
+    }))
+  }
+  if (type === 'ordered' || type === 'ol') {
+    const items = Array.isArray(block.items) ? block.items : []
+    return items.map((item, i) => ({
+      text: `${i + 1}. ${Array.isArray(item) ? item.join(' ') : clean(item)}`,
+      type: 'bullet',
+    }))
+  }
+  if (type === 'table') {
+    // 表格降级成"表头行 + 每行用 | 分隔"的文本段落：
+    // Univer 的行内表格需要 tableSource 与单元格 ID 的完整结构，
+    // 这里先保证内容不丢，渲染层再按表格样式展示。
+    const header = Array.isArray(block.header) ? block.header.map(clean) : []
+    const rows = Array.isArray(block.rows) ? block.rows : []
+    const lines = []
+    if (header.length) lines.push({ text: header.join(' | '), type: 'tableHeader' })
+    for (const row of rows) {
+      const cells = Array.isArray(row) ? row.map(clean) : [clean(row)]
+      lines.push({ text: cells.join(' | '), type: 'tableRow' })
+    }
+    return lines
+  }
+  return [{ text: clean(block.text), type }]
+}
+
 function composeBlocks(blocks) {
   const chunks = []
   const paragraphs = []
   const textRuns = []
   let offset = 0
+  // 结构化块会展开成多行，逐行产段落
+  const lines = []
   for (const block of blocks) {
+    for (const line of blockToLines(block)) lines.push(line)
+  }
+  for (const line of lines) {
     // 块文本里的 \r 会伪造段落边界，让段落数与 \r 数失配、整份文档结构错乱
-    const text = String(block.text ?? '').replace(/\r/g, '')
+    const text = line.text
     const para = { startIndex: offset + text.length }
-    const namedStyleType = NAMED_STYLE_TYPE[block.type]
+    const namedStyleType = NAMED_STYLE_TYPE[line.type]
     if (namedStyleType) para.paragraphStyle = { namedStyleType }
     paragraphs.push(para)
-    const textStyle = HEADING_TEXT_STYLE[block.type]
+    const textStyle = HEADING_TEXT_STYLE[line.type]
     // 空标题不必占一个空区间：normalizeTextRuns 会把 st === ed 的直接丢掉
     if (textStyle && text.length > 0) {
       textRuns.push({ st: offset, ed: offset + text.length, ts: { ...textStyle } })

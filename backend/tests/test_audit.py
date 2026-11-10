@@ -240,7 +240,9 @@ def test_denied_knowledge_write_is_audited_as_deny() -> None:
     created = client.post(
         "/api/v1/knowledge/bases",
         headers=_auth(admin_id, admin_email, "admin"),
-        json={"name": "私有库", "visibility": "private"},
+        # 名称唯一：知识库 slug 由名称派生且全库唯一，写死会在测试库
+        # 残留数据时撞 UNIQUE（实测过）
+        json={"name": f"私有库-{uuid4().hex[:8]}", "visibility": "private"},
     )
     assert created.status_code == 201, created.text
     kb_id = created.json()["id"]

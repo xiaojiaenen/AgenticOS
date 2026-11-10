@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 # 合法响应模式的单一来源，供运行时白名单（会话恢复、/v1 网关）引用。
@@ -83,3 +85,9 @@ class PptExportRequest(BaseModel):
 class ApprovalDecisionRequest(BaseModel):
     status: str = Field(..., pattern="^(approved|rejected)$", description="Approval decision.")
     reason: str | None = Field(default=None, description="Reason for the decision.")
+    # 用户在审批前修改过的工具参数（如改了邮件正文/模板）。
+    # 批准后用这份参数替换原始 arguments 执行；不传则按原始参数执行。
+    modified_arguments: dict[str, Any] | None = Field(
+        default=None,
+        description="User-edited tool arguments to use instead of the originals when approved.",
+    )

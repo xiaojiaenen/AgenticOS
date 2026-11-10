@@ -7,6 +7,7 @@ from datetime import datetime, time, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import delete, exists, func, or_, select, text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
@@ -64,7 +65,17 @@ def _cached_dashboard(
     ).hexdigest()[:16]
     key = cache.build_cache_key(f"dashboard:{namespace}", f"u{user_id}", param_hash)
     ttl = get_settings().dashboard_cache_ttl
-    cached = cache.get_or_set_json_sync(key, producer, ttl=ttl)
+
+    # 缓存必须存「可 JSON 化的 dict」。producer 返回的是 Pydantic 模型，
+    # 若直接交给 json.dumps(default=str) 会被序列化成模型 repr 字符串，
+    # 同 TTL 内的后续请求读回字符串 → response_model 校验失败 → 500。
+    def _jsonable() -> Any:
+        value = producer()
+        if isinstance(value, BaseModel):
+            return value.model_dump(mode="json")
+        return value
+
+    cached = cache.get_or_set_json_sync(key, _jsonable, ttl=ttl)
     if model is None or isinstance(cached, model):
         return cached
     if isinstance(cached, dict):
@@ -162,6 +173,19 @@ def _compute_dashboard_stats(*, days: int, db: Session) -> DashboardStatsRespons
     total_runs = int(summary_row.total_runs or 0)
     total_latency = int(summary_row.latency_ms or 0)
 
+    # 「活跃用户」= 统计窗口内真正产生过使用记录的去重用户数。
+    # 旧口径是 is_active 账号数（启用 ≠ 活跃，从未对话的账号也算「活跃」，
+    # 且与「占 X%」的分母语义纠缠）。窗口口径天然 ≤ 总账号数，占比语义自洽。
+    window_active_users = int(
+        db.scalar(
+            select(func.count(func.distinct(AgentUsageEventModel.user_id))).where(
+                AgentUsageEventModel.user_id.is_not(None),
+                AgentUsageEventModel.created_at >= start_boundary,
+            )
+        )
+        or 0
+    )
+
     model_distribution_rows = db.execute(
         select(
             AgentUsageEventModel.model_name.label("name"),
@@ -224,7 +248,7 @@ def _compute_dashboard_stats(*, days: int, db: Session) -> DashboardStatsRespons
 
     summary = DashboardSummary(
         total_users=len(users),
-        active_users=sum(1 for user in users if user.is_active),
+        active_users=window_active_users,
         total_sessions=db.scalar(select(func.count(AgentSessionModel.session_id))) or 0,
         total_runs=total_runs,
         total_tokens=int(summary_row.total_tokens or 0),

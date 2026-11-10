@@ -683,8 +683,9 @@ class StreamOrchestrator:
             request.agent_profile_id = published_profile.profile_id
             request.response_mode = published_profile.response_mode
 
-        # ???????? profile ???? ?? resolve_runtime ???????
-        # ?????user=None?????
+        # 公开发布的 profile（widget 嵌入场景）已在上面由 resolve_runtime_published
+        # 解析完成；调用方可能根本没有登录用户（user=None），不能走常规的
+        # 用户级 profile 解析（_resolve_runtime_profile）。
         if published_profile is not None:
             runtime_profile = published_profile
         else:
@@ -1175,7 +1176,7 @@ class StreamOrchestrator:
 
                             if website_mode:
                                 artifact = await self._create_website_artifact(
-                                    session.session_id, tool_names
+                                    session.session_id
                                 )
                                 if artifact is not None:
                                     yield {

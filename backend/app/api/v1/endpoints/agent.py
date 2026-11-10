@@ -9,10 +9,12 @@ from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.core.config import get_settings
 from app.db.models import UserModel
 from app.schemas.agent import AgentStreamRequest, ApprovalDecisionRequest, PptExportRequest
 from app.services.agent_service import AgentService, get_agent_service
 from app.services.design_system import get_design_system_registry
+from app.services.rate_limiter import check_window_quota
 
 router = APIRouter(prefix="/agent", tags=["智能体"])
 
@@ -76,6 +78,24 @@ async def stream_agent(
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
+    # 每用户运行频率限流：llm_gate 只管"全站同时多少路"，这里防单个用户
+    # 把并发配额刷满饿死别人。管理员豁免（与每日 token 配额同一豁免口径）。
+    # 429 必须在返回 StreamingResponse 之前抛 —— 流一旦开始，状态码就定了。
+    rate_cfg = get_settings()
+    if rate_cfg.agent_stream_rate_limit > 0 and current_user.role != "admin":
+        allowed, reset_in = check_window_quota(
+            "agent_stream",
+            str(current_user.id),
+            limit=rate_cfg.agent_stream_rate_limit,
+            window_seconds=rate_cfg.agent_stream_rate_window_seconds,
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail=f"运行过于频繁，请 {reset_in} 秒后再试",
+                headers={"Retry-After": str(max(1, reset_in))},
+            )
+
     async def event_stream():
         session_id = request.session_id or "(new)"
         try:
@@ -124,6 +144,7 @@ async def decide_approval(
             approval_id,
             status=payload.status,
             reason=payload.reason,
+            modified_arguments=payload.modified_arguments,
             current_user=current_user,
         )
     except PermissionError as exc:
@@ -148,11 +169,24 @@ async def decide_user_decision(
     decision_id: str,
     request: dict[str, str],
     current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
 ) -> dict[str, Any]:
-    from app.tools.decision_tools import resolve_decision
+    from app.tools.decision_tools import resolve_decision, get_decision_session
     answer = request.get("answer", "")
     if not answer:
         raise HTTPException(status_code=400, detail="answer 不能为空")
+    # 归属校验：决策挂在会话上，非本人（且非管理员）不得替他人会话作答。
+    # decision_id 只有 8 位 hex，没有这道校验就是可枚举的跨用户写操作。
+    decision_session = get_decision_session(decision_id)
+    if decision_session is None:
+        raise HTTPException(status_code=404, detail="决策不存在或已超时")
+    try:
+        await agent_service.ensure_session_access(
+            AgentStreamRequest(message="user_decision", session_id=decision_session),
+            current_user,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     resolved = await resolve_decision(decision_id, answer)
     if not resolved:
         raise HTTPException(status_code=404, detail="决策不存在或已超时")
@@ -254,9 +288,10 @@ async def get_session_messages(
         #    用户刷新会话会看到自己"发了一大段资源速查文档"。
         if role == "user":
             try:
-                from app.services.agent.prompts import strip_injected_catalog
+                from app.services.agent.prompts import strip_injected_catalog, strip_memory_context
 
                 content = strip_injected_catalog(content)
+                content = strip_memory_context(content)
             except Exception:  # noqa: BLE001 -- 剥离失败按原样返回
                 pass
 
@@ -284,6 +319,53 @@ async def get_session_messages(
             entry["name"] = getattr(msg, "name", None)
         result.append(entry)
     return result
+
+
+_IMAGE_OUTPUT_RE = re.compile(r"^[A-Za-z0-9._-]+\.(?:png|jpe?g|webp|gif)$", re.I)
+
+
+@router.get("/sessions/{session_id}/outputs/{filename}", summary="读取会话工作区里的图片产物")
+async def get_session_output_image(
+    session_id: str,
+    filename: str,
+    current_user: UserModel = Depends(get_current_user),
+    agent_service: AgentService = Depends(get_agent_service),
+):
+    """把生图工具落在 ``outputs/`` 的图片安全地喂给聊天流里的 ``<img>``。
+
+    工作区不在任何 StaticFiles 挂载下（不能公开读），所以走带鉴权的端点：
+    先校验会话归属，再把文件名限制为纯图片名，避免路径穿越。
+    """
+    from fastapi.responses import FileResponse
+    from app.core.data_path import workspace_dir
+
+    try:
+        await agent_service.ensure_session_access(
+            AgentStreamRequest(message="load_output_image", session_id=session_id), current_user
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    if not _IMAGE_OUTPUT_RE.match(filename or ""):
+        raise HTTPException(status_code=400, detail="非法文件名")
+
+    out_dir = (workspace_dir(current_user.id, session_id) / "outputs").resolve()
+    candidate = (out_dir / filename).resolve()
+    try:
+        candidate.relative_to(out_dir)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="非法文件名") from None
+    if not candidate.is_file():
+        raise HTTPException(status_code=404, detail="图片不存在")
+
+    import mimetypes
+
+    media_type, _ = mimetypes.guess_type(str(candidate))
+    return FileResponse(
+        candidate,
+        media_type=media_type or "application/octet-stream",
+        headers={"Cache-Control": "private, max-age=300", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.get("/sessions", summary="获取当前用户的会话列表")

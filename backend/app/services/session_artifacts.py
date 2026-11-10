@@ -53,20 +53,45 @@ def _redis():
 
     刻意**不依赖** redis manager 的 is_memory 状态：manager 只在 app
     lifespan 里初始化，独立脚本/worker/初始化顺序里它都是"未连接"，
-    依赖它会让持久化静默降级成内存（真发生过）。这里直连 URL + ping，
-    失败才回退。
+    依赖它会让持久化静默降级成内存（真发生过）。这里按 settings 直连。
+
+    必须尊重 ``REDIS_CLUSTER``：cluster 部署下用普通客户端直连节点，
+    单 key 会 MOVED、多 key DEL 会 CROSSSLOT（真出过事故）。cluster
+    模式一律走 redis.cluster.RedisCluster。
     """
     global _sync_client
     try:
         from app.core.config import get_settings
 
-        url = get_settings().redis_url
+        settings = get_settings()
+        url = settings.redis_url
         if not url:
             return None
         if _sync_client is None:
             import redis
 
-            _sync_client = redis.from_url(url, decode_responses=True, socket_timeout=5)
+            if settings.redis_cluster:
+                from redis.cluster import RedisCluster
+
+                from app.core.redis import parse_cluster_nodes
+
+                nodes, username, password = parse_cluster_nodes(url)
+                if not nodes:
+                    _logger.warning("REDIS_CLUSTER=true 但解析不出节点，session_artifacts 降级内存")
+                    return None
+                kwargs: dict[str, Any] = {
+                    "startup_nodes": [
+                        redis.cluster.ClusterNode(host, port) for host, port in nodes
+                    ],
+                    "password": password,
+                    "decode_responses": True,
+                    "socket_timeout": 5,
+                }
+                if username:
+                    kwargs["username"] = username
+                _sync_client = RedisCluster(**kwargs)
+            else:
+                _sync_client = redis.from_url(url, decode_responses=True, socket_timeout=5)
         _sync_client.ping()
         return _sync_client
     except Exception:  # noqa: BLE001
@@ -152,7 +177,10 @@ def clear(kind: str, session_id: str) -> None:
         _mem_emitted[kind].pop(session_id, None)
         return
     try:
-        client.delete(_key(kind, session_id), _emi_key(kind, session_id))
+        # 两个 key 一次 DEL 在 cluster 下会 CROSSSLOT（不同 slot 不允许
+        # 多 key 命令），拆成两次单 key 删除 —— 单机下行为一致。
+        client.delete(_key(kind, session_id))
+        client.delete(_emi_key(kind, session_id))
     except Exception:  # noqa: BLE001
         _logger.warning("session_artifacts clear failed (kind=%s)", kind, exc_info=True)
     _mem_lists[kind].pop(session_id, None)

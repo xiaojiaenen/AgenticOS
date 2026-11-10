@@ -58,33 +58,47 @@ class ArtifactFactory:
             return None
 
     @staticmethod
-    def _infer_project_slug_from_tools(tool_names: list[str], messages: list | None = None) -> str | None:
-        """Try to find the project slug from recent tool calls.
+    def _infer_project_slug_from_tools(
+        session_id: str | None = None, user_id: int | None = None
+    ) -> str | None:
+        """找出**本会话**最新一轮构建的网站项目目录。
 
-        We can't directly access tool call arguments here, so we scan
-        data/websites/ for directories with recent dist/ folders.
+        目录名 ``u<uid>_s<session>_v<version>`` 自带会话号：给定 session_id 时
+        只在该会话的目录里挑**版本号最大**的一个 —— 项目目录是原地迭代的，
+        同会话多轮生成后最新产物一定是版本号最大的那个，比 mtime 可靠
+        （拷贝 / 同步 / 回滚都会打乱 mtime）。传入 user_id 时再把范围收窄到
+        本人名下（目录号自带 uid，能挡住极端情况下的会话号撞车）。
+
+        历史实现的坑（正是"预览里显示的不是我刚生成的网站，点刷新才对"的根因）：
+        旧版**完全不看会话**，扫全库取「最近修改的 dist」。而 data/websites 是
+        所有用户共用的 —— 别的会话、甚至别的用户刚构建完，SSE 的 artifact_ready
+        就会把**那个**项目当成"本轮产物"推给前端；用户点「刷新」走的是
+        ``get_latest_website_artifact``（它一直按会话过滤），于是又变回正确的。
+        所以这里绝不能退回全局兜底：没有 session_id 就返回 None。
         """
+        if not session_id:
+            return None
         _websites_dir = WEBSITES_DIR
         if not _websites_dir.exists():
             return None
 
-        # Find directories with dist/ that have been modified recently
-        candidates: list[tuple[str, float]] = []
+        best_ver = -1
+        best_name: str | None = None
         for proj in _websites_dir.iterdir():
             if not proj.is_dir() or proj.name.startswith("."):
+                continue
+            parsed = _parse_dir_name(proj.name)
+            if parsed is None or parsed[1] != session_id:
+                continue
+            if user_id is not None and parsed[0] != user_id:
                 continue
             dist = proj / "dist"
             if dist.exists() and dist.is_dir():
                 index_html = dist / "index.html"
-                if index_html.exists():
-                    candidates.append((proj.name, index_html.stat().st_mtime))
-
-        if not candidates:
-            return None
-
-        # Return the most recently modified one
-        candidates.sort(key=lambda x: x[1], reverse=True)
-        return candidates[0][0]
+                if index_html.exists() and parsed[2] > best_ver:
+                    best_ver = parsed[2]
+                    best_name = proj.name
+        return best_name
 
     @staticmethod
     def _inline_dist_assets(dist_dir: "Path", html: str) -> str:
@@ -167,14 +181,24 @@ class ArtifactFactory:
         # 绝对可解析的 blob 友好形式没有意义，直接提示不要依赖外部资源。
         return html
 
-    async def _create_website_artifact(
-        self, session_id: str, tool_names: list[str]
-    ) -> dict[str, Any] | None:
-        """Create a website artifact from the built dist/ directory."""
-        _websites_dir = WEBSITES_DIR
+    async def _create_website_artifact(self, session_id: str) -> dict[str, Any] | None:
+        """Create a website artifact from the built dist/ directory.
 
+        项目目录由会话号推断（见 ``_infer_project_slug_from_tools``）——
+        调用方无需也无法指定 slug，避免把别的会话/用户的项目当成"本轮产物"。
+        """
         try:
-            slug = await asyncio.to_thread(self._infer_project_slug_from_tools, tool_names)
+            # slug 推断必须锚定本会话（见 _infer_project_slug_from_tools 的说明）：
+            # 全库扫"最近修改的 dist"会把别的会话/用户的网站推给当前用户。
+            # user_id 由 agent_service 在 run 开始时写入上下文（匿名渠道为 0，
+            # 此时退回仅按会话过滤 —— 会话号本身全局唯一）。
+            from app.core.data_path import get_current_user_id
+
+            slug = await asyncio.to_thread(
+                self._infer_project_slug_from_tools,
+                session_id,
+                get_current_user_id() or None,
+            )
             if not slug:
                 _logger.info("website artifact skipped: could not infer project slug")
                 return None

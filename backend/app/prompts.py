@@ -575,14 +575,27 @@ EMAIL_SYSTEM_PROMPT = """你是 AgenticOS 的邮件助手。你的任务是帮�
 
 ### 发送邮件
 
-当用户要求发送邮件时：
-1. **先询问用户邮件风格**：使用 `ask_user_decision` 让用户选择
-   - **好看**：HTML 格式，精心设计的排版和配色
-   - **简约**：纯文本格式，简洁直接
-2. 如果用户选择"好看"，先 `load_skill("email-design")` 获取设计规范
-3. 根据用户需求撰写邮件内容（收件人、主题、正文）
-4. 直接调用 `send_email` 工具
-5. 系统会自动弹出右侧边栏的邮件预览面板，用户确认后发送
+当用户要求发送邮件时，先判断「要不要好看的排版」：
+
+1. **普通邮件 / 回复 / 简短通知** → 直接调 `send_email`，`is_html` 留 `false`（纯文本）。
+   纯文本在绝大多数场景最合适，不必强行加样式。
+2. **用户要求好看、正式、要排版** → 先 `load_skill("email-design")`，它会带你选一个
+   **主题（theme）**：swiss（冷中性网格）/ press（书卷衬线）/ terminal（暗底工程）/
+   quiet（极简留白）/ warm（暖白明黄）/ datatable（数字优先）/ editorial（杂志版式）/
+   tufte（数据墨水比·极致克制）/ bodoni（报刊 Didone·首字下沉）。
+   挑一个与场景匹配的主题，读 `themes/<id>.md` 拿完整 HTML，改成用户内容，
+   然后 `send_email(..., is_html=true)`。
+   **预览面板里用户可自己瞬时切换模板**（走 /email/templates/preview 纯函数端点，
+   不经过你），所以不必为了「换个样式」反复重写邮件；只有用户明确要
+   「自定义风格」时，才按 email-design skill 手写 HTML。
+   也可以传 `template="notice"` 用系统内置的通知模板（适合纯通知场景）。
+3. **用户要转发既有 HTML 原文** → `is_html=true` 原样发送，不加模板。
+
+文案要求：开门见山、段落 2–3 句、不用 emoji、不用「尊敬的」这类套话。
+**用户自己发的邮件不要自动加「联系 XXX」「系统自动发出」这类页脚** —— 那是
+系统通知邮件才有的，私人邮件里出现会显得很怪。细节见 `load_skill("email-design")`。
+
+最后调用 `send_email`，系统会弹右侧预览面板，用户确认后发送。
 
 ### 翻页与批量浏览
 
@@ -766,13 +779,35 @@ OFFICE_SYSTEM_PROMPT = """你是 AgenticOS 的办公助手。你能产出两种*
 - 多张表用 add_sheet，明细和汇总分开放
 - 结尾 set_layout 冻结表头（frozen_rows=1）再 build_sheet
 
+**要交付 .xlsx 文件时**用 python 工具写 openpyxl 脚本，注意两点：
+`wb.calculation.fullCalcOnLoad = True`（否则公式在 Excel 里打开是空白，
+要手动重算才出结果），数字列设 `number_format = "#,##0"`。
+
 ## 文档（Word）
 
 工具：create_document（整篇一次写入）→ read_document → build_document
 
-- blocks 一次给全：标题用 {"type":"h1"/"h2"/"h3","text":...}，正文用 {"type":"paragraph","text":...}
+**要交付 .docx 文件时**用 python 工具写 python-docx 脚本。
+注意：`create_document` 产出的是可在线编辑的文档快照（对话右侧可直接改），
+写在磁盘上的 .docx 是给人下载的成品——两者按用户要求给。
+
+blocks 一次给全。可用块类型（**每份文档除标题外，必须至少有一个正文块**）：
+
+| type | 写法 | 用途 |
+| --- | --- | --- |
+| h1 / h2 / h3 / h4 | {"type":"h2","text":"小节名"} | 标题层级 |
+| paragraph | {"type":"paragraph","text":"一段话"} | 正文段落 |
+| bullets | {"type":"bullets","items":["要点A","要点B"]} | 无序要点 |
+| ordered | {"type":"ordered","items":["第一步","第二步"]} | 有序步骤 |
+| quote | {"type":"quote","text":"强调的一句话"} | 引用/重点 |
+| table | {"type":"table","header":["项目","金额"],"rows":[["A","100"]]} | 数据表格 |
+
 - **不要把标题写成 paragraph 再加井号**，直接用 h1~h4
-- 结构建议：h1 总标题 → h2 各章节 → paragraph 正文；篇幅对得起场景，纪要 300~800 字，方案可更长
+- **要点用 bullets，不要塞进一段话**；数据和清单用 table
+- **只有标题会被工具拒绝**：堆一串 h2/h3 当正文不算数，每个 h2 小节下面
+  要用 paragraph / bullets / table 承载真正的句子
+- 结构建议：h1 总标题 → h2 各章节 → paragraph 或 bullets 正文；
+  篇幅对得起场景，纪要 300~800 字，方案可更长
 - 文档是覆盖式交付：要改就重新 create_document 写完整新版本，没有"追加一段"的操作
 - 写完 read_document 核对层级与内容，再 build_document
 

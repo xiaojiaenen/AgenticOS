@@ -1,8 +1,8 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from app.api.v1.endpoints.dashboard import _day_key
 from app.core.config import get_settings
@@ -185,3 +185,118 @@ def test_dashboard_stats_aggregate_usage() -> None:
             assert paged_payload["messages"][0]["tool_calls"][0]["name"] == "calc"
     finally:
         cleanup_records(admin_email, user_email)
+
+
+def test_dashboard_active_users_counts_window_usage_not_enabled_accounts() -> None:
+    """「活跃用户」口径回归：只统计窗口内有使用记录的去重用户，
+    启用但从未对话的账号不得计入（启用 ≠ 活跃）；
+    窗口外的历史使用记录同样不得计入。"""
+    admin_email = f"active-admin-{uuid4().hex}@example.com"
+    used_email = f"active-used-{uuid4().hex}@example.com"
+    unused_email = f"active-unused-{uuid4().hex}@example.com"
+    session_id = f"active-session-{uuid4().hex[:8]}"
+    stale_session_id = f"active-stale-{uuid4().hex[:8]}"
+
+    try:
+        # 先取基线：全量跑时其它测试可能留下账号，断言必须相对基线而非全局定值。
+        with create_db_session() as db:
+            baseline_users = int(db.scalar(select(func.count(UserModel.id))) or 0)
+            baseline_active = int(
+                db.scalar(
+                    select(func.count(func.distinct(AgentUsageEventModel.user_id))).where(
+                        AgentUsageEventModel.user_id.is_not(None),
+                        AgentUsageEventModel.created_at >= datetime.now(timezone.utc) - timedelta(days=7),
+                    )
+                )
+                or 0
+            )
+
+        with TestClient(app):
+            token, used_user_id = create_admin_and_user(admin_email, used_email)
+            with create_db_session() as db:
+                # 第三个账号：启用但从不使用
+                db.add(
+                    UserModel(
+                        email=unused_email,
+                        name="Stats Unused",
+                        password_hash=hash_password("password-123"),
+                        role="user",
+                        is_active=True,
+                    )
+                )
+                db.commit()
+                unused_id = db.scalar(select(UserModel.id).where(UserModel.email == unused_email))
+                assert unused_id is not None
+
+                db.add(
+                    AgentSessionModel(
+                        session_id=session_id,
+                        user_id=used_user_id,
+                        system_prompt="test",
+                        metadata_json=dump_json({"user_id": used_user_id}),
+                    )
+                )
+                db.add(
+                    AgentUsageEventModel(
+                        user_id=used_user_id,
+                        session_id=session_id,
+                        model_name="gpt-test",
+                        response_mode="general",
+                        input_tokens=10,
+                        output_tokens=10,
+                        total_tokens=20,
+                        llm_calls=1,
+                        tool_calls=0,
+                        latency_ms=100,
+                    )
+                )
+                # 窗口外的历史记录（40 天前）：不得把该用户算进 7 天活跃
+                stale_user_id = int(unused_id)
+                db.add(
+                    AgentSessionModel(
+                        session_id=stale_session_id,
+                        user_id=stale_user_id,
+                        system_prompt="test",
+                        metadata_json=dump_json({"user_id": stale_user_id}),
+                    )
+                )
+                db.add(
+                    AgentUsageEventModel(
+                        user_id=stale_user_id,
+                        session_id=stale_session_id,
+                        model_name="gpt-test",
+                        response_mode="general",
+                        input_tokens=10,
+                        output_tokens=10,
+                        total_tokens=20,
+                        llm_calls=1,
+                        tool_calls=0,
+                        latency_ms=100,
+                        created_at=datetime.now(timezone.utc) - timedelta(days=40),
+                    )
+                )
+                db.commit()
+
+            in_window = client.get(
+                "/api/v1/dashboard/stats",
+                headers={"Authorization": f"Bearer {token}"},
+                params={"days": 7},
+            )
+            assert in_window.status_code == 200
+            summary = in_window.json()["summary"]
+            # 3 个账号全部启用，但窗口内只有 used 用户产生过记录。
+            # 相对基线断言，不依赖数据库初始状态。
+            assert summary["total_users"] == baseline_users + 3
+            assert summary["active_users"] == baseline_active + 1
+
+            wide_window = client.get(
+                "/api/v1/dashboard/stats",
+                headers={"Authorization": f"Bearer {token}"},
+                params={"days": 60},
+            )
+            assert wide_window.status_code == 200
+            wide_summary = wide_window.json()["summary"]
+            # 60 天窗口能覆盖 40 天前的历史记录 → 比 7 天窗口多 1 个用户
+            assert wide_summary["active_users"] == summary["active_users"] + 1
+    finally:
+        cleanup_records(admin_email, used_email, unused_email)

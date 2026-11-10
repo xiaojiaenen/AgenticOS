@@ -49,7 +49,10 @@ class ApprovalDecision:
     Attributes:
         status: ``approved`` 或 ``rejected``。
         reason: 拒绝原因 / 备注。
+        modified_arguments: 用户在审批前编辑过的工具参数；批准执行时用
+            它替换原始参数（如用户改了邮件正文再放行）。``None`` = 按原参数执行。
     """
 
     status: str  # "approved" | "rejected"
     reason: str | None = None
+    modified_arguments: dict[str, Any] | None = None

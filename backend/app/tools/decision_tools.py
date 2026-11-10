@@ -27,7 +27,29 @@ _decision_queues: dict[str, list[dict[str, Any]]] = {}
 # 决策 Future：decision_id -> Future（用于阻塞等待用户响应）
 _decision_futures: dict[str, asyncio.Future[str]] = {}
 
+# 决策归属：decision_id -> session_id（供 /decisions/{id}/decision 端点做
+# 归属校验 —— decision_id 此前只有 8 位 hex，且 resolve 端点原本不校验
+# 调用者身份，任何登录用户知道 id 就能替别人回答决策）
+_decision_sessions: dict[str, str] = {}
+
 DECISION_TIMEOUT_SECONDS = 300
+
+
+def register_decision(decision_id: str, session_id: str, future: asyncio.Future[str]) -> None:
+    """登记决策归属与 Future —— 所有决策创建点的统一入口。"""
+    _decision_sessions[decision_id] = session_id
+    _decision_futures[decision_id] = future
+
+
+def get_decision_session(decision_id: str) -> str | None:
+    """peek 决策归属的会话（不弹出），供端点做归属校验。"""
+    return _decision_sessions.get(decision_id)
+
+
+def _forget_decision(decision_id: str) -> None:
+    """决策已 resolve / 超时：Future 与归属一并清理。"""
+    _decision_futures.pop(decision_id, None)
+    _decision_sessions.pop(decision_id, None)
 
 
 async def resolve_decision(decision_id: str, answer: str) -> bool:
@@ -36,6 +58,7 @@ async def resolve_decision(decision_id: str, answer: str) -> bool:
     返回 True 表示成功，False 表示 decision_id 不存在或已超时。
     """
     future = _decision_futures.pop(decision_id, None)
+    _decision_sessions.pop(decision_id, None)
     if future and not future.done():
         future.set_result(answer)
         return True
@@ -103,7 +126,7 @@ def register_decision_tools(registry: ToolRegistry) -> None:
         # 创建 Future 并阻塞等待用户响应
         loop = asyncio.get_running_loop()
         future: asyncio.Future[str] = loop.create_future()
-        _decision_futures[decision_id] = future
+        register_decision(decision_id, session_id, future)
 
         try:
             answer = await asyncio.wait_for(future, timeout=DECISION_TIMEOUT_SECONDS)
@@ -114,7 +137,7 @@ def register_decision_tools(registry: ToolRegistry) -> None:
                 "message": f"用户选择了：{answer}",
             }
         except asyncio.TimeoutError:
-            _decision_futures.pop(decision_id, None)
+            _forget_decision(decision_id)
             return {
                 "ok": False,
                 "decision_id": decision_id,
@@ -132,12 +155,18 @@ def cleanup_session_decisions(session_id: str) -> None:
     """清理指定 session 的所有待处理决策（stream 结束时调用，防止 Future 泄漏）"""
     # 清理决策队列
     _decision_queues.pop(session_id, None)
-    # 清理所有未完成的 Future（取消等待，让工具返回超时错误）
-    orphaned = [fid for fid, f in _decision_futures.items() if not f.done()]
+    # 清理该会话所有未完成的 Future（取消等待，让工具返回超时错误）。
+    # 必须按归属过滤：这里曾是全表遍历，一个会话的流结束会误取消
+    # 其它会话正在等待用户回答的决策。
+    orphaned = [
+        fid for fid, sid in _decision_sessions.items()
+        if sid == session_id
+    ]
     for fid in orphaned:
-        future = _decision_futures.pop(fid, None)
+        future = _decision_futures.get(fid)
         if future and not future.done():
             future.cancel()
+        _forget_decision(fid)
 
 
 

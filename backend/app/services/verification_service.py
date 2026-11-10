@@ -51,65 +51,6 @@ def _generate_code() -> str:
     return "".join(random.choices(string.digits, k=CODE_LENGTH))
 
 
-def _build_code_email_html(code: str, purpose: str) -> str:
-    """构建验证码邮件 HTML"""
-    purpose_text = "登录" if purpose == "login" else "注册"
-
-    return f"""<!DOCTYPE html>
-<html lang="zh-CN">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f4f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans SC',sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 16px">
-    <tr><td align="center">
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.04)">
-
-        <!-- Header -->
-        <tr>
-          <td style="background:linear-gradient(135deg,#2b87c2 0%,#1a6fa0 100%);padding:32px 40px">
-            <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:8px">
-              AgenticOS
-            </div>
-            <div style="font-size:22px;font-weight:700;color:#ffffff;line-height:1.3">
-              验证码
-            </div>
-          </td>
-        </tr>
-
-        <!-- Code -->
-        <tr>
-          <td style="padding:32px 40px;text-align:center">
-            <div style="font-size:14px;color:#64748b;margin-bottom:16px">
-              您正在进行{purpose_text}操作，验证码为：
-            </div>
-            <div style="display:inline-block;background:#f0f7fc;border:2px dashed #2b87c2;border-radius:12px;padding:20px 40px;margin-bottom:16px">
-              <span style="font-size:36px;font-weight:700;color:#2b87c2;letter-spacing:0.2em">{code}</span>
-            </div>
-            <div style="font-size:13px;color:#94a3b8;line-height:1.6">
-              验证码 5 分钟内有效，请勿泄露给他人。
-            </div>
-          </td>
-        </tr>
-
-        <!-- Footer -->
-        <tr>
-          <td style="padding:16px 40px 28px;border-top:1px solid #f1f5f9">
-            <div style="font-size:12px;color:#94a3b8;line-height:1.6">
-              如果您没有进行此操作，请忽略此邮件。
-            </div>
-          </td>
-        </tr>
-
-      </table>
-
-      <div style="text-align:center;padding:20px 0;font-size:11px;color:#94a3b8">
-        AgenticOS · AI Agent Platform
-      </div>
-    </td></tr>
-  </table>
-</body>
-</html>"""
-
-
 async def send_verification_code(email: str, purpose: str) -> dict:
     """
     发送验证码
@@ -155,7 +96,11 @@ async def send_verification_code(email: str, purpose: str) -> dict:
         import asyncio
         purpose_text = "登录" if purpose == "login" else "注册"
         subject = f"验证码 — AgenticOS {purpose_text}"
-        html_body = _build_code_email_html(code, purpose)
+        # 模板统一在 email_templates 里维护：三封邮件共享同一套设计令牌，
+        # 改配色/字重/间距只需改一处。
+        from app.services import email_templates
+
+        html_body = email_templates.build_verification_code(code, purpose)
 
         loop = asyncio.get_running_loop()
         success = await loop.run_in_executor(

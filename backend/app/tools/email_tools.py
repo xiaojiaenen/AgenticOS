@@ -404,6 +404,20 @@ def _is_date_in_range(date_header: str | None, since: str, before: str) -> bool:
     return True
 
 
+def _auto_button_label(url: str | None) -> str:
+    """按钮没给文字时按链接猜一个 —— 常见域名给固定文案，其余用「查看详情」。"""
+    u = (url or "").strip().lower()
+    if not u:
+        return ""
+    if "meeting" in u or "calendar" in u:
+        return "查看日程"
+    if "docs" in u or "document" in u:
+        return "打开文档"
+    if "chat" in u or "session" in u:
+        return "回到对话"
+    return "查看详情"
+
+
 def register_email_tools(registry: ToolRegistry):
     """注册邮件工具到 ToolRegistry"""
 
@@ -425,13 +439,14 @@ def register_email_tools(registry: ToolRegistry):
 
             # 列出所有文件夹
             status, folder_list = imap.list()
-            imap.logout()
 
             if status != "OK":
+                imap.logout()
                 return "❌ 获取文件夹列表失败"
 
             # modified UTF-7 解码：中文自定义目录正常显示（Coremail 等）
             mailboxes = _list_mailboxes(imap)
+            imap.logout()
             folders = [display for _, display in mailboxes]
 
             if not folders:
@@ -814,6 +829,9 @@ def register_email_tools(registry: ToolRegistry):
         body: str,
         cc: str | None = None,
         is_html: bool = False,
+        template: str | None = None,
+        button_label: str | None = None,
+        button_url: str | None = None,
     ) -> str:
         """
         发送邮件（需要用户确认后才能发送）
@@ -821,13 +839,43 @@ def register_email_tools(registry: ToolRegistry):
         Args:
             to: 收件人邮箱地址，多个用逗号分隔
             subject: 邮件主题
-            body: 邮件正文
+            body: 邮件正文。template 为空时按 is_html 决定纯文本/HTML 直发；
+                  指定 template 时，body 作为「正文内容」填进模板。
             cc: 抄送邮箱地址，多个用逗号分隔（可选）
-            is_html: 正文是否为 HTML 格式（默认 false，纯文本）
+            is_html: 正文是否为 HTML 格式（仅 template 为空时生效，默认 false 纯文本）
+            template: 可选，用系统设计好的邮件模板渲染正文，取值：
+                      ``notice``（通用通知，深底印刷风格）。
+                      用模板时正文段落用空行分隔，会做成带品牌视觉的 HTML。
+            button_label: 模板里的行动按钮文字（可选，需同时给 button_url）
+            button_url: 模板里的行动按钮链接（可选，需同时给 button_label）
         """
         creds = _get_credentials()
         if not creds:
             return "❌ 尚未配置邮箱。请在侧边栏点击「邮箱设置」配置邮箱凭据。"
+
+        # 用系统模板渲染：body 按空行分段，套进统一的深底印刷视觉
+        if template:
+            fname = (template or "").strip().lower()
+            if fname not in ("notice", "通知"):
+                return (
+                    f"❌ 未知模板：{template}。可用模板：notice（通用通知）。"
+                    "不需要模板时请不要传 template。"
+                )
+            from app.services import email_templates
+
+            paragraphs = [p for p in (body or "").split("\n\n") if p.strip()]
+            if not paragraphs:
+                return "❌ 正文为空，无法套用模板。"
+            html_body = email_templates.build_general_message(
+                subject,
+                paragraphs,
+                eyebrow="通知",
+                button_label=(button_label or "").strip() or _auto_button_label(button_url),
+                button_url=(button_url or "").strip(),
+                signer="此邮件由 AgenticOS 邮箱助手发送",
+            )
+            body = html_body
+            is_html = True
 
         email_addr = str(creds["email"])
         password = str(creds["password"])
