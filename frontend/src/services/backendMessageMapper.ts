@@ -98,19 +98,21 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {
       const reasoningText = msg.reasoning_content || undefined;
 
       // ── 5.5 空 assistant 气泡过滤 ──
-      // agent 是多轮工具循环，被打断（点停止）后停在 tool_calls 中间，
-      // 没有最终文本落库；此时这条 assistant 只剩过渡 content（'\n\n'
-      // 之类）+ tool_calls。独立渲染就是一只空泡。它的工具信息由下一轮
-      // assistant（或本条）承载，有实际内容的才保留：
+      // agent 是多轮工具循环，被打断（点停止 / 撞步骤上限）后停在 tool_calls
+      // 中间，没有最终文本落库；此时这条 assistant 只剩过渡 content（'\n\n'
+      // 之类）或干脆为空。有实际内容的才保留：
       //   - 有可见文本 → 正常保留
       //   - 有 A2UI/图表产物 → 保留（产物就是这条消息的内容）
       //   - 有思考内容 → 保留（思考就是可见内容）
+      //   - 有工具调用 → 保留（工具链本身就是内容；且它的 tool 结果消息
+      //     要靠这条 assistant 的 tool_call_id 才能配对，丢掉 = 工具历史断链）
       //   - 什么都没有 → 跳过
       const hasVisibleText = Boolean(msg.content?.trim());
       const hasArtifacts =
         (a2uiMessages && a2uiMessages.length > 0) ||
         (chartMessages && chartMessages.length > 0);
-      if (!hasVisibleText && !hasArtifacts && !reasoningText) {
+      const hasToolCalls = Boolean(toolCalls && toolCalls.length > 0);
+      if (!hasVisibleText && !hasArtifacts && !reasoningText && !hasToolCalls) {
         continue;
       }
 

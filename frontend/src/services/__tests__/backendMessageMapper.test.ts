@@ -99,7 +99,9 @@ describe('mapBackendMessages', () => {
     expect(msgs[1].toolCalls).toHaveLength(1);
   });
 
-  it('5.5 空 assistant：无文本/产物/思考的纯工具过渡泡被跳过', () => {
+  it('5.5 空 assistant：带工具调用的过渡泡必须保留（工具链就是内容）', () => {
+    // 撞步骤上限 / 停止的轮次里，assistant 常常只有 tool_calls、没有正文。
+    // 丢掉它 = 工具链历史断链，而且它的 tool 结果消息再无归属。
     const raw: BackendMessage[] = [
       { role: 'user', content: 'hi' },
       {
@@ -108,6 +110,20 @@ describe('mapBackendMessages', () => {
         tool_calls: [{ id: 'tc1', name: 'calc', arguments: {} }],
       },
       { role: 'tool', tool_call_id: 'tc1', content: '2' },
+      assistant(undefined, { content: '答案是 2' }),
+    ];
+    const msgs = mapBackendMessages(raw);
+    expect(msgs).toHaveLength(3);
+    expect(msgs[1].toolCalls).toEqual([
+      { id: 'tc1', name: 'calc', status: 'success', arguments: {}, result: '2' },
+    ]);
+    expect(msgs[2].text).toBe('答案是 2');
+  });
+
+  it('5.5 空 assistant：无文本/产物/思考/工具调用的纯空泡被跳过', () => {
+    const raw: BackendMessage[] = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: '' },
       assistant(undefined, { content: '答案是 2' }),
     ];
     const msgs = mapBackendMessages(raw);

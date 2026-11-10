@@ -52,6 +52,15 @@ _RE_JS_URL = re.compile(r"(?:javascript|vbscript)\s*:|data\s*:\s*text/html", re.
 _RE_FOREIGN_OBJECT = re.compile(r"<foreignObject\b[^>]*>.*?</foreignObject\s*>", re.IGNORECASE | re.DOTALL)
 _RE_SELF_CLOSING_FOREIGN_OBJECT = re.compile(r"<foreignObject\b[^>]*/\s*>", re.IGNORECASE)
 
+# 步骤上限：上游原文 → 面向用户的可操作说法。
+# 原文同时是 ThinkingHistoryCompatibilityMiddleware 的匹配键，只在展示层替换。
+_MAX_STEPS_RAW_MESSAGE = "任务未完成，已达到最大步骤限制。"
+_MAX_STEPS_USER_MESSAGE = (
+    "已达到本轮的步骤上限，执行在这里中断了。\n\n"
+    "之前每一步的工具调用结果都还在上下文里 —— 直接发「继续」我就能从断点接着做。"
+    "如果这个任务经常超限，可以在「智能体配置」里调高该智能体的「最大步骤数」。"
+)
+
 
 def _sanitize_svg(svg: str) -> str:
     """移除 SVG 中的脚本向量：<script>、on* 事件属性、javascript:/data:text/html: URL、<foreignObject>。"""
@@ -62,6 +71,30 @@ def _sanitize_svg(svg: str) -> str:
     svg = _RE_EVENT_ATTR.sub("", svg)
     svg = _RE_JS_URL.sub("", svg)
     return svg
+
+
+def _has_visible_body(msg: Any) -> bool:
+    """这条消息在气泡里是否还有「能看的东西」。
+
+    判断「空 assistant 要不要保留」时不能只看正文：wuwei 每轮工具调用都会
+    留一条 content="" 的 assistant 承载 tool_calls，这类确实该丢（前端渲染
+    成空泡）。但下面两种是有内容的，丢了就是历史丢失：
+
+    - **有思考**：5.5 之后思考是气泡的可见内容；
+    - **有产物**：A2UI 界面 / 图表挂在 metadata 上，本身就是这条消息的内容。
+
+    「达到最大步骤」「用户停止」这类中断轮次的最后一条 assistant 往往只有
+    思考、没有正文，正是最需要保留的那条。
+    """
+    if getattr(msg, "reasoning_content", None):
+        return True
+    meta = getattr(msg, "metadata", None) or {}
+    if isinstance(meta, dict):
+        for key in ("a2ui", "chart"):
+            value = meta.get(key)
+            if isinstance(value, list) and value:
+                return True
+    return False
 
 
 @router.post("/stream", summary="以流式方式返回 Wuwei 智能体响应")
@@ -277,7 +310,13 @@ async def get_session_messages(
         #    content="" 的 assistant 承载 tool_calls。前端渲染成空白气泡，
         #    一轮里能堆十几个。它的 tool_calls 信息由后续 tool 消息承载，
         #    这里直接跳过（真正有文本的 assistant 才展示）。
-        if role == "assistant" and not content.strip():
+        #
+        #    但**有思考内容 / 有工具调用的不能跳**：5.5 之后思考是气泡的
+        #    可见内容。尤其在「达到最大步骤」「用户停止」这类中断轮次里，
+        #    最后一条 assistant 往往只有思考没有正文 —— 跳掉它，整轮历史
+        #    就只剩「任务未完成，已达到最大步骤限制。」一句，前面的思考与
+        #    工具链全部消失。
+        if role == "assistant" and not content.strip() and not _has_visible_body(msg):
             continue
         # 3) 空 tool 结果（内容为空且无意义的）
         if role == "tool" and not content.strip():
@@ -294,6 +333,13 @@ async def get_session_messages(
                 content = strip_memory_context(content)
             except Exception:  # noqa: BLE001 -- 剥离失败按原样返回
                 pass
+
+        # 5) 步骤上限：上游写的是一句干巴巴的「任务未完成，已达到最大步骤限制。」，
+        #    用户看不出「发生了什么 / 我该怎么办」。这里换成可操作的说法。
+        #    只在**展示层**替换，不动上下文里的原文（那句是
+        #    ThinkingHistoryCompatibilityMiddleware 的匹配键，必须与上游一致）。
+        if role == "assistant" and content.strip() == _MAX_STEPS_RAW_MESSAGE:
+            content = _MAX_STEPS_USER_MESSAGE
 
         entry: dict[str, Any] = {
             "role": role,

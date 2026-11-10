@@ -63,6 +63,9 @@ _REJECTED_TOOL_NAME = "__tool_rejected__"
 _TOOL_RESULT_CONTEXT_LIMIT = 100000
 _CHART_MARKER = "__ECHART_JSON__"
 
+# 上游 ``agent_runner.py`` 达到步骤上限时写进上下文的原文。这个字符串是
+# ``ThinkingHistoryCompatibilityMiddleware`` 的匹配键，**必须与上游逐字一致**，
+# 不要为了改文案动它 —— 面向用户的说法在序列化层（``agent.py``）替换。
 MAX_STEPS_LIMIT_MESSAGE = "任务未完成，已达到最大步骤限制。"
 
 SKILL_INSTRUCTION = (

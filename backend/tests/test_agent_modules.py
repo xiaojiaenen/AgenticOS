@@ -280,14 +280,42 @@ class TestMessagesSerializationReasoning:
         assert getattr(msg, "reasoning_content") == "先复制模板"
 
     def test_empty_assistant_without_reasoning_is_filtered(self):
-        """content 为空的 assistant 且无 reasoning：不应出现在 result 里。"""
+        """content 为空的 assistant 且无 reasoning/产物：不应出现在 result 里。"""
         import inspect
 
         from app.api.v1.endpoints.agent import get_session_messages
 
         src = inspect.getsource(get_session_messages)
-        # 过滤逻辑：role == "assistant" and not content.strip() → continue
+        # 过滤逻辑：role == "assistant" and not content.strip() and not _has_visible_body(msg)
         assert 'not content.strip()' in src
+        assert '_has_visible_body' in src, "空 assistant 的过滤判据丢了 reasoning/产物分支"
+
+    def test_has_visible_body_keeps_reasoning_and_artifacts(self):
+        """``_has_visible_body``：思考与产物都算「气泡里能看的东西」。
+
+        回归背景：撞步骤上限 / 用户停止的轮次里，最后一条 assistant 往往
+        只有思考没有正文。只看 ``content.strip()`` 会把这类消息全丢掉，
+        用户刷新后整轮历史只剩「任务未完成，已达到最大步骤限制。」一句。
+        实测一个 29 条消息的会话里，旧判据丢掉了 6 条带思考的工具轮次。
+        """
+        from wuwei.core.message import AIMessage
+
+        from app.api.v1.endpoints.agent import _has_visible_body
+
+        # 只有思考 → 保留（思考是可见内容）
+        assert _has_visible_body(AIMessage(content="", reasoning_content="先复制模板"))
+        # 只有 A2UI 产物 → 保留
+        assert _has_visible_body(
+            AIMessage(content="", metadata={"a2ui": [{"surfaceId": "s1"}]})
+        )
+        # 只有图表 → 保留
+        assert _has_visible_body(
+            AIMessage(content="", metadata={"chart": [{"option": {}}]})
+        )
+        # 什么都没有 → 丢弃（纯工具调用的过渡泡）
+        assert not _has_visible_body(AIMessage(content=""))
+        # 空 metadata / 空列表不算产物
+        assert not _has_visible_body(AIMessage(content="", metadata={"a2ui": []}))
 
 
 class TestDecisionOwnership:
