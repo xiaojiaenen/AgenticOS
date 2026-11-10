@@ -104,3 +104,33 @@ export async function resetSiteAccess(deployId: number): Promise<{ access_url: s
     '重置访问链接失败',
   );
 }
+
+// ─── 网站预览令牌 ───
+
+export type PreviewTokenResponse = {
+  token: string;
+  /** 可直接给 iframe src 用的完整路径（令牌在 path 段，相对资源能继承前缀） */
+  url: string;
+  expires_in: number;
+};
+
+/**
+ * 现签一个预览 URL（15 分钟 TTL）。
+ *
+ * 为什么需要"现签"而不是复用旧 URL：预览令牌绑定用户+会话+项目且短时有效，
+ * 内存里缓存的 artifact.previewUrl 一旦超过 TTL，iframe 就会渲染 403 错误页
+ * （典型场景：页面开着超过 15 分钟后点「重新打开产物预览」）。凡是从内存
+ * 复用 artifact 的入口，打开面板前都应先调这里拿新 URL；拿不到时调用方
+ * 退回 preview_html 内联 srcDoc（自包含、永不过期）。
+ */
+export async function issueWebsitePreviewUrl(
+  sessionId: string,
+  projectSlug: string,
+): Promise<PreviewTokenResponse> {
+  const qs = `slug=${encodeURIComponent(projectSlug)}&session_id=${encodeURIComponent(sessionId)}`;
+  return apiFetch<PreviewTokenResponse>(
+    `/api/v1/website/preview-token?${qs}`,
+    { method: 'POST' },
+    '签发预览链接失败',
+  );
+}

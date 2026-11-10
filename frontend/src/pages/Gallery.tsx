@@ -8,9 +8,11 @@
  * `pointer-events-none` + 缩放渲染首屏（比纯色块直观，比截图轻）。
  */
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
 import {
+  ArrowLeft,
   Copy,
   ExternalLink,
   Globe,
@@ -53,21 +55,56 @@ const GalleryCard = ({
   const isPrivate = item.visibility === 'private';
   // 公开走 nginx /sites/；私密走带签名的私有端点
   const openUrl = isPrivate ? item.access_url : item.deploy_url;
-  const displayUrl = (openUrl || '').replace(/^\//, '');
+
+  // 预览 iframe 很重（每卡一个完整页面渲染）：滚到视口内才挂载，
+  // 加载完成前展示品牌占位卡 —— 避免整屏「白板卡」（走查问题）。
+  const cardRef = React.useRef<HTMLDivElement | null>(null);
+  const [inView, setInView] = React.useState(false);
+  const [previewLoaded, setPreviewLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    const el = cardRef.current;
+    if (!el || inView) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setInView(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => e.isIntersecting && setInView(true)),
+      { rootMargin: '200px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [inView]);
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="group overflow-hidden rounded-xl border border-slate-200/80 bg-[var(--surface-1)] shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-zinc-800"
+      ref={cardRef}
+      className="group overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-md"
     >
-      {/* 预览条：用站点标题 + 渐变（真实 iframe 缩略渲染开销大，点击打开即可见全貌） */}
+      {/* 预览条：占位卡在底层，iframe 懒挂载 + onLoad 淡入盖住占位 */}
       <div className="relative h-28 overflow-hidden border-b border-[var(--border-subtle)] bg-gradient-to-br from-slate-100 to-slate-50 dark:from-zinc-800 dark:to-zinc-900">
-        {openUrl && (
+        <div
+          className={cn(
+            'absolute inset-0 flex flex-col items-center justify-center gap-1.5 transition-opacity duration-300',
+            previewLoaded ? 'opacity-0' : 'opacity-100',
+          )}
+          aria-hidden="true"
+        >
+          <Globe size={20} className="text-[var(--muted-foreground)]/50" />
+          <span className="max-w-[80%] truncate px-3 text-[10px] font-medium text-[var(--muted-foreground)]/70">
+            {item.project_slug}
+          </span>
+        </div>
+        {openUrl && inView && (
           <iframe
             title={`gallery-${item.project_slug}`}
             src={openUrl}
-            className="pointer-events-none absolute left-0 top-0 h-[560px] w-[1280px] origin-top-left scale-[0.28] border-0 bg-white"
+            onLoad={() => setPreviewLoaded(true)}
+            className={cn(
+              'pointer-events-none absolute left-0 top-0 h-[560px] w-[1280px] origin-top-left scale-[0.28] border-0 bg-white transition-opacity duration-300',
+              previewLoaded ? 'opacity-100' : 'opacity-0',
+            )}
             sandbox="allow-scripts"
             loading="lazy"
             tabIndex={-1}
@@ -81,7 +118,7 @@ const GalleryCard = ({
       <div className="p-4">
         <div className="mb-2 flex items-center gap-2">
           <Globe size={14} className="shrink-0 text-[var(--muted-foreground)]" />
-          <h3 className="min-w-0 truncate text-sm font-semibold text-[var(--foreground)]">
+          <h3 className="min-w-0 truncate text-sm font-semibold text-[var(--foreground)]" title={item.project_slug}>
             {item.project_slug}
           </h3>
           <span className="ml-auto shrink-0 rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--muted-foreground)]">
@@ -99,7 +136,7 @@ const GalleryCard = ({
               href={openUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)] transition-all hover:opacity-90 active:scale-[0.98]"
             >
               <ExternalLink size={12} /> 打开
             </a>
@@ -139,12 +176,8 @@ const GalleryCard = ({
             </Button>
           )}
         </div>
-
-        {isPrivate && displayUrl && (
-          <p className="mt-2 truncate text-[10px] text-[var(--muted-foreground)]" title={displayUrl}>
-            {displayUrl}
-          </p>
-        )}
+        {/* 之前这里直接打印原始 API 路径（api/v1/website/site/...），技术细节泄漏观感差；
+            复制按钮已覆盖取链需求，不再展示 */}
       </div>
     </motion.div>
   );
@@ -152,6 +185,7 @@ const GalleryCard = ({
 
 export const GalleryPage = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [filter, setFilter] = React.useState<Filter>('all');
 
   const galleryQuery = useQuery({
@@ -176,6 +210,20 @@ export const GalleryPage = () => {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8">
+      {/* /gallery 是独立路由、不带侧栏，必须有显式返回入口 */}
+      <button
+        type="button"
+        onClick={() => navigate('/chat')}
+        className={cn(
+          'mb-5 inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors',
+          'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]',
+        )}
+      >
+        <ArrowLeft size={16} />
+        返回对话
+      </button>
+
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-semibold text-[var(--foreground)]">
@@ -238,6 +286,7 @@ export const GalleryPage = () => {
           </p>
         </div>
       ) : (
+        // 不做入场 stagger：同 AgentStore，避免 e2e 可见性计数竞态
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((item) => (
             <GalleryCard

@@ -7,6 +7,7 @@
  *   GET /agent/sessions/{id}/versions/{kind}/{reference}
  */
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { History, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../shadcn/tooltip';
@@ -59,6 +60,37 @@ export const ArtifactVersionBar: React.FC<ArtifactVersionBarProps> = ({
   const [isOpen, setIsOpen] = React.useState(false);
   const [loadingRef, setLoadingRef] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const panelRef = React.useRef<HTMLDivElement | null>(null);
+  const [panelStyle, setPanelStyle] = React.useState<React.CSSProperties>({});
+
+  // 面板挂到 body（见下方说明），因此必须自己算锚点坐标：默认贴着触发按钮
+  // 右对齐、向下展开；下方空间不足时翻到按钮上方。
+  React.useLayoutEffect(() => {
+    if (!isOpen) return;
+    const place = () => {
+      const anchor = triggerRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const panelHeight = panelRef.current?.offsetHeight ?? 320;
+      const panelWidth = panelRef.current?.offsetWidth ?? 288;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const openUp = spaceBelow < panelHeight + 16 && rect.top > panelHeight + 16;
+      setPanelStyle({
+        top: openUp ? undefined : rect.bottom + 8,
+        bottom: openUp ? window.innerHeight - rect.top + 8 : undefined,
+        // 右对齐触发按钮；窗口太窄时兜住左边，避免溢出屏幕
+        left: Math.max(8, Math.min(window.innerWidth - panelWidth - 8, rect.right - panelWidth)),
+      });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [isOpen, versions.length]);
 
   React.useEffect(() => {
     if (!sessionId) return;
@@ -122,6 +154,7 @@ export const ArtifactVersionBar: React.FC<ArtifactVersionBarProps> = ({
       <Tooltip>
         <TooltipTrigger asChild>
           <button
+            ref={triggerRef}
             onClick={() => setIsOpen((v) => !v)}
             className={cn(
               'flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-semibold transition-all duration-200 active:scale-95',
@@ -146,16 +179,20 @@ export const ArtifactVersionBar: React.FC<ArtifactVersionBarProps> = ({
         </TooltipContent>
       </Tooltip>
 
-      {isOpen && (
+      {isOpen && createPortal(
         <>
           {/* 点击外部关闭 */}
           <button
-            className="fixed inset-0 z-40 cursor-default"
+            className="fixed inset-0 z-[60] cursor-default"
             onClick={() => setIsOpen(false)}
             aria-hidden
             tabIndex={-1}
           />
-          <div className="absolute right-0 top-10 z-50 w-72 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-xl">
+          <div
+            ref={panelRef}
+            style={panelStyle}
+            className="fixed z-[61] w-72 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-xl"
+          >
             <div className="border-b border-[var(--border-subtle)] px-3 py-2 text-[11px] font-semibold text-[var(--muted-foreground)]">
               历史版本（{versions.length}）
             </div>
@@ -203,9 +240,10 @@ export const ArtifactVersionBar: React.FC<ArtifactVersionBarProps> = ({
               </div>
             )}
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
     </TooltipProvider>
-  );;
+  );
 };
