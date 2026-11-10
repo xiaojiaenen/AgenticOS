@@ -135,13 +135,21 @@ class ProviderPreset:
     notes: str = ""
 
 
-# 用途枚举。前四项对应「一个系统里其实有四种 LLM 负载」，
-# 而不是四个厂商 —— 这也正是企业网关的静态注册表里 base/reasoner/agent/vl 的划分方式。
+# 用途枚举：只保留**运行时真正会消费**的角色。
+#
+# 曾经的 reasoner（深度思考）与 vision（图像理解）已移除 —— 全仓没有任何
+# 调用点会传这两个 role，用户绑了也不会生效，却占着界面让人以为配好了。
+# 需要时再加回，但必须同时接上消费方，否则就是死配置。
+#
+# 两组角色的「留空」语义不同（前端据此渲染不同文案）：
+# - chat / fast：走 /chat/completions，留空 → roles.chat → provider.model，
+#   即真正的「跟随主模型」（见 spec.resolve_model_for_role）。
+# - image / embedding：是**独立的端点**（/images/generations、/embeddings），
+#   留空不会回退主模型，而是掉到环境变量配置或直接不可用
+#   （见 resolve_models.resolve_embedding_endpoint / resolve_image_endpoint）。
 MODEL_ROLES: dict[str, str] = {
     "chat": "主对话（Agent 编排）",
-    "reasoner": "深度思考（复杂推理、长链路规划）",
     "fast": "轻量任务（会话标题、摘要、润色）",
-    "vision": "图像理解",
     "image": "文生图",
     # 向量化：知识库检索与记忆召回都依赖它。
     #
@@ -152,12 +160,18 @@ MODEL_ROLES: dict[str, str] = {
     "embedding": "文本向量化（知识库检索、记忆召回）",
 }
 
+# 留空时会回退到主模型的角色（走 /chat/completions 的那一类）。
+# 不在这个集合里的角色，留空 = 未绑定。
+ROLES_FOLLOWING_MAIN: frozenset[str] = frozenset({"chat", "fast"})
+
 ROLE_CHAT = "chat"
-ROLE_REASONER = "reasoner"
 ROLE_FAST = "fast"
-ROLE_VISION = "vision"
 ROLE_IMAGE = "image"
 ROLE_EMBEDDING = "embedding"
+
+# 已下线的角色：存库的 extra["roles"] 里若还留着，加载时静默丢弃。
+# 不能报错 —— 那是历史数据，报错会把整个 provider 打成不可用。
+RETIRED_ROLES: frozenset[str] = frozenset({"reasoner", "vision"})
 
 
 GREE_BAITONG = ProviderPreset(

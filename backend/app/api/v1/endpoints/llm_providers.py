@@ -903,7 +903,15 @@ def list_provider_models(
         "total": len(items),
         "roles": (provider_spec.parse_extra(row.extra_json).get("roles") or {}),
         "role_options": [
-            {"value": value, "label": label} for value, label in presets.MODEL_ROLES.items()
+            {
+                "value": value,
+                "label": label,
+                # 留空时是否真的回退到主模型。前端据此显示不同文案 ——
+                # chat/fast 留空 = 跟随主模型；image/embedding 留空 = 未绑定
+                # （它们走独立端点，主模型做不了向量化/生图）。
+                "follows_main": value in presets.ROLES_FOLLOWING_MAIN,
+            }
+            for value, label in presets.MODEL_ROLES.items()
         ],
     }
 
@@ -945,9 +953,40 @@ async def discover_provider_models(
         api_key=spec.api_key,
     )
 
-    added = updated = 0
+    added = updated = removed = 0
+    cleared_roles: list[str] = []
     if models and persist:
-        added, updated = catalog.upsert_models(db, provider_id, models)
+        # 先算出「这次同步会让哪些模型名消失」，再执行 —— 顺序不能反，
+        # prune 之后目录里就查不到它们的名字了。
+        incoming_keys = {str(m.get("model_key") or "").strip() for m in models}
+        disappearing = catalog.models_removed_by_prune(db, provider_id, incoming_keys)
+
+        added, updated, removed = catalog.upsert_models(
+            db, provider_id, models, prune=True
+        )
+
+        # 清掉指向已下架模型的用途绑定。用户选了「完全对齐上游」，绑定会
+        # 失效 —— 但不能留脏数据：roles 里挂着一个不存在的模型名，界面显示
+        # 已绑定、调用时静默回退，是最难排查的一种状态。
+        if disappearing:
+            extra = provider_spec.parse_extra(row.extra_json)
+            roles = extra.get("roles") if isinstance(extra.get("roles"), dict) else {}
+            stale = {
+                key: value
+                for key, value in roles.items()
+                if str(value).strip() in disappearing
+            }
+            if stale:
+                for key in stale:
+                    roles.pop(key, None)
+                extra["roles"] = roles
+                provider_spec.update_provider(db, row, fields={"extra": extra})
+                cleared_roles = sorted(stale)
+                logger.info(
+                    "同步对齐：模型 %s 已下架，清空对应绑定 %s",
+                    sorted(disappearing), cleared_roles,
+                )
+
         db.commit()
 
     _audit(
@@ -958,6 +997,8 @@ async def discover_provider_models(
             "count": len(models),
             "added": added,
             "updated": updated,
+            "removed": removed,
+            "cleared_roles": cleared_roles,
             "persist": persist,
             "message": (meta.get("message") or "")[:200],
         },
@@ -968,7 +1009,50 @@ async def discover_provider_models(
         "models": models,
         "added": added,
         "updated": updated,
+        "removed": removed,
+        # 因模型下架而被清空的用途绑定，前端据此提示用户
+        "cleared_roles": cleared_roles,
     }
+
+
+@router.post("/{provider_id}/models", status_code=status.HTTP_201_CREATED)
+def create_provider_model(
+    provider_id: int,
+    payload: dict,
+    http_request: Request,
+    current_user: UserModel = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    """手动往目录里加一个模型。
+
+    为什么需要：同步只覆盖「上游 /models 能列出来的模型」。有些网关
+    （自建 vLLM、部分企业代理）不暴露该接口，或只列一部分 —— 这时
+    管理员仍需把模型名登记进目录，才能用可搜索的选择器绑定用途。
+
+    与同步的关系：手动加的条目在下次同步时若上游没有，**会被 prune 删掉**
+    （同步即对齐上游）。这是刻意的 —— 否则「手动加的」和「上游真有的」
+    混在一起，用户无法判断哪个是真的可用。
+    """
+    _require_provider(db, provider_id)
+    name = str(payload.get("model_name") or payload.get("model_key") or "").strip()
+    if not name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="模型名不能为空"
+        )
+    task_type = str(payload.get("task_type") or "text-generation").strip()
+
+    catalog.upsert_models(
+        db,
+        provider_id,
+        [{"model_key": name, "model_name": name, "task_type": task_type}],
+    )
+    db.commit()
+
+    _audit(
+        http_request, db, action="llm_provider.model_create", current_user=current_user,
+        provider_id=provider_id, detail={"model_name": name, "task_type": task_type},
+    )
+    return {"model_name": name, "task_type": task_type}
 
 
 @router.delete("/{provider_id}/models/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -1017,7 +1101,7 @@ def update_provider_roles(
     # embedding 与 image 是**不同的端点**，它们的模型名不会出现在聊天模型
     # 目录里（/models 列的是聊天模型）。卡目录会让用户永远绑不上向量化与
     # 生图模型，只能回去改环境变量。
-    CHAT_ROLES = {"chat", "reasoner", "fast", "vision"}
+    CHAT_ROLES = set(presets.ROLES_FOLLOWING_MAIN)
     available = catalog.model_names(db, provider_id)
     if available:
         missing = [

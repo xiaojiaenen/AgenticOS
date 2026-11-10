@@ -355,15 +355,17 @@ def test_catalog_upsert_is_idempotent(gateway_provider):
     """反复点「同步」不能把已有的行刷成重复行。"""
     items = [item.as_dict() for item in discovery.parse_registry_models(REGISTRY_PAYLOAD)]
     with create_db_session() as db:
-        added, _ = catalog.upsert_models(db, gateway_provider, items)
+        added, _, _ = catalog.upsert_models(db, gateway_provider, items)
         db.commit()
         assert added == 2
 
     with create_db_session() as db:
-        added, updated = catalog.upsert_models(db, gateway_provider, items)
+        added, updated, removed = catalog.upsert_models(db, gateway_provider, items)
         db.commit()
         assert added == 0
         assert updated == 2
+        # 默认 prune=False：只增不删，保持历史行为
+        assert removed == 0
         assert len(catalog.list_models(db, gateway_provider)) == 2
 
 

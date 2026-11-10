@@ -8,8 +8,8 @@
  * 所以这一屏做三件事：
  *   1. **从上游同步清单**（企业网关是公开注册表，OpenAI 兼容是 /models）；
  *   2. **让模型名可选而不是可背**；
- *   3. **按用途绑定** —— 对话 / 轻任务 / 深度思考 / 图像理解 / 文生图各用一个
- *      模型。企业网关的资源是按模型配的，混用会白烧额度。
+ *   3. **按用途绑定** —— 对话 / 轻任务 / 文生图 / 向量化各用一个模型。
+ *      企业网关的资源是按模型配的，混用会白烧额度。
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,13 +17,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { AlertTriangle, Loader2, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { Button } from '@/components/shadcn/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/shadcn/select';
+import { Combobox } from '@/components/shadcn/combobox';
 import { DataTable } from './data-table';
 import { StatusPill } from './shared';
 import {
@@ -46,14 +40,23 @@ const TASK_LABELS: Record<string, string> = {
   'any-to-any': '多模态',
 };
 
-/** 用途说明。和 presets.MODEL_ROLES 保持一致，措辞面向使用者而非开发者 */
+/** 用途说明。和 presets.MODEL_ROLES 保持一致，措辞面向使用者而非开发者。
+ *
+ * 已移除 reasoner / vision：它们没有任何运行时消费方，绑了不生效，
+ * 留着只会让人以为配好了。需要时再加回，但必须同时接上消费方。 */
 const ROLE_HINTS: Record<string, string> = {
   chat: '主对话与 Agent 编排，质量最敏感',
-  reasoner: '复杂推理、长链路规划，通常更慢更贵',
   fast: '会话标题、摘要、提示词润色等轻任务',
-  vision: '读图、读扫描件',
   image: '文生图',
+  embedding: '知识库检索、记忆召回的文本向量化',
 };
+
+/** 留空时**不会**回退主模型的角色，placeholder 要说明真实行为。
+ *
+ * image / embedding 走独立端点（/images/generations、/embeddings），
+ * 主模型做不了这些事，所以「跟随主模型」对它们是误导。
+ * 权威来源是后端 role_options[].follows_main，这里只是兜底默认值。 */
+const NON_FOLLOWING_ROLES = new Set(['image', 'embedding']);
 
 const EMPTY_VALUE = '__unset__';
 
@@ -151,7 +154,20 @@ export function LlmProviderModelPanel({ provider }: { provider: LlmProvider }) {
     mutationFn: () => discoverProviderModels(provider.id, true),
     onSuccess: (result) => {
       if (result.ok) {
-        toast.success(`已同步 ${result.models.length} 个模型（新增 ${result.added}）`);
+        // 三个数都要显示：同步现在是「完全对齐上游」，除了新增/更新还会删掉
+        // 上游已下架的模型。只报「新增 N」会让用户以为同步只做加法。
+        const parts = [`新增 ${result.added}`, `更新 ${result.updated}`];
+        if (result.removed > 0) parts.push(`移除 ${result.removed}`);
+        toast.success(`已同步 ${result.models.length} 个模型（${parts.join(' / ')}）`);
+
+        // 被删模型若正被用途绑定，后端已同步清空那些绑定 —— 必须明确告知，
+        // 否则用户下次调用发现「怎么不走我配的模型了」却找不到原因。
+        if (result.cleared_roles?.length) {
+          toast.warning(
+            `模型已下架，以下用途绑定被重置为「跟随主模型」：${result.cleared_roles.join('、')}`,
+            { duration: 8000 },
+          );
+        }
         setDirty(false);
         invalidate();
       } else {
@@ -259,32 +275,40 @@ export function LlmProviderModelPanel({ provider }: { provider: LlmProvider }) {
         ) : null}
 
         <div className="grid gap-2 sm:grid-cols-2">
-          {roleOptions.map((role) => (
-            <div key={role.value} className="grid gap-1.5">
-              <div className="flex flex-wrap items-baseline gap-1.5">
-                <span className="text-xs font-semibold text-[var(--foreground)]">{role.label}</span>
-                <span className="text-[11px] font-medium text-[var(--muted-foreground)]">
-                  {ROLE_HINTS[role.value] ?? ''}
-                </span>
+          {roleOptions.map((role) => {
+            // 后端 role_options[].follows_main 是权威来源；老响应没有该字段时
+            // 按 NON_FOLLOWING_ROLES 兜底，避免文案回退成误导性的「跟随主模型」。
+            const followsMain = role.follows_main ?? !NON_FOLLOWING_ROLES.has(role.value);
+            const unsetLabel = followsMain ? '跟随主模型' : '未绑定（用环境变量配置）';
+            const current = roles[role.value];
+            return (
+              <div key={role.value} className="grid gap-1.5">
+                <div className="flex flex-wrap items-baseline gap-1.5">
+                  <span className="text-xs font-semibold text-[var(--foreground)]">{role.label}</span>
+                  <span className="text-[11px] font-medium text-[var(--muted-foreground)]">
+                    {ROLE_HINTS[role.value] ?? ''}
+                  </span>
+                </div>
+                <Combobox
+                  aria-label={`${role.label}使用的模型`}
+                  options={[
+                    { value: EMPTY_VALUE, label: unsetLabel },
+                    ...modelNames.map((name) => ({ value: name, label: name })),
+                  ]}
+                  value={current ?? EMPTY_VALUE}
+                  onValueChange={(value) => setRole(role.value, value)}
+                  placeholder={unsetLabel}
+                  searchPlaceholder="搜索模型名…"
+                  emptyText="目录里没有匹配的模型"
+                />
+                {!followsMain ? (
+                  <p className="text-[11px] leading-relaxed text-[var(--muted-foreground)]">
+                    该用途走独立端点，留空不会用主模型 —— 会回退到环境变量配置，未配置则不可用。
+                  </p>
+                ) : null}
               </div>
-              <Select
-                value={roles[role.value] ?? EMPTY_VALUE}
-                onValueChange={(value) => setRole(role.value, value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="跟随主模型" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={EMPTY_VALUE}>跟随主模型</SelectItem>
-                  {modelNames.map((name) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <Button

@@ -816,7 +816,12 @@ def test_preset_list_is_exposed_in_listing():
     body = client.get("/api/v1/settings/llm-providers", headers=_auth_headers()).json()
     slugs = {item["slug"] for item in body["presets"]}
     assert "acme_gateway" in slugs
-    assert {item["value"] for item in body["model_roles"]} >= {"chat", "fast", "vision"}
+    # 只暴露运行时真正会消费的角色。reasoner / vision 已移除 ——
+    # 它们没有任何调用方，绑了也不生效，留着只会误导。
+    role_values = {item["value"] for item in body["model_roles"]}
+    assert role_values >= {"chat", "fast", "image", "embedding"}
+    assert "reasoner" not in role_values
+    assert "vision" not in role_values
 
 
 def test_account_pool_crud_endpoints():

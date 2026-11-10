@@ -16,8 +16,11 @@ const ENDPOINT = `${API_BASE_URL}/api/v1/settings/llm-providers`;
 
 export type ProviderType = 'openai_compatible' | 'enterprise_cookie';
 
-/** LLM 负载用途。企业网关常常按用途分模型。 */
-export type ModelRole = 'chat' | 'reasoner' | 'fast' | 'vision' | 'image';
+/** LLM 负载用途。企业网关常常按用途分模型。
+ *
+ * 已移除 reasoner / vision：没有任何运行时消费方，绑了不生效。
+ * 后端 MODEL_ROLES 是权威来源，这里只做类型标注。 */
+export type ModelRole = 'chat' | 'fast' | 'image' | 'embedding';
 
 export interface ProviderTypeOption {
   value: ProviderType;
@@ -39,6 +42,12 @@ export interface ProviderPreset {
 export interface RoleOption {
   value: string;
   label: string;
+  /** 留空时是否真的回退到主模型。
+   *
+   * chat / fast 走 /chat/completions，留空回退主模型；
+   * image / embedding 走独立端点，留空 = 未绑定（回退环境变量或不可用）。
+   * 前端据此显示不同 placeholder，避免「跟随主模型」的误导。 */
+  follows_main?: boolean;
 }
 
 export interface CredentialStatus {
@@ -212,6 +221,10 @@ export interface DiscoveryResult {
   }>;
   added: number;
   updated: number;
+  /** 同步会删掉上游已下架的模型（完全对齐上游） */
+  removed: number;
+  /** 因模型下架而被清空的用途绑定，需要提示用户 */
+  cleared_roles?: string[];
 }
 
 export interface AccountListResponse {

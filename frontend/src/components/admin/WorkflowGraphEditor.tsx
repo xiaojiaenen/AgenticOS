@@ -35,7 +35,12 @@ export const CONDITION_OPS = [
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD'];
 
-const LLM_ROLES = ['fast', 'chat', 'reasoner', 'vision'];
+// 工作流 LLM 节点可选的模型用途档。
+//
+// 只列**留空会回退主模型**的角色（chat / fast）—— 工作流节点走
+// /chat/completions，绑 image / embedding 会必然失败。reasoner / vision
+// 已从后端 MODEL_ROLES 移除（无运行时消费方），不再出现在这里。
+const LLM_ROLES = ['fast', 'chat'];
 
 export interface ParamFieldSpec {
   key: string;

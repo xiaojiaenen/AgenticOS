@@ -51,14 +51,25 @@ def to_dict(row: LlmModelCatalogModel) -> dict[str, Any]:
 
 
 def upsert_models(
-    db: Session, provider_id: int, items: list[dict[str, Any]]
-) -> tuple[int, int]:
+    db: Session,
+    provider_id: int,
+    items: list[dict[str, Any]],
+    *,
+    prune: bool = False,
+) -> tuple[int, int, int]:
     """按 ``model_key`` 合并。
 
-    返回 ``(新增数, 更新数)``。重复发现是常态（每次点「同步」都跑一次），
+    返回 ``(新增数, 更新数, 删除数)``。重复发现是常态（每次点「同步」都跑一次），
     所以必须是幂等的 —— 直接 delete + insert 会让模型 id 变化，进而让
     ``roles`` 里已经绑定的名字失去关联（虽然按 name 绑定其实不受影响，
     但界面上正在编辑的行会被刷掉）。
+
+    ``prune=True`` 时**完全对齐上游**：本地有、这次上游没返回的模型会被删掉。
+    这是「同步」应有的语义 —— 只增不删的话，上游下架的模型会永远留在目录里，
+    用户看到的清单和真实可用模型越差越远。
+
+    prune 的代价：被删模型若正被 ``roles`` 引用，那条绑定会失效（调用时回退
+    到 chat / 主模型）。调用方（端点）负责同步清理这些绑定，本函数只管目录。
     """
     existing = {
         row.model_key: row
@@ -69,11 +80,13 @@ def upsert_models(
 
     added = 0
     updated = 0
+    incoming_keys: set[str] = set()
     for item in items:
         key = str(item.get("model_key") or "").strip()
         name = str(item.get("model_name") or "").strip() or key
         if not key:
             continue
+        incoming_keys.add(key)
         row = existing.get(key)
         if row is None:
             row = LlmModelCatalogModel(
@@ -97,8 +110,37 @@ def upsert_models(
                 row.extra_json = json.dumps(item["extra"], ensure_ascii=False)
             updated += 1
 
+    removed = 0
+    if prune:
+        stale_keys = set(existing) - incoming_keys
+        for key in sorted(stale_keys):
+            db.delete(existing[key])
+            removed += 1
+        if removed:
+            logger.info(
+                "同步对齐：provider %s 下架 %d 个模型（%s）",
+                provider_id,
+                removed,
+                "、".join(sorted(stale_keys)[:5]),
+            )
+
     db.flush()
-    return added, updated
+    return added, updated, removed
+
+
+def models_removed_by_prune(
+    db: Session, provider_id: int, incoming_keys: set[str]
+) -> set[str]:
+    """预览 prune 会删掉哪些 ``model_name``。
+
+    端点需要在删之前先知道「哪些名字要消失」，才能把它们从 ``roles`` 里
+    摘掉 —— 否则会留下指向不存在模型的绑定。必须在 ``upsert_models(prune=True)``
+    **之前**调用。
+    """
+    rows = db.scalars(
+        select(LlmModelCatalogModel).where(LlmModelCatalogModel.provider_id == provider_id)
+    ).all()
+    return {row.model_name for row in rows if row.model_key not in incoming_keys}
 
 
 def delete_model(db: Session, provider_id: int, model_id: int) -> bool:

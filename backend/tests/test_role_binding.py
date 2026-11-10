@@ -8,18 +8,23 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.llm_providers.presets import MODEL_ROLES
+from app.services.llm_providers.presets import MODEL_ROLES, ROLES_FOLLOWING_MAIN
 
 
 def test_chat_roles_still_validated() -> None:
-    """聊天类角色名写错必须被拒 —— 它们走同一个端点，错了一定 404。"""
-    chat_roles = {"chat", "reasoner", "fast", "vision"}
+    """聊天类角色名写错必须被拒 —— 它们走同一个端点，错了一定 404。
+
+    「聊天类」的准确定义是「留空会回退主模型的角色」（ROLES_FOLLOWING_MAIN），
+    不再硬编码列表：reasoner / vision 已下线，硬编码会让这个断言失效。
+    """
+    chat_roles = set(ROLES_FOLLOWING_MAIN)
     assert chat_roles <= set(MODEL_ROLES)
+    assert chat_roles == {"chat", "fast"}
 
 
 def test_embedding_and_image_are_exempt_from_catalog() -> None:
     """embedding / image 不在聊天目录校验范围内。"""
-    chat_roles = {"chat", "reasoner", "fast", "vision"}
+    chat_roles = set(ROLES_FOLLOWING_MAIN)
     assert "embedding" not in chat_roles
     assert "image" not in chat_roles
 
@@ -27,7 +32,7 @@ def test_embedding_and_image_are_exempt_from_catalog() -> None:
 def test_validation_logic_classifies_roles_correctly() -> None:
     """模拟校验逻辑：目录里只有聊天模型时，embedding/image 不应被算作 missing。"""
     available = {"gpt-4o", "deepseek-chat"}
-    chat_roles = {"chat", "reasoner", "fast", "vision"}
+    chat_roles = set(ROLES_FOLLOWING_MAIN)
 
     roles = {
         "chat": "gpt-4o",

@@ -113,6 +113,31 @@ def parse_extra(raw: str | None) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _drop_retired_roles(extra: dict[str, Any] | None) -> dict[str, Any]:
+    """剔除 extra["roles"] 里已下线的角色（reasoner / vision）。
+
+    为什么在写入侧做而不是只靠 validate_extra：后者校验的是重新解析出来的
+    副本，清理副本不影响已落库的 JSON。不在这里剔除的话，旧数据会一直被
+    写回去，界面上看不到、日志里也没有痕迹。
+
+    原地修改并返回同一个 dict，方便链式调用。
+    """
+    if not isinstance(extra, dict):
+        return {}
+    roles = extra.get("roles")
+    if not isinstance(roles, dict):
+        return extra
+
+    from app.services.llm_providers.presets import RETIRED_ROLES
+
+    for key in list(roles):
+        if key in RETIRED_ROLES:
+            roles.pop(key, None)
+    if not roles:
+        extra.pop("roles", None)
+    return extra
+
+
 def _spec_from_row(row: LlmProviderModel) -> ProviderSpec:
     return ProviderSpec(
         name=row.name,
@@ -268,7 +293,16 @@ def validate_extra(extra: dict[str, Any] | None) -> None:
 
     roles = extra.get("roles")
     if isinstance(roles, dict):
-        from app.services.llm_providers.presets import MODEL_ROLES
+        from app.services.llm_providers.presets import MODEL_ROLES, RETIRED_ROLES
+
+        # 已下线的角色（reasoner / vision）静默剔除，**不报错**。
+        #
+        # 报错会让历史 provider 直接变成不可编辑、甚至加载失败 —— 用户
+        # 什么都没做，只是升级了版本。这两个角色已经没有任何运行时消费方，
+        # 留着它们的绑定既无害也无用，最合适的处理是悄悄丢掉。
+        retired = set(roles) & RETIRED_ROLES
+        for key in retired:
+            roles.pop(key, None)
 
         unknown_roles = set(roles) - set(MODEL_ROLES)
         if unknown_roles:
@@ -463,7 +497,11 @@ def update_provider(
     if "max_tokens" in fields:
         row.max_tokens = fields["max_tokens"]
     if "extra" in fields:
-        row.extra_json = json.dumps(fields["extra"] or {}, ensure_ascii=False)
+        # 写入前先剔除已下线的角色。不能只靠后面的 validate_extra ——
+        # 它校验的是 parse_extra(row.extra_json) 的**副本**，清理只作用于
+        # 副本，落库的仍是脏数据（roles 里留着 reasoner / vision）。
+        extra_to_store = _drop_retired_roles(fields["extra"])
+        row.extra_json = json.dumps(extra_to_store or {}, ensure_ascii=False)
     if "description" in fields:
         row.description = fields["description"] or ""
     if "enabled" in fields and fields["enabled"] is not None:

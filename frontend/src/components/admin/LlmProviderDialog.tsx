@@ -32,6 +32,7 @@ import {
 import { Switch } from '@/components/shadcn/switch';
 import {
   createLlmProvider,
+  listProviderModels,
   testLlmProviderDraft,
   updateLlmProvider,
   type LlmProvider,
@@ -40,6 +41,8 @@ import {
   type ProviderType,
   type ProviderTypeOption,
 } from '@/services/llmProviderService';
+import { Combobox } from '@/components/shadcn/combobox';
+import { useQuery } from '@tanstack/react-query';
 import { toastError } from '../../lib/errors';
 
 interface FormState {
@@ -122,6 +125,21 @@ export function LlmProviderDialog({
   };
 
   const selectedPreset = presets.find((item) => item.slug === form.preset) ?? null;
+
+  // 已同步的模型目录（只有编辑态才有 provider.id，新建态拉不到）。
+  // 有目录时主模型给可搜索下拉；没有时退回自由输入 —— 新建提供商时
+  // 上游清单还不存在，强行做成下拉等于不让人填。
+  const modelsQuery = useQuery({
+    queryKey: ['admin', 'llm-provider-models', provider?.id],
+    queryFn: () => listProviderModels(provider!.id),
+    enabled: isEdit && Boolean(provider?.id),
+    staleTime: 60_000,
+  });
+  const catalogOptions = (modelsQuery.data?.items ?? []).map((item) => ({
+    value: item.model_name,
+    label: item.model_name,
+    hint: item.task_type,
+  }));
 
   /**
    * 选中预设就把它知道的都填上（地址、认证方式、模型）。
@@ -327,12 +345,34 @@ export function LlmProviderDialog({
             <Label htmlFor="provider-model">
               模型{isEnterprise ? '（可留空，由网关决定）' : ''}
             </Label>
-            <Input
-              id="provider-model"
-              value={form.model}
-              placeholder={isEnterprise ? '留空则使用网关默认模型' : 'deepseek-chat'}
-              onChange={(e) => patch({ model: e.target.value })}
-            />
+            {catalogOptions.length > 0 ? (
+              // 有目录：可搜索选择，也能手输目录外的名字（网关可能不支持 /models）
+              <Combobox
+                id="provider-model"
+                aria-label="主模型"
+                options={catalogOptions}
+                value={form.model}
+                onValueChange={(value) => patch({ model: value })}
+                placeholder={isEnterprise ? '留空则使用网关默认模型' : '搜索或输入模型名'}
+                searchPlaceholder="搜索模型名…"
+                emptyText="目录里没有匹配的模型"
+                allowCustom
+              />
+            ) : (
+              <Input
+                id="provider-model"
+                value={form.model}
+                placeholder={isEnterprise ? '留空则使用网关默认模型' : 'deepseek-chat'}
+                onChange={(e) => patch({ model: e.target.value })}
+              />
+            )}
+            <p className="text-[11px] leading-relaxed text-[var(--muted-foreground)]">
+              {isEdit
+                ? catalogOptions.length > 0
+                  ? '从已同步的目录里选，或直接输入目录外的名字。'
+                  : '还没同步模型目录。先去「模型」标签页点一次同步，这里就会变成可搜索下拉。'
+                : '新建时还没有目录可拉，先手填；保存后可同步目录再改成下拉选择。'}
+            </p>
           </div>
 
           {!isEnterprise ? (
