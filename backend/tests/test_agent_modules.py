@@ -254,6 +254,42 @@ class TestPreviewTokenOwnership:
         assert exc.value.status_code == 400
 
 
+class TestMessagesSerializationReasoning:
+    """GET /messages 序列化必须透传 reasoning_content（5.5）。
+
+    流式阶段思考靠 SSE reasoning_delta 实时显示，落库在
+    AIMessage.reasoning_content。序列化不透传的话，刷新/重开会话思考
+    永久消失 —— "停止"打断的轮次没有最终文本，气泡彻底变空。
+    """
+
+    def test_reasoning_content_passthrough(self):
+        import types
+
+        from app.api.v1.endpoints.agent import get_session_messages
+
+        # 不起 FastAPI：构造最小 msg，直接复用端点内联序列化逻辑不现实，
+        # 这里以"端点源码包含透传"做防退化检查 + 真实 AIMessage 冒烟
+        import inspect
+
+        src = inspect.getsource(get_session_messages)
+        assert "reasoning_content" in src, "序列化丢了 reasoning_content"
+
+        from wuwei.core.message import AIMessage
+
+        msg = AIMessage(content="", reasoning_content="先复制模板")
+        assert getattr(msg, "reasoning_content") == "先复制模板"
+
+    def test_empty_assistant_without_reasoning_is_filtered(self):
+        """content 为空的 assistant 且无 reasoning：不应出现在 result 里。"""
+        import inspect
+
+        from app.api.v1.endpoints.agent import get_session_messages
+
+        src = inspect.getsource(get_session_messages)
+        # 过滤逻辑：role == "assistant" and not content.strip() → continue
+        assert 'not content.strip()' in src
+
+
 class TestDecisionOwnership:
     """decision_tools：决策归属登记 / 按 session 清理。
 

@@ -299,6 +299,13 @@ async def get_session_messages(
             "role": role,
             "content": content,
         }
+        # 思考内容必须透传：流式阶段思考靠 SSE reasoning_delta 实时显示，
+        # 落库在 AIMessage.reasoning_content。不透传的话，刷新/重开会话
+        # 思考就永久消失 —— 尤其「停止」发生在工具循环中间、没有最终文本
+        # 的轮次（5.5），气泡会彻底变成空的。
+        reasoning = getattr(msg, "reasoning_content", None)
+        if reasoning:
+            entry["reasoning_content"] = reasoning
         # metadata 必须透传：A2UI 界面消息挂在助手消息的
         # metadata.a2ui 里（落库时由 orchestrator 挂上），
         # 前端靠它把界面渲染回来。丢掉它 = 刷新后界面消失。

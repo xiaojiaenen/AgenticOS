@@ -18,7 +18,9 @@ function sanitizeForNonAdmin(message: Message): Message {
   if (sanitizedCache.has(message)) return sanitizedCache.get(message)!;
   const sanitized: Message = {
     ...message,
-    reasoningText: undefined,
+    // 思考内容对普通用户可见（与流式阶段 reasoning_delta 的可见性一致；
+    // 5.5 后历史消息也透传 reasoning，这里不再抹掉）。隐藏的只有工具
+    // 参数与结果 —— 那些可能包含路径/内部细节。
     // 保留工具名称和状态，隐藏参数和结果
     toolCalls: message.toolCalls?.map((tc) => ({
       id: tc.id,

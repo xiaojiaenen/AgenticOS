@@ -16,6 +16,8 @@ export type BackendMessage = {
   tool_call_id?: string;
   name?: string;
   metadata?: Record<string, unknown>;
+  /** 思考内容（AIMessage.reasoning_content，5.5 起后端透传） */
+  reasoning_content?: string | null;
 };
 
 /**
@@ -90,10 +92,33 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {
             .filter((c): c is { title?: string; option: unknown } => c !== null)
         : undefined;
 
+      // 思考内容：后端透传 AIMessage.reasoning_content（5.5）。流式阶段
+      // 用户实时看到了思考，刷新后如果没有它，"停止"打断的轮次没有
+      // 最终文本，气泡里就什么都没有。
+      const reasoningText = msg.reasoning_content || undefined;
+
+      // ── 5.5 空 assistant 气泡过滤 ──
+      // agent 是多轮工具循环，被打断（点停止）后停在 tool_calls 中间，
+      // 没有最终文本落库；此时这条 assistant 只剩过渡 content（'\n\n'
+      // 之类）+ tool_calls。独立渲染就是一只空泡。它的工具信息由下一轮
+      // assistant（或本条）承载，有实际内容的才保留：
+      //   - 有可见文本 → 正常保留
+      //   - 有 A2UI/图表产物 → 保留（产物就是这条消息的内容）
+      //   - 有思考内容 → 保留（思考就是可见内容）
+      //   - 什么都没有 → 跳过
+      const hasVisibleText = Boolean(msg.content?.trim());
+      const hasArtifacts =
+        (a2uiMessages && a2uiMessages.length > 0) ||
+        (chartMessages && chartMessages.length > 0);
+      if (!hasVisibleText && !hasArtifacts && !reasoningText) {
+        continue;
+      }
+
       messages.push({
         id: `backend-${messages.length}`,
         role: 'model',
         text: msg.content || '',
+        reasoningText,
         toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined,
         a2uiMessages,
         chartMessages: chartMessages && chartMessages.length > 0 ? chartMessages : undefined,
