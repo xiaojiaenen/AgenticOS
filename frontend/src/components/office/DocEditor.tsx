@@ -323,28 +323,66 @@ export const DocEditor = React.forwardRef<DocEditorHandle, DocEditorProps>(
           // 漏合并会出现 docs.xxx 这种原始 key。
           // 注意不要直接 import('@univerjs/core')：presets 已 re-export 了它，
           // 两条路径并存会让渲染引擎加载两次（[redi] 警告，且第二次实例不参与渲染）。
-          const [presetsCore, docsPreset, ...localeModules] = await Promise.all([
+          const [presetsCore, docsPreset, ...rest] = await Promise.all([
             import('@univerjs/presets'),
             import('@univerjs/preset-docs-core'),
+
+            // ── 核心 locale ──
             import('@univerjs/preset-docs-core/locales/zh-CN'),
             import('@univerjs/design/locale/zh-CN'),
             import('@univerjs/ui/locale/zh-CN'),
             import('@univerjs/docs-ui/locale/zh-CN'),
             import('@univerjs/sheets-ui/locale/zh-CN'),
             import('@univerjs/preset-docs-core/lib/index.css'),
+
+            // ── 功能 preset：绘图 / 超链接 / 批注 ──
+            // 每个包自带 index.css 与 zh-CN 语言包，缺一个就会出现
+            // 「按钮在但文案是 key」或样式错乱。
+            import('@univerjs/preset-docs-drawing'),
+            import('@univerjs/preset-docs-drawing/locales/zh-CN'),
+            import('@univerjs/preset-docs-drawing/lib/index.css'),
+            import('@univerjs/preset-docs-hyper-link'),
+            import('@univerjs/preset-docs-hyper-link/locales/zh-CN'),
+            import('@univerjs/preset-docs-hyper-link/lib/index.css'),
+            import('@univerjs/preset-docs-thread-comment'),
+            import('@univerjs/preset-docs-thread-comment/locales/zh-CN'),
+            import('@univerjs/preset-docs-thread-comment/lib/index.css'),
           ]);
           if (disposed) return;
 
           const { createUniver, LocaleType, mergeLocales } = presetsCore;
           const { UniverDocsCorePreset } = docsPreset;
-          const localePacks = localeModules
-            .slice(0, 4)
-            .map((module) => (module as { default?: unknown }).default ?? module);
+
+          // 核心是 5 个 locale + 1 个 css；之后按 [preset, locale, css] 三连排列
+          const coreLocales = rest.slice(0, 5);
+          const featureModules = rest.slice(6);
+          const localePacks = [
+            ...coreLocales.map((m) => (m as { default?: unknown }).default ?? m),
+          ];
+          const featurePresets: unknown[] = [];
+          for (let i = 0; i + 2 < featureModules.length; i += 3) {
+            const presetModule = featureModules[i] as Record<string, unknown>;
+            const localeModule = featureModules[i + 1] as { default?: unknown };
+            // 导出名各不相同（UniverDocsDrawingPreset 等），取唯一以
+            // Preset 结尾的函数即可，避免逐个硬编码。
+            const presetFn = Object.entries(presetModule).find(
+              ([name, value]) => name.endsWith('Preset') && typeof value === 'function',
+            )?.[1] as (() => unknown) | undefined;
+            if (presetFn) featurePresets.push(presetFn());
+            if (localeModule) {
+              localePacks.push(
+                (localeModule.default ?? localeModule) as Record<string, unknown>,
+              );
+            }
+          }
 
           const created = (createUniver as unknown as CreateUniver)({
             locale: LocaleType.ZH_CN,
             locales: { [LocaleType.ZH_CN]: mergeLocales(...localePacks) },
-            presets: [UniverDocsCorePreset({ container: mount })],
+            presets: [
+              UniverDocsCorePreset({ container: mount }),
+              ...(featurePresets as never[]),
+            ],
           });
           (window as unknown as Record<string, unknown>).__api = created.univerAPI;
           (window as unknown as Record<string, unknown>).__univer = created.univer;

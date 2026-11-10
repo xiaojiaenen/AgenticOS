@@ -91,9 +91,15 @@ export const SheetEditor = React.forwardRef<SheetEditorHandle, SheetEditorProps>
           // 语言包必须逐包合并：preset 包里的 zh-CN 只覆盖表格模型层，工具栏、
           // 右键菜单这些 UI 文案分散在 @univerjs/ui 与各 *-ui 包各自的
           // /locale 子路径下。漏合并的话界面上会出现 ui.ribbon.start 这种原始 key。
-          const [presetsCore, core, ...localeModules] = await Promise.all([
+          //
+          // 功能 preset 同理：每个包有**自己的** index.css 与 zh-CN 语言包，
+          // 少加载任何一个，那个功能就会是「按钮在但文案是 key」或「样式错乱」。
+          // 下面按「核心 → 功能」分组，顺序即注册顺序，便于核对。
+          const [presetsCore, core, ...rest] = await Promise.all([
             import('@univerjs/presets'),
             import('@univerjs/preset-sheets-core'),
+
+            // ── 核心 locale（表格模型 / 通用 UI / 公式 / 数字格式）──
             import('@univerjs/preset-sheets-core/locales/zh-CN'),
             import('@univerjs/design/locale/zh-CN'),
             import('@univerjs/ui/locale/zh-CN'),
@@ -102,20 +108,79 @@ export const SheetEditor = React.forwardRef<SheetEditorHandle, SheetEditorProps>
             import('@univerjs/sheets-formula-ui/locale/zh-CN'),
             import('@univerjs/docs-ui/locale/zh-CN'),
             import('@univerjs/preset-sheets-core/lib/index.css'),
+
+            // ── 功能 preset：表格对象 / 筛选 / 排序 / 查找替换 ──
+            import('@univerjs/preset-sheets-table'),
+            import('@univerjs/preset-sheets-table/locales/zh-CN'),
+            import('@univerjs/preset-sheets-table/lib/index.css'),
+            import('@univerjs/preset-sheets-filter'),
+            import('@univerjs/preset-sheets-filter/locales/zh-CN'),
+            import('@univerjs/preset-sheets-filter/lib/index.css'),
+            import('@univerjs/preset-sheets-sort'),
+            import('@univerjs/preset-sheets-sort/locales/zh-CN'),
+            import('@univerjs/preset-sheets-sort/lib/index.css'),
+            import('@univerjs/preset-sheets-find-replace'),
+            import('@univerjs/preset-sheets-find-replace/locales/zh-CN'),
+            import('@univerjs/preset-sheets-find-replace/lib/index.css'),
+
+            // ── 功能 preset：条件格式 / 数据校验 ──
+            import('@univerjs/preset-sheets-conditional-formatting'),
+            import('@univerjs/preset-sheets-conditional-formatting/locales/zh-CN'),
+            import('@univerjs/preset-sheets-conditional-formatting/lib/index.css'),
+            import('@univerjs/preset-sheets-data-validation'),
+            import('@univerjs/preset-sheets-data-validation/locales/zh-CN'),
+            import('@univerjs/preset-sheets-data-validation/lib/index.css'),
+
+            // ── 功能 preset：绘图 / 超链接 / 批注 ──
+            import('@univerjs/preset-sheets-drawing'),
+            import('@univerjs/preset-sheets-drawing/locales/zh-CN'),
+            import('@univerjs/preset-sheets-drawing/lib/index.css'),
+            import('@univerjs/preset-sheets-hyper-link'),
+            import('@univerjs/preset-sheets-hyper-link/locales/zh-CN'),
+            import('@univerjs/preset-sheets-hyper-link/lib/index.css'),
+            import('@univerjs/preset-sheets-note'),
+            import('@univerjs/preset-sheets-note/locales/zh-CN'),
+            import('@univerjs/preset-sheets-note/lib/index.css'),
+            import('@univerjs/preset-sheets-thread-comment'),
+            import('@univerjs/preset-sheets-thread-comment/locales/zh-CN'),
+            import('@univerjs/preset-sheets-thread-comment/lib/index.css'),
           ]);
           if (disposed) return;
 
           const { createUniver, LocaleType, mergeLocales } = presetsCore;
           const { UniverSheetsCorePreset } = core;
-          // 各 locale 模块的默认导出才是语言包本身
-          const localePacks = localeModules
-            .slice(0, 7)
-            .map((module) => (module as { default?: unknown }).default ?? module);
+
+          // 语言包与 preset 模块交替出现，按固定步长切片取出。
+          // 步长 3 = [preset, locale, css]，前 8 个是核心的 7 个 locale + 1 个 css。
+          const coreLocales = rest.slice(0, 7);
+          const featureModules = rest.slice(8);
+          const localePacks = [
+            ...coreLocales.map((m) => (m as { default?: unknown }).default ?? m),
+          ];
+          const featurePresets: unknown[] = [];
+          for (let i = 0; i + 2 < featureModules.length; i += 3) {
+            const presetModule = featureModules[i] as Record<string, unknown>;
+            const localeModule = featureModules[i + 1] as { default?: unknown };
+            // 功能 preset 的导出名各不相同（UniverSheetsTablePreset 等），
+            // 取模块里唯一那个以 Preset 结尾的函数即可，避免逐个硬编码。
+            const presetFn = Object.entries(presetModule).find(
+              ([name, value]) => name.endsWith('Preset') && typeof value === 'function',
+            )?.[1] as (() => unknown) | undefined;
+            if (presetFn) featurePresets.push(presetFn());
+            if (localeModule) {
+              localePacks.push(
+                (localeModule.default ?? localeModule) as Record<string, unknown>,
+              );
+            }
+          }
 
           const created = (createUniver as unknown as CreateUniver)({
             locale: LocaleType.ZH_CN,
             locales: { [LocaleType.ZH_CN]: mergeLocales(...localePacks) },
-            presets: [UniverSheetsCorePreset({ container: mount })],
+            presets: [
+              UniverSheetsCorePreset({ container: mount }),
+              ...(featurePresets as never[]),
+            ],
           });
           instance = created.univer;
           apiRef.current = created.univerAPI;
