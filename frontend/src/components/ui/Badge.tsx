@@ -48,7 +48,7 @@ export const Badge: React.FC<BadgeProps> = ({
       // 不加 role="status"：列表里每个 Badge 都是 live region 的话，读屏
       // 会把整页标签连续播报一遍。这里是纯展示型徽标，语义由 surrounding 提供。
       className={cn(
-        'inline-flex items-center gap-1 whitespace-nowrap rounded-full border font-semibold',
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-full border font-semibold transition-colors duration-150',
         variantStyles[variant],
         sizeStyles[size],
         className,

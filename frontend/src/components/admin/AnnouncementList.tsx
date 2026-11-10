@@ -36,12 +36,12 @@ export function AnnouncementList({
       </div>
 
       {isLoading ? (
-        <div className="flex h-52 items-center justify-center gap-3 rounded-lg border border-dashed border-[var(--border-subtle)] bg-zinc-50/70 text-sm font-medium text-[var(--muted-foreground)]">
+        <div className="flex h-52 items-center justify-center gap-3 rounded-lg border border-dashed border-[var(--border-subtle)] bg-[var(--surface-3)] text-sm font-medium text-[var(--muted-foreground)]">
           <Loader2 size={16} className="animate-spin" />
           正在加载公告
         </div>
       ) : items.length === 0 ? (
-        <div className="flex h-52 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[var(--border-subtle)] bg-zinc-50/70 text-center">
+        <div className="flex h-52 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[var(--border-subtle)] bg-[var(--surface-3)] text-center">
           <BellRing size={30} className="text-zinc-300" />
           <div>
             <p className="text-sm font-semibold text-zinc-700">还没有公告</p>

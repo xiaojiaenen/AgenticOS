@@ -112,12 +112,16 @@ export function DataTable<TData>({
 
   return (
     <div className={cn('w-full', className)}>
+      {/* 首尾列留白由 table.tsx 的 first:pl-5 / last:pr-5 统一提供 */}
       <div className="w-full overflow-x-auto">
-        <Table>
+        <Table className="border-separate border-spacing-0">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="bg-[var(--surface-2)] hover:bg-[var(--surface-2)]">
-              {headerGroup.headers.map((header) => {
+            <TableRow
+              key={headerGroup.id}
+              className="border-0 bg-transparent hover:bg-transparent"
+            >
+              {headerGroup.headers.map((header, headerIndex) => {
                 const canSort = header.column.getCanSort();
                 const sorted = header.column.getIsSorted();
                 const meta = header.column.columnDef.meta;
@@ -126,9 +130,17 @@ export function DataTable<TData>({
                   <TableHead
                     key={header.id}
                     className={cn(
-                      'text-xs font-semibold tracking-wide text-[var(--muted-foreground)]',
+                      // 表头不去填整块底色：只留一条细底边 + 弱化字重，
+                      // 让视线落在数据上而不是表头色块上（Linear / Stripe 的表格都是这个取向）
+                      'h-11 whitespace-nowrap border-b border-[var(--border-subtle)] bg-transparent',
+                      'text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--muted-foreground)]',
+                      // 首尾列额外内缩，让表格不要贴着卡片边缘
+                      headerIndex === 0 && 'pl-5',
+                      headerIndex === headerGroup.headers.length - 1 && 'pr-5',
+                      !canSort && 'cursor-default',
+                      headerIndex !== 0 && headerIndex !== headerGroup.headers.length - 1 && 'px-4',
                       align === 'right' && 'text-right',
-                      canSort && 'cursor-pointer select-none hover:text-[var(--foreground)]',
+                      canSort && 'select-none transition-colors hover:text-[var(--foreground)]',
                     )}
                     onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
                     // 键盘可达：Tab 聚焦表头后 Enter/Space 触发排序
@@ -191,12 +203,15 @@ export function DataTable<TData>({
             table.getRowModel().rows.map((row, rowIndex) => (
               <TableRow
                 key={row.id}
-                // 斑马纹：长表格纵向扫读时，没有行底色几乎无法对齐到同一行。
-                // 之前骨架屏做了深浅区分、真实数据反而没有，看着像「加载完样式丢了」。
+                // 不用斑马纹：交错底色 + 行入场动画在长表里会变成视觉噪音。
+                // 现代数据表（Linear / Stripe）用单一行分隔线 + hover 高亮就已足够。
+                style={{ animationDelay: `${Math.min(rowIndex * 18, 220)}ms` }}
                 className={cn(
-                  'transition-colors',
-                  rowIndex % 2 === 1 && 'bg-[var(--surface-2)]/60',
+                  'transition-colors duration-150 animate-in fade-in duration-200 fill-mode-both',
                   'hover:bg-[var(--surface-2)]',
+                  // 行分隔用 cell 底边，配合 border-separate 保证留白不被压缩
+                  '[&>td]:border-b [&>td]:border-[var(--border-subtle)]',
+                  'last:[&>td]:border-b-0',
                 )}
               >
                 {row.getVisibleCells().map((cell) => {
@@ -230,15 +245,17 @@ export function DataTable<TData>({
       </div>
 
       {paginated && !isLoading && table.getRowModel().rows.length > 0 ? (
-        <Pagination
-          currentPage={table.getState().pagination.pageIndex + 1}
-          totalPages={table.getPageCount()}
-          onPageChange={(page) => table.setPageIndex(page - 1)}
-          totalLabel={`共 ${data.length} 条`}
-          pageSize={pageSize}
-          onPageSizeChange={(size) => table.setPageSize(size)}
-          dense
-        />
+        <div className="px-5">
+          <Pagination
+            currentPage={table.getState().pagination.pageIndex + 1}
+            totalPages={table.getPageCount()}
+            onPageChange={(page) => table.setPageIndex(page - 1)}
+            totalLabel={`共 ${data.length} 条`}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => table.setPageSize(size)}
+            dense
+          />
+        </div>
       ) : null}
     </div>
   );

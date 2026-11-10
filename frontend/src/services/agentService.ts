@@ -188,8 +188,19 @@ function stripHtml(text: string): string {
   return text.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 }
 
-function normalizeAgentError(message?: string, errorType?: string): string {
-  const text = stripHtml(message || '');
+/**导出仅供单元测试：HTTP 非 2xx / SSE error 的文案归一化。*/
+export function normalizeAgentError(message?: string, errorType?: string): string {
+  let text = stripHtml(message || '');
+  // FastAPI 的 HTTPException 返回 {"detail": "..."} 包装 —— 先解出人话，
+  // 否则 403/429/500 这类端点级错误会把整段 JSON 原样展示给用户。
+  if (text.trimStart().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(text) as { detail?: unknown };
+      if (typeof parsed.detail === 'string' && parsed.detail) text = parsed.detail;
+    } catch {
+      // 不是合法 JSON（多半是 SSE error 事件的纯文本）—— 保持原文
+    }
+  }
   const lower = text.toLowerCase();
   if (text.includes('Insufficient Balance') || lower.includes('insufficient balance') || text.includes('402')) {
     return '模型服务余额不足，请联系管理员充值或切换可用模型。';
@@ -595,15 +606,58 @@ export async function submitApprovalDecision(
   approvalId: string,
   status: 'approved' | 'rejected',
   reason?: string,
+  modifiedArguments?: Record<string, unknown>,
 ): Promise<AgentApproval> {
   return apiFetch<AgentApproval>(
     `${AGENT_ENDPOINT}/approvals/${approvalId}/decision`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, reason }),
+      // 用户在预览面板里改过内容/模板时，把改后的工具参数一起回传；
+      // 后端批准执行时用它们替换原始参数。
+      body: JSON.stringify({
+        status,
+        reason,
+        ...(modifiedArguments ? { modified_arguments: modifiedArguments } : {}),
+      }),
     },
     '审批提交失败',
+  );
+}
+
+/** 邮件模板预览：切换模板时不经 AI，后端纯函数重渲染，毫秒级返回。 */
+export type EmailTemplateChoice = { id: string; label: string };
+export type EmailTemplatePreview = {
+  html: string;
+  is_html: boolean;
+  template: string;
+  needs_ai: boolean;
+};
+
+export async function listEmailTemplates(): Promise<EmailTemplateChoice[]> {
+  return apiFetch<EmailTemplateChoice[]>(
+    '/api/v1/email/templates',
+    {},
+    '加载邮件模板失败',
+  );
+}
+
+export async function previewEmailTemplate(payload: {
+  template: string;
+  subject: string;
+  body: string;
+  button_label?: string;
+  button_url?: string;
+  signer?: string;
+}): Promise<EmailTemplatePreview> {
+  return apiFetch<EmailTemplatePreview>(
+    '/api/v1/email/templates/preview',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    '邮件模板预览失败',
   );
 }
 

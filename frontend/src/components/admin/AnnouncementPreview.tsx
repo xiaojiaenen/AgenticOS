@@ -15,7 +15,7 @@ export function AnnouncementPreview({ values }: { values: AnnouncementFormValues
   const FormatIcon = FORMAT_META[values.content_format].icon;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+    <div className="admin-surface-card">
       <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-700">Live Preview</p>
@@ -167,7 +167,7 @@ export function AnnouncementPreview({ values }: { values: AnnouncementFormValues
           </div>
         </div>
 
-        <div className="mt-4 rounded-lg border border-zinc-100 bg-zinc-50/80 px-4 py-4 text-xs font-medium leading-6 text-[var(--muted-foreground)]">
+        <div className="mt-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-3)] px-4 py-4 text-xs font-medium leading-6 text-[var(--muted-foreground)]">
           预览说明：正文将按照所选格式渲染。Markdown 会自动转换为富文本，HTML 将直接渲染。
           真正对用户生效时，会在进入聊天或 Agent Store 后弹出。
         </div>

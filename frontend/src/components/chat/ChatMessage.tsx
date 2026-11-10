@@ -14,7 +14,7 @@ import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { submitFeedback } from '../../services/llmopsService';
 import { ErrorBoundary, InlineErrorFallback } from '../ui/ErrorBoundary';
 import { OrderedAssistantContent, shouldUseOrderedRender, collectBlockText } from './OrderedAssistantContent';
-import { TableCell, TableHeaderCell, HighlightedText, processChildren } from './markdownRenderParts';
+import { TableCell, TableHeaderCell, HighlightedText, processChildren, renderOutputImages } from './markdownRenderParts';
 import { A2uiRenderer } from '../a2ui/A2uiRenderer';
 import { ChartMessage } from '../a2ui/ChartMessage';
 import {
@@ -161,7 +161,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                       {isAdmin ? (
                         <>
                           {metaItems.length > 0 && <div className="mb-3 flex flex-wrap gap-1.5">{metaItems.map(item => <span key={item} className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-2)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-foreground)]">{item}</span>)}</div>}
-                          {detailText && <div className={cn("mb-3 rounded-xl border px-3 py-2 text-[11px] leading-relaxed", isError ? "border-rose-200/90 bg-rose-50/90 text-rose-700" : "border-[var(--border-subtle)] bg-slate-50/90 text-[var(--muted-foreground)]")}>{detailText}</div>}
+                          {detailText && <div className={cn("mb-3 rounded-xl border px-3 py-2 text-[11px] leading-relaxed", isError ? "border-rose-200/90 bg-rose-50/90 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300" : "border-[var(--border-subtle)] bg-[var(--surface-3)] text-[var(--muted-foreground)]")}>{detailText}</div>}
                           <div className="flex flex-col">
                             <ToolTimelineStep title="调用阶段" state="done" body="已向运行时发起工具调用，请求参数已发送。" />
                             <ToolTimelineStep title="执行状态" state={executionState} body={executionBody} />
@@ -242,6 +242,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                 activeMatchId={activeMatchId ?? null}
                 isAdmin={isAdmin}
                 isStreaming={Boolean(isStreaming)}
+                sessionId={sessionId}
                 onOpenArtifact={onOpenArtifact as never}
               />
             ) : (
@@ -261,7 +262,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                     components={{
                       code: (props) => <CodeBlock {...props} onOpenArtifact={onOpenArtifact} />,
                       pre: ({ children }) => <>{children}</>,
-                      p: ({ children }) => <p>{processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id)}</p>,
+                      p: ({ children }) => <p>{renderOutputImages(processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id), sessionId)}</p>,
                       table: ({ children }) => <MarkdownTable>{children}</MarkdownTable>,
                       thead: ({ children }) => <MarkdownTableHead>{children}</MarkdownTableHead>,
                       tr: ({ children }) => <MarkdownTableRow>{children}</MarkdownTableRow>,
@@ -277,7 +278,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                     }}>{visibleText}</ReactMarkdown>
                   </ErrorBoundary>
                 ) : <span className="text-sm font-medium text-[var(--muted-foreground)]"> </span>}
-                {!isUser && isStreaming && visibleText && <motion.span className="inline-block w-[2px] h-[1.2em] bg-brand-500 rounded-full align-text-bottom ml-px" animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />}
+                {!isUser && isStreaming && visibleText && <motion.span className="inline-block w-[2px] h-[1.2em] bg-[var(--foreground)] rounded-full align-text-bottom ml-px" animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />}
               </div>
             )}
             </div>
@@ -291,7 +292,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             {!isUser && visibleText && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="transition-opacity md:opacity-0 md:group-hover:opacity-100">· {visibleText.length} 字</motion.span>}
             {canCopyMessage && (
               <button onClick={handleCopy} title="复制" aria-label="复制消息" className={cn("transition-colors duration-200",
-                "text-[var(--muted-foreground)] hover:text-sky-600"
+                "text-[var(--muted-foreground)] hover:text-[var(--accent-foreground)]"
               )}>
                 {isCopied ? <CheckIcon size={12} className="text-emerald-500 dark:text-emerald-400" /> : <CopyIcon size={12} />}
               </button>

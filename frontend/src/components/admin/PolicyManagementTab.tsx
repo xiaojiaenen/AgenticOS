@@ -25,8 +25,9 @@ import { toast } from 'sonner';
 import { Button } from '@/components/shadcn/button';
 import { Input } from '@/components/shadcn/input';
 import { Label } from '@/components/shadcn/label';
-import { Skeleton } from '@/components/shadcn/skeleton';
 import { Switch } from '@/components/shadcn/switch';
+import type { ColumnDef } from '@tanstack/react-table';
+import { DataTable } from './data-table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,7 +47,6 @@ import {
   DialogTitle,
 } from '@/components/shadcn/dialog';
 import { AdminPanel, AdminToolbar, ErrorBanner, SectionHeading } from './shared';
-import { Pagination } from './Pagination';
 import {
   createPolicy,
   deletePolicy,
@@ -75,7 +75,6 @@ export function PolicyManagementTab() {
   const [deleting, setDeleting] = React.useState<Policy | null>(null);
   const [roleLookup, setRoleLookup] = React.useState(false);
   const [filter, setFilter] = React.useState('');
-  const [page, setPage] = React.useState(1);
 
   const policiesQuery = useQuery({
     queryKey: [...POLICIES_KEY, ptype],
@@ -111,10 +110,6 @@ export function PolicyManagementTab() {
     );
   }, [policies, filter, subjectLabel, resourceLabel]);
 
-  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pageItems = visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-
   const removeMutation = useMutation({
     mutationFn: (policy: Policy) => deletePolicy(policy),
     onSuccess: () => {
@@ -125,6 +120,72 @@ export function PolicyManagementTab() {
   });
 
   const roleName = (slug: string) => subjectLabel.get(slug) ?? slug;
+
+  // 列语义随 ptype 变化（p=策略：角色/资源/动作；g=绑定：用户/角色/域），
+  // 统一交给 DataTable 渲染（骨架/空态/斑马纹/行入场与其它管理页一致）
+  const columns = React.useMemo<ColumnDef<Policy, unknown>[]>(
+    () => [
+      {
+        id: 'sub',
+        header: ptype === 'p' ? '角色' : '用户',
+        cell: ({ row }) => (
+          <span className="font-medium text-[var(--foreground)]">
+            {ptype === 'p' ? roleName(row.original.sub) : subjectLabel.get(row.original.sub) ?? row.original.sub}
+          </span>
+        ),
+      },
+      {
+        id: 'obj',
+        header: ptype === 'p' ? '资源' : '角色',
+        cell: ({ row }) => (
+          <span className="text-[var(--foreground)]">
+            {ptype === 'p' ? resourceLabel.get(row.original.obj) ?? row.original.obj : roleName(row.original.obj)}
+          </span>
+        ),
+      },
+      {
+        id: 'act',
+        header: ptype === 'p' ? '动作' : '域',
+        cell: ({ row }) =>
+          ptype === 'p' ? (
+            <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[11px] font-medium text-[var(--muted-foreground)]">
+              {row.original.act}
+            </span>
+          ) : (
+            <span className="font-mono text-[11px] text-[var(--muted-foreground)]">{row.original.dom}</span>
+          ),
+      },
+      {
+        id: 'ident',
+        header: '标识',
+        cell: ({ row }) => (
+          <span className="block max-w-[280px] truncate font-mono text-[11px] text-[var(--muted-foreground)]">
+            {`${row.original.sub} → ${row.original.obj}`}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: '',
+        meta: { align: 'right' },
+        cell: ({ row }) => (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="h-7 w-7 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-500/10"
+            onClick={() => setDeleting(row.original)}
+            title="撤销"
+            aria-label="撤销这条规则"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        ),
+      },
+    ],
+    // roleName 由 subjectLabel 派生；setDeleting 是稳定 setState
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ptype, subjectLabel, resourceLabel],
+  );
 
   return (
     <div className="space-y-3">
@@ -137,10 +198,7 @@ export function PolicyManagementTab() {
             <button
               key={tab.key}
               type="button"
-              onClick={() => {
-                setPtype(tab.key);
-                setPage(1);
-              }}
+              onClick={() => setPtype(tab.key)}
               aria-pressed={ptype === tab.key}
               className={cn(
                 'cursor-pointer rounded px-3 py-1 text-xs font-semibold transition-colors',
@@ -162,10 +220,7 @@ export function PolicyManagementTab() {
           />
           <Input
             value={filter}
-            onChange={(event) => {
-              setFilter(event.target.value);
-              setPage(1);
-            }}
+            onChange={(event) => setFilter(event.target.value)}
             placeholder="搜索角色 / 资源"
             aria-label="搜索策略"
             className="h-8 w-56 pl-7 text-xs"
@@ -222,92 +277,26 @@ export function PolicyManagementTab() {
           }
         />
 
-        {policiesQuery.isLoading ? (
-          <div className="space-y-2 p-4">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <Skeleton key={index} className="h-9 w-full" />
-            ))}
-          </div>
-        ) : visible.length === 0 ? (
-          <div className="px-4 py-12 text-center">
-            <p className="text-sm font-medium text-[var(--foreground)]">
-              {filter
-                ? '没有匹配的策略'
-                : ptype === 'p'
-                  ? '还没有任何权限策略'
-                  : '还没有任何角色绑定'}
-            </p>
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              {filter ? '换个关键词试试' : ptype === 'p' ? '新增一条，从下拉里选角色和资源' : '把用户挂到角色上即可'}
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--surface-2)] text-left text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">
-                <tr>
-                  <th className="px-4 py-2 font-semibold">{ptype === 'p' ? '角色' : '用户'}</th>
-                  <th className="px-4 py-2 font-semibold">{ptype === 'p' ? '资源' : '角色'}</th>
-                  <th className="px-4 py-2 font-semibold">{ptype === 'p' ? '动作' : '域'}</th>
-                  <th className="px-4 py-2 font-semibold">标识</th>
-                  <th className="w-14 px-4 py-2" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-subtle)]">
-                {pageItems.map((policy, index) => (
-                  <tr
-                    key={`${policy.ptype}-${policy.sub}-${policy.dom}-${policy.obj}-${policy.act}-${index}`}
-                    className="transition-colors hover:bg-[var(--surface-2)]/70"
-                  >
-                    <td className="px-4 py-2 font-medium text-[var(--foreground)]">
-                      {ptype === 'p' ? roleName(policy.sub) : subjectLabel.get(policy.sub) ?? policy.sub}
-                    </td>
-                    <td className="px-4 py-2 text-[var(--foreground)]">
-                      {ptype === 'p'
-                        ? resourceLabel.get(policy.obj) ?? policy.obj
-                        : roleName(policy.obj)}
-                    </td>
-                    <td className="px-4 py-2">
-                      {ptype === 'p' ? (
-                        <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[11px] font-medium text-[var(--muted-foreground)]">
-                          {policy.act}
-                        </span>
-                      ) : (
-                        <span className="font-mono text-[11px] text-[var(--muted-foreground)]">
-                          {policy.dom}
-                        </span>
-                      )}
-                    </td>
-                    <td className="max-w-[280px] truncate px-4 py-2 font-mono text-[11px] text-[var(--muted-foreground)]">
-                      {ptype === 'p' ? `${policy.sub} → ${policy.obj}` : `${policy.sub} → ${policy.obj}`}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        className="h-7 w-7 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-500/10"
-                        onClick={() => setDeleting(policy)}
-                        title="撤销"
-                        aria-label="撤销这条规则"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {!policiesQuery.isLoading && visible.length > 0 ? (
-          <Pagination
-            currentPage={safePage}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            totalLabel={`共 ${visible.length} 条`}
-          />
-        ) : null}
+        <DataTable
+          columns={columns}
+          data={visible}
+          isLoading={policiesQuery.isLoading}
+          pageSize={PAGE_SIZE}
+          emptyState={
+            <div className="px-4 py-12 text-center">
+              <p className="text-sm font-medium text-[var(--foreground)]">
+                {filter
+                  ? '没有匹配的策略'
+                  : ptype === 'p'
+                    ? '还没有任何权限策略'
+                    : '还没有任何角色绑定'}
+              </p>
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                {filter ? '换个关键词试试' : ptype === 'p' ? '新增一条，从下拉里选角色和资源' : '把用户挂到角色上即可'}
+              </p>
+            </div>
+          }
+        />
       </AdminPanel>
 
       {adding && (

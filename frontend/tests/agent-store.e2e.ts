@@ -13,7 +13,7 @@ test.describe('agent store install', () => {
 
     // 页面标题与搜索框存在
     await expect(screen.getByText('智能体商店')).toBeVisible({ timeout: 20_000 });
-    await expect(screen.getByRole('textbox', '搜索智能体')).toBeVisible();
+    await expect(screen.getByRole('searchbox', '搜索智能体')).toBeVisible();
 
     // 每张卡片要么是「对话」（已安装可用），要么是「安装」
     const chatButtons = screen.getByRole('button', '对话');
@@ -25,12 +25,12 @@ test.describe('agent store install', () => {
 
   test('search filters the store', { session: 'admin' }, async ({ app, screen }) => {
     await app.open('/agents');
-    await expect(screen.getByRole('textbox', '搜索智能体')).toBeVisible({ timeout: 20_000 });
+    await expect(screen.getByRole('searchbox', '搜索智能体')).toBeVisible({ timeout: 20_000 });
 
-    await screen.getByRole('textbox', '搜索智能体').fill('网站');
+    await screen.getByRole('searchbox', '搜索智能体').fill('网站');
     await expect(screen.getByText('网站工程师')).toBeVisible({ timeout: 10_000 });
 
-    await screen.getByRole('textbox', '搜索智能体').fill('绝对不存在的智能体名xyz');
+    await screen.getByRole('searchbox', '搜索智能体').fill('绝对不存在的智能体名xyz');
     await expect(screen.getByText('网站工程师')).toHaveCount(0);
   });
 });

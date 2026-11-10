@@ -16,6 +16,7 @@ import { useChat } from '../../contexts/ChatContext';
 import { useChatStore } from '../../stores/chatStore';
 import { cn } from '../../lib/utils';
 import { getStoredUser } from '../../services/authService';
+import { issueWebsitePreviewUrl } from '../../services/websiteService';
 
 export const ChatMainArea = React.memo(() => {
   // 从 Context 获取 hook 返回值和派生状态
@@ -140,6 +141,25 @@ const {
     };
   }, [artifact, currentSession?.messages, currentSessionId]);
 
+  // 重新打开产物面板。website 产物从内存复用时，预览令牌可能已过 15 分钟
+  // TTL（页面开着很久后点「重新打开」），直接复用旧 URL 会让 iframe 渲染
+  // 403 错误页 —— 所以打开前先现签一个新 URL；签发失败退回 preview_html
+  // 内联 srcDoc（自包含、永不过期）。
+  const handleReopenArtifact = useCallback(async () => {
+    const next = reopenableArtifact;
+    if (!next) return;
+    if (next.language === 'website' && next.sessionId && next.projectSlug) {
+      try {
+        const { url } = await issueWebsitePreviewUrl(next.sessionId, next.projectSlug);
+        setArtifact({ ...next, previewUrl: url });
+        return;
+      } catch {
+        // 签发失败（离线 / 后端异常）→ 走内联兜底
+      }
+    }
+    setArtifact(next);
+  }, [reopenableArtifact, setArtifact]);
+
   return (
     <>
       <TooltipProvider delayDuration={250} skipDelayDuration={400}>
@@ -195,8 +215,9 @@ const {
             onClose={() => { setShowSearch(false); setSearchQuery(''); }}
           />
 
-          {/* 右下角浮动工具栏 */}
-          <div className="fixed right-6 bottom-24 flex flex-col gap-3 z-40">
+          {/* 右下角搜索按钮 —— absolute 而非 fixed：fixed 会逃逸到视口，
+              产物面板打开时悬浮盖在预览上（走查 bug）。挂在消息区内右下角 */}
+          <div className="absolute right-4 bottom-4 flex flex-col gap-3 z-40">
             <button
               onClick={() => setShowSearch(!showSearch)}
               className={cn(
@@ -226,12 +247,12 @@ const {
                 initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
                 className={cn(
                   "absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-lg border",
-                  "bg-red-50 border-red-200 text-red-700"
+                  "bg-red-50 border-red-200 text-red-700 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-300"
                 )}
               >
                 <AlertCircleIcon size={18} />
                 <span className="text-sm font-medium">{error}</span>
-                <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700" aria-label="关闭错误提示">
+                <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700 dark:hover:text-red-200" aria-label="关闭错误提示">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
                 </button>
               </motion.div>
@@ -275,7 +296,7 @@ const {
                 </span>
                 <div className="h-1 w-16 overflow-hidden rounded-full bg-[var(--surface-2)]">
                   <div
-                    className="h-full rounded-full bg-brand-500 transition-[width] duration-300"
+                    className="h-full rounded-full bg-[var(--ring)] transition-[width] duration-300"
                     style={{
                       width: `${Math.min(
                         100,
@@ -296,7 +317,7 @@ const {
             >
               <button
                 onClick={handleJumpToBottom}
-                className="flex items-center gap-2 px-6 py-1.5 bg-zinc-900/90 text-white rounded-full text-[10px] font-semibold uppercase tracking-[0.2em] shadow-2xl border border-white/10 hover:bg-zinc-800 transition-all active:scale-95 group"
+                className="flex items-center gap-2 px-6 py-1.5 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-full text-[10px] font-semibold uppercase tracking-[0.2em] shadow-2xl border border-[var(--border-strong)] hover:opacity-90 transition-all active:scale-95 group"
               >
                 <span>回到底部</span>
                 <ChevronDownIcon size={12} className="group-hover:translate-y-0.5 transition-transform" />
@@ -317,7 +338,7 @@ const {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setArtifact(reopenableArtifact)}
+                    onClick={() => void handleReopenArtifact()}
                     className="flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)]/90 px-2.5 py-1.5 text-[var(--muted-foreground)] shadow-sm backdrop-blur transition-all duration-200 hover:text-[var(--foreground)] hover:shadow-md active:scale-95"
                     aria-label="重新打开产物预览"
                   >
@@ -345,7 +366,12 @@ const {
 
         <div className={cn("mx-auto", isWideConversation ? "max-w-[92rem] px-8" : "max-w-4xl")}>
           <DecisionPanel decisions={pendingDecisions} onDecision={handleDecisionMade} />
-          <EmailPreviewPanel emails={emailApprovals} onDecision={handleApprovalDecision} />
+          <EmailPreviewPanel
+            emails={emailApprovals}
+            onDecision={(id, status, modified) =>
+              handleApprovalDecision(id, status, false, false, modified)
+            }
+          />
           <PendingApprovalPanel approvals={otherApprovals} onDecision={handleApprovalDecision} />
           <ChatInput
             ref={chatInputRef}

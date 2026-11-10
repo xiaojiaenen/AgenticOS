@@ -1,35 +1,56 @@
-import React, { useState, useCallback } from 'react';
+import React, { Suspense, lazy, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
-import { AnnouncementManagement } from '../components/admin/AnnouncementManagement';
-import { AgentManagement } from '../components/admin/AgentManagement';
-import { LlmProviderManagement } from '../components/admin/LlmProviderManagement';
-import { ApiKeyManagement } from '../components/admin/ApiKeyManagement';
-import { GatewayEndpointsPanel } from '../components/admin/GatewayEndpointsPanel';
-import { ChatHistory } from '../components/admin/ChatHistory';
-import { DashboardCharts } from '../components/admin/DashboardCharts';
-import { UsageRoutePanel } from '../components/admin/UsageRoutePanel';
-import { DashboardStats } from '../components/admin/DashboardStats';
-import { SkillManagement } from '../components/admin/SkillManagement';
-import { KnowledgeManagement } from '../components/admin/KnowledgeManagement';
-import { WebsiteDeployManagement } from '../components/admin/WebsiteDeployManagement';
-import { SystemSettings } from '../components/admin/SystemSettings';
-import { IntegrationManagement } from '../components/admin/IntegrationManagement';
-import { UserManagement } from '../components/admin/UserManagement';
-import { MemoryPanel } from '../components/settings/MemoryPanel';
-import { TracePanel } from '../components/settings/TracePanel';
-import { EvalPanel } from '../components/settings/EvalPanel';
-import { PermissionManagement } from '../components/admin/PermissionManagement';
 import { ChartSkeleton } from '../components/ui/ChartSkeleton';
 import { Button } from '@/components/shadcn/button';
 import { MascotCool } from '../components/ui/AnimatedIcons';
 import { cn } from '../lib/utils';
 import { getDashboardStats, getUsageRoutes } from '../services/dashboardService';
 
+/*
+ * 17 个管理面板全部 React.lazy 按需分包：此前它们被静态打进 admin 首包
+ * （约 1.9 万行组件 + recharts/xyflow），首屏只用到一个 tab 却要下载全部。
+ * 每个面板体积可观（WorkflowManagement 695 行、SystemSettings 704 行…），
+ * 拆开后切到对应 tab 才拉取对应 chunk，与页面级 lazy 的既有模式对齐。
+ */
+
+const AnnouncementManagement = lazy(() => import('../components/admin/AnnouncementManagement').then((m) => ({ default: m.AnnouncementManagement })));
+const AgentManagement = lazy(() => import('../components/admin/AgentManagement').then((m) => ({ default: m.AgentManagement })));
+const LlmProviderManagement = lazy(() => import('../components/admin/LlmProviderManagement').then((m) => ({ default: m.LlmProviderManagement })));
+const ApiKeyManagement = lazy(() => import('../components/admin/ApiKeyManagement').then((m) => ({ default: m.ApiKeyManagement })));
+const GatewayEndpointsPanel = lazy(() => import('../components/admin/GatewayEndpointsPanel').then((m) => ({ default: m.GatewayEndpointsPanel })));
+const ChatHistory = lazy(() => import('../components/admin/ChatHistory').then((m) => ({ default: m.ChatHistory })));
+const DashboardCharts = lazy(() => import('../components/admin/DashboardCharts').then((m) => ({ default: m.DashboardCharts })));
+const UsageRoutePanel = lazy(() => import('../components/admin/UsageRoutePanel').then((m) => ({ default: m.UsageRoutePanel })));
+const DashboardStats = lazy(() => import('../components/admin/DashboardStats').then((m) => ({ default: m.DashboardStats })));
+const SkillManagement = lazy(() => import('../components/admin/SkillManagement').then((m) => ({ default: m.SkillManagement })));
+const KnowledgeManagement = lazy(() => import('../components/admin/KnowledgeManagement').then((m) => ({ default: m.KnowledgeManagement })));
+const WorkflowManagement = lazy(() => import('../components/admin/WorkflowManagement').then((m) => ({ default: m.WorkflowManagement })));
+const WebsiteDeployManagement = lazy(() => import('../components/admin/WebsiteDeployManagement').then((m) => ({ default: m.WebsiteDeployManagement })));
+const SystemSettings = lazy(() => import('../components/admin/SystemSettings').then((m) => ({ default: m.SystemSettings })));
+const IntegrationManagement = lazy(() => import('../components/admin/IntegrationManagement').then((m) => ({ default: m.IntegrationManagement })));
+const UserManagement = lazy(() => import('../components/admin/UserManagement').then((m) => ({ default: m.UserManagement })));
+const MemoryPanel = lazy(() => import('../components/settings/MemoryPanel').then((m) => ({ default: m.MemoryPanel })));
+const TracePanel = lazy(() => import('../components/settings/TracePanel').then((m) => ({ default: m.TracePanel })));
+const EvalPanel = lazy(() => import('../components/settings/EvalPanel').then((m) => ({ default: m.EvalPanel })));
+const PermissionManagement = lazy(() => import('../components/admin/PermissionManagement').then((m) => ({ default: m.PermissionManagement })));
+const FeedbackCenter = lazy(() => import('../components/admin/FeedbackCenter').then((m) => ({ default: m.FeedbackCenter })));
+const UserAnalytics = lazy(() => import('../components/admin/UserAnalytics').then((m) => ({ default: m.UserAnalytics })));
+
+/** tab chunk 加载/渲染中的占位：与面板卡片同构的骨架，避免突兀空白 */
+const TabFallback = () => (
+  <div className="space-y-4" aria-busy="true">
+    <div className="h-9 w-56 animate-pulse rounded-lg bg-[var(--surface-2)]" />
+    <div className="h-24 animate-pulse rounded-xl bg-[var(--surface-2)]" />
+    <div className="h-64 animate-pulse rounded-xl bg-[var(--surface-2)]" />
+  </div>
+);
+
+
 export const AdminDashboard = () => {
-  const VALID_TABS = ['dashboard', 'history', 'users', 'permissions', 'agents', 'llm_providers', 'integrations', 'api_keys', 'gateway', 'skills', 'knowledge', 'website_deploys', 'announcements', 'settings', 'memory', 'traces', 'evals'];
+  const VALID_TABS = ['dashboard', 'user_analytics', 'history', 'feedback', 'users', 'permissions', 'agents', 'llm_providers', 'integrations', 'api_keys', 'gateway', 'skills', 'knowledge', 'website_deploys', 'announcements', 'settings', 'memory', 'traces', 'evals', 'workflows'];
   // tab 与 URL hash 双向同步：刷新 / 分享链接不丢失当前管理页
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.replace('#', '');
@@ -241,6 +262,10 @@ export const AdminDashboard = () => {
         );
       case 'history':
         return <ChatHistory />;
+      case 'user_analytics':
+        return <UserAnalytics />;
+      case 'feedback':
+        return <FeedbackCenter />;
       case 'users':
         return <UserManagement />;
       case 'permissions':
@@ -271,6 +296,8 @@ export const AdminDashboard = () => {
         return <TracePanel />;
       case 'evals':
         return <EvalPanel />;
+      case 'workflows':
+        return <WorkflowManagement />;
       default:
         return null;
     }
@@ -279,10 +306,12 @@ export const AdminDashboard = () => {
   return (
     <motion.div
       key="admin"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
+      /* 挂载即可见（initial=false）：整页可见性绝不依赖 motion 入场动画，
+         否则懒加载 chunk + AnimatePresence(mode=wait) 竞态会把页面卡在 opacity:0（白屏）。
+         入场动效由 .admin-page-stage 的 CSS 动画在内容层提供。 */
+      initial={false}
       exit={{ opacity: 0, y: -6 }}
-      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
       className={cn('admin-dashboard-shell relative flex h-screen overflow-hidden font-sans', 'text-[var(--foreground)]')}
     >
       <AnimatePresence>
@@ -340,17 +369,12 @@ export const AdminDashboard = () => {
 
       <main id="main-content" className="relative z-10 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[1540px] px-4 pb-10 pt-6 md:px-6 xl:px-8">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.12 }}
-            >
-              {renderContent()}
-            </motion.div>
-          </AnimatePresence>
+          {/* tab 切换入场走 CSS（.admin-page-stage）：挂载即播、不依赖 rAF，
+              避免 motion 入场在主线程繁忙/后台 tab 下卡在 opacity:0 造成整页空白。
+              Suspense 兜住 lazy tab chunk 的加载期，骨架占位防突兀空白 */}
+          <div key={activeTab} className="admin-page-stage">
+            <Suspense fallback={<TabFallback />}>{renderContent()}</Suspense>
+          </div>
         </div>
       </main>
     </motion.div>

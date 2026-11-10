@@ -26,9 +26,11 @@ import {
   Terminal,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import type { ColumnDef } from '@tanstack/react-table';
 import { Button } from '@/components/shadcn/button';
 import { Skeleton } from '@/components/shadcn/skeleton';
 import { AdminPageHeader, AdminPanel, ErrorBanner, SectionHeading } from './shared';
+import { DataTable } from './data-table';
 import { GATEWAY_BASE_URL, listApiKeys } from '@/services/apiKeyService';
 import { cn } from '@/lib/utils';
 
@@ -39,6 +41,29 @@ type GatewayModel = {
   description?: string;
   owned_by?: string;
 };
+
+/** 网关支持的协议端点（静态参考表）：列定义交给 DataTable 统一表格观感 */
+type ProtocolRow = { path: string; proto: string; auth: string; clients: string };
+const PROTOCOL_ROWS: ProtocolRow[] = [
+  { path: '/v1/chat/completions', proto: 'OpenAI Chat', auth: 'Authorization: Bearer', clients: 'Cursor / Cherry Studio / Dify' },
+  { path: '/v1/responses', proto: 'OpenAI Responses', auth: 'Authorization: Bearer', clients: 'Codex / 新版 OpenAI SDK' },
+  { path: '/v1/messages', proto: 'Anthropic Messages', auth: 'x-api-key', clients: 'Claude Code / Anthropic SDK' },
+  { path: '/v1/embeddings', proto: 'OpenAI Embeddings', auth: 'Authorization: Bearer', clients: 'RAG 客户端' },
+  { path: '/v1/images/generations', proto: 'OpenAI Images', auth: 'Authorization: Bearer', clients: '绘图工具' },
+  { path: '/v1/models', proto: 'OpenAI Models', auth: '两种都认', clients: '所有客户端（列可用模型）' },
+];
+const protocolColumns: ColumnDef<ProtocolRow, unknown>[] = [
+  {
+    id: 'path',
+    header: '端点',
+    cell: ({ row }) => (
+      <span className="font-medium tabular-nums text-[var(--foreground)]">{row.original.path}</span>
+    ),
+  },
+  { id: 'proto', header: '协议', cell: ({ row }) => <span className="font-medium text-[var(--muted-foreground)]">{row.original.proto}</span> },
+  { id: 'auth', header: '鉴权头', cell: ({ row }) => <span className="font-medium text-[var(--muted-foreground)]">{row.original.auth}</span> },
+  { id: 'clients', header: '典型客户端', cell: ({ row }) => <span className="font-medium text-[var(--muted-foreground)]">{row.original.clients}</span> },
+];
 
 /** 复制到剪贴板，带降级（非 HTTPS 环境下 navigator.clipboard 不可用） */
 async function copyText(text: string, label: string): Promise<void> {
@@ -272,34 +297,8 @@ export function GatewayEndpointsPanel() {
           title="支持的协议"
           description="同一个网关，不同客户端用不同协议，鉴权方式自动兼容。"
         />
-        <div className="mt-3 overflow-hidden rounded-lg border border-[var(--border-subtle)]">
-          <table className="w-full text-[12px]">
-            <thead className="bg-[var(--surface-2)]">
-              <tr className="text-left">
-                <th className="px-3 py-2 font-semibold text-[var(--foreground)]">端点</th>
-                <th className="px-3 py-2 font-semibold text-[var(--foreground)]">协议</th>
-                <th className="px-3 py-2 font-semibold text-[var(--foreground)]">鉴权头</th>
-                <th className="px-3 py-2 font-semibold text-[var(--foreground)]">典型客户端</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-subtle)]">
-              {[
-                ['/v1/chat/completions', 'OpenAI Chat', 'Authorization: Bearer', 'Cursor / Cherry Studio / Dify'],
-                ['/v1/responses', 'OpenAI Responses', 'Authorization: Bearer', 'Codex / 新版 OpenAI SDK'],
-                ['/v1/messages', 'Anthropic Messages', 'x-api-key', 'Claude Code / Anthropic SDK'],
-                ['/v1/embeddings', 'OpenAI Embeddings', 'Authorization: Bearer', 'RAG 客户端'],
-                ['/v1/images/generations', 'OpenAI Images', 'Authorization: Bearer', '绘图工具'],
-                ['/v1/models', 'OpenAI Models', '两种都认', '所有客户端（列可用模型）'],
-              ].map(([path, proto, auth, clients]) => (
-                <tr key={path} className="hover:bg-[var(--surface-2)]">
-                  <td className="px-3 py-2 font-medium tabular-nums text-[var(--foreground)]">{path}</td>
-                  <td className="px-3 py-2 font-medium text-[var(--muted-foreground)]">{proto}</td>
-                  <td className="px-3 py-2 font-medium text-[var(--muted-foreground)]">{auth}</td>
-                  <td className="px-3 py-2 font-medium text-[var(--muted-foreground)]">{clients}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-3">
+          <DataTable columns={protocolColumns} data={PROTOCOL_ROWS} />
         </div>
       </AdminPanel>
 

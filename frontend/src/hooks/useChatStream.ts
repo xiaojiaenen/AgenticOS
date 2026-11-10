@@ -116,7 +116,11 @@ export function useChatStream({
     maxSteps?: number;
   }>({ phase: 'idle', label: '已就绪' });
 
-  const abortControllerRef = useRef<AbortController | null>(null);
+  // 按会话管理 AbortController：**切换会话不能 abort 正在跑的那一轮**。
+  // 之前是单个 ref，切到别的会话就把上一轮的流掐断 —— 后端收到
+  // CancelledError，整轮 LLM 生成作废，用户切回来只剩半截回复。
+  // 只有「停止」按钮与组件卸载才允许 abort。
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
   // 当前活跃流对应的会话 ID 集合（含后端重命名后的 ID）
   const activeStreamSessionIdsRef = useRef<Set<string>>(new Set());
   // 最新 sessions 引用：handleSend 内部经 ref 读取，避免因依赖 sessions 在流式期间每帧重建回调
@@ -147,27 +151,30 @@ export function useChatStream({
   // Cleanup rAF + 撤销本轮创建的附件 blob URL + abort 未完成请求 on unmount
   useEffect(() => () => {
     if (deltaFlushRaf.current != null) cancelAnimationFrame(deltaFlushRaf.current);
-    abortControllerRef.current?.abort();
+    // 组件真正卸载才断开所有流（切会话不在此列）
+    for (const controller of abortControllersRef.current.values()) controller.abort();
+    abortControllersRef.current.clear();
     for (const url of attachmentUrlsRef.current) {
       URL.revokeObjectURL(url);
     }
     attachmentUrlsRef.current = [];
   }, []);
 
-  // 切换会话时：abort 旧 AbortController，并重置非当前会话的 isLoading
+  // 切换会话：**不打断任何正在运行的流**。
+  //
+  // 旧实现切走会话就 abort 上一轮的流，导致「原本正在运行的会话一切换就停」
+  // —— 后端因此收到 CancelledError，整轮生成作废。现在后台流继续读、继续
+  // 写 session 缓存，切回该会话时直接看到完整结果。
+  // 这里只把「当前展示的 loading 指示」跟随会话：若正在跑的会话不是当前
+  // 会话，界面上的 loading 归当前会话（它自己有没有流由 isLoading 计算）。
   useEffect(() => {
     const active = activeStreamSessionIdsRef.current;
-    const hasActiveForCurrent = currentSessionId !== null && active.has(currentSessionId);
-    if (abortControllerRef.current && currentSessionId !== null && !hasActiveForCurrent && active.size > 0) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    // 切到无关会话时重置 loading
     setLoadingSessionId((prev) => {
-      if (prev && currentSessionId !== null && prev !== currentSessionId && !active.has(currentSessionId)) {
-        return null;
-      }
-      return prev;
+      // 当前会话自己就在跑 → 保持
+      if (currentSessionId !== null && active.has(currentSessionId)) return prev;
+      // 其它会话在后台跑：不把它的 loading 显示到当前会话上
+      if (prev !== null && !active.has(prev)) return prev;
+      return null;
     });
   }, [currentSessionId]);
 
@@ -192,9 +199,12 @@ export function useChatStream({
     void handleSendRef.current?.(last.text, last.files, 'composer');
   }, [isLoading]);
   const handleStopGeneration = useCallback(() => {
-    // 停止按钮真正 abort 当前请求
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = null;
+    // 停止按钮只 abort **当前会话**的请求，不影响其它会话后台进行的流
+    const stopKey = currentSessionId ?? loadingSessionId;
+    if (stopKey) {
+      abortControllersRef.current.get(stopKey)?.abort();
+      abortControllersRef.current.delete(stopKey);
+    }
     // 只清理当前会话的活跃标记（含后端重命名前后的 ID），不影响其他会话正在进行的流
     if (loadingSessionId) {
       activeStreamSessionIdsRef.current.delete(loadingSessionId);
@@ -237,7 +247,13 @@ export function useChatStream({
   }, [loadingSessionId, currentSessionId]);
 
   const handleApprovalDecision = useCallback(
-    async (approvalId: string, status: 'approved' | 'rejected', isApiApproval?: boolean, allowAll?: boolean) => {
+    async (
+      approvalId: string,
+      status: 'approved' | 'rejected',
+      isApiApproval?: boolean,
+      allowAll?: boolean,
+      modifiedArguments?: Record<string, unknown>,
+    ) => {
       const optimisticStatus = status === 'approved' ? 'approved' : 'rejected';
       const rollbackResult =
         '审批提交失败，已恢复待审批状态。请重试或检查后端服务。';
@@ -275,6 +291,7 @@ export function useChatStream({
             approvalId,
             status,
             status === 'approved' ? 'approved from AgenticOS UI' : 'rejected from AgenticOS UI',
+            modifiedArguments,
           );
         }
       } catch (err) {
@@ -336,10 +353,11 @@ export function useChatStream({
         // 做法：停掉当前这一轮（用户已经看到界面了，继续流没意义），
         // 把这条动作排进 pending，等 isLoading 落下后由 flush effect 发出。
         pendingA2uiRef.current.push({ text: text.trim(), files });
-        abortControllerRef.current?.abort();
-        abortControllerRef.current = null;
-        if (loadingSessionId) {
-          activeStreamSessionIdsRef.current.delete(loadingSessionId);
+        const a2uiKey = currentSessionId ?? loadingSessionId;
+        if (a2uiKey) {
+          abortControllersRef.current.get(a2uiKey)?.abort();
+          abortControllersRef.current.delete(a2uiKey);
+          activeStreamSessionIdsRef.current.delete(a2uiKey);
         }
         return true;
       }
@@ -358,7 +376,9 @@ export function useChatStream({
       let receivedSheetArtifact: AgentSheetArtifact | undefined;
       let receivedDocumentArtifact: AgentDocumentArtifact | undefined;
       const abortController = new AbortController();
-      abortControllerRef.current = abortController;
+      // 先按请求会话登记（targetId 可能在流中被后端重命名，见下方 rename 处理）
+      const initialStreamKey = currentSessionId ?? `pending-${Date.now()}`;
+      abortControllersRef.current.set(initialStreamKey, abortController);
 
       try {
         const attachments = files ? buildAttachments(files, attachmentUrlsRef.current) : [];
@@ -428,6 +448,7 @@ export function useChatStream({
           activeStreamSessionIdsRef.current.add(targetId);
         }
 
+        const stateSessionIdForInput = () => targetId ?? currentSessionId ?? null;
         const response = await sendMessageStream(currentText, {
           sessionId: targetId,
           systemPrompt:
@@ -440,9 +461,14 @@ export function useChatStream({
           signal: abortController.signal,
           onSessionState: (state) => {
             applySessionState(targetId!, state);
-            // 后端可能重命名 session_id，登记到活跃集合，避免误 abort
+            // 后端可能重命名 session_id：登记到活跃集合，并把 abort controller
+            // 的 key 同步到新 ID —— 否则「停止」按新 ID 找不到 controller，
+            // 切会话后的按会话 abort 也会失效。
             if (state.session_id) {
               activeStreamSessionIdsRef.current.add(state.session_id);
+              if (!abortControllersRef.current.has(state.session_id)) {
+                abortControllersRef.current.set(state.session_id, abortController);
+              }
             }
           },
           onRunStatus: (status: AgentRunStatus) => {
@@ -563,6 +589,14 @@ export function useChatStream({
           onWebsiteArtifact: (wsArtifact) => {
             if (wsArtifact.session_id && wsArtifact.session_id !== targetId) return;
             receivedWebsiteArtifact = wsArtifact;
+            // 刻意**不**把 wsArtifact.preview_url 带进 artifact：预览令牌只有
+            // 15 分钟 TTL，存进内存后用户切走再切回（或点「重新打开产物」）
+            // 时早已过期，iframe 会直接渲染 403 错误页。首帧走 preview_html
+            // 内联 srcDoc（自包含、永不过期）；带签名的实时 URL 只在两个入口
+            // 现用现签：「刷新」/会话恢复（GET /sessions/{id}/artifacts 每次都
+            // 签新 token）和「重新打开产物」按钮（ChatMainArea 会先调
+            // issueWebsitePreviewUrl 现签再打开）。切勿把这里的旧 token 复用进
+            // 内存态 artifact。
             const nextArtifact: Artifact = {
               language: 'website',
               artifactId: wsArtifact.artifact_id,
@@ -729,7 +763,15 @@ export function useChatStream({
             });
           },
           onUserInputRequired: (input) => {
-            onUserInputRequired?.(input as unknown as UserInputRequest);
+            // 带上来源会话：后台流（用户已切走）触发的人工输入必须只在
+            // 它自己的会话里显示/提交，否则会提交到用户当前所在的错误会话。
+            const base = input as unknown as UserInputRequest;
+            const tagged: UserInputRequest = {
+              ...base,
+              // 后端已带 session_id 时优先用它；否则用本流的目标会话兜底
+              session_id: base.session_id || stateSessionIdForInput() || '',
+            };
+            onUserInputRequired?.(tagged);
           },
           onApiApprovalRequired: (approval) => {
             onApiApprovalRequired?.(approval as unknown as ApiApprovalRequest);
@@ -934,8 +976,9 @@ export function useChatStream({
         setRunStatus({ phase: 'error', label: '本轮回复失败' });
         return false; // 失败：让调用方保留用户输入（如未上传成功的附件）
       } finally {
-        if (abortControllerRef.current === abortController) {
-          abortControllerRef.current = null;
+        // 按 controller 值清理（会话可能已被后端重命名，key 不一定是发起时那个）
+        for (const [key, controller] of abortControllersRef.current) {
+          if (controller === abortController) abortControllersRef.current.delete(key);
         }
         if (targetId) {
           activeStreamSessionIdsRef.current.delete(targetId);
@@ -999,7 +1042,7 @@ export function useChatStream({
     setError,
     runStatus,
     setRunStatus,
-    abortControllerRef,
+    abortControllersRef,
     pendingDecisions,
     handleSend,
     handleStopGeneration,

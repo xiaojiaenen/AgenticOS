@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import {
   FileCode2,
   Loader2,
+  Pencil,
   Plus,
   RefreshCw,
   Save,
@@ -22,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { DataTable } from './data-table';
+import { RowActions } from './RowActions';
 import { AdminPageHeader, AdminPanel, ErrorBanner, KpiPill } from './shared';
 import { Button } from '@/components/shadcn/button';
 import { Input } from '@/components/shadcn/input';
@@ -386,36 +388,26 @@ export const SkillManagement = () => {
       },
       {
         id: 'actions',
-        header: () => <span className="block text-right">操作</span>,
+        header: () => <span className="block">操作</span>,
         enableSorting: false,
-        cell: ({ row }) => {
-          const skill = row.original;
-          return (
-            <div className="flex justify-end gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => {
-                  setEditingSkill(skill);
-                  setFormOpen(true);
-                }}
-              >
-                <FileCode2 size={14} />
-                编辑
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => setDeletingSkill(skill)}
-              >
-                <Trash2 size={14} />
-                删除
-              </Button>
-            </div>
-          );
-        },
+        meta: { align: 'right' },
+        cell: ({ row }) => (
+          <RowActions
+            actions={[
+              {
+                label: '编辑技能',
+                icon: <Pencil size={15} />,
+                onClick: () => setEditingSkill(row.original),
+              },
+              {
+                label: '删除技能',
+                icon: <Trash2 size={15} />,
+                tone: 'danger',
+                onClick: () => setDeletingSkill(row.original),
+              },
+            ]}
+          />
+        ),
       },
     ],
     [],

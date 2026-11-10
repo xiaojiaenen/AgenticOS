@@ -1,15 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
+import { BarChart3, Globe, Mail, Presentation } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/shadcn/button';
-import { RandomMascot } from '../components/ui/RandomMascot';
 import { AgentSelector } from '../components/ui/AgentSelector';
 import { InlineSpinner } from '../components/ui/Skeletons';
 import { MascotSurprised, SendIcon } from '../components/ui/AnimatedIcons';
 import { AuroraBackground } from '../components/backgrounds/AuroraBackground';
 import { getStoredUser } from '../services/authService';
 import { AgentProfile, getMyAgents } from '../services/agentProfileService';
+import { cn } from '../lib/utils';
+
+/** 快捷入口：图标 + 一句话，一点即达（直接带着 initialMessage 进对话） */
+const QUICK_STARTS = [
+  { text: '帮我做个 PPT', hint: '结构化演示文稿', mode: 'ppt', icon: Presentation, tone: 'text-amber-600 bg-amber-500/10 dark:text-amber-300' },
+  { text: '写一个网站首页', hint: '可部署的前端页面', mode: 'website', icon: Globe, tone: 'text-sky-600 bg-sky-500/10 dark:text-sky-300' },
+  { text: '帮我分析数据', hint: '数据洞察一站式', mode: 'general', icon: BarChart3, tone: 'text-emerald-600 bg-emerald-500/10 dark:text-emerald-300' },
+  { text: '写一封邮件', hint: '商务往来一键起草', mode: 'general', icon: Mail, tone: 'text-indigo-600 bg-indigo-500/10 dark:text-indigo-300' },
+] as const;
 
 export const Home = () => {
   const [inputValue, setInputValue] = useState('');
@@ -17,21 +26,32 @@ export const Home = () => {
   const [agentsState, setAgentsState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>(null);
   const navigate = useNavigate();
-  const user = getStoredUser();
+  // getStoredUser() 每次调用都 JSON.parse 出新对象：用惰性 state 只取一次，
+  // 既拿到稳定的引用（可安全依赖），也能显示用户名。
+  const [user] = useState(() => getStoredUser());
+  const isLoggedIn = Boolean(user);
   const selectedAgent = agentProfiles.find((a) => a.id === selectedAgentProfileId) || null;
 
+  // 默认选中只在「首次拿到列表」时做一次：之后任何重新拉取都不得覆盖用户的选择
+  const hasAppliedDefaultRef = React.useRef(false);
+
   const loadAgents = useCallback(() => {
-    if (!user) return;
+    if (!isLoggedIn) return;
     setAgentsState('loading');
     getMyAgents()
       .then((res) => {
         setAgentProfiles(res.items);
-        const general = res.items.find((a) => a.slug === 'general');
-        if (general) setSelectedAgentProfileId(general.id);
+        // 默认选中只在首次拿到列表时做一次：重新拉取/重新渲染都不得覆盖
+        // 用户的选择（否则选完就跳回「通用助手」）
+        if (!hasAppliedDefaultRef.current) {
+          const general = res.items.find((a) => a.slug === 'general');
+          if (general) setSelectedAgentProfileId(general.id);
+          hasAppliedDefaultRef.current = true;
+        }
         setAgentsState('idle');
       })
       .catch(() => setAgentsState('error'));
-  }, [user]);
+  }, [isLoggedIn]);
 
   useEffect(() => {
     loadAgents();
@@ -65,19 +85,18 @@ export const Home = () => {
   return (
     <motion.div
       key="home"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      /* 挂载即可见：整页可见性不依赖 motion 入场（防懒加载竞态白屏） */
+      initial={false}
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
-      transition={{ duration: 0.3 }}
       className="min-h-screen relative overflow-hidden font-sans flex flex-col bg-[var(--surface-2)]"
     >
       {/* 极光雾背景（低饱和 indigo，WebGL 不可用时自动降级为静态渐变） */}
       <AuroraBackground className="absolute" />
 
-      {/* 背景装饰 — 静态光晕 + 点阵，无 infinite 动画 */}
+      {/* 背景装饰 — 极光 + 单一静态光晕 + 细点阵。刻意不放巨型水印：
+          1000px 吉祥物会把首屏变成「灰色糊底」，喧宾夺主（走查结论 2026-11） */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute -top-32 -left-20 w-[620px] h-[620px] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.10),transparent_70%)] blur-[80px]" />
-        <div className="absolute -bottom-24 left-1/3 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(129,140,248,0.08),transparent_70%)] blur-[90px]" />
 
         {/* Subtle dot grid */}
         <div className="absolute inset-0" style={{
@@ -86,11 +105,6 @@ export const Home = () => {
           backgroundSize: '52px 52px',
           maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.06) 55%, rgba(0,0,0,0.15))',
         }} />
-
-        {/* Giant Mascot Background */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-[0.035] text-[var(--foreground)] pointer-events-none">
-          <RandomMascot size={1000} />
-        </div>
       </div>
 
       {/* Top Navigation */}
@@ -115,22 +129,29 @@ export const Home = () => {
         </div>
       </nav>
 
-      {/* Hero Section */}
+      {/* Hero Section —— 入场编排：标题 → 副题 → 输入卡 → 快捷卡，统一 easeOutQuint */}
       <main id="main-content" className="flex-1 flex flex-col items-center justify-center px-4 relative z-10 w-full max-w-[1400px] mx-auto">
-        <h1 className="text-4xl md:text-5xl font-semibold mb-6 flex items-center gap-4 tracking-tight text-[var(--foreground)]">
-          一句话
-          <MascotSurprised size={48} className="-rotate-6 text-[var(--foreground)]" />
-          呈所想
-        </h1>
-        <p className="mb-10 text-base md:text-lg text-[var(--muted-foreground)]">
-          与 AI 对话轻松创建应用和网站
-        </p>
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col items-center"
+        >
+          <h1 className="text-4xl md:text-5xl font-semibold mb-5 flex items-center gap-4 tracking-tight text-[var(--foreground)]">
+            一句话
+            <MascotSurprised size={48} className="-rotate-6 text-[var(--foreground)]" />
+            呈所想
+          </h1>
+          <p className="mb-10 text-base md:text-lg text-[var(--muted-foreground)]">
+            与 AI 对话轻松创建应用和网站
+          </p>
+        </motion.div>
 
         {/* Big Input Box */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.4 }}
+          transition={{ delay: 0.08, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
           className="w-full max-w-3xl"
         >
           <div className="rounded-2xl border border-[var(--border-subtle)] bg-card shadow-md p-3 transition-all focus-within:border-[var(--ring)] focus-within:shadow-lg focus-within:ring-[3px] focus-within:ring-[var(--ring-halo)]">
@@ -183,41 +204,42 @@ export const Home = () => {
             </div>
           </div>
         </motion.div>
+        {/* 快捷入口卡：图标 + 主文案 + 一句提示，桌面 4 列网格 */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4 }}
-          className="mt-6 flex flex-wrap justify-center gap-2 max-w-3xl"
+          transition={{ delay: 0.18, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          className="mt-6 grid w-full max-w-3xl grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4"
         >
-          {[
-            { text: '帮我做个 PPT', mode: 'ppt' },
-            { text: '写一个网站首页', mode: 'website' },
-            { text: '帮我分析数据', mode: 'general' },
-            { text: '写一封邮件', mode: 'general' },
-          ].map((s) => (
-            <React.Fragment key={s.text}>
-              <button
-                onClick={() => {
-                  // 点击即发起，而不是只把文字填进输入框再让用户点一次发送 ——
-                  // 快捷入口的意义就是「一点即用」。
-                  setInputValue(s.text);
-                  if (!user) {
-                    navigate('/login', { state: { from: s.text } });
-                    return;
-                  }
-                  navigate('/chat', {
-                    state: {
-                      initialMessage: s.text,
-                      mode: s.mode,
-                      agentProfileId: selectedAgentProfileId,
-                    },
-                  });
-                }}
-                className="px-4 py-2 rounded-full text-sm font-medium border border-[var(--border-subtle)] bg-card text-[var(--muted-foreground)] hover:border-[var(--border-strong)] hover:text-[var(--foreground)] hover:shadow-sm transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
-              >
-                {s.text}
-              </button>
-            </React.Fragment>
+          {QUICK_STARTS.map((s) => (
+            <button
+              key={s.text}
+              onClick={() => {
+                // 点击即发起，而不是只把文字填进输入框再让用户点一次发送 ——
+                // 快捷入口的意义就是「一点即用」。
+                setInputValue(s.text);
+                if (!user) {
+                  navigate('/login', { state: { from: s.text } });
+                  return;
+                }
+                navigate('/chat', {
+                  state: {
+                    initialMessage: s.text,
+                    mode: s.mode,
+                    agentProfileId: selectedAgentProfileId,
+                  },
+                });
+              }}
+              className="group flex items-start gap-3 rounded-xl border border-[var(--border-subtle)] bg-card px-3.5 py-3 text-left shadow-xs transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
+            >
+              <span className={cn('mt-0.5 flex size-8 flex-shrink-0 items-center justify-center rounded-lg transition-transform duration-150 group-hover:scale-110', s.tone)}>
+                <s.icon size={16} strokeWidth={2} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-[var(--foreground)]">{s.text}</span>
+                <span className="mt-0.5 block truncate text-xs text-[var(--muted-foreground)]">{s.hint}</span>
+              </span>
+            </button>
           ))}
         </motion.div>
       </main>

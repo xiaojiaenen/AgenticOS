@@ -7,6 +7,7 @@ import { cn } from '../../lib/utils';
 import { Logo } from '../Logo';
 import { EmptyState } from '../ui/EmptyState';
 import { UsagePanel } from '../settings/UsagePanel';
+import { PortraitCard } from '../feedback/PortraitCard';
 import { MessageSquare } from 'lucide-react';
 import { PlusIcon, ChatBubbleIcon, TrashIcon, MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
 import { getStoredUser, logout } from '../../services/authService';
@@ -46,6 +47,7 @@ export const Sidebar = React.memo(({
   const [showMarket, setShowMarket] = useState(false);
   const [showEmailSettings, setShowEmailSettings] = useState(false);
   const [showUsage, setShowUsage] = useState(false);
+  const [showPortrait, setShowPortrait] = useState(false);
 
   const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -58,7 +60,8 @@ export const Sidebar = React.memo(({
   const sidebarContent = (
     <>
       <div className={cn("p-4 flex items-center justify-between border-b", "border-[var(--border-subtle)]")}>
-        <Logo iconSize={20} className="text-lg" />
+        {/* shrink-0：防止折叠按钮挤压字标导致 "AgenticOS" 被截断 */}
+        <Logo iconSize={20} className="text-lg shrink-0" />
         <button onClick={onClose} className={cn("p-2 rounded-lg group transition-colors", "text-[var(--muted-foreground)] hover:text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]")} aria-label="关闭侧边栏">
           <MenuIcon size={20} />
         </button>
@@ -106,7 +109,7 @@ export const Sidebar = React.memo(({
                 }}
                 /* 触屏（hover: none）无法 hover，删除按钮常驻可见；
                    指针设备仍保持 hover 出现，避免列表视觉过噪 */
-                className="p-1.5 rounded-md transition-all text-[var(--muted-foreground)] hover:text-red-500 hover:bg-red-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
+                className="p-1.5 rounded-md transition-all text-[var(--muted-foreground)] hover:text-red-500 hover:bg-red-500/10 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
                 aria-label="删除对话"
               >
                 <TrashIcon size={16} />
@@ -127,8 +130,8 @@ export const Sidebar = React.memo(({
               className={cn(
                 "group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all",
                 isActive
-                  ? "bg-[var(--surface-1)] backdrop-blur-sm text-[var(--foreground)] font-bold shadow-xs border border-white/60"
-                  : "text-[var(--muted-foreground)] hover:bg-white/40 hover:text-[var(--foreground)] font-medium"
+                  ? "bg-[var(--surface-1)] backdrop-blur-sm text-[var(--foreground)] font-bold shadow-xs border border-[var(--border-subtle)]"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] font-medium"
               )}
             >
               {sessionInner}
@@ -140,7 +143,7 @@ export const Sidebar = React.memo(({
             <button
               type="button"
               onClick={onLoadMore}
-              className="w-full rounded-xl border border-white/70 bg-white/55 px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] shadow-sm transition-all hover:bg-[var(--surface-1)] hover:text-[var(--foreground)]"
+              className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)]/60 px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] shadow-sm transition-all hover:bg-[var(--surface-1)] hover:text-[var(--foreground)]"
               aria-label="加载更多对话"
             >
               加载更多对话
@@ -171,6 +174,14 @@ export const Sidebar = React.memo(({
               icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>,
             },
             {
+              // 作品库：已部署网站的作品集。此前只有 /gallery 路由却没有入口，
+              // 用户部署完网站后无处可看 —— 这里补上侧栏入口。
+              key: 'gallery',
+              label: '作品库',
+              onClick: () => navigate('/gallery'),
+              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
+            },
+            {
               key: 'market',
               label: '集成市场',
               onClick: () => setShowMarket(true),
@@ -187,6 +198,18 @@ export const Sidebar = React.memo(({
               label: '我的用量',
               onClick: () => setShowUsage(true),
               icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>,
+            },
+            {
+              key: 'portrait',
+              label: 'AI 眼中的你',
+              onClick: () => setShowPortrait(true),
+              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/></svg>,
+            },
+            {
+              key: 'wrapped',
+              label: '年度报告',
+              onClick: () => navigate('/wrapped'),
+              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
             },
           ].map(({ key, label, onClick, icon }) => (
             <Tooltip key={key}>
@@ -273,6 +296,7 @@ export const Sidebar = React.memo(({
     </motion.aside>
     <IntegrationMarket open={showMarket} onClose={() => setShowMarket(false)} />
     <EmailSettingsPanel open={showEmailSettings} onClose={() => setShowEmailSettings(false)} />
+    <PortraitCard open={showPortrait} onOpenChange={setShowPortrait} />
     <Dialog open={showUsage} onOpenChange={setShowUsage}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>

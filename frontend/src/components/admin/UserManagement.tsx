@@ -21,6 +21,7 @@ import {
   UserX,
 } from 'lucide-react';
 import { DataTable } from './data-table';
+import { RowActions } from './RowActions';
 import { Pagination } from './Pagination';
 import { AdminPageHeader, ErrorBanner, KpiPill } from './shared';
 import { Button } from '@/components/shadcn/button';
@@ -165,7 +166,7 @@ function UserFormDialog({
 
         <form
           onSubmit={form.handleSubmit((values) => saveMutation.mutateAsync(values))}
-          className="grid grid-cols-1 gap-4 md:grid-cols-2"
+          className="grid grid-cols-1 gap-x-4 gap-y-5 py-1 md:grid-cols-2"
         >
           <div className="space-y-1.5">
             <Label htmlFor="user-name">名称</Label>
@@ -373,50 +374,42 @@ export const UserManagement = () => {
       },
       {
         id: 'actions',
-        header: () => <span className="block text-right">操作</span>,
+        header: () => <span className="block">操作</span>,
+        meta: { align: 'right' },
         enableSorting: false,
         cell: ({ row }) => {
           const user = row.original;
           const isSelf = currentUser?.id === user.id;
+          // 三个动作统一成图标排：此前「描边 + 描边 + ghost」三种重量混排，
+          // 视觉上非常吵，且中文标签把操作列撑到 260px，挤压了其它列。
           return (
-            <div className="flex justify-end gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setEditingUser(user);
-                  setFormOpen(true);
-                }}
-                className="gap-1.5"
-              >
-                <Edit3 size={14} />
-                编辑
-              </Button>
-              <Button
-                // 启停是常规操作，用次级样式；红色只留给"删除"这个不可逆动作
-                variant={user.is_active ? 'outline' : 'default'}
-                size="sm"
-                onClick={() =>
-                  toggleStatusMutation.mutate({ user, nextActive: !user.is_active })
-                }
-                disabled={toggleStatusMutation.isPending || (isSelf && user.is_active)}
-                title={isSelf && user.is_active ? '不能禁用当前登录账号' : undefined}
-                className="gap-1.5"
-              >
-                {user.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
-                {user.is_active ? '禁用' : '启用'}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setDeletingUser(user)}
-                disabled={isSelf}
-                className="text-rose-500 hover:bg-rose-50 hover:text-rose-600"
-                title={isSelf ? '不能删除当前登录账号' : `删除用户 ${user.name}`}
-              >
-                <Trash2 size={15} />
-              </Button>
-            </div>
+            <RowActions
+              actions={[
+                {
+                  icon: <Edit3 size={15} />,
+                  label: `编辑用户 ${user.name}`,
+                  onClick: () => {
+                    setEditingUser(user);
+                    setFormOpen(true);
+                  },
+                },
+                {
+                  icon: user.is_active ? <UserX size={15} /> : <UserCheck size={15} />,
+                  label:
+                    isSelf && user.is_active ? '不能禁用当前登录账号' : user.is_active ? '禁用' : '启用',
+                  onClick: () =>
+                    toggleStatusMutation.mutate({ user, nextActive: !user.is_active }),
+                  disabled: toggleStatusMutation.isPending || (isSelf && user.is_active),
+                },
+                {
+                  icon: <Trash2 size={15} />,
+                  label: isSelf ? '不能删除当前登录账号' : `删除用户 ${user.name}`,
+                  onClick: () => setDeletingUser(user),
+                  disabled: isSelf,
+                  tone: 'danger',
+                },
+              ]}
+            />
           );
         },
       },
@@ -453,7 +446,7 @@ export const UserManagement = () => {
         <ErrorBanner message={toastError(usersQuery.error, '用户加载失败')} onRetry={() => void usersQuery.refetch()} />
       ) : null}
 
-      <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+      <section className="admin-surface-card">
         <div className="flex flex-col gap-2.5 border-b border-[var(--border-subtle)] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700">

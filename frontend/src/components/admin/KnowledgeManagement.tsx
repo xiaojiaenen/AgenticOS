@@ -251,7 +251,7 @@ export function KnowledgeManagement() {
       },
       {
         id: 'actions',
-        header: () => <span className="block text-right">操作</span>,
+        header: () => <span className="block">操作</span>,
         enableSorting: false,
         cell: ({ row }) => (
           <div className="flex justify-end gap-1.5">
@@ -328,7 +328,7 @@ export function KnowledgeManagement() {
 
       {/* List View */}
       {view === 'list' && (
-        <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+        <section className="admin-surface-card">
           <DataTable
             columns={kbColumns}
             data={knowledgeBases}

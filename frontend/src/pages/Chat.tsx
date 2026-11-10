@@ -209,9 +209,14 @@ export const Chat = () => {
   }, [handleApprovalDecision, setArtifact]);
 
   const handleUserInputSubmit = useCallback(async (values: Record<string, string>) => {
-    if (!userInputReq || !currentSessionId) return;
+    if (!userInputReq) return;
+    // 用**请求来源会话**提交，而不是当前屏幕上的会话：
+    // 用户切走后在后台流触发的人工输入，必须回到它自己的会话，
+    // 否则会把答复提交到另一个会话（后端找不到对应的阻塞 Future，静默无响应）
+    const targetSession = userInputReq.session_id || currentSessionId;
+    if (!targetSession) return;
     try {
-      await submitUserInput(currentSessionId, userInputReq.api_name, values);
+      await submitUserInput(targetSession, userInputReq.api_name, values);
       setUserInputReq(null);
       // agent 被阻塞等待，Future 解析后自动继续执行，无需发新消息
     } catch (err) {
@@ -511,10 +516,10 @@ export const Chat = () => {
   return (
     <motion.div
       key="chat"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
+      /* 挂载即可见：整页可见性不依赖 motion 入场（防懒加载竞态白屏） */
+      initial={false}
       exit={{ opacity: 0, y: -6 }}
-      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -560,7 +565,7 @@ export const Chat = () => {
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-10"
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-10"
           />
         )}
       </AnimatePresence>
@@ -594,8 +599,8 @@ export const Chat = () => {
             initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
             onClick={() => { setIsSidebarOpen(true); setIsSidebarHiddenByArtifact(false); }}
             className={cn(
-              "fixed top-4 left-4 z-50 w-12 h-12 border rounded-2xl shadow-sm flex items-center justify-center transition-all group focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2",
-              "bg-white/80 border-slate-200 text-zinc-800 hover:bg-white hover:shadow-md"
+              "fixed top-4 left-4 z-50 w-12 h-12 border rounded-2xl shadow-sm flex items-center justify-center transition-all group focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2",
+              "bg-[var(--surface-1)]/90 border-[var(--border-subtle)] text-[var(--foreground)] hover:bg-[var(--surface-1)] hover:shadow-md"
             )}
             aria-label="展开侧边栏"
           >
@@ -619,15 +624,20 @@ export const Chat = () => {
             )}
           >
             <ChatMainArea />
-            {userInputReq && (
-              <div className="absolute inset-x-0 bottom-0 z-30 px-4 pb-4">
-                <UserInputPanel
-                  request={userInputReq}
-                  onSubmit={handleUserInputSubmit}
-                  onDismiss={() => setUserInputReq(null)}
-                />
-              </div>
-            )}
+            {userInputReq &&
+              (!userInputReq.session_id ||
+                userInputReq.session_id === currentSessionId ||
+                // 新建对话的本地 id 在前端被后端重命名过：两边都没有
+                // currentSessionId 时也显示（首次对话尚未绑定会话）
+                currentSessionId == null) && (
+                <div className="absolute inset-x-0 bottom-0 z-30 px-4 pb-4">
+                  <UserInputPanel
+                    request={userInputReq}
+                    onSubmit={handleUserInputSubmit}
+                    onDismiss={() => setUserInputReq(null)}
+                  />
+                </div>
+              )}
           </main>
           <AnimatePresence>
             {chatMode === 'ppt' && (

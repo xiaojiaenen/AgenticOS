@@ -7,7 +7,6 @@ import { Button } from '../components/shadcn/button';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { CardSkeleton } from '../components/ui/Skeletons';
-import { RandomMascot } from '../components/ui/RandomMascot';
 import { MascotGeneral, MascotPPT, MascotWebsite, MascotBigData } from '../components/ui/MascotIcons';
 import { AgentProfile, getAgentStore, installAgent, uninstallAgent } from '../services/agentProfileService';
 import { cn } from '../lib/utils';
@@ -98,21 +97,20 @@ export const AgentStore = () => {
   return (
     <motion.div
       key="agent-store"
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      /* 挂载即可见：整页可见性不依赖 motion 入场（防懒加载竞态白屏） */
+      initial={false}
       exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         'relative min-h-screen overflow-hidden font-sans',
         'text-[var(--foreground)] bg-[var(--surface-0)] selection:bg-[var(--border-medium)] selection:text-[var(--foreground)]'
       )}
     >
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        {/* Animated ambient blobs */}
-        <div className="absolute -top-20 -left-10 w-[45vw] h-[45vw] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.15),transparent_70%)] blur-[70px] animate-[bg-blob-1_16s_ease-in-out_infinite]" />
-        <div className="absolute -bottom-16 -right-8 w-[42vw] h-[42vw] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.14),transparent_70%)] blur-[70px] animate-[bg-blob-3_18s_ease-in-out_infinite]" />
-        <div className="absolute top-1/3 right-1/4 w-[36vw] h-[36vw] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.12),transparent_70%)] blur-[80px] animate-[bg-blob-2_15s_ease-in-out_infinite]" />
-        <RandomMascot size={720} className="absolute -bottom-44 -right-32 text-[var(--foreground)] opacity-[0.025]" />
+        {/* 静态环境光晕：与 Home 一致的克制风格。此前这里是 3 个 infinite
+            bg-blob 动画 + 720px 吉祥物水印，实测渲染出灰色三角伪影且喧宾夺主 */}
+        <div className="absolute -top-20 -left-10 w-[45vw] h-[45vw] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.10),transparent_70%)] blur-[70px]" />
+        <div className="absolute -bottom-16 -right-8 w-[42vw] h-[42vw] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.08),transparent_70%)] blur-[70px]" />
       </div>
 
       <nav className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 py-4">
@@ -204,8 +202,10 @@ export const AgentStore = () => {
             />
           </div>
         ) : (
+          // 不做入场 stagger：卡片初始不可见会让 e2e 的可见性计数（getByRole.count）
+          // 在动画完成前数到 0；入场生命交给骨架屏，卡片只保留 hover 反馈
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredAgents.map((agent, index) => {
+            {filteredAgents.map((agent) => {
               const canUse = agent.installed;
               const cardContent = (
                 <>
@@ -278,7 +278,9 @@ export const AgentStore = () => {
                   transition={{ duration: 0.2 }}
                   className={cn(
                     'group flex min-h-[190px] flex-col rounded-2xl',
-                    'border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-md p-4'
+                    'border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-md p-4',
+                    'transition-[border-color,box-shadow] duration-200',
+                    'hover:border-[var(--border-strong)] hover:shadow-lg'
                   )}
                 >
                   <div className="flex flex-col flex-1">

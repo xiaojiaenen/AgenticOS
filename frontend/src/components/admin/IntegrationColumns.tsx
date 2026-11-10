@@ -99,7 +99,7 @@ export function buildSystemColumns({
     },
     {
       id: 'actions',
-      header: () => <span className="block text-right">操作</span>,
+      header: () => <span className="block">操作</span>,
       enableSorting: false,
       cell: ({ row }) => {
         const sys = row.original;
@@ -210,7 +210,7 @@ export function buildApiColumns({
     },
     {
       id: 'actions',
-      header: () => <span className="block text-right">操作</span>,
+      header: () => <span className="block">操作</span>,
       enableSorting: false,
       cell: ({ row }) => {
         const api = row.original;

@@ -45,7 +45,8 @@ test.describe('agent selector', () => {
 
       // 选中后触发按钮的可访问名变为「当前智能体：<名字>」
       await expect(screen.getByRole('combobox', `当前智能体：${name}`)).toBeVisible();
-      // 该选项处于选中态
+      // 选中后菜单会自动收起；重新打开验证该选项确实处于选中态
+      await screen.getByRole('combobox', `当前智能体：${name}`).tap();
       await expect(screen.getByRole('option', name)).toHaveAttribute('aria-selected', 'true');
     });
   }

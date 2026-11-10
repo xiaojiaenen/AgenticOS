@@ -30,7 +30,7 @@ const KPI_ITEMS = [
   label: '活跃用户',
   icon: Activity,
   getValue: (s: DashboardSummary) => formatNumber(s.active_users ?? 0),
-  getSub: (s: DashboardSummary) => `占 ${formatPercent(ratio(s.active_users ?? 0, s.total_users ?? 0))}`,
+  getSub: (s: DashboardSummary) => `占全部账号 ${formatPercent(ratio(s.active_users ?? 0, s.total_users ?? 0))}`,
   accent: 'text-emerald-400',
   bg: 'bg-emerald-500/20',
  },

@@ -19,8 +19,8 @@ import { MascotHappy } from './ui/AnimatedIcons';export const Logo = ({ classNam
       {showText && (
         <div className="flex flex-col">
           <div className="relative overflow-hidden">
-            <motion.span 
-              className="text-xl font-semibold tracking-tighter leading-none flex"
+            <motion.span
+              className="text-xl font-semibold tracking-tighter leading-none flex whitespace-nowrap"
             >
               {"Agentic".split("").map((char, i) => (
                 <motion.span

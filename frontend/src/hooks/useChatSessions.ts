@@ -298,11 +298,19 @@ export function useChatSessions() {
     // 也拿不到中断恢复钩子刚补挂的产物。此前"有缓存且 artifact 完整就
     // 跳过回源"的捷径正是缓存漂移的来源。
     try {
-      // 并行加载消息 + 会话最新制品（PPT/website），用于恢复预览面板
+      // 并行加载消息 + 会话最新制品（PPT/website），用于恢复预览面板。
+      // ⚠️ 不能在这里做「会话是否已知存在」的前置守卫：页面刷新恢复会话时，
+      // 本 effect 与 loadFromBackend 并发，列表请求未返回、登记集合还是空的，
+      // 守卫会误跳过回源 → 缓存剥离掉的 artifact HTML 永远补不回来，
+      // 预览面板无法恢复（实测回归过）。新建对话的本地 id 回源会得到 404，
+      // 在下方 catch 里静默处理即可。
       const [rawMessages, artifactsResp] = await Promise.all([
         getSessionMessages(sessionId),
         getSessionArtifacts(sessionId).catch(err => {
-          console.warn('Failed to load session artifacts:', err);
+          // 404 = 新建对话的本地会话还没落库（与 messages 同一竞态），静默
+          if ((err as { status?: number })?.status !== 404) {
+            console.warn('Failed to load session artifacts:', err);
+          }
           return null;
         }),
       ]);
@@ -395,6 +403,12 @@ export function useChatSessions() {
       ));
       return true;
     } catch (error) {
+      // 404「会话不存在」= 新建对话的本地会话还没落库（回源跑赢了流式请求），
+      // 属于正常时序竞态：本地已持有完整消息，静默返回即可，不刷报错。
+      const status = (error as { status?: number })?.status;
+      if (status === 404) {
+        return false;
+      }
       console.error('Failed to load session messages:', error);
       return false;
     }

@@ -441,7 +441,7 @@ export const IntegrationManagement = () => {
         <ErrorBanner message={toastError(apisQuery.error, '加载接口失败')} onRetry={() => void apisQuery.refetch()} />
       ) : null}
 
-      <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+      <section className="admin-surface-card">
         {apisQuery.isLoading ? (
           <div className="space-y-3 p-5">
             {Array.from({ length: 3 }).map((_, i) => (

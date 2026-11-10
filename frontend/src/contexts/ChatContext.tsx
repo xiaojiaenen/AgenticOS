@@ -39,6 +39,7 @@ export interface ChatContextValue {
     status: 'approved' | 'rejected',
     isApiApproval?: boolean,
     allowAll?: boolean,
+    modifiedArguments?: Record<string, unknown>,
   ) => Promise<void>;
   handleDecisionMade: (decisionId: string, answer: string) => void;
 

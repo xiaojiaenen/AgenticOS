@@ -6,9 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Logo } from '../components/Logo';
-import { RandomMascot } from '../components/ui/RandomMascot';
-import { AuroraBackground } from '../components/backgrounds/AuroraBackground';
 import { PasswordField } from '../components/auth/PasswordField';
+import { AuthShell } from '../components/auth/AuthShell';
 import { Button } from '../components/shadcn/button';
 import { Input } from '../components/shadcn/input';
 import { Label } from '../components/shadcn/label';
@@ -161,33 +160,8 @@ export const Signup = () => {
   const suggestions = getEmailSuggestions();
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, transition: { duration: 0.2 } }}
-      transition={{ duration: 0.3 }}
-      className="relative min-h-screen overflow-hidden bg-zinc-50 flex items-center justify-center p-4"
-    >
-      <AuroraBackground className="fixed" />
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-[var(--foreground)] opacity-[0.03]" />
-      </div>
-
-      <button
-        onClick={() => navigate('/login')}
-        className="fixed top-6 left-6 z-20 flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 bg-white/80 text-sm font-medium text-[var(--muted-foreground)] shadow-sm transition-all hover:border-zinc-300 hover:text-[var(--foreground)] hover:shadow-md group"
-        aria-label="返回登录"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:-translate-x-1"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-        返回登录
-      </button>
-
-      <main id="main-content" className="w-full max-w-md relative z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        >
+    <AuthShell backLabel="返回登录" backTo="/login">
+        <div>
           <div className="flex flex-col items-center mb-8">
             <div className="mb-5">
               <Logo iconSize={48} showText={false} />
@@ -241,7 +215,7 @@ export const Signup = () => {
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
-                        className="absolute left-0 right-0 top-full mt-1 rounded-lg border border-zinc-200 bg-popover shadow-lg overflow-hidden z-50"
+                        className="absolute left-0 right-0 top-full mt-1 rounded-lg border border-[var(--border-subtle)] bg-popover shadow-lg overflow-hidden z-50"
                       >
                         {suggestions.map((s, i) => (
                           <button
@@ -252,7 +226,7 @@ export const Signup = () => {
                               'w-full px-4 py-2 text-left text-sm transition-colors',
                               i === selectedSuggestionIdx
                                 ? 'bg-accent text-accent-foreground'
-                                : 'text-[var(--muted-foreground)] hover:bg-zinc-50'
+                                : 'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]'
                             )}
                           >
                             <span className="text-[var(--muted-foreground)]">{email}</span>
@@ -313,7 +287,7 @@ export const Signup = () => {
                 </div>
 
                 {errors.root && (
-                  <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
                     {errors.root.message}
                   </div>
                 )}
@@ -328,8 +302,7 @@ export const Signup = () => {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
-      </main>
-    </motion.div>
+        </div>
+    </AuthShell>
   );
 };

@@ -55,6 +55,32 @@ export const HighlightedText = React.memo(({ text, counter, searchQuery, activeM
   })}</>;
 });
 
+// 生图工具返回的是「图片已生成并保存到工作区：outputs/xxx.jpg」这类相对路径。
+// 工作区不在静态目录下，走带会话鉴权的 /agent/sessions/{sid}/outputs/{file} 读取。
+// 把纯文本里的路径额外渲染成缩略图，用户不必再去作品库翻。
+const OUTPUT_IMAGE_RE = /(outputs\/[A-Za-z0-9._-]+\.(?:png|jpe?g|webp|gif))/gi;
+
+export const renderOutputImages = (children: React.ReactNode, sessionId?: string): React.ReactNode => {
+  if (!sessionId) return children;
+  return React.Children.map(children, (child) => {
+    if (typeof child !== 'string' || !child.includes('outputs/')) return child;
+    return child.split(OUTPUT_IMAGE_RE).map((part, i) => {
+      if (!/^outputs\/[A-Za-z0-9._-]+\.(png|jpe?g|webp|gif)$/i.test(part)) return part;
+      const filename = part.slice('outputs/'.length);
+      return (
+        <span key={`outimg-${i}`} className="my-2 block">
+          <img
+            src={`/api/v1/agent/sessions/${encodeURIComponent(sessionId)}/outputs/${encodeURIComponent(filename)}`}
+            alt={filename}
+            loading="lazy"
+            className="max-h-72 max-w-full rounded-lg border border-[var(--border-subtle)] object-contain"
+          />
+        </span>
+      );
+    });
+  });
+};
+
 export const processChildren = (children: any, counter: { current: number }, searchQuery: string, activeMatchId?: string | null, messageId?: string): any =>
   React.Children.map(children, child => {
     if (typeof child === 'string') {

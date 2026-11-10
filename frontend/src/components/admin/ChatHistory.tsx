@@ -20,6 +20,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { DataTable } from './data-table';
+import { RowActions } from './RowActions';
 import { Pagination } from './Pagination';
 import { AdminPageHeader, ErrorBanner, KpiPill } from './shared';
 import { Button } from '@/components/shadcn/button';
@@ -504,30 +505,26 @@ export const ChatHistory = () => {
       {
         id: 'actions',
         header: () => <span className="block text-right">操作</span>,
+        meta: { align: 'right' },
         enableSorting: false,
         cell: ({ row }) => {
           const item = row.original;
           return (
-            <div className="flex justify-end gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => setDetailSessionId(item.session_id)}
-              >
-                <Eye size={14} />
-                详情
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setDeletingId(item.session_id)}
-                className="text-rose-500 hover:bg-rose-50 hover:text-rose-600"
-                title="删除会话"
-              >
-                <Trash2 size={15} />
-              </Button>
-            </div>
+            <RowActions
+              actions={[
+                {
+                  label: '查看详情',
+                  icon: <Eye size={14} />,
+                  onClick: () => setDetailSessionId(item.session_id),
+                },
+                {
+                  label: '删除会话',
+                  icon: <Trash2 size={14} />,
+                  tone: 'danger',
+                  onClick: () => setDeletingId(item.session_id),
+                },
+              ]}
+            />
           );
         },
       },
@@ -604,7 +601,7 @@ export const ChatHistory = () => {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+      <section className="admin-surface-card">
         <div className="flex flex-col gap-2.5 border-b border-[var(--border-subtle)] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-700">

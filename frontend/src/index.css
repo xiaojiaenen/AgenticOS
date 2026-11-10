@@ -2,6 +2,13 @@
 @import "tailwindcss";
 /* Tailwind v3 hex palette overrides — MUST come after tailwindcss (Chrome 85 compat, no oklch) */
 @import "./theme-palette.css";
+/* shadcn 弹层动画（animate-in/out / fade-in-0 / zoom-in-95 …）——
+ * Tailwind v4 不再内置 tailwindcss-animate，缺了它 dialog/popover/dropdown
+ * 里的 data-[state=open]:animate-in 类全是静默空操作，弹层无动画瞬现 */
+/* 注意：不能用裸包名 —— tw-animate-css 的 exports 只暴露 style 条件，
+ * @tailwindcss/vite 的 enhanced-resolve 不带 style 条件会解析失败（Can't resolve）。
+ * 走相对路径直取 dist 文件，绕过 exports 限制。 */
+@import "../node_modules/tw-animate-css/dist/tw-animate.css";
 
 /* 鸿蒙分片字体（164 个 unicode-range 子集，浏览器按需加载） */
 @import "../public/fonts/harmonyos-sans-sc.css";
@@ -210,7 +217,7 @@
   /* 吉祥物（mascot）主题色：脸部与五官
      SVG 内部不能靠 currentColor 统一控制 —— 脸部是浅色、五官是深色，
      两者都需要随明暗主题反转，所以单独给变量。 */
-  --mascot-face: #ffffff;
+  --mascot-face: #eaf1f4;
   --mascot-ink: #0f172a;
   --mascot-shine: #cbd5e1;
 
@@ -239,7 +246,7 @@
   --border-subtle: rgba(250, 250, 250, 0.08);
   --border-medium: rgba(250, 250, 250, 0.12);
   --border-strong: rgba(250, 250, 250, 0.18);
-  --mascot-face: #27272a;
+  --mascot-face: #26343a;
   --mascot-ink: #e4e4e7;
   --mascot-shine: #71717a;
 
@@ -344,6 +351,17 @@ html.dark body {
 .admin-inset {
   background: var(--surface-2);
   border: 1px solid var(--border-subtle);
+}
+
+/* 表格卡：在 .admin-card 基础上给表格页统一的呼吸感。
+   表格自身负责首尾列留白与行高（见 table.tsx / data-table.tsx），
+   这里只管容器圆角、裁切与阴影层次 —— 避免每个页面各写一套 border/shadow。 */
+.admin-surface-card {
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
 }
 
 .admin-heading {
@@ -531,7 +549,7 @@ body.admin-modal-open .admin-dashboard-shell > button {
 }
 
 .prose table {
-  @apply my-4 w-full border-collapse;
+  @apply my-5 w-full border-collapse text-[13.5px];
 }
 
 .prose thead {
@@ -539,11 +557,11 @@ body.admin-modal-open .admin-dashboard-shell > button {
 }
 
 .prose th {
-  @apply whitespace-nowrap border-b border-slate-200/60 px-3 py-2 text-left font-semibold text-slate-600;
+  @apply whitespace-nowrap border-b border-slate-200/60 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500;
 }
 
 .prose td {
-  @apply border-b border-slate-100/60 px-3 py-2 min-w-0;
+  @apply border-b border-slate-100/60 px-4 py-3 align-top min-w-0;
 }
 
 .prose tbody tr:last-child td {
@@ -694,6 +712,27 @@ body.admin-modal-open .admin-dashboard-shell > button {
   75%  { transform: translate(20px, -15px) scale(0.96) rotate(1deg); }
 }
 
+/* 骨架微光：比 animate-pulse 更克制——单次高光扫过，不整块闪烁 */
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    var(--surface-3) 45%,
+    var(--surface-2) 90%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer { animation: none; }
+}
+
 @keyframes admin-stage-in {
   0% { opacity: 0; transform: translateY(14px) scale(0.99); filter: blur(4px); }
   100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
@@ -706,4 +745,43 @@ body.admin-modal-open .admin-dashboard-shell > button {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ===== Wrapped 年度报告 · 艺术字 / 展示字体 =====
+ * 数字与标题用鸿蒙黑体（已内置、离线可用）的重字重 + 紧字距 + 表格数字，
+ * 比默认等宽更有「海报感」。渐变艺术字用 background-clip:text 实现，
+ * 不引外网字体 CDN。若后续放入 HarmonyOS Bold/Black 子集，重字重即真字形。
+ */
+.wrapped-display {
+  font-family: "HarmonyOS Sans SC", "HarmonyOS Sans", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.wrapped-art {
+  background: linear-gradient(100deg, #fff 10%, #c7d2fe 45%, #f0abfc 80%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.wrapped-art-warm {
+  background: linear-gradient(100deg, #fde68a 10%, #fca5a5 55%, #f0abfc 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* 生成底图钩子：默认纯渐变兜底。生成模板图后（见 docs/design/wrapped-image-prompts.md），
+ * 把对应 url 层加到 background-image 首位即可叠加底图，图缺失时渐变仍完整显示：
+ *   background-image: url("/wrapped/hero.jpg"), linear-gradient(...);
+ */
+.wrapped-bg-hero {
+  background-image: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #c026d3 100%);
+  background-size: cover;
+  background-position: center;
+}
+.wrapped-bg-footer {
+  background-image: linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%);
+  background-size: cover;
+  background-position: center;
 }

@@ -98,7 +98,7 @@ export function RecallTestPanel({ kbId }: { kbId: number }) {
         onChange={(e) => setQuestionsText(e.target.value)}
         rows={3}
         placeholder={'例如：\n数据库备份保留多久\n差旅报销标准是什么'}
-        className="w-full resize-y rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm outline-none transition-colors focus:border-brand-400"
+        className="w-full resize-y rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-sm outline-none transition-colors focus:border-[var(--ring)]"
       />
 
       <div className="flex items-center justify-between gap-3">

@@ -144,15 +144,16 @@ export function AuditLogTab() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-[var(--surface-2)] text-left text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">
-                <tr>
-                  <th className="w-8 px-2 py-2" />
-                  <th className="px-3 py-2 font-semibold">时间</th>
-                  <th className="px-3 py-2 font-semibold">操作人</th>
-                  <th className="px-3 py-2 font-semibold">动作</th>
-                  <th className="px-3 py-2 font-semibold">资源</th>
-                  <th className="px-3 py-2 font-semibold">结果</th>
-                  <th className="px-3 py-2 font-semibold">IP</th>
+              {/* 表头：不用灰底块，靠细分隔线 + 小字距，且首尾列留出 20px 呼吸 */}
+              <thead className="text-left text-[11px] uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
+                <tr className="border-b border-[var(--border-subtle)]">
+                  <th className="w-10 py-3.5 pl-5" />
+                  <th className="px-4 py-3.5 font-medium">时间</th>
+                  <th className="px-4 py-3.5 font-medium">操作人</th>
+                  <th className="px-4 py-3.5 font-medium">动作</th>
+                  <th className="px-4 py-3.5 font-medium">资源</th>
+                  <th className="px-4 py-3.5 font-medium">结果</th>
+                  <th className="py-3.5 pr-5 pl-4 font-medium">IP</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
@@ -230,8 +231,8 @@ function AuditRow({ log, open, onToggle }: { log: AuditLog; open: boolean; onTog
   const hasDetail = Object.keys(log.detail ?? {}).length > 0;
   return (
     <>
-      <tr className="align-top">
-        <td className="px-2 py-2">
+      <tr className="group align-top transition-colors hover:bg-[var(--surface-2)]">
+        <td className="px-5 py-3.5">
           <button
             type="button"
             onClick={onToggle}
@@ -247,17 +248,17 @@ function AuditRow({ log, open, onToggle }: { log: AuditLog; open: boolean; onTog
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </td>
-        <td className="whitespace-nowrap px-3 py-2 text-xs text-[var(--muted-foreground)]">
+        <td className="whitespace-nowrap px-4 py-3.5 text-xs text-[var(--muted-foreground)]">
           {formatTime(log.created_at)}
         </td>
-        <td className="max-w-[180px] truncate px-3 py-2 text-xs text-[var(--foreground)]" title={log.actor_email ?? ''}>
+        <td className="max-w-[180px] truncate px-4 py-3.5 text-xs text-[var(--foreground)]" title={log.actor_email ?? ''}>
           {log.actor_email ?? (log.actor_id != null ? `#${log.actor_id}` : '匿名')}
         </td>
-        <td className="px-3 py-2 font-mono text-xs text-[var(--foreground)]">{log.action}</td>
-        <td className="px-3 py-2 text-xs text-[var(--muted-foreground)]">
+        <td className="px-4 py-3.5 font-mono text-xs text-[var(--foreground)]">{log.action}</td>
+        <td className="px-4 py-3.5 text-xs text-[var(--muted-foreground)]">
           {log.resource_type ? `${log.resource_type}${log.resource_id ? `:${log.resource_id}` : ''}` : '—'}
         </td>
-        <td className="px-3 py-2">
+        <td className="px-4 py-3.5">
           <span
             className={cn(
               'rounded-full px-2 py-0.5 text-[11px] font-medium',
@@ -267,7 +268,7 @@ function AuditRow({ log, open, onToggle }: { log: AuditLog; open: boolean; onTog
             {RESULT_LABEL[log.result] ?? log.result}
           </span>
         </td>
-        <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-[var(--muted-foreground)]">{log.ip ?? '—'}</td>
+        <td className="whitespace-nowrap px-4 py-3.5 font-mono text-xs text-[var(--muted-foreground)]">{log.ip ?? '—'}</td>
       </tr>
       {open && hasDetail && (
         <tr>

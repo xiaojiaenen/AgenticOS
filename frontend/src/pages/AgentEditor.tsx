@@ -409,8 +409,8 @@ export const AgentEditor: React.FC = () => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
+      /* 挂载即可见：整页可见性不依赖 motion 入场（防懒加载竞态白屏） */
+      initial={false}
       className="min-h-screen bg-[var(--surface-0)] text-[var(--foreground)]"
     >
       <header className="sticky top-0 z-20 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/85 backdrop-blur-xl">
@@ -498,7 +498,8 @@ export const AgentEditor: React.FC = () => {
             })}
           </nav>
 
-          <div className="min-w-0">
+          {/* key=tab：切换分区时重放入场动画（CSS 驱动，不依赖 rAF） */}
+          <div key={tab} className="min-w-0 [animation:admin-stage-in_0.4s_cubic-bezier(0.16,1,0.3,1)_both]">
         {tab === 'basic' && (
           <section className="admin-card p-5">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
@@ -521,7 +522,7 @@ export const AgentEditor: React.FC = () => {
                 placeholder="它擅长什么？什么场景下找它？"
                 rows={2}
                 maxLength={200}
-                className="w-full resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none transition-colors focus:border-brand-400"
+                className="w-full resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none transition-colors focus:border-[var(--ring)]"
               />
             </label>
 
@@ -602,7 +603,7 @@ export const AgentEditor: React.FC = () => {
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSystemPrompt(e.target.value)}
                 rows={20}
                 placeholder={'你是公司数据平台的值守助手。\n\n职责：\n1. 接到巡检任务先给出检查清单\n2. 只引用知识库中的口径，不臆造数字\n\n约束：\n- 涉及生产变更的操作必须先说明风险并请求确认'}
-                className="w-full resize-y rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 font-mono text-sm leading-relaxed outline-none transition-colors focus:border-brand-400"
+                className="w-full resize-y rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 font-mono text-sm leading-relaxed outline-none transition-colors focus:border-[var(--ring)]"
               />
               <span className="mt-1.5 block text-[11px] text-[var(--muted-foreground)]">
                 这段文字会作为系统指令发送给模型，建议写清职责、边界与输出风格

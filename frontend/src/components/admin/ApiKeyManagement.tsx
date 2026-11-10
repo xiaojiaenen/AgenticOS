@@ -4,6 +4,7 @@
  */
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ColumnDef } from '@tanstack/react-table';
 import {
   AlertTriangle,
   Check,
@@ -21,7 +22,6 @@ import { Button } from '@/components/shadcn/button';
 import { Input } from '@/components/shadcn/input';
 import { Label } from '@/components/shadcn/label';
 import { Switch } from '@/components/shadcn/switch';
-import { Skeleton } from '@/components/shadcn/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +41,7 @@ import {
   DialogTitle,
 } from '@/components/shadcn/dialog';
 import { AdminPageHeader, AdminPanel, ErrorBanner } from './shared';
+import { DataTable } from './data-table';
 import {
   GATEWAY_BASE_URL,
   createApiKey,
@@ -143,6 +144,88 @@ export function ApiKeyManagement() {
     if (createMutation.isPending) return;
     createMutation.mutate(nameInput.trim() || 'default');
   };
+
+  // 列定义交给通用 DataTable：骨架/空态/斑马纹/行动画统一由它出，
+  // 这里只声明每列渲染什么（此前是手写 <table>，样式与其它管理页漂移）
+  const columns = React.useMemo<ColumnDef<ApiKey, unknown>[]>(
+    () => [
+      {
+        id: 'name',
+        header: '名称',
+        cell: ({ row }) => (
+          <div className="min-w-0">
+            <p className="font-medium text-[var(--foreground)]">{row.original.name}</p>
+            <p className="mt-0.5 text-[11px] text-[var(--muted-foreground)]">
+              {row.original.owner_name ?? '—'}
+              {row.original.owner_email ? ` · ${row.original.owner_email}` : ''}
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: 'key',
+        header: 'Key',
+        cell: ({ row }) => (
+          <code className="font-mono text-xs text-[var(--muted-foreground)]">
+            {row.original.key_masked}
+          </code>
+        ),
+      },
+      {
+        id: 'enabled',
+        header: '启用',
+        cell: ({ row }) => (
+          <Switch
+            size="sm"
+            checked={row.original.enabled}
+            disabled={
+              toggleMutation.isPending && toggleMutation.variables?.id === row.original.id
+            }
+            onCheckedChange={(next) =>
+              toggleMutation.mutate({ id: row.original.id, enabled: next })
+            }
+            aria-label={`${row.original.enabled ? '停用' : '启用'} ${row.original.name}`}
+          />
+        ),
+      },
+      {
+        id: 'last_used',
+        header: '最近使用',
+        cell: ({ row }) => (
+          <span className="text-xs text-[var(--muted-foreground)]">
+            {formatTime(row.original.last_used_at)}
+          </span>
+        ),
+      },
+      {
+        id: 'created',
+        header: '创建时间',
+        cell: ({ row }) => (
+          <span className="text-xs text-[var(--muted-foreground)]">
+            {formatTime(row.original.created_at)}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: '操作',
+        meta: { align: 'right' },
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
+            onClick={() => setDeletingKey(row.original)}
+            title={`删除 ${row.original.name}`}
+            aria-label={`删除 ${row.original.name}`}
+          >
+            <Trash2 size={14} />
+          </Button>
+        ),
+      },
+    ],
+    [toggleMutation],
+  );
 
   return (
     <div className="admin-page-stage space-y-4">
@@ -259,98 +342,31 @@ export function ApiKeyManagement() {
       </AdminPanel>
 
       {/* 列表 */}
-      {keysQuery.isLoading ? (
-        <AdminPanel className="p-5">
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} className="h-11 w-full" />
-            ))}
-          </div>
-        </AdminPanel>
-      ) : keys.length === 0 ? (
-        <AdminPanel className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-2)]">
-            <KeyRound size={18} className="text-[var(--muted-foreground)]" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-[var(--foreground)]">还没有 API Key</p>
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              创建一个后，就能在 Cursor、Cherry Studio、Dify 等客户端里直接调用本平台智能体。
-            </p>
-          </div>
-          <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-            <Plus size={14} />
-            创建第一个 Key
-          </Button>
-        </AdminPanel>
-      ) : (
-        <AdminPanel className="overflow-x-auto">
-          <table className="w-full min-w-[820px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-[var(--border-subtle)] text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--muted-foreground)]">
-                <th className="px-5 py-3 font-semibold">名称</th>
-                <th className="px-3 py-3 font-semibold">Key</th>
-                <th className="px-3 py-3 font-semibold">启用</th>
-                <th className="px-3 py-3 font-semibold">最近使用</th>
-                <th className="px-3 py-3 font-semibold">创建时间</th>
-                <th className="px-5 py-3 text-right font-semibold">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {keys.map((item) => (
-                <tr
-                  key={item.id}
-                  className="border-b border-[var(--border-subtle)] last:border-0 transition-colors hover:bg-[var(--surface-2)]"
-                >
-                  <td className="px-5 py-3">
-                    <p className="font-medium text-[var(--foreground)]">{item.name}</p>
-                    <p className="mt-0.5 text-[11px] text-[var(--muted-foreground)]">
-                      {item.owner_name ?? '—'}
-                      {item.owner_email ? ` · ${item.owner_email}` : ''}
-                    </p>
-                  </td>
-                  <td className="px-3 py-3">
-                    <code className="font-mono text-xs text-[var(--muted-foreground)]">
-                      {item.key_masked}
-                    </code>
-                  </td>
-                  <td className="px-3 py-3">
-                    <Switch
-                      size="sm"
-                      checked={item.enabled}
-                      disabled={
-                        toggleMutation.isPending && toggleMutation.variables?.id === item.id
-                      }
-                      onCheckedChange={(next) =>
-                        toggleMutation.mutate({ id: item.id, enabled: next })
-                      }
-                      aria-label={`${item.enabled ? '停用' : '启用'} ${item.name}`}
-                    />
-                  </td>
-                  <td className="px-3 py-3 text-xs text-[var(--muted-foreground)]">
-                    {formatTime(item.last_used_at)}
-                  </td>
-                  <td className="px-3 py-3 text-xs text-[var(--muted-foreground)]">
-                    {formatTime(item.created_at)}
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-rose-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
-                      onClick={() => setDeletingKey(item)}
-                      title={`删除 ${item.name}`}
-                      aria-label={`删除 ${item.name}`}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </AdminPanel>
-      )}
+      <AdminPanel>
+        <DataTable
+          columns={columns}
+          data={keys}
+          isLoading={keysQuery.isLoading}
+          emptyState={
+            <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-2)]">
+                <KeyRound size={18} className="text-[var(--muted-foreground)]" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--foreground)]">还没有 API Key</p>
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  创建一个后，就能在 Cursor、Cherry Studio、Dify 等客户端里直接调用本平台智能体。
+                </p>
+              </div>
+              <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+                <Plus size={14} />
+                创建第一个 Key
+              </Button>
+            </div>
+          }
+          className="[&_table]:min-w-[820px]"
+        />
+      </AdminPanel>
 
       {/* 新建：输入名称 */}
       <Dialog

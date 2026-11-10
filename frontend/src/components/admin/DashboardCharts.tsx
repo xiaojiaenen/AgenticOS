@@ -244,8 +244,19 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
       kicker="趋势主视图"
       title="Token、运行与工具节奏"
       extra={
-       <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)]">
-        最近 {trendData.length || 14} 个统计点
+       <div className="flex flex-wrap items-center justify-end gap-2">
+        {/* 双轴图例：Tokens=左轴面积、运行次数=右轴折线，无图例首次阅读分不清两条序列 */}
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted-foreground)]">
+         <span aria-hidden className="h-2 w-2 rounded-full bg-[#0ea5e9]" />
+         Token（左轴）
+        </span>
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted-foreground)]">
+         <span aria-hidden className="h-2 w-2 rounded-full bg-[#7c3aed]" />
+         运行次数（右轴）
+        </span>
+        <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)]">
+         最近 {trendData.length || 14} 个统计点
+        </span>
        </div>
       }
      />
@@ -577,7 +588,7 @@ export const DashboardCharts = ({ data }: DashboardChartsProps) => {
      </div>
     </PanelShell>
 
-         <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+         <section className="admin-surface-card">
       <div className="border-b border-slate-200/60 px-5 py-4">
        <PanelHeader icon={Trophy} kicker="用户排行" title="资源消耗前列用户" />
       </div>

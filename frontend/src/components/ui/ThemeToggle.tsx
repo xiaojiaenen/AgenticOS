@@ -27,7 +27,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ variant = 'icon', clas
         onClick={toggleTheme}
         className={cn(
           'flex items-center justify-center rounded-xl p-2 transition-all active:scale-90',
-          'text-slate-500 hover:bg-white/60 hover:text-slate-700 hover:shadow-sm',
+          'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] hover:shadow-sm',
           className,
         )}
         title={`当前：${label}，点击切换`}
@@ -44,7 +44,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ variant = 'icon', clas
       onClick={toggleTheme}
       className={cn(
         'flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all active:scale-95',
-        'text-slate-500 hover:bg-white/60 hover:text-slate-700 hover:shadow-sm',
+        'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] hover:shadow-sm',
         className,
       )}
       aria-label={`切换主题，当前：${label}`}

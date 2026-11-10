@@ -108,6 +108,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
           setShowMenu(false);
         }}
         role="option"
+        aria-label={agent.name}
         aria-selected={isSelected}
         className={cn(
           'mb-1 flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition-all last:mb-0',
