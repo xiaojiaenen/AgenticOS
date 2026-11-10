@@ -26,7 +26,7 @@ import {
   MarkdownTableRow,
   ToolResultPreview,
 } from './ChatMessageSubComponents';
-import { TableCell, TableHeaderCell, processChildren, renderOutputImages } from './markdownRenderParts';
+import { OutputImage, TableCell, TableHeaderCell, processChildren, renderOutputImages } from './markdownRenderParts';
 
 interface OrderedAssistantContentProps {
   message: Message;
@@ -141,6 +141,8 @@ export const OrderedAssistantContent: React.FC<OrderedAssistantContentProps> = (
           components={{
             code: (props) => <CodeBlock {...props} onOpenArtifact={onOpenArtifact} />,
             pre: ({ children }) => <>{children}</>,
+            // 同 ChatMessage：工作区相对路径的图片要重写成带鉴权的端点
+            img: ({ src, alt }) => <OutputImage src={src} alt={alt} sessionId={sessionId} />,
             p: ({ children }) => (
               <p>{renderOutputImages(processChildren(children, counter, searchQuery, activeMatchId, message.id), sessionId)}</p>
             ),

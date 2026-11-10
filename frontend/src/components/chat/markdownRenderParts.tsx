@@ -81,6 +81,41 @@ export const renderOutputImages = (children: React.ReactNode, sessionId?: string
   });
 };
 
+/**
+ * markdown 图片（`![alt](outputs/x.png)`）的渲染器。
+ *
+ * 必须重写 src：模型给的路径是**工作区相对路径**，默认渲染成
+ * `<img src="outputs/x.png">` 会被浏览器按当前页面 URL 解析 → 404 → 图裂。
+ * 工作区不在静态目录下，只能走带会话鉴权的
+ * `/agent/sessions/{sid}/outputs/{file}`。
+ *
+ * 外部图片（http/https/data:/blob:）保持原样，只改写工作区相对路径 ——
+ * 否则用户贴的外链图会被拼成站内地址。
+ */
+export const OutputImage: React.FC<{
+  src?: string | Blob;
+  alt?: string;
+  sessionId?: string;
+}> = ({ src, alt, sessionId }) => {
+  const raw = typeof src === 'string' ? src : '';
+  if (!raw) return null;
+  const isWorkspaceOutput = /^\.?\/?outputs\/[A-Za-z0-9._-]+$/i.test(raw);
+  const resolved =
+    isWorkspaceOutput && sessionId
+      ? `/api/v1/agent/sessions/${encodeURIComponent(sessionId)}/outputs/${encodeURIComponent(
+          raw.replace(/^\.?\/?outputs\//i, ''),
+        )}`
+      : raw;
+  return (
+    <img
+      src={resolved}
+      alt={alt ?? ''}
+      loading="lazy"
+      className="my-2 max-h-72 max-w-full rounded-lg border border-[var(--border-subtle)] object-contain"
+    />
+  );
+};
+
 export const processChildren = (children: any, counter: { current: number }, searchQuery: string, activeMatchId?: string | null, messageId?: string): any =>
   React.Children.map(children, child => {
     if (typeof child === 'string') {

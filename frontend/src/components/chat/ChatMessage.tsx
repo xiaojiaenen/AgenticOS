@@ -14,7 +14,7 @@ import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { submitFeedback } from '../../services/llmopsService';
 import { ErrorBoundary, InlineErrorFallback } from '../ui/ErrorBoundary';
 import { OrderedAssistantContent, shouldUseOrderedRender, collectBlockText } from './OrderedAssistantContent';
-import { TableCell, TableHeaderCell, HighlightedText, processChildren, renderOutputImages } from './markdownRenderParts';
+import { TableCell, TableHeaderCell, HighlightedText, OutputImage, processChildren, renderOutputImages } from './markdownRenderParts';
 import { A2uiRenderer } from '../a2ui/A2uiRenderer';
 import { ChartMessage } from '../a2ui/ChartMessage';
 import {
@@ -233,28 +233,6 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
           </div>
         )}
 
-        {!isUser && message && <><PptArtifactCard message={message} onOpenArtifact={onOpenArtifact} /><WebsiteArtifactCard message={message} onOpenArtifact={onOpenArtifact} /></>}
-
-        {/* A2UI 声明式界面：智能体生成的结构化交互区域。
-            放在产物卡片之后、正文气泡之前 —— 界面是主角，文字是补充。 */}
-        {!isUser && message?.chartMessages?.length ? (
-          <div className="w-full space-y-2">
-            {message.chartMessages.map((chart, i) => (
-              <ChartMessage key={`chart-${message.id}-${i}`} chart={chart} />
-            ))}
-          </div>
-        ) : null}
-
-        {!isUser && message?.a2uiMessages?.length ? (
-          <div className="w-full">
-            <A2uiRenderer
-              messages={message.a2uiMessages}
-              onAction={onA2uiAction}
-              onDataChange={onA2uiDataChange}
-            />
-          </div>
-        ) : null}
-
         {shouldRenderBubble && (
             <div id={message?.id ? `bubble-${message.id}` : undefined}
               className={cn("px-5 py-3 rounded-[2rem] relative group max-w-full min-w-0 transition-colors duration-300 overflow-hidden",
@@ -312,6 +290,9 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                     components={{
                       code: (props) => <CodeBlock {...props} onOpenArtifact={onOpenArtifact} />,
                       pre: ({ children }) => <>{children}</>,
+                      // markdown 图片语法 `![alt](outputs/x.png)` 必须重写 src，
+                      // 否则工作区相对路径会被浏览器按页面 URL 解析成 404。
+                      img: ({ src, alt }) => <OutputImage src={src} alt={alt} sessionId={sessionId} />,
                       p: ({ children }) => <p>{renderOutputImages(processChildren(children, sessionCounter.current, searchQuery, activeMatchId, message?.id), sessionId)}</p>,
                       table: ({ children }) => <MarkdownTable>{children}</MarkdownTable>,
                       thead: ({ children }) => <MarkdownTableHead>{children}</MarkdownTableHead>,
@@ -333,6 +314,42 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
             )}
             </div>
         )}
+
+        {/* ── 产物区（图表 / GenUI / 产物卡片）统一放在文字气泡**下方** ──
+             
+            阅读顺序应当是「先看模型说了什么，再看它产出的东西」。此前这些都
+            排在气泡上方，一进对话就先撞上一张大图表或交互界面，文字被挤到
+            下面，很像加载顺序错了。
+
+            产物卡（PPT/网站）放最后：它是「打开预览」的入口而非内容本体，
+            紧贴时间戳更符合「操作区在底部」的直觉。
+
+            始终在下方、不随流式跳变：流式早期还没有文字时它们单独占位，
+            文字出现后自然接在下面，不会先上后下地闪一次。 */}
+        {!isUser && message?.chartMessages?.length ? (
+          <div className="w-full space-y-2 mt-2">
+            {message.chartMessages.map((chart, i) => (
+              <ChartMessage key={`chart-${message.id}-${i}`} chart={chart} />
+            ))}
+          </div>
+        ) : null}
+
+        {!isUser && message?.a2uiMessages?.length ? (
+          <div className="w-full mt-2">
+            <A2uiRenderer
+              messages={message.a2uiMessages}
+              onAction={onA2uiAction}
+              onDataChange={onA2uiDataChange}
+            />
+          </div>
+        ) : null}
+
+        {!isUser && message ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            <PptArtifactCard message={message} onOpenArtifact={onOpenArtifact} />
+            <WebsiteArtifactCard message={message} onOpenArtifact={onOpenArtifact} />
+          </div>
+        ) : null}
 
         {message?.id && !isTyping && (
           <div className={cn("text-[9px] font-semibold uppercase tracking-[0.1em] px-2 mt-1.5 flex items-center gap-2",
