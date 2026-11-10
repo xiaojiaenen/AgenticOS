@@ -57,6 +57,12 @@ x-backend-env: &backend-env
   HF_ENDPOINT: ""
   HF_HUB_OFFLINE: "1"
   TRANSFORMERS_OFFLINE: "1"
+  # 网站智能体 build_website 的 npm 源。内网部署时在 .env 覆盖为 Nexus
+  # npm-proxy 并关掉 strict-ssl（自签证书），同时把 NEXUS_HOST 指向内网
+  # Nexus IP（下方 extra_hosts 把域名钉到该 IP，绕过不通的内网 DNS）。
+  # 默认走公网镜像，内外网同一份代码。
+  NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmmirror.com/}
+  NPM_CONFIG_STRICT_SSL: ${NPM_CONFIG_STRICT_SSL:-true}
 
 services:
   backend:
@@ -86,6 +92,10 @@ services:
       # 首次启动要加载嵌入模型（bge-m3 约 20-40 秒）
       start_period: 90s
     environment: *backend-env
+    # nexus.gree.com 钉到内网 Nexus IP（NEXUS_HOST 在 .env 配置）：
+    # 内网 DNS 解不了这个域名，npm 走 Nexus 源时必须靠 hosts 映射。
+    extra_hosts:
+      - "nexus.gree.com:${NEXUS_HOST:-10.2.47.210}"
     volumes:
       - ../backend:/app/backend
       - ../data:/app/data
@@ -105,6 +115,8 @@ services:
     # 同 backend：seccomp 默认 profile 可能拦 clone()，导致线程创建失败
     security_opt:
       - seccomp:unconfined
+    extra_hosts:
+      - "nexus.gree.com:${NEXUS_HOST:-10.2.47.210}"
     volumes:
       - ../backend:/app/backend
       - ../data:/app/data
@@ -124,6 +136,8 @@ services:
     shm_size: 256m
     security_opt:
       - seccomp:unconfined
+    extra_hosts:
+      - "nexus.gree.com:${NEXUS_HOST:-10.2.47.210}"
     volumes:
       - ../backend:/app/backend
       - ../data:/app/data
