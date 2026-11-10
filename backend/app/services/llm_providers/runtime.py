@@ -796,10 +796,27 @@ async def test_provider(spec: ProviderSpec, *, deep: bool = False) -> dict[str, 
             )
 
     if deep and auth_ok:
-        model_name = spec.model or next(
+        # 优先用主模型，但**主模型不在已发现的目录里时改用目录里的第一个**。
+        #
+        # 为什么：主模型是手填字段，很容易填成上游不认的值（实测见过填 "aa"）。
+        # 拿它去探测必然 Model Not Exist，然后界面报「模型名不对：请填上游
+        # 注册表里的 name」—— 可用户明明在目录里看得到一堆可用模型，不知道
+        # 该改哪里。目录里已有有效模型时，用它验证「这份凭据能不能对话」
+        # 才是探测的本意；主模型名对不对是另一个问题（由 configured_model_available
+        # 单独回报）。
+        configured = (spec.model or "").strip()
+        catalog_names = {
+            item["model_name"] for item in models if item.get("model_name")
+        }
+        configured_in_catalog = bool(configured) and configured in catalog_names
+        fallback_name = next(
             (item["model_name"] for item in models if item.get("task_type") == "text-generation"),
             "",
         )
+        if configured_in_catalog:
+            model_name = configured
+        else:
+            model_name = fallback_name or configured
         if not model_name:
             stages.append(
                 {
@@ -835,5 +852,31 @@ async def test_provider(spec: ProviderSpec, *, deep: bool = False) -> dict[str, 
                 credentials.mark_cookie_invalid(
                     lease.credential_id, "对话阶段认证失败 HTTP 401/403"
                 )
+
+        # 主模型名不在已发现目录里 → 单独回报。
+        #
+        # 这是「模型名不对」最常见的原因，而且和凭据无关：用户手填了一个
+        # 上游不认的值（实测见过 "aa"）。探测本身已经改用目录里的有效模型
+        # 跑通了，所以这里只补一条说明，告诉用户具体该改哪个字段、可选的
+        # 正确值长什么样。
+        #
+        # ok=True：这条是**提醒**不是失败。凭据与连通性都已验证通过，
+        # 标成 false 会让整体结果变成「测试失败」，把用户引到错误的排查方向。
+        if configured and catalog_names and not configured_in_catalog:
+            sample = sorted(catalog_names)[:5]
+            stages.append(
+                {
+                    "stage": "model_name",
+                    "ok": True,
+                    "warning": True,
+                    "elapsed_ms": 0,
+                    "message": f"主模型「{configured}」不在上游模型清单里",
+                    "hint": (
+                        "把「模型」改成目录里的名字（如 "
+                        + "、".join(sample)
+                        + "），或点「从上游同步」后从下拉里选"
+                    ),
+                }
+            )
 
     return _summarize(spec, stages, models)

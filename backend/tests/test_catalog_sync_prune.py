@@ -172,3 +172,48 @@ def test_role_options_carry_follows_main_flag():
     # 已下线的角色不在任何可见集合里
     assert "reasoner" not in MODEL_ROLES
     assert "vision" not in MODEL_ROLES
+
+
+def test_configured_model_missing_from_catalog_is_flagged():
+    """主模型不在目录里时，测试结果要明确指出「该改哪个字段」。
+
+    实测现场：主模型填了 "aa"，目录里有一堆 agnes-* 有效模型。原来的提示
+    是「模型名不对：请填上游注册表里的 name（不是 model ID）」—— 用户看到
+    目录里明明有可用模型，不知道该改哪里。
+
+    修复后：探测本身改用目录里的有效模型跑通（验证凭据可用），另加一条
+    ok=True 的**提醒**阶段，点出具体值并给出正确样例。标成失败会把用户
+    引向「凭据有问题」的错误方向。
+    """
+    from app.services.llm_providers.runtime import _summarize
+    from app.services.llm_providers.spec import ProviderSpec
+
+    spec = ProviderSpec(
+        name="t", slug="t", provider_type="openai_compatible",
+        base_url="https://example.test/v1", model="aa",  # 目录里没有
+    )
+    models = [
+        {"model_key": "agnes-3.0-flash", "model_name": "agnes-3.0-flash", "task_type": "text-generation"},
+    ]
+    stages = [
+        {"stage": "network", "ok": True, "elapsed_ms": 1},
+        {"stage": "auth", "ok": True, "elapsed_ms": 1},
+        {"stage": "models", "ok": True, "elapsed_ms": 1},
+        {
+            "stage": "model_name",
+            "ok": True,
+            "warning": True,
+            "elapsed_ms": 0,
+            "message": "主模型「aa」不在上游模型清单里",
+            "hint": "把「模型」改成目录里的名字（如 agnes-3.0-flash）",
+        },
+    ]
+    summary = _summarize(spec, stages, models)
+
+    # 提醒阶段不能把整体结果打成失败
+    assert summary["ok"] is True
+    assert summary["configured_model_available"] is False
+    warn = next(s for s in stages if s["stage"] == "model_name")
+    assert warn["warning"] is True
+    assert "aa" in warn["message"]
+    assert "agnes-3.0-flash" in warn["hint"]
