@@ -60,7 +60,9 @@ _TARGETS: tuple[tuple[str, str], ...] = (
     # 直接导致本次故障
     ("agent_sessions", "metadata_json"),
     # 同类风险：存 JSON 且随会话增长
-    ("workflow_runs", "node_status_json"),
+    ("workflow_runs", "inputs_json"),
+    ("workflow_runs", "context_json"),
+    ("workflow_runs", "steps_json"),
     ("workflow_runs", "outputs_json"),
     ("workflow_runs", "waiting_fields_json"),
     ("agent_run_traces", "steps_json"),
