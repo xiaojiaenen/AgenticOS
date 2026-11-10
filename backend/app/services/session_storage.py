@@ -127,11 +127,73 @@ def _session_metadata_for_storage(session) -> dict[str, Any]:
 
     metadata = dict(getattr(session, "metadata", {}) or {})
     if ACTION_LOG_KEY in metadata:
+        log_dict = coerce(metadata[ACTION_LOG_KEY]).to_dict()
         metadata[ACTION_LOG_KEY] = {
             "__type__": log_type,
-            "value": coerce(metadata[ACTION_LOG_KEY]).to_dict(),
+            "value": _slim_action_log(log_dict),
         }
     return metadata
+
+
+# action_log 保留的条目上限。超过就只留最近的 —— 它是「最近发生了什么」的
+# 审计线索，不是完整回放日志，早期条目对排查价值有限。
+_ACTION_LOG_MAX_ENTRIES = 60
+# 单条 summary 的字符上限。上游写 llm 条目时已经截到 200，但 tool 条目的
+# summary 是「工具名 -> 完整返回结果」，可能几 KB。
+_ACTION_LOG_SUMMARY_LIMIT = 600
+
+
+def _slim_action_log(log_dict: dict[str, Any]) -> dict[str, Any]:
+    """写库前给 action_log 瘦身。
+
+    为什么必须做：上游 ``agent_runner.py:607`` 每步都往 action_log 追加一条，
+    其中 ``data`` 存的是**完整的 tool_calls 参数**：
+
+        data={"tool_calls": [tc.model_dump(mode="json") for tc in pending]}
+
+    模型写一个文件，整份 CSS/JS/HTML 内容都被原样存进去。实测一个 31 条的
+    会话，action_log 占 54 KB —— 而同期 session.metadata 的其余全部字段
+    加起来只有 2.4 KB。会话越长涨得越多，且**永不裁剪**，最终把
+    MySQL 的 TEXT 列（64KB）撑爆，连带整轮消息落库失败。
+
+    关键事实：**这份数据没有任何读取方**。上游只写不读（`get_or_create_log`
+    只用于 append），本项目也从不读 entries。它是纯负担。
+
+    所以这里做两件事，都不影响任何现有功能：
+    1. 丢掉 ``data.tool_calls``（完整参数）—— 摘要里已经有「哪个工具、做了什么」
+    2. summary 截断到 600 字，条目数保留最近 60 条
+
+    保留 ``digest`` / ``timestamp`` / ``kind`` / ``step``，审计需要的字段都在。
+    """
+    entries = log_dict.get("entries")
+    if not isinstance(entries, list):
+        return log_dict
+
+    trimmed: list[dict[str, Any]] = []
+    for entry in entries[-_ACTION_LOG_MAX_ENTRIES:]:
+        if not isinstance(entry, dict):
+            continue
+        slim = dict(entry)
+        summary = slim.get("summary")
+        if isinstance(summary, str) and len(summary) > _ACTION_LOG_SUMMARY_LIMIT:
+            slim["summary"] = summary[:_ACTION_LOG_SUMMARY_LIMIT] + "…"
+        data = slim.get("data")
+        if isinstance(data, dict) and "tool_calls" in data:
+            # 只留工具名，去掉完整 arguments
+            calls = data.get("tool_calls")
+            names = [
+                ((tc.get("function") or {}).get("name") if isinstance(tc, dict) else None)
+                for tc in (calls if isinstance(calls, list) else [])
+            ]
+            slim["data"] = {
+                k: v for k, v in data.items() if k != "tool_calls"
+            }
+            kept = [n for n in names if n]
+            if kept:
+                slim["data"]["tool_names"] = kept
+        trimmed.append(slim)
+
+    return {**log_dict, "entries": trimmed}
 
 
 def _iso(value: datetime | None) -> str | None:

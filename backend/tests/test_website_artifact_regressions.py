@@ -116,3 +116,74 @@ def test_messages_endpoint_returns_created_at():
     src = inspect.getsource(get_session_messages)
     assert "created_at" in src
     assert "load_message_timestamps" in src
+
+
+# ── 4. action_log 瘦身 ──────────────────────────────────────
+
+def test_slim_action_log_drops_tool_call_arguments():
+    """action_log 必须去掉完整 tool_calls 参数。
+
+    上游 `agent_runner.py:607` 每步都存
+    `data={"tool_calls": [tc.model_dump(mode="json") ...]}` ——
+    模型写一个文件，整份 CSS/JS/HTML 都进去了。实测一个 31 条的会话占
+    54KB（metadata 其余字段加起来才 2.4KB），最终把 MySQL TEXT 撑爆。
+
+    这份数据**没有任何读取方**（上游只写不读，本项目也不读 entries），
+    是纯负担。
+    """
+    from wuwei.runtime.action_log import ActionLog
+
+    from app.services.session_storage import _slim_action_log
+
+    big_css = "a{color:red}" * 5000
+    log = ActionLog()
+    log.append(
+        run_id="r1", agent="s1", step=0, kind="llm", summary="写样式表",
+        data={"tool_calls": [{
+            "id": "c1", "type": "function",
+            "function": {"name": "write_text_file", "arguments": {"content": big_css}},
+        }]},
+    )
+    import json
+
+    slim = _slim_action_log(log.to_dict())
+    entry = slim["entries"][0]
+
+    # 完整参数必须消失
+    assert "tool_calls" not in entry["data"]
+    assert big_css not in json.dumps(slim, ensure_ascii=False)
+    # 但审计信息要留住
+    assert entry["data"]["tool_names"] == ["write_text_file"]
+    for field in ("run_id", "agent", "step", "kind", "digest", "timestamp"):
+        assert field in entry
+    # 压缩比：60KB 量级降到百字节级
+    assert len(json.dumps(slim, ensure_ascii=False)) < 1000
+
+
+def test_slim_action_log_caps_entries_and_summary():
+    """条目数与单条 summary 都要有上限，否则仍会随会话无限增长。"""
+    from wuwei.runtime.action_log import ActionLog
+
+    from app.services.session_storage import _slim_action_log
+
+    log = ActionLog()
+    for i in range(120):
+        log.append(run_id="r", agent="s", step=i, kind="tool", summary="x" * 5000)
+
+    slim = _slim_action_log(log.to_dict())
+    entries = slim["entries"]
+    assert len(entries) == 60, "条目数未截断"
+    assert all(len(e["summary"]) <= 601 for e in entries), "summary 未截断"
+    # 保留的是**最近**的，不是最早的
+    assert entries[-1]["step"] == 119
+
+
+def test_slim_action_log_preserves_non_dict_shapes():
+    """异常输入不能崩（历史 checkpoint 可能是裸 dict / 空结构）。"""
+    from app.services.session_storage import _slim_action_log
+
+    assert _slim_action_log({}) == {}
+    assert _slim_action_log({"entries": None}) == {"entries": None}
+    assert _slim_action_log({"entries": []}) == {"entries": []}
+    # 非 dict 条目被跳过而不是抛异常
+    assert _slim_action_log({"entries": ["garbage", None]})["entries"] == []
