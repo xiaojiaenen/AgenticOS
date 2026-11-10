@@ -57,8 +57,18 @@ export const ExecutionPolicyMenu: React.FC<{
   const current = options.find((o) => o.value === approvalMode) ?? options[0];
   const Icon = planMode ? ClipboardList : current.icon;
 
+  // 受控开合：选完档位必须立刻收起。
+  //
+  // Radix Popover 默认是非受控的，只在「点外部 / 按 Esc」时关闭 ——
+  // 点里面的按钮不会自动收，用户选完看到菜单还挂在那儿，以为没生效。
+  // 这里显式接管 open，选项点完就 setOpen(false)。
+  //
+  // 计划模式不收起：它是一个开关（可能要反复切），而且与审批档位同屏，
+  // 收起会让用户以为没点中。保持打开更符合「面板还在」的预期。
+  const [open, setOpen] = React.useState(false);
+
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -88,7 +98,11 @@ export const ExecutionPolicyMenu: React.FC<{
               <button
                 key={option.value}
                 type="button"
-                onClick={() => onApprovalModeChange(option.value)}
+                onClick={() => {
+                  onApprovalModeChange(option.value);
+                  // 选完即收：这是单选，选完就没有继续留在面板里的理由
+                  setOpen(false);
+                }}
                 className={cn(
                   'flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left transition-colors',
                   active ? 'bg-[var(--accent)] text-[var(--accent-foreground)]' : 'hover:bg-[var(--surface-2)]',
