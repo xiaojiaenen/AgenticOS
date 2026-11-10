@@ -320,6 +320,8 @@ FEATURE_GRANTS: tuple[tuple[str, str, str], ...] = (
     ("manage_providers", "管理 AI 提供商", "配置大模型后端与 Key"),
     ("manage_integrations", "管理第三方集成", "配置外部系统与 API"),
     ("manage_mcp", "管理 MCP 服务器", "注册 / 连接 MCP 服务"),
+    ("use_workflows", "使用工作流", "运行已启用的工作流（对话工具与运行接口）"),
+    ("view_workflow_runs", "查看工作流运行记录", "查看本人触发的工作流运行轨迹与输出"),
     ("view_audit", "查看审计日志", "查询权限与操作审计"),
 )
 
