@@ -61,6 +61,48 @@ function preprocessChartMarkers(text: string): string {
   );
 }
 
+/**
+ * 该不该为这条消息绘制气泡。
+ *
+ * 抽成纯函数的原因：这里有两次互相打脸的回归，每次都是「修 A 弄坏 B」，
+ * 而症状都只在特定时序下出现（流式中 / 停止后），靠手点很难覆盖。
+ *
+ * 历史：
+ * 1. 原始条件末尾是 `|| (!hasPptArtifact && !hasWebsiteArtifact)`，
+ *    「没有产物」恒真 → 任何空消息都画空气泡 → 停止后一路空泡。
+ * 2. 去掉它之后，正文为空的 assistant 不再画气泡 —— 但 `LiveToolCall`
+ *    与 `OrderedAssistantContent` 都挂在这个气泡**内部**。网站/PPT 这类
+ *    智能体是「先调一串工具、最后才出文字」，流式早期正文为空，
+ *    于是工具调用完全不可见，直到模型吐出第一段文字才「突然」冒出来。
+ *
+ * 现在的判据：
+ * - 用户消息 / 打字指示器 → 画
+ * - 有正文 / 有思考 → 画
+ * - **正在流式且已有工具调用 → 画**（工具卡片在气泡内，不画就看不见）
+ * - 其余（停止后的空 assistant、纯工具过渡泡的历史消息）→ 不画
+ */
+export function shouldRenderBubbleFor({
+  isTyping,
+  isUser,
+  hasVisibleText,
+  hasReasoning,
+  isStreaming,
+  hasToolCalls,
+}: {
+  isTyping: boolean;
+  isUser: boolean;
+  hasVisibleText: boolean;
+  hasReasoning: boolean;
+  isStreaming: boolean;
+  hasToolCalls: boolean;
+}): boolean {
+  if (isTyping || isUser) return true;
+  if (hasVisibleText || hasReasoning) return true;
+  // 流式中且已有工具调用：工具卡片挂在气泡内部，跳过气泡等于让用户
+  // 看不到正在执行什么。停止后 isStreaming=false，不会产生空气泡。
+  return isStreaming && hasToolCalls;
+}
+
 export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, isAdmin = false, onOpenArtifact, onA2uiAction, onA2uiDataChange, index = 0, searchQuery = "", activeMatchId, sessionId }: ChatMessageProps) => {
   const isUser = message?.role === 'user';
   // 按序渲染（新消息）：正文/工具/思考交错展示；历史消息回退旧式三桶
@@ -69,23 +111,17 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   const visibleText = preprocessChartMarkers(rawText);
   const reasoningText = useOrderedRender ? '' : message?.reasoningText || '';
   const hasAnyReasoning = reasoningText.trim().length > 0;
-  // 气泡只在「真的有东西可看」时绘制。
-  //
-  // 早先的条件末尾是 `|| (!hasPptArtifact && !hasWebsiteArtifact)` —— 它的
-  // 原意是「没有产物时才画文字气泡，有产物就让产物卡片独占」，但写成
-  // 「没有产物」等于**恒真**，于是任何空消息都会画出一只空气泡。
-  // 停止/撞步骤上限的轮次里这类空 assistant 不止一条，用户看到的就是
-  // 「停止后一路空气泡」。
-  //
-  // 产物已经由 PptArtifactCard / WebsiteArtifactCard / ChartMessage /
-  // A2uiRenderer 各自渲染，不依赖这个气泡承载。
-  const shouldRenderBubble =
-    isTyping
-    || isUser
-    || visibleText.trim().length > 0
-    || hasAnyReasoning;
-  // 注意不要把 toolCalls 算进来：工具链是在气泡**外面**单独渲染的
-  // （见下方「工具链调用历史」块），算进来只会凭空画一只空泡。
+  const hasToolCalls = Boolean(!isUser && message?.toolCalls && message.toolCalls.length > 0);
+  // 产物由 PptArtifactCard / WebsiteArtifactCard / ChartMessage / A2uiRenderer
+  // 各自渲染，不依赖这个气泡承载。
+  const shouldRenderBubble = shouldRenderBubbleFor({
+    isTyping: Boolean(isTyping),
+    isUser,
+    hasVisibleText: visibleText.trim().length > 0,
+    hasReasoning: hasAnyReasoning,
+    isStreaming: Boolean(isStreaming),
+    hasToolCalls,
+  });
   const hasStructuredContent = !isUser && /```|(?:^|\n)\|.+\|/.test(visibleText);
   const showAssistantWaiting = !isUser && Boolean(isStreaming) && !visibleText.trim() && !hasAnyReasoning && !isTyping;
   const canCopyMessage = visibleText.trim().length > 0;
