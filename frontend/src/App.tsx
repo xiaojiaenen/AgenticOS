@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation, Link } from 'react
 import { AnimatePresence, motion } from 'motion/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GlobalAnnouncementLayer } from './components/announcement/GlobalAnnouncementLayer';
+import { FeedbackLauncher } from './components/feedback/FeedbackLauncher';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Toaster } from '@/components/shadcn/sonner';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
@@ -24,6 +25,7 @@ const AgentEditor = lazy(() => import('./pages/AgentEditor').then((module) => ({
 const Login = lazy(() => import('./pages/Login').then((module) => ({ default: module.Login })));
 const Signup = lazy(() => import('./pages/Signup').then((module) => ({ default: module.Signup })));
 const Gallery = lazy(() => import('./pages/Gallery').then((module) => ({ default: module.GalleryPage })));
+const Wrapped = lazy(() => import('./pages/Wrapped').then((module) => ({ default: module.Wrapped })));
 const AdminDashboard = lazy(() =>
   import('./pages/AdminDashboard').then((module) => ({ default: module.AdminDashboard })),
 );
@@ -85,6 +87,8 @@ const AnimatedRoutes = () => {
           <Route path="/signup" element={<ErrorBoundary key={`signup-${location.pathname}`} title="注册页出错了"><Signup /></ErrorBoundary>} />
           <Route path="/admin" element={<ProtectedRoute requireAdmin><ErrorBoundary key={`admin-${location.pathname}`} title="管理后台出错了"><AdminDashboard /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/gallery" element={<ProtectedRoute><ErrorBoundary key={`gallery-${location.pathname}`} title="作品库出错了"><Gallery /></ErrorBoundary></ProtectedRoute>} />
+          <Route path="/wrapped" element={<ProtectedRoute><ErrorBoundary key="wrapped" title="年度报告出错了"><Wrapped /></ErrorBoundary></ProtectedRoute>} />
+          <Route path="/wrapped/:year" element={<ProtectedRoute><ErrorBoundary key={`wrapped-${location.pathname}`} title="年度报告出错了"><Wrapped /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/app/:slug" element={<ErrorBoundary key={`public-agent-${location.pathname}`} title="应用页出错了"><PublicAgentChat /></ErrorBoundary>} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
@@ -100,6 +104,7 @@ function AppContent() {
       <ErrorBoundary>
         <AnimatedRoutes />
       </ErrorBoundary>
+      <FeedbackLauncher />
       <Toaster />
     </>
   );

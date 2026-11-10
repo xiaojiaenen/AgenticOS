@@ -1,223 +1,173 @@
 ---
 name: email-design
-description: 邮件设计指南——让 AI 生成的邮件正文更专业、更有品味，避免 AI 味。发送 HTML 邮件时加载。
-version: 1.0.0
-tags: [email, design, html, layout, typography]
-when_to_use: 生成 HTML 邮件正文时，加载此指南以提升设计质量
+description: 邮件设计与排版指南——用户自己写邮件、尤其是「好看一点/正式一点/排版一下」时加载。内置多套主题模板（theme），禁止 AI 默认外观，附邮件客户端兼容红线与一整套失败模式清单。
+version: 3.0.0
+tags: [email, design, html, layout, typography, template, anti-slop]
+when_to_use: 用户要求写一封邮件、把邮件做得好一点、套个模板、或说「别太 AI 味」时；以及生成任何 HTML 邮件正文前
 allowed_tools: []
 required_tools: []
 ---
 
 # 邮件设计指南
 
-**让你的邮件看起来像专业设计师做的，而不是 AI 生成的。**
+**目标不是「把邮件做得还行」，而是让收件人觉得「这是人认真写的」，不是模板批量生成的。**
+
+> **边界**：本 skill 只管**用户自己撰写/发送的邮件**。系统自动邮件（验证码、
+> 欢迎、任务完成等）走 `email_templates.py` 里的统一深底模板，不读这里。
 
 ---
 
-## 一、反 AI 味铁律
+## 0 · 先定一件事：这封邮件是什么类型
 
-### 禁止
+设计从内容长出来，不是先挑样式。发信前先在心里说清三件事（不必写给用户看）：
 
-- ❌ 大量使用渐变色背景
-- ❌ 圆角卡片嵌套圆角卡片
-- ❌ 过多的 emoji 表情 🎉✨🚀
-- ❌ "亲爱的用户"、"尊敬的客户" 开头
-- ❌ 过于正式、模板化的措辞
-- ❌ 每段都有小标题
-- ❌ 列表项超过 5 个
-- ❌ 全文超过 500 字（除非必要）
+- **对象**：谁是收件人？上级 / 同事 / 外部客户 / 一大群人？这决定正式度。
+- **单一任务**：这封邮件只让对方做一件事 / 知道一件事，是哪个？
+- **关系温度**：冷（通知、流程）／温（协作、汇报）／热（感谢、祝贺）。
 
-### 必须
-
-- ✅ 简洁直接，开门见山
-- ✅ 用口语化但专业的语气
-- ✅ 段落短小，每段 2-3 句
-- ✅ 重点内容加粗，不要全部加粗
-- ✅ 适当留白，不要塞满
+类型定了，主题（theme）和版式才有依据。见下面的「主题路由」。
 
 ---
 
-## 二、邮件布局模板
+## 1 · 反 AI 味铁律（第一优先级）
 
-### 模板 1: 商务汇报（推荐）
+AI 生成的邮件有一组**统计默认外观**。它们未必丑，但和题材无关地出现，读起来就是
+「AI 做的」。下面这些**主动避开**：
 
-```html
-<div style="max-width: 600px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a1a; line-height: 1.6;">
-  <div style="padding: 32px 24px;">
-    <h2 style="font-size: 20px; font-weight: 600; margin: 0 0 16px; color: #0f172a;">项目进度汇报</h2>
-    <p style="margin: 0 0 16px;">Hi 张三，</p>
-    <p style="margin: 0 0 16px;">本周完成了用户系统的重构，主要包括：</p>
-    <ul style="margin: 0 0 16px; padding-left: 20px;">
-      <li style="margin-bottom: 8px;">登录流程优化，响应时间降低 40%</li>
-      <li style="margin-bottom: 8px;">新增 OAuth 第三方登录支持</li>
-      <li style="margin-bottom: 8px;">修复了 3 个安全漏洞</li>
-    </ul>
-    <p style="margin: 0 0 16px;">下周计划开始支付模块的开发。</p>
-    <p style="margin: 0; color: #64748b; font-size: 14px;">Best,<br/>李四</p>
-  </div>
-  <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8;">
-    此邮件由 AgenticOS 发送
-  </div>
-</div>
-```
+### 绝对禁止
+- ❌ **整套默认三件套**：暖奶油底（≈#F4F1EA）+ 高反差衬线大标题 + 陶土色点缀（≈#D97757）
+- ❌ **近黑底 + 单一荧光亮色**（酸绿/朱红）满屏点缀
+- ❌ 紫→粉→蓝 全屏渐变、mesh 渐变、彩虹渐变
+- ❌ 圆角卡片套圆角卡片 + 左侧 4px 彩色竖条（AI 卡片签名）
+- ❌ emoji 当图标（🚀✨🎉✅❌💡 一律不用；标题前的尤其不要）
+- ❌ 用 SVG / CSS 画人物、场景、插画冒充配图
+- ❌ 每个标题上方一行全大写拉字距小标签（EYEBROW）、「A · B · C」中点串、按钮尾巴「→」
+- ❌ 编号 01/02/03 用在**不是序列**的内容上
+- ❌ 编造数据、评价、logo 墙；「10,000+ 用户」「99.9% 可用」这类无来源装饰
 
-### 模板 2: 通知提醒
+### 必须做到
+- ✅ 开门见山，第一句就说事
+- ✅ 口语但专业，像个真人同事在写
+- ✅ 段落 2–3 句，短段落比长段落自然
+- ✅ 重点只强调一两类（一句话单独成段 / 一处加粗），**不要满篇加粗**
+- ✅ 留白是构图，不是内容缺席
+- ✅ 一封邮件**只留一个记忆点**（signature）：一个色块、一个数字、一条线。其余安静克制。
+  出门前照镜子摘掉一件配饰。
 
-```html
-<div style="max-width: 600px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a1a; line-height: 1.6;">
-  <div style="padding: 32px 24px;">
-    <div style="background: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 16px; margin-bottom: 24px; border-radius: 0 8px 8px 0;">
-      <p style="margin: 0; font-weight: 500; color: #0c4a6e;">会议提醒</p>
-      <p style="margin: 4px 0 0; font-size: 14px; color: #0369a1;">今天下午 3:00 - 产品评审会</p>
-    </div>
-    <p style="margin: 0 0 16px;">Hi 团队，</p>
-    <p style="margin: 0 0 16px;">提醒大家今天下午 3 点有产品评审会议，请提前查看设计稿并准备反馈意见。</p>
-    <p style="margin: 0 0 16px;">会议链接：<a href="#" style="color: #0ea5e9; text-decoration: none;">点击加入</a></p>
-    <p style="margin: 0; color: #64748b; font-size: 14px;">谢谢！</p>
-  </div>
-</div>
-```
+> 边界：上面「外观家族」（暖纸衬线、深底单点缀、细线报纸）本身不丑，**错的是和题材
+> 无关地用、或者每次都用同一套**。如果某次情境确实最适合，用它；但别让它成为不假思索的默认。
 
-### 模板 3: 简洁回复
-
-```html
-<div style="max-width: 600px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a1a; line-height: 1.6;">
-  <div style="padding: 32px 24px;">
-    <p style="margin: 0 0 16px;">收到，我看一下。</p>
-    <p style="margin: 0 0 16px;">关于这个问题，我的建议是先做一个 POC 验证可行性，然后再决定是否全面铺开。</p>
-    <p style="margin: 0 0 16px;">明天给你详细方案。</p>
-    <p style="margin: 0; color: #64748b; font-size: 14px;">Best,<br/>李四</p>
-  </div>
-</div>
-```
+细节与更多反例：`references/failure-patterns.md`。
 
 ---
 
-## 三、设计规范
+## 2 · 主题路由（挑一个 theme）
 
-### 颜色
+每个主题是一个**有性格的视觉方向**，带 mood / 适合 / 不适合。先判断场景，再选主题，
+不要每次从空白堆样式。选定后读对应的 `themes/<id>.md` 拿完整 token 与版式。
 
-```css
-/* 主色调 - 仅用于强调 */
---primary: #0ea5e9;      /* 天蓝色 */
---primary-dark: #0369a1;  /* 深蓝 */
+| theme | 气质 | 适合 | 不适合 |
+|---|---|---|---|
+| `swiss` | 冷中性、严格网格、克制的系统感 | 汇报、周报、正式通知、跨部门 | 需要温度的私人感谢 |
+| `press` | 书卷、温暖、编辑感、衬线叙事 | 长说明、announcement、对外介绍 | 密集数据表、纯流程通知 |
+| `terminal` | 暗底工程现场、等宽、克制 | 技术事故、系统变更、给工程同学 | 面向非技术的客户、打印 |
+| `quiet` | 极简留白、近无装饰、字重撑起层级 | 短回复、确认、一对一 | 信息量大的多段邮件 |
+| `warm` | 暖白 + 一点明黄、机灵有人味 | 产品更新、友好通知、团队公告 | 严肃正式、对外公函 |
+| `datatable` | 数字优先、键值/对比表、扫描友好 | 报表结论、费用明细、KPI | 抒情、叙事 |
+| `editorial` | 杂志式、大标题、图片/引用位 | 对外简报、活动邀请 | 纯事务、加密/安全通知 |
+| `tufte` | 数据墨水比、极简发丝线、大页边 | 分析结论、数据型汇报、内部研究 | 需要亲切温度；海报感场合 |
+| `bodoni` | 报刊 Didone 高反差、首字下沉 | 对外公告、邀请函、季度通讯 | 纯流程通知、密集表格 |
 
-/* 文字颜色 */
---text-primary: #0f172a;   /* 标题 */
---text-body: #1a1a1a;      /* 正文 */
---text-muted: #64748b;     /* 辅助文字 */
---text-light: #94a3b8;     /* 最浅文字 */
-
-/* 背景 */
---bg-white: #ffffff;
---bg-gray: #f8fafc;
---bg-blue: #f0f9ff;        /* 提示背景 */
-
-/* 边框 */
---border: #e2e8f0;
-```
-
-### 字体
-
-```css
-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-```
-
-### 字号
-
-| 元素 | 字号 | 字重 |
-|------|------|------|
-| 大标题 | 24px | 600 |
-| 小标题 | 20px | 600 |
-| 正文 | 16px | 400 |
-| 辅助文字 | 14px | 400 |
-| 脚注 | 12px | 400 |
-
-### 间距
-
-- 容器内边距：24-32px
-- 段落间距：16px
-- 列表项间距：8px
-- 标题与正文间距：12-16px
+**选择方法**：类型（§0）→ 上表筛出 1 个 → 读 `themes/<id>.md`。九个主题家族各不相同，
+不会每次都长一样。主题档案格式见 `themes/README.md`。
 
 ---
 
-## 四、HTML 邮件注意事项
+## 3 · 版式骨架（所有主题共用）
 
-### 必须使用内联样式
+邮件不是网页，布局只有 `<table>` 可靠。所有主题都遵守这套骨架：
 
-邮件客户端不支持 `<style>` 标签，所有样式必须写在 `style` 属性中：
-
-```html
-<!-- ✅ 正确 -->
-<p style="margin: 0 0 16px; color: #1a1a1a;">正文</p>
-
-<!-- ❌ 错误 -->
-<style>p { margin-bottom: 16px; }</style>
-<p>正文</p>
+```
+┌──────────────────────────────────────┐
+│  页眉：小品牌字标  ·（可选）右对齐一行 meta   │  ← 一条细线收口
+├──────────────────────────────────────┤
+│                                      │
+│  主标题（大，压住版面）                    │
+│  引导句（§0 说的那件事，一句）              │
+│                                      │
+│  正文 / 卡片 / 表格（按主题）               │
+│                                      │
+│  （可选）一个行动按钮                      │
+│                                      │
+│  署名                                  │
+├──────────────────────────────────────┤
+│  页脚：一行小字（不写"系统自动发出"这类系统语） │
+└──────────────────────────────────────┘
 ```
 
-### 不要使用的 CSS 属性
-
-- `position: fixed/sticky` — 邮件不支持
-- `float` — 用 `display: flex` 代替
-- `@media` 查询 — 部分客户端不支持
-- `background-image` — 很多客户端屏蔽
-- `box-shadow` — 部分客户端不支持
-
-### 安全的 CSS 属性
-
-- `margin`, `padding`
-- `color`, `background-color`
-- `font-family`, `font-size`, `font-weight`
-- `line-height`, `text-align`
-- `border`, `border-radius`
-- `display: flex` (大部分客户端支持)
+- 主体宽度 **600px**，居中；移动端 100%。
+- 内边距 28–32px（上下略多于左右）。
+- 每封邮件**只有一个**最重的元素（大标题 / 大数字 / 一个色块）——这是记忆点。
 
 ---
 
-## 五、写作技巧
+## 4 · 硬红线（邮件客户端兼容）
 
-### 开头
+写之前必须知道：**邮件客户端支持的 CSS 是网页的极小真子集**。踩了这些，收件人看到的
+是挤成一团的裸文字。
 
-```
-❌ "尊敬的张三先生，您好！非常感谢您一直以来的支持与信任。"
-✅ "Hi 张三，" 或 "张三，"
-```
+| 不要用 | 原因 |
+|---|---|
+| `<style>` 里类选择器 / 外部 CSS | Gmail 剥掉大部分，**全部样式必须内联 `style=`** |
+| `display:flex` / `grid` | **Outlook 用 Word 引擎，不认**，退化成竖排 —— 多列用 `<table>` |
+| `position` / `float` | 不支持，布局塌 |
+| 外链图片 / 背景图 | 默认屏蔽，内网网关也常拦 |
+| `@keyframes` 动画 | Gmail / Outlook 全剥 |
+| `box-shadow` / `backdrop-filter` / `transform` | 不认或严重降级 |
+| `border-radius` | Outlook 渲染成直角 → 关键视觉别依赖圆角 |
+| `<form>` / `<input>` / `<details>` | 客户端禁用 |
 
-### 正文
+**能可靠用的**：`<table>` 嵌套、内联 `style`、`margin/padding/color/background-color/
+font-* / line-height / text-align / border`、`<a href>`。动效只能靠 `:hover`+`transition`
+（Apple Mail/iOS 支持，Gmail 不播但不丢信息）。完整清单：`references/html-email-compat.md`。
 
-```
-❌ "经过我们团队的不懈努力和精心打磨，项目终于取得了重大突破性进展。"
-✅ "项目进展顺利，本周完成了核心功能开发。"
-```
-
-### 结尾
-
-```
-❌ "如有任何问题，请随时与我们联系。我们将竭诚为您服务。祝您工作顺利！"
-✅ "有问题随时找我。"
-```
-
-### 签名
-
-```
-❌ "此致敬礼！XXX团队 敬上"
-✅ "Best, 李四"
-```
+**可读性底线（任何主题不豁免）**：正文 ≥14px；标签 ≥12px；正文对比度 ≥4.5:1；
+中文必带 `'PingFang SC','Microsoft YaHei'` 字体回退。
 
 ---
 
-## 六、检查清单
+## 5 · 写作规范（文案是设计材料，不是装饰）
 
-生成 HTML 邮件前检查：
+- **从收件人视角写**：说对方能懂、能做的事，不说系统怎么实现。
+- **主动语态**，按钮/行动语气一致（「确认方案」→ 回执也说「已确认」）。
+- **开头**：`张三，你好` / `Hi 张三`；**禁止**「尊敬的张三先生，您好！感谢您一直以来的支持」。
+- **结尾**：`有问题随时找我`；**禁止**「如有任何问题请随时联系，我们将竭诚为您服务，祝工作顺利」。
+- **署名**：`李四` / `Best, 李四`；**禁止**「此致敬礼！XX团队 敬上」。
+- 不堆术语、不写只有设计者懂的漂亮话。宁可具体，不要聪明。
 
-- [ ] 内联样式（不用 `<style>` 标签）
-- [ ] 最大宽度 600px（适配手机）
-- [ ] 字体栈包含系统字体
-- [ ] 颜色不超过 3 种
-- [ ] 段落简短（2-3 句）
-- [ ] 没有过多 emoji
-- [ ] 语气自然不模板化
-- [ ] 重点内容加粗
-- [ ] 适当留白
+---
+
+## 6 · 自检清单（发信前逐项过）
+
+- [ ] 读了 §0，类型/对象/单一任务清楚
+- [ ] 选了 1 个 theme 并读了对应 `themes/<id>.md`，不是临时堆样式
+- [ ] 全部内联 `style=`，没有依赖 `<style>` 类选择器
+- [ ] 布局用 `<table>`，没有 flex/grid
+- [ ] 宽度 600px，中文字体回退齐全
+- [ ] 只有一个记忆点，其余克制
+- [ ] 没有 emoji / 没有编造数据 / 没有模板化套话
+- [ ] 正文 ≥14px、关键对比度 ≥4.5:1
+- [ ] **这是用户自己发的邮件 —— 不带「联系 XXX」「系统自动发出」等系统页脚**
+- [ ] 对照过 `references/failure-patterns.md` 里相关的几条
+
+---
+
+## 附：文件导航
+
+| 要什么 | 读 |
+|---|---|
+| 邮箱主题档案格式与列表 | `themes/README.md` |
+| 7 套主题的完整 token 与 HTML | `themes/<id>.md` |
+| AI 失败模式清单（可检测/可修复） | `references/failure-patterns.md` |
+| 邮件客户端 CSS 兼容全表 | `references/html-email-compat.md` |
+| 版式与排版细节（字号音阶、行长） | `references/layout-typography.md` |

@@ -318,6 +318,85 @@ class UserMemoryService:
             for r in rows
         ]
 
+    async def get_portrait(self, user_id: int) -> dict[str, Any]:
+        """「AI 眼中的你」：把 L3 画像 + L1 事实分布 + L2 场景聚合成一张画像卡。
+
+        纯读取 + 确定性文案，不调用 LLM；画像缺失时返回空结构而非报错，
+        前端据此引导用户「多聊几句，让 AI 更懂你」。
+        """
+        import json
+        from datetime import datetime
+
+        from sqlalchemy import func
+
+        from app.core.timezone import app_now, to_app_timezone
+        from app.db.models import MemoryModel, MemoryScenarioModel
+
+        persona = await self.get_persona(user_id)
+
+        def _run():
+            with create_db_session() as db:
+                type_rows = db.execute(
+                    select(MemoryModel.memory_type, func.count(MemoryModel.id))
+                    .where(MemoryModel.user_id == user_id, MemoryModel.layer == "L1")
+                    .group_by(MemoryModel.memory_type)
+                ).all()
+                total = sum(c for _, c in type_rows)
+                earliest = db.scalar(
+                    select(func.min(MemoryModel.created_at)).where(MemoryModel.user_id == user_id)
+                )
+                recent = db.scalars(
+                    select(MemoryModel)
+                    .where(MemoryModel.user_id == user_id, MemoryModel.layer == "L1")
+                    .order_by(MemoryModel.importance.desc(), MemoryModel.created_at.desc())
+                    .limit(12)
+                ).all()
+                scenario_count = db.scalar(
+                    select(func.count(MemoryScenarioModel.id)).where(MemoryScenarioModel.user_id == user_id)
+                ) or 0
+                return type_rows, total, earliest, recent, scenario_count
+
+        type_rows, total, earliest, recent, scenario_count = await asyncio.to_thread(_run)
+
+        since = to_app_timezone(earliest) if earliest else None
+        days_known = (app_now() - since).days if since else 0
+        atoms_by_type = {t: c for t, c in type_rows}
+
+        if total == 0:
+            summary = "AI 还不怎么了解你。多聊几句，它会慢慢记住你的偏好与正在做的事。"
+        else:
+            summary = (
+                f"AI 已经认识你 {days_known} 天，记住了 {total} 条关于你的事"
+                f"{'，并提炼出 ' + str(scenario_count) + ' 个关注主题' if scenario_count else ''}。"
+                "下面是它眼中的你 —— 你可以随时纠正或删除。"
+            )
+
+        return {
+            "has_persona": persona is not None,
+            "identity": (persona or {}).get("identity", {}),
+            "preferences": (persona or {}).get("preferences", {}),
+            "tech_stack": (persona or {}).get("tech_stack", []),
+            "goals": (persona or {}).get("goals", []),
+            "projects": (persona or {}).get("projects", []),
+            "persona_updated_at": (persona or {}).get("updated_at"),
+            "atom_count": total,
+            "atoms_by_type": atoms_by_type,
+            "scenario_count": scenario_count,
+            "days_known": days_known,
+            "memory_since": since.date().isoformat() if since else None,
+            "summary": summary,
+            "recent_atoms": [
+                {
+                    "id": a.id,
+                    "content": a.content,
+                    "memory_type": a.memory_type,
+                    "importance": a.importance,
+                    "created_at": a.created_at.isoformat() if a.created_at else None,
+                }
+                for a in recent
+            ],
+        }
+
 
 # 单例（沿用 ThreadSafeSingleton）
 from app.core.singleton import ThreadSafeSingleton  # noqa: E402

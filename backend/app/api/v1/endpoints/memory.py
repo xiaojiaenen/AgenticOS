@@ -245,6 +245,14 @@ async def get_persona(
     }
 
 
+@router.get("/portrait")
+async def get_portrait(
+    current_user: UserModel = Depends(get_current_user),
+) -> dict:
+    """「AI 眼中的你」画像卡：L3 画像 + L1 事实分布 + L2 场景 + 确定性导语。"""
+    return await get_memory_service().get_portrait(current_user.id)
+
+
 @router.get("/conversations")
 async def list_conversations(
     limit: int = Query(default=20, ge=1, le=100),

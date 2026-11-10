@@ -106,3 +106,26 @@ export async function createMemory(
     '创建记忆失败',
   );
 }
+
+export type PortraitProject = { name: string; status: string; summary: string };
+
+export type Portrait = {
+  has_persona: boolean;
+  identity: { name?: string; role?: string; location?: string; age_group?: string };
+  preferences: { ui_style?: string; communication?: string; likes?: string[]; dislikes?: string[] };
+  tech_stack: string[];
+  goals: string[];
+  projects: PortraitProject[];
+  persona_updated_at: string | null;
+  atom_count: number;
+  atoms_by_type: Record<string, number>;
+  scenario_count: number;
+  days_known: number;
+  memory_since: string | null;
+  summary: string;
+  recent_atoms: { id: number; content: string; memory_type: string; importance: number; created_at: string | null }[];
+};
+
+export async function getPortrait(): Promise<Portrait> {
+  return apiFetch<Portrait>(`${MEMORY_ENDPOINT}/portrait`, {}, '加载画像失败');
+}
