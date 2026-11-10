@@ -61,6 +61,21 @@ DEFAULT_POLICIES: tuple[tuple[str, str, str, str], ...] = (
     (ROLE_ADMIN, "*", "*", "*"),
 )
 
+# 默认**收紧**的功能项：启动时写入「该功能已被配置」的锚点策略，让
+# ``feature_unconfigured`` 返回 False，从而端点按严格 Casbin 判定
+# （非管理员无授权 → 403）。锚点授给 ``admin`` 而非 ``user`` 角色，
+# 所以普通用户默认跑不了；管理员在「权限」页给某个角色/用户显式授权后才可用。
+#
+# 为什么需要锚点：Casbin 模型是 allow-override（没有 deny 规则），
+# 「未配置」和「配置了但谁都没授」在策略表里无法区分。要表达
+# 「默认拒绝、显式授权后才放行」，就必须先让该功能处于「已配置」状态 ——
+# 即写入一条只对管理员生效的锚点策略，同时顺带让 admin 在不依赖
+# `*` 通配的情况下也能使用该功能。
+DEFAULT_RESTRICTED_FEATURES: tuple[str, ...] = (
+    "use_workflows",
+    "view_workflow_runs",
+)
+
 ACTION_DELETE = "delete"
 ACTION_READ = "read"
 ACTION_WRITE = "write"
@@ -270,6 +285,27 @@ class PermissionService:
             action,
         )
 
+    def feature_unconfigured(self, feature: str) -> bool:
+        """该功能项是否**从未被配置**（没有任何一条涉及它的策略）。
+
+        用于新功能上线的向后兼容：新加的 feature 门禁在管理员尚未配置前
+        默认放行（保持升级前行为），一旦有人显式授权/收权，就严格按策略走。
+        否则「升级即断供」—— 存量普通用户在升级瞬间失去刚上线的能力。
+
+        判定只看 ``p`` 策略里 obj 为 ``feature:<name>``（或通配 ���``*``/``feature:*``）
+        的规则；g（角色归属）不参与。
+        """
+        target = f"feature:{feature}"
+        for rule in self.get_policy():
+            # p, sub, dom, obj, act
+            # 注意：`p, admin, *, *, *` 这种**管理员通配**不算「配置过」——
+            # 它存在于所有部署里（用于 admin 全权），若把它算进去，
+            # feature_unconfigured 永远返回 False，兼容保护形同虚设。
+            # 只认显式写到该 feature 名上的规则（或 feature:* 前缀通配）。
+            if len(rule) >= 3 and rule[2] in (target, "feature:*"):
+                return False
+        return True
+
     # -- 策略维护 ---------------------------------------------------------
     def add_named_policy(self, ptype: str, *params: str) -> bool:
         """写一条规则（ptype 显式传入，"p" 为权限、"g" 为角色归属）。
@@ -412,10 +448,13 @@ def reset_permission_service() -> None:
 
 
 def ensure_default_policies() -> None:
-    """应用启动时调用：幂等写入内置策略 + 内置角色。"""
+    """应用启动时调用：幂等写入内置策略 + 内置角色 + 受限功能锚点。"""
     service = get_permission_service()
     for sub, dom, obj, act in DEFAULT_POLICIES:
         service.add_policy(sub, dom, obj, act)
+    for feature in DEFAULT_RESTRICTED_FEATURES:
+        # 幂等：add_named_policy 按存在性去重
+        service.add_policy(ROLE_ADMIN, "*", f"feature:{feature}", ACTION_READ)
     seed_builtin_roles()
 
 

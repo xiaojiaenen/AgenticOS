@@ -104,6 +104,55 @@ class _MemoryRateLimitStore:
 _memory = _MemoryRateLimitStore()
 
 
+# ---------------------------------------------------------------------------
+# 通用固定窗口频控（按主体计数），与上面登录限流的语义不同：
+# 登录限流是「失败 N 次 → 封禁期」；这里是「窗口内配额 → 超了等窗口滚动」，
+# 用于一般端点的频率防护（如 /agent/stream 的每用户运行频率）。
+# ---------------------------------------------------------------------------
+
+_window_mem_lock = threading.Lock()
+_window_mem: dict[tuple[str, str], tuple[float, int]] = {}
+
+
+def check_window_quota(
+    scope: str,
+    subject: str,
+    *,
+    limit: int,
+    window_seconds: int,
+) -> tuple[bool, int]:
+    """固定窗口频控：返回 (是否放行, 窗口重置剩余秒数)。
+
+    Redis 路径：``INCR`` + 首次 ``EXPIRE NX``，计数即窗口起点，窗口自然滚动。
+    与登录限流一样走同步客户端（调用点可能在线程池里）。Redis 不可用时降级
+    进程内计数 —— 单进程语义，好过完全没有频控（多 worker 部署下仅近似）。
+    """
+    if limit <= 0 or window_seconds <= 0:
+        return True, 0
+    key = f"rl:{scope}:{subject}"
+    client = get_redis_sync()
+    if client is not None:
+        try:
+            pipe = client.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, window_seconds, nx=True)
+            count, _ = pipe.execute()
+            ttl = client.ttl(key)
+            reset_in = ttl if isinstance(ttl, int) and ttl > 0 else window_seconds
+            return int(count) <= limit, reset_in
+        except Exception as e:  # 连接中断 → 降级进程内计数
+            _logger.warning("Redis 窗口频控失败: %s，使用进程内 fallback", e)
+            _set_sync_client_unusable()
+    now = time.time()
+    with _window_mem_lock:
+        start, count = _window_mem.get((scope, subject), (now, 0))
+        if now - start >= window_seconds:
+            start, count = now, 0
+        count += 1
+        _window_mem[(scope, subject)] = (start, count)
+    return count <= limit, max(0, int(window_seconds - (now - start)))
+
+
 def check_rate_limit(
     settings: Settings, scope: str, *, email: str | None = None, client_ip: str | None = None
 ) -> int:

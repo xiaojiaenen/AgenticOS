@@ -25,6 +25,49 @@ class Settings(BaseSettings):
     agent_max_tokens: int = 65536
     agent_parallel_tool_calls: bool = False
     llm_timeout: int = Field(default=300, validation_alias="LLM_TIMEOUT")
+    # Run 级预算断路器（wuwei BudgetMiddleware，装配在 _build_middleware_stack）。
+    #
+    # 与 quota_service 的每日 token 配额是两个维度：那是「用户 × 天」的累计
+    # 上限（默认关闭）；这是「单次运行中」的防失控 —— 一个长任务在
+    # 反复重试/绕圈时可能烧掉预估 10-20 倍的 token，预算断路能在单轮里
+    # 把它拦住。默认 None 不启用（不改变既有部署行为），管理员按需开启：
+    #
+    # - max_tokens 计的是 usage_total（prompt+completion 累计，含每步重复
+    #   携带的上下文），不是单次回复的输出上限（那是 agent_max_tokens）。
+    # - 模型不返回 usage 时（usage_available=False），token/成本预算会直接
+    #   触发预算耗尽 —— wuwei 的显式语义：不可靠的预算宁可不执行。所以
+    #   只在模型稳定回传 usage 时启用 token/成本档。
+    # - 软阈值（80%）只记 WARNING；硬阈值按 on_exhausted 抛 BudgetExhausted，
+    #   上游 runner 会把异常转成 SSE error 事件（error_type=BudgetExhausted），
+    #   已生成内容照常落库，前端表现为一轮带错误说明的结束。
+    agent_budget_max_tokens: int | None = Field(
+        default=None, validation_alias="AGENT_BUDGET_MAX_TOKENS"
+    )
+    agent_budget_max_cost_usd: float | None = Field(
+        default=None, validation_alias="AGENT_BUDGET_MAX_COST_USD"
+    )
+    agent_budget_on_exhausted: str = Field(
+        default="abort", validation_alias="AGENT_BUDGET_ON_EXHAUSTED"
+    )
+    # 智能体流式端点（POST /agent/stream）的每用户固定窗口限流。
+    #
+    # llm_gate 是全站「同时最多多少路 LLM」的并发闸；这里管的是单个用户
+    # 刷运行的频率 —— 脚本狂发会把并发配额全部占满，其他用户被饿死。
+    # 窗口内第 limit+1 次起返回 429（Retry-After）。管理员豁免；limit<=0 关闭。
+    agent_stream_rate_limit: int = Field(
+        default=30, validation_alias="AGENT_STREAM_RATE_LIMIT"
+    )
+    agent_stream_rate_window_seconds: int = Field(
+        default=300, validation_alias="AGENT_STREAM_RATE_WINDOW_SECONDS"
+    )
+    # 工作流（P0-3 v1）单节点 / 整条流的最大执行时长。节点超时会把该节点
+    # 记为 failed 并终止整条流；总超时兜底防止挂死的 HTTP 节点拖垮请求。
+    workflow_node_timeout_seconds: int = Field(
+        default=60, validation_alias="WORKFLOW_NODE_TIMEOUT_SECONDS"
+    )
+    workflow_run_timeout_seconds: int = Field(
+        default=300, validation_alias="WORKFLOW_RUN_TIMEOUT_SECONDS"
+    )
     # PPT 最少页数门槛。
     #
     # 原实现把「< 3 页」硬编码在 4 处（validate_svg_slides、create_from_slides_dir、
@@ -139,6 +182,10 @@ class Settings(BaseSettings):
     # Redis 配置（留空则使用内存 fallback）
     redis_url: str = Field(default="", validation_alias="REDIS_URL")
     redis_cluster: bool = Field(default=False, validation_alias="REDIS_CLUSTER")
+    # 任务队列（arq）专用 Redis。arq 不支持 Redis Cluster（普通客户端连节点
+    # 会 MOVED，RedisCluster 又拒绝 arq 依赖的事务），业务缓存用 cluster 时
+    # 必须给队列单独一个 standalone 端点。留空则复用 REDIS_URL（单机部署）。
+    arq_redis_url: str = Field(default="", validation_alias="ARQ_REDIS_URL")
 
     # 外部系统凭据加密密钥（留空则从 AUTH_SECRET_KEY 派生）
     external_system_encryption_key: str = Field(default="", validation_alias="EXTERNAL_SYSTEM_ENCRYPTION_KEY")
