@@ -18,6 +18,7 @@ import { resolveBlocks, toolCallIdOf } from '../../lib/messageBlocks';
 import type { Message, ToolCall } from '../../types';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { InlineErrorFallback } from '../ui/ErrorBoundary';
+import { toolLabel, useToolLabels } from '../../hooks/useToolLabels';
 import {
   CodeBlock,
   MarkdownTable,
@@ -25,7 +26,7 @@ import {
   MarkdownTableRow,
   ToolResultPreview,
 } from './ChatMessageSubComponents';
-import { TableCell, TableHeaderCell, processChildren } from './markdownRenderParts';
+import { TableCell, TableHeaderCell, processChildren, renderOutputImages } from './markdownRenderParts';
 
 interface OrderedAssistantContentProps {
   message: Message;
@@ -35,6 +36,7 @@ interface OrderedAssistantContentProps {
   activeMatchId: string | null;
   isAdmin: boolean;
   isStreaming: boolean;
+  sessionId?: string;
   onOpenArtifact?: (artifact: never) => void;
 }
 
@@ -75,6 +77,8 @@ const ReasoningGroup: React.FC<{ segments: string[] }> = ({ segments }) => (
 const ToolBlock: React.FC<{ tool: ToolCall; isAdmin: boolean }> = ({ tool, isAdmin }) => {
   const meta = TOOL_STATUS_META[tool.status] ?? TOOL_STATUS_META.pending;
   const isPendingApproval = tool.status === 'approval_required';
+  const labels = useToolLabels();
+  const displayName = toolLabel(tool.name, labels);
   return (
     <motion.details
       initial={{ opacity: 0, y: 6 }}
@@ -89,8 +93,8 @@ const ToolBlock: React.FC<{ tool: ToolCall; isAdmin: boolean }> = ({ tool, isAdm
     >
       <summary className="flex cursor-pointer select-none items-center gap-2">
         <WrenchIcon size={12} className={cn('shrink-0', isPendingApproval ? 'text-amber-600' : 'text-[var(--muted-foreground)]')} />
-        <span className="font-mono text-[11px] font-semibold tracking-wide text-[var(--foreground)]">
-          {tool.name}
+        <span className="text-[11px] font-semibold tracking-wide text-[var(--foreground)]">
+          {displayName}
         </span>
         <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', meta.className)}>
           {meta.label}
@@ -123,6 +127,7 @@ export const OrderedAssistantContent: React.FC<OrderedAssistantContentProps> = (
   activeMatchId,
   isAdmin,
   isStreaming,
+  sessionId,
   onOpenArtifact,
 }) => {
   const blocks = resolveBlocks(message);
@@ -137,7 +142,7 @@ export const OrderedAssistantContent: React.FC<OrderedAssistantContentProps> = (
             code: (props) => <CodeBlock {...props} onOpenArtifact={onOpenArtifact} />,
             pre: ({ children }) => <>{children}</>,
             p: ({ children }) => (
-              <p>{processChildren(children, counter, searchQuery, activeMatchId, message.id)}</p>
+              <p>{renderOutputImages(processChildren(children, counter, searchQuery, activeMatchId, message.id), sessionId)}</p>
             ),
             table: ({ children }) => <MarkdownTable>{children}</MarkdownTable>,
             thead: ({ children }) => <MarkdownTableHead>{children}</MarkdownTableHead>,

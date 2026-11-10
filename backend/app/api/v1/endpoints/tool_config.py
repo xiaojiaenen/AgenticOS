@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_admin
+from app.api.deps import get_current_user, get_db, require_admin
 from app.db.models import UserModel
 from app.schemas.tool_config import ModeToolConfigUpdateRequest, ToolConfigResponse
 from app.services import audit_service
@@ -16,6 +16,19 @@ router = APIRouter(prefix="/tool-config", tags=["Tool Config"])
 @router.get("", response_model=ToolConfigResponse)
 def get_tool_config(_: UserModel = Depends(require_admin)) -> dict[str, object]:
     return ToolConfigService().list_configs()
+
+
+@router.get("/catalog/labels")
+def get_tool_labels(_: UserModel = Depends(get_current_user)) -> dict[str, str]:
+    """工具名 → 中文标签。
+
+    对话页的工具块只能拿到内部工具名（``write_text_file``、``calc``），
+    直接展示给用户等于暴露实现细节。这里一次性把目录里的 label 发下去，
+    前端缓存后本地翻译，不必为每个工具块再查一次目录。
+    """
+    from app.services.tool_config_service import TOOL_CATALOG
+
+    return {name: str(item.get("label") or name) for name, item in TOOL_CATALOG.items()}
 
 
 @router.put("/modes/{mode}", response_model=ToolConfigResponse)

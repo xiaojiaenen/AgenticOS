@@ -13,6 +13,7 @@ import { cn, copyToClipboard } from '../../lib/utils';
 import { getAppConfig } from '../../services/configService';
 import { useIsDark } from '../../hooks/useIsDark';
 import { CopyIcon, CheckIcon, WrenchIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
+import { toolLabel, type ToolLabelMap, useToolLabels } from '../../hooks/useToolLabels';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -55,15 +56,16 @@ export function buildToolMetaItems(tool: ToolCall): string[] {
   return items;
 }
 
-export function getActiveToolLabel(tool: ToolCall): string {
+export function getActiveToolLabel(tool: ToolCall, labels?: ToolLabelMap): string {
   const { status, name } = tool;
-  if (status === 'approval_required') return `等待审批: ${name}`;
-  if (status === 'approved') return `正在执行: ${name}`;
-  if (status === 'pending') return `正在调用: ${name}`;
-  if (status === 'success') return `已完成: ${name}`;
-  if (status === 'error') return `执行失败: ${name}`;
-  if (status === 'rejected') return `已拒绝: ${name}`;
-  return name;
+  const display = labels ? toolLabel(name, labels) : name;
+  if (status === 'approval_required') return `等待审批: ${display}`;
+  if (status === 'approved') return `正在执行: ${display}`;
+  if (status === 'pending') return `正在调用: ${display}`;
+  if (status === 'success') return `已完成: ${display}`;
+  if (status === 'error') return `执行失败: ${display}`;
+  if (status === 'rejected') return `已拒绝: ${display}`;
+  return display;
 }
 
 export function isToolActive(tool: ToolCall): boolean {
@@ -101,6 +103,7 @@ export const AssistantWaitingIndicator = ({ statusText = '正在思考' }: { sta
 );
 
 export const LiveToolCall = ({ tool }: { tool: ToolCall }) => {
+  const labels = useToolLabels();
   const active = isToolActive(tool);
   return (
     <motion.div
@@ -118,7 +121,7 @@ export const LiveToolCall = ({ tool }: { tool: ToolCall }) => {
       ) : (
         <WrenchIcon size={13} />
       )}
-      <span className="font-mono font-semibold uppercase tracking-[0.12em] text-[10px]">{getActiveToolLabel(tool)}</span>
+      <span className="font-mono font-semibold uppercase tracking-[0.12em] text-[10px]">{getActiveToolLabel(tool, labels)}</span>
     </motion.div>
   );
 };

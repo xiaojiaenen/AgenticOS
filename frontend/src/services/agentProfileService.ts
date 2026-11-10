@@ -37,6 +37,8 @@ export type AgentProfile = {
   enabled: boolean;
   listed: boolean;
   is_builtin: boolean;
+  /** 内置智能体是否已被管理员改过（true 时显示「还原默认」） */
+  customized?: boolean;
   installed: boolean;
   /** 所有者：null = 平台内置；否则为创建者 user id */
   owner_id?: number | null;
@@ -112,6 +114,15 @@ export async function updateAgentProfile(profileId: number, payload: Partial<Age
 
 export async function deleteAgentProfile(profileId: number): Promise<void> {
   await apiFetch<void>(`${AGENT_PROFILES_ENDPOINT}/${profileId}`, { method: 'DELETE' }, '删除智能体失败');
+}
+
+/** 把内置智能体还原成代码里的出厂定义（名称/prompt/模式/工具/技能全部重置）。 */
+export async function restoreAgentProfileDefaults(profileId: number): Promise<AgentProfile> {
+  return apiFetch<AgentProfile>(
+    `${AGENT_PROFILES_ENDPOINT}/${profileId}/restore-defaults`,
+    { method: 'POST' },
+    '还原默认配置失败',
+  );
 }
 
 export async function getAgentStore(): Promise<AgentProfileListResponse> {

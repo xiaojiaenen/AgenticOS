@@ -162,6 +162,36 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
             "memory": {"enabled": True, "requires_approval": False},
             "knowledge": {"enabled": True, "requires_approval": False},
         },
+        "office": {
+            # 办公助手的核心就是产出文档和表格，这两组必须打开。
+            # 早先 office 没有任何 override，全靠 _discover_all_mode_tools 自动发现
+            # 把它们记进 DEFAULT_MODE_TOOLS，但 TOOL_CATALOG 里没有对应条目，
+            # 种子和序列化都看 catalog，于是「有工具但一个都没启用」。
+            "create_document": {"enabled": True, "requires_approval": False},
+            "read_document": {"enabled": True, "requires_approval": False},
+            "build_document": {"enabled": True, "requires_approval": False},
+            "create_workbook": {"enabled": True, "requires_approval": False},
+            "set_range": {"enabled": True, "requires_approval": False},
+            "set_formula": {"enabled": True, "requires_approval": False},
+            "read_range": {"enabled": True, "requires_approval": False},
+            "add_sheet": {"enabled": True, "requires_approval": False},
+            "set_layout": {"enabled": True, "requires_approval": False},
+            "build_sheet": {"enabled": True, "requires_approval": False},
+            "describe_workbook": {"enabled": True, "requires_approval": False},
+            # decision 会弹出决策卡片并阻塞等用户，办公场景里模型很容易用它
+            # 反复确认需求，结果整轮超时、真正的文档工具一次都没调用。
+            "decision": {"enabled": False, "requires_approval": False},
+            "skill": {"enabled": False, "requires_approval": False},
+            "file_to_md": {"enabled": True, "requires_approval": False},
+            "render_chart": {"enabled": True, "requires_approval": False},
+            "analyze_data": {"enabled": True, "requires_approval": False},
+            "calc": {"enabled": True, "requires_approval": False},
+            "time": {"enabled": True, "requires_approval": False},
+            "file": {"enabled": True, "requires_approval": True},
+            "python": {"enabled": True, "requires_approval": False},
+            "memory": {"enabled": True, "requires_approval": False},
+            "knowledge": {"enabled": True, "requires_approval": False},
+        },
         "bigdata": {
             "calc": {"enabled": True, "requires_approval": False},
             "time": {"enabled": True, "requires_approval": False},
@@ -235,6 +265,88 @@ TOOL_CATALOG = {
         "approval_scope": [],
         "sub_tools": {},
     },
+    # ── 办公：文档（Word）─────────────────────────────────────────────
+    # 这三个工具由 app/tools/doc_tools.py 提供。必须登记在这里，
+    # 否则 _merge_tools_with_catalog 会把已启用的行过滤掉，管理界面看不到、
+    # 运行时也拿不到——办公助手曾因此完全写不出 Word。
+    "create_document": {
+        "label": "新建文档",
+        "description": "新建一份 Word 文档并一次性写入全部内容（标题/正文/列表/表格），覆盖式交付。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "read_document": {
+        "label": "读取文档",
+        "description": "读回当前文档的结构与内容，用于核对层级和文字。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "build_document": {
+        "label": "完成文档",
+        "description": "完成文档并产出预览；不调用用户看不到成果。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    # ── 办公：表格（Excel）────────────────────────────────────────────
+    "create_workbook": {
+        "label": "新建工作簿",
+        "description": "新建一个 Excel 工作簿，后续用 set_range / set_formula 写入。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "set_range": {
+        "label": "写入区域",
+        "description": "向指定区域批量写入二维数据，行列数必须与区域一致。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "set_formula": {
+        "label": "写入公式",
+        "description": "向单元格写入公式并返回计算结果，用于合计、占比等。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "read_range": {
+        "label": "读取区域",
+        "description": "读取指定区域的值与显示文本，用于核对写入结果。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "add_sheet": {
+        "label": "新增工作表",
+        "description": "在工作簿中新增一张工作表，明细与汇总分开存放。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "set_layout": {
+        "label": "设置版式",
+        "description": "设置列宽、冻结表头等版式，让表格可直接交付。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "build_sheet": {
+        "label": "完成表格",
+        "description": "完成工作簿并产出预览；不调用用户看不到成果。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "describe_workbook": {
+        "label": "查看工作簿",
+        "description": "列出工作簿里的工作表结构，确认当前状态。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
     "python": {
         "label": "Python 脚本",
         "description": "运行 workspace 内 Python 脚本，适合数据处理和自动化任务。",
@@ -270,8 +382,8 @@ TOOL_CATALOG = {
         },
     },
     "skill": {
-        "label": "Skill Tool",
-        "description": "Use Wuwei built-in skill capabilities for specialized workflows.",
+        "label": "技能调用",
+        "description": "调用平台内置技能包，由技能提供专门的工作流与操作手册。",
         "builtin_name": "skill",
         "approval_scope": ["run_skill_python_script"],
         "sub_tools": {

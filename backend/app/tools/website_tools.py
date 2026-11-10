@@ -1,5 +1,6 @@
 """Website 生成工具 — copy_template / build / deploy"""
 
+import re
 import shutil
 from pathlib import Path
 
@@ -82,6 +83,141 @@ def _detect_broken_node_modules(project_dir: Path) -> str | None:
             except OSError:
                 continue
     return None
+
+
+def _normalize_index_html(project_dir: Path) -> list[str]:
+    """构建前修复 index.html 里两个高频坑，返回改动说明。
+
+    模型改页面时几乎必犯这两条，而它们都不会让构建"失败"，只是安静地
+    产出坏结果，用户看到的才是问题：
+
+    1. **丢掉 ``type="module"``**。模板里是 ``<script type="module" src="/js/main.js">``，
+       模型重写整份 HTML 时常写成 ``<script src="./js/main.js" defer>``。
+       Vite 只处理 module 脚本，于是这个文件**不会被打进 dist**，线上 404、
+       页面交互全失效（滚动、菜单、动画都没了）。补回 module 即可。
+
+    2. **写成绝对路径** ``/css/style.css``、``/js/main.js``。站点部署在
+       ``/sites/<project>/`` 子路径下，绝对路径会指向站点根，样式和脚本 404。
+       统一改成相对路径 ``./``。
+    """
+    notes: list[str] = []
+    index_path = project_dir / "index.html"
+    if not index_path.is_file():
+        return notes
+
+    try:
+        html = index_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return notes
+
+    original = html
+
+    # 1. 根路径资源改相对路径（跳过 //cdn 这种协议相对地址）
+    html = re.sub(r'(src|href)=(["\'])/(?!/)', r"\1=\2./", html)
+    if html != original:
+        notes.append("把绝对路径资源改成相对路径（站点挂在 /sites/<project>/ 子路径下）")
+
+    # 2. 本地 <script src> 补 type="module"
+    def _fix_script_tags(text: str) -> tuple[str, bool]:
+        changed = False
+
+        def repl(tag_match: re.Match[str]) -> str:
+            nonlocal changed
+            tag = tag_match.group(0)
+            src_match = re.search(r'src=(["\'])([^"\']+)\1', tag)
+            if not src_match:
+                return tag
+            src = src_match.group(2)
+            # 外部 CDN / data URI 不需要（也不该）加 module
+            if re.match(r"^(https?:)?//", src) or src.startswith("data:"):
+                return tag
+            if re.search(r"\btype=", tag):
+                return tag
+            changed = True
+            return tag[:-1] + ' type="module">'
+
+        return re.sub(r"<script\b[^>]*>", repl, text), changed
+
+    html, script_changed = _fix_script_tags(html)
+    if script_changed:
+        notes.append('给本地脚本补回 type="module"（否则 Vite 不打包，线上 404）')
+
+    if html != original:
+        try:
+            index_path.write_text(html, encoding="utf-8")
+        except OSError:
+            return []
+
+    return notes
+
+
+_VANILLA_STACK = "vanilla"
+
+
+def _is_vanilla_static(project_dir: Path) -> bool:
+    """vanilla 站是不是纯静态（不需要 npm 构建）。
+
+    判定刻意保守：只有 ``detect_stack`` 判成 vanilla **且** 没有任何
+    package.json 依赖时才算。一旦用户在 vanilla 里加了 Vite/PostCSS 之类
+    的构建链，仍然走 npm，不会把需要编译的站点当成静态站直接拷过去。
+    """
+    try:
+        from app.services.website_stack import detect_stack
+
+        if detect_stack(project_dir) != _VANILLA_STACK:
+            return False
+    except Exception:  # noqa: BLE001 - 探测失败一律按需要构建处理
+        return False
+    # 静态站必须有入口页：没有 index.html 的目录不可能是可直接
+    # 托管的站点（顶层 build 也印证了这一点）。
+    if not (project_dir / "index.html").is_file():
+        return False
+
+    pkg = project_dir / "package.json"
+    if not pkg.exists():
+        return True
+    try:
+        import json
+
+        data = json.loads(pkg.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    for key in ("dependencies", "devDependencies"):
+        if data.get(key):
+            return False
+    return True
+
+
+def _emit_static_dist(project_dir: Path) -> str:
+    """把纯静态 vanilla 项目原样镜像成 dist/，跳过 npm install + build。
+
+    产物与 Vite 构建后的结构不同（没有 hash 文件名、没有打包），但对
+    预览/部署完全够用：nginx 和预览服务都只认 dist 目录里的相对文件。
+    """
+    dist_dir = project_dir / "dist"
+    if dist_dir.exists():
+        shutil.rmtree(dist_dir, ignore_errors=True)
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    skip = {"dist", "node_modules", ".git"}
+    copied = 0
+    for src in project_dir.rglob("*"):
+        rel = src.relative_to(project_dir)
+        if rel.parts and rel.parts[0] in skip:
+            continue
+        dest = dist_dir / rel
+        if src.is_dir():
+            dest.mkdir(parents=True, exist_ok=True)
+        else:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dest)
+            copied += 1
+    return (
+        f"构建完成（vanilla 静态站，无需 npm）。\n"
+        f"项目目录：{project_dir}\n"
+        f"产物目录：{dist_dir}\n"
+        f"产物文件（{copied} 个）：\n"
+        f"（已跳过 npm install / npm run build —— 纯静态站不需要打包）"
+    )
 
 
 def _clean_node_modules(project_dir: Path) -> bool:
@@ -228,6 +364,13 @@ def register_website_tools(registry: ToolRegistry) -> None:
         if not target_dir.exists():
             return f"项目目录不存在：{target_dir}"
 
+        # vanilla 是纯静态站点：index.html + css/ + js/ 写完就能直接托管，
+        # 跑一遍 vite build 只是把同样的文件复制到 dist/。以前不分技术栈一律
+        # npm install && npm run build，用户看到「构建中」等几十秒、还要吃
+        # 一次 npm 依赖下载失败的风险，收益为零。这里直接就地生成 dist。
+        if _is_vanilla_static(target_dir):
+            return _emit_static_dist(target_dir)
+
         pkg_json = target_dir / "package.json"
         if not pkg_json.exists():
             return f"项目缺少 package.json：{pkg_json}"
@@ -236,10 +379,17 @@ def register_website_tools(registry: ToolRegistry) -> None:
         # 每个项目都会有一份独立缓存 → 每次构建都重新下载全部依赖。
         npm_cache = NPM_CACHE_DIR
         npm_cache.mkdir(parents=True, exist_ok=True)
+        # 内网无外网 DNS 时，npm 默认走公网 registry.npmjs.org 必挂（EAI_AGAIN）。
+        # 用环境变量覆盖源与证书校验：内网部署指向 Nexus npm-proxy，
+        # 默认仍走公网镜像，同一份代码内外网都能构建。
+        import os
+        npm_registry = os.getenv("NPM_CONFIG_REGISTRY", "https://registry.npmmirror.com/")
         env = {
             "npm_config_cache": str(npm_cache),
             "npm_config_fund": "false",
             "npm_config_audit": "false",
+            "npm_config_registry": npm_registry,
+            "npm_config_strict_ssl": os.getenv("NPM_CONFIG_STRICT_SSL", "true"),
         }
 
         # 超时上限：干净环境下 npm install 实测 53.6s（冷缓存），
@@ -290,6 +440,9 @@ def register_website_tools(registry: ToolRegistry) -> None:
                 f"npm install 失败（退出码 {install_result.exit_code}）{hint}：\n"
                 f"{install_result.stderr[-3000:]}"
             )
+
+        # npm run build 之前先修 HTML 里两个必踩的坑（见 _normalize_index_html）。
+        _normalize_index_html(target_dir)
 
         # npm run build
         build_result = await sandbox.execute("npm run build", timeout=build_timeout)

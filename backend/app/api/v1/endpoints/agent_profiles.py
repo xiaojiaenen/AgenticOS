@@ -71,6 +71,34 @@ def update_agent_profile(
     return result
 
 
+@router.post("/agent-profiles/{profile_id}/restore-defaults", response_model=AgentProfileResponse)
+def restore_agent_profile_defaults(
+    profile_id: int,
+    http_request: Request,
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    """把内置智能体还原成出厂定义（名称 / prompt / 模式 / 工具开关 / 技能）。
+
+    只对内置智能体有效：自建智能体没有「出厂值」可还原，调用返回 400。
+    需要管理员（或所有者）权限。
+    """
+    try:
+        result = AgentProfileService().restore_defaults(profile_id, current_user)
+    except KeyError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    get_agent_service().clear_agent_cache()
+    audit_service.record_request(
+        db, http_request, action="agent_profile.restore_defaults", actor=current_user,
+        resource_type="agent_profile", resource_id=profile_id,
+    )
+    return result
+
+
 @router.delete("/agent-profiles/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_agent_profile(
     profile_id: int,

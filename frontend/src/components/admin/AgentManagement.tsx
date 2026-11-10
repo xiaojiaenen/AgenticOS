@@ -8,10 +8,11 @@ import * as React from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Bot, Loader2, Plus, RefreshCw, Trash2, Wrench } from 'lucide-react';
+import { Bot, Loader2, Pencil, Plus, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { DataTable } from './data-table';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AdminPageHeader, ErrorBanner, KpiPill } from './shared';
+import { RowActions } from './RowActions';
 import { Button } from '@/components/shadcn/button';
 import { Skeleton } from '@/components/shadcn/skeleton';
 import {
@@ -30,6 +31,7 @@ import {
   AgentProfile,
   deleteAgentProfile,
   getAgentProfiles,
+  restoreAgentProfileDefaults,
 } from '@/services/agentProfileService';
 import { listUsers } from '@/services/userService';
 import { AgentMode } from '@/services/toolConfigService';
@@ -47,6 +49,7 @@ export const AgentManagement = () => {
   const [formOpen, setFormOpen] = React.useState(false);
   const [editingProfile, setEditingProfile] = React.useState<AgentProfile | null>(null);
   const [deletingProfile, setDeletingProfile] = React.useState<AgentProfile | null>(null);
+  const [restoringProfile, setRestoringProfile] = React.useState<AgentProfile | null>(null);
 
   const profilesQuery = useQuery({
     queryKey: ['admin', 'agents'],
@@ -82,6 +85,16 @@ export const AgentManagement = () => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'agents'] });
     },
     onError: (err: Error) => toast.error(toastError(err, '删除失败')),
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: (profileId: number) => restoreAgentProfileDefaults(profileId),
+    onSuccess: () => {
+      toast.success('已还原为出厂默认');
+      setRestoringProfile(null);
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'agents'] });
+    },
+    onError: (err: Error) => toast.error(toastError(err, '还原失败')),
   });
 
   const enabledAgents = profiles.filter((profile) => profile.enabled).length;
@@ -211,36 +224,39 @@ export const AgentManagement = () => {
       },
       {
         id: 'actions',
-        header: () => <span className="block text-right">操作</span>,
+        header: () => <span className="block">操作</span>,
         enableSorting: false,
+        meta: { align: 'right' },
         cell: ({ row }) => {
           const profile = row.original;
           return (
-            <div className="flex justify-end gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => {
-                  setEditingProfile(profile);
-                  setFormOpen(true);
-                }}
-              >
-                <Wrench size={14} />
-                编辑
-              </Button>
-              {!profile.is_builtin && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => setDeletingProfile(profile)}
-                >
-                  <Trash2 size={14} />
-                  删除
-                </Button>
-              )}
-            </div>
+            <RowActions
+              actions={[
+                {
+                  label: '编辑',
+                  icon: <Pencil size={15} />,
+                  onClick: () => setEditingProfile(profile),
+                },
+                // 内置智能体只能被管理员改写，且永不提供「删除」——删掉会
+                // 连累所有已安装的用户。改坏了用「还原默认」回到出厂定义。
+                ...(profile.is_builtin
+                  ? [
+                      {
+                        label: '还原默认',
+                        icon: <RotateCcw size={15} />,
+                        onClick: () => setRestoringProfile(profile),
+                      },
+                    ]
+                  : [
+                      {
+                        label: '删除',
+                        icon: <Trash2 size={15} />,
+                        tone: 'danger' as const,
+                        onClick: () => setDeletingProfile(profile),
+                      },
+                    ]),
+              ]}
+            />
           );
         },
       },
@@ -318,7 +334,7 @@ export const AgentManagement = () => {
         </div>
       ) : null}
 
-      <section className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm">
+      <section className="admin-surface-card">
         <DataTable
           columns={columns}
           data={profiles}
@@ -346,6 +362,32 @@ export const AgentManagement = () => {
           setEditingProfile(null);
         }}
       />
+
+      {/* 还原默认：内置智能体被管理员改坏后的退路，不可撤销但可再改 */}
+      <AlertDialog
+        open={restoringProfile !== null}
+        onOpenChange={(next) => !next && setRestoringProfile(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>还原为出厂默认</AlertDialogTitle>
+            <AlertDialogDescription>
+              将把「{restoringProfile?.name}」的名称、系统提示词、响应模式、
+              工具开关与审批、绑定技能全部恢复成平台内置定义，当前的自定义改动会丢失。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restoreMutation.isPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => restoringProfile && restoreMutation.mutate(restoringProfile.id)}
+              disabled={restoreMutation.isPending}
+            >
+              {restoreMutation.isPending && <Loader2 size={14} className="animate-spin" />}
+              确认还原
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={deletingProfile !== null}

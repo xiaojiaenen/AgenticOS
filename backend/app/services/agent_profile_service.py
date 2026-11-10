@@ -7,7 +7,7 @@ from pathlib import Path
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.core.timezone import isoformat_app_timezone
+from app.core.timezone import app_now, isoformat_app_timezone
 from app.db.models import (
     AgentProfileExternalSystemModel,
     AgentProfileModel,
@@ -97,6 +97,34 @@ BUILTIN_AGENT_PROFILES = {
 }
 
 
+# 内置智能体默认绑定的 Skill（按 slug 匹配，装载时找不到就跳过）。
+# 此前内置智能体一个 Skill 都没绑：PPT 设计师手里有生成工具，却拿不到
+# ppt-design-guide / ppt-quality-budgets 这些方法论，等于把专家拆成半成品。
+BUILTIN_AGENT_SKILLS: dict[str, tuple[str, ...]] = {
+    "ppt": (
+        "ppt-workflow",
+        "ppt-design-guide",
+        "ppt-design-philosophies",
+        "ppt-template-library",
+        "ppt-quality-budgets",
+        "ppt-visual-review",
+        "ppt-expert-review",
+        "ppt-chart-validator",
+    ),
+    "website": ("website-design-taste",),
+    "email": ("email-skill", "email-design"),
+    "bigdata": (
+        "bigdata-operations",
+        "bigdata-troubleshooting",
+        "dinky-sql-skill",
+        "doris-ads-skill",
+        "ds-workflow-skill",
+        "paimon-model-skill",
+        "intranet-automation",
+    ),
+}
+
+
 @dataclass(frozen=True)
 class RuntimeAgentProfile:
     profile_id: int | None
@@ -148,6 +176,8 @@ class AgentProfileService:
         newly_created: list[int] = []
         for slug, defaults in BUILTIN_AGENT_PROFILES.items():
             profile = existing.get(slug)
+            # 管理员改过的内置智能体：保留人工配置，只补不覆盖。
+            customized = profile is not None and profile.customized_at is not None
             if profile is None:
                 profile = AgentProfileModel(
                     name=defaults["name"],
@@ -170,12 +200,12 @@ class AgentProfileService:
                 changed = True
             else:
                 profile.is_builtin = True
-                if slug == "website":
+                if slug == "website" and not customized:
                     current_prompt = profile.system_prompt or ""
                     if "copy_template(stack)" not in current_prompt:
                         profile.system_prompt = WEBSITE_ROUTER_PROMPT
                         changed = True
-                if slug == "ppt":
+                if slug == "ppt" and not customized:
                     current_prompt = profile.system_prompt or ""
                     if "ppt-design-guide" not in current_prompt:
                         profile.system_prompt = PPT_SYSTEM_PROMPT
@@ -187,9 +217,11 @@ class AgentProfileService:
                         profile.max_steps = defaults["max_steps"]
                         changed = True
 
-            changed = self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS[defaults["response_mode"]]) or changed
-            if slug == "website":
-                changed = self._upgrade_website_profile_tools(db, profile) or changed
+            if not customized:
+                changed = self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS[defaults["response_mode"]]) or changed
+                if slug == "website":
+                    changed = self._upgrade_website_profile_tools(db, profile) or changed
+            changed = self._ensure_profile_skills(db, profile) or changed
         # Clean up old ppt-svg profile (merged into ppt)
         old_ppt_svg = db.scalar(select(AgentProfileModel).where(AgentProfileModel.slug == "ppt-svg"))
         if old_ppt_svg is not None:
@@ -261,12 +293,58 @@ class AgentProfileService:
             return MODE_DEFAULT_PROMPTS.get(response_mode, GENERAL_SYSTEM_PROMPT)
         return requested
 
+    def _ensure_profile_skills(self, db: Session, profile: AgentProfileModel) -> bool:
+        """把内置智能体的默认 Skill 绑定补齐（只补不删）。
+
+        只对 ``BUILTIN_AGENT_SKILLS`` 里登记的内置智能体生效，且只在尚未绑定
+        时补——管理员手动改过的绑定不会被覆盖。Skill 表里找不到的 slug 直接
+        跳过：Skill 是按目录导入的，某些部署可能没导入某个 skill。
+        """
+        slugs = BUILTIN_AGENT_SKILLS.get(profile.slug or "")
+        if not slugs:
+            return False
+        skill_ids = {
+            row.slug: row.id
+            for row in db.scalars(select(SkillModel).where(SkillModel.slug.in_(slugs))).all()
+        }
+        if not skill_ids:
+            return False
+        bound = {
+            row.skill_id
+            for row in db.scalars(
+                select(AgentProfileSkillModel).where(
+                    AgentProfileSkillModel.profile_id == profile.id
+                )
+            ).all()
+        }
+        changed = False
+        for slug in slugs:
+            skill_id = skill_ids.get(slug)
+            if skill_id is None or skill_id in bound:
+                continue
+            db.add(
+                AgentProfileSkillModel(
+                    profile_id=profile.id,
+                    skill_id=skill_id,
+                    enabled=True,
+                )
+            )
+            changed = True
+        return changed
+
     def _ensure_profile_tools(
         self,
         db: Session,
         profile: AgentProfileModel,
         defaults: dict[str, dict[str, bool]] | None = None,
+        force: bool = False,
     ) -> bool:
+        """确保每个工具都有配置行。
+
+        ``force=True`` 时把已有行也改回 ``defaults``（一键还原默认用）；
+        否则只在"从未配置过"时补行。注意内置 profile 被管理员改过
+        （``customized_at`` 非空）时调用方不会传 defaults，避免启动回写。
+        """
         changed = False
         existing = {
             row.tool_name: row
@@ -275,8 +353,35 @@ class AgentProfileService:
             ).all()
         }
         defaults = defaults or {}
-        for tool_name in TOOL_CATALOG:
+        # 遍历 catalog **和** defaults 的并集：
+        # create_document / create_workbook / set_range 这些办公工具是靠
+        # _discover_all_mode_tools 自动发现进 DEFAULT_MODE_TOOLS 的，从不手工
+        # 登记 TOOL_CATALOG。只遍历 TOOL_CATALOG 的话，这些工具永远不会有行，
+        # 于是办公助手「有文档工具但一个都没启用」——用户让它写 Word 只能得到
+        # 一句「文档工具不可用」。catalog 里的工具保留 catalog 顺序在前。
+        tool_names = list(TOOL_CATALOG) + [n for n in defaults if n not in TOOL_CATALOG]
+        for tool_name in tool_names:
             if tool_name in existing:
+                # 已有行不再无条件跳过：早期版本种子把新工具以 enabled=False 补进来，
+                # 之后再怎么升级都不会被打开。内置 profile 的开关以默认值为准；
+                # 用户自建 profile 走 defaults 为空的分支，行为不变。
+                row = existing[tool_name]
+                settings = defaults.get(tool_name)
+                # **只校正内置 profile**：内置的开关是平台默认值的一部分，
+                # 用户不能改，所以跟随代码升级是安全的。
+                # 自建 profile 的开关是用户自己配的（比如他明确关掉了 file），
+                # 按默认值改写会把用户的配置吞掉。
+                if settings and row.enabled != settings["enabled"]:
+                    # force=True（一键还原默认）时无视 customized_at，
+                    # 把开关按默认值写回；常规启动只在没被管理员改过时校正。
+                    if force or (profile.is_builtin and profile.customized_at is None):
+                        row.enabled = settings["enabled"]
+                        db.add(row)
+                        changed = True
+                if settings and force and row.requires_approval != settings["requires_approval"]:
+                    row.requires_approval = settings["requires_approval"]
+                    db.add(row)
+                    changed = True
                 continue
             settings = defaults.get(tool_name, {"enabled": False, "requires_approval": False})
             db.add(
@@ -458,6 +563,8 @@ class AgentProfileService:
             "enabled": profile.enabled,
             "listed": profile.listed,
             "is_builtin": profile.is_builtin,
+            # 内置智能体是否已被管理员改过（前端据此显示「已自定义 / 还原」）
+            "customized": profile.customized_at is not None,
             "installed": installed,
             "owner_id": profile.owner_id,
             "is_owner": bool(user_id is not None and profile.owner_id == user_id),
@@ -482,11 +589,26 @@ class AgentProfileService:
         appended with ``enabled=False`` and ``requires_approval=False`` so
         that newly-added tools automatically appear in the admin UI without
         breaking existing configurations.
+
+        注意：**不能把「不在手工 catalog 里」的工具丢掉。**
+        create_document / create_workbook / set_range 这些办公工具是靠
+        _discover_all_mode_tools 自动发现进来的，从来不登记 TOOL_CATALOG。
+        早先这里对它们 `continue`，于是数据库里明明有 16 个启用工具，接口
+        只回 catalog 里那 5 个 —— 办公助手因此在运行时拿不到文档/表格工具，
+        用户让它写 Word 只会得到「文档工具不可用」。
         """
+        # 自动发现的工具用最小的占位信息，保证接口能把它们透出去，
+        # 同时不改变 catalog 里有完整元数据的那些条目。
+        from app.services.tool_config_service import DEFAULT_MODE_TOOLS
+
+        known_via_discovery: set[str] = set()
+        for _mode, mapping in DEFAULT_MODE_TOOLS.items():
+            known_via_discovery.update(mapping)
+
         seen: set[str] = set()
         merged: list[dict[str, object]] = []
         for tool in stored_tools:
-            if tool.tool_name not in TOOL_CATALOG:
+            if tool.tool_name not in TOOL_CATALOG and tool.tool_name not in known_via_discovery:
                 continue
             seen.add(tool.tool_name)
             merged.append({
@@ -528,6 +650,8 @@ class AgentProfileService:
             "enabled": profile.enabled,
             "listed": profile.listed,
             "is_builtin": profile.is_builtin,
+            # 内置智能体是否已被管理员改过（前端据此显示「已自定义 / 还原」）
+            "customized": profile.customized_at is not None,
             "installed": installed,
             "owner_id": profile.owner_id,
             "is_owner": bool(user_id is not None and profile.owner_id == user_id),
@@ -639,10 +763,17 @@ class AgentProfileService:
         return profile.owner_id is not None and profile.owner_id == user.id
 
     def _assert_can_manage(self, profile: AgentProfileModel, user: UserModel) -> None:
-        if profile.is_builtin:
-            raise PermissionError("内置智能体不可修改或删除")
+        """权限判定统一走 _can_manage：内置智能体允许管理员改写，其余角色禁止。
+
+        内置智能体不可**删除**（会连累所有用户已安装的记录），删除路径单独拦。
+        """
         if not self._can_manage(profile, user):
-            raise PermissionError("只能管理自己创建的智能体")
+            raise PermissionError("内置智能体仅管理员可修改" if profile.is_builtin else "只能管理自己创建的智能体")
+
+    def _assert_can_delete(self, profile: AgentProfileModel, user: UserModel) -> None:
+        if profile.is_builtin:
+            raise PermissionError("内置智能体不可删除，如需停用请关闭「启用」开关")
+        self._assert_can_manage(profile, user)
 
     def list_admin(self) -> dict[str, object]:
         with self.session_factory() as db:
@@ -761,6 +892,44 @@ class AgentProfileService:
                 )
             )
 
+    def _default_skill_ids(self, db: Session, slug: str) -> list[int]:
+        """按 slug 查出该内置智能体默认应绑定的 Skill id。
+
+        Skill 表由 skill_service 从 data/skills/ 扫描同步，slug 稳定；这里
+        查不到的（未同步/已删除）静默跳过，不让启动流程因为缺 Skill 失败。
+        """
+        wanted = BUILTIN_AGENT_SKILLS.get(slug)
+        if not wanted:
+            return []
+        rows = db.scalars(select(SkillModel).where(SkillModel.slug.in_(tuple(wanted)))).all()
+        by_slug = {row.slug: row.id for row in rows}
+        return [by_slug[key] for key in wanted if key in by_slug]
+
+    def _bind_default_skills(self, db: Session, profile: AgentProfileModel, slug: str) -> bool:
+        """给内置智能体补齐默认 Skill 绑定（不覆盖管理员手工调整过的）。"""
+        wanted_ids = self._default_skill_ids(db, slug)
+        if not wanted_ids:
+            return False
+        existing = {
+            row.skill_id
+            for row in db.scalars(
+                select(AgentProfileSkillModel).where(AgentProfileSkillModel.profile_id == profile.id)
+            ).all()
+        }
+        missing = [skill_id for skill_id in wanted_ids if skill_id not in existing]
+        for skill_id in missing:
+            db.add(AgentProfileSkillModel(profile_id=profile.id, skill_id=skill_id, enabled=True))
+        return bool(missing)
+
+    def _reset_profile_tools(self, db: Session, profile: AgentProfileModel) -> None:
+        """把工具行恢复成响应模式的默认开关/审批配置（还原默认、或沙盒库补齐时用）。"""
+        defaults = DEFAULT_MODE_TOOLS.get(profile.response_mode) or {}
+        db.execute(delete(AgentProfileToolModel).where(AgentProfileToolModel.profile_id == profile.id))
+        db.flush()
+        self._ensure_profile_tools(
+            db, profile, defaults, force=True
+        )
+
     def create(self, request: AgentProfileCreateRequest, creator: UserModel) -> dict[str, object]:
         with self.session_factory() as db:
             self.ensure_defaults(db)
@@ -864,7 +1033,44 @@ class AgentProfileService:
                     ),
                 )
 
+            # 内置智能体被人工改过就落标记：ensure_defaults 之后不再回写
+            # 代码里的默认 prompt / 工具开关，否则管理员改完刷新一下就被覆盖。
+            if profile.is_builtin:
+                profile.customized_at = app_now()
+
             db.add(profile)
+            db.commit()
+            db.refresh(profile)
+            return self._serialize(db, profile, user_id=user.id if user else None)
+
+    def restore_defaults(self, profile_id: int, user: UserModel | None = None) -> dict[str, object]:
+        """把内置智能体还原成代码中的出厂定义（名称/prompt/模式/工具/技能）。"""
+        with self.session_factory() as db:
+            profile = db.get(AgentProfileModel, profile_id)
+            if profile is None:
+                raise KeyError("Agent profile not found")
+            if user is not None:
+                self._assert_can_manage(profile, user)
+            defaults = BUILTIN_AGENT_PROFILES.get(profile.slug)
+            if not profile.is_builtin or defaults is None:
+                raise ValueError("只有内置智能体支持还原默认配置")
+
+            profile.name = defaults["name"]
+            profile.description = defaults["description"]
+            profile.system_prompt = defaults["system_prompt"]
+            profile.response_mode = defaults["response_mode"]
+            profile.avatar = defaults["avatar"]
+            profile.listed = bool(defaults["listed"])
+            profile.enabled = True
+            profile.max_steps = defaults.get("max_steps")
+            # 清掉标记 → 重新跟随内置定义
+            profile.customized_at = None
+            db.add(profile)
+            db.flush()
+            # 工具回出厂开关，多余的自定义行删掉
+            self._reset_profile_tools(db, profile)
+            # 技能回出厂绑定
+            self._apply_skill_ids(db, profile, self._default_skill_ids(db, profile.slug))
             db.commit()
             db.refresh(profile)
             return self._serialize(db, profile, user_id=user.id if user else None)
