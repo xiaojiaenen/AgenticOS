@@ -19,6 +19,7 @@ import { AgentProfile } from '../services/agentProfileService';
 import { uploadFiles } from '../services/fileService';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
 import { UserDecision, normalizeDecision } from '../components/chat/DecisionPanel';
+import { useChatStore } from '../stores/chatStore';
 import { toast } from 'sonner';
 import { syncTextBlocks, syncReasoningBlocks, syncToolBlocks } from '../lib/messageBlocks';
 
@@ -163,6 +164,11 @@ export function useChatStream({
   // CancelledError，整轮 LLM 生成作废，用户切回来只剩半截回复。
   // 只有「停止」按钮与组件卸载才允许 abort。
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  // 把「正在流式」的会话集合投影到全局 store：侧栏呼吸点 / 浏览器标题等
+  // 环境感知 UI 消费。ref 负责同步读写（事件回调里要即时），store 只做投影。
+  const setActiveStreamIds = useChatStore((s) => s.setActiveStreamIds);
+  const activeStreamIds = useChatStore((s) => s.activeStreamIds);
+  const syncActiveStreams = () => setActiveStreamIds(new Set(activeStreamSessionIdsRef.current));
   // 当前活跃流对应的会话 ID 集合（含后端重命名后的 ID）
   const activeStreamSessionIdsRef = useRef<Set<string>>(new Set());
   // 最新 sessions 引用：handleSend 内部经 ref 读取，避免因依赖 sessions 在流式期间每帧重建回调
@@ -250,9 +256,11 @@ export function useChatStream({
     // 只清理当前会话的活跃标记（含后端重命名前后的 ID），不影响其他会话正在进行的流
     if (loadingSessionId) {
       activeStreamSessionIdsRef.current.delete(loadingSessionId);
+      syncActiveStreams();
     }
     if (currentSessionId) {
       activeStreamSessionIdsRef.current.delete(currentSessionId);
+      syncActiveStreams();
     }
     // 停在本轮待审批状态时，把悬挂的审批请求标记为已拒绝：
     // 否则运行已终止，审批面板却一直挂在消息上（点了也没有响应）。
@@ -385,6 +393,7 @@ export function useChatStream({
           abortControllersRef.current.get(a2uiKey)?.abort();
           abortControllersRef.current.delete(a2uiKey);
           activeStreamSessionIdsRef.current.delete(a2uiKey);
+          syncActiveStreams();
         }
         return true;
       }
@@ -476,6 +485,7 @@ export function useChatStream({
         // 注册活跃流会话（含可能的后端重命名）
         if (targetId) {
           activeStreamSessionIdsRef.current.add(targetId);
+          syncActiveStreams();
         }
 
         const stateSessionIdForInput = () => targetId ?? currentSessionId ?? null;
@@ -496,6 +506,7 @@ export function useChatStream({
             // 切会话后的按会话 abort 也会失效。
             if (state.session_id) {
               activeStreamSessionIdsRef.current.add(state.session_id);
+              syncActiveStreams();
               if (!abortControllersRef.current.has(state.session_id)) {
                 abortControllersRef.current.set(state.session_id, abortController);
               }
@@ -1034,6 +1045,7 @@ export function useChatStream({
         }
         if (targetId) {
           activeStreamSessionIdsRef.current.delete(targetId);
+          syncActiveStreams();
         }
         setLoadingSessionId((prev) => (prev === targetId || prev === null ? null : prev));
       }
@@ -1055,6 +1067,7 @@ export function useChatStream({
       onUserInputRequired,
       onApiApprovalRequired,
       loadingSessionId,
+      setActiveStreamIds,
     ],
   );
 
@@ -1100,5 +1113,7 @@ export function useChatStream({
     handleStopGeneration,
     handleApprovalDecision,
     handleDecisionMade,
+    /** 正在流式运行的会话集合（侧栏呼吸点等环境感知 UI 消费） */
+    activeStreamIds,
   };
 }

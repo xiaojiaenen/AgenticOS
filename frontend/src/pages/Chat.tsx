@@ -13,6 +13,7 @@ import { useChatSearch } from '../hooks/useChatSearch';
 import { useChatSessions } from '../hooks/useChatSessions';
 import { useChatScroll } from '../hooks/useChatScroll';
 import { useChatStream } from '../hooks/useChatStream';
+import { useRunTitleAwareness } from '../hooks/useRunTitleAwareness';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { useChatStore } from '../stores/chatStore';
 import { ChatContextProvider, type ChatContextValue } from '../contexts/ChatContext';
@@ -85,7 +86,7 @@ export const Chat = () => {
   const [userInputReq, setUserInputReq] = useState<UserInputRequest | null>(null);
 
   const {
-    isLoading, error, setError, runStatus, pendingDecisions,
+    isLoading, error, setError, runStatus, pendingDecisions, activeStreamIds,
     handleSend, handleStopGeneration,
     handleApprovalDecision, handleDecisionMade,
   } = useChatStream({
@@ -100,6 +101,9 @@ export const Chat = () => {
       /* api_approval_required 已在 agentService 转为 toolCalls，触发 PendingApprovalPanel */
     },
   });
+
+  // 浏览器标签页的运行状态感知（环境感知：切去别的标签页也能知道在跑/跑完）
+  useRunTitleAwareness(runStatus.phase, runStatus.label);
 
   // ── 派生状态 ──
   const currentSessionMessages = currentSession?.messages ?? [];
@@ -587,6 +591,7 @@ export const Chat = () => {
               isMobile={isMobile}
               onLoadMore={loadMoreSessions}
               hasMore={hasMoreSessions}
+              streamingIds={activeStreamIds}
             />
           </motion.div>
         )}

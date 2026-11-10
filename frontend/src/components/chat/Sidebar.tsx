@@ -27,7 +27,12 @@ interface SidebarProps {
   isMobile: boolean;
   onLoadMore?: () => void;
   hasMore?: boolean;
+  /** 正在流式运行的会话 id 集合（环境感知：侧栏呼吸点） */
+  streamingIds?: Set<string>;
 }
+
+/** 稳定的空集合：默认值每次渲染 new Set() 会击穿 memo */
+const EMPTY_STREAMING_IDS = new Set<string>();
 
 export const Sidebar = React.memo(({
   sessions,
@@ -38,7 +43,8 @@ export const Sidebar = React.memo(({
   onClose,
   isMobile,
   onLoadMore,
-  hasMore = false
+  hasMore = false,
+  streamingIds = EMPTY_STREAMING_IDS,
 }: SidebarProps) => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -84,6 +90,9 @@ export const Sidebar = React.memo(({
       >
         {sessions.map((session, index) => {
           const isActive = currentSessionId === session.id;
+          // 环境感知：该会话正在后台流式运行（切走了也不掐断）。呼吸点
+          // 让用户在侧栏就能看到「哪几条还在跑」，不用点回去确认。
+          const isStreaming = streamingIds.has(session.id);
           // 层级递变：越靠下（越久远）的会话图标越小、越淡，形成视觉纵深
           const depth = Math.min(index, 6);
           const iconSize = 16 - depth;
@@ -91,6 +100,16 @@ export const Sidebar = React.memo(({
           const sessionInner = (
             <>
               <div className="flex items-center gap-3 overflow-hidden">
+                {isStreaming && (
+                  <span
+                    className="relative flex h-2 w-2 shrink-0"
+                    title="正在生成回复"
+                    aria-label="正在生成回复"
+                  >
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                  </span>
+                )}
                 <ChatBubbleIcon
                   size={iconSize}
                   active={isActive}

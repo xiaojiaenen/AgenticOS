@@ -41,6 +41,16 @@ interface ChatUIState {
   isMobile: boolean;
   setIsMobile: (mobile: boolean) => void;
 
+  /**
+   * 正在流式运行的会话 id 集合（可多个：切走会话不掐断后台流）。
+   *
+   * 供侧栏「运行中」呼吸点、浏览器标题等**环境感知**界面消费 ——
+   * 数据源在 useChatStream（它管 AbortController 生命周期），这里只做
+   * 共享投影。必须整体替换（new Set），zustand 浅比较不认 Set 的变更。
+   */
+  activeStreamIds: Set<string>;
+  setActiveStreamIds: (ids: Set<string>) => void;
+
   // ── 制品面板 ──
   artifact: Artifact | null;
   setArtifact: (artifact: Artifact | null) => void;
@@ -72,6 +82,9 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   isMobile: false,
   setIsMobile: (mobile) => set({ isMobile: mobile }),
+
+  activeStreamIds: new Set<string>(),
+  setActiveStreamIds: (ids) => set({ activeStreamIds: ids }),
 
   artifact: null,
   setArtifact: (artifact) => set({ artifact }),

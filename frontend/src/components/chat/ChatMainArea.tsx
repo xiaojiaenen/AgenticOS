@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChatTimeline } from './ChatTimeline';
 import { ChatSearch } from './ChatSearch';
@@ -65,6 +65,18 @@ const {
   } = useChatStore();
   // 虚拟化模式（长会话）需要把真实滚动容器传给 Virtuoso 的 customScrollParent
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
+
+  // 长任务已用时（环境感知）：滚离消息区时，粘性状态条需要显示「跑了多久」。
+  // 秒级精度足够 —— 它的存在意义是「还在动」的直觉，不是精确计时。
+  const [runElapsedSec, setRunElapsedSec] = useState(0);
+  useEffect(() => {
+    if (!isLoading) {
+      setRunElapsedSec(0);
+      return;
+    }
+    const timer = window.setInterval(() => setRunElapsedSec((s) => s + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [isLoading]);
   const attachScrollRef = useCallback((el: HTMLDivElement | null) => {
     (scrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
     setScrollParent(el);
@@ -399,6 +411,16 @@ const {
                 onClick={handleJumpToBottom}
                 className="flex items-center gap-2 px-6 py-1.5 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-full text-[10px] font-semibold uppercase tracking-[0.2em] shadow-2xl border border-[var(--border-strong)] hover:opacity-90 transition-all active:scale-95 group"
               >
+                {isLoading ? (
+                  <>
+                    {/* 环境感知：滚离后仍能看到「在跑什么、跑了多久」，
+                        不用滚回去确认是不是卡住了 */}
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+                    <span>{runStatus.label}</span>
+                    <span className="tabular-nums opacity-80">{runElapsedSec}s</span>
+                    <span className="opacity-60">·</span>
+                  </>
+                ) : null}
                 <span>回到底部</span>
                 <ChevronDownIcon size={12} className="group-hover:translate-y-0.5 transition-transform" />
               </button>

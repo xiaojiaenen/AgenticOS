@@ -8,7 +8,7 @@ import { BrainCircuit } from 'lucide-react';
 import { Artifact, Message } from '../../types';
 import { APP_TIME_ZONE } from '../../lib/datetime';
 import { cn, copyToClipboard } from '../../lib/utils';
-import { EASE_OUT_QUINT } from '../../lib/motion';
+import { EASE_OUT_QUINT, fadeUp, listItem, staggerContainer } from '../../lib/motion';
 import { getAppConfig } from '../../services/configService';
 import { UserAvatarIcon, MascotCool, CopyIcon, CheckIcon, WrenchIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
@@ -401,29 +401,40 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
 
             始终在下方、不随流式跳变：流式早期还没有文字时它们单独占位，
             文字出现后自然接在下面，不会先上后下地闪一次。 */}
+        {/* 生成式 UI 的编排：多张图表依次入场（0.045s/张），GenUI 与产物卡
+            作为整体块淡入上移。曲线/位移全部来自 lib/motion.ts 共享 token。
+            这是「流式生成式 UI 编排」的一部分：产物不是啪一下砸出来，
+            而是按内容层级有序呈现 —— 文字先立住，图表逐张展开，入口按钮收尾。 */}
         {!isUser && message?.chartMessages?.length ? (
-          <div className="w-full space-y-2 mt-2">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="w-full space-y-2 mt-2"
+          >
             {message.chartMessages.map((chart, i) => (
-              <ChartMessage key={`chart-${message.id}-${i}`} chart={chart} />
+              <motion.div key={`chart-${message.id}-${i}`} variants={listItem}>
+                <ChartMessage chart={chart} />
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         ) : null}
 
         {!isUser && message?.a2uiMessages?.length ? (
-          <div className="w-full mt-2">
+          <motion.div variants={fadeUp} initial="hidden" animate="show" className="w-full mt-2">
             <A2uiRenderer
               messages={message.a2uiMessages}
               onAction={onA2uiAction}
               onDataChange={onA2uiDataChange}
             />
-          </div>
+          </motion.div>
         ) : null}
 
-        {!isUser && message ? (
-          <div className="mt-2 flex flex-wrap gap-2">
+        {!isUser && (message?.pptArtifact || message?.websiteArtifact) ? (
+          <motion.div variants={fadeUp} initial="hidden" animate="show" className="mt-2 flex flex-wrap gap-2">
             <PptArtifactCard message={message} onOpenArtifact={onOpenArtifact} />
             <WebsiteArtifactCard message={message} onOpenArtifact={onOpenArtifact} />
-          </div>
+          </motion.div>
         ) : null}
 
         {message?.id && !isTyping && (
