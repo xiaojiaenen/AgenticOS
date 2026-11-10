@@ -184,7 +184,7 @@ export const Signup = () => {
                     {...register('name')}
                   />
                   {errors.name && (
-                    <p className="text-xs font-medium text-red-600" role="alert">{errors.name.message}</p>
+                    <p className="text-xs font-medium text-red-600 dark:text-red-400" role="alert">{errors.name.message}</p>
                   )}
                 </div>
 
@@ -207,7 +207,7 @@ export const Signup = () => {
                     onKeyDown={handleEmailKeyDown}
                   />
                   {errors.email && (
-                    <p className="text-xs font-medium text-red-600" role="alert">{errors.email.message}</p>
+                    <p className="text-xs font-medium text-red-600 dark:text-red-400" role="alert">{errors.email.message}</p>
                   )}
                   <AnimatePresence>
                     {showSuggestions && suggestions.length > 0 && (
@@ -248,7 +248,7 @@ export const Signup = () => {
                     {...register('password')}
                   />
                   {errors.password && (
-                    <p className="text-xs font-medium text-red-600" role="alert">{errors.password.message}</p>
+                    <p className="text-xs font-medium text-red-600 dark:text-red-400" role="alert">{errors.password.message}</p>
                   )}
                 </div>
 
@@ -279,10 +279,10 @@ export const Signup = () => {
                     })}
                   />
                   {errors.code && (
-                    <p className="text-xs font-medium text-red-600" role="alert">{errors.code.message}</p>
+                    <p className="text-xs font-medium text-red-600 dark:text-red-400" role="alert">{errors.code.message}</p>
                   )}
                   {codeSent && !errors.code && (
-                    <p className="text-xs font-medium text-emerald-600">验证码已发送到您的邮箱，请查收</p>
+                    <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">验证码已发送到您的邮箱，请查收</p>
                   )}
                 </div>
 

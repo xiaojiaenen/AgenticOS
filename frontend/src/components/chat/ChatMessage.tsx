@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -8,6 +8,7 @@ import { BrainCircuit } from 'lucide-react';
 import { Artifact, Message } from '../../types';
 import { APP_TIME_ZONE } from '../../lib/datetime';
 import { cn, copyToClipboard } from '../../lib/utils';
+import { EASE_OUT_QUINT } from '../../lib/motion';
 import { getAppConfig } from '../../services/configService';
 import { UserAvatarIcon, MascotCool, CopyIcon, CheckIcon, WrenchIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
@@ -103,6 +104,78 @@ export function shouldRenderBubbleFor({
   return isStreaming && hasToolCalls;
 }
 
+/**
+ * 本轮页面生命周期里已经入场过的消息 id。
+ *
+ * 为什么需要：消息列表跑在 react-virtuoso 上，滚动时视口外的消息会被
+ * 卸载、滚回来时**重新挂载** —— 没有这个集合，每条旧消息都会重放一遍
+ * 入场动画，翻历史像在看幻灯片。以 id（而非对象引用）为键：流式期间
+ * 消息对象每帧都在重建，id 才是稳定的。
+ */
+const seenMessageIds = new Set<string>();
+
+/**
+ * 消息入场动画的独立包装层。
+ *
+ * 三个行为（对应调研结论「动效要有目的、有编排、尊重系统偏好」）：
+ *
+ * 1. **只动一次**：同一条消息在虚拟化滚动中重挂载时不再重放
+ *    （seenMessageIds 记账），翻历史不再像幻灯片。
+ * 2. **stagger 只服务首屏**：delay 封顶 0.25s（原 0.8s）—— 原实现里第 10 条
+ *    之后的所有消息（含流式中新出现的）都固定先等 0.8s 才出现，新消息
+ *    像卡住一样。现在新消息零延迟立即出现，首屏编排感仍在。
+ * 3. **reduced-motion**：系统偏好减弱动效时只做纯透明度淡入，无位移。
+ *
+ * 曲线取自 lib/motion.ts 的 EASE_OUT_QUINT（全站共享动效语言），时长压到
+ * 0.35s（原 0.6s 偏拖沓，与 Linear/Claude 式克制的入场节奏对齐）。
+ */
+function MessageMotionWrapper({
+  messageKey,
+  index,
+  wideLayout,
+  isUser,
+  children,
+}: {
+  messageKey: string;
+  index: number;
+  wideLayout: boolean;
+  isUser: boolean;
+  children: React.ReactNode;
+}) {
+  const reduced = useReducedMotion();
+  // ref 而非 state：首次渲染就要拿到正确值，且不该触发重渲染
+  const firstSeen = useRef(!seenMessageIds.has(messageKey));
+  if (firstSeen.current) seenMessageIds.add(messageKey);
+
+  const initial = reduced
+    ? { opacity: 0 }
+    : firstSeen.current && index < 8
+      ? { opacity: 0, y: 12 }
+      : { opacity: 0, y: 0 };
+  const animate = { opacity: 1, y: 0 };
+
+  return (
+    <motion.div
+      id={`msg-${messageKey}`}
+      initial={initial}
+      animate={animate}
+      exit={{ opacity: 0, y: -12 }}
+      transition={{
+        duration: reduced ? 0.15 : 0.35,
+        delay: reduced ? 0 : firstSeen.current ? Math.min(index * 0.04, 0.25) : 0,
+        ease: EASE_OUT_QUINT,
+      }}
+      className={cn(
+        'flex mx-auto w-full items-start group/msg',
+        wideLayout ? 'max-w-[92rem] gap-8 px-8' : 'max-w-4xl gap-4',
+        isUser ? 'flex-row-reverse' : 'flex-row',
+      )}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLayout = false, isAdmin = false, onOpenArtifact, onA2uiAction, onA2uiDataChange, index = 0, searchQuery = "", activeMatchId, sessionId }: ChatMessageProps) => {
   const isUser = message?.role === 'user';
   // 按序渲染（新消息）：正文/工具/思考交错展示；历史消息回退旧式三桶
@@ -160,13 +233,15 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   }, [visibleText]);
 
   return (
-    <motion.div
-      id={message?.id ? `msg-${message.id}` : undefined}
-      initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.6, delay: Math.min(index * 0.08, 0.8), ease: [0.16, 1, 0.3, 1] }}
-      layout="position"
-      className={cn("flex mx-auto w-full items-start group/msg", wideLayout ? "max-w-[92rem] gap-8 px-8" : "max-w-4xl gap-4", isUser ? "flex-row-reverse" : "flex-row")}
+    <MessageMotionWrapper
+      messageKey={message?.id ?? `idx-${index}`}
+      index={index}
+      wideLayout={wideLayout}
+      isUser={isUser}
     >
+      {/* layout 在内层：新增消息时既有消息的平滑位移由它承担，
+          入场动画由外层包装承担，两层职责分开互不干扰 */}
+      <motion.div layout="position">
       <motion.div whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
         title={isUser ? "你" : "AI 助手"}
         className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm z-10 transition-all",
@@ -400,5 +475,6 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
         )}
       </div>
     </motion.div>
+    </MessageMotionWrapper>
   );
 });
