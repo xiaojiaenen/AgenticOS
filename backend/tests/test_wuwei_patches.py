@@ -21,6 +21,7 @@
 | R-13 | ``TestRunnerPatches.test_side_effect_tools_are_serialized`` |
 | R-14 | ``TestRunnerPatches.test_timeout_on_side_effect_tool_is_unknown`` |
 | R-16 | ``TestRunnerPatches.test_repeated_tool_call_is_blocked`` |
+| R-18 | 已删除（上游 wuwei 3.3.2 修复）；由 ``TestRunnerPatches.test_wuwei_332_restores_action_log_from_checkpoint`` 守住回归 |
 """
 
 from __future__ import annotations
@@ -208,7 +209,13 @@ class TestRunnerPatches:
         assert _tool_result_is_unknown(_FakeFinal("随便一段文本")) is False
 
     def test_error_path_emits_terminal_events(self):
-        """R-11：异常路径必须发 ``done`` / ``run_end``，且 ``run()`` 返回 error 结果。"""
+        """异常路径必须发 ``done`` / ``run_end``，客户端不会一直挂着。
+
+        这条行为在 wuwei 3.3.1 起由上游 ``_execute_events`` 的 except 分支
+        自己保证（本项目不再覆写）。注意上游**故意**把异常继续抛给
+        ``run()`` —— 那是编程接口，异常应当可见；``stream_events`` 的消费方
+        则靠 ``done``/``run_end`` 收尾。两者不冲突。
+        """
         llm = ScriptedLLM([RuntimeError("上游炸了")])
         agent = build_agent(llm, [make_tool("noop", lambda **k: "ok")])
         session = agent.create_session()
@@ -216,15 +223,24 @@ class TestRunnerPatches:
         async def collect():
             return [event async for event in agent.stream_events("hi", session=session)]
 
-        events = asyncio.run(collect())
-        types = [event.type for event in events]
-        assert "error" in types
-        assert "done" in types, f"异常路径没有发 done：{types}"
-        assert "run_end" in types, f"异常路径没有发 run_end：{types}"
+        # 流式消费：异常在 yield 完终止事件后才向上抛，事件收集在 raise 之前完成
+        events = []
+        error = None
 
-        result = asyncio.run(agent.run("hi", session=session))
-        assert result.status == "error"
-        assert result.termination_reason == "error"
+        async def consume():
+            nonlocal error
+            try:
+                async for event in agent.stream_events("hi", session=session):
+                    events.append(event)
+            except Exception as exc:  # noqa: BLE001
+                error = exc
+
+        asyncio.run(consume())
+        types = [e.type for e in events]
+        assert "error" in types, f"异常路径没有 error 事件：{types}"
+        # 关键契约：客户端按「收到 done 才算结束」实现时不会一直挂着。
+        assert "done" in types, f"异常路径没有发 done：{types}"
+        assert error is not None, "上游应把异常继续抛给调用方"
 
     def test_aclose_releases_session_lock(self):
         """R-9：生成器关闭后会话锁必须释放。"""
@@ -272,8 +288,13 @@ class TestRunnerPatches:
         source = inspect.getsource(orchestrator_module)
         assert "contextlib.aclosing" in source, "orchestrator 关闭事件流的保护被删掉了"
 
-    def test_inner_event_stream_is_closed_deterministically(self):
-        """R-9：内层事件流必须被确定性地关闭（不能只靠 GC 的异步 finalization）。"""
+    def test_stream_generator_close_does_not_leak_lock(self):
+        """断连（生成器关闭）后会话锁必须释放。
+
+        wuwei 3.3.1 的 ``_locked_events`` 用 ``try/finally: await events.aclose()``
+        保证这一点，本项目已删掉自己的覆写。这里直接验证行为，不依赖任何
+        内部属性 —— 上游换实现也没关系，只要行为对。
+        """
         llm = ScriptedLLM([make_response(content="x")])
         agent = build_agent(llm, [make_tool("noop", lambda **k: "ok")])
         session = agent.create_session()
@@ -282,10 +303,13 @@ class TestRunnerPatches:
 
         async def scenario():
             stream = runner.stream_events("hi")
+            # 只消费一个事件就断开，再显式关闭
+            async for _event in stream:
+                break
             await stream.aclose()
-            return runner._inner_event_stream
+            return session.lock.locked()
 
-        assert asyncio.run(scenario()) is None
+        assert asyncio.run(scenario()) is False, "生成器关闭后会话锁未释放"
 
     def test_deep_copy_metadata_is_independent(self):
         """R-10：metadata 深拷贝后，改动原对象不得影响快照。"""
@@ -295,6 +319,37 @@ class TestRunnerPatches:
         original["nested"]["a"] = 99
         assert copied["tool_states"]["c1"] == "running"
         assert copied["nested"]["a"] == 1
+
+    def test_wuwei_332_restores_action_log_from_checkpoint(self):
+        """wuwei 3.3.2 已原生修复：get_or_create_log 用 coerce_action_log 收敛 dict。
+
+        3.3.1 及以前只处理 None，agent_runner.py 紧接着调 ``.append()`` 会抛
+        ``AttributeError: 'dict' object has no attribute 'append'``（工具执行后
+        无最终回复）。本项目的 R-18 临时补丁随 3.3.2 升级已删除，这里守住
+        「上游别回退」这条线：两种历史 checkpoint 形态都必须还原且不丢条目。
+        """
+        from wuwei.runtime.action_log import ACTION_LOG_KEY, ActionLog, get_or_create_log
+
+        log = ActionLog()
+        log.append(
+            run_id="run-1", agent="main", step=1, kind="tool",
+            summary="调用生图工具", data={"tool": "generate_image"},
+        )
+
+        for shape in (
+            log.to_dict(),                                             # 裸 dict
+            {"__type__": "ActionLog", "value": log.to_dict()},        # 带标记
+        ):
+            class Session:
+                metadata = {ACTION_LOG_KEY: shape}
+
+            session = Session()
+            restored = get_or_create_log(session)
+            assert isinstance(restored, ActionLog)
+            assert len(restored.entries) == 1
+            assert restored.entries[0].summary == "调用生图工具"
+            restored.append(run_id="run-1", agent="main", step=2, kind="llm", summary="最终回复")
+            assert len(session.metadata[ACTION_LOG_KEY].entries) == 2
 
 
 # ──────────────────────────────────────────────────────────────────────

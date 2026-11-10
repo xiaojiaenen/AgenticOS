@@ -75,12 +75,11 @@ def init_db() -> None:
         else:
             raise
     # Schema 演进自 TECH-DEBT-2026-09 起由 alembic 负责（backend/alembic/）：
-    # - 存量库：`alembic stamp head` 完成基线对齐（历史补列由旧版
-    #   _ensure_compatible_schema 完成，该函数已删除）。
-    # - 新库（开发 SQLite）：create_all 建全量 schema 后同样 `alembic stamp head`。
-    # - 生产 MySQL：启动一次让 create_all 建表后执行 `alembic upgrade head`
-    #   （0002 迁移会把 message_json/deck_json/preview_html 拉长为 LONGTEXT）。
-    #   详见 backend/alembic/README.md。
+    # create_all 只建缺失的表，**不会给已存在的表加列**；因此启动时必须把
+    # 待应用的迁移跑掉，否则「代码加了字段、库没加列」→ 查询直接 500
+    # （内网 website gallery 的 visibility/access_token 缺失就是这么来的）。
+    _apply_pending_migrations()
+
     from app.services.tool_config_service import seed_tool_configs
     from app.services.agent_profile_service import seed_agent_profiles
     from app.services.external_system_service import seed_preset_external_systems
@@ -93,6 +92,39 @@ def init_db() -> None:
 
     # 从环境变量种子化 ldap_enabled（仅首次启动时写入）
     _seed_ldap_enabled()
+
+
+def _apply_pending_migrations() -> None:
+    """启动时应用 alembic 迁移，消除「代码加了字段、库没跑迁移」的漂移。
+
+    - 库里还没有 ``alembic_version``（全新库，create_all 已建全量 schema）
+      → ``stamp head`` 做基线对齐；
+    - 已有版本表 → ``upgrade head``，把缺失的列/索引补上。
+
+    失败只记错误日志、不阻断启动：迁移是运维动作，晚一步补也比整个服务起不来强。
+    """
+    try:
+        from alembic import command
+        from alembic.config import Config
+
+        backend_root = Path(__file__).resolve().parents[2]
+        cfg = Config()
+        cfg.set_main_option("script_location", str(backend_root / "alembic"))
+        # 不读 alembic.ini：env.py 在 sqlalchemy.url 为空时会复用应用 engine
+        # （同一 DATABASE_URL），避免两套连接配置漂移。
+        has_version = "alembic_version" in inspect(engine).get_table_names()
+        if has_version:
+            command.upgrade(cfg, "head")
+            logger.info("alembic: upgrade head applied")
+        else:
+            command.stamp(cfg, "head")
+            logger.info("alembic: stamped head on fresh database")
+    except Exception:  # noqa: BLE001 -- 迁移失败不阻断启动
+        logger.error(
+            "启动自动迁移失败，库结构可能与代码不一致；"
+            "请手动执行 `python -m alembic upgrade head`",
+            exc_info=True,
+        )
 
 
 def _seed_ldap_enabled() -> None:

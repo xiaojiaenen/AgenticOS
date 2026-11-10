@@ -12,15 +12,16 @@
   而 ``asyncio.CancelledError`` 继承 ``BaseException`` → 判定失效 →
   原始异常进 ``results`` → 后续 ``model_dump`` 抛 ``AttributeError``，
   **同批次成功的工具结果也一并丢失**，``tool_end`` 从不发出。
-- **R-9** ``_iter_events`` 在 ``session.lock`` 内 ``yield``，
-  而 ``async for`` 中途 ``break`` **不会**触发 ``aclose()`` →
-  客户端断连后锁永久占用 → 该会话后续所有 run 全部阻塞。
 - **R-7** ``agent_runner.py:570-578`` 的 ``can_batch`` 要求中间件栈里
   **没有任何** ``before_tool`` / ``after_tool`` 钩子。本项目默认就装配了
   ``LenientHitlMiddleware``（审批）与 ``AsyncSubAgentMiddleware``，
   于是用户打开 ``parallel_tool_calls`` 开关后**并发被静默关闭**，无任何提示。
 - **R-1** ``adapters/openai.py:97`` 只在 ``finish_reason ∈ (stop, tool_calls)``
   时解析 tool_calls → ``finish_reason="length"`` 时工具调用被**静默丢弃**。
+
+> **升级到 wuwei 3.3.1 后已移除 R-9 / R-11**：上游现在用 ``_locked_events``
+> 保证锁在生成器关闭时释放（R-9），并在 ``_execute_events`` 的异常分支补发
+> ``done`` / ``run_end``（R-11）。这两条不再需要本项目覆写。
 
 **补丁原则（与上一轮删除 monkey-patch 的教训一致）。**
 
@@ -50,7 +51,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from contextlib import aclosing
 from typing import Any, Callable
 
 from wuwei.agent.agent import Agent
@@ -565,12 +565,12 @@ def deep_copy_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
 
 
 # ──────────────────────────────────────────────────────────────────────
-# R-6 / R-9 / R-11：AgentRunner 子类
+# R-6：AgentRunner 子类（R-9 / R-11 已由上游 3.3.1 修复）
 # ──────────────────────────────────────────────────────────────────────
 
 
 class PatchedAgentRunner(AgentRunner):
-    """修 R-6（unknown 误判）、R-9（断连锁死）、R-11（缺终止事件）。
+    """修 R-6（工具结果 unknown 误判）。
 
     **只覆盖最小的判定单元，不复制上游的执行循环。**
 
@@ -578,21 +578,21 @@ class PatchedAgentRunner(AgentRunner):
       上游用裸子串匹配工具输出文本，正常返回 ``{"status": "unknown"}``
       的工具会被误判 → 结果被丢弃 + 会话被永久封死。
       改为：解析 JSON 后比对框架错误载荷的真实特征。
-    - **R-9**：覆写 ``_iter_events``，保证生成器被关闭（断连）时
-      ``session.lock`` 一定被释放。上游在 ``async with self.session.lock``
-      内部 ``yield``，而 ``async for`` 中途 ``break`` **不会**触发
-      ``aclose()`` → 锁被永久占用 → 该会话后续所有 run 全部阻塞。
-    - **R-11**：异常路径不发 ``done`` / ``run_end`` 终止事件，
-      客户端按「收到 done 才算结束」的协议会一直等待，
-      ``agent.run()`` 也会直接抛异常而不是返回 ``status="error"``。
-    """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        # 上游事件流生成器的引用，用于在断连时**确定性地**关闭内层生成器，
-        # 让上游自己的 CancelledError/GeneratorExit 清理分支跑到
-        # （否则它只能靠 GC 的异步 finalization，清理时机不确定）。
-        self._inner_event_stream: Any = None
+    ## 已从本类移除的补丁（上游 wuwei 3.3.1 自己修好了）
+
+    - **R-9（断连锁死）**：旧版上游在 ``async with self.session.lock`` 内部
+      ``yield``，消费方 ``break`` 不触发 ``aclose`` → 锁泄漏。3.3.1 引入
+      ``_locked_events``，用 ``try/finally: await events.aclose()`` 保证释放，
+      本项目的 aclosing 覆写因此成了重复保障，且会与上游形成「双重 aclosing」。
+    - **R-11（缺终止事件）**：旧版异常路径只 yield ``error`` 就 raise。
+      3.3.1 的 ``_execute_events`` 在 ``except Exception`` 里已补
+      ``yield done`` + ``yield run_end``（注释原文：「A client that waits for a
+      terminal event must not be left hanging」）。
+
+    把这两块删掉的收益：``_iter_events`` / ``_execute_events`` 不再被覆写，
+    完全走上游实现，减少一层可能与上游收尾逻辑打架的包装。
+    """
 
     # ── R-6：工具结果「不确定」判定 ──────────────────────────────────
     async def _commit_tool(self, ctx: Any, tc: ToolCall, msg: Any, remaining: Any) -> Any:
@@ -635,118 +635,17 @@ class PatchedAgentRunner(AgentRunner):
             )
         return final
 
-    # ── R-9：断连时释放会话锁 ───────────────────────────────────────
-    async def _iter_events(
-        self,
-        user_input: Any,
-        *,
-        stream: bool,
-        task: Any = None,
-        resume: Any = None,
-    ):
-        """覆写上游 ``_iter_events``，保证生成器关闭时释放会话锁并补终止事件。
-
-        上游的写法是在 ``async with self.session.lock:`` 内部 ``yield``。
-        生成器在 ``yield`` 点挂起时**仍持有锁**，而消费方 ``async for``
-        中途 ``break`` 不会触发 ``aclose()`` → 锁永久占用 →
-        该会话后续所有 run 全部阻塞在 ``async with self.session.lock`` 上。
-
-        这里用 ``contextlib.aclosing`` 包住上游的生成器：无论消费方是
-        正常结束、break 还是抛异常，退出时上游的 ``async with`` 一定
-        会退出 → 锁一定被释放。
-
-        同时补上 R-11：上游的异常分支只 ``yield`` 一个 ``error`` 事件就
-        ``raise``，**不发** ``done`` / ``run_end``。客户端按「收到 done
-        才算结束」实现时会一直等；``agent.run()`` 也会抛异常而不是返回
-        ``status="error"``。这里在异常收尾时补发终止事件。
-        """
-        saw_error = False
-        try:
-            async with aclosing(
-                super()._iter_events(
-                    user_input, stream=stream, task=task, resume=resume
-                )
-            ) as events:
-                async for event in events:
-                    if getattr(event, "type", None) == "error":
-                        saw_error = True
-                    yield event
-        except (asyncio.CancelledError, GeneratorExit):
-            raise
-        except Exception as exc:  # noqa: BLE001 —— 这里就是要把异常转成终止事件
-            logger.warning(
-                "agent 运行异常，已转为终止事件：%s: %s",
-                type(exc).__name__,
-                exc,
-            )
-            async for event in self._terminal_error_events(exc, emit_error=not saw_error):
-                yield event
-        finally:
-            # 确定性地关闭内层事件流生成器：上游在 CancelledError /
-            # GeneratorExit 分支里会标记「结果不确定的工具」并落检查点，
-            # 这一步若依赖 GC 的异步 finalization，时机不确定。
-            await self._close_inner_event_stream()
-
-    async def _execute_events(self, user_input: Any, *, stream: bool, task: Any = None, resume: Any = None):
-        """包一层 ``aclosing``，让内层生成器能被确定性地关闭。"""
-        inner = super()._execute_events(
-            user_input, stream=stream, task=task, resume=resume
-        )
-        self._inner_event_stream = inner
-        try:
-            async with aclosing(inner) as events:
-                async for event in events:
-                    yield event
-        finally:
-            if self._inner_event_stream is inner:
-                self._inner_event_stream = None
-
-    async def _close_inner_event_stream(self) -> None:
-        """关闭内层事件流生成器（幂等）。"""
-        inner = self._inner_event_stream
-        if inner is None:
-            return
-        self._inner_event_stream = None
-        try:
-            await inner.aclose()
-        except (RuntimeError, asyncio.CancelledError):  # pragma: no cover
-            # 生成器已在运行中关闭（下游正在迭代）——忽略。
-            logger.debug("关闭内层事件流失败", exc_info=True)
-
-    async def _terminal_error_events(self, exc: Exception, *, emit_error: bool) -> Any:
-        """异常收尾时补发 ``error`` / ``done`` / ``run_end``（R-11）。"""
-        meta = self._metadata or {}
-        usage = meta.get("usage_total") or {}
-        if emit_error:
-            yield self._event(
-                "error",
-                data={
-                    "message": str(exc),
-                    "error_type": type(exc).__name__,
-                    "usage": dict(usage),
-                    "llm_calls": meta.get("llm_calls", 0),
-                },
-            )
-        data = {
-            "content": "",
-            "usage": dict(usage),
-            "latency_ms": meta.get("latency_ms", 0),
-            "llm_calls": meta.get("llm_calls", 0),
-            "status": "error",
-            "termination_reason": "error",
-            "interrupt": None,
-            "usage_available": meta.get("usage_available", True),
-            "output": meta.get("structured_output"),
-        }
-        yield self._event("done", data=dict(data))
-        yield self._event("run_end", data=dict(data))
 
 
 class PatchedAgent(Agent):
     """把上游 ``Agent`` 的执行器换成带补丁的版本。
 
     - ``tool_executor`` → ``BoundedToolExecutor``（R-8 / R-12 / R-13 / R-14 / R-16）；
-    - ``create_runner`` → ``PatchedAgentRunner``（R-6 / R-9 / R-11）。
+    - ``create_runner`` → ``PatchedAgentRunner``（R-6；R-9/R-11 已由上游 3.3.1 修复）。
+
+    R-18（checkpoint 还原后 action_log 是 dict 导致 append 崩溃）已由上游
+    3.3.2 的 ``coerce_action_log`` 修复，本项目不再覆写；会话加载侧统一走
+    ``session_storage._restore_session_metadata`` 委托上游入口。
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

@@ -122,3 +122,79 @@ def test_upgrade_head_on_create_all_schema(tmp_path: Path):
     result = _run_alembic(["upgrade", "head"], url)
     assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"
     assert _read_version(url) == HEAD_REVISION
+
+
+# ---------------------------------------------------------------------------
+# 增量迁移的「列真的建出来了吗」守卫
+#
+# 上面的用例只证明迁移链能跑通；一个 add_column 写成空实现、写错表名、
+# 或 guard 逻辑写反（表存在却 skip），链测试依然全绿，生产升级后却会在
+# 第一次读写该列时炸。每个带新列的迁移都应在此登记一条断言。
+# ---------------------------------------------------------------------------
+
+# (表名, 列名, 迁移前所在版本) —— 新增列迁移清单
+_EXPECTED_NEW_COLUMNS = [
+    ("workflow_runs", "waiting_fields_json", "0018_website_gallery_visibility"),
+]
+
+
+def test_incremental_migrations_add_expected_columns(tmp_path: Path):
+    """从老版本升级到 head：每个登记的新列必须真实存在且可写。
+
+    构造方式：先用 create_all 建全量 schema（含新列），再手工删掉目标列、
+    把版本钉回迁移前，然后 upgrade head —— 模拟「线上老库」的真实形态。
+    """
+    import sqlalchemy as sa
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    db_path = tmp_path / "incremental.db"
+    url = f"sqlite:///{db_path.as_posix()}"
+
+    create_all = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from app.db.session import engine\n"
+            "from app.db.models import Base\n"
+            "Base.metadata.create_all(bind=engine)\n",
+        ],
+        cwd=str(BACKEND_DIR),
+        env={**os.environ, "DATABASE_URL": url},
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert create_all.returncode == 0, create_all.stderr
+
+    # 模拟老库：版本先钉到迁移前（create_all 不建 alembic_version），再删掉新列
+    stamp = _run_alembic(["stamp", _EXPECTED_NEW_COLUMNS[0][2]], url)
+    assert stamp.returncode == 0, stamp.stderr
+
+    engine = create_engine(url)
+    try:
+        with engine.begin() as conn:
+            op = Operations(MigrationContext.configure(conn))
+            for table, column, _from_rev in _EXPECTED_NEW_COLUMNS:
+                with op.batch_alter_table(table) as batch:
+                    batch.drop_column(column)
+    finally:
+        engine.dispose()
+
+    result = _run_alembic(["upgrade", "head"], url)
+    assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"
+    assert _read_version(url) == HEAD_REVISION
+
+    # 关键断言：列真实存在，且 SQL 能引用（类型/表名没写歪）
+    engine = create_engine(url)
+    try:
+        inspector = sa.inspect(engine)
+        with engine.begin() as conn:
+            for table, column, _from_rev in _EXPECTED_NEW_COLUMNS:
+                columns = {c["name"] for c in inspector.get_columns(table)}
+                assert column in columns, (
+                    f"{table}.{column} 迁移后仍不存在（迁移可能是空实现或 guard 写反）"
+                )
+                conn.execute(text(f"UPDATE {table} SET {column} = '[]' WHERE 1 = 0"))
+    finally:
+        engine.dispose()

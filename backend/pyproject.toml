@@ -11,12 +11,19 @@ dependencies = [
     "pydantic-settings>=2.10.0,<3.0.0",
     "sqlalchemy>=2.0.44,<3.0.0",
     "uvicorn[standard]>=0.35.0,<1.0.0",
-    "wuwei>=3.3.0",
+    # 3.3.1 起上游改了 AgentRunner 的内部签名（去掉了 `task` 参数）并在
+    # `_generate_stream` 收尾时统一把异常翻成 LLMError。`app/services/agent/
+    # wuwei_patches.py` 与 `llm_providers/adapter.py` 已按 3.3.1 对齐。
+    # 3.3.2 官方修复了 checkpoint 还原后 metadata["action_log"] 是 dict、
+    # get_or_create_log() 只认 None 导致 `.append()` 崩溃（工具执行后无最终回复）
+    # —— 新增 coerce_action_log() 统一收敛带标记/裸 dict 两种历史形态，
+    # 内网那处改 site-packages 的临时补丁不再需要。下限因此提到 3.3.2。
+    "wuwei>=3.3.2",
     # 下面两个是**直接依赖**，必须显式声明，不能靠传递依赖侥幸拿到：
     # - httpx：app/ 下 14 个文件直接 import（外部系统、图像工具、鉴权代理等）。
     #   openai 3.x 起不再自动安装 httpx（改用 httpx2），只靠别人传递是定时炸弹。
     # - openai：llm_providers 的适配器与错误分类直接 import。
-    #   版本下限与 wuwei 3.3.0 的要求保持一致（>=3.40.0）。
+    #   版本下限与 wuwei 3.3.1 的要求保持一致（>=3.40.0）。
     "httpx>=0.28.0,<1.0.0",
     "openai>=3.40.0,<4.0.0",
     # - mcp：MCP 官方 SDK。wuwei 把 MCP 放在 optional extra 里（`wuwei[mcp]`），
@@ -28,7 +35,10 @@ dependencies = [
     "python-pptx>=1.0.2",
     "pillow>=12.2.0",
     "markitdown[all]>=0.1.6",
-    "redis>=5.0.0,<6.0.0",
+    # Redis 客户端。taskiq-redis 要求 >=8.0，所以下限提到 8 —— 项目只在
+    # core/redis.py 用 from_url / pubsub / aclose / RedisCluster，这些 API
+    # 5→8 之间未变，已实测通过。
+    "redis>=8.0.0,<9.0.0",
     "cryptography>=44.0.0,<45.0.0",
     "cachetools>=5.0.0,<6.0.0",
     "alembic>=1.14.0,<2.0.0",
@@ -36,7 +46,11 @@ dependencies = [
     "pyyaml>=6.0.0",
     "pandas>=2.0.0",
     "numpy>=2.0.0",
-    "arq>=0.28.0",
+    # 任务队列：arq 在 Redis Cluster 上无解（普通客户端 MOVED、
+    # RedisCluster 拒绝 arq 依赖的事务），改用 taskiq + taskiq-redis，
+    # 后者提供原生 cluster broker/backend/schedule source（全单 key 操作）。
+    "taskiq>=0.13.0",
+    "taskiq-redis>=1.2.4",
     "jieba>=0.42.1",
     "casbin>=1.43.0",
     "authlib>=1.6.12",
