@@ -152,21 +152,67 @@ def message_signature(payload: Any) -> str:
 
     刻意不把整个 payload 序列化后哈希：正文里可能有时间戳、绝对路径这类
     每次读取都不同的字段，全量比对会把同一条消息判成不同。
+
+    **必须同时接受消息对象与 dict。** 这个函数有两个调用方，喂的形态不同：
+
+    - ``load_message_signatures`` 从库里读 ``message_json``，是 dict；
+    - ``_messages_after`` 拿的是 ``session.context._messages``，是 wuwei 的
+      ``BaseMessage`` 实例。
+
+    早期实现只认 dict、其余一律返回 ``"?"``。于是内存侧全是 ``"?"``、
+    库里侧是真指纹，**两边永远匹配不上** → ``_messages_after`` 每次判定
+    「整段都是新增」→ 每轮对话都把整个消息列表重写一遍。表现就是同一批
+    消息在库里成倍重复（10 条写 4 次）。这里统一归一化成 dict 再算。
     """
-    if not isinstance(payload, dict):
+    data = _as_message_dict(payload)
+    if data is None:
         return "?"
-    role = payload.get("role")
+    role = data.get("role")
     # tool 结果只认 id：它是这一轮唯一不变的锚点
     if role == "tool":
-        return f"tool|{payload.get('tool_call_id') or ''}"
-    content = payload.get("content")
+        return f"tool|{data.get('tool_call_id') or ''}"
+    content = data.get("content")
     text = content if isinstance(content, str) else ""
-    tool_calls = payload.get("tool_calls") or []
+    tool_calls = data.get("tool_calls") or []
     call_ids = ",".join(
         str((tc or {}).get("id") or "") for tc in tool_calls if isinstance(tc, dict)
     )
     digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:16] if text else "-"
     return f"{role}|{call_ids}|{digest}"
+
+
+def _as_message_dict(payload: Any) -> dict[str, Any] | None:
+    """把「消息对象或 dict」统一成 dict；都不像就返回 None。
+
+    ``exclude_none=True`` 与 ``append_messages_batch`` 写库时的序列化保持
+    一致，保证内存侧与库侧的指纹来自同一份字段集合。
+    """
+    if isinstance(payload, dict):
+        return payload
+    dump = getattr(payload, "model_dump", None)
+    if callable(dump):
+        try:
+            data = dump(exclude_none=True)
+        except TypeError:
+            data = dump()
+        return data if isinstance(data, dict) else None
+    # 兜底：兼容没有 model_dump 的轻量消息（dict 子类之外的对象）
+    role = getattr(payload, "role", None)
+    if role is None:
+        return None
+    tool_calls = []
+    for tc in getattr(payload, "tool_calls", None) or []:
+        fn = getattr(tc, "function", None)
+        tool_calls.append({
+            "id": getattr(tc, "id", None),
+            "name": getattr(fn, "name", None) if fn is not None else getattr(tc, "name", None),
+        })
+    return {
+        "role": role,
+        "content": getattr(payload, "content", None),
+        "tool_call_id": getattr(payload, "tool_call_id", None),
+        "tool_calls": tool_calls,
+    }
 
 
 def _first_user_text(message_json: str | None) -> str | None:

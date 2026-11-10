@@ -229,6 +229,52 @@ class HardenedOpenAIAdapter(OpenAIAdapter):
         return None
 
 
+def normalize_system_messages(messages: list[Message]) -> list[Message]:
+    """把多条 system 消息合并成开头的一条。
+
+    OpenAI 兼容端有硬校验：``System message must be at the beginning.``
+    —— system 必须唯一且位于首位。wuwei 3.3.2 的 structured-output 逻辑
+    （``agent_runner.py:481-492``）在已有 system 提示词的情况下又
+    ``messages.insert(0, SystemMessage(...))``，于是变成
+    ``[新system, 旧system, user, ...]``，上游直接 400。
+
+    这个 400 不是可重试错误，会一路冒泡成 ``LLMError`` 把整轮对话打断 ——
+    用户看到的就是「发消息立刻失败」。
+
+    修法选在网关层（所有请求的唯一出口）而不是改上游私有逻辑：
+    只做「合并到首条 system」，不改语义、不改顺序，也不新增 system 条数。
+    没有 system 或只有一条时原样返回（不复制列表）。
+    """
+    if not messages:
+        return messages
+    system_indexes = [
+        i for i, m in enumerate(messages) if getattr(m, "role", None) == "system"
+    ]
+    # 0 条：没有可合并的；1 条且已在首位：本来就是合法形态
+    if not system_indexes or system_indexes == [0]:
+        return messages
+
+    parts: list[str] = []
+    for i in system_indexes:
+        content = getattr(messages[i], "content", None)
+        if isinstance(content, str) and content.strip():
+            parts.append(content)
+    merged_content = "\n\n".join(parts)
+
+    first = messages[system_indexes[0]]
+    rest = [m for i, m in enumerate(messages) if i not in set(system_indexes)]
+    try:
+        merged = first.model_copy(update={"content": merged_content})
+    except Exception:  # noqa: BLE001 —— 非 pydantic 消息退化为类型重建
+        merged = type(first)(content=merged_content)
+
+    logger.info(
+        "合并 %d 条 system 消息为 1 条（OpenAI 兼容端要求 system 唯一且在首位）",
+        len(system_indexes),
+    )
+    return [merged, *rest]
+
+
 def _is_retryable(exc: Exception) -> bool:
     """按异常类型判断是否值得重试。
 
@@ -346,6 +392,7 @@ class RetryingGateway(LLMGateway):
         stream: bool = False,
         **kwargs: Any,
     ) -> Any:
+        messages = normalize_system_messages(messages)
         if not stream:
             # 非流式原样交给上游：它本来就有分类重试 + fallback
             try:
@@ -361,6 +408,7 @@ class RetryingGateway(LLMGateway):
         tools: list[Any] | None,
         **kwargs: Any,
     ) -> AsyncIterator[LLMResponseChunk]:
+        messages = normalize_system_messages(messages)
         last_error: Exception | None = None
         for attempt in range(self._stream_attempts):
             emitted = False

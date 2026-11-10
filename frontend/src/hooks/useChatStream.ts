@@ -34,6 +34,48 @@ function buildAttachments(files: File[], collectedUrls?: string[]): Attachment[]
   });
 }
 
+/** 本轮「停止」后收尾会话消息：拒绝悬挂审批 + 给空气泡补占位文字。
+ *
+ * 为什么需要补占位：agent 是多轮工具循环，停止发生在循环中间时，最后一条
+ * assistant 往往只有过渡 content（'\n\n' 之类）或干脆为空、只剩 tool_calls。
+ * 工具链折叠后气泡里就没有任何文字 —— 用户看到的是「停完之后一片空白」。
+ * 有思考内容的气泡不用补（思考本身就是可见内容）。
+ */
+export function markStoppedTurn(messages: Message[]): Message[] {
+  const next = messages.map((message) =>
+    message.toolCalls?.some((t) => t.status === 'approval_required')
+      ? {
+          ...message,
+          toolCalls: message.toolCalls.map((t) =>
+            t.status === 'approval_required'
+              ? {
+                  ...t,
+                  status: 'rejected' as const,
+                  result: t.result ?? '生成已被用户停止，审批请求自动取消。',
+                }
+              : t
+          ),
+        }
+      : message
+  );
+
+  // 找到本轮最后一条模型消息；只有它是「空泡」时才补占位
+  for (let i = next.length - 1; i >= 0; i -= 1) {
+    const message = next[i];
+    if (message.role === 'user') break; // 本轮还没产出任何模型消息
+    if (message.role !== 'model') continue;
+    const hasText = Boolean(message.text?.trim());
+    const hasReasoning = Boolean(message.reasoningText?.trim());
+    const hasArtifacts =
+      (message.a2uiMessages?.length ?? 0) > 0 || (message.chartMessages?.length ?? 0) > 0;
+    if (!hasText && !hasReasoning && !hasArtifacts) {
+      next[i] = { ...message, text: '（已停止）' };
+    }
+    break;
+  }
+  return next;
+}
+
 async function prepareUploadedFiles(
   files: File[],
   onStatus: (label: string) => void,
@@ -221,22 +263,7 @@ export function useChatStream({
           session.id === stopSessionId
             ? {
                 ...session,
-                messages: session.messages.map((message) =>
-                  message.toolCalls?.some((t) => t.status === 'approval_required')
-                    ? {
-                        ...message,
-                        toolCalls: message.toolCalls.map((t) =>
-                          t.status === 'approval_required'
-                            ? {
-                                ...t,
-                                status: 'rejected' as const,
-                                result: t.result ?? '生成已被用户停止，审批请求自动取消。',
-                              }
-                            : t
-                        ),
-                      }
-                    : message
-                ),
+                messages: markStoppedTurn(session.messages),
               }
             : session
         )

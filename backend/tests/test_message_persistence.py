@@ -273,3 +273,66 @@ def test_action_log_contract_degrades_on_wuwei_before_3_3_2(monkeypatch):
     ):
         restored = _restore_session_metadata(payload)
         assert isinstance(restored["action_log"], action_log_module.ActionLog)
+
+
+# ── 回归：内存侧消息是对象，库里是 dict，指纹必须能对上 ──────────────
+#
+# 早期 ``message_signature`` 只认 dict，其余一律返回 "?"。而
+# ``_persist_session_messages`` 拿的是 ``session.context._messages``
+# （wuwei 的 BaseMessage 实例），库里读回来的是 dict —— 两边指纹永远
+# 不相等，``_messages_after`` 每次判定「整段都是新增」，于是**每轮对话
+# 都把整个消息列表重写一遍**。实测一个 12 轮的会话里，同样的 10 条消息
+# 被原样写了 4 次。
+
+def test_message_signature_accepts_message_objects():
+    """消息对象与它的 dict 形态必须算出同一个指纹。"""
+    from wuwei.core.message import AIMessage, FunctionCall, HumanMessage, ToolCall, ToolMessage
+
+    cases = [
+        HumanMessage(content="你好"),
+        AIMessage(content="在的"),
+        AIMessage(
+            content="",
+            tool_calls=[ToolCall(id="tc1", function=FunctionCall(name="calc", arguments={}))],
+        ),
+        ToolMessage(content="2", tool_call_id="tc1", name="calc"),
+    ]
+    for msg in cases:
+        as_dict = message_signature(msg.model_dump(exclude_none=True))
+        as_obj = message_signature(msg)
+        assert as_obj == as_dict, f"{type(msg).__name__} 两种形态指纹不一致：{as_obj} != {as_dict}"
+        assert as_obj != "?", "消息对象不该退化成未知指纹"
+
+
+def test_messages_after_matches_object_memory_against_dict_db():
+    """内存是对象、库是 dict 时，已落库部分不能再被当成新增。"""
+    from wuwei.core.message import AIMessage, HumanMessage
+
+    memory = [HumanMessage(content="你好"), AIMessage(content="在的")]
+    existing = [
+        message_signature(m.model_dump(exclude_none=True)) for m in memory
+    ]
+
+    assert _messages_after(memory, existing) == [], "已落库消息被重复判定为新增"
+
+    memory.append(HumanMessage(content="再问一句"))
+    pending = _messages_after(memory, existing)
+    assert len(pending) == 1
+    assert pending[0].content == "再问一句"
+
+
+def test_messages_after_handles_tool_round_with_objects():
+    """带工具调用的一轮：tool 结果靠 tool_call_id 对齐，不重复写入。"""
+    from wuwei.core.message import AIMessage, FunctionCall, HumanMessage, ToolCall, ToolMessage
+
+    call = ToolCall(id="tc1", function=FunctionCall(name="calc", arguments={}))
+    memory = [
+        HumanMessage(content="算一下"),
+        AIMessage(content="", tool_calls=[call]),
+        ToolMessage(content="42", tool_call_id="tc1", name="calc"),
+        AIMessage(content="答案是 42"),
+    ]
+    existing = [
+        message_signature(m.model_dump(exclude_none=True)) for m in memory
+    ]
+    assert _messages_after(memory, existing) == []
