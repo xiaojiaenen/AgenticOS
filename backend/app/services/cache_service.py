@@ -54,7 +54,16 @@ class CacheService:
                     return rows
 
             import asyncio
-            rows = await asyncio.to_thread(_load)
+
+            try:
+                rows = await asyncio.to_thread(_load)
+            except RuntimeError:
+                # 容器线程/进程上限打满时 `asyncio.to_thread` 会抛
+                # `RuntimeError: can't start new thread`（pthread_create EAGAIN）。
+                # 这只是启动期预热缓存，不值得让整个启动失败 —— 直接在当前
+                # 线程里同步读一次。这里读的是几千行 JSON，耗时在百毫秒级。
+                _logger.warning("线程池不可用，历史输入缓存改为同步加载")
+                rows = _load()
             count = 0
             for raw in rows:
                 try:
@@ -248,30 +257,37 @@ class CacheService:
         return await redis.ttl(self._key(f"ratelimit:{key}"))
 
     # ============================================================
-    # 3. 在线用户 — Set
+    # 3. 在线用户 — Sorted Set（score=最近心跳时间戳）
     # ============================================================
+    # 用有序集合而非普通 Set：Set 成员不会随 TTL 过期，会留下「假在线」。
+    # 这里 score 存心跳时间，读取时只取 now-ONLINE_WINDOW 内的成员并顺手
+    # 清理过期项，保证「当前在线」准确且自清理。MemoryRedis 与真实 Redis
+    # 都支持 zadd/zrangebyscore/zremrangebyscore。
+
+    ONLINE_WINDOW_SECONDS = 300
 
     async def user_online(self, user_id: int) -> None:
-        """标记用户在线"""
+        """刷新用户在线心跳（5 分钟窗口）。"""
         redis = get_redis()
-        await redis.sadd(self._key("online:users"), str(user_id))
-        await redis.set(self._key(f"online:user:{user_id}"), str(int(time.time())), ex=300)
+        await redis.zadd(self._key("online:users"), {str(user_id): time.time()})
 
     async def user_offline(self, user_id: int) -> None:
-        """标记用户离线"""
+        """标记用户离线（登出时调用）。"""
         redis = get_redis()
-        await redis.srem(self._key("online:users"), str(user_id))
-        await redis.delete(self._key(f"online:user:{user_id}"))
+        await redis.zrem(self._key("online:users"), str(user_id))
 
     async def get_online_users(self) -> set[str]:
-        """获取在线用户列表"""
+        """返回窗口内有心跳的用户 id 集合，并清理过期成员。"""
         redis = get_redis()
-        return await redis.smembers(self._key("online:users"))
+        now = time.time()
+        cutoff = now - self.ONLINE_WINDOW_SECONDS
+        await redis.zremrangebyscore(self._key("online:users"), 0, cutoff)
+        members = await redis.zrangebyscore(self._key("online:users"), cutoff, now)
+        return set(members)
 
     async def get_online_count(self) -> int:
-        """获取在线用户数"""
-        redis = get_redis()
-        return await redis.scard(self._key("online:users"))
+        """窗口内在线用户数。"""
+        return len(await self.get_online_users())
 
     # ============================================================
     # 4. 会话缓存 — Hash

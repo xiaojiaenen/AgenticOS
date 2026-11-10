@@ -13,16 +13,18 @@ import {
   FlaskConical,
   Globe,
   KeyRound,
+  LineChart,
   LogOut,
   MessageCircle,
   MessageSquare,
+  MessageSquarePlus,
   Plug,
   Puzzle,
   Settings,
   Sparkles,
   Network,
   Users,
-  type LucideIcon,
+  type LucideIcon, Workflow,
 } from 'lucide-react';
 import { Logo } from '../Logo';
 import { MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
@@ -63,7 +65,10 @@ const navGroups: NavGroup[] = [
     label: '系统总览',
     icon: BarChart3,
     description: '查看用户、会话和资源统计',
-    items: [{ id: 'dashboard', icon: BarChart3, label: '系统总览', description: '查看用户、会话和资源统计' }],
+    items: [
+      { id: 'dashboard', icon: BarChart3, label: '系统总览', description: '查看用户、会话和资源统计' },
+      { id: 'user_analytics', icon: LineChart, label: '用户分析', description: '每用户用量、在线状态与常用工具/功能' },
+    ],
   },
   {
     id: 'content',
@@ -75,6 +80,7 @@ const navGroups: NavGroup[] = [
       { id: 'announcements', icon: BellRing, label: '公告设计', description: '设计用户进入系统时看到的公告' },
       { id: 'memory', icon: Brain, label: '记忆管理', description: '查看和管理 AI 学到的用户记忆' },
       { id: 'traces', icon: Activity, label: '运行追踪', description: '每次运行的步骤瀑布、耗时与反馈标注' },
+      { id: 'feedback', icon: MessageSquarePlus, label: '反馈中心', description: '公开反馈广场的状态流转、官方回复与成果看板' },
     ],
   },
   {
@@ -89,6 +95,7 @@ const navGroups: NavGroup[] = [
       { id: 'knowledge', icon: BookOpen, label: '知识库', description: '管理知识库文档与 Wiki 编译' },
       { id: 'website_deploys', icon: Globe, label: '网站部署', description: '审批和管理网站部署请求' },
       { id: 'evals', icon: FlaskConical, label: '评测', description: '用固定用例集回归验证智能体质量' },
+      { id: 'workflows', icon: Workflow, label: '工作流', description: '编排节点流程并挂载为智能体工具' },
     ],
   },
   {
@@ -163,7 +170,7 @@ export const AdminSidebar = React.memo(
       });
     }, []);
 
-    const handleSelect = useCallback(
+    const handleNavClick = useCallback(
       (tab: string) => {
         setActiveTab(tab);
         if (isMobile) onClose();
@@ -181,61 +188,49 @@ export const AdminSidebar = React.memo(
       navigate('/login');
     };
 
-    /** 与旧版一致的菜单项：大图标块 + 标题 + 描述 */
+    /**
+     * 子菜单项：紧凑单行（图标 + 标签），左侧有一条轨道线标识层级。
+     *
+     * 为什么不再放大图标块与描述：侧边栏是导航而非营销位。大图标块让
+     * 「分组」和「子项」看起来同等重要，用户无法判断哪些是可展开分组；
+     * 收进轨道线后，层级一眼可辨，且一屏能放下更多入口。
+     */
     const renderNavItem = (item: NavItem) => {
       const active = activeTab === item.id;
+      const Icon = item.icon;
       return (
-        <motion.button
+        <button
           key={item.id}
           type="button"
-          onClick={() => handleSelect(item.id)}
-          whileTap={{ scale: 0.985 }}
+          onClick={() => handleNavClick(item.id)}
+          aria-current={active ? 'page' : undefined}
+          title={item.description}
           className={cn(
-            'admin-nav-item focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2',
+            'group/nav relative flex w-full items-center gap-2.5 rounded-lg py-2 pl-3 pr-2.5 text-left',
+            'transition-colors duration-150',
             active
-              ? 'admin-nav-item-active text-[var(--foreground)]'
-              : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]',
+              ? 'bg-[var(--surface-2)] font-medium text-[var(--foreground)]'
+              : 'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]/70 hover:text-[var(--foreground)]',
           )}
         >
+          {/* 激活指示条：贴左边缘，与轨道线区分开 */}
           {active && (
             <motion.span
-              layoutId="admin-active-nav"
-              className={cn(
-                'absolute inset-0 rounded-lg border-l-2',
-                'border-l-[var(--primary)] bg-[var(--surface-1)] shadow-md',
-              )}
-              transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+              layoutId="admin-nav-active-bar"
+              className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-[var(--ring)]"
+              transition={{ type: 'spring', stiffness: 400, damping: 32 }}
             />
           )}
-          <div
+          <Icon
+            size={16}
+            strokeWidth={active ? 2.1 : 1.8}
             className={cn(
-              'admin-nav-icon',
-              active
-                ? 'border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)] shadow-button'
-                : 'border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)] group-hover:text-slate-700',
+              'shrink-0 transition-colors',
+              active ? 'text-[var(--ring)]' : 'text-[var(--muted-foreground)] group-hover/nav:text-[var(--foreground)]',
             )}
-          >
-            <item.icon size={18} />
-          </div>
-          <div className="relative min-w-0">
-            <p className="truncate text-sm font-semibold">{item.label}</p>
-            <p
-              className={cn(
-                'mt-1 line-clamp-2 text-xs font-medium leading-5',
-                'text-[var(--muted-foreground)]',
-              )}
-            >
-              {item.description}
-            </p>
-          </div>
-          {active && (
-            <motion.div
-              layoutId="admin-active-dot"
-              className="absolute right-3 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-sky-500"
-              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            />
-          )}
-        </motion.button>
+          />
+          <span className="truncate text-[13px] leading-5">{item.label}</span>
+        </button>
       );
     };
 
@@ -247,13 +242,14 @@ export const AdminSidebar = React.memo(
             'border-[var(--border-subtle)]',
           )}
         >
-          <Logo iconSize={22} className="text-lg" />
+          {/* shrink-0：防止折叠按钮挤压字标 */}
+          <Logo iconSize={22} className="text-lg shrink-0" />
           <button
             type="button"
             onClick={onClose}
             className={cn(
-              'rounded-xl p-2 transition-all active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2',
-              'text-[var(--muted-foreground)] hover:bg-[var(--surface-1)] hover:text-slate-700 hover:shadow-sm',
+              'rounded-xl p-2 transition-all active:scale-90 focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2',
+              'text-[var(--muted-foreground)] hover:bg-[var(--surface-1)] hover:text-[var(--foreground)] hover:shadow-sm',
             )}
             aria-label="关闭导航"
           >
@@ -280,40 +276,44 @@ export const AdminSidebar = React.memo(
 
               return (
                 <section key={group.id} className="pt-2 first:pt-0">
-                  {/* 分组头：沿用 admin-nav-item 视觉语言，点击折叠 */}
+                  {/*
+                   分组头：刻意做成「小号标签行」而不是与子项同形的卡片。
+                   原因：旧版分组头和子项长得一样（都是大图标块 + 标
+                   题 + 描述），只靠缩进区分，用户看不出谁可展开。
+                   现在分组头 = 图标 + 大写字距标签 + 旋转箭头，
+                   子项 = 紧凑单行，两层级一眼可分。
+                  */}
                   <motion.button
                     type="button"
                     onClick={() => toggleGroup(group.id)}
                     aria-expanded={open}
-                    whileTap={{ scale: 0.985 }}
+                    whileTap={{ scale: 0.99 }}
                     className={cn(
-                      'admin-nav-item focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2',
-                      open || hasActive
+                      'group/head flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5',
+                      'transition-colors focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-1',
+                      'focus-visible:outline-none',
+                      hasActive
                         ? 'text-[var(--foreground)]'
-                        : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]',
+                        : 'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]',
                     )}
                   >
-                    <div
+                    <group.icon
+                      size={13}
+                      strokeWidth={2}
                       className={cn(
-                        'admin-nav-icon',
-                        open || hasActive
-                          ? 'border-zinc-800/20 bg-zinc-900/10 text-[var(--foreground)]'
-                          : 'border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--muted-foreground)]',
+                        'shrink-0 transition-colors',
+                        hasActive ? 'text-[var(--foreground)]' : 'text-[var(--muted-foreground)]',
                       )}
-                    >
-                      <group.icon size={18} />
-                    </div>
-                    <div className="relative min-w-0 flex-1 text-left">
-                      <p className="truncate text-sm font-semibold">{group.label}</p>
-                      <p
-                        className={cn(
-                          'mt-1 line-clamp-2 text-xs font-medium leading-5',
-                          'text-[var(--muted-foreground)]',
-                        )}
-                      >
-                        {group.description}
-                      </p>
-                    </div>
+                    />
+                    <span className="min-w-0 flex-1 truncate text-left text-[10.5px] font-semibold uppercase tracking-[0.1em]">
+                      {group.label}
+                    </span>
+                    {hasActive && !open && (
+                      <span
+                        className="size-1.5 shrink-0 rounded-full bg-[var(--foreground)]"
+                        aria-hidden
+                      />
+                    )}
                     <motion.span
                       animate={{ rotate: open ? 180 : 0 }}
                       transition={{ duration: 0.2 }}
@@ -333,7 +333,7 @@ export const AdminSidebar = React.memo(
                         transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-1 space-y-1 pl-2">{group.items.map((item) => renderNavItem(item))}</div>
+                        <div className="mt-1 ml-3 space-y-0.5 border-l border-[var(--border-subtle)] pl-3">{group.items.map((item) => renderNavItem(item))}</div>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -348,7 +348,7 @@ export const AdminSidebar = React.memo(
             type="button"
             onClick={() => navigate('/chat')}
             className={cn(
-              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium shadow-lg transition-all focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2',
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium shadow-lg transition-all focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2',
               'bg-zinc-900 text-white hover:bg-zinc-800 hover:shadow-button',
             )}
           >
@@ -390,7 +390,7 @@ export const AdminSidebar = React.memo(
               type="button"
               onClick={handleLogout}
               className={cn(
-                'rounded-xl p-2 transition-all hover:scale-110 active:scale-90 focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2',
+                'rounded-xl p-2 transition-all hover:scale-110 active:scale-90 focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2',
                 'text-[var(--muted-foreground)] hover:bg-rose-50 hover:text-rose-500',
               )}
               title="退出登录"

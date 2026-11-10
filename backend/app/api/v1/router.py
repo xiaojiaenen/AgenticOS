@@ -11,6 +11,10 @@ from app.api.v1.endpoints.email import router as email_router
 from app.api.v1.endpoints.external_systems import admin_router as external_systems_admin_router
 from app.api.v1.endpoints.external_systems import router as integrations_router
 from app.api.v1.endpoints.files import router as files_router
+from app.api.v1.endpoints.feedback import router as feedback_router
+from app.api.v1.endpoints.feedback import admin_router as feedback_admin_router
+from app.api.v1.endpoints.presence import router as presence_router
+from app.api.v1.endpoints.user_analytics import router as user_analytics_router
 from app.api.v1.endpoints.health import router as health_router
 from app.api.v1.endpoints.knowledge import router as knowledge_router
 from app.api.v1.endpoints.llm_providers import router as llm_providers_router
@@ -27,6 +31,9 @@ from app.api.v1.endpoints.users import router as users_router
 from app.api.v1.endpoints.website import router as website_router
 from app.api.v1.endpoints.website_preview import router as website_preview_router
 from app.api.v1.endpoints.website import admin_router as website_admin_router
+from app.api.v1.endpoints.workflows import router as workflows_router
+from app.api.v1.endpoints.wrapped import router as wrapped_router
+from app.api.v1.endpoints.wrapped import admin_router as wrapped_admin_router
 
 router = APIRouter()
 router.include_router(announcements_router)
@@ -41,6 +48,10 @@ router.include_router(mcp_admin_router)
 router.include_router(external_systems_admin_router)
 router.include_router(integrations_router)
 router.include_router(files_router)
+router.include_router(feedback_router)
+router.include_router(feedback_admin_router)
+router.include_router(presence_router)
+router.include_router(user_analytics_router)
 router.include_router(health_router)
 router.include_router(knowledge_router)
 router.include_router(llm_providers_router)
@@ -56,3 +67,6 @@ router.include_router(users_router)
 router.include_router(website_router)
 router.include_router(website_preview_router)
 router.include_router(website_admin_router)
+router.include_router(workflows_router)
+router.include_router(wrapped_router)
+router.include_router(wrapped_admin_router)

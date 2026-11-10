@@ -46,6 +46,9 @@ class UserModel(Base):
     role: Mapped[str] = mapped_column(String(32), default="user", index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     auth_source: Mapped[str] = mapped_column(String(32), default="local", server_default="local")
+    # 最近一次通过鉴权的时间（get_current_user 心跳刷新）。用于「最近活跃」
+    # 展示与用户分析；「当前在线」另走 Redis 5 分钟心跳（cache_service）。
+    last_active_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
@@ -193,9 +196,12 @@ class AgentProfileModel(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     listed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_builtin: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # 内置智能体被管理员改过的时间戳。非空 = 尊重现有配置，启动种子不再回写
+    # 默认 prompt / 工具开关；清空（一键还原）后会重新跟随内置默认值。
+    customized_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
     max_steps: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
-    # 所有者：NULL = 平台内置（任何角色都不可删改）；有值 = 该用户自建，仅本人与管理员可管理
+    # 所有者：NULL = 平台内置（管理员可改、不可删）；有值 = 该用户自建，仅本人与管理员可管理
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     # private = 仅自己可见可用；public = 可出现在商店供他人安装
     visibility: Mapped[str] = mapped_column(String(16), default="private", index=True)
@@ -1137,3 +1143,133 @@ class AuditLogModel(Base):
     # 已脱敏的 JSON 文本（密码/token 不落库，长值截断）
     detail_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, index=True)
+
+
+class WorkflowModel(Base):
+    """工作流定义（P0-3：节点图 DSL，JSON 存储）。
+
+    ``graph_json`` 结构::
+
+        {
+          "nodes": [{"id": "start", "type": "start"},
+                    {"id": "n1", "type": "llm", "params": {...}}, ...],
+          "edges": [{"from": "start", "to": "n1"},
+                    {"from": "cond", "to": "n2", "label": "true"}, ...]
+        }
+
+    校验规则（validate_workflow_graph）：单 start、无环、每条边两端存在、
+    非 end 节点恰一条出边、condition 节点恰两条出边且标 true/false。
+    v1 是「单路径 + 条件分叉」的流式图，不是并行 DAG —— 够覆盖
+    检索→判断→生成的流程型需求，画布化后再扩。
+    """
+
+    __tablename__ = "workflows"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(120), unique=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    graph_json: Mapped[str] = mapped_column(Text, default="{}")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class WorkflowRunModel(Base):
+    """工作流运行记录（步骤级可追溯，支持人工输入节点暂停/恢复）。
+
+    ``context_json`` 在每个节点完成后整体落库（inputs + 各节点输出），
+    因此 ``waiting_input`` 状态的 run 在进程重启后仍可恢复 —— 恢复不依赖
+    任何内存态（与 approvals 的 Redis Future 不同，这里没有并发语义，
+    DB 就是唯一事实源）。
+    """
+
+    __tablename__ = "workflow_runs"
+    __table_args__ = (
+        Index("ix_workflow_runs_workflow_started", "workflow_id", "started_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    workflow_id: Mapped[int] = mapped_column(ForeignKey("workflows.id"), index=True)
+    # running / waiting_input / succeeded / failed
+    status: Mapped[str] = mapped_column(String(20), default="running", index=True)
+    inputs_json: Mapped[str] = mapped_column(Text, default="{}")
+    # 每节点完成后的完整上下文快照（inputs + nodes.{id}.output）
+    context_json: Mapped[str] = mapped_column(Text, default="{}")
+    # 步骤轨迹：[{node_id, type, status, duration_ms, output_preview, error}]
+    steps_json: Mapped[str] = mapped_column(Text, default="[]")
+    outputs_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # waiting_input 时的暂停点
+    waiting_node_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    waiting_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 人工输入表单字段（[{key,label,type,required,description}] 的 JSON）——
+    # 智能体工具桥在对话里渲染输入表单用；管理面板/无会话场景可留空
+    waiting_fields_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    triggered_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    started_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    finished_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# 反馈广场（GitHub-Issue 式，仅登录用户可见）
+# ──────────────────────────────────────────────────────────────────────
+
+
+class FeedbackIssueModel(Base):
+    """一条公开反馈/建议/缺陷。默认全员可见，private 仅提交者+管理员。"""
+    __tablename__ = "feedback_issues"
+    __table_args__ = (
+        Index("ix_feedback_issues_status_created", "status", "created_at"),
+        Index("ix_feedback_issues_votes", "vote_count"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    # bug / feature / question / other
+    type: Mapped[str] = mapped_column(String(20), default="feature", index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text, default="")
+    # open / confirmed / in_progress / resolved / shipped / closed
+    status: Mapped[str] = mapped_column(String(20), default="open", index=True)
+    # low / medium / high（管理员设定）
+    priority: Mapped[str] = mapped_column(String(10), default="medium")
+    # public / private
+    visibility: Mapped[str] = mapped_column(String(10), default="public", index=True)
+    # 自动附带的脱敏上下文：{page, session_id, mode, model, trace_id, user_agent}
+    context_json: Mapped[str] = mapped_column(Text, default="{}")
+    # 反规范化计数，便于排序/列表，避免每次 JOIN 聚合
+    vote_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    comment_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    resolved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    shipped_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, index=True)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class FeedbackCommentModel(Base):
+    """反馈下的讨论/官方回复/系统状态变更评论。"""
+    __tablename__ = "feedback_comments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    issue_id: Mapped[int] = mapped_column(ForeignKey("feedback_issues.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    body: Mapped[str] = mapped_column(Text, default="")
+    is_official: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_system: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
+class FeedbackVoteModel(Base):
+    """「我也有这个问题 / +1」投票，一人一帖一票。"""
+    __tablename__ = "feedback_votes"
+    __table_args__ = (
+        UniqueConstraint("issue_id", "user_id", name="uq_feedback_votes_issue_user"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    issue_id: Mapped[int] = mapped_column(ForeignKey("feedback_issues.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)

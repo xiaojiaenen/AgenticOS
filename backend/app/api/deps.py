@@ -49,6 +49,19 @@ def get_current_user(
     user = auth_service.get_user(user_id)
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号未激活")
+
+    # 「最近活跃」持久化：节流到 60s 一次，避免每个请求都写库。
+    # 「当前在线」另由前端周期调用 /presence/heartbeat 走 Redis 心跳。
+    try:
+        from app.core.timezone import app_now, to_app_timezone
+
+        now = app_now()
+        last = to_app_timezone(user.last_active_at) if user.last_active_at else None
+        if last is None or (now - last).total_seconds() > 60:
+            user.last_active_at = now
+            db.commit()
+    except Exception:  # noqa: BLE001 -- 活跃时间刷新失败不影响鉴权
+        db.rollback()
     return user
 
 
@@ -85,7 +98,41 @@ def require_feature(action: str, feature: str):
         user: UserModel = Depends(get_current_user),
         db: Session = Depends(get_db),
     ) -> UserModel:
-        if not get_permission_service().enforce_for_user(user, action, "feature", feature):
+        service = get_permission_service()
+        # 注意：require_feature 保持 **fail-closed**（未授权即拒绝）——
+        # 这是既有契约，tests/test_permissions 有专门用例钉住。
+        # 「新功能未配置时放行」的兼容语义只用于工作流（见
+        # require_feature_compatible），不要改这里。
+        if not service.enforce_for_user(user, action, "feature", feature):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied: feature:{feature} ({action})",
+            )
+        return user
+
+    return _dependency
+
+
+def require_feature_compatible(action: str, feature: str):
+    """功能级鉴权的**向后兼容**变体：新功能未配置前放行。
+
+    与 ``require_feature`` 的差别只有一条：策略表里**从未出现过**该 feature
+    时直接放行，一旦管理员显式写过（授权或收权）就严格按 Casbin 判定。
+
+    用途：给**新上线**的功能接门禁。否则升级瞬间所有存量普通用户都会
+    失去刚上线的能力（默认策略只有 admin 通配，fail-closed 对他们是全拒）。
+    管理员配置过一次之后，行为就与 ``require_feature`` 完全一致。
+    """
+    from app.services.permission_service import get_permission_service
+
+    def _dependency(
+        user: UserModel = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> UserModel:
+        service = get_permission_service()
+        if service.feature_unconfigured(feature):
+            return user
+        if not service.enforce_for_user(user, action, "feature", feature):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Permission denied: feature:{feature} ({action})",

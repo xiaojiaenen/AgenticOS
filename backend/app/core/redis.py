@@ -23,6 +23,35 @@ from typing import Any
 _logger = logging.getLogger("redis")
 
 
+def parse_cluster_nodes(url: str) -> tuple[list[tuple[str, int]], str | None, str | None]:
+    """解析逗号分隔的多节点 URL: redis://user:pass@host1:6379,...
+
+    模块级函数：manager 之外自建客户端的模块（session_artifacts 等）也要
+    支持 cluster，不能各自再抄一份解析。
+
+    Returns:
+        (nodes, username, password)
+    """
+    from urllib.parse import unquote, urlparse
+
+    nodes: list[tuple[str, int]] = []
+    password = None
+    username = None
+    for item in url.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        parsed = urlparse(item)
+        host = parsed.hostname or "localhost"
+        port = parsed.port or 6379
+        if parsed.password and not password:
+            password = unquote(parsed.password)
+        if parsed.username and not username:
+            username = unquote(parsed.username)
+        nodes.append((host, port))
+    return nodes, username, password
+
+
 class MemoryRedis:
     """内存 Redis fallback，开发环境使用。"""
 
@@ -76,11 +105,31 @@ class MemoryRedis:
             return None
         return self._data.get(key)
 
-    async def set(self, key: str, value: str, ex: int | None = None) -> bool:
-        self._data[key] = value
-        if ex:
-            self._expires[key] = time.time() + ex
-        return True
+    async def set(
+        self,
+        key: str,
+        value: str,
+        ex: int | None = None,
+        nx: bool = False,
+        xx: bool = False,
+    ) -> bool:
+        """对齐真实 Redis 的 ``SET`` 语义。
+
+        ``nx``（只在键不存在时写入）是限流的关键：验证码发送间隔、登录失败
+        计数都靠它做原子占位。早先这里只接受 ``ex``，调用方传 ``nx=True``
+        会直接抛 TypeError —— 于是内存 fallback 模式下验证码接口 500。
+        """
+        with self._lock:
+            self._is_expired(key)
+            exists = key in self._data
+            if nx and exists:
+                return False
+            if xx and not exists:
+                return False
+            self._data[key] = value
+            if ex:
+                self._expires[key] = time.time() + ex
+            return True
 
     async def delete(self, *keys: str) -> int:
         count = 0
@@ -190,6 +239,19 @@ class MemoryRedis:
         self._is_expired(key)
         return len(self._sorted_sets.get(key, []))
 
+    async def zrangebyscore(self, key: str, min_score: float, max_score: float) -> list[str]:
+        self._is_expired(key)
+        items = self._sorted_sets.get(key, [])
+        return [m for m, s in items if min_score <= s <= max_score]
+
+    async def zrem(self, key: str, *members: str) -> int:
+        if key not in self._sorted_sets:
+            return 0
+        before = len(self._sorted_sets[key])
+        drop = set(members)
+        self._sorted_sets[key] = [(m, s) for m, s in self._sorted_sets[key] if m not in drop]
+        return before - len(self._sorted_sets[key])
+
     # --- Hash 操作 ---
     async def hset(self, key: str, field: str | None = None, value: str | None = None, mapping: dict | None = None) -> int:
         if key not in self._hashes:
@@ -288,24 +350,7 @@ class RedisManager:
         Returns:
             (nodes, username, password)
         """
-        from urllib.parse import unquote, urlparse
-
-        nodes: list[tuple[str, int]] = []
-        password = None
-        username = None
-        for url in self._url.split(","):
-            url = url.strip()
-            if not url:
-                continue
-            parsed = urlparse(url)
-            host = parsed.hostname or "localhost"
-            port = parsed.port or 6379
-            if parsed.password and not password:
-                password = unquote(parsed.password)
-            if parsed.username and not username:
-                username = unquote(parsed.username)
-            nodes.append((host, port))
-        return nodes, username, password
+        return parse_cluster_nodes(self._url)
 
     async def init(self, redis_url: str = "", cluster: bool = False) -> None:
         self._url = redis_url
@@ -322,7 +367,14 @@ class RedisManager:
             if cluster:
                 from redis.asyncio.cluster import ClusterNode, RedisCluster
 
-                nodes, username, password = self._parse_cluster_nodes()
+                nodes, username, password = self.parse_cluster_nodes()
+                if not nodes:
+                    raise ValueError(
+                        "REDIS_CLUSTER=true 但 REDIS_URL 里解析不出任何节点。"
+                        "集群模式的 URL 必须是逗号分隔的多节点，"
+                        "例如 redis://user:pass@host1:6379,redis://user:pass@host2:6379"
+                        "（不要带 /0 之类的 db 路径）"
+                    )
                 kwargs = {"startup_nodes": [ClusterNode(host, port) for host, port in nodes], "password": password, "decode_responses": True}
                 if username:
                     kwargs["username"] = username
@@ -335,8 +387,23 @@ class RedisManager:
             await self._client.ping()
             self._is_memory = False
             _logger.info("Redis 连接成功")
+        except (AttributeError, TypeError, NameError, ImportError):
+            # 编程错误（方法名写错、签名不符、缺依赖）绝不能被当成"连不上"
+            # 然后静默 fallback —— 集群模式曾因 `self._parse_cluster_nodes()`
+            # 与实际定义 `parse_cluster_nodes` 差一个下划线，永远连不上，
+            # 而日志只说"连接失败"，排查方向全被带偏到网络和密码上。
+            # 这类错误直接抛出去，让启动失败、问题立刻暴露。
+            _logger.error("Redis 初始化代码错误，不是网络问题", exc_info=True)
+            raise
         except Exception as e:
-            _logger.warning(f"Redis 连接失败: {e}，fallback 到内存")
+            # 真正的连接类错误（DNS、拒绝连接、认证失败、集群不可用）才 fallback。
+            # 内存 fallback 是单机/开发可接受，多实例部署时功能会残缺（缓存、
+            # 限流、任务派发都退化成进程内状态），因此日志要显眼。
+            _logger.warning(
+                "Redis 连接失败: %s，fallback 到内存 —— "
+                "多实例部署下缓存/限流/任务派发会退化为进程内状态，请尽快修复",
+                e,
+            )
             self._client = MemoryRedis()
             self._is_memory = True
 
@@ -360,7 +427,13 @@ class RedisManager:
 
     async def close(self) -> None:
         if self._client and not self._is_memory:
-            await self._client.close()
+            # redis-py 5.x 起 close() 已废弃，要用 aclose()；两者在旧版等价。
+            # 直接调 close() 会打 DeprecationWarning，测试输出被噪声占满。
+            aclose = getattr(self._client, "aclose", None)
+            if callable(aclose):
+                await aclose()
+            else:  # pragma: no cover —— 兼容更老的 redis 客户端
+                await self._client.close()
 
 
 # 全局单例
