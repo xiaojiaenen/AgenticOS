@@ -68,10 +68,24 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
   const rawText = useOrderedRender && message ? collectBlockText(message) : message?.text || '';
   const visibleText = preprocessChartMarkers(rawText);
   const reasoningText = useOrderedRender ? '' : message?.reasoningText || '';
-  const hasPptArtifact = !isUser && Boolean(message?.pptArtifact);
-  const hasWebsiteArtifact = !isUser && Boolean(message?.websiteArtifact);
   const hasAnyReasoning = reasoningText.trim().length > 0;
-  const shouldRenderBubble = isTyping || isUser || visibleText.trim().length > 0 || hasAnyReasoning || (!hasPptArtifact && !hasWebsiteArtifact);
+  // 气泡只在「真的有东西可看」时绘制。
+  //
+  // 早先的条件末尾是 `|| (!hasPptArtifact && !hasWebsiteArtifact)` —— 它的
+  // 原意是「没有产物时才画文字气泡，有产物就让产物卡片独占」，但写成
+  // 「没有产物」等于**恒真**，于是任何空消息都会画出一只空气泡。
+  // 停止/撞步骤上限的轮次里这类空 assistant 不止一条，用户看到的就是
+  // 「停止后一路空气泡」。
+  //
+  // 产物已经由 PptArtifactCard / WebsiteArtifactCard / ChartMessage /
+  // A2uiRenderer 各自渲染，不依赖这个气泡承载。
+  const shouldRenderBubble =
+    isTyping
+    || isUser
+    || visibleText.trim().length > 0
+    || hasAnyReasoning;
+  // 注意不要把 toolCalls 算进来：工具链是在气泡**外面**单独渲染的
+  // （见下方「工具链调用历史」块），算进来只会凭空画一只空泡。
   const hasStructuredContent = !isUser && /```|(?:^|\n)\|.+\|/.test(visibleText);
   const showAssistantWaiting = !isUser && Boolean(isStreaming) && !visibleText.trim() && !hasAnyReasoning && !isTyping;
   const canCopyMessage = visibleText.trim().length > 0;

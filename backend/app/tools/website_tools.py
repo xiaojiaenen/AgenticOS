@@ -157,9 +157,22 @@ _VANILLA_STACK = "vanilla"
 def _is_vanilla_static(project_dir: Path) -> bool:
     """vanilla 站是不是纯静态（不需要 npm 构建）。
 
-    判定刻意保守：只有 ``detect_stack`` 判成 vanilla **且** 没有任何
-    package.json 依赖时才算。一旦用户在 vanilla 里加了 Vite/PostCSS 之类
-    的构建链，仍然走 npm，不会把需要编译的站点当成静态站直接拷过去。
+    判据是「**浏览器能不能直接跑**」，而不是「有没有 package.json 依赖」。
+    这个区别很关键：vanilla 模板本身自带 ``package.json``（只有 ``vite`` 这个
+    devDependency，用来本地 dev server + 打包），但页面里一行裸模块导入都没有
+    —— ``index.html`` 直接 ``<link>`` 引 css、``<script>`` 引 js，``main.js``
+    全是原生 DOM 代码。这种站复制到 dist 就能托管，跑 npm 纯属浪费。
+
+    早先按「有任何 dependencies/devDependencies 就走 npm」判定，结果
+    vanilla 模板自带 vite → 永远走 npm → 内网 npm install 必挂
+    （EAI_AGAIN），用户看到「构建失败」而站点其实完全不需要构建。
+
+    真正的判据：**源码里有没有裸模块引用**（``import x from 'pkg'``）。
+    有 → 浏览器无法直接解析，必须打包；没有 → 静态站。
+
+    仍然保守处理：``detect_stack`` 判成 vanilla、有 index.html、
+    且没有裸模块引用，三条同时满足才算静态站。任何一条不确定都走 npm，
+    不会把需要编译的站点当静态站直接拷过去。
     """
     try:
         from app.services.website_stack import detect_stack
@@ -173,19 +186,71 @@ def _is_vanilla_static(project_dir: Path) -> bool:
     if not (project_dir / "index.html").is_file():
         return False
 
-    pkg = project_dir / "package.json"
-    if not pkg.exists():
-        return True
-    try:
-        import json
+    return not _has_bare_module_import(project_dir)
 
-        data = json.loads(pkg.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return False
-    for key in ("dependencies", "devDependencies"):
-        if data.get(key):
-            return False
-    return True
+
+# 裸模块导入：``import x from 'pkg'`` / ``import 'pkg'`` / ``export ... from 'pkg'``，
+# 其中 ``pkg`` 不是相对路径也不是绝对 URL。这类文件浏览器无法直接执行，
+# 必须经过打包器解析（Vite/Rollup/Webpack）。
+#
+# 只扫前端源码后缀：package.json / vite.config.js 里出现 import 不算数
+# （那些是 Node 侧配置文件，本来就不进浏览器）。
+_BARE_IMPORT_RE = re.compile(
+    r"""^\s*(?:import\s[^'"]*from\s*|import\s*|export\s[^'"]*from\s*)['"]([^'"]+)['"]""",
+    re.MULTILINE,
+)
+_BROWSER_SOURCE_SUFFIXES = {".js", ".mjs", ".jsx", ".ts", ".tsx", ".vue"}
+
+# 构建工具配置文件：只在 Node 侧执行，产物里不会出现，不能作为「需要打包」的证据。
+# 典型例子是模板自带的 ``vite.config.js``——它 ``import { defineConfig } from 'vite'``，
+# 但页面本身是纯静态的。不排除它，vanilla 模板永远判不成静态站。
+_NODE_ONLY_CONFIG_FILES = {
+    "vite.config.js", "vite.config.ts", "vite.config.mjs",
+    "webpack.config.js", "webpack.config.ts",
+    "rollup.config.js", "rollup.config.ts", "rollup.config.mjs",
+    "postcss.config.js", "postcss.config.cjs", "postcss.config.mjs",
+    "tailwind.config.js", "tailwind.config.ts", "tailwind.config.cjs",
+    "eslint.config.js", "eslint.config.mjs", ".eslintrc.js", ".eslintrc.cjs",
+    "babel.config.js", "babel.config.cjs", "svelte.config.js",
+    "nuxt.config.js", "nuxt.config.ts", "astro.config.mjs",
+}
+
+
+def _has_bare_module_import(project_dir: Path) -> bool:
+    """源码里是否存在浏览器无法直接解析的裸模块导入。
+
+    相对路径（``./x.js``）、绝对路径（``/x.js``）、URL（``https://...``）
+    都不算 —— 浏览器能自己取到。只有包名（``import { ref } from 'vue'``）
+    才需要打包器介入。
+    """
+    skip_dirs = {"dist", "node_modules", ".git"}
+    for path in project_dir.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in _BROWSER_SOURCE_SUFFIXES:
+            continue
+        if path.name in _NODE_ONLY_CONFIG_FILES:
+            continue
+        try:
+            rel_parts = path.relative_to(project_dir).parts
+        except ValueError:
+            continue
+        if rel_parts and rel_parts[0] in skip_dirs:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            # 读不了就当有依赖，宁可多跑一次 npm 也不要产出坏站点
+            return True
+        for match in _BARE_IMPORT_RE.finditer(text):
+            spec = match.group(1).strip()
+            if not spec:
+                continue
+            if spec.startswith(("./", "../", "/", "http://", "https://", "//")):
+                continue
+            # 协议相对 / 带协议的（data:, blob:）浏览器都能处理
+            if ":" in spec.split("/")[0]:
+                continue
+            return True
+    return False
 
 
 def _emit_static_dist(project_dir: Path) -> str:
