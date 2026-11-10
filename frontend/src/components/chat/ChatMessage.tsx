@@ -355,7 +355,19 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
           <div className={cn("text-[9px] font-semibold uppercase tracking-[0.1em] px-2 mt-1.5 flex items-center gap-2",
             "text-[var(--muted-foreground)]"
           )}>
-            <span>{(() => { const ts = parseInt(message.id); return isNaN(ts) ? '' : new Date(ts).toLocaleTimeString('zh-CN', { timeZone: APP_TIME_ZONE, hour: '2-digit', minute: '2-digit' }); })()}</span>
+            <span>{(() => {
+              // 优先用 createdAt：历史消息来自后端 created_at，流式消息由前端
+              // 生成。退回 parseInt(message.id) 只为兼容旧缓存（其 id 带时间戳前缀）。
+              const iso = message.createdAt;
+              if (iso) {
+                const d = new Date(iso);
+                if (!isNaN(d.getTime())) {
+                  return d.toLocaleTimeString('zh-CN', { timeZone: APP_TIME_ZONE, hour: '2-digit', minute: '2-digit' });
+                }
+              }
+              const ts = parseInt(message.id);
+              return isNaN(ts) ? '' : new Date(ts).toLocaleTimeString('zh-CN', { timeZone: APP_TIME_ZONE, hour: '2-digit', minute: '2-digit' });
+            })()}</span>
             {!isUser && visibleText && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="transition-opacity md:opacity-0 md:group-hover:opacity-100">· {visibleText.length} 字</motion.span>}
             {canCopyMessage && (
               <button onClick={handleCopy} title="复制" aria-label="复制消息" className={cn("transition-colors duration-200",

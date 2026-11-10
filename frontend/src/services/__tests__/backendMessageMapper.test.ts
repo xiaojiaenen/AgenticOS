@@ -137,3 +137,23 @@ describe('mapBackendMessages', () => {
     expect(msgs[0].a2uiMessages).toBeUndefined();
   });
 });
+
+describe('时间戳透传（历史消息时间不能丢）', () => {
+  it('created_at 透传为 createdAt', () => {
+    // 后端只返回 created_at，前端 ChatMessage 此前靠 parseInt(message.id)
+    // 从流式 id 抠时间；历史消息 id 是 "backend-0"，parseInt 得到 NaN，
+    // 于是刷新后整片时间消失。
+    const raw: BackendMessage[] = [
+      { role: 'user', content: '你好', created_at: '2026-11-10T09:12:00+08:00' },
+      assistant(undefined, { content: '在的', created_at: '2026-11-10T09:12:30+08:00' }),
+    ];
+    const msgs = mapBackendMessages(raw);
+    expect(msgs[0].createdAt).toBe('2026-11-10T09:12:00+08:00');
+    expect(msgs[1].createdAt).toBe('2026-11-10T09:12:30+08:00');
+  });
+
+  it('没有 created_at 时 createdAt 为 undefined（不伪造时间）', () => {
+    const msgs = mapBackendMessages([assistant(undefined, { content: 'hi' })]);
+    expect(msgs[0].createdAt).toBeUndefined();
+  });
+});

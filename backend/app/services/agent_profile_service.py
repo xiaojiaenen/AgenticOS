@@ -222,6 +222,11 @@ class AgentProfileService:
                 if slug == "website":
                     changed = self._upgrade_website_profile_tools(db, profile) or changed
             changed = self._ensure_profile_skills(db, profile) or changed
+
+        # 一次性纠正（与 customized 无关）：deploy_website 不该走 HITL。
+        # 放在循环外只跑一次，扫全表所有 profile。
+        changed = self._upgrade_deploy_website_approval(db) or changed
+
         # Clean up old ppt-svg profile (merged into ppt)
         old_ppt_svg = db.scalar(select(AgentProfileModel).where(AgentProfileModel.slug == "ppt-svg"))
         if old_ppt_svg is not None:
@@ -285,6 +290,30 @@ class AgentProfileService:
             db.add(npm_tool)
             return True
         return False
+
+    @staticmethod
+    def _upgrade_deploy_website_approval(db: Session) -> bool:
+        """一次性纠正：deploy_website 不再需要 HITL 审批。
+
+        它执行时会自己创建部署审批单（website_deploys.status=pending），
+        再套一层工具审批就是同一个动作批两次 —— 用户点一次「部署」，管理
+        后台冒出两个待审批项。
+
+        默认值改了不够：已存库的行不会自动跟随。这里扫一遍把残留的
+        requires_approval=True 清掉。只动这一行、只清这个开关，不碰其它配置。
+        """
+        rows = db.scalars(
+            select(AgentProfileToolModel).where(
+                AgentProfileToolModel.tool_name == "deploy_website",
+                AgentProfileToolModel.requires_approval.is_(True),
+            )
+        ).all()
+        if not rows:
+            return False
+        for row in rows:
+            row.requires_approval = False
+            db.add(row)
+        return True
 
     @staticmethod
     def _resolve_system_prompt(requested: str, response_mode: str) -> str:

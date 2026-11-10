@@ -50,6 +50,14 @@ export type Message = {
   id: string;
   role: 'user' | 'model';
   text: string;
+  /**
+   * 落库时间（ISO 字符串）。历史消息来自后端 `created_at`，流式消息由前端
+   * 用 `Date.now()` 生成。
+   *
+   * 不要再用 `parseInt(message.id)` 抠时间：那只对流式 id（时间戳前缀）成立，
+   * 历史消息 id 是 `backend-0` 这种，parseInt 得到 NaN，时间会整块消失。
+   */
+  createdAt?: string;
   reasoningText?: string;
   toolCalls?: ToolCall[];
   /** 有序内容块（流式按序渲染）；缺失时回退旧式三桶布局 */

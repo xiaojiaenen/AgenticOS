@@ -488,6 +488,26 @@ class DatabaseAgentStorage:
                 ) or 0
         return await asyncio.to_thread(_run)
 
+    async def load_message_timestamps(self, session_id: str) -> list[str | None]:
+        """按落库顺序返回每条消息的时间（ISO 字符串），供前端显示。
+
+        为什么要单独一个方法：``load()`` 把行反序列化成 wuwei 的 Message
+        对象，而 Message 上没有 created_at —— 时间只在 DB 行上。前端历史
+        消息的时间戳此前靠 ``parseInt(message.id)`` 从流式 id 里抠，历史
+        消息 id 是 ``backend-0`` 这种，抠出来是 NaN，于是时间整块消失。
+
+        顺序必须与 ``load()`` 一致（``id.asc()``），调用方按下标配对。
+        """
+        def _run():
+            with self.session_factory() as db:
+                rows = db.execute(
+                    select(AgentMessageModel.created_at)
+                    .where(AgentMessageModel.session_id == session_id)
+                    .order_by(AgentMessageModel.id.asc())
+                ).all()
+            return [isoformat_app_timezone(row[0]) for row in rows]
+        return await asyncio.to_thread(_run)
+
     async def load_message_signatures(self, session_id: str) -> list[str]:
         """按顺序返回已落库消息的指纹，供调用方对齐内存与 DB 的分界点。
 

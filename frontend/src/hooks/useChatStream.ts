@@ -440,6 +440,9 @@ export function useChatStream({
               id: assistantMessageId!,
               role: 'model',
               text: '',
+              // 显式带时间：ChatMessage 不再从 id 里抠（历史消息 id 是
+              // "backend-0"，抠出来是 NaN，刷新后时间会整块消失）
+              createdAt: new Date().toISOString(),
               pptArtifact: isPpt ? { status: 'generating', mode: 'ppt' as const } : undefined,
               websiteArtifact: isWebsite ? { status: 'generating' } : undefined,
             };

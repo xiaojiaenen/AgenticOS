@@ -18,6 +18,8 @@ export type BackendMessage = {
   metadata?: Record<string, unknown>;
   /** 思考内容（AIMessage.reasoning_content，5.5 起后端透传） */
   reasoning_content?: string | null;
+  /** 落库时间（ISO 字符串）。只在 DB 行上有，wuwei 的 Message 对象没有 */
+  created_at?: string | null;
 };
 
 /**
@@ -60,6 +62,7 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {
       messages.push({
         id: `backend-${messages.length}`,
         role: 'user',
+        createdAt: msg.created_at || undefined,
         text: msg.content || '',
       });
     } else if (msg.role === 'assistant') {
@@ -119,6 +122,10 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {
       messages.push({
         id: `backend-${messages.length}`,
         role: 'model',
+        // 时间戳必须显式透传：ChatMessage 原来靠 parseInt(message.id) 从
+        // 流式 id 里抠时间，历史消息 id 是 "backend-0"，parseInt 得到 NaN，
+        // 于是刷新后整片时间消失。
+        createdAt: msg.created_at || undefined,
         text: msg.content || '',
         reasoningText,
         toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined,

@@ -939,11 +939,32 @@ class StreamOrchestrator:
                 task_had_error = run_had_error
                 try:
                     if hasattr(session, "system_prompt"):
-                        # Shield to ensure DB write completes even when the
-                        # producer task is cancelled by client disconnecting
-                        # the SSE stream, so connections are returned to the pool.
+                        # 两步落库必须**各自独立**失败处理。
+                        #
+                        # 曾经它们在同一个 try 里顺序执行：save_meta 抛错
+                        # （实测 MySQL `metadata_json` 撞 TEXT 64KB 上限，
+                        # 报 1406 Data too long）会让后面的消息落库整轮不执行。
+                        # 后果是用户看到「模型说了话但界面没内容」，刷新后
+                        # 只剩思考（挂在更早的消息上），工具链也断在中间 ——
+                        # 表现和「模型没回复」几乎一样，极难定位。
+                        #
+                        # 消息是用户可见的产出，元数据只是内部状态。让后者
+                        # 拖垮前者是本末倒置，所以拆成两个独立 try。
                         _logger.info(f"produce_events finally: saving meta for session {session.session_id}")
-                        await asyncio.shield(self.storage.save_meta(session))
+                        try:
+                            await asyncio.shield(self.storage.save_meta(session))
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception as meta_exc:  # noqa: BLE001
+                            # 元数据失败只降级不致命：会话下一轮会重建 metadata，
+                            # 而已经生成的回复必须留住。
+                            _logger.warning(
+                                "save_meta failed (session=%s)，继续落库消息：%s",
+                                session.session_id,
+                                meta_exc,
+                                exc_info=True,
+                            )
+
                         # 保存消息到数据库（wuwei 的 AgentSession 只在内存中存储消息）
                         _logger.info(f"produce_events finally: persisting messages for session {session.session_id}")
                         await asyncio.shield(self._persist_session_messages(session))

@@ -150,7 +150,11 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
             "memory": {"enabled": True, "requires_approval": False},
             "knowledge": {"enabled": True, "requires_approval": False},
             "build_website": {"enabled": True, "requires_approval": False},
-            "deploy_website": {"enabled": True, "requires_approval": True},
+            # deploy_website **不走 HITL**：它执行时会自己创建一条部署审批单
+            # （website_deploys.status=pending，管理员在部署队列里批）。
+            # 再套一层工具审批就是同一个动作批两次 —— 用户点一次「部署」，
+            # 后台冒出两个待审批项，管理员点完一个又来一个。
+            "deploy_website": {"enabled": True, "requires_approval": False},
         },
         "email": {
             "calc": {"enabled": False, "requires_approval": False},

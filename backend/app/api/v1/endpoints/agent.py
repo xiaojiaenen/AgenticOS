@@ -257,6 +257,15 @@ async def get_session_messages(
     if session is None:
         raise HTTPException(status_code=404, detail="会话不存在")
 
+    # 消息时间戳：只在 DB 行上有（wuwei 的 Message 对象没有 created_at）。
+    # 顺序与 load() 一致，按下标配对。前端此前靠 parseInt(message.id) 从
+    # 流式 id 抠时间，历史消息 id 是 "backend-0"，抠出 NaN → 时间整块消失。
+    try:
+        message_times = await agent_service.storage.load_message_timestamps(session_id)
+    except Exception:  # noqa: BLE001 -- 时间缺失不影响消息本身
+        _logger.warning("load_message_timestamps failed: session=%s", session_id, exc_info=True)
+        message_times = []
+
     # ── 中断恢复：进程崩溃/发版重启时，run 还没走到「挂 metadata 落库」，
     # 该轮的 A2UI 界面/图表还留在 Redis 持久化队列里。会话被重新打开的
     # 时刻把它们补挂到最后一条助手消息（内存合并，不改历史落库），然后
@@ -287,7 +296,7 @@ async def get_session_messages(
         _logger.warning("interrupt recovery failed", exc_info=True)
 
     result = []
-    for msg in session.context._messages:
+    for index, msg in enumerate(session.context._messages):
         role = getattr(msg, "role", None)
         content = msg.content or ""
         if isinstance(content, list):
@@ -345,6 +354,10 @@ async def get_session_messages(
             "role": role,
             "content": content,
         }
+        # 时间戳：按下标取（load_message_timestamps 与 load 同序）。
+        # 取不到就不给该字段，前端会退回不显示时间，而不是显示 1970。
+        if index < len(message_times) and message_times[index]:
+            entry["created_at"] = message_times[index]
         # 思考内容必须透传：流式阶段思考靠 SSE reasoning_delta 实时显示，
         # 落库在 AIMessage.reasoning_content。不透传的话，刷新/重开会话
         # 思考就永久消失 —— 尤其「停止」发生在工具循环中间、没有最终文本
