@@ -1,14 +1,47 @@
 /**
- * 评测面板（LLMOps）：数据集 → 用例 → 对指定智能体跑回归 → 通过率结果。
+ * 评测面板（LLMOps）：数据集 → 用例 → 对指定智能体跑回归。
  *
- * 评分 MVP 规则：expected.contains / not_contains 关键词匹配；
- * 每个用例真实跑一轮完整 agent（工具可用），所以结果可信但较慢
- * （后台执行，前端轮询 run 状态）。
+ * 后端契约（backend/app/api/v1/endpoints/llmops.py）：
+ * - GET    /agent/evals/datasets                    列表（只回 case_count，不含用例）
+ * - GET    /agent/evals/datasets/{id}               详情（含 cases）
+ * - POST   /agent/evals/datasets                    建集
+ * - DELETE /agent/evals/datasets/{id}               删集
+ * - POST   /agent/evals/datasets/{id}/cases         加用例（expected 为对象）
+ * - DELETE /agent/evals/cases/{id}                  删用例
+ * - POST   /agent/evals/datasets/{id}/run          异步起跑，立即回 { run_id, status: 'running' }
+ * - GET    /agent/evals/runs/{id}                   轮询详情（running/done/error + 每用例结果）
+ *
+ * 关键点：run 是后台 asyncio 任务，接口不会等结果，必须轮询到终态。
+ *
+ * 视觉口径与管理后台其它页一致：AdminPageHeader + AdminPanel + shadcn Button/Input。
  */
-import { useState } from 'react';
+import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Loader2, Play, Plus, Trash2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  CheckCircle2,
+  ChevronRight,
+  Loader2,
+  Play,
+  Plus,
+  RefreshCw,
+  Trash2,
+  XCircle,
+} from 'lucide-react';
+
+import { Button } from '@/components/shadcn/button';
+import { Input } from '@/components/shadcn/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/shadcn/select';
+import { AdminPageHeader, AdminPanel, ErrorBanner, SectionHeading } from '../admin/shared';
+import { getAgentProfiles } from '../../services/agentProfileService';
+import { cn } from '../../lib/utils';
+
 import {
   addEvalCase,
   createEvalDataset,
@@ -19,305 +52,629 @@ import {
   listEvalDatasets,
   listEvalRuns,
   startEvalRun,
-  type EvalCaseResult,
-  } from '../../services/llmopsService';
-  import { getAgentProfiles } from '../../services/agentProfileService';
+  type EvalRun,
+} from '../../services/llmopsService';
 import { toastError } from '../../lib/errors';
-import { Button } from '../shadcn/button';
-import { Input } from '../shadcn/input';
 
-const ResultRow = ({ result }: { result: EvalCaseResult }) => (
-  <div className="border-b border-[var(--border-subtle)] px-4 py-3 last:border-0">
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0 flex-1">
-        <div className="mb-1 line-clamp-2 text-sm font-medium">{result.input}</div>
-        <div className="line-clamp-3 text-xs leading-relaxed text-[var(--muted-foreground)]">
-          {result.output || result.error || '（无输出）'}
-        </div>
-        {result.reason && <div className="mt-1 text-xs text-amber-600">{result.reason}</div>}
-        {result.score !== null && result.score !== undefined && (
-          <div className="mt-1 text-xs text-[var(--muted-foreground)]">LLM ???{result.score}</div>
-        )}
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        {result.passed ? (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
-            <CheckCircle2 size={14} /> 通过
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600">
-            <XCircle size={14} /> 未通过
-          </span>
-        )}
-        <span className="text-xs text-[var(--muted-foreground)]">
-          {(result.duration_ms / 1000).toFixed(1)}s · 工具 {result.tool_calls}
-        </span>
-      </div>
-    </div>
-  </div>
-);
+const DATASETS_KEY = ['admin', 'eval', 'datasets'] as const;
+
+/** 输入框/文本域的公共皮肤：与 shadcn Input 对齐。 */
+const FIELD_CLASS =
+  'h-9 w-full min-w-0 rounded-[10px] border border-[var(--border)] bg-transparent px-3 text-sm outline-none transition-[color,box-shadow,border-color] duration-150 placeholder:text-[var(--muted-foreground)] focus-visible:border-[var(--ring)] focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] disabled:cursor-not-allowed disabled:opacity-50';
+
+const LABEL_CLASS =
+  'text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--muted-foreground)]';
+
+const RunStatusBadge = ({ run }: { run: EvalRun }) => {
+  const label =
+    run.status === 'running' ? '运行中' : run.status === 'done' ? '已完成' : '失败';
+  const tone =
+    run.status === 'running'
+      ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300'
+      : run.status === 'done'
+        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
+        : 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300';
+
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold',
+        tone,
+      )}
+    >
+      {run.status === 'running' ? <Loader2 size={11} className="animate-spin" /> : null}
+      {label}
+    </span>
+  );
+};
 
 export const EvalPanel = () => {
   const queryClient = useQueryClient();
-  const [newName, setNewName] = useState('');
-  const [selectedDataset, setSelectedDataset] = useState<number | null>(null);
-  const [selectedProfile, setSelectedProfile] = useState<number | null>(null);
-  const [newCase, setNewCase] = useState({ input: '', contains: '', mode: 'keywords' as 'keywords' | 'llm', criteria: '' });
-  const [lastRunId, setLastRunId] = useState<number | null>(null);
 
-  const datasetsQuery = useQuery({ queryKey: ['llmops', 'eval-datasets'], queryFn: listEvalDatasets });
-  const profilesQuery = useQuery({
-    queryKey: ['admin', 'agents'],
+  const [selectedDatasetId, setSelectedDatasetId] = React.useState<number | null>(null);
+  const [newDatasetName, setNewDatasetName] = React.useState('');
+  const [caseInput, setCaseInput] = React.useState('');
+  const [caseContains, setCaseContains] = React.useState('');
+  const [caseNotContains, setCaseNotContains] = React.useState('');
+  const [profileId, setProfileId] = React.useState<string>('');
+
+  /** 当前关注的 run：起跑后写入，用于轮询。 */
+  const [activeRunId, setActiveRunId] = React.useState<number | null>(null);
+
+  const datasetsQuery = useQuery({
+    queryKey: DATASETS_KEY,
+    queryFn: listEvalDatasets,
+  });
+  const datasets = datasetsQuery.data?.items ?? [];
+
+  const agentsQuery = useQuery({
+    queryKey: ['admin', 'agent-profiles'],
     queryFn: getAgentProfiles,
   });
-  const datasetQuery = useQuery({
-    queryKey: ['llmops', 'eval-dataset', selectedDataset],
-    queryFn: () => getEvalDataset(selectedDataset!),
-    enabled: selectedDataset !== null,
+  const agents = agentsQuery.data?.items ?? [];
+
+  // 数据集列表不含用例，选中后单独拉详情。
+  const detailQuery = useQuery({
+    queryKey: ['admin', 'eval', 'dataset', selectedDatasetId],
+    queryFn: () => getEvalDataset(selectedDatasetId as number),
+    enabled: selectedDatasetId !== null,
   });
-  const runsQuery = useQuery({
-    queryKey: ['llmops', 'eval-runs'],
-    queryFn: () => listEvalRuns(),
-    refetchInterval: 5000,
-  });
+  const detail = detailQuery.data;
+
+  // 轮询：只有还在 running 时才继续拉，到终态自动停。
   const runQuery = useQuery({
-    queryKey: ['llmops', 'eval-run', lastRunId],
-    queryFn: () => getEvalRun(lastRunId!),
-    enabled: lastRunId !== null,
-    refetchInterval: (query) => (query.state.data?.status === 'running' ? 3000 : false),
+    queryKey: ['admin', 'eval', 'run', activeRunId],
+    queryFn: () => getEvalRun(activeRunId as number),
+    enabled: activeRunId !== null,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'running' || status === undefined ? 1500 : false;
+    },
   });
+  const activeRun = runQuery.data;
+
+  // run 一旦落地终态，刷新该数据集的运行历史。
+  const runStatus = activeRun?.status;
+  React.useEffect(() => {
+    if (runStatus && runStatus !== 'running') {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'eval', 'runs'] });
+    }
+  }, [runStatus, queryClient]);
+
+  const runsQuery = useQuery({
+    queryKey: ['admin', 'eval', 'runs', selectedDatasetId],
+    queryFn: () => listEvalRuns(selectedDatasetId ?? undefined),
+    enabled: selectedDatasetId !== null,
+  });
+  const runs = runsQuery.data?.items ?? [];
+
+  const invalidateDatasets = () =>
+    queryClient.invalidateQueries({ queryKey: DATASETS_KEY });
+
+  const shapeCaseExpected = () => {
+    const contains = caseContains
+      .split(/[\n,]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const notContains = caseNotContains
+      .split(/[\n,]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (contains.length === 0 && notContains.length === 0) return null;
+    return {
+      mode: 'keywords' as const,
+      ...(contains.length ? { contains } : {}),
+      ...(notContains.length ? { not_contains: notContains } : {}),
+    };
+  };
 
   const createDatasetMutation = useMutation({
-    mutationFn: () => createEvalDataset({ name: newName.trim() }),
-    onSuccess: () => {
+    mutationFn: () => createEvalDataset({ name: newDatasetName.trim() }),
+    onSuccess: (data) => {
       toast.success('数据集已创建');
-      setNewName('');
-      void queryClient.invalidateQueries({ queryKey: ['llmops', 'eval-datasets'] });
+      setNewDatasetName('');
+      setSelectedDatasetId(data.id);
+      void invalidateDatasets();
     },
-    onError: (err: Error) => toast.error(toastError(err, '创建失败')),
+    onError: (err) => toast.error(toastError(err, '创建数据集失败')),
+  });
+
+  const removeDatasetMutation = useMutation({
+    mutationFn: (id: number) => deleteEvalDataset(id),
+    onSuccess: (_data, id) => {
+      toast.success('数据集已删除');
+      if (selectedDatasetId === id) setSelectedDatasetId(null);
+      void invalidateDatasets();
+    },
+    onError: (err) => toast.error(toastError(err, '删除数据集失败')),
   });
 
   const addCaseMutation = useMutation({
-    mutationFn: () =>
-      addEvalCase(selectedDataset!, {
-        input: newCase.input.trim(),
-        expected: newCase.contains.trim()
-          ? { contains: newCase.contains.split(/[,，]/).map((s) => s.trim()).filter(Boolean) }
-          : {},
-      }),
+    mutationFn: () => {
+      const expected = shapeCaseExpected();
+      if (selectedDatasetId === null) throw new Error('请先选择数据集');
+      if (!caseInput.trim()) throw new Error('请填写用例输入');
+      if (!expected) {
+        throw new Error('请至少填写一个「必须包含」或「禁止出现」关键词');
+      }
+      return addEvalCase(selectedDatasetId, { input: caseInput.trim(), expected });
+    },
     onSuccess: () => {
       toast.success('用例已添加');
-      setNewCase({ input: '', contains: '', mode: 'keywords', criteria: '' });
-      void queryClient.invalidateQueries({ queryKey: ['llmops', 'eval-dataset', selectedDataset] });
-      void queryClient.invalidateQueries({ queryKey: ['llmops', 'eval-datasets'] });
+      setCaseInput('');
+      setCaseContains('');
+      setCaseNotContains('');
+      void queryClient.invalidateQueries({
+        queryKey: ['admin', 'eval', 'dataset', selectedDatasetId],
+      });
+      void invalidateDatasets();
     },
-    onError: (err: Error) => toast.error(toastError(err, '添加失败')),
+    onError: (err) => toast.error(toastError(err, '添加用例失败')),
   });
 
-  const runMutation = useMutation({
-    mutationFn: () => startEvalRun(selectedDataset!, selectedProfile!),
-    onSuccess: (data) => {
-      toast.success('评测已启动（后台逐用例执行）');
-      setLastRunId(data.run_id);
-      void queryClient.invalidateQueries({ queryKey: ['llmops', 'eval-runs'] });
-    },
-    onError: (err: Error) => toast.error(toastError(err, '启动失败')),
-  });
-
-  const deleteDatasetMutation = useMutation({
-    mutationFn: deleteEvalDataset,
+  const removeCaseMutation = useMutation({
+    mutationFn: (caseId: number) => deleteEvalCase(caseId),
     onSuccess: () => {
-      toast.success('数据集已删除');
-      if (selectedDataset) setSelectedDataset(null);
-      void queryClient.invalidateQueries({ queryKey: ['llmops', 'eval-datasets'] });
+      toast.success('用例已删除');
+      void queryClient.invalidateQueries({
+        queryKey: ['admin', 'eval', 'dataset', selectedDatasetId],
+      });
+      void invalidateDatasets();
     },
-    onError: (err: Error) => toast.error(toastError(err, '删除失败')),
+    onError: (err) => toast.error(toastError(err, '删除用例失败')),
   });
 
-  const profiles = profilesQuery.data?.items ?? [];
-  const runs = runsQuery.data?.items ?? [];
-  const run = runQuery.data;
+  const startRunMutation = useMutation({
+    mutationFn: () => {
+      if (selectedDatasetId === null) throw new Error('请先选择数据集');
+      if (!profileId) throw new Error('请先选择要评测的智能体');
+      return startEvalRun(selectedDatasetId, Number(profileId));
+    },
+    onSuccess: (data) => {
+      toast.success('评测已启动，正在后台执行');
+      setActiveRunId(data.run_id);
+      void queryClient.invalidateQueries({
+        queryKey: ['admin', 'eval', 'runs', selectedDatasetId],
+      });
+    },
+    onError: (err) => toast.error(toastError(err, '启动评测失败')),
+  });
+
+  const canCreateDataset = newDatasetName.trim().length > 0;
+  const canRun = selectedDatasetId !== null && profileId !== '' && !startRunMutation.isPending;
+  const isRunning = activeRun?.status === 'running';
 
   return (
-    <div className="space-y-4">
-      {/* 数据集管理 */}
-      <div className="rounded-lg border border-slate-200/80 bg-[var(--surface-1)] p-4 shadow-sm">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h3 className="mr-auto text-sm font-semibold">评测数据集</h3>
-          <Input
-            className="h-8 w-48"
-            placeholder="新数据集名称"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-          />
-          <Button
-            size="sm"
-            className="gap-1"
-            disabled={!newName.trim() || createDatasetMutation.isPending}
-            onClick={() => createDatasetMutation.mutate()}
-          >
-            <Plus size={14} /> 创建
-          </Button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {(datasetsQuery.data?.items ?? []).map((d) => (
-            <span
-              key={d.id}
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${
-                selectedDataset === d.id
-                  ? 'border-sky-300 bg-sky-50 text-sky-800'
-                  : 'border-[var(--border-subtle)] bg-[var(--surface-2)]'
-              }`}
+    <div className="flex flex-col gap-5">
+      <AdminPageHeader
+        kicker="LLMOps"
+        title="评测"
+        description="把一组带期望输出的用例挂在数据集上，对指定智能体跑回归，观察通过率与逐条失分原因。"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => void datasetsQuery.refetch()}
+              disabled={datasetsQuery.isFetching}
             >
-              <button type="button" className="font-medium" onClick={() => setSelectedDataset(d.id)}>
-                {d.name}（{d.case_count} 用例）
-              </button>
-              <button
-                type="button"
-                aria-label="删除数据集"
-                className="text-[var(--muted-foreground)] hover:text-rose-600"
-                onClick={() => {
-                  if (window.confirm(`删除数据集「${d.name}」及其全部用例？`)) deleteDatasetMutation.mutate(d.id);
+              <RefreshCw size={13} className={datasetsQuery.isFetching ? 'animate-spin' : ''} />
+              刷新
+            </Button>
+          </>
+        }
+      />
+
+      {datasetsQuery.isError ? (
+        <ErrorBanner
+          message="数据集加载失败"
+          onRetry={() => void datasetsQuery.refetch()}
+          retryLabel="重试"
+        />
+      ) : null}
+
+      <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+        {/* ── 左栏：数据集列表 + 新建 ── */}
+        <AdminPanel className="flex flex-col">
+          <SectionHeading title="数据集" />
+          <div className="flex flex-col gap-1.5 px-3 pb-3">
+            {datasetsQuery.isLoading ? (
+              <div className="flex items-center gap-2 px-2 py-6 text-xs font-medium text-[var(--muted-foreground)]">
+                <Loader2 size={13} className="animate-spin" /> 加载中…
+              </div>
+            ) : datasets.length === 0 ? (
+              <p className="px-2 py-6 text-xs font-medium leading-5 text-[var(--muted-foreground)]">
+                还没有数据集。在下方新建一个，然后往里面加用例。
+              </p>
+            ) : (
+              datasets.map((ds) => {
+                const active = ds.id === selectedDatasetId;
+                return (
+                  <div
+                    key={ds.id}
+                    className={cn(
+                      'group flex items-center gap-1 rounded-md transition-colors',
+                      active ? 'bg-[var(--surface-2)]' : 'hover:bg-[var(--surface-2)]',
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDatasetId(ds.id)}
+                      className="flex min-w-0 flex-1 items-center gap-2 px-2 py-2 text-left"
+                    >
+                      <ChevronRight
+                        size={13}
+                        className={cn(
+                          'shrink-0 transition-transform',
+                          active
+                            ? 'text-[var(--foreground)]'
+                            : 'text-[var(--muted-foreground)] group-hover:translate-x-0.5',
+                        )}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={cn(
+                            'block truncate text-sm',
+                            active
+                              ? 'font-semibold text-[var(--foreground)]'
+                              : 'font-medium text-[var(--foreground)]',
+                          )}
+                        >
+                          {ds.name}
+                        </span>
+                        <span className="block text-[11px] font-medium text-[var(--muted-foreground)]">
+                          {ds.case_count} 条用例
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`删除数据集 ${ds.name}`}
+                      onClick={() => removeDatasetMutation.mutate(ds.id)}
+                      disabled={removeDatasetMutation.isPending}
+                      className="mr-1.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] opacity-0 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] group-hover:opacity-100 dark:hover:bg-red-500/10 dark:hover:text-red-300"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="mt-auto border-t border-[var(--border-subtle)] p-3">
+            <label className={LABEL_CLASS} htmlFor="new-dataset-name">
+              新建数据集
+            </label>
+            <div className="mt-1.5 flex items-center gap-2">
+              <Input
+                id="new-dataset-name"
+                value={newDatasetName}
+                onChange={(e) => setNewDatasetName(e.target.value)}
+                placeholder="如：客服回归集"
+                className="h-9"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && canCreateDataset) createDatasetMutation.mutate();
                 }}
+              />
+              <Button
+                size="sm"
+                className="shrink-0 gap-1"
+                disabled={!canCreateDataset || createDatasetMutation.isPending}
+                onClick={() => createDatasetMutation.mutate()}
               >
-                <Trash2 size={13} />
-              </button>
-            </span>
-          ))}
-          {(datasetsQuery.data?.items ?? []).length === 0 && (
-            <span className="text-sm text-[var(--muted-foreground)]">
-              还没有数据集 —— 创建一个，把用户常问的问题和期望回答里的关键词放进去
-            </span>
+                {createDatasetMutation.isPending ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Plus size={13} />
+                )}
+                新建
+              </Button>
+            </div>
+          </div>
+        </AdminPanel>
+
+        {/* ── 右栏：用例 + 跑批 + 结果 ── */}
+        <div className="flex min-w-0 flex-col gap-5">
+          {selectedDatasetId === null ? (
+            <AdminPanel>
+              <div className="flex flex-col items-center justify-center gap-1 px-6 py-16 text-center">
+                <p className="text-sm font-semibold text-[var(--foreground)]">先在左侧选一个数据集</p>
+                <p className="max-w-sm text-xs font-medium leading-5 text-[var(--muted-foreground)]">
+                  选中后可以维护用例、选择智能体跑回归，并查看每次运行里逐条用例的通过情况。
+                </p>
+              </div>
+            </AdminPanel>
+          ) : (
+            <>
+              {detailQuery.isError ? (
+                <ErrorBanner
+                  message="数据集详情加载失败"
+                  onRetry={() => void detailQuery.refetch()}
+                  retryLabel="重试"
+                />
+              ) : null}
+
+              {/* 用例列表 */}
+              <AdminPanel>
+                <SectionHeading
+                  title={detail?.name ?? '数据集'}
+                  actions={
+                    <span className="text-[11px] font-semibold text-[var(--muted-foreground)]">
+                      {detail?.cases.length ?? 0} 条用例
+                    </span>
+                  }
+                />
+                {detail?.description ? (
+                  <p className="px-4 pb-2 -mt-1 text-xs font-medium leading-5 text-[var(--muted-foreground)]">
+                    {detail.description}
+                  </p>
+                ) : null}
+
+                {detailQuery.isLoading ? (
+                  <div className="flex items-center gap-2 px-4 py-8 text-xs font-medium text-[var(--muted-foreground)]">
+                    <Loader2 size={13} className="animate-spin" /> 加载用例…
+                  </div>
+                ) : (detail?.cases.length ?? 0) === 0 ? (
+                  <p className="px-4 pb-4 text-xs font-medium leading-5 text-[var(--muted-foreground)]">
+                    这个数据集还没有用例。用下面的表单加第一条。
+                  </p>
+                ) : (
+                  <ul className="border-t border-[var(--border-subtle)]">
+                    {detail?.cases.map((c) => (
+                      <li
+                        key={c.id}
+                        className="group flex items-start gap-3 border-b border-[var(--border-subtle)] px-4 py-2.5 last:border-b-0"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-[var(--foreground)]">
+                            {c.input}
+                          </p>
+                          <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-medium text-[var(--muted-foreground)]">
+                            {c.expected.contains?.length ? (
+                              <span>必须包含：{c.expected.contains.join('、')}</span>
+                            ) : null}
+                            {c.expected.not_contains?.length ? (
+                              <span>禁止出现：{c.expected.not_contains.join('、')}</span>
+                            ) : null}
+                            {!c.expected.contains?.length && !c.expected.not_contains?.length ? (
+                              <span>无关键词约束</span>
+                            ) : null}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="删除用例"
+                          onClick={() => removeCaseMutation.mutate(c.id)}
+                          disabled={removeCaseMutation.isPending}
+                          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] opacity-0 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] group-hover:opacity-100 dark:hover:bg-red-500/10 dark:hover:text-red-300"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* 添加用例 */}
+                <div className="border-t border-[var(--border-subtle)] bg-[var(--surface-2)] px-4 py-3">
+                  <p className={LABEL_CLASS}>添加用例</p>
+                  <div className="mt-1.5 flex flex-col gap-2">
+                    <textarea
+                      value={caseInput}
+                      onChange={(e) => setCaseInput(e.target.value)}
+                      placeholder="用户输入，如：我的订单还没发货，帮我查一下"
+                      rows={2}
+                      className={cn(FIELD_CLASS, 'h-auto resize-y py-2 leading-5')}
+                    />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input
+                        value={caseContains}
+                        onChange={(e) => setCaseContains(e.target.value)}
+                        placeholder="必须包含（逗号分隔）"
+                        className="h-9"
+                      />
+                      <Input
+                        value={caseNotContains}
+                        onChange={(e) => setCaseNotContains(e.target.value)}
+                        placeholder="禁止出现（逗号分隔）"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[11px] font-medium text-[var(--muted-foreground)]">
+                        评分走关键词硬约束：全部 includes 命中且无 not_contains 命中才算通过。
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 gap-1"
+                        disabled={addCaseMutation.isPending}
+                        onClick={() => addCaseMutation.mutate()}
+                      >
+                        {addCaseMutation.isPending ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Plus size={13} />
+                        )}
+                        添加
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </AdminPanel>
+
+              {/* 跑批 */}
+              <AdminPanel>
+                <SectionHeading title="运行回归" />
+                <div className="flex flex-col gap-3 px-4 pb-4 sm:flex-row sm:items-center">
+                  <Select value={profileId} onValueChange={setProfileId}>
+                    <SelectTrigger id="eval-agent" className="w-full sm:max-w-xs" aria-label="评测智能体">
+                      <SelectValue placeholder="选择智能体…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {agents.length === 0 ? (
+                        <div className="px-2 py-1.5 text-xs font-medium text-[var(--muted-foreground)]">
+                          暂无可评测的智能体
+                        </div>
+                      ) : (
+                        agents.map((a) => (
+                          <SelectItem key={a.id} value={String(a.id)}>
+                            {a.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={!canRun || isRunning}
+                    onClick={() => startRunMutation.mutate()}
+                  >
+                    {isRunning || startRunMutation.isPending ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Play size={13} />
+                    )}
+                    {isRunning ? '评测进行中…' : '开始评测'}
+                  </Button>
+                  {agentsQuery.isError ? (
+                    <span className="text-[11px] font-medium text-red-600 dark:text-red-400">
+                      智能体列表加载失败
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* 当前 run 的逐条结果 */}
+                {activeRun ? (
+                  <div className="border-t border-[var(--border-subtle)] px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold text-[var(--foreground)]">
+                        本次运行 #{activeRun.id}
+                      </span>
+                      <RunStatusBadge run={activeRun} />
+                      {activeRun.status !== 'running' ? (
+                        <span className="text-xs font-medium text-[var(--muted-foreground)]">
+                          {activeRun.passed}/{activeRun.total} 通过
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {activeRun.status === 'error' && activeRun.error ? (
+                      <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-400">
+                        {activeRun.error}
+                      </p>
+                    ) : null}
+
+                    {activeRun.results?.length ? (
+                      <ul className="mt-2 flex flex-col gap-1">
+                        {activeRun.results.map((r) => (
+                          <li
+                            key={r.case_id}
+                            className="rounded-md border border-[var(--border-subtle)] px-3 py-2"
+                          >
+                            <div className="flex items-start gap-2">
+                              {r.passed ? (
+                                <CheckCircle2
+                                  size={14}
+                                  className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                                />
+                              ) : (
+                                <XCircle
+                                  size={14}
+                                  className="mt-0.5 shrink-0 text-red-600 dark:text-red-400"
+                                />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs font-semibold text-[var(--foreground)]">
+                                  {r.input}
+                                </p>
+                                {r.reason ? (
+                                  <p className="mt-0.5 text-[11px] font-medium leading-4 text-[var(--muted-foreground)]">
+                                    {r.reason}
+                                  </p>
+                                ) : null}
+                                {r.error ? (
+                                  <p className="mt-0.5 text-[11px] font-medium leading-4 text-red-600 dark:text-red-400">
+                                    {r.error}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <span className="shrink-0 text-[11px] font-medium text-[var(--muted-foreground)]">
+                                {r.duration_ms}ms
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : null}
+              </AdminPanel>
+
+              {/* 历史运行 */}
+              <AdminPanel>
+                <SectionHeading
+                  title="运行历史"
+                  actions={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => void runsQuery.refetch()}
+                      disabled={runsQuery.isFetching}
+                    >
+                      <RefreshCw size={12} className={runsQuery.isFetching ? 'animate-spin' : ''} />
+                      刷新
+                    </Button>
+                  }
+                />
+                {runsQuery.isLoading ? (
+                  <div className="flex items-center gap-2 px-4 py-8 text-xs font-medium text-[var(--muted-foreground)]">
+                    <Loader2 size={13} className="animate-spin" /> 加载运行记录…
+                  </div>
+                ) : runs.length === 0 ? (
+                  <p className="px-4 pb-4 text-xs font-medium leading-5 text-[var(--muted-foreground)]">
+                    还没有运行记录。
+                  </p>
+                ) : (
+                  <ul className="border-t border-[var(--border-subtle)]">
+                    {runs.map((run) => (
+                      <li
+                        key={run.id}
+                        className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-4 py-2.5 last:border-b-0"
+                      >
+                        <span className="w-16 shrink-0 text-xs font-semibold text-[var(--foreground)]">
+                          #{run.id}
+                        </span>
+                        <RunStatusBadge run={run} />
+                        <span className="text-xs font-medium text-[var(--muted-foreground)]">
+                          {run.status === 'running'
+                            ? '执行中…'
+                            : `${run.passed}/${run.total} 通过`}
+                        </span>
+                        <span className="ml-auto shrink-0 text-[11px] font-medium text-[var(--muted-foreground)]">
+                          {run.created_at ? new Date(run.created_at).toLocaleString() : '—'}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="shrink-0"
+                          onClick={() => setActiveRunId(run.id)}
+                        >
+                          详情
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </AdminPanel>
+            </>
           )}
         </div>
       </div>
-
-      {/* 用例编辑 + 运行 */}
-      {selectedDataset !== null && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-lg border border-slate-200/80 bg-[var(--surface-1)] p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold">添加用例</h3>
-            <textarea
-              className="mb-2 w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] p-2 text-sm"
-              rows={3}
-              placeholder="用户输入（会真实发给智能体）"
-              value={newCase.input}
-              onChange={(e) => setNewCase((prev) => ({ ...prev, input: e.target.value }))}
-            />
-            <Input
-              className="mb-2"
-              placeholder="期望包含的关键词（逗号分隔，可空）"
-              value={newCase.contains}
-              onChange={(e) => setNewCase((prev) => ({ ...prev, contains: e.target.value }))}
-            />
-            <Button
-              size="sm"
-              className="gap-1"
-              disabled={!newCase.input.trim() || addCaseMutation.isPending}
-              onClick={() => addCaseMutation.mutate()}
-            >
-              <Plus size={14} /> 添加用例
-            </Button>
-
-            <div className="mt-4 max-h-64 space-y-2 overflow-y-auto">
-              {(datasetQuery.data?.cases ?? []).map((c) => (
-                <div key={c.id} className="flex items-start justify-between gap-2 rounded-md bg-[var(--surface-2)] px-3 py-2">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm">{c.input}</div>
-                    {(c.expected.contains ?? []).length > 0 && (
-                      <div className="text-xs text-[var(--muted-foreground)]">
-                        期望包含：{(c.expected.contains ?? []).join('、')}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="删除用例"
-                    className="text-[var(--muted-foreground)] hover:text-rose-600"
-                    onClick={() => {
-                      void deleteEvalCase(c.id).then(() =>
-                        queryClient.invalidateQueries({ queryKey: ['llmops', 'eval-dataset', selectedDataset] }),
-                      );
-                    }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-slate-200/80 bg-[var(--surface-1)] p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold">运行评测</h3>
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <select
-                className="h-8 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-2 text-sm"
-                value={selectedProfile ?? ''}
-                onChange={(e) => setSelectedProfile(e.target.value ? Number(e.target.value) : null)}
-              >
-                <option value="">选择智能体…</option>
-                {profiles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              <Button
-                size="sm"
-                className="gap-1"
-                disabled={!selectedProfile || runMutation.isPending}
-                onClick={() => runMutation.mutate()}
-              >
-                {runMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                开始评测
-              </Button>
-            </div>
-
-            {run && (
-              <div className="rounded-md border border-[var(--border-subtle)]">
-                <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] px-3 py-2 text-sm">
-                  {run.status === 'running' && <Loader2 size={14} className="animate-spin text-sky-600" />}
-                  <span className="font-medium">
-                    运行 #{run.id} · {run.status === 'running' ? '执行中' : run.status === 'done' ? '已完成' : '出错'}
-                  </span>
-                  <span className="ml-auto text-xs text-[var(--muted-foreground)]">
-                    通过 {run.passed}/{run.total || (run.results?.length ?? 0)}
-                  </span>
-                </div>
-                <div className="max-h-80 overflow-y-auto">
-                  {(run.results ?? []).map((r) => (
-                    <ResultRow key={r.case_id} result={r} />
-                  ))}
-                  {run.status === 'running' && (run.results?.length ?? 0) === 0 && (
-                    <div className="p-4 text-center text-sm text-[var(--muted-foreground)]">
-                      正在逐用例执行（每个用例真实跑一轮，请稍候）…
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-4 max-h-40 overflow-y-auto">
-              {runs.slice(0, 8).map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-[var(--surface-2)]"
-                  onClick={() => setLastRunId(r.id)}
-                >
-                  <span className="font-medium">#{r.id}</span>
-                  <span className="text-[var(--muted-foreground)]">
-                    数据集 {r.dataset_id} · 智能体 {r.profile_id}
-                  </span>
-                  <span className="ml-auto">
-                    {r.passed}/{r.total} {r.status === 'running' ? '· 执行中' : ''}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

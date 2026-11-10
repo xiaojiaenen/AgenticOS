@@ -83,7 +83,7 @@ const TrendChart = ({ days }: { days: number }) => {
   if (data.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-[var(--muted-foreground)]">
-        ?? {days} ????????
+        暂无数据 · 近 {days} 天没有运行记录
       </div>
     );
   }
@@ -98,15 +98,15 @@ const TrendChart = ({ days }: { days: number }) => {
           <Tooltip
             contentStyle={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: 12 }}
             formatter={(value, name) => [
-              String(name).includes('??') ? `${(Number(value) / 1000).toFixed(1)}s` : String(value),
+              String(name).includes('耗时') ? `${(Number(value) / 1000).toFixed(1)}s` : String(value),
               String(name),
             ] as [string, string]}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar yAxisId="runs" dataKey="runs" name="????" fill="#2b87c2" radius={[3, 3, 0, 0]} barSize={18} />
-          <Bar yAxisId="runs" dataKey="errors" name="??" fill="#f43f5e" radius={[3, 3, 0, 0]} barSize={18} />
-          <Line yAxisId="ms" dataKey="avg_latency_ms" name="????" stroke="#10b981" strokeWidth={2} dot={false} />
-          <Line yAxisId="ms" dataKey="p95_latency_ms" name="P95 ??" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 3" dot={false} />
+          <Bar yAxisId="runs" dataKey="runs" name="运行数" fill="#2b87c2" radius={[3, 3, 0, 0]} barSize={18} />
+          <Bar yAxisId="runs" dataKey="errors" name="错误" fill="#f43f5e" radius={[3, 3, 0, 0]} barSize={18} />
+          <Line yAxisId="ms" dataKey="avg_latency_ms" name="平均耗时" stroke="#10b981" strokeWidth={2} dot={false} />
+          <Line yAxisId="ms" dataKey="p95_latency_ms" name="P95 耗时" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 3" dot={false} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
@@ -144,7 +144,7 @@ export const TracePanel = () => {
     <div className="space-y-4">
     <div className="rounded-lg border border-slate-200/80 bg-[var(--surface-1)] p-4 shadow-sm">
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold">????</h3>
+        <h3 className="text-sm font-semibold">运行趋势</h3>
         <div className="flex gap-1">
           {[7, 14, 30].map((d) => (
             <button
