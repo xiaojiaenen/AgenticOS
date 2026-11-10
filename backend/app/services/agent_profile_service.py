@@ -861,7 +861,25 @@ class AgentProfileService:
             index += 1
 
     def _apply_tools(self, db: Session, profile: AgentProfileModel, tools: list[AgentProfileTool]) -> None:
+        """写入 profile 的工具开关。
+
+        **校验集合必须与 `_merge_tools_with_catalog` 的输出一致。**
+        那个方法返回的是 ``TOOL_CATALOG ∪ DEFAULT_MODE_TOOLS 里自动发现的工具``
+        （read_text_file / append_text_file / send_email 这些子工具靠
+        ``_discover_all_mode_tools`` 发现，从不手工登记 TOOL_CATALOG）。
+        管理界面把这份列表原样回传，早先这里只认 ``TOOL_CATALOG``，于是
+        任何「编辑并保存」都会撞上 ``Unknown tool: append_text_file`` ——
+        网站 / 邮箱 / 办公助手全都保存不了。
+
+        宽松一侧是对的：这些工具在运行时确实存在（注册表里真有），
+        拒绝它们只会让用户的配置写不进去。
+        """
         import json
+
+        allowed = set(TOOL_CATALOG)
+        for mapping in DEFAULT_MODE_TOOLS.values():
+            allowed.update(mapping)
+
         existing = {
             row.tool_name: row
             for row in db.scalars(
@@ -869,7 +887,7 @@ class AgentProfileService:
             ).all()
         }
         for item in tools:
-            if item.tool_name not in TOOL_CATALOG:
+            if item.tool_name not in allowed:
                 raise KeyError(f"Unknown tool: {item.tool_name}")
             row = existing.get(item.tool_name)
             if row is None:

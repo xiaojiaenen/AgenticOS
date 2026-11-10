@@ -265,3 +265,71 @@ def test_selected_audience_agent_only_visible_to_configured_users() -> None:
         assert all(item["id"] != profile_id for item in blocked_store.json()["items"])
     finally:
         cleanup(slug, admin_email, allowed_email, blocked_email)
+
+
+def test_update_profile_accepts_auto_discovered_sub_tools() -> None:
+    """管理界面「编辑并保存」不能因为自动发现的子工具而失败。
+
+    回归背景：``_merge_tools_with_catalog`` 返回的是
+    ``TOOL_CATALOG ∪ DEFAULT_MODE_TOOLS``（read_text_file / append_text_file /
+    send_email 这些子工具靠 ``_discover_all_mode_tools`` 发现，从不手工登记
+    TOOL_CATALOG）。前端把这份列表原样回传，而 ``_apply_tools`` 早先只认
+    ``TOOL_CATALOG`` —— 于是任何编辑保存都撞
+    ``Unknown tool: append_text_file``，网站/邮箱/办公助手全都改不了。
+
+    这个测试走真实 HTTP：GET 拿到的 tools 原样 PATCH 回去，必须成功。
+    """
+    suffix = uuid4().hex
+    slug = f"roundtrip-agent-{suffix}"
+    email = f"roundtrip-{suffix}@example.com"
+    cleanup(slug, email)
+
+    try:
+        token = create_token(email, "admin")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        created = client.post(
+            "/api/v1/agent-profiles",
+            headers=headers,
+            json={
+                "name": "Roundtrip Agent",
+                "slug": slug,
+                "description": "验证工具列表可原样回写",
+                "system_prompt": "You are a helper.",
+                "response_mode": "website",
+                "enabled": True,
+                "listed": False,
+                "tools": [{"tool_name": "calc", "enabled": True, "requires_approval": False}],
+            },
+        )
+        assert created.status_code == 201, created.text
+        profile_id = created.json()["id"]
+
+        # 关键：把服务端返回的 tools 原样回传（前端就是这么做的）
+        listed = client.get("/api/v1/agent-profiles", headers=headers)
+        assert listed.status_code == 200
+        profile = next(item for item in listed.json()["items"] if item["id"] == profile_id)
+
+        tool_names = {t["tool_name"] for t in profile["tools"]}
+        assert "append_text_file" in tool_names, (
+            "序列化没有透出自动发现的子工具，前端根本看不到它们"
+        )
+
+        updated = client.patch(
+            f"/api/v1/agent-profiles/{profile_id}",
+            headers=headers,
+            json={"tools": profile["tools"]},
+        )
+        assert updated.status_code == 200, f"回写工具列表失败：{updated.text}"
+
+        # 写进去的开关要真的落库
+        with create_db_session() as db:
+            rows = db.scalars(
+                select(AgentProfileToolModel).where(
+                    AgentProfileToolModel.profile_id == profile_id
+                )
+            ).all()
+            stored = {row.tool_name for row in rows}
+        assert "append_text_file" in stored
+    finally:
+        cleanup(slug, email)
