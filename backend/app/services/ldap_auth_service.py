@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import logging
+import socket
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -60,7 +61,7 @@ DEFAULTS: dict[str, Any] = {
 _BOOL_KEYS = {
     "enabled", "start_tls", "auto_create_users", "email_auto_configure",
 }
-_INT_KEYS = {"imap_port", "smtp_port"}
+_INT_KEYS = {"port", "imap_port", "smtp_port"}
 # 不回显前端的敏感键
 _SECRET_KEYS = {"bind_password"}
 
@@ -112,6 +113,10 @@ class LdapConfig:
             missing.append("用户过滤器（必须包含 {username} 占位符）")
         if missing:
             raise LdapConfigError("LDAP 配置不完整：" + "、".join(missing))
+
+        # 地址格式提前校验：等到 _connect 时才由 ldap3 报
+        # `port must be an integer`，管理员根本看不出是格式问题。
+        _normalize_ldap_url(self.server_url)
 
     @property
     def search_attributes(self) -> list[str]:
@@ -223,14 +228,116 @@ def config_to_response(config: LdapConfig) -> dict[str, Any]:
 # LDAP 协议操作（ldap3，同步 API —— 调用方需放在线程池中执行）
 # ---------------------------------------------------------------------------
 
+def _normalize_ldap_url(raw: str) -> str:
+    """把管理员填的服务器地址清洗成 ldap3 能吃下的形态。
+
+    ldap3 的 ``Server(url)`` 内部会 ``int(port)``，任何非纯数字的端口都会
+    抛 ``port must be an integer`` —— 而这个报错完全看不出是格式问题。
+    实测最常见的三种输入：
+
+    - ``ldap://dc.corp.com:389/``  尾部斜杠 → 端口被解析成 ``389/``
+    - ``ldap://dc.corp.com:389:389`` 重复端口
+    - ``dc.corp.com:389``          缺协议头
+
+    这里统一修成 ``scheme://host:port``，并把明显不合理的形态直接说清楚，
+    而不是让 ldap3 抛一句无法定位的错误。
+    """
+    url = (raw or "").strip()
+    if not url:
+        raise LdapConfigError("LDAP 配置不完整：服务器地址")
+
+    # 缺协议头时补 ldap://（管理员常只填 host:port）
+    if "://" not in url:
+        url = "ldap://" + url
+
+    # 去掉尾部斜杠与路径：LDAP 的 Server 不需要路径
+    scheme, _, rest = url.partition("://")
+    rest = rest.strip().rstrip("/")
+    # 去掉误带的路径部分（例如 ldap://host:389/ou=xxx）
+    rest = rest.split("/", 1)[0]
+    url = f"{scheme.lower()}://{rest}"
+
+    # 校验端口段：host:port 或仅 host
+    host_part, sep, port_part = rest.rpartition(":")
+    if sep:
+        # 处理 host:389:389 这类重复端口：只保留最后一段，前一段并回 host
+        if ":" in host_part and not host_part.startswith("["):
+            host_only, _, first_port = host_part.rpartition(":")
+            if first_port.isdigit() and port_part.isdigit():
+                raise LdapConfigError(
+                    f"LDAP 服务器地址里的端口重复了：{raw.strip()}。"
+                    "请只写一个端口，例如 ldap://dc.corp.com:389"
+                )
+        if not port_part.isdigit():
+            raise LdapConfigError(
+                f"LDAP 服务器地址的端口不是数字：{raw.strip()!r}。"
+                "正确写法例如 ldap://dc.corp.com:389 或 ldaps://dc.corp.com:636"
+                "（不要带尾部斜杠或路径）"
+            )
+        port_num = int(port_part)
+        if not 1 <= port_num <= 65535:
+            raise LdapConfigError(
+                f"LDAP 端口超出范围：{port_num}（应在 1-65535）"
+            )
+    return url
+
+
+def _split_host_port(url: str, default_port: int) -> tuple[str, int]:
+    """从 ``scheme://host[:port]`` 取出 (host, port)。"""
+    rest = url.split("://", 1)[-1].rstrip("/")
+    # IPv6 字面量形如 [::1]:389
+    if rest.startswith("["):
+        host, _, tail = rest.partition("]")
+        host = host.lstrip("[")
+        port = tail.lstrip(":")
+        return host, int(port) if port.isdigit() else default_port
+    if ":" in rest:
+        host, _, port = rest.rpartition(":")
+        return host, int(port) if port.isdigit() else default_port
+    return rest, default_port
+
+
 def _connect(config: LdapConfig, *, bind: bool = True):
     """建立 LDAP 连接并（可选）以服务账号 bind。返回 connection。"""
     from ldap3 import Connection, Server
 
-    url = config.server_url.strip()
+    url = _normalize_ldap_url(config.server_url)
     use_ssl = url.lower().startswith("ldaps://")
+
+    # ldap3 的 Server 只解析地址；真正的网络错误在 bind() 时才暴露，
+    # 而它默认把原因吞进 socket 异常里，管理员只看到「无法连接」。
+    # 这里先自己做一次 TCP 探测，把「解析失败 / 拒绝连接 / 超时」区分开。
+    host, port = _split_host_port(url, 636 if use_ssl else 389)
+    try:
+        with socket.create_connection((host, port), timeout=10):
+            pass
+    except socket.gaierror as exc:
+        raise LdapAuthError(
+            f"LDAP 服务器地址无法解析：{host}（{exc}）。请检查主机名拼写或 DNS 配置"
+        ) from exc
+    except ConnectionRefusedError as exc:
+        raise LdapAuthError(
+            f"LDAP 服务器拒绝连接：{host}:{port}。"
+            f"端口没有服务在监听，或服务端只接受 ldaps（试 {636}）"
+        ) from exc
+    except (socket.timeout, TimeoutError) as exc:
+        raise LdapAuthError(
+            f"连接 LDAP 服务器超时：{host}:{port}（10 秒内无响应）。"
+            f"通常是网络不通或被防火墙拦截，请在容器内执行 "
+            f"`timeout 5 bash -c '</dev/tcp/{host}/{port}'` 验证"
+        ) from exc
+    except OSError as exc:
+        raise LdapAuthError(
+            f"无法连接 LDAP 服务器 {host}:{port}：{exc}"
+        ) from exc
+
     server = Server(url, use_ssl=use_ssl, connect_timeout=10)
 
+    # ldap3 的 Connection **没有** open() 方法 —— 只有 bind/unbind/start_tls。
+    # 早先这里写的是 `if not conn.open()`，必然 AttributeError，又被外层
+    # `except Exception` 包成「无法连接 LDAP 服务器」，于是 TCP 明明能通
+    # （nc 和 /dev/tcp 都 OK）却永远连不上。连接是在构造 Connection 时按需
+    # 建立的，所以这里直接用 bind() 验证：bind=False 时用匿名 bind 探活。
     conn = Connection(
         server,
         user=config.bind_dn if bind else None,
@@ -238,13 +345,43 @@ def _connect(config: LdapConfig, *, bind: bool = True):
         auto_bind=False,
         receive_timeout=15,
     )
-    if not conn.open():
-        raise LdapAuthError(f"无法连接 LDAP 服务器 {url}")
+
     if config.start_tls and not use_ssl:
-        if not conn.start_tls():
-            raise LdapAuthError(f"STARTTLS 协商失败：{conn.result.get('message')}")
-    if bind and not conn.bind():
-        raise LdapAuthError(f"服务账号绑定失败：{conn.result.get('message')}")
+        try:
+            if not conn.start_tls():
+                raise LdapAuthError(f"STARTTLS 协商失败：{conn.result.get('message')}")
+        except LdapAuthError:
+            raise
+        except Exception as exc:  # noqa: BLE001 -- ldap3 协议异常统一转可读信息
+            raise LdapAuthError(f"STARTTLS 协商失败：{exc}") from exc
+
+    # bind 在 ldap3 里是「发 bindRequest + 等响应」，网络中断、超时、
+    # 服务端提前断开都会抛异常（LDAPSessionTerminatedByServerError 等），
+    # 不捕获的话会一路冒到 test_connection 的兜底分支，报成一句笼统的
+    # 「无法连接」—— 而真正原因（超时 / 被服务端断开）就丢了。
+    try:
+        if bind:
+            if not conn.bind():
+                raise LdapAuthError(f"服务账号绑定失败：{conn.result.get('message')}")
+        else:
+            # 不绑定服务账号时也要确认服务真的在说 LDAP：做一次匿名 bind。
+            # 很多目录禁止匿名 bind 并返回 invalidCredentials —— 那也证明
+            # 服务是活的、协议是对的，因此只把「连不上/协议错」当成失败。
+            if not conn.bind():
+                result = conn.result or {}
+                code = result.get("result")
+                # 49 = invalidCredentials（服务在，只是不许匿名）
+                if code not in (49,):
+                    raise LdapAuthError(
+                        f"无法连接 LDAP 服务器 {url}：{result.get('message') or result}"
+                    )
+    except LdapAuthError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise LdapAuthError(
+            f"LDAP 绑定过程失败（{host}:{port}）：{exc}。"
+            f"若为超时，通常是端口可达但服务端未响应 bind 请求"
+        ) from exc
     return conn
 
 
@@ -317,12 +454,17 @@ def test_connection(
     conn = None
     started = time.monotonic()
     try:
-        conn = _connect(config, bind=False)
+        # 直接带服务账号 bind：既验证了「服务可达」，也验证了「凭据可用」。
+        # 早先用 bind=False 只是探活，但 ldap3 的 Connection 没有 open()，
+        # 那条路径必然 AttributeError，被包成「无法连接」—— 网络明明通的
+        # 情况下永远连不上，排查方向全被带偏。
+        conn = _connect(config, bind=True)
     except LdapAuthError as exc:
         return {
             "ok": False,
             "message": str(exc),
-            "hint": "检查地址与端口（ldaps:// 636 / ldap:// 389）、网络可达性、证书是否受信",
+            "hint": "检查地址与端口（ldaps:// 636 / ldap:// 389）、网络可达性、"
+                    "绑定账号 DN 是否写成完整路径、密码是否与该账号一致",
             "stages": [_stage("server", False, started, message=str(exc))],
         }
     except Exception as exc:  # noqa: BLE001 -- 网络/协议错误统一转为可读信息
@@ -338,17 +480,20 @@ def test_connection(
     stages.append(_stage("server", True, started, url=config.server_url, tls=tls))
 
     try:
-        # 1) 服务账号绑定
+        # 1) 服务账号绑定 —— _connect(bind=True) 已经完成 bind，
+        # 这里不再重复 bind（会多发一次请求，且部分目录会因此重置会话）。
+        # 直接把这一步记为通过，服务端凭据已在建连时验证过。
         started = time.monotonic()
-        if not conn.bind():
-            message = f"服务账号绑定失败：{conn.result.get('message') or conn.result}"
-            return {
-                "ok": False,
-                "message": message,
-                "hint": "DN 要写完整路径（cn=svc,ou=Service,dc=corp,dc=com），不是登录名；密码需与该账号一致",
-                "tls": tls,
-                "stages": stages + [_stage("bind", False, started, message=message)],
-            }
+        if not getattr(conn, "bound", False):
+            if not conn.bind():
+                message = f"服务账号绑定失败：{conn.result.get('message') or conn.result}"
+                return {
+                    "ok": False,
+                    "message": message,
+                    "hint": "DN 要写完整路径（cn=svc,ou=Service,dc=corp,dc=com），不是登录名；密码需与该账号一致",
+                    "tls": tls,
+                    "stages": stages + [_stage("bind", False, started, message=message)],
+                }
         stages.append(_stage("bind", True, started, dn=config.bind_dn))
 
         # 2) 用户过滤器（用通配符探测，不暴露任何真实用户）
@@ -485,14 +630,20 @@ def authenticate(config: LdapConfig, username: str, password: str) -> dict[str, 
         entry = conn.entries[0]
         user_dn = entry.entry_dn
 
-        # 以用户 DN + 明文密码二次 bind 验证密码
+        # 以用户 DN + 明文密码二次 bind 验证密码。
+        # 注意：ldap3 的 Connection **没有** open() 方法（只有 bind/unbind/
+        # start_tls），早先这里写的 `user_conn.open()` 必然 AttributeError，
+        # 被下面 except 兜住后报成「用户登录验证失败」—— 于是测试页前三步
+        # 全绿、最后一步永远失败，真实登录也一并失效。
         user_conn = Connection(conn.server, user=user_dn, password=password, auto_bind=False)
         try:
-            if not user_conn.open():
-                raise LdapAuthError("LDAP 服务器连接失败")
             if not user_conn.bind():
                 logger.info("LDAP bind failed for %s: %s", username, user_conn.result.get("message"))
                 raise LdapAuthError("用户名或密码错误")
+        except LdapAuthError:
+            raise
+        except Exception as exc:  # noqa: BLE001 -- 网络/协议异常转可读信息
+            raise LdapAuthError(f"LDAP 用户绑定过程失败：{exc}") from exc
         finally:
             _close(user_conn)
     finally:

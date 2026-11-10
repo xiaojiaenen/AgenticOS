@@ -13,6 +13,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { AlertTriangle, Loader2, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { Button } from '@/components/shadcn/button';
@@ -23,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/shadcn/select';
+import { DataTable } from './data-table';
 import { StatusPill } from './shared';
 import {
   deleteProviderModel,
@@ -54,6 +56,65 @@ const ROLE_HINTS: Record<string, string> = {
 };
 
 const EMPTY_VALUE = '__unset__';
+
+/** 模型目录列定义：外观统一交给 DataTable（骨架/斑马纹/行 hover 与其它管理页一致） */
+function buildModelColumns(
+  onDelete: (id: number) => void,
+  deleting: boolean,
+): ColumnDef<DiscoveredModel, unknown>[] {
+  return [
+    {
+      id: 'model_name',
+      header: '请求体里的模型名',
+      cell: ({ row }) => (
+        <span className="font-mono font-semibold text-[var(--foreground)]">
+          {row.original.model_name}
+        </span>
+      ),
+    },
+    {
+      id: 'model_key',
+      header: '上游 ID',
+      cell: ({ row }) => (
+        <span className="font-mono text-[var(--muted-foreground)]">{row.original.model_key}</span>
+      ),
+    },
+    {
+      id: 'task_type',
+      header: '类型',
+      cell: ({ row }) => (
+        <span className="font-medium text-[var(--muted-foreground)]">
+          {TASK_LABELS[row.original.task_type ?? ''] ?? row.original.task_type ?? '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'context',
+      header: '上下文',
+      cell: ({ row }) => (
+        <span className="font-medium text-[var(--muted-foreground)]">
+          {row.original.max_tokens ? Math.round(row.original.max_tokens / 1024) + 'K' : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: '',
+      meta: { align: 'right' },
+      cell: ({ row }) => (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-red-600 hover:text-red-700 dark:text-red-400"
+          onClick={() => onDelete(row.original.id)}
+          disabled={deleting}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      ),
+    },
+  ];
+}
 
 export function LlmProviderModelPanel({ provider }: { provider: LlmProvider }) {
   const queryClient = useQueryClient();
@@ -120,6 +181,13 @@ export function LlmProviderModelPanel({ provider }: { provider: LlmProvider }) {
     onError: (err: Error) => toast.error(toastError(err, '删除失败')),
   });
 
+  const modelColumns = useMemo(
+    () =>
+      buildModelColumns((id) => deleteModelMutation.mutate(id), deleteModelMutation.isPending),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deleteModelMutation.isPending],
+  );
+
   const setRole = (role: string, value: string) => {
     setDirty(true);
     setRoles((prev) => {
@@ -161,54 +229,18 @@ export function LlmProviderModelPanel({ provider }: { provider: LlmProvider }) {
         ) : null}
       </div>
 
-      {models.length === 0 ? (
+      {models.length === 0 && !modelsQuery.isLoading ? (
         <p className="rounded-lg border border-dashed border-[var(--border-subtle)] px-3.5 py-4 text-xs font-medium text-[var(--muted-foreground)]">
           还没有同步过模型。点「从上游同步」会按提供商配置的探测方式拉取清单
           （企业网关常是站点下的静态注册表，而不是 /models）。
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-[var(--border-subtle)]">
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--surface-2)] text-left font-semibold text-[var(--muted-foreground)]">
-              <tr>
-                <th className="px-3 py-2">请求体里的模型名</th>
-                <th className="px-3 py-2">上游 ID</th>
-                <th className="px-3 py-2">类型</th>
-                <th className="px-3 py-2">上下文</th>
-                <th className="px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {models.map((model) => (
-                <tr key={model.id} className="border-t border-[var(--border-subtle)]">
-                  <td className="px-3 py-2 font-mono font-semibold text-[var(--foreground)]">
-                    {model.model_name}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-[var(--muted-foreground)]">
-                    {model.model_key}
-                  </td>
-                  <td className="px-3 py-2 font-medium text-[var(--muted-foreground)]">
-                    {TASK_LABELS[model.task_type] ?? model.task_type ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 font-medium text-[var(--muted-foreground)]">
-                    {model.max_tokens ? Math.round(model.max_tokens / 1024) + 'K' : '—'}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-red-600 hover:text-red-700 dark:text-red-400"
-                      onClick={() => deleteModelMutation.mutate(model.id)}
-                      disabled={deleteModelMutation.isPending}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={modelColumns}
+          data={models}
+          isLoading={modelsQuery.isLoading}
+          className="rounded-lg border border-[var(--border-subtle)] [&_table]:text-xs"
+        />
       )}
 
       <div className="space-y-2.5 rounded-lg border border-[var(--border-subtle)] p-3.5">

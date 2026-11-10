@@ -82,10 +82,13 @@ class TestApiKeyLifecycle:
         assert created["enabled"] is True
 
         listed = client.get("/api/v1/api-keys", headers=headers).json()["items"]
-        assert len(listed) == 1
+        # 管理员能看到**全库** key，测试库可能残留别的用例的数据 ——
+        # 断言「本次创建的那条」存在，而不是总数（否则与用例顺序耦合）
+        mine = [item for item in listed if item.get("id") == created.get("id")]
+        assert len(mine) == 1, f"刚创建的 key 不在列表里: {listed[:3]}"
         # 列表绝不能再吐出明文
-        assert "key" not in listed[0]
-        assert listed[0]["key_masked"] != created["key"]
+        assert "key" not in mine[0]
+        assert mine[0]["key_masked"] != created["key"]
 
     def test_list_carries_owner_identity(self, client, admin_user):
         """管理员看全部 Key 时需要归属人，否则列表只有一串 user_id 无法辨认。"""
@@ -119,7 +122,11 @@ class TestApiKeyLifecycle:
 
         assert client.delete(f"/api/v1/api-keys/{created['id']}", headers=headers).status_code == 200
         assert client.delete(f"/api/v1/api-keys/{created['id']}", headers=headers).status_code == 404
-        assert client.get("/api/v1/api-keys", headers=headers).json()["items"] == []
+        listed_ids = {
+            item["id"]
+            for item in client.get("/api/v1/api-keys", headers=headers).json()["items"]
+        }
+        assert created["id"] not in listed_ids, "已删除的 key 不应还在列表里"
 
 
 class TestApiKeyIsolation:
@@ -129,9 +136,15 @@ class TestApiKeyIsolation:
     def test_user_cannot_see_others_keys(self, client, admin_user, normal_user):
         _admin, admin_headers = admin_user
         _user, user_headers = normal_user
-        client.post("/api/v1/api-keys", json={"name": "admin-only"}, headers=admin_headers)
+        admin_key = client.post(
+            "/api/v1/api-keys", json={"name": "admin-only"}, headers=admin_headers
+        ).json()
 
-        assert client.get("/api/v1/api-keys", headers=user_headers).json()["items"] == []
+        user_items = client.get("/api/v1/api-keys", headers=user_headers).json()["items"]
+        assert all(item["id"] != admin_key["id"] for item in user_items), (
+            "普通用户不应看到别人的 key"
+        )
+        assert all(item.get("user_id") in (None, _user.id) for item in user_items)
 
     def test_user_cannot_delete_others_key(self, client, admin_user, normal_user):
         _admin, admin_headers = admin_user
@@ -142,8 +155,13 @@ class TestApiKeyIsolation:
 
         resp = client.delete(f"/api/v1/api-keys/{created['id']}", headers=user_headers)
         assert resp.status_code == 404
-        # 越权删除必须没有副作用
-        assert len(client.get("/api/v1/api-keys", headers=admin_headers).json()["items"]) == 1
+        # 越权删除必须没有副作用：目标 key 仍在（管理员列表含全库数据，
+        # 不能断言总数 —— 那与测试库里的其它数据耦合）
+        still_there = {
+            item["id"]
+            for item in client.get("/api/v1/api-keys", headers=admin_headers).json()["items"]
+        }
+        assert created["id"] in still_there, "越权删除不能真的删掉别人的 key"
 
     def test_user_cannot_toggle_others_key(self, client, admin_user, normal_user):
         _admin, admin_headers = admin_user

@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import {
   AlertTriangle,
   Cookie,
+  KeyRound,
   Loader2,
   LogIn,
   Plus,
@@ -71,6 +72,10 @@ export function LlmProviderCredentialPanel({ provider }: { provider: LlmProvider
   const [cookie, setCookie] = useState('');
   const [expireAt, setExpireAt] = useState('');
   const [draft, setDraft] = useState({ label: '', username: '', password: '', priority: '100' });
+  // 补录密码：没有密码的账号登录按钮是禁用的，必须给出补救入口，
+  // 否则管理员只看到「登录」点不动，不知道要先填密码。
+  const [openPasswordFor, setOpenPasswordFor] = useState<number | null>(null);
+  const [newPassword, setNewPassword] = useState('');
 
   const accountsQuery = useQuery({
     queryKey: ['admin', 'llm-provider-accounts', provider.id],
@@ -135,6 +140,18 @@ export function LlmProviderCredentialPanel({ provider }: { provider: LlmProvider
     onError: (err: Error) => toast.error(toastError(err, '更新失败')),
   });
 
+  const passwordMutation = useMutation({
+    mutationFn: (accountId: number) =>
+      updateProviderAccount(provider.id, accountId, { password: newPassword }),
+    onSuccess: () => {
+      toast.success('密码已保存，现在可以点「登录」了');
+      setNewPassword('');
+      setOpenPasswordFor(null);
+      invalidate();
+    },
+    onError: (err: Error) => toast.error(toastError(err, '保存密码失败')),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (accountId: number) => deleteProviderAccount(provider.id, accountId),
     onSuccess: () => {
@@ -186,7 +203,16 @@ export function LlmProviderCredentialPanel({ provider }: { provider: LlmProvider
                   <span className="text-sm font-semibold text-[var(--foreground)]">
                     {account.label || account.username || `账号 #${account.id}`}
                   </span>
+                  {/* 登录态用「可用 / 未登录 / 已失效 / 登录失败」这类人话，
+                      而不是裸的 active/pending —— 管理员要一眼看出能不能用 */}
                   <StatusPill tone={meta.tone}>{meta.label}</StatusPill>
+                  {account.username ? (
+                    <span className="font-mono text-[11px] font-medium text-[var(--muted-foreground)]">
+                      {account.username}
+                    </span>
+                  ) : (
+                    <StatusPill tone="warning">缺账号名</StatusPill>
+                  )}
                   <StatusPill tone="info">优先级 {account.priority}</StatusPill>
                   {account.has_password ? <StatusPill tone="info">已存密码</StatusPill> : null}
                   {account.has_cookie ? <StatusPill tone="info">已存 Cookie</StatusPill> : null}
@@ -228,15 +254,36 @@ export function LlmProviderCredentialPanel({ provider }: { provider: LlmProvider
                     size="sm"
                     onClick={() => loginMutation.mutate(account.id)}
                     disabled={busy || !account.has_password}
-                    title={account.has_password ? undefined : '先补录密码'}
+                    title={
+                      account.has_password
+                        ? '用保存的账号密码自动登录，获取会话 Cookie'
+                        : '这个账号没有保存密码，无法自动登录。请先补录密码，或直接「贴 Cookie」'
+                    }
                   >
                     {loginMutation.isPending && loginMutation.variables === account.id ? (
                       <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <LogIn className="mr-1.5 h-3.5 w-3.5" />
                     )}
-                    登录
+                    {/* 按当前状态给出动作语义：未登录/失效时是「登录」，
+                        可用时是「重新登录」——同一个按钮，但用户知道自己在做什么 */}
+                    {account.status === 'active' ? '重新登录' : '登录'}
                   </Button>
+                  {/* 没有密码时给出补录入口：否则「登录」是灰的，管理员
+                      不知道卡在哪一步 */}
+                  {!account.has_password ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setOpenPasswordFor(openPasswordFor === account.id ? null : account.id);
+                        setNewPassword('');
+                      }}
+                    >
+                      <KeyRound className="mr-1.5 h-3.5 w-3.5" />
+                      补录密码
+                    </Button>
+                  ) : null}
                   <Button
                     size="sm"
                     variant="outline"
@@ -270,6 +317,40 @@ export function LlmProviderCredentialPanel({ provider }: { provider: LlmProvider
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
+
+                {openPasswordFor === account.id ? (
+                  <div className="mt-3 space-y-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3">
+                    <p className="text-xs font-medium text-[var(--muted-foreground)]">
+                      这个账号没有保存密码，无法自动登录。填入后即可点「登录」获取会话。
+                      密码加密存储，接口不回显。
+                    </p>
+                    <div className="flex flex-wrap items-end gap-2">
+                      <div className="grid min-w-56 flex-1 gap-1.5">
+                        <Label htmlFor={`pwd-${account.id}`}>账号密码</Label>
+                        <Input
+                          id={`pwd-${account.id}`}
+                          type="password"
+                          autoComplete="new-password"
+                          value={newPassword}
+                          placeholder="用于自动登录"
+                          onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => passwordMutation.mutate(account.id)}
+                        disabled={passwordMutation.isPending || !newPassword.trim()}
+                      >
+                        {passwordMutation.isPending ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <KeyRound className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        保存密码
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
 
                 {cookieOpen ? (
                   <div className="mt-3 space-y-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3">

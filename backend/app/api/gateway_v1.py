@@ -107,6 +107,9 @@ async def chat_completions(request: Request):
     if user is None:
         return _unauthorized()
 
+    from app.core.data_path import set_current_user_id
+    set_current_user_id(user.id)
+
     try:
         body = await request.json()
     except Exception:
@@ -143,6 +146,8 @@ async def chat_completions(request: Request):
         )
 
     if kind == "llm":
+        from app.core.data_path import set_current_user_id
+        set_current_user_id(user.id)
         return await _run_direct_chat(body, name)
 
     profile = find_local_agent(model, user)

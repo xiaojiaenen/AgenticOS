@@ -50,8 +50,7 @@ import { Pagination } from './Pagination';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ListSkeleton } from '@/components/ui/Skeletons';
 import { LlmProviderDialog } from './LlmProviderDialog';
-import { LlmProviderCredentialPanel } from './LlmProviderCredentialPanel';
-import { LlmProviderModelPanel } from './LlmProviderModelPanel';
+import { LlmProviderDetailDialog, type ProviderDetailTab } from './LlmProviderDetailDialog';
 import {
   deleteLlmProvider,
   importLlmProviderFromEnv,
@@ -110,7 +109,11 @@ export function LlmProviderManagement() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<LlmProvider | null>(null);
-  const [expanded, setExpanded] = useState<{ id: number; tab: 'accounts' | 'models' } | null>(null);
+  // 模型 / 账号改为弹窗：内联展开会把列表行撑高、挤出其他提供商，
+  // 且同一时间只能开一个。弹窗有固定高度与独立滚动区。
+  const [detail, setDetail] = useState<{ provider: LlmProvider; tab: ProviderDetailTab } | null>(
+    null,
+  );
   const [pendingDelete, setPendingDelete] = useState<LlmProvider | null>(null);
   const [filter, setFilter] = useState('');
   const [page, setPage] = useState(1);
@@ -347,7 +350,6 @@ export function LlmProviderManagement() {
           />
           <ul className="divide-y divide-[var(--border-subtle)]">
           {pageItems.map((provider) => {
-            const activeTab = expanded?.id === provider.id ? expanded.tab : null;
             const testing = testMutation.isPending && testMutation.variables?.id === provider.id;
             return (
               <li key={provider.id} className="transition-colors hover:bg-[var(--surface-2)]/60">
@@ -442,24 +444,20 @@ export function LlmProviderManagement() {
                     ) : null}
                     <Button
                       size="sm"
-                      variant={activeTab === 'models' ? 'secondary' : 'outline'}
+                      variant="outline"
                       className="h-8 px-2.5"
-                      onClick={() =>
-                        setExpanded(activeTab === 'models' ? null : { id: provider.id, tab: 'models' })
-                      }
+                      onClick={() => setDetail({ provider, tab: 'models' })}
+                      title="查看模型目录与用途绑定"
                     >
                       模型
                     </Button>
                     {provider.needs_cookie ? (
                       <Button
                         size="sm"
-                        variant={activeTab === 'accounts' ? 'secondary' : 'outline'}
+                        variant="outline"
                         className="h-8 px-2.5"
-                        onClick={() =>
-                          setExpanded(
-                            activeTab === 'accounts' ? null : { id: provider.id, tab: 'accounts' },
-                          )
-                        }
+                        onClick={() => setDetail({ provider, tab: 'accounts' })}
+                        title="查看账号池、登录状态与登录按钮"
                       >
                         账号{provider.account_count ? ` ${provider.account_count}` : ''}
                       </Button>
@@ -484,16 +482,6 @@ export function LlmProviderManagement() {
                     </Button>
                   </div>
                 </div>
-
-                {activeTab ? (
-                  <div className="border-t border-[var(--border-subtle)] bg-[var(--surface-2)] p-4">
-                    {activeTab === 'models' ? (
-                      <LlmProviderModelPanel provider={provider} />
-                    ) : (
-                      <LlmProviderCredentialPanel provider={provider} />
-                    )}
-                  </div>
-                ) : null}
               </li>
             );
           })}
@@ -513,6 +501,15 @@ export function LlmProviderManagement() {
         providerTypes={data?.provider_types ?? []}
         presets={data?.presets ?? []}
         onClose={() => setDialogOpen(false)}
+      />
+
+      <LlmProviderDetailDialog
+        provider={detail?.provider ?? null}
+        tab={detail?.tab ?? 'models'}
+        onTabChange={(tab) =>
+          setDetail((prev) => (prev ? { ...prev, tab } : prev))
+        }
+        onClose={() => setDetail(null)}
       />
 
       <AlertDialog

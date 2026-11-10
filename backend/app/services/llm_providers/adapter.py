@@ -376,6 +376,14 @@ class RetryingGateway(LLMGateway):
                 return
             except Exception as exc:  # noqa: BLE001 —— 分类由 _is_retryable 决定
                 last_error = exc
+                # wuwei 3.3.1 起，上游 ``LLMGateway._generate_stream`` 在收尾时
+                # 会调 ``_raise_translated`` 把任意异常统一翻成 ``LLMError``
+                # （``raise LLMError(...) from original``）。我们这一层再包一次
+                # 就会得到 ``LLMError.__cause__ = LLMError``，把最初的真实原因
+                # （APIConnectionError / 超时 / 限流）埋到第二层 —— 调用方按
+                # ``__cause__`` 判类型全部失效。已经是我们认识的 LLMError 就
+                # 原样抛出，保留它自带的 cause 与 details。
+                already_translated = isinstance(exc, LLMError)
                 if emitted or attempt >= self._stream_attempts - 1 or not _is_retryable(exc):
                     logger.warning(
                         "LLM 流式请求失败（第 %d/%d 次尝试）：%s: %s",
@@ -384,6 +392,12 @@ class RetryingGateway(LLMGateway):
                         type(exc).__name__,
                         exc,
                     )
+                    if already_translated:
+                        # 补上尝试次数（上游那份 details 里没有）
+                        details = getattr(exc, "details", None)
+                        if isinstance(details, dict):
+                            details.setdefault("attempts", attempt + 1)
+                        raise
                     raise self._as_llm_error(exc, attempts=attempt + 1) from exc
                 logger.warning(
                     "流式请求失败（第 %d/%d 次尝试），准备重试：%s",

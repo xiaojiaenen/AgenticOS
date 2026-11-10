@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.encryption import decrypt_safe, encrypt
 from app.core.timezone import app_now
-from app.db.models import LlmProviderCredentialModel
+from app.db.models import LlmProviderCredentialModel, LlmProviderModel
 from app.db.session import create_db_session
 from app.services.llm_providers.spec import invalidate_cache
 
@@ -493,11 +493,40 @@ def read_login_material(
         password = decrypt_safe(row.password_encrypted or "", default="")
         if not row.username or not password:
             return None
+
+        # 登录地址优先用账号自己的，为空时回退到预设。
+        #
+        # 登录地址本质是「这个网关的登录页在哪」，属于网关级属性；
+        # 早先只读 row.login_url，账号没单独填就永远报「未配置登录地址」，
+        # 而预设里明明已经写了百通的 login_url —— 用户被迫给每个账号
+        # 重复抄一遍同一个 URL，忘填就整个自动登录链路不可用。
+        #
+        # 注意：llm_providers 表**没有** login_url 列（只有 base_url /
+        # extra_json 等），所以这里不能读 provider.login_url —— 早先那样写
+        # 会抛 AttributeError，被上层包成「自动登录异常」。回退只有两级：
+        # 账号自己的 → 按 base_url 匹配到的预设。
+        login_url = (row.login_url or "").strip()
+        if not login_url:
+            try:
+                from app.services.llm_providers.presets import PRESETS
+
+                provider = db.get(LlmProviderModel, provider_id)
+                base = (getattr(provider, "base_url", "") or "").strip().rstrip("/")
+                for preset in PRESETS.values():
+                    preset_base = (preset.base_url or "").strip().rstrip("/")
+                    if not preset_base or not preset.login_url:
+                        continue
+                    if base and base.startswith(preset_base):
+                        login_url = preset.login_url.strip()
+                        break
+            except Exception:  # noqa: BLE001 —— 预设缺失不该阻断读取
+                pass
+
         return {
             "credential_id": row.id,
             "username": row.username,
             "password": password,
-            "login_url": row.login_url,
+            "login_url": login_url,
             "auto_refresh": bool(row.auto_refresh),
         }
 

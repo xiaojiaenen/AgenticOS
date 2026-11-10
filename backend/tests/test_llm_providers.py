@@ -1784,3 +1784,42 @@ def test_deep_probe_does_not_spend_tokens_twice(monkeypatch):
     assert calls["chat"] == 1, "认证复核已发过对话，深度阶段不该再发一次"
     assert calls["stream"] == 1
     assert calls["tools"] == 1
+
+
+# ── invalidate_cache 必须连 Agent 缓存一起清空（内网修复回归） ──────────
+
+
+def test_invalidate_cache_clears_agent_cache(monkeypatch):
+    """凭据/配置变更后必须连 Agent 缓存一起清空。
+
+    只失效 provider 解析缓存时，_get_agent 的 TTLCache 仍命中旧 Agent
+    （内嵌构建时刻的 Cookie），表现是「登录成功后对话依旧 401」。
+    """
+    from app.services import agent_service
+    from app.services.llm_providers import spec
+
+    calls: list[str] = []
+
+    class _FakeSvc:
+        def clear_agent_cache(self):
+            calls.append("cleared")
+
+    spec._cache = {"stale": True}  # type: ignore[attr-defined]
+    monkeypatch.setattr(agent_service, "get_agent_service", lambda: _FakeSvc())
+
+    spec.invalidate_cache()
+
+    assert calls == ["cleared"], "Agent 缓存必须被清空"
+    assert spec._cache is None, "provider 解析缓存必须失效"
+
+
+def test_invalidate_cache_swallows_agent_cache_errors(monkeypatch):
+    """缓存清理失败不得阻断凭据写入路径（调用方在请求线程里）。"""
+    from app.services import agent_service
+    from app.services.llm_providers import spec
+
+    def _boom():
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(agent_service, "get_agent_service", _boom)
+    spec.invalidate_cache()  # 不应抛出

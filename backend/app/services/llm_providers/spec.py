@@ -91,6 +91,16 @@ def invalidate_cache() -> None:
     """配置或凭据变更后调用，让下一次解析立即读到新值。"""
     global _cache
     _cache = None
+    # 已缓存的 Agent 内嵌了构建时刻的网关（Cookie 认证时含当时的 Cookie）。
+    # 只失效 provider 解析缓存的话，_get_agent 的 TTLCache 仍会命中旧
+    # Agent，拿旧 Cookie 打上游 —— 表现就是「登录成功后对话依旧 401」。
+    # （内网修复同步：2026-11，G:\Downloads\app）
+    try:
+        from app.services.agent_service import get_agent_service
+
+        get_agent_service().clear_agent_cache()
+    except Exception:  # noqa: BLE001 —— 缓存清理失败不应阻断凭据写入
+        logger.warning("凭据/配置变更后清空 Agent 缓存失败", exc_info=True)
 
 
 def parse_extra(raw: str | None) -> dict[str, Any]:

@@ -83,18 +83,19 @@ class FakeServiceConn:
 
 
 class FakeUserConn:
-    """模拟用户 DN 二次 bind 的连接。bind_ok 决定 bind() 结果。"""
+    """模拟用户 DN 二次 bind 的连接。bind_ok 决定 bind() 结果。
+
+    注意：ldap3 的 Connection 没有 open() 方法，生产代码也不该调用它
+    （早先误用 `user_conn.open()` 导致所有用户登录必然失败）。这里保留
+    bind/unbind 与真实 API 一致，不再提供 open()。
+    """
 
     bind_ok = True
-    opened = True
     result: dict = {"message": "bind failed"}
 
     def __init__(self, server, user=None, password=None, auto_bind=False):
         assert password, "用户 bind 必须带密码"
         FakeUserConn.last_user_dn = user
-
-    def open(self):
-        return FakeUserConn.opened
 
     def bind(self):
         return FakeUserConn.bind_ok
@@ -254,13 +255,19 @@ def test_authenticate_wrong_password_rejected(monkeypatch):
 
 
 def test_authenticate_user_bind_failure(monkeypatch):
+    """用户 DN 二次 bind 失败 → 报「用户名或密码错误」。
+
+    早先这个用例断言的是 open() 返回 False 时的「连接失败」分支，
+    但 ldap3 的 Connection 根本没有 open() —— 生产代码调用它必然
+    AttributeError，真实登录全部失效。现在语义回到 bind 结果本身。
+    """
     _patch_ldap(monkeypatch, [_ENTRY])
-    FakeUserConn.opened = False
+    FakeUserConn.bind_ok = False
     try:
-        with pytest.raises(LdapAuthError, match="连接失败"):
+        with pytest.raises(LdapAuthError, match="用户名或密码错误"):
             authenticate(_make_config(), "10001", "pw")
     finally:
-        FakeUserConn.opened = True
+        FakeUserConn.bind_ok = True
 
 
 def test_authenticate_rejects_ambiguous_filter(monkeypatch):

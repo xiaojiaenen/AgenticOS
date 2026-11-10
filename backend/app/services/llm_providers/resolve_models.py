@@ -37,6 +37,7 @@ class EmbeddingEndpoint:
     model: str
     dimensions: int
     source: str  # local / provider:<slug> / env
+    cookie: str = ""  # cookie 型提供商的登录态，调用方用 Cookie 头认证
 
     def describe(self) -> dict[str, Any]:
         """不含密钥的描述，可安全返回前端。"""
@@ -160,14 +161,17 @@ def resolve_image_endpoint(db: Session | None = None) -> EmbeddingEndpoint | Non
             model_name = str(roles.get(ROLE_IMAGE) or "").strip()
             if not model_name:
                 continue
+            cookie = ""
             if resolved.provider_type == "enterprise_cookie":
-                continue
+                from app.services.llm_providers.credentials import get_active_cookie
+                cookie = get_active_cookie(resolved.provider_id) or ""
             return EmbeddingEndpoint(
                 base_url=(resolved.base_url or "").rstrip("/"),
                 api_key=resolved.api_key or "",
                 model=model_name,
                 dimensions=0,
                 source=f"provider:{resolved.slug}",
+                cookie=cookie,
             )
     except Exception:  # noqa: BLE001
         logger.warning("解析生图端点失败", exc_info=True)

@@ -197,6 +197,11 @@ class TestLocalAgentRouting:
                 AgentProfileModel.slug == "general"
             ).first()
             assert profile is not None
+            # SQLite 会复用已删除用户的 id：先清掉该 id 的残留安装记录，
+            # 否则撞 (user_id, profile_id) 唯一约束
+            db.query(UserInstalledAgentModel).filter(
+                UserInstalledAgentModel.user_id == uid
+            ).delete()
             db.add(UserInstalledAgentModel(user_id=uid, profile_id=profile.id))
             db.commit()
         try:
@@ -238,6 +243,11 @@ class TestGatewayRoutes:
                 AgentProfileModel.slug == "general"
             ).first()
             assert profile is not None
+            # SQLite 会复用已删除用户的 id：先清掉该 id 的残留安装记录，
+            # 否则撞 (user_id, profile_id) 唯一约束
+            db.query(UserInstalledAgentModel).filter(
+                UserInstalledAgentModel.user_id == uid
+            ).delete()
             db.add(UserInstalledAgentModel(user_id=uid, profile_id=profile.id))
             db.commit()
         try:

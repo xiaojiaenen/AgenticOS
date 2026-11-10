@@ -508,7 +508,7 @@ def oidc_complete(
 
 
 @router.post("/logout")
-def logout(
+async def logout(
     http_request: Request,
     user: UserModel = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
@@ -520,6 +520,13 @@ def logout(
     session_id = payload.get("sid") if isinstance(payload, dict) else None
     if isinstance(session_id, str) and session_id:
         AuthService(db, settings).revoke_session(session_id)
+    # 登出即移除在线心跳（失败不阻断登出）
+    try:
+        from app.services.cache_service import get_cache_service
+
+        await get_cache_service().user_offline(user.id)
+    except Exception:  # noqa: BLE001
+        pass
     _audit(
         http_request, db, action="auth.logout", result="allow", actor=user,
         resource_type="user", resource_id=user.id,

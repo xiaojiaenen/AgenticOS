@@ -474,14 +474,22 @@ export async function clearProviderCredential(id: number): Promise<CredentialSta
   );
 }
 
-/** 手动粘贴 Cookie 兜底（作用于默认账号）。 */
+/**
+ * 手动粘贴 Cookie 兜底。
+ *
+ * `accountId` 必须传：企业网关是账号池，后端在不指定账号时会落到
+ * 「priority 最小、id 最小」那条 —— 若那条是别的账号，Cookie 就贴错了
+ * 对象，界面表现为「保存成功但依然提示没有可用账号」。
+ */
 export async function saveManualCookie(
   id: number,
   cookie: string,
+  accountId?: number,
   expireAt?: string,
 ): Promise<CredentialStatus> {
+  const query = accountId != null ? `?credential_id=${accountId}` : '';
   return apiFetch<CredentialStatus>(
-    `${ENDPOINT}/${id}/credential/cookie`,
+    `${ENDPOINT}/${id}/credential/cookie${query}`,
     { method: 'PUT', body: JSON.stringify({ cookie, expire_at: expireAt || null }) },
     '保存 Cookie 失败',
   );

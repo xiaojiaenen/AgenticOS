@@ -19,11 +19,12 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
+from app.core.data_path import set_current_user_id
 from app.db.models import UserModel
 from app.services import audit_service
 from app.services.llm_providers import (
@@ -408,7 +409,15 @@ async def test_llm_provider(
 
     ``deep=true`` 会再发一条真实对话和一次带 ``tools`` 的请求 —— 那是唯一能
     确认「agent 能不能真的跑起来」的办法，但会消耗上游额度，所以默认关闭。
+
+    **必须先设置当前用户**：``credentials.acquire()`` 靠 contextvar 判断
+    「这次请求是谁发起的」，据此优先取该用户自己绑定的凭据、否则才查共享池。
+    管理端点不走 agent 的 stream 路径，contextvar 是空的（默认 0）——
+    acquire 会把这次调用当成匿名上下文，只找共享池；账号池里的凭据若绑在
+    具体 user_id 上就永远取不到，表现为「账号池里没有可用账号」，
+    而界面上账号明明是 active 的。
     """
+    set_current_user_id(current_user.id)
     row = _require_provider(db, provider_id)
     result = await runtime.test_provider(provider_spec.spec_from_row(row), deep=deep)
     _audit(
@@ -437,7 +446,10 @@ async def test_provider_draft(
 
     没有这一步时，管理员只能「先保存一个可能错的配置 → 再点测试 →
     再改」，错误的地址或 Key 会先被写进库、甚至被设为默认参与灰度。
+
+    同 ``test_llm_provider``：企业网关需要当前用户身份才能取到本人凭据。
     """
+    set_current_user_id(current_user.id)
     base_url = (payload.base_url or "").strip().rstrip("/")
     if not base_url:
         return {
@@ -586,7 +598,11 @@ async def login_provider(
     ``credential_id`` 省略时由服务层挑「最需要续期」的那个账号（未登录成功
     或已过期优先），而不是无脑刷第一个 —— 池里 3 个号只有 1 个挂了时，
     点一次登录应该修的是挂掉的那个。
+
+    这里也设置当前用户：登录成功后若后续要落 cookie 或触发联动，
+    下游读得到发起人身份，避免「匿名上下文」导致的行为差异。
     """
+    set_current_user_id(current_user.id)
     row = _require_provider(db, provider_id)
     _require_enterprise(row)
 
@@ -614,6 +630,12 @@ def put_manual_cookie(
     provider_id: int,
     payload: ManualCookiePayload,
     http_request: Request,
+    credential_id: int | None = Query(
+        None,
+        description="要写入的账号 id。企业网关是多账号池，不指定时会落到"
+                    "「priority 最小、id 最小」那条 —— 如果那条是别的账号，"
+                    "Cookie 就贴错了对象，界面上看起来像「保存成功但仍不可用」。",
+    ),
     current_user: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -621,6 +643,9 @@ def put_manual_cookie(
 
     自动登录依赖上游登录页结构，上游一改版就失效；这条路保证「至少还能救
     回来」，不必等代码适配。
+
+    ``credential_id`` 为空时保持旧行为（默认账号），但前端在账号池里操作时
+    必须带上它 —— 见 llmProviderService 顶部的三条硬约定。
     """
     from datetime import datetime
 
@@ -636,9 +661,19 @@ def put_manual_cookie(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="expire_at 格式不正确"
             ) from exc
 
+    # 指定了账号就先校验归属，避免把 A 提供商的 Cookie 写到 B 的账号上
+    if credential_id is not None:
+        account = credentials.get_by_id(db, credential_id)
+        if account is None or account.provider_id != row.id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="账号不存在或不属于该提供商",
+            )
+
     try:
         credential_row = credentials.save_manual_cookie(
-            db, row.id, cookie=payload.cookie, expire_at=expire_at
+            db, row.id, cookie=payload.cookie, expire_at=expire_at,
+            credential_id=credential_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -648,7 +683,10 @@ def put_manual_cookie(
     _audit(
         http_request, db, action="llm_provider.cookie_update", current_user=current_user,
         provider_id=provider_id,
-        detail={"expire_at": credential_row.expire_at.isoformat() if credential_row.expire_at else None},
+        detail={
+            "credential_id": credential_row.id,
+            "expire_at": credential_row.expire_at.isoformat() if credential_row.expire_at else None,
+        },
     )
     return provider_spec.credential_status_dict(credential_row)
 
@@ -882,7 +920,11 @@ async def discover_provider_models(
 
     ``persist=false`` 只做预演：接新网关时先看一眼「上游到底有哪些模型」，
     再决定要不要写进库。默认写入，因为绝大多数情况下这就是想要的结果。
+
+    同 ``test_llm_provider``：企业网关要拿本人凭据的 Cookie 才能请求上游，
+    缺这一行会让 acquire() 退回共享池并报「没有可用账号」。
     """
+    set_current_user_id(current_user.id)
     row = _require_provider(db, provider_id)
     spec = provider_spec.spec_from_row(row)
 

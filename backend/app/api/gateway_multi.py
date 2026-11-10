@@ -303,14 +303,16 @@ async def images_generations(request: Request):
     if body.get("style"):
         payload["style"] = body["style"]
 
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if getattr(endpoint, "cookie", ""):
+        headers["Cookie"] = endpoint.cookie
+    else:
+        headers["Authorization"] = f"Bearer {endpoint.api_key}"
     try:
         async with httpx.AsyncClient(timeout=300.0) as client:
             resp = await client.post(
                 f"{endpoint.base_url}/images/generations",
-                headers={
-                    "Authorization": f"Bearer {endpoint.api_key}",
-                    "Content-Type": "application/json",
-                },
+                headers=headers,
                 json=payload,
             )
             if resp.status_code == 404:
@@ -492,6 +494,9 @@ async def anthropic_messages(request: Request):
     user = authenticate_api_key(api_key)
     if user is None:
         return _unauthorized("anthropic")
+
+    from app.core.data_path import set_current_user_id
+    set_current_user_id(user.id)
 
     try:
         body = await request.json()
@@ -711,6 +716,9 @@ async def openai_responses(request: Request):
     user = authenticate_api_key(api_key)
     if user is None:
         return _unauthorized()
+
+    from app.core.data_path import set_current_user_id
+    set_current_user_id(user.id)
 
     try:
         body = await request.json()
