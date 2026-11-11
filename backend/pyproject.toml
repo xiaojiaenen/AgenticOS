@@ -17,8 +17,16 @@ dependencies = [
     # 3.3.2 官方修复了 checkpoint 还原后 metadata["action_log"] 是 dict、
     # get_or_create_log() 只认 None 导致 `.append()` 崩溃（工具执行后无最终回复）
     # —— 新增 coerce_action_log() 统一收敛带标记/裸 dict 两种历史形态，
-    # 内网那处改 site-packages 的临时补丁不再需要。下限因此提到 3.3.2。
-    "wuwei>=3.3.2",
+    # 内网那处改 site-packages 的临时补丁不再需要。
+    # 3.3.3 修了两处本项目报过的上游缺陷：
+    #   - structured-output 不再 insert(0, SystemMessage) 造成相邻两条 system
+    #     （OpenAI 兼容端 400 "System message must be at the beginning"），
+    #     改为并入首条 system 且幂等；适配器边界也补了 _coalesce_system_messages。
+    #   - LLMResponse 新增 steps_used / max_steps，调用方可程序化判断「被
+    #     max_steps 截断」而不是靠匹配文案。
+    # 因此下限提到 3.3.3。本项目 adapter.py 里的 normalize_system_messages
+    # 保留为下游兜底（幂等、无害），上游生效后自然不再触发。
+    "wuwei>=3.3.3",
     # 下面两个是**直接依赖**，必须显式声明，不能靠传递依赖侥幸拿到：
     # - httpx：app/ 下 14 个文件直接 import（外部系统、图像工具、鉴权代理等）。
     #   openai 3.x 起不再自动安装 httpx（改用 httpx2），只靠别人传递是定时炸弹。
