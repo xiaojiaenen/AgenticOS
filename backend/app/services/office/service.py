@@ -74,6 +74,15 @@ async def _call(op: str, **args: Any) -> dict[str, Any]:
         return await get_office_runtime().call(op, **args)
     except OfficeRuntimeError as exc:
         raise SheetServiceError(str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        # 非 OfficeRuntimeError 的内部异常（如裸 NotImplementedError）此前
+        # 会一路冒到工具执行器，界面上只剩 {"type":"NotImplementedError",
+        # "message":""} —— 没有任何线索。这里留 traceback 并转成有意义的
+        # 业务错误，让模型/用户看到「办公运行时异常」而不是空白失败。
+        logger.exception("办公运行时 %s 调用失败（内部异常）", op)
+        raise SheetServiceError(
+            f"办公运行时异常（{type(exc).__name__}）：{exc or '无详细信息'}"
+        ) from exc
 
 
 # ── 工作簿操作（供 tools 层调用）──────────────────────────────────────────

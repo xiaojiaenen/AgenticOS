@@ -69,6 +69,13 @@ async def _call(op: str, **args: Any) -> dict[str, Any]:
         return await get_office_runtime().call(op, **args)
     except OfficeRuntimeError as exc:
         raise DocumentServiceError(str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        # 同 sheet service：非业务异常必须留 traceback，否则界面只剩一个
+        # 空 message 的 NotImplementedError，完全无法排查。
+        logger.exception("办公运行时 %s 调用失败（内部异常）", op)
+        raise DocumentServiceError(
+            f"办公运行时异常（{type(exc).__name__}）：{exc or '无详细信息'}"
+        ) from exc
 
 
 async def create_document(
