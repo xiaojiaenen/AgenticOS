@@ -896,6 +896,34 @@ class AgentFactory:
             if not enabled:
                 _unregister_tool_group(registry, tool_name)
 
+        # ── 越界防线：按 profile 白名单裁剪注册表 ──────────────────
+        #
+        # 上面那段只处理「signature 里显式 disabled 的组名」，管不到
+        # **模式整体注册**的工具（website_file_tools 在所有模式都注册、
+        # sheet_tools / doc_tools 按 office 模式注册）。结果：管理员把
+        # 某个智能体的「文件工具」关掉，写文件工具照样在注册表里。
+        #
+        # allowed_tools 是权威白名单（见 AgentProfileService._compute_allowed_tools）：
+        # 一个具体工具能被下发，当且仅当它在某个已启用的 catalog 条目下，
+        # 或属于该模式的自动发现工具组。
+        allowed = getattr(profile, "allowed_tools", None)
+        if allowed:
+            removed = []
+            for tool_name in list(registry._tools.keys()):
+                if tool_name in allowed:
+                    continue
+                # MCP / 工作流等动态工具不在 profile 配置体系里，
+                # 由它们自己的授权（profile 级 / 显式启用）负责，不在这里裁。
+                if tool_name.startswith("run_workflow_") or tool_name.startswith("mcp_"):
+                    continue
+                _unregister_if_exists(registry, tool_name)
+                removed.append(tool_name)
+            if removed:
+                _logger.info(
+                    "profile %s 白名单裁剪：移除 %d 个未配置的工具（%s）",
+                    profile.slug, len(removed), "、".join(sorted(removed)[:8]),
+                )
+
         # 统一工具执行层：对同步 handler 包装成异步版本，防止 wuwei Tool.invoke
         # 直接在事件循环上跑同步代码导致阻塞。这是解决"一个接口阻塞全站"的关键修复。
         import inspect

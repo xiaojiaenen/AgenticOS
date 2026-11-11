@@ -144,6 +144,19 @@ class RuntimeAgentProfile:
     plan_mode: bool = False
     # 触发本轮的用户是否为管理员（决定 full 档是否生效）
     is_admin_actor: bool = False
+    # 该 profile 允许的**具体工具名**白名单（含子工具，如 write_text_file）。
+    #
+    # 为什么需要它：注册表里有两类工具来源，来源不同、管控也不同 ——
+    #   1. builtin 插件类（calc/time/file/python/...）：受 profile 的 enabled
+    #      开关控制，已经通过 builtin_tools 下发；
+    #   2. 模式注册类（website_tools / sheet_tools / doc_tools / email_tools
+    #      / website_file_tools）：**按 response_mode 整体注册**，此前完全
+    #      绕过了 profile 配置 —— 管理员在界面里关掉「文件工具」或
+    #      「部署网站」，工具照样可用。
+    #
+    # 这个集合把两类统一到同一个白名单：注册表构建后按它裁剪，
+    # 管理员的开关才真正说了算。
+    allowed_tools: frozenset[str] = frozenset()
 
 
 class AgentProfileService:
@@ -1402,6 +1415,9 @@ class AgentProfileService:
         builtin_tools: list[str] = []
         approval_tools: set[str] = set()
         signature: list[tuple[str, bool, bool]] = []
+        # 具体工具名 → 归属的 catalog 条目名。用于把「管理员勾了哪个工具」
+        # 翻译成「注册表里哪些具体工具名可以留下」。
+        tool_name_to_catalog: dict[str, str] = {}
         for row in rows:
             catalog_item = TOOL_CATALOG.get(row.tool_name)
             if not catalog_item:
@@ -1421,6 +1437,13 @@ class AgentProfileService:
                     )
                 else:
                     approval_tools.update(str(item) for item in catalog_item["approval_scope"])
+
+        allowed_tools = self._compute_allowed_tools(
+            profile.response_mode,
+            enabled_catalog_names={
+                name for name, enabled, _ in signature if enabled
+            },
+        )
 
         # Load enabled external system IDs for this profile
         ext_system_ids = tuple(
@@ -1450,7 +1473,74 @@ class AgentProfileService:
             approval_mode=approval_mode,
             is_admin_actor=is_admin_actor,
             plan_mode=plan_mode,
+            allowed_tools=allowed_tools,
         )
+
+    @staticmethod
+    def _compute_allowed_tools(
+        response_mode: str,
+        *,
+        enabled_catalog_names: set[str],
+    ) -> frozenset[str]:
+        """算出该 profile 允许使用的**具体工具名**白名单。
+
+        注册表里有两类工具来源，管控方式原本不一致：
+
+        1. **builtin 插件类**（calc / time / file / python / git / npm …）：
+           由 profile 的 enabled 开关控制，通过 builtin_tools 下发。
+        2. **模式注册类**（website_tools / sheet_tools / doc_tools /
+           email_tools / website_file_tools）：按 response_mode **整体注册**，
+           此前完全绕过 profile 配置 —— 管理员在界面里关掉「文件工具」或
+           「部署网站」，工具照样能用（实测通用助手注册表里带着
+           write_text_file / delete_file，而它的 builtin_tools 只有
+           calc/file/time）。
+
+        这里把两类统一到同一套规则：**一个具体工具能被下发，当且仅当它在
+        某个已启用的 catalog 条目下**。
+
+        归属关系从 catalog 条目正向反查（条目 → 它管的子工具名），
+        而不是从工具名反查条目 —— 后者要靠模块名猜，既脆弱又难读。
+
+        例：file 条目启用 → 放行 read_text_file / write_text_file /
+        list_files / append_text_file / replace_text_in_file / delete_file；
+        file 条目关闭 → 这些全部不放行。
+        """
+        allowed: set[str] = set()
+
+        # 所有 catalog 条目管辖的具体工具名（无论是否启用）。
+        # 用来区分「有归属的工具」与「纯模式级工具」——前者必须看开关，
+        # 后者才随模式无条件放行。
+        managed_by_catalog: set[str] = set()
+        for entry in TOOL_CATALOG.values():
+            managed_by_catalog.update(str(i) for i in entry.get("sub_tools", {}).keys())
+            managed_by_catalog.update(str(i) for i in entry.get("approval_scope", []))
+
+        # 1) 已启用的 catalog 条目 → 它管的具体工具名
+        for entry_name in enabled_catalog_names:
+            entry = TOOL_CATALOG.get(entry_name)
+            if not entry:
+                continue
+            allowed.update(str(item) for item in entry.get("sub_tools", {}).keys())
+            allowed.update(str(item) for item in entry.get("approval_scope", []))
+            # builtin 插件本身也是一个工具名（calc / time / file …）
+            builtin_name = entry.get("builtin_name")
+            if builtin_name:
+                allowed.add(str(builtin_name))
+
+        # 2) 自动发现的模式级工具（create_workbook / build_website …）。
+        #
+        # **只放行没有 catalog 归属的**。有归属的（如 write_text_file 归 file
+        # 条目、deploy_website 归同名条目）必须走上面的 enabled 检查 ——
+        # 否则「关掉文件工具」形同虚设：website_file_tools 在所有模式无条件
+        # 注册，又被模式发现列表兜进来，管理员怎么关都关不掉。
+        from app.services.tool_config_service import _discover_all_mode_tools
+
+        for tool_name in _discover_all_mode_tools().get(response_mode, set()):
+            if tool_name in managed_by_catalog:
+                continue
+            allowed.add(tool_name)
+
+        return frozenset(allowed)
 
     def _load_profile_skill_rows(
         self,
