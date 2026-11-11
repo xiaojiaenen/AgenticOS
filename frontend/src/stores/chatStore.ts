@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import type { Artifact } from '../types';
 import type { AgentProfile } from '../services/agentProfileService';
+import type { SessionPanelId } from '../components/panel/types';
 
 export type ChatMode = 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
 
@@ -54,6 +55,13 @@ interface ChatUIState {
   // ── 制品面板 ──
   artifact: Artifact | null;
   setArtifact: (artifact: Artifact | null) => void;
+  /**
+   * 会话级面板（运行日志 / 会话文件）：不属于某个具体产物，没有产物时
+   * 也要能打开。与 artifact 互斥 —— 互斥在 Chat.tsx 的传参层保证
+   * （sessionPanel 打开时给产物区传 null）。
+   */
+  sessionPanel: SessionPanelId | null;
+  setSessionPanel: (panel: SessionPanelId | null) => void;
 
   // ── 组合 action ──
   createNewChat: () => void;
@@ -88,6 +96,9 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   artifact: null,
   setArtifact: (artifact) => set({ artifact }),
+
+  sessionPanel: null,
+  setSessionPanel: (sessionPanel) => set({ sessionPanel }),
 
   createNewChat: () =>
     set({

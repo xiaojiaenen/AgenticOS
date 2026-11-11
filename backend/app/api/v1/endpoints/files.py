@@ -131,3 +131,61 @@ async def probe_upload(
             else "文件为空。"
         ),
     }
+
+
+@router.get("/workspace", summary="列出会话工作区的文件树")
+async def list_workspace(
+    session_id: str,
+    current_user: UserModel = Depends(get_current_user),
+    path: str = "",
+) -> dict[str, Any]:
+    """列出会话工作区的目录树（供右侧「文件」面板浏览）。
+
+    **安全边界**：只允许在 ``data/workspaces/u<uid>/s<sid>/`` 之内浏览 ——
+    ``path`` 经过 resolve 后必须仍在该根目录下，任何 ``..`` 逃逸直接拒绝。
+    这也保证了 A 用户看不到 B 用户的会话文件。
+    """
+    from app.core.data_path import workspace_dir
+
+    root = workspace_dir(current_user.id, session_id, create=False).resolve()
+    if not root.is_dir():
+        return {"path": "", "entries": [], "root_exists": False}
+
+    target = (root / path).resolve() if path else root
+    # 防目录穿越：target 必须是 root 本身或它的子孙
+    if target != root and root not in target.parents:
+        raise HTTPException(status_code=400, detail="非法的路径")
+
+    if not target.is_dir():
+        raise HTTPException(status_code=404, detail="目录不存在")
+
+    entries: list[dict[str, Any]] = []
+    try:
+        children = sorted(
+            target.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())
+        )
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"读取目录失败：{exc}") from exc
+
+    for child in children:
+        if child.name.startswith("."):
+            continue
+        try:
+            is_dir = child.is_dir()
+            stat = child.stat()
+        except OSError:
+            continue
+        entries.append(
+            {
+                "name": child.name,
+                "path": str(child.relative_to(root)).replace("\\", "/"),
+                "type": "dir" if is_dir else "file",
+                "size": None if is_dir else stat.st_size,
+            }
+        )
+
+    return {
+        "path": str(target.relative_to(root)).replace("\\", "/") if target != root else "",
+        "entries": entries,
+        "root_exists": True,
+    }

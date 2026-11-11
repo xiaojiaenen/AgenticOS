@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Sidebar } from '../components/chat/Sidebar';
 import { ChatMainArea } from '../components/chat/ChatMainArea';
 import { ChatArtifactArea } from '../components/chat/ChatArtifactArea';
+import { SessionPanelHost } from '../components/panel/SessionPanelHost';
 import { SlideLivePreview } from '../components/ppt/SlideLivePreview';
 import { DragOverlay } from '../components/chat/DragOverlay';
 import { RandomMascot } from '../components/ui/RandomMascot';
@@ -39,6 +40,7 @@ export const Chat = () => {
     artifact, setArtifact,
     isSidebarHiddenByArtifact, setIsSidebarHiddenByArtifact,
     createNewChat: storeCreateNewChat,
+    sessionPanel, setSessionPanel,
   } = useChatStore();
 
   // ── 会话管理 ──
@@ -104,6 +106,12 @@ export const Chat = () => {
 
   // 浏览器标签页的运行状态感知（环境感知：切去别的标签页也能知道在跑/跑完）
   useRunTitleAwareness(runStatus.phase, runStatus.label);
+
+  // 会话面板与产物互斥的兜底：产物可能从任意入口自动打开（如邮件审批
+  // 预览），不经过触发器，所以用 effect 兜底，而不是在每个入口手动收起。
+  React.useEffect(() => {
+    if (artifact && sessionPanel) setSessionPanel(null);
+  }, [artifact, sessionPanel, setSessionPanel]);
 
   // ── 派生状态 ──
   const currentSessionMessages = currentSession?.messages ?? [];
@@ -654,7 +662,7 @@ export const Chat = () => {
             )}
           </AnimatePresence>
           <ChatArtifactArea
-            artifact={artifact}
+            artifact={sessionPanel ? null : artifact}
             onClose={() => setArtifact(null)}
             borderColor={borderColor}
             onPptThemeChange={handlePptThemeChange}
@@ -662,6 +670,10 @@ export const Chat = () => {
             onEmailCancel={handleEmailCancel}
             onSwitchArtifact={(next) => setArtifact(next)}
             sessionId={currentSessionId}
+          />
+          <SessionPanelHost
+            sessionId={currentSessionId}
+            messages={currentSession?.messages ?? []}
           />
         </div>
       </ChatContextProvider>

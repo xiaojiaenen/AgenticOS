@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChatTimeline } from './ChatTimeline';
+import { SessionPanelTrigger } from './SessionPanelTrigger';
 import { ChatSearch } from './ChatSearch';
 import { MessagesList } from './MessagesList';
 import { PendingApprovalPanel } from './PendingApprovalPanel';
@@ -465,6 +466,10 @@ const {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* 会话级面板入口（运行日志 / 文件）：不属于任何产物，独立一组。
+            SessionPanelTrigger 内部在有产物时自行隐藏，互斥语义集中在一处。 */}
+        <SessionPanelTrigger />
 
         <div className={cn("mx-auto", isWideConversation ? "max-w-[92rem] px-8" : "max-w-4xl")}>
           <DecisionPanel decisions={pendingDecisions} onDecision={handleDecisionMade} />
