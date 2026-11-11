@@ -421,6 +421,14 @@ class AgentFactory:
             self.settings.context_compression_enabled,
             # 计划模式会改变工具集合，必须参与缓存键，否则会复用普通模式的 agent
             bool(getattr(profile, "plan_mode", False)),
+            # 审批档位同样烧在 agent 的中间件栈里（LenientHitlMiddleware 在
+            # 构建时固化 auto_approve 哨兵），不进缓存键的话：第一轮以默认
+            # ask 构建被缓存，第二轮切「全部放行」仍复用旧 agent —— 文件工具
+            # 照样弹审批/被拒，界面显示已切档但实际没生效。
+            getattr(profile, "approval_mode", "auto"),
+            # is_admin_actor 决定 full 档是否真的放行（非管理员降级），
+            # 同一 agent 可能被管理员与普通用户先后使用，必须一并参与。
+            bool(getattr(profile, "is_admin_actor", False)),
             # 提供商决定 LLM 实例本身。不参与缓存键的话，管理员切换提供商后
             # 旧 agent（连同旧网关）会被一直复用，界面显示已切换但实际没生效。
             provider.slug,

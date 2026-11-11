@@ -151,3 +151,25 @@ class TestPlanMode:
         assert "只读" in PLAN_MODE_PROMPT_SUFFIX or "查询" in PLAN_MODE_PROMPT_SUFFIX
         assert "禁止" in PLAN_MODE_PROMPT_SUFFIX
         assert "批准" in PLAN_MODE_PROMPT_SUFFIX
+
+
+def test_agent_cache_key_includes_approval_mode():
+    """审批档位必须进 Agent 缓存键，否则切档后复用的仍是旧 agent。
+
+    实测故障：默认 ask 档构建了 agent 并缓存，第二轮在界面切「全部放行」
+    后，缓存键不含 approval_mode → 复用旧 agent（中间件栈里的
+    LenientHitlMiddleware 在构建时就把 auto_approve 固化了）—— 文件工具
+    照样弹审批、超时被拒，界面显示已切档但实际没生效。
+
+    这个测试用源码检查（缓存键是函数内的局部变量，无法直接取），
+    锁住三个必须参与的字段。
+    """
+    import inspect
+
+    from app.services.agent.factory import AgentFactory
+
+    src = inspect.getsource(AgentFactory._get_agent)
+
+    assert "approval_mode" in src, "缓存键缺少 approval_mode"
+    assert "is_admin_actor" in src, "缓存键缺少 is_admin_actor（决定 full 档是否真放行）"
+    assert "plan_mode" in src, "缓存键缺少 plan_mode（既有约束，别回退）"
