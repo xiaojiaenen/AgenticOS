@@ -60,7 +60,7 @@ def register_sheet_tools(registry: ToolRegistry) -> None:
 
     @registry.tool(display_name="写入单元格")
     async def set_range(
-        range: str, values: list[list[Any]], sheet_name: str | None = None
+        range: str, values: str | list[list[Any]], sheet_name: str | None = None
     ) -> str:
         """把一块矩形区域的数据写进表格，会覆盖原有内容。
 
@@ -78,6 +78,17 @@ def register_sheet_tools(registry: ToolRegistry) -> None:
             session_id = _session_id()
         except sheet.SheetServiceError as exc:
             return f"写入失败：{exc}"
+
+        # LLM 时常把二维数组序列化成 JSON 字符串传入；框架 strict 校验会
+        # 在进入本函数前就拒绝。放宽声明后在这里解析，两种形态都能写。
+        if isinstance(values, str):
+            try:
+                decoded = json.loads(values)
+            except (json.JSONDecodeError, TypeError):
+                return "写入失败：values 是无法解析的 JSON 字符串，请直接传二维数组"
+            if not isinstance(decoded, list):
+                return "写入失败：values 解析后不是数组"
+            values = decoded
 
         if not isinstance(values, list) or not values:
             return "写入失败：values 必须是非空二维数组，例如 [[\"季度\",\"销售额\"],[\"Q1\",120]]"

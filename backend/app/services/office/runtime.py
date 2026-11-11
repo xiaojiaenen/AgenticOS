@@ -192,16 +192,28 @@ class OfficeRuntime:
     async def call(self, op: str, **args: Any) -> dict[str, Any]:
         """调用一个运行时操作，返回 result 字段。"""
         # 整个协议是串行的：Univer 状态非并发安全，且 agent 工具本就顺序调用。
-        # 锁的创建在 _ensure_started 里（首次调用时才建），所以这里先起进程。
-        if self._lock is None:
-            await self._ensure_started()
+        #
+        # **必须先 _ensure_started() 再取 lock**，不能反过来。
+        #
+        # 曾经是 `if self._lock is None: await self._ensure_started()` 然后
+        # `async with self._lock` —— 它在 `_ensure_started()` 内部做跨 loop
+        # 失效检测**之前**就拿了旧 lock。asyncio.Lock 绑定创建它的 loop，
+        # 在新 loop 上 acquire 会抛 NotImplementedError/RuntimeError，
+        # 表现为界面上 {"type":"NotImplementedError","message":""}，
+        # 表格/文档工具全部不可用，且没有任何线索可排查。
+        #
+        # 长驻后端进程跨请求/重载时 loop 会变，这个顺序不能省。
+        process = await self._ensure_started()
         lock = self._lock
         if lock is None:  # pragma: no cover - _ensure_started 保证非空
             raise OfficeRuntimeError("办公运行时未初始化")
         async with lock:
-            # 拿锁期间可能跨了 loop（极少见），再确认一次句柄是活的
-            process = await self._ensure_started()
-            assert process.stdin is not None
+            # 拿锁期间可能跨了 loop（极少见），再确认一次句柄是活的；
+            # 若 _ensure_started 重建了进程/lock，本次调用让上层重试。
+            current = await self._ensure_started()
+            if current is not process or self._lock is not lock:
+                raise OfficeRuntimeError("办公运行时已重建，请重试本次操作")
+            assert current.stdin is not None
 
             self._counter += 1
             request_id = f"r{self._counter}"

@@ -273,3 +273,112 @@ async def test_table_and_document_coexist(doc_session_id):
     read = await doc.read_document(doc_session_id)
     assert [s["name"] for s in described["sheets"]] == ["数据"]
     assert read["blocks"][0]["text"] == "报告"
+
+
+def test_create_document_accepts_json_string_blocks():
+    """LLM 常把 blocks 数组序列化成字符串传入，必须能解析。
+
+    实测 E2E：`blocks: "[{\\"type\\":\\"h1\\"...}]"` → 框架 strict 校验抛
+    `Invalid tool arguments`，文档一行都写不出来。声明 `str | list` 后
+    在工具内部解析，两种形态都应工作。
+    """
+    import asyncio
+
+    from wuwei.tools import ToolRegistry
+
+    from app.core import data_path
+    from app.tools.doc_tools import register_doc_tools
+
+    data_path.set_current_session_id('office-str-blocks')
+    data_path.set_current_user_id(493)
+
+    registry = ToolRegistry()
+    register_doc_tools(registry)
+    tool = next(t for t in registry.list_tools() if t.name == 'create_document')
+
+    blocks = [
+        {'type': 'h1', 'text': '周会纪要'},
+        {'type': 'bullets', 'items': ['本周进展', '风险', '下周计划']},
+    ]
+    import json
+
+    result = asyncio.run(tool.invoke({
+        'title': '周会纪要',
+        'blocks': json.dumps(blocks, ensure_ascii=False),  # 字符串形态
+    }))
+    assert 'blockCount' in str(result) or '失败' not in str(result)[:20], (
+        f'字符串形态的 blocks 没被解析：{result}'
+    )
+
+
+def test_set_range_accepts_json_string_values():
+    """同理：set_range 的二维数组也可能被序列化成字符串。"""
+    import asyncio
+    import json
+
+    from wuwei.tools import ToolRegistry
+
+    from app.core import data_path
+    from app.tools.sheet_tools import register_sheet_tools
+
+    data_path.set_current_session_id('office-str-values')
+    data_path.set_current_user_id(493)
+
+    registry = ToolRegistry()
+    register_sheet_tools(registry)
+    # 先建工作簿，再写区域
+    registry.get('create_workbook').handler  # 确认已注册
+    asyncio.run(registry.get('create_workbook').invoke({'name': '测试'}))
+
+    tool = next(t for t in registry.list_tools() if t.name == 'set_range')
+    result = asyncio.run(tool.invoke({
+        'range': 'A1:B2',
+        'values': json.dumps([['产品', '销量'], ['A', 120]]),
+    }))
+    assert '写入' in str(result) or 'ok' in str(result).lower(), (
+        f'字符串形态的 values 没被解析：{result}'
+    )
+
+
+def test_office_runtime_survives_loop_switch():
+    """跨事件循环复用单例时，必须重建进程+锁，不能拿旧 loop 的 lock。
+
+    真实故障：长驻后端跨请求/重载时 loop 会变。原 `call()` 在
+    `_ensure_started()` 做跨 loop 失效检测**之前**就 `async with 旧 lock`，
+    在新 loop 上 acquire 抛 NotImplementedError —— 表格/文档工具全挂，
+    界面只显示 {"type":"NotImplementedError","message":""}。
+    """
+    import asyncio
+
+    from app.services.office.runtime import OfficeRuntime, get_office_runtime
+
+    # 用独立实例，避免污染全局单例
+    rt = OfficeRuntime()
+    rt._process = object()  # 假装有活进程，触发 _stale 的 loop 判定
+    rt._loop = asyncio.new_event_loop()
+    rt._lock = asyncio.Lock()  # 属于「另一个」loop 语境的锁
+
+    async def first():
+        # 第一个 loop：正常起进程并完成一次调用
+        return await rt.call('ping')
+
+    # 直接验证修复后的顺序：call 开头先 _ensure_started（会 _discard 失效句柄）
+    # 而不是拿旧 lock。这里不真起 node 进程（环境可能没有），只断言顺序。
+    import inspect
+
+    src = inspect.getsource(OfficeRuntime.call)
+    start = src.index('async def call')
+    body = src[start:]
+    ensure_pos = body.index('process = await self._ensure_started()')
+    lock_pos = body.index('lock = self._lock')
+    assert ensure_pos < lock_pos, (
+        'call() 必须先 _ensure_started() 再取 lock，否则会拿旧 loop 的锁'
+    )
+    assert 'current is not process or self._lock is not lock' in body, (
+        '拿锁后必须二次确认句柄没有被重建'
+    )
+
+    # 清掉假句柄，避免影响后续用例
+    rt._process = None
+    rt._loop = None
+    rt._lock = None

@@ -517,10 +517,19 @@ class BoundedToolExecutor(ToolExecutor):
                         # 普通的工具失败继续往下走。
                         if isinstance(result, asyncio.CancelledError):
                             raise result
+                        # 内部异常（如裸 NotImplementedError）必须留 traceback。
+                        # 否则界面上只剩 {"type":"NotImplementedError","message":""}
+                        # 这种没有任何线索的失败，排查完全无从下手。
+                        logger.exception(
+                            "批处理工具 %s 抛出未捕获异常：%s",
+                            prepared[idx][0].function.name,
+                            type(result).__name__,
+                            exc_info=(type(result), result, result.__traceback__),
+                        )
                         results[idx] = self.build_error_message(
                             prepared[idx][0],
                             error_type=type(result).__name__,
-                            message=str(result),
+                            message=str(result) or type(result).__name__,
                         )
                     else:
                         results[idx] = result

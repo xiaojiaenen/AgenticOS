@@ -206,7 +206,16 @@ export function normalizeAgentError(message?: string, errorType?: string): strin
     return '模型服务余额不足，请联系管理员充值或切换可用模型。';
   }
   if (errorType === 'rate_limit_error' || lower.includes('rate limit')) {
+    // 日额度用尽与「请求太频繁」的处理完全不同：前者等一会儿没用，
+    // 必须等额度重置或换模型/充值。内网实测踩过 —— 用户反复重试一整天
+    // 都是同一句「请稍后再试」，看不出真正原因。
+    if (lower.includes('per day') || lower.includes('per-day') || lower.includes('daily')) {
+      return '模型服务的每日免费额度已用完。请明天再试，或联系管理员更换模型 / 充值。';
+    }
     return '模型服务请求过于频繁，请稍后再试。';
+  }
+  if (lower.includes('timeout') || lower.includes('timed out')) {
+    return '模型响应超时。可能是任务过大或上游服务繁忙，请重试或换个更简单的问法。';
   }
   if (lower.includes('api key')) {
     return '模型服务密钥配置异常，请联系管理员检查配置。';
@@ -502,6 +511,9 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
   const STREAM_IDLE_TIMEOUT_MS = 60_000;
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
   let idleTimedOut = false;
+  // 收到过服务端 error 事件：用于把「服务端报错」与「用户点停止」区分开。
+  // 两者都会让 signal.aborted 为真，只靠 signal 无法分辨。
+  let errorEventReceived = false;
   const bumpIdle = () => {
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
@@ -557,8 +569,17 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
           console.log('[probe] SSE event:', msg.event);
         }
         if (msg.event === 'error') {
-          // 先关闭底层连接再抛出，避免连接泄漏
-          controller.abort();
+          // **不要在这里 controller.abort()。**
+          //
+          // 曾经这里先 abort 再抛错，本意是「先关连接再抛，避免泄漏」。
+          // 但 abort 会把 signal.aborted 置为 true，而下面 catch 里的判定是
+          // 「signal.aborted → 用户主动停止，静默吞掉」，于是**真正的服务端
+          // 错误（429 限流 / 超时 / 上游 500）全部被当成用户点了停止**，
+          // 界面上一个提示都没有，只剩一只空气泡。
+          //
+          // 连接泄漏由 fetchEventSource 的 finally 与调用方的 abort 兜住，
+          // 不需要在这里额外 abort。
+          errorEventReceived = true;
         }
         if (msg.event === 'artifact_ready') console.log('[probe] SSE 收到 artifact_ready, event=', msg.event, 'data.type=', (payload as Record<string, unknown>).type);
         applyAgentEvent(msg.event, payload, options, state);
@@ -571,6 +592,12 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
   } catch (err) {
     if (idleTimedOut) {
       throw new Error('流式响应超时：超过 60 秒未收到服务器数据，请检查网络后重试。');
+    }
+    // 服务端发过 error 事件 → 这是我们主动中止的流，不是用户点停止。
+    // applyAgentEvent 在收到 error 时会抛 ApiError，必须原样透出去，
+    // 否则真实错误（429 / 超时 / 上游 500）会被下面的 AbortError 分支吞掉。
+    if (errorEventReceived) {
+      throw err instanceof Error ? err : new Error(String(err));
     }
     // 调用方主动中断：不抛错，走下方 interrupted 兜底
     if (err instanceof Error && err.name === 'AbortError' && !idleTimedOut) {

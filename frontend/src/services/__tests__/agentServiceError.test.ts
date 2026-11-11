@@ -41,3 +41,25 @@ describe('normalizeAgentError: FastAPI detail 信封解包', () => {
     ).toBe('模型服务密钥配置异常，请联系管理员检查配置。');
   });
 });
+
+describe('normalizeAgentError: 限流与超时的可操作文案', () => {
+  it('每日免费额度用尽 → 明确说「明天再试 / 换模型」，不是「稍后再试」', () => {
+    // 内网真实报错原文
+    const raw =
+      'Error code: 429 - Rate limit exceeded: free-models-per-day. '
+      + 'Add 10 credits to unlock 1000 free model requests per day';
+    const msg = normalizeAgentError(raw);
+    expect(msg).toContain('每日免费额度');
+    // 关键：不能退化成「稍后再试」——等一会儿根本没用
+    expect(msg).not.toContain('稍后再试');
+  });
+
+  it('普通频控仍是「稍后再试」', () => {
+    expect(normalizeAgentError('Rate limit exceeded, retry in 20s')).toContain('稍后再试');
+  });
+
+  it('超时给出可操作提示', () => {
+    expect(normalizeAgentError('TimeoutError')).toContain('超时');
+    expect(normalizeAgentError('Request timed out')).toContain('超时');
+  });
+});

@@ -110,11 +110,16 @@ def register_doc_tools(registry: ToolRegistry) -> None:
     """注册文档工具。由 tool_config_service 在 office 模式下自动发现。"""
 
     @registry.tool(display_name="新建文档")
-    async def create_document(title: str, blocks: list[dict[str, Any]]) -> str:
+    async def create_document(title: str, blocks: str | list[dict[str, Any]]) -> str:
         """新建一份文档并一次性写入全部内容（覆盖式，整份交付）。
 
         文档不支持增量追加——它是给人读的整篇内容，所以**一次把全文写全**，
         包括所有标题和段落。要改内容就重新调用一次，写完整的新版本。
+
+        **``blocks`` 同时接受数组和 JSON 字符串**：LLM 经常把整个数组序列化成
+        一个字符串塞进来（实测 `blocks: "[{...}]"`），框架的 strict 参数校验
+        会在进入本函数之前就抛 `Invalid tool arguments`，一行文档都写不出来。
+        放宽类型后在内部解析，两种形态都能工作。
 
         参数:
           title: 文档标题，例如「2026 Q3 复盘纪要」
@@ -138,6 +143,17 @@ def register_doc_tools(registry: ToolRegistry) -> None:
             session_id = _session_id()
         except doc.DocumentServiceError as exc:
             return f"新建失败：{exc}"
+
+        # 模型可能把整个数组序列化成字符串塞进来。框架的 strict 类型校验
+        # 要求声明兼容，这里再在内部统一解析成 list[dict]。
+        if isinstance(blocks, str):
+            try:
+                decoded = json.loads(blocks)
+            except (json.JSONDecodeError, TypeError):
+                return "新建失败：blocks 是无法解析的 JSON 字符串，请直接传数组"
+            if not isinstance(decoded, list):
+                return "新建失败：blocks 解析后不是数组"
+            blocks = decoded
 
         if not isinstance(blocks, list) or not blocks:
             return "新建失败：blocks 必须是非空数组，至少包含一段正文"
