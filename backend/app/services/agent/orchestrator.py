@@ -16,10 +16,12 @@ factory / artifacts / prompts 模块注入的方法）。
 """
 
 import asyncio
+import base64
 import contextlib
 import json
 import logging
 import time
+from pathlib import Path
 from typing import Any, AsyncIterator
 
 from wuwei import Agent, AgentEvent
@@ -41,6 +43,20 @@ from app.services.llm_gate import get_llm_gate
 from app.services.session_storage import dump_json, message_signature
 from app.tools.email_tools import set_current_session_id as set_email_session_id
 from app.services.agent.factory import _REJECTED_TOOL_NAME
+
+# 图片附件直接进多模态消息（不再走 file_to_md 的间接路线）。
+# 上限依据：主流网关单请求 20MB、本服务请求体 32MB；base64 约膨胀 1.37 倍。
+_IMAGE_EXTS = frozenset({"png", "jpg", "jpeg", "gif", "webp", "bmp"})
+_IMAGE_MEDIA_TYPES = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif": "image/gif",
+    "webp": "image/webp",
+    "bmp": "image/bmp",
+}
+_MAX_IMAGE_BYTES = 8 * 1024 * 1024
+_MAX_IMAGES_PER_TURN = 4
 
 _logger = logging.getLogger("agent")
 
@@ -365,6 +381,10 @@ class StreamOrchestrator:
         file_descriptions: list[str] = []
         for f in request.files:
             ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+            # 图片不走文件工具：内容直接进多模态消息（见 _build_user_input），
+            # 这里不再描述路径，避免模型多此一举去 file_to_md 读二进制。
+            if ext in _IMAGE_EXTS:
+                continue
             # 优先给相对路径：文件工具以会话工作区为根，相对路径才解析得到。
             # 绝对路径（容器内 /app/...）既会暴露部署结构，也让 AI 误以为
             # 自己可以访问整个文件系统。
@@ -375,11 +395,69 @@ class StreamOrchestrator:
                 hint = f"文档文件，用 file_to_md(path=\"{path_for_ai}\") 读取内容"
             file_descriptions.append(f"- **{f.filename}** → 路径 `{path_for_ai}` → {hint}")
 
+        if not file_descriptions:
+            return request.message
+
         return (
             "## 📎 用户上传了以下文件\n\n"
             + "\n".join(file_descriptions)
             + f"\n\n---\n\n{request.message}"
         )
+
+    def _build_user_input(self, message: str, request: AgentStreamRequest) -> "str | Any":
+        """构造发给 agent 的最终输入：纯文本 str，或带图片的 HumanMessage。
+
+        图片附件不再走「路径描述 + file_to_md」的间接路线 —— 那条路线
+        模型只能看到一个路径字符串，永远看不到图（用户报障：模型说
+        「无法查看图片」）。这里直接把图片读成 data URL 塞进
+        ``content_parts=[ImagePart(...)]``，wuwei 原生序列化为 OpenAI 的
+        ``image_url`` 块，支持视觉的模型即可看图。
+
+        约束：
+        - 仅 png/jpg/jpeg/gif/webp/bmp；单张 ≤ 8MB（base64 后 ~11MB，
+          低于主流网关 20MB 请求上限，也低于本服务 32MB 请求体上限）。
+        - 每轮最多 4 张（主流网关的常见限制），超出部分降级为文本说明。
+        - 读取失败的单张图片跳过（附文件名说明），不让一张坏图废掉整轮。
+        """
+        if not request.files:
+            return message
+
+        text = self._build_user_message(request)
+        images: list[str] = []
+        skipped: list[str] = []
+        for f in request.files:
+            ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+            if ext not in _IMAGE_EXTS:
+                continue
+            if len(images) >= _MAX_IMAGES_PER_TURN:
+                skipped.append(f.filename)
+                continue
+            try:
+                path = Path(f.file_path)
+                raw = path.read_bytes()
+            except OSError as exc:
+                skipped.append(f"{f.filename}（读取失败：{exc}）")
+                continue
+            if len(raw) > _MAX_IMAGE_BYTES:
+                skipped.append(f"{f.filename}（超过 8MB）")
+                continue
+            media = _IMAGE_MEDIA_TYPES.get(ext, "image/png")
+            data_url = f"data:{media};base64,{base64.b64encode(raw).decode('ascii')}"
+            images.append(data_url)
+
+        if skipped:
+            note = "、".join(skipped)
+            text = f"{text}\n\n（以下图片未能随消息发送：{note}）" if text else (
+                f"（部分图片未能发送：{note}）\n\n{request.message}"
+            )
+
+        if not images:
+            return text
+
+
+        from wuwei.core.message import HumanMessage, ImagePart
+
+        return HumanMessage(content=text, content_parts=[ImagePart(url=url) for url in images])
 
     def _session_payload(self, session) -> dict[str, Any]:
         metadata = getattr(session, "metadata", {}) or {}
@@ -870,11 +948,10 @@ class StreamOrchestrator:
             try:
                 # message 变量已经包含记忆注入或设计目录注入
                 # 如果有文件附件，追加文件描述
-                if request.files:
-                    file_desc = self._build_user_message(request)
-                    if file_desc != request.message:
-                        message = message + "\n\n" + file_desc
-                user_message = message
+                # message 已包含记忆注入或设计目录注入。文件附件在此统一处理：
+                # 文本文件追加路径描述；图片直接进多模态 content_parts
+                #（支持视觉的模型能真的看到图，而不是只能看路径字符串）。
+                user_message = self._build_user_input(message, request)
                 _ctx_msgs = getattr(getattr(session, "context", None), "_messages", [])
                 _logger.info(f"produce_events: starting, user_msg_len={len(user_message)}, context_msgs={len(_ctx_msgs)}")
                 # M6-A8：LLM mock 模式（压测专用，LLM_MOCK_ENABLED，默认关闭）。

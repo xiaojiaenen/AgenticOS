@@ -2,6 +2,7 @@ import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } f
 import { AnimatePresence, motion } from 'motion/react';
 import { Square, Wand2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiFetch } from '../../services/apiClient';
 import { AgentProfile } from '../../services/agentProfileService';
 import { cn } from '../../lib/utils';
 import { AgentSelector } from '../ui/AgentSelector';
@@ -193,11 +194,34 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     }
   }, [handleInternalSend, suggestion, accept, dismiss, onChange]);
 
+  // 模型视觉能力：进入页面探测一次。不支持视觉时图片被拒收并提示，
+  // 而不是发出去之后模型只能看到一个路径字符串（用户报障过这条链路）。
+  const visionCapableRef = React.useRef<boolean | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ vision: boolean }>('/api/v1/agent/capabilities', {}, '能力查询失败')
+      .then((d) => { if (!cancelled) visionCapableRef.current = !!d.vision; })
+      .catch(() => { /* 探测失败不拦截上传：后端仍有兜底说明 */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const addFiles = React.useCallback((incoming: FileList | File[]) => {
+    const list = Array.from(incoming);
+    const images = list.filter((f) => f.type.startsWith('image/'));
+    if (images.length > 0 && visionCapableRef.current === false) {
+      toast.warning('当前模型不支持识别图片，已跳过图片附件');
+      const rest = list.filter((f) => !f.type.startsWith('image/'));
+      if (rest.length > 0) setFiles((prev) => [...prev, ...rest]);
+      return;
+    }
+    setFiles((prev) => [...prev, ...list]);
+  }, []);
+
   const handleFileChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) setFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+    if (e.target.files) addFiles(e.target.files);
     // 重置 input value，否则同一文件再次选择不会触发 onChange
     e.target.value = '';
-  }, []);
+  }, [addFiles]);
 
   const handleDragOver = React.useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -213,9 +237,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setFiles((prev) => [...prev, ...Array.from(e.dataTransfer.files)]);
+      addFiles(e.dataTransfer.files);
     }
-  }, []);
+  }, [addFiles]);
 
   const removeFile = React.useCallback((index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));

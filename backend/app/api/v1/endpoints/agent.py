@@ -15,6 +15,8 @@ from app.schemas.agent import AgentStreamRequest, ApprovalDecisionRequest, PptEx
 from app.services.agent_service import AgentService, get_agent_service
 from app.services.design_system import get_design_system_registry
 from app.services.rate_limiter import check_window_quota
+from app.services.llm_providers.capabilities import supports_vision
+from app.services.llm_providers.spec import resolve_active_provider, resolve_model_for_role
 
 router = APIRouter(prefix="/agent", tags=["智能体"])
 
@@ -224,6 +226,23 @@ async def decide_user_decision(
     if not resolved:
         raise HTTPException(status_code=404, detail="决策不存在或已超时")
     return {"ok": True, "decision_id": decision_id, "answer": answer}
+
+
+@router.get("/capabilities", summary="当前生效模型的能力（视觉等）")
+async def get_model_capabilities(
+    current_user: UserModel = Depends(get_current_user),
+) -> dict[str, object]:
+    """前端据此决定是否允许上传图片：不支持视觉时禁用并提示。
+
+    探测用名称启发式（见 llm_providers/capabilities.py）—— 视觉能力
+    没有便宜的运行时探测，误判代价可控（后端不拦截，只影响前端提示）。
+    """
+    try:
+        provider = resolve_active_provider()
+        model = resolve_model_for_role(provider, "chat")
+        return {"vision": supports_vision(model), "model": model}
+    except Exception:  # noqa: BLE001 —— 未配置提供商时也不该 500
+        return {"vision": False, "model": None}
 
 
 @router.get("/sessions/{session_id}", summary="获取智能体会话运行状态")
