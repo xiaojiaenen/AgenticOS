@@ -8,7 +8,7 @@ import { cn } from '../../lib/utils';
 import { formatApiDateTime } from '../../lib/datetime';
 import { toastError } from '../../lib/errors';
 import {
-  commentFeedback, createFeedback, getFeedback, getFeedbackStats, listFeedback, voteFeedback,
+  commentFeedback, createFeedback, getFeedback, listFeedback, voteFeedback,
   type FeedbackIssue, type IssueStatus, type IssueType, type IssueVisibility,
 } from '../../services/feedbackService';
 import { PRIORITY_META, STATUS_META, TYPE_META } from './feedbackMeta';
@@ -21,7 +21,7 @@ const FIELD =
 function StatusBadge({ status }: { status: IssueStatus }) {
   const m = STATUS_META[status];
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold', m.className)}>
+    <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold', m.className)}>
       <span className={cn('size-1.5 rounded-full', m.dot)} /> {m.label}
     </span>
   );
@@ -55,7 +55,9 @@ function VoteButton({ issue, onVoted }: { issue: FeedbackIssue; onVoted: () => v
 
 function IssueRow({ issue, onOpen }: { issue: FeedbackIssue; onOpen: (id: number) => void }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3 transition-colors hover:border-[var(--border)]">
+    <div className="relative flex items-start gap-3 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3 pl-4 transition-colors hover:border-[var(--border)]">
+      {/* 左侧状态色条：列表里一眼分辨待处理 / 处理中 / 已解决 */}
+      <span aria-hidden className={cn('absolute inset-y-0 left-0 w-[3px]', STATUS_META[issue.status].rail)} />
       <VoteButton issue={issue} onVoted={() => undefined} />
       <button type="button" onClick={() => onOpen(issue.id)} className="min-w-0 flex-1 text-left">
         <div className="flex items-center gap-2">
@@ -82,7 +84,6 @@ function ListView({ onOpen, onCreate }: { onOpen: (id: number) => void; onCreate
   const [mine, setMine] = React.useState(false);
   const [page, setPage] = React.useState(1);
 
-  const stats = useQuery({ queryKey: ['feedback', 'stats'], queryFn: () => getFeedbackStats() });
   const list = useQuery({
     queryKey: ['feedback', 'list', { search, status, sort, mine, page }],
     queryFn: () => listFeedback({ search, status: status as IssueStatus | '', sort, mine, page, page_size: 15 }),
@@ -93,22 +94,6 @@ function ListView({ onOpen, onCreate }: { onOpen: (id: number) => void; onCreate
 
   return (
     <div className="flex flex-col gap-3">
-      {stats.data && (
-        <div className="grid grid-cols-4 gap-2">
-          {[
-            { label: '本周新增', value: stats.data.created_this_week },
-            { label: '本周解决', value: stats.data.resolved_this_week },
-            { label: '处理中', value: stats.data.in_progress },
-            { label: '解决率', value: `${Math.round(stats.data.resolve_rate * 100)}%` },
-          ].map((k) => (
-            <div key={k.label} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 text-center">
-              <div className="text-lg font-semibold tabular-nums text-[var(--foreground)]">{k.value}</div>
-              <div className="text-[11px] text-[var(--muted-foreground)]">{k.label}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[160px] flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />

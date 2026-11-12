@@ -7,7 +7,6 @@ import { cn } from '../../lib/utils';
 import { Logo } from '../Logo';
 import { EmptyState } from '../ui/EmptyState';
 import { UsagePanel } from '../settings/UsagePanel';
-import { PortraitCard } from '../feedback/PortraitCard';
 import { MessageSquare } from 'lucide-react';
 import { PlusIcon, ChatBubbleIcon, TrashIcon, MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
 import { getStoredUser, logout } from '../../services/authService';
@@ -53,7 +52,6 @@ export const Sidebar = React.memo(({
   const [showMarket, setShowMarket] = useState(false);
   const [showEmailSettings, setShowEmailSettings] = useState(false);
   const [showUsage, setShowUsage] = useState(false);
-  const [showPortrait, setShowPortrait] = useState(false);
 
   const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -218,18 +216,6 @@ export const Sidebar = React.memo(({
               onClick: () => setShowUsage(true),
               icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>,
             },
-            {
-              key: 'portrait',
-              label: 'AI 眼中的你',
-              onClick: () => setShowPortrait(true),
-              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/></svg>,
-            },
-            {
-              key: 'wrapped',
-              label: '年度报告',
-              onClick: () => navigate('/wrapped'),
-              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
-            },
           ].map(({ key, label, onClick, icon }) => (
             <Tooltip key={key}>
               <TooltipTrigger asChild>
@@ -315,7 +301,6 @@ export const Sidebar = React.memo(({
     </motion.aside>
     <IntegrationMarket open={showMarket} onClose={() => setShowMarket(false)} />
     <EmailSettingsPanel open={showEmailSettings} onClose={() => setShowEmailSettings(false)} />
-    <PortraitCard open={showPortrait} onOpenChange={setShowPortrait} />
     <Dialog open={showUsage} onOpenChange={setShowUsage}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>

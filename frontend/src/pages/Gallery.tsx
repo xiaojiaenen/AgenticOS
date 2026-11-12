@@ -8,7 +8,6 @@
  * `pointer-events-none` + 缩放渲染首屏（比纯色块直观，比截图轻）。
  */
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
 import {
@@ -26,6 +25,8 @@ import { listGallery, resetSiteAccess, type GalleryItem } from '../services/webs
 import { Button } from '../components/shadcn/button';
 import { toastError } from '../lib/errors';
 import { cn } from '../lib/utils';
+import { useGoBack } from '../hooks/useGoBack';
+import { PageShell } from '../components/ui/PageShell';
 
 type Filter = 'all' | 'public' | 'private';
 
@@ -185,7 +186,7 @@ const GalleryCard = ({
 
 export const GalleryPage = () => {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const goBack = useGoBack('/chat');
   const [filter, setFilter] = React.useState<Filter>('all');
 
   const galleryQuery = useQuery({
@@ -209,11 +210,11 @@ export const GalleryPage = () => {
   const privateCount = items.length - publicCount;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8">
+    <PageShell width="wide">
       {/* /gallery 是独立路由、不带侧栏，必须有显式返回入口 */}
       <button
         type="button"
-        onClick={() => navigate('/chat')}
+        onClick={goBack}
         className={cn(
           'mb-5 inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors',
           'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]',
@@ -227,7 +228,7 @@ export const GalleryPage = () => {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-semibold text-[var(--foreground)]">
-            <Globe size={20} className="text-[#2b87c2]" />
+            <Globe size={20} className="text-[var(--foreground)]" />
             作品库
           </h1>
           <p className="mt-1 text-sm text-[var(--muted-foreground)]">
@@ -298,7 +299,7 @@ export const GalleryPage = () => {
           ))}
         </div>
       )}
-    </div>
+    </PageShell>
   );
 };
 

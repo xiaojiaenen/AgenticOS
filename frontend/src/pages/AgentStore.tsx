@@ -12,6 +12,7 @@ import { AgentProfile, getAgentStore, installAgent, uninstallAgent } from '../se
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
 import { toastError } from '../lib/errors';
+import { useGoBack } from '../hooks/useGoBack';
 
 // 模式 → 小精灵 + 颜色
 const MODE_CARD_STYLES: Record<string, { Mascot: React.FC<{ size?: number; className?: string }>; gradient: string; shadow: string }> = {
@@ -26,7 +27,8 @@ function getCardStyle(mode?: string) {
 }
 
 export const AgentStore = () => {
-  const navigate = useNavigate();  const [agents, setAgents] = useState<AgentProfile[]>([]);
+  const navigate = useNavigate();
+  const goBack = useGoBack('/chat');  const [agents, setAgents] = useState<AgentProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +125,7 @@ export const AgentStore = () => {
             <Plus size={16} />
             创建智能体
           </Button>
-          <Button variant="outline" onClick={() => navigate('/')} className="gap-2">
+          <Button variant="outline" onClick={goBack} className="gap-2">
             <ArrowLeft size={16} />
             返回
           </Button>

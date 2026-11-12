@@ -45,6 +45,7 @@ import {
   type MCPServer,
 } from '../services/mcpService';
 import type { ToolCatalogItem } from '../services/toolConfigService';
+import { useGoBack } from '../hooks/useGoBack';
 
 /**
  * 工具分组（后端 catalog 无分类字段，这里按工具语义归类，
@@ -209,12 +210,14 @@ export const AgentEditor: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
 
+  const backtrack = useGoBack('/agents');
   const goBack = () => {
     if (dirty) {
       setLeaveOpen(true);
       return;
     }
-    navigate('/agents');
+    // 有来路就回退（例如从商店点进来），否则回商店
+    backtrack();
   };
 
   // 加载工具目录（编辑时还要回填已有配置）

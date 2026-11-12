@@ -86,8 +86,19 @@ class TestCleanPolished:
 class TestBuildPolishMessages:
     def test_system_prompt_forbids_fabrication(self):
         """提示词必须约束模型不得臆造需求。"""
-        assert "不得改变或臆造用户意图" in POLISH_SYSTEM_PROMPT
-        assert "待补充" in POLISH_SYSTEM_PROMPT
+        assert "不改用户意图" in POLISH_SYSTEM_PROMPT
+        assert "不补充他没说的信息" in POLISH_SYSTEM_PROMPT
+
+    def test_system_prompt_is_polish_not_rewrite(self):
+        """润色不是扩写：必须禁止结构化小节与回答问题。
+
+        历史问题：旧提示词要求「结构化改写为高质量提示词（目标/上下文/
+        约束/输出要求）」，模型于是把用户一句话扩写成一段 AI 腔回复体，
+        填回输入框后看起来像 AI 回答，而不是润色用户自己的话。
+        """
+        assert "不是扩写" in POLISH_SYSTEM_PROMPT
+        assert "输出长度与原文相当" in POLISH_SYSTEM_PROMPT
+        assert "不回答问题" in POLISH_SYSTEM_PROMPT
 
     def test_messages_include_original_text(self):
         messages = build_polish_messages("帮我看下上周数据")

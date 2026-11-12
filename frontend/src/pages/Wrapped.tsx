@@ -8,6 +8,7 @@ import { CountUp } from '../components/ui/CountUp';
 import { cn } from '../lib/utils';
 import { listItem, staggerContainer } from '../lib/motion';
 import { getWrapped, getWrappedYears } from '../services/wrappedService';
+import { useGoBack } from '../hooks/useGoBack';
 
 function StatCard({ value, label, gradient, format }: {
   value: number;
@@ -54,6 +55,7 @@ function BarList({ data, color }: { data: { name: string; value: number }[]; col
 export function Wrapped() {
   const { year: yearParam } = useParams();
   const navigate = useNavigate();
+  const goBack = useGoBack('/chat');
   const yearsQ = useQuery({ queryKey: ['wrapped', 'years'], queryFn: getWrappedYears });
   const fallbackYear = yearsQ.data?.years[0] ?? yearsQ.data?.current_year ?? new Date().getFullYear();
   const year = yearParam ? Number(yearParam) : fallbackYear;
@@ -70,7 +72,7 @@ export function Wrapped() {
     <div className="min-h-screen bg-[#0a0a12] text-white">
       <div className="mx-auto max-w-3xl px-4 py-8">
         <div className="mb-6 flex items-center justify-between">
-          <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-1.5 text-sm text-white/60 hover:text-white">
+          <button type="button" onClick={goBack} className="inline-flex items-center gap-1.5 text-sm text-white/60 hover:text-white">
             <ArrowLeft size={16} /> 返回
           </button>
           <div className="flex items-center gap-2">

@@ -21,18 +21,24 @@ logger = logging.getLogger(__name__)
 MAX_INPUT_CHARS = 4000
 MAX_OUTPUT_CHARS = 2000
 
-POLISH_SYSTEM_PROMPT = """你是 AgenticOS 的提示词工程师。你的任务是把用户的原始需求改写成一条意图清晰、要求明确、可直接执行的高质量提示词。
+POLISH_SYSTEM_PROMPT = """你是文字编辑。用户的输入是他在输入框里要说给 AI 听的一句话（或几句话），请把它改得更清楚、更书面、更少歧义。
 
-工作步骤（先理解，再改写）：
-1. 意图分析：判断用户的真实目标、交付物类型（问答 / 代码 / 文档 / 数据 / 网站 / 演示文稿）、关键约束与隐含期待。
-2. 结构化改写：输出一条完整的中文提示词，必要时包含目标、上下文、约束、输出要求。
+这是**润色**，不是扩写，也不是回答。三条铁律：
+- 输出长度与原文相当（最多比原文长 20%）。绝不扩写成多段、绝不加标题/小标题/列表/编号/「目标」「上下文」「约束」「输出要求」等结构化小节。
+- 不回答问题、不执行任务、不评论、不解释你在做什么。只返回改写后的同一句话。
+- 不改用户意图，不补充他没说的信息、示例、字段或技术选型；只修正语病、口语碎片、指代不清、错别字与标点。
 
-铁律：
-- 不得改变或臆造用户意图，不得自行追加用户没提的需求、示例数据或技术选型；信息不足的地方用「（待补充）」占位。
-- 保留用户给出的所有具体信息（数字、文件名、字段名、指标口径）。
-- 不要输出解释、评论、标题或 Markdown 代码块围栏，只输出润色后的提示词正文。
-- 用户输入已足够清晰时，改写幅度要小，保持贴近原文。
-"""
+示例：
+原文：帮我把那个表弄一下
+输出：请整理一下这份表格。
+
+原文：ppt 那个配色再改改 太花了
+输出：PPT 的配色再调整一下，现在有点花。
+
+原文：你好
+输出：你好
+
+直接输出最终句子，不要任何前后缀。"""
 
 
 def build_polish_messages(raw_text: str) -> list[Any]:
@@ -90,6 +96,16 @@ async def polish_prompt(raw_text: str, *, user_id: int | None = None, timeout: i
     )
     response = await llm.generate(build_polish_messages(original))
     polished = _clean_polished(getattr(getattr(response, "message", None), "content", "") or "")
+
+    # 长度护栏：润色不该把一句话膨胀成一段话。模型偶发无视提示词时，
+    # 宁可放弃这次润色（changed=False，前端提示「已经足够清晰」），
+    # 也不要把一段 AI 腔扩写塞回用户输入框。
+    if polished and len(polished) > max(60, int(len(original) * 1.6)):
+        logger.warning(
+            "prompt polish rejected (over-expanded): user=%s in_len=%d out_len=%d",
+            user_id, len(original), len(polished),
+        )
+        polished = ""
 
     logger.info(
         "prompt polished: user=%s in_len=%d out_len=%d changed=%s",
