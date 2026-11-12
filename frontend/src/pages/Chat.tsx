@@ -709,7 +709,9 @@ export const Chat = () => {
             sessionId={currentSessionId}
           />
           {sidebarOpen && (
-            <aside className="relative flex h-full w-full min-w-0 flex-col overflow-hidden border-l border-[var(--border-subtle)] bg-[var(--surface-1)] md:w-[420px] md:shrink-0 xl:w-[480px]">
+            /* 移动端（<md）：全屏抽屉覆盖，不与对话区抢宽度 —— 375px 屏幕上
+               并排会把气泡挤到竖排字。md+ 恢复 IDE 式并排侧栏。 */
+            <aside className="absolute inset-0 z-30 flex h-full flex-col overflow-hidden border-l border-[var(--border-subtle)] bg-[var(--surface-1)] md:relative md:inset-auto md:z-auto md:flex md:h-full md:w-[420px] md:shrink-0 xl:w-[480px]">
               <IdeSidebar
                 sessionId={currentSessionId}
                 messages={currentSession?.messages ?? []}
