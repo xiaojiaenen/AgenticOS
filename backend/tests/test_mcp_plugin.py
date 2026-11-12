@@ -401,7 +401,7 @@ class TestUserInputBridge:
             payload = await asyncio.wait_for(queue.get(), timeout=5)
             assert payload["type"] == "user_input_required"
             assert payload["fields"][0]["key"] == "sms_code"
-            UserInputBlocker.resolve(session_id, {"sms_code": "123456"})
+            assert await UserInputBlocker.resolve(session_id, {"sms_code": "123456"}) is True
             return await asyncio.wait_for(task, timeout=5)
 
         result = asyncio.run(_scenario())

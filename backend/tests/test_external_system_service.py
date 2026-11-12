@@ -604,20 +604,24 @@ class TestUserInputBlocker:
             )
             payload = await asyncio.wait_for(q.get(), timeout=2)
             assert payload["type"] == "user_input_required"
-            UserInputBlocker.resolve("sess-ui-1", {"token": "abc"})
+            assert await UserInputBlocker.resolve("sess-ui-1", {"token": "abc"}) is True
             assert await asyncio.wait_for(task, timeout=2) == {"token": "abc"}
         finally:
             UserInputBlocker.unsubscribe("sess-ui-1")
 
-    def test_resolve_without_pending_request_is_noop(self):
-        UserInputBlocker.resolve("sess-ui-none", {"a": 1})  # 不应抛异常
+    @pytest.mark.anyio
+    async def test_resolve_without_pending_request_is_noop(self):
+        assert await UserInputBlocker.resolve("sess-ui-none", {"a": 1}) is False  # 不应抛异常
 
     @pytest.mark.anyio
     async def test_unsubscribe_cleans_state(self):
+        from app.services.interactions import get_interaction_broker
+
+        broker = get_interaction_broker()
         q = UserInputBlocker.subscribe("sess-ui-2")
         UserInputBlocker.unsubscribe("sess-ui-2")
-        assert "sess-ui-2" not in UserInputBlocker._queues
-        assert "sess-ui-2" not in UserInputBlocker._futures
+        assert "sess-ui-2" not in broker._queues
+        assert "sess-ui-2" not in broker._listeners
 
 
 class TestApprovalBlocker:
@@ -629,7 +633,7 @@ class TestApprovalBlocker:
                 ApprovalBlocker.request_approval("sess-ap-1", {"system_name": "Sys", "api_name": "op"})
             )
             await asyncio.wait_for(q.get(), timeout=2)
-            ApprovalBlocker.resolve("sess-ap-1", {"approved": True})
+            assert await ApprovalBlocker.resolve("sess-ap-1", {"approved": True}) is True
             assert await asyncio.wait_for(task, timeout=2) is True
         finally:
             ApprovalBlocker.unsubscribe("sess-ap-1")
@@ -642,7 +646,7 @@ class TestApprovalBlocker:
                 ApprovalBlocker.request_approval("sess-ap-2", {"system_name": "Sys"})
             )
             await asyncio.wait_for(q.get(), timeout=2)
-            ApprovalBlocker.resolve("sess-ap-2", {"approved": False})
+            assert await ApprovalBlocker.resolve("sess-ap-2", {"approved": False}) is True
             assert await asyncio.wait_for(task, timeout=2) is False
         finally:
             ApprovalBlocker.unsubscribe("sess-ap-2")
@@ -671,7 +675,7 @@ class TestApprovalBlocker:
                 ApprovalBlocker.request_approval("sess-ap-4", {"system_name": "SysB"})
             )
             await asyncio.wait_for(q.get(), timeout=2)  # SysB 进入审批等待，而非直接放行
-            ApprovalBlocker.resolve("sess-ap-4", {"approved": False})
+            assert await ApprovalBlocker.resolve("sess-ap-4", {"approved": False}) is True
             assert await asyncio.wait_for(task, timeout=2) is False
         finally:
             ApprovalBlocker.unsubscribe("sess-ap-4")

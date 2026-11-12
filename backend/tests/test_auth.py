@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
 from app.core.config import get_settings
-from app.db.models import AuthRateLimitModel, AuthSessionModel, UserModel
+from app.db.models import AuthSessionModel, UserModel
 from app.db.session import create_db_session
 from app.main import app
 
@@ -28,7 +28,6 @@ def cleanup_test_users(*emails: str) -> None:
                 {"uids": user_ids},
             )
         db.execute(delete(UserModel).where(UserModel.email.in_(emails)))
-        db.execute(delete(AuthRateLimitModel))
         db.commit()
 
 

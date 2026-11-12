@@ -1,68 +1,85 @@
 """阻塞协调器：UserInputBlocker（用户输入）/ ApprovalBlocker（API 级审批）。
 
-均为 per-session 的 Future + Queue 模式，供 SSE 层 resolve。"""
+两类交互的阻塞/订阅/清理统一委托给 ``InteractionBroker``
+（``app/services/interactions.py``）—— 与决策问答共用同一套 Future 登记表、
+Redis pub/sub 转发、超时与会话清理纪律。本文件只保留：
+
+- 两类交互的**语义适配**（超时后 API 审批按拒绝处理、表单按超时错误抛出）；
+- ``ApprovalBlocker`` 的会话级"全部允许"记忆（纯会话内状态，与阻塞无关）。
+
+类方法 API（subscribe/request_input/request_approval/resolve/…）与旧实现
+兼容，调用方（tool_builder / mcp_tool_bridge / service.py / 端点）无需改动；
+仅 ``resolve`` 由同步改异步（统一协调器后 resolve 需要写 Redis 并可能跨
+worker 转发）。
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 
+from app.services.interactions import (
+    InteractionBroker,
+    InteractionKind,
+    InteractionTimeout,
+    get_interaction_broker,
+)
+
 logger = logging.getLogger(__name__)
 
 
-# ── UserInput 阻塞机制（类似审批的 queue+Future 模式）────────────────────
+def _broker() -> InteractionBroker:
+    return get_interaction_broker()
+
+
+# ── UserInput 阻塞（缺参表单）────────────────────────────────────────────
 
 class UserInputBlocker:
-    """per-session 的 Future + Queue，让 handler 在需要用户输入时阻塞等待。"""
-    _queues: dict[str, asyncio.Queue] = {}
-    _futures: dict[str, asyncio.Future] = {}
+    """让 handler 在需要用户输入时阻塞等待，resolve 后拿到 values dict。
+
+    超时（``hitl_timeout_seconds``，默认 300s）抛 :class:`InteractionTimeout`
+    —— 旧行为是永远挂起，依赖流取消兜底；统一到协调器后工具能收到结构化
+    超时错误，模型可以据此向用户说明。
+    """
 
     @classmethod
     def subscribe(cls, session_id: str) -> asyncio.Queue:
-        q = asyncio.Queue()
-        cls._queues[session_id] = q
-        return q
+        return _broker().subscribe(session_id)
 
     @classmethod
     def unsubscribe(cls, session_id: str) -> None:
-        cls._queues.pop(session_id, None)
-        cls._futures.pop(session_id, None)
+        _broker().unsubscribe(session_id)
 
     @classmethod
     async def request_input(cls, session_id: str, payload: dict) -> dict:
-        """阻塞等待用户输入。返回用户提交的 values dict。"""
-        loop = asyncio.get_running_loop()
-        fut = loop.create_future()
-        cls._futures[session_id] = fut
-        q = cls._queues.get(session_id)
-        if q is not None:
-            q.put_nowait(payload)
-        return await fut
+        """阻塞等待用户输入。返回用户提交的 values dict；超时抛 InteractionTimeout。"""
+        return await _broker().request(session_id, InteractionKind.USER_INPUT, payload)
 
     @classmethod
-    def resolve(cls, session_id: str, values: dict) -> None:
-        fut = cls._futures.pop(session_id, None)
-        if fut and not fut.done():
-            fut.set_result(values)
+    async def resolve(cls, session_id: str, values: dict) -> bool:
+        """resolve 该会话最早挂起的表单交互。返回 False = 无挂起交互。"""
+        return await _broker().resolve_by_session(session_id, InteractionKind.USER_INPUT, values)
 
+
+# ── API 级审批 ────────────────────────────────────────────────────────────
 
 class ApprovalBlocker:
-    """API 级别审批：per-session 的 Future + Queue，让 handler 在需要审批时阻塞等待。"""
-    _queues: dict[str, asyncio.Queue] = {}
-    _futures: dict[str, asyncio.Future] = {}
+    """API 级别审批：阻塞等待用户决定，返回 True=批准 / False=拒绝。
+
+    保留会话级"全部允许"记忆：同一会话第二次调用同一系统的 API 时不再询问。
+    """
+
     # 会话级"全部允许"记录：{(session_id, system_name): True}
     _session_allowed: dict[tuple[str, str], bool] = {}
 
     @classmethod
     def subscribe(cls, session_id: str) -> asyncio.Queue:
-        q = asyncio.Queue()
-        cls._queues[session_id] = q
-        return q
+        return _broker().subscribe(session_id)
 
     @classmethod
     def unsubscribe(cls, session_id: str) -> None:
-        cls._queues.pop(session_id, None)
-        cls._futures.pop(session_id, None)
+        broker = _broker()
+        broker.unsubscribe(session_id)
         # 清理该会话的全部允许记录
         keys_to_remove = [k for k in cls._session_allowed if k[0] == session_id]
         for k in keys_to_remove:
@@ -80,21 +97,21 @@ class ApprovalBlocker:
 
     @classmethod
     async def request_approval(cls, session_id: str, payload: dict) -> bool:
-        """阻塞等待用户审批。返回 True=批准, False=拒绝。"""
+        """阻塞等待用户审批。返回 True=批准, False=拒绝（超时按拒绝处理）。"""
         # 检查是否已全部允许
         system_name = payload.get("system_name", "")
         if cls.is_allowed(session_id, system_name):
             logger.info("ApprovalBlocker: session=%s system=%s already allowed, skipping", session_id, system_name)
             return True
 
-        loop = asyncio.get_running_loop()
-        fut = loop.create_future()
-        cls._futures[session_id] = fut
-        q = cls._queues.get(session_id)
-        if q is not None:
-            q.put_nowait(payload)
-        logger.info("ApprovalBlocker: waiting session=%s, futures_keys=%s", session_id, list(cls._futures.keys()))
-        result = await fut
+        try:
+            result = await _broker().request(session_id, InteractionKind.API_APPROVAL, payload)
+        except InteractionTimeout:
+            logger.warning(
+                "ApprovalBlocker: session=%s system=%s approval timed out, treating as rejected",
+                session_id, system_name,
+            )
+            return False
         decision = result if isinstance(result, dict) else {"approved": bool(result)}
         logger.info("ApprovalBlocker: resolved session=%s decision=%s", session_id, decision)
         # 如果用户选择了"全部允许"
@@ -103,11 +120,6 @@ class ApprovalBlocker:
         return bool(decision.get("approved", False))
 
     @classmethod
-    def resolve(cls, session_id: str, decision: dict) -> None:
-        logger.info("ApprovalBlocker.resolve: session=%s decision=%s, futures_keys=%s", session_id, decision, list(cls._futures.keys()))
-        fut = cls._futures.pop(session_id, None)
-        if fut and not fut.done():
-            fut.set_result(decision)
-            logger.info("ApprovalBlocker.resolve: future resolved for session=%s", session_id)
-        else:
-            logger.warning("ApprovalBlocker.resolve: no future found for session=%s", session_id)
+    async def resolve(cls, session_id: str, decision: dict) -> bool:
+        """resolve 该会话最早挂起的审批交互。返回 False = 无挂起交互。"""
+        return await _broker().resolve_by_session(session_id, InteractionKind.API_APPROVAL, decision)

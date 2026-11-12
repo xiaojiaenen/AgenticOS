@@ -13,7 +13,6 @@ from app.core.config import get_settings
 from app.db.models import UserModel
 from app.schemas.agent import AgentStreamRequest, ApprovalDecisionRequest, PptExportRequest
 from app.services.agent_service import AgentService, get_agent_service
-from app.services.design_system import get_design_system_registry
 from app.services.rate_limiter import check_window_quota
 from app.services.llm_providers.capabilities import supports_vision
 from app.services.llm_providers.spec import resolve_active_provider, resolve_model_for_role
@@ -743,27 +742,6 @@ async def delete_session(
     return {"status": "deleted", "session_id": session_id}
 
 
-@router.get("/design-systems", summary="获取可用设计系统列表")
-async def list_design_systems(
-    category: str | None = None,
-) -> list[dict[str, Any]]:
-    registry = get_design_system_registry()
-    systems = registry.search(category=category) if category else registry.list_all()
-    return [ds.to_dict() for ds in systems]
-
-
-@router.get("/design-systems/{name}/preview", summary="获取设计系统预览")
-async def get_design_system_preview(name: str) -> dict[str, Any]:
-    registry = get_design_system_registry()
-    ds = registry.get(name)
-    if ds is None:
-        raise HTTPException(status_code=404, detail=f"设计系统 '{name}' 不存在。")
-    return {
-        **ds.to_dict(),
-        "prompt_excerpt": ds.to_prompt_excerpt(),
-    }
-
-
 @router.get("/artifacts/{artifact_id}", summary="获取 PPT 制品预览")
 async def get_ppt_artifact(
     artifact_id: str,
@@ -1363,5 +1341,5 @@ async def submit_api_approval(
 
     approved = bool(request.get("approved", False))
     allow_all = bool(request.get("allow_all", False))
-    ApprovalBlocker.resolve(session_id, {"approved": approved, "allow_all": allow_all})
+    await ApprovalBlocker.resolve(session_id, {"approved": approved, "allow_all": allow_all})
     return {"status": "ok", "session_id": session_id, "approved": approved, "allow_all": allow_all}

@@ -9,7 +9,6 @@ from wuwei.tools import ToolRegistry
 from app.core.data_path import (
     current_slides_dir,
     get_current_session_id,
-    get_current_user_id,
 )
 
 # ---------------------------------------------------------------------------
@@ -549,70 +548,43 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
 
         # 自动调用 ask_user_decision 等待用户确认
         try:
-            from app.tools.decision_tools import (
-                _decision_queues,
-                register_decision,
-                _forget_decision,
-                DECISION_TIMEOUT_SECONDS,
-            )
-            import asyncio
-            import uuid
+            from app.tools.decision_tools import request_decision
             from app.services.agent_service import _current_session_id
 
             session_id = _current_session_id.get() or "default"
-            decision_id = str(uuid.uuid4())[:8]
 
             # 构建决策事件
             decision_event = {
-                "decision_id": decision_id,
-                "session_id": session_id,
                 "type": "user_decision",
                 "question": f"已规划 {len(plan)} 页幻灯片，确认开始生成？",
                 "options": ["确认开始生成", "修改方案"],
                 "context": summary,
                 "allow_custom": False,
-                "status": "pending",
             }
 
-            # 推送到决策队列
-            if session_id not in _decision_queues:
-                _decision_queues[session_id] = []
-            _decision_queues[session_id].append(decision_event)
+            _logger.info("PPT slide plan submitted: waiting for user confirmation")
 
-            _logger.info(
-                "PPT slide plan submitted: %d slides, decision_id=%s, waiting for user",
-                len(plan), decision_id,
-            )
+            decision_id, answer = await request_decision(session_id, decision_event)
 
-            # 创建 Future 并阻塞等待用户响应
-            loop = asyncio.get_running_loop()
-            future: asyncio.Future[str] = loop.create_future()
-            register_decision(decision_id, session_id, future)
-
-            try:
-                answer = await asyncio.wait_for(future, timeout=DECISION_TIMEOUT_SECONDS)
-                _logger.info("PPT decision resolved: %s → %s", decision_id, answer)
-
-                if "确认" in answer or "开始生成" in answer:
-                    return (
-                        f"已提交 {len(plan)} 页计划，用户已确认。\n"
-                        f"页面列表：\n{summary}\n"
-                        f"开始生成幻灯片。"
-                    )
-                else:
-                    return (
-                        f"已提交 {len(plan)} 页计划，用户要求修改。\n"
-                        f"页面列表：\n{summary}\n"
-                        f"请根据用户反馈调整方案。"
-                    )
-            except asyncio.TimeoutError:
-                _forget_decision(decision_id)
+            if answer is None:
                 _logger.warning("PPT decision timeout: %s", decision_id)
                 return (
                     f"已提交 {len(plan)} 页计划，但用户未在规定时间内确认。\n"
                     f"页面列表：\n{summary}\n"
                     f"请等待用户回复。"
                 )
+            _logger.info("PPT decision resolved: %s → %s", decision_id, answer)
+            if "确认" in answer or "开始生成" in answer:
+                return (
+                    f"已提交 {len(plan)} 页计划，用户已确认。\n"
+                    f"页面列表：\n{summary}\n"
+                    f"开始生成幻灯片。"
+                )
+            return (
+                f"已提交 {len(plan)} 页计划，用户要求修改。\n"
+                f"页面列表：\n{summary}\n"
+                f"请根据用户反馈调整方案。"
+            )
 
         except Exception as exc:
             _logger.warning("Failed to trigger decision panel: %s", exc)

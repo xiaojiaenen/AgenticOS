@@ -82,19 +82,6 @@ class AuthSessionModel(Base):
     last_seen_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
 
 
-class AuthRateLimitModel(Base):
-    """已由 Redis 限流取代（app/services/rate_limiter.py），保留一版后废弃。"""
-
-    __tablename__ = "auth_rate_limits"
-
-    key: Mapped[str] = mapped_column(String(255), primary_key=True)
-    scope: Mapped[str] = mapped_column(String(32), index=True)
-    attempts: Mapped[int] = mapped_column(Integer, default=0)
-    window_started_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
-    blocked_until: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
-
-
 class AgentSessionModel(Base):
     __tablename__ = "agent_sessions"
     # M6-A3：会话列表按 user_id 过滤 + updated_at 倒序（list_user_sessions），

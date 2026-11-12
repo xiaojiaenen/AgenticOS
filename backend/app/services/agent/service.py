@@ -246,7 +246,7 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
             values = {}
 
         # 解析 Future，让阻塞的 handler 继续执行
-        UserInputBlocker.resolve(session_id, values)
+        await UserInputBlocker.resolve(session_id, values)
 
         return {"status": "ok", "session_id": session_id, "api_name": api_name, "values": values}
 

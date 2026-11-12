@@ -4,65 +4,86 @@ LLM 调用工具提供问题和选项，让用户做决策。
 每个决策都有一个"自定义输入"选项，用户可以输入自己的答案。
 
 工作原理：
-1. LLM 调用 ask_user_decision(question, options)
-2. 工具通过 contextvars 获取当前 session_id
-3. 构建 user_decision 事件，推送到前端
-4. 创建 Future 阻塞等待用户选择
-5. 前端收到 user_decision 事件，显示 DecisionPanel
-6. 用户选择后，答案通过 /decisions/{id}/decision API 发回
-7. Future 被 resolve，工具返回用户的选择
+1. LLM 调用 ask_user_decision(question, options)（或 ppt_tools 的计划确认）
+2. 工具通过 contextvars 获取当前 session_id，构建 user_decision 事件
+3. ``request_decision`` 把事件交给 :class:`InteractionBroker`（统一"等人"
+   协调器）：事件进 SSE pump 队列 → 前端 DecisionPanel 渲染 →
+   ``POST /decisions/{id}/decision`` 提交答案
+4. 协调器 resolve 等待队列，工具拿到用户的选择
+5. 超时（``hitl_timeout_seconds``，默认 300s）返回超时错误；流结束时
+   挂起交互由协调器统一 cancel
+
+此前这里是一份模块级 Future dict（重启即丢、无跨 worker 支持），现已并入
+协调器 —— 与审批/表单共用同一套登记与清理纪律。
 """
 
 from __future__ import annotations
 
-import asyncio
-import uuid
+import json
 from typing import Any
 
 from wuwei.tools import ToolRegistry
 
-# 决策管理：session_id -> list[decision_event]（用于 SSE 推送）
-_decision_queues: dict[str, list[dict[str, Any]]] = {}
-
-# 决策 Future：decision_id -> Future（用于阻塞等待用户响应）
-_decision_futures: dict[str, asyncio.Future[str]] = {}
-
-# 决策归属：decision_id -> session_id（供 /decisions/{id}/decision 端点做
-# 归属校验 —— decision_id 此前只有 8 位 hex，且 resolve 端点原本不校验
-# 调用者身份，任何登录用户知道 id 就能替别人回答决策）
-_decision_sessions: dict[str, str] = {}
+from app.services.interactions import (
+    InteractionKind,
+    InteractionTimeout,
+    get_interaction_broker,
+)
 
 DECISION_TIMEOUT_SECONDS = 300
 
 
-def register_decision(decision_id: str, session_id: str, future: asyncio.Future[str]) -> None:
-    """登记决策归属与 Future —— 所有决策创建点的统一入口。"""
-    _decision_sessions[decision_id] = session_id
-    _decision_futures[decision_id] = future
+async def request_decision(
+    session_id: str, event: dict[str, Any], *, timeout_seconds: float | None = None
+) -> tuple[str, str | None]:
+    """发起一次决策并阻塞等待用户回答。
+
+    ``event`` 会原地补上 ``decision_id`` / ``session_id``；返回
+    ``(decision_id, answer)``，用户未在超时内回答时 ``answer`` 为 ``None``。
+    """
+    broker = get_interaction_broker()
+    import uuid
+
+    decision_id = str(event.get("decision_id") or uuid.uuid4().hex[:8])
+    event["decision_id"] = decision_id
+    event["session_id"] = session_id
+    event.setdefault("type", "user_decision")
+    event.setdefault("status", "pending")
+
+    try:
+        result = await broker.request(
+            session_id,
+            InteractionKind.DECISION,
+            event,
+            timeout_seconds=timeout_seconds or DECISION_TIMEOUT_SECONDS,
+            interaction_id=decision_id,
+        )
+    except InteractionTimeout:
+        return decision_id, None
+    answer = result.get("answer") if isinstance(result, dict) else None
+    return decision_id, str(answer) if answer is not None else None
 
 
 def get_decision_session(decision_id: str) -> str | None:
     """peek 决策归属的会话（不弹出），供端点做归属校验。"""
-    return _decision_sessions.get(decision_id)
-
-
-def _forget_decision(decision_id: str) -> None:
-    """决策已 resolve / 超时：Future 与归属一并清理。"""
-    _decision_futures.pop(decision_id, None)
-    _decision_sessions.pop(decision_id, None)
+    return get_interaction_broker().pending_session(decision_id)
 
 
 async def resolve_decision(decision_id: str, answer: str) -> bool:
-    """前端调用：resolve 一个决策的 Future
+    """前端调用：resolve 一个决策。
 
     返回 True 表示成功，False 表示 decision_id 不存在或已超时。
     """
-    future = _decision_futures.pop(decision_id, None)
-    _decision_sessions.pop(decision_id, None)
-    if future and not future.done():
-        future.set_result(answer)
-        return True
-    return False
+    return await get_interaction_broker().resolve(decision_id, {"answer": answer})
+
+
+def cleanup_session_decisions(session_id: str) -> None:
+    """清理指定 session 的所有挂起决策（stream 结束时调用，防止泄漏）。
+
+    协调器会 cancel 等待方，工具以超时语义返回，而不是让 CancelledError
+    从工具里炸出去。
+    """
+    get_interaction_broker().cancel_session(session_id)
 
 
 def register_decision_tools(registry: ToolRegistry) -> None:
@@ -90,7 +111,6 @@ def register_decision_tools(registry: ToolRegistry) -> None:
         """
         # 处理 options 可能是字符串的情况
         if isinstance(options, str):
-            import json
             try:
                 options = json.loads(options)
             except (json.JSONDecodeError, TypeError):
@@ -100,73 +120,30 @@ def register_decision_tools(registry: ToolRegistry) -> None:
         if len(options) < 2:
             return {"error": "至少需要 2 个选项"}
 
-        decision_id = str(uuid.uuid4())[:8]
-
         # 通过 contextvars 获取当前 session_id
         from app.services.agent_service import _current_session_id
         session_id = _current_session_id.get() or "default"
 
-        # 构建决策事件
         decision_event = {
-            "decision_id": decision_id,
-            "session_id": session_id,
             "type": "user_decision",
             "question": question,
             "options": options,
             "context": context,
             "allow_custom": True,
-            "status": "pending",
         }
 
-        # 推送到决策队列，由 agent_service 的 stream_chat 消费并 SSE 推送给前端
-        if session_id not in _decision_queues:
-            _decision_queues[session_id] = []
-        _decision_queues[session_id].append(decision_event)
+        decision_id, answer = await request_decision(session_id, decision_event)
 
-        # 创建 Future 并阻塞等待用户响应
-        loop = asyncio.get_running_loop()
-        future: asyncio.Future[str] = loop.create_future()
-        register_decision(decision_id, session_id, future)
-
-        try:
-            answer = await asyncio.wait_for(future, timeout=DECISION_TIMEOUT_SECONDS)
-            return {
-                "ok": True,
-                "decision_id": decision_id,
-                "answer": answer,
-                "message": f"用户选择了：{answer}",
-            }
-        except asyncio.TimeoutError:
-            _forget_decision(decision_id)
+        if answer is None:
             return {
                 "ok": False,
                 "decision_id": decision_id,
                 "error": "用户未在规定时间内做出决策",
                 "timeout": True,
             }
-
-
-def get_decision_queue(session_id: str) -> list[dict[str, Any]]:
-    """获取指定 session 的待处理决策列表（由 agent_service 调用）"""
-    return _decision_queues.pop(session_id, [])
-
-
-def cleanup_session_decisions(session_id: str) -> None:
-    """清理指定 session 的所有待处理决策（stream 结束时调用，防止 Future 泄漏）"""
-    # 清理决策队列
-    _decision_queues.pop(session_id, None)
-    # 清理该会话所有未完成的 Future（取消等待，让工具返回超时错误）。
-    # 必须按归属过滤：这里曾是全表遍历，一个会话的流结束会误取消
-    # 其它会话正在等待用户回答的决策。
-    orphaned = [
-        fid for fid, sid in _decision_sessions.items()
-        if sid == session_id
-    ]
-    for fid in orphaned:
-        future = _decision_futures.get(fid)
-        if future and not future.done():
-            future.cancel()
-        _forget_decision(fid)
-
-
-
+        return {
+            "ok": True,
+            "decision_id": decision_id,
+            "answer": answer,
+            "message": f"用户选择了：{answer}",
+        }

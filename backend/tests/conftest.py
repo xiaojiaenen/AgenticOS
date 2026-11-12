@@ -37,6 +37,11 @@ os.environ["SKILL_STORAGE_DIR"] = str(_TEST_DATA_DIR / "skills")
 os.environ["AGENT_DATA_DIR"] = str(_TEST_DATA_DIR)
 os.environ["APP_ENV"] = "test"
 os.environ["ENVIRONMENT"] = "test"
+# Redis 同理必须隔离：.env 里的 REDIS_URL 指向开发机真实 Redis，而异步客户端
+# 的连接绑定创建时的第一个事件循环 —— 测试进程里每个 anyio 用例都是新循环，
+# 跨循环复用连接表现为 5s socket_timeout 随机背锅（PUBLISH 挂死）。统一走
+# MemoryRedis（接口对齐），需要测跨进程 pub/sub 的用例自行 monkeypatch。
+os.environ["REDIS_URL"] = ""
 # 固定测试密钥：避免读写 data/.auth_secret，也不依赖开发机上的 .env
 os.environ["AUTH_SECRET_KEY"] = "test-only-secret-key-not-valid-in-production"
 # wuwei LLMGateway 在构建 Agent 时校验该变量；测试不发真实请求，注入 dummy 即可
@@ -180,9 +185,6 @@ def safe_delete_users(*emails: str) -> None:
                 {"uids": ids},
             )
 
-        # 限流表无 user_id 归属，测试直接整表清空
-        db.execute(text("DELETE FROM auth_rate_limits"))
-
         db.execute(delete(AuthSessionModel).where(AuthSessionModel.user_id.in_(ids)))
         db.execute(delete(UserModel).where(UserModel.id.in_(ids)))
         db.commit()
@@ -237,6 +239,16 @@ def _reset_global_singletons():
         from app.services.llm_providers.spec import invalidate_cache
 
         invalidate_cache()
+    except Exception:  # noqa: BLE001,S110
+
+        pass
+
+    try:
+        # 统一交互协调器：上一个用例遗留的挂起交互（表单/审批/决策）会渗透
+        # 到下一个用例的归属校验里。
+        from app.services.interactions import reset_interaction_broker
+
+        reset_interaction_broker()
     except Exception:  # noqa: BLE001,S110
 
         pass

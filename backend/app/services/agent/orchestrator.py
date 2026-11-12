@@ -21,6 +21,7 @@ import contextlib
 import json
 import logging
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, AsyncIterator
 
@@ -35,10 +36,10 @@ from app.db.models import AgentUsageEventModel, UserModel
 from app.schemas.agent import RESPONSE_MODES, AgentStreamRequest
 from app.services.external_system_service import (
     ApprovalBlocker,
-    UserInputBlocker,
     set_ext_user_id,
     _current_session_id as ext_session_id_ctx,
 )
+from app.services.interactions import KIND_EVENTS, get_interaction_broker
 from app.services.llm_gate import get_llm_gate
 from app.services.session_storage import dump_json, message_signature
 from app.tools.email_tools import set_current_session_id as set_email_session_id
@@ -103,6 +104,21 @@ def _messages_after(messages: list, existing: list[str]) -> list:
         end = found
         search_from = found + 1
     return list(messages[end + 1:])
+
+
+@dataclass
+class _RunState:
+    """stream_chat 单次 run 的可变累计状态（pump 与 done 处理器共享）。
+
+    从 stream_chat 的局部变量收敛而来 —— 抽出处理器后这些状态需要跨方法
+    读写，显式对象比 nonlocal 链条更清楚。
+    """
+
+    collected_text: str = ""
+    saw_text_delta: bool = False
+    tool_names: list[str] = field(default_factory=list)
+    usage_recorded: bool = False
+    turn_total_tokens: int = 0
 
 
 class StreamOrchestrator:
@@ -733,6 +749,306 @@ class StreamOrchestrator:
                     raise
         await asyncio.to_thread(_run)
 
+    # ── done 路径处理器 ──────────────────────────────────────────────
+    #
+    # stream_chat 的 pump 循环里，done/error 的收尾逻辑原本全部内联
+    # （ppt 产物分支 ~80 行、通用分支 ~155 行），三个模式的 artifact 落地
+    # 又是三段近乎相同的 try/snapshot/yield。抽到这里：
+    #   - 每条收尾路径有名字、有独立测试面；
+    #   - artifact 分支合并为 _finalize_artifact；
+    #   - pump 循环只负责事件路由与 runtime_task 重建。
+
+    async def _handle_ppt_done(
+        self,
+        state: "_RunState",
+        *,
+        session,
+        request: AgentStreamRequest,
+        user: UserModel | None,
+        agent,
+        runtime_profile,
+        event,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """PPT 模式的 done 收尾：组装产物 / 质量门反馈 / usage / 事件映射。
+
+        产物创建失败且确实没有幻灯片时按「纯文字回答」静默收尾，不报错。
+        """
+        _logger.info("ppt done: session=%s, creating artifact...", session.session_id)
+
+        artifact = await self._create_ppt_artifact(session.session_id)
+        _logger.info("ppt artifact result: session=%s, artifact=%s", session.session_id, "OK" if artifact else "None")
+        if artifact is not None:
+            yield {
+                "event": "run_status",
+                "data": {
+                    "session_id": session.session_id,
+                    "phase": "rendering_ppt",
+                    "label": "正在渲染 PPT 预览",
+                },
+            }
+            yield {
+                "event": "artifact_ready",
+                "data": artifact,
+            }
+            visible_text = ""
+        else:
+            # 质量门失败，返回错误信息给用户（按 session 读取，避免跨会话串扰）
+            quality_errors, quality_warnings = self.ppt_artifacts.get_quality_feedback(session.session_id)
+            # 模型整轮没有调用保存工具 → 本轮就是普通文字回答，
+            # 不属于"生成失败"，静默收尾即可（否则会给用户报"幻灯片目录不存在"）
+            no_slides = not quality_errors or all(
+                "幻灯片目录不存在" in err for err in quality_errors
+            )
+            if no_slides:
+                _logger.info(
+                    "ppt run produced no slides (text-only answer), session=%s",
+                    session.session_id,
+                )
+                visible_text = ""
+            else:
+                error_detail = "; ".join(quality_errors[:3])
+                _logger.warning(
+                    "ppt artifact creation failed: session=%s, errors=%s",
+                    session.session_id, quality_errors,
+                )
+                visible_text = f"PPT 预览生成失败：{error_detail}"
+        if visible_text:
+            yield {
+                "event": "delta",
+                "data": {
+                    "session_id": session.session_id,
+                    "content": visible_text,
+                },
+            }
+        yield {
+            "event": "run_status",
+            "data": {
+                "session_id": session.session_id,
+                "phase": "done",
+                "label": "本轮回复已完成",
+            },
+        }
+        usage_dict = event.data.get("usage") or getattr(session, "last_usage", None)
+        _, _, total_tokens = self._extract_usage_numbers(usage_dict)
+        if total_tokens > 0:
+            state.turn_total_tokens = total_tokens
+        if not state.usage_recorded:
+            await self._record_usage_event(
+                session=session,
+                request=request,
+                user=user,
+                event_data=event.data,
+                tool_names=state.tool_names,
+                response_mode="ppt",
+                agent_profile_id=runtime_profile.profile_id,
+                collected_text=state.collected_text,
+                agent=agent,
+            )
+            state.usage_recorded = True
+        mapped = self._map_agent_event(event, session)
+        if mapped is not None:
+            yield mapped
+
+    async def _finalize_artifact(self, create_coro, snapshot_fn, *, kind: str):
+        """创建产物 → 快照版本 → 返回带 version 的 artifact dict（失败返回 None）。
+
+        website / document / sheet 三个 done 分支原本是三段近乎相同的
+        create + try-snapshot + yield，只差 create/snapshot 的参数与日志名。
+        ``snapshot_fn`` 接收创建好的 artifact，返回 version（或 None）。
+        """
+        artifact = await create_coro
+        if artifact is None:
+            return None
+        if snapshot_fn is not None:
+            try:
+                version = await snapshot_fn(artifact)
+                if version:
+                    artifact["version"] = version
+            except Exception:
+                _logger.exception("%s version snapshot failed", kind)
+        return artifact
+
+    async def _handle_done_event(
+        self,
+        state: "_RunState",
+        *,
+        session,
+        request: AgentStreamRequest,
+        user: UserModel | None,
+        agent,
+        runtime_profile,
+        response_mode: str,
+        website_mode: bool,
+        document_mode: bool,
+        sheet_mode: bool,
+        event,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """非 PPT 模式的 done 收尾：按模式落地产物 / 截断提示 / usage /
+        事件映射 / A2UI 与图表通道。
+
+        原先通用分支先 continue，导致 website_mode 分支与
+        finish_reason=length 截断提示成为死代码 —— 合并时已纠正为统一路径。
+        """
+        finish_reason = str(event.data.get("reason") or "stop")
+        usage_dict = event.data.get("usage") or getattr(session, "last_usage", None)
+        _, _, total_tokens = self._extract_usage_numbers(usage_dict)
+        if total_tokens > 0:
+            state.turn_total_tokens = total_tokens
+
+        if website_mode:
+            from app.services.artifact_version_service import snapshot_website_version
+
+            artifact = await self._finalize_artifact(
+                self._create_website_artifact(session.session_id),
+                lambda a: snapshot_website_version(
+                    session.session_id,
+                    a.get("preview_html") or "",
+                    a.get("title") or "",
+                    a.get("project_slug") or "",
+                    a.get("stack") or "",
+                ),
+                kind="website",
+            )
+            if artifact is not None:
+                yield {
+                    "event": "run_status",
+                    "data": {
+                        "session_id": session.session_id,
+                        "phase": "rendering_website",
+                        "label": "正在渲染网站预览",
+                    },
+                }
+                # 版本快照：项目目录是原地迭代的，这里把本轮产物
+                # 存成快照，用户才能回看之前的每一版（快照已在 _finalize_artifact 完成）
+                yield {
+                    "event": "artifact_ready",
+                    "data": artifact,
+                }
+
+        if document_mode:
+            from app.services.artifact_version_service import snapshot_document_version
+
+            artifact = await self._finalize_artifact(
+                self._create_document_artifact(session.session_id),
+                lambda a: snapshot_document_version(
+                    session.session_id,
+                    a.get("title") or "",
+                    a.get("artifact_id") or "",
+                ),
+                kind="document",
+            )
+            if artifact is not None:
+                yield {
+                    "event": "artifact_ready",
+                    "data": artifact,
+                }
+
+        if sheet_mode:
+            from app.services.artifact_version_service import snapshot_sheet_version
+
+            artifact = await self._finalize_artifact(
+                self._create_sheet_artifact(session.session_id),
+                lambda a: snapshot_sheet_version(
+                    session.session_id,
+                    a.get("title") or "",
+                    # 产物字段是 snake_case 的 artifact_id（与 website 产物保持一致）
+                    a.get("artifact_id") or "",
+                ),
+                kind="sheet",
+            )
+            if artifact is not None:
+                yield {
+                    "event": "artifact_ready",
+                    "data": artifact,
+                }
+
+        # 非 ppt 模式（ppt 在上方已有分支 continue）：发 phase=done
+        yield {
+            "event": "run_status",
+            "data": {
+                "session_id": session.session_id,
+                "phase": "done",
+                "label": "本轮回复已完成",
+            },
+        }
+
+        # 输出被截断时追加提示
+        if finish_reason == "length":
+            yield {
+                "event": "delta",
+                "data": {
+                    "session_id": session.session_id,
+                    "content": (
+                        "\n\n---\n⚠️ **回复被截断**：模型输出已达到 token 上限，内容不完整。"
+                        "你可以发送「继续」让模型接着输出，或精简需求后重新提问。"
+                    ),
+                },
+            }
+            _logger.warning(
+                "Output truncated (finish_reason=length): session=%s tokens_used=%s",
+                session.session_id,
+                usage_dict,
+            )
+
+        if not state.usage_recorded:
+            await self._record_usage_event(
+                session=session,
+                request=request,
+                user=user,
+                event_data=event.data,
+                tool_names=state.tool_names,
+                response_mode=response_mode,
+                agent_profile_id=runtime_profile.profile_id,
+                collected_text=state.collected_text,
+                agent=agent,
+            )
+            state.usage_recorded = True
+
+        mapped = self._map_agent_event(event, session)
+        if mapped is not None:
+            yield mapped
+        # A2UI：界面生成工具（render_ui / render_form）的
+        # 消息在这里推给前端。时机选在 tool_end 之后而不是
+        # 整轮 done —— 界面是「即时可用的成品」，等整轮结束
+        # 会让用户先读一大段文字再看到界面。
+        for ui_event in self._drain_a2ui_events(session):
+            yield ui_event
+        # 图表是独立通道，与 A2UI 并列下发
+        for chart_event in self._drain_chart_events(session):
+            yield chart_event
+
+    async def _note_error_usage(
+        self,
+        state: "_RunState",
+        *,
+        session,
+        request: AgentStreamRequest,
+        user: UserModel | None,
+        agent,
+        runtime_profile,
+        response_mode: str,
+        event,
+    ) -> None:
+        """error 事件的 usage 记账（每轮只记一次）。"""
+        _logger.warning(
+            "agent error event: session=%s error=%s tools=%s",
+            session.session_id,
+            event.data.get("message", "")[:200],
+            state.tool_names,
+        )
+        await self._record_usage_event(
+            session=session,
+            request=request,
+            user=user,
+            event_data=event.data,
+            tool_names=state.tool_names,
+            response_mode=response_mode,
+            agent_profile_id=runtime_profile.profile_id,
+            collected_text=state.collected_text,
+            agent=agent,
+        )
+        state.usage_recorded = True
+
     async def stream_chat(self, request: AgentStreamRequest, user: UserModel | None = None) -> AsyncIterator[dict[str, Any]]:
         # Restore agent_profile_id and response_mode from stored session metadata
         # so that page-refreshed sessions correctly resolve the right tools.
@@ -875,8 +1191,9 @@ class StreamOrchestrator:
             agent_profile_id=runtime_profile.profile_id,
         )
         approval_queue = self.approval_manager.subscribe(session.session_id)
-        user_input_queue = UserInputBlocker.subscribe(session.session_id)
-        api_approval_queue = ApprovalBlocker.subscribe(session.session_id)
+        # 统一交互协调器：user_input / api_approval / decision 三类「等人」事件
+        # 共用一条队列（tagged event，按 kind 映射回各自 SSE 事件名）
+        interaction_queue = get_interaction_broker().subscribe(session.session_id)
         set_email_session_id(session.session_id)
         set_data_session_id(session.session_id)
         restore_website_dir_for_session(session.session_id)
@@ -920,11 +1237,7 @@ class StreamOrchestrator:
         }
 
         runtime_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue()
-        collected_text = ""
-        saw_text_delta = False
-        tool_names: list[str] = []
-        usage_recorded = False
-        turn_total_tokens = 0
+        state = _RunState()
 
         # 注入用户记忆上下文（按 mode 装配；ppt 也注入 —— ppt loadout 此前因 not ppt_mode 永不执行）
         if user is not None and not website_mode and not email_mode:
@@ -1067,22 +1380,22 @@ class StreamOrchestrator:
                     # usage 兜底：正常路径在 done/error 事件里记账；客户端断开
                     # （producer 被取消）走不到那里，该轮 token 会全漏统计。
                     # 用会话内存里的 last_usage / 已收文本估算补记。
-                    if not usage_recorded and user is not None and session is not None:
+                    if not state.usage_recorded and user is not None and session is not None:
                         try:
                             await asyncio.shield(self._record_usage_event(
                                 session=session,
                                 request=request,
                                 user=user,
                                 event_data={"interrupted": True},
-                                tool_names=tool_names,
+                                tool_names=state.tool_names,
                                 response_mode=response_mode,
                                 agent_profile_id=runtime_profile.profile_id,
-                                collected_text=collected_text,
+                                collected_text=state.collected_text,
                                 agent=agent,
                             ))
                             _logger.info(
                                 "recorded interrupted usage: session=%s chars=%d",
-                                session.session_id, len(collected_text),
+                                session.session_id, len(state.collected_text),
                             )
                         except asyncio.CancelledError:
                             pass
@@ -1101,7 +1414,7 @@ class StreamOrchestrator:
                                 send_task_complete_notification(
                                     user_id=user.id,
                                     session_id=session.session_id,
-                                    task_summary=collected_text[:300] if collected_text else "",
+                                    task_summary=state.collected_text[:300] if state.collected_text else "",
                                     duration_seconds=task_duration,
                                     frontend_base_url=frontend_base,
                                     is_error=task_had_error,
@@ -1115,8 +1428,7 @@ class StreamOrchestrator:
         producer = asyncio.create_task(produce_events())
         runtime_task = asyncio.create_task(runtime_queue.get())
         approval_task = asyncio.create_task(approval_queue.get())
-        user_input_task = asyncio.create_task(user_input_queue.get())
-        api_approval_task = asyncio.create_task(api_approval_queue.get())
+        interaction_task = asyncio.create_task(interaction_queue.get())
 
         # Keepalive: 每 15 秒发送一次注释防止连接超时
         KEEPALIVE_INTERVAL = 15
@@ -1127,7 +1439,7 @@ class StreamOrchestrator:
             while True:
                 # 使用 timeout 避免无限等待，以便发送 keepalive
                 done, _ = await asyncio.wait(
-                    {runtime_task, approval_task, user_input_task, api_approval_task},
+                    {runtime_task, approval_task, interaction_task},
                     timeout=KEEPALIVE_INTERVAL,
                     return_when=asyncio.FIRST_COMPLETED,
                 )
@@ -1152,9 +1464,9 @@ class StreamOrchestrator:
                     else:
 
                         if event.type == "text_delta":
-                            first_text_delta = not saw_text_delta
-                            saw_text_delta = True
-                            collected_text += event.data.get("content", "")
+                            first_text_delta = not state.saw_text_delta
+                            state.saw_text_delta = True
+                            state.collected_text += event.data.get("content", "")
                             if ppt_mode:
                                 if first_text_delta:
                                     yield {
@@ -1180,85 +1492,19 @@ class StreamOrchestrator:
                         if event.type == "tool_start":
                             tool_name = event.data.get("tool_name")
                             if isinstance(tool_name, str) and tool_name:
-                                tool_names.append(tool_name)
+                                state.tool_names.append(tool_name)
 
                         if ppt_mode and event.type == "done":
-                            visible_text = ""
-
-                            _logger.info("ppt done: session=%s, creating artifact...", session.session_id)
-
-                            artifact = await self._create_ppt_artifact(session.session_id)
-                            _logger.info("ppt artifact result: session=%s, artifact=%s", session.session_id, "OK" if artifact else "None")
-                            if artifact is not None:
-                                yield {
-                                    "event": "run_status",
-                                    "data": {
-                                        "session_id": session.session_id,
-                                        "phase": "rendering_ppt",
-                                        "label": "正在渲染 PPT 预览",
-                                    },
-                                }
-                                yield {
-                                    "event": "artifact_ready",
-                                    "data": artifact,
-                                }
-                            else:
-                                # 质量门失败，返回错误信息给用户（按 session 读取，避免跨会话串扰）
-                                quality_errors, quality_warnings = self.ppt_artifacts.get_quality_feedback(session.session_id)
-                                # 模型整轮没有调用保存工具 → 本轮就是普通文字回答，
-                                # 不属于"生成失败"，静默收尾即可（否则会给用户报"幻灯片目录不存在"）
-                                no_slides = not quality_errors or all(
-                                    "幻灯片目录不存在" in err for err in quality_errors
-                                )
-                                if no_slides:
-                                    _logger.info(
-                                        "ppt run produced no slides (text-only answer), session=%s",
-                                        session.session_id,
-                                    )
-                                    visible_text = ""
-                                else:
-                                    error_detail = "; ".join(quality_errors[:3])
-                                    _logger.warning(
-                                        "ppt artifact creation failed: session=%s, errors=%s",
-                                        session.session_id, quality_errors,
-                                    )
-                                    visible_text = f"PPT 预览生成失败：{error_detail}"
-                            if visible_text:
-                                yield {
-                                    "event": "delta",
-                                    "data": {
-                                        "session_id": session.session_id,
-                                        "content": visible_text,
-                                    },
-                                }
-                            yield {
-                                "event": "run_status",
-                                "data": {
-                                    "session_id": session.session_id,
-                                    "phase": "done",
-                                    "label": "本轮回复已完成",
-                                },
-                            }
-                            mapped = self._map_agent_event(event, session)
-                            usage_dict = event.data.get("usage") or getattr(session, "last_usage", None)
-                            _, _, total_tokens = self._extract_usage_numbers(usage_dict)
-                            if total_tokens > 0:
-                                turn_total_tokens = total_tokens
-                            if not usage_recorded:
-                                await self._record_usage_event(
-                                    session=session,
-                                    request=request,
-                                    user=user,
-                                    event_data=event.data,
-                                    tool_names=tool_names,
-                                    response_mode=response_mode,
-                                    agent_profile_id=runtime_profile.profile_id,
-                                    collected_text=collected_text,
-                                    agent=agent,
-                                )
-                                usage_recorded = True
-                            if mapped is not None:
-                                yield mapped
+                            async for chunk in self._handle_ppt_done(
+                                state,
+                                session=session,
+                                request=request,
+                                user=user,
+                                agent=agent,
+                                runtime_profile=runtime_profile,
+                                event=event,
+                            ):
+                                yield chunk
                             runtime_task = asyncio.create_task(runtime_queue.get())
                             continue
 
@@ -1266,197 +1512,39 @@ class StreamOrchestrator:
                         # 再记录 usage 并映射 done 事件。原先通用分支先 continue，
                         # 导致 website_mode 分支与 finish_reason=length 截断提示成为死代码。
                         if event.type == "done":
-                            finish_reason = str(event.data.get("reason") or "stop")
-                            usage_dict = event.data.get("usage") or getattr(session, "last_usage", None)
-                            _, _, total_tokens = self._extract_usage_numbers(usage_dict)
-                            if total_tokens > 0:
-                                turn_total_tokens = total_tokens
-
-                            if website_mode:
-                                artifact = await self._create_website_artifact(
-                                    session.session_id
-                                )
-                                if artifact is not None:
-                                    yield {
-                                        "event": "run_status",
-                                        "data": {
-                                            "session_id": session.session_id,
-                                            "phase": "rendering_website",
-                                            "label": "正在渲染网站预览",
-                                        },
-                                    }
-                                    # 版本快照：项目目录是原地迭代的，这里把本轮产物
-                                    # 存成快照，用户才能回看之前的每一版
-                                    try:
-                                        from app.services.artifact_version_service import (
-                                            snapshot_website_version,
-                                        )
-
-                                        version = await snapshot_website_version(
-                                            session.session_id,
-                                            artifact.get("preview_html") or "",
-                                            artifact.get("title") or "",
-                                            artifact.get("project_slug") or "",
-                                            artifact.get("stack") or "",
-                                        )
-                                        if version:
-                                            artifact["version"] = version
-                                    except Exception:
-                                        _logger.exception(
-                                            "website version snapshot failed: session=%s",
-                                            session.session_id,
-                                        )
-                                    yield {
-                                        "event": "artifact_ready",
-                                        "data": artifact,
-                                    }
-
-                            if document_mode:
-                                artifact = await self._create_document_artifact(
-                                    session.session_id
-                                )
-                                if artifact is not None:
-                                    try:
-                                        from app.services.artifact_version_service import (
-                                            snapshot_document_version,
-                                        )
-
-                                        version = await snapshot_document_version(
-                                            session.session_id,
-                                            artifact.get("title") or "",
-                                            artifact.get("artifact_id") or "",
-                                        )
-                                        if version:
-                                            artifact["version"] = version
-                                    except Exception:
-                                        _logger.exception(
-                                            "document version snapshot failed: session=%s",
-                                            session.session_id,
-                                        )
-                                    yield {
-                                        "event": "artifact_ready",
-                                        "data": artifact,
-                                    }
-
-                            if sheet_mode:
-                                artifact = await self._create_sheet_artifact(
-                                    session.session_id
-                                )
-                                if artifact is not None:
-                                    try:
-                                        from app.services.artifact_version_service import (
-                                            snapshot_sheet_version,
-                                        )
-
-                                        version = await snapshot_sheet_version(
-                                            session.session_id,
-                                            artifact.get("title") or "",
-                                            # 产物字段是 snake_case 的 artifact_id
-                                            # （与 website 产物保持一致）
-                                            artifact.get("artifact_id") or "",
-                                        )
-                                        if version:
-                                            artifact["version"] = version
-                                    except Exception:
-                                        _logger.exception(
-                                            "sheet version snapshot failed: session=%s",
-                                            session.session_id,
-                                        )
-                                    yield {
-                                        "event": "artifact_ready",
-                                        "data": artifact,
-                                    }
-
-                            # 非 ppt 模式（ppt 在上方已有分支 continue）：发 phase=done
-                            yield {
-                                "event": "run_status",
-                                "data": {
-                                    "session_id": session.session_id,
-                                    "phase": "done",
-                                    "label": "本轮回复已完成",
-                                },
-                            }
-
-                            # 输出被截断时追加提示
-                            if finish_reason == "length":
-                                yield {
-                                    "event": "delta",
-                                    "data": {
-                                        "session_id": session.session_id,
-                                        "content": (
-                                            "\n\n---\n⚠️ **回复被截断**：模型输出已达到 token 上限，内容不完整。"
-                                            "你可以发送「继续」让模型接着输出，或精简需求后重新提问。"
-                                        ),
-                                    },
-                                }
-                                _logger.warning(
-                                    "Output truncated (finish_reason=length): session=%s tokens_used=%s",
-                                    session.session_id,
-                                    usage_dict,
-                                )
-
-                            if not usage_recorded:
-                                await self._record_usage_event(
-                                    session=session,
-                                    request=request,
-                                    user=user,
-                                    event_data=event.data,
-                                    tool_names=tool_names,
-                                    response_mode=response_mode,
-                                    agent_profile_id=runtime_profile.profile_id,
-                                    collected_text=collected_text,
-                                    agent=agent,
-                                )
-                                usage_recorded = True
-
-                            mapped = self._map_agent_event(event, session)
-                            if mapped is not None:
-                                yield mapped
-                            # A2UI：界面生成工具（render_ui / render_form）的
-                            # 消息在这里推给前端。时机选在 tool_end 之后而不是
-                            # 整轮 done —— 界面是「即时可用的成品」，等整轮结束
-                            # 会让用户先读一大段文字再看到界面。
-                            for ui_event in self._drain_a2ui_events(session):
-                                yield ui_event
-                            # 图表是独立通道，与 A2UI 并列下发
-                            for chart_event in self._drain_chart_events(session):
-                                yield chart_event
-                            runtime_task = asyncio.create_task(runtime_queue.get())
-                            continue
-
-                        if event.type == "error" and not usage_recorded:
-                            _logger.warning(
-                                "agent error event: session=%s error=%s tools=%s",
-                                session.session_id,
-                                event.data.get("message", "")[:200],
-                                tool_names,
-                            )
-                            await self._record_usage_event(
+                            async for chunk in self._handle_done_event(
+                                state,
                                 session=session,
                                 request=request,
                                 user=user,
-                                event_data=event.data,
-                                tool_names=tool_names,
-                                response_mode=response_mode,
-                                agent_profile_id=runtime_profile.profile_id,
-                                collected_text=collected_text,
                                 agent=agent,
+                                runtime_profile=runtime_profile,
+                                response_mode=response_mode,
+                                website_mode=website_mode,
+                                document_mode=document_mode,
+                                sheet_mode=sheet_mode,
+                                event=event,
+                            ):
+                                yield chunk
+                            runtime_task = asyncio.create_task(runtime_queue.get())
+                            continue
+
+                        if event.type == "error" and not state.usage_recorded:
+                            await self._note_error_usage(
+                                state,
+                                session=session,
+                                request=request,
+                                user=user,
+                                agent=agent,
+                                runtime_profile=runtime_profile,
+                                response_mode=response_mode,
+                                event=event,
                             )
-                            usage_recorded = True
 
                         mapped = self._map_agent_event(event, session)
                         if mapped is not None:
                             yield mapped
                         runtime_task = asyncio.create_task(runtime_queue.get())
-
-                # 检查决策工具队列（工具在 agent 内部执行时可能产生决策事件）
-                from app.tools.decision_tools import get_decision_queue
-                pending_decisions = get_decision_queue(session.session_id)
-                for decision in pending_decisions:
-                    yield {
-                        "event": "user_decision",
-                        "data": decision,
-                    }
 
                 if approval_task in done:
                     approval = approval_task.result()
@@ -1469,33 +1557,29 @@ class StreamOrchestrator:
                     }
                     approval_task = asyncio.create_task(approval_queue.get())
 
-                if user_input_task in done:
-                    user_input_data = user_input_task.result()
-                    yield {
-                        "event": "user_input_required",
-                        "data": user_input_data,
-                    }
-                    user_input_task = asyncio.create_task(user_input_queue.get())
+                if interaction_task in done:
+                    # 统一交互协调器的 tagged event：按 kind 映射回各自 SSE 事件名
+                    # （payload 原样透传，附带 interaction_id / kind）
+                    tag = interaction_task.result()
+                    sse_event = KIND_EVENTS.get(tag.get("kind", ""))
+                    if sse_event is not None:
+                        yield {
+                            "event": sse_event,
+                            "data": tag,
+                        }
+                    interaction_task = asyncio.create_task(interaction_queue.get())
 
-                if api_approval_task in done:
-                    api_approval_data = api_approval_task.result()
-                    yield {
-                        "event": "api_approval_required",
-                        "data": api_approval_data,
-                    }
-                    api_approval_task = asyncio.create_task(api_approval_queue.get())
-
-                # 同批已消费 approval/user_input 后再结束流
+                # 同批已消费 approval/interaction 后再结束流
                 if runtime_ended:
                     break
             # 对话结束后触发分层蒸馏 pipeline（L0→L1→L2→L3）
-            _logger.info(f"Memory pipeline conditions: user={user is not None}, collected_text_len={len(collected_text) if collected_text else 0}, ppt_mode={ppt_mode}, website_mode={website_mode}, message={request.message[:50] if request.message else ''}")
+            _logger.info(f"Memory pipeline conditions: user={user is not None}, collected_text_len={len(state.collected_text) if state.collected_text else 0}, ppt_mode={ppt_mode}, website_mode={website_mode}, message={request.message[:50] if request.message else ''}")
             if user is not None and request.message and not ppt_mode and not website_mode:
                 try:
                     from app.services.memory_pipeline import get_pipeline
-                    ai_response = collected_text[:2000] if collected_text else ""
+                    ai_response = state.collected_text[:2000] if state.collected_text else ""
                     # 优先用 done 事件 usage；无则用文本估算，避免写入假数据字段
-                    memory_tokens = turn_total_tokens
+                    memory_tokens = state.turn_total_tokens
                     if memory_tokens <= 0 and ai_response:
                         memory_tokens = self._estimate_tokens_from_text(ai_response)
                     asyncio.create_task(
@@ -1517,18 +1601,14 @@ class StreamOrchestrator:
                 "stream_chat end: session=%s mode=%s tools=%s text_len=%d",
                 session.session_id,
                 response_mode,
-                tool_names,
-                len(collected_text),
+                state.tool_names,
+                len(state.collected_text),
             )
             self.approval_manager.unsubscribe(session.session_id, approval_queue)
+            # 统一交互协调器退订（同时 cancel 该会话全部挂起交互：表单 / API
+            # 审批 / 决策 —— 等价于原 cleanup_session_decisions 的孤儿清理）
             ApprovalBlocker.unsubscribe(session.session_id)
-            # 清理孤儿决策 Future，防止泄漏和阻塞下次请求
-            try:
-                from app.tools.decision_tools import cleanup_session_decisions
-                cleanup_session_decisions(session.session_id)
-            except Exception:
-                pass
-            for task in (runtime_task, approval_task, user_input_task, api_approval_task):
+            for task in (runtime_task, approval_task, interaction_task):
                 if not task.done():
                     task.cancel()
                     with contextlib.suppress(asyncio.CancelledError):

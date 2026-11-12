@@ -319,54 +319,67 @@ class TestMessagesSerializationReasoning:
 
 
 class TestDecisionOwnership:
-    """decision_tools：决策归属登记 / 按 session 清理。
+    """decision_tools → InteractionBroker：决策归属登记 / 按 session 清理。
 
     回归背景：/decisions/{id}/decision 端点原本不校验调用者身份，decision_id
     又只有 8 位 hex —— 任何登录用户知道 id 就能替别人回答决策。端点现在通过
     get_decision_session → ensure_session_access 校验归属，依赖本组测试保护的
-    登记数据。另外 cleanup_session_decisions 曾全表遍历取消 Future，一个会话
-    的流结束会误取消其它会话正在等待的决策 —— 一并回归。
+    登记数据。另外清理曾全表遍历取消 Future，一个会话的流结束会误取消其它
+    会话正在等待的决策 —— 一并回归。
     """
 
-    def test_register_and_peek_session(self):
+    @staticmethod
+    def _decision_event(**overrides) -> dict:
+        event = {
+            "type": "user_decision",
+            "question": "选一个？",
+            "options": ["A", "B"],
+            "allow_custom": True,
+        }
+        event.update(overrides)
+        return event
+
+    def test_ownership_and_resolve_roundtrip(self):
         import asyncio
 
+        from app.services.interactions import get_interaction_broker
         from app.tools.decision_tools import (
             get_decision_session,
-            register_decision,
-            _forget_decision,
-        )
-
-        loop = asyncio.new_event_loop()
-        try:
-            future: asyncio.Future[str] = loop.create_future()
-            register_decision("d1", "s1", future)
-            assert get_decision_session("d1") == "s1"
-            _forget_decision("d1")
-            assert get_decision_session("d1") is None
-        finally:
-            loop.close()
-
-    def test_resolve_pops_future_and_ownership(self):
-        import asyncio
-
-        from app.tools.decision_tools import (
-            get_decision_session,
-            register_decision,
+            request_decision,
             resolve_decision,
         )
 
         loop = asyncio.new_event_loop()
         try:
-            future: asyncio.Future[str] = loop.create_future()
-            register_decision("d2", "s1", future)
 
-            async def _run():
-                assert await resolve_decision("d2", "选项A") is True
+            async def _driver():
+                broker = get_interaction_broker()
+                task = asyncio.create_task(
+                    request_decision("s1", self._decision_event())
+                )
+                # 等登记落表（request 内部是几个 await，轮询而非猜时序）
+                for _ in range(200):
+                    if broker.pending_count("s1") > 0:
+                        break
+                    await asyncio.sleep(0.01)
+                assert broker.pending_count("s1") == 1
+                decision_id = next(
+                    iid
+                    for iid, info in broker._pending.items()
+                    if info["session_id"] == "s1"
+                )
+                # 归属 peek（端点归属校验依赖它）
+                assert get_decision_session(decision_id) == "s1"
+                # resolve → 等待方拿到答案
+                assert await resolve_decision(decision_id, "选项A") is True
+                got_id, answer = await task
+                assert got_id == decision_id
+                assert answer == "选项A"
+                # resolve 后登记已清
+                assert get_decision_session(decision_id) is None
+                assert await resolve_decision(decision_id, "again") is False
 
-            assert loop.run_until_complete(_run()) is None
-            assert get_decision_session("d2") is None
-            assert loop.run_until_complete(resolve_decision("d2", "again")) is False  # 已弹出
+            loop.run_until_complete(_driver())
         finally:
             loop.close()
 
@@ -374,10 +387,11 @@ class TestDecisionOwnership:
         """清理 s1 不得误伤 s2 正在等待的决策（历史上是全表遍历）。"""
         import asyncio
 
+        from app.services.interactions import get_interaction_broker
         from app.tools.decision_tools import (
             cleanup_session_decisions,
             get_decision_session,
-            register_decision,
+            request_decision,
             resolve_decision,
         )
 
@@ -385,21 +399,39 @@ class TestDecisionOwnership:
         # 让后续测试的 get_event_loop 直接 RuntimeError
         loop = asyncio.new_event_loop()
         try:
-            f1: asyncio.Future[str] = loop.create_future()
-            f2: asyncio.Future[str] = loop.create_future()
-            register_decision("d-s1", "s1", f1)
-            register_decision("d-s2", "s2", f2)
 
-            cleanup_session_decisions("s1")
-            assert get_decision_session("d-s1") is None
-            assert f1.cancelled()
-            # s2 的决策完好：仍可正常 resolve
-            assert get_decision_session("d-s2") == "s2"
+            async def _driver():
+                broker = get_interaction_broker()
+                t1 = asyncio.create_task(request_decision("s1", self._decision_event()))
+                t2 = asyncio.create_task(request_decision("s2", self._decision_event()))
+                for _ in range(200):
+                    if broker.pending_count("s1") and broker.pending_count("s2"):
+                        break
+                    await asyncio.sleep(0.01)
+                id1 = next(
+                    iid
+                    for iid, info in broker._pending.items()
+                    if info["session_id"] == "s1"
+                )
+                id2 = next(
+                    iid
+                    for iid, info in broker._pending.items()
+                    if info["session_id"] == "s2"
+                )
 
-            async def _run():
-                assert await resolve_decision("d-s2", "保留") is True
+                cleanup_session_decisions("s1")
+                assert get_decision_session(id1) is None
+                # s2 的决策完好：仍可正常 resolve
+                assert get_decision_session(id2) == "s2"
+                assert await resolve_decision(id2, "保留") is True
+                got2_id, answer2 = await t2
+                assert answer2 == "保留"
+                # s1 的等待方以超时语义收场（不再让 CancelledError 炸出工具）
+                got1_id, answer1 = await t1
+                assert answer1 is None
+                assert got1_id == id1
 
-            assert loop.run_until_complete(_run()) is None
+            loop.run_until_complete(_driver())
         finally:
             loop.close()
 

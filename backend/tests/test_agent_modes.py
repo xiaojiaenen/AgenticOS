@@ -149,6 +149,10 @@ def test_sheet_artifact_keys_match_orchestrator_reader():
     踩过的坑：产物字段从 artifactId 改成 artifact_id（与 website 对齐）后，
     orchestrator 仍在取旧键 → reference 变成 None → 版本索引从不落盘 →
     版本条静默不显示。字段名对不上时没有任何报错，只能靠这个断言兜住。
+
+    R2 拆分后 sheet 分支在 ``_handle_done_event`` 里，版本快照经
+    ``_finalize_artifact`` 的 ``snapshot_fn(artifact)`` 回调读取 —— 读取点
+    从 ``artifact.get(...)`` 变成回调参数 ``a.get(...)``，断言随之对齐。
     """
     import inspect
     from pathlib import Path
@@ -162,10 +166,12 @@ def test_sheet_artifact_keys_match_orchestrator_reader():
     )
 
     orchestrator = Path("app/services/agent/orchestrator.py").read_text(encoding="utf-8")
-    branch = orchestrator.split("if sheet_mode:")[-1]
-    assert 'artifact.get("artifact_id")' in branch, (
+    handler = orchestrator.split("async def _handle_done_event")[-1].split(
+        "async def _note_error_usage"
+    )[0]
+    assert 'a.get("artifact_id")' in handler, (
         "orchestrator 的表格分支没有用 artifact_id 读产物，版本快照会静默失效"
     )
-    assert 'artifact.get("artifactId")' not in branch, (
+    assert 'a.get("artifactId")' not in handler, (
         "orchestrator 还在用旧的驼峰键读表格产物"
     )
