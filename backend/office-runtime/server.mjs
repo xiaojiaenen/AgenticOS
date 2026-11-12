@@ -519,7 +519,29 @@ function enqueue(raw) {
     try {
       send({ id: req.id, ok: true, result: await handle(req) })
     } catch (err) {
-      send({ id: req.id, ok: false, error: err?.message ?? String(err) })
+      // 必须把「操作名 + 错误类型 + 堆栈」一起回传：Univer 内部有些异常
+      // 只有 name/stack 而没有 message（例如 NotImplementedError），
+      // 此前只取 err?.message → 空字符串 → Python 侧只剩
+      // 「办公运行时异常（NotImplementedError）：无详细信息」，无从排查。
+      const name = err?.name || err?.constructor?.name || typeof err
+      const message = err?.message || (typeof err === 'string' ? err : '')
+      const stackHead = String(err?.stack || '')
+        .split('\n')
+        .slice(0, 4)
+        .join(' | ')
+      const detail = [
+        `${req.op} 执行失败`,
+        `type=${name}`,
+        message ? `message=${message}` : 'message=<empty>',
+        stackHead ? `at=${stackHead}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+      if (!message) {
+        // 没有 message 时把完整堆栈打到服务端 stderr（Python 侧会泵进日志）
+        console.error(`[office-runtime] ${req.op} failed:`, err)
+      }
+      send({ id: req.id, ok: false, error: detail })
     }
   })
 }

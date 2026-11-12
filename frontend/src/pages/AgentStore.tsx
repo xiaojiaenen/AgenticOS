@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, Bot, Check, Loader2, Plus, RefreshCw, Search, SearchX, Settings, Sparkles, X } from 'lucide-react';
+import { AlertCircle, Bot, Check, Loader2, Plus, RefreshCw, Search, SearchX, Settings, Sparkles, X } from 'lucide-react';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/shadcn/button';
 import { Badge } from '../components/ui/Badge';
@@ -12,7 +12,7 @@ import { AgentProfile, getAgentStore, installAgent, uninstallAgent } from '../se
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
 import { toastError } from '../lib/errors';
-import { useGoBack } from '../hooks/useGoBack';
+import { PageHeader } from '../components/ui/PageShell';
 
 // 模式 → 小精灵 + 颜色
 const MODE_CARD_STYLES: Record<string, { Mascot: React.FC<{ size?: number; className?: string }>; gradient: string; shadow: string }> = {
@@ -28,7 +28,7 @@ function getCardStyle(mode?: string) {
 
 export const AgentStore = () => {
   const navigate = useNavigate();
-  const goBack = useGoBack('/chat');  const [agents, setAgents] = useState<AgentProfile[]>([]);
+  const [agents, setAgents] = useState<AgentProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -108,13 +108,6 @@ export const AgentStore = () => {
         'text-[var(--foreground)] bg-[var(--surface-0)] selection:bg-[var(--border-medium)] selection:text-[var(--foreground)]'
       )}
     >
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        {/* 静态环境光晕：与 Home 一致的克制风格。此前这里是 3 个 infinite
-            bg-blob 动画 + 720px 吉祥物水印，实测渲染出灰色三角伪影且喧宾夺主 */}
-        <div className="absolute -top-20 -left-10 w-[45vw] h-[45vw] rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.10),transparent_70%)] blur-[70px]" />
-        <div className="absolute -bottom-16 -right-8 w-[42vw] h-[42vw] rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.08),transparent_70%)] blur-[70px]" />
-      </div>
-
       <nav className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 py-4">
         <Logo />
         <div className="flex items-center gap-3">
@@ -125,23 +118,17 @@ export const AgentStore = () => {
             <Plus size={16} />
             创建智能体
           </Button>
-          <Button variant="outline" onClick={goBack} className="gap-2">
-            <ArrowLeft size={16} />
-            返回
-          </Button>
         </div>
       </nav>
 
       <main id="main-content" className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 pt-5 md:px-8">
-        <div className="mb-7 flex flex-col gap-2">
-          <p className={cn("flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em]", "text-[var(--muted-foreground)]")}>
-            <Sparkles size={16} />
-            Agent Store
-          </p>
-          <h1 className={cn("text-4xl font-bold tracking-tight", "text-[var(--foreground)]")}>智能体商店</h1>
-          <p className={cn("mt-2 text-sm font-medium", "text-[var(--muted-foreground)]")}>
-            安装同事分享的助手，或创建只属于你的智能体并为它挑选工具
-          </p>
+        <div className="mb-7">
+          <PageHeader
+            kicker="AGENT STORE"
+            title="智能体商店"
+            description="安装同事分享的助手，或创建只属于你的智能体并为它挑选工具"
+            back
+          />
         </div>
 
         {/* 搜索：智能体数量增长后避免整页长滚动查找 */}

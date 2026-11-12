@@ -241,7 +241,9 @@ class OfficeRuntime:
 
         if message.get("ok"):
             return message.get("result") or {}
-        raise OfficeRuntimeError(str(message.get("error") or "未知错误"))
+        # 子进程把「操作名 + 错误类型 + 堆栈头」编进 error（见 server.mjs 的
+        # catch 分支）。这里原样抛出，保证界面上的文案能定位到具体 op。
+        raise OfficeRuntimeError(str(message.get("error") or f"操作 {op} 未知错误"))
 
 
 _runtime: OfficeRuntime | None = None

@@ -21,24 +21,35 @@ logger = logging.getLogger(__name__)
 MAX_INPUT_CHARS = 4000
 MAX_OUTPUT_CHARS = 2000
 
-POLISH_SYSTEM_PROMPT = """你是文字编辑。用户的输入是他在输入框里要说给 AI 听的一句话（或几句话），请把它改得更清楚、更书面、更少歧义。
+POLISH_SYSTEM_PROMPT = """你是一个提示词改写器。用户会给你一句他自己写的、可能很模糊的话（比如「帮我看下数据」「搞个总结」）。你的工作是把这句话**改写得更清楚、更具体**，让另一台 AI 能准确执行。
 
-这是**润色**，不是扩写，也不是回答。三条铁律：
-- 输出长度与原文相当（最多比原文长 20%）。绝不扩写成多段、绝不加标题/小标题/列表/编号/「目标」「上下文」「约束」「输出要求」等结构化小节。
-- 不回答问题、不执行任务、不评论、不解释你在做什么。只返回改写后的同一句话。
-- 不改用户意图，不补充他没说的信息、示例、字段或技术选型；只修正语病、口语碎片、指代不清、错别字与标点。
+**输出必须仍然是一条「用户对 AI 说的话」**（第一人称或祈使句，像用户在提要求），不是 AI 的回答。绝不能写成：
+- 「好的，我来帮你…」这类回应
+- 「根据您提供的信息…」这类分析
+- 分点罗列你已经完成的结论
+
+改写要做的事（按需，不必全做）：
+1. **补全目标**：这句话想要什么结果？（一份总结 / 一张对比表 / 一段可运行的代码）
+2. **补全对象与范围**：对什么做、覆盖哪些部分、时间/数量范围。
+3. **补全约束**：格式、篇幅、语言、风格、必须包含或必须避免的内容。
+4. **修正模糊指代**：「那个表」「上边说的」——如果原文没有上下文，用「（补充：具体指哪个）」标注待确认，不要凭空编造事实。
+5. 修正错别字、语病、标点，整理成通顺的中文。
+
+**边界**：
+- 可以把一句话扩展成一小段（含要求要点），因为模糊的短句本来就缺信息；但不要写成长篇报告，一般不超过原文的 4 倍。
+- 不要替用户做业务决策（不要编造具体的数字、文件名、人名）。
+- 不要解释你在做什么，不要加「润色后：」之类前缀，直接输出改写后的提示词。
+- 如果用户原句已经很完整清楚，小幅优化即可。
 
 示例：
-原文：帮我把那个表弄一下
-输出：请整理一下这份表格。
+原文：帮我看下数据
+输出：请分析我提供的数据，说明整体趋势、异常值和你发现的主要问题，并用要点列出结论。
 
-原文：ppt 那个配色再改改 太花了
-输出：PPT 的配色再调整一下，现在有点花。
+原文：写个总结
+输出：请把下面的内容总结成一段 200 字以内的概述，先给结论，再列 2-3 条关键依据。
 
-原文：你好
-输出：你好
-
-直接输出最终句子，不要任何前后缀。"""
+原文：帮我搞个网站
+输出：请帮我做一个单页网站：包含顶部标题区、三栏功能介绍和底部联系方式；整体风格简洁、适配手机；不需要后端接口。"""
 
 
 def build_polish_messages(raw_text: str) -> list[Any]:
@@ -97,15 +108,27 @@ async def polish_prompt(raw_text: str, *, user_id: int | None = None, timeout: i
     response = await llm.generate(build_polish_messages(original))
     polished = _clean_polished(getattr(getattr(response, "message", None), "content", "") or "")
 
-    # 长度护栏：润色不该把一句话膨胀成一段话。模型偶发无视提示词时，
-    # 宁可放弃这次润色（changed=False，前端提示「已经足够清晰」），
-    # 也不要把一段 AI 腔扩写塞回用户输入框。
-    if polished and len(polished) > max(60, int(len(original) * 1.6)):
+    # 护栏一：扩写上限。润色允许把模糊短句补成一小段（缺信息本来就该补），
+    # 但 4 倍以上通常意味着模型在写报告而不是改提示词。
+    if polished and len(polished) > max(120, int(len(original) * 4)):
         logger.warning(
             "prompt polish rejected (over-expanded): user=%s in_len=%d out_len=%d",
             user_id, len(original), len(polished),
         )
         polished = ""
+
+    # 护栏二：回复体识别。模型有时会把"改写提示词"理解成"回答问题"，
+    # 输出「好的，我来帮你…」「根据您提供的信息…」这类 AI 回应。这类文本
+    # 填回输入框等于把 AI 的话当用户指令再发一遍，必须拦掉。
+    if polished:
+        head = polished[:40]
+        reply_markers = ("好的", "当然可以", "我来帮你", "以下是", "根据您提供", "为您", "希望这", "总结如下")
+        if any(head.startswith(m) for m in reply_markers):
+            logger.warning(
+                "prompt polish rejected (looks like an AI reply): user=%s head=%r",
+                user_id, head,
+            )
+            polished = ""
 
     logger.info(
         "prompt polished: user=%s in_len=%d out_len=%d changed=%s",

@@ -85,20 +85,26 @@ class TestCleanPolished:
 
 class TestBuildPolishMessages:
     def test_system_prompt_forbids_fabrication(self):
-        """提示词必须约束模型不得臆造需求。"""
-        assert "不改用户意图" in POLISH_SYSTEM_PROMPT
-        assert "不补充他没说的信息" in POLISH_SYSTEM_PROMPT
+        """提示词必须约束模型不得臆造具体事实。"""
+        assert "不要编造" in POLISH_SYSTEM_PROMPT or "不要凭空编造" in POLISH_SYSTEM_PROMPT
+        assert "不要替用户做业务决策" in POLISH_SYSTEM_PROMPT
 
-    def test_system_prompt_is_polish_not_rewrite(self):
-        """润色不是扩写：必须禁止结构化小节与回答问题。
+    def test_system_prompt_outputs_prompt_not_reply(self):
+        """输出必须是「用户对 AI 说的话」，不能是 AI 的回答。
 
-        历史问题：旧提示词要求「结构化改写为高质量提示词（目标/上下文/
-        约束/输出要求）」，模型于是把用户一句话扩写成一段 AI 腔回复体，
-        填回输入框后看起来像 AI 回答，而不是润色用户自己的话。
+        历史问题：模型会把「改写提示词」理解成「回答问题」，输出
+        「好的，我来帮你…」这类回应；填回输入框等于把 AI 的话当用户指令
+        再发一遍。提示词必须显式排除这种形态。
         """
-        assert "不是扩写" in POLISH_SYSTEM_PROMPT
-        assert "输出长度与原文相当" in POLISH_SYSTEM_PROMPT
-        assert "不回答问题" in POLISH_SYSTEM_PROMPT
+        assert "用户对 AI 说的话" in POLISH_SYSTEM_PROMPT
+        assert "不是 AI 的回答" in POLISH_SYSTEM_PROMPT
+        assert "好的，我来帮你" in POLISH_SYSTEM_PROMPT
+
+    def test_system_prompt_allows_completion_of_vague_input(self):
+        """允许补全模糊表述（这是润色的核心价值），但要有上限。"""
+        assert "更清楚、更具体" in POLISH_SYSTEM_PROMPT
+        assert "补全目标" in POLISH_SYSTEM_PROMPT
+        assert "4 倍" in POLISH_SYSTEM_PROMPT
 
     def test_messages_include_original_text(self):
         messages = build_polish_messages("帮我看下上周数据")

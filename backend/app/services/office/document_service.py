@@ -73,8 +73,16 @@ async def _call(op: str, **args: Any) -> dict[str, Any]:
         # 同 sheet service：非业务异常必须留 traceback，否则界面只剩一个
         # 空 message 的 NotImplementedError，完全无法排查。
         logger.exception("办公运行时 %s 调用失败（内部异常）", op)
+        # 把 traceback 最后一帧带进用户可见文案：NotImplementedError 这类
+        # 无 message 异常，只有帧位置能指出是 Univer 的哪个 API 不可用。
+        tb_tail = ""
+        tb = exc.__traceback__
+        while tb is not None and tb.tb_next is not None:
+            tb = tb.tb_next
+        if tb is not None:
+            tb_tail = f" @ {tb.tb_frame.f_code.co_filename.rsplit(chr(92), 1)[-1].rsplit('/', 1)[-1]}:{tb.tb_lineno}"
         raise DocumentServiceError(
-            f"办公运行时异常（{type(exc).__name__}）：{exc or '无详细信息'}"
+            f"办公运行时异常（{type(exc).__name__}）：{exc or '无详细信息'}{tb_tail}"
         ) from exc
 
 

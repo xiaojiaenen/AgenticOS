@@ -80,8 +80,16 @@ async def _call(op: str, **args: Any) -> dict[str, Any]:
         # "message":""} —— 没有任何线索。这里留 traceback 并转成有意义的
         # 业务错误，让模型/用户看到「办公运行时异常」而不是空白失败。
         logger.exception("办公运行时 %s 调用失败（内部异常）", op)
+        # 无 message 的异常（NotImplementedError 典型如此）只有帧位置能定位：
+        # 把它带进用户可见文案，省掉「再去翻服务端日志」的一步。
+        tb_tail = ""
+        tb = exc.__traceback__
+        while tb is not None and tb.tb_next is not None:
+            tb = tb.tb_next
+        if tb is not None:
+            tb_tail = f" @ {tb.tb_frame.f_code.co_filename.rsplit(chr(92), 1)[-1].rsplit('/', 1)[-1]}:{tb.tb_lineno}"
         raise SheetServiceError(
-            f"办公运行时异常（{type(exc).__name__}）：{exc or '无详细信息'}"
+            f"办公运行时异常（{type(exc).__name__}）：{exc or '无详细信息'}{tb_tail}"
         ) from exc
 
 

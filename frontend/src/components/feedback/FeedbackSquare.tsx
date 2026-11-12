@@ -275,11 +275,6 @@ export function FeedbackSquare({ embedded = false }: { embedded?: boolean }) {
   const [view, setView] = React.useState<View>({ kind: 'list' });
   return (
     <div className={cn('flex h-full min-h-0 flex-col', embedded ? '' : 'mx-auto w-full max-w-4xl')}>
-      <div className="shrink-0 border-b border-[var(--border-subtle)] px-1 pb-3">
-        <h1 className="flex items-center gap-2 text-base font-semibold text-[var(--foreground)]">
-          <MessageSquare size={17} className="text-[var(--muted-foreground)]" /> 反馈广场
-        </h1>
-      </div>
       <div className="min-h-0 flex-1 overflow-y-auto py-4">
         {view.kind === 'list' && <ListView onOpen={(id) => setView({ kind: 'detail', id })} onCreate={() => setView({ kind: 'create' })} />}
         {view.kind === 'detail' && <DetailView id={view.id} onBack={() => setView({ kind: 'list' })} />}
