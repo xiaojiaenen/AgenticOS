@@ -177,5 +177,5 @@ frontend/refined*.png
 # 邮件设计稿（本地评审产物）
 design-emails/
 
-# UI 走查用的临时脚本（本地手写，不进仓库）
-backend/tests_ui/tmp_*.py
+# UI 走查脚本目录（本地手写，不进仓库）
+backend/tests_ui/
