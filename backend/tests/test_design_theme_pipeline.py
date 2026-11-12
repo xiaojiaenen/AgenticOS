@@ -186,3 +186,76 @@ class TestApplyDesignTheme:
             "apply_design_theme 不在 website 白名单里：会被工厂裁剪，模型看不到"
         )
         assert "list_design_themes" in allowed
+
+
+class TestRootAssetRewrite:
+    """vanilla 站的根绝对路径引用会在预览/短链的子路径下断链 ——
+    build 时必须重写为相对路径（实测：AI 生成的站黑底裸链接）。"""
+
+    def test_rewrites_known_dirs(self):
+        from app.tools.website_tools import _rewrite_root_asset_refs
+
+        html = (
+            '<link rel="stylesheet" href="/css/style.css" />'
+            '<script src="/js/main.js"></script>'
+            '<img src="/images/a.png">'
+        )
+        fixed = _rewrite_root_asset_refs(html)
+        assert 'href="./css/style.css"' in fixed
+        assert 'src="./js/main.js"' in fixed
+        assert 'src="./images/a.png"' in fixed
+
+    def test_keeps_external_and_anchors(self):
+        from app.tools.website_tools import _rewrite_root_asset_refs
+
+        html = (
+            '<a href="https://example.com/">外链</a>'
+            '<a href="#about">锚点</a>'
+            '<a href="/">根</a>'
+            '<img src="data:image/png;base64,xxx">'
+        )
+        fixed = _rewrite_root_asset_refs(html)
+        assert 'https://example.com/' in fixed
+        assert 'href="#about"' in fixed
+        assert 'href="/"' in fixed
+        assert 'data:image/png' in fixed
+
+    def test_build_rewrites_dist_index(self, tmp_path, monkeypatch):
+        """端到端：copy → build 后 dist/index.html 不含根绝对引用。"""
+        import asyncio
+
+        from app.core import data_path as dp
+        from wuwei.tools import ToolRegistry
+        from app.tools.website_tools import register_website_tools
+
+        reg = ToolRegistry()
+        register_website_tools(reg)
+        copy_t = next(t for t in reg.list_tools() if t.name == "copy_template")
+        build_t = next(t for t in reg.list_tools() if t.name == "build_website")
+
+        monkeypatched_user = 1
+        import pytest as _pytest
+        # copy_template 依赖 contextvars —— 注入
+        dp.set_current_user_id(monkeypatched_user)
+        dp.set_current_session_id("theme-e2e")
+
+        # 测试环境的 AGENT_DATA_DIR 重定向了模板目录 —— 指回真仓库模板
+        from pathlib import Path as _Tpl
+        real_tpl = _Tpl(__file__).resolve().parents[2] / "data" / "website-templates"
+        import app.tools.website_tools as _wt
+        monkeypatch.setattr(_wt, "WEBSITE_TEMPLATES_DIR", real_tpl)
+
+        r1 = asyncio.run(copy_t.handler("vanilla"))
+        assert "已复制" in r1
+        # 找到生成的项目目录
+        from pathlib import Path as _P
+        from app.core.data_path import WEBSITES_DIR
+        proj = sorted(
+            (d for d in WEBSITES_DIR.iterdir() if d.name.startswith("u1_stheme-e2e_v")),
+            key=lambda d: d.name,
+        )[-1]
+        r2 = asyncio.run(build_t.handler(proj.name))
+        assert "构建完成" in r2
+        dist_index = (proj / "dist" / "index.html").read_text(encoding="utf-8")
+        assert '"/css/' not in dist_index and "'/css/" not in dist_index
+        assert './css/style.css' in dist_index

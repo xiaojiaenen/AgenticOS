@@ -311,6 +311,33 @@ def _has_bare_module_import(project_dir: Path) -> bool:
     return False
 
 
+def _rewrite_root_asset_refs(html: str) -> str:
+    """把 index.html 里**根绝对路径**的本地资源引用改写为相对路径。
+
+    为什么必须：预览端点与短链都是**子路径**托管
+    （/api/v1/website/preview/<slug>/<token>/、/sites/<slug>/、/s/<code>/302），
+    AI 或模板写 ``href="/css/style.css"`` 时浏览器会打到**站点根** ——
+    预览下拿到的是 AgenticOS 自己的页面，站点裸奔（只有黑底和默认蓝链接）。
+    相对路径 ``css/style.css`` 在任何子路径下都能解析到 dist 内的文件。
+
+    只动指向本地目录的引用（css/js/assets/img/images/fonts/media 开头），
+    外链（https://）、锚点（#）、带协议的 data: 一律不碰。
+    """
+    known_dirs = r"(?:css|js|assets|img|images|fonts|media|vendor)"
+    html = re.sub(
+        rf'(href|src)="/({known_dirs}/[^"]*)"',
+        r'\1="./\2"',
+        html,
+    )
+    # url(...) 形式（内联 style / CSS 里的背景图）
+    html = re.sub(
+        rf'url\(\s*["\']?/({known_dirs}/[^"\')]+)["\']?\s*\)',
+        r'url("./\1")',
+        html,
+    )
+    return html
+
+
 def _emit_static_dist(project_dir: Path) -> str:
     """把纯静态 vanilla 项目原样镜像成 dist/，跳过 npm install + build。
 
@@ -334,6 +361,14 @@ def _emit_static_dist(project_dir: Path) -> str:
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dest)
             copied += 1
+    # index.html 的根绝对路径引用重写为相对（见 _rewrite_root_asset_refs
+    # 的说明 —— AI 十有八九会写 /css/style.css，预览端点下必裸）。
+    index_html = dist_dir / "index.html"
+    if index_html.is_file():
+        html = index_html.read_text(encoding="utf-8", errors="ignore")
+        fixed = _rewrite_root_asset_refs(html)
+        if fixed != html:
+            index_html.write_text(fixed, encoding="utf-8")
     return (
         f"构建完成（vanilla 静态站，无需 npm）。\n"
         f"项目目录：{project_dir}\n"
