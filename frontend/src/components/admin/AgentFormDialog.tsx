@@ -340,10 +340,12 @@ export function AgentFormDialog({
                     <span className="text-xs font-medium text-[var(--muted-foreground)]">
                       {audienceMode === 'selected'
                         ? `已选择 ${audienceUserIds.length} 人`
-                        : '面向所有普通用户'}
+                        : audienceMode === 'none'
+                          ? '暂不开放给任何人'
+                          : '面向所有普通用户'}
                     </span>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-3">
                     <button
                       type="button"
                       onClick={() => form.setValue('audience_mode', 'all', { shouldDirty: true })}
@@ -372,6 +374,21 @@ export function AgentFormDialog({
                       <div className="text-sm font-semibold text-[var(--foreground)]">指定用户</div>
                       <div className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">
                         只有选中的用户能看见并使用。
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => form.setValue('audience_mode', 'none', { shouldDirty: true })}
+                      className={cn(
+                        'rounded-lg border px-3.5 py-2.5 text-left transition-all',
+                        audienceMode === 'none'
+                          ? 'border-zinc-900 bg-zinc-100/80 shadow-sm'
+                          : 'border-[var(--border-subtle)] bg-[var(--surface-1)] hover:border-zinc-300',
+                      )}
+                    >
+                      <div className="text-sm font-semibold text-[var(--foreground)]">暂不开放</div>
+                      <div className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">
+                        商店里看不到，别人也用不了（管理员除外）。
                       </div>
                     </button>
                   </div>

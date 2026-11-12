@@ -170,3 +170,12 @@ backend/*.txt
 .tmp-shot-*
 frontend/baseline*.png
 frontend/refined*.png
+
+# ZCode CLI 本地工作目录（会话脚本 / 计划，不进仓库）
+.zcode/
+
+# 邮件设计稿（本地评审产物）
+design-emails/
+
+# UI 走查用的临时脚本（本地手写，不进仓库）
+backend/tests_ui/tmp_*.py

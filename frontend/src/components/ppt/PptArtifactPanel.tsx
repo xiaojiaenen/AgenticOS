@@ -10,6 +10,7 @@ import { exportPptx, listPptThemes, rethemePpt, getPptPreviewHtml, type PptTheme
 import { PptPresenterMode } from './PptPresenterMode';
 import { ArtifactVersionBar } from '../chat/ArtifactVersionBar';
 import { toastError } from '../../lib/errors';
+import { PublishToGalleryButton } from '../gallery/PublishToGalleryButton';
 
 type PptArtifactPanelProps = {
   artifact: Extract<Artifact, { language: 'ppt' }>;
@@ -192,6 +193,14 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
               {isExporting ? <RefreshCcw size={14} className="animate-spin" /> : <Download size={14} />}
               导出
             </button>
+            {artifact.artifactId && artifact.sessionId && (
+              <PublishToGalleryButton
+                kind="ppt"
+                sessionId={artifact.sessionId}
+                sourceRef={artifact.artifactId}
+                title={artifact.title}
+              />
+            )}
             <button
               type="button"
               onClick={() => setIsPresenting(true)}

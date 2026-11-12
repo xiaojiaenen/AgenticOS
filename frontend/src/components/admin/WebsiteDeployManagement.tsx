@@ -16,7 +16,10 @@ import {
   Loader2,
   RefreshCw,
   X,
-  Eye } from 'lucide-react';
+  Eye,
+  FileText,
+  Presentation,
+  FileSpreadsheet } from 'lucide-react';
 import { DataTable } from './data-table';
 import {
   AlertDialog,
@@ -30,17 +33,21 @@ import {
 } from '@/components/shadcn/alert-dialog';
 import { AdminPageHeader, ErrorBanner, KpiPill } from './shared';
 import { Button } from '@/components/shadcn/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/shadcn/dialog';
-import { buildSandboxedHtmlDocument } from '@/lib/safePreview';
-import { apiFetch } from '@/services/apiClient';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/shadcn/tabs';
 import { StatusPill } from './shared';
 import {
   DeployRecord,
+  cancelDeploy,
   decideDeploy,
   listAllDeploys,
   listPendingDeploys,
+  listAdminPublishedItems,
+  listAdminPendingPublishedItems,
+  decidePublishedItem,
+  cancelPublishedItem,
+  type PublishedItemRecord,
 } from '@/services/websiteService';
+import { DeployReviewPanel } from './DeployReviewPanel';
 import { toastError } from '../../lib/errors';
 
 /** 外部链接 URL 补齐协议：target_domain 可能是不带协议的裸域名 */
@@ -74,18 +81,114 @@ function statusLabel(status: string): string {
     pending: '待审批',
     approved: '已批准',
     rejected: '已拒绝',
-    deployed: '已部署',
-    deploying: '部署中',
+    deployed: '已发布',
+    deploying: '发布中',
     failed: '失败',
+    cancelled: '已取消',
+    superseded: '已被新版本替代',
   };
   return config[status] || status;
+}
+
+const KIND_ICON = {
+  ppt: Presentation,
+  document: FileText,
+  sheet: FileSpreadsheet,
+} as const;
+
+function PublishedItemRow({
+  item,
+  busy,
+  onDecide,
+  onCancel,
+}: {
+  item: PublishedItemRecord;
+  busy: boolean;
+  onDecide?: (decision: 'approved' | 'rejected') => void;
+  onCancel?: () => void;
+}) {
+  const Icon = KIND_ICON[item.kind] ?? FileText;
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <Icon size={14} className="shrink-0 text-[var(--muted-foreground)]" />
+          <span className="truncate text-sm font-semibold text-[var(--foreground)]">
+            {item.title}
+          </span>
+          <StatusPill tone={item.status === 'deployed' ? 'active' : item.status === 'pending' ? 'warning' : 'inactive'}>
+            {statusLabel(item.status)}
+          </StatusPill>
+          <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-2 py-0.5 text-[10px] font-semibold text-[var(--muted-foreground)]">
+            {item.kind_label ?? item.kind}
+          </span>
+        </div>
+        {item.description && (
+          <p className="mt-1 truncate text-xs text-[var(--muted-foreground)]" title={item.description}>
+            {item.description}
+          </p>
+        )}
+        <p className="mt-1 text-[11px] text-[var(--muted-foreground)]">
+          用户 {item.user_id} · {formatSafeDateTime(item.created_at)}
+          {item.short_code ? ` · /s/${item.short_code}` : ''}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {item.status === 'deployed' && item.short_url && (
+          <a
+            href={item.short_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-md border border-[var(--border-subtle)] px-2.5 py-1.5 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-3)]"
+          >
+            <ExternalLink size={12} />
+            打开
+          </a>
+        )}
+        {item.status === 'pending' && onDecide && (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 px-2 text-xs"
+              disabled={busy}
+              onClick={() => onDecide('rejected')}
+            >
+              {busy ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+              拒绝
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 gap-1 px-2 text-xs"
+              disabled={busy}
+              onClick={() => onDecide('approved')}
+            >
+              {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+              批准
+            </Button>
+          </>
+        )}
+        {item.status === 'deployed' && onCancel && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 px-2 text-xs text-[var(--muted-foreground)]"
+            disabled={busy}
+            onClick={onCancel}
+          >
+            取消发布
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function WebsiteDeployManagement() {
   const queryClient = useQueryClient();
   // 待确认的审批操作（批准/拒绝均需二次确认，防误点）
   // 单内容区 Tab：待审批 / 全部记录。两段内容不再纵向堆叠。
-  const [tab, setTab] = useState<'pending' | 'all'>('pending');
+  const [tab, setTab] = useState<'pending' | 'all' | 'published'>('pending');
 
   const [pendingDecision, setPendingDecision] = useState<{
     deploy: DeployRecord;
@@ -99,6 +202,15 @@ export function WebsiteDeployManagement() {
   const allQuery = useQuery({
     queryKey: ['admin', 'deploys', 'all'],
     queryFn: listAllDeploys,
+  });
+  // 文件型作品（PPT / 文档 / 表格）走独立的发布表
+  const publishedQuery = useQuery({
+    queryKey: ['admin', 'published-items', 'all'],
+    queryFn: listAdminPublishedItems,
+  });
+  const publishedPendingQuery = useQuery({
+    queryKey: ['admin', 'published-items', 'pending'],
+    queryFn: listAdminPendingPublishedItems,
   });
 
   const loading = pendingQuery.isLoading || allQuery.isLoading;
@@ -120,42 +232,51 @@ export function WebsiteDeployManagement() {
     onError: (err: Error) => toast.error(toastError(err, '操作失败')),
   });
 
+  // ── 文件型作品（PPT / 文档 / 表格）的审批与取消 ──
+  const decidePublishedMutation = useMutation({
+    mutationFn: ({ id, decision }: { id: number; decision: 'approved' | 'rejected' }) =>
+      decidePublishedItem(id, decision, decision === 'approved' ? '管理员已批准' : '管理员已拒绝'),
+    onSuccess: (_data, variables) => {
+      toast.success(variables.decision === 'approved' ? '已批准发布' : '已拒绝发布');
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'published-items'] });
+    },
+    onError: (err: Error) => toast.error(toastError(err, '操作失败')),
+  });
+
+  const cancelPublishedMutation = useMutation({
+    mutationFn: cancelPublishedItem,
+    onSuccess: () => {
+      toast.success('已取消发布（源产物保留）');
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'published-items'] });
+    },
+    onError: (err: Error) => toast.error(toastError(err, '取消失败')),
+  });
+
+  // ── 网站取消部署 ──
+  const cancelDeployMutation = useMutation({
+    mutationFn: cancelDeploy,
+    onSuccess: () => {
+      toast.success('已取消部署（源码保留，可重新发布）');
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'deploys'] });
+      void queryClient.invalidateQueries({ queryKey: ['gallery'] });
+    },
+    onError: (err: Error) => toast.error(toastError(err, '取消部署失败')),
+  });
+
   const pendingDeploys = pendingQuery.data ?? [];
+  const publishedItems = publishedQuery.data ?? [];
+  const publishedPending = publishedPendingQuery.data ?? [];
 
-  // 审批前预览：管理员要能看到「这个东西长什么样」才能判断该不该上线。
-  // 只看项目名 + 文件数就点批准，等于闭眼放行。
-  const [preview, setPreview] = React.useState<{
-    loading: boolean;
-    error: string | null;
-    deployId: number | null;
+  // 审批前审阅：管理员要能看到「这个东西长什么样」「用户到底要了什么」
+  // 「源码有没有危险」才能判断该不该上线。只看项目名 + 文件数就点批准，
+  // 等于闭眼放行。
+  const [reviewTarget, setReviewTarget] = React.useState<{
+    deployId: number;
     slug: string;
-    html: string;
-    fileCount: number;
-  }>({ loading: false, error: null, deployId: null, slug: '', html: '', fileCount: 0 });
+  } | null>(null);
 
-  const openPreview = React.useCallback(async (deployId: number, slug: string) => {
-    setPreview({ loading: true, error: null, deployId, slug, html: '', fileCount: 0 });
-    try {
-      const data = await apiFetch<{
-        preview_html: string;
-        file_count: number;
-        project_slug: string;
-      }>(`/api/v1/admin/website/deploys/${deployId}/preview`, {}, '获取预览失败');
-      setPreview({
-        loading: false,
-        error: null,
-        deployId,
-        slug: data.project_slug,
-        html: data.preview_html || '',
-        fileCount: data.file_count || 0,
-      });
-    } catch (err) {
-      setPreview((prev) => ({
-        ...prev,
-        loading: false,
-        error: err instanceof Error ? err.message : '获取预览失败',
-      }));
-    }
+  const openPreview = React.useCallback((deployId: number, slug: string) => {
+    setReviewTarget({ deployId, slug });
   }, []);
   const allDeploys = allQuery.data ?? [];
 
@@ -203,6 +324,27 @@ export function WebsiteDeployManagement() {
         ),
       },
       {
+        id: 'actions',
+        header: '操作',
+        enableSorting: false,
+        cell: ({ row }) => {
+          const deploy = row.original;
+          if (deploy.status !== 'deployed' && deploy.status !== 'approved') return null;
+          return (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 px-2 text-xs text-[var(--muted-foreground)]"
+              disabled={cancelDeployMutation.isPending}
+              onClick={() => cancelDeployMutation.mutate(deploy.id)}
+              title="取消部署：站点下线，源码保留"
+            >
+              取消部署
+            </Button>
+          );
+        },
+      },
+      {
         id: 'preview',
         header: '预览',
         enableSorting: false,
@@ -246,7 +388,7 @@ export function WebsiteDeployManagement() {
         },
       },
     ],
-    [openPreview],
+    [openPreview, cancelDeployMutation],
   );
 
   return (
@@ -294,10 +436,23 @@ export function WebsiteDeployManagement() {
           </TabsTrigger>
           <TabsTrigger value="all" className="gap-1.5">
             <Globe className="h-3.5 w-3.5" />
-            全部记录
+            全部网站
             <span className="rounded-full bg-[var(--surface-2)] px-1.5 text-[10px] font-semibold tabular-nums">
               {allDeploys.length}
             </span>
+          </TabsTrigger>
+          <TabsTrigger value="published" className="gap-1.5">
+            <FileText className="h-3.5 w-3.5" />
+            文件作品
+            {publishedPending.length > 0 ? (
+              <span className="rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold tabular-nums text-amber-800">
+                {publishedPending.length}
+              </span>
+            ) : (
+              <span className="rounded-full bg-[var(--surface-2)] px-1.5 text-[10px] font-semibold tabular-nums">
+                {publishedItems.length}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -394,6 +549,53 @@ export function WebsiteDeployManagement() {
           </div>
         </TabsContent>
 
+        <TabsContent value="published" className="m-0 pt-3">
+          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4">
+            {publishedPending.length > 0 && (
+              <div className="mb-4">
+                <p className="mb-2 text-xs font-semibold text-[var(--foreground)]">
+                  待审批（{publishedPending.length}）
+                </p>
+                <div className="space-y-3">
+                  {publishedPending.map((item) => (
+                    <PublishedItemRow
+                      key={item.id}
+                      item={item}
+                      busy={
+                        decidePublishedMutation.isPending &&
+                        decidePublishedMutation.variables?.id === item.id
+                      }
+                      onDecide={(decision) =>
+                        decidePublishedMutation.mutate({ id: item.id, decision })
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p className="mb-2 text-xs font-semibold text-[var(--foreground)]">
+              全部文件作品（{publishedItems.length}）
+            </p>
+            {publishedItems.length === 0 ? (
+              <p className="py-6 text-center text-sm text-[var(--muted-foreground)]">
+                暂无文件作品
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {publishedItems.map((item) => (
+                  <PublishedItemRow
+                    key={item.id}
+                    item={item}
+                    busy={cancelPublishedMutation.isPending}
+                    onCancel={() => cancelPublishedMutation.mutate(item.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
         <TabsContent value="all" className="m-0 pt-3">
           <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)]">
         <DataTable
@@ -454,45 +656,14 @@ export function WebsiteDeployManagement() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 审批前预览弹窗 */}
-      <Dialog
-        open={preview.deployId !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPreview({ loading: false, error: null, deployId: null, slug: '', html: '', fileCount: 0 });
-          }
-        }}
-      >
-        <DialogContent className="max-w-6xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-sm">
-              <Eye className="h-4 w-4" />
-              预览 {preview.slug}
-              {preview.fileCount > 0 && (
-                <span className="text-xs font-normal text-[var(--muted-foreground)]">
-                  {preview.fileCount} 个文件
-                </span>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-          {preview.loading ? (
-            <div className="flex h-72 items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-[var(--muted-foreground)]" />
-            </div>
-          ) : preview.error ? (
-            <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-              {preview.error}
-            </div>
-          ) : (
-            <iframe
-              title={`preview-${preview.slug}`}
-              className="h-[70vh] w-full rounded-md border border-[var(--border-subtle)] bg-white"
-              sandbox="allow-scripts allow-forms allow-popups"
-              srcDoc={buildSandboxedHtmlDocument(preview.html)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* 审批前审阅面板：对话 + 预览 + 源码扫描 + AI 意见 */}
+      {reviewTarget && (
+        <DeployReviewPanel
+          deployId={reviewTarget.deployId}
+          projectSlug={reviewTarget.slug}
+          onClose={() => setReviewTarget(null)}
+        />
+      )}
     </div>
   );
 }

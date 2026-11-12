@@ -10,6 +10,7 @@ import { useIsDark } from '../../hooks/useIsDark';
 import { DocEditor, type DocEditorHandle } from './DocEditor';
 import { DocSnapshotView } from './DocSnapshotView';
 import { toastError } from '../../lib/errors';
+import { PublishToGalleryButton } from '../gallery/PublishToGalleryButton';
 
 type DocumentArtifact = Extract<Artifact, { language: 'document' }>;
 
@@ -95,6 +96,14 @@ export const DocumentArtifactPanel: React.FC<DocumentArtifactPanelProps> = ({
             {artifact.charCount} 字
           </p>
         </div>
+        {sessionId && artifact.artifactId && (
+          <PublishToGalleryButton
+            kind="document"
+            sessionId={sessionId}
+            sourceRef={artifact.artifactId}
+            title={artifact.title}
+          />
+        )}
         {!unsupported && (
           <button
             type="button"

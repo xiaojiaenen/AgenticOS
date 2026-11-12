@@ -4,7 +4,7 @@ import { CheckCircle2, ExternalLink, Globe, RefreshCcw, Rocket, X, XCircle } fro
 import { Artifact } from '../../types'
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview'
 import { ArtifactVersionBar } from '../chat/ArtifactVersionBar'
-import { requestDeploy, getDeployByProject, DeployStatus } from '../../services/websiteService'
+import { requestDeploy, getDeployByProject, cancelDeploy, DeployStatus } from '../../services/websiteService'
 import { apiFetch } from '../../services/apiClient'
 
 type WebsiteArtifactPanelProps = {
@@ -33,6 +33,11 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
   const [deployStatus, setDeployStatus] = React.useState<DeployStatus | null>(null)
   const [deployUrl, setDeployUrl] = React.useState<string | null>(null)
   const [deployError, setDeployError] = React.useState<string | null>(null)
+  // 网站说明：给作品库卡片和审批页看的一句话介绍。
+  const [deployDescription, setDeployDescription] = useState('')
+  // 部署记录 id —— 取消部署需要它（申请返回的记录 id）。
+  const [deployId, setDeployId] = React.useState<number | null>(null)
+  const [isCancelling, setIsCancelling] = React.useState(false)
   const [refreshNonce, setRefreshNonce] = React.useState(0)
   const projectSlug = artifact.projectSlug
 
@@ -132,8 +137,10 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
         undefined,
         visibility,
         deployTitle.trim() || undefined,
+        deployDescription.trim() || undefined,
       )
       setDeployStatus(result.status)
+      setDeployId(result.id)
       if (result.deploy_url) {
         setDeployUrl(result.deploy_url)
       }
@@ -142,6 +149,21 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
       setDeployStatus('failed')
     } finally {
       setIsDeploying(false)
+    }
+  }
+
+  const handleCancel = async () => {
+    if (deployId === null) return
+    setIsCancelling(true)
+    setDeployError(null)
+    try {
+      const result = await cancelDeploy(deployId)
+      setDeployStatus(result.status as DeployStatus)
+      setDeployUrl(null)
+    } catch (err) {
+      setDeployError(err instanceof Error ? err.message : '取消部署失败')
+    } finally {
+      setIsCancelling(false)
     }
   }
 
@@ -217,15 +239,15 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
             onClick={() => setVisibilityPickerOpen(true)}
             disabled={isDeploying || deployStatus === 'pending'}
             className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:opacity-60"
-            title="Deploy website"
-            aria-label="Deploy website"
+            title="发布网站到作品库"
+            aria-label="发布网站到作品库"
           >
             {isDeploying ? (
               <RefreshCcw size={13} className="animate-spin" />
             ) : (
               <Rocket size={13} />
             )}
-            部署
+            发布
           </button>
           <div className="mx-2 h-4 w-px bg-[var(--border-medium)]" />
           <button
@@ -261,13 +283,13 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
             ) : deployStatus === 'rejected' || deployStatus === 'failed' ? (
               <XCircle size={13} />
             ) : null}
-            <span className="min-w-0 truncate">
-              {deployStatus === 'pending' && '部署请求已提交，等待管理员审批'}
-              {deployStatus === 'approved' && '审批已通过，正在部署到 Nginx'}
+            <span className="min-w-0 flex-1 truncate">
+              {deployStatus === 'pending' && '发布申请已提交，等待管理员审批'}
+              {deployStatus === 'approved' && '审批已通过，正在发布'}
               {deployStatus === 'deploying' && '正在部署中...'}
               {deployStatus === 'deployed' && (
                 <>
-                  已部署，正式地址：
+                  已发布，正式地址：
                   {deployUrl ? (
                     <a
                       href={deployUrl}
@@ -288,9 +310,20 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
                   )}
                 </>
               )}
-              {deployStatus === 'rejected' && '部署请求已被拒绝'}
-              {deployStatus === 'failed' && `部署失败：${deployError || '未知错误'}`}
+              {deployStatus === 'rejected' && '发布申请已被拒绝'}
+              {deployStatus === 'failed' && `发布失败：${deployError || '未知错误'}`}
             </span>
+            {(deployStatus === 'deployed' || deployStatus === 'approved') && deployId !== null && (
+              <button
+                type="button"
+                onClick={() => void handleCancel()}
+                disabled={isCancelling}
+                className="ml-auto shrink-0 rounded-lg border border-[var(--border-subtle)] px-2.5 py-1 text-[11px] font-semibold text-[var(--muted-foreground)] transition-colors hover:border-rose-300 hover:text-rose-600 disabled:opacity-60"
+                title="取消发布：站点下线，源码保留，可随时重新发布"
+              >
+                {isCancelling ? '取消中…' : '取消发布'}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -340,6 +373,19 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
                 maxLength={200}
                 placeholder="留空则由 AI 根据对话自动生成"
                 className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus-visible:border-[var(--ring)]"
+              />
+            </label>
+            <label className="mb-3 block">
+              <span className="mb-1.5 block text-[11px] font-semibold text-[var(--foreground)]">
+                网站说明
+              </span>
+              <textarea
+                value={deployDescription}
+                onChange={(e) => setDeployDescription(e.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="一句话介绍这个网站做什么、给谁用。管理员审批时能看到，作品库卡片上也会展示。"
+                className="w-full resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus-visible:border-[var(--ring)]"
               />
             </label>
             <div className="space-y-2">

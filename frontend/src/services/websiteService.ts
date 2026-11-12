@@ -1,6 +1,14 @@
 import { apiFetch, API_BASE_URL } from './apiClient'
 
-export type DeployStatus = 'pending' | 'approved' | 'rejected' | 'deploying' | 'deployed' | 'failed'
+export type DeployStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'deploying'
+  | 'deployed'
+  | 'failed'
+  | 'cancelled'
+  | 'superseded'
 
 export type DeployRecord = {
   id: number
@@ -16,6 +24,18 @@ export type DeployRecord = {
   reason: string | null
   created_at: string | null
   updated_at: string | null
+  /** 作品名（后端从会话标题派生） */
+  title?: string | null
+  /** 用户填写的网站说明（审批时给管理员看） */
+  description?: string | null
+  /** 短码，站点对外地址为 /s/{short_code}/ */
+  short_code?: string | null
+  /** 短链相对路径，如 /s/abc12345/ */
+  short_url?: string | null
+  cover_url?: string | null
+  view_count?: number
+  last_viewed_at?: string | null
+  author_name?: string | null
 }
 
 /**
@@ -32,6 +52,7 @@ export async function requestDeploy(
   targetDomain?: string,
   visibility?: 'public' | 'private',
   title?: string,
+  description?: string,
 ): Promise<DeployRecord> {
   if (!sessionId) {
     throw new Error('requestDeploy requires sessionId (not artifactId)')
@@ -46,6 +67,7 @@ export async function requestDeploy(
       target_domain: targetDomain || null,
       visibility: visibility || 'private',
       title: title || null,
+      description: description || null,
     }),
   }, 'Deploy request failed')
 }
@@ -101,6 +123,20 @@ export type GalleryItem = {
   last_viewed_at?: string | null;
   /** 作者（后端返回 requested_by 对应展示名，可选） */
   author_name?: string | null;
+  /** 网站说明 */
+  description?: string | null;
+  /** 短链路径 /s/{code}/ */
+  short_url?: string | null;
+  /** 创建/审核通过时间，用于相对时间展示 */
+  created_at?: string | null;
+  /** 作品类型：website / ppt / document / sheet */
+  item_type?: 'website' | 'ppt' | 'document' | 'sheet';
+  /** 文件型作品的类型中文名 */
+  kind_label?: string;
+  /** 文件型作品的文件名 */
+  file_name?: string | null;
+  /** 文件型作品的文件大小（字节） */
+  file_size?: number | null;
 };
 
 export async function listGallery(): Promise<GalleryItem[]> {
@@ -142,5 +178,126 @@ export async function issueWebsitePreviewUrl(
     `/api/v1/website/preview-token?${qs}`,
     { method: 'POST' },
     '签发预览链接失败',
+  );
+}
+
+// ─── 审批审阅 / 取消部署 ───
+
+/** 审批审阅包：完整对话 + 源码扫描 + 可选 AI 风险意见。 */
+export type DeployReviewPacket = {
+  deploy: {
+    id: number;
+    project_slug: string;
+    title: string;
+    description: string | null;
+    stack: string;
+    visibility: 'public' | 'private';
+    status: string;
+    session_id: string;
+    requested_by: number | null;
+    author_name?: string | null;
+    created_at: string | null;
+    short_url: string | null;
+    cover_url: string | null;
+  };
+  conversation: Array<{ role: string; text: string; tool_calls?: Array<{ name?: string }> }>;
+  analysis: {
+    available: boolean;
+    reason?: string;
+    files?: Array<{ path: string; size: number }>;
+    file_count?: number;
+    total_bytes?: number;
+    hits?: Array<{ file: string; pattern: string; severity: string; sample: string }>;
+    external_hosts?: string[];
+  };
+  ai?: {
+    available: boolean;
+    risk?: string;
+    reasons?: string[];
+    recommendation?: string;
+    notes?: string;
+    reason?: string;
+  };
+};
+
+export async function getDeployReview(id: number, withAi = false): Promise<DeployReviewPacket> {
+  return apiFetch<DeployReviewPacket>(
+    `${API_BASE_URL}/api/v1/admin/website/deploys/${id}/review${withAi ? '?with_ai=true' : ''}`,
+    {},
+    '获取审阅信息失败',
+  );
+}
+
+/** 取消部署：站点下线，源码保留。 */
+export async function cancelDeploy(id: number): Promise<DeployRecord> {
+  return apiFetch<DeployRecord>(
+    `${API_BASE_URL}/api/v1/website/deploy/${id}/cancel`,
+    { method: 'POST' },
+    '取消部署失败',
+  );
+}
+
+// ─── 文件型作品发布（PPT / 文档 / 表格）────────────────────────────
+
+export type PublishedItemRecord = {
+  id: number;
+  kind: 'ppt' | 'document' | 'sheet';
+  kind_label?: string;
+  session_id: string;
+  source_ref: string;
+  user_id: number;
+  title: string;
+  description?: string;
+  visibility: string;
+  status: string;
+  short_code?: string | null;
+  short_url?: string | null;
+  file_name?: string | null;
+  file_size?: number | null;
+  view_count?: number;
+  reason?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export async function listAdminPublishedItems(): Promise<PublishedItemRecord[]> {
+  const data = await apiFetch<{ items: PublishedItemRecord[] }>(
+    `${API_BASE_URL}/api/v1/admin/published-items`,
+    {},
+    '获取发布记录失败',
+  );
+  return data.items;
+}
+
+export async function listAdminPendingPublishedItems(): Promise<PublishedItemRecord[]> {
+  const data = await apiFetch<{ items: PublishedItemRecord[] }>(
+    `${API_BASE_URL}/api/v1/admin/published-items/pending`,
+    {},
+    '获取待审批发布失败',
+  );
+  return data.items;
+}
+
+export async function decidePublishedItem(
+  id: number,
+  status: 'approved' | 'rejected',
+  reason?: string,
+): Promise<PublishedItemRecord> {
+  return apiFetch<PublishedItemRecord>(
+    `${API_BASE_URL}/api/v1/admin/published-items/${id}/decision`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, reason: reason ?? null }),
+    },
+    '审批失败',
+  );
+}
+
+export async function cancelPublishedItem(id: number): Promise<PublishedItemRecord> {
+  return apiFetch<PublishedItemRecord>(
+    `${API_BASE_URL}/api/v1/published-items/${id}/cancel`,
+    { method: 'POST' },
+    '取消发布失败',
   );
 }

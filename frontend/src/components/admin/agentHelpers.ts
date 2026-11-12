@@ -32,7 +32,7 @@ export const agentFormSchema = z
       .refine((v) => v === null || Number.isFinite(v), { message: '最大步数必须是有效数字' }),
     enabled: z.boolean(),
     listed: z.boolean(),
-    audience_mode: z.enum(['all', 'selected']),
+    audience_mode: z.enum(['all', 'selected', 'none']),
     audience_user_ids: z.array(z.number()),
     tools: z.array(
       z.object({

@@ -127,6 +127,10 @@ export const AgentEditor: React.FC = () => {
   );
   const [avatar, setAvatar] = useState('sparkles');
   const [visibility, setVisibility] = useState<'private' | 'public'>('private');
+  // 启用范围：all = 全体用户；selected = 仅指定用户；none = 暂不开放给任何人。
+  // 用户自建的智能体默认「暂不开放」—— 公开上架属于平台级动作，不该由
+  // 自建者一键完成（审核成本与滥用风险都高）。
+  const [audienceMode, setAudienceMode] = useState<'all' | 'selected' | 'none'>('none');
   const [maxSteps, setMaxSteps] = useState<string>('');
   const [tab, setTab] = useState<EditorSection>('basic');
 
@@ -286,6 +290,9 @@ export const AgentEditor: React.FC = () => {
     setResponseMode(profile.response_mode);
     setAvatar(profile.avatar || 'sparkles');
     setVisibility(profile.visibility || 'private');
+    setAudienceMode(
+      (profile.audience_mode as 'all' | 'selected' | 'none' | undefined) || 'none',
+    );
     setMaxSteps(profile.max_steps ? String(profile.max_steps) : '');
     const tools: Record<string, boolean> = {};
     const approvals: Record<string, boolean> = {};
@@ -361,8 +368,11 @@ export const AgentEditor: React.FC = () => {
         enabled: true,
         listed: false,
         visibility,
-        audience_mode: 'all' as const,
-        audience_user_ids: [],
+        // 启用范围只在自己明确改过时提交。此前这里硬编码 'all' + [],
+        // 会把管理员配好的 ACL 悄悄清空（用户编辑个名字就丢权限配置）。
+        ...(audienceMode !== 'all'
+          ? { audience_mode: audienceMode, audience_user_ids: [] }
+          : {}),
         max_steps: parsedMaxSteps,
         tools: buildToolsPayload(),
         skill_ids: selectedSkills,
@@ -588,6 +598,42 @@ export const AgentEditor: React.FC = () => {
                 单轮对话允许的最大工具调用轮次
               </span>
             </label>
+
+            {/* 启用范围：谁能看见并使用这个智能体 */}
+            <div className="block">
+              <span className="mb-1.5 block text-sm font-medium">启用范围</span>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {(
+                  [
+                    ['none', '暂不开放', '别人看不到也用不了'],
+                    ['all', '全体用户', '所有登录用户可见可用'],
+                    ['selected', '指定用户', '需管理员在后台指定名单'],
+                  ] as ['none' | 'all' | 'selected', string, string][]
+                ).map(([value, label, hint]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setAudienceMode(value)}
+                    className={cn(
+                      'rounded-lg border px-3 py-2 text-left transition-all',
+                      audienceMode === value
+                        ? 'border-[var(--foreground)] bg-[var(--surface-2)] shadow-sm'
+                        : 'border-[var(--border-subtle)] hover:border-[var(--border-medium)]',
+                    )}
+                  >
+                    <span className="block text-sm font-semibold text-[var(--foreground)]">
+                      {label}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] font-medium text-[var(--muted-foreground)]">
+                      {hint}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <span className="mt-1.5 block text-[11px] text-[var(--muted-foreground)]">
+                「指定用户」需要在管理后台配置名单；这里选不了具体的人。
+              </span>
+            </div>
           </section>
 
 
