@@ -54,6 +54,10 @@ class AccountLease:
     credential_id: int
     cookie: str
     label: str
+    #: 本次是「登录宽限期内借用共享池」而非本人凭据。
+    #: 用量/审计里 credential_id/account_label 仍记录实际用的号，
+    #: 但 user_id 永远记发起人 —— 聊天记录与额度归属不受影响。
+    is_fallback: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -336,6 +340,66 @@ def _current_bound_user() -> int | None:
         return None
 
 
+def _login_grace_seconds() -> int:
+    """登录后允许多久「借用共享池」等本人 Cookie 就绪。"""
+    try:
+        from app.core.config import get_settings
+
+        return max(0, int(getattr(get_settings(), "llm_cookie_login_grace_seconds", 600)))
+    except Exception:  # noqa: BLE001
+        return 600
+
+
+def _within_login_grace(bound_user: int, provider_id: int) -> bool:
+    """当前用户是否仍在「刚登录、本人 Cookie 可能尚未就绪」的宽限窗口内。
+
+    判据取以下两者中**更晚**的一个，都落在宽限期内才算：
+      1. 该用户最近一次 auth_sessions 建立时间（正常登录路径）；
+      2. 该用户在本提供商下绑定凭据的创建/更新时间（LDAP 首次登录会
+         upsert 凭据行，这条在测试与「刚建号」场景下同样成立）。
+
+    宽松是刻意的：宽限期存在的意义就是兜住 fire-and-forget 的自动登录
+    没跑完。一旦本人 Cookie 就绪，选号第一步就会命中本人凭据，不再借用。
+    """
+    grace = _login_grace_seconds()
+    if grace <= 0:
+        return False
+    now = app_now()
+    try:
+        from app.db.models import AuthSessionModel, LlmProviderCredentialModel
+        from app.db.session import create_db_session as _sf
+
+        with _sf() as db:
+            marks = [
+                db.scalar(
+                    select(AuthSessionModel.created_at)
+                    .where(AuthSessionModel.user_id == bound_user)
+                    .order_by(AuthSessionModel.created_at.desc())
+                    .limit(1)
+                ),
+                db.scalar(
+                    select(LlmProviderCredentialModel.updated_at)
+                    .where(
+                        LlmProviderCredentialModel.user_id == bound_user,
+                        LlmProviderCredentialModel.provider_id == provider_id,
+                    )
+                    .order_by(LlmProviderCredentialModel.updated_at.desc())
+                    .limit(1)
+                ),
+            ]
+        latest = max([m for m in marks if m is not None], default=None)
+        if latest is None:
+            return False
+        # 天真的本地时间与带 tz 的时间都兼容：统一转成时间戳比较
+        try:
+            delta = (now - latest).total_seconds()
+        except TypeError:
+            delta = (now.replace(tzinfo=None) - latest.replace(tzinfo=None)).total_seconds()
+        return delta <= grace
+    except Exception:  # noqa: BLE001 —— 判据失败按「不在宽限期」处理，保守
+        return False
+
+
 def acquire(provider_id: int) -> AccountLease | None:
     """借出一个可用账号，并推进它的 ``last_used_at``。
 
@@ -398,9 +462,43 @@ def acquire(provider_id: int) -> AccountLease | None:
                         .limit(1)
                     )
                     if row is None:
-                        # 本人绑定行存在但失效（密码改了/被限流）——
-                        # **绝不**借同事的账号：上游审计身份会变成别人。
-                        # 返回 None，上层给出「重新登录以同步企业账号密码」。
+                        # 本人凭据当前不可用。两种情况要区分：
+                        #  a) 刚登录、本人 Cookie 还在 Playwright 自动登录途中
+                        #     → 允许短暂借用共享池（默认 10 分钟），否则用户
+                        #       一登录就发消息会直接报「登录态不可用」。
+                        #  b) 已过宽限期（域密码改了/被限流）
+                        #     → 仍不回落：上游审计身份会变成别人。
+                        if _within_login_grace(bound_user, provider_id):
+                            fallback = db.scalar(
+                                select(LlmProviderCredentialModel)
+                                .where(
+                                    LlmProviderCredentialModel.user_id.is_(None),
+                                    *base_filters,
+                                )
+                                .order_by(*ordering)
+                                .limit(1)
+                            )
+                            if fallback is not None:
+                                cookie = decrypt_safe(fallback.cookie_encrypted or "", default="")
+                                if cookie:
+                                    fallback.last_used_at = now
+                                    base_label = (
+                                        fallback.label or fallback.username or f"#{fallback.id}"
+                                    )
+                                    lease = AccountLease(
+                                        credential_id=fallback.id,
+                                        cookie=cookie,
+                                        # 前缀让用量/审计一眼看出「这次是借用」
+                                        label=f"[借用] {base_label}",
+                                        is_fallback=True,
+                                    )
+                                    logging.getLogger("agenticos.llm.credentials").info(
+                                        "登录宽限期内借用共享池账号：user=%s provider=%s "
+                                        "credential=%s（本人 Cookie 尚未就绪）",
+                                        bound_user, provider_id, fallback.id,
+                                    )
+                                    db.commit()
+                                    return lease
                         logging.getLogger("agenticos.llm.credentials").warning(
                             "用户 %s 的企业网关凭据不可用且不回落共享池（审计隔离）",
                             bound_user,

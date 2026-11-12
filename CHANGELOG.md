@@ -10,6 +10,34 @@
 
 ## [Unreleased]
 
+### Feat — 作品库增强 + 登录宽限期借池（2026-11-20）
+
+**企业网关登录宽限期（LLM）**
+- 用户刚登录、本人 Cookie 还在 Playwright 自动登录途中时，允许借用共享池
+  账号，避免「一登录就发消息」直接报登录态不可用。默认 10 分钟
+  （`LLM_COOKIE_LOGIN_GRACE_SECONDS`，0 = 关闭）。
+- 借用判据取「最近登录时间」与「本人凭据行更新时间」中更晚者，二者都在
+  宽限期内才借；到期后仍走本人凭据，不会长期顶替。
+- **归属不变**：聊天记录、用量统计、配额都记在发起人 `user_id` 上；
+  `account_label` 加 `[借用]` 前缀，管理员可追溯实际使用的网关账号。
+- API Key 型提供商本就共享账号池，行为不变。
+
+**作品库**
+- 展示名：部署时用户可填（可见性弹层新增输入框）；留空回退会话标题，
+  再回退 `project_slug`。后端新增 `website_deploys.title`。
+- 封面：部署完成后后台用独立 Playwright 进程（无 Cookie 的 incognito
+  context）截首屏，压成 WebP 存 `data/website-covers/`。失败不影响部署。
+- 访问统计：`website_deploys.view_count/last_viewed_at` 冗余聚合 + 新表
+  `website_views` 记明细（来源/Referer 域名/UA，不存 IP）。所有经过平台
+  站点端点的访问都计数（公开路径、私密签名端点、作品库外链）。
+  新增 `GET /website/{slug}/stats`（所有者/管理员）。
+- 卡片：整卡点击即在新标签页打开（键盘可达）；去掉「打开」按钮与
+  React/Vue 技术栈标签；显示作者与访问次数。
+- 删除会话提示：确认框明确告知「该会话部署过的网站之后将无法再通过对话
+  更新」（网站与会话绑定）。
+
+迁移：`0024_gallery_insights`（4 列 + `website_views` 表，幂等）。
+
 ### Refactor — 聊天状态层迁入 zustand + wuwei 3.4.1（2026-11-12）
 
 - **R3-2 状态层收敛**：会话数据（`sessions` / `currentSessionId` /

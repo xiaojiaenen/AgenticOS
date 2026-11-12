@@ -12,6 +12,7 @@ import type { ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useGoBack } from '../../hooks/useGoBack';
+import { Logo } from '../Logo';
 
 export interface PageHeaderProps {
   /** 眉标（小号大写英文，如 AGENT STORE）；不传则不渲染 */
@@ -30,6 +31,11 @@ export function PageHeader({ kicker, title, description, actions, back, backTo =
   const goBack = useGoBack(backTo);
   return (
     <header className="mb-7 flex flex-col gap-4">
+      {/* 品牌行：所有独立页统一露出 logo，避免"这个页面是不是官方的"疑问 */}
+      <div className="flex items-center justify-between">
+        <Logo />
+        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+      </div>
       {back ? (
         <button
           type="button"
@@ -51,7 +57,6 @@ export function PageHeader({ kicker, title, description, actions, back, backTo =
             <p className="mt-2 max-w-2xl text-sm font-medium text-[var(--muted-foreground)]">{description}</p>
           ) : null}
         </div>
-        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </div>
     </header>
   );

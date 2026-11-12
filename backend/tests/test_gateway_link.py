@@ -224,10 +224,17 @@ def test_acquire_prefers_own_credential(enterprise_provider, user_id, monkeypatc
         _drop_cred(own_id)
 
 
-def test_acquire_dead_own_credential_never_borrows(
+def test_acquire_dead_own_credential_never_borrows_outside_grace(
     enterprise_provider, user_id, monkeypatch
 ) -> None:
-    """本人凭据失效时**绝不**借同事账号 —— 上游审计身份会变成别人。"""
+    """本人凭据失效、且**已过登录宽限期** → 不借共享池（审计隔离）。
+
+    宽限期（默认 10 分钟）内允许借用，见下一个用例；这里显式把宽限关掉，
+    模拟「域密码已改、自动重登一直失败」的长期状态。
+    """
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "llm_cookie_login_grace_seconds", 0, raising=False)
     shared_id = _add_cred(enterprise_provider, user_id=None, username="shared")
     own_dead = _add_cred(
         enterprise_provider, user_id=user_id, username="zhangsan",
@@ -239,7 +246,38 @@ def test_acquire_dead_own_credential_never_borrows(
             lease = credentials.acquire(enterprise_provider)
         finally:
             data_path._current_user_id.reset(token)
-        assert lease is None, "本人凭据失效时不得回落共享池"
+        assert lease is None, "过宽限期后本人凭据失效不得回落共享池"
+    finally:
+        _drop_cred(shared_id)
+        _drop_cred(own_dead)
+
+
+def test_acquire_borrows_shared_within_login_grace(
+    enterprise_provider, user_id, monkeypatch
+) -> None:
+    """**刚登录、本人 Cookie 尚未就绪** → 允许短暂借用共享池（默认 10 分钟）。
+
+    动机：LDAP 登录后的 Playwright 自动登录是 fire-and-forget，用户一登录
+    就发消息时本人 Cookie 往往还没写好，直接报「登录态不可用」体验极差。
+    借用期间用量/聊天记录仍归属发起人（user_id），只是上游身份临时是共享号。
+    """
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "llm_cookie_login_grace_seconds", 600, raising=False)
+    shared_id = _add_cred(enterprise_provider, user_id=None, username="shared")
+    own_dead = _add_cred(
+        enterprise_provider, user_id=user_id, username="zhangsan",
+        cookie="", status="expired",
+    )
+    try:
+        token = data_path._current_user_id.set(user_id)
+        try:
+            lease = credentials.acquire(enterprise_provider)
+        finally:
+            data_path._current_user_id.reset(token)
+        assert lease is not None, "登录宽限期内应借用共享池账号"
+        assert lease.is_fallback is True
+        assert lease.label.startswith("[借用]")
     finally:
         _drop_cred(shared_id)
         _drop_cred(own_dead)

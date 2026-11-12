@@ -11,9 +11,7 @@ import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
 import {
-  ArrowLeft,
   Copy,
-  ExternalLink,
   Globe,
   Link2,
   Loader2,
@@ -25,13 +23,21 @@ import { listGallery, resetSiteAccess, type GalleryItem } from '../services/webs
 import { Button } from '../components/shadcn/button';
 import { toastError } from '../lib/errors';
 import { cn } from '../lib/utils';
-import { useGoBack } from '../hooks/useGoBack';
 import { PageShell } from '../components/ui/PageShell';
 
 type Filter = 'all' | 'public' | 'private';
 
-const stackLabel = (stack: string | undefined) =>
-  stack === 'react' ? 'React' : stack === 'vue' ? 'Vue' : 'Vanilla';
+/**
+ * 作品显示名：优先用后端派生的 title（会话标题，可读）。
+ * 旧数据没有 title 时回退 project_slug —— 它是工作区目录名
+ * （u<uid>_s<时间戳><随机>_v<n>），纯机器标识，不做无意义的字符串裁剪
+ * （试过剥前缀：剩下的只有 "v1" 这类残段，比原样更难读）。
+ */
+function displayName(item: { title?: string; project_slug: string }): string {
+  const t = item.title?.trim();
+  if (t) return t;
+  return item.project_slug;
+}
 
 const VisibilityBadge = ({ visibility }: { visibility: 'public' | 'private' }) =>
   visibility === 'public' ? (
@@ -62,6 +68,19 @@ const GalleryCard = ({
   const cardRef = React.useRef<HTMLDivElement | null>(null);
   const [inView, setInView] = React.useState(false);
   const [previewLoaded, setPreviewLoaded] = React.useState(false);
+  // 预览缩放按容器实测宽度计算：列数（3/4/5）与侧边留白都会变，
+  // 写死 scale 档位在 5 列时要么溢出要么留白。
+  const [previewWidth, setPreviewWidth] = React.useState(0);
+  const previewBoxRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    const el = previewBoxRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([entry]) => {
+      setPreviewWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   React.useEffect(() => {
     const el = cardRef.current;
@@ -81,10 +100,25 @@ const GalleryCard = ({
   return (
     <motion.div
       ref={cardRef}
-      className="group overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-md"
+      role="link"
+      tabIndex={0}
+      aria-label={`打开 ${displayName(item)}`}
+      onClick={() => openUrl && window.open(openUrl, '_blank', 'noopener,noreferrer')}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && openUrl) {
+          e.preventDefault();
+          window.open(openUrl, '_blank', 'noopener,noreferrer');
+        }
+      }}
+      className={cn(
+        'group relative flex flex-col overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] transition-all duration-200',
+        'hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-lg',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
+        openUrl ? 'cursor-pointer' : 'cursor-default',
+      )}
     >
       {/* 预览条：占位卡在底层，iframe 懒挂载 + onLoad 淡入盖住占位 */}
-      <div className="relative h-28 overflow-hidden border-b border-[var(--border-subtle)] bg-gradient-to-br from-slate-100 to-slate-50 dark:from-zinc-800 dark:to-zinc-900">
+      <div ref={previewBoxRef} className="relative aspect-[4/3] overflow-hidden border-b border-[var(--border-subtle)] bg-[var(--surface-2)]">
         <div
           className={cn(
             'absolute inset-0 flex flex-col items-center justify-center gap-1.5 transition-opacity duration-300',
@@ -94,18 +128,27 @@ const GalleryCard = ({
         >
           <Globe size={20} className="text-[var(--muted-foreground)]/50" />
           <span className="max-w-[80%] truncate px-3 text-[10px] font-medium text-[var(--muted-foreground)]/70">
-            {item.project_slug}
+            {displayName(item)}
           </span>
         </div>
-        {openUrl && inView && (
+        {item.cover_url ? (
+          <img
+            src={item.cover_url}
+            alt={`${displayName(item)} 封面`}
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
+            onLoad={() => setPreviewLoaded(true)}
+          />
+        ) : openUrl && inView && (
           <iframe
             title={`gallery-${item.project_slug}`}
             src={openUrl}
             onLoad={() => setPreviewLoaded(true)}
             className={cn(
-              'pointer-events-none absolute left-0 top-0 h-[560px] w-[1280px] origin-top-left scale-[0.28] border-0 bg-white transition-opacity duration-300',
+              'pointer-events-none absolute left-0 top-0 h-[960px] w-[1280px] origin-top-left border-0 bg-white transition-opacity duration-300',
               previewLoaded ? 'opacity-100' : 'opacity-0',
             )}
+            style={{ transform: `scale(${previewWidth ? previewWidth / 1280 : 0.2})` }}
             sandbox="allow-scripts"
             loading="lazy"
             tabIndex={-1}
@@ -116,41 +159,39 @@ const GalleryCard = ({
         </div>
       </div>
 
-      <div className="p-4">
-        <div className="mb-2 flex items-center gap-2">
-          <Globe size={14} className="shrink-0 text-[var(--muted-foreground)]" />
-          <h3 className="min-w-0 truncate text-sm font-semibold text-[var(--foreground)]" title={item.project_slug}>
-            {item.project_slug}
+      <div className="flex flex-1 flex-col p-3">
+        <div className="mb-1.5 flex items-start gap-1.5">
+          <Globe size={13} className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
+          <h3 className="min-w-0 flex-1 truncate text-[12.5px] font-semibold leading-4 text-[var(--foreground)]" title={item.project_slug}>
+            {displayName(item)}
           </h3>
-          <span className="ml-auto shrink-0 rounded-full border border-[var(--border-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--muted-foreground)]">
-            {stackLabel(item.stack)}
+          <span className="shrink-0 text-[9.5px] font-medium tabular-nums text-[var(--muted-foreground)]">
+            {(item.view_count ?? 0).toLocaleString()} 次访问
           </span>
         </div>
 
-        <p className="mb-3 text-xs text-[var(--muted-foreground)]">
-          更新于 {item.updated_at ? new Date(item.updated_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+        <p className="mb-2.5 flex items-center gap-1.5 text-[11px] leading-4 text-[var(--muted-foreground)]">
+          {item.author_name ? (
+            <span className="max-w-[45%] truncate font-medium text-[var(--foreground)]/70">{item.author_name}</span>
+          ) : null}
+          <span className="truncate">
+            {item.updated_at ? new Date(item.updated_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+          </span>
         </p>
 
-        <div className="flex items-center gap-2">
-          {openUrl ? (
-            <a
-              href={openUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)] transition-all hover:opacity-90 active:scale-[0.98]"
-            >
-              <ExternalLink size={12} /> 打开
-            </a>
-          ) : (
-            <span className="inline-flex flex-1 items-center justify-center rounded-lg bg-[var(--surface-2)] px-3 py-1.5 text-xs text-[var(--muted-foreground)]">
-              无访问链接
-            </span>
+        <div
+          className="mt-auto flex items-center justify-end gap-1"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          {!openUrl && (
+            <span className="mr-auto text-[10.5px] text-[var(--muted-foreground)]">无访问链接</span>
           )}
           {openUrl && (
             <Button
               size="sm"
-              variant="outline"
-              className="h-8 gap-1 px-2 text-xs"
+              variant="ghost"
+              className="h-7 w-7 p-0 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
               title="复制访问链接"
               aria-label="复制访问链接"
               onClick={() => {
@@ -166,8 +207,8 @@ const GalleryCard = ({
           {isPrivate && (
             <Button
               size="sm"
-              variant="outline"
-              className="h-8 gap-1 px-2 text-xs"
+              variant="ghost"
+              className="h-7 w-7 p-0 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
               title="重置私密访问链接（旧链接立即失效）"
               aria-label="重置私密访问链接"
               disabled={resetting}
@@ -186,7 +227,6 @@ const GalleryCard = ({
 
 export const GalleryPage = () => {
   const queryClient = useQueryClient();
-  const goBack = useGoBack('/chat');
   const [filter, setFilter] = React.useState<Filter>('all');
 
   const galleryQuery = useQuery({
@@ -210,31 +250,16 @@ export const GalleryPage = () => {
   const privateCount = items.length - publicCount;
 
   return (
-    <PageShell width="wide">
-      {/* /gallery 是独立路由、不带侧栏，必须有显式返回入口 */}
-      <button
-        type="button"
-        onClick={goBack}
-        className={cn(
-          'mb-5 inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors',
-          'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]',
-        )}
-      >
-        <ArrowLeft size={16} />
-        返回对话
-      </button>
-
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-[var(--foreground)]">
-            <Globe size={20} className="text-[var(--foreground)]" />
-            作品库
-          </h1>
-          <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-            你构建并部署的网站作品——公开作品所有人可见，私密作品仅自己可见
-          </p>
-        </div>
+    <PageShell
+      width="wide"
+      header={{
+        kicker: 'GALLERY',
+        title: '作品库',
+        description: '你构建并部署的网站作品——公开作品所有人可见，私密作品仅自己可见',
+        back: true,
+      }}
+    >
+      <div className="mb-6 flex flex-wrap items-center justify-end gap-3">
         <div className="flex items-center gap-1 rounded-lg bg-[var(--surface-2)] p-1">
           {(
             [
@@ -288,7 +313,7 @@ export const GalleryPage = () => {
         </div>
       ) : (
         // 不做入场 stagger：同 AgentStore，避免 e2e 可见性计数竞态
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {filtered.map((item) => (
             <GalleryCard
               key={item.id}

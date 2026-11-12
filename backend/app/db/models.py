@@ -546,11 +546,40 @@ class WebsiteDeployModel(Base):
     visibility: Mapped[str] = mapped_column(String(16), default="private")
     # 私密站点的访问令牌（部署完成时签发的 30 天 JWT，作品库可重置）
     access_token: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # 展示名：部署时用户可填；留空则回退会话标题 / project_slug（见 _serialize）
+    title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # 封面截图：部署完成后 Playwright 异步截取首屏并压缩，存 data/ 下的相对路径
+    cover_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # 访问统计：凡经过本平台站点端点的请求都计数（含作品库外链 / 私密签名访问）
+    view_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    last_viewed_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
     requested_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     approved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
     updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class WebsiteViewModel(Base):
+    """网站访问明细。
+
+    只记「谁在什么时候从哪里点进来」，**不存 IP**（隐私与体积）。
+    ``source`` 用来区分访问入口：direct / gallery / embed / api。
+    聚合值（总数 / 最近访问）冗余在 ``website_deploys`` 上，避免每次列表
+    都扫明细表。
+    """
+
+    __tablename__ = "website_views"
+    __table_args__ = (Index("ix_website_views_deploy_created", "deploy_id", "created_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    deploy_id: Mapped[int | None] = mapped_column(ForeignKey("website_deploys.id"), nullable=True)
+    project_slug: Mapped[str] = mapped_column(String(128), index=True)
+    # direct=直接打开 / gallery=作品库 / embed=嵌入 / api=接口调用
+    source: Mapped[str] = mapped_column(String(32), default="direct", server_default="direct")
+    referer_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, index=True)
 
 
 class MemoryModel(Base):

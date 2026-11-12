@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Bot, Check, Loader2, Plus, RefreshCw, Search, SearchX, Settings, Sparkles, X } from 'lucide-react';
-import { Logo } from '../components/Logo';
 import { Button } from '../components/shadcn/button';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -108,26 +107,24 @@ export const AgentStore = () => {
         'text-[var(--foreground)] bg-[var(--surface-0)] selection:bg-[var(--border-medium)] selection:text-[var(--foreground)]'
       )}
     >
-      <nav className="relative z-10 mx-auto flex w-full max-w-[1400px] items-center justify-between px-6 py-4">
-        <Logo />
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={loadStore} disabled={isLoading} size="icon" title="刷新">
-            {isLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-          </Button>
-          <Button onClick={() => navigate('/agents/new')} className="gap-2">
-            <Plus size={16} />
-            创建智能体
-          </Button>
-        </div>
-      </nav>
-
-      <main id="main-content" className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 pt-5 md:px-8">
+      <main id="main-content" className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 pt-8 md:px-8">
         <div className="mb-7">
           <PageHeader
             kicker="AGENT STORE"
             title="智能体商店"
             description="安装同事分享的助手，或创建只属于你的智能体并为它挑选工具"
             back
+            actions={
+              <>
+                <Button variant="outline" onClick={loadStore} disabled={isLoading} size="icon" title="刷新">
+                  {isLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                </Button>
+                <Button onClick={() => navigate('/agents/new')} className="gap-2">
+                  <Plus size={16} />
+                  创建智能体
+                </Button>
+              </>
+            }
           />
         </div>
 

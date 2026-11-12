@@ -21,6 +21,23 @@ _WEBSITES_DIR = WEBSITES_DIR
 NGINX_SERVE_ROOT = NGINX_SERVE_DIR
 
 
+def _self_port() -> int:
+    """本机后端端口：封面截图要从容器/进程内部访问自己。"""
+    try:
+        from urllib.parse import urlparse
+
+        from app.core.config import get_settings
+
+        raw = getattr(get_settings(), "self_base_url", "") or ""
+        if raw:
+            parsed = urlparse(raw)
+            if parsed.port:
+                return parsed.port
+    except Exception:  # noqa: BLE001
+        pass
+    return 8000
+
+
 class WebsiteDeployService:
     def __init__(self, session_factory=create_db_session) -> None:
         self.session_factory = session_factory
@@ -33,6 +50,7 @@ class WebsiteDeployService:
         requested_by: int,
         target_domain: str | None = None,
         visibility: str = "private",
+        title: str | None = None,
     ) -> dict[str, Any]:
         """Create a deploy request. Returns the deploy record dict.
 
@@ -71,8 +89,14 @@ class WebsiteDeployService:
             # 幂等升级：pending 记录存在但可见性变了 → 就地更新（用户改主意
             # 从公开转私密或反之），而不是复用旧的可见性让用户困惑
             if existing is not None:
+                changed = False
                 if existing.visibility != visibility:
                     existing.visibility = visibility
+                    changed = True
+                if title and title.strip() and existing.title != title.strip():
+                    existing.title = title.strip()[:200]
+                    changed = True
+                if changed:
                     db.commit()
                     db.refresh(existing)
                 _logger.info(
@@ -88,6 +112,7 @@ class WebsiteDeployService:
                 target_domain=target_domain,
                 status="pending",
                 visibility=visibility,
+                title=(title or "").strip()[:200] or None,
                 requested_by=requested_by,
                 # 落库相对路径：机器或容器换目录后，审批阶段仍能找到 dist/
                 dist_path=str(Path(project_slug) / "dist"),
@@ -234,6 +259,28 @@ class WebsiteDeployService:
             deploy.project_slug, deploy.visibility, target_dir,
         )
 
+        # 封面截图：后台任务，不阻塞部署接口。公开站点走 nginx 路径，
+        # 私密站点带签名 URL —— 两者都能被无 Cookie 的浏览器渲染
+        # （私密签名本身就在 URL 里）。
+        try:
+            import asyncio as _asyncio
+
+            from app.services.website_cover_service import capture_and_store
+
+            cover_url = (
+                f"http://127.0.0.1:{_self_port()}/sites/{deploy.project_slug}/"
+                if is_public
+                else f"http://127.0.0.1:{_self_port()}/api/v1/website/site/{deploy.project_slug}/?t={deploy.access_token}"
+            )
+            _asyncio.get_running_loop().create_task(
+                capture_and_store(deploy.project_slug, cover_url)
+            )
+        except RuntimeError:
+            # 同步调用上下文（脚本/测试）：跳过封面，下次部署会重试
+            _logger.debug("无事件循环，跳过封面截图: slug=%s", deploy.project_slug)
+        except Exception:  # noqa: BLE001
+            _logger.warning("封面任务调度失败: slug=%s", deploy.project_slug, exc_info=True)
+
         # Try nginx reload (non-fatal if it fails — nginx may not be running in dev)
         try:
             result = subprocess.run(
@@ -291,6 +338,12 @@ class WebsiteDeployService:
                 .limit(200)
             ).all()
 
+        # 作品名：project_slug 是工作区目录名（u<uid>_s<时间戳><随机>_v<n>），
+        # 纯机器标识，直接展示不可读。从会话 metadata.title 派生可读标题
+        # （前端会话列表用的就是它）。一次查询批量取，避免 N+1。
+        titles = self._session_titles([r.session_id for r in rows])
+        authors = self._author_names([r.requested_by for r in rows if r.requested_by])
+
         items: list[dict[str, Any]] = []
         for row in rows:
             visibility = row.visibility or "private"
@@ -298,6 +351,8 @@ class WebsiteDeployService:
             if visibility == "private" and not (is_owner or is_admin):
                 continue
             item = self._serialize(row)
+            item["title"] = row.title or titles.get(row.session_id) or row.project_slug
+            item["author_name"] = authors.get(row.requested_by) if row.requested_by else None
             if visibility == "private":
                 # 令牌过期/丢失时现场补签（30 天滚动）
                 token = row.access_token or self._issue_access_token(row)
@@ -310,6 +365,58 @@ class WebsiteDeployService:
             items.append(item)
         return items
 
+    def _session_titles(self, session_ids: list[str]) -> dict[str, str]:
+        """批量取会话展示标题（metadata.title，缺省时退回首条用户消息前缀）。"""
+        ids = [sid for sid in dict.fromkeys(session_ids) if sid]
+        if not ids:
+            return {}
+        try:
+            from app.services.session_storage import load_json
+            from app.db.models import AgentSessionModel
+
+            with self.session_factory() as db:
+                rows = db.execute(
+                    select(
+                        AgentSessionModel.session_id,
+                        AgentSessionModel.metadata_json,
+                    ).where(AgentSessionModel.session_id.in_(ids))
+                ).all()
+            out: dict[str, str] = {}
+            for sid, meta_json in rows:
+                meta = load_json(meta_json, {}) if isinstance(meta_json, str) else (meta_json or {})
+                title = meta.get("title") if isinstance(meta, dict) else None
+                if isinstance(title, str) and title.strip():
+                    out[sid] = title.strip()[:80]
+            return out
+        except Exception:  # noqa: BLE001 —— 标题只是展示增强，失败不影响作品列表
+            _logger.warning("gallery: 会话标题批量读取失败", exc_info=True)
+            return {}
+
+    def _author_names(self, user_ids: list[int]) -> dict[int, str]:
+        """批量取作者展示名（作品库卡片要显示「谁做的」）。"""
+        ids = [uid for uid in dict.fromkeys(user_ids) if uid]
+        if not ids:
+            return {}
+        try:
+            from app.db.models import UserModel
+
+            with self.session_factory() as db:
+                found = db.execute(
+                    select(UserModel.id, UserModel.name, UserModel.email).where(
+                        UserModel.id.in_(ids)
+                    )
+                ).all()
+            out: dict[int, str] = {}
+            for uid, name, email in found:
+                # 优先姓名，没有就用邮箱前缀（企业内部常见只有邮箱）
+                label = (name or "").strip() or (email or "").split("@")[0]
+                if label:
+                    out[uid] = label
+            return out
+        except Exception:  # noqa: BLE001
+            _logger.warning("gallery: 作者名批量读取失败", exc_info=True)
+            return {}
+
     @staticmethod
     def _serialize(deploy: WebsiteDeployModel) -> dict[str, Any]:
         return {
@@ -321,6 +428,10 @@ class WebsiteDeployService:
             "target_domain": deploy.target_domain,
             "deploy_url": deploy.deploy_url,
             "visibility": deploy.visibility or "private",
+            "title": deploy.title or deploy.project_slug,
+            "cover_url": (f"/api/v1/website/cover/{deploy.project_slug}" if deploy.cover_path else None),
+            "view_count": deploy.view_count or 0,
+            "last_viewed_at": deploy.last_viewed_at.isoformat() if deploy.last_viewed_at else None,
             "status": deploy.status,
             "requested_by": deploy.requested_by,
             "approved_by": deploy.approved_by,

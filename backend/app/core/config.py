@@ -107,6 +107,12 @@ class Settings(BaseSettings):
     llm_provider_auto_login_timeout_seconds: float = Field(
         default=90.0, validation_alias="LLM_PROVIDER_AUTO_LOGIN_TIMEOUT_SECONDS"
     )
+    # 登录宽限期：用户刚登录、本人企业网关 Cookie 还在自动登录途中时，
+    # 允许短暂借用共享池账号，避免「一登录就发消息」直接报登录态不可用。
+    # 0 = 关闭回落（严格审计隔离）。到期后仍走本人凭据，不会长期顶替。
+    llm_cookie_login_grace_seconds: int = Field(
+        default=600, validation_alias="LLM_COOKIE_LOGIN_GRACE_SECONDS"
+    )
     # 流式请求的尝试次数。wuwei 只对非流式做了重试，流式失败会直接抛给用户，
     # 而界面走的就是流式。1 表示不重试；只在「还没吐出任何内容」时才重试，
     # 避免用户看到半句话被重来一遍、工具被重复执行。

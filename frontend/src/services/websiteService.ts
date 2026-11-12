@@ -31,6 +31,7 @@ export async function requestDeploy(
   stack: string,
   targetDomain?: string,
   visibility?: 'public' | 'private',
+  title?: string,
 ): Promise<DeployRecord> {
   if (!sessionId) {
     throw new Error('requestDeploy requires sessionId (not artifactId)')
@@ -44,6 +45,7 @@ export async function requestDeploy(
       stack,
       target_domain: targetDomain || null,
       visibility: visibility || 'private',
+      title: title || null,
     }),
   }, 'Deploy request failed')
 }
@@ -85,12 +87,20 @@ export async function decideDeploy(
 export type GalleryItem = {
   id: number;
   project_slug: string;
+  /** 可读作品名（后端从会话标题派生；旧数据可能缺省，回退 project_slug） */
+  title?: string;
   stack: string;
   visibility: 'public' | 'private';
   deploy_url: string | null;
   access_url?: string;
   status: string;
   updated_at: string | null;
+  /** 封面图 URL（后端 Playwright 截图 + 压缩；缺失表示尚未生成） */
+  cover_url?: string | null;
+  view_count?: number;
+  last_viewed_at?: string | null;
+  /** 作者（后端返回 requested_by 对应展示名，可选） */
+  author_name?: string | null;
 };
 
 export async function listGallery(): Promise<GalleryItem[]> {

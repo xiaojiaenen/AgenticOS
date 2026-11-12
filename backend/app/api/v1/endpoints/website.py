@@ -58,6 +58,7 @@ def request_deploy(
         requested_by=user.id,
         target_domain=body.target_domain,
         visibility=body.visibility,
+        title=body.title,
     )
     audit_service.record_request(
         db, http_request, action="website.deploy_request", actor=user,
@@ -196,6 +197,60 @@ def decide_deploy(
 # ---------------------------------------------------------------------------
 
 
+@router.get("/cover/{slug}")
+def get_cover(slug: str):
+    """作品封面（部署后 Playwright 异步截图 + 压缩）。
+
+    公开可读：封面本身不含私密内容（首屏截图），且作品库卡片要在未登录
+    也能展示（例如分享给别人看自己的作品列表）。缺失时 404，前端回退占位。
+    """
+    from fastapi.responses import FileResponse
+
+    from app.services.website_cover_service import cover_file
+
+    for candidate in (cover_file(slug), cover_file(slug).with_suffix(".png")):
+        if candidate.is_file():
+            media = "image/webp" if candidate.suffix == ".webp" else "image/png"
+            return FileResponse(candidate, media_type=media, headers={"Cache-Control": "public, max-age=3600"})
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="封面尚未生成")
+
+
+@router.get("/{project_slug}/stats")
+def website_stats(
+    project_slug: str,
+    days: int = Query(30, ge=1, le=365),
+    user: UserModel = Depends(get_current_user),
+):
+    """作品访问统计（按天 + 按来源）。仅作品所有者与管理员可见。"""
+    from sqlalchemy import select
+
+    from app.db.models import WebsiteDeployModel
+
+    with _service.session_factory() as db:
+        row = db.scalars(
+            select(WebsiteDeployModel)
+            .where(WebsiteDeployModel.project_slug == project_slug)
+            .order_by(WebsiteDeployModel.updated_at.desc())
+            .limit(1)
+        ).first()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="作品不存在")
+    if row.requested_by != user.id and user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权查看该作品统计")
+
+    from app.services.website_cover_service import view_stats
+
+    stats = view_stats(project_slug, days=days)
+    stats.update(
+        {
+            "project_slug": project_slug,
+            "view_count": row.view_count or 0,
+            "last_viewed_at": row.last_viewed_at.isoformat() if row.last_viewed_at else None,
+        }
+    )
+    return stats
+
+
 @router.get("/gallery")
 def list_gallery(user: UserModel = Depends(get_current_user)):
     """作品库：deployed 状态的网站。
@@ -244,6 +299,36 @@ def serve_private_site(
     from app.core.security import decode_access_token
     from fastapi.responses import FileResponse
     import mimetypes
+
+    # 访问统计：只对入口 HTML 计数（子资源会放大 10-50 倍，没有意义）。
+    # 不论公开/私密、不管从哪里点进来，都经过这里 —— 这正是「全部访问都统计」
+    # 的落点。写库失败不影响响应。
+    if (rel_path or "").strip().lstrip("/") in ("", "index.html", "./index.html"):
+        try:
+            import asyncio as _aio
+
+            from app.services.website_cover_service import record_view
+
+            _ref = (request.headers.get("referer") or "") if request is not None else ""
+            _ua = (request.headers.get("user-agent") or "") if request is not None else ""
+            _host = ""
+            if _ref:
+                try:
+                    from urllib.parse import urlparse as _up
+
+                    _host = _up(_ref).hostname or ""
+                except Exception:  # noqa: BLE001
+                    _host = ""
+            _src = "gallery" if "gallery" in _ref else ("direct" if not _ref else "external")
+            _aio.get_running_loop().create_task(
+                _aio.to_thread(
+                    record_view, slug, source=_src, referer_host=_host, user_agent=_ua
+                )
+            )
+        except RuntimeError:
+            pass
+        except Exception:  # noqa: BLE001
+            pass
 
     settings = get_settings()
 

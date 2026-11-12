@@ -305,7 +305,7 @@ export const AdminSidebar = React.memo(
                         hasActive ? 'text-[var(--foreground)]' : 'text-[var(--muted-foreground)]',
                       )}
                     />
-                    <span className="min-w-0 flex-1 truncate text-left text-[10.5px] font-semibold uppercase tracking-[0.1em]">
+                    <span className="min-w-0 flex-1 truncate text-left text-[11px] font-semibold uppercase tracking-[0.1em]">
                       {group.label}
                     </span>
                     {hasActive && !open && (
@@ -348,7 +348,7 @@ export const AdminSidebar = React.memo(
             type="button"
             onClick={() => navigate('/chat')}
             className={cn(
-              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium shadow-lg transition-all focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2',
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium shadow-lg transition-all focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2',
               'bg-zinc-900 text-white hover:bg-zinc-800 hover:shadow-button',
             )}
           >
@@ -371,10 +371,10 @@ export const AdminSidebar = React.memo(
               <UserAvatarIcon size={20} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className={cn('truncate text-xs font-medium', 'text-[var(--foreground)]')}>
+              <p className={cn('truncate text-[13px] font-medium leading-5', 'text-[var(--foreground)]')}>
                 {user?.name || 'AgenticOS User'}
               </p>
-              <p className={cn('truncate text-[10px] font-medium', 'text-[var(--muted-foreground)]')}>
+              <p className={cn('truncate text-[11px] font-normal leading-4', 'text-[var(--muted-foreground)]')}>
                 {user?.email || 'signed in'}
               </p>
             </div>

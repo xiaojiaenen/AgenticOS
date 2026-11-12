@@ -314,12 +314,18 @@ export const Sidebar = React.memo(({
     </Dialog>
     {/* Delete Confirmation Dialog */}
     <Dialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
-      <DialogContent className="max-w-sm" showCloseButton={false}>
+      <DialogContent className="sm:max-w-md" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>删除对话</DialogTitle>
           <DialogDescription>
             确定要删除对话「{deleteConfirm?.title || '新对话'}」吗？此操作不可撤销。
           </DialogDescription>
+          {/* 会话是网站的来源上下文：删掉后该会话生成的网站仍可访问，
+              但再也无法通过对话迭代更新（网站与生成它的对话绑定）。 */}
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-relaxed text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+            如果这个对话里部署过网站：网站本身仍可访问，但<span className="font-semibold">之后将无法再通过对话更新它</span>。
+            建议先在作品库确认网站内容已定稿。
+          </div>
         </DialogHeader>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => setDeleteConfirm(null)}>取消</Button>

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { motion, MotionValue } from 'motion/react'
 import { CheckCircle2, ExternalLink, Globe, RefreshCcw, Rocket, X, XCircle } from 'lucide-react'
 import { Artifact } from '../../types'
@@ -25,6 +25,8 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
   onSwitchVersion,
 }) => {
   const [isDeploying, setIsDeploying] = React.useState(false)
+  // 作品名：部署时由用户填写；留空则由后端回退会话标题/目录名。
+  const [deployTitle, setDeployTitle] = useState('')
   // 部署可见性：点「部署」先弹选择（公开 / 私密），明确确认再提交。
   // 私密 = 仅自己在作品库可见（带签名链接）；公开 = 审批后上 /sites/。
   const [visibilityPickerOpen, setVisibilityPickerOpen] = React.useState(false)
@@ -129,6 +131,7 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
         artifact.stack ?? '',
         undefined,
         visibility,
+        deployTitle.trim() || undefined,
       )
       setDeployStatus(result.status)
       if (result.deploy_url) {
@@ -325,9 +328,20 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="w-[min(92%,380px)] rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-2xl">
             <h3 className="mb-1 text-sm font-semibold text-[var(--foreground)]">选择作品可见性</h3>
-            <p className="mb-4 text-xs leading-relaxed text-[var(--muted-foreground)]">
+            <p className="mb-3 text-xs leading-relaxed text-[var(--muted-foreground)]">
               公开作品需要管理员审批后发布到站点目录；私密作品仅自己可见，可随时重置访问链接。
             </p>
+            <label className="mb-4 block">
+              <span className="mb-1.5 block text-[11px] font-semibold text-[var(--foreground)]">作品名</span>
+              <input
+                type="text"
+                value={deployTitle}
+                onChange={(e) => setDeployTitle(e.target.value)}
+                maxLength={200}
+                placeholder="留空则由 AI 根据对话自动生成"
+                className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus-visible:border-[var(--ring)]"
+              />
+            </label>
             <div className="space-y-2">
               <button
                 type="button"
