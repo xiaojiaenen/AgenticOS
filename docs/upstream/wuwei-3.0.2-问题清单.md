@@ -1,5 +1,18 @@
 # wuwei 3.0.2 问题清单（供上游反馈）
 
+> **状态更新（2026-11-12）：本项目已升级到 3.4.1。** 针对 3.2.1 残留缺陷清单的核对：
+>
+> | 编号 | 3.4.1 现状 | 本项目补丁处置 |
+> | --- | --- | --- |
+> | R-6（unknown 子串误判） | **已修** —— 判定改读结构化 `tool_outcome.status`，内容子串匹配已删除 | `PatchedAgentRunner._commit_tool` 的「委托+纠正」成为空转安全网（回归测试不冲突，按纪律保留待清理） |
+> | R-8（`BaseException` 炸穿批次） | **已修** —— `executor.py` 判定放宽到 `BaseException`，`CancelledError` 单独处理 | 同上，`BoundedToolExecutor._execute_batched` 覆写保留 |
+> | R-7（工具钩子静默关并发） | **未修** —— `can_batch` 仍要求中间件栈无工具钩子，但新增了降级 warning | `BatchSafeMiddlewareProxy` **仍然必要** |
+> | R-1 / R-3 / R-4（网关层） | 维持 3.3.x 修复后的状态 | `HardenedOpenAIAdapter` / `RetryingGateway` 保留 |
+> | 接口变更 | `_as_llm_error` 升级为 classmethod 并新增 `provider` 位置参数；`_commit_tool` 签名未变 | `RetryingGateway._as_llm_error` 覆写已对齐（升级时实测 TypeError，已修） |
+>
+> 另：executor 3.4.1 已原生具备 `_execute_batched` / `serialize_output` 骨架，
+> 本项目 `BoundedToolExecutor` 的信号量/超时不确定标记/重复调用检测仍为增量增强。
+
 > **状态更新（2026-10-28）：本清单针对 3.0.2，其中多数问题已在 3.2.1 修复。**
 >
 > 升级到 3.2.1 后的实测结论（同一组真实 SDK 响应对象做对照）：

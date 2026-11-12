@@ -26,7 +26,18 @@ dependencies = [
     #     max_steps 截断」而不是靠匹配文案。
     # 因此下限提到 3.3.3。本项目 adapter.py 里的 normalize_system_messages
     # 保留为下游兜底（幂等、无害），上游生效后自然不再触发。
-    "wuwei>=3.3.3",
+    # 3.4.1 的实测核对（2026-11-12 升级）：
+    #   - ``_as_llm_error`` 升级为 classmethod 并新增 ``provider`` 位置参数
+    #     （``_raise_translated`` 以 ``cls._as_llm_error(exc, provider)`` 调用），
+    #     本项目 RetryingGateway 的覆写已对齐该签名（升级时实测踩到 TypeError）。
+    #   - R-6 已修：unknown 判定不再做内容子串匹配，改读结构化
+    #     ``tool_outcome.status``；本项目 PatchedAgentRunner 的「委托+纠正」
+    #     补丁成为空转安全网（回归测试不冲突，按纪律保留待清理）。
+    #   - R-8 已修：并发批次异常判定放宽到 ``BaseException``。
+    #   - R-7 未修：``can_batch`` 仍要求中间件栈无工具钩子（新增了静默降级
+    #     的 warning），``BatchSafeMiddlewareProxy`` 仍然必要。
+    #   - executor 已原生具备 _execute_batched / serialize_output 骨架。
+    "wuwei>=3.4.1",
     # 下面两个是**直接依赖**，必须显式声明，不能靠传递依赖侥幸拿到：
     # - httpx：app/ 下 14 个文件直接 import（外部系统、图像工具、鉴权代理等）。
     #   openai 3.x 起不再自动安装 httpx（改用 httpx2），只靠别人传递是定时炸弹。

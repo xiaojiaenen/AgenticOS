@@ -363,27 +363,33 @@ class RetryingGateway(LLMGateway):
         return kind
 
     # ── R-2：统一异常类型 ─────────────────────────────────────────
-    @staticmethod
-    def _as_llm_error(exc: Exception, *, attempts: int = 1) -> LLMError:
+    # wuwei 3.4.1 起上游把 ``_as_llm_error`` 升级为 classmethod 并新增
+    # ``provider`` 位置参数（``_raise_translated`` 以 ``cls._as_llm_error(exc,
+    # provider)`` 调用）。覆写必须保持签名兼容 —— 否则上游流式收尾的统一
+    # 翻译路径直接 TypeError（升级 3.4.1 时实测踩到）。
+    @classmethod
+    def _as_llm_error(
+        cls,
+        exc: Exception,
+        provider: str | None = None,
+        *,
+        attempts: int = 1,
+    ) -> LLMError:
         """把原始异常包装成 ``LLMError``，保留诊断信息。
 
-        上游 ``core/errors.py`` 定义了 ``LLMError``（还带一个为「携带诊断信息」
-        设计的 ``details`` 字段），但网关全程没用过——调用方只能靠匹配字符串
-        判断错误类型。这里把 status_code、异常类型、重试次数都放进 details。
+        基础翻译委托上游 3.4.1（自带 error 分类 / status_code / provider 进
+        details），这里补上 R-2 需要的 ``attempts`` / ``retryable`` 两个键。
         """
-        status = getattr(exc, "status_code", None)
-        if status is None:
-            status = getattr(getattr(exc, "response", None), "status_code", None)
-        return LLMError(
-            str(exc) or type(exc).__name__,
-            details={
-                "error_type": type(exc).__name__,
-                "status_code": status,
-                "attempts": attempts,
-                "retryable": RetryingGateway._classify_error(exc)
+        translated = super()._as_llm_error(exc, provider)
+        details = getattr(translated, "details", None)
+        if isinstance(details, dict):
+            details.setdefault("attempts", attempts)
+            details.setdefault(
+                "retryable",
+                cls._classify_error(exc)
                 in {"rate_limit", "server_error", "connection_error", "timeout"},
-            },
-        )
+            )
+        return translated
 
     async def generate(
         self,
