@@ -55,6 +55,14 @@ const RECOMMENDATION_LABEL: Record<string, string> = {
   reject: '建议拒绝',
 };
 
+/** 字节数显示。小文件不该显示成「0 KB」—— 那看着像扫了个空目录。 */
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes < 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 export const DeployReviewPanel: React.FC<{
   deployId: number;
   projectSlug: string;
@@ -260,7 +268,7 @@ export const DeployReviewPanel: React.FC<{
                         {packet.analysis.file_count ?? 0} 个文件
                       </span>
                       <span className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-2)] px-2 py-1 text-[var(--muted-foreground)]">
-                        {Math.round((packet.analysis.total_bytes ?? 0) / 1024)} KB
+                        {formatBytes(packet.analysis.total_bytes ?? 0)}
                       </span>
                       {(packet.analysis.external_hosts ?? []).length > 0 && (
                         <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-400">

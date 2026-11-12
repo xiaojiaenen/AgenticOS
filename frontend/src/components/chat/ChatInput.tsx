@@ -245,7 +245,14 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const selectableAgents = agentProfiles.filter((agent) => agent.listed !== false);
+  // 可选智能体：过滤掉「别人上架的、但自己没安装」的 —— 那类应该先去商店安装。
+  //
+  // `listed` 的语义是「是否上架到商店供他人安装」，**不是**「是否可用」。
+  // 内置智能体（如网站工程师）即便没上架，用户也应该能用它 —— 管理员手动
+  // 上架前自己先试是正常流程。按 listed 一刀切会让「下架」变成「禁用」。
+  const selectableAgents = agentProfiles.filter(
+    (agent) => agent.listed !== false || agent.is_builtin,
+  );
 
   return (
     <div

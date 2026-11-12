@@ -388,7 +388,13 @@ class ArtifactFactory:
             "type": "website",
             "artifact_id": session_id,  # use session_id as artifact_id for now
             "session_id": session_id,
-            "title": slug.replace("-", " ").title(),
+            # 标题：slug 是机器标识（u<uid>_s<时间戳><随机>_v<n>），不能直接当标题
+            # 显示。原来用 ``slug.replace("-", " ").title()``，Python 的 .title()
+            # 会把每个词首字母大写 —— "u1_s1793675114671-xdt43g_v1" 变成
+            # "U1_S1793675114671 Xdt43G_V1"，又长又丑还丢了原样。
+            # 这里只把分隔符换成空格，保留原字符大小写；作品库那边的可读标题
+            # 由会话标题派生，不依赖这里。
+            "title": slug.replace("_", " ").replace("-", " "),
             "project_slug": slug,
             "stack": stack,
             "file_count": file_count,

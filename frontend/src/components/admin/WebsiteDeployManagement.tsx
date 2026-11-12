@@ -50,10 +50,21 @@ import {
 import { DeployReviewPanel } from './DeployReviewPanel';
 import { toastError } from '../../lib/errors';
 
-/** 外部链接 URL 补齐协议：target_domain 可能是不带协议的裸域名 */
-function toExternalUrl(raw: string | null | undefined): string {
-  if (!raw) return '#';
-  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+/** 外部链接 URL 规范化。
+ *
+ * 三种形态都要处理：
+ * - 绝对 URL（``https://host/path``）—— 原样用；
+ * - **站内相对路径**（``/s/<code>/``、``/sites/<slug>/``）—— 原样用，
+ *   浏览器会补上当前域。补协议会变成 ``https:///sites/...``（缺主机名，点不开）；
+ * - 裸域名（``example.com``，来自 target_domain）—— 补协议。
+ */
+function toExternalUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const value = raw.trim();
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('/')) return value;
+  return `https://${value}`;
 }
 
 /** 安全时间格式化：无效时间戳返回 '--' 而非 "Invalid Date" */
@@ -369,10 +380,12 @@ export function WebsiteDeployManagement() {
         enableSorting: false,
         cell: ({ row }) => {
           const deploy = row.original;
-          const rawUrl = deploy.deploy_url || (deploy.status === 'deployed' ? deploy.target_domain : null);
-          // target_domain 可能不含协议（如 example.com），直接用作 href 会被
-          // 解析成相对路径；统一补齐协议
-          const url = rawUrl && /^https?:\/\//i.test(rawUrl) ? rawUrl : rawUrl ? `https://${rawUrl}` : null;
+          // 优先短链（/s/<code>/）—— 对外地址不暴露目录名。
+          const rawUrl =
+            deploy.short_url ||
+            deploy.deploy_url ||
+            (deploy.status === 'deployed' ? deploy.target_domain : null);
+          const url = toExternalUrl(rawUrl);
           if (!url) return <span className="text-xs text-[var(--muted-foreground)]">—</span>;
           return (
             <a
@@ -497,19 +510,40 @@ export function WebsiteDeployManagement() {
                     用户 {deploy.requested_by}
                     {deploy.target_domain ? ` · ${deploy.target_domain}` : ''}
                   </div>
-                  {(deploy.deploy_url || deploy.target_domain) && (
+                  {deploy.description && (
+                    <p className="mt-1.5 max-w-xl rounded-md border border-[var(--border-subtle)] bg-[var(--surface-1)] px-2.5 py-1.5 text-xs leading-relaxed text-[var(--foreground)]">
+                      {deploy.description}
+                    </p>
+                  )}
+                  {(deploy.short_url || deploy.deploy_url || deploy.target_domain) && (
                     <a
-                      href={toExternalUrl(deploy.deploy_url || deploy.target_domain)}
+                      href={
+                        toExternalUrl(
+                          deploy.short_url || deploy.deploy_url || deploy.target_domain,
+                        ) ?? '#'
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-zinc-700 hover:underline"
                     >
                       <ExternalLink className="h-3 w-3" />
-                      预览
+                      在线预览
                     </a>
                   )}
                 </div>
                 <div className="flex gap-2">
+                  {/* 审阅面板：一屏给齐网站说明 + 完整对话 + 实时预览 +
+                      源码扫描 + AI 风险意见。待审批的申请最需要它 ——
+                      只看项目名就点批准等于闭眼放行。 */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() => openPreview(deploy.id, deploy.project_slug)}
+                  >
+                    <Eye className="h-3 w-3" />
+                    审阅
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"

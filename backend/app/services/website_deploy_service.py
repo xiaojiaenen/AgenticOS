@@ -502,6 +502,16 @@ class WebsiteDeployService:
 
     @staticmethod
     def _serialize(deploy: WebsiteDeployModel) -> dict[str, Any]:
+        is_private = (deploy.visibility or "private") == "private"
+        # 短链优先：有 short_code 就用 /s/<code>/，没有才回退旧路径。
+        #
+        # 为什么不能直接返回库里的 deploy_url：那是**部署当时**写下的值。
+        # 迁移 0025 给老记录补了 short_code，但没有回填 deploy_url ——
+        # 老记录的 deploy_url 仍是 /sites/<slug>/，于是"对外地址是短链"
+        # 这个新约定对存量数据不生效。这里按当前 short_code 重算，
+        # 存量与增量就一致了。
+        short_url = _public_url(deploy.short_code, deploy.project_slug, private=is_private)
+        deploy_url = short_url if deploy.short_code else deploy.deploy_url
         return {
             "id": deploy.id,
             "session_id": deploy.session_id,
@@ -509,13 +519,9 @@ class WebsiteDeployService:
             "stack": deploy.stack,
             "dist_path": deploy.dist_path,
             "target_domain": deploy.target_domain,
-            "deploy_url": deploy.deploy_url,
+            "deploy_url": deploy_url,
             "short_code": deploy.short_code,
-            "short_url": _public_url(
-                deploy.short_code,
-                deploy.project_slug,
-                private=(deploy.visibility or "private") == "private",
-            ),
+            "short_url": short_url,
             "description": deploy.description,
             "visibility": deploy.visibility or "private",
             "title": deploy.title or deploy.project_slug,

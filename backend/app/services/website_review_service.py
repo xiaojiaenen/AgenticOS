@@ -237,7 +237,15 @@ async def ai_review(packet: dict[str, Any]) -> dict[str, Any]:
     if llm is None:
         return {"available": False, "reason": "未配置可用模型"}
     try:
-        resp = await asyncio.wait_for(llm.generate([{"role": "user", "content": prompt}]), timeout=50)
+        # 消息必须是 wuwei 的消息对象，不能传 dict ——
+        # ``llm.generate([{"role": "user", "content": ...}])`` 会在适配器里
+        # 炸 ``AttributeError: 'dict' object has no attribute 'content_parts'``
+        # （同 eval_grader 的写法）。
+        from wuwei.core.message import HumanMessage
+
+        resp = await asyncio.wait_for(
+            llm.generate([HumanMessage(content=prompt)]), timeout=50
+        )
         text = getattr(getattr(resp, "message", None), "content", "") or ""
         text = text.strip()
         if text.startswith("```"):
