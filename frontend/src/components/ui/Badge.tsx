@@ -27,7 +27,7 @@ const variantStyles: Record<BadgeVariant, string> = {
   danger:
     'bg-rose-50 text-rose-700 border-rose-200/80 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-400/30',
   info:
-    'bg-indigo-50 text-indigo-700 border-indigo-200/80 dark:bg-indigo-500/15 dark:text-indigo-300 dark:border-indigo-400/30',
+    'bg-zinc-100 text-zinc-700 border-zinc-300/80 dark:bg-zinc-500/15 dark:text-zinc-400 dark:border-zinc-400/30',
   neutral:
     'bg-[var(--surface-2)] text-[var(--muted-foreground)] border-[var(--border-subtle)]',
 };

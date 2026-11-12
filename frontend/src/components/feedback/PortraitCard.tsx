@@ -53,7 +53,7 @@ export function PortraitCard({ open, onOpenChange }: { open: boolean; onOpenChan
       <DialogContent className="flex max-h-[88vh] max-w-2xl flex-col overflow-hidden p-0">
         <DialogHeader className="border-b border-[var(--border-subtle)] px-5 py-4">
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Sparkles size={18} className="text-indigo-500" /> AI 眼中的你
+            <Sparkles size={18} className="text-zinc-500" /> AI 眼中的你
           </DialogTitle>
           <DialogDescription className="text-xs">基于你们的对话自动提炼 · 你可以随时纠正或删除</DialogDescription>
         </DialogHeader>
@@ -64,7 +64,7 @@ export function PortraitCard({ open, onOpenChange }: { open: boolean; onOpenChan
             <div className="py-10 text-center text-sm text-[var(--muted-foreground)]">加载失败</div>
           ) : (
             <div className="flex flex-col gap-4">
-              <div className="rounded-xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 p-4 text-sm leading-relaxed text-[var(--foreground)]">
+              <div className="rounded-xl bg-gradient-to-br from-zinc-500/10 to-violet-500/10 p-4 text-sm leading-relaxed text-[var(--foreground)]">
                 {d.summary}
               </div>
 
@@ -103,7 +103,7 @@ export function PortraitCard({ open, onOpenChange }: { open: boolean; onOpenChan
                   {d.goals.length > 0 && (
                     <Section icon={<Target size={14} />} title="目标">
                       <ul className="flex flex-col gap-1.5 text-sm text-[var(--foreground)]">
-                        {d.goals.map((g, i) => <li key={i} className="flex gap-2"><span className="text-indigo-500">▸</span>{g}</li>)}
+                        {d.goals.map((g, i) => <li key={i} className="flex gap-2"><span className="text-zinc-500">▸</span>{g}</li>)}
                       </ul>
                     </Section>
                   )}
@@ -115,7 +115,7 @@ export function PortraitCard({ open, onOpenChange }: { open: boolean; onOpenChan
                           <div key={i} className="rounded-lg bg-[var(--surface-2)] p-2.5">
                             <div className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
                               {p.name}
-                              <span className="rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] text-indigo-600 dark:text-indigo-300">{p.status}</span>
+                              <span className="rounded bg-zinc-500/10 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-400">{p.status}</span>
                             </div>
                             {p.summary && <p className="mt-1 text-xs text-[var(--muted-foreground)]">{p.summary}</p>}
                           </div>

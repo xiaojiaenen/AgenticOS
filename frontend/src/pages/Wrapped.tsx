@@ -119,7 +119,7 @@ export function Wrapped() {
             {/* 时段 */}
             <motion.div variants={listItem} className="grid grid-cols-2 gap-4">
               <div className="rounded-3xl bg-white/5 p-6">
-                <Clock size={22} className="text-indigo-300" />
+                <Clock size={22} className="text-zinc-400" />
                 <div className="mt-3 text-2xl font-bold">{d.busiest_hour != null ? `${d.busiest_hour}:00` : '—'}</div>
                 <div className="mt-1 text-sm text-white/50">你最活跃的时刻</div>
               </div>
@@ -132,9 +132,9 @@ export function Wrapped() {
 
             {/* 常用功能 */}
             {d.mode_distribution.length > 0 && (
-              <motion.div variants={listItem} className="rounded-3xl bg-gradient-to-br from-violet-600/30 to-indigo-600/20 p-6">
+              <motion.div variants={listItem} className="rounded-3xl bg-gradient-to-br from-violet-600/30 to-zinc-600/20 p-6">
                 <div className="mb-4 flex items-center gap-2 text-lg font-bold"><Sparkles size={20} /> 你的功能偏好</div>
-                <BarList data={d.mode_distribution} color="bg-gradient-to-r from-fuchsia-400 to-indigo-400" />
+                <BarList data={d.mode_distribution} color="bg-gradient-to-r from-fuchsia-400 to-zinc-400" />
               </motion.div>
             )}
 
@@ -153,7 +153,7 @@ export function Wrapped() {
                 {d.first_activity} 到 {d.last_activity}，{d.conversation_count} 场对话，{d.total_hours} 小时并肩。
               </p>
               <p className="mt-2 text-sm opacity-80">新的一年，继续一起把想法变成现实。</p>
-              <Button className="mt-5 bg-white text-indigo-700 hover:bg-white/90" onClick={share}>
+              <Button className="mt-5 bg-white text-zinc-700 hover:bg-white/90" onClick={share}>
                 <Share2 size={16} /> 分享我的 {d.year}
               </Button>
             </motion.div>

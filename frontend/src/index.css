@@ -74,14 +74,14 @@
   --secondary-foreground: #3f3f46; /* zinc-700 */
   --muted: #f4f4f5;             /* zinc-100 */
   --muted-foreground: #71717a;  /* zinc-500 */
-  --accent: #eef2ff;            /* indigo-50 */
-  --accent-foreground: #4338ca; /* indigo-700 */
+  --accent: #f4f4f5;            /* zinc-100 —— 中性强调，不用靛蓝 */
+  --accent-foreground: #18181b; /* zinc-900 */
   --destructive: #dc2626;       /* red-600 */
   --destructive-foreground: #fef2f2; /* red-50 */
   --border: #e4e4e7;            /* zinc-200 */
   --input: #e4e4e7;             /* zinc-200 */
-  --ring: #6366f1;              /* indigo-500 */
-  --ring-halo: rgba(99, 102, 241, 0.22); /* 焦点环外晕（避免 color-mix，兼容 Chrome 85） */
+  --ring: #71717a;              /* zinc-500 —— 焦点环用中性灰，去靛蓝 */
+  --ring-halo: rgba(113, 113, 122, 0.20); /* 焦点环外晕（避免 color-mix，兼容 Chrome 85） */
   --radius: 0.5rem;
 }
 
@@ -98,14 +98,14 @@
   --secondary-foreground: #d4d4d8;
   --muted: #27272a;
   --muted-foreground: #a1a1aa;  /* zinc-400 */
-  --accent: #1e1b4b;            /* indigo-950 */
-  --accent-foreground: #a5b4fc; /* indigo-300 */
+  --accent: #27272a;            /* zinc-800 —— 中性强调，不用靛蓝 */
+  --accent-foreground: #fafafa; /* zinc-50 */
   --destructive: #dc2626;
   --destructive-foreground: #fef2f2;
   --border: #27272a;            /* zinc-800 */
   --input: #27272a;
-  --ring: #818cf8;              /* indigo-400 */
-  --ring-halo: rgba(129, 140, 248, 0.28);
+  --ring: #a1a1aa;              /* zinc-400 —— 深色下中性灰焦点环 */
+  --ring-halo: rgba(161, 161, 170, 0.26);
 }
 
 /* ===== 2. Tailwind 4 语义桥接（shadcn 标准用法） ===== */
@@ -150,9 +150,8 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --font-display: var(--font-sans);
 
-  /* Legacy brand scale → indigo-based palette. TODO(M1): remove */
-  /* brand-* 已中性化：类名保留以免大面积改动，色值改用 zinc 灰阶。
-     强调色只保留在 --ring（焦点环），实体按钮一律黑白。 */
+  /* Legacy brand scale —— 色值已全部中性化，类名保留以免大面积改动。
+     强调色不再走靛蓝：焦点环用中性灰，实体按钮一律黑白。 */
   --color-brand-50: #fafafa;
   --color-brand-100: #f4f4f5;
   --color-brand-200: #e4e4e7;
@@ -161,8 +160,8 @@
   --color-brand-500: #27272a;   /* zinc-800 */
   --color-brand-600: #18181b;   /* zinc-900 */
   --color-brand-700: #09090b;   /* zinc-950 */
-  --color-brand-800: #312e81;   /* indigo-900 */
-  --color-brand-900: #1e1b4b;   /* indigo-950 */
+  --color-brand-800: #27272a;   /* zinc-800 */
+  --color-brand-900: #18181b;   /* zinc-900 */
 
   /* Legacy semantic scales. TODO(M1): replace with shadcn tokens */
   --color-success-50: #ecfdf5;

@@ -41,7 +41,7 @@ export function methodBadgeColor(m: string): string {
     case 'GET':
       return 'bg-emerald-100 text-emerald-700';
     case 'POST':
-      return 'bg-indigo-100 text-indigo-700';
+      return 'bg-zinc-200 text-zinc-700';
     case 'PUT':
       return 'bg-amber-100 text-amber-700';
     case 'DELETE':

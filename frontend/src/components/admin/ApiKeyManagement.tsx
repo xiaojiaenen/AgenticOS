@@ -376,7 +376,7 @@ export function ApiKeyManagement() {
           if (!next) setNameInput('');
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>新建 API Key</DialogTitle>
             <DialogDescription>
@@ -435,7 +435,7 @@ export function ApiKeyManagement() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Key 已创建</DialogTitle>
             <DialogDescription>

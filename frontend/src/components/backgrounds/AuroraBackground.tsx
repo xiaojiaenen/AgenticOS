@@ -31,18 +31,18 @@ void main() {
   // 极慢的时间因子（约 0.03x），保证"雾"的漂移几乎不可察觉
   float t = uTime * 0.03;
 
-  // 两个缓慢漂移的柔和光团（低饱和 indigo 系）
+  // 两个缓慢漂移的柔和光团（暖中性灰雾，不带色相）
   vec2 p1 = vec2(0.28 + 0.10 * sin(t), 0.72 + 0.08 * cos(t * 0.8));
   vec2 p2 = vec2(0.76 + 0.08 * cos(t * 0.7), 0.30 + 0.10 * sin(t * 0.9));
 
   float d1 = smoothstep(0.95, 0.0, distance(uv, p1));
   float d2 = smoothstep(0.85, 0.0, distance(uv, p2));
 
-  // #4f46e5 (indigo-600) 与 #818cf8 (indigo-400)，去饱和处理
-  vec3 indigo = vec3(0.33, 0.31, 0.78);
-  vec3 soft = vec3(0.55, 0.52, 0.86);
+  // 中性暖灰：避免任何品牌色倾向（此前的靛蓝会让整站带 AI 味）
+  vec3 warm = vec3(0.62, 0.60, 0.58);
+  vec3 soft = vec3(0.72, 0.71, 0.69);
 
-  vec3 color = indigo * d1 * 0.55 + soft * d2 * 0.40;
+  vec3 color = warm * d1 * 0.55 + soft * d2 * 0.40;
   // 透明度硬上限 8%，满足"透明度 <8%"要求
   float alpha = min(d1 * 0.055 + d2 * 0.045, 0.08);
 
@@ -58,8 +58,8 @@ function AuroraFallback({ className }: { className?: string }) {
       className={cn('pointer-events-none inset-0 z-0', className)}
       style={{
         background:
-          'radial-gradient(ellipse 60% 50% at 28% 25%, rgba(79, 70, 229, 0.06), transparent 70%),' +
-          'radial-gradient(ellipse 50% 45% at 75% 70%, rgba(129, 140, 248, 0.05), transparent 70%)',
+          'radial-gradient(ellipse 60% 50% at 28% 25%, rgba(120, 118, 112, 0.07), transparent 70%),' +
+          'radial-gradient(ellipse 50% 45% at 75% 70%, rgba(140, 138, 132, 0.06), transparent 70%)',
       }}
     />
   );

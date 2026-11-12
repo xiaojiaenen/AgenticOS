@@ -106,10 +106,10 @@ function ManageDialog({ issueId, onClose }: { issueId: number | null; onClose: (
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">讨论 · {detail.data?.comments.length ?? 0}</p>
                 <div className="flex flex-col gap-2">
                   {detail.data?.comments.map((c) => (
-                    <div key={c.id} className={cn('rounded-lg border p-2.5 text-sm', c.is_official ? 'border-indigo-200/70 bg-indigo-50/60 dark:border-indigo-500/30 dark:bg-indigo-500/10' : 'border-[var(--border-subtle)]')}>
+                    <div key={c.id} className={cn('rounded-lg border p-2.5 text-sm', c.is_official ? 'border-zinc-300/70 bg-zinc-100/60 dark:border-zinc-500/30 dark:bg-zinc-500/10' : 'border-[var(--border-subtle)]')}>
                       <div className="mb-1 flex items-center gap-2 text-[11px] text-[var(--muted-foreground)]">
                         <span className="font-semibold text-[var(--foreground)]">{c.is_system ? '系统' : c.author?.name}</span>
-                        {c.is_official && <span className="rounded bg-indigo-600/15 px-1.5 text-indigo-600 dark:text-indigo-300">官方</span>}
+                        {c.is_official && <span className="rounded bg-zinc-600/15 px-1.5 text-zinc-600 dark:text-zinc-400">官方</span>}
                         <span>{formatApiDateTime(c.created_at)}</span>
                       </div>
                       <p className="whitespace-pre-wrap text-[var(--foreground)]">{c.body}</p>
@@ -144,7 +144,7 @@ export function FeedbackCenter() {
   const columns = React.useMemo<ColumnDef<FeedbackIssue>[]>(() => [
     { accessorKey: 'id', header: '#', cell: (c) => <span className="text-[var(--muted-foreground)]">{c.getValue() as number}</span> },
     { accessorKey: 'title', header: '标题', cell: (c) => (
-      <button type="button" onClick={() => setManageId(c.row.original.id)} className="flex items-center gap-1.5 text-left font-medium text-[var(--foreground)] hover:text-indigo-600">
+      <button type="button" onClick={() => setManageId(c.row.original.id)} className="flex items-center gap-1.5 text-left font-medium text-[var(--foreground)] hover:text-zinc-600">
         <span>{TYPE_META[c.row.original.type].emoji}</span><span className="line-clamp-1">{c.getValue() as string}</span>
       </button>
     ) },

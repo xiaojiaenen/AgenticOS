@@ -5,7 +5,7 @@ export const STATUS_META: Record<IssueStatus, { label: string; className: string
   confirmed: { label: '已确认', className: 'bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300', dot: 'bg-sky-500' },
   in_progress: { label: '处理中', className: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300', dot: 'bg-amber-500' },
   resolved: { label: '已解决', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300', dot: 'bg-emerald-500' },
-  shipped: { label: '已上线', className: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300', dot: 'bg-indigo-500' },
+  shipped: { label: '已上线', className: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-500/15 dark:text-zinc-400', dot: 'bg-zinc-500' },
   closed: { label: '已关闭', className: 'bg-[var(--surface-2)] text-[var(--muted-foreground)]', dot: 'bg-zinc-400' },
 };
 

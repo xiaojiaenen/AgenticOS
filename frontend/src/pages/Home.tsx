@@ -17,7 +17,7 @@ const QUICK_STARTS = [
   { text: '帮我做个 PPT', hint: '结构化演示文稿', mode: 'ppt', icon: Presentation, tone: 'text-amber-600 bg-amber-500/10 dark:text-amber-300' },
   { text: '写一个网站首页', hint: '可部署的前端页面', mode: 'website', icon: Globe, tone: 'text-sky-600 bg-sky-500/10 dark:text-sky-300' },
   { text: '帮我分析数据', hint: '数据洞察一站式', mode: 'general', icon: BarChart3, tone: 'text-emerald-600 bg-emerald-500/10 dark:text-emerald-300' },
-  { text: '写一封邮件', hint: '商务往来一键起草', mode: 'general', icon: Mail, tone: 'text-indigo-600 bg-indigo-500/10 dark:text-indigo-300' },
+  { text: '写一封邮件', hint: '商务往来一键起草', mode: 'general', icon: Mail, tone: 'text-zinc-600 bg-zinc-500/10 dark:text-zinc-400' },
 ] as const;
 
 export const Home = () => {

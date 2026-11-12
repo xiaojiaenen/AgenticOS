@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Sidebar } from '../components/chat/Sidebar';
 import { ChatMainArea } from '../components/chat/ChatMainArea';
 import { ChatArtifactArea } from '../components/chat/ChatArtifactArea';
-import { SessionPanelHost } from '../components/panel/SessionPanelHost';
+import { IdeSidebar } from '../components/panel/IdeSidebar';
 import { SlideLivePreview } from '../components/ppt/SlideLivePreview';
 import { DragOverlay } from '../components/chat/DragOverlay';
 import { RandomMascot } from '../components/ui/RandomMascot';
@@ -51,8 +51,9 @@ export const Chat = () => {
   const isSidebarHiddenByArtifact = useChatStore((s) => s.isSidebarHiddenByArtifact);
   const setIsSidebarHiddenByArtifact = useChatStore((s) => s.setIsSidebarHiddenByArtifact);
   const storeCreateNewChat = useChatStore((s) => s.createNewChat);
-  const sessionPanel = useChatStore((s) => s.sessionPanel);
-  const setSessionPanel = useChatStore((s) => s.setSessionPanel);
+  const sidebarOpen = useChatStore((s) => s.sidebarOpen);
+  const setSidebarOpen = useChatStore((s) => s.setSidebarOpen);
+  const openTab = useChatStore((s) => s.openSidebarTab);
 
   // ── 会话管理 ──
   const {
@@ -118,16 +119,18 @@ export const Chat = () => {
   // 浏览器标签页的运行状态感知（环境感知：切去别的标签页也能知道在跑/跑完）
   useRunTitleAwareness(runStatus.phase, runStatus.label);
 
-  // 会话面板与产物互斥的兜底：产物可能从任意入口自动打开（如邮件审批
-  // 预览），不经过触发器，所以用 effect 兜底，而不是在每个入口手动收起。
+  // 会话面板与产物互斥的兜底：右侧栏同一时刻只显示一个视图。
+  // 方向很重要 —— 用户点「展开侧栏」时侧栏优先：清掉当前的产物预览，
+  // 由侧栏的「产物」标签接管（那里能按类型筛选整个会话的产物）。
+  // 反过来（产物打开就关侧栏）会让刚点开的侧栏瞬间消失。
   React.useEffect(() => {
-    if (artifact && sessionPanel) setSessionPanel(null);
-  }, [artifact, sessionPanel, setSessionPanel]);
+    if (artifact && sidebarOpen) setArtifact(null);
+  }, [artifact, sidebarOpen, setArtifact]);
 
   // ── 派生状态 ──
   const currentSessionMessages = currentSession?.messages ?? [];
   const isStreamingResponse = isLoading && currentSessionMessages[currentSessionMessages.length - 1]?.role === 'model';
-  const isWideConversation = !artifact && !isMobile;
+  const isWideConversation = !artifact && !sidebarOpen && !isMobile;
   const pendingApprovals = useMemo(
     () => currentSessionMessages
       .flatMap((m) => m.toolCalls || [])
@@ -213,7 +216,32 @@ export const Chat = () => {
     }
   }, [currentSessionId, sessions, deleteSessionBackend, setArtifact, setChatMode, setSelectedAgentProfileId]);
 
-  const handleOpenArtifact = useCallback((next: any) => setArtifact(next), [setArtifact]);
+  // 点消息里的产物卡 → 在 IDE 式侧栏开一个标签（用户要求：点某个产物
+  // 就打开一个标签，而不是顶掉整个右侧产物区）。文档/表格仍可走主预览区
+  // （Univer 编辑器需要宽度），标签里给一键跳转。
+  const handleOpenArtifact = useCallback((next: any) => {
+    const kindMap: Record<string, 'ppt' | 'website' | 'document' | 'sheet' | 'image' | 'file' | 'log'> = {
+      ppt: 'ppt',
+      website: 'website',
+      document: 'document',
+      spreadsheet: 'sheet',
+      email: 'document',
+      html: 'document',
+      svg: 'document',
+    };
+    const kind = kindMap[next?.language];
+    if (!kind) {
+      setArtifact(next);
+      return;
+    }
+    setSidebarOpen(true);
+    openTab({
+      id: `${kind}:${next?.artifactId || next?.title || next?.approvalId || Date.now()}`,
+      kind,
+      title: next?.title || next?.to || next?.subject || '产物',
+      artifact: next,
+    });
+  }, [openTab, setArtifact, setSidebarOpen]);
 
   const handlePptThemeChange = useCallback((newHtml: string, theme: string) => {
     if (artifact && artifact.language === 'ppt') {
@@ -490,16 +518,17 @@ export const Chat = () => {
     }
   }, [initialMessage, agentProfilesLoaded]);
 
-  // 制品面板打开时自动收起侧边栏
+  // 右侧栏（产物预览 / 多标签侧栏）打开时自动收起左侧会话列表
   useEffect(() => {
-    if (artifact && isSidebarOpen && !isMobile) {
+    const rightPanelOpen = !!artifact || sidebarOpen;
+    if (rightPanelOpen && isSidebarOpen && !isMobile) {
       setIsSidebarOpen(false);
       setIsSidebarHiddenByArtifact(true);
-    } else if (!artifact && isSidebarHiddenByArtifact && !isMobile) {
+    } else if (!rightPanelOpen && isSidebarHiddenByArtifact && !isMobile) {
       setIsSidebarOpen(true);
       setIsSidebarHiddenByArtifact(false);
     }
-  }, [artifact, isMobile]);
+  }, [artifact, sidebarOpen, isMobile]);
 
   // ── Context Value ──
   // R3-2：数据类状态（sessions/currentSession/runStatus/pendingDecisions/
@@ -636,10 +665,11 @@ export const Chat = () => {
             id="main-content"
             className={cn(
               "flex flex-col h-full transition-all duration-500 ease-[0.16,1,0.3,1] min-w-0 relative",
-              // 制品面板占 60% 时聊天区兜底 40%；中屏给最小宽度，避免被压到不可读
+              // 制品面板 / 多标签侧栏占 60% 时聊天区兜底 40%；中屏给最小宽度，
+              // 避免被压到不可读
               artifact
                 ? "w-full md:w-[40%] md:min-w-[380px] border-r border-[var(--border-subtle)] lg:min-w-[440px]"
-                : "w-full",
+                : "w-full min-w-0 flex-1",
               isWideConversation && "px-4 lg:px-8 xl:px-10",
             )}
           >
@@ -669,7 +699,7 @@ export const Chat = () => {
             )}
           </AnimatePresence>
           <ChatArtifactArea
-            artifact={sessionPanel ? null : artifact}
+            artifact={sidebarOpen ? null : artifact}
             onClose={() => setArtifact(null)}
             borderColor={borderColor}
             onPptThemeChange={handlePptThemeChange}
@@ -678,10 +708,14 @@ export const Chat = () => {
             onSwitchArtifact={(next) => setArtifact(next)}
             sessionId={currentSessionId}
           />
-          <SessionPanelHost
-            sessionId={currentSessionId}
-            messages={currentSession?.messages ?? []}
-          />
+          {sidebarOpen && (
+            <aside className="relative flex h-full w-full min-w-0 flex-col overflow-hidden border-l border-[var(--border-subtle)] bg-[var(--surface-1)] md:w-[420px] md:shrink-0 xl:w-[480px]">
+              <IdeSidebar
+                sessionId={currentSessionId}
+                messages={currentSession?.messages ?? []}
+              />
+            </aside>
+          )}
         </div>
       </ChatContextProvider>
     </motion.div>

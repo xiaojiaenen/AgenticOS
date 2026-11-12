@@ -1,18 +1,19 @@
 /**
- * 会话级面板宿主：右侧栏的通用壳层（header + 内容区）。
+ * 会话级面板宿主：右侧栏的通用壳层（header + 标签条 + 内容区）。
  *
  * 与 ChatArtifactArea 平级：同一时刻右侧栏要么显示产物、要么显示
  * 会话面板（互斥由 Chat.tsx 在传参层保证：sessionPanel 打开时给产物区
  * 传 null artifact）。宿主自己读 store，Chat.tsx 只需要挂一行。
  *
- * 新增面板：在 registry.ts 的 SESSION_PANELS 加一条，这里自动认得。
+ * 标签顺序与定义全部来自 registry / SESSION_PANEL_ORDER，新增面板只改那两处。
  */
 import * as React from 'react';
 import { motion } from 'motion/react';
 import { X } from 'lucide-react';
+import { cn } from '../../lib/utils';
 import { useChatStore } from '../../stores/chatStore';
 import { SESSION_PANELS } from './registry';
-import type { SessionPanelId } from './types';
+import { SESSION_PANEL_ORDER, type SessionPanelId } from './types';
 
 export interface SessionPanelHostProps {
   sessionId: string | null;
@@ -48,12 +49,41 @@ export const SessionPanelHost: React.FC<SessionPanelHostProps> = ({ sessionId, m
         <button
           type="button"
           onClick={close}
-          aria-label={`关闭${def.title}`}
+          aria-label="关闭侧栏"
           className="shrink-0 rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
         >
           <X size={16} />
         </button>
       </header>
+
+      {/* 标签条：一个右侧栏内切换多个视图，不用来回开关 */}
+      <nav
+        className="flex shrink-0 gap-1 border-b border-[var(--border-subtle)] px-3 py-2"
+        aria-label="侧栏视图"
+      >
+        {SESSION_PANEL_ORDER.map((id) => {
+          const entry = SESSION_PANELS[id];
+          const TabIcon = entry.icon;
+          const active = id === panel;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setSessionPanel(id as SessionPanelId)}
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                'inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors',
+                active
+                  ? 'bg-[var(--surface-2)] text-[var(--foreground)]'
+                  : 'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]',
+              )}
+            >
+              <TabIcon size={13} /> {entry.tabLabel}
+            </button>
+          );
+        })}
+      </nav>
+
       <div className="min-h-0 flex-1 overflow-y-auto">
         {def.render({ sessionId: sessionId ?? '', messages, onClose: close })}
       </div>

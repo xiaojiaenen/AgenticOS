@@ -28,7 +28,7 @@ function DistributionBars({ data, label }: { data: { name: string; value: number
         <div key={d.name} className="flex items-center gap-2 text-xs">
           <span className="w-20 shrink-0 truncate text-[var(--muted-foreground)]">{label(d.name)}</span>
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--surface-2)]">
-            <div className="h-full rounded-full bg-indigo-500" style={{ width: `${(d.value / max) * 100}%` }} />
+            <div className="h-full rounded-full bg-zinc-500" style={{ width: `${(d.value / max) * 100}%` }} />
           </div>
           <span className="w-8 shrink-0 text-right tabular-nums text-[var(--foreground)]">{d.value}</span>
         </div>
@@ -115,7 +115,7 @@ export function UserAnalytics() {
 
   const columns = React.useMemo<ColumnDef<UserAnalyticsRow>[]>(() => [
     { accessorKey: 'name', header: '用户', cell: (c) => (
-      <button type="button" onClick={() => setDetailId(c.row.original.user_id)} className="flex items-center gap-2 text-left hover:text-indigo-600">
+      <button type="button" onClick={() => setDetailId(c.row.original.user_id)} className="flex items-center gap-2 text-left hover:text-zinc-600">
         <span className={cn('size-2 shrink-0 rounded-full', c.row.original.online ? 'bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-600')} title={c.row.original.online ? '在线' : '离线'} />
         <span className="min-w-0">
           <span className="block truncate font-medium text-[var(--foreground)]">{c.getValue() as string}</span>
@@ -137,7 +137,7 @@ export function UserAnalytics() {
     { id: 'top_modes', header: '常用功能', cell: (c) => (
       <div className="flex flex-wrap gap-1">
         {c.row.original.top_modes.slice(0, 3).map((m) => (
-          <span key={m.name} className="rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] text-indigo-600 dark:text-indigo-300">{MODE_LABEL[m.name] ?? m.name}</span>
+          <span key={m.name} className="rounded bg-zinc-500/10 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-400">{MODE_LABEL[m.name] ?? m.name}</span>
         ))}
       </div>
     ) },

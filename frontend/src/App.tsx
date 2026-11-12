@@ -26,6 +26,7 @@ const Login = lazy(() => import('./pages/Login').then((module) => ({ default: mo
 const Signup = lazy(() => import('./pages/Signup').then((module) => ({ default: module.Signup })));
 const Gallery = lazy(() => import('./pages/Gallery').then((module) => ({ default: module.GalleryPage })));
 const Wrapped = lazy(() => import('./pages/Wrapped').then((module) => ({ default: module.Wrapped })));
+const Feedback = lazy(() => import('./pages/Feedback').then((module) => ({ default: module.Feedback })));
 const AdminDashboard = lazy(() =>
   import('./pages/AdminDashboard').then((module) => ({ default: module.AdminDashboard })),
 );
@@ -89,6 +90,7 @@ const AnimatedRoutes = () => {
           <Route path="/gallery" element={<ProtectedRoute><ErrorBoundary key={`gallery-${location.pathname}`} title="作品库出错了"><Gallery /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/wrapped" element={<ProtectedRoute><ErrorBoundary key="wrapped" title="年度报告出错了"><Wrapped /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/wrapped/:year" element={<ProtectedRoute><ErrorBoundary key={`wrapped-${location.pathname}`} title="年度报告出错了"><Wrapped /></ErrorBoundary></ProtectedRoute>} />
+          <Route path="/feedback" element={<ProtectedRoute><ErrorBoundary key="feedback" title="反馈页出错了"><Feedback /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/app/:slug" element={<ErrorBoundary key={`public-agent-${location.pathname}`} title="应用页出错了"><PublicAgentChat /></ErrorBoundary>} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

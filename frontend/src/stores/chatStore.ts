@@ -103,6 +103,20 @@ interface ChatUIState {
   sessionPanel: SessionPanelId | null;
   setSessionPanel: (panel: SessionPanelId | null) => void;
 
+  // ── IDE 式侧栏标签 ──
+  /** 侧栏是否展开（与「有没有标签」解耦：空侧栏也能展开显示可打开列表） */
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
+  /** 当前打开的侧栏标签（点产物/文件即入栈，按会话隔离由调用方保证） */
+  sidebarTabs: import('../components/panel/IdeSidebar').SidebarTab[];
+  activeSidebarTabId: string | null;
+  /** 打开：已存在则激活，不存在则追加并激活 */
+  openSidebarTab: (tab: import('../components/panel/IdeSidebar').SidebarTab) => void;
+  closeSidebarTab: (id: string) => void;
+  setActiveSidebarTab: (id: string) => void;
+  /** 收起整条侧栏（清空标签） */
+  closeSidebar: () => void;
+
   // ── 组合 action ──
   createNewChat: () => void;
 }
@@ -158,6 +172,27 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   sessionPanel: null,
   setSessionPanel: (sessionPanel) => set({ sessionPanel }),
+
+  sidebarOpen: false,
+  setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+  sidebarTabs: [],
+  activeSidebarTabId: null,
+  openSidebarTab: (tab) =>
+    set((s) => ({
+      sidebarOpen: true,
+      sidebarTabs: s.sidebarTabs.some((t) => t.id === tab.id) ? s.sidebarTabs : [...s.sidebarTabs, tab],
+      activeSidebarTabId: tab.id,
+    })),
+  closeSidebarTab: (id) =>
+    set((s) => {
+      const next = s.sidebarTabs.filter((t) => t.id !== id);
+      return {
+        sidebarTabs: next,
+        activeSidebarTabId: s.activeSidebarTabId === id ? (next[next.length - 1]?.id ?? null) : s.activeSidebarTabId,
+      };
+    }),
+  setActiveSidebarTab: (activeSidebarTabId) => set({ activeSidebarTabId }),
+  closeSidebar: () => set({ sidebarOpen: false, sidebarTabs: [], activeSidebarTabId: null }),
 
   createNewChat: () =>
     set({

@@ -62,7 +62,7 @@ export function CreateKBDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>新建知识库</DialogTitle>
           <DialogDescription>创建组织级 / 团队级 / 个人级知识库</DialogDescription>

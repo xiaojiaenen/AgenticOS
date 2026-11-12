@@ -182,7 +182,7 @@ function CreateRoleDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>新建角色</DialogTitle>
           <DialogDescription>角色建好后，在「策略」里给它分配资源权限。</DialogDescription>

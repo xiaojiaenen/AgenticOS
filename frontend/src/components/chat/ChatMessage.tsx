@@ -240,8 +240,15 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
       isUser={isUser}
     >
       {/* layout 在内层：新增消息时既有消息的平滑位移由它承担，
-          入场动画由外层包装承担，两层职责分开互不干扰 */}
-      <motion.div layout="position">
+          入场动画由外层包装承担，两层职责分开互不干扰。
+          必须显式 flex —— 外层 flex-row 只作用于这一层的子元素，
+          若此处不设 display:flex，头像与内容列会退化成块级垂直堆叠
+          （表现为头像在气泡上方、文字竖排，实测踩过）。 */}
+      <motion.div layout="position" className={cn(
+        'flex w-full items-start',
+        wideLayout ? 'gap-8' : 'gap-4',
+        isUser ? 'flex-row-reverse' : 'flex-row',
+      )}>
       <motion.div whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
         title={isUser ? "你" : "AI 助手"}
         className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm z-10 transition-all",

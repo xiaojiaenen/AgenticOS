@@ -8,7 +8,6 @@ import { PendingApprovalPanel } from './PendingApprovalPanel';
 import { EmailPreviewPanel, EmailPreview } from './EmailPreviewPanel';
 import { DecisionPanel } from './DecisionPanel';
 import { ChatInput } from './ChatInput';
-import { MascotState } from '../ui/MascotState';
 import { MascotCompanion } from '../ui/MascotCompanion';
 import { AlertCircleIcon, ChevronDownIcon } from '../ui/AnimatedIcons';
 import { Globe, Presentation, Sparkles } from 'lucide-react';
@@ -280,6 +279,9 @@ const {
 
       {/* 消息区域 + 精灵叠加层 */}
       <div className="flex-1 relative overflow-hidden">
+        {/* 右上角：展开多标签侧栏（产物 / 文件 / 运行日志） */}
+        <SessionPanelTrigger sessionId={currentSessionId} messages={currentSession?.messages ?? []} />
+
         {/* 动态陪伴精灵 */}
         <AnimatePresence>
           {isLoading && runStatus.phase !== 'streaming' && (
@@ -482,10 +484,6 @@ const {
           )}
         </AnimatePresence>
 
-        {/* 会话级面板入口（运行日志 / 文件）：不属于任何产物，独立一组。
-            SessionPanelTrigger 内部在有产物时自行隐藏，互斥语义集中在一处。 */}
-        <SessionPanelTrigger />
-
         <div className={cn("mx-auto", isWideConversation ? "max-w-[92rem] px-8" : "max-w-4xl")}>
           <DecisionPanel decisions={pendingDecisions} onDecision={handleDecisionMade} />
           <EmailPreviewPanel
@@ -514,25 +512,6 @@ const {
             onPlanModeChange={setPlanMode}
             isAdmin={getStoredUser()?.role === 'admin'}
           />
-          <div className={cn("mt-3 flex min-h-9 items-center justify-center gap-2 text-xs font-medium", "text-[var(--muted-foreground)]")}>
-            {isLoading ? (
-              <MascotState
-                phase={
-                  runStatus.phase === 'generating_ppt' || runStatus.phase === 'rendering_ppt' ? 'thinking'
-                  : runStatus.phase === 'streaming' ? 'streaming'
-                  : runStatus.phase === 'error' ? 'error'
-                  : 'thinking'
-                }
-                size={22}
-                label={runStatus.label}
-              />
-            ) : (
-              <span>
-                <MascotState phase="idle" size={22} className="inline-flex" />
-                <span className="ml-1">AI 可能会犯错，请核实重要信息。</span>
-              </span>
-            )}
-          </div>
         </div>
       </div>
       </TooltipProvider>

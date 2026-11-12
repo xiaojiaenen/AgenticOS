@@ -2,9 +2,6 @@ import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowLeft, ChevronUp, Lock, MessageSquare, Plus, Search, Send } from 'lucide-react';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from '../shadcn/dialog';
 import { Button } from '../shadcn/button';
 import { Input } from '../shadcn/input';
 import { cn } from '../../lib/utils';
@@ -46,8 +43,8 @@ function VoteButton({ issue, onVoted }: { issue: FeedbackIssue; onVoted: () => v
       className={cn(
         'flex w-12 shrink-0 flex-col items-center gap-0.5 rounded-xl border py-2 transition-all active:scale-95',
         issue.my_vote
-          ? 'border-indigo-300 bg-indigo-50 text-indigo-600 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-300'
-          : 'border-[var(--border-subtle)] text-[var(--muted-foreground)] hover:border-indigo-300 hover:text-indigo-600 dark:hover:text-indigo-300',
+          ? 'border-zinc-400 bg-zinc-100 text-zinc-600 dark:border-zinc-500/40 dark:bg-zinc-500/15 dark:text-zinc-400'
+          : 'border-[var(--border-subtle)] text-[var(--muted-foreground)] hover:border-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-400',
       )}
     >
       <ChevronUp size={16} />
@@ -214,10 +211,10 @@ function DetailView({ id, onBack }: { id: number; onBack: () => void }) {
       <div className="flex flex-col gap-3 border-t border-[var(--border-subtle)] pt-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">讨论 · {comments.length}</p>
         {comments.map((c) => (
-          <div key={c.id} className={cn('rounded-xl border p-3', c.is_system ? 'border-dashed border-[var(--border-subtle)] bg-[var(--surface-2)]' : c.is_official ? 'border-indigo-200/70 bg-indigo-50/60 dark:border-indigo-500/30 dark:bg-indigo-500/10' : 'border-[var(--border-subtle)]')}>
+          <div key={c.id} className={cn('rounded-xl border p-3', c.is_system ? 'border-dashed border-[var(--border-subtle)] bg-[var(--surface-2)]' : c.is_official ? 'border-zinc-300/70 bg-zinc-100/60 dark:border-zinc-500/30 dark:bg-zinc-500/10' : 'border-[var(--border-subtle)]')}>
             <div className="mb-1 flex items-center gap-2 text-[11px] text-[var(--muted-foreground)]">
               <span className="font-semibold text-[var(--foreground)]">{c.is_system ? '系统' : c.author?.name ?? '匿名'}</span>
-              {c.is_official && <span className="rounded bg-indigo-600/15 px-1.5 py-0.5 font-semibold text-indigo-600 dark:text-indigo-300">官方</span>}
+              {c.is_official && <span className="rounded bg-zinc-600/15 px-1.5 py-0.5 font-semibold text-zinc-600 dark:text-zinc-400">官方</span>}
               <span>{formatApiDateTime(c.created_at)}</span>
             </div>
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--foreground)]">{c.body}</p>
@@ -255,7 +252,7 @@ function CreateView({ onDone, onCancel }: { onDone: (id: number) => void; onCanc
       <div className="grid grid-cols-4 gap-2">
         {(Object.keys(TYPE_META) as IssueType[]).map((t) => (
           <button key={t} type="button" onClick={() => setType(t)}
-            className={cn('flex flex-col items-center gap-1 rounded-xl border py-3 text-xs font-medium transition-all', type === t ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/15 dark:text-indigo-300' : 'border-[var(--border-subtle)] text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]')}>
+            className={cn('flex flex-col items-center gap-1 rounded-xl border py-3 text-xs font-medium transition-all', type === t ? 'border-zinc-400 bg-zinc-100 text-zinc-700 dark:border-zinc-500/40 dark:bg-zinc-500/15 dark:text-zinc-400' : 'border-[var(--border-subtle)] text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]')}>
             <span className="text-lg">{TYPE_META[t].emoji}</span>{TYPE_META[t].label}
           </button>
         ))}
@@ -282,26 +279,27 @@ function CreateView({ onDone, onCancel }: { onDone: (id: number) => void; onCanc
   );
 }
 
-export function FeedbackSquare({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+/**
+ * 反馈广场（页面形态，不再是模态框）。
+ *
+ * 迁移原因：模态框宽度受限、列表滚不动、详情挤在弹层里读不全。改成
+ * 独立页面 /feedback 后可以直接占满内容区，列表与详情并排也不挤。
+ * 内部三视图（列表 / 详情 / 新建）逻辑保持原样，只换外壳。
+ */
+export function FeedbackSquare({ embedded = false }: { embedded?: boolean }) {
   const [view, setView] = React.useState<View>({ kind: 'list' });
-  React.useEffect(() => { if (open) setView({ kind: 'list' }); }, [open]);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[88vh] max-w-2xl flex-col overflow-hidden p-0">
-        <DialogHeader className="border-b border-[var(--border-subtle)] px-5 py-4">
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <MessageSquare size={18} className="text-indigo-500" /> 反馈广场
-          </DialogTitle>
-          <DialogDescription className="text-xs">
-            公开透明的建议与缺陷追踪 · 投票推动优先级 · 每一步处理都看得见
-          </DialogDescription>
-        </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {view.kind === 'list' && <ListView onOpen={(id) => setView({ kind: 'detail', id })} onCreate={() => setView({ kind: 'create' })} />}
-          {view.kind === 'detail' && <DetailView id={view.id} onBack={() => setView({ kind: 'list' })} />}
-          {view.kind === 'create' && <CreateView onCancel={() => setView({ kind: 'list' })} onDone={(id) => setView({ kind: 'detail', id })} />}
-        </div>
-      </DialogContent>
-    </Dialog>
+    <div className={cn('flex h-full min-h-0 flex-col', embedded ? '' : 'mx-auto w-full max-w-4xl')}>
+      <div className="shrink-0 border-b border-[var(--border-subtle)] px-1 pb-3">
+        <h1 className="flex items-center gap-2 text-base font-semibold text-[var(--foreground)]">
+          <MessageSquare size={17} className="text-[var(--muted-foreground)]" /> 反馈广场
+        </h1>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto py-4">
+        {view.kind === 'list' && <ListView onOpen={(id) => setView({ kind: 'detail', id })} onCreate={() => setView({ kind: 'create' })} />}
+        {view.kind === 'detail' && <DetailView id={view.id} onBack={() => setView({ kind: 'list' })} />}
+        {view.kind === 'create' && <CreateView onCancel={() => setView({ kind: 'list' })} onDone={(id) => setView({ kind: 'detail', id })} />}
+      </div>
+    </div>
   );
 }

@@ -492,7 +492,7 @@ function PolicyEditorDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>新增{ptype === 'p' ? '权限策略' : '角色绑定'}</DialogTitle>
           <DialogDescription>
@@ -681,7 +681,7 @@ function UserRoleLookupDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>查看用户角色</DialogTitle>
           <DialogDescription>用于确认某个用户的授权是否按预期生效。</DialogDescription>
