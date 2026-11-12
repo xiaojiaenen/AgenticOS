@@ -47,6 +47,7 @@ from wuwei.plugin.builtin.skill import setup as setup_skill_plugin
 from wuwei.core.message import ToolCall, ToolMessage
 from wuwei.agent.async_sub_agent import AsyncSubAgent, AsyncSubAgentMiddleware
 
+from app.core.data_path import is_external_api_call
 from app.services.agent_profile_service import RuntimeAgentProfile
 from app.services.tool_config_service import TOOL_CATALOG
 from app.services.agent.wuwei_patches import BatchSafeMiddlewareProxy, PatchedAgent
@@ -55,6 +56,10 @@ if TYPE_CHECKING:
     from wuwei.middleware.budget import Budget
 
 _logger = logging.getLogger("agent")
+
+#: 企业 Cookie 型提供商（provider_type）。这类提供商走账号池，取号逻辑在
+#: ``credentials.acquire``。
+_ENTERPRISE_COOKIE = "enterprise_cookie"
 
 # 特殊工具名：用户拒绝时替换原工具调用，让 LLM 收到明确的拒绝消息
 _REJECTED_TOOL_NAME = "__tool_rejected__"
@@ -402,6 +407,27 @@ class AgentFactory:
         # 不把它算进缓存键的话，管理员改完「对话用哪个模型」后会一直复用
         # 旧 agent（界面上显示已改，实际没生效）。
         effective_model = resolve_model_for_role(provider, "chat")
+
+        # ── 企业网关：按轮换窗口让缓存失效，账号才会轮换 ──
+        #
+        # Cookie 是**构建时注入 client 的 default_headers**（runtime 的
+        # ``_build_cookie_adapter``），换号必须重建网关。而 agent 缓存是
+        # 1 小时的 TTLCache —— 不处理的话，同一个 agent 会被复用最久一小时，
+        # 账号池的「摊配额」逻辑等于失效（只有缓存未命中才 acquire），
+        # 审计列里的 credential_id 也与实际用的号脱节。
+        #
+        # 为什么用**轮换窗口**而不是「把 credential_id 放进缓存键」：
+        # acquire 挑的是最久未用的号，若每次请求都先 acquire 再查缓存，
+        # 拿到的号每次都不同 → 缓存永远 miss → agent 每次请求都重建
+        # （工具注册表、中间件栈全量重来，很贵）。
+        #
+        # 轮换窗口的做法：把「当前时间落在第几个窗口」放进缓存键。窗口内
+        # 复用同一个 agent（同一个号），跨窗口自动重建 → 重建时 acquire 会
+        # 挑到另一个号（上一个号的 last_used_at 刚被推进过）。既摊开了配额，
+        # 又不会每次请求都重建。
+        rotation_bucket: int | None = None
+        if provider.provider_type == _ENTERPRISE_COOKIE:
+            rotation_bucket = self._credential_rotation_bucket()
         # 工作流签名：启停/编辑工作流会改变工具集，必须进缓存键，
         # 否则管理员启用一个工作流后智能体手里永远没有对应工具。
         workflows_sig = self._workflows_signature()
@@ -434,6 +460,13 @@ class AgentFactory:
             provider.slug,
             effective_model,
             workflows_sig,
+            # 轮换窗口：跨窗口后缓存失效 → 重建 agent 时会借到另一个账号。
+            # API Key 型提供商没有账号池，这一项恒为 None。
+            rotation_bucket,
+            # 对外 API Key 调用与网页端对话必须分开缓存：前者强制走共享池，
+            # 后者优先用本人凭据。共用一个条目会让对外流量复用一个内嵌了
+            # 个人 cookie 的 agent（或者反过来）。
+            is_external_api_call(),
         )
         cached = self._agents.get(cache_key)
         if cached is not None:
@@ -476,6 +509,26 @@ class AgentFactory:
         )
         self._agents[cache_key] = agent
         return agent
+
+    def _credential_rotation_bucket(self) -> int:
+        """账号池轮换窗口的编号。
+
+        返回「当前时间落在第几个窗口」。把这个值放进 Agent 缓存键，
+        跨窗口后缓存自动失效 → 重建 Agent 时会借到另一个账号 → 配额被
+        摊到多个号上，而不是所有流量压在一个号上。
+
+        窗口长度取 ``LLM_CREDENTIAL_ROTATION_SECONDS``（默认 5 分钟）。
+        设为 0 或负数表示不轮换（缓存一直复用同一个号）。
+        """
+        try:
+            window = int(getattr(self.settings, "llm_credential_rotation_seconds", 300))
+        except (AttributeError, TypeError, ValueError):
+            window = 300
+        if window <= 0:
+            return 0
+        import time as _time
+
+        return int(_time.time() // window)
 
     def _workflows_signature(self) -> str:
         """已启用工作流签名（缓存键组成部分）；查询失败按无工作流处理。"""

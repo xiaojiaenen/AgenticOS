@@ -19,6 +19,19 @@ ENDPOINTS_REQUIRING_USER_CONTEXT = [
     "login_provider",
 ]
 
+#: 对外网关端点：既要设用户上下文，也要标记为「对外调用」。
+#:
+#: 对外调用**无条件走共享账号池**（外部流量不该打在个人号上），所以这个
+#: 标记漏了会静默走成「优先本人凭据」—— 外部流量就打到个人号上了，而且
+#: 没有任何报错。所以必须像 set_current_user_id 一样逐个端点断言。
+EXTERNAL_GATEWAY_ENDPOINTS = [
+    ("app.api.gateway_v1", "chat_completions"),
+    ("app.api.gateway_multi", "anthropic_messages"),
+    ("app.api.gateway_multi", "openai_responses"),
+    ("app.api.gateway_multi", "embeddings"),
+    ("app.api.gateway_multi", "images_generations"),
+]
+
 
 @pytest.mark.parametrize("func_name", ENDPOINTS_REQUIRING_USER_CONTEXT)
 def test_endpoint_sets_current_user_id(func_name):
@@ -35,9 +48,33 @@ def test_endpoint_sets_current_user_id(func_name):
     )
 
 
+@pytest.mark.parametrize("module_name,func_name", EXTERNAL_GATEWAY_ENDPOINTS)
+def test_external_gateway_endpoint_sets_user_and_external_context(
+    module_name, func_name
+):
+    """对外端点必须同时设用户上下文与「对外调用」标记。
+
+    漏了用户上下文 → 取号退到匿名分支；
+    漏了对外标记 → 会优先用本人绑定凭据，外部流量打到个人号上。
+    """
+    import importlib
+
+    module = importlib.import_module(module_name)
+    func = getattr(module, func_name, None)
+    assert func is not None, f"端点 {module_name}.{func_name} 不存在"
+
+    source = inspect.getsource(func)
+    assert "set_current_user_id(user.id)" in source, (
+        f"{func_name} 缺少 set_current_user_id(user.id)"
+    )
+    assert "set_external_api_call(True)" in source, (
+        f"{func_name} 缺少 set_external_api_call(True)："
+        f"对外调用会走成「优先本人绑定凭据」，外部流量就打到个人号上了"
+    )
+
+
 def test_acquire_returns_none_without_user_context():
     """没有用户上下文时，绑定到具体用户的凭据取不到 —— 这是故障的机制。"""
-    from app.core.timezone import app_now
     from app.db.models import LlmProviderCredentialModel, LlmProviderModel
     from app.db.session import create_db_session
     from app.services.llm_providers import credentials as creds

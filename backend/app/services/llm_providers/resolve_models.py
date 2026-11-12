@@ -38,6 +38,8 @@ class EmbeddingEndpoint:
     dimensions: int
     source: str  # local / provider:<slug> / env
     cookie: str = ""  # cookie 型提供商的登录态，调用方用 Cookie 头认证
+    #: 实际借出的凭据行 id（审计用）。只在 acquire 模式下有值。
+    credential_id: int | None = None
 
     def describe(self) -> dict[str, Any]:
         """不含密钥的描述，可安全返回前端。"""
@@ -130,11 +132,32 @@ def resolve_embedding_endpoint(db: Session | None = None) -> EmbeddingEndpoint |
     )
 
 
-def resolve_image_endpoint(db: Session | None = None) -> EmbeddingEndpoint | None:
+#: 生图端点的 Cookie 取号方式。
+#:
+#: - ``acquire``：借一个账号（推进 last_used_at、拿到 credential_id 可写审计、
+#:   对外调用时强制走共享池）。对外 API Key 接口用这个 —— 外部流量应该摊在
+#:   共享号上，而不是占用某个人的个人号。
+#: - ``readonly``：只读地取一个可用 Cookie，**没有副作用**（不推进
+#:   last_used_at、不写审计）。给"只读配置"的场景用（比如 ``/v1/models``
+#:   列举可用图片模型时 —— 那儿根本不该借号）。
+#: - ``tool``：智能体生图工具用。保持历史语义（readonly），网页端对话的
+#:   取号逻辑不在生图这一步发生。
+COOKIE_MODE_ACQUIRE = "acquire"
+COOKIE_MODE_READONLY = "readonly"
+COOKIE_MODE_TOOL = "tool"
+
+
+def resolve_image_endpoint(
+    db: Session | None = None,
+    *,
+    cookie_mode: str = COOKIE_MODE_READONLY,
+) -> EmbeddingEndpoint | None:
     """解析生图端点（结构复用，语义不同）。
 
     生图没有「维度」概念，``dimensions`` 恒为 0。返回 None 表示未配置 ——
     调用方据此提示「请先在 AI 提供商页面绑定生图模型」，而不是抛错。
+
+    ``cookie_mode`` 决定 Cookie 型提供商的取号方式，见上面的常量说明。
     """
     from app.services.llm_providers.presets import ROLE_IMAGE
 
@@ -162,9 +185,18 @@ def resolve_image_endpoint(db: Session | None = None) -> EmbeddingEndpoint | Non
             if not model_name:
                 continue
             cookie = ""
+            credential_id: int | None = None
             if resolved.provider_type == "enterprise_cookie":
-                from app.services.llm_providers.credentials import get_active_cookie
-                cookie = get_active_cookie(resolved.provider_id) or ""
+                if cookie_mode == COOKIE_MODE_ACQUIRE:
+                    from app.services.llm_providers.credentials import acquire
+
+                    lease = acquire(resolved.provider_id)
+                    cookie = (lease.cookie if lease else "") or ""
+                    credential_id = lease.credential_id if lease else None
+                else:
+                    from app.services.llm_providers.credentials import get_active_cookie
+
+                    cookie = get_active_cookie(resolved.provider_id) or ""
             return EmbeddingEndpoint(
                 base_url=(resolved.base_url or "").rstrip("/"),
                 api_key=resolved.api_key or "",
@@ -172,6 +204,7 @@ def resolve_image_endpoint(db: Session | None = None) -> EmbeddingEndpoint | Non
                 dimensions=0,
                 source=f"provider:{resolved.slug}",
                 cookie=cookie,
+                credential_id=credential_id,
             )
     except Exception:  # noqa: BLE001
         logger.warning("解析生图端点失败", exc_info=True)

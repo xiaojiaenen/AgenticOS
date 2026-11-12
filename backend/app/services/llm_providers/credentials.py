@@ -340,6 +340,21 @@ def _current_bound_user() -> int | None:
         return None
 
 
+def is_external_api_call() -> bool:
+    """本次调用是否来自对外 API Key 网关（外部 AI 客户端）。
+
+    对外调用**无条件走共享池**，即使 API Key 所属用户自己绑定了企业网关
+    凭据 —— 外部流量不该打在个人号上。归属（用量、额度、聊天记录）仍然
+    记 API Key 所属用户。
+    """
+    try:
+        from app.core.data_path import is_external_api_call as _is_external
+
+        return bool(_is_external())
+    except Exception:  # noqa: BLE001 —— 判断失败按「不是对外调用」处理
+        return False
+
+
 def _login_grace_seconds() -> int:
     """登录后允许多久「借用共享池」等本人 Cookie 就绪。"""
     try:
@@ -409,6 +424,12 @@ def acquire(provider_id: int) -> AccountLease | None:
 
     选号偏好（LDAP 账号 == 企业网关账号的部署形态）：
 
+    0. **对外 API Key 调用**（``is_external_api_call()``）→ **无条件走共享池**，
+       跳过本人绑定行的查询。外部客户端是程序化批量调用，摊配额、避开个人
+       账号限流才是刚需；且调用方是 API Key 所属用户，他恰好绑定了自己的
+       企业网关凭据也不该被优先使用 —— 那会让外部流量打在个人号上。
+       归属不变：用量、额度、聊天记录仍记 API Key 所属用户，见
+       ``usage_recorder``。
     1. 当前用户**自己绑定**的凭据（user_id 匹配）—— 审计上上游看到的
        身份就是本人；
     2. 共享池（user_id 为空）—— 传统系统级账号。
@@ -421,6 +442,11 @@ def acquire(provider_id: int) -> AccountLease | None:
         return None
     now = app_now()
     bound_user = _current_bound_user()
+    # 对外 API Key 调用：跳过「本人绑定」这一层，直接取共享池。
+    # 放在最前面 —— 否则调用方恰好绑定了自己的凭据时会被优先使用。
+    external = is_external_api_call()
+    if external:
+        bound_user = None
     try:
         with create_db_session() as db:
             base_filters = [

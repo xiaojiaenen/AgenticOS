@@ -88,6 +88,20 @@ _current_website_dir: contextvars.ContextVar[str] = contextvars.ContextVar(
     "data_path_website_dir", default="",
 )
 
+#: 本次调用来自**对外 API Key 网关**（外部 AI 客户端用 sk-agenticos-* 调用）。
+#:
+#: 为什么需要单独一个标记而不是复用 ``_current_user_id``：对外接口的调用方
+#: 是有 user_id 的（API Key 所属用户），现有取号逻辑正是靠它区分「本人绑定
+#: 凭据」与「共享池」。但对外接口的语义是**无条件走共享池** —— 即使该用户
+#: 自己绑定了企业网关凭据也不例外 —— 所以必须有一个与 user_id 正交的维度。
+#:
+#: 为什么用 contextvar 而不是参数透传：``credentials.acquire()`` 的调用点
+#: 深埋在网关构建链里，而且 agent 缓存命中时连构建路径都不经过，参数传不
+#: 到「取号那一刻」。contextvar 是唯一能在取号时仍知道调用来源的位置。
+_external_api_call: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "data_path_external_api_call", default=False,
+)
+
 # Session-level cache: maps session_id -> website_dir absolute path.
 # Survives across requests within the same server process.
 _website_dir_cache: dict[str, str] = {}
@@ -108,6 +122,19 @@ def set_current_website_dir(dir_path: str) -> None:
     sid = _current_session_id.get()
     if sid and dir_path:
         _website_dir_cache[sid] = dir_path
+
+
+def set_external_api_call(flag: bool = True) -> None:
+    """标记本次调用来自对外 API Key 网关。
+
+    只在对外端点入口调用一次，不要在内部分支里重复设置。
+    """
+    _external_api_call.set(flag)
+
+
+def is_external_api_call() -> bool:
+    """本次调用是否来自对外 API Key 网关（外部 AI 客户端）。"""
+    return _external_api_call.get()
 
 
 def restore_website_dir_for_session(session_id: str) -> None:

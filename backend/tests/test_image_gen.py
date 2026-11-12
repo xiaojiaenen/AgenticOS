@@ -33,7 +33,7 @@ async def test_unconfigured_gives_actionable_hint(monkeypatch) -> None:
     tool = next(t for t in registry.list_tools() if t.name == "generate_image")
 
     # 强制解析返回 None（模拟未配置）
-    monkeypatch.setattr(resolve_models, "resolve_image_endpoint", lambda db=None: None)
+    monkeypatch.setattr(resolve_models, "resolve_image_endpoint", lambda db=None, **kwargs: None)
 
     result = await tool.handler(prompt="一只猫")
     assert "还没有配置生图模型" in result
@@ -57,7 +57,7 @@ async def test_missing_api_key_is_reported(monkeypatch) -> None:
         base_url="https://x.test/v1", api_key="", model="dall-e-3",
         dimensions=0, source="provider:openai",
     )
-    monkeypatch.setattr(resolve_models, "resolve_image_endpoint", lambda db=None: fake)
+    monkeypatch.setattr(resolve_models, "resolve_image_endpoint", lambda db=None, **kwargs: fake)
 
     result = await tool.handler(prompt="一只猫")
     assert "缺少 API Key" in result
@@ -80,7 +80,7 @@ async def test_404_explains_endpoint_mismatch(monkeypatch, tmp_path) -> None:
         base_url="https://gw.test/v1", api_key="sk-x", model="m",
         dimensions=0, source="provider:gw",
     )
-    monkeypatch.setattr(resolve_models, "resolve_image_endpoint", lambda db=None: fake)
+    monkeypatch.setattr(resolve_models, "resolve_image_endpoint", lambda db=None, **kwargs: fake)
     # 注入工作区（真实调用时有会话上下文，测试里直接给一个目录）
     monkeypatch.setattr(gen_mod, "current_workspace_dir", lambda create=False: tmp_path)
 
@@ -116,7 +116,7 @@ async def test_no_workspace_gives_clear_message(monkeypatch) -> None:
         base_url="https://gw.test/v1", api_key="sk-x", model="m",
         dimensions=0, source="provider:gw",
     )
-    monkeypatch.setattr(resolve_models, "resolve_image_endpoint", lambda db=None: fake)
+    monkeypatch.setattr(resolve_models, "resolve_image_endpoint", lambda db=None, **kwargs: fake)
     monkeypatch.setattr(gen_mod, "current_workspace_dir", lambda create=False: None)
 
     result = await tool.handler(prompt="一只猫")

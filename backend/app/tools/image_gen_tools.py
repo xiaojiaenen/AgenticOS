@@ -62,14 +62,19 @@ def register_image_gen_tools(registry: ToolRegistry) -> None:
           生成结果，含文件相对路径；失败时给出可执行的修正建议
         """
         from app.db.session import create_db_session
-        from app.services.llm_providers.resolve_models import resolve_image_endpoint
+        from app.services.llm_providers.resolve_models import (
+            COOKIE_MODE_TOOL,
+            resolve_image_endpoint,
+        )
 
         if not (prompt or "").strip():
             return "prompt 不能为空。请描述要生成的图片内容。"
 
         try:
             with create_db_session() as db:
-                endpoint = resolve_image_endpoint(db)
+                # 智能体生图工具：保持历史语义（只读取号，不推进
+                # last_used_at、不写审计）—— 网页端对话的取号不在这发生
+                endpoint = resolve_image_endpoint(db, cookie_mode=COOKIE_MODE_TOOL)
         except Exception as exc:  # noqa: BLE001
             logger.warning("解析生图端点失败", exc_info=True)
             return f"读取生图配置失败：{exc}"
