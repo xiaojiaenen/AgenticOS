@@ -359,12 +359,19 @@ class DatabaseAgentStorage:
 
                 metadata = _restore_session_metadata(_loads(row.metadata_json, {}))
 
+                # wuwei 3.4.1 起 AgentSession 不再有 summary 字段（dataclass
+                # 里删了），直接传参会 TypeError 让整个会话加载失败。
+                # 摘要属于本项目自己的会话元数据，改存进 metadata 保留，
+                # 前端从 metadata.summary 读取（见 describe / convert 路径）。
+                metadata.setdefault("summary", None)
+                if row.summary:
+                    metadata["summary"] = row.summary
+
                 session = AgentSession(
                     session_id=row.session_id,
                     system_prompt=row.system_prompt,
                     max_steps=row.max_steps,
                     parallel_tool_calls=row.parallel_tool_calls,
-                    summary=row.summary,
                     metadata=metadata,
                 )
                 if row.user_id is not None:
