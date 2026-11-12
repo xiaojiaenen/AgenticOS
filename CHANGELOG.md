@@ -10,6 +10,78 @@
 
 ## [Unreleased]
 
+### Refactor — 聊天状态层迁入 zustand + wuwei 3.4.1（2026-11-12）
+
+- **R3-2 状态层收敛**：会话数据（`sessions` / `currentSessionId` /
+  `visibleSessionsCount`）与流式状态（`runStatus` / `pendingDecisions` /
+  `streamError`）从 useChatSessions / useChatStream 的 useState 迁入
+  `stores/chatStore.ts`。store 的 setter 保持 React
+  `Dispatch<SetStateAction<T>>` 契约，两个 hook 内部逻辑（含 1119 行的
+  rAF 批处理）零改动。`ChatContext` 从 41 字段瘦身到纯动作 + refs +
+  派生标志（唯一消费方 ChatMainArea 的数据读取改为逐字段 selector）。
+  同时修复 `useChatStore()` 无参调用（Chat.tsx / ChatMainArea）导致的
+  **每个按键都整页重渲染**。验证：tsc / vitest 165 / build + 浏览器真实
+  冒烟（登录 → 发消息 → 流式渲染 → 刷新恢复原会话）。
+- **wuwei 3.3.3 → 3.4.1**：上游 `_as_llm_error` 升级为 classmethod 并新增
+  `provider` 位置参数 —— `RetryingGateway` 覆写已对齐（升级实测 TypeError）。
+  R-6 / R-8 已被上游修复（本项目补丁成为空转安全网，按纪律保留）；
+  R-7 未修（`BatchSafeMiddlewareProxy` 仍必要）。详见
+  `docs/upstream/wuwei-3.0.2-问题清单.md` 的 3.4.1 状态表。
+- **构建修复**：根 `.gitignore` 从 GBK/混合编码转 UTF-8 —— hatchling 会把
+  所有 `.gitignore` 按 UTF-8 读取，此前 `uv sync` / `uv run` 长期因此失败
+  （AGENTS.md 里的变通说明已删除）；删除非 UTF-8 的 `backend/uvicorn.err.log`。
+
+### Refactor — 统一「等人」协调器 + stream_chat 拆分 + artifact 挂载统一（2026-11-12）
+
+三批结构重构，行为兼容（后端 1251 passed / 前端 165 passed / build + lint 全绿）：
+
+- **`app/services/interactions.py`（新增）**：`InteractionBroker` —— 外部 API 审批、
+  缺参表单、决策问答三类「等人」交互的统一协调器（per-session 订阅队列 +
+  per-interaction Future + Redis pub/sub 跨 worker + 统一超时 + 流结束清理）。
+  此前三类各持一份模块级 Future dict：API 审批与表单**没有超时**（用户不响应
+  工具永远挂着）、多 worker 部署下 resolve 静默失效、清理纪律各不相同。
+  工具审批（ApprovalManager）有 DB 审计与参数改写语义，保持独立不经此层。
+- **`coordinators.py` / `decision_tools.py` / `ppt_tools.py`** 改为委托协调器；
+  `resolve` 端点契约不变（wire 兼容，前端零改动）。行为增强：API 审批超时按
+  拒绝处理、表单超时抛结构化错误（模型可据此说明）、决策/PPT 计划确认支持
+  跨 worker 回传。
+- **orchestrator 事件泵 4 路 → 3 路**：user_input / api_approval / decision
+  共用一条 tagged-event 队列，删除决策轮询（每循环 get_decision_queue）。
+- **stream_chat 拆分**（810 → 574 行）：ppt-done / 通用 done / error 收尾
+  抽为 `_handle_ppt_done` / `_handle_done_event` / `_note_error_usage`，
+  共享可变状态收敛为 `_RunState`；website / document / sheet 三段近乎相同
+  的 create+snapshot+yield 合并为 `_finalize_artifact`。
+- **前端 artifact 挂载统一**（新增 `lib/artifactSnapshots.ts`）：payload →
+  消息快照的映射此前在 useChatStream（流式）与 useChatSessions（回源）各写
+  一份，是「实时空白、刷新正常」类漂移 bug 的温床。website 的 previewUrl
+  TTL 纪律（流式不落、回源现签）在构建器签名上显式化。
+- **测试卫生**：conftest 注入 `REDIS_URL=""` —— 此前测试进程读到 .env 的
+  真实 Redis，异步客户端连接绑定首个事件循环，全量跑时跨循环 PUBLISH
+  随机 5s 超时背锅（与 DB 隔离同一哲学）。新增 `tests/test_interactions.py`
+  （12 用例）与 `lib/__tests__/artifactSnapshots.test.ts`。
+
+### Chore — 死代码清理与仓库卫生（2026-11-12）
+
+全仓审计后的纯减法清理，行为无变化（后端 1240 passed / 前端 150 passed / build + lint 全绿）：
+
+- **删除孤儿模块**：`services/design_system.py`（连同 `/agent/design-systems` 两个端点，
+  前端 0 调用，真实主题链路走 `theme_token_resolver`）、
+  `services/multi_agent_graph_service.py`（0 引用，连带其 example）。
+- **删除废弃实现**：`AuthRateLimitModel` 表模型（早已被 `rate_limiter.py` 取代）、
+  `cache_service` 的限流方法区（0 调用方）。
+- **删除死产物管线**：`ppt_tailwind_compiled.css` / `ppt_tailwind_content.html` /
+  `ppt_tailwind_input.css` / `build:ppt-css` 脚本 —— 旧 Tailwind-PPT 模板系统的最后残留，
+  SVG 管线取代后无任何消费方。
+- **前端**：删 `dropdown-menu.tsx`（0 引用）、死依赖 `ai`、`@halobiron/dom-to-pptx`
+  （连带 `/vendor/dom-to-pptx.js` 与其类型声明）、生产路径 3 处 `[probe]` console.log。
+  `rxjs`（Univer 隐式依赖）、`cmdk`（combobox 依赖）、`@ai-sdk/openai-compatible`
+  （e2e.config.ts）经核实仍在使用，**保留**。
+- **仓库卫生**：清掉根目录 tmp_*.py、backend/g*.txt、uvicorn 日志、截图产物、
+  含明文密码的截图脚本；`.gitignore` 补 `*.tsbuildinfo` / `.tmp-shot-*` / 前端根截图。
+- **文档校正**：AGENTS.md 与实现对齐（agent/ 包结构、SVG 管线、SSE 16 种事件、
+  路由表、alembic 双段式、测试 114 文件）；`docs/issues/wuwei-system-message-duplicate.md`
+  加"已修复"状态头；业务领域分析笔记加 2026-11 校准节。
+
 ### Security — 工作流接入功能级授权 + 权限审计（2026-11-05）
 
 对近期新增能力做了一次权限审计，发现工作流**完全没有接入授权体系**：

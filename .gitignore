@@ -160,7 +160,7 @@ backend/.venv-loadtest/
 offline-packages/
 
 # 本地探针/桥接工具（未纳入仓库范围）
-tools/
+/tools/
 backend/*.txt
 
 # tsc incremental build artifact

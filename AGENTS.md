@@ -35,7 +35,7 @@ The Vite dev server proxies `/api` to `VITE_API_PROXY_TARGET` (default `http://1
 
 ## Architecture
 
-### Backend (FastAPI + wuwei >=3.0.2)
+### Backend (FastAPI + wuwei >=3.4.1)
 
 ```
 backend/
@@ -71,30 +71,50 @@ backend/
     tools/
       email_tools.py               # IMAP/SMTP email tools
     services/
-      agent_service.py             # core orchestrator — creates wuwei Agent, manages SSE streaming,
-                                   #   approval integration, usage recording, PPT artifact extraction,
-                                   #   LenientHitlMiddleware, ThinkingHistoryCompatibilityMiddleware,
-                                   #   SkillInstructionMiddleware, AsyncSubAgentMiddleware
-                                   #   （并发工具执行自 wuwei 3.2.1 起为上游原生能力，不再 monkey-patch）
-      multi_agent_graph_service.py # MultiAgentGraph leader-worker parallel orchestration
+      agent/                       # core orchestrator package (agent_service.py is a 58-line
+                                   #   facade re-exporting this package; keep new code here)
+        service.py                 # AgentService = AgentFactory + StreamOrchestrator + ArtifactFactory (mixins)
+        orchestrator.py            # StreamOrchestrator — SSE event mapping, event pump
+                                   #   (approval / user-input / api-approval / decision queues),
+                                   #   usage recording, session persistence, keepalive
+        factory.py                 # AgentFactory — middleware stack (9 layers), tool registration,
+                                   #   LenientHitlMiddleware / ThinkingHistoryCompatibilityMiddleware /
+                                   #   SkillInstructionMiddleware / AsyncSubAgentMiddleware assembly
+        wuwei_patches.py           # boundary patches for wuwei residual defects (docs/upstream/
+                                   #   wuwei-3.0.2-问题清单.md R-list) — minimal-override discipline,
+                                   #   degrade-safe, regression-tested in test_wuwei_patches.py
+        artifacts.py, compression.py, prompts.py
       agent_profile_service.py     # profile CRUD, built-in default profiles, runtime resolution
       skill_service.py             # skill CRUD, zip upload, filesystem management
-      approval_manager.py          # HITL approval workflow with futures and subscriber broadcast
+      approval_manager.py          # HITL approval workflow (Redis pending + subscriber broadcast,
+                                   #   persisted to agent_approvals; restart-survivable)
+      interactions.py              # InteractionBroker — unified "wait-for-human" coordinator for
+                                   #   the three light kinds (api_approval / user_input / decision):
+                                   #   session queue + per-interaction futures + Redis pub/sub
+                                   #   (multi-worker safe) + unified timeout + stream-end cleanup.
+                                   #   Tool approval does NOT go through it (ApprovalManager keeps
+                                   #   DB audit + modified_arguments). coordinators.py / decision_tools
+                                   #   are thin facades over this broker; SSE event names unchanged.
+      redis_relay.py               # shared Redis pub/sub → asyncio.Queue forwarding helpers
+                                   #   (used by both ApprovalManager and InteractionBroker)
       tool_config_service.py       # tool catalog with per-mode defaults, sub-tool approval
       session_storage.py           # DB-backed wuwei storage (sessions, messages)
-      ppt_artifact_service.py      # parses pptdeck code blocks, delegates to ppt/ templates for HTML
-      ppt/                         # PPT multi-template system
-        base_template.py           # BaseTemplate class with Tailwind HTML rendering
-        registry.py                # template registry with alias support, 10 allowed slide types
-        templates/                 # 5 visual styles: executive, product, minimal, creative, academic
+      ppt_artifact_service.py      # assembles the SVG deck artifact from save_slide /
+                                   #   save_slides_batch tool outputs (XML sanitize, finalize hook)
+      ppt/                         # PPT SVG pipeline: svg_layouts / svg_quality_checker(+checkers/)
+                                   #   svg_position_calculator / theme_token_resolver (brand design
+                                   #   themes from data/design-systems) / svg_finalize / svg_to_pptx
+                                   #   (native .pptx export) / pptx_to_svg / template_import /
+                                   #   svg_editor / image_backends / anti_slop_checker / design_craft
+      ppt_pipeline.py              # alternative StateGraph-orchestrated PPT flow
       auth_service.py              # registration, login, session management, rate limiting
-      cache_service.py             # Redis-backed cache with history loading from DB
+      rate_limiter.py              # Redis fixed-window rate limiting (auth + agent stream)
+      cache_service.py             # Redis-backed cache (input suggestions, presence, approval queues)
       memory_service.py            # agent memory management
       multi_agent_ppt_service.py   # multi-agent PPT generation
-      external_system_service.py   # external system integrations
+      external_system_service.py   # external system integrations (+ external_systems/ coordinators)
       website_deploy_service.py    # website deployment
       announcement_service.py      # announcement CRUD
-      design_system.py             # design system utilities
       workflow/                    # workflow engine v1 (P0-3): node graph DSL + runner
         engine.py                  # pure computation: graph validation, scheduler,
                                    #   {{inputs.x}} / {{nodes.<id>.output}} variable
@@ -106,47 +126,45 @@ backend/
                                    #   source of truth; resume survives restart)
     prompts.py                     # system prompts for agent modes
   examples/
-    run_all_examples.py            # combined test for all 3 wuwei features
+    run_all_examples.py            # combined test for 2 wuwei features
     test_async_sub_agent.py        # AsyncSubAgent background tasks
-    test_multi_agent_graph.py      # MultiAgentGraph leader-worker
     test_concurrent_tools.py       # concurrent tool execution
 ```
 
-The wuwei framework (>=3.0.2) provides `Agent`, `LLMGateway`, `ToolRegistry`, `SkillManager`, and a middleware stack (`HitlMiddleware`, `ContextCompressionMiddleware`, `LoggingMiddleware`, `TracingMiddleware`). The backend wraps these with FastAPI endpoints, custom middlewares, and database persistence.
+The wuwei framework (>=3.4.1) provides `Agent`, `LLMGateway`, `ToolRegistry`, `SkillManager`, and a middleware stack (`HitlMiddleware`, `ContextCompressionMiddleware`, `LoggingMiddleware`, `TracingMiddleware`). The backend wraps these with FastAPI endpoints, custom middlewares, and database persistence. Where wuwei still has residual defects, `services/agent/wuwei_patches.py` and `services/llm_providers/adapter.py` apply boundary patches (never edit `site-packages`); the full defect ledger and patch status live in `docs/upstream/wuwei-3.0.2-问题清单.md`.
 
 ### Agent modes & middleware
 
 | Mode | Default tools | Behavior summary |
 |------|--------------|-----------------|
 | `general` | calc, time, file (approval required) | Daily Q&A, lightweight tool use |
-| `ppt` | calc only | Structured presentation generation via `pptdeck` code blocks, 5 visual themes, 10 slide types |
+| `ppt` | SVG slide tools (`save_slide` / `save_slides_batch`, quality & theme tools) | Structured presentation generation — agent writes SVG slides, backend pipeline exports native .pptx |
 | `website` | calc, time, file, npm | Web/frontend development mode |
+| `office` | Univer document/sheet tools | Office document & spreadsheet editing (Univer integration) |
 | `email` | calc, time, skill | Email management via IMAP/SMTP |
 
-Custom middlewares in agent_service.py:
-- `LenientHitlMiddleware` — extends wuwei's HitlMiddleware with lenient approval logic
+Custom middlewares in `services/agent/factory.py`:
+- `LenientHitlMiddleware` — session-level three-tier approval (`ask`/`auto`/`full`), lenient rejection (rejection becomes a message the LLM can react to, not an exception)
 - `ThinkingHistoryCompatibilityMiddleware` — filters synthetic assistant replies for provider thinking-mode
 - `SkillInstructionMiddleware` — injects skill instructions into agent context
 - `AsyncSubAgentMiddleware` — enables background async sub-agent tasks (code_analyst, file_processor)
 
-Concurrent tool execution: since the wuwei 3.2.1 upgrade, batching is upstream-native — `ToolExecutor.execute(concurrent=True)` runs tools with `is_concurrency_safe=True` concurrently and keeps unsafe tools sequential. There is no `AgentRunner.stream_events` monkey-patch anymore (the 230-line patch was removed; the test suite asserts `AgentRunner.stream_events.__module__` is upstream). Still transparent to frontend SSE events, and gated by `AGENT_PARALLEL_TOOL_CALLS`.
-
-### Multi-Agent Graph
-
-`multi_agent_graph_service.py` wraps wuwei's `MultiAgentGraph` for leader-worker parallel orchestration. Leader decomposes tasks, workers (researcher/writer/reviewer) execute in parallel via `asyncio.gather`, leader synthesizes results. Available via `get_multi_agent_graph_service().run(task)`.
+Concurrent tool execution: batching is upstream-native — `ToolExecutor.execute(concurrent=True)` runs tools with `is_concurrency_safe=True` concurrently and keeps unsafe tools sequential. Because upstream silently disables batching whenever any `before_tool`/`after_tool` hook exists (R-7), the stack wraps the executor in `BoundedToolExecutor` + `BatchSafeMiddlewareProxy` (`wuwei_patches.py`) so approval hooks coexist with concurrency: bounded by a semaphore, write-like tools forced serial, repeated identical tool calls detected. Still transparent to frontend SSE events, and gated by `AGENT_PARALLEL_TOOL_CALLS`.
 
 ### Async Sub-Agents
 
-`AsyncSubAgentMiddleware` in agent_service.py injects 4 tools: `start_async_task`, `check_async_task`, `cancel_async_task`, `list_async_tasks`. Two built-in sub-agents: `code_analyst` (Python/calc/git) and `file_processor` (file read/write/search). Controlled by `ASYNC_SUB_AGENTS_ENABLED` env var.
+`AsyncSubAgentMiddleware` in `services/agent/factory.py` injects 4 tools: `start_async_task`, `check_async_task`, `cancel_async_task`, `list_async_tasks`. Two built-in sub-agents: `code_analyst` (Python/calc/git) and `file_processor` (file read/write/search). Controlled by `ASYNC_SUB_AGENTS_ENABLED` env var.
 
-### PPT multi-template system
+### PPT SVG pipeline
 
-PPT generation lives in `services/ppt/` with a template registry pattern:
+PPT generation is SVG-first — the agent writes slides as SVG, the backend converts to native .pptx:
 
-- **`registry.py`**: Decorator-based `@register("name")` pattern with alias support. `get_or_default(name)` falls back to `executive`.
-- **`base_template.py`**: `BaseTemplate` abstract class — each template defines CSS variables, slide type renderers, and a `render_html()` method using Tailwind utility classes.
-- **5 templates**: `executive` (corporate), `product` (gradient + glassmorphism), `minimal` (magazine), `creative` (colorful blocks), `academic` (grid + breadcrumbs).
-- **10 slide types**: `cover`, `section`, `bullets`, `stats`, `chart`, `comparison`, `timeline`, `quote`, `imageText`, `closing`.
+- **Agent side** (`prompts.py` PPT_SYSTEM_PROMPT + `tools/ppt_tools.py`): the model must call `save_slide` / `save_slides_batch` (never emit SVG in chat). SVG uses `viewBox="0 0 1280 720"`, colors only via `var(--token)` referencing an injected brand design theme; forbidden constructs: `<style>`, `<foreignObject>`, `<mask>`, `<animate>`, `class`, `rgba()`.
+- **Themes**: `services/ppt/theme_token_resolver.py` maps theme names (apple, github, stripe, government_blue…) to CSS token sets generated from `data/design-systems/`; frontend fetches the list via `GET /api/v1/agent/ppt/themes`.
+- **Backend pipeline** (`services/ppt/`): XML sanitizing (`ppt_artifact_service.py`) → `svg_finalize` (image embed/crop/repair, `image_backends/` + `image_search.py`) → `svg_quality_checker` + `checkers/` + `anti_slop_checker` / `design_craft` (layout diversity, anti-uniformity rules) → `svg_to_pptx/` (DrawingML conversion, native editable .pptx) → `svg_to_pptx/pptx_cli.py`.
+- **pptx_to_svg/**: reverse direction (import an existing .pptx into the editor pipeline, `svg_editor/server.py`).
+- **template_import/**: manifest-driven theme/template import.
+- An alternative fully-orchestrated flow exists in `ppt_pipeline.py` (wuwei StateGraph) and `multi_agent_ppt_service.py`; the chat-mode default is the tool-driven path above.
 
 ### Sub-tool approval
 
@@ -211,7 +229,7 @@ When an agent invokes a tool that requires approval:
 
 ### SSE streaming protocol
 
-`POST /api/v1/agent/stream` returns a stream of JSON events (one per line). Event types:
+`POST /api/v1/agent/stream` returns a stream of JSON events (one per line). The frontend dispatcher (`agentService.ts applyAgentEvent`) handles 16 event types:
 
 | Event | Meaning |
 |-------|---------|
@@ -219,12 +237,20 @@ When an agent invokes a tool that requires approval:
 | `run_status` | Phase changes: `thinking` → `streaming` / `generating_ppt` / `rendering_ppt` → `done` |
 | `delta` | LLM text token streaming |
 | `reasoning_delta` | LLM reasoning/thinking token streaming |
+| `chart` | Chart spec for inline rendering (echarts) |
+| `a2ui` | Generative-UI component payload |
 | `tool_calls` | Tool call initiated |
 | `tool_results` | Tool call completed |
-| `approval_required` | Tool call needs human approval |
-| `artifact_ready` | PPT mode only: deck JSON with rendered HTML |
+| `tool_error` | Tool call failed |
+| `approval_required` | Tool call needs human approval (HITL) |
+| `api_approval_required` | External-system API call needs approval |
+| `user_input_required` | Missing-arguments form requested by a tool |
+| `user_decision` | Decision question with options for the user |
+| `artifact_ready` | Finished artifact — payload `type` ∈ `ppt` / `website` / `spreadsheet` / `document` |
 | `done` | Normal completion with usage stats |
 | `error` | Fatal error with optional usage stats |
+
+Note: wuwei declares `task_start` / `task_end` event types but never emits them (upstream R-17) — clients should not branch on them.
 
 ### Context compression
 
@@ -240,7 +266,7 @@ Tailwind 4 + CSS variables in `src/index.css`（shadcn 兼容 token + `@theme in
 - **Decoration 克制**: 巨型吉祥物水印（>400px）与 infinite bg-blob 动画已从 Home/AgentStore/登录注册移除；吉祥物只出现在空状态/加载/报错等情绪场景。
 - **Font weights**: `font-medium`(500) / `font-semibold`(600) / 标题 `font-bold` 允许。
 - **Micro-interactions**: `active:scale-[0.98]`、`transition-all duration-150`、hover 位移 ≤4px；列表/卡片群入场用 stagger（每项 45ms，上限 300ms）。
-- **Admin**: 与 chat 同一套 token（`admin-card`/`admin-page-stage`/`admin-nav-item` 等语义类在 index.css）；17 个管理面板全部 `React.lazy` 分包 + `Suspense` 骨架（`TabFallback`），行级动画走 `data-table.tsx` 的 `animate-in`。
+- **Admin**: 与 chat 同一套 token（`admin-card`/`admin-page-stage`/`admin-nav-item` 等语义类在 index.css）；20 个管理面板全部 `React.lazy` 分包 + `Suspense` 骨架（`TabFallback`），行级动画走 `data-table.tsx` 的 `animate-in`。
 - **Auth**: Login/Signup 共用 `components/auth/AuthShell.tsx`（极光 + 水印 + 返回按钮 + 卡片入场）。
 
 ### Frontend (React 19 + TypeScript + Tailwind 4 + Vite)
@@ -250,41 +276,59 @@ frontend/src/
   App.tsx                          # BrowserRouter, lazy-loaded routes
   pages/
     Chat.tsx                       # main chat page, orchestrates hooks and layout
-    Home.tsx, AgentStore.tsx, Login.tsx, Signup.tsx, AdminDashboard.tsx
+    Home.tsx, AgentStore.tsx, AgentEditor.tsx, Login.tsx, Signup.tsx,
+    AdminDashboard.tsx, Gallery.tsx, Wrapped.tsx, PublicAgentChat.tsx
   components/
     chat/                          # ChatMainArea, ChatInput, ChatMessage, ChatTimeline,
                                    # Sidebar, ArtifactPanel, PendingApprovalPanel,
                                    # MessagesList, ChatSearch, ChatSuggestions,
-                                   # DecisionPanel, EmailSettingsPanel, IntegrationMarket
+                                   # DecisionPanel, EmailSettingsPanel, EmailPreviewPanel,
+                                   # IntegrationMarket
     admin/                         # AdminSidebar, DashboardCharts, DashboardStats,
-                                   #   UserManagement, AgentManagement, SkillManagement
+                                   #   UserManagement, AgentManagement, SkillManagement, …(20 panels)
     ppt/                           # PptArtifactPanel
+    office/                        # DocEditor (Univer document editor)
     auth/                          # ProtectedRoute
-    settings/                      # Settings panels
+    settings/                      # Settings panels (incl. EvalPanel)
     website/                       # Website-related components
     ui/                            # Badge, Button, Card, EmptyState, Input, Modal,
                                    # Skeleton, Toast, Tooltip, AnimatedIcons, MascotIcons
   hooks/
-    useChatStream.ts               # SSE client + approval decisions
+    useChatStream.ts               # SSE consumption orchestration (optimistic updates,
+                                   #   rAF-batched flush, approval submissions) — wraps
+                                   #   sendMessageStream from agentService
     useChatSessions.ts             # localStorage session cache (max 24 sessions)
     useChatScroll.ts, useChatSearch.ts, useDragAndDrop.ts
     useInputSuggest.ts             # input suggestions
     useTheme.ts                    # theme management
     useConfirm.tsx                 # confirmation dialog
+  stores/
+    chatStore.ts                   # zustand: chat UI state + session DATA (sessions,
+                                   #   currentSessionId, runStatus, pendingDecisions).
+                                   #   setters keep the React Dispatch<SetStateAction> contract
+                                   #   so the hooks above work unchanged. Components subscribe
+                                   #   per-slice via useChatStore(selector) — never call it
+                                   #   without a selector (re-renders on every keystroke).
+  contexts/
+    ChatContext.tsx                # actions + refs + derived flags only (data moved to store;
+                                   #   single consumer: ChatMainArea)
   services/
-    agentService.ts                # SSE client + approval decisions
+    agentService.ts                # THE SSE client (fetch-event-source + applyAgentEvent
+                                   #   event dispatcher) + artifact/email-template APIs
     authService.ts, agentProfileService.ts, skillService.ts,
     dashboardService.ts, toolConfigService.ts, userService.ts,
     conversationService.ts, configService.ts,
     announcementService.ts, emailService.ts, fileService.ts,
-    integrationService.ts, memoryService.ts, websiteService.ts
+    integrationService.ts, memoryService.ts, websiteService.ts,
+    knowledgeService.ts, llmProviderService.ts
   lib/
     utils.ts                       # cn() classname helper (clsx + tailwind-merge)
-    safePreview.ts                 # safe HTML preview rendering
+    safePreview.ts                 # safe HTML preview rendering (chart.js from /vendor)
     datetime.ts                    # date formatting utilities
+    sessionMerge.ts                # localStorage ↔ backend session reconciliation
 ```
 
-Routes: `/` (Home), `/chat` (Chat, protected), `/agents` (AgentStore, protected), `/login`, `/signup`, `/admin` (AdminDashboard, admin-only).
+Routes: `/` (Home), `/chat` (Chat, protected), `/agents` (AgentStore, protected), `/agents/new` + `/agents/:profileId/edit` (AgentEditor, protected), `/gallery` (作品库, protected), `/wrapped` + `/wrapped/:year` (年度报告, protected), `/app/:slug` (PublicAgentChat — public, no auth), `/login`, `/signup`, `/admin` (AdminDashboard, admin-only).
 
 **Session persistence**: Chat sessions are cached in localStorage via `useChatSessions` hook (max 24 sessions, 80 messages each, with text truncation). This provides instant reload on page refresh while the backend remains the source of truth.
 
@@ -292,15 +336,15 @@ Vite config: `@` path alias resolves to `frontend/src`. Production build splits 
 
 ### Database
 
-Default SQLite at `./data/agenticos.db`. Configurable to MySQL via `DATABASE_URL`. Tables: users, auth_sessions, auth_rate_limits, agent_sessions, agent_messages, agent_usage_events, agent_tool_configs, agent_profiles, agent_profile_tools, skills, agent_profile_skills, user_installed_agents, approvals, ppt_artifacts, user_email_credentials, announcements, external_systems, memory entries, workflows, workflow_runs, system_settings, agent_run_traces.
+Default SQLite at `./data/agenticos.db`. Configurable to MySQL via `DATABASE_URL`. Tables: users, auth_sessions, agent_sessions, agent_messages, agent_usage_events, agent_tool_configs, agent_profiles, agent_profile_tools, skills, agent_profile_skills, user_installed_agents, agent_approvals, ppt_artifacts, video_artifacts (legacy, mode removed), user_email_credentials, announcements, external_systems (+external_apis/params/credentials), memory entries, knowledge base tables (kb_*), workflows, workflow_runs, system_settings, agent_run_traces, api_keys, email_verification_codes.
 
-Schema is auto-created via `Base.metadata.create_all()` on startup. A compat layer (`_ensure_compatible_schema()`) adds missing columns with ALTER TABLE for forward-compatibility. `seed_tool_configs()` and `seed_agent_profiles()` run on every startup (idempotent upserts). The first registered user automatically becomes admin.
+Schema evolution is two-stage on startup: `Base.metadata.create_all()` creates missing tables, then `_apply_pending_migrations()` runs alembic (`backend/alembic/versions/`, 25 migrations) — `upgrade head` if `alembic_version` exists, `stamp head` on a fresh DB; migration failure logs but does not block startup. The baseline migration must be kept in sync with `models.py` by hand (see `baseline_20260930.py`). `seed_tool_configs()` and `seed_agent_profiles()` run on every startup (idempotent upserts). The first registered user automatically becomes admin.
 
 ### Tests
 
-Backend tests (90 files in `backend/tests/`) use pytest with `httpx` for async HTTP testing. The pytest config sets `pythonpath = ["."]` so tests can import directly from `app.*`. Run with `uv run pytest` (or `.venv/Scripts/python.exe -m pytest` when `uv run` trips over the hatchling VCS-scan on non-UTF-8 files).
+Backend tests (114 files in `backend/tests/`) use pytest with `httpx` for async HTTP testing. The pytest config sets `pythonpath = ["."]` so tests can import directly from `app.*`. Run with `uv run pytest`.
 
-Tests cover: auth, agent stream, tool config, users, dashboard, skills, agent profiles, agent service, website mode defaults, local skill import, health, SVG to PPTX, theme token resolver, artifact slug inference (website artifacts must be session-scoped — never a global "most recent dist" scan), new modules.
+Tests cover: auth, agent stream, tool config, users, dashboard, skills, agent profiles, agent service, wuwei boundary patches (`test_wuwei_patches.py` — one case per upstream residual defect), llm providers (retry/usage contracts), workflow engine, MCP, website mode defaults, local skill import, health, SVG to PPTX, theme token resolver, artifact slug inference (website artifacts must be session-scoped — never a global "most recent dist" scan), alembic migration chain integrity.
 
 ## Key environment variables
 
