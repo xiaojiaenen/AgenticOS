@@ -30,18 +30,29 @@ export const Chat = () => {
   const initialMessage = location.state?.initialMessage as string | undefined;
 
   // ── Zustand store（UI 状态）──
-  const {
-    setInputValue,
-    chatMode, setChatMode, approvalMode, setApprovalMode, planMode,
-    agentProfiles, setAgentProfiles,
-    selectedAgentProfileId, setSelectedAgentProfileId,
-    isSidebarOpen, setIsSidebarOpen,
-    isMobile, setIsMobile,
-    artifact, setArtifact,
-    isSidebarHiddenByArtifact, setIsSidebarHiddenByArtifact,
-    createNewChat: storeCreateNewChat,
-    sessionPanel, setSessionPanel,
-  } = useChatStore();
+  // 注意必须逐字段 selector 订阅：无参 useChatStore() 在每次 set()（包括
+  // 每个按键）都会返回新 state 对象 → 整页跟着重渲染。
+  const setInputValue = useChatStore((s) => s.setInputValue);
+  const chatMode = useChatStore((s) => s.chatMode);
+  const setChatMode = useChatStore((s) => s.setChatMode);
+  const approvalMode = useChatStore((s) => s.approvalMode);
+  const setApprovalMode = useChatStore((s) => s.setApprovalMode);
+  const planMode = useChatStore((s) => s.planMode);
+  const agentProfiles = useChatStore((s) => s.agentProfiles);
+  const setAgentProfiles = useChatStore((s) => s.setAgentProfiles);
+  const selectedAgentProfileId = useChatStore((s) => s.selectedAgentProfileId);
+  const setSelectedAgentProfileId = useChatStore((s) => s.setSelectedAgentProfileId);
+  const isSidebarOpen = useChatStore((s) => s.isSidebarOpen);
+  const setIsSidebarOpen = useChatStore((s) => s.setIsSidebarOpen);
+  const isMobile = useChatStore((s) => s.isMobile);
+  const setIsMobile = useChatStore((s) => s.setIsMobile);
+  const artifact = useChatStore((s) => s.artifact);
+  const setArtifact = useChatStore((s) => s.setArtifact);
+  const isSidebarHiddenByArtifact = useChatStore((s) => s.isSidebarHiddenByArtifact);
+  const setIsSidebarHiddenByArtifact = useChatStore((s) => s.setIsSidebarHiddenByArtifact);
+  const storeCreateNewChat = useChatStore((s) => s.createNewChat);
+  const sessionPanel = useChatStore((s) => s.sessionPanel);
+  const setSessionPanel = useChatStore((s) => s.setSessionPanel);
 
   // ── 会话管理 ──
   const {
@@ -88,7 +99,7 @@ export const Chat = () => {
   const [userInputReq, setUserInputReq] = useState<UserInputRequest | null>(null);
 
   const {
-    isLoading, error, setError, runStatus, pendingDecisions, activeStreamIds,
+    isLoading, error, setError, runStatus, activeStreamIds,
     handleSend, handleStopGeneration,
     handleApprovalDecision, handleDecisionMade,
   } = useChatStream({
@@ -491,11 +502,11 @@ export const Chat = () => {
   }, [artifact, isMobile]);
 
   // ── Context Value ──
+  // R3-2：数据类状态（sessions/currentSession/runStatus/pendingDecisions/
+  // error）已迁入 chatStore，这里只下发动作与派生标志 —— context 的依赖里
+  // 不再直接包含 sessions（pendingApprovals 随流式变化除外）。
   const ctxValue: ChatContextValue = useMemo(() => ({
-    sessions, currentSessionId, currentSession: currentSession ?? null, visibleSessions,
-    hasMoreSessions, loadMoreSessions,
-    isLoading, error, setError, runStatus, pendingDecisions,
-    handleSend, handleStopGeneration,
+    isLoading, handleSend, handleStopGeneration,
     handleApprovalDecision, handleDecisionMade,
     scrollRef, messagesEndRef, isUserScrolledUp,
     scrollToBottom, handleJumpToBottom, handleScroll,
@@ -510,15 +521,11 @@ export const Chat = () => {
     onAgentProfileChange: handleAgentProfileChange,
     deleteSession,
   }), [
-    // 数据类字段：sessions/currentSession 在流式期间每帧变化，是 context 每帧重建的根因之一；
-    // ChatMainArea 经 context 消费 currentSession 渲染消息列表，必须保留实时性，故不从此处移除。
-    sessions, currentSessionId, currentSession, visibleSessions,
-    hasMoreSessions, isLoading, error, runStatus, pendingDecisions,
-    isUserScrolledUp, showSearch, searchQuery, searchCurrentIndex,
+    // 回调类字段：补齐依赖避免 stale closure（handleSend 等已在 useChatStream 内稳定化）
+    isLoading, isUserScrolledUp, showSearch, searchQuery, searchCurrentIndex,
     searchMatches.length, activeMatchId, isStreamingResponse,
     isWideConversation, pendingApprovals, isModeLocked, isAdmin,
-    // 回调类字段：补齐依赖避免 stale closure（handleSend 等已在 useChatStream 内稳定化）
-    loadMoreSessions, setError, handleSend, handleStopGeneration,
+    handleSend, handleStopGeneration,
     handleApprovalDecision, handleDecisionMade,
     scrollToBottom, handleJumpToBottom, handleScroll,
     setShowSearch, setSearchQuery, prevMatch, nextMatch,

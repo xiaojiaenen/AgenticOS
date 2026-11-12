@@ -2,12 +2,19 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Session, Message } from '../types';
 import { listSessions, deleteSession as deleteSessionApi, getSessionMessages, getSessionArtifacts } from '../services/agentService';
 import { getStoredUser } from '../services/authService';
+import { useChatStore } from '../stores/chatStore';
 import {
   MAX_SESSIONS,
   convertBackendSession,
   mergeLocalIntoConverted,
   reconcileBackendWithLocal,
 } from '../lib/sessionMerge';
+import {
+  patchLastModelMessage,
+  pptMessageArtifact,
+  sheetMessageArtifact,
+  websiteMessageArtifact,
+} from '../lib/artifactSnapshots';
 
 const MAX_PERSISTED_MESSAGES_PER_SESSION = 120;
 const MAX_PERSISTED_TEXT_LENGTH = 30_000;
@@ -118,10 +125,31 @@ function saveSessionsToCache(sessions: Session[]) {
 }
 
 export function useChatSessions() {
-  const [sessions, setSessions] = useState<Session[]>(() => loadCachedSessions());
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(loadCachedCurrentSessionId);
-  const [visibleSessionsCount, setVisibleSessionsCount] = useState(10);
+  // 会话数据状态已迁入 zustand chatStore（R3-2）：store 提供 React dispatch
+  // 同形状的 setter，本 hook 的全部内部逻辑（合并/回源/持久化）不变。
+  // 挂载时把 localStorage 缓存播种进 store（store 初始为空，避免模块级循环导入）。
+  const sessions = useChatStore((s) => s.sessions);
+  const setSessions = useChatStore((s) => s.setSessions);
+  const currentSessionId = useChatStore((s) => s.currentSessionId);
+  const setCurrentSessionId = useChatStore((s) => s.setCurrentSessionId);
+  const visibleSessionsCount = useChatStore((s) => s.visibleSessionsCount);
+  const setVisibleSessionsCount = useChatStore((s) => s.setVisibleSessionsCount);
   const [isLoading, setIsLoading] = useState(true);
+  const hydratedRef = useRef(false);
+
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    // 仅在 store 为空时播种（路由来回切换时 store 已有数据，不覆盖）
+    if (useChatStore.getState().sessions.length === 0) {
+      const cached = loadCachedSessions();
+      if (cached.length > 0) setSessions(cached);
+      if (useChatStore.getState().currentSessionId === null) {
+        setCurrentSessionId(loadCachedCurrentSessionId());
+      }
+    }
+  }, [setSessions, setCurrentSessionId]);
+
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentSession = sessions.find(s => s.id === currentSessionId);
 
@@ -314,8 +342,7 @@ export function useChatSessions() {
           return null;
         }),
       ]);
-      const messages: Message[] = [...rawMessages];
-      // 产物可能存在但消息里没有可挂载的 model 消息（如生成被中断、
+      let messages: Message[] = [...rawMessages];      // 产物可能存在但消息里没有可挂载的 model 消息（如生成被中断、
       // 或助手消息未落库）。此时构造一条占位消息承载产物，否则产物会被
       // 静默丢弃，用户表现为"生成过的网站打不开预览"。
       const hasArtifact = Boolean(
@@ -332,69 +359,36 @@ export function useChatSessions() {
         });
       }
 
-      // 表格产物：快照不入缓存，这里只记引用，刷新后由 Chat.tsx 重新拉快照
+      // 表格产物：快照不入缓存，这里只记引用，刷新后由 Chat.tsx 重新拉快照。
+      // 三类挂载统一走 artifactSnapshots（与 useChatStream 共享同一份映射）。
+      let mounted = [...messages];
       const sheetArt = artifactsResp?.sheet_artifact;
       if (sheetArt) {
-        for (let i = messages.length - 1; i >= 0; i--) {
-          if (messages[i].role === 'model') {
-            messages[i] = {
-              ...messages[i],
-              sheetArtifact: {
-                status: 'ready',
-                artifactId: sheetArt.artifact_id,
-                title: sheetArt.title,
-                sheetNames: sheetArt.sheet_names,
-                sheetCount: sheetArt.sheet_count,
-              },
-            };
-            break;
-          }
-        }
+        mounted = patchLastModelMessage(mounted, (message) => ({
+          ...message,
+          sheetArtifact: sheetMessageArtifact(sheetArt),
+        }));
       }
 
-      // 把最新 artifact 挂到最后一条 model 消息上（与 useChatStream 的挂载逻辑一致）
+      // 把最新 artifact 挂到最后一条 model 消息上
       const pptArt = artifactsResp?.ppt_artifact;
       if (pptArt) {
-        for (let i = messages.length - 1; i >= 0; i--) {
-          if (messages[i].role === 'model') {
-            messages[i] = {
-              ...messages[i],
-              pptArtifact: {
-                status: 'ready',
-                artifactId: pptArt.artifact_id,
-                title: pptArt.title,
-                slideCount: pptArt.slide_count,
-                html: pptArt.html,
-                theme: pptArt.theme,
-                mode: 'ppt',
-              },
-            };
-            break;
-          }
-        }
+        mounted = patchLastModelMessage(mounted, (message) => ({
+          ...message,
+          pptArtifact: pptMessageArtifact(pptArt),
+        }));
       }
 
-      // website 制品同样回源补全（缓存剥离 HTML 后依赖此路径恢复预览）
+      // website 制品同样回源补全（缓存剥离 HTML 后依赖此路径恢复预览）；
+      // 这里的 preview_url 是回源时新签的令牌，可以落快照
       const wsArt = artifactsResp?.website_artifact;
       if (wsArt) {
-        for (let i = messages.length - 1; i >= 0; i--) {
-          if (messages[i].role === 'model') {
-            messages[i] = {
-              ...messages[i],
-              websiteArtifact: {
-                status: 'ready',
-                artifactId: wsArt.artifact_id,
-                title: wsArt.title,
-                projectSlug: wsArt.project_slug,
-                stack: wsArt.stack,
-                previewUrl: wsArt.preview_url ?? undefined,
-                html: wsArt.preview_html,
-              },
-            };
-            break;
-          }
-        }
+        mounted = patchLastModelMessage(mounted, (message) => ({
+          ...message,
+          websiteArtifact: websiteMessageArtifact(wsArt, { previewUrl: wsArt.preview_url }),
+        }));
       }
+      messages = mounted;
 
       setSessions(prev => prev.map(s =>
         s.id === sessionId

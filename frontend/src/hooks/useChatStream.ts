@@ -20,6 +20,7 @@ import { uploadFiles } from '../services/fileService';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
 import { UserDecision, normalizeDecision } from '../components/chat/DecisionPanel';
 import { useChatStore } from '../stores/chatStore';
+import { pptMessageArtifact, websiteMessageArtifact } from '../lib/artifactSnapshots';
 import { toast } from 'sonner';
 import { syncTextBlocks, syncReasoningBlocks, syncToolBlocks } from '../lib/messageBlocks';
 
@@ -149,15 +150,14 @@ export function useChatStream({
 }: UseChatStreamDeps) {
   // isLoading 按会话隔离：记录正在加载的会话 ID
   const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pendingDecisions, setPendingDecisions] = useState<UserDecision[]>([]);
-  const [runStatus, setRunStatus] = useState<{
-    phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'done' | 'error';
-    label: string;
-    /** 运行预算：当前步 / 上限步（后端透出，用于"第 N/M 步"提示） */
-    step?: number;
-    maxSteps?: number;
-  }>({ phase: 'idle', label: '已就绪' });
+  // error / pendingDecisions / runStatus 已迁入 zustand chatStore（R3-2），
+  // setter 保持 React dispatch 契约，本 hook 内部逻辑不变
+  const error = useChatStore((s) => s.streamError);
+  const setError = useChatStore((s) => s.setStreamError);
+  const pendingDecisions = useChatStore((s) => s.pendingDecisions);
+  const setPendingDecisions = useChatStore((s) => s.setPendingDecisions);
+  const runStatus = useChatStore((s) => s.runStatus);
+  const setRunStatus = useChatStore((s) => s.setRunStatus);
 
   // 按会话管理 AbortController：**切换会话不能 abort 正在跑的那一轮**。
   // 之前是单个 ref，切到别的会话就把上一轮的流掐断 —— 后端收到
@@ -546,15 +546,8 @@ export function useChatStream({
                         message.id === assistantMessageId
                           ? {
                               ...message,
-                              pptArtifact: {
-                                status: 'ready',
-                                artifactId: pptArtifact.artifact_id,
-                                title: pptArtifact.title,
-                                slideCount: pptArtifact.slide_count,
-                                html: pptArtifact.html,
-                                mode: pptLanguage,
-                                theme: pptArtifact.theme,
-                              },
+                              // 消息快照映射统一走 artifactSnapshots（与回源挂载同一份）
+                              pptArtifact: pptMessageArtifact(pptArtifact),
                             }
                           : message,
                       ),
@@ -658,14 +651,9 @@ export function useChatStream({
                         message.id === assistantMessageId
                           ? {
                               ...message,
-                              websiteArtifact: {
-                                status: 'ready',
-                                artifactId: wsArtifact.artifact_id,
-                                title: wsArtifact.title,
-                                projectSlug: wsArtifact.project_slug,
-                                stack: wsArtifact.stack,
-                                html: wsArtifact.preview_html,
-                              },
+                              // 流式路径不落 previewUrl（令牌 15 分钟 TTL，见上）；
+                              // 快照映射统一走 artifactSnapshots（与回源挂载同一份）
+                              websiteArtifact: websiteMessageArtifact(wsArtifact),
                             }
                           : message,
                       ),

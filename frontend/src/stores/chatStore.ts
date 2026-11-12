@@ -1,20 +1,60 @@
 /**
  * Chat UI 状态管理 — Zustand Store
  *
- * 只存放纯 UI 状态，会话数据仍由 useChatSessions 管理（localStorage 持久化）。
- * 组件通过 useChatStore(selector) 精准订阅，避免不必要的重渲染。
+ * 纯 UI 状态 + 会话数据统一存放。此前会话数据（sessions / runStatus /
+ * pendingDecisions 等）分散在 useChatSessions / useChatStream 的 useState 里，
+ * 经一个 41 字段的 ChatContext 下发 —— 流式期间每帧重建 context。
+ * 统一进 store 后组件按 selector 精准订阅。
+ *
+ * 关键契约：``setSessions`` 等 setter 保持 React ``Dispatch<SetStateAction<T>>``
+ * 形状（接受值或 ``prev => next`` 函数），useChatSessions / useChatStream 的
+ * 内部逻辑与签名因此无需改动。
  */
 import { create } from 'zustand';
-import type { Artifact } from '../types';
+import type { Dispatch, SetStateAction } from 'react';
+import type { Artifact, Session } from '../types';
 import type { AgentProfile } from '../services/agentProfileService';
 import type { SessionPanelId } from '../components/panel/types';
 
 export type ChatMode = 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
 
+export type ChatRunStatus = {
+  phase: 'idle' | 'thinking' | 'streaming' | 'generating_ppt' | 'rendering_ppt' | 'rendering_website' | 'done' | 'error';
+  label: string;
+  /** 运行预算：当前步 / 上限步（后端透出，用于"第 N/M 步"提示） */
+  step?: number;
+  maxSteps?: number;
+};
+
+/** React dispatch 形状的 setter：接受新值或 ``prev => next`` 函数。 */
+type StateDispatch<T> = Dispatch<SetStateAction<T>>;
+
+function applyAction<T>(current: T, action: SetStateAction<T>): T {
+  return typeof action === 'function' ? (action as (prev: T) => T)(current) : action;
+}
+
 interface ChatUIState {
   // ── 输入 ──
   inputValue: string;
   setInputValue: (v: string) => void;
+
+  // ── 会话数据（原 useChatSessions 的 useState）──
+  sessions: Session[];
+  setSessions: StateDispatch<Session[]>;
+  currentSessionId: string | null;
+  setCurrentSessionId: StateDispatch<string | null>;
+  /** 会话列表分页：一次多显示几个 */
+  visibleSessionsCount: number;
+  setVisibleSessionsCount: StateDispatch<number>;
+
+  // ── 流式状态（原 useChatStream 的 useState）──
+  runStatus: ChatRunStatus;
+  setRunStatus: StateDispatch<ChatRunStatus>;
+  pendingDecisions: import('../components/chat/DecisionPanel').UserDecision[];
+  setPendingDecisions: StateDispatch<import('../components/chat/DecisionPanel').UserDecision[]>;
+  /** 流式错误（与 UI 状态无冲突，沿旧名） */
+  streamError: string | null;
+  setStreamError: StateDispatch<string | null>;
 
   // ── 模式 ──
   chatMode: ChatMode;
@@ -70,6 +110,25 @@ interface ChatUIState {
 export const useChatStore = create<ChatUIState>((set) => ({
   inputValue: '',
   setInputValue: (v) => set({ inputValue: v }),
+
+  // 会话数据：初始值沿用 localStorage 缓存（与原 useState 惰性初始化等价，
+  // store 在模块导入期创建，同步读 localStorage 无副作用）
+  sessions: [],
+  setSessions: (action) => set((s) => ({ sessions: applyAction(s.sessions, action) })),
+  currentSessionId: null,
+  setCurrentSessionId: (action) =>
+    set((s) => ({ currentSessionId: applyAction(s.currentSessionId, action) })),
+  visibleSessionsCount: 10,
+  setVisibleSessionsCount: (action) =>
+    set((s) => ({ visibleSessionsCount: applyAction(s.visibleSessionsCount, action) })),
+
+  runStatus: { phase: 'idle', label: '已就绪' },
+  setRunStatus: (action) => set((s) => ({ runStatus: applyAction(s.runStatus, action) })),
+  pendingDecisions: [],
+  setPendingDecisions: (action) =>
+    set((s) => ({ pendingDecisions: applyAction(s.pendingDecisions, action) })),
+  streamError: null,
+  setStreamError: (action) => set((s) => ({ streamError: applyAction(s.streamError, action) })),
 
   chatMode: 'general',
   setChatMode: (mode) => set({ chatMode: mode }),

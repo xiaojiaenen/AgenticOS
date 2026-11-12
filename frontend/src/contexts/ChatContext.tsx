@@ -1,37 +1,20 @@
 /**
- * Chat Context — 将 Chat.tsx 中所有 hook 返回值和派生状态打包为 Context。
+ * Chat Context — Chat.tsx 组装的 action/派生值 下发给 ChatMainArea。
  *
- * 子组件通过 useChat() 获取任意值，无需层层传递 props。
- * 仅在值变化时触发子组件重渲染（配合 selector 使用）。
+ * R3-2 后**数据类状态**（sessions / currentSession / runStatus /
+ * pendingDecisions / error）已迁入 zustand chatStore —— ChatMainArea 直接用
+ * `useChatStore(selector)` 订阅，这里只保留动作、refs 与派生标志。
+ * 子组件通过 useChat() 获取这些值。
  */
 import React, { createContext, useContext, type MutableRefObject, type RefObject } from 'react';
-import type { Session, Artifact } from '../types';
+import type { Artifact } from '../types';
 import type { AgentProfile } from '../services/agentProfileService';
 import type { ChatInputHandle } from '../components/chat/ChatInput';
-import type { UserDecision } from '../components/chat/DecisionPanel';
 import type { VirtuosoHandle } from 'react-virtuoso';
 
 export interface ChatContextValue {
-  // ── 会话 ──
-  sessions: Session[];
-  currentSessionId: string | null;
-  currentSession: Session | null;
-  visibleSessions: Session[];
-  hasMoreSessions: boolean;
-  loadMoreSessions: () => void;
-
-  // ── 流式 ──
+  // ── 流式（派生标志与动作；数据本体在 chatStore）──
   isLoading: boolean;
-  error: string | null;
-  setError: (error: string | null) => void;
-  runStatus: {
-    phase: string;
-    label: string;
-    /** 运行预算：当前步 / 上限步 */
-    step?: number;
-    maxSteps?: number;
-  };
-  pendingDecisions: UserDecision[];
   handleSend: (text: string, files?: File[], source?: 'composer' | 'a2ui') => void;
   handleStopGeneration: () => void;
   handleApprovalDecision: (

@@ -41,29 +41,44 @@ export const ChatMainArea = React.memo(() => {
   const getA2uiData = React.useCallback(() => a2uiDataRef.current, []);
 
 const {
-    currentSession, isLoading, isWideConversation,
-    isUserScrolledUp, error, runStatus,
+    isLoading, isWideConversation,
+    isUserScrolledUp,
     showSearch, searchQuery, searchMatchesCount, searchCurrentIndex, activeMatchId,
-    pendingApprovals, pendingDecisions,
+    pendingApprovals,
     scrollRef, messagesEndRef, chatInputRef, virtuosoRef,
-    currentSessionId,
     handleScroll, handleJumpToBottom, handleSend, handleStopGeneration,
     handleApprovalDecision, handleDecisionMade,
-    setError, setSearchQuery, setShowSearch,
+    setSearchQuery, setShowSearch,
     prevMatch, nextMatch, onSuggestionClick, onOpenArtifact,
     onAgentProfileChange, isModeLocked,
   } = useChat();
 
-  // 从 Zustand store 获取 UI 状态
-  const {
-    inputValue, setInputValue,
-    chatMode, setChatMode,
-    agentProfiles, selectedAgentProfileId,
-    isMobile,
-    artifact, setArtifact,
-    approvalMode, setApprovalMode,
-    planMode, setPlanMode,
-  } = useChatStore();
+  // 数据类状态：直接订阅 chatStore（R3-2 迁移后数据不再走 context，
+  // streaming 每帧只触发真正需要消息数据的订阅者重渲染）
+  const currentSession = useChatStore((s) =>
+    s.sessions.find((session) => session.id === s.currentSessionId) ?? null,
+  );
+  const currentSessionId = useChatStore((s) => s.currentSessionId);
+  const error = useChatStore((s) => s.streamError);
+  const setError = useChatStore((s) => s.setStreamError);
+  const runStatus = useChatStore((s) => s.runStatus);
+  const pendingDecisions = useChatStore((s) => s.pendingDecisions);
+
+  // Zustand store（UI 状态）—— 逐字段 selector：无参调用会在每次 set()
+  // （包括每个按键）都重渲染本组件
+  const inputValue = useChatStore((s) => s.inputValue);
+  const setInputValue = useChatStore((s) => s.setInputValue);
+  const chatMode = useChatStore((s) => s.chatMode);
+  const setChatMode = useChatStore((s) => s.setChatMode);
+  const agentProfiles = useChatStore((s) => s.agentProfiles);
+  const selectedAgentProfileId = useChatStore((s) => s.selectedAgentProfileId);
+  const isMobile = useChatStore((s) => s.isMobile);
+  const artifact = useChatStore((s) => s.artifact);
+  const setArtifact = useChatStore((s) => s.setArtifact);
+  const approvalMode = useChatStore((s) => s.approvalMode);
+  const setApprovalMode = useChatStore((s) => s.setApprovalMode);
+  const planMode = useChatStore((s) => s.planMode);
+  const setPlanMode = useChatStore((s) => s.setPlanMode);
   // 虚拟化模式（长会话）需要把真实滚动容器传给 Virtuoso 的 customScrollParent
   const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null);
 
