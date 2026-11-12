@@ -28,11 +28,23 @@
 - 如需额外依赖，必须先告知用户获得同意
 - 禁止安装 UI 组件库和 CSS 框架
 
-### 设计主题（{theme_count} 套可用）
+### 设计主题（{theme_count} 套可用，与 PPT 主题库同源）
 
-所有模板 CSS 使用 var(--bg) / var(--accent) / var(--text-1) 等 CSS 变量。
-设置 :root 中的变量值即可切换主题。已内置 apple 主题作为默认。
-完整主题列表见 data/design-themes/ 目录下的 {theme_count} 个 CSS 文件。
+所有模板 CSS 使用 var(--bg) / var(--accent) / var(--text-1) 等 CSS 变量，禁止写死 hex。
+
+**切换风格用工具，不要手改 :root**：
+
+- `apply_design_theme(theme_name)` —— 把整块经过 WCAG 对比度审计的主题 token
+  写进入口样式表（替换 Design Tokens 块）。页面里的 var() 引用自动换肤。
+  主题名示例：apple / github / ink-wash / art-deco / ascii-art / mid-century-modern /
+  risograph / constructivism / y2k-chrome …
+- `list_design_themes()` —— 列出全部主题名。
+- 传错主题名不会报错崩溃：返回值里会给最接近的候选。
+
+选型建议（匹配内容气质）：企业官网 → apple / linear-app；艺术人文 → art-nouveau / ink-wash；
+复古印刷 → risograph / mid-century-modern；极客/终端 → ascii-art / cyberpunk；
+实验性 / 下一代 → liquid-chrome / point-cloud / generative-art。用户明确给了品牌色时不套主题，
+把品牌色写进 :root 的同名变量（保持 var() 引用不变）。
 
 ### 项目目录结构
 

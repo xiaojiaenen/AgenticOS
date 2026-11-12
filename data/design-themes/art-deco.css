@@ -1,0 +1,30 @@
+/* PPT theme: art-deco — auto-generated from open-design */
+
+:root {
+  --bg: #0e0d0b;
+  --bg-soft: #1c1a17;
+  --surface: #37342f;
+  --surface-2: #34312c;
+  --border: #37342f;
+  --border-strong: #746f65;
+  --text-1: #f1e7d2;
+  --text-2: #a29b8c;
+  --text-3: #69645b;
+  --accent: #c9a45a;
+  --accent-2: #f2dc9c;
+  --accent-3: #7e5e26;
+  --good: #136e34;
+  --warn: #f2dc9c;
+  --bad: #9e2b25;
+  --grad: linear-gradient(135deg, #c9a45a, #f2dc9c);
+  --grad-soft: linear-gradient(135deg, rgba(201,164,90,0.08), rgba(242,220,156,0.04));
+  --font-sans: 'Poiret One','Noto Sans SC',sans-serif;
+  --font-display: 'Poiret One','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 0px;
+  --radius-sm: 0px;
+  --radius-lg: 8px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

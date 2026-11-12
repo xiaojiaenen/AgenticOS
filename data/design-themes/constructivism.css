@@ -1,0 +1,30 @@
+/* PPT theme: constructivism — auto-generated from open-design */
+
+:root {
+  --bg: #ece4d2;
+  --bg-soft: #dfd8c6;
+  --surface: #f6f3eb;
+  --surface-2: #e9e6df;
+  --border: #c5bfaf;
+  --border-strong: #8c867c;
+  --text-1: #161412;
+  --text-2: #615d55;
+  --text-3: #969185;
+  --accent: #d3261c;
+  --accent-2: #912018;
+  --accent-3: #4f1915;
+  --good: #36ad5e;
+  --warn: #eaba26;
+  --bad: #d3261c;
+  --grad: linear-gradient(135deg, #d3261c, #912018);
+  --grad-soft: linear-gradient(135deg, rgba(211,38,28,0.08), rgba(145,32,24,0.04));
+  --font-sans: 'Oswald','Noto Sans SC',sans-serif;
+  --font-display: 'Oswald','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 0px;
+  --radius-sm: 0px;
+  --radius-lg: 8px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

@@ -1,30 +1,30 @@
-/* PPT theme: aurora — manually converted from open-design html-ppt */
+/* PPT theme: aurora — auto-generated from open-design */
 
 :root {
-  --bg: #06091c;
-  --bg-soft: #0a1130;
-  --surface: rgba(255,255,255,.05);
-  --surface-2: rgba(255,255,255,.08);
-  --border: rgba(180,220,255,.14);
-  --border-strong: rgba(180,220,255,.28);
-  --text-1: #e8f0ff;
-  --text-2: #b4c4e4;
-  --text-3: #6a7a9e;
-  --accent: #5ef2c6;
-  --accent-2: #7aa2ff;
-  --accent-3: #c984ff;
-  --good: #5ef2c6;
-  --warn: #ffd27a;
-  --bad: #ff8ab0;
-  --grad: linear-gradient(135deg, #5ef2c6, #7aa2ff 50%, #c984ff);
-  --grad-soft: linear-gradient(135deg, rgba(94,242,198,.2), rgba(201,132,255,.2));
-  --font-sans: 'Inter','Noto Sans SC',sans-serif;
-  --font-display: 'Inter','Noto Sans SC',sans-serif;
-  --font-mono: 'JetBrains Mono',monospace;
-  --font-serif: 'Playfair Display','Noto Serif SC',serif;
-  --radius: 20px;
-  --radius-sm: 14px;
-  --radius-lg: 28px;
-  --shadow: 0 20px 60px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.08);
-  --shadow-lg: 0 30px 80px rgba(0,0,0,.55);
+  --bg: #0a1628;
+  --bg-soft: #0d1d35;
+  --surface: #112240;
+  --surface-2: #10203c;
+  --border: #1e3a5f;
+  --border-strong: #2a5080;
+  --text-1: #dce6f5;
+  --text-2: #8899bb;
+  --text-3: #556688;
+  --accent: #64ffda;
+  --accent-2: #00e5a0;
+  --accent-3: #00b8d4;
+  --good: #64ffda;
+  --warn: #ffd54f;
+  --bad: #ff5c8a;
+  --grad: linear-gradient(135deg, #64ffda, #00e5a0);
+  --grad-soft: linear-gradient(135deg, rgba(100,255,218,0.08), rgba(0,229,160,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
 }

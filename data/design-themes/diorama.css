@@ -1,0 +1,30 @@
+/* PPT theme: diorama — auto-generated from open-design */
+
+:root {
+  --bg: #f6eedd;
+  --bg-soft: #ebe3d5;
+  --surface: #fbf7f0;
+  --surface-2: #eeeae4;
+  --border: #d4cdc4;
+  --border-strong: #a29b9e;
+  --text-1: #3b3552;
+  --text-2: #7c7683;
+  --text-3: #aba4a5;
+  --accent: #7a5c86;
+  --accent-2: #f28aa6;
+  --accent-3: #c99a72;
+  --good: #7fcba8;
+  --warn: #ecbc28;
+  --bad: #e04441;
+  --grad: linear-gradient(135deg, #7a5c86, #f28aa6);
+  --grad-soft: linear-gradient(135deg, rgba(122,92,134,0.08), rgba(242,138,166,0.04));
+  --font-sans: 'Noto Sans SC Black','Noto Sans SC',sans-serif;
+  --font-display: 'Inter 800','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

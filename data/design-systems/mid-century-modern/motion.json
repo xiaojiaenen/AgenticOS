@@ -1,0 +1,13 @@
+{
+  "fps": 60,
+  "bpm": 144,
+  "beat_frames": 25,
+  "move": "cubic-bezier(.65,0,.35,1) 670ms",
+  "land_slap": 0.04,
+  "sheet_slide_frames": 18,
+  "durationFrames": 900,
+  "size": [
+    1920,
+    1080
+  ]
+}

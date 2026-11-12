@@ -154,6 +154,64 @@ def _normalize_index_html(project_dir: Path) -> list[str]:
 _VANILLA_STACK = "vanilla"
 
 
+def _design_themes_dir() -> Path:
+    """平台设计主题目录（与 PPT 主题库同源：data/design-themes/）。"""
+    from app.services.ppt.theme_token_resolver import _THEMES_DIR
+
+    return Path(_THEMES_DIR)
+
+
+def _resolve_current_project() -> Path | None:
+    """当前会话定位到的网站项目目录；未设置时按 user/session 探测一次。"""
+    from app.core.data_path import get_current_website_dir
+
+    current = get_current_website_dir()
+    if current and Path(current).is_dir():
+        return Path(current)
+    # 探测：与 check_website_project 同一规则，取该会话最新版本目录
+    user_id = get_current_user_id()
+    session_id = get_current_session_id()
+    if not session_id or not user_id:
+        return None
+    prefix = f"u{user_id}_s{session_id}_v"
+    candidates = [
+        d for d in WEBSITES_DIR.iterdir()
+        if d.is_dir() and d.name.startswith(prefix)
+    ] if WEBSITES_DIR.is_dir() else []
+    if not candidates:
+        return None
+    best = max(
+        candidates,
+        key=lambda d: int(d.name[len(prefix):]) if d.name[len(prefix):].isdigit() else -1,
+    )
+    return best if (best / "index.html").exists() or any(best.glob("**/*.html")) else None
+
+
+def _find_entry_css(project_dir: Path) -> Path | None:
+    """找项目的入口样式表：含 Design Tokens :root 块的 css。
+
+    模板三件套的位置：vanilla → css/style.css；vue → src/assets/main.css；
+    react → src/index.css。不写死路径 —— glob 找含 Design Tokens 注释的
+    :root 块，兜底取第一个含 :root 的 css。
+    """
+    css_files = sorted(p for p in project_dir.rglob("*.css") if "node_modules" not in p.parts)
+    for p in css_files:
+        try:
+            text = p.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        if "Design Tokens" in text and re.search(r":root\s*\{", text):
+            return p
+    for p in css_files:
+        try:
+            text = p.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        if re.search(r":root\s*\{", text):
+            return p
+    return None
+
+
 def _is_vanilla_static(project_dir: Path) -> bool:
     """vanilla 站是不是纯静态（不需要 npm 构建）。
 
@@ -405,6 +463,109 @@ def register_website_tools(registry: ToolRegistry) -> None:
             f"版本：v{version}，文件数：{file_count}，状态：{status}\n"
             f"项目目录已设置，可直接使用文件工具编辑（只需提供相对路径）。"
         )
+
+    @registry.tool(display_name="应用设计主题")
+    async def apply_design_theme(theme_name: str) -> str:
+        """把平台设计主题应用到当前项目，替换入口样式表的 Design Tokens。
+
+        主题与 PPT 主题库同源（236 个，全部经过 WCAG 对比度审计）：
+        ink-wash / art-deco / ascii-art / neo-brutalism / apple / github …
+
+        应用后页面的颜色、字体、圆角、阴影全部由 var(--token) 驱动 ——
+        你不需要再自己发明颜色，只管用 var() 引用；改风格 = 换主题名。
+
+        参数:
+          theme_name: 主题名（不确切时随便传一个词，返回值会给出最接近的候选）
+
+        返回:
+          应用的变量清单 + WCAG 对比度审计 + 下一步指引
+        """
+        from app.services.ppt.contrast import audit_theme_tokens, parse_theme_css
+        from app.services.ppt.theme_token_resolver import list_available_themes
+
+        themes = list_available_themes()
+        if not themes:
+            return "错误：设计主题目录为空（data/design-themes/），请检查部署。"
+
+        requested = (theme_name or "").strip().lower().replace("_", "-")
+        if requested not in themes:
+            close = [t for t in themes if requested and (requested in t or t in requested)]
+            if not close:
+                close = [t for t in themes if requested.split("-")[0] and requested.split("-")[0] in t]
+            listing = "\n".join(f"  - {t}" for t in (close or themes)[:24])
+            return (
+                f"没有名为「{theme_name}」的设计主题。\n可用主题（部分）：\n{listing}\n"
+                f"\n提示：主题名就是 PPT 主题选择器里的那些（apple / github / ink-wash / art-deco …），"
+                f"传错会列出最接近的候选。"
+            )
+
+        theme_css_path = _design_themes_dir() / f"{requested}.css"
+        tokens = parse_theme_css(theme_css_path.read_text(encoding="utf-8", errors="ignore"))
+        if not tokens:
+            return f"错误：主题 {requested} 的 css 没有 :root 变量块。"
+
+        project_dir = _resolve_current_project()
+        if project_dir is None:
+            return (
+                "错误：当前会话没有已定位的网站项目。请先调用 copy_template(stack) "
+                "创建项目，或调用 check_website_project() 定位已有项目。"
+            )
+
+        entry_css = _find_entry_css(project_dir)
+        if entry_css is None:
+            return (
+                f"错误：在 {project_dir.name} 里找不到入口样式表（含 Design Tokens :root 块的 css）。"
+                "请确认项目结构完整，或用文件工具手动创建。"
+            )
+
+        audit = audit_theme_tokens(tokens)
+
+        # 整块替换入口 css 顶部的 Design Tokens :root —— 模板三件套
+        # （vanilla/vue/react）的 :root 变量名与主题完全同套（--bg/--text-1/
+        # --accent/--radius…），替换后页面里所有 var() 引用自动换肤。
+        new_root = "\n".join(f"  {k}: {v};" for k, v in tokens.items())
+        replacement = (
+            "/* === Design Tokens === 平台设计主题（与 PPT 主题库同源）\n"
+            f"    主题：{requested} —— 颜色/字体/圆角/阴影全部用 var() 引用，不要写死 hex。\n"
+            "    :root {\n" + new_root + "\n}"
+        )
+        css_text = entry_css.read_text(encoding="utf-8")
+        pattern = re.compile(
+            r"(/\*\s*=+\s*Design Tokens\s*=+\s*\*/\s*)?:root\s*\{[^}]*\}", re.S
+        )
+        if pattern.search(css_text):
+            updated = pattern.sub(replacement.replace("\\", "\\\\"), css_text, count=1)
+        else:
+            updated = replacement + "\n\n" + css_text
+        entry_css.write_text(updated, encoding="utf-8")
+
+        audit_lines = "\n".join(
+            f"  {p['pair']}: {p['ratio']}:1（{p['grade']}）" for p in audit["pairs"]
+        )
+        rel = str(entry_css.relative_to(project_dir)).replace("\\", "/")
+        return (
+            f"已应用设计主题「{requested}」到 {rel}（共 {len(tokens)} 个 token）。\n"
+            f"\nWCAG 对比度审计：\n{audit_lines}\n"
+            f"\n下一步：\n"
+            f"1. 页面里所有颜色一律用 var(--bg) / var(--text-1) / var(--accent) 等引用，"
+            f"禁止写死 hex（主题整体换色时页面自动跟随）；\n"
+            f"2. 需要强调色之外的点缀可用 var(--accent-2) / var(--accent-3)；\n"
+            f"3. 调用 build_website('{project_dir.name}') 构建验证。"
+        )
+
+    @registry.tool(display_name="列出设计主题")
+    async def list_design_themes() -> str:
+        """列出全部可用的平台设计主题（与 PPT 主题库同源）。
+
+        返回:
+          主题名清单（apply_design_theme 的 theme_name 参数取值）
+        """
+        from app.services.ppt.theme_token_resolver import list_available_themes
+
+        themes = list_available_themes()
+        if not themes:
+            return "错误：设计主题目录为空。"
+        return f"可用设计主题 {len(themes)} 个（用 apply_design_theme 应用）：\n" + ", ".join(themes)
 
     @registry.tool(display_name="构建网站")
     async def build_website(project_slug: str) -> str:

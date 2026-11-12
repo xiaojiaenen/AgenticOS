@@ -3,13 +3,13 @@
 :root {
   --bg: #e2f6d5;
   --bg-soft: #e8ebe6;
-  --surface: #fafafa;
-  --surface-2: #e8e8ec;
-  --border: #d9d9de;
+  --surface: #e2f6d5;
+  --surface-2: #d8eccc;
+  --border: #cbddbf;
   --border-strong: #868685;
   --text-1: #454745;
-  --text-2: #6b6b75;
-  --text-3: #a0a0a8;
+  --text-2: #8f908f;
+  --text-3: #bdbebd;
   --accent: #163300;
   --accent-2: #054d28;
   --accent-3: #122b00;

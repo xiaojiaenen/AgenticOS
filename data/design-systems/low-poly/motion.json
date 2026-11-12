@@ -1,0 +1,13 @@
+{
+  "fps": 60,
+  "bpm": 120,
+  "beatSec": 0.5,
+  "downbeatOffsetSec": 0.5,
+  "durationSec": 20,
+  "durationFrames": 1200,
+  "size": [
+    1920,
+    1080
+  ],
+  "loop": false
+}

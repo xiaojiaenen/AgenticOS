@@ -1,0 +1,28 @@
+/* design-systems/ink-wash/tokens.css — converted from guanmo-ai/design-style
+ * 风格：水墨 Ink Wash。所有色值经 WCAG 对比度启发式映射，参见 DESIGN.md 的实测表。
+ */
+:root {
+  --bg: #f2ede1;
+  --surface: #e5e0d5;
+  --surface-warm: #f9f7f2;
+  --fg: #141413;
+  --fg-2: #62605b;
+  --meta: #99968f;
+  --border: #cac6bc;
+  --border-soft: #8e8b84;
+  --accent: #c8372d;
+  --accent-hover: #892b24;
+  --accent-active: #4a1e1b;
+  --success: #37ae61;
+  --warn: #ebbc29;
+  --danger: #c8372d;
+  --font-sans: None,'Noto Sans SC',sans-serif;
+  --font-display: None,'Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

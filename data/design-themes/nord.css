@@ -1,30 +1,30 @@
-/* PPT theme: nord — manually converted from open-design html-ppt */
+/* PPT theme: nord — auto-generated from open-design */
 
 :root {
-  --bg: #2e3440;
-  --bg-soft: #272b35;
-  --surface: #3b4252;
-  --surface-2: #434c5e;
-  --border: rgba(236,239,244,.12);
-  --border-strong: rgba(236,239,244,.24);
-  --text-1: #eceff4;
-  --text-2: #d8dee9;
-  --text-3: #7b8394;
-  --accent: #88c0d0;
+  --bg: #eceff4;
+  --bg-soft: #e5e9f0;
+  --surface: #ffffff;
+  --surface-2: #f2f2f2;
+  --border: #d8dee9;
+  --border-strong: #b0bec5;
+  --text-1: #2e3440;
+  --text-2: #4c566a;
+  --text-3: #7b88a1;
+  --accent: #5e81ac;
   --accent-2: #81a1c1;
-  --accent-3: #b48ead;
+  --accent-3: #88c0d0;
   --good: #a3be8c;
   --warn: #ebcb8b;
   --bad: #bf616a;
-  --grad: linear-gradient(135deg, #88c0d0, #81a1c1 50%, #b48ead);
-  --grad-soft: linear-gradient(135deg, #3b4252, #434c5e);
-  --font-sans: 'Inter','Noto Sans SC',sans-serif;
-  --font-display: 'Inter','Noto Sans SC',sans-serif;
-  --font-mono: 'JetBrains Mono',monospace;
-  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --grad: linear-gradient(135deg, #5e81ac, #81a1c1);
+  --grad-soft: linear-gradient(135deg, rgba(94,129,172,0.08), rgba(129,161,193,0.04));
+  --font-sans: Inter, Noto Sans SC, sans-serif;
+  --font-display: Inter, Noto Sans SC, sans-serif;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: Playfair Display, Noto Serif SC, serif;
   --radius: 12px;
   --radius-sm: 8px;
   --radius-lg: 20px;
-  --shadow: 0 10px 30px rgba(0,0,0,.35);
-  --shadow-lg: 0 22px 60px rgba(0,0,0,.5);
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
 }

@@ -1251,7 +1251,12 @@ async def get_ppt_slides(
 
 @router.get("/ppt/themes", summary="获取可用的 PPT 主题列表")
 async def list_ppt_themes() -> list[dict[str, str]]:
-    """返回所有可用的 PPT 主题名称和显示名称。"""
+    """返回所有可用的 PPT 主题名称、显示名称与 WCAG 对比度等级。
+
+    对比度等级来自正文/背景等固定组合的审计（AA / AAA / AA-Large）——
+    前端主题选择器可据此展示无障碍徽章，生成侧可把低于 AA 的主题排后。
+    """
+    from app.services.ppt.contrast import audit_theme_tokens
     from app.services.ppt.theme_token_resolver import list_available_themes, load_theme_tokens
 
     themes = []
@@ -1261,11 +1266,20 @@ async def list_ppt_themes() -> list[dict[str, str]]:
         primary_color = tokens.get("--accent", "#2563eb")
         bg_color = tokens.get("--bg", "#ffffff")
         text_color = tokens.get("--text-1", "#0f172a")
+        try:
+            audit = audit_theme_tokens(tokens)
+            grade = "FAIL" if not audit["pass"] else min(
+                (p["grade"] for p in audit["pairs"]),
+                key=lambda g: {"AAA": 0, "AA": 1, "AA-Large": 2, "FAIL": 3}[g],
+            )
+        except Exception:  # noqa: BLE001 —— 审计失败不阻塞主题列表
+            grade = None
         themes.append({
             "name": name,
             "primary_color": primary_color,
             "bg_color": bg_color,
             "text_color": text_color,
+            "contrast_grade": grade,
         })
     return themes
 

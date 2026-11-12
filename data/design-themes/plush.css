@@ -1,0 +1,30 @@
+/* PPT theme: plush — auto-generated from open-design */
+
+:root {
+  --bg: #fff1e0;
+  --bg-soft: #f7e3d6;
+  --surface: #fff9f1;
+  --surface-2: #f2ece4;
+  --border: #e8c7c2;
+  --border-strong: #c48996;
+  --text-1: #7d0a3c;
+  --text-2: #aa5b75;
+  --text-3: #cb959e;
+  --accent: #7b52ff;
+  --accent-2: #ff4f97;
+  --accent-3: #7c2077;
+  --good: #39af60;
+  --warn: #edbc28;
+  --bad: #e14442;
+  --grad: linear-gradient(135deg, #7b52ff, #ff4f97);
+  --grad-soft: linear-gradient(135deg, rgba(123,82,255,0.08), rgba(255,79,151,0.04));
+  --font-sans: None,'Noto Sans SC',sans-serif;
+  --font-display: None,'Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

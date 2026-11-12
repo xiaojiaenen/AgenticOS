@@ -1,0 +1,28 @@
+/* design-systems/generative-art/tokens.css — converted from guanmo-ai/design-style
+ * 风格：021 · 生成艺术 Generative Art。所有色值经 WCAG 对比度启发式映射，参见 DESIGN.md 的实测表。
+ */
+:root {
+  --bg: #f3eee2;
+  --surface: #e6e1d6;
+  --surface-warm: #faf7f2;
+  --fg: #161616;
+  --fg-2: #63625d;
+  --meta: #9b9890;
+  --border: #cbc7bd;
+  --border-soft: #908d86;
+  --accent: #ff2d8a;
+  --accent-hover: #ff6a1a;
+  --accent-active: #2346e0;
+  --success: #37ae61;
+  --warn: #ff6a1a;
+  --danger: #df4442;
+  --font-sans: 'Archivo','Noto Sans SC',sans-serif;
+  --font-display: 'Archivo','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

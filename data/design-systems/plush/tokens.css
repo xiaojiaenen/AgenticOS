@@ -1,0 +1,28 @@
+/* design-systems/plush/tokens.css — converted from guanmo-ai/design-style
+ * 风格：毛绒 Plush。所有色值经 WCAG 对比度启发式映射，参见 DESIGN.md 的实测表。
+ */
+:root {
+  --bg: #fff1e0;
+  --surface: #f7e3d6;
+  --surface-warm: #fff9f1;
+  --fg: #7d0a3c;
+  --fg-2: #aa5b75;
+  --meta: #cb959e;
+  --border: #e8c7c2;
+  --border-soft: #c48996;
+  --accent: #7b52ff;
+  --accent-hover: #ff4f97;
+  --accent-active: #7c2077;
+  --success: #39af60;
+  --warn: #edbc28;
+  --danger: #e14442;
+  --font-sans: None,'Noto Sans SC',sans-serif;
+  --font-display: None,'Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

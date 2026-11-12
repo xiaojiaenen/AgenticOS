@@ -2,14 +2,14 @@
 
 :root {
   --bg: #fafafa;
-  --bg-soft: #f0f0f3;
+  --bg-soft: #f2f2f2;
   --surface: #fafafa;
-  --surface-2: #e8e8ec;
-  --border: #d9d9de;
+  --surface-2: #f0f0f0;
+  --border: #e1e1e1;
   --border-strong: #8c8c93;
   --text-1: #1a1a1e;
   --text-2: #54545a;
-  --text-3: #a0a0a8;
+  --text-3: #aeaeb0;
   --accent: #0db4f7;
   --accent-2: #ff5f5f;
   --accent-3: #0b99d1;

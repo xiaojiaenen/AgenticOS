@@ -1,0 +1,28 @@
+/* design-systems/art-deco/tokens.css — converted from guanmo-ai/design-style
+ * 风格：013-art-deco。所有色值经 WCAG 对比度启发式映射，参见 DESIGN.md 的实测表。
+ */
+:root {
+  --bg: #0e0d0b;
+  --surface: #1c1a17;
+  --surface-warm: #37342f;
+  --fg: #f1e7d2;
+  --fg-2: #a29b8c;
+  --meta: #69645b;
+  --border: #37342f;
+  --border-soft: #746f65;
+  --accent: #c9a45a;
+  --accent-hover: #f2dc9c;
+  --accent-active: #7e5e26;
+  --success: #136e34;
+  --warn: #f2dc9c;
+  --danger: #9e2b25;
+  --font-sans: 'Poiret One','Noto Sans SC',sans-serif;
+  --font-display: 'Poiret One','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 0px;
+  --radius-sm: 0px;
+  --radius-lg: 8px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

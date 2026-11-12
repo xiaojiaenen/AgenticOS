@@ -1,0 +1,30 @@
+/* PPT theme: low-poly — auto-generated from open-design */
+
+:root {
+  --bg: #fbf4e6;
+  --bg-soft: #efe9dd;
+  --surface: #fdfaf4;
+  --surface-2: #f0ede7;
+  --border: #d8d2cb;
+  --border-strong: #a59ea3;
+  --text-1: #3b3552;
+  --text-2: #7e7886;
+  --text-3: #aea8ab;
+  --accent: #2f5fd8;
+  --accent-2: #ee6b57;
+  --accent-3: #4daf72;
+  --good: #4daf72;
+  --warn: #f4c54f;
+  --bad: #ee6b57;
+  --grad: linear-gradient(135deg, #2f5fd8, #ee6b57);
+  --grad-soft: linear-gradient(135deg, rgba(47,95,216,0.08), rgba(238,107,87,0.04));
+  --font-sans: 'Noto Sans SC Black','Noto Sans SC',sans-serif;
+  --font-display: 'Inter 800','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

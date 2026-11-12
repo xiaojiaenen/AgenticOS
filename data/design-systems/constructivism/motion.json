@@ -1,0 +1,11 @@
+{
+  "fps": 60,
+  "bpm": 144,
+  "beatFrames": 25,
+  "size": [
+    1920,
+    1080
+  ],
+  "durationFrames": 900,
+  "chapterBeats": 3
+}

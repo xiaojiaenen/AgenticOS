@@ -1,0 +1,14 @@
+{
+  "fps": 60,
+  "bpm": 120,
+  "beatFrames": 30,
+  "swing": 20,
+  "offBeat": "2/3 beat",
+  "open": "open from axis: scaleX 0→1 with ~5% overshoot; exit closes back into the axis",
+  "loop": "firstFrame = lastFrame",
+  "size": [
+    1920,
+    1080
+  ],
+  "durationFrames": 1200
+}

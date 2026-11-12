@@ -1,0 +1,30 @@
+/* PPT theme: risograph — auto-generated from open-design */
+
+:root {
+  --bg: #f3ecdb;
+  --bg-soft: #e4dece;
+  --surface: #faf6ef;
+  --surface-2: #ede9e3;
+  --border: #c7c2b4;
+  --border-strong: #868278;
+  --text-1: #000000;
+  --text-2: #55534d;
+  --text-3: #928e83;
+  --accent: #00838a;
+  --accent-2: #ff48b0;
+  --accent-3: #002729;
+  --good: #00838a;
+  --warn: #ffb511;
+  --bad: #df4441;
+  --grad: linear-gradient(135deg, #00838a, #ff48b0);
+  --grad-soft: linear-gradient(135deg, rgba(0,131,138,0.08), rgba(255,72,176,0.04));
+  --font-sans: 'Archivo','Noto Sans SC',sans-serif;
+  --font-display: 'Archivo','Noto Sans SC',sans-serif;
+  --font-mono: 'Space Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}
