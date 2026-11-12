@@ -217,46 +217,6 @@ class CacheService:
         return [text for text, _ in scored[:limit]]
 
     # ============================================================
-    # 2. 频率限制 — String INCR + EXPIRE
-    # ============================================================
-
-    async def check_rate_limit(
-        self,
-        key: str,
-        max_attempts: int,
-        window_seconds: int,
-    ) -> tuple[bool, int]:
-        """检查频率限制
-
-        返回: (是否允许, 剩余次数)
-        """
-        redis = get_redis()
-        full_key = self._key(f"ratelimit:{key}")
-
-        current = await redis.incr(full_key)
-        if current == 1:
-            await redis.expire(full_key, window_seconds)
-
-        remaining = max(0, max_attempts - current)
-        allowed = current <= max_attempts
-        return allowed, remaining
-
-    async def is_blocked(self, key: str) -> bool:
-        """检查是否被封禁"""
-        redis = get_redis()
-        return await redis.exists(self._key(f"ratelimit:block:{key}"))
-
-    async def block(self, key: str, seconds: int) -> None:
-        """封禁"""
-        redis = get_redis()
-        await redis.set(self._key(f"ratelimit:block:{key}"), "1", ex=seconds)
-
-    async def get_rate_limit_ttl(self, key: str) -> int:
-        """获取频率限制剩余时间"""
-        redis = get_redis()
-        return await redis.ttl(self._key(f"ratelimit:{key}"))
-
-    # ============================================================
     # 3. 在线用户 — Sorted Set（score=最近心跳时间戳）
     # ============================================================
     # 用有序集合而非普通 Set：Set 成员不会随 TTL 过期，会留下「假在线」。

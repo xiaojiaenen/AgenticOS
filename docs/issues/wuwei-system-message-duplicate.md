@@ -2,6 +2,11 @@
 
 `structured_schema` 注入会额外 `insert(0, SystemMessage(...))`，导致 OpenAI 兼容端 400 `System message must be at the beginning`
 
+> **状态更新（2026-11-12）：已在 wuwei 3.3.3 中修复，无需照本文改代码。**
+> 上游 `_attach_structured_schema`（`agent_runner.py:42`）现在把 schema **合并进首条
+> system 消息**而不是插入新的，只在首条不是 system 时才 `insert(0, ...)`，且带
+> `STRUCTURED_SCHEMA_MARKER` 幂等标记。本文保留作为问题记录。
+
 ---
 
 ## 环境

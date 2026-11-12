@@ -156,9 +156,17 @@ backend/.venv-loadtest/
 # UI èµ°æŸ¥æˆªå›¾ï¼ˆæœ¬åœ°è¯„å®¡ç”¨ï¼‰
 .ui-shots/
 
-# ÀëÏß²¿Êğ°ü²úÎï£¨Ìå»ı´ó£¬²»½ø²Ö¿â£©
+# ç¦»çº¿éƒ¨ç½²åŒ…äº§ç‰©ï¼ˆä½“ç§¯å¤§ï¼Œä¸è¿›ä»“åº“ï¼‰
 offline-packages/
 
-# ±¾µØÌ½Õë/ÇÅ½Ó¹¤¾ß£¨Î´ÄÉÈë²Ö¿â·¶Î§£©
+# æœ¬åœ°æ¢é’ˆ/æ¡¥æ¥å·¥å…·ï¼ˆæœªçº³å…¥ä»“åº“èŒƒå›´ï¼‰
 tools/
 backend/*.txt
+
+# tsc incremental build artifact
+*.tsbuildinfo
+
+# local screenshot leftovers (not for repo)
+.tmp-shot-*
+frontend/baseline*.png
+frontend/refined*.png

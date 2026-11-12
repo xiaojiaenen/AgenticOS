@@ -1,9 +1,8 @@
-"""综合示例：三个 wuwei 新功能联合测试
+"""综合示例：wuwei 新功能联合测试
 
-一次运行测试全部三个功能：
+一次运行测试全部功能：
 1. AsyncSubAgent — 后台异步子任务
-2. MultiAgentGraph — 多 Agent 并行协作
-3. 并发工具执行 — 安全工具自动并行
+2. 并发工具执行 — 安全工具自动并行
 
 使用 .env 中的真实 LLM 配置（DeepSeek）。
 
@@ -97,29 +96,9 @@ async def test_async_sub_agent(settings):
     print("✅ AsyncSubAgent 测试通过")
 
 
-async def test_multi_agent_graph(settings):
-    """测试 2：MultiAgentGraph 多 Agent 并行协作"""
-    header("测试 2：MultiAgentGraph — 多 Agent 并行协作")
-
-    from app.services.multi_agent_graph_service import MultiAgentGraphService
-
-    svc = MultiAgentGraphService(settings)
-
-    task = "用三句话总结 Python 的 asyncio 核心概念"
-    print(f"📋 {task}")
-
-    start = time.time()
-    result = await svc.run(task)
-    elapsed = time.time() - start
-
-    print(f"\n📄 {result}")
-    print(f"\n⏱️  {elapsed:.1f}s")
-    print("✅ MultiAgentGraph 测试通过")
-
-
 async def test_concurrent_tools(settings):
-    """测试 3：并发工具执行"""
-    header("测试 3：并发工具执行 — 安全工具自动并行")
+    """测试 2：并发工具执行"""
+    header("测试 2：并发工具执行 — 安全工具自动并行")
 
     from wuwei import Agent
     from wuwei.llm import LLMGateway
@@ -171,14 +150,12 @@ async def main():
     print(f"🔧 LLM: {settings.openai_model} @ {settings.openai_base_url}")
 
     await test_async_sub_agent(settings)
-    await test_multi_agent_graph(settings)
     await test_concurrent_tools(settings)
 
     header("全部测试完成 ✅")
-    print("三个 wuwei 新功能均正常工作：")
+    print("两个 wuwei 新功能均正常工作：")
     print("  1. AsyncSubAgent — 后台异步子任务")
-    print("  2. MultiAgentGraph — 多 Agent 并行协作")
-    print("  3. 并发工具执行 — 安全工具自动并行")
+    print("  2. 并发工具执行 — 安全工具自动并行")
 
 
 if __name__ == "__main__":

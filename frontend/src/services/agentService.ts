@@ -390,7 +390,6 @@ export function applyAgentEvent(
   }
 
   if (event === 'artifact_ready') {
-    console.log('[probe] artifact_ready type=', (payload as Record<string, unknown>).type);
     const artifactPayload = payload as Record<string, unknown>;
     if (artifactPayload.type === 'website') {
       state.websiteArtifact = artifactPayload as unknown as AgentWebsiteArtifact;
@@ -565,9 +564,6 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
           console.warn('Failed to parse SSE event payload:', err, String(msg.data).slice(0, 200));
           return;
         }
-        if (msg.event !== 'reasoning_delta' && msg.event !== 'delta') {
-          console.log('[probe] SSE event:', msg.event);
-        }
         if (msg.event === 'error') {
           // **不要在这里 controller.abort()。**
           //
@@ -581,7 +577,6 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
           // 不需要在这里额外 abort。
           errorEventReceived = true;
         }
-        if (msg.event === 'artifact_ready') console.log('[probe] SSE 收到 artifact_ready, event=', msg.event, 'data.type=', (payload as Record<string, unknown>).type);
         applyAgentEvent(msg.event, payload, options, state);
       },
       // 不重试：错误直接抛出，保持旧实现 fail-fast 语义

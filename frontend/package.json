@@ -10,14 +10,12 @@
     "clean": "rm -rf dist",
     "lint": "cross-env NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit && eslint src",
     "test": "vitest run",
-    "build:ppt-css": "npx @tailwindcss/cli -i ppt_tailwind_input.css -o ../backend/app/ppt_tailwind_compiled.css --minify",
     "verify:css": "node scripts/verify-css.mjs",
     "test:e2e": "e2e run"
   },
   "dependencies": {
     "@a2ui/react": "^0.14.0",
     "@a2ui/web_core": "^0.14.0",
-    "@halobiron/dom-to-pptx": "^1.2.4",
     "@hookform/resolvers": "^5.9.1",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@tanstack/react-query": "^5.104.0",
@@ -81,7 +79,6 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "@vitejs/plugin-legacy": "^7.2.1",
     "@vitejs/plugin-react": "^5.0.4",
-    "ai": "^7.0.0",
     "cross-env": "^7.0.3",
     "e2e": "^0.17.0",
     "eslint": "^9.37.0",
