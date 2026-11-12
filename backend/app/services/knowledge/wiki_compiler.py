@@ -460,15 +460,30 @@ class WikiCompiler:
         return prompt
 
     async def _call_llm(self, prompt: str) -> str:
-        """调用 LLM"""
+        """调用 LLM。
+
+        两个坑（都曾让这条路径直接报错）：
+
+        1. wuwei 的 ``LLMGateway`` **没有** ``chat`` 方法，只有 ``generate``；
+        2. ``generate`` 收的是**消息对象**，不是 dict ——
+           传 ``{"role": "user", "content": ...}`` 会在适配器里炸
+           ``AttributeError: 'dict' object has no attribute 'content_parts'``。
+
+        正确写法同 ``eval_grader``：``HumanMessage(content=...)``。
+        """
         try:
-            # 使用 wuwei LLMGateway
-            response = await self.llm.chat(
-                messages=[{"role": "user", "content": prompt}],
+            from wuwei.core.message import HumanMessage
+
+            response = await self.llm.generate(
+                [HumanMessage(content=prompt)],
                 temperature=0.3,
                 max_tokens=4000,
             )
-            return response.content if hasattr(response, "content") else str(response)
+            message = getattr(response, "message", None)
+            content = getattr(message, "content", None) if message is not None else None
+            if content is None:
+                content = getattr(response, "content", None)
+            return content if isinstance(content, str) else str(content or response)
         except Exception as e:
             logger.error(f"LLM call failed: {e}")
             raise

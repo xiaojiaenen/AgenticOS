@@ -391,6 +391,17 @@ TOOL_CATALOG = {
         "builtin_name": "skill",
         "approval_scope": ["run_skill_python_script"],
         "sub_tools": {
+            # load_skill / list_skills 由 wuwei 的 skill 插件注册（见
+            # factory._build_tool_registry 里的 setup_skill_plugin）。
+            #
+            # 这两个名字**必须**列在 sub_tools 里：allowed_tools 白名单
+            # （AgentProfileService._compute_allowed_tools）只放行「某个已
+            # 启用 catalog 条目管辖的具体工具名」，没列进来就会被 factory
+            # 的白名单裁剪注销掉 —— 工具注册了但模型看不见，模型只能对着
+            # 提示词里写的 load_skill(...) 空喊（工具调用直接失败），
+            # 而提示词恰恰要求「生成前必须先 load_skill」。
+            "load_skill": {"label": "加载技能", "description": "加载技能的完整指令正文"},
+            "list_skills": {"label": "列出技能", "description": "列出当前可用的技能摘要"},
             "run_skill_python_script": {"label": "运行技能脚本", "description": "执行 Skill 中的 Python 脚本"},
         },
     },
