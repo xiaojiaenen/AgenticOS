@@ -19,6 +19,8 @@ from wuwei import Agent
 
 from app.core.config import Settings, get_settings
 from app.db.models import ApprovalModel, PptArtifactModel, UserModel
+from sqlalchemy import select
+
 from app.db.session import create_db_session
 from app.schemas.agent import AgentStreamRequest
 from app.services.agent import prompts
@@ -106,6 +108,55 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
                 plan_mode=request.plan_mode,
             )
         return self._runtime_from_mode(request.response_mode, request.system_prompt)
+
+    async def ensure_profile_access(self, request: AgentStreamRequest, user: UserModel) -> None:
+        """对话入口的智能体权限拦截。
+
+        商店里看不到 ≠ 用不了：用户可以手改请求体塞一个 profile_id 进来。
+        所以真正动手前必须再查一次授权 —— 不可用的智能体在这里被直接
+        403 掉，模型根本不会被唤醒（而不是让它跑一轮再报错）。
+
+        三种越权场景都拦在这：
+
+        - profile_id 指向未授权/未启用/暂不开放的智能体；
+        - 不带 profile_id 时按 response_mode 落到内置智能体，而那个内置
+          智能体当前不可用（例如"网站工程师"被设为暂不开放）；
+        - 会话已绑定某个 profile，但该 profile 后来被收回权限。
+        """
+        if user is None:
+            return
+
+        def _check() -> None:
+            from app.db.models import AgentProfileModel
+
+            with create_db_session() as db:
+                profile_id = request.agent_profile_id
+                if profile_id is None:
+                    # 未指定 profile：按模式找内置；找不到/不可用一律拒绝
+                    # （不能悄悄退回 general —— 那等于让被禁用的智能体
+                    #   以"通用助手"的身份继续跑）。
+                    profile = db.scalar(
+                        select(AgentProfileModel).where(
+                            AgentProfileModel.slug == request.response_mode,
+                            AgentProfileModel.is_builtin.is_(True),
+                        )
+                    )
+                    if profile is None:
+                        # 没有该模式的内置智能体（例如 video 模式已下线）：
+                        # 允许按普通模式跑，不做拦截。
+                        return
+                else:
+                    profile = db.get(AgentProfileModel, profile_id)
+                    if profile is None:
+                        raise PermissionError("智能体不存在或已被删除。")
+
+                service = self.agent_profiles
+                if not service._is_profile_available_to_user(db, profile, user):
+                    raise PermissionError(
+                        f"你没有使用「{profile.name}」的权限，请联系管理员开通。"
+                    )
+
+        await asyncio.to_thread(_check)
 
     async def ensure_session_access(self, request: AgentStreamRequest, user: UserModel) -> None:
         if not request.session_id:

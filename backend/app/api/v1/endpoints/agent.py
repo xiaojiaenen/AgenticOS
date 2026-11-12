@@ -107,6 +107,12 @@ async def stream_agent(
     try:
         agent_service.ensure_ready()
         await agent_service.ensure_session_access(request, current_user)
+        # 智能体授权拦截：商店里看不到的智能体在这里直接 403，模型不会被
+        # 唤醒（防止手改请求体塞 profile_id 越权使用）。
+        # getattr 兜底：测试里的 fake service 可能没实现这个方法。
+        ensure_profile_access = getattr(agent_service, "ensure_profile_access", None)
+        if ensure_profile_access is not None:
+            await ensure_profile_access(request, current_user)
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except PermissionError as exc:

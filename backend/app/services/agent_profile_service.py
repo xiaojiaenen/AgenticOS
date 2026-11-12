@@ -36,6 +36,8 @@ _ensure_defaults_last_run: float = 0.0
 
 AUDIENCE_MODE_ALL = "all"
 AUDIENCE_MODE_SELECTED = "selected"
+# 暂不开放给任何人（自己与管理员除外）—— "先不让任何人使用"
+AUDIENCE_MODE_NONE = "none"
 
 MODE_DEFAULT_PROMPTS: dict[str, str] = {
     "general": GENERAL_SYSTEM_PROMPT,
@@ -76,7 +78,9 @@ BUILTIN_AGENT_PROFILES = {
         "system_prompt": WEBSITE_ROUTER_PROMPT,
         "response_mode": "website",
         "avatar": "globe",
-        "listed": True,
+        # 默认**不上架**：网站生成会写文件系统、跑构建，噪声大、审核成本高。
+        # 需要时由管理员在后台显式上架。
+        "listed": False,
     },
     "office": {
         "name": "办公助手",
@@ -201,6 +205,7 @@ class AgentProfileService:
                     avatar=defaults["avatar"],
                     enabled=True,
                     listed=bool(defaults["listed"]),
+                    audience_mode=defaults.get("audience_mode", AUDIENCE_MODE_ALL),
                     max_steps=defaults.get("max_steps"),
                     is_builtin=True,
                 )
@@ -213,6 +218,11 @@ class AgentProfileService:
                 changed = True
             else:
                 profile.is_builtin = True
+                if not customized and profile.listed != bool(defaults["listed"]):
+                    # 内置默认上架状态回落（网站工程师默认不上架）。
+                    # customized 的人工配置一律尊重，不覆盖。
+                    profile.listed = bool(defaults["listed"])
+                    changed = True
                 if slug == "website" and not customized:
                     current_prompt = profile.system_prompt or ""
                     if "copy_template(stack)" not in current_prompt:
@@ -515,7 +525,7 @@ class AgentProfileService:
         audience_mode: str,
         audience_user_ids: list[int],
     ) -> None:
-        if audience_mode not in {AUDIENCE_MODE_ALL, AUDIENCE_MODE_SELECTED}:
+        if audience_mode not in {AUDIENCE_MODE_ALL, AUDIENCE_MODE_SELECTED, AUDIENCE_MODE_NONE}:
             raise ValueError("Unsupported audience mode")
 
         unique_user_ids = tuple(dict.fromkeys(audience_user_ids))
@@ -534,20 +544,53 @@ class AgentProfileService:
         if audience_mode == AUDIENCE_MODE_SELECTED:
             for user_id in unique_user_ids:
                 db.add(AgentProfileAudienceModel(profile_id=profile.id, user_id=user_id))
+        # audience_mode == none：不写名单，靠模式本身表达"暂不开放"
+        profile.audience_mode = audience_mode
+
+    def _audience_mode(self, db: Session, profile: AgentProfileModel) -> str:
+        """读取启用范围。字段缺失（老库未迁移）时按"名单为空 = 全体"回退。"""
+        mode = (profile.audience_mode or "").strip()
+        if mode in {AUDIENCE_MODE_ALL, AUDIENCE_MODE_SELECTED, AUDIENCE_MODE_NONE}:
+            return mode
+        # 兼容老数据：老语义是"audience 表为空 = 全体用户可见"。
+        audience_count = db.scalar(
+            select(func.count(AgentProfileAudienceModel.id)).where(
+                AgentProfileAudienceModel.profile_id == profile.id
+            )
+        ) or 0
+        return AUDIENCE_MODE_SELECTED if audience_count else AUDIENCE_MODE_ALL
 
     def _is_profile_available_to_user(self, db: Session, profile: AgentProfileModel, user: UserModel) -> bool:
+        """智能体对某个用户是否可用（商店可见 + 可对话）。
+
+        裁决顺序：
+
+        1. ``enabled=False`` → 谁都不可用（管理员也看不到）；
+        2. 管理员 → 永远可用（否则管理员无法救场）；
+        3. 启用范围 ``none`` → 仅创建者/所有者可用（"先不让任何人使用"）；
+        4. 启用范围 ``selected`` → 只有名单内的用户可用；
+           名单为空时回退为"全体"（老数据兼容）；
+        5. 启用范围 ``all`` → 全体可用。
+        """
         if not profile.enabled:
             return False
         if user.role == "admin":
             return True
-        if profile.is_builtin:
+
+        mode = self._audience_mode(db, profile)
+        if mode == AUDIENCE_MODE_NONE:
+            # 暂不开放：只有所有者/创建者本人（以及管理员）能用
+            return profile.owner_id == user.id or profile.created_by == user.id
+
+        if mode == AUDIENCE_MODE_SELECTED:
             audience_count = db.scalar(
                 select(func.count(AgentProfileAudienceModel.id)).where(
                     AgentProfileAudienceModel.profile_id == profile.id
                 )
             ) or 0
             if audience_count == 0:
-                return True
+                # selected 但名单为空 → 没有任何人可用（比"全体"更安全）
+                return False
             return bool(
                 db.scalar(
                     select(AgentProfileAudienceModel.id).where(
@@ -557,21 +600,7 @@ class AgentProfileService:
                 )
             )
 
-        audience_count = db.scalar(
-            select(func.count(AgentProfileAudienceModel.id)).where(
-                AgentProfileAudienceModel.profile_id == profile.id
-            )
-        ) or 0
-        if audience_count == 0:
-            return True
-        return bool(
-            db.scalar(
-                select(AgentProfileAudienceModel.id).where(
-                    AgentProfileAudienceModel.profile_id == profile.id,
-                    AgentProfileAudienceModel.user_id == user.id,
-                )
-            )
-        )
+        return True
 
     def _serialize(self, db: Session, profile: AgentProfileModel, *, user_id: int | None = None) -> dict[str, object]:
         self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
@@ -611,7 +640,7 @@ class AgentProfileService:
             "owner_id": profile.owner_id,
             "is_owner": bool(user_id is not None and profile.owner_id == user_id),
             "visibility": profile.visibility or "private",
-            "audience_mode": self._audience_mode_for_users(audience_users),
+            "audience_mode": self._audience_mode(db, profile),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
             "tools": self._merge_tools_with_catalog(tools),
             "skills": [self._serialize_skill_reference(skill) for skill in skills],
@@ -672,6 +701,7 @@ class AgentProfileService:
 
     def _serialize_prefetched(
         self,
+        db: Session,
         profile: AgentProfileModel,
         *,
         tools: list[AgentProfileToolModel],
@@ -698,7 +728,7 @@ class AgentProfileService:
             "owner_id": profile.owner_id,
             "is_owner": bool(user_id is not None and profile.owner_id == user_id),
             "visibility": profile.visibility or "private",
-            "audience_mode": self._audience_mode_for_users(audience_users),
+            "audience_mode": self._audience_mode(db, profile),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
             "tools": self._merge_tools_with_catalog(tools),
             "skills": [self._serialize_skill_reference(skill) for skill in skills],
@@ -785,7 +815,7 @@ class AgentProfileService:
                 })
 
         return [
-            self._serialize_prefetched(
+            self._serialize_prefetched(db, 
                 profile,
                 tools=tools_by_profile.get(profile.id, []),
                 skills=skills_by_profile.get(profile.id, []),
@@ -1027,7 +1057,7 @@ class AgentProfileService:
             self._apply_audience(
                 db,
                 profile,
-                audience_mode=request.audience_mode,
+                audience_mode=request.audience_mode or AUDIENCE_MODE_ALL,
                 audience_user_ids=request.audience_user_ids,
             )
             db.commit()

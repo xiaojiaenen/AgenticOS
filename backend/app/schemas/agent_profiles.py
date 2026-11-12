@@ -43,7 +43,7 @@ class AgentProfileBase(BaseModel):
     enabled: bool = True
     listed: bool = False
     max_steps: int | None = Field(default=None, ge=1, le=2147483647)
-    audience_mode: str = Field(default="all", pattern="^(all|selected)$")
+    audience_mode: str = Field(default="all", pattern="^(all|selected|none)$")
     audience_user_ids: list[int] = Field(default_factory=list)
 
     @field_validator("name", "description", "system_prompt", "avatar")
@@ -82,7 +82,7 @@ class AgentProfileUpdateRequest(BaseModel):
     enabled: bool | None = None
     listed: bool | None = None
     max_steps: int | None = Field(default=None, ge=1, le=2147483647)
-    audience_mode: str | None = Field(default=None, pattern="^(all|selected)$")
+    audience_mode: str | None = Field(default=None, pattern="^(all|selected|none)$")
     audience_user_ids: list[int] | None = None
     tools: list[AgentProfileTool] | None = None
     skill_ids: list[int] | None = None

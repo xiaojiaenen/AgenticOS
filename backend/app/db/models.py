@@ -192,6 +192,13 @@ class AgentProfileModel(Base):
     owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     # private = 仅自己可见可用；public = 可出现在商店供他人安装
     visibility: Mapped[str] = mapped_column(String(16), default="private", index=True)
+    # ── 启用范围（授权 ACL）──
+    #   all      = 全体用户可用（商店可见、对话可用）
+    #   selected = 仅 audience_user_ids 指定的用户可用；其他人在商店看不到、
+    #              即使拿到 profile_id 也会在对话入口被直接拦截
+    #   none     = 暂不开放给任何人（自己与管理员除外）—— "先不让任何人使用"
+    # 与 agent_profile_audiences 表配合：audience 表存 selected 模式下的名单。
+    audience_mode: Mapped[str] = mapped_column(String(16), default="all", index=True)
     # ── 一键发布为独立应用（公开聊天页 / 嵌入 widget）──
     published: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     # 公开访问的短 ID（不可猜测），随发布生成；下线保留以便重新上线
@@ -548,12 +555,55 @@ class WebsiteDeployModel(Base):
     access_token: Mapped[str | None] = mapped_column(String(512), nullable=True)
     # 展示名：部署时用户可填；留空则回退会话标题 / project_slug（见 _serialize）
     title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # 短链码：对外地址 /s/<code>（8 位）。不暴露 uid/session/版本，
+    # 分享时不必带一长串目录名。唯一性由服务层保证（碰撞时重试）。
+    short_code: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    # 网站说明：部署时用户填写，审批页展示给管理员判断用途
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # 封面截图：部署完成后 Playwright 异步截取首屏并压缩，存 data/ 下的相对路径
     cover_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     # 访问统计：凡经过本平台站点端点的请求都计数（含作品库外链 / 私密签名访问）
     view_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     last_viewed_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
     requested_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class PublishedItemModel(Base):
+    """作品库里的非网站类作品（PPT / 文档 / 表格）。
+
+    与 website_deploys 分表而不是合表：网站的发布链路建立在"静态目录 +
+    nginx alias + 首屏截图"之上，与文件型产物的"二进制下载 + 类型化预览"
+    语义完全不同，硬塞进一张表会让两套都变别扭。
+    """
+
+    __tablename__ = "published_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # ppt / document / sheet
+    kind: Mapped[str] = mapped_column(String(16), index=True)
+    session_id: Mapped[str] = mapped_column(String(128), index=True)
+    # 指向源产物：ppt = artifact_id；document/sheet = 工作区目录名
+    source_ref: Mapped[str] = mapped_column(String(160), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200), default="")
+    description: Mapped[str] = mapped_column(Text, default="")
+    # 文件型产物只能公开（用户明确要求）
+    visibility: Mapped[str] = mapped_column(String(16), default="public", index=True)
+    # pending / approved / deployed / rejected / cancelled / superseded / failed
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    # 对外短链 /s/{short_code}
+    short_code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
+    # 发布后的文件目录（相对 ARTIFACT_PUBLISH_DIR）
+    file_path: Mapped[str] = mapped_column(String(300), default="")
+    # 封面图（PPT 首页 / 文档表格用类型图标，不生成封面时为空）
+    cover_path: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    view_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_viewed_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+    requested_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     approved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
