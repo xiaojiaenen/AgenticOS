@@ -94,6 +94,7 @@ async def send_notification_email(
     subject: str,
     body: str,
     is_html: bool = False,
+    inline_image: tuple[str, bytes, str] | None = None,
 ) -> bool:
     """
     发送通知邮件（公共函数，供 notification_service 等外部模块调用）
@@ -104,6 +105,9 @@ async def send_notification_email(
         subject: 邮件主题
         body: 邮件正文
         is_html: 正文是否为 HTML 格式
+        inline_image: 可选内嵌图片 ``(cid, bytes, mime)``。用于把网站封面
+            直接画在邮件里（比外链可靠：内网图片地址收件人未必能访问）。
+            HTML 正文里用 ``<img src="cid:<cid>">`` 引用。
 
     Returns:
         True if sent successfully, False otherwise
@@ -116,7 +120,20 @@ async def send_notification_email(
 
     try:
         subtype = "html" if is_html else "plain"
-        msg = MIMEText(body, subtype, "utf-8")
+        if inline_image is not None and is_html:
+            from email.mime.image import MIMEImage
+            from email.mime.multipart import MIMEMultipart
+
+            cid, data, mime = inline_image
+            root = MIMEMultipart("related")
+            root.attach(MIMEText(body, "html", "utf-8"))
+            img = MIMEImage(data, _subtype=mime.split("/")[-1])
+            img.add_header("Content-ID", f"<{cid}>")
+            img.add_header("Content-Disposition", "inline", filename=f"{cid}.{mime.split('/')[-1]}")
+            root.attach(img)
+            msg = root
+        else:
+            msg = MIMEText(body, subtype, "utf-8")
         msg["From"] = email_addr
         msg["To"] = to
         msg["Subject"] = subject

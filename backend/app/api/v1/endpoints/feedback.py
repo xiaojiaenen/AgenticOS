@@ -147,6 +147,24 @@ def admin_reply_feedback(
     db: Session = Depends(get_db),
     admin: UserModel = Depends(require_admin),
 ) -> dict:
+    # 通知所需的作者信息：只取一次，且必须在评论写入之前（写入后行可能被改）
+    _issue_author_email: str | None = None
+    _issue_title = ""
+    _issue_status = ""
+    try:
+        from app.db.models import FeedbackIssueModel, UserModel as _U
+        from app.services.feedback_service import _STATUS_LABEL as _LABELS
+
+        issue_row = db.get(FeedbackIssueModel, issue_id)
+        if issue_row is not None:
+            _issue_title = issue_row.title or ""
+            _issue_status = _LABELS.get(issue_row.status or "", issue_row.status or "")
+            author = db.get(_U, issue_row.user_id) if issue_row.user_id else None
+            if author is not None and author.email:
+                _issue_author_email = author.email
+    except Exception:  # noqa: BLE001
+        pass
+
     try:
         result = _service.add_comment(issue_id, payload, admin, official=True)
     except LookupError:
@@ -155,6 +173,25 @@ def admin_reply_feedback(
         db, http_request, action="feedback.reply", actor=admin,
         resource_type="feedback_issue", resource_id=issue_id,
     )
+
+    # 官方回复 → 邮件通知提交者（用户自己的评论不通知，避免自己给自己发信）
+    if _issue_author_email:
+        try:
+            from app.services.business_notifications import _spawn, notify_feedback_reply
+
+            _spawn(
+                notify_feedback_reply(
+                    user_email=_issue_author_email,
+                    issue_title=_issue_title,
+                    reply_text=payload.body,
+                    status_label=_issue_status,
+                    issue_id=issue_id,
+                    actor_name=admin.name,
+                )
+            )
+        except Exception:  # noqa: BLE001 —— 通知失败不影响回复
+            pass
+
     return result
 
 

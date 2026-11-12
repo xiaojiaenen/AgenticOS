@@ -13,6 +13,8 @@ class DeployRequest(BaseModel):
     visibility: str = Field(default="private", pattern="^(public|private)$")
     # 展示名：部署时由用户填写，留空则回退会话标题 / project_slug
     title: str | None = Field(default=None, max_length=200)
+    # 网站说明：部署时填写，审批页展示给管理员判断用途
+    description: str | None = Field(default=None, max_length=2000)
 
 
 class DeployDecisionRequest(BaseModel):

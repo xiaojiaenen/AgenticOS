@@ -1,5 +1,8 @@
 """Website deploy API endpoints."""
 
+import logging
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
@@ -11,6 +14,8 @@ from app.db.models import UserModel
 from app.schemas.website import DeployDecisionRequest, DeployRequest
 from app.services import audit_service
 from app.services.website_deploy_service import WebsiteDeployService
+
+_logger = logging.getLogger("website.api")
 
 router = APIRouter(prefix="/website", tags=["website"])
 
@@ -59,6 +64,7 @@ def request_deploy(
         target_domain=body.target_domain,
         visibility=body.visibility,
         title=body.title,
+        description=body.description,
     )
     audit_service.record_request(
         db, http_request, action="website.deploy_request", actor=user,
@@ -167,6 +173,32 @@ def list_all_deploys(
     return _service.list_all()
 
 
+@admin_router.get("/deploys/{deploy_id}/review")
+async def review_deploy(
+    deploy_id: int,
+    with_ai: bool = Query(False, description="是否让模型给出风险评估"),
+    admin: UserModel = Depends(require_admin),
+):
+    """审批审阅包：完整对话 + 源码扫描 + （可选）AI 风险意见。
+
+    管理员判断「该不该上线」需要三样东西：用户到底提了什么需求（对话）、
+    产物里有没有可疑代码（静态扫描）、以及一个不占时间的初判（AI 意见）。
+    这三样在同一个响应里返回，前端一屏展示。
+    """
+    from app.db.models import WebsiteDeployModel
+    from app.services.website_review_service import ai_review, build_review_packet
+
+    with _service.session_factory() as db:
+        deploy = db.get(WebsiteDeployModel, deploy_id)
+        if deploy is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="部署申请不存在")
+        packet = build_review_packet(deploy)
+
+    if with_ai:
+        packet["ai"] = await ai_review(packet)
+    return packet
+
+
 @admin_router.post("/deploys/{deploy_id}/decision")
 def decide_deploy(
     deploy_id: int,
@@ -189,12 +221,59 @@ def decide_deploy(
         result=audit_service.RESULT_ALLOW if body.status == "approved" else audit_service.RESULT_DENY,
         detail={"status": body.status, "reason": body.reason},
     )
+
+    # 审批通过 → 邮件通知作者（附封面与访问地址）。通知失败不影响审批结果。
+    if body.status == "approved":
+        try:
+            from app.db.models import UserModel as _U
+            from app.services.business_notifications import _spawn, notify_deploy_approved
+
+            author = db.get(_U, deploy.get("requested_by")) if deploy.get("requested_by") else None
+            if author is not None and author.email:
+                _spawn(
+                    notify_deploy_approved(
+                        user_email=author.email,
+                        user_name=author.name,
+                        title=deploy.get("title") or deploy.get("project_slug") or "",
+                        project_slug=deploy.get("project_slug") or "",
+                        visibility=deploy.get("visibility") or "private",
+                        short_url=deploy.get("short_url"),
+                        description=deploy.get("description"),
+                    )
+                )
+        except Exception:  # noqa: BLE001
+            pass
+
     return deploy
 
 
 # ---------------------------------------------------------------------------
 # 作品库（gallery）与私密站点访问
 # ---------------------------------------------------------------------------
+
+
+@router.post("/deploy/{deploy_id}/cancel")
+def cancel_deploy(
+    deploy_id: int,
+    http_request: Request,
+    user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """取消部署：站点下线，**源码保留**（可随时重新部署）。"""
+    try:
+        result = _service.cancel(
+            deploy_id, by_user_id=user.id, is_admin=(user.role == "admin")
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    audit_service.record_request(
+        db, http_request, action="website.deploy_cancel", actor=user,
+        resource_type="website_deploy", resource_id=deploy_id,
+        detail={"project_slug": result.get("project_slug")},
+    )
+    return result
 
 
 @router.get("/cover/{slug}")
@@ -253,12 +332,40 @@ def website_stats(
 
 @router.get("/gallery")
 def list_gallery(user: UserModel = Depends(get_current_user)):
-    """作品库：deployed 状态的网站。
+    """作品库：已发布的作品（网站 + 文件型产物）。
 
-    - public：所有人可见，deploy_url 直接指向 /sites/ 公开路径；
-    - private：仅部署者（和管理员）可见，附 30 天签名访问链接。
+    - 网站：public 所有人可见，deploy_url 指向 /sites/ 公开路径；
+      private 仅部署者（和管理员）可见，附 30 天签名访问链接。
+    - 文件型（PPT / 文档 / 表格）：只能公开，统一走 /s/<code>/ 短链。
+
+    两类合并成一个列表返回（前端作品库按同一套卡片渲染），用 ``item_type``
+    区分：``website`` / ``ppt`` / ``document`` / ``sheet``。
     """
-    return _service.list_gallery(viewer_id=user.id, is_admin=user.role == "admin")
+    sites = _service.list_gallery(viewer_id=user.id, is_admin=user.role == "admin")
+    items: list[dict[str, Any]] = []
+    for site in sites:
+        item = dict(site)
+        item["item_type"] = "website"
+        items.append(item)
+
+    try:
+        from app.services.published_item_service import PublishedItemService
+
+        for pub in PublishedItemService().list_gallery(
+            viewer_id=user.id, is_admin=user.role == "admin"
+        ):
+            item = dict(pub)
+            item["item_type"] = pub.get("kind", "website")
+            item["stack"] = pub.get("kind_label", "")
+            item["deploy_url"] = pub.get("short_url")
+            item["cover_url"] = pub.get("cover_url")
+            items.append(item)
+    except Exception:  # noqa: BLE001 —— 文件型作品读取失败不影响网站作品
+        _logger.warning("作品库合并文件型作品失败", exc_info=True)
+
+    # 统一按最近更新时间倒序
+    items.sort(key=lambda i: (i.get("updated_at") or i.get("created_at") or ""), reverse=True)
+    return items
 
 
 @router.post("/deploy/{deploy_id}/reset-access")

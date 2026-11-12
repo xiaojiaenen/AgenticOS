@@ -21,6 +21,21 @@ _WEBSITES_DIR = WEBSITES_DIR
 NGINX_SERVE_ROOT = NGINX_SERVE_DIR
 
 
+def _new_short_code() -> str:
+    """生成 8 位短链码（base32 小写，去掉易混的 0/1/i/l/o）。"""
+    import secrets
+
+    alphabet = "abcdefghjkmnpqrstuvwxyz23456789"
+    return "".join(secrets.choice(alphabet) for _ in range(8))
+
+
+def _public_url(short_code: str | None, project_slug: str, *, private: bool) -> str:
+    """对外地址：/s/<code>。没有 code 的旧记录回退旧路径（兼容）。"""
+    if short_code:
+        return f"/s/{short_code}/"
+    return f"/api/v1/website/site/{project_slug}/" if private else f"/sites/{project_slug}/"
+
+
 def _self_port() -> int:
     """本机后端端口：封面截图要从容器/进程内部访问自己。"""
     try:
@@ -51,6 +66,7 @@ class WebsiteDeployService:
         target_domain: str | None = None,
         visibility: str = "private",
         title: str | None = None,
+        description: str | None = None,
     ) -> dict[str, Any]:
         """Create a deploy request. Returns the deploy record dict.
 
@@ -73,6 +89,27 @@ class WebsiteDeployService:
             raise FileNotFoundError(f"dist/ not found for project '{project_slug}'. Build the project first.")
 
         with self.session_factory() as db:
+            # 已上线过的项目要重新部署：**必须重新审批**。
+            # 旧版本立即下架（访问返回 404），新版本以 pending 建单；
+            # 这样「已上线内容」永远对应一次管理员明确批准的快照。
+            previously = db.scalars(
+                select(WebsiteDeployModel)
+                .where(
+                    WebsiteDeployModel.project_slug == project_slug,
+                    WebsiteDeployModel.status.in_(("deployed", "approved")),
+                )
+                .order_by(WebsiteDeployModel.updated_at.desc())
+            ).all()
+            for old in previously:
+                old.status = "superseded"
+                old.reason = "已提交新版本，等待重新审批（旧版本已下架）"
+                old.updated_at = datetime.now(timezone.utc)
+            if previously:
+                db.commit()
+                _logger.info(
+                    "重新部署：旧版本下架 %s 条 slug=%s", len(previously), project_slug
+                )
+
             # 幂等：同一会话 + 同一项目已有 pending 请求时复用，不重复建单。
             # 用户反复点「部署」或在对话里多次说"部署"时，之前每次都会插一条
             # 新的 pending 记录 —— 管理后台审批队列里堆出一串重复项，管理员
@@ -113,6 +150,8 @@ class WebsiteDeployService:
                 status="pending",
                 visibility=visibility,
                 title=(title or "").strip()[:200] or None,
+                description=(description or "").strip()[:2000] or None,
+                short_code=_new_short_code(),
                 requested_by=requested_by,
                 # 落库相对路径：机器或容器换目录后，审批阶段仍能找到 dist/
                 dist_path=str(Path(project_slug) / "dist"),
@@ -177,6 +216,38 @@ class WebsiteDeployService:
 
             return self._serialize(deploy)
 
+
+    def cancel(self, deploy_id: int, *, by_user_id: int, is_admin: bool = False) -> dict[str, Any]:
+        """取消部署：站点下线，但**保留源码**（dist 与工作区目录都不动）。
+
+        与删除的区别：用户可以稍后重新部署，代码与素材都还在。状态落
+        ``cancelled``，nginx 侧目录移走（下线），作品库里不再列出。
+        """
+        with self.session_factory() as db:
+            deploy = db.get(WebsiteDeployModel, deploy_id)
+            if deploy is None:
+                raise LookupError(f"Deploy {deploy_id} not found")
+            if not is_admin and deploy.requested_by != by_user_id:
+                raise PermissionError("只能取消自己的部署")
+            if deploy.status in ("cancelled", "superseded"):
+                return self._serialize(deploy)
+
+            # 下线：把 nginx 目录里已发布的副本删掉（源码在 data/websites/<slug>/ 不动）
+            try:
+                for root in (NGINX_SERVE_ROOT / deploy.project_slug, NGINX_SERVE_ROOT / "_private" / deploy.project_slug):
+                    if root.exists():
+                        shutil.rmtree(root, ignore_errors=True)
+            except Exception:  # noqa: BLE001
+                _logger.warning("取消部署时清理发布目录失败: slug=%s", deploy.project_slug, exc_info=True)
+
+            deploy.status = "cancelled"
+            deploy.reason = "用户取消部署（源码保留，可重新部署）"
+            deploy.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(deploy)
+            _logger.info("deploy cancelled: id=%s slug=%s", deploy_id, deploy.project_slug)
+            return self._serialize(deploy)
+
     def get(self, deploy_id: int) -> dict[str, Any] | None:
         with self.session_factory() as db:
             deploy = db.get(WebsiteDeployModel, deploy_id)
@@ -223,12 +294,13 @@ class WebsiteDeployService:
         is_public = (deploy.visibility or "private") == "public"
         if is_public:
             target_dir = NGINX_SERVE_ROOT / deploy.project_slug
-            deploy.deploy_url = f"/sites/{deploy.project_slug}/"
+            # 对外展示短链；nginx 侧 /s/<code> 由后端 302 到真实静态目录
+            deploy.deploy_url = _public_url(deploy.short_code, deploy.project_slug, private=False)
         else:
             target_dir = NGINX_SERVE_ROOT / "_private" / deploy.project_slug
             # nginx 配置必须显式 deny /sites/_private/（见 nginx.conf 注释）；
             # 访问统一走后端 /website/site/ 端点（带 30 天签名）
-            deploy.deploy_url = f"/api/v1/website/site/{deploy.project_slug}/"
+            deploy.deploy_url = _public_url(deploy.short_code, deploy.project_slug, private=True)
 
         target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -322,7 +394,14 @@ class WebsiteDeployService:
             token = self._issue_access_token(deploy)
             deploy.access_token = token
             db.commit()
-            return {"id": deploy.id, "access_url": f"/api/v1/website/site/{deploy.project_slug}/?t={token}"}
+            return {
+                "id": deploy.id,
+                "access_url": (
+                    f"/s/{deploy.short_code}?t={token}"
+                    if deploy.short_code
+                    else f"/api/v1/website/site/{deploy.project_slug}/?t={token}"
+                ),
+            }
 
     def list_gallery(self, viewer_id: int, is_admin: bool = False) -> list[dict[str, Any]]:
         """作品库：deployed 状态的网站。
@@ -361,7 +440,11 @@ class WebsiteDeployService:
                         r2 = db2.get(WebsiteDeployModel, row.id)
                         r2.access_token = token
                         db2.commit()
-                item["access_url"] = f"/api/v1/website/site/{row.project_slug}/?t={token}"
+                item["access_url"] = (
+                    f"/s/{row.short_code}?t={token}"
+                    if row.short_code
+                    else f"/api/v1/website/site/{row.project_slug}/?t={token}"
+                )
             items.append(item)
         return items
 
@@ -427,6 +510,13 @@ class WebsiteDeployService:
             "dist_path": deploy.dist_path,
             "target_domain": deploy.target_domain,
             "deploy_url": deploy.deploy_url,
+            "short_code": deploy.short_code,
+            "short_url": _public_url(
+                deploy.short_code,
+                deploy.project_slug,
+                private=(deploy.visibility or "private") == "private",
+            ),
+            "description": deploy.description,
             "visibility": deploy.visibility or "private",
             "title": deploy.title or deploy.project_slug,
             "cover_url": (f"/api/v1/website/cover/{deploy.project_slug}" if deploy.cover_path else None),

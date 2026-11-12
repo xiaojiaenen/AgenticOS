@@ -177,6 +177,16 @@ async def limit_request_size(request: Request, call_next):
     return await call_next(request)
 app.include_router(api_router, prefix=settings.api_v1_prefix)
 
+# 短链：/s/<code> 挂在应用根（不经 /api/v1 前缀），nginx 直接把 /s/ 反代到这里
+from app.api.v1.endpoints.shortlinks import router as shortlinks_router  # noqa: E402
+
+app.include_router(shortlinks_router)
+
+# 文件型作品发布（PPT / 文档 / 表格）—— 端点自带完整路径，同样挂在应用根
+from app.api.v1.endpoints.published_items import router as published_items_router  # noqa: E402
+
+app.include_router(published_items_router)
+
 # OpenAI 兼容上游网关 /v1/*（外部软件用 sk-agenticos-* 调用）
 from app.api.gateway_v1 import router as gateway_v1_router
 from app.api.gateway_multi import router as gateway_multi_router
