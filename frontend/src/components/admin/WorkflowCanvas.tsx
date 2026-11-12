@@ -24,8 +24,11 @@ import {
   ReactFlowProvider,
   useEdgesState,
   useNodesState,
+  EdgeText,
+  getSmoothStepPath,
   type Connection,
   type Edge,
+  type EdgeProps,
   type Node,
   type NodeProps,
 } from '@xyflow/react';
@@ -103,11 +106,15 @@ function WorkflowNodeView({ data, selected }: NodeProps<Node<WfNodeData>>) {
       ) : null}
       <span
         className={cn(
-          'inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-semibold text-white',
+          'inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold text-white',
           TYPE_COLORS[data.nodeType] ?? 'bg-slate-400',
         )}
       >
         {TYPE_LABELS[data.nodeType] ?? data.nodeType}
+        {/* human_input 是唯一「会停下来等人」的节点：常亮呼吸点标记语义 */}
+        {data.nodeType === 'human_input' && (
+          <span className="h-1 w-1 animate-pulse rounded-full bg-white/90" />
+        )}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[11px] font-semibold text-[var(--foreground)]">
@@ -146,6 +153,62 @@ function edgeStyle(label?: string) {
     label === 'true' ? EDGE_COLOR_TRUE : label === 'false' ? EDGE_COLOR_FALSE : EDGE_COLOR_DEFAULT;
   return { stroke: color, strokeWidth: 1.6 };
 }
+
+/** 连线绘制入场：``pathLength=1`` 归一化路径长度，CSS 里用 dashoffset
+ *  动画「从无到有画出来」（keyframes 在 index.css 的 wf-edge-draw）。
+ *  新拖出来的连线挂载时同样走一次绘制动画。 */
+function WorkflowEdgeView({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style,
+  label,
+  labelStyle,
+  markerEnd,
+}: EdgeProps) {
+  const [path, labelX, labelY] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+  });
+  return (
+    <>
+      <path
+        id={id}
+        className="wf-edge-draw"
+        d={path}
+        fill="none"
+        pathLength={1}
+        // 只取 SVG 安全字段：EdgeProps.style 是 xyflow 自己的宽 CSSProperties，
+        // 整体展开会与 React 的 SVGProps 类型冲突
+        style={{ stroke: style?.stroke, strokeWidth: style?.strokeWidth }}
+        markerEnd={markerEnd}
+      />
+      {label != null && label !== '' ? (
+        <EdgeText
+          x={labelX}
+          y={labelY}
+          label={String(label)}
+          labelStyle={labelStyle}
+          labelShowBg
+          labelBgStyle={{ fill: 'var(--surface-1)' }}
+          labelBgPadding={[4, 2]}
+          labelBgBorderRadius={4}
+        />
+      ) : null}
+    </>
+  );
+}
+
+// 必须定义在组件外：xyflow 对运行时变化的 edgeTypes/nodeTypes 会告警
+const edgeTypes = { workflowEdge: WorkflowEdgeView };
 
 /** 节点位置：优先用已存的 position，否则按 BFS 列自动排。 */
 function resolvePositions(graph: WorkflowGraph): Map<string, { x: number; y: number }> {
@@ -186,6 +249,7 @@ function toFlowEdges(graph: WorkflowGraph): Edge[] {
     id: `e-${i}-${e.from}-${e.to}`,
     source: e.from,
     target: e.to,
+    type: 'workflowEdge',
     label: e.label,
     style: edgeStyle(e.label),
     labelStyle: { fontSize: 10, fill: 'var(--muted-foreground)' },
@@ -351,6 +415,7 @@ function WorkflowCanvasInner({
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}

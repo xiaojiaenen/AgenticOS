@@ -1,5 +1,6 @@
 import { motion } from 'motion/react';
 import { Activity, Clock3, Sparkles, Users, Zap } from 'lucide-react';
+import { CountUp } from '../ui/CountUp';
 import { formatNumber, formatTokenNumber, formatLatency, formatPercent, ratio } from '../../lib/utils';
 import { DashboardSummary } from '../../services/dashboardService';
 
@@ -10,18 +11,21 @@ import { DashboardSummary } from '../../services/dashboardService';
  * 深色模式下自动翻转，不写死 bg-[var(--surface-1)]。
  */
 export const STATIC_CARD =
-  'admin-card group flex h-full flex-col px-4 py-4';
+ 'admin-card group flex h-full flex-col px-4 py-4';
 
 interface DashboardStatsProps {
  summary: DashboardSummary;
 }
 
+// KPI 值拆成 count + format 两段：CountUp 滚动原始数字，format 保持与
+// 静态渲染同口径（formatNumber / formatTokenNumber 都是纯函数 of 数字）
 const KPI_ITEMS = [
  {
   key: 'sessions' as const,
   label: '总会话',
   icon: Users,
-  getValue: (s: DashboardSummary) => formatNumber(s.total_sessions ?? 0),
+  getCount: (s: DashboardSummary) => s.total_sessions ?? 0,
+  format: formatNumber,
   accent: 'text-sky-400',
   bg: 'bg-sky-500/20',
  },
@@ -29,7 +33,8 @@ const KPI_ITEMS = [
   key: 'active_users' as const,
   label: '活跃用户',
   icon: Activity,
-  getValue: (s: DashboardSummary) => formatNumber(s.active_users ?? 0),
+  getCount: (s: DashboardSummary) => s.active_users ?? 0,
+  format: formatNumber,
   getSub: (s: DashboardSummary) => `占全部账号 ${formatPercent(ratio(s.active_users ?? 0, s.total_users ?? 0))}`,
   accent: 'text-emerald-400',
   bg: 'bg-emerald-500/20',
@@ -38,7 +43,8 @@ const KPI_ITEMS = [
   key: 'tokens' as const,
   label: 'Token 总量',
   icon: Sparkles,
-  getValue: (s: DashboardSummary) => formatTokenNumber(s.total_tokens ?? 0),
+  getCount: (s: DashboardSummary) => s.total_tokens ?? 0,
+  format: formatTokenNumber,
   getSub: (s: DashboardSummary) => `输入 ${formatTokenNumber(s.input_tokens ?? 0)} / 输出 ${formatTokenNumber(s.output_tokens ?? 0)}`,
   accent: 'text-violet-400',
   bg: 'bg-violet-500/20',
@@ -47,7 +53,8 @@ const KPI_ITEMS = [
   key: 'latency' as const,
   label: '平均耗时',
   icon: Clock3,
-  getValue: (s: DashboardSummary) => formatLatency(s.avg_latency_ms ?? 0),
+  getCount: (s: DashboardSummary) => s.avg_latency_ms ?? 0,
+  format: formatLatency,
   accent: 'text-amber-400',
   bg: 'bg-amber-500/20',
  },
@@ -55,7 +62,8 @@ const KPI_ITEMS = [
   key: 'tools' as const,
   label: '工具调用',
   icon: Zap,
-  getValue: (s: DashboardSummary) => formatNumber(s.tool_calls ?? 0),
+  getCount: (s: DashboardSummary) => s.tool_calls ?? 0,
+  format: formatNumber,
   getSub: (s: DashboardSummary) => `协同比 ${formatPercent(ratio(s.tool_calls ?? 0, (s.tool_calls ?? 0) + (s.llm_calls ?? 0)))}`,
   accent: 'text-rose-400',
   bg: 'bg-rose-500/20',
@@ -80,7 +88,9 @@ export const DashboardStats = ({ summary }: DashboardStatsProps) => {
         <item.icon size={15} />
        </div>
       </div>
-      <p className="mt-2.5 admin-heading text-xl font-semibold tracking-tight lg:text-2xl">{item.getValue(s)}</p>
+      <p className="mt-2.5 admin-heading text-xl font-semibold tracking-tight lg:text-2xl">
+        <CountUp value={item.getCount(s)} format={item.format} />
+      </p>
       {/* 副信息行占位固定高度：有无副信息的卡片保持等高 */}
       <p className="admin-muted mt-1 min-h-[14px] text-[11px] font-semibold">{item.getSub?.(s) ?? ''}</p>
      </div>
