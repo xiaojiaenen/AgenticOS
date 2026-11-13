@@ -6,7 +6,8 @@
  * 之前内联在请求函数里，历史加载的回归（如图表刷新后消失）只能靠
  * 手工点页面才能发现。
  */
-import type { Message } from '../types';
+import { toolCallIdOf } from '../lib/messageBlocks';
+import type { Message, MessageBlock } from '../types';
 
 /** 后端消息原始格式 */
 export type BackendMessage = {
@@ -119,6 +120,18 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {
         continue;
       }
 
+      // blocks 必须生成：ChatMessage 的按序渲染（正文/工具/思考交错、
+      // 工具链嵌在气泡内）要求 message.blocks 非空 —— 缺失会回退到
+      // **弃用的旧式三桶布局**（工具链在气泡外、样式与流式完全不同），
+      // 用户看到的"刷新后变成旧风格、工具在外面"就是它。
+      // 顺序按后端 raw 序：一条 assistant = 思考 + 它的 tool_calls + 正文。
+      const blocks: MessageBlock[] = [];
+      if (reasoningText) blocks.push({ kind: 'reasoning', text: reasoningText });
+      (toolCalls || []).forEach((tc, i) => {
+        blocks.push({ kind: 'tool', toolCallId: toolCallIdOf(tc, i) });
+      });
+      if (msg.content?.trim()) blocks.push({ kind: 'text', text: msg.content });
+
       messages.push({
         id: `backend-${messages.length}`,
         role: 'model',
@@ -131,6 +144,7 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {
         toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined,
         a2uiMessages,
         chartMessages: chartMessages && chartMessages.length > 0 ? chartMessages : undefined,
+        blocks: blocks.length > 0 ? blocks : undefined,
       });
     }
   }

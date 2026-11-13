@@ -157,3 +157,37 @@ describe('时间戳透传（历史消息时间不能丢）', () => {
     expect(msgs[0].createdAt).toBeUndefined();
   });
 });
+
+describe('blocks 生成（刷新后不能回退弃用的三桶布局）', () => {
+  it('assistant 消息生成 思考→工具→正文 的有序 blocks', () => {
+    const raw: BackendMessage[] = [
+      assistant(undefined, {
+        content: '我先算一下',
+        reasoning_content: '思考过程',
+        tool_calls: [{ id: 'call-1', name: 'calc', arguments: {} }],
+        created_at: '2026-11-12T19:10:00+08:00',
+      }),
+      { role: 'tool', tool_call_id: 'call-1', content: '391' },
+      assistant(undefined, {
+        content: '答案是 391',
+        created_at: '2026-11-12T19:11:00+08:00',
+      }),
+    ];
+    const msgs = mapBackendMessages(raw);
+    const withTools = msgs[0];
+    // ReAct 一轮：思考 → 工具 → 正文（若 assistant 自带 content）
+    expect(withTools.blocks?.map((b) => b.kind)).toEqual(['reasoning', 'tool', 'text']);
+    const final = msgs[1];
+    expect(final.blocks?.map((b) => b.kind)).toEqual(['text']);
+    // tool 块的 toolCallId 与 toolCalls 对齐（渲染器靠它取结果）
+    const toolBlock = withTools.blocks?.find((b) => b.kind === 'tool') as
+      | { kind: 'tool'; toolCallId: string }
+      | undefined;
+    expect(toolBlock?.toolCallId).toBe('call-1');
+  });
+
+  it('纯文本 assistant 也有 text 块（旧消息同样走按序渲染）', () => {
+    const msgs = mapBackendMessages([assistant(undefined, { content: '你好' })]);
+    expect(msgs[0].blocks?.map((b) => b.kind)).toEqual(['text']);
+  });
+});

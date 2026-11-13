@@ -20,6 +20,12 @@ _CATALOG_PACKAGE = "app.resources.prompt_catalogs"
 # 落库/回显前据此剥离，避免用户刷新后看到自己"发了一大段资源速查"。
 WEBSITE_CATALOG_MARKER = "\n\u2063[[WEBSITE_CATALOG]]\u2063\n"
 
+# PPT 模式注入（design_catalog）的边界标记。此前 design_catalog 是
+# ``message + catalog`` 裸拼接、没有 marker —— strip_injected_catalog 只认
+# website 的边界，PPT 用户消息里的「222 主题 + 工作流顺序 + CURRENT TIME」
+# 全部落库回显，用户看到自己"发了一整段 skill 文档"。
+DESIGN_CATALOG_MARKER = "\n\u2063[[DESIGN_CATALOG]]\u2063\n"
+
 
 def _load_catalog(name: str) -> str:
     """读取 prompt 文案模板（importlib.resources 保证 zip 包/冻结打包场景可用）。
@@ -53,13 +59,14 @@ def inject_design_catalog(message: str) -> str:
         deck_styles_text = ""
 
     current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    return message + _load_catalog("design_catalog.md").format(
+    body = _load_catalog("design_catalog.md").format(
         theme_count=theme_count,
         theme_list=theme_list,
         token_ref=token_ref,
         deck_styles_text=deck_styles_text,
         current_time=current_time,
     )
+    return f"{message}{DESIGN_CATALOG_MARKER}\n{body}\n{DESIGN_CATALOG_MARKER}"
 
 
 def scan_website_catalog() -> tuple[list[str], int]:
@@ -100,19 +107,22 @@ async def inject_website_catalog(message: str) -> str:
 def strip_injected_catalog(text: str) -> str:
     """剥掉注入的目录文档段，只留用户原始输入（落库/回显用）。
 
-    两代格式都要处理：
-    - 新格式：带 ``WEBSITE_CATALOG_MARKER`` 边界（可靠切分）；
+    三代格式都要处理：
+    - 新格式：带 ``WEBSITE_CATALOG_MARKER`` / ``DESIGN_CATALOG_MARKER``
+      边界（可靠切分）—— website 与 ppt 两种模式各一个；
     - 旧格式（历史数据）：标记之前是直接 ``message + catalog`` 拼接，
       只能按目录文档的固定开头特征识别并截断。历史消息不改库，
       只在读取时剥离 —— 用户不该看到自己"发了一大段资源速查"。
     """
     if not text:
         return text
-    if WEBSITE_CATALOG_MARKER in text:
-        head, _, _rest = text.partition(WEBSITE_CATALOG_MARKER)
-        return head.rstrip()
+    for marker in (WEBSITE_CATALOG_MARKER, DESIGN_CATALOG_MARKER):
+        if marker in text:
+            head, _, _rest = text.partition(marker)
+            return head.rstrip()
 
-    # 旧格式：目录文档以「## Website 模式资源速查」等标题开头
+    # 旧格式：目录文档以「## Website 模式资源速查」「## ⚠️ 工作流顺序」等
+    # 标题开头
     for marker_head in _LEGACY_CATALOG_HEADS:
         idx = text.find(marker_head)
         if idx > 0:
@@ -135,6 +145,9 @@ _LEGACY_CATALOG_HEADS: tuple[str, ...] = (
     "## Website 模式资源速查",
     "\n---\n\n### 设计主题（",
     "### 设计主题（",
+    # PPT design_catalog 的旧拼接开头（无 marker 时代）
+    "\n---\n\n## ⚠️ 工作流顺序（严格遵守）",
+    "## ⚠️ 工作流顺序（严格遵守）",
 )
 
 

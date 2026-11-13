@@ -277,8 +277,26 @@ def _as_message_dict(payload: Any) -> dict[str, Any] | None:
     }
 
 
+def _clean_session_title(raw: str) -> str:
+    """清洗会话标题：剥掉注入的 prompt catalog，截到 40 字。"""
+    text = (raw or "").strip()
+    if text:
+        try:
+            from app.services.agent.prompts import strip_injected_catalog
+
+            text = strip_injected_catalog(text).strip()
+        except Exception:  # noqa: BLE001 —— 剥离失败按原样截断
+            pass
+    return text[:40]
+
+
 def _first_user_text(message_json: str | None) -> str | None:
-    """从 message_json 中取用户消息正文（用于生成会话标题）。"""
+    """从 message_json 中取用户消息正文（用于生成会话标题）。
+
+    **必须剥掉注入的 prompt catalog**：库里的 user 消息是注入后形态
+    （website/ppt 模式会拼上资源速查文档），不剥的话会话列表标题变成
+    「做一个…培训 --- ## ⚠️ 工作流顺序（严格遵守）…」这种半截 skill 文档。
+    """
     payload = _loads(message_json, None)
     if not isinstance(payload, dict):
         return None
@@ -292,6 +310,13 @@ def _first_user_text(message_json: str | None) -> str | None:
     if not isinstance(text, str):
         return None
     text = text.strip()
+    if text:
+        try:
+            from app.services.agent.prompts import strip_injected_catalog
+
+            text = strip_injected_catalog(text).strip()
+        except Exception:  # noqa: BLE001 —— 剥离失败按原样截断
+            pass
     return text or None
 
 
@@ -484,7 +509,7 @@ class DatabaseAgentStorage:
                     metadata = _loads(row.metadata_json, {}) or {}
                     meta_title = metadata.get("title") if isinstance(metadata, dict) else None
                     if isinstance(meta_title, str) and meta_title.strip():
-                        titles[row.session_id] = meta_title.strip()[:40]
+                        titles[row.session_id] = _clean_session_title(meta_title)
                     elif row.summary:
                         titles[row.session_id] = row.summary
                     else:
@@ -507,7 +532,7 @@ class DatabaseAgentStorage:
                             continue
                         text = _first_user_text(payload)
                         if text:
-                            titles[sid] = text[:40]
+                            titles[sid] = _clean_session_title(text)
 
                 sessions = []
                 for row in rows:
