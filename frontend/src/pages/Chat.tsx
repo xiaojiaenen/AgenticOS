@@ -362,6 +362,9 @@ export const Chat = () => {
         title: lastPptMsg.pptArtifact.title || '',
         slideCount: lastPptMsg.pptArtifact.slideCount || 0,
         theme: lastPptMsg.pptArtifact.theme,
+        // 发布按钮的渲染条件是 artifactId && sessionId，缺了它
+        // 「公开到作品库」不出现（用户报"没有发布按钮"的根因之一）
+        sessionId: currentSessionId ?? undefined,
       });
     } else if (lastWebsiteMsg?.websiteArtifact) {
       setArtifact({

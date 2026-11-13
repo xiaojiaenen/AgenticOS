@@ -1,16 +1,13 @@
 import React from 'react';
 import { motion, AnimatePresence, MotionValue } from 'motion/react';
-import { Download, LayoutDashboard, Palette, Pencil, Play, RefreshCcw, X, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { Download, LayoutDashboard, Palette, Play, RefreshCcw, X, Loader2 } from 'lucide-react';
 
 import { Artifact } from '../../types';
 import { cn } from '../../lib/utils';
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
-import { API_BASE_URL, apiFetch } from '../../services/apiClient';
 import { exportPptx, listPptThemes, rethemePpt, getPptPreviewHtml, type PptTheme } from '../../services/agentService';
 import { PptPresenterMode } from './PptPresenterMode';
 import { ArtifactVersionBar } from '../chat/ArtifactVersionBar';
-import { toastError } from '../../lib/errors';
 import { PublishToGalleryButton } from '../gallery/PublishToGalleryButton';
 
 type PptArtifactPanelProps = {
@@ -35,7 +32,6 @@ type PptArtifactPanelProps = {
 export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, onClose, borderColor, onThemeChange, onSwitchVersion, compact = false }) => {
   const [isExporting, setIsExporting] = React.useState(false);
   const [isPresenting, setIsPresenting] = React.useState(false);
-  const [isOpeningEditor, setIsOpeningEditor] = React.useState(false);
   const [showThemePanel, setShowThemePanel] = React.useState(false);
   const [themes, setThemes] = React.useState<PptTheme[]>([]);
   const [currentTheme, setCurrentTheme] = React.useState(artifact.theme || 'apple');
@@ -61,35 +57,9 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
   
   const previewSrcDoc = React.useMemo(() => buildSandboxedHtmlDocument(html), [html]);
 
-  /**
-   * 打开 SVG 编辑器。
-   * 后端该端点是 bearer 鉴权的自包含 HTML，直接 window.open 不会带 Authorization
-   * 头（必然 401），所以先带鉴权取回内容，再用 blob URL 交给新窗口。
-   */
-  const openEditor = async () => {
-    if (!artifact.artifactId || isOpeningEditor) return;
-    setIsOpeningEditor(true);
-    try {
-      const editorHtml = await apiFetch<string>(
-        `${API_BASE_URL}/api/v1/agent/ppt/editor/${artifact.artifactId}`,
-        { responseType: 'text' },
-        '打开编辑器失败',
-      );
-      const url = URL.createObjectURL(new Blob([editorHtml], { type: 'text/html;charset=utf-8' }));
-      const win = window.open(url, '_blank');
-      if (!win) {
-        URL.revokeObjectURL(url);
-        toast.error('浏览器拦截了新窗口，请允许弹窗后重试');
-        return;
-      }
-      // 等新窗口加载完再回收，过早 revoke 会导致白屏
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (err) {
-      toast.error(toastError(err, '打开编辑器失败'));
-    } finally {
-      setIsOpeningEditor(false);
-    }
-  };
+  // 「打开 SVG 编辑器」的入口已按用户要求从面板移除（侧栏是查看/发布场景，
+  // 跳独立编辑器页面与侧栏形态冲突）。后端 `/ppt/editor/{id}` 端点保留，
+  // 需要时仍可直接访问。
 
   // 加载主题列表
   React.useEffect(() => {
@@ -230,19 +200,9 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
               <Play size={14} />
               演示
             </button>
-            {artifact.artifactId && (
-              <button
-                type="button"
-                onClick={() => void openEditor()}
-                disabled={isOpeningEditor}
-                className="inline-flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-2)] disabled:cursor-not-allowed disabled:opacity-60"
-                title="编辑幻灯片"
-                aria-label="编辑幻灯片"
-              >
-                {isOpeningEditor ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />}
-                编辑
-              </button>
-            )}
+            {/* 「编辑幻灯片」按钮已按用户要求移除：侧栏是查看/发布的场景，
+                进编辑器要跳转到独立的 svg_editor 页面，和侧栏形态冲突。
+                主区域的产物面板同样不再提供该入口。 */}
             {/* 侧栏内嵌时关闭交给外层标签栏，不重复放一个 X */}
             {!compact && (
               <>

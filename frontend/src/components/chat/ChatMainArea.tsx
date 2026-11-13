@@ -165,6 +165,8 @@ const {
         title: msg.pptArtifact.title || 'PPT 演示文稿',
         slideCount: msg.pptArtifact.slideCount || 0,
         theme: msg.pptArtifact.theme,
+        // 「公开到作品库」以 artifactId && sessionId 为渲染条件
+        sessionId: currentSessionId ?? undefined,
       };
     }
     if (msg.websiteArtifact?.html) {

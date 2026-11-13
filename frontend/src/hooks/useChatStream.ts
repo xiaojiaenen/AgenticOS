@@ -534,6 +534,10 @@ export function useChatStream({
               title: pptArtifact.title,
               slideCount: pptArtifact.slide_count,
               theme: pptArtifact.theme,
+              // sessionId 必须带上：面板里的「公开到作品库」按钮以
+              // `artifactId && sessionId` 为渲染条件（发布接口需要会话归属
+              // 校验）。漏了它按钮会凭空消失，用户以为没有发布功能。
+              sessionId: pptArtifact.session_id || targetId || undefined,
             };
             setArtifact(nextArtifact);
             setSessions((prev) =>
