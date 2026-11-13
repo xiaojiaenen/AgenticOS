@@ -1,5 +1,6 @@
 """Website 生成工具 — copy_template / build / deploy"""
 
+import json
 import re
 import shutil
 from pathlib import Path
@@ -152,6 +153,44 @@ def _normalize_index_html(project_dir: Path) -> list[str]:
 
 
 _VANILLA_STACK = "vanilla"
+
+
+def _motion_suggestion(theme_name: str) -> str:
+    """主题自带的运动节奏建议（来自 design-style 的实测参数）。
+
+    只有部分风格带 motion.json（14 个新风格）；有就附在返回值里，让 AI
+    写 CSS 动画时节奏有据可依（bpm 对齐、入场用弹簧参数），而不是凭感觉
+    给一个通用 ease。没有就返回空串 —— 不给没依据的建议。
+    """
+    motion_path = (
+        Path(__file__).resolve().parents[3]
+        / "data" / "design-systems" / theme_name / "motion.json"
+    )
+    if not motion_path.is_file():
+        return ""
+    try:
+        data = json.loads(motion_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return ""
+    parts: list[str] = []
+    bpm = data.get("bpm")
+    if bpm:
+        try:
+            parts.append(f"节奏基准 {bpm} BPM（beat ≈ {round(60 / float(bpm) * 1000)}ms）")
+        except (TypeError, ValueError, ZeroDivisionError):
+            pass
+    slam = data.get("slam") or data.get("slamBig") or {}
+    if slam.get("stiffness"):
+        parts.append(
+            f"入场弹簧 stiffness={slam['stiffness']} damping={slam.get('damping', 17)}"
+        )
+    if not parts:
+        return ""
+    return (
+        "\n动效节奏（主题自带实测参数，CSS 动画时长/缓动请对齐）：\n  "
+        + "；".join(parts)
+        + "\n  用户开启 prefers-reduced-motion 时全部关闭。\n"
+    )
 
 
 def _design_themes_dir() -> Path:
@@ -577,10 +616,12 @@ def register_website_tools(registry: ToolRegistry) -> None:
         audit_lines = "\n".join(
             f"  {p['pair']}: {p['ratio']}:1（{p['grade']}）" for p in audit["pairs"]
         )
+        motion_note = _motion_suggestion(requested)
         rel = str(entry_css.relative_to(project_dir)).replace("\\", "/")
         return (
             f"已应用设计主题「{requested}」到 {rel}（共 {len(tokens)} 个 token）。\n"
             f"\nWCAG 对比度审计：\n{audit_lines}\n"
+            f"{motion_note}"
             f"\n下一步：\n"
             f"1. 页面里所有颜色一律用 var(--bg) / var(--text-1) / var(--accent) 等引用，"
             f"禁止写死 hex（主题整体换色时页面自动跟随）；\n"

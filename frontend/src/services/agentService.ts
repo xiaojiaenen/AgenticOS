@@ -928,6 +928,8 @@ export type PptTheme = {
   primary_color: string;
   bg_color: string;
   text_color: string;
+  /** WCAG 对比度等级（正文/背景等固定组合的最差档）：AAA / AA / AA-Large / FAIL / null(审计失败) */
+  contrast_grade?: string | null;
 };
 
 export async function listPptThemes(): Promise<PptTheme[]> {

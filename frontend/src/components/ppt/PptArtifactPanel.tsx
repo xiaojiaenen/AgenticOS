@@ -285,6 +285,21 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
                         />
                       </div>
                       <span className="text-[9px] font-medium text-[var(--muted-foreground)] truncate w-full text-center">{theme.name}</span>
+                      {/* WCAG 对比度徽章：AAA/AA 绿、AA-Large 黄、FAIL 红点警示 */}
+                      {theme.contrast_grade && (
+                        <span
+                          title={`WCAG 对比度：${theme.contrast_grade}`}
+                          className={`absolute top-0.5 left-0.5 rounded px-0.5 text-[7px] font-bold leading-3 ${
+                            theme.contrast_grade === 'AAA' || theme.contrast_grade === 'AA'
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                              : theme.contrast_grade === 'AA-Large'
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                                : 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300'
+                          }`}
+                        >
+                          {theme.contrast_grade === 'AA-Large' ? 'AA-L' : theme.contrast_grade === 'FAIL' ? '!' : theme.contrast_grade}
+                        </span>
+                      )}
                       {currentTheme === theme.name && (
                         <div className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-sky-500 text-white flex items-center justify-center">
                           <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
