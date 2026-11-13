@@ -62,6 +62,15 @@ New-Item -ItemType Directory -Force "$pkgDir\deploy" | Out-Null
 Copy-Item -Recurse "backend\app" "$pkgDir\backend\" -Force
 Copy-Item "backend\alembic" "$pkgDir\backend\" -Recurse -Force
 Copy-Item "backend\alembic.ini","backend\main.py","backend\pyproject.toml","backend\uv.lock" "$pkgDir\backend\" -Force
+# office 模式（文档/表格）的常驻 Node 运行时。runtime.py 硬编码
+# RUNTIME_DIR = backend/office-runtime，且 available 检查要求该目录下
+# node_modules 存在 —— 漏拷会让内网的 office 智能体直接不可用。
+# 必须整目录带（含 node_modules）：Univer node-core 带平台相关二进制，
+# 内网无外网出口时无法 npm install 补齐。pack-code.ps1 是增量代码包才
+# 排除 node_modules（假设目标机已有一份），完整离线包不能沿用该假设。
+if (Test-Path "backend\office-runtime") {
+    Copy-Item "backend\office-runtime" "$pkgDir\backend\" -Recurse -Force
+}
 Get-ChildItem -Path "$pkgDir\backend" -Recurse -Directory -Filter "__pycache__" |
     ForEach-Object { Remove-Item $_.FullName -Recurse -Force }
 

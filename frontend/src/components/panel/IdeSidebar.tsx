@@ -15,6 +15,7 @@ import { FileImage, FileSpreadsheet, FileText, Globe, Presentation, X } from 'lu
 import { cn } from '../../lib/utils';
 import { useChatStore } from '../../stores/chatStore';
 import { issueWebsitePreviewUrl } from '../../services/websiteService';
+import { PptArtifactPanel } from '../ppt/PptArtifactPanel';
 import type { Artifact, Message } from '../../types';
 
 export type TabKind = 'ppt' | 'website' | 'document' | 'sheet' | 'image' | 'file' | 'log';
@@ -55,14 +56,25 @@ export function collectTabs(messages: Message[], sessionId: string): SidebarTab[
   };
   messages.forEach((m, i) => {
     if (m.pptArtifact?.status === 'ready') {
+      // id 用真 artifactId；只有历史脏数据（早期未落库的旧消息）才退回位置序号。
+      // 退回值的产物在服务端查不到，面板会显示"加载失败"，但至少标签可点。
       const id = m.pptArtifact.artifactId ?? `ppt-${i}`;
       push({
         id: `ppt:${id}`,
         kind: 'ppt',
         title: m.pptArtifact.title || '演示文稿',
-        artifact: m.pptArtifact.html
-          ? { language: 'ppt', artifactId: m.pptArtifact.artifactId, html: m.pptArtifact.html, title: m.pptArtifact.title ?? '', slideCount: m.pptArtifact.slideCount ?? 0, theme: m.pptArtifact.theme, sessionId }
-          : undefined,
+        // artifact 始终构造（即使没有 html）：PptArtifactPanel 会按
+        // artifactId 懒加载预览，工具栏（主题/导出/编辑）不依赖 html。
+        artifact: {
+          language: 'ppt',
+          artifactId: m.pptArtifact.artifactId,
+          // 空串 = 尚未加载，PptArtifactPanel 会按 artifactId 回源预览
+          html: m.pptArtifact.html ?? '',
+          title: m.pptArtifact.title ?? '',
+          slideCount: m.pptArtifact.slideCount ?? 0,
+          theme: m.pptArtifact.theme,
+          sessionId,
+        },
       });
     }
     if (m.websiteArtifact?.status === 'ready') {
@@ -298,14 +310,17 @@ const WebsiteTabBody: React.FC<{ tab: SidebarTab; sessionId: string | null }> = 
 const TabBody: React.FC<{ tab: SidebarTab; sessionId: string | null; messages: Message[] }> = ({ tab, sessionId, messages }) => {
   const setArtifact = useChatStore((s) => s.setArtifact);
 
-  // PPT：侧栏内 iframe 渲染（preview_html 自包含，无外部依赖）
-  if (tab.kind === 'ppt' && tab.artifact?.language === 'ppt' && tab.artifact.html) {
+  // PPT：**必须复用 PptArtifactPanel**，不能只渲染裸 iframe。
+  // 主题切换 / 导出 PPTX / 编辑幻灯片三个按钮长在该面板上，
+  // 之前侧栏直接 srcDoc 预览 HTML，用户看到的是"没有工具栏的空壳"。
+  if (tab.kind === 'ppt' && tab.artifact?.language === 'ppt') {
     return (
-      <iframe
-        title={tab.title}
-        srcDoc={tab.artifact.html}
-        className="h-full w-full border-0 bg-white"
-        sandbox="allow-scripts allow-same-origin allow-popups"
+      <PptArtifactPanel
+        artifact={tab.artifact}
+        onClose={() => {}}
+        // 侧栏宽度有限，面板自身的 60% 宽度动画在侧栏里会挤成 0，
+        // 用 compact 让它铺满容器、去掉侧边栏专属的内边距。
+        compact
       />
     );
   }

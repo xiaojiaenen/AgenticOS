@@ -191,3 +191,99 @@ describe('blocks 生成（刷新后不能回退弃用的三桶布局）', () => 
     expect(msgs[0].blocks?.map((b) => b.kind)).toEqual(['text']);
   });
 });
+
+/**
+ * 产物恢复：metadata.artifact → xxxArtifact 字段。
+ *
+ * 用户报的三个症状同一个根因：artifact_ready 只是 SSE 事件、从不落库，
+ * 刷新会话后前端拿不到 artifactId →
+ *   * 导出 PPTX 静默失败（没有 id，handleExport 直接 return）
+ *   * 主题切换无效（handleThemeChange 同样 early-return）
+ *   * 侧边栏打开是裸 iframe（工具栏长在 PptArtifactPanel 上）
+ * 后端现把产物挂进 metadata.artifact（snake_case 原始 dict），这里还原。
+ */
+describe('mapArtifactMetadata — 产物恢复', () => {
+  it('恢复 PPT 产物（snake_case → camelCase）', () => {
+    const msgs = mapBackendMessages([
+      assistant({
+        artifact: {
+          ppt: {
+            artifact_id: 'abc123',
+            session_id: 's1',
+            title: '季度汇报',
+            slide_count: 8,
+            theme: 'stripe',
+            html: '<html>...</html>',
+          },
+        },
+      }),
+    ]);
+    const ppt = msgs[0].pptArtifact;
+    expect(ppt?.status).toBe('ready');
+    expect(ppt?.artifactId).toBe('abc123');
+    expect(ppt?.title).toBe('季度汇报');
+    expect(ppt?.slideCount).toBe(8);
+    expect(ppt?.theme).toBe('stripe');
+    // html 不进前端缓存：由面板按 artifactId 回源
+    expect(ppt?.html).toBeUndefined();
+  });
+
+  it('恢复网站产物（project_slug 优先作预览标识）', () => {
+    const msgs = mapBackendMessages([
+      assistant({
+        artifact: {
+          website: {
+            project_slug: 'my-site',
+            artifact_id: 'v3',
+            title: '官网',
+            stack: 'vue',
+          },
+        },
+      }),
+    ]);
+    const web = msgs[0].websiteArtifact;
+    expect(web?.status).toBe('ready');
+    expect(web?.projectSlug).toBe('my-site');
+    expect(web?.artifactId).toBe('v3');
+    expect(web?.stack).toBe('vue');
+  });
+
+  it('恢复文档与表格产物', () => {
+    const msgs = mapBackendMessages([
+      assistant({
+        artifact: {
+          document: { artifact_id: 'doc1', title: '方案', char_count: 1200 },
+          sheet: { artifact_id: 'sheet1', title: '预算', sheet_names: ['A', 'B'], sheet_count: 2 },
+        },
+      }),
+    ]);
+    expect(msgs[0].documentArtifact?.artifactId).toBe('doc1');
+    expect(msgs[0].documentArtifact?.charCount).toBe(1200);
+    expect(msgs[0].sheetArtifact?.artifactId).toBe('sheet1');
+    expect(msgs[0].sheetArtifact?.sheetNames).toEqual(['A', 'B']);
+    expect(msgs[0].sheetArtifact?.sheetCount).toBe(2);
+  });
+
+  it('没有标识的产物不恢复（点了也回源不到）', () => {
+    const msgs = mapBackendMessages([assistant({ artifact: { ppt: { title: '空壳' } } })]);
+    expect(msgs[0].pptArtifact).toBeUndefined();
+  });
+
+  it('metadata 无 artifact 时不误伤（老消息）', () => {
+    const msgs = mapBackendMessages([assistant({ chart: [] }, { content: '普通回答' })]);
+    expect(msgs[0].pptArtifact).toBeUndefined();
+    expect(msgs[0].websiteArtifact).toBeUndefined();
+  });
+
+  it('空 content 但带产物时保留消息（否则刷新后产物整个消失）', () => {
+    const msgs = mapBackendMessages([
+      {
+        role: 'assistant',
+        content: '',
+        metadata: { artifact: { ppt: { artifact_id: 'x1', title: 'T', slide_count: 3 } } },
+      },
+    ]);
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].pptArtifact?.artifactId).toBe('x1');
+  });
+});

@@ -42,8 +42,102 @@ export function unwrapChartMessage(item: unknown): { title?: string; option: unk
   return null;
 }
 
-export function mapBackendMessages(raw: BackendMessage[]): Message[] {
-  const messages: Message[] = [];
+/**
+ * 把后端 metadata.artifact 还原成前端 Message 上的四个 xxxArtifact 字段。
+ *
+ * 后端存的是**产物原始 dict**（`artifact_ready` 事件的 data），字段是
+ * snake_case（artifact_id / slide_count / project_slug）。前端流式路径用的是
+ * camelCase（artifactId / slideCount / projectSlug），两边必须对齐，
+ * 否则「实时生成正常、刷新后按钮全失效」。
+ *
+ * 只恢复「有标识」的产物：没有 artifactId / projectSlug 的条目点了也回源
+ * 不到，留着反而让 UI 显示一个打不开的面板。
+ */
+export function mapArtifactMetadata(raw: unknown): {
+  pptArtifact?: NonNullable<Message['pptArtifact']>;
+  websiteArtifact?: NonNullable<Message['websiteArtifact']>;
+  documentArtifact?: NonNullable<Message['documentArtifact']>;
+  sheetArtifact?: NonNullable<Message['sheetArtifact']>;
+} {
+  if (!raw || typeof raw !== 'object') return {};
+  const byKind = raw as Record<string, unknown>;
+  const pick = (kind: string): Record<string, unknown> | null => {
+    const entry = byKind[kind];
+    return entry && typeof entry === 'object' ? (entry as Record<string, unknown>) : null;
+  };
+  const str = (v: unknown): string | undefined =>
+    typeof v === 'string' && v ? v : undefined;
+  const num = (v: unknown): number | undefined =>
+    typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+
+  const out: ReturnType<typeof mapArtifactMetadata> = {};
+
+  const ppt = pick('ppt');
+  if (ppt) {
+    const artifactId = str(ppt.artifact_id) ?? str(ppt.artifactId);
+    if (artifactId) {
+      out.pptArtifact = {
+        status: 'ready',
+        artifactId,
+        title: str(ppt.title),
+        slideCount: num(ppt.slide_count) ?? num(ppt.slideCount),
+        theme: str(ppt.theme),
+        // html 是预览快照，可能上百 KB —— 不进 localStorage 缓存，
+        // 靠 getPptPreviewHtml 回源（与 sheet/document 同一策略）。
+      };
+    }
+  }
+
+  const website = pick('website');
+  if (website) {
+    const projectSlug = str(website.project_slug) ?? str(website.projectSlug);
+    const artifactId = str(website.artifact_id) ?? str(website.artifactId);
+    if (projectSlug || artifactId) {
+      out.websiteArtifact = {
+        status: 'ready',
+        artifactId: artifactId ?? projectSlug,
+        projectSlug,
+        stack: str(website.stack),
+        title: str(website.title),
+      };
+    }
+  }
+
+  const document = pick('document');
+  if (document) {
+    const artifactId = str(document.artifact_id) ?? str(document.artifactId);
+    if (artifactId) {
+      out.documentArtifact = {
+        status: 'ready',
+        artifactId,
+        title: str(document.title),
+        charCount: num(document.char_count) ?? num(document.charCount),
+      };
+    }
+  }
+
+  const sheet = pick('sheet');
+  if (sheet) {
+    const artifactId = str(sheet.artifact_id) ?? str(sheet.artifactId);
+    if (artifactId) {
+      out.sheetArtifact = {
+        status: 'ready',
+        artifactId,
+        title: str(sheet.title),
+        sheetNames: Array.isArray(sheet.sheet_names)
+          ? (sheet.sheet_names as unknown[]).filter((n): n is string => typeof n === 'string')
+          : Array.isArray(sheet.sheetNames)
+            ? (sheet.sheetNames as unknown[]).filter((n): n is string => typeof n === 'string')
+            : undefined,
+        sheetCount: num(sheet.sheet_count) ?? num(sheet.sheetCount),
+      };
+    }
+  }
+
+  return out;
+}
+
+export function mapBackendMessages(raw: BackendMessage[]): Message[] {  const messages: Message[] = [];
   // 按 tool_call_id 分组 tool 消息
   const toolResultsMap = new Map<string, BackendMessage[]>();
 
@@ -96,6 +190,19 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {
             .filter((c): c is { title?: string; option: unknown } => c !== null)
         : undefined;
 
+      // 产物恢复：metadata.artifact 是 {ppt?: {...}, website?: {...}, ...}。
+      //
+      // 这是「刷新后 PPT 导不出、主题切换无效、侧边栏没有主题/导出/编辑按钮」
+      // 三个症状的同一个根因 —— artifact_ready 只是 SSE 事件，从不落库，
+      // 重载会话时前端拿不到 artifactId，于是：
+      //   * handleExport 在无 artifactId 时静默 return（点了没反应）
+      //   * handleThemeChange 同理 early-return
+      //   * IdeSidebar 只渲染预览 HTML，工具栏长在 PptArtifactPanel 上
+      // 后端现已把产物挂进 metadata.artifact（见 artifact_events.py），
+      // 这里按 xxxArtifact 字段还原成与流式路径完全一致的结构。
+      const { pptArtifact, websiteArtifact, documentArtifact, sheetArtifact } =
+        mapArtifactMetadata(metadata?.artifact);
+
       // 思考内容：后端透传 AIMessage.reasoning_content（5.5）。流式阶段
       // 用户实时看到了思考，刷新后如果没有它，"停止"打断的轮次没有
       // 最终文本，气泡里就什么都没有。
@@ -114,7 +221,11 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {
       const hasVisibleText = Boolean(msg.content?.trim());
       const hasArtifacts =
         (a2uiMessages && a2uiMessages.length > 0) ||
-        (chartMessages && chartMessages.length > 0);
+        (chartMessages && chartMessages.length > 0) ||
+        // 产物就是这条消息的全部内容 —— PPT 模式收尾时 orchestrator 明确
+        // 把 visible_text 置空（"artifact_ready" 之后没有正文），不带产物
+        // 判定就会把这条消息整条丢掉，刷新后 PPT 从会话里消失。
+        Boolean(pptArtifact || websiteArtifact || documentArtifact || sheetArtifact);
       const hasToolCalls = Boolean(toolCalls && toolCalls.length > 0);
       if (!hasVisibleText && !hasArtifacts && !reasoningText && !hasToolCalls) {
         continue;
@@ -144,6 +255,12 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {
         toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined,
         a2uiMessages,
         chartMessages: chartMessages && chartMessages.length > 0 ? chartMessages : undefined,
+        // 产物（PPT/网站/文档/表格）：刷新后靠它恢复 artifactId，
+        // 否则导出/主题切换/侧栏工具栏全部失联（见 mapArtifactMetadata 注释）
+        ...(pptArtifact ? { pptArtifact } : {}),
+        ...(websiteArtifact ? { websiteArtifact } : {}),
+        ...(documentArtifact ? { documentArtifact } : {}),
+        ...(sheetArtifact ? { sheetArtifact } : {}),
         blocks: blocks.length > 0 ? blocks : undefined,
       });
     }

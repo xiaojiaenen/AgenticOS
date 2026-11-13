@@ -28,10 +28,13 @@ _logger = logging.getLogger("session_artifacts")
 _TTL_SECONDS = 7 * 24 * 3600
 
 # 进程内 fallback（Redis 不可用时的事实源）
-_mem_lists: dict[str, dict[str, list[dict[str, Any]]]] = {"a2ui": {}, "chart": {}}
-_mem_emitted: dict[str, dict[str, int]] = {"a2ui": {}, "chart": {}}
+_mem_lists: dict[str, dict[str, list[dict[str, Any]]]] = {"a2ui": {}, "chart": {}, "artifact": {}}
+_mem_emitted: dict[str, dict[str, int]] = {"a2ui": {}, "chart": {}, "artifact": {}}
 
-KINDS = ("a2ui", "chart")
+# artifact：本轮 run 产出的产物描述（ppt / website / document / sheet）。
+# 与 a2ui / chart 同样是「工具产出 → 累积 → 落库挂 metadata」的一条通道，
+# 目的都是让**刷新后**前端还能拿回产物标识（artifactId / projectSlug）。
+KINDS = ("a2ui", "chart", "artifact")
 
 
 def _key(kind: str, session_id: str) -> str:

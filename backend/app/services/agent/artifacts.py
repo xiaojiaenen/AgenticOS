@@ -474,6 +474,21 @@ class ArtifactFactory:
                 _processed += _align_images(svg_path, dry_run=False, verbose=False)[0]
                 try:
                     svg_content = svg_path.read_text(encoding="utf-8")
+                    # 属性值内的引号冲突（``font-family=''A','B'``）会让整页
+                    # XML 非法、ET.parse 抛错后该页被 skip 成空白页。写入时
+                    # sanitize 已修新数据，但存量产物在库里就是坏的形态 ——
+                    # 导出时必须再兜一次（用户报"导出的 PPT 每一页都空白"）。
+                    from app.services.ppt_artifact_service import (
+                        _fix_attribute_quote_conflicts,
+                    )
+
+                    _repaired = _fix_attribute_quote_conflicts(svg_content)
+                    if _repaired != svg_content:
+                        _logger.info(
+                            "repaired attribute quote conflicts in %s", svg_path.name
+                        )
+                        svg_content = _repaired
+                        svg_path.write_text(svg_content, encoding="utf-8")
                     svg_content = svg_content.replace('&nbsp;', '&#160;')
                     svg_content = svg_content.replace('&copy;', '&#169;')
                     svg_content = svg_content.replace('&reg;', '&#174;')

@@ -4,6 +4,7 @@ import { Download, LayoutDashboard, Palette, Pencil, Play, RefreshCcw, X, Loader
 import { toast } from 'sonner';
 
 import { Artifact } from '../../types';
+import { cn } from '../../lib/utils';
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
 import { API_BASE_URL, apiFetch } from '../../services/apiClient';
 import { exportPptx, listPptThemes, rethemePpt, getPptPreviewHtml, type PptTheme } from '../../services/agentService';
@@ -15,13 +16,23 @@ import { PublishToGalleryButton } from '../gallery/PublishToGalleryButton';
 type PptArtifactPanelProps = {
   artifact: Extract<Artifact, { language: 'ppt' }>;
   onClose: () => void;
-  borderColor: MotionValue<string>;
+  /** 外框颜色动画值（主区域抽屉用）；侧栏 compact 模式不需要 */
+  borderColor?: MotionValue<string>;
   onThemeChange?: (newHtml: string, theme: string) => void;
   /** 切换到历史版本（由版本条调用） */
   onSwitchVersion?: (artifact: Extract<Artifact, { language: 'ppt' }>) => void;
+  /**
+   * 侧栏内嵌模式：铺满容器、去掉 60% 宽度动画与左侧边框。
+   *
+   * 面板本身是给主区域右侧抽屉用的（`width: 60%` + 入场动画 + 关闭按钮）。
+   * 在 IDE 侧栏里这些都不合适 —— 容器已经是窄栏，60% 会把它挤成一条缝，
+   * 而关闭按钮与外层标签栏的关闭重复。工具按钮（主题/导出/编辑）保持不变，
+   * 那正是「侧栏点开没有这些按钮」要修的。
+   */
+  compact?: boolean;
 };
 
-export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, onClose, borderColor, onThemeChange, onSwitchVersion }) => {
+export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, onClose, borderColor, onThemeChange, onSwitchVersion, compact = false }) => {
   const [isExporting, setIsExporting] = React.useState(false);
   const [isPresenting, setIsPresenting] = React.useState(false);
   const [isOpeningEditor, setIsOpeningEditor] = React.useState(false);
@@ -130,14 +141,22 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
   return (
     <>
       <motion.aside
-        initial={{ width: 0, opacity: 0 }}
-        animate={{ width: '60%', opacity: 1 }}
-        exit={{ width: 0, opacity: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="relative z-20 flex h-full flex-col overflow-hidden border-l bg-[var(--surface-1)]/70 ring-1 ring-[var(--border-subtle)] backdrop-blur-3xl"
-        style={{ borderColor }}
+        initial={compact ? false : { width: 0, opacity: 0 }}
+        animate={compact ? undefined : { width: '60%', opacity: 1 }}
+        exit={compact ? undefined : { width: 0, opacity: 0 }}
+        transition={compact ? undefined : { duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className={cn(
+          'relative z-20 flex h-full flex-col overflow-hidden bg-[var(--surface-1)]/70 backdrop-blur-3xl',
+          compact
+            ? 'w-full'
+            : 'border-l ring-1 ring-[var(--border-subtle)]',
+        )}
+        style={compact ? undefined : { borderColor }}
       >
-        <div className="z-10 flex h-14 flex-shrink-0 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/90 px-6 backdrop-blur-md">
+        <div className={cn(
+          'z-10 flex flex-shrink-0 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/90 backdrop-blur-md',
+          compact ? 'h-11 px-2.5' : 'h-14 px-6',
+        )}>
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm">
               <LayoutDashboard size={18} />
@@ -224,15 +243,20 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
                 编辑
               </button>
             )}
-            <div className="mx-2 h-4 w-px bg-[var(--border-medium)]" />
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/15"
-              aria-label="关闭演示文稿预览"
-            >
-              <X size={18} />
-            </button>
+            {/* 侧栏内嵌时关闭交给外层标签栏，不重复放一个 X */}
+            {!compact && (
+              <>
+                <div className="mx-2 h-4 w-px bg-[var(--border-medium)]" />
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/15"
+                  aria-label="关闭演示文稿预览"
+                >
+                  <X size={18} />
+                </button>
+              </>
+            )}
           </div>
         </div>
         {/* 主题选择面板 - 固定最大高度，可滚动 */}
