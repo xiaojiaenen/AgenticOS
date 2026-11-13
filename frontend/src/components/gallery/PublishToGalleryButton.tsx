@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { CheckCircle2, Globe, Loader2, RefreshCcw, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -139,13 +140,29 @@ export const PublishToGalleryButton: React.FC<{
         公开
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      {/* 弹窗必须 **portal 到 body**。
+          原来直接写在这里，用 `fixed inset-0` 定位 —— 但调用方是
+          PptArtifactPanel 的 motion.aside（带 transform + overflow-hidden）。
+          CSS 规范：祖先有 transform 时，`fixed` 的包含块变成那个祖先，
+          于是遮罩只覆盖侧栏那一小块、表单被 overflow 裁掉（用户截图：
+          弹窗下半截被 PPT 预览盖住）。挂到 body 才能盖满视口。 */}
+      {open && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          // 点遮罩关闭（弹窗内部的点击不冒泡到这里）
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setOpen(false);
+          }}
+          role="presentation"
+        >
           <motion.div
             initial={{ opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="w-[min(92%,420px)] rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-2xl"
+            className="max-h-[85vh] w-[min(92%,420px)] overflow-y-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-label="公开到作品库"
           >
             <h3 className="mb-1 text-sm font-semibold text-[var(--foreground)]">公开到作品库</h3>
             <p className="mb-3 text-xs leading-relaxed text-[var(--muted-foreground)]">
@@ -220,7 +237,8 @@ export const PublishToGalleryButton: React.FC<{
               </button>
             </div>
           </motion.div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
