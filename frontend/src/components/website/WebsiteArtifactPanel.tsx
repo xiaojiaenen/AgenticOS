@@ -4,7 +4,7 @@ import { CheckCircle2, ExternalLink, Globe, RefreshCcw, Rocket, X, XCircle } fro
 import { Artifact } from '../../types'
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview'
 import { ArtifactVersionBar } from '../chat/ArtifactVersionBar'
-import { requestDeploy, getDeployByProject, cancelDeploy, DeployStatus } from '../../services/websiteService'
+import { requestDeploy, getDeployByProject, cancelDeploy, issueWebsitePreviewUrl, DeployStatus } from '../../services/websiteService'
 import { apiFetch } from '../../services/apiClient'
 
 type WebsiteArtifactPanelProps = {
@@ -77,6 +77,38 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
     setLiveHtml(artifact.html)
     setLiveUrl(artifact.previewUrl)
   }, [artifact.html, artifact.projectSlug, artifact.previewUrl])
+
+  // ── srcDoc 劫持防护（vue/react SPA 必须走子路径托管的 preview_url）──
+  //
+  // srcDoc 文档的相对 URL 与 history.replaceState 都以**父文档**为基准。
+  // Vue Router 的 hash 模式启动时 replaceState('#/') 会把 iframe 导航到
+  // /chat#/ —— SPA 兜底返回 AgenticOS 自己，用户看到"预览里是当前网站"。
+  // （实测：contentWindow.location = /chat#/，正文变成 AgenticOS 对话页。）
+  //
+  // 所以带 router 的栈（vue/react）绝不退回 srcDoc：挂载时没有 preview_url
+  // 就现签一个；签不到显示提示而不是内联 HTML。vanilla 无路由脚本，srcDoc
+  // 安全，保留作为兜底。
+  const isRouterStack = artifact.stack === 'vue' || artifact.stack === 'react'
+  React.useEffect(() => {
+    if (!isRouterStack && liveUrl) return
+    const sid = sessionId || artifact.sessionId
+    if (!sid) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const signed = await issueWebsitePreviewUrl(sid, artifact.projectSlug)
+        if (!cancelled && signed?.url) {
+          setLiveUrl(signed.url)
+        }
+      } catch {
+        // 签发失败：vue/react 显示提示（不退 srcDoc），vanilla 保持 srcDoc
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isRouterStack, liveUrl, sessionId, artifact.sessionId, artifact.projectSlug])
+
 
   // 用 srcDoc 而非 blob URL：blob 在 StrictMode 双调用下会被提前 revoke，
   // 导致 iframe 拿到失效地址而空白。刷新通过 key 强制重挂载实现。
@@ -342,13 +374,20 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
             // 支持相对路径、无「内联 module 不执行」的问题）。只有拿不到
             // URL（签发失败 / 离线）时才退回 srcDoc 内联方案。
             src={liveUrl || undefined}
-            srcDoc={liveUrl ? undefined : previewDoc}
+            srcDoc={!liveUrl && !isRouterStack ? previewDoc : undefined}
             title={artifact.title}
             className="min-h-[calc(100vh-10rem)] w-full border-0"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             allow="fullscreen"
             referrerPolicy="no-referrer"
           />
+          {isRouterStack && !liveUrl && (
+            <div className="mx-4 mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-400">
+              {isRefreshing
+                ? '正在签发预览链接…'
+                : 'SPA 站点需要通过预览链接访问（内联预览会劫持路由），签发失败请点「刷新」重试。'}
+            </div>
+          )}
           {refreshError && (
             <div className="mx-4 mb-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
               {refreshError}
