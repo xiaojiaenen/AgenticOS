@@ -1237,12 +1237,28 @@ async def get_ppt_slides(
             continue
         num = int(match.group(1))
         svg_content = await asyncio.to_thread(svg_file.read_text, encoding="utf-8")
-        # Inject default CSS variables for preview rendering
-        css_vars = '<style>:root{--bg:#fff;--bg-soft:#f8fafc;--surface:#f1f5f9;--surface-2:#e2e8f0;--border:#e2e8f0;--border-strong:#cbd5e1;--text-1:#0f172a;--text-2:#475569;--text-3:#94a3b8;--accent:#2563eb;--accent-2:#7c3aed;--accent-3:#0891b2;--good:#16a34a;--warn:#d97706;--bad:#dc2626;}</style>'
-        if '<defs>' in svg_content:
-            svg_content = svg_content.replace('<defs>', f'<defs>{css_vars}', 1)
-        else:
-            svg_content = svg_content.replace('<svg', f'<svg>{css_vars}<defs/>', 1)
+        # 只在 SVG **完全没有**主题变量时补一份兜底色，绝不覆盖已有的。
+        #
+        # 这里原来无条件把一套蓝白 :root{--bg:#fff;--accent:#2563eb;…}
+        # 插进 <defs>。CSS 自定义属性后定义者胜，于是 agent 写的主题色
+        # （用 var(--token) 引用 design-theme 色板）全被这套蓝白盖掉 ——
+        # 用户报的「实时预览主题显示不对」就是它：不管生成时选了什么主题，
+        # 预览永远蓝白，和最终成品对不上。
+        #
+        # 现在只在文件里一个主题变量都没有（早期格式 / 手工丢进来的裸 SVG）
+        # 时才注入兜底，避免整页黑屏。
+        if '--bg:' not in svg_content and 'var(--' not in svg_content:
+            css_vars = (
+                '<style>:root{--bg:#fff;--bg-soft:#f8fafc;--surface:#f1f5f9;'
+                '--surface-2:#e2e8f0;--border:#e2e8f0;--border-strong:#cbd5e1;'
+                '--text-1:#0f172a;--text-2:#475569;--text-3:#94a3b8;'
+                '--accent:#2563eb;--accent-2:#7c3aed;--accent-3:#0891b2;'
+                '--good:#16a34a;--warn:#d97706;--bad:#dc2626;}</style>'
+            )
+            if '<defs>' in svg_content:
+                svg_content = svg_content.replace('<defs>', f'<defs>{css_vars}', 1)
+            else:
+                svg_content = svg_content.replace('<svg', f'<svg>{css_vars}<defs/>', 1)
         mtime = await asyncio.to_thread(lambda f=svg_file: f.stat().st_mtime)
         slides.append({"num": num, "svg": svg_content, "updated_at": int(mtime * 1000)})
 

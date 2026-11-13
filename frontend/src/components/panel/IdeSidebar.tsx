@@ -16,6 +16,7 @@ import { cn } from '../../lib/utils';
 import { useChatStore } from '../../stores/chatStore';
 import { issueWebsitePreviewUrl } from '../../services/websiteService';
 import { PptArtifactPanel } from '../ppt/PptArtifactPanel';
+import { SlideLivePreview } from '../ppt/SlideLivePreview';
 import type { Artifact, Message } from '../../types';
 
 export type TabKind = 'ppt' | 'website' | 'document' | 'sheet' | 'image' | 'file' | 'log';
@@ -107,13 +108,15 @@ export function collectTabs(messages: Message[], sessionId: string): SidebarTab[
 export interface SidebarHostProps {
   sessionId: string | null;
   messages: Message[];
+  /** PPT 生成中：侧栏在没有产物标签时展示实时预览（轮询增量 SVG） */
+  isPptStreaming?: boolean;
 }
 
 /**
  * 侧栏容器：标签栏 + 激活标签内容。
  * 标签数据由 ChatMainArea 的触发点写入 store；这里只负责渲染与关闭。
  */
-export const IdeSidebar: React.FC<SidebarHostProps> = ({ sessionId, messages }) => {
+export const IdeSidebar: React.FC<SidebarHostProps> = ({ sessionId, messages, isPptStreaming = false }) => {
   const tabs = useChatStore((s) => s.sidebarTabs);
   const activeTabId = useChatStore((s) => s.activeSidebarTabId);
   const setActiveTab = useChatStore((s) => s.setActiveSidebarTab);
@@ -133,7 +136,16 @@ export const IdeSidebar: React.FC<SidebarHostProps> = ({ sessionId, messages }) 
           <span className="text-[11px] font-semibold text-[var(--muted-foreground)]">侧栏</span>
           <button type="button" onClick={closeAll} aria-label="关闭侧栏" className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"><X size={14} /></button>
         </div>
-        {available.length === 0 ? (
+        {/* 生成中没有产物标签：直接展示实时预览（用户要求"用侧栏那套展示"）。
+            原来实时预览是主区域独立的 35% 右栏，与产物面板抢宽度。 */}
+        {isPptStreaming ? (
+          <SlideLivePreview
+            sessionId={sessionId}
+            isStreaming={isPptStreaming}
+            hasArtifact={false}
+            compact
+          />
+        ) : available.length === 0 ? (
           <div className="flex flex-1 items-center justify-center px-6">
             <p className="text-center text-[11px] leading-relaxed text-[var(--muted-foreground)]">
               这个会话还没有产物。<br />生成 PPT、网站、文档或上传图片后，会出现在这里。

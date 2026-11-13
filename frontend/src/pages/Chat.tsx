@@ -48,6 +48,20 @@ export const Chat = () => {
   const setIsMobile = useChatStore((s) => s.setIsMobile);
   const artifact = useChatStore((s) => s.artifact);
   const setArtifact = useChatStore((s) => s.setArtifact);
+  /**
+   * 产物面板是否**真的有内容可展示**。
+   *
+   * `artifact` 非空不等于能渲染：ppt / website 在拿到 html 或 artifactId
+   * 之前只是占位，面板里是一片空白。用它判断布局宽度，避免"生成中就把
+   * 聊天区压到 40%、右侧半屏空白"。
+   */
+  const hasArtifactContent = React.useMemo(() => {
+    if (!artifact) return false;
+    if (artifact.language === 'ppt' || artifact.language === 'website') {
+      return Boolean(artifact.html || artifact.artifactId);
+    }
+    return true;
+  }, [artifact]);
   const isSidebarHiddenByArtifact = useChatStore((s) => s.isSidebarHiddenByArtifact);
   const setIsSidebarHiddenByArtifact = useChatStore((s) => s.setIsSidebarHiddenByArtifact);
   const storeCreateNewChat = useChatStore((s) => s.createNewChat);
@@ -665,9 +679,14 @@ export const Chat = () => {
             id="main-content"
             className={cn(
               "flex flex-col h-full transition-all duration-500 ease-[0.16,1,0.3,1] min-w-0 relative",
-              // 制品面板 / 多标签侧栏占 60% 时聊天区兜底 40%；中屏给最小宽度，
-              // 避免被压到不可读
-              artifact
+              // 制品面板 / 多标签侧栏占宽时聊天区兜底 40%；中屏给最小宽度，
+              // 避免被压到不可读。
+              //
+              // 判据是 hasArtifactContent 而不是 artifact 非空：产物对象在
+              // 「生成中」也被创建（status=generating，没有 html），只看
+              // 非空会在还没内容时就把聊天区压到 40% —— 用户看到"界面样式
+              // 突然变了、右侧一大片空白/纯黑"就是这个。
+              hasArtifactContent
                 ? "w-full md:w-[40%] md:min-w-[380px] border-r border-[var(--border-subtle)] lg:min-w-[440px]"
                 : "w-full min-w-0 flex-1",
               isWideConversation && "px-4 lg:px-8 xl:px-10",
@@ -689,17 +708,21 @@ export const Chat = () => {
                 </div>
               )}
           </main>
+          {/* 生成中的实时预览（主区域右栏）。
+              只在**没开侧栏**时出现 —— 侧栏自己会渲染同一份预览
+              （IdeSidebar 的 isPptStreaming），两处都显示会重复抢宽度。
+              产物一就绪就交给 ChatArtifactArea 的 PptArtifactPanel。 */}
           <AnimatePresence>
-            {chatMode === 'ppt' && (
+            {chatMode === 'ppt' && !hasArtifactContent && !sidebarOpen && (
               <SlideLivePreview
                 sessionId={currentSessionId}
                 isStreaming={isStreamingResponse}
-                hasArtifact={!!artifact}
+                hasArtifact={hasArtifactContent}
               />
             )}
           </AnimatePresence>
           <ChatArtifactArea
-            artifact={sidebarOpen ? null : artifact}
+            artifact={sidebarOpen || !hasArtifactContent ? null : artifact}
             onClose={() => setArtifact(null)}
             borderColor={borderColor}
             onPptThemeChange={handlePptThemeChange}
@@ -715,6 +738,7 @@ export const Chat = () => {
               <IdeSidebar
                 sessionId={currentSessionId}
                 messages={currentSession?.messages ?? []}
+                isPptStreaming={chatMode === 'ppt' && isStreamingResponse && !hasArtifactContent}
               />
             </aside>
           )}
