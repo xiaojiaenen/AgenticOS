@@ -13,7 +13,19 @@ import type { Message, MessageBlock } from '../types';
 export type BackendMessage = {
   role: string;
   content: string;
-  tool_calls?: Array<{ id?: string; name: string; arguments?: Record<string, unknown> }>;
+  /**
+   * 工具调用。后端落库是 **OpenAI 兼容格式**：
+   * ``{id, type: 'function', function: {name, arguments}}``；
+   * 但早期/其他路径也可能给扁平形态 ``{id, name, arguments}``。
+   * 两种都要认（见 normalizeToolCall）—— 只读 tc.name 会让工具名全变
+   * undefined，工具块渲染成空白行（用户报"空气泡"的一类）。
+   */
+  tool_calls?: Array<{
+    id?: string;
+    name?: string;
+    arguments?: Record<string, unknown>;
+    function?: { name?: string; arguments?: Record<string, unknown> | string };
+  }>;
   tool_call_id?: string;
   name?: string;
   metadata?: Record<string, unknown>;
@@ -22,6 +34,33 @@ export type BackendMessage = {
   /** 落库时间（ISO 字符串）。只在 DB 行上有，wuwei 的 Message 对象没有 */
   created_at?: string | null;
 };
+
+/** 把两种 tool_call 形态归一成前端要的扁平结构。 */
+export function normalizeToolCall(
+  tc: NonNullable<BackendMessage['tool_calls']>[number],
+  index: number,
+): { id?: string; name: string; arguments?: Record<string, unknown> } {
+  const fn = tc.function;
+  const rawArgs = fn?.arguments ?? tc.arguments;
+  let args: Record<string, unknown> | undefined;
+  if (typeof rawArgs === 'string') {
+    // arguments 可能是 JSON 字符串（OpenAI 格式）—— 解不出来就不带参数，
+    // 不要让一个坏参数把整条消息渲染打断
+    try {
+      args = rawArgs ? (JSON.parse(rawArgs) as Record<string, unknown>) : undefined;
+    } catch {
+      args = undefined;
+    }
+  } else {
+    args = rawArgs;
+  }
+  return {
+    id: tc.id,
+    // 嵌套形态优先；都没有时给一个稳定占位名，避免 UI 出现空白行
+    name: fn?.name || tc.name || `tool_${index + 1}`,
+    arguments: args,
+  };
+}
 
 /**
  * 数据图表消息的落库/下发格式（chart_events.push_chart 的产物）：
@@ -153,6 +192,18 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {  const me
     if (msg.role === 'system') continue; // 跳过 system prompt
     if (msg.role === 'tool') continue;   // tool 结果合并到 assistant 的 toolCalls 中
 
+    /**
+     * 连续「无正文」assistant 合并。
+     *
+     * 一次 agent 跑动会产生很多轮 assistant：每轮只是发起若干工具调用、
+     * 正文为空（``"\n\n\n"``）。把它们各自渲染成一个气泡，就是用户看到的
+     * "一整屏空气泡"（截图里连续十几个只有头像和时间的气泡）——尤其是
+     * 上游限流打断后，正文永远补不上。
+     *
+     * 判定：正文为空 且 没有产物/A2UI/图表 → 视为空壳，把它的
+     * toolCalls / reasoning / 产物挂到**上一条模型消息**上一起渲染；
+     * 上一条不是模型消息（或还没有）时，才新建一条承载。
+     */
     if (msg.role === 'user') {
       messages.push({
         id: `backend-${messages.length}`,
@@ -161,13 +212,16 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {  const me
         text: msg.content || '',
       });
     } else if (msg.role === 'assistant') {
-      const toolCalls: import('../types').ToolCall[] | undefined = msg.tool_calls?.map((tc) => {
-        const resultMsg = toolResultsMap.get(tc.id || '');
+      const toolCalls: import('../types').ToolCall[] | undefined = msg.tool_calls?.map((tc, i) => {
+        // 归一 OpenAI 嵌套格式：后端落库是 {function:{name,arguments}}，
+        // 只读 tc.name 会全是 undefined（工具块变成空白行）
+        const normalized = normalizeToolCall(tc, i);
+        const resultMsg = toolResultsMap.get(normalized.id || '');
         return {
-          id: tc.id,
-          name: tc.name,
+          id: normalized.id,
+          name: normalized.name,
           status: 'success' as const,
-          arguments: tc.arguments,
+          arguments: normalized.arguments,
           result: resultMsg?.map(r => r.content).join('\n') || undefined,
         };
       });
@@ -209,14 +263,18 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {  const me
       const reasoningText = msg.reasoning_content || undefined;
 
       // ── 5.5 空 assistant 气泡过滤 ──
-      // agent 是多轮工具循环，被打断（点停止 / 撞步骤上限）后停在 tool_calls
-      // 中间，没有最终文本落库；此时这条 assistant 只剩过渡 content（'\n\n'
-      // 之类）或干脆为空。有实际内容的才保留：
+      // agent 是多轮工具循环，被打断（点停止 / 撞步骤上限 / 上游限流）后
+      // 停在 tool_calls 中间，没有最终文本落库；此时这条 assistant 只剩
+      // 过渡 content（'\n\n' 之类）或干脆为空。有实际内容的才保留：
       //   - 有可见文本 → 正常保留
       //   - 有 A2UI/图表产物 → 保留（产物就是这条消息的内容）
-      //   - 有思考内容 → 保留（思考就是可见内容）
       //   - 有工具调用 → 保留（工具链本身就是内容；且它的 tool 结果消息
       //     要靠这条 assistant 的 tool_call_id 才能配对，丢掉 = 工具历史断链）
+      //   - 只有思考、没有正文也没有工具 → **跳过**
+      //     曾经这条是「有思考就保留」，结果一轮 PPT 生成中断后落库了十几条
+      //     「空正文 + 只有 reasoning」的 assistant 行，刷新后整屏空气泡
+      //     （用户报的"中断后刷新出现这么多空气泡"）。思考是过程性内容，
+      //     没有正文/工具可依附时不该单独占一个气泡。
       //   - 什么都没有 → 跳过
       const hasVisibleText = Boolean(msg.content?.trim());
       const hasArtifacts =
@@ -227,31 +285,28 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {  const me
         // 判定就会把这条消息整条丢掉，刷新后 PPT 从会话里消失。
         Boolean(pptArtifact || websiteArtifact || documentArtifact || sheetArtifact);
       const hasToolCalls = Boolean(toolCalls && toolCalls.length > 0);
-      if (!hasVisibleText && !hasArtifacts && !reasoningText && !hasToolCalls) {
+      if (!hasVisibleText && !hasArtifacts && !hasToolCalls) {
         continue;
       }
+      // 思考只在确有其它内容（正文或工具）时作为块保留 —— 纯思考壳已被上面跳过
+      const reasoningBlock = hasVisibleText || hasToolCalls ? reasoningText : undefined;
 
       // blocks 必须生成：ChatMessage 的按序渲染（正文/工具/思考交错、
       // 工具链嵌在气泡内）要求 message.blocks 非空 —— 缺失会回退到
       // **弃用的旧式三桶布局**（工具链在气泡外、样式与流式完全不同），
       // 用户看到的"刷新后变成旧风格、工具在外面"就是它。
       // 顺序按后端 raw 序：一条 assistant = 思考 + 它的 tool_calls + 正文。
-      const blocks: MessageBlock[] = [];
-      if (reasoningText) blocks.push({ kind: 'reasoning', text: reasoningText });
+      const newBlocks: MessageBlock[] = [];
+      if (reasoningBlock) newBlocks.push({ kind: 'reasoning', text: reasoningBlock });
       (toolCalls || []).forEach((tc, i) => {
-        blocks.push({ kind: 'tool', toolCallId: toolCallIdOf(tc, i) });
+        newBlocks.push({ kind: 'tool', toolCallId: toolCallIdOf(tc, i) });
       });
-      if (msg.content?.trim()) blocks.push({ kind: 'text', text: msg.content });
+      if (msg.content?.trim()) newBlocks.push({ kind: 'text', text: msg.content });
 
-      messages.push({
-        id: `backend-${messages.length}`,
-        role: 'model',
-        // 时间戳必须显式透传：ChatMessage 原来靠 parseInt(message.id) 从
-        // 流式 id 里抠时间，历史消息 id 是 "backend-0"，parseInt 得到 NaN，
-        // 于是刷新后整片时间消失。
+      const snapshot = {
         createdAt: msg.created_at || undefined,
-        text: msg.content || '',
-        reasoningText,
+        text: msg.content?.trim() ? msg.content : '',
+        reasoningText: reasoningBlock,
         toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined,
         a2uiMessages,
         chartMessages: chartMessages && chartMessages.length > 0 ? chartMessages : undefined,
@@ -261,7 +316,43 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {  const me
         ...(websiteArtifact ? { websiteArtifact } : {}),
         ...(documentArtifact ? { documentArtifact } : {}),
         ...(sheetArtifact ? { sheetArtifact } : {}),
-        blocks: blocks.length > 0 ? blocks : undefined,
+        newBlocks,
+      };
+
+      // 空壳（无正文、无产物、无 A2UI/图表，只有工具调用或思考）→
+      // 并入上一条模型消息，不单独起气泡。这样连续十几轮工具调用
+      // 只显示为一个气泡里的工具链，而不是十几个只有头像的空泡。
+      const isShell =
+        !snapshot.text &&
+        !hasArtifacts;
+      const prev = messages[messages.length - 1];
+      if (isShell && prev && prev.role === 'model') {
+        prev.blocks = [...(prev.blocks ?? []), ...newBlocks];
+        if (snapshot.toolCalls) {
+          prev.toolCalls = [...(prev.toolCalls ?? []), ...snapshot.toolCalls];
+        }
+        if (snapshot.reasoningText && !prev.reasoningText) {
+          prev.reasoningText = snapshot.reasoningText;
+        } else if (snapshot.reasoningText && prev.reasoningText) {
+          prev.reasoningText = `${prev.reasoningText}\n\n${snapshot.reasoningText}`;
+        }
+        continue;
+      }
+
+      messages.push({
+        id: `backend-${messages.length}`,
+        role: 'model',
+        createdAt: snapshot.createdAt,
+        text: snapshot.text,
+        reasoningText: snapshot.reasoningText,
+        toolCalls: snapshot.toolCalls,
+        a2uiMessages: snapshot.a2uiMessages,
+        chartMessages: snapshot.chartMessages,
+        ...(snapshot.pptArtifact ? { pptArtifact: snapshot.pptArtifact } : {}),
+        ...(snapshot.websiteArtifact ? { websiteArtifact: snapshot.websiteArtifact } : {}),
+        ...(snapshot.documentArtifact ? { documentArtifact: snapshot.documentArtifact } : {}),
+        ...(snapshot.sheetArtifact ? { sheetArtifact: snapshot.sheetArtifact } : {}),
+        blocks: newBlocks.length > 0 ? newBlocks : undefined,
       });
     }
   }

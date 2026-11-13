@@ -99,9 +99,18 @@ export function shouldRenderBubbleFor({
 }): boolean {
   if (isTyping || isUser) return true;
   if (hasVisibleText || hasReasoning) return true;
-  // 流式中且已有工具调用：工具卡片挂在气泡内部，跳过气泡等于让用户
-  // 看不到正在执行什么。停止后 isStreaming=false，不会产生空气泡。
-  return isStreaming && hasToolCalls;
+  // 有工具调用 → 画。工具卡片挂在气泡**内部**（LiveToolCall /
+  // OrderedAssistantContent），不画气泡等于把整条工具链藏掉。
+  //
+  // 曾经限定 `isStreaming && hasToolCalls`，理由是"停止后别出空气泡"。
+  // 但那个顾虑应该由**数据层**解决：mapper 已把「无正文、无工具、只有
+  // 思考」的真空壳跳过，并把连续空壳合并进上一条模型消息。
+  //
+  // 原条件的实际后果更严重：历史会话（isStreaming=false）里正文为空的
+  // 模型消息整个消失 —— 用户刷新后只剩一句"生成两页幻灯片"，几十次工具
+  // 调用和最终回答全都不见。
+  if (hasToolCalls) return true;
+  return false;
 }
 
 /**
