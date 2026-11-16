@@ -131,6 +131,10 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
             "file_to_md": {"enabled": True, "requires_approval": False},
             "search_icons": {"enabled": True, "requires_approval": False},
             "list_icons": {"enabled": True, "requires_approval": False},
+            "list_visual_styles": {"enabled": True, "requires_approval": False},
+            "validate_formula": {"enabled": True, "requires_approval": False},
+            "measure_text_fit": {"enabled": True, "requires_approval": False},
+            "find_chart_template": {"enabled": True, "requires_approval": False},
             "convert_pptx_to_svg": {"enabled": True, "requires_approval": True},
             "import_pptx_template": {"enabled": True, "requires_approval": True},
             "search_images": {"enabled": True, "requires_approval": False},
@@ -415,6 +419,37 @@ TOOL_CATALOG = {
     "list_icons": {
         "label": "列出图标库",
         "description": "列出所有可用的图标库及图标数量，用于确认图标库是否可用。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "list_visual_styles": {
+        "label": "列出视觉风格",
+        "description": (
+            "查询 PPT 视觉风格（与配色主题正交）：形状语言、装饰密度、留白节奏、纹理层次。"
+            "不传参列出 18 种目录，传 style_id 返回该风格完整规则。"
+        ),
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "validate_formula": {
+        "label": "校验公式",
+        "description": "用本地 KaTeX 校验 LaTeX 语法，避免把解析不了的公式渲染到页面上。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "measure_text_fit": {
+        "label": "测量文字",
+        "description": "测量文字在给定宽高内是否放得下，并给出建议换行（SVG text 不会自动换行）。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "find_chart_template": {
+        "label": "查图表模板",
+        "description": "按意图查 71 个可视化模板（含选型规则），或按模板名取 SVG 源码照结构改数据。",
         "builtin_name": None,
         "approval_scope": [],
         "sub_tools": {},

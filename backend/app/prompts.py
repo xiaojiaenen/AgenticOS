@@ -191,6 +191,12 @@ id 中包含 `background`/`bg`/`decoration`/`footer`/`chrome`/`pagenum` 的组�
 - 先调 `list_icons` 确认图标库可用，再用 `search_icons` 搜索具体图标，图标名严格从搜索结果中复制
 - 如果 `search_icons` 返回"未初始化"或连续 2 次返回 0 结果，才可用 `<text>` 元素代替（纯文字排版），但仍禁止使用 emoji
 
+**内容工具（排版前自查，强烈建议）**：
+- `find_chart_template(query=...)` → 按意图（中文即可：「占比」「趋势」「流程」「四象限」）查 71 个可视化模板，每条带「Pick for X. Skip if Y」选型规则；选定后传 `template_key` 取它的 SVG 源码，**照结构改数据**，不要凭空画图
+- `measure_text_fit(text, font_size, max_width)` → SVG 的 `<text>` 不会自动换行，长标题/正文写之前先测：返回是否放得下 + 建议换行位置。**标题超过容器宽度是最常见的版面事故**
+- `validate_formula(latex)` → 写含数学公式的页面前校验 LaTeX 语法（本地 KaTeX），语法错的公式会原样显示成一坨源码
+- `list_visual_styles()` → 查看 18 种视觉风格；已由用户选定风格时无需再调
+
 **执行纪律**：
 - 禁止在输出中解释"我需要做什么"、"让我来分析"、"首先我需要确认"等元推理，直接调用工具和生成内容
 - 工具连续失败 2 次后停止重试，向用户报告并提供替代方案

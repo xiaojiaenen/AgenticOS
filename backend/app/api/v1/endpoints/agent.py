@@ -1310,6 +1310,32 @@ async def list_ppt_themes() -> list[dict[str, str]]:
     return themes
 
 
+@router.get("/ppt/visual-styles", summary="获取可用的 PPT 视觉风格列表")
+async def list_ppt_visual_styles() -> list[dict[str, Any]]:
+    """返回 18 种视觉风格（与配色主题正交）。
+
+    **为什么单独一层**：主题（/ppt/themes）只管色值 / 字体族 / 圆角 / 阴影；
+    视觉风格管形状语言、装饰密度、留白节奏、纹理层次。用户此前切主题只看到
+    颜色变化，觉得"样式没变"—— 因为本地没有风格这一层。
+
+    两侧组合使用：`github` 配色 × `swiss-minimal` 风格 = 瑞士极简的 GitHub 风。
+    """
+    from app.services.ppt.visual_styles_data import list_styles
+
+    return list_styles()
+
+
+@router.get("/ppt/visual-styles/{style_id}", summary="获取单个视觉风格的完整规则")
+async def get_ppt_visual_style(style_id: str) -> dict[str, Any]:
+    """返回一种风格的完整规则（形状/字体/配色纪律/纹理），供前端展示详情。"""
+    from app.services.ppt.visual_styles_data import get_style
+
+    style = get_style(style_id)
+    if style is None:
+        raise HTTPException(status_code=404, detail=f"未知的视觉风格: {style_id}")
+    return style
+
+
 @router.post("/ppt/{artifact_id}/retheme", summary="切换 PPT 主题并重新渲染预览")
 async def retheme_ppt(
     artifact_id: str,

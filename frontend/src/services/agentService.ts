@@ -8,6 +8,8 @@ type AgentServiceOptions = {
   sessionId: string;
   systemPrompt?: string;
   responseMode?: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
+  /** PPT 视觉风格 id（与配色主题正交；仅 ppt 模式生效） */
+  visualStyle?: string;
   agentProfileId?: number | null;
   /** 会话级审批模式：ask 逐次确认 / auto 只读自动放行 / full 全放行（仅管理员） */
   approvalMode?: 'ask' | 'auto' | 'full';
@@ -535,6 +537,9 @@ export async function sendMessageStream(message: string, options: AgentServiceOp
         system_prompt: options.systemPrompt,
         agent_profile_id: options.agentProfileId || undefined,
         response_mode: options.responseMode || 'general',
+        // 视觉风格（仅 ppt 模式有意义）：与配色主题正交，管形状/留白/纹理。
+        // 不传时后端注入 18 种风格目录让模型自己挑。
+        visual_style: options.visualStyle || undefined,
         // 不传时后端按 auto 处理：只读工具自动放行，写操作仍逐次确认
         approval_mode: options.approvalMode || 'auto',
         plan_mode: options.planMode || false,
@@ -908,19 +913,48 @@ export async function saveSheetSnapshot(
   );
 }
 
-export async function exportPptx(artifactId: string): Promise<Blob> {
+/** 导出选项：转场 / 动画留空 = 用后端默认（fade / mixed）。 */
+export type PptExportOptions = {
+  /** 页面转场：fade / push / push-left / push-up / push-down / wipe / … */
+  transition?: string;
+  /** 元素入场动画：mixed / random / none / 具体动画名 */
+  animation?: string;
+  /** 是否写入演讲者备注（默认 true） */
+  enableNotes?: boolean;
+};
+
+export async function exportPptx(
+  artifactId: string,
+  options?: PptExportOptions,
+): Promise<Blob> {
   return apiFetch<Blob>(
     `${AGENT_ENDPOINT}/ppt/export`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifact_id: artifactId }),
+      body: JSON.stringify({
+        artifact_id: artifactId,
+        transition: options?.transition,
+        animation: options?.animation,
+        enable_notes: options?.enableNotes ?? true,
+      }),
       responseType: 'blob',
       timeoutMs: 120_000, // PPT 导出耗时较长
     },
     'PPT 导出失败',
   );
 }
+
+//: 导出时可选的转场（与后端 TRANSITIONS 表一致）
+export const PPT_TRANSITIONS: { value: string; label: string }[] = [
+  { value: 'fade', label: '淡入淡出' },
+  { value: 'push', label: '推进（右）' },
+  { value: 'push-left', label: '推进（左）' },
+  { value: 'push-up', label: '推进（上）' },
+  { value: 'push-down', label: '推进（下）' },
+  { value: 'wipe', label: '擦除' },
+  { value: 'none', label: '无转场' },
+];
 
 // PPT 主题相关 API
 export type PptTheme = {
@@ -934,6 +968,43 @@ export type PptTheme = {
 
 export async function listPptThemes(): Promise<PptTheme[]> {
   return apiFetch<PptTheme[]>(`${AGENT_ENDPOINT}/ppt/themes`, {}, '获取主题列表失败');
+}
+
+/**
+ * PPT 视觉风格（与配色主题**正交**）。
+ *
+ * 主题管色值 / 字体族 / 圆角 / 阴影；视觉风格管形状语言、装饰密度、
+ * 留白节奏、纹理层次。上游 ppt-master 把这两层分开，本地此前只有主题层，
+ * 用户切主题只看到颜色变化、觉得"样式没变"。
+ */
+export type PptVisualStyle = {
+  id: string;
+  /** 中文名（瑞士极简 / 杂志编辑 …） */
+  label: string;
+  /** 上游的英文一句特征 */
+  label_en?: string;
+  /** corporate | editorial | expressive | hand_drawn | specialty */
+  category: string;
+  summary: string;
+  /** core | supportive | sparse —— 插画在画面中的主导程度 */
+  illustration?: string;
+};
+
+export const VISUAL_STYLE_CATEGORY_LABELS: Record<string, string> = {
+  corporate: '商务 / 产品',
+  editorial: '编辑 / 出版',
+  expressive: '表现 / 印刷',
+  hand_drawn: '手绘 / 笔刷',
+  specialty: '专门',
+};
+
+/** 18 种视觉风格目录（与配色主题组合使用）。 */
+export async function listPptVisualStyles(): Promise<PptVisualStyle[]> {
+  return apiFetch<PptVisualStyle[]>(
+    `${AGENT_ENDPOINT}/ppt/visual-styles`,
+    {},
+    '获取视觉风格列表失败',
+  );
 }
 
 export async function rethemePpt(artifactId: string, theme: string): Promise<AgentPptArtifact & { theme: string }> {

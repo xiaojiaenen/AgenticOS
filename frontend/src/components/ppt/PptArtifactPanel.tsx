@@ -1,13 +1,13 @@
 import React from 'react';
 import { motion, AnimatePresence, MotionValue } from 'motion/react';
-import { Download, LayoutDashboard, Palette, Play, RefreshCcw, X, Loader2 } from 'lucide-react';
+import { Download, LayoutDashboard, Palette, Play, RefreshCcw, Sparkles, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Artifact } from '../../types';
 import { cn } from '../../lib/utils';
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
 import { toastError } from '../../lib/errors';
-import { exportPptx, listPptThemes, rethemePpt, getPptPreviewHtml, type PptTheme } from '../../services/agentService';
+import { exportPptx, listPptThemes, rethemePpt, getPptPreviewHtml, listPptVisualStyles, PPT_TRANSITIONS, VISUAL_STYLE_CATEGORY_LABELS, type PptTheme, type PptVisualStyle } from '../../services/agentService';
 import { PptPresenterMode } from './PptPresenterMode';
 import { ArtifactVersionBar } from '../chat/ArtifactVersionBar';
 import { PublishToGalleryButton } from '../gallery/PublishToGalleryButton';
@@ -35,6 +35,14 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
   const [isExporting, setIsExporting] = React.useState(false);
   const [isPresenting, setIsPresenting] = React.useState(false);
   const [showThemePanel, setShowThemePanel] = React.useState(false);
+  // 视觉风格面板（与主题面板并列，两者正交）
+  const [showStylePanel, setShowStylePanel] = React.useState(false);
+  const [visualStyles, setVisualStyles] = React.useState<PptVisualStyle[]>([]);
+  // 导出选项（转场 / 动画 / 备注）—— 演示增强，默认走后端缺省
+  const [showExportOptions, setShowExportOptions] = React.useState(false);
+  const [exportTransition, setExportTransition] = React.useState('');
+  const [exportAnimation, setExportAnimation] = React.useState('');
+  const [exportNotes, setExportNotes] = React.useState(true);
   const [themes, setThemes] = React.useState<PptTheme[]>([]);
   const [currentTheme, setCurrentTheme] = React.useState(artifact.theme || 'apple');
   const [isChangingTheme, setIsChangingTheme] = React.useState(false);
@@ -87,12 +95,23 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
     }
   }, [showThemePanel, themes.length]);
 
+  // 加载视觉风格目录（首次打开风格面板时）
+  React.useEffect(() => {
+    if (showStylePanel && visualStyles.length === 0) {
+      listPptVisualStyles().then(setVisualStyles).catch(console.error);
+    }
+  }, [showStylePanel, visualStyles.length]);
+
   const handleExport = async () => {
     setIsExporting(true);
 
     if (artifact.artifactId) {
       try {
-        const blob = await exportPptx(artifact.artifactId);
+        const blob = await exportPptx(artifact.artifactId, {
+          transition: exportTransition || undefined,
+          animation: exportAnimation || undefined,
+          enableNotes: exportNotes,
+        });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -101,10 +120,13 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
+        toast.success('已导出 PPTX');
       } catch (err) {
         console.error('[PPTX Export] Backend export error:', err);
+        toast.error(toastError(err, '导出失败'));
       } finally {
         setIsExporting(false);
+        setShowExportOptions(false);
       }
       return;
     }
@@ -202,10 +224,24 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             </button>
             <button
               type="button"
-              onClick={handleExport}
+              onClick={() => setShowStylePanel(!showStylePanel)}
+              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+                showStylePanel
+                  ? 'bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/40'
+                  : 'border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--foreground)] hover:bg-[var(--surface-2)]'
+              }`}
+              title="查看视觉风格（与主题正交：风格管形状/留白，主题管配色）"
+              aria-label="视觉风格"
+            >
+              <Sparkles size={14} />
+              风格
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowExportOptions((v) => !v)}
               disabled={isExporting}
               className="inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:opacity-60"
-              title="导出 PPTX"
+              title="导出 PPTX（可选转场 / 动画）"
               aria-label="导出 PPTX"
             >
               {isExporting ? <RefreshCcw size={14} className="animate-spin" /> : <Download size={14} />}
@@ -323,6 +359,130 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
                     </button>
                   ))}
                 </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 视觉风格面板：只读展示 —— 风格是**生成时**决定的，已生成的
+            SVG 无法事后改风格（形状/留白/纹理都写进 SVG 了），所以这里
+            不提供切换，只说明当前缺省并提供「重新生成时选它」的指引。 */}
+        <AnimatePresence>
+          {showStylePanel && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="z-10 overflow-hidden border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/90 backdrop-blur-md"
+              style={{ maxHeight: '260px' }}
+            >
+              <div className="overflow-y-auto p-4" style={{ maxHeight: '260px' }}>
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--muted-foreground)]">
+                    视觉风格（18 种）
+                  </h3>
+                  <span className="text-[10px] text-[var(--muted-foreground)]">
+                    与配色正交 · 选择在下次生成时生效
+                  </span>
+                </div>
+                <p className="mb-3 text-[10px] leading-relaxed text-[var(--muted-foreground)]">
+                  风格管形状语言、装饰密度、留白节奏、纹理层次；配色由上方「主题」决定。
+                  两种组合使用，例如 <code className="rounded bg-[var(--surface-2)] px-1">github</code> 主题 ×{' '}
+                  <code className="rounded bg-[var(--surface-2)] px-1">swiss-minimal</code> 风格。
+                </p>
+                {(['corporate', 'editorial', 'expressive', 'hand_drawn', 'specialty'] as const).map((cat) => {
+                  const items = visualStyles.filter((s) => s.category === cat);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={cat} className="mb-3">
+                      <div className="mb-1.5 text-[10px] font-semibold text-[var(--foreground)]">
+                        {VISUAL_STYLE_CATEGORY_LABELS[cat] ?? cat}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {items.map((s) => (
+                          <span
+                            key={s.id}
+                            title={`${s.label_en ?? ''}\n${s.summary}`}
+                            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-2 py-1 text-[10px] text-[var(--foreground)]"
+                          >
+                            {s.label}
+                            <span className="ml-1 text-[9px] text-[var(--muted-foreground)]">({s.id})</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 导出选项：转场 / 元素动画 / 演讲者备注。
+            演示增强 —— 此前导出固定走后端默认（fade + mixed），用户无从
+            选择；后端 /ppt/export 其实一直支持 transition / animation。 */}
+        <AnimatePresence>
+          {showExportOptions && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="z-10 overflow-hidden border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/90 backdrop-blur-md"
+            >
+              <div className="flex flex-wrap items-end gap-3 p-4">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold text-[var(--muted-foreground)]">页面转场</span>
+                  <select
+                    value={exportTransition}
+                    onChange={(e) => setExportTransition(e.target.value)}
+                    className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-2 py-1.5 text-[11px] text-[var(--foreground)]"
+                  >
+                    <option value="">默认（淡入淡出）</option>
+                    {PPT_TRANSITIONS.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold text-[var(--muted-foreground)]">元素动画</span>
+                  <select
+                    value={exportAnimation}
+                    onChange={(e) => setExportAnimation(e.target.value)}
+                    className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-2 py-1.5 text-[11px] text-[var(--foreground)]"
+                  >
+                    <option value="">默认（混合）</option>
+                    <option value="none">无动画</option>
+                    <option value="mixed">混合</option>
+                    <option value="random">随机</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-1.5 pb-1.5 text-[11px] text-[var(--foreground)]">
+                  <input
+                    type="checkbox"
+                    checked={exportNotes}
+                    onChange={(e) => setExportNotes(e.target.checked)}
+                    className="h-3.5 w-3.5"
+                  />
+                  写入演讲者备注
+                </label>
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-[11px] font-semibold text-[var(--primary-foreground)] hover:opacity-90 disabled:opacity-60"
+                >
+                  {isExporting ? <RefreshCcw size={12} className="animate-spin" /> : <Download size={12} />}
+                  开始导出
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowExportOptions(false)}
+                  className="rounded-lg px-2 py-1.5 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                >
+                  取消
+                </button>
               </div>
             </motion.div>
           )}

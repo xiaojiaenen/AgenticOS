@@ -59,6 +59,15 @@ interface ChatUIState {
   // ── 模式 ──
   chatMode: ChatMode;
   setChatMode: (mode: ChatMode) => void;
+  /**
+   * PPT 视觉风格（与配色主题正交）。
+   *
+   * 主题在生成后还能通过 retheme 切换（只换色值）；风格写进了 SVG 的
+   * 形状/留白/纹理，生成后无法改 —— 所以这里是「下次生成用哪个风格」。
+   * 空字符串 = 不指定，由模型从 18 种目录里自行选择。
+   */
+  visualStyle: string;
+  setVisualStyle: (style: string) => void;
   /** 会话级审批模式：ask 逐次确认 / auto 只读自动放行 / full 全放行 */
   approvalMode: 'ask' | 'auto' | 'full';
   setApprovalMode: (mode: 'ask' | 'auto' | 'full') => void;
@@ -146,6 +155,8 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   chatMode: 'general',
   setChatMode: (mode) => set({ chatMode: mode }),
+  visualStyle: '',
+  setVisualStyle: (style) => set({ visualStyle: style }),
   approvalMode: 'ask',
   setApprovalMode: (mode) => set({ approvalMode: mode }),
   planMode: false,

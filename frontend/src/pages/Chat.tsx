@@ -34,6 +34,7 @@ export const Chat = () => {
   // 每个按键）都会返回新 state 对象 → 整页跟着重渲染。
   const setInputValue = useChatStore((s) => s.setInputValue);
   const chatMode = useChatStore((s) => s.chatMode);
+  const visualStyle = useChatStore((s) => s.visualStyle);
   const setChatMode = useChatStore((s) => s.setChatMode);
   const approvalMode = useChatStore((s) => s.approvalMode);
   const setApprovalMode = useChatStore((s) => s.setApprovalMode);
@@ -119,7 +120,7 @@ export const Chat = () => {
     handleApprovalDecision, handleDecisionMade,
   } = useChatStream({
     sessions, currentSessionId, currentSession: currentSession ?? null,
-    chatMode, approvalMode, planMode, selectedAgentProfileId,
+    chatMode, visualStyle, approvalMode, planMode, selectedAgentProfileId,
     selectedAgent: agentProfiles.find((a) => a.id === selectedAgentProfileId) || null,
     setSessions, setCurrentSessionId,
     applySessionState, setArtifact, setInputValue,

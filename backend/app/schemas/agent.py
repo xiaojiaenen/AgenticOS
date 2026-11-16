@@ -65,6 +65,16 @@ class AgentStreamRequest(BaseModel):
         pattern="^(planning|confirming|generating|done)$",
         description="PPT generation phase: 'planning' (output spec_lock), 'confirming' (wait for user), 'generating' (generate SVGs), 'done'. None for single-phase mode.",
     )
+    # PPT 视觉风格（与配色主题正交）。
+    # 主题（theme）管色值/字体族/圆角/阴影；视觉风格管形状语言、装饰密度、
+    # 留白节奏、纹理层次 —— 上游 ppt-master 把这两层明确分开，本地此前只有
+    # 主题层，用户切主题只看得到颜色变化（"样式没变"）。取值见
+    # app/services/ppt/visual_styles_data.py 的 VISUAL_STYLES。
+    visual_style: str | None = Field(
+        default=None,
+        max_length=48,
+        description="PPT visual style id (e.g. swiss-minimal, editorial, memphis). Orthogonal to theme.",
+    )
 
     def model_post_init(self, __context) -> None:
         if self.mode and (self.response_mode == "general" or not self.response_mode):

@@ -58,6 +58,8 @@ const {
     s.sessions.find((session) => session.id === s.currentSessionId) ?? null,
   );
   const currentSessionId = useChatStore((s) => s.currentSessionId);
+  const visualStyle = useChatStore((s) => s.visualStyle);
+  const setVisualStyle = useChatStore((s) => s.setVisualStyle);
   const error = useChatStore((s) => s.streamError);
   const setError = useChatStore((s) => s.setStreamError);
   const runStatus = useChatStore((s) => s.runStatus);
@@ -500,6 +502,8 @@ const {
             value={inputValue}
             onChange={setInputValue}
             onSend={handleSend}
+            visualStyle={visualStyle}
+            setVisualStyle={setVisualStyle}
             onStop={handleStopGeneration}
             isLoading={isLoading}
             chatMode={chatMode}

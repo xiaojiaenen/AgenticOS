@@ -95,6 +95,8 @@ interface UseChatStreamDeps {
   currentSessionId: string | null;
   currentSession: Session | null;
   chatMode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
+  /** PPT 视觉风格 id（与配色主题正交；仅 ppt 模式生效，空串=让模型自选） */
+  visualStyle?: string;
   /** 会话级审批模式 */
   approvalMode: 'ask' | 'auto' | 'full';
   /** 计划模式 */
@@ -136,6 +138,7 @@ export function useChatStream({
   currentSessionId,
   currentSession,
   chatMode,
+  visualStyle = '',
   approvalMode,
   planMode,
   selectedAgentProfileId,
@@ -494,6 +497,7 @@ export function useChatStream({
           systemPrompt:
             currentSession || selectedAgentProfileId ? undefined : MODE_SYSTEM_PROMPTS[chatMode],
           responseMode: chatMode,
+          visualStyle: visualStyle || undefined,
           agentProfileId: selectedAgentProfileId,
           approvalMode,
           planMode,

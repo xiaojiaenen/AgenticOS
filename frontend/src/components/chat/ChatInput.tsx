@@ -9,6 +9,7 @@ import { AgentSelector } from '../ui/AgentSelector';
 import { PaperclipIcon, SendIcon } from '../ui/AnimatedIcons';
 import { useInputSuggest } from '../../hooks/useInputSuggest';
 import { ExecutionPolicyMenu } from './ExecutionPolicyMenu';
+import { VisualStylePicker } from '../ppt/VisualStylePicker';
 import { polishPrompt } from '../../services/agentService';
 
 interface ChatInputProps {
@@ -22,6 +23,9 @@ interface ChatInputProps {
   placeholder?: string;
   chatMode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
   setChatMode: (mode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office') => void;
+  /** PPT 视觉风格（与配色主题正交，仅 ppt 模式显示选择器） */
+  visualStyle?: string;
+  setVisualStyle?: (style: string) => void;
   agentProfiles?: AgentProfile[];
   selectedAgentProfileId?: number | null;
   onAgentProfileChange?: (profile: AgentProfile | null) => void;
@@ -48,6 +52,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   placeholder = '输入你想聊的内容...',
   chatMode,
   setChatMode,
+  visualStyle = '',
+  setVisualStyle = () => undefined,
   agentProfiles = [],
   selectedAgentProfileId,
   onAgentProfileChange,
@@ -315,6 +321,15 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             disabled={isModeLocked}
           />
         </div>
+
+        {/* PPT 模式：视觉风格选择（与配色主题正交，只影响下次生成）。
+            放在工具栏而非输入框上方 —— 它是「下一轮生成用什么形态」的设定，
+            与智能体 / 执行策略同属「这轮怎么跑」的配置。 */}
+        {chatMode === 'ppt' && (
+          <div className="ml-1 flex h-11 items-center">
+            <VisualStylePicker value={visualStyle} onChange={setVisualStyle} />
+          </div>
+        )}
 
         {/* 计划模式 + 审批档合并为一个入口，避免输入框控件过多 */}
         {(onApprovalModeChange || onPlanModeChange) && (

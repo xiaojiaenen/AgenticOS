@@ -42,10 +42,17 @@ def _load_catalog(name: str) -> str:
     return text
 
 
-def inject_design_catalog(message: str) -> str:
+def inject_design_catalog(message: str, visual_style: str | None = None) -> str:
     """Inject design catalog: phased skill loading + theme selection + token reference.
 
     分阶段加载策略：LLM 按工作流阶段依次加载技能，避免一次性注入过多规则。
+
+    ``visual_style`` 是 PPT 的**视觉风格**（与配色主题正交）：
+    - 主题（design_theme）决定色值 / 字体族 / 圆角 / 阴影；
+    - 视觉风格决定形状语言、装饰密度、留白节奏、纹理层次。
+
+    用户选中某个风格时，把它那 4 节规则（形状/字体/配色纪律/纹理）全文注入；
+    未选时注入「风格目录」让模型自己挑一个（保持原有行为）。
     """
     token_ref = build_token_quick_ref()
     theme_count = len(list_available_themes())
@@ -58,6 +65,35 @@ def inject_design_catalog(message: str) -> str:
     except Exception:
         deck_styles_text = ""
 
+    # 视觉风格：用户已选 → 注入该风格的完整规则；未选 → 注入 18 种风格目录
+    visual_style_text = ""
+    try:
+        from app.services.ppt.visual_styles_data import get_style, list_styles, style_prompt_block
+
+        if visual_style:
+            block = style_prompt_block(visual_style)
+            if block:
+                visual_style_text = (
+                    "## 已选定的视觉风格（必须严格遵守）\n\n"
+                    f"{block}\n\n"
+                    "注意：以上风格只约束**形状语言 / 装饰密度 / 留白节奏 / 字体特征 / "
+                    "纹理层次**，不指定任何色值 —— 所有颜色一律通过 `var(--token)` "
+                    "引用下方主题，两者组合使用。\n"
+                )
+            else:
+                # 传了未知 id：降级为目录，避免静默用错风格
+                visual_style_text = (
+                    f"## 视觉风格（未知 id: {visual_style}，请从下列目录自行选择一个）\n\n"
+                    + _render_style_catalog(list_styles())
+                )
+        else:
+            visual_style_text = (
+                "## 视觉风格目录（与配色主题正交，可用 list_visual_styles 查看详情）\n\n"
+                + _render_style_catalog(list_styles())
+            )
+    except Exception:  # noqa: BLE001 -- 风格注入失败不该阻断生成
+        visual_style_text = ""
+
     current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     body = _load_catalog("design_catalog.md").format(
         theme_count=theme_count,
@@ -66,7 +102,19 @@ def inject_design_catalog(message: str) -> str:
         deck_styles_text=deck_styles_text,
         current_time=current_time,
     )
+    if visual_style_text:
+        body = f"{body}\n\n{visual_style_text}"
     return f"{message}{DESIGN_CATALOG_MARKER}\n{body}\n{DESIGN_CATALOG_MARKER}"
+
+
+def _render_style_catalog(styles: list[dict]) -> str:
+    """把风格列表渲染成紧凑目录（id + 中文名 + 一句特征）。"""
+    lines = ["| 风格 id | 名称 | 类别 | 特征 |", "|---|---|---|---|"]
+    for s in styles:
+        lines.append(
+            f"| `{s['id']}` | {s['label']} | {s.get('category', '')} | {s.get('summary', s.get('label_en', ''))[:80]} |"
+        )
+    return "\n".join(lines)
 
 
 def scan_website_catalog() -> tuple[list[str], int]:

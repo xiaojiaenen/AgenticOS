@@ -1193,7 +1193,9 @@ class StreamOrchestrator:
         # Inject design system catalog for PPT mode
         message = request.message
         if ppt_mode:
-            message = self._inject_design_catalog(message)
+            # visual_style 与 theme 正交：theme 管色值，style 管形状/留白/纹理。
+            # 用户选了风格就注入该风格的完整规则，没选就注入风格目录让模型挑。
+            message = self._inject_design_catalog(message, visual_style=request.visual_style)
             edit_hint = await self._get_edit_hint(request.session_id)
             if edit_hint:
                 message = message + edit_hint
