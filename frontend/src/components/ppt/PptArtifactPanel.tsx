@@ -192,7 +192,14 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div
+            className={cn(
+              'flex items-center gap-1',
+              // 侧栏（compact）只有 420px 宽，5 个按钮横排会被挤到变形
+              // （文字竖排、图标溢出）。允许换行 + 收紧内边距，按钮保持完整。
+              compact ? 'flex-wrap justify-end gap-1' : '',
+            )}
+          >
             <ArtifactVersionBar
               sessionId={artifact.sessionId}
               currentReference={artifact.artifactId}
@@ -211,7 +218,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             <button
               type="button"
               onClick={() => setShowThemePanel(!showThemePanel)}
-              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
                 showThemePanel
                   ? 'bg-sky-100 text-sky-700 border border-sky-200'
                   : 'border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--foreground)] hover:bg-[var(--surface-2)]'
@@ -225,7 +232,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             <button
               type="button"
               onClick={() => setShowStylePanel(!showStylePanel)}
-              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
                 showStylePanel
                   ? 'bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/40'
                   : 'border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--foreground)] hover:bg-[var(--surface-2)]'
@@ -240,7 +247,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
               type="button"
               onClick={() => setShowExportOptions((v) => !v)}
               disabled={isExporting}
-              className="inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:opacity-60"
+              className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:opacity-60"
               title="导出 PPTX（可选转场 / 动画）"
               aria-label="导出 PPTX"
             >
@@ -258,7 +265,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
             <button
               type="button"
               onClick={() => setIsPresenting(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-2)]"
+              className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--surface-2)]"
               title="演示模式"
               aria-label="演示模式"
             >

@@ -216,13 +216,21 @@ export function mapBackendMessages(raw: BackendMessage[]): Message[] {  const me
         // 归一 OpenAI 嵌套格式：后端落库是 {function:{name,arguments}}，
         // 只读 tc.name 会全是 undefined（工具块变成空白行）
         const normalized = normalizeToolCall(tc, i);
-        const resultMsg = toolResultsMap.get(normalized.id || '');
+        const resultMsgs = toolResultsMap.get(normalized.id || '');
+        // **状态必须取自 tool 结果的 metadata.tool_outcome**，不能硬编码。
+        // 曾经写死 `status: 'success'`：实时看到的红色「失败」刷新后全变绿
+        // （用户报「刷新了页面，error 的工具都变成功了」）。后端在 tool 消息
+        // 的 metadata 里明确记了 {status: 'success'|'error', executed, ...}。
+        const outcome = resultMsgs?.find((r) => r.metadata?.tool_outcome)?.metadata?.tool_outcome as
+          | { status?: string }
+          | undefined;
+        const isError = outcome?.status === 'error';
         return {
           id: normalized.id,
           name: normalized.name,
-          status: 'success' as const,
+          status: (isError ? 'error' : 'success') as 'success' | 'error',
           arguments: normalized.arguments,
-          result: resultMsg?.map(r => r.content).join('\n') || undefined,
+          result: resultMsgs?.map(r => r.content).join('\n') || undefined,
         };
       });
       const metadata = (msg as { metadata?: Record<string, unknown> }).metadata;

@@ -13,6 +13,8 @@
 import { describe, expect, it } from 'vitest';
 import { mapBackendMessages, normalizeToolCall } from '../backendMessageMapper';
 import fixture from './fixtures/session_dump.json';
+// 2026-11-16 的真实会话（74 条，含 6 条 ToolNotFound 失败）
+import liveFixture from './fixtures/session_live.json';
 
 const raw = fixture as unknown as Parameters<typeof mapBackendMessages>[0];
 
@@ -98,5 +100,43 @@ describe('真实会话数据（线上 fixture）', () => {
   it('用户消息与最终回答都在', () => {
     expect(messages.some((m) => m.role === 'user')).toBe(true);
     expect(messages.some((m) => m.role === 'model' && m.text.length > 50)).toBe(true);
+  });
+});
+
+/**
+ * 工具执行状态的透传（用户报「刷新了页面，error 的工具都变成功了」）。
+ *
+ * 后端在 tool 消息的 metadata.tool_outcome 里明确记了
+ * {status: 'success'|'error', executed, attempts}。mapper 曾经硬编码
+ * status: 'success'，于是实时看到的红色「失败」一刷新全变绿。
+ */
+describe('工具状态取自 tool_outcome（夹具：session_live.json）', () => {
+  const raw = liveFixture as unknown as Parameters<typeof mapBackendMessages>[0];
+
+  it('失败的工具体现在 status=error 上', () => {
+    const msgs = mapBackendMessages(raw);
+    const all = msgs.flatMap((m) => m.toolCalls ?? []);
+    const errored = all.filter((t) => t.status === 'error');
+    expect(errored.length).toBeGreaterThan(0);
+    // 真实数据里有 6 条 ToolNotFound
+    expect(errored.map((t) => t.name)).toEqual(
+      expect.arrayContaining(['read_slide', 'load_skill', 'save_slides_batch']),
+    );
+  });
+
+  it('成功的工具不会被误标成 error', () => {
+    const msgs = mapBackendMessages(raw);
+    const saveSlide = msgs
+      .flatMap((m) => m.toolCalls ?? [])
+      .filter((t) => t.name === 'save_slide');
+    expect(saveSlide.length).toBeGreaterThan(0);
+    expect(saveSlide.every((t) => t.status === 'success')).toBe(true);
+  });
+
+  it('气泡数收敛（74 条原始消息 → 个位数气泡）', () => {
+    const msgs = mapBackendMessages(raw);
+    expect(msgs.length).toBeLessThanOrEqual(10);
+    const modelBubbles = msgs.filter((m) => m.role === 'model');
+    expect(modelBubbles.length).toBeLessThanOrEqual(6);
   });
 });

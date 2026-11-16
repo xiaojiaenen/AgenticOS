@@ -988,4 +988,25 @@ class AgentFactory:
                     return await asyncio.to_thread(_orig, *args, **kwargs)
                 tool.handler = _async_wrapper
 
+        # 按**最终注册表**生成能力边界说明，拼进 system prompt。
+        #
+        # 为什么必须动态生成、不能写死在提示词里：管理员随时可能在
+        # 「智能体配置」里给任意智能体开/关工具。写死的「你没有 XX 工具」
+        # 一旦配置变了就是假话 —— 模型会拒绝本该能做的事，或者反过来去调用
+        # 不存在的工具（用户看到一串 ToolNotFound 红卡片）。
+        #
+        # 这里只陈述事实：实际可用的工具在模型上下文的 tools 列表里；
+        # 若用户要的产物需要本模式未开放的工具，明确告知切换智能体。
+        try:
+            from app.services.agent.capability_hint import build_capability_hint
+
+            hint = build_capability_hint(
+                registry_tool_names={str(n) for n in registry._tools.keys()},
+                response_mode=profile.response_mode,
+            )
+            if hint:
+                ext_instruction = f"{ext_instruction}\n\n{hint}" if ext_instruction else f"\n\n{hint}"
+        except Exception:  # noqa: BLE001 -- 提示生成失败不该挡住 agent 构建
+            _logger.warning("capability hint 生成失败", exc_info=True)
+
         return registry, ext_instruction
