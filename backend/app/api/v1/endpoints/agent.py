@@ -378,9 +378,19 @@ async def get_session_messages(
             "role": role,
             "content": content,
         }
-        # 时间戳：按下标取（load_message_timestamps 与 load 同序）。
-        # 取不到就不给该字段，前端会退回不显示时间，而不是显示 1970。
-        if index < len(message_times) and message_times[index]:
+        # 时间戳：优先读消息自带 metadata.created_at —— 它是 load() 在
+        # 反序列化时逐条挂上的，一行 DB 对应一条消息，不会错位。
+        #
+        # 原先只按下标配对 load_message_timestamps：只要 load() 跳过了某条
+        # 无法反序列化的消息、或上下文里多出 system / 压缩摘要消息，下标
+        # 就整体偏移，前端拿到的时间要么错位、要么落空 —— 用户看到的是
+        # **刷新后气泡下方时间消失**。下标作为兜底保留（老数据 metadata
+        # 里没有这个键）。
+        meta_for_time = getattr(msg, "metadata", None) or {}
+        created = meta_for_time.get("created_at") if isinstance(meta_for_time, dict) else None
+        if isinstance(created, str) and created:
+            entry["created_at"] = created
+        elif index < len(message_times) and message_times[index]:
             entry["created_at"] = message_times[index]
         # 思考内容必须透传：流式阶段思考靠 SSE reasoning_delta 实时显示，
         # 落库在 AIMessage.reasoning_content。不透传的话，刷新/重开会话

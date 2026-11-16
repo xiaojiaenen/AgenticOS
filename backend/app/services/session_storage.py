@@ -421,10 +421,29 @@ class DatabaseAgentStorage:
                     if '"reasoning_content": null' in raw:
                         raw = raw.replace('"reasoning_content": null', '"reasoning_content": ""')
                     try:
-                        session.context._messages.append(Message.model_validate_json(raw))
+                        parsed = Message.model_validate_json(raw)
                     except Exception as e:
                         _logger.debug("Skipping unparseable message in session %s: %s", session_id, e)
                         continue
+                    # 把落库时间塞进消息 metadata：时间只存在于 DB 行上
+                    # （wuwei 的 Message 没有这个字段），而端点原先靠「与
+                    # load_message_timestamps 的结果按下标配对」来补 —— 那条
+                    # 路一旦有条目被上面的 continue 跳过，或上下文里多出
+                    # system / 压缩摘要消息，下标就整体错位，前端拿到的
+                    # created_at 要么错位、要么 undefined，表现为**刷新后
+                    # 气泡下方的时间消失**。
+                    #
+                    # 挂在消息本身上就不会错位：一行 DB 对应一条消息，
+                    # 无论中间跳过谁、上下文里多出什么。
+                    try:
+                        ts = isoformat_app_timezone(message.created_at)
+                        if ts:
+                            meta = dict(getattr(parsed, "metadata", None) or {})
+                            meta.setdefault("created_at", ts)
+                            parsed.metadata = meta
+                    except Exception:  # noqa: BLE001 -- 时间缺失不影响消息本身
+                        pass
+                    session.context._messages.append(parsed)
 
                 return session
         return await asyncio.to_thread(_run)
