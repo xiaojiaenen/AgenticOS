@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, Play, X } from 'lucide-react';
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
@@ -155,13 +156,16 @@ export const PptPresenterMode: React.FC<PptPresenterModeProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  return (
+  // 演示模式必须 **portal 到 body**：调用方 PptArtifactPanel 的
+  // motion.aside 带 transform + overflow-hidden，`fixed inset-0` 的包含块
+  // 会变成那个 aside —— 全屏演示被挤在侧栏里、四周被裁掉。
+  return createPortal(
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex bg-black"
+        className="fixed inset-0 z-[120] flex bg-black"
       >
         {/* 主幻灯片区域 */}
         <div className="relative flex-1 flex items-center justify-center bg-[#111]">
@@ -259,6 +263,7 @@ export const PptPresenterMode: React.FC<PptPresenterModeProps> = ({
           </button>
         )}
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 };

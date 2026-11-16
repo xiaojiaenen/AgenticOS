@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { DownloadIcon } from '../ui/AnimatedIcons';
 
@@ -6,8 +7,10 @@ interface DragOverlayProps {
   isDragging: boolean;
 }
 
+// portal 到 body：Chat 根节点是 motion.div（带 exit transform）+ overflow-hidden，
+// `fixed inset-0` 的包含块会变成它 —— 拖拽投放提示只剩聊天区大小、圆角被裁。
 export const DragOverlay: React.FC<DragOverlayProps> = ({ isDragging }) => {
-  return (
+  return createPortal(
     <AnimatePresence>
       {isDragging && (
         <motion.div
@@ -31,6 +34,7 @@ export const DragOverlay: React.FC<DragOverlayProps> = ({ isDragging }) => {
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 };

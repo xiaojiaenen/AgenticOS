@@ -11,6 +11,7 @@
  * - **AI 评审意见**：模型给出的风险等级与建议（可参考，非裁决）。
  */
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
   Bot,
@@ -130,8 +131,10 @@ export const DeployReviewPanel: React.FC<{
     [previewHtml],
   );
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/40 backdrop-blur-sm">
+  // portal 到 body：AdminDashboard 根是 motion.div（带 exit transform）+
+  // overflow-hidden，`fixed inset-0` 的包含块会变成它，右滑抽屉被裁。
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-stretch justify-end bg-black/40 backdrop-blur-sm">
       <motion.aside
         initial={{ x: 40, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
@@ -408,7 +411,8 @@ export const DeployReviewPanel: React.FC<{
           </Button>
         </footer>
       </motion.aside>
-    </div>
+    </div>,
+    document.body,
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { AlertCircle, CheckCircle, ExternalLink, Globe, Key, Loader2, Plug, Shield, Unplug, X } from "lucide-react";
 import { Button } from "../shadcn/button";
@@ -103,9 +104,12 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
 
   if (!open) return null;
 
-  return (
+  // portal 到 body：调用方 Sidebar 是 motion.aside（带 transform），
+  // `fixed inset-0` 的包含块会变成那个 aside —— 集成市场弹窗被挤在
+  // 280px 宽的侧栏里并被 overflow 裁掉。
+  return createPortal(
     <AnimatePresence>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={cn("fixed inset-0 z-50 flex items-center justify-center p-4", "bg-black/30")} onClick={onClose}>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className={cn("fixed inset-0 z-[100] flex items-center justify-center p-4", "bg-black/30")} onClick={onClose}>
         {(() => {
           const marketContent = (
             <>
@@ -197,6 +201,7 @@ export const IntegrationMarket: React.FC<IntegrationMarketProps> = ({ open, onCl
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 };
