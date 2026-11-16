@@ -128,7 +128,7 @@ export const PublishToGalleryButton: React.FC<{
         type="button"
         onClick={() => setOpen(true)}
         disabled={busy}
-        className="inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:opacity-60"
+        className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:opacity-60"
         title="公开到作品库（需管理员审批）"
         aria-label="公开到作品库"
       >

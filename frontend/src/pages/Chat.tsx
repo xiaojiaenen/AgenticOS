@@ -6,6 +6,7 @@ import { Sidebar } from '../components/chat/Sidebar';
 import { ChatMainArea } from '../components/chat/ChatMainArea';
 import { ChatArtifactArea } from '../components/chat/ChatArtifactArea';
 import { IdeSidebar } from '../components/panel/IdeSidebar';
+import { ResizableSidebar } from '../components/panel/ResizableSidebar';
 import { SlideLivePreview } from '../components/ppt/SlideLivePreview';
 import { DragOverlay } from '../components/chat/DragOverlay';
 import { RandomMascot } from '../components/ui/RandomMascot';
@@ -67,6 +68,8 @@ export const Chat = () => {
   const setIsSidebarHiddenByArtifact = useChatStore((s) => s.setIsSidebarHiddenByArtifact);
   const storeCreateNewChat = useChatStore((s) => s.createNewChat);
   const sidebarOpen = useChatStore((s) => s.sidebarOpen);
+  const sidebarWidth = useChatStore((s) => s.sidebarWidth);
+  const setSidebarWidth = useChatStore((s) => s.setSidebarWidth);
   const setSidebarOpen = useChatStore((s) => s.setSidebarOpen);
   const openTab = useChatStore((s) => s.openSidebarTab);
 
@@ -690,8 +693,13 @@ export const Chat = () => {
               // 「生成中」也被创建（status=generating，没有 html），只看
               // 非空会在还没内容时就把聊天区压到 40% —— 用户看到"界面样式
               // 突然变了、右侧一大片空白/纯黑"就是这个。
-              hasArtifactContent
-                ? "w-full md:w-[40%] md:min-w-[380px] border-r border-[var(--border-subtle)] lg:min-w-[440px]"
+              //
+              // 侧栏已可拖拽调宽，所以这里**不再用固定 40%**：让 main 用
+              // flex-1 吃掉剩余空间，宽度由侧栏实际宽度决定。原来写死 40%
+              // 时，侧栏拖到 700px 会让两者相加超出容器、对话区被二次压扁
+              // （截图里气泡文字竖排）。
+              hasArtifactContent || sidebarOpen
+                ? "w-full min-w-0 flex-1 border-r border-[var(--border-subtle)] md:min-w-[380px] lg:min-w-[440px]"
                 : "w-full min-w-0 flex-1",
               isWideConversation && "px-4 lg:px-8 xl:px-10",
             )}
@@ -736,15 +744,18 @@ export const Chat = () => {
             sessionId={currentSessionId}
           />
           {sidebarOpen && (
-            /* 移动端（<md）：全屏抽屉覆盖，不与对话区抢宽度 —— 375px 屏幕上
-               并排会把气泡挤到竖排字。md+ 恢复 IDE 式并排侧栏。 */
-            <aside className="absolute inset-0 z-30 flex h-full flex-col overflow-hidden border-l border-[var(--border-subtle)] bg-[var(--surface-1)] md:relative md:inset-auto md:z-auto md:flex md:h-full md:w-[420px] md:shrink-0 xl:w-[480px]">
+            /* 桌面端：可拖拽调整宽度（默认 520px，双击分隔条恢复）。
+               移动端仍是覆盖式抽屉 —— 375px 屏幕上并排会把气泡挤到竖排字。 */
+            <ResizableSidebar
+              width={sidebarWidth}
+              onWidthChange={setSidebarWidth}
+            >
               <IdeSidebar
                 sessionId={currentSessionId}
                 messages={currentSession?.messages ?? []}
                 isPptStreaming={chatMode === 'ppt' && isStreamingResponse && !hasArtifactContent}
               />
-            </aside>
+            </ResizableSidebar>
           )}
         </div>
       </ChatContextProvider>

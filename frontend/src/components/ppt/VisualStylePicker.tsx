@@ -53,7 +53,8 @@ export const VisualStylePicker: React.FC<VisualStylePickerProps> = ({ value, onC
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
+          // shrink-0 + whitespace-nowrap：对话区变窄时不能被压成竖排字
+          'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
           value
             ? 'border-[var(--ring)] bg-[var(--ring-halo)] text-[var(--foreground)]'
             : 'border-[var(--border-subtle)] text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]',

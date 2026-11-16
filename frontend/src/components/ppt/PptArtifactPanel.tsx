@@ -194,10 +194,10 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
           </div>
           <div
             className={cn(
-              'flex items-center gap-1',
-              // 侧栏（compact）只有 420px 宽，5 个按钮横排会被挤到变形
-              // （文字竖排、图标溢出）。允许换行 + 收紧内边距，按钮保持完整。
-              compact ? 'flex-wrap justify-end gap-1' : '',
+              'flex flex-nowrap items-center gap-1',
+              // 不换行：换行后按钮会被推到可视区下方（用户反馈"换行就看不见了"）。
+              // 宽度问题由侧栏拖拽解决 —— 默认 520px 能放下 5 个按钮，
+              // 窄了就拖动分隔条加宽。
             )}
           >
             <ArtifactVersionBar
