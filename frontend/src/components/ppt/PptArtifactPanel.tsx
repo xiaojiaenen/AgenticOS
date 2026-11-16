@@ -1,10 +1,12 @@
 import React from 'react';
 import { motion, AnimatePresence, MotionValue } from 'motion/react';
 import { Download, LayoutDashboard, Palette, Play, RefreshCcw, X, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Artifact } from '../../types';
 import { cn } from '../../lib/utils';
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview';
+import { toastError } from '../../lib/errors';
 import { exportPptx, listPptThemes, rethemePpt, getPptPreviewHtml, type PptTheme } from '../../services/agentService';
 import { PptPresenterMode } from './PptPresenterMode';
 import { ArtifactVersionBar } from '../chat/ArtifactVersionBar';
@@ -54,7 +56,24 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
         .finally(() => setIsLoading(false));
     }
   }, [html, artifact.artifactId]);
-  
+
+  // 父级换掉了预览 HTML（切换主题 / 切历史版本 / 侧栏重开）时必须同步到本地
+  // state，否则预览永远停在首次挂载那份 —— 用户点主题「没反应」。
+  //
+  // 为什么需要这个 effect：`html` 是本地 state（为了让懒加载回源能写入），
+  // `useState(artifact.html)` 只在挂载时求值一次，之后父传的 artifact.html
+  // 变了不会自动跟着变。之前只有 `handleThemeChange` 调 onThemeChange 更新
+  // 父级，本地这份没人管 —— 切主题后后端返回了新 HTML、父级也存了，
+  // 但预览 iframe 用的还是旧的那份。
+  React.useEffect(() => {
+    if (artifact.html && artifact.html !== html) {
+      setHtml(artifact.html);
+    }
+    // 刻意不依赖 html：本地写入（懒加载/切换主题）不该反过来触发这个 effect，
+    // 只关心「父级给了一份新的」。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artifact.html]);
+
   const previewSrcDoc = React.useMemo(() => buildSandboxedHtmlDocument(html), [html]);
 
   // 「打开 SVG 编辑器」的入口已按用户要求从面板移除（侧栏是查看/发布场景，
@@ -100,9 +119,19 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
     try {
       const result = await rethemePpt(artifact.artifactId, themeName);
       setCurrentTheme(themeName);
+      // **必须直接更新本地 html**：预览 iframe 读的是这个 state。
+      //
+      // 之前只调 onThemeChange 往上抛，靠父级回传新 artifact.html —— 但
+      //   1) 侧栏（IdeSidebar）压根没传 onThemeChange，回调为空；
+      //   2) 即使传了，父级 setArtifact 也只是让 artifact.html 变化，
+      //      本组件的 html 是 useState 初始化的本地副本，不会自动同步。
+      // 两条叠加 → 后端主题真的换了（metadata 也更新），但预览纹丝不动，
+      // 用户看到的就是「切换主题不生效」。
+      if (result.html) setHtml(result.html);
       onThemeChange?.(result.html, themeName);
     } catch (err) {
       console.error('[Theme Change] Error:', err);
+      toast.error(toastError(err, '主题切换失败'));
     } finally {
       setIsChangingTheme(false);
     }

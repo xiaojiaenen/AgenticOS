@@ -326,14 +326,26 @@ const TabBody: React.FC<{ tab: SidebarTab; sessionId: string | null; messages: M
   // 主题切换 / 导出 PPTX / 发布到作品库这些按钮长在该面板上，
   // 之前侧栏直接 srcDoc 预览 HTML，用户看到的是"没有工具栏的空壳"。
   if (tab.kind === 'ppt' && tab.artifact?.language === 'ppt') {
+    const pptArtifact = tab.artifact;
     return (
       <PptArtifactPanel
         // sessionId 必须兜底成侧栏当前的会话：PublishToGalleryButton 的
         // 渲染条件是 artifactId && sessionId，而从历史消息还原的 artifact
         // 可能没带 sessionId（collectTabs 的入参为空时）—— 那会让"发布到
         // 作品库"按钮凭空消失。
-        artifact={{ ...tab.artifact, sessionId: tab.artifact.sessionId || sessionId || undefined }}
+        artifact={{ ...pptArtifact, sessionId: pptArtifact.sessionId || sessionId || undefined }}
         onClose={() => {}}
+        // 主题切换后要把新 HTML 回写到全局 artifact：
+        // 面板内部已 setHtml 保证预览立即刷新，这里再同步一份给「重开产物」
+        // 与主区域面板 —— 否则侧栏切完主题、关掉再重开，又回到旧主题。
+        onThemeChange={(newHtml, theme) => {
+          setArtifact({
+            ...pptArtifact,
+            html: newHtml,
+            theme,
+            sessionId: pptArtifact.sessionId || sessionId || undefined,
+          });
+        }}
         // 侧栏宽度有限，面板自身的 60% 宽度动画在侧栏里会挤成 0，
         // 用 compact 让它铺满容器、去掉侧边栏专属的内边距。
         compact
