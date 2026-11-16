@@ -171,7 +171,15 @@ class PublishedItemService:
                 except Exception as exc:  # noqa: BLE001
                     _logger.exception("发布物化失败: id=%s", item_id)
                     item.status = "failed"
-                    item.reason = f"导出失败：{exc}"[:500]
+                    # 把技术异常翻译成管理员能照着做的说明。
+                    if isinstance(exc, FileNotFoundError):
+                        reason = (
+                            f"源产物快照已丢失，无法导出：{exc}。"
+                            "请在会话里重新生成该产物（或从历史版本重新保存）后再发布。"
+                        )
+                    else:
+                        reason = f"导出失败：{exc}"
+                    item.reason = reason[:500]
                     item.updated_at = datetime.now(timezone.utc)
                     db.commit()
                     db.refresh(item)
@@ -366,12 +374,26 @@ class PublishedItemService:
         filename = "workbook.json" if kind == "sheet" else "document.json"
         path = base / source_ref / filename
         if not path.is_file():
+            # 目录存在但缺快照文件 = 历史遗留的空版本目录（早期 build 直接
+            # write_text，中途失败会留下它）。日志要把诊断说清楚，管理员才
+            # 知道「不是审批坏了，是这份产物的快照没落盘」。
+            version_dir = base / source_ref
+            try:
+                exists = version_dir.is_dir()
+                contents = [p.name for p in version_dir.iterdir()][:5] if exists else None
+            except OSError:
+                exists, contents = False, None
+            _logger.warning(
+                "发布审批：缺快照文件 %s（目录存在=%s, 内容=%s, source_ref=%s）",
+                filename, exists, contents, source_ref,
+            )
             return None
         import json
 
         try:
             return json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
+            _logger.warning("发布审批：快照 JSON 解析失败（%s）", path, exc_info=True)
             return None
 
     # ── 文件访问 ────────────────────────────────────────────────────────

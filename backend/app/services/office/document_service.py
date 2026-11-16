@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 import time
 from pathlib import Path
 from typing import Any
@@ -132,7 +133,16 @@ async def build_document(session_id: str) -> dict[str, Any]:
 
     directory = next_version_dir(DOCUMENTS_DIR, meta["user_id"], session_id)
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / "document.json").write_text(serialized, encoding="utf-8")
+    # 原子写 + 失败清理（同 sheet）：直接 write_text 中途失败会留下空版本
+    # 目录，发布审批读不到 document.json → 用户看到「审批失败」。
+    target = directory / "document.json"
+    temp = directory / "document.json.tmp"
+    try:
+        temp.write_text(serialized, encoding="utf-8")
+        temp.replace(target)
+    except Exception:
+        shutil.rmtree(directory, ignore_errors=True)
+        raise
 
     body = snapshot.get("body") or {}
     # 段落符 \r 与收尾的 \n 都不是正文字数

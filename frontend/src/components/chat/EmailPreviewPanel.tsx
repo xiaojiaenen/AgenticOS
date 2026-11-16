@@ -124,8 +124,12 @@ const EmailCard: React.FC<{
     const sg = overrides?.signer ?? signer;
 
     if (tpl === 'plain' || tpl === 'custom') {
-      setPreviewHtml(b);
-      setPreviewIsHtml(false);
+      // 只在内容真的变了才 setState。无条件写会让父级每次重渲染都触发一次
+      // 状态更新；在流式阶段（父组件每帧重建）会放大成
+      // 「Too many re-renders」（React #185，用户看到的是 ErrorBoundary 兜底页
+      // 「这个区域加载失败」）。
+      setPreviewHtml((prev) => (prev === b ? prev : b));
+      setPreviewIsHtml((prev) => (prev === false ? prev : false));
       return;
     }
     setPreviewing(true);
@@ -134,12 +138,12 @@ const EmailCard: React.FC<{
         template: tpl, subject: s, body: b,
         button_label: bl, button_url: bu, signer: sg,
       });
-      setPreviewHtml(res.html);
-      setPreviewIsHtml(res.is_html);
+      setPreviewHtml((prev) => (prev === res.html ? prev : res.html));
+      setPreviewIsHtml((prev) => (prev === res.is_html ? prev : res.is_html));
     } catch {
       // 预览失败不影响发送：退回纯文本
-      setPreviewHtml(b);
-      setPreviewIsHtml(false);
+      setPreviewHtml((prev) => (prev === b ? prev : b));
+      setPreviewIsHtml((prev) => (prev === false ? prev : false));
     } finally {
       setPreviewing(false);
     }

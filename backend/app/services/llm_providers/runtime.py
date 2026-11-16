@@ -370,6 +370,23 @@ def build_gateway_for_active_provider(
             raise ProviderUnavailable(
                 f"提供商「{active.name}」不可用（{exc}），且环境变量未配置兜底 Key"
             ) from exc
+        if not fallback.base_url:
+            # base_url 为空 / 还是模板占位符（``<内网模型网关>``）。继续调下去
+            # 只会让 urllib 抛 ``Invalid IDNA hostname: '<内网模型网关>'`` 这种
+            # 天书，用户完全不知道要改哪里。这里直接给可操作的诊断。
+            from app.services.llm_providers.spec import looks_like_placeholder
+
+            raw = (get_settings().openai_base_url or "").strip()
+            hint = (
+                f"当前 OPENAI_BASE_URL={raw!r} 是模板占位符，没有替换成真实地址"
+                if looks_like_placeholder(raw)
+                else "当前 OPENAI_BASE_URL 为空"
+            )
+            raise ProviderUnavailable(
+                f"提供商「{active.name}」不可用（{exc}），且环境变量兜底地址无效：{hint}。"
+                "请在 .env 填写内网模型网关地址后重启后端，或在「管理后台 → AI 提供商」"
+                "里把该提供商修好（它是首选路径）。"
+            ) from exc
         return build_gateway(fallback, max_tokens=max_tokens, timeout=timeout, model=model)
 
 

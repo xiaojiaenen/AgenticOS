@@ -46,35 +46,17 @@ import {
 } from '../services/mcpService';
 import type { ToolCatalogItem } from '../services/toolConfigService';
 import { useGoBack } from '../hooks/useGoBack';
+import { TOOL_CATEGORIES, categoryOf } from '../lib/toolCategories';
 
 /**
- * 工具分组（后端 catalog 无分类字段，这里按工具语义归类，
- * 让 36 个工具在勾选界面里可读，而不是一长条平铺列表）。
+ * 工具分组由 lib/toolCategories.ts 统一维护（AgentEditor 与
+ * AgentToolsPanel 共用同一份）—— 各写一份必然漂移：新增工具只在一处
+ * 登记，另一处就落到「其他」。
  */
-const TOOL_CATEGORIES: Record<string, string[]> = {
-  基础能力: ['calc', 'time', 'decision'],
-  文件与代码: ['file', 'file_to_md', 'python', 'git'],
-  知识与记忆: ['knowledge', 'memory', 'skill', 'email'],
-  数据与图表: ['analyze_data', 'render_chart', 'analyze_template'],
-  演示文稿: ['save_slide', 'save_slides_batch', 'read_slide', 'batch_edit_slides',
-    'submit_slide_plan', 'submit_spec_lock', 'calc_chart_positions', 'check_svg_quality',
-    'convert_pptx_to_svg', 'import_pptx_template', 'resume_ppt', 'check_ppt_progress',
-    'read_notes'],
-  图片与图标: ['search_images', 'get_image_info', 'search_icons', 'list_icons'],
-  网站与部署: ['copy_template', 'check_website_project', 'build_website', 'deploy_website', 'npm'],
-};
-
-const TOOL_CATEGORY_OF = (() => {
-  const map = new Map<string, string>();
-  for (const [category, tools] of Object.entries(TOOL_CATEGORIES)) {
-    for (const tool of tools) map.set(tool, category);
-  }
-  return map;
-})();
-
-function categoryOf(name: string): string {
-  return TOOL_CATEGORY_OF.get(name) ?? '其他';
-}
+/**
+ * 工具分类：`TOOL_CATEGORIES` 与 `categoryOf` 都从 lib/toolCategories.ts
+ * 引入（与 AgentToolsPanel 共用，避免各写一份导致漂移）。
+ */
 
 const MODE_OPTIONS: { value: AgentProfile['response_mode']; label: string; hint: string }[] = [
   { value: 'general', label: '通用问答', hint: '日常问答、资料整理、轻量工具调用' },
