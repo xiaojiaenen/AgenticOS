@@ -25,6 +25,7 @@ import { cn } from '../lib/utils';
 import { UserInputPanel } from '../components/chat/UserInputPanel';
 import { getSessionArtifacts, submitUserInput, type UserInputRequest } from '../services/agentService';
 import { useRunControlStore } from '@/features/island/runControlStore';
+import { emailArtifactFromApproval, isSameArtifact } from '@/lib/emailArtifact';
 import type { VirtuosoHandle } from 'react-virtuoso';
 import { canEnterAdmin } from '@/services/authTokenStore';
 export const Chat = () => {
@@ -178,30 +179,13 @@ export const Chat = () => {
     // send_email 审批就 setArtifact，会把用户正在看的预览直接顶掉
     if (artifact && artifact.language !== 'email') return;
 
-    // 确保 arguments 是对象（可能是 JSON 字符串）
-    let args: Record<string, unknown> = {};
-    if (typeof emailApproval.arguments === 'string') {
-      try {
-        args = JSON.parse(emailApproval.arguments);
-      } catch {
-        return;
-      }
-    } else {
-      args = emailApproval.arguments as Record<string, unknown>;
-    }
+    const next = emailArtifactFromApproval(emailApproval.arguments, emailApproval.approvalId || '');
+    if (!next) return;
 
-    // 只有当 to 和 subject 存在时才显示面板
-    if (args.to && args.subject) {
-      setArtifact({
-        language: 'email',
-        approvalId: emailApproval.approvalId || '',
-        to: String(args.to || ''),
-        subject: String(args.subject || ''),
-        body: String(args.body || ''),
-        cc: args.cc ? String(args.cc) : undefined,
-        isHtml: Boolean(args.is_html),
-      });
-    }
+    // **必须做内容比较**：本 effect 依赖 artifact，若无条件 setArtifact，
+    // 每次新建的对象都会让 artifact 引用变化 → effect 重跑 → 无限循环
+    // （React error #185: Maximum update depth exceeded），发邮件时必现。
+    if (!isSameArtifact(artifact, next)) setArtifact(next);
   }, [pendingApprovals, setArtifact, artifact]);
 
   // ── 拖放 ──

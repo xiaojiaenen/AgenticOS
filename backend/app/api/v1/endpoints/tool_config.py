@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, require_admin
@@ -84,7 +85,27 @@ def get_agent_tool_policy(
             {"name": name, "label": str(item.get("label") or name)}
             for name, item in sorted(TOOL_CATALOG.items())
         ],
+        # 可选 Skill 清单（受限名单是按 slug 匹配的，前端要能看到有哪些）
+        "available_skills": _available_skills_for_policy(db),
     }
+
+
+def _available_skills_for_policy(db: Session) -> list[dict[str, object]]:
+    """全部 Skill 的 slug + 名称（含停用的，方便管理员统一设策略）。"""
+    try:
+        from app.db.models import SkillModel
+
+        rows = db.scalars(select(SkillModel).order_by(SkillModel.name.asc())).all()
+        return [
+            {
+                "slug": row.slug,
+                "name": row.name,
+                "enabled": bool(getattr(row, "enabled", True)),
+            }
+            for row in rows
+        ]
+    except Exception:  # noqa: BLE001 —— 读不到技能表时给出空清单，不阻断页面
+        return []
 
 
 @router.put("/policy")

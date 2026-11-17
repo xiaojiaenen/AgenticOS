@@ -296,3 +296,57 @@ class TestSaveGuard:
                 db.execute(delete(AgentProfileModel).where(AgentProfileModel.slug == slug))
                 db.commit()
             self._cleanup(email)
+
+
+class TestSkillVisibility:
+    """Skill 限制与工具限制同一套语义：普通用户看不到、不能用。"""
+
+    def test_restricted_skill_filtered_for_user(self, restricted_policy):
+        from app.services import agent_tool_policy
+
+        with create_db_session() as db:
+            save_policy(
+                db,
+                restricted_tools=["calc"],
+                restricted_skills=["danger-skill", "ok-skill"],
+            )
+
+        class _S:
+            def __init__(self, slug):
+                self.slug = slug
+
+        skills = (_S("danger-skill"), _S("ok-skill"), _S("fine-skill"))
+        with create_db_session() as db:
+            policy = agent_tool_policy.load_policy(db)
+
+        out = agent_tool_policy.filter_skills(
+            skills, policy=policy, is_privileged_owner=False
+        )
+        assert [s.slug for s in out] == ["fine-skill"]
+
+    def test_restricted_skill_allowed_for_builtin(self, restricted_policy):
+        """内置智能体（特权）不受 Skill 限制 —— 与工具限制一致。"""
+        from app.services import agent_tool_policy
+
+        with create_db_session() as db:
+            save_policy(db, restricted_skills=["danger-skill"])
+            policy = agent_tool_policy.load_policy(db)
+
+        class _S:
+            slug = "danger-skill"
+
+        out = agent_tool_policy.filter_skills(
+            (_S(),), policy=policy, is_privileged_owner=True
+        )
+        assert len(out) == 1
+
+    def test_skills_endpoint_exposes_list(self):
+        """能力限制端点要下发可选 Skill 清单，前端才能渲染勾选框。"""
+        from app.api.v1.endpoints.tool_config import _available_skills_for_policy
+
+        with create_db_session() as db:
+            skills = _available_skills_for_policy(db)
+        assert isinstance(skills, list)
+        # 每项结构固定
+        for item in skills[:3]:
+            assert {"slug", "name", "enabled"} <= set(item)

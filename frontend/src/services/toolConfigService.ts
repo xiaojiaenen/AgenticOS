@@ -101,6 +101,7 @@ export type AgentToolPolicy = {
   restricted_skills: string[];
   default_restricted_tools: string[];
   available_tools: { name: string; label: string }[];
+  available_skills?: { slug: string; name: string; enabled: boolean }[];
 };
 
 export async function fetchAgentToolPolicy(): Promise<AgentToolPolicy> {

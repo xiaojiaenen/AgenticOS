@@ -130,6 +130,10 @@ class AgentProfileResponse(AppBaseModel):
     #: 创建人（`created_by`）：用户自建时与 owner 通常一致；内置/导入的智能体
     #: 可能是创建它那次操作的管理员。None = 平台内置。
     created_by_name: str | None = None
+    #: 这个智能体是否**不受工具策略限制**（平台内置 / 管理员自建）。
+    #: 前端据此决定编辑器里要不要显示受限工具 —— 与运行期用的是同一个判断
+    #: （`_is_privileged_profile`），避免"界面藏了但运行时给用"的不一致。
+    tools_unrestricted: bool = False
     visibility: str = "private"
     max_steps: int | None = None
     audience_mode: str

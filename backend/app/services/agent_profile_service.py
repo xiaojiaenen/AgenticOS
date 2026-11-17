@@ -680,6 +680,8 @@ class AgentProfileService:
             "owner_name": owner.name if owner else None,
             "owner_email": owner.email if owner else None,
             "created_by_name": creator.name if creator else None,
+            # 与运行期同一套判断：这个智能体能否用受限工具
+            "tools_unrestricted": self._is_privileged_profile(db, profile),
             "visibility": profile.visibility or "private",
             "audience_mode": self._audience_mode(db, profile),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
@@ -782,6 +784,7 @@ class AgentProfileService:
         user_id: int | None = None,
         owner_names: dict[int, tuple[str, str]] | None = None,
         hidden_tools: frozenset[str] = frozenset(),
+        privileged_owner_ids: frozenset[int] = frozenset(),
     ) -> dict[str, object]:
         # 创建人：批量路径由调用方一次性查出 {user_id: (name, email)}，
         # 避免在列表里对每个 profile 各查一次用户表（N+1）。
@@ -815,6 +818,7 @@ class AgentProfileService:
             "owner_name": owner[0] if owner else None,
             "owner_email": owner[1] if owner else None,
             "created_by_name": creator_name,
+            "tools_unrestricted": profile.owner_id is None or (profile.owner_id in privileged_owner_ids),
             "visibility": profile.visibility or "private",
             "audience_mode": self._audience_mode(db, profile),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
@@ -839,6 +843,14 @@ class AgentProfileService:
 
         # 一次算出隐藏集合，整批复用（每个 profile 各查一次策略是 N 次查询）
         hidden_tools = self._hidden_tools_for_viewer(db, viewer_role)
+        # 哪些所有者是管理员（他们的智能体不受工具限制）—— 同样一次查完
+        privileged_owner_ids = frozenset(
+            db.scalars(
+                select(UserModel.id).where(
+                    UserModel.role.in_(["admin", "superadmin"])
+                )
+            ).all()
+        )
 
         changed = False
         for profile in profiles:
@@ -932,6 +944,7 @@ class AgentProfileService:
                 user_id=user_id,
                 owner_names=owner_names,
                 hidden_tools=hidden_tools,
+                privileged_owner_ids=privileged_owner_ids,
             )
             for profile in profiles
         ]
@@ -991,8 +1004,11 @@ class AgentProfileService:
                 ).all()
                 if self._is_profile_available_to_user(db, profile, user)
             ]
-            # 按**访问者角色**决定是否隐藏受限工具：管理员在商店里也要能
-            # 看到全部（他要用），普通用户看不到 —— 而不是一律按普通用户处理。
+            # 按**访问者角色**决定是否隐藏受限工具。
+            # 管理员看全部：他要编辑内置智能体，而内置智能体在运行期本来就
+            # 能用受限工具（_is_privileged_profile 判 owner_id 为空 → 特权）。
+            # 若这里按普通用户过滤，管理员会发现"内置智能体明明能用写文件，
+            # 编辑器里却勾不到"。
             from app.core.roles import is_admin_like
 
             privileged = is_admin_like(user.role)
