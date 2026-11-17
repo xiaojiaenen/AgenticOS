@@ -14,6 +14,7 @@ import {
 } from '@/features/island/AgentRunIsland';
 import { ContextCompressedIsland } from '@/features/island/ContextCompressedIsland';
 import { DraftTypingIsland } from '@/features/island/DraftTypingIsland';
+import { IdleClockIsland } from '@/features/island/IdleClockIsland';
 import { PptExportIsland } from '@/features/island/PptExportIsland';
 import { FileUploadIsland } from '@/features/island/FileUploadIsland';
 import { SiteDeployIsland } from '@/features/island/SiteDeployIsland';
@@ -123,7 +124,9 @@ function AppContent() {
           - PptExportIsland：PPTX 导出（实测 1–2 分钟，无进度回报）
           - ContextCompressedIsland：上下文压缩提醒（后端压缩发生的那一刻，
             展示真实摘要预览）
-          - DraftTypingIsland：正在输入（输入框有草稿时，最长输入态不抢运行态） */}
+          - DraftTypingIsland：正在输入（输入框有草稿时，最长输入态不抢运行态）
+          - IdleClockIsland：空闲常驻（时钟 + 时段问候），任何其它活动出现时让位 */}
+      <IdleClockIsland />
       <AgentRunIsland />
       <AgentRunErrorIsland />
       <AgentRunDoneIsland />
