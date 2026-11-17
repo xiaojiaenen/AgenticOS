@@ -52,9 +52,9 @@ def clean_policy():
 
 class TestDefaults:
     def test_defaults_restrict_dangerous_writes(self, clean_policy):
-        """默认限制写文件与执行命令 —— 这些等价于代码执行能力。"""
+        """默认限制写文件与代码执行 —— 这些等价于在服务器上跑代码。"""
         policy = load_policy_with_session()
-        for tool in ("write_text_file", "run_shell", "npm"):
+        for tool in ("write_text_file", "delete_file", "python", "npm", "git"):
             assert tool in policy.restricted_tools, f"{tool} 应该默认受限"
 
     def test_defaults_do_not_restrict_safe_tools(self, clean_policy):
@@ -62,6 +62,25 @@ class TestDefaults:
         policy = load_policy_with_session()
         for tool in ("calc", "time", "read_emails", "search_emails"):
             assert tool not in policy.restricted_tools, f"{tool} 不该默认受限"
+
+    def test_every_default_restricted_name_actually_exists(self):
+        """默认名单里的名字必须是真的工具 —— 否则限制是空转的。
+
+        真实事故：早先写了 write_file / run_shell / npm_install 三个不存在的
+        名字，管理员以为限制了 shell 执行，实际一个都没限制住。
+        """
+        from app.services.tool_config_service import DEFAULT_MODE_TOOLS, TOOL_CATALOG
+
+        known = set(TOOL_CATALOG)
+        for mapping in DEFAULT_MODE_TOOLS.values():
+            known.update(mapping)
+
+        ghosts = sorted(t for t in DEFAULT_RESTRICTED_TOOLS if t not in known)
+        assert not ghosts, (
+            "默认限制名单里有不存在的工具名："
+            + ", ".join(ghosts)
+            + "。限制一个不存在的工具等于没限制，请改成真实工具名。"
+        )
 
     def test_default_restricted_tuple_matches_policy(self, clean_policy):
         policy = load_policy_with_session()

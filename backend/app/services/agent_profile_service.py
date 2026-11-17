@@ -447,7 +447,29 @@ class AgentProfileService:
             changed = True
         return changed
 
-    def _catalog(self) -> list[dict[str, object]]:
+    def _catalog(
+        self,
+        *,
+        db: Session | None = None,
+        for_privileged: bool = True,
+    ) -> list[dict[str, object]]:
+        """工具目录（智能体商店/编辑器勾选清单的数据源）。
+
+        `for_privileged=False`（普通用户视角）时**剔除管理员限制的工具** ——
+        它们根本不出现在清单里，而不是"能勾选、保存后却不生效"。那种做法
+        用户只会觉得是 bug，反复勾同一个开关。
+
+        运行期还会在 `allowed_tools` 上再裁一次（见 `_resolve_runtime_profile`），
+        这里只是把不可用的选项提前藏掉；两层都对才叫"看不见也用不了"。
+        """
+        restricted: frozenset[str] = frozenset()
+        if not for_privileged and db is not None:
+            try:
+                from app.services import agent_tool_policy
+
+                restricted = agent_tool_policy.load_policy(db).restricted_tools
+            except Exception:  # noqa: BLE001 —— 读策略失败时按"不限制"展示，不阻断页面
+                restricted = frozenset()
         return [
             {
                 "name": name,
@@ -460,6 +482,7 @@ class AgentProfileService:
                 ],
             }
             for name, item in TOOL_CATALOG.items()
+            if name not in restricted
         ]
 
     @staticmethod
@@ -602,7 +625,14 @@ class AgentProfileService:
 
         return True
 
-    def _serialize(self, db: Session, profile: AgentProfileModel, *, user_id: int | None = None) -> dict[str, object]:
+    def _serialize(
+        self,
+        db: Session,
+        profile: AgentProfileModel,
+        *,
+        user_id: int | None = None,
+        viewer_role: str | None = None,
+    ) -> dict[str, object]:
         self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
         # 自己创建 / 平台内置的智能体天然可用，无需再"安装"
         is_owner = bool(user_id is not None and profile.owner_id == user_id)
@@ -623,6 +653,7 @@ class AgentProfileService:
         skills = self._load_profile_skill_rows(db, profile.id)
         audience_users = self._load_audience_users(db, profile.id)
         ext_systems = self._load_profile_external_systems(db, profile.id)
+        hidden_tools = self._hidden_tools_for_viewer(db, viewer_role)
         # 创建人 / 所有者姓名：后台智能体目录要显示"谁建的" —— 只有 owner_id
         # 这种数字没法追溯，用户自建的智能体混在列表里就查不出出处。
         owner = db.get(UserModel, profile.owner_id) if profile.owner_id else None
@@ -652,7 +683,7 @@ class AgentProfileService:
             "visibility": profile.visibility or "private",
             "audience_mode": self._audience_mode(db, profile),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
-            "tools": self._merge_tools_with_catalog(tools),
+            "tools": self._merge_tools_with_catalog(tools, hidden_names=hidden_tools),
             "skills": [self._serialize_skill_reference(skill) for skill in skills],
             "external_systems": ext_systems,
             "max_steps": profile.max_steps,
@@ -661,8 +692,30 @@ class AgentProfileService:
         }
 
     @staticmethod
+    def _hidden_tools_for_viewer(db: Session, viewer_role: str | None) -> frozenset[str]:
+        """当前浏览者**看不到**的工具名。
+
+        管理员/超管看全部（他们本来就能用）；普通用户看不到受限项 ——
+        在编辑器里藏掉，而不是让他勾了才发现不生效。
+
+        `viewer_role=None` 视为普通用户（失败即收紧：宁可少显示几个工具，
+        也不要让受限工具漏到界面上）。
+        """
+        from app.core.roles import is_admin_like
+        from app.services import agent_tool_policy
+
+        if is_admin_like(viewer_role):
+            return frozenset()
+        try:
+            return agent_tool_policy.load_policy(db).restricted_tools
+        except Exception:  # noqa: BLE001 —— 读策略失败时返回空集（不隐藏任何工具）
+            return frozenset()
+
+    @staticmethod
     def _merge_tools_with_catalog(
         stored_tools: list[AgentProfileToolModel],
+        *,
+        hidden_names: frozenset[str] = frozenset(),
     ) -> list[dict[str, object]]:
         """Merge stored profile tools with all catalog entries.
 
@@ -691,6 +744,11 @@ class AgentProfileService:
         for tool in stored_tools:
             if tool.tool_name not in TOOL_CATALOG and tool.tool_name not in known_via_discovery:
                 continue
+            # 管理员限制的工具：普通用户视角下**完全不出现**。即使历史上
+            # 已经勾选过（数据库里 enabled=True），也不展示 —— 否则用户会
+            # 看到"勾着的工具却用不了"，比压根看不到更困惑。
+            if tool.tool_name in hidden_names:
+                continue
             seen.add(tool.tool_name)
             merged.append({
                 "tool_name": tool.tool_name,
@@ -699,6 +757,8 @@ class AgentProfileService:
                 "approval_sub_tools": parse_approval_sub_tools(tool.approval_sub_tools_json),
             })
         for name in TOOL_CATALOG:
+            if name in hidden_names:
+                continue
             if name not in seen:
                 merged.append({
                     "tool_name": name,
@@ -721,6 +781,7 @@ class AgentProfileService:
         external_systems: list[dict[str, object]] | None = None,
         user_id: int | None = None,
         owner_names: dict[int, tuple[str, str]] | None = None,
+        hidden_tools: frozenset[str] = frozenset(),
     ) -> dict[str, object]:
         # 创建人：批量路径由调用方一次性查出 {user_id: (name, email)}，
         # 避免在列表里对每个 profile 各查一次用户表（N+1）。
@@ -757,7 +818,7 @@ class AgentProfileService:
             "visibility": profile.visibility or "private",
             "audience_mode": self._audience_mode(db, profile),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
-            "tools": self._merge_tools_with_catalog(tools),
+            "tools": self._merge_tools_with_catalog(tools, hidden_names=hidden_tools),
             "skills": [self._serialize_skill_reference(skill) for skill in skills],
             "external_systems": external_systems or [],
             "max_steps": profile.max_steps,
@@ -771,9 +832,13 @@ class AgentProfileService:
         profiles: list[AgentProfileModel],
         *,
         user_id: int | None = None,
+        viewer_role: str | None = None,
     ) -> list[dict[str, object]]:
         if not profiles:
             return []
+
+        # 一次算出隐藏集合，整批复用（每个 profile 各查一次策略是 N 次查询）
+        hidden_tools = self._hidden_tools_for_viewer(db, viewer_role)
 
         changed = False
         for profile in profiles:
@@ -866,6 +931,7 @@ class AgentProfileService:
                 external_systems=ext_systems_by_profile.get(profile.id, []),
                 user_id=user_id,
                 owner_names=owner_names,
+                hidden_tools=hidden_tools,
             )
             for profile in profiles
         ]
@@ -894,10 +960,15 @@ class AgentProfileService:
         with self.session_factory() as db:
             self.ensure_defaults(db)
             profiles = db.scalars(select(AgentProfileModel).order_by(AgentProfileModel.created_at.asc())).all()
+            # 这是管理员端点（require_admin）：显式按管理员视角序列化，
+            # 否则 viewer_role=None 会退化成"普通用户"，把受限工具也藏掉 ——
+            # 管理员就管不了那些工具了。
             return {
-                "catalog": self._catalog(),
+                "catalog": self._catalog(db=db, for_privileged=True),
                 "available_skills": self._list_available_skills(db, include_disabled=True),
-                "items": self._serialize_profiles(db, profiles),
+                "items": self._serialize_profiles(
+                    db, profiles, viewer_role="admin"
+                ),
             }
 
     def list_store(self, user: UserModel) -> dict[str, object]:
@@ -920,10 +991,17 @@ class AgentProfileService:
                 ).all()
                 if self._is_profile_available_to_user(db, profile, user)
             ]
+            # 按**访问者角色**决定是否隐藏受限工具：管理员在商店里也要能
+            # 看到全部（他要用），普通用户看不到 —— 而不是一律按普通用户处理。
+            from app.core.roles import is_admin_like
+
+            privileged = is_admin_like(user.role)
             return {
-                "catalog": self._catalog(),
+                "catalog": self._catalog(db=db, for_privileged=privileged),
                 "available_skills": self._list_available_skills(db, include_disabled=False),
-                "items": self._serialize_profiles(db, profiles, user_id=user.id),
+                "items": self._serialize_profiles(
+                    db, profiles, user_id=user.id, viewer_role=user.role
+                ),
             }
 
     def list_user_agents(self, user: UserModel) -> dict[str, object]:
@@ -957,10 +1035,17 @@ class AgentProfileService:
                 ).all()
                 if self._is_profile_available_to_user(db, profile, user)
             ]
+            # 按**访问者角色**决定是否隐藏受限工具：管理员在商店里也要能
+            # 看到全部（他要用），普通用户看不到 —— 而不是一律按普通用户处理。
+            from app.core.roles import is_admin_like
+
+            privileged = is_admin_like(user.role)
             return {
-                "catalog": self._catalog(),
+                "catalog": self._catalog(db=db, for_privileged=privileged),
                 "available_skills": self._list_available_skills(db, include_disabled=False),
-                "items": self._serialize_profiles(db, profiles, user_id=user.id),
+                "items": self._serialize_profiles(
+                    db, profiles, user_id=user.id, viewer_role=user.role
+                ),
             }
 
     def _unique_slug(self, db: Session, base: str, *, ignore_id: int | None = None) -> str:
@@ -975,7 +1060,14 @@ class AgentProfileService:
             slug = f"{base}-{index}"
             index += 1
 
-    def _apply_tools(self, db: Session, profile: AgentProfileModel, tools: list[AgentProfileTool]) -> None:
+    def _apply_tools(
+        self,
+        db: Session,
+        profile: AgentProfileModel,
+        tools: list[AgentProfileTool],
+        *,
+        actor_role: str | None = None,
+    ) -> None:
         """写入 profile 的工具开关。
 
         **校验集合必须与 `_merge_tools_with_catalog` 的输出一致。**
@@ -995,6 +1087,11 @@ class AgentProfileService:
         for mapping in DEFAULT_MODE_TOOLS.values():
             allowed.update(mapping)
 
+        # 管理员限制的工具：普通用户**不能开启**（服务端拦截，不只靠界面隐藏）。
+        # 只在 enabled=True 时拦：历史配置里可能有已勾选的受限项，如果连
+        # 保存都拒绝，用户连"取消勾选"都做不了，配置会彻底卡死。
+        restricted = self._hidden_tools_for_viewer(db, actor_role)
+
         existing = {
             row.tool_name: row
             for row in db.scalars(
@@ -1004,6 +1101,10 @@ class AgentProfileService:
         for item in tools:
             if item.tool_name not in allowed:
                 raise KeyError(f"Unknown tool: {item.tool_name}")
+            if item.enabled and item.tool_name in restricted:
+                raise PermissionError(
+                    f"工具「{item.tool_name}」已被管理员限制，仅管理员创建的智能体可用"
+                )
             row = existing.get(item.tool_name)
             if row is None:
                 row = AgentProfileToolModel(profile_id=profile.id, tool_name=item.tool_name)
@@ -1092,7 +1193,7 @@ class AgentProfileService:
             self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(request.response_mode))
             db.flush()
             if request.tools:
-                self._apply_tools(db, profile, request.tools)
+                self._apply_tools(db, profile, request.tools, actor_role=creator.role)
             if request.skill_ids:
                 self._apply_skill_ids(db, profile, request.skill_ids)
             if request.external_systems:
@@ -1153,7 +1254,10 @@ class AgentProfileService:
             if request.tools is not None:
                 self._ensure_profile_tools(db, profile, DEFAULT_MODE_TOOLS.get(profile.response_mode))
                 db.flush()
-                self._apply_tools(db, profile, request.tools)
+                self._apply_tools(
+                    db, profile, request.tools,
+                    actor_role=user.role if user else None,
+                )
             if request.skill_ids is not None:
                 self._apply_skill_ids(db, profile, request.skill_ids)
             if request.external_systems is not None:
@@ -1180,7 +1284,11 @@ class AgentProfileService:
             db.add(profile)
             db.commit()
             db.refresh(profile)
-            return self._serialize(db, profile, user_id=user.id if user else None)
+            return self._serialize(
+                db, profile,
+                user_id=user.id if user else None,
+                viewer_role=user.role if user else None,
+            )
 
     def restore_defaults(self, profile_id: int, user: UserModel | None = None) -> dict[str, object]:
         """把内置智能体还原成代码中的出厂定义（名称/prompt/模式/工具/技能）。"""
@@ -1212,7 +1320,11 @@ class AgentProfileService:
             self._apply_skill_ids(db, profile, self._default_skill_ids(db, profile.slug))
             db.commit()
             db.refresh(profile)
-            return self._serialize(db, profile, user_id=user.id if user else None)
+            return self._serialize(
+                db, profile,
+                user_id=user.id if user else None,
+                viewer_role=user.role if user else None,
+            )
 
     def delete(self, profile_id: int, user: UserModel | None = None) -> None:
         with self.session_factory() as db:
@@ -1247,7 +1359,7 @@ class AgentProfileService:
             if existing is None:
                 db.add(UserInstalledAgentModel(user_id=user.id, profile_id=profile_id))
                 db.commit()
-            return self._serialize(db, profile, user_id=user.id)
+            return self._serialize(db, profile, user_id=user.id, viewer_role=user.role)
 
     def uninstall(self, profile_id: int, user: UserModel) -> None:
         with self.session_factory() as db:

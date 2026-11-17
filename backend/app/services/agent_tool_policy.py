@@ -43,14 +43,21 @@ KEY_RESTRICTED_SKILLS = "agent_tool_policy.restricted_skills"
 
 #: 默认受管（restricted）的工具。只放**危险写操作 / 越权面**的，其余默认放开。
 #: 管理员可以在后台改这个名单（存 DB，覆盖默认值）。
+#:
+#: **名字必须是目录里真实存在的工具**。早先写了 `write_file` / `run_shell` /
+#: `npm_install` 三个不存在的名字 —— 管理员以为限制了 shell 执行，实际一个都
+#: 没限制住，配置是空转的。`tests/test_agent_tool_policy.py` 里有一条断言
+#: 守住这件事（默认名单 ⊆ 真实工具全量）。
 DEFAULT_RESTRICTED_TOOLS: tuple[str, ...] = (
-    # 写文件到工作区：能覆盖产物、也能当"落盘再执行"的一环
+    # 写文件到工作区：能覆盖产物，也能当"落盘再执行"的一环
     "write_text_file",
-    "write_file",
-    # 任意命令 / 包管理：能力等价于代码执行
-    "run_shell",
+    "append_text_file",
+    "replace_text_in_file",
+    "delete_file",
+    # 代码执行面：等权于在服务器上跑代码
+    "python",
     "npm",
-    "npm_install",
+    "git",
 )
 
 
