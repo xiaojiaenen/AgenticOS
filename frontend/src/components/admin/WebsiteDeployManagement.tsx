@@ -407,8 +407,8 @@ export function WebsiteDeployManagement() {
   return (
     <div className="space-y-3">
       <AdminPageHeader
-        kicker="网站管理"
-        title="部署审批"
+        kicker="发布管理"
+        title="部署与发布审批"
         actions={
           <>
             <KpiPill label="待审批" value={pendingDeploys.length} />

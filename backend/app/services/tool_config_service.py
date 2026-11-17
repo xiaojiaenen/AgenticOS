@@ -44,6 +44,23 @@ AGENT_MODES = {
 # 工具自动发现：mode → registrar 函数列表
 # 新增工具只需在这里注册，TOOL_CATALOG 和 DEFAULT_MODE_TOOLS 自动生成
 # ---------------------------------------------------------------------------
+#: **跨模式全局工具**的 registrar：由 factory 直接注册到每个智能体，
+#: 不绑定任何 response_mode。
+#:
+#: 这里有条目而漏登记，是"后台工具列表总少几个工具"的根因 —— 这类工具
+#: 不经过下面的 per-mode 自动发现，只能靠这张表。新增"所有模式都可用"的
+#: 工具时**必须**同时加到 `_GLOBAL_TOOL_REGISTRARS` 和 factory 的注册处，
+#: 并由 tests/test_tool_catalog_coverage.py 兜底（它会真的起 registry
+#: 逐个注册，漏登记直接红）。
+_GLOBAL_TOOL_REGISTRARS: list[tuple[str, str]] = [
+    ("app.tools.chart_render_tools", "register_chart_render_tools"),
+    ("app.tools.data_analysis_tools", "register_data_analysis_tools"),
+    ("app.services.a2ui", "register_a2ui_tools"),
+    ("app.tools.image_gen_tools", "register_image_gen_tools"),
+    # 作用域文件工具：所有模式共用（factory 里会先卸载内置 file 插件）
+    ("app.tools.website_file_tools", "register_website_file_tools"),
+]
+
 _MODE_TOOL_REGISTRARS: dict[str, list[tuple[str, str]]] = {
     "ppt": [
         ("app.tools.icon_tools", "register_icon_tools"),
@@ -71,6 +88,34 @@ _MODE_TOOL_REGISTRARS: dict[str, list[tuple[str, str]]] = {
         ("app.tools.doc_tools", "register_doc_tools"),
     ],
 }
+
+
+def _register_names(registrars: list[tuple[str, str]]) -> set[str]:
+    """真的执行一遍 registrar，返回它注册的工具名。失败返回空集（不阻断其它）。"""
+    from wuwei.tools import ToolRegistry
+
+    names: set[str] = set()
+    for module_path, func_name in registrars:
+        try:
+            import importlib
+
+            mod = importlib.import_module(module_path)
+            registrar = getattr(mod, func_name)
+            reg = ToolRegistry()
+            registrar(reg)
+            names.update(t.name for t in reg.list_tools())
+        except Exception:  # noqa: BLE001 —— 单个 registrar 失败不该让清单整体缺失
+            continue
+    return names
+
+
+def discover_global_tools() -> set[str]:
+    """所有模式都可用、由 factory 直接注册的工具名。
+
+    这批工具不绑定 response_mode，所以不经过 per-mode 发现 —— 正是过去
+    「后台工具列表少了 render_ui / generate_image」的原因。
+    """
+    return _register_names(_GLOBAL_TOOL_REGISTRARS)
 
 
 def _discover_all_mode_tools() -> dict[str, set[str]]:
@@ -207,9 +252,15 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
     }
     # 从 registrar 自动发现的工具默认 enabled=True, requires_approval=False
     discovered = _discover_all_mode_tools()
+    # 全局工具（factory 直接注册）：每个模式都有，同样默认 enabled。
+    # 漏掉这一步，后台工具列表就看不到 render_ui / generate_image 这些。
+    global_tools = discover_global_tools()
     result: dict[str, dict[str, dict[str, bool]]] = {}
     for mode in AGENT_MODES:
         tools = dict(_BASE)  # copy base
+        # 全局工具先铺底，再由模式发现结果覆盖（模式内可能有更精确的配置）
+        for tool_name in global_tools:
+            tools.setdefault(tool_name, {"enabled": True, "requires_approval": False})
         # 自动发现的工具：默认 enabled
         for tool_name in discovered.get(mode, set()):
             if tool_name not in tools:
@@ -667,6 +718,89 @@ TOOL_CATALOG = {
     "analyze_template": {
         "label": "分析PPT模板",
         "description": "分析 PPTX 模板，提取颜色、字体、布局等设计参数。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    # ── 全局工具（factory 直接注册，所有模式可用）──
+    # 这些工具过去只有英文名，因为目录里没条目、全靠 _get_catalog_entry 兜底
+    # 返回工具名本身。后台列表因此显示 "render_ui" 而不是「生成界面」。
+    "render_ui": {
+        "label": "生成界面",
+        "description": "把结果渲染成一屏可视化界面（标题 + 正文），适合汇总、对比类展示。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "render_form": {
+        "label": "生成表单",
+        "description": "生成一个表单界面收集用户输入。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "render_components": {
+        "label": "自由组合界面",
+        "description": "用 A2UI 基础组件自由组合界面，比生成界面/表单更灵活。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "update_interface": {
+        "label": "更新已有界面",
+        "description": "增量更新已生成的界面（改数据或组件），无需重画整块。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "generate_image": {
+        "label": "生成图片",
+        "description": "文生图：端点由 AI 提供商的 image 角色解析，未绑定生图模型时返回提示。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    # 作用域文件工具：所有模式共用，路径限制在会话工作区/网站项目内
+    "read_text_file": {
+        "label": "读取文件",
+        "description": "读取工作区内的文本文件。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "write_text_file": {
+        "label": "写入文件",
+        "description": "把内容写入工作区文件（覆盖）。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "append_text_file": {
+        "label": "追加写入",
+        "description": "在文件末尾追加内容。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "replace_text_in_file": {
+        "label": "替换文件内容",
+        "description": "按原文片段替换文件中的内容。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "delete_file": {
+        "label": "删除文件",
+        "description": "删除工作区内的文件。",
+        "builtin_name": None,
+        "approval_scope": ["delete_file"],
+        "sub_tools": {
+            "delete_file": {"label": "删除文件", "description": "删除不可恢复，建议要求审批"},
+        },
+    },
+    "list_files": {
+        "label": "列出文件",
+        "description": "列出工作区目录下的文件与子目录。",
         "builtin_name": None,
         "approval_scope": [],
         "sub_tools": {},

@@ -95,7 +95,7 @@ const navGroups: NavGroup[] = [
       { id: 'skills', icon: Puzzle, label: 'Skill 管理', description: '管理本地 Skill 与脚本目录' },
       { id: 'tool_policy', icon: ShieldAlert, label: '能力限制', description: '限制用户自建智能体可用的危险工具' },
       { id: 'knowledge', icon: BookOpen, label: '知识库', description: '管理知识库文档与 Wiki 编译' },
-      { id: 'website_deploys', icon: Globe, label: '网站部署', description: '审批和管理网站部署请求' },
+      { id: 'website_deploys', icon: Globe, label: '部署', description: '审批和管理网站部署请求' },
       { id: 'evals', icon: FlaskConical, label: '评测', description: '用固定用例集回归验证智能体质量' },
       { id: 'workflows', icon: Workflow, label: '工作流', description: '编排节点流程并挂载为智能体工具' },
     ],

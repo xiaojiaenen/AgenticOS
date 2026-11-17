@@ -146,10 +146,16 @@ def test_publish_request_then_approve_then_shortlink(client, tmp_path, monkeypat
         assert downloaded.status_code == 200, downloaded.text
         assert downloaded.content[:2] == b"PK"  # xlsx 是 zip
 
-        # ── 4. 短链 302 到下载端点 ──
+        # ── 4. 短链返回**预览页**（不再 302 到下载端点）──
+        # 改动原因：docx/xlsx/pptx 浏览器无法原生内联渲染，302 到下载端点
+        # 会让用户看到"点开没反应/404"。现在给一张真正的页面：
+        # 标题 + 类型 + 下载按钮（文档类直接 iframe 内嵌渲染）。
         short = client.get(f"/s/{short_code}/", follow_redirects=False)
-        assert short.status_code == 302
-        assert f"/api/v1/published-items/{item_id}/download" in short.headers["location"]
+        assert short.status_code == 200, short.text
+        assert short.headers["content-type"].startswith("text/html")
+        assert "下载" in short.text
+        # 下载按钮要指向真实下载端点（带 download=1 强制 attachment）
+        assert f"/api/v1/published-items/{item_id}/download?download=1" in short.text
 
         # ── 5. 取消发布 → 下架，源产物保留 ──
         cancelled = client.post(
