@@ -3,6 +3,7 @@
  * 从 IntegrationManagement.tsx 拆出，纯结构拆分，逻辑不变。
  */
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2, TestTube, X } from 'lucide-react';
 import { Button } from '@/components/shadcn/button';
 import { Input } from '@/components/shadcn/input';
@@ -35,8 +36,10 @@ export function TestDrawer({
   useOverlayA11y(true, onClose, panelRef);
 
   if (!api) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/20" onMouseDown={onClose}>
+  // portal 到 body：AdminDashboard 根是 motion.div（带 exit transform），
+  // `fixed inset-0` 的包含块会变成它 —— 抽屉只盖住内容区、右侧被裁。
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex justify-end bg-black/20" onMouseDown={onClose}>
       <div
         ref={panelRef}
         role="dialog"
@@ -98,6 +101,7 @@ export function TestDrawer({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

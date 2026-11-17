@@ -318,10 +318,15 @@ const EXPRESSIONS: Record<string, Expression> = {
         <path {...S} d="M34 46 Q40 42.5 46 46" strokeWidth={2.4} />
         <path {...S} d="M54 46 Q60 42.5 66 46" strokeWidth={2.4} />
         <path {...S} d="M45 62 Q50 58.5 55 62" strokeWidth={2.1} />
-        {/* 一滴泪：从眼角缓慢滑落再消失，比两颗常驻泪点自然 */}
+        {/* 一滴泪：从眼角缓慢滑落再消失，比两颗常驻泪点自然。
+            用 transform 而不是 animate cy —— motion 会把 animate 里的 SVG
+            属性直接 setAttribute，动画被打断/组件重挂载的瞬间可能写进
+            undefined，浏览器报「<circle> attribute cy: Expected length,
+            "undefined"」。transform 走 CSS，不会碰 SVG 坐标属性。 */}
         <motion.circle
-          cx={37} cy={52} r={2.4} fill="#8aa4b8" opacity={0.85}
-          animate={{ cy: [52, 58, 60], opacity: [0.85, 0.7, 0] }}
+          cx={37} cy={52} r={2.4} fill="#8aa4b8"
+          initial={{ opacity: 0.85, y: 0 }}
+          animate={{ opacity: [0.85, 0.7, 0], y: [0, 6, 8] }}
           transition={{ duration: 3.4, times: [0, 0.7, 1], repeat: Infinity, repeatDelay: 2.6, ease: 'easeIn' }}
         />
       </>

@@ -10,6 +10,7 @@ import { ArtifactVersionBar } from '../chat/ArtifactVersionBar';
 import { SheetEditor, type SheetEditorHandle } from './SheetEditor';
 import { SheetSnapshotTable } from './SheetSnapshotTable';
 import { toastError } from '../../lib/errors';
+import { PublishToGalleryButton } from '../gallery/PublishToGalleryButton';
 
 type SpreadsheetArtifact = Extract<Artifact, { language: 'spreadsheet' }>;
 
@@ -92,6 +93,14 @@ export const SpreadsheetArtifactPanel: React.FC<SpreadsheetArtifactPanelProps> =
             <Save size={14} />
             {saving ? '保存中…' : '保存'}
           </button>
+        )}
+        {sessionId && artifact.artifactId && (
+          <PublishToGalleryButton
+            kind="sheet"
+            sessionId={sessionId}
+            sourceRef={artifact.artifactId}
+            title={artifact.title}
+          />
         )}
         <button
           type="button"

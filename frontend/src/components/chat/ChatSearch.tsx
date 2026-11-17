@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ChatSearchProps {
@@ -40,7 +41,9 @@ export const ChatSearch: React.FC<ChatSearchProps> = ({
 
   const hasMatches = searchMatchesCount > 0;
 
-  return (
+  // portal 到 body：Chat 页面根是 motion.div（带 exit transform）+ overflow-hidden，
+  // `fixed inset-0` 的包含块变成那个根节点，搜索浮层的遮罩与圆角会被裁。
+  return createPortal(
     <AnimatePresence>
       {showSearch && (
         <motion.div
@@ -127,6 +130,7 @@ export const ChatSearch: React.FC<ChatSearchProps> = ({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 };

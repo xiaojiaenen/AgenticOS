@@ -868,6 +868,36 @@ def sync_html_ppt_themes() -> list[str]:
     )
 
 
+def _rgb_triplet(v: str) -> tuple[int, int, int] | None:
+    """hex(3/6/8 位) 或 rgba()/rgb() 串 → RGB 三元组；解析不了返回 None。
+
+    此前只认 hex：dark 主题的 accent 常是 rgba()（A 路径明确收 rgba），
+    _synthesize_gradients 一调 hex_to_rgb 就炸 'rg' —— 整个转换中断，
+    后面所有主题都没生成。
+    """
+    if not isinstance(v, str):
+        return None
+    v = v.strip().lower()
+    m = re.match(r"rgba?\(([^)]+)\)", v)
+    if m:
+        parts = [p.strip() for p in m.group(1).split(",")]
+        try:
+            return (int(float(parts[0])), int(float(parts[1])), int(float(parts[2])))
+        except (ValueError, IndexError):
+            return None
+    h = v.lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    elif len(h) == 8:
+        h = h[:6]
+    if len(h) != 6:
+        return None
+    try:
+        return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+    except ValueError:
+        return None
+
+
 def _synthesize_gradients(result: dict[str, str]) -> None:
     if "--grad" not in result:
         a1 = result.get("--accent", FALLBACKS["--accent"])
@@ -876,10 +906,13 @@ def _synthesize_gradients(result: dict[str, str]) -> None:
     if "--grad-soft" not in result:
         a1 = result.get("--accent", FALLBACKS["--accent"])
         a2 = result.get("--accent-2", a1)
-        r1, g1, b1 = hex_to_rgb(a1)
-        r2, g2, b2 = hex_to_rgb(a2)
+        t1, t2 = _rgb_triplet(a1), _rgb_triplet(a2)
+        if t1 is None:
+            t1 = _rgb_triplet(FALLBACKS["--accent"]) or (59, 82, 246)
+        if t2 is None:
+            t2 = t1
         result["--grad-soft"] = (
-            f"linear-gradient(135deg, rgba({r1},{g1},{b1},0.08), rgba({r2},{g2},{b2},0.04))"
+            f"linear-gradient(135deg, rgba({t1[0]},{t1[1]},{t1[2]},0.08), rgba({t2[0]},{t2[1]},{t2[2]},0.04))"
         )
 
 

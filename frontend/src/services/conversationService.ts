@@ -19,6 +19,11 @@ export type AdminConversation = {
   avg_latency_ms: number;
   created_at?: string | null;
   updated_at?: string | null;
+  /**
+   * 会话来源："web" 网页对话 / "external_api" 对外 API Key 网关。
+   * 外部调用不进前台会话列表，只在后台以标志区分。
+   */
+  source?: 'web' | 'external_api';
 };
 
 export type ConversationListResponse = {

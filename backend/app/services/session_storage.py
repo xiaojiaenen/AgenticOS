@@ -106,6 +106,28 @@ def _action_log_contract():
     return log_type, _fallback_coerce
 
 
+def _mark_external_source(stored: dict[str, Any]) -> None:
+    """给来自对外 API Key 网关的会话打上 ``source`` 标记（原地修改）。
+
+    为什么需要区分：外部客户端用 API Key 调 `/v1/*` 时，会话仍然记在
+    API Key 所属用户名下（归属正确 —— 用量与额度算他的）。但**网页对话页
+    不该显示这些记录**：那是程序化调用，用户并没有在页面上跟 AI 聊过，
+    混进会话列表只会让人困惑"我什么时候问过这个"。
+
+    标记只写一次（已有 source 就不再覆盖，避免老会话被后来的网页请求改写）。
+    判断依据是 contextvar，只有网关入口会置位（见 gateway_v1 / gateway_multi）。
+    """
+    if stored.get("source"):
+        return
+    try:
+        from app.core.data_path import is_external_api_call
+
+        if is_external_api_call():
+            stored["source"] = "external_api"
+    except Exception:  # noqa: BLE001 —— 标记失败绝不能影响保存
+        pass
+
+
 def _session_metadata_for_storage(session) -> dict[str, Any]:
     """把 session.metadata 转成可安全入库的纯 dict。
 
@@ -277,8 +299,26 @@ def _as_message_dict(payload: Any) -> dict[str, Any] | None:
     }
 
 
+def _clean_session_title(raw: str) -> str:
+    """清洗会话标题：剥掉注入的 prompt catalog，截到 40 字。"""
+    text = (raw or "").strip()
+    if text:
+        try:
+            from app.services.agent.prompts import strip_injected_catalog
+
+            text = strip_injected_catalog(text).strip()
+        except Exception:  # noqa: BLE001 —— 剥离失败按原样截断
+            pass
+    return text[:40]
+
+
 def _first_user_text(message_json: str | None) -> str | None:
-    """从 message_json 中取用户消息正文（用于生成会话标题）。"""
+    """从 message_json 中取用户消息正文（用于生成会话标题）。
+
+    **必须剥掉注入的 prompt catalog**：库里的 user 消息是注入后形态
+    （website/ppt 模式会拼上资源速查文档），不剥的话会话列表标题变成
+    「做一个…培训 --- ## ⚠️ 工作流顺序（严格遵守）…」这种半截 skill 文档。
+    """
     payload = _loads(message_json, None)
     if not isinstance(payload, dict):
         return None
@@ -292,6 +332,13 @@ def _first_user_text(message_json: str | None) -> str | None:
     if not isinstance(text, str):
         return None
     text = text.strip()
+    if text:
+        try:
+            from app.services.agent.prompts import strip_injected_catalog
+
+            text = strip_injected_catalog(text).strip()
+        except Exception:  # noqa: BLE001 —— 剥离失败按原样截断
+            pass
     return text or None
 
 
@@ -340,7 +387,12 @@ class DatabaseAgentStorage:
                 row.max_steps = session.max_steps
                 row.parallel_tool_calls = session.parallel_tool_calls
                 row.summary = getattr(session, "summary", None)
-                row.metadata_json = _dumps(_session_metadata_for_storage(session))
+                # 来源标记：对外 API Key 网关产生的会话要能识别出来，前端对话页
+                # 不该显示它们（那是外部客户端的调用记录，不是本人在网页上聊的）。
+                # 用 contextvar 判断 —— 保存的那一刻才知道是哪个入口发起的。
+                stored = _session_metadata_for_storage(session)
+                _mark_external_source(stored)
+                row.metadata_json = _dumps(stored)
                 row.last_usage_json = _dumps(getattr(session, "last_usage", {}) or {})
                 row.last_latency_ms = getattr(session, "last_latency_ms", 0) or 0
                 row.last_llm_calls = getattr(session, "last_llm_calls", 0) or 0
@@ -396,10 +448,29 @@ class DatabaseAgentStorage:
                     if '"reasoning_content": null' in raw:
                         raw = raw.replace('"reasoning_content": null', '"reasoning_content": ""')
                     try:
-                        session.context._messages.append(Message.model_validate_json(raw))
+                        parsed = Message.model_validate_json(raw)
                     except Exception as e:
                         _logger.debug("Skipping unparseable message in session %s: %s", session_id, e)
                         continue
+                    # 把落库时间塞进消息 metadata：时间只存在于 DB 行上
+                    # （wuwei 的 Message 没有这个字段），而端点原先靠「与
+                    # load_message_timestamps 的结果按下标配对」来补 —— 那条
+                    # 路一旦有条目被上面的 continue 跳过，或上下文里多出
+                    # system / 压缩摘要消息，下标就整体错位，前端拿到的
+                    # created_at 要么错位、要么 undefined，表现为**刷新后
+                    # 气泡下方的时间消失**。
+                    #
+                    # 挂在消息本身上就不会错位：一行 DB 对应一条消息，
+                    # 无论中间跳过谁、上下文里多出什么。
+                    try:
+                        ts = isoformat_app_timezone(message.created_at)
+                        if ts:
+                            meta = dict(getattr(parsed, "metadata", None) or {})
+                            meta.setdefault("created_at", ts)
+                            parsed.metadata = meta
+                    except Exception:  # noqa: BLE001 -- 时间缺失不影响消息本身
+                        pass
+                    session.context._messages.append(parsed)
 
                 return session
         return await asyncio.to_thread(_run)
@@ -484,7 +555,7 @@ class DatabaseAgentStorage:
                     metadata = _loads(row.metadata_json, {}) or {}
                     meta_title = metadata.get("title") if isinstance(metadata, dict) else None
                     if isinstance(meta_title, str) and meta_title.strip():
-                        titles[row.session_id] = meta_title.strip()[:40]
+                        titles[row.session_id] = _clean_session_title(meta_title)
                     elif row.summary:
                         titles[row.session_id] = row.summary
                     else:
@@ -507,15 +578,22 @@ class DatabaseAgentStorage:
                             continue
                         text = _first_user_text(payload)
                         if text:
-                            titles[sid] = text[:40]
+                            titles[sid] = _clean_session_title(text)
 
                 sessions = []
                 for row in rows:
+                    metadata = _loads(row.metadata_json, {})
+                    # 对外 API Key 网关产生的会话不进网页对话列表：
+                    # 那是外部客户端的程序化调用，用户没在页面上跟 AI 聊过，
+                    # 混进来只会让人困惑"我什么时候问过这个"。
+                    # 后台「聊天记录」里仍可按 source 标记识别。
+                    if isinstance(metadata, dict) and metadata.get("source") == "external_api":
+                        continue
                     sessions.append({
                         "session_id": row.session_id,
                         "summary": row.summary,
                         "title": titles.get(row.session_id),
-                        "metadata": _loads(row.metadata_json, {}),
+                        "metadata": metadata,
                         "message_count": message_counts.get(row.session_id, 0),
                         "created_at": _iso(row.created_at),
                         "updated_at": _iso(row.updated_at),
@@ -658,7 +736,12 @@ class DatabaseAgentStorage:
                 row.max_steps = session.max_steps
                 row.parallel_tool_calls = session.parallel_tool_calls
                 row.summary = getattr(session, "summary", None)
-                row.metadata_json = _dumps(_session_metadata_for_storage(session))
+                # 来源标记：对外 API Key 网关产生的会话要能识别出来，前端对话页
+                # 不该显示它们（那是外部客户端的调用记录，不是本人在网页上聊的）。
+                # 用 contextvar 判断 —— 保存的那一刻才知道是哪个入口发起的。
+                stored = _session_metadata_for_storage(session)
+                _mark_external_source(stored)
+                row.metadata_json = _dumps(stored)
                 row.last_usage_json = _dumps(getattr(session, "last_usage", {}) or {})
                 row.last_latency_ms = getattr(session, "last_latency_ms", 0) or 0
                 row.last_llm_calls = getattr(session, "last_llm_calls", 0) or 0

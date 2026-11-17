@@ -157,3 +157,133 @@ describe('时间戳透传（历史消息时间不能丢）', () => {
     expect(msgs[0].createdAt).toBeUndefined();
   });
 });
+
+describe('blocks 生成（刷新后不能回退弃用的三桶布局）', () => {
+  it('assistant 消息生成 思考→工具→正文 的有序 blocks', () => {
+    const raw: BackendMessage[] = [
+      assistant(undefined, {
+        content: '我先算一下',
+        reasoning_content: '思考过程',
+        tool_calls: [{ id: 'call-1', name: 'calc', arguments: {} }],
+        created_at: '2026-11-12T19:10:00+08:00',
+      }),
+      { role: 'tool', tool_call_id: 'call-1', content: '391' },
+      assistant(undefined, {
+        content: '答案是 391',
+        created_at: '2026-11-12T19:11:00+08:00',
+      }),
+    ];
+    const msgs = mapBackendMessages(raw);
+    const withTools = msgs[0];
+    // ReAct 一轮：思考 → 工具 → 正文（若 assistant 自带 content）
+    expect(withTools.blocks?.map((b) => b.kind)).toEqual(['reasoning', 'tool', 'text']);
+    const final = msgs[1];
+    expect(final.blocks?.map((b) => b.kind)).toEqual(['text']);
+    // tool 块的 toolCallId 与 toolCalls 对齐（渲染器靠它取结果）
+    const toolBlock = withTools.blocks?.find((b) => b.kind === 'tool') as
+      | { kind: 'tool'; toolCallId: string }
+      | undefined;
+    expect(toolBlock?.toolCallId).toBe('call-1');
+  });
+
+  it('纯文本 assistant 也有 text 块（旧消息同样走按序渲染）', () => {
+    const msgs = mapBackendMessages([assistant(undefined, { content: '你好' })]);
+    expect(msgs[0].blocks?.map((b) => b.kind)).toEqual(['text']);
+  });
+});
+
+/**
+ * 产物恢复：metadata.artifact → xxxArtifact 字段。
+ *
+ * 用户报的三个症状同一个根因：artifact_ready 只是 SSE 事件、从不落库，
+ * 刷新会话后前端拿不到 artifactId →
+ *   * 导出 PPTX 静默失败（没有 id，handleExport 直接 return）
+ *   * 主题切换无效（handleThemeChange 同样 early-return）
+ *   * 侧边栏打开是裸 iframe（工具栏长在 PptArtifactPanel 上）
+ * 后端现把产物挂进 metadata.artifact（snake_case 原始 dict），这里还原。
+ */
+describe('mapArtifactMetadata — 产物恢复', () => {
+  it('恢复 PPT 产物（snake_case → camelCase）', () => {
+    const msgs = mapBackendMessages([
+      assistant({
+        artifact: {
+          ppt: {
+            artifact_id: 'abc123',
+            session_id: 's1',
+            title: '季度汇报',
+            slide_count: 8,
+            theme: 'stripe',
+            html: '<html>...</html>',
+          },
+        },
+      }),
+    ]);
+    const ppt = msgs[0].pptArtifact;
+    expect(ppt?.status).toBe('ready');
+    expect(ppt?.artifactId).toBe('abc123');
+    expect(ppt?.title).toBe('季度汇报');
+    expect(ppt?.slideCount).toBe(8);
+    expect(ppt?.theme).toBe('stripe');
+    // html 不进前端缓存：由面板按 artifactId 回源
+    expect(ppt?.html).toBeUndefined();
+  });
+
+  it('恢复网站产物（project_slug 优先作预览标识）', () => {
+    const msgs = mapBackendMessages([
+      assistant({
+        artifact: {
+          website: {
+            project_slug: 'my-site',
+            artifact_id: 'v3',
+            title: '官网',
+            stack: 'vue',
+          },
+        },
+      }),
+    ]);
+    const web = msgs[0].websiteArtifact;
+    expect(web?.status).toBe('ready');
+    expect(web?.projectSlug).toBe('my-site');
+    expect(web?.artifactId).toBe('v3');
+    expect(web?.stack).toBe('vue');
+  });
+
+  it('恢复文档与表格产物', () => {
+    const msgs = mapBackendMessages([
+      assistant({
+        artifact: {
+          document: { artifact_id: 'doc1', title: '方案', char_count: 1200 },
+          sheet: { artifact_id: 'sheet1', title: '预算', sheet_names: ['A', 'B'], sheet_count: 2 },
+        },
+      }),
+    ]);
+    expect(msgs[0].documentArtifact?.artifactId).toBe('doc1');
+    expect(msgs[0].documentArtifact?.charCount).toBe(1200);
+    expect(msgs[0].sheetArtifact?.artifactId).toBe('sheet1');
+    expect(msgs[0].sheetArtifact?.sheetNames).toEqual(['A', 'B']);
+    expect(msgs[0].sheetArtifact?.sheetCount).toBe(2);
+  });
+
+  it('没有标识的产物不恢复（点了也回源不到）', () => {
+    const msgs = mapBackendMessages([assistant({ artifact: { ppt: { title: '空壳' } } })]);
+    expect(msgs[0].pptArtifact).toBeUndefined();
+  });
+
+  it('metadata 无 artifact 时不误伤（老消息）', () => {
+    const msgs = mapBackendMessages([assistant({ chart: [] }, { content: '普通回答' })]);
+    expect(msgs[0].pptArtifact).toBeUndefined();
+    expect(msgs[0].websiteArtifact).toBeUndefined();
+  });
+
+  it('空 content 但带产物时保留消息（否则刷新后产物整个消失）', () => {
+    const msgs = mapBackendMessages([
+      {
+        role: 'assistant',
+        content: '',
+        metadata: { artifact: { ppt: { artifact_id: 'x1', title: 'T', slide_count: 3 } } },
+      },
+    ]);
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].pptArtifact?.artifactId).toBe('x1');
+  });
+});

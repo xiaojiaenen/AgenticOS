@@ -1,0 +1,30 @@
+/* PPT theme: ink-wash — auto-generated from open-design */
+
+:root {
+  --bg: #f2ede1;
+  --bg-soft: #e5e0d5;
+  --surface: #f9f7f2;
+  --surface-2: #eceae5;
+  --border: #cac6bc;
+  --border-strong: #8e8b84;
+  --text-1: #141413;
+  --text-2: #62605b;
+  --text-3: #99968f;
+  --accent: #c8372d;
+  --accent-2: #892b24;
+  --accent-3: #4a1e1b;
+  --good: #37ae61;
+  --warn: #ebbc29;
+  --bad: #c8372d;
+  --grad: linear-gradient(135deg, #c8372d, #892b24);
+  --grad-soft: linear-gradient(135deg, rgba(200,55,45,0.08), rgba(137,43,36,0.04));
+  --font-sans: None,'Noto Sans SC',sans-serif;
+  --font-display: None,'Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

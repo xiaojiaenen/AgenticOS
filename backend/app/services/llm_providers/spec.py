@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -174,12 +175,36 @@ def env_provider_spec() -> ProviderSpec:
         name="环境变量配置",
         slug=ENV_PROVIDER_SLUG,
         provider_type=PROVIDER_TYPE_OPENAI,
-        base_url=(settings.openai_base_url or "").rstrip("/"),
+        base_url=_strip_placeholder(settings.openai_base_url or "").rstrip("/"),
         model=settings.openai_model or "",
         api_key=(settings.openai_api_key or "").strip() or None,
         timeout_seconds=settings.llm_timeout,
         source="env",
     )
+
+
+#: 模板占位符特征：``<内网模型网关>``、``<your-host>``、``{host}`` 之类。
+#: ``deploy/.env.offline.example`` 里大量使用这种写法，用户照抄没替换时
+#: 应该**在取号/启动阶段就给出清晰诊断**，而不是让 urllib 抛
+#: ``Invalid IDNA hostname: '<内网模型网关>'`` 这种天书到用户脸上。
+_PLACEHOLDER_PATTERNS = (
+    re.compile(r"<[^>]+>"),    # 含 <占位>
+    re.compile(r"\{[^}]*\}"),  # 含 {占位}
+    re.compile(r"\byour[-_ ]", re.IGNORECASE),  # your-host / your_key
+)
+
+
+def looks_like_placeholder(value: str | None) -> bool:
+    """判断一个配置值是不是没替换的模板占位符。"""
+    text = (value or "").strip()
+    if not text:
+        return False
+    return any(p.search(text) for p in _PLACEHOLDER_PATTERNS)
+
+
+def _strip_placeholder(value: str) -> str:
+    """占位符视同未配置 —— 让后续「base_url 为空」的诊断给出正确提示。"""
+    return "" if looks_like_placeholder(value) else value
 
 
 def resolve_active_provider() -> ProviderSpec:

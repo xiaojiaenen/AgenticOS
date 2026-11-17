@@ -30,10 +30,14 @@ describe('shouldRenderBubbleFor', () => {
     ).toBe(true);
   });
 
-  it('停止后 + 有工具调用 + 无正文 → 不画（避免空气泡回归）', () => {
+  it('停止后 + 有工具调用 + 无正文 → 画（否则历史里整条工具链消失）', () => {
+    // 原断言是 false（"避免空气泡"），代价却是：历史会话里正文为空的
+    // 模型消息整条不渲染 —— 用户刷新后只剩用户那句，几十次工具调用和
+    // 最终回答全都不见。真空壳（连工具都没有）已由 mapper 跳过，
+    // 这里只负责"有内容就要看得见"。
     expect(
       shouldRenderBubbleFor({ ...base, isStreaming: false, hasToolCalls: true }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('完全空的消息 → 不画', () => {

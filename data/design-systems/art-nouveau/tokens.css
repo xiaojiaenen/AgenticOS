@@ -1,0 +1,28 @@
+/* design-systems/art-nouveau/tokens.css — converted from guanmo-ai/design-style
+ * 风格：新艺术运动 Art Nouveau。所有色值经 WCAG 对比度启发式映射，参见 DESIGN.md 的实测表。
+ */
+:root {
+  --bg: #efe6cf;
+  --surface: #e3dbc4;
+  --surface-warm: #f8f4e9;
+  --fg: #2e2a1f;
+  --fg-2: #726c5d;
+  --meta: #a29b89;
+  --border: #ccc4af;
+  --border-soft: #989180;
+  --accent: #4e5a34;
+  --accent-hover: #c49a4a;
+  --accent-active: #7f8f5e;
+  --success: #2f5d4a;
+  --warn: #ebbb26;
+  --danger: #6b3a4a;
+  --font-sans: None,'Noto Sans SC',sans-serif;
+  --font-display: None,'Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

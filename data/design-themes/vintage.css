@@ -3,10 +3,10 @@
 :root {
   --bg: #c0c0c0;
   --bg-soft: #c0c0c0;
-  --surface: #bcbcbc;
-  --surface-2: #b4b4b4;
-  --border: #bfbfbf;
-  --border-strong: #8c8c8c;
+  --surface: #c0c0c0;
+  --surface-2: #b8b8b8;
+  --border: #acacac;
+  --border-strong: #868686;
   --text-1: #000000;
   --text-2: #666666;
   --text-3: #a5a5a5;

@@ -59,6 +59,15 @@ interface ChatUIState {
   // ── 模式 ──
   chatMode: ChatMode;
   setChatMode: (mode: ChatMode) => void;
+  /**
+   * PPT 视觉风格（与配色主题正交）。
+   *
+   * 主题在生成后还能通过 retheme 切换（只换色值）；风格写进了 SVG 的
+   * 形状/留白/纹理，生成后无法改 —— 所以这里是「下次生成用哪个风格」。
+   * 空字符串 = 不指定，由模型从 18 种目录里自行选择。
+   */
+  visualStyle: string;
+  setVisualStyle: (style: string) => void;
   /** 会话级审批模式：ask 逐次确认 / auto 只读自动放行 / full 全放行 */
   approvalMode: 'ask' | 'auto' | 'full';
   setApprovalMode: (mode: 'ask' | 'auto' | 'full') => void;
@@ -107,6 +116,15 @@ interface ChatUIState {
   /** 侧栏是否展开（与「有没有标签」解耦：空侧栏也能展开显示可打开列表） */
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  /**
+   * 侧栏宽度（px，桌面端）。可拖拽调整，存 localStorage。
+   *
+   * 为什么需要它：固定 420px 时 PPT 面板的 5 个按钮（主题/风格/导出/
+   * 公开/演示）挤到文字竖排；而换行会让按钮跑出可视区。让用户自己拖
+   * 最省事 —— 宽屏可以拖到 640 看完整工具栏，窄屏可以缩到 360 保对话区。
+   */
+  sidebarWidth: number;
+  setSidebarWidth: (width: number) => void;
   /** 当前打开的侧栏标签（点产物/文件即入栈，按会话隔离由调用方保证） */
   sidebarTabs: import('../components/panel/IdeSidebar').SidebarTab[];
   activeSidebarTabId: string | null;
@@ -146,6 +164,8 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   chatMode: 'general',
   setChatMode: (mode) => set({ chatMode: mode }),
+  visualStyle: '',
+  setVisualStyle: (style) => set({ visualStyle: style }),
   approvalMode: 'ask',
   setApprovalMode: (mode) => set({ approvalMode: mode }),
   planMode: false,
@@ -175,6 +195,31 @@ export const useChatStore = create<ChatUIState>((set) => ({
 
   sidebarOpen: false,
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+  // 默认 520px：比原来的 420 宽一档，PPT 面板的 5 个按钮能完整横排。
+  // 持久化到 localStorage，拖动后刷新不丢。
+  sidebarWidth: (() => {
+    try {
+      const raw = localStorage.getItem('agenticos-sidebar-width');
+      const n = raw ? Number.parseInt(raw, 10) : NaN;
+      if (Number.isFinite(n) && n >= 360 && n <= 900) return n;
+    } catch {
+      /* localStorage 不可用（隐私模式）→ 用默认值 */
+    }
+    return 520;
+  })(),
+  setSidebarWidth: (width) => {
+    // 上限按视口算（至少给对话区留 480px），而不是写死 900 ——
+    // 1280 宽的屏幕上 900px 侧栏会把对话区压成竖排字。
+    const viewport = typeof window !== 'undefined' ? window.innerWidth : 1440;
+    const dynamicMax = viewport >= 768 ? Math.min(900, viewport - 480) : 900;
+    const clamped = Math.min(dynamicMax, Math.max(360, Math.round(width)));
+    set({ sidebarWidth: clamped });
+    try {
+      localStorage.setItem('agenticos-sidebar-width', String(clamped));
+    } catch {
+      /* 存不了就只保留内存态 */
+    }
+  },
   sidebarTabs: [],
   activeSidebarTabId: null,
   openSidebarTab: (tab) =>

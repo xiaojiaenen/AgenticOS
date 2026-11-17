@@ -51,13 +51,22 @@ foreach ($extra in @("diagnose-ldap.sh", "diagnose-threads.sh")) {
 }
 
 Write-Host "[6/6] write manifest" -ForegroundColor Cyan
+# MANIFEST must be TWO columns ("<hash>  <path>") with LF endings and UTF-8
+# WITHOUT BOM. install.sh verifies it with `sha256sum -c`, which:
+#   - treats a third column as part of the filename ("936  backend/main.py")
+#   - chokes on a leading BOM (the first hash no longer matches)
+# Both were real bugs: early packages failed verification on the intranet.
 $manifest = @()
 $rootPath = (Resolve-Path $pkgDir).Path
+# MANIFEST itself must not be listed (it cannot contain its own hash)
+$manifestPath = Join-Path $pkgDir "MANIFEST.sha256"
 Get-ChildItem $pkgDir -Recurse -File | ForEach-Object {
+    if ($_.FullName -eq $manifestPath) { return }
     $rel = $_.FullName.Substring($rootPath.Length + 1).Replace('\', '/')
-    $manifest += "{0}  {1}  {2}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Length, $rel
+    $manifest += "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $rel
 }
-$manifest | Set-Content "$pkgDir\MANIFEST.sha256" -Encoding utf8
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($manifestPath, ($manifest -join "`n") + "`n", $utf8NoBom)
 
 $totalMB = [math]::Round(((Get-ChildItem $pkgDir -Recurse -File | Measure-Object Length -Sum).Sum / 1MB), 0)
 Write-Host ""

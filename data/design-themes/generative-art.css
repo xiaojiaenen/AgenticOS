@@ -1,0 +1,30 @@
+/* PPT theme: generative-art — auto-generated from open-design */
+
+:root {
+  --bg: #f3eee2;
+  --bg-soft: #e6e1d6;
+  --surface: #faf7f2;
+  --surface-2: #edeae5;
+  --border: #cbc7bd;
+  --border-strong: #908d86;
+  --text-1: #161616;
+  --text-2: #63625d;
+  --text-3: #9b9890;
+  --accent: #ff2d8a;
+  --accent-2: #ff6a1a;
+  --accent-3: #2346e0;
+  --good: #37ae61;
+  --warn: #ff6a1a;
+  --bad: #df4442;
+  --grad: linear-gradient(135deg, #ff2d8a, #ff6a1a);
+  --grad-soft: linear-gradient(135deg, rgba(255,45,138,0.08), rgba(255,106,26,0.04));
+  --font-sans: 'Archivo','Noto Sans SC',sans-serif;
+  --font-display: 'Archivo','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

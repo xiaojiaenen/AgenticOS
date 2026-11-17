@@ -84,7 +84,7 @@ def test_build_llm_resolves_role_model_from_provider(monkeypatch) -> None:
 
     captured: dict[str, object] = {}
 
-    def _fake_build(*, max_tokens, timeout, model):
+    def _fake_build(*, max_tokens, timeout, model, lease=None):
         captured["model"] = model
         captured["max_tokens"] = max_tokens
         captured["timeout"] = timeout
@@ -115,7 +115,7 @@ def test_build_llm_uses_global_defaults_for_tokens_and_timeout(monkeypatch) -> N
 
     captured: dict[str, object] = {}
 
-    def _fake_build(*, max_tokens, timeout, model):
+    def _fake_build(*, max_tokens, timeout, model, lease=None):
         captured["max_tokens"] = max_tokens
         captured["timeout"] = timeout
         return object()

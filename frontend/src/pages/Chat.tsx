@@ -6,6 +6,7 @@ import { Sidebar } from '../components/chat/Sidebar';
 import { ChatMainArea } from '../components/chat/ChatMainArea';
 import { ChatArtifactArea } from '../components/chat/ChatArtifactArea';
 import { IdeSidebar } from '../components/panel/IdeSidebar';
+import { ResizableSidebar } from '../components/panel/ResizableSidebar';
 import { SlideLivePreview } from '../components/ppt/SlideLivePreview';
 import { DragOverlay } from '../components/chat/DragOverlay';
 import { RandomMascot } from '../components/ui/RandomMascot';
@@ -18,13 +19,15 @@ import { useRunTitleAwareness } from '../hooks/useRunTitleAwareness';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { useChatStore } from '../stores/chatStore';
 import { ChatContextProvider, type ChatContextValue } from '../contexts/ChatContext';
-import { getStoredUser } from '../services/authService';
 import { getMyAgents } from '../services/agentProfileService';
 import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
 import { UserInputPanel } from '../components/chat/UserInputPanel';
 import { getSessionArtifacts, submitUserInput, type UserInputRequest } from '../services/agentService';
+import { useRunControlStore } from '@/features/island/runControlStore';
+import { emailArtifactFromApproval, isSameArtifact } from '@/lib/emailArtifact';
 import type { VirtuosoHandle } from 'react-virtuoso';
+import { canEnterAdmin } from '@/services/authTokenStore';
 export const Chat = () => {
   const location = useLocation();
   const initialMessage = location.state?.initialMessage as string | undefined;
@@ -34,6 +37,7 @@ export const Chat = () => {
   // 每个按键）都会返回新 state 对象 → 整页跟着重渲染。
   const setInputValue = useChatStore((s) => s.setInputValue);
   const chatMode = useChatStore((s) => s.chatMode);
+  const visualStyle = useChatStore((s) => s.visualStyle);
   const setChatMode = useChatStore((s) => s.setChatMode);
   const approvalMode = useChatStore((s) => s.approvalMode);
   const setApprovalMode = useChatStore((s) => s.setApprovalMode);
@@ -48,10 +52,26 @@ export const Chat = () => {
   const setIsMobile = useChatStore((s) => s.setIsMobile);
   const artifact = useChatStore((s) => s.artifact);
   const setArtifact = useChatStore((s) => s.setArtifact);
+  /**
+   * 产物面板是否**真的有内容可展示**。
+   *
+   * `artifact` 非空不等于能渲染：ppt / website 在拿到 html 或 artifactId
+   * 之前只是占位，面板里是一片空白。用它判断布局宽度，避免"生成中就把
+   * 聊天区压到 40%、右侧半屏空白"。
+   */
+  const hasArtifactContent = React.useMemo(() => {
+    if (!artifact) return false;
+    if (artifact.language === 'ppt' || artifact.language === 'website') {
+      return Boolean(artifact.html || artifact.artifactId);
+    }
+    return true;
+  }, [artifact]);
   const isSidebarHiddenByArtifact = useChatStore((s) => s.isSidebarHiddenByArtifact);
   const setIsSidebarHiddenByArtifact = useChatStore((s) => s.setIsSidebarHiddenByArtifact);
   const storeCreateNewChat = useChatStore((s) => s.createNewChat);
   const sidebarOpen = useChatStore((s) => s.sidebarOpen);
+  const sidebarWidth = useChatStore((s) => s.sidebarWidth);
+  const setSidebarWidth = useChatStore((s) => s.setSidebarWidth);
   const setSidebarOpen = useChatStore((s) => s.setSidebarOpen);
   const openTab = useChatStore((s) => s.openSidebarTab);
 
@@ -88,7 +108,7 @@ export const Chat = () => {
 
   // ── Refs ──
   const chatInputRef = useRef<ChatInputHandle>(null);
-  const isAdmin = getStoredUser()?.role === 'admin';
+  const isAdmin = canEnterAdmin();
 
   // 「全部放行」仅管理员可用：非管理员若残留 full（如同会话内角色变更），
   // 菜单会回落显示「逐次确认」但发送仍按 full —— 这里统一纠正，保证显示与实际一致
@@ -103,9 +123,8 @@ export const Chat = () => {
     isLoading, error, setError, runStatus, activeStreamIds,
     handleSend, handleStopGeneration,
     handleApprovalDecision, handleDecisionMade,
-  } = useChatStream({
-    sessions, currentSessionId, currentSession: currentSession ?? null,
-    chatMode, approvalMode, planMode, selectedAgentProfileId,
+  } = useChatStream({    sessions, currentSessionId, currentSession: currentSession ?? null,
+    chatMode, visualStyle, approvalMode, planMode, selectedAgentProfileId,
     selectedAgent: agentProfiles.find((a) => a.id === selectedAgentProfileId) || null,
     setSessions, setCurrentSessionId,
     applySessionState, setArtifact, setInputValue,
@@ -118,6 +137,15 @@ export const Chat = () => {
 
   // 浏览器标签页的运行状态感知（环境感知：切去别的标签页也能知道在跑/跑完）
   useRunTitleAwareness(runStatus.phase, runStatus.label);
+
+  // 把「停止生成」交给灵动岛：岛挂在 App 根，拿不到这个 hook 的闭包，
+  // 通过小 store 交接（卸载时清空 —— 离开聊天页后岛上就不该有这个按钮）。
+  const registerStop = useRunControlStore((s) => s.register);
+  const clearStop = useRunControlStore((s) => s.clear);
+  React.useEffect(() => {
+    registerStop(handleStopGeneration);
+    return () => clearStop();
+  }, [registerStop, clearStop, handleStopGeneration]);
 
   // 会话面板与产物互斥的兜底：右侧栏同一时刻只显示一个视图。
   // 方向很重要 —— 用户点「展开侧栏」时侧栏优先：清掉当前的产物预览，
@@ -151,30 +179,13 @@ export const Chat = () => {
     // send_email 审批就 setArtifact，会把用户正在看的预览直接顶掉
     if (artifact && artifact.language !== 'email') return;
 
-    // 确保 arguments 是对象（可能是 JSON 字符串）
-    let args: Record<string, unknown> = {};
-    if (typeof emailApproval.arguments === 'string') {
-      try {
-        args = JSON.parse(emailApproval.arguments);
-      } catch {
-        return;
-      }
-    } else {
-      args = emailApproval.arguments as Record<string, unknown>;
-    }
+    const next = emailArtifactFromApproval(emailApproval.arguments, emailApproval.approvalId || '');
+    if (!next) return;
 
-    // 只有当 to 和 subject 存在时才显示面板
-    if (args.to && args.subject) {
-      setArtifact({
-        language: 'email',
-        approvalId: emailApproval.approvalId || '',
-        to: String(args.to || ''),
-        subject: String(args.subject || ''),
-        body: String(args.body || ''),
-        cc: args.cc ? String(args.cc) : undefined,
-        isHtml: Boolean(args.is_html),
-      });
-    }
+    // **必须做内容比较**：本 effect 依赖 artifact，若无条件 setArtifact，
+    // 每次新建的对象都会让 artifact 引用变化 → effect 重跑 → 无限循环
+    // （React error #185: Maximum update depth exceeded），发邮件时必现。
+    if (!isSameArtifact(artifact, next)) setArtifact(next);
   }, [pendingApprovals, setArtifact, artifact]);
 
   // ── 拖放 ──
@@ -348,6 +359,9 @@ export const Chat = () => {
         title: lastPptMsg.pptArtifact.title || '',
         slideCount: lastPptMsg.pptArtifact.slideCount || 0,
         theme: lastPptMsg.pptArtifact.theme,
+        // 发布按钮的渲染条件是 artifactId && sessionId，缺了它
+        // 「公开到作品库」不出现（用户报"没有发布按钮"的根因之一）
+        sessionId: currentSessionId ?? undefined,
       });
     } else if (lastWebsiteMsg?.websiteArtifact) {
       setArtifact({
@@ -665,10 +679,20 @@ export const Chat = () => {
             id="main-content"
             className={cn(
               "flex flex-col h-full transition-all duration-500 ease-[0.16,1,0.3,1] min-w-0 relative",
-              // 制品面板 / 多标签侧栏占 60% 时聊天区兜底 40%；中屏给最小宽度，
-              // 避免被压到不可读
-              artifact
-                ? "w-full md:w-[40%] md:min-w-[380px] border-r border-[var(--border-subtle)] lg:min-w-[440px]"
+              // 制品面板 / 多标签侧栏占宽时聊天区兜底 40%；中屏给最小宽度，
+              // 避免被压到不可读。
+              //
+              // 判据是 hasArtifactContent 而不是 artifact 非空：产物对象在
+              // 「生成中」也被创建（status=generating，没有 html），只看
+              // 非空会在还没内容时就把聊天区压到 40% —— 用户看到"界面样式
+              // 突然变了、右侧一大片空白/纯黑"就是这个。
+              //
+              // 侧栏已可拖拽调宽，所以这里**不再用固定 40%**：让 main 用
+              // flex-1 吃掉剩余空间，宽度由侧栏实际宽度决定。原来写死 40%
+              // 时，侧栏拖到 700px 会让两者相加超出容器、对话区被二次压扁
+              // （截图里气泡文字竖排）。
+              hasArtifactContent || sidebarOpen
+                ? "w-full min-w-0 flex-1 border-r border-[var(--border-subtle)] md:min-w-[380px] lg:min-w-[440px]"
                 : "w-full min-w-0 flex-1",
               isWideConversation && "px-4 lg:px-8 xl:px-10",
             )}
@@ -689,17 +713,21 @@ export const Chat = () => {
                 </div>
               )}
           </main>
+          {/* 生成中的实时预览（主区域右栏）。
+              只在**没开侧栏**时出现 —— 侧栏自己会渲染同一份预览
+              （IdeSidebar 的 isPptStreaming），两处都显示会重复抢宽度。
+              产物一就绪就交给 ChatArtifactArea 的 PptArtifactPanel。 */}
           <AnimatePresence>
-            {chatMode === 'ppt' && (
+            {chatMode === 'ppt' && !hasArtifactContent && !sidebarOpen && (
               <SlideLivePreview
                 sessionId={currentSessionId}
                 isStreaming={isStreamingResponse}
-                hasArtifact={!!artifact}
+                hasArtifact={hasArtifactContent}
               />
             )}
           </AnimatePresence>
           <ChatArtifactArea
-            artifact={sidebarOpen ? null : artifact}
+            artifact={sidebarOpen || !hasArtifactContent ? null : artifact}
             onClose={() => setArtifact(null)}
             borderColor={borderColor}
             onPptThemeChange={handlePptThemeChange}
@@ -709,12 +737,18 @@ export const Chat = () => {
             sessionId={currentSessionId}
           />
           {sidebarOpen && (
-            <aside className="relative flex h-full w-full min-w-0 flex-col overflow-hidden border-l border-[var(--border-subtle)] bg-[var(--surface-1)] md:w-[420px] md:shrink-0 xl:w-[480px]">
+            /* 桌面端：可拖拽调整宽度（默认 520px，双击分隔条恢复）。
+               移动端仍是覆盖式抽屉 —— 375px 屏幕上并排会把气泡挤到竖排字。 */
+            <ResizableSidebar
+              width={sidebarWidth}
+              onWidthChange={setSidebarWidth}
+            >
               <IdeSidebar
                 sessionId={currentSessionId}
                 messages={currentSession?.messages ?? []}
+                isPptStreaming={chatMode === 'ppt' && isStreamingResponse && !hasArtifactContent}
               />
-            </aside>
+            </ResizableSidebar>
           )}
         </div>
       </ChatContextProvider>

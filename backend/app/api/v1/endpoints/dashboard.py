@@ -415,9 +415,15 @@ def list_conversations(
     search: str = Query(default="", max_length=120),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
-    _: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> ConversationListResponse:
+    """后台聊天记录列表 —— **只含当前登录者自己的会话**。
+
+    管理员在这个面板里也只是普通用户：对话正文属于个人隐私，翻别人的聊天
+    记录不该是"管理员默认拥有的能力"。平台健康状况看聚合统计就够（用量、
+    模型分布、错误率那些面板都不含正文）。
+    """
     query = search.strip().lower()
     statement = (
         select(
@@ -425,6 +431,7 @@ def list_conversations(
             AgentSessionModel.user_id,
             AgentSessionModel.agent_profile_id,
             AgentSessionModel.summary,
+            AgentSessionModel.metadata_json,
             AgentSessionModel.created_at,
             AgentSessionModel.updated_at,
             UserModel.name.label("user_name"),
@@ -434,6 +441,8 @@ def list_conversations(
         .select_from(AgentSessionModel)
         .outerjoin(UserModel, UserModel.id == AgentSessionModel.user_id)
         .outerjoin(AgentProfileModel, AgentProfileModel.id == AgentSessionModel.agent_profile_id)
+        # 归属过滤：只列自己的会话（未绑定用户的孤儿会话也不该出现在任何人列表里）
+        .where(AgentSessionModel.user_id == current_user.id)
     )
     if query:
         like_query = f"%{query}%"
@@ -549,6 +558,13 @@ def list_conversations(
             },
         )
         runs = usage["runs"]
+        # 来源：web（网页对话）/ external_api（对外 API Key 网关）。
+        # 后台要能一眼看出"这条是程序化调用，不是我聊的"。
+        try:
+            meta = json.loads(row.metadata or "{}")  # type: ignore[union-attr]
+        except Exception:  # noqa: BLE001
+            meta = {}
+        source = meta.get("source") if isinstance(meta, dict) else None
         items.append(
             ConversationListItem(
                 session_id=session_id,
@@ -569,6 +585,7 @@ def list_conversations(
                 avg_latency_ms=round(usage["latency_ms"] / runs) if runs else 0,
                 created_at=row.created_at,
                 updated_at=row.updated_at,
+                source="external_api" if source == "external_api" else "web",
             )
         )
 
@@ -580,11 +597,14 @@ def get_conversation_detail(
     session_id: str,
     messages_offset: int = Query(default=0, ge=0),
     messages_limit: int = Query(default=20, ge=1, le=100),
-    _: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> ConversationDetailResponse:
     session = db.get(AgentSessionModel, session_id)
     if session is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
+    # 与列表同一口径：只能看自己的（404 而非 403 —— 不泄露"这个 id 存在"）
+    if session.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
 
     user = db.get(UserModel, session.user_id) if session.user_id is not None else None
@@ -757,11 +777,14 @@ def _compute_analytics(*, days: int, db: Session) -> dict[str, Any]:
 @router.delete("/conversations/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_conversation(
     session_id: str,
-    _: UserModel = Depends(require_admin),
+    current_user: UserModel = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> None:
     session = db.get(AgentSessionModel, session_id)
     if session is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
+    # 删除不可逆，比读取更需要收紧：只能删自己的
+    if session.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="会话不存在")
 
     db.execute(delete(AgentMessageModel).where(AgentMessageModel.session_id == session_id))

@@ -1,0 +1,30 @@
+/* PPT theme: futurism — auto-generated from open-design */
+
+:root {
+  --bg: #ede5d3;
+  --bg-soft: #e0d8c7;
+  --surface: #f7f3eb;
+  --surface-2: #eae6df;
+  --border: #c6bfb0;
+  --border-strong: #8c867b;
+  --text-1: #16130f;
+  --text-2: #615d54;
+  --text-3: #979185;
+  --accent: #1f3fd0;
+  --accent-2: #f2501c;
+  --accent-3: #192049;
+  --good: #36ad5f;
+  --warn: #f2501c;
+  --bad: #f2501c;
+  --grad: linear-gradient(135deg, #1f3fd0, #f2501c);
+  --grad-soft: linear-gradient(135deg, rgba(31,63,208,0.08), rgba(242,80,28,0.04));
+  --font-sans: 'Archivo','Noto Sans SC',sans-serif;
+  --font-display: 'Archivo','Noto Sans SC',sans-serif;
+  --font-mono: 'Space Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

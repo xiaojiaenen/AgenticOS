@@ -44,6 +44,23 @@ AGENT_MODES = {
 # 工具自动发现：mode → registrar 函数列表
 # 新增工具只需在这里注册，TOOL_CATALOG 和 DEFAULT_MODE_TOOLS 自动生成
 # ---------------------------------------------------------------------------
+#: **跨模式全局工具**的 registrar：由 factory 直接注册到每个智能体，
+#: 不绑定任何 response_mode。
+#:
+#: 这里有条目而漏登记，是"后台工具列表总少几个工具"的根因 —— 这类工具
+#: 不经过下面的 per-mode 自动发现，只能靠这张表。新增"所有模式都可用"的
+#: 工具时**必须**同时加到 `_GLOBAL_TOOL_REGISTRARS` 和 factory 的注册处，
+#: 并由 tests/test_tool_catalog_coverage.py 兜底（它会真的起 registry
+#: 逐个注册，漏登记直接红）。
+_GLOBAL_TOOL_REGISTRARS: list[tuple[str, str]] = [
+    ("app.tools.chart_render_tools", "register_chart_render_tools"),
+    ("app.tools.data_analysis_tools", "register_data_analysis_tools"),
+    ("app.services.a2ui", "register_a2ui_tools"),
+    ("app.tools.image_gen_tools", "register_image_gen_tools"),
+    # 作用域文件工具：所有模式共用（factory 里会先卸载内置 file 插件）
+    ("app.tools.website_file_tools", "register_website_file_tools"),
+]
+
 _MODE_TOOL_REGISTRARS: dict[str, list[tuple[str, str]]] = {
     "ppt": [
         ("app.tools.icon_tools", "register_icon_tools"),
@@ -70,12 +87,35 @@ _MODE_TOOL_REGISTRARS: dict[str, list[tuple[str, str]]] = {
         ("app.tools.sheet_tools", "register_sheet_tools"),
         ("app.tools.doc_tools", "register_doc_tools"),
     ],
-    # 内网爬虫工具：不绑定任何 response_mode —— 它是**跨模式可勾选**的
-    # 工具组，由管理员在工具配置里按需启用（默认关闭）。
-    "intranet": [
-        ("app.tools.intranet_tools", "register_intranet_tools"),
-    ],
 }
+
+
+def _register_names(registrars: list[tuple[str, str]]) -> set[str]:
+    """真的执行一遍 registrar，返回它注册的工具名。失败返回空集（不阻断其它）。"""
+    from wuwei.tools import ToolRegistry
+
+    names: set[str] = set()
+    for module_path, func_name in registrars:
+        try:
+            import importlib
+
+            mod = importlib.import_module(module_path)
+            registrar = getattr(mod, func_name)
+            reg = ToolRegistry()
+            registrar(reg)
+            names.update(t.name for t in reg.list_tools())
+        except Exception:  # noqa: BLE001 —— 单个 registrar 失败不该让清单整体缺失
+            continue
+    return names
+
+
+def discover_global_tools() -> set[str]:
+    """所有模式都可用、由 factory 直接注册的工具名。
+
+    这批工具不绑定 response_mode，所以不经过 per-mode 发现 —— 正是过去
+    「后台工具列表少了 render_ui / generate_image」的原因。
+    """
+    return _register_names(_GLOBAL_TOOL_REGISTRARS)
 
 
 def _discover_all_mode_tools() -> dict[str, set[str]]:
@@ -131,6 +171,10 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
             "file_to_md": {"enabled": True, "requires_approval": False},
             "search_icons": {"enabled": True, "requires_approval": False},
             "list_icons": {"enabled": True, "requires_approval": False},
+            "list_visual_styles": {"enabled": True, "requires_approval": False},
+            "validate_formula": {"enabled": True, "requires_approval": False},
+            "measure_text_fit": {"enabled": True, "requires_approval": False},
+            "find_chart_template": {"enabled": True, "requires_approval": False},
             "convert_pptx_to_svg": {"enabled": True, "requires_approval": True},
             "import_pptx_template": {"enabled": True, "requires_approval": True},
             "search_images": {"enabled": True, "requires_approval": False},
@@ -208,9 +252,15 @@ def _build_default_mode_tools() -> dict[str, dict[str, dict[str, bool]]]:
     }
     # 从 registrar 自动发现的工具默认 enabled=True, requires_approval=False
     discovered = _discover_all_mode_tools()
+    # 全局工具（factory 直接注册）：每个模式都有，同样默认 enabled。
+    # 漏掉这一步，后台工具列表就看不到 render_ui / generate_image 这些。
+    global_tools = discover_global_tools()
     result: dict[str, dict[str, dict[str, bool]]] = {}
     for mode in AGENT_MODES:
         tools = dict(_BASE)  # copy base
+        # 全局工具先铺底，再由模式发现结果覆盖（模式内可能有更精确的配置）
+        for tool_name in global_tools:
+            tools.setdefault(tool_name, {"enabled": True, "requires_approval": False})
         # 自动发现的工具：默认 enabled
         for tool_name in discovered.get(mode, set()):
             if tool_name not in tools:
@@ -391,6 +441,17 @@ TOOL_CATALOG = {
         "builtin_name": "skill",
         "approval_scope": ["run_skill_python_script"],
         "sub_tools": {
+            # load_skill / list_skills 由 wuwei 的 skill 插件注册（见
+            # factory._build_tool_registry 里的 setup_skill_plugin）。
+            #
+            # 这两个名字**必须**列在 sub_tools 里：allowed_tools 白名单
+            # （AgentProfileService._compute_allowed_tools）只放行「某个已
+            # 启用 catalog 条目管辖的具体工具名」，没列进来就会被 factory
+            # 的白名单裁剪注销掉 —— 工具注册了但模型看不见，模型只能对着
+            # 提示词里写的 load_skill(...) 空喊（工具调用直接失败），
+            # 而提示词恰恰要求「生成前必须先 load_skill」。
+            "load_skill": {"label": "加载技能", "description": "加载技能的完整指令正文"},
+            "list_skills": {"label": "列出技能", "description": "列出当前可用的技能摘要"},
             "run_skill_python_script": {"label": "运行技能脚本", "description": "执行 Skill 中的 Python 脚本"},
         },
     },
@@ -404,6 +465,37 @@ TOOL_CATALOG = {
     "list_icons": {
         "label": "列出图标库",
         "description": "列出所有可用的图标库及图标数量，用于确认图标库是否可用。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "list_visual_styles": {
+        "label": "列出视觉风格",
+        "description": (
+            "查询 PPT 视觉风格（与配色主题正交）：形状语言、装饰密度、留白节奏、纹理层次。"
+            "不传参列出 18 种目录，传 style_id 返回该风格完整规则。"
+        ),
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "validate_formula": {
+        "label": "校验公式",
+        "description": "用本地 KaTeX 校验 LaTeX 语法，避免把解析不了的公式渲染到页面上。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "measure_text_fit": {
+        "label": "测量文字",
+        "description": "测量文字在给定宽高内是否放得下，并给出建议换行（SVG text 不会自动换行）。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "find_chart_template": {
+        "label": "查图表模板",
+        "description": "按意图查 71 个可视化模板（含选型规则），或按模板名取 SVG 源码照结构改数据。",
         "builtin_name": None,
         "approval_scope": [],
         "sub_tools": {},
@@ -511,27 +603,6 @@ TOOL_CATALOG = {
             "deploy_website": {"label": "部署网站", "description": "提交部署请求，等待管理员审批"},
         },
     },
-    "intranet": {
-        "label": "内网爬虫工具",
-        "description": "操作内网「没有 API」的网站：探测、抓取、无头浏览器导航、"
-                       "结构化抽取、表单提交。需要单独部署内网爬虫服务"
-                       "（见 deploy/intranet/），未部署时调用会返回「服务未启用」。",
-        "builtin_name": None,
-        "approval_scope": [
-            "intranet_probe",
-            "intranet_fetch",
-            "intranet_browse",
-            "intranet_extract",
-            "intranet_submit",
-        ],
-        "sub_tools": {
-            "intranet_probe": {"label": "探测内网站点", "description": "判断页面类型与是否需要登录"},
-            "intranet_fetch": {"label": "抓取内网页面", "description": "抓取静态 HTML 或 JSON API"},
-            "intranet_browse": {"label": "无头浏览器操作", "description": "驱动浏览器完成交互并提取内容"},
-            "intranet_extract": {"label": "抽取内网数据", "description": "把 HTML 表格抽成结构化行"},
-            "intranet_submit": {"label": "提交内网表单", "description": "提交表单（写操作，需审批）"},
-        },
-    },
     "email": {
         "label": "邮件工具",
         "description": "通过 IMAP/SMTP 管理邮件，支持读取、搜索和发送。",
@@ -551,6 +622,9 @@ TOOL_CATALOG = {
             "search_emails": {"label": "搜索邮件", "description": "在主题和正文中搜索关键词"},
             "get_email": {"label": "查看邮件", "description": "获取单封邮件的完整内容"},
             "send_email": {"label": "发送邮件", "description": "通过 SMTP 发送邮件，可选 CC"},
+            # 只读查询：把"发给张三"换成真实邮箱。不进 approval_scope ——
+            # 查通讯录没有副作用，没必要让用户点一次审批。
+            "lookup_contact": {"label": "按姓名查邮箱", "description": "在企业通讯录（LDAP）里按姓名/邮箱/账号查人"},
         },
     },
     "decision": {
@@ -644,6 +718,92 @@ TOOL_CATALOG = {
     "analyze_template": {
         "label": "分析PPT模板",
         "description": "分析 PPTX 模板，提取颜色、字体、布局等设计参数。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    # ── 全局工具（factory 直接注册，所有模式可用）──
+    # 这些工具过去只有英文名，因为目录里没条目、全靠 _get_catalog_entry 兜底
+    # 返回工具名本身。后台列表因此显示 "render_ui" 而不是「生成界面」。
+    "render_ui": {
+        "label": "生成界面",
+        "description": "把结果渲染成一屏可视化界面（标题 + 正文），适合汇总、对比类展示。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "render_form": {
+        "label": "生成表单",
+        "description": "生成一个表单界面收集用户输入。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "render_components": {
+        "label": "自由组合界面",
+        "description": "用 A2UI 基础组件自由组合界面，比生成界面/表单更灵活。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "update_interface": {
+        "label": "更新已有界面",
+        "description": "增量更新已生成的界面（改数据或组件），无需重画整块。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "generate_image": {
+        "label": "生成图片",
+        "description": "文生图：端点由 AI 提供商的 image 角色解析，未绑定生图模型时返回提示。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    # 作用域文件工具：所有模式共用，路径限制在会话工作区/网站项目内
+    "read_text_file": {
+        "label": "读取文件",
+        "description": "读取工作区内的文本文件。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "write_text_file": {
+        "label": "写入文件",
+        "description": "把内容写入工作区文件（覆盖）。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "append_text_file": {
+        "label": "追加写入",
+        "description": "在文件末尾追加内容。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "replace_text_in_file": {
+        "label": "替换文件内容",
+        "description": "按原文片段替换文件中的内容。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    # 注意：delete_file 既是「file 条目下的子工具」，又有独立条目（为了让它
+    # 能在后台单独配置审批）。**独立条目不能再把 delete_file 写进自己的
+    # sub_tools / approval_scope** —— 那会导致它自己放行自己：即使管理员
+    # 关掉 `file` 条目，`delete_file` 条目仍启用，于是白名单里照样有它。
+    # 审批要求由 `file` 条目管辖，这里只承载展示信息。
+    "delete_file": {
+        "label": "删除文件",
+        "description": "删除工作区内的文件（审批由「文件工具」条目统一控制）。",
+        "builtin_name": None,
+        "approval_scope": [],
+        "sub_tools": {},
+    },
+    "list_files": {
+        "label": "列出文件",
+        "description": "列出工作区目录下的文件与子目录。",
         "builtin_name": None,
         "approval_scope": [],
         "sub_tools": {},

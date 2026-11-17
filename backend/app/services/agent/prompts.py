@@ -20,6 +20,12 @@ _CATALOG_PACKAGE = "app.resources.prompt_catalogs"
 # 落库/回显前据此剥离，避免用户刷新后看到自己"发了一大段资源速查"。
 WEBSITE_CATALOG_MARKER = "\n\u2063[[WEBSITE_CATALOG]]\u2063\n"
 
+# PPT 模式注入（design_catalog）的边界标记。此前 design_catalog 是
+# ``message + catalog`` 裸拼接、没有 marker —— strip_injected_catalog 只认
+# website 的边界，PPT 用户消息里的「222 主题 + 工作流顺序 + CURRENT TIME」
+# 全部落库回显，用户看到自己"发了一整段 skill 文档"。
+DESIGN_CATALOG_MARKER = "\n\u2063[[DESIGN_CATALOG]]\u2063\n"
+
 
 def _load_catalog(name: str) -> str:
     """读取 prompt 文案模板（importlib.resources 保证 zip 包/冻结打包场景可用）。
@@ -36,10 +42,17 @@ def _load_catalog(name: str) -> str:
     return text
 
 
-def inject_design_catalog(message: str) -> str:
+def inject_design_catalog(message: str, visual_style: str | None = None) -> str:
     """Inject design catalog: phased skill loading + theme selection + token reference.
 
     分阶段加载策略：LLM 按工作流阶段依次加载技能，避免一次性注入过多规则。
+
+    ``visual_style`` 是 PPT 的**视觉风格**（与配色主题正交）：
+    - 主题（design_theme）决定色值 / 字体族 / 圆角 / 阴影；
+    - 视觉风格决定形状语言、装饰密度、留白节奏、纹理层次。
+
+    用户选中某个风格时，把它那 4 节规则（形状/字体/配色纪律/纹理）全文注入；
+    未选时注入「风格目录」让模型自己挑一个（保持原有行为）。
     """
     token_ref = build_token_quick_ref()
     theme_count = len(list_available_themes())
@@ -52,14 +65,56 @@ def inject_design_catalog(message: str) -> str:
     except Exception:
         deck_styles_text = ""
 
+    # 视觉风格：用户已选 → 注入该风格的完整规则；未选 → 注入 18 种风格目录
+    visual_style_text = ""
+    try:
+        from app.services.ppt.visual_styles_data import get_style, list_styles, style_prompt_block
+
+        if visual_style:
+            block = style_prompt_block(visual_style)
+            if block:
+                visual_style_text = (
+                    "## 已选定的视觉风格（必须严格遵守）\n\n"
+                    f"{block}\n\n"
+                    "注意：以上风格只约束**形状语言 / 装饰密度 / 留白节奏 / 字体特征 / "
+                    "纹理层次**，不指定任何色值 —— 所有颜色一律通过 `var(--token)` "
+                    "引用下方主题，两者组合使用。\n"
+                )
+            else:
+                # 传了未知 id：降级为目录，避免静默用错风格
+                visual_style_text = (
+                    f"## 视觉风格（未知 id: {visual_style}，请从下列目录自行选择一个）\n\n"
+                    + _render_style_catalog(list_styles())
+                )
+        else:
+            visual_style_text = (
+                "## 视觉风格目录（与配色主题正交，可用 list_visual_styles 查看详情）\n\n"
+                + _render_style_catalog(list_styles())
+            )
+    except Exception:  # noqa: BLE001 -- 风格注入失败不该阻断生成
+        visual_style_text = ""
+
     current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    return message + _load_catalog("design_catalog.md").format(
+    body = _load_catalog("design_catalog.md").format(
         theme_count=theme_count,
         theme_list=theme_list,
         token_ref=token_ref,
         deck_styles_text=deck_styles_text,
         current_time=current_time,
     )
+    if visual_style_text:
+        body = f"{body}\n\n{visual_style_text}"
+    return f"{message}{DESIGN_CATALOG_MARKER}\n{body}\n{DESIGN_CATALOG_MARKER}"
+
+
+def _render_style_catalog(styles: list[dict]) -> str:
+    """把风格列表渲染成紧凑目录（id + 中文名 + 一句特征）。"""
+    lines = ["| 风格 id | 名称 | 类别 | 特征 |", "|---|---|---|---|"]
+    for s in styles:
+        lines.append(
+            f"| `{s['id']}` | {s['label']} | {s.get('category', '')} | {s.get('summary', s.get('label_en', ''))[:80]} |"
+        )
+    return "\n".join(lines)
 
 
 def scan_website_catalog() -> tuple[list[str], int]:
@@ -100,19 +155,22 @@ async def inject_website_catalog(message: str) -> str:
 def strip_injected_catalog(text: str) -> str:
     """剥掉注入的目录文档段，只留用户原始输入（落库/回显用）。
 
-    两代格式都要处理：
-    - 新格式：带 ``WEBSITE_CATALOG_MARKER`` 边界（可靠切分）；
+    三代格式都要处理：
+    - 新格式：带 ``WEBSITE_CATALOG_MARKER`` / ``DESIGN_CATALOG_MARKER``
+      边界（可靠切分）—— website 与 ppt 两种模式各一个；
     - 旧格式（历史数据）：标记之前是直接 ``message + catalog`` 拼接，
       只能按目录文档的固定开头特征识别并截断。历史消息不改库，
       只在读取时剥离 —— 用户不该看到自己"发了一大段资源速查"。
     """
     if not text:
         return text
-    if WEBSITE_CATALOG_MARKER in text:
-        head, _, _rest = text.partition(WEBSITE_CATALOG_MARKER)
-        return head.rstrip()
+    for marker in (WEBSITE_CATALOG_MARKER, DESIGN_CATALOG_MARKER):
+        if marker in text:
+            head, _, _rest = text.partition(marker)
+            return head.rstrip()
 
-    # 旧格式：目录文档以「## Website 模式资源速查」等标题开头
+    # 旧格式：目录文档以「## Website 模式资源速查」「## ⚠️ 工作流顺序」等
+    # 标题开头
     for marker_head in _LEGACY_CATALOG_HEADS:
         idx = text.find(marker_head)
         if idx > 0:
@@ -135,6 +193,9 @@ _LEGACY_CATALOG_HEADS: tuple[str, ...] = (
     "## Website 模式资源速查",
     "\n---\n\n### 设计主题（",
     "### 设计主题（",
+    # PPT design_catalog 的旧拼接开头（无 marker 时代）
+    "\n---\n\n## ⚠️ 工作流顺序（严格遵守）",
+    "## ⚠️ 工作流顺序（严格遵守）",
 )
 
 

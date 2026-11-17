@@ -4,8 +4,9 @@ import { CheckCircle2, ExternalLink, Globe, RefreshCcw, Rocket, X, XCircle } fro
 import { Artifact } from '../../types'
 import { buildSandboxedHtmlDocument } from '../../lib/safePreview'
 import { ArtifactVersionBar } from '../chat/ArtifactVersionBar'
-import { requestDeploy, getDeployByProject, DeployStatus } from '../../services/websiteService'
+import { requestDeploy, getDeployByProject, cancelDeploy, issueWebsitePreviewUrl, DeployStatus } from '../../services/websiteService'
 import { apiFetch } from '../../services/apiClient'
+import { useSiteDeployStore } from '@/features/island/deployStore';
 
 type WebsiteArtifactPanelProps = {
   artifact: Extract<Artifact, { language: 'website' }>
@@ -33,8 +34,29 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
   const [deployStatus, setDeployStatus] = React.useState<DeployStatus | null>(null)
   const [deployUrl, setDeployUrl] = React.useState<string | null>(null)
   const [deployError, setDeployError] = React.useState<string | null>(null)
+  // 网站说明：给作品库卡片和审批页看的一句话介绍。
+  const [deployDescription, setDeployDescription] = useState('')
+  // 部署记录 id —— 取消部署需要它（申请返回的记录 id）。
+  const [deployId, setDeployId] = React.useState<number | null>(null)
+  const [isCancelling, setIsCancelling] = React.useState(false)
   const [refreshNonce, setRefreshNonce] = React.useState(0)
   const projectSlug = artifact.projectSlug
+
+  // 发布流程（申请 → 审批 → 构建 → 上线）可能跨几分钟到几小时，用户关掉
+  // 页面就完全失去进展感知。把当前状态镜像到 island（store 只存事实，
+  // 岛挂在 App 根）。deployStatus 为 null = 还没发起过，不需要显示。
+  React.useEffect(() => {
+    const store = useSiteDeployStore.getState()
+    if (!deployStatus) {
+      store.finish()
+      return
+    }
+    if (store.job && store.job.slug === projectSlug) {
+      store.setStatus(deployStatus)
+    } else {
+      store.begin(projectSlug, deployStatus)
+    }
+  }, [deployStatus, projectSlug])
 
   // 部署是「用户申请 → 管理员审批 → 后端发布」的异步流程：申请接口当场返回的
   // deploy_url 必然为 null（那时还是 pending）。不轮询的话用户会永远停在
@@ -72,6 +94,38 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
     setLiveHtml(artifact.html)
     setLiveUrl(artifact.previewUrl)
   }, [artifact.html, artifact.projectSlug, artifact.previewUrl])
+
+  // ── srcDoc 劫持防护（vue/react SPA 必须走子路径托管的 preview_url）──
+  //
+  // srcDoc 文档的相对 URL 与 history.replaceState 都以**父文档**为基准。
+  // Vue Router 的 hash 模式启动时 replaceState('#/') 会把 iframe 导航到
+  // /chat#/ —— SPA 兜底返回 AgenticOS 自己，用户看到"预览里是当前网站"。
+  // （实测：contentWindow.location = /chat#/，正文变成 AgenticOS 对话页。）
+  //
+  // 所以带 router 的栈（vue/react）绝不退回 srcDoc：挂载时没有 preview_url
+  // 就现签一个；签不到显示提示而不是内联 HTML。vanilla 无路由脚本，srcDoc
+  // 安全，保留作为兜底。
+  const isRouterStack = artifact.stack === 'vue' || artifact.stack === 'react'
+  React.useEffect(() => {
+    if (!isRouterStack && liveUrl) return
+    const sid = sessionId || artifact.sessionId
+    if (!sid) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const signed = await issueWebsitePreviewUrl(sid, artifact.projectSlug)
+        if (!cancelled && signed?.url) {
+          setLiveUrl(signed.url)
+        }
+      } catch {
+        // 签发失败：vue/react 显示提示（不退 srcDoc），vanilla 保持 srcDoc
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isRouterStack, liveUrl, sessionId, artifact.sessionId, artifact.projectSlug])
+
 
   // 用 srcDoc 而非 blob URL：blob 在 StrictMode 双调用下会被提前 revoke，
   // 导致 iframe 拿到失效地址而空白。刷新通过 key 强制重挂载实现。
@@ -132,8 +186,10 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
         undefined,
         visibility,
         deployTitle.trim() || undefined,
+        deployDescription.trim() || undefined,
       )
       setDeployStatus(result.status)
+      setDeployId(result.id)
       if (result.deploy_url) {
         setDeployUrl(result.deploy_url)
       }
@@ -142,6 +198,21 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
       setDeployStatus('failed')
     } finally {
       setIsDeploying(false)
+    }
+  }
+
+  const handleCancel = async () => {
+    if (deployId === null) return
+    setIsCancelling(true)
+    setDeployError(null)
+    try {
+      const result = await cancelDeploy(deployId)
+      setDeployStatus(result.status as DeployStatus)
+      setDeployUrl(null)
+    } catch (err) {
+      setDeployError(err instanceof Error ? err.message : '取消部署失败')
+    } finally {
+      setIsCancelling(false)
     }
   }
 
@@ -217,15 +288,15 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
             onClick={() => setVisibilityPickerOpen(true)}
             disabled={isDeploying || deployStatus === 'pending'}
             className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:opacity-60"
-            title="Deploy website"
-            aria-label="Deploy website"
+            title="发布网站到作品库"
+            aria-label="发布网站到作品库"
           >
             {isDeploying ? (
               <RefreshCcw size={13} className="animate-spin" />
             ) : (
               <Rocket size={13} />
             )}
-            部署
+            发布
           </button>
           <div className="mx-2 h-4 w-px bg-[var(--border-medium)]" />
           <button
@@ -261,13 +332,13 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
             ) : deployStatus === 'rejected' || deployStatus === 'failed' ? (
               <XCircle size={13} />
             ) : null}
-            <span className="min-w-0 truncate">
-              {deployStatus === 'pending' && '部署请求已提交，等待管理员审批'}
-              {deployStatus === 'approved' && '审批已通过，正在部署到 Nginx'}
+            <span className="min-w-0 flex-1 truncate">
+              {deployStatus === 'pending' && '发布申请已提交，等待管理员审批'}
+              {deployStatus === 'approved' && '审批已通过，正在发布'}
               {deployStatus === 'deploying' && '正在部署中...'}
               {deployStatus === 'deployed' && (
                 <>
-                  已部署，正式地址：
+                  已发布，正式地址：
                   {deployUrl ? (
                     <a
                       href={deployUrl}
@@ -288,9 +359,20 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
                   )}
                 </>
               )}
-              {deployStatus === 'rejected' && '部署请求已被拒绝'}
-              {deployStatus === 'failed' && `部署失败：${deployError || '未知错误'}`}
+              {deployStatus === 'rejected' && '发布申请已被拒绝'}
+              {deployStatus === 'failed' && `发布失败：${deployError || '未知错误'}`}
             </span>
+            {(deployStatus === 'deployed' || deployStatus === 'approved') && deployId !== null && (
+              <button
+                type="button"
+                onClick={() => void handleCancel()}
+                disabled={isCancelling}
+                className="ml-auto shrink-0 rounded-lg border border-[var(--border-subtle)] px-2.5 py-1 text-[11px] font-semibold text-[var(--muted-foreground)] transition-colors hover:border-rose-300 hover:text-rose-600 disabled:opacity-60"
+                title="取消发布：站点下线，源码保留，可随时重新发布"
+              >
+                {isCancelling ? '取消中…' : '取消发布'}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -309,13 +391,20 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
             // 支持相对路径、无「内联 module 不执行」的问题）。只有拿不到
             // URL（签发失败 / 离线）时才退回 srcDoc 内联方案。
             src={liveUrl || undefined}
-            srcDoc={liveUrl ? undefined : previewDoc}
+            srcDoc={!liveUrl && !isRouterStack ? previewDoc : undefined}
             title={artifact.title}
             className="min-h-[calc(100vh-10rem)] w-full border-0"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             allow="fullscreen"
             referrerPolicy="no-referrer"
           />
+          {isRouterStack && !liveUrl && (
+            <div className="mx-4 mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-400">
+              {isRefreshing
+                ? '正在签发预览链接…'
+                : 'SPA 站点需要通过预览链接访问（内联预览会劫持路由），签发失败请点「刷新」重试。'}
+            </div>
+          )}
           {refreshError && (
             <div className="mx-4 mb-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
               {refreshError}
@@ -340,6 +429,19 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
                 maxLength={200}
                 placeholder="留空则由 AI 根据对话自动生成"
                 className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 text-sm outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus-visible:border-[var(--ring)]"
+              />
+            </label>
+            <label className="mb-3 block">
+              <span className="mb-1.5 block text-[11px] font-semibold text-[var(--foreground)]">
+                网站说明
+              </span>
+              <textarea
+                value={deployDescription}
+                onChange={(e) => setDeployDescription(e.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="一句话介绍这个网站做什么、给谁用。管理员审批时能看到，作品库卡片上也会展示。"
+                className="w-full resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus-visible:border-[var(--ring)]"
               />
             </label>
             <div className="space-y-2">

@@ -29,7 +29,8 @@ class UserCreateRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=255)
     name: str = Field(..., min_length=1, max_length=120)
     password: str = Field(..., min_length=6, max_length=128)
-    role: str = Field(default="user", pattern="^(admin|user)$")
+    #: 角色白名单见 app/core/roles.py（端点校验并给可读报错）
+    role: str = Field(default="user", max_length=32)
     is_active: bool = True
     auth_source: str = Field(default="local", pattern="^(local|ldap)$")
 
@@ -51,7 +52,11 @@ class UserUpdateRequest(BaseModel):
     email: str | None = Field(default=None, min_length=3, max_length=255)
     name: str | None = Field(default=None, min_length=1, max_length=120)
     password: str | None = Field(default=None, min_length=6, max_length=128)
-    role: str | None = Field(default=None, pattern="^(admin|user)$")
+    #: 角色白名单在 `app/core/roles.py`（VALID_ROLES）里统一维护，端点负责校验
+    #: 并给出「未知角色」这种可读报错。这里**不再**用正则枚举 —— 早先写死的
+    #: `^(admin|user)$` 会让新增的 operator/auditor/superadmin 在 422 处就被拒，
+    #: 而且每加一个角色都要回来改一次 schema。
+    role: str | None = Field(default=None, max_length=32)
     is_active: bool | None = None
     auth_source: str | None = Field(default=None, pattern="^(local|ldap)$")
 

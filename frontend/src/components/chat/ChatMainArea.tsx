@@ -15,10 +15,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../sha
 import { useChat } from '../../contexts/ChatContext';
 import { useChatStore } from '../../stores/chatStore';
 import { cn } from '../../lib/utils';
-import { getStoredUser } from '../../services/authService';
 import { issueWebsitePreviewUrl } from '../../services/websiteService';
 import { getSessionArtifacts } from '../../services/agentService';
 import { toast } from 'sonner';
+import { canEnterAdmin } from '@/services/authTokenStore';
 
 export const ChatMainArea = React.memo(() => {
   // 从 Context 获取 hook 返回值和派生状态
@@ -58,6 +58,8 @@ const {
     s.sessions.find((session) => session.id === s.currentSessionId) ?? null,
   );
   const currentSessionId = useChatStore((s) => s.currentSessionId);
+  const visualStyle = useChatStore((s) => s.visualStyle);
+  const setVisualStyle = useChatStore((s) => s.setVisualStyle);
   const error = useChatStore((s) => s.streamError);
   const setError = useChatStore((s) => s.setStreamError);
   const runStatus = useChatStore((s) => s.runStatus);
@@ -165,6 +167,8 @@ const {
         title: msg.pptArtifact.title || 'PPT 演示文稿',
         slideCount: msg.pptArtifact.slideCount || 0,
         theme: msg.pptArtifact.theme,
+        // 「公开到作品库」以 artifactId && sessionId 为渲染条件
+        sessionId: currentSessionId ?? undefined,
       };
     }
     if (msg.websiteArtifact?.html) {
@@ -498,6 +502,8 @@ const {
             value={inputValue}
             onChange={setInputValue}
             onSend={handleSend}
+            visualStyle={visualStyle}
+            setVisualStyle={setVisualStyle}
             onStop={handleStopGeneration}
             isLoading={isLoading}
             chatMode={chatMode}
@@ -510,7 +516,7 @@ const {
             onApprovalModeChange={setApprovalMode}
             planMode={planMode}
             onPlanModeChange={setPlanMode}
-            isAdmin={getStoredUser()?.role === 'admin'}
+            isAdmin={canEnterAdmin()}
           />
         </div>
       </div>

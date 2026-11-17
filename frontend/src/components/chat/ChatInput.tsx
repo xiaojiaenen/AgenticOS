@@ -9,6 +9,7 @@ import { AgentSelector } from '../ui/AgentSelector';
 import { PaperclipIcon, SendIcon } from '../ui/AnimatedIcons';
 import { useInputSuggest } from '../../hooks/useInputSuggest';
 import { ExecutionPolicyMenu } from './ExecutionPolicyMenu';
+import { VisualStylePicker } from '../ppt/VisualStylePicker';
 import { polishPrompt } from '../../services/agentService';
 
 interface ChatInputProps {
@@ -22,6 +23,9 @@ interface ChatInputProps {
   placeholder?: string;
   chatMode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
   setChatMode: (mode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office') => void;
+  /** PPT 视觉风格（与配色主题正交，仅 ppt 模式显示选择器） */
+  visualStyle?: string;
+  setVisualStyle?: (style: string) => void;
   agentProfiles?: AgentProfile[];
   selectedAgentProfileId?: number | null;
   onAgentProfileChange?: (profile: AgentProfile | null) => void;
@@ -48,6 +52,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
   placeholder = '输入你想聊的内容...',
   chatMode,
   setChatMode,
+  visualStyle = '',
+  setVisualStyle = () => undefined,
   agentProfiles = [],
   selectedAgentProfileId,
   onAgentProfileChange,
@@ -245,7 +251,14 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const selectableAgents = agentProfiles.filter((agent) => agent.listed !== false);
+  // 可选智能体：过滤掉「别人上架的、但自己没安装」的 —— 那类应该先去商店安装。
+  //
+  // `listed` 的语义是「是否上架到商店供他人安装」，**不是**「是否可用」。
+  // 内置智能体（如网站工程师）即便没上架，用户也应该能用它 —— 管理员手动
+  // 上架前自己先试是正常流程。按 listed 一刀切会让「下架」变成「禁用」。
+  const selectableAgents = agentProfiles.filter(
+    (agent) => agent.listed !== false || agent.is_builtin,
+  );
 
   return (
     <div
@@ -285,7 +298,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 
       <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.md,.py,.js,.ts,.tsx,.jsx,.json,.yaml,.yml,.xml,.html,.css,.svg,.java,.c,.cpp,.h,.rs,.go,.rb,.php,.sql,.sh,.bat,.ps1,.zip,.epub,.rtf,.odt,.ods,.odp,image/*" />
 
-            <div className="@container relative flex items-end rounded-[2rem] border border-[var(--border-medium)] bg-[var(--surface-2)] p-2 px-3 shadow-lg shadow-black/5 backdrop-blur-2xl transition-all duration-300 focus-within:border-[var(--ring)] focus-within:shadow-glow">
+            <div className="@container relative flex flex-wrap items-end gap-y-1 rounded-[2rem] border border-[var(--border-medium)] bg-[var(--surface-2)] p-2 px-3 shadow-lg shadow-black/5 backdrop-blur-2xl transition-all duration-300 focus-within:border-[var(--ring)] focus-within:shadow-glow">
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}
@@ -308,6 +321,15 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
             disabled={isModeLocked}
           />
         </div>
+
+        {/* PPT 模式：视觉风格选择（与配色主题正交，只影响下次生成）。
+            放在工具栏而非输入框上方 —— 它是「下一轮生成用什么形态」的设定，
+            与智能体 / 执行策略同属「这轮怎么跑」的配置。 */}
+        {chatMode === 'ppt' && (
+          <div className="ml-1 flex h-11 items-center">
+            <VisualStylePicker value={visualStyle} onChange={setVisualStyle} />
+          </div>
+        )}
 
         {/* 计划模式 + 审批档合并为一个入口，避免输入框控件过多 */}
         {(onApprovalModeChange || onPlanModeChange) && (

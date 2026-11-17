@@ -1,21 +1,25 @@
 /**
- * 作品库（Gallery）：deployed 状态的网站作品。
+ * 作品库（Gallery）：所有已发布的作品（网站 + PPT / 文档 / 表格）。
  *
- * - 公开作品：所有人可见，卡片直接打开 /sites/{slug}/；
- * - 私密作品：仅部署者（和管理员）可见，附 30 天签名访问链接，可重置。
- *
- * 设计：卡片网格 + 可见性徽章 + 技术栈标签；缩略预览用 iframe 按
- * `pointer-events-none` + 缩放渲染首屏（比纯色块直观，比截图轻）。
+ * 卡片设计（5 列网格）：
+ * - 上半区是**预览**：网站用封面图 / iframe 首屏；文件型作品用类型图标
+ *   + 文件名（PPT 有预览 HTML 的走 iframe）。
+ * - 下半区是**信息**：标题 + 说明（一行截断），左下角作者 + 相对时间，
+ *   右上角访问量徽章。
+ * - 整卡可点（键盘可达），右上角操作按钮 stopPropagation。
  */
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'motion/react';
 import {
   Copy,
+  FileSpreadsheet,
+  FileText,
   Globe,
   Link2,
   Loader2,
   Lock,
+  Presentation,
   RefreshCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -39,6 +43,38 @@ function displayName(item: { title?: string; project_slug: string }): string {
   return item.project_slug;
 }
 
+/** 相对时间：作品库里的"多久之前"比绝对时间戳更有信息量。 */
+function relativeTime(value?: string | null): string {
+  if (!value) return '—';
+  const ts = Date.parse(value);
+  if (Number.isNaN(ts)) return '—';
+  const diff = Date.now() - ts;
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return '刚刚';
+  if (min < 60) return `${min} 分钟前`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return `${hours} 小时前`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} 天前`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} 个月前`;
+  return `${Math.floor(months / 12)} 年前`;
+}
+
+const TYPE_ICON = {
+  website: Globe,
+  ppt: Presentation,
+  document: FileText,
+  sheet: FileSpreadsheet,
+} as const;
+
+const TYPE_LABEL = {
+  website: '网站',
+  ppt: '演示文稿',
+  document: '文档',
+  sheet: '表格',
+} as const;
+
 const VisibilityBadge = ({ visibility }: { visibility: 'public' | 'private' }) =>
   visibility === 'public' ? (
     <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-400">
@@ -60,8 +96,15 @@ const GalleryCard = ({
   resetting: boolean;
 }) => {
   const isPrivate = item.visibility === 'private';
-  // 公开走 nginx /sites/；私密走带签名的私有端点
-  const openUrl = isPrivate ? item.access_url : item.deploy_url;
+  const itemType = (item.item_type ?? 'website') as keyof typeof TYPE_ICON;
+  const TypeIcon = TYPE_ICON[itemType] ?? Globe;
+  const isFile = itemType !== 'website';
+  // 公开走 nginx /sites/；私密走带签名的私有端点；文件型走 /s/<code>/
+  const openUrl = isPrivate
+    ? item.access_url
+    : isFile
+      ? item.short_url ?? item.deploy_url
+      : item.deploy_url;
 
   // 预览 iframe 很重（每卡一个完整页面渲染）：滚到视口内才挂载，
   // 加载完成前展示品牌占位卡 —— 避免整屏「白板卡」（走查问题）。
@@ -97,6 +140,8 @@ const GalleryCard = ({
     return () => io.disconnect();
   }, [inView]);
 
+  const views = item.view_count ?? 0;
+
   return (
     <motion.div
       ref={cardRef}
@@ -117,20 +162,24 @@ const GalleryCard = ({
         openUrl ? 'cursor-pointer' : 'cursor-default',
       )}
     >
-      {/* 预览条：占位卡在底层，iframe 懒挂载 + onLoad 淡入盖住占位 */}
-      <div ref={previewBoxRef} className="relative aspect-[4/3] overflow-hidden border-b border-[var(--border-subtle)] bg-[var(--surface-2)]">
+      {/* 预览区：占位卡在底层，封面 / iframe 懒挂载 + onLoad 淡入盖住占位 */}
+      <div
+        ref={previewBoxRef}
+        className="relative aspect-[4/3] overflow-hidden border-b border-[var(--border-subtle)] bg-[var(--surface-2)]"
+      >
         <div
           className={cn(
-            'absolute inset-0 flex flex-col items-center justify-center gap-1.5 transition-opacity duration-300',
+            'absolute inset-0 flex flex-col items-center justify-center gap-2 transition-opacity duration-300',
             previewLoaded ? 'opacity-0' : 'opacity-100',
           )}
           aria-hidden="true"
         >
-          <Globe size={20} className="text-[var(--muted-foreground)]/50" />
+          <TypeIcon size={22} className="text-[var(--muted-foreground)]/50" />
           <span className="max-w-[80%] truncate px-3 text-[10px] font-medium text-[var(--muted-foreground)]/70">
-            {displayName(item)}
+            {TYPE_LABEL[itemType]} · {displayName(item)}
           </span>
         </div>
+
         {item.cover_url ? (
           <img
             src={item.cover_url}
@@ -139,7 +188,7 @@ const GalleryCard = ({
             className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
             onLoad={() => setPreviewLoaded(true)}
           />
-        ) : openUrl && inView && (
+        ) : !isFile && openUrl && inView ? (
           <iframe
             title={`gallery-${item.project_slug}`}
             src={openUrl}
@@ -153,73 +202,104 @@ const GalleryCard = ({
             loading="lazy"
             tabIndex={-1}
           />
-        )}
-        <div className="absolute right-2 top-2">
+        ) : null}
+
+        {/* 左上角：类型徽章 */}
+        <div className="absolute left-2 top-2">
+          <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)]/90 px-2 py-0.5 text-[10px] font-semibold text-[var(--muted-foreground)] backdrop-blur-sm">
+            <TypeIcon size={10} />
+            {TYPE_LABEL[itemType]}
+          </span>
+        </div>
+
+        {/* 右上角：可见性 + 访问量 */}
+        <div className="absolute right-2 top-2 flex items-center gap-1.5">
+          {views > 0 && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)]/90 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[var(--muted-foreground)] backdrop-blur-sm"
+              title={`${views} 次访问`}
+            >
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--ring)]" />
+              {views.toLocaleString()}
+            </span>
+          )}
           <VisibilityBadge visibility={item.visibility} />
         </div>
       </div>
 
+      {/* 信息区 */}
       <div className="flex flex-1 flex-col p-3">
-        <div className="mb-1.5 flex items-start gap-1.5">
-          <Globe size={13} className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
-          <h3 className="min-w-0 flex-1 truncate text-[12.5px] font-semibold leading-4 text-[var(--foreground)]" title={item.project_slug}>
-            {displayName(item)}
-          </h3>
-          <span className="shrink-0 text-[9.5px] font-medium tabular-nums text-[var(--muted-foreground)]">
-            {(item.view_count ?? 0).toLocaleString()} 次访问
-          </span>
-        </div>
-
-        <p className="mb-2.5 flex items-center gap-1.5 text-[11px] leading-4 text-[var(--muted-foreground)]">
-          {item.author_name ? (
-            <span className="max-w-[45%] truncate font-medium text-[var(--foreground)]/70">{item.author_name}</span>
-          ) : null}
-          <span className="truncate">
-            {item.updated_at ? new Date(item.updated_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
-          </span>
-        </p>
-
-        <div
-          className="mt-auto flex items-center justify-end gap-1"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
+        <h3
+          className="mb-1 truncate text-[13px] font-semibold leading-4 text-[var(--foreground)]"
+          title={displayName(item)}
         >
-          {!openUrl && (
-            <span className="mr-auto text-[10.5px] text-[var(--muted-foreground)]">无访问链接</span>
-          )}
-          {openUrl && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 p-0 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-              title="复制访问链接"
-              aria-label="复制访问链接"
-              onClick={() => {
-                void navigator.clipboard
-                  .writeText(`${window.location.origin}${openUrl}`)
-                  .then(() => toast.success('链接已复制'))
-                  .catch(() => toast.error('复制失败'));
-              }}
-            >
-              <Copy size={12} />
-            </Button>
-          )}
-          {isPrivate && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 p-0 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-              title="重置私密访问链接（旧链接立即失效）"
-              aria-label="重置私密访问链接"
-              disabled={resetting}
-              onClick={() => onReset(item.id)}
-            >
-              {resetting ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
-            </Button>
-          )}
+          {displayName(item)}
+        </h3>
+
+        {item.description ? (
+          <p
+            className="mb-2 line-clamp-2 text-[11px] leading-[1.45] text-[var(--muted-foreground)]"
+            title={item.description}
+          >
+            {item.description}
+          </p>
+        ) : (
+          <div className="mb-2 h-[2.1em]" />
+        )}
+
+        {/* 左下角：作者 + 相对时间 */}
+        <div className="mt-auto flex items-end justify-between gap-2">
+          <div className="min-w-0">
+            {item.author_name && (
+              <p className="truncate text-[11px] font-medium leading-4 text-[var(--foreground)]/70">
+                {item.author_name}
+              </p>
+            )}
+            <p className="truncate text-[10.5px] leading-4 text-[var(--muted-foreground)]">
+              {relativeTime(item.updated_at ?? item.created_at)}
+            </p>
+          </div>
+
+          <div
+            className="flex shrink-0 items-center gap-1"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {!openUrl && (
+              <span className="text-[10.5px] text-[var(--muted-foreground)]">无访问链接</span>
+            )}
+            {openUrl && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                title="复制访问链接"
+                aria-label="复制访问链接"
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(`${window.location.origin}${openUrl}`)
+                    .then(() => toast.success('链接已复制'))
+                    .catch(() => toast.error('复制失败'));
+                }}
+              >
+                <Copy size={12} />
+              </Button>
+            )}
+            {isPrivate && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                title="重置私密访问链接（旧链接立即失效）"
+                aria-label="重置私密访问链接"
+                disabled={resetting}
+                onClick={() => onReset(item.id)}
+              >
+                {resetting ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
+              </Button>
+            )}
+          </div>
         </div>
-        {/* 之前这里直接打印原始 API 路径（api/v1/website/site/...），技术细节泄漏观感差；
-            复制按钮已覆盖取链需求，不再展示 */}
       </div>
     </motion.div>
   );
@@ -255,7 +335,7 @@ export const GalleryPage = () => {
       header={{
         kicker: 'GALLERY',
         title: '作品库',
-        description: '你构建并部署的网站作品——公开作品所有人可见，私密作品仅自己可见',
+        description: '你构建并发布的作品——网站、演示文稿、文档与表格',
         back: true,
       }}
     >
@@ -308,7 +388,8 @@ export const GalleryPage = () => {
           <Globe size={32} className="text-[var(--muted-foreground)]/50" />
           <p className="text-sm font-medium text-[var(--foreground)]">还没有作品</p>
           <p className="max-w-sm text-xs leading-relaxed text-[var(--muted-foreground)]">
-            在对话里让网站智能体生成页面并构建，部署（可选公开或私密）后作品会出现在这里
+            在对话里生成网站、PPT、文档或表格，点击产物上的「发布 / 公开」，
+            审批通过后作品会出现在这里
           </p>
         </div>
       ) : (
@@ -316,7 +397,7 @@ export const GalleryPage = () => {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {filtered.map((item) => (
             <GalleryCard
-              key={item.id}
+              key={`${item.item_type ?? 'website'}-${item.id}`}
               item={item}
               resetting={resetMutation.isPending}
               onReset={(id) => resetMutation.mutate(id)}

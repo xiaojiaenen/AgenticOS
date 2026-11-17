@@ -57,9 +57,11 @@ import { formatApiDate } from '@/lib/datetime';
 import { cn } from '@/lib/utils';
 import {
   AdminUser,
+  RoleOption,
   UserFormPayload,
   createUser,
   deleteUser,
+  listRoles,
   listUsers,
   updateUser,
   updateUserStatus,
@@ -78,7 +80,9 @@ const userFormSchema = z
     email: z.string().min(1, '请填写邮箱').email('邮箱格式不正确'),
     name: z.string().min(1, '请填写名称'),
     password: z.string(),
-    role: z.enum(['admin', 'user']),
+    // 角色是后端白名单里的字符串（可能新增角色），这里不做枚举 ——
+    // 写死枚举会在加新角色时静默拦住保存。
+    role: z.string().min(1, '请选择角色'),
     is_active: z.boolean(),
   })
   .refine((data) => data.password.length === 0 || data.password.length >= 6, {
@@ -88,8 +92,20 @@ const userFormSchema = z
 
 type UserFormValues = z.infer<typeof userFormSchema>;
 
+/**
+ * 角色中文名。新增角色时补一行 —— 未知值原样显示，让人看得出是没认出的角色，
+ * 而不是静默变成"普通用户"。
+ */
+const ROLE_LABELS: Record<string, string> = {
+  user: '普通用户',
+  auditor: '审计员',
+  operator: '运营',
+  admin: '管理员',
+  superadmin: '超级管理员',
+};
+
 function roleLabel(role: string): string {
-  return role === 'admin' ? '管理员' : '普通用户';
+  return ROLE_LABELS[role] ?? role;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,6 +124,21 @@ function UserFormDialog({
   const queryClient = useQueryClient();
   const isEdit = editingUser !== null;
 
+  // 可选角色来自后端（`app/core/roles.py` 一张表）：新增角色不用改前端。
+  // 加载失败时退回最小集合，至少不影响改「普通用户 / 管理员」。
+  const { data: roleOptions } = useQuery({
+    queryKey: ['admin', 'roles'],
+    queryFn: listRoles,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  });
+  const roles: RoleOption[] = roleOptions?.length
+    ? roleOptions
+    : [
+        { value: 'user', label: '普通用户', hint: '使用智能体，管理自己的会话与产物', capabilities: [] },
+        { value: 'admin', label: '管理员', hint: '平台配置全部可管（不含他人对话正文）', capabilities: [] },
+      ];
+
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
     defaultValues: {
@@ -118,6 +149,11 @@ function UserFormDialog({
       is_active: true,
     },
   });
+
+  // 选中角色的说明：让"这个角色到底能干什么"在选的时候就说清
+  const selectedRole = form.watch('role');
+  const selectedRoleHint =
+    roles.find((r) => r.value === selectedRole)?.hint ?? '';
 
   React.useEffect(() => {
     if (open) {
@@ -206,16 +242,28 @@ function UserFormDialog({
             <Label>角色</Label>
             <Select
               value={form.watch('role')}
-              onValueChange={(value) => form.setValue('role', value as UserFormValues['role'])}
+              onValueChange={(value) => form.setValue('role', value, { shouldValidate: true })}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="选择角色" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="user">普通用户</SelectItem>
-                <SelectItem value="admin">管理员</SelectItem>
+                {roles.map((role) => (
+                  <SelectItem key={role.value} value={role.value}>
+                    <div className="flex flex-col items-start gap-0.5 py-0.5">
+                      <span className="font-medium">{role.label}</span>
+                      <span className="text-[11px] leading-tight text-[var(--muted-foreground)]">
+                        {role.hint}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            {/* 选中角色能做什么，直接摊开说，别让人猜 */}
+            {selectedRoleHint ? (
+              <p className="text-xs text-[var(--muted-foreground)]">{selectedRoleHint}</p>
+            ) : null}
           </div>
 
           <label className="flex items-center gap-2.5 md:col-span-2">

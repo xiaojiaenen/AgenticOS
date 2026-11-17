@@ -1,0 +1,28 @@
+/* design-systems/constructivism/tokens.css — converted from guanmo-ai/design-style
+ * 风格：003-constructivism。所有色值经 WCAG 对比度启发式映射，参见 DESIGN.md 的实测表。
+ */
+:root {
+  --bg: #ece4d2;
+  --surface: #dfd8c6;
+  --surface-warm: #f6f3eb;
+  --fg: #161412;
+  --fg-2: #615d55;
+  --meta: #969185;
+  --border: #c5bfaf;
+  --border-soft: #8c867c;
+  --accent: #d3261c;
+  --accent-hover: #912018;
+  --accent-active: #4f1915;
+  --success: #36ad5e;
+  --warn: #eaba26;
+  --danger: #d3261c;
+  --font-sans: 'Oswald','Noto Sans SC',sans-serif;
+  --font-display: 'Oswald','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 0px;
+  --radius-sm: 0px;
+  --radius-lg: 8px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

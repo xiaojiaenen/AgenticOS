@@ -33,7 +33,13 @@ def cleanup_records(*emails: str) -> None:
         db.commit()
 
 
-def create_admin_and_user(admin_email: str, user_email: str) -> tuple[str, int]:
+def create_admin_and_user(admin_email: str, user_email: str) -> tuple[str, int, int]:
+    """建一个管理员 + 一个普通用户，返回 (管理员 token, 普通用户 id, 管理员 id)。
+
+    返回管理员 id 是为了让用例能把会话挂到**管理员自己**名下 —— 后台会话
+    面板只列自己的会话（管理员也不例外），要验证正文/分页那些功能，会话就得
+    真是自己的。
+    """
     with create_db_session() as db:
         admin = UserModel(
             email=admin_email,
@@ -60,7 +66,7 @@ def create_admin_and_user(admin_email: str, user_email: str) -> tuple[str, int]:
         secret=settings.auth_secret_key,
         expires_in_seconds=settings.auth_token_expire_minutes * 60,
     )
-    return token, user.id
+    return token, user.id, admin.id
 
 
 def test_dashboard_stats_aggregate_usage() -> None:
@@ -70,14 +76,17 @@ def test_dashboard_stats_aggregate_usage() -> None:
 
     try:
         with TestClient(app):
-            token, user_id = create_admin_and_user(admin_email, user_email)
+            token, user_id, admin_id = create_admin_and_user(admin_email, user_email)
             with create_db_session() as db:
+                # 会话/用量挂在**管理员自己**名下：后台会话面板只列自己的会话，
+                # 正文与分页这些功能要在"自己的会话"上验证才成立。
+                # （普通用户 user_id 仍用于用量聚合断言，那部分是全局统计不受影响。）
                 db.add(
                     AgentSessionModel(
                         session_id=session_id,
-                        user_id=user_id,
+                        user_id=admin_id,
                         system_prompt="test",
-                        metadata_json=dump_json({"user_id": user_id}),
+                        metadata_json=dump_json({"user_id": admin_id}),
                     )
                 )
                 db.add(
@@ -183,6 +192,68 @@ def test_dashboard_stats_aggregate_usage() -> None:
             assert len(paged_payload["messages"]) == 1
             assert paged_payload["messages_offset"] == 1
             assert paged_payload["messages"][0]["tool_calls"][0]["name"] == "calc"
+
+            # ── 会话隐私：管理员也看不到别人的会话 ──
+            # 目标用户的会话（挂 user_id 名下，不是 admin 自己）
+            other_session_id = f"other-session-{uuid4().hex[:8]}"
+            with create_db_session() as db:
+                db.add(
+                    AgentSessionModel(
+                        session_id=other_session_id,
+                        user_id=user_id,
+                        system_prompt="test",
+                        metadata_json=dump_json({"user_id": user_id}),
+                    )
+                )
+                db.add(
+                    AgentMessageModel(
+                        session_id=other_session_id,
+                        message_json=dump_json({"role": "user", "content": "别人的私密对话"}),
+                    )
+                )
+                db.commit()
+
+            # 列表里看不到
+            list_leak = client.get(
+                "/api/v1/dashboard/conversations",
+                headers={"Authorization": f"Bearer {token}"},
+                params={"search": "别人的私密对话"},
+            )
+            assert list_leak.status_code == 200
+            assert all(
+                item["session_id"] != other_session_id
+                for item in list_leak.json()["items"]
+            ), "管理员在后台看到了不属于自己的会话"
+
+            # 详情按不存在处理（404，而非 403 —— 不泄露该 id 是否存在）
+            detail_leak = client.get(
+                f"/api/v1/dashboard/conversations/{other_session_id}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert detail_leak.status_code == 404
+
+            # 删除同样拒绝
+            delete_leak = client.delete(
+                f"/api/v1/dashboard/conversations/{other_session_id}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert delete_leak.status_code == 404
+
+            with create_db_session() as db:
+                assert db.get(AgentSessionModel, other_session_id) is not None, (
+                    "别人的会话被管理员删掉了"
+                )
+                db.execute(
+                    delete(AgentMessageModel).where(
+                        AgentMessageModel.session_id == other_session_id
+                    )
+                )
+                db.execute(
+                    delete(AgentSessionModel).where(
+                        AgentSessionModel.session_id == other_session_id
+                    )
+                )
+                db.commit()
     finally:
         cleanup_records(admin_email, user_email)
 
@@ -212,7 +283,7 @@ def test_dashboard_active_users_counts_window_usage_not_enabled_accounts() -> No
             )
 
         with TestClient(app):
-            token, used_user_id = create_admin_and_user(admin_email, used_email)
+            token, used_user_id, _admin_id = create_admin_and_user(admin_email, used_email)
             with create_db_session() as db:
                 # 第三个账号：启用但从不使用
                 db.add(

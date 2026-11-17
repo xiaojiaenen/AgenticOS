@@ -95,6 +95,15 @@ class Settings(BaseSettings):
     llm_provider_fallback_to_env: bool = Field(
         default=True, validation_alias="LLM_PROVIDER_FALLBACK_TO_ENV"
     )
+    # 账号池轮换窗口（秒）：企业网关的 Agent 缓存每过这么久重建一次，
+    # 重建时会借到另一个账号，从而把配额摊到多个号上。
+    #
+    # 为什么需要：Cookie 是构建时注入 client 的 default_headers，换号必须
+    # 重建网关；而 Agent 缓存是 1 小时 TTLCache，不设窗口的话同一个号会被
+    # 用满一小时，摊配额等于失效。
+    llm_credential_rotation_seconds: int = Field(
+        default=300, validation_alias="LLM_CREDENTIAL_ROTATION_SECONDS"
+    )
     # Cookie 过期前多久开始重新登录（定时任务据此提前换新，而不是等失效）
     llm_provider_cookie_refresh_buffer_hours: int = Field(
         default=2, validation_alias="LLM_PROVIDER_COOKIE_REFRESH_BUFFER_HOURS"

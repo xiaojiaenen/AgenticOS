@@ -107,6 +107,12 @@ async def stream_agent(
     try:
         agent_service.ensure_ready()
         await agent_service.ensure_session_access(request, current_user)
+        # 智能体授权拦截：商店里看不到的智能体在这里直接 403，模型不会被
+        # 唤醒（防止手改请求体塞 profile_id 越权使用）。
+        # getattr 兜底：测试里的 fake service 可能没实现这个方法。
+        ensure_profile_access = getattr(agent_service, "ensure_profile_access", None)
+        if ensure_profile_access is not None:
+            await ensure_profile_access(request, current_user)
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except PermissionError as exc:
@@ -372,9 +378,19 @@ async def get_session_messages(
             "role": role,
             "content": content,
         }
-        # 时间戳：按下标取（load_message_timestamps 与 load 同序）。
-        # 取不到就不给该字段，前端会退回不显示时间，而不是显示 1970。
-        if index < len(message_times) and message_times[index]:
+        # 时间戳：优先读消息自带 metadata.created_at —— 它是 load() 在
+        # 反序列化时逐条挂上的，一行 DB 对应一条消息，不会错位。
+        #
+        # 原先只按下标配对 load_message_timestamps：只要 load() 跳过了某条
+        # 无法反序列化的消息、或上下文里多出 system / 压缩摘要消息，下标
+        # 就整体偏移，前端拿到的时间要么错位、要么落空 —— 用户看到的是
+        # **刷新后气泡下方时间消失**。下标作为兜底保留（老数据 metadata
+        # 里没有这个键）。
+        meta_for_time = getattr(msg, "metadata", None) or {}
+        created = meta_for_time.get("created_at") if isinstance(meta_for_time, dict) else None
+        if isinstance(created, str) and created:
+            entry["created_at"] = created
+        elif index < len(message_times) and message_times[index]:
             entry["created_at"] = message_times[index]
         # 思考内容必须透传：流式阶段思考靠 SSE reasoning_delta 实时显示，
         # 落库在 AIMessage.reasoning_content。不透传的话，刷新/重开会话
@@ -1231,12 +1247,28 @@ async def get_ppt_slides(
             continue
         num = int(match.group(1))
         svg_content = await asyncio.to_thread(svg_file.read_text, encoding="utf-8")
-        # Inject default CSS variables for preview rendering
-        css_vars = '<style>:root{--bg:#fff;--bg-soft:#f8fafc;--surface:#f1f5f9;--surface-2:#e2e8f0;--border:#e2e8f0;--border-strong:#cbd5e1;--text-1:#0f172a;--text-2:#475569;--text-3:#94a3b8;--accent:#2563eb;--accent-2:#7c3aed;--accent-3:#0891b2;--good:#16a34a;--warn:#d97706;--bad:#dc2626;}</style>'
-        if '<defs>' in svg_content:
-            svg_content = svg_content.replace('<defs>', f'<defs>{css_vars}', 1)
-        else:
-            svg_content = svg_content.replace('<svg', f'<svg>{css_vars}<defs/>', 1)
+        # 只在 SVG **完全没有**主题变量时补一份兜底色，绝不覆盖已有的。
+        #
+        # 这里原来无条件把一套蓝白 :root{--bg:#fff;--accent:#2563eb;…}
+        # 插进 <defs>。CSS 自定义属性后定义者胜，于是 agent 写的主题色
+        # （用 var(--token) 引用 design-theme 色板）全被这套蓝白盖掉 ——
+        # 用户报的「实时预览主题显示不对」就是它：不管生成时选了什么主题，
+        # 预览永远蓝白，和最终成品对不上。
+        #
+        # 现在只在文件里一个主题变量都没有（早期格式 / 手工丢进来的裸 SVG）
+        # 时才注入兜底，避免整页黑屏。
+        if '--bg:' not in svg_content and 'var(--' not in svg_content:
+            css_vars = (
+                '<style>:root{--bg:#fff;--bg-soft:#f8fafc;--surface:#f1f5f9;'
+                '--surface-2:#e2e8f0;--border:#e2e8f0;--border-strong:#cbd5e1;'
+                '--text-1:#0f172a;--text-2:#475569;--text-3:#94a3b8;'
+                '--accent:#2563eb;--accent-2:#7c3aed;--accent-3:#0891b2;'
+                '--good:#16a34a;--warn:#d97706;--bad:#dc2626;}</style>'
+            )
+            if '<defs>' in svg_content:
+                svg_content = svg_content.replace('<defs>', f'<defs>{css_vars}', 1)
+            else:
+                svg_content = svg_content.replace('<svg', f'<svg>{css_vars}<defs/>', 1)
         mtime = await asyncio.to_thread(lambda f=svg_file: f.stat().st_mtime)
         slides.append({"num": num, "svg": svg_content, "updated_at": int(mtime * 1000)})
 
@@ -1245,7 +1277,12 @@ async def get_ppt_slides(
 
 @router.get("/ppt/themes", summary="获取可用的 PPT 主题列表")
 async def list_ppt_themes() -> list[dict[str, str]]:
-    """返回所有可用的 PPT 主题名称和显示名称。"""
+    """返回所有可用的 PPT 主题名称、显示名称与 WCAG 对比度等级。
+
+    对比度等级来自正文/背景等固定组合的审计（AA / AAA / AA-Large）——
+    前端主题选择器可据此展示无障碍徽章，生成侧可把低于 AA 的主题排后。
+    """
+    from app.services.ppt.contrast import audit_theme_tokens
     from app.services.ppt.theme_token_resolver import list_available_themes, load_theme_tokens
 
     themes = []
@@ -1255,13 +1292,48 @@ async def list_ppt_themes() -> list[dict[str, str]]:
         primary_color = tokens.get("--accent", "#2563eb")
         bg_color = tokens.get("--bg", "#ffffff")
         text_color = tokens.get("--text-1", "#0f172a")
+        try:
+            audit = audit_theme_tokens(tokens)
+            grade = "FAIL" if not audit["pass"] else min(
+                (p["grade"] for p in audit["pairs"]),
+                key=lambda g: {"AAA": 0, "AA": 1, "AA-Large": 2, "FAIL": 3}[g],
+            )
+        except Exception:  # noqa: BLE001 —— 审计失败不阻塞主题列表
+            grade = None
         themes.append({
             "name": name,
             "primary_color": primary_color,
             "bg_color": bg_color,
             "text_color": text_color,
+            "contrast_grade": grade,
         })
     return themes
+
+
+@router.get("/ppt/visual-styles", summary="获取可用的 PPT 视觉风格列表")
+async def list_ppt_visual_styles() -> list[dict[str, Any]]:
+    """返回 18 种视觉风格（与配色主题正交）。
+
+    **为什么单独一层**：主题（/ppt/themes）只管色值 / 字体族 / 圆角 / 阴影；
+    视觉风格管形状语言、装饰密度、留白节奏、纹理层次。用户此前切主题只看到
+    颜色变化，觉得"样式没变"—— 因为本地没有风格这一层。
+
+    两侧组合使用：`github` 配色 × `swiss-minimal` 风格 = 瑞士极简的 GitHub 风。
+    """
+    from app.services.ppt.visual_styles_data import list_styles
+
+    return list_styles()
+
+
+@router.get("/ppt/visual-styles/{style_id}", summary="获取单个视觉风格的完整规则")
+async def get_ppt_visual_style(style_id: str) -> dict[str, Any]:
+    """返回一种风格的完整规则（形状/字体/配色纪律/纹理），供前端展示详情。"""
+    from app.services.ppt.visual_styles_data import get_style
+
+    style = get_style(style_id)
+    if style is None:
+        raise HTTPException(status_code=404, detail=f"未知的视觉风格: {style_id}")
+    return style
 
 
 @router.post("/ppt/{artifact_id}/retheme", summary="切换 PPT 主题并重新渲染预览")

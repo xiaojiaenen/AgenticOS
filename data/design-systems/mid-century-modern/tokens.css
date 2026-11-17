@@ -1,0 +1,28 @@
+/* design-systems/mid-century-modern/tokens.css — converted from guanmo-ai/design-style
+ * 风格：017 · 中世纪现代 Mid-Century Modern。所有色值经 WCAG 对比度启发式映射，参见 DESIGN.md 的实测表。
+ */
+:root {
+  --bg: #fbf3e3;
+  --surface: #eee6d7;
+  --surface-warm: #fdfaf2;
+  --fg: #1e1b19;
+  --fg-2: #6b6760;
+  --meta: #a39d92;
+  --border: #d3ccbf;
+  --border-soft: #989288;
+  --accent: #f2542d;
+  --accent-hover: #f57aa8;
+  --accent-active: #1fb3a6;
+  --success: #1fb3a6;
+  --warn: #ffc62e;
+  --danger: #f2542d;
+  --font-sans: 'Jost','Noto Sans SC',sans-serif;
+  --font-display: 'Anton','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

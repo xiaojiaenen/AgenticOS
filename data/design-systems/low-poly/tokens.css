@@ -1,0 +1,28 @@
+/* design-systems/low-poly/tokens.css — converted from guanmo-ai/design-style
+ * 风格：019 · 低多边形 Low Poly。所有色值经 WCAG 对比度启发式映射，参见 DESIGN.md 的实测表。
+ */
+:root {
+  --bg: #fbf4e6;
+  --surface: #efe9dd;
+  --surface-warm: #fdfaf4;
+  --fg: #3b3552;
+  --fg-2: #7e7886;
+  --meta: #aea8ab;
+  --border: #d8d2cb;
+  --border-soft: #a59ea3;
+  --accent: #2f5fd8;
+  --accent-hover: #ee6b57;
+  --accent-active: #4daf72;
+  --success: #4daf72;
+  --warn: #f4c54f;
+  --danger: #ee6b57;
+  --font-sans: 'Noto Sans SC Black','Noto Sans SC',sans-serif;
+  --font-display: 'Inter 800','Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

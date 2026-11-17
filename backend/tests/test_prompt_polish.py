@@ -195,3 +195,41 @@ def _async_fake(payload):
         return payload
 
     return _fn
+
+
+class TestExpansionGuard:
+    """扩写上限护栏：短输入的正常扩写不能被判死。
+
+    真实故障（用户报"润色按钮失败"）：输入「做个ppt」(5 字)，模型正常
+    润色成 296 字的可执行需求，被 `max(120, len*4)` = 120 的上限拒掉，
+    前端只看到"润色失败，已保留原文" —— 短句本来就需要扩写，这个下限
+    比用户预期还低。
+    """
+
+    def test_short_input_expansion_allowed(self, monkeypatch):
+        """5 字输入扩到 296 字应通过（旧的 120 上限会拒）。"""
+        reply = "帮我制作一份关于「季度业务回顾」的 PPT，共 8 页，包含封面、数据概览、" + "详细分析，" * 20
+        assert len(reply) > 120, "用例前提：回复长度要超过旧下限"
+
+        fake = _FakeLLM(reply)
+        monkeypatch.setattr(
+            "app.services.llm_factory.build_llm_for_user", lambda *a, **k: fake
+        )
+        import asyncio
+
+        result = asyncio.run(polish_prompt("做个ppt", user_id=1))
+        assert result["polished"] == reply.strip()
+        assert result["changed"] is True
+
+    def test_extreme_expansion_still_rejected(self, monkeypatch):
+        """长输入被扩成 4 倍以上仍然拒（防止模型写报告）。"""
+        original = "写一份关于公司年度总结的详细报告" * 10  # 160 字
+        fake = _FakeLLM("扩写" * 2000)  # 4000 字，远超 4 倍
+        monkeypatch.setattr(
+            "app.services.llm_factory.build_llm_for_user", lambda *a, **k: fake
+        )
+        import asyncio
+
+        result = asyncio.run(polish_prompt(original, user_id=1))
+        assert result["polished"] == ""
+        assert result["changed"] is False

@@ -46,35 +46,18 @@ import {
 } from '../services/mcpService';
 import type { ToolCatalogItem } from '../services/toolConfigService';
 import { useGoBack } from '../hooks/useGoBack';
+import { TOOL_CATEGORIES, categoryOf } from '../lib/toolCategories';
+import { canEnterAdmin } from '@/services/authTokenStore';
 
 /**
- * 工具分组（后端 catalog 无分类字段，这里按工具语义归类，
- * 让 36 个工具在勾选界面里可读，而不是一长条平铺列表）。
+ * 工具分组由 lib/toolCategories.ts 统一维护（AgentEditor 与
+ * AgentToolsPanel 共用同一份）—— 各写一份必然漂移：新增工具只在一处
+ * 登记，另一处就落到「其他」。
  */
-const TOOL_CATEGORIES: Record<string, string[]> = {
-  基础能力: ['calc', 'time', 'decision'],
-  文件与代码: ['file', 'file_to_md', 'python', 'git'],
-  知识与记忆: ['knowledge', 'memory', 'skill', 'email'],
-  数据与图表: ['analyze_data', 'render_chart', 'analyze_template'],
-  演示文稿: ['save_slide', 'save_slides_batch', 'read_slide', 'batch_edit_slides',
-    'submit_slide_plan', 'submit_spec_lock', 'calc_chart_positions', 'check_svg_quality',
-    'convert_pptx_to_svg', 'import_pptx_template', 'resume_ppt', 'check_ppt_progress',
-    'read_notes'],
-  图片与图标: ['search_images', 'get_image_info', 'search_icons', 'list_icons'],
-  网站与部署: ['copy_template', 'check_website_project', 'build_website', 'deploy_website', 'npm'],
-};
-
-const TOOL_CATEGORY_OF = (() => {
-  const map = new Map<string, string>();
-  for (const [category, tools] of Object.entries(TOOL_CATEGORIES)) {
-    for (const tool of tools) map.set(tool, category);
-  }
-  return map;
-})();
-
-function categoryOf(name: string): string {
-  return TOOL_CATEGORY_OF.get(name) ?? '其他';
-}
+/**
+ * 工具分类：`TOOL_CATEGORIES` 与 `categoryOf` 都从 lib/toolCategories.ts
+ * 引入（与 AgentToolsPanel 共用，避免各写一份导致漂移）。
+ */
 
 const MODE_OPTIONS: { value: AgentProfile['response_mode']; label: string; hint: string }[] = [
   { value: 'general', label: '通用问答', hint: '日常问答、资料整理、轻量工具调用' },
@@ -127,6 +110,16 @@ export const AgentEditor: React.FC = () => {
   );
   const [avatar, setAvatar] = useState('sparkles');
   const [visibility, setVisibility] = useState<'private' | 'public'>('private');
+  // 是否上架到智能体商店（= 其他人在商店里看得到这个智能体）。
+  // 与 audienceMode 是两个概念：listed 决定「商店里有没有」，audience 决定
+  // 「上架后谁能用」。用户自建的默认不上架（平台级动作，需审核），
+  // 管理员可以直接勾。
+  const [listed, setListed] = useState(false);
+  const isAdminViewer = canEnterAdmin();
+  // 启用范围：all = 全体用户；selected = 仅指定用户；none = 暂不开放给任何人。
+  // 用户自建的智能体默认「暂不开放」—— 公开上架属于平台级动作，不该由
+  // 自建者一键完成（审核成本与滥用风险都高）。
+  const [audienceMode, setAudienceMode] = useState<'all' | 'selected' | 'none'>('none');
   const [maxSteps, setMaxSteps] = useState<string>('');
   const [tab, setTab] = useState<EditorSection>('basic');
 
@@ -286,6 +279,10 @@ export const AgentEditor: React.FC = () => {
     setResponseMode(profile.response_mode);
     setAvatar(profile.avatar || 'sparkles');
     setVisibility(profile.visibility || 'private');
+    setListed(Boolean(profile.listed));
+    setAudienceMode(
+      (profile.audience_mode as 'all' | 'selected' | 'none' | undefined) || 'none',
+    );
     setMaxSteps(profile.max_steps ? String(profile.max_steps) : '');
     const tools: Record<string, boolean> = {};
     const approvals: Record<string, boolean> = {};
@@ -359,10 +356,13 @@ export const AgentEditor: React.FC = () => {
         response_mode: responseMode,
         avatar,
         enabled: true,
-        listed: false,
+        listed,
         visibility,
-        audience_mode: 'all' as const,
-        audience_user_ids: [],
+        // 启用范围只在自己明确改过时提交。此前这里硬编码 'all' + [],
+        // 会把管理员配好的 ACL 悄悄清空（用户编辑个名字就丢权限配置）。
+        ...(audienceMode !== 'all'
+          ? { audience_mode: audienceMode, audience_user_ids: [] }
+          : {}),
         max_steps: parsedMaxSteps,
         tools: buildToolsPayload(),
         skill_ids: selectedSkills,
@@ -554,6 +554,58 @@ export const AgentEditor: React.FC = () => {
             </div>
 
             <div className="mb-4">
+              <span className="mb-1.5 block text-sm font-medium">上架到智能体商店</span>
+              {isAdminViewer ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setListed((v) => !v)}
+                    role="switch"
+                    aria-checked={listed}
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-colors',
+                      listed
+                        ? 'border-brand-500 bg-brand-500/10'
+                        : 'border-[var(--border-subtle)] hover:bg-[var(--surface-2)]',
+                    )}
+                  >
+                    <span>
+                      <span className="block text-sm font-semibold">
+                        {listed ? '已上架' : '未上架'}
+                      </span>
+                      <span className="mt-0.5 block text-[11px] text-[var(--muted-foreground)]">
+                        {listed
+                          ? '其他用户能在智能体商店看到并使用它'
+                          : '只有你自己能在「我的智能体」里用'}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        'relative h-5 w-9 shrink-0 rounded-full transition-colors',
+                        listed ? 'bg-[var(--primary)]' : 'bg-[var(--surface-3)]',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform',
+                          listed ? 'translate-x-4' : 'translate-x-0.5',
+                        )}
+                      />
+                    </span>
+                  </button>
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--muted-foreground)]">
+                    上架决定商店里有没有它；「启用范围」（管理后台）决定上架后谁能用。
+                  </p>
+                </>
+              ) : (
+                <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2.5 text-xs leading-relaxed text-[var(--muted-foreground)]">
+                  自建智能体默认不上架 —— 上架是平台级动作，需要管理员审核。
+                  你可以先把智能体做好，再联系管理员上架到商店。
+                </p>
+              )}
+            </div>
+
+            <div className="mb-4">
               <span className="mb-1.5 block text-sm font-medium">图标</span>
               <div className="flex flex-wrap gap-2">
                 {AVATAR_CHOICES.map(({ key, label, Icon }) => (
@@ -588,6 +640,42 @@ export const AgentEditor: React.FC = () => {
                 单轮对话允许的最大工具调用轮次
               </span>
             </label>
+
+            {/* 启用范围：谁能看见并使用这个智能体 */}
+            <div className="block">
+              <span className="mb-1.5 block text-sm font-medium">启用范围</span>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {(
+                  [
+                    ['none', '暂不开放', '别人看不到也用不了'],
+                    ['all', '全体用户', '所有登录用户可见可用'],
+                    ['selected', '指定用户', '需管理员在后台指定名单'],
+                  ] as ['none' | 'all' | 'selected', string, string][]
+                ).map(([value, label, hint]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setAudienceMode(value)}
+                    className={cn(
+                      'rounded-lg border px-3 py-2 text-left transition-all',
+                      audienceMode === value
+                        ? 'border-[var(--foreground)] bg-[var(--surface-2)] shadow-sm'
+                        : 'border-[var(--border-subtle)] hover:border-[var(--border-medium)]',
+                    )}
+                  >
+                    <span className="block text-sm font-semibold text-[var(--foreground)]">
+                      {label}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] font-medium text-[var(--muted-foreground)]">
+                      {hint}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <span className="mt-1.5 block text-[11px] text-[var(--muted-foreground)]">
+                「指定用户」需要在管理后台配置名单；这里选不了具体的人。
+              </span>
+            </div>
           </section>
 
 

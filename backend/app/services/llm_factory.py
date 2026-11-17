@@ -25,6 +25,7 @@ def build_llm(
     model: str | None = None,
     max_tokens: int | None = None,
     timeout: int | None = None,
+    lease: Any | None = None,
 ) -> Any:
     """按当前生效提供商构建网关。
 
@@ -55,6 +56,7 @@ def build_llm(
         max_tokens=max_tokens or settings.agent_max_tokens,
         timeout=timeout or settings.llm_timeout,
         model=resolved_model,
+        lease=lease,
     )
 
 
@@ -65,6 +67,7 @@ def build_llm_for_user(
     timeout: int | None = None,
     model: str | None = None,
     role: str | None = None,
+    lease: Any | None = None,
 ) -> Any:
     """``build_llm`` 的兼容别名。
 
@@ -72,7 +75,9 @@ def build_llm_for_user(
     不按用户区分，因此这里不再有「用谁的 Cookie」这种决策。新代码直接用
     ``build_llm``，别再用这个名字（它容易让人以为能按用户切提供商）。
     """
-    return build_llm(role=role, model=model, max_tokens=max_tokens, timeout=timeout)
+    return build_llm(
+        role=role, model=model, max_tokens=max_tokens, timeout=timeout, lease=lease
+    )
 
 
 def build_llm_optional(

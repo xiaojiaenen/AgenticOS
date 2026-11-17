@@ -6,6 +6,7 @@ import type { UseFormReturn } from 'react-hook-form';
 import { Check, X } from 'lucide-react';
 import { Button } from '@/components/shadcn/button';
 import { cn } from '@/lib/utils';
+import { groupToolsByCategory } from '@/lib/toolCategories';
 import type { AgentProfileTool } from '@/services/agentProfileService';
 import type { ToolCatalogItem } from '@/services/toolConfigService';
 import type { AgentFormValues } from './agentHelpers';
@@ -30,7 +31,10 @@ function Toggle({
       disabled={disabled}
       className={cn(
         'flex h-8 w-14 items-center rounded-full p-1 transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50',
-        checked ? 'justify-end bg-zinc-900 shadow-md' : 'justify-start bg-zinc-200 hover:bg-zinc-300',
+        // 走 token 而不是硬编码 zinc：深色模式下 bg-zinc-200 会变成刺眼白条
+        checked
+          ? 'justify-end bg-[var(--primary)] shadow-md'
+          : 'justify-start bg-[var(--surface-3)] hover:bg-[var(--border-strong)]',
       )}
     >
       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--surface-1)] shadow-sm">
@@ -96,8 +100,24 @@ export function AgentToolsPanel({
         </span>
       </div>
 
-      <div className="space-y-3">
-        {tools.map((tool) => {
+      <div className="space-y-5">
+        {/* 按类别分组展示：52 个工具平铺时很难找，同类型放一组才直观。
+            分类表见 lib/toolCategories.ts（与 AgentEditor 共用，避免各写一份
+            导致新工具在一处落到「其他」）。 */}
+        {groupToolsByCategory(tools.map((t) => ({ name: t.tool_name, tool: t }))).map(
+          ([category, entries]) => (
+            <div key={category}>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--muted-foreground)]">
+                  {category}
+                </span>
+                <span className="text-[10px] text-[var(--muted-foreground)]">
+                  {entries.filter((e) => e.tool.enabled).length}/{entries.length}
+                </span>
+                <div className="h-px flex-1 bg-[var(--border-subtle)]" />
+              </div>
+              <div className="space-y-3">
+                {entries.map(({ tool }) => {
           const meta = catalogByName.get(tool.tool_name);
           const isSkillTool = tool.tool_name === 'skill';
           const subTools = meta?.sub_tools || [];
@@ -236,7 +256,11 @@ export function AgentToolsPanel({
               )}
             </div>
           );
-        })}
+                })}
+              </div>
+            </div>
+          ),
+        )}
       </div>
     </div>
   );

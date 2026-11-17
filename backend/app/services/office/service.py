@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 import time
 from pathlib import Path
 from typing import Any
@@ -193,7 +194,18 @@ async def build(session_id: str) -> dict[str, Any]:
 
     directory = next_version_dir(SHEETS_DIR, meta["user_id"], session_id)
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / "workbook.json").write_text(serialized, encoding="utf-8")
+    # 原子写 + 失败清理。直接 write_text 在「进程被杀 / 磁盘满」时会留下一个
+    # **空版本目录** —— 线上实测 `documents/u1_s..._v1/` 里一个文件都没有，
+    # 发布审批时 `_read_office_snapshot` 读不到快照，用户看到的是
+    # 「点审批显示失败」。写失败就把这次新建的空目录删掉，不留幽灵版本。
+    target = directory / "workbook.json"
+    temp = directory / "workbook.json.tmp"
+    try:
+        temp.write_text(serialized, encoding="utf-8")
+        temp.replace(target)
+    except Exception:
+        shutil.rmtree(directory, ignore_errors=True)
+        raise
 
     sheets = snapshot.get("sheets", {})
     order = snapshot.get("sheetOrder", [])

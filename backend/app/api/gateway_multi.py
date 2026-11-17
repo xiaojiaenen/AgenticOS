@@ -158,6 +158,12 @@ async def embeddings(request: Request):
     if user is None:
         return _unauthorized()
 
+    # 这个端点此前**从不设用户上下文** —— 导致后续任何按用户取凭据的逻辑
+    # 都会退到匿名分支。补上，并标记为对外调用。
+    from app.core.data_path import set_current_user_id, set_external_api_call
+    set_current_user_id(user.id)
+    set_external_api_call(True)
+
     try:
         body = await request.json()
     except Exception:
@@ -262,6 +268,13 @@ async def images_generations(request: Request):
     if user is None:
         return _unauthorized()
 
+    # 这个端点此前**从不设用户上下文** —— images 取 Cookie 走的是
+    # get_active_cookie()（无视用户绑定、谁调都用共享池主号且不写审计）。
+    # 补上用户上下文并标记为对外调用。
+    from app.core.data_path import set_current_user_id, set_external_api_call
+    set_current_user_id(user.id)
+    set_external_api_call(True)
+
     try:
         body = await request.json()
     except Exception:
@@ -271,13 +284,17 @@ async def images_generations(request: Request):
     if not prompt:
         return _error("prompt 不能为空")
 
-    from app.services.llm_providers.resolve_models import resolve_image_endpoint
+    from app.services.llm_providers.resolve_models import (
+        COOKIE_MODE_ACQUIRE,
+        resolve_image_endpoint,
+    )
 
     try:
         from app.db.session import create_db_session
 
         with create_db_session() as db:
-            endpoint = resolve_image_endpoint(db)
+            # 对外调用 → 借共享池账号（推进 last_used_at、拿 credential_id 写审计）
+            endpoint = resolve_image_endpoint(db, cookie_mode=COOKIE_MODE_ACQUIRE)
     except Exception as exc:  # noqa: BLE001
         logger.warning("解析生图端点失败", exc_info=True)
         return _error(f"读取生图配置失败：{exc}", 500)
@@ -495,8 +512,10 @@ async def anthropic_messages(request: Request):
     if user is None:
         return _unauthorized("anthropic")
 
-    from app.core.data_path import set_current_user_id
+    from app.core.data_path import set_current_user_id, set_external_api_call
     set_current_user_id(user.id)
+    # 对外 API Key 调用 → 无条件走共享 cookie 池。
+    set_external_api_call(True)
 
     try:
         body = await request.json()
@@ -521,7 +540,7 @@ async def anthropic_messages(request: Request):
 
     from app.db.session import create_db_session
     from app.services.llm_providers import direct
-    from app.services.llm_providers.direct import DirectLLMError
+    from app.services.llm_providers.direct import DirectLLMError, DirectPoolEmpty
     from app.services.quota_service import DailyQuotaExceeded, check_daily_quota
 
     try:
@@ -544,6 +563,9 @@ async def anthropic_messages(request: Request):
                 tool_choice=tool_choice,
                 thinking=thinking,
             )
+    except DirectPoolEmpty as exc:
+        # 共享账号池暂时没号 —— 可重试的暂时状态，不是上游故障。
+        return _error(str(exc), 503, "anthropic")
     except DirectLLMError as exc:
         return _error(str(exc), 502, "anthropic")
 
@@ -552,6 +574,14 @@ async def anthropic_messages(request: Request):
         reasoning = direct.extract_reasoning(result)
         usage = direct.extract_usage(result)
         calls = direct.extract_tool_calls(result)
+        # 用量记账：直通路径的 token 也必须落库，否则日配额查不到这些消耗。
+        await _record_direct_usage(
+            user_id=user.id,
+            gateway=gateway,
+            usage=usage,
+            model_name=model_name,
+            tool_calls=len(calls),
+        )
         # 有工具调用时 stop_reason 是 tool_use（Anthropic 规范）
         finish = "tool_calls" if calls else direct.extract_finish_reason(result)
         payload = _openai_to_anthropic_response(
@@ -572,15 +602,26 @@ async def anthropic_messages(request: Request):
         yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': 0, 'content_block': {'type': 'text', 'text': ''}}, ensure_ascii=False)}\n\n".encode()
 
         output_chars = 0
+        collected: list[str] = []
         try:
             async for chunk in result:
                 delta = _chunk_delta_text(chunk)
                 if delta:
                     output_chars += len(delta)
+                    collected.append(delta)
                     yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'text_delta', 'text': delta}}, ensure_ascii=False)}\n\n".encode()
         except Exception as exc:  # noqa: BLE001
             logger.warning("anthropic stream failed", exc_info=True)
             yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': {'type': 'api_error', 'message': str(exc)}}, ensure_ascii=False)}\n\n".encode()
+        finally:
+            # 流式拿不到精确 usage（上游没回流），按累计字符估算并标记
+            # tokens_estimated —— 估算值与实际计费必须能在统计里区分开。
+            await _record_direct_usage(
+                user_id=user.id,
+                gateway=gateway,
+                model_name=model_name,
+                output_text="".join(collected),
+            )
 
         yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0}, ensure_ascii=False)}\n\n".encode()
         # MessageDeltaUsage 的 output_tokens 是**必填**（anthropic SDK 要求）。
@@ -717,8 +758,10 @@ async def openai_responses(request: Request):
     if user is None:
         return _unauthorized()
 
-    from app.core.data_path import set_current_user_id
+    from app.core.data_path import set_current_user_id, set_external_api_call
     set_current_user_id(user.id)
+    # 对外 API Key 调用 → 无条件走共享 cookie 池。
+    set_external_api_call(True)
 
     try:
         body = await request.json()
@@ -742,7 +785,7 @@ async def openai_responses(request: Request):
 
     from app.db.session import create_db_session
     from app.services.llm_providers import direct
-    from app.services.llm_providers.direct import DirectLLMError
+    from app.services.llm_providers.direct import DirectLLMError, DirectPoolEmpty
     from app.services.quota_service import DailyQuotaExceeded, check_daily_quota
 
     try:
@@ -764,6 +807,8 @@ async def openai_responses(request: Request):
                 tool_choice=tool_choice,
                 thinking=thinking,
             )
+    except DirectPoolEmpty as exc:
+        return _error(str(exc), 503)
     except DirectLLMError as exc:
         return _error(str(exc), 502)
 
@@ -772,6 +817,13 @@ async def openai_responses(request: Request):
         reasoning = direct.extract_reasoning(result)
         usage = direct.extract_usage(result)
         finish = direct.extract_finish_reason(result)
+        # 用量记账：直通路径的 token 也必须落库，否则日配额查不到这些消耗。
+        await _record_direct_usage(
+            user_id=user.id,
+            gateway=gateway,
+            usage=usage,
+            model_name=model_name,
+        )
         return JSONResponse(
             status_code=200,
             content=_to_responses_output(
@@ -898,9 +950,42 @@ async def openai_responses(request: Request):
             if item.get("type") == "message":
                 item["id"] = msg_id
         yield _ev("response.completed", {"type": "response.completed", "response": final})
+        # 流式拿不到精确 usage（上游没回流），按累计字符估算并标记
+        # tokens_estimated —— 估算值与实际计费必须能在统计里区分开。
+        await _record_direct_usage(
+            user_id=user.id,
+            gateway=gateway,
+            model_name=model_name,
+            output_text=final_text,
+        )
 
     return StreamingResponse(
         event_stream(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+async def _record_direct_usage(
+    *,
+    user_id: int | None,
+    gateway: object,
+    usage: dict[str, int] | None = None,
+    model_name: str | None = None,
+    output_text: str = "",
+    tool_calls: int = 0,
+) -> None:
+    """把一次直通调用的用量记进 ``agent_usage_events``。
+
+    记账失败不影响响应（``usage_recorder`` 内部已兜底）。
+    """
+    from app.services.usage_recorder import record_direct_usage
+
+    await record_direct_usage(
+        user_id=user_id,
+        gateway=gateway,
+        usage=usage or {},
+        model_name=model_name,
+        output_text=output_text,
+        tool_calls=tool_calls,
     )

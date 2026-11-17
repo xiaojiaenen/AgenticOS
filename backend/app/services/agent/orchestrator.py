@@ -369,6 +369,47 @@ class StreamOrchestrator:
 
                 clear_accumulated(session.session_id)
                 _logger.info("attached %d chart messages to assistant message", len(chart_msgs))
+
+            # 产物（ppt / website / document / sheet）同样挂到 metadata.artifact。
+            #
+            # 此前 artifact 只存在于 SSE 的 artifact_ready 事件里，不落库 ——
+            # 刷新会话后前端拿不到 artifact_id，表现为一串连锁故障：
+            #   * 导出 PPTX 静默失败（handleExport 在无 artifact_id 时直接 return）
+            #   * 主题切换无效（handleThemeChange 同样 early-return）
+            #   * 侧边栏打开是裸 iframe（没有主题/导出/编辑按钮）
+            # A2UI 与图表都走了「累积 → 挂 metadata → 前端恢复」这条路，产物
+            # 缺了同一套，所以这里补齐，格式与它们保持一致（单对象，不是列表）。
+            artifact_meta = None
+            try:
+                from app.services.artifact_events import accumulated as _artifact_accumulated
+
+                artifact_meta = _artifact_accumulated(session.session_id) or None
+            except Exception:  # noqa: BLE001
+                artifact_meta = None
+            if artifact_meta:
+                for msg in reversed(pending):
+                    if getattr(msg, "role", None) == "assistant":
+                        meta = dict(getattr(msg, "metadata", None) or {})
+                        # 同一轮可能有多类产物（极罕见），按 kind 合并成 dict
+                        prev = meta.get("artifact")
+                        merged = dict(prev) if isinstance(prev, dict) else {}
+                        merged.update(artifact_meta)
+                        meta["artifact"] = merged
+                        try:
+                            msg.metadata = meta
+                        except Exception:  # noqa: BLE001
+                            _logger.warning("attach artifact metadata failed", exc_info=True)
+                        break
+                try:
+                    from app.services.artifact_events import clear_accumulated as _artifact_clear
+
+                    _artifact_clear(session.session_id)
+                except Exception:  # noqa: BLE001
+                    pass
+                _logger.info(
+                    "attached artifact metadata to assistant message: kinds=%s",
+                    sorted(artifact_meta.keys()),
+                )
             count = await self.storage.append_messages_batch(session.session_id, pending)
             _logger.info(f"Persisted {count} messages for session {session.session_id}")
         except Exception as e:
@@ -778,6 +819,8 @@ class StreamOrchestrator:
         artifact = await self._create_ppt_artifact(session.session_id)
         _logger.info("ppt artifact result: session=%s, artifact=%s", session.session_id, "OK" if artifact else "None")
         if artifact is not None:
+            # 落库挂 metadata（artifact_ready 只是 SSE 事件，刷新后拿不回）
+            self._record_artifact("ppt", artifact)
             yield {
                 "event": "run_status",
                 "data": {
@@ -850,11 +893,15 @@ class StreamOrchestrator:
             yield mapped
 
     async def _finalize_artifact(self, create_coro, snapshot_fn, *, kind: str):
-        """创建产物 → 快照版本 → 返回带 version 的 artifact dict（失败返回 None）。
+        """创建产物 → 快照版本 → 记录到产物通道 → 返回带 version 的 artifact dict。
 
         website / document / sheet 三个 done 分支原本是三段近乎相同的
         create + try-snapshot + yield，只差 create/snapshot 的参数与日志名。
         ``snapshot_fn`` 接收创建好的 artifact，返回 version（或 None）。
+
+        产物要同时 ``artifact_events.record`` 一份：``artifact_ready`` 只是
+        SSE 事件，不落库，刷新会话后前端读不到 artifactId（导出/主题/侧栏
+        三个功能同时失效的根因，详见 ``artifact_events`` 模块说明）。
         """
         artifact = await create_coro
         if artifact is None:
@@ -866,7 +913,18 @@ class StreamOrchestrator:
                     artifact["version"] = version
             except Exception:
                 _logger.exception("%s version snapshot failed", kind)
+        self._record_artifact(kind, artifact)
         return artifact
+
+    def _record_artifact(self, kind: str, artifact: dict[str, Any]) -> None:
+        """把产物描述记进本轮的产物通道（供落库挂 metadata，刷新后可恢复）。"""
+        try:
+            from app.services import artifact_events
+
+            session_id = artifact.get("session_id") or ""
+            artifact_events.record(kind, artifact, session_id)
+        except Exception:  # noqa: BLE001 -- 记录失败不该影响产物返回
+            _logger.warning("record artifact failed (kind=%s)", kind, exc_info=True)
 
     async def _handle_done_event(
         self,
@@ -1135,7 +1193,9 @@ class StreamOrchestrator:
         # Inject design system catalog for PPT mode
         message = request.message
         if ppt_mode:
-            message = self._inject_design_catalog(message)
+            # visual_style 与 theme 正交：theme 管色值，style 管形状/留白/纹理。
+            # 用户选了风格就注入该风格的完整规则，没选就注入风格目录让模型挑。
+            message = self._inject_design_catalog(message, visual_style=request.visual_style)
             edit_hint = await self._get_edit_hint(request.session_id)
             if edit_hint:
                 message = message + edit_hint
@@ -1215,6 +1275,14 @@ class StreamOrchestrator:
             reset_chart_session(session.session_id)
         except Exception:  # noqa: BLE001
             _logger.warning("chart reset failed", exc_info=True)
+        # 产物采集器：同上。Redis 在线时累积跨请求存活，不清就会把上一轮
+        # 的 artifactId 挂到本轮新消息上（刷新后点开看到的是旧产物）。
+        try:
+            from app.services.artifact_events import reset_session as reset_artifact_session
+
+            reset_artifact_session(session.session_id)
+        except Exception:  # noqa: BLE001
+            _logger.warning("artifact reset failed", exc_info=True)
         if user is not None:
             set_current_user_id(user.id)
             set_ext_user_id(user.id)

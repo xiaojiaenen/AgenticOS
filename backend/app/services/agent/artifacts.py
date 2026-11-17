@@ -388,7 +388,13 @@ class ArtifactFactory:
             "type": "website",
             "artifact_id": session_id,  # use session_id as artifact_id for now
             "session_id": session_id,
-            "title": slug.replace("-", " ").title(),
+            # 标题：slug 是机器标识（u<uid>_s<时间戳><随机>_v<n>），不能直接当标题
+            # 显示。原来用 ``slug.replace("-", " ").title()``，Python 的 .title()
+            # 会把每个词首字母大写 —— "u1_s1793675114671-xdt43g_v1" 变成
+            # "U1_S1793675114671 Xdt43G_V1"，又长又丑还丢了原样。
+            # 这里只把分隔符换成空格，保留原字符大小写；作品库那边的可读标题
+            # 由会话标题派生，不依赖这里。
+            "title": slug.replace("_", " ").replace("-", " "),
             "project_slug": slug,
             "stack": stack,
             "file_count": file_count,
@@ -468,6 +474,21 @@ class ArtifactFactory:
                 _processed += _align_images(svg_path, dry_run=False, verbose=False)[0]
                 try:
                     svg_content = svg_path.read_text(encoding="utf-8")
+                    # 属性值内的引号冲突（``font-family=''A','B'``）会让整页
+                    # XML 非法、ET.parse 抛错后该页被 skip 成空白页。写入时
+                    # sanitize 已修新数据，但存量产物在库里就是坏的形态 ——
+                    # 导出时必须再兜一次（用户报"导出的 PPT 每一页都空白"）。
+                    from app.services.ppt_artifact_service import (
+                        _fix_attribute_quote_conflicts,
+                    )
+
+                    _repaired = _fix_attribute_quote_conflicts(svg_content)
+                    if _repaired != svg_content:
+                        _logger.info(
+                            "repaired attribute quote conflicts in %s", svg_path.name
+                        )
+                        svg_content = _repaired
+                        svg_path.write_text(svg_content, encoding="utf-8")
                     svg_content = svg_content.replace('&nbsp;', '&#160;')
                     svg_content = svg_content.replace('&copy;', '&#169;')
                     svg_content = svg_content.replace('&reg;', '&#174;')

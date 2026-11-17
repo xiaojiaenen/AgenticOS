@@ -1,0 +1,12 @@
+{
+  "fps": 60,
+  "bpm": 180,
+  "meter": "3/4",
+  "beat_frames": 20,
+  "durationFrames": 1260,
+  "size": [
+    1920,
+    1080
+  ],
+  "renderer": "Canvas 2D"
+}

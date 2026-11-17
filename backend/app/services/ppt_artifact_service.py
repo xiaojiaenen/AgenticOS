@@ -9,6 +9,87 @@ from typing import Any
 from app.core.timezone import isoformat_app_timezone
 
 
+def _fix_attribute_quote_conflicts(svg: str) -> str:
+    """修复「属性值内部又出现同种引号」导致的非法 XML。
+
+    真实故障（用户报"PPT 导出每页都空白"）：模型写出
+
+        font-family=''Noto Serif SC','Playfair Display',serif'
+
+    —— 外层用单引号包属性值，值内部又嵌了 `'Noto Serif SC'`。XML 解析器
+    读到第一个内层单引号就认定属性结束，后面的 `Noto Serif SC` 成了游离
+    token，整个文档 not well-formed。下游 `ET.parse` 直接抛错 →
+    ``Skipping slide N due to SVG parse error`` → 导出的 pptx 每页空白。
+
+    （``sanitize_svg_xml`` 原本只处理**文本内容**里的 ``&``/``<``，
+    属性值里的引号冲突没人管，所以这类 SVG 能落库、能预览，就是导不出。）
+
+    做法：手写一个标签内扫描器（比正则可靠，能正确处理连续引号）：
+
+      * 进入 ``<tag`` 后，读属性名，遇到 ``=`` 再读引号定界符；
+      * 定界符是 ``'`` 时，值**一直吃到「后面紧跟空白或 > 的那个 '」**
+        （正常属性值的结束引号后面必然是空格、``/`` 或 ``>``；而内层
+        引号后面跟的是字母或逗号，据此区分）；
+      * 不是结束引号的那些内层引号，替换成 ``&apos;`` / ``&quot;``。
+    """
+    if "'" not in svg and '"' not in svg:
+        return svg
+
+    out: list[str] = []
+    i = 0
+    n = len(svg)
+    in_tag = False
+    while i < n:
+        ch = svg[i]
+        if ch == "<":
+            in_tag = True
+            out.append(ch)
+            i += 1
+            continue
+        if ch == ">":
+            in_tag = False
+            out.append(ch)
+            i += 1
+            continue
+        if not in_tag:
+            out.append(ch)
+            i += 1
+            continue
+
+        # 在标签内：检查是否是一个 quotename="..." / 'value...' 的开头
+        if ch in ("'", '"'):
+            # 判断这个引号是「值定界符」还是刚读到的属性名结尾（罕见）
+            # 向前看：值结束引号后面必须是 空白 / '/' / '>' / 结尾
+            quote = ch
+            j = i + 1
+            buf: list[str] = []
+            while j < n:
+                cj = svg[j]
+                if cj == quote:
+                    nxt = svg[j + 1] if j + 1 < n else ""
+                    if nxt in ("", " ", "\t", "\n", "\r", "/", ">"):
+                        # 这是真正的结束引号
+                        break
+                    # 内层引号 → 转义
+                    buf.append("&apos;" if quote == "'" else "&quot;")
+                    j += 1
+                    continue
+                buf.append(cj)
+                j += 1
+            out.append(quote)
+            out.append("".join(buf))
+            if j < n:
+                out.append(quote)  # 结束引号
+                j += 1
+            i = j
+            continue
+
+        out.append(ch)
+        i += 1
+
+    return "".join(out)
+
+
 def sanitize_svg_xml(svg: str) -> str:
     """Fix unescaped XML special characters (&, <) in SVG text/tspan content,
     and strip attribute values set to the literal string ``"undefined"``.
@@ -24,6 +105,10 @@ def sanitize_svg_xml(svg: str) -> str:
     """
     # Strip "undefined" attribute values first
     svg = re.sub(r'\s+\w+="undefined"', "", svg)
+
+    # 属性值内的引号冲突（``font-family=''A','B'``）：必须在解析前修掉，
+    # 否则整页 XML 非法、导出时被 skip 成空白页（见函数 docstring）。
+    svg = _fix_attribute_quote_conflicts(svg)
 
     def _escape_content(text: str) -> str:
         parts = re.split(r"(<[^>]+>)", text)
@@ -315,9 +400,21 @@ class PptArtifactService:
 
         svgs = []
         for f in svg_files:
-            svg = f.read_text(encoding="utf-8", errors="replace").strip()
-            if svg.startswith("<svg"):
-                svgs.append(svg)
+            raw = f.read_text(encoding="utf-8", errors="replace").strip()
+            if raw.startswith("<svg"):
+                # 先做可无损修复的格式修正，再交给质量门。
+                #
+                # 关键：质量门（下方 checker.check_file）**重新读磁盘文件**，
+                # 不读这个内存变量 —— 只改内存等于没改。而它把「Invalid XML」
+                # 列为 critical error 直接拒绝建产物，属性值内嵌引号
+                # （``font-family=''A','B'``）这种可确定性修复的格式问题
+                # 就会让整份 PPT 生成失败 / 导出空白页。
+                # 所以这里必须**写回磁盘**，让质量门看到修复后的内容。
+                repaired = sanitize_svg_xml(raw)
+                if repaired != raw:
+                    f.write_text(repaired, encoding="utf-8")
+                    _logger.info("sanitized SVG before quality gate: %s", f.name)
+                svgs.append(repaired)
             else:
                 _logger.warning(f"Slide file doesn't start with <svg>: {f}")
 

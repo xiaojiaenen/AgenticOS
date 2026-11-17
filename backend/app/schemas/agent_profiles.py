@@ -43,7 +43,7 @@ class AgentProfileBase(BaseModel):
     enabled: bool = True
     listed: bool = False
     max_steps: int | None = Field(default=None, ge=1, le=2147483647)
-    audience_mode: str = Field(default="all", pattern="^(all|selected)$")
+    audience_mode: str = Field(default="all", pattern="^(all|selected|none)$")
     audience_user_ids: list[int] = Field(default_factory=list)
 
     @field_validator("name", "description", "system_prompt", "avatar")
@@ -82,7 +82,7 @@ class AgentProfileUpdateRequest(BaseModel):
     enabled: bool | None = None
     listed: bool | None = None
     max_steps: int | None = Field(default=None, ge=1, le=2147483647)
-    audience_mode: str | None = Field(default=None, pattern="^(all|selected)$")
+    audience_mode: str | None = Field(default=None, pattern="^(all|selected|none)$")
     audience_user_ids: list[int] | None = None
     tools: list[AgentProfileTool] | None = None
     skill_ids: list[int] | None = None
@@ -123,6 +123,17 @@ class AgentProfileResponse(AppBaseModel):
     owner_id: int | None = None
     """是否由当前请求用户拥有（前端据此显示编辑/删除入口）"""
     is_owner: bool = False
+    #: 实际所有者（`owner_id` 指向的用户）的姓名/邮箱 —— 后台目录要显示
+    #: "这个智能体是谁建的"。内置智能体为 None。
+    owner_name: str | None = None
+    owner_email: str | None = None
+    #: 创建人（`created_by`）：用户自建时与 owner 通常一致；内置/导入的智能体
+    #: 可能是创建它那次操作的管理员。None = 平台内置。
+    created_by_name: str | None = None
+    #: 这个智能体是否**不受工具策略限制**（平台内置 / 管理员自建）。
+    #: 前端据此决定编辑器里要不要显示受限工具 —— 与运行期用的是同一个判断
+    #: （`_is_privileged_profile`），避免"界面藏了但运行时给用"的不一致。
+    tools_unrestricted: bool = False
     visibility: str = "private"
     max_steps: int | None = None
     audience_mode: str

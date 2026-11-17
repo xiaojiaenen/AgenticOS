@@ -14,6 +14,9 @@ import * as React from 'react';
 import { FileImage, FileSpreadsheet, FileText, Globe, Presentation, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useChatStore } from '../../stores/chatStore';
+import { issueWebsitePreviewUrl } from '../../services/websiteService';
+import { PptArtifactPanel } from '../ppt/PptArtifactPanel';
+import { SlideLivePreview } from '../ppt/SlideLivePreview';
 import type { Artifact, Message } from '../../types';
 
 export type TabKind = 'ppt' | 'website' | 'document' | 'sheet' | 'image' | 'file' | 'log';
@@ -27,6 +30,10 @@ export interface SidebarTab {
   artifact?: Artifact;
   /** 文件路径（file 标签） */
   path?: string;
+  /** website：项目 slug（现签预览链接用） */
+  projectSlug?: string;
+  /** website：技术栈（vue/react 的 SPA 不能 srcDoc 内联 —— 会劫持路由） */
+  stack?: string;
 }
 
 const KIND_ICON: Record<TabKind, typeof Globe> = {
@@ -50,19 +57,38 @@ export function collectTabs(messages: Message[], sessionId: string): SidebarTab[
   };
   messages.forEach((m, i) => {
     if (m.pptArtifact?.status === 'ready') {
+      // id 用真 artifactId；只有历史脏数据（早期未落库的旧消息）才退回位置序号。
+      // 退回值的产物在服务端查不到，面板会显示"加载失败"，但至少标签可点。
       const id = m.pptArtifact.artifactId ?? `ppt-${i}`;
       push({
         id: `ppt:${id}`,
         kind: 'ppt',
         title: m.pptArtifact.title || '演示文稿',
-        artifact: m.pptArtifact.html
-          ? { language: 'ppt', artifactId: m.pptArtifact.artifactId, html: m.pptArtifact.html, title: m.pptArtifact.title ?? '', slideCount: m.pptArtifact.slideCount ?? 0, theme: m.pptArtifact.theme, sessionId }
-          : undefined,
+        // artifact 始终构造（即使没有 html）：PptArtifactPanel 会按
+        // artifactId 懒加载预览，工具栏（主题/导出/编辑）不依赖 html。
+        artifact: {
+          language: 'ppt',
+          artifactId: m.pptArtifact.artifactId,
+          // 空串 = 尚未加载，PptArtifactPanel 会按 artifactId 回源预览
+          html: m.pptArtifact.html ?? '',
+          title: m.pptArtifact.title ?? '',
+          slideCount: m.pptArtifact.slideCount ?? 0,
+          theme: m.pptArtifact.theme,
+          sessionId,
+        },
       });
     }
     if (m.websiteArtifact?.status === 'ready') {
       const id = m.websiteArtifact.artifactId ?? `web-${i}`;
-      push({ id: `website:${id}`, kind: 'website', title: m.websiteArtifact.title || '网站' });
+      push({
+        id: `website:${id}`,
+        kind: 'website',
+        title: m.websiteArtifact.title || '网站',
+        projectSlug: m.websiteArtifact.projectSlug,
+        stack: m.websiteArtifact.stack,
+        /** 内联快照 —— 仅 vanilla（无路由脚本）允许 srcDoc 渲染 */
+        artifact: { language: 'website', artifactId: id, html: m.websiteArtifact.html ?? '', title: m.websiteArtifact.title ?? '', projectSlug: m.websiteArtifact.projectSlug ?? '', stack: m.websiteArtifact.stack, fileCount: 0 } as Artifact,
+      });
     }
     if (m.documentArtifact?.status === 'ready') {
       push({ id: `document:${m.documentArtifact.artifactId ?? i}`, kind: 'document', title: m.documentArtifact.title || '文档' });
@@ -82,13 +108,15 @@ export function collectTabs(messages: Message[], sessionId: string): SidebarTab[
 export interface SidebarHostProps {
   sessionId: string | null;
   messages: Message[];
+  /** PPT 生成中：侧栏在没有产物标签时展示实时预览（轮询增量 SVG） */
+  isPptStreaming?: boolean;
 }
 
 /**
  * 侧栏容器：标签栏 + 激活标签内容。
  * 标签数据由 ChatMainArea 的触发点写入 store；这里只负责渲染与关闭。
  */
-export const IdeSidebar: React.FC<SidebarHostProps> = ({ sessionId, messages }) => {
+export const IdeSidebar: React.FC<SidebarHostProps> = ({ sessionId, messages, isPptStreaming = false }) => {
   const tabs = useChatStore((s) => s.sidebarTabs);
   const activeTabId = useChatStore((s) => s.activeSidebarTabId);
   const setActiveTab = useChatStore((s) => s.setActiveSidebarTab);
@@ -108,7 +136,16 @@ export const IdeSidebar: React.FC<SidebarHostProps> = ({ sessionId, messages }) 
           <span className="text-[11px] font-semibold text-[var(--muted-foreground)]">侧栏</span>
           <button type="button" onClick={closeAll} aria-label="关闭侧栏" className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"><X size={14} /></button>
         </div>
-        {available.length === 0 ? (
+        {/* 生成中没有产物标签：直接展示实时预览（用户要求"用侧栏那套展示"）。
+            原来实时预览是主区域独立的 35% 右栏，与产物面板抢宽度。 */}
+        {isPptStreaming ? (
+          <SlideLivePreview
+            sessionId={sessionId}
+            isStreaming={isPptStreaming}
+            hasArtifact={false}
+            compact
+          />
+        ) : available.length === 0 ? (
           <div className="flex flex-1 items-center justify-center px-6">
             <p className="text-center text-[11px] leading-relaxed text-[var(--muted-foreground)]">
               这个会话还没有产物。<br />生成 PPT、网站、文档或上传图片后，会出现在这里。
@@ -193,46 +230,135 @@ export const IdeSidebar: React.FC<SidebarHostProps> = ({ sessionId, messages }) 
   );
 };
 
-/** 标签内容：按类型在侧栏内就地渲染 */
-const TabBody: React.FC<{ tab: SidebarTab; sessionId: string | null; messages: Message[] }> = ({ tab, sessionId, messages }) => {
-  const setArtifact = useChatStore((s) => s.setArtifact);
+/**
+ * 网站标签体：与 WebsiteArtifactPanel 相同的劫持防护。
+ *
+ * vue/react（带路由的 SPA）在 srcDoc 里启动时，hash router 的
+ * replaceState 以**父文档**为基准 —— iframe 会导航到 AgenticOS 自己
+ * （实测 /chat#/）。这类栈必须用子路径托管的 preview_url；
+ * vanilla（无路由脚本）srcDoc 安全，作为兜底。
+ */
+const WebsiteTabBody: React.FC<{ tab: SidebarTab; sessionId: string | null }> = ({ tab, sessionId }) => {
+  const slug = tab.projectSlug;
+  const stack = tab.stack;
+  const isRouterStack = stack === 'vue' || stack === 'react';
+  const [signedUrl, setSignedUrl] = React.useState<string | null>(null);
+  const [signFailed, setSignFailed] = React.useState(false);
 
-  // PPT：侧栏内 iframe 渲染（preview_html 自包含，无外部依赖）
-  if (tab.kind === 'ppt' && tab.artifact?.language === 'ppt' && tab.artifact.html) {
+  React.useEffect(() => {
+    if (!sessionId || !slug || signedUrl || signFailed) return;
+    let cancelled = false;
+    issueWebsitePreviewUrl(sessionId, slug)
+      .then((r) => {
+        if (!cancelled && r?.url) setSignedUrl(r.url);
+        else if (!cancelled) setSignFailed(true);
+      })
+      .catch(() => {
+        if (!cancelled) setSignFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, slug, signedUrl, signFailed]);
+
+  const art = tab.artifact;
+  const canInline = !isRouterStack && !!art && art.language === 'website' && !!art.html;
+
+  if (signedUrl) {
     return (
       <iframe
         title={tab.title}
-        srcDoc={tab.artifact.html}
+        src={signedUrl}
         className="h-full w-full border-0 bg-white"
-        sandbox="allow-scripts allow-same-origin allow-popups"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        allow="fullscreen"
       />
     );
   }
 
-  // 网站：产物自带预览 HTML 时内联渲染；否则提示在浏览器打开
-  if (tab.kind === 'website') {
-    const ws = messages.find((x) => `website:${x.websiteArtifact?.artifactId ?? ''}` === tab.id)?.websiteArtifact;
-    if (ws?.html) {
-      return (
-        <iframe
-          title={tab.title}
-          srcDoc={ws.html}
-          className="h-full w-full border-0 bg-white"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-        />
-      );
-    }
+  if (isRouterStack || (!canInline && signFailed)) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
         <Globe size={26} className="text-[var(--muted-foreground)]" />
-        <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">这个网站没有可内联的预览快照。</p>
-        {ws?.previewUrl ? (
-          <a href={ws.previewUrl} target="_blank" rel="noreferrer" className="rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-[11px] hover:bg-[var(--surface-2)]">
-            在浏览器打开
-          </a>
-        ) : null}
+        <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+          {signFailed
+            ? '预览链接签发失败，请稍后重试或在会话里重新打开产物。'
+            : '正在签发预览链接…'}
+        </p>
+        {!signFailed && slug && sessionId && (
+          <button
+            type="button"
+            onClick={() => setSignFailed(false)}
+            className="rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-[11px] hover:bg-[var(--surface-2)]"
+          >
+            重试
+          </button>
+        )}
       </div>
     );
+  }
+
+  // vanilla：内联快照安全
+  if (canInline && art.language === 'website') {
+    return (
+      <iframe
+        title={tab.title}
+        srcDoc={art.html}
+        className="h-full w-full border-0 bg-white"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+      <Globe size={26} className="text-[var(--muted-foreground)]" />
+      <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">这个网站没有可内联的预览快照。</p>
+    </div>
+  );
+};
+
+/** 标签内容：按类型在侧栏内就地渲染 */
+const TabBody: React.FC<{ tab: SidebarTab; sessionId: string | null; messages: Message[] }> = ({ tab, sessionId, messages }) => {
+  const setArtifact = useChatStore((s) => s.setArtifact);
+
+  // PPT：**必须复用 PptArtifactPanel**，不能只渲染裸 iframe。
+  // 主题切换 / 导出 PPTX / 发布到作品库这些按钮长在该面板上，
+  // 之前侧栏直接 srcDoc 预览 HTML，用户看到的是"没有工具栏的空壳"。
+  if (tab.kind === 'ppt' && tab.artifact?.language === 'ppt') {
+    const pptArtifact = tab.artifact;
+    return (
+      <PptArtifactPanel
+        // sessionId 必须兜底成侧栏当前的会话：PublishToGalleryButton 的
+        // 渲染条件是 artifactId && sessionId，而从历史消息还原的 artifact
+        // 可能没带 sessionId（collectTabs 的入参为空时）—— 那会让"发布到
+        // 作品库"按钮凭空消失。
+        artifact={{ ...pptArtifact, sessionId: pptArtifact.sessionId || sessionId || undefined }}
+        onClose={() => {}}
+        // 主题切换后要把新 HTML 回写到全局 artifact：
+        // 面板内部已 setHtml 保证预览立即刷新，这里再同步一份给「重开产物」
+        // 与主区域面板 —— 否则侧栏切完主题、关掉再重开，又回到旧主题。
+        onThemeChange={(newHtml, theme) => {
+          setArtifact({
+            ...pptArtifact,
+            html: newHtml,
+            theme,
+            sessionId: pptArtifact.sessionId || sessionId || undefined,
+          });
+        }}
+        // 侧栏宽度有限，面板自身的 60% 宽度动画在侧栏里会挤成 0，
+        // 用 compact 让它铺满容器、去掉侧边栏专属的内边距。
+        compact
+      />
+    );
+  }
+
+  // 网站：vue/react 是带路由的 SPA，srcDoc 内联会**劫持父文档路由**
+  //（hash router 启动时 replaceState 以父文档为 base → iframe 导航到
+  // AgenticOS 自己）。这类栈一律现签 preview_url 用子路径托管；
+  // vanilla（无路由脚本）srcDoc 安全，保留内联兜底。
+  if (tab.kind === 'website') {
+    return <WebsiteTabBody key={tab.id} tab={tab} sessionId={sessionId} />;
   }
 
   // 文档 / 表格：完整编辑器在主预览区（侧栏宽度放不下 Univer），给一键跳转

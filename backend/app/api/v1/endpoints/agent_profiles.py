@@ -35,6 +35,9 @@ def create_agent_profile(
         result = AgentProfileService().create(payload, current_user)
     except KeyError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except PermissionError as exc:
+        # 勾选了管理员限制的工具 —— 必须 403 而不是 500
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     get_agent_service().clear_agent_cache()

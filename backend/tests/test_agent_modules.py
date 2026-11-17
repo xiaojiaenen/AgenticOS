@@ -97,7 +97,12 @@ class TestAgentFactoryMiddlewareStack:
         assert "calculate" in tool_names
         assert "get_now" in tool_names
         assert "__tool_rejected__" in tool_names
-        assert ext_instruction == ""
+        # 能力边界提示按**实际注册表**动态生成（2026-11-16 起）。
+        # 曾断言 == ""；现在这里必然带「能做什么 / 缺什么」一段，
+        # 内容随管理员开的工具变化，不能写死。
+        assert "能力边界" in ext_instruction
+        # 这个最小 profile 没有任何 PPT/网站/办公工具 → 应提示去切换
+        assert "PPT 设计师" in ext_instruction
 
     def test_concurrent_tool_execution_relies_on_upstream(self):
         """并发工具执行由上游原生实现，不再有 monkey-patch。

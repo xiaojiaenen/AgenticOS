@@ -146,6 +146,143 @@ def _build_spec_lock_hint() -> str:
 # ---------------------------------------------------------------------------
 def register_ppt_tools(registry: ToolRegistry) -> None:
 
+    @registry.tool(display_name="查图表模板")
+    async def find_chart_template(query: str = "", template_key: str = "") -> str:
+        """查询图表模板库（71 个可视化模板），决定该用哪种图表。
+
+        两种用法：
+        - 传 query（中文/英文意图，如「占比」「趋势」「流程」）→ 返回匹配的
+          候选模板及各自的选型规则（Pick for … / Skip if …）；
+        - 传 template_key → 返回该模板的完整 SVG 源码，照它的结构改数据。
+
+        参数:
+          query: 意图查询，如「占比」「趋势对比」「组织架构」
+          template_key: 直接指定模板名（如 bar_chart、funnel_chart）
+        """
+        from app.services.ppt.chart_catalog import (
+            catalog_size,
+            get_chart_template,
+            search_chart_templates,
+        )
+
+        if template_key:
+            svg = get_chart_template(template_key)
+            if svg is None:
+                return f"模板 {template_key!r} 不存在。先不传 template_key 查一下可用模板。"
+            return f"模板 {template_key} 的 SVG 源码（照此结构替换数据）：\n\n{svg}"
+
+        results = search_chart_templates(query, limit=10)
+        if not results:
+            return (
+                f"没有匹配「{query}」的模板（库内共 {catalog_size()} 个）。"
+                "试试更通用的词，或不传 query 列出全部。"
+            )
+        lines = [f"匹配「{query or '全部'}」的图表模板（共 {catalog_size()} 个可选）：", ""]
+        for r in results:
+            lines.append(f"- **{r['key']}**：{r['summary']}")
+        lines += ["", "选定后传 template_key 取它的 SVG 源码。"]
+        return "\n".join(lines)
+
+    @registry.tool(display_name="校验公式")
+    async def validate_formula(latex: str) -> str:
+        """校验 LaTeX 公式语法（本地 KaTeX）。写含公式的幻灯片前先校验，
+        避免把解析不了的 LaTeX 直接渲染到页面上。
+
+        参数:
+          latex: 公式源码，如 \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}
+        """
+        from app.services.ppt.latex_render import validate_latex
+
+        ok, err = validate_latex(latex)
+        if ok:
+            return "公式语法正确，可直接使用。"
+        return f"公式语法错误：{err}\n请修正后重试。"
+
+    @registry.tool(display_name="测量文字")
+    async def measure_text_fit(
+        text: str,
+        font_size: float,
+        max_width: float,
+        max_height: float = 0,
+    ) -> str:
+        """测量一段文字在给定宽度下是否放得下，并给出建议换行。
+
+        SVG 的 <text> 不会自动换行，文字超宽会压到别的元素上。写页面之前
+        用它自查：标题/正文在一个容器里会不会溢出。
+
+        参数:
+          text: 要测量的文字（可含换行）
+          font_size: 字号（px，对应 SVG 的 font-size）
+          max_width: 可用宽度（px）
+          max_height: 可选，可用高度（px）；传 0 表示只判断宽度
+        """
+        from app.services.ppt.text_measure import fits, wrap_text
+
+        ok, detail = fits(
+            text,
+            font_size,
+            max_width,
+            max_height if max_height > 0 else None,
+        )
+        lines = wrap_text(text, font_size, max_width)
+        head = "放得下" if ok else "**放不下**"
+        parts = [
+            f"{head}：共 {detail['lines']} 行，最宽 {detail['widest']}px / 可用 {max_width}px"
+            + (f"，高 {detail['height']}px / 可用 {max_height}px" if max_height > 0 else ""),
+        ]
+        if not ok:
+            if detail["overflow_width"] > 0:
+                parts.append(f"宽度超出 {detail['overflow_width']}px —— 建议缩短文字或调小字号")
+            if detail["overflow_height"] > 0:
+                parts.append(f"高度超出 {detail['overflow_height']}px —— 建议减少行数或调小字号")
+        parts.append("")
+        parts.append("建议换行：")
+        for i, line in enumerate(lines, 1):
+            parts.append(f"  {i}. {line}")
+        return "\n".join(parts)
+
+    @registry.tool(display_name="列出视觉风格")
+    async def list_visual_styles(style_id: str = "") -> str:
+        """查询 PPT 视觉风格（与配色主题正交的另一层）。
+
+        不传参数返回全部 18 种风格的目录；传 style_id 返回该风格的完整规则
+        （形状语言、字体特征、配色纪律、纹理层次）。
+
+        视觉风格只管「怎么长」—— 形状、装饰密度、留白节奏、纹理；
+        色值一律来自所选主题（var(--token)）。两者组合使用。
+
+        参数:
+          style_id: 可选，风格 id（如 swiss-minimal）；留空则列出全部
+        """
+        from app.services.ppt.visual_styles_data import (
+            VISUAL_STYLES,
+            list_styles,
+            style_prompt_block,
+        )
+
+        if style_id:
+            if style_id not in VISUAL_STYLES:
+                known = ", ".join(sorted(VISUAL_STYLES))
+                return f"未知风格 {style_id!r}。可用：{known}"
+            return style_prompt_block(style_id)
+
+        cat_names = {
+            "corporate": "商务 / 产品",
+            "editorial": "编辑 / 出版",
+            "expressive": "表现 / 印刷",
+            "hand_drawn": "手绘 / 笔刷",
+            "specialty": "专门",
+        }
+        lines = [f"共 {len(VISUAL_STYLES)} 种视觉风格（与配色主题正交，色值来自主题）：", ""]
+        current_cat = None
+        for s in list_styles():
+            if s["category"] != current_cat:
+                current_cat = s["category"]
+                lines.append(f"**{cat_names.get(current_cat, current_cat)}**")
+            lines.append(f"- `{s['id']}` — {s['label']}：{s['summary'][:100]}")
+        lines += ["", "调用 list_visual_styles(style_id='...') 查看某个风格的完整规则。"]
+        return "\n".join(lines)
+
     @registry.tool(display_name="读取幻灯片")
     async def read_slide(slide_num: int) -> str:
         """读取已有幻灯片的 SVG 内容，用于修改前查看。

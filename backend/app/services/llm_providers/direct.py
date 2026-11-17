@@ -29,9 +29,11 @@ import time
 import uuid
 from typing import Any, AsyncIterator
 
-from app.db.models import UserModel
-from app.services.llm_providers import spec as provider_spec
-from app.services.llm_providers.runtime import ProviderUnavailable, build_gateway
+from app.services.llm_providers.runtime import (
+    ProviderUnavailable,
+    SharedPoolEmpty,
+    build_gateway,
+)
 from app.services.llm_providers.spec import resolve_model_for_role
 
 logger = logging.getLogger("agenticos.direct_llm")
@@ -39,6 +41,15 @@ logger = logging.getLogger("agenticos.direct_llm")
 
 class DirectLLMError(RuntimeError):
     """直通调用失败（上游错误、配置缺失等）。"""
+
+
+class DirectPoolEmpty(DirectLLMError):
+    """共享账号池无可用账号。
+
+    与「上游挂了」区分：池空是暂时状态，端点据此回 503（可重试）而不是
+    502（对方服务真坏了）。继承 ``DirectLLMError`` 是为了让现有只捕获父类
+    的调用点仍然正常处理 —— 它们会把它当普通错误转 502/500，不至于崩。
+    """
 
 
 def _normalize_assistant_tool_calls(raw_calls: list[Any]) -> list[Any]:
@@ -285,6 +296,9 @@ async def complete(
             timeout=spec.timeout_seconds,
             model=model_name,
         )
+    except SharedPoolEmpty as exc:
+        # 池空是可重试的暂时状态，端点据此回 503
+        raise DirectPoolEmpty(str(exc)) from exc
     except ProviderUnavailable as exc:
         raise DirectLLMError(str(exc)) from exc
 

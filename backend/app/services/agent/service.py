@@ -19,6 +19,8 @@ from wuwei import Agent
 
 from app.core.config import Settings, get_settings
 from app.db.models import ApprovalModel, PptArtifactModel, UserModel
+from sqlalchemy import select
+
 from app.db.session import create_db_session
 from app.schemas.agent import AgentStreamRequest
 from app.services.agent import prompts
@@ -107,19 +109,78 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
             )
         return self._runtime_from_mode(request.response_mode, request.system_prompt)
 
+    async def ensure_profile_access(self, request: AgentStreamRequest, user: UserModel) -> None:
+        """对话入口的智能体权限拦截。
+
+        商店里看不到 ≠ 用不了：用户可以手改请求体塞一个 profile_id 进来。
+        所以真正动手前必须再查一次授权 —— 不可用的智能体在这里被直接
+        403 掉，模型根本不会被唤醒（而不是让它跑一轮再报错）。
+
+        三种越权场景都拦在这：
+
+        - profile_id 指向未授权/未启用/暂不开放的智能体；
+        - 不带 profile_id 时按 response_mode 落到内置智能体，而那个内置
+          智能体当前不可用（例如"网站工程师"被设为暂不开放）；
+        - 会话已绑定某个 profile，但该 profile 后来被收回权限。
+        """
+        if user is None:
+            return
+
+        def _check() -> None:
+            from app.db.models import AgentProfileModel
+
+            with create_db_session() as db:
+                profile_id = request.agent_profile_id
+                if profile_id is None:
+                    # 未指定 profile：按模式找内置；找不到/不可用一律拒绝
+                    # （不能悄悄退回 general —— 那等于让被禁用的智能体
+                    #   以"通用助手"的身份继续跑）。
+                    profile = db.scalar(
+                        select(AgentProfileModel).where(
+                            AgentProfileModel.slug == request.response_mode,
+                            AgentProfileModel.is_builtin.is_(True),
+                        )
+                    )
+                    if profile is None:
+                        # 没有该模式的内置智能体（例如 video 模式已下线）：
+                        # 允许按普通模式跑，不做拦截。
+                        return
+                else:
+                    profile = db.get(AgentProfileModel, profile_id)
+                    if profile is None:
+                        raise PermissionError("智能体不存在或已被删除。")
+
+                service = self.agent_profiles
+                if not service._is_profile_available_to_user(db, profile, user):
+                    raise PermissionError(
+                        f"你没有使用「{profile.name}」的权限，请联系管理员开通。"
+                    )
+
+        await asyncio.to_thread(_check)
+
     async def ensure_session_access(self, request: AgentStreamRequest, user: UserModel) -> None:
+        """会话归属校验：**只能访问自己的会话，管理员也不例外**。
+
+        为什么管理员不放行：对话里常有员工写给 AI 的私事、粘贴的密钥、
+        未公开的方案。管理员需要的是"平台是否健康"，不是"某人在聊什么"。
+        需要排障时应当走可审计的途径（后台的会话分析只给聚合统计，不给
+        正文），而不是让每个管理员默认能翻全部聊天记录。
+
+        想看会话内容必须先有该会话的 user_id 归属；未归属的历史会话仍允许
+        访问（兼容老数据），但有消息的未归属会话一律拒绝。
+        """
         if not request.session_id:
             return
         owner_id = await self.storage.get_owner_id(request.session_id)
         if owner_id is not None:
-            if owner_id != user.id and user.role != "admin":
+            if owner_id != user.id:
                 raise PermissionError("当前用户无权访问该会话。")
         else:
             # Session is unowned — allow access but verify it's empty or new.
             # If the session already has messages with a different user context,
             # it's likely a stale unowned session, deny access.
             msg_count = await self.storage.get_message_count(request.session_id)
-            if msg_count > 0 and user.role != "admin":
+            if msg_count > 0:
                 raise PermissionError("会话未绑定用户且已有消息记录，当前用户无权访问。")
 
     async def _ensure_record_owner(
@@ -219,8 +280,10 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
         return await self.storage.list_user_sessions(user_id)
 
     async def delete_session(self, session_id: str, current_user: UserModel) -> None:
+        # 与 ensure_session_access 同一套口径：管理员不能删除别人的会话
+        # （删除是不可逆的，比读取更需要收紧）。
         owner_id = await self.storage.get_owner_id(session_id)
-        if owner_id is not None and owner_id != current_user.id and current_user.role != "admin":
+        if owner_id is not None and owner_id != current_user.id:
             raise PermissionError("当前用户无权删除该会话。")
         await self.storage.delete(session_id)
 
@@ -237,7 +300,7 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
         if session is None:
             raise ValueError("会话不存在")
         owner_id = await self.storage.get_owner_id(session_id)
-        if owner_id is not None and owner_id != current_user.id and current_user.role != "admin":
+        if owner_id is not None and owner_id != current_user.id:
             raise PermissionError("当前用户无权操作该会话")
 
         api_name = params.get("api_name", "")

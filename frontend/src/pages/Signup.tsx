@@ -13,6 +13,7 @@ import { Input } from '../components/shadcn/input';
 import { Label } from '../components/shadcn/label';
 import { Card, CardContent } from '../components/shadcn/card';
 import { registerWithCode, sendVerificationCode } from '../services/authService';
+import { canEnterAdmin } from '../services/authTokenStore';
 import { cn } from '../lib/utils';
 
 const EMAIL_SUFFIXES = [
@@ -124,8 +125,8 @@ export const Signup = () => {
       return;
     }
     try {
-      const user = await registerWithCode(values.name, values.email, values.password, values.code);
-      navigate(user.role === 'admin' ? '/admin' : '/chat', { replace: true });
+      await registerWithCode(values.name, values.email, values.password, values.code);
+      navigate(canEnterAdmin() ? '/admin' : '/chat', { replace: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : '注册失败';
       setError('root', { message });

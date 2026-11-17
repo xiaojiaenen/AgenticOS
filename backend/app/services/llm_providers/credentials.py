@@ -326,6 +326,85 @@ def _usable():
     )
 
 
+def explain_pool_empty(provider_id: int) -> str:
+    """池空时给管理员一句**可操作**的原因，而不是笼统的"没有可用账号"。
+
+    三种失败在 `acquire()` 里都返回 None，上层完全看不出差别 —— 用户只会看到
+    "共享账号池暂无可用账号"，然后不知道该去哪改什么。这里把库里的事实翻出来：
+
+    - 一条凭据都没有       → 去「AI 提供商 → 账号池」添加
+    - 有但没拿到 Cookie    → 网关登录没成功，去测试连接/重新登录
+    - 有但被禁用/额度用尽  → 具体哪一条、什么原因
+
+    只用于**报错文案**，不参与选号逻辑（选号仍然是 acquire 的事）。
+    """
+    try:
+        with create_db_session() as db:
+            rows = db.scalars(
+                select(LlmProviderCredentialModel).where(
+                    LlmProviderCredentialModel.provider_id == provider_id
+                )
+            ).all()
+            if not rows:
+                return (
+                    "共享账号池里没有账号：这个提供商还没有任何企业网关账号 —— "
+                    "请到「管理后台 → AI 提供商 → 账号池」添加（或把提供商改成 API Key 方式）。"
+                )
+
+            total = len(rows)
+            no_cookie = [
+                r for r in rows
+                if not (r.cookie_encrypted or "").strip()
+            ]
+            disabled = [r for r in rows if r.disabled]
+            failed = [
+                r for r in rows
+                if (r.failure_count or 0) >= MAX_CONSECUTIVE_FAILURES
+            ]
+            not_active = [r for r in rows if r.status != STATUS_ACTIVE]
+            expired = [
+                r for r in rows
+                if r.expire_at is not None and r.expire_at <= app_now()
+            ]
+
+            reasons: list[str] = []
+            expired_ids = {r.id for r in expired}
+            usable = [
+                r for r in rows
+                if not r.disabled
+                and (r.cookie_encrypted or "").strip()
+                and (r.failure_count or 0) < MAX_CONSECUTIVE_FAILURES
+                and r.status == STATUS_ACTIVE
+                and r.id not in expired_ids
+            ]
+            if usable:
+                # 理论到不了这里（有可用号 acquire 就该成功）；说明是选号期间
+                # 被并发抢走或解密失败，给一句通用的重试指引即可。
+                return f"池里有 {total} 个账号但本次没取到（可能正在被其它请求占用），请稍后重试。"
+
+            if no_cookie:
+                ids = "、".join(f"#{r.id}" for r in no_cookie[:5])
+                reasons.append(
+                    f"{len(no_cookie)}/{total} 个账号**还没拿到 Cookie**（{ids}）—— "
+                    "说明企业网关自动登录没成功。请到账号池里对这些账号点「重新登录」"
+                    "或检查网关地址与域密码"
+                )
+            if disabled:
+                reasons.append(f"{len(disabled)} 个被手动禁用")
+            if failed:
+                reasons.append(f"{len(failed)} 个连续失败达到上限（会自动恢复或需手动重置）")
+            if not_active:
+                reasons.append(f"{len(not_active)} 个状态非 active")
+            if expired:
+                reasons.append(f"{len(expired)} 个已过期")
+            if not reasons:
+                reasons.append("账号池里的账号均不可用")
+            return f"共享池共 {total} 个账号都不可用：{'；'.join(reasons)}。"
+    except Exception as exc:  # noqa: BLE001 —— 诊断失败不能盖掉原始错误
+        logger.debug("explain_pool_empty failed provider=%s: %s", provider_id, exc)
+        return "共享账号池暂无可用账号，请稍后重试或联系管理员。"
+
+
 def _current_bound_user() -> int | None:
     """读当前请求的用户（contextvar），没有则 None。
 
@@ -338,6 +417,21 @@ def _current_bound_user() -> int | None:
         return get_current_user_id()
     except Exception:  # noqa: BLE001 —— LookupError（未设置）等一律视为匿名
         return None
+
+
+def is_external_api_call() -> bool:
+    """本次调用是否来自对外 API Key 网关（外部 AI 客户端）。
+
+    对外调用**无条件走共享池**，即使 API Key 所属用户自己绑定了企业网关
+    凭据 —— 外部流量不该打在个人号上。归属（用量、额度、聊天记录）仍然
+    记 API Key 所属用户。
+    """
+    try:
+        from app.core.data_path import is_external_api_call as _is_external
+
+        return bool(_is_external())
+    except Exception:  # noqa: BLE001 —— 判断失败按「不是对外调用」处理
+        return False
 
 
 def _login_grace_seconds() -> int:
@@ -409,6 +503,12 @@ def acquire(provider_id: int) -> AccountLease | None:
 
     选号偏好（LDAP 账号 == 企业网关账号的部署形态）：
 
+    0. **对外 API Key 调用**（``is_external_api_call()``）→ **无条件走共享池**，
+       跳过本人绑定行的查询。外部客户端是程序化批量调用，摊配额、避开个人
+       账号限流才是刚需；且调用方是 API Key 所属用户，他恰好绑定了自己的
+       企业网关凭据也不该被优先使用 —— 那会让外部流量打在个人号上。
+       归属不变：用量、额度、聊天记录仍记 API Key 所属用户，见
+       ``usage_recorder``。
     1. 当前用户**自己绑定**的凭据（user_id 匹配）—— 审计上上游看到的
        身份就是本人；
     2. 共享池（user_id 为空）—— 传统系统级账号。
@@ -421,6 +521,11 @@ def acquire(provider_id: int) -> AccountLease | None:
         return None
     now = app_now()
     bound_user = _current_bound_user()
+    # 对外 API Key 调用：跳过「本人绑定」这一层，直接取共享池。
+    # 放在最前面 —— 否则调用方恰好绑定了自己的凭据时会被优先使用。
+    external = is_external_api_call()
+    if external:
+        bound_user = None
     try:
         with create_db_session() as db:
             base_filters = [

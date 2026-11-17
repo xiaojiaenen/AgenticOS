@@ -81,8 +81,39 @@ export function isAuthenticated(): boolean {
   return Boolean(getAuthToken() && getStoredUser());
 }
 
+/**
+ * 是否有「完整平台管理」权限（admin / superadmin）。
+ *
+ * 以服务端下发的 `capabilities` 为准 —— 角色定义在**后端** `app/core/roles.py`
+ * 一张表里，前端不硬编码角色名，新增角色不用改前端。
+ *
+ * 兼容旧缓存：`/auth/me` 之前存下的 user 没有 capabilities 字段，
+ * 这时退回按角色名判断，避免用户升级后瞬间失去后台入口。
+ */
 export function isAdmin(): boolean {
-  return getStoredUser()?.role === 'admin';
+  return hasCapability('user:manage');
+}
+
+/** 是否**能进后台页面**（运营/审计也能进，各自只看自己的面板）。 */
+export function canEnterAdmin(): boolean {
+  const user = getStoredUser();
+  if (!user) return false;
+  if (user.capabilities?.length) {
+    // 任意一项管理类能力即可（后端 can_enter_admin 的同口径：非 agent:use）
+    return user.capabilities.some(
+      (cap) => cap !== 'agent:use' && cap !== 'conversation:own',
+    );
+  }
+  return user.role === 'admin' || user.role === 'superadmin';
+}
+
+/** 是否拥有某个能力（能力位见后端 app/core/roles.py）。 */
+export function hasCapability(capability: string): boolean {
+  const user = getStoredUser();
+  if (!user) return false;
+  if (user.capabilities?.length) return user.capabilities.includes(capability);
+  // 旧缓存兜底：那时只有 admin/user 两种角色，把 admin 视作拥有全部能力
+  return user.role === 'admin' || user.role === 'superadmin';
 }
 
 export function authHeaders(): Record<string, string> {

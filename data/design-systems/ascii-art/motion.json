@@ -1,0 +1,12 @@
+{
+  "fps": 60,
+  "bpm": 120,
+  "beat_frames": 30,
+  "durationFrames": 1080,
+  "size": [
+    1920,
+    1080
+  ],
+  "renderer": "Canvas 2D",
+  "signature": "decode"
+}

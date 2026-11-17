@@ -1,0 +1,30 @@
+/* PPT theme: liquid-chrome — auto-generated from open-design */
+
+:root {
+  --bg: #090e18;
+  --bg-soft: #171c25;
+  --surface: #33383f;
+  --surface-2: #30353b;
+  --border: #33383f;
+  --border-strong: #73767a;
+  --text-1: #f5f5f2;
+  --text-2: #a2a4a6;
+  --text-3: #676a6f;
+  --accent: #ed80b8;
+  --accent-2: #f0a9cc;
+  --accent-3: #f3d2e1;
+  --good: #116f39;
+  --warn: #9b790e;
+  --bad: #921e21;
+  --grad: linear-gradient(135deg, #ed80b8, #f0a9cc);
+  --grad-soft: linear-gradient(135deg, rgba(237,128,184,0.08), rgba(240,169,204,0.04));
+  --font-sans: None,'Noto Sans SC',sans-serif;
+  --font-display: None,'Noto Sans SC',sans-serif;
+  --font-mono: 'JetBrains Mono',monospace;
+  --font-serif: 'Playfair Display','Noto Serif SC',serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-lg: 16px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.10);
+  --shadow-lg: 0 2px 8px rgba(0,0,0,0.10);
+}

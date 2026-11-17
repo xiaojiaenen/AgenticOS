@@ -68,6 +68,18 @@ class ProviderUnavailable(RuntimeError):
     """当前提供商无法构建可用网关（缺 Key / Cookie 失效 / 未装浏览器）。"""
 
 
+class SharedPoolEmpty(ProviderUnavailable):
+    """共享账号池里没有可用账号。
+
+    与「上游故障」区分开：池空是**可重试**的暂时状态（另一个号可能正在
+    被别的请求用着），端点据此回 503 而不是 502 —— 客户端退避后重试就能
+    恢复，而 502 通常意味着对方服务真的坏了。
+
+    只在对外 API Key 调用时抛出：对外接口强制走共享池，池空就是真的没号
+    可用。网页端调用池空走的是「本人凭据失效」那条路径，文案完全不同。
+    """
+
+
 def _request_headers(transport: TransportOptions, *, cookie: str | None = None) -> dict[str, str]:
     headers: dict[str, str] = {}
     headers["User-Agent"] = BROWSER_USER_AGENT if transport.browser_user_agent else "AgenticOS/1.0"
@@ -217,11 +229,16 @@ def build_gateway(
     max_tokens: int,
     timeout: int,
     model: str | None = None,
+    lease: Any | None = None,
 ):
     """按提供商构建 wuwei ``LLMGateway``。
 
     ``model`` 留空表示用提供商自己配置的模型 —— 调用方不该拿全局默认模型
     去覆盖提供商配置，否则「切换提供商」会变成「切换地址但模型还是旧的」。
+
+    ``lease``：已借出的账号租约。传了就复用（不重新 acquire），不传才自己借。
+    agent 缓存需要「先借号 → 把 credential_id 放进缓存键 → 再用这个租约构建」
+    这样的顺序（换号后缓存要自动失效），所以租约必须能从外面传进来。
     """
 
     transport = resolve_transport(spec.extra)
@@ -253,12 +270,19 @@ def build_gateway(
         config["output_token_parameter"] = spec.extra["output_token_parameter"]
 
     if spec.provider_type == PROVIDER_TYPE_ENTERPRISE_COOKIE:
-        lease = credentials.acquire(spec.provider_id or 0)
         if lease is None:
+            lease = credentials.acquire(spec.provider_id or 0)
+        if lease is None:
+            # 池空的具体原因（没凭据 / 有凭据但缺 Cookie / 全被禁用 / 连续失败）
+            # 写进报错。否则用户只看到"没有可用账号"，不知道该去哪改什么。
+            detail = credentials.explain_pool_empty(spec.provider_id or 0)
+            if credentials.is_external_api_call():
+                # 对外 API Key 调用：池空是「暂时没号可用」，可重试。
+                raise SharedPoolEmpty(detail)
             # 措辞要能直接指导动作：最常见的两种原因是「绑定凭据失效
             # （域密码改了）」和「Cookie 正在后台续期」。直白说，别只说池空。
             raise ProviderUnavailable(
-                f"提供商「{spec.name}」的企业网关登录态不可用。"
+                f"提供商「{spec.name}」的企业网关登录态不可用：{detail}"
                 "若是刚改过域密码，请退出平台重新登录一次（登录时会自动同步"
                 "新密码并续期 Cookie）；若显示「正在登录企业网关」请稍候重试。"
             )
@@ -312,6 +336,7 @@ def build_gateway_for_active_provider(
     timeout: int,
     model: str | None = None,
     spec: ProviderSpec | None = None,
+    lease: Any | None = None,
 ):
     """解析当前提供商并构建网关，必要时回落环境变量。
 
@@ -319,12 +344,24 @@ def build_gateway_for_active_provider(
     定时任务可能还没跑到。回落会打 WARNING 并把原因写进日志，便于发现
     「配置早就烂了但一直没人管」。要求严格走企业网关的部署可以把
     ``LLM_PROVIDER_FALLBACK_TO_ENV`` 关掉，此时直接抛错。
+
+    ``lease``：已借出的账号租约，传入则复用（不重新 acquire）。agent 缓存
+    需要「先借号 → 把 credential_id 放进缓存键 → 再用这个租约构建」这样的
+    顺序（换号后缓存要自动失效），所以租约必须能从外面传进来。
+
+    **共享池为空时不回落环境变量**：对外 API Key 调用强制走共享池，回落到
+    env 的 API Key 等于绕过「只用共享号」这条约定，且调用方完全不知情。
     """
     from app.services.llm_providers.spec import resolve_active_provider
 
     active = spec or resolve_active_provider()
     try:
-        return build_gateway(active, max_tokens=max_tokens, timeout=timeout, model=model)
+        return build_gateway(
+            active, max_tokens=max_tokens, timeout=timeout, model=model, lease=lease
+        )
+    except SharedPoolEmpty:
+        # 池空是可重试的暂时状态，回落到 env 会掩盖真实原因
+        raise
     except ProviderUnavailable as exc:
         if not get_settings().llm_provider_fallback_to_env:
             raise
@@ -333,6 +370,23 @@ def build_gateway_for_active_provider(
         if not fallback.api_key:
             raise ProviderUnavailable(
                 f"提供商「{active.name}」不可用（{exc}），且环境变量未配置兜底 Key"
+            ) from exc
+        if not fallback.base_url:
+            # base_url 为空 / 还是模板占位符（``<内网模型网关>``）。继续调下去
+            # 只会让 urllib 抛 ``Invalid IDNA hostname: '<内网模型网关>'`` 这种
+            # 天书，用户完全不知道要改哪里。这里直接给可操作的诊断。
+            from app.services.llm_providers.spec import looks_like_placeholder
+
+            raw = (get_settings().openai_base_url or "").strip()
+            hint = (
+                f"当前 OPENAI_BASE_URL={raw!r} 是模板占位符，没有替换成真实地址"
+                if looks_like_placeholder(raw)
+                else "当前 OPENAI_BASE_URL 为空"
+            )
+            raise ProviderUnavailable(
+                f"提供商「{active.name}」不可用（{exc}），且环境变量兜底地址无效：{hint}。"
+                "请在 .env 填写内网模型网关地址后重启后端，或在「管理后台 → AI 提供商」"
+                "里把该提供商修好（它是首选路径）。"
             ) from exc
         return build_gateway(fallback, max_tokens=max_tokens, timeout=timeout, model=model)
 

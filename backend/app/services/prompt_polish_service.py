@@ -110,10 +110,17 @@ async def polish_prompt(raw_text: str, *, user_id: int | None = None, timeout: i
 
     # 护栏一：扩写上限。润色允许把模糊短句补成一小段（缺信息本来就该补），
     # 但 4 倍以上通常意味着模型在写报告而不是改提示词。
-    if polished and len(polished) > max(120, int(len(original) * 4)):
+    #
+    # 下限取 400 而不是 120：用户输入常是「做个ppt」这种 5 字短语，正常
+    # 润色会补成一段可执行需求（100~300 字），原来的 max(120, len*4)
+    # 会把这类**合理扩写**判死 —— 实测 "做个ppt"(5 字) 被扩到 296 字即被
+    # 拒，前端只看到"润色失败，已保留原文"。上限本身（len*4）对长输入
+    # 仍然生效，防止模型改写成报告。
+    limit = max(400, int(len(original) * 4))
+    if polished and len(polished) > limit:
         logger.warning(
-            "prompt polish rejected (over-expanded): user=%s in_len=%d out_len=%d",
-            user_id, len(original), len(polished),
+            "prompt polish rejected (over-expanded): user=%s in_len=%d out_len=%d limit=%d",
+            user_id, len(original), len(polished), limit,
         )
         polished = ""
 

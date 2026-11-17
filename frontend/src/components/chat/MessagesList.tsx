@@ -3,7 +3,7 @@ import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { ChatMessage } from './ChatMessage';
 import { ChatSuggestions } from './ChatSuggestions';
 import { Artifact, Message } from '../../types';
-import { getStoredUser } from '../../services/authService';
+import { canEnterAdmin } from '@/services/authTokenStore';
 
 // 超过该阈值的消息列表启用 react-virtuoso 虚拟化：长会话逐条渲染
 // ReactMarkdown 成本高；短列表走原路径，避免虚拟化带来的行为差异
@@ -74,7 +74,7 @@ export const MessagesList = React.memo<MessagesListProps>(({
   scrollParent,
   virtuosoRef,
 }) => {
-  const isAdmin = getStoredUser()?.role === 'admin';
+  const isAdmin = canEnterAdmin();
   const messages = currentSession?.messages;
   const displayMessages = useMemo(() => {
     if (isAdmin || !messages) return messages;

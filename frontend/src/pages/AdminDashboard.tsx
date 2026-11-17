@@ -27,6 +27,7 @@ const UsageRoutePanel = lazy(() => import('../components/admin/UsageRoutePanel')
 const DashboardStats = lazy(() => import('../components/admin/DashboardStats').then((m) => ({ default: m.DashboardStats })));
 const SkillManagement = lazy(() => import('../components/admin/SkillManagement').then((m) => ({ default: m.SkillManagement })));
 const KnowledgeManagement = lazy(() => import('../components/admin/KnowledgeManagement').then((m) => ({ default: m.KnowledgeManagement })));
+const AgentToolPolicyPanel = lazy(() => import('../components/admin/AgentToolPolicyPanel').then((m) => ({ default: m.AgentToolPolicyPanel })));
 const WorkflowManagement = lazy(() => import('../components/admin/WorkflowManagement').then((m) => ({ default: m.WorkflowManagement })));
 const WebsiteDeployManagement = lazy(() => import('../components/admin/WebsiteDeployManagement').then((m) => ({ default: m.WebsiteDeployManagement })));
 const SystemSettings = lazy(() => import('../components/admin/SystemSettings').then((m) => ({ default: m.SystemSettings })));
@@ -50,7 +51,7 @@ const TabFallback = () => (
 
 
 export const AdminDashboard = () => {
-  const VALID_TABS = ['dashboard', 'user_analytics', 'history', 'feedback', 'users', 'permissions', 'agents', 'llm_providers', 'integrations', 'api_keys', 'gateway', 'skills', 'knowledge', 'website_deploys', 'announcements', 'settings', 'memory', 'traces', 'evals', 'workflows'];
+  const VALID_TABS = ['dashboard', 'user_analytics', 'history', 'feedback', 'users', 'permissions', 'agents', 'llm_providers', 'integrations', 'api_keys', 'gateway', 'skills', 'tool_policy', 'knowledge', 'website_deploys', 'announcements', 'settings', 'memory', 'traces', 'evals', 'workflows'];
   // tab 与 URL hash 双向同步：刷新 / 分享链接不丢失当前管理页
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.replace('#', '');
@@ -282,6 +283,8 @@ export const AdminDashboard = () => {
         return <GatewayEndpointsPanel />;
       case 'skills':
         return <SkillManagement />;
+      case 'tool_policy':
+        return <AgentToolPolicyPanel />;
       case 'knowledge':
         return <KnowledgeManagement />;
       case 'website_deploys':

@@ -32,7 +32,7 @@ export const agentFormSchema = z
       .refine((v) => v === null || Number.isFinite(v), { message: '最大步数必须是有效数字' }),
     enabled: z.boolean(),
     listed: z.boolean(),
-    audience_mode: z.enum(['all', 'selected']),
+    audience_mode: z.enum(['all', 'selected', 'none']),
     audience_user_ids: z.array(z.number()),
     tools: z.array(
       z.object({
@@ -76,6 +76,37 @@ export function defaultTools(catalog: ToolCatalogItem[]): AgentProfileTool[] {
   }));
 }
 
+/**
+ * 合并「已配置的工具」与「当前 catalog 全集」。
+ *
+ * 为什么必须合并：catalog 随版本增长（新增工具），而
+ * `agent_profile_tools` 里只存「当初配置过的那批」。直接 `profile.tools.map`
+ * 会让**新增工具在这个智能体上完全不可见** —— 用户看到「后台工具列表少了
+ * 几个」，实际只是它们没进过这份快照。
+ *
+ * 规则：
+ * - catalog 有的 → 用 profile 的配置；没配置过的按默认（关闭），
+ *   避免悄悄给老智能体開新能力；
+ * - profile 有、catalog 没有的（已下线工具）→ 丢弃。
+ */
+export function mergeToolsWithCatalog(
+  configured: AgentProfileTool[],
+  catalog: ToolCatalogItem[],
+): AgentProfileTool[] {
+  const byName = new Map(configured.map((t) => [t.tool_name, t]));
+  return catalog.map((item) => {
+    const existing = byName.get(item.name);
+    return existing
+      ? { ...existing, approval_sub_tools: [...(existing.approval_sub_tools ?? [])] }
+      : {
+          tool_name: item.name,
+          enabled: false,
+          requires_approval: false,
+          approval_sub_tools: [],
+        };
+  });
+}
+
 export function draftFromProfile(profile: AgentProfile, catalog: ToolCatalogItem[]): AgentFormValues {
   return {
     name: profile.name,
@@ -90,7 +121,7 @@ export function draftFromProfile(profile: AgentProfile, catalog: ToolCatalogItem
     audience_user_ids: profile.audience_users.map((user) => user.id),
     tools:
       profile.tools.length > 0
-        ? profile.tools.map((tool) => ({ ...tool, approval_sub_tools: [...tool.approval_sub_tools] }))
+        ? mergeToolsWithCatalog(profile.tools, catalog)
         : defaultTools(catalog),
     skill_ids: profile.skills.map((skill) => skill.id),
     external_systems: (profile.external_systems || []).map((es) => ({

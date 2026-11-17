@@ -17,6 +17,7 @@ import {
 } from '../services/agentService';
 import { AgentProfile } from '../services/agentProfileService';
 import { uploadFiles } from '../services/fileService';
+import { useFileUploadStore } from '@/features/island/uploadStore';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
 import { UserDecision, normalizeDecision } from '../components/chat/DecisionPanel';
 import { useChatStore } from '../stores/chatStore';
@@ -83,11 +84,18 @@ async function prepareUploadedFiles(
   onStatus: (label: string) => void,
 ): Promise<{ filename: string; file_path: string }[]> {
   onStatus('正在上传文件');
-  const results = await uploadFiles(files);
-  return results.map((r) => ({
-    filename: r.filename,
-    file_path: r.file_path,
-  }));
+  // 上传岛：真实字节进度（XHR onprogress），多文件聚合
+  const uploadStore = useFileUploadStore.getState();
+  uploadStore.begin(files.map((f) => ({ name: f.name, total: f.size })));
+  try {
+    const results = await uploadFiles(files, (index, fraction) => uploadStore.setProgress(index, fraction));
+    return results.map((r) => ({
+      filename: r.filename,
+      file_path: r.file_path,
+    }));
+  } finally {
+    uploadStore.finish();
+  }
 }
 
 interface UseChatStreamDeps {
@@ -95,6 +103,8 @@ interface UseChatStreamDeps {
   currentSessionId: string | null;
   currentSession: Session | null;
   chatMode: 'general' | 'ppt' | 'website' | 'email' | 'bigdata' | 'office';
+  /** PPT 视觉风格 id（与配色主题正交；仅 ppt 模式生效，空串=让模型自选） */
+  visualStyle?: string;
   /** 会话级审批模式 */
   approvalMode: 'ask' | 'auto' | 'full';
   /** 计划模式 */
@@ -136,6 +146,7 @@ export function useChatStream({
   currentSessionId,
   currentSession,
   chatMode,
+  visualStyle = '',
   approvalMode,
   planMode,
   selectedAgentProfileId,
@@ -494,6 +505,7 @@ export function useChatStream({
           systemPrompt:
             currentSession || selectedAgentProfileId ? undefined : MODE_SYSTEM_PROMPTS[chatMode],
           responseMode: chatMode,
+          visualStyle: visualStyle || undefined,
           agentProfileId: selectedAgentProfileId,
           approvalMode,
           planMode,
@@ -534,6 +546,10 @@ export function useChatStream({
               title: pptArtifact.title,
               slideCount: pptArtifact.slide_count,
               theme: pptArtifact.theme,
+              // sessionId 必须带上：面板里的「公开到作品库」按钮以
+              // `artifactId && sessionId` 为渲染条件（发布接口需要会话归属
+              // 校验）。漏了它按钮会凭空消失，用户以为没有发布功能。
+              sessionId: pptArtifact.session_id || targetId || undefined,
             };
             setArtifact(nextArtifact);
             setSessions((prev) =>

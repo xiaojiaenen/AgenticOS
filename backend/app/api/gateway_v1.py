@@ -47,6 +47,7 @@ async def list_models(request: Request):
         from app.db.session import create_db_session
         from app.services.llm_providers.resolve_models import (
             resolve_embedding_endpoint,
+            COOKIE_MODE_READONLY,
             resolve_image_endpoint,
         )
         from app.services.llm_providers.spec import resolve_active_provider
@@ -82,7 +83,9 @@ async def list_models(request: Request):
                 pass
 
             try:
-                img = resolve_image_endpoint(db)
+                # /v1/models 只读配置：不该在这里借号（那会推进
+                # last_used_at 并让每次列举模型都占一次共享池配额）
+                img = resolve_image_endpoint(db, cookie_mode=COOKIE_MODE_READONLY)
                 if img is not None:
                     items.append({
                         "id": img.model,
@@ -107,8 +110,11 @@ async def chat_completions(request: Request):
     if user is None:
         return _unauthorized()
 
-    from app.core.data_path import set_current_user_id
+    from app.core.data_path import set_current_user_id, set_external_api_call
     set_current_user_id(user.id)
+    # 对外 API Key 调用 → 无条件走共享 cookie 池（外部流量不该打在个人号上）。
+    # 归属不变：用量、额度、聊天记录仍记 API Key 所属用户。
+    set_external_api_call(True)
 
     try:
         body = await request.json()
@@ -146,9 +152,7 @@ async def chat_completions(request: Request):
         )
 
     if kind == "llm":
-        from app.core.data_path import set_current_user_id
-        set_current_user_id(user.id)
-        return await _run_direct_chat(body, name)
+        return await _run_direct_chat(body, name, user_id=user.id)
 
     profile = find_local_agent(model, user)
     try:
@@ -164,15 +168,20 @@ async def chat_completions(request: Request):
     return await run_local_completion(payload, user, get_agent_service(), profile)
 
 
-async def _run_direct_chat(body: dict, model_name: str):
-    """纯模型直通（不带工具、不启会话）。"""
+async def _run_direct_chat(body: dict, model_name: str, *, user_id: int | None = None):
+    """纯模型直通（不带工具、不启会话）。
+
+    ``user_id`` 用于用量记账 —— 直通路径也要把 token 落进
+    ``agent_usage_events``，否则日配额检查查不到这些消耗。
+    """
     import json as _json
+    import time as _time
     from typing import Any as _Any
 
     from fastapi.responses import StreamingResponse as _StreamingResponse
 
     from app.services.llm_providers import direct
-    from app.services.llm_providers.direct import DirectLLMError
+    from app.services.llm_providers.direct import DirectLLMError, DirectPoolEmpty
 
     messages = body.get("messages")
     if not isinstance(messages, list) or not messages:
@@ -194,6 +203,7 @@ async def _run_direct_chat(body: dict, model_name: str):
 
     from app.db.session import create_db_session
 
+    _started_at = _time.time()
     try:
         with create_db_session() as db:
             gateway, resolved_model, result = await direct.complete(
@@ -209,6 +219,12 @@ async def _run_direct_chat(body: dict, model_name: str):
                 tool_choice=tool_choice,
                 thinking=thinking,
             )
+    except DirectPoolEmpty as exc:
+        # 共享账号池暂时没号 —— 可重试的暂时状态，不是上游故障。
+        return JSONResponse(
+            status_code=503,
+            content={"error": {"message": str(exc), "type": "api_error"}},
+        )
     except DirectLLMError as exc:
         return JSONResponse(
             status_code=502,
@@ -219,6 +235,14 @@ async def _run_direct_chat(body: dict, model_name: str):
     created = direct.now_ts()
 
     if not stream:
+        # 用量记账：直通路径的 token 也必须落库，否则日配额检查查不到这些消耗。
+        await _record_direct_usage(
+            user_id=user_id,
+            gateway=gateway,
+            result=result,
+            model_name=resolved_model,
+            latency_ms=int((_time.time() - _started_at) * 1000),
+        )
         return JSONResponse(
             status_code=200,
             content={
@@ -267,10 +291,12 @@ async def _run_direct_chat(body: dict, model_name: str):
             "model": resolved_model,
             "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
         })
+        collected: list[str] = []
         try:
             async for chunk in result:
                 delta = _chunk_text(chunk)
                 if delta:
+                    collected.append(delta)
                     yield _sse({
                         "id": completion_id,
                         "object": "chat.completion.chunk",
@@ -288,6 +314,17 @@ async def _run_direct_chat(body: dict, model_name: str):
                 "choices": [{"index": 0, "delta": {}, "finish_reason": "error"}],
                 "error": {"message": str(exc)},
             })
+        finally:
+            # 流式路径拿不到精确 usage（上游没回流），按累计字符估算并标记
+            # tokens_estimated —— 估算值与实际计费必须能在统计里区分开。
+            await _record_direct_usage(
+                user_id=user_id,
+                gateway=gateway,
+                result=None,
+                model_name=resolved_model,
+                latency_ms=int((_time.time() - _started_at) * 1000),
+                output_text="".join(collected),
+            )
         yield _sse({
             "id": completion_id,
             "object": "chat.completion.chunk",
@@ -309,3 +346,33 @@ def _chunk_text(chunk) -> str:
     from app.services.llm_providers.direct import chunk_text
 
     return chunk_text(chunk)
+
+
+async def _record_direct_usage(
+    *,
+    user_id: int | None,
+    gateway: object,
+    result: object | None,
+    model_name: str | None,
+    latency_ms: int = 0,
+    output_text: str = "",
+) -> None:
+    """把一次直通调用的用量记进 ``agent_usage_events``。
+
+    记账失败不影响响应（``usage_recorder`` 内部已兜底）。
+    """
+    from app.services.llm_providers import direct
+    from app.services.usage_recorder import record_direct_usage
+
+    usage = direct.extract_usage(result) if result is not None else {}
+    text = output_text
+    if not text and result is not None:
+        text = direct.extract_text(result) or ""
+    await record_direct_usage(
+        user_id=user_id,
+        gateway=gateway,
+        usage=usage,
+        model_name=model_name,
+        latency_ms=latency_ms,
+        output_text=text,
+    )

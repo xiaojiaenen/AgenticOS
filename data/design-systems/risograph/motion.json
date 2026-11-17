@@ -1,0 +1,10 @@
+{
+  "fps": 60,
+  "bpm": 120,
+  "beatFrames": 30,
+  "size": [
+    1920,
+    1080
+  ],
+  "durationFrames": 900
+}
