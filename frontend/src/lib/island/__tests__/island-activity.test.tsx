@@ -99,6 +99,13 @@ function mount(clock: ManualClock) {
   };
 }
 
+/** jsdom 没有 PointerEvent：用 MouseEvent 补上 pointerType 字段（React 只读这个）。 */
+function pointerEvent(type: string, pointerType: string): Event {
+  const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0 });
+  Object.defineProperty(event, 'pointerType', { value: pointerType });
+  return event;
+}
+
 const presentation = (host: HTMLElement) =>
   host.querySelector('[data-islandcn]')?.getAttribute('data-presentation');
 
@@ -118,21 +125,64 @@ describe('岛引擎活动链路', () => {
     env.unmount();
   });
 
-  it('长按展开：decide(0.1s) 之后、longPress(0.216s) 之后出现 expanded 层', () => {
+  it('轻点（短按）即展开：网站不该要求长按', () => {
     const clock = new ManualClock();
     const env = mount(clock);
     pressPill(env.host, 'pointerdown');
-    // decide 之前松手是轻点，不该展开
+    // decide(0.1s) 之前松手 —— 这是轻点
     act(() => clock.advance(80));
     pressPill(env.host, 'pointerup');
-    expect(presentation(env.host)).toBe('compact');
-    // 重新按住超过 longPress
+    // 网站习惯：轻点就应该展开（长按是 iOS 的折中，轻点已被跳转 App 占用）
+    expect(presentation(env.host)).toBe('expanded');
+    expect(env.host.querySelector('[data-testid="probe-verb"]')?.textContent).toBe('思考中');
+    env.unmount();
+  });
+
+  it('长按同样展开（保留 iOS 习惯，两条路都通）', () => {
+    const clock = new ManualClock();
+    const env = mount(clock);
     pressPill(env.host, 'pointerdown');
     act(() => clock.advance(300));
     expect(presentation(env.host)).toBe('expanded');
-    expect(env.host.querySelector('[data-testid="probe-verb"]')?.textContent).toBe('思考中');
     expect(env.host.querySelector('[data-testid="probe-progress"]')?.textContent).toBe('6/10');
     env.unmount();
+  });
+
+  it('活动自己注册了 onPress 时，轻点走它的动作而不是展开', () => {
+    const clock = new ManualClock();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root: Root = createRoot(host);
+    const calls: string[] = [];
+    const Probe: React.FC = () => {
+      useActivity(
+        () => ({
+          id: 'probe-press',
+          label: '探针',
+          onPress: () => calls.push('pressed'),
+          compact: { leading: <span>✎</span> },
+          expanded: { bottom: <span>x</span> },
+        }),
+        [],
+      );
+      return null;
+    };
+    act(() => {
+      root.render(
+        <IslandProvider clock={clock}>
+          <Probe />
+          <Island placement="viewport" />
+        </IslandProvider>,
+      );
+    });
+    pressPill(host, 'pointerdown');
+    act(() => clock.advance(80));
+    pressPill(host, 'pointerup');
+    expect(calls).toEqual(['pressed']);
+    // 展开了吗？没有 —— onPress 优先
+    expect(host.querySelector('[data-islandcn]')?.getAttribute('data-presentation')).toBe('compact');
+    act(() => root.unmount());
+    host.remove();
   });
 
   it('展开态点外部（或 Escape）收起回 compact，活动仍在', () => {
@@ -163,6 +213,42 @@ describe('岛引擎活动链路', () => {
     });
     clock.advance(400);
     expect(presentation(env.host)).toBe('idle');
+    env.unmount();
+  });
+
+  it('鼠标悬浮有光晕反馈，移开消失（且不依赖帧循环）', () => {
+    const clock = new ManualClock();
+    const env = mount(clock);
+    const ring = () => env.host.querySelector('[data-islandcn-ring]') as HTMLElement | null;
+    expect(ring()).not.toBeNull();
+    // 关键：不推进 clock（模拟 rAF 冻结的后台标签），hover 也必须立刻生效
+    expect(ring()!.style.opacity).toBe('0');
+
+    act(() => {
+      env.host
+        .querySelector('[data-islandcn-hit="pill"]')!
+        .dispatchEvent(pointerEvent('pointerover', 'mouse'));
+    });
+    expect(ring()!.style.opacity).toBe('1');
+
+    act(() => {
+      env.host
+        .querySelector('[data-islandcn-hit="pill"]')!
+        .dispatchEvent(pointerEvent('pointerout', 'mouse'));
+    });
+    expect(ring()!.style.opacity).toBe('0');
+    env.unmount();
+  });
+
+  it('触屏（pointerType=touch）不亮光晕', () => {
+    const env = mount(new ManualClock());
+    const ring = env.host.querySelector('[data-islandcn-ring]') as HTMLElement;
+    act(() => {
+      env.host
+        .querySelector('[data-islandcn-hit="pill"]')!
+        .dispatchEvent(pointerEvent('pointerover', 'touch'));
+    });
+    expect(ring.style.opacity).toBe('0');
     env.unmount();
   });
 });

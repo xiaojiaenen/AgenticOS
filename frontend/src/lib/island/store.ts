@@ -415,7 +415,14 @@ export const createIslandStore = (options: { clock: IslandClock; motion: () => I
       }
       if (release?.cancel || !press.activityId) return;
       const activity = snapshot.activities.find((a) => a.id === press.activityId);
-      activity?.onPress?.();
+      // 网站不是 iOS：网页上没人会想到长按。轻点已有活动时默认**展开**，
+      // 除非这个活动自己注册了 onPress（那就让它的动作优先，例如跳到详情）。
+      // 长按仍然可用（引擎内建，不冲突），点外部/Esc 收起。
+      if (activity?.onPress) {
+        activity.onPress();
+        return;
+      }
+      if (activity) api.expand(activity.id);
     },
     reset() {
       clearAlert();

@@ -798,6 +798,14 @@ export const IslandSurface = (props: IslandSurfaceProps) => {
   const content = useRef<HTMLDivElement>(null);
   const pillHit = useRef<HTMLButtonElement>(null);
   const bubbleHit = useRef<HTMLButtonElement>(null);
+  /**
+   * 悬浮光晕层：克隆胶囊形状、描一圈外发光。不用 CSS 的 box-shadow，
+   * 因为胶囊形状是 SVG path（随形变每帧改写），不是圆角矩形。
+   * 开合由命中区的 onPointerEnter/Leave 直接写 style.opacity（见下），
+   * 不经过 React state 也不依赖帧循环 —— hover 必须即时。
+   */
+  const hoverRing = useRef<SVGSVGElement>(null);
+  const hoverRingPath = useRef<SVGPathElement>(null);
   const root = useRef<HTMLDivElement | null>(null);
   const unsubscribe = useRef<(() => void) | null>(null);
   const removing = useRef(new Set<string>());
@@ -841,7 +849,13 @@ export const IslandSurface = (props: IslandSurfaceProps) => {
       hit.style.width = `${pill.width}px`;
       hit.style.height = `${pill.height}px`;
       hit.style.borderRadius = `${pill.radius}px`;
+      // 悬浮反馈：只在真有活动可展开时提示，空胶囊不暗示可点。
+      hit.style.cursor = live.current.interaction?.pillLabel ? "pointer" : "default";
     }
+    // 悬浮反馈：叠一圈柔和的白色外发光（不改变形状本身的黑色纯度）。
+    // 这一句是幂等的，但真正的开合由 onPointerEnter/Leave 直接写，
+    // 不依赖帧循环 —— hover 必须即时响应，等下一帧在后台标签页里会永远不亮。
+    if (hoverRingPath.current) hoverRingPath.current.setAttribute("d", paths.pill);
     const bHit = bubbleHit.current;
     if (bHit) {
       bHit.style.display = bubble.height >= 1 ? "block" : "none";
@@ -2126,6 +2140,33 @@ export const IslandSurface = (props: IslandSurfaceProps) => {
         {/* The shadow in Apple's WebKit (`placeShadow`); hidden elsewhere. */}
         <div ref={shadowPill} aria-hidden="true" style={shadowBox} />
         <div ref={shadowBubble} aria-hidden="true" style={shadowBox} />
+        {/* 悬浮光晕：画在黑形状之下，只有描边的外半部分露出来。 */}
+        <svg
+          ref={hoverRing}
+          aria-hidden="true"
+          data-islandcn-ring=""
+          width={stageWidth}
+          height={stageHeight}
+          viewBox={`0 0 ${stageWidth} ${stageHeight}`}
+          shapeRendering="geometricPrecision"
+          style={{
+            position: "absolute",
+            inset: 0,
+            overflow: "visible",
+            opacity: 0,
+            transition: "opacity 160ms ease-out",
+            pointerEvents: "none",
+          }}
+        >
+          <path
+            ref={hoverRingPath}
+            d={initialPaths.pill}
+            fill="none"
+            stroke="rgba(255,255,255,0.72)"
+            strokeWidth={5}
+            strokeLinejoin="round"
+          />
+        </svg>
         <svg
           ref={svg}
           aria-hidden="true"
@@ -2133,7 +2174,7 @@ export const IslandSurface = (props: IslandSurfaceProps) => {
           height={stageHeight}
           viewBox={`0 0 ${stageWidth} ${stageHeight}`}
           shapeRendering="geometricPrecision"
-          style={{ position: "absolute", inset: 0, overflow: "visible" }}
+          style={{ position: "absolute", inset: 0, overflow: "visible", transition: "opacity 140ms ease-out" }}
         >
           {/*
             The shadow: a key layer and a broad, faint tail, each the shape's alpha blurred,
@@ -2216,7 +2257,18 @@ export const IslandSurface = (props: IslandSurfaceProps) => {
             onPointerDown={(event) => interaction.onPressStart("pill", event)}
             onPointerUp={(event) => interaction.onPressEnd(event)}
             onPointerCancel={() => interaction.onPressCancel()}
-            onPointerLeave={() => interaction.onPressCancel()}
+            onPointerEnter={(event) => {
+              // 只有真正的鼠标才有 hover（触屏的 pointerType 是 touch/pen）。
+              // 直接写 DOM，不等帧循环：后台标签页里 rAF 会停，等帧就永远不亮。
+              // 空胶囊（没有活动可展开）不亮 —— 否则暗示它可以点。
+              if (event.pointerType === "mouse" && interaction.pillLabel && hoverRing.current) {
+                hoverRing.current.style.opacity = "1";
+              }
+            }}
+            onPointerLeave={() => {
+              if (hoverRing.current) hoverRing.current.style.opacity = "0";
+              interaction.onPressCancel();
+            }}
             onContextMenu={(event) => event.preventDefault()}
             onKeyDown={keyDown("pill")}
           />
