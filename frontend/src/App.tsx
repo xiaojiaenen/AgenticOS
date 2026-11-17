@@ -12,6 +12,7 @@ import {
   AgentRunErrorIsland,
   AgentRunDoneIsland,
 } from '@/features/island/AgentRunIsland';
+import { ContextCompressedIsland } from '@/features/island/ContextCompressedIsland';
 import { PptExportIsland } from '@/features/island/PptExportIsland';
 import { FileUploadIsland } from '@/features/island/FileUploadIsland';
 import { SiteDeployIsland } from '@/features/island/SiteDeployIsland';
@@ -118,10 +119,13 @@ function AppContent() {
       {/* 实时状态岛的活动源。全部按真实应用状态驱动，没有演示数据：
           - AgentRunIsland：AI 对话运行（思考/流式/生成 PPT/构建网站）
           - FileUploadIsland：文件上传（XHR 真实字节进度，多文件聚合）
-          - PptExportIsland：PPTX 导出（实测 1–2 分钟，无进度回报） */}
+          - PptExportIsland：PPTX 导出（实测 1–2 分钟，无进度回报）
+          - ContextCompressedIsland：上下文压缩提醒（后端压缩发生的那一刻，
+            展示真实摘要预览） */}
       <AgentRunIsland />
       <AgentRunErrorIsland />
       <AgentRunDoneIsland />
+      <ContextCompressedIsland />
       <FileUploadIsland />
       <PptExportIsland />
       <SiteDeployIsland />

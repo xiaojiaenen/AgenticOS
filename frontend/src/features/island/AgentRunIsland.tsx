@@ -27,7 +27,7 @@ import {
   NumberText,
 } from '@/components/islandcn/island-text';
 import { LinearProgress } from '@/components/islandcn/linear-progress';
-import { islandAccent, islandInk } from '@/components/islandcn/theme';
+import { islandAccent, islandInk, islandMono } from '@/components/islandcn/theme';
 import { useActivity } from '@/components/islandcn/use-activity';
 import { useChatStore } from '@/stores/chatStore';
 
@@ -65,17 +65,25 @@ export const AgentRunIsland: React.FC = () => {
   const running = phase !== 'idle' && phase !== 'done' && phase !== 'error';
 
   // 当前会话的智能体名（展开视图里显示"谁在干活"）
-  const agentName = React.useMemo(() => {
-    const session = sessions.find((s) => s.id === currentSessionId);
-    return session?.agentName || '智能体';
-  }, [sessions, currentSessionId]);
+  const currentSession = React.useMemo(
+    () => sessions.find((s) => s.id === currentSessionId),
+    [sessions, currentSessionId],
+  );
+  const agentName = currentSession?.agentName || '智能体';
 
   // 已输出的字数：流式阶段最直观的"在动"的指标
   const outputChars = React.useMemo(() => {
-    const session = sessions.find((s) => s.id === currentSessionId);
-    const last = [...(session?.messages ?? [])].reverse().find((m) => m.role === 'model');
+    const last = [...(currentSession?.messages ?? [])].reverse().find((m) => m.role === 'model');
     return (last?.text ?? '').length;
-  }, [sessions, currentSessionId]);
+  }, [currentSession]);
+
+  // 上下文状态（展开视图）：第几轮对话 + 是否已压缩。
+  // 数据是真实的：轮数 = 会话里用户消息数；压缩标记来自后端每轮回传的会话状态。
+  const turnCount = React.useMemo(
+    () => (currentSession?.messages ?? []).filter((m) => m.role === 'user').length,
+    [currentSession],
+  );
+  const contextCompressed = currentSession?.contextCompressed ?? false;
 
   const base = PHASES[phase] ?? { weight: 0.3, accent: islandAccent.blue };
   const info = { ...base, verb: verbFor(phase, label) };
@@ -97,6 +105,8 @@ export const AgentRunIsland: React.FC = () => {
       stepText={stepText}
       agentName={agentName}
       outputChars={outputChars}
+      turnCount={turnCount}
+      contextCompressed={contextCompressed}
     />
   );
 };
@@ -113,14 +123,16 @@ const AgentRunActivity: React.FC<{
   stepText: string;
   agentName: string;
   outputChars: number;
-}> = ({ phase, verb, accent, progress, stepText, agentName, outputChars }) => {
+  turnCount: number;
+  contextCompressed: boolean;
+}> = ({ phase, verb, accent, progress, stepText, agentName, outputChars, turnCount, contextCompressed }) => {
   useActivity(
     () => ({
       id: 'agent-run',
       // 同一会话的多次运行轮流显示，不并排
       group: 'agent-run',
       // 屏幕阅读器读这句
-      label: `${agentName}${verb}${stepText ? `，第 ${stepText} 步` : ''}`,
+      label: `${agentName}${verb}${stepText ? `，第 ${stepText} 步` : ''}${turnCount > 0 ? `，第 ${turnCount} 轮对话` : ''}${contextCompressed ? '，上下文已压缩' : ''}`,
       compact: {
         leading: <Glyph icon={PencilGlyph} color={accent} />,
         // 胶囊只有约 20pt 的余量：放步数（"3/10" 四个字符刚好）或省略
@@ -155,6 +167,8 @@ const AgentRunActivity: React.FC<{
             <ExpandedSubtitle color={islandInk.primary}>
               {agentName}
               {stepText ? ` · 第 ${stepText} 步` : ''}
+              {turnCount > 0 ? ` · 第 ${turnCount} 轮对话` : ''}
+              {contextCompressed ? ' · 上下文已压缩' : ''}
             </ExpandedSubtitle>
             <BottomBar>
               <LinearProgress value={progress} color={accent} height={5} />
@@ -163,7 +177,7 @@ const AgentRunActivity: React.FC<{
         ),
       },
     }),
-    [phase, verb, accent, progress, stepText, agentName, outputChars],
+    [phase, verb, accent, progress, stepText, agentName, outputChars, turnCount, contextCompressed],
   );
 
   return null;
@@ -239,17 +253,56 @@ export const AgentRunDoneIsland: React.FC = () => {
 };
 
 const AgentDoneActivity: React.FC = () => {
+  // 结束那一刻的会话用量：本轮 token 数、耗时、模型调用次数。
+  // lastUsage 由后端随会话状态回传（每轮结束更新），是真实值不是估算的 UI 数字。
+  const session = useChatStore((s) => s.sessions.find((x) => x.id === s.currentSessionId));
+  const usage = session?.lastUsage ?? null;
+  const totalTokens = usage
+    ? Number(
+        usage.total_tokens ??
+          (Number(usage.input_tokens ?? usage.prompt_tokens ?? 0) +
+            Number(usage.output_tokens ?? usage.completion_tokens ?? 0)),
+      )
+    : 0;
+  const tokenText = totalTokens >= 1000 ? `${(totalTokens / 1000).toFixed(1)}k` : `${totalTokens}`;
+  const latencyMs = session?.latencyMs ?? null;
+  const llmCalls = session?.llmCalls ?? null;
+
   useActivity(
     () => ({
       id: 'agent-run-done',
       group: 'agent-run',
-      label: '本轮回复已完成',
+      label: `本轮回复已完成${totalTokens > 0 ? `，${tokenText} tokens` : ''}`,
       compact: {
         leading: <Glyph icon={CheckGlyph} color={islandAccent.green} />,
+        trailing: totalTokens > 0 ? (
+          <CompactText>
+            <NumberText value={tokenText} />
+          </CompactText>
+        ) : undefined,
       },
       minimal: <Glyph icon={CheckGlyph} color={islandAccent.green} />,
+      expanded: {
+        leading: (
+          <SensorRow glyph={<Glyph icon={CheckGlyph} color={islandAccent.green} size={18} />}>
+            <ContextLabel>已完成</ContextLabel>
+          </SensorRow>
+        ),
+        bottom: totalTokens > 0 ? (
+          <ExpandedBottom gap={4}>
+            <ExpandedValue>
+              <NumberText value={tokenText} />
+              <span style={{ fontFamily: islandMono }}>tokens</span>
+            </ExpandedValue>
+            <ExpandedSubtitle color={islandInk.secondary}>
+              {latencyMs ? `用时 ${(latencyMs / 1000).toFixed(1)}s` : ''}
+              {llmCalls ? `${latencyMs ? ' · ' : ''}${llmCalls} 次模型调用` : ''}
+            </ExpandedSubtitle>
+          </ExpandedBottom>
+        ) : undefined,
+      },
     }),
-    [],
+    [totalTokens, tokenText, latencyMs, llmCalls],
   );
 
   return null;
