@@ -31,16 +31,54 @@ import { islandAccent, islandInk, islandMono } from '@/components/islandcn/theme
 import { useActivity } from '@/components/islandcn/use-activity';
 import { useChatStore } from '@/stores/chatStore';
 
-/** 阶段 → 人类可读的进行中措辞 + 进度权重（用于算总体百分比）。 */
+/**
+ * 阶段 → 措辞 + 进度权重。
+ *
+ * 三档措辞各有宽度预算（15pt semibold 实测）：
+ * - `verb` 进展开视图的 ContextLabel，可以长
+ * - `compactWord` 进紧凑胶囊，**必须 ≤ 4 个汉字**（4 字 = 60px，
+ *   槽位上限 72px；5 字 = 75px 会被省略成"生成幻…"）
+ * - `short` 与步数拼接（"思考 3/10" = 64px），同样 2 字
+ */
 const PHASES: Record<
   string,
-  { verb: string; weight: number; accent: string }
+  { verb: string; compactWord: string; short: string; weight: number; accent: string }
 > = {
-  thinking: { verb: '思考中', weight: 0.15, accent: islandAccent.blue },
-  streaming: { verb: '生成回答', weight: 0.6, accent: islandAccent.blue },
-  generating_ppt: { verb: '生成幻灯片', weight: 0.35, accent: islandAccent.purple },
-  rendering_ppt: { verb: '渲染预览', weight: 0.85, accent: islandAccent.purple },
-  rendering_website: { verb: '构建网站', weight: 0.85, accent: islandAccent.green },
+  thinking: {
+    verb: '思考中',
+    compactWord: '正在思考',
+    short: '思考',
+    weight: 0.15,
+    accent: islandAccent.blue,
+  },
+  streaming: {
+    verb: '生成回答',
+    compactWord: '正在回复',
+    short: '回复',
+    weight: 0.6,
+    accent: islandAccent.blue,
+  },
+  generating_ppt: {
+    verb: '生成幻灯片',
+    compactWord: '生成PPT',
+    short: '做PPT',
+    weight: 0.35,
+    accent: islandAccent.purple,
+  },
+  rendering_ppt: {
+    verb: '渲染预览',
+    compactWord: '渲染中',
+    short: '渲染',
+    weight: 0.85,
+    accent: islandAccent.purple,
+  },
+  rendering_website: {
+    verb: '构建网站',
+    compactWord: '建站中',
+    short: '建站',
+    weight: 0.85,
+    accent: islandAccent.green,
+  },
 };
 
 /**
@@ -49,10 +87,17 @@ const PHASES: Record<
  * 后端把「正在上传文件」也归在 thinking 阶段（先传文件、再推理）。岛上
  * 措辞要跟着 label 变，否则用户在传一个 20MB 附件时只看到"思考中"。
  */
-function verbFor(phase: string, label: string): string {
-  if (label.includes('上传')) return '上传文件';
-  if (label.includes('读取') || label.includes('解析')) return '读取文档';
-  return PHASES[phase]?.verb ?? (label || '处理中');
+function wordsFor(
+  phase: string,
+  label: string,
+): { verb: string; compactWord: string; short: string } {
+  if (label.includes('上传')) return { verb: '上传文件', compactWord: '正在上传', short: '上传' };
+  if (label.includes('读取') || label.includes('解析'))
+    return { verb: '读取文档', compactWord: '读取文档', short: '读取' };
+  const preset = PHASES[phase];
+  if (preset) return preset;
+  const fallback = label || '处理中';
+  return { verb: fallback, compactWord: fallback, short: fallback.slice(0, 4) };
 }
 
 /** 这段脏活只在这一个组件里：把 runStatus 变成 island 的四个槽位。 */
@@ -85,13 +130,15 @@ export const AgentRunIsland: React.FC = () => {
   );
   const contextCompressed = currentSession?.contextCompressed ?? false;
 
-  const base = PHASES[phase] ?? { weight: 0.3, accent: islandAccent.blue };
-  const info = { ...base, verb: verbFor(phase, label) };
+  const base = PHASES[phase];
+  const words = wordsFor(phase, label);
+  const accent = base?.accent ?? islandAccent.blue;
+  const weight = base?.weight ?? 0.3;
   const stepText = step && maxSteps ? `${step}/${maxSteps}` : '';
   // 总体进度：阶段基线 + 阶段内的步数推进
   const progress = step && maxSteps
-    ? Math.min(0.95, info.weight + (step / maxSteps) * (1 - info.weight))
-    : info.weight;
+    ? Math.min(0.95, weight + (step / maxSteps) * (1 - weight))
+    : weight;
 
   // 非运行态（done/error/idle）不渲染 —— 结束由外层 effect 驱动
   if (!running) return null;
@@ -99,10 +146,11 @@ export const AgentRunIsland: React.FC = () => {
   return (
     <AgentRunActivity
       phase={phase}
-      verb={info.verb}
-      accent={info.accent}
+      verb={words.verb}
+      accent={accent}
       progress={progress}
       stepText={stepText}
+      compactWord={words.short}
       agentName={agentName}
       outputChars={outputChars}
       turnCount={turnCount}
@@ -121,11 +169,12 @@ const AgentRunActivity: React.FC<{
   accent: string;
   progress: number;
   stepText: string;
+  compactWord: string;
   agentName: string;
   outputChars: number;
   turnCount: number;
   contextCompressed: boolean;
-}> = ({ phase, verb, accent, progress, stepText, agentName, outputChars, turnCount, contextCompressed }) => {
+}> = ({ phase, verb, accent, progress, stepText, compactWord, agentName, outputChars, turnCount, contextCompressed }) => {
   useActivity(
     () => ({
       id: 'agent-run',
@@ -135,20 +184,19 @@ const AgentRunActivity: React.FC<{
       label: `${agentName}${verb}${stepText ? `，第 ${stepText} 步` : ''}${turnCount > 0 ? `，第 ${turnCount} 轮对话` : ''}${contextCompressed ? '，上下文已压缩' : ''}`,
       compact: {
         leading: <Glyph icon={PencilGlyph} color={accent} />,
-        // 胶囊只有约 20pt 的余量：放步数（"3/10" 四个字符刚好）或省略
-        trailing: stepText ? (
+        // 紧凑槽上限 72px（15pt semibold 实测）：必须"词 + 数字"一起说清在干什么，
+        // 只给数字（"3/10"）用户不知道那是什么。带步数时用两字词，"PPT 3/10"=65.5px。
+        trailing: (
           <CompactText>
-            <NumberText value={stepText} />
+            {stepText ? `${compactWord} ${stepText}` : verb}
           </CompactText>
-        ) : undefined,
+        ),
       },
       minimal: (
         <MinimalPair
           leading={<Glyph icon={PencilGlyph} color={accent} />}
           trailing={
-            <CompactText>
-              <NumberText value={stepText || '…'} />
-            </CompactText>
+            <CompactText>{stepText ? `${compactWord} ${stepText}` : verb}</CompactText>
           }
         />
       ),
@@ -177,7 +225,7 @@ const AgentRunActivity: React.FC<{
         ),
       },
     }),
-    [phase, verb, accent, progress, stepText, agentName, outputChars, turnCount, contextCompressed],
+    [phase, verb, accent, progress, stepText, compactWord, agentName, outputChars, turnCount, contextCompressed],
   );
 
   return null;
@@ -275,10 +323,10 @@ const AgentDoneActivity: React.FC = () => {
       label: `本轮回复已完成${totalTokens > 0 ? `，${tokenText} tokens` : ''}`,
       compact: {
         leading: <Glyph icon={CheckGlyph} color={islandAccent.green} />,
+        // 光给 "12.3k" 没人知道是什么量。实测 "用量 12.3k"=71.6px 贴边，
+        // 换字体就可能被裁，所以用单位本身当词（"12.3k 字" 更短也更准）
         trailing: totalTokens > 0 ? (
-          <CompactText>
-            <NumberText value={tokenText} />
-          </CompactText>
+          <CompactText>{`${tokenText} 字`}</CompactText>
         ) : undefined,
       },
       minimal: <Glyph icon={CheckGlyph} color={islandAccent.green} />,

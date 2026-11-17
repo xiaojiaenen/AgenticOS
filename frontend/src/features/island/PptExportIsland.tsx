@@ -58,12 +58,8 @@ const PptExportActivity: React.FC<{ title: string; startedAt: number }> = ({
       label: `正在导出 ${title}，已用 ${elapsed} 秒`,
       compact: {
         leading: <Glyph icon={DocumentPlusGlyph} color={ACCENT} />,
-        trailing: (
-          <CompactText>
-            {/* 胶囊只有约 20pt：两位数字刚好（"45"），三位会被裁 */}
-            {elapsed < 100 ? `${elapsed}s` : '99+'}
-          </CompactText>
-        ),
+        // 只写 "45s" 看不出在干什么：加"导出"前缀（"导出 45s"=60.9px，在上限内）
+        trailing: <CompactText>{elapsed < 100 ? `导出 ${elapsed}s` : '导出 99+'}</CompactText>,
       },
       expanded: {
         leading: (

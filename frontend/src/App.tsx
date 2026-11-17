@@ -13,6 +13,7 @@ import {
   AgentRunDoneIsland,
 } from '@/features/island/AgentRunIsland';
 import { ContextCompressedIsland } from '@/features/island/ContextCompressedIsland';
+import { DraftTypingIsland } from '@/features/island/DraftTypingIsland';
 import { PptExportIsland } from '@/features/island/PptExportIsland';
 import { FileUploadIsland } from '@/features/island/FileUploadIsland';
 import { SiteDeployIsland } from '@/features/island/SiteDeployIsland';
@@ -121,11 +122,13 @@ function AppContent() {
           - FileUploadIsland：文件上传（XHR 真实字节进度，多文件聚合）
           - PptExportIsland：PPTX 导出（实测 1–2 分钟，无进度回报）
           - ContextCompressedIsland：上下文压缩提醒（后端压缩发生的那一刻，
-            展示真实摘要预览） */}
+            展示真实摘要预览）
+          - DraftTypingIsland：正在输入（输入框有草稿时，最长输入态不抢运行态） */}
       <AgentRunIsland />
       <AgentRunErrorIsland />
       <AgentRunDoneIsland />
       <ContextCompressedIsland />
+      <DraftTypingIsland />
       <FileUploadIsland />
       <PptExportIsland />
       <SiteDeployIsland />

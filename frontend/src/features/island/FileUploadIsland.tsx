@@ -57,18 +57,11 @@ const UploadActivity: React.FC<{ files: { name: string; total: number; loaded: n
       label: `正在上传 ${files.length} 个文件，${percent}%`,
       compact: {
         leading: <Glyph icon={UploadGlyph} color={ACCENT} />,
-        // 胶囊约 20pt 余量：百分比两位数（"63"）+ % 刚好
-        trailing: (
-          <CompactText>
-            <NumberText value={`${Math.min(99, percent)}%`} />
-          </CompactText>
-        ),
+        // "上传 63%"=67.9px 在 72px 内；"上传 100%"=74.1px 会被裁，
+        // 所以封顶 99%（传完这一瞬间立刻切到运行岛，不需要显示 100）
+        trailing: <CompactText>{`上传 ${Math.min(99, percent)}%`}</CompactText>,
       },
-      minimal: (
-        <CompactText>
-          <NumberText value={`${Math.min(99, percent)}%`} />
-        </CompactText>
-      ),
+      minimal: <CompactText>{`上传 ${Math.min(99, percent)}%`}</CompactText>,
       expanded: {
         leading: (
           <SensorRow glyph={<Glyph icon={UploadGlyph} color={ACCENT} size={18} />}>

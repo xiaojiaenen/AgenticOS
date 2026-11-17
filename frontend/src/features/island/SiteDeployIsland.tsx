@@ -66,11 +66,8 @@ const SiteDeployActivity: React.FC<{ slug: string; status: DeployStatus }> = ({
       alert: status === 'approved' || isError,
       compact: {
         leading: <Glyph icon={GlobeGlyph} color={isError ? islandAccent.red : ACCENT} />,
-        trailing: (
-          <CompactText>
-            {step}/{TOTAL}
-          </CompactText>
-        ),
+        // "2/4" 单看不知是什么进度：带"发布"前缀（"发布 2/4"=60.5px）
+        trailing: <CompactText>{`发布 ${step}/${TOTAL}`}</CompactText>,
       },
       expanded: {
         leading: (

@@ -57,6 +57,16 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   };
 }
 
+// canvas.getContext：jsdom 未实现，调用会打一条 "Not implemented" 噪音日志。
+// 岛引擎的阴影 grain（surface.tsx makeGrainTile）只是**可选**的视觉细节，
+// 拿不到 2d context 时会自己降级 —— 这里返回 null 让降级路径生效，
+// 保持测试输出干净（不引入 node-canvas 这种重依赖）。
+if (typeof HTMLCanvasElement !== 'undefined') {
+  HTMLCanvasElement.prototype.getContext = function getContext() {
+    return null;
+  } as unknown as typeof HTMLCanvasElement.prototype.getContext;
+}
+
 // 每个用例后清理 DOM，避免用例间互相污染
 afterEach(() => {
   if (typeof document !== 'undefined') document.body.innerHTML = '';
