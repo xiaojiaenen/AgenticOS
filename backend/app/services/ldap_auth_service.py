@@ -623,7 +623,7 @@ def authenticate(config: LdapConfig, username: str, password: str) -> dict[str, 
         ):
             raise LdapAuthError(f"LDAP 搜索失败：{conn.result.get('message')}")
         if len(conn.entries) == 0:
-            raise LdapAuthError("LDAP 用户不存在，请检查用户名")
+            raise LdapAuthError("LDAP 用户不存在，请检查企业邮箱或账号")
         if len(conn.entries) > 1:
             raise LdapAuthError("LDAP 用户过滤器匹配到多条记录，请联系管理员检查配置")
 

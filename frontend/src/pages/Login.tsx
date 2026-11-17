@@ -26,6 +26,21 @@ const EMAIL_SUFFIXES = [
   '@yeah.net', '@sina.com', '@aliyun.com',
 ];
 
+/**
+ * LDAP 形态的账号文案。
+ *
+ * 员工记住的是自己的企业邮箱，不是目录里的 sAMAccountName —— 让登录框直接
+ * 收邮箱，用户才不用猜"我该输工号还是英文名"。
+ */
+export const LDAP_ACCOUNT_LABEL = '企业邮箱';
+export const LDAP_ACCOUNT_REQUIRED = '请输入企业邮箱';
+
+/** LDAP 形态的输入占位符：配了邮箱域名就把完整示例给出来。 */
+export const ldapAccountPlaceholder = (emailDomain: string): string => {
+  const domain = (emailDomain || '').trim().replace(/^@/, '');
+  return domain ? `name@${domain}` : '请输入企业邮箱';
+};
+
 // 与后端 authService 请求字段对齐；校验规则与旧手写逻辑等价
 const EMAIL_FIELD = z
   .string()
@@ -50,7 +65,7 @@ export const Login = () => {
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIdx, setSelectedSuggestionIdx] = useState(-1);
-  // 登录形态：LDAP 形态下账号是企业域账号（工号/用户名），不需要邮箱后缀。
+  // 登录形态：LDAP 形态下用企业邮箱登录（后端会把它映射到目录账号）。
   // 由后端 /auth/login-mode 下发，取不到时按本地邮箱登录（保守默认）。
   const [authMode, setAuthMode] = useState<{
     mode: 'ldap' | 'local';
@@ -108,11 +123,14 @@ export const Login = () => {
 
   // 邮箱后缀补全
   const getEmailSuggestions = useCallback(() => {
-    // LDAP 形态：账号是工号，不补全公共邮箱域名
-    if (authMode.mode === 'ldap') return [];
     if (!email || email.includes('@')) return [];
+    // LDAP 形态：补企业域名（用户只想敲名字时省掉后缀）；没配域名就不补
+    if (authMode.mode === 'ldap') {
+      const domain = (authMode.email_domain || '').trim().replace(/^@/, '');
+      return domain ? [`${email}@${domain}`] : [];
+    }
     return EMAIL_SUFFIXES.map((suffix) => email + suffix);
-  }, [email, authMode.mode]);
+  }, [email, authMode.mode, authMode.email_domain]);
 
   // 点击外部关闭建议
   useEffect(() => {
@@ -174,7 +192,7 @@ export const Login = () => {
       z
         .object({
           email: authMode.mode === 'ldap'
-            ? z.string().trim().min(1, '请输入工号或域账号')
+            ? z.string().trim().min(1, LDAP_ACCOUNT_REQUIRED)
             : EMAIL_FIELD,
           password: z.string(),
           code: z.string(),
@@ -296,13 +314,13 @@ export const Login = () => {
               <form className="space-y-5" onSubmit={onLogin} noValidate>
                 {/* 邮箱输入 + 补全 */}
                 <div ref={emailRef} className="relative space-y-2">
-                  <Label htmlFor="login-email">{isLdap ? '工号 / 域账号' : '邮箱地址'}</Label>
+                  <Label htmlFor="login-email">{isLdap ? LDAP_ACCOUNT_LABEL : '邮箱地址'}</Label>
                   <Input
                     id="login-email"
-                    type={isLdap ? 'text' : 'email'}
+                    type="email"
                     autoComplete={isLdap ? 'username' : 'email'}
                     autoFocus
-                    placeholder={isLdap ? (authMode.email_domain ? '输入工号即可，无需邮箱后缀' : '输入 LDAP 用户名') : 'you@example.com'}
+                    placeholder={isLdap ? ldapAccountPlaceholder(authMode.email_domain) : 'you@example.com'}
                     aria-invalid={!!errors.email}
                     role="combobox"
                     aria-expanded={showSuggestions && suggestions.length > 0}
@@ -324,7 +342,7 @@ export const Login = () => {
                       validate: (v) => {
                         const trimmed = (v ?? '').trim();
                         if (authMode.mode === 'ldap') {
-                          return trimmed ? true : '请输入工号或域账号';
+                          return trimmed ? true : LDAP_ACCOUNT_REQUIRED;
                         }
                         if (!trimmed) return '请输入邮箱地址';
                         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return '请输入有效的邮箱地址';
