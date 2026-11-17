@@ -64,6 +64,7 @@ const cases: { island: string; text: string; note: string }[] = [
   // 常驻时钟岛（含秒是最宽形态：冒号按符号 6px 估，比实测 58.7px 更保守）
   { island: 'idle-clock', text: '14:32:07', note: '时分秒' },
   { island: 'idle-clock', text: '23:59:59', note: '全数字最宽' },
+  { island: 'welcome-back', text: '你回来啦', note: '返回问候' },
 ];
 
 describe('紧凑槽文案宽度', () => {

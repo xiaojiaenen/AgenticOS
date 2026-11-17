@@ -64,10 +64,73 @@ const fullDate = (d: Date) => {
 /** 有其它活动在跑时必须让位（不能并排成 minimal 分裂态）。 */
 const BUSY_PHASES = new Set(['thinking', 'streaming', 'generating_ppt', 'rendering_ppt', 'rendering_website']);
 
+/** 「你回来啦」停留时长（毫秒）：够看清、又不占住时钟太久。 */
+const WELCOME_BACK_MS = 4000;
+
+/**
+ * 离开超过这个时长才算"真离开"（毫秒）。
+ * 切一下标签页立刻回来看不该触发问候 —— 那更接近误触，不是"回来"。
+ */
+const AWAY_THRESHOLD_MS = 1500;
+
+/**
+ * 标签页可见性。
+ *
+ * 用户不在这个标签页时，岛**什么都不显示**（省电、也不在后台瞎动）；
+ * 切回来时先亮一句"你回来啦"，几秒后自动回到时钟。
+ *
+ * 用 `visibilitychange` 而不是 `window.blur`：切到浏览器另一个标签、最小化
+ * 窗口都会触发 visibilitychange，而 blur 在点页面里别的输入框时也会触发，
+ * 那样用户只是在页面内点了一下就被判定为"离开了"。
+ */
+function useTabPresence() {
+  // hidden 的初值取当前状态：深链直接打开一个后台标签时不该先亮一下再灭
+  const [hidden, setHidden] = React.useState(
+    () => typeof document !== 'undefined' && document.visibilityState === 'hidden',
+  );
+  const [justReturned, setJustReturned] = React.useState(false);
+  const [awayMs, setAwayMs] = React.useState(0);
+  const hiddenAtRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    const onVisibility = () => {
+      const nowHidden = document.visibilityState === 'hidden';
+      setHidden(nowHidden);
+      if (nowHidden) {
+        hiddenAtRef.current = Date.now();
+        setJustReturned(false);
+        return;
+      }
+      // 回到前台：离开够久才打招呼
+      const leftAt = hiddenAtRef.current;
+      hiddenAtRef.current = null;
+      if (leftAt !== null) {
+        const away = Date.now() - leftAt;
+        if (away >= AWAY_THRESHOLD_MS) {
+          setAwayMs(away);
+          setJustReturned(true);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
+  // 问候几秒后自动收起
+  React.useEffect(() => {
+    if (!justReturned) return;
+    const timer = window.setTimeout(() => setJustReturned(false), WELCOME_BACK_MS);
+    return () => window.clearTimeout(timer);
+  }, [justReturned]);
+
+  return { hidden, justReturned, awayMs };
+}
+
 export const IdleClockIsland: React.FC = () => {
   const phase = useChatStore((s) => s.runStatus.phase);
   const inputValue = useChatStore((s) => s.inputValue);
   const island = useIsland();
+  const { hidden, justReturned, awayMs } = useTabPresence();
 
   // 每秒推进一次，驱动秒级走时
   const [now, setNow] = React.useState(() => new Date());
@@ -76,17 +139,81 @@ export const IdleClockIsland: React.FC = () => {
     return () => window.clearInterval(timer);
   }, []);
 
+  // 用户不在这个标签页 → 岛上什么都不显示
+  if (hidden) return null;
+
   // 让位判断：
   // - AI 在跑（运行岛已占胶囊）
   // - 草稿 ≥2 字（输入岛已占胶囊）
   // - 有其它活动（导出/上传/发布/压缩提醒）—— 用引擎的活动列表判断，
   //   这样以后新增的岛不需要来这里登记
   const drafting = inputValue.trim().length >= 2;
-  const othersRunning = island.activities.some((a) => a.id !== 'idle-clock');
+  const othersRunning = island.activities.some((a) => a.id !== 'idle-clock' && a.id !== 'welcome-back');
   if (BUSY_PHASES.has(phase) || drafting || othersRunning) return null;
+
+  // 刚回到前台：先打一句招呼（几秒后自动回到时钟）
+  if (justReturned) return <WelcomeBackActivity now={now} awayMs={awayMs} />;
 
   return <ClockActivity now={now} />;
 };
+
+/**
+ * "你回来啦"短提示。
+ *
+ * 不 alert：用户刚回来，没必要抢注意力；它自己 4 秒后让位给时钟。
+ * 展开视图里顺带给出离开时长，让这句问候有实感（"离开了 12 分钟"）。
+ */
+const WelcomeBackActivity: React.FC<{ now: Date; awayMs: number }> = ({ now, awayMs }) => {
+  const time = clockText(now);
+  const away = formatAway(awayMs);
+
+  useActivity(
+    () => ({
+      id: 'welcome-back',
+      // 比时钟略高，确保回到前台那一刻是它先出现
+      priority: -9,
+      label: `欢迎回来，${away}没见了，现在是 ${time}`,
+      compact: {
+        leading: <Glyph icon={TimerGlyph} color={ACCENT} />,
+        // "你回来啦"=60px 在 72px 内
+        trailing: <CompactText>你回来啦</CompactText>,
+      },
+      minimal: <CompactText>你回来啦</CompactText>,
+      expanded: {
+        leading: (
+          <SensorRow glyph={<Glyph icon={TimerGlyph} color={ACCENT} size={18} />}>
+            <ContextLabel>欢迎回来</ContextLabel>
+          </SensorRow>
+        ),
+        bottom: (
+          <ExpandedBottom gap={4}>
+            <TitleStack
+              title={<ExpandedTitle>你回来啦</ExpandedTitle>}
+              subtitle={
+                <ExpandedSubtitle color={islandInk.secondary}>
+                  {away}没见 · 现在 {time}
+                </ExpandedSubtitle>
+              }
+            />
+          </ExpandedBottom>
+        ),
+      },
+    }),
+    [time, away],
+  );
+
+  return null;
+};
+
+/** 把离开时长说成人话（展开视图里用，不受宽度限制）。 */
+function formatAway(ms: number): string {
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) return `${Math.max(1, Math.round(ms / 1000))} 秒`;
+  if (minutes < 60) return `${minutes} 分钟`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours} 小时` : `${hours} 小时 ${rest} 分钟`;
+}
 
 const ClockActivity: React.FC<{ now: Date }> = ({ now }) => {
   const time = clockText(now);

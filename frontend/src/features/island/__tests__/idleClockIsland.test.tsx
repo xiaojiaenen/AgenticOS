@@ -47,8 +47,6 @@ class ManualClock implements IslandClock {
   }
 }
 
-const HOST = document.createElement('div');
-
 function mount(clock: ManualClock) {
   const host = document.createElement('div');
   document.body.appendChild(host);
@@ -84,6 +82,21 @@ const label = (host: HTMLElement) =>
 function freezeAt(iso: string) {
   vi.useFakeTimers();
   vi.setSystemTime(new Date(iso));
+}
+
+/**
+ * 模拟标签页切换。
+ * jsdom 的 document.visibilityState 是只读的 getter，必须重定义才能改。
+ * 事件类型用普通 Event（组件只读 visibilityState，不读事件 detail）。
+ */
+function setVisibility(state: 'visible' | 'hidden') {
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    get: () => state,
+  });
+  act(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
 }
 
 describe('常驻时钟岛', () => {
@@ -162,6 +175,82 @@ describe('常驻时钟岛', () => {
     act(() => env.clock.advance(400));
     expect(presentation(env.host)).toBe('compact');
     expect(compactText(env.host)).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+    env.unmount();
+  });
+
+  it('标签页隐藏时岛清空（什么都不显示）', () => {
+    freezeAt('2026-11-17T14:00:00');
+    const env = mount(new ManualClock());
+    act(() => env.clock.advance(200));
+    expect(presentation(env.host)).toBe('compact');
+
+    setVisibility('hidden');
+    act(() => env.clock.advance(300));
+    expect(presentation(env.host)).toBe('idle');
+    env.unmount();
+  });
+
+  it('离开够久再回来 → 先显示「你回来啦」，几秒后回到时钟', () => {
+    freezeAt('2026-11-17T14:00:00');
+    const env = mount(new ManualClock());
+    act(() => env.clock.advance(200));
+
+    setVisibility('hidden');
+    act(() => env.clock.advance(100));
+    // 离开 10 秒
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    setVisibility('visible');
+    act(() => env.clock.advance(300));
+
+    expect(presentation(env.host)).toBe('compact');
+    expect(compactText(env.host)).toBe('你回来啦');
+    expect(label(env.host)).toContain('欢迎回来');
+
+    // 问候 4 秒后自动回到时钟
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+    act(() => env.clock.advance(400));
+    expect(compactText(env.host)).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+    env.unmount();
+  });
+
+  it('只切走一瞬（<1.5s）回来不打招呼，避免误触闪烁', () => {
+    freezeAt('2026-11-17T14:00:00');
+    const env = mount(new ManualClock());
+    act(() => env.clock.advance(200));
+
+    setVisibility('hidden');
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    setVisibility('visible');
+    act(() => env.clock.advance(300));
+
+    // 直接是时钟，不是「你回来啦」
+    expect(compactText(env.host)).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+    env.unmount();
+  });
+
+  it('AI 运行中切走再回来，不抢运行岛（招呼让位）', () => {
+    freezeAt('2026-11-17T14:00:00');
+    const env = mount(new ManualClock());
+    act(() => env.clock.advance(200));
+
+    setVisibility('hidden');
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    act(() => {
+      useChatStore.setState({ runStatus: { phase: 'streaming', label: '生成回答' } });
+    });
+    setVisibility('visible');
+    act(() => env.clock.advance(300));
+
+    // 有运行任务时，常驻岛整体不挂载
+    expect(presentation(env.host)).toBe('idle');
     env.unmount();
   });
 });
