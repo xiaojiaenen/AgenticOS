@@ -273,15 +273,16 @@ def build_gateway(
         if lease is None:
             lease = credentials.acquire(spec.provider_id or 0)
         if lease is None:
+            # 池空的具体原因（没凭据 / 有凭据但缺 Cookie / 全被禁用 / 连续失败）
+            # 写进报错。否则用户只看到"没有可用账号"，不知道该去哪改什么。
+            detail = credentials.explain_pool_empty(spec.provider_id or 0)
             if credentials.is_external_api_call():
                 # 对外 API Key 调用：池空是「暂时没号可用」，可重试。
-                raise SharedPoolEmpty(
-                    "共享账号池暂无可用账号，请稍后重试或联系管理员。"
-                )
+                raise SharedPoolEmpty(detail)
             # 措辞要能直接指导动作：最常见的两种原因是「绑定凭据失效
             # （域密码改了）」和「Cookie 正在后台续期」。直白说，别只说池空。
             raise ProviderUnavailable(
-                f"提供商「{spec.name}」的企业网关登录态不可用。"
+                f"提供商「{spec.name}」的企业网关登录态不可用：{detail}"
                 "若是刚改过域密码，请退出平台重新登录一次（登录时会自动同步"
                 "新密码并续期 Cookie）；若显示「正在登录企业网关」请稍候重试。"
             )

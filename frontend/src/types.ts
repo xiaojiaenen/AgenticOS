@@ -42,8 +42,18 @@ export type AuthUser = {
   id: number;
   email: string;
   name: string;
-  role: 'admin' | 'user' | string;
+  /**
+   * 角色标识。取值由后端 `app/core/roles.py` 定义（user / auditor /
+   * operator / admin / superadmin），新增角色时这里不用改。
+   */
+  role: string;
   is_active: boolean;
+  /**
+   * 该角色拥有的能力位（如 `agent:manage`、`user:manage`）。
+   * 前端按能力判断显示什么，不硬编码角色名。
+   * 老缓存里可能没有这个字段（登录/`/auth/me` 会自动补齐）。
+   */
+  capabilities?: string[];
 };
 
 export type Message = {

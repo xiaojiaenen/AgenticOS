@@ -443,6 +443,16 @@ export const ChatHistory = () => {
                   {item.agent_profile_name}
                 </span>
               )}
+              {/* 来源标志：外部 API Key 网关的调用记录不在网页对话页出现，
+                  只在这里打标记 —— 否则用户会困惑"我什么时候问过这个" */}
+              {item.source === 'external_api' && (
+                <span
+                  className="mt-1 ml-1 inline-flex items-center rounded-full border border-amber-300/70 bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-800"
+                  title="由外部接口（API Key）调用产生，不在网页对话页显示"
+                >
+                  外部接口
+                </span>
+              )}
             </div>
           );
         },

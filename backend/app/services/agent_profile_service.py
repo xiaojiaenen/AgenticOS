@@ -623,6 +623,13 @@ class AgentProfileService:
         skills = self._load_profile_skill_rows(db, profile.id)
         audience_users = self._load_audience_users(db, profile.id)
         ext_systems = self._load_profile_external_systems(db, profile.id)
+        # 创建人 / 所有者姓名：后台智能体目录要显示"谁建的" —— 只有 owner_id
+        # 这种数字没法追溯，用户自建的智能体混在列表里就查不出出处。
+        owner = db.get(UserModel, profile.owner_id) if profile.owner_id else None
+        creator_id = profile.created_by or profile.owner_id
+        creator = owner if creator_id == profile.owner_id else (
+            db.get(UserModel, creator_id) if creator_id else None
+        )
         return {
             "id": profile.id,
             "name": profile.name,
@@ -639,6 +646,9 @@ class AgentProfileService:
             "installed": installed,
             "owner_id": profile.owner_id,
             "is_owner": bool(user_id is not None and profile.owner_id == user_id),
+            "owner_name": owner.name if owner else None,
+            "owner_email": owner.email if owner else None,
+            "created_by_name": creator.name if creator else None,
             "visibility": profile.visibility or "private",
             "audience_mode": self._audience_mode(db, profile),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
@@ -710,7 +720,21 @@ class AgentProfileService:
         installed: bool,
         external_systems: list[dict[str, object]] | None = None,
         user_id: int | None = None,
+        owner_names: dict[int, tuple[str, str]] | None = None,
     ) -> dict[str, object]:
+        # 创建人：批量路径由调用方一次性查出 {user_id: (name, email)}，
+        # 避免在列表里对每个 profile 各查一次用户表（N+1）。
+        owner = None
+        if owner_names and profile.owner_id:
+            pair = owner_names.get(profile.owner_id)
+            if pair:
+                owner = pair
+        creator_name = None
+        creator_id = profile.created_by or profile.owner_id
+        if owner_names and creator_id:
+            creator_pair = owner_names.get(creator_id)
+            if creator_pair:
+                creator_name = creator_pair[0]
         return {
             "id": profile.id,
             "name": profile.name,
@@ -727,6 +751,9 @@ class AgentProfileService:
             "installed": installed,
             "owner_id": profile.owner_id,
             "is_owner": bool(user_id is not None and profile.owner_id == user_id),
+            "owner_name": owner[0] if owner else None,
+            "owner_email": owner[1] if owner else None,
+            "created_by_name": creator_name,
             "visibility": profile.visibility or "private",
             "audience_mode": self._audience_mode(db, profile),
             "audience_users": [self._serialize_audience_user(user) for user in audience_users],
@@ -814,6 +841,21 @@ class AgentProfileService:
                     "enabled": row.enabled,
                 })
 
+        # 批量取创建人/所有者姓名：列表里每个 profile 都要显示"谁建的"，
+        # 逐个 db.get 会变成 N+1 查询（几十个智能体就是几十次往返）。
+        owner_ids = {
+            uid
+            for p in profiles
+            for uid in (p.owner_id, p.created_by)
+            if uid
+        }
+        owner_names: dict[int, tuple[str, str]] = {}
+        if owner_ids:
+            owner_names = {
+                u.id: (u.name, u.email)
+                for u in db.scalars(select(UserModel).where(UserModel.id.in_(owner_ids))).all()
+            }
+
         return [
             self._serialize_prefetched(db, 
                 profile,
@@ -823,6 +865,7 @@ class AgentProfileService:
                 installed=profile.id in installed_ids if user_id is not None else False,
                 external_systems=ext_systems_by_profile.get(profile.id, []),
                 user_id=user_id,
+                owner_names=owner_names,
             )
             for profile in profiles
         ]
@@ -1475,6 +1518,31 @@ class AgentProfileService:
             },
         )
 
+        # 管理员对「用户自建智能体」的工具/Skill 限制：受管项只对管理员拥有的
+        # 智能体与平台内置可用。普通用户自建的即使勾上也拿不到 —— 平台层统一
+        # 收口，不依赖用户自觉。
+        try:
+            from app.services import agent_tool_policy
+
+            is_privileged = self._is_privileged_profile(db, profile)
+            policy = agent_tool_policy.load_policy(db)
+            allowed_tools = agent_tool_policy.apply_policy_to_tools(
+                allowed_tools,
+                policy=policy,
+                is_privileged_owner=is_privileged,
+            )
+            skills = agent_tool_policy.filter_skills(
+                skills,
+                policy=policy,
+                is_privileged_owner=is_privileged,
+            )
+        except Exception:  # noqa: BLE001 —— 策略读失败时保持原白名单，不误伤可用性
+            import logging
+
+            logging.getLogger("agenticos.tool_policy").warning(
+                "应用工具策略失败，按未限制处理 profile=%s", profile.id, exc_info=True
+            )
+
         # Load enabled external system IDs for this profile
         ext_system_ids = tuple(
             db.scalars(
@@ -1505,6 +1573,24 @@ class AgentProfileService:
             plan_mode=plan_mode,
             allowed_tools=allowed_tools,
         )
+
+    @staticmethod
+    def _is_privileged_profile(db: Session, profile: AgentProfileModel) -> bool:
+        """该智能体是否"特权"（不受工具策略限制）。
+
+        判定：
+        - 平台内置（owner_id 为空）→ 特权。内置智能体由管理员定义，
+          受限工具正是他们配置出来的能力。
+        - 所有者是管理员 / 超级管理员 → 特权。管理员自建的智能体本就
+          在自己的权限范围内。
+        - 其余（普通用户自建）→ 受限。
+        """
+        from app.core.roles import is_admin_like
+
+        if profile.owner_id is None:
+            return True
+        owner = db.get(UserModel, profile.owner_id)
+        return bool(owner and is_admin_like(owner.role))
 
     @staticmethod
     def _compute_allowed_tools(

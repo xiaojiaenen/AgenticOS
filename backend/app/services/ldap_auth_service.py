@@ -587,6 +587,96 @@ def test_connection(
             _close(conn)
 
 
+def lookup_people(
+    config: LdapConfig,
+    keyword: str,
+    limit: int = 10,
+) -> list[dict[str, str]]:
+    """按关键词在目录里找人，返回姓名 / 邮箱 / 账号。
+
+    给邮箱助手用：用户说"发给张三"，助手需要把姓名换成邮箱。**只读查询**，
+    不验证任何人的密码（与 ``authenticate`` 是两条完全独立的路径）。
+
+    匹配策略（依次收窄，命中即返回该轮结果）：
+    1. 邮箱全等 / 账号全等 / 姓名全等 —— 精确输入时最快最准
+    2. 姓名或邮箱**前缀**匹配 —— 覆盖"张"、"zhangsan@"这类输入
+    3. 子串（``*kw*``）—— 兜底模糊
+
+    第 3 步会扫更多条目，所以前两步命中时不再继续；只有全都没命中才做
+    子串搜索，避免每次查人都把整个目录拉一遍。
+
+    Raises:
+        LdapAuthError: 服务不可达 / 未配置 / 查询失败。
+    """
+    from ldap3 import SUBTREE
+
+    from ldap3.utils.conv import escape_filter_chars
+
+    kw = (keyword or "").strip()
+    if not kw:
+        return []
+    config.validate()
+
+    attr_email = (config.attr_email or "").strip() or "mail"
+    attr_name = (config.attr_name or "").strip() or "cn"
+    attr_user = (config.attr_username or "").strip() or "sAMAccountName"
+    esc = escape_filter_chars(kw)
+
+    # 先精确、再前缀、最后子串
+    filters = [
+        f"(|({attr_email}={esc})({attr_user}={esc})({attr_name}={esc}))",
+        f"(|({attr_email}={esc}*)({attr_name}={esc}*)({attr_user}={esc}*))",
+        f"(|({attr_email}=*{esc}*)({attr_name}=*{esc}*)({attr_user}=*{esc}*))",
+    ]
+
+    # 连接失败要转成 LdapAuthError（上层据此给"检查地址/网络"这类可读提示）；
+    # 裸的 socket 异常会让工具层只报一句看不懂的英文。
+    try:
+        conn = _connect(config)
+    except LdapAuthError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise LdapAuthError(f"LDAP 服务器连接失败：{exc}") from exc
+    try:
+        entries = []
+        for search_filter in filters:
+            if not conn.search(
+                search_base=config.base_dn,
+                search_filter=search_filter,
+                search_scope=SUBTREE,
+                attributes=[attr_name, attr_email, attr_user],
+                size_limit=max(1, min(limit, 50)),
+            ):
+                # 过滤器语法错之类：继续试下一种，全失败才报错
+                continue
+            entries = list(conn.entries)
+            if entries:
+                break
+    except LdapAuthError:
+        raise
+    except Exception as exc:  # noqa: BLE001 -- 网络/协议异常转可读信息
+        raise LdapAuthError(f"LDAP 查询失败：{exc}") from exc
+    finally:
+        _close(conn)
+
+    people: list[dict[str, str]] = []
+    for entry in entries:
+        def _attr(name: str) -> str:
+            try:
+                value = entry[name].value  # type: ignore[index]
+            except Exception:  # noqa: BLE001
+                return ""
+            if isinstance(value, (list, tuple)):
+                return str(value[0]) if value else ""
+            return str(value or "")
+
+        people.append({
+            "name": _attr(attr_name),
+            "email": _attr(attr_email),
+            "username": _attr(attr_user),
+        })
+    return people
+
 def authenticate(config: LdapConfig, username: str, password: str) -> dict[str, str]:
     """LDAP 认证：服务账号搜索用户 → 用户 DN + 密码二次 bind。
 
@@ -722,6 +812,12 @@ class LdapAuthService:
     @property
     def enabled(self) -> bool:
         return self.config.enabled
+
+    async def lookup_people(self, keyword: str, limit: int = 10) -> list[dict[str, str]]:
+        """按关键词查人（姓名/邮箱/账号）。只读，供邮箱助手解析收件人。"""
+        import asyncio
+
+        return await asyncio.to_thread(lookup_people, self.config, keyword, limit)
 
     async def authenticate(self, username: str, password: str) -> dict[str, str]:
         """异步认证（ldap3 为同步 API，放线程池避免阻塞事件循环）。"""

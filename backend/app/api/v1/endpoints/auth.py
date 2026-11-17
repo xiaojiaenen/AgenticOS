@@ -47,13 +47,17 @@ def _audit(request: Request, db: Session, *, action: str, result: str, **fields)
 
 
 def _to_public(user: UserModel) -> UserPublic:
+    from app.core.roles import capabilities_for, normalize_role
+
     return UserPublic(
         id=user.id,
         email=user.email,
         name=user.name,
-        role=user.role,
+        # 归一后的角色：老数据里的未知值按 user 下发，别让前端拿到它不认识的字符串
+        role=normalize_role(user.role),
         is_active=user.is_active,
         auth_source=user.auth_source,
+        capabilities=sorted(capabilities_for(user.role)),
     )
 
 

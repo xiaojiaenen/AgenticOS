@@ -25,6 +25,9 @@ class ConversationListItem(AppBaseModel):
     avg_latency_ms: int
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    #: 会话来源（"web" 网页对话 / "external_api" 对外 API Key 网关）。
+    #: 后台表格用它打标志，前台会话列表则直接过滤掉 external_api。
+    source: str = "web"
 
 
 class ConversationListResponse(AppBaseModel):

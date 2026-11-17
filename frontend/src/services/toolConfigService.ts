@@ -91,3 +91,37 @@ export async function updateModeToolConfig(
     '工具配置更新失败',
   );
 }
+
+// ---------------------------------------------------------------------------
+// 用户自建智能体的工具限制（管理员平台级收口）
+// ---------------------------------------------------------------------------
+
+export type AgentToolPolicy = {
+  restricted_tools: string[];
+  restricted_skills: string[];
+  default_restricted_tools: string[];
+  available_tools: { name: string; label: string }[];
+};
+
+export async function fetchAgentToolPolicy(): Promise<AgentToolPolicy> {
+  return apiFetch<AgentToolPolicy>(
+    `${TOOL_CONFIG_ENDPOINT}/policy`,
+    {},
+    '限制策略加载失败',
+  );
+}
+
+export async function updateAgentToolPolicy(payload: {
+  restricted_tools?: string[];
+  restricted_skills?: string[];
+}): Promise<{ restricted_tools: string[]; restricted_skills: string[] }> {
+  return apiFetch(
+    `${TOOL_CONFIG_ENDPOINT}/policy`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    '限制策略保存失败',
+  );
+}

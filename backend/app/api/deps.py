@@ -8,6 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.core import roles
 from app.core.security import decode_access_token
 from app.db.models import UserModel
 from app.db.session import create_db_session
@@ -66,9 +67,48 @@ def get_current_user(
 
 
 def require_admin(user: UserModel = Depends(get_current_user)) -> UserModel:
-    if user.role != "admin":
+    """要求**完整平台管理**能力（admin / superadmin）。
+
+    历史原因：124 处端点用它做粗粒度把关。现在判的是能力而不是角色名 ——
+    新增角色时只改 `roles.py` 的能力表，这里和端点都不用动。
+
+    注意 operator（运营）/ auditor（审计员）**不是** admin：他们能进后台
+    但只能用自己的专有端点（`require_capability`）。这样保持既有语义不漂移，
+    同时新角色按需逐步放开具体能力。
+    """
+    if not roles.is_admin_like(user.role):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
     return user
+
+
+def require_capability(capability: str):
+    """按能力做鉴权（细粒度端点的首选）。
+
+    比 `require_admin` 更精确：运营能管内容但进不了用户管理，
+    审计员只能读统计 —— 这些差异都在 `roles.py` 一张表里。
+    """
+
+    def dependency(user: UserModel = Depends(get_current_user)) -> UserModel:
+        if not roles.has_capability(user.role, capability):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"缺少权限：{capability}",
+            )
+        return user
+
+    return dependency
+
+
+def client_capabilities(user: UserModel) -> dict[str, object]:
+    """前端要的「我能做什么」摘要（随 /auth/me 下发）。
+
+    同时给 `can_enter_admin` 与完整能力位：前端用它决定菜单可见性，
+    不再硬编码 `role === 'admin'` —— 加角色不用改前端。
+    """
+    return {
+        "can_enter_admin": roles.can_enter_admin(user.role),
+        "capabilities": sorted(roles.capabilities_for(user.role)),
+    }
 
 
 # ---------------------------------------------------------------------------

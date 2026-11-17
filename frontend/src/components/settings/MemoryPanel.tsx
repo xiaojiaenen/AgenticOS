@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from '@/components/shadcn/select';
 import { toastError } from '../../lib/errors';
+import { canEnterAdmin } from '@/services/authTokenStore';
 
 const MEMORY_TYPE_OPTIONS = [
   { value: 'fact', label: '事实' },
@@ -147,7 +148,7 @@ function MemoryCard({
 export const MemoryPanel: React.FC = () => {
   const queryClient = useQueryClient();
   const user = getStoredUser();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = canEnterAdmin();
 
   const [searchInput, setSearchInput] = useState('');
   const searchQuery = useDebounced(searchInput);

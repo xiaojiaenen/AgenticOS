@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../shadcn/tooltip';
 import { Button } from '../shadcn/button';
 import { ThemeToggle } from '../ui/ThemeToggle';
+import { canEnterAdmin } from '@/services/authTokenStore';
 interface SidebarProps {
   sessions: Session[];
   currentSessionId: string | null;
@@ -234,7 +235,7 @@ export const Sidebar = React.memo(({
             </Tooltip>
           ))}
         </div>
-        {user?.role === 'admin' && (
+        {canEnterAdmin() && (
           <button
             onClick={() => navigate('/admin')}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-colors shadow-sm font-medium text-sm"

@@ -50,6 +50,18 @@ def _find_user_by_email(db: Session, email: str) -> UserModel | None:
     return db.scalar(select(UserModel).where(func.lower(UserModel.email) == email.lower()))
 
 
+@router.get("/roles")
+def list_roles(_: UserModel = Depends(require_admin)) -> dict[str, object]:
+    """可选角色清单 + 每个角色能做哪些事（后台用户管理的下拉框用它）。
+
+    放在 `/{user_id}` 之前注册，否则会被当成 user_id="roles" 匹配走。
+    能力位是英文标识，`label`/`hint` 是给人看的中文说明。
+    """
+    from app.core.roles import role_meta_payload
+
+    return {"items": role_meta_payload()}
+
+
 @router.get("", response_model=UserListResponse)
 def list_users(
     search: str = Query(default="", max_length=120),
@@ -85,6 +97,25 @@ async def create_user(
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="该邮箱已注册，请直接登录")
 
+    # 角色白名单 + 越权保护（与 update_user 同一套口径）：
+    # 建号时也不许授予超出自己的权限，否则"先建一个 superadmin"就绕过了
+    # 改角色时的检查。
+    from app.core.roles import VALID_ROLES, capabilities_for
+
+    raw_role = (payload.role or "user").strip().lower()
+    if raw_role not in VALID_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"未知角色：{payload.role}",
+        )
+    new_role = raw_role
+    actor_caps = capabilities_for(current_user.role)
+    if not capabilities_for(new_role) <= actor_caps:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="不能创建超出自己权限的角色",
+        )
+
     # 在线程池中执行 PBKDF2 哈希，防止阻塞事件循环
     import asyncio
     password_hash = await asyncio.to_thread(hash_password, payload.password)
@@ -93,7 +124,7 @@ async def create_user(
         email=payload.email,
         name=payload.name.strip(),
         password_hash=password_hash,
-        role=payload.role,
+        role=new_role,
         is_active=payload.is_active,
         auth_source=payload.auth_source,
     )
@@ -163,10 +194,41 @@ def update_user(
         user.password_hash = hash_password(payload.password)
     role_changed = False
     if payload.role is not None:
-        if user.id == current_user.id and payload.role != "admin":
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不能移除自己的管理员角色")
-        role_changed = user.role != payload.role
-        user.role = payload.role
+        from app.core.roles import (
+            VALID_ROLES,
+            capabilities_for,
+            normalize_role,
+        )
+
+        # 白名单要判**原始输入**，不能先归一再看 —— `normalize_role` 会把
+        # 未知值降级成 "user"（读老数据时这是对的，但写接口里等于把
+        # "superuser" 这种拼错静默改成普通用户，用户会莫名丢权限）。
+        raw_role = payload.role.strip().lower()
+        if raw_role not in VALID_ROLES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"未知角色：{payload.role}",
+            )
+        new_role = raw_role
+        # 不能改自己的角色：否则可以自降自升，绕过审计与权限边界
+        if user.id == current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="不能修改自己的角色",
+            )
+        # 越权保护：不能把别人提到**自己不具备**的权限档位。
+        # 例：admin（无 CAP_DANGEROUS / 无代查对话）不能把人提成 superadmin，
+        # 否则等于绕过了这两个能力本身的限制。
+        actor_caps = capabilities_for(current_user.role)
+        target_caps = capabilities_for(new_role)
+        if not target_caps <= actor_caps:
+            extra = sorted(target_caps - actor_caps)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"不能授予超出自己权限的角色（多出：{'、'.join(extra)}）",
+            )
+        role_changed = user.role != new_role
+        user.role = new_role
     if payload.is_active is not None:
         if user.id == current_user.id and not payload.is_active:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="不能禁用自己的账号")

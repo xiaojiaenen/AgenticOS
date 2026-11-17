@@ -19,7 +19,6 @@ import { useRunTitleAwareness } from '../hooks/useRunTitleAwareness';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { useChatStore } from '../stores/chatStore';
 import { ChatContextProvider, type ChatContextValue } from '../contexts/ChatContext';
-import { getStoredUser } from '../services/authService';
 import { getMyAgents } from '../services/agentProfileService';
 import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
@@ -27,6 +26,7 @@ import { UserInputPanel } from '../components/chat/UserInputPanel';
 import { getSessionArtifacts, submitUserInput, type UserInputRequest } from '../services/agentService';
 import { useRunControlStore } from '@/features/island/runControlStore';
 import type { VirtuosoHandle } from 'react-virtuoso';
+import { canEnterAdmin } from '@/services/authTokenStore';
 export const Chat = () => {
   const location = useLocation();
   const initialMessage = location.state?.initialMessage as string | undefined;
@@ -107,7 +107,7 @@ export const Chat = () => {
 
   // ── Refs ──
   const chatInputRef = useRef<ChatInputHandle>(null);
-  const isAdmin = getStoredUser()?.role === 'admin';
+  const isAdmin = canEnterAdmin();
 
   // 「全部放行」仅管理员可用：非管理员若残留 full（如同会话内角色变更），
   // 菜单会回落显示「逐次确认」但发送仍按 full —— 这里统一纠正，保证显示与实际一致

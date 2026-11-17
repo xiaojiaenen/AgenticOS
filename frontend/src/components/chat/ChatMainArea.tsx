@@ -15,10 +15,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../sha
 import { useChat } from '../../contexts/ChatContext';
 import { useChatStore } from '../../stores/chatStore';
 import { cn } from '../../lib/utils';
-import { getStoredUser } from '../../services/authService';
 import { issueWebsitePreviewUrl } from '../../services/websiteService';
 import { getSessionArtifacts } from '../../services/agentService';
 import { toast } from 'sonner';
+import { canEnterAdmin } from '@/services/authTokenStore';
 
 export const ChatMainArea = React.memo(() => {
   // 从 Context 获取 hook 返回值和派生状态
@@ -516,7 +516,7 @@ const {
             onApprovalModeChange={setApprovalMode}
             planMode={planMode}
             onPlanModeChange={setPlanMode}
-            isAdmin={getStoredUser()?.role === 'admin'}
+            isAdmin={canEnterAdmin()}
           />
         </div>
       </div>

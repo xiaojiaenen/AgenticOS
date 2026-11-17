@@ -15,6 +15,10 @@ class UserPublic(BaseModel):
     role: str
     is_active: bool
     auth_source: str = "local"
+    #: 该角色拥有的能力位（见 app/core/roles.py）。前端按能力决定显示什么，
+    #: 不再硬编码 `role === 'admin'` —— 这样加角色不用改前端。
+    #: 默认空列表以兼容老客户端的反序列化（它们会忽略这个字段）。
+    capabilities: list[str] = Field(default_factory=list)
 
 
 class AuthRegisterRequest(BaseModel):

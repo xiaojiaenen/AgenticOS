@@ -925,3 +925,63 @@ def register_email_tools(registry: ToolRegistry):
 
         except Exception as e:
             return f"❌ 发送邮件失败: {str(e)}"
+
+
+    # ------------------------------------------------------------------
+    # 通讯录查询（LDAP）：把"发给张三"换成真实邮箱
+    # ------------------------------------------------------------------
+    # 为什么由邮箱助手带这个能力：用户最自然的说法是"发给张伟"，而不是背
+    # 邮箱地址。没有这条工具，模型只能让用户自己去找邮箱，或者猜一个不存在的
+    # 地址发出去（静默失败）。这里直接查企业目录。
+    @registry.tool(display_name="按姓名查邮箱")
+    async def lookup_contact(keyword: str, limit: int = 8) -> str:
+        """
+        在企业通讯录（LDAP）里按姓名、邮箱或账号查人，用于"发给张三"这类请求。
+        只读查询，不会暴露任何密码。
+
+        Args:
+            keyword: 姓名、邮箱或账号（支持部分匹配，如"张"、"zhangwei"）
+            limit: 最多返回几条，默认 8
+        """
+        from app.services.ldap_auth_service import LdapAuthError, LdapAuthService
+        from app.core.config import get_settings
+
+        kw = (keyword or "").strip()
+        if not kw:
+            return "❌ 请提供要查询的姓名、邮箱或账号。"
+
+        try:
+            with create_db_session() as db:
+                service = LdapAuthService(get_settings(), db)
+                if not service.enabled:
+                    return (
+                        "❌ 企业通讯录（LDAP）未启用，无法按姓名查邮箱。"
+                        "请到「管理后台 → 系统设置 → LDAP」开启，或直接提供收件人邮箱地址。"
+                    )
+                people = await service.lookup_people(kw, limit=max(1, min(int(limit or 8), 20)))
+        except LdapAuthError as exc:
+            return f"❌ 查询通讯录失败：{exc}"
+        except Exception as exc:  # noqa: BLE001 -- 网络/配置异常不该让整轮对话失败
+            logger.warning("lookup_contact failed: %s", exc)
+            return f"❌ 查询通讯录时出错：{exc}"
+
+        if not people:
+            return (
+                f"未在通讯录中找到与「{kw}」匹配的人。"
+                "可以换用更完整的姓名、邮箱前缀，或直接向用户确认邮箱地址。"
+            )
+
+        lines = [f"找到 {len(people)} 位匹配「{kw}」的联系人："]
+        for i, person in enumerate(people, 1):
+            name = person.get("name") or "(无姓名)"
+            addr = person.get("email") or "(无邮箱)"
+            account = person.get("username") or ""
+            suffix = f"（账号 {account}）" if account and account != addr else ""
+            lines.append(f"{i}. {name} — {addr}{suffix}")
+        if len(people) == 1:
+            lines.append("")
+            lines.append("只有一位匹配，可以直接用这个邮箱发信。")
+        else:
+            lines.append("")
+            lines.append("有多个匹配，请向用户确认是哪一位再发信。")
+        return "\n".join(lines)

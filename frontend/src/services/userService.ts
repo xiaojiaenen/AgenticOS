@@ -17,13 +17,34 @@ export type UserListResponse = {
 export type UserFormPayload = {
   email: string;
   name: string;
-  role: 'admin' | 'user';
+  role: string;
   is_active: boolean;
   password?: string;
 };
 
+/** 角色元数据（后端 `/users/roles`）：值 + 中文名 + 说明 + 能力位。 */
+export type RoleOption = {
+  value: string;
+  label: string;
+  hint: string;
+  capabilities: string[];
+};
+
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const USERS_ENDPOINT = `${API_BASE_URL}/api/v1/users`;
+
+/**
+ * 可选角色清单。角色定义在**后端** `app/core/roles.py` 一张表里，
+ * 前端只渲染 —— 新增角色不用改前端代码。
+ */
+export async function listRoles(): Promise<RoleOption[]> {
+  const payload = await apiFetch<{ items: RoleOption[] }>(
+    `${USERS_ENDPOINT}/roles`,
+    {},
+    '角色列表加载失败',
+  );
+  return payload.items;
+}
 
 export async function listUsers(params: { search?: string; offset?: number; limit?: number }): Promise<UserListResponse> {
   const query = new URLSearchParams();

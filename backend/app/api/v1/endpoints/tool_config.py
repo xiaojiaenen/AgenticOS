@@ -54,3 +54,77 @@ def update_mode_tool_config(
         ]},
     )
     return result
+
+
+# ---------------------------------------------------------------------------
+# 用户自建智能体的工具/Skill 限制（管理员平台级收口）
+# ---------------------------------------------------------------------------
+
+
+@router.get("/policy")
+def get_agent_tool_policy(
+    db: Session = Depends(get_db),
+    _: UserModel = Depends(require_admin),
+) -> dict[str, object]:
+    """当前生效的限制名单 + 全部可选工具（后台勾选界面用）。
+
+    `restricted_tools` 里的工具**只对管理员拥有的智能体与平台内置可用**；
+    普通用户自建的智能体即使勾上也拿不到。
+    """
+    from app.services import agent_tool_policy
+    from app.services.tool_config_service import TOOL_CATALOG
+
+    policy = agent_tool_policy.load_policy(db)
+    return {
+        "restricted_tools": sorted(policy.restricted_tools),
+        "restricted_skills": sorted(policy.restricted_skills),
+        "default_restricted_tools": sorted(agent_tool_policy.DEFAULT_RESTRICTED_TOOLS),
+        # 供前端渲染可勾选清单（工具名 + 中文名）
+        "available_tools": [
+            {"name": name, "label": str(item.get("label") or name)}
+            for name, item in sorted(TOOL_CATALOG.items())
+        ],
+    }
+
+
+@router.put("/policy")
+def update_agent_tool_policy(
+    payload: dict,
+    http_request: Request,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(require_admin),
+) -> dict[str, object]:
+    """保存限制名单。
+
+    只接受两个可选字段：`restricted_tools` / `restricted_skills`（字符串数组）。
+    未传的字段保持不变。
+    """
+    from app.services import agent_tool_policy
+
+    tools = payload.get("restricted_tools")
+    skills = payload.get("restricted_skills")
+    for value, name in ((tools, "restricted_tools"), (skills, "restricted_skills")):
+        if value is not None and not (
+            isinstance(value, list) and all(isinstance(x, str) for x in value)
+        ):
+            raise HTTPException(status_code=400, detail=f"{name} 必须是字符串数组")
+    try:
+        policy = agent_tool_policy.save_policy(
+            db, restricted_tools=tools, restricted_skills=skills
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # 策略立刻生效：缓存的 Agent 里嵌着旧的白名单
+    get_agent_service().clear_agent_cache()
+    audit_service.record_request(
+        db, http_request, action="tool_policy.update", actor=current_user,
+        resource_type="tool_policy", resource_id="agent_tool_policy",
+        detail={
+            "restricted_tools": sorted(policy.restricted_tools),
+            "restricted_skills": sorted(policy.restricted_skills),
+        },
+    )
+    return {
+        "restricted_tools": sorted(policy.restricted_tools),
+        "restricted_skills": sorted(policy.restricted_skills),
+    }

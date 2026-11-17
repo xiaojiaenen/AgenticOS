@@ -123,6 +123,13 @@ class AgentProfileResponse(AppBaseModel):
     owner_id: int | None = None
     """是否由当前请求用户拥有（前端据此显示编辑/删除入口）"""
     is_owner: bool = False
+    #: 实际所有者（`owner_id` 指向的用户）的姓名/邮箱 —— 后台目录要显示
+    #: "这个智能体是谁建的"。内置智能体为 None。
+    owner_name: str | None = None
+    owner_email: str | None = None
+    #: 创建人（`created_by`）：用户自建时与 owner 通常一致；内置/导入的智能体
+    #: 可能是创建它那次操作的管理员。None = 平台内置。
+    created_by_name: str | None = None
     visibility: str = "private"
     max_steps: int | None = None
     audience_mode: str

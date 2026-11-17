@@ -124,6 +124,17 @@ export const AgentManagement = () => {
               <p className="mt-1 line-clamp-2 max-w-[360px] text-sm font-medium leading-6 text-[var(--muted-foreground)]">
                 {profile.description || '暂无描述'}
               </p>
+              {/* 创建人：用户自建的智能体必须能追溯出处，否则混在列表里
+                  完全看不出是谁建的（这也是"控制用户自建智能体"的前提）。 */}
+              <p className="mt-1 truncate text-xs text-[var(--muted-foreground)]">
+                {profile.is_builtin
+                  ? '平台内置'
+                  : profile.owner_name
+                    ? `创建人：${profile.owner_name}${profile.owner_email ? `（${profile.owner_email}）` : ''}`
+                    : profile.owner_id
+                      ? `创建人 ID：${profile.owner_id}`
+                      : '创建人未知'}
+              </p>
             </div>
           );
         },

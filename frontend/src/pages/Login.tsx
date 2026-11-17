@@ -18,6 +18,7 @@ import {
   loginWithCode,
   sendVerificationCode,
 } from '../services/authService';
+import { canEnterAdmin } from '../services/authTokenStore';
 import { cn } from '../lib/utils';
 
 const EMAIL_SUFFIXES = [
@@ -225,13 +226,16 @@ export const Login = () => {
       return;
     }
     try {
-      const user =
-        loginMode === 'password'
-          ? await loginUser(parsed.data.email.trim(), parsed.data.password)
-          : await loginWithCode(parsed.data.email, parsed.data.code);
+      // 登录成功后 authService 已写入 localStorage（含 capabilities），
+      // 这里按能力决定落地页，不硬编码角色名。
+      if (loginMode === 'password') {
+        await loginUser(parsed.data.email.trim(), parsed.data.password);
+      } else {
+        await loginWithCode(parsed.data.email, parsed.data.code);
+      }
       const from = (location.state as { from?: string } | null)?.from;
       toast.success('登录成功，正在进入工作台');
-      navigate(from || (user.role === 'admin' ? '/admin' : '/chat'), { replace: true });
+      navigate(from || (canEnterAdmin() ? '/admin' : '/chat'), { replace: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : '登录失败';
       setError('root', { message });

@@ -44,6 +44,11 @@ export type AgentProfile = {
   owner_id?: number | null;
   /** 当前请求用户是否为所有者（决定是否显示编辑/删除） */
   is_owner?: boolean;
+  /** 所有者的姓名/邮箱（后台目录显示"谁建的"）；内置智能体为空 */
+  owner_name?: string | null;
+  owner_email?: string | null;
+  /** 创建人姓名（可能是操作那次的管理员，与 owner 不同） */
+  created_by_name?: string | null;
   visibility?: 'private' | 'public';
   audience_mode: 'all' | 'selected' | 'none';
   audience_users: AgentProfileAudienceUser[];
