@@ -202,7 +202,11 @@ def resolve_short_link(
 
     suffix = (rel_path or "").lstrip("/")
     if row.visibility == "public":
-        target = f"/sites/{row.project_slug}/{suffix}"
+        # 空 suffix（访问 /s/<code>/）要显式补 index.html：
+        # nginx 的 `alias` + `try_files $uri/` 组合在不同版本上对"目录 → index"
+        # 的行为不一致（有的直接 404），显式指向文件最稳。非空 suffix
+        # （/s/<code>/assets/x.js）原样透传。
+        target = f"/sites/{row.project_slug}/{suffix or 'index.html'}"
     else:
         token_q = f"?t={t}" if t else ""
         target = f"/api/v1/website/site/{row.project_slug}/{suffix}{token_q}"

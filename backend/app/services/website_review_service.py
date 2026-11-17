@@ -233,9 +233,20 @@ async def ai_review(packet: dict[str, Any]) -> dict[str, Any]:
 是否有登录凭据处理、是否像钓鱼页（模仿登录界面 + 外发表单）。
 """
 
-    llm = build_llm_optional(max_tokens=800, timeout=45, role="fast")
+    llm = build_llm_optional(max_tokens=800, timeout=45, role="fast", purpose="网站发布 AI 评审")
     if llm is None:
-        return {"available": False, "reason": "未配置可用模型"}
+        # 原来只说「未配置可用模型」，管理员会以为要去配模型 —— 但实际更常见的是
+        # 「配了但模型名无效 / 提供商密钥失效 / 网关不可达」。把排查路径列出来，
+        # 别让人猜。
+        return {
+            "available": False,
+            "reason": (
+                "无法调用评审模型。请检查「管理后台 → AI 提供商」："
+                "1) 是否启用了提供商；2) 模型名是否为该网关真实支持的名称；"
+                "3) 密钥或企业网关登录态是否有效。"
+                "（详细原因已写入后端日志，关键字 website_review）"
+            ),
+        }
     try:
         # 消息必须是 wuwei 的消息对象，不能传 dict ——
         # ``llm.generate([{"role": "user", "content": ...}])`` 会在适配器里

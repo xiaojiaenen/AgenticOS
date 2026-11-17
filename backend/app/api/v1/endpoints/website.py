@@ -1,5 +1,6 @@
 """Website deploy API endpoints."""
 
+import json
 import logging
 from typing import Any
 
@@ -43,8 +44,70 @@ def _assert_can_deploy_project(project_slug: str, user: UserModel) -> None:
         )
 
 
+async def _generate_title_for_project(
+    *,
+    project_slug: str,
+    session_id: str,
+    stack: str | None,
+    description: str | None,
+) -> str | None:
+    """读取对话与文件清单，让模型起一个作品名。
+
+    **任何异常都吞掉**返回 None：命名是锦上添花，失败绝不能阻断发布
+    （调用方随即退回 project_slug 兜底，与改造前行为一致）。
+    """
+    try:
+        from app.services.website_title_service import generate_site_title
+
+        # 对话：用后端自己的会话存储读（与审批审阅包同源，语义一致）
+        conversation: list[dict[str, object]] = []
+        try:
+            from app.db.models import AgentMessageModel
+            from app.db.session import create_db_session
+            from sqlalchemy import select as _select
+
+            with create_db_session() as _db:
+                rows = _db.scalars(
+                    _select(AgentMessageModel)
+                    .where(AgentMessageModel.session_id == session_id)
+                    .order_by(AgentMessageModel.id.desc())
+                    .limit(8)
+                ).all()
+                for row in reversed(rows):
+                    try:
+                        payload = json.loads(row.message_json)
+                    except Exception:  # noqa: BLE001
+                        continue
+                    conversation.append({
+                        "role": payload.get("role"),
+                        "text": payload.get("content"),
+                    })
+        except Exception:  # noqa: BLE001 —— 读不到对话就只靠文件清单
+            pass
+
+        # 文件清单：projects 目录下的 dist 产物
+        files: list[dict[str, object]] = []
+        try:
+            dist_dir = _WEBSITES_DIR / project_slug / "dist"
+            if dist_dir.exists():
+                for item in sorted(dist_dir.rglob("*"))[:20]:
+                    if item.is_file():
+                        files.append({"path": str(item.relative_to(dist_dir))})
+        except Exception:  # noqa: BLE001
+            pass
+
+        return await generate_site_title(
+            conversation=conversation,
+            files=files,
+            stack=stack,
+            description=description,
+        )
+    except Exception:  # noqa: BLE001 —— 命名失败不影响发布
+        return None
+
+
 @router.post("/deploy")
-def request_deploy(
+async def request_deploy(
     body: DeployRequest,
     http_request: Request,
     user: UserModel = Depends(require_feature("write", "deploy_website")),
@@ -54,8 +117,22 @@ def request_deploy(
 
     鉴权分两层：功能级（这个角色能不能用「部署网站」这个功能）+
     行级（只能部署自己的项目）。前者由策略表决定，后者由目录名归属决定。
+
+    用户没填作品名时**真的去生成一个** —— 前端输入框一直写着"留空则由 AI
+    自动生成"，但后端过去只是存 None，最终展示成一串 `u3_s1794..._v2` 机器
+    ID。生成失败不阻断发布，退回 slug 兜底。
     """
     _assert_can_deploy_project(body.project_slug, user)
+
+    title = (body.title or "").strip()
+    if not title:
+        title = await _generate_title_for_project(
+            project_slug=body.project_slug,
+            session_id=body.session_id,
+            stack=body.stack,
+            description=body.description,
+        ) or ""
+
     deploy = _service.request_deploy(
         session_id=body.session_id,
         project_slug=body.project_slug,
@@ -63,7 +140,7 @@ def request_deploy(
         requested_by=user.id,
         target_domain=body.target_domain,
         visibility=body.visibility,
-        title=body.title,
+        title=title or None,
         description=body.description,
     )
     audit_service.record_request(
