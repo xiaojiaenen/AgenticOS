@@ -789,14 +789,17 @@ TOOL_CATALOG = {
         "approval_scope": [],
         "sub_tools": {},
     },
+    # 注意：delete_file 既是「file 条目下的子工具」，又有独立条目（为了让它
+    # 能在后台单独配置审批）。**独立条目不能再把 delete_file 写进自己的
+    # sub_tools / approval_scope** —— 那会导致它自己放行自己：即使管理员
+    # 关掉 `file` 条目，`delete_file` 条目仍启用，于是白名单里照样有它。
+    # 审批要求由 `file` 条目管辖，这里只承载展示信息。
     "delete_file": {
         "label": "删除文件",
-        "description": "删除工作区内的文件。",
+        "description": "删除工作区内的文件（审批由「文件工具」条目统一控制）。",
         "builtin_name": None,
-        "approval_scope": ["delete_file"],
-        "sub_tools": {
-            "delete_file": {"label": "删除文件", "description": "删除不可恢复，建议要求审批"},
-        },
+        "approval_scope": [],
+        "sub_tools": {},
     },
     "list_files": {
         "label": "列出文件",

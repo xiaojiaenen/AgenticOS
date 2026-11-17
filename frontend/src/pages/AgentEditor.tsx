@@ -47,6 +47,7 @@ import {
 import type { ToolCatalogItem } from '../services/toolConfigService';
 import { useGoBack } from '../hooks/useGoBack';
 import { TOOL_CATEGORIES, categoryOf } from '../lib/toolCategories';
+import { canEnterAdmin } from '@/services/authTokenStore';
 
 /**
  * 工具分组由 lib/toolCategories.ts 统一维护（AgentEditor 与
@@ -109,6 +110,12 @@ export const AgentEditor: React.FC = () => {
   );
   const [avatar, setAvatar] = useState('sparkles');
   const [visibility, setVisibility] = useState<'private' | 'public'>('private');
+  // 是否上架到智能体商店（= 其他人在商店里看得到这个智能体）。
+  // 与 audienceMode 是两个概念：listed 决定「商店里有没有」，audience 决定
+  // 「上架后谁能用」。用户自建的默认不上架（平台级动作，需审核），
+  // 管理员可以直接勾。
+  const [listed, setListed] = useState(false);
+  const isAdminViewer = canEnterAdmin();
   // 启用范围：all = 全体用户；selected = 仅指定用户；none = 暂不开放给任何人。
   // 用户自建的智能体默认「暂不开放」—— 公开上架属于平台级动作，不该由
   // 自建者一键完成（审核成本与滥用风险都高）。
@@ -272,6 +279,7 @@ export const AgentEditor: React.FC = () => {
     setResponseMode(profile.response_mode);
     setAvatar(profile.avatar || 'sparkles');
     setVisibility(profile.visibility || 'private');
+    setListed(Boolean(profile.listed));
     setAudienceMode(
       (profile.audience_mode as 'all' | 'selected' | 'none' | undefined) || 'none',
     );
@@ -348,7 +356,7 @@ export const AgentEditor: React.FC = () => {
         response_mode: responseMode,
         avatar,
         enabled: true,
-        listed: false,
+        listed,
         visibility,
         // 启用范围只在自己明确改过时提交。此前这里硬编码 'all' + [],
         // 会把管理员配好的 ACL 悄悄清空（用户编辑个名字就丢权限配置）。
@@ -543,6 +551,58 @@ export const AgentEditor: React.FC = () => {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="mb-4">
+              <span className="mb-1.5 block text-sm font-medium">上架到智能体商店</span>
+              {isAdminViewer ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setListed((v) => !v)}
+                    role="switch"
+                    aria-checked={listed}
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-colors',
+                      listed
+                        ? 'border-brand-500 bg-brand-500/10'
+                        : 'border-[var(--border-subtle)] hover:bg-[var(--surface-2)]',
+                    )}
+                  >
+                    <span>
+                      <span className="block text-sm font-semibold">
+                        {listed ? '已上架' : '未上架'}
+                      </span>
+                      <span className="mt-0.5 block text-[11px] text-[var(--muted-foreground)]">
+                        {listed
+                          ? '其他用户能在智能体商店看到并使用它'
+                          : '只有你自己能在「我的智能体」里用'}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        'relative h-5 w-9 shrink-0 rounded-full transition-colors',
+                        listed ? 'bg-[var(--primary)]' : 'bg-[var(--surface-3)]',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform',
+                          listed ? 'translate-x-4' : 'translate-x-0.5',
+                        )}
+                      />
+                    </span>
+                  </button>
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--muted-foreground)]">
+                    上架决定商店里有没有它；「启用范围」（管理后台）决定上架后谁能用。
+                  </p>
+                </>
+              ) : (
+                <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2.5 text-xs leading-relaxed text-[var(--muted-foreground)]">
+                  自建智能体默认不上架 —— 上架是平台级动作，需要管理员审核。
+                  你可以先把智能体做好，再联系管理员上架到商店。
+                </p>
+              )}
             </div>
 
             <div className="mb-4">

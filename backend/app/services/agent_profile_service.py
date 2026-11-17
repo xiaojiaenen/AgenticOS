@@ -1186,6 +1186,13 @@ class AgentProfileService:
             db, profile, defaults, force=True
         )
 
+    @staticmethod
+    def _creator_can_list(user: UserModel) -> bool:
+        """该用户能否把智能体上架到商店（管理员可以，普通用户需走审核）。"""
+        from app.core.roles import is_admin_like
+
+        return is_admin_like(user.role)
+
     def create(self, request: AgentProfileCreateRequest, creator: UserModel) -> dict[str, object]:
         with self.session_factory() as db:
             self.ensure_defaults(db)
@@ -1197,7 +1204,8 @@ class AgentProfileService:
                 response_mode=request.response_mode,
                 avatar=request.avatar,
                 enabled=request.enabled,
-                listed=request.listed,
+                # 建号时同样只有管理员能直接上架（与 update 同一口径）
+                listed=bool(request.listed and self._creator_can_list(creator)),
                 max_steps=request.max_steps,
                 is_builtin=False,
                 created_by=creator.id,
@@ -1262,6 +1270,16 @@ class AgentProfileService:
             if request.enabled is not None:
                 profile.enabled = request.enabled
             if request.listed is not None:
+                # 「上架」是平台级动作：普通用户自建的智能体不能自己上架到
+                # 商店（前端已隐藏该开关，这里拦住直接调 API 的路径）。
+                # 管理员不受限 —— 审核并上架本来就是他的职责。
+                if request.listed and user is not None:
+                    from app.core.roles import is_admin_like
+
+                    if not is_admin_like(user.role):
+                        raise PermissionError(
+                            "上架到智能体商店需要管理员操作，请联系管理员"
+                        )
                 profile.listed = request.listed
             if request.max_steps is not None:
                 profile.max_steps = request.max_steps
@@ -1756,31 +1774,88 @@ class AgentProfileService:
         # 后者才随模式无条件放行。
         managed_by_catalog: set[str] = set()
         for entry in TOOL_CATALOG.values():
-            managed_by_catalog.update(str(i) for i in entry.get("sub_tools", {}).keys())
-            managed_by_catalog.update(str(i) for i in entry.get("approval_scope", []))
+            managed_by_catalog.update(str(i) for i in (entry.get("sub_tools") or {}).keys())
+            managed_by_catalog.update(str(i) for i in (entry.get("approval_scope") or []))
+            builtin = entry.get("builtin_name")
+            if builtin:
+                managed_by_catalog.add(str(builtin))
+
+        # 「条目名即工具名」的条目（render_ui / generate_image 这类单个动作，
+        # 没有 sub_tools）。它们也要受各自条目的开关管辖，所以同样算"有归属"。
+        #
+        # **但不能无条件加**：write_text_file 这类工具既有独立条目、又是
+        # `file` 条目的 sub_tool —— 如果因为"自己有条目"就当成自命名放行，
+        # 关掉 `file` 条目也拦不住它（这正是回归测试抓到的）。
+        # 判据是：它**不是任何其它条目的 sub_tool / builtin**。
+        for entry_name, entry in TOOL_CATALOG.items():
+            if (entry.get("sub_tools") or {}) or entry.get("builtin_name"):
+                continue
+            if str(entry_name) in managed_by_catalog:
+                # 已被别的条目管辖（如 file 的 write_text_file），跳过
+                continue
+            managed_by_catalog.add(str(entry_name))
+
+        # 「作为别人的 sub_tool 出现」的名字集合：这些必须由父条目把关，
+        # 不能因为自己也有条目就独立放行。
+        managed_by_sub_tools: set[str] = set()
+        for _entry in TOOL_CATALOG.values():
+            managed_by_sub_tools.update(
+                str(i) for i in (_entry.get("sub_tools") or {}).keys()
+            )
 
         # 1) 已启用的 catalog 条目 → 它管的具体工具名
         for entry_name in enabled_catalog_names:
             entry = TOOL_CATALOG.get(entry_name)
             if not entry:
                 continue
-            allowed.update(str(item) for item in entry.get("sub_tools", {}).keys())
-            allowed.update(str(item) for item in entry.get("approval_scope", []))
+            sub_tools = entry.get("sub_tools") or {}
+            approval_scope = entry.get("approval_scope") or []
+            allowed.update(str(item) for item in sub_tools.keys())
+            allowed.update(str(item) for item in approval_scope)
             # builtin 插件本身也是一个工具名（calc / time / file …）
             builtin_name = entry.get("builtin_name")
             if builtin_name:
                 allowed.add(str(builtin_name))
+            # **条目本身就是工具名**：render_ui / generate_image / render_chart
+            # 这类工具在 catalog 里没有 sub_tools（它就是一个动作，不是一组），
+            # 条目名即工具名。不认这一条，它们既不在 managed_by_catalog
+            # 也不在 _discover_all_mode_tools（a2ui / image_gen 是 factory
+            # 直接注册的，不在 per-mode registrar 里）—— 两头都不沾，永远
+            # 进不了白名单，表现为"通用助手的 render 系列全部执行失败"。
+            #
+            # 例外：该名字如果**同时**是别的条目的 sub_tool（write_text_file
+            # 既是独立条目又是 file 的子工具），就不按"条目名即工具名"放行 ——
+            # 那会让 file 的开关失效。
+            # 同理：approval_scope 里出现自己在内的条目（delete_file 的
+            # approval_scope 就是 ["delete_file"]）也不该独立放行。
+            self_in_scope = str(entry_name) in [str(i) for i in approval_scope]
+            if (
+                not sub_tools
+                and not builtin_name
+                and not self_in_scope
+                and str(entry_name) not in managed_by_sub_tools
+            ):
+                allowed.add(str(entry_name))
 
         # 2) 自动发现的模式级工具（create_workbook / build_website …）。
         #
-        # **只放行没有 catalog 归属的**。有归属的（如 write_text_file 归 file
-        # 条目、deploy_website 归同名条目）必须走上面的 enabled 检查 ——
-        # 否则「关掉文件工具」形同虚设：website_file_tools 在所有模式无条件
-        # 注册，又被模式发现列表兜进来，管理员怎么关都关不掉。
+        # **只放行「不是某个已启用父条目子工具」的**。判据是
+        # `managed_by_sub_tools`（真的被别人 sub_tools 引用），**不是**整个
+        # `managed_by_catalog`：
+        #
+        # - write_text_file 归 file 条目 → 必须走 file 的开关（否则关掉 file
+        #   也拦不住它，这个洞上一轮刚修过）
+        # - create_workbook 虽然现在也有独立目录条目（为了在后台能单独显示
+        #   中文名），但它**不是任何条目的子工具** → 它是纯模式级工具，
+        #   该由模式发现兜底放行
+        #
+        # 早先用 managed_by_catalog 判会让第二类全部消失：给自动发现的工具
+        # 补目录条目本来是好事（能显示中文名），却意外切断了兜底。
         from app.services.tool_config_service import _discover_all_mode_tools
 
         for tool_name in _discover_all_mode_tools().get(response_mode, set()):
-            if tool_name in managed_by_catalog:
+            if tool_name in managed_by_sub_tools:
+                # 有父条目：由父条目的启用开关决定（上面第 1 步已处理）
                 continue
             allowed.add(tool_name)
 
