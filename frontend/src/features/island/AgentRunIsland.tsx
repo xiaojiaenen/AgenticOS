@@ -17,7 +17,7 @@ import * as React from 'react';
 
 import { Glyph } from '@/components/islandcn/glyph';
 import { PencilGlyph, WarningGlyph, CheckGlyph } from '@/components/islandcn/glyphs';
-import { BottomBar, ExpandedBottom, SensorRow } from '@/components/islandcn/island-layout';
+import { BottomBar, CaptionButton, ExpandedBottom, SensorRow } from '@/components/islandcn/island-layout';
 import {
   CompactText,
   ContextLabel,
@@ -30,6 +30,7 @@ import { LinearProgress } from '@/components/islandcn/linear-progress';
 import { islandAccent, islandInk, islandMono } from '@/components/islandcn/theme';
 import { useActivity } from '@/components/islandcn/use-activity';
 import { useChatStore } from '@/stores/chatStore';
+import { useRunControlStore } from './runControlStore';
 
 /**
  * 阶段 → 措辞 + 进度权重。
@@ -105,6 +106,9 @@ export const AgentRunIsland: React.FC = () => {
   const runStatus = useChatStore((s) => s.runStatus);
   const currentSessionId = useChatStore((s) => s.currentSessionId);
   const sessions = useChatStore((s) => s.sessions);
+  // 「停止」由 Chat 页注册（岛在 App 根，拿不到 useChatStream 的闭包）
+  const stop = useRunControlStore((s) => s.stop);
+  const handleStop = React.useCallback(() => stop?.(), [stop]);
 
   const { phase, label, step, maxSteps } = runStatus;
   const running = phase !== 'idle' && phase !== 'done' && phase !== 'error';
@@ -155,6 +159,8 @@ export const AgentRunIsland: React.FC = () => {
       outputChars={outputChars}
       turnCount={turnCount}
       contextCompressed={contextCompressed}
+      canStop={stop !== null}
+      onStop={handleStop}
     />
   );
 };
@@ -174,7 +180,9 @@ const AgentRunActivity: React.FC<{
   outputChars: number;
   turnCount: number;
   contextCompressed: boolean;
-}> = ({ phase, verb, accent, progress, stepText, compactWord, agentName, outputChars, turnCount, contextCompressed }) => {
+  canStop: boolean;
+  onStop: () => void;
+}> = ({ phase, verb, accent, progress, stepText, compactWord, agentName, outputChars, turnCount, contextCompressed, canStop, onStop }) => {
   useActivity(
     () => ({
       id: 'agent-run',
@@ -221,11 +229,20 @@ const AgentRunActivity: React.FC<{
             <BottomBar>
               <LinearProgress value={progress} color={accent} height={5} />
             </BottomBar>
+            {/* 展开就说明用户在盯着它看 —— 这时最可能想做的是「停掉」。
+                只在聊天页注册过停止实现时显示（其它页面没有可停的运行）。 */}
+            {canStop ? (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 2 }}>
+                <CaptionButton color={islandInk.secondary} label="停止本轮生成" onPress={onStop}>
+                  停止
+                </CaptionButton>
+              </div>
+            ) : null}
           </ExpandedBottom>
         ),
       },
     }),
-    [phase, verb, accent, progress, stepText, compactWord, agentName, outputChars, turnCount, contextCompressed],
+    [phase, verb, accent, progress, stepText, compactWord, agentName, outputChars, turnCount, contextCompressed, canStop, onStop],
   );
 
   return null;

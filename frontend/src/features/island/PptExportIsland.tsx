@@ -28,6 +28,7 @@ import {
 import { islandAccent, islandInk, islandMono } from '@/components/islandcn/theme';
 import { useActivity } from '@/components/islandcn/use-activity';
 import { usePptExportStore } from '@/features/island/exportStore';
+import { useSecondTick } from './secondTicker';
 
 const ACCENT = islandAccent.purple;
 
@@ -41,16 +42,11 @@ const PptExportActivity: React.FC<{ title: string; startedAt: number }> = ({
   title,
   startedAt,
 }) => {
-  // 已用秒数：用 kit 的 TickingTime 之外，这里自己算一次（activity 的 content
-  // 只在依赖变化时重建，所以这里给一个由 25s 刷新的 elapsed 就够 —— 真正的
-  // 秒级跳动交给 Text 里的秒数，由我们自己的 interval 驱动，避免整块重渲染）。
-  const [elapsed, setElapsed] = React.useState(0);
-  React.useEffect(() => {
-    const update = () => setElapsed(Math.floor((Date.now() - startedAt) / 1000));
-    update();
-    const timer = window.setInterval(update, 1000);
-    return () => window.clearInterval(timer);
-  }, [startedAt]);
+  // 已用秒数：走共享秒级 ticker（后台标签会停表；同一秒内多个订阅者只更新一次）。
+  // 用整秒比较而不是自己 setInterval —— 计时器漂移会产生多余的 activity update，
+  // 而每次 update 都会把岛引擎按需静止的帧循环重新叫醒。
+  const second = useSecondTick();
+  const elapsed = Math.max(0, second - Math.floor(startedAt / 1000));
 
   useActivity(
     () => ({

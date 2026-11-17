@@ -36,6 +36,7 @@ import { islandInk } from '@/components/islandcn/theme';
 import { useActivity } from '@/components/islandcn/use-activity';
 import { useIsland } from '@/lib/island';
 import { useChatStore } from '@/stores/chatStore';
+import { useSecondTick, useTieredTick } from './secondTicker';
 
 const ACCENT = islandInk.secondary;
 
@@ -132,12 +133,17 @@ export const IdleClockIsland: React.FC = () => {
   const island = useIsland();
   const { hidden, justReturned, awayMs } = useTabPresence();
 
-  // 每秒推进一次，驱动秒级走时
-  const [now, setNow] = React.useState(() => new Date());
-  React.useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
+  const expanded = island.presentation === 'expanded';
+
+  // 走时粒度跟着可见精度走：展开时按秒（用户正在看秒），收起时按分钟
+  // （胶囊只显示 HH:MM，每秒重渲染没有任何视觉收益，却会把岛引擎按需静止
+  // 的帧循环一直叫醒 —— 静止页面上白跑 60fps）。
+  const secondTick = useSecondTick(expanded);
+  const minuteTick = useTieredTick(60);
+  const now = React.useMemo(
+    () => new Date((expanded ? secondTick : minuteTick) * 1000),
+    [expanded, secondTick, minuteTick],
+  );
 
   // 用户不在这个标签页 → 岛上什么都不显示
   if (hidden) return null;
@@ -154,7 +160,8 @@ export const IdleClockIsland: React.FC = () => {
   // 刚回到前台：先打一句招呼（几秒后自动回到时钟）
   if (justReturned) return <WelcomeBackActivity now={now} awayMs={awayMs} />;
 
-  return <ClockActivity now={now} />;
+  // 展开态才需要秒级刷新（收起时只显示到分钟，见 ClockActivity 的注释）
+  return <ClockActivity now={now} expanded={expanded} />;
 };
 
 /**
@@ -215,8 +222,24 @@ function formatAway(ms: number): string {
   return rest === 0 ? `${hours} 小时` : `${hours} 小时 ${rest} 分钟`;
 }
 
-const ClockActivity: React.FC<{ now: Date }> = ({ now }) => {
-  const time = clockText(now);
+/** 时分（紧凑态用；不含秒，一分钟才变一次）。 */
+const clockShort = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+/**
+ * 时钟只在需要时才秒级刷新。
+ *
+ * 性能考量（这条是实测出来的，不是为了好看）：岛引擎的帧循环是**按需静止**的
+ * —— `surface.tsx` 在所有弹簧静止后会 `unsubscribe()` 掉 rAF。但每次 activity
+ * update 都会把它重新叫醒跑 300–500ms。如果紧凑态每秒 update 一次，就等于让
+ * 一个静止页面持续以 60fps 跑近一半的时间，纯属空转。
+ *
+ * 所以：紧凑胶囊只显示 `HH:MM`（每分钟变一次），秒级跳动只在**展开视图**里
+ * 出现 —— 那时用户正盯着它看，这点开销是值得的。
+ */
+const ClockActivity: React.FC<{ now: Date; expanded: boolean }> = ({ now, expanded }) => {
+  // 展开时用带秒的完整时间，收起时用时分（宽度也更省：37px vs 58.7px）
+  const full = clockText(now);
+  const time = expanded ? full : clockShort(now);
   const greeting = greetingFor(now.getHours());
   const date = fullDate(now);
 
@@ -225,15 +248,12 @@ const ClockActivity: React.FC<{ now: Date }> = ({ now }) => {
       id: 'idle-clock',
       // 最低优先级：任何真实任务都该顶掉它
       priority: -10,
-      label: `${greeting}，现在是 ${time}`,
+      label: `${greeting}，现在是 ${full}`,
       compact: {
         leading: <Glyph icon={TimerGlyph} color={ACCENT} />,
-        // "14:32:07"=58.7px 在 72px 内（含秒；不含秒只有 37px，但秒在动才像活的）
         trailing: <CompactText style={tabularFigures}>{time}</CompactText>,
       },
-      minimal: (
-        <CompactText style={tabularFigures}>{time}</CompactText>
-      ),
+      minimal: <CompactText style={tabularFigures}>{time}</CompactText>,
       expanded: {
         leading: (
           <SensorRow glyph={<Glyph icon={TimerGlyph} color={ACCENT} size={18} />}>
@@ -243,7 +263,7 @@ const ClockActivity: React.FC<{ now: Date }> = ({ now }) => {
         bottom: (
           <ExpandedBottom gap={4}>
             <TitleStack
-              title={<ExpandedTitle>{time}</ExpandedTitle>}
+              title={<ExpandedTitle>{full}</ExpandedTitle>}
               subtitle={<ExpandedSubtitle color={islandInk.secondary}>{date}</ExpandedSubtitle>}
             />
             <ExpandedSubtitle color={islandInk.tertiary}>
@@ -253,7 +273,9 @@ const ClockActivity: React.FC<{ now: Date }> = ({ now }) => {
         ),
       },
     }),
-    [time, greeting, date],
+    // 关键：deps 里**不能**有 full（含秒）——否则收起状态下每秒都会重建 activity，
+    // 把引擎按需静止的帧循环一直叫醒。展开时才需要秒级刷新。
+    [time, expanded, greeting, date],
   );
 
   return null;

@@ -3,7 +3,9 @@
  *
  * 用户要求"静止状态也加点东西，比如时间常驻，或者一些可爱的对话"。
  * 这里锁住三件最容易出错的事：
- * 1. 时间格式必须是 HH:MM:SS 且补零（"9:5:3" 读起来就不像时钟）
+ * 1. 紧凑胶囊只显示 HH:MM 且补零（"9:5" 读起来就不像时钟）；秒级跳动只在
+ *    展开视图里 —— 每秒 update 会让岛引擎按需静止的帧循环一直重跑，
+ *    这是纯 CPU 空转（见 secondTicker.test.tsx）
  * 2. 问候语按时段切换（跨零点、跨晌午都要对）
  * 3. 任何真实任务在跑时必须让位 —— 否则会和运行岛并排成 minimal 分裂态，
  *    那是岛上最难看的状态
@@ -111,12 +113,12 @@ describe('常驻时钟岛', () => {
     vi.useRealTimers();
   });
 
-  it('空闲时显示 HH:MM:SS，且零位补全', () => {
+  it('空闲时显示 HH:MM，且零位补全', () => {
     freezeAt('2026-11-17T09:05:03');
     const env = mount(new ManualClock());
     act(() => env.clock.advance(200));
-    // 09:05:03 —— 关键在补零
-    expect(compactText(env.host)).toBe('09:05:03');
+    // 09:05 —— 关键在补零（紧凑态不含秒，见文件头注释）
+    expect(compactText(env.host)).toBe('09:05');
     env.unmount();
   });
 
@@ -174,7 +176,7 @@ describe('常驻时钟岛', () => {
     });
     act(() => env.clock.advance(400));
     expect(presentation(env.host)).toBe('compact');
-    expect(compactText(env.host)).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+    expect(compactText(env.host)).toMatch(/^\d{2}:\d{2}$/);
     env.unmount();
   });
 
@@ -213,7 +215,7 @@ describe('常驻时钟岛', () => {
       vi.advanceTimersByTime(4000);
     });
     act(() => env.clock.advance(400));
-    expect(compactText(env.host)).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+    expect(compactText(env.host)).toMatch(/^\d{2}:\d{2}$/);
     env.unmount();
   });
 
@@ -230,7 +232,7 @@ describe('常驻时钟岛', () => {
     act(() => env.clock.advance(300));
 
     // 直接是时钟，不是「你回来啦」
-    expect(compactText(env.host)).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+    expect(compactText(env.host)).toMatch(/^\d{2}:\d{2}$/);
     env.unmount();
   });
 

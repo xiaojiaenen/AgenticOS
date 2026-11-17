@@ -25,6 +25,7 @@ import { ChatInputHandle } from '../components/chat/ChatInput';
 import { cn } from '../lib/utils';
 import { UserInputPanel } from '../components/chat/UserInputPanel';
 import { getSessionArtifacts, submitUserInput, type UserInputRequest } from '../services/agentService';
+import { useRunControlStore } from '@/features/island/runControlStore';
 import type { VirtuosoHandle } from 'react-virtuoso';
 export const Chat = () => {
   const location = useLocation();
@@ -121,8 +122,7 @@ export const Chat = () => {
     isLoading, error, setError, runStatus, activeStreamIds,
     handleSend, handleStopGeneration,
     handleApprovalDecision, handleDecisionMade,
-  } = useChatStream({
-    sessions, currentSessionId, currentSession: currentSession ?? null,
+  } = useChatStream({    sessions, currentSessionId, currentSession: currentSession ?? null,
     chatMode, visualStyle, approvalMode, planMode, selectedAgentProfileId,
     selectedAgent: agentProfiles.find((a) => a.id === selectedAgentProfileId) || null,
     setSessions, setCurrentSessionId,
@@ -136,6 +136,15 @@ export const Chat = () => {
 
   // 浏览器标签页的运行状态感知（环境感知：切去别的标签页也能知道在跑/跑完）
   useRunTitleAwareness(runStatus.phase, runStatus.label);
+
+  // 把「停止生成」交给灵动岛：岛挂在 App 根，拿不到这个 hook 的闭包，
+  // 通过小 store 交接（卸载时清空 —— 离开聊天页后岛上就不该有这个按钮）。
+  const registerStop = useRunControlStore((s) => s.register);
+  const clearStop = useRunControlStore((s) => s.clear);
+  React.useEffect(() => {
+    registerStop(handleStopGeneration);
+    return () => clearStop();
+  }, [registerStop, clearStop, handleStopGeneration]);
 
   // 会话面板与产物互斥的兜底：右侧栏同一时刻只显示一个视图。
   // 方向很重要 —— 用户点「展开侧栏」时侧栏优先：清掉当前的产物预览，
