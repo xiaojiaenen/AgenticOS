@@ -6,6 +6,7 @@ import { buildSandboxedHtmlDocument } from '../../lib/safePreview'
 import { ArtifactVersionBar } from '../chat/ArtifactVersionBar'
 import { requestDeploy, getDeployByProject, cancelDeploy, issueWebsitePreviewUrl, DeployStatus } from '../../services/websiteService'
 import { apiFetch } from '../../services/apiClient'
+import { useSiteDeployStore } from '@/features/island/deployStore';
 
 type WebsiteArtifactPanelProps = {
   artifact: Extract<Artifact, { language: 'website' }>
@@ -40,6 +41,22 @@ export const WebsiteArtifactPanel: React.FC<WebsiteArtifactPanelProps> = ({
   const [isCancelling, setIsCancelling] = React.useState(false)
   const [refreshNonce, setRefreshNonce] = React.useState(0)
   const projectSlug = artifact.projectSlug
+
+  // 发布流程（申请 → 审批 → 构建 → 上线）可能跨几分钟到几小时，用户关掉
+  // 页面就完全失去进展感知。把当前状态镜像到 island（store 只存事实，
+  // 岛挂在 App 根）。deployStatus 为 null = 还没发起过，不需要显示。
+  React.useEffect(() => {
+    const store = useSiteDeployStore.getState()
+    if (!deployStatus) {
+      store.finish()
+      return
+    }
+    if (store.job && store.job.slug === projectSlug) {
+      store.setStatus(deployStatus)
+    } else {
+      store.begin(projectSlug, deployStatus)
+    }
+  }, [deployStatus, projectSlug])
 
   // 部署是「用户申请 → 管理员审批 → 后端发布」的异步流程：申请接口当场返回的
   // deploy_url 必然为 null（那时还是 pending）。不轮询的话用户会永远停在

@@ -17,6 +17,7 @@ import {
 } from '../services/agentService';
 import { AgentProfile } from '../services/agentProfileService';
 import { uploadFiles } from '../services/fileService';
+import { useFileUploadStore } from '@/features/island/uploadStore';
 import { MODE_SYSTEM_PROMPTS } from '../constants/modePrompts';
 import { UserDecision, normalizeDecision } from '../components/chat/DecisionPanel';
 import { useChatStore } from '../stores/chatStore';
@@ -83,11 +84,18 @@ async function prepareUploadedFiles(
   onStatus: (label: string) => void,
 ): Promise<{ filename: string; file_path: string }[]> {
   onStatus('正在上传文件');
-  const results = await uploadFiles(files);
-  return results.map((r) => ({
-    filename: r.filename,
-    file_path: r.file_path,
-  }));
+  // 上传岛：真实字节进度（XHR onprogress），多文件聚合
+  const uploadStore = useFileUploadStore.getState();
+  uploadStore.begin(files.map((f) => ({ name: f.name, total: f.size })));
+  try {
+    const results = await uploadFiles(files, (index, fraction) => uploadStore.setProgress(index, fraction));
+    return results.map((r) => ({
+      filename: r.filename,
+      file_path: r.file_path,
+    }));
+  } finally {
+    uploadStore.finish();
+  }
 }
 
 interface UseChatStreamDeps {

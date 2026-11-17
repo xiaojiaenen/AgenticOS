@@ -829,3 +829,28 @@ body.admin-modal-open .admin-dashboard-shell > button {
     stroke-dashoffset: 0;
   }
 }
+
+/* ── island 不确定进度条 ──────────────────────────────────────
+ * PPTX 导出后端不回报百分比，所以用一条来回滑动的光条表示"在处理"，
+ * 而不是编造一个假的 0→100。宽度和位置只用 transform，避免重排。
+ * reduced-motion 下退化为静态半透明条（表达"有活动"但不闪）。
+ * ────────────────────────────────────────────────────────────── */
+@keyframes island-indeterminate-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(320%); }
+}
+.island-indeterminate {
+  position: absolute;
+  inset-block: 0;
+  width: 32%;
+  border-radius: 9999px;
+  background: #bf5af2;
+  animation: island-indeterminate-slide 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .island-indeterminate {
+    animation: none;
+    transform: translateX(34%);
+    opacity: 0.7;
+  }
+}

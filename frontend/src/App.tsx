@@ -6,6 +6,15 @@ import { GlobalAnnouncementLayer } from './components/announcement/GlobalAnnounc
 import { FeedbackLauncher } from './components/feedback/FeedbackLauncher';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Toaster } from '@/components/shadcn/sonner';
+import { Island, IslandProvider } from '@/lib/island';
+import {
+  AgentRunIsland,
+  AgentRunErrorIsland,
+  AgentRunDoneIsland,
+} from '@/features/island/AgentRunIsland';
+import { PptExportIsland } from '@/features/island/PptExportIsland';
+import { FileUploadIsland } from '@/features/island/FileUploadIsland';
+import { SiteDeployIsland } from '@/features/island/SiteDeployIsland';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
 const queryClient = new QueryClient({
@@ -101,14 +110,28 @@ const AnimatedRoutes = () => {
 
 function AppContent() {
   return (
-    <>
+    // IslandProvider 包住整个应用：它的状态（活动栈 + 时钟）必须在启动活动的
+    // 组件之上。<Island placement="viewport" /> 钉在窗口顶部中央，
+    // 有活动时展开成实时状态，空闲时是一条纯黑胶囊。
+    <IslandProvider>
+      <Island placement="viewport" />
+      {/* 实时状态岛的活动源。全部按真实应用状态驱动，没有演示数据：
+          - AgentRunIsland：AI 对话运行（思考/流式/生成 PPT/构建网站）
+          - FileUploadIsland：文件上传（XHR 真实字节进度，多文件聚合）
+          - PptExportIsland：PPTX 导出（实测 1–2 分钟，无进度回报） */}
+      <AgentRunIsland />
+      <AgentRunErrorIsland />
+      <AgentRunDoneIsland />
+      <FileUploadIsland />
+      <PptExportIsland />
+      <SiteDeployIsland />
       <GlobalAnnouncementLayer />
       <ErrorBoundary>
         <AnimatedRoutes />
       </ErrorBoundary>
       <FeedbackLauncher />
       <Toaster />
-    </>
+    </IslandProvider>
   );
 }
 

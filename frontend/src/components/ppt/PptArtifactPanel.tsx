@@ -11,6 +11,7 @@ import { exportPptx, listPptThemes, rethemePpt, getPptPreviewHtml, listPptVisual
 import { PptPresenterMode } from './PptPresenterMode';
 import { ArtifactVersionBar } from '../chat/ArtifactVersionBar';
 import { PublishToGalleryButton } from '../gallery/PublishToGalleryButton';
+import { usePptExportStore } from '@/features/island/exportStore';
 
 type PptArtifactPanelProps = {
   artifact: Extract<Artifact, { language: 'ppt' }>;
@@ -106,6 +107,11 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
     setIsExporting(true);
 
     if (artifact.artifactId) {
+      // 导出实测 1–2 分钟，期间界面只有按钮转圈。挂到 island 上让用户
+      // 在别处也能看到「还在跑、跑了多久」。
+      const beginExport = usePptExportStore.getState().begin;
+      const finishExport = usePptExportStore.getState().finish;
+      beginExport(artifact.title || '演示文稿');
       try {
         const blob = await exportPptx(artifact.artifactId, {
           transition: exportTransition || undefined,
@@ -125,6 +131,7 @@ export const PptArtifactPanel: React.FC<PptArtifactPanelProps> = ({ artifact, on
         console.error('[PPTX Export] Backend export error:', err);
         toast.error(toastError(err, '导出失败'));
       } finally {
+        finishExport();
         setIsExporting(false);
         setShowExportOptions(false);
       }

@@ -1,4 +1,5 @@
-import { apiFetch } from './apiClient';
+import { apiFetch, ApiError } from './apiClient';
+import { authHeaders } from './authTokenStore';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const UPLOAD_ENDPOINT = `${API_BASE_URL}/api/v1/files/upload`;
@@ -11,23 +12,67 @@ export type UploadedFile = {
   file_path: string;
 };
 
-export async function uploadFile(file: File): Promise<UploadedFile> {
+/**
+ * 上传一个文件。
+ *
+ * 传 `onProgress` 时改走 XMLHttpRequest：fetch 的请求体没有进度事件，
+ * 只有 XHR 的 `upload.onprogress` 能给出真实字节进度（岛上传进度条的
+ * 数据源）。不传时保持原来的 apiFetch 路径不变。
+ */
+export async function uploadFile(
+  file: File,
+  onProgress?: (fraction: number) => void,
+): Promise<UploadedFile> {
   const formData = new FormData();
   formData.append('file', file);
 
-  return apiFetch<UploadedFile>(
-    UPLOAD_ENDPOINT,
-    {
-      method: 'POST',
-      body: formData,
-      timeoutMs: 120_000, // 大文件上传放宽超时
-    },
-    '文件上传失败',
-  );
+  if (!onProgress) {
+    return apiFetch<UploadedFile>(
+      UPLOAD_ENDPOINT,
+      {
+        method: 'POST',
+        body: formData,
+        timeoutMs: 120_000, // 大文件上传放宽超时
+      },
+      '文件上传失败',
+    );
+  }
+
+  return new Promise<UploadedFile>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', UPLOAD_ENDPOINT);
+    xhr.timeout = 120_000;
+    // 鉴权与 apiFetch 对齐（Bearer token）；其余头交给浏览器（multipart 边界不能手写）
+    for (const [name, value] of Object.entries(authHeaders())) xhr.setRequestHeader(name, value);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as UploadedFile);
+        } catch {
+          reject(new ApiError(xhr.status, null, '文件上传失败：响应不是有效 JSON'));
+        }
+        return;
+      }
+      reject(new ApiError(xhr.status, xhr.responseText || null, '文件上传失败，请稍后重试'));
+    };
+    xhr.onerror = () => reject(new ApiError(0, null, '文件上传失败：网络错误'));
+    xhr.ontimeout = () => reject(new ApiError(0, null, '文件上传超时，请重试'));
+    xhr.send(formData);
+  });
 }
 
-export async function uploadFiles(files: File[]): Promise<UploadedFile[]> {
-  return Promise.all(files.map(uploadFile));
+export async function uploadFiles(
+  files: File[],
+  onProgress?: (fileIndex: number, fraction: number) => void,
+): Promise<UploadedFile[]> {
+  return Promise.all(
+    files.map((file, index) =>
+      uploadFile(file, onProgress ? (fraction) => onProgress(index, fraction) : undefined),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
