@@ -235,6 +235,36 @@ class AuthService:
             return False
         return True
 
+    def slide_session_expiry(self, session_id: str) -> bool:
+        """活跃用户的会话过期时间向后滑（滑动续期）。
+
+        解决「JWT 24 小时硬顶」：原来 expires_at 是登录时刻 + 24h 的固定值，
+        不活跃也续不上 —— 每个用户每天都会在用着用着的时候被 401 踢出去。
+
+        语义：
+        - 只有**活跃**用户被续 —— 校验通过本身就证明了活跃；
+        - **被吊销的会话不续**（revoke 是管理员/密码轮换的强制下线手段，
+          滑动不能把它洗回来 —— 强制下线依赖这一点）；
+        - 节流由调用方负责（与 last_active_at 同一节流窗口），避免每个
+          请求都写库。
+
+        Returns:
+            True 表示真的写了库（调用方无需再 commit）。
+        """
+        row = self.db.get(AuthSessionModel, session_id)
+        if row is None or row.revoked_at is not None:
+            return False
+        new_expiry = app_now() + timedelta(
+            minutes=self.settings.auth_token_expire_minutes
+        )
+        # 只在新过期时间确实更晚时写（并发请求下旧值可能已被人滑过）
+        if row.expires_at >= new_expiry:
+            return False
+        row.expires_at = new_expiry
+        self.db.add(row)
+        self.db.commit()
+        return True
+
     def revoke_session(self, session_id: str) -> None:
         row = self.db.get(AuthSessionModel, session_id)
         if row is None or row.revoked_at is not None:

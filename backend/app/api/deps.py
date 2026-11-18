@@ -51,8 +51,13 @@ def get_current_user(
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号未激活")
 
-    # 「最近活跃」持久化：节流到 60s 一次，避免每个请求都写库。
-    # 「当前在线」另由前端周期调用 /presence/heartbeat 走 Redis 心跳。
+    # 「最近活跃」持久化 + 会话滑动续期：共用 60s 节流窗口，避免每个请求
+    # 都写库。「当前在线」另由前端周期调用 /presence/heartbeat 走 Redis 心跳。
+    #
+    # 滑动续期解决「JWT 24 小时硬顶」：原来 expires_at 是登录时刻 + 24h 的
+    # 固定值，活跃用户也会在用着用着的时候被 401 踢出去（每个用户每天必撞
+    # 一次）。现在校验通过就把过期时间滑到"现在 + 24h"—— 活跃的人不掉线；
+    # 被吊销的会话不续（强制下线语义不被洗掉，密码轮换自愈依赖这一点）。
     try:
         from app.core.timezone import app_now, to_app_timezone
 
@@ -60,6 +65,8 @@ def get_current_user(
         last = to_app_timezone(user.last_active_at) if user.last_active_at else None
         if last is None or (now - last).total_seconds() > 60:
             user.last_active_at = now
+            if isinstance(session_id, str) and session_id:
+                auth_service.slide_session_expiry(session_id)
             db.commit()
     except Exception:  # noqa: BLE001 -- 活跃时间刷新失败不影响鉴权
         db.rollback()

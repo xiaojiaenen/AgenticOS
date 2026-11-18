@@ -157,7 +157,9 @@ def handle_credential_auth_failure(
     """
     from app.services.llm_providers.credentials import mark_cookie_invalid
 
-    mark_cookie_invalid(credential_id, reason)
+    # 传递吊销开关：登录联动（allow_revoke=False）时，mark_cookie_invalid
+    # 内部的联动吊销也要关掉 —— 否则它绕过这里的不吊销决定。
+    mark_cookie_invalid(credential_id, reason, allow_revoke=allow_revoke)
 
     if not allow_revoke:
         return

@@ -61,6 +61,10 @@ export interface CredentialStatus {
   /** pending 从未登录 / active / expired / failed / disabled（人工停用） */
   status: 'pending' | 'active' | 'expired' | 'failed' | 'disabled';
   auto_refresh: boolean;
+  /** 是否真的会被定时续期处理（auto_refresh 开 + 未禁用 + 有密码） */
+  auto_refresh_eligible?: boolean;
+  /** 不参与续期的原因（前端直接展示，避免管理员对着"剩余 4 小时"猜） */
+  auto_refresh_blocked_reason?: string | null;
   priority: number;
   failure_count: number;
   disabled: boolean;

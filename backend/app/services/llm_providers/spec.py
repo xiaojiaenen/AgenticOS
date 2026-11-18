@@ -644,6 +644,24 @@ def credential_status_dict(row: LlmProviderCredentialModel) -> dict[str, Any]:
         "disabled": bool(row.disabled),
         # 供界面提示「这个号已经连续失败到会被轮换排除」
         "excluded_from_rotation": row.failure_count >= MAX_CONSECUTIVE_FAILURES,
+        # 是否会被定时续期任务处理：auto_refresh 开着 + 没被禁用 + 有密码
+        #（Playwright 自动登录需要密码）。**手动贴 Cookie 建的账号没有密码，
+        # 永远不会被续期** —— 过去这个事实只有翻代码才知道，管理员看着
+        # 「剩余 4 小时」却不知道它到期就死。前端据此显示警示。
+        "auto_refresh_eligible": bool(
+            row.auto_refresh and not row.disabled and row.password_encrypted
+        ),
+        "auto_refresh_blocked_reason": (
+            None
+            if (row.auto_refresh and not row.disabled and row.password_encrypted)
+            else (
+                "未配置账号密码，无法自动续期（可补录密码，或到期后手动更换 Cookie）"
+                if not row.password_encrypted
+                else "已被手动禁用"
+                if row.disabled
+                else "自动续期开关已关闭"
+            )
+        ),
         "expire_at": expire_at.isoformat() if expire_at else None,
         "last_login_at": row.last_login_at.isoformat() if row.last_login_at else None,
         "last_used_at": row.last_used_at.isoformat() if row.last_used_at else None,

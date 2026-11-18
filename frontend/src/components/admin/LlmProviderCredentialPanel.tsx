@@ -219,7 +219,18 @@ export function LlmProviderCredentialPanel({ provider }: { provider: LlmProvider
                   {account.excluded_from_rotation ? (
                     <StatusPill tone="warning">已退出轮换</StatusPill>
                   ) : null}
+                  {/* 到期会被自动续上，前提是它参与续期 —— 手动贴 Cookie 且
+                      没配密码的账号永远不会被续，过去只有翻代码才知道 */}
+                  {account.auto_refresh_eligible === false ? (
+                    <StatusPill tone="warning">不参与自动续期</StatusPill>
+                  ) : null}
                 </div>
+
+                {account.auto_refresh_blocked_reason ? (
+                  <p className="mt-2 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+                    ⚠ {account.auto_refresh_blocked_reason}
+                  </p>
+                ) : null}
 
                 <dl className="mt-2 grid gap-x-6 gap-y-1 text-xs font-medium text-[var(--muted-foreground)] sm:grid-cols-2 lg:grid-cols-4">
                   <div className="flex gap-1.5">

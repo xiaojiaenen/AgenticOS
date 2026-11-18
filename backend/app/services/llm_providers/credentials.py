@@ -294,11 +294,21 @@ def apply_login_result(
     invalidate_cache()
 
 
-def mark_cookie_invalid(credential_id: int, reason: str) -> None:
+def mark_cookie_invalid(credential_id: int, reason: str, *, allow_revoke: bool = True) -> None:
     """上游返回 401/403 时标记该账号失效，避免继续拿废 Cookie 反复请求。
 
     连续失败累计到阈值后，账号自动退出轮换（``failure_count >= 阈值``），
     但要保留数据 —— 运维可能只是临时网络问题，恢复后重置计数即可复活。
+
+    **绑定用户的联动吊销**（`allow_revoke=True` 时）：该凭据绑定到某个用户、
+    且之前有过可用 Cookie（说明 Cookie 是在上次成功之后失效的 —— 密码被改/
+    被踢下线），此时该用户拿到的每一份新 Cookie 都不会再被上游认账。把他的
+    平台会话一并吊销，强制重新登录以捕获新密码 —— 与定时续期失败的处理
+    （``gateway_link.handle_credential_auth_failure``）保持同一语义。
+    没有这一步，用户会一直对着 401 反复发消息，却不知道要重新登录平台。
+
+    `allow_revoke=False` 给登录联动场景用：密码刚被 LDAP 验证过，失败说明
+    上游流程变了，吊销只会把刚登录的用户踢出去，毫无意义。
     """
     with create_db_session() as db:
         row = db.get(LlmProviderCredentialModel, credential_id)
@@ -308,8 +318,28 @@ def mark_cookie_invalid(credential_id: int, reason: str) -> None:
         if row.failure_count >= MAX_CONSECUTIVE_FAILURES:
             row.status = STATUS_EXPIRED
         row.last_error = (reason or "上游返回未授权")[:500]
+        bound_user = row.user_id
+        had_cookie = bool(row.cookie_encrypted)
         db.commit()
     invalidate_cache()
+
+    # 吊销放在 session 关闭之后（gateway_link 会自己开新 session）
+    if allow_revoke and bound_user and had_cookie:
+        try:
+            from app.services.llm_providers.gateway_link import (
+                looks_like_auth_failure,
+                revoke_user_platform_sessions,
+            )
+
+            if looks_like_auth_failure(reason):
+                revoked = revoke_user_platform_sessions(bound_user)
+                if revoked:
+                    logger.info(
+                        "凭据 %s 认证失效（%s），已吊销用户 %s 的 %d 个平台会话强制重登",
+                        credential_id, reason[:80], bound_user, revoked,
+                    )
+        except Exception:  # noqa: BLE001 —— 吊销失败不影响主流程
+            logger.warning("mark_cookie_invalid 联动吊销失败", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
