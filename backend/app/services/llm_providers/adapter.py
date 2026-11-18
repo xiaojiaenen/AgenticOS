@@ -360,6 +360,15 @@ class RetryingGateway(LLMGateway):
             return "timeout"
         if "connection" in text or "connect" in text:
             return "connection_error"
+        # 流中断但没收到终止事件：上游网关/模型中途断开（生成网站这类长输出
+        # 场景实测常见）。这是连接问题不是模型问题 —— 归为 connection_error，
+        # 让「还没产出内容」的尝试得以重试，而不是把 ValueError 裸抛给用户。
+        # （文本匹配而不是 isinstance：异常由上游 wuwei gateway 抛出，
+        # 引它的类名会在 wuwei 升级时漂移。）
+        if "stream ended without a terminal event" in text or (
+            "stream produced no events" in text
+        ):
+            return "connection_error"
         return kind
 
     # ── R-2：统一异常类型 ─────────────────────────────────────────

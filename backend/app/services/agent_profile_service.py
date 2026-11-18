@@ -694,6 +694,16 @@ class AgentProfileService:
         }
 
     @staticmethod
+    def _hidden_skill_slugs(db: Session) -> frozenset[str]:
+        """管理员限制的 Skill slug 集合。读失败按"不隐藏"处理（不阻断页面）。"""
+        try:
+            from app.services import agent_tool_policy
+
+            return agent_tool_policy.load_policy(db).restricted_skills
+        except Exception:  # noqa: BLE001
+            return frozenset()
+
+    @staticmethod
     def _hidden_tools_for_viewer(db: Session, viewer_role: str | None) -> frozenset[str]:
         """当前浏览者**看不到**的工具名。
 
@@ -1012,9 +1022,18 @@ class AgentProfileService:
             from app.core.roles import is_admin_like
 
             privileged = is_admin_like(user.role)
+            hidden_skill_slugs = (
+                frozenset()
+                if privileged
+                else self._hidden_skill_slugs(db)
+            )
             return {
                 "catalog": self._catalog(db=db, for_privileged=privileged),
-                "available_skills": self._list_available_skills(db, include_disabled=False),
+                "available_skills": self._list_available_skills(
+                    db,
+                    include_disabled=False,
+                    hidden_slugs=hidden_skill_slugs,
+                ),
                 "items": self._serialize_profiles(
                     db, profiles, user_id=user.id, viewer_role=user.role
                 ),
@@ -1056,9 +1075,18 @@ class AgentProfileService:
             from app.core.roles import is_admin_like
 
             privileged = is_admin_like(user.role)
+            hidden_skill_slugs = (
+                frozenset()
+                if privileged
+                else self._hidden_skill_slugs(db)
+            )
             return {
                 "catalog": self._catalog(db=db, for_privileged=privileged),
-                "available_skills": self._list_available_skills(db, include_disabled=False),
+                "available_skills": self._list_available_skills(
+                    db,
+                    include_disabled=False,
+                    hidden_slugs=hidden_skill_slugs,
+                ),
                 "items": self._serialize_profiles(
                     db, profiles, user_id=user.id, viewer_role=user.role
                 ),
@@ -1129,7 +1157,14 @@ class AgentProfileService:
             row.requires_approval = item.requires_approval
             row.approval_sub_tools_json = json.dumps(item.approval_sub_tools, ensure_ascii=False)
 
-    def _apply_skill_ids(self, db: Session, profile: AgentProfileModel, skill_ids: list[int]) -> None:
+    def _apply_skill_ids(
+        self,
+        db: Session,
+        profile: AgentProfileModel,
+        skill_ids: list[int],
+        *,
+        actor_role: str | None = None,
+    ) -> None:
         unique_skill_ids = tuple(dict.fromkeys(skill_ids))
         if unique_skill_ids:
             rows = db.scalars(select(SkillModel).where(SkillModel.id.in_(unique_skill_ids))).all()
@@ -1137,6 +1172,20 @@ class AgentProfileService:
             missing = [skill_id for skill_id in unique_skill_ids if skill_id not in found_ids]
             if missing:
                 raise KeyError(f"Unknown skill ids: {missing}")
+            # 管理员限制的 Skill：普通用户不能绑定（与工具保存拦截对称，
+            # 防止绕过前端直接调 API）。只拦**新启用**——已绑定的取消不受限，
+            # 否则配置会卡死。
+            from app.core.roles import is_admin_like
+
+            if not is_admin_like(actor_role):
+                hidden = self._hidden_skill_slugs(db)
+                blocked = [
+                    row.slug for row in rows if row.slug in hidden
+                ]
+                if blocked:
+                    raise PermissionError(
+                        f"Skill「{'、'.join(blocked)}」已被管理员限制，请联系管理员"
+                    )
 
         db.execute(delete(AgentProfileSkillModel).where(AgentProfileSkillModel.profile_id == profile.id))
         for skill_id in unique_skill_ids:
@@ -1219,7 +1268,9 @@ class AgentProfileService:
             if request.tools:
                 self._apply_tools(db, profile, request.tools, actor_role=creator.role)
             if request.skill_ids:
-                self._apply_skill_ids(db, profile, request.skill_ids)
+                self._apply_skill_ids(
+                db, profile, request.skill_ids, actor_role=creator.role
+            )
             if request.external_systems:
                 self._apply_external_systems(db, profile, request.external_systems)
             self._apply_audience(
@@ -1293,7 +1344,10 @@ class AgentProfileService:
                     actor_role=user.role if user else None,
                 )
             if request.skill_ids is not None:
-                self._apply_skill_ids(db, profile, request.skill_ids)
+                self._apply_skill_ids(
+                    db, profile, request.skill_ids,
+                    actor_role=user.role if user else None,
+                )
             if request.external_systems is not None:
                 self._apply_external_systems(db, profile, request.external_systems)
             if request.audience_mode is not None or request.audience_user_ids is not None:
@@ -1881,11 +1935,27 @@ class AgentProfileService:
             )
         return db.scalars(statement).all()
 
-    def _list_available_skills(self, db: Session, *, include_disabled: bool) -> list[dict[str, object]]:
+    def _list_available_skills(
+        self,
+        db: Session,
+        *,
+        include_disabled: bool,
+        hidden_slugs: frozenset[str] = frozenset(),
+    ) -> list[dict[str, object]]:
+        """可选 Skill 清单。
+
+        `hidden_slugs`（管理员限制的 Skill）对普通用户**完全不出现** ——
+        与受限工具同一套语义：看得见但用不了，比压根看不到更困惑。
+        管理员视角传空集，能看到全部（他要用）。
+        """
         statement = select(SkillModel).order_by(SkillModel.name.asc())
         if not include_disabled:
             statement = statement.where(SkillModel.enabled.is_(True))
-        return [self._serialize_skill_reference(skill) for skill in db.scalars(statement).all()]
+        return [
+            self._serialize_skill_reference(skill)
+            for skill in db.scalars(statement).all()
+            if skill.slug not in hidden_slugs
+        ]
 
     @staticmethod
     def _serialize_skill_reference(skill: SkillModel) -> dict[str, object]:

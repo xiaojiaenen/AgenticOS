@@ -15,7 +15,7 @@ type AgentServiceOptions = {
   approvalMode?: 'ask' | 'auto' | 'full';
   /** 计划模式：只允许只读工具，先产出计划再执行 */
   planMode?: boolean;
-  files?: { filename: string; file_path: string }[];
+  files?: { filename: string; file_path: string; rel_path?: string | null }[];
   /** 运行预算（后端随流事件透出，用于"第 N/M 步"提示） */
   onBudget?: (budget: { step?: number; maxSteps?: number }) => void;
   onDelta?: (delta: string, fullText: string) => void;

@@ -10,6 +10,13 @@ export type UploadedFile = {
   size: number;
   mime_type: string;
   file_path: string;
+  /**
+   * 相对会话工作区的路径（如 `uploads/报告.docx`）。
+   * **发送消息时必须带上**：作用域文件工具只接受工作区内路径，
+   * 绝对路径（容器内 /app/...）会被拒绝 —— 之前漏了这个字段，
+   * 模型拿到的就是绝对路径，file_to_md 全部报"路径必须位于 workspace 内"。
+   */
+  rel_path?: string | null;
 };
 
 /**

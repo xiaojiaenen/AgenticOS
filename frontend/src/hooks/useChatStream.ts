@@ -82,16 +82,19 @@ export function markStoppedTurn(messages: Message[]): Message[] {
 async function prepareUploadedFiles(
   files: File[],
   onStatus: (label: string) => void,
-): Promise<{ filename: string; file_path: string }[]> {
+): Promise<{ filename: string; file_path: string; rel_path?: string | null }[]> {
   onStatus('正在上传文件');
   // 上传岛：真实字节进度（XHR onprogress），多文件聚合
   const uploadStore = useFileUploadStore.getState();
   uploadStore.begin(files.map((f) => ({ name: f.name, total: f.size })));
   try {
     const results = await uploadFiles(files, (index, fraction) => uploadStore.setProgress(index, fraction));
+    // rel_path 必须透传：作用域文件工具只接受工作区相对路径，
+    // 丢了它模型拿到的就是容器绝对路径，file_to_md 等全部失败。
     return results.map((r) => ({
       filename: r.filename,
       file_path: r.file_path,
+      rel_path: r.rel_path ?? null,
     }));
   } finally {
     uploadStore.finish();
