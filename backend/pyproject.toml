@@ -60,8 +60,8 @@ dependencies = [
     # ── 框架底座迁移（战线 A：wuwei → LangGraph）────────────────────────
     # 绞杀者模式：新引擎（LangGraph）与 wuwei 双轨并存，AGENT_ENGINE
     # 特性开关路由。版本锁定（方案阶段 0 要求 pin），升级须跑回归。
-    "langgraph==1.2.22",
-    "langchain==1.5.0",
+    "langgraph>=1.2.24,<2.0.0",
+    "langchain>=1.5.2,<2.0.0",
     "langchain-openai>=1.0.0,<2.0.0",
     # 可观测（战线 D，3F.0 纯库红线）：OpenTelemetry SDK 埋点写自家 DB，
     # 沿用现有 traces 展示；不接 Langfuse（外部系统）/ 不部署 collector。
@@ -69,6 +69,7 @@ dependencies = [
     "opentelemetry-sdk>=1.29.0,<2.0.0",
     "llama-index-core>=0.12.0,<0.13.0",
     "llama-index-retrievers-bm25>=0.5.2",
+    "deepagents==0.7.41",
 ]
 
 # 可选 extra：生产推荐 PostgreSQL（docs/design/数据库选型评估-MySQL到PostgreSQL.md）

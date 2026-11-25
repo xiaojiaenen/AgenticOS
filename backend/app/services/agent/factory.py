@@ -13,8 +13,7 @@ import asyncio
 import logging
 from typing import Any, TYPE_CHECKING
 
-from app.core.data_path import is_external_api_call
-from app.services.agent.native.async_sub_agent import AsyncSubAgent, AsyncSubAgentManager
+from app.core.data_path import DATA_DIR, is_external_api_call
 from app.services.agent.native.plugins import PluginContext
 from app.services.agent.native.tool_registry import ToolRegistry
 from app.services.agent_profile_service import RuntimeAgentProfile
@@ -197,64 +196,29 @@ class AgentFactory:
             interrupt_on=interrupt_on or None,
         )
 
-        # 预算断路（原 BudgetMiddleware 语义，移植进引擎）
+        # 预算断路（保留差异化资产：DeepAgents 无等价计费语义）
         budget = self._build_run_budget()
 
-        # 上下文压缩（原 ContextCompressionMiddleware，移植进引擎）
-        compressor = None
-        if self.settings.context_compression_enabled:
-            from app.services.agent.native.context_compression import ContextCompressor
+        # ── DeepAgents 内置能力（backend / skills / subagents / summarization）──
+        # 绑定它自己的 FilesystemBackend：skills 从磁盘 SKILL.md 读，
+        # summarization 把裁剪的历史落盘，subagents 走内置 task() 工具。
+        from deepagents.backends import FilesystemBackend
+        # DeepAgents backend 指向项目 data 目录（skills 的 SKILL.md 在 data/skills，
+        # summarization 的裁剪历史落 data/conversation_history）
+        deep_backend = FilesystemBackend(root_dir=str(DATA_DIR), virtual_mode=False)
 
-            window = max(1, self.settings.context_window_tokens)
-            per_turn = max(1, self.settings.context_tokens_per_turn)
-            trigger = min(
-                self.settings.context_compress_after_turns * per_turn,
-                max(1, window // 2),
-            )
-            compressor = ContextCompressor(
-                llm=llm,
-                trigger_tokens=trigger,
-                keep_recent_turns=self.settings.context_keep_recent_turns,
-                max_tokens=window,
-            )
-
-        # 异步子代理（原 AsyncSubAgentMiddleware，移植进引擎并自执行）
-        sub_agent_manager = None
-        if self.settings.async_sub_agents_enabled:
-            sub_agents = self._build_async_sub_agents()
-            if sub_agents:
-                sub_agent_manager = AsyncSubAgentManager(sub_agents, run_fn=self._run_sub_agent)
-                # 注册 4 个管理工具（start/check/cancel/list）
-                from app.services.agent.native.tool_registry import ToolParameters, Tool as _Tool
-
-                for schema in sub_agent_manager.tool_schemas():
-                    # tool_schemas 返回 {"type":"function","function":{...}}（OpenAI 格式）
-                    fn_spec = schema["function"]
-                    tool = _Tool(
-                        name=fn_spec["name"],
-                        description=fn_spec.get("description", ""),
-                        parameters=ToolParameters.model_validate(fn_spec.get("parameters") or {"type": "object"}),
-                        handler=self._make_sub_agent_handler(sub_agent_manager, fn_spec["name"]),
-                        side_effect=fn_spec["name"] == "start_async_task",
-                        requires_approval=False,
-                    )
-                    try:
-                        tools.register(tool)
-                    except ValueError:
-                        pass  # 重名（不应发生）
-
-        # Skill 工具（原 wuwei skill 插件，移植为 SkillToolBox）
-        skill_toolbox = None
+        # skills: profile 绑定的 skill 目录（SKILL.md 所在目录）
+        deep_skills: list[str] = []
         if "skill" in profile.builtin_tools and profile.skills:
-            from app.services.agent.native.fs_provider import FileSystemSkillProvider
-            from app.services.agent.native.skill import SkillManager
-            from app.services.agent.native.builtin.skill_tools import SkillToolBox
+            for skill in profile.skills:
+                root = getattr(skill, "root_dir", None)
+                if root:
+                    deep_skills.append(str(root))
 
-            skill_manager = SkillManager(
-                [FileSystemSkillProvider(skill.root_dir) for skill in profile.skills]
-            )
-            skill_toolbox = SkillToolBox(skill_manager)
-            skill_toolbox.register(tools)
+        # subagents: 用 DeepAgents SubAgent TypedDict（tools 是 LC tool 列表）
+        deep_subagents: list[dict] = []
+        if self.settings.async_sub_agents_enabled:
+            deep_subagents = self._build_deepagents_subagents()
 
         agent = LangGraphAgent(
             llm=llm,
@@ -264,78 +228,67 @@ class AgentFactory:
             default_parallel_tool_calls=self.settings.agent_parallel_tool_calls,
             approval_policy=policy,
             model_name=effective_model,
-            skill_toolbox=skill_toolbox,
-            async_sub_agents=sub_agent_manager,
             budget=budget,
-            compressor=compressor,
+            deepagents_backend=deep_backend,
+            deepagents_skills=deep_skills or None,
+            deepagents_subagents=deep_subagents or None,
         )
         self._agents[cache_key] = agent
         return agent
 
-    @staticmethod
-    def _make_sub_agent_handler(manager: Any, name: str):
-        """子代理管理工具的 handler（闭包绑定 manager 与工具名）。"""
+    def _build_deepagents_subagents(self) -> list[dict]:
+        """用 DeepAgents 的 SubAgent TypedDict 构建声明式子代理。
 
-        async def _handler(**kwargs: Any) -> dict:
-            from app.core.data_path import _current_session_id
+        DeepAgents 自带 ``task()`` 工具按 description 自动分派，子代理用它自己
+        的 middleware 栈执行（不再需要我们的 run_fn 回调和 4 个管理工具）。
+        """
+        subs: list[dict] = []
 
-            import json as _json
+        code_tools = self._native_tools_for(["calc", "python", "git"])
+        subs.append({
+            "name": "code_analyst",
+            "description": "代码分析与执行：运行 Python 脚本、数学计算、Git 操作。适合需要后台运行代码或分析的场景。",
+            "system_prompt": (
+                "你是一个代码分析助手。执行 Python 脚本、进行数学计算、查看 Git 状态。"
+                "直接运行代码并返回结果，用简洁格式说明执行结果。"
+            ),
+            "tools": code_tools,
+        })
 
-            result = await manager.handle_tool(
-                name, kwargs, _current_session_id.get()
-            )
-            return _json.loads(result)
+        file_tools = self._native_tools_for(["read_file", "search_files", "text"])
+        subs.append({
+            "name": "file_processor",
+            "description": "文件处理：读取、搜索、整理文件内容。适合需要在后台批量处理文件的场景。",
+            "system_prompt": (
+                "你是一个文件处理助手。读取文件、搜索文本、整理内容。"
+                "保持高效，直接返回处理结果。"
+            ),
+            "tools": file_tools,
+        })
+        return subs
 
-        return _handler
+    def _native_tools_for(self, plugin_names: list[str]) -> list[Any]:
+        """把我们 native builtin 插件的 Tool 转成 DeepAgents 接受的 LC tool。
 
-    async def _run_sub_agent(self, sub_agent: Any, task: str) -> dict:
-        """用本引擎执行子代理（AsyncSubAgentManager 的 run_fn 回调）。"""
-        from app.services.agent.langgraph_engine import LangGraphAgent
-        from app.services.agent.native.tool_registry import ToolRegistry
+        DeepAgents ``tools`` 接受 ``BaseTool | Callable | dict``；我们的 Tool
+        有 ``handler``，用 registry_to_langchain_tools 包装一次即可。
+        """
         from app.services.agent.native.plugins import PluginContext
+        from app.services.agent.native.tool_registry import ToolRegistry
+        from app.services.agent.langgraph_engine.tools_adapter import registry_to_langchain_tools
 
-        registry = ToolRegistry()
-        ctx = PluginContext(tool_registry=registry)
-        for plugin in (sub_agent.tools or []):
-            # 子代理工具已由 factory 在构建时注入（list[Tool]）
-            registry.register(plugin)
-
-        # 子代理用同一个网关（会话独立、无审批中间件，直接执行）
-        agent = LangGraphAgent(
-            llm=self._sub_agent_llm,
-            tools=registry,
-            default_system_prompt=sub_agent.system_prompt,
-            default_max_steps=sub_agent.max_steps,
-        )
-        session = agent.create_session(system_prompt=sub_agent.system_prompt)
-        usage_total: dict[str, int] = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-        llm_calls = 0
-        steps = 0
-        final_text = ""
-        async for event in agent.stream_events(task, session=session):
-            if event.type == "done":
-                usage_total = event.data.get("usage") or usage_total
-                llm_calls = event.data.get("llm_calls", 0)
-            elif event.type == "tool_start":
-                steps += 1
-            elif event.type == "text_delta":
-                final_text += event.data.get("content", "")
-        usage_total["steps"] = steps
-        return {
-            "result": final_text.strip() or "(子代理无文本输出)",
-            "status": "completed",
-            "usage": usage_total,
-            "llm_calls": llm_calls,
-            "steps": steps,
-        }
+        reg = ToolRegistry()
+        ctx = PluginContext(tool_registry=reg)
+        for name in plugin_names:
+            try:
+                mod = __import__(f"app.services.agent.native.builtin.{name}", fromlist=["setup"])
+                mod.setup(ctx)
+            except Exception as e:  # noqa: BLE001
+                _logger.warning("Sub-agent plugin setup failed: %s: %s", name, e)
+        return registry_to_langchain_tools(reg)
 
     def _credential_rotation_bucket(self) -> int:
-        """账号池轮换窗口的编号。
-
-        返回「当前时间落在第几个窗口」。把这个值放进 Agent 缓存键，
-        跨窗口后缓存自动失效 → 重建 Agent 时会借到另一个账号 → 配额被
-        摊到多个号上。窗口长度取 ``LLM_CREDENTIAL_ROTATION_SECONDS``。
-        """
+        """账号池轮换窗口编号（与 DeepAgents 无关，保留）。"""
         try:
             window = int(getattr(self.settings, "llm_credential_rotation_seconds", 300))
         except (AttributeError, TypeError, ValueError):
@@ -347,12 +300,7 @@ class AgentFactory:
         return int(_time.time() // window)
 
     def _build_run_budget(self) -> "Budget | None":
-        """按配置组装 run 级 Budget；未启用 / 配置非法时返回 None。
-
-        刻意**不设 max_steps**：session.max_steps 的步数超限由引擎循环优雅收尾
-        （done 事件 + 步数上限合成回复），放进 Budget 会让超限从「优雅收尾」
-        变成 BudgetExhausted 错误，语义不对。
-        """
+        """run 级预算断路（差异化资产，DeepAgents 无等价计费语义）。"""
         max_tokens = self.settings.agent_budget_max_tokens
         max_cost = self.settings.agent_budget_max_cost_usd
         if max_tokens is None and max_cost is None:
@@ -365,67 +313,9 @@ class AgentFactory:
                 max_cost_usd=max_cost,
                 on_exhausted=self.settings.agent_budget_on_exhausted,
             )
-        except Exception as exc:  # noqa: BLE001 —— 配置降级
+        except Exception as exc:  # noqa: BLE001
             _logger.warning("AGENT_BUDGET_* 配置非法，run 级预算断路未启用: %s", exc)
             return None
-
-    def _build_async_sub_agents(self) -> list[AsyncSubAgent]:
-        """构建异步子代理列表（工具集在构建时由 builtin 插件注入）。"""
-        sub_agents: list[AsyncSubAgent] = []
-
-        # 1. 代码分析子代理
-        code_registry = ToolRegistry()
-        code_ctx = PluginContext(tool_registry=code_registry)
-        try:
-            from app.services.agent.native.builtin import calc as calc_mod, git as git_mod, python as python_mod
-
-            calc_mod.setup(code_ctx)
-            python_mod.setup(code_ctx)
-            git_mod.setup(code_ctx)
-        except Exception as e:
-            _logger.warning("Sub-agent code_analyst plugin setup failed: %s", e)
-
-        sub_agents.append(
-            AsyncSubAgent(
-                name="code_analyst",
-                description="代码分析与执行：运行 Python 脚本、数学计算、Git 操作。适合需要后台运行代码或分析的场景。",
-                system_prompt=(
-                    "你是一个代码分析助手。你可以执行 Python 脚本、进行数学计算、查看 Git 状态。"
-                    "请直接运行代码并返回结果，不要解释代码本身。"
-                    "返回时用简洁的格式说明执行结果。"
-                ),
-                tools=list(code_registry.list_tools()),
-                max_steps=10,
-                inherit_context=False,
-            )
-        )
-
-        # 2. 文件处理子代理
-        file_registry = ToolRegistry()
-        file_ctx = PluginContext(tool_registry=file_registry)
-        try:
-            from app.services.agent.native.builtin import file as file_mod, text as text_mod
-
-            file_mod.setup(file_ctx)
-            text_mod.setup(file_ctx)
-        except Exception as e:
-            _logger.warning("Sub-agent file_processor plugin setup failed: %s", e)
-
-        sub_agents.append(
-            AsyncSubAgent(
-                name="file_processor",
-                description="文件处理：读取、搜索、整理文件内容。适合需要在后台批量处理文件的场景。",
-                system_prompt=(
-                    "你是一个文件处理助手。你可以读取文件、搜索文本、整理内容。"
-                    "工作时保持高效，直接返回处理结果。"
-                ),
-                tools=list(file_registry.list_tools()),
-                max_steps=8,
-                inherit_context=False,
-            )
-        )
-
-        return sub_agents
 
     @staticmethod
     def _build_tool_registry(profile: RuntimeAgentProfile) -> tuple[ToolRegistry, str]:

@@ -37,9 +37,10 @@ The Vite dev server proxies `/api` to `VITE_API_PROXY_TARGET` (default `http://1
 
 ### Backend (FastAPI + LangGraph / 自研 native 层)
 
-编排引擎是 **LangChain `create_agent`（底层 LangGraph 1.2 Stable）**；LLM 出口、
-工具注册表、技能、MCP、预算断路、上下文压缩全部是 `services/agent/native/` 下的
-自研实现（wuwei 已整体退役，`import wuwei` 失败是预期状态）。
+编排引擎是 **DeepAgents 0.7.41（`create_deep_agent`，底层 LangChain 1.5.2 / LangGraph 1.2.24 Stable）**；
+技能 / 上下文压缩 / 子代理 / 文件系统已全部换成 DeepAgents 内置 middleware，绑定它自己的
+`FilesystemBackend`（root=`data/`）。LLM 网关仍是自研 `NativeLLMGateway`（多提供商/Cookie 池容错），
+MCP 走官方 SDK，预算断路因 DeepAgents 无等价计费语义而保留自研。wuwei 已整体退役。
 
 ```
 backend/
@@ -205,7 +206,12 @@ backend/
 - **并发工具执行** — `AGENT_PARALLEL_TOOL_CALLS` 门控；并发安全的只读工具
   并行、写类串行（LangChain ToolNode 层由 policy 钩子保持审批语义）
 
-### 纯 LangGraph 单引擎
+### DeepAgents + LangGraph 单引擎
+
+引擎图由 `create_deep_agent` 构建（替代原 `create_agent`），内置 FilesystemMiddleware /
+SummarizationMiddleware / SubAgentMiddleware / SkillsMiddleware / PatchToolCallsMiddleware
+通过 backend 参数启用。factory 传 `FilesystemBackend(root_dir=data/)` + profile 的 skill 目录
++ 声明式子代理；SSE mapper 与审批 tool_call_id 注入保持兼容。
 
 `AGENT_ENGINE` 兼容开关已移除——langgraph 是唯一引擎（`config.py` 保留
 `agent_engine` 字段读取历史 env，但工厂不再分支）。编排链路：

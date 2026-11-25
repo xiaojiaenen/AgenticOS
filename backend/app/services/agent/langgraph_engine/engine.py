@@ -98,14 +98,17 @@ class LangGraphAgent:
         default_parallel_tool_calls: bool = False,
         approval_policy: Any = None,
         model_name: str = "",
-        skill_toolbox: Any | None = None,
-        async_sub_agents: Any | None = None,
-        budget: Budget | None = None,
-        compressor: ContextCompressor | None = None,
+        skill_toolbox: Any | None = None,  # deprecated: DeepAgents SkillsMiddleware 替代
+        async_sub_agents: Any | None = None,  # deprecated: DeepAgents SubAgentMiddleware 替代
+        budget: Budget | None = None,  # 保留：DeepAgents 无计费语义
+        compressor: ContextCompressor | None = None,  # deprecated: DeepAgents summarization 替代
         max_output_chars: int = MAX_TOOL_OUTPUT_CHARS,
+        # DeepAgents 内置能力（backend / skills / subagents / summarization）
+        deepagents_backend: Any | None = None,
+        deepagents_skills: list[str] | None = None,
+        deepagents_subagents: list[dict] | None = None,
+        deepagents_memory: list[str] | None = None,
     ) -> None:
-        from langchain.agents import create_agent
-
         self.llm = llm
         self.tool_registry = tools
         self.default_system_prompt = default_system_prompt
@@ -118,12 +121,33 @@ class LangGraphAgent:
         self.budget = budget
         self.compressor = compressor
         self.max_output_chars = int(max_output_chars)
+        self._deepagents_backend = deepagents_backend
+        self._deepagents_skills = deepagents_skills
+        self._deepagents_subagents = deepagents_subagents
+        self._deepagents_memory = deepagents_memory
         self._sessions: dict[str, Any] = {}
         self._skill_injected: set[str] = set()
 
         self._lc_tools = registry_to_langchain_tools(tools, approval_policy)
         self._chat_model = GatewayChatModel(gateway=llm, model_name=model_name)
-        self._graph = create_agent(self._chat_model, self._lc_tools)
+        # DeepAgents harness：内置 filesystem / skills / subagents / summarization
+        # middleware 全部通过 create_deep_agent 参数启用（用它的 backend）。
+        from deepagents import create_deep_agent
+
+        graph_kwargs: dict[str, Any] = {
+            "model": self._chat_model,
+            "tools": self._lc_tools,
+            "interrupt_on": None,  # 审批仍走 EngineApprovalPolicy（工具包装层），保留真实 tool_call_id
+        }
+        if self._deepagents_backend is not None:
+            graph_kwargs["backend"] = self._deepagents_backend
+        if self._deepagents_skills:
+            graph_kwargs["skills"] = self._deepagents_skills
+        if self._deepagents_subagents:
+            graph_kwargs["subagents"] = self._deepagents_subagents
+        if self._deepagents_memory:
+            graph_kwargs["memory"] = self._deepagents_memory
+        self._graph = create_deep_agent(**graph_kwargs)
 
     # ── 会话管理（被消费面）────────────────────────────────────────────
 
