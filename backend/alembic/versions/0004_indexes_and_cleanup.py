@@ -64,10 +64,7 @@ def upgrade() -> None:
     for table, index_name, columns in _INDEXES:
         if not inspector.has_table(table) or _has_index(inspector, table, index_name):
             continue
-        try:
-            op.create_index(index_name, table, list(columns))
-        except Exception as exc:  # noqa: BLE001 —— 已存在/方言差异时跳过
-            print(f"skip index {index_name}: {exc}")
+        op.create_index(index_name, table, list(columns))
 
     # 清理已弃用的明文密码列数据（列保留以兼容旧 schema，内容置空）
     if inspector.has_table("user_email_credentials"):

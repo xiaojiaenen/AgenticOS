@@ -493,10 +493,28 @@ const {
           <EmailPreviewPanel
             emails={emailApprovals}
             onDecision={(id, status, modified) =>
-              handleApprovalDecision(id, status, false, false, modified)
+              handleApprovalDecision(id, status as 'approved' | 'rejected', false, false, modified as Record<string, unknown>)
             }
           />
-          <PendingApprovalPanel approvals={otherApprovals} onDecision={handleApprovalDecision} />
+          <PendingApprovalPanel
+            approvals={otherApprovals}
+            onDecision={(id, status, isApiApproval, allowAll, payload) => {
+              // payload 语义随 status 二分（3G.1 改参 + A3 代答共用第 5 位）：
+              // - approved：payload 是用户编辑后的参数 JSON → modifiedArguments
+              // - respond：payload 是代答文本 → response
+              if (status === 'approved' && payload) {
+                try {
+                  const modified = JSON.parse(payload) as Record<string, unknown>;
+                  void handleApprovalDecision(id, status, isApiApproval, allowAll, modified);
+                } catch {
+                  // 面板已做 JSON 校验，这里防御非法值（直接原参批准）
+                  void handleApprovalDecision(id, status, isApiApproval, allowAll);
+                }
+                return;
+              }
+              void handleApprovalDecision(id, status, isApiApproval, allowAll, undefined, payload);
+            }}
+          />
           <ChatInput
             ref={chatInputRef}
             value={inputValue}

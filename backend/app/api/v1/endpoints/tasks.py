@@ -13,7 +13,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.core.roles import is_admin_like, CAP_DANGEROUS
+from app.api.deps import get_current_user, get_db, require_admin, require_capability
 from app.core.data_path import WEBSITES_DIR, _parse_dir_name
 from app.db.models import KBDocumentModel, KnowledgeBaseModel, UserModel
 
@@ -118,7 +119,7 @@ def _require_document_access(
             detail="知识库不存在",
         )
 
-    is_admin = current_user.role == "admin"
+    is_admin = is_admin_like(current_user.role)
     if is_admin:
         return
 
@@ -174,7 +175,7 @@ def _validate_website_project_path(project_path: str, current_user: UserModel) -
 
     # 归属：目录名 u<uid>_s..._vN；非管理员只能构建自己的
     parsed = _parse_dir_name(candidate.name)
-    is_admin = current_user.role == "admin"
+    is_admin = is_admin_like(current_user.role)
     if not is_admin:
         if parsed is None or parsed[0] != current_user.id:
             raise HTTPException(
@@ -189,6 +190,132 @@ def _validate_website_project_path(project_path: str, current_user: UserModel) -
 # Endpoints
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 运维台：任务列表 / 队列深度 / 重试（admin-only，重试叠加 CAP_DANGEROUS）
+# ---------------------------------------------------------------------------
+
+
+class QueueTaskItem(BaseModel):
+    task_id: str
+    name: str
+    submitted_at: float
+    user_id: Optional[int] = None
+    kwargs: dict = {}
+    status: str
+    error: Optional[str] = None
+    age_seconds: Optional[int] = None
+
+
+class QueueTaskListResponse(BaseModel):
+    items: list[QueueTaskItem]
+    total_indexed: int
+
+
+class QueueStatsResponse(BaseModel):
+    broker: str
+    queue_depth: Optional[int] = None
+    recent: dict = {}
+    recent_window: int = 0
+
+
+class TaskRetryResponse(BaseModel):
+    origin_task_id: str
+    task_id: str
+    name: str
+
+
+@router.get("", response_model=QueueTaskListResponse)
+async def list_queue_tasks(
+    limit: int = 50,
+    status_filter: Optional[str] = None,
+    name_filter: Optional[str] = None,
+    current_user: UserModel = Depends(require_admin),
+):
+    """运维台任务列表（按提交时间倒序 + 当前状态）。
+
+    ``status_filter``: pending / completed / failed / unknown；
+    ``name_filter``: 任务名子串匹配。
+    """
+    from app.services.task_queue import list_queue_tasks as _list
+
+    try:
+        listing = await _list(
+            limit=min(max(limit, 1), 200),
+            status_filter=status_filter,
+            name_filter=name_filter,
+        )
+    except Exception as e:
+        if _is_redis_unavailable(e):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="任务队列不可用（无法连接 Redis）",
+            ) from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list tasks: {e}",
+        ) from e
+
+    return QueueTaskListResponse(
+        items=[QueueTaskItem(**item) for item in listing["items"]],
+        total_indexed=listing["total_indexed"],
+    )
+
+
+@router.get("/stats", response_model=QueueStatsResponse)
+async def queue_stats(
+    current_user: UserModel = Depends(require_admin),
+):
+    """队列深度 + 近期任务状态分布（运维台顶栏）。"""
+    from app.services.task_queue import queue_stats as _stats
+
+    try:
+        data = await _stats()
+    except Exception:
+        import logging as _logging
+
+        _logging.getLogger("agenticos.tasks").warning(
+            "queue_stats failed", exc_info=True)
+        raise
+    except Exception as e:
+        if _is_redis_unavailable(e):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="任务队列不可用（无法连接 Redis）",
+            ) from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get queue stats: {e}",
+        ) from e
+    return QueueStatsResponse(**data)
+
+
+@router.post("/{task_id}/retry", response_model=TaskRetryResponse)
+async def retry_task(
+    task_id: str,
+    current_user: UserModel = Depends(require_capability(CAP_DANGEROUS)),
+):
+    """重试任务：按登记的参数重新投递同名任务（CAP_DANGEROUS）。
+
+    仅限注册表里仍保留元数据的任务（默认 7 天内提交的非日志类任务）。
+    """
+    from app.services.task_queue import retry_task as _retry
+
+    try:
+        result = await _retry(task_id, user_id=current_user.id)
+    except KeyError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    except Exception as e:
+        if _is_redis_unavailable(e):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="任务队列不可用（无法连接 Redis）",
+            ) from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retry task: {e}",
+        ) from e
+    return TaskRetryResponse(**result)
+
 
 @router.get("/{task_id}", response_model=TaskStatusResponse)
 async def get_task_status(
@@ -202,7 +329,7 @@ async def get_task_status(
         result = await _get_status(
             task_id,
             user_id=current_user.id,
-            is_admin=current_user.role == "admin",
+            is_admin=is_admin_like(current_user.role),
         )
     except PermissionError as e:
         raise HTTPException(
@@ -297,3 +424,5 @@ async def submit_website_build(
         raise
     except Exception as e:
         _raise_submit_error(e)
+
+

@@ -39,7 +39,6 @@ def proj(tmp_path, monkeypatch):
     monkeypatch.setattr(web_ep, "_WEBSITES_DIR", base)
     # 跳过 nginx reload（测试环境没有 nginx），并真实执行发布逻辑
     def _exec(self, deploy):
-        from pathlib import Path as _P
         dist_path = self._resolve_dist_path(deploy)
         assert dist_path.exists(), f"dist missing: {dist_path}"
         visibility = deploy.visibility or "private"

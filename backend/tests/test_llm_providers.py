@@ -21,7 +21,7 @@ import pathlib
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
-from wuwei.core.errors import LLMError
+from app.services.agent.native.types import LLMError
 
 from app.core.security import create_access_token
 from app.core.timezone import app_now
@@ -320,8 +320,8 @@ def test_build_gateway_for_api_key_provider():
         base_url="https://a.example.com", model="model-a", api_key="sk-x",
     )
     gateway = build_gateway(spec, max_tokens=256, timeout=30)
-    assert gateway.adapter.model == "model-a"
-    assert "a.example.com" in str(gateway.adapter.client.base_url)
+    assert gateway.model_name == "model-a"
+    assert "a.example.com" in str(gateway.client.base_url)
 
 
 def test_build_gateway_injects_cookie_header():
@@ -340,29 +340,16 @@ def test_build_gateway_injects_cookie_header():
         spec = spec_from_row(row)
 
     gateway = build_gateway(spec, max_tokens=256, timeout=30)
-    headers = gateway.adapter.client.default_headers
+    headers = gateway.client.default_headers
     assert headers.get("Cookie") == "session=abc; token=xyz"
 
 
-def test_cookie_adapter_goes_through_parent_init():
-    """Cookie 适配器必须走父类 ``__init__``，不能手写字段赋值。
-
-    曾经的写法是手写 ``self.client = ...``，把父类 ``__init__`` 里设置的字段
-    全部跳过了（``supports_reasoning_content`` / ``output_token_parameter`` /
-    ``owns_client`` / ``max_tokens`` …）。wuwei 3.0.2 的 ``build_request`` 不读
-    这些字段所以一直没暴露；升到 3.2.1 后第一行就
-    ``AttributeError: 'CookieAuthAdapter' object has no attribute
-    'supports_reasoning_content'`` —— Cookie 认证的企业网关全部不可用。
-
-    顺带修掉一个隐藏 bug：手写 init 时 ``max_tokens`` 没进请求体，
-    上游按自身默认上限截断，长回答会被切。
-
-    这里断言两件事：父类字段都在，且请求体里带着 max_tokens。
-    """
+def test_cookie_gateway_carries_config_and_request_fields():
+    """Cookie 网关必须携带完整采样参数与流式选项（原父类 __init__ 语义移植）。"""
     from app.services.llm_providers.presets import TransportOptions
-    from app.services.llm_providers.runtime import _build_cookie_adapter
+    from app.services.llm_providers.runtime import _build_cookie_gateway
 
-    adapter = _build_cookie_adapter(
+    gateway = _build_cookie_gateway(
         cookie="session=abc",
         model="gw-model",
         base_url="https://gw.example.com/v1",
@@ -371,16 +358,14 @@ def test_cookie_adapter_goes_through_parent_init():
         temperature=0.2,
     )
 
-    # 父类 __init__ 设置的字段必须齐备
-    for attr in ("supports_reasoning_content", "owns_client", "default_params", "model"):
-        assert hasattr(adapter, attr), f"缺少父类字段：{attr}"
+    # 请求体必须带 max_tokens 与 stream_options（include_usage）
+    from app.services.agent.native.types import BaseMessage as Message
 
-    # 请求体必须带 max_tokens（手写 init 时会丢）
-    from wuwei.llm import Message
-
-    request = adapter.build_request([Message(role="user", content="hi")], None, stream=True)
+    request = gateway._build_request([Message(role="user", content="hi")], None, stream=True)
     assert request.get("max_tokens") == 4096
     assert request.get("stream_options") == {"include_usage": True}
+    assert request.get("temperature") == 0.2
+    assert gateway.client.default_headers.get("Cookie") == "session=abc"
 
 
 def test_build_gateway_refuses_enterprise_without_cookie():
@@ -1111,76 +1096,6 @@ def _usage_only_chunk():
     )
 
 
-def test_streaming_usage_reaches_the_caller(monkeypatch):
-    """流式 token 统计不能恒为 0。
-
-    ``include_usage`` 是适配器自己加的，上游按规范回一帧 ``choices: []`` +
-    ``usage``。但网关的循环先 parse、拿到 None 就 continue，那帧 usage 读不到
-    —— ``agent_usage_events`` 里存的正是这个值，等于所有流式对话的用量都是 0。
-    """
-    import asyncio
-
-    from app.services.llm_providers import runtime as runtime_module
-    from app.services.llm_providers.spec import ProviderSpec
-
-    spec = ProviderSpec(
-        name="A", slug="a", provider_type="openai_compatible",
-        base_url="https://a.example.com/v1", model="m", api_key="k",
-    )
-    gateway = runtime_module.build_gateway(spec, max_tokens=64, timeout=5)
-
-    async def fake_call(request):
-        async def gen():
-            yield _delta_chunk("ok", finish="stop")
-            yield _usage_only_chunk()
-
-        return gen()
-
-    gateway.adapter.call = fake_call
-
-    async def consume():
-        from wuwei.llm import Message
-
-        stream = await gateway.generate([Message(role="user", content="hi")], stream=True)
-        return [chunk async for chunk in stream]
-
-    chunks = asyncio.run(consume())
-    assert "".join(chunk.content for chunk in chunks) == "ok"
-    assert chunks[-1].usage == {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}
-
-
-def test_usage_passthrough_keeps_stream_shape():
-    """usage 帧必须透传，且不能凭空造出内容帧。
-
-    契约有两层，缺一不可：
-    1. usage 数值要能传到调用方 —— 丢了它 ``agent_usage_events`` 里存的
-       token 数就是 0，所有流式对话的用量统计全部作废；
-    2. 但**不能**顺手把收尾帧变成「有内容帧」—— 界面会因此冒出空 delta，
-       用户看到一段莫名的空白输出。
-
-    wuwei 3.2.1 起上游已原生返回 ``{"usage": ...}``（不再返回 None），
-    所以这里只断言契约，不钉死具体由谁实现：上游实现或我们的兜底补丁
-    产出同样的结果都算通过。这样上游再改实现时测试不会误报。
-    """
-    from app.services.llm_providers.adapter import HardenedOpenAIAdapter
-
-    adapter = HardenedOpenAIAdapter(api_key="k", model="m")
-
-    data = adapter.parse_stream_chunk(_usage_only_chunk())
-    assert data is not None
-    # usage 数值必须完整透传
-    assert data.get("usage") == {
-        "prompt_tokens": 1,
-        "completion_tokens": 2,
-        "total_tokens": 3,
-    }
-    # 不得凭空造出内容帧
-    assert not data.get("content")
-    assert not data.get("tool_calls_delta")
-    # 正常帧原样透传
-    assert adapter.parse_stream_chunk(_delta_chunk("hi", "think"))["content"] == "hi"
-
-
 def _mock_client(handler):
     import httpx
 
@@ -1257,7 +1172,8 @@ def test_stream_probe_reads_deltas(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# 8. 对 wuwei 三处缺陷的补强（adapter.py）
+# ---------------------------------------------------------------------------
+# 8. 原生网关的三处补强语义（原 adapter.py 移植到 native/gateway.py）
 # ---------------------------------------------------------------------------
 
 
@@ -1301,54 +1217,6 @@ def _finish_chunk(reason: str):
     )
 
 
-def test_tool_calls_survive_nonstandard_finish_reason(monkeypatch):
-    """收尾帧给 ``stop`` 而不是 ``tool_calls`` 时，工具调用不能被丢掉。
-
-    wuwei 只在 ``finish_reason == "tool_calls"`` 时组装完整调用。有些网关收尾
-    只给 ``stop``，模型「说要调工具」会被当成普通回答结束 —— 用户看到的是
-    一段空回答，工具根本没执行。
-    """
-    import asyncio
-
-    from wuwei.llm import Message
-
-    from app.services.llm_providers.adapter import HardenedOpenAIAdapter
-    from app.services.llm_providers.runtime import _new_gateway
-
-    gateway = _new_gateway(
-        {"provider": "openai", "api_key": "k", "model": "m", "retry": {"max_attempts": 1}}
-    )
-    gateway.adapter = HardenedOpenAIAdapter(api_key="k", model="m")
-
-    async def fake_call(request):
-        async def gen():
-            yield _tool_delta_chunk()
-            yield _finish_chunk("stop")  # 非标：不给 tool_calls
-
-        return gen()
-
-    gateway.adapter.call = fake_call
-
-    async def consume():
-        stream = await gateway.generate([Message(role="user", content="hi")], stream=True)
-        return [chunk async for chunk in stream]
-
-    chunks = asyncio.run(consume())
-    complete = [c.tool_calls_complete for c in chunks if c.tool_calls_complete]
-    assert complete, "工具调用被静默丢弃了"
-    assert complete[0][0].function.name == "noop"
-
-
-def test_standard_finish_reason_untouched():
-    """标准形态必须原样透传，不能被补丁改写。"""
-    from app.services.llm_providers.adapter import HardenedOpenAIAdapter
-
-    adapter = HardenedOpenAIAdapter(api_key="k", model="m")
-    adapter.parse_stream_chunk(_token_chunk("hi"))  # 普通文本帧
-    data = adapter.parse_stream_chunk(_finish_chunk("stop"))
-    assert data["finish_reason"] == "stop"
-
-
 def _token_chunk(text: str):
     import types
 
@@ -1365,15 +1233,136 @@ def _token_chunk(text: str):
     )
 
 
-def test_parse_response_tolerates_missing_usage():
-    """兼容网关省略 usage 时不能整段失败。
-
-    上游实现直接 ``raw_response.usage.prompt_tokens``，缺 usage 就
-    AttributeError —— 一次正常的润色/PPT 请求会变成 500。
-    """
+def _usage_only_chunk():
     import types
 
-    from app.services.llm_providers.adapter import HardenedOpenAIAdapter
+    return types.SimpleNamespace(
+        choices=[],
+        usage=types.SimpleNamespace(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+
+
+def _mock_native_gateway(scripts, retry_attempts=1):
+    """构造 mock 了 openai client 的 NativeLLMGateway。
+
+    scripts: 每项是一次尝试的 chunk 列表（可含 Exception 表示该次直接抛错）。
+    """
+    from app.services.agent.native.gateway import NativeLLMGateway
+
+    gateway = NativeLLMGateway({
+        "provider": "openai", "api_key": "k", "model": "m",
+        "retry": {"max_attempts": 1},
+    })
+    state = {"attempt": 0}
+
+    class _FakeCompletions:
+        @staticmethod
+        async def create(**request):
+            script = scripts[min(state["attempt"], len(scripts) - 1)]
+            state["attempt"] += 1
+
+            async def gen():
+                for item in script:
+                    if isinstance(item, Exception):
+                        raise item
+                    yield item
+
+            return gen()
+
+    gateway.client.chat.completions = _FakeCompletions()
+    return gateway, state
+
+
+def test_streaming_usage_reaches_the_caller():
+    """usage 收尾帧必须透传到调用方（原 usage 收尾帧被吞缺陷的修复语义）。"""
+    import asyncio
+
+    gateway, _ = _mock_native_gateway([
+        [_token_chunk("ok"), _finish_chunk("stop"), _usage_only_chunk()],
+    ])
+
+    async def consume():
+        from app.services.agent.native.types import BaseMessage as Message
+
+        stream = await gateway.generate([Message(role="user", content="hi")], stream=True)
+        return [chunk async for chunk in stream]
+
+    chunks = asyncio.run(consume())
+    assert "".join(c.content for c in chunks) == "ok"
+    usage_frames = [c.usage for c in chunks if c.usage]
+    assert usage_frames and usage_frames[-1]["total_tokens"] == 3
+
+
+def test_tool_calls_survive_nonstandard_finish_reason():
+    """收尾帧给 stop 而非 tool_calls 时工具调用不能被丢弃（原缺陷修复语义）。"""
+    import asyncio
+
+    gateway, _ = _mock_native_gateway([
+        [_tool_delta_chunk(), _finish_chunk("stop")],
+    ])
+
+    async def consume():
+        from app.services.agent.native.types import BaseMessage as Message
+
+        stream = await gateway.generate([Message(role="user", content="hi")], stream=True)
+        return [chunk async for chunk in stream]
+
+    chunks = asyncio.run(consume())
+    complete = [c.tool_calls_complete for c in chunks if c.tool_calls_complete]
+    assert complete, "工具调用被静默丢弃了"
+    assert complete[0][0].function.name == "noop"
+
+
+def test_stream_retries_when_nothing_emitted():
+    import asyncio
+
+    import openai
+
+    boom = openai.APIConnectionError(request=None)  # type: ignore[arg-type]
+    gateway, state = _mock_native_gateway(
+        [[boom], [_token_chunk("ok"), _finish_chunk("stop")]],
+        retry_attempts=2,
+    )
+
+    async def consume():
+        from app.services.agent.native.types import BaseMessage as Message
+
+        stream = await gateway.generate([Message(role="user", content="hi")], stream=True)
+        return [chunk async for chunk in stream]
+
+    chunks = asyncio.run(consume())
+    assert state["attempt"] == 2
+    assert "".join(c.content for c in chunks) == "ok"
+
+
+def test_stream_does_not_retry_after_emitting():
+    import asyncio
+
+    import openai
+
+    boom = openai.APIConnectionError(request=None)  # type: ignore[arg-type]
+    gateway, state = _mock_native_gateway([[_token_chunk("半句"), boom]], retry_attempts=3)
+
+    async def consume():
+        from app.services.agent.native.types import BaseMessage as Message
+
+        stream = await gateway.generate([Message(role="user", content="hi")], stream=True)
+        seen = []
+        async for chunk in stream:
+            seen.append(chunk.content)
+        return seen
+
+
+    with pytest.raises(LLMError) as excinfo:
+        asyncio.run(consume())
+    assert isinstance(excinfo.value.__cause__, openai.APIConnectionError)
+    assert state["attempt"] == 1
+
+
+def test_non_stream_tolerates_missing_usage():
+    """兼容网关省略 usage 时不能整段失败（原缺陷修复语义）。"""
+    import asyncio
+    import types
 
     raw = types.SimpleNamespace(
         choices=[
@@ -1385,16 +1374,28 @@ def test_parse_response_tolerates_missing_usage():
         model="m",
         usage=None,
     )
-    response = HardenedOpenAIAdapter(api_key="k", model="m").parse_response(raw)
+
+    class _FakeCompletions:
+        @staticmethod
+        async def create(**request):
+            return raw
+
+    gateway, _ = _mock_native_gateway([])
+    gateway.client.chat.completions = _FakeCompletions()
+
+    async def consume():
+        from app.services.agent.native.types import BaseMessage as Message
+
+        return await gateway.generate([Message(role="user", content="hi")], stream=False)
+
+    response = asyncio.run(consume())
     assert response.message.content == "ok"
-    assert response.usage == {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    assert response.usage == {}
 
 
-def test_parse_response_normalizes_unknown_finish_reason():
-    """``finish_reason`` 是 Literal，上游给字面量之外的值会 ValidationError。"""
+def test_non_stream_normalizes_unknown_finish_reason():
+    import asyncio
     import types
-
-    from app.services.llm_providers.adapter import HardenedOpenAIAdapter
 
     raw = types.SimpleNamespace(
         choices=[
@@ -1406,181 +1407,52 @@ def test_parse_response_normalizes_unknown_finish_reason():
         model="m",
         usage=types.SimpleNamespace(prompt_tokens=1, completion_tokens=2, total_tokens=3),
     )
-    assert HardenedOpenAIAdapter(api_key="k", model="m").parse_response(raw).finish_reason == "stop"
 
+    class _FakeCompletions:
+        @staticmethod
+        async def create(**request):
+            return raw
 
-def _gateway_with_streams(scripts):
-    """按脚本依次返回多次流式尝试的结果。"""
-    from app.services.llm_providers.adapter import HardenedOpenAIAdapter
-    from app.services.llm_providers.runtime import _new_gateway
-
-    state = {"attempt": 0}
-    gateway = _new_gateway(
-        {"provider": "openai", "api_key": "k", "model": "m", "retry": {"max_attempts": 1}},
-        )
-    gateway.adapter = HardenedOpenAIAdapter(api_key="k", model="m")
-
-    async def fake_call(request):
-        index = min(state["attempt"], len(scripts) - 1)
-        state["attempt"] += 1
-        script = scripts[index]
-
-        async def gen():
-            for item in script:
-                if isinstance(item, Exception):
-                    raise item
-                yield item
-
-        return gen()
-
-    gateway.adapter.call = fake_call
-    return gateway, state
-
-
-def test_stream_retries_when_nothing_emitted(monkeypatch):
-    """连接层失败且尚未吐字时重试一次 —— 这是「网络抖动不用用户手动重发」的关键。"""
-    import asyncio
-
-    import openai
-    from wuwei.llm import Message
-
-    from app.services.llm_providers import runtime as runtime_module
-
-    monkeypatch.setattr(
-        runtime_module.get_settings(), "llm_stream_retry_attempts", 2, raising=False
-    )
-    gateway, state = _gateway_with_streams(
-        [
-            [openai.APIConnectionError(request=None)],  # type: ignore[arg-type]
-            [_token_chunk("ok"), _finish_chunk("stop")],
-        ]
-    )
+    gateway, _ = _mock_native_gateway([])
+    gateway.client.chat.completions = _FakeCompletions()
 
     async def consume():
-        stream = await gateway.generate([Message(role="user", content="hi")], stream=True)
-        return [chunk async for chunk in stream]
+        from app.services.agent.native.types import BaseMessage as Message
 
-    chunks = asyncio.run(consume())
-    assert state["attempt"] == 2
-    assert "".join(c.content for c in chunks) == "ok"
+        return await gateway.generate([Message(role="user", content="hi")], stream=False)
 
-
-def test_stream_does_not_retry_after_emitting(monkeypatch):
-    """已经吐字后绝不重试：否则界面会出现重复内容，工具可能被执行两次。"""
-    import asyncio
-
-    import openai
-    from wuwei.llm import Message
-
-    from app.services.llm_providers import runtime as runtime_module
-
-    monkeypatch.setattr(
-        runtime_module.get_settings(), "llm_stream_retry_attempts", 3, raising=False
-    )
-    boom = openai.APIConnectionError(request=None)  # type: ignore[arg-type]
-    gateway, state = _gateway_with_streams([[_token_chunk("半句"), boom]])
-
-    async def consume():
-        stream = await gateway.generate([Message(role="user", content="hi")], stream=True)
-        seen = []
-        async for chunk in stream:
-            seen.append(chunk.content)
-        return seen
-
-    with pytest.raises(LLMError) as excinfo:
-        asyncio.run(consume())
-    # R-2：网关统一抛 LLMError（保留原始异常作为 __cause__）
-    assert isinstance(excinfo.value.__cause__, openai.APIConnectionError)
-    assert state["attempt"] == 1
-
-
-def test_stream_does_not_retry_client_errors(monkeypatch):
-    """401 这类客户端错误重试只会烧配额，必须立刻抛出。"""
-    import asyncio
-
-    import httpx
-    import openai
-    from wuwei.llm import Message
-
-    from app.services.llm_providers import runtime as runtime_module
-
-    monkeypatch.setattr(
-        runtime_module.get_settings(), "llm_stream_retry_attempts", 3, raising=False
-    )
-
-    response = httpx.Response(401, request=httpx.Request("POST", "https://x"))
-    denied = openai.AuthenticationError("denied", response=response, body=None)
-    gateway, state = _gateway_with_streams([[denied]])
-
-    async def consume():
-        stream = await gateway.generate([Message(role="user", content="hi")], stream=True)
-        async for _ in stream:
-            pass
-
-    with pytest.raises(LLMError) as excinfo:
-        asyncio.run(consume())
-    # R-2：网关统一抛 LLMError（保留原始异常作为 __cause__）
-    assert isinstance(excinfo.value.__cause__, openai.AuthenticationError)
-    assert state["attempt"] == 1
-
-
-def test_adapter_does_not_leak_sdk_options_into_request_body():
-    """``max_retries`` 是 SDK 参数，不能变成上游请求字段。
-
-    ``OpenAIAdapter`` 把 ``**kwargs`` 全塞进 ``default_params`` 并展开进请求体，
-    顺手把 SDK 选项写进去就会 ``TypeError: create() got an unexpected keyword
-    argument``。这个坑实测踩过，用测试钉住。
-    """
-    from wuwei.llm import Message
-
-    from app.services.llm_providers.adapter import HardenedOpenAIAdapter
-
-    adapter = HardenedOpenAIAdapter(api_key="k", model="m", max_retries=0)
-    request = adapter.build_request([Message(role="user", content="x")])
-    assert "max_retries" not in request
-    assert adapter.client.max_retries == 0
+    response = asyncio.run(consume())
+    assert response.finish_reason == "stop"
 
 
 def test_output_token_parameter_switches_request_field_name():
-    """o1 / o3 / gpt-5 这类推理模型只认 ``max_completion_tokens``。
+    """output_token_parameter=max_completion_tokens 切换请求字段名。"""
+    gateway, _ = _mock_native_gateway([])
+    gateway._output_token_parameter = "max_completion_tokens"
+    gateway._max_tokens = 4096
 
-    给 ``max_tokens`` 会被上游直接 400。wuwei 3.2.1 的适配器支持通过
-    ``output_token_parameter`` 改写请求体里的参数名 —— 这里验证我们的配置
-    真的能传达到适配器（中间隔着 config 构建与适配器构造两层）。
-    """
-    from wuwei.llm import Message
+    from app.services.agent.native.types import BaseMessage as Message
 
-    from app.services.llm_providers import runtime as runtime_module
-    from app.services.llm_providers.spec import ProviderSpec
-
-    def _build(extra: dict) -> dict:
-        spec = ProviderSpec(
-            name="A", slug="a", provider_type="openai_compatible",
-            base_url="https://a.example.com/v1", model="m", api_key="k", extra=extra,
-        )
-        gateway = runtime_module.build_gateway(spec, max_tokens=256, timeout=5)
-        return gateway.adapter.build_request([Message(role="user", content="hi")])
-
-    default_request = _build({"preset": "x"})
-    assert default_request.get("max_tokens") == 256
-    assert "max_completion_tokens" not in default_request
-
-    reasoning_request = _build({"preset": "x", "output_token_parameter": "max_completion_tokens"})
-    assert reasoning_request.get("max_completion_tokens") == 256
-    assert "max_tokens" not in reasoning_request
+    request = gateway._build_request([Message(role="user", content="hi")], None, stream=False)
+    assert "max_tokens" not in request
+    assert request.get("max_completion_tokens") == 4096
 
 
-def test_output_token_parameter_rejects_unknown_value():
-    """上游只认两个值，拼错要在保存时就拒绝，别等运行时 400。"""
-    from app.services.llm_providers.spec import ProviderConfigError, validate_extra
+def test_system_messages_are_coalesced():
+    """多条 system 合并为首条（OpenAI 兼容端硬校验）。"""
+    from app.services.agent.native.gateway import normalize_system_messages
+    from app.services.agent.native.types import SystemMessage, HumanMessage
 
-    with pytest.raises(ProviderConfigError):
-        validate_extra({"output_token_parameter": "max_output_tokens"})
-
-    # 合法值不报错
-    validate_extra({"output_token_parameter": "max_completion_tokens"})
-    validate_extra({"output_token_parameter": "max_tokens"})
-
+    messages = [
+        SystemMessage(content="sys-a"),
+        SystemMessage(content="sys-b"),
+        HumanMessage(content="hi"),
+    ]
+    result = normalize_system_messages(messages)
+    assert len(result) == 2
+    assert result[0].role == "system"
+    assert "sys-a" in result[0].content and "sys-b" in result[0].content
+    assert result[1].role == "user"
 
 # ---------------------------------------------------------------------------
 # 认证诊断：401/403 要说清「谁的错、下一步改什么」
@@ -1828,3 +1700,92 @@ def test_invalidate_cache_swallows_agent_cache_errors(monkeypatch):
 
     monkeypatch.setattr(agent_service, "get_agent_service", _boom)
     spec.invalidate_cache()  # 不应抛出
+
+
+# ── 批量健康探测（8.5.1：延迟/失败率/账号池一屏看完）──────────────────
+
+
+def test_batch_health_check_endpoint_ok_and_pool_stats(monkeypatch):
+    """两个 provider（1 ok / 1 fail）+ cookie 账号池计数 → 聚合返回。"""
+    from unittest.mock import AsyncMock
+
+    from fastapi.testclient import TestClient
+    from sqlalchemy import delete
+
+    from app.db.models import LlmProviderModel, LlmProviderCredentialModel, UserModel
+    from app.db.session import create_db_session
+    from app.main import app
+    from app.services.llm_providers import runtime
+    from app.core.security import create_access_token
+
+    from uuid import uuid4
+
+    suffix = uuid4().hex[:8]
+    with create_db_session() as db:
+        admin = UserModel(
+            email=f"hc-admin-{suffix}@test.local",
+            name="hc-admin",
+            password_hash="test-only",
+            role="admin",
+        )
+        db.add(admin)
+        db.flush()
+        p_ok = LlmProviderModel(
+            name=f"ok-{suffix}", slug=f"ok-{suffix}", provider_type="openai_compatible",
+            base_url="https://ok.example.com", model="gpt-test", enabled=True,
+        )
+        p_fail = LlmProviderModel(
+            name=f"fail-{suffix}", slug=f"fail-{suffix}", provider_type="openai_compatible",
+            base_url="https://fail.example.com", model="gpt-test", enabled=True,
+        )
+        db.add_all([p_ok, p_fail])
+        db.flush()
+        db.add(LlmProviderCredentialModel(
+            provider_id=p_ok.id, status="active", cookie_encrypted="c", label="a",
+        ))
+        db.add(LlmProviderCredentialModel(
+            provider_id=p_ok.id, status="expired", cookie_encrypted="c2", label="b",
+        ))
+        db.commit()
+        ok_id, fail_id, admin_id = p_ok.id, p_fail.id, admin.id
+
+    async def _fake_probe(spec, *, deep=False):
+        if "ok.example.com" in spec.base_url:
+            return {"ok": True, "stage": "models", "message": "", "stages": [],
+                    "elapsed_ms": 42, "models": [{"id": "gpt-test"}]}
+        return {"ok": False, "stage": "network", "message": "connection refused",
+                "stages": [], "elapsed_ms": 10, "models": []}
+
+    monkeypatch.setattr(runtime, "test_provider", AsyncMock(side_effect=_fake_probe))
+
+    try:
+        client = TestClient(app)
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        token = create_access_token(
+            {"sub": str(admin_id)},
+            secret=settings.auth_secret_key,
+            expires_in_seconds=settings.auth_token_expire_minutes * 60,
+        )
+        resp = client.post(
+            "/api/v1/settings/llm-providers/health-check",
+            json=[ok_id, fail_id],
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["total"] == 2 and body["ok"] == 1 and body["failed"] == 1
+        by_id = {p["provider_id"]: p for p in body["providers"]}
+        assert by_id[ok_id]["ok"] is True
+        assert by_id[ok_id]["models_count"] == 1
+        assert by_id[ok_id]["account_pool"] == {"active": 1, "expired": 1, "failed": 0}
+        assert by_id[fail_id]["ok"] is False
+        assert "connection refused" in by_id[fail_id]["message"]
+    finally:
+        with create_db_session() as db:
+            db.execute(delete(LlmProviderCredentialModel).where(
+                LlmProviderCredentialModel.provider_id.in_([ok_id, fail_id])))
+            db.execute(delete(LlmProviderModel).where(LlmProviderModel.id.in_([ok_id, fail_id])))
+            db.execute(delete(UserModel).where(UserModel.id == admin_id))
+            db.commit()

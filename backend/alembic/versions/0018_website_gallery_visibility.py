@@ -57,6 +57,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
+    table = "website_deploys"
     if inspector.has_table(table):
         indexes = [ix["name"] for ix in inspector.get_indexes(table)]
         if "ix_website_deploys_visibility" in indexes:

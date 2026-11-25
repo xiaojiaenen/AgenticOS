@@ -18,7 +18,7 @@ import pytest
 from app.services.llm_providers.direct_tools import (
     ToolSpecError,
     openai_tools_to_wuwei,
-    wuwei_tool_calls_to_openai,
+    tool_calls_to_openai,
 )
 
 
@@ -109,7 +109,7 @@ def test_empty_tools_returns_empty() -> None:
 
 def test_tool_calls_arguments_serialized_as_string() -> None:
     """arguments 必须是 JSON **字符串** —— 给对象客户端会崩。"""
-    calls = wuwei_tool_calls_to_openai([{
+    calls = tool_calls_to_openai([{
         "id": "call_1",
         "function": {"name": "get_weather", "arguments": {"city": "北京"}},
     }])
@@ -122,7 +122,7 @@ def test_tool_calls_arguments_serialized_as_string() -> None:
 
 def test_tool_calls_string_arguments_preserved() -> None:
     """已经是字符串的 arguments 原样保留（不重复序列化）。"""
-    calls = wuwei_tool_calls_to_openai([{
+    calls = tool_calls_to_openai([{
         "id": "c1",
         "function": {"name": "t", "arguments": '{"x":1}'},
     }])
@@ -130,13 +130,13 @@ def test_tool_calls_string_arguments_preserved() -> None:
 
 
 def test_tool_calls_missing_arguments_defaults_to_empty_object() -> None:
-    calls = wuwei_tool_calls_to_openai([{"id": "c", "function": {"name": "t"}}])
+    calls = tool_calls_to_openai([{"id": "c", "function": {"name": "t"}}])
     assert calls[0]["function"]["arguments"] == "{}"
 
 
 def test_tool_calls_empty_returns_empty() -> None:
-    assert wuwei_tool_calls_to_openai(None) == []
-    assert wuwei_tool_calls_to_openai([]) == []
+    assert tool_calls_to_openai(None) == []
+    assert tool_calls_to_openai([]) == []
 
 
 # ---------------------------------------------------------------------------

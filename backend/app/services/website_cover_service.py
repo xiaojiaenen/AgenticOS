@@ -89,14 +89,20 @@ async def capture_cover(slug: str, url: str, *, timeout_ms: int = COVER_TIMEOUT_
             finally:
                 await browser.close()
 
-        # 压缩：优先 WebP（体积约为 PNG 的 1/8），失败回退 PNG
-        try:
+        # 压缩：优先 WebP（体积约为 PNG 的 1/8），失败回退 PNG。
+        # PIL 解码/编码是 CPU 密集操作，挪出事件循环（横切 P0 9.1）
+        import asyncio
+
+        def _compress_sync():
             from PIL import Image
 
             with Image.open(tmp_png) as img:
                 img = img.convert("RGB")
                 img.thumbnail((960, 600))
                 img.save(target, "WEBP", quality=82, method=4)
+
+        try:
+            await asyncio.to_thread(_compress_sync)
             tmp_png.unlink(missing_ok=True)
         except Exception:  # noqa: BLE001 —— 无 Pillow 时直接保留 PNG 作封面
             _logger.info("WebP 压缩不可用，保留 PNG 封面: slug=%s", slug)

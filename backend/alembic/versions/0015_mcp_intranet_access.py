@@ -67,9 +67,9 @@ _PROFILE_TABLE = "agent_profile_mcp_servers"
 
 # 新列：(列名, 列定义)
 _COLUMNS: list[tuple[str, sa.Column]] = [
-    ("verify_tls", sa.Column("verify_tls", sa.Boolean(), nullable=True, server_default=sa.text("1"))),
+    ("verify_tls", sa.Column("verify_tls", sa.Boolean(), nullable=True, server_default=sa.true())),
     ("allowed_cidrs", sa.Column("allowed_cidrs", sa.Text(), nullable=True, server_default="")),
-    ("user_accessible", sa.Column("user_accessible", sa.Boolean(), nullable=True, server_default=sa.text("1"))),
+    ("user_accessible", sa.Column("user_accessible", sa.Boolean(), nullable=True, server_default=sa.true())),
     ("external_system_id", sa.Column("external_system_id", sa.Integer(), nullable=True)),
 ]
 
@@ -145,7 +145,7 @@ def upgrade() -> None:
             sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
             sa.Column("profile_id", sa.Integer(), nullable=False),
             sa.Column("server_name", sa.String(length=120), nullable=False),
-            sa.Column("enabled", sa.Boolean(), nullable=True, server_default=sa.text("1")),
+            sa.Column("enabled", sa.Boolean(), nullable=True, server_default=sa.true()),
             sa.Column("updated_at", sa.DateTime(), nullable=True),
             sa.ForeignKeyConstraint(["profile_id"], ["agent_profiles.id"]),
             sa.PrimaryKeyConstraint("id"),

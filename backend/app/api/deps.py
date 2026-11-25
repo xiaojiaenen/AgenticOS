@@ -271,7 +271,7 @@ def require_kb_access(
         KnowledgeBaseModel: 命中的知识库对象（省掉端点再查一次）。
     """
     from app.db.models import KnowledgeBaseModel
-    from app.services.knowledge.acl import explicit_role, load_grants, role_allows
+    from app.services.knowledge.acl import explicit_role, is_kb_admin, load_grants, role_allows
     from app.services.knowledge.retrieval import can_view_knowledge_base
 
     kb = db.get(KnowledgeBaseModel, kb_id)
@@ -284,7 +284,7 @@ def require_kb_access(
         return kb
 
     if action == "read" and can_view_knowledge_base(
-        kb, user_id=user.id, is_admin=user.role == "admin"
+        kb, user_id=user.id, is_admin=is_kb_admin(user.role)
     ):
         return kb
 
@@ -302,12 +302,12 @@ def filter_readable_kb_ids(db: Session, user: UserModel, kb_ids: list[int]) -> s
     否则会出现「详情页能打开、列表里却不显示」。
     """
     from app.db.models import KnowledgeBaseModel
-    from app.services.knowledge.acl import explicit_role, load_grants, role_allows
+    from app.services.knowledge.acl import explicit_role, is_kb_admin, load_grants, role_allows
     from app.services.knowledge.retrieval import can_view_knowledge_base
 
     if not kb_ids:
         return set()
-    if user.role == "admin":
+    if is_kb_admin(user.role):
         return set(kb_ids)
 
     kbs = db.query(KnowledgeBaseModel).filter(KnowledgeBaseModel.id.in_(kb_ids)).all()

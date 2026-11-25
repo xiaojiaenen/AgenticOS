@@ -17,8 +17,9 @@ from typing import Any
 
 from sqlalchemy import func, select
 
+from app.core.roles import is_admin_like
 from app.core.timezone import app_now
-from app.db.models import AgentUsageEventModel
+from app.db.models import AgentUsageEventModel, SystemSettingModel
 from app.db.session import create_db_session
 
 logger = logging.getLogger("agenticos.quota")
@@ -57,15 +58,42 @@ def used_tokens_today(user_id: int) -> int:
     return int(total or 0)
 
 
+QUOTA_KEY = "quota.daily_token_quota"
+
+
+def get_daily_quota_config(db: Any) -> dict[str, Any]:
+    """当前配额配置：system_settings 的 DB 配置优先（后台可调，战线 E-P1），
+    回退环境变量默认。端点层（admin_ops）复用本函数，避免服务层反向依赖路由层。
+    """
+    row = db.get(SystemSettingModel, QUOTA_KEY)
+    if row is not None and row.value.strip():
+        try:
+            return {"source": "database", "daily_token_quota": int(row.value), "updated_at": row.updated_at}
+        except ValueError:
+            logger.warning("system_settings 配额键非法值 %r，回退环境变量", row.value)
+    from app.core.config import get_settings
+
+    return {"source": "env", "daily_token_quota": get_settings().user_daily_token_quota, "updated_at": None}
+
+
 def check_daily_quota(user_id: int, *, role: str = "user") -> dict[str, Any]:
     """入口配额检查。返回当前用量信息；超限抛 DailyQuotaExceeded。
 
     管理员与未启用配额（quota=0）时直接放行。
+    配额值：system_settings 的 DB 配置优先（后台可调），回退环境变量。
     """
     from app.core.config import get_settings
 
     quota = get_settings().user_daily_token_quota
-    if quota <= 0 or role == "admin":
+    try:
+        from app.db.session import SessionLocal
+
+        with SessionLocal() as db:
+            quota = int(get_daily_quota_config(db)["daily_token_quota"])
+    except Exception:  # noqa: BLE001 —— 配置读取失败回退环境变量
+        logger.warning("配额 DB 配置读取失败，回退环境变量", exc_info=True)
+    # 管理员豁免统一走 is_admin_like（admin + superadmin，3H 档 A）
+    if quota <= 0 or is_admin_like(role):
         return {"quota": quota, "used": None}
 
     used = used_tokens_today(user_id)

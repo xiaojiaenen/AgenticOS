@@ -295,8 +295,16 @@ async def get_result_raw(task_id: str):
     taskiq 的 ``AsyncResultBackend.get_result`` 在「还没结果」时抛
     ``ResultIsReadyError``（或各实现自己的异常），这里统一吞掉转成 None，
     让调用方只关心「有 / 没有」。
+
+    broker 启动失败（如开发环境没有真实 Redis，result backend 连不上）
+    同样返回 None —— 状态查询不应因结果后端不可用而 503；队列注册表
+    （Redis 元数据）不依赖 broker，列表/统计仍然可用。
     """
-    broker = await get_broker()
+    try:
+        broker = await get_broker()
+    except Exception:  # noqa: BLE001 -- broker/result backend 连不上 = 无结果可读
+        logger.warning("taskiq broker 不可用，任务结果按「无结果」处理", exc_info=True)
+        return None
     backend = getattr(broker, "result_backend", None)
     if backend is None:
         return None

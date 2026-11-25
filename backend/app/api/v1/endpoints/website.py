@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
+from app.core.roles import is_admin_like
 from app.api.deps import get_current_user, get_db, require_admin, require_feature
 from pathlib import Path
 from app.core.data_path import WEBSITES_DIR as _WEBSITES_DIR, _parse_dir_name
@@ -29,7 +30,7 @@ def _assert_can_deploy_project(project_slug: str, user: UserModel) -> None:
     project_slug 由请求方直接提交，不校验归属就能替他人项目发起部署审批。
     顺带挡掉路径穿越（slug 必须是单一目录名）。
     """
-    if user.role == "admin":
+    if is_admin_like(user.role):
         return
     parsed = _parse_dir_name(project_slug)
     if parsed is None:
@@ -172,7 +173,7 @@ def get_deploy(
     if deploy is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="部署申请不存在")
     # 检查权限：只能查看自己的部署请求（管理员除外）
-    if deploy.get("requested_by") != user.id and user.role != "admin":
+    if deploy.get("requested_by") != user.id and not is_admin_like(user.role):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="没有权限执行该操作")
     return deploy
 
@@ -187,7 +188,7 @@ def get_deploy_by_project(
     if deploy is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="部署申请不存在")
     # 检查权限：只能查看自己项目的部署请求（管理员除外），与 get_deploy 保持一致
-    if deploy.get("requested_by") != user.id and user.role != "admin":
+    if deploy.get("requested_by") != user.id and not is_admin_like(user.role):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="没有权限执行该操作")
     return deploy
 
@@ -339,7 +340,7 @@ def cancel_deploy(
     """取消部署：站点下线，**源码保留**（可随时重新部署）。"""
     try:
         result = _service.cancel(
-            deploy_id, by_user_id=user.id, is_admin=(user.role == "admin")
+            deploy_id, by_user_id=user.id, is_admin=(is_admin_like(user.role))
         )
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
@@ -391,7 +392,7 @@ def website_stats(
         ).first()
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="作品不存在")
-    if row.requested_by != user.id and user.role != "admin":
+    if row.requested_by != user.id and not is_admin_like(user.role):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权查看该作品统计")
 
     from app.services.website_cover_service import view_stats
@@ -418,7 +419,7 @@ def list_gallery(user: UserModel = Depends(get_current_user)):
     两类合并成一个列表返回（前端作品库按同一套卡片渲染），用 ``item_type``
     区分：``website`` / ``ppt`` / ``document`` / ``sheet``。
     """
-    sites = _service.list_gallery(viewer_id=user.id, is_admin=user.role == "admin")
+    sites = _service.list_gallery(viewer_id=user.id, is_admin=is_admin_like(user.role))
     items: list[dict[str, Any]] = []
     for site in sites:
         item = dict(site)
@@ -429,7 +430,7 @@ def list_gallery(user: UserModel = Depends(get_current_user)):
         from app.services.published_item_service import PublishedItemService
 
         for pub in PublishedItemService().list_gallery(
-            viewer_id=user.id, is_admin=user.role == "admin"
+            viewer_id=user.id, is_admin=is_admin_like(user.role)
         ):
             item = dict(pub)
             item["item_type"] = pub.get("kind", "website")
@@ -452,7 +453,7 @@ def reset_private_access(
 ):
     """重置私密站点的访问链接（旧链接立即失效，作品库拿到新链接）。"""
     try:
-        result = _service.reset_access_token(deploy_id, requested_by=user.id, is_admin=user.role == "admin")
+        result = _service.reset_access_token(deploy_id, requested_by=user.id, is_admin=is_admin_like(user.role))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     if result is None:

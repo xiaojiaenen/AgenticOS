@@ -287,6 +287,45 @@ export async function testLlmProvider(id: number, deep = false): Promise<Provide
   );
 }
 
+/** 批量健康探测（8.5.1）：所有启用 provider 的浅探测（不消耗对话额度）。 */
+export interface ProviderPoolStats {
+  active: number;
+  expired: number;
+  failed: number;
+}
+
+export interface ProviderHealthItem {
+  provider_id: number;
+  name: string;
+  slug: string;
+  provider_type: string;
+  is_default: boolean;
+  ok: boolean;
+  stage: string | null;
+  message: string;
+  elapsed_ms: number | null;
+  models_count: number;
+  account_pool?: ProviderPoolStats;
+}
+
+export interface ProviderHealthReport {
+  total: number;
+  ok: number;
+  failed: number;
+  providers: ProviderHealthItem[];
+}
+
+export async function checkLlmProvidersHealth(
+  providerIds?: number[],
+): Promise<ProviderHealthReport> {
+  return apiFetch<ProviderHealthReport>(`${ENDPOINT}/health-check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(providerIds && providerIds.length ? providerIds : null),
+    timeoutMs: 120_000,
+  }, '批量健康探测失败');
+}
+
 /** 保存前的试连入参：可直接提交未落库的表单值。 */
 export interface ProviderDraftTestInput {
   provider_type: ProviderType;

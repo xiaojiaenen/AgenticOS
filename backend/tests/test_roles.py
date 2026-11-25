@@ -15,7 +15,6 @@ import pytest
 from app.core.roles import (
     BASE_USER_CAPS,
     CAP_AGENT_MANAGE,
-    CAP_AGENT_USE,
     CAP_ANNOUNCEMENT_MANAGE,
     CAP_APIKEY_MANAGE,
     CAP_AUDIT_VIEW,

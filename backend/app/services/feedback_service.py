@@ -16,6 +16,7 @@ from datetime import timedelta
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.roles import is_admin_like
 from app.core.timezone import app_now
 from app.db.models import (
     FeedbackCommentModel,
@@ -85,7 +86,7 @@ class FeedbackService:
 
     def _visible_filter(self, viewer: UserModel):
         """public 全员可见；private 仅本人或管理员。"""
-        if viewer.role == "admin":
+        if is_admin_like(viewer.role):
             return None
         return or_(
             FeedbackIssueModel.visibility == "public",
@@ -157,7 +158,7 @@ class FeedbackService:
             row = db.get(FeedbackIssueModel, issue_id)
             if row is None:
                 return None
-            if row.visibility == "private" and viewer.role != "admin" and row.user_id != viewer.id:
+            if row.visibility == "private" and not is_admin_like(viewer.role) and row.user_id != viewer.id:
                 return None
             my_votes = self._my_vote_ids(db, viewer.id, [row.id])
             issue = self._serialize_issue(db, row, viewer.id, my_votes)
@@ -204,7 +205,7 @@ class FeedbackService:
             row = db.get(FeedbackIssueModel, issue_id)
             if row is None:
                 raise LookupError("反馈不存在")
-            if row.visibility == "private" and viewer.role != "admin" and row.user_id != viewer.id:
+            if row.visibility == "private" and not is_admin_like(viewer.role) and row.user_id != viewer.id:
                 raise PermissionError("无权操作该反馈")
             existing = db.scalar(
                 select(FeedbackVoteModel).where(
@@ -231,13 +232,13 @@ class FeedbackService:
             row = db.get(FeedbackIssueModel, issue_id)
             if row is None:
                 raise LookupError("反馈不存在")
-            if row.visibility == "private" and author.role != "admin" and row.user_id != author.id:
+            if row.visibility == "private" and not is_admin_like(author.role) and row.user_id != author.id:
                 raise PermissionError("无权评论该反馈")
             comment = FeedbackCommentModel(
                 issue_id=issue_id,
                 user_id=author.id,
                 body=req.body,
-                is_official=official and author.role == "admin",
+                is_official=official and is_admin_like(author.role),
             )
             db.add(comment)
             row.comment_count += 1

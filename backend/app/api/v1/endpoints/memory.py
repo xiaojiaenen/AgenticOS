@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.core.roles import is_admin_like
 from app.api.deps import get_current_user
 from app.db.models import (
     MemoryConversationModel,
@@ -74,10 +75,10 @@ async def list_memories(
     """
     service = get_memory_service()
     keyword = (q or "").strip() or None
-    if user_id is not None and current_user.role == "admin":
+    if user_id is not None and is_admin_like(current_user.role):
         memories = await service.get_all_memories(user_id, limit=limit, offset=offset, q=keyword)
         total = await service.count_memories(user_id, q=keyword)
-    elif current_user.role == "admin":
+    elif is_admin_like(current_user.role):
         memories = await service.get_all_memories_admin(limit=limit, offset=offset, q=keyword)
         total = await service.count_memories_admin(q=keyword)
     else:
@@ -136,7 +137,7 @@ async def search_memories(
     if not q.strip():
         return {"items": [], "count": 0}
 
-    target_user_id = user_id if (user_id and current_user.role == "admin") else current_user.id
+    target_user_id = user_id if (user_id and is_admin_like(current_user.role)) else current_user.id
     memories = await get_memory_service().search_memory(target_user_id, q, limit=limit)
     return {"items": memories, "count": len(memories)}
 
@@ -147,7 +148,7 @@ async def delete_memory(
     current_user: UserModel = Depends(get_current_user),
 ) -> dict:
     """删除记忆。普通用户只能删除自己的，管理员可删除任意记忆。"""
-    user_id = None if current_user.role == "admin" else current_user.id
+    user_id = None if is_admin_like(current_user.role) else current_user.id
     success = await get_memory_service().delete_memory(memory_id, user_id)
     if not success:
         raise HTTPException(status_code=404, detail="记忆记录不存在")
@@ -169,7 +170,7 @@ async def batch_delete_memories(
     权限与单条一致：普通用户只能删自己的，越界 id 记为失败而不是 404
     —— 批量场景下部分成功比整批失败更有用。
     """
-    user_id = None if current_user.role == "admin" else current_user.id
+    user_id = None if is_admin_like(current_user.role) else current_user.id
     service = get_memory_service()
     deleted = 0
     missing: list[int] = []
@@ -297,7 +298,7 @@ async def dedupe_memories(
     的记忆聚成一组，每组保留 importance 最高、最新的一条。
     普通用户只能清理自己的；管理员可传 user_id 清理指定用户。
     """
-    target = user_id if (user_id is not None and current_user.role == "admin") else current_user.id
+    target = user_id if (user_id is not None and is_admin_like(current_user.role)) else current_user.id
     result = await get_pipeline().dedupe_user_memories(target, dry_run=dry_run)
     return {"success": True, "user_id": target, **result}
 

@@ -21,11 +21,12 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
 from app.core.data_path import set_current_user_id
-from app.db.models import UserModel
+from app.db.models import LlmProviderModel, UserModel
 from app.services import audit_service
 from app.services.llm_providers import (
     auto_login,
@@ -1125,3 +1126,84 @@ def update_provider_roles(
         provider_id=provider_id, detail={"roles": cleaned},
     )
     return {"roles": cleaned}
+
+
+@router.post("/health-check")
+async def batch_health_check(
+    http_request: Request,
+    provider_ids: list[int] | None = None,
+    current_user: UserModel = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    """批量健康探测（战线 E 8.5.1）：所有启用 provider 的延迟/失败率/账号池状态。
+
+    复用单 provider 的 ``test_provider``（浅探测：网络→认证→模型清单，
+    不消耗上游对话额度），并发打满。账号池摘要来自 credentials 表的
+    active/expired/failed 计数。探测是诊断结果语义：单点失败不影响整体
+    返回（200 + per-provider ok 字段）。
+    """
+    import asyncio
+
+    from sqlalchemy import func
+
+    from app.db.models import LlmProviderCredentialModel
+
+    # provider_spec / runtime / set_current_user_id / select / LlmProviderModel
+    # 均来自模块顶层 import（函数内再 import 会 shadow 顶层并触发 ImportError）
+
+    set_current_user_id(current_user.id)
+
+    stmt = select(LlmProviderModel).where(LlmProviderModel.enabled.is_(True))
+    if provider_ids:
+        stmt = stmt.where(LlmProviderModel.id.in_(provider_ids))
+    rows = db.execute(stmt.order_by(LlmProviderModel.is_default.desc(), LlmProviderModel.id)).scalars().all()
+
+    # 账号池状态（仅 enterprise_cookie 类型需要）
+    pool_stats: dict[int, dict[str, int]] = {}
+    if rows:
+        pool_rows = db.execute(
+            select(
+                LlmProviderCredentialModel.provider_id,
+                LlmProviderCredentialModel.status,
+                func.count(LlmProviderCredentialModel.id),
+            ).group_by(LlmProviderCredentialModel.provider_id, LlmProviderCredentialModel.status)
+        ).all()
+        for pid, status_, count in pool_rows:
+            pool_stats.setdefault(int(pid), {})[str(status_)] = int(count)
+
+    async def _probe(row: LlmProviderModel) -> dict:
+        result = await runtime.test_provider(provider_spec.spec_from_row(row), deep=False)
+        item: dict = {
+            "provider_id": row.id,
+            "name": row.name,
+            "slug": row.slug,
+            "provider_type": row.provider_type,
+            "is_default": bool(row.is_default),
+            "ok": bool(result.get("ok")),
+            "stage": result.get("stage"),
+            "message": (result.get("message") or "")[:200],
+            "elapsed_ms": result.get("elapsed_ms"),
+            "models_count": len(result.get("models") or []),
+        }
+        pool = pool_stats.get(row.id)
+        if pool:
+            item["account_pool"] = {
+                "active": pool.get("active", 0),
+                "expired": pool.get("expired", 0),
+                "failed": pool.get("failed", 0),
+            }
+        return item
+
+    results = await asyncio.gather(*(_probe(r) for r in rows))
+    ok_count = sum(1 for r in results if r["ok"])
+    _audit(
+        http_request, db, action="llm_provider.health_check", current_user=current_user,
+        result="allow",
+        detail={"total": len(results), "ok": ok_count},
+    )
+    return {
+        "total": len(results),
+        "ok": ok_count,
+        "failed": len(results) - ok_count,
+        "providers": list(results),
+    }

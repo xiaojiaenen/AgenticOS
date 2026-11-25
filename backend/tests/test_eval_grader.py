@@ -1,7 +1,6 @@
 """LLM 评分器 + 趋势聚合 回归。"""
 from __future__ import annotations
 
-import asyncio
 import datetime as _dt
 import json
 

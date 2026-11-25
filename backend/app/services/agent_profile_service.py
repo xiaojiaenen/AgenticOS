@@ -7,6 +7,7 @@ from pathlib import Path
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.core.roles import is_admin_like
 from app.core.timezone import app_now, isoformat_app_timezone
 from app.db.models import (
     AgentProfileExternalSystemModel,
@@ -597,7 +598,7 @@ class AgentProfileService:
         """
         if not profile.enabled:
             return False
-        if user.role == "admin":
+        if is_admin_like(user.role):
             return True
 
         mode = self._audience_mode(db, profile)
@@ -962,7 +963,7 @@ class AgentProfileService:
     @staticmethod
     def _can_manage(profile: AgentProfileModel, user: UserModel) -> bool:
         """平台内置（owner_id 为空）只有管理员能改；其余仅所有者或管理员。"""
-        if user.role == "admin":
+        if is_admin_like(user.role):
             return True
         return profile.owner_id is not None and profile.owner_id == user.id
 
@@ -1478,7 +1479,7 @@ class AgentProfileService:
             # 与 list_user_agents 保持同一口径：内置（平台自带）与自建
             # （自己就是所有者）都不需要安装记录，只有「别人发布、我要用」
             # 的商店智能体才要求先安装。
-            if user.role != "admin" and not profile.is_builtin and profile.owner_id != user.id:
+            if not is_admin_like(user.role) and not profile.is_builtin and profile.owner_id != user.id:
                 installed = db.scalar(
                     select(func.count(UserInstalledAgentModel.id)).where(
                         UserInstalledAgentModel.user_id == user.id,
@@ -1490,7 +1491,7 @@ class AgentProfileService:
 
             return self._runtime_from_profile(
                 db, profile, approval_mode=approval_mode,
-                is_admin_actor=user.role == "admin", plan_mode=plan_mode,
+                is_admin_actor=is_admin_like(user.role), plan_mode=plan_mode,
             )
 
     def resolve_runtime_published(self, slug: str) -> RuntimeAgentProfile:
@@ -1656,7 +1657,7 @@ class AgentProfileService:
                 db,
                 profile,
                 approval_mode=approval_mode,
-                is_admin_actor=user.role == "admin",
+                is_admin_actor=is_admin_like(user.role),
                 plan_mode=plan_mode,
             )
 

@@ -18,9 +18,9 @@ OpenAI 兼容端有硬校验 ``System message must be at the beginning.``
 
 from __future__ import annotations
 
-from wuwei.core.message import AIMessage, HumanMessage, SystemMessage
+from app.services.agent.native.types import AIMessage, HumanMessage, SystemMessage
 
-from app.services.llm_providers.adapter import normalize_system_messages
+from app.services.agent.native.gateway import normalize_system_messages
 
 
 def _roles(messages):

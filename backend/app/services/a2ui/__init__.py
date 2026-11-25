@@ -16,7 +16,7 @@ import contextvars
 import logging
 from typing import Any
 
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 from app.services.a2ui.builder import (
     A2uiBuildError,
@@ -341,6 +341,7 @@ def register_a2ui_tools(registry: ToolRegistry) -> None:
         )
 
 __all__ = [
+    "catalog_prompt",
     "register_a2ui_tools",
     "reset_pending",
     "drain_pending",

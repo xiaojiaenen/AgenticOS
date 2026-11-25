@@ -284,7 +284,7 @@ def test_create_document_accepts_json_string_blocks():
     """
     import asyncio
 
-    from wuwei.tools import ToolRegistry
+    from app.services.agent.native.tool_registry import ToolRegistry
 
     from app.core import data_path
     from app.tools.doc_tools import register_doc_tools
@@ -316,7 +316,7 @@ def test_set_range_accepts_json_string_values():
     import asyncio
     import json
 
-    from wuwei.tools import ToolRegistry
+    from app.services.agent.native.tool_registry import ToolRegistry
 
     from app.core import data_path
     from app.tools.sheet_tools import register_sheet_tools
@@ -350,7 +350,7 @@ def test_office_runtime_survives_loop_switch():
     """
     import asyncio
 
-    from app.services.office.runtime import OfficeRuntime, get_office_runtime
+    from app.services.office.runtime import OfficeRuntime
 
     # 用独立实例，避免污染全局单例
     rt = OfficeRuntime()

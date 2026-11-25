@@ -93,8 +93,17 @@ class PptExportRequest(BaseModel):
 
 
 class ApprovalDecisionRequest(BaseModel):
-    status: str = Field(..., pattern="^(approved|rejected)$", description="Approval decision.")
+    status: str = Field(
+        ...,
+        # 战线 A3：respond = 人工代答（工具不执行，用户答案回灌给模型）
+        pattern="^(approved|rejected|respond)$",
+        description="Approval decision.",
+    )
     reason: str | None = Field(default=None, description="Reason for the decision.")
+    response: str | None = Field(
+        default=None,
+        description="Human-provided answer for the respond (人工代答) decision.",
+    )
     # 用户在审批前修改过的工具参数（如改了邮件正文/模板）。
     # 批准后用这份参数替换原始 arguments 执行；不传则按原始参数执行。
     modified_arguments: dict[str, Any] | None = Field(

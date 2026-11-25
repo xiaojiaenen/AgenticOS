@@ -23,7 +23,6 @@ from app.db.models import MemoryModel, MemoryPersonaModel, MemoryScenarioModel
 from app.db.session import create_db_session
 from app.services.memory_bm25 import get_bm25_backend
 from app.services.memory_embedder import get_embedder
-from app.services.memory_vector_store import get_vector_store
 
 _logger = logging.getLogger("memory_retriever")
 _settings = get_settings()

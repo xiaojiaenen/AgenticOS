@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import time
@@ -30,6 +31,7 @@ import casbin
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.core.roles import is_admin_like
 from app.db.models import CasbinRuleModel, RoleModel, UserModel
 
 logger = logging.getLogger(__name__)
@@ -39,8 +41,12 @@ MODEL_PATH = Path(__file__).resolve().parents[1] / "resources" / "casbin_model.c
 # 唯一授权域。部门下线后不再按组织隔离：所有策略与角色绑定都落在 global 域，
 # 保留这个概念是因为 casbin model 的域参数还在（p/g 的第一/第三段）。
 GLOBAL_DOMAIN = "global"
-# 策略缓存的重新加载间隔（秒）—— 多实例部署下其他实例改策略的可见延迟上界
+# 策略缓存的重新加载间隔（秒）—— 多实例部署下其他实例改策略的可见延迟上界。
+# 写操作会通过 Redis pub/sub 广播失效消息（invalidate → start_policy_listener），
+# 其他进程毫秒级 reload；本间隔只是消息丢失/无 Redis 时的兜底（3H 档 A）。
 POLICY_RELOAD_INTERVAL_SECONDS = 5.0
+#: 策略失效广播频道（跨实例即时 reload）
+POLICY_INVALIDATION_CHANNEL = "agenticos:casbin:invalidate"
 
 ROLE_ADMIN = "admin"
 ROLE_USER = "user"
@@ -71,10 +77,9 @@ DEFAULT_POLICIES: tuple[tuple[str, str, str, str], ...] = (
 # 「默认拒绝、显式授权后才放行」，就必须先让该功能处于「已配置」状态 ——
 # 即写入一条只对管理员生效的锚点策略，同时顺带让 admin 在不依赖
 # `*` 通配的情况下也能使用该功能。
-DEFAULT_RESTRICTED_FEATURES: tuple[str, ...] = (
-    "use_workflows",
-    "view_workflow_runs",
-)
+#: 受限功能锚点（feature 门禁）。workflow 工作流已整体下线，
+#: 列表暂空 —— 保留机制本身，未来新的受限功能直接追加到这里。
+DEFAULT_RESTRICTED_FEATURES: tuple[str, ...] = ()
 
 ACTION_DELETE = "delete"
 ACTION_READ = "read"
@@ -230,8 +235,27 @@ class PermissionService:
         return self._enforcer
 
     def invalidate(self) -> None:
-        """标记缓存过期；下一次判定前重新从数据库加载。"""
+        """标记缓存过期；下一次判定前重新从数据库加载。
+
+        若在异步上下文（事件循环运行中）且 Redis 可用，同时向
+        ``POLICY_INVALIDATION_CHANNEL`` 广播 —— 其他 worker 实例的
+        listener 收到后立即 reload，把多实例策略可见延迟从最长 5s
+        压到毫秒级（3H 档 A 缓存一致性）。广播失败不影响本进程失效。
+        """
         self._loaded_at = 0.0
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return  # 同步上下文（CLI / 线程池）：兜底 reload 间隔覆盖
+        try:
+            from app.core.redis import get_redis, is_redis_memory
+
+            if is_redis_memory():
+                return  # 单进程内存模式：没有"其他实例"需要通知
+            redis = get_redis()
+            loop.create_task(redis.publish(POLICY_INVALIDATION_CHANNEL, "invalidate"))
+        except Exception:  # noqa: BLE001 —— 广播失败不影响本进程失效
+            logger.debug("policy invalidation broadcast failed", exc_info=True)
 
     def reload(self) -> None:
         with self._lock:
@@ -264,8 +288,10 @@ class PermissionService:
     ) -> bool:
         """用户维度的权限判定（deps.require_permission / require_kb_access 的唯一入口）。
 
-        - admin 用户.role == "admin" 快速放行（与既有 require_admin 行为一致），
-          即使策略表为空也不会把管理员锁在门外；
+        - 管理类角色（admin/superadmin，is_admin_like）快速放行 —— 与
+          require_admin 的既有行为一致，即使策略表为空也不会把管理员锁在
+          门外。原先只认字面 "admin"，superadmin 会被 Casbin 拒之门外
+          （双轨权限漂移 3H 档 A）。
         - 「自身资源」：resource_type=user 且 resource_id 为本人时放行，
           对应设计稿里的 "user 自身资源"；
         - ``domains`` 缺省时用请求者自己的域（本部门域 + global）；
@@ -274,7 +300,7 @@ class PermissionService:
         """
         if user is None:
             return False
-        if user.role == ROLE_ADMIN:
+        if is_admin_like(user.role):
             return True
         if resource_type == "user" and str(resource_id) == str(user.id):
             return True
@@ -447,6 +473,51 @@ def reset_permission_service() -> None:
         _service = None
 
 
+_policy_listener_task: asyncio.Task | None = None
+
+
+async def start_policy_listener() -> None:
+    """订阅策略失效广播（应用 lifespan 启动）。
+
+    其他实例改策略 → invalidate() 发布消息 → 本进程立即 reload。
+    内存 Redis（单进程）模式下没有跨实例需求，直接跳过。
+    """
+    global _policy_listener_task
+    from app.core.redis import get_redis, is_redis_memory
+
+    if is_redis_memory():
+        return
+    redis = get_redis()
+
+    async def _listen() -> None:
+        pubsub = None
+        try:
+            pubsub = redis.pubsub()
+            await pubsub.subscribe(POLICY_INVALIDATION_CHANNEL)
+            async for message in pubsub.listen():
+                if isinstance(message, dict) and message.get("type") == "message":
+                    service = get_permission_service()
+                    service.reload()
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 —— listener 挂掉只退化到兜底间隔
+            logger.exception("policy invalidation listener stopped")
+
+    _policy_listener_task = asyncio.get_running_loop().create_task(_listen())
+
+
+async def stop_policy_listener() -> None:
+    """关闭失效广播 listener（应用 lifespan 关停）。"""
+    global _policy_listener_task
+    if _policy_listener_task is not None and not _policy_listener_task.done():
+        _policy_listener_task.cancel()
+        try:
+            await _policy_listener_task
+        except asyncio.CancelledError:
+            pass
+    _policy_listener_task = None
+
+
 def ensure_default_policies() -> None:
     """应用启动时调用：幂等写入内置策略 + 内置角色 + 受限功能锚点。"""
     service = get_permission_service()
@@ -466,7 +537,7 @@ def assign_default_role_for_user(user: UserModel) -> None:
     """
     service = get_permission_service()
     subject = subject_for_user(user)
-    if user.role == ROLE_ADMIN:
+    if is_admin_like(user.role):
         service.add_role_for_user(subject, ROLE_ADMIN, "*")
     else:
         service.add_role_for_user(subject, ROLE_USER, GLOBAL_DOMAIN)

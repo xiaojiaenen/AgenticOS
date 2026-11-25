@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
 
+from app.core.roles import is_admin_like
 from app.api.deps import get_current_user, get_db
 from app.core.config import get_settings
 from app.db.models import UserModel
@@ -122,7 +123,7 @@ async def stream_agent(
     # 把并发配额刷满饿死别人。管理员豁免（与每日 token 配额同一豁免口径）。
     # 429 必须在返回 StreamingResponse 之前抛 —— 流一旦开始，状态码就定了。
     rate_cfg = get_settings()
-    if rate_cfg.agent_stream_rate_limit > 0 and current_user.role != "admin":
+    if rate_cfg.agent_stream_rate_limit > 0 and not is_admin_like(current_user.role):
         allowed, reset_in = check_window_quota(
             "agent_stream",
             str(current_user.id),
@@ -185,6 +186,7 @@ async def decide_approval(
             status=payload.status,
             reason=payload.reason,
             modified_arguments=payload.modified_arguments,
+            response=payload.response,
             current_user=current_user,
         )
     except PermissionError as exc:

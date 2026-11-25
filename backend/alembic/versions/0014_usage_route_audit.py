@@ -62,7 +62,7 @@ _COLUMNS: list[tuple[str, sa.Column]] = [
             # 必须是 ``text("0")``：字符串 "0" 会渲染成 DEFAULT '0'，SQLite
             # 存文本，ORM 的 Boolean 做 bool('0') 得到 True，存量行会被全部
             # 误判成「token 是估算的」。
-            server_default=sa.text("0"),
+            server_default=sa.false(),
         ),
     ),
 ]
@@ -122,10 +122,7 @@ def upgrade() -> None:
     for index_name in _DUPLICATE_INDEXES:
         if index_name not in existing_indexes:
             continue
-        try:
-            op.drop_index(index_name, table_name=_TABLE)
-        except Exception:  # noqa: BLE001 —— 清理是尽力而为，不该阻断升级
-            pass
+        op.drop_index(index_name, table_name=_TABLE)
 
 
 def downgrade() -> None:

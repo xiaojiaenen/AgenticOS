@@ -27,9 +27,9 @@ PROTOCOL_VERSION = "v0.9"
 # 组件白名单的单一来源在 catalog.py —— 那里同时给 prompt 用的紧凑目录
 # 和结构校验。builder 只引用，不重复定义（避免两处白名单漂移）。
 from app.services.a2ui.catalog import (
-    ALLOWED_COMPONENTS,
     A2uiValidationError,
-    extract_initial_data,
+    ALLOWED_COMPONENTS,  # noqa: F401 —— 对外再导出（builder.ALLOWED_COMPONENTS 是契约面）
+    extract_initial_data,  # noqa: F401
     normalize_components,
     validate_components,
 )

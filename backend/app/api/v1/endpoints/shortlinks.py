@@ -11,6 +11,7 @@
 """
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 
 from app.db.models import WebsiteDeployModel
@@ -57,7 +58,7 @@ def _resolve_published_item(code: str):
     return _render_preview_page(row)
 
 
-def _render_preview_page(row) -> "HTMLResponse":
+def _render_preview_page(row) -> HTMLResponse:
     """文件型作品的预览页。
 
     三种产物能力不同，处理方式也不同：
@@ -69,8 +70,6 @@ def _render_preview_page(row) -> "HTMLResponse":
     任何外链都可能被内网环境阻断。
     """
     from html import escape
-
-    from fastapi.responses import HTMLResponse
 
     from app.services.published_item_service import KIND_DOCUMENT, KIND_LABELS, KIND_PPT
 

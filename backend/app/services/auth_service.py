@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 from math import ceil
 from uuid import uuid4
@@ -9,10 +10,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import create_access_token, hash_password, needs_rehash, verify_password
 from app.core.timezone import app_now
 from app.db.models import AuthSessionModel, UserModel
 from app.services import rate_limiter
+
+logger = logging.getLogger(__name__)
 
 
 class AuthError(ValueError):
@@ -162,6 +165,15 @@ class AuthService:
         if not user.is_active:
             self._record_failed_attempt("login", email=normalized_email, client_ip=client_ip)
             raise AuthError("账号已被禁用，请联系管理员")
+        # 存量弱哈希（pbkdf2）登录成功后无缝升级为 argon2id（战线 B 双验过渡）。
+        # 只在验证通过后才升级 —— 失败登录绝不触发重哈希。
+        if needs_rehash(user.password_hash):
+            try:
+                user.password_hash = hash_password(password)
+                self.db.commit()
+            except Exception:
+                self.db.rollback()
+                logger.warning("password rehash failed for user %s; keeping legacy hash", user.id, exc_info=True)
         self._clear_rate_limit("login", email=normalized_email, client_ip=client_ip)
         return self._auth_response(user)
 

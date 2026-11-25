@@ -14,7 +14,6 @@ source，全单 key 操作）。所以：
 """
 from __future__ import annotations
 
-import pytest
 
 from app.services import task_queue_taskiq as tqt
 
@@ -126,7 +125,11 @@ def test_all_tasks_registered():
 
 
 def test_public_api_unchanged():
-    """调用方（tasks.py / knowledge.py / audit_service.py）依赖这些函数。"""
+    """调用方（tasks.py / knowledge.py / audit_service.py / main.py）依赖这些函数。
+
+    arq 时代的废弃壳（WorkerSettings / get_arq_pool / close_arq_pool）已按
+    战线 B5 清理；关闭入口统一为 ``close_queue``。
+    """
     from app.services import task_queue as tq
 
     for name in (
@@ -135,9 +138,17 @@ def test_public_api_unchanged():
         "submit_website_build",
         "submit_audit_log",
         "get_task_status",
-        "close_arq_pool",
+        "close_queue",
     ):
         assert callable(getattr(tq, name)), f"{name} 缺失"
+
+
+def test_deprecated_arq_shims_removed():
+    """战线 B5：arq 时代的兼容壳不再存在（迁移早已完成，壳只会误导）。"""
+    from app.services import task_queue as tq
+
+    for name in ("WorkerSettings", "_redis_settings_from_url", "get_arq_pool", "close_arq_pool"):
+        assert not hasattr(tq, name), f"{name} 应已删除"
 
 
 def test_cron_schedules_match_arq_era():

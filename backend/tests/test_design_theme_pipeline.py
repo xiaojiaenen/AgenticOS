@@ -119,7 +119,7 @@ class TestApplyDesignTheme:
         """应用主题后入口 css 的 :root 变量换成主题值，其余内容不动。"""
         from app.core import data_path as dp
         # 工具在 register_website_tools 闭包内 —— 用空 registry 实例化再取 handler
-        from wuwei.tools import ToolRegistry
+        from app.services.agent.native.tool_registry import ToolRegistry
         from app.tools.website_tools import register_website_tools
 
         reg = ToolRegistry()
@@ -142,7 +142,7 @@ class TestApplyDesignTheme:
 
     def test_unknown_theme_lists_candidates(self, project, monkeypatch):
         from app.core import data_path as dp
-        from wuwei.tools import ToolRegistry
+        from app.services.agent.native.tool_registry import ToolRegistry
         from app.tools.website_tools import register_website_tools
 
         reg = ToolRegistry()
@@ -158,7 +158,7 @@ class TestApplyDesignTheme:
 
     def test_no_project_gives_actionable_error(self, monkeypatch):
         from app.core import data_path as dp
-        from wuwei.tools import ToolRegistry
+        from app.services.agent.native.tool_registry import ToolRegistry
         from app.tools.website_tools import register_website_tools
 
         reg = ToolRegistry()
@@ -222,10 +222,14 @@ class TestRootAssetRewrite:
 
     def test_build_rewrites_dist_index(self, tmp_path, monkeypatch):
         """端到端：copy → build 后 dist/index.html 不含根绝对引用。"""
+        import shutil as _shutil
+
+        if not _shutil.which("npm"):
+            pytest.skip("npm 不在 PATH（nvm 只在交互 shell 加载），跳过需要 npm 的测试")
         import asyncio
 
         from app.core import data_path as dp
-        from wuwei.tools import ToolRegistry
+        from app.services.agent.native.tool_registry import ToolRegistry
         from app.tools.website_tools import register_website_tools
 
         reg = ToolRegistry()
@@ -234,7 +238,6 @@ class TestRootAssetRewrite:
         build_t = next(t for t in reg.list_tools() if t.name == "build_website")
 
         monkeypatched_user = 1
-        import pytest as _pytest
         # copy_template 依赖 contextvars —— 注入
         dp.set_current_user_id(monkeypatched_user)
         dp.set_current_session_id("theme-e2e")
@@ -248,7 +251,6 @@ class TestRootAssetRewrite:
         r1 = asyncio.run(copy_t.handler("vanilla"))
         assert "已复制" in r1
         # 找到生成的项目目录
-        from pathlib import Path as _P
         from app.core.data_path import WEBSITES_DIR
         proj = sorted(
             (d for d in WEBSITES_DIR.iterdir() if d.name.startswith("u1_stheme-e2e_v")),

@@ -10,7 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user, get_db, require_capability
+from app.core.roles import CAP_GALLERY_MANAGE
 from app.db.models import UserModel
 from app.schemas.published_items import (
     PublishedItemDecisionRequest,
@@ -21,6 +22,7 @@ from app.services.published_item_service import (
     KIND_MIME,
     PublishedItemService,
 )
+from app.core.roles import is_admin_like
 
 router = APIRouter(tags=["published-items"])
 
@@ -75,7 +77,7 @@ def get_one(item_id: int, user: UserModel = Depends(get_current_user)):
     item = _service.get(item_id)
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="发布记录不存在")
-    if item["user_id"] != user.id and user.role != "admin":
+    if item["user_id"] != user.id and not is_admin_like(user.role):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权查看该发布记录")
     return item
 
@@ -89,7 +91,7 @@ def cancel(
 ):
     """取消发布：作品从作品库下架，**源产物保留**。"""
     try:
-        result = _service.cancel(item_id, by_user_id=user.id, is_admin=(user.role == "admin"))
+        result = _service.cancel(item_id, by_user_id=user.id, is_admin=is_admin_like(user.role))
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except PermissionError as exc:
@@ -105,16 +107,18 @@ def cancel(
 
 
 @router.get("/api/v1/admin/published-items", summary="管理员：全部发布记录")
-def admin_list_all(user: UserModel = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="仅管理员可访问")
+def admin_list_all(
+    user: UserModel = Depends(require_capability(CAP_GALLERY_MANAGE)),
+):
+    """能力门禁（gallery:manage）而非硬编码角色 —— operator（运营）按角色
+    定义可以审核作品库，superadmin 不再被漏掉（战线 E-P0 / 3H 档 A）。"""
     return {"items": _service.list_all(limit=200)}
 
 
 @router.get("/api/v1/admin/published-items/pending", summary="管理员：待审批列表")
-def admin_list_pending(user: UserModel = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="仅管理员可访问")
+def admin_list_pending(
+    user: UserModel = Depends(require_capability(CAP_GALLERY_MANAGE)),
+):
     return {"items": _service.list_pending()}
 
 
@@ -123,11 +127,9 @@ def admin_decide(
     item_id: int,
     payload: PublishedItemDecisionRequest,
     http_request: Request,
-    user: UserModel = Depends(get_current_user),
+    user: UserModel = Depends(require_capability(CAP_GALLERY_MANAGE)),
     db: Session = Depends(get_db),
 ):
-    if user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="仅管理员可访问")
     try:
         result = _service.decide(item_id, payload.status, approved_by=user.id, reason=payload.reason)
     except LookupError as exc:
@@ -168,7 +170,7 @@ def admin_decide(
 
 @router.get("/api/v1/published-items/gallery", summary="作品库：文件型作品")
 def gallery(user: UserModel = Depends(get_current_user)):
-    return {"items": _service.list_gallery(viewer_id=user.id, is_admin=user.role == "admin")}
+    return {"items": _service.list_gallery(viewer_id=user.id, is_admin=is_admin_like(user.role))}
 
 
 @router.get("/api/v1/published-items/{item_id}/download", summary="下载已发布的文件")

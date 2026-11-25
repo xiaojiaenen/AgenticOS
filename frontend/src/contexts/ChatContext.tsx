@@ -19,10 +19,11 @@ export interface ChatContextValue {
   handleStopGeneration: () => void;
   handleApprovalDecision: (
     approvalId: string,
-    status: 'approved' | 'rejected',
+    status: 'approved' | 'rejected' | 'respond',
     isApiApproval?: boolean,
     allowAll?: boolean,
     modifiedArguments?: Record<string, unknown>,
+    response?: string,
   ) => Promise<void>;
   handleDecisionMade: (decisionId: string, answer: string) => void;
 

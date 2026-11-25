@@ -6,7 +6,6 @@ embedding 与生图是不同端点，模型名不会出现在同一份目录里�
 """
 from __future__ import annotations
 
-import pytest
 
 from app.services.llm_providers.presets import MODEL_ROLES, ROLES_FOLLOWING_MAIN
 

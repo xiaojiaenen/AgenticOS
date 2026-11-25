@@ -28,7 +28,7 @@ def _factory_registered_tools() -> set[str]:
     这里刻意**照抄 factory 的注册清单**而不是只读 `_GLOBAL_TOOL_REGISTRARS`
     —— 测试要能发现"factory 加了工具但没登记到目录"，读同一张表就发现不了。
     """
-    from wuwei.tools import ToolRegistry
+    from app.services.agent.native.tool_registry import ToolRegistry
 
     registry = ToolRegistry()
     # 与 app/services/agent/factory.py 的全局注册段保持一致

@@ -7,11 +7,17 @@ on:
 
 jobs:
   backend:
-    name: Backend (ruff + pytest)
+    name: Backend (ruff + pytest / ${{ matrix.db }})
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
+    strategy:
+      fail-fast: false
+      matrix:
+        # 多数据库矩阵（战线 C 阶段 1 / 优化方案 2.3）：迁移脚本与检索路径
+        # 在所有方言下验证。PG/MySQL 用服务容器起临时实例；SQLite 是默认档。
+        db: [sqlite, postgres, mysql]
     steps:
       - uses: actions/checkout@v4
 
@@ -20,16 +26,122 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Sync dependencies
+      - name: Sync dependencies (SQLite / MySQL — pymysql 在主依赖)
+        if: matrix.db != 'postgres'
         run: uv sync --frozen
+
+      - name: Sync dependencies (PG)
+        if: matrix.db == 'postgres'
+        run: uv sync --frozen --extra pg
 
       - name: Lint (ruff)
         run: uv run ruff check app tests alembic
 
-      - name: Test (pytest)
+      # async 路径同步阻塞守卫（横切 9.1 P0：禁止在 async 函数体**直接**调
+      # subprocess.run / time.sleep / requests.*）。同步闭包（def _run(): ...）
+      # 经 asyncio.to_thread 派发是安全模式，守卫按「调用点所在的最内层函数
+      # 是否 async」判定，而不是「是否在某个 async 函数的词法范围内」。
+      # 新增直接命中即失败 —— 用 CI 门禁而不是自觉。
+      - name: Async-blocking guard (subprocess.run / time.sleep / requests in async body)
+        run: |
+          uv run python - <<'PYEOF'
+          import ast, pathlib, sys
+
+          WHITELIST = {
+              # 同步脚本/一次性维护入口（不跑在事件循环里）
+              "task_queue_seed.py", "pptx_cli.py",
+          }
+          BLOCK_CALLS = {"run", "sleep", "get", "post", "put", "delete", "head", "request"}
+          BLOCK_MODULES = {"subprocess", "time", "requests"}
+          SYNC_IN_ASYNC = set()
+
+          def innermost_fn(node):
+              """调用点所在的最内层函数定义（闭包感知）。"""
+              cur = node
+              parents = {}
+              for parent in ast.walk(node):
+                  for child in ast.iter_child_nodes(parent):
+                      parents[child] = parent
+              while cur in parents:
+                  cur = parents[cur]
+                  if isinstance(cur, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                      return cur
+              return None
+
+          hits = []
+          for path in pathlib.Path("app").rglob("*.py"):
+              if path.name in WHITELIST:
+                  continue
+              tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+              for sub in ast.walk(tree):
+                  if not isinstance(sub, ast.Call):
+                      continue
+                  fn_def = innermost_fn(sub)
+                  if not isinstance(fn_def, ast.AsyncFunctionDef):
+                      continue  # 同步函数/同步闭包（to_thread 派发）→ 放行
+                  fn = sub.func
+                  blocked = False
+                  if isinstance(fn, ast.Attribute) and isinstance(fn.value, ast.Name):
+                      blocked = fn.value.id in BLOCK_MODULES and fn.attr in BLOCK_CALLS
+                  elif isinstance(fn, ast.Name):
+                      blocked = fn.id in {"sleep"}
+                  if blocked:
+                      hits.append(f"{path}:{sub.lineno} async def `{fn_def.name}` 里直接调用")
+          print("\n".join(hits) if hits else "async-blocking guard: PASS (0 hits)")
+          sys.exit(1 if hits else 0)
+          PYEOF
+
+      - name: Test (pytest / sqlite)
+        if: matrix.db == 'sqlite'
         run: uv run pytest tests -q
         env:
           UPSTREAM_AUTO_LOGIN_ENABLED: "false"
+
+      # PG 矩阵：conftest 会把测试库重定向到 DATABASE_URL；localhost:5432
+      # 由 services 容器提供（agenticos/agenticos 与 service 定义一致）
+      - name: Test (pytest / postgres)
+        if: matrix.db == 'postgres'
+        run: uv run pytest tests -q
+        env:
+          UPSTREAM_AUTO_LOGIN_ENABLED: "false"
+          DATABASE_URL: postgresql+psycopg://agenticos:agenticos@localhost:5432/agenticos_test
+
+      - name: Test (pytest / mysql)
+        if: matrix.db == 'mysql'
+        run: uv run pytest tests -q
+        env:
+          UPSTREAM_AUTO_LOGIN_ENABLED: "false"
+          DATABASE_URL: mysql+pymysql://agenticos:agenticos@localhost:3306/agenticos_test
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: agenticos
+          POSTGRES_PASSWORD: agenticos
+          POSTGRES_DB: agenticos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agenticos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_USER: agenticos
+          MYSQL_PASSWORD: agenticos
+          MYSQL_DATABASE: agenticos_test
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -uagenticos -pagenticos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
   frontend:
     name: Frontend (tsc + eslint + vitest + build)
@@ -49,6 +161,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 依赖安全扫描（优化方案 2.5 / 3C）：npm audit 每次合入跑一次。
+      # 用 continue-on-error + 产物汇总而不是硬失败——低危披露（dev 依赖等）
+      # 不应阻塞合入，但必须可见，等出现高危时人工升级。
+      - name: Security audit (npm audit --json)
+        continue-on-error: true
+        run: |
+          npm audit --json > npm-audit.json || true
+          node -e "
+            const r = require('./npm-audit.json');
+            const v = r.metadata && r.metadata.vulnerabilities || {};
+            console.log('npm audit:', JSON.stringify(v));
+            if ((v.critical || 0) + (v.high || 0) > 0) {
+              console.log('::warning::npm audit 发现 high/critical 漏洞，请评估升级');
+            }
+          "
+
       - name: Type check + lint (tsc + eslint)
         run: npm run lint
 
@@ -63,3 +191,18 @@ jobs:
       # development-plan-v2 「M0 验收标准」的 CI 落地。
       - name: "CSS compatibility gate (Chrome 85: no unguarded oklch/color-mix)"
         run: npm run verify:css
+
+      - name: Secret pattern scan (sk_/service_role/私钥)
+        if: always()
+        run: |
+          # secret 硬编码扫描（2.5 安全基线）：排除测试 fixture 与锁文件
+          if grep -rEn "sk-(proj-)?[a-zA-Z0-9]{20,}|service_role" \
+              --include="*.ts" --include="*.tsx" --include="*.py" \
+              --exclude-dir=node_modules --exclude-dir=dist \
+              --exclude="*_test.py" --exclude="*.spec.ts" \
+              ../frontend/src ../backend/app 2>/dev/null | \
+              grep -v "sk-agenticos"; then
+            echo "::warning::疑似硬编码密钥（sk_/service_role），请人工确认"
+          else
+            echo "secret 扫描通过"
+          fi

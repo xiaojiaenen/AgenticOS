@@ -47,12 +47,16 @@ class ApprovalDecision:
     """审批结果。
 
     Attributes:
-        status: ``approved`` 或 ``rejected``。
+        status: ``approved`` / ``rejected`` / ``respond``。
         reason: 拒绝原因 / 备注。
         modified_arguments: 用户在审批前编辑过的工具参数；批准执行时用
             它替换原始参数（如用户改了邮件正文再放行）。``None`` = 按原参数执行。
+        response: ``respond``（人工代答）决策下用户给出的答案文本 —— 工具
+            不再执行，把这段文本作为工具结果回灌给模型。对齐 DeepAgents
+            HITL 四决策语义：approve（含改参即 edit）/ reject / respond。
     """
 
-    status: str  # "approved" | "rejected"
+    status: str  # "approved" | "rejected" | "respond"
     reason: str | None = None
     modified_arguments: dict[str, Any] | None = None
+    response: str | None = None

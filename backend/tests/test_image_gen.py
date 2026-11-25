@@ -24,7 +24,7 @@ def test_size_presets_cover_common_cases() -> None:
 @pytest.mark.asyncio
 async def test_unconfigured_gives_actionable_hint(monkeypatch) -> None:
     """没配生图模型时，返回的是「去哪配」而不是报错。"""
-    from wuwei.tools import ToolRegistry
+    from app.services.agent.native.tool_registry import ToolRegistry
 
     from app.tools.image_gen_tools import register_image_gen_tools
 
@@ -45,7 +45,7 @@ async def test_unconfigured_gives_actionable_hint(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_missing_api_key_is_reported(monkeypatch) -> None:
     """provider 绑了模型但没 Key 时要说清缺什么。"""
-    from wuwei.tools import ToolRegistry
+    from app.services.agent.native.tool_registry import ToolRegistry
 
     from app.tools.image_gen_tools import register_image_gen_tools
 
@@ -67,7 +67,7 @@ async def test_missing_api_key_is_reported(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_404_explains_endpoint_mismatch(monkeypatch, tmp_path) -> None:
     """上游 404 → 说明端点不支持生图，并给出当前端点。"""
-    from wuwei.tools import ToolRegistry
+    from app.services.agent.native.tool_registry import ToolRegistry
 
     import app.tools.image_gen_tools as gen_mod
     from app.tools.image_gen_tools import register_image_gen_tools
@@ -103,7 +103,7 @@ async def test_404_explains_endpoint_mismatch(monkeypatch, tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_no_workspace_gives_clear_message(monkeypatch) -> None:
     """没有会话上下文时，要说清原因而不是抛 TypeError。"""
-    from wuwei.tools import ToolRegistry
+    from app.services.agent.native.tool_registry import ToolRegistry
 
     import app.tools.image_gen_tools as gen_mod
     from app.tools.image_gen_tools import register_image_gen_tools
@@ -125,7 +125,7 @@ async def test_no_workspace_gives_clear_message(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_empty_prompt_rejected() -> None:
-    from wuwei.tools import ToolRegistry
+    from app.services.agent.native.tool_registry import ToolRegistry
 
     from app.tools.image_gen_tools import register_image_gen_tools
 

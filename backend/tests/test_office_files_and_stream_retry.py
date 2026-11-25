@@ -17,7 +17,6 @@
 
 from __future__ import annotations
 
-import inspect
 from pathlib import Path
 
 import pytest
@@ -38,9 +37,10 @@ class TestRelPathPropagation:
 
     def test_send_payload_includes_rel_path(self):
         """发送载荷（agentService）与上传准备（useChatStream）都要透传。"""
-        svc = _read("frontend/src/services/agentService.ts")
+        # 3G.3 拆分后：类型契约在 agent/shared.ts，agentService.ts 是 re-export 门面
+        svc = _read("frontend/src/services/agent/shared.ts")
         hook = _read("frontend/src/hooks/useChatStream.ts")
-        assert "rel_path" in svc, "agentService 的 files 载荷没有 rel_path"
+        assert "rel_path" in svc, "agent/shared.ts 的 files 载荷类型没有 rel_path"
         assert "rel_path" in hook, "useChatStream.prepareUploadedFiles 没透传 rel_path"
 
     def test_backend_schema_accepts_rel_path(self):
@@ -49,18 +49,18 @@ class TestRelPathPropagation:
         assert "rel_path" in src
 
     def test_wuwei_resolver_rejects_absolute_outside_workspace(self, tmp_path: Path):
-        """wuwei 的解析器对 workspace 外的绝对路径必然拒绝。
+        """native 文件工具的解析器对 workspace 外的绝对路径必然拒绝。
 
         这就是用户看到的 file_to_md 失败的直接机制（不是猜测）。
         """
-        from wuwei.plugin.builtin.file import _resolve_workspace_path
+        from app.services.agent.native.builtin.file import _resolve_workspace_path
 
         with pytest.raises(ValueError, match="workspace"):
             _resolve_workspace_path("/app/data/uploads/1/x.xls", workspace=str(tmp_path))
 
     def test_relative_upload_path_resolves(self, tmp_path: Path):
         """相对路径（uploads/x.xls）能正常解析 —— 修复后模型拿到的形态。"""
-        from wuwei.plugin.builtin.file import _resolve_workspace_path
+        from app.services.agent.native.builtin.file import _resolve_workspace_path
 
         ws = tmp_path
         (ws / "uploads").mkdir()
@@ -101,20 +101,18 @@ class TestStreamEndedRetryable:
         用户报障：生成网站报 ValueError: Model stream ended without a
         terminal event。原分类是 unknown → 不重试 → 直接抛给用户。
         """
-        from app.services.llm_providers.adapter import RetryingGateway
+        from app.services.agent.native.gateway import _classify_error
 
         for message in (
             "Model stream ended without a terminal event",
             "Model stream produced no events: the endpoint likely ignored "
             "Accept: text/event-stream",
         ):
-            kind = RetryingGateway._classify_error(ValueError(message))
+            kind = _classify_error(ValueError(message))
             assert kind == "connection_error", f"{message[:40]}... 分类为 {kind}"
 
     def test_normal_errors_unaffected(self):
-        from app.services.llm_providers.adapter import RetryingGateway
+        from app.services.agent.native.gateway import _classify_error
 
         # 无关错误不该被这个新分支误伤
-        assert RetryingGateway._classify_error(ValueError("bad request")) not in {
-            "connection_error",
-        } or "connection" in str(ValueError("bad request")).lower()
+        assert _classify_error(ValueError("bad request")) != "connection_error"

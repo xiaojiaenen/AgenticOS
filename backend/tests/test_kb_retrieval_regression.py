@@ -1,12 +1,14 @@
-"""知识库检索回归测试（jieba + MySQL FULLTEXT ngram 迁移）。
+"""知识库检索回归测试（LlamaIndex 接管版）。
 
-覆盖三块：
+覆盖四块：
 1. 中文查询召回：小型 fixture 语料（10 篇中文 wiki 页面）上，
    8 个中文查询的期望文档必须落在 top-3；
-2. 旧 bigram vs 新 jieba tokenizer 的召回对比：仅打印报告，不作失败断言；
-3. MySQL FULLTEXT 分支：mock db 验证 SQL/参数构造正确性 + 异常降级路径。
+2. 旧 bigram vs jieba tokenizer 的召回对比：仅打印报告，不作失败断言；
+3. BM25 通道：LlamaIndex BM25Retriever（bm25s 引擎）—— 方言无关，
+   检索器实例缓存（TTL / LRU / 超限不缓存）与失效钩子；
+4. 融合候选：QueryFusionRetriever（RECIPROcal_RANK）。
 
-测试跑在 conftest 重定向的一次性 SQLite 库上（Python BM25 路径）。
+测试跑在 conftest 重定向的一次性 SQLite 库上。
 """
 
 from __future__ import annotations
@@ -233,121 +235,46 @@ def test_bigram_vs_jieba_recall_report(kb_fixture):
 
 
 # ---------------------------------------------------------------------------
-# 3. MySQL FULLTEXT 分支（mock，不依赖真实 MySQL）
+# 3. BM25 通道（LlamaIndex BM25Retriever / bm25s 引擎，方言无关）
 # ---------------------------------------------------------------------------
 
 
-class _FakeDialect:
-    def __init__(self, name):
-        self.name = name
-
-
-class _FakeBind:
-    def __init__(self, dialect_name):
-        self.dialect = _FakeDialect(dialect_name)
-
-
-class _FakeRow:
-    def __init__(self, row_id, score):
-        self.id = row_id
-        self.score = score
-
-
-class _FakeResult:
-    def __init__(self, rows):
-        self._rows = rows
-
-    def fetchall(self):
-        return self._rows
-
-
-class FakeMySQLSession:
-    """捕获 SQL 与参数的假 Session（仅支撑 MySQL 分支所需接口）。"""
-
-    def __init__(self, rows=None, exc=None):
-        self.captured = []
-        self._rows = rows or []
-        self._exc = exc
-
-    def get_bind(self):
-        return _FakeBind("mysql")
-
-    def execute(self, stmt, params=None):
-        if self._exc is not None:
-            raise self._exc
-        self.captured.append((str(stmt), params))
-        return _FakeResult(self._rows)
-
-
-class FakeSQLiteSession(FakeMySQLSession):
-    def get_bind(self):
-        return _FakeBind("sqlite")
-
-
-def test_mysql_branch_query_construction():
-    """MySQL 分支生成 MATCH AGAINST 语句并按分数返回 top-k。"""
-    session = FakeMySQLSession(rows=[_FakeRow(7, 12.5), _FakeRow(3, 4.0)])
-    retrieval = KnowledgeRetrieval(session)
-    results = retrieval._bm25_search("全文索引 配置", [1, 2], page_type="concept")
-
-    assert results == [(7, 12.5), (3, 4.0)]
-    sql, params = session.captured[0]
-    assert "MATCH(content) AGAINST(:query IN NATURAL LANGUAGE MODE)" in sql
-    assert "FROM kb_wiki_pages" in sql
-    assert "ORDER BY score DESC" in sql
-    assert "LIMIT :top_k" in sql
-    assert "LEFT(content, 300) AS snippet" in sql
-    # 只 SELECT 需要的列，不允许全量加载（SELECT * 或整行 ORM 查询）
-    assert "SELECT *" not in sql
-    assert params["kb_ids"] == [1, 2]
-    assert params["query"] == "全文索引 配置"
-    assert params["top_k"] == KnowledgeRetrieval.BM25_TOP_K
-    assert params["page_type"] == "concept"
-    assert params["is_active"] == 1
-
-
-def test_mysql_branch_no_page_type_filter():
-    """page_type 为空时不应出现 page_type 条件。"""
-    session = FakeMySQLSession(rows=[])
-    retrieval = KnowledgeRetrieval(session)
-    retrieval._bm25_search("查询", [5], page_type=None)
-
-    sql, params = session.captured[0]
-    assert "page_type" not in sql
-    assert "page_type" not in params
-
-
-def test_mysql_branch_degrades_to_python_on_error():
-    """MySQL 查询异常时降级到 Python BM25 路径。"""
-    session = FakeMySQLSession(exc=RuntimeError("connection refused"))
-    retrieval = KnowledgeRetrieval(session)
-
-    fallback_calls = []
-    original = KnowledgeRetrieval._bm25_search_python
-    KnowledgeRetrieval._bm25_search_python = lambda self, q, ids, pt: (
-        fallback_calls.append((q, ids, pt)) or [(999, 1.0)]
-    )
-    try:
-        results = retrieval._bm25_search("查询词", [42], page_type=None)
-    finally:
-        KnowledgeRetrieval._bm25_search_python = original
-
-    assert fallback_calls, "异常后未调用 Python 降级路径"
-    assert fallback_calls[0] == ("查询词", [42], None)
-    assert results == [(999, 1.0)]
-
-
-def test_sqlite_session_uses_python_path(kb_fixture):
-    """SQLite session 直接走 Python BM25（_is_mysql 判定为 False）。"""
+def test_bm25_search_returns_normalized_shapes(kb_fixture):
+    """BM25 通道返回 (page_id, raw_score) 列表；bm25s 与方言无关。"""
     from app.db.session import SessionLocal
 
     kb_id = kb_fixture
     retrieval = KnowledgeRetrieval(SessionLocal())
-    assert retrieval._is_mysql() is False
+    try:
+        results = retrieval._bm25_search("缓存雪崩", [kb_id], page_type=None)
+        assert results, "bm25s 路径应返回结果"
+        assert all(isinstance(pid, int) and isinstance(score, float) for pid, score in results)
+        assert results == sorted(results, key=lambda x: x[1], reverse=True)
+    finally:
+        retrieval.db.close()
 
-    results = retrieval._bm25_search("缓存雪崩", [kb_id], page_type=None)
-    assert results, "Python BM25 路径应返回结果"
-    assert all(isinstance(pid, int) and isinstance(score, float) for pid, score in results)
+
+def test_bm25_search_engine_is_dialect_agnostic(kb_fixture):
+    """LlamaIndex 接管后不再按方言分路：同一 session 无论方言都走 bm25s。"""
+    from app.db.session import SessionLocal
+
+    kb_id = kb_fixture
+    retrieval = KnowledgeRetrieval(SessionLocal())
+    try:
+        # 旧实现按 _is_mysql/_is_postgres 分出三条路径；新实现只有一条
+        assert not hasattr(retrieval, "_bm25_search_mysql")
+        assert not hasattr(retrieval, "_bm25_search_postgres")
+        assert not hasattr(retrieval, "_bm25_search_python")
+        # 换个 session（不同 bind）结果一致
+        retrieval2 = KnowledgeRetrieval(SessionLocal())
+        try:
+            r1 = retrieval._bm25_search("缓存雪崩", [kb_id], page_type=None)
+            r2 = retrieval2._bm25_search("缓存雪崩", [kb_id], page_type=None)
+            assert [pid for pid, _ in r1] == [pid for pid, _ in r2]
+        finally:
+            retrieval2.db.close()
+    finally:
+        retrieval.db.close()
 
 
 # ---------------------------------------------------------------------------
@@ -387,12 +314,12 @@ def test_jieba_lazy_load():
 
 
 # ---------------------------------------------------------------------------
-# 5. M6-A6：语料进程内缓存
+# 5. M6-A6：LlamaIndex 检索器实例缓存
 # ---------------------------------------------------------------------------
 
 
-def test_corpus_cache_hit_avoids_rebuild(kb_fixture, monkeypatch):
-    """第二次检索应命中缓存，不再重新加载/分词整库。"""
+def test_retriever_cache_hit_avoids_rebuild(kb_fixture, monkeypatch):
+    """第二次检索应命中缓存，不再重新加载/分词整库建索引。"""
     from app.db.session import SessionLocal
     from app.services.knowledge import retrieval as retrieval_mod
 
@@ -404,20 +331,20 @@ def test_corpus_cache_hit_avoids_rebuild(kb_fixture, monkeypatch):
         retrieval._bm25_search("缓存雪崩", [kb_id], page_type=None)
 
         build_calls = {"n": 0}
-        original_build = retrieval._build_corpus
+        original_build = retrieval._build_bm25_retriever
 
         def counting_build(*args, **kwargs):
             build_calls["n"] += 1
             return original_build(*args, **kwargs)
 
-        monkeypatch.setattr(retrieval, "_build_corpus", counting_build)
+        monkeypatch.setattr(retrieval, "_build_bm25_retriever", counting_build)
         retrieval._bm25_search("缓存集群", [kb_id], page_type=None)
-        assert build_calls["n"] == 0, "第二次检索不应重建语料"
+        assert build_calls["n"] == 0, "第二次检索不应重建检索器"
     finally:
         retrieval.db.close()
 
 
-def test_corpus_cache_invalidate_forces_rebuild(kb_fixture, monkeypatch):
+def test_retriever_cache_invalidate_forces_rebuild(kb_fixture, monkeypatch):
     """写入失效钩子清空缓存后，下一次检索应重新加载语料。"""
     from app.db.session import SessionLocal
     from app.services.knowledge import retrieval as retrieval_mod
@@ -432,20 +359,20 @@ def test_corpus_cache_invalidate_forces_rebuild(kb_fixture, monkeypatch):
         retrieval_mod.invalidate_knowledge_cache()
 
         build_calls = {"n": 0}
-        original_build = retrieval._build_corpus
+        original_build = retrieval._build_bm25_retriever
 
         def counting_build(*args, **kwargs):
             build_calls["n"] += 1
             return original_build(*args, **kwargs)
 
-        monkeypatch.setattr(retrieval, "_build_corpus", counting_build)
+        monkeypatch.setattr(retrieval, "_build_bm25_retriever", counting_build)
         retrieval._bm25_search("缓存集群", [kb_id], page_type=None)
-        assert build_calls["n"] == 1, "失效后应重建语料"
+        assert build_calls["n"] == 1, "失效后应重建检索器"
     finally:
         retrieval.db.close()
 
 
-def test_corpus_cache_ttl_expiry(kb_fixture):
+def test_retriever_cache_ttl_expiry(kb_fixture):
     """TTL 到期后条目应被丢弃并重建。"""
     import time
 
@@ -459,27 +386,31 @@ def test_corpus_cache_ttl_expiry(kb_fixture):
     try:
         retrieval._bm25_search("缓存雪崩", [kb_id], page_type=None)
 
-        cache_key = retrieval_mod._CorpusCache.make_key([kb_id], None)
-        entry = retrieval_mod._CORPUS_CACHE.get(cache_key)
+        cache_key = retrieval_mod._RetrieverCache.make_key([kb_id], None)
+        entry = retrieval_mod._RETRIEVER_CACHE.get(cache_key)
         assert entry is not None, "首次检索后应有缓存条目"
+        # 缓存的是构建好的 LlamaIndex BM25Retriever（接管标志）
+        from llama_index.retrievers.bm25 import BM25Retriever
+
+        assert isinstance(entry.retriever, BM25Retriever)
 
         # 把 built_at 往前拨，模拟 TTL 到期
         entry.built_at = time.monotonic() - (retrieval_mod._CACHE_TTL_SECONDS + 1)
-        assert retrieval_mod._CORPUS_CACHE.get(cache_key) is None, "过期条目应被丢弃"
+        assert retrieval_mod._RETRIEVER_CACHE.get(cache_key) is None, "过期条目应被丢弃"
 
         retrieval._bm25_search("缓存集群", [kb_id], page_type=None)
-        fresh = retrieval_mod._CORPUS_CACHE.get(cache_key)
+        fresh = retrieval_mod._RETRIEVER_CACHE.get(cache_key)
         assert fresh is not None and fresh is not entry, "应重建新条目"
     finally:
         retrieval.db.close()
 
 
-def test_corpus_cache_lru_eviction():
+def test_retriever_cache_lru_eviction():
     """超过条目上限时按 LRU 淘汰最旧的一条。"""
-    from app.services.knowledge.retrieval import _CACHE_MAX_ENTRIES, _CorpusCache, _CorpusEntry
+    from app.services.knowledge.retrieval import _CACHE_MAX_ENTRIES, _RetrieverCache, _RetrieverEntry
 
-    cache = _CorpusCache()
-    entry = _CorpusEntry(0.0, [], {}, {}, {}, 0.0)
+    cache = _RetrieverCache()
+    entry = _RetrieverEntry(0.0, None, 0)
     for i in range(_CACHE_MAX_ENTRIES + 2):
         cache.put((i, None), entry)
     assert len(cache._entries) <= _CACHE_MAX_ENTRIES
@@ -487,7 +418,7 @@ def test_corpus_cache_lru_eviction():
     assert cache.get((0, None)) is None
 
 
-def test_corpus_cache_skips_oversized_corpus(kb_fixture, monkeypatch):
+def test_retriever_cache_skips_oversized_corpus(kb_fixture, monkeypatch):
     """文档数超过上限时不入缓存（宁可重算也不给半截缓存）。"""
     from app.db.session import SessionLocal
     from app.services.knowledge import retrieval as retrieval_mod
@@ -499,13 +430,34 @@ def test_corpus_cache_skips_oversized_corpus(kb_fixture, monkeypatch):
     retrieval = KnowledgeRetrieval(SessionLocal())
     try:
         retrieval._bm25_search("缓存雪崩", [kb_id], page_type=None)
-        cache_key = retrieval_mod._CorpusCache.make_key([kb_id], None)
-        assert retrieval_mod._CORPUS_CACHE.get(cache_key) is None, "超大语料不应入缓存"
+        cache_key = retrieval_mod._RetrieverCache.make_key([kb_id], None)
+        assert retrieval_mod._RETRIEVER_CACHE.get(cache_key) is None, "超大语料不应入缓存"
         # 检索结果仍应正确（降级为每次重算）
         assert retrieval._bm25_search("缓存雪崩", [kb_id], page_type=None)
     finally:
         retrieval.db.close()
         retrieval_mod.invalidate_knowledge_cache()
+
+
+def test_fusion_uses_llamaindex_rrf(kb_fixture):
+    """候选集来自 QueryFusionRetriever（RECIPROCAL_RANK）—— LlamaIndex 内建 RRF。"""
+    from app.db.session import SessionLocal
+    from app.services.knowledge import retrieval as retrieval_mod
+
+    kb_id = kb_fixture
+    retrieval_mod.invalidate_knowledge_cache()
+
+    retrieval = KnowledgeRetrieval(SessionLocal())
+    try:
+        # 向量通道关闭（未配 embedding）：候选应来自 BM25 单通道排序
+        results = retrieval.search("缓存雪崩怎么办", knowledge_base_ids=[kb_id], max_results=5)
+        assert results
+        assert all("vector" not in r.matched_by for r in results)
+        # 融合候选函数可独立调用
+        candidates = retrieval._fuse_candidates("缓存雪崩", [kb_id], None, 10)
+        assert candidates, "融合候选不应为空"
+    finally:
+        retrieval.db.close()
 
 
 def test_ingest_pipeline_imports_invalidate_hook():

@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
+  AppWindow,
+  Gauge,
   ShieldAlert,
   BarChart3,
   BellRing,
@@ -24,13 +26,15 @@ import {
   Settings,
   Sparkles,
   Network,
+  Cpu,
   Users,
-  type LucideIcon, Workflow,
+  type LucideIcon,
 } from 'lucide-react';
 import { Logo } from '../Logo';
 import { MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { getStoredUser, logout } from '../../services/authService';
+import { hasCapability } from '../../services/authTokenStore';
 import { toast } from 'sonner';
 import { cn } from '../../lib/utils';
 import { toastError } from '../../lib/errors';
@@ -48,6 +52,15 @@ type NavItem = {
   icon: LucideIcon;
   label: string;
   description: string;
+  /**
+   * 打开该面板所需的后端能力位（app/core/roles.py）。
+   *
+   * 战线 E-P0（系统改造总方案 8.2）：侧栏按能力过滤渲染 —— 之前
+   * navGroups 是常量，auditor/operator 能看到全部入口、点了才 403。
+   * 能力位与后端端点的门禁一一对应（require_admin → user:manage）；
+   * 后端把某个面板的门禁细化成专用能力后，这里只改这一行。
+   */
+  capability: string;
 };
 
 type NavGroup = {
@@ -59,6 +72,13 @@ type NavGroup = {
   items: NavItem[];
 };
 
+/** 当前登录用户可用的菜单（按能力过滤后的 navGroups）。 */
+function visibleNavGroups(): NavGroup[] {
+  return navGroups
+    .map((group) => ({ ...group, items: group.items.filter((item) => hasCapability(item.capability)) }))
+    .filter((group) => group.items.length > 0);
+}
+
 /** 分组折叠：展开后条目样式与原侧栏一致 */
 const navGroups: NavGroup[] = [
   {
@@ -67,8 +87,9 @@ const navGroups: NavGroup[] = [
     icon: BarChart3,
     description: '查看用户、会话和资源统计',
     items: [
-      { id: 'dashboard', icon: BarChart3, label: '系统总览', description: '查看用户、会话和资源统计' },
-      { id: 'user_analytics', icon: LineChart, label: '用户分析', description: '每用户用量、在线状态与常用工具/功能' },
+      { id: 'dashboard', icon: BarChart3, label: '系统总览', description: '查看用户、会话和资源统计', capability: 'user:manage' },
+      { id: 'user_analytics', icon: LineChart, label: '用户分析', description: '每用户用量、在线状态与常用工具/功能', capability: 'user:manage' },
+      { id: 'quota', icon: Gauge, label: '用量与配额', description: '每日 Token 配额与超限用户运营视图', capability: 'user:manage' },
     ],
   },
   {
@@ -77,11 +98,12 @@ const navGroups: NavGroup[] = [
     icon: MessageSquare,
     description: '聊天记录、公告与用户记忆',
     items: [
-      { id: 'history', icon: MessageSquare, label: '聊天记录', description: '检索会话并查看完整详情' },
-      { id: 'announcements', icon: BellRing, label: '公告设计', description: '设计用户进入系统时看到的公告' },
-      { id: 'memory', icon: Brain, label: '记忆管理', description: '查看和管理 AI 学到的用户记忆' },
-      { id: 'traces', icon: Activity, label: '运行追踪', description: '每次运行的步骤瀑布、耗时与反馈标注' },
-      { id: 'feedback', icon: MessageSquarePlus, label: '反馈中心', description: '公开反馈广场的状态流转、官方回复与成果看板' },
+      { id: 'approvals', icon: ShieldAlert, label: '审批中心', description: '聚合部署/发布/工具调用的待审批事项', capability: 'user:manage' },
+      { id: 'history', icon: MessageSquare, label: '聊天记录', description: '检索会话并查看完整详情', capability: 'user:manage' },
+      { id: 'announcements', icon: BellRing, label: '公告设计', description: '设计用户进入系统时看到的公告', capability: 'user:manage' },
+      { id: 'memory', icon: Brain, label: '记忆管理', description: '查看和管理 AI 学到的用户记忆', capability: 'user:manage' },
+      { id: 'traces', icon: Activity, label: '运行追踪', description: '每次运行的步骤瀑布、耗时与反馈标注', capability: 'user:manage' },
+      { id: 'feedback', icon: MessageSquarePlus, label: '反馈中心', description: '公开反馈广场的状态流转、官方回复与成果看板', capability: 'user:manage' },
     ],
   },
   {
@@ -90,14 +112,14 @@ const navGroups: NavGroup[] = [
     icon: Bot,
     description: '智能体、Skill、知识库与站点',
     items: [
-      { id: 'agents', icon: Bot, label: '智能体配置', description: '维护智能体、工具审批与绑定' },
-      { id: 'llm_providers', icon: Sparkles, label: 'AI 提供商', description: '配置全站使用的大模型后端' },
-      { id: 'skills', icon: Puzzle, label: 'Skill 管理', description: '管理本地 Skill 与脚本目录' },
-      { id: 'tool_policy', icon: ShieldAlert, label: '能力限制', description: '限制用户自建智能体可用的危险工具' },
-      { id: 'knowledge', icon: BookOpen, label: '知识库', description: '管理知识库文档与 Wiki 编译' },
-      { id: 'website_deploys', icon: Globe, label: '部署', description: '审批和管理网站部署请求' },
-      { id: 'evals', icon: FlaskConical, label: '评测', description: '用固定用例集回归验证智能体质量' },
-      { id: 'workflows', icon: Workflow, label: '工作流', description: '编排节点流程并挂载为智能体工具' },
+      { id: 'agents', icon: Bot, label: '智能体配置', description: '维护智能体、工具审批与绑定', capability: 'user:manage' },
+      { id: 'llm_providers', icon: Sparkles, label: 'AI 提供商', description: '配置全站使用的大模型后端', capability: 'user:manage' },
+      { id: 'skills', icon: Puzzle, label: 'Skill 管理', description: '管理本地 Skill 与脚本目录', capability: 'user:manage' },
+      { id: 'tool_policy', icon: ShieldAlert, label: '能力限制', description: '限制用户自建智能体可用的危险工具', capability: 'user:manage' },
+      { id: 'knowledge', icon: BookOpen, label: '知识库', description: '管理知识库文档与 Wiki 编译', capability: 'user:manage' },
+      { id: 'website_deploys', icon: Globe, label: '部署', description: '审批和管理网站部署请求', capability: 'user:manage' },
+      { id: 'app_platform', icon: AppWindow, label: '网站应用', description: '应用化平台：manifest 声明、plan 审批与数据托管', capability: 'user:manage' },
+      { id: 'evals', icon: FlaskConical, label: '评测', description: '用固定用例集回归验证智能体质量', capability: 'user:manage' },
     ],
   },
   {
@@ -106,21 +128,23 @@ const navGroups: NavGroup[] = [
     icon: Users,
     description: '账号、集成与系统配置',
     items: [
-      { id: 'users', icon: Users, label: '用户管理', description: '管理账号、角色和启用状态' },
-      { id: 'permissions', icon: Building2, label: '权限管理', description: '角色、策略与审计日志' },
-      { id: 'integrations', icon: Plug, label: '集成管理', description: '管理第三方集成与 API 接口' },
-      { id: 'api_keys', icon: KeyRound, label: 'API Key', description: '外部软件调用的凭证' },
-      { id: 'gateway', icon: Network, label: '对外接口', description: '协议端点、接入配置与可用模型' },
-      { id: 'settings', icon: Settings, label: '系统设置', description: '管理 LDAP 认证等系统配置' },
+      { id: 'users', icon: Users, label: '用户管理', description: '管理账号、角色和启用状态', capability: 'user:manage' },
+      { id: 'permissions', icon: Building2, label: '权限管理', description: '角色、策略与审计日志', capability: 'user:manage' },
+      { id: 'integrations', icon: Plug, label: '集成管理', description: '管理第三方集成与 API 接口', capability: 'user:manage' },
+      { id: 'api_keys', icon: KeyRound, label: 'API Key', description: '外部软件调用的凭证', capability: 'user:manage' },
+      { id: 'gateway', icon: Network, label: '对外接口', description: '协议端点、接入配置与可用模型', capability: 'user:manage' },
+      { id: 'task_queue', icon: Cpu, label: '任务队列', description: '重计算任务的队列健康、失败原因与重试', capability: 'user:manage' },
+      { id: 'settings', icon: Settings, label: '系统设置', description: '管理 LDAP 认证等系统配置', capability: 'user:manage' },
     ],
   },
 ];
 
 function groupOfTab(tab: string): string {
-  for (const group of navGroups) {
+  const groups = visibleNavGroups();
+  for (const group of groups) {
     if (group.items.some((item) => item.id === tab)) return group.id;
   }
-  return navGroups[0].id;
+  return groups[0]?.id ?? 'overview';
 }
 
 const STORAGE_KEY = 'agenticos-admin-nav-expanded';
@@ -136,8 +160,8 @@ function loadExpanded(activeTab: string): Record<string, boolean> {
   } catch {
     // ignore
   }
-  // 默认展开总览与当前分组，其余收起，减少侧栏高度
-  return Object.fromEntries(navGroups.map((g) => [g.id, g.id === 'overview' || g.id === activeGroup]));
+  // 默认展开总览与当前分组，其余收起，减少侧栏高度（只含能力可见的分组）
+  return Object.fromEntries(visibleNavGroups().map((g) => [g.id, g.id === 'overview' || g.id === activeGroup]));
 }
 
 function persistExpanded(map: Record<string, boolean>) {
@@ -261,7 +285,7 @@ export const AdminSidebar = React.memo(
 
         <div className="relative z-10 flex-1 overflow-y-auto px-3 py-4">
           <div className="space-y-1">
-            {navGroups.map((group) => {
+            {visibleNavGroups().map((group) => {
               const open = !!expanded[group.id];
               const hasActive = group.items.some((i) => i.id === activeTab);
               const isOverview = group.id === 'overview';

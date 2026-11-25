@@ -94,8 +94,11 @@ class TestDesignCatalogInjection:
 
 class TestLatexValidation:
     def test_valid_formula(self):
+        import shutil as _shutil
         from app.services.ppt.latex_render import validate_latex
 
+        if not _shutil.which("node"):
+            pytest.skip("node 不在 PATH，跳过需要 KaTeX 渲染的测试")
         ok, err = validate_latex(r"\frac{-b \pm \sqrt{b^2-4ac}}{2a}")
         assert ok, err
 

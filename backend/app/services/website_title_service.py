@@ -71,7 +71,7 @@ async def generate_site_title(
         return None
 
     try:
-        from wuwei.core.message import HumanMessage
+        from app.services.agent.native.types import HumanMessage
 
         resp = await llm.generate([HumanMessage(content=prompt)])
         text = (getattr(getattr(resp, "message", None), "content", "") or "").strip()

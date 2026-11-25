@@ -34,7 +34,7 @@ def _upgrade_publish_columns() -> None:
     if not _has_column("agent_profiles", "published"):
         op.add_column(
             "agent_profiles",
-            sa.Column("published", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+            sa.Column("published", sa.Boolean(), nullable=False, server_default=sa.false()),
         )
     if not _has_column("agent_profiles", "publish_slug"):
         op.add_column(

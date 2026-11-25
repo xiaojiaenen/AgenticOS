@@ -10,9 +10,8 @@
 """
 from __future__ import annotations
 
-import pytest
 
-from app.services.a2ui.builder import A2uiBuildError, update_components
+from app.services.a2ui.builder import update_components
 from app.services.a2ui.catalog import (
     OFFICIAL_FIELDS,
     catalog_prompt,

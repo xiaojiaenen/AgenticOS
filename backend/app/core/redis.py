@@ -14,10 +14,7 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import threading
-import time
 from typing import Any
 
 _logger = logging.getLogger("redis")
@@ -53,286 +50,40 @@ def parse_cluster_nodes(url: str) -> tuple[list[tuple[str, int]], str | None, st
 
 
 class MemoryRedis:
-    """内存 Redis fallback，开发环境使用。"""
+    """内存 Redis fallback —— **fakeredis 实现**（战线 B3 自研归位）。
+
+    原先这里是一份 280 行的手写模拟（string/set/zset/hash/list/pubsub 各写
+    一套），语义漂移要自己兜：``SET nx`` 是踩过坑补的、``zrangebylex`` 是
+    按项目需要魔改的前缀匹配、pubsub 直接返回 asyncio.Queue（与真实客户端
+    API 不兼容，迫使 redis_relay.py 绕道）。
+
+    现在直接换成 **fakeredis**（BSD-3，redis-py 的 drop-in 替身）：真实
+    Redis 的命令语义/pubsub/过期/TTL 全部保真，自研字典全部删除。仅用于
+    开发/测试 fallback —— 生产必须配真实 Redis（多实例下内存态会静默退化，
+    见 init() 里的强告警）。
+    """
 
     def __init__(self) -> None:
-        self._lock = threading.Lock()  # 保证 incr 等计数操作原子（多线程同进程场景）
-        self._data: dict[str, Any] = {}
-        self._expires: dict[str, float] = {}
-        self._sets: dict[str, set[str]] = {}
-        self._sorted_sets: dict[str, list[tuple[str, float]]] = {}
-        self._hashes: dict[str, dict[str, str]] = {}
-        self._lists: dict[str, list[str]] = {}
-        self._subscribers: dict[str, list[asyncio.Queue]] = {}  # pub/sub
+        from fakeredis import FakeAsyncRedis
 
-    def _is_expired(self, key: str) -> bool:
-        if key in self._expires and time.time() > self._expires[key]:
-            del self._expires[key]
-            self._data.pop(key, None)
-            self._sets.pop(key, None)
-            self._sorted_sets.pop(key, None)
-            self._hashes.pop(key, None)
-            self._lists.pop(key, None)
-            return True
-        return False
+        # decode_responses=True 与 RedisManager 外部模式的真实客户端保持一致
+        self._client = FakeAsyncRedis(decode_responses=True)
 
-    # --- Pub/Sub 操作 ---
-    async def publish(self, channel: str, message: str) -> int:
-        """发布消息到频道，返回订阅者数量"""
-        queues = self._subscribers.get(channel, [])
-        for queue in queues:
-            await queue.put(message)
-        return len(queues)
-
-    def subscribe(self, channel: str) -> asyncio.Queue:
-        """订阅频道，返回消息队列"""
-        queue: asyncio.Queue = asyncio.Queue()
-        if channel not in self._subscribers:
-            self._subscribers[channel] = []
-        self._subscribers[channel].append(queue)
-        return queue
-
-    def unsubscribe(self, channel: str, queue: asyncio.Queue) -> None:
-        """取消订阅"""
-        queues = self._subscribers.get(channel, [])
-        if queue in queues:
-            queues.remove(queue)
-        if not queues:
-            self._subscribers.pop(channel, None)
-
-    async def get(self, key: str) -> str | None:
-        if self._is_expired(key):
-            return None
-        return self._data.get(key)
-
-    async def set(
-        self,
-        key: str,
-        value: str,
-        ex: int | None = None,
-        nx: bool = False,
-        xx: bool = False,
-    ) -> bool:
-        """对齐真实 Redis 的 ``SET`` 语义。
-
-        ``nx``（只在键不存在时写入）是限流的关键：验证码发送间隔、登录失败
-        计数都靠它做原子占位。早先这里只接受 ``ex``，调用方传 ``nx=True``
-        会直接抛 TypeError —— 于是内存 fallback 模式下验证码接口 500。
-        """
-        with self._lock:
-            self._is_expired(key)
-            exists = key in self._data
-            if nx and exists:
-                return False
-            if xx and not exists:
-                return False
-            self._data[key] = value
-            if ex:
-                self._expires[key] = time.time() + ex
-            return True
-
-    async def delete(self, *keys: str) -> int:
-        count = 0
-        for key in keys:
-            if key in self._data:
-                del self._data[key]
-                count += 1
-            self._expires.pop(key, None)
-            self._sets.pop(key, None)
-            self._sorted_sets.pop(key, None)
-            self._hashes.pop(key, None)
-            self._lists.pop(key, None)
-        return count
-
-    async def incr(self, key: str) -> int:
-        self._is_expired(key)
-        with self._lock:
-            val = int(self._data.get(key, "0")) + 1
-            self._data[key] = str(val)
-        return val
-
-    async def expire(self, key: str, seconds: int) -> bool:
-        if key in self._data:
-            self._expires[key] = time.time() + seconds
-            return True
-        return False
-
-    async def ttl(self, key: str) -> int:
-        if key not in self._data:
-            return -2
-        if key not in self._expires:
-            return -1
-        remaining = int(self._expires[key] - time.time())
-        return remaining if remaining > 0 else -2
-
-    # --- Set 操作 ---
-    async def sadd(self, key: str, *values: str) -> int:
-        if key not in self._sets:
-            self._sets[key] = set()
-        before = len(self._sets[key])
-        self._sets[key].update(values)
-        return len(self._sets[key]) - before
-
-    async def srem(self, key: str, *values: str) -> int:
-        if key not in self._sets:
-            return 0
-        before = len(self._sets[key])
-        self._sets[key] -= set(values)
-        return before - len(self._sets[key])
-
-    async def smembers(self, key: str) -> set[str]:
-        self._is_expired(key)
-        return self._sets.get(key, set()).copy()
-
-    async def scard(self, key: str) -> int:
-        self._is_expired(key)
-        return len(self._sets.get(key, set()))
-
-    # --- Sorted Set 操作 ---
-    async def zadd(self, key: str, mapping: dict[str, float]) -> int:
-        if key not in self._sorted_sets:
-            self._sorted_sets[key] = []
-        existing = {m[0]: i for i, m in enumerate(self._sorted_sets[key])}
-        added = 0
-        for member, score in mapping.items():
-            if member in existing:
-                self._sorted_sets[key][existing[member]] = (member, score)
-            else:
-                self._sorted_sets[key].append((member, score))
-                added += 1
-        self._sorted_sets[key].sort(key=lambda x: x[1], reverse=True)
-        return added
-
-    async def zrangebylex(self, key: str, min_val: str, max_val: str, start: int = 0, num: int = -1) -> list[str]:
-        self._is_expired(key)
-        items = self._sorted_sets.get(key, [])
-        # 前缀匹配：min_val 是 [prefix，max_val 是 [prefix\xff
-        prefix = min_val.lstrip("[(")
-        results = []
-        for member, score in items:
-            if member.startswith(prefix):
-                results.append(member)
-        # 按 score 降序排列（最近使用的在前）
-        results.sort(key=lambda m: next((s for mb, s in items if mb == m), 0), reverse=True)
-        if num > 0:
-            results = results[start:start + num]
-        return results
-
-    async def zrevrange(self, key: str, start: int, end: int) -> list[str]:
-        self._is_expired(key)
-        items = self._sorted_sets.get(key, [])
-        if end == -1:
-            end = len(items) - 1
-        return [m[0] for m in items[start:end + 1]]
-
-    async def zremrangebyscore(self, key: str, min_score: float, max_score: float) -> int:
-        if key not in self._sorted_sets:
-            return 0
-        before = len(self._sorted_sets[key])
-        self._sorted_sets[key] = [
-            (m, s) for m, s in self._sorted_sets[key]
-            if not (min_score <= s <= max_score)
-        ]
-        return before - len(self._sorted_sets[key])
-
-    async def zcard(self, key: str) -> int:
-        self._is_expired(key)
-        return len(self._sorted_sets.get(key, []))
-
-    async def zrangebyscore(self, key: str, min_score: float, max_score: float) -> list[str]:
-        self._is_expired(key)
-        items = self._sorted_sets.get(key, [])
-        return [m for m, s in items if min_score <= s <= max_score]
-
-    async def zrem(self, key: str, *members: str) -> int:
-        if key not in self._sorted_sets:
-            return 0
-        before = len(self._sorted_sets[key])
-        drop = set(members)
-        self._sorted_sets[key] = [(m, s) for m, s in self._sorted_sets[key] if m not in drop]
-        return before - len(self._sorted_sets[key])
-
-    # --- Hash 操作 ---
-    async def hset(self, key: str, field: str | None = None, value: str | None = None, mapping: dict | None = None) -> int:
-        if key not in self._hashes:
-            self._hashes[key] = {}
-        added = 0
-        if field and value:
-            if field not in self._hashes[key]:
-                added = 1
-            self._hashes[key][field] = value
-        if mapping:
-            for k, v in mapping.items():
-                if k not in self._hashes[key]:
-                    added += 1
-                self._hashes[key][k] = str(v)
-        return added
-
-    async def hget(self, key: str, field: str) -> str | None:
-        self._is_expired(key)
-        return self._hashes.get(key, {}).get(field)
-
-    async def hgetall(self, key: str) -> dict[str, str]:
-        self._is_expired(key)
-        return self._hashes.get(key, {}).copy()
-
-    async def hdel(self, key: str, *fields: str) -> int:
-        if key not in self._hashes:
-            return 0
-        count = 0
-        for field in fields:
-            if field in self._hashes[key]:
-                del self._hashes[key][field]
-                count += 1
-        return count
-
-    # --- List 操作 ---
-    async def lpush(self, key: str, *values: str) -> int:
-        if key not in self._lists:
-            self._lists[key] = []
-        for v in values:
-            self._lists[key].insert(0, v)
-        return len(self._lists[key])
-
-    async def rpush(self, key: str, *values: str) -> int:
-        if key not in self._lists:
-            self._lists[key] = []
-        self._lists[key].extend(values)
-        return len(self._lists[key])
-
-    async def lrange(self, key: str, start: int, end: int) -> list[str]:
-        self._is_expired(key)
-        items = self._lists.get(key, [])
-        if end == -1:
-            end = len(items) - 1
-        return items[start:end + 1]
-
-    async def ltrim(self, key: str, start: int, end: int) -> bool:
-        if key in self._lists:
-            if end == -1:
-                end = len(self._lists[key]) - 1
-            self._lists[key] = self._lists[key][start:end + 1]
-        return True
-
-    async def llen(self, key: str) -> int:
-        self._is_expired(key)
-        return len(self._lists.get(key, []))
-
-    # --- 通用操作 ---
-    async def exists(self, key: str) -> bool:
-        self._is_expired(key)
-        return key in self._data or key in self._sets or key in self._sorted_sets or key in self._hashes or key in self._lists
-
-    async def keys(self, pattern: str = "*") -> list[str]:
-        import fnmatch
-        all_keys = set(self._data.keys()) | set(self._sets.keys()) | set(self._sorted_sets.keys()) | set(self._hashes.keys()) | set(self._lists.keys())
-        return [k for k in all_keys if fnmatch.fnmatch(k, pattern) and not self._is_expired(k)]
+    def __getattr__(self, name: str):  # 代理全部 Redis 命令
+        return getattr(self._client, name)
 
     async def ping(self) -> bool:
-        return True
+        return await self._client.ping()
 
     async def close(self) -> None:
-        pass
+        try:
+            aclose = getattr(self._client, "aclose", None)
+            if callable(aclose):
+                await aclose()
+            else:
+                await self._client.close()
+        except Exception:  # noqa: BLE001 —— 关闭失败无需上抛
+            pass
 
 
 class RedisManager:
@@ -356,9 +107,21 @@ class RedisManager:
         self._url = redis_url
         self._cluster = cluster
         if not redis_url:
-            _logger.info("REDIS_URL 未配置，使用内存 fallback")
             self._client = MemoryRedis()
             self._is_memory = True
+            if _is_production_env():
+                # 战线横切 P0（系统改造总方案 9.4）：生产禁止静默内存 fallback。
+                # 多实例部署下缓存/限流/审批广播/任务派发全部退化为进程内状态
+                # ——这不是"降级可用"，是数据不一致。CRITICAL 级别保证在结构化
+                # 日志/告警管道里一定被看到。
+                _logger.critical(
+                    "【配置错误】生产环境未配置 REDIS_URL，正在使用进程内存 fallback："
+                    "缓存、限流、审批 pub/sub、任务队列都会退化为单进程状态，"
+                    "多实例部署必然不一致。请立即配置 REDIS_URL 并重启。"
+                    "（若确属单机开发/演示部署，请把 ENVIRONMENT 设为 development 消除本告警）"
+                )
+            else:
+                _logger.info("REDIS_URL 未配置，使用内存 fallback（fakeredis）")
             return
 
         try:
@@ -399,7 +162,8 @@ class RedisManager:
             # 真正的连接类错误（DNS、拒绝连接、认证失败、集群不可用）才 fallback。
             # 内存 fallback 是单机/开发可接受，多实例部署时功能会残缺（缓存、
             # 限流、任务派发都退化成进程内状态），因此日志要显眼。
-            _logger.warning(
+            level = _logger.critical if _is_production_env() else _logger.warning
+            level(
                 "Redis 连接失败: %s，fallback 到内存 —— "
                 "多实例部署下缓存/限流/任务派发会退化为进程内状态，请尽快修复",
                 e,
@@ -505,6 +269,16 @@ def mark_sync_client_unusable() -> None:
 def is_redis_memory() -> bool:
     """是否使用内存 fallback"""
     return _manager.is_memory
+
+
+def _is_production_env() -> bool:
+    """当前是否生产环境（横切 P0：生产禁静默内存 fallback，见 init()）。"""
+    try:
+        from app.core.config import get_settings
+
+        return (get_settings().environment or "").lower() in {"production", "prod"}
+    except Exception:  # noqa: BLE001 —— 配置未就绪时按非生产处理（开发期行为不变）
+        return False
 
 
 async def close_redis() -> None:

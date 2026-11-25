@@ -21,12 +21,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlalchemy import delete, select
 
+from app.core.roles import is_admin_like
 from app.api.deps import get_current_user
 from app.api.v1.endpoints.agent import _format_sse
 from app.core.config import get_settings
 from app.db.models import (
     AgentProfileModel,
-    AgentProfileVersionModel,
     AgentRunTraceModel,
     EvalCaseModel,
     EvalDatasetModel,
@@ -37,7 +37,6 @@ from app.db.session import create_db_session
 from app.schemas.agent import AgentStreamRequest
 from app.services.agent import AgentService, get_agent_service
 from app.services.agent_profile_service import AgentProfileService
-from app.services.trace_recorder import message_fingerprint
 
 _logger = logging.getLogger("llmops.api")
 
@@ -79,7 +78,7 @@ async def list_traces(
     with create_db_session() as db:
         stmt = select(AgentRunTraceModel).order_by(AgentRunTraceModel.started_at.desc())
         count_stmt = select(func.count(AgentRunTraceModel.id))
-        if current_user.role != "admin":
+        if not is_admin_like(current_user.role):
             stmt = stmt.where(AgentRunTraceModel.user_id == current_user.id)
             count_stmt = count_stmt.where(AgentRunTraceModel.user_id == current_user.id)
         if session_id:
@@ -115,7 +114,7 @@ async def traces_trend(
             AgentRunTraceModel.tool_calls,
             AgentRunTraceModel.status,
         ).where(AgentRunTraceModel.started_at >= since)
-        if current_user.role != "admin":
+        if not is_admin_like(current_user.role):
             stmt = stmt.where(AgentRunTraceModel.user_id == current_user.id)
         rows = db.execute(stmt).all()
 
@@ -149,7 +148,7 @@ async def get_trace(trace_id: int, current_user: UserModel = Depends(get_current
         row = db.get(AgentRunTraceModel, trace_id)
     if row is None:
         raise HTTPException(status_code=404, detail="trace not found")
-    if current_user.role != "admin" and row.user_id != current_user.id:
+    if not is_admin_like(current_user.role) and row.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权查看该追踪")
     data = _trace_summary(row)
     data["steps"] = json.loads(row.steps_json or "[]")
@@ -207,7 +206,7 @@ async def list_feedback(
             AgentMessageFeedbackModel.created_at.desc()
         )
         count_stmt = select(func.count(AgentMessageFeedbackModel.id))
-        if current_user.role != "admin":
+        if not is_admin_like(current_user.role):
             stmt = stmt.where(AgentMessageFeedbackModel.user_id == current_user.id)
             count_stmt = count_stmt.where(AgentMessageFeedbackModel.user_id == current_user.id)
         if session_id:
@@ -241,7 +240,7 @@ def _load_profile_owned(profile_id: int, current_user: UserModel) -> AgentProfil
         profile = db.get(AgentProfileModel, profile_id)
     if profile is None:
         raise HTTPException(status_code=404, detail="agent profile not found")
-    if current_user.role != "admin" and profile.owner_id != current_user.id:
+    if not is_admin_like(current_user.role) and profile.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权管理该智能体")
     return profile
 
@@ -738,7 +737,7 @@ async def start_eval_run(
     payload: dict[str, Any],
     current_user: UserModel = Depends(get_current_user),
 ) -> dict:
-    if current_user.role != "admin":
+    if not is_admin_like(current_user.role):
         raise HTTPException(status_code=403, detail="仅管理员可执行评测")
     _load_dataset(dataset_id)
     profile_id = int(payload.get("profile_id") or 0)
@@ -767,7 +766,7 @@ async def list_eval_runs(
     limit: int = Query(default=30, ge=1, le=100),
     current_user: UserModel = Depends(get_current_user),
 ) -> dict:
-    if current_user.role != "admin":
+    if not is_admin_like(current_user.role):
         raise HTTPException(status_code=403, detail="仅管理员")
     with create_db_session() as db:
         stmt = select(EvalRunModel).order_by(EvalRunModel.created_at.desc()).limit(limit)
@@ -794,7 +793,7 @@ async def list_eval_runs(
 
 @router.get("/agent/evals/runs/{run_id}", summary="评测运行详情（含每用例结果）")
 async def get_eval_run(run_id: int, current_user: UserModel = Depends(get_current_user)) -> dict:
-    if current_user.role != "admin":
+    if not is_admin_like(current_user.role):
         raise HTTPException(status_code=403, detail="仅管理员")
     with create_db_session() as db:
         run = db.get(EvalRunModel, run_id)

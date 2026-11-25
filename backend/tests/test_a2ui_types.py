@@ -8,13 +8,11 @@
 """
 from __future__ import annotations
 
-import pytest
 
 from app.services.a2ui.catalog import (
     COMPONENT_EXAMPLES,
     VALID_ENUMS,
     normalize_components,
-    validate_components,
 )
 
 

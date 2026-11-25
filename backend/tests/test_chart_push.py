@@ -1,7 +1,6 @@
 """图表独立通道测试（修正版：不再借 A2UI）。"""
 from __future__ import annotations
 
-import json
 import pathlib
 
 from app.services.chart_events import (

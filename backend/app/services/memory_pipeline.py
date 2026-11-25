@@ -155,7 +155,7 @@ class MemoryPipeline:
         - 硬闸（代码，不信任 LLM）：MD5 精确去重 + 前 50 字符前缀去重 +
           与既有记忆的字符相似度闸（difflib，换措辞的重复拦在入库前）。
         """
-        from wuwei.core.message import SystemMessage, HumanMessage
+        from app.services.agent.native.types import SystemMessage, HumanMessage
 
         conversation = f"用户: {user_msg}\nAI: {assistant_msg[:1500]}"
 
@@ -541,7 +541,7 @@ class MemoryPipeline:
                 for a in atoms
             ]
 
-            from wuwei.core.message import SystemMessage, HumanMessage
+            from app.services.agent.native.types import SystemMessage, HumanMessage
 
             gateway = build_llm(role="fast", max_tokens=2048, timeout=90)
             prompt = SCENARIO_AGGREGATION_PROMPT.format(
@@ -642,7 +642,7 @@ class MemoryPipeline:
             if not atoms and not scenarios:
                 return
 
-            from wuwei.core.message import SystemMessage, HumanMessage
+            from app.services.agent.native.types import SystemMessage, HumanMessage
 
             gateway = build_llm(role="fast", max_tokens=2048, timeout=90)
 

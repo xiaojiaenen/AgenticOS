@@ -57,7 +57,9 @@ import {
   listLlmProviders,
   setDefaultLlmProvider,
   testLlmProvider,
+  checkLlmProvidersHealth,
   type LlmProvider,
+  type ProviderHealthReport,
   type ProviderTestResult,
 } from '@/services/llmProviderService';
 import { toastError } from '../../lib/errors';
@@ -115,6 +117,7 @@ export function LlmProviderManagement() {
     null,
   );
   const [pendingDelete, setPendingDelete] = useState<LlmProvider | null>(null);
+  const [healthReport, setHealthReport] = useState<ProviderHealthReport | null>(null);
   const [filter, setFilter] = useState('');
   const [page, setPage] = useState(1);
 
@@ -152,6 +155,16 @@ export function LlmProviderManagement() {
         vars.deep,
       );
     },
+  });
+
+  const healthMutation = useMutation({
+    mutationFn: () => checkLlmProvidersHealth(),
+    onSuccess: (report) => {
+      setHealthReport(report);
+      if (report.failed === 0) toast.success(`全部 ${report.total} 个提供商探测通过`);
+      else toast.warning(`探测完成：${report.ok} 通过 / ${report.failed} 失败`);
+    },
+    onError: (err: Error) => toast.error(toastError(err, '批量健康探测失败')),
   });
 
   const importMutation = useMutation({
@@ -299,6 +312,15 @@ export function LlmProviderManagement() {
               className={`h-3.5 w-3.5 ${providersQuery.isFetching ? 'animate-spin' : ''}`}
             />
             刷新
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={() => healthMutation.mutate()}
+            disabled={healthMutation.isPending || providers.length === 0}
+          >
+            {healthMutation.isPending ? '探测中…' : '批量体检'}
           </Button>
           <Button
             variant="outline"
@@ -540,6 +562,71 @@ export function LlmProviderManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 批量体检结果弹窗（8.5.1）：延迟/失败阶段/账号池一屏看完 */}
+      {healthReport && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-label="批量体检结果"
+          onClick={() => setHealthReport(null)}
+        >
+          <div
+            className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-bold text-[var(--foreground)]">
+                批量体检：{healthReport.ok} 通过 / {healthReport.failed} 失败（共 {healthReport.total}）
+              </h2>
+              <button
+                type="button"
+                onClick={() => setHealthReport(null)}
+                className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                aria-label="关闭体检结果"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-2">
+              {healthReport.providers.map((item) => (
+                <div
+                  key={item.provider_id}
+                  className={`rounded-lg border px-3 py-2.5 ${item.ok ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-500/30 dark:bg-emerald-500/5' : 'border-rose-200 bg-rose-50/50 dark:border-rose-500/30 dark:bg-rose-500/5'}`}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full ${item.ok ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                      aria-hidden
+                    />
+                    <span className="text-sm font-medium text-[var(--foreground)]">{item.name}</span>
+                    {item.is_default && (
+                      <span className="rounded-full bg-[var(--primary)] px-2 py-0.5 text-[10px] font-semibold text-[var(--primary-foreground)]">默认</span>
+                    )}
+                    <span className="ml-auto font-mono text-[11px] text-[var(--muted-foreground)]">
+                      {item.elapsed_ms != null ? `${item.elapsed_ms}ms` : '—'}
+                    </span>
+                  </div>
+                  {!item.ok && item.message && (
+                    <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">
+                      [{item.stage}] {item.message}
+                    </p>
+                  )}
+                  <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-[var(--muted-foreground)]">
+                    <span>类型 {item.provider_type}</span>
+                    <span>模型 {item.models_count} 个</span>
+                    {item.account_pool && (
+                      <span>
+                        账号池 {item.account_pool.active} 活跃 / {item.account_pool.expired} 过期 / {item.account_pool.failed} 失败
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

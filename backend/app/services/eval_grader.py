@@ -52,7 +52,7 @@ async def grade_with_llm(case_input: str, output: str, expected: dict[str, Any])
     """LLM 语义判分。任何失败返回 None（调用方退回关键词规则）。"""
     criteria = default_criteria(expected)
     try:
-        from wuwei.core.message import HumanMessage, SystemMessage
+        from app.services.agent.native.types import HumanMessage, SystemMessage
 
         from app.services.memory_pipeline import build_llm
 

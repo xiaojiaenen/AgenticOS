@@ -252,7 +252,7 @@ async def ai_review(packet: dict[str, Any]) -> dict[str, Any]:
         # ``llm.generate([{"role": "user", "content": ...}])`` 会在适配器里
         # 炸 ``AttributeError: 'dict' object has no attribute 'content_parts'``
         # （同 eval_grader 的写法）。
-        from wuwei.core.message import HumanMessage
+        from app.services.agent.native.types import HumanMessage
 
         resp = await asyncio.wait_for(
             llm.generate([HumanMessage(content=prompt)]), timeout=50

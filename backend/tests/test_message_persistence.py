@@ -108,7 +108,7 @@ def test_last_matching_point_wins():
 
 def test_dump_json_tolerates_non_json_objects():
     """``dump_json`` 必须有兜底：metadata 里可能挂着任意非 JSON 对象。"""
-    from wuwei.runtime.action_log import ActionLog
+    from app.services.agent.native.action_log import ActionLog
 
     from app.services.session_storage import dump_json
 
@@ -126,8 +126,8 @@ def test_session_metadata_uses_upstream_contract_for_action_log():
     ``Object of type ActionLog is not JSON serializable`` → SSE 只吐 error →
     前端 AI 回复空白。
     """
-    from wuwei.agent.session import AgentSession
-    from wuwei.runtime.action_log import ACTION_LOG_KEY, ActionLog
+    from app.services.agent.native.types import AgentSession
+    from app.services.agent.native.action_log import ACTION_LOG_KEY, ActionLog
 
     from app.services.session_storage import (
         _session_metadata_for_storage,
@@ -193,7 +193,7 @@ def test_restore_session_metadata_rebuilds_action_log():
     get_or_create_log() 只处理 None → agent_runner.py 调 .append() 抛
     AttributeError，表现为「工具执行后 agent 崩溃、没有最终回复」。
     """
-    from wuwei.runtime.action_log import ActionLog, get_or_create_log
+    from app.services.agent.native.action_log import ActionLog, get_or_create_log
 
     from app.services.session_storage import _restore_session_metadata
 
@@ -219,7 +219,7 @@ def test_restore_session_metadata_handles_untagged_action_log():
 
     其它 metadata 字段保持原样，不误改。
     """
-    from wuwei.runtime.action_log import ActionLog
+    from app.services.agent.native.action_log import ActionLog
 
     from app.services.session_storage import _restore_session_metadata
 
@@ -235,13 +235,13 @@ def test_action_log_contract_degrades_on_wuwei_before_3_3_2(monkeypatch):
     """wuwei < 3.3.2 没有 ``ACTION_LOG_TYPE`` / ``coerce_action_log``。
 
     内网用 ``/app/data/pylibs`` 热装依赖，实测停在 3.3.1。原来的实现是
-    模块级 ``from wuwei.runtime.action_log import ACTION_LOG_TYPE``，
+    模块级 ``from app.services.agent.native.action_log import ACTION_LOG_TYPE``，
     在**每次保存会话元数据**时抛 ImportError —— 这是每轮对话的热路径，
     表现为 SSE 只回一个 error 事件、AI 回复全空。
 
     这里把 3.3.2 才有的符号摘掉，验证写库/读库仍能走等价降级路径。
     """
-    import wuwei.runtime.action_log as action_log_module
+    import app.services.agent.native.action_log as action_log_module
 
     from app.services.session_storage import (
         _action_log_contract,
@@ -286,7 +286,7 @@ def test_action_log_contract_degrades_on_wuwei_before_3_3_2(monkeypatch):
 
 def test_message_signature_accepts_message_objects():
     """消息对象与它的 dict 形态必须算出同一个指纹。"""
-    from wuwei.core.message import AIMessage, FunctionCall, HumanMessage, ToolCall, ToolMessage
+    from app.services.agent.native.types import AIMessage, FunctionCall, HumanMessage, ToolCall, ToolMessage
 
     cases = [
         HumanMessage(content="你好"),
@@ -306,7 +306,7 @@ def test_message_signature_accepts_message_objects():
 
 def test_messages_after_matches_object_memory_against_dict_db():
     """内存是对象、库是 dict 时，已落库部分不能再被当成新增。"""
-    from wuwei.core.message import AIMessage, HumanMessage
+    from app.services.agent.native.types import AIMessage, HumanMessage
 
     memory = [HumanMessage(content="你好"), AIMessage(content="在的")]
     existing = [
@@ -323,7 +323,7 @@ def test_messages_after_matches_object_memory_against_dict_db():
 
 def test_messages_after_handles_tool_round_with_objects():
     """带工具调用的一轮：tool 结果靠 tool_call_id 对齐，不重复写入。"""
-    from wuwei.core.message import AIMessage, FunctionCall, HumanMessage, ToolCall, ToolMessage
+    from app.services.agent.native.types import AIMessage, FunctionCall, HumanMessage, ToolCall, ToolMessage
 
     call = ToolCall(id="tc1", function=FunctionCall(name="calc", arguments={}))
     memory = [

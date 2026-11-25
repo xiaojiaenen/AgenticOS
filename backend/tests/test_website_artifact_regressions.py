@@ -28,7 +28,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 
 
 # ── 1. 长文本列 ──────────────────────────────────────────────
@@ -131,7 +130,7 @@ def test_slim_action_log_drops_tool_call_arguments():
     这份数据**没有任何读取方**（上游只写不读，本项目也不读 entries），
     是纯负担。
     """
-    from wuwei.runtime.action_log import ActionLog
+    from app.services.agent.native.action_log import ActionLog
 
     from app.services.session_storage import _slim_action_log
 
@@ -162,7 +161,7 @@ def test_slim_action_log_drops_tool_call_arguments():
 
 def test_slim_action_log_caps_entries_and_summary():
     """条目数与单条 summary 都要有上限，否则仍会随会话无限增长。"""
-    from wuwei.runtime.action_log import ActionLog
+    from app.services.agent.native.action_log import ActionLog
 
     from app.services.session_storage import _slim_action_log
 

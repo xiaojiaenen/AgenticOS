@@ -32,7 +32,7 @@ from app.db.session import create_db_session
 # 避免 cross-test-module import 脆弱性）
 # ---------------------------------------------------------------------------
 
-def _make_profile(**overrides) -> "RuntimeAgentProfile":
+def _make_profile(**overrides) -> "object":  # 返回 RuntimeAgentProfile（函数内 import，见下）
     from app.services.agent_profile_service import RuntimeAgentProfile
 
     defaults = dict(
@@ -133,96 +133,92 @@ class TestBuildRunBudget:
 # 中间件栈装配
 # ---------------------------------------------------------------------------
 
-class TestMiddlewareStackWiring:
-    """预算中间件的装配位置与启停。"""
+class TestEngineBudgetWiring:
+    """引擎侧预算装配：settings 配置 → LangGraphAgent.budget 字段。"""
 
-    def test_stack_without_budget_when_unset(self):
-        from wuwei import LLMGateway
+    def test_budget_none_when_unset(self):
+        from app.core.config import get_settings
+        from app.services.agent.factory import AgentFactory
 
-        factory = _make_factory()
-        stack = factory._build_middleware_stack(_make_profile(), LLMGateway.from_env())
-        names = [type(m).__name__ for m in stack.middlewares]
-        assert "BudgetMiddleware" not in names
+        factory = AgentFactory.__new__(AgentFactory)
+        factory.settings = get_settings().model_copy()
+        assert factory._build_run_budget() is None
 
-    def test_stack_with_budget_first(self):
-        from wuwei import LLMGateway
-        from wuwei.middleware.budget import BudgetMiddleware
+    def test_budget_built_when_configured(self):
+        from app.core.config import get_settings
+        from app.services.agent.factory import AgentFactory
+        from app.services.agent.native.budget import Budget
 
-        factory = _make_factory()
+        factory = AgentFactory.__new__(AgentFactory)
+        factory.settings = get_settings().model_copy()
         factory.settings.agent_budget_max_tokens = 100_000
-        stack = factory._build_middleware_stack(
-            _make_profile(), LLMGateway.from_env(), model_name="glm-4"
-        )
-        middlewares = stack.middlewares
-        assert isinstance(middlewares[0], BudgetMiddleware), (
-            "预算放最前：超限时省掉本次 LLM 调用，不被其他中间件白耗一轮"
-        )
-        assert middlewares[0].model == "glm-4"
+        budget = factory._build_run_budget()
+        assert isinstance(budget, Budget)
+        assert budget.max_tokens == 100_000
 
 
 # ---------------------------------------------------------------------------
 # BudgetMiddleware 本体行为
 # ---------------------------------------------------------------------------
 
-class TestBudgetMiddlewareBehavior:
-    """BudgetMiddleware 行为（直接构造上下文验证，不起真实 agent）。"""
-
-    def _ctx(self, usage_total: dict, usage_available: bool = True):
-        from wuwei.graph.state import State
-        from wuwei.middleware.base import MiddlewareContext
-
-        return MiddlewareContext(
-            state=State(messages=[]),
-            config={},
-            metadata={
-                "usage_total": usage_total,
-                "usage_available": usage_available,
-                "llm_calls": 1,
-            },
-        )
+class TestBudgetCheckBehavior:
+    """check_budget 行为验证（原 BudgetMiddleware 语义，移植为函数式检查）。"""
 
     @staticmethod
-    def _mw(max_tokens=None, max_cost_usd=None, on_exhausted="abort"):
-        from wuwei.middleware.budget import Budget, BudgetMiddleware
+    def _spend(model="glm-4"):
+        from app.services.agent.native.budget import RunSpend
 
-        return BudgetMiddleware(
-            Budget(max_tokens=max_tokens, max_cost_usd=max_cost_usd, on_exhausted=on_exhausted),
-            model="glm-4",
-        )
+        return RunSpend(model=model)
 
-    @pytest.mark.asyncio
-    async def test_hard_abort_on_token_cap(self):
-        from wuwei.middleware.budget import BudgetExhausted
+    def test_hard_abort_on_token_cap(self):
+        from app.services.agent.native.budget import Budget, BudgetExhausted, check_budget
 
-        ctx = self._ctx({"prompt_tokens": 900, "completion_tokens": 200, "total_tokens": 1100})
+        budget = Budget(max_tokens=1000)
         with pytest.raises(BudgetExhausted):
-            await self._mw(max_tokens=1000).before_llm(ctx)
+            check_budget(budget, {"total_tokens": 1100}, steps=1, spend=self._spend())
 
-    @pytest.mark.asyncio
-    async def test_warn_mode_continues(self):
-        ctx = self._ctx({"prompt_tokens": 900, "completion_tokens": 200, "total_tokens": 1100})
-        mw = self._mw(max_tokens=1000, on_exhausted="warn")
-        assert await mw.before_llm(ctx) is ctx, "warn 模式只记日志不中断"
+    def test_warn_mode_continues(self):
+        from app.services.agent.native.budget import Budget, check_budget
 
-    @pytest.mark.asyncio
-    async def test_soft_threshold_warns_once(self):
-        # 1100/1250 = 88% ≥ 软阈值 80%，未达硬阈值
-        ctx = self._ctx({"prompt_tokens": 900, "completion_tokens": 200, "total_tokens": 1100})
-        mw = self._mw(max_tokens=1250)
-        assert await mw.before_llm(ctx) is ctx
-        assert ctx.metadata.get("_budget_warned") is True
+        budget = Budget(max_tokens=1000, on_exhausted="warn")
+        spend = self._spend()
+        check_budget(budget, {"total_tokens": 1100}, steps=1, spend=spend)  # 不应抛出
 
-    @pytest.mark.asyncio
-    async def test_aborts_when_usage_unavailable(self):
+    def test_soft_threshold_warns_once(self):
+        from app.services.agent.native.budget import Budget, check_budget
+
+        budget = Budget(max_tokens=1250)
+        spend = self._spend()
+        check_budget(budget, {"total_tokens": 1100}, steps=1, spend=spend)
+        assert spend.warned is True, "软阈值只警告一次"
+
+    def test_aborts_when_usage_unavailable(self):
         """模型不回传 usage 时 token/成本预算直接断路（不可靠的预算宁可不执行）。"""
-        from wuwei.middleware.budget import BudgetExhausted
+        from app.services.agent.native.budget import Budget, BudgetExhausted, check_budget
 
-        ctx = self._ctx(
-            {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            usage_available=False,
-        )
+        budget = Budget(max_tokens=100_000)
         with pytest.raises(BudgetExhausted, match="usage"):
-            await self._mw(max_tokens=100_000).before_llm(ctx)
+            check_budget(
+                budget,
+                {"total_tokens": 0},
+                steps=1,
+                spend=self._spend(),
+                usage_available=False,
+            )
+
+    def test_cost_budget_by_price_table(self):
+        from app.services.agent.native.budget import Budget, BudgetExhausted, check_budget, estimate_cost
+
+        usage = {"prompt_tokens": 1_000_000, "completion_tokens": 0, "total_tokens": 1_000_000}
+        # glm-4 价格 0.1/Mtok → 1M tokens = $0.1
+        assert estimate_cost(usage, "glm-4") == pytest.approx(0.1)
+        budget = Budget(max_cost_usd=0.05)
+        spend = self._spend("glm-4")
+        # spend.cost_usd 由引擎的 _spend() 计算；测试里同样先算再传入
+        spend.cost_usd = estimate_cost(usage, "glm-4")
+        with pytest.raises(BudgetExhausted):
+            check_budget(budget, usage, steps=1, spend=spend)
+
 
 
 # ---------------------------------------------------------------------------

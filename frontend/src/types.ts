@@ -1,7 +1,7 @@
 export type ToolCall = {
   id?: string;
   name: string;
-  status: 'pending' | 'approval_required' | 'approved' | 'rejected' | 'success' | 'error';
+  status: 'pending' | 'approval_required' | 'approved' | 'rejected' | 'responded' | 'success' | 'error';
   result?: string;
   approvalId?: string;
   arguments?: Record<string, unknown>;

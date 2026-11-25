@@ -306,7 +306,7 @@ class TestStackDetection:
         monkeypatch.setattr(wt, "get_current_session_id", lambda: "abc123")
 
 
-        from wuwei.tools.registry import ToolRegistry
+        from app.services.agent.native.tool_registry import ToolRegistry
 
         reg = ToolRegistry()
         wt.register_website_tools(reg)

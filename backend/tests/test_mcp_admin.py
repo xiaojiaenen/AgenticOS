@@ -172,6 +172,6 @@ class TestServiceLayer:
         with create_db_session() as db:
             from app.services.mcp_service import McpService
 
-            config = McpService._to_wuwei_config(db)
+            config = McpService._to_native_config(db)
             assert "disabled-server" not in config.mcp_servers
         delete_server("disabled-server")

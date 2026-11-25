@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 
-from wuwei.llm import Message
+
+from app.services.agent.native.types import BaseMessage as Message
 
 from app.core.config import Settings, get_settings
 from app.schemas.announcements import AnnouncementGenerateRequest
@@ -47,10 +49,10 @@ class AnnouncementAIService:
         if not content:
             raise ValueError("AI 生成结果为空，请重试")
 
-        from wuwei.parsers import JsonOutputParser
-        parser = JsonOutputParser()
         try:
-            generated = parser.parse(content)
+            generated = json.loads(content)
+            if not isinstance(generated, dict):
+                raise ValueError("not a dict")
         except Exception as exc:
             raise ValueError("AI 返回内容格式异常，请重试") from exc
 

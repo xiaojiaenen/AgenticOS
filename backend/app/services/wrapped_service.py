@@ -46,7 +46,7 @@ def _longest_streak(days: set[str]) -> int:
     """连续活跃天数（按 ISO 日期字符串）。"""
     if not days:
         return 0
-    from datetime import date, timedelta
+    from datetime import date
 
     parsed = sorted(date.fromisoformat(d) for d in days)
     best = cur = 1

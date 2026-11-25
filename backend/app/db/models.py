@@ -1,6 +1,7 @@
 from datetime import datetime
+from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import JSON, false, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.dialects.mysql import LONGTEXT
@@ -150,7 +151,7 @@ class AgentUsageEventModel(Base):
     # ``DEFAULT '0'``，SQLite 存文本，ORM 的 Boolean 做 ``bool('0')`` 得到 True
     # —— 存量行会被全部误判成「已估算」。
     tokens_estimated: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default=text("0")
+        Boolean, default=False, server_default=false()
     )
 
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, index=True)
@@ -1211,77 +1212,6 @@ class AuditLogModel(Base):
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, index=True)
 
 
-class WorkflowModel(Base):
-    """工作流定义（P0-3：节点图 DSL，JSON 存储）。
-
-    ``graph_json`` 结构::
-
-        {
-          "nodes": [{"id": "start", "type": "start"},
-                    {"id": "n1", "type": "llm", "params": {...}}, ...],
-          "edges": [{"from": "start", "to": "n1"},
-                    {"from": "cond", "to": "n2", "label": "true"}, ...]
-        }
-
-    校验规则（validate_workflow_graph）：单 start、无环、每条边两端存在、
-    非 end 节点恰一条出边、condition 节点恰两条出边且标 true/false。
-    v1 是「单路径 + 条件分叉」的流式图，不是并行 DAG —— 够覆盖
-    检索→判断→生成的流程型需求，画布化后再扩。
-    """
-
-    __tablename__ = "workflows"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(120), unique=True)
-    description: Mapped[str] = mapped_column(Text, default="")
-    graph_json: Mapped[str] = mapped_column(Text, default="{}")
-    enabled: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
-    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
-    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
-
-
-class WorkflowRunModel(Base):
-    """工作流运行记录（步骤级可追溯，支持人工输入节点暂停/恢复）。
-
-    ``context_json`` 在每个节点完成后整体落库（inputs + 各节点输出），
-    因此 ``waiting_input`` 状态的 run 在进程重启后仍可恢复 —— 恢复不依赖
-    任何内存态（与 approvals 的 Redis Future 不同，这里没有并发语义，
-    DB 就是唯一事实源）。
-    """
-
-    __tablename__ = "workflow_runs"
-    __table_args__ = (
-        Index("ix_workflow_runs_workflow_started", "workflow_id", "started_at"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    workflow_id: Mapped[int] = mapped_column(ForeignKey("workflows.id"), index=True)
-    # running / waiting_input / succeeded / failed
-    status: Mapped[str] = mapped_column(String(20), default="running", index=True)
-    inputs_json: Mapped[str] = mapped_column(Text, default="{}")
-    # 每节点完成后的完整上下文快照（inputs + nodes.{id}.output）
-    context_json: Mapped[str] = mapped_column(Text, default="{}")
-    # 步骤轨迹：[{node_id, type, status, duration_ms, output_preview, error}]
-    steps_json: Mapped[str] = mapped_column(Text, default="[]")
-    outputs_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # waiting_input 时的暂停点
-    waiting_node_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    waiting_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # 人工输入表单字段（[{key,label,type,required,description}] 的 JSON）——
-    # 智能体工具桥在对话里渲染输入表单用；管理面板/无会话场景可留空
-    waiting_fields_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    triggered_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
-    started_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
-    finished_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
-
-
-# ──────────────────────────────────────────────────────────────────────
-# 反馈广场（GitHub-Issue 式，仅登录用户可见）
-# ──────────────────────────────────────────────────────────────────────
-
-
 class FeedbackIssueModel(Base):
     """一条公开反馈/建议/缺陷。默认全员可见，private 仅提交者+管理员。"""
     __tablename__ = "feedback_issues"
@@ -1339,3 +1269,121 @@ class FeedbackVoteModel(Base):
     issue_id: Mapped[int] = mapped_column(ForeignKey("feedback_issues.id", ondelete="CASCADE"), index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
+class OtelSpanModel(Base):
+    """OpenTelemetry span 落库（战线 D：纯库埋点写自家 DB，3F.0）。
+
+    DBSpanExporter 批量写入；展示沿用 traces/evals tab，不接外部系统。
+    """
+
+    __tablename__ = "otel_spans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    trace_id: Mapped[str] = mapped_column(String(32), index=True)
+    span_id: Mapped[str] = mapped_column(String(16), unique=True)
+    parent_span_id: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    kind: Mapped[str] = mapped_column(String(16), default="internal")
+    status: Mapped[str] = mapped_column(String(16), default="unset")
+    attributes_json: Mapped[str] = mapped_column(Text, default="{}")
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, index=True)
+    ended_at: Mapped[datetime | None] = mapped_column(AppDateTime(), nullable=True)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# 网站应用化（docs/research/网站应用化设计.md 步骤 1 + 2）
+# 应用 = 已发布网站 + 数据模型 + 权限声明；manifest 与审批见
+# app/services/app_platform/manifest.py，端点见 api/v1/endpoints/app_platform.py
+# ──────────────────────────────────────────────────────────────────────
+
+
+class AppModel(Base):
+    """一个应用：网站 + manifest 声明 + 应用级 secret。
+
+    manifest 有「生效」与「待审批」两份：``manifest_json`` 是当前生效版本
+    （deployed 后才有值），``pending_manifest_json`` 是管理员审批中的候选版本
+    （批准后写入 manifest_json 并清空）——plan diff 就在这两份之间生成。
+    """
+
+    __tablename__ = "apps"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
+    name: Mapped[str] = mapped_column(String(120))
+    slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    # 当前生效的 manifest（agenticos.app.json 全文）；NULL = 尚无生效版本（draft）
+    manifest_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 待审批的 manifest 候选版本；approve 后成为生效版本，reject / 重新提交时被覆盖
+    pending_manifest_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # draft / pending / deployed / rejected（与 website_deploys 状态机对齐，设计文档 5.3）
+    status: Mapped[str] = mapped_column(String(16), default="draft", index=True)
+    # 平台侧创建者（管理员）；应用级用户在 app_users，与平台账号完全分离
+    owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    # 应用 secret key 只存 sha256（对齐 api_keys 的哈希纪律），明文仅在创建时返回一次
+    api_key_hash: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)
+
+
+class AppUserModel(Base):
+    """应用终端用户（独立账号体系）：外部客户不注册 AgenticOS 平台账号。
+
+    email 在同一应用内唯一，跨应用可重复（每个应用是独立租户）。
+    """
+
+    __tablename__ = "app_users"
+    __table_args__ = (UniqueConstraint("app_id", "email", name="uq_app_users_app_email"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    app_id: Mapped[str] = mapped_column(ForeignKey("apps.id"), index=True)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    display_name: Mapped[str] = mapped_column(String(120), default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
+class AppMembershipModel(Base):
+    """应用内角色归属。
+
+    角色**实时查库**，绝不进 JWT claim（设计文档 3.1 / 6.3：Supabase 明确警告
+    JWT 里的 membership claim 会过期，被移除的成员在令牌刷新前仍能越权）。
+    """
+
+    __tablename__ = "app_memberships"
+    __table_args__ = (UniqueConstraint("app_id", "app_user_id", name="uq_app_memberships_app_user"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    app_id: Mapped[str] = mapped_column(ForeignKey("apps.id"), index=True)
+    app_user_id: Mapped[int] = mapped_column(ForeignKey("app_users.id"), index=True)
+    # 角色列表（如 ["viewer"]），语义由 manifest.auth.roles 声明
+    roles: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+
+
+class AppRecordModel(Base):
+    """应用数据共享表（设计文档 6.1 隔离档 C）：一张表服务所有应用。
+
+    隔离三要素：``app_id``（应用）+ ``env``（dev/prod 环境隔离）+ ``model``
+    （业务模型名）；``owner_id`` 是行级归属（app_user id 字符串），API 层按
+    manifest permissions 注入行级过滤。``data`` 用 SQLAlchemy JSON 列存业务
+    字段（SQLite/PG 通吃），字段校验只在 API 层做（平台掌控唯一写入口）。
+
+    PG 部署时应再叠加 RLS policy（``using app_id + owner_id`` 双保险，写侧
+    ``with check`` 分离，见设计文档 6.3）—— 本步不迁移，留注释待 PG 上线补。
+    ``app_id`` 刻意不加外键：与设计文档 6.1 建表 SQL 一致，应用删除时物理清理
+    数据（不留孤儿），复合主键下 FK 级联反而碍事。
+    """
+
+    __tablename__ = "app_records"
+    __table_args__ = (Index("ix_app_records_app_env_model", "app_id", "env", "model"),)
+
+    app_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    env: Mapped[str] = mapped_column(String(8), primary_key=True)
+    model: Mapped[str] = mapped_column(String(64), primary_key=True)
+    record_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    owner_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now)
+    updated_at: Mapped[datetime] = mapped_column(AppDateTime(), default=app_now, onupdate=app_now)

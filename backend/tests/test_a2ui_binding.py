@@ -8,8 +8,6 @@
 from __future__ import annotations
 
 import pathlib
-import re
-import subprocess
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 BINDING = ROOT / "frontend/src/components/a2ui/a2uiDataBinding.ts"

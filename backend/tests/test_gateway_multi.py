@@ -290,13 +290,13 @@ def test_direct_helpers_handle_dict_and_object() -> None:
     }
 
 
-def test_extract_handles_wuwei_flat_response() -> None:
-    """wuwei 的 LLMResponse 是扁平结构（content / reasoning_content）。
+def test_extract_handles_flat_response() -> None:
+    """LLMResponse 是扁平结构（content / reasoning_content 顶层语义）。
 
     这是真实踩过的坑：之前按 OpenAI 的 choices[0].message.content 取，
     拿到的永远是空串 —— 表现为「接口 200 但内容为 None」。
     """
-    from wuwei.core.types import LLMResponse
+    from app.services.agent.native.types import LLMResponse
 
     from app.services.llm_providers import direct
 
@@ -307,7 +307,7 @@ def test_extract_handles_wuwei_flat_response() -> None:
 
 def test_extract_handles_wuwei_chunk() -> None:
     """流式 chunk 同样是扁平 content。"""
-    from wuwei.llm.types import LLMResponseChunk
+    from app.services.agent.native.types import LLMResponseChunk
 
     from app.services.llm_providers import direct
 

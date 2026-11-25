@@ -324,8 +324,6 @@ class UserMemoryService:
         纯读取 + 确定性文案，不调用 LLM；画像缺失时返回空结构而非报错，
         前端据此引导用户「多聊几句，让 AI 更懂你」。
         """
-        import json
-        from datetime import datetime
 
         from sqlalchemy import func
 

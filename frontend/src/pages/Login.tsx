@@ -400,7 +400,14 @@ export const Login = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <Label htmlFor="login-password">密码</Label>
-                      <span className="text-xs text-[var(--muted-foreground)]">忘记密码请联系管理员</span>
+                      {/* 人性化：不给一条死胡同文案——告诉用户「找谁、怎么找」。
+                          企业部署管理员即「第一个注册用户」（后端首注册即管理员）。 */}
+                      <span
+                        className="text-xs text-[var(--muted-foreground)] cursor-help underline decoration-dotted underline-offset-2"
+                        title="请联系平台管理员重置密码。管理员通常是贵团队第一个注册本平台的账号。"
+                      >
+                        忘记密码？
+                      </span>
                     </div>
                     <PasswordField
                       id="login-password"

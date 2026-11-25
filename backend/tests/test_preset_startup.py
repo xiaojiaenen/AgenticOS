@@ -9,7 +9,6 @@ from __future__ import annotations
 import pathlib
 import textwrap
 
-import pytest
 
 
 def _write_plugin(directory: pathlib.Path, slug: str = "startup_probe") -> None:
@@ -77,7 +76,6 @@ def test_startup_survives_broken_plugin(tmp_path, monkeypatch) -> None:
     """坏插件不能让进程起不来 —— 只记 warning。"""
     import asyncio
 
-    from app.services.llm_providers import presets
     from app.services.task_queue_taskiq import AgenticosWorkerMiddleware
 
     (tmp_path / "broken.py").write_text("raise RuntimeError('boom')\n", encoding="utf-8")

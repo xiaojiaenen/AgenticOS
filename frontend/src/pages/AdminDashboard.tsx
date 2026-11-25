@@ -12,7 +12,7 @@ import { getDashboardStats, getUsageRoutes } from '../services/dashboardService'
 /*
  * 17 个管理面板全部 React.lazy 按需分包：此前它们被静态打进 admin 首包
  * （约 1.9 万行组件 + recharts/xyflow），首屏只用到一个 tab 却要下载全部。
- * 每个面板体积可观（WorkflowManagement 695 行、SystemSettings 704 行…），
+ * 每个面板体积可观（SystemSettings 704 行…），
  * 拆开后切到对应 tab 才拉取对应 chunk，与页面级 lazy 的既有模式对齐。
  */
 
@@ -28,7 +28,6 @@ const DashboardStats = lazy(() => import('../components/admin/DashboardStats').t
 const SkillManagement = lazy(() => import('../components/admin/SkillManagement').then((m) => ({ default: m.SkillManagement })));
 const KnowledgeManagement = lazy(() => import('../components/admin/KnowledgeManagement').then((m) => ({ default: m.KnowledgeManagement })));
 const AgentToolPolicyPanel = lazy(() => import('../components/admin/AgentToolPolicyPanel').then((m) => ({ default: m.AgentToolPolicyPanel })));
-const WorkflowManagement = lazy(() => import('../components/admin/WorkflowManagement').then((m) => ({ default: m.WorkflowManagement })));
 const WebsiteDeployManagement = lazy(() => import('../components/admin/WebsiteDeployManagement').then((m) => ({ default: m.WebsiteDeployManagement })));
 const SystemSettings = lazy(() => import('../components/admin/SystemSettings').then((m) => ({ default: m.SystemSettings })));
 const IntegrationManagement = lazy(() => import('../components/admin/IntegrationManagement').then((m) => ({ default: m.IntegrationManagement })));
@@ -39,6 +38,10 @@ const EvalPanel = lazy(() => import('../components/settings/EvalPanel').then((m)
 const PermissionManagement = lazy(() => import('../components/admin/PermissionManagement').then((m) => ({ default: m.PermissionManagement })));
 const FeedbackCenter = lazy(() => import('../components/admin/FeedbackCenter').then((m) => ({ default: m.FeedbackCenter })));
 const UserAnalytics = lazy(() => import('../components/admin/UserAnalytics').then((m) => ({ default: m.UserAnalytics })));
+const ApprovalCenter = lazy(() => import('../components/admin/ApprovalCenter').then((m) => ({ default: m.ApprovalCenter })));
+const TaskQueueOps = lazy(() => import('../components/admin/TaskQueueOps').then((m) => ({ default: m.TaskQueueOps })));
+const AppManagement = lazy(() => import('../components/admin/AppManagement').then((m) => ({ default: m.AppManagement })));
+const QuotaManagement = lazy(() => import('../components/admin/QuotaManagement').then((m) => ({ default: m.QuotaManagement })));
 
 /** tab chunk 加载/渲染中的占位：与面板卡片同构的骨架，避免突兀空白 */
 const TabFallback = () => (
@@ -51,7 +54,7 @@ const TabFallback = () => (
 
 
 export const AdminDashboard = () => {
-  const VALID_TABS = ['dashboard', 'user_analytics', 'history', 'feedback', 'users', 'permissions', 'agents', 'llm_providers', 'integrations', 'api_keys', 'gateway', 'skills', 'tool_policy', 'knowledge', 'website_deploys', 'announcements', 'settings', 'memory', 'traces', 'evals', 'workflows'];
+  const VALID_TABS = ['dashboard', 'user_analytics', 'history', 'feedback', 'approvals', 'users', 'permissions', 'agents', 'llm_providers', 'integrations', 'api_keys', 'gateway', 'task_queue', 'quota', 'app_platform', 'skills', 'tool_policy', 'knowledge', 'website_deploys', 'announcements', 'settings', 'memory', 'traces', 'evals'];
   // tab 与 URL hash 双向同步：刷新 / 分享链接不丢失当前管理页
   const [activeTab, setActiveTab] = useState(() => {
     const hash = window.location.hash.replace('#', '');
@@ -267,6 +270,8 @@ export const AdminDashboard = () => {
         return <UserAnalytics />;
       case 'feedback':
         return <FeedbackCenter />;
+      case 'approvals':
+        return <ApprovalCenter />;
       case 'users':
         return <UserManagement />;
       case 'permissions':
@@ -281,6 +286,12 @@ export const AdminDashboard = () => {
         return <ApiKeyManagement />;
       case 'gateway':
         return <GatewayEndpointsPanel />;
+      case 'task_queue':
+        return <TaskQueueOps />;
+      case 'app_platform':
+        return <AppManagement />;
+      case 'quota':
+        return <QuotaManagement />;
       case 'skills':
         return <SkillManagement />;
       case 'tool_policy':
@@ -299,8 +310,6 @@ export const AdminDashboard = () => {
         return <TracePanel />;
       case 'evals':
         return <EvalPanel />;
-      case 'workflows':
-        return <WorkflowManagement />;
       default:
         return null;
     }

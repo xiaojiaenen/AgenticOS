@@ -29,6 +29,43 @@ _logger = logging.getLogger(__name__)
 _COUNT_PREFIX = "auth:ratelimit:count:"
 _BLOCK_PREFIX = "auth:ratelimit:block:"
 
+# ---------------------------------------------------------------------------
+# 限流降级 metrics（3.3 P0：并发闸 Redis 故障静默超发 → 加超发指标 + 告警）
+#
+# 「超发」口径：Redis 不可用期间走进程内 fallback 的计数，在多实例部署下
+# 各进程独立计数 —— 实际放行量可能超过配置的 limit。这里把每次降级
+# 自增计数并按间隔打 WARNING（同 key 节流，不打爆日志），累计值暴露在
+# ``/health/components``（依赖级探针）供运维看板读取。
+# ---------------------------------------------------------------------------
+
+_degrade_lock = threading.Lock()
+_degrade_stats: dict[str, dict[str, float]] = {}
+_DEGRADE_LOG_INTERVAL_S = 60.0
+
+
+def _record_degrade(op: str, error: Exception) -> None:
+    """记录一次 Redis 限流降级（进程内计数 + 节流告警）。"""
+    now = time.time()
+    with _degrade_lock:
+        entry = _degrade_stats.setdefault(op, {"count": 0.0, "last_log": 0.0})
+        entry["count"] = int(entry["count"]) + 1
+        should_log = (now - entry["last_log"]) >= _DEGRADE_LOG_INTERVAL_S
+        if should_log:
+            entry["last_log"] = now
+    # 日志在锁外打（避免长 IO 持锁）
+    if should_log:
+        _logger.warning(
+            "限流降级告警 [%s]：Redis 不可用已累计 %d 次降级（多实例部署下进程内计数会超发，"
+            "请检查 Redis 连接）。最近错误: %s",
+            op, int(entry["count"]), error,
+        )
+
+
+def get_degrade_stats() -> dict[str, int]:
+    """限流降级累计计数（/health/components 消费）。"""
+    with _degrade_lock:
+        return {op: int(s["count"]) for op, s in _degrade_stats.items()}
+
 
 def rate_limit_key(scope: str, *, email: str | None = None, client_ip: str | None = None) -> str:
     """与旧 AuthRateLimitModel 的主键格式保持一致：``{scope}:{email}:{ip}``"""
@@ -141,6 +178,7 @@ def check_window_quota(
             reset_in = ttl if isinstance(ttl, int) and ttl > 0 else window_seconds
             return int(count) <= limit, reset_in
         except Exception as e:  # 连接中断 → 降级进程内计数
+            _record_degrade("window_quota", e)
             _logger.warning("Redis 窗口频控失败: %s，使用进程内 fallback", e)
             _set_sync_client_unusable()
     now = time.time()
@@ -164,6 +202,7 @@ def check_rate_limit(
             ttl = client.ttl(block_key)
             return ttl if isinstance(ttl, int) and ttl > 0 else 0
         except Exception as e:  # 连接中断 → 降级进程内计数
+            _record_degrade("blocked_check", e)
             _logger.warning("Redis 限流查询失败: %s，使用进程内 fallback", e)
             _set_sync_client_unusable()
     return _memory.blocked_remaining(block_key)
@@ -185,6 +224,7 @@ def record_failed_attempt(
                 client.set(block_key, "1", ex=settings.auth_rate_limit_block_seconds)
             return
         except Exception as e:
+            _record_degrade("block_write", e)
             _logger.warning("Redis 限流写入失败: %s，使用进程内 fallback", e)
             _set_sync_client_unusable()
     _memory.incr_and_maybe_block(
@@ -207,6 +247,7 @@ def clear_rate_limit(
             client.delete(count_key, block_key)
             return
         except Exception as e:
+            _record_degrade("clear", e)
             _logger.warning("Redis 限流清除失败: %s，使用进程内 fallback", e)
             _set_sync_client_unusable()
     _memory.clear(count_key, block_key)
@@ -227,6 +268,7 @@ def clear_rate_limit_by_email(settings: Settings, scope: str, *, email: str) -> 
                 client.delete(*keys)
             return
         except Exception as e:
+            _record_degrade("clear_by_email", e)
             _logger.warning("Redis 限流按邮箱清除失败: %s，使用进程内 fallback", e)
             _set_sync_client_unusable()
     _memory.clear_pattern(count_pattern)

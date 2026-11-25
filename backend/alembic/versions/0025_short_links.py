@@ -76,8 +76,6 @@ def downgrade() -> None:
     if _has_column(bind, "website_deploys", "description"):
         op.drop_column("website_deploys", "description")
     if _has_column(bind, "website_deploys", "short_code"):
-        try:
+        if "ix_website_deploys_short_code" in {ix["name"] for ix in sa.inspect(bind).get_indexes("website_deploys")}:
             op.drop_index("ix_website_deploys_short_code", table_name="website_deploys")
-        except Exception:  # noqa: BLE001
-            pass
         op.drop_column("website_deploys", "short_code")

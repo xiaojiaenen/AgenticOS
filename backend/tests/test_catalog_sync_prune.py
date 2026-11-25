@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import uuid
 
-import pytest
 
 from app.db.models import LlmProviderModel
 from app.db.session import create_db_session

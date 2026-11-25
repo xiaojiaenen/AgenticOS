@@ -26,7 +26,7 @@ cd frontend
 npm install                                # install dependencies
 npm run dev                                # start Vite dev server on :3001
 npm run build                              # production build
-npm run lint                               # TypeScript type-check (tsc --noEmit)
+npm run lint                               # TypeScript type-check (tsc --noEmit) + eslint
 ```
 
 The Vite dev server proxies `/api` to `VITE_API_PROXY_TARGET` (default `http://127.0.0.1:8001`). Set `DISABLE_HMR=true` to disable HMR if needed.
@@ -35,7 +35,11 @@ The Vite dev server proxies `/api` to `VITE_API_PROXY_TARGET` (default `http://1
 
 ## Architecture
 
-### Backend (FastAPI + wuwei >=3.4.1)
+### Backend (FastAPI + LangGraph / 自研 native 层)
+
+编排引擎是 **LangChain `create_agent`（底层 LangGraph 1.2 Stable）**；LLM 出口、
+工具注册表、技能、MCP、预算断路、上下文压缩全部是 `services/agent/native/` 下的
+自研实现（wuwei 已整体退役，`import wuwei` 失败是预期状态）。
 
 ```
 backend/
@@ -48,8 +52,8 @@ backend/
       session.py                   # engine, session factory, init_db
     core/
       config.py                    # Pydantic Settings — reads all env vars from .env
-      security.py                  # password hashing (PBKDF2) + JWT tokens (HS256)
-      redis.py                     # Redis connection manager (single/cluster), in-memory fallback
+      security.py                  # JWT (PyJWT, 算法白名单) + Argon2id (pbkdf2 双验过渡)
+      redis.py                     # Redis connection manager (single/cluster), fakeredis fallback
     api/
       router.py                    # top-level router, mounts v1 sub-router
       deps.py                      # dependency injection: get_db, get_current_user, require_admin
@@ -62,28 +66,42 @@ backend/
           files.py, memory.py, suggest.py, website.py,
           api_keys.py, knowledge.py, permissions.py, settings.py,
           tasks.py, credentials.py
-        # settings.py: GET/PUT /settings/ldap + POST /settings/ldap/test —
-        #   通用 LDAP 集成（协议级 ldap3），服务器/绑定账号/过滤器/属性映射
-        #   全部存 system_settings（ldap.* 键），管理员后台配置与连接测试
         # api_keys.py: 用户级 API Key（表 api_keys，供 OpenAI 兼容网关鉴权）
-        # gateway_v1.py（挂载 /v1/models、/v1/chat/completions）：本地智能体
-        #   的 OpenAI 兼容出口，仅走本地 LLM 配置，无上游透传
     tools/
       email_tools.py               # IMAP/SMTP email tools
     services/
-      agent/                       # core orchestrator package (agent_service.py is a 58-line
+      agent/                       # core orchestrator package (agent_service.py is a
                                    #   facade re-exporting this package; keep new code here)
         service.py                 # AgentService = AgentFactory + StreamOrchestrator + ArtifactFactory (mixins)
         orchestrator.py            # StreamOrchestrator — SSE event mapping, event pump
                                    #   (approval / user-input / api-approval / decision queues),
                                    #   usage recording, session persistence, keepalive
-        factory.py                 # AgentFactory — middleware stack (9 layers), tool registration,
-                                   #   LenientHitlMiddleware / ThinkingHistoryCompatibilityMiddleware /
-                                   #   SkillInstructionMiddleware / AsyncSubAgentMiddleware assembly
-        wuwei_patches.py           # boundary patches for wuwei residual defects (docs/upstream/
-                                   #   wuwei-3.0.2-问题清单.md R-list) — minimal-override discipline,
-                                   #   degrade-safe, regression-tested in test_wuwei_patches.py
-        artifacts.py, compression.py, prompts.py
+        factory.py                 # AgentFactory — 组装 LangGraphAgent（工具注册表 / 审批策略 /
+                                   #   预算 / 压缩器 / 异步子代理 / 技能工具箱）
+        langgraph_engine/
+          engine.py                # LangGraphAgent：LangChain create_agent 编排 + 引擎语义
+                                   #   (tool-pair 修复 / thinking 兼容过滤 / max_steps 截断)
+          chat_model.py            # GatewayChatModel：自研 NativeLLMGateway → BaseChatModel
+                                   #   （流式 tool_call_chunks 做「累积快照→增量」换算，回归见
+                                   #   test_langgraph_engine.py）
+          tools_adapter.py         # registry → LC StructuredTool；EngineApprovalPolicy
+                                   #   （声明式 interrupt_on + 四决策 + ToolRuntime 注入真实
+                                   #   tool_call_id）；MAX_TOOL_OUTPUT_CHARS 截断
+        native/                    # 自研运行时层（原 wuwei 能力逐文件移植，行为语义保留）
+          types.py                 # BaseMessage/AgentEvent/LLMResponse（wire 格式与
+                                   #   agent_messages.message_json 兼容）
+          gateway.py               # NativeLLMGateway：openai SDK 直连多提供商（Cookie 账号池/
+                                   #   重试容错/usage 收尾帧/工具调用收尾 finish 纠正）
+          tool_registry.py         # ToolRegistry + @registry.tool 装饰器（jsonschema 校验）
+          budget.py                # check_budget 函数式预算断路（BudgetExhausted）
+          context_compression.py   # ContextCompressor：阈值触发 + LLM 结构化摘要 + 配对回补
+          async_sub_agent.py       # AsyncSubAgentManager（start/check/cancel/list 四工具）
+          skill.py + fs_provider.py# SkillManager（load_token 账本 + allowed_tools 白名单）
+          action_log.py, builtin/  # 动作日志 + 10 个内置工具插件
+        artifacts.py, prompts.py
+      llm_providers/               # 多提供商配置（NativeLLMGateway 构建，litellm_poc PoC）
+      mcp_native/                  # MCP 客户端/会话/工具桥（官方 mcp SDK，自研层）
+      mcp_service.py               # MCP 服务器配置 CRUD（imports mcp_native）
       agent_profile_service.py     # profile CRUD, built-in default profiles, runtime resolution
       skill_service.py             # skill CRUD, zip upload, filesystem management
       approval_manager.py          # HITL approval workflow (Redis pending + subscriber broadcast,
@@ -96,9 +114,13 @@ backend/
                                    #   DB audit + modified_arguments). coordinators.py / decision_tools
                                    #   are thin facades over this broker; SSE event names unchanged.
       redis_relay.py               # shared Redis pub/sub → asyncio.Queue forwarding helpers
-                                   #   (used by both ApprovalManager and InteractionBroker)
       tool_config_service.py       # tool catalog with per-mode defaults, sub-tool approval
-      session_storage.py           # DB-backed wuwei storage (sessions, messages)
+      session_storage.py           # DB-backed 会话/消息持久化（native wire 格式）
+      knowledge/                   # LlamaIndex 全量接管的检索栈（见下方检索小节）
+      llm_factory.py               # 角色化 LLM 构建（chat/fast/embed），OTel 埋点统一入口
+      otel_service.py              # OTel SDK（OTEL_ENABLED 默认关）→ DBSpanExporter 写 otel_spans
+      sandbox.py                   # SANDBOX_BACKEND (auto/none/nsjail/bubblewrap) 命令沙箱
+      secret_loader.py             # SOPS_FILE 解密合并（app/core/secret_loader）
       ppt_artifact_service.py      # assembles the SVG deck artifact from save_slide /
                                    #   save_slides_batch tool outputs (XML sanitize, finalize hook)
       ppt/                         # PPT SVG pipeline: svg_layouts / svg_quality_checker(+checkers/)
@@ -106,16 +128,13 @@ backend/
                                    #   themes from data/design-systems) / svg_finalize / svg_to_pptx
                                    #   (native .pptx export) / pptx_to_svg / template_import /
                                    #   svg_editor / image_backends / anti_slop_checker / design_craft
-      ppt_pipeline.py              # alternative StateGraph-orchestrated PPT flow
       auth_service.py              # registration, login, session management, rate limiting
       rate_limiter.py              # Redis fixed-window rate limiting (auth + agent stream)
       cache_service.py             # Redis-backed cache (input suggestions, presence, approval queues)
       memory_service.py            # agent memory management
-      multi_agent_ppt_service.py   # multi-agent PPT generation
       external_system_service.py   # external system integrations (+ external_systems/ coordinators)
       website_deploy_service.py    # website deployment
       announcement_service.py      # announcement CRUD
-      workflow/                    # workflow engine v1 (P0-3): node graph DSL + runner
         engine.py                  # pure computation: graph validation, scheduler,
                                    #   {{inputs.x}} / {{nodes.<id>.output}} variable
                                    #   resolution (restricted dotted-path lookup, no eval)
@@ -124,16 +143,46 @@ backend/
         service.py                 # DB orchestration: per-step persistence,
                                    #   human_input pause/resume (DB is the only
                                    #   source of truth; resume survives restart)
+      admin_ops.py + app_platform.py  # /api/v1/admin/* 批量运维 + 网站应用化平台端点
     prompts.py                     # system prompts for agent modes
-  examples/
-    run_all_examples.py            # combined test for 2 wuwei features
-    test_async_sub_agent.py        # AsyncSubAgent background tasks
-    test_concurrent_tools.py       # concurrent tool execution
 ```
 
-The wuwei framework (>=3.4.1) provides `Agent`, `LLMGateway`, `ToolRegistry`, `SkillManager`, and a middleware stack (`HitlMiddleware`, `ContextCompressionMiddleware`, `LoggingMiddleware`, `TracingMiddleware`). The backend wraps these with FastAPI endpoints, custom middlewares, and database persistence. Where wuwei still has residual defects, `services/agent/wuwei_patches.py` and `services/llm_providers/adapter.py` apply boundary patches (never edit `site-packages`); the full defect ledger and patch status live in `docs/upstream/wuwei-3.0.2-问题清单.md`.
+### 知识库检索（LlamaIndex 全量接管）
 
-### Agent modes & middleware
+`services/knowledge/retrieval.py` 的检索机制全部由 LlamaIndex 组件承担，
+旧手写实现（MySQL FULLTEXT / PG trgm / Python BM25 三路 + 手写 RRF）已退役：
+
+- **BM25**：`llama_index.retrievers.bm25.BM25Retriever`（bm25s 引擎），页级语料
+  jieba 预分词；检索器实例走进程内缓存（TTL/LRU/超限不缓存，
+  `invalidate_knowledge_cache` 失效钩子不变）。
+- **向量**：`KBVectorRetriever`（BaseRetriever）—— 段级余弦 + 页级 max 聚合，
+  无切片时页级兜底；embedding 不可用自动退化为纯 BM25。
+- **融合**：`QueryFusionRetriever`（RECIPROCAL_RANK，RRF k=60，`num_queries=1`
+  不引入 LLM）；模块导入时置 `Settings.llm = None` 阻断懒加载 OpenAI。
+- **重排**：启发式四信号（`rerank.score_result`）+ FlashRank cross-encoder
+  精排（`KB_RERANK_*`）。**score 契约不变**：对外 0~1 相对相关度 +
+  `score_threshold` 可解释；ACL/visibility 过滤在检索器构建前完成。
+- 回归：`test_kb_hybrid_retrieval.py`（score 语义/纯语义召回/双通道提升）、
+  `test_kb_retrieval_regression.py`（8 个中文查询 top-3 + 缓存 + 失效钩子）、
+  `test_kb_chunk_rerank_acl.py`。
+- **pgvector 可选加速**（`knowledge/pgvector.py`）：PG + vector 扩展 + vector 列
+  三者齐备时走库内 `<=>` 排序（HNSW 生效），任一条件不满足自动降级应用侧余弦
+  —— 行为一致、零迁移负担；回归 `test_kb_pgvector.py`。
+- **检索质量在线指标**：滑窗采样（2000 条）记录 hit_rate/empty_rate/延迟分位/
+  无结果查询 Top50，`GET /api/v1/knowledge/metrics/search-quality`。
+- **RAGAS 旁路 PoC**（`eval_ragas_poc.py`，对齐 litellm_poc 纪律）：纯库零部署、
+  不接 Langfuse；四指标（faithfulness/answer_relevancy/context_precision/
+  context_recall）+ 零依赖离线指标（hit_rate/context_overlap）。
+  ⚠️ ragas **不进 pyproject**（连 extra 都不行）：uv lock 解析全环境时
+  ragas→instructor 钉 `openai<3.0` 与本项目 `openai>=3.40` 硬冲突（实测
+  No solution）；真实联网评估在**独立 venv** 里 `pip install ragas`，
+  代码契约由 test_eval_ragas_poc.py（fake-module）锁定，无 ragas 也能跑。
+- **任务队列运维台**：提交时登记 Redis 元数据注册表（TTL 7 天/上限 500），
+  `GET /tasks`（列表+过滤）、`GET /tasks/stats`（队列深度）、
+  `POST /tasks/{id}/retry`（CAP_DANGEROUS）；前端「任务队列」面板。
+  路由顺序注意：`/tasks` 与 `/tasks/stats` 必须注册在 `/tasks/{task_id}` **之前**。
+
+### Agent modes & engine semantics
 
 | Mode | Default tools | Behavior summary |
 |------|--------------|-----------------|
@@ -143,17 +192,75 @@ The wuwei framework (>=3.4.1) provides `Agent`, `LLMGateway`, `ToolRegistry`, `S
 | `office` | Univer document/sheet tools | Office document & spreadsheet editing (Univer integration) |
 | `email` | calc, time, skill | Email management via IMAP/SMTP |
 
-Custom middlewares in `services/agent/factory.py`:
-- `LenientHitlMiddleware` — session-level three-tier approval (`ask`/`auto`/`full`), lenient rejection (rejection becomes a message the LLM can react to, not an exception)
-- `ThinkingHistoryCompatibilityMiddleware` — filters synthetic assistant replies for provider thinking-mode
-- `SkillInstructionMiddleware` — injects skill instructions into agent context
-- `AsyncSubAgentMiddleware` — enables background async sub-agent tasks (code_analyst, file_processor)
+引擎语义（原 wuwei middleware 栈的等价物，已内建进 LangGraphAgent /
+`factory.py` 组装）：
+- **HITL（`EngineApprovalPolicy`）** — session-level three-tier approval
+  (`ask`/`auto`/`full`)，lenient rejection（拒绝转 `__tool_rejected__` 消息，
+  LLM 可响应而非异常）；四决策 approved（含改参=edit）/ rejected /
+  **respond（人工代答：工具不执行，用户答案回灌模型）**，超时按拒绝
+- **thinking 兼容过滤** — 过滤合成 assistant 回复，适配 provider 思考模式
+- **SkillInstruction** — 技能说明注入 agent 上下文；`allowed_tools` 白名单
+  在工具执行前由引擎检查（`ALWAYS_ALLOWED_TOOLS` 豁免）
+- **AsyncSubAgentManager** — 后台异步子代理（code_analyst / file_processor）
+- **并发工具执行** — `AGENT_PARALLEL_TOOL_CALLS` 门控；并发安全的只读工具
+  并行、写类串行（LangChain ToolNode 层由 policy 钩子保持审批语义）
 
-Concurrent tool execution: batching is upstream-native — `ToolExecutor.execute(concurrent=True)` runs tools with `is_concurrency_safe=True` concurrently and keeps unsafe tools sequential. Because upstream silently disables batching whenever any `before_tool`/`after_tool` hook exists (R-7), the stack wraps the executor in `BoundedToolExecutor` + `BatchSafeMiddlewareProxy` (`wuwei_patches.py`) so approval hooks coexist with concurrency: bounded by a semaphore, write-like tools forced serial, repeated identical tool calls detected. Still transparent to frontend SSE events, and gated by `AGENT_PARALLEL_TOOL_CALLS`.
+### 纯 LangGraph 单引擎
+
+`AGENT_ENGINE` 兼容开关已移除——langgraph 是唯一引擎（`config.py` 保留
+`agent_engine` 字段读取历史 env，但工厂不再分支）。编排链路：
+`GatewayChatModel`（自研网关挂接）→ `create_agent` → `ToolNode`（审批策略钩子
+复用同一个 `ApprovalManager`）→ 引擎吐 `AgentEvent`，orchestrator 的 SSE
+mapper / 持久化 / 审批泵 / trace 零改动消费；契约测试 `test_langgraph_engine.py`。
+
+- 战线 B 自研归位已完成：JWT→PyJWT（算法白名单）、密码哈希→Argon2id（pbkdf2 双验过渡，
+  登录成功自动升级）、内存 Redis fallback→fakeredis、检索重排→FlashRank（`KB_RERANK_BACKEND`，
+  不可用自动降级启发式）、task_queue arq 时代废弃壳已删（关闭入口 `close_queue`）。
+- 战线 C：PG 为生产推荐（`uv sync --extra pg` + `DATABASE_URL=postgresql+psycopg://...`），
+  双轨回归 `test_postgres_dualtrack.py`；启动迁移失败在**生产环境阻断**
+  （`ENVIRONMENT=production`）。
+- 权限双轨已统一（3H 档 A）：后端 `role == "admin"` 硬编码全部换成 `roles.is_admin_like()` /
+  `require_capability`（published-items 审批按 `gallery:manage`），KB 管理员判定收敛在
+  `acl.is_kb_admin`；Casbin 策略改动经 Redis 广播即时失效（`POLICY_INVALIDATION_CHANNEL`）。
+  前端 `AdminSidebar` 菜单按 capability 过滤渲染。
+- 前端 API 类型生成：`npm run gen:api`（openapi-typescript，数据源 backend/openapi.json 或
+  `--url`）产出 `src/types/api-schema.ts`；新前端模块优先用它配合 `openapi-fetch`
+  （`services/openapiClient.ts` 提供 `apiV1` 客户端 + `unwrap` 解包，试点：tasks 运维台；
+  老的 27 个手写 service 按「新模块先用」渐进迁移）。
+
+### HITL 阶段 3 + 沙箱 + 可观测 + 密钥 + LiteLLM
+
+- **A3 HITL（`test_hitl_phase3.py`）**：引擎采用**声明式 `interrupt_on`**
+  （`{tool: True | InterruptOnConfig}`，factory 从 profile.approval_tools 构建）；
+  决策词汇表对齐四决策 —— approved（含改参=edit）/ rejected（转
+  `__tool_rejected__` 消息）/ **respond（人工代答：工具不执行，用户答案回灌
+  模型）**，超时按拒绝。审批事件携带**真实 tool_call_id**（LangGraph
+  `ToolRuntime` 注入，与 tool_start/tool_results 一致 —— 否则前端按 id 合并
+  失败出现重复工具行 + 审批面板永不关闭）。前端审批面板带代答输入行；
+  后端 `ApprovalDecisionRequest.status` 支持 `respond`。并发/过期/跨 worker
+  pub/sub 回归齐备；复用同一个 ApprovalManager（Redis pub/sub + DB 审计不变）。
+- **沙箱真隔离**：`SANDBOX_BACKEND`（auto/none/nsjail/bubblewrap）——auto 在
+  Linux 检测 nsjail/bwrap 即启用（根只读 + 工作区可写 + rlimits，保留网络供
+  npm build），命令黑名单在所有模式下仍先行生效；非 Linux/缺二进制安全退档。
+- **OTel 纯库埋点**：`OTEL_ENABLED`（默认关）→ TracerProvider + 自定义
+  DBSpanExporter 写 `otel_spans` 表（0028 迁移）；`llm_factory` 构建入口统一
+  包装 LLM 网关 generate（provider/model/stream 属性），FastAPI 请求中间件
+  可按需取 tracer；不接 Langfuse/不部署 collector。
+- **SOPS**：`SOPS_FILE` 指向 sops 加密的 dotenv，`app/core/secret_loader.py`
+  在 Settings 读 env 前解密合并（真实环境变量优先；失败 CRITICAL 告警不阻断）。
+- **LiteLLM 旁路 PoC**：`provider_type=litellm`（可选 extra `litellm`）→
+  `litellm_poc.py` 统一调用映射（非流式 PoC，流式走主路径自研网关）；
+  **Proxy 形态按红线排除**。
+- **E-P1 后台运维**：`/api/v1/admin/users/batch`（删除叠加 CAP_DANGEROUS）、
+  `/api/v1/admin/api-keys/batch`、`GET/PUT /api/v1/admin/quota`（system_settings
+  存储，check_daily_quota 优先读 DB）、`/api/v1/admin/approvals/pending`
+  （部署/发布/工具审批三类聚合）+ 前端「审批中心」面板；`/api/v1/health/components`
+  依赖级探针（DB/Redis/配置档位/限流降级计数）。限流器 5 个降级路径
+  （Redis 不可用走进程内 fallback，多实例会超发）统一计数 + 60s 节流告警。
 
 ### Async Sub-Agents
 
-`AsyncSubAgentMiddleware` in `services/agent/factory.py` injects 4 tools: `start_async_task`, `check_async_task`, `cancel_async_task`, `list_async_tasks`. Two built-in sub-agents: `code_analyst` (Python/calc/git) and `file_processor` (file read/write/search). Controlled by `ASYNC_SUB_AGENTS_ENABLED` env var.
+`AsyncSubAgentManager` (`services/agent/native/async_sub_agent.py`) injects 4 tools: `start_async_task`, `check_async_task`, `cancel_async_task`, `list_async_tasks`. Two built-in sub-agents: `code_analyst` (Python/calc/git) and `file_processor` (file read/write/search). Controlled by `ASYNC_SUB_AGENTS_ENABLED` env var.
 
 ### PPT SVG pipeline
 
@@ -164,7 +271,8 @@ PPT generation is SVG-first — the agent writes slides as SVG, the backend conv
 - **Backend pipeline** (`services/ppt/`): XML sanitizing (`ppt_artifact_service.py`) → `svg_finalize` (image embed/crop/repair, `image_backends/` + `image_search.py`) → `svg_quality_checker` + `checkers/` + `anti_slop_checker` / `design_craft` (layout diversity, anti-uniformity rules) → `svg_to_pptx/` (DrawingML conversion, native editable .pptx) → `svg_to_pptx/pptx_cli.py`.
 - **pptx_to_svg/**: reverse direction (import an existing .pptx into the editor pipeline, `svg_editor/server.py`).
 - **template_import/**: manifest-driven theme/template import.
-- An alternative fully-orchestrated flow exists in `ppt_pipeline.py` (wuwei StateGraph) and `multi_agent_ppt_service.py`; the chat-mode default is the tool-driven path above.
+- The chat-mode default is the tool-driven path above (StateGraph 编排流与
+  multi-agent PPT 服务已随 wuwei 退役删除)。
 
 ### Sub-tool approval
 
@@ -173,59 +281,20 @@ Per-tool approval supports sub-tool granularity. `TOOL_CATALOG` in `tool_config_
 ### HITL approval flow
 
 When an agent invokes a tool that requires approval:
-1. `LenientHitlMiddleware` triggers `ApprovalManager.request_approval()`, persists to `agent_approvals` table
+1. `EngineApprovalPolicy.before_execute`（工具包装层）触发 `ApprovalManager.request_approval()`，persists to `agent_approvals` table；事件携带真实 tool_call_id（`ToolRuntime` 注入）
 2. Frontend receives `approval_required` SSE event (includes sub-tool info), shows `PendingApprovalPanel`
-3. User approves/rejects → `POST /api/v1/agent/approvals/{id}/decision`
+3. User approves/rejects/responds → `POST /api/v1/agent/approvals/{id}/decision`
 4. Future is resolved, agent proceeds or aborts; timeout after `HITL_TIMEOUT_SECONDS` (default 300s)
 
-### Workflow engine v1 (P0-3)
+### Workflow engine（已下线）
 
-`app/services/workflow/` — admin-defined node workflows (Dify-Workflow style), stored as JSON DSL in `workflows` table, executed by `WorkflowExecutor`:
+workflow 工作流引擎（v1 P0-3）已**整体删除**（2026-11-20 用户决策）：后端
+`services/workflow/`、`tools/workflow_tools.py`、`endpoints/workflows.py`、
+`WorkflowModel`/`WorkflowRunModel` 表模型、`use_workflows`/`view_workflow_runs`
+权限 feature、前端 WorkflowManagement/Canvas/GraphEditor 面板与 e2e 测试。
+`workflows`/`workflow_runs` 两张历史表保留在存量库中（无代码引用）；
+`DEFAULT_RESTRICTED_FEATURES` 机制保留（列表暂空），未来受限功能直接追加。
 
-- **8 node types**: `start / llm / knowledge / http / template / condition / human_input / end`. Condition branching, **parallel fan-out/fan-in** (ready batch runs via `asyncio.gather`; joins wait for all in-edge sources), and a human-input **barrier** (it defers until every other node is terminal). Loops are rejected by validation (cycle check).
-- **Variables**: `{{inputs.x}}` and `{{nodes.<id>.output}}` resolved by restricted dotted-path lookup (no eval). A template that is exactly one variable returns the raw value (type-preserving); mixed text substitutes stringified.
-- **Endpoints** (`/api/v1/workflows`): CRUD admin-only; run for any logged-in user on **enabled** workflows. **Async**: `POST /{id}/run` and `POST /workflows/runs/{id}/resume` create a `running` row and execute in a background task (poll `GET /workflows/runs/{id}` to terminal); restart reaps `running` rows via `startup_cleanup` (`waiting_input` survives — pause state is DB-persisted). Run records visible to trigger or admin; the `WHERE status='waiting_input'` claim prevents double resume. The **agent tool bridge executes inline** (`service.start_run`) because the model needs the final result; its tool timeout is set above the workflow run timeout so the engine's graceful timeout wins.
-- **Security**: http node passes `intranet_policy.check_url` (deny-by-default without `INTRANET_ALLOWED_CIDRS`), no redirects, `Authorization`/`Cookie` headers stripped, response body capped; knowledge node reuses retrieval ACL per trigger user; llm node goes through `llm_factory` with `role="fast"`.
-- **Agent tool bridge** (`app/tools/workflow_tools.py`): every **enabled**
-  workflow is registered as a `run_workflow_<safe-name>_<id>` tool on the
-  agent (dynamic registration like MCP, not in `TOOL_CATALOG`; disabled
-  workflow = tool gone). Trigger identity flows from the session contextvar.
-  **Chat-native human input**: on a `human_input` node the tool blocks on
-  `UserInputBlocker` (same machinery as external systems — SSE pushes
-  `user_input_required`, the chat UI renders the form, `POST
-  /agent/sessions/{sid}/user-input` resolves it) and resumes the run
-  inline, so the model gets the final result without a second call. Fields
-  declared on the node flow through `workflow_runs.waiting_fields_json`
-  (migration 0019; resume is a **snapshot** — node_status + outputs from
-  steps/context JSON, order-independent, works with parallel completion).
-  Without a session (direct API runs) it falls back to a `waiting_input`
-  result. No tool-level timeout (waiting is unbounded by
-  design; execution is bounded by the workflow's own node/run timeouts);
-  `asyncio.CancelledError` marks the run failed (no zombie rows);
-  `side_effect=True` forces serial execution. The `_get_agent` cache key
-  includes a workflows signature (id+updated_at hash) so enable/edit
-  invalidates the mounted tool set.
-- **Admin UI**: `frontend/src/components/admin/WorkflowManagement.tsx`
-  (list / editor / toggle via `PUT /workflows/{id}/enabled` / run /
-  runs+resume). The editor has three modes: **canvas** (`WorkflowCanvas.tsx`,
-  `@xyflow/react` — drag nodes, drag handles to connect, minimap, pan/zoom;
-  node `position` is a display-only field the backend ignores), **form**
-  (`WorkflowGraphEditor.tsx` — per-type param forms, cascade rename/delete,
-  dedup edge builder, BFS SVG preview), and **JSON**. All three share the same
-  pure graph functions, so behaviour is identical across modes.
-  Real-browser e2e: `frontend/tests/workflow-canvas.e2e.ts`.
-- **Authorization — default deny**: workflows are admin-orchestrated platform
-  capability, so regular users **cannot run them until an admin grants
-  `use_workflows`** (System Settings → Permissions). Gated features:
-  `use_workflows` (run/resume) and `view_workflow_runs` (run records), on both
-  the HTTP endpoints and the agent tool bridge (`status: denied`). Startup
-  seeds `p, admin, *, feature:<name>, read` anchors
-  (`DEFAULT_RESTRICTED_FEATURES`) — Casbin is allow-override, so an anchor is
-  how "configured but nobody granted" is expressed. `require_feature` is
-  fail-closed; `require_feature_compatible` (unknown feature ⇒ pass) exists for
-  future opt-in features but workflows do **not** use it.
-- **Not yet implemented** — see `docs/research/工作流后续路线.md` for the
-  loop-node (subflow iteration) and ARQ multi-worker designs.
 
 ### SSE streaming protocol
 
@@ -250,11 +319,11 @@ When an agent invokes a tool that requires approval:
 | `done` | Normal completion with usage stats |
 | `error` | Fatal error with optional usage stats |
 
-Note: wuwei declares `task_start` / `task_end` event types but never emits them (upstream R-17) — clients should not branch on them.
+Note: `keepalive` SSE events are emitted during long waits (e.g. HITL approval); the frontend resets its 60s idle timeout on every message including keepalive.
 
 ### Context compression
 
-When `context_compression_enabled` is true (default), `ContextCompressionMiddleware` triggers after `context_compress_after_turns` (default 16) turns. It uses the LLM itself to summarize conversation history, keeping the most recent `context_keep_recent_turns` (default 6) turns intact.
+When `context_compression_enabled` is true (default), `ContextCompressor` (`services/agent/native/context_compression.py`) is invoked by the engine before each LLM call once the estimated token load crosses the trigger. It uses the LLM itself to summarize conversation history, keeping the most recent `context_keep_recent_turns` (default 6) turns intact and never cutting mid tool-call pair; summary failures cool down 600s.
 
 ### Frontend design system
 
@@ -295,8 +364,10 @@ frontend/src/
                                    # Skeleton, Toast, Tooltip, AnimatedIcons, MascotIcons
   hooks/
     useChatStream.ts               # SSE consumption orchestration (optimistic updates,
-                                   #   rAF-batched flush, approval submissions) — wraps
-                                   #   sendMessageStream from agentService
+                                   #   rAF-batched flush + 350ms 兜底（后台标签页 rAF
+                                   #   会饿死，只等 rAF 会把发送卡死在请求前）,
+                                   #   approval submissions) — wraps sendMessageStream
+                                   #   from agentService
     useChatSessions.ts             # localStorage session cache (max 24 sessions)
     useChatScroll.ts, useChatSearch.ts, useDragAndDrop.ts
     useInputSuggest.ts             # input suggestions
@@ -313,8 +384,14 @@ frontend/src/
     ChatContext.tsx                # actions + refs + derived flags only (data moved to store;
                                    #   single consumer: ChatMainArea)
   services/
-    agentService.ts                # THE SSE client (fetch-event-source + applyAgentEvent
-                                   #   event dispatcher) + artifact/email-template APIs
+    agentService.ts                # 纯 re-export 门面（拆分见 services/agent/）
+    agent/
+      shared.ts                    # 类型契约（AgentServiceOptions/StreamState）+ 工具结果
+                                   #   映射 helpers + 端点常量
+      events.ts                    # applyAgentEvent：16 种 SSE 事件分发（纯函数，回归测试
+                                   #   直接喂事件不必拉 fetchEventSource）
+      stream.ts                    # sendMessageStream（fetchEventSource + 60s 心跳超时）
+      api.ts                       # 审批/决策/制品/会话/PPT 导出等 REST 调用
     authService.ts, agentProfileService.ts, skillService.ts,
     dashboardService.ts, toolConfigService.ts, userService.ts,
     conversationService.ts, configService.ts,
@@ -336,38 +413,43 @@ Vite config: `@` path alias resolves to `frontend/src`. Production build splits 
 
 ### Database
 
-Default SQLite at `./data/agenticos.db`. Configurable to MySQL via `DATABASE_URL`. Tables: users, auth_sessions, agent_sessions, agent_messages, agent_usage_events, agent_tool_configs, agent_profiles, agent_profile_tools, skills, agent_profile_skills, user_installed_agents, agent_approvals, ppt_artifacts, video_artifacts (legacy, mode removed), user_email_credentials, announcements, external_systems (+external_apis/params/credentials), memory entries, knowledge base tables (kb_*), workflows, workflow_runs, system_settings, agent_run_traces, api_keys, email_verification_codes.
+Default SQLite at `./data/agenticos.db`. Configurable to MySQL via `DATABASE_URL`. Tables: users, auth_sessions, agent_sessions, agent_messages, agent_usage_events, agent_tool_configs, agent_profiles, agent_profile_tools, skills, agent_profile_skills, user_installed_agents, agent_approvals, ppt_artifacts, video_artifacts (legacy, mode removed), user_email_credentials, announcements, external_systems (+external_apis/params/credentials), memory entries, knowledge base tables (kb_*), system_settings, agent_run_traces, api_keys, email_verification_codes.
 
 Schema evolution is two-stage on startup: `Base.metadata.create_all()` creates missing tables, then `_apply_pending_migrations()` runs alembic (`backend/alembic/versions/`, 25 migrations) — `upgrade head` if `alembic_version` exists, `stamp head` on a fresh DB; migration failure logs but does not block startup. The baseline migration must be kept in sync with `models.py` by hand (see `baseline_20260930.py`). `seed_tool_configs()` and `seed_agent_profiles()` run on every startup (idempotent upserts). The first registered user automatically becomes admin.
 
 ### Tests
 
-Backend tests (114 files in `backend/tests/`) use pytest with `httpx` for async HTTP testing. The pytest config sets `pythonpath = ["."]` so tests can import directly from `app.*`. Run with `uv run pytest`.
+Backend tests (110+ files in `backend/tests/`) use pytest with `httpx` for async HTTP testing. The pytest config sets `pythonpath = ["."]` so tests can import directly from `app.*`. Run with `uv run pytest`. Current baseline: **~1381 passed / 25 skipped, 0 failed**（workflow 下线后 81 个 workflow 测试随模块删除）.
 
-Tests cover: auth, agent stream, tool config, users, dashboard, skills, agent profiles, agent service, wuwei boundary patches (`test_wuwei_patches.py` — one case per upstream residual defect), llm providers (retry/usage contracts), workflow engine, MCP, website mode defaults, local skill import, health, SVG to PPTX, theme token resolver, artifact slug inference (website artifacts must be session-scoped — never a global "most recent dist" scan), alembic migration chain integrity.
+Tests cover: auth, agent stream, tool config, users, dashboard, skills, agent profiles, agent service, langgraph engine contracts (`test_langgraph_engine.py` — 直答/工具/HITL/拒绝/审批元数据/流式累积 delta 回归), HITL phase 3 (`test_hitl_phase3.py` — 四决策/并发/过期/pub-sub), llm providers (native gateway retry/usage contracts), MCP, website mode defaults, local skill import, health, SVG to PPTX, theme token resolver, KB retrieval (LlamaIndex: hybrid score semantics / Chinese recall top-3 / retriever cache / ACL), artifact slug inference (website artifacts must be session-scoped — never a global "most recent dist" scan), alembic migration chain integrity (含新列登记清单 + 索引级联删除), task queue ops registry (test_task_queue_ops.py), pgvector probe/degrade contract (test_kb_pgvector.py), RAGAS dataset contract (test_eval_ragas_poc.py, fake-module), log request context (test_log_context.py).
 
 ## Key environment variables
 
 Essential: `OPENAI_API_KEY` (LLM access), `AUTH_SECRET_KEY` (JWT signing).
 
+Also: `KB_RERANK_BACKEND` (`auto` | `flashrank` | `heuristic`), `KB_RERANK_TOP_K`,
+`KB_RERANK_FLASHRANK_WEIGHT`.
+
 Also important:
 - `OPENAI_BASE_URL` — custom LLM endpoint (default: OpenAI)
 - `OPENAI_MODEL` — model name (default: `gpt-5.4`)
-- `DATABASE_URL` — defaults to SQLite, set to MySQL URL for production
-- `REDIS_URL` — Redis connection (empty = in-memory fallback)
+- `DATABASE_URL` — defaults to SQLite; MySQL/PostgreSQL URLs supported (`postgresql+psycopg://...` 为生产推荐)
+- `REDIS_URL` — Redis connection (empty = fakeredis fallback)
 - `HITL_ENABLED` / `HITL_REQUIRE_APPROVAL_TOOLS` — approval workflow control
 - `AGENT_MAX_STEPS` — max tool-calling steps per run (default: 10)
 - `AGENT_PARALLEL_TOOL_CALLS` — enable parallel tool execution (default: false)
 - `ASYNC_SUB_AGENTS_ENABLED` — enable async sub-agent middleware (default: true)
 - `AGENT_BUDGET_MAX_TOKENS` / `AGENT_BUDGET_MAX_COST_USD` / `AGENT_BUDGET_ON_EXHAUSTED` —
-  run-level budget circuit breaker via wuwei `BudgetMiddleware` (default: off).
+  run-level budget circuit breaker（native `check_budget`，非 middleware）.
   Hard cap raises `BudgetExhausted`, surfaced as an SSE `error` event
   (`error_type=BudgetExhausted`); soft cap (80%) logs a warning
+- `KNOWLEDGE_VECTOR_ENABLED` / `KNOWLEDGE_EMBEDDING_*` — 向量检索通道与 embedding 模型
+- `SANDBOX_BACKEND` (`auto` | `none` | `nsjail` | `bubblewrap`) — 命令沙箱
+- `OTEL_ENABLED` — OTel SDK 埋点（默认关，写 otel_spans 表）
+- `SOPS_FILE` — sops 加密 dotenv 路径
 - `AGENT_STREAM_RATE_LIMIT` / `AGENT_STREAM_RATE_WINDOW_SECONDS` — per-user
   fixed-window rate limit on `POST /agent/stream` (default: 30 runs / 300s,
   admins exempt, `<=0` disables; 429 + `Retry-After` on excess)
-- `WORKFLOW_NODE_TIMEOUT_SECONDS` / `WORKFLOW_RUN_TIMEOUT_SECONDS` — workflow
-  engine v1 per-node / whole-run execution caps (defaults 60s / 300s)
 - `LDAP_ENABLED` — bootstrap switch for the DB-configured LDAP integration
   (full config managed by admins in System Settings → LDAP; stored in
   `system_settings` under `ldap.*` keys, bind password encrypted)
@@ -376,6 +458,12 @@ See `backend/.env.example` for the full list.
 
 ## Notes
 
+- **结构化日志上下文**（`app/core/log_context.py`）：HTTP 中间件为每个请求绑定
+  `request_id`（响应头 `X-Request-ID` 回传）+ path；业务深处可增量补
+  session_id/user_id。root logger 挂 `RequestContextFilter`，所有日志自动携带
+  字段 —— 排障时 `grep request_id=<id>` 串联一次请求的全部日志。
+
 - All datetime fields use `AppDateTime` type decorator for timezone-aware handling (default: `APP_TIMEZONE`)
-- Backend changes working directory to project root on startup so wuwei file tools resolve paths correctly
-- Redis is optional — leave `REDIS_URL` empty for in-memory fallback during development
+- Backend changes working directory to project root on startup so native file tools resolve paths correctly
+- Redis is optional — leave `REDIS_URL` empty for fakeredis fallback during development
+- wuwei 已完全退役：依赖已从 pyproject 移除、venv 中无此包、`import wuwei` 失败是预期；上游问题清单 `docs/upstream/wuwei-3.0.2-问题清单.md` 仅作历史存档

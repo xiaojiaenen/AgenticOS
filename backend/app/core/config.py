@@ -4,6 +4,15 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# SOPS 加密配置先于 Settings 读取 env（战线 D：密钥不落明文盘/仓库）。
+# 未配置 SOPS_FILE 时完全 no-op（默认部署零影响）。
+try:
+    from app.core.secret_loader import load_sops_secrets
+
+    load_sops_secrets()
+except Exception:  # noqa: BLE001 —— 密钥层任何异常都不阻断启动（已 CRITICAL 告警）
+    pass
+
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -21,6 +30,17 @@ class Settings(BaseSettings):
     # 一轮里模型每输出一次 tool_calls 算一步。10 太紧：实测 82 个会话里有
     # 3 轮正好卡在 10 步被截断，复杂任务（查资料 → 写文件 → 建表 → 校验）
     # 经常需要 15~20 步。给到 30，让模型自己判断何时收尾。
+    # OpenTelemetry 纯库埋点（战线 D，3F.0）：span 写自家 otel_spans 表 +
+    # 沿用 traces 展示；默认关闭，启用零外部依赖（不接 Langfuse/不部署 collector）。
+    otel_enabled: bool = Field(default=False, validation_alias="OTEL_ENABLED")
+    # 沙箱隔离后端（战线 B，总方案 5.2「安全底线」）：auto（默认，检测到
+    # nsjail/bwrap 且为 Linux 时启用真隔离，否则正则黑名单档）/ none（仅
+    # 正则黑名单）/ nsjail / bubblewrap。命令黑名单在所有模式下都保留
+    # （纵深防御），真隔离只在 Linux 容器/服务器生效。
+    sandbox_backend: str = Field(default="auto", validation_alias="SANDBOX_BACKEND")
+    # Agent 编排引擎（战线 A 绞杀者开关，docs/design/wuwei迁移LangChain方案.md）：
+    # wuwei 已退役，langgraph 是唯一引擎（保留字段只为兼容旧环境变量）。
+    agent_engine: str = Field(default="langgraph", validation_alias="AGENT_ENGINE")
     agent_max_steps: int = Field(default=30, validation_alias="AGENT_MAX_STEPS")
     agent_max_tokens: int = 65536
     agent_parallel_tool_calls: bool = False
@@ -59,14 +79,6 @@ class Settings(BaseSettings):
     )
     agent_stream_rate_window_seconds: int = Field(
         default=300, validation_alias="AGENT_STREAM_RATE_WINDOW_SECONDS"
-    )
-    # 工作流（P0-3 v1）单节点 / 整条流的最大执行时长。节点超时会把该节点
-    # 记为 failed 并终止整条流；总超时兜底防止挂死的 HTTP 节点拖垮请求。
-    workflow_node_timeout_seconds: int = Field(
-        default=60, validation_alias="WORKFLOW_NODE_TIMEOUT_SECONDS"
-    )
-    workflow_run_timeout_seconds: int = Field(
-        default=300, validation_alias="WORKFLOW_RUN_TIMEOUT_SECONDS"
     )
     # PPT 最少页数门槛。
     #
@@ -268,6 +280,15 @@ class Settings(BaseSettings):
     knowledge_chunk_min_chars: int = Field(default=40, validation_alias="KNOWLEDGE_CHUNK_MIN_CHARS")
     # 单页切片段数上限：防止极端长页（整本书）把向量化成本打爆
     knowledge_max_chunks_per_page: int = Field(default=60, validation_alias="KNOWLEDGE_MAX_CHUNKS_PER_PAGE")
+
+    # 检索重排后端（战线 B4 自研归位）：heuristic=本地启发式四信号（原实现）；
+    # flashrank=本地 ONNX cross-encoder（FlashRank，模型首次使用时自动下载并缓存）；
+    # auto（默认）=尝试 FlashRank，模型加载失败（离线/缺依赖）自动降级 heuristic。
+    knowledge_rerank_backend: str = Field(default="auto", validation_alias="KB_RERANK_BACKEND")
+    # 送入 FlashRank 重排的候选上限（cross-encoder 有 p95 抖动，只对头部候选精排）
+    knowledge_rerank_top_k: int = Field(default=20, validation_alias="KB_RERANK_TOP_K")
+    # FlashRank 分数与启发式信号的融合权重（0~1）：final = w*flashrank + (1-w)*heuristic
+    knowledge_rerank_flashrank_weight: float = Field(default=0.65, validation_alias="KB_RERANK_FLASHRANK_WEIGHT")
 
     # ── 本地（离线）嵌入模型 ─────────────────────────────────────────
     #

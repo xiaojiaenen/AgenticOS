@@ -2,7 +2,7 @@
 
 本模块保持既有导入路径与公共 API 零变更：
 - ``AgentService`` / ``get_agent_service`` / ``clear_agent_service_cache``
-- ``MAX_STEPS_LIMIT_MESSAGE`` / ``ThinkingHistoryCompatibilityMiddleware`` 等符号
+- ``MAX_STEPS_LIMIT_MESSAGE`` 等常量符号
 - ``_current_session_id`` contextvar（approval_manager、decision_tools、
   knowledge_tools、memory_tools、ppt_tools 等跨模块直接 import 读取，
   定义保留在此处；包内模块通过显式参数/函数级导入使用，不互相读取私有变量）
@@ -23,13 +23,7 @@ _current_session_id: contextvars.ContextVar[str | None] = contextvars.ContextVar
 from app.services.agent.factory import (  # noqa: E402,F401  （re-export）
     MAX_STEPS_LIMIT_MESSAGE,
     SKILL_INSTRUCTION,
-    LenientHitlMiddleware,
-    SkillInstructionMiddleware,
-    ThinkingHistoryCompatibilityMiddleware,
-    _CHART_MARKER,
     _REJECTED_TOOL_NAME,
-    _TOOL_RESULT_CONTEXT_LIMIT,
-    _truncate_for_context,
 )
 from app.services.agent.service import (  # noqa: E402,F401  （re-export）
     AgentService,
@@ -43,16 +37,10 @@ __all__ = [
     "get_agent_service",
     "clear_agent_service_cache",
     # 中间件与常量
-    "LenientHitlMiddleware",
-    "SkillInstructionMiddleware",
-    "ThinkingHistoryCompatibilityMiddleware",
     "MAX_STEPS_LIMIT_MESSAGE",
     "SKILL_INSTRUCTION",
     # contextvar（跨模块读取）
     "_current_session_id",
     # 辅助（向后兼容）
-    "_truncate_for_context",
     "_REJECTED_TOOL_NAME",
-    "_TOOL_RESULT_CONTEXT_LIMIT",
-    "_CHART_MARKER",
 ]

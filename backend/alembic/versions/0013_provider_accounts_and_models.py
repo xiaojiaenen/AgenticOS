@@ -133,11 +133,12 @@ def upgrade() -> None:
                     batch.add_column(sa.Column("failure_count", sa.Integer(), nullable=False, server_default="0"))
                     batch.add_column(sa.Column("disabled", sa.Boolean(), nullable=False, server_default=sa.false()))
         else:
-            # MySQL：约束名即索引名，可以直接删
-            try:
+            # MySQL：约束名即索引名，可以直接删。PG 同样落在这一支 ——
+            # 迁移跑在单事务里，失败的 DDL 会中止事务，必须前置检查而不是
+            # try/except 吞错（吞错后事务已中止，后续语句全部失败）。
+            constraints = {c["name"] for c in sa.inspect(bind).get_unique_constraints(_TABLE)}
+            if "uq_llm_provider_credential" in constraints:
                 op.drop_constraint("uq_llm_provider_credential", _TABLE, type_="unique")
-            except Exception:  # noqa: BLE001 —— 已经删过或从没建过，都不是错误
-                pass
 
             if "label" not in existing:
                 op.add_column(_TABLE, sa.Column("label", sa.String(length=64), nullable=False, server_default=""))
@@ -147,11 +148,12 @@ def upgrade() -> None:
                 op.add_column(_TABLE, sa.Column("failure_count", sa.Integer(), nullable=False, server_default="0"))
                 op.add_column(_TABLE, sa.Column("disabled", sa.Boolean(), nullable=False, server_default=sa.false()))
 
-        # 复合索引服务「按 provider + status 捞候选账号」，是选号热路径
-        try:
+        # 复合索引服务「按 provider + status 捞候选账号」，是选号热路径。
+        # PG 的迁移跑在单事务里，失败 DDL 会中止事务 —— 必须前置检查而不是
+        # try/except 吞错（吞错后事务已中止，后续语句全部失败）。
+        existing = {ix["name"] for ix in sa.inspect(bind).get_indexes(_TABLE)}
+        if "ix_llm_provider_cred_provider_status" not in existing:
             op.create_index("ix_llm_provider_cred_provider_status", _TABLE, ["provider_id", "status"])
-        except Exception:  # noqa: BLE001
-            pass
 
     if not _has_table(_MODEL_TABLE):
         op.create_table(

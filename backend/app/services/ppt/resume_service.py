@@ -205,7 +205,7 @@ class ResumeService:
         旧路径 ``data/ppt-sessions/`` 作为兼容回退保留：历史会话的
         checkpoint 可能还留在那里。
         """
-        from app.core.data_path import PPT_SESSIONS_DIR, get_current_user_id, slides_dir
+        from app.core.data_path import get_current_user_id, slides_dir
 
         new_dir = slides_dir(get_current_user_id() or 0, session_id)
         if new_dir.exists():

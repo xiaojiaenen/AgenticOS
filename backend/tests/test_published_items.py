@@ -234,3 +234,83 @@ def test_non_admin_cannot_decide(client):
         assert admin_resp.json()["status"] == "failed"
     finally:
         cleanup(source_ref, admin_email, user_email)
+
+
+def test_superadmin_and_operator_can_review(client):
+    """双轨权限统一（战线 E-P0 / 3H 档 A）：审批入口按能力（gallery:manage）判定。
+
+    - superadmin（is_admin_like）不再被硬编码 `role != "admin"` 挡在门外；
+    - operator（运营，持有 gallery:manage 能力）按角色定义可审核作品库；
+    - 普通用户依旧 403。
+    """
+    from app.core.roles import capabilities_for
+
+    assert capabilities_for("operator") and "gallery:manage" in capabilities_for("operator")
+    suffix = uuid4().hex[:8]
+    emails = [f"sa-{suffix}@t.local", f"op-{suffix}@t.local", f"u-{suffix}@t.local"]
+    tokens = {}
+    source_ref = f"ppt://cap-test-{suffix}"
+    try:
+        for role, email in zip(("superadmin", "operator", "user"), emails):
+            tokens[role] = create_token(email, role)
+
+        user_token = tokens["user"]
+        created = client.post(
+            "/api/v1/published-items",
+            headers={"Authorization": f"Bearer {user_token}"},
+            json={
+                "kind": "ppt",
+                "session_id": f"sess-{suffix}",
+                "source_ref": source_ref,
+                "title": "能力门禁回归",
+            },
+        )
+        assert created.status_code == 200
+        item_id = created.json()["id"]
+
+        # 普通用户：403（无 gallery:manage）
+        denied = client.get(
+            "/api/v1/admin/published-items/pending",
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert denied.status_code == 403
+
+        # superadmin：200（原先只认字面 admin 会 403 —— 漂移 bug）
+        ok_sa = client.get(
+            "/api/v1/admin/published-items/pending",
+            headers={"Authorization": f"Bearer {tokens['superadmin']}"},
+        )
+        assert ok_sa.status_code == 200, ok_sa.text
+
+        # operator：200（持有 gallery:manage 能力）
+        ok_op = client.get(
+            "/api/v1/admin/published-items/pending",
+            headers={"Authorization": f"Bearer {tokens['operator']}"},
+        )
+        assert ok_op.status_code == 200, ok_op.text
+
+        # operator 可以审批（源不存在 → failed 而非 500）
+        decided = client.post(
+            f"/api/v1/admin/published-items/{item_id}/decision",
+            headers={"Authorization": f"Bearer {tokens['operator']}"},
+            json={"status": "approved"},
+        )
+        assert decided.status_code == 200, decided.text
+    finally:
+        cleanup(source_ref, *emails)
+
+
+def test_enforce_for_user_covers_admin_like_roles():
+    """Casbin 快速放行统一到 is_admin_like：superadmin 不再被策略表拒之门外。"""
+    from types import SimpleNamespace
+
+    from app.services.permission_service import PermissionService
+
+    svc = PermissionService.__new__(PermissionService)  # 跳过 casbin 加载
+    svc.enforce = lambda *args, **kwargs: False  # 策略表全拒：快速放行必须兜住管理员
+    for role in ("admin", "superadmin"):
+        user = SimpleNamespace(id=1, role=role)
+        assert svc.enforce_for_user(user, "read", "kb:1", domains=["global"]) is True, role
+    for role in ("user", "operator", "auditor"):
+        user = SimpleNamespace(id=2, role=role)
+        assert svc.enforce_for_user(user, "read", "kb:1", domains=["global"]) is False, role

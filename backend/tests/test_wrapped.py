@@ -5,7 +5,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete
 
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password

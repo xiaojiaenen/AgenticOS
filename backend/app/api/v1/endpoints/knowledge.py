@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import uuid
@@ -17,6 +18,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, func, and_, delete, or_
 from sqlalchemy.orm import Session
 
+from app.core.roles import is_admin_like
 from app.api.deps import filter_readable_kb_ids, get_current_user, get_db, require_admin, require_kb_access
 from app.db.models import (
     UserModel,
@@ -465,7 +467,7 @@ def replace_kb_acl(
     from app.services.knowledge.acl import list_grants, replace_grants
 
     kb = _kb_access(db, http_request, current_user, kb_id, "read")
-    if current_user.role != "admin" and kb.owner_id != current_user.id:
+    if not is_admin_like(current_user.role) and kb.owner_id != current_user.id:
         _audit(
             http_request, db, action="knowledge.acl_update", current_user=current_user,
             result="deny", resource_type="knowledge_base", resource_id=kb_id,
@@ -590,8 +592,8 @@ async def upload_document(
     file_path = upload_dir / file_name
 
     content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
+    # MB 级文件写盘挪出事件循环（横切 P0 9.1；与 files.py 的样板一致）
+    await asyncio.to_thread(file_path.write_bytes, content)
 
     # 创建文档记录
     doc = KBDocumentModel(
@@ -614,7 +616,6 @@ async def upload_document(
         # 可以在这里返回 task_id，让前端轮询任务状态
     except Exception as e:
         # 如果 ARQ 不可用，回退到同步处理（to_thread 避免阻塞事件循环）
-        import asyncio
         import logging
         logging.getLogger(__name__).warning(f"ARQ submission failed, falling back to sync: {e}")
         from app.services.knowledge.ingest_pipeline import process_document_ingest
@@ -883,7 +884,7 @@ async def recall_test(
         score_threshold=request.score_threshold,
         page_type=request.page_type,
         user_id=current_user.id,
-        is_admin=current_user.role == "admin",
+        is_admin=is_admin_like(current_user.role),
     )
     return report.to_dict()
 
@@ -907,7 +908,7 @@ def search_knowledge_base(
         user_id=current_user.id,
         page_type=request.page_type,
         max_results=request.max_results,
-        is_admin=current_user.role == "admin",
+        is_admin=is_admin_like(current_user.role),
     )
 
     return [
@@ -1123,3 +1124,18 @@ def get_knowledge_graph(
             if l.target_page_id in [p.id for p in pages]
         ],
     }
+
+
+@router.get("/metrics/search-quality", summary="检索质量在线指标（命中率 / 无结果率 / 延迟分位）")
+async def search_quality_metrics(
+    current_user: UserModel = Depends(require_admin),
+) -> dict:
+    """进程内滑动窗口的检索质量汇总（优化方案 2.4/3.5）。
+
+    采样来源：所有经过权限过滤的真实检索（search() 末尾），默认窗口最近
+    2000 次。``no_result_queries`` 是调参的首要信号 —— 高频无结果查询
+    指向「语料缺口」或「分词/阈值问题」。跨进程精确口径后续接 OTel。
+    """
+    from app.services.knowledge.retrieval import get_retrieval_metrics
+
+    return get_retrieval_metrics()

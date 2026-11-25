@@ -44,6 +44,7 @@ const TOOL_STATUS_META: Record<ToolCall['status'], { label: string; className: s
   pending: { label: '等待中', className: 'bg-slate-100 text-slate-600' },
   approval_required: { label: '待审批', className: 'bg-amber-100 text-amber-700' },
   approved: { label: '已批准', className: 'bg-sky-100 text-sky-700' },
+  responded: { label: '已代答', className: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' },
   rejected: { label: '已拒绝', className: 'bg-rose-100 text-rose-600' },
   success: { label: '已完成', className: 'bg-emerald-100 text-emerald-700' },
   error: { label: '失败', className: 'bg-rose-100 text-rose-600' },

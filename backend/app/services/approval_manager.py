@@ -120,6 +120,7 @@ class ApprovalManager:
                 status=decision_data["status"],
                 reason=decision_data.get("reason"),
                 modified_arguments=decision_data.get("modified_arguments"),
+                response=decision_data.get("response"),
             )
         except asyncio.TimeoutError:
             decision = ApprovalDecision(status="rejected", reason="approval timed out")
@@ -175,15 +176,20 @@ class ApprovalManager:
         status: str,
         reason: str | None = None,
         modified_arguments: dict[str, Any] | None = None,
+        response: str | None = None,
     ) -> dict[str, Any]:
         """做出审批决策，通过 Redis pub/sub 通知等待方（支持多 worker）。
 
         ``modified_arguments``：用户在审批前编辑过的工具参数（例如改了邮件
         正文、换了模板）。批准时用它**替换**原始参数执行；同时持久化到
         arguments_json，审计记录里能看到「最终以什么参数执行的」。
+
+        ``status="respond"``（人工代答，战线 A3）：工具不执行，``response``
+        里的文本作为工具结果回灌给模型 —— 对齐 DeepAgents HITL 的四决策
+        语义（approve/edit/reject/respond）。
         """
-        if status not in {"approved", "rejected"}:
-            raise ValueError("status must be approved or rejected")
+        if status not in {"approved", "rejected", "respond"}:
+            raise ValueError("status must be approved, rejected or respond")
 
         def _run():
             with self.session_factory() as db:
@@ -207,6 +213,8 @@ class ApprovalManager:
         decision_data: dict[str, Any] = {"status": status, "reason": reason}
         if modified_arguments is not None:
             decision_data["modified_arguments"] = modified_arguments
+        if response is not None:
+            decision_data["response"] = response
         payload = json.dumps(decision_data)
         await redis.publish(decision_channel, payload)
 

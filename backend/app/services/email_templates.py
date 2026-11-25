@@ -290,7 +290,7 @@ def build_verification_code(code: str, purpose: str, *, ttl_minutes: int = 5) ->
     body = (
         _eyebrow("一次性验证码")
         + _h1("请在登录页输入")
-        + f'<div style="margin-top:28px;">'
+        + '<div style="margin-top:28px;">'
         + _inset_block(
             f'<div style="text-align:center;">'
             f'<span class="hero" style="font-family:{FONT_MONO};font-size:54px;'
@@ -356,7 +356,7 @@ def build_task_notification(
 
     if summary_html:
         parts.append(
-            f'<div style="margin-top:26px;">'
+            '<div style="margin-top:26px;">'
             + _inset_block(
                 f'<div style="font-family:{FONT_SANS};font-size:14px;line-height:1.8;'
                 f'color:#c2d3ca;">{summary_html}</div>'
@@ -365,7 +365,7 @@ def build_task_notification(
         )
 
     parts.append(
-        f'<div style="margin-top:22px;">'
+        '<div style="margin-top:22px;">'
         + _kv_table(
             [
                 ("耗时", duration_str, False),

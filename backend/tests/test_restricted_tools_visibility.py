@@ -136,7 +136,6 @@ class TestMergedToolsFiltering:
     def test_stored_restricted_tool_is_dropped_for_user(self, restricted_policy):
         """历史上已勾选的受限工具：普通用户渲染时看不到。"""
         from app.db.session import create_db_session
-        from app.services.tool_config_service import DEFAULT_MODE_TOOLS
 
         class _Row:
             def __init__(self, name, enabled=True):

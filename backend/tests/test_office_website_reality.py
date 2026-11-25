@@ -10,9 +10,7 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 
-import pytest
 
 
 # ── 1. 办公工具必须启用 ────────────────────────────────────────────────
@@ -189,72 +187,65 @@ def test_normalize_index_html_skips_external_scripts(tmp_path):
 
 
 def test_tool_pair_repair_fills_missing_results():
-    """残缺历史必须被补齐，否则上游每次都 400。
+    """缺失的工具结果补一条明确的失败结果（原 ToolPairRepair 语义移植）。"""
+    from app.services.agent.langgraph_engine.engine import LangGraphAgent
+    from app.services.agent.native.types import (
+        AIMessage, FunctionCall, HumanMessage, ToolCall, ToolMessage,
+    )
 
-    DeepSeek 要求每个 tool_call 都有配对的 tool 消息。并发批处理被取消、
-    审批超时、达到步数上限都会留下残缺历史，一旦落库，这个会话此后
-    每次都报 `insufficient tool messages following tool_calls`。
-    """
-    from wuwei.core.message import AIMessage, FunctionCall, HumanMessage, ToolCall, ToolMessage
-
-    from app.services.agent.factory import ToolPairRepairMiddleware
-
-    def call(cid: str, name: str) -> ToolCall:
-        return ToolCall(id=cid, type="function", function=FunctionCall(name=name, arguments={}))
-
+    agent = LangGraphAgent.__new__(LangGraphAgent)
     messages = [
         HumanMessage(content="hi"),
-        AIMessage(content="", tool_calls=[call("c1", "calc"), call("c2", "time")]),
+        AIMessage(content="", tool_calls=[
+            ToolCall(id="c1", function=FunctionCall(name="calc", arguments={})),
+            ToolCall(id="c2", function=FunctionCall(name="time", arguments={})),
+        ]),
         ToolMessage(content="ok", tool_call_id="c1", name="calc"),
     ]
-
-    class _State:
-        def __init__(self, msgs):
-            self.messages = msgs
-
-    class _Ctx:
-        def __init__(self, msgs):
-            self.state = _State(msgs)
-
-    ctx = asyncio.run(ToolPairRepairMiddleware().before_llm(_Ctx(messages)))
-    out = ctx.state.messages
-
-    declared = {c.id for m in out for c in (getattr(m, "tool_calls", None) or [])}
-    answered = {m.tool_call_id for m in out if getattr(m, "role", None) == "tool"}
+    repaired = agent._repair_tool_pairs(messages)
+    declared = {c.id for m in repaired for c in (m.tool_calls or [])}
+    answered = {m.tool_call_id for m in repaired if m.role == "tool"}
     assert declared == answered, f"仍有未配对的调用：{declared - answered}"
-    # 补出来的结果必须带工具名（ToolMessage.name 是必填）
-    filled = [m for m in out if m.tool_call_id == "c2"]
+    filled = [m for m in repaired if m.tool_call_id == "c2"]
     assert filled and filled[0].name == "time"
 
 
 def test_tool_pair_repair_drops_orphan_results():
     """没有对应 tool_call 的孤立结果必须删掉，上游同样会因此报错。"""
-    from wuwei.core.message import HumanMessage, ToolMessage
+    from app.services.agent.langgraph_engine.engine import LangGraphAgent
+    from app.services.agent.native.types import HumanMessage, ToolMessage
 
-    from app.services.agent.factory import ToolPairRepairMiddleware
-
+    agent = LangGraphAgent.__new__(LangGraphAgent)
     messages = [
         HumanMessage(content="hi"),
         ToolMessage(content="stray", tool_call_id="ghost", name="ghost"),
     ]
-
-    class _State:
-        def __init__(self, msgs):
-            self.messages = msgs
-
-    class _Ctx:
-        def __init__(self, msgs):
-            self.state = _State(msgs)
-
-    ctx = asyncio.run(ToolPairRepairMiddleware().before_llm(_Ctx(messages)))
-    assert [m for m in ctx.state.messages if getattr(m, "role", None) == "tool"] == []
+    repaired = agent._repair_tool_pairs(messages)
+    assert [m for m in repaired if m.role == "tool"] == []
 
 
 def test_tool_pair_repair_is_noop_on_healthy_history():
     """健康历史不应有任何改动（热路径零开销）。"""
-    from wuwei.core.message import AIMessage, FunctionCall, HumanMessage, ToolCall, ToolMessage
+    from app.services.agent.langgraph_engine.engine import LangGraphAgent
+    from app.services.agent.native.types import (
+        AIMessage, FunctionCall, HumanMessage, ToolCall, ToolMessage,
+    )
 
-    from app.services.agent.factory import ToolPairRepairMiddleware
+    agent = LangGraphAgent.__new__(LangGraphAgent)
+    messages = [
+        HumanMessage(content="hi"),
+        AIMessage(content="", tool_calls=[
+            ToolCall(id="c1", function=FunctionCall(name="calc", arguments={}))
+        ]),
+        ToolMessage(content="ok", tool_call_id="c1", name="calc"),
+    ]
+    repaired = agent._repair_tool_pairs(messages)
+    assert repaired == messages, "健康历史不应被改动"
+
+
+    """健康历史不应有任何改动（热路径零开销）。"""
+    from app.services.agent.native.types import AIMessage, FunctionCall, HumanMessage, ToolCall, ToolMessage
+
 
     call = ToolCall(id="c1", type="function", function=FunctionCall(name="calc", arguments={}))
     messages = [
@@ -263,13 +254,6 @@ def test_tool_pair_repair_is_noop_on_healthy_history():
         ToolMessage(content="ok", tool_call_id="c1", name="calc"),
     ]
 
-    class _State:
-        def __init__(self, msgs):
-            self.messages = msgs
-
-    class _Ctx:
-        def __init__(self, msgs):
-            self.state = _State(msgs)
-
-    ctx = asyncio.run(ToolPairRepairMiddleware().before_llm(_Ctx(messages)))
-    assert ctx.state.messages == messages
+    agent = LangGraphAgent.__new__(LangGraphAgent)
+    repaired = agent._repair_tool_pairs(messages)
+    assert repaired == messages

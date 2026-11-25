@@ -14,7 +14,6 @@ import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.api.deps import get_current_user  # noqa: E402
-from app.core.data_path import workspace_dir  # noqa: E402
 from app.db.models import UserModel  # noqa: E402
 from app.main import app  # noqa: E402
 

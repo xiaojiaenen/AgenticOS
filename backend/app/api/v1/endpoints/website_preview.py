@@ -26,6 +26,7 @@ from fastapi.responses import FileResponse
 from app.api.deps import get_current_user
 from app.core.config import get_settings
 from app.core.data_path import WEBSITES_DIR, _parse_dir_name
+from app.core.roles import is_admin_like
 from app.core.security import create_access_token, decode_access_token
 from app.db.models import UserModel
 
@@ -120,7 +121,7 @@ def _assert_can_preview_project(slug: str, user: UserModel) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="项目标识不合法，应为 u<用户ID>_s<会话>_v<版本>",
         )
-    if user.role != "admin" and parsed[0] != user.id:
+    if not is_admin_like(user.role) and parsed[0] != user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="没有权限预览他人的网站项目",

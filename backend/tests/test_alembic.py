@@ -133,8 +133,10 @@ def test_upgrade_head_on_create_all_schema(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 # (表名, 列名, 迁移前所在版本) —— 新增列迁移清单
+# （workflow 已整体下线：原 waiting_fields_json 条目随 WorkflowRunModel 删除）
 _EXPECTED_NEW_COLUMNS = [
-    ("workflow_runs", "waiting_fields_json", "0018_website_gallery_visibility"),
+    ("website_deploys", "short_code", "0024_gallery_insights"),
+    ("website_deploys", "description", "0024_gallery_insights"),
 ]
 
 
@@ -176,6 +178,10 @@ def test_incremental_migrations_add_expected_columns(tmp_path: Path):
         with engine.begin() as conn:
             op = Operations(MigrationContext.configure(conn))
             for table, column, _from_rev in _EXPECTED_NEW_COLUMNS:
+                # 列上的索引先删（SQLite drop_column 不级联索引）
+                for idx in sa.inspect(conn).get_indexes(table):
+                    if idx["column_names"] == [column]:
+                        op.drop_index(idx["name"], table_name=table)
                 with op.batch_alter_table(table) as batch:
                     batch.drop_column(column)
     finally:

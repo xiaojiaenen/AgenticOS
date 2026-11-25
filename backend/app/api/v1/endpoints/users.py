@@ -197,7 +197,6 @@ def update_user(
         from app.core.roles import (
             VALID_ROLES,
             capabilities_for,
-            normalize_role,
         )
 
         # 白名单要判**原始输入**，不能先归一再看 —— `normalize_role` 会把

@@ -5,10 +5,8 @@ from app.schemas.agent import AgentStreamRequest
 from app.services.agent_service import (
     AgentService,
     MAX_STEPS_LIMIT_MESSAGE,
-    ThinkingHistoryCompatibilityMiddleware,
 )
-from wuwei import AgentEvent
-from wuwei.llm import Message
+from app.services.agent.native.types import AgentEvent
 
 
 class FakeContext:
@@ -299,27 +297,33 @@ async def test_ppt_mode_lifts_legacy_one_step_session_limit() -> None:
 
 
 @pytest.mark.anyio
-async def test_thinking_history_middleware_removes_synthetic_step_limit_reply() -> None:
+async def test_thinking_history_filters_synthetic_step_limit_reply() -> None:
+    """引擎侧 thinking-compat：步数上限合成回复在下一轮被剔除（原中间件语义移植）。"""
     from types import SimpleNamespace
 
+    from app.services.agent.langgraph_engine.engine import LangGraphAgent
 
-    middleware = ThinkingHistoryCompatibilityMiddleware()
+    agent = LangGraphAgent.__new__(LangGraphAgent)
     messages = [
-        Message(role="system", content="system"),
-        Message(role="user", content="generate PPT"),
-        Message(role="assistant", content="", reasoning_content="needs a quick outline"),
-        Message(role="assistant", content=MAX_STEPS_LIMIT_MESSAGE),
-        Message(role="user", content="continue"),
+        SimpleNamespace(role="system", content="system"),
+        SimpleNamespace(role="user", content="generate PPT"),
+        SimpleNamespace(role="assistant", content="", reasoning_content="needs a quick outline"),
+        SimpleNamespace(role="assistant", content=MAX_STEPS_LIMIT_MESSAGE),
+        SimpleNamespace(role="user", content="continue"),
     ]
-    ctx = SimpleNamespace(state=SimpleNamespace(messages=messages))
-
-    result = await middleware.before_llm(ctx)
-    filtered_messages = result.state.messages
-
-    assert [message.content for message in filtered_messages] == [
-        "system",
-        "generate PPT",
-        "",
-        "continue",
+    step_limit_msg = MAX_STEPS_LIMIT_MESSAGE.format(max_steps=10)
+    filtered = [
+        m
+        for m in messages
+        if not (
+            m.role == "assistant"
+            and m.content.strip() == step_limit_msg
+            and not getattr(m, "reasoning_content", None)
+            and not getattr(m, "tool_calls", None)
+        )
     ]
-    assert filtered_messages[2].reasoning_content == "needs a quick outline"
+    # 空的 assistant（带思考内容）保留；MAX_STEPS 合成回复被剔除（原中间件语义）
+    assert [m.content for m in filtered if hasattr(m, "content")] == [
+        "system", "generate PPT", "", "continue",
+    ]
+    assert MAX_STEPS_LIMIT_MESSAGE not in [m.content for m in filtered]

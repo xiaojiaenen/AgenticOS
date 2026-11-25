@@ -33,7 +33,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import Optional
+from typing import Any, Optional
 
 from app.core.config import get_settings  # noqa: F401  (保留供外部 import)
 
@@ -43,6 +43,14 @@ logger = logging.getLogger(__name__)
 # 查询状态时靠这个 key 做归属校验，避免凭 task_id 读到他人工件路径。
 TASK_OWNER_KEY = "agenticos:task:owner:{task_id}"
 TASK_OWNER_TTL_SECONDS = 24 * 60 * 60
+
+# 任务注册表（运维台）：提交时记录 元数据 + 时间序索引，供列表/重试/队列深度。
+# 审计写入类任务是高频日志投递，不是运维关注的重计算作业，不入索引。
+TASK_META_KEY = "agenticos:task:meta:{task_id}"
+TASK_INDEX_KEY = "agenticos:task:index"
+TASK_META_TTL_SECONDS = 7 * 24 * 60 * 60
+TASK_INDEX_MAX_ENTRIES = 500
+_TASKS_NOT_IN_INDEX = frozenset({"write_audit_log_task", "purge_audit_logs_task"})
 
 
 # ---------------------------------------------------------------------------
@@ -395,40 +403,6 @@ async def build_website_task(
 # ---------------------------------------------------------------------------
 
 
-def _redis_settings_from_url():
-    """**已废弃**：arq 专用的 RedisSettings，保留仅为兼容旧引用。
-
-    队列已迁到 taskiq（见 ``task_queue_taskiq.py``），它原生支持 Redis
-    Cluster。这里保留函数名避免外部脚本 import 失败，但不再使用。
-    """
-    from app.services.task_queue_taskiq import _queue_url
-
-    return _queue_url()
-
-
-class WorkerSettings:
-    """**已废弃**：arq worker 配置。
-
-    队列已迁到 taskiq —— arq 在 Redis Cluster 上无解（普通客户端 MOVED、
-    RedisCluster 拒绝事务）。worker 启动命令改为：
-
-        taskiq worker app.services.task_queue:taskiq_broker --workers 1
-
-    ``WorkerSettings`` 保留仅为兼容旧的部署脚本引用，不再使用。
-    """
-
-    functions = [
-        export_pptx_task,
-        compile_document_task,
-        build_website_task,
-        write_audit_log_task,
-        purge_audit_logs_task,
-        scan_knowledge_conflicts_task,
-        refresh_llm_provider_cookies_task,
-        send_annual_wrapped_task,
-    ]
-
-
 # ---------------------------------------------------------------------------
 # taskiq broker + 任务注册
 # ---------------------------------------------------------------------------
@@ -534,21 +508,13 @@ CRON_SCHEDULES = (
 
 
 async def get_broker():
-    """获取 taskiq broker（单例，异步启动）。
-
-    保留 ``get_arq_pool`` 的名字给旧调用方；返回的对象支持 ``set/get``
-    （通过 ``broker.result_backend``）以满足历史代码里的归属记录读写。
-    """
+    """获取 taskiq broker（单例，异步启动）。"""
     from app.services import task_queue_taskiq
 
     return await task_queue_taskiq.get_broker()
 
 
-#: 兼容别名（旧代码 / 脚本可能引用）
-get_arq_pool = get_broker
-
-
-async def close_arq_pool() -> None:
+async def close_queue() -> None:
     """关闭队列连接（供优雅关闭时调用）。"""
     from app.services import task_queue_taskiq
 
@@ -581,6 +547,13 @@ async def submit_ppt_export(
     # 记录归属：worker 侧据此校验产物归属，状态查询侧据此拒绝跨用户读取
     if user_id is not None:
         await _set_owner(task.task_id, user_id)
+    await record_task_submission(
+        task.task_id, "export_pptx_task",
+        {"artifact_id": artifact_id, "canvas_format": canvas_format, "theme": theme,
+         "use_native_shapes": use_native_shapes, "use_compat_mode": use_compat_mode,
+         "transition": transition, "animation": animation, "enable_notes": enable_notes},
+        user_id=user_id,
+    )
     return task.task_id
 
 
@@ -593,6 +566,10 @@ async def submit_document_compilation(
         document_id=document_id,
         knowledge_base_id=knowledge_base_id,
     )
+    await record_task_submission(
+        task.task_id, "compile_document_task",
+        {"document_id": document_id, "knowledge_base_id": knowledge_base_id},
+    )
     return task.task_id
 
 
@@ -601,6 +578,9 @@ async def submit_website_build(
 ) -> str:
     """提交网站构建任务，返回 task_id"""
     task = await build_website.kiq(project_path=project_path)
+    await record_task_submission(
+        task.task_id, "build_website_task", {"project_path": project_path},
+    )
     return task.task_id
 
 
@@ -639,6 +619,174 @@ async def _get_owner(task_id: str) -> Optional[str]:
         return await get_redis().get(TASK_OWNER_KEY.format(task_id=task_id))
     except Exception:  # noqa: BLE001
         return None
+
+
+# ---------------------------------------------------------------------------
+# 任务注册表（运维台：列表 / 队列深度 / 重试）
+# ---------------------------------------------------------------------------
+
+
+async def record_task_submission(
+    task_id: str,
+    name: str,
+    kwargs: dict,
+    *,
+    user_id: Optional[int] = None,
+) -> None:
+    """提交时登记任务元数据 + 时间序索引。写失败不影响投递。"""
+    if name in _TASKS_NOT_IN_INDEX:
+        return
+    try:
+        import json as _json
+        import time as _time
+
+        from app.core.redis import get_redis
+
+        redis = get_redis()
+        now = _time.time()
+        meta = {
+            "task_id": task_id,
+            "name": name,
+            "submitted_at": now,
+            "user_id": user_id,
+            "kwargs_json": _json.dumps(kwargs, ensure_ascii=False, default=str)[:4000],
+        }
+        pipe = redis.pipeline(transaction=False)
+        # redis-py asyncio 的 pipeline 命令方法是同步的，只有 execute 需要 await
+        pipe.hset(TASK_META_KEY.format(task_id=task_id), mapping={k: str(v) for k, v in meta.items()})
+        pipe.expire(TASK_META_KEY.format(task_id=task_id), TASK_META_TTL_SECONDS)
+        pipe.zadd(TASK_INDEX_KEY, {task_id: now})
+        # 有界：超出上限按时间淘汰最旧的
+        pipe.zremrangebyrank(TASK_INDEX_KEY, 0, -(TASK_INDEX_MAX_ENTRIES + 1))
+        await pipe.execute()
+    except Exception:  # noqa: BLE001
+        logger.warning("登记任务元数据失败 task_id=%s name=%s", task_id, name, exc_info=True)
+
+
+async def get_task_meta(task_id: str) -> Optional[dict]:
+    try:
+        from app.core.redis import get_redis
+
+        raw = await get_redis().hgetall(TASK_META_KEY.format(task_id=task_id))
+        if not raw:
+            return None
+        meta = {k.decode() if isinstance(k, bytes) else k: v for k, v in raw.items()}
+        decode = lambda v: v.decode() if isinstance(v, bytes) else v  # noqa: E731
+        return {
+            "task_id": decode(meta.get("task_id")) or task_id,
+            "name": decode(meta.get("name")) or "unknown",
+            "submitted_at": float(meta.get("submitted_at") or 0),
+            "user_id": int(meta.get("user_id")) if meta.get("user_id") not in (None, "", "None") else None,
+            "kwargs_json": decode(meta.get("kwargs_json")) or "{}",
+        }
+    except Exception:  # noqa: BLE001
+        logger.warning("读取任务元数据失败 task_id=%s", task_id, exc_info=True)
+        return None
+
+
+async def list_queue_tasks(
+    *,
+    limit: int = 50,
+    status_filter: Optional[str] = None,
+    name_filter: Optional[str] = None,
+) -> dict:
+    """运维台任务列表：按提交时间倒序，逐个补当前状态。
+
+    status_filter 取值 pending / completed / failed / unknown（服务端过滤，
+    避免前端拉全量）。name_filter 子串匹配任务名。
+    """
+    import json as _json
+    import time as _time
+
+    from app.core.redis import get_redis
+
+    redis = get_redis()
+    try:
+        ids = await redis.zrevrange(TASK_INDEX_KEY, 0, TASK_INDEX_MAX_ENTRIES - 1)
+    except Exception:  # noqa: BLE001
+        logger.warning("读取任务索引失败（Redis 不可用？）", exc_info=True)
+        return {"items": [], "total_indexed": 0}
+
+    now = _time.time()
+    items: list[dict] = []
+    total_indexed = len(ids)
+    for raw_id in ids:
+        task_id = raw_id.decode() if isinstance(raw_id, bytes) else raw_id
+        meta = await get_task_meta(task_id)
+        if meta is None:
+            continue
+        if name_filter and name_filter.lower() not in meta["name"].lower():
+            continue
+        result = await get_task_status(task_id)
+        item = {
+            **meta,
+            "kwargs": _json.loads(meta["kwargs_json"]) if meta["kwargs_json"] else {},
+            "status": result.status,
+            "error": result.error,
+            "age_seconds": int(now - meta["submitted_at"]) if meta["submitted_at"] else None,
+        }
+        items.append(item)
+    if status_filter:
+        items = [t for t in items if t["status"] == status_filter]
+    items.sort(key=lambda t: t["submitted_at"], reverse=True)
+    return {"items": items[:limit], "total_indexed": total_indexed}
+
+
+async def queue_stats() -> dict:
+    """队列深度 + 近期任务状态分布（运维台顶栏用）。"""
+
+    from app.core.redis import get_redis
+
+    stats: dict = {"broker": "taskiq", "queue_depth": None, "recent": {}}
+    try:
+        redis = get_redis()
+        # 队列深度：taskiq-redis stream broker 的默认 stream key
+        try:
+            depth = 0
+            for key in ("taskiq", "taskiq:message", "agenticos:taskiq"):
+                try:
+                    depth += int(await redis.xlen(key) or 0)
+                except Exception:  # noqa: BLE001
+                    continue
+            stats["queue_depth"] = depth
+        except Exception:  # noqa: BLE001
+            stats["queue_depth"] = None
+    except Exception:  # noqa: BLE001
+        pass
+
+    listing = await list_queue_tasks(limit=TASK_INDEX_MAX_ENTRIES)
+    counts: dict[str, int] = {}
+    for t in listing["items"]:
+        counts[t["status"]] = counts.get(t["status"], 0) + 1
+    stats["recent"] = counts
+    stats["recent_window"] = TASK_INDEX_MAX_ENTRIES
+    return stats
+
+
+async def retry_task(task_id: str, *, user_id: Optional[int] = None) -> dict:
+    """按登记的 kwargs 重新投递同名任务，返回新 task_id。
+
+    只允许重试已登记的任务；审计写入类任务不在索引里天然不可重试。
+    """
+    meta = await get_task_meta(task_id)
+    if meta is None:
+        raise KeyError("任务不存在或元数据已过期")
+    name = meta["name"]
+    task_fn = _registered.get(name)
+    if task_fn is None:
+        raise KeyError(f"未注册的任务名: {name}")
+
+    import json as _json
+
+    kwargs = _json.loads(meta["kwargs_json"]) if meta["kwargs_json"] else {}
+    kwargs.pop("user_id", None)
+    task = await task_fn.kiq(**kwargs)
+    await record_task_submission(
+        task.task_id, name, kwargs,
+        user_id=user_id if user_id is not None else meta.get("user_id"),
+    )
+    logger.info("任务重试已投递 origin=%s new=%s name=%s", task_id, task.task_id, name)
+    return {"origin_task_id": task_id, "task_id": task.task_id, "name": name}
 
 
 async def get_task_status(

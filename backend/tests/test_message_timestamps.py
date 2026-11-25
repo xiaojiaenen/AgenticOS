@@ -18,7 +18,6 @@
 """
 from __future__ import annotations
 
-import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -29,7 +28,7 @@ class TestTimestampAttachedToMessage:
         """落库的时间必须挂到对应消息的 metadata 上。"""
         from app.db.models import AgentMessageModel
         from app.services.session_storage import DatabaseAgentStorage
-        from wuwei.llm import Message
+        from app.services.agent.native.types import BaseMessage as Message
 
         sid = "ts-test-session"
         payload = Message.model_validate({'role': 'user', 'content': '你好'}).model_dump_json()
@@ -56,7 +55,7 @@ class TestTimestampAttachedToMessage:
         """中间有无法反序列化的行时，后面的消息时间仍然正确（不错位）。"""
         from app.db.models import AgentMessageModel
         from app.services.session_storage import DatabaseAgentStorage
-        from wuwei.llm import Message
+        from app.services.agent.native.types import BaseMessage as Message
 
         sid = "ts-skip-session"
         _ensure_session(db_session, sid)
@@ -117,7 +116,7 @@ class TestTimestampAttachedToMessage:
         """
         from app.db.models import AgentMessageModel
         from app.services.session_storage import DatabaseAgentStorage
-        from wuwei.llm import Message
+        from app.services.agent.native.types import BaseMessage as Message
         import asyncio
 
         sid = "ts-system-session"

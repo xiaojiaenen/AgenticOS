@@ -97,11 +97,18 @@ def init_db() -> None:
 def _apply_pending_migrations() -> None:
     """启动时应用 alembic 迁移，消除「代码加了字段、库没跑迁移」的漂移。
 
-    - 库里还没有 ``alembic_version``（全新库，create_all 已建全量 schema）
-      → ``stamp head`` 做基线对齐；
+    - 库里还没有 ``alembic_version``（全新库，create_all 已建全量表结构）
+      → stamp 到 **head 的前一版**再 ``upgrade head``。原因：create_all
+      只建表，**扩展/索引等非表 DDL 不会建**（如 0027 的 pg_trgm 扩展与
+      GIN 索引）——原实现直接 ``stamp head`` 会让全新 PG 库悄悄缺索引。
+      仓库纪律要求所有迁移以 inspect / IF EXISTS 守卫，对已存在的
+      schema 幂等，所以尾部重放是安全的。
     - 已有版本表 → ``upgrade head``，把缺失的列/索引补上。
 
-    失败只记错误日志、不阻断启动：迁移是运维动作，晚一步补也比整个服务起不来强。
+    失败处理（横切 P0，系统改造总方案 9.4）：**生产环境阻断启动** ——
+    「代码加字段、库没加列」的漂移在多实例滚动发布下会直接产生运行时
+    500，宁可起不来也要暴露；开发环境保持只记日志（迁移是运维动作，
+    晚一步补也比开发机整个服务起不来强）。
     """
     try:
         from alembic import command
@@ -117,14 +124,37 @@ def _apply_pending_migrations() -> None:
             command.upgrade(cfg, "head")
             logger.info("alembic: upgrade head applied")
         else:
-            command.stamp(cfg, "head")
-            logger.info("alembic: stamped head on fresh database")
-    except Exception:  # noqa: BLE001 -- 迁移失败不阻断启动
+            # 全新库：create_all 已按当前模型建好全部表，但**扩展/索引等
+            # 非表 DDL 不会建**（如 0027 的 pg_trgm）。仓库纪律要求迁移以
+            # inspect/IF EXISTS 守卫、对既有 schema 幂等，所以从**空版本表**
+            # 跑全链是安全的 —— 每个迁移都能真正执行（表类迁移会被守卫跳过）。
+            # 若某个迁移在重放中报错（守卫缺失的历史脚本），兜底退回
+            # 「stamp head」的基线对齐，并显眼告警。
+            try:
+                command.upgrade(cfg, "head")
+                logger.info("alembic: fresh database upgraded from scratch to head")
+            except Exception:
+                logger.warning(
+                    "全新库迁移重放失败（存在无守卫的历史脚本？），回退 stamp head 基线对齐",
+                    exc_info=True,
+                )
+                command.stamp(cfg, "head")
+    except Exception:
+        if _is_production_env():
+            raise
         logger.error(
             "启动自动迁移失败，库结构可能与代码不一致；"
             "请手动执行 `python -m alembic upgrade head`",
             exc_info=True,
         )
+
+
+def _is_production_env() -> bool:
+    """当前是否生产环境（决定迁移失败是否阻断启动）。"""
+    try:
+        return (get_settings().environment or "").lower() in {"production", "prod"}
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def _seed_ldap_enabled() -> None:

@@ -130,9 +130,9 @@ class TestDefaultApprovalModeIsAuto:
         assert sig.parameters["plan_mode"].default is False
 
     def test_hitl_middleware_defaults_to_auto(self):
-        from app.services.agent.factory import LenientHitlMiddleware
+        from app.services.agent.langgraph_engine.tools_adapter import EngineApprovalPolicy
 
-        sig = inspect.signature(LenientHitlMiddleware.__init__)
+        sig = inspect.signature(EngineApprovalPolicy.__init__)
         assert sig.parameters["approval_mode"].default == "auto"
 
 
@@ -157,9 +157,9 @@ def test_agent_cache_key_includes_approval_mode():
     """审批档位必须进 Agent 缓存键，否则切档后复用的仍是旧 agent。
 
     实测故障：默认 ask 档构建了 agent 并缓存，第二轮在界面切「全部放行」
-    后，缓存键不含 approval_mode → 复用旧 agent（中间件栈里的
-    LenientHitlMiddleware 在构建时就把 auto_approve 固化了）—— 文件工具
-    照样弹审批、超时被拒，界面显示已切档但实际没生效。
+    后，缓存键不含 approval_mode → 复用旧 agent（审批策略在构建时就把
+    auto_approve 固化了）—— 文件工具照样弹审批、超时被拒，界面显示已切档
+    但实际没生效。
 
     这个测试用源码检查（缓存键是函数内的局部变量，无法直接取），
     锁住三个必须参与的字段。

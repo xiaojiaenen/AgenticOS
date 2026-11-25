@@ -16,8 +16,7 @@ from pathlib import Path
 sys.path.insert(0, ".")
 os.environ.setdefault("AUTH_SECRET_KEY", "test-secret-1234567890abcdef")
 
-import pytest  # noqa: E402
-from wuwei.core.message import HumanMessage, ImagePart  # noqa: E402
+from app.services.agent.native.types import HumanMessage, ImagePart  # noqa: E402
 
 from app.schemas.agent import AgentStreamRequest, FileAttachment  # noqa: E402
 from app.services.agent.orchestrator import StreamOrchestrator, _MAX_IMAGES_PER_TURN  # noqa: E402

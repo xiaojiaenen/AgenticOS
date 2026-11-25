@@ -54,7 +54,7 @@ POLISH_SYSTEM_PROMPT = """你是一个提示词改写器。用户会给你一句
 
 def build_polish_messages(raw_text: str) -> list[Any]:
     """构造润色请求的消息列表（便于单测断言提示词约定）。"""
-    from wuwei.core.message import HumanMessage, SystemMessage
+    from app.services.agent.native.types import HumanMessage, SystemMessage
 
     return [
         SystemMessage(content=POLISH_SYSTEM_PROMPT),

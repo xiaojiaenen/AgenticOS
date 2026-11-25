@@ -2,6 +2,8 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints.announcements import router as announcements_router
 from app.api.v1.endpoints.agent import router as agent_router
+from app.api.v1.endpoints.app_platform import router as app_platform_router
+from app.api.v1.endpoints.admin_ops import router as admin_ops_router
 from app.api.v1.endpoints.agent_profiles import router as agent_profiles_router
 from app.api.v1.endpoints.api_keys import router as api_keys_router
 from app.api.v1.endpoints.auth import router as auth_router
@@ -31,12 +33,13 @@ from app.api.v1.endpoints.users import router as users_router
 from app.api.v1.endpoints.website import router as website_router
 from app.api.v1.endpoints.website_preview import router as website_preview_router
 from app.api.v1.endpoints.website import admin_router as website_admin_router
-from app.api.v1.endpoints.workflows import router as workflows_router
 from app.api.v1.endpoints.wrapped import router as wrapped_router
 from app.api.v1.endpoints.wrapped import admin_router as wrapped_admin_router
 
 router = APIRouter()
 router.include_router(announcements_router)
+router.include_router(admin_ops_router)
+router.include_router(app_platform_router)
 router.include_router(agent_router)
 router.include_router(agent_profiles_router)
 router.include_router(api_keys_router)
@@ -67,6 +70,5 @@ router.include_router(users_router)
 router.include_router(website_router)
 router.include_router(website_preview_router)
 router.include_router(website_admin_router)
-router.include_router(workflows_router)
 router.include_router(wrapped_router)
 router.include_router(wrapped_admin_router)

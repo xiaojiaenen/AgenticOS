@@ -298,12 +298,13 @@ export function useChatStream({
   const handleApprovalDecision = useCallback(
     async (
       approvalId: string,
-      status: 'approved' | 'rejected',
+      status: 'approved' | 'rejected' | 'respond',
       isApiApproval?: boolean,
       allowAll?: boolean,
       modifiedArguments?: Record<string, unknown>,
+      response?: string,
     ) => {
-      const optimisticStatus = status === 'approved' ? 'approved' : 'rejected';
+      const optimisticStatus = status === 'approved' ? 'approved' : status === 'respond' ? 'responded' : 'rejected';
       const rollbackResult =
         '审批提交失败，已恢复待审批状态。请重试或检查后端服务。';
 
@@ -323,7 +324,9 @@ export function useChatStream({
                         ? allowAll
                           ? '已全部允许，本次会话不再询问。'
                           : '审批已通过，等待工具执行。'
-                        : '审批已拒绝，工具不会执行。',
+                        : status === 'respond'
+                          ? '已代答，答案将回传给 AI。'
+                          : '审批已拒绝，工具不会执行。',
                   }
                 : tool,
             ),
@@ -339,8 +342,13 @@ export function useChatStream({
           await submitApprovalDecision(
             approvalId,
             status,
-            status === 'approved' ? 'approved from AgenticOS UI' : 'rejected from AgenticOS UI',
+            status === 'approved'
+              ? 'approved from AgenticOS UI'
+              : status === 'respond'
+                ? 'responded from AgenticOS UI'
+                : 'rejected from AgenticOS UI',
             modifiedArguments,
+            response,
           );
         }
       } catch (err) {
@@ -494,7 +502,24 @@ export function useChatStream({
           }
         });
 
-        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+        // 等一帧让界面先渲染消息（乐观更新落屏）再发起请求。
+        // 注意 rAF 在后台/被遮挡的标签页会饿死（浏览器暂停合成帧）——
+        // 只等 rAF 会把整轮流卡死在发送前（表现：一直"正在思考"、连请求
+        // 都没发出）。350ms 兜底保证任何窗口状态下发送都能落地。
+        await new Promise<void>((resolve) => {
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timer);
+            resolve();
+          };
+          const rafId = window.requestAnimationFrame(done);
+          const timer = window.setTimeout(() => {
+            window.cancelAnimationFrame(rafId);
+            done();
+          }, 350);
+        });
 
         // 注册活跃流会话（含可能的后端重命名）
         if (targetId) {

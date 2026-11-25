@@ -1,125 +1,144 @@
-"""ObservableCompressionMiddleware 测试。
+"""上下文压缩可观测性回归（原 ObservableCompressionMiddleware 语义移植）。
 
-核心契约：**行为必须与上游完全一致**（冷却、阈值、切分都不变），
-只是多了日志。所以除了断言日志，还要断言压缩/不压缩的结果与上游相同。
+原 wuwei ObservableCompressionMiddleware 的三个可观测性语义全部保留在
+``native/context_compression.py`` 的 ``ContextCompressor``：
+
+1. 压缩行为与上游一致（protect head/tail、tool 配对保护、去重）；
+2. 摘要失败 → WARNING（含异常类型，同一异常节流）；
+3. 真正压缩成功 → INFO（压缩前后条数与估算 token）。
 """
-from __future__ import annotations
 
-import logging
+from __future__ import annotations
 
 import pytest
 
-from wuwei.core.message import AIMessage, HumanMessage, SystemMessage
-from wuwei.graph.state import State
-from wuwei.middleware import ContextCompressionMiddleware, MiddlewareContext
-
-from app.services.agent.compression import ObservableCompressionMiddleware
-
-
-class _SummaryLLM:
-    """generate 返回带 message.content 的响应（wuwei LLMResponse 形态）。"""
-
-    def __init__(self, *, fail: bool = False) -> None:
-        self.fail = fail
-
-    async def generate(self, messages=None, **kw):
-        if self.fail:
-            raise RuntimeError("429 quota exceeded")
-
-        class _Msg:
-            content = "## Resolved\n- 历史摘要"
-
-        class _R:
-            message = _Msg()
-
-        return _R()
+from app.services.agent.native.context_compression import ContextCompressor
+from app.services.agent.native.types import (
+    AIMessage,
+    HumanMessage,
+    ToolMessage,
+)
 
 
-def _long_msgs(n: int) -> list:
-    msgs = [SystemMessage(content="你是助手")]
-    for i in range(n):
-        msgs.append(HumanMessage(content=f"第{i}轮。" + "中文内容" * 60))
-        msgs.append(AIMessage(content="OK"))
+def _make_compressor(trigger=200, keep=2, llm=None) -> ContextCompressor:
+    return ContextCompressor(llm=llm, trigger_tokens=trigger, keep_recent_turns=keep, max_tokens=128000)
+
+
+def _long_history(turns=8):
+    """构造超长历史（超过 200 token 触发阈值）。"""
+    msgs = [HumanMessage(content="系统提示词占位")]
+    for i in range(turns):
+        msgs.append(HumanMessage(content=f"第 {i} 轮用户消息，包含一些中文内容来推高 token 估算值。"))
+        msgs.append(AIMessage(content=f"第 {i} 轮助手回复，同样包含足量的中文文本内容来推高估算。"))
     return msgs
 
 
-def _ctx(msgs) -> MiddlewareContext:
-    # config 里给 model_call=None 会走 self.llm.generate 分支
-    return MiddlewareContext(state=State(messages=list(msgs)), config={"session": None})
+class _FakeSession:
+    def __init__(self):
+        self.metadata = {}
 
 
-@pytest.mark.asyncio
-async def test_compresses_like_upstream() -> None:
-    """成功路径：与上游一样把超长上下文压短。"""
-    upstream = ContextCompressionMiddleware(
-        llm=_SummaryLLM(), trigger_tokens=100, keep_recent_turns=2, max_tokens=128000
-    )
-    ours = ObservableCompressionMiddleware(
-        llm=_SummaryLLM(), trigger_tokens=100, keep_recent_turns=2, max_tokens=128000
-    )
-    msgs = _long_msgs(12)
+class _FakeLLM:
+    """可脚本化的 LLM 替身。"""
 
-    up_out = await upstream.before_llm(_ctx(msgs))
-    our_out = await ours.before_llm(_ctx(msgs))
+    def __init__(self, summary="## Resolved\n- done", fail=False):
+        self.summary = summary
+        self.fail = fail
+        self.calls = 0
 
-    assert len(up_out.state.messages) < len(msgs), "上游对照组应压缩"
-    assert len(our_out.state.messages) == len(up_out.state.messages), (
-        "子类压缩结果必须与上游一致 —— 只加日志，不改行为"
-    )
+    async def generate(self, messages, tools=None, stream=False, **kwargs):
+        self.calls += 1
+        if self.fail:
+            raise RuntimeError("provider throttled")
+        from types import SimpleNamespace
+
+        return SimpleNamespace(message=SimpleNamespace(content=self.summary))
 
 
-@pytest.mark.asyncio
-async def test_failure_is_logged(caplog) -> None:
-    """摘要失败必须有 WARNING —— 这是本模块存在的意义。
-
-    实测发现上游 _generate_structured_summary 自己就把异常吞了并返回 None，
-    所以子类通常走的是「摘要为空」分支而不是异常分支。两个分支都要有日志，
-    测试同时接受这两种形态 —— 关键是**绝不能静默**。
-    """
-    mw = ObservableCompressionMiddleware(
-        llm=_SummaryLLM(fail=True), trigger_tokens=100, keep_recent_turns=2, max_tokens=128000
-    )
-    with caplog.at_level(logging.WARNING, logger="agenticos.context_compression"):
-        out = await mw.before_llm(_ctx(_long_msgs(12)))
-
-    # 行为仍与上游一致：失败 → 不压缩、不抛异常
-    assert len(out.state.messages) == 25
-    text = caplog.text
-    assert ("摘要生成失败" in text) or ("摘要为空" in text), (
-        f"上游吞异常时应命中「摘要为空」告警，实际日志：{text[:300]!r}"
-    )
+# ── 压缩行为 ──────────────────────────────────────────────────────────
 
 
-@pytest.mark.asyncio
-async def test_success_logs_info(caplog) -> None:
-    """压缩成功要有 INFO（前后条数与 token 估算）。"""
-    mw = ObservableCompressionMiddleware(
-        llm=_SummaryLLM(), trigger_tokens=100, keep_recent_turns=2, max_tokens=128000
-    )
-    with caplog.at_level(logging.INFO, logger="agenticos.context_compression"):
-        await mw.before_llm(_ctx(_long_msgs(12)))
-    assert "上下文已压缩" in caplog.text
+@pytest.mark.anyio
+async def test_compresses_long_history():
+    """超阈值历史被压缩：条数变少、摘要消息出现。"""
+    compressor = _make_compressor()
+    llm = _FakeLLM(summary="## Active Task\n测试任务")
+    history = _long_history()
+    session = _FakeSession()
+
+    result = await compressor.compress_if_needed_full(history, session, llm)
+    assert len(result) < len(history), "压缩后条数应减少"
+    assert any(m.role == "system" and "Active Task" in m.content for m in result), "摘要以 system 角色注入"
+    assert llm.calls == 1
 
 
-@pytest.mark.asyncio
-async def test_below_trigger_untouched() -> None:
-    """未超阈值时不能动消息 —— 与上游一致。"""
-    mw = ObservableCompressionMiddleware(
-        llm=_SummaryLLM(), trigger_tokens=10_000_000, keep_recent_turns=2, max_tokens=128000
-    )
-    msgs = _long_msgs(3)
-    out = await mw.before_llm(_ctx(msgs))
-    assert len(out.state.messages) == len(msgs)
+@pytest.mark.anyio
+async def test_below_trigger_untouched():
+    """低于阈值的历史原样返回（零 LLM 调用）。"""
+    compressor = _make_compressor(trigger=999_999)
+    llm = _FakeLLM()
+    history = _long_history()
+    result = await compressor.compress_if_needed_full(history, _FakeSession(), llm)
+    assert result == history
+    assert llm.calls == 0
 
 
-def test_factory_uses_observable_middleware() -> None:
-    """装配处必须用带日志的子类。"""
+@pytest.mark.anyio
+async def test_tool_pair_not_cut_midway():
+    """切分点不在 tool_call 配对中间（保护逻辑移植）。"""
+    compressor = _make_compressor(trigger=200, keep=2)
+    llm = _FakeLLM(summary="## Active Task\nx")
+    history = [HumanMessage(content="开头占位消息，内容足够长以推高估算值。")]
+    from app.services.agent.native.types import FunctionCall, ToolCall
+
+    ai = AIMessage(content="", tool_calls=[
+        ToolCall(id="call-1", function=FunctionCall(name="t", arguments={}))
+    ])
+    history.append(ai)
+    history.append(ToolMessage(content="result-1", tool_call_id="call-1", name="t"))
+    for i in range(6):
+        history.append(HumanMessage(content=f"后续消息 {i}，中文内容足够长。"))
+        history.append(AIMessage(content=f"后续回复 {i}，中文内容足够长。"))
+    session = _FakeSession()
+
+    result = await compressor.compress_if_needed_full(history, session, llm)
+    tool_ids = {m.tool_call_id for m in result if m.role == "tool"}
+    declared = {tc.id for m in result if m.role == "assistant" for tc in m.tool_calls}
+    assert tool_ids <= declared, "tool 结果不能成为孤立结果"
+
+
+# ── 可观测性 ──────────────────────────────────────────────────────────
+
+
+@pytest.mark.anyio
+async def test_failure_is_logged(caplog):
+    """摘要失败 → WARNING（含异常类型；原 ObservableCompression 语义移植）。"""
+    compressor = _make_compressor()
+    llm = _FakeLLM(fail=True)
+    with caplog.at_level("WARNING", logger="agenticos.context_compression"):
+        result = await compressor.compress_if_needed_full(_long_history(), _FakeSession(), llm)
+    assert any("摘要生成失败" in r.message for r in caplog.records)
+
+
+@pytest.mark.anyio
+async def test_success_logs_info(caplog):
+    """压缩成功 → INFO（含压缩前后条数）。"""
+    compressor = _make_compressor()
+    llm = _FakeLLM(summary="## Active Task\nx")
+    with caplog.at_level("INFO", logger="agenticos.context_compression"):
+        await compressor.compress_if_needed_full(_long_history(), _FakeSession(), llm)
+    assert any("上下文已压缩" in r.message for r in caplog.records)
+
+
+# ── factory 装配 ──────────────────────────────────────────────────────
+
+
+def test_factory_uses_compressor():
+    """factory 在 context_compression_enabled 时构建 ContextCompressor（装配面验证）。"""
     import inspect
 
-    from app.services.agent import factory
+    from app.services.agent.factory import AgentFactory
 
-    src = inspect.getsource(factory)
-    assert "ObservableCompressionMiddleware(" in src
-    assert "stack.add(ContextCompressionMiddleware(" not in src, (
-        "factory 仍在直接装配上游基类 —— 摘要失败会继续静默"
-    )
+    src = inspect.getsource(AgentFactory._get_agent)
+    assert "ContextCompressor" in src
+    assert "context_compression_enabled" in src

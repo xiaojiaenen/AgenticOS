@@ -92,7 +92,7 @@ _MODE_TOOL_REGISTRARS: dict[str, list[tuple[str, str]]] = {
 
 def _register_names(registrars: list[tuple[str, str]]) -> set[str]:
     """真的执行一遍 registrar，返回它注册的工具名。失败返回空集（不阻断其它）。"""
-    from wuwei.tools import ToolRegistry
+    from app.services.agent.native.tool_registry import ToolRegistry
 
     names: set[str] = set()
     for module_path, func_name in registrars:
@@ -120,7 +120,7 @@ def discover_global_tools() -> set[str]:
 
 def _discover_all_mode_tools() -> dict[str, set[str]]:
     """从各 mode 的 registrar 函数中自动发现工具名。返回 {mode: {tool_name, ...}}。"""
-    from wuwei.tools import ToolRegistry
+    from app.services.agent.native.tool_registry import ToolRegistry
     result: dict[str, set[str]] = {}
     for mode, registrars in _MODE_TOOL_REGISTRARS.items():
         tools: set[str] = set()

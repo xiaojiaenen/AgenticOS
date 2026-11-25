@@ -151,7 +151,10 @@ async def list_workspace(
     if not root.is_dir():
         return {"path": "", "entries": [], "root_exists": False}
 
-    target = (root / path).resolve() if path else root
+    # 反斜杠在 POSIX 上是合法文件名字符，但部署到 Windows（或经 SMB 挂载）
+    # 时就是分隔符 —— 统一按分隔符归一后再做穿越校验（纵深防御）。
+    normalized = path.replace("\\", "/") if path else path
+    target = (root / normalized).resolve() if normalized else root
     # 防目录穿越：target 必须是 root 本身或它的子孙
     if target != root and root not in target.parents:
         raise HTTPException(status_code=400, detail="非法的路径")
