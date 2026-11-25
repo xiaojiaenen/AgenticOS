@@ -133,12 +133,18 @@ async def test_success_logs_info(caplog):
 # ── factory 装配 ──────────────────────────────────────────────────────
 
 
-def test_factory_uses_compressor():
-    """factory 在 context_compression_enabled 时构建 ContextCompressor（装配面验证）。"""
+def test_factory_uses_deepagents_summarization():
+    """context_compression_enabled 时绑定 DeepAgents backend（内置 summarization 落盘）。
+
+    彻底替换后：自研 ContextCompressor 保留为算法单元（上面的单测覆盖），
+    factory 装配的是 DeepAgents FilesystemBackend —— 内置 SummarizationMiddleware
+    把裁剪历史写进 backend 的 conversation_history/。
+    """
     import inspect
 
     from app.services.agent.factory import AgentFactory
 
     src = inspect.getsource(AgentFactory._get_agent)
-    assert "ContextCompressor" in src
-    assert "context_compression_enabled" in src
+    assert "FilesystemBackend" in src, "factory 未绑定 DeepAgents backend"
+    assert "context_compression_enabled" in src, "开关丢失"
+    assert "deepagents_backend" in src, "未把 backend 传给引擎"

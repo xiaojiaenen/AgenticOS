@@ -75,7 +75,13 @@ def lc_to_native_messages(messages: list[BaseMessage]) -> list[Any]:
                 )
             )
         elif msg.type == "system":
-            out.append(NativeSystemMessage(content=_content_to_str(msg.content)))
+            content = _content_to_str(msg.content)
+            # DeepAgents 会在状态里注入一条空的 base system 消息（未传
+            # system_prompt 时为空串）。跳过它，避免它占据 messages[0]
+            # 把真实 system prompt 挤到第二位（SSE 契约测试锁 messages[0]）。
+            if not content.strip():
+                continue
+            out.append(NativeSystemMessage(content=content))
         else:  # human / 未知 → user
             out.append(NativeHumanMessage(content=_content_to_str(msg.content)))
     return out

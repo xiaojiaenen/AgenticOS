@@ -107,7 +107,46 @@ def message_to_openai(message: BaseMessage) -> dict[str, Any]:
 def tools_to_openai(tools: list[Tool] | None) -> list[dict] | None:
     if not tools:
         return None
-    return [tool.to_schema() for tool in tools]
+    out: list[dict] = []
+    for tool in tools:
+        # DeepAgents 内置工具（filesystem / skills / task）是 LangChain
+        # StructuredTool，没有 to_schema()，但能给出 OpenAI function schema。
+        if hasattr(tool, "to_schema"):
+            out.append(tool.to_schema())
+            continue
+        if isinstance(tool, dict) and "type" in tool:
+            out.append(tool)  # 已经是 OpenAI schema
+            continue
+        schema = getattr(tool, "schema", None) or getattr(tool, "args_schema", None)
+        if schema is not None:
+            try:
+                if hasattr(schema, "model_json_schema"):
+                    params = schema.model_json_schema()
+                elif callable(schema):
+                    params = schema()
+                else:
+                    params = schema
+            except Exception:  # Pydantic CallableSchema 等不可序列化字段 → 降级
+                params = {"type": "object", "properties": {}}
+            out.append({
+                "type": "function",
+                "function": {
+                    "name": getattr(tool, "name", "unknown"),
+                    "description": getattr(tool, "description", ""),
+                    "parameters": params,
+                },
+            })
+            continue
+        # 兜底：无 schema 的空参数工具
+        out.append({
+            "type": "function",
+            "function": {
+                "name": getattr(tool, "name", "unknown"),
+                "description": getattr(tool, "description", ""),
+                "parameters": {"type": "object", "properties": {}},
+            },
+        })
+    return out
 
 
 def _parse_usage(usage: Any) -> dict[str, int]:
