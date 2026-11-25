@@ -102,7 +102,7 @@ def build_http_client(transport: TransportOptions, *, timeout: float) -> httpx.A
     )
 
 
-def _build_cookie_adapter(
+def _build_cookie_gateway(
     *,
     cookie: str,
     model: str,
@@ -111,91 +111,48 @@ def _build_cookie_adapter(
     timeout: float,
     **default_params: Any,
 ):
-    """带 Cookie 头的 OpenAI 适配器。
+    """带 Cookie 头的原生网关。
 
-    继承 ``HardenedOpenAIAdapter`` 而不是裸 ``OpenAIAdapter``：Cookie 类网关
-    往往是「响应标准、周边不标准」的形态，三处容错对它同样必要。
-
-    **必须走父类的 ``__init__``**（用 ``client=`` 注入点传入自建客户端），
-    不要手写字段赋值。曾经图省事直接写 ``self.client = ...``，
-    结果父类 ``__init__`` 里设置的字段（``supports_reasoning_content`` /
-    ``output_token_parameter`` / ``owns_client`` 等）全部缺失 ——
-    wuwei 3.0.2 的 ``build_request`` 不读这些字段所以一直没暴露，
-    升到 3.2.1 后第一行就 ``AttributeError``。
-
-    父类的字段清单会随上游版本变，手写一份必然会漏。走 ``client=`` 注入点，
-    上游新增什么字段都不用我们管。
+    Cookie 类网关往往是「响应标准、周边不标准」的形态，原生网关的三处容错
+    （usage 收尾帧 / 工具调用收尾纠正 / 宽容解析）对它同样必要 —— 这些语义
+    已内建于 ``NativeLLMGateway``。
     """
     from openai import AsyncOpenAI
 
-    from app.services.llm_providers.adapter import HardenedOpenAIAdapter
+    from app.services.agent.native.gateway import NativeLLMGateway
 
+    http_client = build_http_client(transport, timeout=timeout)
     client = AsyncOpenAI(
         api_key=COOKIE_PLACEHOLDER_API_KEY,
         base_url=base_url,
         default_headers=_request_headers(transport, cookie=cookie),
-        http_client=build_http_client(transport, timeout=timeout),
-        max_retries=transport.max_retries,
+        http_client=http_client,
+        max_retries=0,
         timeout=timeout,
     )
 
-    class CookieAuthAdapter(HardenedOpenAIAdapter):
-        """Cookie 类网关：只换认证方式，其余行为完全继承标准适配器。"""
-
-    return CookieAuthAdapter(
-        api_key=COOKIE_PLACEHOLDER_API_KEY,
-        model=model,
-        base_url=base_url,
-        client=client,
-        owns_client=True,
-        **default_params,
+    return NativeLLMGateway(
+        {
+            "provider": "openai",
+            "model": model,
+            "base_url": base_url,
+            "api_key": COOKIE_PLACEHOLDER_API_KEY,
+            **default_params,
+        },
+        default_headers=_request_headers(transport, cookie=cookie),
+        http_client=http_client,
     )
-
-
-def _new_gateway(config: dict[str, Any]) -> Any:
-    """构造带流式重试的网关（适配器仍是 wuwei 默认的）。"""
-    from app.services.llm_providers.adapter import RetryingGateway
-
-    return RetryingGateway(config, stream_attempts=get_settings().llm_stream_retry_attempts)
 
 
 def _build_gateway(config: dict[str, Any], *, max_retries: int = 0) -> Any:
-    """构造网关并换上加固适配器。
+    """构造原生网关。
 
-    ``LLMGateway`` 内部把适配器硬编码成 ``OpenAIAdapter``（没有注入点），所以在
-    构造后替换 —— 用的是公开属性 ``adapter``，不是私有成员。被替换掉的那个
-    适配器没有发过请求，不会建立连接，直接丢弃即可。
-
-    ``max_retries`` 默认 0：**重试统一交给网关/加固层**。让 SDK 自己也重试一遍，
-    实际次数会变成两层相乘，既不可预期，4xx 时还会白烧配额。
+    重试统一在网关内部（``llm_stream_retry_attempts`` 流式重试 + SDK
+    ``max_retries``），不再分两层相乘。
     """
-    from app.services.llm_providers.adapter import HardenedOpenAIAdapter
+    from app.services.agent.native.gateway import NativeLLMGateway
 
-    gateway = _new_gateway(config)
-    gateway.adapter = HardenedOpenAIAdapter(
-        api_key=config["api_key"],
-        model=config.get("model", ""),
-        base_url=config.get("base_url"),
-        temperature=config.get("temperature", 0.2),
-        max_tokens=config.get("max_tokens", 4096),
-        max_retries=max(0, max_retries),
-        **(
-            {"extra_body": config["extra_body"]}
-            if config.get("extra_body")
-            else {}
-        ),
-        **{
-            key: config[key]
-            for key in ("top_p", "presence_penalty", "frequency_penalty", "seed")
-            if key in config
-        },
-        **(
-            {"output_token_parameter": config["output_token_parameter"]}
-            if config.get("output_token_parameter")
-            else {}
-        ),
-    )
-    return gateway
+    return NativeLLMGateway(config)
 
 
 def _attach_route(
@@ -240,6 +197,13 @@ def build_gateway(
     agent 缓存需要「先借号 → 把 credential_id 放进缓存键 → 再用这个租约构建」
     这样的顺序（换号后缓存要自动失效），所以租约必须能从外面传进来。
     """
+
+    # LiteLLM SDK 旁路 PoC（3B.2）：显式配置 provider_type=litellm 的提供商
+    # 走 SDK 统一调用；主路径（openai_compatible / enterprise_cookie）不变。
+    if spec.provider_type == "litellm":
+        from app.services.llm_providers.litellm_poc import build_litellm_gateway
+
+        return build_litellm_gateway(spec, max_tokens=max_tokens, timeout=timeout, model=model)
 
     transport = resolve_transport(spec.extra)
     resolved_model = (model or spec.model or get_settings().openai_model).strip()
@@ -286,9 +250,7 @@ def build_gateway(
                 "若是刚改过域密码，请退出平台重新登录一次（登录时会自动同步"
                 "新密码并续期 Cookie）；若显示「正在登录企业网关」请稍候重试。"
             )
-        gateway = _new_gateway({**config, "api_key": COOKIE_PLACEHOLDER_API_KEY})
-        # 适配器整体替换，而不是改它的内部属性
-        gateway.adapter = _build_cookie_adapter(
+        _cookie_gw = _build_cookie_gateway(
             cookie=lease.cookie,
             model=resolved_model,
             base_url=spec.base_url,
@@ -314,12 +276,12 @@ def build_gateway(
         # 路由快照：提供商 / 实际模型 / 选中账号。上层记账时读它落审计列，
         # 但**不**用它来归属用量（归属永远是发起请求的用户）。
         _attach_route(
-            gateway,
+            _cookie_gw,
             spec=spec,
             model=resolved_model,
             lease=lease,
         )
-        return gateway
+        return _cookie_gw
 
     if not spec.api_key:
         raise ProviderUnavailable(f"提供商「{spec.name}」未配置 API Key")

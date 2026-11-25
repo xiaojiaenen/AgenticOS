@@ -5,7 +5,7 @@ import re
 import shutil
 from pathlib import Path
 
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 from app.core.data_path import (
     WEBSITES_DIR,
@@ -469,15 +469,21 @@ def register_website_tools(registry: ToolRegistry) -> None:
                 f"或调用 check_website_project 查看所有项目。"
             )
 
-        try:
+        import asyncio
+
+        def _copy_sync() -> list[str]:
             shutil.copytree(source_dir, target_dir)
+            return sorted(
+                str(p.relative_to(target_dir)).replace("\\", "/")
+                for p in target_dir.rglob("*") if p.is_file()
+            )
+
+        # 模板复制是数百文件的同步 I/O，挪出事件循环（横切 P0 9.1）
+        try:
+            files = await asyncio.to_thread(_copy_sync)
         except OSError as e:
             return f"复制失败：{e}"
 
-        files = sorted(
-            str(p.relative_to(target_dir)).replace("\\", "/")
-            for p in target_dir.rglob("*") if p.is_file()
-        )
         file_list = "\n".join(f"  {f}" for f in files)
 
         # Set current website dir so file tools resolve relative paths here
@@ -670,8 +676,16 @@ def register_website_tools(registry: ToolRegistry) -> None:
         # 跑一遍 vite build 只是把同样的文件复制到 dist/。以前不分技术栈一律
         # npm install && npm run build，用户看到「构建中」等几十秒、还要吃
         # 一次 npm 依赖下载失败的风险，收益为零。这里直接就地生成 dist。
-        if _is_vanilla_static(target_dir):
-            return _emit_static_dist(target_dir)
+        import asyncio
+
+        def _vanilla_dist():
+            if _is_vanilla_static(target_dir):
+                return _emit_static_dist(target_dir)
+            return None
+
+        vanilla_result = await asyncio.to_thread(_vanilla_dist)
+        if vanilla_result is not None:
+            return vanilla_result
 
         pkg_json = target_dir / "package.json"
         if not pkg_json.exists():
@@ -709,9 +723,14 @@ def register_website_tools(registry: ToolRegistry) -> None:
 
         # 上一轮如果是被超时杀死的，node_modules 里可能留着半截的原生
         # 二进制（rollup 的 .node 文件实测被截断）。先探测，坏了就清掉重来。
-        stale = _detect_broken_node_modules(target_dir)
+        def _stale_check():
+            stale = _detect_broken_node_modules(target_dir)
+            if stale:
+                _clean_node_modules(target_dir)
+            return stale
+
+        stale = await asyncio.to_thread(_stale_check)
         if stale:
-            _clean_node_modules(target_dir)
             return (
                 f"检测到上次构建残留的损坏依赖（{stale}），已清理 node_modules。\n"
                 f"请重新调用 build_website('{project_slug}') —— 本次会重新安装依赖，"
@@ -725,7 +744,7 @@ def register_website_tools(registry: ToolRegistry) -> None:
         if not install_result.success:
             # 失败/超时都清残留：npm 在被打断后可能认为包已装好而跳过重装，
             # 下一次构建就会命中半截文件。
-            _clean_node_modules(target_dir)
+            await asyncio.to_thread(_clean_node_modules, target_dir)
             hint = (
                 "（已清理 node_modules，重试即可重新安装；"
                 "首次安装约需 1-5 分钟）"
@@ -751,8 +770,8 @@ def register_website_tools(registry: ToolRegistry) -> None:
 
         if not build_result.success:
             # 构建失败也清一次：构建期报错常见于原生模块损坏，留着会一直复现。
-            if _detect_broken_node_modules(target_dir):
-                _clean_node_modules(target_dir)
+            if await asyncio.to_thread(_detect_broken_node_modules, target_dir):
+                await asyncio.to_thread(_clean_node_modules, target_dir)
                 return (
                     f"构建失败：依赖中的原生模块损坏，已清理 node_modules。\n"
                     f"请重新调用 build_website('{project_slug}')。\n"

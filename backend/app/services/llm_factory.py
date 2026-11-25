@@ -52,12 +52,21 @@ def build_llm(
     if resolved_model is None:
         resolved_model = resolve_model_for_role(resolve_active_provider(), role) or None
 
-    return build_gateway_for_active_provider(
+    gateway = build_gateway_for_active_provider(
         max_tokens=max_tokens or settings.agent_max_tokens,
         timeout=timeout or settings.llm_timeout,
         model=resolved_model,
         lease=lease,
     )
+    # 战线 D：OTel 启用时给 LLM 调用打 CLIENT span（provider/model/usage），
+    # 全站唯一 LLM 出口在这里包装即覆盖两个引擎与所有后台任务。
+    try:
+        from app.services.otel_service import instrument_gateway
+
+        gateway = instrument_gateway(gateway)
+    except Exception:  # noqa: BLE001 —— 可观测失败不影响网关构建
+        pass
+    return gateway
 
 
 def build_llm_for_user(

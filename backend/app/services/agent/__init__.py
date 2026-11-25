@@ -11,14 +11,21 @@
 ``_current_session_id`` 等 contextvar 定义保留在该兼容层模块中。
 """
 
-from app.services.agent.service import (
-    AgentService,
-    clear_agent_service_cache,
-    get_agent_service,
-)
+from typing import Any
 
 __all__ = [
     "AgentService",
     "get_agent_service",
     "clear_agent_service_cache",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """惰性导出：避免包初始化时拉起 factory → agent_profile_service →
+    tool_config_service 的循环（tool_config_service 模块级代码会反向
+    import 本包的 native.tool_registry）。"""
+    if name in ("AgentService", "get_agent_service", "clear_agent_service_cache"):
+        from app.services.agent import service as _service
+
+        return getattr(_service, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

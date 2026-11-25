@@ -121,8 +121,14 @@ def explicit_role(
     kb: KnowledgeBaseModel,
     grants: Sequence[KBGrant] = (),
 ) -> str | None:
-    """该用户对知识库的显式角色（owner/admin 视为 admin；无授权返回 None）。"""
-    if user.role == "admin":
+    """该用户对知识库的显式角色（owner/admin 视为 admin；无授权返回 None）。
+
+    「KB admin」统一走 :func:`is_kb_admin`（双轨权限统一，3H 档 A）：
+    platform 管理类角色（admin/superadmin）与持有 ``knowledge:manage``
+    能力的 operator 都是知识库管理员 —— 否则 operator 在这里被当成普通
+    用户，与其角色定义（管知识库）自相矛盾。
+    """
+    if is_kb_admin(user.role):
         return "admin"
     if kb.owner_id is not None and kb.owner_id == user.id:
         return "admin"
@@ -130,6 +136,18 @@ def explicit_role(
     if from_table:
         return from_table
     return casbin_role_for_kb(user, kb)
+
+
+def is_kb_admin(role: str | None) -> bool:
+    """知识库管理员判定（单一事实源，三处漂移点共用）。
+
+    - admin / superadmin：平台管理角色，天然是 KB admin；
+    - operator（运营）：角色定义就是「管知识库/智能体/公告」，
+      持有 ``knowledge:manage`` 能力，也应拿到 KB admin。
+    """
+    from app.core.roles import CAP_KNOWLEDGE_MANAGE, has_capability, is_admin_like
+
+    return is_admin_like(role) or has_capability(role, CAP_KNOWLEDGE_MANAGE)
 
 
 # ---------------------------------------------------------------------------

@@ -66,7 +66,7 @@ def _normalize_assistant_tool_calls(raw_calls: list[Any]) -> list[Any]:
     import json as _json
 
     try:
-        from wuwei.core.message import FunctionCall, ToolCall
+        from app.services.agent.native.types import FunctionCall, ToolCall
     except Exception:  # noqa: BLE001
         return list(raw_calls)
 
@@ -146,7 +146,7 @@ def _to_wuwei_messages(messages: list[dict[str, Any]]) -> list[Any]:
     # wuwei 的类名是 HumanMessage / AIMessage（不是 UserMessage /
     # AssistantMessage）。名字对不上会 ImportError，而异常在请求路径上
     # 表现为「接口 502」，看不出是导入问题。
-    from wuwei.core.message import (
+    from app.services.agent.native.types import (
         AIMessage,
         HumanMessage,
         SystemMessage,
@@ -160,7 +160,7 @@ def _to_wuwei_messages(messages: list[dict[str, Any]]) -> list[Any]:
 
     # tool 消息：客户端执行完工具后的回灌。wuwei 有 ToolMessage，
     # 需要 tool_call_id 关联到具体的调用。
-    from wuwei.core.message import ToolMessage as _ToolMessage
+    from app.services.agent.native.types import ToolMessage as _ToolMessage
 
     out: list[Any] = []
     for item in messages:
@@ -495,10 +495,10 @@ def extract_tool_calls(response: Any) -> list[dict[str, Any]]:
     wuwei 的 LLMResponse 有 ``tool_calls`` 字段；这里统一转成客户端认识的
     结构（arguments 必须是 JSON 字符串）。
     """
-    from app.services.llm_providers.direct_tools import wuwei_tool_calls_to_openai
+    from app.services.llm_providers.direct_tools import tool_calls_to_openai
 
     raw = _attr(response, "tool_calls")
-    return wuwei_tool_calls_to_openai(raw)
+    return tool_calls_to_openai(raw)
 
 
 def chunk_text(chunk: Any) -> str:

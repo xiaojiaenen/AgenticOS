@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path as _Path
 
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 from app.core.data_path import (
     get_current_session_id,

@@ -34,7 +34,11 @@ logger = logging.getLogger("agenticos.llm.providers")
 # 认证方式，不是厂商。绝大多数厂商都落在第一类，换厂商只改配置不改代码。
 PROVIDER_TYPE_OPENAI = "openai_compatible"
 PROVIDER_TYPE_ENTERPRISE_COOKIE = "enterprise_cookie"
-PROVIDER_TYPES = (PROVIDER_TYPE_OPENAI, PROVIDER_TYPE_ENTERPRISE_COOKIE)
+# LiteLLM SDK 旁路 PoC（3B.2/3F.0）：纯库统一调用；Proxy 形态按红线排除。
+# 主路径仍是 openai_compatible / enterprise_cookie；litellm 分支见
+# litellm_poc.py（依赖可选 extra）。
+PROVIDER_TYPE_LITELLM = "litellm"
+PROVIDER_TYPES = (PROVIDER_TYPE_OPENAI, PROVIDER_TYPE_ENTERPRISE_COOKIE, PROVIDER_TYPE_LITELLM)
 
 PROVIDER_TYPE_LABELS = {
     PROVIDER_TYPE_OPENAI: "OpenAI 兼容（API Key）",

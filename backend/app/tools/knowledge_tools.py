@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 
 async def _current_owner_id() -> int | None:
@@ -40,7 +40,10 @@ def _load_owner_role(user_id: int) -> tuple[bool, str]:
         user = db.get(UserModel, user_id)
         if user is None:
             return False, "user"
-        return user.role == "admin", user.role
+        # 双轨统一（3H 档 A）：知识库管理员 = 平台管理角色 + knowledge:manage 能力
+        from app.services.knowledge.acl import is_kb_admin
+
+        return is_kb_admin(user.role), user.role
     finally:
         db.close()
 

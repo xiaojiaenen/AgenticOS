@@ -1,15 +1,21 @@
 """
-知识库检索服务
+知识库检索服务（LlamaIndex 全量接管版）
 
-提供两路检索与融合：
-- BM25 全文检索（MySQL FULLTEXT ngram / SQLite 走进程内 Python BM25）
-- 向量语义检索（**段级** embedding 余弦，未配置 API Key 时自动关闭）
-- RRF 选候选 + 相关度加权 + 本地启发式重排
-- 权威性加权（排序 tie-break）
-- 显式授权（kb_access_control / Casbin）与 visibility/scope 双重可见性过滤
+检索机制全部由 LlamaIndex 组件承担，旧手写实现（MySQL FULLTEXT /
+PG trgm / Python BM25 三路 + 手写 RRF）已整体退役：
 
-**score 的语义**：对外暴露的 ``SearchResult.score`` 是 **0~1 的相对相关度**，
-不是 BM25 原始分、也不是 RRF 排名分。计算分两步：
+- BM25：``llama_index.retrievers.bm25.BM25Retriever``（bm25s 引擎）。
+  页级语料 jieba 预分词（空格连接喂给 bm25s 的分词器）；标题/摘要加权
+  通过语料文本重复计入，与旧实现的加权口径等价。
+- 向量：``KBVectorRetriever``（LlamaIndex ``BaseRetriever``）—— 段级
+  embedding 余弦 + 页级 max 聚合；库里无切片时自动退回页级向量。
+- 融合：``QueryFusionRetriever``（``RECIPROCAL_RANK`` 模式，即 RRF k=60，
+  与旧实现同一论文参数）；``num_queries=1`` 不引入 LLM 查询改写。
+- 重排：启发式四信号（``rerank.score_result``）+ FlashRank cross-encoder
+  精排（``rerank.rerank_scores``）。
+
+**score 的语义不变**：对外暴露的 ``SearchResult.score`` 是 **0~1 的相对
+相关度**，不是 BM25 原始分、也不是 RRF 排名分。计算分两步：
 
     1) 融合（决定候选集与粗分）
        bm25_norm = bm25_raw / 本次查询最高 BM25 分          （通道内归一到 0~1）
@@ -19,9 +25,10 @@
     2) 重排（决定最终排序，见 ``rerank.py``）
        score = 0.55*base + 0.25*覆盖率 + 0.12*邻近度 + 0.08*通道一致性
 
-这样 ``score_threshold`` 才是可解释的阈值：0.5 表示"至少命中一半相关度"，
-而不是旧实现里 1/(60+rank) 那种最高只有 0.033、填任何正常阈值都会把结果
-全部过滤掉的假阈值。
+这样 ``score_threshold`` 才是可解释的阈值：0.5 表示"至少命中一半相关度"。
+
+安全边界不变：显式授权（kb_access_control / Casbin）与 visibility/scope
+双重可见性过滤在检索器构建**之前**完成 —— 检索器只看到已过滤的 kb_ids。
 """
 
 import json
@@ -29,13 +36,23 @@ import logging
 import re
 import threading
 import time
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict, deque
 from dataclasses import dataclass, field
 from typing import Optional
 
-import numpy as np
-from sqlalchemy import bindparam, select, and_, text
+from llama_index.core.retrievers import BaseRetriever, QueryFusionRetriever
+from llama_index.core.retrievers.fusion_retriever import FUSION_MODES
+from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
+from llama_index.retrievers.bm25 import BM25Retriever
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
+
+# QueryFusionRetriever 在 llm=None 时读取全局 Settings.llm（懒加载默认 OpenAI）。
+# 本项目的融合是纯 RRF（num_queries=1），永远不用 LLM —— 置 None 阻断懒加载，
+# 否则未装 llama-index-llms-openai 的环境一进融合就 ImportError。
+from llama_index.core import Settings as _LlamaSettings
+
+_LlamaSettings.llm = None
 
 from app.core.config import get_settings
 from app.db.models import KBChunkModel, KBWikiPageModel, KnowledgeBaseModel, UserModel
@@ -52,66 +69,123 @@ logger = logging.getLogger(__name__)
 _settings = get_settings()
 
 # ----------------------------------------------------------------------
-# M6-A6：wiki 语料进程内缓存（仅 SQLite/dev 的 Python BM25 全量评分路径）
+# 语料缓存（LlamaIndex 检索器实例缓存）
 # ----------------------------------------------------------------------
 #
-# 为什么只缓存这一条路径：MySQL 走 FULLTEXT ngram，评分在数据库内完成，
-# 进程内没有可复用的中间产物；只有 SQLite/dev 的 `_bm25_search_python`
-# 会把整库文档拉进内存分词 —— 那是 O(语料量) 的重活，也是检索 P95 的主项。
-#
-# 缓存内容：语料快照（内容/标题/元信息）+ 分词结果 + DF/平均长度统计。
-# 这些都是纯函数输入的产物，只随语料变化，查询词不参与缓存键。
-#
-# 失效：写入方（ingest_pipeline 等）在 commit 成功后调用 invalidate()。
+# BM25Retriever 构建时要把整库语料分词建索引 —— 这是检索 P95 的主项，
+# 必须进程内缓存。缓存对象从旧的「分词快照」换成「构建好的检索器实例」：
+# 语义不变（TTL / LRU / 超大语料不缓存），失效入口也不变
+# （ingest_pipeline 在 commit 成功后调用 invalidate_knowledge_cache）。
 
 _CACHE_TTL_SECONDS = 300.0
 _CACHE_MAX_DOCS = 1000
-_CACHE_MAX_ENTRIES = 8  # 保留最近若干个 (kb_ids, page_type) 组合的语料快照
+_CACHE_MAX_ENTRIES = 8  # 保留最近若干个 (kb_ids, page_type) 组合的检索器
+
+_QUERY_EMBED_CACHE_SIZE = 64  # 查询向量去重缓存（同查询只 embed 一次）
+
+# ----------------------------------------------------------------------
+# 检索质量在线指标（优化方案 2.4 / 3.5：命中率、无结果率可观测）
+# ----------------------------------------------------------------------
+#
+# 进程内滑动窗口采样（默认保留最近 2000 次），不落库 —— 这是运营看板的
+# 「趋势口径」而不是审计事实；要看跨进程/跨重启的精确值再接 OTel/DB。
+# 采样对象：经权限过滤后的真实检索（_get_visible_knowledge_bases 之后）。
+
+_RETRIEVAL_METRICS_MAX_SAMPLES = 2000
+_retrieval_metrics_lock = threading.Lock()
+_retrieval_metrics: deque = deque(maxlen=_RETRIEVAL_METRICS_MAX_SAMPLES)
 
 
-class _CorpusEntry:
-    """一份语料快照：文档 + 分词 + DF 统计。"""
+def record_search_metrics(
+    *,
+    query: str,
+    result_count: int,
+    latency_ms: int,
+    kb_ids: list[int],
+    matched_channels: list[str],
+) -> None:
+    """每次对外检索结束时记录一条采样（search() 末尾调用）。"""
+    sample = {
+        "ts": time.time(),
+        "query_preview": (query or "")[:60],
+        "result_count": result_count,
+        "latency_ms": latency_ms,
+        "kb_ids": list(kb_ids)[:10],
+        "channels": matched_channels,
+    }
+    with _retrieval_metrics_lock:
+        _retrieval_metrics.appendleft(sample)
 
-    __slots__ = ("built_at", "docs", "doc_terms", "title_terms", "df", "avg_dl")
 
-    def __init__(
-        self,
-        built_at: float,
-        docs: list[tuple[int, str, str]],
-        doc_terms: dict[int, list[str]],
-        title_terms: dict[int, list[str]],
-        df: dict[str, int],
-        avg_dl: float,
-    ) -> None:
+def get_retrieval_metrics() -> dict:
+    """检索质量汇总（后台看板 / eval 调参用）。
+
+    - hit_rate：有结果的查询占比（相对最近窗口）；
+    - empty_rate：无结果率（调参的首要信号）；
+    - p50/p95 延迟与通道分布（rerank 前后对比可由 channels 里 bm25/vector
+      占比粗读 —— 两通道都命中的查询融合质量更好）。
+    """
+    with _retrieval_metrics_lock:
+        samples = list(_retrieval_metrics)
+    if not samples:
+        return {"window": 0, "hit_rate": None, "empty_rate": None, "latency_ms_p50": None,
+                "latency_ms_p95": None, "channels": {}, "no_result_queries": []}
+    total = len(samples)
+    hits = [s for s in samples if s["result_count"] > 0]
+    latencies = sorted(s["latency_ms"] for s in samples if s["latency_ms"] is not None)
+
+    def _pct(values: list[int], p: float) -> int | None:
+        if not values:
+            return None
+        idx = min(len(values) - 1, max(0, int(round(p * (len(values) - 1)))))
+        return values[idx]
+
+    channels: dict[str, int] = {}
+    for s in samples:
+        for c in s["channels"]:
+            channels[c] = channels.get(c, 0) + 1
+    no_result = [
+        {"query": s["query_preview"], "ts": s["ts"], "kb_ids": s["kb_ids"]}
+        for s in samples[:50] if s["result_count"] == 0
+    ]
+    return {
+        "window": total,
+        "hit_rate": round(len(hits) / total, 3),
+        "empty_rate": round((total - len(hits)) / total, 3),
+        "latency_ms_p50": _pct(latencies, 0.50),
+        "latency_ms_p95": _pct(latencies, 0.95),
+        "channels": channels,
+        "no_result_queries": no_result,
+    }
+
+
+class _RetrieverEntry:
+    """一份缓存条目：构建好的 BM25 检索器 + 语料页数。"""
+
+    __slots__ = ("built_at", "retriever", "doc_count")
+
+    def __init__(self, built_at: float, retriever: BM25Retriever, doc_count: int) -> None:
         self.built_at = built_at
-        self.docs = docs
-        self.doc_terms = doc_terms
-        self.title_terms = title_terms
-        self.df = df
-        self.avg_dl = avg_dl
+        self.retriever = retriever
+        self.doc_count = doc_count
 
     @property
     def expired(self) -> bool:
         return (time.monotonic() - self.built_at) > _CACHE_TTL_SECONDS
 
 
-class _CorpusCache:
-    """进程内 LRU + TTL 缓存，线程安全。
-
-    用 OrderedDict 实现 LRU（上限 ``_CACHE_MAX_ENTRIES`` 个语料快照），
-    每个快照内部文档数再受 ``_CACHE_MAX_DOCS`` 约束 —— 超限时不做部分缓存，
-    直接每次重算：语料已经大到缓存不划算，半截缓存只会给出错误的评分。
-    """
+class _RetrieverCache:
+    """进程内 LRU + TTL 缓存，线程安全。"""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._entries: OrderedDict[tuple, _CorpusEntry] = OrderedDict()
+        self._entries: OrderedDict[tuple, _RetrieverEntry] = OrderedDict()
 
     @staticmethod
     def make_key(knowledge_base_ids: list[int], page_type: Optional[str]) -> tuple:
         return (tuple(sorted(knowledge_base_ids)), page_type)
 
-    def get(self, key: tuple) -> _CorpusEntry | None:
+    def get(self, key: tuple) -> _RetrieverEntry | None:
         with self._lock:
             entry = self._entries.get(key)
             if entry is None:
@@ -122,7 +196,7 @@ class _CorpusCache:
             self._entries.move_to_end(key)
             return entry
 
-    def put(self, key: tuple, entry: _CorpusEntry) -> None:
+    def put(self, key: tuple, entry: _RetrieverEntry) -> None:
         with self._lock:
             self._entries[key] = entry
             self._entries.move_to_end(key)
@@ -138,22 +212,22 @@ class _CorpusCache:
             now = time.monotonic()
             return {
                 "entries": len(self._entries),
-                "docs": sum(len(e.docs) for e in self._entries.values()),
+                "docs": sum(e.doc_count for e in self._entries.values()),
                 "fresh": sum(1 for e in self._entries.values() if not (now - e.built_at > _CACHE_TTL_SECONDS)),
             }
 
 
-_CORPUS_CACHE = _CorpusCache()
+_RETRIEVER_CACHE = _RetrieverCache()
 
 
 def invalidate_knowledge_cache() -> None:
-    """清空 wiki 语料缓存。
+    """清空知识库语料缓存（LlamaIndex 检索器实例）。
 
     任何写入 kb_wiki_pages 的路径在 **commit 成功之后** 调用，
     否则失败回滚的写入会把旧语料误清（清空只是性能损失，但没必要），
     更糟的是没清导致读脏数据。
     """
-    _CORPUS_CACHE.invalidate_all()
+    _RETRIEVER_CACHE.invalidate_all()
     logger.info("Knowledge corpus cache invalidated")
 
 
@@ -202,6 +276,203 @@ class SearchResult:
     matched_by: list[str] = field(default_factory=list)
 
 
+# ----------------------------------------------------------------------
+# LlamaIndex 检索器
+# ----------------------------------------------------------------------
+
+
+class KBVectorRetriever(BaseRetriever):
+    """段级向量检索（LlamaIndex ``BaseRetriever``）。
+
+    为什么按段而不是按页：页级向量把整页压成一个点，长页（编译出的
+    source_summary / synthesis 常几千字）的主题被平均，问其中某一节往往
+    召不回本页。段级取 ``max`` 聚合，长页里真正相关的那一段不会被稀释。
+
+    兜底：库里一条切片都没有（存量库尚未重建索引）时，自动退回页级
+    ``kb_wiki_pages.embedding``，语义通道不会因此整条消失。
+
+    返回的 NodeWithScore：``node.id_`` 是 page_id 字符串，
+    ``node.text`` 是该页最佳段正文（直接当命中片段用），
+    ``score`` 是余弦相似度。
+    """
+
+    def __init__(self, db: Session, knowledge_base_ids: list[int], page_type: Optional[str]):
+        super().__init__()
+        self.db = db
+        self.knowledge_base_ids = knowledge_base_ids
+        self.page_type = page_type
+        # 查询向量去重：同一实例（fusion 会重复调用 _retrieve）只 embed 一次
+        self._embed_cache: OrderedDict[str, list[float] | None] = OrderedDict()
+
+    def _query_vector(self, query: str) -> list[float] | None:
+        cached = self._embed_cache.get(query)
+        if cached is not None:
+            self._embed_cache.move_to_end(query)
+            return cached
+        vector = None
+        try:
+            embedder = get_knowledge_embedder()
+            if embedder.is_enabled():
+                vector = embedder.embed_query(query)
+        except Exception as e:  # noqa: BLE001 —— embedding 服务故障退化为纯 BM25
+            logger.warning("向量通道 embed 查询失败，退化为纯 BM25: %s", e)
+            vector = None
+        self._embed_cache[query] = vector
+        while len(self._embed_cache) > _QUERY_EMBED_CACHE_SIZE:
+            self._embed_cache.popitem(last=False)
+        return vector
+
+    def _retrieve(self, query_bundle: QueryBundle) -> list[NodeWithScore]:
+        query_vector = self._query_vector(query_bundle.query_str or "")
+        if not query_vector:
+            return []
+        import numpy as np
+
+        query_np = np.asarray(query_vector, dtype=np.float32)
+
+        min_similarity = _settings.knowledge_vector_min_similarity
+        dimensions = get_knowledge_embedder().dimensions
+
+        # pgvector 加速路径（数据库评估 阶段 2）：PG + vector 扩展 + vector 列
+        # 三者齐备时走库内 <=> 排序（HNSW 索引生效）；任何条件不满足自动
+        # 降级到「拉全量 + 应用侧余弦」的旧路径，行为完全一致。
+        from app.services.knowledge.pgvector import pgvector_available, similarity_search_chunks
+
+        if pgvector_available(self.db):
+            try:
+                fast = similarity_search_chunks(
+                    self.db,
+                    query_vector=query_vector,
+                    knowledge_base_ids=self.knowledge_base_ids,
+                    top_k=_settings.knowledge_vector_top_k,
+                    min_similarity=min_similarity,
+                    page_type=self.page_type,
+                )
+                if fast:
+                    return [
+                        NodeWithScore(
+                            node=TextNode(id_=str(pid), text=content, metadata={"page_id": pid}),
+                            score=sim,
+                        )
+                        for pid, sim, content in fast
+                    ]
+                # 库内检索无命中：可能切片全无 → 走页级兜底
+                return self._page_level_fallback(query_np)
+            except Exception as e:  # noqa: BLE001 —— SQL 异常降级应用侧余弦
+                logger.warning("pgvector 检索失败，降级应用侧余弦: %s", e)
+                from app.services.knowledge.pgvector import reset_probe_cache
+
+                reset_probe_cache()
+
+        chunk_stmt = (
+            select(KBChunkModel.page_id, KBChunkModel.content, KBChunkModel.embedding)
+            .join(KBWikiPageModel, KBWikiPageModel.id == KBChunkModel.page_id)
+            .where(
+                and_(
+                    KBChunkModel.knowledge_base_id.in_(self.knowledge_base_ids),
+                    KBChunkModel.embedding.isnot(None),
+                    KBWikiPageModel.is_active.is_(True),
+                )
+            )
+        )
+        if self.page_type:
+            chunk_stmt = chunk_stmt.where(KBWikiPageModel.page_type == self.page_type)
+
+        scanned = 0
+        best_by_page: dict[int, tuple[float, str]] = {}
+        for page_id, content, payload in self.db.execute(chunk_stmt).all():
+            page_vector = unpack_vector(payload, dimensions)
+            if page_vector is None:
+                # 维度不符（换过模型）或格式损坏：跳过而不是算出错的值
+                continue
+            scanned += 1
+            similarity = cosine_similarity(query_np, page_vector)
+            if similarity < min_similarity:
+                continue
+            key = int(page_id)
+            current = best_by_page.get(key)
+            if current is None or similarity > current[0]:
+                best_by_page[key] = (similarity, content)
+
+        if scanned == 0:
+            # 没有任何可用切片 → 页级兜底（存量库/切片失败）
+            return self._page_level_fallback(query_np)
+
+        hits = sorted(best_by_page.items(), key=lambda item: item[1][0], reverse=True)
+        hits = hits[: _settings.knowledge_vector_top_k]
+        return [
+            NodeWithScore(
+                node=TextNode(id_=str(page_id), text=text, metadata={"page_id": page_id}),
+                score=float(score),
+            )
+            for page_id, (score, text) in hits
+        ]
+
+    def _page_level_fallback(self, query_np) -> list[NodeWithScore]:
+        """页级向量兜底路径（无切片时）。"""
+        conditions = [
+            KBWikiPageModel.knowledge_base_id.in_(self.knowledge_base_ids),
+            KBWikiPageModel.is_active.is_(True),
+            KBWikiPageModel.embedding.isnot(None),
+        ]
+        if self.page_type:
+            conditions.append(KBWikiPageModel.page_type == self.page_type)
+
+        stmt = select(KBWikiPageModel.id, KBWikiPageModel.embedding).where(and_(*conditions))
+        rows = self.db.execute(stmt).all()
+
+        min_similarity = _settings.knowledge_vector_min_similarity
+        dimensions = get_knowledge_embedder().dimensions
+        hits: list[tuple[int, float]] = []
+        for page_id, payload in rows:
+            page_vector = unpack_vector(payload, dimensions)
+            if page_vector is None:
+                continue
+            similarity = cosine_similarity(query_np, page_vector)
+            if similarity < min_similarity:
+                continue
+            hits.append((int(page_id), similarity))
+
+        hits.sort(key=lambda item: item[1], reverse=True)
+        hits = hits[: _settings.knowledge_vector_top_k]
+        return [
+            NodeWithScore(
+                node=TextNode(id_=str(page_id), text="", metadata={"page_id": page_id}),
+                score=float(score),
+            )
+            for page_id, score in hits
+        ]
+
+
+class KBBM25Retriever(BaseRetriever):
+    """BM25 检索（LlamaIndex ``BM25Retriever``/bm25s 引擎的薄包装）。
+
+    语料在构建期完成 jieba 预分词（空格连接喂给 bm25s 的正则分词器），
+    查询侧同样预分词。``_tokenize`` 从所属的 ``KnowledgeRetrieval`` 实例
+    注入，保证查询侧分词可替换（召回对比工具依赖这一点）。
+    """
+
+    def __init__(self, bm25: BM25Retriever, retrieval: "KnowledgeRetrieval"):
+        super().__init__()
+        self._bm25 = bm25
+        self._retrieval = retrieval
+
+    def _retrieve(self, query_bundle: QueryBundle) -> list[NodeWithScore]:
+        query = query_bundle.query_str or ""
+        tokens = self._retrieval._tokenize(query)  # noqa: SLF001 —— 同包内部协作
+        if not tokens:
+            return []
+        nodes = self._bm25.retrieve(QueryBundle(query_str=" ".join(tokens)))
+        # bm25s 对全库排序：零分（没有任何查询词命中）的文档也会进 top-k，
+        # 必须过滤，否则不相干页面会混进候选集（旧实现 score > 0 等价语义）
+        return [n for n in nodes if (n.score or 0.0) > 0.0]
+
+
+# ----------------------------------------------------------------------
+# 检索服务
+# ----------------------------------------------------------------------
+
+
 class KnowledgeRetrieval:
     """知识库检索服务"""
 
@@ -214,7 +485,7 @@ class KnowledgeRetrieval:
         "L0": 0.8,
     }
 
-    # MySQL FULLTEXT 路径单次检索返回的候选上限（进入融合前截断）
+    # BM25 通道单次检索返回的候选上限（进入融合前截断）
     BM25_TOP_K = 50
 
     # 双路融合时两通道的权重（相关度加权，非 RRF）
@@ -255,6 +526,7 @@ class KnowledgeRetrieval:
         if not query:
             return []
 
+        _t0 = time.monotonic()
         logger.info("Searching knowledge base: query='%s...'", query[:50])
 
         # 获取可见的知识库
@@ -264,22 +536,24 @@ class KnowledgeRetrieval:
         if not visible_kb_ids:
             return []
 
-        # 两路检索：BM25（字面）+ 向量（语义，段级）
+        # 两路检索：BM25（字面，bm25s）+ 向量（语义，段级）—— 均为 LlamaIndex 检索器
         bm25_hits = self._bm25_search(query, visible_kb_ids, page_type)
         vector_hits, chunk_snippets = self._vector_search(query, visible_kb_ids, page_type)
 
         if not bm25_hits and not vector_hits:
             return []
 
-        # 候选集：RRF 排序，两路都命中的页面天然靠前，用它决定「取哪些页」
-        fused = self._reciprocal_rank_fusion(bm25_hits, vector_hits)
-        candidate_ids = list(fused.keys())[: max_results * 3]
+        # 候选集：QueryFusionRetriever 的 RRF 排序，两路都命中的页面天然靠前，
+        # 用它决定「取哪些页」（LLamaIndex 内建 RRF，k=60 与旧实现一致）
+        candidate_ids = self._fuse_candidates(
+            query, visible_kb_ids, page_type, max_results * 3,
+        )
 
         # 粗排依据：归一化相关度（RRF 只负责选候选，不参与对外 score）
         relevance = self._blend_relevance(bm25_hits, vector_hits)
         matched_by = self._matched_channels(bm25_hits, vector_hits)
 
-        query_terms = tokenize(query)
+        query_terms = self._tokenize(query)
         results = self._load_page_details(
             candidate_ids,
             relevance,
@@ -288,7 +562,9 @@ class KnowledgeRetrieval:
             chunk_snippets=chunk_snippets,
         )
 
-        # 重排：把「通道内相对强弱」换成「查询与命中片段的贴合度」
+        # 重排：把「通道内相对强弱」换成「查询与命中片段的贴合度」。
+        # 第一级是启发式四信号（零依赖、零抖动）；第二级是 FlashRank
+        # cross-encoder 精排 top-K（战线 B4，模型不可用自动整段降级）。
         for item in results:
             item.score = rerank_mod.score_result(
                 base_score=item.score,
@@ -297,6 +573,7 @@ class KnowledgeRetrieval:
                 text=f"{item.title}\n{item.snippet or item.content[: self.SNIPPET_MAX_CHARS]}",
                 channels=item.matched_by,
             )
+        self._apply_flashrank_rerank(query, results)
 
         # 相关度优先，同分时权威性高的靠前
         results.sort(
@@ -308,7 +585,51 @@ class KnowledgeRetrieval:
         if score_threshold is not None and score_threshold > 0:
             results = [r for r in results if r.score >= score_threshold]
 
-        return results[:max_results]
+        final = results[:max_results]
+        record_search_metrics(
+            query=query,
+            result_count=len(final),
+            latency_ms=int((time.monotonic() - _t0) * 1000),
+            kb_ids=visible_kb_ids,
+            matched_channels=sorted({c for r in final for c in r.matched_by}),
+        )
+        return final
+
+    def _apply_flashrank_rerank(self, query: str, results: list[SearchResult]) -> None:
+        """FlashRank cross-encoder 精排 top-K（战线 B4）。
+
+        - ``KB_RERANK_BACKEND=heuristic`` 跳过（显式关闭）；
+        - 模型不可用/推理失败 → rerank_scores 返回 None → 保持启发式结果；
+        - 融合：``final = w*flashrank + (1-w)*heuristic``（w 可配），只对
+          按启发式分排序后的头部 top-K 精排，其余保持启发式分 —— 兼顾
+          精度与 cross-encoder 的 p95 抖动。
+        """
+        if not results:
+            return
+        try:
+            settings = get_settings()
+        except Exception:  # noqa: BLE001 —— 测试环境缺配置时按默认 auto
+            settings = None
+        backend = (getattr(settings, "knowledge_rerank_backend", "auto") or "auto").lower()
+        if backend == "heuristic":
+            return
+
+        # 启发式分高的先送精排（top-K 截断）
+        ordered = sorted(results, key=lambda r: r.score, reverse=True)
+        top_k = max(1, int(getattr(settings, "knowledge_rerank_top_k", 20) or 20))
+        head = ordered[:top_k]
+        texts = [f"{r.title}\n{r.snippet or r.content[: self.SNIPPET_MAX_CHARS]}" for r in head]
+        scores = rerank_mod.rerank_scores(query, texts)
+        if scores is None:
+            return  # 降级：启发式结果保持原样
+
+        weight = float(getattr(settings, "knowledge_rerank_flashrank_weight", 0.65) or 0.65)
+        for item, fr_score in zip(head, scores):
+            item.score = rerank_mod.blend_score(flashrank=fr_score, heuristic=item.score, weight=weight)
+        logger.debug(
+            "flashrank rerank applied: query=%r head=%d/%d weight=%.2f",
+            query[:50], len(head), len(results), weight,
+        )
 
     def _get_visible_knowledge_bases(
         self,
@@ -350,91 +671,20 @@ class KnowledgeRetrieval:
                 visible.append(kb.id)
         return visible
 
-    def _bm25_search(
-        self,
-        query: str,
-        knowledge_base_ids: list[int],
-        page_type: Optional[str],
-    ) -> list[tuple[int, float]]:
-        """BM25 全文检索。
+    # ----------------------------------------------------------------------
+    # BM25 通道（LlamaIndex BM25Retriever / bm25s）
+    # ----------------------------------------------------------------------
 
-        - MySQL（生产）：FULLTEXT ngram 索引 MATCH AGAINST，仅取 top N，
-          不再全量加载文档；查询异常时降级到 Python 路径。
-        - SQLite（开发/测试）：Python BM25（jieba 分词 + 真实 DF 统计）。
-        """
-        if not knowledge_base_ids:
-            return []
-
-        if self._is_mysql():
-            try:
-                return self._bm25_search_mysql(query, knowledge_base_ids, page_type)
-            except Exception as e:  # noqa: BLE001 —— 任何 MySQL 异常都降级，不阻断检索
-                logger.warning(
-                    "MySQL FULLTEXT 检索失败，降级到 Python BM25: %s", e,
-                )
-        return self._bm25_search_python(query, knowledge_base_ids, page_type)
-
-    def _is_mysql(self) -> bool:
-        """当前 session 是否运行在 MySQL 方言上。"""
-        try:
-            return self.db.get_bind().dialect.name == "mysql"
-        except Exception:  # noqa: BLE001 —— 探测失败按非 MySQL 处理
-            return False
-
-    def _bm25_search_mysql(
-        self,
-        query: str,
-        knowledge_base_ids: list[int],
-        page_type: Optional[str],
-    ) -> list[tuple[int, float]]:
-        """MySQL FULLTEXT ngram 检索（索引由 0003 迁移建立）。
-
-        NATURAL LANGUAGE MODE 下 ngram parser 自动对查询做二元切分，
-        relevance 即 BM25 权重。只 SELECT 需要的列，避免全量加载。
-        """
-        conditions = [
-            "knowledge_base_id IN :kb_ids",
-            "is_active = :is_active",
-        ]
-        if page_type:
-            conditions.append("page_type = :page_type")
-        where_clause = " AND ".join(conditions)
-        # 标题与摘要一并参与匹配：长文档的要点常出现在摘要里
-        match_expr = (
-            "(MATCH(content) AGAINST(:query IN NATURAL LANGUAGE MODE) "
-            "+ MATCH(COALESCE(summary, '')) AGAINST(:query IN NATURAL LANGUAGE MODE) * 0.8 "
-            "+ MATCH(title) AGAINST(:query IN NATURAL LANGUAGE MODE) * 1.5)"
-        )
-
-        stmt = text(f"""
-            SELECT id, title, LEFT(content, 300) AS snippet, {match_expr} AS score
-            FROM kb_wiki_pages
-            WHERE {where_clause} AND {match_expr} > 0
-            ORDER BY score DESC
-            LIMIT :top_k
-        """).bindparams(bindparam("kb_ids", expanding=True))
-
-        params: dict = {
-            "kb_ids": list(knowledge_base_ids),
-            "is_active": 1,
-            "query": query,
-            "top_k": self.BM25_TOP_K,
-        }
-        if page_type:
-            params["page_type"] = page_type
-
-        rows = self.db.execute(stmt, params).fetchall()
-        return [(int(row.id), float(row.score)) for row in rows]
-
-    def _build_corpus(
+    def _build_bm25_retriever(
         self,
         knowledge_base_ids: list[int],
         page_type: Optional[str],
-    ) -> _CorpusEntry | None:
-        """加载语料并一次性完成分词 + DF 统计。
+    ) -> tuple[BM25Retriever, int] | None:
+        """加载语料并构建 LlamaIndex BM25Retriever（bm25s 引擎）。
 
-        文档数超过 ``_CACHE_MAX_DOCS`` 时返回 None（不入缓存），由调用方
-        走一次性计算路径 —— 缓存不下来的语料，缓存它只会浪费内存。
+        语料文本 = jieba 预分词（空格连接），标题/摘要按旧口径重复计入
+        （content ×1 + title ×1 + summary ×2），等价于给标题/摘要更高权重。
+        文档数为 0 返回 None；超过 ``_CACHE_MAX_DOCS`` 不入缓存（每次重算）。
         """
         conditions = [
             KBWikiPageModel.knowledge_base_id.in_(knowledge_base_ids),
@@ -448,98 +698,66 @@ class KnowledgeRetrieval:
         if not pages:
             return None
 
-        docs: list[tuple[int, str, str]] = []
-        doc_terms: dict[int, list[str]] = {}
-        title_terms: dict[int, list[str]] = {}
-        df: dict[str, int] = defaultdict(int)
-        total_len = 0
+        nodes = []
         for page in pages:
-            docs.append((page.id, page.title, page.content))
-            # 摘要重复计入一次：等价于给摘要更高权重，命中摘要也能召回本页
-            # （来自 c28da003 切片摘要索引，与 M6 语料缓存重构合并保留）
             summary_text = (getattr(page, "summary", None) or "")
-            terms = tokenize(
-                page.content + " " + page.title + (" " + summary_text * 2 if summary_text else "")
+            corpus_text = page.content + " " + page.title + (
+                " " + summary_text * 2 if summary_text else ""
             )
-            doc_terms[page.id] = terms
-            title_terms[page.id] = tokenize(page.title)
-            total_len += len(terms)
-            for term in set(terms):
-                df[term] += 1
-        avg_dl = total_len / len(docs)
+            tokens = " ".join(tokenize(corpus_text))
+            nodes.append(
+                TextNode(
+                    id_=str(page.id),
+                    text=tokens,
+                    metadata={"page_id": int(page.id)},
+                )
+            )
 
-        return _CorpusEntry(time.monotonic(), docs, doc_terms, title_terms, dict(df), avg_dl)
+        retriever = BM25Retriever(
+            nodes=nodes,
+            # bm25s 要求 k ≤ 语料规模（k of N is larger than the number of available scores）
+            similarity_top_k=min(self.BM25_TOP_K, len(nodes)),
+            # 语料已是 jieba 词级 token，词干化没有意义还拖慢构建
+            skip_stemming=True,
+        )
+        return retriever, len(nodes)
 
-    def _bm25_search_python(
+    def _bm25_search(
         self,
         query: str,
         knowledge_base_ids: list[int],
         page_type: Optional[str],
     ) -> list[tuple[int, float]]:
-        """Python 内存 BM25（SQLite fallback 路径）。
+        """BM25 全文检索（LlamaIndex BM25Retriever，bm25s 引擎）。
 
-        M6-A6：语料快照 + 分词结果 + DF 统计走进程内缓存（TTL 300s / LRU），
-        同一批知识库在 TTL 内的重复检索不再重复全库分词。
-        文档数超过缓存上限时自动降级为每次重算（不返回错误的半截缓存）。
+        语料级检索器实例走进程内缓存（TTL 300s / LRU / 超限不缓存），
+        同一批知识库在 TTL 内的重复检索不再重复全库分词建索引。
+        返回 ``[(page_id, bm25_raw_score)]``（未归一，归一在 _blend_relevance）。
         """
         if not knowledge_base_ids:
             return []
 
-        cache_key = _CorpusCache.make_key(knowledge_base_ids, page_type)
-        entry = _CORPUS_CACHE.get(cache_key)
+        cache_key = _RetrieverCache.make_key(knowledge_base_ids, page_type)
+        entry = _RETRIEVER_CACHE.get(cache_key)
 
         if entry is None:
-            entry = self._build_corpus(knowledge_base_ids, page_type)
-            if entry is None:
+            built = self._build_bm25_retriever(knowledge_base_ids, page_type)
+            if built is None:
                 return []
-            if len(entry.docs) <= _CACHE_MAX_DOCS:
-                _CORPUS_CACHE.put(cache_key, entry)
+            retriever, doc_count = built
+            if doc_count <= _CACHE_MAX_DOCS:
+                entry = _RetrieverEntry(time.monotonic(), retriever, doc_count)
+                _RETRIEVER_CACHE.put(cache_key, entry)
             else:
                 logger.info(
                     "Knowledge corpus too large to cache (%d docs > %d), skipping cache",
-                    len(entry.docs),
-                    _CACHE_MAX_DOCS,
+                    doc_count, _CACHE_MAX_DOCS,
                 )
+                entry = _RetrieverEntry(time.monotonic(), retriever, doc_count)
 
-        doc_count = len(entry.docs)
-        query_terms = tokenize(query)
-
-        results = []
-        for page_id, _title, _content in entry.docs:
-            score = self._calculate_bm25_score(
-                query_terms,
-                entry.doc_terms[page_id],
-                entry.df,
-                doc_count,
-                entry.avg_dl,
-                title_terms=entry.title_terms.get(page_id),
-            )
-            if score > 0:
-                results.append((page_id, score))
-
-        # 按分数排序
-        results.sort(key=lambda x: x[1], reverse=True)
-        return results
-
-    def _reciprocal_rank_fusion(
-        self,
-        *result_lists: list[tuple[int, float]],
-        k: int = 60,
-    ) -> dict[int, float]:
-        """
-        Reciprocal Rank Fusion (RRF) 融合多路检索结果
-
-        RRF(d) = sum(1 / (k + rank_i(d)))
-        """
-        scores = defaultdict(float)
-
-        for results in result_lists:
-            for rank, (page_id, _) in enumerate(results, 1):
-                scores[page_id] += 1.0 / (k + rank)
-
-        # 按融合分数排序
-        sorted_items = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        return dict(sorted_items)
+        channel = KBBM25Retriever(entry.retriever, self)
+        nodes = channel.retrieve(QueryBundle(query_str=query))
+        return [(int(n.metadata["page_id"]), float(n.score or 0.0)) for n in nodes]
 
     def _vector_search(
         self,
@@ -547,106 +765,82 @@ class KnowledgeRetrieval:
         knowledge_base_ids: list[int],
         page_type: Optional[str],
     ) -> tuple[list[tuple[int, float]], dict[int, str]]:
-        """向量语义检索（**段级** embedding 余弦，页级作兜底）。
+        """向量语义检索（LlamaIndex KBVectorRetriever，段级余弦 + 页级 max）。
 
         返回 ``(hits, best_chunk_text)``：
         - ``hits``：``[(page_id, 该页最佳段的余弦相似度)]``，已按相似度降序截断；
         - ``best_chunk_text``：``{page_id: 最佳段正文}``，直接当作命中片段用，
           不再靠启发式猜「页内哪段相关」。
-
-        为什么按段而不是按页：页级向量把整页压成一个点，长页（编译出的
-        source_summary / synthesis 常几千字）的主题被平均，问其中某一节往往
-        召不回本页。段级取 ``max`` 聚合，长页里真正相关的那一段不会被稀释。
-
-        兜底：库里一条切片都没有（存量库尚未重建索引）时，自动退回页级
-        ``kb_wiki_pages.embedding``，语义通道不会因此整条消失。
         """
-        embedder = get_knowledge_embedder()
-        if not embedder.is_enabled():
+        channel = KBVectorRetriever(self.db, knowledge_base_ids, page_type)
+        nodes = channel.retrieve(QueryBundle(query_str=query))
+        if not nodes:
             return [], {}
+        hits = [(int(n.metadata["page_id"]), float(n.score or 0.0)) for n in nodes]
+        snippets = {pid: (n.node.get_content() or "") for pid, n in zip(hits, nodes)}
+        return hits, snippets
 
-        query_vector = embedder.embed_query(query)
-        if not query_vector:
-            return [], {}
-        query_np = np.asarray(query_vector, dtype=np.float32)
-
-        min_similarity = _settings.knowledge_vector_min_similarity
-        dimensions = embedder.dimensions
-
-        chunk_stmt = (
-            select(KBChunkModel.page_id, KBChunkModel.content, KBChunkModel.embedding)
-            .join(KBWikiPageModel, KBWikiPageModel.id == KBChunkModel.page_id)
-            .where(
-                and_(
-                    KBChunkModel.knowledge_base_id.in_(knowledge_base_ids),
-                    KBChunkModel.embedding.isnot(None),
-                    KBWikiPageModel.is_active.is_(True),
-                )
-            )
-        )
-        if page_type:
-            chunk_stmt = chunk_stmt.where(KBWikiPageModel.page_type == page_type)
-
-        scanned = 0
-        best_by_page: dict[int, tuple[float, str]] = {}
-        for page_id, content, payload in self.db.execute(chunk_stmt).all():
-            page_vector = unpack_vector(payload, dimensions)
-            if page_vector is None:
-                # 维度不符（换过模型）或格式损坏：跳过而不是算出错的值
-                continue
-            scanned += 1
-            similarity = cosine_similarity(query_np, page_vector)
-            if similarity < min_similarity:
-                continue
-            key = int(page_id)
-            current = best_by_page.get(key)
-            if current is None or similarity > current[0]:
-                best_by_page[key] = (similarity, content)
-
-        if scanned == 0:
-            # 没有任何可用切片 → 页级兜底（存量库/切片失败）
-            return self._page_level_vector_search(query_np, knowledge_base_ids, page_type, dimensions)
-
-        hits = sorted(best_by_page.items(), key=lambda item: item[1][0], reverse=True)
-        top_k = _settings.knowledge_vector_top_k
-        hits = hits[:top_k]
-        return (
-            [(page_id, score) for page_id, (score, _text) in hits],
-            {page_id: text for page_id, (_score, text) in hits},
-        )
-
-    def _page_level_vector_search(
+    def _fuse_candidates(
         self,
-        query_np: np.ndarray,
+        query: str,
         knowledge_base_ids: list[int],
         page_type: Optional[str],
-        dimensions: int,
-    ) -> tuple[list[tuple[int, float]], dict[int, str]]:
-        """页级向量兜底路径（无切片时）。"""
-        conditions = [
-            KBWikiPageModel.knowledge_base_id.in_(knowledge_base_ids),
-            KBWikiPageModel.is_active.is_(True),
-            KBWikiPageModel.embedding.isnot(None),
-        ]
-        if page_type:
-            conditions.append(KBWikiPageModel.page_type == page_type)
+        top_k: int,
+    ) -> list[int]:
+        """QueryFusionRetriever（RECIPROCAL_RANK / RRF k=60）选候选页。
 
-        stmt = select(KBWikiPageModel.id, KBWikiPageModel.embedding).where(and_(*conditions))
-        rows = self.db.execute(stmt).all()
+        只负责「取哪些页」——RRF 排名分不参与对外 score（见模块 docstring）。
+        某一通道无候选时，融合退化为单通道排序。
+        """
+        retrievers: list[BaseRetriever] = []
 
-        min_similarity = _settings.knowledge_vector_min_similarity
-        hits: list[tuple[int, float]] = []
-        for page_id, payload in rows:
-            page_vector = unpack_vector(payload, dimensions)
-            if page_vector is None:
-                continue
-            similarity = cosine_similarity(query_np, page_vector)
-            if similarity < min_similarity:
-                continue
-            hits.append((int(page_id), similarity))
+        cache_key = _RetrieverCache.make_key(knowledge_base_ids, page_type)
+        entry = _RETRIEVER_CACHE.get(cache_key)
+        if entry is None:
+            built = self._build_bm25_retriever(knowledge_base_ids, page_type)
+            if built is not None:
+                entry = _RetrieverEntry(time.monotonic(), built[0], built[1])
+                if built[1] <= _CACHE_MAX_DOCS:
+                    _RETRIEVER_CACHE.put(cache_key, entry)
+        if entry is not None:
+            retrievers.append(KBBM25Retriever(entry.retriever, self))
 
-        hits.sort(key=lambda item: item[1], reverse=True)
-        return hits[: _settings.knowledge_vector_top_k], {}
+        vector_channel = KBVectorRetriever(self.db, knowledge_base_ids, page_type)
+        try:
+            if get_knowledge_embedder().is_enabled():
+                retrievers.append(vector_channel)
+        except Exception:  # noqa: BLE001 —— embedding 服务故障时只走 BM25
+            pass
+
+        if not retrievers:
+            return []
+        if len(retrievers) == 1:
+            # 单通道：直接用该通道排序，RRF 无第二路可融
+            nodes = retrievers[0].retrieve(QueryBundle(query_str=query))
+            return [int(n.metadata["page_id"]) for n in nodes]
+
+        fusion = QueryFusionRetriever(
+            retrievers,
+            mode=FUSION_MODES.RECIPROCAL_RANK,
+            num_queries=1,  # 不做 LLM 查询改写，纯双路 RRF
+            similarity_top_k=top_k,
+            use_async=False,  # 检索常在同步/异步混合上下文调用，避免事件Loop嵌套
+        )
+        fused = fusion.retrieve(QueryBundle(query_str=query))
+        candidates: list[int] = []
+        for node in fused:
+            pid = int(node.metadata.get("page_id", 0) or 0)
+            if pid and pid not in candidates:
+                candidates.append(pid)
+        return candidates
+
+    def _tokenize(self, text: str) -> list[str]:
+        """分词入口：委托 tokenizer 模块（jieba 词级分词）。
+
+        旧的 bigram 逻辑保留在 ``tokenizer.bigram_tokenize``，
+        供新旧召回对比使用（_search 可注入替换）。
+        """
+        return tokenize(text)
 
     def _blend_relevance(
         self,
@@ -677,8 +871,8 @@ class KnowledgeRetrieval:
         # 浮点累加后可能略微超过 1，截断保证 score_threshold 的语义稳定
         return {page_id: min(1.0, value) for page_id, value in relevance.items()}
 
-    @staticmethod
     def _matched_channels(
+        self,
         bm25_hits: list[tuple[int, float]],
         vector_hits: list[tuple[int, float]],
     ) -> dict[int, list[str]]:
@@ -815,56 +1009,6 @@ class KnowledgeRetrieval:
             ))
 
         return results
-
-    def _tokenize(self, text: str) -> list[str]:
-        """分词入口：委托 tokenizer 模块（jieba 词级分词）。
-
-        旧的 bigram 逻辑保留在 ``tokenizer.bigram_tokenize``，
-        供 SQLite FTS5 兼容场景与新旧召回对比使用。
-        """
-        return tokenize(text)
-
-    def _calculate_bm25_score(
-        self,
-        query_terms: list[str],
-        doc_terms: list[str],
-        df: dict[str, int],
-        doc_count: int,
-        avg_dl: float,
-        title_terms: Optional[list[str]] = None,
-        k1: float = 1.5,
-        b: float = 0.75,
-    ) -> float:
-        """计算单文档 BM25 分数。
-
-        IDF 使用真实文档频率：``(N - df + 0.5) / (df + 0.5)``，
-        常见词权重自然衰减，稀有词权重升高（修复迁移前 df=1 的近似）。
-        标题命中沿用迁移前的固定加权（+10/词）。
-        """
-        doc_term_freq: dict[str, int] = defaultdict(int)
-        for term in doc_terms:
-            doc_term_freq[term] += 1
-
-        dl = len(doc_terms)
-        score = 0.0
-        for term in set(query_terms):
-            tf = doc_term_freq.get(term, 0)
-            if tf == 0:
-                continue
-
-            term_df = df.get(term) or 1
-            idf = max(0.0, (doc_count - term_df + 0.5) / (term_df + 0.5))
-
-            tf_norm = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * dl / max(avg_dl, 1)))
-            score += idf * tf_norm
-
-        # 标题命中加权
-        if title_terms:
-            for term in set(query_terms):
-                if term in title_terms:
-                    score += 10
-
-        return score
 
 
 def search_knowledge_base(

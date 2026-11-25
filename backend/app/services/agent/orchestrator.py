@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, AsyncIterator
 
-from wuwei import Agent, AgentEvent
+from app.services.agent.native.types import AgentEvent
 
 from app.core.data_path import (
     restore_website_dir_for_session,
@@ -221,7 +221,7 @@ class StreamOrchestrator:
             return "error"
         return "success"
 
-    async def _load_session_if_needed(self, agent: Agent, request: AgentStreamRequest) -> None:
+    async def _load_session_if_needed(self, agent: Any, request: AgentStreamRequest) -> None:
         if not request.session_id or not hasattr(agent, "_sessions"):
             return
         sessions = getattr(agent, "_sessions")
@@ -512,7 +512,7 @@ class StreamOrchestrator:
             return text
 
 
-        from wuwei.core.message import HumanMessage, ImagePart
+        from app.services.agent.native.types import HumanMessage, ImagePart
 
         return HumanMessage(content=text, content_parts=[ImagePart(url=url) for url in images])
 

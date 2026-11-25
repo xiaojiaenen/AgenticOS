@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 
 def register_data_analysis_tools(registry: ToolRegistry) -> None:

@@ -2,7 +2,7 @@
 
 管理员在后台维护 MCP 服务器（stdio / http / sse），服务负责：
 
-1. 把数据库配置翻译成 wuwei 的 :class:`MCPConfig`
+1. 把数据库配置翻译成 自有 mcp_native 的 :class:`MCPConfig`
 2. 建立/刷新连接并发现工具
 3. 把发现的工具以 ``mcp__<server>__<tool>`` 命名暴露给 Agent 的工具目录
 
@@ -54,7 +54,7 @@ def _dumps(value: Any) -> str:
 class _VerifiableHTTPMCPClient:
     """支持自签证书的 MCP HTTP 客户端。
 
-    上游 ``wuwei.mcp.HTTPMCPClient`` 的 ``_open_streams`` 里直接调用官方
+    上游 ``app.services.mcp_native.HTTPMCPClient`` 的 ``_open_streams`` 里直接调用官方
     ``create_mcp_http_client(headers, timeout)`` 建客户端 —— **没有 verify
     参数**，内网自签 CA 会在 TLS 握手阶段直接失败，且上游没留替换点。
 
@@ -72,7 +72,7 @@ class _VerifiableHTTPMCPClient:
     """
 
     def __init__(self, config: Any, *, verify_tls: bool = False) -> None:
-        from wuwei.mcp import HTTPMCPClient
+        from app.services.mcp_native import HTTPMCPClient
 
         # 动态创建子类：基类在运行时才可导入，且要按 verify_tls 决定行为
         base = HTTPMCPClient
@@ -140,8 +140,8 @@ class McpService:
 
     # ── 配置装配 ──────────────────────────────────────────────
     @staticmethod
-    def _to_wuwei_config(db) -> Any:
-        from wuwei.mcp import MCPConfig, MCPServerConfig
+    def _to_native_config(db) -> Any:
+        from app.services.mcp_native import MCPConfig, MCPServerConfig
 
         config = MCPConfig(mcp_servers={})
         rows = db.scalars(
@@ -212,13 +212,13 @@ class McpService:
 
         try:
             if config_path:
-                from wuwei.mcp import MCPConfig
+                from app.services.mcp_native import MCPConfig
 
                 config = MCPConfig.load(config_path)
             else:
                 def _build():
                     with create_db_session() as db:
-                        return self._to_wuwei_config(db)
+                        return self._to_native_config(db)
 
                 config = await asyncio.to_thread(_build)
 
@@ -258,7 +258,7 @@ class McpService:
     async def _connect_servers(self, config) -> None:
         """逐个连接 MCP 服务器并发现工具。
 
-        为什么不直接用 ``MCPSessionManager.connect_all()``：该方法在 wuwei
+        为什么不直接用 ``MCPSessionManager.connect_all()``：该方法在上游
         中按 ``for name, cfg in config.get_enabled_servers()`` 解包，而
         ``get_enabled_servers()`` 返回的是 list，会抛
         ``too many values to unpack``。这里自行遍历，顺带把「单个服务器
@@ -275,7 +275,7 @@ class McpService:
         子任务里的 ``CancelledError`` 不会污染父任务的 ``cancelling()``，
         于是既能把它识别成「这个服务器连不上」，又不会误吞外层的真取消。
         """
-        from wuwei.mcp import HTTPMCPClient, StdioMCPClient
+        from app.services.mcp_native import HTTPMCPClient, StdioMCPClient
 
         # 服务器配置行（用于自签证书 / 网段 / 凭据来源）
         rows_by_name: dict[str, MCPServerModel] = {}
@@ -349,7 +349,7 @@ class McpService:
         client: Any | None = None
         ok = False
         try:
-            from wuwei.mcp import MCPToolAdapter
+            from app.services.mcp_native import MCPToolAdapter
 
             if server_cfg.transport == "stdio":
                 client = stdio_cls(server_cfg)

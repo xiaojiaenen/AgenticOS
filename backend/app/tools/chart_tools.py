@@ -1,4 +1,4 @@
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 
 def register_chart_tools(registry: ToolRegistry) -> None:

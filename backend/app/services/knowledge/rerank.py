@@ -1,4 +1,4 @@
-"""检索结果的本地启发式重排（无外部 reranker 依赖）。
+"""检索结果重排（docs/design/系统改造总方案.md 战线 B4 自研归位）。
 
 为什么需要重排
 --------------
@@ -6,31 +6,34 @@
 回答了提问吗**。BM25 会因为一个高频词把整段抬高，向量会因为整体主题相近
 把边角料排前面。重排补的是「查询与命中片段之间的贴合度」。
 
-为什么不用 cross-encoder
-------------------------
-bge-reranker / Cohere Rerank 效果好，但要多一份模型托管或一次外部调用，
-并且会给检索链路引入 p95 抖动。这里先用四个可解释的本地信号顶上，
-接口留成同一个 ``score_result``，将来换真 reranker 只需要替换实现。
-
-四个信号
+两级实现
 --------
-- **coverage**：查询词在命中片段里的覆盖率 —— 问「端口和超时」只命中「端口」
-  的段，不该排第一；
-- **proximity**：命中词的邻近度 —— 同一句话里出现的「端口」「8080」比分散在
-  段首段尾更有意义；
-- **agreement**：通道一致性 —— 字面通道和语义通道同时选中，可信度高于单通道；
-- **base**：融合后的原始分（保留召回阶段的排序信息，权重最高）。
+- **启发式四信号**（本模块原有实现，``score_result``）：coverage / proximity /
+  agreement / base 加权，可解释、零依赖、零抖动，仍然是对外的兜底路径。
+- **FlashRank cross-encoder**（``rerank_scores``，战线 B4 新增）：本地 ONNX
+  模型（MiniLM-L-6-v2，约 33MB，首次使用自动下载到用户缓存目录，之后离线
+  可用），真 cross-encoder 精度。接口原本就留成 ``score_result`` 一条缝，
+  现在把缝扩成批量入口 ``rerank_scores`` —— 模型不可用（离线/下载失败）
+  时返回 None，调用方无缝落回启发式，检索永不因重排挂掉。
 
-``final = 0.55*base + 0.25*coverage + 0.12*proximity + 0.08*agreement``
-四项权重和为 1，结果天然落在 0~1，与检索对外承诺的 score 语义一致。
+``final = w*flashrank + (1-w)*heuristic``（w 默认 0.65，可配
+``KB_RERANK_FLASHRANK_WEIGHT``）。cross-encoder 有 p95 抖动，只对 top-K
+候选精排（``KB_RERANK_TOP_K``，默认 20）。
+
+选型说明：jina-reranker 自托管权重是 CC-BY-NC（商用受限），不采用；
+bge-reranker-v2-m3 精度更高但模型大得多，规模上来后再评估。
 """
 
 from __future__ import annotations
 
+import logging
+import threading
 from collections import defaultdict
 from typing import Iterable, Sequence
 
 from app.services.knowledge.tokenizer import tokenize
+
+logger = logging.getLogger("agenticos.knowledge.rerank")
 
 WEIGHT_BASE = 0.55
 WEIGHT_COVERAGE = 0.25
@@ -145,3 +148,84 @@ def explain(
             channels=channels,
         ),
     }
+
+
+# ═══ FlashRank cross-encoder（战线 B4 自研归位）══════════════════════════
+
+#: 轻量首选模型（量化 ONNX / CPU 友好，首次使用自动下载 ~22MB 到缓存目录，
+#: 之后离线可用）；多语言/高精度档（rank-T5-flan 等）按规模再评估。
+#: 许可说明：flashrank 库为 Apache-2.0，模型权重仓库为 CC-BY-SA（平台内部
+#: 使用无碍；对外再分发模型文件时需保留署名与同方式共享）。
+FLASHRANK_MODEL_NAME = "ms-marco-MiniLM-L-12-v2"
+
+_flashrank_ranker = None
+_flashrank_failed = False
+_flashrank_lock = threading.Lock()
+
+
+def _get_flashrank_ranker():
+    """懒加载 FlashRank Ranker 单例；任何失败都降级（返回 None）且不重试。
+
+    失败不重试的理由：失败原因（离线/磁盘满/依赖缺失）在进程生命周期内
+    通常不变，重试只会把每次检索都拖慢一次下载超时。
+    """
+    global _flashrank_ranker, _flashrank_failed
+    if _flashrank_failed:
+        return None
+    if _flashrank_ranker is not None:
+        return _flashrank_ranker
+    with _flashrank_lock:
+        if _flashrank_failed:
+            return None
+        if _flashrank_ranker is not None:
+            return _flashrank_ranker
+        try:
+            from flashrank import Ranker
+
+            _flashrank_ranker = Ranker(model_name=FLASHRANK_MODEL_NAME)
+            logger.info("FlashRank 重排器已加载（model=%s）", FLASHRANK_MODEL_NAME)
+        except Exception as exc:  # noqa: BLE001 —— 任何加载失败都降级启发式
+            _flashrank_failed = True
+            _flashrank_ranker = None
+            logger.warning("FlashRank 不可用（%s），检索重排降级为启发式四信号", exc)
+        return _flashrank_ranker
+
+
+def reset_flashrank_state() -> None:
+    """重置懒加载状态（测试用）。"""
+    global _flashrank_ranker, _flashrank_failed
+    with _flashrank_lock:
+        _flashrank_ranker = None
+        _flashrank_failed = False
+
+
+def rerank_scores(query: str, texts: Sequence[str]) -> list[float] | None:
+    """FlashRank 批量打分：返回与 ``texts`` 顺序对齐的 0~1 相关度列表。
+
+    模型不可用时返回 None —— 调用方据此落回启发式实现。查询或候选为空
+    也返回 None（没有可精排的东西，无需降级告警）。
+    """
+    if not query or not texts:
+        return None
+    ranker = _get_flashrank_ranker()
+    if ranker is None:
+        return None
+    try:
+        from flashrank import RerankRequest
+
+        passages = [{"id": idx, "text": text or " "} for idx, text in enumerate(texts)]
+        ranked = ranker.rerank(RerankRequest(query=query, passages=passages))
+        scores = [0.0] * len(texts)
+        for item in ranked:
+            scores[int(item["id"])] = max(0.0, min(1.0, float(item.get("score", 0.0))))
+        return scores
+    except Exception as exc:  # noqa: BLE001 —— 推理失败也按不可用处理
+        logger.warning("FlashRank 推理失败（%s），本批降级启发式", exc)
+        return None
+
+
+def blend_score(*, flashrank: float, heuristic: float, weight: float) -> float:
+    """线性融合，结果仍收敛在 0~1（对外 score 语义不变）。"""
+    weight = max(0.0, min(1.0, weight))
+    value = weight * max(0.0, min(1.0, flashrank)) + (1.0 - weight) * max(0.0, min(1.0, heuristic))
+    return round(value, 6)

@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 from app.services.interactions import (
     InteractionKind,

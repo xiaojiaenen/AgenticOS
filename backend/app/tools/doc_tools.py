@@ -11,7 +11,7 @@ import json
 import logging
 from typing import Any
 
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 from app.core.data_path import get_current_session_id, get_current_user_id
 from app.services.office import document_service as doc

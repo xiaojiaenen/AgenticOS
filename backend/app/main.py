@@ -44,6 +44,15 @@ if settings.redis_url:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    # 结构化日志上下文（横切 2.4）：root logger 挂 filter，
+    # 所有 logger 的输出自动携带 request_id/user_id/session_id 字段。
+    # uvicorn 有自己的 handler，但 root filter 对它的 propagate 日志同样生效。
+    from app.core.log_context import RequestContextFilter
+
+    _ctx_filter = RequestContextFilter()
+    for _handler in logging.getLogger().handlers:
+        _handler.addFilter(_ctx_filter)
+
     try:
         init_db()
     except Exception:
@@ -89,9 +98,15 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
     # M6-C：幂等写入 Casbin 内置策略与内置角色（失败不阻断启动）
     try:
-        from app.services.permission_service import ensure_default_policies
+        from app.services.permission_service import ensure_default_policies, start_policy_listener
 
         ensure_default_policies()
+        # Casbin 策略失效广播 listener（多实例毫秒级 reload，3H 档 A）
+        await start_policy_listener()
+        # OpenTelemetry（战线 D，OTEL_ENABLED 默认关闭；no-op 安全）
+        from app.services.otel_service import init_otel
+
+        init_otel()
     except Exception:
         logger.exception("Failed to seed default permission policies")
 
@@ -111,18 +126,28 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
     yield
 
-    # 关闭 ARQ 连接池与 Redis
-    from app.services.task_queue import close_arq_pool
+    # 关闭任务队列（taskiq）与 Redis
+    from app.services.task_queue import close_queue
     try:
-        await close_arq_pool()
+        await close_queue()
     except Exception:
-        logger.warning("Failed to close ARQ pool on shutdown", exc_info=True)
+        logger.warning("Failed to close task queue on shutdown", exc_info=True)
     # LLM 闸释放钩子：进程退出时归还仍持有的全局槽位。
     # 正常情况下 slot() 的 finally 已经释放，这里是崩溃/取消路径的兜底。
     try:
         llm_gate.shutdown()
     except Exception:
         logger.warning("Failed to release LLM gate slots on shutdown", exc_info=True)
+    from app.services.otel_service import shutdown_otel
+    try:
+        shutdown_otel()
+    except Exception:
+        logger.warning("Failed to flush OTel spans on shutdown", exc_info=True)
+    from app.services.permission_service import stop_policy_listener
+    try:
+        await stop_policy_listener()
+    except Exception:
+        logger.warning("Failed to stop policy listener on shutdown", exc_info=True)
     await close_redis()
 
 
@@ -175,6 +200,26 @@ async def limit_request_size(request: Request, call_next):
             content={"detail": "Request body too large."},
         )
     return await call_next(request)
+
+
+@app.middleware("http")
+async def request_log_context(request: Request, call_next):
+    """结构化日志上下文（横切 2.4）：每请求绑定 request_id/path，
+    响应头回传 X-Request-ID —— 排障时用户报障带这个 id，
+    grep 一次请求的全部日志（Agent 引擎 / 审批 / DB 层自动继承）。"""
+    from app.core.log_context import bind_request_context, clear_request_context, new_request_id
+
+    request_id = request.headers.get("x-request-id") or new_request_id()
+    bind_request_context(request_id=request_id, path=request.url.path)
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+    finally:
+        # contextvar 所在线程会被复用，必须清掉，否则下一个请求读到脏字段
+        clear_request_context()
+
+
 app.include_router(api_router, prefix=settings.api_v1_prefix)
 
 # 短链：/s/<code> 挂在应用根（不经 /api/v1 前缀），nginx 直接把 /s/ 反代到这里
@@ -186,6 +231,11 @@ app.include_router(shortlinks_router)
 from app.api.v1.endpoints.published_items import router as published_items_router  # noqa: E402
 
 app.include_router(published_items_router)
+
+# 网站应用化静态 SDK（/sdk/agenticos.js，生成站点 <script> 直接引用）—— 挂应用根
+from app.api.v1.endpoints.app_platform import sdk_router as app_platform_sdk_router  # noqa: E402
+
+app.include_router(app_platform_sdk_router)
 
 # OpenAI 兼容上游网关 /v1/*（外部软件用 sk-agenticos-* 调用）
 from app.api.gateway_v1 import router as gateway_v1_router

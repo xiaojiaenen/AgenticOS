@@ -5,12 +5,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 # 特殊标记，前端检测到此标记就知道是图表数据，不需要依赖 LLM 输出格式
 _CHART_MARKER = "__ECHART_JSON__"
 
-from app.services.chart_events import CHART_PROTOCOL_VERSION  # noqa: E402
 
 
 def register_chart_render_tools(registry: ToolRegistry) -> None:

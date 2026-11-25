@@ -11,45 +11,14 @@ dependencies = [
     "pydantic-settings>=2.10.0,<3.0.0",
     "sqlalchemy>=2.0.44,<3.0.0",
     "uvicorn[standard]>=0.35.0,<1.0.0",
-    # 3.3.1 起上游改了 AgentRunner 的内部签名（去掉了 `task` 参数）并在
-    # `_generate_stream` 收尾时统一把异常翻成 LLMError。`app/services/agent/
-    # wuwei_patches.py` 与 `llm_providers/adapter.py` 已按 3.3.1 对齐。
-    # 3.3.2 官方修复了 checkpoint 还原后 metadata["action_log"] 是 dict、
-    # get_or_create_log() 只认 None 导致 `.append()` 崩溃（工具执行后无最终回复）
-    # —— 新增 coerce_action_log() 统一收敛带标记/裸 dict 两种历史形态，
-    # 内网那处改 site-packages 的临时补丁不再需要。
-    # 3.3.3 修了两处本项目报过的上游缺陷：
-    #   - structured-output 不再 insert(0, SystemMessage) 造成相邻两条 system
-    #     （OpenAI 兼容端 400 "System message must be at the beginning"），
-    #     改为并入首条 system 且幂等；适配器边界也补了 _coalesce_system_messages。
-    #   - LLMResponse 新增 steps_used / max_steps，调用方可程序化判断「被
-    #     max_steps 截断」而不是靠匹配文案。
-    # 因此下限提到 3.3.3。本项目 adapter.py 里的 normalize_system_messages
-    # 保留为下游兜底（幂等、无害），上游生效后自然不再触发。
-    # 3.4.1 的实测核对（2026-11-12 升级）：
-    #   - ``_as_llm_error`` 升级为 classmethod 并新增 ``provider`` 位置参数
-    #     （``_raise_translated`` 以 ``cls._as_llm_error(exc, provider)`` 调用），
-    #     本项目 RetryingGateway 的覆写已对齐该签名（升级时实测踩到 TypeError）。
-    #   - R-6 已修：unknown 判定不再做内容子串匹配，改读结构化
-    #     ``tool_outcome.status``；本项目 PatchedAgentRunner 的「委托+纠正」
-    #     补丁成为空转安全网（回归测试不冲突，按纪律保留待清理）。
-    #   - R-8 已修：并发批次异常判定放宽到 ``BaseException``。
-    #   - R-7 未修：``can_batch`` 仍要求中间件栈无工具钩子（新增了静默降级
-    #     的 warning），``BatchSafeMiddlewareProxy`` 仍然必要。
-    #   - executor 已原生具备 _execute_batched / serialize_output 骨架。
-    "wuwei>=3.4.1",
+    # （wuwei 框架已按迁移方案完全退役，见 docs/design/wuwei迁移LangChain方案.md）
     # 下面两个是**直接依赖**，必须显式声明，不能靠传递依赖侥幸拿到：
     # - httpx：app/ 下 14 个文件直接 import（外部系统、图像工具、鉴权代理等）。
     #   openai 3.x 起不再自动安装 httpx（改用 httpx2），只靠别人传递是定时炸弹。
-    # - openai：llm_providers 的适配器与错误分类直接 import。
-    #   版本下限与 wuwei 3.3.1 的要求保持一致（>=3.40.0）。
+    # - openai：llm_providers 原生网关与错误分类直接 import。
     "httpx>=0.28.0,<1.0.0",
     "openai>=3.40.0,<4.0.0",
-    # - mcp：MCP 官方 SDK。wuwei 把 MCP 放在 optional extra 里（`wuwei[mcp]`），
-    #   本项目**在管理后台直接暴露「MCP 服务器」接入能力**（mcp_service.py
-    #   直接 import wuwei.mcp 的 HTTPMCPClient / StdioMCPClient），
-    #   所以它是生产依赖而不是可选 extra —— 不声明会导致管理面板能配服务器、
-    #   但实际连接时 ModuleNotFoundError，通道形同虚设。
+    # - mcp：MCP 官方 SDK（mcp_service / mcp_native 的客户端与工具适配基于它）。
     "mcp>=2.2,<3",
     "python-pptx>=1.0.2",
     "pillow>=12.2.0",
@@ -74,7 +43,43 @@ dependencies = [
     "casbin>=1.43.0",
     "authlib>=1.6.12",
     "ldap3>=2.9.1,<3.0.0",
+    # ── 自研归位（docs/design/系统改造总方案.md 战线 B）──────────────────
+    # JWT：手写 base64+HMAC → PyJWT（标准实现，算法白名单）。不用
+    # python-jose（CVE 前科）。签名/载荷格式保持兼容（HS256）。
+    "pyjwt>=2.15.1,<3.0.0",
+    # 密码哈希：PBKDF2 → Argon2id（OWASP 首选）。存量 pbkdf2 哈希在登录时
+    # 双验过渡并无缝升级（见 core/security.py）。passlib 已停维护，不用。
+    "argon2-cffi>=25.1.0,<26.0.0",
+    # 内存 Redis fallback → fakeredis（redis-py 的 drop-in 替身，语义保真）。
+    # 仅开发/测试 fallback；生产仍应配真实 Redis（见 core/redis.py）。
+    "fakeredis>=2.40.0,<3.0.0",
+    # 检索重排：启发式四信号 → FlashRank（本地 ONNX cross-encoder，
+    # Apache-2.0）。接口 score_result 已预留；不可用（无模型/离线）时
+    # 自动降级回启发式实现（见 knowledge/rerank.py）。
+    "flashrank>=0.2.10,<0.3.0",
+    # ── 框架底座迁移（战线 A：wuwei → LangGraph）────────────────────────
+    # 绞杀者模式：新引擎（LangGraph）与 wuwei 双轨并存，AGENT_ENGINE
+    # 特性开关路由。版本锁定（方案阶段 0 要求 pin），升级须跑回归。
+    "langgraph==1.2.22",
+    "langchain==1.5.0",
+    "langchain-openai>=1.0.0,<2.0.0",
+    # 可观测（战线 D，3F.0 纯库红线）：OpenTelemetry SDK 埋点写自家 DB，
+    # 沿用现有 traces 展示；不接 Langfuse（外部系统）/ 不部署 collector。
+    "opentelemetry-api>=1.29.0,<2.0.0",
+    "opentelemetry-sdk>=1.29.0,<2.0.0",
+    "llama-index-core>=0.12.0,<0.13.0",
+    "llama-index-retrievers-bm25>=0.5.2",
 ]
+
+# 可选 extra：生产推荐 PostgreSQL（docs/design/数据库选型评估-MySQL到PostgreSQL.md）
+[project.optional-dependencies]
+pg = ["psycopg[binary]>=3.2.0,<4.0.0"]
+# LiteLLM Python SDK 旁路 PoC（3B.2）：纯库统一调用多 provider；Proxy 形态按红线排除
+litellm = ["litellm>=1.80.0"]
+# RAGAS 评估（旁路 PoC，eval_ragas_poc.py）：**不能进 pyproject 依赖/extra** ——
+# uv lock 会解析全环境，ragas→instructor 钉 openai<3.0 与本项目 openai>=3.40
+# 硬冲突（实测 No solution）。真实联网评估请在独立 venv 里
+# `pip install ragas`（代码契约已由 test_eval_ragas_poc.py 用 fake-module 锁定）。
 
 [dependency-groups]
 dev = [

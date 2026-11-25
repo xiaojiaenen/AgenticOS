@@ -16,7 +16,7 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core.security import decrypt_credential
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 from app.db.models import AgentSessionModel, UserEmailCredentialsModel
 from app.db.session import create_db_session

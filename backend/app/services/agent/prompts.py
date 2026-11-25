@@ -68,7 +68,7 @@ def inject_design_catalog(message: str, visual_style: str | None = None) -> str:
     # 视觉风格：用户已选 → 注入该风格的完整规则；未选 → 注入 18 种风格目录
     visual_style_text = ""
     try:
-        from app.services.ppt.visual_styles_data import get_style, list_styles, style_prompt_block
+        from app.services.ppt.visual_styles_data import list_styles, style_prompt_block
 
         if visual_style:
             block = style_prompt_block(visual_style)

@@ -1,59 +1,27 @@
-"""AgentFactory：Agent 实例 / 中间件栈 / 工具注册表的构建。
+"""AgentFactory：Agent 实例与工具注册表的构建（全新系统，wuwei 已退役）。
 
-从原 ``app/services/agent_service.py`` 整段搬移（TECH-DEBT-2026-09 拆分）：
-- LenientHitlMiddleware / SkillInstructionMiddleware / ThinkingHistoryCompatibilityMiddleware
-- _build_tool_registry / _build_middleware_stack / _get_agent / _build_async_sub_agents
+原 wuwei 路径（PatchedAgent / 中间件栈 / wuwei_patches.py）已整体删除；
+唯一的引擎是 ``langgraph_engine.LangGraphAgent``，原先挂在中间件栈上的
+语义（审批 / 配对修复 / 思考历史兼容 / Skill 注入 / 压缩 / 预算 / 子代理）
+全部移植进引擎本身（见 ``langgraph_engine/engine.py`` 与 ``native/``）。
 
 本类为 Mixin：由 ``service.AgentService`` 组合继承，依赖宿主提供的属性
 （self.settings / self.approval_manager / self._agents Agent 缓存）。
-
-**并发工具执行不再需要 monkey-patch。**
-这里曾有一份 230 行的 ``AgentRunner.stream_events`` 整体重写（TECH-DEBT），
-目的是让安全工具（``is_concurrency_safe=True``）并发执行、非安全工具串行。
-wuwei 3.2.1 的 ``ToolExecutor.execute(tool_calls, concurrent=True)`` 已原生
-实现同样的分批并发逻辑（``_execute_batched``，注释里明说是借鉴 AgentScope 的
-``_batch_tool_calls`` 设计），上游 runner 默认就是 ``concurrent=True``。
-
-实测（两个各耗时 0.5s 的安全工具）：补丁版 0.504s，上游原生 0.505s，
-事件序列与数据字段完全一致 —— 所以补丁已删除。
-
-**不要再写这个补丁。** 原因：它整段复制了上游的执行循环（LLM 调用、中间件
-生命周期、事件产出格式），上游一改签名或加特性，这份拷贝就会静默落后 ——
-本轮升级时上游新增的 ``side_effect`` / ``requires_approval`` 事件字段、
-审批决策绑定、interrupt 挂起能力，补丁版本统统拿不到。
 """
 
 import asyncio
-import json
 import logging
-from typing import TYPE_CHECKING, Any
-
-from wuwei import Agent, FileSystemSkillProvider, SkillManager
-from wuwei.llm import LLMGateway
-from app.services.approval_policy import (
-    is_read_only_tool,
-    normalize_approval_mode,
-)
-from wuwei.middleware import (
-    Middleware,
-    MiddlewareContext,
-    MiddlewareStack,
-    HitlMiddleware,
-    LoggingMiddleware,
-)
-from wuwei.tools import ToolRegistry
-from wuwei.plugin import PluginContext
-from wuwei.plugin.builtin.skill import setup as setup_skill_plugin
-from wuwei.core.message import ToolCall, ToolMessage
-from wuwei.agent.async_sub_agent import AsyncSubAgent, AsyncSubAgentMiddleware
+from typing import Any, TYPE_CHECKING
 
 from app.core.data_path import is_external_api_call
+from app.services.agent.native.async_sub_agent import AsyncSubAgent, AsyncSubAgentManager
+from app.services.agent.native.plugins import PluginContext
+from app.services.agent.native.tool_registry import ToolRegistry
 from app.services.agent_profile_service import RuntimeAgentProfile
 from app.services.tool_config_service import TOOL_CATALOG
-from app.services.agent.wuwei_patches import BatchSafeMiddlewareProxy, PatchedAgent
 
 if TYPE_CHECKING:
-    from wuwei.middleware.budget import Budget
+    from app.services.agent.native.budget import Budget
 
 _logger = logging.getLogger("agent")
 
@@ -64,13 +32,8 @@ _ENTERPRISE_COOKIE = "enterprise_cookie"
 # 特殊工具名：用户拒绝时替换原工具调用，让 LLM 收到明确的拒绝消息
 _REJECTED_TOOL_NAME = "__tool_rejected__"
 
-# 工具结果截断：超过此字符数的结果在送入 LLM 上下文时会被截断（约 25000 tokens）
-_TOOL_RESULT_CONTEXT_LIMIT = 100000
-_CHART_MARKER = "__ECHART_JSON__"
-
-# 上游 ``agent_runner.py`` 达到步骤上限时写进上下文的原文。这个字符串是
-# ``ThinkingHistoryCompatibilityMiddleware`` 的匹配键，**必须与上游逐字一致**，
-# 不要为了改文案动它 —— 面向用户的说法在序列化层（``agent.py``）替换。
+# 上游 runner 达到步骤上限时写进上下文的原文。引擎在截断时写入这条合成回复，
+# 下一轮由 thinking-compat 剔除 —— 面向用户的说法在序列化层（agent.py）替换。
 MAX_STEPS_LIMIT_MESSAGE = "任务未完成，已达到最大步骤限制。"
 
 SKILL_INSTRUCTION = (
@@ -82,287 +45,32 @@ SKILL_INSTRUCTION = (
 )
 
 
-def _truncate_for_context(content: str) -> str:
-    """截断工具结果用于 LLM 上下文，保留图表标记，添加截断提示。"""
-    if not content:
-        return content
-
-    # 保留图表标记完整
-    if _CHART_MARKER in content:
-        return content
-
-    if len(content) <= _TOOL_RESULT_CONTEXT_LIMIT:
-        return content
-
-    # 截断并添加提示
-    truncated = content[:_TOOL_RESULT_CONTEXT_LIMIT]
-    return f"{truncated}\n\n[结果已截断，原始数据共 {len(content)} 字符，仅展示前 {_TOOL_RESULT_CONTEXT_LIMIT} 字符]"
-
-
-class LenientHitlMiddleware(HitlMiddleware):
-    """宽松的 HITL 中间件：用户拒绝时不抛异常，替换为拒绝消息让 LLM 继续。
-
-    在此基础上支持会话级三档审批模式（ask / auto / full）：
-
-    - ``auto``：只读工具（含 file 的读类子操作）自动放行，写/执行仍逐次确认
-    - ``full``：``auto_approve_tools`` 含 ``*`` 哨兵时全部放行（仅管理员可用）
-    """
-
-    def __init__(self, *args, approval_mode: str = "auto", approval_timeout: float = 300.0, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.approval_mode = normalize_approval_mode(approval_mode)
-        # R-15：审批等待必须有上限。上游 ``HitlMiddleware.before_tool`` 直接
-        # ``await self.approval_provider(tool_call)``，没有超时也没有取消通道；
-        # 审批期间还持有 session.lock，用户关掉审批页面就会把整个会话卡住。
-        self.approval_timeout = float(approval_timeout)
-
-    @staticmethod
-    def _tool_arguments(tool_call: ToolCall) -> dict:
-        arguments = getattr(tool_call.function, "arguments", None)
-        if isinstance(arguments, str):
-            try:
-                arguments = json.loads(arguments)
-            except (json.JSONDecodeError, TypeError):
-                arguments = None
-        return arguments if isinstance(arguments, dict) else {}
-
-    async def before_tool(
-        self,
-        ctx: MiddlewareContext,
-        tool_call: ToolCall,
-    ) -> ToolCall | None:
-        """工具执行前进行审批，用户拒绝时替换为拒绝工具。"""
-        tool_name = tool_call.function.name
-
-        # 自动批准：显式名单 / 全放行哨兵
-        if "*" in self.auto_approve_tools or tool_name in self.auto_approve_tools:
-            return tool_call
-
-        # auto 档：只读工具（含细粒度工具的只读子操作）自动放行
-        if self.approval_mode == "auto" and is_read_only_tool(
-            tool_name, self._tool_arguments(tool_call)
-        ):
-            return tool_call
-
-        # 自动拒绝 - 替换为拒绝工具
-        if tool_name in self.auto_reject_tools:
-            tool_call.function.name = _REJECTED_TOOL_NAME
-            tool_call.function.arguments = {"original_tool": tool_name, "reason": "自动拒绝"}
-            return tool_call
-
-        # 请求用户审批（完整决策对象：批准时可能带用户改过的参数）
-        try:
-            decision = await asyncio.wait_for(
-                self.approval_provider(tool_call), timeout=self.approval_timeout
-            )
-        except asyncio.TimeoutError:
-            # 审批超时按「拒绝」处理：宁可让模型换方案，也不要把会话永久卡住。
-            _logger.warning(
-                "审批等待超过 %.0f 秒，按拒绝处理：tool=%s",
-                self.approval_timeout,
-                tool_name,
-            )
-            decision = None
-        approved = bool(decision and getattr(decision, "status", "") == "approved")
-        if not approved:
-            # 用户拒绝，替换为拒绝工具（LLM 会收到明确的拒绝消息）
-            tool_call.function.name = _REJECTED_TOOL_NAME
-            tool_call.function.arguments = {"original_tool": tool_name, "reason": "用户拒绝了此工具的执行"}
-            return tool_call
-
-        # 用户批准 —— 若在预览里改过参数（如邮件正文/模板），用改后的执行。
-        # 只允许 dict 形态且非空；异常形态一律按原参数执行，不让一次坏的
-        # 编辑把整个工具调用打挂。
-        modified = getattr(decision, "modified_arguments", None)
-        if isinstance(modified, dict) and modified:
-            tool_call.function.arguments = modified
-        return tool_call
-
-
-class ToolPairRepairMiddleware(Middleware):
-    """补齐 / 清理 tool_calls 与 tool 消息的配对，避免上游 400。
-
-    DeepSeek 等 OpenAI 兼容端点对历史有硬约束：一条 assistant 消息里的每个
-    ``tool_calls[i].id`` 都**必须**紧跟着一条 ``role=tool`` 且 ``tool_call_id``
-    相同的消息，条数不足就直接拒绝整轮：
-
-        400 An assistant message with 'tool_calls' must be followed by tool
-        messages responding to each 'tool_call_id'
-
-    本地这几种情况都会造出残缺历史，而它们都不是用户能控制的：
-
-    - 并发批处理工具时，某一批在中途被取消 / 超时，只写回了部分结果；
-    - 审批被拒绝或超时，框架没有为那个 tool_call 落 tool 消息；
-    - 达到最大步数上限，最后一批工具没有执行就结束；
-    - 用户点停止，流被中断。
-
-    一旦落到库里，这个会话此后**每一次**请求都会 400，用户看到的是
-    「说到一半就断了」，重试也没用。这里在每次调 LLM 前做一次兜底修复：
-    缺失的结果补一条明确的失败结果（模型能据此改主意），孤立的 tool 结果删掉。
-    """
-
-    _MISSING_RESULT = (
-        "该工具调用没有返回结果（可能被取消、超时、等待审批未通过，"
-        "或达到步数上限）。请根据已有信息判断下一步，不要假设它成功。"
-    )
-
-    async def before_llm(self, ctx: MiddlewareContext) -> MiddlewareContext:
-        messages = list(ctx.state.messages or [])
-        if not messages:
-            return ctx
-
-        # 收集所有已存在的 tool 结果 id
-        answered: set[str] = set()
-        for message in messages:
-            if getattr(message, "role", None) == "tool":
-                call_id = getattr(message, "tool_call_id", None)
-                if call_id:
-                    answered.add(str(call_id))
-
-        # 找出所有 assistant 声明的 tool_call id
-        declared: list[str] = []
-        missing_names: dict[str, str] = {}
-        for message in messages:
-            if getattr(message, "role", None) != "assistant":
-                continue
-            for call in getattr(message, "tool_calls", None) or []:
-                call_id = getattr(call, "id", None)
-                if call_id is None and isinstance(call, dict):
-                    call_id = call.get("id")
-                if not call_id:
-                    continue
-                declared.append(str(call_id))
-                # ToolMessage 的 name 字段是必填的，补结果时必须带上工具名，
-                # 否则 pydantic 直接拒绝构造。
-                fn = getattr(call, "function", None)
-                fn_name = getattr(fn, "name", None) if fn is not None else None
-                if fn_name is None and isinstance(call, dict):
-                    fn_name = (call.get("function") or {}).get("name")
-                missing_names[str(call_id)] = str(fn_name or "unknown")
-
-        declared_set = set(declared)
-        missing = [cid for cid in declared if cid not in answered]
-
-        # 没有任何残缺就原样返回，保持热路径零改动
-        orphans = [cid for cid in answered if cid not in declared_set]
-        if not missing and not orphans:
-            return ctx
-
-        _logger.warning(
-            "修复历史配对：补 %d 条缺失工具结果，删 %d 条孤立结果",
-            len(missing),
-            len(orphans),
-        )
-
-        repaired: list[Any] = []
-        for message in messages:
-            # 删掉孤立的 tool 结果（上游同样会因为「没有对应 tool_call」报错）
-            if getattr(message, "role", None) == "tool":
-                call_id = getattr(message, "tool_call_id", None)
-                if call_id and str(call_id) in orphans:
-                    continue
-            repaired.append(message)
-
-            # 每遇到一条带 tool_calls 的 assistant，就地补齐缺的结果
-            if getattr(message, "role", None) != "assistant":
-                continue
-            calls = getattr(message, "tool_calls", None) or []
-            pending_ids: list[str] = []
-            for call in calls:
-                call_id = getattr(call, "id", None)
-                if call_id is None and isinstance(call, dict):
-                    call_id = call.get("id")
-                if call_id and str(call_id) in missing:
-                    pending_ids.append(str(call_id))
-            for call_id in pending_ids:
-                repaired.append(
-                    ToolMessage(
-                        content=self._MISSING_RESULT,
-                        tool_call_id=call_id,
-                        name=missing_names.get(call_id, "unknown"),
-                    )
-                )
-
-        ctx.state.messages = repaired
-        return ctx
-
-
-class ThinkingHistoryCompatibilityMiddleware(Middleware):
-    """Keep provider thinking-mode histories free of local synthetic replies."""
-
-    async def before_llm(self, ctx: MiddlewareContext) -> MiddlewareContext:
-        ctx.state.messages = [
-            message
-            for message in ctx.state.messages
-            if not (
-                message.role == "assistant"
-                and message.content == MAX_STEPS_LIMIT_MESSAGE
-                and not getattr(message, "reasoning_content", None)
-                and not getattr(message, "tool_calls", None)
-            )
-        ]
-        return ctx
-
-
-class SkillInstructionMiddleware(Middleware):
-    """将 Skill 使用指引注入系统提示词。
-
-    与 wuwei 内置 SkillMiddleware 不同，本中间件保留了项目自定义的指令文本，
-    并匹配 register_skill_tools() 注册的 list_skills/load_skill 工具名。
-    """
-
-    def __init__(self, instruction: str = SKILL_INSTRUCTION) -> None:
-        self.instruction = instruction.strip()
-        self._injected = False
-
-    async def before_llm(self, ctx: MiddlewareContext) -> MiddlewareContext:
-        if self._injected:
-            return ctx
-        if not self.instruction:
-            return ctx
-
-        for msg in ctx.state.messages:
-            if msg.role == "system":
-                base_prompt = (msg.content or "").rstrip()
-                msg.content = (
-                    f"{base_prompt}\n\n{self.instruction}" if base_prompt else self.instruction
-                )
-                break
-        else:
-            from wuwei.core.message import SystemMessage
-            ctx.state.messages.insert(0, SystemMessage(content=self.instruction))
-
-        self._injected = True
-        return ctx
-
-
 def _unregister_if_exists(registry: ToolRegistry, name: str) -> None:
-    """wuwei 2.1 的 ToolRegistry.register() 拒绝重名，注册前先移除旧工具。"""
-    if registry.get(name) is not None:
-        registry.unregister(registry.get(name))
+    """注册表拒绝重名，注册前先移除旧工具。"""
+    existing = registry.get(name)
+    if existing is not None:
+        registry.unregister(existing)
 
 
 def _unregister_tool_group(registry: ToolRegistry, group_name: str) -> None:
-    """按工具组名注销：组名本身 + TOOL_CATALOG 中该组的全部 sub_tools。
-
-    signature 中的键是组名（如 "knowledge"/"memory"/"decision"），而注册表里的
-    实际工具名是 sub_tools（如 search_knowledge_base）。只按组名精确匹配会漏注销。
-    """
-    _unregister_if_exists(registry, group_name)
-    catalog_item = TOOL_CATALOG.get(group_name) or {}
-    for sub_name in (catalog_item.get("sub_tools") or {}):
-        _unregister_if_exists(registry, sub_name)
+    """按 TOOL_CATALOG 的组名注销工具（含 sub_tools）。"""
+    catalog = TOOL_CATALOG.get(group_name)
+    if catalog is None:
+        return
+    for tool_name in catalog.get("sub_tools", {}) or [group_name]:
+        _unregister_if_exists(registry, tool_name)
 
 
 def _signature_group_enabled(
-    signature: tuple[tuple[str, bool, bool], ...] | list[tuple[str, bool, bool]],
+    signature: list[tuple[str, bool, Any]],
     group_name: str,
+    *,
     default: bool = True,
 ) -> bool:
-    """从 profile.signature 判断工具组是否启用；未配置时返回 default。"""
-    for tool_name, enabled, _ in signature:
-        if tool_name == group_name:
-            return bool(enabled)
+    """signature 里某工具组的启用状态；未配置按 default。"""
+    for name, enabled, _ in signature:
+        if name == group_name:
+            return enabled
     return default
 
 
@@ -391,12 +99,13 @@ class AgentFactory:
             "请先到「管理后台 → 系统设置 → AI 提供商」配置后再调用 /agent/stream。"
         )
 
-    def _get_agent(self, profile: RuntimeAgentProfile) -> Agent:
+    def _get_agent(self, profile: RuntimeAgentProfile) -> Any:
         injected = getattr(self, "_agent", None)
         if injected is not None:
             return injected
         self._ensure_llm_configured()
         import hashlib
+
         from app.services.llm_providers.spec import (
             resolve_active_provider,
             resolve_model_for_role,
@@ -408,30 +117,12 @@ class AgentFactory:
         # 旧 agent（界面上显示已改，实际没生效）。
         effective_model = resolve_model_for_role(provider, "chat")
 
-        # ── 企业网关：按轮换窗口让缓存失效，账号才会轮换 ──
-        #
-        # Cookie 是**构建时注入 client 的 default_headers**（runtime 的
-        # ``_build_cookie_adapter``），换号必须重建网关。而 agent 缓存是
-        # 1 小时的 TTLCache —— 不处理的话，同一个 agent 会被复用最久一小时，
-        # 账号池的「摊配额」逻辑等于失效（只有缓存未命中才 acquire），
-        # 审计列里的 credential_id 也与实际用的号脱节。
-        #
-        # 为什么用**轮换窗口**而不是「把 credential_id 放进缓存键」：
-        # acquire 挑的是最久未用的号，若每次请求都先 acquire 再查缓存，
-        # 拿到的号每次都不同 → 缓存永远 miss → agent 每次请求都重建
-        # （工具注册表、中间件栈全量重来，很贵）。
-        #
-        # 轮换窗口的做法：把「当前时间落在第几个窗口」放进缓存键。窗口内
-        # 复用同一个 agent（同一个号），跨窗口自动重建 → 重建时 acquire 会
-        # 挑到另一个号（上一个号的 last_used_at 刚被推进过）。既摊开了配额，
-        # 又不会每次请求都重建。
+        # 企业网关：按轮换窗口让缓存失效，账号才会轮换（换号必须重建网关）
         rotation_bucket: int | None = None
         if provider.provider_type == _ENTERPRISE_COOKIE:
             rotation_bucket = self._credential_rotation_bucket()
-        # 工作流签名：启停/编辑工作流会改变工具集，必须进缓存键，
-        # 否则管理员启用一个工作流后智能体手里永远没有对应工具。
-        workflows_sig = self._workflows_signature()
-        # 用 hash 替代完整文本，减少缓存键内存占用
+        # 工作流签名：启停/编辑工作流会改变工具集，必须进缓存键
+        workflows_sig = None  # workflow 已下线（签名机制保留给未来的动态工具源）
         prompt_hash = hashlib.md5((profile.system_prompt or "").encode()).hexdigest()[:8]
         skills_hash = hashlib.md5(str(profile.skills).encode()).hexdigest()[:8]
         cache_key = (
@@ -445,27 +136,13 @@ class AgentFactory:
             skills_hash,
             profile.external_system_ids,
             self.settings.context_compression_enabled,
-            # 计划模式会改变工具集合，必须参与缓存键，否则会复用普通模式的 agent
             bool(getattr(profile, "plan_mode", False)),
-            # 审批档位同样烧在 agent 的中间件栈里（LenientHitlMiddleware 在
-            # 构建时固化 auto_approve 哨兵），不进缓存键的话：第一轮以默认
-            # ask 构建被缓存，第二轮切「全部放行」仍复用旧 agent —— 文件工具
-            # 照样弹审批/被拒，界面显示已切档但实际没生效。
             getattr(profile, "approval_mode", "auto"),
-            # is_admin_actor 决定 full 档是否真的放行（非管理员降级），
-            # 同一 agent 可能被管理员与普通用户先后使用，必须一并参与。
             bool(getattr(profile, "is_admin_actor", False)),
-            # 提供商决定 LLM 实例本身。不参与缓存键的话，管理员切换提供商后
-            # 旧 agent（连同旧网关）会被一直复用，界面显示已切换但实际没生效。
             provider.slug,
             effective_model,
             workflows_sig,
-            # 轮换窗口：跨窗口后缓存失效 → 重建 agent 时会借到另一个账号。
-            # API Key 型提供商没有账号池，这一项恒为 None。
             rotation_bucket,
-            # 对外 API Key 调用与网页端对话必须分开缓存：前者强制走共享池，
-            # 后者优先用本人凭据。共用一个条目会让对外流量复用一个内嵌了
-            # 个人 cookie 的 agent（或者反过来）。
             is_external_api_call(),
         )
         cached = self._agents.get(cache_key)
@@ -484,41 +161,180 @@ class AgentFactory:
             role="chat",
         )
         tools, ext_instruction = self._build_tool_registry(profile)
-        middleware_stack = self._build_middleware_stack(
-            profile, llm, tool_registry=tools, model_name=effective_model
-        )
+        self._sub_agent_llm = llm  # 子代理复用主对话网关
 
         # 追加外部系统指引到 system prompt
         system_prompt = profile.system_prompt
         if ext_instruction:
             system_prompt = f"{system_prompt}{ext_instruction}"
 
-        agent = PatchedAgent(
+        from app.services.agent.langgraph_engine import LangGraphAgent
+        from app.services.agent.langgraph_engine.tools_adapter import (
+            EngineApprovalPolicy,
+            InterruptOnConfig,
+        )
+        from app.services.approval_policy import normalize_approval_mode
+
+        # 声明式 interrupt_on —— profile 审批名单里的每个工具一份
+        # InterruptOnConfig（决策集含人工代答），其余工具自动放行。
+        approval_mode = normalize_approval_mode(getattr(profile, "approval_mode", None))
+        if approval_mode == "full" and getattr(profile, "is_admin_actor", False):
+            approval_mode = "auto"
+            interrupt_on: dict[str, bool | InterruptOnConfig] = {}
+            auto_approve: set[str] = {"*"}
+        else:
+            approval_mode = "ask" if approval_mode == "full" else approval_mode
+            approval_tools = set(profile.approval_tools)
+            auto_approve = set()
+            interrupt_on = {
+                t.name: InterruptOnConfig() for t in tools.list_tools() if t.name in approval_tools
+            }
+        policy = EngineApprovalPolicy(
+            approval_manager=self.approval_manager,
+            auto_approve_tools=auto_approve or None,
+            approval_mode=approval_mode,
+            approval_timeout=float(self.settings.hitl_timeout_seconds),
+            interrupt_on=interrupt_on or None,
+        )
+
+        # 预算断路（原 BudgetMiddleware 语义，移植进引擎）
+        budget = self._build_run_budget()
+
+        # 上下文压缩（原 ContextCompressionMiddleware，移植进引擎）
+        compressor = None
+        if self.settings.context_compression_enabled:
+            from app.services.agent.native.context_compression import ContextCompressor
+
+            window = max(1, self.settings.context_window_tokens)
+            per_turn = max(1, self.settings.context_tokens_per_turn)
+            trigger = min(
+                self.settings.context_compress_after_turns * per_turn,
+                max(1, window // 2),
+            )
+            compressor = ContextCompressor(
+                llm=llm,
+                trigger_tokens=trigger,
+                keep_recent_turns=self.settings.context_keep_recent_turns,
+                max_tokens=window,
+            )
+
+        # 异步子代理（原 AsyncSubAgentMiddleware，移植进引擎并自执行）
+        sub_agent_manager = None
+        if self.settings.async_sub_agents_enabled:
+            sub_agents = self._build_async_sub_agents()
+            if sub_agents:
+                sub_agent_manager = AsyncSubAgentManager(sub_agents, run_fn=self._run_sub_agent)
+                # 注册 4 个管理工具（start/check/cancel/list）
+                from app.services.agent.native.tool_registry import ToolParameters, Tool as _Tool
+
+                for schema in sub_agent_manager.tool_schemas():
+                    # tool_schemas 返回 {"type":"function","function":{...}}（OpenAI 格式）
+                    fn_spec = schema["function"]
+                    tool = _Tool(
+                        name=fn_spec["name"],
+                        description=fn_spec.get("description", ""),
+                        parameters=ToolParameters.model_validate(fn_spec.get("parameters") or {"type": "object"}),
+                        handler=self._make_sub_agent_handler(sub_agent_manager, fn_spec["name"]),
+                        side_effect=fn_spec["name"] == "start_async_task",
+                        requires_approval=False,
+                    )
+                    try:
+                        tools.register(tool)
+                    except ValueError:
+                        pass  # 重名（不应发生）
+
+        # Skill 工具（原 wuwei skill 插件，移植为 SkillToolBox）
+        skill_toolbox = None
+        if "skill" in profile.builtin_tools and profile.skills:
+            from app.services.agent.native.fs_provider import FileSystemSkillProvider
+            from app.services.agent.native.skill import SkillManager
+            from app.services.agent.native.builtin.skill_tools import SkillToolBox
+
+            skill_manager = SkillManager(
+                [FileSystemSkillProvider(skill.root_dir) for skill in profile.skills]
+            )
+            skill_toolbox = SkillToolBox(skill_manager)
+            skill_toolbox.register(tools)
+
+        agent = LangGraphAgent(
             llm=llm,
             tools=tools,
             default_system_prompt=system_prompt,
             default_max_steps=self.settings.agent_max_steps,
             default_parallel_tool_calls=self.settings.agent_parallel_tool_calls,
-            # BatchSafeMiddlewareProxy：上游的并发判定要求中间件栈里没有任何
-            # before_tool / after_tool 钩子，本项目默认就装了审批中间件，
-            # 于是「打开并行开关 → 并发被静默关闭，用户毫无感知」。
-            # 代理只对上游的判定隐藏钩子，实际执行由 BoundedToolExecutor
-            # 在批处理路径上补齐（审批语义不丢）。
-            middleware=BatchSafeMiddlewareProxy(middleware_stack),
-            load_builtins=False,
+            approval_policy=policy,
+            model_name=effective_model,
+            skill_toolbox=skill_toolbox,
+            async_sub_agents=sub_agent_manager,
+            budget=budget,
+            compressor=compressor,
         )
         self._agents[cache_key] = agent
         return agent
+
+    @staticmethod
+    def _make_sub_agent_handler(manager: Any, name: str):
+        """子代理管理工具的 handler（闭包绑定 manager 与工具名）。"""
+
+        async def _handler(**kwargs: Any) -> dict:
+            from app.core.data_path import _current_session_id
+
+            import json as _json
+
+            result = await manager.handle_tool(
+                name, kwargs, _current_session_id.get()
+            )
+            return _json.loads(result)
+
+        return _handler
+
+    async def _run_sub_agent(self, sub_agent: Any, task: str) -> dict:
+        """用本引擎执行子代理（AsyncSubAgentManager 的 run_fn 回调）。"""
+        from app.services.agent.langgraph_engine import LangGraphAgent
+        from app.services.agent.native.tool_registry import ToolRegistry
+        from app.services.agent.native.plugins import PluginContext
+
+        registry = ToolRegistry()
+        ctx = PluginContext(tool_registry=registry)
+        for plugin in (sub_agent.tools or []):
+            # 子代理工具已由 factory 在构建时注入（list[Tool]）
+            registry.register(plugin)
+
+        # 子代理用同一个网关（会话独立、无审批中间件，直接执行）
+        agent = LangGraphAgent(
+            llm=self._sub_agent_llm,
+            tools=registry,
+            default_system_prompt=sub_agent.system_prompt,
+            default_max_steps=sub_agent.max_steps,
+        )
+        session = agent.create_session(system_prompt=sub_agent.system_prompt)
+        usage_total: dict[str, int] = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        llm_calls = 0
+        steps = 0
+        final_text = ""
+        async for event in agent.stream_events(task, session=session):
+            if event.type == "done":
+                usage_total = event.data.get("usage") or usage_total
+                llm_calls = event.data.get("llm_calls", 0)
+            elif event.type == "tool_start":
+                steps += 1
+            elif event.type == "text_delta":
+                final_text += event.data.get("content", "")
+        usage_total["steps"] = steps
+        return {
+            "result": final_text.strip() or "(子代理无文本输出)",
+            "status": "completed",
+            "usage": usage_total,
+            "llm_calls": llm_calls,
+            "steps": steps,
+        }
 
     def _credential_rotation_bucket(self) -> int:
         """账号池轮换窗口的编号。
 
         返回「当前时间落在第几个窗口」。把这个值放进 Agent 缓存键，
         跨窗口后缓存自动失效 → 重建 Agent 时会借到另一个账号 → 配额被
-        摊到多个号上，而不是所有流量压在一个号上。
-
-        窗口长度取 ``LLM_CREDENTIAL_ROTATION_SECONDS``（默认 5 分钟）。
-        设为 0 或负数表示不轮换（缓存一直复用同一个号）。
+        摊到多个号上。窗口长度取 ``LLM_CREDENTIAL_ROTATION_SECONDS``。
         """
         try:
             window = int(getattr(self.settings, "llm_credential_rotation_seconds", 300))
@@ -530,212 +346,84 @@ class AgentFactory:
 
         return int(_time.time() // window)
 
-    def _workflows_signature(self) -> str:
-        """已启用工作流签名（缓存键组成部分）；查询失败按无工作流处理。"""
-        try:
-            from app.db.session import create_db_session
-            from app.tools.workflow_tools import workflows_signature
-
-            db = create_db_session()
-            try:
-                return workflows_signature(db)
-            finally:
-                db.close()
-        except Exception as e:  # noqa: BLE001 —— 降级为无签名，别挡 Agent 构建
-            _logger.warning("workflows signature query failed: %s", e)
-            return ""
-
     def _build_run_budget(self) -> "Budget | None":
         """按配置组装 run 级 Budget；未启用 / 配置非法时返回 None。
 
-        配置非法（负数、非法 on_exhausted）不该炸掉所有对话 —— 构造失败时
-        降级为无预算并告警，与 session_artifacts / llm_gate 的降级哲学一致。
-        刻意**不设 max_steps**：session.max_steps 的步数超限由 runner 循环
-        优雅收尾（done 事件 + finish_reason），放进 Budget 会让超限从
-        「优雅收尾」变成 BudgetExhausted 错误，语义不对。
+        刻意**不设 max_steps**：session.max_steps 的步数超限由引擎循环优雅收尾
+        （done 事件 + 步数上限合成回复），放进 Budget 会让超限从「优雅收尾」
+        变成 BudgetExhausted 错误，语义不对。
         """
         max_tokens = self.settings.agent_budget_max_tokens
         max_cost = self.settings.agent_budget_max_cost_usd
         if max_tokens is None and max_cost is None:
             return None
         try:
-            from wuwei.middleware.budget import Budget
+            from app.services.agent.native.budget import Budget
 
             return Budget(
                 max_tokens=max_tokens,
                 max_cost_usd=max_cost,
                 on_exhausted=self.settings.agent_budget_on_exhausted,
             )
-        except Exception as exc:  # noqa: BLE001 —— 配置降级，见 docstring
+        except Exception as exc:  # noqa: BLE001 —— 配置降级
             _logger.warning("AGENT_BUDGET_* 配置非法，run 级预算断路未启用: %s", exc)
             return None
 
-    def _build_middleware_stack(
-        self,
-        profile: RuntimeAgentProfile,
-        llm: LLMGateway,
-        tool_registry: ToolRegistry | None = None,
-        model_name: str = "",
-    ) -> MiddlewareStack:
-        """构建中间件栈，替代旧版 Hook 注册。
-
-        tool_registry：调用方已构建的注册表（避免重复构建，含同步 DB 会话）。
-        model_name：当前生效模型名（成本预算的价格表匹配用；传空则按默认价估算）。
-        """
-        stack = MiddlewareStack()
-
-        # 0. run 级预算断路器（AGENT_BUDGET_MAX_TOKENS / AGENT_BUDGET_MAX_COST_USD
-        #    设置了任意一个才启用）。放在最前：预算检查跑在 before_llm / after_llm，
-        #    超限时能省掉接下来的这次 LLM 调用，不被前面的中间件白耗一轮。
-        #    硬阈值抛 BudgetExhausted 后由上游 runner 转成 SSE error 事件
-        #    （error_type=BudgetExhausted），已生成内容照常落库。
-        budget = self._build_run_budget()
-        if budget is not None:
-            from wuwei.middleware.budget import BudgetMiddleware
-
-            stack.add(BudgetMiddleware(budget, model=model_name))
-
-        # 1. HITL 审批中间件
-        # approval_tools 是需要审批的工具列表，不在列表中的工具自动批准
-        approval_tools = set(profile.approval_tools)
-        if approval_tools and self.settings.hitl_enabled:
-            if tool_registry is None:
-                tool_registry, _ = self._build_tool_registry(profile)
-            all_tool_names = [t.name for t in tool_registry.list_tools()]
-            # 审批模式：full 档用 "*" 哨兵表示全放行（非管理员自动降级为原行为）
-            approval_mode = normalize_approval_mode(
-                getattr(profile, "approval_mode", None)
-            )
-            if approval_mode == "full" and getattr(profile, "is_admin_actor", False):
-                auto_approve = ["*"]
-            else:
-                approval_mode = "ask" if approval_mode == "full" else approval_mode
-                auto_approve = [name for name in all_tool_names if name not in approval_tools]
-            stack.add(LenientHitlMiddleware(
-                approval_provider=self.approval_manager.request_approval_for_tool,
-                auto_approve_tools=auto_approve,
-                auto_reject_tools=[],
-                approval_mode=approval_mode,
-            ))
-
-        # 2. 异步子代理中间件（后台任务能力）
-        if self.settings.async_sub_agents_enabled:
-            sub_agents = self._build_async_sub_agents()
-            if sub_agents:
-                stack.add(AsyncSubAgentMiddleware(
-                    sub_agents=sub_agents,
-                    parent_llm=llm,
-                ))
-
-        # 5. 上下文压缩中间件
-        #
-        # 阈值换算：``after_turns × tokens_per_turn``。
-        #
-        # 原实现硬编码 500/轮，实测短对话每轮只有约 22 tokens ——
-        # 配「16 轮后压缩」实际要 174 轮才触发，压缩形同虚设。
-        # 现在用可配的 tokens_per_turn（默认 200，中文对话经验值），
-        # 并显式传 max_tokens，让中间件在「占窗口 75%」时也能强制触发 ——
-        # 这样即使每轮 token 数估偏，撞窗口前仍会压缩。
-        if self.settings.context_compression_enabled:
-            window = max(1, self.settings.context_window_tokens)
-            per_turn = max(1, self.settings.context_tokens_per_turn)
-            trigger = min(
-                self.settings.context_compress_after_turns * per_turn,
-                # 不超过窗口的一半：留足余量给本轮回复
-                max(1, window // 2),
-            )
-            # ObservableCompressionMiddleware：行为与上游完全一致，只是把
-            # 「摘要失败」从静默吞掉变成带原因的 WARNING —— 上游的 except +
-            # 600s 冷却会让限流导致的压缩失效完全无痕迹（排查代价极高）。
-            from app.services.agent.compression import ObservableCompressionMiddleware
-
-            stack.add(ObservableCompressionMiddleware(
-                llm=llm,
-                trigger_tokens=trigger,
-                keep_recent_turns=self.settings.context_keep_recent_turns,
-                max_tokens=window,
-            ))
-
-        # 3. 日志中间件（开发环境启用，生产环境可关闭）
-        if self.settings.environment == "development":
-            stack.add(LoggingMiddleware())
-
-        # 4. 追踪中间件（开发环境启用，输出 OpenTelemetry span）
-        if self.settings.environment == "development":
-            try:
-                from wuwei.observability import TracingMiddleware
-                stack.add(TracingMiddleware(service_name="agenticos"))
-            except ImportError:
-                pass  # opentelemetry 未安装时跳过
-
-        # 4. Skill 指令中间件
-        if "skill" in profile.builtin_tools:
-            stack.add(SkillInstructionMiddleware())
-
-        # 4. 思考历史兼容中间件
-        stack.add(ThinkingHistoryCompatibilityMiddleware())
-
-        # 5. tool_calls 配对修复（必须最后加，保证它看到的是最终要发出去的历史）
-        # 放在最后：前面的中间件可能删改消息（例如过滤合成回复），
-        # 修复必须在所有删改完成之后做，否则补了又被删、删了又留残。
-        stack.add(ToolPairRepairMiddleware())
-
-        return stack
-
     def _build_async_sub_agents(self) -> list[AsyncSubAgent]:
-        """构建异步子代理列表。
-
-        子代理在后台运行，不阻塞主对话。LLM 通过 start/check/cancel/list 操作管理。
-        """
-        from wuwei.tools import ToolRegistry as _TR
-
+        """构建异步子代理列表（工具集在构建时由 builtin 插件注入）。"""
         sub_agents: list[AsyncSubAgent] = []
 
         # 1. 代码分析子代理
-        code_registry = _TR()
+        code_registry = ToolRegistry()
         code_ctx = PluginContext(tool_registry=code_registry)
         try:
-            from wuwei.plugin.builtin import calc as calc_mod, python as python_mod, git as git_mod
+            from app.services.agent.native.builtin import calc as calc_mod, git as git_mod, python as python_mod
+
             calc_mod.setup(code_ctx)
             python_mod.setup(code_ctx)
             git_mod.setup(code_ctx)
         except Exception as e:
             _logger.warning("Sub-agent code_analyst plugin setup failed: %s", e)
 
-        sub_agents.append(AsyncSubAgent(
-            name="code_analyst",
-            description="代码分析与执行：运行 Python 脚本、数学计算、Git 操作。适合需要后台运行代码或分析的场景。",
-            system_prompt=(
-                "你是一个代码分析助手。你可以执行 Python 脚本、进行数学计算、查看 Git 状态。"
-                "请直接运行代码并返回结果，不要解释代码本身。"
-                "返回时用简洁的格式说明执行结果。"
-            ),
-            tools=list(code_registry.list_tools()),
-            max_steps=10,
-            inherit_context=False,
-        ))
+        sub_agents.append(
+            AsyncSubAgent(
+                name="code_analyst",
+                description="代码分析与执行：运行 Python 脚本、数学计算、Git 操作。适合需要后台运行代码或分析的场景。",
+                system_prompt=(
+                    "你是一个代码分析助手。你可以执行 Python 脚本、进行数学计算、查看 Git 状态。"
+                    "请直接运行代码并返回结果，不要解释代码本身。"
+                    "返回时用简洁的格式说明执行结果。"
+                ),
+                tools=list(code_registry.list_tools()),
+                max_steps=10,
+                inherit_context=False,
+            )
+        )
 
         # 2. 文件处理子代理
-        file_registry = _TR()
+        file_registry = ToolRegistry()
         file_ctx = PluginContext(tool_registry=file_registry)
         try:
-            from wuwei.plugin.builtin import file as file_mod, text as text_mod
+            from app.services.agent.native.builtin import file as file_mod, text as text_mod
+
             file_mod.setup(file_ctx)
             text_mod.setup(file_ctx)
         except Exception as e:
             _logger.warning("Sub-agent file_processor plugin setup failed: %s", e)
 
-        sub_agents.append(AsyncSubAgent(
-            name="file_processor",
-            description="文件处理：读取、搜索、整理文件内容。适合需要在后台批量处理文件的场景。",
-            system_prompt=(
-                "你是一个文件处理助手。你可以读取文件、搜索文本、整理内容。"
-                "工作时保持高效，直接返回处理结果。"
-            ),
-            tools=list(file_registry.list_tools()),
-            max_steps=8,
-            inherit_context=False,
-        ))
+        sub_agents.append(
+            AsyncSubAgent(
+                name="file_processor",
+                description="文件处理：读取、搜索、整理文件内容。适合需要在后台批量处理文件的场景。",
+                system_prompt=(
+                    "你是一个文件处理助手。你可以读取文件、搜索文本、整理内容。"
+                    "工作时保持高效，直接返回处理结果。"
+                ),
+                tools=list(file_registry.list_tools()),
+                max_steps=8,
+                inherit_context=False,
+            )
+        )
 
         return sub_agents
 
@@ -750,19 +438,6 @@ class AgentFactory:
         registry = ToolRegistry()
         ctx = PluginContext(tool_registry=registry)
 
-        # 按需加载内置插件
-        from wuwei.plugin.builtin import (
-            calc as calc_mod,
-            time_plugin as time_mod,
-            file as file_mod,
-            git as git_mod,
-            npm as npm_mod,
-            python as python_mod,
-            decision as decision_mod,
-            json_tools as json_mod,
-            http as http_mod,
-            text as text_mod,
-        )
         # 计划模式：只保留只读工具，从源头杜绝误操作（而非事后拦截）
         if getattr(profile, "plan_mode", False):
             from app.services.approval_policy import plan_mode_blocked_tools
@@ -773,42 +448,25 @@ class AgentFactory:
             builtin_tools = [name for name in builtin_tools if name not in blocked]
             _exclude |= blocked
 
-        _PLUGIN_MAP = {
-            "calc": calc_mod,
-            "time": time_mod,
-            "file": file_mod,
-            "git": git_mod,
-            "npm": npm_mod,
-            "python": python_mod,
-            "decision": decision_mod,
-            "json": json_mod,
-            "http": http_mod,
-            "text": text_mod,
-        }
+        # 按需加载内置插件（自有移植版本）
+        from app.services.agent.native.builtin import PLUGIN_MAP
+
         for name in builtin_tools:
-            mod = _PLUGIN_MAP.get(name)
+            mod = PLUGIN_MAP.get(name)
             if mod is not None:
                 mod.setup(ctx)
 
-        if "skill" in profile.builtin_tools:
-            skill_manager = SkillManager(
-                [FileSystemSkillProvider(skill.root_dir) for skill in profile.skills]
-            )
-            skill_ctx = PluginContext(
-                tool_registry=registry,
-                skill_manager=skill_manager,
-                middleware_stack=None,  # middleware 在 Agent 层处理
-            )
-            setup_skill_plugin(skill_ctx)
         if "email" in profile.builtin_tools:
             from app.tools.email_tools import register_email_tools
+
             register_email_tools(registry)
 
         # 外部系统工具：根据 agent profile 关联的外部系统动态注册
         ext_instruction = ""
         if profile.external_system_ids:
-            from app.services.external_system_service import register_external_tools
             from app.db.session import create_db_session
+            from app.services.external_system_service import register_external_tools
+
             _db = create_db_session()
             try:
                 registered_names = register_external_tools(registry, list(profile.external_system_ids), _db)
@@ -821,22 +479,22 @@ class AgentFactory:
                     "例如：查询数据、创建记录、调用接口等。"
                 )
 
-        # 决策工具：检查配置是否启用
         decision_enabled = _signature_group_enabled(profile.signature, "decision", default=True)
         if decision_enabled:
             from app.tools.decision_tools import register_decision_tools
+
             register_decision_tools(registry)
 
-        # 记忆工具：检查配置是否启用
         memory_enabled = _signature_group_enabled(profile.signature, "memory", default=True)
         if memory_enabled:
             from app.tools.memory_tools import register_memory_tools
+
             register_memory_tools(registry)
 
-        # 知识库工具：尊重 tool config（组名 "knowledge"），禁用则不注册
         knowledge_enabled = _signature_group_enabled(profile.signature, "knowledge", default=True)
         if knowledge_enabled:
             from app.tools.knowledge_tools import register_knowledge_tools
+
             register_knowledge_tools(registry)
 
         # 注册拒绝工具：用户拒绝工具执行时，替换原工具调用，让 LLM 收到明确的拒绝消息
@@ -848,83 +506,61 @@ class AgentFactory:
         async def _tool_rejected(original_tool: str = "", reason: str = "用户拒绝了此工具的执行") -> dict:
             return {"rejected": True, "original_tool": original_tool, "message": reason}
 
-        # 独立 file_to_md 工具已删除：
-        #
-        # 它接受任意绝对路径（`path` 直接丢给 markitdown），等于给 AI 一个
-        # 「读服务器任意文件」的入口；而作用域版 file_to_md 已经覆盖了
-        # 「把上传文件转成 markdown」这个真实用途，并把路径限制在工作区内。
-        # 保留两个同名工具还会触发 wuwei ToolRegistry 的重名注册错误。
-
-        # 数据可视化工具（所有模式可用）
+        # 数据可视化 / 数据分析 / A2UI / 文生图（所有模式可用）
         from app.tools.chart_render_tools import register_chart_render_tools as _register_chart_render
+
         _register_chart_render(registry)
 
-        # 数据分析工具（所有模式可用）
         from app.tools.data_analysis_tools import register_data_analysis_tools as _register_data_analysis
+
         _register_data_analysis(registry)
 
-        # A2UI 界面生成工具（所有模式可用）。
-        #
-        # 让智能体能发「声明式界面描述」而不只是文本：用户要筛选表单、
-        # 对比表这类结构化交互时，比 Markdown 更合适。组件白名单在
-        # services/a2ui/builder.py 里强制，模型无法引入自定义组件。
         from app.services.a2ui import register_a2ui_tools as _register_a2ui
+
         _register_a2ui(registry)
 
-        # 文生图工具（所有模式可用）。
-        #
-        # 端点从 provider 的 image 角色解析，管理员在「AI 提供商」页面绑定
-        # 生图模型即可用，换厂商不用改代码。未绑定时工具返回可执行的提示
-        # 而不是报错。
         from app.tools.image_gen_tools import register_image_gen_tools as _register_image_gen
+
         _register_image_gen(registry)
 
         if profile.response_mode == "ppt":
-            from app.tools.icon_tools import register_icon_tools as _register_icon_tools
-            _register_icon_tools(registry)
-            from app.tools.ppt_tools import register_ppt_tools as _register_ppt_tools
-            _register_ppt_tools(registry)
             from app.tools.chart_tools import register_chart_tools as _register_chart_tools
-            _register_chart_tools(registry)
-            from app.tools.quality_checker_tools import register_quality_checker_tools as _register_qc_tools
-            _register_qc_tools(registry)
-            from app.tools.pptx_reverse_tools import register_pptx_reverse_tools as _register_pptx_reverse
-            _register_pptx_reverse(registry)
-            from app.tools.template_tools import register_template_tools as _register_template_tools
-            _register_template_tools(registry)
+            from app.tools.icon_tools import register_icon_tools as _register_icon_tools
             from app.tools.image_tools import register_image_tools as _register_image_tools
+            from app.tools.ppt_tools import register_ppt_tools as _register_ppt_tools
+            from app.tools.pptx_reverse_tools import register_pptx_reverse_tools as _register_pptx_reverse
+            from app.tools.quality_checker_tools import register_quality_checker_tools as _register_qc_tools
+            from app.tools.template_tools import register_template_tools as _register_template_tools
+
+            _register_icon_tools(registry)
+            _register_ppt_tools(registry)
+            _register_chart_tools(registry)
+            _register_qc_tools(registry)
+            _register_pptx_reverse(registry)
+            _register_template_tools(registry)
             _register_image_tools(registry)
 
         if profile.response_mode == "website":
             from app.tools.website_tools import register_website_tools as _register_website_tools
+
             _register_website_tools(registry)
 
-        # 作用域文件工具：所有模式共用。
-        #
-        # 以前只有 website 模式注册这一套，general/ppt/email 用的是 wuwei 内置
-        # file 插件 —— 它的 workspace 默认值是 "."，被解析成进程 cwd（容器里
-        # 是 /app，含后端源码与全部用户数据）。结果是 general 模式的 AI
-        # 一 list_files(".") 就看到了源码树和别人的网站目录。
-        #
-        # 现在统一：内置 file 插件在所有模式下都卸载，改由这里注册的工具接管，
-        # 它会把相对路径解析到「会话工作区」或「当前网站项目目录」。
-        _unregister_if_exists(registry, "file")
+        # 作用域文件工具：所有模式共用（workspace 解析到会话工作区）
         from app.tools.website_file_tools import register_website_file_tools as _register_scoped_file_tools
+
         _register_scoped_file_tools(registry)
 
         if profile.response_mode == "office":
-            from app.tools.sheet_tools import register_sheet_tools as _register_sheet_tools
-            _register_sheet_tools(registry)
             from app.tools.doc_tools import register_doc_tools as _register_doc_tools
+            from app.tools.sheet_tools import register_sheet_tools as _register_sheet_tools
+
+            _register_sheet_tools(registry)
             _register_doc_tools(registry)
 
-        # MCP 工具集成：如果 MCP 服务已连接，将 MCP 工具添加到注册表
-        #
-        # 按 profile 过滤（dsh 的「按需挂载」）：MCP 工具此前是**全局注册**
-        # 到每个 Agent 的，任何智能体都能调用任意 MCP 服务器的工具。
-        # 内网爬虫类服务能访问内网站点，这种全局可见不可接受。
+        # MCP 工具集成：按 profile 过滤（「按需挂载」）
         try:
             from app.services.mcp_service import get_mcp_service
+
             mcp_svc = get_mcp_service()
             mcp_tools = mcp_svc.get_tools_for_profile(profile.profile_id)
             if mcp_tools:
@@ -934,69 +570,43 @@ class AgentFactory:
         except Exception as e:
             _logger.debug("MCP tool registration skipped: %s", e)
 
-        # 工作流工具：把已启用的工作流打包成 run_workflow_<名>_<id> 工具
-        # （P0-3 第二片，与 MCP 同为动态注册，不进 TOOL_CATALOG）。
-        # 注册失败不该挡住 Agent 构建 —— 工作流枚举要查 DB，降级为无工具。
-        try:
-            from app.tools.workflow_tools import register_workflow_tools as _register_wf_tools
-            _register_wf_tools(registry)
-        except Exception as e:  # noqa: BLE001
-            _logger.warning("workflow tool registration skipped: %s", e)
-
-        # 移除 profile 中禁用的工具（覆盖 PPT/website 等模式无条件注册的工具）
-        # 组名工具（knowledge/memory/decision 等）需按 sub_tools 一并注销
+        # 移除 profile 中禁用的工具
         for tool_name, enabled, _ in profile.signature:
             if not enabled:
                 _unregister_tool_group(registry, tool_name)
 
-        # ── 越界防线：按 profile 白名单裁剪注册表 ──────────────────
-        #
-        # 上面那段只处理「signature 里显式 disabled 的组名」，管不到
-        # **模式整体注册**的工具（website_file_tools 在所有模式都注册、
-        # sheet_tools / doc_tools 按 office 模式注册）。结果：管理员把
-        # 某个智能体的「文件工具」关掉，写文件工具照样在注册表里。
-        #
-        # allowed_tools 是权威白名单（见 AgentProfileService._compute_allowed_tools）：
-        # 一个具体工具能被下发，当且仅当它在某个已启用的 catalog 条目下，
-        # 或属于该模式的自动发现工具组。
+        # 越界防线：按 profile 白名单裁剪注册表
         allowed = getattr(profile, "allowed_tools", None)
         if allowed:
             removed = []
             for tool_name in list(registry._tools.keys()):
                 if tool_name in allowed:
                     continue
-                # MCP / 工作流等动态工具不在 profile 配置体系里，
-                # 由它们自己的授权（profile 级 / 显式启用）负责，不在这里裁。
-                if tool_name.startswith("run_workflow_") or tool_name.startswith("mcp_"):
+                if tool_name.startswith("mcp_"):
                     continue
                 _unregister_if_exists(registry, tool_name)
                 removed.append(tool_name)
             if removed:
                 _logger.info(
                     "profile %s 白名单裁剪：移除 %d 个未配置的工具（%s）",
-                    profile.slug, len(removed), "、".join(sorted(removed)[:8]),
+                    profile.slug,
+                    len(removed),
+                    "、".join(sorted(removed)[:8]),
                 )
 
-        # 统一工具执行层：对同步 handler 包装成异步版本，防止 wuwei Tool.invoke
-        # 直接在事件循环上跑同步代码导致阻塞。这是解决"一个接口阻塞全站"的关键修复。
+        # 统一工具执行层：同步 handler 包装成异步版本（防止事件循环阻塞）
         import inspect
+
         for tool_name, tool in list(registry._tools.items()):
             if not inspect.iscoroutinefunction(tool.handler):
-                # 同步 handler → 用 to_thread 包装
                 original_handler = tool.handler
-                async def _async_wrapper(*args, _orig=original_handler, **kwargs):
+
+                async def _async_wrapper(*args: Any, _orig=original_handler, **kwargs: Any):
                     return await asyncio.to_thread(_orig, *args, **kwargs)
+
                 tool.handler = _async_wrapper
 
-        # 按**最终注册表**生成能力边界说明，拼进 system prompt。
-        #
-        # 为什么必须动态生成、不能写死在提示词里：管理员随时可能在
-        # 「智能体配置」里给任意智能体开/关工具。写死的「你没有 XX 工具」
-        # 一旦配置变了就是假话 —— 模型会拒绝本该能做的事，或者反过来去调用
-        # 不存在的工具（用户看到一串 ToolNotFound 红卡片）。
-        #
-        # 这里只陈述事实：实际可用的工具在模型上下文的 tools 列表里；
-        # 若用户要的产物需要本模式未开放的工具，明确告知切换智能体。
+        # 按**最终注册表**生成能力边界说明，拼进 system prompt
         try:
             from app.services.agent.capability_hint import build_capability_hint
 

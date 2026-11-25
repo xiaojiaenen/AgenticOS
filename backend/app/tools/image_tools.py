@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 from app.services.ppt.image_search import get_image_search_service
 

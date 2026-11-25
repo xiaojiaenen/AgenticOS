@@ -55,7 +55,7 @@ def _action_log_contract():
     两版一致），收敛逻辑在旧版上自解析实现 —— 不调用上游 ``from_dict``，
     因为它内部同样引用 ``ACTION_LOG_TYPE``，符号缺失时会一起炸。
     """
-    import wuwei.runtime.action_log as _action_log
+    import app.services.agent.native.action_log as _action_log
 
     log_type = getattr(_action_log, "ACTION_LOG_TYPE", "ActionLog")
     coerce = getattr(_action_log, "coerce_action_log", None)
@@ -143,7 +143,7 @@ def _session_metadata_for_storage(session) -> dict[str, Any]:
     wuwei 3.3.2 起用 ``coerce_action_log`` + ``ACTION_LOG_TYPE`` 统一了该契约，
     更早的版本按 ``_action_log_contract`` 降级（内网 pylibs 可能停在 3.3.1）。
     """
-    from wuwei.runtime.action_log import ACTION_LOG_KEY
+    from app.services.agent.native.action_log import ACTION_LOG_KEY
 
     log_type, coerce = _action_log_contract()
 
@@ -400,8 +400,8 @@ class DatabaseAgentStorage:
         await asyncio.to_thread(_run)
 
     async def load(self, session_id: str):
-        from wuwei.agent.session import AgentSession
-        from wuwei.llm import Message
+        from app.services.agent.native.types import AgentSession
+        from app.services.agent.native.types import BaseMessage as Message
 
         def _run():
             with self.session_factory() as db:

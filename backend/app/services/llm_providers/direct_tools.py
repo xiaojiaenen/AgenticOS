@@ -70,7 +70,7 @@ def openai_tools_to_wuwei(tools: Any) -> list[Any]:
     if not isinstance(tools, list):
         raise ToolSpecError("tools 必须是数组")
 
-    from wuwei.tools.tool import Tool, ToolParameters
+    from app.services.agent.native.tool_registry import Tool, ToolParameters
 
     out: list[Any] = []
     for index, item in enumerate(tools):
@@ -109,7 +109,7 @@ def openai_tools_to_wuwei(tools: Any) -> list[Any]:
     return out
 
 
-def wuwei_tool_calls_to_openai(tool_calls: Any) -> list[dict[str, Any]]:
+def tool_calls_to_openai(tool_calls: Any) -> list[dict[str, Any]]:
     """把 wuwei 返回的 tool_calls 转成 OpenAI 的 tool_calls 形状。
 
     OpenAI 形状::

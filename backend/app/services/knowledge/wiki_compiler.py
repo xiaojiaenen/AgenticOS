@@ -472,7 +472,7 @@ class WikiCompiler:
         正确写法同 ``eval_grader``：``HumanMessage(content=...)``。
         """
         try:
-            from wuwei.core.message import HumanMessage
+            from app.services.agent.native.types import HumanMessage
 
             response = await self.llm.generate(
                 [HumanMessage(content=prompt)],

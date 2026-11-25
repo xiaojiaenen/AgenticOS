@@ -1,4 +1,4 @@
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 from app.core.data_path import current_slides_dir
 
@@ -30,19 +30,27 @@ def register_quality_checker_tools(registry: ToolRegistry) -> None:
         checker = SVGQualityChecker()
         results = []
 
-        if slide_num is not None:
-            svg_file = slides_dir / f"slide_{slide_num}.svg"
-            if not svg_file.exists():
-                return f"文件不存在：{svg_file}"
-            result = checker.check_file(str(svg_file), "ppt169")
-            results.append(result)
-        else:
-            svg_files = sorted(slides_dir.glob("slide_*.svg"))
-            if not svg_files:
-                return "没有找到已保存的幻灯片"
-            for f in svg_files:
-                result = checker.check_file(str(f), "ppt169")
-                results.append(result)
+        import asyncio
+
+        def _check_sync() -> list:
+            checked: list = []
+            if slide_num is not None:
+                svg_file = slides_dir / f"slide_{slide_num}.svg"
+                if not svg_file.exists():
+                    return [f"文件不存在：{svg_file}"]
+                checked.append(checker.check_file(str(svg_file), "ppt169"))
+            else:
+                svg_files = sorted(slides_dir.glob("slide_*.svg"))
+                if not svg_files:
+                    return ["没有找到已保存的幻灯片"]
+                for f in svg_files:
+                    checked.append(checker.check_file(str(f), "ppt169"))
+            return checked
+
+        # XML 解析 + PIL 图片探测是 CPU 密集同步操作，挪出事件循环（横切 P0 9.1）
+        results = await asyncio.to_thread(_check_sync)
+        if results and isinstance(results[0], str):
+            return results[0]
 
         # Build summary
         lines = ["### SVG 质量检查结果\n"]

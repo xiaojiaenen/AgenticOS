@@ -11,13 +11,13 @@ from __future__ import annotations
 import pathlib
 from pathlib import Path
 
-from wuwei.plugin.builtin.file import (
+from app.services.agent.native.builtin.file import (
     _collect_files,
     _resolve_workspace_path,
     _truncate_text,
     DEFAULT_READ_LIMIT,
 )
-from wuwei.tools.registry import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 from app.core.data_path import current_workspace_dir, get_current_website_dir
 

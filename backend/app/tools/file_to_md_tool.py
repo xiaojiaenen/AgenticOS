@@ -1,7 +1,7 @@
 import asyncio
 
 from markitdown import MarkItDown
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 
 def _convert_sync(path: str) -> str:

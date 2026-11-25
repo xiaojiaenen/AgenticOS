@@ -21,7 +21,7 @@ import logging
 import uuid
 
 import httpx
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 from app.core.data_path import current_workspace_dir
 

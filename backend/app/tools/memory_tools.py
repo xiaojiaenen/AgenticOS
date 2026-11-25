@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 
 async def _current_session_owner_id() -> int | None:

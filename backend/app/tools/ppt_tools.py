@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 
-from wuwei.tools import ToolRegistry
+from app.services.agent.native.tool_registry import ToolRegistry
 
 from app.core.data_path import (
     current_slides_dir,
@@ -191,9 +191,13 @@ def register_ppt_tools(registry: ToolRegistry) -> None:
         参数:
           latex: 公式源码，如 \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}
         """
+        import asyncio
+
         from app.services.ppt.latex_render import validate_latex
 
-        ok, err = validate_latex(latex)
+        # validate_latex 内部 spawn node 子进程（最长 30s），必须挪出事件循环
+        # （横切 P0 9.1：async 路径同步阻塞会让所有并发请求排队）
+        ok, err = await asyncio.to_thread(validate_latex, latex)
         if ok:
             return "公式语法正确，可直接使用。"
         return f"公式语法错误：{err}\n请修正后重试。"

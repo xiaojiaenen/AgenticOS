@@ -15,8 +15,8 @@ from typing import Any
 import asyncio
 
 from cachetools import TTLCache
-from wuwei import Agent
 
+from app.core.roles import is_admin_like
 from app.core.config import Settings, get_settings
 from app.db.models import ApprovalModel, PptArtifactModel, UserModel
 from sqlalchemy import select
@@ -58,7 +58,7 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
         self.agent_profiles = AgentProfileService()
         self.tool_configs = ToolConfigService()
         # LRU 缓存：最多 50 个 Agent，1 小时过期
-        self._agents: TTLCache[tuple, Agent] = TTLCache(maxsize=50, ttl=3600)
+        self._agents: TTLCache[tuple, Any] = TTLCache(maxsize=50, ttl=3600)
         self._cached_display_name_map: dict[str, str] | None = None
 
     def _get_display_name_map(self) -> dict[str, str]:
@@ -199,10 +199,10 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
         if not session_id:
             return
         owner_id = await self.storage.get_owner_id(session_id)
-        if owner_id is not None and owner_id != user.id and user.role != "admin":
+        if owner_id is not None and owner_id != user.id and not is_admin_like(user.role):
             raise PermissionError("当前用户无权访问此资源。")
         # Reject access when session owner is unset but the artifact exists
-        if owner_id is None and user.role != "admin":
+        if owner_id is None and not is_admin_like(user.role):
             raise PermissionError("资源所属会话未绑定用户，当前用户无权访问。")
 
     async def decide_approval(
@@ -212,13 +212,14 @@ class AgentService(AgentFactory, StreamOrchestrator, ArtifactFactory):
         status: str,
         reason: str | None = None,
         modified_arguments: dict[str, Any] | None = None,
+        response: str | None = None,
         current_user: UserModel | None = None,
     ) -> dict[str, Any]:
         if current_user is not None:
             await self._ensure_record_owner(approval_id, ApprovalModel, current_user)
         return await self.approval_manager.decide(
             approval_id, status=status, reason=reason,
-            modified_arguments=modified_arguments,
+            modified_arguments=modified_arguments, response=response,
         )
 
     async def get_session_state(self, session_id: str) -> dict[str, Any]:
