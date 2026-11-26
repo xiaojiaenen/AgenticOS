@@ -51,7 +51,7 @@ import {
 } from 'lucide-react';
 import { InpaintMaskStage, type MaskTool } from '../components/canvas/InpaintMaskStage';
 import { layoutCanvasGraph } from '../lib/canvasAutoLayout';
-import { canvasGenerate, canvasImageBlobUrl } from '../services/canvasService';
+import { canvasGenerate, canvasImageBlobUrl, listCanvasArtifacts, type CanvasArtifact } from '../services/canvasService';
 import { useChatStore } from '../stores/chatStore';
 import {
   buildStudioPosterSvg,
@@ -278,7 +278,7 @@ const CreativeCanvasInner: React.FC = () => {
 
   const [canvasMode, setCanvasMode] = useState<CanvasMode>('infinite');
   const [tool, setTool] = useState<InfiniteTool>('select');
-  const [activeId, setActiveId] = useState<string>('art-1');
+  const [activeId, setActiveId] = useState<string>('');
   const [zoomPct, setZoomPct] = useState<number>(100);
   const [focusZoom, setFocusZoom] = useState<number>(100);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -302,6 +302,62 @@ const CreativeCanvasInner: React.FC = () => {
   const [refImages, setRefImages] = useState<{ name: string; url: string; file?: File }[]>([]);
   const [showCameraMenu, setShowCameraMenu] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [loadingArtifacts, setLoadingArtifacts] = useState(true);
+
+  // 启动时加载用户真实生成的图片产物作为画布节点（不再用假海报演示数据）
+  useEffect(() => {
+    let cancelled = false;
+    const objectUrls: string[] = [];
+    setLoadingArtifacts(true);
+    listCanvasArtifacts()
+      .then(async (items: CanvasArtifact[]) => {
+        if (cancelled) return;
+        const loaded: StudioNode[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i];
+          try {
+            const dataUrl = await canvasImageBlobUrl(it.url);
+            objectUrls.push(dataUrl);
+            const col = i % 4;
+            const row = Math.floor(i / 4);
+            loaded.push({
+              id: `art-${it.session_id}-${it.filename}`,
+              type: 'artwork',
+              position: { x: 64 + col * 368, y: 64 + row * 420 },
+              data: {
+                kind: 'artwork',
+                title: it.filename.replace(/\.[^.]+$/, '').slice(0, 40),
+                prompt: `工作区产物：${it.filename}`,
+                model: 'workspace',
+                aspectId: 'auto',
+                resolution: '2K',
+                quality: 'balanced',
+                width: 1024,
+                height: 1024,
+                durationSec: 0,
+                createdAt: new Date(it.created_at * 1000).toLocaleString('zh-CN', { hour12: false }),
+                liked: false,
+                dataUrl,
+                nodeW: 256,
+                nodeH: 320,
+              },
+            });
+          } catch {
+            // 单个产物加载失败不影响其它
+          }
+        }
+        if (cancelled) return;
+        // 无论有无产物都重置节点：无产物时清空旧节点，展示空态
+        setNodes(loaded);
+        setActiveId(loaded[0]?.id ?? '');
+      })
+      .catch(() => { /* 未登录/接口失败：保持空画布 */ })
+      .finally(() => { if (!cancelled) setLoadingArtifacts(false); });
+    return () => {
+      cancelled = true;
+      objectUrls.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [setNodes]);
 
   // Konva inpainting mask state (Focus Mode)
   const [inpaintMode, setInpaintMode] = useState(false);
@@ -979,6 +1035,37 @@ const CreativeCanvasInner: React.FC = () => {
             isDraggingFile && 'ring-2 ring-[var(--primary)] bg-[var(--primary)]/5',
           )}
         >
+          {/* 空态引导：没有真实作品时告诉用户如何开始（不再展示假海报） */}
+          {!loadingArtifacts && nodes.length === 0 && (
+            <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 px-8 text-center">
+              <div className="aos-icon-badge aos-tone-amber flex h-16 w-16 items-center justify-center !rounded-2xl">
+                <Sparkles size={28} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-[var(--foreground)]">画布还是空的</h3>
+                <p className="mt-1 max-w-md text-xs leading-relaxed text-[var(--muted-foreground)]">
+                  在右侧输入画面描述，点击「生成画面」即可创作第一张作品；
+                  也可以把本地图片拖进画布，或用聊天里的生图工具生成后自动出现在这里。
+                </p>
+              </div>
+              <div className="pointer-events-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => document.querySelector<HTMLTextAreaElement>('[data-canvas-prompt]')?.focus()}
+                  className="aos-cta-pill"
+                >
+                  开始创作
+                </button>
+                <button
+                  type="button"
+                  onClick={() => document.querySelector<HTMLInputElement>('[data-canvas-upload]')?.click()}
+                  className="aos-pill-btn"
+                >
+                  <Upload size={14} /> 导入图片
+                </button>
+              </div>
+            </div>
+          )}
           {canvasMode === 'infinite' ? (
             <ReactFlow
               nodes={decoratedNodes}
@@ -1330,6 +1417,7 @@ const CreativeCanvasInner: React.FC = () => {
         <div className="flex-1 space-y-5 overflow-y-auto p-4">
           <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-2)]/55 p-3">
             <textarea
+              data-canvas-prompt
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={4}
@@ -1359,6 +1447,7 @@ const CreativeCanvasInner: React.FC = () => {
 
             <input
               ref={refFileInputRef}
+              data-canvas-upload
               type="file"
               accept="image/*"
               multiple

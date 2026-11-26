@@ -46,6 +46,43 @@ def _save_output(user_id: int, session_id: str, data: bytes, ext: str, stem: str
     return name
 
 
+@router.get("/artifacts", summary="列出当前用户所有图片产物（画布作品来源）")
+async def canvas_artifacts(
+    user: UserModel = Depends(require_perm("image:create")),
+) -> dict[str, Any]:
+    """扫描本用户所有会话工作区 outputs/ 下的图片，返回可回显列表。
+
+    画布不再内置演示海报：真实作品就是这里返回的、由 AI 生图 / 图片处理
+    落盘的图片。按修改时间倒序，前端把它们渲染成画布节点。
+    """
+    from app.core.data_path import WORKSPACES_DIR
+
+    image_exts = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+    user_dir = WORKSPACES_DIR / f"u{user.id}"
+    items: list[dict[str, Any]] = []
+    if user_dir.exists():
+        for session_dir in user_dir.iterdir():
+            if not session_dir.is_dir() or not session_dir.name.startswith("s"):
+                continue
+            session_id = session_dir.name[1:]  # 去掉前缀 s
+            out_dir = session_dir / "outputs"
+            if not out_dir.exists():
+                continue
+            for f in out_dir.iterdir():
+                if not f.is_file() or f.suffix.lower() not in image_exts:
+                    continue
+                stat = f.stat()
+                items.append({
+                    "session_id": session_id,
+                    "filename": f.name,
+                    "url": f"/api/v1/agent/sessions/{session_id}/outputs/{f.name}",
+                    "size": stat.st_size,
+                    "created_at": stat.st_mtime,
+                })
+    items.sort(key=lambda x: x["created_at"], reverse=True)
+    return {"items": items[:100], "total": len(items)}
+
+
 @router.post("/generate", summary="AI 生图 / 图生图改图（画布）")
 async def canvas_generate(
     prompt: str = Form(...),

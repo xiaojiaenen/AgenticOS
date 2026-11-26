@@ -23,6 +23,25 @@ def _token(user_id: int, role: str) -> str:
     )
 
 
+def _ensure_admin() -> int:
+    """测试库里确保有 admin 用户，返回其 id。"""
+    from app.core.security import hash_password
+    from app.db.models import UserModel
+    from app.db.session import create_db_session
+
+    with create_db_session() as db:
+        u = db.query(UserModel).filter(UserModel.role == "admin").first()
+        if u is None:
+            u = UserModel(
+                email="canvas-admin@test.local", name="Canvas Admin",
+                password_hash=hash_password("test123456"), role="admin", is_active=True,
+            )
+            db.add(u)
+            db.commit()
+            db.refresh(u)
+        return u.id
+
+
 def test_canvas_permission_points_registered():
     from app.core.permission_catalog import (
         PERMISSION_KEYS,
@@ -48,12 +67,31 @@ def test_canvas_endpoint_requires_auth(client):
     assert resp.status_code in (401, 403)
 
 
+def test_canvas_artifacts_requires_auth(client):
+    """画布作品列表端点未登录必须 401/403。"""
+    resp = client.get("/api/v1/canvas/artifacts")
+    assert resp.status_code in (401, 403)
+
+
+def test_canvas_artifacts_returns_list(client):
+    """登录用户拿到作品列表（结构正确即可）。"""
+    admin_id = _ensure_admin()
+    resp = client.get(
+        "/api/v1/canvas/artifacts",
+        headers={"Authorization": f"Bearer {_token(admin_id, 'admin')}"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "items" in body and "total" in body
+    assert isinstance(body["items"], list)
+
+
 def test_canvas_process_parameter_validation(client):
     """登录用户调用处理端点：缺图片/非法参数应得到 4xx 而非 500。"""
     resp = client.post(
         "/api/v1/canvas/process",
         data={"operation": "compress", "session_id": "x"},
-        headers={"Authorization": f"Bearer {_token(1, 'admin')}"},
+        headers={"Authorization": f"Bearer {_token(_ensure_admin(), 'admin')}"},
     )
     # 422 = 缺 image 参数（FastAPI 校验），401/403 取决于该测试库用户状态均可接受
     assert resp.status_code in (401, 403, 422)

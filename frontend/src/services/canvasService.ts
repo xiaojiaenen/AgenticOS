@@ -14,6 +14,22 @@ export type CanvasGenerateResult = {
   mode: 'text_to_image' | 'image_to_image';
 };
 
+export type CanvasArtifact = {
+  session_id: string;
+  filename: string;
+  url: string;
+  size: number;
+  created_at: number;
+};
+
+/** 列出当前用户所有真实图片产物（画布作品来源）。 */
+export async function listCanvasArtifacts(): Promise<CanvasArtifact[]> {
+  const res = await apiFetch<{ items: CanvasArtifact[]; total: number }>(
+    '/api/v1/canvas/artifacts', {}, '加载画布作品失败',
+  );
+  return res.items ?? [];
+}
+
 export type CanvasProcessResult = {
   filename: string;
   url: string;
