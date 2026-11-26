@@ -1381,6 +1381,12 @@ html.dark .aos-glass-surface {
 }
 
 /* Exact Prototype Sidebar Nav Item (Obsidian Active + 2px Hover Slide) */
+/* 最近会话列表：底部渐隐，被容器裁掉的最后一项淡出而非硬切半行 */
+.aos-recent-list {
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 calc(100% - 28px), transparent 100%);
+}
+
 .aos-nav-item {
   display: flex;
   align-items: center;

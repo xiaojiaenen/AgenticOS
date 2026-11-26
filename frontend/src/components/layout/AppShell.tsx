@@ -182,27 +182,9 @@ export const AppShell: React.FC = () => {
     return storeSessions.filter((s) => (s.title || '新对话').toLowerCase().includes(q));
   }, [storeSessions, chatSearch]);
 
-  // 最近会话条数按侧栏剩余空间自适应（预留留白，不写死 3 个）
-  const recentListRef = useRef<HTMLDivElement>(null);
-  const [recentVisibleCount, setRecentVisibleCount] = useState(3);
-  useEffect(() => {
-    const el = recentListRef.current;
-    if (!el) return;
-    const ITEM_H = 40; // 单项约 40px（!py-2 + 24px 图标）
-    const RESERVED = 24; // 底部留白
-    const measure = () => {
-      const h = el.clientHeight;
-      setRecentVisibleCount(h > 0 ? Math.max(1, Math.floor((h - RESERVED) / ITEM_H)) : 3);
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [collapsed]);
-  const recentPreviewSessions = useMemo(
-    () => storeSessions.slice(0, recentVisibleCount),
-    [storeSessions, recentVisibleCount],
-  );
+  // 最近会话：渲染全部，由 flex-1 容器 + 底部渐隐决定显示多少，
+  // 不再用像素计算硬切条数（之前会切断最后半行、出现难看的滚动条）。
+  const recentPreviewSessions = storeSessions;
 
   const cmdMatches = useMemo(() => {
     const q = cmdQuery.trim().toLowerCase();
@@ -345,7 +327,7 @@ export const AppShell: React.FC = () => {
               <div className="h-px w-full bg-[var(--border-subtle)]" />
 
               {/* 最近会话区（点击标题右侧可平滑滑入完整对话列表） */}
-              <div ref={recentListRef} className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden">
+              <div className="aos-recent-list flex min-h-0 flex-1 flex-col gap-1 overflow-hidden">
                 <div className="flex shrink-0 items-center justify-between px-2.5 pb-1 text-[11px] font-medium text-[var(--muted-foreground)]">
                   <span>最近会话</span>
                   <button
@@ -369,15 +351,16 @@ export const AppShell: React.FC = () => {
                         key={session.id}
                         type="button"
                         onClick={() => handleSelectSession(session.id)}
+                        title={session.title || '未命名对话'}
                         className={cn(
-                          'aos-nav-item !py-2 !text-[12.5px]',
+                          'aos-nav-item !items-start !py-2 !text-[12.5px]',
                           isCurrent && 'bg-[var(--surface-2)] text-[var(--foreground)] font-semibold',
                         )}
                       >
-                        <span className={cn('aos-icon-badge h-6 w-6 !rounded-lg', toneClass)}>
+                        <span className={cn('aos-icon-badge mt-0.5 h-6 w-6 shrink-0 !rounded-lg', toneClass)}>
                           <ModeIcon size={13} />
                         </span>
-                        <span className="flex-1 truncate">{session.title || '未命名对话'}</span>
+                        <span className="line-clamp-2 flex-1 leading-snug">{session.title || '未命名对话'}</span>
                       </button>
                     );
                   })
