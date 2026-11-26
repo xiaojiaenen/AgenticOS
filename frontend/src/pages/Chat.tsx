@@ -73,6 +73,7 @@ export const Chat = () => {
   }, [artifact]);
   const isSidebarHiddenByArtifact = useChatStore((s) => s.isSidebarHiddenByArtifact);
   const setIsSidebarHiddenByArtifact = useChatStore((s) => s.setIsSidebarHiddenByArtifact);
+  const storeCreateNewChat = useChatStore((s) => s.createNewChat);
   const sidebarOpen = useChatStore((s) => s.sidebarOpen);
   const sidebarWidth = useChatStore((s) => s.sidebarWidth);
   const setSidebarWidth = useChatStore((s) => s.setSidebarWidth);
@@ -83,7 +84,8 @@ export const Chat = () => {
   const {
     sessions, setSessions,
     currentSessionId, setCurrentSessionId,
-    currentSession,
+    currentSession, visibleSessions,
+    hasMoreSessions, loadMoreSessions,
     applySessionState,
     loadSessionMessages,
     deleteSession: deleteSessionBackend,
@@ -123,7 +125,7 @@ export const Chat = () => {
   const [userInputReq, setUserInputReq] = useState<UserInputRequest | null>(null);
 
   const {
-    isLoading, error, setError, runStatus,
+    isLoading, error, setError, runStatus, activeStreamIds,
     handleSend, handleStopGeneration,
     handleApprovalDecision, handleDecisionMade,
   } = useChatStream({    sessions, currentSessionId, currentSession: currentSession ?? null,
@@ -202,7 +204,15 @@ export const Chat = () => {
   const borderColor = useTransform(scrollYProgress, [0, 0.2, 1], ['rgba(255,255,255,0.7)', 'rgba(255,255,255,1)', 'rgba(56,189,248,0.4)']);
 
   // ── 回调 ──
-  // 新建对话/会话列表已收敛进 AppShell 左侧栏，本页不再重复实现。
+  const createNewChat = useCallback(() => {
+    storeCreateNewChat();
+    setCurrentSessionId(null);
+    // 同时清除挂起的用户输入面板：否则陈旧面板会留在新对话上，
+    // 且提交时因 currentSessionId 为 null 而静默无响应
+    setUserInputReq(null);
+    if (isMobile) setIsSidebarOpen(false);
+  }, [isMobile, storeCreateNewChat, setCurrentSessionId, setIsSidebarOpen]);
+
   const deleteSession = useCallback(async (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     const wasCurrent = currentSessionId === id;

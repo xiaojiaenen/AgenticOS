@@ -29,7 +29,6 @@ import { cn } from '../../lib/utils';
 import { canEnterAdmin, getStoredUser } from '@/services/authTokenStore';
 import { useChatStore } from '../../stores/chatStore';
 import { listSessions, deleteSession as deleteSessionApi } from '../../services/agentService';
-import { convertBackendSession } from '../../lib/sessionMerge';
 import type { Session } from '../../types';
 
 type SidebarPanel = 'nav' | 'chats';
@@ -138,12 +137,21 @@ export const AppShell: React.FC = () => {
       if (Array.isArray(items) && items.length > 0) {
         setStoreSessions((prev) => {
           const existingById = new Map(prev.map((s) => [s.id, s]));
-          // 用项目统一的后端→前端转换（字段是 session_id / metadata.response_mode，
-          // 老代码里的 item.id / item.mode 是过期字段，会 TS 报错且 mode 丢失）。
           const mapped: Session[] = items.map((item) => {
-            const converted = convertBackendSession(item);
-            const existing = existingById.get(converted.id);
-            return existing ? { ...converted, messages: existing.messages } : converted;
+            const existing = existingById.get(item.id);
+            if (existing) {
+              return {
+                ...existing,
+                title: item.title || existing.title,
+              };
+            }
+            return {
+              id: item.id,
+              title: item.title || '未命名对话',
+              messages: [],
+              updatedAt: item.updated_at ? new Date(item.updated_at).getTime() : Date.now(),
+              mode: (item.mode as Session['mode']) || 'general',
+            };
           });
           return mapped;
         });

@@ -220,6 +220,9 @@ export async function generateTitle(history: Message[]): Promise<string> {
 
 export type AgentSessionListItem = {
   session_id: string;
+  /** 兼容别名：AppShell 用 item.id / item.mode 读取会话，listSessions 填充真实值。 */
+  id?: string;
+  mode?: string;
   summary?: string | null;
   /** 会话展示标题（首条用户消息摘录）；summary 是上下文压缩摘要，不能当标题用 */
   title?: string | null;
@@ -230,7 +233,14 @@ export type AgentSessionListItem = {
 };
 
 export async function listSessions(): Promise<AgentSessionListItem[]> {
-  return apiFetch<AgentSessionListItem[]>(`${AGENT_ENDPOINT}/sessions`, {}, '获取会话列表失败');
+  const items = await apiFetch<AgentSessionListItem[]>(`${AGENT_ENDPOINT}/sessions`, {}, '获取会话列表失败');
+  // 后端实际字段是 session_id / metadata.response_mode；补上 id/mode 别名，
+  // 让改造包的 AppShell 原样代码能正确读到会话（不改改造包内任何文件）。
+  return items.map((item) => ({
+    ...item,
+    id: item.session_id,
+    mode: item.metadata?.response_mode as string | undefined,
+  }));
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {

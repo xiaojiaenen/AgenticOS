@@ -5,19 +5,24 @@ import {
   ArrowRight,
   ArrowUp,
   ArrowUpRight,
+  Bot,
   Calculator,
   Globe,
   Layout,
+  LayoutGrid,
   Mail,
   Map,
+  MessageSquareText,
   Plus,
   Presentation,
   Send,
+  Sparkles,
   Table2,
 } from 'lucide-react';
 import { AgentSelector } from '../components/ui/AgentSelector';
 import { InlineSpinner } from '../components/ui/Skeletons';
 import { getStoredUser } from '../services/authService';
+import { canEnterAdmin } from '../services/authTokenStore';
 import { AgentProfile, getMyAgents } from '../services/agentProfileService';
 import { cn } from '../lib/utils';
 
@@ -103,6 +108,7 @@ export const Home = () => {
   // 保持与 homeAgentSelection.test.ts 一致：惰性 state 稳定 user 引用
   const [user] = useState(() => getStoredUser());
   const isLoggedIn = Boolean(user);
+  const showAdmin = isLoggedIn && canEnterAdmin();
   const selectedAgent = agentProfiles.find((a) => a.id === selectedAgentProfileId) || null;
   const hasAppliedDefaultRef = useRef(false);
 
