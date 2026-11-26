@@ -7,24 +7,19 @@ import {
   Bot,
   ChevronLeft,
   ChevronRight,
-  Compass,
   GitBranch,
   Globe,
-  LayoutGrid,
   Loader2,
   Mail,
   Menu,
-  MessageCircleHeart,
   MessageSquare,
   MessageSquareText,
   Palette,
-  PanelLeftClose,
   PanelLeftOpen,
   Plug,
   Plus,
   Presentation,
   Search,
-  ShieldCheck,
   Sparkles,
   Table2,
   Trash2,
@@ -32,6 +27,7 @@ import {
   X,
 } from 'lucide-react';
 import { ThemeToggle } from '../ui/ThemeToggle';
+import { Logo } from '../Logo';
 import { cn } from '../../lib/utils';
 import { canEnterAdmin, getStoredUser } from '@/services/authTokenStore';
 import { useChatStore } from '../../stores/chatStore';
@@ -54,9 +50,7 @@ const PRIMARY_NAV: NavItem[] = [
   { key: 'home', label: '创作首页', path: '/', icon: Sparkles, match: (p) => p === '/' },
   { key: 'chat', label: '对话工作台', path: '/chat', icon: MessageSquareText, match: (p) => p.startsWith('/chat') },
   { key: 'agents', label: 'AI 智能体', path: '/agents', badge: '5', icon: Bot, match: (p) => p.startsWith('/agents') },
-  { key: 'gallery', label: '作品库', path: '/gallery', icon: LayoutGrid, match: (p) => p.startsWith('/gallery') },
   { key: 'canvas', label: '创作画布', path: '/canvas', icon: Palette, match: (p) => p.startsWith('/canvas') },
-  { key: 'feedback', label: '反馈建议', path: '/feedback', icon: MessageCircleHeart, match: (p) => p.startsWith('/feedback') },
 ];
 
 function getSessionTone(mode?: string): {
@@ -76,41 +70,6 @@ function getSessionTone(mode?: string): {
       return { toneClass: 'aos-tone-violet', Icon: MessageSquare };
   }
 }
-
-/** 原版原型同款品牌标识：暖橙渐变圆角图标 + 呼吸白点 + Multi-Agent Studio 副标 */
-const BrandMark: React.FC<{ collapsed?: boolean }> = ({ collapsed }) => (
-  <div className="flex items-center gap-2.5 text-left group">
-    <span
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105"
-      style={{
-        background: 'linear-gradient(135deg, #F06A38 0%, #D9481E 100%)',
-        boxShadow: '0 4px 12px rgba(232, 93, 42, 0.30)',
-      }}
-    >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path
-          d="M12 3L4.5 19h3.8l1.6-3.4h4.2L15.7 19h3.8L12 3z"
-          stroke="#FFFFFF"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-        <circle cx="12" cy="11.2" r="1.7" fill="#FFFFFF">
-          <animate attributeName="opacity" values="1;0.45;1" dur="2.6s" repeatCount="indefinite" />
-        </circle>
-      </svg>
-    </span>
-    {!collapsed && (
-      <div className="min-w-0">
-        <div className="text-[15.5px] font-bold leading-none tracking-tight text-[var(--foreground)]">
-          AgenticOS
-        </div>
-        <div className="mt-0.5 text-[10px] font-medium text-[var(--muted-foreground)]">
-          Multi-Agent Studio
-        </div>
-      </div>
-    )}
-  </div>
-);
 
 /**
  * 全站统一持久化外壳（1:1 复刻 agenticos.html 原型）：
@@ -207,26 +166,15 @@ export const AppShell: React.FC = () => {
 
   const collapsed = isCanvasRoute ? true : manualCollapsed;
 
-  const navItems: NavItem[] = useMemo(() => {
-    const base = PRIMARY_NAV.map((item) =>
-      item.key === 'chat' && storeSessions.length > 0
-        ? { ...item, badge: String(storeSessions.length) }
-        : item,
-    );
-    return showAdmin
-      ? [
-          ...base,
-          {
-            key: 'admin',
-            label: '企业后台',
-            path: '/admin',
-            badge: '管理',
-            icon: ShieldCheck,
-            match: (p) => p.startsWith('/admin'),
-          },
-        ]
-      : base;
-  }, [showAdmin, storeSessions.length]);
+  const navItems: NavItem[] = useMemo(
+    () =>
+      PRIMARY_NAV.map((item) =>
+        item.key === 'chat' && storeSessions.length > 0
+          ? { ...item, badge: String(storeSessions.length) }
+          : item,
+      ),
+    [storeSessions.length],
+  );
 
   const filteredSessions = useMemo(() => {
     const q = chatSearch.trim().toLowerCase();
@@ -611,32 +559,6 @@ export const AppShell: React.FC = () => {
         </button>
       )}
 
-      <div
-        className={cn(
-          'flex items-center gap-2.5 border-t border-[var(--border-subtle)] px-1 pt-2',
-          compact ? 'justify-center' : 'justify-between',
-        )}
-      >
-        {!compact && (
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold text-white"
-              style={{ background: 'linear-gradient(135deg, #27272A, #121316)' }}
-            >
-              {(user?.name || user?.email || 'X').slice(0, 1).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[12.5px] font-semibold text-[var(--foreground)]">
-                {user?.name || '访客模式'}
-              </div>
-              <div className="truncate text-[11px] text-[var(--muted-foreground)]">
-                {roleDisplay}
-              </div>
-            </div>
-          </div>
-        )}
-        <ThemeToggle />
-      </div>
     </div>
   );
 
@@ -658,10 +580,10 @@ export const AppShell: React.FC = () => {
               <div className="flex items-center justify-between px-1.5 pt-1">
                 <button
                   type="button"
-                  onClick={() => navigate('/')}
+                  onClick={() => { navigate('/'); setMobileOpen(false); }}
                   className="bg-transparent border-0 p-0 cursor-pointer"
                 >
-                  <BrandMark />
+                  <Logo className="gap-2" iconSize={26} />
                 </button>
                 <button
                   type="button"
@@ -692,23 +614,16 @@ export const AppShell: React.FC = () => {
               type="button"
               onClick={() => {
                 setActivePanel('nav');
-                navigate('/');
+                // 点击 Logo 展开/收缩侧栏（画布模式除外，它由路由强制收起）
+                if (!isCanvasRoute) setManualCollapsed((v) => !v);
+                else navigate('/');
               }}
               className="bg-transparent border-0 p-0 cursor-pointer"
-              aria-label="返回创作首页"
+              aria-label={collapsed ? '展开侧栏' : '收起侧栏'}
+              title={collapsed ? '展开侧栏' : '收起侧栏'}
             >
-              <BrandMark collapsed={collapsed} />
+              <Logo className="gap-2" iconSize={26} showText={!collapsed} />
             </button>
-            {!collapsed && !isCanvasRoute && (
-              <button
-                type="button"
-                onClick={() => setManualCollapsed(true)}
-                aria-label="收起侧栏"
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--foreground)] cursor-pointer"
-              >
-                <PanelLeftClose size={16} />
-              </button>
-            )}
           </div>
 
           {renderSlidingSidebarBody(collapsed)}
@@ -746,9 +661,18 @@ export const AppShell: React.FC = () => {
             <div className="aos-top-pill flex items-center gap-2 rounded-full px-2.5 py-1.5 text-xs sm:px-3">
               {user ? (
                 <>
-                  <span className="hidden items-center gap-1.5 rounded-full bg-[var(--surface-2)] px-2.5 py-1 font-medium text-[var(--foreground)] sm:inline-flex">
-                    <Compass size={13} style={{ color: 'var(--aos-brand-mark)' }} />
-                    <span>{user.name || '工作台'}</span>
+                  {/* 用户信息（原左下角）移到右上角：头像 + 姓名/角色邮箱 */}
+                  <span className="hidden items-center gap-2 rounded-full bg-[var(--surface-2)] py-1 pl-1 pr-2.5 sm:inline-flex" title={roleDisplay}>
+                    <span
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
+                      style={{ background: 'linear-gradient(135deg, #27272A, #121316)' }}
+                    >
+                      {(user.name || user.email || 'X').slice(0, 1).toUpperCase()}
+                    </span>
+                    <span className="flex min-w-0 flex-col leading-tight">
+                      <span className="truncate text-[11.5px] font-semibold text-[var(--foreground)]">{user.name || '工作台'}</span>
+                      <span className="max-w-[140px] truncate text-[10px] text-[var(--muted-foreground)]">{roleDisplay}</span>
+                    </span>
                   </span>
                   <ThemeToggle />
                   <span className="opacity-30">|</span>

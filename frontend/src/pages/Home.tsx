@@ -476,26 +476,31 @@ export const Home = () => {
                   没有匹配的产物
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {filteredArtifacts.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => navigateToChat(item.prompt, item.mode)}
-                      className="aos-glass-surface aos-surface-interactive group flex flex-col gap-3 rounded-2xl p-3 text-left cursor-pointer"
-                    >
-                      <div className="aspect-[16/10] w-full overflow-hidden rounded-xl border border-[var(--border-subtle)]">
-                        <ArtifactMiniPreview kind={item.type} />
-                      </div>
-                      <div className="px-1">
-                        <div className="truncate text-[13.5px] font-semibold text-[var(--foreground)]">{item.title}</div>
-                        <div className="mt-1 flex items-center justify-between text-[11px] text-[var(--muted-foreground)]">
-                          <span>{item.meta}</span>
-                          <span className="font-mono">{item.slug}</span>
+                /* 瀑布流：CSS columns + break-inside-avoid，卡片预览按类型错落高度 */
+                <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 xl:columns-4">
+                  {filteredArtifacts.map((item, idx) => {
+                    // 四种高度循环，形成错落瀑布流（ppt 偏高、website 中、office 矮、report 中高）
+                    const previewAspect = ['aspect-[4/3]', 'aspect-[16/11]', 'aspect-[16/9]', 'aspect-[3/2]'][idx % 4];
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => navigateToChat(item.prompt, item.mode)}
+                        className="aos-glass-surface aos-surface-interactive group mb-4 flex w-full break-inside-avoid flex-col gap-3 rounded-2xl p-3 text-left cursor-pointer"
+                      >
+                        <div className={cn('w-full overflow-hidden rounded-xl border border-[var(--border-subtle)]', previewAspect)}>
+                          <ArtifactMiniPreview kind={item.type} />
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                        <div className="px-1">
+                          <div className="truncate text-[13.5px] font-semibold text-[var(--foreground)]">{item.title}</div>
+                          <div className="mt-1 flex items-center justify-between text-[11px] text-[var(--muted-foreground)]">
+                            <span>{item.meta}</span>
+                            <span className="font-mono">{item.slug}</span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </section>

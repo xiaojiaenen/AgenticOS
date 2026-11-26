@@ -130,7 +130,8 @@ export const ResizableSidebar: React.FC<ResizableSidebarProps> = ({
       className={cn(
         // 移动端覆盖式抽屉（不可拖拽）；md+ 并排
         'absolute inset-0 z-30 flex h-full flex-col overflow-hidden border-l border-[var(--border-subtle)] bg-[var(--surface-1)]',
-        'md:relative md:inset-auto md:z-auto md:flex md:h-full md:shrink-0',
+        // 桌面端：与主区一致的悬浮圆角毛玻璃面板
+        'md:relative md:inset-auto md:z-auto md:flex md:h-full md:shrink-0 md:rounded-2xl md:border md:border-[var(--border-subtle)] md:aos-glass-surface',
         className,
       )}
     >
