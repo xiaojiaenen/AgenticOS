@@ -21,7 +21,6 @@ import {
 import '@xyflow/react/dist/style.css';
 import {
   ArrowLeft,
-  Bot,
   Brush,
   Check,
   Copy,
@@ -32,23 +31,16 @@ import {
   Grid,
   Hand,
   Heart,
-  Home as HomeIcon,
   Image as ImageIcon,
   Layers,
-  LayoutGrid,
   Loader2,
   Maximize2,
-  MessageSquare,
   Minus,
   MousePointer2,
-  Palette,
-  PanelLeftClose,
-  PanelLeftOpen,
   Plus,
   Redo2,
   RefreshCw,
   RotateCcw,
-  Shield,
   Sparkles,
   StickyNote,
   Trash2,
@@ -57,8 +49,6 @@ import {
   Wand2,
   X,
 } from 'lucide-react';
-import { Logo } from '../components/Logo';
-import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { InpaintMaskStage, type MaskTool } from '../components/canvas/InpaintMaskStage';
 import { layoutCanvasGraph } from '../lib/canvasAutoLayout';
 import {
@@ -72,7 +62,6 @@ import {
   type StudioNode,
 } from '../stores/canvasStore';
 import { cn } from '../lib/utils';
-import { canEnterAdmin, getStoredUser } from '@/services/authTokenStore';
 
 type CanvasMode = 'focus' | 'infinite';
 type InfiniteTool = 'select' | 'hand';
@@ -270,8 +259,6 @@ const NODE_TYPES: NodeTypes = {
 
 const CreativeCanvasInner: React.FC = () => {
   const navigate = useNavigate();
-  const [user] = useState(() => getStoredUser());
-  const isAdmin = canEnterAdmin();
   const { fitView, zoomIn, zoomOut, getZoom, screenToFlowPosition } = useReactFlow();
 
   // Zustand + zundo temporal store
@@ -286,9 +273,7 @@ const CreativeCanvasInner: React.FC = () => {
   const duplicateNode = useCanvasStore((s) => s.duplicateNode);
   const updateNoteText = useCanvasStore((s) => s.updateNoteText);
   const toggleLike = useCanvasStore((s) => s.toggleLike);
-  const selectOnly = useCanvasStore((s) => s.selectOnly);
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [canvasMode, setCanvasMode] = useState<CanvasMode>('infinite');
   const [tool, setTool] = useState<InfiniteTool>('select');
   const [activeId, setActiveId] = useState<string>('art-1');
@@ -716,150 +701,7 @@ const CreativeCanvasInner: React.FC = () => {
   };
 
   return (
-    <div className="relative flex h-screen w-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] font-sans select-none">
-      <div className="aos-ambient-bg" aria-hidden="true" />
-
-      {/* 1) Left Floating Collapsible Sidebar */}
-      <aside
-        className={cn(
-          'aos-glass-rail relative z-20 m-3 mr-0 hidden flex-col justify-between rounded-3xl p-3 transition-all duration-300 lg:flex',
-          sidebarCollapsed ? 'w-[72px]' : 'w-[228px]',
-        )}
-      >
-        <div className="flex flex-col gap-5">
-          <div className="flex items-center justify-between px-1.5 pt-1">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="flex items-center gap-2 focus-visible:outline-none"
-              aria-label="返回首页"
-            >
-              <Logo iconSize={30} showText={!sidebarCollapsed} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setSidebarCollapsed((v) => !v)}
-              className="flex h-8 w-8 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
-              title={sidebarCollapsed ? '展开侧栏' : '收起侧栏'}
-            >
-              {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-            </button>
-          </div>
-
-          <nav className="flex flex-col gap-1" aria-label="创作画布导航">
-            {[
-              { label: '创作首页', icon: HomeIcon, path: '/', active: false },
-              { label: 'AI 智能体', icon: Bot, path: '/agents', active: false },
-              { label: '创作画布', icon: Palette, path: '/canvas', active: true },
-              { label: '作品库', icon: LayoutGrid, path: '/gallery', active: false },
-              { label: '对话工作台', icon: MessageSquare, path: '/chat', active: false },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.path}
-                  type="button"
-                  onClick={() => navigate(item.path)}
-                  className={cn(
-                    'flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-all',
-                    item.active
-                      ? 'bg-[var(--foreground)] text-[var(--background)] shadow-md'
-                      : 'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]/80 hover:text-[var(--foreground)]',
-                    sidebarCollapsed && 'justify-center px-0',
-                  )}
-                  title={sidebarCollapsed ? item.label : undefined}
-                >
-                  <Icon size={17} className="shrink-0" />
-                  {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-                </button>
-              );
-            })}
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={() => navigate('/admin')}
-                className={cn(
-                  'mt-1 flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-[var(--muted-foreground)] transition-all hover:bg-[var(--surface-2)]/80 hover:text-[var(--foreground)]',
-                  sidebarCollapsed && 'justify-center px-0',
-                )}
-                title={sidebarCollapsed ? '管理后台' : undefined}
-              >
-                <Shield size={17} className="shrink-0" />
-                {!sidebarCollapsed && <span className="truncate">管理后台</span>}
-              </button>
-            )}
-          </nav>
-
-          {/* Canvas Elements List */}
-          {!sidebarCollapsed && (
-            <div className="mt-2 border-t border-[var(--border-subtle)] pt-4">
-              <div className="mb-2.5 flex items-center justify-between px-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-                  画布元素
-                </span>
-                <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[var(--muted-foreground)]">
-                  {nodes.length}
-                </span>
-              </div>
-              <div className="flex max-h-[240px] flex-col gap-1.5 overflow-y-auto pr-0.5">
-                {nodes.map((node) => (
-                  <button
-                    key={node.id}
-                    type="button"
-                    onClick={() => {
-                      syncInspectorFromNode(node);
-                      selectOnly(node.id);
-                    }}
-                    className={cn(
-                      'flex items-center gap-2.5 rounded-xl p-1.5 text-left transition-all',
-                      activeId === node.id
-                        ? 'bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30'
-                        : 'hover:bg-[var(--surface-2)]/70',
-                    )}
-                  >
-                    {node.data.kind === 'artwork' ? (
-                      <img
-                        src={(node.data as ArtworkData).dataUrl}
-                        alt={(node.data as ArtworkData).title}
-                        className="h-9 w-9 shrink-0 rounded-lg object-cover ring-1 ring-[var(--border-subtle)]"
-                      />
-                    ) : (
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-300">
-                        <StickyNote size={15} />
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold text-[var(--foreground)]">
-                        {node.data.title}
-                      </p>
-                      <p className="text-[10px] tabular-nums text-[var(--muted-foreground)]">
-                        {node.data.kind === 'artwork'
-                          ? `${(node.data as ArtworkData).aspectId} · ${(node.data as ArtworkData).resolution}`
-                          : '便签卡片'}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] px-1 pt-3">
-          {!sidebarCollapsed && (
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--primary)]/15 text-xs font-bold text-[var(--primary)]">
-                {(user?.name || user?.email || 'U').slice(0, 1).toUpperCase()}
-              </div>
-              <span className="truncate text-xs font-semibold text-[var(--foreground)]">
-                {user?.name || user?.email || '设计师'}
-              </span>
-            </div>
-          )}
-          <ThemeToggle />
-        </div>
-      </aside>
-
+    <div className="relative flex h-full w-full overflow-hidden text-[var(--foreground)] font-sans select-none">
       {/* 2) Center Canvas Area */}
       <div className="relative z-10 flex min-w-0 flex-1 flex-col p-3">
         {/* Top Canvas Toolbar */}

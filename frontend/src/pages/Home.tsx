@@ -5,31 +5,19 @@ import {
   ArrowRight,
   ArrowUp,
   ArrowUpRight,
-  Bot,
   Calculator,
   Globe,
   Layout,
-  LayoutGrid,
-  Palette,
   Mail,
   Map,
-  Menu,
-  MessageSquareText,
-  PanelLeftClose,
   Plus,
   Presentation,
   Send,
-  ShieldCheck,
-  Sparkles,
   Table2,
-  X,
 } from 'lucide-react';
-import { Logo } from '../components/Logo';
 import { AgentSelector } from '../components/ui/AgentSelector';
 import { InlineSpinner } from '../components/ui/Skeletons';
-import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { getStoredUser } from '../services/authService';
-import { canEnterAdmin } from '../services/authTokenStore';
 import { AgentProfile, getMyAgents } from '../services/agentProfileService';
 import { cn } from '../lib/utils';
 
@@ -105,8 +93,6 @@ export const Home = () => {
   const [agentsState, setAgentsState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>(null);
   const [wfFilter, setWfFilter] = useState<string>('all');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showBottomBar, setShowBottomBar] = useState(false);
 
   const navigate = useNavigate();
@@ -117,7 +103,6 @@ export const Home = () => {
   // 保持与 homeAgentSelection.test.ts 一致：惰性 state 稳定 user 引用
   const [user] = useState(() => getStoredUser());
   const isLoggedIn = Boolean(user);
-  const showAdmin = isLoggedIn && canEnterAdmin();
   const selectedAgent = agentProfiles.find((a) => a.id === selectedAgentProfileId) || null;
   const hasAppliedDefaultRef = useRef(false);
 
@@ -192,178 +177,15 @@ export const Home = () => {
       key="home"
       initial={false}
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
-      className="relative flex h-screen w-full overflow-hidden bg-[var(--background)] font-sans text-[var(--foreground)] p-2.5 sm:p-3 gap-3"
+      className="relative flex h-full w-full overflow-hidden font-sans text-[var(--foreground)] p-2.5 sm:p-3"
     >
-      {/* 柔和通透光感背景 + 细点阵（纯 Hex/RGBA，Chrome 85 兼容） */}
-      <div className="aos-ambient-bg" aria-hidden="true" />
-      <div className="aos-ambient-dots" aria-hidden="true" />
-
-      {/* 移动端侧栏遮罩 */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
-
-      {/* 左侧固定悬浮导航栏（独立于右侧滚动区，上下滑动不受影响） */}
-      <aside
-        className={cn(
-          'aos-glass-rail fixed lg:relative inset-y-3 left-3 lg:inset-auto z-50 h-[calc(100vh-24px)] lg:h-full rounded-2xl flex flex-col justify-between p-3 shrink-0 transition-all duration-200',
-          sidebarCollapsed ? 'w-[72px]' : 'w-[236px]',
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-[120%] lg:translate-x-0',
-        )}
-      >
-        <div className="flex flex-col gap-4 overflow-y-auto">
-          <div className="flex items-center justify-between px-1.5 pt-1">
-            <button
-              type="button"
-              onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="bg-transparent border-0 p-0 cursor-pointer"
-            >
-              <Logo iconSize={26} showText={!sidebarCollapsed} />
-            </button>
-            {!sidebarCollapsed && (
-              <button
-                type="button"
-                onClick={() => setSidebarCollapsed(true)}
-                aria-label="收起侧栏"
-                className="hidden lg:flex w-7 h-7 rounded-lg items-center justify-center text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)] cursor-pointer transition-colors"
-              >
-                <PanelLeftClose size={16} />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(false)}
-              aria-label="关闭导航"
-              className="lg:hidden flex w-7 h-7 rounded-lg items-center justify-center text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          <nav className="flex flex-col gap-1" aria-label="主导航">
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className={cn(
-                'flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-[13.5px] font-medium transition-all cursor-pointer bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm',
-                sidebarCollapsed && 'justify-center px-0',
-              )}
-            >
-              <Sparkles size={16} className="shrink-0" />
-              {!sidebarCollapsed && <span>创作首页</span>}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate('/chat')}
-              className={cn(
-                'flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-[13.5px] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)] transition-colors cursor-pointer',
-                sidebarCollapsed && 'justify-center px-0',
-              )}
-            >
-              <MessageSquareText size={16} className="shrink-0" />
-              {!sidebarCollapsed && <span>对话工作台</span>}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate('/agents')}
-              className={cn(
-                'flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-[13.5px] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)] transition-colors cursor-pointer',
-                sidebarCollapsed && 'justify-center px-0',
-              )}
-            >
-              <Bot size={16} className="shrink-0" />
-              {!sidebarCollapsed && <span>AI 智能体</span>}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate('/canvas')}
-              className={cn(
-                'flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-[var(--muted-foreground)] transition-all hover:bg-[var(--surface-2)]/80 hover:text-[var(--foreground)]',
-                sidebarCollapsed && 'justify-center px-0',
-              )}
-              title={sidebarCollapsed ? '创作画布' : undefined}
-            >
-              <Palette size={17} className="shrink-0" />
-              {!sidebarCollapsed && <span>创作画布</span>}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/gallery')}
-              className={cn(
-                'flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-[13.5px] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)] transition-colors cursor-pointer',
-                sidebarCollapsed && 'justify-center px-0',
-              )}
-            >
-              <LayoutGrid size={16} className="shrink-0" />
-              {!sidebarCollapsed && <span>作品库</span>}
-            </button>
-
-            {showAdmin && (
-              <button
-                type="button"
-                onClick={() => navigate('/admin')}
-                className={cn(
-                  'flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-[13.5px] font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)] transition-colors cursor-pointer',
-                  sidebarCollapsed && 'justify-center px-0',
-                )}
-              >
-                <ShieldCheck size={16} className="shrink-0" />
-                {!sidebarCollapsed && <span>企业后台</span>}
-              </button>
-            )}
-          </nav>
-        </div>
-
-        {/* 底部主题与用户栏 */}
-        <div className="pt-3 border-t border-[var(--border)] flex flex-col gap-2">
-          {sidebarCollapsed && (
-            <button
-              type="button"
-              onClick={() => setSidebarCollapsed(false)}
-              aria-label="展开侧栏"
-              className="mx-auto w-9 h-9 rounded-xl flex items-center justify-center text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)] cursor-pointer"
-            >
-              <ArrowRight size={16} />
-            </button>
-          )}
-          <div className={cn('flex items-center gap-2 px-1', sidebarCollapsed ? 'justify-center' : 'justify-between')}>
-            {!sidebarCollapsed && (
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-semibold truncate text-[var(--foreground)]">
-                  {user?.name || '访客模式'}
-                </div>
-                <div className="text-[11px] text-[var(--muted-foreground)] truncate">
-                  {user?.email || '登录同步个人会话'}
-                </div>
-              </div>
-            )}
-            <ThemeToggle variant="icon" />
-          </div>
-        </div>
-      </aside>
 
       {/* 右侧主列：顶部固定栏 + 独立滚动内容区 */}
       <div className="relative z-10 flex-1 min-w-0 h-full flex flex-col overflow-hidden">
         {/* 顶部固定栏（右上角放登录/注册，绝不放新建智能体，无多余状态文案） */}
         <header className="shrink-0 pb-2 px-1 sm:px-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              aria-label="打开菜单"
-              className="lg:hidden aos-glass-surface w-9 h-9 rounded-full flex items-center justify-center text-[var(--foreground)] cursor-pointer"
-            >
-              <Menu size={16} />
-            </button>
+
           </div>
 
           <div className="aos-glass-surface flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs">

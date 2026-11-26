@@ -30,9 +30,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
-import { Logo } from '../Logo';
 import { MenuIcon, UserAvatarIcon } from '../ui/AnimatedIcons';
-import { ThemeToggle } from '../ui/ThemeToggle';
 import { getStoredUser, logout } from '../../services/authService';
 import { hasCapability } from '../../services/authTokenStore';
 import { toast } from 'sonner';
@@ -269,7 +267,7 @@ export const AdminSidebar = React.memo(
           )}
         >
           {/* shrink-0：防止折叠按钮挤压字标 */}
-          <Logo iconSize={22} className="text-lg shrink-0" />
+          <span className="text-sm font-bold tracking-tight text-[var(--foreground)] shrink-0">管理控制台</span>
           <button
             type="button"
             onClick={onClose}
@@ -406,12 +404,7 @@ export const AdminSidebar = React.memo(
             </div>
             {/* 主题切换：与前台聊天侧栏同一位置 —— 用户信息卡内、退出按钮左侧。
                 后台原先强制 dark 且没有入口，用户找不到切换。 */}
-            <ThemeToggle
-              variant="icon"
-              className={cn(
-                'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)] hover:text-[var(--muted-foreground)]',
-              )}
-            />
+            
             <button
               type="button"
               onClick={handleLogout}

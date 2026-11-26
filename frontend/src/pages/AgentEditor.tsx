@@ -423,11 +423,9 @@ export const AgentEditor: React.FC = () => {
     <motion.div
       /* 挂载即可见：整页可见性不依赖 motion 入场（防懒加载竞态白屏） */
       initial={false}
-      className="relative min-h-screen overflow-x-clip bg-[var(--background)] text-[var(--foreground)]"
+      className="relative h-full w-full overflow-y-auto text-[var(--foreground)]"
     >
-      <div className="aos-ambient-bg" aria-hidden="true" />
-      <div className="aos-ambient-dots" aria-hidden="true" />
-      <header className="sticky top-0 z-20 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/75 backdrop-blur-2xl">
+      <header className="sticky top-3 z-20 mx-auto mt-3 w-[calc(100%-2rem)] max-w-5xl rounded-2xl aos-glass-surface">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-5">
           <Button variant="ghost" onClick={goBack} className="gap-2">
             <ArrowLeft size={16} />
@@ -963,7 +961,7 @@ export const AgentEditor: React.FC = () => {
         </div>
 
         {/* 底部操作条 */}
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--border-subtle)] bg-[var(--surface-1)]/80 backdrop-blur-2xl shadow-[0_-8px_30px_rgba(15,23,42,0.06)]">
+        <div className="sticky bottom-3 z-20 mx-auto mb-3 w-[calc(100%-2rem)] max-w-5xl rounded-2xl aos-glass-rail shadow-xl">
           <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-3">
             <p className="text-xs text-[var(--muted-foreground)]">
               {enabledCount > 0 ? (

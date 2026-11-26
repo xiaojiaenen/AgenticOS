@@ -342,10 +342,8 @@ export const AdminDashboard = () => {
       initial={false}
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      className={cn('admin-dashboard-shell relative flex h-screen overflow-hidden bg-[var(--background)] font-sans', 'text-[var(--foreground)]')}
+      className={cn('admin-dashboard-shell relative flex h-full w-full overflow-hidden bg-transparent font-sans', 'text-[var(--foreground)]')}
     >
-      <div className="aos-ambient-bg" aria-hidden="true" />
-      <div className="aos-ambient-dots" aria-hidden="true" />
       <AnimatePresence>
         {isMobile && isSidebarOpen && (
           <motion.div

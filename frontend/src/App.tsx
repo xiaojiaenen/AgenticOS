@@ -19,6 +19,7 @@ import { PptExportIsland } from '@/features/island/PptExportIsland';
 import { FileUploadIsland } from '@/features/island/FileUploadIsland';
 import { SiteDeployIsland } from '@/features/island/SiteDeployIsland';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { AppShell } from './components/layout/AppShell';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -100,22 +101,25 @@ const AnimatedRoutes = () => {
   return (
     <Suspense fallback={<LoadingPage />}>
       <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
-          {/* 每个路由单独包一层错误边界：单个页面崩了不该把整个应用（含导航）
-              一起替换成错误页，用户还能换个页面继续用。 */}
-          <Route path="/" element={<ErrorBoundary key={`home-${location.pathname}`} title="首页出错了"><Home /></ErrorBoundary>} />
-          <Route path="/chat" element={<ProtectedRoute><ErrorBoundary key={`chat-${location.pathname}`} title="对话页出错了"><Chat /></ErrorBoundary></ProtectedRoute>} />
-          <Route path="/agents" element={<ProtectedRoute><ErrorBoundary key={`agents-${location.pathname}`} title="智能体商店出错了"><AgentStore /></ErrorBoundary></ProtectedRoute>} />
-          <Route path="/agents/new" element={<ProtectedRoute><ErrorBoundary key={`agent-new-${location.pathname}`} title="智能体编辑器出错了"><AgentEditor /></ErrorBoundary></ProtectedRoute>} />
-          <Route path="/agents/:profileId/edit" element={<ProtectedRoute><ErrorBoundary key={`agent-edit-${location.pathname}`} title="智能体编辑器出错了"><AgentEditor /></ErrorBoundary></ProtectedRoute>} />
+        <Routes location={location}>
+          {/* 统一持久化工作台外壳：左侧栏常驻不重载，仅右侧主内容随路由切换 */}
+          <Route element={<AppShell />}>
+            <Route path="/" element={<ErrorBoundary key={`home-${location.pathname}`} title="首页出错了"><Home /></ErrorBoundary>} />
+            <Route path="/chat" element={<ProtectedRoute><ErrorBoundary key={`chat-${location.pathname}`} title="对话页出错了"><Chat /></ErrorBoundary></ProtectedRoute>} />
+            <Route path="/agents" element={<ProtectedRoute><ErrorBoundary key={`agents-${location.pathname}`} title="智能体商店出错了"><AgentStore /></ErrorBoundary></ProtectedRoute>} />
+            <Route path="/agents/new" element={<ProtectedRoute><ErrorBoundary key={`agent-new-${location.pathname}`} title="智能体编辑器出错了"><AgentEditor /></ErrorBoundary></ProtectedRoute>} />
+            <Route path="/agents/:profileId/edit" element={<ProtectedRoute><ErrorBoundary key={`agent-edit-${location.pathname}`} title="智能体编辑器出错了"><AgentEditor /></ErrorBoundary></ProtectedRoute>} />
+            <Route path="/canvas" element={<ProtectedRoute><ErrorBoundary key={`canvas-${location.pathname}`} title="创作画布出错了"><CreativeCanvas /></ErrorBoundary></ProtectedRoute>} />
+            <Route path="/gallery" element={<ProtectedRoute><ErrorBoundary key={`gallery-${location.pathname}`} title="作品库出错了"><Gallery /></ErrorBoundary></ProtectedRoute>} />
+            <Route path="/feedback" element={<ProtectedRoute><ErrorBoundary key="feedback" title="反馈页出错了"><Feedback /></ErrorBoundary></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute requireAdmin><ErrorBoundary key={`admin-${location.pathname}`} title="管理后台出错了"><AdminDashboard /></ErrorBoundary></ProtectedRoute>} />
+          </Route>
+
+          {/* 独立全屏页面（认证、年度报告、公开应用、404） */}
           <Route path="/login" element={<ErrorBoundary key={`login-${location.pathname}`} title="登录页出错了"><Login /></ErrorBoundary>} />
           <Route path="/signup" element={<ErrorBoundary key={`signup-${location.pathname}`} title="注册页出错了"><Signup /></ErrorBoundary>} />
-          <Route path="/admin" element={<ProtectedRoute requireAdmin><ErrorBoundary key={`admin-${location.pathname}`} title="管理后台出错了"><AdminDashboard /></ErrorBoundary></ProtectedRoute>} />
-          <Route path="/gallery" element={<ProtectedRoute><ErrorBoundary key={`gallery-${location.pathname}`} title="作品库出错了"><Gallery /></ErrorBoundary></ProtectedRoute>} />
-          <Route path="/canvas" element={<ProtectedRoute><ErrorBoundary key={`canvas-${location.pathname}`} title="创作画布出错了"><CreativeCanvas /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/wrapped" element={<ProtectedRoute><ErrorBoundary key="wrapped" title="年度报告出错了"><Wrapped /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/wrapped/:year" element={<ProtectedRoute><ErrorBoundary key={`wrapped-${location.pathname}`} title="年度报告出错了"><Wrapped /></ErrorBoundary></ProtectedRoute>} />
-          <Route path="/feedback" element={<ProtectedRoute><ErrorBoundary key="feedback" title="反馈页出错了"><Feedback /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/app/:slug" element={<ErrorBoundary key={`public-agent-${location.pathname}`} title="应用页出错了"><PublicAgentChat /></ErrorBoundary>} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

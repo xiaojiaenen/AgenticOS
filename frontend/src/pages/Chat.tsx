@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Sidebar } from '../components/chat/Sidebar';
 import { ChatMainArea } from '../components/chat/ChatMainArea';
 import { ChatArtifactArea } from '../components/chat/ChatArtifactArea';
 import { IdeSidebar } from '../components/panel/IdeSidebar';
@@ -74,7 +73,6 @@ export const Chat = () => {
   }, [artifact]);
   const isSidebarHiddenByArtifact = useChatStore((s) => s.isSidebarHiddenByArtifact);
   const setIsSidebarHiddenByArtifact = useChatStore((s) => s.setIsSidebarHiddenByArtifact);
-  const storeCreateNewChat = useChatStore((s) => s.createNewChat);
   const sidebarOpen = useChatStore((s) => s.sidebarOpen);
   const sidebarWidth = useChatStore((s) => s.sidebarWidth);
   const setSidebarWidth = useChatStore((s) => s.setSidebarWidth);
@@ -85,8 +83,7 @@ export const Chat = () => {
   const {
     sessions, setSessions,
     currentSessionId, setCurrentSessionId,
-    currentSession, visibleSessions,
-    hasMoreSessions, loadMoreSessions,
+    currentSession,
     applySessionState,
     loadSessionMessages,
     deleteSession: deleteSessionBackend,
@@ -126,7 +123,7 @@ export const Chat = () => {
   const [userInputReq, setUserInputReq] = useState<UserInputRequest | null>(null);
 
   const {
-    isLoading, error, setError, runStatus, activeStreamIds,
+    isLoading, error, setError, runStatus,
     handleSend, handleStopGeneration,
     handleApprovalDecision, handleDecisionMade,
   } = useChatStream({    sessions, currentSessionId, currentSession: currentSession ?? null,
@@ -205,15 +202,7 @@ export const Chat = () => {
   const borderColor = useTransform(scrollYProgress, [0, 0.2, 1], ['rgba(255,255,255,0.7)', 'rgba(255,255,255,1)', 'rgba(56,189,248,0.4)']);
 
   // ── 回调 ──
-  const createNewChat = useCallback(() => {
-    storeCreateNewChat();
-    setCurrentSessionId(null);
-    // 同时清除挂起的用户输入面板：否则陈旧面板会留在新对话上，
-    // 且提交时因 currentSessionId 为 null 而静默无响应
-    setUserInputReq(null);
-    if (isMobile) setIsSidebarOpen(false);
-  }, [isMobile, storeCreateNewChat, setCurrentSessionId, setIsSidebarOpen]);
-
+  // 新建对话/会话列表已收敛进 AppShell 左侧栏，本页不再重复实现。
   const deleteSession = useCallback(async (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     const wasCurrent = currentSessionId === id;
@@ -615,11 +604,10 @@ export const Chat = () => {
       onDragLeave={handleDragLeave}
       onDrop={onDrop}
       className={cn(
-        "flex h-screen font-sans overflow-hidden relative",
-        "text-[var(--foreground)] bg-[var(--surface-0)]",
+        "flex h-full font-sans overflow-hidden relative",
+        "text-[var(--foreground)] bg-transparent",
       )
       }>
-      <div className="aos-ambient-bg opacity-65" aria-hidden="true" />
       <DragOverlay isDragging={isDragging} />
 
       {/* 智能体列表加载失败：顶部常驻提示 + 重试 */}
@@ -661,32 +649,11 @@ export const Chat = () => {
         )}
       </AnimatePresence>
 
-      <AnimatePresence mode="wait">
-        {isSidebarOpen && (
-          <motion.div
-            initial={{ x: -250, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -250, opacity: 0 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="flex-shrink-0 z-20"
-          >
-            <Sidebar
-              sessions={visibleSessions}
-              currentSessionId={currentSessionId}
-              onNewChat={createNewChat}
-              onSelectSession={(id) => { setCurrentSessionId(id); if (isMobile) setIsSidebarOpen(false); }}
-              onDeleteSession={deleteSession}
-              onClose={() => setIsSidebarOpen(false)}
-              isMobile={isMobile}
-              onLoadMore={loadMoreSessions}
-              hasMore={hasMoreSessions}
-              streamingIds={activeStreamIds}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* 对话列表已统一收敛进 AppShell 左侧栏滑动面板，此处不再重复渲染双侧栏 */}
 
       {/* 侧边栏展开按钮 */}
       <AnimatePresence>
-        {!isSidebarOpen && !isMobile && (
+        {false && !isSidebarOpen && !isMobile && (
           <motion.button
             initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
             onClick={() => { setIsSidebarOpen(true); setIsSidebarHiddenByArtifact(false); }}
