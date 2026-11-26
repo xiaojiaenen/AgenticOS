@@ -7,11 +7,13 @@ import {
   ArrowUpRight,
   Bot,
   Calculator,
+  Cpu,
   Database,
   Globe,
   Layout,
   Mail,
   Map,
+  Paperclip,
   Plus,
   Presentation,
   Search,
@@ -213,21 +215,21 @@ export const Home = () => {
             {/* Hero 区 + 原型同款动态 SVG 星环 */}
             <section className="relative flex flex-col items-center pb-7 pt-5 text-center sm:pt-9">
               <svg
-                className="pointer-events-none absolute -top-2 left-1/2 h-[120px] w-[480px] max-w-full -translate-x-1/2 opacity-60"
+                className="pointer-events-none absolute -top-2 left-1/2 h-[120px] w-[480px] max-w-full -translate-x-1/2 opacity-90"
                 viewBox="0 0 480 120"
                 fill="none"
                 aria-hidden="true"
               >
-                <ellipse cx="240" cy="64" rx="210" ry="38" stroke="#EA580C" strokeOpacity="0.18" strokeWidth="1" className="aos-svg-flow" />
-                <ellipse cx="240" cy="64" rx="150" ry="26" stroke="#0284C7" strokeOpacity="0.16" strokeWidth="1" strokeDasharray="3 6" />
-                <circle cx="56" cy="52" r="3" fill="#EA580C" fillOpacity="0.55">
+                <ellipse cx="240" cy="64" rx="210" ry="38" stroke="#EA580C" strokeOpacity="0.32" strokeWidth="1.2" className="aos-svg-flow" />
+                <ellipse cx="240" cy="64" rx="150" ry="26" stroke="#0284C7" strokeOpacity="0.28" strokeWidth="1.2" strokeDasharray="3 6" />
+                <circle cx="56" cy="52" r="3.4" fill="#EA580C" fillOpacity="0.75">
                   <animate attributeName="cy" values="52;46;52" dur="4s" repeatCount="indefinite" />
                 </circle>
-                <circle cx="424" cy="56" r="3.5" fill="#0284C7" fillOpacity="0.5">
+                <circle cx="424" cy="56" r="3.8" fill="#0284C7" fillOpacity="0.7">
                   <animate attributeName="cy" values="56;62;56" dur="4.6s" repeatCount="indefinite" />
                 </circle>
-                <circle cx="385" cy="24" r="2.2" fill="#7C3AED" fillOpacity="0.5">
-                  <animate attributeName="opacity" values="0.25;0.85;0.25" dur="3.2s" repeatCount="indefinite" />
+                <circle cx="385" cy="24" r="2.6" fill="#7C3AED" fillOpacity="0.7">
+                  <animate attributeName="opacity" values="0.25;0.95;0.25" dur="3.2s" repeatCount="indefinite" />
                 </circle>
               </svg>
 
@@ -269,6 +271,18 @@ export const Home = () => {
                 />
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-3">
                   <div className="flex flex-wrap items-center gap-1.5">
+                    {/* 上传文件：原型 Composer 的首个胶囊按钮。文件选择能力在对话页，
+                        这里跳到对话页让用户用真实上传入口，不伪造消息。 */}
+                    <button
+                      type="button"
+                      onClick={() => navigate('/chat')}
+                      className="aos-pill-btn"
+                      title="上传文件（在对话页上传）"
+                    >
+                      <Paperclip size={14} style={{ color: '#0284C7' }} />
+                      <span>上传文件</span>
+                    </button>
+
                     {user ? (
                       agentsState === 'error' ? (
                         <span className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
@@ -297,6 +311,12 @@ export const Home = () => {
                     <span className="aos-pill-btn hidden sm:inline-flex">
                       <ShieldCheck size={14} style={{ color: '#059669' }} />
                       <span>审批: 询问</span>
+                    </span>
+
+                    {/* 模型胶囊：与原型一致展示当前模型名（实际模型由管理后台配置） */}
+                    <span className="aos-pill-btn hidden sm:inline-flex">
+                      <Cpu size={14} style={{ color: '#7C3AED' }} />
+                      <span>默认模型</span>
                     </span>
 
                     <button
