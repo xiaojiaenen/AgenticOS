@@ -12,8 +12,8 @@ os.environ.setdefault("PYTHONPATH", str(BACKEND_DIR))
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-# Change cwd to project root so that wuwei file tools resolve
-# data/websites/ paths correctly.
+# Change cwd to project root so that file tools resolve
+# data/workspaces/ and data/websites/ paths correctly.
 os.chdir(str(PROJECT_ROOT))
 
 

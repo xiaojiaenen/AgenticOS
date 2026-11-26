@@ -1,5 +1,9 @@
 # 把 wuwei 全量替换为 LangChain / DeepAgents / LangGraph 的可执行迁移方案
 
+> **实施状态（2026-11-25）：已实施完成。** wuwei 依赖与代码已全部移除；引擎为 DeepAgents
+> `create_deep_agent` 0.7.41 + LangChain 1.5.2 + LangGraph 1.2.24，绑定其自身
+> `FilesystemBackend`。下方「未实施」为原始方案状态，保留作历史档案；实施差异见 `AGENTS.md`。
+
 > 状态：调研 + 方案（未实施，未改任何代码）
 > 调研日期：2026-11-17
 > 适用代码版本：backend `wuwei>=3.4.1` / Python `>=3.13,<3.14`

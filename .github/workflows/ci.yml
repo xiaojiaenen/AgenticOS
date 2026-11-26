@@ -94,23 +94,19 @@ jobs:
       - name: Test (pytest / sqlite)
         if: matrix.db == 'sqlite'
         run: uv run pytest tests -q
-        env:
-          UPSTREAM_AUTO_LOGIN_ENABLED: "false"
 
-      # PG 矩阵：conftest 会把测试库重定向到 DATABASE_URL；localhost:5432
-      # 由 services 容器提供（agenticos/agenticos 与 service 定义一致）
+      # PG / MySQL 矩阵：conftest 用 setdefault 注入测试库，显式 DATABASE_URL
+      # 必须被尊重——否则所有 job 都跑 SQLite，方言差异根本没验证。
       - name: Test (pytest / postgres)
         if: matrix.db == 'postgres'
         run: uv run pytest tests -q
         env:
-          UPSTREAM_AUTO_LOGIN_ENABLED: "false"
           DATABASE_URL: postgresql+psycopg://agenticos:agenticos@localhost:5432/agenticos_test
 
       - name: Test (pytest / mysql)
         if: matrix.db == 'mysql'
         run: uv run pytest tests -q
         env:
-          UPSTREAM_AUTO_LOGIN_ENABLED: "false"
           DATABASE_URL: mysql+pymysql://agenticos:agenticos@localhost:3306/agenticos_test
 
     services:
@@ -154,7 +150,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version-file: frontend/.nvmrc
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 

@@ -34,6 +34,9 @@ dependencies = [
     "pyyaml>=6.0.0",
     "pandas>=2.0.0",
     "numpy>=2.0.0",
+    # 本地知识库向量（ONNX，零 API 成本、无需 torch）：fastembed 优先，
+    # 加载模块时才 import，未配本地模型时零开销；sentence-transformers 为可选回退。
+    "fastembed>=0.7.0,<1.0.0",
     # 任务队列：arq 在 Redis Cluster 上无解（普通客户端 MOVED、
     # RedisCluster 拒绝 arq 依赖的事务），改用 taskiq + taskiq-redis，
     # 后者提供原生 cluster broker/backend/schedule source（全单 key 操作）。
@@ -57,10 +60,12 @@ dependencies = [
     # Apache-2.0）。接口 score_result 已预留；不可用（无模型/离线）时
     # 自动降级回启发式实现（见 knowledge/rerank.py）。
     "flashrank>=0.2.10,<0.3.0",
-    # ── 框架底座迁移（战线 A：wuwei → LangGraph）────────────────────────
-    # 绞杀者模式：新引擎（LangGraph）与 wuwei 双轨并存，AGENT_ENGINE
-    # 特性开关路由。版本锁定（方案阶段 0 要求 pin），升级须跑回归。
+    # ── 框架底座（DeepAgents harness + LangGraph）────────────────────────
+    # 唯一引擎：create_deep_agent（内置 filesystem/skills/subagents/summarization）。
+    # wuwei 已整体退役，AGENT_ENGINE 特性开关已移除；升级须跑契约回归。
     "langgraph>=1.2.24,<2.0.0",
+    "langgraph-checkpoint-sqlite>=3.1.0,<4.0.0",
+    "aiosqlite>=0.20.0",
     "langchain>=1.5.2,<2.0.0",
     "langchain-openai>=1.0.0,<2.0.0",
     # 可观测（战线 D，3F.0 纯库红线）：OpenTelemetry SDK 埋点写自家 DB，

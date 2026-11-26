@@ -15,8 +15,8 @@ x-backend-env: &backend-env
   # Redis（外部既有服务；生产必填。留空则内存 fallback，仅限本地演示）
   REDIS_URL: ${REDIS_URL:-}
   REDIS_CLUSTER: ${REDIS_CLUSTER:-false}
-  # 任务队列(arq)专用 Redis：arq 不支持 Redis Cluster，业务缓存用 cluster
-  # 时必须单独给一个 standalone 端点（详见 deploy/OFFLINE-DEPS.md）。
+  # 任务队列专用 Redis（变量名沿用 ARQ_REDIS_URL，实际消费者是 taskiq）。
+  # taskiq 原生支持 Redis Cluster；单机部署留空即自动复用 REDIS_URL。
   ARQ_REDIS_URL: ${ARQ_REDIS_URL:-}
   LDAP_ENABLED: ${LDAP_ENABLED:-false}
   LDAP_AUTO_CREATE_USERS: ${LDAP_AUTO_CREATE_USERS:-false}

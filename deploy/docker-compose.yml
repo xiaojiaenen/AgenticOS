@@ -18,6 +18,8 @@ x-backend-env: &backend-env
   OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4}
   # 认证
   AUTH_SECRET_KEY: ${AUTH_SECRET_KEY}
+  # 外部系统凭据加密密钥：生产环境必填（config.py 在生产下缺该密钥直接拒绝启动）
+  EXTERNAL_SYSTEM_ENCRYPTION_KEY: ${EXTERNAL_SYSTEM_ENCRYPTION_KEY:?必须设置 EXTERNAL_SYSTEM_ENCRYPTION_KEY}
   AUTH_TOKEN_EXPIRE_MINUTES: ${AUTH_TOKEN_EXPIRE_MINUTES:-10080}
   # 环境
   ENVIRONMENT: ${ENVIRONMENT:-production}
@@ -85,7 +87,8 @@ services:
     image: ${IMAGE_REGISTRY:-docker.io}/agenticos-backend:latest
     build: *backend-build
     restart: always
-    command: ["arq", "app.services.task_queue.WorkerSettings"]
+    # arq 已退役（包已从 pyproject 移除），任务队列改用 taskiq。
+    command: ["python", "-m", "taskiq", "worker", "app.services.task_queue:taskiq_broker", "--workers", "2"]
     deploy:
       resources:
         limits:
@@ -94,12 +97,23 @@ services:
         reservations:
           cpus: "0.5"
           memory: 1G
+    # taskiq 没有 --check；用 import 探活确认 broker 模块可加载。
     healthcheck:
-      test: ["CMD", "arq", "--check", "app.services.task_queue.WorkerSettings"]
+      test: ["CMD", "python", "-c", "from app.services.task_queue import taskiq_broker; assert taskiq_broker is not None"]
       interval: 60s
       timeout: 15s
       retries: 3
       start_period: 60s
+    environment: *backend-env
+    volumes:
+      - ../data:/app/data
+
+  # 定时任务调度器（taskiq 需要独立进程跑 cron：审计清理等）
+  scheduler:
+    image: ${IMAGE_REGISTRY:-docker.io}/agenticos-backend:latest
+    build: *backend-build
+    restart: always
+    command: ["python", "-m", "taskiq", "scheduler", "app.services.task_queue:taskiq_scheduler"]
     environment: *backend-env
     volumes:
       - ../data:/app/data

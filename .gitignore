@@ -179,3 +179,9 @@ design-emails/
 
 # UI 走查脚本目录（本地手写，不进仓库）
 backend/tests_ui/
+
+# 性能移植工具扫描产物 / 本地宣传片与调研素材（不进仓库）
+backend/.fast/
+baitong/
+baitong.zip
+design-demos/
