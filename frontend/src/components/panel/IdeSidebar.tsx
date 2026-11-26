@@ -16,6 +16,8 @@ import {
   Layers, LayoutGrid, Presentation, X,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useChatStore } from '../../stores/chatStore';
 import { issueWebsitePreviewUrl } from '../../services/websiteService';
 import { apiFetch } from '../../services/apiClient';
@@ -26,6 +28,7 @@ import { FilesPanel } from './FilesPanel';
 import { RunLogPanel } from './RunLogPanel';
 import { ArtifactsPanel } from './ArtifactsPanel';
 import { collectTabs, panelTab } from './tabs';
+import { inlineHtmlResources, hasRelativeResourceRefs } from '../../lib/inlineHtmlResources';
 import type { SidebarTab, TabKind } from './tabs';
 import type { Message } from '../../types';
 
@@ -364,7 +367,7 @@ const WebsiteTabBody: React.FC<{ tab: SidebarTab; sessionId: string | null }> = 
  * allow-same-origin，模型生成的脚本拿不到父页面），图片 → objectURL，
  * 其余数据类型 → 文本预览 + 下载按钮。
  */
-const OutputTabBody: React.FC<{ tab: SidebarTab }> = ({ tab }) => {
+const OutputTabBody: React.FC<{ tab: SidebarTab; sessionId: string | null }> = ({ tab, sessionId }) => {
   const url = tab.url ?? '';
   const kind = tab.outputKind;
   const [text, setText] = React.useState<string | null>(null);
@@ -379,14 +382,28 @@ const OutputTabBody: React.FC<{ tab: SidebarTab }> = ({ tab }) => {
     setText(null);
     setBlobUrl(null);
     apiFetch<string | Blob>(url, { responseType: kind === 'image' ? 'blob' : 'text' }, '加载产物失败')
-      .then((data) => {
+      .then(async (data) => {
         if (cancelled) return;
         if (kind === 'image') {
           created = URL.createObjectURL(data as Blob);
           setBlobUrl(created);
-        } else {
-          setText(data as string);
+          return;
         }
+        let html = data as string;
+        // html 相对路径资源（<link href="style.css">/<img src="x.png">）在
+        // srcDoc iframe 里解析不到，且 sandbox 无 same-origin 带不了鉴权 header。
+        // 在父页面用带鉴权端点抓回并内联，预览才能完整呈现。
+        if (kind === 'html' && sessionId && hasRelativeResourceRefs(html)) {
+          html = await inlineHtmlResources(html, async (filename) => {
+            const resourceUrl = `/api/v1/agent/sessions/${encodeURIComponent(sessionId)}/outputs/${encodeURIComponent(filename)}`;
+            const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(filename);
+            if (isImage) {
+              return { blob: await apiFetch<Blob>(resourceUrl, { responseType: 'blob' }, '加载资源失败') };
+            }
+            return { text: await apiFetch<string>(resourceUrl, { responseType: 'text' }, '加载资源失败') };
+          });
+        }
+        if (!cancelled) setText(html);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : '加载产物失败');
@@ -395,7 +412,7 @@ const OutputTabBody: React.FC<{ tab: SidebarTab }> = ({ tab }) => {
       cancelled = true;
       if (created) URL.revokeObjectURL(created);
     };
-  }, [url, kind]);
+  }, [url, kind, sessionId]);
 
   // 带鉴权端点用 blob 下载：直接 a.href=url 不会带 header，会 401。
   const downloadWithAuth = async () => {
@@ -455,8 +472,15 @@ const OutputTabBody: React.FC<{ tab: SidebarTab }> = ({ tab }) => {
     );
   }
 
-  // csv / json / txt / md：文本预览；xlsx 只提供下载。
-  const canPreview = /\.(csv|json|txt|md)$/i.test(tab.title);
+  // csv / json / txt / md / css / js：文本预览；xlsx 只提供下载。
+  const ext = (tab.title.split('.').pop() ?? '').toLowerCase();
+  const canPreview = ['csv', 'json', 'txt', 'md', 'css', 'js'].includes(ext);
+  // 代码类文件用语法高亮（与聊天代码块同一套 Prism + vscDarkPlus）；
+  // txt/csv 走纯文本，避免误高亮 + 保留换行可读性。
+  const highlightLanguage: Record<string, string> = {
+    css: 'css', js: 'javascript', json: 'json', md: 'markdown', html: 'html', htm: 'html', svg: 'xml',
+  };
+  const language = highlightLanguage[ext];
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2">
@@ -466,6 +490,19 @@ const OutputTabBody: React.FC<{ tab: SidebarTab }> = ({ tab }) => {
       {canPreview ? (
         text == null ? (
           <p className="p-4 text-xs text-[var(--muted-foreground)]">正在加载…</p>
+        ) : language ? (
+          <div className="min-h-0 flex-1 overflow-auto bg-[#0d0d0c]">
+            <SyntaxHighlighter
+              language={language}
+              style={vscDarkPlus}
+              PreTag="div"
+              showLineNumbers
+              customStyle={{ margin: 0, padding: '0.85rem 1rem', background: 'transparent', fontSize: '11px', lineHeight: '1.7' }}
+              codeTagProps={{ style: { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' } }}
+            >
+              {text}
+            </SyntaxHighlighter>
+          </div>
         ) : (
           <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-[11px] leading-relaxed text-[var(--foreground)]">{text}</pre>
         )
@@ -494,7 +531,7 @@ const TabBody: React.FC<{ tab: SidebarTab; sessionId: string | null; messages: M
 
   // 工作区文件产物（html / csv / xlsx / json / txt / md / 图片）：就地预览 + 下载
   if (tab.kind === 'output') {
-    return <OutputTabBody tab={tab} />;
+    return <OutputTabBody tab={tab} sessionId={sessionId} />;
   }
 
   // PPT：**必须复用 PptArtifactPanel**，不能只渲染裸 iframe。

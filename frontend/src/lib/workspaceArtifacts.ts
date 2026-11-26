@@ -21,6 +21,8 @@ export type WorkspaceEntry = {
 /** 工作区里可以在对话/侧栏展示或下载的文件扩展名。 */
 export const DISPLAYABLE_OUTPUT_EXTENSIONS = [
   'html', 'htm', 'csv', 'xlsx', 'json', 'txt', 'md', 'png', 'jpg', 'jpeg', 'webp', 'gif',
+  // 网页相对路径资源：点击可打开文本预览（css/js），svg 走图片预览。
+  'css', 'js', 'svg',
 ] as const;
 
 const DISPLAYABLE = new Set<string>(DISPLAYABLE_OUTPUT_EXTENSIONS);
@@ -43,7 +45,7 @@ export function isDisplayableOutput(entry: WorkspaceEntry): boolean {
 export function outputKind(entry: WorkspaceEntry): OutputKind {
   const ext = extensionOf(entry.path);
   if (ext === 'html' || ext === 'htm') return 'html';
-  if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) return 'image';
+  if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) return 'image';
   return 'data';
 }
 

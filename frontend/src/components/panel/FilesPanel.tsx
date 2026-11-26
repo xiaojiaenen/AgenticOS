@@ -10,6 +10,9 @@
 import * as React from 'react';
 import { ChevronLeft, Download, File as FileIcon, Folder, Loader2, RefreshCw } from 'lucide-react';
 import { apiFetch } from '../../services/apiClient';
+import { useChatStore } from '../../stores/chatStore';
+import { collectOutputTabs } from './tabs';
+import { isDisplayableOutput, type WorkspaceEntry } from '../../lib/workspaceArtifacts';
 import type { SessionPanelProps } from './types';
 
 type Entry = { name: string; path: string; type: 'dir' | 'file'; size: number | null };
@@ -28,6 +31,7 @@ export const FilesPanel: React.FC<SessionPanelProps> = ({ sessionId }) => {
   const [error, setError] = React.useState<string | null>(null);
   const [rootExists, setRootExists] = React.useState(true);
   const [downloading, setDownloading] = React.useState<string | null>(null);
+  const openSidebarTab = useChatStore((s) => s.openSidebarTab);
 
   /** 通过带鉴权端点下载 outputs/ 下的产物文件（csv/xlsx/json/txt/md/图片）。 */
   const downloadFile = React.useCallback(
@@ -59,6 +63,24 @@ export const FilesPanel: React.FC<SessionPanelProps> = ({ sessionId }) => {
       }
     },
     [sessionId],
+  );
+
+  /** 可展示文件（html/csv/图片等）：点击打开就地预览 tab；其余仍下载。 */
+  const openOrDownload = React.useCallback(
+    (entry: Entry) => {
+      const asWorkspace: WorkspaceEntry = {
+        name: entry.name, path: entry.path, type: entry.type, size: entry.size,
+      };
+      if (isDisplayableOutput(asWorkspace)) {
+        const tab = collectOutputTabs([asWorkspace], sessionId)[0];
+        if (tab) {
+          openSidebarTab(tab);
+          return;
+        }
+      }
+      void downloadFile(entry);
+    },
+    [downloadFile, openSidebarTab, sessionId],
   );
 
   const load = React.useCallback(
@@ -170,28 +192,39 @@ export const FilesPanel: React.FC<SessionPanelProps> = ({ sessionId }) => {
                   </span>
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => void downloadFile(entry)}
-                  disabled={downloading === entry.path}
-                  title="点击下载"
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-[var(--surface-2)] disabled:opacity-50"
-                >
-                  {downloading === entry.path ? (
-                    <Loader2 size={14} className="shrink-0 animate-spin text-[var(--muted-foreground)]" />
-                  ) : (
-                    <FileIcon size={14} className="shrink-0 text-[var(--muted-foreground)]" />
-                  )}
-                  <span className="min-w-0 flex-1 truncate text-xs text-[var(--foreground)]">
-                    {entry.name}
-                  </span>
-                  {entry.size != null ? (
-                    <span className="shrink-0 text-[10px] tabular-nums text-[var(--muted-foreground)]">
-                      {formatSize(entry.size)}
+                <div className="group/file flex w-full items-center gap-2 px-3 py-1.5 transition-colors hover:bg-[var(--surface-2)]">
+                  <button
+                    type="button"
+                    onClick={() => openOrDownload(entry)}
+                    disabled={downloading === entry.path}
+                    title={isDisplayableOutput({ name: entry.name, path: entry.path, type: entry.type, size: entry.size }) ? '点击预览' : '点击下载'}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:opacity-50"
+                  >
+                    {downloading === entry.path ? (
+                      <Loader2 size={14} className="shrink-0 animate-spin text-[var(--muted-foreground)]" />
+                    ) : (
+                      <FileIcon size={14} className="shrink-0 text-[var(--muted-foreground)]" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-xs text-[var(--foreground)]">
+                      {entry.name}
                     </span>
-                  ) : null}
-                  <Download size={12} className="shrink-0 text-[var(--muted-foreground)]" />
-                </button>
+                    {entry.size != null ? (
+                      <span className="shrink-0 text-[10px] tabular-nums text-[var(--muted-foreground)]">
+                        {formatSize(entry.size)}
+                      </span>
+                    ) : null}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); void downloadFile(entry); }}
+                    disabled={downloading === entry.path}
+                    title="下载"
+                    aria-label={`下载 ${entry.name}`}
+                    className="shrink-0 rounded p-1 text-[var(--muted-foreground)] opacity-60 transition-opacity hover:bg-[var(--surface-3)] hover:opacity-100 disabled:opacity-30"
+                  >
+                    <Download size={12} />
+                  </button>
+                </div>
               )}
             </li>
           ))}
