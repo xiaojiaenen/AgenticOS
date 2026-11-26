@@ -32,10 +32,11 @@ export function FeedbackLauncher() {
       type="button"
       onClick={() => navigate('/feedback')}
       aria-label="意见反馈"
-      className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)]/90 px-4 py-2.5 text-sm font-medium text-[var(--foreground)] shadow-md backdrop-blur transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-95"
+      title="提建议、报问题、参与投票 — 你的声音会被看见"
+      className="aos-top-pill fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-semibold text-[var(--foreground)] transition-all hover:-translate-y-0.5 active:scale-95"
     >
-      <MessageSquarePlus size={16} className="text-[var(--muted-foreground)]" />
-      <span className="hidden sm:inline">反馈</span>
+      <MessageSquarePlus size={16} className="aos-pulse-dot text-[var(--aos-brand-mark, #E85D2A)]" />
+      <span className="hidden sm:inline">提建议 / 反馈</span>
     </button>
   );
 }

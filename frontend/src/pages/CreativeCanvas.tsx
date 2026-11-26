@@ -51,6 +51,8 @@ import {
 } from 'lucide-react';
 import { InpaintMaskStage, type MaskTool } from '../components/canvas/InpaintMaskStage';
 import { layoutCanvasGraph } from '../lib/canvasAutoLayout';
+import { canvasGenerate, canvasImageBlobUrl } from '../services/canvasService';
+import { useChatStore } from '../stores/chatStore';
 import {
   buildStudioPosterSvg,
   STUDIO_PALETTES,
@@ -292,7 +294,12 @@ const CreativeCanvasInner: React.FC = () => {
   const [resolution, setResolution] = useState<ResolutionTier>('2K');
   const [quality, setQuality] = useState<QualityTier>('balanced');
   const [batchCount, setBatchCount] = useState<number>(1);
-  const [refImages, setRefImages] = useState<{ name: string; url: string }[]>([]);
+  // 画布产物落到当前会话工作区；没有会话时生成一个客户端 ID（与 sendMessageStream 一致）
+  const currentSessionId = useChatStore((s) => s.currentSessionId);
+  const canvasSessionIdRef = useRef<string>(
+    currentSessionId || `canvas-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+  );
+  const [refImages, setRefImages] = useState<{ name: string; url: string; file?: File }[]>([]);
   const [showCameraMenu, setShowCameraMenu] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -475,12 +482,46 @@ const CreativeCanvasInner: React.FC = () => {
       }
       setIsGenerating(true);
       const startTs = performance.now();
-      await new Promise((r) => setTimeout(r, 800));
 
       const parentNode = opts?.parentId ? nodes.find((n) => n.id === opts.parentId) : undefined;
       const isLandscape = selectedAspect.w > selectedAspect.h;
       const nodeW = isLandscape ? 304 : 256;
       const nodeH = isLandscape ? 214 : 360;
+
+      // 真实生图：调后端画布 API（带鉴权），产物落会话工作区；
+      // 未配置生图模型 / 网络失败时降级为本地预览 SVG，保证画布始终可用。
+      type Generated = { dataUrl: string; real: boolean; duration: number };
+      const generated: Generated[] = [];
+      const reference = refImages.find((r) => r.file)?.file ?? null;
+      for (let idx = 0; idx < batchCount; idx++) {
+        try {
+          const result = await canvasGenerate({
+            prompt: finalPrompt,
+            sessionId: canvasSessionIdRef.current,
+            size: isLandscape ? 'landscape' : selectedAspect.w < selectedAspect.h ? 'portrait' : 'square',
+            reference: reference && idx === 0 ? reference : null,
+          });
+          const blobUrl = await canvasImageBlobUrl(result.url);
+          generated.push({ dataUrl: blobUrl, real: true, duration: Number(((performance.now() - startTs) / 1000).toFixed(1)) });
+        } catch (err) {
+          generated.push({
+            dataUrl: buildStudioPosterSvg({
+              title: finalPrompt.slice(0, 14) || '新建视觉作品',
+              subtitle: finalPrompt.slice(0, 28),
+              palette: STUDIO_PALETTES[(nodes.length + idx) % STUDIO_PALETTES.length],
+              aspectW: selectedAspect.w,
+              aspectH: selectedAspect.h,
+              badge: 'PREVIEW',
+            }),
+            real: false,
+            duration: 0,
+          });
+          if (idx === 0) {
+            const msg = err instanceof Error ? err.message : String(err);
+            toast.warning(`生图服务不可用，已显示预览占位：${msg}`, { duration: 5000 });
+          }
+        }
+      }
 
       const createdNodes: StudioNode[] = [];
       const createdEdges: Edge[] = [];
@@ -513,10 +554,10 @@ const CreativeCanvasInner: React.FC = () => {
             quality,
             width: outputPixels.w,
             height: outputPixels.h,
-            durationSec: Number((((performance.now() - startTs) / 1000) + 1.0 + idx * 0.3).toFixed(1)),
+            durationSec: generated[idx]?.duration || Number((((performance.now() - startTs) / 1000) + 1.0 + idx * 0.3).toFixed(1)),
             createdAt: '刚刚',
             liked: false,
-            dataUrl: buildStudioPosterSvg({
+            dataUrl: generated[idx]?.dataUrl || buildStudioPosterSvg({
               title: shortTitle,
               subtitle: finalPrompt.slice(0, 28),
               palette,
@@ -553,7 +594,79 @@ const CreativeCanvasInner: React.FC = () => {
       setIsGenerating(false);
       toast.success(`已生成 ${createdNodes.length} 张作品${parentNode ? '并建立衍生连线' : ''}`);
     },
-    [prompt, nodes, selectedAspect, batchCount, model, aspectId, resolution, quality, outputPixels, addNodesAndEdges],
+    [prompt, nodes, selectedAspect, batchCount, model, aspectId, resolution, quality, outputPixels, addNodesAndEdges, refImages],
+  );
+
+  /** 非 AI 图片处理：对当前作品做裁剪/压缩/缩放/水印等，结果作为新节点。 */
+  const handleProcessImage = useCallback(
+    async (
+      operation: 'crop' | 'resize' | 'compress' | 'rotate' | 'watermark' | 'thumbnail',
+      opts?: { resize?: { width: number; height: number }; degrees?: number },
+    ) => {
+      if (!activeArtworkData) {
+        toast.error('请先选中一张图片');
+        return;
+      }
+      // dataUrl 可能是 blob: / data: —— 都 fetch 成 blob 再构造上传 File
+      let file: File;
+      try {
+        const resp = await fetch(activeArtworkData.dataUrl);
+        const blob = await resp.blob();
+        file = new File([blob], `artwork-${Date.now()}.png`, { type: blob.type || 'image/png' });
+      } catch {
+        toast.error('无法读取当前图片');
+        return;
+      }
+      setIsGenerating(true);
+      try {
+        const { canvasProcess, canvasImageBlobUrl } = await import('../services/canvasService');
+        const result = await canvasProcess({
+          image: file,
+          sessionId: canvasSessionIdRef.current,
+          operation,
+          outputFormat: operation === 'compress' ? 'WEBP' : 'PNG',
+          quality: 85,
+          resize: opts?.resize,
+          degrees: opts?.degrees,
+          watermark: operation === 'watermark' ? 'AgenticOS' : undefined,
+        });
+        const dataUrl = await canvasImageBlobUrl(result.url);
+        const newId = `processed-${Date.now()}`;
+        addNodesAndEdges(
+          [{
+            id: newId,
+            type: 'artwork',
+            selected: true,
+            position: { x: (activeNode?.position.x ?? 64) + 320, y: activeNode?.position.y ?? 64 },
+            data: {
+              kind: 'artwork',
+              title: `${activeArtworkData.title} · ${operation}`,
+              prompt: activeArtworkData.prompt,
+              model: activeArtworkData.model,
+              aspectId: activeArtworkData.aspectId,
+              resolution: activeArtworkData.resolution,
+              quality: activeArtworkData.quality,
+              width: result.width,
+              height: result.height,
+              durationSec: 0,
+              createdAt: '刚刚处理',
+              liked: false,
+              dataUrl,
+              nodeW: 256,
+              nodeH: 320,
+            },
+          }],
+          [],
+        );
+        setActiveId(newId);
+        toast.success(`图片处理完成：${result.width}×${result.height}`);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : '图片处理失败');
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    [activeArtworkData, activeNode, addNodesAndEdges],
   );
 
   // Inject interactive callbacks into nodes
@@ -673,7 +786,7 @@ const CreativeCanvasInner: React.FC = () => {
     if (!files || files.length === 0) return;
     const added = Array.from(files)
       .slice(0, 4)
-      .map((f) => ({ name: f.name, url: URL.createObjectURL(f) }));
+      .map((f) => ({ name: f.name, url: URL.createObjectURL(f), file: f }));
     setRefImages((prev) => [...prev, ...added].slice(0, 4));
     toast.success(`已添加 ${added.length} 张参考图`);
     e.target.value = '';
@@ -1459,6 +1572,48 @@ const CreativeCanvasInner: React.FC = () => {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* 非 AI 图片工具：裁剪 / 压缩 / 缩放 / 旋转 / 水印 / 抠图蒙版 */}
+            <div className="border-t border-[var(--border-subtle)] pt-3">
+              <span className="mb-2 block text-xs font-semibold text-[var(--foreground)]">图片工具</span>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { key: 'compress' as const, label: '压缩', icon: Layers },
+                  { key: 'resize' as const, label: '缩放', icon: Maximize2 },
+                  { key: 'rotate' as const, label: '旋转90°', icon: RotateCcw },
+                  { key: 'watermark' as const, label: '水印', icon: Sparkles },
+                  { key: 'thumbnail' as const, label: '缩略图', icon: Focus },
+                  { key: 'crop' as const, label: '抠图蒙版', icon: Brush },
+                ].map((toolItem) => (
+                  <button
+                    key={toolItem.key}
+                    type="button"
+                    disabled={isGenerating}
+                    title={toolItem.key === 'crop' ? '在专注模式用画笔涂抹蒙版后导出' : undefined}
+                    onClick={() => {
+                      if (toolItem.key === 'crop') {
+                        setInpaintMode(true);
+                        setCanvasMode('focus');
+                        toast.info('已进入蒙版模式：涂抹要保留的区域后点「导出蒙版」');
+                        return;
+                      }
+                      handleProcessImage(toolItem.key, {
+                        resize: toolItem.key === 'resize' || toolItem.key === 'thumbnail'
+                          ? { width: 1024, height: 1024 } : undefined,
+                        degrees: toolItem.key === 'rotate' ? 90 : undefined,
+                      });
+                    }}
+                    className="flex flex-col items-center gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)]/60 py-2 text-[10.5px] font-medium text-[var(--muted-foreground)] transition-all hover:border-[var(--border-strong)] hover:text-[var(--foreground)] active:scale-95 disabled:opacity-40"
+                  >
+                    <toolItem.icon size={14} />
+                    {toolItem.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[10px] leading-snug text-[var(--muted-foreground)]">
+                本地处理，不调用 AI；「抠图蒙版」用画笔标注后导出 PNG
+              </p>
             </div>
           </section>
 

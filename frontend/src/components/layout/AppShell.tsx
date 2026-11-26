@@ -89,9 +89,9 @@ export const AppShell: React.FC = () => {
   const currentSessionId = useChatStore((s) => s.currentSessionId);
   const setCurrentSessionId = useChatStore((s) => s.setCurrentSessionId);
 
-  // 仅创作画布自动收起主侧栏；企业后台与对话工作台均保留 240px 完整统一侧栏与顶栏（与原型一致）
+  // 全站统一保留顶栏与侧栏（含创作画布），侧栏展开/收缩由用户点击 Logo 控制
   const isCanvasRoute = location.pathname.startsWith('/canvas');
-  const hideGlobalTopBar = isCanvasRoute;
+  const hideGlobalTopBar = false;
 
   const [manualCollapsed, setManualCollapsed] = useState<boolean>(false);
   const [mobileOpen, setMobileOpen] = useState<boolean>(false);
@@ -164,7 +164,7 @@ export const AppShell: React.FC = () => {
     }
   }, [user, storeSessions.length, fetchRecentSessions]);
 
-  const collapsed = isCanvasRoute ? true : manualCollapsed;
+  const collapsed = manualCollapsed;
 
   const navItems: NavItem[] = useMemo(
     () =>
@@ -182,7 +182,27 @@ export const AppShell: React.FC = () => {
     return storeSessions.filter((s) => (s.title || '新对话').toLowerCase().includes(q));
   }, [storeSessions, chatSearch]);
 
-  const recentPreviewSessions = useMemo(() => storeSessions.slice(0, 3), [storeSessions]);
+  // 最近会话条数按侧栏剩余空间自适应（预留留白，不写死 3 个）
+  const recentListRef = useRef<HTMLDivElement>(null);
+  const [recentVisibleCount, setRecentVisibleCount] = useState(3);
+  useEffect(() => {
+    const el = recentListRef.current;
+    if (!el) return;
+    const ITEM_H = 40; // 单项约 40px（!py-2 + 24px 图标）
+    const RESERVED = 24; // 底部留白
+    const measure = () => {
+      const h = el.clientHeight;
+      setRecentVisibleCount(h > 0 ? Math.max(1, Math.floor((h - RESERVED) / ITEM_H)) : 3);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [collapsed]);
+  const recentPreviewSessions = useMemo(
+    () => storeSessions.slice(0, recentVisibleCount),
+    [storeSessions, recentVisibleCount],
+  );
 
   const cmdMatches = useMemo(() => {
     const q = cmdQuery.trim().toLowerCase();
@@ -295,8 +315,8 @@ export const AppShell: React.FC = () => {
             className="flex h-full w-[200%]"
           >
             {/* 面板 1：主导航 + 分割线 + 最近会话（1:1 复刻原型截图左侧栏） */}
-            <div className="flex h-full w-1/2 shrink-0 flex-col gap-3 overflow-y-auto pr-0.5">
-              <nav className="flex flex-col gap-1" aria-label="主导航">
+            <div className="flex h-full w-1/2 shrink-0 flex-col gap-3 overflow-hidden pr-0.5">
+              <nav className="flex shrink-0 flex-col gap-1" aria-label="主导航">
                 {navItems.map((item) => {
                   const Icon = item.icon;
                   const active = item.match(location.pathname);
@@ -325,8 +345,8 @@ export const AppShell: React.FC = () => {
               <div className="h-px w-full bg-[var(--border-subtle)]" />
 
               {/* 最近会话区（点击标题右侧可平滑滑入完整对话列表） */}
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center justify-between px-2.5 pb-1 text-[11px] font-medium text-[var(--muted-foreground)]">
+              <div ref={recentListRef} className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden">
+                <div className="flex shrink-0 items-center justify-between px-2.5 pb-1 text-[11px] font-medium text-[var(--muted-foreground)]">
                   <span>最近会话</span>
                   <button
                     type="button"
@@ -614,9 +634,8 @@ export const AppShell: React.FC = () => {
               type="button"
               onClick={() => {
                 setActivePanel('nav');
-                // 点击 Logo 展开/收缩侧栏（画布模式除外，它由路由强制收起）
-                if (!isCanvasRoute) setManualCollapsed((v) => !v);
-                else navigate('/');
+                // 点击 Logo 在任何页面（含创作画布）都展开/收缩侧栏
+                setManualCollapsed((v) => !v);
               }}
               className="bg-transparent border-0 p-0 cursor-pointer"
               aria-label={collapsed ? '展开侧栏' : '收起侧栏'}

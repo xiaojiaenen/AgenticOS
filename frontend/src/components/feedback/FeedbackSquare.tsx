@@ -218,48 +218,64 @@ function DetailView({ id, onBack }: { id: number; onBack: () => void }) {
 
 function CreateView({ onDone, onCancel }: { onDone: (id: number) => void; onCancel: () => void }) {
   const [type, setType] = React.useState<IssueType>('feature');
-  const [title, setTitle] = React.useState('');
-  const [body, setBody] = React.useState('');
+  const [text, setText] = React.useState('');
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
   const [visibility, setVisibility] = React.useState<IssueVisibility>('public');
   const mut = useMutation({
-    mutationFn: () => createFeedback({
-      type, title: title.trim(), body: body.trim(), visibility,
-      context: { page: window.location.pathname, user_agent: navigator.userAgent.slice(0, 200) },
-    }),
-    onSuccess: (d) => { toast.success('反馈已提交，感谢你的建议！'); onDone(d.id); },
+    mutationFn: () => {
+      const lines = text.trim().split('\n');
+      const title = (lines[0] || '').slice(0, 200);
+      const body = lines.slice(1).join('\n').trim();
+      return createFeedback({
+        type, title, body, visibility,
+        context: { page: window.location.pathname, user_agent: navigator.userAgent.slice(0, 200) },
+      });
+    },
+    onSuccess: (d) => { toast.success('收到啦！你的反馈会进入公开广场，处理进度更新时会通知你'); onDone(d.id); },
     onError: (e) => toast.error(toastError(e, '提交反馈失败')),
   });
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <button type="button" onClick={onCancel} className="inline-flex w-fit items-center gap-1 text-xs font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
         <ArrowLeft size={14} /> 返回列表
       </button>
-      <div className="grid grid-cols-4 gap-2">
+      <div className="aos-glass-surface rounded-2xl p-4">
+        <p className="mb-2 text-xs font-semibold text-[var(--foreground)]">想说什么？一句话就行</p>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={5}
+          maxLength={10000}
+          autoFocus
+          placeholder="比如：希望画布支持一键抠图 / 这里点保存没反应…（第一行会作为标题）"
+          className={cn(FIELD, 'resize-y')}
+        />
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
         {(Object.keys(TYPE_META) as IssueType[]).map((t) => (
           <button key={t} type="button" onClick={() => setType(t)}
-            className={cn('flex flex-col items-center gap-1 rounded-xl border py-3 text-xs font-medium transition-all', type === t ? 'border-zinc-400 bg-zinc-100 text-zinc-700 dark:border-zinc-500/40 dark:bg-zinc-500/15 dark:text-zinc-400' : 'border-[var(--border-subtle)] text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]')}>
-            <span className="text-lg">{TYPE_META[t].emoji}</span>{TYPE_META[t].label}
+            className={cn('aos-pill-btn !text-[11px]', type === t && 'active')}>
+            <span>{TYPE_META[t].emoji}</span>{TYPE_META[t].label}
           </button>
         ))}
       </div>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-semibold text-[var(--foreground)]">标题</label>
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} placeholder="一句话描述你的建议或问题" />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-semibold text-[var(--foreground)]">详细描述</label>
-        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5} maxLength={10000} placeholder="补充背景、复现步骤或期望效果…" className={cn(FIELD, 'resize-y')} />
-      </div>
-      <label className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
-        <input type="checkbox" checked={visibility === 'private'} onChange={(e) => setVisibility(e.target.checked ? 'private' : 'public')} className="size-4 rounded" />
-        仅管理员和我可见（涉及敏感信息时勾选）
-      </label>
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={onCancel}>取消</Button>
-        <Button size="sm" disabled={!title.trim() || mut.isPending} onClick={() => mut.mutate()} className="gap-1">
+      <div className="flex items-center justify-between gap-2">
+        <button type="button" onClick={() => setShowAdvanced((v) => !v)} className="text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+          {showAdvanced ? '收起' : '隐私设置'} ▾
+        </button>
+        <Button size="sm" disabled={!text.trim() || mut.isPending} onClick={() => mut.mutate()} className="gap-1">
           <Send size={14} /> {mut.isPending ? '提交中…' : '提交反馈'}
         </Button>
       </div>
+      {showAdvanced && (
+        <label className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+          <input type="checkbox" checked={visibility === 'private'} onChange={(e) => setVisibility(e.target.checked ? 'private' : 'public')} className="size-4 rounded" />
+          仅管理员和我可见（涉及敏感信息时勾选）
+        </label>
+      )}
+      <p className="text-[10.5px] leading-snug text-[var(--muted-foreground)]">
+        💡 你的反馈会公开投票，好想法会被优先实现；处理进度更新会通过站内/邮件通知你。
+      </p>
     </div>
   );
 }

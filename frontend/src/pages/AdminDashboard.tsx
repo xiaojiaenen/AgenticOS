@@ -281,26 +281,18 @@ export const AdminDashboard = () => {
       className="relative h-full w-full overflow-y-auto px-1 pb-14 font-sans text-[var(--foreground)] sm:px-3"
     >
       <main id="main-content" className="mx-auto w-full max-w-[1140px] px-1 sm:px-4">
-        {/* 原版原型截图 5 同款：暖橙+天蓝渐层英雄横幅 + 4 组水平胶囊导航 */}
-        <div className="aos-hero-banner mb-4 mt-1 rounded-2xl border border-[var(--border-subtle)] p-5 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-start gap-3.5">
-              <span className="aos-icon-badge aos-tone-slate mt-0.5 h-11 w-11 !rounded-2xl">
-                <ShieldCheck size={20} />
+        {/* 管理后台导航带：进入具体模块时整块隐藏，避免与子面板标题形成双层大标题 */}
+        {!activeModule && (
+        <div className="aos-glass-surface mb-3 mt-1 rounded-2xl border border-[var(--border-subtle)] px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="aos-icon-badge aos-tone-slate h-7 w-7 !rounded-lg">
+                <ShieldCheck size={15} />
               </span>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl font-bold tracking-tight text-[var(--foreground)] sm:text-2xl">
-                    企业级管理后台
-                  </h1>
-                  <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-2)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--foreground)]">
-                    {roleBadgeText}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-[var(--muted-foreground)] sm:text-sm">
-                  平台配置全部可管（不含他人对话正文与高危清理）
-                </p>
-              </div>
+              <span className="text-sm font-semibold text-[var(--foreground)]">管理后台</span>
+              <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-2)] px-2 py-0.5 text-[10.5px] font-semibold text-[var(--foreground)]">
+                {roleBadgeText}
+              </span>
             </div>
 
             {activeGroup === 'overview' && !activeModule && (
@@ -328,7 +320,7 @@ export const AdminDashboard = () => {
             )}
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-4">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3">
             <div className="flex flex-wrap items-center gap-1.5">
               {ADMIN_GROUP_TABS.map((g) => {
                 const Icon = g.icon;
@@ -353,6 +345,7 @@ export const AdminDashboard = () => {
             </div>
           </div>
         </div>
+        )}
 
         {/* 当点进某个具体管理模块时，显示轻巧返回栏 + 真实业务管理面板 */}
         {activeModule ? (

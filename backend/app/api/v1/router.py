@@ -35,6 +35,7 @@ from app.api.v1.endpoints.website_preview import router as website_preview_route
 from app.api.v1.endpoints.website import admin_router as website_admin_router
 from app.api.v1.endpoints.wrapped import router as wrapped_router
 from app.api.v1.endpoints.wrapped import admin_router as wrapped_admin_router
+from app.api.v1.endpoints.canvas import router as canvas_router
 
 router = APIRouter()
 router.include_router(announcements_router)
@@ -45,6 +46,7 @@ router.include_router(agent_profiles_router)
 router.include_router(api_keys_router)
 router.include_router(auth_router)
 router.include_router(credential_proxy_router)
+router.include_router(canvas_router)
 router.include_router(dashboard_router)
 router.include_router(email_router)
 router.include_router(mcp_admin_router)

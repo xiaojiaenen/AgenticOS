@@ -9,7 +9,7 @@ export function Feedback() {
       header={{
         kicker: 'FEEDBACK',
         title: '反馈广场',
-        description: '提出建议或缺陷，投票推动优先级；每一步处理进度都可见。',
+        description: '一句话就能提，好想法会被投票顶上来；处理进度会主动通知你。',
         back: true,
       }}
     >

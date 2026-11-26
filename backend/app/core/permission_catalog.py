@@ -60,6 +60,10 @@ PERMISSION_POINTS: tuple[PermissionPoint, ...] = (
     _p("conversation:export", CAP_CONVERSATION_OWN, "导出会话"),
     _p("artifact:download", CAP_CONVERSATION_OWN, "下载产物"),
 
+    # 创作画布（图片创作，所有用户可用）
+    _p("image:create", CAP_AGENT_USE, "AI 图片创作", "文生图 / 图生图 / AI 改图"),
+    _p("image:process", CAP_AGENT_USE, "图片处理", "裁剪 / 压缩 / 缩放 / 旋转 / 水印 / 格式转换"),
+
     # 审计只读
     _p("audit:stats", CAP_AUDIT_VIEW, "查看用量统计"),
     _p("audit:logs", CAP_AUDIT_VIEW, "查看审计日志"),
