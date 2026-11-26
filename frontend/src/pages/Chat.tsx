@@ -8,7 +8,6 @@ import { IdeSidebar } from '../components/panel/IdeSidebar';
 import { ResizableSidebar } from '../components/panel/ResizableSidebar';
 import { SlideLivePreview } from '../components/ppt/SlideLivePreview';
 import { DragOverlay } from '../components/chat/DragOverlay';
-import { RandomMascot } from '../components/ui/RandomMascot';
 import { MascotCool } from '../components/ui/AnimatedIcons';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { useChatSessions } from '../hooks/useChatSessions';
@@ -639,14 +638,7 @@ export const Chat = () => {
         </div>
       )}
 
-      {/* 背景装饰 */}
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 -left-16 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.06),transparent_70%)] blur-[80px]" />
-        <div className="absolute bottom-0 left-1/4 w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(129,140,248,0.05),transparent_70%)] blur-[80px]" />
-            <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, rgba(99,102,241,0.05) 1px, transparent 1px)', backgroundSize: '48px 48px', maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.50), rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.16))' }} />
-            {/* 背景装饰：透明度压到几乎看不见，只留一点轮廓暗示品牌 */}
-            <RandomMascot size={400} className="absolute -bottom-20 -right-20 text-[var(--foreground)] opacity-[0.012] dark:opacity-[0.035]" />
-      </div>
+      {/* 背景装饰统一由 AppShell 暖珊瑚+天蓝+淡紫弥散光晕承接，此处不再叠加靛蓝背景 */}
 
       {/* 移动端侧边栏遮罩 */}
       <AnimatePresence>
@@ -678,13 +670,13 @@ export const Chat = () => {
         )}
       </AnimatePresence>
 
-      {/* 主区域 */}
+      {/* 主区域（1:1 对齐原型截图 2：左右双圆角毛玻璃卡片 + gap-3 呼吸间距） */}
       <ChatContextProvider value={ctxValue}>
-        <div className="flex-1 flex overflow-hidden relative">
+        <div className="relative flex flex-1 gap-3 overflow-hidden px-1 pb-1 sm:px-3">
           <main
             id="main-content"
             className={cn(
-              "flex flex-col h-full transition-all duration-500 ease-[0.16,1,0.3,1] min-w-0 relative",
+              "aos-glass-surface rounded-2xl flex flex-col h-full overflow-hidden transition-all duration-500 ease-[0.16,1,0.3,1] min-w-0 relative",
               // 制品面板 / 多标签侧栏占宽时聊天区兜底 40%；中屏给最小宽度，
               // 避免被压到不可读。
               //
@@ -698,7 +690,7 @@ export const Chat = () => {
               // 时，侧栏拖到 700px 会让两者相加超出容器、对话区被二次压扁
               // （截图里气泡文字竖排）。
               hasArtifactContent || sidebarOpen
-                ? "w-full min-w-0 flex-1 border-r border-[var(--border-subtle)] md:min-w-[380px] lg:min-w-[440px]"
+                ? "w-full min-w-0 flex-1 md:min-w-[380px] lg:min-w-[440px]"
                 : "w-full min-w-0 flex-1",
               isWideConversation && "px-4 lg:px-8 xl:px-10",
             )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -7,31 +7,30 @@ import {
   ArrowUpRight,
   Bot,
   Calculator,
+  Database,
   Globe,
   Layout,
-  LayoutGrid,
   Mail,
   Map,
-  MessageSquareText,
   Plus,
   Presentation,
+  Search,
   Send,
-  Sparkles,
+  ShieldCheck,
   Table2,
 } from 'lucide-react';
 import { AgentSelector } from '../components/ui/AgentSelector';
+import { ArtifactMiniPreview, type MiniPreviewKind } from '../components/ui/ArtifactMiniPreview';
 import { InlineSpinner } from '../components/ui/Skeletons';
 import { getStoredUser } from '../services/authService';
-import { canEnterAdmin } from '../services/authTokenStore';
 import { AgentProfile, getMyAgents } from '../services/agentProfileService';
 import { cn } from '../lib/utils';
 
-/** 试一试快捷提示：点击直接填框或发起 */
 const QUICK_STARTS = [
-  { text: '帮我做个 PPT', label: 'Q4 季度复盘 PPT', tag: 'SVG', mode: 'ppt', icon: Presentation, color: '#EA580C' },
-  { text: '写一个网站首页', label: '产品发布落地页', tag: 'React', mode: 'website', icon: Globe, color: '#0284C7' },
-  { text: '帮我分析数据', label: '营收数据报表', tag: 'Excel', mode: 'general', icon: Table2, color: '#059669' },
-  { text: '写一封邮件', label: '重要邮件汇总', tag: 'IMAP', mode: 'general', icon: Mail, color: '#7C3AED' },
+  { text: '根据 Q4 华东区销售数据，设计一份 10 页商务风季度复盘 PPT', label: 'Q4 季度复盘 PPT', tag: 'SVG', mode: 'ppt', icon: Presentation, color: '#EA580C' },
+  { text: '为 AI 硬件新品设计一个极简官网落地页，包含预约表单', label: '产品发布落地页', tag: 'React', mode: 'website', icon: Globe, color: '#0284C7' },
+  { text: '清洗上传的营收明细表，按大区汇总同比增速并生成 Excel', label: '营收数据报表', tag: 'Excel', mode: 'general', icon: Table2, color: '#059669' },
+  { text: '检索本周核心客户的未读邮件并起草回复建议', label: '重要邮件汇总', tag: 'IMAP', mode: 'general', icon: Mail, color: '#7C3AED' },
 ] as const;
 
 const WORKFLOW_CARDS = [
@@ -43,9 +42,8 @@ const WORKFLOW_CARDS = [
     title: 'PPT 设计师',
     desc: '原生矢量排版，支持风格切换与一键导出可编辑母版',
     mode: 'ppt',
+    image: '/images/workflows/ppt.jpg',
     prompt: '帮我制作一份 10 页极简商务风季度复盘 PPT，包含核心 KPI 与行动计划',
-    bg: 'linear-gradient(135deg, #2C231E 0%, #4E3B30 52%, #1C1917 100%)',
-    accent: '#FB923C',
   },
   {
     id: 'website',
@@ -55,9 +53,8 @@ const WORKFLOW_CARDS = [
     title: '网站工程师',
     desc: '从需求到响应式页面原型，支持短链预览与代码导出',
     mode: 'website',
+    image: '/images/workflows/website.jpg',
     prompt: '设计一个极简风格的 AI 产品官网落地页，包含交互式特性与预约表单',
-    bg: 'linear-gradient(135deg, #172536 0%, #243B53 52%, #111827 100%)',
-    accent: '#38BDF8',
   },
   {
     id: 'office',
@@ -67,9 +64,8 @@ const WORKFLOW_CARDS = [
     title: '办公文档与表格助手',
     desc: '浏览器内直接预览编辑电子表格与 Word，保留动态公式',
     mode: 'general',
+    image: '/images/workflows/office.jpg',
     prompt: '清洗上传的营收明细表，按大区汇总同比增速并生成带公式的 Excel 报表',
-    bg: 'linear-gradient(135deg, #142B24 0%, #1F4539 52%, #111917 100%)',
-    accent: '#34D399',
   },
   {
     id: 'knowledge',
@@ -79,11 +75,28 @@ const WORKFLOW_CARDS = [
     title: '知识图谱与邮箱助手',
     desc: '企业知识库精准溯源、邮件自动归纳与安全起草发送',
     mode: 'general',
+    image: '/images/workflows/knowledge.jpg',
     prompt: '检索知识库中的交付规范，并汇总本周核心客户的未读重要邮件',
-    bg: 'linear-gradient(135deg, #251B36 0%, #3B2854 52%, #161221 100%)',
-    accent: '#A78BFA',
   },
 ] as const;
+
+interface ShowcaseArtifact {
+  id: string;
+  type: MiniPreviewKind;
+  filterKey: 'ppt' | 'website' | 'office' | 'report';
+  title: string;
+  meta: string;
+  slug: string;
+  mode: string;
+  prompt: string;
+}
+
+const SHOWCASE_ARTIFACTS: ShowcaseArtifact[] = [
+  { id: 'g1', type: 'ppt', filterKey: 'ppt', title: '2026 Q4 季度经营复盘', meta: '12 页 · SVG 矢量', slug: '/app/q4-review', mode: 'ppt', prompt: '参考季度经营复盘结构，帮我生成一份 12 页 SVG 矢量 PPT' },
+  { id: 'g2', type: 'website', filterKey: 'website', title: 'AgenticOS 3.2 产品发布页', meta: 'React · 短链预览', slug: '/app/launch-v3', mode: 'website', prompt: '生成一个极简风格的产品发布落地页，支持响应式预览' },
+  { id: 'g3', type: 'office', filterKey: 'office', title: '华东区营收与预算达成表', meta: 'UniverJS · 14 公式', slug: '/app/q4-sheet', mode: 'general', prompt: '生成一份带同比、环比与预算达成率公式的营收汇总 Excel 表' },
+  { id: 'g4', type: 'report', filterKey: 'report', title: '供应链风险知识图谱分析', meta: 'LlamaIndex · 38 节点', slug: '/app/risk-kg', mode: 'general', prompt: '基于企业知识库生成供应链风险分析报告与关键关系图谱' },
+];
 
 const SCENARIO_TEMPLATES = [
   { title: '产品路线图评审', desc: '16:9 甘特图与里程碑卡片', mode: 'ppt', prompt: '制作一份产品路线图与里程碑评审 PPT', icon: Map, tone: 'aos-tone-amber' },
@@ -98,6 +111,9 @@ export const Home = () => {
   const [agentsState, setAgentsState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [selectedAgentProfileId, setSelectedAgentProfileId] = useState<number | null>(null);
   const [wfFilter, setWfFilter] = useState<string>('all');
+  const [galFilter, setGalFilter] = useState<string>('all');
+  const [galSearch, setGalSearch] = useState<string>('');
+  const [ragEnabled, setRagEnabled] = useState<boolean>(true);
   const [showBottomBar, setShowBottomBar] = useState(false);
 
   const navigate = useNavigate();
@@ -105,10 +121,8 @@ export const Home = () => {
   const heroComposerRef = useRef<HTMLDivElement>(null);
   const heroTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 保持与 homeAgentSelection.test.ts 一致：惰性 state 稳定 user 引用
   const [user] = useState(() => getStoredUser());
   const isLoggedIn = Boolean(user);
-  const showAdmin = isLoggedIn && canEnterAdmin();
   const selectedAgent = agentProfiles.find((a) => a.id === selectedAgentProfileId) || null;
   const hasAppliedDefaultRef = useRef(false);
 
@@ -132,7 +146,6 @@ export const Home = () => {
     loadAgents();
   }, [loadAgents]);
 
-  // 监听首页滚动容器：主输入框滚出视口后，底部居中平滑弹出快捷输入框
   useEffect(() => {
     const scroller = scrollRef.current;
     if (!scroller) return;
@@ -141,7 +154,7 @@ export const Home = () => {
       if (!hero) return;
       const scrollerRect = scroller.getBoundingClientRect();
       const heroRect = hero.getBoundingClientRect();
-      setShowBottomBar(heroRect.bottom < scrollerRect.top + 32);
+      setShowBottomBar(heroRect.bottom < scrollerRect.top + 36);
     };
     scroller.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
@@ -178,73 +191,34 @@ export const Home = () => {
   const filteredWorkflows =
     wfFilter === 'all' ? WORKFLOW_CARDS : WORKFLOW_CARDS.filter((w) => w.category === wfFilter);
 
+  const filteredArtifacts = useMemo(() => {
+    const q = galSearch.trim().toLowerCase();
+    return SHOWCASE_ARTIFACTS.filter(
+      (item) =>
+        (galFilter === 'all' || item.filterKey === galFilter) &&
+        (!q || item.title.toLowerCase().includes(q) || item.meta.toLowerCase().includes(q)),
+    );
+  }, [galFilter, galSearch]);
+
   return (
     <motion.div
       key="home"
       initial={false}
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
-      className="relative flex h-full w-full overflow-hidden font-sans text-[var(--foreground)] p-2.5 sm:p-3"
+      className="relative flex h-full w-full overflow-hidden font-sans text-[var(--foreground)]"
     >
-
-      {/* 右侧主列：顶部固定栏 + 独立滚动内容区 */}
-      <div className="relative z-10 flex-1 min-w-0 h-full flex flex-col overflow-hidden">
-        {/* 顶部固定栏（右上角放登录/注册，绝不放新建智能体，无多余状态文案） */}
-        <header className="shrink-0 pb-2 px-1 sm:px-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-
-          </div>
-
-          <div className="aos-glass-surface flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs">
-            {user ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => navigate('/chat')}
-                  className="px-3 py-1 rounded-full text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)] font-medium transition-colors cursor-pointer"
-                >
-                  进入工作台
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/agents')}
-                  className="px-3 py-1 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] font-medium cursor-pointer"
-                >
-                  {user.name}
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => navigate('/login')}
-                  className="px-3 py-1 rounded-full text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)] font-medium transition-colors cursor-pointer"
-                >
-                  登录
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/signup')}
-                  className="px-3.5 py-1 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold hover:opacity-90 transition-opacity cursor-pointer"
-                >
-                  注册
-                </button>
-              </>
-            )}
-          </div>
-        </header>
-
-        {/* 独立滚动内容区 */}
-        <div ref={scrollRef} id="main-content" className="flex-1 min-h-0 overflow-y-auto px-1 sm:px-4 pb-28">
-          <div className="w-full max-w-[1120px] mx-auto">
-            {/* Hero 区 + 轻盈动态 SVG 星环 */}
-            <section className="relative pt-6 sm:pt-10 pb-8 flex flex-col items-center text-center">
+      <div className="relative z-10 flex h-full min-w-0 flex-1 flex-col overflow-hidden">
+        <div ref={scrollRef} id="main-content" className="min-h-0 flex-1 overflow-y-auto px-1 pb-28 sm:px-3">
+          <div className="mx-auto w-full max-w-[1140px] px-1 sm:px-4">
+            {/* Hero 区 + 原型同款动态 SVG 星环 */}
+            <section className="relative flex flex-col items-center pb-7 pt-5 text-center sm:pt-9">
               <svg
-                className="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2 w-[480px] max-w-full h-[120px] opacity-60"
+                className="pointer-events-none absolute -top-2 left-1/2 h-[120px] w-[480px] max-w-full -translate-x-1/2 opacity-60"
                 viewBox="0 0 480 120"
                 fill="none"
                 aria-hidden="true"
               >
-                <ellipse cx="240" cy="64" rx="210" ry="38" stroke="#EA580C" strokeOpacity="0.2" strokeWidth="1" className="aos-svg-flow" />
+                <ellipse cx="240" cy="64" rx="210" ry="38" stroke="#EA580C" strokeOpacity="0.18" strokeWidth="1" className="aos-svg-flow" />
                 <ellipse cx="240" cy="64" rx="150" ry="26" stroke="#0284C7" strokeOpacity="0.16" strokeWidth="1" strokeDasharray="3 6" />
                 <circle cx="56" cy="52" r="3" fill="#EA580C" fillOpacity="0.55">
                   <animate attributeName="cy" values="52;46;52" dur="4s" repeatCount="indefinite" />
@@ -252,32 +226,35 @@ export const Home = () => {
                 <circle cx="424" cy="56" r="3.5" fill="#0284C7" fillOpacity="0.5">
                   <animate attributeName="cy" values="56;62;56" dur="4.6s" repeatCount="indefinite" />
                 </circle>
+                <circle cx="385" cy="24" r="2.2" fill="#7C3AED" fillOpacity="0.5">
+                  <animate attributeName="opacity" values="0.25;0.85;0.25" dur="3.2s" repeatCount="indefinite" />
+                </circle>
               </svg>
 
               <motion.h1
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className="relative z-10 text-3xl sm:text-4xl font-bold tracking-tight text-[var(--foreground)]"
+                transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
+                className="relative z-10 text-[28px] font-bold leading-tight tracking-tight text-[var(--foreground)] sm:text-[38px]"
               >
                 今天想让智能体帮你做什么？
               </motion.h1>
               <motion.p
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className="relative z-10 mt-2.5 text-sm sm:text-[15px] text-[var(--muted-foreground)] max-w-xl"
+                transition={{ delay: 0.05, duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
+                className="relative z-10 mt-2.5 max-w-xl text-[13.5px] text-[var(--muted-foreground)] sm:text-[14.5px]"
               >
                 多智能体协同创作 · 支持 PPT、网站、办公文档与邮件 · 工具级人工审批
               </motion.p>
 
-              {/* 主输入框卡片 */}
+              {/* 主输入框卡片（1:1 复刻原型白底圆角卡片 + 底部胶囊控制栏） */}
               <motion.div
                 ref={heroComposerRef}
-                initial={{ opacity: 0, y: 14 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.09, duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
-                className="relative z-10 aos-composer w-full max-w-[820px] mt-6 rounded-[24px] p-4 sm:p-5 text-left"
+                transition={{ delay: 0.08, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                className="aos-composer-card relative z-10 mt-6 w-full max-w-[820px] rounded-[24px] p-4 text-left sm:p-5"
               >
                 <textarea
                   ref={heroTextareaRef}
@@ -287,11 +264,11 @@ export const Home = () => {
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
                   maxLength={4000}
-                  placeholder="描述你的任务目标，按 Enter 直接执行（Shift+Enter 换行）..."
-                  className="w-full bg-transparent resize-none outline-none text-[15px] leading-relaxed text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]"
+                  placeholder="描述你的任务目标，按 Enter 直接执行（往下滑动页面试试底部悬浮输入框）..."
+                  className="w-full resize-none border-0 bg-transparent text-[15px] leading-relaxed text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
                 />
-                <div className="mt-3 pt-3 border-t border-[var(--border)] flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {user ? (
                       agentsState === 'error' ? (
                         <span className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
@@ -311,8 +288,25 @@ export const Home = () => {
                         <InlineSpinner label="加载智能体…" />
                       )
                     ) : (
-                      <span className="text-xs text-[var(--muted-foreground)]">登录后可选择专属智能体</span>
+                      <button type="button" onClick={() => navigate('/login')} className="aos-pill-btn">
+                        <Bot size={14} style={{ color: '#EA580C' }} />
+                        <span>PPT 设计师</span>
+                      </button>
                     )}
+
+                    <span className="aos-pill-btn hidden sm:inline-flex">
+                      <ShieldCheck size={14} style={{ color: '#059669' }} />
+                      <span>审批: 询问</span>
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setRagEnabled((v) => !v)}
+                      className={cn('aos-pill-btn', ragEnabled && 'active')}
+                    >
+                      <Database size={14} />
+                      <span>知识库</span>
+                    </button>
                   </div>
 
                   <button
@@ -320,7 +314,7 @@ export const Home = () => {
                     onClick={handleSend}
                     disabled={!inputValue.trim()}
                     aria-label="发送消息"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="aos-cta-pill ml-auto disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <span>开始执行</span>
                     <ArrowUp size={14} />
@@ -329,16 +323,16 @@ export const Home = () => {
               </motion.div>
 
               {/* 试一试快捷芯片 */}
-              <div className="relative z-10 mt-4 flex flex-wrap items-center justify-center gap-2 max-w-[820px]">
-                <span className="text-xs text-[var(--muted-foreground)] mr-1">试一试</span>
+              <div className="relative z-10 mt-4 flex max-w-[820px] flex-wrap items-center justify-center gap-2">
+                <span className="mr-1 text-xs text-[var(--muted-foreground)]">试一试</span>
                 {QUICK_STARTS.map((item) => (
                   <button
-                    key={item.text}
+                    key={item.label}
                     type="button"
                     onClick={() => navigateToChat(item.text, item.mode)}
-                    className="aos-glass-surface inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-[var(--foreground)] hover:-translate-y-0.5 transition-transform cursor-pointer"
+                    className="aos-pill-btn aos-glass-surface !py-1.5 !text-xs"
                   >
-                    <item.icon size={13} style={{ color: item.color }} />
+                    <item.icon size={14} style={{ color: item.color }} />
                     <span>{item.label}</span>
                     <span className="text-[10.5px] text-[var(--muted-foreground)]">{item.tag}</span>
                   </button>
@@ -346,11 +340,11 @@ export const Home = () => {
               </div>
             </section>
 
-            {/* 精选智能体与场景套件（4 列视觉卡） */}
-            <section className="mt-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            {/* Section 1: 精选智能体与场景套件（1:1 复刻原版摄影视觉卡） */}
+            <section className="mt-3">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-[16px] font-semibold text-[var(--foreground)] mr-2">精选智能体与场景套件</h2>
+                  <h2 className="mr-2 text-[16px] font-semibold text-[var(--foreground)]">精选智能体与场景套件</h2>
                   {[
                     { id: 'all', label: '全部' },
                     { id: 'ppt', label: '演示文稿' },
@@ -362,12 +356,7 @@ export const Home = () => {
                       key={tab.id}
                       type="button"
                       onClick={() => setWfFilter(tab.id)}
-                      className={cn(
-                        'px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer',
-                        wfFilter === tab.id
-                          ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
-                          : 'bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]',
-                      )}
+                      className={cn('aos-pill-btn !py-1 !px-3 !text-xs', wfFilter === tab.id && 'active')}
                     >
                       {tab.label}
                     </button>
@@ -376,42 +365,38 @@ export const Home = () => {
                 <button
                   type="button"
                   onClick={() => navigate('/agents')}
-                  className="text-xs font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] inline-flex items-center gap-1 cursor-pointer"
+                  className="inline-flex items-center gap-1 border-0 bg-transparent text-xs font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer"
                 >
-                  <span>全部智能体</span>
+                  <span>全部 5 个内置智能体</span>
                   <ArrowRight size={14} />
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {filteredWorkflows.map((w) => (
                   <button
                     key={w.id}
                     type="button"
                     onClick={() => navigateToChat(w.prompt, w.mode)}
-                    style={{ background: w.bg }}
-                    className="group relative rounded-[20px] overflow-hidden aspect-[16/10] p-3.5 text-left flex flex-col justify-between border border-white/10 shadow-sm hover:-translate-y-1 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                    className="aos-workflow-card group text-left"
                   >
-                    {/* 极简几何装饰 SVG */}
-                    <svg className="pointer-events-none absolute inset-0 w-full h-full opacity-25" viewBox="0 0 280 175" fill="none" aria-hidden="true">
-                      <circle cx="220" cy="40" r="72" stroke={w.accent} strokeWidth="1" strokeDasharray="4 6" />
-                      <circle cx="60" cy="145" r="56" stroke={w.accent} strokeWidth="1" strokeOpacity="0.5" />
-                    </svg>
-                    <div className="relative z-10 flex items-center justify-between gap-2">
-                      <span className="text-[10.5px] font-medium px-2.5 py-0.5 rounded-full bg-black/40 text-white border border-white/15">
+                    <img src={w.image} alt={w.title} loading="lazy" />
+                    <div className="aos-workflow-scrim" />
+                    <div className="absolute left-3 right-3 top-3 flex items-center justify-between gap-2">
+                      <span className="aos-glass-tag rounded-full px-2.5 py-0.5 text-[10.5px] font-medium">
                         {w.badge}
                       </span>
-                      <span className="text-[10.5px] font-medium px-2.5 py-0.5 rounded-full bg-black/40 text-white border border-white/15">
+                      <span className="aos-glass-tag rounded-full px-2.5 py-0.5 text-[10.5px] font-medium">
                         {w.cap}
                       </span>
                     </div>
-                    <div className="relative z-10 flex items-end justify-between gap-2">
+                    <div className="absolute bottom-3.5 left-3.5 right-3.5 flex items-end justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="text-[15px] font-semibold text-white leading-snug">{w.title}</div>
-                        <div className="text-[11.5px] text-white/75 line-clamp-1 mt-0.5">{w.desc}</div>
+                        <div className="text-[15px] font-semibold leading-snug text-white">{w.title}</div>
+                        <div className="mt-0.5 line-clamp-1 text-[11.5px] text-white/75">{w.desc}</div>
                       </div>
-                      <span className="w-8 h-8 rounded-full bg-white text-[#141416] flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-110">
-                        <ArrowUpRight size={15} />
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[#141416] shadow-md transition-transform duration-200 group-hover:scale-110">
+                        <ArrowUpRight size={16} />
                       </span>
                     </div>
                   </button>
@@ -419,33 +404,108 @@ export const Home = () => {
               </div>
             </section>
 
-            {/* 高频场景模板（提供顺滑下滑纵深以触发底部悬浮快捷输入框） */}
+            {/* Section 2: 产物预览与快捷搜索区（1:1 补齐截图 1 中下区域） */}
             <section className="mt-10">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-[16px] font-semibold text-[var(--foreground)]">高频场景模板</h2>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    { id: 'all', label: '全部产物' },
+                    { id: 'ppt', label: 'PPT 演示' },
+                    { id: 'website', label: '交互网站' },
+                    { id: 'office', label: '办公表格' },
+                    { id: 'report', label: '知识报告' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setGalFilter(tab.id)}
+                      className={cn('aos-pill-btn !py-1.5 !px-3.5 !text-xs', galFilter === tab.id && 'active')}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search
+                      size={14}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+                    />
+                    <input
+                      type="text"
+                      value={galSearch}
+                      onChange={(e) => setGalSearch(e.target.value)}
+                      placeholder="搜索产物、模板..."
+                      className="aos-glass-surface w-44 rounded-full py-1.5 pl-8 pr-3 text-xs text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--border-strong)] sm:w-52"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/gallery')}
+                    className="hidden items-center gap-1 border-0 bg-transparent text-xs font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] sm:inline-flex cursor-pointer"
+                  >
+                    <span>作品库</span>
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {filteredArtifacts.length === 0 ? (
+                <div className="aos-glass-surface rounded-2xl py-10 text-center text-xs text-[var(--muted-foreground)]">
+                  没有匹配的产物
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {filteredArtifacts.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => navigateToChat(item.prompt, item.mode)}
+                      className="aos-glass-surface aos-surface-interactive group flex flex-col gap-3 rounded-2xl p-3 text-left cursor-pointer"
+                    >
+                      <div className="aspect-[16/10] w-full overflow-hidden rounded-xl border border-[var(--border-subtle)]">
+                        <ArtifactMiniPreview kind={item.type} />
+                      </div>
+                      <div className="px-1">
+                        <div className="truncate text-[13.5px] font-semibold text-[var(--foreground)]">{item.title}</div>
+                        <div className="mt-1 flex items-center justify-between text-[11px] text-[var(--muted-foreground)]">
+                          <span>{item.meta}</span>
+                          <span className="font-mono">{item.slug}</span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* Section 3: 团队高频场景模板 */}
+            <section className="mt-10">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-[16px] font-semibold text-[var(--foreground)]">团队高频场景模板</h2>
                 <button
                   type="button"
-                  onClick={() => navigate('/gallery')}
-                  className="text-xs font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] inline-flex items-center gap-1 cursor-pointer"
+                  onClick={() => navigate('/agents')}
+                  className="border-0 bg-transparent text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer"
                 >
-                  <span>逛逛作品库</span>
-                  <ArrowRight size={14} />
+                  自定义模板 →
                 </button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {SCENARIO_TEMPLATES.map((tpl) => (
                   <button
                     key={tpl.title}
                     type="button"
                     onClick={() => navigateToChat(tpl.prompt, tpl.mode)}
-                    className="aos-glass-surface rounded-2xl p-4 text-left hover:-translate-y-0.5 hover:shadow-md transition-all cursor-pointer flex items-start gap-3"
+                    className="aos-glass-surface aos-surface-interactive flex items-start gap-3 rounded-2xl p-4 text-left cursor-pointer"
                   >
-                    <span className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', tpl.tone)}>
+                    <span className={cn('aos-icon-badge h-10 w-10', tpl.tone)}>
                       <tpl.icon size={17} />
                     </span>
                     <div className="min-w-0">
-                      <div className="text-[13px] font-semibold text-[var(--foreground)] truncate">{tpl.title}</div>
-                      <div className="text-[11.5px] text-[var(--muted-foreground)] mt-1 leading-relaxed">{tpl.desc}</div>
+                      <div className="truncate text-xs font-semibold text-[var(--foreground)]">{tpl.title}</div>
+                      <div className="mt-1 text-[11px] leading-relaxed text-[var(--muted-foreground)]">{tpl.desc}</div>
                     </div>
                   </button>
                 ))}
@@ -458,7 +518,7 @@ export const Home = () => {
       {/* 下滑后底部居中自动浮现的毛玻璃快捷输入框 */}
       <div
         className={cn(
-          'aos-floating-bottom-bar rounded-full px-3 py-2 flex items-center gap-2',
+          'aos-floating-bottom-bar flex items-center gap-2 rounded-full px-3 py-2',
           showBottomBar && 'aos-visible',
         )}
       >
@@ -469,7 +529,7 @@ export const Home = () => {
             setTimeout(() => heroTextareaRef.current?.focus(), 250);
           }}
           aria-label="回到顶部输入"
-          className="w-8 h-8 rounded-full bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] flex items-center justify-center shrink-0 cursor-pointer"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer"
         >
           <Plus size={16} />
         </button>
@@ -479,14 +539,14 @@ export const Home = () => {
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="描述你想执行的任务..."
-          className="flex-1 min-w-0 bg-transparent border-0 outline-none text-[13.5px] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] px-1"
+          className="min-w-0 flex-1 border-0 bg-transparent px-1 text-[13.5px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
         />
         <button
           type="button"
           onClick={handleSend}
           disabled={!inputValue.trim()}
           aria-label="发送"
-          className="w-8 h-8 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-40"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] cursor-pointer disabled:opacity-40"
         >
           <ArrowUp size={15} />
         </button>
