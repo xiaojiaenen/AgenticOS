@@ -423,9 +423,11 @@ export const AgentEditor: React.FC = () => {
     <motion.div
       /* 挂载即可见：整页可见性不依赖 motion 入场（防懒加载竞态白屏） */
       initial={false}
-      className="min-h-screen bg-[var(--surface-0)] text-[var(--foreground)]"
+      className="relative min-h-screen overflow-x-clip bg-[var(--background)] text-[var(--foreground)]"
     >
-      <header className="sticky top-0 z-20 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/85 backdrop-blur-xl">
+      <div className="aos-ambient-bg" aria-hidden="true" />
+      <div className="aos-ambient-dots" aria-hidden="true" />
+      <header className="sticky top-0 z-20 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/75 backdrop-blur-2xl">
         <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-5">
           <Button variant="ghost" onClick={goBack} className="gap-2">
             <ArrowLeft size={16} />
@@ -450,7 +452,7 @@ export const AgentEditor: React.FC = () => {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl px-5 py-8 pb-24">
+      <main className="relative z-10 mx-auto w-full max-w-5xl px-5 py-8 pb-24">
         <div className="mb-8">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
             {isEditing ? 'Edit Agent' : 'New Agent'}
@@ -479,7 +481,7 @@ export const AgentEditor: React.FC = () => {
 
         {/* 左侧分区导航 + 右侧单区内容（Linear/Notion 设置页范式） */}
         <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-          <nav className="flex gap-1 overflow-x-auto lg:sticky lg:top-24 lg:h-fit lg:flex-col lg:gap-0.5" aria-label="编辑分区">
+          <nav className="aos-glass-rail flex gap-1 overflow-x-auto rounded-2xl p-2 lg:sticky lg:top-24 lg:h-fit lg:flex-col lg:gap-1" aria-label="编辑分区">
             {SECTION_META.map(({ key, label, hint, icon: Icon }) => {
               const active = tab === key;
               return (
@@ -490,8 +492,8 @@ export const AgentEditor: React.FC = () => {
                   className={cn(
                     'flex shrink-0 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-all lg:w-full',
                     active
-                      ? 'bg-[var(--surface-2)] text-[var(--foreground)]'
-                      : 'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]/60',
+                      ? 'bg-[var(--primary)]/10 text-[var(--primary)] shadow-xs ring-1 ring-[var(--primary)]/20'
+                      : 'text-[var(--muted-foreground)] hover:bg-[var(--surface-2)]/70 hover:text-[var(--foreground)]',
                   )}
                   aria-current={active ? 'page' : undefined}
                 >
@@ -961,7 +963,7 @@ export const AgentEditor: React.FC = () => {
         </div>
 
         {/* 底部操作条 */}
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--border-subtle)] bg-[var(--surface-1)]/90 backdrop-blur-xl">
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--border-subtle)] bg-[var(--surface-1)]/80 backdrop-blur-2xl shadow-[0_-8px_30px_rgba(15,23,42,0.06)]">
           <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-3">
             <p className="text-xs text-[var(--muted-foreground)]">
               {enabledCount > 0 ? (

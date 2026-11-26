@@ -183,8 +183,9 @@ export const PublicAgentChat = () => {
 
   return (
     <div className={containerClass}>
-      <header className="flex items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2b87c2] text-sm font-semibold text-white">
+      {!embedMode && <div className="aos-ambient-bg opacity-70" aria-hidden="true" />}
+      <header className="relative z-10 flex items-center gap-3 border-b border-[var(--border-subtle)] aos-glass-surface px-4 py-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary)] text-sm font-semibold text-[var(--primary-foreground)]">
           {info.name.slice(0, 1)}
         </div>
         <div className="min-w-0">
@@ -218,7 +219,7 @@ export const PublicAgentChat = () => {
               <div
                 className={`max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                   item.role === 'user'
-                    ? 'bg-[#2b87c2] text-white'
+                    ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
                     : 'border border-[var(--border-subtle)] bg-[var(--surface-1)] text-[var(--foreground)]'
                 } ${item.role === 'assistant' && !item.text ? 'text-[var(--muted-foreground)]' : ''}`}
               >
@@ -230,10 +231,10 @@ export const PublicAgentChat = () => {
         </div>
       </main>
 
-      <footer className="border-t border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3">
+      <footer className="relative z-10 border-t border-[var(--border-subtle)] aos-glass-surface px-4 py-3">
         <div className="mx-auto flex max-w-3xl items-center gap-2">
           <input
-            className="h-10 min-w-0 flex-1 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 text-sm outline-none focus:border-[#2b87c2]"
+            className="h-10 min-w-0 flex-1 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 text-sm outline-none focus:border-[var(--ring)]"
             placeholder={streaming ? '智能体正在回复…' : '输入你的问题'}
             value={input}
             disabled={streaming}
@@ -245,7 +246,7 @@ export const PublicAgentChat = () => {
             aria-label={streaming ? '停止生成' : '发送'}
             disabled={!streaming && !input.trim()}
             onClick={() => (streaming ? stop() : void send())}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2b87c2] text-white transition active:scale-95 disabled:opacity-40"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] transition active:scale-95 disabled:opacity-40"
           >
             {streaming ? <span className="flex h-3 w-3 items-center justify-center bg-white" /> : <SendHorizontal size={16} />}
           </button>

@@ -156,8 +156,7 @@ const GalleryCard = ({
         }
       }}
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] transition-all duration-200',
-        'hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-lg',
+        'aos-glass-surface aos-sheen-hover group relative flex flex-col overflow-hidden rounded-2xl',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
         openUrl ? 'cursor-pointer' : 'cursor-default',
       )}
@@ -340,7 +339,7 @@ export const GalleryPage = () => {
       }}
     >
       <div className="mb-6 flex flex-wrap items-center justify-end gap-3">
-        <div className="flex items-center gap-1 rounded-lg bg-[var(--surface-2)] p-1">
+        <div className="aos-glass-surface flex items-center gap-1 rounded-2xl p-1.5">
           {(
             [
               ['all', `全部 ${items.length}`],

@@ -132,7 +132,7 @@ export function DataTable<TData>({
                     className={cn(
                       // 表头不去填整块底色：只留一条细底边 + 弱化字重，
                       // 让视线落在数据上而不是表头色块上（Linear / Stripe 的表格都是这个取向）
-                      'h-11 whitespace-nowrap border-b border-[var(--border-subtle)] bg-transparent',
+                      'h-11 whitespace-nowrap border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/55 backdrop-blur-md',
                       'text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--muted-foreground)]',
                       // 首尾列额外内缩，让表格不要贴着卡片边缘
                       headerIndex === 0 && 'pl-5',
@@ -208,7 +208,7 @@ export function DataTable<TData>({
                 style={{ animationDelay: `${Math.min(rowIndex * 18, 220)}ms` }}
                 className={cn(
                   'transition-colors duration-150 animate-in fade-in duration-200 fill-mode-both',
-                  'hover:bg-[var(--surface-2)]',
+                  'hover:bg-[var(--primary)]/[0.045] dark:hover:bg-[var(--primary)]/[0.08]',
                   // 行分隔用 cell 底边，配合 border-separate 保证留白不被压缩
                   '[&>td]:border-b [&>td]:border-[var(--border-subtle)]',
                   'last:[&>td]:border-b-0',

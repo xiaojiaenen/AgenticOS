@@ -72,14 +72,25 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         className,
       )}
     >
-      <div
-        aria-hidden
-        className={cn(
-          'flex items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--muted-foreground)]',
-          compact ? 'size-9' : 'size-12',
+      <div className="relative flex items-center justify-center" aria-hidden>
+        {!compact && (
+          <svg
+            className="aos-halo-pulse pointer-events-none absolute -inset-4 h-20 w-20 text-[var(--primary)]/20"
+            viewBox="0 0 80 80"
+            fill="none"
+          >
+            <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="1" strokeDasharray="3 5" />
+            <circle cx="40" cy="40" r="27" stroke="currentColor" strokeWidth="1" opacity="0.6" />
+          </svg>
         )}
-      >
-        {icon ?? <EmptyBoxGlyph className={compact ? 'size-4' : 'size-5'} />}
+        <div
+          className={cn(
+            'aos-glass-surface relative z-10 flex items-center justify-center rounded-2xl text-[var(--primary)]',
+            compact ? 'size-9' : 'size-12',
+          )}
+        >
+          {icon ?? <EmptyBoxGlyph className={compact ? 'size-4' : 'size-5'} />}
+        </div>
       </div>
 
       <p

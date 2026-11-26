@@ -437,8 +437,8 @@ export const AdminSidebar = React.memo(
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
         className={cn(
           'z-20 flex flex-shrink-0 flex-col overflow-hidden',
-          'border-r border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-[10px_0_36px_rgba(15,23,42,0.06)] backdrop-blur-2xl',
-          isMobile ? 'fixed inset-y-0 left-0 w-[296px] shadow-lg' : 'w-[296px]',
+          'aos-glass-rail',
+          isMobile ? 'fixed inset-y-3 left-3 w-[284px] rounded-2xl shadow-2xl' : 'm-2.5 h-[calc(100%-20px)] w-[280px] rounded-2xl',
           !isOpen && !isMobile && 'hidden',
         )}
       >

@@ -171,7 +171,7 @@ export const Signup = () => {
             <p className="mt-2 text-sm text-[var(--muted-foreground)]">创建账号，开始你的智能协作</p>
           </div>
 
-          <Card className="py-8 shadow-md">
+          <Card className="aos-glass-surface rounded-3xl py-8 shadow-xl">
             <CardContent className="px-8">
               <form className="space-y-5" onSubmit={onSignup} noValidate>
                 <div className="space-y-2">

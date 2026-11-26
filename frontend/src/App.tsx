@@ -46,15 +46,21 @@ const AdminDashboard = lazy(() =>
 const PublicAgentChat = lazy(() =>
   import('./pages/PublicAgentChat').then((module) => ({ default: module.PublicAgentChat })),
 );
+const CreativeCanvas = lazy(() =>
+  import('./pages/CreativeCanvas').then((module) => ({ default: module.CreativeCanvas })),
+);
 
 const LoadingPage = () => (
-  <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-[var(--surface-0)]">
-    <motion.div
-      animate={{ rotate: 360 }}
-      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-      className="h-8 w-8 rounded-full border-4 border-[var(--border-strong)] border-t-[var(--foreground)]"
-    />
-    <p className="text-sm font-medium text-[var(--muted-foreground)]">正在加载页面...</p>
+  <div className="relative flex h-screen w-full flex-col items-center justify-center gap-4 overflow-hidden bg-[var(--background)]">
+    <div className="aos-ambient-bg" aria-hidden="true" />
+    <div className="aos-ambient-dots" aria-hidden="true" />
+    <div className="aos-glass-surface relative z-10 flex flex-col items-center gap-3.5 rounded-3xl px-8 py-7">
+      <svg className="h-11 w-11 animate-spin text-[var(--primary)]" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+        <circle cx="22" cy="22" r="18" stroke="currentColor" strokeOpacity="0.18" strokeWidth="3.5" />
+        <path d="M22 4a18 18 0 0 1 18 18" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+      </svg>
+      <p className="text-xs font-semibold tracking-wide text-[var(--muted-foreground)]">正在加载工作台...</p>
+    </div>
   </div>
 );
 
@@ -64,21 +70,27 @@ const NotFoundPage = () => (
     animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, y: -10 }}
     transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-    className="flex h-screen flex-col items-center justify-center gap-4 bg-[var(--surface-0)] px-6 text-center"
+    className="relative flex h-screen flex-col items-center justify-center overflow-hidden bg-[var(--background)] px-6 text-center"
   >
-    <p className="text-7xl font-semibold tracking-tight text-[var(--muted-foreground)]/50">404</p>
-    <div className="space-y-1">
-      <p className="text-lg font-semibold text-[var(--foreground)]">页面未找到</p>
-      <p className="max-w-sm text-sm text-[var(--muted-foreground)]">
-        这个地址可能已经失效，或者链接输入有误。
+    <div className="aos-ambient-bg" aria-hidden="true" />
+    <div className="aos-ambient-dots" aria-hidden="true" />
+    <div className="aos-glass-surface relative z-10 flex max-w-md flex-col items-center gap-4 rounded-3xl px-10 py-10">
+      <p className="bg-gradient-to-br from-[var(--primary)] to-violet-500 bg-clip-text text-7xl font-bold tracking-tight text-transparent">
+        404
       </p>
+      <div className="space-y-1.5">
+        <p className="text-lg font-semibold text-[var(--foreground)]">页面未找到</p>
+        <p className="text-sm leading-relaxed text-[var(--muted-foreground)]">
+          这个地址可能已经失效，或者链接输入有误。
+        </p>
+      </div>
+      <Link
+        to="/"
+        className="mt-1 inline-flex items-center gap-1.5 rounded-2xl bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] shadow-md transition-all hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
+      >
+        返回首页
+      </Link>
     </div>
-    <Link
-      to="/"
-      className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
-    >
-      返回首页
-    </Link>
   </motion.div>
 );
 
@@ -100,6 +112,7 @@ const AnimatedRoutes = () => {
           <Route path="/signup" element={<ErrorBoundary key={`signup-${location.pathname}`} title="注册页出错了"><Signup /></ErrorBoundary>} />
           <Route path="/admin" element={<ProtectedRoute requireAdmin><ErrorBoundary key={`admin-${location.pathname}`} title="管理后台出错了"><AdminDashboard /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/gallery" element={<ProtectedRoute><ErrorBoundary key={`gallery-${location.pathname}`} title="作品库出错了"><Gallery /></ErrorBoundary></ProtectedRoute>} />
+          <Route path="/canvas" element={<ProtectedRoute><ErrorBoundary key={`canvas-${location.pathname}`} title="创作画布出错了"><CreativeCanvas /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/wrapped" element={<ProtectedRoute><ErrorBoundary key="wrapped" title="年度报告出错了"><Wrapped /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/wrapped/:year" element={<ProtectedRoute><ErrorBoundary key={`wrapped-${location.pathname}`} title="年度报告出错了"><Wrapped /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/feedback" element={<ProtectedRoute><ErrorBoundary key="feedback" title="反馈页出错了"><Feedback /></ErrorBoundary></ProtectedRoute>} />

@@ -70,7 +70,7 @@ export function AdminToolbar({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2',
+        'aos-glass-surface flex flex-wrap items-center gap-2 rounded-2xl px-3.5 py-2.5',
         align === 'center' && 'items-center',
         className,
       )}
@@ -82,7 +82,7 @@ export function AdminToolbar({
 
 export function KpiPill({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-1 text-xs font-medium text-[var(--muted-foreground)]">
+    <span className="aos-glass-surface inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-[var(--muted-foreground)]">
       {label}
       {/* tabular-nums：数值刷新时宽度固定，不会左右跳动 */}
       <span className="font-semibold tabular-nums text-[var(--foreground)]">{value}</span>

@@ -167,7 +167,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
               initial={{ opacity: 0, scale: 0.95, y: -20 }}
               animate={{ opacity: 1, scale: 1, y: -10 }}
               exit={{ opacity: 0, scale: 0.95, y: -20 }}
-              className="absolute bottom-full left-0 z-40 mb-4 max-h-[360px] w-64 overflow-y-auto rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-1)]/95 p-2 shadow-2xl ring-1 ring-[var(--border-medium)] backdrop-blur-2xl"
+              className="aos-glass-rail absolute bottom-full left-0 z-40 mb-4 max-h-[360px] w-64 overflow-y-auto rounded-3xl p-2 shadow-2xl"
               id={listboxId}
               role="listbox"
               onKeyDown={handleKeyDown}
@@ -190,7 +190,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
       <button
         onClick={() => !disabled && setShowMenu(!showMenu)}
         disabled={disabled}
-        className="flex items-center gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-all hover:bg-[var(--surface-2)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
+        className="aos-glass-surface flex items-center gap-2 rounded-2xl px-3.5 py-2 text-sm font-medium text-[var(--foreground)] transition-all hover:border-[var(--primary)]/35 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--ring-halo)] focus-visible:ring-[var(--ring)]"
         role="combobox"
         aria-expanded={showMenu}
         aria-haspopup="listbox"
@@ -214,7 +214,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="absolute bottom-full left-0 z-40 mb-2 max-h-64 w-56 overflow-y-auto rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-1)]/95 p-2 shadow-2xl ring-1 ring-[var(--border-medium)] backdrop-blur-xl"
+            className="aos-glass-rail absolute bottom-full left-0 z-40 mb-2 max-h-64 w-60 overflow-y-auto rounded-3xl p-2 shadow-2xl"
             id={listboxId}
             role="listbox"
             onKeyDown={handleKeyDown}

@@ -294,8 +294,8 @@ export const Sidebar = React.memo(({
       transition={{ type: 'spring', damping: 30, stiffness: 300 }}
       className={cn(
         "flex flex-col z-20 flex-shrink-0 overflow-hidden",
-        "bg-[var(--surface-1)] backdrop-blur-2xl border-r border-white/40 shadow-sm",
-        isMobile ? "fixed inset-y-0 left-0 shadow-2xl w-[280px]" : "h-full"
+        "aos-glass-rail",
+        isMobile ? "fixed inset-y-3 left-3 rounded-2xl shadow-2xl w-[272px]" : "m-2.5 h-[calc(100%-20px)] rounded-2xl"
       )}
     >
       {sidebarContent}

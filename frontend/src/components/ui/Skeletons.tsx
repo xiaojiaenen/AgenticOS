@@ -15,11 +15,11 @@ import { Skeleton } from '../shadcn/skeleton';
 export function PanelSkeleton({ className }: { className?: string }) {
   return (
     <div className={cn('space-y-3', className)}>
-      <Skeleton className="h-4 w-32" />
-      <Skeleton className="h-3 w-64" />
+      <Skeleton className="aos-skeleton-shimmer h-4 w-32" />
+      <Skeleton className="aos-skeleton-shimmer h-3 w-64" />
       <div className="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-24 rounded-xl" />
+          <Skeleton key={i} className="aos-skeleton-shimmer h-24 rounded-2xl" />
         ))}
       </div>
     </div>
@@ -43,7 +43,7 @@ export function ListSkeleton({
           className={cn(
             'flex items-center gap-4 rounded-lg border border-[var(--border-subtle)] px-4 py-3',
             // 斑马纹：让行边界在骨架阶段就能看出来（真实表格也有同样规则）
-            rowIndex % 2 === 1 ? 'bg-[var(--surface-2)]' : 'bg-[var(--surface-1)]',
+            'aos-glass-surface',
           )}
         >
           {Array.from({ length: columns }).map((__, colIndex) => (
@@ -64,7 +64,7 @@ export function CardSkeleton({ count = 6, className }: { count?: number; classNa
       {Array.from({ length: count }).map((_, index) => (
         <div
           key={index}
-          className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4"
+          className="aos-glass-surface flex flex-col gap-3 rounded-2xl p-4"
         >
           <div className="flex items-center gap-3">
             <Skeleton className="size-9 rounded-lg" />

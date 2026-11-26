@@ -284,11 +284,11 @@ export const Login = () => {
             <p className="mt-2 text-sm text-[var(--muted-foreground)]">欢迎回来，登录以继续使用</p>
           </div>
 
-          <Card className="py-8 shadow-md">
+          <Card className="aos-glass-surface rounded-3xl py-8 shadow-xl">
             <CardContent className="px-8">
               {/* 登录模式切换 */}
               {!isLdap && (
-              <div role="tablist" aria-label="登录方式" className="flex rounded-lg p-1 mb-6 bg-[var(--surface-2)]">
+              <div role="tablist" aria-label="登录方式" className="mb-6 flex rounded-2xl bg-[var(--surface-2)]/80 p-1 ring-1 ring-[var(--border-subtle)]">
                 <button
                   type="button"
                   role="tab"

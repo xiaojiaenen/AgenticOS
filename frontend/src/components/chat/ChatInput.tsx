@@ -298,7 +298,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(({
 
       <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.md,.py,.js,.ts,.tsx,.jsx,.json,.yaml,.yml,.xml,.html,.css,.svg,.java,.c,.cpp,.h,.rs,.go,.rb,.php,.sql,.sh,.bat,.ps1,.zip,.epub,.rtf,.odt,.ods,.odp,image/*" />
 
-            <div className="@container relative flex flex-wrap items-end gap-y-1 rounded-[2rem] border border-[var(--border-medium)] bg-[var(--surface-2)] p-2 px-3 shadow-lg shadow-black/5 backdrop-blur-2xl transition-all duration-300 focus-within:border-[var(--ring)] focus-within:shadow-glow">
+            <div className="@container aos-composer-glass relative flex flex-wrap items-end gap-y-1 rounded-[2rem] p-2 px-3">
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={isLoading}

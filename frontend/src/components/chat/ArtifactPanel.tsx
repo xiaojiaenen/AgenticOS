@@ -54,12 +54,12 @@ export const ArtifactPanel: React.FC<ArtifactPanelProps> = ({ artifact, onClose,
       animate={{ width: isMobile ? '100%' : '60%', opacity: 1 }}
       exit={{ width: 0, opacity: 0 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="relative z-20 flex h-full flex-col border-l bg-[var(--surface-1)]/70 ring-1 ring-[var(--border-subtle)] backdrop-blur-3xl"
+      className="aos-glass-rail relative z-20 my-2.5 mr-2.5 flex h-[calc(100%-1.25rem)] flex-col overflow-hidden rounded-3xl"
       style={{ borderColor }}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(24,24,27,0.03),transparent)]" />
 
-      <div className="z-10 flex h-14 flex-shrink-0 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-1)] px-6 backdrop-blur-md">
+      <div className="z-10 flex h-14 flex-shrink-0 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/65 px-5 backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm">
             <CodeIcon size={18} />

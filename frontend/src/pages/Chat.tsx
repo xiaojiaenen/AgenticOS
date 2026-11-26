@@ -619,6 +619,7 @@ export const Chat = () => {
         "text-[var(--foreground)] bg-[var(--surface-0)]",
       )
       }>
+      <div className="aos-ambient-bg opacity-65" aria-hidden="true" />
       <DragOverlay isDragging={isDragging} />
 
       {/* 智能体列表加载失败：顶部常驻提示 + 重试 */}

@@ -104,9 +104,11 @@ export const AgentStore = () => {
       transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         'relative min-h-screen overflow-hidden font-sans',
-        'text-[var(--foreground)] bg-[var(--surface-0)] selection:bg-[var(--border-medium)] selection:text-[var(--foreground)]'
+        'text-[var(--foreground)] bg-[var(--background)] selection:bg-[var(--border-medium)] selection:text-[var(--foreground)]'
       )}
     >
+      <div className="aos-ambient-bg" aria-hidden="true" />
+      <div className="aos-ambient-dots" aria-hidden="true" />
       <main id="main-content" className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-14 pt-8 md:px-8">
         <div className="mb-7">
           <PageHeader
@@ -264,7 +266,7 @@ export const AgentStore = () => {
                   transition={{ duration: 0.2 }}
                   className={cn(
                     'group flex min-h-[190px] flex-col rounded-2xl',
-                    'border border-[var(--border-subtle)] bg-[var(--surface-1)] shadow-md p-4',
+                    'aos-glass-surface p-4',
                     'transition-[border-color,box-shadow] duration-200',
                     'hover:border-[var(--border-strong)] hover:shadow-lg'
                   )}

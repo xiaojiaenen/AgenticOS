@@ -278,7 +278,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
         {!useOrderedRender && !isUser && message?.toolCalls && message.toolCalls.length > 0 && config.enableSearch && (
           <div className="mb-1 w-full text-left">
             <details className="group [&_summary::-webkit-details-marker]:hidden">
-              <summary className="flex items-center gap-2 text-xs font-medium text-[var(--muted-foreground)] bg-[var(--surface-1)] border border-[var(--border-subtle)] px-3 py-1.5 rounded-full w-fit cursor-pointer transition-colors hover:bg-[var(--surface-2)] select-none">
+              <summary className="aos-glass-surface flex items-center gap-2 text-xs font-medium text-[var(--muted-foreground)] border border-[var(--border-subtle)] px-3 py-1.5 rounded-full w-fit cursor-pointer transition-colors hover:bg-[var(--surface-2)] select-none">
                 <WrenchIcon size={12} className="text-[var(--muted-foreground)]" />
                 <span>工具链调用历史 ({message.toolCalls.length})</span>
                 <ChevronDownIcon size={12} className="transition-transform duration-300 group-open:-rotate-180" />
@@ -301,7 +301,7 @@ export const ChatMessage = React.memo(({ message, isTyping, isStreaming, wideLay
                   const resultTitleClass = isSuccess ? "text-emerald-700 dark:text-emerald-300" : isError ? "text-rose-700 dark:text-rose-300" : tool.result ? "text-emerald-700 dark:text-emerald-300" : "text-[var(--muted-foreground)]";
                   return (
                     <motion.div key={idx} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.1 }}
-                      className="max-w-[34rem] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3 text-xs text-[var(--muted-foreground)]">
+                      className="aos-glass-surface max-w-[34rem] rounded-2xl px-4 py-3 text-xs text-[var(--muted-foreground)]">
                       <div className="mb-3 flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
                         <div className="flex items-center gap-2"><WrenchIcon size={13} className="text-[var(--muted-foreground)]" /><span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--foreground)]">{tool.name}</span></div>
                         <span className={cn("rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]", statusClass)}>{statusLabel}</span>
